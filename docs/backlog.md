@@ -18,6 +18,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] doc-007-process-customization — Process customization module analysis: custom types, fields, states, rules, form layout, backlog levels · epic:product/analysis · size:M · deps:doc-001 · note:-
 
 ## Later (waiting on analysis/dependencies)
+- [ ] mod-001-process-seed — Founds M2: the five built-in types (Эпик, Фича, Пользовательская история, Задача, Баг) with per-type states/categories and backlog levels, seeded per organization, no editing UI (doc-001 D-3/D-6) · epic:core/process · size:L · deps:doc-007 · note:doc-001 decomposition (b)
 
 ## Withdrawn (number taken, task not done)
 
