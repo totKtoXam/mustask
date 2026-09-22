@@ -14,8 +14,6 @@ this file — a merge conflict over the queue is impossible.
 - [ ] doc-003-backlogs-boards — Backlogs and boards module analysis: backlog levels, ordering, hierarchy, Kanban columns, WIP, swimlanes, cards · epic:product/analysis · size:M · deps:doc-001 · note:-
 - [ ] doc-004-iterations-planning — Iterations and planning module analysis: sprints, capacity, taskboard, burndown and velocity, forecast, delivery plans · epic:product/analysis · size:M · deps:doc-001 · note:-
 - [ ] doc-005-queries-dashboards — Queries, search, dashboards and analytics module analysis: query language, saved queries, charts, widgets · epic:product/analysis · size:M · deps:doc-001 · note:-
-- [ ] doc-006-org-access — Organization, projects, teams and access module analysis: projects, teams, areas, groups and permissions via Keycloak, notifications · epic:product/analysis · size:M · deps:doc-001 · note:-
-- [ ] doc-007-process-customization — Process customization module analysis: custom types, fields, states, rules, form layout, backlog levels · epic:product/analysis · size:M · deps:doc-001 · note:-
 
 ## Later (waiting on analysis/dependencies)
 - [ ] mod-001-process-seed — Founds M2: the five built-in types (Эпик, Фича, Пользовательская история, Задача, Баг) with per-type states/categories and backlog levels, seeded per organization, no editing UI (doc-001 D-3/D-6) · epic:core/process · size:L · deps:doc-007 · note:doc-001 decomposition (b)
