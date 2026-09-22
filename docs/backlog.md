@@ -15,6 +15,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] doc-003-backlogs-boards — Backlogs and boards module analysis: backlog levels, ordering, hierarchy, Kanban columns, WIP, swimlanes, cards · epic:product/analysis · size:M · deps:doc-001 · note:-
 - [ ] doc-004-iterations-planning — Iterations and planning module analysis: sprints, capacity, taskboard, burndown and velocity, forecast, delivery plans · epic:product/analysis · size:M · deps:doc-001 · note:-
 - [ ] doc-005-queries-dashboards — Queries, search, dashboards and analytics module analysis: query language, saved queries, charts, widgets · epic:product/analysis · size:M · deps:doc-001 · note:-
+- [ ] doc-006-org-access — Organization, projects, teams and access module analysis: projects, teams, areas, groups and permissions via Keycloak, notifications · epic:product/analysis · size:M · deps:doc-001 · note:-
 
 ## Later (waiting on analysis/dependencies)
 
