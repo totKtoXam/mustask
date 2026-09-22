@@ -1,0 +1,21 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.5.1">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <UserSecretsId>d980c6f5-a334-45b5-9200-3fe7cbd98e6a</UserSecretsId>
+    <!-- Aspire CLI bundle features (e.g. `aspire run`) are not used in this
+         project; local orchestration goes through `dotnet run`. -->
+    <NoWarn>$(NoWarn);ASPIRE010</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+    <PackageReference Include="Aspire.Hosting.JavaScript" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mustask.Api\Mustask.Api.csproj" />
+  </ItemGroup>
+
+</Project>

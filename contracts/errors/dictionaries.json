@@ -1,0 +1,104 @@
+{
+  "module": "dictionaries",
+  "origin": "slice",
+  "codes": {
+    "dictionaries.validation_failed": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Проверьте правильность заполнения полей.",
+      "kk": "Өрістердің дұрыс толтырылғанын тексеріңіз.",
+      "kkNeedsReview": true
+    },
+    "dictionaries.value_required": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Обязательное поле.",
+      "kk": "Міндетті өріс.",
+      "kkNeedsReview": true
+    },
+    "dictionaries.value_too_long": {
+      "statuses": [400],
+      "params": { "limit": "number" },
+      "ru": "Превышена максимальная длина: {limit} символов.",
+      "kk": "Ең үлкен ұзындықтан асып кетті: {limit} таңба.",
+      "kkNeedsReview": true
+    },
+    "dictionaries.version_required": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Для изменения существующей записи нужен заголовок If-Match.",
+      "kk": "Бар жазбаны өзгерту үшін If-Match тақырыбы қажет.",
+      "kkNeedsReview": true
+    },
+    "dictionaries.version_conflict": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Запись уже изменена другим пользователем. Обновите данные и повторите попытку.",
+      "kk": "Жазбаны басқа пайдаланушы өзгертіп үлгерді. Деректерді жаңартып, әрекетті қайталаңыз.",
+      "kkNeedsReview": true
+    },
+    "dictionaries.invalid_page_size": {
+      "statuses": [400],
+      "params": { "limit": "number" },
+      "ru": "Некорректные параметры страницы: размер страницы — от 1 до {limit}, номер страницы не может быть отрицательным.",
+      "kk": "Бет параметрлері дұрыс емес: бет өлшемі — 1-ден {limit} дейін, бет нөмірі теріс бола алмайды.",
+      "kkNeedsReview": true
+    },
+    "dictionaries.unknown_query_field": {
+      "statuses": [400],
+      "params": { "field": "string" },
+      "ru": "Поле «{field}» нельзя использовать для фильтрации или сортировки.",
+      "kk": "«{field}» өрісін сүзу немесе сұрыптау үшін пайдалануға болмайды.",
+      "kkNeedsReview": true
+    },
+    "dictionaries.invalid_query_syntax": {
+      "statuses": [400],
+      "params": { "field": "string" },
+      "ru": "Выражение «{field}» не удалось разобрать. Проверьте синтаксис.",
+      "kk": "«{field}» өрнегін талдау мүмкін болмады. Синтаксисті тексеріңіз.",
+      "kkNeedsReview": true
+    },
+    "dictionaries.languages.not_found": {
+      "statuses": [404],
+      "params": {},
+      "ru": "Язык не найден.",
+      "kk": "Тіл табылмады.",
+      "kkNeedsReview": true
+    },
+    "dictionaries.languages.already_exists": {
+      "statuses": [409],
+      "params": { "code": "string" },
+      "ru": "Язык с кодом «{code}» уже существует.",
+      "kk": "Коды «{code}» тіл бұрыннан бар.",
+      "kkNeedsReview": true
+    },
+    "dictionaries.languages.invalid_code": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Код языка должен быть длиной от 2 до 8 символов в формате BCP-47 (например, «ru» или «kk-KZ»).",
+      "kk": "Тіл коды 2-ден 8 таңбаға дейін, BCP-47 форматында болуы керек (мысалы, «ru» немесе «kk-KZ»).",
+      "kkNeedsReview": true
+    },
+    "dictionaries.languages.endonym_required": {
+      "statuses": [400],
+      "params": {},
+      "ru": "У активного языка должно быть указано название на этом языке.",
+      "kk": "Белсенді тілдің осы тілдегі атауы көрсетілуі керек.",
+      "kkNeedsReview": true
+    },
+    "dictionaries.languages.default_cannot_be_deactivated": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Нельзя деактивировать язык по умолчанию.",
+      "kk": "Әдепкі тілді белсенді емес етуге болмайды.",
+      "kkNeedsReview": true
+    },
+    "dictionaries.languages.default_must_be_active": {
+      "statuses": [409],
+      "params": { "code": "string" },
+      "ru": "Языком по умолчанию может стать только активный язык (код «{code}»).",
+      "kk": "Әдепкі тіл тек белсенді тіл бола алады (коды «{code}»).",
+      "kkNeedsReview": true
+    }
+  }
+}

@@ -1,0 +1,46 @@
+/*
+ * Оформление входа Mustask: сдержанный синий, тот же оттенок, что у панели
+ * (MUI primary по умолчанию, #1976d2).
+ *
+ * Правится только внешний вид: разметку и тексты даёт родительская тема
+ * keycloak.v2, чтобы обновление Keycloak не ломало страницу входа целиком.
+ */
+
+:root {
+  --mustask-primary: #1976d2;
+  --mustask-primary-dark: #115293;
+  --mustask-surface: #ffffff;
+  --mustask-page: #eef2f7;
+}
+
+.login-pf body,
+body.login-pf-page,
+.pf-v5-c-background-image {
+  background: var(--mustask-page);
+  background-image: none;
+}
+
+.pf-v5-c-login__main {
+  border-top: 4px solid var(--mustask-primary);
+  border-radius: 4px;
+  box-shadow: 0 2px 12px rgba(17, 82, 147, 0.12);
+}
+
+#kc-header-wrapper,
+.pf-v5-c-login__header {
+  color: var(--mustask-primary-dark);
+  letter-spacing: 0.02em;
+}
+
+.pf-v5-c-button.pf-m-primary {
+  background-color: var(--mustask-primary);
+}
+
+.pf-v5-c-button.pf-m-primary:hover,
+.pf-v5-c-button.pf-m-primary:focus {
+  background-color: var(--mustask-primary-dark);
+}
+
+.pf-v5-c-form-control:focus-within {
+  outline-color: var(--mustask-primary);
+}

@@ -1,0 +1,175 @@
+{
+  "realm": "mustask",
+  "displayName": "Mustask",
+  "displayNameHtml": "<strong>Mustask</strong>",
+  "enabled": true,
+  "loginTheme": "mustask",
+  "internationalizationEnabled": true,
+  "defaultLocale": "ru",
+  "supportedLocales": ["ru", "kk", "en"],
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": false,
+  "duplicateEmailsAllowed": false,
+  "bruteForceProtected": true,
+  "eventsEnabled": true,
+  "eventsExpiration": 604800,
+  "adminEventsEnabled": true,
+  "adminEventsDetailsEnabled": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "waitIncrementSeconds": 60,
+  "failureFactor": 5,
+  "accessTokenLifespan": 900,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "ssoSessionIdleTimeout": 28800,
+  "ssoSessionMaxLifespan": 43200,
+  "offlineSessionMaxLifespanEnabled": true,
+  "offlineSessionMaxLifespan": 43200,
+  "passwordPolicy": "length(12) and notUsername(undefined) and upperCase(1) and lowerCase(1) and digits(1)",
+  "roles": {
+    "client": {
+      "mustask-api": [
+        {
+          "name": "dictionaries.languages.read",
+          "description": "Право: просмотр справочника языков"
+        },
+        {
+          "name": "dictionaries.languages.write",
+          "description": "Право: изменение справочника языков"
+        }
+      ]
+    },
+    "realm": [
+      {
+        "name": "admin",
+        "description": "Роль: администратор Mustask — все права",
+        "composite": true,
+        "composites": {
+          "client": {
+            "mustask-api": [
+              "dictionaries.languages.read",
+              "dictionaries.languages.write"
+            ]
+          }
+        }
+      },
+      {
+        "name": "member",
+        "description": "Роль: участник — работает с задачами",
+        "composite": true,
+        "composites": {
+          "client": {
+            "mustask-api": ["dictionaries.languages.read"]
+          }
+        }
+      },
+      {
+        "name": "viewer",
+        "description": "Роль: наблюдатель — только просмотр",
+        "composite": true,
+        "composites": {
+          "client": {
+            "mustask-api": ["dictionaries.languages.read"]
+          }
+        }
+      },
+      {
+        "name": "dictionaries-admin",
+        "description": "Роль: администратор справочников — полное управление языками",
+        "composite": true,
+        "composites": {
+          "client": {
+            "mustask-api": [
+              "dictionaries.languages.read",
+              "dictionaries.languages.write"
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "groups": [
+    {
+      "name": "Администраторы",
+      "realmRoles": ["admin"]
+    },
+    {
+      "name": "Сотрудники",
+      "realmRoles": ["viewer"],
+      "subGroups": [
+        {
+          "name": "Участники",
+          "realmRoles": ["member"]
+        }
+      ]
+    },
+    {
+      "name": "Администраторы справочников",
+      "realmRoles": ["dictionaries-admin"]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "mustask-panel",
+      "name": "Панель Mustask",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "${MUSTASK_PANEL_CLIENT_SECRET}",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "defaultClientScopes": ["basic", "acr", "profile", "email", "roles", "web-origins"],
+      "optionalClientScopes": [],
+      "rootUrl": "${MUSTASK_PANEL_URL:http://localhost:3000}",
+      "redirectUris": [
+        "${MUSTASK_API_URL:http://localhost:5000}/api/session/callback"
+      ],
+      "webOrigins": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${MUSTASK_PANEL_URL:http://localhost:3000}/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-mustask-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "mustask-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "groups",
+            "full.path": "true",
+            "access.token.claim": "false",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "mustask-api",
+      "name": "Mustask.Api",
+      "enabled": true,
+      "bearerOnly": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false
+    }
+  ]
+}

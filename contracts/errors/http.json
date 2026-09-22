@@ -1,0 +1,69 @@
+{
+  "module": "http",
+  "origin": "platform",
+  "codes": {
+    "http.bad_request": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Ошибка валидации запроса.",
+      "kk": "Сұраныс дерегінде валидация қатесі бар.",
+      "kkNeedsReview": true
+    },
+    "http.unauthorized": {
+      "statuses": [401],
+      "params": {},
+      "ru": "Требуется аутентификация.",
+      "kk": "Аутентификация қажет.",
+      "kkNeedsReview": true
+    },
+    "http.forbidden": {
+      "statuses": [403],
+      "params": {},
+      "ru": "Доступ запрещён.",
+      "kk": "Кіруге тыйым салынған.",
+      "kkNeedsReview": true
+    },
+    "http.not_found": {
+      "statuses": [404],
+      "params": {},
+      "ru": "Ресурс не найден.",
+      "kk": "Ресурс табылмады.",
+      "kkNeedsReview": true
+    },
+    "http.method_not_allowed": {
+      "statuses": [405],
+      "params": {},
+      "ru": "Метод не поддерживается для этого маршрута.",
+      "kk": "Бұл маршрут үшін әдіске қолдау көрсетілмейді.",
+      "kkNeedsReview": true
+    },
+    "http.conflict": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Конфликт состояния ресурса.",
+      "kk": "Ресурс күйінің қайшылығы.",
+      "kkNeedsReview": true
+    },
+    "http.internal_error": {
+      "statuses": [500],
+      "params": {},
+      "ru": "Внутренняя ошибка сервера. Обратитесь к администратору, указав traceId.",
+      "kk": "Сервердің ішкі қатесі. Әкімшіге traceId көрсетіп хабарласыңыз.",
+      "kkNeedsReview": true
+    },
+    "http.request_failed": {
+      "statuses": [],
+      "params": {},
+      "ru": "Не удалось обработать запрос.",
+      "kk": "Сұранысты өңдеу мүмкін болмады.",
+      "kkNeedsReview": true
+    },
+    "http.service_unavailable": {
+      "statuses": [503],
+      "params": {},
+      "ru": "Сервис временно недоступен, повторите позже.",
+      "kk": "Қызмет уақытша қолжетімсіз, кейінірек қайталаңыз.",
+      "kkNeedsReview": true
+    }
+  }
+}

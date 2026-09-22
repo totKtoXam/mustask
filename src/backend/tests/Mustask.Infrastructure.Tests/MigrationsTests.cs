@@ -1,0 +1,135 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Testcontainers.PostgreSql;
+
+namespace Mustask.Infrastructure.Tests;
+
+// ADR-0002: migrations are
+// applied by an explicit call to Database.MigrateAsync() (dotnet ef database
+// update locally / same call reused by tests and future CI), never
+// automatically from Mustask.Api's startup. These tests exercise that exact
+// mechanism against a real, disposable Postgres (Testcontainers) using the
+// real migrations (InitialCreate): applies on a
+// clean DB, re-running is idempotent, and rollback works.
+[Trait("Category", "Integration")]
+[Trait("Category", "RequiresDocker")]
+public sealed class MigrationsTests : IAsyncLifetime
+{
+    private const string ConnectionStringEnvVar = "ConnectionStrings__mustask";
+
+    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18-alpine")
+        .WithDatabase("mustask")
+        .Build();
+
+    public async Task InitializeAsync()
+    {
+        await _postgres.StartAsync();
+        Environment.SetEnvironmentVariable(ConnectionStringEnvVar, _postgres.GetConnectionString());
+    }
+
+    public async Task DisposeAsync()
+    {
+        await _postgres.DisposeAsync();
+        Environment.SetEnvironmentVariable(ConnectionStringEnvVar, null);
+    }
+
+    private static MustaskDbContext CreateContext() => new MustaskDbContextFactory().CreateDbContext([]);
+
+    [Fact]
+    public async Task MigrateAsync_CleanDatabase_AppliesInitialCreateMigration()
+    {
+        using var context = CreateContext();
+
+        await context.Database.MigrateAsync();
+
+        var applied = await context.Database.GetAppliedMigrationsAsync();
+        Assert.Contains(applied, id => id.EndsWith("_InitialCreate", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task MigrateAsync_CalledTwiceOnSameDatabase_IsIdempotent()
+    {
+        using var context = CreateContext();
+        await context.Database.MigrateAsync();
+
+        var exception = await Record.ExceptionAsync(() => context.Database.MigrateAsync());
+
+        Assert.Null(exception);
+        // Считаем ожидаемое число миграций динамически (не хардкодим), чтобы
+        // тест не ломался при каждой новой миграции.
+        Assert.Equal(context.Database.GetMigrations().Count(), (await context.Database.GetAppliedMigrationsAsync()).Count());
+    }
+
+    [Fact]
+    public async Task Migrator_RollbackToZeroThenReapply_RemovesAndRestoresMigrationHistory()
+    {
+        using var context = CreateContext();
+        await context.Database.MigrateAsync();
+
+        var migrator = context.GetService<IMigrator>();
+        await migrator.MigrateAsync("0");
+        Assert.Empty(await context.Database.GetAppliedMigrationsAsync());
+
+        await context.Database.MigrateAsync();
+        // Считаем ожидаемое число миграций динамически (не хардкодим), чтобы
+        // тест не ломался при каждой новой миграции.
+        Assert.Equal(context.Database.GetMigrations().Count(), (await context.Database.GetAppliedMigrationsAsync()).Count());
+    }
+
+    private static readonly string[] DictionaryTables = ["languages"];
+
+    /// <summary>
+    /// InitialCreate creates the dictionary tables, and its Down removes them
+    /// again. Reversibility is checked by behavior (rolling back to "0"
+    /// drops the tables), not by reading the migration code — backend.md,
+    /// "Every migration is reversible".
+    /// </summary>
+    [Fact]
+    public async Task Migrator_InitialCreate_CreatesDictionaryTables_AndRollbackRemovesThem()
+    {
+        using var context = CreateContext();
+        await context.Database.MigrateAsync();
+
+        foreach (var table in DictionaryTables)
+        {
+            Assert.True(
+                await TableExistsAsync(context, table),
+                $"Таблица справочника '{table}' обязана появиться после InitialCreate.");
+        }
+
+        var migrator = context.GetService<IMigrator>();
+        await migrator.MigrateAsync("0");
+
+        foreach (var table in DictionaryTables)
+        {
+            Assert.False(
+                await TableExistsAsync(context, table),
+                $"Откат InitialCreate обязан удалить таблицу '{table}'.");
+        }
+    }
+
+    private static async Task<bool> TableExistsAsync(MustaskDbContext context, string tableName)
+    {
+        var connection = context.Database.GetDbConnection();
+        await context.Database.OpenConnectionAsync();
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText =
+                "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = @table_name)";
+
+            var parameter = command.CreateParameter();
+            parameter.ParameterName = "table_name";
+            parameter.Value = tableName;
+            command.Parameters.Add(parameter);
+
+            var result = await command.ExecuteScalarAsync();
+            return result is true;
+        }
+        finally
+        {
+            await context.Database.CloseConnectionAsync();
+        }
+    }
+}

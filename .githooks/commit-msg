@@ -1,0 +1,37 @@
+#!/bin/sh
+# Commit message format — docs/conventions/git.md.
+
+set -eu
+
+message_file=$1
+subject=$(sed -n '1p' "$message_file")
+
+fail() {
+    printf '\n[commit-msg] %s\n\n' "$1" >&2
+    exit 1
+}
+
+# Git strips comments and empty messages itself; merge/revert are left alone.
+case "$subject" in
+    ''|'#'*|Merge\ *|Revert\ *) exit 0 ;;
+esac
+
+# --- Subject length ----------------------------------------------------------
+length=$(printf '%s' "$subject" | wc -m | tr -d ' ')
+
+if [ "$length" -gt 72 ]; then
+    fail "Subject is $length characters, maximum is 72. Put details in the commit body."
+fi
+
+# --- Language: commits are English (AGENTS.md) -------------------------------
+if printf '%s' "$subject" | grep -q '[А-Яа-яЁё]'; then
+    fail "Subject is in Russian. Documentation, task artifacts and instructions
+are English; only product interface copy stays Russian (AGENTS.md)."
+fi
+
+# --- Trailing period on the subject --------------------------------------------
+case "$subject" in
+    *.) fail "Subject ends with a period." ;;
+esac
+
+exit 0

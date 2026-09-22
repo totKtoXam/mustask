@@ -1,0 +1,68 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mustask.Application\Mustask.Application.csproj" />
+    <ProjectReference Include="..\Mustask.Infrastructure\Mustask.Infrastructure.csproj" />
+    <ProjectReference Include="..\Mustask.ServiceDefaults\Mustask.ServiceDefaults.csproj" />
+    <!-- Явная ссылка: BusinessExceptionHandler использует Mustask.Shared.Exceptions
+         напрямую, а не только транзитивно через Application/Domain. -->
+    <ProjectReference Include="..\Mustask.Shared\Mustask.Shared.csproj" />
+    <!-- Явная ссылка: DictionaryEndpoints использует
+         Mustask.Domain.Identity.PermissionCatalog напрямую, а не только транзитивно. -->
+    <ProjectReference Include="..\Mustask.Domain\Mustask.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Scalar.AspNetCore" />
+    <PackageReference Include="Serilog.AspNetCore" />
+    <!-- WithMachineName/WithEnvironmentName/WithThreadId — только
+         referenced из appsettings*.json ("Serilog:Using"), не из кода. -->
+    <PackageReference Include="Serilog.Enrichers.Environment" />
+    <PackageReference Include="Serilog.Enrichers.Thread" />
+    <!-- CompactJsonFormatter/Console sink грузятся
+         по имени сборки из appsettings*.json ("Serilog:WriteTo") — раньше обе
+         сборки приезжали только транзитивно через Serilog.AspNetCore. -->
+    <PackageReference Include="Serilog.Formatting.Compact" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+    <!-- JwtBearerSetup: AddJwtBearer/TokenValidationParameters/RsaSecurityKey. -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <!-- RealmMetadata/JwtBearerSetup use OpenIdConnectConfiguration
+         and ConfigurationManager<T> directly (discovery + JWKS for the
+         resource-server switch), not just transitively via JwtBearer. -->
+    <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" />
+    <!-- ADR-0022: SessionAuthenticationSetup.AddOpenIdConnect —
+         Mustask.Api as the panel's OIDC client (Features/Session). -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
+    <!-- Биндинг GridifyQuery из query-строки списочных endpoint'ов и
+         GridifyGlobalConfiguration при старте (ADR-0015). -->
+    <PackageReference Include="Gridify" />
+  </ItemGroup>
+
+  <!--
+    Единственный источник текста ошибок (ADR-0006) живёт вне обеих кодовых
+    баз; эти файлы линкуются сюда, а не копируются, чтобы одна и та же
+    правка каталога сразу собиралась и здесь, и в других его потребителях.
+    LogicalName задан явно (не унаследован из относительного пути вне
+    проекта) — ErrorCatalogLoader.LoadFromEmbeddedResources ищет ресурсы по
+    этому префиксу.
+  -->
+  <ItemGroup>
+    <!-- schema.json — подсказка редактору, не файл
+         модуля: у него нет "module"/"origin"/"codes", ErrorCatalogLoader
+         не смог бы его разобрать, поэтому явно исключён. -->
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)..\..\..\contracts\errors\*.json"
+                       Exclude="$(MSBuildThisFileDirectory)..\..\..\contracts\errors\schema.json"
+                       LogicalName="ErrorCatalog/%(Filename)%(Extension)"
+                       Link="Contracts\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ADR-0022: RefreshGrantClientTests needs to assert on
+         RefreshGrantRejectedException directly (Features/Session) — it is
+         internal on purpose (caught by the session endpoint itself, never
+         crosses the module boundary in production). -->
+    <InternalsVisibleTo Include="Mustask.Api.IntegrationTests" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,12 @@
+{
+  "_note": "Copy to .claude/usage-prices.json and put YOUR rates in. The numbers below are placeholders, not quotes: rates change and depend on the plan — on a subscription per-token pricing may not apply at all, in which case read the token columns and ignore the money one.",
+  "_units": "currency per 1,000,000 tokens",
+  "currency": "USD",
+  "per_million_tokens": {
+    "claude-opus-5":     { "input": 0, "output": 0, "cache_write": 0, "cache_read": 0 },
+    "claude-sonnet-5":   { "input": 0, "output": 0, "cache_write": 0, "cache_read": 0 },
+    "claude-fable-5":    { "input": 0, "output": 0, "cache_write": 0, "cache_read": 0 },
+    "claude-fable-5-1":  { "input": 0, "output": 0, "cache_write": 0, "cache_read": 0 },
+    "claude-haiku-4-5-20251001": { "input": 0, "output": 0, "cache_write": 0, "cache_read": 0 }
+  }
+}

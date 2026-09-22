@@ -1,0 +1,28 @@
+#!/bin/sh
+# Pre-push check — a single entry point, `scripts/verify.sh`.
+#
+# There used to be a fixed list of test projects here. It drifted from what
+# the stages' Definition of Done requires, and couldn't do the main thing: a
+# README edit would trigger a build, while a Directory.Packages.props change
+# could sail through unbuilt if the list wasn't updated. verify.sh picks
+# checks by the class of changed files, so the hook and the DoD now talk
+# about the same thing.
+
+set -eu
+
+repo=$(git rev-parse --show-toplevel)
+verify="$repo/scripts/verify.sh"
+
+if [ ! -f "$verify" ]; then
+    printf '[pre-push] scripts/verify.sh not found — check skipped.\n' >&2
+    exit 0
+fi
+
+printf '[pre-push] scripts/verify.sh\n'
+
+if ! (cd "$repo" && sh "$verify"); then
+    printf '\n[pre-push] Check failed — push stopped.\n\n' >&2
+    exit 1
+fi
+
+exit 0

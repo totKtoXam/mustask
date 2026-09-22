@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <!--
+    Ссылки на Domain и Application нужны, чтобы их сборки попали в output и
+    правила могли читать метаданные. Infrastructure и Api сознательно НЕ
+    подключены: правила для них проверяются по .csproj, а лишняя ссылка
+    протащила бы EF Core в граф этого проекта.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\Mustask.Domain\Mustask.Domain.csproj" />
+    <ProjectReference Include="..\..\Mustask.Application\Mustask.Application.csproj" />
+  </ItemGroup>
+
+</Project>

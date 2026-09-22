@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Mustask.Api\Mustask.Api.csproj" />
+    <!-- Явные ссылки: тесты создают тестовые данные напрямую через
+         MustaskDbContext/MustaskDbContextFactory и доменные типы, а не
+         только транзитивно через Mustask.Api. -->
+    <ProjectReference Include="..\..\Mustask.Infrastructure\Mustask.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Mustask.Domain\Mustask.Domain.csproj" />
+    <ProjectReference Include="..\..\Mustask.Application\Mustask.Application.csproj" />
+  </ItemGroup>
+
+</Project>

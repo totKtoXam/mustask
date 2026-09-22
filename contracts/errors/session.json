@@ -1,0 +1,27 @@
+{
+  "module": "session",
+  "origin": "slice",
+  "codes": {
+    "session.anonymous": {
+      "statuses": [401],
+      "params": {},
+      "ru": "Вы не вошли в систему.",
+      "kk": "Сіз жүйеге кірмегенсіз.",
+      "kkNeedsReview": true
+    },
+    "session.expired": {
+      "statuses": [401],
+      "params": {},
+      "ru": "Сессия истекла. Войдите заново.",
+      "kk": "Сессия мерзімі аяқталды. Қайта кіріңіз.",
+      "kkNeedsReview": true
+    },
+    "session.invalid_return_url": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Недопустимый адрес возврата после входа.",
+      "kk": "Кіргеннен кейінгі қайту мекенжайы жарамсыз.",
+      "kkNeedsReview": true
+    }
+  }
+}

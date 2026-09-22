@@ -1,0 +1,7 @@
+{
+  "languages": [
+    { "code": "ru", "endonym": "Русский", "isDefault": true, "isActive": true, "sortOrder": 10 },
+    { "code": "kk", "endonym": "Қазақша", "isDefault": false, "isActive": true, "sortOrder": 20 },
+    { "code": "en", "endonym": "English", "isDefault": false, "isActive": true, "sortOrder": 30 }
+  ]
+}

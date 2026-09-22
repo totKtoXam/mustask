@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mustask.Domain\Mustask.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Не инфраструктурный пакет (только абстракции ILogger&lt;T&gt;) —
+         разрешён архитектурным тестом Mustask.Architecture.Tests.OnionDependencyRules
+         (запрещённые префиксы: EF Core, Npgsql, AspNetCore, Aspire, Serilog). -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <!-- Gridify (core, без EF) — IGridifyQuery/Paging&lt;T&gt; в сигнатурах
+         reader-абстракций и ответов слайсов (ADR-0015). EF-расширение
+         (Gridify.EntityFramework) живёт только в Mustask.Infrastructure. -->
+    <PackageReference Include="Gridify" />
+  </ItemGroup>
+
+  <!-- No InternalsVisibleTo Mustask.Application.Tests: its only consumer
+       was an internal login validator of the former own JWT auth, removed
+       in favor of Keycloak. -->
+
+</Project>

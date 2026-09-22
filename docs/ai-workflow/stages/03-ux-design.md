@@ -1,0 +1,46 @@
+# Stage 3 — UX/UI design → Human Gate 2
+
+**Role:** ux-designer · **Model tier:** standard
+**Input:** `docs/features/<id>/spec.md` (approved, the index) + the stories
+it lists under `docs/features/<id>/stories/`, `docs/conventions/frontend.md`
+**Output:** `docs/features/<id>/design.md` + HTML prototype (optional)
+
+## Goal
+
+Design the screens and interaction in terms of MUI components so that the
+frontend developer assembles them instead of inventing them.
+
+## Process
+
+1. Screen map: which screens/pages are needed, navigation between them,
+   which story is closed by which screen.
+2. For each screen, in `design.md`:
+   - the layout in words + an ASCII/Mermaid diagram of block placement;
+   - the **MUI components used, by name** (DataGrid, Autocomplete,
+     Dialog…) — do not invent custom ones where a standard one exists;
+   - every state: loading (skeleton), empty, error, success, permissions
+     (what each role sees);
+   - form validations and error texts (RU);
+   - behavior on mobile/narrow screens, where relevant.
+3. Optional (mandatory for L features): a clickable HTML prototype of the
+   key screen — one self-contained html file in
+   `docs/features/<id>/prototype/`, for the human to look at before
+   development.
+4. Interface texts (labels, buttons, empty states) — go straight into
+   design.md, they are part of the design, not "we'll figure it out later."
+
+## Rules
+
+- Design system = MUI defaults + the project theme. No pixel-perfect
+  specifications — we fix the structure, the components and the states.
+- Reuse: before designing, look at the `design.md` of neighboring features —
+  identical tasks are solved with identical patterns.
+
+## Human Gate 2
+
+The orchestrator shows the human `design.md` (+ prototype) and a summary.
+The human, in `status.md`:
+
+```
+gate-2: approved | rejected: <what to redo>
+```

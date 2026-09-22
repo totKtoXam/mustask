@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <!--
+    Статические проверки контракта ошибок: без Docker,
+    без HTTP-хоста, без БД. Ссылается на все
+    сборки src/, в которых могут жить [ErrorCodes]-классы и ErrorCatalog.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\Mustask.Shared\Mustask.Shared.csproj" />
+    <ProjectReference Include="..\..\Mustask.Domain\Mustask.Domain.csproj" />
+    <ProjectReference Include="..\..\Mustask.Application\Mustask.Application.csproj" />
+    <ProjectReference Include="..\..\Mustask.Api\Mustask.Api.csproj" />
+  </ItemGroup>
+
+  <!--
+    Judgment on the alternative — a ProjectReference to
+    Mustask.AppHost.csproj: compiled in directly instead of
+    referenced. A ProjectReference pulled the whole orchestration stack
+    (Sdk="Aspire.AppHost.Sdk", Aspire.Hosting.AppHost/.PostgreSQL/.JavaScript)
+    into this project's own build output — measured 43 MB versus 5.9 MB for
+    Mustask.Architecture.Tests, a comparable sibling with no such reference —
+    even though KeycloakStandProvisioner(Options).cs have zero Aspire
+    dependency of their own (System.Net.Http.Json/System.Text.Json only).
+    A Compile/LinkBase item keeps "no Docker, no HTTP host, no DB" true at
+    the build/dependency-graph level, not only at runtime (the tests
+    themselves only ever exercised a fake HttpMessageHandler either way).
+    Mustask.AppHost.csproj's own default globbing still compiles the identical
+    files into Mustask.AppHost.exe separately — a second, independent
+    compilation of the same source, not a copy that can drift. Not a new
+    test project and no new PackageReference: Mustask.sln/Directory.Packages.props
+    stay orchestrator-only (docs/conventions/git.md).
+  -->
+  <ItemGroup>
+    <Compile Include="..\..\Mustask.AppHost\Provisioning\*.cs" LinkBase="Provisioning" />
+  </ItemGroup>
+
+</Project>

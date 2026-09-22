@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mustask.Application\Mustask.Application.csproj" />
+    <!-- Явная ссылка: EF-конфигурации и репозитории (Dictionaries/) используют
+         Mustask.Domain.Dictionaries напрямую, а не только транзитивно через
+         Application (тот же приём, что в Mustask.Api.csproj для Mustask.Shared). -->
+    <ProjectReference Include="..\Mustask.Domain\Mustask.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Infra-level unit/integration tests need access to internal EF Core
+         conventions (Conventions/) that are not part of the public surface. -->
+    <InternalsVisibleTo Include="Mustask.Infrastructure.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <!-- GridifyQueryableAsync и co. — асинхронное применение
+         пагинации/сортировки/фильтрации к EF-запросам reader'ов (ADR-0015). -->
+    <PackageReference Include="Gridify.EntityFramework" />
+  </ItemGroup>
+
+  <!--
+    ADR-0021 §5: seed texts of every dictionary live in contracts/, next to
+    contracts/errors/ and for the same reason — readable/editable without
+    building the backend. Linked, not copied, so one edit builds everywhere.
+  -->
+  <ItemGroup>
+    <!-- schema.json — editor hint (contracts/dictionaries/schema.json's own
+         remarks), not a seed file: DictionarySeedFiles cannot parse it as
+         one, so it is explicitly excluded, mirroring contracts/errors/. -->
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)..\..\..\contracts\dictionaries\*.json"
+                       Exclude="$(MSBuildThisFileDirectory)..\..\..\contracts\dictionaries\schema.json"
+                       LogicalName="Dictionaries/%(Filename)%(Extension)"
+                       Link="Contracts\Dictionaries\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

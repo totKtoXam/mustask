@@ -1,0 +1,54 @@
+name: CI
+
+# CI uses the same entry point as pre-push and the stages' DoD:
+# scripts/verify.sh picks checks by the class of changed files (a docs edit
+# doesn't spin up Testcontainers, a Directory.Packages.props edit does).
+# There's no second list of checks that would drift from the local one (the
+# previous version of this file kept its own matrix and had already drifted
+# from verify.sh).
+#
+# The job runs on every PR with no paths filters ON PURPOSE: a required
+# check skipped via paths-ignore doesn't run at all — and the PR hangs
+# waiting. Instead, verify.sh itself finishes a docs-only run in seconds.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    name: verify.sh (change-proportionate)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # verify.sh compares against main via merge-base
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Setup Node
+        if: hashFiles('src/frontend/package-lock.json') != ''
+        uses: actions/setup-node@v4
+        with:
+          # LTS
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install frontend deps
+        if: hashFiles('src/frontend/package-lock.json') != ''
+        working-directory: src/frontend
+        run: npm ci
+
+      - name: Verify
+        env:
+          BASE: origin/main
+          VITE_API_BASE_URL: http://ci.invalid
+        # Docker is preinstalled on ubuntu-latest — Testcontainers work.
+        run: sh scripts/verify.sh

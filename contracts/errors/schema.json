@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/mustask/contracts/errors/schema.json",
+  "title": "MUSTASK error catalog module file",
+  "description": "Подсказка редактору. Рантайм эту схему не читает: ErrorCatalogLoader (Mustask.Api) разбирает JSON вручную и сам проверяет additionalProperties: false обоих уровней (белый список полей) — опечатка в имени поля роняет старт так же, как отсутствующее обязательное поле. tests/Mustask.Contracts.Tests проверяет более тонкие содержательные правила (полнота, отсутствие сирот, совпадение плейсхолдеров) программно, а не через JSON Schema validation.",
+  "type": "object",
+  "required": ["module", "origin", "codes"],
+  "additionalProperties": false,
+  "properties": {
+    "module": {
+      "type": "string",
+      "description": "Модуль слайса (dictionaries, tasks, ...) либо \"http\" для платформенных кодов.",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "origin": {
+      "type": "string",
+      "enum": ["platform", "slice"],
+      "description": "platform — код назначается обработчиком по HTTP-статусу, сам не бросается; slice — код бросает конкретный слайс."
+    },
+    "codes": {
+      "type": "object",
+      "description": "Ключ — полный код формата <module>.<reason> (ADR-0005).",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/definitions/entry" }
+    }
+  },
+  "definitions": {
+    "entry": {
+      "type": "object",
+      "required": ["statuses", "params", "ru", "kk"],
+      "additionalProperties": false,
+      "properties": {
+        "statuses": {
+          "type": "array",
+          "description": "HTTP-статусы, в которых встречается код. Пустой массив — только у кода-«последней надежды», не привязанного к конкретному статусу.",
+          "items": { "type": "integer", "minimum": 100, "maximum": 599 }
+        },
+        "params": {
+          "type": "object",
+          "description": "Имя параметра → закрытая подсказка типа.",
+          "additionalProperties": {
+            "type": "string",
+            "enum": ["string", "number", "currency", "date", "datetime"]
+          }
+        },
+        "ru": { "type": "string", "minLength": 1 },
+        "kk": { "type": "string", "minLength": 1 },
+        "deprecated": {
+          "type": "boolean",
+          "default": false,
+          "description": "Код выведен из обращения, но запись остаётся занятой (ADR-0005: код не переиспользуется)."
+        },
+        "kkNeedsReview": {
+          "type": "boolean",
+          "default": false,
+          "description": "Казахский текст написан не носителем языка, требует вычитки носителем языка."
+        }
+      }
+    }
+  }
+}

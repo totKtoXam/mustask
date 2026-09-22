@@ -1,0 +1,86 @@
+#!/bin/sh
+# Pre-commit checks. No dependencies: plain POSIX sh, available both in Git
+# Bash on Windows and in CI. Installed via core.hooksPath — see
+# docs/conventions/git.md.
+#
+# This is fast feedback, not protection: `git commit --no-verify` skips all
+# checks. A real barrier will come with CI and branch protection on main.
+
+set -eu
+
+fail() {
+    printf '\n[pre-commit] %s\n\n' "$1" >&2
+    exit 1
+}
+
+branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo 'DETACHED')
+git_dir=$(git rev-parse --git-dir)
+
+# Merging a prepared branch is the only sanctioned way work reaches main, and
+# it's done by a human. Branch checks don't apply to it; the content checks
+# below do, and stay in place.
+merging=0
+if [ -f "$git_dir/SQUASH_MSG" ] || [ -f "$git_dir/MERGE_HEAD" ]; then
+    merging=1
+fi
+
+# Editing the queue is an exception: by the human's decision the queue lives
+# in main (it is populated there before work starts), so a commit that
+# changes ONLY queue files is allowed on main. Before this exception,
+# sessions worked around the hook with --no-verify, which is worse: that
+# bypass also skips the content checks.
+#
+# The queue is docs/backlog.md plus any .md under docs/backlog/ — the
+# withdrawn list lives in docs/backlog/withdrawn.md and is edited by the
+# same commit. A `case` pattern's * matches slashes, so a nested .md under
+# that directory counts too; the whole directory is the queue and nothing
+# else lives there. EVERY staged path must be a queue file — one foreign
+# path and the exception does not apply.
+backlog_only=0
+staged_queue=$(git diff --cached --name-only)
+if [ -n "$staged_queue" ]; then
+    backlog_only=1
+    for path in $staged_queue; do
+        case "$path" in
+            docs/backlog.md|docs/backlog/*.md) ;;
+            *) backlog_only=0; break ;;
+        esac
+    done
+fi
+
+# --- 1. No committing to main ---------------------------------------------------
+if [ "$merging" -eq 0 ] && [ "$backlog_only" -eq 0 ] && { [ "$branch" = 'main' ] || [ "$branch" = 'master' ]; }; then
+    fail "Committing to '$branch' is not allowed. Create a task branch: git switch -c feat/001-slug
+Exceptions: squash-merge of a prepared branch; a commit that changes only queue files (docs/backlog.md, docs/backlog/*.md)."
+fi
+
+# --- 2. Branch name in the <prefix>/<NNN>-<slug> format ---------------------------
+if [ "$merging" -eq 0 ] && [ "$backlog_only" -eq 0 ] && [ "$branch" != 'DETACHED' ]; then
+    if ! printf '%s' "$branch" | grep -Eq '^(feat|bug|hot|tech|mod|doc)/[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$'; then
+        fail "Branch name '$branch' does not follow the <prefix>/<NNN>-<slug> format.
+Prefixes: feat, bug, hot, tech, mod, doc. Example: bug/014-amount-rounding
+Rules: docs/features/README.md"
+    fi
+fi
+
+# --- 3. Secrets and junk in the index ---------------------------------------------
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+
+for file in $staged; do
+    case "$file" in
+        *.env|.env.*|*/.env|*.pem|*.pfx|*.p12|*.key|*id_rsa*|*secrets.json|*.sql.gz|*.dump)
+            fail "'$file' is staged — looks like a secret or a dump.
+Secrets only through environment variables / user-secrets (AGENTS.md)."
+            ;;
+    esac
+done
+
+# --- 4. Merge conflict markers -----------------------------------------------------
+for file in $staged; do
+    [ -f "$file" ] || continue
+    if grep -Eq '^(<<<<<<< |>>>>>>> )' "$file" 2>/dev/null; then
+        fail "'$file' still has merge conflict markers."
+    fi
+done
+
+exit 0

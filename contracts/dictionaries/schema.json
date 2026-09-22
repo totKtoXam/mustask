@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/mustask/contracts/dictionaries/schema.json",
+  "title": "MUSTASK dictionary seed file",
+  "description": "Подсказка редактору (ADR-0021 §5) — не читается рантаймом: DictionarySeeder (Mustask.Infrastructure) разбирает JSON вручную. Не участвует в загрузке как файл справочника (как schema.json в contracts/errors/). Новый справочник добавляет сюда своё определение файла и вариант в oneOf.",
+  "oneOf": [
+    { "$ref": "#/definitions/languagesFile" }
+  ],
+  "definitions": {
+    "languagesFile": {
+      "type": "object",
+      "required": ["languages"],
+      "additionalProperties": false,
+      "properties": {
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code", "endonym", "isDefault", "isActive", "sortOrder"],
+            "additionalProperties": false,
+            "properties": {
+              "code": { "type": "string", "pattern": "^[a-z]{2,3}(-[a-z0-9]{2,8})*$" },
+              "endonym": { "type": "string" },
+              "isDefault": { "type": "boolean" },
+              "isActive": { "type": "boolean" },
+              "sortOrder": { "type": "integer" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
