@@ -23,6 +23,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] mod-003-work-item-core — Founds M3: WorkItem CRUD across the five types (Заголовок/Описание/Статус/Исполнитель/Область/Приоритет/Теги), history (BR-4), work item identifier scheme; owes the history/audit ADR · epic:core/work-items · size:L · deps:mod-002,mod-001,doc-002 · note:doc-001 decomposition (b)
 - [ ] feat-001-work-item-links — Parent/Child link across the five types · epic:core/work-items · size:M · deps:mod-003 · note:doc-001 decomposition (b)
 - [ ] mod-004-work-item-attachments — Founds the attachment storage pattern on a work item; owes the attachment-storage ADR · epic:core/work-items · size:L · deps:mod-003 · note:doc-001 decomposition (b)
+- [ ] feat-002-work-item-comments — Comment add/edit/delete with moderation (BR-4) · epic:core/work-items · size:M · deps:mod-003 · note:doc-001 decomposition (b)
 
 ## Withdrawn (number taken, task not done)
 
