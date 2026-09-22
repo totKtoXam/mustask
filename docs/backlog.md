@@ -12,6 +12,7 @@ this file — a merge conflict over the queue is impossible.
 ## Next (ready to work, by priority)
 - [ ] doc-001-domain-map — Azure DevOps Boards domain map: glossary, module boundaries, cross-module logical data model, MVP boundary and releases, module order · epic:product/analysis · size:M · deps:- · note:umbrella for doc-002..007; source: ADO research of the Agile process
 - [ ] doc-002-work-items — Work items module analysis: types, fields, states and reasons, rules, form, links, comments, attachments, history, tags · epic:product/analysis · size:M · deps:doc-001 · note:-
+- [ ] doc-003-backlogs-boards — Backlogs and boards module analysis: backlog levels, ordering, hierarchy, Kanban columns, WIP, swimlanes, cards · epic:product/analysis · size:M · deps:doc-001 · note:-
 
 ## Later (waiting on analysis/dependencies)
 
