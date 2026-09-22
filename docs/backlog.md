@@ -24,6 +24,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] feat-001-work-item-links — Parent/Child link across the five types · epic:core/work-items · size:M · deps:mod-003 · note:doc-001 decomposition (b)
 - [ ] mod-004-work-item-attachments — Founds the attachment storage pattern on a work item; owes the attachment-storage ADR · epic:core/work-items · size:L · deps:mod-003 · note:doc-001 decomposition (b)
 - [ ] feat-002-work-item-comments — Comment add/edit/delete with moderation (BR-4) · epic:core/work-items · size:M · deps:mod-003 · note:doc-001 decomposition (b)
+- [ ] mod-005-work-item-delete-restore — Founds the soft-delete/recycle-bin pattern: delete → «Удалена», restore (BR-6/BR-10); owes the soft-delete ADR · epic:core/work-items · size:L · deps:mod-003 · note:doc-001 decomposition (b)
 
 ## Withdrawn (number taken, task not done)
 
