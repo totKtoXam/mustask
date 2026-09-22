@@ -19,6 +19,7 @@ this file — a merge conflict over the queue is impossible.
 
 ## Later (waiting on analysis/dependencies)
 - [ ] mod-001-process-seed — Founds M2: the five built-in types (Эпик, Фича, Пользовательская история, Задача, Баг) with per-type states/categories and backlog levels, seeded per organization, no editing UI (doc-001 D-3/D-6) · epic:core/process · size:L · deps:doc-007 · note:doc-001 decomposition (b)
+- [ ] mod-002-organizations-projects-teams — Founds M1: Organization/Project/Team CRUD, instance-level 'create organizations' permission, Area tree with team ownership, ORG_MEMBERSHIP holding the admin/member/viewer role that scopes permission codes; owes an ADR-0018 amendment (doc-001 D-9/D-10) · epic:core/organizations · size:L · deps:doc-006,mod-001 · note:doc-001 decomposition (b)
 
 ## Withdrawn (number taken, task not done)
 
