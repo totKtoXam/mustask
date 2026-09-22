@@ -10,7 +10,6 @@ Finishing a task does not touch the backlog at all. Task branches do not edit
 this file — a merge conflict over the queue is impossible.
 
 ## Next (ready to work, by priority)
-- [ ] doc-004-iterations-planning — Iterations and planning module analysis: sprints, capacity, taskboard, burndown and velocity, forecast, delivery plans · epic:product/analysis · size:M · deps:doc-001 · note:-
 
 ## Later (waiting on analysis/dependencies)
 - [ ] mod-001-process-seed — Founds M2: the five built-in types (Эпик, Фича, Пользовательская история, Задача, Баг) with per-type states/categories and backlog levels, seeded per organization, no editing UI (doc-001 D-3/D-6) · epic:core/process · size:L · deps:doc-007 · note:doc-001 decomposition (b)
