@@ -27,6 +27,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] mod-008-queries-dashboards — Release 2. Founds M6: Query/QueryFolder, the release-2 clause-builder query model (doc-005 US-1), personal «Мои запросы» (viewer-owned, D-14) and shared «Общие запросы» folders with org-role permissions and soft delete/restore (US-2, BR-9), query results with column selection (US-3, BR-12) · epic:core/queries · size:L · deps:mod-003,feat-003,mod-007,mod-005,doc-008 · note:doc-005 decomposition
 - [ ] mod-009-dashboards-widgets — Release 3. Founds Dashboard/DashboardWidget at team and project level (D-15): a protected default team dashboard seeded for new and existing teams, additional team and project dashboards, query-tile and markdown widgets, the 10-widget cap, soft delete/restore (doc-005 US-5 baseline, BR-9) · epic:core/queries · size:L · deps:mod-008 · note:doc-005 decomposition
 - [ ] feat-005-csv-import-export — Release 3. CSV import/export of work items from the Queries hub through M3's validation, one row per transaction, UTF-8 BOM, ';'-delimited, 5,000-row cap refused above (doc-005 US-4, BR-8) · epic:core/queries · size:M · deps:mod-008 · note:doc-005 decomposition
+- [ ] feat-006-dashboard-charts — Release 3. Chart widgets backed by a shared query: grouping and rendering only, no new query language (doc-005 US-5 remainder) · epic:core/queries · size:M · deps:mod-009 · note:doc-005 decomposition
 
 ## Withdrawn (number taken, task not done)
 
