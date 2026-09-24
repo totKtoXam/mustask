@@ -37,6 +37,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] mod-011-sprint-views — Release 2. Founds the sprint hub: sprint backlog and taskboard per team iteration (doc-004 US-5, US-6) · epic:core/iterations · size:L · deps:mod-007,mod-006,feat-001 · note:doc-004 decomposition; estimation fields owed by doc-002 per doc-004 E-8, not yet queued
 - [ ] feat-011-sprint-capacity — Release 2. Sprint capacity per member and activity with days off (doc-004 US-7, BR-15) · epic:core/iterations · size:M · deps:mod-011 · note:doc-004 decomposition
 - [ ] mod-012-iteration-metrics — Release 2. Founds the history-derived metrics pattern: sprint burndown and velocity (doc-004 US-8, BR-16); owes the history-derived-metrics ADR · epic:core/iterations · size:L · deps:mod-011 · note:doc-004 decomposition; estimation fields owed by doc-002 per doc-004 E-8, not yet queued
+- [ ] feat-012-backlog-forecast — Release 3. Forecast the backlog by velocity (doc-004 US-9) · epic:core/iterations · size:M · deps:mod-012 · note:doc-004 decomposition
 
 ## Withdrawn (number taken, task not done)
 
