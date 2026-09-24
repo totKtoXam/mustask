@@ -24,6 +24,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] feat-003-work-item-search — Inline filter of the work item list and board by state/assignee/tag/area (M3/M4 surfaces, D-4) · epic:core/work-items · size:M · deps:mod-003,mod-006 · note:doc-001 decomposition (b)
 - [ ] feat-004-backlog-hierarchy — Backlog parent/child hierarchy on M4: expand/collapse display of M3 Parent/Child links and the parent-mapping write from the backlog view (US-3, BR-9..BR-11) · epic:core/boards · size:M · deps:mod-006,feat-001 · note:doc-003 decomposition (DD-3)
 - [ ] doc-008-personal-object-ownership — Carry back doc-005 D-14 into doc-001: amend the Roles section and BR-5 so a viewer may write their own private objects, and state what M1's permission catalog must express for an ownership-based check; writes no ADR (the M1 code task owes the ADR-0018 amendment) · epic:product/analysis · size:M · deps:doc-001 · note:doc-005 decomposition, D-14
+- [ ] mod-008-queries-dashboards — Release 2. Founds M6: Query/QueryFolder, the release-2 clause-builder query model (doc-005 US-1), personal «Мои запросы» (viewer-owned, D-14) and shared «Общие запросы» folders with org-role permissions and soft delete/restore (US-2, BR-9), query results with column selection (US-3, BR-12) · epic:core/queries · size:L · deps:mod-003,feat-003,mod-007,mod-005,doc-008 · note:doc-005 decomposition
 
 ## Withdrawn (number taken, task not done)
 
