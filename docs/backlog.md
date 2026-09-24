@@ -10,6 +10,7 @@ Finishing a task does not touch the backlog at all. Task branches do not edit
 this file — a merge conflict over the queue is impossible.
 
 ## Next (ready to work, by priority)
+- [ ] doc-010-backlog-normalization-product-plan — Cross-module review of doc-001..007 (gaps, contradictions, defects, queue vs decomposition drift), backlog normalization (merge/split/withdraw/re-dep/resize, absorb the carry-backs doc-008/doc-009) and the product plan: milestones, release scope, critical path · epic:product/analysis · size:L · deps:doc-002,doc-003,doc-004,doc-005,doc-006,doc-007 · note:reads every merged spec; amendments to merged specs go through this task, queue edits by the orchestrator after gate-1
 
 ## Later (waiting on analysis/dependencies)
 - [ ] mod-001-process-seed — Founds M2: the five built-in types (Эпик, Фича, Пользовательская история, Задача, Баг) with per-type states/categories and backlog levels, seeded per organization, no editing UI (doc-001 D-3/D-6) · epic:core/process · size:L · deps:doc-007 · note:doc-001 decomposition (b)
