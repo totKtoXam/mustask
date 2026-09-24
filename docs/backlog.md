@@ -12,7 +12,7 @@ this file — a merge conflict over the queue is impossible.
 ## Next (ready to work, by priority)
 
 ## Later (waiting on analysis/dependencies)
-- [ ] mod-001-process-seed — Founds M2: the five built-in types (Эпик, Фича, Пользовательская история, Задача, Баг) with per-type states/categories and backlog levels, seeded per organization, no editing UI (doc-001 D-3/D-6) · epic:core/process · size:L · deps:doc-007 · note:doc-001 decomposition (b)
+- [ ] mod-001-process-seed — Founds M2: the five built-in types (Эпик, Фича, Пользовательская история, Задача, Баг) with per-type states/categories and backlog levels, seeded per organization, no editing UI (doc-001 D-3/D-6) · epic:core/process · size:L · deps:doc-007,doc-010 · note:doc-001 decomposition (b)
 - [ ] mod-002-organizations-projects-teams — Founds M1: Organization/Project/Team CRUD with several teams per project (doc-004 E-5, carried into doc-006 by doc-010), instance-level 'create organizations' permission, Area tree with team ownership, ORG_MEMBERSHIP holding the admin/member/viewer role that scopes permission codes; owes an ADR-0018 amendment (doc-001 D-9/D-10) · epic:core/organizations · size:L · deps:doc-006,mod-001,doc-010 · note:doc-001 decomposition (b), amended by doc-004 E-5
 - [ ] mod-003-work-item-core — Founds M3: WorkItem CRUD across the five types (Заголовок/Описание/Статус/Исполнитель/Область/Приоритет/Теги), history (BR-4), work item identifier scheme; owes the history/audit ADR · epic:core/work-items · size:L · deps:mod-002,mod-001,doc-002 · note:doc-001 decomposition (b)
 - [ ] feat-001-work-item-links — Parent/Child link across the five types · epic:core/work-items · size:M · deps:mod-003 · note:doc-001 decomposition (b)
