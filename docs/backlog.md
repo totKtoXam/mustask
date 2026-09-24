@@ -30,6 +30,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] feat-006-dashboard-charts — Release 3. Chart widgets backed by a shared query: grouping and rendering only, no new query language (doc-005 US-5 remainder) · epic:core/queries · size:M · deps:mod-009 · note:doc-005 decomposition
 - [ ] mod-010-query-hierarchy-operators — Release 3. Operator/macro extension toward WIQL parity (Under, Was Ever, Дата изменения, @Today) with tree and direct-links query types; reads M3 history, a new M3 read surface (doc-005 US-1 remainder) · epic:core/queries · size:L · deps:mod-008,feat-001 · note:doc-005 decomposition
 - [ ] feat-007-work-item-type-fields — «Критерии приёмки» on Пользовательская история and «Шаги воспроизведения» on Баг, rich-text type-specific fields (doc-002 W-5, US-12) · epic:core/work-items · size:M · deps:mod-003 · note:doc-002 decomposition
+- [ ] doc-009-teams-per-project-carry-back — Carry doc-004 E-5 back into doc-006: several teams per project in MVP — amend BR-M1-9, BR-M1-11, the Team row of operation completeness and M1's decomposition; writes no ADR · epic:product/analysis · size:M · deps:doc-006,doc-004 · note:doc-004 E-5/E-13
 
 ## Withdrawn (number taken, task not done)
 
