@@ -35,6 +35,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] feat-009-iteration-planning-pane — Backlog planning pane: drag a work item onto an iteration of the team (doc-004 US-11, BR-13, E-6) · epic:core/iterations · size:M · deps:mod-007,mod-006 · note:doc-004 decomposition
 - [ ] feat-010-move-unfinished-work — «Перенести незавершённые»: move a sprint's unfinished work items to another iteration from a planning-pane entry, all or nothing (doc-004 US-12, BR-12, E-9) · epic:core/iterations · size:M · deps:feat-009 · note:doc-004 decomposition
 - [ ] mod-011-sprint-views — Release 2. Founds the sprint hub: sprint backlog and taskboard per team iteration (doc-004 US-5, US-6) · epic:core/iterations · size:L · deps:mod-007,mod-006,feat-001 · note:doc-004 decomposition; estimation fields owed by doc-002 per doc-004 E-8, not yet queued
+- [ ] feat-011-sprint-capacity — Release 2. Sprint capacity per member and activity with days off (doc-004 US-7, BR-15) · epic:core/iterations · size:M · deps:mod-011 · note:doc-004 decomposition
 
 ## Withdrawn (number taken, task not done)
 
