@@ -23,6 +23,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] mod-007-iterations — Founds M5: project-owned iteration list, team iteration selection and default, the work item's iteration pointer, current-iteration derivation (BR-9, D-11) · epic:core/iterations · size:L · deps:mod-003,doc-004 · note:doc-001 decomposition (b)
 - [ ] feat-003-work-item-search — Inline filter of the work item list and board by state/assignee/tag/area (M3/M4 surfaces, D-4) · epic:core/work-items · size:M · deps:mod-003,mod-006 · note:doc-001 decomposition (b)
 - [ ] feat-004-backlog-hierarchy — Backlog parent/child hierarchy on M4: expand/collapse display of M3 Parent/Child links and the parent-mapping write from the backlog view (US-3, BR-9..BR-11) · epic:core/boards · size:M · deps:mod-006,feat-001 · note:doc-003 decomposition (DD-3)
+- [ ] doc-008-personal-object-ownership — Carry back doc-005 D-14 into doc-001: amend the Roles section and BR-5 so a viewer may write their own private objects, and state what M1's permission catalog must express for an ownership-based check; writes no ADR (the M1 code task owes the ADR-0018 amendment) · epic:product/analysis · size:M · deps:doc-001 · note:doc-005 decomposition, D-14
 
 ## Withdrawn (number taken, task not done)
 
