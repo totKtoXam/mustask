@@ -22,6 +22,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] mod-006-boards-backlogs — Founds M4: one board per team per level (Эпики/Фичи/Истории), the ordered backlog per team per level incl. stack rank (BR-12) · epic:core/boards · size:L · deps:mod-003,doc-003 · note:doc-001 decomposition (b)
 - [ ] mod-007-iterations — Founds M5: project-owned iteration list, team iteration selection and default, the work item's iteration pointer, current-iteration derivation (BR-9, D-11) · epic:core/iterations · size:L · deps:mod-003,doc-004 · note:doc-001 decomposition (b)
 - [ ] feat-003-work-item-search — Inline filter of the work item list and board by state/assignee/tag/area (M3/M4 surfaces, D-4) · epic:core/work-items · size:M · deps:mod-003,mod-006 · note:doc-001 decomposition (b)
+- [ ] feat-004-backlog-hierarchy — Backlog parent/child hierarchy on M4: expand/collapse display of M3 Parent/Child links and the parent-mapping write from the backlog view (US-3, BR-9..BR-11) · epic:core/boards · size:M · deps:mod-006,feat-001 · note:doc-003 decomposition (DD-3)
 
 ## Withdrawn (number taken, task not done)
 
