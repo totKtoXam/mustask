@@ -29,6 +29,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] feat-005-csv-import-export — Release 3. CSV import/export of work items from the Queries hub through M3's validation, one row per transaction, UTF-8 BOM, ';'-delimited, 5,000-row cap refused above (doc-005 US-4, BR-8) · epic:core/queries · size:M · deps:mod-008 · note:doc-005 decomposition
 - [ ] feat-006-dashboard-charts — Release 3. Chart widgets backed by a shared query: grouping and rendering only, no new query language (doc-005 US-5 remainder) · epic:core/queries · size:M · deps:mod-009 · note:doc-005 decomposition
 - [ ] mod-010-query-hierarchy-operators — Release 3. Operator/macro extension toward WIQL parity (Under, Was Ever, Дата изменения, @Today) with tree and direct-links query types; reads M3 history, a new M3 read surface (doc-005 US-1 remainder) · epic:core/queries · size:L · deps:mod-008,feat-001 · note:doc-005 decomposition
+- [ ] feat-007-work-item-type-fields — «Критерии приёмки» on Пользовательская история and «Шаги воспроизведения» on Баг, rich-text type-specific fields (doc-002 W-5, US-12) · epic:core/work-items · size:M · deps:mod-003 · note:doc-002 decomposition
 
 ## Withdrawn (number taken, task not done)
 
