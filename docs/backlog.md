@@ -32,6 +32,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] feat-007-work-item-type-fields — «Критерии приёмки» on Пользовательская история and «Шаги воспроизведения» on Баг, rich-text type-specific fields (doc-002 W-5, US-12) · epic:core/work-items · size:M · deps:mod-003 · note:doc-002 decomposition
 - [ ] doc-009-teams-per-project-carry-back — Carry doc-004 E-5 back into doc-006: several teams per project in MVP — amend BR-M1-9, BR-M1-11, the Team row of operation completeness and M1's decomposition; writes no ADR · epic:product/analysis · size:M · deps:doc-006,doc-004 · note:doc-004 E-5/E-13
 - [ ] feat-008-iteration-filter — Iteration filter on the M3 list and the M4 board/backlog in feat-003's filter bar; «Текущая итерация» on team surfaces only (doc-004 US-13, BR-9, E-2/E-4) · epic:core/iterations · size:M · deps:mod-007,mod-006,feat-003 · note:doc-004 decomposition
+- [ ] feat-009-iteration-planning-pane — Backlog planning pane: drag a work item onto an iteration of the team (doc-004 US-11, BR-13, E-6) · epic:core/iterations · size:M · deps:mod-007,mod-006 · note:doc-004 decomposition
 
 ## Withdrawn (number taken, task not done)
 
