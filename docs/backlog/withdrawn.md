@@ -13,3 +13,4 @@ Format: `- [x] <id> — withdrawn: <reason, date>`. A task withdrawn **after it
 starts** is not written here — its number is held by the branch and the
 `docs/features/<id>/` folder ([features/numbering.md](../features/numbering.md)).
 
+- [x] doc-008-personal-object-ownership — withdrawn: absorbed by doc-010 (cross-module normalization amends doc-001 Roles/BR-5 for D-14 there), 2026-09-24
