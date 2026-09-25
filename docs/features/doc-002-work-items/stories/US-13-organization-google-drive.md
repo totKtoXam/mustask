@@ -12,9 +12,10 @@ storage we own, under our quota, and nobody else's Drive holds them**.
 ## Acceptance criteria
 
 Each organization connects its own Drive, and MUSTASK stores in it only that
-organization's attachment files (W-12, spec BR-16, BR-17). W-12 names no
-role; the organization administrator connects and disconnects it, as with
-every other organization-wide setting in doc-001 (§ Roles, D-9). One Drive
+organization's attachment files (W-12, spec BR-M3-16, BR-M3-17). W-12 names
+no role; the organization administrator connects and disconnects it, as with
+every other organization-wide setting in doc-001 (§ Roles, D-9), through a
+section of the organization settings (doc-006 § Roles). One Drive
 is connected at a time and is never swapped in place — disconnect, then
 connect another (spec § Operation completeness). The Drive belongs to the
 organization: whoever the organization lets into it — its owner, its Google
@@ -52,7 +53,7 @@ Scenario: The credentials are never shown back
   And the credentials appear in no log MUSTASK writes (spec § NFR)
 
 Scenario: Only an administrator manages the connection
-  Given a user with the "member" or "viewer" role in the organization
+  Given a user whose role in the organization is member or viewer
   When they open the organization's settings
   Then no connect or disconnect control is offered
   And such a request sent directly to the server is refused (doc-001 BR-5)
@@ -80,12 +81,12 @@ Scenario: An administrator disconnects the Drive
     disconnected
   Then attaching becomes unavailable in that organization (US-7)
   And every existing attachment stays listed on its work item, and nothing
-    is removed from any work item or its history (BR-17)
+    is removed from any work item or its history (BR-M3-17)
   And the files themselves are not deleted from the Drive by the disconnect
   And the setting shows who disconnected it and when
 ```
 
 Not decided here: what reconnecting the same or a different Drive restores
 for existing attachments — the recovery policy is
-`mod-004-work-item-attachments`' ADR (spec BR-17). MUSTASK does not move
+`mod-004-work-item-attachments`' ADR (spec BR-M3-17). MUSTASK does not move
 files between Drives in MVP (spec § Out of scope).

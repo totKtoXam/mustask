@@ -37,7 +37,7 @@ gate-3: approved (2026-09-24, human in chat, "Approved, squash")
 - doc-001's human decisions D-1..D-12 are binding input; this task does not
   reopen them. In particular D-9/D-10 supersede the queue line's wording
   "groups and permissions via Keycloak": roles live on `ORG_MEMBERSHIP`,
-  Keycloak keeps authentication and the two instance-level roles only.
+  Keycloak keeps authentication and the two instance-level roles only. — superseded in part by doc-010 D-10 (2026-09-25): plus a grantable "create organizations" role/group
 - "Notifications" from the queue line are a release-2 boundary section, not
   MVP stories (doc-001 MVP table, M1: "no notifications").
 - gate-2 is inapplicable (no screens) and is not listed in `gates:`.
@@ -47,8 +47,8 @@ gate-3: approved (2026-09-24, human in chat, "Approved, squash")
 - H-2 (R-2) Organization names are public within the instance: a name-conflict refusal may say the name is taken. BR-M1-8's invisibility covers an organization's content (projects, members, work items), not the existence of its name.
 - H-3 (R-3) The M1 audit log is release 2, built on the audit/history ADR owed by `mod-work-item-core`, not a second mechanism; MVP keeps only who/when on the membership record itself. No separate audit queue line.
 - H-4 (Q-4/R-9) A member whose Keycloak account is disabled or deleted keeps their memberships and is shown as inactive in lists and in «Исполнитель»; they cannot sign in; an administrator decides whether to remove them.
-- H-5 (R-11) Backlog shape: `mod-002-organizations-projects-teams` founds all of M1 as doc-001 decomposed it (US-1..US-7), no new queue lines, no rename.
-- H-6 (gate-1) R-20 accepted: constraint 5 on the ADR-0018 amendment (a channel for MUSTASK to read Keycloak's user directory for member search and the inactive status) plus a "Keycloak unreachable" scenario in US-3.
+- H-5 (R-11) Backlog shape: `mod-002-organizations-projects-teams` founds all of M1 as doc-001 decomposed it (US-1..US-7), no new queue lines, no rename. — superseded by doc-010 D-9 (2026-09-24)
+- H-6 (gate-1) R-20 accepted: constraint 5 on the ADR-0018 amendment (a channel for MUSTASK to read Keycloak's user directory for member search and the inactive status) plus a "Keycloak unreachable" scenario in US-3. — superseded by doc-010 D-9 (2026-09-24)
 - H-7 (gate-1) R-21 accepted: the concurrency NFR covers every M1 check-then-act invariant (BR-M1-1/4/5/10, sibling area name uniqueness, BR-M1-12 cycles, BR-M1-13 area delete vs work item create).
 - H-8 (gate-1) R-25: inactive accounts are not offered in member search or the team member picker; the «Исполнитель» side is doc-002's.
 - H-9 (gate-1) The analyst's four calls are approved: only active administrators count for BR-M1-4; members and viewers cannot leave on their own; a re-enabled account loses «неактивен»; the root area is not renamed or re-owned on its own.
@@ -82,6 +82,7 @@ gate-3: approved (2026-09-24, human in chat, "Approved, squash")
 - 2026-09-24 [orchestrator] stages 3–8 skipped (docs task, no screens, no code); queue unchanged (H-5: mod-002 keeps its line); gate-3 requested
 
 - 2026-09-24 [orchestrator] gate-3: approved by the human in chat; stage: complete; local squash via scripts/finish-task.sh
+- 2026-09-25 [doc-010] amended: Context, § Roles (instance roles, constraint 1 scope attribute, constraint 5 user projection, new constraints 6–8, codes table, team membership carries no access), stories table, BPMN + team-deletion flow, lifecycle, ER (PROJECT.key, TEAM name/status, TEAM default area, PROJECT–TEAM one or more), BR-M1-1/2/7/9/11/13/14/17 rewritten, new BR-M1-18 (team deletion), Operation completeness, NFR, MVP/Release 2, Out of scope, Decomposition (+ mod-NNN-keycloak-user-projection), US-1..US-7 (cross-review N-2, N-3, N-5..N-8, N-10..N-14, N-19, N-20, N-26, N-28, N-29; doc-010 D-6, D-7, D-9, D-10, D-11, D-13, D-18); also § Open questions; also § Open questions
 
 ## Notes
 

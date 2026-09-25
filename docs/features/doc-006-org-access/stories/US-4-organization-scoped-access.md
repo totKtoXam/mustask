@@ -49,9 +49,12 @@ Scenario: The realm import carries no organization role and no organization-scop
   Given the realm import in the repository after the ADR-0018 amendment
   When the realm-import contract tests run
   Then no realm role named admin, member or viewer is declared
-  And no `mustask-api` client role is an organization-scoped code
+  And no `mustask-api` client role is an organization-scoped code — the
+    test tells them apart by the scope each catalogued code carries
   And the instance administrator role holds every instance-level code and
     is granted to at least one group (§ Roles, constraints 1–3)
+  And every realm role and group in the import is one the amendment names
+    (§ Roles, constraint 8)
 
 Scenario: M0 access is unchanged by the amendment
   Given a user who could read the languages dictionary before the
@@ -66,14 +69,17 @@ Scenario: A role change takes effect without a re-login
   And the user retries the write they were refused, without signing out
   Then the write succeeds (BR-M1-6: organization-scoped codes are not
     carried in the token)
+  And on their next page load the panel offers the write controls the role
+    member allows, learned from Mustask.Api (§ Roles, constraint 7)
 
 Scenario: The instance administrator sees no organization content by default
   Given an instance administrator holding no membership in organization A
   When they open the organization list and A's address
   Then A is not listed and its address answers «Организация не найдена»
-  And within M1 the instance-level role lets them do only two things —
-    create an organization and grant that right (US-1); it gives them no
-    way into an organization left with no usable administrator (a known MVP
-    limitation, spec § MVP boundary); instance-level rights outside M1, such
-    as the dictionaries administrator's (M0), are unaffected
+  And within M1 the instance-level role lets them do only one thing —
+    create an organization; granting that right is Keycloak realm
+    administration (US-1); it gives them no way into an organization left
+    with no usable administrator (a known MVP limitation, spec § MVP
+    boundary); instance-level rights outside M1, such as the dictionaries
+    administrator's (M0), are unaffected
 ```

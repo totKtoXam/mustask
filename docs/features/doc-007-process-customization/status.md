@@ -39,8 +39,8 @@ binding input and are not reopened here.
 
 Human decisions of 2026-09-24 (answers to review round 1 and the spec's open questions):
 
-- P-1 (R-1) Эпик, Фича, Пользовательская история follow Azure DevOps Agile: «Новая» Proposed, «Активна» InProgress, «Решена» InProgress, «Закрыта» Completed, «Удалена» Removed.
-- P-2 (R-1) Баг gets its own flow: «Новый» Proposed, «В работе» InProgress, «Исправлен» Resolved, «Закрыт» Completed, «Удалена» Removed. Resolved is used by Баг alone.
+- P-1 (R-1) Эпик, Фича, Пользовательская история follow Azure DevOps Agile: «Новая» Proposed, «Активна» InProgress, «Решена» InProgress, «Закрыта» Completed, «Удалена» Removed. — superseded by doc-010 D-4 (2026-09-24)
+- P-2 (R-1) Баг gets its own flow: «Новый» Proposed, «В работе» InProgress, «Исправлен» Resolved, «Закрыт» Completed, «Удалена» Removed. Resolved is used by Баг alone. — superseded by doc-010 D-4 (2026-09-24)
 - P-3 (open question 1) Release-3 customization changes the organization's one process in place; no inherited/forked process.
 - P-4 (open question 3) One seed template forever: no Basic/Scrum/CMMI picker, ever.
 - P-5 (R-20) Each type's icon and colour are fixed in the seed and not editable in MVP.
@@ -77,6 +77,7 @@ Defaults proposed by the orchestrator, confirmed by the human at gate-1 (2026-09
 - 2026-09-24 [orchestrator] gate-1: approved by the human in chat; the three defaults (R-4, R-19, field-kind list) confirmed; release-3 decomposition rows stay in spec.md only, not queued (human's choice); spec.md § Open questions updated to say so
 - 2026-09-24 [orchestrator] stages 3–7 skipped (docs task: no screens, no code); gate-3 requested
 - 2026-09-24 [orchestrator] gate-3: approved by the human in chat; stage: complete; local squash via scripts/finish-task.sh (no remote)
+- 2026-09-25 [doc-010] amended: § Roles (`process.definition.read`, non-member «Организация не найдена»), logical model (WORK_ITEM_TYPE key, STATE_DEFINITION order, BACKLOG_LEVEL rank/kind, field note), § MVP seeded process (state table per D-4, «Ключ», rank/kind, category labels, one-label-two-categories consequences), release-3 invariants, BPMN, BR-M2-2/4/6/7/9 rewritten, BR-M2-3 retired to doc-001 BR-10, Operation completeness, Decomposition (mod-001 row), US-1..US-5 (cross-review N-1, N-3..N-5, N-9, N-14, N-20, N-27, N-29, N-32; doc-010 D-4, D-5)
 
 ## Notes
 

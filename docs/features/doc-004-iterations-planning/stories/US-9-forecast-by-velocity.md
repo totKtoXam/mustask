@@ -1,21 +1,21 @@
-# US-9 (release 3): A product owner forecasts the backlog by velocity
+# US-9 (release 3): A member forecasts the backlog by velocity
 
 - story: US-9
 - depends-on: US-8
-- shippable: no — release-3 ground, not built by any MVP task; delivered by `feat-NNN-backlog-forecast`
+- shippable: no — release-3 ground, not built by any MVP task; delivered by `feat-012-backlog-forecast`
 - status: pending
 
-As a **product owner**, I want **the product backlog to show where the
-team's iterations would land if it keeps its current velocity**, so that
-**I can answer "when will this item be done" without building a plan by hand
+As a **member**, I want **the product backlog to show where the team's
+iterations would land if it keeps its current velocity**, so that **I can
+answer "when will this item be done" without building a plan by hand
 (research § Backlogs & sprints)**.
 
 ## Acceptance criteria
 
 ```gherkin
 Scenario: Forecast lines on the ordered backlog
-  Given a team with a velocity (US-8) and an ordered backlog of estimated
-    items
+  Given a team with a velocity (US-8) and an ordered backlog of items
+    estimated in «Оценка в пунктах»
   When a member turns «Прогноз» on
   Then a line is drawn between backlog items marking where each of the
     team's next iterations would end at the given velocity
@@ -26,7 +26,7 @@ Scenario: The velocity used is visible and adjustable
   When a member changes the velocity value used for the forecast
   Then the lines move accordingly
   And nothing is written to any work item or team setting — the forecast is
-    a view (the read-only principle of BR-17)
+    a view (the read-only principle of BR-M5-17)
 
 Scenario: Unestimated items break the forecast honestly
   Given a backlog where some items have no estimate
@@ -44,5 +44,5 @@ Scenario: The forecast respects the team's iterations
   Given a team that uses three iterations, two of them in the future
   When the forecast is on
   Then the lines are labelled with those iterations and stop when the team's
-    iterations run out (BR-5)
+    iterations run out (BR-M5-5)
 ```

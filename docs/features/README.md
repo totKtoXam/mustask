@@ -24,7 +24,7 @@ Format: **`<prefix>-<NNN>-<slug>`** — for example
 
 | Part | Rule |
 |------|------|
-| `<prefix>` | task type, see the table in [routing.md](../ai-workflow/routing.md): `feat`, `bug`, `hot`, `tech`, `mod`, `doc` |
+| `<prefix>` | task type, see the table in [routing.md](../ai-workflow/routing.md): `feat`, `bug`, `hot`, `tech`, `mod`, `doc`. `mod` also marks an `L` line that founds a sub-slice or a shared pattern inside an existing module (an attachment store, a recycle bin), not only a whole module |
 | `<NNN>` | sequence number, 3 digits with leading zeros, counter **separate per prefix** (`feat-001` and `bug-001` exist at the same time). The number is issued the moment the line is put into the `docs/backlog.md` queue by a commit to `main` — see [numbering.md](numbering.md) |
 | `<slug>` | kebab-case, Latin script, 2-4 words on the task's substance |
 

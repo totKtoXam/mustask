@@ -6,7 +6,7 @@
 - status: pending
 
 As an **organization administrator**, I want **to require a Reason for
-specific state transitions**, so that **my team records why a work item
+specific state transitions**, so that **members record why a work item
 moved (e.g. why a bug was closed) — without losing the ability to move a
 work item to any state**.
 
@@ -14,14 +14,15 @@ work item to any state**.
 
 ```gherkin
 Scenario: A transition can require a Reason
-  Given an org admin has set transition «Активна»→«Закрыта» on a type to
-    require a Reason with default "Исправлено"
-  When a team member performs that transition without choosing a reason
+  Given an org admin has set the transition «Разрешена»→«Закрыта» on «Баг»
+    to require a Reason with the default «Исправлено»
+  When a member performs that transition on a «Баг» without choosing a
+    reason
   Then the transition is rejected until a reason is provided
 
 Scenario: Turning on Reason never removes a transition
   Given any number of transitions have a required Reason configured
-  When a team member looks at which destination states are offered from the
+  When a member looks at which destination states are offered from the
     current one
   Then every non-Removed state is still offered (BR-M2-7) — Reason adds a
     required input, it does not remove a choice

@@ -82,7 +82,8 @@ Scenario: An administrator deactivates an organization
   And its projects, teams, areas and work items are unreachable, none of
     them hard-deleted (BR-6)
   And an administrator still sees it in the deactivated list, with the
-    restore action and no purge action (BR-M1-1: MVP has no purge)
+    restore action and no purge action (BR-M1-1: organizations are never
+    purged)
 
 Scenario: An administrator restores a deactivated organization
   Given the organization deactivated in the previous scenario

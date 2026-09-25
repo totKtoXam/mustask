@@ -44,7 +44,7 @@ gate-3: approved (confirmed by the human in chat, 2026-09-24, "Approved, squash"
 
 - Human answers to the gate-1 questions (2026-09-24, in chat), binding for the rework:
   - W-1 (R-1) Parent/Child: the parent's backlog level is higher **or equal** to the child's (a Баг may be a child of a Пользовательская история); one parent, no cycles, not itself.
-  - W-2 (R-2) «Задача» takes the Agile names «Новая» / «Активна» / «Закрыта» / «Удалена»; this spec carries an errata note against doc-001 US-3 (doc-001 is not reopened).
+  - W-2 (R-2) «Задача» takes the Agile names «Новая» / «Активна» / «Закрыта» / «Удалена»; this spec carries an errata note against doc-001 US-3 (doc-001 is not reopened). — superseded in part (the errata note: doc-001 is amended in place) by doc-010 D-17 (2026-09-24)
   - W-3 (R-3) An assignee whose organization membership is removed stays on the work item, shown as a former member, not offered for new assignments; history is not rewritten.
   - W-4 (R-4) The work item list surface (no filters) stays in `mod-003-work-item-core`, size L; the queue line's note records the growth.
   - W-5 (OQ-1) «Критерии приёмки» on Пользовательская история and «Шаги воспроизведения» on Баг are in MVP, as a separate M queue line `feat-NNN-work-item-type-fields` (deps work-item-core).
@@ -61,6 +61,7 @@ gate-3: approved (confirmed by the human in chat, 2026-09-24, "Approved, squash"
 
 ## Log
 
+- 2026-09-25 [doc-010] amended: § Roles (codes, predicate, not-found), § Types (→ doc-007 table, errata removed, «Разрешена» two categories), § Fields (single catalogue, ID, Дата изменения, Статус read-only at create, Исполнитель «неактивен»/«не в организации», Область team default), new § Logical data model (M3) and § Release 2 estimation fields, BPMN, rules renumbered BR-M3-n (BR-6/7/10/14/15 → doc-001), BR-M3-5/8/9/11/12/13/18, Operation completeness, NFR, Out of scope, Decomposition (feat-003 list-only, estimation row, codes, read-only rule, mod-004 → mod-005); stories US-1..US-13 (cross-review N-1, N-3, N-5, N-8, N-9, N-14, N-15, N-16, N-17, N-18, N-21, N-22, N-24, N-25, N-26, N-27, N-28, N-29, N-32); also the context paragraph; also the context paragraph
 - 2026-09-24 [orchestrator] gate-3: approved by the human in chat; stage: complete; local squash via scripts/finish-task.sh
 - 2026-09-24 [orchestrator] queue line issued in main: feat-007-work-item-type-fields (M, Later, deps mod-003; commit 77171f8); the scope growth of mod-003 (list surface, W-4) and mod-004 (per-organization Google Drive, W-8/W-12) lives in this spec's decomposition — queue.sh cannot edit an existing line's note; stages 3–6 skipped (docs task); gate-3 requested
 - 2026-09-24 [orchestrator] gate-1: approved by the human in chat

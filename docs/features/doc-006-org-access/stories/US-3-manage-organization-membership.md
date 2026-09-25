@@ -2,7 +2,8 @@
 
 - story: US-3
 - depends-on: US-2
-- shippable: no — analysis only; delivered by `mod-002-organizations-projects-teams`
+- shippable: no — analysis only; delivered by `mod-002-organizations-projects-teams`,
+  on the user projection of `mod-NNN-keycloak-user-projection`
 - status: pending
 
 As an **organization administrator**, I want **to add existing users to my
@@ -40,12 +41,14 @@ Scenario: An inactive account is not offered in the search
   Then they are not offered as a candidate
   And adding them directly is refused
 
-Scenario: Member search is unavailable when Keycloak cannot be reached
-  Given Keycloak's user directory is unreachable
-  When an administrator searches for a user to add
-  Then the search is refused with «Поиск пользователей временно недоступен.
-    Попробуйте позже»
-  And existing members' statuses stay as last refreshed
+Scenario: Member search reads the user projection, not Keycloak
+  Given a user just created in Keycloak, whose creation the projection has
+    received (§ Roles, constraint 5)
+  And Keycloak itself is unreachable at the moment of the search
+  When an administrator searches for that user by name or e-mail
+  Then the user is offered as a candidate, from the projection
+  And existing members' statuses stay as last received (NFR Identity
+    refresh)
 
 Scenario: A user already in the organization is not added twice
   Given a user who is already a member of the organization
@@ -102,13 +105,12 @@ Scenario: An administrator removes a member
   Then the user no longer sees the organization or anything in it
   And they are removed from every team of that organization (BR-M1-10)
   And the work items already assigned to them keep that assignee and stay
-    readable to the organization's members (BR-13 governs who may be
-    assigned, not who already is; how «Исполнитель» renders a former member
-    is `doc-002-work-items`' to decide)
+    readable to the organization's members, «Исполнитель» marking them «не
+    в организации» (BR-M1-17; doc-002 § Fields)
 
 Scenario: A member whose Keycloak account is disabled is shown as inactive
   Given a member whose Keycloak account has been disabled or deleted, and
-    MUSTASK has refreshed that member's status (NFR Identity refresh)
+    the user projection has received that change (NFR Identity refresh)
   When anyone opens the organization's members screen, or a work item
     assigned to them
   Then the member is listed with the marking «неактивен», and «Исполнитель»
@@ -121,7 +123,7 @@ Scenario: A member whose Keycloak account is disabled is shown as inactive
 Scenario: A re-enabled account loses the inactive marking
   Given the member from the previous scenario, whose disabled account is
     enabled again in Keycloak
-  When MUSTASK has refreshed their status and they sign in
+  When the projection has received that change and they sign in
   Then the marking «неактивен» is gone and they work in the organization
     with the role they held before (BR-M1-17)
 

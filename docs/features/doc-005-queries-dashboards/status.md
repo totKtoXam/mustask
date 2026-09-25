@@ -39,7 +39,7 @@ gate-3: approved (2026-09-24, human in chat, "approve, squash")
 Human decisions of 2026-09-24 (answers to review round 1; binding for the rework, alongside doc-001's D-1..D-12):
 
 - D-13 (R-1) Deletion of M6 objects — queries, query folders, dashboards, widgets — is soft, exactly as doc-001 BR-6 / D-5 state for the rest of the system: a deleted object can be restored, retention is indefinite, an administrator purges by hand. No amendment to doc-001 needed.
-- D-14 (R-2) A `viewer` may create, edit and delete their OWN private objects (personal queries in «Мои запросы»); every other write stays member+. This is the first write a reader may perform and changes doc-001's Roles section («read codes only») and what M1's permission catalog must express (ownership-based check, D-9 / ADR-0018 amendment) — it must be carried back into doc-001 and M1 by a separate task, not edited in doc-001 from here.
+- D-14 (R-2) A `viewer` may create, edit and delete their OWN private objects (personal queries in «Мои запросы»); every other write stays member+. This is the first write a reader may perform and changes doc-001's Roles section («read codes only») and what M1's permission catalog must express (ownership-based check, D-9 / ADR-0018 amendment) — it must be carried back into doc-001 and M1 by a separate task, not edited in doc-001 from here. — superseded in part (the carrier: no separate task; doc-010 amends doc-001, mod-002 states the predicate, mod-008 registers the code) by doc-010 D-2, D-11 (2026-09-24)
 - D-15 (spec open question 1) Dashboards exist at two levels: team dashboards (one default per team) and project dashboards, as in Azure DevOps.
 - D-16 (spec open question 3) `@CurrentIteration` in a query binds only to a team inside the query's own project (BR-1, D-11).
 
@@ -62,6 +62,7 @@ Human decisions of 2026-09-24 (answers to review round 1; binding for the rework
 - 2026-09-24 [orchestrator] gate-1: approved by the human in chat ("approve as is", normative numbers accepted)
 - 2026-09-24 [orchestrator] decomposition entered into the main queue under Later: doc-008-personal-object-ownership (D-14 carry-back), mod-008-queries-dashboards (release 2), mod-009-dashboards-widgets, feat-005-csv-import-export, feat-006-dashboard-charts, mod-010-query-hierarchy-operators (release 3); deps by id; stages 3–8 skipped (docs task); gate-3 requested
 - 2026-09-24 [orchestrator] gate-3: approved by the human in chat; stage: complete; local squash via scripts/finish-task.sh (no remote)
+- 2026-09-25 [doc-010] amended: context, § Roles (personal-object code, not-found, purge), data model note (own deleted status vs project), § Glossary → doc-001 pointer, rules renumbered BR-M6-n, BR-M6-2/4/5/6/8/9/10/12 («Удалена» only by explicit clause, team-bound @CurrentIteration not narrowing, "Under" and keyword in release 2, «Статус = Разрешена» two categories, CSV by full identifier, org-admin purge list, team deletion from MVP, «ID» default column), operation completeness (purge cells), NFR concurrency/audit, out of scope, decomposition (doc-NNN row absorbed, queued ids, codes, purge, mod-008 deps, mod-010 without "Under"); stories US-1..US-5 (cross-review N-2, N-3, N-5, N-8, N-12, N-13, N-14, N-16, N-23, N-25, N-27, N-29, N-32, N-33)
 
 ## Notes
 

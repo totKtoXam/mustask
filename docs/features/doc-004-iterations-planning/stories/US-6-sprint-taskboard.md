@@ -2,23 +2,25 @@
 
 - story: US-6
 - depends-on: US-5
-- shippable: no — release-2 ground, not built by any MVP task; founded by `mod-NNN-sprint-views`
+- shippable: no — release-2 ground, not built by any MVP task; founded by `mod-011-sprint-views`
 - status: pending
 
-As a **team member**, I want **a board of the current sprint's tasks in
+As an **organization member**, I want **a board of the current sprint's tasks in
 columns by state, grouped by the story they belong to or by the person doing
 them**, so that **the team can run its daily work without opening each item
-(doc-001 D-3, screenshot 10)**.
+(doc-001 D-3, screenshot 10)**. The taskboard is M5's view on M4's `BOARD`
+of the Задачи level (`doc-003` BR-M4-1).
 
 ## Acceptance criteria
 
 ```gherkin
 Scenario: Tasks of one iteration in columns by state
-  Given a team iteration holding requirement-level items with child Задача
+  Given a team iteration holding Истории-level items with child «Задача»
     items
   When a member opens the taskboard for that iteration
-  Then every Задача pointing at that iteration appears in the column of its
-    state's category (doc-001 BR-2)
+  Then every «Задача» pointing at that iteration appears in the column its
+    state maps to — «Новые», «В работе» or «Завершённые» (`doc-003`
+    BR-M4-2, § Board columns)
   And moving a card to another column changes that task's state and records
     it in history (doc-001 BR-4)
 
@@ -32,7 +34,7 @@ Scenario: Grouping by requirement or by person
 Scenario: A task inherits the iteration of the story it is added under
   Given a story in a sprint
   When a member adds a child task to it from the taskboard
-  Then the new task is created pointing at the same iteration (BR-7)
+  Then the new task is created pointing at the same iteration (BR-M5-7)
 
 Scenario: A task scheduled into another iteration than its parent
   Given a task whose iteration differs from its parent story's
@@ -48,8 +50,8 @@ Scenario: An empty taskboard
     (screenshot 10)
 
 Scenario: A viewer cannot move cards
-  Given a user with only the "viewer" role
+  Given a user whose role in the organization is viewer
   When the user drags a card on the taskboard
   Then the move is refused and the board returns to its previous state
-    (doc-001 D-9)
+    (spec § Roles)
 ```

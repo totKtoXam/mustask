@@ -1,7 +1,7 @@
 # US-7: An organization administrator manages the project's area tree
 
 - story: US-7
-- depends-on: US-5
+- depends-on: US-5, US-6
 - shippable: no — analysis only; delivered by `mod-002-organizations-projects-teams`
 - status: pending
 
@@ -14,13 +14,13 @@ place and the team responsible for it is derivable (BR-3, D-8)**.
 ```gherkin
 Scenario: The root area comes with the project and follows it
   Given a project created in US-5, with its root area owned by the
-    project's team
+    project's first team
   When an administrator opens the area tree
-  Then the root area is shown, named after the project, owned by the
-    project's team
+  Then the root area is shown, named after the project, owned by the first
+    team
   And the rename, move, re-own and delete actions are not offered for it,
     and invoking them directly is refused (BR-M1-11: the root is renamed
-    only with the project, and its owner is always the project's team)
+    only with the project, and its owner is always the first team)
 
 Scenario: A tree with only the root says so
   Given a project whose area tree is the root alone
@@ -29,11 +29,29 @@ Scenario: A tree with only the root says so
     create-child action
 
 Scenario: An administrator creates a child area with or without an owner
-  Given a project's area tree
+  Given a project with two teams, «Пример проекта» and «Платформа» (US-6)
   When the administrator creates a child area under the root
-  Then the owner picker offers the project's team or no explicit owner —
-    in MVP the project has one team (BR-M1-9)
+  Then the owner picker offers every team of the project, or no explicit
+    owner
   And the child exists with the owner chosen, or with none (BR-3)
+
+Scenario: An administrator re-owns a child area from one team to another
+  Given a child area «Отчёты» owned explicitly by the first team, holding
+    work items, and not a team's default area
+  When the administrator re-owns it to the team «Платформа»
+  Then «Отчёты» and every descendant without an explicit owner resolve to
+    «Платформа»
+  And their work items leave the first team's backlogs and appear on
+    «Платформа»'s (BR-3; doc-003 decides their position)
+
+Scenario: A team's default area stays with its team
+  Given the area «Платформа», the default area of the team «Платформа»
+  When the administrator re-owns it to another team, clears its owner or
+    deletes it
+  Then the action is refused with «Область используется как область по
+    умолчанию команды «Платформа»» (BR-M1-14)
+  And after the team's default is changed to another of its areas, the
+    same action is allowed
 
 Scenario: Sibling area names are unique
   Given an area with a child named «Платформа»
@@ -49,7 +67,7 @@ Scenario: An area with no explicit owner inherits the nearest owned ancestor
     (BR-3), for instance
   Then the answer is the owning team of the nearest ancestor that has one,
     which at the latest is the root (BR-M1-11), so every area resolves to
-    an owner
+    exactly one owning team
 
 Scenario: Moving a node moves its subtree and re-resolves ownership
   Given an area with children, some of them without an explicit owner
@@ -68,20 +86,21 @@ Scenario: A node is not moved under its own descendant
   And two moves submitted at the same moment that would together form a
     cycle are not both saved (NFR Concurrency)
 
-Scenario: Only an empty leaf is deleted
-  Given a leaf area with no work items in it
-  When the administrator deletes it
-  Then it disappears from the tree
-  And deleting an area that has children, or one that holds work items, is
-    refused with «Нельзя удалить область, в которой есть рабочие элементы
-    или вложенные области» (BR-M1-13)
+Scenario: Only an empty leaf is deleted, deleted work items counting
+  Given a leaf area whose only work item is in «Удалена»
+  When the administrator deletes the area
+  Then the action is refused with «Нельзя удалить область, в которой есть
+    рабочие элементы (включая удалённые) или вложенные области»
+    (BR-M1-13, doc-001 BR-14)
+  And once that item is restored and moved, or purged, deleting the empty
+    leaf succeeds and it disappears from the tree
 
-Scenario: The project exposes its root area as the default area
-  Given a project whose area tree has several nodes
-  When any module asks the project for its default area
-  Then the answer is the project's root area (BR-M1-14; a configurable
-    per-team default area is release 2, and the rule that a new work item
-    without an area gets it is owned by `doc-002-work-items`)
+Scenario: A work item created with no team context lands on the root
+  Given a project with several teams
+  When any module asks the project for the default area of a work item
+    created from M3's project-wide form
+  Then the answer is the project's root area, the first team's default
+    (BR-M1-14; the rule that applies it is doc-002's)
 
 Scenario: A reader sees the tree but changes nothing
   Given a user with the role viewer in the project's organization

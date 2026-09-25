@@ -47,7 +47,7 @@ gate-3: approved (confirmed by the human in chat, 2026-09-24, "Принять, s
   - E-1 (R-8) "Today" for the current iteration is the server's date in UTC.
   - E-2 (R-1) «Текущая итерация» exists only on team screens (board, backlog); the project-wide work item list filters by a specific iteration, no "current" macro.
   - E-3 (R-2) No reactivation of a removed iteration in MVP; soft removal is a storage property (doc-001 Cancel/reverse = n/a, D-5).
-  - E-4 (R-4) The iteration filter on the M3 list and M4 board/backlog is a new task `feat-NNN-iteration-filter` (M, deps mod-007, mod-006, feat-003); mod-007 stays the pure module founder.
+  - E-4 (R-4) The iteration filter on the M3 list and M4 board/backlog is a new task `feat-NNN-iteration-filter` (M, deps mod-007, mod-006, feat-003); mod-007 stays the pure module founder. — superseded in part (the deps: feat-008 depends on feat-NNN-board-backlog-filter) by doc-010 D-14 (2026-09-24)
   - E-5 (R-10) Several teams per project already in MVP — amends doc-001's "one default team per project" MVP cut (M1, mod-002-organizations-projects-teams).
   - E-6 (Q2) The backlog planning pane (drag a work item onto an iteration) is in MVP — adds an M4 dependency to the MVP planning scope.
   - E-7 (Q3) Iterations are a tree already in MVP (e.g. Release > Sprint) — amends doc-001 US-9 "flat list, no tree/hierarchy".
@@ -56,11 +56,12 @@ gate-3: approved (confirmed by the human in chat, 2026-09-24, "Принять, s
   - E-10 (R-3) Human answer verbatim: "автонумерация спринта в одном проекте" — sprints are auto-numbered within a project; orchestrator's reading: numbers are issued per project and never reused, which removes the name collision under soft removal; whether the name stays editable is left for the BA to surface as an open question if it matters.
   - E-11 (R-17, 2026-09-24) A separate counter for sprints: sprint nodes are auto-numbered within the project (never reused), release nodes are not in that sequence — this introduces a node kind (release / sprint) on the iteration; the human chose it knowingly over the recommended "number only unnamed nodes".
   - E-12 (2026-09-24) An iteration's name is editable (empty name → «Спринт N» for a sprint); the number stays fixed.
-  - E-13 (2026-09-24, after gate-1) Conflict with the since-merged doc-006 BR-M1-9 (one team per project in MVP): the human keeps E-5; doc-009-teams-per-project-carry-back carries it into doc-006, and mod-002 waits on it.
+  - E-13 (2026-09-24, after gate-1) Conflict with the since-merged doc-006 BR-M1-9 (one team per project in MVP): the human keeps E-5; doc-009-teams-per-project-carry-back carries it into doc-006, and mod-002 waits on it. — superseded in part (the carrier: doc-009 withdrawn, absorbed by doc-010) by doc-010 D-2 (2026-09-24)
 - E-5, E-6, E-7 and E-9 widen doc-001's MVP boundary by the human's decision; the queue lines they touch (mod-002, mod-006, mod-007) are amended by the orchestrator after gate-1, not in this branch.
 
 ## Log
 
+- 2026-09-25 [doc-010] amended: context, § Roles (codes, team settings = org admin, per-iteration values = member), § Terms → doc-001 glossary pointer, data model (DeliveryPlan organization-owned), BPMN (no-owner branch removed, deleted items counted), rules renumbered BR-M5-n (BR-14 → § Roles), BR-M5-5 (team deletion), BR-M5-6 (default never assigned), BR-M5-7 (no-owner refusal removed), BR-M5-8 (derivation → doc-001 BR-9), BR-M5-9, BR-M5-10 (deleted items cleared and counted, never purged), BR-M5-15/16/17, operation completeness, NFR audit, out of scope, § Amendments → § Relation to doc-001, decomposition (queued ids, feat-008 deps, mod-011/mod-012 deps, mod-011 L reason); stories US-1..US-14 (cross-review N-2, N-9, N-10, N-11, N-12, N-13, N-14, N-16, N-17, N-19, N-21, N-23, N-24, N-29, N-31, N-32, N-33)
 - 2026-09-24 [orchestrator] gate-3: approved by the human in chat; stage: complete; local squash via scripts/finish-task.sh
 - 2026-09-24 [orchestrator] stages 3–8 skipped (docs task); gate-3 requested
 - 2026-09-24 [orchestrator] queue in main: added doc-009-teams-per-project-carry-back, feat-008-iteration-filter, feat-009-iteration-planning-pane, feat-010-move-unfinished-work, mod-011-sprint-views, feat-011-sprint-capacity, mod-012-iteration-metrics, feat-012-backlog-forecast, mod-013-delivery-plans (all Later); amended mod-002 (several teams, +dep doc-009), mod-006 (every team), mod-007 (tree, numbered sprints, UTC) in 486295a; gap: doc-002 merged without an estimation-fields slice (E-8), noted on mod-011/mod-012

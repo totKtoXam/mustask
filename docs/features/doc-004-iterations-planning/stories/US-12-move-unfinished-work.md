@@ -1,16 +1,16 @@
-# US-12 (MVP): A team member moves unfinished work to another iteration
+# US-12 (MVP): A member moves a team's unfinished work to another iteration
 
 - story: US-12
 - depends-on: US-11
-- shippable: no — analysis story, delivered by `feat-NNN-move-unfinished-work`
+- shippable: no — analysis story, delivered by `feat-010-move-unfinished-work`
 - status: pending
 
-As a **team member closing a sprint**, I want **to move everything my team
+As an **organization member closing a team's sprint**, I want **to move everything my team
 did not finish in it to another iteration in one action**, so that **the
 next sprint starts with the carried-over work without repointing items one by
-one (BR-12, E-9)**. Nothing happens by itself when a sprint ends (BR-11);
-this action is always started by a person, from the iteration's entry in the
-planning pane (US-11).
+one (BR-M5-12, E-9)**. Nothing happens by itself when a sprint ends
+(BR-M5-11); this action is always started by a person, from the iteration's
+entry in the planning pane (US-11).
 
 ## Acceptance criteria
 
@@ -22,7 +22,7 @@ Scenario: The unfinished rest is moved after a confirmation
     «Спринт 3» and confirms a prompt stating that 6 items will be moved
   Then those 6 items point at «Спринт 3», each repoint in its history with
     who and when
-  And the 4 Completed items still point at «Спринт 2» (BR-12)
+  And the 4 Completed items still point at «Спринт 2» (BR-M5-12)
 
 Scenario: Cancelling the confirmation changes nothing
   Given the prompt of the previous scenario
@@ -30,16 +30,17 @@ Scenario: Cancelling the confirmation changes nothing
   Then no work item's pointer changes
 
 Scenario: Every level moves, whichever backlog the pane is opened on
-  Given «Спринт 2» holding an unfinished team A История and an unfinished
-    team A Задача
+  Given «Спринт 2» holding an unfinished team A «Пользовательская история»
+    and an unfinished team A «Задача»
   When a member moves its unfinished rest from the pane of the Истории
     backlog
-  Then both items move, and the prompt counted both (BR-12)
+  Then both items move, and the prompt counted both (BR-M5-12)
 
 Scenario: Deleted items stay
   Given a work item in «Удалена» that points at «Спринт 2»
   When the member moves the unfinished rest of «Спринт 2»
-  Then that item still points at «Спринт 2» (BR-12, doc-001 BR-10)
+  Then that item still points at «Спринт 2», and the prompt did not count it
+    (BR-M5-12, doc-001 BR-14)
 
 Scenario: Another team's items stay
   Given «Спринт 2» selected by teams A and B, with unfinished items of both
@@ -51,19 +52,20 @@ Scenario: Only items pointing exactly at the source move
   Given «Релиз 1» with a child «Релиз 1 / Спринт 1», both holding unfinished
     team A items
   When a member moves the unfinished rest of «Релиз 1»
-  Then only the items pointing at «Релиз 1» itself move (BR-12)
+  Then only the items pointing at «Релиз 1» itself move (BR-M5-12)
 
 Scenario: The count changed before the confirmation
   Given the prompt stating that 6 items will be moved
   When another member schedules a seventh unfinished team A item into
     «Спринт 2» and then the first member confirms
-  Then nothing is written, and the prompt is shown again stating 7 (BR-12)
+  Then nothing is written, and the prompt is shown again stating 7
+    (BR-M5-12)
 
 Scenario: The target must be another iteration the team uses
   Given team A's pane
   When a member chooses the target for «Перенести незавершённые» on «Спринт 2»
   Then the choice offers team A's selected iterations other than «Спринт 2»
-    and nothing else (BR-5, BR-12)
+    and nothing else (BR-M5-5, BR-M5-12)
 
 Scenario: Nothing to move
   Given a team iteration whose team items are all Completed
@@ -74,7 +76,7 @@ Scenario: Nothing to move
 Scenario: The move is all or nothing
   Given a move of 6 items that fails part-way
   When the member looks at the items
-  Then all 6 still point at «Спринт 2» (BR-12, NFR § Bulk writes)
+  Then all 6 still point at «Спринт 2» (BR-M5-12, NFR § Bulk writes)
 
 Scenario: Someone is editing a moved item meanwhile
   Given a member with one of the 6 items open
@@ -83,8 +85,8 @@ Scenario: Someone is editing a moved item meanwhile
     reloading the item points at «Спринт 3» (doc-001 BR-11)
 
 Scenario: A viewer cannot move work
-  Given a user with only the "viewer" role
+  Given a user whose role in the organization is viewer
   When the user looks at a pane entry
   Then «Перенести незавершённые» is not available, and a direct request to
-    move is refused (BR-14)
+    move is refused (spec § Roles)
 ```
