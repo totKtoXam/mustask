@@ -37,6 +37,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] mod-012-iteration-metrics — Release 2. Founds the history-derived metrics pattern: sprint burndown and velocity (doc-004 US-8, BR-16); owes the history-derived-metrics ADR · epic:core/iterations · size:L · deps:mod-011 · note:doc-004 decomposition; estimation fields owed by doc-002 per doc-004 E-8, not yet queued
 - [ ] feat-012-backlog-forecast — Release 3. Forecast the backlog by velocity (doc-004 US-9) · epic:core/iterations · size:M · deps:mod-012 · note:doc-004 decomposition
 - [ ] mod-013-delivery-plans — Release 3. Founds the delivery plan: a timeline of teams' iterations across the project (doc-004 US-10, BR-17) · epic:core/iterations · size:L · deps:mod-007,mod-006 · note:doc-004 decomposition
+- [ ] mod-014-keycloak-user-projection — MVP. Founds the Keycloak user projection: a custom Keycloak event-listener provider pushes user created/updated/disabled into MUSTASK, a backfill of existing users; member search and the «неактивен» marking read the projection; no admin REST call and no production service account, ADR-0023 guards unchanged; owes the user-projection ADR (doc-006 constraint 5, doc-010 D-9) · epic:core/org-access · size:L · deps:doc-006,doc-010 · note:doc-010 D-9; L: new deployable, external counterparty, secrets, ADR
 
 ## Withdrawn (number taken, task not done)
 
