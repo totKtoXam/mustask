@@ -13,7 +13,8 @@ run from there, not from this directory.
   `RequiresDocker` tests of `Mustask.Infrastructure.Tests` bring up PostgreSQL
   through Testcontainers — Docker must be running.
 - `dotnet run --project src/backend/Mustask.AppHost` — local startup through
-  .NET Aspire: brings up `Mustask.Api`, a PostgreSQL container, the frontend
+  .NET Aspire: brings up `Mustask.Api`, a PostgreSQL container (or uses an
+  external PostgreSQL — see "External database" below), the frontend
   (Vite dev server, `AddViteApp`, `VITE_API_BASE_URL` is passed through from
   the `api` endpoint) and Keycloak with the `mustask` realm (ADR-0018; the
   access model is groups → roles → permissions, and permissions arrive in
@@ -45,13 +46,37 @@ run from there, not from this directory.
   src/backend/Mustask.AppHost`, likewise for `Parameters:keycloak-admin-password`
   and `Parameters:keycloak-panel-client-secret`); without this step the
   start fails with "missing configuration value".
+- External database (a PostgreSQL server that already runs on the machine, for
+  example on 5432): set the user secret `ConnectionStrings:mustask` — `dotnet
+  user-secrets set ConnectionStrings:mustask
+  "Host=localhost;Port=5432;Database=mustask;Username=postgres;Password=<your
+  password>" --project src/backend/Mustask.AppHost` (the environment variable
+  `ConnectionStrings__mustask` works too). AppHost then starts no PostgreSQL
+  container and hands that string to `Mustask.Api` as is; `Ports:Db` and
+  `Parameters:mustask-db-password` are **not used** in that mode (the other two
+  secrets stay required). The stand does not create the database:
+  `dotnet ef database update --project src/backend/Mustask.Infrastructure`
+  does, and applies the migrations — run it before the first start (the
+  runbook: `docs/runbooks/local-migrations.md`, "External database"). Start
+  AppHost with the default launch profile (`https`, the first one in
+  `Properties/launchSettings.json` — plain `dotnet run` picks it); the stand is
+  run and verified with that profile only. Do not export
+  `ConnectionStrings__mustask` in the terminal that starts AppHost unless you
+  mean this mode — the variable switches it; AppHost prints a `Database:` line
+  at startup naming the mode it chose. The user secret belongs to AppHost's
+  single user-secrets store, so it switches every checkout and worktree on the
+  machine to the same database `mustask` (container mode gives each checkout
+  its own volume); to scope the mode to one checkout, export
+  `ConnectionStrings__mustask` in the terminal that starts that checkout's
+  AppHost instead of setting the secret.
 - The stand's ports come from configuration: the defaults are in
   `appsettings.json` of the `Mustask.AppHost` project (the `Ports` section), and
   are overridden by the environment variables `Ports__Api`, `Ports__Frontend`,
   `Ports__Db`, `Ports__Keycloak`, or by user secrets
   (`dotnet user-secrets set Ports:Api 5100`). AppHost has no `.env` file —
   Aspire does not read one. A port must be free — Aspire will not relocate a
-  taken one. The values: panel 3000, API 5000, Keycloak 5010, database 5432.
+  taken one. The values: panel 3000, API 5000, Keycloak 5010, database 5432
+  (the database port is only used when AppHost starts its own container).
 - Migrations are applied explicitly, not at `Mustask.Api` startup (ADR-0002). How
   to apply them locally with the stand's fixed ports, and how to create a new
   one — a step-by-step runbook: `docs/runbooks/local-migrations.md`. In

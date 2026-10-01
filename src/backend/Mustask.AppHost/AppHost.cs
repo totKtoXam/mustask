@@ -88,21 +88,56 @@ static void ExposeToNetwork(EndpointAnnotation endpoint, int port, int targetPor
 // новый пароль молча игнорируется, и всё, что видно, — «password
 // authentication failed for user "postgres"» в логе БД. Фиксированный
 // параметр эту рассинхронизацию исключает по построению.
-var mustaskDbPassword = builder.AddParameter("mustask-db-password", secret: true);
+//
+// External database. When `ConnectionStrings:mustask` is set (user secrets or
+// the `ConnectionStrings__mustask` environment variable), the stand starts no
+// PostgreSQL container and hands that string to Mustask.Api as is — for a
+// machine where PostgreSQL already runs and the stand should share it. The
+// password parameter explained above is declared only in the container branch
+// below (the `mustask-db-password` secret is not needed in this mode), and
+// `Ports:Db` is not used. The database itself is created by
+// `dotnet ef database update` (ADR-0002). Caveat: the same variable exported
+// in a terminal for `dotnet ef` (docs/runbooks/local-migrations.md) also
+// switches an AppHost started from that terminal, and no database container
+// is brought up then. The `Database:` line printed at startup names the mode
+// that was chosen, so that switch is never silent.
+var externalDb = builder.Configuration["ConnectionStrings:mustask"];
 
-var postgres = builder.AddPostgres("postgres", password: mustaskDbPassword, port: Port("Db"))
-    // Имя пользователя оставлено дефолтным (`postgres`) сознательно: health
-    // check Aspire подключается строкой без Database, а Npgsql в этом случае
-    // берёт имя БД равным имени пользователя — у пользователя `postgres`
-    // одноимённая БД есть всегда.
-    .WithDataVolume()
-    .AddDatabase("mustask");
+IResourceBuilder<IResourceWithConnectionString> database;
+
+if (string.IsNullOrWhiteSpace(externalDb))
+{
+    Console.WriteLine("Database: the stand's own PostgreSQL container (ConnectionStrings:mustask is not set).");
+
+    var mustaskDbPassword = builder.AddParameter("mustask-db-password", secret: true);
+
+    database = builder.AddPostgres("postgres", password: mustaskDbPassword, port: Port("Db"))
+        // Имя пользователя оставлено дефолтным (`postgres`) сознательно: health
+        // check Aspire подключается строкой без Database, а Npgsql в этом случае
+        // берёт имя БД равным имени пользователя — у пользователя `postgres`
+        // одноимённая БД есть всегда.
+        .WithDataVolume()
+        .AddDatabase("mustask");
+}
+else
+{
+    // The value itself is never printed: it carries the password.
+    Console.WriteLine(
+        "Database: external PostgreSQL (ConnectionStrings:mustask is set by a user secret or an environment variable), "
+        + "so no PostgreSQL container is started. For the stand's own container, remove the secret and unset "
+        + "ConnectionStrings__mustask.");
+
+    // A resource without a container: Aspire reads the string from
+    // `ConnectionStrings:mustask` and passes it to the referencing project as
+    // the `ConnectionStrings__mustask` variable.
+    database = builder.AddConnectionString("mustask");
+}
 
 var apiPort = Port("Api");
 
 var api = builder.AddProject<Projects.Mustask_Api>("api")
-    .WithReference(postgres)
-    .WaitFor(postgres)
+    .WithReference(database)
+    .WaitFor(database)
     // Источник порта — `Ports:Api`; в launchSettings Mustask.Api лежит вторая
     // копия того же числа (для запуска без Aspire), её держат в синхроне
     // руками. При отключённом прокси Port и TargetPort обязаны совпадать —
