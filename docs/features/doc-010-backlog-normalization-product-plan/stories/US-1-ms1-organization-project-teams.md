@@ -11,8 +11,9 @@ skeleton. That skeleton is an organization with its process, members taken
 from the company directory, a keyed project, several teams and an owned area
 tree.**
 
-Delivered by `mod-NNN-keycloak-user-projection`, `mod-001-process-seed` and
-`mod-002-organizations-projects-teams` (spec § Releases and milestones).
+Delivered by `mod-NNN-keycloak-user-projection`, `mod-001-process-seed`,
+`mod-002-organizations-projects-teams` and `mod-016-organization-access`
+(spec § Releases and milestones).
 
 ## Acceptance criteria
 

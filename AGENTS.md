@@ -5,9 +5,8 @@ purpose — the details are behind the links, read them as you need them.
 
 ## Project
 
-MUSTASK ("must task"), our own internal task tracker in the spirit of Azure
-DevOps, Jira, ClickUp and Notion — work items, boards, backlogs. Greenfield
-development:
+MUSTASK ("must task"), our own internal task tracker in the spirit of Jira,
+ClickUp and Notion — work items, boards, backlogs. Greenfield development:
 
 - Backend: .NET 10, PostgreSQL, architecture — an Onion + Vertical Slice
   hybrid → `docs/conventions/backend.md`. Local orchestration — .NET Aspire
@@ -111,6 +110,12 @@ read it before your first task. In short:
   stories and `design.md`, the texts in `docs/error-codes.md` and
   `contracts/errors/*.json`, and the Keycloak login theme under
   `deploy/keycloak/`.
+- **The reference product is never named.** The tracker that doc-001..007
+  studied is not named in anything written from 2026-09-25 on: artifacts,
+  code, identifiers, comments, tests, commit messages, UI copy. Say «the
+  reference tracker» and cite the analyses by rule id (`doc-002 W-11`,
+  `doc-010 D-4`). The analyses merged before that date keep their wording;
+  nobody sweeps them (tech-001 D-1).
 
 ## Commands
 

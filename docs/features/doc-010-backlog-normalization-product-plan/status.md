@@ -58,6 +58,9 @@ No backend/frontend plan: a docs task. The plan is the route itself:
 - D-22 (OQ-2) No hard dependency of release-2/3 lines on the MVP's terminal lines; release order is priority (PR-6), deps stay minimal (PR-3).
 - D-23 (OQ-3) The three analyst calls are confirmed: (a) a deleted team is never restored, its name becomes free, deletion asks for confirmation (doc-006 BR-M1-18); (b) a team added later comes with its own area under the root, named after it, as its default area (BR-M1-9, BR-M1-14); (c) «Разрешена» has its own column on the Эпики and Фичи boards too (doc-003 BR-M4-2).
 - D-24 (OQ-4) The release-2 gate stays: mod-008 and the estimation-fields line (and mod-011 through it) depend on `doc-NNN-release-2-scope` (PR-5); doc-002's and doc-005's decomposition rows carry the dependency.
+- D-25 (human 2026-09-25, chat; recorded by tech-001) mod-002 is split: mod-002-organizations-projects-teams founds M1's structure (organizations, keyed projects, teams with deletion, areas, soft deactivation, settings screens) under the authenticated-only guard and calls mod-001's seed; the new mod-016-organization-access (L, deps mod-002, mod-014) founds membership, roles, the organization-scoped codes, the ADR-0018 amendment and the retrofit of the checks onto every endpoint that exists when it merges. mod-002 may start beside mod-001 (the seed call is the one seam). mod-003 lists mod-014; mod-005 and feat-002 list mod-016. Queue: 3eb20e1, d00b1ac.
+- D-26 (human 2026-09-25, chat; recorded by tech-001) The reference tracker is never named in anything written from 2026-09-25 on (AGENTS.md, Hard rules); the existing mentions in the merged analyses are not swept.
+- D-27 (human 2026-09-25, chat; recorded by tech-001) mod-015-app-shell-design-system (L, platform/ui, deps doc-001, doc-010) founds the application shell, theme and screen patterns from doc-001's screenshots, off the critical path; feat-014's title says "the Agile process set". Queue: d5e1473, 87dcc5d. Amended 2026-10-01 by the human's decision D-10 of mod-015 (kept in the mod-015 session): mod-002 wires the shell's context switcher, so mod-002's frontend stage waits for mod-015 to merge — mod-015 gates mod-002's frontend, not its backend, and is off the critical path only while it merges no later than mod-002's backend stage.
 
 ## Log
 
@@ -83,6 +86,8 @@ No backend/frontend plan: a docs task. The plan is the route itself:
 - 2026-09-25 [orchestrator] queue normalized in main per spec.md § Queue operations: adds mod-014-keycloak-user-projection, doc-011-release-2-scope, feat-013-board-backlog-filter, feat-014-work-item-estimation-fields (ec600c9..e33eeff); 22 line edits + the epic paragraph in one queue-only commit (9e55f1c); 29 lines, deps complete and acyclic; E-24 (Later -> Next for mod-001, mod-014, doc-011) waits for the merge
 - 2026-09-25 [orchestrator] gate-3 requested from the human
 - 2026-09-25 [orchestrator] gate-3: approved by the human in chat; stage: complete; local squash via scripts/finish-task.sh
+- 2026-09-28 [tech-001] amended: D-25..D-27 recorded; spec.md § Releases and milestones (MS-1 lines), § Normalized queue (mod-002, mod-003, mod-005, feat-002 rows; mod-015, mod-016 rows added; totals), § Critical path and parallelism (graph, paths, waves, the closing paragraph), § ADR debt (ADR-0018 amendment → mod-016), § Permission codes (organization codes → mod-016), PR-1 (M1's access sub-slice)
+- 2026-10-01 [tech-001] amended: PR-1 per mod-014 D-6 (the user-directory sub-slice is self-contained); § ADR debt names mod-015's shell and visual-language ADR; mod-NNN-keycloak-user-projection → mod-014; D-27, the MS-1 path row, the graph and the closing paragraph per mod-015 D-10 (mod-015 gates mod-002's frontend stage)
 
 ## Notes
 

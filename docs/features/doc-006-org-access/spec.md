@@ -32,8 +32,8 @@ organizations" is Keycloak realm administration, not a MUSTASK code
 
 **Constraints the ADR-0018 amendment must satisfy.** ADR-0018 still
 describes the pre-D-9 layering; the amendment is owed by
-`mod-002-organizations-projects-teams` and is not written by this analysis
-task. Whatever it designs, it must hold these:
+`mod-016-organization-access` (doc-010 D-25) and is not written by this
+analysis task. Whatever it designs, it must hold these:
 
 1. **Two kinds of code.** Instance-level codes — M0's
    `dictionaries.languages.*` and `organizations.organization.create` — stay
@@ -90,7 +90,7 @@ task. Whatever it designs, it must hold these:
    user in none; it updates `scripts/keycloak-seed.sh`, the E2E fixture's
    group and `src/backend/AGENTS.md`.
 
-| Code (analysis-level; the exact strings are fixed by `mod-002-organizations-projects-teams`) | Scope | admin | member | viewer |
+| Code (analysis-level; the exact strings are fixed by `mod-016-organization-access`, except `organizations.organization.create`, fixed by `mod-002-organizations-projects-teams`) | Scope | admin | member | viewer |
 |---|---|---|---|---|
 | `organizations.organization.create` | instance | assigned by a Keycloak realm administrator (BR-M1-2), never by a membership role | same | same |
 | `organizations.organization.read` | organization | yes | yes | yes |
@@ -129,9 +129,10 @@ is planned and whom "In Group" matches.
 | US-7 | An organization administrator manages the project's area tree | US-5, US-6 | `stories/US-7-manage-area-tree.md` |
 
 No story is spun out into its own queue line: this is an analysis task, every
-story here is a specification for `mod-002-organizations-projects-teams`
-(US-3's member search also for `mod-NNN-keycloak-user-projection`, see
-Decomposition), and all of them are `shippable: no`.
+story here is a specification for `mod-002-organizations-projects-teams` or
+`mod-016-organization-access` (§ Decomposition maps each story; US-3's member
+search also for `mod-NNN-keycloak-user-projection`), and all of them are
+`shippable: no`.
 
 ## Business process (BPMN)
 
@@ -259,7 +260,7 @@ BR-M1-15 is release 2 (§ MVP boundary).
 | BR-M1-3 | An organization's process is seeded by M2 at the moment the organization is created, exactly one per organization; M1 calls that capability and never defines what a process is. Creation and seed succeed or fail together: on a seed failure no organization exists, its name stays free and the creator sees a refusal. Every project of the organization uses its process. | D-2; doc-001 module map M1/M2 |
 | BR-M1-4 | No change made in MUSTASK may leave an organization without an `admin` membership whose account is active (BR-M1-17) — active as MUSTASK's user projection shows it at the moment of the change: removing or downgrading an administrator, the acting one included, is refused if it would. An account disabled or deleted in Keycloak is not such a change and is never refused (§ MVP boundary, known limitation). An administrator may downgrade or remove their own membership while another active administrator remains; a member or reader leaves only by an administrator's action. | this spec (analysis); H-1, H-4 |
 | BR-M1-5 | A user holds at most one membership per organization, and may hold memberships in any number of organizations; a membership is created only for an existing Keycloak identity, and outlives that identity being disabled or deleted (BR-M1-17). | D-2, D-9 |
-| BR-M1-6 | Organization-scoped codes are derived per request from the membership, not carried in the token: adding a member, changing a role or removing a member takes effect on the user's next request, with no re-login. | D-9; ADR-0018 (amendment owed by `mod-002-organizations-projects-teams`, § Roles) |
+| BR-M1-6 | Organization-scoped codes are derived per request from the membership, not carried in the token: adding a member, changing a role or removing a member takes effect on the user's next request, with no re-login. | D-9; ADR-0018 (amendment owed by `mod-016-organization-access`, doc-010 D-25, § Roles) |
 | BR-M1-7 | The codes come from the acting user's membership in the organization that owns the resource (doc-001 BR-5), resolved as Area → Project → Organization and Team → Project → Organization; § Roles constraint 6 extends the chain to the resources of M2–M6. | BR-5, D-9 |
 | BR-M1-8 | A user with no membership is told nothing about an organization's content — its projects, members, teams, areas and work items: opening the organization or anything under it answers "not found", never "forbidden". The existence of an organization's name is not content (BR-M1-1). | H-2; research § Security |
 | BR-M1-9 | Creating a project creates its first team, named after the project, with the creating administrator as its only member; it owns the root area (BR-M1-11). An organization administrator adds further teams to the project at any time; each comes with a child area of the root named after it, owned by it and set as its default area (BR-M1-14), and if the root already has a child of that name the team is not created (BR-M1-12). A team's name is 1–100 characters and unique among the project's active teams, compared ignoring letter case and surrounding spaces. An organization administrator renames a team — its areas keep their names — and deletes it per BR-M1-18. | doc-004 E-5; doc-010 D-6, D-7, D-23 (b); doc-001 MVP table M1 |
@@ -378,24 +379,30 @@ second one. Notifications and the audit log are also claimed by M3
 - Purging an organization, a project or a team (BR-M1-1, BR-M1-18);
   restoring a deleted team; calling Keycloak's admin REST surface from
   shipping code (ADR-0023; constraint 5).
-- An ADR: analysis writes none; `mod-002` owes the ADR-0018 amendment and
-  the soft-deactivation ADR, `mod-NNN-keycloak-user-projection` the
-  projection's, all bound by § Roles.
+- An ADR: analysis writes none; `mod-002` owes the soft-deactivation ADR,
+  `mod-016-organization-access` the ADR-0018 amendment (doc-010 D-25),
+  `mod-NNN-keycloak-user-projection` the projection's, all bound by § Roles.
 
 ## Decomposition for the backlog
 
-`mod-002-organizations-projects-teams` is queued and keeps its name; its
-scope grows as below. The Keycloak user projection is a line of its own
-(doc-010 D-9), which mod-002's member search depends on.
+`mod-002-organizations-projects-teams` is queued and keeps its name; on
+2026-09-25 the human split it (doc-010 D-25): mod-002 founds M1's structure,
+the new `mod-016-organization-access` its access. The Keycloak user
+projection is a line of its own (doc-010 D-9), which mod-016's member search
+depends on.
 
 | id | Task | size | deps |
 |----|------|------|------|
 | `mod-NNN-keycloak-user-projection` | Founds the USER projection and the Keycloak event-listener provider that feeds it (user created, updated, disabled, deleted), with a backfill of existing users; member search and the active/inactive status read it; no admin-API call from shipping code, ADR-0023's guards unchanged; owes the ADR for the provider and the projection (§ Roles, constraint 5) | L | doc-006-org-access, doc-010-backlog-normalization-product-plan |
-| `mod-002-organizations-projects-teams` (queued) | Founds all of M1: Organization with its lifecycle; `ORG_MEMBERSHIP` with the admin/member/viewer role and who/when; the derivation of organization-scoped codes replacing realm roles and the ADR-0018 amendment bound by § Roles constraints 1–8 (scope attribute, resource-based check with the ownership predicate, codes served to the panel, realm role inventory); the soft-deactivation ADR; the instance-level "create organizations" gate; member management with the last-administrator and inactive-account rules over the projection; Project with its key, its teams — create, rename, default area, delete with the cascade — and its root area; the area tree with team ownership; the organization settings screen `mod-004` extends. Stories US-1..US-7 | L | doc-006-org-access, mod-001-process-seed, mod-NNN-keycloak-user-projection, doc-010-backlog-normalization-product-plan |
+| `mod-002-organizations-projects-teams` (queued) | Founds M1's structure: Organization with its lifecycle and the soft-deactivation ADR; the instance-level "create organizations" realm role (D-10); Project with its key, its teams — create, rename, default area, delete with the cascade — and its root area; the area tree with team ownership; the organization settings screen `mod-004` extends; calls `mod-001`'s seed at organization creation; every endpoint under the authenticated-only guard until `mod-016` retrofits the scoped codes. Stories US-1, US-2, US-5..US-7 as far as they need no role | L | doc-006-org-access, mod-001-process-seed |
+| `mod-016-organization-access` (queued) | Founds M1's access: `ORG_MEMBERSHIP` with the admin/member/viewer role and who/when; team membership; the derivation of organization-scoped codes replacing realm roles and the ADR-0018 amendment bound by § Roles constraints 1–8 (scope attribute, resource-based check with the ownership predicate, codes served to the panel, realm role inventory); member management with the last-administrator and inactive-account rules over the projection; the retrofit of the scoped checks onto every endpoint that exists when it merges; the «не в организации» assignee marking. Stories US-3, US-4 and the team-membership scenarios of US-6 | L | mod-002-organizations-projects-teams, mod-NNN-keycloak-user-projection |
 
-Priority: `mod-NNN-keycloak-user-projection` runs beside `mod-001`, both
-ahead of `mod-002`; M3 (`mod-003-work-item-core`) and everything downstream
-depend on `mod-002`. Release-2 items above are deliberately not queued.
+Priority: `mod-NNN-keycloak-user-projection` runs beside `mod-001`, and
+`mod-002` may start beside them (doc-010 D-25); `mod-016` follows `mod-002`
+and `mod-NNN-keycloak-user-projection`; M3 (`mod-003-work-item-core`)
+depends on `mod-002` and the projection, and the lines that need roles
+(`mod-005`, `feat-002`) on `mod-016`. Release-2 items above are deliberately
+not queued.
 
 ## Open questions
 

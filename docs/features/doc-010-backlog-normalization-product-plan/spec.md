@@ -62,7 +62,7 @@ Scope: doc-001 § MVP boundary and release plan, the MVP table's rows M0–M6, a
 
 | MS | Demo-able state | Lines |
 |---|---|---|
-| MS-1 | «Организация, проект, команды, процесс засеян»: an organization with its process, members found in the Keycloak directory, a keyed project with teams, default areas and areas | mod-NNN-keycloak-user-projection, mod-001, mod-002 |
+| MS-1 | «Организация, проект, команды, процесс засеян»: an organization with its process, members found in the Keycloak directory, a keyed project with teams, default areas and areas | mod-014-keycloak-user-projection, mod-001, mod-002, mod-016-organization-access |
 | MS-2 | «Рабочие элементы с историей, комментариями, вложениями, корзиной»: the full work item, list filters, delete/restore/purge | mod-003, feat-001, feat-002, feat-007, mod-005, mod-004, feat-003 |
 | MS-3 | «Доски и бэклоги по уровням»: boards and ordered backlogs for every team, create from a team surface, hierarchy, filter bar | mod-006, feat-004, feat-NNN-board-backlog-filter |
 | MS-4 | «Итерации и планирование»: tree, planning pane, iteration filter, moving unfinished work. **MVP complete** | mod-007, feat-008, feat-009, feat-010 |
@@ -92,18 +92,21 @@ Reading the table:
 - Rows with `NNN` are new.
 - Deps follow PR-3 and are normative for the queue. Where an amended decomposition row lists more deps (doc-002's feat-003 row, doc-004's mod-012 row, doc-006's mod-002 row), PR-3's minimal set wins.
 - doc-010 is not a queue line; it is shown as the head of the graph.
+- Rows added after the merge (D-25, D-27) carry their decision in the source column.
 
 | id | Title (≤ 12 words) | epic | size | deps | rel | MS | source |
 |---|---|---|---|---|---|---|---|
 | doc-010-backlog-normalization-product-plan | Cross-module review, queue normalization, product plan (in flight) | product/analysis | L | doc-002, …, doc-007 | MVP | head | D-1 |
-| mod-NNN-keycloak-user-projection | Keycloak user projection: event-listener provider, backfill, M1 directory | core/org-access | L | doc-006, doc-010 | MVP | MS-1 | D-9, N-6 |
+| mod-014-keycloak-user-projection | Keycloak user projection: event-listener provider, backfill, M1 directory | core/org-access | L | doc-006, doc-010 | MVP | MS-1 | D-9, N-6 |
 | mod-001-process-seed | Seeded process: keyed types, D-4 states, categories, read-only screen* | core/process-customization* | L | doc-007, doc-010 | MVP | MS-1 | doc-007 row; D-4, D-5, N-3, N-27 |
-| mod-002-organizations-projects-teams | Organizations, membership, keyed projects, teams with deletion, areas* | core/org-access* | L | mod-001, mod-NNN-keycloak-user-projection* | MVP | MS-1 | doc-006 row; D-6, D-7, D-9..D-11, N-5, N-12 |
-| mod-003-work-item-core | Work item form, list, identifier, tags, history; two ADRs* | core/work-items | L | mod-002, doc-002* | MVP | MS-2 | doc-002 row; D-8, N-15..N-17, N-33 |
+| mod-015-app-shell-design-system | App shell, MUI theme, screen patterns, prototype; existing screens restyled | platform/ui | L | doc-001, doc-010 | MVP | MS-1 (alongside; gates mod-002's frontend) | D-27 |
+| mod-002-organizations-projects-teams | M1 structure: organizations, keyed projects, teams with deletion, areas; authenticated-only guard* | core/org-access* | L | mod-001* | MVP | MS-1 | doc-006 row; D-6, D-7, D-9..D-11, N-5, N-12; D-25; D-27 (its frontend stage waits for mod-015) |
+| mod-016-organization-access | Membership, roles, scoped codes, ADR-0018 amendment, retrofit of checks | core/org-access | L | mod-002, mod-014 | MVP | MS-1 | D-25 |
+| mod-003-work-item-core | Work item form, list, identifier, tags, history; two ADRs* | core/work-items | L | mod-002, mod-014, doc-002* | MVP | MS-2 | doc-002 row; D-8, N-15..N-17, N-33; D-25 |
 | feat-001-work-item-links | Parent/Child links with atomic replace-parent* | core/work-items | M | mod-003 | MVP | MS-2 | doc-002 row; N-14, N-18 |
-| feat-002-work-item-comments | Comments: own edits under the ownership predicate, moderation* | core/work-items | M | mod-003 | MVP | MS-2 | doc-002 row; D-11, N-17 |
+| feat-002-work-item-comments | Comments: own edits under the ownership predicate, moderation* | core/work-items | M | mod-003, mod-016* | MVP | MS-2 | doc-002 row; D-11, N-17; D-25 |
 | feat-007-work-item-type-fields | «Критерии приёмки» and «Шаги воспроизведения» rich-text fields* | core/work-items | M | mod-003 | MVP | MS-2 | doc-002 row; N-22 |
-| mod-005-work-item-delete-restore | Delete to «Удалена», restore, org-admin purge; recycle-bin ADR* | core/work-items | L | mod-003 | MVP | MS-2 | doc-002 row; D-13, N-12, N-22 |
+| mod-005-work-item-delete-restore | Delete to «Удалена», restore, org-admin purge; recycle-bin ADR* | core/work-items | L | mod-003, mod-016* | MVP | MS-2 | doc-002 row; D-13, N-12, N-22; D-25 |
 | mod-004-work-item-attachments | Attachments on the organization's Google Drive; storage ADR* | core/work-items | L | mod-005* | MVP | MS-2 | doc-002 row; D-11, N-22 |
 | feat-003-work-item-search | List filters incl. «Удалена», former members, keyword* | core/work-items | M | mod-005* | MVP | MS-2 | doc-002 row; D-14 |
 | mod-006-boards-backlogs | Boards and backlogs for every team; create from team surfaces* | core/backlogs-boards* | L | mod-005, doc-003* | MVP | MS-3 | doc-003 row; D-4..D-7, D-19, N-30 |
@@ -115,7 +118,7 @@ Reading the table:
 | feat-010-move-unfinished-work | «Перенести незавершённые» | core/iterations-planning* | M | feat-009 | MVP | MS-4 | doc-004 row |
 | doc-NNN-release-2-scope | Release-2 scope: owners for orphan items, double claims settled | product/analysis | L | doc-010 | R2 | MS-5 (entry) | D-18, N-26 |
 | mod-008-queries-dashboards | Saved queries: Under, keyword, personal code, admin purge* | core/queries-dashboards* | L | feat-003, mod-007, doc-005, doc-NNN-release-2-scope* | R2 | MS-5 | doc-005 row; D-6, D-11..D-13, D-16, N-33 |
-| feat-NNN-work-item-estimation-fields | Estimation fields, ADO Agile set, on История, Баг, Задача | core/work-items | M | mod-003, doc-NNN-release-2-scope | R2 | MS-6 | D-15, N-24 |
+| feat-NNN-work-item-estimation-fields | Estimation fields, the Agile process set, on История, Баг, Задача | core/work-items | M | mod-003, doc-NNN-release-2-scope | R2 | MS-6 | D-15, N-24 |
 | mod-011-sprint-views | Sprint backlog and taskboard | core/iterations-planning* | L | feat-004, feat-009, feat-NNN-work-item-estimation-fields* | R2 | MS-6 | doc-004 row; N-24, N-33 |
 | feat-011-sprint-capacity | Sprint capacity per member and activity | core/iterations-planning* | M | mod-011 | R2 | MS-6 | doc-004 row |
 | mod-012-iteration-metrics | Burndown and velocity; history-derived metrics ADR | core/iterations-planning* | L | mod-011 | R2 | MS-6 | doc-004 row; N-24 |
@@ -126,7 +129,7 @@ Reading the table:
 | feat-012-backlog-forecast | Forecast the backlog by velocity | core/iterations-planning* | M | mod-012 | R3 | MS-8 | doc-004 row |
 | mod-013-delivery-plans | Organization-owned delivery plans across the organization's projects* | core/iterations-planning* | L | mod-007, mod-006 | R3 | MS-8 | doc-004 row; N-31 |
 
-**Totals:** 29 lines — the 25 lines on `main`, all kept, plus 4 new. No existing size changes: every founder and every ADR owner is L, and so is the release-2 scoping line (PR-2); every other line is M.
+**Totals:** 31 lines — the 25 lines on `main`, all kept, plus the 4 new lines of this task and 2 more added 2026-09-25 (mod-015, mod-016; D-25, D-27). No existing size changes: every founder and every ADR owner is L, and so is the release-2 scoping line (PR-2); mod-015 and mod-016 are also L; every other line is M.
 
 ### Queue operations
 
@@ -147,7 +150,7 @@ Run in `main`, in this order, after gate-1.
 Rule and decision ids in a line are cited in their post-N-32 form (PR-8): bare BR-n is doc-001's, a module rule is BR-M<k>-n, and a decision carries its task id.
 
 - **E-1 mod-001:** desc → "MVP. Founds M2: the five built-in types with keys EPIC/FEAT/US/TASK/BUG (doc-002 W-11), ordered states per doc-010 D-4 (Задача per doc-002 W-2), the five categories with Russian labels (doc-010 D-5), backlog levels with rank and kind, seeded per organization, plus the read-only process screen; registers process.definition.read; no editing UI"; epic → core/process-customization.
-- **E-2 mod-002:** desc → "MVP. Founds M1: organizations (the create right is granted by a Keycloak realm administrator, doc-010 D-10), ORG_MEMBERSHIP with admin/member/viewer and who/when, the last-admin and «неактивен» rules, member search on the user projection; projects with an immutable key (doc-002 W-10); teams: create, rename, membership, per-team default area (doc-010 D-7), soft delete with cascade (doc-010 D-6); the area tree, root owned by the first team; soft deactivate/restore; the organization settings screen mod-004 extends; owes the ADR-0018 amendment (doc-006 constraints 1–8, ownership predicate doc-010 D-11) and the soft-deactivation ADR"; epic → core/org-access; deps → `mod-001,mod-<A-1>` (doc-006 and doc-010 are reached through A-1).
+- **E-2 mod-002:** desc → "MVP. Founds M1: organizations (the create right is granted by a Keycloak realm administrator, doc-010 D-10), ORG_MEMBERSHIP with admin/member/viewer and who/when, the last-admin and «неактивен» rules, member search on the user projection; projects with an immutable key (doc-002 W-10); teams: create, rename, membership, per-team default area (doc-010 D-7), soft delete with cascade (doc-010 D-6); the area tree, root owned by the first team; soft deactivate/restore; the organization settings screen mod-004 extends; owes the ADR-0018 amendment (doc-006 constraints 1–8, ownership predicate doc-010 D-11) and the soft-deactivation ADR"; epic → core/org-access; deps → `mod-001,mod-<A-1>` (doc-006 and doc-010 are reached through A-1) — superseded in part by D-25 (2026-09-25): ORG_MEMBERSHIP, roles and the ADR-0018 amendment move to `mod-016-organization-access`; mod-002 keeps only the structure named above, and its deps become `mod-001` alone.
 - **E-3 mod-003:** desc → "MVP. Founds M3: create dialog, form and common field set, state changes, the identifier КЛЮЧПРОЕКТА-ТИП-№ resolved inside the organization (doc-010 D-8), stored project tags, the list surface, history, the M3 data model, assignee markings, the area-deletion check counting every item; owes the history/audit ADR (scoped for BR-M1-15, Was Ever, metrics) and the client-visible concurrency-token ADR"; deps → `mod-002,doc-002` (N-33).
 - **E-4 feat-001:** desc → "MVP. Parent/Child links across the five types with BR-M3-8's refusals, the atomic replace-parent the backlog mapping uses, unlinking from a deleted parent (BR-M3-9); no link write on a «Удалена» item (doc-001 BR-14)".
 - **E-5 feat-002:** desc → "MVP. Обсуждение: add; edit or delete one's own comment under the ownership predicate (doc-010 D-11) with an edited marker; admin moderation; history (BR-M3-12); no comment on a «Удалена» item (doc-001 BR-14)".
@@ -175,12 +178,17 @@ Rule and decision ids in a line are cited in their post-N-32 form (PR-8): bare B
 
 ## Critical path and parallelism
 
-The graph shows the target deps, omitting merged spec tasks other than doc-010: rectangles are MVP lines, stadium shapes are release 2/3 lines, and red marks the critical path to MVP.
+The graph shows the target deps, omitting merged spec tasks other than doc-010: rectangles are MVP lines, stadium shapes are release 2/3 lines, and red marks the critical path to MVP. The dotted edge is a stage gate, not a queue dep: mod-002's frontend stage waits for mod-015's merge (D-27).
 
 ```mermaid
 flowchart LR
-    d010[doc-010] --> m001[mod-001 process seed] & kup[mod-NNN keycloak-user-projection] & r2s([R2 doc-NNN release-2-scope])
-    m001 & kup --> m002[mod-002 org access] --> m003[mod-003 work item core]
+    d010[doc-010] --> m001[mod-001 process seed] & kup[mod-014 keycloak-user-projection] & r2s([R2 doc-NNN release-2-scope]) & m015[mod-015 app shell]
+    d010 --> m002[mod-002 org structure]
+    m001 --> m002
+    m015 -.->|frontend stage only| m002
+    m002 --> m003[mod-003 work item core] & m016[mod-016 org access]
+    kup --> m016
+    m016 --> m005 & f002
     m003 --> f001[feat-001 links] & f002[feat-002 comments] & f007[feat-007 type fields] & m005[mod-005 delete restore] & m007[mod-007 iterations] & est([R2 feat-NNN estimation fields])
     m005 --> m004[mod-004 attachments] & f003[feat-003 list filters] & m006[mod-006 boards backlogs]
     m006 --> f004[feat-004 hierarchy] & bbf[feat-NNN board-backlog-filter] & f009[feat-009 planning pane] & m013([R3 mod-013 delivery plans])
@@ -196,15 +204,15 @@ flowchart LR
     m008 --> m009([R3 mod-009 dashboards]) & f005([R3 feat-005 csv]) & m010
     m009 --> f006([R3 feat-006 charts])
     classDef crit stroke:#c00,stroke-width:3px
-    class d010,kup,m001,m002,m003,m005,m006,f009,f010 crit
+    class d010,kup,m001,m002,m003,m016,m005,m006,f009,f010 crit
 ```
 
 **Paths to the milestones.** Every path starts at doc-010; `∥` means "in parallel".
 
 | MS | Path | Alongside, off the path |
 |---|---|---|
-| MS-1 | doc-010 → mod-001 ∥ mod-NNN-keycloak-user-projection → mod-002 | — |
-| MS-2 | … → mod-002 → mod-003 → mod-005 → mod-004 ∥ feat-003 | feat-001, feat-002, feat-007 next to mod-005 |
+| MS-1 | doc-010 → mod-001 ∥ mod-014 ∥ mod-002 → mod-016 | mod-015 alongside; it gates mod-002's frontend stage (D-27), so it is off the path only while it merges no later than mod-002's backend stage |
+| MS-2 | … → mod-002 → mod-003 ∥ mod-016 → mod-005 → mod-004 ∥ feat-003 | feat-001, feat-002, feat-007 next to mod-005 |
 | MS-3 | … → mod-005 → mod-006 → feat-004 ∥ feat-NNN-board-backlog-filter | — |
 | MS-4 (MVP) | … → mod-006 → feat-009 → feat-010 | tied: … → mod-006 → feat-NNN-board-backlog-filter → feat-008; mod-007 follows mod-003 with one wave of slack (it must merge before feat-009) |
 | MS-5 | … → feat-003 → mod-008 | doc-NNN-release-2-scope, any time after doc-010 |
@@ -217,17 +225,16 @@ flowchart LR
 | Wave | MVP | Release 2 | Release 3 |
 |---|---|---|---|
 | 1 | doc-010 (in flight) | | |
-| 2 | mod-001, mod-NNN-keycloak-user-projection | doc-NNN-release-2-scope | |
-| 3 | mod-002 | | |
-| 4 | mod-003 | | |
-| 5 | mod-005, mod-007, feat-001, feat-002, feat-007 | feat-NNN-work-item-estimation-fields | |
-| 6 | mod-006, mod-004, feat-003 | | |
-| 7 | feat-004, feat-009, feat-NNN-board-backlog-filter | mod-008 | mod-013 |
-| 8 | feat-008, feat-010 | mod-011 | mod-009, feat-005, mod-010 |
-| 9 | | feat-011, mod-012 | feat-006 |
-| 10 | | | feat-012 |
+| 2 | mod-001, mod-014, mod-002, mod-015 | doc-NNN-release-2-scope | |
+| 3 | mod-003, mod-016 | | |
+| 4 | mod-005, mod-007, feat-001, feat-002, feat-007 | feat-NNN-work-item-estimation-fields | |
+| 5 | mod-006, mod-004, feat-003 | | |
+| 6 | feat-004, feat-009, feat-NNN-board-backlog-filter | mod-008 | mod-013 |
+| 7 | feat-008, feat-010 | mod-011 | mod-009, feat-005, mod-010 |
+| 8 | | feat-011, mod-012 | feat-006 |
+| 9 | | | feat-012 |
 
-**Critical path to MVP.** After doc-010, the path runs 5 L cycles — mod-001 (or the projection), mod-002, mod-003, mod-005, mod-006 — and 2 M cycles — feat-009, feat-010 — in series. That is 21 human stops: 2 for doc-010 (gate-1 and gate-3), 3 for each L (15) and 2 for each M (4; an M shows gate-1 and gate-2 as one package, routing.md § Route shortcuts). The whole MVP is 8 L and 9 M lines, so up to 42 stops plus doc-010's 2 (an L with no screen has no gate-2; the projection may be one). The depth stays 7, as before normalization: the projection runs in parallel with mod-001, and the filter split sits beside feat-003.
+**Critical path to MVP.** After doc-010, the path runs 4 L waves — mod-001 with mod-002 beside it, mod-003 with mod-016 beside it, mod-005, mod-006 — and 2 M cycles — feat-009, feat-010 — in series. That is 16 human stops on the path after doc-010's 2 (3 per L wave counted once, 2 per M; an M shows gate-1 and gate-2 as one package, routing.md § Route shortcuts). The whole MVP is now 10 L and 9 M lines, so up to 48 stops plus doc-010's 2 (an L with no screen has no gate-2; the projection may be one). The depth is 6, one less than before the split (D-25): mod-002 no longer waits for mod-001, and mod-016 runs beside mod-003. By D-27, mod-002's frontend stage starts only after mod-015 merges: where mod-015 is the slower of the two, the first wave lasts mod-015's whole cycle plus mod-002's frontend stage; the count of L waves does not change.
 
 ## ADR debt
 
@@ -235,8 +242,9 @@ Each ADR has exactly one owner (PR-4).
 
 | ADR topic | Owning line | What it must decide |
 |---|---|---|
-| ADR-0018 amendment: organization-scoped codes | mod-002 | doc-006 constraints 1–8: every code carries a scope; the admin/member/viewer realm roles leave; the contract tests are restated; M0 is unchanged. Constraint 5 names the user projection. Resolution chains for WorkItem, Iteration, Board, BacklogEntry, Query and Dashboard, with "not found" for non-members. Codes reach the panel from Mustask.Api. The realm role inventory (a Keycloak realm administrator grants "create organizations", D-10). The ownership predicate: the code first, then an optional ownership check on the resolved object (D-11, D-12). |
-| Keycloak user projection | mod-NNN-keycloak-user-projection | The event-listener provider as a deployable; the push channel, its authentication and its secret; a backfill without admin REST calls; idempotency and ordering; behaviour while MUSTASK is unreachable. It states that ADR-0023's guards are unchanged (D-9). |
+| ADR-0018 amendment: organization-scoped codes | mod-016 | doc-006 constraints 1–8: every code carries a scope; the admin/member/viewer realm roles leave; the contract tests are restated; M0 is unchanged. Constraint 5 names the user projection. Resolution chains for WorkItem, Iteration, Board, BacklogEntry, Query and Dashboard, with "not found" for non-members. Codes reach the panel from Mustask.Api. The realm role inventory (a Keycloak realm administrator grants "create organizations", D-10). The ownership predicate: the code first, then an optional ownership check on the resolved object (D-11, D-12). |
+| Keycloak user projection | mod-014-keycloak-user-projection | The event-listener provider as a deployable; the push channel, its authentication and its secret; a backfill without admin REST calls; idempotency and ordering; behaviour while MUSTASK is unreachable. It states that ADR-0023's guards are unchanged (D-9). |
+| Application shell and visual language | mod-015-app-shell-design-system | The shell and the visual language of the panel: the context-in-address rule for pages that need an organization, project or team (mod-015 D-7, BR-18); «not found» added to ADR-0007's screen-state canon; the appearance tokens, a closed set whose values `app/theme` holds and which mod-001's seed names (mod-015 D-6); the reflow gap below 640 CSS px (WCAG 1.4.10, mod-015 D-8). |
 | Soft deactivation by status | mod-002 | Status-based soft removal, hidden from lists, per entity as doc-001 § Deletion lifecycle states it: organization and project with restore and their name (and a project's key) reserved; team with a cascade, no restore and its name freed, deletion confirmed first (D-6, D-23; doc-006 BR-M1-18). Iterations (no restore, name freed) and M6 reuse it. |
 | History / audit | mod-003 | The revision structure. It anticipates BR-M1-15 (R2), Was Ever (mod-010), the metrics (mod-012) and "parent purged". |
 | Client-visible concurrency token | mod-003 | The exception to ADR-0010's "xmin never exposed", for doc-001 BR-11's operation → policy table. mod-006 and mod-008 reuse it. |
@@ -246,17 +254,17 @@ Each ADR has exactly one owner (PR-4).
 | Instance-rights screen (ADR-0018, R2) | the line doc-NNN-release-2-scope creates | release-2-scope must name exactly one owner. |
 | Schema-flexible field values (R3) | doc-007 row mod-NNN-process-custom-fields (unqueued, D-21) | As doc-007 states. |
 
-No ADR is owed by the feat-* lines or by mod-001, mod-006, mod-007, mod-008 (it applies mod-002's predicate), mod-009, mod-010, mod-011 or mod-013. ADR-0023 stays unchanged (D-9).
+No ADR is owed by the feat-* lines or by mod-001, mod-006, mod-007, mod-008 (it applies mod-016's predicate), mod-009, mod-010, mod-011 or mod-013. ADR-0023 stays unchanged (D-9).
 
 ## Permission codes
 
-The analysis-level catalog (N-9): [B § Permission codes](cross-review/B-access-roles.md#permission-codes) with its duplicates and orphans settled by cross-review N-9 — a code guards the entity an operation writes, and each code has one owning line. Each founder fixes the exact strings. mod-NNN-keycloak-user-projection registers none; doc-NNN-release-2-scope names the codes of the lines it adds.
+The analysis-level catalog (N-9): [B § Permission codes](cross-review/B-access-roles.md#permission-codes) with its duplicates and orphans settled by cross-review N-9 — a code guards the entity an operation writes, and each code has one owning line. Each founder fixes the exact strings. mod-014-keycloak-user-projection registers none; doc-NNN-release-2-scope names the codes of the lines it adds.
 
 | Code | Owning line | Release |
 |---|---|---|
 | `dictionaries.languages.read/write` | M0 (exists) | — |
 | `organizations.organization.create` (instance level) | mod-002 | MVP |
-| `organizations.{organization, project}.read/write/deactivate`; `organizations.membership.read/write`; `organizations.area.read/write`; `organizations.team.read/write` (team write: create, rename, membership, default area, delete) | mod-002 | MVP |
+| `organizations.{organization, project}.read/write/deactivate`; `organizations.membership.read/write`; `organizations.area.read/write`; `organizations.team.read/write` (team write: create, rename, membership, default area, delete) | mod-016 (mod-002's endpoints run under the authenticated-only guard until then) | MVP |
 | `process.definition.read` | mod-001 | MVP |
 | `workitems.workitem.read/write` (write also covers card drag, create from a board, pointer writes, pane drop, bulk move, CSV import) | mod-003 | MVP |
 | `workitems.link.write` (feat-004 reuses it) | feat-001 | MVP |
@@ -291,7 +299,7 @@ These are the plan's business rules; they hold from gate-1 onward.
 
 | # | Rule | Source |
 |---|------|--------|
-| PR-1 | One founder per module or sub-slice: exactly one `mod-` L line creates it, and every other line of the module reaches that founder through deps. M1: mod-002; its user-directory sub-slice: mod-NNN-keycloak-user-projection, which lands first and so opens M1's code slice — its design fixes the module skeleton mod-002 extends. M2: mod-001. M3: mod-003. M4: mod-006. M5: mod-007. M6: mod-008. Patterns and sub-slices: mod-004, mod-005, mod-009..mod-013. | N-33 |
+| PR-1 | One founder per module or sub-slice: exactly one `mod-` L line creates it, and every other line of the module reaches that founder through deps. M1: mod-002 (`Features/Organizations`); its user-directory sub-slice: mod-014-keycloak-user-projection (`Features/UserDirectory`), which is self-contained — it neither founds nor needs M1's code skeleton, which mod-002 founds (mod-014 D-6). Its access sub-slice: mod-016-organization-access, which follows mod-002 and mod-014 and retrofits the scoped checks onto every endpoint that exists when it merges (D-25). M2: mod-001. M3: mod-003. M4: mod-006. M5: mod-007. M6: mod-008. Patterns and sub-slices: mod-004, mod-005, mod-009..mod-013. | N-33; mod-014 D-6 |
 | PR-2 | A line is L if it is a founder, owns an ADR or crosses an L threshold; otherwise it is ≤ M; a doubt means L. An analysis line is sized by what it decides: one that scopes authorization rules or assigns an ADR is L (as doc-006 and doc-010 were). | routing.md |
 | PR-3 | Deps are minimal and complete. Every capability a line uses comes from a line it reaches. No listed code dep is reachable through another. The spec task owning the line's decomposition row is listed, unless a listed code line of the same module already depends on it. doc-010 is listed only where nothing else reaches it. No capability is queued after its consumer. | N-21, N-33 |
 | PR-4 | Every ADR has exactly one owning line, named in its description. An ADR discovered during work goes to the orchestrator. | N-6, N-12, N-16 |

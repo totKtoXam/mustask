@@ -42,7 +42,7 @@ gate-3: approved (2026-09-24, human in chat, "Approved, squash")
   MVP stories (doc-001 MVP table, M1: "no notifications").
 - gate-2 is inapplicable (no screens) and is not listed in `gates:`.
 - An analysis task writes no ADR: the ADR-0018 amendment stays owed by
-  `mod-organizations-projects-teams` (doc-001, decomposition (b)).
+  `mod-organizations-projects-teams` (doc-001, decomposition (b)). — superseded by doc-010 D-25 (2026-09-25): the ADR-0018 amendment moves to `mod-016-organization-access`; `mod-002` keeps only the soft-deactivation ADR
 - H-1 (Q-1/R-8, 2026-09-24) An organization left with no usable administrator has no recovery path in MVP — deferred by the human; the case is recorded in spec.md as a known limitation (accepted risk), not solved. The concurrency rule that keeps the last administrator (R-8) is still stated, it is correctness, not this decision.
 - H-2 (R-2) Organization names are public within the instance: a name-conflict refusal may say the name is taken. BR-M1-8's invisibility covers an organization's content (projects, members, work items), not the existence of its name.
 - H-3 (R-3) The M1 audit log is release 2, built on the audit/history ADR owed by `mod-work-item-core`, not a second mechanism; MVP keeps only who/when on the membership record itself. No separate audit queue line.
@@ -83,6 +83,7 @@ gate-3: approved (2026-09-24, human in chat, "Approved, squash")
 
 - 2026-09-24 [orchestrator] gate-3: approved by the human in chat; stage: complete; local squash via scripts/finish-task.sh
 - 2026-09-25 [doc-010] amended: Context, § Roles (instance roles, constraint 1 scope attribute, constraint 5 user projection, new constraints 6–8, codes table, team membership carries no access), stories table, BPMN + team-deletion flow, lifecycle, ER (PROJECT.key, TEAM name/status, TEAM default area, PROJECT–TEAM one or more), BR-M1-1/2/7/9/11/13/14/17 rewritten, new BR-M1-18 (team deletion), Operation completeness, NFR, MVP/Release 2, Out of scope, Decomposition (+ mod-NNN-keycloak-user-projection), US-1..US-7 (cross-review N-2, N-3, N-5..N-8, N-10..N-14, N-19, N-20, N-26, N-28, N-29; doc-010 D-6, D-7, D-9, D-10, D-11, D-13, D-18); also § Open questions; also § Open questions
+- 2026-09-28 [tech-001] amended: § Decomposition — mod-002 split into structure (mod-002) and access (mod-016-organization-access) per doc-010 D-25; the ADR ownership sentence above it
 
 ## Notes
 
