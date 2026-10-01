@@ -383,6 +383,19 @@ if [ "$need_shell" = 1 ]; then
             note "  NOT CHECKED: no PowerShell, invoke-sh.ps1 cases not run"
         fi
     fi
+
+    # handoff.sh: which task a short id resolves to (bug-001).
+    touches_handoff=0
+    for file in $changed; do
+        case "$file" in scripts/handoff.sh|scripts/tests/handoff-cases.sh) touches_handoff=1 ;; esac
+    done
+    if [ "$touches_handoff" = 1 ]; then
+        if sh scripts/tests/handoff-cases.sh; then
+            pass "handoff.sh: short-id resolution cases"
+        else
+            fail "handoff.sh: short-id resolution cases"
+        fi
+    fi
 fi
 
 # --- CI ----------------------------------------------------------------------------

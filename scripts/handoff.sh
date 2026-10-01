@@ -104,9 +104,11 @@ fi
 if [ -z "$id" ]; then
     id=$(ls -1 "$main_worktree/docs/features" 2>/dev/null | grep -m1 -E "^$short-" || true)
 fi
+# The branch keeps the id's own prefix: numbers are per prefix
+# (docs/features/numbering.md), so mod-001 and doc-001 are different tasks.
 if [ -z "$id" ]; then
     id=$(git -C "$main_worktree" branch --format='%(refname:short)' 2>/dev/null \
-        | grep -m1 -E "^[a-z]+/${short#*-}-" | sed 's|/|-|' || true)
+        | grep -m1 -E "^${short%%-*}/${short#*-}-" | sed 's|/|-|' || true)
 fi
 [ -n "$id" ] || die "No task '$short' — not in the queue of main, not in docs/features/,
 no branch holds it. What exists:
