@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Процесс — прототип экрана (mod-001-process-seed)</title>
+<!--
+  Prototype of the read-only process-definition screen, design.md of
+  mod-001-process-seed. One self-contained file: no network, no external
+  fonts or scripts (the prototype stays local, like mod-015 BR-17).
+
+  Layout A  = the panel's current AppLayout (the default, mod-001 merges first).
+  Layout B  = how the same screen sits in mod-015's shell and canon frames.
+  Layout B colours and icons are illustrative: their values belong to
+  app/theme (mod-015 BR-4), not to this file. Data = doc-007 "MVP: the
+  seeded process". The controls bar above the frame is not part of the screen.
+-->
+<style>
+  :root { font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif; color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #d9d9d9; color: #1c1c1c; font-size: 14px; line-height: 1.5; }
+
+  /* ---- prototype controls (not part of the screen) ---- */
+  .proto-bar { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; gap: 8px 24px;
+    padding: 8px 16px; background: #fff; border-bottom: 1px solid #999; align-items: center; }
+  .proto-bar fieldset { border: 0; margin: 0; padding: 0; display: flex; gap: 12px; align-items: center; }
+  .proto-bar legend { float: left; font-weight: 600; margin-right: 8px; padding: 0; }
+  .proto-bar label { cursor: pointer; white-space: nowrap; }
+  .proto-note { margin: 12px 16px 0; font-size: 12px; color: #444; max-width: 110ch; }
+  .stage { padding: 12px 16px 32px; overflow-x: auto; }
+  .frame { margin: 0 auto; background: #fff; border: 1px solid #888; box-shadow: 0 2px 8px #0003; }
+  .frame.wide { width: 1280px; }
+  .frame.narrow { width: 760px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  /* ---- shared screen parts ---- */
+  .content { container-type: inline-size; container-name: content; }
+  .page-title { margin: 0 0 8px; font-weight: 400; font-size: 24px; line-height: 1.33; }
+  .page-title:focus { outline: none; }
+  .lead { margin: 0 0 4px; color: #5a5a5a; }
+  .cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; margin-top: 16px; }
+  @container content (min-width: 880px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .card { background: #fff; border-radius: 4px; display: flex; flex-direction: column; min-width: 0; }
+  .card-head { padding: 12px 16px 8px; }
+  .card h2, .card h3 { margin: 0 0 4px; font-size: 18px; font-weight: 500; line-height: 1.4; display: flex; align-items: center; gap: 8px; }
+  .facts { display: flex; flex-wrap: wrap; gap: 0 24px; margin: 0; }
+  .facts div { display: flex; gap: 6px; }
+  .facts dt { color: #5a5a5a; }
+  .facts dd { margin: 0; }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { padding: 6px 16px; text-align: left; border-top: 1px solid #e0e0e0; vertical-align: middle; height: 36px; }
+  thead th { color: #5a5a5a; font-weight: 500; }
+  tbody th { font-weight: 400; }
+  td.order, th.order { width: 1%; white-space: nowrap; }
+  .state-name { display: inline-flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+  .chip { display: inline-block; padding: 0 8px; font-size: 12px; line-height: 20px; border: 1px solid #8a8a8a; border-radius: 10px; color: #333; }
+  .frame-state { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 64px 16px; }
+  .frame-state h2 { margin: 12px 0 4px; font-size: 20px; font-weight: 500; }
+  .frame-state p { margin: 0 0 16px; color: #5a5a5a; }
+  .frame-state svg { width: 40px; height: 40px; fill: #8a8a8a; }
+  .btn { font: inherit; border: 1px solid #8a8a8a; background: #fff; padding: 5px 16px; border-radius: 4px; cursor: pointer; color: inherit; text-decoration: none; display: inline-block; }
+  .btn-text { border-color: transparent; background: none; font-weight: 500; text-transform: uppercase; font-size: 13px; letter-spacing: .04em; }
+  .alert { display: flex; align-items: flex-start; gap: 12px; padding: 8px 16px; margin-top: 16px; border-radius: 4px; background: #fdeded; color: #5f2120; }
+  .alert .msg { flex: 1; padding: 4px 0; }
+  .alert strong { display: block; font-weight: 600; }
+  .alert .btn-text { color: inherit; }
+  .sk { display: block; height: 20px; border-radius: 4px; background: linear-gradient(90deg, #e3e3e3, #f1f1f1, #e3e3e3); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  @media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
+
+  /* ---- layout A: the panel's current AppLayout (default MUI look) ---- */
+  .a-appbar { display: flex; align-items: center; gap: 16px; height: 64px; padding: 0 24px; background: #1976d2; color: #fff; }
+  .a-appbar h1 { margin: 0 auto 0 0; font-size: 20px; font-weight: 500; }
+  .a-appbar .btn { color: #fff; border-color: transparent; background: none; }
+  .a-body { display: flex; min-height: 640px; }
+  .a-drawer { width: 240px; flex: none; border-right: 1px solid #e0e0e0; padding: 8px 0; }
+  .a-drawer a { display: block; padding: 8px 16px; color: inherit; text-decoration: none; }
+  .a-main { flex: 1; min-width: 0; padding: 24px; background: #fafafa; }
+  .a-main .card { box-shadow: 0 1px 3px #0003; }
+
+  /* ---- layout B: mod-015 shell and canon (illustrative values) ---- */
+  .b { --accent: #0f62a8; --bg: #f3f3f3; --nav: #e9e9e9; --divider: #d0d0d0;
+    --tok-epic: #b4520b; --tok-feature: #7b3fa0; --tok-story: #00798c; --tok-task: #876900; --tok-bug: #b3261e;
+    --cat-Proposed: #6b6b6b; --cat-InProgress: #4f46b8; --cat-Resolved: #b95c00; --cat-Completed: #2e7d32; --cat-Removed: #455a64; }
+  .b-top { display: flex; align-items: center; gap: 16px; height: 48px; padding: 0 16px; background: #fff; border-bottom: 1px solid var(--divider); }
+  .b-top .mark { font-weight: 600; color: inherit; text-decoration: none; }
+  .b-top .switch { display: flex; gap: 8px; }
+  .b-top .switch span { border: 1px solid var(--divider); border-radius: 4px; padding: 2px 10px; color: #333; }
+  .b-top .trail { margin-left: 8px; color: #5a5a5a; }
+  .b-top .avatar { margin-left: auto; width: 32px; height: 32px; border-radius: 50%; background: #14315a; color: #fff; display: grid; place-items: center; font-size: 12px; }
+  .b-top .menu-btn { display: none; }
+  .b-body { display: flex; min-height: 640px; background: var(--bg); }
+  .b-rail { width: 56px; flex: none; background: var(--nav); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; }
+  .b-rail span { width: 40px; height: 40px; border-radius: 4px; display: grid; place-items: center; font-size: 11px; color: #333; }
+  .b-rail span[aria-current] { background: #fff; box-shadow: inset 3px 0 0 var(--accent); }
+  .b-settings { width: 224px; flex: none; background: var(--nav); border-left: 1px solid var(--divider); padding: 12px 0; }
+  .b-settings h2 { margin: 0 16px 8px; font-size: 16px; }
+  .b-settings .sec { margin: 12px 16px 4px; color: #5a5a5a; font-size: 12px; text-transform: none; }
+  .b-settings a { display: block; padding: 6px 16px; color: inherit; text-decoration: none; }
+  .b-settings a[aria-current] { background: #fff; box-shadow: inset 3px 0 0 var(--accent); }
+  .b-main { flex: 1; min-width: 0; padding: 16px 24px; }
+  .b-main .card { border: 1px solid var(--divider); }
+  .b-main .page-title { font-size: 20px; font-weight: 500; }
+  .tok { width: 22px; height: 22px; border-radius: 4px; display: inline-grid; place-items: center; color: #fff; background: var(--c); flex: none; }
+  .tok svg { width: 14px; height: 14px; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--c); margin-right: 8px; flex: none; }
+  .dot.hollow { background: none; border: 2px solid var(--c); }
+  .cat { display: inline-flex; align-items: center; }
+  .b .alert a { color: inherit; }
+  .b .btn-text { color: var(--accent); }
+  .b .alert .btn-text { color: inherit; }
+  .b .frame-state .btn { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .frame.narrow.b .b-rail, .frame.narrow.b .b-settings { display: none; }
+  .frame.narrow.b .b-top .menu-btn { display: inline-block; }
+  .frame.narrow.b .b-top .switch span:nth-child(n+2) { display: none; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar" role="group" aria-label="Prototype controls">
+  <fieldset><legend>Layout</legend>
+    <label><input type="radio" name="mode" value="a" checked> A: current AppLayout</label>
+    <label><input type="radio" name="mode" value="b"> B: mod-015 shell and canon frames</label>
+  </fieldset>
+  <fieldset><legend>State</legend>
+    <label><input type="radio" name="state" value="content" checked> Content</label>
+    <label><input type="radio" name="state" value="loading"> Loading</label>
+    <label><input type="radio" name="state" value="error"> Read failed</label>
+    <label><input type="radio" name="state" value="notfound"> Organization not found</label>
+  </fieldset>
+  <fieldset><legend>Width</legend>
+    <label><input type="radio" name="width" value="wide" checked> Wide, 1280 px</label>
+    <label><input type="radio" name="width" value="narrow"> Narrow, 760 px</label>
+  </fieldset>
+  <fieldset><legend>Context (layout B)</legend>
+    <label><input type="radio" name="context" value="real" checked> Real, after mod-002</label>
+    <label><input type="radio" name="context" value="placeholder"> Placeholder, before mod-002</label>
+  </fieldset>
+</div>
+<p class="proto-note">
+  Prototype of one read-only screen, <code>/organizations/:organizationId/settings/process</code>. The strings inside
+  the frame are the final interface copy of design.md. Layout B colours and icons are illustrative: app/theme (mod-015)
+  decides their values. Nothing here seeds, edits or deletes anything: the screen has no such control.
+  In the Read failed state, «Повторить» runs the loading state and then shows the content.
+  In layout B, the placeholder context draws what the built screen does before mod-002 (design.md, Two renderings
+  point 2; status.md D-15): the shell treats this address as outside the current selection, so there is no
+  «Меню настроек», no trail and no rail mark, and the «Процесс» entry is hidden (mod-015 BR-8). The real context draws
+  what appears once mod-002 makes addresses set the selection: «Меню настроек» with «Процесс» current, the trail
+  «Настройки / Организация» and «Настройки» current in the rail. «Организация не найдена» is drawn without
+  «Меню настроек», without a trail and with nothing current in the rail, in both contexts.
+</p>
+
+<div class="stage"><div id="frame" class="frame wide"></div></div>
+
+<script>
+"use strict";
+
+const CATEGORY_LABEL = {
+  Proposed: "Новые", InProgress: "В работе", Resolved: "Решённые", Completed: "Завершённые", Removed: "Удалённые"
+};
+
+const STORY_STATES = [["Новая", "Proposed"], ["Активна", "InProgress"], ["Разрешена", "InProgress"], ["Закрыта", "Completed"], ["Удалена", "Removed"]];
+
+// Order: backlog level rank, highest first; within «Истории» the story before the bug (design.md DD-2).
+const TYPES = [
+  { name: "Эпик", key: "EPIC", level: "Эпики", token: "epic", states: STORY_STATES },
+  { name: "Фича", key: "FEAT", level: "Фичи", token: "feature", states: STORY_STATES },
+  { name: "Пользовательская история", key: "US", level: "Истории", token: "story", states: STORY_STATES },
+  { name: "Баг", key: "BUG", level: "Истории", token: "bug",
+    states: [["Новая", "Proposed"], ["Активна", "InProgress"], ["Разрешена", "Resolved"], ["Закрыта", "Completed"], ["Удалена", "Removed"]] },
+  { name: "Задача", key: "TASK", level: "Задачи", token: "task",
+    states: [["Новая", "Proposed"], ["Активна", "InProgress"], ["Закрыта", "Completed"], ["Удалена", "Removed"]] }
+];
+
+const GLYPH = {
+  epic: '<path d="M1 10 2 3.5 4.5 6 6 2 7.5 6 10 3.5 11 10z" fill="currentColor"/>',
+  feature: '<path d="M3 1.5h6V4a3 3 0 0 1-6 0zM5.2 7h1.6v1.8H9V10.5H3V8.8h2.2z" fill="currentColor"/>',
+  story: '<path d="M1.5 2.5h4v7.5h-4zM6.5 2.5h4v7.5h-4z" fill="currentColor"/>',
+  task: '<path d="M2.5 2.5h7v7h-7z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="m4 6 1.6 1.6L8.2 4.6" fill="none" stroke="currentColor" stroke-width="1.2"/>',
+  bug: '<circle cx="6" cy="7" r="3" fill="currentColor"/><path d="M4 3 5.3 4.4M8 3 6.7 4.4M1 6.5h2M9 6.5h2M2 10l1.6-1.2M10 10 8.4 8.8" fill="none" stroke="currentColor" stroke-width="1"/>'
+};
+
+const ICON_NOT_FOUND = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14"/></svg>';
+
+const state = { mode: "a", state: "content", width: "wide", context: "real", retrying: false };
+
+function esc(text) {
+  return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// --- the page body, identical in structure in both layouts ------------------
+
+function pageHeading(mode, text) {
+  return mode === "b" ? `<h1 class="page-title" tabindex="-1">${text}</h1>` : `<h2 class="page-title" tabindex="-1">${text}</h2>`;
+}
+
+function description() {
+  return `<p class="lead">Типы рабочих элементов организации, их статусы и уровни бэклога. Процесс задан системой и доступен только для просмотра.</p>
+          <p class="lead">Категория показывает, к какой стадии работы относится статус. У разных типов один и тот же статус может относиться к разным категориям.</p>`;
+}
+
+function typeMark(type, mode) {
+  // Layout B: the token drawn through the theme (icon + colour, no token name as text).
+  return mode === "b"
+    ? `<span class="tok" style="--c: var(--tok-${type.token})" aria-hidden="true"><svg viewBox="0 0 12 12">${GLYPH[type.token]}</svg></span>`
+    : "";
+}
+
+function categoryCell(code, mode) {
+  const label = CATEGORY_LABEL[code];
+  if (mode !== "b") return label;
+  const hollow = code === "Removed" ? " hollow" : "";
+  return `<span class="cat"><span class="dot${hollow}" style="--c: var(--cat-${code})" aria-hidden="true"></span>${label}</span>`;
+}
+
+function typeCard(type, mode) {
+  const level = mode === "b" ? "h2" : "h3";
+  const id = `type-${type.key}`;
+  const token = mode === "b" ? "" : `<div><dt>Оформление</dt><dd>${type.token}</dd></div>`;
+  const rows = type.states.map(([name, code], index) => `
+      <tr>
+        <td class="order">${index + 1}</td>
+        <th scope="row"><span class="state-name">${esc(name)}${index === 0 ? '<span class="chip">Начальный</span>' : ""}</span></th>
+        <td>${categoryCell(code, mode)}</td>
+      </tr>`).join("");
+  return `
+    <section class="card" aria-labelledby="${id}">
+      <div class="card-head">
+        <${level} id="${id}">${typeMark(type, mode)}${esc(type.name)}</${level}>
+        <dl class="facts">
+          <div><dt>Ключ</dt><dd>${type.key}</dd></div>
+          <div><dt>Уровень бэклога</dt><dd>${esc(type.level)}</dd></div>
+          ${token}
+        </dl>
+      </div>
+      <div class="table-wrap">
+        <table aria-label="Статусы типа «${esc(type.name)}»">
+          <thead><tr><th class="order" scope="col">Порядок</th><th scope="col">Статус</th><th scope="col">Категория статуса</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </section>`;
+}
+
+function contentBody(mode) {
+  return `${pageHeading(mode, "Процесс")}${description()}<div class="cards">${TYPES.map((t) => typeCard(t, mode)).join("")}</div>`;
+}
+
+function loadingBody(mode) {
+  const card = `
+    <section class="card">
+      <div class="card-head"><span class="sk" style="width: 55%; height: 24px"></span><span class="sk" style="width: 80%; margin-top: 8px"></span></div>
+      <div class="table-wrap"><table><thead><tr><th class="order">Порядок</th><th>Статус</th><th>Категория статуса</th></tr></thead>
+        <tbody>${[0, 1, 2, 3].map(() => '<tr><td class="order"><span class="sk" style="width: 16px"></span></td><td><span class="sk"></span></td><td><span class="sk"></span></td></tr>').join("")}</tbody>
+      </table></div>
+    </section>`;
+  return `${pageHeading(mode, "Процесс")}${description()}
+    <div role="status" aria-label="Загрузка данных" class="cards">${card.repeat(5)}</div>`;
+}
+
+function errorBody(mode) {
+  return `${pageHeading(mode, "Процесс")}${description()}
+    <div class="alert" role="alert">
+      <div class="msg"><strong>Не удалось загрузить процесс</strong>Сервис временно недоступен, повторите позже.</div>
+      <button class="btn btn-text" type="button" data-action="retry">Повторить</button>
+    </div>`;
+}
+
+function notFoundBody(mode) {
+  const heading = mode === "b" ? "h1" : "h2";
+  return `<div class="frame-state">${ICON_NOT_FOUND}
+      <${heading} tabindex="-1">Организация не найдена</${heading}>
+      <p>Проверьте адрес или вернитесь на главную.</p>
+      <a class="btn" href="#" data-action="home">На главную</a>
+    </div>`;
+}
+
+function body(mode) {
+  if (state.retrying || state.state === "loading") return loadingBody(mode);
+  if (state.state === "error") return errorBody(mode);
+  if (state.state === "notfound") return notFoundBody(mode);
+  return contentBody(mode);
+}
+
+// --- the two frames ----------------------------------------------------------
+
+function layoutA() {
+  return `
+    <div class="a-appbar"><h1>Mustask</h1><span>Иван Петров</span><button class="btn" type="button">Выйти</button></div>
+    <div class="a-body">
+      <nav class="a-drawer" aria-label="Основное меню"><a href="#">Главная</a><a href="#">Языки</a></nav>
+      <main class="a-main content">${body("a")}</main>
+    </div>`;
+}
+
+function layoutB() {
+  const notFound = state.state === "notfound";
+  const real = state.context === "real";
+  const title = notFound ? "Организация не найдена — Mustask" : "Процесс — Mustask";
+  // Before mod-002 (placeholder context) the shell treats this address as outside the current selection:
+  // no «Меню настроек», no trail, no rail mark (design.md point 2, status.md D-15).
+  // Once mod-002 makes addresses set the selection (real context) they appear: the trail «Настройки / Организация»,
+  // «Меню настроек» with «Процесс» current on its own address, «Настройки» current in the rail.
+  // Not found has no trail (mod-015 US-2), no «Меню настроек» and no rail mark in either context: nothing is
+  // current beside the not-found frame (plan-frontend § 6.3 row 3, design.md point 10).
+  const trail = real && !notFound ? '<nav class="trail" aria-label="Путь к странице">Настройки / Организация</nav>' : "";
+  const settingsMenu = real && !notFound
+    ? `<nav class="b-settings" aria-label="Меню настроек"><h2>Настройки</h2>
+        <div class="sec">Организация</div><a href="#" aria-current="page">Процесс</a>
+        <div class="sec">Справочники</div><a href="#">Языки</a>
+      </nav>`
+    : "";
+  const railCurrent = real && !notFound ? ' aria-current="true"' : "";
+  return `
+    <header class="b-top">
+      <button class="btn menu-btn" type="button">Меню</button>
+      <a class="mark" href="#">Mustask</a>
+      <div class="switch" aria-label="Контекст"><span>Организация ▾</span><span>Проект ▾</span><span>Команда ▾</span></div>
+      ${trail}
+      <span class="avatar" title="Профиль: Иван Петров">ИП</span>
+    </header>
+    <div class="b-body">
+      <nav class="b-rail" aria-label="Основное меню"><span title="Главная">Гл</span><span${railCurrent} title="Настройки">Нс</span></nav>
+      ${settingsMenu}
+      <main class="b-main content" data-tab-title="${title}">${body("b")}</main>
+    </div>`;
+}
+
+function render() {
+  const frame = document.getElementById("frame");
+  frame.className = `frame ${state.width} ${state.mode}`;
+  frame.innerHTML = state.mode === "b" ? layoutB() : layoutA();
+  const tab = frame.querySelector("[data-tab-title]");
+  document.title = tab ? `Прототип: ${tab.dataset.tabTitle}` : "Процесс — прототип экрана (mod-001-process-seed)";
+}
+
+document.querySelectorAll('input[type="radio"]').forEach((input) => {
+  input.addEventListener("change", () => {
+    state[input.name] = input.value;
+    state.retrying = false;
+    render();
+  });
+});
+
+document.getElementById("frame").addEventListener("click", (event) => {
+  const target = event.target.closest("[data-action]");
+  if (!target) return;
+  event.preventDefault();
+  if (target.dataset.action === "retry") {
+    state.retrying = true;
+    render();
+    setTimeout(() => {
+      state.retrying = false;
+      state.state = "content";
+      document.querySelector('input[name="state"][value="content"]').checked = true;
+      render();
+      const heading = document.querySelector("#frame .page-title");
+      if (heading) heading.focus();   // focus is not lost with the removed «Повторить»
+    }, 900);
+  }
+});
+
+render();
+</script>
+</body>
+</html>

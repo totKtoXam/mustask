@@ -6,6 +6,7 @@ using Mustask.Api.Authentication;
 using Mustask.Api.Authentication.Readiness;
 using Mustask.Api.Authorization;
 using Mustask.Api.Features.Dictionaries;
+using Mustask.Api.Features.Process;
 using Mustask.Api.Features.Session;
 using Gridify;
 using Mustask.Application;
@@ -70,6 +71,17 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 
 builder.AddInfrastructure();
 builder.Services.AddApplication();
+
+// mod-001 (status.md D-4): the Development stand seeds one process for a fixed
+// demonstration organization at start, so the read-only process screen has data
+// before organization creation exists. Development only -- never AppHost, never
+// another environment. Registered after AddInfrastructure on purpose: hosted
+// services start in registration order, and the dictionaries seed with its
+// migrations guard must run first. mod-002 removes this line (mod-002 D-h).
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHostedService<DemonstrationProcessSeed>();
+}
 
 builder.Services.AddOpenApi();
 
@@ -278,6 +290,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapDictionaryEndpoints();
+app.MapProcessEndpoints();
 app.MapSessionEndpoints();
 
 app.Run();

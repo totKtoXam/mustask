@@ -109,6 +109,52 @@ public sealed class MigrationsTests : IAsyncLifetime
         }
     }
 
+    private static readonly string[] ProcessTables = ["processes", "backlog_levels", "work_item_types", "state_definitions"];
+
+    /// <summary>
+    /// mod-001-process-seed, "Migrations (DoD)": AddProcessDefinitions creates the
+    /// four M2 tables, rolling back to the migration before it removes exactly
+    /// those and leaves the earlier ones, and reapplying brings them back. The
+    /// target of the rollback is whatever precedes AddProcessDefinitions in the
+    /// migration list, found by this migration's name and never hard-coded, so a
+    /// migration that lands before this one does not break the test.
+    /// </summary>
+    [Fact]
+    public async Task Migrator_AddProcessDefinitions_CreatesTheFourTables_AndRollbackRemovesThem()
+    {
+        using var context = CreateContext();
+        await context.Database.MigrateAsync();
+
+        foreach (var table in ProcessTables)
+        {
+            Assert.True(await TableExistsAsync(context, table), $"Process table '{table}' must exist after AddProcessDefinitions.");
+        }
+
+        var migrations = context.Database.GetMigrations().ToList();
+        var index = migrations.FindIndex(id => id.EndsWith("_AddProcessDefinitions", StringComparison.Ordinal));
+        Assert.True(index > 0, "AddProcessDefinitions must come after at least one migration.");
+
+        var migrator = context.GetService<IMigrator>();
+        await migrator.MigrateAsync(migrations[index - 1]);
+
+        foreach (var table in ProcessTables)
+        {
+            Assert.False(await TableExistsAsync(context, table), $"Rolling back AddProcessDefinitions must drop '{table}'.");
+        }
+
+        foreach (var table in DictionaryTables)
+        {
+            Assert.True(await TableExistsAsync(context, table), $"Rolling back AddProcessDefinitions must keep '{table}'.");
+        }
+
+        await context.Database.MigrateAsync();
+
+        foreach (var table in ProcessTables)
+        {
+            Assert.True(await TableExistsAsync(context, table), $"Reapplying AddProcessDefinitions must recreate '{table}'.");
+        }
+    }
+
     private static async Task<bool> TableExistsAsync(MustaskDbContext context, string tableName)
     {
         var connection = context.Database.GetDbConnection();

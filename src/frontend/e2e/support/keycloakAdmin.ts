@@ -115,35 +115,54 @@ export interface EphemeralUser {
   username: string;
 }
 
+/**
+ * Creates a throwaway user with the complete profile the realm requires (see
+ * above) and returns its id, which Keycloak gives only in `Location`. Joins
+ * no group: the callers decide that.
+ */
+async function createProfiledUser(
+  keycloakUrl: string,
+  realm: string,
+  authHeader: { Authorization: string },
+  user: { username: string; lastName: string; description: string },
+): Promise<string> {
+  const { username, lastName, description } = user;
+  const createResponse = await fetch(`${nodeUrl(keycloakUrl)}/admin/realms/${realm}/users`, {
+    method: 'POST',
+    headers: { ...authHeader, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      username,
+      enabled: true,
+      emailVerified: true,
+      email: `${username}@stand.local`,
+      firstName: 'E2E',
+      lastName,
+    }),
+  });
+  if (createResponse.status !== 201) {
+    throw new Error(
+      `Could not create the ephemeral ${description} '${username}': HTTP ${createResponse.status} ${await createResponse.text()}`,
+    );
+  }
+  // Keycloak returns the new user's id only in `Location`, no body.
+  const location = createResponse.headers.get('location');
+  const userId = location?.split('/').pop();
+  if (!userId) {
+    throw new Error(`Keycloak created '${username}' but returned no Location header to read its id from.`);
+  }
+  return userId;
+}
+
 export async function createEphemeralReaderUser(keycloakUrl: string, realm: string): Promise<EphemeralUser> {
   return withStandFile(async (stand) => {
     const token = await getServiceAccountToken(keycloakUrl, realm, stand);
     const authHeader = { Authorization: `Bearer ${token}` };
     const username = `e2e-permission-check-${Date.now()}`;
-
-    const createResponse = await fetch(`${nodeUrl(keycloakUrl)}/admin/realms/${realm}/users`, {
-      method: 'POST',
-      headers: { ...authHeader, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username,
-        enabled: true,
-        emailVerified: true,
-        email: `${username}@stand.local`,
-        firstName: 'E2E',
-        lastName: 'Reader',
-      }),
+    const userId = await createProfiledUser(keycloakUrl, realm, authHeader, {
+      username,
+      lastName: 'Reader',
+      description: 'reader user',
     });
-    if (createResponse.status !== 201) {
-      throw new Error(
-        `Could not create the ephemeral reader user '${username}': HTTP ${createResponse.status} ${await createResponse.text()}`,
-      );
-    }
-    // Keycloak returns the new user's id only in `Location`, no body.
-    const location = createResponse.headers.get('location');
-    const userId = location?.split('/').pop();
-    if (!userId) {
-      throw new Error(`Keycloak created '${username}' but returned no Location header to read its id from.`);
-    }
 
     const groupPath = READER_GROUP_PATH.split('/')
       .filter((segment) => segment.length > 0)
@@ -165,6 +184,27 @@ export async function createEphemeralReaderUser(keycloakUrl: string, realm: stri
       throw new Error(`Could not add '${username}' to group '${READER_GROUP_PATH}': HTTP ${joinResponse.status}`);
     }
 
+    return { id: userId, username };
+  });
+}
+
+/**
+ * The process-definition spec (20, mod-001 US-2 "Every signed-in user sees
+ * the same definition"): a throwaway user in no group at all, so its token
+ * carries no `mustask-api` code. Same profile, same `manage-users` right and
+ * the same cleanup duty (`deleteEphemeralUser`, then `userExistsById`) as
+ * `createEphemeralReaderUser` above.
+ */
+export async function createEphemeralUserWithoutGroup(keycloakUrl: string, realm: string): Promise<EphemeralUser> {
+  return withStandFile(async (stand) => {
+    const token = await getServiceAccountToken(keycloakUrl, realm, stand);
+    const authHeader = { Authorization: `Bearer ${token}` };
+    const username = `e2e-no-group-${Date.now()}`;
+    const userId = await createProfiledUser(keycloakUrl, realm, authHeader, {
+      username,
+      lastName: 'NoGroup',
+      description: 'user without a group',
+    });
     return { id: userId, username };
   });
 }

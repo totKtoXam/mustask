@@ -5,6 +5,7 @@ import {
   useState,
   type MouseEvent,
   type ReactElement,
+  type Ref,
 } from 'react';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -52,6 +53,12 @@ export interface PageHeaderProps {
   /** Secondary commands: text buttons with a leading icon, in this order. */
   commands?: readonly Command[];
   views?: readonly PageView[];
+  /**
+   * A handle on the title, for a page that moves focus to it — after a retry
+   * that succeeded (mod-001 design § Focus and announcements). Given, the
+   * `h1` takes the ref and `tabIndex={-1}`; absent, the title is as before.
+   */
+  titleRef?: Ref<HTMLHeadingElement>;
 }
 
 /** Class names the tests and later patterns can address. */
@@ -80,6 +87,7 @@ export function PageHeader({
   primaryAction,
   commands = NO_COMMANDS,
   views,
+  titleRef,
 }: PageHeaderProps) {
   useDocumentTitle(title);
   const { registerHeader, trail, trailPlacement } = usePageChrome();
@@ -107,6 +115,8 @@ export function PageHeader({
           variant="h1"
           component="h1"
           id={titleId}
+          ref={titleRef}
+          tabIndex={titleRef ? -1 : undefined}
           sx={{ flex: '0 1 auto', minWidth: 0, overflowWrap: 'anywhere' }}
         >
           {title}

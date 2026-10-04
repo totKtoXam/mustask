@@ -47,11 +47,14 @@ function labels(model: ReturnType<typeof visibleModel>): string[] {
 }
 
 describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () => {
+  // mod-001 plan-frontend § 8.4: «Процесс» exists now, so it is no longer a
+  // page that does not exist, and «Организация» holds a built page — shown
+  // once the context is real, still hidden on the placeholder dataset.
   it.each([
-    ['any code, placeholder context', allowEverything, placeholder],
-    ['any code, even a real context', allowEverything, real],
-    ['no code at all', (() => false) as AccessCheck, placeholder],
-  ])('shows only this task’s pages — %s', (_case, access, context) => {
+    ['any code, placeholder context', allowEverything, placeholder, true],
+    ['any code, even a real context', allowEverything, real, false],
+    ['no code at all', (() => false) as AccessCheck, placeholder, true],
+  ])('shows only this task’s pages — %s', (_case, access, context, organizationHidden) => {
     const visible = visibleModel(navigationModel, access, context);
     const shown = [...labels(visible), ...visible.settings.map(({ section }) => section.label)];
 
@@ -61,21 +64,70 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () =>
       'Бэклоги',
       'Спринты',
       'Запросы',
-      'Организация',
       'Проект',
-      'Процесс',
+      ...(organizationHidden ? ['Организация', 'Процесс'] : []),
     ]) {
       expect(shown).not.toContain(label);
     }
   });
 
-  it('registers only built pages: «Главная» and «Справочники» → «Языки»', () => {
+  it('registers only built pages: «Главная», «Организация» → «Процесс» and «Справочники» → «Языки»', () => {
     const registered = [
       ...navigationModel.top,
       ...navigationModel.work,
       ...navigationModel.settings.flatMap((section) => section.entries),
     ];
-    expect(registered.map((entry) => entry.label)).toEqual(['Главная', 'Языки']);
+    expect(registered.map((entry) => entry.label)).toEqual(['Главная', 'Процесс', 'Языки']);
+  });
+});
+
+/** The «Процесс» entry as the model registers it (mod-001 D-5). */
+function processEntry(): NavigationEntry {
+  const section = navigationModel.settings.find((candidate) => candidate.id === 'organization');
+  const entry = section?.entries.find((candidate) => candidate.id === 'process');
+  if (!entry) throw new Error('«Процесс» is not registered under «Организация».');
+  return entry;
+}
+
+const DEMONSTRATION_ID = 'd0000000-0000-4000-8000-000000000001';
+
+describe('mod-001 US-2 Scenario: The read’s code is registered, and nothing grants it yet (frontend half)', () => {
+  it('declares exactly process.definition.read, organization-scoped, on the «Процесс» entry', () => {
+    expect(processEntry().permission).toBe('process.definition.read');
+    expect(processEntry().scope).toBe('organization');
+  });
+});
+
+describe('mod-001 US-2 Scenario: No visible entry or link leads to the screen before mod-002', () => {
+  it('holds «Процесс» under «Настройки» → «Организация», landing on the organization’s process address', () => {
+    const section = navigationModel.settings.find((candidate) => candidate.id === 'organization');
+
+    expect(section?.label).toBe('Организация');
+    expect(section?.entries.map((entry) => entry.label)).toEqual(['Процесс']);
+    expect(processEntry().landing({ organizationId: DEMONSTRATION_ID })).toBe(
+      `/organizations/${DEMONSTRATION_ID}/settings/process`,
+    );
+    expect(processEntry().landing({ organizationId: 'a/b' })).toBe(
+      '/organizations/a%2Fb/settings/process',
+    );
+    expect(processEntry().landing({})).toBeNull();
+  });
+
+  it.each([
+    ['every code', allowEverything],
+    ['no code', (() => false) as AccessCheck],
+  ])('is hidden on the placeholder dataset — %s', (_case, access) => {
+    expect(isEntryVisible(processEntry(), access, placeholder)).toBe(false);
+    const visible = visibleModel(navigationModel, access, placeholder);
+    expect(labels(visible)).not.toContain('Процесс');
+  });
+
+  it('is shown once the context is real, and «Настройки» then opens it first (BR-19)', () => {
+    const visible = visibleModel(navigationModel, allowEverything, real);
+
+    expect(isEntryVisible(processEntry(), allowEverything, real)).toBe(true);
+    expect(visible.settings[0]?.section.label).toBe('Организация');
+    expect(visible.settingsLanding).toBe('/organizations/org-1/settings/process');
   });
 });
 

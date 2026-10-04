@@ -31,6 +31,14 @@ The seeding rule of Decision 5 still applies to the languages seed
 (`contracts/dictionaries/languages.json`). The first dictionary with
 translatable fields brings the rest back as described below.
 
+Added 2026-10-04, after the date above. Work item types and their states
+are not dictionaries: from mod-001-process-seed on they are process data
+stored per organization, with Russian names and no translation table
+([doc-007](../features/doc-007-process-customization/spec.md),
+[mod-001-process-seed](../features/mod-001-process-seed/spec.md)). This
+pattern does not apply to them, although the Problem and the Decision
+below still name them as examples.
+
 ## Problem
 
 MUSTASK has to speak more than one language (Russian and Kazakh on par,

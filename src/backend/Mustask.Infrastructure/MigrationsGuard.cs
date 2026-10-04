@@ -4,10 +4,12 @@ using Npgsql;
 namespace Mustask.Infrastructure;
 
 /// <summary>
-/// ADR-0002: migrations are applied explicitly, never at startup. Every
-/// hosted seeder (`DictionarySeeder`) checks this first, so
-/// a fresh, unmigrated database fails with an actionable message instead of
-/// a raw "relation does not exist".
+/// ADR-0002: migrations are applied explicitly, never at startup. The
+/// dictionaries seeder (`DictionarySeeder`) checks this first, so a fresh,
+/// unmigrated database fails the start with an actionable message instead of
+/// a raw "relation does not exist". The Development demonstration seed
+/// (mod-001) does not call it: it reads <see cref="MigrationsState"/> instead
+/// and skips while the schema is behind this build.
 /// </summary>
 internal static class MigrationsGuard
 {

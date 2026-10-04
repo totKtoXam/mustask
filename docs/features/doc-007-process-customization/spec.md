@@ -54,12 +54,11 @@ erDiagram
     WORK_ITEM_TYPE {
         string name "Russian display name, D-12"
         string key "EPIC | FEAT | US | TASK | BUG, fixed by the seed (BR-M2-9)"
-        string icon
-        string colour
+        string appearance "one token: epic | feature | story | task | bug, unique in the process (mod-001 D-6)"
     }
     STATE_DEFINITION {
         string name "Russian label"
-        string category "Proposed | InProgress | Resolved | Completed | Removed"
+        string category "the category code: Proposed | InProgress | Resolved | Completed | Removed (mod-001 D-6)"
         int order "first = initial state (BR-M2-2)"
     }
     BACKLOG_LEVEL {
@@ -83,9 +82,19 @@ MVP entities (doc-001's cross-module model); `FIELD_DEFINITION`,
 vocabulary for the future editor. Until then every field is M3-fixed and
 catalogued in doc-002 § Fields — in MVP the common set plus the two
 type-specific fields (doc-002 W-5), in release 2 also the estimation fields
-(doc-010 D-15) — and none of them is an M2 concept. `WORK_ITEM_TYPE`'s
-`icon` and `colour` are set by the seed for the five built-in types and not
-editable in MVP (P-5).
+(doc-010 D-15) — and none of them is an M2 concept.
+
+`WORK_ITEM_TYPE` stores no icon or colour of its own. Each type stores
+exactly one appearance token from the closed set `epic`, `feature`, `story`,
+`task`, `bug`, and no two types share one. The seed sets it for the five
+built-in types, and it is not editable in MVP (P-5). What a token looks like
+is the panel theme's concern, not M2's (mod-015 BR-4), so restyling a type
+needs no change to any seeded process. `STATE_DEFINITION` stores its
+category as the category code (`Proposed`, `InProgress`, `Resolved`,
+`Completed`, `Removed`). The Russian category label is derived from that
+code and never stored (doc-010 D-5). Both points were amended by
+`mod-001-process-seed` (its status.md D-6), and they replace the icon and
+colour that P-5 originally named.
 
 **Direction (R-5).** M2 needs nothing from M1 (doc-001 § Module order): the
 seed takes the owning organization's identifier from its caller and keeps it
@@ -111,7 +120,7 @@ MVP also ships one read-only **process-definition screen**, reached from a
 project (doc-001 US-3: "the project's work item type list"; the exact
 navigation is `mod-001-process-seed`'s design) (R-6): it lists the five types
 with their key, ordered state list, initial state, the Russian label of each
-state's category, fixed icon/colour and backlog level; no control on it
+state's category, fixed appearance token and backlog level; no control on it
 creates, renames or deletes anything. This makes `mod-001-process-seed` a
 full-stack slice — the seed logic plus this one screen.
 
@@ -125,6 +134,10 @@ ordered by rank, highest first, and each has a kind (BR-M2-4):
 | «Фичи» | 3 | portfolio | Фича (`FEAT`) |
 | «Истории» | 2 | requirement | Пользовательская история (`US`), Баг (`BUG`) |
 | «Задачи» | 1 | task | Задача (`TASK`) |
+
+Each type's appearance token is fixed by the seed: Эпик `epic`, Фича
+`feature`, Пользовательская история `story`, Задача `task`, Баг `bug`
+(§ "Logical model"; mod-001 D-6).
 
 The five categories are fixed; each has one Russian label, shown on the
 process-definition screen and in the glossary (doc-001), and used by M4 as
@@ -201,9 +214,10 @@ model works (P-3).
   to exactly one backlog level (BR-M2-4), carries a key unique in the
   process (BR-M2-9), and every declared state maps to a fixed category
   (doc-001 BR-2) — never valid mid-edit with an unmapped state.
-  Where a custom type's icon/colour come from, and whether release 3 makes
-  the built-in ones editable, is not decided here (P-5 covers MVP only) — a
-  question for release 3's own analysis.
+  Which appearance token a custom type gets, whether custom types may share
+  a token, and whether release 3 makes the built-in tokens editable, is not
+  decided here (P-5 covers MVP only) — a question for release 3's own
+  analysis.
 - **Custom fields.** Kinds proposed after Azure DevOps's
   (`../doc-001-domain-map/research/ado-boards.md` § "Fields"), plus boolean,
   which that note does not list: text (single/multi-line), rich text,
@@ -306,8 +320,8 @@ that reason, and its number is not reused.
 - Test Case, Test Plan, Test Suite and Issue types, and anything under
   Azure DevOps's Repos/Pipelines/Test Plans
   (`../doc-001-domain-map/spec.md` § "Out of scope").
-- Editing a type's icon or colour in MVP — fixed by the seed (P-5); release
-  3 is left open (§ "Release 3", Custom work item types).
+- Editing a type's appearance token in MVP — fixed by the seed (P-5);
+  release 3 is left open (§ "Release 3", Custom work item types).
 - Migrating an organization's already-seeded process when release 3 ships —
   a defined upgrade path is release 3's own design-stage question, not
   analysed here.

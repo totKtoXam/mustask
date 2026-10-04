@@ -41,6 +41,7 @@ guarantees it exists and differs from the Russian, not its quality
 |http.request_failed|any|Не удалось обработать запрос.|Сұранысты өңдеу мүмкін болмады.|assigned by HTTP status|—|needs review|
 |http.service_unavailable|503|Сервис временно недоступен, повторите позже.|Қызмет уақытша қолжетімсіз, кейінірек қайталаңыз.|assigned by HTTP status|—|needs review|
 |http.unauthorized|401|Требуется аутентификация.|Аутентификация қажет.|assigned by HTTP status|—|needs review|
+|organizations.organization.not_found|404|Организация не найдена.|Ұйым табылмады.|organizations|—|needs review|
 |session.anonymous|401|Вы не вошли в систему.|Сіз жүйеге кірмегенсіз.|session|—|needs review|
 |session.expired|401|Сессия истекла. Войдите заново.|Сессия мерзімі аяқталды. Қайта кіріңіз.|session|—|needs review|
 |session.invalid_return_url|400|Недопустимый адрес возврата после входа.|Кіргеннен кейінгі қайту мекенжайы жарамсыз.|session|—|needs review|

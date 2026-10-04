@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createRef } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AddIcon from '@mui/icons-material/Add';
 import FilterListOffIcon from '@mui/icons-material/FilterListOff';
@@ -154,5 +155,36 @@ describe('US-7 Scenario: One frame for the full-area states', () => {
     expect(action.querySelector('.MuiButton-startIcon svg')).not.toBeNull();
     await userEvent.click(action);
     expect(onClick).toHaveBeenCalledTimes(1);
+  });
+});
+
+// mod-001 review round 1 F4: a page moves focus to the not-found frame's
+// heading when a retry ends in not found, as P-2 did for the page title.
+describe('The heading as a focus target (mod-001 review round 1 F4)', () => {
+  it('hands the not-found h1 to headingRef with tabIndex -1, so it takes focus by script only', () => {
+    const headingRef = createRef<HTMLHeadingElement>();
+    renderRouted(<NotFound level="organization" headingRef={headingRef} />);
+
+    const heading = screen.getByRole('heading', { level: 1, name: 'Организация не найдена' });
+    expect(headingRef.current).toBe(heading);
+    expect(heading).toHaveAttribute('tabindex', '-1');
+    act(() => headingRef.current?.focus());
+    expect(heading).toHaveFocus();
+  });
+
+  it('leaves the heading unfocusable, as before, without headingRef', () => {
+    renderRouted(
+      <>
+        <NotFound level="page" />
+        <StateFrame icon={InboxOutlinedIcon} heading="Справочник пуст" />
+      </>,
+    );
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Страница не найдена' }),
+    ).not.toHaveAttribute('tabindex');
+    expect(screen.getByRole('heading', { level: 2, name: 'Справочник пуст' })).not.toHaveAttribute(
+      'tabindex',
+    );
   });
 });

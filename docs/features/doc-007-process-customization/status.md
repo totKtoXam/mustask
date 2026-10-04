@@ -78,6 +78,7 @@ Defaults proposed by the orchestrator, confirmed by the human at gate-1 (2026-09
 - 2026-09-24 [orchestrator] stages 3–7 skipped (docs task: no screens, no code); gate-3 requested
 - 2026-09-24 [orchestrator] gate-3: approved by the human in chat; stage: complete; local squash via scripts/finish-task.sh (no remote)
 - 2026-09-25 [doc-010] amended: § Roles (`process.definition.read`, non-member «Организация не найдена»), logical model (WORK_ITEM_TYPE key, STATE_DEFINITION order, BACKLOG_LEVEL rank/kind, field note), § MVP seeded process (state table per D-4, «Ключ», rank/kind, category labels, one-label-two-categories consequences), release-3 invariants, BPMN, BR-M2-2/4/6/7/9 rewritten, BR-M2-3 retired to doc-001 BR-10, Operation completeness, Decomposition (mod-001 row), US-1..US-5 (cross-review N-1, N-3..N-5, N-9, N-14, N-20, N-27, N-29, N-32; doc-010 D-4, D-5)
+- 2026-10-02 [mod-001] amended: each WORK_ITEM_TYPE stores one appearance token from {epic, feature, story, task, bug}, no two types sharing one, in place of its icon and colour; STATE_DEFINITION stores its category as the category code, the Russian label derived (doc-010 D-5); edited in § Logical model (ER and the note under it), § MVP seeded process (screen sentence, the token per type), § Release 3 custom types, § Out of scope, and US-2's first scenario. P-5 above still reads "icon and colour"; the amendment replaces them with the token (mod-001 status.md D-6; doc-010 PR-7)
 
 ## Notes
 

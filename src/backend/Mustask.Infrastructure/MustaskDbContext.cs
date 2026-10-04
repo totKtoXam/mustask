@@ -1,5 +1,7 @@
 using Mustask.Domain.Dictionaries;
+using Mustask.Domain.Process;
 using Mustask.Infrastructure.Conventions;
+using Mustask.Infrastructure.Process;
 using Microsoft.EntityFrameworkCore;
 
 namespace Mustask.Infrastructure;
@@ -19,9 +21,23 @@ public sealed class MustaskDbContext(DbContextOptions<MustaskDbContext> options)
 {
     public DbSet<Language> Languages => Set<Language>();
 
+    /// <summary>The process of an organization (<c>processes</c>, doc-007 M2).</summary>
+    public DbSet<ProcessDefinition> Processes => Set<ProcessDefinition>();
+
+    public DbSet<BacklogLevel> BacklogLevels => Set<BacklogLevel>();
+
+    public DbSet<WorkItemType> WorkItemTypes => Set<WorkItemType>();
+
+    public DbSet<StateDefinition> StateDefinitions => Set<StateDefinition>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         base.ConfigureConventions(configurationBuilder);
+
+        // ProcessId is the one typed id that crosses a module seam, so its
+        // converter is model-wide: M2's keys and foreign keys get it here, and
+        // so will mod-002's Organization.ProcessId, with no configuration of its own.
+        configurationBuilder.Properties<ProcessId>().HaveConversion<ProcessIdConverter>();
 
         configurationBuilder.Conventions.Add(_ => new OptimisticConcurrencyConvention());
         // CodeUniqueIndexConvention runs BEFORE SnakeCaseNamingConvention:

@@ -6,7 +6,7 @@ import AddIcon from '@mui/icons-material/Add';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import PrintIcon from '@mui/icons-material/Print';
-import type { ReactNode } from 'react';
+import { createRef, type ReactNode } from 'react';
 import { theme } from '../../app/theme';
 import { PageChromeContext, type PageChrome } from './pageChrome';
 import { PageHeader } from './PageHeader';
@@ -300,5 +300,31 @@ describe('US-2 Scenario: Page trail (BR-6) — below 1024 px the trail stands in
 
     unmount();
     expect(unregister).toHaveBeenCalledTimes(1);
+  });
+});
+
+// mod-001 plan-frontend § 11 P-2 (a): a page moves focus to its title after a
+// retry that succeeded.
+describe('The title as a focus target (mod-001 design § Focus and announcements)', () => {
+  it('hands the h1 to titleRef with tabIndex -1, so it takes focus by script only', () => {
+    const titleRef = createRef<HTMLHeadingElement>();
+    renderAt(
+      '/organizations/o/settings/process',
+      <PageHeader title="Процесс" titleRef={titleRef} />,
+    );
+
+    const title = screen.getByRole('heading', { level: 1, name: 'Процесс' });
+    expect(titleRef.current).toBe(title);
+    expect(title).toHaveAttribute('tabindex', '-1');
+    act(() => titleRef.current?.focus());
+    expect(title).toHaveFocus();
+  });
+
+  it('leaves the title unfocusable, as before, without titleRef', () => {
+    renderAt('/home', <PageHeader title="Главная" />);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Главная' })).not.toHaveAttribute(
+      'tabindex',
+    );
   });
 });

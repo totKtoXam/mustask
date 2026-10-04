@@ -1,5 +1,6 @@
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import { dictionariesPermissions, LANGUAGES_PATH } from '../../features/dictionaries';
+import { processDefinitionPath, processPermissions } from '../../features/process';
 import { HOME_PATH } from '../../shared/config/paths';
 import type { NavigationModel } from './types';
 
@@ -14,8 +15,10 @@ export const SETTINGS_LABEL = 'Настройки';
  *
  * A later line adds its entry here when it builds the page, with its scope
  * and a landing address under the context prefix of BR-18. mod-001's
- * «Процесс» goes third into «Организация» (after «Общие», «Участники»),
- * registered by whichever of mod-001 and mod-015 merges second (D-12).
+ * «Процесс» is registered here, in «Организация» (mod-001 D-5, mod-015
+ * D-12): its first entry today, third once «Общие» and «Участники» exist.
+ * It is organization-scoped, so it stays hidden until the context is real
+ * (D-18): before mod-002 nothing visible leads to its page.
  */
 export const navigationModel: NavigationModel = {
   top: [
@@ -29,7 +32,20 @@ export const navigationModel: NavigationModel = {
   ],
   work: [],
   settings: [
-    { id: 'organization', label: 'Организация', entries: [] },
+    {
+      id: 'organization',
+      label: 'Организация',
+      entries: [
+        {
+          id: 'process',
+          label: 'Процесс',
+          scope: 'organization',
+          permission: processPermissions.definitionRead,
+          landing: (selection) =>
+            selection.organizationId ? processDefinitionPath(selection.organizationId) : null,
+        },
+      ],
+    },
     { id: 'project', label: 'Проект', entries: [] },
     {
       id: 'dictionaries',

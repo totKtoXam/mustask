@@ -1,0 +1,13 @@
+{
+  "module": "organizations",
+  "origin": "slice",
+  "codes": {
+    "organizations.organization.not_found": {
+      "statuses": [404],
+      "params": {},
+      "ru": "Организация не найдена.",
+      "kk": "Ұйым табылмады.",
+      "kkNeedsReview": true
+    }
+  }
+}

@@ -1,4 +1,4 @@
-import { useLayoutEffect, type ReactElement } from 'react';
+import { useLayoutEffect, type ReactElement, type Ref } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -32,6 +32,12 @@ export interface StateFrameProps {
    * under a page header and its heading is an `h2`.
    */
   fullPage?: boolean;
+  /**
+   * A handle on the heading, for a page that moves focus to it — after a
+   * retry that ended in not found (mod-001 review round 1 F4). Given, the
+   * heading takes the ref and `tabIndex={-1}`; absent, it is as before.
+   */
+  headingRef?: Ref<HTMLHeadingElement>;
 }
 
 /** The class every canon frame carries, whatever its variant (US-7). */
@@ -49,6 +55,7 @@ export function StateFrame({
   hint,
   action,
   fullPage = false,
+  headingRef,
 }: StateFrameProps) {
   useDocumentTitle(fullPage ? heading : undefined);
 
@@ -67,7 +74,12 @@ export function StateFrame({
       }}
     >
       <Icon fontSize="large" sx={{ color: 'text.secondary', mb: 1 }} />
-      <Typography variant={fullPage ? 'h1' : 'h2'} component={fullPage ? 'h1' : 'h2'}>
+      <Typography
+        variant={fullPage ? 'h1' : 'h2'}
+        component={fullPage ? 'h1' : 'h2'}
+        ref={headingRef}
+        tabIndex={headingRef ? -1 : undefined}
+      >
         {heading}
       </Typography>
       {hint && (
@@ -126,7 +138,14 @@ const NOT_FOUND_HEADINGS: Record<NotFoundLevel, string> = {
   team: 'Команда не найдена',
 };
 
-export function NotFound({ level }: { level: NotFoundLevel }) {
+export function NotFound({
+  level,
+  headingRef,
+}: {
+  level: NotFoundLevel;
+  /** A handle on the frame's `h1`, as `StateFrame`'s `headingRef`. */
+  headingRef?: Ref<HTMLHeadingElement>;
+}) {
   // Whatever the address looks like, there is no page here: the shell marks
   // nothing current and shows no settings navigation (the spec's BPMN answers
   // «… не найдена» before that decision).
@@ -140,6 +159,7 @@ export function NotFound({ level }: { level: NotFoundLevel }) {
       heading={NOT_FOUND_HEADINGS[level]}
       hint="Проверьте адрес или вернитесь на главную."
       action={{ label: 'На главную', icon: <HomeOutlinedIcon />, to: HOME_PATH }}
+      headingRef={headingRef}
     />
   );
 }

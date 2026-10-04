@@ -1,7 +1,9 @@
 using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Dictionaries;
+using Mustask.Application.Abstractions.Process;
 using Mustask.Infrastructure.Dictionaries;
 using Mustask.Infrastructure.Dictionaries.Seeding;
+using Mustask.Infrastructure.Process;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -19,7 +21,8 @@ public static class DependencyInjection
     /// Mustask.Application/Abstractions interfaces -- keeping the wiring next to
     /// the DbContext registration it depends on, rather than scattering it
     /// across per-module DI extensions -- plus the dictionaries repositories/
-    /// read-models/resolver and their startup seeder. There are no identity
+    /// read-models/resolver and their startup seeder, and the process seed
+    /// store and read model (mod-001). There are no identity
     /// repositories here: Mustask.Api is a resource server against Keycloak
     /// realm "mustask" (ADR-0018).
     /// </summary>
@@ -51,6 +54,10 @@ public static class DependencyInjection
         builder.Services.AddScoped<IRequestLanguageResolver, RequestLanguageResolver>();
         builder.Services.AddScoped<DictionarySeeder>();
         builder.Services.AddHostedService<DictionarySeedHostedService>();
+
+        // Process (mod-001): the storage half of the seed seam.
+        builder.Services.AddScoped<IProcessSeedStore, ProcessSeedStore>();
+        builder.Services.AddScoped<IProcessDefinitionReadModel, ProcessDefinitionReadModel>();
 
         return builder;
     }

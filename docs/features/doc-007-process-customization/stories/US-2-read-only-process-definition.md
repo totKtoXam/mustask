@@ -17,7 +17,7 @@ Scenario: Every role can read the same process definition
   When they open the process-definition screen from one of its projects
   Then they see all five types and, for each: its key, its full state list
     in order, with the initial state marked, the Russian label of each
-    state's category, its fixed icon and colour, and its backlog level
+    state's category, its fixed appearance token, and its backlog level
   And the information shown is identical regardless of their role
 
 Scenario: A user with no membership in the organization reads nothing

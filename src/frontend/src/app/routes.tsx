@@ -3,6 +3,7 @@ import { AnonymousScreen } from '../features/auth/AnonymousScreen';
 import { RequireAuth } from '../features/auth/RequireAuth';
 import { LanguageFormPage, LanguagesRegistryPage } from '../features/dictionaries';
 import { HomePage } from '../features/home/HomePage';
+import { PROCESS_DEFINITION_ROUTE, ProcessDefinitionPage } from '../features/process';
 import { HOME_PATH } from '../shared/config/paths';
 import { NotFound } from '../shared/ui/StateFrame';
 import { AppLayout } from './AppLayout';
@@ -24,6 +25,10 @@ export function AppRoutes() {
           <Route path="/dictionaries/languages" element={<LanguagesRegistryPage />} />
           <Route path="/dictionaries/languages/new" element={<LanguageFormPage />} />
           <Route path="/dictionaries/languages/:code" element={<LanguageFormPage />} />
+          {/* The read-only process screen (mod-001 D-9). No gate on the
+              route: the page makes no permission check (design DD-6), and
+              the API answers a missing organization with its own code. */}
+          <Route path={PROCESS_DEFINITION_ROUTE} element={<ProcessDefinitionPage />} />
           {/* An unknown address keeps the address and answers inside the
               shell — no redirect to «Главная» (mod-015 BR-13, D-13). */}
           <Route path="*" element={<NotFound level="page" />} />
