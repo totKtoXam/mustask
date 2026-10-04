@@ -190,6 +190,21 @@ public sealed class SessionLogoutEndpointTests
         var client = _factory.CreateNoRedirectClient();
         var (cookie, _) = await SignInAsync(client);
 
+        // The line asserted on below is written through RefreshGrantClient's ILogger<T>. Serilog
+        // binds an ILogger<T> to the process-wide Serilog.Log.Logger at the moment it is created —
+        // for this lazily-resolved singleton, the first logout/token request the host serves — and
+        // every host disposed anywhere in the run replaces that static with a silent logger. On the
+        // shared host the line was therefore swallowed or not depending on whether an earlier test
+        // (Logout_DiscoveryUnavailable_..., a child host of its own) had disposed a host by then.
+        // A host of this test's own is built right here, so its loggers bind to its own Log.Logger.
+        // Only hosts built from Program call UseSerilog, and every class that builds one is in
+        // MustaskApiCollection, which runs sequentially; the slim probe hosts outside it never touch
+        // Serilog.Log.Logger. A host swaps the static asynchronously, shortly after Dispose() returns:
+        // the sign-in above gives an earlier test's dispose time to land before this host is built.
+        // tech-006 removes the dependency on the static logger.
+        using var factory = _factory.WithWebHostBuilder(_ => { });
+        var logoutClient = factory.CreateNoRedirectClient();
+
         _factory.TokenResponder.CurrentMode = KeycloakTokenEndpointResponder.Mode.InvalidClient;
 
         var originalOut = Console.Out;
@@ -202,7 +217,7 @@ public sealed class SessionLogoutEndpointTests
             {
                 Headers = { { "Cookie", cookie } },
             };
-            using var response = await client.SendAsync(request);
+            using var response = await logoutClient.SendAsync(request);
             statusCode = response.StatusCode;
         }
         finally
