@@ -178,4 +178,44 @@ public sealed class MigrationsTests : IAsyncLifetime
             await context.Database.CloseConnectionAsync();
         }
     }
+
+    private static readonly string[] UserDirectoryTables = ["directory_users", "directory_snapshots", "directory_snapshot_pages"];
+
+    /// <summary>
+    /// mod-014: AddUserDirectory is additive and reversible — rolling back to
+    /// the migration before it drops its three tables and nothing else, and
+    /// re-applying restores them.
+    /// </summary>
+    [Fact]
+    public async Task Migrator_AddUserDirectory_CreatesItsTables_AndRollbackToThePreviousRemovesOnlyThem()
+    {
+        using var context = CreateContext();
+        await context.Database.MigrateAsync();
+
+        foreach (var table in UserDirectoryTables)
+        {
+            Assert.True(await TableExistsAsync(context, table), $"Table '{table}' must exist after AddUserDirectory.");
+        }
+
+        var previous = context.Database.GetMigrations()
+            .TakeWhile(id => !id.EndsWith("_AddUserDirectory", StringComparison.Ordinal))
+            .Last();
+
+        var migrator = context.GetService<IMigrator>();
+        await migrator.MigrateAsync(previous);
+
+        foreach (var table in UserDirectoryTables)
+        {
+            Assert.False(await TableExistsAsync(context, table), $"Rolling back AddUserDirectory must drop '{table}'.");
+        }
+
+        Assert.True(await TableExistsAsync(context, "languages"), "Rolling back AddUserDirectory must leave earlier tables.");
+
+        await context.Database.MigrateAsync();
+
+        foreach (var table in UserDirectoryTables)
+        {
+            Assert.True(await TableExistsAsync(context, table), $"Re-applying AddUserDirectory must restore '{table}'.");
+        }
+    }
 }

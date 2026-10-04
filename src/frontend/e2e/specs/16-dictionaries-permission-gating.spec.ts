@@ -28,8 +28,11 @@ import { createEphemeralReaderUser, deleteEphemeralUser, userExistsById } from '
  * and deleted by this spec alone (`keycloakAdmin.ts`'s
  * `createEphemeralReaderUser`/`deleteEphemeralUser`), within `mustask-e2e`'s
  * existing `manage-users` right — no new realm-management scope, no
- * realm-wide setting touched, nothing left behind whether the test passes or
- * fails.
+ * realm-wide setting touched, nothing left behind in Keycloak whether the
+ * test passes or fails. MUSTASK's user projection (mod-014) does keep the
+ * throwaway user's record, held `Deleted` with the name and e-mail last
+ * received, as it keeps every deleted user's by design (BR-UP-5): one such
+ * row per run.
  */
 test.describe('16. dictionaries permission gating, real token, real realm', () => {
   test('a read-only role sees the languages registry but is denied a write-gated screen by direct URL', async ({ page }) => {

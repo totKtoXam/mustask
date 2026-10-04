@@ -44,6 +44,13 @@ public sealed class EndpointCategoryInventoryTests
         "GET/POST /api/session/callback",
         "POST /api/session/token",
         "POST /api/session/logout",
+        // mod-014 (ADR-0025 § 3): the user projection's push channel — public
+        // with respect to Bearer, authenticated by its own HMAC signature in
+        // SignedPushBody; called by the Keycloak provider only.
+        "POST /api/user-directory/feed/changes",
+        "PUT /api/user-directory/feed/snapshots/{snapshotId:guid}",
+        "PUT /api/user-directory/feed/snapshots/{snapshotId:guid}/pages/{pageNumber:int}",
+        "PUT /api/user-directory/feed/snapshots/{snapshotId:guid}/completion",
     };
 
     // Служебные endpoint'ы фреймворка: не размечены

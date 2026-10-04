@@ -31,9 +31,10 @@ run from there, not from this directory.
   a short-lived access token — the panel itself never talks to Keycloak.
   Everything listens on `0.0.0.0` and is reachable from the local network.
   The realm, its roles, groups and login theme arrive by import from
-  `deploy/keycloak/` when the container is created; after startup the
-  Keycloak users are created by `bash scripts/keycloak-seed.sh` (see the
-  script's header for its variables). AppHost also provisions the E2E
+  `deploy/keycloak/` when Keycloak's store is created (see "Keycloak on the
+  stand" below); after that first start the Keycloak users are created by
+  `bash scripts/keycloak-seed.sh` (see the script's header for its
+  variables). AppHost also provisions the E2E
   stand-only client `mustask-e2e` and writes its secret to
   `.e2e-stand/keycloak-e2e-client.json` (ADR-0023). A separate docker compose
   is not needed (see
@@ -69,6 +70,36 @@ run from there, not from this directory.
   its own volume); to scope the mode to one checkout, export
   `ConnectionStrings__mustask` in the terminal that starts that checkout's
   AppHost instead of setting the secret.
+- Keycloak on the stand (mod-014, ADR-0025): AppHost **builds** the Keycloak
+  image from `deploy/keycloak/Dockerfile` — the image of `Keycloak:Image`/
+  `Keycloak:Tag` plus the provider `mustask-user-projection`, whose Java
+  sources (`deploy/keycloak/providers/user-projection`) are compiled and
+  unit-tested inside that build; the first build on a machine, or after a
+  Keycloak tag change, needs the network. Keycloak's store **persists** in a
+  named volume paired with the stand's database (container mode: one pair per
+  checkout; external mode: one store per external database), so users and
+  their ids survive restarts; the `Keycloak store:` line at startup names it.
+  Because `--import-realm` never overwrites an existing realm, the `keycloak`
+  resource carries a drift check (`keycloak-realm-drift`): when the live realm
+  differs from the realm import — a realm-import edit, another branch's import,
+  a changed admin password, `mustask-panel` secret or stand port — the
+  resource stays unhealthy, the stand does not come up ready, and the AppHost
+  log names the difference and the remedy. The remedy is either restoring the
+  old value or `bash scripts/stand-reset.sh` (PowerShell
+  `scripts/stand-reset.ps1`): it wipes exactly this stand's pair — in
+  external mode it drops and recreates only the database the connection
+  string names — and prints the next steps (migrations, seed); its header has
+  the details. The provider pushes user changes to `Mustask.Api`'s
+  `/api/user-directory/feed` signed with a secret AppHost generates per run
+  (no fourth user secret). It reaches the api at
+  `http://host.docker.internal:{Ports:Api}` — the api's own port on the Docker
+  host, mapped with `--add-host …:host-gateway` so a Linux engine resolves it
+  too — not through Aspire's container tunnel, which loses the api for good
+  after a `keycloak` resource restart followed by an api restart. `Keycloak:UserProjection:ReconcilePeriodMinutes`
+  shortens the reconciliation period for a QA run. `scripts/verify.sh` checks
+  a provider change in its `provider` bucket — Docker required: `docker build
+  --target provider deploy/keycloak`, then the .NET tests tagged
+  `KeycloakProvider` with `MUSTASK_KEYCLOAK_PROVIDER_TESTS=1`.
 - The stand's ports come from configuration: the defaults are in
   `appsettings.json` of the `Mustask.AppHost` project (the `Ports` section), and
   are overridden by the environment variables `Ports__Api`, `Ports__Frontend`,

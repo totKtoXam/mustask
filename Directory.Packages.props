@@ -25,6 +25,9 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.5.1" />
+    <!-- mod-014 (D-14): the stand reset's drop and create in Mustask.AppHost,
+         pinned to the version Aspire.Hosting.PostgreSQL already resolves there. -->
+    <PackageVersion Include="Npgsql" Version="8.0.3" />
 
     <!-- Пагинация/сортировка/фильтрация списочных чтений (ADR-0015) -->
     <PackageVersion Include="Gridify" Version="2.19.1" />
@@ -75,6 +78,9 @@
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.11" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.14.0" />
+    <!-- mod-014 (D-14): the opt-in live provider tests build the Keycloak image,
+         pinned to the version Testcontainers.PostgreSql already resolves. -->
+    <PackageVersion Include="Testcontainers" Version="4.14.0" />
   </ItemGroup>
 
 </Project>

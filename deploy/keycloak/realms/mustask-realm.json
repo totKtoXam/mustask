@@ -19,6 +19,7 @@
   "eventsExpiration": 604800,
   "adminEventsEnabled": true,
   "adminEventsDetailsEnabled": true,
+  "eventsListeners": ["jboss-logging", "mustask-user-projection"],
   "permanentLockout": false,
   "maxFailureWaitSeconds": 900,
   "waitIncrementSeconds": 60,

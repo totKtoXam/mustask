@@ -10,9 +10,11 @@
 # realm-import lives in the repository (AGENTS.md: secrets only through
 # environment variables / user-secrets).
 #
-# The Keycloak container comes up without a volume (`start-dev`, built-in
-# H2), so users live only until the container is recreated. The script is
-# meant to be run repeatedly: for an existing user it fills in the profile,
+# Keycloak's store persists (mod-014, ADR-0025 § 7): `start-dev`'s database
+# lives in a named Docker volume paired with the stand's database, so users and
+# their ids survive stand restarts. Run this after the store is created — the
+# first start, or after scripts/stand-reset.sh — not after every start. It is
+# still safe to run repeatedly: for an existing user it fills in the profile,
 # resets the password, and re-adds them to the group.
 #
 # Environment variables:
@@ -68,7 +70,7 @@ token=$(
     | tr ',' '\n' | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p'
 )
 
-[ -n "$token" ] || die "Could not get a Keycloak admin token — check KEYCLOAK_ADMIN_PASSWORD."
+[ -n "$token" ] || die "Could not get a Keycloak admin token — check KEYCLOAK_ADMIN_PASSWORD. The store keeps the administrator password it was created with: if Parameters:keycloak-admin-password was changed since, restore the old value or reset the stand (scripts/stand-reset.sh)."
 
 body_file=$(mktemp)
 trap 'rm -f "$body_file"' EXIT

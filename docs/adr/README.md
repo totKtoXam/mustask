@@ -44,6 +44,8 @@ anything already fixed by the conventions.
 Keep the list current (append-only, newest on top):
 
 - ADR-0024 — Build every panel screen on one shell and one theme, carry the work context in the address, and name type appearance by a closed token set · accepted
+- ADR-0025 — Project Keycloak users through a read-only event-listener provider that pushes signed, ordered state into MUSTASK · proposed
+- ADR-0025 — Project Keycloak users through a read-only event-listener provider that pushes signed, ordered state into MUSTASK · accepted
 - ADR-0023 — A stand-only Keycloak client impersonates the E2E fixture user · accepted
 - ADR-0022 — The panel's refresh token never reaches the browser: a token-mediating backend · proposed
 - ADR-0021 — Store a dictionary as an entry plus a typed translation table per dictionary, and resolve the language on the server · proposed

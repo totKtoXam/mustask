@@ -1,5 +1,7 @@
 using Mustask.Domain.Dictionaries;
 using Mustask.Domain.Process;
+
+using Mustask.Domain.UserDirectory;
 using Mustask.Infrastructure.Conventions;
 using Mustask.Infrastructure.Process;
 using Microsoft.EntityFrameworkCore;
@@ -29,6 +31,12 @@ public sealed class MustaskDbContext(DbContextOptions<MustaskDbContext> options)
     public DbSet<WorkItemType> WorkItemTypes => Set<WorkItemType>();
 
     public DbSet<StateDefinition> StateDefinitions => Set<StateDefinition>();
+
+    public DbSet<ProjectedUser> DirectoryUsers => Set<ProjectedUser>();
+
+    public DbSet<DirectorySnapshot> DirectorySnapshots => Set<DirectorySnapshot>();
+
+    public DbSet<DirectorySnapshotPage> DirectorySnapshotPages => Set<DirectorySnapshotPage>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {

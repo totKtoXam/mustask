@@ -53,6 +53,12 @@
   -->
   <ItemGroup>
     <Compile Include="..\..\Mustask.AppHost\Provisioning\*.cs" LinkBase="Provisioning" />
+    <!--
+      mod-014 QA D-3: the drift health check, so its tests probe it the way
+      Aspire does (through the health-check service). Only this file of Stand/:
+      StandReset.cs drives Docker and a database, which this project never does.
+    -->
+    <Compile Include="..\..\Mustask.AppHost\Stand\KeycloakDriftHealthCheck.cs" LinkBase="Stand" />
   </ItemGroup>
 
 </Project>

@@ -76,6 +76,9 @@ fi
 # ci       CI workflow
 # dotnet   code and everything that participates in the backend build
 # frontend frontend code and configuration
+# provider the Keycloak provider and the image that carries it (ADR-0025):
+#          built and unit-tested in Docker, then the .NET tests tagged
+#          KeycloakProvider — Docker is required, not optional
 classify() {
     case "$1" in
         .githooks/*|scripts/*|*.sh)                  echo shell ;;
@@ -88,6 +91,11 @@ classify() {
         src/*/AGENTS.md|src/*/CLAUDE.md)             echo agents ;;
         src/frontend/*)                              echo frontend ;;
         contracts/errors/*)                          echo dotnet ;;
+        # The Keycloak provider (mod-014, ADR-0025 § 1): Java built and
+        # tested only inside the image build — before the other
+        # deploy/keycloak patterns.
+        deploy/keycloak/providers/*|deploy/keycloak/Dockerfile|deploy/keycloak/.dockerignore)
+                                                     echo provider ;;
         # Keycloak realm-import — a contract artifact: checked by
         # KeycloakRealmRolesTests from Mustask.Contracts.Tests.
         deploy/keycloak/realms/*)                    echo dotnet ;;
@@ -111,6 +119,7 @@ need_shell=0
 need_ci=0
 need_dotnet=0
 need_frontend=0
+need_provider=0
 
 note "Changed files:"
 for file in $changed; do
@@ -127,11 +136,12 @@ for file in $changed; do
         ci)       need_ci=1 ;;
         dotnet)   need_dotnet=1 ;;
         frontend) need_frontend=1 ;;
+        provider) need_provider=1 ;;
     esac
 done
 
 note ""
-if [ "$need_prose$need_agents$need_shell$need_ci$need_dotnet$need_frontend" = "000000" ]; then
+if [ "$need_prose$need_agents$need_shell$need_ci$need_dotnet$need_frontend$need_provider" = "0000000" ]; then
     note "No checks needed: the changes affect nothing."
     [ "$LIST_ONLY" = 1 ] && exit 0
     note ""
@@ -449,6 +459,45 @@ if [ "$need_dotnet" = 1 ]; then
         fi
     else
         fail "backend build"
+    fi
+fi
+
+# --- Keycloak provider -----------------------------------------------------------
+# ADR-0025 § 1: a provider change verified by nothing is what the NFR forbids,
+# so without Docker this bucket fails instead of printing "not checked".
+if [ "$need_provider" = 1 ]; then
+    if ! docker info >/dev/null 2>&1; then
+        fail "Docker is required to verify the Keycloak provider (deploy/keycloak/providers, ADR-0025)"
+    else
+        provider_log=$(mktemp)
+        if DOCKER_BUILDKIT=1 docker build --progress=plain --target provider deploy/keycloak >"$provider_log" 2>&1; then
+            grep -E "Tests run: [0-9]+, Failures" "$provider_log" | tail -n 1 | sed "s/^/    /"
+            pass "Keycloak provider: compile, unit tests, read-only guard (docker build --target provider)"
+        else
+            tail -n 60 "$provider_log" | sed "s/^/    /" >&2
+            fail "Keycloak provider: docker build --target provider"
+        fi
+        rm -f "$provider_log"
+
+        provider_built=1
+        if [ "$need_dotnet" != 1 ]; then
+            if ! command -v dotnet >/dev/null 2>&1 || ! dotnet build Mustask.sln --nologo -v q; then
+                fail "backend build (for the KeycloakProvider tests)"
+                provider_built=0
+            fi
+        fi
+        if [ "$provider_built" = 1 ]; then
+            provider_tests_ok=1
+            for project in src/backend/tests/Mustask.Contracts.Tests src/backend/tests/Mustask.Api.IntegrationTests; do
+                MUSTASK_KEYCLOAK_PROVIDER_TESTS=1 dotnet test "$project" --no-build --nologo -v q \
+                    --filter "Category=KeycloakProvider" || provider_tests_ok=0
+            done
+            if [ "$provider_tests_ok" = 1 ]; then
+                pass ".NET tests tagged KeycloakProvider (shared signature vectors, image, live provider)"
+            else
+                fail ".NET tests tagged KeycloakProvider"
+            fi
+        fi
     fi
 fi
 

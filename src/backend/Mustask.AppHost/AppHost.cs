@@ -4,10 +4,17 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using Aspire.Hosting.ApplicationModel;
 using Mustask.AppHost.Provisioning;
+using Mustask.AppHost.Stand;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-var builder = DistributedApplication.CreateBuilder(args);
+// mod-014 (ADR-0025 § 7): `--stand-reset` (scripts/stand-reset.sh) declares
+// the stand exactly as a start would — so the mode, the volume names and the
+// database come from this same code — and then wipes that pair instead of
+// running. Aspire never sees the reset's own flags.
+var standResetArguments = StandResetRules.Parse(args);
+
+var builder = DistributedApplication.CreateBuilder(standResetArguments.AppHostArgs);
 
 // The E2E stand file is deleted here — the very first thing this program
 // does — not inside the provisioning step below. After a force-kill leaves
@@ -22,21 +29,29 @@ var builder = DistributedApplication.CreateBuilder(args);
 // that looks valid and fails silently. `standFilePath` is computed once,
 // here, and reused by the provisioning subscriber below so the two can never
 // drift apart.
+//
+// Not under `--stand-reset` (mod-014, ADR-0025 § 7): a reset refuses while a
+// stand runs, and that running stand's file is still valid — deleting it here
+// would break its E2E suite even though the reset itself touched nothing.
+// StandReset deletes the file only once it has actually wiped the pair.
 var standFilePath = Path.Combine(
     builder.AppHostDirectory, "..", "..", "..", ".e2e-stand", "keycloak-e2e-client.json");
 
-try
+if (!standResetArguments.Reset)
 {
-    File.Delete(standFilePath);
-}
-catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-{
-    // Best-effort: a locked file is rare (nothing on this stand normally
-    // holds it open) and not worth failing the whole stand start over —
-    // provisioning below overwrites it anyway once Keycloak is ready.
-    Console.Error.WriteLine(
-        $"E2E stand: could not delete the stale stand file at {standFilePath} ({ex.GetType().Name}: {ex.Message}). " +
-        "It will still be overwritten once Keycloak is ready, but until then it may look valid and not be.");
+    try
+    {
+        File.Delete(standFilePath);
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+    {
+        // Best-effort: a locked file is rare (nothing on this stand normally
+        // holds it open) and not worth failing the whole stand start over —
+        // provisioning below overwrites it anyway once Keycloak is ready.
+        Console.Error.WriteLine(
+            $"E2E stand: could not delete the stale stand file at {standFilePath} ({ex.GetType().Name}: {ex.Message}). " +
+            "It will still be overwritten once Keycloak is ready, but until then it may look valid and not be.");
+    }
 }
 
 // Порты стенда — из конфигурации. Значения по умолчанию лежат в
@@ -105,19 +120,41 @@ var externalDb = builder.Configuration["ConnectionStrings:mustask"];
 
 IResourceBuilder<IResourceWithConnectionString> database;
 
+// mod-014 (ADR-0025 § 7): Keycloak's store persists in a named volume that
+// pairs one to one with the stand's database — decided by the same switch,
+// so the pairing cannot drift from the mode. The Keycloak resource is declared
+// further down; these two say how its volume is named and what it pairs with.
+Func<IResourceBuilder<ContainerResource>, string> keycloakStoreVolume;
+string keycloakStorePairing;
+Func<string, StandResetPlan> standResetPlan;
+
 if (string.IsNullOrWhiteSpace(externalDb))
 {
     Console.WriteLine("Database: the stand's own PostgreSQL container (ConnectionStrings:mustask is not set).");
 
     var mustaskDbPassword = builder.AddParameter("mustask-db-password", secret: true);
 
-    database = builder.AddPostgres("postgres", password: mustaskDbPassword, port: Port("Db"))
-        // Имя пользователя оставлено дефолтным (`postgres`) сознательно: health
-        // check Aspire подключается строкой без Database, а Npgsql в этом случае
-        // берёт имя БД равным имени пользователя — у пользователя `postgres`
-        // одноимённая БД есть всегда.
-        .WithDataVolume()
+    var postgres = builder.AddPostgres("postgres", password: mustaskDbPassword, port: Port("Db"));
+
+    // Имя пользователя оставлено дефолтным (`postgres`) сознательно: health
+    // check Aspire подключается строкой без Database, а Npgsql в этом случае
+    // берёт имя БД равным имени пользователя — у пользователя `postgres`
+    // одноимённая БД есть всегда.
+    //
+    // The volume is named explicitly through the generator WithDataVolume()
+    // uses by default — the very name an existing stand already has, so its
+    // data stays — because the stand reset (ADR-0025 § 7) must name it too.
+    var postgresVolume = VolumeNameGenerator.Generate(postgres, "data");
+
+    database = postgres
+        .WithDataVolume(postgresVolume)
         .AddDatabase("mustask");
+
+    // One pair per checkout: Aspire's own name for the `keycloak` resource's
+    // volume, from the same AppHost-path hash as the PostgreSQL volume.
+    keycloakStoreVolume = keycloakResource => VolumeNameGenerator.Generate(keycloakResource, "data");
+    keycloakStorePairing = "the stand's container database";
+    standResetPlan = keycloakVolume => new ContainerStandResetPlan(postgresVolume, keycloakVolume, standFilePath);
 }
 else
 {
@@ -131,6 +168,15 @@ else
     // `ConnectionStrings:mustask` and passes it to the referencing project as
     // the `ConnectionStrings__mustask` variable.
     database = builder.AddConnectionString("mustask");
+
+    // Every checkout on this database shares the store; another database
+    // never does. The key carries host, port and database — no credential.
+    string externalConnection = externalDb;
+    var externalStore = StandStoreKey.ForExternalDatabase(externalConnection);
+    keycloakStoreVolume = _ => externalStore;
+    keycloakStorePairing = StandStoreKey.Target(externalConnection).ToString();
+    standResetPlan = keycloakVolume => new ExternalStandResetPlan(
+        externalConnection, StandStoreKey.Target(externalConnection), keycloakVolume, standFilePath);
 }
 
 var apiPort = Port("Api");
@@ -158,15 +204,21 @@ var api = builder.AddProject<Projects.Mustask_Api>("api")
 // realm'а живёт в репозитории, а не в кликах по консоли, иначе она
 // невоспроизводима.
 //
-// Тома у контейнера намеренно нет: `start-dev` кладёт встроенную H2 в
-// /opt/keycloak/data, то есть в записываемый слой контейнера, и вместе с ним
-// она и исчезает. Следствие ровно то, что нужно стенду: правки, сделанные
-// руками в консоли, живут до пересоздания контейнера, а источником истины
-// остаётся импорт. Плата — созданные сидом пользователи стенда тоже
-// исчезают, поэтому `scripts/keycloak-seed.sh` написан для повторного
-// запуска. Оговорка: `--import-realm` не перезаписывает уже существующий
-// realm, так что правку в `deploy/keycloak/realms` подхватит только
-// пересоздание контейнера, а не `docker restart`.
+// The store persists (mod-014, D-5; ADR-0025 § 7). `start-dev` keeps its
+// file database under /opt/keycloak/data/h2, and that directory is a named
+// Docker volume paired with the stand's database (keycloakStoreVolume above):
+// users and their ids survive stand restarts, so data the stand's MUSTASK
+// database holds about them stays meaningful. The price: `--import-realm`
+// never overwrites an existing realm, so an edit in `deploy/keycloak/realms`
+// reaches a stand only through a fresh store — `scripts/stand-reset.sh` —
+// and the start's drift check (the `keycloak-realm-drift` health check below)
+// refuses a store that differs from the import, naming that command, instead
+// of letting the edit silently not appear. The same holds for the values a
+// store takes only when it is created: the administrator password, the
+// `mustask-panel` secret and the client URLs built from the stand's ports.
+// The container itself keeps ADR-0023's port-based name and Aspire's session
+// lifetime — it is removed with the AppHost; only the volume outlives the run,
+// so another branch's stand still starts on the same ports (D-12).
 var keycloakPort = Port("Keycloak");
 
 // Пароль администратора самого Keycloak — секрет без значения по умолчанию,
@@ -217,9 +269,24 @@ var keycloakContainerName = FormattableString.Invariant($"mustask-e2e-keycloak-{
 // human-chosen, never logged).
 var mustaskE2eClientSecret = new KeycloakStandClientSecret();
 
+// mod-014 (ADR-0025 § 3): the user projection's push secret — one value per
+// AppHost process, generated, never human-set and never logged, handed to
+// Keycloak's provider and to Mustask.Api as one secret parameter (masked by
+// the dashboard). A fresh clone sets no fourth secret.
+var userProjectionPushSecret = new UserProjectionPushSecret();
+var pushSecret = builder.AddParameter(
+    UserProjectionIdentifiers.PushSecretParameter, userProjectionPushSecret.Value, secret: true);
+
 // Ресурс именован переменной — Mustask.Api читает его endpoint напрямую
 // (ниже), не через отдельный конфигурационный литерал.
-var keycloak = builder.AddContainer("keycloak", keycloakImage, keycloakTag)
+//
+// mod-014 (ADR-0025 § 1): the image is built, not pulled — the Keycloak image
+// named by Keycloak:Image/Keycloak:Tag plus the provider `mustask-user-projection`,
+// compiled and tested inside the build against that very Keycloak. An SPI the
+// provider does not compile against fails the build, and Keycloak does not start.
+var keycloak = builder.AddDockerfile("keycloak", "../../../deploy/keycloak")
+    .WithBuildArg("KEYCLOAK_IMAGE", keycloakImage)
+    .WithBuildArg("KEYCLOAK_TAG", keycloakTag)
     .WithContainerName(keycloakContainerName)
     .WithHttpEndpoint(port: keycloakPort, targetPort: 8080)
     .WithEndpoint("http", endpoint =>
@@ -244,6 +311,79 @@ var keycloak = builder.AddContainer("keycloak", keycloakImage, keycloakTag)
     // Штатный health-эндпоинт Keycloak с версии 25 живёт на отдельном
     // management-порту 9000, то есть на 8080 его нет вовсе.
     .WithHttpHealthCheck("/realms/mustask");
+
+// The store (ADR-0025 § 7): named by the database switch above.
+var keycloakStore = keycloakStoreVolume(keycloak);
+keycloak.WithVolume(keycloakStore, "/opt/keycloak/data/h2");
+Console.WriteLine($"Keycloak store: volume {keycloakStore} (pairs with {keycloakStorePairing}).");
+
+// The user projection's feed (mod-014, ADR-0025 § 3, § 4): the provider
+// pushes to Mustask.Api's own endpoint, signs with the generated secret, and
+// is allowed plain HTTP only because this is the stand. The option names are
+// Keycloak 26's spelling of the provider's SPI options.
+//
+// The address is the api's port on the Docker host, not `api.GetEndpoint("http")`:
+// for a container that resolves to Aspire's container tunnel, and once the
+// `keycloak` resource has restarted, the next api restart leaves the tunnel
+// unable to bind its listener again ("address already in use") — the provider
+// never reaches the api until the AppHost restarts (QA D-1). The api's endpoint
+// is not proxied and listens on 0.0.0.0, so the host's port answers directly;
+// the runtime argument maps the host's name on a Linux engine as well.
+keycloak
+    .WithContainerRuntimeArgs(UserProjectionIdentifiers.DockerHostMapping)
+    .WithEnvironment(UserProjectionIdentifiers.EndpointVariable, UserProjectionIdentifiers.FeedEndpoint(apiPort))
+    .WithEnvironment(UserProjectionIdentifiers.PushSecretVariable, pushSecret)
+    .WithEnvironment(UserProjectionIdentifiers.RequireHttpsVariable, "false");
+
+// A QA run can shorten the reconciliation period (BR-UP-8 keeps 60 minutes
+// as the default); unset, the provider's own default applies.
+var reconcilePeriodMinutes = builder.Configuration[UserProjectionIdentifiers.ReconcilePeriodSetting];
+
+if (!string.IsNullOrWhiteSpace(reconcilePeriodMinutes))
+{
+    keycloak.WithEnvironment(UserProjectionIdentifiers.ReconcilePeriodVariable, reconcilePeriodMinutes);
+}
+
+// The start drift check (mod-014 D-10 (a); ADR-0025 § 7): a second health
+// check of the `keycloak` resource compares the live realm of the persistent
+// store with the realm import — roles, composites, the declared clients'
+// roles, the listener, declared groups, and the values a store takes only at
+// creation (admin password, panel secret, the URLs of the stand's ports). Any
+// finding keeps the resource unhealthy, so the provisioning below never runs
+// and the stand does not come up ready; the finding is logged naming the
+// remedy (scripts/stand-reset.sh, or restoring the old value). It is one
+// instance for the AppHost process (Register): a pass is cached and each
+// finding logged once, so a listener an operator disables mid-run (US-5) does
+// not turn a running stand unhealthy (QA D-3).
+var realmsDirectory = Path.Combine(builder.AppHostDirectory, "..", "..", "..", "deploy", "keycloak", "realms");
+
+KeycloakDriftHealthCheck.Register(
+    builder.Services,
+    services => new KeycloakDriftHealthCheck(
+        new Uri(FormattableString.Invariant($"http://localhost:{keycloakPort}")),
+        async cancellationToken =>
+        {
+            var panelSecret = await keycloakPanelClientSecret.Resource.GetValueAsync(cancellationToken)
+                ?? throw new InvalidOperationException("Parameters:keycloak-panel-client-secret resolved to no value.");
+
+            return new KeycloakDriftCheckOptions
+            {
+                Import = KeycloakRealmImport.Load(realmsDirectory, "mustask", new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["MUSTASK_PANEL_URL"] = panelUrl,
+                    ["MUSTASK_API_URL"] = apiUrl,
+                    ["MUSTASK_PANEL_CLIENT_SECRET"] = panelSecret,
+                }),
+                AdminUsername = "admin",
+                AdminPassword = await keycloakAdminPassword.Resource.GetValueAsync(cancellationToken)
+                    ?? throw new InvalidOperationException("Parameters:keycloak-admin-password resolved to no value."),
+                SecretClientId = "mustask-panel",
+                SecretClientSecret = panelSecret,
+            };
+        },
+        services.GetRequiredService<ILoggerFactory>().CreateLogger("Mustask.AppHost.Stand")));
+
+keycloak.WithHealthCheck(UserProjectionIdentifiers.DriftHealthCheckKey);
 
 // ADR-0023: стендовый клиент с правом имперсонации и E2E-пользователь-образец
 // заводятся здесь, а не realm-импортом — --import-realm пропускает уже
@@ -326,7 +466,9 @@ api.WithEnvironment("Keycloak__Authority", ReferenceExpression.Create($"{keycloa
    .WithEnvironment("Keycloak__Audience", "mustask-api")
    // ADR-0022 Decision 4: секрет клиента виден только бэкенду, который один
    // обменивает код — никогда браузеру.
-   .WithEnvironment("Keycloak__ClientSecret", keycloakPanelClientSecret);
+   .WithEnvironment("Keycloak__ClientSecret", keycloakPanelClientSecret)
+   // mod-014: the push channel's secret — the same parameter Keycloak's provider signs with.
+   .WithEnvironment(UserProjectionIdentifiers.ApiPushSecretVariable, pushSecret);
 
 // --- Фронтенд ----------------------------------------------------------------
 
@@ -392,4 +534,12 @@ static IEnumerable<string> LocalNetworkAddresses() =>
         .Distinct(StringComparer.Ordinal)
         .ToList();
 
+if (standResetArguments.Reset)
+{
+    // ADR-0025 § 7: the resources were declared only to name the pair.
+    return await StandReset.RunAsync(standResetPlan(keycloakStore), standResetArguments.Yes, CancellationToken.None);
+}
+
 builder.Build().Run();
+
+return 0;

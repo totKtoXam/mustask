@@ -4,6 +4,8 @@ using Mustask.Application.Abstractions.Process;
 using Mustask.Infrastructure.Dictionaries;
 using Mustask.Infrastructure.Dictionaries.Seeding;
 using Mustask.Infrastructure.Process;
+using Mustask.Application.Abstractions.UserDirectory;
+using Mustask.Infrastructure.UserDirectory;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -58,6 +60,11 @@ public static class DependencyInjection
         // Process (mod-001): the storage half of the seed seam.
         builder.Services.AddScoped<IProcessSeedStore, ProcessSeedStore>();
         builder.Services.AddScoped<IProcessDefinitionReadModel, ProcessDefinitionReadModel>();
+        // mod-014: the user projection — the read model other modules'
+        // slices consume (ADR-0025 § 9).
+        builder.Services.AddScoped<IUserDirectory, UserDirectoryReadModel>();
+        builder.Services.AddScoped<IProjectedUserStore, ProjectedUserStore>();
+        builder.Services.AddScoped<IDirectorySnapshotStore, DirectorySnapshotStore>();
 
         return builder;
     }

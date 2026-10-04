@@ -17,6 +17,8 @@
     </PackageReference>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Testcontainers.PostgreSql" />
+    <!-- mod-014: the opt-in live tests run the built Keycloak image (Features/UserDirectory/Live). -->
+    <PackageReference Include="Testcontainers" />
   </ItemGroup>
 
   <ItemGroup>

@@ -350,6 +350,314 @@ namespace Mustask.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Mustask.Domain.UserDirectory.DirectorySnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Added")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("BegunAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Changed")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("EntryCount")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("EnumerationStart")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("HeldAsDeleted")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MarkedAbsent")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PageCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Received")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int>("Unchanged")
+                        .HasColumnType("integer");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_directory_snapshots");
+
+                    b.HasIndex("EnumerationStart")
+                        .HasDatabaseName("ix_directory_snapshots_enumeration_start");
+
+                    b.ToTable("directory_snapshots", null, t =>
+                        {
+                            t.Property("Id")
+                                .HasColumnName("id");
+
+                            t.Property("Added")
+                                .HasColumnName("added");
+
+                            t.Property("BegunAt")
+                                .HasColumnName("begun_at");
+
+                            t.Property("Changed")
+                                .HasColumnName("changed");
+
+                            t.Property("CompletedAt")
+                                .HasColumnName("completed_at");
+
+                            t.Property("EntryCount")
+                                .HasColumnName("entry_count");
+
+                            t.Property("EnumerationStart")
+                                .HasColumnName("enumeration_start");
+
+                            t.Property("HeldAsDeleted")
+                                .HasColumnName("held_as_deleted");
+
+                            t.Property("MarkedAbsent")
+                                .HasColumnName("marked_absent");
+
+                            t.Property("PageCount")
+                                .HasColumnName("page_count");
+
+                            t.Property("Received")
+                                .HasColumnName("received");
+
+                            t.Property("State")
+                                .HasColumnName("state");
+
+                            t.Property("Unchanged")
+                                .HasColumnName("unchanged");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
+            modelBuilder.Entity("Mustask.Domain.UserDirectory.DirectorySnapshotPage", b =>
+                {
+                    b.Property<Guid>("SnapshotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("PageNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Added")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("AppliedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Changed")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("HeldAsDeleted")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Received")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Unchanged")
+                        .HasColumnType("integer");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("SnapshotId", "PageNumber")
+                        .HasName("pk_directory_snapshot_pages");
+
+                    b.ToTable("directory_snapshot_pages", null, t =>
+                        {
+                            t.Property("SnapshotId")
+                                .HasColumnName("snapshot_id");
+
+                            t.Property("PageNumber")
+                                .HasColumnName("page_number");
+
+                            t.Property("Added")
+                                .HasColumnName("added");
+
+                            t.Property("AppliedAt")
+                                .HasColumnName("applied_at");
+
+                            t.Property("Changed")
+                                .HasColumnName("changed");
+
+                            t.Property("HeldAsDeleted")
+                                .HasColumnName("held_as_deleted");
+
+                            t.Property("Received")
+                                .HasColumnName("received");
+
+                            t.Property("Unchanged")
+                                .HasColumnName("unchanged");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
+            modelBuilder.Entity("Mustask.Domain.UserDirectory.ProjectedUser", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<DateTimeOffset>("ChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(511)
+                        .HasColumnType("character varying(511)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasDefaultValue("");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasDefaultValue("");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasDefaultValue("");
+
+                    b.Property<Guid?>("LastSnapshotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Lifecycle")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<long>("Moment")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("SearchEmail")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SearchName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("SortKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("SortKeyVersion")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_directory_users");
+
+                    b.HasIndex("IsActive", "SortKey")
+                        .HasDatabaseName("ix_directory_users_is_active_sort_key");
+
+                    b.ToTable("directory_users", null, t =>
+                        {
+                            t.Property("Id")
+                                .HasColumnName("id");
+
+                            t.Property("ChangedAt")
+                                .HasColumnName("changed_at");
+
+                            t.Property("DisplayName")
+                                .HasColumnName("display_name");
+
+                            t.Property("Email")
+                                .HasColumnName("email");
+
+                            t.Property("Enabled")
+                                .HasColumnName("enabled");
+
+                            t.Property("FirstName")
+                                .HasColumnName("first_name");
+
+                            t.Property("IsActive")
+                                .HasColumnName("is_active");
+
+                            t.Property("LastName")
+                                .HasColumnName("last_name");
+
+                            t.Property("LastSnapshotId")
+                                .HasColumnName("last_snapshot_id");
+
+                            t.Property("Lifecycle")
+                                .HasColumnName("lifecycle");
+
+                            t.Property("Moment")
+                                .HasColumnName("moment");
+
+                            t.Property("SearchEmail")
+                                .HasColumnName("search_email");
+
+                            t.Property("SearchName")
+                                .HasColumnName("search_name");
+
+                            t.Property("SortKey")
+                                .HasColumnName("sort_key");
+
+                            t.Property("SortKeyVersion")
+                                .HasColumnName("sort_key_version");
+
+                            t.Property("Username")
+                                .HasColumnName("username");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
             modelBuilder.Entity("Mustask.Domain.Process.BacklogLevel", b =>
                 {
                     b.HasOne("Mustask.Domain.Process.ProcessDefinition", null)
@@ -386,6 +694,16 @@ namespace Mustask.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_work_item_types_backlog_levels_process_id_backlog_level_id");
+                });
+
+            modelBuilder.Entity("Mustask.Domain.UserDirectory.DirectorySnapshotPage", b =>
+                {
+                    b.HasOne("Mustask.Domain.UserDirectory.DirectorySnapshot", null)
+                        .WithMany()
+                        .HasForeignKey("SnapshotId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_directory_snapshot_pages_directory_snapshots_snapshot_id");
                 });
 
             modelBuilder.Entity("Mustask.Domain.Process.ProcessDefinition", b =>

@@ -1,0 +1,7 @@
+# The image build needs the provider's sources only: the realm import and the
+# login theme reach the stand's container as bind mounts, not through the image.
+realms/
+themes/
+providers/*/target/
+Dockerfile
+.dockerignore

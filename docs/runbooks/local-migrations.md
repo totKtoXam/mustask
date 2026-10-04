@@ -113,3 +113,25 @@ and the string points at your own server on purpose.
 Verified 2026-10-01 (tech-002): the stand came up against a PostgreSQL on
 `localhost:5432` with the migrations applied to the database `mustask` —
 Keycloak, the API `/health` and the panel were up.
+
+## After a stand reset
+
+`scripts/stand-reset.sh` (PowerShell: `scripts/stand-reset.ps1`; mod-014,
+ADR-0025 § 7) wipes the stand's pair — Keycloak's persistent store and the
+stand's own database — when the start's drift check reports that the live realm
+differs from `deploy/keycloak/realms`. It is decided by the same
+`Mustask.AppHost` code a start runs, so run it from the terminal that starts
+the stand (an exported `ConnectionStrings__mustask` switches it exactly as it
+switches the stand). Afterwards the database is empty:
+
+- container mode: the PostgreSQL volume is gone; start the stand (it creates an
+  empty `mustask` database) and apply the migrations with the container
+  procedure above (steps 2–3);
+- external mode: the reset dropped the one database the connection string
+  names and created it empty — no other database on that server is touched,
+  and `postgres`/`template0`/`template1` never are; apply the migrations
+  (step 2 of "External database") before starting the stand. Every checkout
+  that worked on that database lost its stand data with it.
+
+Then seed the Keycloak users (`bash scripts/keycloak-seed.sh`); the first
+reconciliation of the user projection loads them into the new database.

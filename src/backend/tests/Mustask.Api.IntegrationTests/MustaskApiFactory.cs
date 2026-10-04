@@ -63,6 +63,16 @@ public sealed class MustaskApiFactory : WebApplicationFactory<Program>, IAsyncLi
     /// </summary>
     public const string TestKeycloakClientSecret = "test-client-secret-0123456789abcdef";
 
+    /// <summary>
+    /// mod-014: the push channel's shared secret for this host — read by
+    /// <c>PushChannelOptions.FromConfiguration</c> before <c>Build()</c>, so an
+    /// environment variable like the ones above. A test value, never a real
+    /// one; <c>PushTestClient</c> signs with it.
+    /// </summary>
+    public const string TestPushSecret = "test-push-secret-not-real-0123456789abcdef";
+
+    private const string PushSecretEnvVar = "UserDirectory__Push__Secret";
+
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18-alpine")
         .WithDatabase("mustask")
         .Build();
@@ -120,6 +130,7 @@ public sealed class MustaskApiFactory : WebApplicationFactory<Program>, IAsyncLi
         // Keycloak и не открывают реальную панель), лишь бы хост поднялся.
         Environment.SetEnvironmentVariable(KeycloakClientSecretEnvVar, TestKeycloakClientSecret);
         Environment.SetEnvironmentVariable(SessionPanelUrlEnvVar, "http://panel.invalid");
+        Environment.SetEnvironmentVariable(PushSecretEnvVar, TestPushSecret);
     }
 
     public new async Task DisposeAsync()
@@ -131,6 +142,7 @@ public sealed class MustaskApiFactory : WebApplicationFactory<Program>, IAsyncLi
         Environment.SetEnvironmentVariable(KeycloakAudienceEnvVar, null);
         Environment.SetEnvironmentVariable(KeycloakClientSecretEnvVar, null);
         Environment.SetEnvironmentVariable(SessionPanelUrlEnvVar, null);
+        Environment.SetEnvironmentVariable(PushSecretEnvVar, null);
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)

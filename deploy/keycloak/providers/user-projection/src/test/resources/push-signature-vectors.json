@@ -1,0 +1,60 @@
+{
+  "description": "Shared test vectors of the push channel's signature (mod-014 api-contract.md B.2). Read by the provider's PushSignerTest and by Mustask.Contracts.Tests' PushSignatureVectorsTests. The secrets are examples, never real ones.",
+  "vectors": [
+    {
+      "name": "api-contract.md B.2 worked example",
+      "secret": "example-only-not-a-real-secret-0123456789",
+      "timestamp": "1790000000",
+      "method": "POST",
+      "target": "changes",
+      "body": "{\"changes\":[{\"id\":\"7c9e6679-7425-40de-944b-e07fc1f90ae7\",\"moment\":1790000000000000,\"username\":\"a.smirnova\",\"firstName\":\"Анна\",\"lastName\":\"Смирнова\",\"email\":\"anna.s@example.test\",\"enabled\":true}]}",
+      "bodySha256": "6757a7b88fb4a27ecfdc1a054e876d717d467db92bcba6f5617e5adb9628a4e9",
+      "canonical": "v1\n1790000000\nPOST\nchanges\n6757a7b88fb4a27ecfdc1a054e876d717d467db92bcba6f5617e5adb9628a4e9",
+      "signature": "v1=d4f1bd083b09951e40e80e0d65f0b7348dff08c2e89a23022e27cb9606155dce"
+    },
+    {
+      "name": "begin a snapshot",
+      "secret": "example-only-not-a-real-secret-0123456789",
+      "timestamp": "1790000123",
+      "method": "PUT",
+      "target": "snapshots/3f2a6b1c-0d4e-4f5a-8b6c-7d8e9f0a1b2c",
+      "body": "{\"enumerationStart\":1790000123000000}",
+      "bodySha256": "24dce5c97c4fe644ca1b16233ce075198c6726506aa580f44cb7953be38cc2f7",
+      "canonical": "v1\n1790000123\nPUT\nsnapshots/3f2a6b1c-0d4e-4f5a-8b6c-7d8e9f0a1b2c\n24dce5c97c4fe644ca1b16233ce075198c6726506aa580f44cb7953be38cc2f7",
+      "signature": "v1=86aa8f533eefcc7988be46e4d624273ecec3f34313aeb65294bccd24ab2e652a"
+    },
+    {
+      "name": "a page with a null name",
+      "secret": "example-only-not-a-real-secret-0123456789",
+      "timestamp": "1790000124",
+      "method": "PUT",
+      "target": "snapshots/3f2a6b1c-0d4e-4f5a-8b6c-7d8e9f0a1b2c/pages/0",
+      "body": "{\"entries\":[{\"id\":\"0b1c2d3e-4f50-4617-8899-aabbccddeeff\",\"moment\":1790000123000001,\"username\":\"ivan\",\"firstName\":null,\"lastName\":\"Ёлкин\",\"email\":null,\"enabled\":false}]}",
+      "bodySha256": "2754ce1a787f013b0f6a3ad6095179920d8709d9168d80bd0bd88407fb6d443f",
+      "canonical": "v1\n1790000124\nPUT\nsnapshots/3f2a6b1c-0d4e-4f5a-8b6c-7d8e9f0a1b2c/pages/0\n2754ce1a787f013b0f6a3ad6095179920d8709d9168d80bd0bd88407fb6d443f",
+      "signature": "v1=90add5489b3087f1ba72bdc3bf6db5c6dcfc6b6f86309f56780f6f1ac5a72e2e"
+    },
+    {
+      "name": "complete a snapshot",
+      "secret": "example-only-not-a-real-secret-0123456789",
+      "timestamp": "1790000125",
+      "method": "PUT",
+      "target": "snapshots/3f2a6b1c-0d4e-4f5a-8b6c-7d8e9f0a1b2c/completion",
+      "body": "{\"pageCount\":1,\"entryCount\":1}",
+      "bodySha256": "9306702d8b08f37ba93bbeb7ad7d174ba46e2deac6375af0b6211b8aacf58671",
+      "canonical": "v1\n1790000125\nPUT\nsnapshots/3f2a6b1c-0d4e-4f5a-8b6c-7d8e9f0a1b2c/completion\n9306702d8b08f37ba93bbeb7ad7d174ba46e2deac6375af0b6211b8aacf58671",
+      "signature": "v1=09e84432156be1d344a9a1ef996847a42bb59a2c3dd5f9d9a41e2efdf34b3764"
+    },
+    {
+      "name": "another secret, an empty body",
+      "secret": "another-example-secret-not-real-abcdefghijklmnop",
+      "timestamp": "1790000200",
+      "method": "POST",
+      "target": "changes",
+      "body": "",
+      "bodySha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canonical": "v1\n1790000200\nPOST\nchanges\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "signature": "v1=49e38ae7ddff29eaf0ff9c31ef61e2a256545f584bfe9ebeef55d767ccfe2b29"
+    }
+  ]
+}

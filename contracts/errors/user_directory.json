@@ -1,0 +1,90 @@
+{
+  "module": "user_directory",
+  "origin": "slice",
+  "codes": {
+    "user_directory.validation_failed": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Проверьте правильность переданных данных.",
+      "kk": "Берілген деректердің дұрыстығын тексеріңіз.",
+      "kkNeedsReview": true
+    },
+    "user_directory.value_required": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Обязательное значение.",
+      "kk": "Міндетті мән.",
+      "kkNeedsReview": true
+    },
+    "user_directory.value_too_long": {
+      "statuses": [400],
+      "params": { "limit": "number" },
+      "ru": "Превышена максимальная длина: {limit} символов.",
+      "kk": "Ең үлкен ұзындықтан асып кетті: {limit} таңба.",
+      "kkNeedsReview": true
+    },
+    "user_directory.value_invalid": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Недопустимое значение.",
+      "kk": "Жарамсыз мән.",
+      "kkNeedsReview": true
+    },
+    "user_directory.too_many_entries": {
+      "statuses": [400],
+      "params": { "limit": "number" },
+      "ru": "Слишком много записей в одном запросе: не больше {limit}.",
+      "kk": "Бір сұраныста жазбалар тым көп: {limit} аспауы керек.",
+      "kkNeedsReview": true
+    },
+    "user_directory.too_many_ids": {
+      "statuses": [400],
+      "params": { "limit": "number" },
+      "ru": "Слишком много идентификаторов в одном запросе: не больше {limit}.",
+      "kk": "Бір сұраныста идентификаторлар тым көп: {limit} аспауы керек.",
+      "kkNeedsReview": true
+    },
+    "user_directory.push_malformed": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Запрос канала пользователей не разобран: тело повреждено или слишком велико.",
+      "kk": "Пайдаланушылар арнасының сұранысы талданбады: денесі бүлінген немесе тым үлкен.",
+      "kkNeedsReview": true
+    },
+    "user_directory.push_unauthorized": {
+      "statuses": [401],
+      "params": {},
+      "ru": "Запрос канала пользователей отклонён: подпись отсутствует, неверна или устарела.",
+      "kk": "Пайдаланушылар арнасының сұранысы қабылданбады: қолтаңба жоқ, қате немесе ескірген.",
+      "kkNeedsReview": true
+    },
+    "user_directory.snapshot_not_found": {
+      "statuses": [404],
+      "params": {},
+      "ru": "Сверка пользователей не найдена.",
+      "kk": "Пайдаланушыларды салыстыру табылмады.",
+      "kkNeedsReview": true
+    },
+    "user_directory.snapshot_not_open": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Сверка пользователей уже завершена или заменена более новой.",
+      "kk": "Пайдаланушыларды салыстыру аяқталған немесе жаңасымен ауыстырылған.",
+      "kkNeedsReview": true
+    },
+    "user_directory.snapshot_conflict": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Сверка с этим идентификатором уже начата с другим моментом или устарела.",
+      "kk": "Осы идентификатормен салыстыру басқа сәтпен басталған немесе ескірген.",
+      "kkNeedsReview": true
+    },
+    "user_directory.snapshot_incomplete": {
+      "statuses": [409],
+      "params": { "expected": "number", "received": "number" },
+      "ru": "Сверка пользователей не завершена: получено записей — {received} из {expected}.",
+      "kk": "Пайдаланушыларды салыстыру аяқталмады: {expected} жазбаның {received} алынды.",
+      "kkNeedsReview": true
+    }
+  }
+}

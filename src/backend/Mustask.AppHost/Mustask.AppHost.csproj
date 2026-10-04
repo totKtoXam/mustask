@@ -12,6 +12,8 @@
     <PackageReference Include="Aspire.Hosting.AppHost" />
     <PackageReference Include="Aspire.Hosting.PostgreSQL" />
     <PackageReference Include="Aspire.Hosting.JavaScript" />
+    <!-- mod-014: the stand reset drops and recreates the external database (Stand/StandReset.cs). -->
+    <PackageReference Include="Npgsql" />
   </ItemGroup>
 
   <ItemGroup>

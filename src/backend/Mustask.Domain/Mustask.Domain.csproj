@@ -4,4 +4,10 @@
     <ProjectReference Include="..\Mustask.Shared\Mustask.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- DirectorySearchText.Normalize takes its composition step as a
+         parameter so a test can make it throw (D-5); nothing else is shared. -->
+    <InternalsVisibleTo Include="Mustask.Domain.Tests" />
+  </ItemGroup>
+
 </Project>

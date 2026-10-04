@@ -11,6 +11,10 @@ TestResults/
 # Aspire
 **/apphost.env
 
+# The Keycloak provider's Maven output, should anyone build it outside the
+# image (ADR-0025 § 1 builds it only inside deploy/keycloak/Dockerfile).
+deploy/keycloak/providers/*/target/
+
 # Node / frontend
 node_modules/
 dist/
