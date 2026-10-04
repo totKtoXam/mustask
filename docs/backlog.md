@@ -43,6 +43,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] tech-003-keycloak-login-theme — Keycloak login theme in the panel's visual language: restyle deploy/keycloak/themes to mod-015's shell tokens and copy (mod-015 D-2) · epic:platform/ui · size:S · deps:mod-015 · note:-
 - [ ] tech-004-stand-docs-drift — Stand docs drift: the old 'missing configuration value' wording in src/backend/AGENTS.md and the random-port/password wording in MustaskDbContextFactory.cs and ADR-0002 no longer match the fixed ports and secrets (deferred from tech-002 review CR-follow-up) · epic:platform/stand · size:S · deps:- · note:-
 - [ ] tech-005-process-id-composite-guard — organizations.process_id references processes(id) alone, so the database would accept another organization's process on an organization; add the key (organization_id, id) on processes and a composite foreign key (noted by mod-002 QA D-1, deferred by D-x) · epic:core/org-access · size:S · deps:mod-002 · note:-
+- [ ] bug-003-shell-address-case-navigation — An address in another letter case or percent-encoded (/Dictionaries/Languages, /dictionaries/%6Canguages) opens the page without its navigation marker, settings menu or trail (mod-015 QA D-4, minor); match routes the way the router does (matchPath) · epic:platform/ui · size:S · deps:mod-015 · note:-
 
 ## Withdrawn (number taken, task not done)
 
