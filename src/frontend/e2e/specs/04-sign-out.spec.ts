@@ -16,7 +16,9 @@ import { signIn } from '../support/auth';
 test('4. sign-out lands on /signed-out, re-opening asks for the password again', async ({ page }) => {
   await signIn(page, { returnPath: '/home' });
 
-  await page.getByRole('button', { name: 'Выйти' }).click();
+  // Since mod-015 (US-2, C-2) «Выйти» is an item of the user menu.
+  await page.getByRole('banner').getByRole('button', { name: /^Профиль/ }).click();
+  await page.getByRole('menuitem', { name: 'Выйти' }).click();
   await page.waitForURL('**/signed-out', { timeout: 30_000 });
   await expect(page.getByText('Вы вышли из системы.')).toBeVisible();
 

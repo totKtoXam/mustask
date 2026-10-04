@@ -1,13 +1,11 @@
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import CssBaseline from '@mui/material/CssBaseline';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { ruRU } from '@mui/material/locale';
+import { ThemeProvider } from '@mui/material/styles';
 import { AuthProvider } from '../features/auth/AuthContext';
 import { ErrorBoundary } from '../shared/ui/ErrorBoundary';
 import { AppRoutes } from './routes';
-
-const theme = createTheme({}, ruRU);
+import { theme } from './theme';
 
 const queryClient = new QueryClient({
   defaultOptions: {

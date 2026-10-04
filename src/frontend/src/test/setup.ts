@@ -1,8 +1,17 @@
 import '@testing-library/jest-dom/vitest';
-import { afterAll, afterEach, beforeAll } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
 import { cleanup, configure } from '@testing-library/react';
 import { resetSessionModule } from '../shared/api/session';
 import { server } from './mocks/server';
+import { installMatchMedia, resetViewport } from './viewport';
+
+// jsdom has no matchMedia: the stub answers MUI's useMediaQuery for a
+// 1440 px window with motion allowed, unless a test sets otherwise
+// (src/test/viewport.ts).
+installMatchMedia();
+beforeEach(() => {
+  resetViewport();
+});
 
 // Порог ожиданий findBy*/waitFor. Дефолт 1000 ms не покрывает цепочку
 // «восстановление сессии → рендер экрана → запрос данных» под параллельным

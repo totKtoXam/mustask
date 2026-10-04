@@ -5,11 +5,18 @@ import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
+import { PRODUCT_NAME } from '../../shared/config/product';
+import { useDocumentTitle } from '../../shared/lib/documentTitle';
 import { LoadingBox } from '../../shared/ui/LoadingBox';
 import { useAuth } from './AuthContext';
 
-/** Каркас служебного экрана — тот же, что был у прежней формы входа. */
+/**
+ * The frame of an auth screen: outside the shell, on the application
+ * background, a centred card headed by the product name (mod-015 design
+ * § 11.3, C-15). The browser tab reads «Mustask» in every state.
+ */
 function Shell({ children }: { children: ReactNode }) {
+  useDocumentTitle(null);
   return (
     <Box
       sx={{
@@ -17,13 +24,17 @@ function Shell({ children }: { children: ReactNode }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        bgcolor: 'grey.100',
+        bgcolor: 'background.default',
+        px: 2,
       }}
     >
-      <Card sx={{ width: 380 }}>
+      <Card
+        variant="outlined"
+        sx={{ width: (theme) => theme.layout.authCardWidth, maxWidth: '100%' }}
+      >
         <CardContent sx={{ p: 4 }}>
-          <Typography variant="h5" component="h1" gutterBottom>
-            Mustask
+          <Typography variant="h1" component="h1" gutterBottom>
+            {PRODUCT_NAME}
           </Typography>
           {children}
         </CardContent>
@@ -72,7 +83,7 @@ export function AnonymousScreen() {
           <Alert severity="info" sx={{ mb: 3 }}>
             Вы вышли из системы.
           </Alert>
-          <Button variant="contained" fullWidth size="large" onClick={() => signIn('/home')}>
+          <Button variant="contained" fullWidth onClick={() => signIn('/home')}>
             Войти
           </Button>
         </Shell>
@@ -84,7 +95,7 @@ export function AnonymousScreen() {
             <Typography variant="body1">Вход не выполнен.</Typography>
             <Typography variant="body2">{loginFailedDetail(loginFailedCode)}</Typography>
           </Alert>
-          <Button variant="contained" fullWidth size="large" onClick={() => signIn()}>
+          <Button variant="contained" fullWidth onClick={() => signIn()}>
             Войти
           </Button>
         </Shell>
@@ -95,7 +106,7 @@ export function AnonymousScreen() {
           <Alert severity="warning" sx={{ mb: 3 }}>
             Сессия истекла, войдите заново.
           </Alert>
-          <Button variant="contained" fullWidth size="large" onClick={() => signIn()}>
+          <Button variant="contained" fullWidth onClick={() => signIn()}>
             Войти
           </Button>
         </Shell>
@@ -106,7 +117,7 @@ export function AnonymousScreen() {
           <Alert severity="warning" sx={{ mb: 3 }}>
             Сервис аутентификации недоступен, повторите позже.
           </Alert>
-          <Button variant="contained" fullWidth size="large" onClick={retryBootstrap}>
+          <Button variant="contained" fullWidth onClick={retryBootstrap}>
             Повторить
           </Button>
         </Shell>
@@ -117,7 +128,7 @@ export function AnonymousScreen() {
           <Alert severity="error" sx={{ mb: 3 }}>
             Выход не завершён: сервис аутентификации недоступен.
           </Alert>
-          <Button variant="contained" fullWidth size="large" onClick={retrySignOut}>
+          <Button variant="contained" fullWidth onClick={retrySignOut}>
             Повторить выход
           </Button>
         </Shell>

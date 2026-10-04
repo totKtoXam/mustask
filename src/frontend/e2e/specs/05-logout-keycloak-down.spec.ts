@@ -49,7 +49,9 @@ test.describe('5. sign-out while Keycloak is down', () => {
     containerName = await resolveKeycloakContainer();
     await stopContainer(containerName);
 
-    await page.getByRole('button', { name: 'Выйти' }).click();
+    // Since mod-015 (US-2, C-2) «Выйти» is an item of the user menu.
+    await page.getByRole('banner').getByRole('button', { name: /^Профиль/ }).click();
+    await page.getByRole('menuitem', { name: 'Выйти' }).click();
     await expect(page.getByText('Выход не завершён: сервис аутентификации недоступен.')).toBeVisible({
       timeout: 15_000,
     });

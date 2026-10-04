@@ -1,13 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
-import Alert from '@mui/material/Alert';
-import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
-import DialogTitle from '@mui/material/DialogTitle';
 import { apiErrorText } from '../../../shared/lib/apiErrorText';
+import { ConfirmDialog } from '../../../shared/ui/ConfirmDialog';
 import { setDefaultLanguage, type LanguageResponse } from '../api/dictionariesApi';
 
 export interface DefaultLanguageDialogTarget {
@@ -37,8 +31,17 @@ interface DefaultLanguageDialogProps {
  * новое открытие начинало мутацию с чистого состояния (загрузка/пусто здесь
  * неприменимы — единственное состояние "идёт сохранение" + ошибка, без
  * переноса ошибки одного открытия в следующее).
+ *
+ * Since mod-015 the dialog is a thin consumer of the shared `ConfirmDialog`
+ * (US-9, C-13): «Закрыть» in the title row, the refusal at the top of the
+ * body, the same busy rules. Its copy, its mutation and its 409 text are
+ * unchanged.
  */
-export function DefaultLanguageDialog({ language, onClose, onAssigned }: DefaultLanguageDialogProps) {
+export function DefaultLanguageDialog({
+  language,
+  onClose,
+  onAssigned,
+}: DefaultLanguageDialogProps) {
   const mutation = useMutation({
     mutationFn: () => {
       if (!language) {
@@ -50,34 +53,21 @@ export function DefaultLanguageDialog({ language, onClose, onAssigned }: Default
   });
 
   return (
-    <Dialog open={language !== null} onClose={mutation.isPending ? undefined : onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Назначить языком по умолчанию</DialogTitle>
-      <DialogContent>
-        <DialogContentText>
-          Сделать «{language?.endonym}» ({language?.code}) языком по умолчанию?
-        </DialogContentText>
-        <DialogContentText sx={{ mt: 1 }}>
-          Все активные записи должны быть переведены на этот язык — иначе изменение будет отклонено.
-        </DialogContentText>
-        {mutation.isError && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            {apiErrorText(mutation.error)}
-          </Alert>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={mutation.isPending}>
-          Отмена
-        </Button>
-        <Button
-          variant="contained"
-          onClick={() => mutation.mutate()}
-          disabled={mutation.isPending}
-          startIcon={mutation.isPending ? <CircularProgress size={16} /> : undefined}
-        >
-          Назначить
-        </Button>
-      </DialogActions>
-    </Dialog>
+    <ConfirmDialog
+      open={language !== null}
+      title="Назначить языком по умолчанию"
+      confirmLabel="Назначить"
+      busy={mutation.isPending}
+      error={mutation.isError ? apiErrorText(mutation.error) : null}
+      onConfirm={() => mutation.mutate()}
+      onClose={onClose}
+    >
+      <DialogContentText>
+        Сделать «{language?.endonym}» ({language?.code}) языком по умолчанию?
+      </DialogContentText>
+      <DialogContentText sx={{ mt: 1 }}>
+        Все активные записи должны быть переведены на этот язык — иначе изменение будет отклонено.
+      </DialogContentText>
+    </ConfirmDialog>
   );
 }

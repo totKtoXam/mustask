@@ -6,19 +6,17 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import Alert from '@mui/material/Alert';
-import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { ApiError } from '../../../shared/api/httpClient';
 import { apiErrorText } from '../../../shared/lib/apiErrorText';
 import { formatDateTime } from '../../../shared/lib/format';
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
+import { FormFooter, FormPanel } from '../../../shared/ui/FormPanel';
+import { PageHeader } from '../../../shared/ui/PageHeader';
 import {
   createLanguage,
   getLanguageByCode,
@@ -26,14 +24,13 @@ import {
   type LanguageResponse,
   type ReplaceLanguageInput,
 } from '../api/dictionariesApi';
-import { AccessDenied } from '../components/AccessDenied';
-import { FormSkeleton } from '../components/FormSkeleton';
+import { AccessDenied } from '../../../shared/ui/StateFrame';
+import { FormSkeleton } from '../../../shared/ui/FormSkeleton';
 import { RequirePermission } from '../components/RequirePermission';
 import { VersionConflictPanel } from '../components/VersionConflictPanel';
 import { useConflictRecovery } from '../hooks/useConflictRecovery';
+import { languagePath, LANGUAGES_PATH } from '../paths';
 import { dictionariesPermissions } from '../permissions';
-
-const LANGUAGES_LIST_PATH = '/dictionaries/languages';
 
 const CODE_PATTERN = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
 const CODE_HELP = 'от 2 до 8 символов, формат BCP-47 (например, ru, kk-KZ)';
@@ -149,7 +146,11 @@ function LanguageFormContent() {
     void queryClient.invalidateQueries({ queryKey: ['dictionaries', 'languages'] });
   }
 
-  const conflictRecovery = useConflictRecovery<ReplaceLanguageInput, LanguageResponse, LanguageResponse>({
+  const conflictRecovery = useConflictRecovery<
+    ReplaceLanguageInput,
+    LanguageResponse,
+    LanguageResponse
+  >({
     save: (input, ifMatch) => replaceLanguage(codeParam ?? '', input, ifMatch),
     reread: async () => {
       const language = await getLanguageByCode(codeParam ?? '');
@@ -171,7 +172,8 @@ function LanguageFormContent() {
   });
 
   const busy = conflictRecovery.status === 'saving' || conflictRecovery.status === 'checking';
-  const showConflictPanel = conflictRecovery.status === 'checking' || conflictRecovery.status === 'comparing';
+  const showConflictPanel =
+    conflictRecovery.status === 'checking' || conflictRecovery.status === 'comparing';
 
   function handleSaveError(error: unknown) {
     if (error instanceof ApiError && error.status === 400) {
@@ -194,7 +196,11 @@ function LanguageFormContent() {
         return;
       }
     }
-    if (error instanceof ApiError && error.status === 409 && error.errorCode === 'dictionaries.languages.default_cannot_be_deactivated') {
+    if (
+      error instanceof ApiError &&
+      error.status === 409 &&
+      error.errorCode === 'dictionaries.languages.default_cannot_be_deactivated'
+    ) {
       setTopError(`${error.body?.detail ?? ''} ${DEFAULT_CANNOT_BE_DEACTIVATED_HINT}`.trim());
       setIsActive(true);
       return;
@@ -250,7 +256,7 @@ function LanguageFormContent() {
       void queryClient.invalidateQueries({ queryKey: ['dictionaries', 'languages'] });
       // "S4new -> создан -> S4edit": открываем форму
       // редактирования только что созданного языка, не реестр.
-      navigate(`/dictionaries/languages/${encodeURIComponent(result.code)}`, { replace: true });
+      navigate(languagePath(result.code), { replace: true });
     },
     onError: (error: unknown) => {
       if (error instanceof ApiError && error.status === 400) {
@@ -265,7 +271,11 @@ function LanguageFormContent() {
           return;
         }
       }
-      if (error instanceof ApiError && error.status === 409 && error.errorCode === 'dictionaries.languages.already_exists') {
+      if (
+        error instanceof ApiError &&
+        error.status === 409 &&
+        error.errorCode === 'dictionaries.languages.already_exists'
+      ) {
         setFieldErrors({ code: error.body?.detail ?? '' });
         return;
       }
@@ -296,58 +306,28 @@ function LanguageFormContent() {
   }
 
   function handleCancel() {
-    navigate(LANGUAGES_LIST_PATH);
+    navigate(LANGUAGES_PATH);
   }
 
+  // The form page pattern (mod-015 US-9, design § 9.3, § 9.8): the page
+  // header holds only the title — «К списку» is gone, the trail's «Языки»
+  // and «Отмена» lead back (C-12) — and the fields stand in one outlined
+  // column with any error not tied to a field above the first one.
   return (
-    <Box>
-      <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: 2 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={handleCancel}>
-          К списку
-        </Button>
-        <Typography variant="h5" component="h2">
-          {isEdit ? `Язык: ${codeParam}` : 'Добавить язык'}
-        </Typography>
-      </Stack>
+    <>
+      <PageHeader title={isEdit ? `Язык: ${codeParam}` : 'Добавить язык'} />
 
       {isEdit && query.isPending && <FormSkeleton fields={3} />}
-      {isEdit && query.isError && <ErrorBanner error={query.error} onRetry={() => void query.refetch()} />}
+      {isEdit && query.isError && (
+        <ErrorBanner error={query.error} onRetry={() => void query.refetch()} />
+      )}
 
       {isEdit && seeded && (
-        <Box component="form" onSubmit={(event) => void handleSubmitEdit(event)}>
-          <Stack spacing={2} sx={{ maxWidth: 480 }}>
-            {topError && <Alert severity="error">{topError}</Alert>}
-            <Typography variant="body2">Код: {codeParam} (нередактируемо)</Typography>
-            <TextField
-              label="Эндоним"
-              value={endonym}
-              onChange={(event) => setEndonym(event.target.value)}
-              error={Boolean(fieldErrors.endonym)}
-              helperText={fieldErrors.endonym}
-              disabled={busy}
-            />
-            <TextField
-              label="Порядок"
-              type="number"
-              value={sortOrder}
-              onChange={(event) => setSortOrder(event.target.value)}
-              error={Boolean(fieldErrors.sortOrder)}
-              helperText={fieldErrors.sortOrder}
-              disabled={busy}
-            />
-            <FormControlLabel
-              control={
-                <Switch checked={isActive} onChange={(event) => setIsActive(event.target.checked)} disabled={busy} />
-              }
-              label="Активен"
-            />
-            {updatedAt && updatedBy && (
-              <Typography variant="caption" color="text.secondary">
-                Изменено: {formatAuditStamp(updatedAt, updatedBy)}
-              </Typography>
-            )}
-
-            {showConflictPanel ? (
+        <FormPanel
+          onSubmit={(event) => void handleSubmitEdit(event)}
+          error={topError}
+          footer={
+            showConflictPanel ? (
               <VersionConflictPanel
                 status={conflictRecovery.status === 'checking' ? 'checking' : 'comparing'}
                 fields={conflictRecovery.fields}
@@ -360,59 +340,95 @@ function LanguageFormContent() {
                 onAcceptServer={handleAcceptServer}
               />
             ) : (
-              <Stack direction="row" spacing={2} sx={{ justifyContent: 'flex-end' }}>
-                <Button onClick={handleCancel} disabled={busy}>
+              <FormFooter>
+                <Button variant="text" onClick={handleCancel} disabled={busy}>
                   Отмена
                 </Button>
                 <Button type="submit" variant="contained" disabled={busy}>
                   Сохранить
                 </Button>
-              </Stack>
-            )}
-          </Stack>
-        </Box>
+              </FormFooter>
+            )
+          }
+        >
+          <Typography variant="body2">Код: {codeParam} (нередактируемо)</Typography>
+          <TextField
+            label="Эндоним"
+            value={endonym}
+            onChange={(event) => setEndonym(event.target.value)}
+            error={Boolean(fieldErrors.endonym)}
+            helperText={fieldErrors.endonym}
+            disabled={busy}
+          />
+          <TextField
+            label="Порядок"
+            type="number"
+            value={sortOrder}
+            onChange={(event) => setSortOrder(event.target.value)}
+            error={Boolean(fieldErrors.sortOrder)}
+            helperText={fieldErrors.sortOrder}
+            disabled={busy}
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={isActive}
+                onChange={(event) => setIsActive(event.target.checked)}
+                disabled={busy}
+              />
+            }
+            label="Активен"
+          />
+          {updatedAt && updatedBy && (
+            <Typography variant="caption" color="text.secondary">
+              Изменено: {formatAuditStamp(updatedAt, updatedBy)}
+            </Typography>
+          )}
+        </FormPanel>
       )}
 
       {!isEdit && (
-        <Box component="form" onSubmit={handleSubmitCreate}>
-          <Stack spacing={2} sx={{ maxWidth: 480 }}>
-            {topError && <Alert severity="error">{topError}</Alert>}
-            <TextField
-              label="Код"
-              value={code}
-              onChange={(event) => setCode(event.target.value)}
-              error={Boolean(fieldErrors.code)}
-              helperText={fieldErrors.code ?? CODE_HELP}
-              autoFocus
-              disabled={createMutation.isPending}
-            />
-            <TextField
-              label="Эндоним"
-              value={endonym}
-              onChange={(event) => setEndonym(event.target.value)}
-              error={Boolean(fieldErrors.endonym)}
-              helperText={fieldErrors.endonym ?? '(необязательно)'}
-              disabled={createMutation.isPending}
-            />
-            <TextField
-              label="Порядок"
-              type="number"
-              value={sortOrder}
-              onChange={(event) => setSortOrder(event.target.value)}
-              helperText="(необязательно, по умолчанию 0)"
-              disabled={createMutation.isPending}
-            />
-            <Stack direction="row" spacing={2} sx={{ justifyContent: 'flex-end' }}>
-              <Button onClick={handleCancel} disabled={createMutation.isPending}>
+        <FormPanel
+          onSubmit={handleSubmitCreate}
+          error={topError}
+          footer={
+            <FormFooter>
+              <Button variant="text" onClick={handleCancel} disabled={createMutation.isPending}>
                 Отмена
               </Button>
               <Button type="submit" variant="contained" disabled={createMutation.isPending}>
                 Добавить
               </Button>
-            </Stack>
-          </Stack>
-        </Box>
+            </FormFooter>
+          }
+        >
+          <TextField
+            label="Код"
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+            error={Boolean(fieldErrors.code)}
+            helperText={fieldErrors.code ?? CODE_HELP}
+            autoFocus
+            disabled={createMutation.isPending}
+          />
+          <TextField
+            label="Эндоним"
+            value={endonym}
+            onChange={(event) => setEndonym(event.target.value)}
+            error={Boolean(fieldErrors.endonym)}
+            helperText={fieldErrors.endonym ?? '(необязательно)'}
+            disabled={createMutation.isPending}
+          />
+          <TextField
+            label="Порядок"
+            type="number"
+            value={sortOrder}
+            onChange={(event) => setSortOrder(event.target.value)}
+            helperText="(необязательно, по умолчанию 0)"
+            disabled={createMutation.isPending}
+          />
+        </FormPanel>
       )}
-    </Box>
+    </>
   );
 }

@@ -1,22 +1,21 @@
-import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import { PageHeader } from '../../shared/ui/PageHeader';
 
 /**
- * Стартовая страница закрытой части. Пока разделов с задачами нет, это
- * нейтральное приветствие; сводка появится вместе с первыми рабочими
- * разделами.
+ * The start page of the signed-in panel. While there are no work sections
+ * yet, it is a neutral greeting; a summary arrives with the first work
+ * sections. The page header and the panel are the shared patterns (mod-015
+ * design § 11.1).
  */
 export function HomePage() {
   return (
-    <Box>
-      <Typography variant="h5" component="h2" sx={{ mb: 2 }}>
-        Главная
-      </Typography>
-      <Paper sx={{ p: 3 }}>
+    <>
+      <PageHeader title="Главная" />
+      <Paper variant="outlined" sx={{ p: 3 }}>
         <Stack spacing={1}>
-          <Typography variant="h6" component="p">
+          <Typography variant="h2" component="p">
             Добро пожаловать в Mustask
           </Typography>
           <Typography variant="body1" color="text.secondary">
@@ -24,6 +23,6 @@ export function HomePage() {
           </Typography>
         </Stack>
       </Paper>
-    </Box>
+    </>
   );
 }

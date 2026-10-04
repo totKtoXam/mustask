@@ -13,10 +13,15 @@ interface RegistrySkeletonProps {
   rows?: number;
 }
 
-/** Скелетон реестра: 5 строк-заглушек внутри настоящего TableHead. */
+/**
+ * Скелетон реестра: 5 строк-заглушек внутри настоящего TableHead.
+ *
+ * Shared since mod-015 (design § 8.3): every registry loads the same way,
+ * on the same outlined panel as its table, sized by the spacing unit.
+ */
 export function RegistrySkeleton({ columns, rows = 5 }: RegistrySkeletonProps) {
   return (
-    <TableContainer component={Paper} role="status" aria-label="Загрузка данных">
+    <TableContainer component={Paper} variant="outlined" role="status" aria-label="Загрузка данных">
       <Table size="small">
         <TableHead>
           <TableRow>
@@ -30,7 +35,7 @@ export function RegistrySkeleton({ columns, rows = 5 }: RegistrySkeletonProps) {
             <TableRow key={rowIndex}>
               {columns.map((column, columnIndex) => (
                 <TableCell key={`${rowIndex}-${columnIndex}-${column}`}>
-                  <Skeleton variant="rounded" height={24} />
+                  <Skeleton variant="rounded" sx={{ height: (theme) => theme.spacing(3) }} />
                 </TableCell>
               ))}
             </TableRow>

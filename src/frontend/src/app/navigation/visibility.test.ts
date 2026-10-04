@@ -1,0 +1,245 @@
+import { describe, expect, it } from 'vitest';
+import ListAltOutlinedIcon from '@mui/icons-material/ListAltOutlined';
+import type { AccessCheck } from '../../shared/lib/access';
+import type { WorkContextSelection } from '../../shared/lib/workContext';
+import { navigationModel } from './model';
+import type { NavigationEntry, NavigationModel } from './types';
+import {
+  deriveTrail,
+  entryMarker,
+  isEntryVisible,
+  isSettingsPage,
+  visibleModel,
+  type NavigationContext,
+} from './visibility';
+
+const allowEverything: AccessCheck = () => true;
+const placeholder: NavigationContext = {
+  isReal: false,
+  selection: { organizationId: 'org-1', projectId: 'prj-1', teamId: 'team-1' },
+};
+const real: NavigationContext = { ...placeholder, isReal: true };
+
+const organizationEntry: NavigationEntry = {
+  id: 'test-organization',
+  label: 'Тестовый раздел организации',
+  scope: 'organization',
+  permission: 'test.organization.read',
+  landing: (selection) =>
+    selection.organizationId ? `/organizations/${selection.organizationId}/test` : null,
+};
+
+const projectEntry: NavigationEntry = {
+  id: 'test-project',
+  label: 'Тестовый раздел проекта',
+  scope: 'project',
+  permission: 'test.project.read',
+  landing: (selection) =>
+    selection.organizationId && selection.projectId
+      ? `/organizations/${selection.organizationId}/projects/${selection.projectId}/test`
+      : null,
+};
+
+function labels(model: ReturnType<typeof visibleModel>): string[] {
+  return [...model.top, ...model.work, ...model.settings.flatMap((section) => section.entries)].map(
+    (entry) => entry.label,
+  );
+}
+
+describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () => {
+  it.each([
+    ['any code, placeholder context', allowEverything, placeholder],
+    ['any code, even a real context', allowEverything, real],
+    ['no code at all', (() => false) as AccessCheck, placeholder],
+  ])('shows only this task’s pages — %s', (_case, access, context) => {
+    const visible = visibleModel(navigationModel, access, context);
+    const shown = [...labels(visible), ...visible.settings.map(({ section }) => section.label)];
+
+    for (const label of [
+      'Рабочие элементы',
+      'Доски',
+      'Бэклоги',
+      'Спринты',
+      'Запросы',
+      'Организация',
+      'Проект',
+      'Процесс',
+    ]) {
+      expect(shown).not.toContain(label);
+    }
+  });
+
+  it('registers only built pages: «Главная» and «Справочники» → «Языки»', () => {
+    const registered = [
+      ...navigationModel.top,
+      ...navigationModel.work,
+      ...navigationModel.settings.flatMap((section) => section.entries),
+    ];
+    expect(registered.map((entry) => entry.label)).toEqual(['Главная', 'Языки']);
+  });
+});
+
+// Code review F-3: the rail shows only the icon, so a main entry registered
+// without one used to vanish from the screen while it passed every
+// visibility test. Now the compiler refuses it: `npm run build` runs `tsc -b`
+// over this file, and the directive fails the build if the error goes away.
+describe('The navigation model: a main entry carries an icon (design § 4.1, § 4.3)', () => {
+  it('refuses a main navigation entry without an icon at compile time', () => {
+    const model: NavigationModel = {
+      top: navigationModel.top,
+      work: [
+        // @ts-expect-error -- `icon` is required on «Основное меню» entries (design § 4.3).
+        { id: 'no-icon', label: 'Без значка', scope: 'instance', landing: () => '/no-icon' },
+      ],
+      settings: [],
+    };
+
+    expect(model.work).toHaveLength(1);
+  });
+
+  it('takes a settings entry without an icon (design § 4.1)', () => {
+    const model: NavigationModel = {
+      top: [],
+      work: [],
+      settings: [{ id: 'section', label: 'Раздел', entries: [organizationEntry] }],
+    };
+
+    expect(model.settings[0]?.entries).toHaveLength(1);
+  });
+});
+
+describe('US-3 Scenario: An organization-scoped entry waits for a real context (BR-8, D-18)', () => {
+  it('is hidden on the placeholder dataset, whatever codes the user holds', () => {
+    expect(isEntryVisible(organizationEntry, allowEverything, placeholder)).toBe(false);
+  });
+
+  it('is shown once the context source reports a real organization', () => {
+    expect(isEntryVisible(organizationEntry, allowEverything, real)).toBe(true);
+  });
+
+  it('still needs its code to pass the shared check', () => {
+    expect(isEntryVisible(organizationEntry, () => false, real)).toBe(false);
+  });
+
+  it('a project-scoped entry also needs a project selected', () => {
+    const noProject: NavigationContext = { isReal: true, selection: { organizationId: 'org-1' } };
+    expect(isEntryVisible(projectEntry, allowEverything, noProject)).toBe(false);
+    expect(isEntryVisible(projectEntry, allowEverything, real)).toBe(true);
+  });
+});
+
+describe('US-3 Scenario: «Настройки» opens the first settings page the user may open (BR-19)', () => {
+  const model: NavigationModel = {
+    top: navigationModel.top,
+    work: [],
+    settings: [
+      { id: 'organization', label: 'Организация', entries: [organizationEntry] },
+      ...navigationModel.settings.filter((section) => section.id === 'dictionaries'),
+    ],
+  };
+
+  it('follows the model order among the visible entries', () => {
+    expect(visibleModel(model, allowEverything, real).settingsLanding).toBe(
+      '/organizations/org-1/test',
+    );
+    expect(visibleModel(model, allowEverything, placeholder).settingsLanding).toBe(
+      '/dictionaries/languages',
+    );
+  });
+
+  it('is hidden when no settings entry is visible, and the empty sections with it', () => {
+    const visible = visibleModel(model, () => false, placeholder);
+    expect(visible.settingsLanding).toBeNull();
+    expect(visible.settings).toHaveLength(0);
+  });
+});
+
+describe('US-3 Scenario: The current page is marked', () => {
+  const languages = navigationModel.settings
+    .flatMap((section) => section.entries)
+    .find((entry) => entry.id === 'languages') as NavigationEntry;
+  const selection: WorkContextSelection = {};
+
+  it('marks the entry `page` on its landing, `true` beneath it, none elsewhere', () => {
+    expect(entryMarker('/dictionaries/languages', languages, selection)).toBe('page');
+    expect(entryMarker('/dictionaries/languages/new', languages, selection)).toBe('true');
+    expect(entryMarker('/dictionaries/languages/ru', languages, selection)).toBe('true');
+    expect(entryMarker('/dictionaries/languagesx', languages, selection)).toBeNull();
+    expect(entryMarker('/home', languages, selection)).toBeNull();
+  });
+
+  it('knows a settings page by the registered settings entries', () => {
+    expect(isSettingsPage('/dictionaries/languages', navigationModel, selection)).toBe(true);
+    expect(isSettingsPage('/dictionaries/languages/new', navigationModel, selection)).toBe(true);
+    expect(isSettingsPage('/home', navigationModel, selection)).toBe(false);
+    expect(isSettingsPage('/no-such-page', navigationModel, selection)).toBe(false);
+  });
+
+  // qa.md D-1: the router serves `/home/` as `/home`, so the slash must not
+  // make a page beneath its own landing.
+  it('reads an address with a trailing slash as the same page', () => {
+    const home = navigationModel.top.find((entry) => entry.id === 'home') as NavigationEntry;
+    expect(entryMarker('/home/', home, selection)).toBe('page');
+    expect(entryMarker('/dictionaries/languages/', languages, selection)).toBe('page');
+    expect(entryMarker('/dictionaries/languages//', languages, selection)).toBe('page');
+    expect(entryMarker('/dictionaries/languages/new/', languages, selection)).toBe('true');
+    expect(entryMarker('/home/', languages, selection)).toBeNull();
+  });
+
+  // qa.md D-2: while a not-found frame answers the address there is no page.
+  it('marks nothing and knows no settings page where no page is current', () => {
+    expect(entryMarker(null, languages, selection)).toBeNull();
+    expect(isSettingsPage(null, navigationModel, selection)).toBe(false);
+  });
+});
+
+describe('US-2 Scenario: Page trail (BR-6) — derived from the navigation model', () => {
+  const visible = visibleModel(navigationModel, allowEverything, placeholder);
+
+  it.each([
+    ['/home', []],
+    ['/dictionaries/languages', [{ label: 'Настройки' }, { label: 'Справочники' }]],
+    [
+      '/dictionaries/languages/new',
+      [
+        { label: 'Настройки' },
+        { label: 'Справочники' },
+        { label: 'Языки', to: '/dictionaries/languages' },
+      ],
+    ],
+    [
+      '/dictionaries/languages/ru',
+      [
+        { label: 'Настройки' },
+        { label: 'Справочники' },
+        { label: 'Языки', to: '/dictionaries/languages' },
+      ],
+    ],
+    ['/no-such-page', []],
+    // qa.md D-1: a trailing slash names the same page, not a page beneath it.
+    ['/home/', []],
+    ['/dictionaries/languages/', [{ label: 'Настройки' }, { label: 'Справочники' }]],
+  ])('%s', (pathname, trail) => {
+    expect(deriveTrail(pathname, visible, placeholder.selection)).toEqual(trail);
+  });
+
+  it('beneath a main entry’s landing, the entry is a link', () => {
+    const model: NavigationModel = {
+      top: navigationModel.top,
+      work: [
+        {
+          ...organizationEntry,
+          label: 'Рабочие элементы',
+          icon: ListAltOutlinedIcon,
+          scope: 'organization',
+        },
+      ],
+      settings: [],
+    };
+    const realVisible = visibleModel(model, allowEverything, real);
+
+    expect(deriveTrail('/organizations/org-1/test/PRM-US-12', realVisible, real.selection)).toEqual(
+      [{ label: 'Рабочие элементы', to: '/organizations/org-1/test' }],
+    );
+  });
+});

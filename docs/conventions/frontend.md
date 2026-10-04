@@ -31,28 +31,72 @@ src/
 
 ## MUI
 
-The choice of UI stack and the canon of screen states are fixed in
-[ADR-0007](../adr/0007-frontend-ui-stack-and-screen-state-canon.md) — it
-also covers the reasons and the boundary of the free edition of
-`@mui/x-data-grid` (narrowed by
-[ADR-0019](../adr/0019-ui-stack-narrowed-to-actual.md)). Ready-made
-wrappers live in `src/frontend/src/shared/ui`, and the dictionaries feature
-(`src/frontend/src/features/dictionaries`) is the reference registry, form
-and card; a new feature takes them rather than designing from scratch.
+The UI stack is MUI core and `@mui/icons-material`, as
+[ADR-0019](../adr/0019-ui-stack-narrowed-to-actual.md) narrowed
+[ADR-0007](../adr/0007-frontend-ui-stack-and-screen-state-canon.md) to what
+the panel uses. [ADR-0024](../adr/0024-app-shell-and-visual-language.md)
+fixes the shell, the visual language, the shared patterns, the work context
+in the address and the type appearance tokens. Its catalogue is mod-015's
+[design.md](../features/mod-015-app-shell-design-system/design.md) with the
+clickable prototype beside it: a module's `design.md` fills those patterns
+with its own fields and words instead of drawing a layout. The dictionaries
+feature (`src/frontend/src/features/dictionaries`) is the reference
+registry, form and dialog in code.
 
-- The theme is the only place for customizing appearance: palette,
-  typography, overrides in `app/theme`. No hardcoded colors/spacing in
-  components; `sx` — only for small layout details.
-- Use standard MUI components (DataGrid, Autocomplete, Dialog,
-  Snackbar…) before writing your own. Custom wrappers — in `shared/ui`,
-  if needed by ≥ 2 slices.
-- Forms: react-hook-form + a zod schema via `@hookform/resolvers/zod`;
-  error texts — from design.md, not made up in code.
-- Registries: `DataGrid` from `@mui/x-data-grid`, **MIT edition only**.
-  Row grouping and Excel export are paid Pro features and must not be
-  used (ADR-0007).
-- Dates: `@mui/x-date-pickers` with the `dayjs` adapter and the Russian
-  locale.
+- **Shell.** Every signed-in page renders inside `app/AppLayout`: the top
+  bar (product mark, context switcher, page trail, user menu), the main
+  navigation and, on settings pages, the settings navigation. A page never
+  draws its own frame. The line that builds a page registers its entry in
+  `app/navigation/model.ts` (label, scope, permission code, landing address,
+  and an icon for a main navigation entry, which the type requires); an
+  entry exists only once its page does, and is never shown disabled.
+- **Theme.** `app/theme` is the only place for appearance: colour roles,
+  the semantic palette, the type scale, the `layout.*` and `density.*`
+  tokens, breakpoints and component defaults. No colour literal outside it,
+  test files (`*.test.*`) and `src/test/` excepted:
+  `src/test/colourLiterals.test.ts` fails `npm test` on one. Every other
+  dimension is a theme token or the spacing unit, checked in review. Slices
+  read the custom keys through the theme object (`useTheme()`, `sx`
+  callbacks), never by importing `app/`; `sx` is for layout details.
+- **One accent.** A page header or dialog has at most one filled primary
+  action; secondary commands are text buttons with a leading icon and a
+  neutral label; selection controls and progress stay neutral.
+- **Shared patterns** in `shared/ui`, taken rather than re-drawn:
+  `PageHeader` (the title as the page's only `h1` and the browser tab, one
+  primary action, commands with «Ещё действия» overflow, views as tabs; the
+  shell derives the trail's part the navigation model knows, «Настройки /
+  <section>» and the link to the page's entry, so a page passes as
+  `ancestors` only the pages between its entry's page and itself),
+  `StateFrame` with `AccessDenied` and `NotFound` by level, `FilterBar` and
+  `SortableHeaderCell` for registries, `RegistrySkeleton` and
+  `FormSkeleton`, `ErrorBanner` with an optional title, `ConfirmDialog`
+  with a destructive flag, `FormDialog` and `FormPanel`. A new wrapper goes
+  to `shared/ui` when it is a pattern of that catalogue or two slices need
+  it.
+- **Work context in the address.** Organization-, project- and team-level
+  pages live under `/organizations/:organizationId/…`,
+  `…/projects/:projectId/…` and `…/teams/:teamId/…`. Ids are untyped
+  strings the page validates; a context that is not found answers
+  `NotFound` for its level. The current context comes from
+  `useWorkContext()` (`shared/lib/workContext`).
+- **Permissions.** Pages and navigation decide through one check —
+  `useAuth().can(code)` for instance codes, `useAccessCheck()`
+  (`shared/lib/access`) for a scoped code — and keep no copy of its
+  answers.
+- **Work item type look.** A type's icon and colour come from its stored
+  appearance token through `theme.workTracking.typeAppearance(token)`, a
+  state's colour from its category code through `categoryColour(code)`;
+  colour is never the only carrier.
+- **Components.** Standard MUI core components (`Table` with
+  `TablePagination`, `Dialog`, `Menu`, `Autocomplete`, `Snackbar`…) before
+  your own. `@mui/x-data-grid` is not in the stack; its revisit at the work
+  item list is mod-003's (ADR-0019).
+- **Forms:** controlled inputs; error texts from design.md, not made up in
+  code; a field's error on the field (`error`, `helperText`), any other in
+  the form's banner.
+- **Dates:** formatted with `dayjs` in `shared/lib/format.ts`.
+- **Widths:** supported down to 640 CSS px, with the overlay navigation
+  below 1024 px (ADR-0024).
 
 ## Data and state
 
@@ -67,14 +111,19 @@ and card; a new feature takes them rather than designing from scratch.
 
 ## Mandatory states for every screen
 
-loading (skeleton), empty, error (with retry), and permission behavior —
-as described in the feature's design.md. A screen without them does not
-pass QA.
+loading (skeleton), empty, empty after a filter, error (with retry), not
+found, and permission behavior — as described in the feature's design.md,
+built from the shared frame and banner (ADR-0024). A screen without them
+does not pass QA.
 
 ## Tests
 
 - Logic (hooks, utilities) — unit (Vitest).
 - Key screen scenarios — Testing Library + MSW (mocked per api-contract).
+  Under Vitest, `@testing-library/react` resolves to
+  `src/test/testingLibrary.tsx`, so every `render` and `renderHook` runs
+  under the app theme; `src/test/viewport.ts` sets the window width and
+  reduced motion that `useMediaQuery` reads (1440 px by default).
 - E2E happy path of the feature — Playwright (`src/frontend/e2e/`,
   `npm run e2e`), at the QA stage and only if the human answered yes to the
   E2E question there (`docs/ai-workflow/stages/05-frontend.md`). Not part of

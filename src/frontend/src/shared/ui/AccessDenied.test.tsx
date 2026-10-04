@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { AccessDenied } from './AccessDenied';
+import { AccessDenied } from './StateFrame';
 
 describe('AccessDenied', () => {
   it('показывает заголовок и текст канона дословно', () => {

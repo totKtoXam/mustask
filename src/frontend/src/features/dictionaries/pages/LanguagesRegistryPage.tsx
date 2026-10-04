@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
@@ -16,24 +14,36 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
-import TableSortLabel from '@mui/material/TableSortLabel';
 import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
-import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
+import FilterListOffIcon from '@mui/icons-material/FilterListOff';
+import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import { useAuth } from '../../auth/AuthContext';
 import { formatDateTime } from '../../../shared/lib/format';
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
-import { AccessDenied } from '../components/AccessDenied';
-import { RegistrySkeleton } from '../components/RegistrySkeleton';
+import { FilterBar } from '../../../shared/ui/FilterBar';
+import { PageHeader } from '../../../shared/ui/PageHeader';
+import { RegistrySkeleton } from '../../../shared/ui/RegistrySkeleton';
+import { SortableHeaderCell, type SortDirection } from '../../../shared/ui/SortableHeaderCell';
+import { AccessDenied, StateFrame } from '../../../shared/ui/StateFrame';
 import { RequirePermission } from '../components/RequirePermission';
-import { DefaultLanguageDialog, type DefaultLanguageDialogTarget } from '../components/DefaultLanguageDialog';
+import {
+  DefaultLanguageDialog,
+  type DefaultLanguageDialogTarget,
+} from '../components/DefaultLanguageDialog';
 import { describeDefaultAssignment } from '../lib/describeDefaultAssignment';
+import { languagePath, NEW_LANGUAGE_PATH } from '../paths';
 import { dictionariesPermissions } from '../permissions';
-import { getLanguages, type LanguageResponse, type LanguagesSortField, type OrderBy } from '../api/dictionariesApi';
+import {
+  getLanguages,
+  type LanguageResponse,
+  type LanguagesSortField,
+  type OrderBy,
+} from '../api/dictionariesApi';
 
 const PAGE_SIZE = 10;
 
@@ -47,7 +57,13 @@ interface FilterState {
   sortOrder: string;
 }
 
-const emptyFilters: FilterState = { code: '', endonym: '', isDefault: '', isActive: '', sortOrder: '' };
+const emptyFilters: FilterState = {
+  code: '',
+  endonym: '',
+  isDefault: '',
+  isActive: '',
+  sortOrder: '',
+};
 
 const COLUMNS: { field: LanguagesSortField | null; label: string }[] = [
   { field: 'code', label: 'Код' },
@@ -137,130 +153,113 @@ function LanguagesRegistryContent() {
     void queryClient.invalidateQueries({ queryKey: ['dictionaries', 'languages'] });
   }
 
-  return (
-    <Box>
-      <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h5" component="h2">
-          Языки
-        </Typography>
-        {canWrite && (
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/dictionaries/languages/new')}>
-            Добавить язык
-          </Button>
-        )}
-      </Stack>
+  function sortDirection(field: LanguagesSortField): SortDirection {
+    if (orderBy?.field !== field) return false;
+    return orderBy.desc ? 'desc' : 'asc';
+  }
 
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap' }}>
-          <TextField
-            label="Код"
-            size="small"
-            value={filters.code}
-            onChange={(event) => setFilter({ code: event.target.value })}
-          />
-          <TextField
-            label="Эндоним"
-            size="small"
-            value={filters.endonym}
-            onChange={(event) => setFilter({ endonym: event.target.value })}
-          />
-          <TextField
-            label="По умолчанию"
-            size="small"
-            select
-            sx={{ width: 150 }}
-            value={filters.isDefault}
-            onChange={(event) => setFilter({ isDefault: event.target.value as TriState })}
-          >
-            <MenuItem value="">Все</MenuItem>
-            <MenuItem value="true">Да</MenuItem>
-            <MenuItem value="false">Нет</MenuItem>
-          </TextField>
-          <TextField
-            label="Активность"
-            size="small"
-            select
-            sx={{ width: 150 }}
-            value={filters.isActive}
-            onChange={(event) => setFilter({ isActive: event.target.value as TriState })}
-          >
-            <MenuItem value="">Все</MenuItem>
-            <MenuItem value="true">Активные</MenuItem>
-            <MenuItem value="false">Неактивные</MenuItem>
-          </TextField>
-          <TextField
-            label="Порядок"
-            size="small"
-            sx={{ width: 100 }}
-            value={filters.sortOrder}
-            onChange={(event) => setFilter({ sortOrder: event.target.value })}
-          />
-        </Stack>
-      </Paper>
+  const addLanguage = () => navigate(NEW_LANGUAGE_PATH);
+
+  return (
+    <>
+      <PageHeader
+        title="Языки"
+        primaryAction={
+          canWrite ? { label: 'Добавить язык', icon: <AddIcon />, onClick: addLanguage } : undefined
+        }
+      />
+
+      <FilterBar active={isFilterActive} onClear={resetFilters}>
+        <TextField
+          label="Код"
+          value={filters.code}
+          onChange={(event) => setFilter({ code: event.target.value })}
+        />
+        <TextField
+          label="Эндоним"
+          value={filters.endonym}
+          onChange={(event) => setFilter({ endonym: event.target.value })}
+        />
+        <TextField
+          label="По умолчанию"
+          select
+          sx={{ width: (theme) => theme.spacing(19) }}
+          value={filters.isDefault}
+          onChange={(event) => setFilter({ isDefault: event.target.value as TriState })}
+        >
+          <MenuItem value="">Все</MenuItem>
+          <MenuItem value="true">Да</MenuItem>
+          <MenuItem value="false">Нет</MenuItem>
+        </TextField>
+        <TextField
+          label="Активность"
+          select
+          sx={{ width: (theme) => theme.spacing(19) }}
+          value={filters.isActive}
+          onChange={(event) => setFilter({ isActive: event.target.value as TriState })}
+        >
+          <MenuItem value="">Все</MenuItem>
+          <MenuItem value="true">Активные</MenuItem>
+          <MenuItem value="false">Неактивные</MenuItem>
+        </TextField>
+        <TextField
+          label="Порядок"
+          sx={{ width: (theme) => theme.spacing(12) }}
+          value={filters.sortOrder}
+          onChange={(event) => setFilter({ sortOrder: event.target.value })}
+        />
+      </FilterBar>
 
       {query.isPending && <RegistrySkeleton columns={columns.map((column) => column.label)} />}
       {query.isError && <ErrorBanner error={query.error} onRetry={() => query.refetch()} />}
 
-      {query.data && (
-        <TableContainer component={Paper}>
+      {/* Both empty states replace the table with its header row and paging
+          (mod-015 US-7, C-8); the page header and the filter bar stay. */}
+      {query.data && query.data.count === 0 && !isFilterActive && (
+        <StateFrame
+          icon={InboxOutlinedIcon}
+          heading="Справочник пуст"
+          hint={
+            canWrite
+              ? 'Добавьте первый язык кнопкой «Добавить язык» выше.'
+              : 'Языки ещё не добавлены.'
+          }
+          action={
+            canWrite
+              ? { label: 'Добавить язык', icon: <AddIcon />, onClick: addLanguage }
+              : undefined
+          }
+        />
+      )}
+      {query.data && query.data.count === 0 && isFilterActive && (
+        <StateFrame
+          icon={FilterListOffIcon}
+          heading="Ничего не найдено"
+          hint="Ни один язык не подходит под заданные условия фильтра."
+          action={{ label: 'Сбросить фильтр', onClick: resetFilters }}
+        />
+      )}
+
+      {query.data && query.data.count > 0 && (
+        <TableContainer component={Paper} variant="outlined">
           <Table size="small" aria-label="Реестр языков">
             <TableHead>
               <TableRow>
-                {columns.map((column) => (
-                  <TableCell key={column.label || 'actions'}>
-                    {column.field ? (
-                      <TableSortLabel
-                        active={orderBy?.field === column.field}
-                        direction={orderBy && orderBy.field === column.field && orderBy.desc ? 'desc' : 'asc'}
-                        onClick={() => toggleSort(column.field as LanguagesSortField)}
-                      >
-                        {column.label}
-                      </TableSortLabel>
-                    ) : (
-                      column.label
-                    )}
-                  </TableCell>
-                ))}
+                {columns.map((column) =>
+                  column.field ? (
+                    <SortableHeaderCell
+                      key={column.label}
+                      label={column.label}
+                      direction={sortDirection(column.field)}
+                      onSort={() => toggleSort(column.field as LanguagesSortField)}
+                    />
+                  ) : (
+                    <TableCell key={column.label || 'actions'}>{column.label}</TableCell>
+                  ),
+                )}
               </TableRow>
             </TableHead>
             <TableBody>
-              {query.data.count === 0 && !isFilterActive && (
-                <TableRow>
-                  <TableCell colSpan={columns.length} align="center" sx={{ py: 4 }}>
-                    <Stack spacing={1} sx={{ alignItems: 'center' }}>
-                      <Typography variant="subtitle1">Справочник пуст</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Добавьте первый язык кнопкой «Добавить язык» выше.
-                      </Typography>
-                      {canWrite && (
-                        <Button
-                          variant="outlined"
-                          startIcon={<AddIcon />}
-                          sx={{ mt: 1 }}
-                          onClick={() => navigate('/dictionaries/languages/new')}
-                        >
-                          Добавить язык
-                        </Button>
-                      )}
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              )}
-              {query.data.count === 0 && isFilterActive && (
-                <TableRow>
-                  <TableCell colSpan={columns.length} align="center" sx={{ py: 4 }}>
-                    <Stack spacing={1} sx={{ alignItems: 'center' }}>
-                      <Typography variant="subtitle1">Ничего не найдено</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Ни один язык не подходит под заданные условия фильтра.
-                      </Typography>
-                      <Button variant="outlined" sx={{ mt: 1 }} onClick={resetFilters}>
-                        Сбросить фильтр
-                      </Button>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              )}
               {query.data.data.map((language) => (
                 <TableRow key={language.code} hover>
                   <TableCell>{language.code}</TableCell>
@@ -290,7 +289,7 @@ function LanguagesRegistryContent() {
                         <IconButton
                           size="small"
                           aria-label={`Редактировать ${language.code}`}
-                          onClick={() => navigate(`/dictionaries/languages/${encodeURIComponent(language.code)}`)}
+                          onClick={() => navigate(languagePath(language.code))}
                         >
                           <EditIcon fontSize="small" />
                         </IconButton>
@@ -300,7 +299,9 @@ function LanguagesRegistryContent() {
                           <IconButton
                             size="small"
                             aria-label={`Сделать языком по умолчанию ${language.code}`}
-                            onClick={() => setDefaultTarget({ code: language.code, endonym: language.endonym })}
+                            onClick={() =>
+                              setDefaultTarget({ code: language.code, endonym: language.endonym })
+                            }
                           >
                             <StarBorderIcon fontSize="small" />
                           </IconButton>
@@ -330,8 +331,13 @@ function LanguagesRegistryContent() {
         onAssigned={handleAssigned}
       />
 
-      <Snackbar open={notice !== null} autoHideDuration={6000} onClose={() => setNotice(null)} message={notice} />
-    </Box>
+      <Snackbar
+        open={notice !== null}
+        autoHideDuration={6000}
+        onClose={() => setNotice(null)}
+        message={notice}
+      />
+    </>
   );
 }
 

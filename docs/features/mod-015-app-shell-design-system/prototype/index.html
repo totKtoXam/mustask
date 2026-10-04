@@ -1,0 +1,1566 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mustask</title>
+<!--
+  mod-015 clickable prototype (docs/features/mod-015-app-shell-design-system/design.md, § 14).
+  Self-contained: inline CSS, inline SVG copies of Material icon glyphs, vanilla JS.
+  Loads nothing from any host and adds no dependency (BR-17).
+  Every product string is the final Russian copy of design.md.
+  The yellow dashed «Панель прототипа» and the dashed notes are prototype tooling, not design.
+-->
+<style>
+:root{
+  /* colour roles (design.md § 2.1) */
+  --app-bg:#F8F8F8; --nav:#EBEBEB; --nav-hover:#E2E2E2; --nav-sel:#DCDCDC; --paper:#FFFFFF;
+  --text:#242424; --text2:#616161; --accent:#0F6CBD; --accent-dark:#0C5598; --white:#FFFFFF;
+  --divider:#E0E0E0; --input-border:#8A8A8A; --table-head:#F3F3F3; --hover:#F0F0F0; --row-sel:#E5F0FA;
+  --error:#C42B1C; --warning:#9D5D00; --success:#107C10; --info:#01579B;
+  --error-bg:#FDEDED; --error-ink:#5F2120; --info-bg:#E5F6FD; --info-ink:#014361; --warning-bg:#FFF4E5; --warning-ink:#663C00;
+  --disabled:#9E9E9E; --disabled-bg:#E6E6E6; --chip:#EBEBEB;
+  /* work-tracking tokens (design.md § 2.3) */
+  --t-epic:#C05600; --t-feature:#773B93; --t-story:#00739E; --t-task:#8A6A00; --t-bug:#B4233A;
+  --c-Proposed:#707070; --c-InProgress:#005A9E; --c-Resolved:#00796B; --c-Completed:#107C10; --c-Removed:#A4262C;
+  /* layout and density (design.md § 2.5) */
+  --topbar:48px; --nav-w:240px; --rail-w:48px; --snav-w:240px; --pane-w:360px; --form-w:480px;
+  --col-w:280px; --col-cw:40px; --row-h:36px; --ctl-h:32px; --radius:4px; --avatar:32px; --dot:8px; --auth-w:400px;
+  --shadow-menu:0 5px 5px -3px rgba(0,0,0,.2),0 8px 10px 1px rgba(0,0,0,.14),0 3px 14px 2px rgba(0,0,0,.12);
+  --shadow-dialog:0 11px 15px -7px rgba(0,0,0,.2),0 24px 38px 3px rgba(0,0,0,.14),0 9px 46px 8px rgba(0,0,0,.12);
+  --shadow-card:0 1px 3px rgba(0,0,0,.18),0 1px 1px rgba(0,0,0,.08);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:Roboto,"Segoe UI",system-ui,Arial,sans-serif;font-size:14px;line-height:20px;color:var(--text);background:var(--app-bg)}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+button{font:inherit;color:inherit}
+:focus{outline:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ic{flex:none;display:inline-block;vertical-align:middle}
+.grow{flex:1 1 auto}
+.muted{color:var(--text2)}
+.cap{font-size:12px;line-height:16px;color:var(--text2)}
+
+/* skip link */
+.skip{position:fixed;left:8px;top:-60px;z-index:2000;background:var(--paper);padding:8px 12px;border-radius:var(--radius);box-shadow:var(--shadow-menu)}
+.skip:focus{top:8px}
+
+/* top bar */
+.topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar);background:var(--paper);border-bottom:1px solid var(--divider);display:flex;align-items:center;gap:8px;padding:0 16px;z-index:1200;min-width:0}
+.mark{font-size:16px;font-weight:500;color:var(--text);white-space:nowrap;padding:4px;border-radius:var(--radius)}
+.mark:hover{text-decoration:none;background:var(--hover)}
+.sw{display:flex;align-items:center;gap:2px;min-width:0}
+.sw-level{display:inline-flex;align-items:center;gap:2px;height:var(--ctl-h);padding:0 4px 0 8px;border:0;background:none;border-radius:var(--radius);cursor:pointer;min-width:0;color:var(--text)}
+.sw-level:hover{background:var(--hover)}
+.sw-level[aria-expanded=true]{background:var(--nav-sel)}
+.sw-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
+.sep{color:var(--text2);padding:0 2px}
+.sw-empty{color:var(--text2);padding:0 8px;white-space:nowrap}
+.sw-fail{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.sw .sk{width:120px;height:24px}
+.vdiv{width:1px;align-self:stretch;margin:12px 6px;background:var(--divider);flex:none}
+.trail{min-width:0;overflow:hidden}
+.trail ol{display:flex;list-style:none;margin:0;padding:0;align-items:center;gap:6px;color:var(--text2);min-width:0}
+.trail li{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trail li.tsep{flex:none}
+.avatar-btn{border:0;background:none;padding:4px;border-radius:50%;cursor:pointer;flex:none}
+.avatar-btn:hover{background:var(--hover)}
+.avatar{width:var(--avatar);height:var(--avatar);border-radius:50%;background:var(--text2);color:var(--white);display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:500}
+@media (max-width:1279px){.sw-name{max-width:160px}}
+@media (max-width:1023px){.sw-name{max-width:96px}.sw-fail-text{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
+
+/* navigation */
+.navwrap{position:fixed;top:var(--topbar);bottom:0;left:0;display:flex;z-index:1100}
+.mainnav{width:var(--nav-w);background:var(--nav);display:flex;flex-direction:column;transition:width 150ms ease;overflow-x:hidden;overflow-y:auto}
+.mainnav.rail{width:var(--rail-w)}
+.navlist{list-style:none;margin:0;padding:4px 0}
+.navlist.bottom{margin-top:auto;border-top:1px solid var(--divider)}
+.navdiv{height:1px;background:var(--divider);margin:4px 0}
+.navitem{display:flex;align-items:center;gap:12px;height:40px;padding:0 14px;color:var(--text);border:0;background:none;width:100%;cursor:pointer;position:relative;white-space:nowrap;text-align:left}
+.navitem:hover{background:var(--nav-hover);text-decoration:none}
+.navitem.sel{background:var(--nav-sel);font-weight:500}
+.navitem.sel::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
+.navitem:focus-visible{outline-offset:-2px}
+.rail .navitem{justify-content:center;padding:0}
+.setnav{width:var(--snav-w);background:var(--nav);border-left:1px solid var(--divider);overflow-y:auto;padding:12px 0}
+.setnav-title{font-size:16px;line-height:24px;font-weight:500;margin:0 16px 4px}
+.setnav ul{list-style:none;margin:0;padding:0}
+.subheader{font-weight:500;padding:10px 16px 4px}
+.navitem.set{padding-left:32px;height:36px}
+@media (prefers-reduced-motion:reduce){.mainnav{transition:none}.sk{animation:none!important}.drawer-anim{animation:none!important}}
+
+/* overlay navigation (< 1024 px) */
+.backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1300}
+.overlay{position:fixed;top:0;bottom:0;left:0;display:flex;z-index:1301;box-shadow:var(--shadow-dialog);animation:slidein 180ms ease}
+.overlay .mainnav,.overlay .setnav{padding-top:8px}
+@keyframes slidein{from{transform:translateX(-100%)}to{transform:none}}
+
+/* main region */
+.main{padding:var(--topbar) 24px 64px;min-height:100vh}
+body[data-nav=expanded] .main{margin-left:var(--nav-w)}
+body[data-nav=rail] .main{margin-left:var(--rail-w)}
+body[data-nav=settings] .main{margin-left:calc(var(--rail-w) + var(--snav-w))}
+body[data-nav=overlay] .main{margin-left:0;padding-left:16px;padding-right:16px}
+.main:focus-visible{outline-offset:-2px}
+
+/* page header */
+.ph{padding:16px 0 8px}
+.ph-trail{margin-bottom:4px}
+.ph-row{display:flex;align-items:flex-start;gap:16px}
+.ph-title{font-size:20px;line-height:28px;font-weight:500;margin:2px 0;flex:1 1 200px;min-width:160px}
+.cmdbar{display:flex;align-items:center;gap:8px;flex:0 1 auto;min-width:0;overflow:hidden;min-height:38px;padding:3px}
+.cmdbar .hidden{display:none}
+.tabs{display:flex;gap:20px;margin-top:4px}
+.tab{padding:8px 0 6px;color:var(--text2);border-bottom:2px solid transparent;font-weight:500;white-space:nowrap}
+.tab:hover{color:var(--text);text-decoration:none}
+.tab[aria-selected=true]{color:var(--text);border-bottom-color:var(--accent)}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;min-height:var(--ctl-h);padding:4px 12px;border-radius:var(--radius);border:1px solid transparent;font-weight:500;cursor:pointer;white-space:nowrap;background:none;color:var(--text);flex:none}
+.btn .lead{color:var(--accent)}
+.btn:hover{background:var(--hover);text-decoration:none}
+.btn.contained{background:var(--accent);color:var(--white)}
+.btn.contained .lead{color:inherit}
+.btn.contained:hover{background:var(--accent-dark)}
+.btn.outlined{border-color:var(--input-border);background:var(--paper)}
+.btn.outlined:hover{background:var(--hover)}
+.btn.danger{background:var(--error);color:var(--white)}
+.btn.danger .lead{color:inherit}
+.btn.sm{min-height:28px;padding:2px 8px}
+.btn.full{width:100%;justify-content:center;min-height:40px}
+.btn:disabled,.btn:disabled:hover{color:var(--disabled);background:none;cursor:default}
+.btn.contained:disabled,.btn.danger:disabled{background:var(--disabled-bg);color:var(--disabled)}
+.btn:disabled .lead{color:var(--disabled)}
+.iconbtn{width:var(--ctl-h);height:var(--ctl-h);display:inline-flex;align-items:center;justify-content:center;border:0;background:none;border-radius:50%;cursor:pointer;color:var(--text);flex:none}
+.iconbtn:hover{background:var(--hover)}
+.iconbtn.sm{width:28px;height:28px}
+.iconbtn:disabled{color:var(--disabled);cursor:default;background:none}
+.spinner{width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .8s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* text fields */
+.tf{position:relative;display:inline-flex;flex-direction:column;min-width:130px}
+.tf>label{position:absolute;top:-8px;left:9px;padding:0 4px;background:var(--paper);font-size:12px;line-height:16px;color:var(--text2);pointer-events:none;z-index:1}
+.tf input,.tf select,.tf textarea,.tf .selbtn{height:38px;padding:8px 10px;border:1px solid var(--input-border);border-radius:var(--radius);font:inherit;color:var(--text);background:var(--paper);width:100%}
+.tf textarea{height:auto;min-height:72px;resize:vertical}
+.tf input:focus,.tf select:focus,.tf textarea:focus,.tf .selbtn:focus-visible{outline:none;border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.tf input:disabled,.tf select:disabled,.tf textarea:disabled{color:var(--disabled);border-color:var(--disabled-bg);background:var(--paper)}
+.tf .help{font-size:12px;line-height:16px;color:var(--text2);margin:3px 12px 0}
+.tf.err input,.tf.err textarea{border-color:var(--error)}
+.tf.err .help,.tf.err>label{color:var(--error)}
+.tf .selbtn{display:flex;align-items:center;justify-content:space-between;gap:6px;cursor:pointer;text-align:left}
+.tf .selbtn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tf.adorn input{padding-left:34px}
+.tf .adorn-ic{position:absolute;left:9px;top:9px;color:var(--text2)}
+.switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.switch input{width:34px;height:18px;accent-color:var(--text)}
+
+/* panels, tables */
+.panel{background:var(--paper);border:1px solid var(--divider);border-radius:var(--radius)}
+.panel.pad{padding:24px}
+.filterbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px 8px;padding:14px 12px 10px;margin-bottom:8px}
+.filterbar>.lead-ic{color:var(--text2)}
+.filterbar .clear{margin-left:auto}
+.tablewrap{background:var(--paper);border:1px solid var(--divider);border-radius:var(--radius);overflow-x:auto}
+table.t{width:100%;border-collapse:collapse}
+.t th{height:var(--row-h);background:var(--table-head);font-size:12px;line-height:16px;font-weight:500;color:var(--text2);text-align:left;padding:4px 12px;border-bottom:1px solid var(--divider);white-space:nowrap}
+.t td{height:var(--row-h);padding:4px 12px;border-bottom:1px solid var(--divider);white-space:nowrap}
+.t tbody tr:hover{background:var(--hover)}
+.t tbody tr.selrow{background:var(--row-sel)}
+.t tbody tr[tabindex]{cursor:pointer}
+.t tbody tr:focus-visible{outline-offset:-2px}
+.t td.actions{text-align:right;padding-top:2px;padding-bottom:2px}
+.t td.ellip{max-width:260px;overflow:hidden;text-overflow:ellipsis}
+.sortlabel{display:inline-flex;align-items:center;gap:2px;border:0;background:none;padding:0;cursor:pointer;color:inherit;font:inherit;font-weight:500}
+.sortlabel .ic{opacity:0}
+.sortlabel:hover .ic,.sortlabel.active .ic{opacity:1}
+.sortlabel.active{color:var(--text)}
+.pager{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:4px 8px;color:var(--text)}
+.chip{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:12px;background:var(--chip);font-size:13px;white-space:nowrap}
+.chip.success{background:var(--success);color:var(--white)}
+.chip .x{border:0;background:none;padding:0;cursor:pointer;display:inline-flex;color:var(--text2)}
+.chips{display:inline-flex;gap:4px;flex-wrap:wrap}
+.dot{width:var(--dot);height:var(--dot);border-radius:50%;display:inline-block;background:currentColor;flex:none}
+.dot.ring{background:transparent;border:2px solid currentColor}
+.state{display:inline-flex;align-items:center;gap:6px}
+.wi-ref{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%}
+.wi-ref a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.t .chips{flex-wrap:nowrap}
+.sk{display:inline-block;height:20px;width:100%;border-radius:var(--radius);background:var(--disabled-bg);animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+
+/* canon frame and alerts */
+.frame{display:flex;flex-direction:column;align-items:center;text-align:center;padding:64px 16px;gap:8px}
+.frame .frame-ic{color:var(--text2)}
+.frame-h{font-size:16px;line-height:24px;font-weight:500;margin:8px 0 0}
+.frame-h.h1{font-size:20px;line-height:28px}
+.frame-hint{color:var(--text2);margin:0 0 8px;max-width:520px}
+.alert{display:flex;gap:12px;align-items:center;padding:6px 12px;border-radius:var(--radius);margin:8px 0}
+.alert>.ic{align-self:flex-start;margin-top:2px}
+.alert .msg{flex:1;padding:2px 0}
+.alert.error{background:var(--error-bg);color:var(--error-ink)} .alert.error>.ic{color:var(--error)}
+.alert.info{background:var(--info-bg);color:var(--info-ink)} .alert.info>.ic{color:var(--info)}
+.alert.warning{background:var(--warning-bg);color:var(--warning-ink)} .alert.warning>.ic{color:var(--warning)}
+
+/* menus, tooltip, snackbar, dialogs */
+.menu{position:fixed;background:var(--paper);border-radius:var(--radius);box-shadow:var(--shadow-menu);padding:4px 0;min-width:200px;max-width:360px;z-index:1350;max-height:60vh;overflow:auto}
+.mi{display:flex;align-items:center;gap:12px;padding:6px 16px;min-height:36px;cursor:pointer;width:100%;border:0;background:none;text-align:left;color:var(--text)}
+.mi:hover,.mi:focus{background:var(--hover)}
+.mi:focus-visible{outline-offset:-2px}
+.mi .check{width:20px;flex:none;color:var(--text)}
+.mi .cbx{width:16px;height:16px;border:2px solid var(--input-border);border-radius:2px;flex:none;display:inline-flex;align-items:center;justify-content:center}
+.mi[aria-checked=true] .cbx{background:var(--text);border-color:var(--text);color:var(--white)}
+.mi.danger{color:var(--error)}
+.mi:disabled{color:var(--disabled);cursor:default;background:none}
+.mlabel{padding:8px 16px 6px;font-weight:500}
+.msub{padding:6px 16px 4px;font-size:12px;line-height:16px;color:var(--text2);font-weight:500}
+.mdiv{height:1px;background:var(--divider);margin:4px 0}
+#tip{position:fixed;background:rgba(97,97,97,.94);color:var(--white);font-size:12px;line-height:16px;padding:4px 8px;border-radius:var(--radius);max-width:320px;z-index:1500;pointer-events:none;display:none;overflow-wrap:anywhere}
+.snack{position:fixed;left:24px;bottom:24px;z-index:1400;min-width:288px;max-width:560px;border-radius:var(--radius);box-shadow:var(--shadow-menu);padding:10px 16px;background:#323232;color:var(--white)}
+.snack.alertsnack{background:var(--info-bg);color:var(--info-ink);display:flex;gap:10px;align-items:flex-start}
+.snack.alertsnack .ic{color:var(--info)}
+.dialog{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--paper);border-radius:var(--radius);box-shadow:var(--shadow-dialog);width:calc(100% - 64px);max-width:444px;max-height:calc(100% - 64px);display:flex;flex-direction:column;z-index:1310}
+.dialog.sm{max-width:600px}
+.dialog.lg{max-width:1200px;height:80vh}
+.dlg-title{display:flex;align-items:center;gap:8px;padding:16px 16px 12px 24px}
+.dlg-title h2{font-size:16px;line-height:24px;font-weight:500;margin:0;flex:1}
+.dlg-content{padding:4px 24px 8px;overflow:auto;flex:1 1 auto}
+.dlg-content p{margin:0 0 8px}
+.dlg-actions{display:flex;justify-content:flex-end;gap:8px;padding:12px 24px 16px}
+.setdlg{display:flex;flex:1 1 auto;min-height:0;border-top:1px solid var(--divider);border-bottom:1px solid var(--divider)}
+.setdlg nav{width:220px;flex:none;background:var(--app-bg);overflow:auto;padding:8px 0}
+.setdlg nav ul{list-style:none;margin:0;padding:0}
+.setdlg .setbody{flex:1;overflow:auto;padding:16px 24px}
+.setbody h3{font-size:14px;font-weight:500;margin:0 0 8px}
+.stack{display:flex;flex-direction:column;gap:20px}
+.row{display:flex;align-items:center;gap:8px}
+.wrap{flex-wrap:wrap}
+
+/* work tracking */
+.with-pane{display:flex;gap:16px;align-items:flex-start}
+.with-pane>.mainpart{flex:1 1 auto;min-width:0}
+.pane{width:var(--pane-w);flex:0 0 var(--pane-w);background:var(--paper);border:1px solid var(--divider);border-radius:var(--radius);position:sticky;top:calc(var(--topbar) + 8px);max-height:calc(100vh - var(--topbar) - 16px);overflow:auto}
+.pane-head{display:flex;align-items:center;gap:4px;padding:8px 8px 8px 16px;border-bottom:1px solid var(--divider)}
+.pane-head h2{font-size:16px;line-height:24px;font-weight:500;margin:0;flex:1}
+.pane-body{padding:12px 16px}
+@media (max-width:1279px){.pane{position:fixed;right:0;top:var(--topbar);bottom:0;max-height:none;border-radius:0;z-index:1250;box-shadow:var(--shadow-dialog)}}
+.wi-band{background:var(--paper);border:1px solid var(--divider);border-left:4px solid var(--stripe);border-radius:var(--radius);padding:10px 12px 10px 16px;display:flex;gap:12px;align-items:flex-start}
+.wi-ident{display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;font-weight:500;margin:0}
+.wi-title input{font:inherit;font-size:20px;line-height:28px;border:1px solid transparent;border-radius:var(--radius);width:100%;padding:2px 6px;margin-left:-6px;color:var(--text);background:none}
+.wi-title input:hover:not(:disabled){border-color:var(--input-border)}
+.wi-title input:focus{outline:none;border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.wi-title input:disabled{color:var(--text)}
+.wi-strip{display:flex;flex-wrap:wrap;gap:10px 28px;padding:12px 4px;align-items:center}
+.wi-field{display:flex;align-items:center;gap:8px}
+.wi-field>.lbl{font-size:12px;line-height:16px;font-weight:500;color:var(--text2)}
+.wi-field select{height:30px;border:1px solid transparent;border-radius:var(--radius);background:none;font:inherit;color:var(--text);padding:0 4px;max-width:240px}
+.wi-field select:hover:not(:disabled){border-color:var(--input-border)}
+.wi-field select:disabled{color:var(--text);opacity:1;appearance:none}
+.wi-grid{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:12px}
+.sec{background:var(--paper);border:1px solid var(--divider);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px}
+.sec>h2{font-size:16px;line-height:24px;font-weight:500;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid var(--divider)}
+.kv{display:grid;grid-template-columns:120px 1fr;gap:8px 12px;align-items:center}
+.kv dt{font-size:12px;color:var(--text2);font-weight:500}
+.kv dd{margin:0}
+.comment{display:flex;gap:10px;padding:8px 0;border-top:1px solid var(--divider)}
+.avatar.sm{width:24px;height:24px;font-size:11px}
+@media (max-width:1279px){.wi-grid{grid-template-columns:1fr}}
+.board{display:flex;gap:8px;overflow-x:auto;align-items:stretch;padding-bottom:8px;min-height:420px}
+.col{width:var(--col-w);flex:0 0 var(--col-w);background:var(--hover);border-radius:var(--radius);display:flex;flex-direction:column}
+.col-head{display:flex;align-items:center;gap:6px;padding:8px 6px 8px 12px;border-bottom:2px solid var(--divider)}
+.col-head h2{font-size:14px;line-height:20px;font-weight:500;margin:0;flex:1}
+.col.collapsed{width:var(--col-cw);flex-basis:var(--col-cw);align-items:center;padding-top:4px}
+.col.collapsed .vtext{writing-mode:vertical-rl;padding:8px 0;font-weight:500;white-space:nowrap}
+.card{background:var(--paper);border-radius:var(--radius);box-shadow:var(--shadow-card);border-left:4px solid var(--stripe);padding:8px 8px 8px 10px;margin:8px 8px 0;display:flex;flex-direction:column;gap:6px}
+.card-top{display:block;position:relative;padding-right:30px}
+.card-top>.ic{vertical-align:-3px;margin-right:4px}
+.card-top a{color:var(--text)}
+.card-top .id{font-weight:500;white-space:nowrap;margin-right:6px}
+.card-top .iconbtn{position:absolute;right:-4px;top:-4px}
+.tree-name{display:flex;align-items:center;gap:2px}
+.tree-gap{display:inline-block;width:28px;flex:none}
+.iter-card{border:1px solid var(--divider);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px;background:var(--paper)}
+.swatch{display:flex;align-items:center;gap:10px;padding:6px 0}
+.swatch .box{width:36px;height:24px;border-radius:var(--radius);border:1px solid var(--divider);flex:none}
+.grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+
+/* auth card, crash */
+.center{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.auth{width:var(--auth-w);max-width:100%;background:var(--paper);border:1px solid var(--divider);border-radius:var(--radius);padding:32px}
+.auth h1{font-size:20px;line-height:28px;font-weight:500;margin:0 0 16px}
+.crash{display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center}
+.crash h1{font-size:20px;line-height:28px;font-weight:500;margin:0}
+
+/* prototype tooling — not part of the design */
+.proto{position:fixed;right:12px;bottom:12px;width:350px;max-height:60vh;overflow:auto;background:#FFFBE6;border:2px dashed #B38600;border-radius:6px;z-index:1450;font-size:13px;line-height:18px;padding:10px 12px;color:#3D3000}
+.proto.closed{width:auto;padding:4px 8px}
+.proto h2{font-size:14px;margin:0;flex:1}
+.proto label{display:block;margin:8px 0 2px;font-weight:500}
+.proto select{width:100%;font:inherit;padding:3px}
+.proto .links{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:4px}
+.proto .links a,.proto .links button{color:#6B4E00;text-decoration:underline;border:0;background:none;padding:0;cursor:pointer;font:inherit}
+.proto .sect{border-top:1px dashed #D9B84A;margin-top:10px;padding-top:6px}
+.proto-note{border:1px dashed #B38600;background:#FFFBE6;color:#3D3000;border-radius:var(--radius);padding:8px 12px;margin:8px 0;font-size:13px}
+.snack.proto-snack{background:#FFFBE6;color:#3D3000;border:1px dashed #B38600}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="layer"></div>
+<div id="tip" role="tooltip"></div>
+<aside id="proto" class="proto" aria-label="Панель прототипа"></aside>
+<script>
+'use strict';
+
+/* ---------- Material icon glyphs (24 × 24), copies of the shapes @mui/icons-material renders ---------- */
+const P = {
+  home:'M12 5.69l5 4.5V18h-2v-6H9v6H7v-7.81l5-4.5M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z',
+  listAlt:'M19 5v14H5V5h14m1.1-2H3.9c-.5 0-.9.4-.9.9v16.2c0 .4.4.9.9.9h16.2c.4 0 .9-.5.9-.9V3.9c0-.5-.5-.9-.9-.9zM11 7h6v2h-6V7zm0 4h6v2h-6v-2zm0 4h6v2h-6zM7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7z',
+  viewWeek:'M6 5H3c-.55 0-1 .45-1 1v12c0 .55.45 1 1 1h3c.55 0 1-.45 1-1V6c0-.55-.45-1-1-1zm14 0h-3c-.55 0-1 .45-1 1v12c0 .55.45 1 1 1h3c.55 0 1-.45 1-1V6c0-.55-.45-1-1-1zm-7 0h-3c-.55 0-1 .45-1 1v12c0 .55.45 1 1 1h3c.55 0 1-.45 1-1V6c0-.55-.45-1-1-1z',
+  listNumbered:'M2 17h2v.5H3v1h1v.5H2v1h3v-4H2v1zm1-9h1V4H2v1h1v3zm-1 3h1.8L2 13.1v.9h3v-1H3.2L5 10.9V10H2v1zm5-6v2h14V5H7zm0 14h14v-2H7v2zm0-6h14v-2H7v2z',
+  listBulleted:'M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5zm0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5zM7 19h14v-2H7v2zm0-6h14v-2H7v2zm0-8v2h14V5H7z',
+  dateRange:'M9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm2-7h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z',
+  manageSearch:'M7 9H2V7h5v2zm0 3H2v2h5v-2zm13.59 7l-3.83-3.83c-.8.52-1.74.83-2.76.83-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5c0 1.02-.31 1.96-.83 2.75L22 17.59 20.59 19zM17 11c0-1.65-1.35-3-3-3s-3 1.35-3 3 1.35 3 3 3 3-1.35 3-3zM2 19h10v-2H2v2z',
+  settings:'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z',
+  dblLeft:'M17.59 18L19 16.59 14.42 12 19 7.41 17.59 6l-6 6zM11 18l1.41-1.41L7.83 12l4.58-4.59L11 6l-6 6z',
+  dblRight:'M6.41 6L5 7.41 9.58 12 5 16.59 6.41 18l6-6zM13 6l-1.41 1.41L16.17 12l-4.58 4.59L13 18l6-6z',
+  menu:'M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z',
+  expandMore:'M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z',
+  chevRight:'M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z',
+  chevLeft:'M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z',
+  check:'M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z',
+  add:'M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z',
+  close:'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
+  edit:'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 000-1.41l-2.34-2.34a.996.996 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z',
+  star:'M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z',
+  starBorder:'M22 9.24l-7.19-.62L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.63-7.03L22 9.24zM12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28L12 15.4z',
+  lock:'M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm9 14H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z',
+  searchOff:'M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 009.5 3C6.08 3 3.28 5.64 3.03 9h2.02C5.3 6.75 7.18 5 9.5 5 11.99 5 14 7.01 14 9.5S11.99 14 9.5 14c-.17 0-.33-.03-.5-.05v2.02c.17.02.33.03.5.03 1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zM6.47 10.82L4 13.29l-2.47-2.47-.71.71L3.29 14 .82 16.47l.71.71L4 14.71l2.47 2.47.71-.71L4.71 14l2.47-2.47z',
+  search:'M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z',
+  filter:'M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z',
+  filterOff:'M10.83 8H21V6H8.83l2 2zm5 5H18v-2h-4.17l2 2zM14 16.83V18h-4v-2h3.17l-3-3H6v-2h2.17l-3-3H3V6h.17L1.39 4.22 2.8 2.81l18.38 18.38-1.41 1.41L14 16.83z',
+  more:'M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z',
+  logout:'M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z',
+  person:'M12 6c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2m0 10c2.7 0 5.8 1.29 6 2H6c.23-.72 3.31-2 6-2m0-12C9.79 4 8 5.79 8 8s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z',
+  del:'M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z',
+  restore:'M13 3a9 9 0 00-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0013 21a9 9 0 000-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z',
+  drag:'M11 18c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm-2-8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 4c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z',
+  errorOutline:'M11 15h2v2h-2zm0-8h2v6h-2zm.99-5C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z',
+  info:'M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z',
+  warning:'M12 5.99L19.53 19H4.47L12 5.99M12 2L1 21h22L12 2zm1 14h-2v2h2v-2zm0-6h-2v4h2v-4z',
+  inbox:'M19 3H4.99c-1.11 0-1.98.89-1.98 2L3 19c0 1.1.88 2 1.99 2H19c1.1 0 2-.9 2-2V5c0-1.11-.9-2-2-2zm0 16H5v-3h3.56c.69 1.19 1.97 2 3.45 2s2.75-.81 3.45-2H19v3zm0-5h-4.99c0 1.1-.9 2-2 2s-2-.9-2-2H5V5h14v9z',
+  openNew:'M19 19H5V5h7V3H5a2 2 0 00-2 2v14a2 2 0 002 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z',
+  sidebar:'M16 20H2V4h14v16zm2-12h4V4h-4v4zm0 12h4v-4h-4v4zm0-6h4v-4h-4v4z',
+  upload:'M5 20h14v-2H5v2zm0-10h4v6h6v-6h4l-7-7-7 7z',
+  download:'M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z',
+  arrowUp:'M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z',
+  arrowDown:'M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z',
+  /* appearance tokens (design.md § 2.3) */
+  epic:'M14 6l-3.75 5 2.85 3.8-1.6 1.2C9.81 13.75 7 10 7 10l-6 8h22L14 6z',
+  feature:'M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0011 15.9V19H7v2h10v-2h-4v-3.1a5.01 5.01 0 003.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z',
+  story:'M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm0 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z',
+  task:'M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z',
+  bug:'M20 8h-2.81a5.985 5.985 0 00-1.82-1.96L17 4.41 15.59 3l-2.17 2.17C12.96 5.06 12.49 5 12 5c-.49 0-.96.06-1.41.17L8.41 3 7 4.41l1.62 1.63C7.88 6.55 7.26 7.22 6.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81c1.04 1.79 2.97 3 5.19 3s4.15-1.21 5.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8zm-6 8h-4v-2h4v2zm0-4h-4v-2h4v2z',
+  help:'M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z'
+};
+function ic(name, o){
+  o = o || {};
+  const s = o.size || 20;
+  const st = o.color ? ' style="color:' + o.color + '"' : '';
+  return '<svg class="ic ' + (o.cls || '') + '" width="' + s + '" height="' + s + '" viewBox="0 0 24 24" aria-hidden="true" focusable="false"' + st + '><path fill="currentColor" d="' + (P[name] || P.help) + '"/></svg>';
+}
+const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- work-tracking language (design.md § 2.3) ---------- */
+const TOKENS = {
+  epic:{icon:'epic', colour:'var(--t-epic)', name:'Эпик', key:'EPIC'},
+  feature:{icon:'feature', colour:'var(--t-feature)', name:'Фича', key:'FEAT'},
+  story:{icon:'story', colour:'var(--t-story)', name:'Пользовательская история', key:'US'},
+  task:{icon:'task', colour:'var(--t-task)', name:'Задача', key:'TASK'},
+  bug:{icon:'bug', colour:'var(--t-bug)', name:'Баг', key:'BUG'}
+};
+const TOKEN_ORDER = ['epic','feature','story','task','bug'];
+/* the theme lookups take a token name / a category code only (R-25) */
+function typeAppearance(token){ const t = TOKENS[token]; return t ? {icon:t.icon, colour:t.colour} : {icon:'help', colour:'var(--text)'}; }
+const CATEGORIES = {Proposed:'Новые', InProgress:'В работе', Resolved:'Решённые', Completed:'Завершённые', Removed:'Удалённые'};
+function categoryColour(code){ return CATEGORIES[code] ? 'var(--c-' + code + ')' : 'var(--text2)'; }
+function typeIcon(token, size){ const a = typeAppearance(token); return ic(a.icon, {size: size || 18, color: a.colour}); }
+function stateHtml(state, cat){ return '<span class="state"><span class="dot' + (cat === 'Removed' ? ' ring' : '') + '" style="color:' + categoryColour(cat) + '" aria-hidden="true"></span>' + esc(state) + '</span>'; }
+const STATES = {
+  epic:[['Новая','Proposed'],['Активна','InProgress'],['Разрешена','InProgress'],['Закрыта','Completed']],
+  feature:[['Новая','Proposed'],['Активна','InProgress'],['Разрешена','InProgress'],['Закрыта','Completed']],
+  story:[['Новая','Proposed'],['Активна','InProgress'],['Разрешена','InProgress'],['Закрыта','Completed']],
+  bug:[['Новая','Proposed'],['Активна','InProgress'],['Разрешена','Resolved'],['Закрыта','Completed']],
+  task:[['Новая','Proposed'],['Активна','InProgress'],['Закрыта','Completed']]
+};
+function catOf(type, state){ if (state === 'Удалена') return 'Removed'; const s = (STATES[type] || []).find((x) => x[0] === state); return s ? s[1] : 'Proposed'; }
+
+/* ---------- placeholder data ---------- */
+const LONG_NAME = 'Акционерное общество «Пример организации с очень длинным названием для проверки усечения в панели 1»';
+function baseOrgs(){
+  return [
+    {id:'org-1', name:'Пример организации 1', projects:[
+      {id:'prj-1', name:'Пример проекта 1', teams:[{id:'team-1', name:'Пример команды 1'},{id:'team-2', name:'Пример команды 2'}]},
+      {id:'prj-2', name:'Пример проекта 2', teams:[{id:'team-3', name:'Пример команды 3'}]}]},
+    {id:'org-2', name:'Пример организации 2', projects:[
+      {id:'prj-3', name:'Пример проекта 3', teams:[{id:'team-4', name:'Пример команды 4'}]}]}
+  ];
+}
+function orgs(){
+  const d = S.dataset;
+  if (d === 'noOrgs') return [];
+  const list = baseOrgs();
+  if (d === 'noProjects') list[0].projects = [];
+  if (d === 'longName') list[0].name = LONG_NAME;
+  return list;
+}
+const PEOPLE = ['Анна Смирнова','Иван Петров'];
+const AREA_PATHS = ['Пример проекта 1','Пример проекта 1 / Веб-клиент','Пример проекта 1 / Сервер','Пример проекта 1 / Мобильное приложение'];
+const ITER_PATHS = ['Релиз 1','Релиз 1 / Спринт 1','Релиз 1 / Спринт 2'];
+const ALL_TAGS = ['вход','интерфейс','экспорт','доска','регистрация','ошибка входа'];
+function seedItems(){
+  return [
+    {id:'PRM-EPIC-1', type:'epic', title:'Самостоятельная регистрация клиентов', state:'Активна', who:'Иван Петров', area:AREA_PATHS[0], tags:['регистрация'], iter:'Релиз 1', prio:1},
+    {id:'PRM-FEAT-3', type:'feature', title:'Вход без пароля', state:'Активна', who:'Анна Смирнова', area:AREA_PATHS[1], tags:['вход'], iter:'Релиз 1', prio:1, parent:'PRM-EPIC-1'},
+    {id:'PRM-FEAT-4', type:'feature', title:'Экспорт отчётов', state:'Новая', who:null, area:AREA_PATHS[2], tags:['экспорт'], iter:'', prio:2},
+    {id:'PRM-US-12', type:'story', title:'Вход по ссылке из письма', state:'Активна', who:'Анна Смирнова', area:AREA_PATHS[1], tags:['вход','интерфейс'], iter:'Релиз 1 / Спринт 1', prio:2, parent:'PRM-FEAT-3'},
+    {id:'PRM-US-13', type:'story', title:'Повторная отправка ссылки для входа', state:'Новая', who:null, area:AREA_PATHS[1], tags:['вход'], iter:'Релиз 1 / Спринт 2', prio:2, parent:'PRM-FEAT-3'},
+    {id:'PRM-US-14', type:'story', title:'Экспорт списка в CSV', state:'Новая', who:'Иван Петров', area:AREA_PATHS[2], tags:['экспорт'], iter:'', prio:3},
+    {id:'PRM-US-15', type:'story', title:'Фильтр по тегам на доске', state:'Закрыта', who:'Анна Смирнова', area:AREA_PATHS[1], tags:['доска','интерфейс'], iter:'Релиз 1 / Спринт 1', prio:2},
+    {id:'PRM-BUG-6', type:'bug', title:'Ссылка для входа истекает раньше срока', state:'Разрешена', who:'Иван Петров', area:AREA_PATHS[2], tags:['вход','ошибка входа'], iter:'Релиз 1 / Спринт 1', prio:1},
+    {id:'PRM-BUG-7', type:'bug', title:'Падение при пустом заголовке', state:'Удалена', who:null, area:AREA_PATHS[1], tags:[], iter:'', prio:2},
+    {id:'PRM-BUG-8', type:'bug', title:'Неверный счётчик на колонке', state:'Активна', who:'Анна Смирнова', area:AREA_PATHS[1], tags:['доска'], iter:'Релиз 1 / Спринт 2', prio:2},
+    {id:'PRM-TASK-21', type:'task', title:'Настроить шаблон письма со ссылкой', state:'Новая', who:'Иван Петров', area:AREA_PATHS[2], tags:[], iter:'Релиз 1 / Спринт 1', prio:2, parent:'PRM-US-12'}
+  ];
+}
+function seedLangs(){
+  const r = (code, endonym, isDefault, isActive, sortOrder) => ({code, endonym, isDefault, isActive, sortOrder, at:'0' + (sortOrder % 9 + 1) + '.09.2026 1' + (sortOrder % 10) + ':00', by:'admin'});
+  return [r('ru','Русский',true,true,1), r('kk','Қазақ тілі',false,true,2), r('en','English',false,true,3), r('de','Deutsch',false,false,4),
+    r('fr','Français',false,true,5), r('es','Español',false,false,6), r('it','Italiano',false,false,7), r('tr','Türkçe',false,true,8),
+    r('uz','Oʻzbekcha',false,true,9), r('ky','Кыргызча',false,false,10), r('be','Беларуская',false,false,11), r('zh','中文',false,false,12)];
+}
+const AREAS = [
+  {id:'a-root', name:'Пример проекта 1', level:1, parent:null},
+  {id:'a-web', name:'Веб-клиент', level:2, parent:'a-root'},
+  {id:'a-auth', name:'Авторизация', level:3, parent:'a-web'},
+  {id:'a-srv', name:'Сервер', level:2, parent:'a-root'},
+  {id:'a-mob', name:'Мобильное приложение', level:2, parent:'a-root'}
+];
+const ITERS = [
+  {id:'i-root', name:'Пример проекта 1', level:1, parent:null, start:'', end:''},
+  {id:'i-r1', name:'Релиз 1', level:2, parent:'i-root', start:'01.10.2026', end:'25.11.2026'},
+  {id:'i-s1', name:'Спринт 1', level:3, parent:'i-r1', start:'01.10.2026', end:'14.10.2026'},
+  {id:'i-s2', name:'Спринт 2', level:3, parent:'i-r1', start:'15.10.2026', end:'28.10.2026'},
+  {id:'i-r2', name:'Релиз 2', level:2, parent:'i-root', start:'', end:''}
+];
+
+/* ---------- state ---------- */
+const NAV_KEY = 'mustask.navigation';
+function readKept(){ try { return localStorage.getItem(NAV_KEY); } catch (e) { return null; } }
+function writeKept(v){ try { if (v) localStorage.setItem(NAV_KEY, v); else localStorage.removeItem(NAV_KEY); } catch (e) { /* file:// without storage */ } }
+const S = {
+  view:'target', role:'admin', user:'full', dataset:'example', sw:'ready',
+  ctx:{org:'org-1', prj:'prj-1', team:'team-1'},
+  kept: readKept(), overlay:false, menu:null, dialog:null, snack:null, panelOpen:true,
+  data:{languages:'data', lists:'data'}, dlgOutcome:'ok', conflictOnSave:false,
+  langs: seedLangs(),
+  lang:{filters:{code:'', endonym:'', isDefault:'', isActive:'', sortOrder:''}, page:0, sort:null},
+  form:{key:null, code:'', endonym:'', order:'0', active:false, errors:{}, top:null, busy:false, conflict:null},
+  items: seedItems(),
+  wi:{filters:{q:'', type:[], who:[], state:[], area:[], tags:[]}, selected:null},
+  edits:{},
+  board:{collapsed:{}},
+  backlog:{pane:true, order:null},
+  tree:{areas:{expanded:{'a-root':true, 'a-web':true}, selected:null}, iterations:{expanded:{'i-root':true, 'i-r1':true}, selected:null}},
+  focusMain:false, pendingFocus:null
+};
+function displayName(){ return S.user === 'full' ? 'Иван Петров' : S.user === 'login' ? 'ivan.petrov' : ''; }
+function initials(name){ const w = name.split(' ').filter(Boolean); if (!w.length) return ''; return (w.length === 1 ? w[0][0] : w[0][0] + w[1][0]).toUpperCase(); }
+function can(level){ return level === 'read' ? S.role !== 'none' : S.role === 'admin'; }
+function curOrg(){ return orgs().find((o) => o.id === S.ctx.org) || orgs()[0] || null; }
+function curPrj(){ const o = curOrg(); return o ? (o.projects.find((p) => p.id === S.ctx.prj) || o.projects[0] || null) : null; }
+function curTeam(){ const p = curPrj(); return p ? (p.teams.find((t) => t.id === S.ctx.team) || p.teams[0] || null) : null; }
+function syncCtx(){ const o = curOrg(), p = curPrj(), t = curTeam(); S.ctx = {org:o ? o.id : null, prj:p ? p.id : null, team:t ? t.id : null}; }
+function ctxReal(){ return S.view === 'target' && S.sw === 'ready'; }
+
+/* ---------- navigation model (design.md § 4.1) ---------- */
+const NAV = [
+  {key:'home', label:'Главная', icon:'home', group:'top', scope:'instance', built:true, landing:() => '/home'},
+  {key:'workitems', label:'Рабочие элементы', icon:'listAlt', group:'work', scope:'project', landing:(c) => '/organizations/' + c.org + '/projects/' + c.prj + '/workitems'},
+  {key:'boards', label:'Доски', icon:'viewWeek', group:'work', scope:'team', landing:(c) => '/organizations/' + c.org + '/projects/' + c.prj + '/teams/' + c.team + '/boards/stories'},
+  {key:'backlogs', label:'Бэклоги', icon:'listNumbered', group:'work', scope:'team', landing:(c) => '/organizations/' + c.org + '/projects/' + c.prj + '/teams/' + c.team + '/backlogs/stories'},
+  {key:'sprints', label:'Спринты', icon:'dateRange', group:'work', scope:'team', landing:(c) => '/organizations/' + c.org + '/projects/' + c.prj + '/teams/' + c.team + '/sprints'},
+  {key:'queries', label:'Запросы', icon:'manageSearch', group:'work', scope:'project', landing:(c) => '/organizations/' + c.org + '/projects/' + c.prj + '/queries'}
+];
+const SETTINGS = [
+  {section:'Организация', entries:[
+    {key:'org-general', label:'Общие', scope:'organization', landing:(c) => '/organizations/' + c.org + '/settings/general'},
+    {key:'org-members', label:'Участники', scope:'organization', landing:(c) => '/organizations/' + c.org + '/settings/members'},
+    {key:'org-process', label:'Процесс', scope:'organization', landing:(c) => '/organizations/' + c.org + '/settings/process'},
+    {key:'org-storage', label:'Хранилище вложений', scope:'organization', landing:(c) => '/organizations/' + c.org + '/settings/attachment-storage'}]},
+  {section:'Проект', entries:[
+    {key:'prj-teams', label:'Команды', scope:'project', landing:(c) => '/organizations/' + c.org + '/projects/' + c.prj + '/settings/teams'},
+    {key:'prj-areas', label:'Области', scope:'project', landing:(c) => '/organizations/' + c.org + '/projects/' + c.prj + '/settings/areas'},
+    {key:'prj-iterations', label:'Итерации', scope:'project', landing:(c) => '/organizations/' + c.org + '/projects/' + c.prj + '/settings/iterations'}]},
+  {section:'Справочники', entries:[
+    {key:'languages', label:'Языки', scope:'instance', code:'read', built:true, landing:() => '/dictionaries/languages'}]}
+];
+const ALL_SETTINGS = SETTINGS.flatMap((s) => s.entries);
+function entryVisible(e){
+  if (S.view === 'build' && !e.built) return false;           /* BR-7: the page must exist in the build */
+  if (e.code && !can(e.code)) return false;                    /* the shared permission check */
+  if (e.scope === 'instance') return true;
+  if (!ctxReal()) return false;                                /* BR-8 interim: scoped entries wait for a real context */
+  if (e.scope === 'organization') return !!curOrg();
+  if (e.scope === 'project') return !!curPrj();
+  if (e.scope === 'team') return !!curTeam();
+  return false;
+}
+function visibleSettingsSections(){ return SETTINGS.map((s) => ({section:s.section, entries:s.entries.filter(entryVisible)})).filter((s) => s.entries.length); }
+function firstSettings(){ const s = visibleSettingsSections(); return s.length ? s[0].entries[0] : null; }
+function findEntry(key){ return NAV.concat(ALL_SETTINGS).find((e) => e.key === key) || null; }
+
+/* ---------- routing ---------- */
+function path(){ return (location.hash.replace(/^#/, '') || '/home').split('?')[0]; }
+function go(p){ if (path() === p) render(); else location.hash = '#' + p; }
+function parseRoute(){
+  const p = path(); const s = p.split('/').filter(Boolean);
+  const R = (o) => Object.assign({path:p, ctx:null, carries:null, entry:null}, o);
+  if (p === '/' || p === '/home') return R({name:'home', entry:'home'});
+  if (s[0] === 'dictionaries' && s[1] === 'languages') {
+    if (s.length === 2) return R({name:'languages', entry:'languages'});
+    if (s.length === 3 && s[2] === 'new') return R({name:'langForm', mode:'new', entry:'languages'});
+    if (s.length === 3) return R({name:'langForm', mode:'edit', code:decodeURIComponent(s[2]), entry:'languages'});
+  }
+  if (s[0] === 'prototype') {
+    if (s[1] === 'tokens' && s.length === 2) return R({name:'tokens'});
+    if (s[1] === 'auth') return R({name:'auth', state:s[2] || 'loading', detail:s[3] || ''});
+    if (s[1] === 'crash') return R({name:'crash'});
+  }
+  if (s[0] === 'organizations' && S.view === 'target') {
+    if (s.length === 1) return R({name:'orgList'});
+    const o = s[1];
+    if (s[2] === 'settings' && s.length === 4) {
+      const map = {general:'org-general', members:'org-members', process:'org-process', 'attachment-storage':'org-storage'};
+      if (map[s[3]]) return R({name:'orgSettings', sub:s[3], ctx:{o}, carries:'org', entry:map[s[3]]});
+    }
+    if (s[2] === 'projects' && s.length >= 5) {
+      const pr = s[3];
+      const ctx = {o, p:pr};
+      if (s[4] === 'workitems' && s.length === 5) return R({name:'workitems', ctx, carries:'prj', entry:'workitems'});
+      if (s[4] === 'workitems' && s.length >= 6 && s.length <= 7) {
+        const tab = s[6] || 'details';
+        if (['details','history','links','attachments'].includes(tab)) return R({name:'workitem', id:decodeURIComponent(s[5]), tab, ctx, carries:'prj', entry:'workitems'});
+      }
+      if (s[4] === 'queries' && s.length === 5) return R({name:'queries', ctx, carries:'prj', entry:'queries'});
+      if (s[4] === 'settings' && s.length === 6) {
+        const map = {teams:'prj-teams', areas:'prj-areas', iterations:'prj-iterations'};
+        if (map[s[5]]) return R({name:'prjSettings', sub:s[5], ctx, carries:'prj', entry:map[s[5]]});
+      }
+      if (s[4] === 'teams' && s.length >= 7) {
+        const tctx = {o, p:pr, t:s[5]};
+        const lv = s[7];
+        if (s[6] === 'boards' && s.length === 8 && ['epics','features','stories'].includes(lv)) return R({name:'board', level:lv, ctx:tctx, carries:'team', entry:'boards'});
+        if (s[6] === 'backlogs' && s.length === 8 && ['epics','features','stories'].includes(lv)) return R({name:'backlog', level:lv, ctx:tctx, carries:'team', entry:'backlogs'});
+        if (s[6] === 'sprints' && s.length === 7) return R({name:'sprints', ctx:tctx, carries:'team', entry:'sprints'});
+      }
+    }
+  }
+  return R({name:'notFound', kind:'page'});
+}
+/* BR-18: validate the context in the address; a found context sets the switcher, a missing one leaves it as it was */
+function resolveRoute(){
+  const r = parseRoute();
+  if (!r.ctx) return r;
+  const o = orgs().find((x) => x.id === r.ctx.o);
+  if (!o) return {name:'notFound', kind:'organization', path:r.path};
+  let p = null, t = null;
+  if (r.ctx.p !== undefined) { p = o.projects.find((x) => x.id === r.ctx.p); if (!p) return {name:'notFound', kind:'project', path:r.path}; }
+  if (r.ctx.t !== undefined) { t = p.teams.find((x) => x.id === r.ctx.t); if (!t) return {name:'notFound', kind:'team', path:r.path}; }
+  S.ctx.org = o.id;
+  if (p) S.ctx.prj = p.id; else if (!o.projects.some((x) => x.id === S.ctx.prj)) S.ctx.prj = o.projects[0] ? o.projects[0].id : null;
+  const cp = o.projects.find((x) => x.id === S.ctx.prj);
+  if (t) S.ctx.team = t.id; else if (!cp || !cp.teams.some((x) => x.id === S.ctx.team)) S.ctx.team = cp && cp.teams[0] ? cp.teams[0].id : null;
+  return r;
+}
+let ROUTE = null;
+
+/* ---------- shell ---------- */
+function navMode(isSettings){
+  const w = window.innerWidth;
+  if (w < 1024) return 'overlay';
+  if (isSettings) return 'settings';
+  return S.kept || (w >= 1280 ? 'expanded' : 'rail');
+}
+function trailHtml(trail){
+  if (!trail || !trail.length) return '';
+  const items = [];
+  trail.forEach((t, i) => {
+    if (i) items.push('<li class="tsep" aria-hidden="true">/</li>');
+    items.push('<li data-tip="' + esc(t.label) + '">' + (t.href ? '<a href="#' + esc(t.href) + '" data-fk="trail-' + i + '">' + esc(t.label) + '</a>' : esc(t.label)) + '</li>');
+  });
+  return '<nav class="trail" aria-label="Путь к странице"><ol>' + items.join('') + '</ol></nav>';
+}
+function swLevel(lv, word, name){
+  const open = S.menu && S.menu.id === 'sw-' + lv;
+  return '<button class="sw-level" data-act="openMenu" data-arg="sw-' + lv + '" data-fk="sw-' + lv + '" aria-haspopup="menu" aria-expanded="' + !!open + '" aria-label="' + word + ': ' + esc(name) + '" data-tip="' + esc(name) + '"><span class="sw-name">' + esc(name) + '</span>' + ic('expandMore', {size:18}) + '</button>';
+}
+function switcher(){
+  const sep = '<span class="sep" aria-hidden="true">/</span>';
+  if (S.sw === 'loading') return '<div class="sw" role="status" aria-label="Загрузка контекста"><span class="sk"></span>' + sep + '<span class="sk"></span>' + sep + '<span class="sk"></span></div>';
+  if (S.sw === 'failed') return '<div class="sw" role="group" aria-label="Контекст работы"><span class="sw-fail" data-tip="Не удалось загрузить организации">' + ic('errorOutline', {color:'var(--error)'}) + '<span class="sw-fail-text">Не удалось загрузить организации</span></span><button class="btn text sm" data-act="swRetry" data-fk="sw-retry">Повторить</button></div>';
+  const list = orgs();
+  let h = '<div class="sw" role="group" aria-label="Контекст работы">';
+  if (!list.length) {
+    h += S.view === 'target' ? '<a class="sw-empty" href="#/organizations" data-fk="sw-none" style="color:var(--accent)">Нет организаций</a>' : '<span class="sw-empty">Нет организаций</span>';
+    return h + '</div>';
+  }
+  const o = curOrg(); h += swLevel('org', 'Организация', o.name);
+  const p = curPrj();
+  if (!p) return h + sep + '<span class="sw-empty">Нет проектов</span></div>';
+  h += sep + swLevel('prj', 'Проект', p.name);
+  const t = curTeam();
+  if (!t) return h + sep + '<span class="sw-empty">Нет команд</span></div>';
+  return h + sep + swLevel('team', 'Команда', t.name) + '</div>';
+}
+function userButton(){
+  const name = displayName();
+  const open = S.menu && S.menu.id === 'user';
+  return '<button class="avatar-btn" data-act="openMenu" data-arg="user" data-fk="user" aria-haspopup="menu" aria-expanded="' + !!open + '" aria-label="' + (name ? 'Профиль: ' + esc(name) : 'Профиль') + '"><span class="avatar">' + (name ? esc(initials(name)) : ic('person', {size:20})) + '</span></button>';
+}
+function navItem(e, href, label, icon, rail, current, extra){
+  const cur = current ? ' aria-current="' + current + '"' : '';
+  const tip = rail ? ' aria-label="' + esc(label) + '" data-tip="' + esc(label) + '" data-tip-pos="right"' : '';
+  return '<li><a class="navitem' + (current ? ' sel' : '') + '" href="#' + esc(href) + '" data-fk="nav-' + e + '"' + cur + tip + (extra || '') + '>' + ic(icon) + (rail ? '' : '<span>' + esc(label) + '</span>') + '</a></li>';
+}
+function currentFor(e, r){
+  if (!r || r.entry !== e.key) return null;
+  const landing = e.landing(S.ctx);
+  return r.path === landing ? 'page' : 'true';
+}
+function mainNav(r, rail, isSettings, inOverlay){
+  const ents = NAV.filter(entryVisible);
+  const top = ents.filter((e) => e.group === 'top'), work = ents.filter((e) => e.group === 'work');
+  const fs = firstSettings();
+  const overlayAttr = inOverlay ? ' data-overlay="1"' : '';
+  let h = '<nav class="mainnav' + (rail ? ' rail' : '') + '" aria-label="Основное меню" id="main-nav"><ul class="navlist">';
+  h += top.map((e) => navItem(e.key, e.landing(S.ctx), e.label, e.icon, rail, currentFor(e, r), overlayAttr)).join('');
+  if (work.length) h += '<li class="navdiv" aria-hidden="true"></li>' + work.map((e) => navItem(e.key, e.landing(S.ctx), e.label, e.icon, rail, currentFor(e, r), overlayAttr)).join('');
+  h += '</ul><ul class="navlist bottom">';
+  if (fs) h += navItem('settings', fs.landing(S.ctx), 'Настройки', 'settings', rail, isSettings ? 'true' : null, overlayAttr);
+  if (!isSettings && !inOverlay) {
+    h += '<li><button class="navitem" data-act="toggleNav" data-fk="nav-toggle" aria-controls="main-nav" aria-expanded="' + !rail + '"' + (rail ? ' aria-label="Развернуть меню" data-tip="Развернуть меню" data-tip-pos="right"' : '') + '>' + ic(rail ? 'dblRight' : 'dblLeft') + (rail ? '' : '<span>Свернуть меню</span>') + '</button></li>';
+  }
+  return h + '</ul></nav>';
+}
+function settingsNav(r, inOverlay){
+  const overlayAttr = inOverlay ? ' data-overlay="1"' : '';
+  let h = '<nav class="setnav" aria-label="Меню настроек"><p class="setnav-title">Настройки</p>';
+  visibleSettingsSections().forEach((s) => {
+    h += '<div class="subheader">' + esc(s.section) + '</div><ul>';
+    s.entries.forEach((e) => {
+      const cur = currentFor(e, r);
+      h += '<li><a class="navitem set' + (cur ? ' sel' : '') + '" href="#' + esc(e.landing(S.ctx)) + '" data-fk="set-' + e.key + '"' + (cur ? ' aria-current="' + cur + '"' : '') + overlayAttr + '>' + esc(e.label) + '</a></li>';
+    });
+    h += '</ul>';
+  });
+  return h + '</nav>';
+}
+function pageHeader(pg, narrow){
+  if (pg.noHeader) return '';
+  const tr = narrow && pg.trail && pg.trail.length ? '<div class="ph-trail">' + trailHtml(pg.trail) + '</div>' : '';
+  const cmds = (pg.commands || []).filter(Boolean);
+  CMDS = cmds;
+  const bar = cmds.map((c, i) => {
+    const cls = c.primary ? 'btn contained' : 'btn text';
+    const exp = c.menu ? ' aria-haspopup="menu" aria-expanded="' + !!(S.menu && S.menu.id === c.arg) + '"' : '';
+    const pressed = c.pressed !== undefined ? ' aria-pressed="' + c.pressed + '"' : '';
+    return '<button class="' + cls + '" data-cmd="' + i + '" data-act="' + c.act + '" data-arg="' + esc(c.arg || '') + '" data-fk="cmd-' + i + '"' + exp + pressed + (c.disabled ? ' disabled' : '') + '>' + (c.icon ? ic(c.icon, {cls:'lead'}) : '') + esc(c.label) + (c.menu ? ic('expandMore', {size:18}) : '') + '</button>';
+  }).join('');
+  const more = '<button class="iconbtn hidden" data-more="1" data-act="openMenu" data-arg="overflow" data-fk="overflow" aria-label="Ещё действия" aria-haspopup="menu" aria-expanded="' + !!(S.menu && S.menu.id === 'overflow') + '" data-tip="Ещё действия">' + ic('more') + '</button>';
+  const tabs = pg.tabs ? '<div class="tabs" role="tablist">' + pg.tabs.map((t, i) => '<a class="tab" role="tab" href="#' + esc(t.href) + '" aria-selected="' + !!t.selected + '" tabindex="' + (t.selected ? 0 : -1) + '" data-fk="tab-' + i + '">' + esc(t.label) + '</a>').join('') + '</div>' : '';
+  return '<div class="ph">' + tr + '<div class="ph-row"><h1 class="ph-title">' + (pg.titleHtml || esc(pg.title)) + '</h1><div class="cmdbar" data-cmdbar="1">' + bar + more + '</div></div>' + tabs + '</div>';
+}
+let CMDS = [];
+function fitCommands(){
+  const bar = document.querySelector('[data-cmdbar]'); if (!bar) return;
+  const more = bar.querySelector('[data-more]');
+  bar.querySelectorAll('[data-cmd]').forEach((b) => b.classList.remove('hidden'));
+  more.classList.add('hidden');
+  const secondary = Array.from(bar.querySelectorAll('[data-cmd]')).filter((b) => !CMDS[+b.dataset.cmd].primary);
+  let i = secondary.length - 1;
+  while (bar.scrollWidth > bar.clientWidth + 1 && i >= 0) { more.classList.remove('hidden'); secondary[i].classList.add('hidden'); i--; }
+}
+function shell(r, pg){
+  const narrow = window.innerWidth < 1024;
+  const isSettings = !!pg.settings && visibleSettingsSections().length > 0;
+  const mode = navMode(isSettings);
+  document.body.dataset.nav = mode;
+  const rail = mode === 'rail' || mode === 'settings';
+  let h = '<a class="skip" href="#main-content" data-act="skip" data-fk="skip">Перейти к содержимому</a>';
+  h += '<header class="topbar">';
+  if (narrow) h += '<button class="iconbtn" data-act="overlay" data-fk="menu-btn" aria-label="Меню" aria-expanded="' + S.overlay + '" aria-controls="overlay-nav">' + ic('menu') + '</button>';
+  h += '<a class="mark" href="#/home" data-fk="mark">Mustask</a>' + switcher();
+  if (!narrow && pg.trail && pg.trail.length) h += '<span class="vdiv" aria-hidden="true"></span>' + trailHtml(pg.trail);
+  h += '<span class="grow"></span>' + userButton() + '</header>';
+  if (!narrow) h += '<div class="navwrap">' + mainNav(r, rail, isSettings, false) + (isSettings ? settingsNav(r, false) : '') + '</div>';
+  h += '<main id="main-content" class="main" tabindex="-1">' + pageHeader(pg, narrow) + pg.body + '</main>';
+  if (narrow && S.overlay) h += '<div class="backdrop" data-act="closeOverlay"></div><div class="overlay drawer-anim" id="overlay-nav">' + mainNav(r, isSettings, isSettings, true) + (isSettings ? settingsNav(r, true) : '') + '</div>';
+  return h;
+}
+
+/* ---------- canon (design.md § 7) ---------- */
+function frame(o){
+  const lvl = o.level || 2;
+  const act = o.action ? '<button class="btn outlined" data-act="' + o.action.act + '" data-arg="' + esc(o.action.arg || '') + '" data-fk="frame-action">' + (o.action.icon ? ic(o.action.icon, {cls:'lead'}) : '') + esc(o.action.label) + '</button>' : '';
+  return '<div class="frame">' + ic(o.icon, {size:40, cls:'frame-ic'}) + '<h' + lvl + ' class="frame-h' + (lvl === 1 ? ' h1' : '') + '">' + esc(o.heading) + '</h' + lvl + '>' + (o.hint ? '<p class="frame-hint">' + esc(o.hint) + '</p>' : '') + act + '</div>';
+}
+function errorBanner(){ return '<div class="alert error" role="alert">' + ic('errorOutline') + '<span class="msg">Сервис временно недоступен, повторите позже.</span><button class="btn text sm" style="color:inherit" data-act="retry" data-fk="retry">Повторить</button></div>'; }
+function skeletonTable(cols, rows){
+  let h = '<div class="tablewrap" role="status" aria-label="Загрузка данных"><table class="t"><thead><tr>' + cols.map((c) => '<th>' + esc(c) + '</th>').join('') + '</tr></thead><tbody>';
+  for (let i = 0; i < (rows || 5); i++) h += '<tr>' + cols.map(() => '<td><span class="sk"></span></td>').join('') + '</tr>';
+  return h + '</tbody></table></div>';
+}
+const NOT_FOUND = {page:'Страница не найдена', organization:'Организация не найдена', project:'Проект не найден', team:'Команда не найдена'};
+function notFoundPage(kind){ const h = NOT_FOUND[kind]; return {title:h, noHeader:true, body:frame({level:1, icon:'searchOff', heading:h, hint:'Проверьте адрес или вернитесь на главную.', action:{label:'На главную', icon:'home', act:'go', arg:'/home'}})}; }
+function deniedPage(settings, entry){ return {title:'Доступ ограничен', noHeader:true, settings:settings, entry:entry, body:frame({level:1, icon:'lock', heading:'Доступ ограничен', hint:'У вас нет прав для просмотра этого раздела. Обратитесь к администратору, чтобы запросить доступ.'})}; }
+function note(text){ return '<div class="proto-note">Прототип: ' + esc(text) + '</div>'; }
+function tf(o){
+  const id = 'f-' + o.fk;
+  const err = o.error ? ' err' : '';
+  let ctl;
+  if (o.options) ctl = '<select id="' + id + '" data-input="' + o.input + '" data-arg="' + esc(o.arg || '') + '" data-fk="' + o.fk + '"' + (o.disabled ? ' disabled' : '') + '>' + o.options.map((op) => '<option value="' + esc(op[0]) + '"' + (op[0] === o.value ? ' selected' : '') + '>' + esc(op[1]) + '</option>').join('') + '</select>';
+  else ctl = '<input id="' + id + '" type="' + (o.type || 'text') + '" value="' + esc(o.value) + '" data-input="' + o.input + '" data-arg="' + esc(o.arg || '') + '" data-fk="' + o.fk + '"' + (o.error ? ' aria-invalid="true"' : '') + (o.help || o.error ? ' aria-describedby="' + id + '-h"' : '') + (o.disabled ? ' disabled' : '') + (o.placeholder ? ' placeholder="' + esc(o.placeholder) + '"' : '') + (o.aria ? ' aria-label="' + esc(o.aria) + '"' : '') + '>';
+  const help = (o.error || o.help) ? '<span class="help" id="' + id + '-h">' + esc(o.error || o.help) + '</span>' : '';
+  const adorn = o.adorn ? '<span class="adorn-ic">' + ic(o.adorn, {size:18}) + '</span>' : '';
+  return '<div class="tf' + err + (o.adorn ? ' adorn' : '') + '" style="' + (o.width ? 'width:' + o.width + 'px' : '') + '">' + (o.label ? '<label for="' + id + '">' + esc(o.label) + '</label>' : '') + adorn + ctl + help + '</div>';
+}
+
+/* ---------- pages ---------- */
+function homePage(){
+  return {title:'Главная', entry:'home', commands:[], body:'<div class="panel pad"><p style="font-size:16px;line-height:24px;font-weight:500;margin:0 0 8px">Добро пожаловать в Mustask</p><p class="muted" style="margin:0">Mustask — трекер задач. Разделы появятся в меню слева по мере их готовности.</p></div>'};
+}
+const LANG_COLS = [['code','Код'],['endonym','Эндоним'],['isDefault','По умолчанию'],['isActive','Активность'],['sortOrder','Порядок'],[null,'Изменено']];
+function langRows(){
+  const f = S.lang.filters;
+  let rows = S.data.languages === 'empty' ? [] : S.langs.slice();
+  rows = rows.filter((l) => (!f.code || l.code.toLowerCase().includes(f.code.toLowerCase())) && (!f.endonym || l.endonym.toLowerCase().includes(f.endonym.toLowerCase())) && (!f.isDefault || String(l.isDefault) === f.isDefault) && (!f.isActive || String(l.isActive) === f.isActive) && (!f.sortOrder || String(l.sortOrder) === f.sortOrder));
+  const s = S.lang.sort;
+  if (s) rows.sort((a, b) => { const x = a[s.field], y = b[s.field]; const c = typeof x === 'string' ? x.localeCompare(y) : (x === y ? 0 : x > y ? 1 : -1); return s.desc ? -c : c; });
+  return rows;
+}
+function languagesPage(){
+  if (!can('read')) return deniedPage(true, 'languages');
+  const canW = can('write');
+  const f = S.lang.filters;
+  const active = Object.values(f).some((v) => v !== '');
+  const bar = '<div class="panel filterbar" role="group" aria-label="Фильтры">' + ic('filter', {cls:'lead-ic'}) +
+    tf({label:'Код', value:f.code, input:'langFilter', arg:'code', fk:'lf-code', width:150}) +
+    tf({label:'Эндоним', value:f.endonym, input:'langFilter', arg:'endonym', fk:'lf-endonym', width:180}) +
+    tf({label:'По умолчанию', value:f.isDefault, input:'langFilter', arg:'isDefault', fk:'lf-default', width:150, options:[['','Все'],['true','Да'],['false','Нет']]}) +
+    tf({label:'Активность', value:f.isActive, input:'langFilter', arg:'isActive', fk:'lf-active', width:150, options:[['','Все'],['true','Активные'],['false','Неактивные']]}) +
+    tf({label:'Порядок', value:f.sortOrder, input:'langFilter', arg:'sortOrder', fk:'lf-order', width:100}) +
+    (active ? '<button class="btn text clear" data-act="langReset" data-fk="lf-clear">' + ic('filterOff', {cls:'lead'}) + 'Очистить фильтры</button>' : '') + '</div>';
+  const cols = LANG_COLS.map((c) => c[1]).concat(canW ? [''] : []);
+  let content;
+  const st = S.data.languages;
+  if (st === 'loading') content = skeletonTable(cols);
+  else if (st === 'error') content = errorBanner();
+  else {
+    const rows = langRows();
+    if (!rows.length && !active) content = '<div class="panel">' + frame(canW ? {icon:'inbox', heading:'Справочник пуст', hint:'Добавьте первый язык кнопкой «Добавить язык» выше.', action:{label:'Добавить язык', icon:'add', act:'go', arg:'/dictionaries/languages/new'}} : {icon:'inbox', heading:'Справочник пуст', hint:'Языки ещё не добавлены.'}) + '</div>';
+    else if (!rows.length) content = '<div class="panel">' + frame({icon:'filterOff', heading:'Ничего не найдено', hint:'Ни один язык не подходит под заданные условия фильтра.', action:{label:'Сбросить фильтр', act:'langReset'}}) + '</div>';
+    else {
+      const per = 10, total = rows.length, page = Math.min(S.lang.page, Math.floor((total - 1) / per));
+      const slice = rows.slice(page * per, page * per + per);
+      const sort = S.lang.sort;
+      let h = '<div class="tablewrap"><table class="t" aria-label="Реестр языков"><thead><tr>';
+      LANG_COLS.forEach((c) => {
+        if (!c[0]) { h += '<th>' + c[1] + '</th>'; return; }
+        const on = sort && sort.field === c[0];
+        h += '<th' + (on ? ' aria-sort="' + (sort.desc ? 'descending' : 'ascending') + '"' : '') + '><button class="sortlabel' + (on ? ' active' : '') + '" data-act="langSort" data-arg="' + c[0] + '" data-fk="sort-' + c[0] + '">' + c[1] + ic(on && sort.desc ? 'arrowDown' : 'arrowUp', {size:16}) + '</button></th>';
+      });
+      if (canW) h += '<th></th>';
+      h += '</tr></thead><tbody>';
+      slice.forEach((l) => {
+        h += '<tr><td>' + esc(l.code) + '</td><td>' + esc(l.endonym) + '</td><td>' + (l.isDefault ? '<span class="state">' + ic('star', {size:18, color:'var(--warning)'}) + 'да</span>' : 'нет') + '</td><td><span class="chip' + (l.isActive ? ' success' : '') + '">' + (l.isActive ? 'Активен' : 'Неактивен') + '</span></td><td>' + l.sortOrder + '</td><td>' + esc(l.at + ' — ' + l.by) + '</td>';
+        if (canW) {
+          h += '<td class="actions"><button class="iconbtn sm" aria-label="Редактировать ' + esc(l.code) + '" data-tip="Редактировать" data-act="go" data-arg="/dictionaries/languages/' + encodeURIComponent(l.code) + '" data-fk="edit-' + esc(l.code) + '">' + ic('edit', {size:18}) + '</button>';
+          if (l.isActive && !l.isDefault) h += '<button class="iconbtn sm" aria-label="Сделать языком по умолчанию ' + esc(l.code) + '" data-tip="Сделать языком по умолчанию" data-act="langStar" data-arg="' + esc(l.code) + '" data-fk="star-' + esc(l.code) + '">' + ic('starBorder', {size:18}) + '</button>';
+          h += '</td>';
+        }
+        h += '</tr>';
+      });
+      h += '</tbody></table><div class="pager"><span>' + (page * per + 1) + '–' + Math.min(total, page * per + per) + ' из ' + total + '</span><button class="iconbtn sm" aria-label="Перейти на предыдущую страницу" data-act="langPage" data-arg="-1" data-fk="pg-prev"' + (page === 0 ? ' disabled' : '') + '>' + ic('chevLeft') + '</button><button class="iconbtn sm" aria-label="Перейти на следующую страницу" data-act="langPage" data-arg="1" data-fk="pg-next"' + ((page + 1) * per >= total ? ' disabled' : '') + '>' + ic('chevRight') + '</button></div></div>';
+      content = h;
+    }
+  }
+  return {title:'Языки', trail:[{label:'Настройки'},{label:'Справочники'}], settings:true, entry:'languages',
+    commands: canW ? [{label:'Добавить язык', icon:'add', primary:true, act:'go', arg:'/dictionaries/languages/new'}] : [], body: bar + content};
+}
+function langFormPage(r){
+  const trail = [{label:'Настройки'},{label:'Справочники'},{label:'Языки', href:'/dictionaries/languages'}];
+  if (!can('write')) return deniedPage(true, 'languages');
+  const isEdit = r.mode === 'edit';
+  const key = isEdit ? 'edit:' + r.code : 'new';
+  const F = S.form;
+  if (F.key !== key) {
+    const l = isEdit ? S.langs.find((x) => x.code === r.code) : null;
+    Object.assign(F, {key, code:'', endonym:l ? l.endonym : '', order:l ? String(l.sortOrder) : '0', active:l ? l.isActive : false, errors:{}, top:null, busy:false, conflict:null, stamp:l ? l.at + ' — ' + l.by : ''});
+    if (!isEdit) S.pendingFocus = S.pendingFocus || 'ff-code';
+  }
+  const title = isEdit ? 'Язык: ' + r.code : 'Добавить язык';
+  if (isEdit && !S.langs.find((x) => x.code === r.code)) return {title, trail, settings:true, entry:'languages', body:errorBanner()};
+  const dis = F.busy;
+  let body = '<form class="panel pad" style="max-width:var(--form-w)" data-submit="langForm" novalidate><div class="stack">';
+  if (F.top) body += '<div class="alert error" role="alert">' + ic('errorOutline') + '<span class="msg">' + esc(F.top) + '</span></div>';
+  if (isEdit) {
+    body += '<div>Код: ' + esc(r.code) + ' (нередактируемо)</div>';
+    body += tf({label:'Эндоним', value:F.endonym, input:'form', arg:'endonym', fk:'ff-endonym', error:F.errors.endonym, disabled:dis});
+    body += tf({label:'Порядок', type:'number', value:F.order, input:'form', arg:'order', fk:'ff-order', error:F.errors.order, disabled:dis});
+    body += '<label class="switch"><input type="checkbox" role="switch" data-input="formActive" data-fk="ff-active"' + (F.active ? ' checked' : '') + (dis ? ' disabled' : '') + '>Активен</label>';
+    body += '<div class="cap">Изменено: ' + esc(F.stamp) + '</div>';
+    if (F.conflict) {
+      body += F.conflict === 'checking' ? '<div class="row muted"><span class="spinner"></span>Проверяем текущую версию…</div>' :
+        '<div><div class="alert warning">' + ic('warning') + '<span class="msg">Запись уже изменена другим пользователем. Сравните значения и выберите, что сохранить.</span></div>' +
+        '<div class="tablewrap" style="margin:8px 0"><table class="t"><thead><tr><th></th><th>Ваш вариант</th><th>Текущая версия на сервере</th></tr></thead><tbody>' +
+        '<tr><th scope="row" style="background:none">Эндоним</th><td>' + esc(F.endonym) + '</td><td>' + esc(F.endonym) + ' (обновлено)<span class="chip" style="margin-left:6px;background:var(--warning);color:var(--white)">изменилось</span></td></tr>' +
+        '<tr><th scope="row" style="background:none">Порядок</th><td>' + esc(F.order) + '</td><td>' + esc(F.order) + '</td></tr>' +
+        '<tr><th scope="row" style="background:none">Активность</th><td>' + (F.active ? 'Активен' : 'Неактивен') + '</td><td>' + (F.active ? 'Активен' : 'Неактивен') + '</td></tr></tbody></table></div>' +
+        '<div class="row cap" style="gap:24px"><span>Обновлено: — (ваш черновик)</span><span>Обновлено: 01.10.2026 12:40 — anna.smirnova</span></div>' +
+        '<div class="row" style="justify-content:flex-end;margin-top:8px"><button type="button" class="btn text" data-act="conflictServer" data-fk="cf-server">Принять серверный вариант</button><button type="button" class="btn contained" data-act="conflictMine" data-fk="cf-mine">Сохранить свой вариант</button></div></div>';
+    } else body += '<div class="row" style="justify-content:flex-end"><button type="button" class="btn text" data-act="go" data-arg="/dictionaries/languages" data-fk="ff-cancel"' + (dis ? ' disabled' : '') + '>Отмена</button><button type="submit" class="btn contained" data-fk="ff-submit"' + (dis ? ' disabled' : '') + '>' + (dis ? '<span class="spinner"></span>' : '') + 'Сохранить</button></div>';
+  } else {
+    body += tf({label:'Код', value:F.code, input:'form', arg:'code', fk:'ff-code', error:F.errors.code, help:'от 2 до 8 символов, формат BCP-47 (например, ru, kk-KZ)', disabled:dis});
+    body += tf({label:'Эндоним', value:F.endonym, input:'form', arg:'endonym', fk:'ff-endonym', error:F.errors.endonym, help:'(необязательно)', disabled:dis});
+    body += tf({label:'Порядок', type:'number', value:F.order, input:'form', arg:'order', fk:'ff-order', help:'(необязательно, по умолчанию 0)', disabled:dis});
+    body += '<div class="row" style="justify-content:flex-end"><button type="button" class="btn text" data-act="go" data-arg="/dictionaries/languages" data-fk="ff-cancel"' + (dis ? ' disabled' : '') + '>Отмена</button><button type="submit" class="btn contained" data-fk="ff-submit"' + (dis ? ' disabled' : '') + '>' + (dis ? '<span class="spinner"></span>' : '') + 'Добавить</button></div>';
+  }
+  body += '</div></form>';
+  if (!isEdit) body += note('введите код «ru», чтобы увидеть ошибку сервера под полем; код «x» — ошибку проверки на клиенте.');
+  else body += note('включите в панели «Конфликт версий при сохранении», чтобы увидеть сравнение версий.');
+  return {title, trail, settings:true, entry:'languages', body};
+}
+function orgListPage(){
+  let h;
+  if (!orgs().length) h = '<div class="panel">' + frame({icon:'inbox', heading:'Организаций пока нет'}) + '</div>' + note('подсказку и действие пустого списка задаёт mod-002 (его US-1).');
+  else {
+    h = '<div class="tablewrap"><table class="t" aria-label="Организации"><thead><tr><th>Название</th></tr></thead><tbody>';
+    orgs().forEach((o) => { h += '<tr><td>' + esc(o.name) + '</td></tr>'; });
+    h += '</tbody></table></div>';
+  }
+  return {title:'Организации', commands:[], body:note('страница-заглушка — цель «Все организации» и «Нет организаций»; строит mod-002 (D-20).') + h};
+}
+function orgSettingsPage(r){
+  const labels = {general:'Общие', members:'Участники', process:'Процесс', 'attachment-storage':'Хранилище вложений'};
+  const owners = {general:'mod-002', members:'mod-016', process:'mod-001', 'attachment-storage':'mod-004'};
+  let body = note('содержимое страницы строит ' + owners[r.sub] + '; здесь — только её место в оболочке. Смените проект или команду: страница уровня организации не меняется (BR-18).');
+  if (r.sub === 'process') {
+    body += '<div class="tablewrap"><table class="t" aria-label="Типы рабочих элементов"><thead><tr><th>Тип</th><th>Ключ</th><th>Статусы</th></tr></thead><tbody>';
+    TOKEN_ORDER.forEach((k) => { const t = TOKENS[k]; body += '<tr><td><span class="wi-ref">' + typeIcon(k) + esc(t.name) + '</span></td><td>' + t.key + '</td><td><span class="row wrap">' + STATES[k].map((s) => stateHtml(s[0], s[1])).join('') + stateHtml('Удалена', 'Removed') + '</span></td></tr>'; });
+    body += '</tbody></table></div>';
+  } else body += '<div class="panel">' + frame({icon:'inbox', heading:labels[r.sub], hint:'Содержимое появится вместе с модулем-владельцем.'}) + '</div>';
+  return {title:labels[r.sub], trail:[{label:'Настройки'},{label:'Организация'}], settings:true, entry:r.entry, body};
+}
+function treeRows(kind){ return kind === 'areas' ? AREAS : ITERS; }
+function treeVisible(kind, node){ const all = treeRows(kind), ex = S.tree[kind].expanded; let p = node.parent; while (p) { if (!ex[p]) return false; p = all.find((x) => x.id === p).parent; } return true; }
+function prjSettingsPage(r){
+  const trail = [{label:'Настройки'},{label:'Проект'}];
+  if (r.sub === 'teams') {
+    const p = curPrj();
+    let h = '<div class="tablewrap"><table class="t" aria-label="Команды"><thead><tr><th>Команда</th></tr></thead><tbody>' + p.teams.map((t) => '<tr><td>' + esc(t.name) + '</td></tr>').join('') + '</tbody></table></div>';
+    return {title:'Команды', trail, settings:true, entry:r.entry, body:note('реестр команд строит mod-002.') + h};
+  }
+  const kind = r.sub;
+  const T = S.tree[kind];
+  const title = kind === 'areas' ? 'Области' : 'Итерации';
+  const cmds = [{label:'Новый', icon:'add', act:'proto', arg:'Новый узел'}, {label:'Новый дочерний', icon:'add', act:'proto', arg:'Новый дочерний узел', disabled:!T.selected}];
+  const st = S.data.lists;
+  const cols = kind === 'areas' ? ['Область'] : ['Итерация','Начало','Окончание'];
+  let body = note('дерево строит mod-002 (D-19); «Новый дочерний» недоступен, пока строка не выбрана (BR-9).');
+  if (st === 'loading') body += skeletonTable(cols.concat(['']));
+  else if (st === 'error') body += errorBanner();
+  else if (st === 'empty' && kind === 'iterations') body += '<div class="panel">' + frame({icon:'inbox', heading:'Итераций пока нет', hint:'Создайте первую итерацию кнопкой «Новый» выше.'}) + '</div>';
+  else {
+    let h = '<div class="tablewrap"><table class="t" aria-label="' + title + '"><thead><tr>' + cols.map((c) => '<th>' + c + '</th>').join('') + '<th></th></tr></thead><tbody>';
+    treeRows(kind).forEach((n) => {
+      if (!treeVisible(kind, n)) return;
+      const hasKids = treeRows(kind).some((x) => x.parent === n.id);
+      const open = !!T.expanded[n.id];
+      const sel = T.selected === n.id;
+      const exp = hasKids ? '<button class="iconbtn sm" data-act="treeToggle" data-arg="' + kind + ':' + n.id + '" data-fk="tx-' + n.id + '" aria-expanded="' + open + '" aria-label="' + (open ? 'Свернуть' : 'Развернуть') + ' «' + esc(n.name) + '»">' + ic(open ? 'expandMore' : 'chevRight', {size:18}) + '</button>' : '<span class="tree-gap"></span>';
+      h += '<tr aria-level="' + n.level + '" aria-selected="' + sel + '" class="' + (sel ? 'selrow' : '') + '" tabindex="0" data-act="treeSelect" data-arg="' + kind + ':' + n.id + '" data-fk="tr-' + n.id + '"><td><span class="tree-name" style="padding-left:' + ((n.level - 1) * 24) + 'px">' + exp + esc(n.name) + '</span></td>';
+      if (kind === 'iterations') h += '<td>' + esc(n.start) + '</td><td>' + esc(n.end) + '</td>';
+      h += '<td class="actions"><button class="iconbtn sm" data-act="openMenu" data-arg="treeAct:' + kind + ':' + n.id + '" data-fk="ta-' + n.id + '" aria-haspopup="menu" aria-label="Действия: ' + esc(n.name) + '" data-tip="Действия">' + ic('more', {size:18}) + '</button></td></tr>';
+    });
+    body += h + '</tbody></table></div>';
+  }
+  return {title, trail, settings:true, entry:r.entry, commands:cmds, body};
+}
+function wiFiltered(){
+  const f = S.wi.filters;
+  return S.items.filter((w) => {
+    if (S.data.lists === 'empty') return false;
+    if (w.state === 'Удалена' && !f.state.includes('Удалена')) return false;
+    if (f.q && !(w.title.toLowerCase().includes(f.q.toLowerCase()) || w.id.toLowerCase().includes(f.q.toLowerCase()))) return false;
+    if (f.type.length && !f.type.includes(w.type)) return false;
+    if (f.who.length && !f.who.includes(w.who || '—')) return false;
+    if (f.state.length && !f.state.includes(w.state)) return false;
+    if (f.area.length && !f.area.includes(w.area)) return false;
+    if (f.tags.length && !w.tags.some((t) => f.tags.includes(t))) return false;
+    return true;
+  });
+}
+function wiFilterActive(){ const f = S.wi.filters; return !!f.q || f.type.length || f.who.length || f.state.length || f.area.length || f.tags.length; }
+function multiSelect(label, key){
+  const vals = S.wi.filters[key];
+  const nameOf = {type:(v) => TOKENS[v].name, who:(v) => v === '—' ? 'Не назначен' : v};
+  const text = vals.length ? vals.map(nameOf[key] || ((v) => v)).join(', ') : 'Все';
+  const open = S.menu && S.menu.id === 'wf:' + key;
+  return '<div class="tf" style="width:150px"><label>' + esc(label) + '</label><button class="selbtn" data-act="openMenu" data-arg="wf:' + key + '" data-fk="wf-' + key + '" aria-haspopup="menu" aria-expanded="' + !!open + '" aria-label="' + esc(label) + ': ' + esc(text) + '"><span>' + esc(text) + '</span>' + ic('expandMore', {size:18}) + '</button></div>';
+}
+function avatarName(who){ return who ? '<span class="state"><span class="avatar sm" aria-hidden="true">' + esc(initials(who)) + '</span>' + esc(who) + '</span>' : '<span class="muted">Не назначен</span>'; }
+function wiBase(){ return '/organizations/' + S.ctx.org + '/projects/' + S.ctx.prj + '/workitems'; }
+function workItemsPage(){
+  const f = S.wi.filters;
+  const bar = '<div class="panel filterbar" role="group" aria-label="Фильтры">' + tf({aria:'Фильтр по ключевому слову', placeholder:'Фильтр по ключевому слову', value:f.q, input:'wiQ', fk:'wf-q', width:240, adorn:'search'}) +
+    multiSelect('Тип', 'type') + multiSelect('Исполнитель', 'who') + multiSelect('Статус', 'state') + multiSelect('Область', 'area') + multiSelect('Теги', 'tags') +
+    (wiFilterActive() ? '<button class="btn text clear" data-act="wiClear" data-fk="wf-clear">' + ic('filterOff', {cls:'lead'}) + 'Очистить фильтры</button>' : '') + '</div>';
+  const cols = ['ID','Заголовок','Исполнитель','Статус','Область','Теги'];
+  const st = S.data.lists;
+  let list;
+  const rows = wiFiltered();
+  if (st === 'loading') list = skeletonTable(cols);
+  else if (st === 'error') list = errorBanner();
+  else if (!rows.length && !wiFilterActive()) list = '<div class="panel">' + frame({icon:'inbox', heading:'Рабочих элементов пока нет', hint:'Создайте первый рабочий элемент кнопкой «Новый рабочий элемент» выше.', action:{label:'Новый рабочий элемент', icon:'add', act:'openMenu', arg:'typepicker'}}) + '</div>';
+  else if (!rows.length) list = '<div class="panel">' + frame({icon:'filterOff', heading:'Ничего не найдено', hint:'Ни один рабочий элемент не подходит под заданные условия фильтра.', action:{label:'Сбросить фильтр', act:'wiClear'}}) + '</div>';
+  else {
+    list = '<div class="tablewrap"><table class="t" aria-label="Рабочие элементы"><thead><tr>' + cols.map((c) => '<th>' + c + '</th>').join('') + '</tr></thead><tbody>';
+    rows.forEach((w) => {
+      const sel = S.wi.selected === w.id;
+      list += '<tr tabindex="0" aria-selected="' + sel + '" class="' + (sel ? 'selrow' : '') + '" data-act="wiSelect" data-arg="' + w.id + '" data-fk="row-' + w.id + '"><td>' + w.id + '</td><td class="ellip"><span class="wi-ref">' + typeIcon(w.type) + '<a href="#' + wiBase() + '/' + w.id + '" data-fk="lnk-' + w.id + '">' + esc(w.title) + '</a></span></td><td>' + avatarName(w.who) + '</td><td>' + stateHtml(w.state, catOf(w.type, w.state)) + '</td><td class="ellip">' + esc(w.area) + '</td><td><span class="chips">' + w.tags.map((t) => '<span class="chip">' + esc(t) + '</span>').join('') + '</span></td></tr>';
+    });
+    list += '</tbody></table></div>';
+  }
+  const selected = st === 'data' && rows.find((w) => w.id === S.wi.selected);
+  if (!selected) S.wi.selected = null;
+  const pane = selected ? previewPane(selected) : '';
+  return {title:'Рабочие элементы', entry:'workitems', commands:[
+      {label:'Новый рабочий элемент', icon:'add', primary:true, act:'openMenu', arg:'typepicker', menu:true},
+      {label:'Импорт рабочих элементов', icon:'upload', act:'proto', arg:'Импорт рабочих элементов'},
+      {label:'Экспорт в CSV', icon:'download', act:'proto', arg:'Экспорт в CSV'}],
+    body: bar + '<div class="with-pane"><div class="mainpart">' + list + '</div>' + pane + '</div>' + note('выберите строку — справа откроется область просмотра; сузьте окно — команды уйдут в «Ещё действия».')};
+}
+function previewPane(w){
+  return '<aside class="pane" aria-label="Просмотр рабочего элемента" style="--stripe:' + typeAppearance(w.type).colour + '"><div class="pane-head"><h2>' + esc(w.id) + '</h2><a class="btn text sm" href="#' + wiBase() + '/' + w.id + '" data-fk="pv-open">' + ic('openNew', {cls:'lead', size:18}) + 'Открыть</a><button class="iconbtn" data-act="wiClosePane" data-fk="pv-close" aria-label="Закрыть область просмотра" data-tip="Закрыть">' + ic('close') + '</button></div><div class="pane-body">' +
+    '<p class="wi-ident">' + typeIcon(w.type, 16) + esc(TOKENS[w.type].name) + ' ' + w.id + '</p><p style="font-size:16px;line-height:24px;font-weight:500;margin:4px 0 12px">' + esc(w.title) + '</p>' +
+    '<dl class="kv"><dt>Исполнитель</dt><dd>' + avatarName(w.who) + '</dd><dt>Статус</dt><dd>' + stateHtml(w.state, catOf(w.type, w.state)) + '</dd><dt>Область</dt><dd>' + esc(w.area) + '</dd><dt>Итерация</dt><dd>' + esc(w.iter || '—') + '</dd><dt>Теги</dt><dd><span class="chips">' + (w.tags.map((t) => '<span class="chip">' + esc(t) + '</span>').join('') || '—') + '</span></dd></dl>' +
+    '<div class="sec" style="margin-top:12px"><h2>Описание</h2><p class="muted" style="margin:0">Пример описания рабочего элемента.</p></div><div class="sec"><h2>Планирование</h2><dl class="kv"><dt>Приоритет</dt><dd>' + w.prio + '</dd></dl></div></div></aside>';
+}
+function workItemPage(r){
+  const w = S.items.find((x) => x.id === r.id);
+  if (!w) return notFoundPage('page');
+  const E = S.edits[w.id] || (S.edits[w.id] = {title:w.title, busy:false});
+  const deleted = w.state === 'Удалена';
+  const base = wiBase() + '/' + w.id;
+  const tabs = [['details','Детали',''],['history','История','/history'],['links','Связи','/links'],['attachments','Вложения','/attachments']].map((t) => ({label:t[1], href:base + t[2], selected:r.tab === t[0]}));
+  const dis = deleted ? ' disabled' : '';
+  const sel = (name, value, options, aria) => '<select data-input="wiField" data-arg="' + w.id + ':' + name + '" data-fk="wif-' + name + '" aria-label="' + aria + '"' + dis + '>' + options.map((o) => '<option value="' + esc(o[0]) + '"' + (o[0] === value ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select>';
+  const states = STATES[w.type].map((s) => [s[0], s[0]]);
+  if (deleted) states.push(['Удалена','Удалена']);
+  const changed = E.title !== w.title;
+  let band = '<div class="wi-band" style="--stripe:' + typeAppearance(w.type).colour + '"><div class="grow" style="min-width:0"><h1 class="wi-ident">' + typeIcon(w.type, 16) + esc(TOKENS[w.type].name) + ' ' + w.id + '</h1><div class="wi-title"><input aria-label="Заголовок" value="' + esc(E.title) + '" data-input="wiTitle" data-arg="' + w.id + '" data-fk="wi-title"' + dis + '></div></div>';
+  band += deleted ? '<button class="btn contained" data-act="wiRestore" data-arg="' + w.id + '" data-fk="wi-restore">' + ic('restore', {cls:'lead'}) + 'Восстановить</button>' :
+    '<button class="btn contained" data-act="wiSave" data-arg="' + w.id + '" data-fk="wi-save"' + (changed && !E.busy ? '' : ' disabled') + '>' + (E.busy ? '<span class="spinner"></span>' : '') + 'Сохранить</button>';
+  band += '<button class="iconbtn" data-act="openMenu" data-arg="wiMore:' + w.id + '" data-fk="wi-more" aria-haspopup="menu" aria-expanded="' + !!(S.menu && S.menu.id === 'wiMore:' + w.id) + '" aria-label="Ещё действия" data-tip="Ещё действия">' + ic('more') + '</button></div>';
+  const strip = '<div class="wi-strip"><span class="wi-field"><span class="lbl">Исполнитель</span>' + sel('who', w.who || '', [['','Не назначен']].concat(PEOPLE.map((p) => [p, p])), 'Исполнитель') + '</span>' +
+    '<span class="wi-field"><span class="lbl">Статус</span><span class="dot' + (deleted ? ' ring' : '') + '" style="color:' + categoryColour(catOf(w.type, w.state)) + '" aria-hidden="true"></span>' + sel('state', w.state, states, 'Статус') + '</span>' +
+    '<span class="wi-field"><span class="lbl">Область</span>' + sel('area', w.area, AREA_PATHS.map((a) => [a, a]), 'Область') + '</span>' +
+    '<span class="wi-field"><span class="lbl">Итерация</span>' + sel('iter', w.iter, [['','—']].concat(ITER_PATHS.map((a) => [a, a])), 'Итерация') + '</span>' +
+    '<span class="wi-field"><span class="lbl">Теги</span><span class="chips">' + w.tags.map((t) => '<span class="chip">' + esc(t) + (deleted ? '' : '<button class="x" data-act="wiTagRemove" data-arg="' + w.id + ':' + esc(t) + '" aria-label="Удалить тег «' + esc(t) + '»" data-fk="tagx-' + esc(t) + '">' + ic('close', {size:14}) + '</button>') + '</span>').join('') + '</span>' +
+    (deleted ? '' : '<button class="btn text sm" data-act="openMenu" data-arg="addTag:' + w.id + '" data-fk="tag-add" aria-haspopup="menu">' + ic('add', {cls:'lead', size:18}) + 'Добавить тег</button>') + '</span></div>';
+  const alert = deleted ? '<div class="alert info">' + ic('info') + '<span class="msg">Рабочий элемент удалён и доступен только для чтения. Восстановите его, чтобы вносить изменения.</span></div>' : '';
+  const tabsHtml = '<div class="tabs" role="tablist">' + tabs.map((t, i) => '<a class="tab" role="tab" href="#' + esc(t.href) + '" aria-selected="' + t.selected + '" tabindex="' + (t.selected ? 0 : -1) + '" data-fk="wtab-' + i + '">' + t.label + '</a>').join('') + '</div>';
+  let body;
+  if (r.tab === 'details') {
+    const parent = w.parent ? S.items.find((x) => x.id === w.parent) : null;
+    body = '<div class="wi-grid"><div><section class="sec"><h2>Описание</h2><p style="margin:0">Пользователь получает письмо со ссылкой и входит по ней без пароля. Ссылка одноразовая.</p></section>' +
+      (w.type === 'story' ? '<section class="sec"><h2>Критерии приёмки</h2><ul style="margin:0;padding-left:20px"><li>Ссылка действует 15 минут.</li><li>Повторный переход по ссылке не выполняет вход.</li></ul></section>' : '') +
+      '<section class="sec"><h2>Обсуждение</h2>' + (deleted ? '' : '<div class="tf" style="width:100%"><textarea aria-label="Добавьте комментарий" placeholder="Добавьте комментарий" data-fk="wi-comment"></textarea></div><div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn text" data-act="proto" data-arg="Добавить комментарий" data-fk="wi-comment-add">' + ic('add', {cls:'lead'}) + 'Добавить комментарий</button></div>') +
+      '<div class="comment"><span class="avatar sm" aria-hidden="true">ИП</span><div><div><strong style="font-weight:500">Иван Петров</strong> <span class="cap">30.09.2026 16:20</span></div><div>Проверил на тестовом стенде, письмо приходит.</div></div></div></section></div>' +
+      '<div><section class="sec"><h2>Планирование</h2><dl class="kv"><dt>Приоритет</dt><dd>' + w.prio + '</dd></dl></section><section class="sec"><h2>Связанная работа</h2><dl class="kv"><dt>Родитель</dt><dd>' + (parent ? '<span class="wi-ref">' + typeIcon(parent.type, 16) + '<a href="#' + wiBase() + '/' + parent.id + '">' + parent.id + '</a></span>' : '—') + '</dd></dl></section></div></div>';
+  } else if (r.tab === 'history') {
+    body = '<section class="sec" style="margin-top:12px"><h2>История</h2><ul style="list-style:none;margin:0;padding:0"><li class="comment"><span class="avatar sm" aria-hidden="true">АС</span><div>Анна Смирнова изменила «Статус»: «Новая» → «Активна»<div class="cap">29.09.2026 11:05</div></div></li><li class="comment"><span class="avatar sm" aria-hidden="true">ИП</span><div>Иван Петров создал рабочий элемент<div class="cap">28.09.2026 09:40</div></div></li></ul></section>';
+  } else if (r.tab === 'links') {
+    const kids = S.items.filter((x) => x.parent === w.id);
+    const parent = w.parent ? S.items.find((x) => x.id === w.parent) : null;
+    const line = (x) => '<li class="comment"><span class="wi-ref">' + typeIcon(x.type, 16) + '<a href="#' + wiBase() + '/' + x.id + '">' + x.id + '</a> ' + esc(x.title) + '</span><span class="grow"></span>' + stateHtml(x.state, catOf(x.type, x.state)) + '</li>';
+    body = '<section class="sec" style="margin-top:12px"><h2>Связи</h2>' + (deleted ? '' : '<button class="btn text" data-act="proto" data-arg="Добавить связь" data-fk="wi-link-add">' + ic('add', {cls:'lead'}) + 'Добавить связь</button>') +
+      '<h3 style="font-size:14px;font-weight:500;margin:12px 0 4px">Родитель</h3><ul style="list-style:none;margin:0;padding:0">' + (parent ? line(parent) : '<li class="muted">—</li>') + '</ul>' +
+      '<h3 style="font-size:14px;font-weight:500;margin:12px 0 4px">Дочерние</h3><ul style="list-style:none;margin:0;padding:0">' + (kids.map(line).join('') || '<li class="muted">—</li>') + '</ul></section>';
+  } else {
+    body = '<div class="panel" style="margin-top:12px">' + frame({icon:'inbox', heading:'Вложений нет', action:deleted ? null : {label:'Добавить вложение', icon:'add', act:'proto', arg:'Добавить вложение'}}) + '</div>';
+  }
+  return {title:TOKENS[w.type].name + ' ' + w.id, noHeader:true, entry:'workitems', trail:[{label:'Рабочие элементы', href:wiBase()}],
+    body:(window.innerWidth < 1024 ? '<div class="ph-trail" style="padding-top:12px">' + trailHtml([{label:'Рабочие элементы', href:wiBase()}]) + '</div>' : '') + '<div style="padding-top:16px">' + band + alert + strip + tabsHtml + body + '</div>'};
+}
+const LEVELS = {epics:{label:'Эпики', types:['epic']}, features:{label:'Фичи', types:['feature']}, stories:{label:'Истории', types:['story','bug']}};
+function teamBase(){ return '/organizations/' + S.ctx.org + '/projects/' + S.ctx.prj + '/teams/' + S.ctx.team; }
+function levelTabs(kind, lv){ return Object.keys(LEVELS).map((k) => ({label:LEVELS[k].label, href:teamBase() + '/' + kind + '/' + k, selected:k === lv})); }
+function boardPage(r){
+  const L = LEVELS[r.level];
+  const cols = ['Proposed','InProgress'].concat(L.types.includes('bug') ? ['Resolved'] : []).concat(['Completed']);
+  const items = S.data.lists === 'empty' ? [] : S.items.filter((w) => L.types.includes(w.type) && w.state !== 'Удалена');
+  let body;
+  if (S.data.lists === 'loading') body = '<div class="board" role="status" aria-label="Загрузка данных">' + cols.map(() => '<div class="col"><div class="col-head"><span class="sk" style="width:90px"></span></div><div style="padding:8px"><span class="sk" style="height:72px;margin-bottom:8px"></span><span class="sk" style="height:72px"></span></div></div>').join('') + '</div>';
+  else if (S.data.lists === 'error') body = errorBanner();
+  else if (!items.length) body = '<div class="panel">' + frame({icon:'inbox', heading:'На доске нет рабочих элементов', hint:'Новые рабочие элементы этого уровня появятся в колонке «Новые».', action:{label:'Новый рабочий элемент', icon:'add', act:'openMenu', arg:'typepicker:' + r.level}}) + '</div>';
+  else {
+    body = '<div class="board">';
+    cols.forEach((c, ci) => {
+      const label = CATEGORIES[c];
+      const inCol = items.filter((w) => catOf(w.type, w.state) === c);
+      const ck = r.level + ':' + c;
+      if (S.board.collapsed[ck]) {
+        body += '<section class="col collapsed" aria-label="' + label + ', ' + inCol.length + '"><button class="iconbtn sm" data-act="colToggle" data-arg="' + ck + '" data-fk="col-' + c + '" aria-label="Развернуть колонку «' + label + '»" data-tip="Развернуть колонку «' + label + '»" data-tip-pos="right">' + ic('chevRight', {size:18}) + '</button><span class="vtext">' + label + ' · ' + inCol.length + '</span></section>';
+        return;
+      }
+      body += '<section class="col" aria-label="' + label + ', ' + inCol.length + '"><div class="col-head"><h2>' + label + '</h2><span class="cap">' + inCol.length + '</span><button class="iconbtn sm" data-act="colToggle" data-arg="' + ck + '" data-fk="col-' + c + '" aria-label="Свернуть колонку «' + label + '»" data-tip="Свернуть колонку «' + label + '»">' + ic('chevLeft', {size:18}) + '</button></div>';
+      if (ci === 0) body += '<div style="padding:8px 8px 0"><button class="btn text sm" data-act="openMenu" data-arg="typepicker:' + r.level + '" data-fk="col-new" aria-haspopup="menu">' + ic('add', {cls:'lead', size:18}) + 'Новый элемент</button></div>';
+      inCol.forEach((w) => {
+        body += '<article class="card" style="--stripe:' + typeAppearance(w.type).colour + '"><div class="card-top">' + typeIcon(w.type, 16) + '<span class="id">' + w.id + '</span><a href="#' + wiBase() + '/' + w.id + '" data-fk="card-' + w.id + '">' + esc(w.title) + '</a><button class="iconbtn sm" data-act="openMenu" data-arg="cardMore:' + r.level + ':' + w.id + '" data-fk="cm-' + w.id + '" aria-haspopup="menu" aria-label="Ещё действия: ' + w.id + '" data-tip="Ещё действия">' + ic('more', {size:18}) + '</button></div><div>' + stateHtml(w.state, catOf(w.type, w.state)) + '</div>' + (w.tags.length ? '<div class="chips">' + w.tags.map((t) => '<span class="chip">' + esc(t) + '</span>').join('') + '</div>' : '') + '</article>';
+      });
+      body += '<div style="height:8px"></div></section>';
+    });
+    body += '</div>' + note('карточка открывает рабочий элемент; «Ещё действия» → «Переместить в колонку» — путь без перетаскивания.');
+  }
+  return {title:'Доски', entry:'boards', tabs:levelTabs('boards', r.level), commands:[
+    {label:'Показать бэклог', icon:'listBulleted', act:'go', arg:teamBase() + '/backlogs/' + r.level},
+    {label:'Настройки доски', icon:'settings', act:'dialog', arg:'boardSettings'}], body};
+}
+function backlogPage(r){
+  const L = LEVELS[r.level];
+  let items = S.data.lists === 'empty' ? [] : S.items.filter((w) => L.types.includes(w.type) && !['Закрыта','Удалена'].includes(w.state));
+  const order = S.backlog.order;
+  if (order) items.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  const cols = ['Порядок','','Тип','Заголовок','Статус','Итерация'];
+  let table;
+  if (S.data.lists === 'loading') table = skeletonTable(cols);
+  else if (S.data.lists === 'error') table = errorBanner();
+  else if (!items.length) table = '<div class="panel">' + frame({icon:'inbox', heading:'Бэклог пуст', hint:'Добавьте рабочий элемент — он встанет в конец бэклога.', action:{label:'Новый рабочий элемент', icon:'add', act:'openMenu', arg:'typepicker:' + r.level}}) + '</div>';
+  else {
+    table = '<div class="tablewrap"><table class="t" aria-label="Бэклог"><thead><tr>' + cols.map((c) => '<th>' + c + '</th>').join('') + '</tr></thead><tbody>';
+    items.forEach((w, i) => {
+      table += '<tr><td>' + (i + 1) + '</td><td style="padding:0 4px"><button class="iconbtn sm" data-act="openMenu" data-arg="bkMove:' + r.level + ':' + w.id + '" data-fk="mv-' + w.id + '" aria-haspopup="menu" aria-label="Переместить ' + w.id + '" data-tip="Переместить">' + ic('drag', {size:18}) + '</button></td><td><span class="wi-ref">' + typeIcon(w.type) + esc(TOKENS[w.type].name) + '</span></td><td class="ellip"><a href="#' + wiBase() + '/' + w.id + '">' + esc(w.title) + '</a></td><td>' + stateHtml(w.state, catOf(w.type, w.state)) + '</td><td>' + esc(w.iter || '—') + '</td></tr>';
+    });
+    table += '</tbody></table></div>';
+  }
+  const pane = S.backlog.pane ? '<aside class="pane" aria-label="Планирование"><div class="pane-head"><h2>Планирование</h2><button class="iconbtn" data-act="backlogPane" data-fk="pane-close" aria-label="Закрыть панель «Планирование»" data-tip="Закрыть">' + ic('close') + '</button></div><div class="pane-body"><p class="muted" style="margin:0 0 12px">Перетащите рабочий элемент на итерацию, чтобы запланировать его.</p>' +
+    [['Спринт 1','01.10.2026 – 14.10.2026','Релиз 1 / Спринт 1'],['Спринт 2','15.10.2026 – 28.10.2026','Релиз 1 / Спринт 2'],['Релиз 2','','Релиз 2']].map((it) => { const n = S.items.filter((w) => w.iter === it[2] && w.state !== 'Удалена').length; return '<div class="iter-card"><a href="#' + '/organizations/' + S.ctx.org + '/projects/' + S.ctx.prj + '/settings/iterations' + '">' + it[0] + '</a>' + (it[1] ? '<div class="cap">' + it[1] + '</div>' : '') + '<div class="muted" style="margin-top:4px">' + (n ? 'Запланировано: ' + n : 'Нет запланированной работы') + '</div></div>'; }).join('') +
+    '<button class="btn text" data-act="proto" data-arg="Новая итерация" data-fk="iter-new">' + ic('add', {cls:'lead'}) + 'Новая итерация</button></div></aside>' : '';
+  return {title:'Бэклоги', entry:'backlogs', tabs:levelTabs('backlogs', r.level), commands:[
+    {label:'Новый рабочий элемент', icon:'add', primary:true, act:'openMenu', arg:'typepicker:' + r.level, menu:true},
+    {label:'Показать доску', icon:'viewWeek', act:'go', arg:teamBase() + '/boards/' + r.level},
+    {label:'Планирование', icon:'sidebar', act:'backlogPane', pressed:S.backlog.pane}],
+    body:'<div class="with-pane"><div class="mainpart">' + table + '</div>' + pane + '</div>' + note('«Переместить» — путь упорядочивания без перетаскивания.')};
+}
+function sprintsPage(){ return {title:'Спринты', entry:'sprints', body:note('раздел релиза 2 (mod-011); текст состояния — пример.') + '<div class="panel">' + frame({icon:'inbox', heading:'Нет текущего спринта', hint:'Выберите итерации команды в настройках проекта.'}) + '</div>'}; }
+function queriesPage(){ return {title:'Запросы', entry:'queries', body:note('раздел релиза 2 (mod-008); текст состояния — пример.') + '<div class="panel">' + frame({icon:'inbox', heading:'Запросов пока нет', hint:'Сохранённые запросы появятся здесь.'}) + '</div>'}; }
+function tokensPage(){
+  const role = (name, v, use) => '<div class="swatch"><span class="box" style="background:' + v + '"></span><div><div style="font-weight:500">' + name + '</div><div class="cap">' + use + '</div></div></div>';
+  let h = note('страница только для прототипа — в панели её нет. Значения — токены app/theme (design.md § 2).');
+  h += '<div class="grid2"><section class="sec"><h2>Цветовые роли</h2>' + role('Фон приложения', 'var(--app-bg)', '#F8F8F8') + role('Поверхность навигации', 'var(--nav)', '#EBEBEB') + role('Поверхность содержимого', 'var(--paper)', '#FFFFFF') + role('Основной текст', 'var(--text)', '#242424') + role('Вторичный текст', 'var(--text2)', '#616161') + role('Акцент', 'var(--accent)', '#0F6CBD') + role('Граница поля ввода', 'var(--input-border)', '#8A8A8A') + '</section>';
+  h += '<section class="sec"><h2>Типы рабочих элементов</h2>' + TOKEN_ORDER.map((k) => '<div class="swatch">' + typeIcon(k, 24) + '<div><div style="font-weight:500">' + esc(TOKENS[k].name) + '</div><div class="cap">токен ' + k + '</div></div></div>').join('') + '<div class="swatch">' + ic(typeAppearance('unknown').icon, {size:24}) + '<div><div style="font-weight:500">Неизвестный токен</div><div class="cap">нейтральная замена</div></div></div>' +
+    '<p class="cap" style="margin:8px 0 0">Тип с ключом BUG и токеном task: <span class="wi-ref">' + typeIcon('task') + '</span> — поиск идёт только по токену.</p></section>';
+  h += '<section class="sec"><h2>Категории статусов</h2>' + Object.keys(CATEGORIES).map((c) => '<div class="swatch"><span style="width:36px;display:inline-flex;justify-content:center">' + '<span class="dot' + (c === 'Removed' ? ' ring' : '') + '" style="color:' + categoryColour(c) + '"></span></span><div><div style="font-weight:500">' + CATEGORIES[c] + '</div><div class="cap">' + c + '</div></div></div>').join('') + '</section>';
+  h += '<section class="sec"><h2>Смысловые цвета</h2><div class="alert error">' + ic('errorOutline') + '<span class="msg">Ошибка</span></div><div class="alert warning">' + ic('warning') + '<span class="msg">Предупреждение</span></div><div class="alert info">' + ic('info') + '<span class="msg">Сведения</span></div><span class="chip success">Активен</span></section>';
+  h += '<section class="sec"><h2>Кнопки</h2><div class="row wrap"><button class="btn contained">' + ic('add', {cls:'lead'}) + 'Основное действие</button><button class="btn text">' + ic('add', {cls:'lead'}) + 'Вторичная команда</button><button class="btn outlined">' + ic('home', {cls:'lead'}) + 'Контурная</button><button class="btn danger">Удалить навсегда</button><button class="btn contained" disabled>Недоступно</button></div></section>';
+  h += '<section class="sec"><h2>Шрифт и плотность</h2><p style="font-size:20px;line-height:28px;font-weight:500;margin:0">Заголовок страницы — 20 px</p><p style="font-size:16px;line-height:24px;font-weight:500;margin:4px 0">Заголовок раздела — 16 px</p><p style="margin:4px 0">Основной текст — 14 px. Верхняя панель — 48 px, строка реестра — 36 px.</p><p class="cap" style="margin:0">Подпись — 12 px</p></section></div>';
+  return {title:'Язык оформления', body:h};
+}
+function authCard(r){
+  const det = {access_denied:'Вход отменён на странице входа.', idp_unavailable:'Сервис аутентификации недоступен, повторите позже.', sign_in_failed:'Не удалось завершить вход, попробуйте ещё раз.', '':'Предыдущая попытка входа не была завершена.'};
+  let c;
+  switch (r.state) {
+    case 'signed_out': c = '<div class="alert info">' + ic('info') + '<span class="msg">Вы вышли из системы.</span></div><button class="btn contained full" data-act="go" data-arg="/home" data-fk="auth-act">Войти</button>'; break;
+    case 'login_failed': c = '<div class="alert error">' + ic('errorOutline') + '<span class="msg">Вход не выполнен.<br><span style="font-size:13px">' + esc(det[r.detail] || det['']) + '</span></span></div><button class="btn contained full" data-act="go" data-arg="/home" data-fk="auth-act">Войти</button>'; break;
+    case 'expired': c = '<div class="alert warning">' + ic('warning') + '<span class="msg">Сессия истекла, войдите заново.</span></div><button class="btn contained full" data-act="go" data-arg="/home" data-fk="auth-act">Войти</button>'; break;
+    case 'auth_unavailable': c = '<div class="alert warning">' + ic('warning') + '<span class="msg">Сервис аутентификации недоступен, повторите позже.</span></div><button class="btn contained full" data-act="go" data-arg="/home" data-fk="auth-act">Повторить</button>'; break;
+    case 'logout_failed': c = '<div class="alert error">' + ic('errorOutline') + '<span class="msg">Выход не завершён: сервис аутентификации недоступен.</span></div><button class="btn contained full" data-act="go" data-arg="/prototype/auth/signed_out" data-fk="auth-act">Повторить выход</button>'; break;
+    default: c = '<div class="row" style="justify-content:center;padding:24px 0"><span class="spinner" style="width:32px;height:32px;color:var(--text);border-width:3px" role="progressbar" aria-label="Загрузка"></span></div><p class="muted" style="text-align:center;margin:0">Выполняется вход…</p>';
+  }
+  document.body.dataset.nav = 'none';
+  return '<div class="center"><div class="auth"><h1>Mustask</h1>' + c + '</div></div>';
+}
+function crashScreen(){ document.body.dataset.nav = 'none'; return '<div class="center"><div class="crash" role="alert">' + ic('errorOutline', {size:40, color:'var(--text2)'}) + '<h1>Что-то пошло не так</h1><button class="btn contained" data-act="go" data-arg="/home" data-fk="crash-act">Обновить страницу</button></div></div>'; }
+
+function pageFor(r){
+  switch (r.name) {
+    case 'home': return homePage();
+    case 'languages': return languagesPage();
+    case 'langForm': return langFormPage(r);
+    case 'orgList': return orgListPage();
+    case 'orgSettings': return orgSettingsPage(r);
+    case 'prjSettings': return prjSettingsPage(r);
+    case 'workitems': return workItemsPage();
+    case 'workitem': return workItemPage(r);
+    case 'board': return boardPage(r);
+    case 'backlog': return backlogPage(r);
+    case 'sprints': return sprintsPage();
+    case 'queries': return queriesPage();
+    case 'tokens': return tokensPage();
+    case 'notFound': return notFoundPage(r.kind);
+    default: return notFoundPage('page');
+  }
+}
+
+/* ---------- layer: menus, dialogs, snackbar ---------- */
+function menuItems(id){
+  const [kind, a, b] = id.split(':');
+  if (kind === 'sw-org') {
+    const items = [{sub:'Организации'}].concat(orgs().map((o) => ({label:o.name, act:'swChoose', arg:'org:' + o.id, radio:true, checked:o.id === S.ctx.org})));
+    if (S.view === 'target') items.push({divider:true}, {label:'Все организации', icon:'listAlt', act:'go', arg:'/organizations'});
+    return items;
+  }
+  if (kind === 'sw-prj') return [{sub:'Проекты'}].concat(curOrg().projects.map((p) => ({label:p.name, act:'swChoose', arg:'prj:' + p.id, radio:true, checked:p.id === S.ctx.prj})));
+  if (kind === 'sw-team') return [{sub:'Команды'}].concat(curPrj().teams.map((t) => ({label:t.name, act:'swChoose', arg:'team:' + t.id, radio:true, checked:t.id === S.ctx.team})));
+  if (kind === 'user') { const n = displayName(); return (n ? [{text:n}, {divider:true}] : []).concat([{label:'Выйти', icon:'logout', act:'go', arg:'/prototype/auth/signed_out'}]); }
+  if (kind === 'overflow') {
+    const bar = document.querySelector('[data-cmdbar]');
+    return Array.from(bar ? bar.querySelectorAll('[data-cmd].hidden') : []).map((btn) => { const c = CMDS[+btn.dataset.cmd]; return {label:c.label, icon:c.icon, act:c.act, arg:c.arg, disabled:c.disabled}; });
+  }
+  if (kind === 'typepicker') { const types = a ? LEVELS[a].types : TOKEN_ORDER; return types.map((t) => ({label:TOKENS[t].name, token:t, act:'newItem', arg:t})); }
+  if (kind === 'wiMore') { const w = S.items.find((x) => x.id === a); return w.state === 'Удалена' ? [{label:'Удалить навсегда', icon:'del', act:'dialog', arg:'destroy:' + a, danger:true}] : [{label:'Удалить', icon:'del', act:'dialog', arg:'delete:' + a}]; }
+  if (kind === 'addTag') { const w = S.items.find((x) => x.id === a); return ALL_TAGS.filter((t) => !w.tags.includes(t)).map((t) => ({label:t, act:'wiTagAdd', arg:a + ':' + t})); }
+  if (kind === 'wf') {
+    const f = S.wi.filters[a];
+    const opts = {type:TOKEN_ORDER.map((t) => [t, TOKENS[t].name, t]), who:[['—','Не назначен']].concat(PEOPLE.map((p) => [p, p])), state:['Новая','Активна','Разрешена','Закрыта','Удалена'].map((s) => [s, s]), area:AREA_PATHS.map((x) => [x, x]), tags:ALL_TAGS.map((x) => [x, x])}[a];
+    return opts.map((o) => ({label:o[1], token:o[2], act:'wiFilterToggle', arg:a + ':' + o[0], checkbox:true, checked:f.includes(o[0]), keep:true}));
+  }
+  if (kind === 'cardMore') {
+    const L = LEVELS[a]; const w = S.items.find((x) => x.id === b);
+    const cols = ['Proposed','InProgress'].concat(L.types.includes('bug') ? ['Resolved'] : []).concat(['Completed']);
+    return [{sub:'Переместить в колонку'}].concat(cols.filter((c) => c !== catOf(w.type, w.state)).map((c) => ({label:CATEGORIES[c], act:'cardMove', arg:b + ':' + c})));
+  }
+  if (kind === 'bkMove') return [['first','В начало'],['up','Выше'],['down','Ниже'],['last','В конец']].map((m) => ({label:m[1], act:'bkMove', arg:a + ':' + b + ':' + m[0]}));
+  if (kind === 'treeAct') return [{label:'Новый дочерний', icon:'add', act:'proto', arg:'Новый дочерний узел'}, {label:'Переименовать', icon:'edit', act:'proto', arg:'Переименовать'}, {label:'Удалить', icon:'del', act:'proto', arg:'Удалить'}];
+  return [];
+}
+function menuHtml(){
+  if (!S.menu) return '';
+  const items = menuItems(S.menu.id);
+  const body = items.map((it) => {
+    if (it.divider) return '<div class="mdiv" role="separator"></div>';
+    if (it.sub) return '<div class="msub" role="presentation">' + esc(it.sub) + '</div>';
+    if (it.text) return '<div class="mlabel" role="presentation">' + esc(it.text) + '</div>';
+    const role = it.radio ? 'menuitemradio' : it.checkbox ? 'menuitemcheckbox' : 'menuitem';
+    const checked = (it.radio || it.checkbox) ? ' aria-checked="' + !!it.checked + '"' : '';
+    let lead = '';
+    if (it.radio) lead = '<span class="check">' + (it.checked ? ic('check') : '') + '</span>';
+    else if (it.checkbox) lead = '<span class="cbx">' + (it.checked ? ic('check', {size:14}) : '') + '</span>' + (it.token ? typeIcon(it.token) : '');
+    else if (it.token) lead = typeIcon(it.token);
+    else if (it.icon) lead = ic(it.icon, {color:it.danger ? 'var(--error)' : 'var(--text2)'});
+    return '<button class="mi' + (it.danger ? ' danger' : '') + '" role="' + role + '"' + checked + ' tabindex="-1" data-act="' + it.act + '" data-arg="' + esc(it.arg || '') + '"' + (it.keep ? ' data-keep="1"' : '') + (it.disabled ? ' disabled' : '') + '>' + lead + '<span>' + esc(it.label) + '</span></button>';
+  }).join('');
+  return '<div class="menu" role="menu" id="open-menu">' + (body || '<div class="msub">—</div>') + '</div>';
+}
+function positionMenu(){
+  const m = document.getElementById('open-menu'); if (!m || !S.menu) return;
+  const a = document.querySelector('[data-fk="' + S.menu.fk + '"]');
+  if (!a) { closeMenu(false); return; }
+  const r = a.getBoundingClientRect();
+  let left = r.left, top = r.bottom + 4;
+  const w = m.offsetWidth, h = m.offsetHeight;
+  if (left + w > window.innerWidth - 8) left = Math.max(8, r.right - w);
+  if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 4);
+  m.style.left = left + 'px'; m.style.top = top + 'px';
+}
+function dialogHtml(){
+  const d = S.dialog; if (!d) return '';
+  const busy = d.busy;
+  const closeBtn = '<button class="iconbtn" data-act="dlgClose" data-fk="dlg-x" aria-label="Закрыть" data-tip="Закрыть"' + (busy ? ' disabled' : '') + '>' + ic('close') + '</button>';
+  const spin = busy ? '<span class="spinner"></span>' : '';
+  const cancel = '<button class="btn text" data-act="dlgClose" data-fk="dlg-cancel"' + (busy ? ' disabled' : '') + '>Отмена</button>';
+  let size = '', title = '', content = '', primary = '';
+  if (d.type === 'defaultLang') {
+    title = 'Назначить языком по умолчанию';
+    content = '<p>Сделать «' + esc(d.endonym) + '» (' + esc(d.code) + ') языком по умолчанию?</p><p>Все активные записи должны быть переведены на этот язык — иначе изменение будет отклонено.</p>' + (d.error ? '<div class="alert error" role="alert">' + ic('errorOutline') + '<span class="msg">' + esc(d.error) + '</span></div>' : '');
+    primary = '<button class="btn contained" data-act="dlgConfirm" data-fk="dlg-ok"' + (busy ? ' disabled' : '') + '>' + spin + 'Назначить</button>';
+  } else if (d.type === 'delete') {
+    title = 'Удалить рабочий элемент?';
+    content = '<p>Рабочий элемент ' + esc(d.id) + ' получит статус «Удалена». Его можно будет восстановить.</p>';
+    primary = '<button class="btn contained" data-act="dlgConfirm" data-fk="dlg-ok"' + (busy ? ' disabled' : '') + '>' + spin + 'Удалить</button>';
+  } else if (d.type === 'destroy') {
+    const w = S.items.find((x) => x.id === d.id);
+    title = 'Удалить рабочий элемент навсегда?';
+    content = '<p>Рабочий элемент ' + esc(d.id) + ' «' + esc(w ? w.title : '') + '» будет удалён без возможности восстановления вместе с историей, обсуждением и вложениями.</p>';
+    primary = '<button class="btn danger" data-act="dlgConfirm" data-fk="dlg-ok"' + (busy ? ' disabled' : '') + '>' + spin + 'Удалить навсегда</button>';
+  } else if (d.type === 'newItem') {
+    size = ' sm'; title = 'Новый рабочий элемент';
+    content = '<div class="stack" style="padding-top:10px">' + (d.top ? '<div class="alert error" role="alert">' + ic('errorOutline') + '<span class="msg">' + esc(d.top) + '</span></div>' : '') +
+      '<div class="row">' + typeIcon(d.token, 20) + tf({label:'Тип', value:d.token, input:'dlgType', fk:'dlg-type', width:300, disabled:busy, options:TOKEN_ORDER.map((t) => [t, TOKENS[t].name])}) + '</div>' +
+      tf({label:'Заголовок', value:d.title, input:'dlgTitle', fk:'dlg-title', error:d.error, disabled:busy}) + '</div>';
+    primary = '<button class="btn contained" data-act="dlgConfirm" data-fk="dlg-ok"' + (busy ? ' disabled' : '') + '>' + spin + 'Создать</button>';
+  } else if (d.type === 'boardSettings') {
+    size = ' lg'; title = 'Настройки доски';
+    const secs = [['general','Общие'],['columns','Колонки'],['swimlanes','Дорожки'],['cards','Карточки']];
+    const cur = d.section || 'general';
+    let inner;
+    if (cur === 'general') inner = '<h3>Уровни бэклога на доске</h3>' + ['Эпики','Фичи','Истории'].map((l, i) => '<label class="row" style="margin:6px 0"><input type="checkbox" checked data-fk="bs-l' + i + '"' + (busy ? ' disabled' : '') + '> ' + l + '</label>').join('');
+    else if (cur === 'columns') inner = '<h3>Колонки</h3><div class="stack" style="max-width:var(--form-w)">' + ['Новые','В работе','Решённые','Завершённые'].map((c, i) => tf({label:'Колонка ' + (i + 1), value:c, input:'noop', fk:'bs-c' + i, disabled:busy})).join('') + '</div>';
+    else inner = frame({icon:'inbox', heading:secs.find((s) => s[0] === cur)[1], hint:'Раздел заполнит mod-006.'});
+    content = '<div class="setdlg"><nav aria-label="Разделы настроек"><ul>' + secs.map((s) => '<li><button class="navitem' + (s[0] === cur ? ' sel' : '') + '" data-act="bsSection" data-arg="' + s[0] + '" data-fk="bs-' + s[0] + '"' + (s[0] === cur ? ' aria-current="true"' : '') + '>' + s[1] + '</button></li>').join('') + '</ul></nav><div class="setbody">' + inner + '</div></div>';
+    primary = '<button class="btn contained" data-act="dlgConfirm" data-fk="dlg-ok"' + (busy ? ' disabled' : '') + '>' + spin + 'Сохранить</button>';
+  }
+  const contentWrap = d.type === 'boardSettings' ? content : '<div class="dlg-content">' + content + '</div>';
+  return '<div class="backdrop" data-act="dlgBackdrop"></div><div class="dialog' + size + '" role="dialog" aria-modal="true" aria-labelledby="dlg-h" id="dialog"><div class="dlg-title"><h2 id="dlg-h">' + title + '</h2>' + closeBtn + '</div>' + contentWrap + '<div class="dlg-actions">' + cancel + primary + '</div></div>';
+}
+function snackHtml(){
+  const s = S.snack; if (!s) return '';
+  if (s.kind === 'info') return '<div class="snack alertsnack" role="status">' + ic('info') + '<span>' + esc(s.text) + '</span></div>';
+  if (s.kind === 'proto') return '<div class="snack proto-snack" role="status">Прототип: «' + esc(s.text) + '» не выполняется.</div>';
+  return '<div class="snack" role="status">' + esc(s.text) + '</div>';
+}
+let snackTimer = null;
+function snack(text, kind){ S.snack = {text, kind}; clearTimeout(snackTimer); snackTimer = setTimeout(() => { S.snack = null; render(); }, 6000); }
+
+/* ---------- prototype panel ---------- */
+function protoPanel(){
+  const el = document.getElementById('proto');
+  if (!S.panelOpen) { el.className = 'proto closed'; el.innerHTML = '<button class="btn text sm" data-act="protoPanel" data-fk="pp-open">Панель прототипа</button>'; return; }
+  el.className = 'proto';
+  const sel = (label, key, opts) => '<label for="pp-' + key + '">' + label + '</label><select id="pp-' + key + '" data-input="proto" data-arg="' + key + '" data-fk="pp-' + key + '">' + opts.map((o) => '<option value="' + o[0] + '"' + (String(S[key] !== undefined ? S[key] : S.data[key]) === o[0] ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select>';
+  const L = (href, text) => '<a href="#' + href + '">' + text + '</a>';
+  const c = S.ctx;
+  const o1 = '/organizations/org-1', p1 = o1 + '/projects/prj-1', t1 = p1 + '/teams/team-1';
+  el.innerHTML = '<div class="row"><h2>Панель прототипа</h2><button class="btn text sm" data-act="protoPanel" data-fk="pp-close">Свернуть</button></div>' +
+    '<div class="cap" style="color:#6B4E00">Не часть дизайна. Ширина окна: ' + window.innerWidth + ' px (рейл &lt; 1280, наложение &lt; 1024). Адрес: ' + esc(location.hash || '#/home') + '</div>' +
+    sel('Вид', 'view', [['target','Целевое MVP (подключены mod-002 и другие)'],['build','Сборка mod-015 (только то, что строит задача)']]) +
+    sel('Роль', 'role', [['admin','Администратор справочников'],['reader','Читатель справочников'],['none','Без прав на справочники']]) +
+    sel('Имя в токене', 'user', [['full','Иван Петров'],['login','ivan.petrov'],['none','нет имени']]) +
+    sel('Данные переключателя', 'switcherData', [['example','Пример (US-5)'],['loading','Загрузка (mod-002)'],['failed','Ошибка загрузки (mod-002)'],['noOrgs','Нет организаций'],['noProjects','Организация без проектов'],['longName','Название из 100 символов'],['fallback','Сохранённый выбор недоступен (mod-002)']]) +
+    sel('Состояние «Языков»', 'languages', [['data','Данные'],['loading','Загрузка'],['error','Ошибка'],['empty','Пусто']]) +
+    sel('Состояние списков, досок, бэклога, деревьев', 'lists', [['data','Данные'],['loading','Загрузка'],['error','Ошибка'],['empty','Пусто']]) +
+    sel('Ответ на «Назначить» и «Создать»', 'dlgOutcome', [['ok','Успех'],['fail','Отказ сервера']]) +
+    '<label><input type="checkbox" data-input="protoConflict" data-fk="pp-conflict"' + (S.conflictOnSave ? ' checked' : '') + '> Конфликт версий при сохранении языка</label>' +
+    '<div class="links"><button data-act="clearKept" data-fk="pp-clear">Сбросить сохранённый выбор меню' + (S.kept ? ' (' + (S.kept === 'rail' ? 'свёрнуто' : 'развёрнуто') + ')' : '') + '</button></div>' +
+    '<div class="sect"><strong>Экраны</strong><div class="links">' + L('/home', 'Главная') + L('/dictionaries/languages', 'Языки') + L('/dictionaries/languages/new', 'Добавить язык') + L('/dictionaries/languages/ru', 'Язык: ru') + L('/prototype/tokens', 'Язык оформления') + L('/no-such-page', 'Несуществующий адрес') + '</div></div>' +
+    '<div class="sect"><strong>Целевое MVP (адреса с контекстом)</strong><div class="links">' + L(p1 + '/workitems', 'Рабочие элементы') + L(p1 + '/workitems/PRM-US-12', 'PRM-US-12') + L(p1 + '/workitems/PRM-BUG-7', 'Удалённый PRM-BUG-7') + L(t1 + '/boards/stories', 'Доска') + L(t1 + '/backlogs/stories', 'Бэклог') + L(p1 + '/settings/areas', 'Области') + L(p1 + '/settings/iterations', 'Итерации') + L(o1 + '/settings/general', 'Настройки организации') + L('/organizations', 'Список организаций') + '</div>' +
+    '<div class="links">' + L('/organizations/org-404/projects/prj-1/workitems', 'Организация не найдена') + L(o1 + '/projects/prj-404/workitems', 'Проект не найден') + L(p1 + '/teams/team-404/boards/stories', 'Команда не найдена') + '</div></div>' +
+    '<div class="sect"><strong>Вне оболочки</strong><div class="links">' + ['loading','signed_out','login_failed','expired','auth_unavailable','logout_failed'].map((s) => L('/prototype/auth/' + s, s)).join('') + L('/prototype/auth/login_failed/access_denied', 'login_failed: отменён') + L('/prototype/auth/login_failed/idp_unavailable', 'login_failed: недоступен') + L('/prototype/auth/login_failed/sign_in_failed', 'login_failed: не завершён') + L('/prototype/crash', 'Экран сбоя') + '</div></div>' +
+    '<div class="sect"><strong>Диалоги (US-9)</strong><div class="links"><button data-act="dialog" data-arg="defaultLang:kk" data-fk="pp-d1">Назначить языком по умолчанию</button><button data-act="dialog" data-arg="delete:PRM-US-12" data-fk="pp-d2">Удалить</button><button data-act="dialog" data-arg="destroy:PRM-BUG-7" data-fk="pp-d3">Удалить навсегда</button><button data-act="newItem" data-arg="story" data-fk="pp-d4">Новый рабочий элемент</button><button data-act="dialog" data-arg="boardSettings" data-fk="pp-d5">Настройки доски</button></div></div>';
+  void c;
+}
+
+/* ---------- render ---------- */
+function render(){
+  const ae = document.activeElement;
+  const fk = ae && ae.closest ? (ae.closest('[data-fk]') || {}).dataset : null;
+  const prevFk = fk ? fk.fk : null;
+  const selStart = ae && 'selectionStart' in ae ? (() => { try { return [ae.selectionStart, ae.selectionEnd]; } catch (e) { return null; } })() : null;
+  ROUTE = resolveRoute();
+  const app = document.getElementById('app');
+  if (ROUTE.name === 'auth') { app.innerHTML = authCard(ROUTE); document.title = 'Mustask'; }
+  else if (ROUTE.name === 'crash') { app.innerHTML = crashScreen(); document.title = 'Mustask'; }
+  else {
+    const pg = pageFor(ROUTE);
+    app.innerHTML = shell(ROUTE, pg);
+    document.title = pg.title + ' — Mustask';
+    fitCommands();
+  }
+  document.getElementById('layer').innerHTML = menuHtml() + dialogHtml() + snackHtml();
+  positionMenu();
+  protoPanel();
+  hideTip();
+  const want = S.pendingFocus; S.pendingFocus = null;
+  if (S.focusMain) { S.focusMain = false; const m = document.getElementById('main-content'); if (m) m.focus(); return; }
+  const target = want ? document.querySelector('[data-fk="' + want + '"]') : prevFk ? document.querySelector('[data-fk="' + prevFk + '"]') : null;
+  if (target && !target.disabled) {
+    target.focus({preventScroll:true});
+    if (selStart && 'setSelectionRange' in target && !want) { try { target.setSelectionRange(selStart[0], selStart[1]); } catch (e) { /* number inputs */ } }
+  } else if (want === 'menu-first') {
+    focusMenuItem();
+  }
+}
+function focusMenuItem(){
+  const m = document.getElementById('open-menu'); if (!m) return;
+  const items = Array.from(m.querySelectorAll('.mi:not(:disabled)'));
+  const cur = items.find((x) => x.getAttribute('aria-checked') === 'true' && x.getAttribute('role') === 'menuitemradio') || items[0];
+  if (cur) cur.focus();
+}
+function openMenu(id, fk){ S.menu = {id, fk}; S.pendingFocus = 'menu-first'; render(); }
+function closeMenu(returnFocus){ if (!S.menu) return; const fk = S.menu.fk; S.menu = null; if (returnFocus) S.pendingFocus = fk; render(); }
+
+/* ---------- actions ---------- */
+function protoDelay(fn){ setTimeout(fn, 1100); }
+const ACT = {
+  go(arg){ S.menu = null; go(arg); },
+  skip(){ const m = document.getElementById('main-content'); if (m) m.focus(); },
+  overlay(){ S.overlay = !S.overlay; S.pendingFocus = S.overlay ? 'nav-home' : 'menu-btn'; render(); },
+  closeOverlay(){ S.overlay = false; S.pendingFocus = 'menu-btn'; render(); },
+  toggleNav(){ const nowRail = document.querySelector('.mainnav.rail') !== null; S.kept = nowRail ? 'expanded' : 'rail'; writeKept(S.kept); S.pendingFocus = 'nav-toggle'; render(); },
+  clearKept(){ S.kept = null; writeKept(null); render(); },
+  openMenu(arg, el){ if (S.menu && S.menu.id === arg) { closeMenu(true); return; } openMenu(arg, el.dataset.fk); },
+  swChoose(arg){
+    const [level, id] = arg.split(':');
+    const r = ROUTE;
+    if (level === 'org') { S.ctx.org = id; S.ctx.prj = null; S.ctx.team = null; }
+    if (level === 'prj') { S.ctx.prj = id; S.ctx.team = null; }
+    if (level === 'team') S.ctx.team = id;
+    syncCtx();
+    const rank = {org:1, prj:2, team:3};
+    S.menu = null;
+    /* BR-18: a level the address carries moves the page to its entry's landing page (or «Главная»); a lower level does not */
+    if (r && r.carries && rank[level] <= rank[r.carries]) {
+      const e = findEntry(r.entry);
+      if (e && entryVisible(e)) go(e.landing(S.ctx)); else go('/home');
+      return;
+    }
+    render();
+  },
+  swRetry(){ S.sw = 'ready'; S.pendingFocus = 'sw-org'; render(); },
+  langSort(field){ const s = S.lang.sort; S.lang.sort = !s || s.field !== field ? {field, desc:false} : {field, desc:!s.desc}; S.lang.page = 0; render(); },
+  langPage(dir){ S.lang.page = Math.max(0, S.lang.page + Number(dir)); render(); },
+  langReset(){ S.lang.filters = {code:'', endonym:'', isDefault:'', isActive:'', sortOrder:''}; S.lang.page = 0; S.pendingFocus = 'lf-code'; render(); },
+  langStar(code, el){ const l = S.langs.find((x) => x.code === code); S.dialog = {type:'defaultLang', code, endonym:l.endonym, ret:el.dataset.fk}; S.pendingFocus = 'dlg-cancel'; render(); },
+  conflictServer(){ S.form.conflict = null; S.form.endonym = S.form.endonym + ' (обновлено)'; render(); },
+  conflictMine(){ S.form.conflict = null; snack('Изменения сохранены.'); render(); },
+  dialog(arg, el){
+    S.menu = null;
+    const [type, x] = arg.split(':');
+    if (type === 'defaultLang') { const l = S.langs.find((y) => y.code === x); S.dialog = {type, code:x, endonym:l.endonym}; }
+    else if (type === 'boardSettings') S.dialog = {type, section:'general'};
+    else S.dialog = {type, id:x};
+    S.dialog.ret = el.dataset.fk || S.pendingFocus || null;
+    S.pendingFocus = type === 'boardSettings' ? 'bs-general' : 'dlg-cancel';
+    render();
+  },
+  newItem(token, el){ S.menu = null; S.dialog = {type:'newItem', token, title:'', ret:(el && el.dataset.fk) || S.pendingFocus || null}; S.pendingFocus = 'dlg-title'; render(); },
+  bsSection(s){ S.dialog.section = s; S.pendingFocus = 'bs-' + s; render(); },
+  dlgBackdrop(){ if (S.dialog && !S.dialog.busy) ACT.dlgClose(); },
+  dlgClose(){ if (!S.dialog || S.dialog.busy) return; const ret = S.dialog.ret; S.dialog = null; S.pendingFocus = ret; render(); },
+  dlgConfirm(){
+    const d = S.dialog; if (!d || d.busy) return;
+    if (d.type === 'newItem') {
+      const t = d.title.trim();
+      if (!t) { d.error = 'Введите заголовок.'; S.pendingFocus = 'dlg-title'; render(); return; }
+      if (t.length > 255) { d.error = 'Не более 255 символов.'; S.pendingFocus = 'dlg-title'; render(); return; }
+      d.error = null;
+    }
+    d.busy = true; d.top = null; render();
+    protoDelay(() => {
+      if (!S.dialog) return;
+      d.busy = false;
+      if (S.dlgOutcome === 'fail' && (d.type === 'defaultLang' || d.type === 'newItem')) {
+        if (d.type === 'defaultLang') d.error = 'Языком по умолчанию может стать только активный язык (код «' + d.code + '»).';
+        else d.top = 'Сервис временно недоступен, повторите позже.';
+        S.pendingFocus = 'dlg-ok'; render(); return;
+      }
+      const ret = d.ret; S.dialog = null; S.pendingFocus = ret;
+      if (d.type === 'defaultLang') {
+        const prev = S.langs.find((l) => l.isDefault);
+        S.langs.forEach((l) => { l.isDefault = l.code === d.code; });
+        snack(prev && prev.code === d.code ? '«' + d.endonym + '» уже является языком по умолчанию.' : 'Язык по умолчанию изменён на «' + d.endonym + '» (' + d.code + ').');
+      } else if (d.type === 'delete') { const w = S.items.find((x) => x.id === d.id); if (w) w.state = 'Удалена'; }
+      else if (d.type === 'destroy') { S.items = S.items.filter((x) => x.id !== d.id); go(wiBase()); return; }
+      else if (d.type === 'newItem') {
+        const n = 30 + S.items.length;
+        const id = 'PRM-' + TOKENS[d.token].key + '-' + n;
+        S.items.push({id, type:d.token, title:d.title.trim(), state:'Новая', who:null, area:AREA_PATHS[0], tags:[], iter:'', prio:2});
+        go(wiBase() + '/' + id); return;
+      }
+      render();
+    });
+  },
+  wiSelect(id){ S.wi.selected = S.wi.selected === id ? null : id; S.pendingFocus = 'row-' + id; render(); },
+  wiClosePane(){ const id = S.wi.selected; S.wi.selected = null; S.pendingFocus = 'row-' + id; render(); },
+  wiClear(){ S.wi.filters = {q:'', type:[], who:[], state:[], area:[], tags:[]}; S.pendingFocus = 'wf-q'; render(); },
+  wiFilterToggle(arg){ const i = arg.indexOf(':'); const key = arg.slice(0, i), v = arg.slice(i + 1); const f = S.wi.filters[key]; const at = f.indexOf(v); if (at >= 0) f.splice(at, 1); else f.push(v); S.pendingFocus = null; const m = document.activeElement; const idx = m ? Array.from(document.querySelectorAll('#open-menu .mi')).indexOf(m) : -1; render(); const items = document.querySelectorAll('#open-menu .mi'); if (items[idx]) items[idx].focus(); },
+  wiSave(id){ const E = S.edits[id]; E.busy = true; render(); protoDelay(() => { const w = S.items.find((x) => x.id === id); w.title = E.title; E.busy = false; S.pendingFocus = 'wi-title'; render(); }); },
+  wiRestore(id){ const w = S.items.find((x) => x.id === id); w.state = 'Новая'; S.pendingFocus = 'wi-save'; render(); },
+  wiTagRemove(arg){ const [id, t] = arg.split(':'); const w = S.items.find((x) => x.id === id); w.tags = w.tags.filter((x) => x !== t); S.pendingFocus = 'tag-add'; render(); },
+  wiTagAdd(arg){ const [id, t] = arg.split(':'); const w = S.items.find((x) => x.id === id); w.tags.push(t); S.menu = null; S.pendingFocus = 'tag-add'; render(); },
+  colToggle(k, el){ S.board.collapsed[k] = !S.board.collapsed[k]; S.pendingFocus = el.dataset.fk; render(); },
+  cardMove(arg){ const [id, cat] = arg.split(':'); const w = S.items.find((x) => x.id === id); const st = STATES[w.type].find((s) => s[1] === cat); if (st) w.state = st[0]; S.menu = null; S.pendingFocus = 'card-' + id; render(); },
+  bkMove(arg){
+    const [lv, id, how] = arg.split(':');
+    const L = LEVELS[lv];
+    let ids = (S.backlog.order || S.items.map((x) => x.id)).slice();
+    const visible = S.items.filter((w) => L.types.includes(w.type) && !['Закрыта','Удалена'].includes(w.state)).map((w) => w.id).sort((a, b) => ids.indexOf(a) - ids.indexOf(b));
+    const i = visible.indexOf(id);
+    const j = how === 'first' ? 0 : how === 'last' ? visible.length - 1 : how === 'up' ? Math.max(0, i - 1) : Math.min(visible.length - 1, i + 1);
+    visible.splice(i, 1); visible.splice(j, 0, id);
+    ids = ids.filter((x) => !visible.includes(x)).concat(visible);
+    S.backlog.order = ids; S.menu = null; S.pendingFocus = 'mv-' + id; render();
+  },
+  backlogPane(){ S.backlog.pane = !S.backlog.pane; S.pendingFocus = S.backlog.pane ? 'pane-close' : 'cmd-2'; render(); },
+  treeToggle(arg, el, e){ e.stopPropagation(); const [kind, id] = arg.split(':'); S.tree[kind].expanded[id] = !S.tree[kind].expanded[id]; S.pendingFocus = 'tx-' + id; render(); },
+  treeSelect(arg){ const [kind, id] = arg.split(':'); S.tree[kind].selected = id; S.pendingFocus = 'tr-' + id; render(); },
+  retry(){ S.data.languages = 'data'; S.data.lists = 'data'; render(); },
+  proto(arg){ S.menu = null; snack(arg, 'proto'); render(); },
+  protoPanel(){ S.panelOpen = !S.panelOpen; S.pendingFocus = S.panelOpen ? 'pp-close' : 'pp-open'; render(); }
+};
+const INPUT = {
+  langFilter(arg, v){ S.lang.filters[arg] = v; S.lang.page = 0; render(); },
+  form(arg, v){ S.form[arg] = v; render(); },
+  formActive(arg, v, el){ S.form.active = el.checked; render(); },
+  wiQ(arg, v){ S.wi.filters.q = v; render(); },
+  wiTitle(id, v){ S.edits[id].title = v; render(); },
+  wiField(arg, v){ const [id, f] = arg.split(':'); const w = S.items.find((x) => x.id === id); w[f] = v; render(); },
+  dlgType(arg, v){ S.dialog.token = v; render(); },
+  dlgTitle(arg, v){ S.dialog.title = v; render(); },
+  noop(){},
+  protoConflict(arg, v, el){ S.conflictOnSave = el.checked; render(); },
+  proto(key, v){
+    if (key === 'switcherData') {
+      S.sw = v === 'loading' ? 'loading' : v === 'failed' ? 'failed' : 'ready';
+      S.dataset = ['noOrgs','noProjects','longName'].includes(v) ? v : 'example';
+      if (v === 'fallback') { S.ctx = {org:'org-2', prj:'prj-3', team:'team-4'}; snack('Ранее выбранный контекст недоступен. Выбрано: Пример организации 2 / Пример проекта 3 / Пример команды 4.', 'info'); }
+      syncCtx(); S.switcherData = v;
+    } else if (key === 'languages' || key === 'lists') S.data[key] = v;
+    else S[key] = v;
+    render();
+  }
+};
+S.switcherData = 'example';
+const SUBMIT = {
+  langForm(){
+    const r = ROUTE, F = S.form;
+    if (r.mode === 'new') {
+      const errors = {};
+      if (!/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(F.code) || F.code.length > 8) errors.code = 'Код должен содержать от 2 до 8 символов и соответствовать формату BCP-47 (например, ru, kk-KZ).';
+      if (F.endonym.length > 200) errors.endonym = 'Не более 200 символов.';
+      F.errors = errors; F.top = null;
+      if (Object.keys(errors).length) { S.pendingFocus = errors.code ? 'ff-code' : 'ff-endonym'; render(); return; }
+      F.busy = true; render();
+      protoDelay(() => {
+        F.busy = false;
+        if (S.langs.some((l) => l.code === F.code)) { F.errors = {code:'Язык с кодом «' + F.code + '» уже существует.'}; S.pendingFocus = 'ff-code'; render(); return; }
+        S.langs.push({code:F.code, endonym:F.endonym, isDefault:false, isActive:false, sortOrder:Number(F.order) || 0, at:'01.10.2026 12:00', by:'admin'});
+        F.key = null; go('/dictionaries/languages/' + encodeURIComponent(F.code));
+      });
+    } else {
+      if (F.endonym.length > 200) { F.errors = {endonym:'Не более 200 символов.'}; render(); return; }
+      F.errors = {}; F.busy = true; render();
+      protoDelay(() => {
+        F.busy = false;
+        if (S.conflictOnSave) { F.conflict = 'checking'; render(); setTimeout(() => { F.conflict = 'comparing'; render(); }, 700); return; }
+        const l = S.langs.find((x) => x.code === r.code);
+        Object.assign(l, {endonym:F.endonym, sortOrder:Number(F.order) || 0, isActive:F.active, at:'01.10.2026 12:30', by:'admin'});
+        F.stamp = l.at + ' — ' + l.by; S.pendingFocus = 'ff-submit'; render();
+      });
+    }
+  }
+};
+
+/* ---------- events ---------- */
+document.addEventListener('click', (e) => {
+  const inMenu = e.target.closest('#open-menu');
+  const actEl = e.target.closest('[data-act]');
+  if (S.menu && !inMenu && !(actEl && actEl.dataset.act === 'openMenu')) { S.menu = null; if (!actEl) { render(); return; } }
+  const plain = e.target.closest('a[href]:not([data-act])');
+  if (plain) {
+    if (plain.closest('.overlay')) { S.overlay = false; S.focusMain = true; if (plain.getAttribute('href') === location.hash) { e.preventDefault(); render(); } }
+    else if (plain.getAttribute('href') === location.hash) { e.preventDefault(); render(); }
+    return;
+  }
+  if (!actEl || actEl.disabled) return;
+  const act = actEl.dataset.act;
+  if (!ACT[act]) return;
+  e.preventDefault();
+  const keep = actEl.dataset.keep;
+  if (inMenu && !keep && act !== 'openMenu') { const fk = S.menu && S.menu.fk; S.menu = null; S.pendingFocus = fk; }
+  ACT[act](actEl.dataset.arg, actEl, e);
+});
+document.addEventListener('input', (e) => {
+  const t = e.target.closest('[data-input]'); if (!t) return;
+  const fn = INPUT[t.dataset.input]; if (fn) fn(t.dataset.arg, t.value, t);
+});
+document.addEventListener('submit', (e) => {
+  const f = e.target.closest('[data-submit]'); if (!f) return;
+  e.preventDefault(); const fn = SUBMIT[f.dataset.submit]; if (fn) fn();
+});
+document.addEventListener('keydown', (e) => {
+  const m = document.getElementById('open-menu');
+  if (m && S.menu) {
+    const items = Array.from(m.querySelectorAll('.mi:not(:disabled)'));
+    const i = items.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') { e.preventDefault(); (items[(i + 1) % items.length] || items[0]).focus(); return; }
+    if (e.key === 'ArrowUp') { e.preventDefault(); (items[(i - 1 + items.length) % items.length] || items[0]).focus(); return; }
+    if (e.key === 'Home') { e.preventDefault(); items[0] && items[0].focus(); return; }
+    if (e.key === 'End') { e.preventDefault(); items[items.length - 1] && items[items.length - 1].focus(); return; }
+    if (e.key === 'Escape') { e.preventDefault(); closeMenu(true); return; }
+    if (e.key === 'Tab') { closeMenu(false); return; }
+  }
+  if (e.key === 'ArrowDown' && e.target.getAttribute && e.target.getAttribute('aria-haspopup') === 'menu' && !S.menu) { e.preventDefault(); e.target.click(); return; }
+  if (e.key === 'Escape') {
+    if (S.dialog) { e.preventDefault(); ACT.dlgClose(); return; }
+    if (S.overlay) { e.preventDefault(); ACT.closeOverlay(); return; }
+    if (S.wi.selected && ROUTE && ROUTE.name === 'workitems') { e.preventDefault(); ACT.wiClosePane(); return; }
+  }
+  if (e.key === 'Tab') {
+    const box = S.dialog ? document.getElementById('dialog') : S.overlay ? document.getElementById('overlay-nav') : null;
+    if (box) {
+      const f = Array.from(box.querySelectorAll('a[href],button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled)'));
+      if (f.length) {
+        const first = f[0], last = f[f.length - 1];
+        if (!box.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+        else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    }
+  }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('tr[data-act]')) { e.preventDefault(); e.target.click(); }
+  if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && e.target.getAttribute && e.target.getAttribute('role') === 'tab') {
+    const tabs = Array.from(e.target.parentNode.querySelectorAll('[role=tab]'));
+    const i = tabs.indexOf(e.target);
+    const n = tabs[(i + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length];
+    n.focus();
+  }
+});
+/* tooltips: on hover (after a delay) and on keyboard focus */
+let tipTimer = null;
+function showTip(el){
+  const tip = document.getElementById('tip');
+  tip.textContent = el.dataset.tip; tip.style.display = 'block';
+  const r = el.getBoundingClientRect();
+  let left, top;
+  if (el.dataset.tipPos === 'right') { left = r.right + 8; top = r.top + r.height / 2 - tip.offsetHeight / 2; }
+  else { left = r.left + r.width / 2 - tip.offsetWidth / 2; top = r.bottom + 6; }
+  left = Math.max(4, Math.min(left, window.innerWidth - tip.offsetWidth - 4));
+  tip.style.left = left + 'px'; tip.style.top = top + 'px';
+}
+function hideTip(){ clearTimeout(tipTimer); const t = document.getElementById('tip'); if (t) t.style.display = 'none'; }
+document.addEventListener('mouseover', (e) => { const t = e.target.closest('[data-tip]'); if (!t) return; clearTimeout(tipTimer); tipTimer = setTimeout(() => showTip(t), 500); });
+document.addEventListener('mouseout', (e) => { if (e.target.closest('[data-tip]')) hideTip(); });
+document.addEventListener('focusin', (e) => { const t = e.target.closest('[data-tip]'); if (t && t.matches(':focus-visible')) showTip(t); else hideTip(); });
+let lastWidthBand = null;
+window.addEventListener('resize', () => {
+  const band = window.innerWidth < 1024 ? 'n' : window.innerWidth < 1280 ? 'm' : 'w';
+  if (band !== lastWidthBand) { lastWidthBand = band; if (band !== 'n') S.overlay = false; render(); }
+  else { fitCommands(); positionMenu(); protoPanel(); }
+});
+window.addEventListener('hashchange', () => { S.menu = null; S.overlay = false; S.form.key = null; render(); window.scrollTo(0, 0); });
+lastWidthBand = window.innerWidth < 1024 ? 'n' : window.innerWidth < 1280 ? 'm' : 'w';
+if (!location.hash) history.replaceState(null, '', '#/home');
+/* optional start state in the address, e.g. #/home?panel=0&view=build&role=reader&switcher=loading&open=sw-org|sw-org&dialog=destroy:PRM-BUG-7 */
+(function startState(){
+  const q = new URLSearchParams(location.hash.split('?')[1] || '');
+  if (q.get('panel') === '0') S.panelOpen = false;
+  ['view','role','user','dlgOutcome'].forEach((k) => { if (q.get(k)) S[k] = q.get(k); });
+  if (q.get('switcher')) INPUT.proto('switcherData', q.get('switcher'));
+  if (q.get('languages')) S.data.languages = q.get('languages');
+  if (q.get('lists')) S.data.lists = q.get('lists');
+  if (q.get('overlay') === '1') S.overlay = true;
+  if (q.get('select')) S.wi.selected = q.get('select');
+  render();
+  if (q.get('dialog')) ACT.dialog(q.get('dialog'), {dataset:{}});
+  if (q.get('newitem')) ACT.newItem(q.get('newitem'), {dataset:{}});
+  if (q.get('open')) { const [id, fk] = q.get('open').split('|'); openMenu(id, fk || id); }
+})();
+</script>
+</body>
+</html>

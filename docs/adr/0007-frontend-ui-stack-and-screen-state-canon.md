@@ -5,7 +5,10 @@
   [ADR-0019](0019-ui-stack-narrowed-to-actual.md) (2026-09-07): the
   requirements about `@mui/x-data-grid`, `react-hook-form` + `zod`, and
   `@mui/x-date-pickers` are lifted, the screen-state canon remains in
-  force
+  force; and amended by
+  [ADR-0024](0024-app-shell-and-visual-language.md) (2026-10-01): the
+  canon gains "not found", and empty, empty after a filter, access denied
+  and not found share one frame, `shared/ui/StateFrame`
 - Date: 2026-08-24
 - Context: the UI kit and application shell scaffolding task, stage 3
   (design) and stages 6–8 (implementation, QA, review)

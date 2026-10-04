@@ -1,4 +1,5 @@
 import { availableParallelism } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { configDefaults, defineConfig } from 'vitest/config';
 import { loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -43,6 +44,18 @@ export default defineConfig(({ command, mode }) => {
     test: {
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
+      // Every component test renders under the panel's theme: the bare
+      // specifier resolves to a wrapper whose `render` adds the app's
+      // ThemeProvider (src/test/testingLibrary.tsx). The shared patterns read
+      // theme keys MUI's default theme lacks (`layout`, `density`,
+      // `palette.shell`), and test files call `render` without a provider —
+      // the alias covers them all without editing one (mod-015 plan § 2.5).
+      alias: [
+        {
+          find: /^@testing-library\/react$/,
+          replacement: fileURLToPath(new URL('./src/test/testingLibrary.tsx', import.meta.url)),
+        },
+      ],
       css: true,
       // Playwright owns e2e/**: its specs also end in *.spec.ts, but they
       // need a live stand and real Keycloak (src/frontend/AGENTS.md

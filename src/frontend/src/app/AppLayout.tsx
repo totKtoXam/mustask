@@ -1,91 +1,265 @@
-import type { ReactNode } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
-import AppBar from '@mui/material/AppBar';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Drawer from '@mui/material/Drawer';
-import List from '@mui/material/List';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemIcon from '@mui/material/ListItemIcon';
-import ListItemText from '@mui/material/ListItemText';
-import Toolbar from '@mui/material/Toolbar';
-import Typography from '@mui/material/Typography';
-import HomeIcon from '@mui/icons-material/Home';
-import LanguageIcon from '@mui/icons-material/Language';
-import LogoutIcon from '@mui/icons-material/Logout';
+import type { Theme } from '@mui/material/styles';
 import { useAuth } from '../features/auth/AuthContext';
-// Deep import, not the slice barrel — `features/dictionaries/index.ts`
-// re-exports only the page components, and this is a permission code, not a
-// page.
-import { dictionariesPermissions } from '../features/dictionaries/permissions';
+import { AccessCheckContext, type AccessCheck } from '../shared/lib/access';
+import { WorkContextContext, type WorkContextSource } from '../shared/lib/workContext';
+import {
+  PageChromeContext,
+  type PageChrome,
+  type TrailPlacement,
+  type TrailSegment,
+} from '../shared/ui/pageChrome';
+import { useNavigationModel } from './navigation/NavigationModelContext';
+import { useNavigationLayout } from './navigation/useNavigationLayout';
+import { deriveTrail, isSettingsPage, visibleModel } from './navigation/visibility';
+import { MainNavigation } from './shell/MainNavigation';
+import { NavigationOverlay } from './shell/NavigationOverlay';
+import { usePlaceholderContextSource } from './shell/placeholderContext';
+import { SettingsNavigation } from './shell/SettingsNavigation';
+import { SkipLink } from './shell/SkipLink';
+import { TopBar } from './shell/TopBar';
 
-const DRAWER_WIDTH = 240;
+const MAIN_NAVIGATION_ID = 'main-navigation';
+const OVERLAY_ID = 'navigation-overlay';
 
-interface NavItem {
-  to: string;
-  label: string;
-  icon: ReactNode;
-  /** Пункт скрыт, если задан и `can(permission)` — ложь. */
-  permission?: string;
+/** Width changes of the permanent navigation; none under reduced motion (design § 2.6). */
+function widthTransition(theme: Theme) {
+  return {
+    transition: theme.transitions.create('width'),
+    '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
+  };
 }
 
-const navItems: NavItem[] = [
-  { to: '/home', label: 'Главная', icon: <HomeIcon /> },
-  {
-    to: '/dictionaries/languages',
-    label: 'Языки',
-    icon: <LanguageIcon />,
-    permission: dictionariesPermissions.languagesRead,
-  },
-];
+/** The rule on the left of «Меню настроек», beside the rail (design § 4.4). */
+function settingsDivider(theme: Theme): string {
+  return `${theme.layout.dividerWidth}px solid ${theme.palette.divider}`;
+}
 
-/** Каркас закрытой части: AppBar, боковая навигация, выход. */
-export function AppLayout() {
-  const { displayName, signOut, can } = useAuth();
-  const visibleNavItems = navItems.filter((item) => item.permission === undefined || can(item.permission));
+/** A permanent navigation column, fixed under the top bar on the navigation surface. */
+function navigationDrawerSx(width: (theme: Theme) => number, left?: (theme: Theme) => number) {
+  return (theme: Theme) => ({
+    width: width(theme),
+    flexShrink: 0,
+    ...widthTransition(theme),
+    '& .MuiDrawer-paper': {
+      width: width(theme),
+      top: theme.layout.topBarHeight,
+      left: left ? left(theme) : 0,
+      height: `calc(100% - ${theme.layout.topBarHeight}px)`,
+      boxSizing: 'border-box',
+      overflowX: 'hidden',
+      backgroundColor: theme.palette.shell.navigation,
+      borderRight: 0,
+      ...(left ? { borderLeft: settingsDivider(theme) } : {}),
+      ...widthTransition(theme),
+    },
+  });
+}
+
+export interface AppLayoutProps {
+  /**
+   * The organization/project/team source. The placeholder dataset until
+   * mod-002 supplies its own behind the same interface (design § 5.7); a
+   * component test passes a stub.
+   */
+  contextSource?: WorkContextSource;
+}
+
+/**
+ * The application frame (mod-015 US-2..US-5, US-12; design § 3–§ 5): skip
+ * link, top bar, main navigation (expanded, rail or overlay), the settings
+ * navigation on settings pages, and the main region hosting the page.
+ *
+ * It provides what pages share with the frame: the one permission check
+ * (BR-8), the work context (BR-11) and the page chrome through which a page
+ * header registers and the shell derives its trail (BR-6).
+ */
+export function AppLayout({ contextSource }: AppLayoutProps) {
+  const { can, status } = useAuth();
+  const placeholderSource = usePlaceholderContextSource();
+  const source = contextSource ?? placeholderSource;
+  const model = useNavigationModel();
+  const { pathname } = useLocation();
+
+  // Instance codes come from the token (ADR-0018). Until mod-016 serves the
+  // organization-scoped ones, any signed-in user satisfies them, as the
+  // API's authenticated-only guard does (BR-8 interim clause, D-18).
+  const access = useCallback<AccessCheck>(
+    (code, scope) => (scope === 'instance' ? can(code) : status === 'authenticated'),
+    [can, status],
+  );
+
+  const { isReal, selection } = source;
+  const visible = useMemo(
+    () => visibleModel(model, access, { isReal, selection }),
+    [model, access, isReal, selection],
+  );
+
+  // A not-found frame registers here: no page serves the address, so none is
+  // current, whatever the address starts with (BR-13, BR-19).
+  const [notFoundShown, setNotFoundShown] = useState(false);
+  const registerNotFound = useCallback(() => {
+    setNotFoundShown(true);
+    return () => setNotFoundShown(false);
+  }, []);
+  const currentPage = notFoundShown ? null : pathname;
+
+  const settingsShown =
+    visible.settingsLanding !== null && isSettingsPage(currentPage, model, selection);
+  const layout = useNavigationLayout(settingsShown);
+
+  // The page header registers here; without one (a full-page frame) there
+  // is no trail (plan § 4.5).
+  const [headerAncestors, setHeaderAncestors] = useState<readonly TrailSegment[] | null>(null);
+  const registerHeader = useCallback((ancestors: readonly TrailSegment[]) => {
+    setHeaderAncestors(ancestors);
+    return () => setHeaderAncestors(null);
+  }, []);
+  const trail = useMemo(
+    () =>
+      headerAncestors ? [...deriveTrail(pathname, visible, selection), ...headerAncestors] : [],
+    [headerAncestors, pathname, visible, selection],
+  );
+  const trailPlacement: TrailPlacement = layout.main === 'overlay' ? 'header' : 'topBar';
+  const chrome = useMemo<PageChrome>(
+    () => ({ registerHeader, registerNotFound, trail, trailPlacement }),
+    [registerHeader, registerNotFound, trail, trailPlacement],
+  );
+
+  const mainRef = useRef<HTMLElement>(null);
+  const focusMain = useCallback(() => mainRef.current?.focus(), []);
+
+  // The overlay closes whenever the layout changes, so widening the window
+  // never leaves it behind (BR-10).
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  const [overlayLayout, setOverlayLayout] = useState(layout.main);
+  if (overlayLayout !== layout.main) {
+    setOverlayLayout(layout.main);
+    setOverlayOpen(false);
+  }
+  // Choosing an entry in the overlay moves focus into the main region once
+  // the overlay has gone; Escape or a click outside leaves MUI's return of
+  // focus to «Меню» (BR-10).
+  const focusMainAfterOverlay = useRef(false);
+  const chooseInOverlay = useCallback(() => {
+    focusMainAfterOverlay.current = true;
+    setOverlayOpen(false);
+  }, []);
+  const overlayExited = useCallback(() => {
+    if (focusMainAfterOverlay.current) {
+      focusMainAfterOverlay.current = false;
+      focusMain();
+    }
+  }, [focusMain]);
+
+  const overlay = layout.main === 'overlay';
 
   return (
-    <Box sx={{ display: 'flex' }}>
-      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-        <Toolbar>
-          <Typography variant="h6" component="h1" sx={{ flexGrow: 1 }}>
-            Mustask
-          </Typography>
-          <Typography variant="body2" sx={{ mr: 2 }}>
-            {displayName}
-          </Typography>
-          <Button color="inherit" startIcon={<LogoutIcon />} onClick={signOut}>
-            Выйти
-          </Button>
-        </Toolbar>
-      </AppBar>
-      <Drawer
-        variant="permanent"
-        sx={{
-          width: DRAWER_WIDTH,
-          flexShrink: 0,
-          '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box' },
-        }}
-      >
-        <Toolbar />
-        <List component="nav">
-          {visibleNavItems.map((item) => (
-            <ListItemButton
-              key={item.to}
-              component={NavLink}
-              to={item.to}
-              sx={{ '&.active': { bgcolor: 'action.selected' } }}
+    <AccessCheckContext.Provider value={access}>
+      <WorkContextContext.Provider value={source}>
+        <PageChromeContext.Provider value={chrome}>
+          <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+            <SkipLink onSkip={focusMain} />
+            <TopBar
+              menu={
+                overlay
+                  ? { overlayId: OVERLAY_ID, open: overlayOpen, onOpen: () => setOverlayOpen(true) }
+                  : undefined
+              }
+              trail={trailPlacement === 'topBar' ? trail : []}
+            />
+            {overlay ? (
+              <NavigationOverlay
+                id={OVERLAY_ID}
+                open={overlayOpen}
+                onClose={() => setOverlayOpen(false)}
+                onExited={overlayExited}
+              >
+                <Box
+                  sx={{
+                    width: (theme) =>
+                      settingsShown ? theme.layout.railWidth : theme.layout.navigationWidth,
+                    flexShrink: 0,
+                  }}
+                >
+                  <MainNavigation
+                    id={MAIN_NAVIGATION_ID}
+                    variant={settingsShown ? 'rail' : 'expanded'}
+                    visible={visible}
+                    currentPage={currentPage}
+                    settingsCurrent={settingsShown}
+                    onEntryChosen={chooseInOverlay}
+                  />
+                </Box>
+                {settingsShown && (
+                  <Box
+                    sx={{
+                      width: (theme) => theme.layout.settingsNavigationWidth,
+                      borderLeft: settingsDivider,
+                    }}
+                  >
+                    <SettingsNavigation
+                      visible={visible}
+                      currentPage={currentPage}
+                      onEntryChosen={chooseInOverlay}
+                    />
+                  </Box>
+                )}
+              </NavigationOverlay>
+            ) : (
+              <>
+                <Drawer
+                  variant="permanent"
+                  sx={navigationDrawerSx((theme) =>
+                    layout.main === 'expanded'
+                      ? theme.layout.navigationWidth
+                      : theme.layout.railWidth,
+                  )}
+                >
+                  <MainNavigation
+                    id={MAIN_NAVIGATION_ID}
+                    variant={layout.main === 'expanded' ? 'expanded' : 'rail'}
+                    visible={visible}
+                    currentPage={currentPage}
+                    settingsCurrent={settingsShown}
+                    toggle={layout.toggleShown ? { onToggle: layout.toggle } : undefined}
+                  />
+                </Drawer>
+                {settingsShown && (
+                  <Drawer
+                    variant="permanent"
+                    sx={navigationDrawerSx(
+                      (theme) => theme.layout.settingsNavigationWidth,
+                      (theme) => theme.layout.railWidth,
+                    )}
+                  >
+                    <SettingsNavigation visible={visible} currentPage={currentPage} />
+                  </Drawer>
+                )}
+              </>
+            )}
+            <Box
+              component="main"
+              id="main-content"
+              tabIndex={-1}
+              ref={mainRef}
+              sx={{
+                flexGrow: 1,
+                minWidth: 0,
+                px: { xs: 2, md: 3 },
+                pb: 3,
+                '&:focus': { outline: 'none' },
+              }}
             >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.label} />
-            </ListItemButton>
-          ))}
-        </List>
-      </Drawer>
-      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-        <Toolbar />
-        <Outlet />
-      </Box>
-    </Box>
+              <Box sx={(theme) => theme.mixins.toolbar} />
+              <Outlet />
+            </Box>
+          </Box>
+        </PageChromeContext.Provider>
+      </WorkContextContext.Provider>
+    </AccessCheckContext.Provider>
   );
 }
