@@ -255,6 +255,19 @@ Git won't let two worktrees sit on the same branch — that's not a
 limitation, it's the wanted behavior. Hooks still work: `core.hooksPath`
 is stored in the shared config.
 
+**Reading roles do not hold the branch.** The branch is the claim of the
+session that changes code. A session whose output is a document — a code
+review, a security pass, a QA re-check that adds no test, a requirements
+review — checks the branch out detached (`git switch --detach <branch>`),
+works there, and hands its section (`review.md`, `qa.md` text and the
+`status.md` Log line) to the orchestrator, who commits it. Two readers and
+one writer can then work on the same task at the same time instead of
+waiting for each other's `git switch`. A session that does change code or
+tests takes the branch as before — one at a time. The orchestrator's own
+worktree stays on its own branch; it switches to a task branch only to
+commit what readers handed in or to record gates and decisions, and
+switches back.
+
 What you need to know about worktrees:
 
 - **Untracked files don't move over.** `frontend/.env`, user secrets,
@@ -262,7 +275,10 @@ What you need to know about worktrees:
   again. This is the most common cause of "everything broke after
   switching".
 - `obj/`, `bin/`, `node_modules/` — each directory has its own: the
-  first build and `npm ci` will be full ones.
+  first build will be a full one. For `node_modules` run
+  `bash scripts/warm-worktree.sh` first: it copies the install for the
+  current lock file from a machine-wide cache and runs `npm ci` only
+  when the lock file has not been seen on this machine.
 - The repository's main directory stays on `main` and serves as the
   hub: worktrees are created from it and merges go into it. Agents don't
   work in it — otherwise a neighboring session would switch the branch

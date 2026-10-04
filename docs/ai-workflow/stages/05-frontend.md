@@ -101,8 +101,13 @@ against `api-contract.md`, and on mocks (MSW) until the backend is ready.
      decision.
 4. Reconcile against design.md: every screen, every state, texts,
    permission behavior.
-5. Defects → the Frontend section of `qa.md` → returned to the
-   frontend-developer, cycle until the blocker list is empty.
+5. Defects → the Frontend section of `qa.md`. Blocker/major → returned to
+   the frontend-developer; the re-check covers the fixes and what they could
+   have broken, at most twice. A minor is recorded and carried to gate-3 as
+   a debt, not sent back — the same economy as backend QA
+   ([04-backend.md](04-backend.md), § 5 item 3) and the review loop
+   ([06-code-review.md](06-code-review.md)). The cycle ends when no blocker
+   or major is open.
 
 The run-economy rules are shared with backend QA, see
 [04-backend.md](04-backend.md), § "Run economy". When E2E was run, it carries

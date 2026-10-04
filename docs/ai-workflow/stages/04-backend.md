@@ -132,8 +132,14 @@ plan** — only spec + api-contract:
 2. Check actual coverage: run the tests, read the test code, add what is
    missing. Run the migrations on a clean database.
 3. Defects — as a list in the Backend section of `qa.md` (severity,
-   reproduction steps) → returned to the backend-developer. Cycle until the
-   blocker list is empty.
+   reproduction steps). Blocker/major → returned to the backend-developer;
+   the re-check that follows covers the fixes and what they could have
+   broken, nothing else, and there are at most two re-checks. **A minor is
+   recorded and carried to gate-3 as a debt** ("Deliberately left open",
+   then a queue line if it earns one): it is not sent back and earns no
+   re-check of its own. The cycle ends when no blocker or major is open —
+   the same economy as the review loop
+   ([06-code-review.md](06-code-review.md), "Every finding").
 4. **The E2E question is asked once per task**, at the QA stage that is its
    last one before code review. For a task that goes on to stages 6–7,
    that is frontend QA (`05-frontend.md`, step 3) — backend QA here does not

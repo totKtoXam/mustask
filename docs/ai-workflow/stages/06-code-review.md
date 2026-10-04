@@ -32,9 +32,37 @@ does not read it.
    Rules, scope and severity: "Behavioural claims in prose" below.
 
 Every finding: file:line, the essence, severity (blocker / major / minor),
-the proposed fix. Blocker/major → back to the developer (fixes go through
-stage 4/6, QA is re-run over what was touched). At most 2 rounds; if it does
-not converge — escalate to the human.
+the proposed fix. What happens next depends only on the severity, and the
+loop economy below is a rule, not a default the orchestrator may tighten:
+
+- **Blocker/major → back to the developer** (fixes go through stage 4/6).
+  The next round is a **delta**: the reviewer re-reads the fix diff and the
+  previously open findings, nothing else. QA is re-run only over what the
+  fix touched, and only when the fix changed runtime code or tests — a
+  prose-only fix (a comment, a document, an ADR sentence) gets the
+  reviewer's delta read and no QA session.
+- **Minor → a debt, not a round.** A minor is not sent to the developer
+  inside the review loop. It stays in `review.md` with its proposed fix, is
+  listed under "Deliberately left open" in the gate-3 summary, and the
+  orchestrator queues it as a line (`scripts/queue.sh add`) when it is worth
+  a task of its own. A round whose open findings are all minors is
+  `approve`. A developer may still fold a minor into a major's fix when it
+  sits in the same lines — but no round, no QA re-run and no delta read is
+  owed to a minor on its own.
+- **A finding that waits on a decision stops the loop.** When a blocker or
+  major cannot be fixed without a decision the developer may not take — an
+  open point of the plan, a spec question, a design delta — the round's
+  verdict is `blocked-on-decision` and **no further round starts**: the
+  orchestrator (or the human at a gate) records the decision in
+  `status.md`, the developer fixes, and one delta round follows. A round
+  that reports "still waiting for the decision" has spent a session on
+  nothing.
+- **At most 2 fix rounds** after round 1; if it does not converge —
+  escalate to the human with the open list, do not start round 4.
+
+The L security pass (below) runs once, after the last general round, and
+its findings follow the same rules: a major gets one fix and one delta
+re-check, a minor becomes a debt.
 
 **Findings go into `docs/features/<id>/review.md`**, not into `status.md`.
 Round and side get their own section — `## Round 1 — backend`,

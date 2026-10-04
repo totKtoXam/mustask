@@ -8,7 +8,11 @@ Conventions for the code itself: `docs/conventions/frontend.md`.
 Node 23. The dev server is pinned to port 3000 — that port is in the
 `Mustask.Api` CORS list — and listens on all interfaces.
 
-- `npm ci` (in `src/frontend/`) — install dependencies.
+- `npm ci` (in `src/frontend/`) — install dependencies. In a fresh
+  worktree run `bash scripts/warm-worktree.sh` from the repository root
+  instead: it copies an installed `node_modules` for this lock file from a
+  machine-wide cache (seconds) and falls back to `npm ci` only when the
+  lock file is new to the machine.
 - `npm run dev` — the Vite dev server (needs a `.env` with
   `VITE_API_BASE_URL`, see `src/frontend/.env.example`; when started through
   AppHost the variable is substituted automatically).
