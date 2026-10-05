@@ -1,0 +1,196 @@
+using Mustask.Application.Abstractions.Organizations;
+using Mustask.Domain.Organizations;
+using Mustask.Infrastructure.Tests.Process;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
+using static Mustask.Infrastructure.Tests.Organizations.OrganizationsDatabaseFixture;
+
+namespace Mustask.Infrastructure.Tests.Organizations;
+
+/// <summary>
+/// The four read models against a real PostgreSQL: what each returns, in which
+/// order, and with a fixed number of queries whatever the size (NFR Volumes,
+/// docs/conventions/backend.md "EF Core").
+/// </summary>
+[Trait("Category", "Integration")]
+[Trait("Category", "RequiresDocker")]
+[Collection(OrganizationsDatabaseCollection.Name)]
+public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
+{
+    // NFR Volumes: hundreds of areas, ten levels deep, in two queries: the project check and the nodes.
+    [Fact]
+    public async Task AreaTree_GetNodes_FiveHundredNodesTenLevels_TwoQueries()
+    {
+        var structure = await database.CreateStructureAsync();
+        var areas = new List<Area>();
+
+        for (var branch = 0; branch < 50; branch++)
+        {
+            var parent = structure.Project.Root;
+
+            for (var level = 1; level <= 10; level++)
+            {
+                var child = Area.CreateChild(parent, Name($"Узел {branch}-{level}"), ownerTeam: null);
+                areas.Add(child);
+                parent = child;
+            }
+        }
+
+        await database.AddAreasAsync([.. areas]);
+
+        var counter = new CommandCountingInterceptor();
+        var nodes = await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>?>(
+            counter,
+            readModel => readModel.GetNodesAsync(structure.Organization.Id, structure.Project.Project.Id, CancellationToken.None));
+
+        Assert.Equal(2, counter.Commands.Count);
+        Assert.Equal(502, nodes!.Count);
+        Assert.Equal(10, new AreaTree(nodes.Select(row => row.ToNode())).DepthOf(areas[^1].Id));
+    }
+
+    // US-6 · "An area with no explicit owner inherits": each row carries its explicit owner's and its default team's names.
+    [Fact]
+    public async Task AreaTree_GetNodes_CarriesTheNamesOfTheTeamsEachNodeRefersTo()
+    {
+        var structure = await database.CreateStructureAsync();
+        var inherited = Area.CreateChild(structure.SecondTeam.Area, Name("API"), ownerTeam: null);
+        await database.AddAreasAsync(inherited);
+
+        var nodes = await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>?>(
+            null,
+            readModel => readModel.GetNodesAsync(structure.Organization.Id, structure.Project.Project.Id, CancellationToken.None));
+
+        var root = nodes!.Single(row => row.ParentId is null);
+        var platform = nodes!.Single(row => row.Id == structure.SecondTeam.Area.Id);
+        var api = nodes!.Single(row => row.Id == inherited.Id);
+
+        Assert.Equal(("Пример проекта", "Пример проекта"), (root.OwnerTeamName, root.DefaultOfTeamName));
+        Assert.Equal(("Платформа", "Платформа"), (platform.OwnerTeamName, platform.DefaultOfTeamName));
+        Assert.Null(api.OwnerTeamName);
+        Assert.Null(api.DefaultOfTeamName);
+    }
+
+    // BR-M1-20, BR-M1-22: the tree of an unreachable project, or of a project of another organization, is not served.
+    [Fact]
+    public async Task AreaTree_GetNodes_UnreachableOrForeignProject_IsNull()
+    {
+        var structure = await database.CreateStructureAsync();
+        var other = await database.CreateStructureAsync();
+
+        var foreign = await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>?>(
+            null,
+            readModel => readModel.GetNodesAsync(other.Organization.Id, structure.Project.Project.Id, CancellationToken.None));
+        await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @id", ("id", structure.Project.Project.Id));
+        var deactivated = await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>?>(
+            null,
+            readModel => readModel.GetNodesAsync(structure.Organization.Id, structure.Project.Project.Id, CancellationToken.None));
+
+        Assert.Null(foreign);
+        Assert.Null(deactivated);
+    }
+
+    // US-4 · "The project's teams": the first team first, then the rest in display order, each with its default area.
+    [Fact]
+    public async Task Teams_ListActive_FirstTeamFirstThenRussianOrder_WithDefaultAreas()
+    {
+        var structure = await database.CreateStructureAsync(projectName: "Ядро");
+        var projectId = structure.Project.Project.Id;
+        var alpha = Team.CreateWithArea(projectId, Name("альфа"), structure.Project.Root);
+        await AddTeamAsync(alpha);
+
+        var teams = await ReadAsync<ITeamReadModel, IReadOnlyList<TeamRow>>(
+            null,
+            readModel => readModel.ListActiveAsync(structure.Organization.Id, projectId, CancellationToken.None));
+
+        Assert.Equal(["Ядро", "альфа", "Платформа"], teams.Select(team => team.Name));
+        Assert.True(teams[0].IsFirstTeam);
+        Assert.Equal(structure.Project.Root.Id, teams[0].DefaultAreaId);
+        Assert.Equal(alpha.Area.Id, teams[1].DefaultAreaId);
+        Assert.Equal(structure.SecondTeam.Area.Id, teams[2].DefaultAreaId);
+    }
+
+    // US-7 · "A deleted team answers not found": it leaves the list and the by-id read.
+    [Fact]
+    public async Task Teams_DeletedTeam_IsLeftOut()
+    {
+        var structure = await database.CreateStructureAsync();
+        var projectId = structure.Project.Project.Id;
+        await database.ExecuteAsync(
+            "UPDATE areas SET owner_team_id = @first, default_of_team_id = NULL WHERE owner_team_id = @second; "
+            + "UPDATE teams SET status = 'Deleted' WHERE id = @second",
+            ("first", structure.Project.FirstTeam.Id),
+            ("second", structure.SecondTeam.Team.Id));
+
+        var teams = await ReadAsync<ITeamReadModel, IReadOnlyList<TeamRow>>(
+            null,
+            readModel => readModel.ListActiveAsync(structure.Organization.Id, projectId, CancellationToken.None));
+        var deleted = await ReadAsync<ITeamReadModel, TeamRow?>(
+            null,
+            readModel => readModel.FindReachableAsync(structure.Organization.Id, projectId, structure.SecondTeam.Team.Id, CancellationToken.None));
+
+        Assert.Equal([structure.Project.FirstTeam.Id], teams.Select(team => team.Id));
+        Assert.Null(deleted);
+    }
+
+    // US-2 · "listed separately": one status per list; the active one by id only while active.
+    [Fact]
+    public async Task Organizations_ListAndFind_FollowTheStatus()
+    {
+        var active = await database.CreateStructureAsync();
+        var deactivated = await database.CreateStructureAsync();
+        await database.ExecuteAsync("UPDATE organizations SET status = 'Deactivated' WHERE id = @id", ("id", deactivated.Organization.Id));
+
+        var activeList = await ReadAsync<IOrganizationReadModel, IReadOnlyList<OrganizationRow>>(
+            null, readModel => readModel.ListAsync(OrganizationStatus.Active, CancellationToken.None));
+        var deactivatedList = await ReadAsync<IOrganizationReadModel, IReadOnlyList<OrganizationRow>>(
+            null, readModel => readModel.ListAsync(OrganizationStatus.Deactivated, CancellationToken.None));
+        var foundDeactivated = await ReadAsync<IOrganizationReadModel, OrganizationRow?>(
+            null, readModel => readModel.FindActiveAsync(deactivated.Organization.Id, CancellationToken.None));
+        var status = await ReadAsync<IOrganizationReadModel, OrganizationStatus?>(
+            null, readModel => readModel.FindStatusAsync(deactivated.Organization.Id, CancellationToken.None));
+        var unknown = await ReadAsync<IOrganizationReadModel, OrganizationStatus?>(
+            null, readModel => readModel.FindStatusAsync(Guid.CreateVersion7(), CancellationToken.None));
+
+        Assert.Contains(activeList, row => row.Id == active.Organization.Id);
+        Assert.DoesNotContain(activeList, row => row.Id == deactivated.Organization.Id);
+        Assert.Contains(deactivatedList, row => row.Id == deactivated.Organization.Id);
+        Assert.DoesNotContain(deactivatedList, row => row.Id == active.Organization.Id);
+        Assert.Null(foundDeactivated);
+        Assert.Equal(OrganizationStatus.Deactivated, status);
+        Assert.Null(unknown);
+    }
+
+    // US-3 · "deactivated" and BR-M1-22: a project is found only reachable and only under its own organization.
+    [Fact]
+    public async Task Projects_FindReachable_OnlyActiveAndOnlyInItsOrganization()
+    {
+        var structure = await database.CreateStructureAsync();
+        var other = await database.CreateStructureAsync();
+        var projectId = structure.Project.Project.Id;
+
+        var found = await ReadAsync<IProjectReadModel, ProjectRow?>(
+            null, readModel => readModel.FindReachableAsync(structure.Organization.Id, projectId, CancellationToken.None));
+        var foreign = await ReadAsync<IProjectReadModel, ProjectRow?>(
+            null, readModel => readModel.FindReachableAsync(other.Organization.Id, projectId, CancellationToken.None));
+
+        Assert.Equal(new ProjectRow(projectId, structure.Organization.Id, "Пример проекта", "PRM"), found);
+        Assert.Null(foreign);
+    }
+
+    private async Task AddTeamAsync(NewTeam team)
+    {
+        await using var context = database.NewContext();
+        context.Teams.Add(team.Team);
+        context.Areas.Add(team.Area);
+        await context.SaveChangesAsync();
+    }
+
+    private async Task<TResult> ReadAsync<TReadModel, TResult>(IInterceptor? interceptor, Func<TReadModel, Task<TResult>> read)
+        where TReadModel : notnull
+    {
+        await using var provider = interceptor is null ? database.BuildServices() : database.BuildServices(interceptor);
+        await using var scope = provider.CreateAsyncScope();
+
+        return await read(scope.ServiceProvider.GetRequiredService<TReadModel>());
+    }
+}

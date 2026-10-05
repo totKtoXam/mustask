@@ -9,6 +9,7 @@ import { AppLayout } from '../app/AppLayout';
 import { navigationModel } from '../app/navigation/model';
 import { NavigationModelContext } from '../app/navigation/NavigationModelContext';
 import type { NavigationModel } from '../app/navigation/types';
+import { PLACEHOLDER_ORGANIZATIONS, useStaticContextSource } from '../app/shell/placeholderContext';
 import { AuthContext, type AuthContextValue } from '../features/auth/AuthContext';
 import { useAccessCheck } from '../shared/lib/access';
 import type { WorkContextSource } from '../shared/lib/workContext';
@@ -83,6 +84,17 @@ export function stubRoutes(): ReactNode {
   );
 }
 
+/**
+ * `AppLayout` with the test's source, or the placeholder dataset when the
+ * test passes none: the shell's own tests run on the placeholder whatever
+ * source the product mounts (mod-002 plan-frontend § 2.4). One element kept
+ * across `update()`, so switching to a stub keeps the shell's state.
+ */
+function ShellWithSource({ source }: { source?: WorkContextSource }) {
+  const placeholder = useStaticContextSource(PLACEHOLDER_ORGANIZATIONS);
+  return <AppLayout contextSource={source ?? placeholder} />;
+}
+
 export interface ShellOptions {
   path?: string;
   auth?: AuthContextValue;
@@ -110,7 +122,7 @@ export function renderShell({
           <NavigationModelContext.Provider value={model}>
             <MemoryRouter initialEntries={[path]}>
               <Routes>
-                <Route element={<AppLayout contextSource={currentSource} />}>{routes}</Route>
+                <Route element={<ShellWithSource source={currentSource} />}>{routes}</Route>
               </Routes>
               <LocationProbe />
             </MemoryRouter>

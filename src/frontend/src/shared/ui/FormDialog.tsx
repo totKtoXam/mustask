@@ -19,6 +19,11 @@ export interface FormDialogProps {
   busy?: boolean;
   /** An error not tied to a field, above the first field. */
   error?: ReactNode;
+  /**
+   * Nothing to save yet — a rename to the very same string, an unchanged
+   * picker (mod-015 BR-9): the primary is disabled. Absent: enabled as before.
+   */
+  submitDisabled?: boolean;
   /** Called on submit; the browser's own submission is prevented. */
   onSubmit: () => void;
   onClose: () => void;
@@ -37,6 +42,7 @@ export function FormDialog({
   submitLabel,
   busy = false,
   error,
+  submitDisabled = false,
   onSubmit,
   onClose,
 }: FormDialogProps) {
@@ -53,7 +59,9 @@ export function FormDialog({
           component: 'form',
           onSubmit: (event: { preventDefault(): void }) => {
             event.preventDefault();
-            onSubmit();
+            if (!submitDisabled) {
+              onSubmit();
+            }
           },
         },
       }}
@@ -72,7 +80,7 @@ export function FormDialog({
         <Button
           type="submit"
           variant="contained"
-          disabled={busy}
+          disabled={busy || submitDisabled}
           startIcon={busy ? <CircularProgress size={theme.spacing(2)} /> : undefined}
         >
           {submitLabel}

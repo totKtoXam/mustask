@@ -1,10 +1,13 @@
 using Mustask.Api.ErrorHandling.Catalog;
 using Mustask.Api.Features.Session;
+using Mustask.Api.IntegrationTests.Features.Organizations;
 using Mustask.Api.IntegrationTests.Features.Session;
+using Mustask.Application.Abstractions;
 using Mustask.Infrastructure;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
@@ -99,6 +102,18 @@ public sealed class MustaskApiFactory : WebApplicationFactory<Program>, IAsyncLi
     public KeycloakTokenEndpointResponder TokenResponder { get; } = new();
 
     /// <summary>
+    /// mod-002 plan-backend § 8.3: named gates a request can be held at, after
+    /// its handler's work and before its unit of work commits, so a race test
+    /// makes "at the same moment" deterministic. A request opts in with the
+    /// <see cref="CommitGates.Header"/> header; every other request passes
+    /// straight through.
+    /// </summary>
+    public CommitGates CommitGates { get; } = new();
+
+    /// <summary>The shared test database, for <see cref="PgLocks"/> and for reading back what a request wrote.</summary>
+    public string ConnectionString => _postgres.GetConnectionString();
+
+    /// <summary>
     /// Среда хоста. По умолчанию Development — health-эндпоинты и OpenApi
     /// требуют его. Тесты, проверяющие поведение в Production (например,
     /// отсутствие деталей исключения в ответе), переопределяют это свойство
@@ -190,6 +205,14 @@ public sealed class MustaskApiFactory : WebApplicationFactory<Program>, IAsyncLi
             services.Configure<OpenIdConnectOptions>(
                 SessionSchemes.Oidc,
                 options => options.Backchannel = new HttpClient(new KeycloakTokenEndpointStubHandler(TokenResponder)));
+
+            // mod-002 plan-backend § 8.3: the unit of work behind a test-only decorator that can hold a request at its
+            // commit. Registered last, so it is the IUnitOfWork every handler resolves.
+            services.AddScoped<UnitOfWork>();
+            services.AddScoped<IUnitOfWork>(provider => new CommitGateUnitOfWork(
+                provider.GetRequiredService<UnitOfWork>(),
+                CommitGates,
+                provider.GetRequiredService<IHttpContextAccessor>()));
         });
     }
 }

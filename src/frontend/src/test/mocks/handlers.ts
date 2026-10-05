@@ -50,4 +50,10 @@ export const handlers = [
       logoutUrl: 'http://keycloak.invalid/realms/mustask/protocol/openid-connect/logout',
     }),
   ),
+
+  // The shell's context source reads the active organizations on every
+  // signed-in page (mod-002 D-o). By default an instance has none, so a test
+  // that mounts the real routes reads nothing else unless it serves a
+  // dataset of its own (mod-002 plan-frontend § 2.4).
+  http.get(`${api}/api/organizations`, () => HttpResponse.json([])),
 ];

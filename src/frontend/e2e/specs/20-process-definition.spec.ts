@@ -7,15 +7,18 @@ import {
   deleteEphemeralUser,
   userExistsById,
 } from '../support/keycloakAdmin';
+import { createOrganization, deactivateOrganization, runName } from '../support/organizationsApi';
 
 /**
  * 20. The read-only process definition (mod-001 US-2, design.md layout B).
  *
- * Runs against the Development stand's demonstration process, which the API
- * seeds at start for a fixed organization id (api-contract § 4, D-4;
- * `src/backend/AGENTS.md`). The expected values are api-contract § 1.4's,
- * written out here rather than read back from the panel, so the spec compares
- * the build with the contract, not the screen with itself.
+ * Runs against the process of an organization the spec creates in
+ * `beforeAll` through mod-002's API: creation seeds its process (mod-002
+ * api-contract § 1.3), and mod-002 D-h removed the Development stand's
+ * demonstration organization. The organization is deactivated in `afterAll`
+ * (nothing is purged, BR-M1-1). The expected values are api-contract
+ * § 1.4's, written out here rather than read back from the panel, so the
+ * spec compares the build with the contract, not the screen with itself.
  *
  * One fault is injected on purpose (20.3): the read is refused at the network
  * layer, as spec 19.8 does for the languages registry, to see the failed-read
@@ -26,8 +29,9 @@ import {
  * way spec 16 signs in its reader, and deletes it in `finally`.
  */
 
-const DEMONSTRATION_ORGANIZATION_ID = 'd0000000-0000-4000-8000-000000000001';
-const PROCESS_ADDRESS = `/organizations/${DEMONSTRATION_ORGANIZATION_ID}/settings/process`;
+/** The organization `beforeAll` creates, whose process the spec reads. */
+let organizationId = '';
+const processAddress = () => `/organizations/${organizationId}/settings/process`;
 
 /** api-contract § 1.4: the five types in display order. */
 const TYPES_IN_ORDER = ['Эпик', 'Фича', 'Пользовательская история', 'Баг', 'Задача'];
@@ -53,7 +57,7 @@ function isProcessRead(url: URL): boolean {
 }
 
 async function openProcess(page: Page, options: { username?: string } = {}): Promise<void> {
-  await signIn(page, { returnPath: PROCESS_ADDRESS, username: options.username });
+  await signIn(page, { returnPath: processAddress(), username: options.username });
   await expect(page.getByRole('heading', { level: 1, name: 'Процесс' })).toBeVisible();
   await expect(main(page).getByRole('region')).toHaveCount(TYPES_IN_ORDER.length);
 }
@@ -73,7 +77,30 @@ async function top(locator: Locator): Promise<number> {
 test.describe('20. the read-only process definition (mod-001)', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  test('20.1 happy path: the demonstration process in full, read-only (US-2 "A seeded process is shown in full", "The Development stand shows a demonstration process")', async ({
+  test.beforeAll(async ({ browser }) => {
+    const context = await browser.newContext();
+    try {
+      const page = await context.newPage();
+      await signIn(page);
+      organizationId = (await createOrganization(page.request, runName('Процесс E2E'))).id;
+    } finally {
+      await context.close();
+    }
+  });
+
+  test.afterAll(async ({ browser }) => {
+    if (!organizationId) return;
+    const context = await browser.newContext();
+    try {
+      const page = await context.newPage();
+      await signIn(page);
+      await deactivateOrganization(page.request, organizationId);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test('20.1 happy path: a new organization’s seeded process in full, read-only (US-2 "A seeded process is shown in full")', async ({
     page,
   }) => {
     await openProcess(page);
@@ -139,7 +166,7 @@ test.describe('20. the read-only process definition (mod-001)', () => {
     page,
   }) => {
     await page.route(isProcessRead, (route) => route.abort('connectionrefused'));
-    await signIn(page, { returnPath: PROCESS_ADDRESS });
+    await signIn(page, { returnPath: processAddress() });
 
     const alert = page.getByRole('alert');
     await expect(alert).toBeVisible();
@@ -191,16 +218,14 @@ test.describe('20. the read-only process definition (mod-001)', () => {
     const signInPage = page.waitForRequest((request) =>
       request.url().startsWith(`${keycloakUrl}/realms/${realm}/protocol/openid-connect/auth`),
     );
-    await page.goto(PROCESS_ADDRESS);
+    await page.goto(processAddress());
     await signInPage;
     await page.waitForURL((url) => url.origin === new URL(keycloakUrl).origin);
 
     expect(reads).toEqual([]);
     await expect(page.getByRole('heading', { name: 'Процесс' })).toHaveCount(0);
 
-    const response = await fetch(
-      `${nodeUrl(apiUrl)}/api/organizations/${DEMONSTRATION_ORGANIZATION_ID}/process`,
-    );
+    const response = await fetch(`${nodeUrl(apiUrl)}/api/organizations/${organizationId}/process`);
     expect(response.status).toBe(401);
     expect(await response.text()).not.toContain('workItemTypes');
   });

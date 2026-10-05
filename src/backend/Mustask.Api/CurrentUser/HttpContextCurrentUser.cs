@@ -20,6 +20,33 @@ internal sealed class HttpContextCurrentUser(IHttpContextAccessor httpContextAcc
 
     private const string PreferredUsernameClaimType = "preferred_username";
 
+    /// <summary>The token's subject. <c>MapInboundClaims</c> is off (<c>JwtBearerSetup</c>), so it arrives under its JWT name.</summary>
+    private const string SubjectClaimType = "sub";
+
+    /// <summary>
+    /// The <c>sub</c> claim (mod-002 BR-M1-21). Keycloak always sets it, so a
+    /// signed-in request without one is a defect, not a user to record as
+    /// "anonymous": a creator record must name someone.
+    /// </summary>
+    public string SubjectId
+    {
+        get
+        {
+            var user = httpContextAccessor.HttpContext?.User;
+
+            if (user?.Identity is not { IsAuthenticated: true })
+            {
+                throw new InvalidOperationException("The subject is read only on an authenticated request.");
+            }
+
+            var subject = user.FindFirst(SubjectClaimType)?.Value;
+
+            return string.IsNullOrEmpty(subject)
+                ? throw new InvalidOperationException("The authenticated request's token carries no subject (sub).")
+                : subject;
+        }
+    }
+
     public string DisplayName
     {
         get

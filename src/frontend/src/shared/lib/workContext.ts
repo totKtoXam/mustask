@@ -2,10 +2,11 @@ import { createContext, useContext } from 'react';
 
 /**
  * The organization / project / team context (mod-015 BR-11, BR-18,
- * design § 5). The shell's switcher reads it from a context source; this
- * task ships a fixed placeholder source, and mod-002 replaces it with real
- * lists behind the same interface (design § 5.7). Later slices read the
- * current context through `useWorkContext()`.
+ * design § 5). The shell's switcher reads it from a context source; mod-015
+ * shipped a fixed placeholder source, and mod-002 supplies the real lists
+ * behind the same interface (design § 5.7), extended by mod-002 D-n with a
+ * status and a retry per level and the fallback notice. Later slices read
+ * the current context through `useWorkContext()`.
  */
 
 export type WorkContextLevel = 'organization' | 'project' | 'team';
@@ -36,9 +37,32 @@ export interface WorkContextSelection {
 
 export type WorkContextStatus = 'loading' | 'failed' | 'ready';
 
-/** The hand-over to mod-002 (plan-frontend.md § 4.3). */
+/** The levels below the first, which load and fail on their own (mod-002 D-n). */
+export type WorkContextLowerLevel = Exclude<WorkContextLevel, 'organization'>;
+
+/**
+ * mod-015 § 5.4's fallback notice: the names of the selection that replaced
+ * a remembered or chosen one that is gone, top-down, a level with nothing in
+ * it left out. `id` tells one notice from the next.
+ */
+export interface WorkContextFallback {
+  id: number;
+  names: readonly string[];
+}
+
+/**
+ * The hand-over to mod-002 (mod-015 plan-frontend.md § 4.3), as amended by
+ * mod-002 D-n and D-o (mod-015 design § 5.7).
+ */
 export interface WorkContextSource {
+  /** The organization level's status: the whole switcher's before mod-002. */
   status: WorkContextStatus;
+  /**
+   * The project and team levels, each loading or failing on its own once the
+   * level above is shown (mod-002 D-n, design § 3.2). Absent, or a level
+   * absent: ready.
+   */
+  levelStatus?: Partial<Record<WorkContextLowerLevel, WorkContextStatus>>;
   /** Ordered by the source; the switcher renders them as given. */
   organizations: readonly WorkContextOrganization[];
   selection: WorkContextSelection;
@@ -55,9 +79,27 @@ export interface WorkContextSource {
   organizationListPath?: string;
   /** Chooses an entry at a level and resets the levels below to their first entries. */
   select(level: WorkContextLevel, id: string): void;
-  /** «Повторить» in the failed state. */
-  retry?(): void;
+  /** «Повторить» of the level that failed; no level: the organization level. */
+  retry?(level?: WorkContextLevel): void;
+  /** The fallback notice to show, or none (mod-015 § 5.4). */
+  fallback?: WorkContextFallback | null;
+  /** The notice was shown and closed. */
+  dismissFallback?(): void;
 }
+
+/**
+ * Where a choice in the switcher moves the page (mod-002 D-o, design § 2.2):
+ * `app/` builds it from the navigation model and hands it to the source,
+ * because a slice does not import `app/`.
+ */
+export type SwitchTargetResolver = (request: {
+  /** The address on screen. */
+  pathname: string;
+  /** The levels the address carries, with its own ids. */
+  carried: WorkContextSelection;
+  /** The selection after the choice. */
+  next: WorkContextSelection;
+}) => string;
 
 /** The selection resolved to its entries; a level with nothing to choose is undefined. */
 export interface WorkContext {

@@ -8,6 +8,160 @@
       "ru": "Организация не найдена.",
       "kk": "Ұйым табылмады.",
       "kkNeedsReview": true
+    },
+    "organizations.project.not_found": {
+      "statuses": [404],
+      "params": {},
+      "ru": "Проект не найден.",
+      "kk": "Жоба табылмады.",
+      "kkNeedsReview": true
+    },
+    "organizations.team.not_found": {
+      "statuses": [404],
+      "params": {},
+      "ru": "Команда не найдена.",
+      "kk": "Команда табылмады.",
+      "kkNeedsReview": true
+    },
+    "organizations.area.not_found": {
+      "statuses": [404],
+      "params": {},
+      "ru": "Область не найдена.",
+      "kk": "Аймақ табылмады.",
+      "kkNeedsReview": true
+    },
+    "organizations.validation_failed": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Проверьте правильность заполнения полей.",
+      "kk": "Өрістердің дұрыс толтырылғанын тексеріңіз.",
+      "kkNeedsReview": true
+    },
+    "organizations.name_length": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Название должно содержать от 1 до 100 символов",
+      "kk": "Атауы 1-ден 100 таңбаға дейін болуы керек",
+      "kkNeedsReview": true
+    },
+    "organizations.organization.create_forbidden": {
+      "statuses": [403],
+      "params": {},
+      "ru": "Недостаточно прав",
+      "kk": "Құқықтар жеткіліксіз",
+      "kkNeedsReview": true
+    },
+    "organizations.organization.create_failed": {
+      "statuses": [500],
+      "params": {},
+      "ru": "Не удалось создать организацию. Попробуйте ещё раз",
+      "kk": "Ұйымды құру мүмкін болмады. Қайталап көріңіз",
+      "kkNeedsReview": true
+    },
+    "organizations.organization.name_taken": {
+      "statuses": [409],
+      "params": { "name": "string" },
+      "ru": "Название «{name}» уже занято",
+      "kk": "«{name}» атауы бос емес",
+      "kkNeedsReview": true
+    },
+    "organizations.project.name_taken": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Проект с таким названием уже есть в организации",
+      "kk": "Ұйымда мұндай атауы бар жоба бар",
+      "kkNeedsReview": true
+    },
+    "organizations.project.name_taken_by_deactivated": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Проект с таким названием уже есть в организации: он деактивирован",
+      "kk": "Ұйымда мұндай атауы бар жоба бар: ол сөндірілген",
+      "kkNeedsReview": true
+    },
+    "organizations.project.key_required": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Укажите ключ проекта",
+      "kk": "Жоба кілтін көрсетіңіз",
+      "kkNeedsReview": true
+    },
+    "organizations.project.key_invalid": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Ключ проекта: от 2 до 10 латинских заглавных букв и цифр, начиная с буквы",
+      "kk": "Жоба кілті: әріптен басталатын 2-ден 10-ға дейін латын бас әріптері мен цифрлар",
+      "kkNeedsReview": true
+    },
+    "organizations.project.key_taken": {
+      "statuses": [409],
+      "params": { "key": "string" },
+      "ru": "Ключ «{key}» уже используется в организации",
+      "kk": "«{key}» кілті ұйымда қолданылып жүр",
+      "kkNeedsReview": true
+    },
+    "organizations.team.name_taken": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Команда с таким названием уже есть в проекте",
+      "kk": "Жобада мұндай атауы бар команда бар",
+      "kkNeedsReview": true
+    },
+    "organizations.team.default_area_not_owned": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Область по умолчанию должна принадлежать самой команде",
+      "kk": "Әдепкі аймақ команданың өзіне тиесілі болуы керек",
+      "kkNeedsReview": true
+    },
+    "organizations.team.first_team_default_fixed": {
+      "statuses": [409],
+      "params": {},
+      "ru": "У первой команды область по умолчанию не меняется",
+      "kk": "Бірінші команданың әдепкі аймағы өзгермейді",
+      "kkNeedsReview": true
+    },
+    "organizations.team.first_team_cannot_be_deleted": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Нельзя удалить команду, которой принадлежит корневая область проекта",
+      "kk": "Жобаның түбірлік аймағы тиесілі команданы жоюға болмайды",
+      "kkNeedsReview": true
+    },
+    "organizations.area.name_taken": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Область с таким названием уже есть на этом уровне",
+      "kk": "Бұл деңгейде мұндай атауы бар аймақ бар",
+      "kkNeedsReview": true
+    },
+    "organizations.area.move_into_own_subtree": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Нельзя переместить область внутрь неё самой или её вложенной области",
+      "kk": "Аймақты өзінің ішіне немесе оның ішкі аймағына жылжытуға болмайды",
+      "kkNeedsReview": true
+    },
+    "organizations.area.is_team_default": {
+      "statuses": [409],
+      "params": { "team": "string" },
+      "ru": "Область используется как область по умолчанию команды «{team}»",
+      "kk": "Аймақ «{team}» командасының әдепкі аймағы ретінде пайдаланылады",
+      "kkNeedsReview": true
+    },
+    "organizations.area.not_empty": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Нельзя удалить область, в которой есть рабочие элементы (включая удалённые) или вложенные области",
+      "kk": "Жұмыс элементтері (жойылғандарын қоса) немесе ішкі аймақтары бар аймақты жоюға болмайды",
+      "kkNeedsReview": true
+    },
+    "organizations.area.root_is_fixed": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Корневая область меняется только вместе с проектом",
+      "kk": "Түбірлік аймақ тек жобамен бірге өзгереді",
+      "kkNeedsReview": true
     }
   }
 }

@@ -41,7 +41,29 @@ guarantees it exists and differs from the Russian, not its quality
 |http.request_failed|any|Не удалось обработать запрос.|Сұранысты өңдеу мүмкін болмады.|assigned by HTTP status|—|needs review|
 |http.service_unavailable|503|Сервис временно недоступен, повторите позже.|Қызмет уақытша қолжетімсіз, кейінірек қайталаңыз.|assigned by HTTP status|—|needs review|
 |http.unauthorized|401|Требуется аутентификация.|Аутентификация қажет.|assigned by HTTP status|—|needs review|
+|organizations.area.is_team_default|409|Область используется как область по умолчанию команды «{team}»|Аймақ «{team}» командасының әдепкі аймағы ретінде пайдаланылады|organizations|—|needs review|
+|organizations.area.move_into_own_subtree|409|Нельзя переместить область внутрь неё самой или её вложенной области|Аймақты өзінің ішіне немесе оның ішкі аймағына жылжытуға болмайды|organizations|—|needs review|
+|organizations.area.name_taken|409|Область с таким названием уже есть на этом уровне|Бұл деңгейде мұндай атауы бар аймақ бар|organizations|—|needs review|
+|organizations.area.not_empty|409|Нельзя удалить область, в которой есть рабочие элементы (включая удалённые) или вложенные области|Жұмыс элементтері (жойылғандарын қоса) немесе ішкі аймақтары бар аймақты жоюға болмайды|organizations|—|needs review|
+|organizations.area.not_found|404|Область не найдена.|Аймақ табылмады.|organizations|—|needs review|
+|organizations.area.root_is_fixed|409|Корневая область меняется только вместе с проектом|Түбірлік аймақ тек жобамен бірге өзгереді|organizations|—|needs review|
+|organizations.name_length|400|Название должно содержать от 1 до 100 символов|Атауы 1-ден 100 таңбаға дейін болуы керек|organizations|—|needs review|
+|organizations.organization.create_failed|500|Не удалось создать организацию. Попробуйте ещё раз|Ұйымды құру мүмкін болмады. Қайталап көріңіз|organizations|—|needs review|
+|organizations.organization.create_forbidden|403|Недостаточно прав|Құқықтар жеткіліксіз|organizations|—|needs review|
+|organizations.organization.name_taken|409|Название «{name}» уже занято|«{name}» атауы бос емес|organizations|—|needs review|
 |organizations.organization.not_found|404|Организация не найдена.|Ұйым табылмады.|organizations|—|needs review|
+|organizations.project.key_invalid|400|Ключ проекта: от 2 до 10 латинских заглавных букв и цифр, начиная с буквы|Жоба кілті: әріптен басталатын 2-ден 10-ға дейін латын бас әріптері мен цифрлар|organizations|—|needs review|
+|organizations.project.key_required|400|Укажите ключ проекта|Жоба кілтін көрсетіңіз|organizations|—|needs review|
+|organizations.project.key_taken|409|Ключ «{key}» уже используется в организации|«{key}» кілті ұйымда қолданылып жүр|organizations|—|needs review|
+|organizations.project.name_taken|409|Проект с таким названием уже есть в организации|Ұйымда мұндай атауы бар жоба бар|organizations|—|needs review|
+|organizations.project.name_taken_by_deactivated|409|Проект с таким названием уже есть в организации: он деактивирован|Ұйымда мұндай атауы бар жоба бар: ол сөндірілген|organizations|—|needs review|
+|organizations.project.not_found|404|Проект не найден.|Жоба табылмады.|organizations|—|needs review|
+|organizations.team.default_area_not_owned|409|Область по умолчанию должна принадлежать самой команде|Әдепкі аймақ команданың өзіне тиесілі болуы керек|organizations|—|needs review|
+|organizations.team.first_team_cannot_be_deleted|409|Нельзя удалить команду, которой принадлежит корневая область проекта|Жобаның түбірлік аймағы тиесілі команданы жоюға болмайды|organizations|—|needs review|
+|organizations.team.first_team_default_fixed|409|У первой команды область по умолчанию не меняется|Бірінші команданың әдепкі аймағы өзгермейді|organizations|—|needs review|
+|organizations.team.name_taken|409|Команда с таким названием уже есть в проекте|Жобада мұндай атауы бар команда бар|organizations|—|needs review|
+|organizations.team.not_found|404|Команда не найдена.|Команда табылмады.|organizations|—|needs review|
+|organizations.validation_failed|400|Проверьте правильность заполнения полей.|Өрістердің дұрыс толтырылғанын тексеріңіз.|organizations|—|needs review|
 |session.anonymous|401|Вы не вошли в систему.|Сіз жүйеге кірмегенсіз.|session|—|needs review|
 |session.expired|401|Сессия истекла. Войдите заново.|Сессия мерзімі аяқталды. Қайта кіріңіз.|session|—|needs review|
 |session.invalid_return_url|400|Недопустимый адрес возврата после входа.|Кіргеннен кейінгі қайту мекенжайы жарамсыз.|session|—|needs review|

@@ -54,6 +54,11 @@ export interface PageHeaderProps {
   commands?: readonly Command[];
   views?: readonly PageView[];
   /**
+   * The views' own accessible name, e.g. «Организации по статусу» (mod-002
+   * design § 5.2). Absent: the tabs are named by the title, as before.
+   */
+  viewsLabel?: string;
+  /**
    * A handle on the title, for a page that moves focus to it — after a retry
    * that succeeded (mod-001 design § Focus and announcements). Given, the
    * `h1` takes the ref and `tabIndex={-1}`; absent, the title is as before.
@@ -87,6 +92,7 @@ export function PageHeader({
   primaryAction,
   commands = NO_COMMANDS,
   views,
+  viewsLabel,
   titleRef,
 }: PageHeaderProps) {
   useDocumentTitle(title);
@@ -123,7 +129,9 @@ export function PageHeader({
         </Typography>
         <CommandBar key={commandsKey} primaryAction={primaryAction} commands={commands} />
       </Box>
-      {views && views.length > 0 && <PageViews views={views} labelledBy={titleId} />}
+      {views && views.length > 0 && (
+        <PageViews views={views} labelledBy={titleId} label={viewsLabel} />
+      )}
     </Box>
   );
 }
@@ -281,7 +289,15 @@ function CommandBar({
 }
 
 /** The page's views: tabs that are addresses, the current one taken from the address. */
-function PageViews({ views, labelledBy }: { views: readonly PageView[]; labelledBy: string }) {
+function PageViews({
+  views,
+  labelledBy,
+  label,
+}: {
+  views: readonly PageView[];
+  labelledBy: string;
+  label?: string;
+}) {
   const { pathname } = useLocation();
   const selected =
     views.find((view) => view.to === pathname) ??
@@ -290,7 +306,12 @@ function PageViews({ views, labelledBy }: { views: readonly PageView[]; labelled
       .find((view) => pathname.startsWith(`${view.to}/`));
 
   return (
-    <Tabs value={selected?.to ?? false} aria-labelledby={labelledBy} sx={{ mt: 1 }}>
+    <Tabs
+      value={selected?.to ?? false}
+      aria-label={label}
+      aria-labelledby={label === undefined ? labelledBy : undefined}
+      sx={{ mt: 1 }}
+    >
       {views.map((view) => (
         <Tab key={view.to} component={RouterLink} to={view.to} value={view.to} label={view.label} />
       ))}

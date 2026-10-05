@@ -1,8 +1,11 @@
 using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Dictionaries;
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
+using Mustask.Application.Features.Organizations;
 using Mustask.Infrastructure.Dictionaries;
 using Mustask.Infrastructure.Dictionaries.Seeding;
+using Mustask.Infrastructure.Organizations;
 using Mustask.Infrastructure.Process;
 using Mustask.Application.Abstractions.UserDirectory;
 using Mustask.Infrastructure.UserDirectory;
@@ -66,6 +69,30 @@ public static class DependencyInjection
         builder.Services.AddScoped<IProjectedUserStore, ProjectedUserStore>();
         builder.Services.AddScoped<IDirectorySnapshotStore, DirectorySnapshotStore>();
 
+        // Organizations (mod-002): M1's repositories, read models and the reads for other modules.
+        builder.Services.AddOrganizationsInfrastructure();
+
         return builder;
+    }
+
+    /// <summary>
+    /// The organizations module's repositories, read models and its seam
+    /// (<see cref="IOrganizationStructure"/>), all scoped: they share the
+    /// request's one database context. Public so a test host that builds its own
+    /// context, without Aspire, wires the same set.
+    /// </summary>
+    public static IServiceCollection AddOrganizationsInfrastructure(this IServiceCollection services)
+    {
+        services.AddScoped<IOrganizationRepository, OrganizationRepository>();
+        services.AddScoped<IProjectRepository, ProjectRepository>();
+        services.AddScoped<ITeamRepository, TeamRepository>();
+        services.AddScoped<IAreaRepository, AreaRepository>();
+        services.AddScoped<IOrganizationReadModel, OrganizationReadModel>();
+        services.AddScoped<IProjectReadModel, ProjectReadModel>();
+        services.AddScoped<ITeamReadModel, TeamReadModel>();
+        services.AddScoped<IAreaTreeReadModel, AreaTreeReadModel>();
+        services.AddScoped<IOrganizationStructure, OrganizationStructure>();
+
+        return services;
     }
 }

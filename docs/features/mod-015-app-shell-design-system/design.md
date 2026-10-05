@@ -587,7 +587,17 @@ changes and no request is sent (§ 5.5 for context pages).
 | Organization without projects | the organization level + `Typography` `text.secondary` | «Нет проектов»; no team level | this task |
 | Project without teams | organization and project levels + `Typography` | «Нет команд» | this task |
 | Long name | the level truncated with an ellipsis | full name in `aria-label` and the tooltip; truncation is not "cut off" | this task |
-| Remembered selection gone (mod-002 fallback) | the fallback context, levels as Ready | `Snackbar` with `Alert severity="info"`, 6 s, bottom left: «Ранее выбранный контекст недоступен. Выбрано: <организация> / <проект> / <команда>.» | designed here, wired by mod-002 |
+| Projects loading (mod-002 D-n) | the organization level, then two `Skeleton variant="rounded"` 120 × 24 px in one `role="status"` | `aria-label` «Загрузка контекста» | designed by mod-002, rendered by the switcher from the source's level status |
+| Teams loading (mod-002 D-n) | the organization and project levels, then one skeleton in the same `role="status"` | as above | as above |
+| Projects failed (mod-002 D-n) | the organization level, then the failed block of the Failed row | «Не удалось загрузить проекты» + «Повторить», which retries the project level; below 1024 px as the Failed row | as above |
+| Teams failed (mod-002 D-n) | the organization and project levels, then the failed block | «Не удалось загрузить команды» + «Повторить», which retries the team level; below 1024 px as the Failed row | as above |
+| Remembered selection gone (mod-002 fallback) | the fallback context, levels as Ready | `Snackbar` with `Alert severity="info"`, 6 s, bottom left: «Ранее выбранный контекст недоступен. Выбрано: <организация> / <проект> / <команда>.» A level with nothing in it is left out («Выбрано: Бета.») | designed here, rendered by the switcher from the source (mod-002) |
+
+The switcher draws the levels from the top and stops at the first level that
+is not ready: a loading level and every level below it are the skeletons, a
+failed level is the failed block with that level's text. When the
+organization level is the one loading or failed, this gives the Loading and
+Failed rows above as they stand (mod-002 D-n, DC-11).
 
 The placeholder dataset is the one in US-5; it is fixed in the panel, sends
 no request and keeps no selection across a reload.
@@ -632,6 +642,19 @@ context-source interface (status `loading` / `failed` / `ready`, the tree,
 организаций», remembers the selection with its fallback and the notice of
 § 5.4, makes context addresses set the selection, and builds the routes of
 § 5.5 and the tree registry of § 10.7.
+
+> Amended 2026-10-04 by mod-002 (its D-n and D-o, the amendment its DC-11
+> rests on). The interface (`shared/lib/workContext.ts`) gains, additively:
+> `levelStatus` — the project and team levels' own status, each `loading`,
+> `failed` or `ready` (absent: ready), the organization level's status
+> staying `status`; `retry(level)` — «Повторить» of the level that failed
+> (no level: the organization level, as before); `fallback` and
+> `dismissFallback` — the notice of § 5.4, which the source raises and the
+> switcher renders and words. `app/` hands the source a
+> `SwitchTargetResolver` built from the navigation model, so a choice at a
+> level the address carries opens the entry of § 5.5 without the slice
+> importing `app/`. The four rows of § 5.4 marked mod-002 D-n are the
+> switcher's copy from then on.
 
 ## 6. Page header and command bar (US-6)
 

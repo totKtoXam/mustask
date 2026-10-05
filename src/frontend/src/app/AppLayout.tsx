@@ -4,8 +4,13 @@ import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
 import type { Theme } from '@mui/material/styles';
 import { useAuth } from '../features/auth/AuthContext';
+import { useOrganizationsContextSource } from '../features/organizations';
 import { AccessCheckContext, type AccessCheck } from '../shared/lib/access';
-import { WorkContextContext, type WorkContextSource } from '../shared/lib/workContext';
+import {
+  WorkContextContext,
+  type SwitchTargetResolver,
+  type WorkContextSource,
+} from '../shared/lib/workContext';
 import {
   PageChromeContext,
   type PageChrome,
@@ -13,11 +18,11 @@ import {
   type TrailSegment,
 } from '../shared/ui/pageChrome';
 import { useNavigationModel } from './navigation/NavigationModelContext';
+import { switchTarget } from './navigation/switchTarget';
 import { useNavigationLayout } from './navigation/useNavigationLayout';
 import { deriveTrail, isSettingsPage, visibleModel } from './navigation/visibility';
 import { MainNavigation } from './shell/MainNavigation';
 import { NavigationOverlay } from './shell/NavigationOverlay';
-import { usePlaceholderContextSource } from './shell/placeholderContext';
 import { SettingsNavigation } from './shell/SettingsNavigation';
 import { SkipLink } from './shell/SkipLink';
 import { TopBar } from './shell/TopBar';
@@ -61,9 +66,8 @@ function navigationDrawerSx(width: (theme: Theme) => number, left?: (theme: Them
 
 export interface AppLayoutProps {
   /**
-   * The organization/project/team source. The placeholder dataset until
-   * mod-002 supplies its own behind the same interface (design § 5.7); a
-   * component test passes a stub.
+   * The organization/project/team source: mod-002's real lists unless a
+   * component test passes a stub (design § 5.7; mod-002 D-o).
    */
   contextSource?: WorkContextSource;
 }
@@ -78,9 +82,7 @@ export interface AppLayoutProps {
  * header registers and the shell derives its trail (BR-6).
  */
 export function AppLayout({ contextSource }: AppLayoutProps) {
-  const { can, status } = useAuth();
-  const placeholderSource = usePlaceholderContextSource();
-  const source = contextSource ?? placeholderSource;
+  const { can, status, subject } = useAuth();
   const model = useNavigationModel();
   const { pathname } = useLocation();
 
@@ -91,6 +93,19 @@ export function AppLayout({ contextSource }: AppLayoutProps) {
     (code, scope) => (scope === 'instance' ? can(code) : status === 'authenticated'),
     [can, status],
   );
+
+  // The switcher-data registry (mod-002 D-n, D-o): the organizations slice's
+  // source, handed the switch-target resolver the navigation model gives.
+  const resolveSwitchTarget = useCallback<SwitchTargetResolver>(
+    (request) => switchTarget(model, access, request),
+    [model, access],
+  );
+  const realSource = useOrganizationsContextSource({
+    enabled: contextSource === undefined,
+    subject,
+    resolveSwitchTarget,
+  });
+  const source = contextSource ?? realSource;
 
   const { isReal, selection } = source;
   const visible = useMemo(

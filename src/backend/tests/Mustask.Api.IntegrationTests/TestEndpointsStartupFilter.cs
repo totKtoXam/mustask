@@ -130,6 +130,15 @@ public sealed class TestEndpointsStartupFilter : IStartupFilter
                 endpoints.MapGet("/__test/current-user-public", (ICurrentUser currentUser) =>
                     Results.Ok(new { displayName = currentUser.DisplayName }))
                     .AllowAnonymous();
+
+                // mod-002 BR-M1-21: ICurrentUser.SubjectId, the creator record.
+                endpoints.MapGet("/__test/current-user-subject", (ICurrentUser currentUser) =>
+                    Results.Ok(new { subjectId = currentUser.SubjectId }))
+                    .RequireAuthorization(PermissionPolicies.AuthenticatedOnlyPolicyName);
+
+                endpoints.MapGet("/__test/current-user-subject-public", (ICurrentUser currentUser) =>
+                    Results.Ok(new { subjectId = currentUser.SubjectId }))
+                    .AllowAnonymous();
             });
         };
     }

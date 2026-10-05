@@ -2,6 +2,7 @@ import { useId, useState, type KeyboardEvent, type MouseEvent, type ReactNode } 
 import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Alert from '@mui/material/Alert';
 import Divider from '@mui/material/Divider';
 import Link from '@mui/material/Link';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -10,6 +11,7 @@ import ListSubheader from '@mui/material/ListSubheader';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Skeleton from '@mui/material/Skeleton';
+import Snackbar from '@mui/material/Snackbar';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import CheckIcon from '@mui/icons-material/Check';
@@ -20,6 +22,7 @@ import {
   resolveWorkContext,
   useWorkContext,
   type WorkContextLevel,
+  type WorkContextLowerLevel,
 } from '../../shared/lib/workContext';
 import { useWidthClass } from '../navigation/useWidthClass';
 
@@ -38,6 +41,22 @@ const LEVEL_SUBHEADERS: Record<WorkContextLevel, string> = {
 };
 
 const FAILED_TEXT = 'Не удалось загрузить организации';
+
+/** A lower level's failed row (mod-002 design § 3.2, D-n; mod-015 § 5.4 as amended). */
+const LEVEL_FAILED_TEXTS: Record<WorkContextLowerLevel, string> = {
+  project: 'Не удалось загрузить проекты',
+  team: 'Не удалось загрузить команды',
+};
+
+/** Skeletons a loading level and the levels below it take (mod-015 § 5.4 as amended). */
+const LEVEL_SKELETONS: Record<WorkContextLevel, number> = {
+  organization: 3,
+  project: 2,
+  team: 1,
+};
+
+/** How long the fallback notice stays (mod-015 § 5.4, mod-002 design § 3.6). */
+const NOTICE_DURATION_MS = 6000;
 
 interface LevelOption {
   id: string;
@@ -79,7 +98,8 @@ function ContextLevel({
   current: LevelOption;
   options: readonly LevelOption[];
   onSelect: (id: string) => void;
-  footer?: ReactNode;
+  /** Entries after the level's choices; `close` closes the menu. */
+  footer?: (close: () => void) => ReactNode;
 }) {
   const widthClass = useWidthClass();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
@@ -152,9 +172,79 @@ function ContextLevel({
             </MenuItem>
           );
         })}
-        {footer}
+        {footer?.(() => setAnchor(null))}
       </Menu>
     </>
+  );
+}
+
+/** «Загрузка контекста»: a loading level and every level below it (mod-015 § 5.4). */
+function LoadingLevels({ count }: { count: number }) {
+  return (
+    <Box role="status" aria-label="Загрузка контекста" sx={{ display: 'flex', gap: 1 }}>
+      {Array.from({ length: count }, (_, index) => (
+        <Skeleton
+          key={index}
+          variant="rounded"
+          sx={{
+            width: (theme) => theme.layout.contextSkeletonWidth,
+            height: (theme) => theme.layout.contextSkeletonHeight,
+          }}
+        />
+      ))}
+    </Box>
+  );
+}
+
+/**
+ * A level that failed to load: the icon, the text (kept in the icon's
+ * tooltip and visually hidden below 1024 px) and «Повторить» (mod-015 § 5.4).
+ */
+function FailedLevel({ text, onRetry }: { text: string; onRetry?: () => void }) {
+  const widthClass = useWidthClass();
+  return (
+    <>
+      <Tooltip title={text}>
+        <ErrorOutlineOutlinedIcon color="error" fontSize="small" />
+      </Tooltip>
+      <Typography
+        variant="body2"
+        noWrap
+        sx={widthClass === 'narrow' ? (theme) => theme.mixins.visuallyHidden : undefined}
+      >
+        {text}
+      </Typography>
+      {onRetry && (
+        <Button size="small" variant="text" onClick={onRetry}>
+          Повторить
+        </Button>
+      )}
+    </>
+  );
+}
+
+/**
+ * The fallback notice (mod-015 § 5.4, mod-002 design § 3.6): a remembered or
+ * chosen entry is gone and the switcher shows its replacement. The source
+ * decides when; the switcher words it.
+ */
+function FallbackNotice() {
+  const { fallback, dismissFallback } = useWorkContext();
+  if (!fallback) {
+    return null;
+  }
+  return (
+    <Snackbar
+      key={fallback.id}
+      open
+      autoHideDuration={NOTICE_DURATION_MS}
+      onClose={() => dismissFallback?.()}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+    >
+      <Alert severity="info" onClose={() => dismissFallback?.()}>
+        {`Ранее выбранный контекст недоступен. Выбрано: ${fallback.names.join(' / ')}.`}
+      </Alert>
+    </Snackbar>
   );
 }
 
@@ -162,27 +252,29 @@ function ContextLevel({
  * The context switcher (US-5; BR-11, BR-18; design § 5): organization,
  * project and team in the top bar, read from the shell's context source. The
  * placeholder source sends nothing and keeps nothing; mod-002 supplies the
- * real lists, the loading and failed status, and the organization list page.
+ * real lists, a status and a retry per level, the organization list page and
+ * the fallback notice (mod-002 D-n).
  */
 export function ContextSwitcher() {
+  return (
+    <>
+      <SwitcherLevels />
+      <FallbackNotice />
+    </>
+  );
+}
+
+/**
+ * The levels, drawn from the top and stopping at the first level that is not
+ * ready: a loading level and every level below it are skeletons in one
+ * `role="status"`, a failed level is the failed block with that level's text
+ * (mod-015 § 5.4 as amended by mod-002 D-n).
+ */
+function SwitcherLevels() {
   const source = useWorkContext();
-  const widthClass = useWidthClass();
 
   if (source.status === 'loading') {
-    return (
-      <Box role="status" aria-label="Загрузка контекста" sx={{ display: 'flex', gap: 1 }}>
-        {[0, 1, 2].map((index) => (
-          <Skeleton
-            key={index}
-            variant="rounded"
-            sx={{
-              width: (theme) => theme.layout.contextSkeletonWidth,
-              height: (theme) => theme.layout.contextSkeletonHeight,
-            }}
-          />
-        ))}
-      </Box>
-    );
+    return <LoadingLevels count={LEVEL_SKELETONS.organization} />;
   }
 
   if (source.status === 'failed') {
@@ -192,21 +284,10 @@ export function ContextSwitcher() {
         aria-label="Контекст работы"
         sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}
       >
-        <Tooltip title={FAILED_TEXT}>
-          <ErrorOutlineOutlinedIcon color="error" fontSize="small" />
-        </Tooltip>
-        <Typography
-          variant="body2"
-          noWrap
-          sx={widthClass === 'narrow' ? (theme) => theme.mixins.visuallyHidden : undefined}
-        >
-          {FAILED_TEXT}
-        </Typography>
-        {source.retry && (
-          <Button size="small" variant="text" onClick={() => source.retry?.()}>
-            Повторить
-          </Button>
-        )}
+        <FailedLevel
+          text={FAILED_TEXT}
+          onRetry={source.retry ? () => source.retry?.() : undefined}
+        />
       </Box>
     );
   }
@@ -216,6 +297,21 @@ export function ContextSwitcher() {
     source.selection,
   );
   const listPath = source.organizationListPath;
+  const projectStatus = source.levelStatus?.project ?? 'ready';
+  const teamStatus = source.levelStatus?.team ?? 'ready';
+
+  function lowerLevel(level: WorkContextLowerLevel, status: 'loading' | 'failed') {
+    return status === 'loading' ? (
+      <LoadingLevels count={LEVEL_SKELETONS[level]} />
+    ) : (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+        <FailedLevel
+          text={LEVEL_FAILED_TEXTS[level]}
+          onRetry={source.retry ? () => source.retry?.(level) : undefined}
+        />
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -240,9 +336,11 @@ export function ContextSwitcher() {
             onSelect={(id) => source.select('organization', id)}
             footer={
               listPath
-                ? [
+                ? (close) => [
                     <Divider key="divider" />,
-                    <MenuItem key="all" component={RouterLink} to={listPath}>
+                    // A link, not a choice: it opens the list and closes the
+                    // menu, the selection unchanged (mod-002 design § 3.3).
+                    <MenuItem key="all" component={RouterLink} to={listPath} onClick={close}>
                       <ListItemIcon>
                         <ListAltOutlinedIcon fontSize="small" />
                       </ListItemIcon>
@@ -253,7 +351,9 @@ export function ContextSwitcher() {
             }
           />
           <Separator />
-          {!project ? (
+          {projectStatus !== 'ready' ? (
+            lowerLevel('project', projectStatus)
+          ) : !project ? (
             <NothingToChoose>Нет проектов</NothingToChoose>
           ) : (
             <>
@@ -264,7 +364,9 @@ export function ContextSwitcher() {
                 onSelect={(id) => source.select('project', id)}
               />
               <Separator />
-              {!team ? (
+              {teamStatus !== 'ready' ? (
+                lowerLevel('team', teamStatus)
+              ) : !team ? (
                 <NothingToChoose>Нет команд</NothingToChoose>
               ) : (
                 <ContextLevel

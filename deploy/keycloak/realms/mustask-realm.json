@@ -42,6 +42,10 @@
         {
           "name": "dictionaries.languages.write",
           "description": "Право: изменение справочника языков"
+        },
+        {
+          "name": "organizations.organization.create",
+          "description": "Право: создание организаций"
         }
       ]
     },
@@ -54,7 +58,8 @@
           "client": {
             "mustask-api": [
               "dictionaries.languages.read",
-              "dictionaries.languages.write"
+              "dictionaries.languages.write",
+              "organizations.organization.create"
             ]
           }
         }
@@ -91,6 +96,16 @@
             ]
           }
         }
+      },
+      {
+        "name": "organization-creator",
+        "description": "Роль: создатель организаций — только право создавать организации",
+        "composite": true,
+        "composites": {
+          "client": {
+            "mustask-api": ["organizations.organization.create"]
+          }
+        }
       }
     ]
   },
@@ -112,6 +127,10 @@
     {
       "name": "Администраторы справочников",
       "realmRoles": ["dictionaries-admin"]
+    },
+    {
+      "name": "Создатели организаций",
+      "realmRoles": ["organization-creator"]
     }
   ],
   "clients": [

@@ -80,6 +80,31 @@ public sealed class CurrentUserTests
         Assert.NotEqual(subject, displayName);
     }
 
+    // mod-002 US-1 · "An organization is created with its process": the creator record is the token's subject (BR-M1-21).
+    [Fact]
+    public async Task SubjectId_IsTheSubClaim()
+    {
+        var subject = Guid.CreateVersion7().ToString();
+        var token = KeycloakTestRealm.CreateToken(configure: t => t.Subject = subject);
+
+        var response = await _factory.CreateClient().SendAsync(
+            new HttpRequestMessage(HttpMethod.Get, "/__test/current-user-subject").WithBearer(token));
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(subject, body.GetProperty("subjectId").GetString());
+    }
+
+    // An anonymous request has no subject: reading it is a defect (500), never a made-up creator.
+    [Fact]
+    public async Task SubjectId_OnAnAnonymousRequest_IsADefect()
+    {
+        var response = await _factory.CreateClient().SendAsync(
+            new HttpRequestMessage(HttpMethod.Get, "/__test/current-user-subject-public"));
+
+        Assert.Equal(System.Net.HttpStatusCode.InternalServerError, response.StatusCode);
+    }
+
     [Fact]
     public async Task PublicRouteWithoutToken_ReturnsAnonymous()
     {

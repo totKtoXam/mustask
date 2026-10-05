@@ -3,12 +3,11 @@ using Mustask.Shared.Errors;
 namespace Mustask.Domain.Organizations;
 
 /// <summary>
-/// Error codes of the organizations module (ADR-0005 registry). The class lives
-/// in Domain under the organizations module for two reasons: the module that
-/// owns the organization (<c>mod-002</c>) takes the code over after this task
-/// (status.md D-7), and that module's own domain throws it too. It is an
-/// error-code class, not an Organization concept: this module knows no
-/// organization, only an opaque identifier (status.md C-3).
+/// Error codes of the organizations module (M1, ADR-0005 registry). mod-001
+/// registered the first one; mod-002 owns the file from then on (mod-002 D-k)
+/// and adds every code of its api-contract.md § 6. The class lives in Domain
+/// because the module's own domain throws these codes, and by Onion the domain
+/// cannot reference Application.
 /// </summary>
 /// <remarks>
 /// Every constant is an "application code" (ADR-0005, item 5): it is marked with
@@ -20,10 +19,75 @@ namespace Mustask.Domain.Organizations;
 public static class OrganizationErrorCodes
 {
     /// <summary>
-    /// «Организация не найдена»: the identifier is malformed, or no process
-    /// exists for it. After <c>mod-002</c> also an organization that does not
-    /// exist or is deactivated, and after <c>mod-016</c> a non-member. None of
-    /// these can be told apart from another (BR-M2-11).
+    /// «Организация не найдена.»: the identifier is malformed, names nothing, or
+    /// names a deactivated organization (BR-M1-20); after <c>mod-016</c> also a
+    /// non-member. None of these can be told apart from another.
     /// </summary>
     public const string OrganizationNotFound = "organizations.organization.not_found";
+
+    /// <summary>The project is malformed, unknown, of another organization, or not reachable (BR-M1-20, BR-M1-22).</summary>
+    public const string ProjectNotFound = "organizations.project.not_found";
+
+    /// <summary>The team is malformed, unknown, of another project, deleted, or not reachable; also a team named in a body.</summary>
+    public const string TeamNotFound = "organizations.team.not_found";
+
+    /// <summary>The area is malformed, unknown or of another project; also an area named in a body.</summary>
+    public const string AreaNotFound = "organizations.area.not_found";
+
+    /// <summary>The top-level code of every <see cref="Mustask.Shared.Exceptions.ValidationException"/> of the module.</summary>
+    public const string ValidationFailed = "organizations.validation_failed";
+
+    /// <summary>Field reason of <c>name</c>: empty, spaces only, or over 100 characters after trimming (BR-M1-1).</summary>
+    public const string NameLength = "organizations.name_length";
+
+    /// <summary>The token lacks <c>organizations.organization.create</c> (BR-M1-2). Never <c>http.forbidden</c> (D-p).</summary>
+    public const string OrganizationCreateForbidden = "organizations.organization.create_forbidden";
+
+    /// <summary>The process seed failed at an organization's creation; nothing is created (BR-M1-3, D-t). HTTP 500.</summary>
+    public const string OrganizationCreateFailed = "organizations.organization.create_failed";
+
+    /// <summary>An organization of any status holds the name (<c>params.name</c>: the holder's stored name).</summary>
+    public const string OrganizationNameTaken = "organizations.organization.name_taken";
+
+    /// <summary>An active project of the organization holds the name.</summary>
+    public const string ProjectNameTaken = "organizations.project.name_taken";
+
+    /// <summary>A deactivated project of the organization holds the name.</summary>
+    public const string ProjectNameTakenByDeactivated = "organizations.project.name_taken_by_deactivated";
+
+    /// <summary>Field reason of <c>key</c>: null or empty.</summary>
+    public const string ProjectKeyRequired = "organizations.project.key_required";
+
+    /// <summary>Field reason of <c>key</c>: not <c>^[A-Z][A-Z0-9]{1,9}$</c> as sent.</summary>
+    public const string ProjectKeyInvalid = "organizations.project.key_invalid";
+
+    /// <summary>A project of any status in the organization holds the key (<c>params.key</c>).</summary>
+    public const string ProjectKeyTaken = "organizations.project.key_taken";
+
+    /// <summary>An active team of the project holds the name.</summary>
+    public const string TeamNameTaken = "organizations.team.name_taken";
+
+    /// <summary>The proposed default area's owner is inherited or another team (BR-M1-14).</summary>
+    public const string TeamDefaultAreaNotOwned = "organizations.team.default_area_not_owned";
+
+    /// <summary>The first team's default area is the root for good (BR-M1-9).</summary>
+    public const string TeamFirstTeamDefaultFixed = "organizations.team.first_team_default_fixed";
+
+    /// <summary>The first team owns the root and cannot be deleted (BR-M1-18).</summary>
+    public const string TeamFirstTeamCannotBeDeleted = "organizations.team.first_team_cannot_be_deleted";
+
+    /// <summary>A sibling holds the name (BR-M1-12).</summary>
+    public const string AreaNameTaken = "organizations.area.name_taken";
+
+    /// <summary>The destination is the moved node itself or one of its descendants (BR-M1-12).</summary>
+    public const string AreaMoveIntoOwnSubtree = "organizations.area.move_into_own_subtree";
+
+    /// <summary>The area is a team's default area (<c>params.team</c>: that team's name, BR-M1-14).</summary>
+    public const string AreaIsTeamDefault = "organizations.area.is_team_default";
+
+    /// <summary>The area has children (and, from mod-003, work items, BR-M1-13).</summary>
+    public const string AreaNotEmpty = "organizations.area.not_empty";
+
+    /// <summary>The root is renamed only with its project and is never moved, re-owned or deleted (BR-M1-11).</summary>
+    public const string AreaRootIsFixed = "organizations.area.root_is_fixed";
 }

@@ -120,18 +120,11 @@ run from there, not from this directory.
   environment in both directions). The base address of a running
   `Mustask.Api` — from the Aspire dashboard or from the Information line in
   the log at startup.
-- The Development stand's demonstration organization: at start `Mustask.Api`
-  seeds the organization's process (the five work item types and their
-  states, mod-001) for the fixed identifier
-  `d0000000-0000-4000-8000-000000000001`, so the read-only process screen has
-  something to show before organizations can be created. The panel opens it at
-  `/organizations/d0000000-0000-4000-8000-000000000001/settings/process`, and
-  the API answers
-  `GET /api/organizations/d0000000-0000-4000-8000-000000000001/process`. The
-  seed is a hosted service registered **only in Development** (never AppHost,
-  never another environment). The API log carries its outcome as one of three
-  events: `DemonstrationSeedReady`, `DemonstrationSeedSkipped` (the database
-  lacks a migration of this build — apply the migrations, see the migrations
-  bullet above, and restart) or `DemonstrationSeedFailed` (nothing remains,
-  the next start tries again). It never stops the start. `mod-002` removes it
-  when real organization creation lands.
+- An organization on the stand: sign in to the panel as the administrator
+  (group «Администраторы») or as a member of «Создатели организаций», and
+  create one there (`POST /api/organizations`, which needs the right
+  `organizations.organization.create`); its process is seeded in the same
+  step. There is no seeded demonstration organization. A stand whose Keycloak
+  was created before that group existed picks the realm import up only after
+  a stand reset — `bash scripts/stand-reset.sh`, see "Keycloak on the stand"
+  above; until then its drift check keeps the stand unhealthy (mod-002 D-j).

@@ -1,4 +1,5 @@
 using Mustask.Domain.Dictionaries;
+using Mustask.Domain.Organizations;
 using Mustask.Domain.Process;
 
 using Mustask.Domain.UserDirectory;
@@ -37,6 +38,15 @@ public sealed class MustaskDbContext(DbContextOptions<MustaskDbContext> options)
     public DbSet<DirectorySnapshot> DirectorySnapshots => Set<DirectorySnapshot>();
 
     public DbSet<DirectorySnapshotPage> DirectorySnapshotPages => Set<DirectorySnapshotPage>();
+
+    /// <summary>M1's structure (mod-002): organizations, their projects, the projects' teams and area trees.</summary>
+    public DbSet<Organization> Organizations => Set<Organization>();
+
+    public DbSet<Project> Projects => Set<Project>();
+
+    public DbSet<Team> Teams => Set<Team>();
+
+    public DbSet<Area> Areas => Set<Area>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {

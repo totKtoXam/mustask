@@ -110,7 +110,7 @@ describe('mod-001 US-2: «Процесс» in the settings navigation once the c
     expect(within(trail).queryByRole('link')).not.toBeInTheDocument();
   });
 
-  it('«Настройки» opens «Процесс» first, by model order', () => {
+  it('«Настройки» opens the organization’s «Общие» first, by model order (mod-002 design § 2.1)', () => {
     renderShell({
       path: '/home',
       auth: authValue([LANGUAGES_READ]),
@@ -120,7 +120,7 @@ describe('mod-001 US-2: «Процесс» in the settings navigation once the c
 
     expect(within(mainNavigation()).getByRole('link', { name: 'Настройки' })).toHaveAttribute(
       'href',
-      PROCESS_ADDRESS,
+      `/organizations/${DEMONSTRATION_ORGANIZATION_ID}/settings/general`,
     );
   });
 

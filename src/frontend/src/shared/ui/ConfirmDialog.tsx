@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -21,6 +21,11 @@ export interface ConfirmDialogProps {
   error?: ReactNode;
   /** An irreversible action: the primary takes the error colour (design § 9.4). */
   destructive?: boolean;
+  /**
+   * The dialog opens with focus on «Отмена», so Enter never confirms by
+   * accident (mod-002 design § 4.3). Absent: MUI's initial focus as before.
+   */
+  cancelAutoFocus?: boolean;
   onConfirm: () => void;
   onClose: () => void;
 }
@@ -40,6 +45,7 @@ export function ConfirmDialog({
   busy = false,
   error,
   destructive = false,
+  cancelAutoFocus = false,
   onConfirm,
   onClose,
 }: ConfirmDialogProps) {
@@ -57,9 +63,7 @@ export function ConfirmDialog({
         {children}
       </DialogContent>
       <DialogActions>
-        <Button variant="text" onClick={onClose} disabled={busy}>
-          Отмена
-        </Button>
+        <CancelButton open={open} focusOnOpen={cancelAutoFocus} disabled={busy} onClick={onClose} />
         <Button
           variant="contained"
           color={destructive ? 'error' : 'primary'}
@@ -71,5 +75,46 @@ export function ConfirmDialog({
         </Button>
       </DialogActions>
     </Dialog>
+  );
+}
+
+/**
+ * «Отмена», focused each time the dialog opens when `focusOnOpen` is set.
+ *
+ * Not React's `autoFocus`: that focuses once, at mount, and under
+ * `<StrictMode>` (development, `src/main.tsx`) React then runs the new
+ * subtree's effects a second time — MUI's focus trap hands the focus back to
+ * the opener on the first cleanup and puts it on the dialog's paper on the
+ * re-run (mod-002 qa.md D-2). This effect runs on that re-run too, and before
+ * the trap's own: it lives inside the dialog, and React runs a child's effects
+ * before its ancestor's, so the trap finds the focus already inside and leaves
+ * it there. Inside the dialog also because MUI's portal mounts the content one
+ * commit after `ConfirmDialog` itself, so an effect up there would see no
+ * button yet. `open` in the dependencies covers a dialog reopened while it is
+ * still mounted.
+ */
+function CancelButton({
+  open,
+  focusOnOpen,
+  disabled,
+  onClick,
+}: {
+  open: boolean;
+  focusOnOpen: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (open && focusOnOpen) {
+      ref.current?.focus();
+    }
+  }, [open, focusOnOpen]);
+
+  return (
+    <Button ref={ref} variant="text" onClick={onClick} disabled={disabled}>
+      Отмена
+    </Button>
   );
 }

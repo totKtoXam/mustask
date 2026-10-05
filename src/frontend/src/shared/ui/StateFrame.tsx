@@ -141,16 +141,27 @@ const NOT_FOUND_HEADINGS: Record<NotFoundLevel, string> = {
 export function NotFound({
   level,
   headingRef,
+  keepNavigation = false,
 }: {
   level: NotFoundLevel;
   /** A handle on the frame's `h1`, as `StateFrame`'s `headingRef`. */
   headingRef?: Ref<HTMLHeadingElement>;
+  /**
+   * The frame answers an entity beneath a page the shell serves — a team on
+   * its page beneath «Команды», whose organization and project are found
+   * (mod-002 design § 12): the shell keeps the settings navigation and the
+   * entry's marker. Absent: the frame registers not-found, as before.
+   */
+  keepNavigation?: boolean;
 }) {
   // Whatever the address looks like, there is no page here: the shell marks
   // nothing current and shows no settings navigation (the spec's BPMN answers
   // «… не найдена» before that decision).
   const { registerNotFound } = usePageChrome();
-  useLayoutEffect(() => registerNotFound(), [registerNotFound]);
+  useLayoutEffect(
+    () => (keepNavigation ? undefined : registerNotFound()),
+    [registerNotFound, keepNavigation],
+  );
 
   return (
     <StateFrame

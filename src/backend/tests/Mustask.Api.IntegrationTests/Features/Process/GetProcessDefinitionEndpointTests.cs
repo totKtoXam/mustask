@@ -1,10 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Mustask.Api.IntegrationTests.Features.Organizations;
 using Mustask.Application.Abstractions;
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
 using Mustask.Application.Features.Process;
 using Mustask.Domain.Identity;
+using Mustask.Domain.Organizations;
 using Mustask.Domain.Process;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,10 +17,11 @@ namespace Mustask.Api.IntegrationTests.Features.Process;
 /// <summary>
 /// US-2 (mod-001-process-seed): <c>GET /api/organizations/{organizationId}/process</c>
 /// through the real host and a real PostgreSQL, the contract of api-contract.md § 1.
-/// Every test seeds its own fresh organization identifier through the seam
-/// (<see cref="IProcessSeed"/> inside <see cref="IUnitOfWork"/>), so no test counts
-/// processes globally: the shared database also holds the Development stand's
-/// demonstration process.
+/// Since mod-002 the read runs behind the organization-context filter (mod-002
+/// D-g, its api-contract § 9), so every test creates a real organization: its
+/// process seeded through the seam (<see cref="IProcessSeed"/> inside
+/// <see cref="IUnitOfWork"/>) and its row stored, as organization creation does.
+/// No test counts processes globally: the database is shared.
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]
@@ -54,14 +58,9 @@ public sealed class GetProcessDefinitionEndpointTests(MustaskApiFactory factory)
 
     private async Task<(Guid OrganizationId, ProcessId Id)> SeedOrganizationAsync()
     {
-        var organizationId = Guid.NewGuid();
-        using var scope = factory.Services.CreateScope();
-        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-        var seed = scope.ServiceProvider.GetRequiredService<IProcessSeed>();
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
 
-        var id = await unitOfWork.ExecuteInTransactionAsync(ct => seed.SeedAsync(organizationId, ct), CancellationToken.None);
-
-        return (organizationId, id);
+        return (organization.Id, organization.ProcessId);
     }
 
     private async Task<(HttpResponseMessage Response, JsonElement Body)> GetAsync(string organizationId, string? accessToken)
@@ -309,10 +308,11 @@ public sealed class GetProcessDefinitionEndpointTests(MustaskApiFactory factory)
 
     // QA pass 1 (qa.md A-8) · api-contract § 2: "Until the caller commits, no other session sees the process." A read
     // racing an organization's creation sees nothing, never a half-built process, and the whole process after the commit.
+    // Since mod-002 the open operation is the organization's creation itself: the seed, then the organization's row.
     [Fact]
     public async Task Get_WhileTheSeedingOperationIsOpen_IsNotFoundUntilItCommits()
     {
-        var organizationId = Guid.NewGuid();
+        var organizationId = Guid.CreateVersion7();
         var seeded = new TaskCompletionSource<ProcessId>(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -321,11 +321,19 @@ public sealed class GetProcessDefinitionEndpointTests(MustaskApiFactory factory)
             using var scope = factory.Services.CreateScope();
             var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
             var seed = scope.ServiceProvider.GetRequiredService<IProcessSeed>();
+            var organizations = scope.ServiceProvider.GetRequiredService<IOrganizationRepository>();
 
             return await unitOfWork.ExecuteInTransactionAsync(
                 async ct =>
                 {
                     var id = await seed.SeedAsync(organizationId, ct);
+                    organizations.Add(Organization.Create(
+                        organizationId,
+                        OrganizationsTestData.Name(OrganizationsTestData.UniqueName()),
+                        id,
+                        OrganizationsTestData.Now,
+                        OrganizationsTestData.Creator));
+                    await organizations.SaveAsync(ct);
                     seeded.SetResult(id);
                     await release.Task;
 
@@ -474,10 +482,49 @@ public sealed class GetProcessDefinitionEndpointTests(MustaskApiFactory factory)
             .ToList();
         Assert.Equal(["GET /api/organizations/{organizationId}/process"], ofTheModule);
 
-        // Nothing under /api/organizations changes anything.
+        // Nothing changes a process: every operation on a process path is a read. (Since mod-002, the organizations
+        // module writes under /api/organizations, so the rule is about the process paths, not the whole prefix.)
         Assert.All(
-            operations.Where(operation => operation.Path.StartsWith("/api/organizations", StringComparison.Ordinal)),
+            operations.Where(operation => operation.Path.Contains("/process", StringComparison.OrdinalIgnoreCase)),
             operation => Assert.Equal("GET", operation.Method));
+    }
+
+    // mod-002 US-2 · "A deactivated organization answers not found" (its D-g): the process read answers
+    // organizations.organization.not_found for a deactivated organization, and the process again once it is restored.
+    [Fact]
+    public async Task Get_DeactivatedOrganization_Returns404_RestoredAnswersAgain()
+    {
+        var (organizationId, processId) = await SeedOrganizationAsync();
+
+        await OrganizationsTestData.SetOrganizationStatusAsync(factory, organizationId, OrganizationStatus.Deactivated);
+        var (deactivated, deactivatedBody) = await GetAsync(organizationId.ToString(), SignedIn());
+
+        await OrganizationsTestData.SetOrganizationStatusAsync(factory, organizationId, OrganizationStatus.Active);
+        var (restored, restoredBody) = await GetAsync(organizationId.ToString(), SignedIn());
+
+        Assert.Equal(HttpStatusCode.NotFound, deactivated.StatusCode);
+        Assert.Equal(NotFoundCode, deactivatedBody.GetProperty("errorCode").GetString());
+        Assert.False(deactivatedBody.TryGetProperty("workItemTypes", out _));
+        Assert.Equal(HttpStatusCode.OK, restored.StatusCode);
+        Assert.Equal(processId.Value, restoredBody.GetProperty("id").GetGuid());
+    }
+
+    // mod-002 api-contract § 9: a process with no organization row (as the old demonstration seed left one) is not found.
+    [Fact]
+    public async Task Get_ProcessWithoutAnOrganization_Returns404()
+    {
+        var organizationId = Guid.CreateVersion7();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+            var seed = scope.ServiceProvider.GetRequiredService<IProcessSeed>();
+            await unitOfWork.ExecuteInTransactionAsync(ct => seed.SeedAsync(organizationId, ct), CancellationToken.None);
+        }
+
+        var (response, body) = await GetAsync(organizationId.ToString(), SignedIn());
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(NotFoundCode, body.GetProperty("errorCode").GetString());
     }
 
     private static int CountNulls(JsonElement element) => element.ValueKind switch

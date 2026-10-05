@@ -228,6 +228,30 @@ disabled (ADR-0012). Rules mandatory for every slice:
   enabled based on profiling data, not preemptively; pooling additionally
   requires the context to stay stateless.
 
+### Soft removal
+
+Organizations, projects and teams are removed softly, and nothing is
+purged ([ADR-0026](../adr/0026-soft-deactivation-by-status.md)).
+
+- **A status on the object's own row.** Each removable entity has a
+  closed status enum, stored as text. A removal or a restore writes that
+  one row, and nothing beneath it changes status. A container's removal
+  hides what is beneath it through reachability, not through a cascade.
+- **No global query filter.** Every read says what it wants. Lists and
+  pickers want reachable, active objects. A deactivated list wants the
+  deactivated objects of a reachable container. A by-id read for another
+  module wants the object with its status, reachable or not.
+- **Reachability is checked in one place per module.** For M1 that is
+  `Mustask.Infrastructure/Organizations/Reachability.cs`, and at the
+  boundary the organization-context endpoint filter. An unreachable
+  object answers its level's not-found code, never "deactivated".
+- **Reservation is a unique index.** A name that stays reserved gets a
+  unique index over all rows. A name freed by removal gets a partial
+  unique index over active rows. Both index the normalized value.
+- **Other modules read the status** through the owning module's read
+  interface, at read time, and apply it to their own data. They never
+  copy it and never subscribe to it.
+
 ## Named values
 
 A literal in code is acceptable only if it carries no domain meaning (a

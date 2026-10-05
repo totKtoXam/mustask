@@ -6,6 +6,7 @@ using Mustask.Api.Authentication;
 using Mustask.Api.Authentication.Readiness;
 using Mustask.Api.Authorization;
 using Mustask.Api.Features.Dictionaries;
+using Mustask.Api.Features.Organizations;
 using Mustask.Api.Features.Process;
 using Mustask.Api.Features.Session;
 using Mustask.Api.Features.UserDirectory;
@@ -13,6 +14,7 @@ using Gridify;
 using Mustask.Application;
 using Mustask.Domain.UserDirectory;
 using Mustask.Infrastructure;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Scalar.AspNetCore;
@@ -74,17 +76,6 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 builder.AddInfrastructure();
 builder.Services.AddApplication();
 
-// mod-001 (status.md D-4): the Development stand seeds one process for a fixed
-// demonstration organization at start, so the read-only process screen has data
-// before organization creation exists. Development only -- never AppHost, never
-// another environment. Registered after AddInfrastructure on purpose: hosted
-// services start in registration order, and the dictionaries seed with its
-// migrations guard must run first. mod-002 removes this line (mod-002 D-h).
-if (builder.Environment.IsDevelopment())
-{
-    builder.Services.AddHostedService<DemonstrationProcessSeed>();
-}
-
 builder.Services.AddOpenApi();
 
 // CORS — только для локальной разработки: в Aspire фронтенд (Vite dev-сервер)
@@ -131,6 +122,11 @@ builder.Services.AddMustaskErrorHandling();
 // Регистрирует и аутентификацию (JwtBearer), и авторизацию (политики по
 // правам + deny-all fallback) — см. Authentication/JwtBearerSetup.cs.
 builder.Services.AddMustaskAuthentication();
+
+// mod-002 D-p: an endpoint that names its own forbidden code (WithForbiddenErrorCode)
+// answers it instead of the platform's http.forbidden; every other endpoint, and
+// every challenge, keeps the framework's behaviour.
+builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, ForbiddenErrorCodeResultHandler>();
 
 // Current-user resolution for feature slices that record an author:
 // reads name/preferred_username off the authenticated Keycloak
@@ -302,6 +298,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapDictionaryEndpoints();
+app.MapOrganizationEndpoints();
 app.MapProcessEndpoints();
 app.MapSessionEndpoints();
 app.MapUserDirectoryEndpoints();

@@ -64,20 +64,29 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () =>
       'Бэклоги',
       'Спринты',
       'Запросы',
-      'Проект',
-      ...(organizationHidden ? ['Организация', 'Процесс'] : []),
+      // mod-002: «Проект» holds built pages now, hidden only on the placeholder.
+      ...(organizationHidden ? ['Организация', 'Процесс', 'Проект'] : []),
     ]) {
       expect(shown).not.toContain(label);
     }
   });
 
-  it('registers only built pages: «Главная», «Организация» → «Процесс» and «Справочники» → «Языки»', () => {
+  it('registers only built pages: «Главная», «Организация» → «Общие», «Проекты», «Процесс», «Проект» → «Общие», «Команды», «Области» and «Справочники» → «Языки»', () => {
     const registered = [
       ...navigationModel.top,
       ...navigationModel.work,
       ...navigationModel.settings.flatMap((section) => section.entries),
     ];
-    expect(registered.map((entry) => entry.label)).toEqual(['Главная', 'Процесс', 'Языки']);
+    expect(registered.map((entry) => entry.label)).toEqual([
+      'Главная',
+      'Общие',
+      'Проекты',
+      'Процесс',
+      'Общие',
+      'Команды',
+      'Области',
+      'Языки',
+    ]);
   });
 });
 
@@ -103,7 +112,7 @@ describe('mod-001 US-2 Scenario: No visible entry or link leads to the screen be
     const section = navigationModel.settings.find((candidate) => candidate.id === 'organization');
 
     expect(section?.label).toBe('Организация');
-    expect(section?.entries.map((entry) => entry.label)).toEqual(['Процесс']);
+    expect(section?.entries.map((entry) => entry.label)).toEqual(['Общие', 'Проекты', 'Процесс']);
     expect(processEntry().landing({ organizationId: DEMONSTRATION_ID })).toBe(
       `/organizations/${DEMONSTRATION_ID}/settings/process`,
     );
@@ -122,12 +131,12 @@ describe('mod-001 US-2 Scenario: No visible entry or link leads to the screen be
     expect(labels(visible)).not.toContain('Процесс');
   });
 
-  it('is shown once the context is real, and «Настройки» then opens it first (BR-19)', () => {
+  it('is shown once the context is real, and «Настройки» then opens the organization’s «Общие» first (BR-19, mod-002 design § 2.1)', () => {
     const visible = visibleModel(navigationModel, allowEverything, real);
 
     expect(isEntryVisible(processEntry(), allowEverything, real)).toBe(true);
     expect(visible.settings[0]?.section.label).toBe('Организация');
-    expect(visible.settingsLanding).toBe('/organizations/org-1/settings/process');
+    expect(visible.settingsLanding).toBe('/organizations/org-1/settings/general');
   });
 });
 

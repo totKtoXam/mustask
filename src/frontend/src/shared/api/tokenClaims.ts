@@ -10,6 +10,7 @@
 const AUDIENCE = 'mustask-api';
 
 interface AccessTokenPayload {
+  sub?: string;
   name?: string;
   preferred_username?: string;
   exp?: number;
@@ -17,6 +18,11 @@ interface AccessTokenPayload {
 }
 
 export interface AccessTokenClaims {
+  /**
+   * The user's subject (`sub`), '' when absent: the key of what the panel
+   * remembers per user, such as the work context (mod-002 design § 3.4).
+   */
+  subject: string;
   /** `name` → `preferred_username` → пустая строка. */
   displayName: string;
   /** Только `resource_access.mustask-api.roles` — `realm_access` и другие клиенты не читаются. */
@@ -49,6 +55,7 @@ function decodePayload(token: string): AccessTokenPayload {
 export function decodeAccessToken(token: string): AccessTokenClaims {
   const payload = decodePayload(token);
   return {
+    subject: typeof payload.sub === 'string' ? payload.sub : '',
     displayName: payload.name ?? payload.preferred_username ?? '',
     permissions: payload.resource_access?.[AUDIENCE]?.roles ?? [],
     expiresAt: typeof payload.exp === 'number' ? payload.exp * 1000 : NaN,

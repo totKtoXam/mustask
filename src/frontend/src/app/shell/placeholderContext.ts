@@ -9,8 +9,11 @@ import {
 } from '../../shared/lib/workContext';
 
 /**
- * The switcher data registry until mod-002 (US-5, BR-11): the fixed
- * placeholder dataset, shipped with the panel. Ids follow the prototype's.
+ * The switcher's data before mod-002 (US-5, BR-11): the fixed placeholder
+ * dataset. Ids follow the prototype's. The product no longer mounts it —
+ * `AppLayout` reads mod-002's real lists (its D-o) — and it stays as the
+ * shell tests' static source: `renderShell` hands it to the shell when a
+ * test passes none (mod-002 plan-frontend § 2.4).
  */
 export const PLACEHOLDER_ORGANIZATIONS: readonly WorkContextOrganization[] = [
   {
@@ -69,7 +72,7 @@ export function useStaticContextSource(
   );
 }
 
-/** The shell's source until mod-002 replaces it (design § 5.7). */
+/** The placeholder dataset as a source (the shell's before mod-002, design § 5.7). */
 export function usePlaceholderContextSource(): WorkContextSource {
   return useStaticContextSource(PLACEHOLDER_ORGANIZATIONS);
 }

@@ -1,0 +1,1383 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mustask</title>
+<!--
+  mod-002 clickable prototype (docs/features/mod-002-organizations-projects-teams/design.md, § 17).
+  Self-contained: inline CSS with mod-015's theme tokens, inline SVG copies of Material icon glyphs, vanilla JS.
+  Loads nothing from any host and adds no dependency.
+  Every product string is the final Russian copy of design.md and the stories.
+  The shell around the pages is a simplified copy of mod-015's prototype; mod-015's design governs it.
+  As mod-015's shell does, it derives the settings page, the current entry and the trail from the
+  navigation model and the address; no page sets them (design.md § 2.1).
+  The yellow dashed «Панель прототипа» and the dashed notes are prototype tooling, not design.
+-->
+<style>
+:root{
+  /* colour roles (mod-015 design.md § 2.1) */
+  --app-bg:#F8F8F8; --nav:#EBEBEB; --nav-hover:#E2E2E2; --nav-sel:#DCDCDC; --paper:#FFFFFF;
+  --text:#242424; --text2:#616161; --accent:#0F6CBD; --accent-dark:#0C5598; --white:#FFFFFF;
+  --divider:#E0E0E0; --input-border:#8A8A8A; --table-head:#F3F3F3; --hover:#F0F0F0; --row-sel:#E5F0FA;
+  --error:#C42B1C; --warning:#9D5D00; --success:#107C10; --info:#01579B;
+  --error-bg:#FDEDED; --error-ink:#5F2120; --info-bg:#E5F6FD; --info-ink:#014361;
+  --disabled:#9E9E9E; --disabled-bg:#E6E6E6; --chip:#EBEBEB;
+  /* layout and density (mod-015 design.md § 2.5) */
+  --topbar:48px; --nav-w:240px; --rail-w:48px; --snav-w:240px; --form-w:480px;
+  --row-h:36px; --ctl-h:32px; --radius:4px; --avatar:32px;
+  --shadow-menu:0 5px 5px -3px rgba(0,0,0,.2),0 8px 10px 1px rgba(0,0,0,.14),0 3px 14px 2px rgba(0,0,0,.12);
+  --shadow-dialog:0 11px 15px -7px rgba(0,0,0,.2),0 24px 38px 3px rgba(0,0,0,.14),0 9px 46px 8px rgba(0,0,0,.12);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:Roboto,"Segoe UI",system-ui,Arial,sans-serif;font-size:14px;line-height:20px;color:var(--text);background:var(--app-bg)}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+button{font:inherit;color:inherit}
+:focus{outline:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ic{flex:none;display:inline-block;vertical-align:middle}
+.grow{flex:1 1 auto}
+.muted{color:var(--text2)}
+.cap{font-size:12px;line-height:16px;color:var(--text2)}
+
+/* skip link */
+.skip{position:fixed;left:8px;top:-60px;z-index:2000;background:var(--paper);padding:8px 12px;border-radius:var(--radius);box-shadow:var(--shadow-menu)}
+.skip:focus{top:8px}
+
+/* top bar */
+.topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar);background:var(--paper);border-bottom:1px solid var(--divider);display:flex;align-items:center;gap:8px;padding:0 16px;z-index:1200;min-width:0}
+.mark{font-size:16px;font-weight:500;color:var(--text);white-space:nowrap;padding:4px;border-radius:var(--radius)}
+.mark:hover{text-decoration:none;background:var(--hover)}
+.sw{display:flex;align-items:center;gap:2px;min-width:0}
+.sw-level{display:inline-flex;align-items:center;gap:2px;height:var(--ctl-h);padding:0 4px 0 8px;border:0;background:none;border-radius:var(--radius);cursor:pointer;min-width:0;color:var(--text)}
+.sw-level:hover{background:var(--hover)}
+.sw-level[aria-expanded=true]{background:var(--nav-sel)}
+.sw-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
+.sep{color:var(--text2);padding:0 2px}
+.sw-empty{color:var(--text2);padding:0 8px;white-space:nowrap}
+a.sw-empty{color:var(--accent)}
+.sw-fail{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.sw .sk{width:120px;height:24px}
+.sw-sk{display:inline-flex;align-items:center;gap:2px}
+.vdiv{width:1px;align-self:stretch;margin:12px 6px;background:var(--divider);flex:none}
+.trail{min-width:0;overflow:hidden}
+.trail ol{display:flex;list-style:none;margin:0;padding:0;align-items:center;gap:6px;color:var(--text2);min-width:0}
+.trail li{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trail li.tsep{flex:none}
+.avatar-btn{border:0;background:none;padding:4px;border-radius:50%;cursor:pointer;flex:none}
+.avatar-btn:hover{background:var(--hover)}
+.avatar{width:var(--avatar);height:var(--avatar);border-radius:50%;background:var(--text2);color:var(--white);display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:500}
+@media (max-width:1279px){.sw-name{max-width:160px}}
+@media (max-width:1023px){.sw-name{max-width:96px}.sw-fail-text{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
+
+/* navigation */
+.navwrap{position:fixed;top:var(--topbar);bottom:0;left:0;display:flex;z-index:1100}
+.mainnav{width:var(--nav-w);background:var(--nav);display:flex;flex-direction:column;transition:width 150ms ease;overflow-x:hidden;overflow-y:auto}
+.mainnav.rail{width:var(--rail-w)}
+.navlist{list-style:none;margin:0;padding:4px 0}
+.navlist.bottom{margin-top:auto;border-top:1px solid var(--divider)}
+.navitem{display:flex;align-items:center;gap:12px;height:40px;padding:0 14px;color:var(--text);border:0;background:none;width:100%;cursor:pointer;position:relative;white-space:nowrap;text-align:left}
+.navitem:hover{background:var(--nav-hover);text-decoration:none}
+.navitem.sel{background:var(--nav-sel);font-weight:500}
+.navitem.sel::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
+.navitem:focus-visible{outline-offset:-2px}
+.rail .navitem{justify-content:center;padding:0}
+.setnav{width:var(--snav-w);background:var(--nav);border-left:1px solid var(--divider);overflow-y:auto;padding:12px 0}
+.setnav-title{font-size:16px;line-height:24px;font-weight:500;margin:0 16px 4px}
+.setnav ul{list-style:none;margin:0;padding:0}
+.subheader{font-weight:500;padding:10px 16px 4px}
+.navitem.set{padding-left:32px;height:36px}
+@media (prefers-reduced-motion:reduce){.mainnav{transition:none}.sk{animation:none!important}.drawer-anim{animation:none!important}}
+.backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1300}
+.overlay{position:fixed;top:0;bottom:0;left:0;display:flex;z-index:1301;box-shadow:var(--shadow-dialog);animation:slidein 180ms ease}
+.overlay .mainnav,.overlay .setnav{padding-top:8px}
+@keyframes slidein{from{transform:translateX(-100%)}to{transform:none}}
+
+/* main region */
+.main{padding:var(--topbar) 24px 64px;min-height:100vh}
+body[data-nav=expanded] .main{margin-left:var(--nav-w)}
+body[data-nav=rail] .main{margin-left:var(--rail-w)}
+body[data-nav=settings] .main{margin-left:calc(var(--rail-w) + var(--snav-w))}
+body[data-nav=overlay] .main{margin-left:0;padding-left:16px;padding-right:16px}
+.main:focus-visible{outline-offset:-2px}
+
+/* page header */
+.ph{padding:16px 0 8px}
+.ph-trail{margin-bottom:4px}
+.ph-row{display:flex;align-items:flex-start;gap:16px}
+.ph-title{font-size:20px;line-height:28px;font-weight:500;margin:2px 0;flex:1 1 200px;min-width:160px;overflow-wrap:anywhere}
+.cmdbar{display:flex;align-items:center;gap:8px;flex:0 1 auto;min-width:0;overflow:hidden;min-height:38px;padding:3px}
+.cmdbar .hidden{display:none}
+.tabs{display:flex;gap:20px;margin-top:4px}
+.tab{padding:8px 0 6px;color:var(--text2);border-bottom:2px solid transparent;font-weight:500;white-space:nowrap}
+.tab:hover{color:var(--text);text-decoration:none}
+.tab[aria-selected=true]{color:var(--text);border-bottom-color:var(--accent)}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;min-height:var(--ctl-h);padding:4px 12px;border-radius:var(--radius);border:1px solid transparent;font-weight:500;cursor:pointer;white-space:nowrap;background:none;color:var(--text);flex:none}
+.btn .lead{color:var(--accent)}
+.btn:hover{background:var(--hover);text-decoration:none}
+.btn.contained{background:var(--accent);color:var(--white)}
+.btn.contained .lead{color:inherit}
+.btn.contained:hover{background:var(--accent-dark)}
+.btn.outlined{border-color:var(--input-border);background:var(--paper)}
+.btn.outlined:hover{background:var(--hover)}
+.btn.danger{background:var(--error);color:var(--white)}
+.btn.sm{min-height:28px;padding:2px 8px}
+.btn:disabled,.btn:disabled:hover{color:var(--disabled);background:none;cursor:default}
+.btn.contained:disabled,.btn.danger:disabled{background:var(--disabled-bg);color:var(--disabled)}
+.btn:disabled .lead{color:var(--disabled)}
+.iconbtn{width:var(--ctl-h);height:var(--ctl-h);display:inline-flex;align-items:center;justify-content:center;border:0;background:none;border-radius:50%;cursor:pointer;color:var(--text);flex:none}
+.iconbtn:hover{background:var(--hover)}
+.iconbtn.sm{width:28px;height:28px}
+.iconbtn:disabled{color:var(--disabled);cursor:default;background:none}
+.spinner{width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .8s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* text fields */
+.tf{position:relative;display:flex;flex-direction:column;width:100%}
+.tf>label{position:absolute;top:-8px;left:9px;padding:0 4px;background:var(--paper);font-size:12px;line-height:16px;color:var(--text2);pointer-events:none;z-index:1}
+.tf input,.tf select{height:38px;padding:8px 10px;border:1px solid var(--input-border);border-radius:var(--radius);font:inherit;color:var(--text);background:var(--paper);width:100%}
+.tf input:focus,.tf select:focus{outline:none;border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.tf input:disabled,.tf select:disabled{color:var(--disabled);border-color:var(--disabled-bg)}
+.tf .help{font-size:12px;line-height:16px;color:var(--text2);margin:3px 12px 0}
+.tf.err input,.tf.err select{border-color:var(--error)}
+.tf.err .help,.tf.err>label{color:var(--error)}
+.tf.combo input{padding-right:40px}
+.tf .popup-ind{position:absolute;right:4px;top:3px}
+.combo-list{list-style:none;margin:4px 0 0;padding:4px 0;border-radius:var(--radius);max-height:220px;overflow:auto;background:var(--paper);box-shadow:var(--shadow-menu)}
+.combo-list li{padding:6px 12px;cursor:pointer;display:flex;justify-content:space-between;gap:12px}
+.combo-list li:hover,.combo-list li.active{background:var(--hover)}
+.combo-list li.none{cursor:default;color:var(--text2)}
+
+/* panels, tables, facts */
+.panel{background:var(--paper);border:1px solid var(--divider);border-radius:var(--radius)}
+.panel.pad{padding:24px}
+.facts-panel{max-width:var(--form-w)}
+.facts{display:grid;grid-template-columns:200px minmax(0,1fr);gap:12px 16px;margin:0}
+.facts dt{font-size:12px;line-height:20px;font-weight:500;color:var(--text2)}
+.facts dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.facts dd .cap{display:block;margin-top:2px}
+@media (max-width:900px){.facts{grid-template-columns:minmax(0,1fr);gap:0}.facts dd{margin-bottom:12px}}
+.tablewrap{background:var(--paper);border:1px solid var(--divider);border-radius:var(--radius);overflow-x:auto}
+table.t{width:100%;border-collapse:collapse}
+.t th{height:var(--row-h);background:var(--table-head);font-size:12px;line-height:16px;font-weight:500;color:var(--text2);text-align:left;padding:4px 12px;border-bottom:1px solid var(--divider);white-space:nowrap}
+.t td{height:var(--row-h);padding:4px 12px;border-bottom:1px solid var(--divider);white-space:nowrap}
+.t tbody tr:hover{background:var(--hover)}
+.t td.actions{text-align:right;padding-top:2px;padding-bottom:2px;width:1%}
+.t td.nm{max-width:420px;overflow:hidden;text-overflow:ellipsis}
+.t td.key{width:160px}
+.treegrid tbody tr{cursor:pointer}
+.treegrid tbody tr[aria-selected=true]{background:var(--row-sel)}
+.treegrid tbody tr:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.tree-name{display:flex;align-items:center;gap:2px;min-width:0}
+.tree-name .nm{overflow:hidden;text-overflow:ellipsis;max-width:360px}
+.tree-gap{display:inline-block;width:28px;flex:none}
+.chip{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:11px;background:var(--chip);font-size:12px;line-height:16px;white-space:nowrap;margin-left:8px;flex:none}
+.sk{display:inline-block;height:20px;width:100%;border-radius:var(--radius);background:var(--disabled-bg);animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+
+/* canon frame and alerts */
+.frame{display:flex;flex-direction:column;align-items:center;text-align:center;padding:64px 16px;gap:8px}
+.frame .frame-ic{color:var(--text2)}
+.frame-h{font-size:16px;line-height:24px;font-weight:500;margin:8px 0 0}
+.frame-h.h1{font-size:20px;line-height:28px}
+.frame-hint{color:var(--text2);margin:0 0 8px;max-width:520px}
+.alert{display:flex;gap:12px;align-items:center;padding:6px 12px;border-radius:var(--radius);margin:8px 0}
+.alert>.ic{align-self:flex-start;margin-top:2px}
+.alert .msg{flex:1;padding:2px 0}
+.alert.error{background:var(--error-bg);color:var(--error-ink)} .alert.error>.ic{color:var(--error)}
+
+/* menus, tooltip, snackbar, dialogs */
+.menu{position:fixed;background:var(--paper);border-radius:var(--radius);box-shadow:var(--shadow-menu);padding:4px 0;min-width:200px;max-width:360px;z-index:1350;max-height:60vh;overflow:auto}
+.mi{display:flex;align-items:center;gap:12px;padding:6px 16px;min-height:36px;cursor:pointer;width:100%;border:0;background:none;text-align:left;color:var(--text)}
+a.mi{color:var(--text)}
+.mi:hover,.mi:focus{background:var(--hover);text-decoration:none}
+.mi:focus-visible{outline-offset:-2px}
+.mi .check{width:20px;flex:none;color:var(--text)}
+.mi.danger{color:var(--error)}
+.mlabel{padding:8px 16px 6px;font-weight:500}
+.msub{padding:6px 16px 4px;font-size:12px;line-height:16px;color:var(--text2);font-weight:500}
+.mdiv{height:1px;background:var(--divider);margin:4px 0}
+#tip{position:fixed;background:rgba(97,97,97,.94);color:var(--white);font-size:12px;line-height:16px;padding:4px 8px;border-radius:var(--radius);max-width:320px;z-index:1500;pointer-events:none;display:none;overflow-wrap:anywhere}
+.snack{position:fixed;left:24px;bottom:24px;z-index:1400;min-width:288px;max-width:560px;border-radius:var(--radius);box-shadow:var(--shadow-menu);padding:10px 16px;background:#323232;color:var(--white)}
+.snack.alertsnack{background:var(--info-bg);color:var(--info-ink);display:flex;gap:10px;align-items:flex-start}
+.snack.alertsnack .ic{color:var(--info)}
+.snack.errsnack{background:var(--error-bg);color:var(--error-ink);display:flex;gap:10px;align-items:flex-start}
+.snack.errsnack .ic{color:var(--error)}
+.dialog{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--paper);border-radius:var(--radius);box-shadow:var(--shadow-dialog);width:calc(100% - 64px);max-width:444px;max-height:calc(100% - 64px);display:flex;flex-direction:column;z-index:1310;margin:0}
+.dialog.sm{max-width:600px}
+.dlg-title{display:flex;align-items:center;gap:8px;padding:16px 16px 12px 24px}
+.dlg-title h2{font-size:16px;line-height:24px;font-weight:500;margin:0;flex:1}
+.dlg-content{padding:4px 24px 8px;overflow:auto;flex:1 1 auto}
+.dlg-content p{margin:0 0 8px}
+.dlg-actions{display:flex;justify-content:flex-end;gap:8px;padding:12px 24px 16px}
+.stack{display:flex;flex-direction:column;gap:20px;padding-top:10px}
+.row{display:flex;align-items:center;gap:8px}
+
+/* prototype tooling — not part of the design */
+.proto{position:fixed;right:12px;bottom:12px;width:360px;max-height:62vh;overflow:auto;background:#FFFBE6;border:2px dashed #B38600;border-radius:6px;z-index:1450;font-size:13px;line-height:18px;padding:10px 12px;color:#3D3000}
+.proto.closed{width:auto;padding:4px 8px}
+.proto h2{font-size:14px;margin:0;flex:1}
+.proto label{display:block;margin:8px 0 2px;font-weight:500}
+.proto select{width:100%;font:inherit;padding:3px}
+.proto .links{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:4px}
+.proto .links a,.proto .links button{color:#6B4E00;text-decoration:underline;border:0;background:none;padding:0;cursor:pointer;font:inherit;text-align:left}
+.proto .sect{border-top:1px dashed #D9B84A;margin-top:10px;padding-top:6px}
+.proto-note{border:1px dashed #B38600;background:#FFFBE6;color:#3D3000;border-radius:var(--radius);padding:8px 12px;margin:8px 0;font-size:13px}
+.snack.proto-snack{background:#FFFBE6;color:#3D3000;border:1px dashed #B38600}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="layer"></div>
+<div id="tip" role="tooltip"></div>
+<aside id="proto" class="proto" aria-label="Панель прототипа"></aside>
+<script>
+'use strict';
+
+/* ---------- Material icon glyphs (24 × 24), copies of the shapes @mui/icons-material renders ---------- */
+const P = {
+  home:'M12 5.69l5 4.5V18h-2v-6H9v6H7v-7.81l5-4.5M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z',
+  listAlt:'M19 5v14H5V5h14m1.1-2H3.9c-.5 0-.9.4-.9.9v16.2c0 .4.4.9.9.9h16.2c.4 0 .9-.5.9-.9V3.9c0-.5-.5-.9-.9-.9zM11 7h6v2h-6V7zm0 4h6v2h-6v-2zm0 4h6v2h-6zM7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7z',
+  settings:'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z',
+  dblLeft:'M17.59 18L19 16.59 14.42 12 19 7.41 17.59 6l-6 6zM11 18l1.41-1.41L7.83 12l4.58-4.59L11 6l-6 6z',
+  dblRight:'M6.41 6L5 7.41 9.58 12 5 16.59 6.41 18l6-6zM13 6l-1.41 1.41L16.17 12l-4.58 4.59L13 18l6-6z',
+  menu:'M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z',
+  expandMore:'M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z',
+  chevRight:'M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z',
+  check:'M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z',
+  add:'M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z',
+  close:'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
+  edit:'M14.06 9.02l.92.92L5.92 19H5v-.92l9.06-9.06M17.66 3c-.25 0-.51.1-.7.29l-1.83 1.83 3.75 3.75 1.83-1.83a.996.996 0 000-1.41l-2.34-2.34c-.2-.2-.45-.29-.71-.29zm-3.6 3.19L3 17.25V21h3.75L17.81 9.94l-3.75-3.75z',
+  archive:'M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM6.24 5h11.52l.81.97H5.44l.8-.97zM5 19V8h14v11H5zm8.45-9h-2.9v3H8l4 4 4-4h-2.55z',
+  move:'M20 6h-8l-2-2H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm0 12H4V6h5.17l2 2H20v10zm-7.84-6H8v2h4.16l-1.59 1.59L11.99 17 16 13.01 11.99 9l-1.41 1.41L12.16 12z',
+  group:'M9 13.75c-2.34 0-7 1.17-7 3.5V19h14v-1.75c0-2.33-4.66-3.5-7-3.5zM4.34 17c.84-.58 2.87-1.25 4.66-1.25s3.82.67 4.66 1.25H4.34zM9 12c1.93 0 3.5-1.57 3.5-3.5S10.93 5 9 5 5.5 6.57 5.5 8.5 7.07 12 9 12zm0-5c.83 0 1.5.67 1.5 1.5S9.83 10 9 10s-1.5-.67-1.5-1.5S8.17 7 9 7zm7.04 6.81c1.16.84 1.96 1.96 1.96 3.44V19h4v-1.75c0-2.02-3.5-3.17-5.96-3.44zM15 12c1.93 0 3.5-1.57 3.5-3.5S16.93 5 15 5c-.54 0-1.04.13-1.5.35.63.89 1 1.98 1 3.15s-.37 2.26-1 3.15c.46.22.96.35 1.5.35z',
+  tree:'M22 11V3h-7v3H9V3H2v8h7V8h2v10h4v3h7v-8h-7v3h-2V8h2v3h7zM7 9H4V5h3v4zm10 6h3v4h-3v-4zm0-10h3v4h-3V5z',
+  more:'M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z',
+  logout:'M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z',
+  del:'M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z',
+  restore:'M13 3a9 9 0 00-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0013 21a9 9 0 000-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z',
+  errorOutline:'M11 15h2v2h-2zm0-8h2v6h-2zm.99-5C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z',
+  info:'M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z',
+  inbox:'M19 3H4.99c-1.11 0-1.98.89-1.98 2L3 19c0 1.1.88 2 1.99 2H19c1.1 0 2-.9 2-2V5c0-1.11-.9-2-2-2zm0 16H5v-3h3.56c.69 1.19 1.97 2 3.45 2s2.75-.81 3.45-2H19v3zm0-5h-4.99c0 1.1-.9 2-2 2s-2-.9-2-2H5V5h14v9z',
+  searchOff:'M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 009.5 3C6.08 3 3.28 5.64 3.03 9h2.02C5.3 6.75 7.18 5 9.5 5 11.99 5 14 7.01 14 9.5S11.99 14 9.5 14c-.17 0-.33-.03-.5-.05v2.02c.17.02.33.03.5.03 1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zM6.47 10.82L4 13.29l-2.47-2.47-.71.71L3.29 14 .82 16.47l.71.71L4 14.71l2.47 2.47.71-.71L4.71 14l2.47-2.47z',
+  help:'M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z'
+};
+function ic(name, o){
+  o = o || {};
+  const s = o.size || 20;
+  const st = o.color ? ' style="color:' + o.color + '"' : '';
+  return '<svg class="ic ' + (o.cls || '') + '" width="' + s + '" height="' + s + '" viewBox="0 0 24 24" aria-hidden="true" focusable="false"' + st + '><path fill="currentColor" d="' + (P[name] || P.help) + '"/></svg>';
+}
+const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- names and order (design.md § 4.6) ---------- */
+const COLL = new Intl.Collator('ru', {sensitivity:'base'});
+const byName = (a, b) => COLL.compare(a.name, b.name);
+const norm = (s) => String(s).trim().toLocaleLowerCase('ru');
+const same = (a, b) => norm(a) === norm(b);   /* BR-M1-1: letter case and surrounding spaces are ignored */
+
+/* ---------- the in-memory model stands in for the API ---------- */
+let SEQ = 0;
+const newId = (p) => p + '-n' + (++SEQ);
+function dataset(kind){
+  const D = {orgs:[], projects:[], teams:[], areas:[]};
+  if (kind === 'noOrgs') return D;
+  const org = (id, name, status) => D.orgs.push({id, name, status:status || 'Active'});
+  /* BR-M1-9, BR-M1-11: a project comes with its first team and its root area, the team's default */
+  const prj = (id, orgId, name, key, status) => {
+    D.projects.push({id, orgId, name, key, status:status || 'Active'});
+    D.teams.push({id:'team-' + id.slice(4), projectId:id, name, status:'Active', first:true, defaultAreaId:'area-' + id.slice(4)});
+    D.areas.push({id:'area-' + id.slice(4), projectId:id, parentId:null, name, ownerTeamId:'team-' + id.slice(4)});
+  };
+  org('org-alfa', 'Альфа'); org('org-beta', 'Бета'); org('org-gamma', 'Гамма', 'Deactivated');
+  prj('prj-prm', 'org-alfa', 'Пример проекта', 'PRM');
+  prj('prj-anl', 'org-alfa', 'Аналитика', 'ANL');
+  prj('prj-old', 'org-alfa', 'Старый проект', 'OLD', 'Deactivated');
+  prj('prj-rep', 'org-beta', 'Отчётность', 'REP');
+  prj('prj-arc', 'org-gamma', 'Архивный проект', 'ARC');
+  if (kind === 'rootOnly') return D;
+  const team = (id, name, status, defaultAreaId) => D.teams.push({id, projectId:'prj-prm', name, status:status || 'Active', first:false, defaultAreaId});
+  const area = (id, parentId, name, ownerTeamId) => D.areas.push({id, projectId:'prj-prm', parentId, name, ownerTeamId:ownerTeamId || null});
+  team('team-plat', 'Платформа', null, 'area-api');
+  team('team-mob', 'Мобильное приложение', 'Deleted', null);   /* deleted earlier: its area passed to the first team (US-7) */
+  area('area-plat', 'area-prm', 'Платформа', 'team-plat');
+  area('area-api', 'area-plat', 'API', 'team-plat');
+  area('area-gw', 'area-api', 'Шлюз', null);
+  area('area-reports', 'area-prm', 'Отчёты', null);
+  area('area-q', 'area-reports', 'Квартальные', null);
+  area('area-y', 'area-reports', 'Годовые', null);
+  area('area-arch', 'area-prm', 'Архив', null);
+  area('area-mob', 'area-prm', 'Мобильное приложение', 'team-prm');
+  return D;
+}
+const getOrg = (id) => S.db.orgs.find((x) => x.id === id) || null;
+const getPrj = (id) => S.db.projects.find((x) => x.id === id) || null;
+const getTeam = (id) => S.db.teams.find((x) => x.id === id) || null;
+const getArea = (id) => S.db.areas.find((x) => x.id === id) || null;
+function activeOrgs(){ return S.db.orgs.filter((o) => o.status === 'Active').sort(byName); }
+function deactivatedOrgs(){ return S.db.orgs.filter((o) => o.status === 'Deactivated').sort(byName); }
+function projectsOf(orgId, status){ return S.db.projects.filter((p) => p.orgId === orgId && p.status === (status || 'Active')).sort(byName); }
+function teamsOf(prjId){ const t = S.db.teams.filter((x) => x.projectId === prjId && x.status === 'Active'); return t.filter((x) => x.first).concat(t.filter((x) => !x.first).sort(byName)); }
+function firstTeam(prjId){ return S.db.teams.find((t) => t.projectId === prjId && t.first) || null; }
+function rootOf(prjId){ return S.db.areas.find((a) => a.projectId === prjId && !a.parentId) || null; }
+function childrenOf(id){ return S.db.areas.filter((a) => a.parentId === id).sort(byName); }
+function treeOrder(prjId){ const out = []; const walk = (a, level) => { out.push({a, level}); childrenOf(a.id).forEach((c) => walk(c, level + 1)); }; const r = rootOf(prjId); if (r) walk(r, 1); return out; }
+function subtreeIds(id){ let ids = [id]; childrenOf(id).forEach((c) => { ids = ids.concat(subtreeIds(c.id)); }); return ids; }
+/* design.md § 4.6: the path below the root; the root by its own name */
+function areaPath(a){ if (!a.parentId) return a.name; const names = []; let x = a; while (x && x.parentId) { names.unshift(x.name); x = getArea(x.parentId); } return names.join(' / '); }
+/* BR-M1-11: no explicit owner → the nearest explicitly owned ancestor's */
+function owner(a){ let x = a, inherited = false; while (x && !x.ownerTeamId) { x = getArea(x.parentId); inherited = true; } return {team:x ? getTeam(x.ownerTeamId) : null, inherited}; }
+function defaultTeamOf(a){ return S.db.teams.find((t) => t.status === 'Active' && t.defaultAreaId === a.id) || null; }
+
+/* ---------- state ---------- */
+const CTX_KEY = 'mustask.context.proto-user';   /* design.md § 3.4: mustask.context.<sub>; the prototype's subject */
+const NAV_KEY = 'mustask.navigation';
+function storeGet(k){ try { return localStorage.getItem(k); } catch (e) { return null; } }
+function storeSet(k, v){ try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* storage blocked: nothing is remembered, nothing fails */ } }
+function readRemembered(){
+  try { const v = JSON.parse(storeGet(CTX_KEY) || 'null'); return v && typeof v === 'object' ? {org:v.organizationId || null, prj:v.projectId || null, team:v.teamId || null} : null; }
+  catch (e) { return null; }
+}
+function remember(){ storeSet(CTX_KEY, JSON.stringify({organizationId:S.ctx.org, projectId:S.ctx.prj, teamId:S.ctx.team})); }
+const S = {
+  db:dataset('example'), datasetKind:'example',
+  canCreate:true, lists:'data', sw:'ready', seedFails:false, restoreFails:false,
+  ctx:{org:null, prj:null, team:null},
+  kept:storeGet(NAV_KEY), overlay:false, menu:null, dialog:null, snack:null, panelOpen:true,
+  restoring:null,
+  tree:{prj:null, expanded:{}, selected:null, focused:null},
+  focusMain:false, pendingFocus:null
+};
+const SW_ORG_DOWN = ['orgLoading','orgFailed'], SW_PRJ_DOWN = ['prjLoading','prjFailed'];
+function orgReal(){ return !SW_ORG_DOWN.includes(S.sw) && !!getOrg(S.ctx.org); }
+function prjReal(){ return orgReal() && !SW_PRJ_DOWN.includes(S.sw) && !!getPrj(S.ctx.prj); }
+
+/* design.md § 3.6: a remembered or chosen entry that is gone is replaced by the first entry of its level;
+   the levels below take their first entries. Returns true when the fallback notice was shown. */
+function fallback(announce){
+  const was = Object.assign({}, S.ctx);
+  let replaced = false;
+  const os = activeOrgs();
+  let o = os.find((x) => x.id === was.org) || null;
+  if (!o && was.org && os.length) replaced = true;
+  if (!o) o = os[0] || null;
+  let p = null, t = null;
+  if (o) {
+    const ps = projectsOf(o.id);
+    p = ps.find((x) => x.id === was.prj) || null;
+    if (!p && was.prj && o.id === was.org && ps.length) replaced = true;
+    if (!p) p = ps[0] || null;
+  }
+  if (p) {
+    const ts = teamsOf(p.id);
+    t = ts.find((x) => x.id === was.team) || null;
+    if (!t && was.team && p.id === was.prj && ts.length) replaced = true;
+    if (!t) t = ts[0] || null;
+  }
+  S.ctx = {org:o ? o.id : null, prj:p ? p.id : null, team:t ? t.id : null};
+  remember();
+  if (announce && replaced) {
+    const parts = [o && o.name, p && p.name, t && t.name].filter(Boolean);
+    notice('Ранее выбранный контекст недоступен. Выбрано: ' + parts.join(' / ') + '.', 'info');
+    return true;
+  }
+  return false;
+}
+
+/* ---------- navigation model: the entries this task registers (design.md § 2.1) ---------- */
+const NAV = [{key:'home', label:'Главная', icon:'home', scope:'instance', landing:() => '/home'}];
+const oBase = (c) => '/organizations/' + c.org, pBase = (c) => oBase(c) + '/projects/' + c.prj;
+const SETTINGS = [
+  {section:'Организация', entries:[
+    {key:'org-general', label:'Общие', scope:'organization', landing:(c) => oBase(c) + '/settings/general'},
+    {key:'org-projects', label:'Проекты', scope:'organization', landing:(c) => oBase(c) + '/settings/projects'},
+    {key:'org-process', label:'Процесс', scope:'organization', landing:(c) => oBase(c) + '/settings/process'}]},
+  {section:'Проект', entries:[
+    {key:'prj-general', label:'Общие', scope:'project', landing:(c) => pBase(c) + '/settings/general'},
+    {key:'prj-teams', label:'Команды', scope:'project', landing:(c) => pBase(c) + '/settings/teams'},
+    {key:'prj-areas', label:'Области', scope:'project', landing:(c) => pBase(c) + '/settings/areas'}]},
+  {section:'Справочники', entries:[
+    {key:'languages', label:'Языки', scope:'instance', landing:() => '/dictionaries/languages'}]}
+];
+const ALL_SETTINGS = SETTINGS.flatMap((s) => s.entries);
+function entryVisible(e){
+  if (e.scope === 'instance') return true;
+  if (e.scope === 'organization') return orgReal();   /* mod-015 § 4.2: a scoped entry needs a real context */
+  if (e.scope === 'project') return prjReal();
+  return false;
+}
+function visibleSettingsSections(){ return SETTINGS.map((s) => ({section:s.section, entries:s.entries.filter(entryVisible)})).filter((s) => s.entries.length); }
+function firstSettings(){ const s = visibleSettingsSections(); return s.length ? s[0].entries[0] : null; }
+function findEntry(key){ return NAV.concat(ALL_SETTINGS).find((e) => e.key === key) || null; }
+
+/* ---------- routing (design.md § 1) ---------- */
+function path(){ return (location.hash.replace(/^#/, '') || '/home').split('?')[0]; }
+function go(p){ if (path() === p) render(); else location.hash = '#' + p; }
+function parseRoute(){
+  const p = path(); const s = p.split('/').filter(Boolean).map((x) => { try { return decodeURIComponent(x); } catch (e) { return x; } });
+  /* entry: the entry whose landing pattern the address is at or beneath; the switch resolver keeps it (design.md § 2.2, § 16) */
+  const R = (o) => Object.assign({path:p, ctx:null, carries:null, entry:null}, o);
+  if (p === '/' || p === '/home') return R({name:'home', entry:'home'});
+  if (p === '/dictionaries/languages') return R({name:'languages', entry:'languages'});
+  if (s[0] === 'organizations') {
+    if (s.length === 1) return R({name:'orgList', tab:'active'});
+    if (s.length === 2 && s[1] === 'deactivated') return R({name:'orgList', tab:'deactivated'});   /* the static segment outranks :organizationId */
+    const o = s[1];
+    const oc = {ctx:{o}, carries:'org'};
+    if (s[2] === 'settings' && s.length === 4 && s[3] === 'general') return R(Object.assign({name:'orgGeneral', entry:'org-general'}, oc));
+    if (s[2] === 'settings' && s.length === 4 && s[3] === 'process') return R(Object.assign({name:'process', entry:'org-process'}, oc));
+    if (s[2] === 'settings' && s[3] === 'projects' && s.length === 4) return R(Object.assign({name:'projects', tab:'active', entry:'org-projects'}, oc));
+    if (s[2] === 'settings' && s[3] === 'projects' && s.length === 5 && s[4] === 'deactivated') return R(Object.assign({name:'projects', tab:'deactivated', entry:'org-projects'}, oc));
+    if (s[2] === 'projects' && s[4] === 'settings') {
+      const pc = {ctx:{o, p:s[3]}, carries:'prj'};
+      const map = {general:['prjGeneral','prj-general'], teams:['teams','prj-teams'], areas:['areas','prj-areas']};
+      if (s.length === 6 && map[s[5]]) return R(Object.assign({name:map[s[5]][0], entry:map[s[5]][1]}, pc));
+      /* DC-4: a team's page is project-level, beneath «Команды»; its team is the page's entity, not a context level */
+      if (s.length === 7 && s[5] === 'teams') return R(Object.assign({name:'team', team:s[6], entry:'prj-teams'}, pc));
+    }
+  }
+  return R({name:'notFound', kind:'page'});
+}
+/* BR-M1-20: the outermost level not found answers; a found context sets the switcher (design.md § 3.4) */
+function resolveRoute(){
+  const r = parseRoute();
+  if (!r.ctx) return r;
+  const nf = (kind) => Object.assign({}, r, {name:'notFound', kind});
+  const o = S.db.orgs.find((x) => x.id === r.ctx.o && x.status === 'Active');
+  if (!o) return nf('organization');
+  let p = null;
+  if (r.ctx.p !== undefined) { p = S.db.projects.find((x) => x.id === r.ctx.p && x.orgId === o.id && x.status === 'Active'); if (!p) return nf('project'); }
+  const before = JSON.stringify(S.ctx);
+  S.ctx.org = o.id;
+  if (p) S.ctx.prj = p.id;
+  else if (!projectsOf(o.id).some((x) => x.id === S.ctx.prj)) S.ctx.prj = (projectsOf(o.id)[0] || {}).id || null;
+  const cp = S.ctx.prj;
+  if (!cp || !teamsOf(cp).some((x) => x.id === S.ctx.team)) S.ctx.team = cp ? (teamsOf(cp)[0] || {}).id || null : null;
+  if (JSON.stringify(S.ctx) !== before) remember();
+  /* the page's own entity, after the context it lives in was found (design.md § 12) */
+  if (r.team !== undefined && !S.db.teams.some((x) => x.id === r.team && x.projectId === p.id && x.status === 'Active')) return nf('team');
+  return r;
+}
+let ROUTE = null;
+
+/* ---------- shell (mod-015 design.md § 3–5) ---------- */
+function navMode(isSettings){
+  const w = window.innerWidth;
+  if (w < 1024) return 'overlay';
+  if (isSettings) return 'settings';
+  return S.kept || (w >= 1280 ? 'expanded' : 'rail');
+}
+function trailHtml(trail){
+  if (!trail || !trail.length) return '';
+  const items = [];
+  trail.forEach((t, i) => {
+    if (i) items.push('<li class="tsep" aria-hidden="true">/</li>');
+    items.push('<li data-tip="' + esc(t.label) + '">' + (t.href ? '<a href="#' + esc(t.href) + '" data-fk="trail-' + i + '">' + esc(t.label) + '</a>' : esc(t.label)) + '</li>');
+  });
+  return '<nav class="trail" aria-label="Путь к странице"><ol>' + items.join('') + '</ol></nav>';
+}
+function swLevel(lv, word, name){
+  const open = S.menu && S.menu.id === 'sw-' + lv;
+  return '<button class="sw-level" data-act="openMenu" data-arg="sw-' + lv + '" data-fk="sw-' + lv + '" aria-haspopup="menu" aria-expanded="' + !!open + '" aria-label="' + word + ': ' + esc(name) + '" data-tip="' + esc(name) + '"><span class="sw-name">' + esc(name) + '</span>' + ic('expandMore', {size:18}) + '</button>';
+}
+function swFailed(text){ return '<span class="sw-fail" data-tip="' + esc(text) + '">' + ic('errorOutline', {color:'var(--error)'}) + '<span class="sw-fail-text">' + esc(text) + '</span></span><button class="btn sm" data-act="swRetry" data-fk="sw-retry">Повторить</button>'; }
+/* design.md § 3.2: mod-015 § 5.4 states plus a lower level that loads or fails on its own, drawn by mod-015's switcher from a status per level once amended (DC-11) */
+function switcher(){
+  const sep = '<span class="sep" aria-hidden="true">/</span>', sk = '<span class="sk"></span>';
+  if (S.sw === 'orgLoading') return '<div class="sw" role="status" aria-label="Загрузка контекста">' + sk + sep + sk + sep + sk + '</div>';
+  if (S.sw === 'orgFailed') return '<div class="sw" role="group" aria-label="Контекст работы">' + swFailed('Не удалось загрузить организации') + '</div>';
+  let h = '<div class="sw" role="group" aria-label="Контекст работы">';
+  const o = getOrg(S.ctx.org);
+  if (!o) return h + '<a class="sw-empty" href="#/organizations" data-fk="sw-none">Нет организаций</a></div>';
+  h += swLevel('org', 'Организация', o.name);
+  if (S.sw === 'prjLoading') return h + sep + '<span class="sw-sk" role="status" aria-label="Загрузка контекста">' + sk + sep + sk + '</span></div>';
+  if (S.sw === 'prjFailed') return h + sep + swFailed('Не удалось загрузить проекты') + '</div>';
+  const p = getPrj(S.ctx.prj);
+  if (!p) return h + sep + '<span class="sw-empty">Нет проектов</span></div>';
+  h += sep + swLevel('prj', 'Проект', p.name);
+  if (S.sw === 'teamLoading') return h + sep + '<span class="sw-sk" role="status" aria-label="Загрузка контекста">' + sk + '</span></div>';
+  if (S.sw === 'teamFailed') return h + sep + swFailed('Не удалось загрузить команды') + '</div>';
+  const t = getTeam(S.ctx.team);
+  if (!t) return h + sep + '<span class="sw-empty">Нет команд</span></div>';
+  return h + sep + swLevel('team', 'Команда', t.name) + '</div>';
+}
+function userButton(){
+  const open = S.menu && S.menu.id === 'user';
+  return '<button class="avatar-btn" data-act="openMenu" data-arg="user" data-fk="user" aria-haspopup="menu" aria-expanded="' + !!open + '" aria-label="Профиль: Иван Петров"><span class="avatar">ИП</span></button>';
+}
+function navItem(e, href, label, icon, rail, current, extra){
+  const cur = current ? ' aria-current="' + current + '"' : '';
+  const tip = rail ? ' aria-label="' + esc(label) + '" data-tip="' + esc(label) + '" data-tip-pos="right"' : '';
+  return '<li><a class="navitem' + (current ? ' sel' : '') + '" href="#' + esc(href) + '" data-fk="nav-' + e + '"' + cur + tip + (extra || '') + '>' + ic(icon) + (rail ? '' : '<span>' + esc(label) + '</span>') + '</a></li>';
+}
+/* mod-015's derivation (its § 4.4; its plan § 4.2, § 4.5): the marker, the settings page and the trail come from
+   the model and the address, never from the page. A visible entry is "page" on its landing, "true" beneath it.
+   A context that is not found is not the switcher's, so its address is beneath no landing (design.md § 12). */
+function markerFor(e, p){
+  if (!entryVisible(e)) return null;
+  const l = e.landing(S.ctx);
+  return p === l ? 'page' : p.startsWith(l + '/') ? 'true' : null;
+}
+const addr = (r) => r.path === '/' ? '/home' : r.path;
+function currentFor(e, r){ return r ? markerFor(e, addr(r)) : null; }
+function settingsHit(r){
+  for (const s of SETTINGS) for (const e of s.entries) { const m = currentFor(e, r); if (m) return {section:s.section, entry:e, marker:m}; }
+  return null;
+}
+function deriveTrail(r){
+  const h = settingsHit(r);
+  if (!h) return null;
+  const t = [{label:'Настройки'}, {label:h.section}];
+  if (h.marker === 'true') t.push({label:h.entry.label, href:h.entry.landing(S.ctx)});
+  return t;
+}
+function mainNav(r, rail, isSettings, inOverlay){
+  const fs = firstSettings();
+  const ov = inOverlay ? ' data-overlay="1"' : '';
+  let h = '<nav class="mainnav' + (rail ? ' rail' : '') + '" aria-label="Основное меню" id="main-nav"><ul class="navlist">';
+  h += NAV.map((e) => navItem(e.key, e.landing(S.ctx), e.label, e.icon, rail, currentFor(e, r), ov)).join('');
+  h += '</ul><ul class="navlist bottom">';
+  if (fs) h += navItem('settings', fs.landing(S.ctx), 'Настройки', 'settings', rail, isSettings ? 'true' : null, ov);
+  if (!isSettings && !inOverlay) h += '<li><button class="navitem" data-act="toggleNav" data-fk="nav-toggle" aria-controls="main-nav" aria-expanded="' + !rail + '"' + (rail ? ' aria-label="Развернуть меню" data-tip="Развернуть меню" data-tip-pos="right"' : '') + '>' + ic(rail ? 'dblRight' : 'dblLeft') + (rail ? '' : '<span>Свернуть меню</span>') + '</button></li>';
+  return h + '</ul></nav>';
+}
+function settingsNav(r, inOverlay){
+  const ov = inOverlay ? ' data-overlay="1"' : '';
+  let h = '<nav class="setnav" aria-label="Меню настроек"><p class="setnav-title">Настройки</p>';
+  visibleSettingsSections().forEach((s) => {
+    h += '<div class="subheader">' + esc(s.section) + '</div><ul>';
+    s.entries.forEach((e) => {
+      const cur = currentFor(e, r);
+      h += '<li><a class="navitem set' + (cur ? ' sel' : '') + '" href="#' + esc(e.landing(S.ctx)) + '" data-fk="set-' + e.key + '"' + (cur ? ' aria-current="' + cur + '"' : '') + ov + '>' + esc(e.label) + '</a></li>';
+    });
+    h += '</ul>';
+  });
+  return h + '</nav>';
+}
+let CMDS = [];
+function pageHeader(pg, narrow){
+  if (pg.noHeader) return '';
+  const tr = narrow && pg.trail && pg.trail.length ? '<div class="ph-trail">' + trailHtml(pg.trail) + '</div>' : '';
+  const cmds = (pg.commands || []).filter(Boolean);
+  CMDS = cmds;
+  const bar = cmds.map((c, i) => '<button class="btn' + (c.primary ? ' contained' : '') + '" data-cmd="' + i + '" data-act="' + c.act + '" data-arg="' + esc(c.arg || '') + '" data-fk="cmd-' + c.fk + '"' + (c.disabled ? ' disabled' : '') + '>' + ic(c.icon, {cls:'lead'}) + esc(c.label) + '</button>').join('');
+  const more = '<button class="iconbtn hidden" data-more="1" data-act="openMenu" data-arg="overflow" data-fk="overflow" aria-label="Ещё действия" aria-haspopup="menu" aria-expanded="' + !!(S.menu && S.menu.id === 'overflow') + '" data-tip="Ещё действия">' + ic('more') + '</button>';
+  const tabs = pg.tabs ? '<div class="tabs" role="tablist" aria-label="' + esc(pg.tabsLabel) + '">' + pg.tabs.map((t, i) => '<a class="tab" role="tab" href="#' + esc(t.href) + '" aria-selected="' + !!t.selected + '" tabindex="' + (t.selected ? 0 : -1) + '" data-fk="tab-' + i + '">' + esc(t.label) + '</a>').join('') + '</div>' : '';
+  return '<div class="ph">' + tr + '<div class="ph-row"><h1 class="ph-title">' + esc(pg.title) + '</h1><div class="cmdbar" data-cmdbar="1">' + bar + more + '</div></div>' + tabs + '</div>';
+}
+/* mod-015 § 6.1: secondary commands move into «Ещё действия» from the end; the primary never moves */
+function fitCommands(){
+  const bar = document.querySelector('[data-cmdbar]'); if (!bar) return;
+  const more = bar.querySelector('[data-more]');
+  bar.querySelectorAll('[data-cmd]').forEach((b) => b.classList.remove('hidden'));
+  more.classList.add('hidden');
+  const secondary = Array.from(bar.querySelectorAll('[data-cmd]')).filter((b) => !CMDS[+b.dataset.cmd].primary);
+  let i = secondary.length - 1;
+  while (bar.scrollWidth > bar.clientWidth + 1 && i >= 0) { more.classList.remove('hidden'); secondary[i].classList.add('hidden'); i--; }
+}
+function shell(r, pg){
+  const narrow = window.innerWidth < 1024;
+  const isSettings = !!settingsHit(r);
+  const mode = navMode(isSettings);
+  document.body.dataset.nav = mode;
+  const rail = mode === 'rail' || mode === 'settings';
+  let h = '<a class="skip" href="#main-content" data-act="skip" data-fk="skip">Перейти к содержимому</a><header class="topbar">';
+  if (narrow) h += '<button class="iconbtn" data-act="overlay" data-fk="menu-btn" aria-label="Меню" aria-expanded="' + S.overlay + '" aria-controls="overlay-nav">' + ic('menu') + '</button>';
+  h += '<a class="mark" href="#/home" data-fk="mark">Mustask</a>' + switcher();
+  if (!narrow && pg.trail && pg.trail.length) h += '<span class="vdiv" aria-hidden="true"></span>' + trailHtml(pg.trail);
+  h += '<span class="grow"></span>' + userButton() + '</header>';
+  if (!narrow) h += '<div class="navwrap">' + mainNav(r, rail, isSettings, false) + (isSettings ? settingsNav(r, false) : '') + '</div>';
+  h += '<main id="main-content" class="main" tabindex="-1">' + pageHeader(pg, narrow) + pg.body + '</main>';
+  if (narrow && S.overlay) h += '<div class="backdrop" data-act="closeOverlay"></div><div class="overlay drawer-anim" id="overlay-nav">' + mainNav(r, isSettings, isSettings, true) + (isSettings ? settingsNav(r, true) : '') + '</div>';
+  return h;
+}
+
+/* ---------- canon (mod-015 design.md § 7) ---------- */
+function frame(o){
+  const lvl = o.level || 2;
+  const act = o.action ? '<button class="btn outlined" data-act="' + o.action.act + '" data-arg="' + esc(o.action.arg || '') + '" data-fk="frame-action">' + (o.action.icon ? ic(o.action.icon, {cls:'lead'}) : '') + esc(o.action.label) + '</button>' : '';
+  return '<div class="frame">' + ic(o.icon, {size:40, cls:'frame-ic'}) + '<h' + lvl + ' class="frame-h' + (lvl === 1 ? ' h1' : '') + '">' + esc(o.heading) + '</h' + lvl + '>' + (o.hint ? '<p class="frame-hint">' + esc(o.hint) + '</p>' : '') + act + '</div>';
+}
+const panelFrame = (o) => '<div class="panel">' + frame(o) + '</div>';
+function errorBanner(){ return '<div class="alert error" role="alert">' + ic('errorOutline') + '<span class="msg">Сервис временно недоступен, повторите позже.</span><button class="btn sm" style="color:inherit" data-act="retry" data-fk="retry">Повторить</button></div>'; }
+function skeletonTable(cols, rows){
+  let h = '<div class="tablewrap" role="status" aria-label="Загрузка данных"><table class="t"><thead><tr>' + cols.map((c) => '<th>' + esc(c) + '</th>').join('') + '</tr></thead><tbody>';
+  for (let i = 0; i < (rows || 5); i++) h += '<tr>' + cols.map(() => '<td><span class="sk"></span></td>').join('') + '</tr>';
+  return h + '</tbody></table></div>';
+}
+function formSkeleton(lines){
+  let h = '<div class="panel pad facts-panel" role="status" aria-label="Загрузка данных">';
+  for (let i = 0; i < lines; i++) h += '<div class="row" style="margin:6px 0"><span class="sk" style="width:160px;flex:none"></span><span class="sk"></span></div>';
+  return h + '</div>';
+}
+const NOT_FOUND = {page:'Страница не найдена', organization:'Организация не найдена', project:'Проект не найден', team:'Команда не найдена'};
+function notFoundPage(r){ const h = NOT_FOUND[r.kind]; return {title:h, noHeader:true, body:frame({level:1, icon:'searchOff', heading:h, hint:'Проверьте адрес или вернитесь на главную.', action:{label:'На главную', icon:'home', act:'go', arg:'/home'}})}; }
+function note(text){ return '<div class="proto-note">Прототип: ' + esc(text) + '</div>'; }
+function facts(rows){ return '<div class="panel pad facts-panel"><dl class="facts">' + rows.map((r) => '<dt>' + esc(r[0]) + '</dt><dd>' + r[1] + '</dd>').join('') + '</dl></div>'; }
+function nameCell(name, href, fk){ return '<td class="nm" data-tip="' + esc(name) + '">' + (href ? '<a href="#' + esc(href) + '" data-fk="' + fk + '">' + esc(name) + '</a>' : esc(name)) + '</td>'; }
+function restoreBtn(kind, x){
+  const busy = S.restoring === x.id;
+  return '<button class="btn sm" data-act="restore" data-arg="' + kind + ':' + x.id + '" data-fk="rs-' + x.id + '" aria-label="Восстановить «' + esc(x.name) + '»"' + (S.restoring ? ' disabled' : '') + '>' + (busy ? '<span class="spinner"></span>' : ic('restore', {cls:'lead', size:18})) + 'Восстановить</button>';
+}
+function tf(o){
+  const id = 'f-' + o.fk;
+  const desc = (o.error || o.help) ? ' aria-describedby="' + id + '-h"' : '';
+  const common = ' id="' + id + '" data-input="' + o.input + '" data-arg="' + esc(o.arg || '') + '" data-fk="' + o.fk + '"' + (o.error ? ' aria-invalid="true"' : '') + desc + (o.required ? ' aria-required="true"' : '') + (o.disabled ? ' disabled' : '');
+  const ctl = o.options
+    ? '<select' + common + '>' + o.options.map((op) => '<option value="' + esc(op[0]) + '"' + (op[0] === o.value ? ' selected' : '') + '>' + esc(op[1]) + '</option>').join('') + '</select>'
+    : '<input type="text" value="' + esc(o.value) + '"' + common + (o.attrs || '') + '>';
+  const help = (o.error || o.help) ? '<span class="help" id="' + id + '-h">' + esc(o.error || o.help) + '</span>' : '';
+  return '<div class="tf' + (o.error ? ' err' : '') + (o.cls ? ' ' + o.cls : '') + '"><label for="' + id + '">' + esc(o.label) + (o.required ? '<span aria-hidden="true"> *</span>' : '') + '</label>' + ctl + (o.after || '') + help + '</div>';
+}
+const ready = () => S.lists === 'data';
+
+/* ---------- pages ---------- */
+function homePage(){ return {title:'Главная', body:'<div class="panel pad"><p style="font-size:16px;line-height:24px;font-weight:500;margin:0 0 8px">Добро пожаловать в Mustask</p><p class="muted" style="margin:0">Mustask — трекер задач. Разделы появятся в меню слева по мере их готовности.</p></div>'}; }
+function languagesPage(){ return {title:'Языки', body:note('страница «Языки» — дизайн mod-015; здесь только её место в настройках.')}; }
+function processPage(){ return {title:'Процесс', body:note('здесь открывается экран процесса mod-001 по адресу /organizations/:organizationId/settings/process; его содержимое — дизайн mod-001. Эта задача только ведёт сюда ссылкой «Процесс» и отвечает «Организация не найдена» для неизвестной или деактивированной организации.')}; }
+
+/* § 5 «Организации» */
+function orgListPage(r){
+  const tabs = [{label:'Активные', href:'/organizations', selected:r.tab === 'active'}, {label:'Деактивированные', href:'/organizations/deactivated', selected:r.tab === 'deactivated'}];
+  const cmds = S.canCreate ? [{label:'Создать организацию', icon:'add', primary:true, act:'dialog', arg:'newOrg', fk:'new-org'}] : [];
+  let body;
+  if (S.lists === 'loading') body = skeletonTable(r.tab === 'active' ? ['Название'] : ['Название', '']);
+  else if (S.lists === 'error') body = errorBanner();
+  else if (r.tab === 'active') {
+    const list = activeOrgs();
+    if (!list.length) body = panelFrame(S.canCreate
+      ? {icon:'inbox', heading:'Организаций пока нет', hint:'Создайте первую организацию кнопкой «Создать организацию» выше.', action:{label:'Создать организацию', icon:'add', act:'dialog', arg:'newOrg'}}
+      : {icon:'inbox', heading:'Организаций пока нет', hint:'Право на создание организаций выдаёт администратор'});
+    else body = '<div class="tablewrap"><table class="t" aria-label="Активные организации"><thead><tr><th>Название</th></tr></thead><tbody>' + list.map((o) => '<tr>' + nameCell(o.name, '/organizations/' + o.id + '/settings/projects', 'ol-' + o.id) + '</tr>').join('') + '</tbody></table></div>';
+  } else {
+    const list = deactivatedOrgs();
+    if (!list.length) body = panelFrame({icon:'inbox', heading:'Деактивированных организаций нет', hint:'Сюда попадают организации, деактивированные в их настройках. Их можно восстановить.'});
+    else body = '<div class="tablewrap"><table class="t" aria-label="Деактивированные организации"><thead><tr><th>Название</th><th></th></tr></thead><tbody>' + list.map((o) => '<tr>' + nameCell(o.name) + '<td class="actions">' + restoreBtn('org', o) + '</td></tr>').join('') + '</tbody></table></div>';
+  }
+  return {title:'Организации', commands:cmds, tabs, tabsLabel:'Организации по статусу', body};
+}
+/* § 6 organization «Общие» */
+function orgGeneralPage(){
+  const o = getOrg(S.ctx.org);
+  const cmds = ready() ? [{label:'Переименовать', icon:'edit', act:'dialog', arg:'renameOrg', fk:'rename'}, {label:'Деактивировать', icon:'archive', act:'dialog', arg:'deactivateOrg', fk:'deactivate'}] : [];
+  const body = S.lists === 'loading' ? formSkeleton(1) : S.lists === 'error' ? errorBanner() : facts([['Название', esc(o.name)]]);
+  return {title:'Общие', commands:cmds, body};
+}
+/* § 7 «Проекты» */
+function projectsPage(r){
+  const o = getOrg(S.ctx.org);
+  const base = '/organizations/' + o.id + '/settings/projects';
+  const tabs = [{label:'Активные', href:base, selected:r.tab === 'active'}, {label:'Деактивированные', href:base + '/deactivated', selected:r.tab === 'deactivated'}];
+  const cmds = ready() ? [{label:'Создать проект', icon:'add', primary:true, act:'dialog', arg:'newProject', fk:'new-project'}] : [];
+  let body;
+  if (S.lists === 'loading') body = skeletonTable(r.tab === 'active' ? ['Название', 'Ключ'] : ['Название', 'Ключ', '']);
+  else if (S.lists === 'error') body = errorBanner();
+  else if (r.tab === 'active') {
+    const list = projectsOf(o.id);
+    if (!list.length) body = panelFrame({icon:'inbox', heading:'Пока нет проектов', hint:'Создайте первый проект кнопкой «Создать проект» выше.', action:{label:'Создать проект', icon:'add', act:'dialog', arg:'newProject'}});
+    else body = '<div class="tablewrap"><table class="t" aria-label="Активные проекты"><thead><tr><th>Название</th><th>Ключ</th></tr></thead><tbody>' + list.map((p) => '<tr>' + nameCell(p.name, '/organizations/' + o.id + '/projects/' + p.id + '/settings/general', 'pl-' + p.id) + '<td class="key">' + esc(p.key) + '</td></tr>').join('') + '</tbody></table></div>';
+  } else {
+    const list = projectsOf(o.id, 'Deactivated');
+    if (!list.length) body = panelFrame({icon:'inbox', heading:'Деактивированных проектов нет', hint:'Сюда попадают проекты, деактивированные в их настройках. Их можно восстановить.'});
+    else body = '<div class="tablewrap"><table class="t" aria-label="Деактивированные проекты"><thead><tr><th>Название</th><th>Ключ</th><th></th></tr></thead><tbody>' + list.map((p) => '<tr>' + nameCell(p.name) + '<td class="key">' + esc(p.key) + '</td><td class="actions">' + restoreBtn('prj', p) + '</td></tr>').join('') + '</tbody></table></div>';
+  }
+  return {title:'Проекты', commands:cmds, tabs, tabsLabel:'Проекты по статусу', body};
+}
+/* § 8 project «Общие» */
+function prjGeneralPage(){
+  const p = getPrj(S.ctx.prj);
+  const cmds = ready() ? [{label:'Переименовать', icon:'edit', act:'dialog', arg:'renameProject', fk:'rename'}, {label:'Деактивировать', icon:'archive', act:'dialog', arg:'deactivateProject', fk:'deactivate'}] : [];
+  const body = S.lists === 'loading' ? formSkeleton(3) : S.lists === 'error' ? errorBanner() : facts([
+    ['Название', esc(p.name)],
+    ['Ключ', esc(p.key) + '<span class="cap">Задан при создании и не меняется</span>'],
+    ['Типы рабочих элементов', 'Задаются процессом организации: <a href="#/organizations/' + esc(p.orgId) + '/settings/process" data-fk="process-link">Процесс</a>']]);
+  return {title:'Общие', commands:cmds, body};
+}
+/* § 9 «Команды» */
+function teamsPage(){
+  const p = getPrj(S.ctx.prj);
+  const cmds = ready() ? [{label:'Добавить команду', icon:'add', primary:true, act:'dialog', arg:'newTeam', fk:'new-team'}] : [];
+  let body;
+  if (S.lists === 'loading') body = skeletonTable(['Команда', 'Область по умолчанию', '']);
+  else if (S.lists === 'error') body = errorBanner();
+  else body = '<div class="tablewrap"><table class="t" aria-label="Команды"><thead><tr><th>Команда</th><th>Область по умолчанию</th><th></th></tr></thead><tbody>' + teamsOf(p.id).map((t) => {
+    const d = getArea(t.defaultAreaId);
+    const open = S.menu && S.menu.id === 'teamAct:' + t.id;
+    return '<tr><td class="nm" data-tip="' + esc(t.name) + '"><a href="#/organizations/' + esc(p.orgId) + '/projects/' + esc(p.id) + '/settings/teams/' + esc(t.id) + '" data-fk="tl-' + t.id + '">' + esc(t.name) + '</a>' + (t.first ? '<span class="chip">Владеет корневой областью</span>' : '') + '</td><td>' + esc(d ? areaPath(d) : '') + '</td>' +
+      '<td class="actions"><button class="iconbtn sm" data-act="openMenu" data-arg="teamAct:' + t.id + '" data-fk="ta-' + t.id + '" aria-haspopup="menu" aria-expanded="' + !!open + '" aria-label="Действия: ' + esc(t.name) + '" data-tip="Действия">' + ic('more', {size:18}) + '</button></td></tr>';
+  }).join('') + '</tbody></table></div>';
+  return {title:'Команды', commands:cmds, body};
+}
+/* § 10 a team's page */
+/* DC-4: its team is the page's entity (r.team), not the switcher's; the shell derives the trail «Настройки / Проект / Команды» */
+function teamPage(r){
+  const t = getTeam(r.team);
+  if (S.lists === 'loading') return {title:'Команда', body:formSkeleton(2)};
+  if (S.lists === 'error') return {title:'Команда', body:errorBanner()};
+  const cmds = [{label:'Переименовать', icon:'edit', act:'dialog', arg:'renameTeam:' + t.id, fk:'rename'}];
+  if (!t.first) cmds.push({label:'Удалить команду', icon:'del', act:'dialog', arg:'deleteTeam:' + t.id, fk:'delete'});
+  const d = getArea(t.defaultAreaId);
+  const def = t.first
+    ? esc(areaPath(d)) + '<span class="cap">Корневая область проекта. У первой команды область по умолчанию не меняется.</span>'
+    : '<span class="row" style="flex-wrap:wrap">' + esc(areaPath(d)) + '<button class="btn sm" data-act="dialog" data-arg="defaultArea:' + t.id + '" data-fk="change-default" aria-label="Изменить область по умолчанию">Изменить</button></span>';
+  const body = facts([['Название', esc(t.name) + (t.first ? '<span class="chip">Владеет корневой областью</span>' : '')], ['Область по умолчанию', def]]);
+  return {title:'Команда: ' + t.name, commands:cmds, body};
+}
+/* § 11 «Области»: the tree registry */
+function ensureTree(prjId){ if (S.tree.prj !== prjId) { const r = rootOf(prjId); S.tree = {prj:prjId, expanded:{[r.id]:true}, selected:null, focused:null}; } }
+function rowVisible(a){ let x = getArea(a.parentId); while (x) { if (!S.tree.expanded[x.id]) return false; x = getArea(x.parentId); } return true; }
+function areasPage(){
+  const p = getPrj(S.ctx.prj);
+  ensureTree(p.id);
+  const T = S.tree;
+  if (T.selected && !getArea(T.selected)) T.selected = null;
+  const cmds = ready() ? [{label:'Новая область', icon:'add', act:'newArea', arg:'root', fk:'new-area'}, {label:'Новая дочерняя область', icon:'add', act:'newArea', arg:'selected', fk:'new-child', disabled:!T.selected}] : [];
+  const pg = {title:'Области', commands:cmds};
+  if (S.lists === 'loading') { pg.body = skeletonTable(['Область', 'Владелец', '']); return pg; }
+  if (S.lists === 'error') { pg.body = errorBanner(); return pg; }
+  const order = treeOrder(p.id);
+  const rows = order.filter((x) => rowVisible(x.a));
+  const focusId = rows.some((x) => x.a.id === T.focused) ? T.focused : rows.some((x) => x.a.id === T.selected) ? T.selected : rows[0].a.id;
+  let h = '<div class="tablewrap"><table class="t treegrid" role="treegrid" aria-label="Области"><thead><tr role="row"><th role="columnheader">Область</th><th role="columnheader">Владелец</th><th role="columnheader"></th></tr></thead><tbody>';
+  rows.forEach(({a, level}) => {
+    const kids = childrenOf(a.id);
+    const open = !!T.expanded[a.id];
+    const sibs = a.parentId ? childrenOf(a.parentId) : [a];
+    const own = owner(a), dt = defaultTeamOf(a);
+    const foc = a.id === focusId, sel = a.id === T.selected;
+    const menuOpen = S.menu && S.menu.id === 'areaAct:' + a.id;
+    const exp = kids.length ? '<button class="iconbtn sm" tabindex="-1" data-act="treeToggle" data-arg="' + a.id + '" aria-label="' + (open ? 'Свернуть' : 'Развернуть') + ' «' + esc(a.name) + '»">' + ic(open ? 'expandMore' : 'chevRight', {size:18}) + '</button>' : '<span class="tree-gap"></span>';
+    h += '<tr role="row" aria-level="' + level + '" aria-setsize="' + sibs.length + '" aria-posinset="' + (sibs.indexOf(a) + 1) + '" aria-selected="' + sel + '"' + (kids.length ? ' aria-expanded="' + open + '"' : '') + ' tabindex="' + (foc ? 0 : -1) + '" data-row="' + a.id + '" data-act="treeSelect" data-arg="' + a.id + '" data-fk="row-' + a.id + '">' +
+      '<td role="gridcell"><span class="tree-name" style="padding-left:' + ((level - 1) * 24) + 'px">' + exp + '<span class="nm" data-tip="' + esc(a.name) + '">' + esc(a.name) + '</span>' + (dt ? '<span class="chip">По умолчанию</span>' : '') + '</span></td>' +
+      '<td role="gridcell">' + esc(own.team ? own.team.name : '') + (own.inherited ? ' <span class="cap">унаследовано</span>' : '') + '</td>' +
+      '<td role="gridcell" class="actions"><button class="iconbtn sm" data-rowact="1" tabindex="' + (foc ? 0 : -1) + '" data-act="openMenu" data-arg="areaAct:' + a.id + '" data-fk="ra-' + a.id + '" aria-haspopup="menu" aria-expanded="' + !!menuOpen + '" aria-label="Действия: ' + esc(a.name) + '" data-tip="Действия">' + ic('more', {size:18}) + '</button></td></tr>';
+  });
+  h += '</tbody></table>';
+  if (order.length === 1) h += frame({icon:'inbox', heading:'Вложенных областей пока нет', hint:'Создайте первую область кнопкой «Новая область» выше.', action:{label:'Новая область', icon:'add', act:'newArea', arg:'root'}});
+  pg.body = h + '</div>';
+  return pg;
+}
+function pageFor(r){
+  switch (r.name) {
+    case 'home': return homePage();
+    case 'languages': return languagesPage();
+    case 'orgList': return orgListPage(r);
+    case 'orgGeneral': return orgGeneralPage();
+    case 'process': return processPage();
+    case 'projects': return projectsPage(r);
+    case 'prjGeneral': return prjGeneralPage();
+    case 'teams': return teamsPage();
+    case 'team': return teamPage(r);
+    case 'areas': return areasPage();
+    default: return notFoundPage(r);
+  }
+}
+
+/* ---------- menus ---------- */
+function menuItems(id){
+  const [kind, a] = id.split(':');
+  if (kind === 'sw-org') return [{sub:'Организации'}].concat(activeOrgs().map((o) => ({label:o.name, act:'swChoose', arg:'org:' + o.id, radio:true, checked:o.id === S.ctx.org})), [{divider:true}, {label:'Все организации', icon:'listAlt', href:'/organizations'}]);
+  if (kind === 'sw-prj') return [{sub:'Проекты'}].concat(projectsOf(S.ctx.org).map((p) => ({label:p.name, act:'swChoose', arg:'prj:' + p.id, radio:true, checked:p.id === S.ctx.prj})));
+  if (kind === 'sw-team') return [{sub:'Команды'}].concat(teamsOf(S.ctx.prj).map((t) => ({label:t.name, act:'swChoose', arg:'team:' + t.id, radio:true, checked:t.id === S.ctx.team})));
+  if (kind === 'user') return [{text:'Иван Петров'}, {divider:true}, {label:'Выйти', icon:'logout', act:'proto', arg:'Выйти'}];
+  if (kind === 'overflow') {
+    const bar = document.querySelector('[data-cmdbar]');
+    return Array.from(bar ? bar.querySelectorAll('[data-cmd].hidden') : []).map((btn) => { const c = CMDS[+btn.dataset.cmd]; return {label:c.label, icon:c.icon, act:c.act, arg:c.arg, disabled:c.disabled}; });
+  }
+  /* § 9.2: the first team offers only «Переименовать» */
+  if (kind === 'teamAct') {
+    const t = getTeam(a);
+    const items = [{label:'Переименовать', icon:'edit', act:'dialog', arg:'renameTeam:' + a}];
+    if (!t.first) items.push({label:'Изменить область по умолчанию', icon:'tree', act:'dialog', arg:'defaultArea:' + a}, {label:'Удалить команду', icon:'del', act:'dialog', arg:'deleteTeam:' + a, danger:true});
+    return items;
+  }
+  /* § 11.3: the root offers only «Новая дочерняя область» (BR-M1-11); every other node all five (DC-8) */
+  if (kind === 'areaAct') {
+    const x = getArea(a);
+    const items = [{label:'Новая дочерняя область', icon:'add', act:'newArea', arg:a}];
+    if (x.parentId) items.push({label:'Переименовать', icon:'edit', act:'dialog', arg:'renameArea:' + a}, {label:'Переместить', icon:'move', act:'dialog', arg:'moveArea:' + a}, {label:'Изменить владельца', icon:'group', act:'dialog', arg:'areaOwner:' + a}, {label:'Удалить', icon:'del', act:'dialog', arg:'deleteArea:' + a, danger:true});
+    return items;
+  }
+  return [];
+}
+function menuHtml(){
+  if (!S.menu) return '';
+  const body = menuItems(S.menu.id).map((it) => {
+    if (it.divider) return '<div class="mdiv" role="separator"></div>';
+    if (it.sub) return '<div class="msub" role="presentation">' + esc(it.sub) + '</div>';
+    if (it.text) return '<div class="mlabel" role="presentation">' + esc(it.text) + '</div>';
+    const lead = it.radio ? '<span class="check">' + (it.checked ? ic('check') : '') + '</span>' : it.icon ? ic(it.icon, {color:it.danger ? 'var(--error)' : 'var(--text2)'}) : '';
+    /* «Все организации» is a link, never a menuitemradio, so it never takes the check mark (design.md § 3.3) */
+    if (it.href) return '<a class="mi" role="menuitem" tabindex="-1" href="#' + esc(it.href) + '" data-menulink="1">' + lead + '<span>' + esc(it.label) + '</span></a>';
+    return '<button class="mi' + (it.danger ? ' danger' : '') + '" role="' + (it.radio ? 'menuitemradio' : 'menuitem') + '"' + (it.radio ? ' aria-checked="' + !!it.checked + '"' : '') + ' tabindex="-1" data-act="' + it.act + '" data-arg="' + esc(it.arg || '') + '"' + (it.disabled ? ' disabled' : '') + '>' + lead + '<span>' + esc(it.label) + '</span></button>';
+  }).join('');
+  return '<div class="menu" role="menu" id="open-menu">' + body + '</div>';
+}
+function positionMenu(){
+  const m = document.getElementById('open-menu'); if (!m || !S.menu) return;
+  const a = document.querySelector('[data-fk="' + S.menu.fk + '"]');
+  if (!a) { S.menu = null; m.remove(); return; }
+  const r = a.getBoundingClientRect();
+  let left = r.left, top = r.bottom + 4;
+  if (left + m.offsetWidth > window.innerWidth - 8) left = Math.max(8, r.right - m.offsetWidth);
+  if (top + m.offsetHeight > window.innerHeight - 8) top = Math.max(8, r.top - m.offsetHeight - 4);
+  m.style.left = left + 'px'; m.style.top = top + 'px';
+}
+
+/* ---------- dialogs (design.md § 4.3, § 5.4, § 6.3–6.4, § 7.4, § 8.3–8.4, § 9.4–9.7, § 11.5) ---------- */
+const CONFIRMS = ['deactivateOrg', 'deactivateProject', 'deleteTeam', 'deleteArea'];
+const FIRST = {defaultArea:'dlg-value', areaOwner:'dlg-value', moveArea:'dlg-target'};
+function openDialog(type, id, ret){
+  const d = {type, id, ret, errors:{}, top:null, busy:false, selectAll:false};
+  if (['newOrg','newProject','newTeam','newArea'].includes(type)) { d.name = ''; d.key = ''; d.owner = ''; }
+  if (type === 'renameOrg') { d.id = S.ctx.org; d.name = d.original = getOrg(d.id).name; d.selectAll = true; }
+  if (type === 'deactivateOrg') d.id = S.ctx.org;
+  if (type === 'renameProject') { d.id = S.ctx.prj; d.name = d.original = getPrj(d.id).name; d.selectAll = true; }
+  if (type === 'deactivateProject') d.id = S.ctx.prj;
+  if (type === 'renameTeam') { d.name = d.original = getTeam(id).name; d.selectAll = true; }
+  if (type === 'defaultArea') d.value = d.original = getTeam(id).defaultAreaId;
+  if (type === 'renameArea') { d.name = d.original = getArea(id).name; d.selectAll = true; }
+  if (type === 'moveArea') { d.query = ''; d.target = null; d.listOpen = false; d.active = -1; }
+  if (type === 'areaOwner') d.value = d.original = getArea(id).ownerTeamId || '';
+  S.menu = null;
+  S.dialog = d;
+  S.pendingFocus = CONFIRMS.includes(type) ? 'dlg-cancel' : FIRST[type] || 'dlg-name';
+  render();
+}
+function ownerOptions(prjId){ return [['', 'Наследовать от родительской области']].concat(teamsOf(prjId).map((t) => [t.id, t.name])); }
+function moveOptions(d){
+  const a = getArea(d.id), excl = subtreeIds(a.id).concat([a.parentId]);
+  return treeOrder(a.projectId).filter((x) => !excl.includes(x.a.id)).map((x) => ({id:x.a.id, path:areaPath(x.a), root:!x.a.parentId}));
+}
+function filteredMoveOptions(d){ const q = norm(d.query); return moveOptions(d).filter((o) => !q || norm(o.path).includes(q)); }
+function topAlert(d){ return d.top ? '<div class="alert error" role="alert">' + ic('errorOutline') + '<span class="msg">' + esc(d.top) + '</span></div>' : ''; }
+function nameField(d, help){ return tf({label:'Название', value:d.name, input:'dlg', arg:'name', fk:'dlg-name', error:d.errors.name, help, disabled:d.busy, required:true}); }
+const P1 = (t) => '<p>' + esc(t) + '</p>';
+function dialogSpec(d){
+  const b = d.busy;
+  switch (d.type) {
+    case 'newOrg': return {title:'Новая организация', size:'sm', primary:'Создать', content:topAlert(d) + '<div class="stack">' + nameField(d, 'От 1 до 100 символов') + '</div>'};
+    case 'renameOrg': return {title:'Переименование организации', size:'sm', primary:'Сохранить', disabled:d.name === d.original, content:topAlert(d) + '<div class="stack">' + nameField(d, 'От 1 до 100 символов') + '</div>'};
+    case 'deactivateOrg': { const o = getOrg(d.id); return {title:'Деактивировать организацию?', primary:'Деактивировать', content:topAlert(d) + P1('Организация «' + o.name + '» пропадёт из списков и переключателя, а её страницы и страницы её проектов перестанут открываться. Ничего не будет удалено: организацию можно восстановить в списке деактивированных организаций.')}; }
+    case 'newProject': return {title:'Новый проект', size:'sm', primary:'Создать', content:topAlert(d) + '<div class="stack">' + nameField(d, 'От 1 до 100 символов. Так же будут названы первая команда проекта и его корневая область.') +
+      tf({label:'Ключ', value:d.key, input:'dlg', arg:'key', fk:'dlg-key', error:d.errors.key, help:'От 2 до 10 латинских заглавных букв и цифр, начиная с буквы. С ключа начинаются номера рабочих элементов, после создания он не меняется.', disabled:b, required:true, attrs:' autocomplete="off" spellcheck="false" autocapitalize="characters"'}) + '</div>'};
+    case 'renameProject': return {title:'Переименование проекта', size:'sm', primary:'Сохранить', disabled:d.name === d.original, content:topAlert(d) + P1('Корневая область проекта получит то же название. Ключ и названия команд не изменятся.') + '<div class="stack">' + nameField(d, 'От 1 до 100 символов') + '</div>'};
+    case 'deactivateProject': { const p = getPrj(d.id); return {title:'Деактивировать проект?', primary:'Деактивировать', content:topAlert(d) + P1('Проект «' + p.name + '» (' + p.key + ') пропадёт из списков и переключателя, а его страницы, команды и области перестанут открываться. Ничего не будет удалено: проект можно восстановить в списке деактивированных проектов организации.')}; }
+    case 'newTeam': return {title:'Новая команда', size:'sm', primary:'Добавить', content:topAlert(d) + '<div class="stack">' + nameField(d, 'От 1 до 100 символов. Под корневой областью появится область с тем же названием, и она станет областью по умолчанию команды.') + '</div>'};
+    case 'renameTeam': return {title:'Переименование команды', size:'sm', primary:'Сохранить', disabled:d.name === d.original, content:topAlert(d) + '<div class="stack">' + nameField(d, 'Названия областей команды не изменятся.') + '</div>'};
+    case 'defaultArea': {
+      const t = getTeam(d.id);
+      const opts = treeOrder(t.projectId).filter((x) => x.a.ownerTeamId === t.id).map((x) => [x.a.id, areaPath(x.a)]);   /* BR-M1-14: explicitly owned only */
+      return {title:'Область по умолчанию', size:'sm', primary:'Сохранить', disabled:d.value === d.original, content:topAlert(d) + P1('В эту область попадают рабочие элементы, созданные с досок и бэклогов команды «' + t.name + '».') + '<div class="stack">' + tf({label:'Область', value:d.value, input:'dlgValue', fk:'dlg-value', options:opts, error:d.errors.value, disabled:b}) + '</div>'};
+    }
+    case 'deleteTeam': { const t = getTeam(d.id), f = firstTeam(t.projectId); return {title:'Удаление команды', primary:'Удалить команду', danger:true, content:topAlert(d) + P1('Удалить команду «' + t.name + '»? Её области перейдут команде «' + f.name + '». Восстановить команду будет нельзя.')}; }
+    case 'newArea': { const parent = getArea(d.id); return {title:'Новая область', size:'sm', primary:'Создать', content:topAlert(d) + '<p class="cap" style="font-size:14px;line-height:20px">Родительская область: ' + esc(areaPath(parent)) + '</p><div class="stack">' + nameField(d, 'От 1 до 100 символов') + tf({label:'Владелец', value:d.owner, input:'dlg', arg:'owner', fk:'dlg-owner', options:ownerOptions(parent.projectId), disabled:b}) + '</div>'}; }
+    case 'renameArea': return {title:'Переименование области', size:'sm', primary:'Сохранить', disabled:d.name === d.original, content:topAlert(d) + '<div class="stack">' + nameField(d, 'От 1 до 100 символов') + '</div>'};
+    case 'moveArea': {
+      const a = getArea(d.id);
+      const opts = filteredMoveOptions(d);
+      const list = d.listOpen && !b ? '<ul class="combo-list" role="listbox" id="dlg-target-list" aria-label="Новая родительская область">' + (opts.length ? opts.map((o, i) => '<li role="option" id="opt-' + o.id + '" aria-selected="' + (o.id === d.target) + '" class="' + (i === d.active ? 'active' : '') + '" data-act="moveChoose" data-arg="' + o.id + '"><span>' + esc(o.path) + '</span>' + (o.root ? '<span class="cap">Корневая область</span>' : '') + '</li>').join('') : '<li class="none" role="presentation">Ничего не найдено</li>') + '</ul>' : '';
+      const ad = d.listOpen && d.active >= 0 && opts[d.active] ? ' aria-activedescendant="opt-' + opts[d.active].id + '"' : '';
+      const field = tf({label:'Новая родительская область', value:d.query, input:'moveQuery', fk:'dlg-target', error:d.errors.target, disabled:b, required:true, cls:'combo',
+        attrs:' role="combobox" aria-autocomplete="list" aria-expanded="' + !!(d.listOpen && !b) + '" aria-controls="dlg-target-list" autocomplete="off"' + ad,
+        after:'<button type="button" class="iconbtn sm popup-ind" tabindex="-1" data-act="moveToggle" aria-label="' + (d.listOpen ? 'Закрыть' : 'Открыть') + '"' + (b ? ' disabled' : '') + '>' + ic('expandMore', {size:18}) + '</button>' + list});
+      return {title:'Перемещение области', size:'sm', primary:'Переместить', disabled:!d.target, content:topAlert(d) + P1('Область «' + a.name + '» переместится вместе со всеми вложенными областями.') + '<div class="stack">' + field + '</div>'};
+    }
+    case 'areaOwner': {
+      const a = getArea(d.id), own = owner(a);
+      return {title:'Владелец области', size:'sm', primary:'Сохранить', disabled:d.value === d.original, content:topAlert(d) + '<div class="stack">' + tf({label:'Владелец', value:d.value, input:'dlgValue', fk:'dlg-value', options:ownerOptions(a.projectId), help:'Сейчас: ' + own.team.name + (own.inherited ? ', унаследовано' : ''), disabled:b}) + '</div>'};
+    }
+    case 'deleteArea': { const a = getArea(d.id); return {title:'Удаление области', primary:'Удалить область', danger:true, content:topAlert(d) + P1('Удалить область «' + a.name + '»? Восстановить её будет нельзя.')}; }
+  }
+  return {title:'', primary:'', content:''};
+}
+function dialogHtml(){
+  const d = S.dialog; if (!d) return '';
+  const b = d.busy, sp = dialogSpec(d);
+  const closeBtn = '<button type="button" class="iconbtn" data-act="dlgClose" data-fk="dlg-x" aria-label="Закрыть" data-tip="Закрыть"' + (b ? ' disabled' : '') + '>' + ic('close') + '</button>';
+  const cancel = '<button type="button" class="btn" data-act="dlgClose" data-fk="dlg-cancel"' + (b ? ' disabled' : '') + '>Отмена</button>';
+  const primary = '<button type="submit" class="btn ' + (sp.danger ? 'danger' : 'contained') + '" data-fk="dlg-ok"' + (b || sp.disabled ? ' disabled' : '') + '>' + (b ? '<span class="spinner"></span>' : '') + esc(sp.primary) + '</button>';
+  return '<div class="backdrop" data-act="dlgBackdrop"></div><form class="dialog' + (sp.size === 'sm' ? ' sm' : '') + '" role="dialog" aria-modal="true" aria-labelledby="dlg-h" id="dialog" data-submit="dlg" novalidate><div class="dlg-title"><h2 id="dlg-h">' + esc(sp.title) + '</h2>' + closeBtn + '</div><div class="dlg-content">' + sp.content + '</div><div class="dlg-actions">' + cancel + primary + '</div></form>';
+}
+function closeDialog(focusFk){ const d = S.dialog; S.dialog = null; S.pendingFocus = focusFk || (d && d.ret) || null; }
+
+/* client checks (design.md § 4.4): only what the stories state */
+const NAME_ERR = 'Название должно содержать от 1 до 100 символов';
+function checkName(v){ const t = String(v).trim(); return t.length < 1 || t.length > 100 ? NAME_ERR : null; }
+function checkKey(v){ if (!v) return 'Укажите ключ проекта'; return /^[A-Z][A-Z0-9]{1,9}$/.test(v) ? null : 'Ключ проекта: от 2 до 10 латинских заглавных букв и цифр, начиная с буквы'; }
+const AREA_TAKEN = 'Область с таким названием уже есть на этом уровне';
+const DEFAULT_TAKEN = (t) => 'Область используется как область по умолчанию команды «' + t.name + '»';
+const PRJ_TAKEN = (p) => p.status === 'Active' ? 'Проект с таким названием уже есть в организации' : 'Проект с таким названием уже есть в организации: он деактивирован';
+
+/* the server: each returns a refusal {field, text} / {top} or performs the change and returns nothing */
+const SERVER = {
+  newOrg(d){
+    if (!S.canCreate) return {top:'Недостаточно прав'};
+    const name = d.name.trim();
+    const taken = S.db.orgs.find((o) => same(o.name, name));   /* instance-wide, deactivated included; the same text either way */
+    if (taken) return {field:'name', text:'Название «' + taken.name + '» уже занято'};
+    if (S.seedFails) return {top:'Не удалось создать организацию. Попробуйте ещё раз'};   /* BR-M1-3: nothing created, the name stays free */
+    const o = {id:newId('org'), name, status:'Active'};
+    S.db.orgs.push(o);
+    closeDialog();
+    S.pendingFocus = null; S.focusMain = true;
+    notice('Организация «' + name + '» создана.');
+    go('/organizations/' + o.id + '/settings/projects');
+  },
+  renameOrg(d){
+    const name = d.name.trim();
+    const taken = S.db.orgs.find((o) => o.id !== d.id && same(o.name, name));
+    if (taken) return {field:'name', text:'Название «' + taken.name + '» уже занято'};
+    getOrg(d.id).name = name;
+    closeDialog();
+    notice('Организация переименована.');
+    render();
+  },
+  deactivateOrg(d){
+    const o = getOrg(d.id);
+    o.status = 'Deactivated';
+    closeDialog('tab-1');
+    if (!fallback(true)) notice('Организация «' + o.name + '» деактивирована.');
+    go('/organizations/deactivated');   /* BR-M1-24: the list that holds it among the deactivated ones */
+  },
+  newProject(d){
+    const name = d.name.trim(), orgId = S.ctx.org;
+    const taken = S.db.projects.find((p) => p.orgId === orgId && same(p.name, name));
+    if (taken) return {field:'name', text:PRJ_TAKEN(taken)};
+    if (S.db.projects.some((p) => p.orgId === orgId && p.key === d.key)) return {field:'key', text:'Ключ «' + d.key + '» уже используется в организации'};
+    const p = {id:newId('prj'), orgId, name, key:d.key, status:'Active'};
+    const t = {id:newId('team'), projectId:p.id, name, status:'Active', first:true, defaultAreaId:null};
+    const a = {id:newId('area'), projectId:p.id, parentId:null, name, ownerTeamId:t.id};
+    t.defaultAreaId = a.id;
+    S.db.projects.push(p); S.db.teams.push(t); S.db.areas.push(a);
+    closeDialog();
+    fallback(false);
+    notice('Проект «' + name + '» создан.');
+    render();
+  },
+  renameProject(d){
+    const p = getPrj(d.id), name = d.name.trim();
+    const taken = S.db.projects.find((x) => x.id !== p.id && x.orgId === p.orgId && same(x.name, name));
+    if (taken) return {field:'name', text:PRJ_TAKEN(taken)};
+    p.name = name; rootOf(p.id).name = name;   /* BR-M1-11: the root follows the project */
+    closeDialog();
+    notice('Проект переименован.');
+    render();
+  },
+  deactivateProject(d){
+    const p = getPrj(d.id);
+    p.status = 'Deactivated';
+    closeDialog('tab-1');
+    if (!fallback(true)) notice('Проект «' + p.name + '» деактивирован.');
+    go('/organizations/' + p.orgId + '/settings/projects/deactivated');
+  },
+  newTeam(d){
+    const prjId = S.ctx.prj, name = d.name.trim();
+    if (teamsOf(prjId).some((t) => same(t.name, name))) return {field:'name', text:'Команда с таким названием уже есть в проекте'};
+    const root = rootOf(prjId);
+    if (childrenOf(root.id).some((a) => same(a.name, name))) return {field:'name', text:AREA_TAKEN};   /* BR-M1-9 */
+    const t = {id:newId('team'), projectId:prjId, name, status:'Active', first:false, defaultAreaId:null};
+    const a = {id:newId('area'), projectId:prjId, parentId:root.id, name, ownerTeamId:t.id};
+    t.defaultAreaId = a.id;
+    S.db.teams.push(t); S.db.areas.push(a);
+    closeDialog();
+    notice('Команда «' + name + '» добавлена.');
+    render();
+  },
+  renameTeam(d){
+    const t = getTeam(d.id), name = d.name.trim();
+    if (teamsOf(t.projectId).some((x) => x.id !== t.id && same(x.name, name))) return {field:'name', text:'Команда с таким названием уже есть в проекте'};
+    t.name = name;
+    closeDialog();
+    notice('Команда переименована.');
+    render();
+  },
+  defaultArea(d){
+    const t = getTeam(d.id), a = getArea(d.value);
+    if (!a || a.ownerTeamId !== t.id) return {field:'value', text:'Область по умолчанию должна принадлежать самой команде'};
+    t.defaultAreaId = a.id;
+    closeDialog();
+    notice('Область по умолчанию изменена.');
+    render();
+  },
+  deleteTeam(d){
+    const t = getTeam(d.id);
+    if (t.first) return {top:'Нельзя удалить команду, которой принадлежит корневая область проекта'};
+    const f = firstTeam(t.projectId);
+    S.db.areas.forEach((a) => { if (a.ownerTeamId === t.id) a.ownerTeamId = f.id; });   /* BR-M1-18: its areas pass to the first team */
+    t.status = 'Deleted'; t.defaultAreaId = null;
+    const onItsPage = ROUTE && ROUTE.name === 'team' && ROUTE.team === t.id;   /* § 9.7: the fallback notice only if the switcher had chosen it */
+    closeDialog(onItsPage ? 'tl-' + f.id : 'ta-' + f.id);
+    if (!fallback(true)) notice('Команда «' + t.name + '» удалена.');
+    if (onItsPage) go('/organizations/' + S.ctx.org + '/projects/' + t.projectId + '/settings/teams'); else render();
+  },
+  newArea(d){
+    const parent = getArea(d.id), name = d.name.trim();
+    if (childrenOf(parent.id).some((a) => same(a.name, name))) return {field:'name', text:AREA_TAKEN};
+    const a = {id:newId('area'), projectId:parent.projectId, parentId:parent.id, name, ownerTeamId:d.owner || null};
+    S.db.areas.push(a);
+    let up = parent; while (up) { S.tree.expanded[up.id] = true; up = getArea(up.parentId); }
+    S.tree.selected = S.tree.focused = a.id;   /* § 11.7 */
+    closeDialog('row-' + a.id);
+    notice('Область «' + name + '» создана.');
+    render();
+  },
+  renameArea(d){
+    const a = getArea(d.id), name = d.name.trim();
+    if (childrenOf(a.parentId).some((x) => x.id !== a.id && same(x.name, name))) return {field:'name', text:AREA_TAKEN};
+    a.name = name;
+    closeDialog('row-' + a.id);
+    notice('Область переименована.');
+    render();
+  },
+  moveArea(d){
+    const a = getArea(d.id), target = getArea(d.target);
+    if (subtreeIds(a.id).includes(target.id)) return {field:'target', text:'Нельзя переместить область внутрь неё самой или её вложенной области'};
+    if (childrenOf(target.id).some((x) => same(x.name, a.name))) return {field:'target', text:AREA_TAKEN};
+    a.parentId = target.id;
+    S.tree.expanded[target.id] = true;
+    let x = getArea(target.parentId); while (x) { S.tree.expanded[x.id] = true; x = getArea(x.parentId); }
+    S.tree.selected = S.tree.focused = a.id;
+    closeDialog('row-' + a.id);
+    notice('Область «' + a.name + '» перемещена.');
+    render();
+  },
+  areaOwner(d){
+    const a = getArea(d.id), dt = defaultTeamOf(a);
+    if (dt && d.value !== dt.id) return {top:DEFAULT_TAKEN(dt)};   /* BR-M1-14 */
+    a.ownerTeamId = d.value || null;
+    closeDialog('row-' + a.id);
+    notice('Владелец области «' + a.name + '» изменён.');
+    render();
+  },
+  deleteArea(d){
+    const a = getArea(d.id);
+    if (childrenOf(a.id).length) return {top:'Нельзя удалить область, в которой есть рабочие элементы (включая удалённые) или вложенные области'};
+    const dt = defaultTeamOf(a);
+    if (dt) return {top:DEFAULT_TAKEN(dt)};
+    S.db.areas = S.db.areas.filter((x) => x.id !== a.id);
+    S.tree.selected = S.tree.focused = a.parentId;
+    closeDialog('row-' + a.parentId);
+    notice('Область «' + a.name + '» удалена.');
+    render();
+  }
+};
+function submitDialog(){
+  const d = S.dialog; if (!d || d.busy) return;
+  const errors = {};
+  if ('name' in d && !['deactivateOrg','deactivateProject','deleteTeam','deleteArea','defaultArea','areaOwner','moveArea'].includes(d.type)) { const e = checkName(d.name); if (e) errors.name = e; }
+  if (d.type === 'newProject') { const e = checkKey(d.key); if (e) errors.key = e; }
+  if (d.type === 'moveArea' && !d.target) return;
+  d.errors = errors; d.top = null;
+  if (Object.keys(errors).length) { S.pendingFocus = 'dlg-' + Object.keys(errors)[0]; render(); return; }
+  d.busy = true; d.listOpen = false; render();
+  setTimeout(() => {
+    if (S.dialog !== d) return;
+    d.busy = false;
+    const res = SERVER[d.type](d);
+    if (res && res.field) { d.errors = {[res.field]:res.text}; S.pendingFocus = 'dlg-' + res.field; render(); }
+    else if (res && res.top) { d.top = res.top; S.pendingFocus = CONFIRMS.includes(d.type) ? 'dlg-cancel' : FIRST[d.type] || 'dlg-name'; render(); }
+  }, 600);
+}
+
+/* ---------- notices (design.md § 4.5) ---------- */
+let snackTimer = null;
+function notice(text, kind){ S.snack = {text, kind}; clearTimeout(snackTimer); snackTimer = setTimeout(() => { S.snack = null; render(); }, 6000); }
+function snackHtml(){
+  const s = S.snack; if (!s) return '';
+  if (s.kind === 'info') return '<div class="snack alertsnack" role="status">' + ic('info') + '<span>' + esc(s.text) + '</span></div>';
+  if (s.kind === 'error') return '<div class="snack errsnack" role="alert">' + ic('errorOutline') + '<span>' + esc(s.text) + '</span></div>';
+  if (s.kind === 'proto') return '<div class="snack proto-snack" role="status">Прототип: «' + esc(s.text) + '» не выполняется.</div>';
+  return '<div class="snack" role="status">' + esc(s.text) + '</div>';
+}
+
+/* ---------- prototype panel (not part of the design) ---------- */
+function protoPanel(){
+  const el = document.getElementById('proto');
+  if (!S.panelOpen) { el.className = 'proto closed'; el.innerHTML = '<button class="btn sm" data-act="protoPanel" data-fk="pp-open">Панель прототипа</button>'; return; }
+  el.className = 'proto';
+  const sel = (label, key, cur, opts) => '<label for="pp-' + key + '">' + label + '</label><select id="pp-' + key + '" data-input="proto" data-arg="' + key + '" data-fk="pp-' + key + '">' + opts.map((o) => '<option value="' + o[0] + '"' + (String(cur) === o[0] ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select>';
+  const L = (href, text) => '<a href="#' + href + '">' + text + '</a>';
+  const A = '/organizations/org-alfa', PR = A + '/projects/prj-prm';
+  el.innerHTML = '<div class="row"><h2>Панель прототипа</h2><button class="btn sm" data-act="protoPanel" data-fk="pp-close">Свернуть</button></div>' +
+    '<div class="cap" style="color:#6B4E00">Не часть дизайна. Адрес: ' + esc(location.hash || '#/home') + '</div>' +
+    sel('Пользователь', 'canCreate', S.canCreate, [['true','С правом на создание организаций'],['false','Без права на создание организаций']]) +
+    sel('Набор данных', 'dataset', S.datasetKind, [['example','Пример из историй US-1..US-8'],['noOrgs','Нет организаций'],['rootOnly','В проекте только корневая область']]) +
+    sel('Чтение страниц', 'lists', S.lists, [['data','Данные'],['loading','Загрузка'],['error','Ошибка']]) +
+    sel('Переключатель', 'sw', S.sw, [['ready','Готов'],['orgLoading','Загрузка организаций'],['orgFailed','Ошибка: организации'],['prjLoading','Загрузка проектов'],['prjFailed','Ошибка: проекты'],['teamLoading','Загрузка команд'],['teamFailed','Ошибка: команды']]) +
+    sel('Засев процесса (mod-001) при создании организации', 'seedFails', S.seedFails, [['false','Работает'],['true','Сбой']]) +
+    sel('Ответ на «Восстановить»', 'restoreFails', S.restoreFails, [['false','Успех'],['true','Отказ сервера']]) +
+    '<div class="sect"><strong>Перезагрузка с сохранённым выбором «Альфа / Пример проекта / Платформа», который стал недоступен</strong><div class="links"><button data-act="protoReload" data-arg="team" data-fk="pp-r1">команда удалена</button><button data-act="protoReload" data-arg="project" data-fk="pp-r2">проект деактивирован</button><button data-act="protoReload" data-arg="org" data-fk="pp-r3">организация деактивирована</button></div>' +
+    '<div class="links"><button data-act="protoForget" data-fk="pp-forget">Забыть сохранённый выбор</button><button data-act="protoReset" data-fk="pp-reset">Сбросить данные</button></div></div>' +
+    '<div class="sect"><strong>Страницы</strong><div class="links">' + L('/organizations', 'Организации') + L('/organizations/deactivated', 'Деактивированные организации') + L(A + '/settings/general', 'Альфа: Общие') + L(A + '/settings/projects', 'Альфа: Проекты') + L(A + '/settings/projects/deactivated', 'Альфа: деактивированные проекты') + L(A + '/settings/process', 'Альфа: Процесс (mod-001)') + L(PR + '/settings/general', 'Пример проекта: Общие') + L(PR + '/settings/teams', 'Команды') + L(PR + '/settings/teams/team-plat', 'Команда: Платформа') + L(PR + '/settings/teams/team-prm', 'Первая команда') + L(PR + '/settings/areas', 'Области') + L('/home', 'Главная') + '</div></div>' +
+    '<div class="sect"><strong>Не найдено</strong><div class="links">' + L('/organizations/org-zzz/settings/general', 'неизвестная организация') + L('/organizations/org-gamma/settings/general', 'деактивированная организация «Гамма»') + L('/organizations/org-gamma/settings/process', 'процесс «Гаммы»') + L(A + '/projects/prj-old/settings/general', 'деактивированный проект') + L(A + '/projects/prj-rep/settings/general', 'проект другой организации') + L(PR + '/settings/teams/team-mob', 'удалённая команда') + L(PR + '/settings/teams/team-anl', 'команда другого проекта') + L('/organizations/org-alfa', 'адрес без страницы') + '</div></div>';
+}
+
+/* ---------- render ---------- */
+function render(){
+  const ae = document.activeElement;
+  const fkEl = ae && ae.closest ? ae.closest('[data-fk]') : null;
+  const prevFk = fkEl ? fkEl.dataset.fk : null;
+  const sel = ae && ae.tagName === 'INPUT' ? [ae.selectionStart, ae.selectionEnd] : null;
+  ROUTE = resolveRoute();
+  if (ROUTE.name !== 'areas') S.tree.prj = null;   /* the expanded set lasts for the page visit (§ 11.2) */
+  const pg = pageFor(ROUTE);
+  pg.trail = pg.noHeader ? null : deriveTrail(ROUTE);   /* a full-page frame mounts no PageHeader, so it has no trail */
+  document.getElementById('app').innerHTML = shell(ROUTE, pg);
+  document.title = pg.title + ' — Mustask';
+  fitCommands();
+  document.getElementById('layer').innerHTML = menuHtml() + dialogHtml() + snackHtml();
+  positionMenu();
+  protoPanel();
+  hideTip();
+  const want = S.pendingFocus; S.pendingFocus = null;
+  if (S.focusMain) { S.focusMain = false; const m = document.getElementById('main-content'); if (m) m.focus(); return; }
+  if (want === 'menu-first') { focusMenuItem(); return; }
+  const target = want ? document.querySelector('[data-fk="' + want + '"]') : prevFk ? document.querySelector('[data-fk="' + prevFk + '"]') : null;
+  if (target && !target.disabled) {
+    target.focus({preventScroll:true});
+    if (want && S.dialog && S.dialog.selectAll && target.select) { target.select(); S.dialog.selectAll = false; }
+    else if (!want && sel && target.setSelectionRange) { try { target.setSelectionRange(sel[0], sel[1]); } catch (e) { /* not a text field */ } }
+  }
+}
+function focusMenuItem(){
+  const m = document.getElementById('open-menu'); if (!m) return;
+  const items = Array.from(m.querySelectorAll('.mi:not(:disabled)'));
+  const cur = items.find((x) => x.getAttribute('aria-checked') === 'true') || items[0];
+  if (cur) cur.focus();
+}
+function openMenu(id, fk){ S.menu = {id, fk}; S.pendingFocus = 'menu-first'; render(); }
+function closeMenu(returnFocus){ if (!S.menu) return; const fk = S.menu.fk; S.menu = null; if (returnFocus) S.pendingFocus = fk; render(); }
+
+/* ---------- actions ---------- */
+let lastMenuFk = null;
+const ACT = {
+  go(arg){ go(arg); },
+  skip(){ const m = document.getElementById('main-content'); if (m) m.focus(); },
+  overlay(){ S.overlay = !S.overlay; S.pendingFocus = S.overlay ? 'nav-home' : 'menu-btn'; render(); },
+  closeOverlay(){ S.overlay = false; S.pendingFocus = 'menu-btn'; render(); },
+  toggleNav(){ const nowRail = document.querySelector('.mainnav.rail') !== null; S.kept = nowRail ? 'expanded' : 'rail'; storeSet(NAV_KEY, S.kept); S.pendingFocus = 'nav-toggle'; render(); },
+  openMenu(arg, el){ if (S.menu && S.menu.id === arg) { closeMenu(true); return; } openMenu(arg, el.dataset.fk); },
+  /* mod-015 BR-18 and design.md § 2.2: a choice at a level the address carries opens the entry's landing page */
+  swChoose(arg){
+    const [level, id] = arg.split(':');
+    if (level === 'org') S.ctx = {org:id, prj:null, team:null};
+    if (level === 'prj') { S.ctx.prj = id; S.ctx.team = null; }
+    if (level === 'team') S.ctx.team = id;
+    fallback(false);   /* the levels below take their first entries */
+    const r = ROUTE, rank = {org:1, prj:2, team:3};
+    if (r && r.carries && rank[level] <= rank[r.carries]) {
+      const e = findEntry(r.entry);
+      go(e && entryVisible(e) ? e.landing(S.ctx) : '/home');
+      return;
+    }
+    S.pendingFocus = 'sw-' + level;
+    render();
+  },
+  swRetry(){ const lv = S.sw.startsWith('prj') ? 'sw-prj' : S.sw.startsWith('team') ? 'sw-team' : 'sw-org'; S.sw = 'ready'; S.pendingFocus = lv; render(); },
+  dialog(arg, el){ const [type, id] = arg.split(':'); openDialog(type, id, el && el.closest && el.closest('#open-menu') ? lastMenuFk : el && el.dataset ? el.dataset.fk : null); },
+  newArea(arg, el){
+    const id = arg === 'root' ? rootOf(S.ctx.prj).id : arg === 'selected' ? S.tree.selected : arg;
+    if (id) openDialog('newArea', id, el && el.closest && el.closest('#open-menu') ? lastMenuFk : el && el.dataset ? el.dataset.fk : null);
+  },
+  dlgClose(){ if (!S.dialog || S.dialog.busy) return; closeDialog(); render(); },
+  dlgBackdrop(){ ACT.dlgClose(); },
+  moveToggle(){ const d = S.dialog; d.listOpen = !d.listOpen; d.active = -1; S.pendingFocus = 'dlg-target'; render(); },
+  moveChoose(id){ const d = S.dialog, o = moveOptions(d).find((x) => x.id === id); d.target = id; d.query = o.path; d.listOpen = false; d.errors = {}; S.pendingFocus = 'dlg-target'; render(); },
+  /* § 5.5: restore sends at once; the row's button spins */
+  restore(arg){
+    const [kind, id] = arg.split(':');
+    if (S.restoring) return;
+    S.restoring = id; render();
+    setTimeout(() => {
+      S.restoring = null;
+      const x = kind === 'org' ? getOrg(id) : getPrj(id);
+      const btns = Array.from(document.querySelectorAll('[data-fk^="rs-"]')), i = btns.findIndex((b) => b.dataset.fk === 'rs-' + id);
+      const next = btns[i + 1] || btns[i - 1];   /* focus: the next row's «Восстановить», else the tab (design.md § 5.5) */
+      if (S.restoreFails) { notice('Сервис временно недоступен, повторите позже.', 'error'); S.pendingFocus = 'rs-' + id; render(); return; }
+      x.status = 'Active';
+      fallback(false);
+      notice(kind === 'org' ? 'Организация «' + x.name + '» восстановлена.' : 'Проект «' + x.name + '» восстановлен.');
+      S.pendingFocus = next ? next.dataset.fk : 'tab-1';
+      render();
+    }, 600);
+  },
+  treeToggle(id){ S.tree.expanded[id] = !S.tree.expanded[id]; S.tree.focused = id; S.pendingFocus = 'row-' + id; render(); },
+  treeSelect(id){ S.tree.selected = S.tree.focused = id; S.pendingFocus = 'row-' + id; render(); },
+  retry(){ S.lists = 'data'; render(); },
+  proto(arg){ notice(arg, 'proto'); render(); },
+  protoPanel(){ S.panelOpen = !S.panelOpen; S.pendingFocus = S.panelOpen ? 'pp-close' : 'pp-open'; render(); },
+  protoReset(){ S.db = dataset(S.datasetKind); S.tree.prj = null; fallback(false); render(); },
+  protoForget(){ storeSet(CTX_KEY, null); S.ctx = {org:null, prj:null, team:null}; fallback(false); render(); },
+  /* US-8: a remembered selection that is gone falls back on a reload, with mod-015's notice */
+  protoReload(kind){
+    S.datasetKind = 'example'; S.db = dataset('example'); S.sw = 'ready'; S.lists = 'data';
+    S.ctx = {org:'org-alfa', prj:'prj-prm', team:'team-plat'}; remember();
+    if (kind === 'team') { S.db.areas.forEach((a) => { if (a.ownerTeamId === 'team-plat') a.ownerTeamId = 'team-prm'; }); getTeam('team-plat').status = 'Deleted'; }
+    if (kind === 'project') getPrj('prj-prm').status = 'Deactivated';
+    if (kind === 'org') getOrg('org-alfa').status = 'Deactivated';
+    S.dialog = null; S.menu = null;
+    fallback(true);
+    go('/home');
+  }
+};
+const INPUT = {
+  dlg(arg, v){ const d = S.dialog; d[arg] = v; delete d.errors[arg]; render(); },
+  dlgValue(arg, v){ const d = S.dialog; d.value = v; d.errors = {}; d.top = null; render(); },
+  moveQuery(arg, v){
+    const d = S.dialog; d.query = v; d.errors = {}; d.listOpen = true; d.active = -1;
+    const exact = moveOptions(d).find((o) => o.path === v); d.target = exact ? exact.id : null;
+    render();
+  },
+  proto(key, v){
+    if (key === 'canCreate') S.canCreate = v === 'true';
+    else if (key === 'seedFails') S.seedFails = v === 'true';
+    else if (key === 'restoreFails') S.restoreFails = v === 'true';
+    else if (key === 'dataset') { S.datasetKind = v; S.db = dataset(v); S.tree.prj = null; fallback(false); }
+    else S[key] = v;
+    render();
+  }
+};
+
+/* ---------- events ---------- */
+document.addEventListener('click', (e) => {
+  const inMenu = e.target.closest('#open-menu');
+  const actEl = e.target.closest('[data-act]');
+  if (S.menu && !inMenu && !(actEl && actEl.dataset.act === 'openMenu')) { S.menu = null; if (!actEl) { render(); return; } }
+  const plain = e.target.closest('a[href]:not([data-act])');
+  if (plain) {
+    if (plain.dataset.menulink) { S.menu = null; S.focusMain = true; }
+    if (plain.closest('.overlay')) { S.overlay = false; S.focusMain = true; }
+    if (plain.getAttribute('href') === location.hash) { e.preventDefault(); render(); }
+    return;
+  }
+  if (!actEl || actEl.disabled) return;
+  const act = actEl.dataset.act;
+  if (!ACT[act]) return;
+  e.preventDefault();
+  if (inMenu && act !== 'openMenu') { lastMenuFk = S.menu && S.menu.fk; S.menu = null; S.pendingFocus = lastMenuFk; }
+  ACT[act](actEl.dataset.arg, actEl, e);
+});
+document.addEventListener('input', (e) => { const t = e.target.closest('[data-input]'); if (!t) return; const fn = INPUT[t.dataset.input]; if (fn) fn(t.dataset.arg, t.value, t); });
+document.addEventListener('submit', (e) => { const f = e.target.closest('[data-submit]'); if (!f) return; e.preventDefault(); submitDialog(); });
+/* § 11.6: the WAI-ARIA treegrid keyboard model, row focus */
+function treeKey(e, tr){
+  const id = tr.dataset.row, a = getArea(id), kids = childrenOf(id), T = S.tree;
+  const rows = Array.from(document.querySelectorAll('[role=treegrid] tbody tr[data-row]'));
+  const i = rows.indexOf(tr);
+  const to = (rid) => { e.preventDefault(); T.focused = rid; S.pendingFocus = 'row-' + rid; render(); return true; };
+  if (e.key === 'ArrowDown') return rows[i + 1] ? to(rows[i + 1].dataset.row) : (e.preventDefault(), true);
+  if (e.key === 'ArrowUp') return rows[i - 1] ? to(rows[i - 1].dataset.row) : (e.preventDefault(), true);
+  if (e.key === 'Home') return to(rows[0].dataset.row);
+  if (e.key === 'End') return to(rows[rows.length - 1].dataset.row);
+  if (e.key === 'ArrowRight') { if (kids.length && !T.expanded[id]) { T.expanded[id] = true; return to(id); } if (kids.length) return to(kids[0].id); e.preventDefault(); return true; }
+  if (e.key === 'ArrowLeft') { if (kids.length && T.expanded[id]) { T.expanded[id] = false; return to(id); } if (a.parentId) return to(a.parentId); e.preventDefault(); return true; }
+  if (e.key === 'Enter' || e.key === ' ') { T.selected = id; return to(id); }
+  if ((e.key === 'F10' && e.shiftKey) || e.key === 'ContextMenu') { e.preventDefault(); openMenu('areaAct:' + id, 'ra-' + id); return true; }
+  return false;
+}
+function comboKey(e){
+  const d = S.dialog; if (!d || d.type !== 'moveArea') return false;
+  const opts = filteredMoveOptions(d);
+  if (e.key === 'ArrowDown') { e.preventDefault(); d.listOpen = true; d.active = Math.min(opts.length - 1, d.active + 1); render(); return true; }
+  if (e.key === 'ArrowUp') { e.preventDefault(); d.listOpen = true; d.active = Math.max(0, d.active - 1); render(); return true; }
+  if (e.key === 'Enter' && d.listOpen && opts[d.active]) { e.preventDefault(); ACT.moveChoose(opts[d.active].id); return true; }
+  if (e.key === 'Escape' && d.listOpen) { e.preventDefault(); d.listOpen = false; render(); return true; }
+  return false;
+}
+document.addEventListener('keydown', (e) => {
+  const m = document.getElementById('open-menu');
+  if (m && S.menu) {
+    const items = Array.from(m.querySelectorAll('.mi:not(:disabled)'));
+    const i = items.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') { e.preventDefault(); (items[(i + 1) % items.length] || items[0]).focus(); return; }
+    if (e.key === 'ArrowUp') { e.preventDefault(); (items[(i - 1 + items.length) % items.length] || items[0]).focus(); return; }
+    if (e.key === 'Home') { e.preventDefault(); if (items[0]) items[0].focus(); return; }
+    if (e.key === 'End') { e.preventDefault(); if (items.length) items[items.length - 1].focus(); return; }
+    if (e.key === 'Escape') { e.preventDefault(); closeMenu(true); return; }
+    if (e.key === 'Tab') { closeMenu(false); return; }
+  }
+  if (e.target.id === 'f-dlg-target' && comboKey(e)) return;
+  const tr = e.target.matches && e.target.matches('tr[data-row]') ? e.target : null;
+  if (tr && treeKey(e, tr)) return;
+  if (e.key === 'ArrowDown' && e.target.getAttribute && e.target.getAttribute('aria-haspopup') === 'menu' && !S.menu) { e.preventDefault(); e.target.click(); return; }
+  if (e.key === 'Escape') {
+    if (S.dialog) { e.preventDefault(); ACT.dlgClose(); return; }
+    if (S.overlay) { e.preventDefault(); ACT.closeOverlay(); return; }
+  }
+  if (e.key === 'Tab') {
+    const box = S.dialog ? document.getElementById('dialog') : S.overlay ? document.getElementById('overlay-nav') : null;
+    if (box) {
+      const f = Array.from(box.querySelectorAll('a[href],button:not(:disabled):not([tabindex="-1"]),input:not(:disabled),select:not(:disabled)'));
+      if (f.length) {
+        const first = f[0], last = f[f.length - 1];
+        if (!box.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+        else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    }
+  }
+  if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && e.target.getAttribute && e.target.getAttribute('role') === 'tab') {
+    const tabs = Array.from(e.target.parentNode.querySelectorAll('[role=tab]'));
+    const i = tabs.indexOf(e.target);
+    tabs[(i + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length].focus();
+  }
+});
+/* roving tabindex: the focused row and its «Действия» are the treegrid's only tab stops */
+document.addEventListener('focusin', (e) => {
+  const tr = e.target.closest && e.target.closest('tr[data-row]');
+  if (tr) {
+    S.tree.focused = tr.dataset.row;
+    document.querySelectorAll('[role=treegrid] tr[data-row]').forEach((r) => { const on = r === tr; r.tabIndex = on ? 0 : -1; const b = r.querySelector('[data-rowact]'); if (b) b.tabIndex = on ? 0 : -1; });
+  }
+  const t = e.target.closest && e.target.closest('[data-tip]');
+  if (t && t.matches(':focus-visible')) showTip(t); else hideTip();
+});
+let tipTimer = null;
+function showTip(el){
+  const tip = document.getElementById('tip');
+  tip.textContent = el.dataset.tip; tip.style.display = 'block';
+  const r = el.getBoundingClientRect();
+  let left, top;
+  if (el.dataset.tipPos === 'right') { left = r.right + 8; top = r.top + r.height / 2 - tip.offsetHeight / 2; }
+  else { left = r.left + r.width / 2 - tip.offsetWidth / 2; top = r.bottom + 6; }
+  left = Math.max(4, Math.min(left, window.innerWidth - tip.offsetWidth - 4));
+  tip.style.left = left + 'px'; tip.style.top = top + 'px';
+}
+function hideTip(){ clearTimeout(tipTimer); const t = document.getElementById('tip'); if (t) t.style.display = 'none'; }
+document.addEventListener('mouseover', (e) => { const t = e.target.closest('[data-tip]'); if (!t) return; clearTimeout(tipTimer); tipTimer = setTimeout(() => showTip(t), 500); });
+document.addEventListener('mouseout', (e) => { if (e.target.closest('[data-tip]')) hideTip(); });
+let lastBand = null;
+window.addEventListener('resize', () => {
+  const band = window.innerWidth < 1024 ? 'n' : window.innerWidth < 1280 ? 'm' : 'w';
+  if (band !== lastBand) { lastBand = band; if (band !== 'n') S.overlay = false; render(); }
+  else { fitCommands(); positionMenu(); }
+});
+window.addEventListener('hashchange', () => { S.menu = null; S.overlay = false; render(); window.scrollTo(0, 0); });
+lastBand = window.innerWidth < 1024 ? 'n' : window.innerWidth < 1280 ? 'm' : 'w';
+if (!location.hash) history.replaceState(null, '', '#/home');
+/* optional start state after "?", e.g. #/organizations?panel=0&user=nocreate&dataset=noOrgs&lists=loading&switcher=prjFailed&seed=fail */
+(function start(){
+  const q = new URLSearchParams(location.hash.split('?')[1] || '');
+  if (q.get('panel') === '0') S.panelOpen = false;
+  if (q.get('user') === 'nocreate') S.canCreate = false;
+  if (q.get('dataset')) { S.datasetKind = q.get('dataset'); S.db = dataset(S.datasetKind); }
+  if (q.get('lists')) S.lists = q.get('lists');
+  if (q.get('switcher')) S.sw = q.get('switcher');
+  if (q.get('seed') === 'fail') S.seedFails = true;
+  const rem = readRemembered();
+  if (rem) S.ctx = rem;
+  const r = resolveRoute();   /* design.md § 3.4: the address first, then the remembered selection, then the first entries */
+  fallback(!!rem && !(r.ctx && r.name !== 'notFound'));
+  render();
+  if (q.get('dialog')) { const [type, id] = q.get('dialog').split(':'); openDialog(type, id, null); }
+  if (q.get('open')) { const [id, fk] = q.get('open').split('|'); openMenu(id, fk || id); }
+})();
+</script>
+</body>
+</html>

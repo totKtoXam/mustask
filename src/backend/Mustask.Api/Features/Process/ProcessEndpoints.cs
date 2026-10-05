@@ -28,6 +28,8 @@ public static class ProcessEndpoints
                 $"Declares {OrganizationPermissionCatalog.ProcessDefinitionRead}, an organization-scoped code that "
                 + "no token carries and nothing checks yet: it is not in the realm import (BR-M2-10). "
                 + "mod-016 retrofits the check, and a non-member then gets the not-found answer, not a 403.")
+            // mod-002 D-g: an organization that does not exist or is deactivated answers not found before the read.
+            .RequiresOrganizationContext()
             .Produces<ProcessDefinitionResponse>()
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithTags("Process");

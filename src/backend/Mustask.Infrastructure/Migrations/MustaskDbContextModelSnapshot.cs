@@ -108,6 +108,357 @@ namespace Mustask.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Mustask.Domain.Organizations.Area", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DefaultOfTeamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid?>("OwnerTeamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ParentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_areas");
+
+                    b.HasAlternateKey("ProjectId", "Id")
+                        .HasName("ak_areas_project_id_id");
+
+                    b.HasIndex("ProjectId", "DefaultOfTeamId")
+                        .HasDatabaseName("ix_areas_project_id_default_of_team_id");
+
+                    b.HasIndex("ProjectId", "OwnerTeamId")
+                        .HasDatabaseName("ix_areas_project_id_owner_team_id");
+
+                    b.HasIndex("ProjectId", "ParentId")
+                        .HasDatabaseName("ix_areas_project_id_parent_id");
+
+                    b.HasIndex(new[] { "DefaultOfTeamId" }, "ix_areas_default_of_team_id")
+                        .IsUnique()
+                        .HasDatabaseName("ix_areas_default_of_team_id")
+                        .HasFilter("default_of_team_id IS NOT NULL");
+
+                    b.HasIndex(new[] { "ParentId", "NormalizedName" }, "ix_areas_parent_id_normalized_name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_areas_parent_id_normalized_name");
+
+                    b.HasIndex(new[] { "ProjectId" }, "ix_areas_project_id")
+                        .HasDatabaseName("ix_areas_project_id");
+
+                    b.HasIndex(new[] { "ProjectId" }, "ix_areas_project_id_root")
+                        .IsUnique()
+                        .HasDatabaseName("ix_areas_project_id_root")
+                        .HasFilter("parent_id IS NULL");
+
+                    b.ToTable("areas", t =>
+                        {
+                            t.HasCheckConstraint("ck_areas_default_owned", "default_of_team_id IS NULL OR default_of_team_id = owner_team_id");
+
+                            t.HasCheckConstraint("ck_areas_name_length", "char_length(name) BETWEEN 1 AND 100");
+
+                            t.HasCheckConstraint("ck_areas_root_owned", "parent_id IS NOT NULL OR owner_team_id IS NOT NULL");
+
+                            t.Property("Id")
+                                .HasColumnName("id");
+
+                            t.Property("DefaultOfTeamId")
+                                .HasColumnName("default_of_team_id");
+
+                            t.Property("Name")
+                                .HasColumnName("name");
+
+                            t.Property("NormalizedName")
+                                .HasColumnName("normalized_name");
+
+                            t.Property("OwnerTeamId")
+                                .HasColumnName("owner_team_id");
+
+                            t.Property("ParentId")
+                                .HasColumnName("parent_id");
+
+                            t.Property("ProjectId")
+                                .HasColumnName("project_id");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
+            modelBuilder.Entity("Mustask.Domain.Organizations.Organization", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("ProcessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_organizations");
+
+                    b.HasIndex(new[] { "NormalizedName" }, "ix_organizations_normalized_name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_organizations_normalized_name");
+
+                    b.HasIndex(new[] { "ProcessId" }, "ix_organizations_process_id")
+                        .IsUnique()
+                        .HasDatabaseName("ix_organizations_process_id");
+
+                    b.ToTable("organizations", t =>
+                        {
+                            t.HasCheckConstraint("ck_organizations_name_length", "char_length(name) BETWEEN 1 AND 100");
+
+                            t.HasCheckConstraint("ck_organizations_status", "status IN ('Active', 'Deactivated')");
+
+                            t.Property("Id")
+                                .HasColumnName("id");
+
+                            t.Property("CreatedAt")
+                                .HasColumnName("created_at");
+
+                            t.Property("CreatedBy")
+                                .HasColumnName("created_by");
+
+                            t.Property("Name")
+                                .HasColumnName("name");
+
+                            t.Property("NormalizedName")
+                                .HasColumnName("normalized_name");
+
+                            t.Property("ProcessId")
+                                .HasColumnName("process_id");
+
+                            t.Property("Status")
+                                .HasColumnName("status");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
+            modelBuilder.Entity("Mustask.Domain.Organizations.Project", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_projects");
+
+                    b.HasIndex(new[] { "OrganizationId", "Key" }, "ix_projects_organization_id_key")
+                        .IsUnique()
+                        .HasDatabaseName("ix_projects_organization_id_key");
+
+                    b.HasIndex(new[] { "OrganizationId", "NormalizedName" }, "ix_projects_organization_id_normalized_name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_projects_organization_id_normalized_name");
+
+                    b.ToTable("projects", t =>
+                        {
+                            t.HasCheckConstraint("ck_projects_key_format", "key ~ '^[A-Z][A-Z0-9]{1,9}$'");
+
+                            t.HasCheckConstraint("ck_projects_name_length", "char_length(name) BETWEEN 1 AND 100");
+
+                            t.HasCheckConstraint("ck_projects_status", "status IN ('Active', 'Deactivated')");
+
+                            t.Property("Id")
+                                .HasColumnName("id");
+
+                            t.Property("CreatedAt")
+                                .HasColumnName("created_at");
+
+                            t.Property("CreatedBy")
+                                .HasColumnName("created_by");
+
+                            t.Property("Key")
+                                .HasColumnName("key");
+
+                            t.Property("Name")
+                                .HasColumnName("name");
+
+                            t.Property("NormalizedName")
+                                .HasColumnName("normalized_name");
+
+                            t.Property("OrganizationId")
+                                .HasColumnName("organization_id");
+
+                            t.Property("Status")
+                                .HasColumnName("status");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
+            modelBuilder.Entity("Mustask.Domain.Organizations.Team", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsFirstTeam")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_teams");
+
+                    b.HasAlternateKey("ProjectId", "Id")
+                        .HasName("ak_teams_project_id_id");
+
+                    b.HasIndex(new[] { "ProjectId" }, "ix_teams_project_id")
+                        .HasDatabaseName("ix_teams_project_id");
+
+                    b.HasIndex(new[] { "ProjectId" }, "ix_teams_project_id_first_team")
+                        .IsUnique()
+                        .HasDatabaseName("ix_teams_project_id_first_team")
+                        .HasFilter("is_first_team");
+
+                    b.HasIndex(new[] { "ProjectId", "NormalizedName" }, "ix_teams_project_id_normalized_name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_teams_project_id_normalized_name")
+                        .HasFilter("status = 'Active'");
+
+                    b.ToTable("teams", t =>
+                        {
+                            t.HasCheckConstraint("ck_teams_first_team_active", "NOT (is_first_team AND status = 'Deleted')");
+
+                            t.HasCheckConstraint("ck_teams_name_length", "char_length(name) BETWEEN 1 AND 100");
+
+                            t.HasCheckConstraint("ck_teams_status", "status IN ('Active', 'Deleted')");
+
+                            t.Property("Id")
+                                .HasColumnName("id");
+
+                            t.Property("IsFirstTeam")
+                                .HasColumnName("is_first_team");
+
+                            t.Property("Name")
+                                .HasColumnName("name");
+
+                            t.Property("NormalizedName")
+                                .HasColumnName("normalized_name");
+
+                            t.Property("ProjectId")
+                                .HasColumnName("project_id");
+
+                            t.Property("Status")
+                                .HasColumnName("status");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
             modelBuilder.Entity("Mustask.Domain.Process.BacklogLevel", b =>
                 {
                     b.Property<Guid>("Id")
@@ -656,6 +1007,67 @@ namespace Mustask.Infrastructure.Migrations
                             t.Property("xmin")
                                 .HasColumnName("xmin");
                         });
+                });
+
+            modelBuilder.Entity("Mustask.Domain.Organizations.Area", b =>
+                {
+                    b.HasOne("Mustask.Domain.Organizations.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_areas_projects_project_id");
+
+                    b.HasOne("Mustask.Domain.Organizations.Team", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId", "DefaultOfTeamId")
+                        .HasPrincipalKey("ProjectId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_areas_teams_project_id_default_of_team_id");
+
+                    b.HasOne("Mustask.Domain.Organizations.Team", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId", "OwnerTeamId")
+                        .HasPrincipalKey("ProjectId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_areas_teams_project_id_owner_team_id");
+
+                    b.HasOne("Mustask.Domain.Organizations.Area", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId", "ParentId")
+                        .HasPrincipalKey("ProjectId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_areas_areas_project_id_parent_id");
+                });
+
+            modelBuilder.Entity("Mustask.Domain.Organizations.Organization", b =>
+                {
+                    b.HasOne("Mustask.Domain.Process.ProcessDefinition", null)
+                        .WithMany()
+                        .HasForeignKey("ProcessId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_organizations_processes_process_id");
+                });
+
+            modelBuilder.Entity("Mustask.Domain.Organizations.Project", b =>
+                {
+                    b.HasOne("Mustask.Domain.Organizations.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_projects_organizations_organization_id");
+                });
+
+            modelBuilder.Entity("Mustask.Domain.Organizations.Team", b =>
+                {
+                    b.HasOne("Mustask.Domain.Organizations.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_teams_projects_project_id");
                 });
 
             modelBuilder.Entity("Mustask.Domain.Process.BacklogLevel", b =>

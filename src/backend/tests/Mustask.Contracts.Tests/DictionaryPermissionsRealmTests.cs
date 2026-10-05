@@ -20,6 +20,18 @@ public sealed class DictionaryPermissionsRealmTests
     private const string ResourceClient = "mustask-api";
     private const string DictionariesAdminRole = "dictionaries-admin";
 
+    /// <summary>
+    /// Roles that grant one instance right and nothing else (mod-002 D-u): an
+    /// add-on to a panel role, never a panel role of their own. A user holds
+    /// one of them beside a panel role, so they carry no dictionary read code.
+    /// <c>organization-creator</c> carries the create right only (BR-M1-19:
+    /// "grants nothing else").
+    /// </summary>
+    private static readonly HashSet<string> GrantOnlyRoles = new(StringComparer.Ordinal)
+    {
+        "organization-creator",
+    };
+
     private static readonly string[] ReadCodes =
     [
         PermissionCatalog.DictionariesLanguagesRead,
@@ -35,6 +47,7 @@ public sealed class DictionaryPermissionsRealmTests
     public void EveryPanelRole_HoldsEveryDictionaryReadCode()
     {
         var rolesWithoutRead = PermissionsByRole()
+            .Where(pair => !GrantOnlyRoles.Contains(pair.Key))
             .Where(pair => ReadCodes.Any(code => !pair.Value.Contains(code)))
             .Select(pair => pair.Key)
             .Order(StringComparer.Ordinal)
@@ -45,6 +58,23 @@ public sealed class DictionaryPermissionsRealmTests
             $"Роли realm `mustask` без права чтения справочников: {string.Join(", ", rolesWithoutRead)}. "
             + "`dictionaries.*.read` входит в каждую роль панели — справочники нужны всем "
             + "экранам, а политика API deny-all.");
+    }
+
+    /// <summary>
+    /// The exception list is not a hiding place: every role on it exists in the
+    /// realm and carries no dictionary code at all, so a panel role cannot be
+    /// slipped onto it to escape the rule above.
+    /// </summary>
+    [Fact]
+    public void GrantOnlyRoles_ExistAndHoldNoDictionaryCode()
+    {
+        var byRole = PermissionsByRole();
+
+        foreach (var role in GrantOnlyRoles)
+        {
+            Assert.True(byRole.ContainsKey(role), $"The grant-only role `{role}` is not in realm `mustask`.");
+            Assert.DoesNotContain(byRole[role], code => ReadCodes.Contains(code) || WriteCodes.Contains(code));
+        }
     }
 
     /// <summary>The composite dictionaries administrator exists and holds every dictionary code.</summary>

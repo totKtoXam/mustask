@@ -42,4 +42,10 @@ describe('decodeAccessToken', () => {
     const exp = Math.floor(Date.now() / 1000) + 900;
     expect(decodeAccessToken(token({ exp })).expiresAt).toBe(exp * 1000);
   });
+
+  it('mod-002 design § 3.4: subject is the `sub` claim, an empty string without one', () => {
+    expect(decodeAccessToken(token({ sub: '5f0c-user' })).subject).toBe('5f0c-user');
+    expect(decodeAccessToken(token({})).subject).toBe('');
+    expect(decodeAccessToken(token({ sub: 42 })).subject).toBe('');
+  });
 });

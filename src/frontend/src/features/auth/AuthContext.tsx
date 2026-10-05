@@ -22,7 +22,7 @@ export type AnonymousReason =
 
 type AuthState =
   | { status: 'initializing' }
-  | { status: 'authenticated'; displayName: string; permissions: string[] }
+  | { status: 'authenticated'; subject: string; displayName: string; permissions: string[] }
   | { status: 'anonymous'; reason: AnonymousReason; loginFailedCode: string | null };
 
 export interface AuthContextValue {
@@ -32,6 +32,11 @@ export interface AuthContextValue {
   /** Код `authError` из URL — осмыслен только при `reason === 'login_failed'`. */
   loginFailedCode: string | null;
   displayName: string;
+  /**
+   * The token's `sub` while signed in: the key of what the panel remembers
+   * per user (mod-002 design § 3.4). Optional, so a stub session may omit it.
+   */
+  subject?: string;
   /** Есть ли у пользователя право (коды из PermissionCatalog). */
   can: (permission: string) => boolean;
   signIn: (returnTo?: string) => void;
@@ -102,7 +107,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const applyToken = useCallback((token: string) => {
     const claims = decodeAccessToken(token);
     isFirstAttemptRef.current = false;
-    setState({ status: 'authenticated', displayName: claims.displayName, permissions: claims.permissions });
+    setState({
+      status: 'authenticated',
+      subject: claims.subject,
+      displayName: claims.displayName,
+      permissions: claims.permissions,
+    });
   }, []);
 
   const handleSessionError = useCallback((error: unknown) => {
@@ -174,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       reason: state.status === 'anonymous' ? state.reason : null,
       loginFailedCode: state.status === 'anonymous' ? state.loginFailedCode : null,
       displayName: state.status === 'authenticated' ? state.displayName : '',
+      subject: state.status === 'authenticated' ? state.subject : undefined,
       can,
       signIn,
       signOut,

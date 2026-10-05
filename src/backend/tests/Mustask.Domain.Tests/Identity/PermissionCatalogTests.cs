@@ -31,6 +31,15 @@ public sealed class PermissionCatalogTests
         Assert.All(PermissionCatalog.AllCodes, code => Assert.True(PermissionCode.IsWellFormed(code)));
     }
 
+    // mod-002 D-i: the create right is an instance-level code of the catalog, well formed and described.
+    [Fact]
+    public void OrganizationsOrganizationCreate_IsAWellFormedCodeOfTheCatalog()
+    {
+        Assert.True(PermissionCode.IsWellFormed(PermissionCatalog.OrganizationsOrganizationCreate));
+        Assert.Contains(PermissionCatalog.OrganizationsOrganizationCreate, PermissionCatalog.AllCodes);
+        Assert.Equal("Создание организаций", PermissionCatalog.Descriptions[PermissionCatalog.OrganizationsOrganizationCreate]);
+    }
+
     [Fact]
     public void AllCodes_HaveNoDuplicates()
     {

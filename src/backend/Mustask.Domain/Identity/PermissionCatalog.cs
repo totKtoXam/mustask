@@ -13,11 +13,19 @@ public static class PermissionCatalog
     /// <summary>Изменение справочника языков (создание, редактирование, назначение по умолчанию).</summary>
     public const string DictionariesLanguagesWrite = "dictionaries.languages.write";
 
+    /// <summary>
+    /// Creating an organization (mod-002 BR-M1-2, D-i). Instance-level: it is
+    /// held in the token, not granted by a membership, so it belongs here and
+    /// not in <see cref="OrganizationPermissionCatalog"/>.
+    /// </summary>
+    public const string OrganizationsOrganizationCreate = "organizations.organization.create";
+
     /// <summary>Человекочитаемые описания кодов (диагностика, логи).</summary>
     public static readonly IReadOnlyDictionary<string, string> Descriptions = new Dictionary<string, string>
     {
         [DictionariesLanguagesRead] = "Просмотр справочника языков",
         [DictionariesLanguagesWrite] = "Изменение справочника языков",
+        [OrganizationsOrganizationCreate] = "Создание организаций",
     };
 
     /// <summary>Все коды каталога — источник истины для realm-импорта.</summary>

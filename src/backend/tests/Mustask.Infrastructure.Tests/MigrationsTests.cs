@@ -155,6 +155,51 @@ public sealed class MigrationsTests : IAsyncLifetime
         }
     }
 
+    private static readonly string[] OrganizationTables = ["organizations", "projects", "teams", "areas"];
+
+    /// <summary>
+    /// mod-002-organizations-projects-teams (stage 4 DoD, "Migrations apply on a
+    /// clean database and repeatedly"): AddOrganizationStructure creates M1's four
+    /// tables, rolling back to the migration before it drops exactly those and
+    /// keeps the process tables its key points into, and reapplying brings them
+    /// back. The rollback target is found by name, never hard-coded.
+    /// </summary>
+    [Fact]
+    public async Task Migrator_AddOrganizationStructure_CreatesTheFourTables_AndRollbackRemovesThem()
+    {
+        using var context = CreateContext();
+        await context.Database.MigrateAsync();
+
+        foreach (var table in OrganizationTables)
+        {
+            Assert.True(await TableExistsAsync(context, table), $"Table '{table}' must exist after AddOrganizationStructure.");
+        }
+
+        var migrations = context.Database.GetMigrations().ToList();
+        var index = migrations.FindIndex(id => id.EndsWith("_AddOrganizationStructure", StringComparison.Ordinal));
+        Assert.True(index > 0, "AddOrganizationStructure must come after at least one migration.");
+
+        var migrator = context.GetService<IMigrator>();
+        await migrator.MigrateAsync(migrations[index - 1]);
+
+        foreach (var table in OrganizationTables)
+        {
+            Assert.False(await TableExistsAsync(context, table), $"Rolling back AddOrganizationStructure must drop '{table}'.");
+        }
+
+        foreach (var table in ProcessTables)
+        {
+            Assert.True(await TableExistsAsync(context, table), $"Rolling back AddOrganizationStructure must keep '{table}'.");
+        }
+
+        await context.Database.MigrateAsync();
+
+        foreach (var table in OrganizationTables)
+        {
+            Assert.True(await TableExistsAsync(context, table), $"Reapplying AddOrganizationStructure must recreate '{table}'.");
+        }
+    }
+
     private static async Task<bool> TableExistsAsync(MustaskDbContext context, string tableName)
     {
         var connection = context.Database.GetDbConnection();

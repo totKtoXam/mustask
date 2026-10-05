@@ -70,7 +70,9 @@ registry, form and dialog in code.
   `StateFrame` with `AccessDenied` and `NotFound` by level, `FilterBar` and
   `SortableHeaderCell` for registries, `RegistrySkeleton` and
   `FormSkeleton`, `ErrorBanner` with an optional title, `ConfirmDialog`
-  with a destructive flag, `FormDialog` and `FormPanel`. A new wrapper goes
+  with a destructive flag, `FormDialog` and `FormPanel`, and `TreeRegistry`
+  for a hierarchy (a WAI-ARIA treegrid with its keyboard model, which names
+  nothing of what its nodes are; mod-002). A new wrapper goes
   to `shared/ui` when it is a pattern of that catalogue or two slices need
   it.
 - **Work context in the address.** Organization-, project- and team-level
