@@ -51,6 +51,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] feat-018-work-item-rich-text — Описание as rich text (doc-002 BR-M3-4), converting the stored plain text · epic:core/work-items · size:M · deps:mod-003 · note:-
 - [ ] feat-019-work-item-priority — Приоритет 1..4, default 2, on the form and in the list (doc-002 Fields) · epic:core/work-items · size:S · deps:mod-003 · note:-
 - [ ] feat-020-work-item-preview-pane — The preview pane beside the work item list (mod-015 design 10.2) · epic:core/work-items · size:S · deps:mod-003 · note:-
+- [ ] feat-021-work-item-concurrency-token — The client-visible concurrency token on work item writes with its ADR (doc-001 BR-11) and the stale-move notice on the board (doc-003); deferred by mod-003 D-2 and mod-006 D-2 · epic:core/work-items · size:M · deps:mod-003,mod-006 · note:-
 
 ## Withdrawn (number taken, task not done)
 
