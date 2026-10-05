@@ -33,6 +33,8 @@ describe('US-7 Scenario Outline: Not found names the missing context (BR-12, BR-
     ['organization', 'Организация не найдена'],
     ['project', 'Проект не найден'],
     ['team', 'Команда не найдена'],
+    // mod-003 spec § Not-found answers: the new variant, icon `SearchOff`.
+    ['workItem', 'Рабочий элемент не найден'],
   ])('the frame used for the %s level reads «%s», the hint and «На главную»', (level, heading) => {
     renderRouted(<NotFound level={level} />, '/organizations/org-x/settings/general');
 
@@ -60,7 +62,7 @@ describe('US-7 Scenario: Not found (BR-13)', () => {
 
   // qa.md D-2: the shell learns from the frame that no page serves the
   // address, so it shows no settings navigation and marks nothing current.
-  it.each<NotFoundLevel>(['page', 'organization', 'project', 'team'])(
+  it.each<NotFoundLevel>(['page', 'organization', 'project', 'team', 'workItem'])(
     'tells the shell there is no page while it is shown — level %s',
     (level) => {
       const unregister = vi.fn();

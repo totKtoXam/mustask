@@ -79,3 +79,14 @@ guarantees it exists and differs from the Russian, not its quality
 |user_directory.value_invalid|400|Недопустимое значение.|Жарамсыз мән.|user_directory|—|needs review|
 |user_directory.value_required|400|Обязательное значение.|Міндетті мән.|user_directory|—|needs review|
 |user_directory.value_too_long|400|Превышена максимальная длина: {limit} символов.|Ең үлкен ұзындықтан асып кетті: {limit} таңба.|user_directory|—|needs review|
+|workitems.invalid_page|400|Некорректный номер страницы.|Бет нөмірі дұрыс емес.|workitems|—|needs review|
+|workitems.validation_failed|400|Проверьте правильность заполнения полей.|Өрістердің дұрыс толтырылғанын тексеріңіз.|workitems|—|needs review|
+|workitems.workitem.assignee_unavailable|409|Этого пользователя нельзя назначить исполнителем.|Бұл пайдаланушыны орындаушы етіп тағайындауға болмайды.|workitems|—|needs review|
+|workitems.workitem.description_too_long|400|Не более 100 000 символов.|100 000 таңбадан аспауы керек.|workitems|—|needs review|
+|workitems.workitem.not_found|404|Рабочий элемент не найден.|Жұмыс элементі табылмады.|workitems|—|needs review|
+|workitems.workitem.request_id_invalid|400|Не удалось отправить форму. Обновите страницу и попробуйте ещё раз.|Пішінді жіберу мүмкін болмады. Бетті жаңартып, қайталап көріңіз.|workitems|—|needs review|
+|workitems.workitem.state_not_allowed|409|Этот статус недоступен для рабочего элемента этого типа.|Бұл күй осы түрдегі жұмыс элементі үшін қолжетімсіз.|workitems|—|needs review|
+|workitems.workitem.title_multiline|400|Заголовок должен быть в одну строку.|Тақырып бір жолда болуы керек.|workitems|—|needs review|
+|workitems.workitem.title_required|400|Введите заголовок.|Тақырыпты енгізіңіз.|workitems|—|needs review|
+|workitems.workitem.title_too_long|400|Не более 255 символов.|255 таңбадан аспауы керек.|workitems|—|needs review|
+|workitems.workitem.type_not_found|404|Тип рабочего элемента не найден.|Жұмыс элементінің түрі табылмады.|workitems|—|needs review|

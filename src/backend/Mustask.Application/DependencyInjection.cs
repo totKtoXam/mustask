@@ -35,6 +35,11 @@ using Mustask.Application.Features.UserDirectory.ApplySnapshotPage;
 using Mustask.Application.Features.UserDirectory.ApplyUserChanges;
 using Mustask.Application.Features.UserDirectory.BeginSnapshot;
 using Mustask.Application.Features.UserDirectory.CompleteSnapshot;
+using Mustask.Application.Features.WorkItems.CreateWorkItem;
+using Mustask.Application.Features.WorkItems.GetAssigneeCandidates;
+using Mustask.Application.Features.WorkItems.GetWorkItem;
+using Mustask.Application.Features.WorkItems.GetWorkItems;
+using Mustask.Application.Features.WorkItems.SaveWorkItem;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Mustask.Application;
@@ -91,6 +96,13 @@ public static class DependencyInjection
         services.AddScoped<MoveAreaHandler>();
         services.AddScoped<SetAreaOwnerHandler>();
         services.AddScoped<DeleteAreaHandler>();
+
+        // Work items (mod-003): one handler per route of WorkItemEndpoints.cs.
+        services.AddScoped<GetWorkItemsHandler>();
+        services.AddScoped<CreateWorkItemHandler>();
+        services.AddScoped<GetWorkItemHandler>();
+        services.AddScoped<SaveWorkItemHandler>();
+        services.AddScoped<GetAssigneeCandidatesHandler>();
 
         return services;
     }

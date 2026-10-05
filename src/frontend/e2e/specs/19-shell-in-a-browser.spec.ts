@@ -806,16 +806,19 @@ test.describe('19. the application shell in a browser (mod-015)', () => {
       await expect(page.locator('#main-content')).toBeFocused();
       expect(new URL(page.url()).hash).toBe('');
 
-      // «Главная» at 1440 px: from the skip link, the listed order.
+      // «Главная» at 1440 px: from the skip link, the listed order. A project
+      // is chosen, so mod-003's project-scoped «Рабочие элементы» stands in the
+      // work group after «Главная» (mod-003 spec § Navigation).
       await page.goto('/home');
       await expect(page.getByRole('heading', { level: 1, name: 'Главная' })).toBeVisible();
-      const home = await tabStops(page, 9);
+      const home = await tabStops(page, 10);
       expect(home.map((stop) => stop.name)).toEqual([
         'Перейти к содержимому',
         'Mustask',
         ...firstLevels(),
         expect.stringMatching(/^Профиль/),
         'Главная',
+        'Рабочие элементы',
         'Настройки',
         'Свернуть меню',
       ]);
@@ -827,13 +830,14 @@ test.describe('19. the application shell in a browser (mod-015)', () => {
       await expect(page.getByRole('table', { name: 'Реестр языков' })).toBeVisible();
       // With an organization and a project chosen, «Меню настроек» holds
       // their entries before «Справочники» (mod-002 design § 2.1).
-      const languages = await tabStops(page, 17);
+      const languages = await tabStops(page, 18);
       expect(languages.map((stop) => stop.name)).toEqual([
         'Перейти к содержимому',
         'Mustask',
         ...firstLevels(),
         expect.stringMatching(/^Профиль/),
         'Главная',
+        'Рабочие элементы',
         'Настройки',
         'Общие',
         'Проекты',

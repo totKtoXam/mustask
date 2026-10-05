@@ -374,6 +374,14 @@ test.describe('21. organizations, projects, teams and areas (mod-002)', () => {
     await page.goto(`/organizations/${gone.organization.id}/settings/general`);
     const level = switcher(page).getByRole('button', { name: /^Организация:/ });
     await expect(level).toHaveAttribute('aria-label', `Организация: ${gone.organization.name}`);
+    // The address sync is stored once every level is read (design § 3.4,
+    // `useOrganizationsContextSource`): leaving before the team level arrives
+    // aborts its read and nothing is remembered. The first team bears the
+    // project's name.
+    await expect(switcher(page).getByRole('button', { name: /^Команда:/ })).toHaveAttribute(
+      'aria-label',
+      'Команда: Пример проекта',
+    );
 
     await page.goto('/home');
     await page.reload();

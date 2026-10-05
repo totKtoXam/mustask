@@ -46,3 +46,37 @@ export const organizationErrorCodes = {
 
 export type OrganizationErrorCode =
   (typeof organizationErrorCodes)[keyof typeof organizationErrorCodes];
+
+/**
+ * `workitems.*` — `contracts/errors/workitems.json`, which mod-003 owns (its
+ * api-contract § 4). The drift test beside this file checks the constants
+ * against that catalog in both directions. Where the panel shows each one is
+ * the contract's § 0.5: a path not-found is a frame, a body reference's
+ * not-found or a 409 is a field's error, a field reason is that field's.
+ */
+export const workItemErrorCodes = {
+  /** The identifier in the address names nothing in the addressed project: the frame. */
+  notFound: 'workitems.workitem.not_found',
+  /** 400 with `errors.page` / `requestId` / `title` / `description`, every reason at once. */
+  validationFailed: 'workitems.validation_failed',
+  /** A field reason of `validationFailed`. */
+  titleRequired: 'workitems.workitem.title_required',
+  /** A field reason of `validationFailed`. */
+  titleTooLong: 'workitems.workitem.title_too_long',
+  /** A field reason of `validationFailed`. */
+  titleMultiline: 'workitems.workitem.title_multiline',
+  /** A field reason of `validationFailed`. */
+  descriptionTooLong: 'workitems.workitem.description_too_long',
+  /** A field reason of `validationFailed`: a panel defect, shown as any other refusal. */
+  requestIdInvalid: 'workitems.workitem.request_id_invalid',
+  /** A field reason of `validationFailed`: a panel defect, shown as any other refusal. */
+  invalidPage: 'workitems.invalid_page',
+  /** 404 to the create dialog's `typeId`: its `Alert`, never a frame. */
+  typeNotFound: 'workitems.workitem.type_not_found',
+  /** 409: the error under «Статус». */
+  stateNotAllowed: 'workitems.workitem.state_not_allowed',
+  /** 409: the error under «Исполнитель». */
+  assigneeUnavailable: 'workitems.workitem.assignee_unavailable',
+} as const;
+
+export type WorkItemErrorCode = (typeof workItemErrorCodes)[keyof typeof workItemErrorCodes];

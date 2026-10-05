@@ -20,6 +20,7 @@ import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { useDocumentTitle } from '../lib/documentTitle';
 import { splitCommands } from './commandOverflow';
@@ -31,10 +32,21 @@ export interface Command {
   label: string;
   /** The leading icon (design § 6.1: every command has one). */
   icon: ReactElement;
-  onClick?: () => void;
+  /**
+   * Receives the click when the command is a button on the bar, so a command
+   * that opens a menu anchors it on `currentTarget`; chosen from «Ещё
+   * действия» it is called without one.
+   */
+  onClick?: (event?: MouseEvent<HTMLElement>) => void;
   to?: string;
   /** Unavailable for a reason of state (BR-9); a missing code hides the command instead. */
   disabled?: boolean;
+  /**
+   * The command opens a menu (mod-015 § 10.1, «Новый рабочий элемент»): the
+   * button gets `aria-haspopup="menu"` and `aria-expanded` from this flag, and
+   * `ExpandMore` as its trailing icon. Absent: a plain command, as before.
+   */
+  menuOpen?: boolean;
 }
 
 /** One view of a page: a tab that is its own address (design § 6.1). */
@@ -76,9 +88,20 @@ const NO_ANCESTORS: readonly TrailSegment[] = [];
 const NO_COMMANDS: readonly Command[] = [];
 
 function commandProps(command: Command) {
-  return command.to
-    ? ({ component: RouterLink, to: command.to } as const)
-    : ({ onClick: command.onClick } as const);
+  if (command.to) {
+    return { component: RouterLink, to: command.to } as const;
+  }
+  const opensMenu = command.menuOpen !== undefined;
+  return {
+    onClick: command.onClick,
+    endIcon: opensMenu ? <ExpandMoreIcon /> : undefined,
+    'aria-haspopup': opensMenu ? ('menu' as const) : undefined,
+    'aria-expanded': opensMenu
+      ? command.menuOpen
+        ? ('true' as const)
+        : ('false' as const)
+      : undefined,
+  };
 }
 
 /**

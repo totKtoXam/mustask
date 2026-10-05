@@ -52,7 +52,7 @@ public sealed class AreaTests
         Assert.Equal(OrganizationErrorCodes.AreaRootIsFixed, Assert.Throws<ConflictException>(() => project.Root.Rename(Name("Иное"))).Code);
         Assert.Equal(OrganizationErrorCodes.AreaRootIsFixed, Assert.Throws<ConflictException>(() => project.Root.MoveUnder(child, tree)).Code);
         Assert.Equal(OrganizationErrorCodes.AreaRootIsFixed, Assert.Throws<ConflictException>(() => project.Root.SetOwner(null, "Пример проекта")).Code);
-        Assert.Equal(OrganizationErrorCodes.AreaRootIsFixed, Assert.Throws<ConflictException>(() => project.Root.EnsureDeletable(true, "Пример проекта")).Code);
+        Assert.Equal(OrganizationErrorCodes.AreaRootIsFixed, Assert.Throws<ConflictException>(() => project.Root.EnsureDeletable(true, true, "Пример проекта")).Code);
         Assert.Equal(OrganizationErrorCodes.AreaRootIsFixed, Assert.Throws<ConflictException>(project.Root.EnsureNotRoot).Code);
         Assert.Equal("Пример проекта", project.Root.Name);
         Assert.Equal(project.FirstTeam.Id, project.Root.OwnerTeamId);
@@ -146,10 +146,23 @@ public sealed class AreaTests
         var platform = ASecondTeam(project);
         var reports = Area.CreateChild(project.Root, Name("Отчёты"), ownerTeam: null);
 
-        Assert.Equal(OrganizationErrorCodes.AreaNotEmpty, Assert.Throws<ConflictException>(() => reports.EnsureDeletable(true, null)).Code);
-        Assert.Equal(OrganizationErrorCodes.AreaIsTeamDefault, Assert.Throws<ConflictException>(() => platform.Area.EnsureDeletable(false, "Платформа")).Code);
+        Assert.Equal(OrganizationErrorCodes.AreaNotEmpty, Assert.Throws<ConflictException>(() => reports.EnsureDeletable(true, false, null)).Code);
+        Assert.Equal(OrganizationErrorCodes.AreaIsTeamDefault, Assert.Throws<ConflictException>(() => platform.Area.EnsureDeletable(false, false, "Платформа")).Code);
 
-        reports.EnsureDeletable(false, null);
+        reports.EnsureDeletable(false, false, null);
+    }
+
+    // mod-003 US-6 · "An area holding a work item is not deleted" and "Every item counts, whatever its state" (BR-M3-24):
+    // work items answer as children do, with the same code, and before a team's default area.
+    [Fact]
+    public void EnsureDeletable_HoldsWorkItems_RefusedAsNotEmpty_BeforeTheDefault()
+    {
+        var project = AProject();
+        var platform = ASecondTeam(project);
+        var reports = Area.CreateChild(project.Root, Name("Отчёты"), ownerTeam: null);
+
+        Assert.Equal(OrganizationErrorCodes.AreaNotEmpty, Assert.Throws<ConflictException>(() => reports.EnsureDeletable(false, true, null)).Code);
+        Assert.Equal(OrganizationErrorCodes.AreaNotEmpty, Assert.Throws<ConflictException>(() => platform.Area.EnsureDeletable(false, true, "Платформа")).Code);
     }
 
     // US-4 · "The default is among the team's explicitly owned areas" (BR-M1-14).

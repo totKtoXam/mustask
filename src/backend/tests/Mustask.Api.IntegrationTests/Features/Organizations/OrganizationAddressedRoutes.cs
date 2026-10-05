@@ -2,7 +2,8 @@ namespace Mustask.Api.IntegrationTests.Features.Organizations;
 
 /// <summary>
 /// Every organization-addressed route that exists (mod-002 api-contract § 5,
-/// D-g): the 23 of the organizations module and mod-001's process read. A
+/// D-g): the 23 of the organizations module, mod-001's process read and the five
+/// of mod-003's work items (its api-contract § 5). A
 /// later module that adds one adds it here, and the inventory test makes sure
 /// it cannot forget.
 /// </summary>
@@ -36,6 +37,13 @@ public static class OrganizationAddressedRoutes
         ("PUT", "/api/organizations/{organizationId}/projects/{projectId}/areas/{areaId}/owner"),
         ("DELETE", "/api/organizations/{organizationId}/projects/{projectId}/areas/{areaId}"),
         ("GET", "/api/organizations/{organizationId}/process"),
+
+        // mod-003 api-contract § 5: the work items routes (BR-M3-27).
+        ("GET", "/api/organizations/{organizationId}/projects/{projectId}/workitems"),
+        ("POST", "/api/organizations/{organizationId}/projects/{projectId}/workitems"),
+        ("GET", "/api/organizations/{organizationId}/projects/{projectId}/workitems/{identifier}"),
+        ("PATCH", "/api/organizations/{organizationId}/projects/{projectId}/workitems/{identifier}"),
+        ("GET", "/api/organizations/{organizationId}/workitems/assignee-candidates"),
     ];
 
     /// <summary>The route's address for <paramref name="organizationId"/>, with fresh ids below it.</summary>
@@ -44,11 +52,12 @@ public static class OrganizationAddressedRoutes
             .Replace("{organizationId}", Uri.EscapeDataString(organizationId), StringComparison.Ordinal)
             .Replace("{projectId}", Guid.CreateVersion7().ToString(), StringComparison.Ordinal)
             .Replace("{teamId}", Guid.CreateVersion7().ToString(), StringComparison.Ordinal)
-            .Replace("{areaId}", Guid.CreateVersion7().ToString(), StringComparison.Ordinal);
+            .Replace("{areaId}", Guid.CreateVersion7().ToString(), StringComparison.Ordinal)
+            .Replace("{identifier}", "PRM-BUG-1", StringComparison.Ordinal);
 
     /// <summary>A body every write route binds: each field present and well formed, so only the address can be wrong.</summary>
     public static object? Body(string method) =>
-        method is "POST" or "PUT"
+        method is "POST" or "PUT" or "PATCH"
             ? new
             {
                 name = UniqueBodyName(),
@@ -56,6 +65,9 @@ public static class OrganizationAddressedRoutes
                 areaId = Guid.CreateVersion7().ToString(),
                 parentId = Guid.CreateVersion7().ToString(),
                 ownerTeamId = (string?)null,
+                requestId = Guid.CreateVersion7().ToString(),
+                typeId = Guid.CreateVersion7().ToString(),
+                title = "Заголовок",
             }
             : null;
 

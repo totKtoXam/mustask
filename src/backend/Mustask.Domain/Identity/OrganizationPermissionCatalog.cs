@@ -14,10 +14,18 @@ public static class OrganizationPermissionCatalog
     /// <summary>Reading an organization's process definition. Declared on the read endpoint; nothing checks it before <c>mod-016</c>.</summary>
     public const string ProcessDefinitionRead = "process.definition.read";
 
+    /// <summary>Reading a project's work items: the list and one item (mod-003 BR-M3-27). Nothing checks it before <c>mod-016</c>.</summary>
+    public const string WorkItemsWorkItemRead = "workitems.workitem.read";
+
+    /// <summary>Creating and saving work items, and the assignee candidates a save needs (mod-003 BR-M3-27). Nothing checks it before <c>mod-016</c>.</summary>
+    public const string WorkItemsWorkItemWrite = "workitems.workitem.write";
+
     /// <summary>Human-readable descriptions of the codes (diagnostics, logs).</summary>
     public static readonly IReadOnlyDictionary<string, string> Descriptions = new Dictionary<string, string>
     {
         [ProcessDefinitionRead] = "Просмотр определения процесса организации",
+        [WorkItemsWorkItemRead] = "Просмотр рабочих элементов проекта",
+        [WorkItemsWorkItemWrite] = "Создание и изменение рабочих элементов проекта",
     };
 
     /// <summary>All organization-scoped codes.</summary>

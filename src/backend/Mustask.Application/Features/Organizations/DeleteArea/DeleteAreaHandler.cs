@@ -34,11 +34,18 @@ namespace Mustask.Application.Features.Organizations.DeleteArea;
 /// <see cref="OrganizationErrorCodes.AreaNotEmpty"/>. The project is not locked:
 /// a write beneath only reads its containers' status (ADR-0026 rule 8).
 /// </para>
+/// <para>
+/// <b>Work items</b> (mod-003 US-6, BR-M3-24): an area that holds one, in any
+/// state, is not empty either. <see cref="IAreaUsage"/> answers after the lock,
+/// like the children check: a save that moves an item into the area locks it
+/// <c>FOR SHARE</c>, so it serializes with this deletion on the same row.
+/// </para>
 /// </remarks>
 public sealed class DeleteAreaHandler(
     IProjectRepository projects,
     ITeamRepository teams,
     IAreaRepository areas,
+    IAreaUsage areaUsage,
     IUnitOfWork unitOfWork)
 {
     public async Task Handle(DeleteAreaCommand command, CancellationToken cancellationToken) =>
@@ -74,14 +81,15 @@ public sealed class DeleteAreaHandler(
 
                 // 3. and 4. No body: no values to validate and no references to resolve.
 
-                // 5. The domain rules, read after the lock: a node with children is refused first, then a team's
-                // default area, whose refusal names the team (US-6).
+                // 5. The domain rules, read after the lock: a node with children or work items is refused first, then a
+                // team's default area, whose refusal names the team (US-6).
                 var hasChildren = await areas.HasChildrenAsync(area.Id, ct);
+                var holdsWorkItems = !hasChildren && await areaUsage.IsInUseAsync(projectId, area.Id, ct);
                 var defaultTeamName = area.DefaultOfTeamId is { } defaultTeamId
                     ? await teams.FindNameAsync(defaultTeamId, ct)
                     : null;
 
-                area.EnsureDeletable(hasChildren, defaultTeamName);
+                area.EnsureDeletable(hasChildren, holdsWorkItems, defaultTeamName);
 
                 // 6. Save. Nothing beneath the area can be added from here to the commit: the lock is held.
                 areas.Remove(area);

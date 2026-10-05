@@ -30,3 +30,7 @@ export {
   teamsPath,
 } from './paths';
 export { organizationsPermissions } from './permissions';
+// mod-003's «Область» picker and its create dialog's root path read the area
+// tree unchanged (its api-contract § 3), on this slice's key.
+export { useAreaTree } from './hooks/queries';
+export type { AreaNode } from './api/organizationsApi';

@@ -13,7 +13,7 @@ import Typography from '@mui/material/Typography';
 import type { WorkItemType } from '../api/processApi';
 import { CategoryCell } from './CategoryCell';
 import { STATE_COLUMNS } from './stateColumns';
-import { TypeMark } from './TypeMark';
+import { TypeMark } from '../../../shared/ui/WorkTrackingMarks';
 
 function Fact({ term, value }: { term: string; value: string }) {
   return (

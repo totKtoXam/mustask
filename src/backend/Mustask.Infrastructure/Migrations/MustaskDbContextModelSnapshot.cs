@@ -1009,6 +1009,167 @@ namespace Mustask.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Mustask.Domain.WorkItems.WorkItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AreaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AssigneeId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<DateTimeOffset>("ChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<Guid>("CreationRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("StateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<Guid>("TypeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_work_items");
+
+                    b.HasIndex("StateId")
+                        .HasDatabaseName("ix_work_items_state_id");
+
+                    b.HasIndex("TypeId")
+                        .HasDatabaseName("ix_work_items_type_id");
+
+                    b.HasIndex(new[] { "ProjectId", "AreaId" }, "ix_work_items_project_id_area_id")
+                        .HasDatabaseName("ix_work_items_project_id_area_id");
+
+                    b.HasIndex(new[] { "ProjectId", "ChangedAt", "Number" }, "ix_work_items_project_id_changed_at_number")
+                        .IsDescending(false, true, true)
+                        .HasDatabaseName("ix_work_items_project_id_changed_at_number");
+
+                    b.HasIndex(new[] { "ProjectId", "CreationRequestId" }, "ix_work_items_project_id_creation_request_id")
+                        .IsUnique()
+                        .HasDatabaseName("ix_work_items_project_id_creation_request_id");
+
+                    b.HasIndex(new[] { "ProjectId", "Number" }, "ix_work_items_project_id_number")
+                        .IsUnique()
+                        .HasDatabaseName("ix_work_items_project_id_number");
+
+                    b.ToTable("work_items", t =>
+                        {
+                            t.HasCheckConstraint("ck_work_items_description_length", "char_length(description) <= 100000");
+
+                            t.HasCheckConstraint("ck_work_items_number_positive", "number >= 1");
+
+                            t.HasCheckConstraint("ck_work_items_title_length", "char_length(title) BETWEEN 1 AND 255");
+
+                            t.Property("Id")
+                                .HasColumnName("id");
+
+                            t.Property("AreaId")
+                                .HasColumnName("area_id");
+
+                            t.Property("AssigneeId")
+                                .HasColumnName("assignee_id");
+
+                            t.Property("ChangedAt")
+                                .HasColumnName("changed_at");
+
+                            t.Property("CreatedAt")
+                                .HasColumnName("created_at");
+
+                            t.Property("CreatedBy")
+                                .HasColumnName("created_by");
+
+                            t.Property("CreationRequestId")
+                                .HasColumnName("creation_request_id");
+
+                            t.Property("Description")
+                                .HasColumnName("description");
+
+                            t.Property("Number")
+                                .HasColumnName("number");
+
+                            t.Property("ProjectId")
+                                .HasColumnName("project_id");
+
+                            t.Property("StateId")
+                                .HasColumnName("state_id");
+
+                            t.Property("Title")
+                                .HasColumnName("title");
+
+                            t.Property("TypeId")
+                                .HasColumnName("type_id");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
+            modelBuilder.Entity("Mustask.Infrastructure.WorkItems.WorkItemCounter", b =>
+                {
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("LastNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("ProjectId")
+                        .HasName("pk_work_item_counters");
+
+                    b.ToTable("work_item_counters", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_work_item_counters_last_number", "last_number >= 0");
+
+                            t.Property("ProjectId")
+                                .HasColumnName("project_id");
+
+                            t.Property("LastNumber")
+                                .HasColumnName("last_number");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
             modelBuilder.Entity("Mustask.Domain.Organizations.Area", b =>
                 {
                     b.HasOne("Mustask.Domain.Organizations.Project", null)
@@ -1116,6 +1277,48 @@ namespace Mustask.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_directory_snapshot_pages_directory_snapshots_snapshot_id");
+                });
+
+            modelBuilder.Entity("Mustask.Domain.WorkItems.WorkItem", b =>
+                {
+                    b.HasOne("Mustask.Domain.Organizations.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_work_items_projects_project_id");
+
+                    b.HasOne("Mustask.Domain.Process.StateDefinition", null)
+                        .WithMany()
+                        .HasForeignKey("StateId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_work_items_state_definitions_state_id");
+
+                    b.HasOne("Mustask.Domain.Process.WorkItemType", null)
+                        .WithMany()
+                        .HasForeignKey("TypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_work_items_work_item_types_type_id");
+
+                    b.HasOne("Mustask.Domain.Organizations.Area", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId", "AreaId")
+                        .HasPrincipalKey("ProjectId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_work_items_areas_project_id_area_id");
+                });
+
+            modelBuilder.Entity("Mustask.Infrastructure.WorkItems.WorkItemCounter", b =>
+                {
+                    b.HasOne("Mustask.Domain.Organizations.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_work_item_counters_projects_project_id");
                 });
 
             modelBuilder.Entity("Mustask.Domain.Process.ProcessDefinition", b =>

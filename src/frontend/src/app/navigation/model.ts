@@ -1,4 +1,5 @@
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
+import ListAltOutlinedIcon from '@mui/icons-material/ListAltOutlined';
 import { dictionariesPermissions, LANGUAGES_PATH } from '../../features/dictionaries';
 import {
   areasPath,
@@ -9,6 +10,7 @@ import {
   teamsPath,
 } from '../../features/organizations';
 import { processDefinitionPath, processPermissions } from '../../features/process';
+import { workItemsPath, workItemsPermissions } from '../../features/workitems';
 import { HOME_PATH } from '../../shared/config/paths';
 import type { NavigationModel } from './types';
 
@@ -28,7 +30,10 @@ export const SETTINGS_LABEL = 'Настройки';
  * opens the organization's «Общие». mod-001's «Процесс» (mod-001 D-5,
  * mod-015 D-12) is third in «Организация» now, fourth once mod-016's
  * «Участники» exists. Scoped entries stay hidden until the context is real
- * (D-18), which mod-002's context source makes it.
+ * (D-18), which mod-002's context source makes it. mod-003 adds the first
+ * work hub, «Рабочие элементы» (design § 4.1; mod-003 OQ-5): project-scoped,
+ * so it shows once a real project is chosen, and current on the item's form
+ * beneath its landing (mod-003 D-5).
  */
 export const navigationModel: NavigationModel = {
   top: [
@@ -40,7 +45,19 @@ export const navigationModel: NavigationModel = {
       landing: () => HOME_PATH,
     },
   ],
-  work: [],
+  work: [
+    {
+      id: 'workitems',
+      label: 'Рабочие элементы',
+      icon: ListAltOutlinedIcon,
+      scope: 'project',
+      permission: workItemsPermissions.workItemRead,
+      landing: (selection) =>
+        selection.organizationId && selection.projectId
+          ? workItemsPath(selection.organizationId, selection.projectId)
+          : null,
+    },
+  ],
   settings: [
     {
       id: 'organization',

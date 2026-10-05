@@ -1,0 +1,83 @@
+{
+  "module": "workitems",
+  "origin": "slice",
+  "codes": {
+    "workitems.workitem.not_found": {
+      "statuses": [404],
+      "params": {},
+      "ru": "Рабочий элемент не найден.",
+      "kk": "Жұмыс элементі табылмады.",
+      "kkNeedsReview": true
+    },
+    "workitems.validation_failed": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Проверьте правильность заполнения полей.",
+      "kk": "Өрістердің дұрыс толтырылғанын тексеріңіз.",
+      "kkNeedsReview": true
+    },
+    "workitems.workitem.title_required": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Введите заголовок.",
+      "kk": "Тақырыпты енгізіңіз.",
+      "kkNeedsReview": true
+    },
+    "workitems.workitem.title_too_long": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Не более 255 символов.",
+      "kk": "255 таңбадан аспауы керек.",
+      "kkNeedsReview": true
+    },
+    "workitems.workitem.title_multiline": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Заголовок должен быть в одну строку.",
+      "kk": "Тақырып бір жолда болуы керек.",
+      "kkNeedsReview": true
+    },
+    "workitems.workitem.description_too_long": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Не более 100 000 символов.",
+      "kk": "100 000 таңбадан аспауы керек.",
+      "kkNeedsReview": true
+    },
+    "workitems.workitem.request_id_invalid": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Не удалось отправить форму. Обновите страницу и попробуйте ещё раз.",
+      "kk": "Пішінді жіберу мүмкін болмады. Бетті жаңартып, қайталап көріңіз.",
+      "kkNeedsReview": true
+    },
+    "workitems.invalid_page": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Некорректный номер страницы.",
+      "kk": "Бет нөмірі дұрыс емес.",
+      "kkNeedsReview": true
+    },
+    "workitems.workitem.type_not_found": {
+      "statuses": [404],
+      "params": {},
+      "ru": "Тип рабочего элемента не найден.",
+      "kk": "Жұмыс элементінің түрі табылмады.",
+      "kkNeedsReview": true
+    },
+    "workitems.workitem.state_not_allowed": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Этот статус недоступен для рабочего элемента этого типа.",
+      "kk": "Бұл күй осы түрдегі жұмыс элементі үшін қолжетімсіз.",
+      "kkNeedsReview": true
+    },
+    "workitems.workitem.assignee_unavailable": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Этого пользователя нельзя назначить исполнителем.",
+      "kk": "Бұл пайдаланушыны орындаушы етіп тағайындауға болмайды.",
+      "kkNeedsReview": true
+    }
+  }
+}

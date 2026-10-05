@@ -67,10 +67,13 @@ async function accessToken(request: APIRequestContext): Promise<string> {
   return body.accessToken;
 }
 
-/** One request with a fresh token; the raw response, for a spec that reads a refusal. */
+/**
+ * One request with a fresh token; the raw response, for a spec that reads a
+ * refusal. `PATCH` is spec 22's (mod-003's save, `workItemsApi.ts`).
+ */
 export async function send(
   request: APIRequestContext,
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   body?: unknown,
 ): Promise<APIResponse> {

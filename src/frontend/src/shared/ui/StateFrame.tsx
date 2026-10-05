@@ -1,4 +1,4 @@
-import { useLayoutEffect, type ReactElement, type Ref } from 'react';
+import { useLayoutEffect, type MouseEvent, type ReactElement, type Ref } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -16,7 +16,8 @@ export interface StateFrameAction {
   label: string;
   /** A leading icon, where one fits (design § 7.1). */
   icon?: ReactElement;
-  onClick?: () => void;
+  /** Receives the click, so an action that opens a menu anchors it on `currentTarget` (mod-003). */
+  onClick?: (event: MouseEvent<HTMLElement>) => void;
   to?: string;
 }
 
@@ -128,14 +129,17 @@ export function AccessDenied() {
  * What was not found (BR-12, BR-13, BR-18, D-15): an unknown panel address,
  * or the organization, project or team a context address names. A context
  * that does not exist and one the user may not see get the same frame.
+ * mod-003 adds the work item its form's address names (its spec § Not-found
+ * answers), with the same icon, hint and action.
  */
-export type NotFoundLevel = 'page' | 'organization' | 'project' | 'team';
+export type NotFoundLevel = 'page' | 'organization' | 'project' | 'team' | 'workItem';
 
 const NOT_FOUND_HEADINGS: Record<NotFoundLevel, string> = {
   page: 'Страница не найдена',
   organization: 'Организация не найдена',
   project: 'Проект не найден',
   team: 'Команда не найдена',
+  workItem: 'Рабочий элемент не найден',
 };
 
 export function NotFound({

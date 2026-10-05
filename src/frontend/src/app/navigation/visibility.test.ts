@@ -59,19 +59,19 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () =>
     const shown = [...labels(visible), ...visible.settings.map(({ section }) => section.label)];
 
     for (const label of [
-      'Рабочие элементы',
       'Доски',
       'Бэклоги',
       'Спринты',
       'Запросы',
-      // mod-002: «Проект» holds built pages now, hidden only on the placeholder.
-      ...(organizationHidden ? ['Организация', 'Процесс', 'Проект'] : []),
+      // mod-002: «Проект» holds built pages now, hidden only on the placeholder;
+      // mod-003: so is «Рабочие элементы», a project-scoped entry.
+      ...(organizationHidden ? ['Организация', 'Процесс', 'Проект', 'Рабочие элементы'] : []),
     ]) {
       expect(shown).not.toContain(label);
     }
   });
 
-  it('registers only built pages: «Главная», «Организация» → «Общие», «Проекты», «Процесс», «Проект» → «Общие», «Команды», «Области» and «Справочники» → «Языки»', () => {
+  it('registers only built pages: «Главная», «Рабочие элементы», «Организация» → «Общие», «Проекты», «Процесс», «Проект» → «Общие», «Команды», «Области» and «Справочники» → «Языки»', () => {
     const registered = [
       ...navigationModel.top,
       ...navigationModel.work,
@@ -79,6 +79,7 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () =>
     ];
     expect(registered.map((entry) => entry.label)).toEqual([
       'Главная',
+      'Рабочие элементы',
       'Общие',
       'Проекты',
       'Процесс',

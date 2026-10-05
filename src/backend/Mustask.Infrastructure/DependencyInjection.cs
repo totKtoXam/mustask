@@ -8,7 +8,9 @@ using Mustask.Infrastructure.Dictionaries.Seeding;
 using Mustask.Infrastructure.Organizations;
 using Mustask.Infrastructure.Process;
 using Mustask.Application.Abstractions.UserDirectory;
+using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Infrastructure.UserDirectory;
+using Mustask.Infrastructure.WorkItems;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -72,7 +74,25 @@ public static class DependencyInjection
         // Organizations (mod-002): M1's repositories, read models and the reads for other modules.
         builder.Services.AddOrganizationsInfrastructure();
 
+        // Work items (mod-003): M3's repository and read model, and its answer to M1's area-usage port.
+        builder.Services.AddWorkItemsInfrastructure();
+
         return builder;
+    }
+
+    /// <summary>
+    /// The work items module's repository, read model and its implementation of
+    /// M1's <see cref="IAreaUsage"/>, all scoped. Public, like
+    /// <see cref="AddOrganizationsInfrastructure"/>, so a test host that builds
+    /// its own context wires the same set.
+    /// </summary>
+    public static IServiceCollection AddWorkItemsInfrastructure(this IServiceCollection services)
+    {
+        services.AddScoped<IWorkItemRepository, WorkItemRepository>();
+        services.AddScoped<IWorkItemReadModel, WorkItemReadModel>();
+        services.AddScoped<IAreaUsage, WorkItemAreaUsage>();
+
+        return services;
     }
 
     /// <summary>

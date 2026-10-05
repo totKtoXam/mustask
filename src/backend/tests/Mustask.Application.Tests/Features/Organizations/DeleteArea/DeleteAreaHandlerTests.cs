@@ -26,10 +26,14 @@ public sealed class DeleteAreaHandlerTests
                 new FakeProjectRepository(Store),
                 new FakeTeamRepository(Store),
                 new FakeAreaRepository(Store),
+                Usage,
                 new FakeUnitOfWork());
         }
 
         public InMemoryOrganizations Store { get; } = new();
+
+        /// <summary>The areas that hold a work item (mod-003 US-6); none unless a test adds one.</summary>
+        public FakeAreaUsage Usage { get; } = new();
 
         public Organization Organization { get; }
 
@@ -101,6 +105,27 @@ public sealed class DeleteAreaHandlerTests
 
         Assert.Equal(before - 2, f.Store.Areas.Count);
         Assert.Equal(2, f.Store.SaveCount);
+    }
+
+    // mod-003 US-6 · "An area holding a work item is not deleted" (BR-M3-24): «Квартальные» is an empty leaf of no team,
+    // but a work item has it, so it is refused with not_empty after the lock and nothing is saved; once the item has moved
+    // out, it is deleted.
+    [Fact]
+    public async Task Handle_LeafHoldingAWorkItem_IsAreaNotEmpty_AfterTheLock_DeletableOnceTheItemMovedOut()
+    {
+        var f = new Fixture();
+        f.Usage.InUse.Add((f.Project.Project.Id, f.Quarterly.Id));
+
+        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(f.Quarterly)));
+
+        Assert.Equal(OrganizationErrorCodes.AreaNotEmpty, refusal.Code);
+        Assert.Equal([$"lock area update {f.Quarterly.Id}"], f.Store.Calls);
+        Assert.Contains(f.Store.Areas, area => area.Id == f.Quarterly.Id);
+
+        f.Usage.InUse.Clear();
+        await f.HandleAsync(f.Command(f.Quarterly));
+
+        Assert.DoesNotContain(f.Store.Areas, area => area.Id == f.Quarterly.Id);
     }
 
     // US-5 · "root comes with the project" and BR-M1-11: the root has children and is the first team's default area, and

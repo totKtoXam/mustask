@@ -1,28 +1,10 @@
 import Box from '@mui/material/Box';
 import TableCell from '@mui/material/TableCell';
-import type { Theme } from '@mui/material/styles';
-import type { CategoryCode, StateCategory } from '../api/processApi';
+import { CategoryMarker } from '../../../shared/ui/WorkTrackingMarks';
+import type { StateCategory } from '../api/processApi';
 
-/** The removed category is drawn as a ring, every other code as a dot (mod-015 design § 2.3). */
-const REMOVED: CategoryCode = 'Removed';
-
-/** Class name the tests address the marker by. */
-export const CATEGORY_MARKER_CLASS = 'ProcessCategoryMarker';
-
-function markerSx(code: string) {
-  return (theme: Theme) => {
-    const colour = theme.workTracking.categoryColour(code);
-    const size = theme.layout.categoryDot;
-    const shape = { width: size, height: size, borderRadius: '50%', flexShrink: 0 };
-    return code === REMOVED
-      ? {
-          ...shape,
-          boxSizing: 'border-box' as const,
-          border: `${theme.spacing(0.25)} solid ${colour}`,
-        }
-      : { ...shape, backgroundColor: colour };
-  };
-}
+/** Class name the tests address the marker by: the shared marker's own (mod-003 moved it). */
+export { CATEGORY_MARKER_CLASS } from '../../../shared/ui/WorkTrackingMarks';
 
 /**
  * A state's category (design point 6): the marker in the category's theme
@@ -35,12 +17,7 @@ export function CategoryCell({ category }: { category: StateCategory }) {
   return (
     <TableCell>
       <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
-        <Box
-          component="span"
-          aria-hidden="true"
-          className={CATEGORY_MARKER_CLASS}
-          sx={markerSx(category.code)}
-        />
+        <CategoryMarker code={category.code} />
         {category.label}
       </Box>
     </TableCell>

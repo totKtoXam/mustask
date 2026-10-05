@@ -3,7 +3,7 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { authValue, LANGUAGES_READ, renderShell } from '../test/renderShell';
 import { setViewportWidth } from '../test/viewport';
-import { initials } from './shell/initials';
+import { initials } from '../shared/lib/initials';
 
 /**
  * QA additions (mod-015, stage 7, qa.md § Additional scenarios A1, A3, A9,

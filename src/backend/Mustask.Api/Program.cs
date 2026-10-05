@@ -10,6 +10,7 @@ using Mustask.Api.Features.Organizations;
 using Mustask.Api.Features.Process;
 using Mustask.Api.Features.Session;
 using Mustask.Api.Features.UserDirectory;
+using Mustask.Api.Features.WorkItems;
 using Gridify;
 using Mustask.Application;
 using Mustask.Domain.UserDirectory;
@@ -302,6 +303,7 @@ app.MapOrganizationEndpoints();
 app.MapProcessEndpoints();
 app.MapSessionEndpoints();
 app.MapUserDirectoryEndpoints();
+app.MapWorkItemEndpoints();
 
 app.Run();
 

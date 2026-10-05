@@ -23,6 +23,12 @@ import {
   TeamsPage,
 } from '../features/organizations';
 import { PROCESS_DEFINITION_ROUTE, ProcessDefinitionPage } from '../features/process';
+import {
+  WORK_ITEMS_ROUTE,
+  WORK_ITEM_ROUTE,
+  WorkItemFormPage,
+  WorkItemsPage,
+} from '../features/workitems';
 import { HOME_PATH } from '../shared/config/paths';
 import { NotFound } from '../shared/ui/StateFrame';
 import { AppLayout } from './AppLayout';
@@ -71,6 +77,12 @@ export function AppRoutes() {
             <Route path={TEAM_ROUTE} element={<TeamPage />} />
             <Route path={AREAS_ROUTE} element={<AreasPage />} />
           </Route>
+          {/* Work items (mod-003 spec § Screens and copy): the project's list
+              and an item's form, both project-level pages (D-5). No gate:
+              every signed-in user passes until mod-016 (BR-M3-27), and each
+              page answers a level it does not find with its own frame. */}
+          <Route path={WORK_ITEMS_ROUTE} element={<WorkItemsPage />} />
+          <Route path={WORK_ITEM_ROUTE} element={<WorkItemFormPage />} />
           {/* An unknown address keeps the address and answers inside the
               shell — no redirect to «Главная» (mod-015 BR-13, D-13). */}
           <Route path="*" element={<NotFound level="page" />} />

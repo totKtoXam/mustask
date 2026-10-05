@@ -150,13 +150,14 @@ public sealed class Area
     /// <summary>
     /// Only an empty leaf that is no team's default is deleted (US-5, US-6,
     /// BR-M1-13, BR-M1-14). The root is refused first, then a node with
-    /// children, then a default area.
+    /// children or one that holds work items (mod-003 BR-M3-24, whatever their
+    /// state), then a default area.
     /// </summary>
-    public void EnsureDeletable(bool hasChildren, string? defaultTeamName)
+    public void EnsureDeletable(bool hasChildren, bool holdsWorkItems, string? defaultTeamName)
     {
         EnsureNotRoot();
 
-        if (hasChildren)
+        if (hasChildren || holdsWorkItems)
         {
             throw new ConflictException(OrganizationErrorCodes.AreaNotEmpty);
         }

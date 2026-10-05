@@ -3,6 +3,7 @@ using Mustask.Domain.Organizations;
 using Mustask.Domain.Process;
 
 using Mustask.Domain.UserDirectory;
+using Mustask.Domain.WorkItems;
 using Mustask.Infrastructure.Conventions;
 using Mustask.Infrastructure.Process;
 using Microsoft.EntityFrameworkCore;
@@ -47,6 +48,9 @@ public sealed class MustaskDbContext(DbContextOptions<MustaskDbContext> options)
     public DbSet<Team> Teams => Set<Team>();
 
     public DbSet<Area> Areas => Set<Area>();
+
+    /// <summary>M3's work items (mod-003); their per-project counter is mapped too, with no DbSet (raw SQL only).</summary>
+    public DbSet<WorkItem> WorkItems => Set<WorkItem>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {

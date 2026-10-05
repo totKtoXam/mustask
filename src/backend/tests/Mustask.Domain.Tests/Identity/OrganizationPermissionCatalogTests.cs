@@ -16,6 +16,17 @@ public sealed class OrganizationPermissionCatalogTests
         Assert.Contains("process.definition.read", OrganizationPermissionCatalog.AllCodes);
     }
 
+    // mod-003 BR-M3-27: the work item codes are declared under their exact names as organization-scoped codes, beside
+    // mod-001's read, and so never reach the realm import (OrganizationPermissionRealmTests scans for every one of them).
+    [Fact]
+    public void WorkItemCodes_AreRegisteredUnderTheirExactNames()
+    {
+        Assert.Equal("workitems.workitem.read", OrganizationPermissionCatalog.WorkItemsWorkItemRead);
+        Assert.Equal("workitems.workitem.write", OrganizationPermissionCatalog.WorkItemsWorkItemWrite);
+        Assert.Contains("workitems.workitem.read", OrganizationPermissionCatalog.AllCodes);
+        Assert.Contains("workitems.workitem.write", OrganizationPermissionCatalog.AllCodes);
+    }
+
     [Fact]
     public void AllCodes_AreWellFormed()
     {

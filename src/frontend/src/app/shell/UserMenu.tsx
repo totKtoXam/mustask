@@ -10,7 +10,7 @@ import MenuItem from '@mui/material/MenuItem';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
 import { useAuth } from '../../features/auth/AuthContext';
-import { initials } from './initials';
+import { initials } from '../../shared/lib/initials';
 
 /**
  * The display name at the top of the open menu: text, not an item — the
