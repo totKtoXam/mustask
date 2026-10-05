@@ -47,6 +47,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] bug-003-shell-address-case-navigation — An address in another letter case or percent-encoded (/Dictionaries/Languages, /dictionaries/%6Canguages) opens the page without its navigation marker, settings menu or trail (mod-015 QA D-4, minor); match routes the way the router does (matchPath) · epic:platform/ui · size:S · deps:mod-015 · note:-
 - [ ] feat-015-work-item-history — History of every create and save of a work item; owes the history/audit ADR (doc-010 ADR debt); decides what items created before it show (mod-003 spec, Decomposition) · epic:core/work-items · size:M · deps:mod-003 · note:-
 - [ ] feat-016-work-item-tags — Stored project tags on the work item form and in the list (doc-002 BR-M3-11, US-8) · epic:core/work-items · size:M · deps:mod-003 · note:-
+- [ ] feat-017-work-item-assignee-marks — The «неактивен» and «не в организации» marks on an assignee, on the form and in the list (doc-001 BR-13) · epic:core/work-items · size:S · deps:mod-003,mod-016 · note:-
 
 ## Withdrawn (number taken, task not done)
 
