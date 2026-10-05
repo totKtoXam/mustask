@@ -45,6 +45,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] tech-004-stand-docs-drift — Stand docs drift: the old 'missing configuration value' wording in src/backend/AGENTS.md and the random-port/password wording in MustaskDbContextFactory.cs and ADR-0002 no longer match the fixed ports and secrets (deferred from tech-002 review CR-follow-up) · epic:platform/stand · size:S · deps:- · note:-
 - [ ] tech-005-process-id-composite-guard — organizations.process_id references processes(id) alone, so the database would accept another organization's process on an organization; add the key (organization_id, id) on processes and a composite foreign key (noted by mod-002 QA D-1, deferred by D-x) · epic:core/org-access · size:S · deps:mod-002 · note:-
 - [ ] bug-003-shell-address-case-navigation — An address in another letter case or percent-encoded (/Dictionaries/Languages, /dictionaries/%6Canguages) opens the page without its navigation marker, settings menu or trail (mod-015 QA D-4, minor); match routes the way the router does (matchPath) · epic:platform/ui · size:S · deps:mod-015 · note:-
+- [ ] feat-015-work-item-history — History of every create and save of a work item; owes the history/audit ADR (doc-010 ADR debt); decides what items created before it show (mod-003 spec, Decomposition) · epic:core/work-items · size:M · deps:mod-003 · note:-
 
 ## Withdrawn (number taken, task not done)
 
