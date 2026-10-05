@@ -49,6 +49,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] feat-016-work-item-tags — Stored project tags on the work item form and in the list (doc-002 BR-M3-11, US-8) · epic:core/work-items · size:M · deps:mod-003 · note:-
 - [ ] feat-017-work-item-assignee-marks — The «неактивен» and «не в организации» marks on an assignee, on the form and in the list (doc-001 BR-13) · epic:core/work-items · size:S · deps:mod-003,mod-016 · note:-
 - [ ] feat-018-work-item-rich-text — Описание as rich text (doc-002 BR-M3-4), converting the stored plain text · epic:core/work-items · size:M · deps:mod-003 · note:-
+- [ ] feat-019-work-item-priority — Приоритет 1..4, default 2, on the form and in the list (doc-002 Fields) · epic:core/work-items · size:S · deps:mod-003 · note:-
 
 ## Withdrawn (number taken, task not done)
 
