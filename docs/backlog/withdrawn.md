@@ -16,3 +16,4 @@ starts** is not written here — its number is held by the branch and the
 - [x] doc-008-personal-object-ownership — withdrawn: absorbed by doc-010 (cross-module normalization amends doc-001 Roles/BR-5 for D-14 there), 2026-09-24
 - [x] doc-009-teams-per-project-carry-back — withdrawn: absorbed by doc-010 (cross-module normalization carries doc-004 E-5 into doc-006 there), 2026-09-24
 - [x] feat-019-work-item-priority — withdrawn: absorbed by feat-022-work-item-form-fields (human, 2026-10-05), 2026-10-05
+- [x] feat-007-work-item-type-fields — withdrawn: absorbed by feat-022-work-item-form-fields (human, 2026-10-05), 2026-10-05
