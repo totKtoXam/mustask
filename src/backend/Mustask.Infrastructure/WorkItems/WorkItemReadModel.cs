@@ -3,6 +3,7 @@ using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.Process;
 using Mustask.Domain.WorkItems;
+using Mustask.Infrastructure.Organizations;
 using Microsoft.EntityFrameworkCore;
 
 namespace Mustask.Infrastructure.WorkItems;
@@ -13,7 +14,8 @@ namespace Mustask.Infrastructure.WorkItems;
 /// type and state (one statement; the list adds its count), then the project's
 /// area nodes, whose paths <see cref="AreaTree"/> computes exactly as mod-002's
 /// tree read does (DC-9), then one lookup of the page's assignees through
-/// mod-014's <see cref="IUserDirectory"/>, never its tables.
+/// mod-014's <see cref="IUserDirectory"/>, never its tables. One item adds one
+/// statement for its links (feat-001): its parent and its children together.
 /// </summary>
 internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory directory) : IWorkItemReadModel
 {
@@ -30,6 +32,70 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         var row = await Rows(context.WorkItems.Where(item => item.Id == workItemId)).SingleAsync(cancellationToken);
 
         return await ViewAsync(row, cancellationToken);
+    }
+
+    public Task<WorkItemHead?> FindHeadAsync(Guid projectId, int number, CancellationToken cancellationToken) =>
+        context.WorkItems
+            .AsNoTracking()
+            .Where(item => item.ProjectId == projectId && item.Number == number)
+            .Select(item => new WorkItemHead(item.Id, item.TypeId))
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<WorkItemRefView> GetRefAsync(Guid workItemId, CancellationToken cancellationToken)
+    {
+        var row = await RefRows(context.WorkItems.Where(item => item.Id == workItemId)).SingleAsync(cancellationToken);
+
+        return Ref(row);
+    }
+
+    public async Task<ParentCandidates> FindParentCandidatesAsync(ParentCandidateSearch search, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(search);
+        ArgumentOutOfRangeException.ThrowIfLessThan(search.Limit, 1);
+
+        var typeIds = search.TypeIds.ToList();
+        var removed = StateCategory.Removed;
+
+        var candidates =
+            from item in context.WorkItems
+            join type in context.WorkItemTypes on item.TypeId equals type.Id
+            join state in context.StateDefinitions on item.StateId equals state.Id
+            where item.ProjectId == search.ProjectId
+                && item.Id != search.ExcludedItemId
+                && typeIds.Contains(item.TypeId)
+                && state.Category != removed
+            select new { Item = item, TypeKey = type.Key };
+
+        if (search.Text.Length > 0)
+        {
+            // Letter case is folded by ICU (the collation the project's lists sort by), so Cyrillic folds as Latin does
+            // whatever the database's own locale; the identifier is ASCII and built as the API writes it.
+            var text = search.Text;
+            var prefix = search.ProjectKey + "-";
+
+            candidates = candidates.Where(candidate =>
+                EF.Functions.Collate(candidate.Item.Title, OrganizationsCollation.Russian).ToLower().Contains(text)
+                || (prefix + candidate.TypeKey + "-" + candidate.Item.Number.ToString()).ToLower().Contains(text));
+        }
+
+        // One more than the limit says whether more matched; the order and the cut are taken in SQL.
+        var page = candidates
+            .OrderByDescending(candidate => candidate.Item.ChangedAt)
+            .ThenByDescending(candidate => candidate.Item.Number)
+            .Take(search.Limit + 1)
+            .Select(candidate => candidate.Item);
+
+        var rows = await RefRows(page).ToListAsync(cancellationToken);
+
+        // The joins do not promise the page's order, so the page, already narrowed in SQL, is put back in it here.
+        var items = rows
+            .OrderByDescending(row => row.ChangedAt)
+            .ThenByDescending(row => row.Number)
+            .Take(search.Limit)
+            .Select(Ref)
+            .ToList();
+
+        return new ParentCandidates(items, rows.Count > search.Limit);
     }
 
     public async Task<WorkItemPage> GetPageAsync(Guid projectId, int page, int pageSize, CancellationToken cancellationToken)
@@ -94,6 +160,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             item.ProjectId,
             project.Key,
             item.Number,
+            item.ParentId,
             type.Id,
             type.Key,
             type.Name,
@@ -109,10 +176,41 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             item.CreatedAt,
             item.ChangedAt);
 
+    /// <summary><paramref name="items"/> as link ends, with their project key, type, level rank and state, in one statement.</summary>
+    private IQueryable<WorkItemRefRow> RefRows(IQueryable<WorkItem> items) => WorkItemRefs.Rows(context, items.AsNoTracking());
+
+    /// <summary>
+    /// feat-001: the item's stored parent, whatever its state (BR-H-8), and its
+    /// direct children outside «Удалена» (BR-H-7), in one statement; the children
+    /// by level rank descending, then by number.
+    /// </summary>
+    private async Task<(WorkItemRefView? Parent, IReadOnlyList<WorkItemRefView> Children)> LinksAsync(ItemRow row, CancellationToken cancellationToken)
+    {
+        var parentId = row.ParentId;
+        var removedStates = WorkItemRefs.RemovedStateIds(context);
+
+        var links = await RefRows(context.WorkItems.Where(item =>
+                item.Id == parentId
+                || (item.ProjectId == row.ProjectId && item.ParentId == row.Id && !removedStates.Contains(item.StateId))))
+            .ToListAsync(cancellationToken);
+
+        var parent = parentId is { } id ? links.Single(link => link.Id == id) : null;
+
+        var children = links
+            .Where(link => link.ParentId == row.Id)
+            .OrderByDescending(link => link.LevelRank)
+            .ThenBy(link => link.Number)
+            .Select(Ref)
+            .ToList();
+
+        return (parent is null ? null : Ref(parent), children);
+    }
+
     private async Task<WorkItemView> ViewAsync(ItemRow row, CancellationToken cancellationToken)
     {
         var paths = await AreaPathsAsync(row.ProjectId, cancellationToken);
         var assignees = await AssigneesAsync([row], cancellationToken);
+        var (parent, children) = await LinksAsync(row, cancellationToken);
 
         return new WorkItemView(
             row.Id,
@@ -127,8 +225,12 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             new WorkItemAreaView(row.AreaId, paths.PathOf(row.AreaId)),
             row.CreatedBy,
             row.CreatedAt,
-            row.ChangedAt);
+            row.ChangedAt,
+            parent,
+            children);
     }
+
+    private static WorkItemRefView Ref(WorkItemRefRow row) => WorkItemRefs.View(row);
 
     private async Task<AreaTree> AreaPathsAsync(Guid projectId, CancellationToken cancellationToken)
     {
@@ -174,6 +276,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         Guid ProjectId,
         string ProjectKey,
         int Number,
+        Guid? ParentId,
         Guid TypeId,
         string TypeKey,
         string TypeName,

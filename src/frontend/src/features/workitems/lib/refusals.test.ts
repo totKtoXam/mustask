@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError, type ProblemDetails } from '../../../shared/api/httpClient';
 import { notFoundLevel } from './notFoundLevel';
-import { placeRefusal, type RefusalField } from './refusals';
+import { isParentChanged, placeRefusal, type RefusalField } from './refusals';
 
-const FORM: readonly RefusalField[] = ['title', 'description', 'state', 'assignee', 'area'];
+const FORM: readonly RefusalField[] = [
+  'title',
+  'description',
+  'state',
+  'assignee',
+  'area',
+  'parent',
+];
 const DIALOG: readonly RefusalField[] = ['title'];
 
 function refusal(
@@ -148,5 +155,66 @@ describe('placeRefusal (spec § Error codes; api-contract § 0.5)', () => {
       alert: 'Не удалось соединиться с API. Проверьте, что Mustask.Api запущен.',
       frame: null,
     });
+  });
+});
+
+describe('placeRefusal: the six link codes (feat-001 spec § Screens and copy, § Error codes)', () => {
+  it.each([
+    ['workitems.link.parent_not_found', 404, 'Родитель не найден в этом проекте.'],
+    [
+      'workitems.link.parent_level_not_allowed',
+      409,
+      'Родителем может быть только рабочий элемент того же или более высокого уровня.',
+    ],
+    ['workitems.link.self_parent', 409, 'Рабочий элемент не может быть родителем самого себя.'],
+    [
+      'workitems.link.cycle',
+      409,
+      'Нельзя выбрать родителем MSK-TASK-12: он вложен в MSK-TASK-10 (MSK-TASK-10 → MSK-TASK-11 → MSK-TASK-12).',
+    ],
+    [
+      'workitems.link.parent_changed',
+      409,
+      'Родитель уже изменён другим участником. Данные обновлены — проверьте и повторите.',
+    ],
+    ['workitems.link.item_deleted', 409, 'Удалённый рабочий элемент нельзя связывать.'],
+  ])('%s is «Родитель»’s error with the server’s text, never a frame', (code, status, text) => {
+    expect(notFoundLevel(refusal(status, code, text))).toBeNull();
+    expect(placeRefusal(refusal(status, code, text), FORM)).toEqual({
+      fields: { parent: text },
+      alert: null,
+      frame: null,
+    });
+  });
+
+  it('a screen without «Родитель» shows a link code in its Alert', () => {
+    expect(
+      placeRefusal(
+        refusal(
+          409,
+          'workitems.link.self_parent',
+          'Рабочий элемент не может быть родителем самого себя.',
+        ),
+        DIALOG,
+      ),
+    ).toEqual({
+      fields: {},
+      alert: 'Рабочий элемент не может быть родителем самого себя.',
+      frame: null,
+    });
+  });
+
+  it('isParentChanged tells `parent_changed` apart by its code alone', () => {
+    expect(isParentChanged(refusal(409, 'workitems.link.parent_changed', 'x'))).toBe(true);
+    expect(
+      isParentChanged(
+        refusal(
+          409,
+          'workitems.link.cycle',
+          'Родитель уже изменён другим участником. Данные обновлены — проверьте и повторите.',
+        ),
+      ),
+    ).toBe(false);
+    expect(isParentChanged(new TypeError('Failed to fetch'))).toBe(false);
   });
 });

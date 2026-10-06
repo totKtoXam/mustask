@@ -36,6 +36,15 @@ public sealed class OrganizationPermissionCatalogTests
         Assert.Contains("boards.backlog.reorder", OrganizationPermissionCatalog.AllCodes);
     }
 
+    // feat-001 BR-H-18: the parent write's code is registered under its exact name as an organization-scoped code,
+    // outside the realm import (OrganizationPermissionRealmTests scans every code of AllCodes).
+    [Fact]
+    public void WorkItemsLinkWrite_IsRegisteredUnderItsExactName()
+    {
+        Assert.Equal("workitems.link.write", OrganizationPermissionCatalog.WorkItemsLinkWrite);
+        Assert.Contains("workitems.link.write", OrganizationPermissionCatalog.AllCodes);
+    }
+
     [Fact]
     public void AllCodes_AreWellFormed()
     {

@@ -263,4 +263,63 @@ public sealed class MigrationsTests : IAsyncLifetime
             Assert.True(await TableExistsAsync(context, table), $"Re-applying AddUserDirectory must restore '{table}'.");
         }
     }
+
+    /// <summary>
+    /// feat-001: AddWorkItemLinks is additive and reversible — rolling back to
+    /// the migration before it drops <c>work_items.parent_id</c> and
+    /// <c>work_item_hierarchy_locks</c> and leaves <c>work_items</c> itself, and
+    /// re-applying restores both.
+    /// </summary>
+    [Fact]
+    public async Task Migrator_AddWorkItemLinks_AddsTheParentAndTheLockTable_AndRollbackRemovesOnlyThem()
+    {
+        using var context = CreateContext();
+        await context.Database.MigrateAsync();
+
+        Assert.True(await ColumnExistsAsync(context, "work_items", "parent_id"), "work_items.parent_id must exist after AddWorkItemLinks.");
+        Assert.True(await TableExistsAsync(context, "work_item_hierarchy_locks"), "work_item_hierarchy_locks must exist after AddWorkItemLinks.");
+
+        var previous = context.Database.GetMigrations()
+            .TakeWhile(id => !id.EndsWith("_AddWorkItemLinks", StringComparison.Ordinal))
+            .Last();
+
+        await context.GetService<IMigrator>().MigrateAsync(previous);
+
+        Assert.False(await ColumnExistsAsync(context, "work_items", "parent_id"), "Rolling back AddWorkItemLinks must drop work_items.parent_id.");
+        Assert.False(await TableExistsAsync(context, "work_item_hierarchy_locks"), "Rolling back AddWorkItemLinks must drop work_item_hierarchy_locks.");
+        Assert.True(await TableExistsAsync(context, "work_items"), "Rolling back AddWorkItemLinks must leave work_items.");
+
+        await context.Database.MigrateAsync();
+
+        Assert.True(await ColumnExistsAsync(context, "work_items", "parent_id"), "Re-applying AddWorkItemLinks must restore work_items.parent_id.");
+        Assert.True(await TableExistsAsync(context, "work_item_hierarchy_locks"), "Re-applying AddWorkItemLinks must restore work_item_hierarchy_locks.");
+    }
+
+    private static async Task<bool> ColumnExistsAsync(MustaskDbContext context, string tableName, string columnName)
+    {
+        var connection = context.Database.GetDbConnection();
+        await context.Database.OpenConnectionAsync();
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText =
+                "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = @table_name AND column_name = @column_name)";
+
+            var table = command.CreateParameter();
+            table.ParameterName = "table_name";
+            table.Value = tableName;
+            command.Parameters.Add(table);
+
+            var column = command.CreateParameter();
+            column.ParameterName = "column_name";
+            column.Value = columnName;
+            command.Parameters.Add(column);
+
+            return await command.ExecuteScalarAsync() is true;
+        }
+        finally
+        {
+            await context.Database.CloseConnectionAsync();
+        }
+    }
 }

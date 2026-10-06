@@ -51,4 +51,27 @@ public static class WorkItemErrorCodes
 
     /// <summary>The newly set assignee is unknown to the directory or inactive (BR-M3-22).</summary>
     public const string AssigneeUnavailable = "workitems.workitem.assignee_unavailable";
+
+    // --- feat-001: the Parent/Child link (its api-contract § 5) ---------------------------------------------------
+
+    /// <summary>
+    /// «Родитель не найден в этом проекте.»: the named parent is malformed, names nothing, or is an item of another
+    /// project or organization — one answer for all four (BR-H-1).
+    /// </summary>
+    public const string ParentNotFound = "workitems.link.parent_not_found";
+
+    /// <summary>The new parent's level is below the item's own, by level rank (BR-H-2).</summary>
+    public const string ParentLevelNotAllowed = "workitems.link.parent_level_not_allowed";
+
+    /// <summary>The item is named as its own parent (BR-H-2).</summary>
+    public const string SelfParent = "workitems.link.self_parent";
+
+    /// <summary>The item is an ancestor of the new parent (BR-H-2); params <c>parent</c>, <c>item</c>, <c>path</c>.</summary>
+    public const string Cycle = "workitems.link.cycle";
+
+    /// <summary>The stored parent is not the one the user saw (BR-H-4).</summary>
+    public const string ParentChanged = "workitems.link.parent_changed";
+
+    /// <summary>The item, or the new parent, is in «Удалена» (BR-H-8).</summary>
+    public const string ItemDeleted = "workitems.link.item_deleted";
 }

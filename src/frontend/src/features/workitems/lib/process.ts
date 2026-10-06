@@ -1,4 +1,9 @@
-import type { CategoryCode, StateDefinition, WorkItemType } from '../../process';
+import type {
+  CategoryCode,
+  ProcessDefinitionResponse,
+  StateDefinition,
+  WorkItemType,
+} from '../../process';
 
 /** «Удалена»'s category: only mod-005's Delete reaches it, so no control offers it (BR-M3-21). */
 const REMOVED: CategoryCode = 'Removed';
@@ -36,6 +41,36 @@ export interface CreatableType {
   /** The appearance token the theme draws. */
   appearance: string;
   initialStateName: string;
+}
+
+/**
+ * The types a parent of an item of `typeId` may have (feat-001 BR-H-2,
+ * api-contract § 1): those whose backlog level ranks at the item's own or
+ * higher, in the process's display order. None while the item's type or its
+ * level is not in the read.
+ */
+export function allowedParentTypes(
+  process: Pick<ProcessDefinitionResponse, 'backlogLevels' | 'workItemTypes'>,
+  typeId: string,
+): WorkItemType[] {
+  const rankOf = (type: WorkItemType) =>
+    process.backlogLevels.find((level) => level.id === type.backlogLevel.id)?.rank;
+  const own = typeById(process.workItemTypes, typeId);
+  const ownRank = own ? rankOf(own) : undefined;
+  if (ownRank === undefined) {
+    return [];
+  }
+  return process.workItemTypes.filter((type) => {
+    const rank = rankOf(type);
+    return rank !== undefined && rank >= ownRank;
+  });
+}
+
+/** «Родитель»'s helper (feat-001 spec § Screens and copy); none without a type to name. */
+export function parentHelperText(types: readonly Pick<WorkItemType, 'name'>[]): string | null {
+  return types.length > 0
+    ? `Родителем может быть: ${types.map((type) => type.name).join(', ')}.`
+    : null;
 }
 
 /** The process's types as the dialog offers them, in the order the read gives them. */

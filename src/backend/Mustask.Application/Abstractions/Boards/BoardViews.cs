@@ -62,3 +62,78 @@ public sealed record BacklogItemView(
             .ToList();
     }
 }
+
+/// <summary>
+/// A top-level row of a team's backlog (mod-006 api-contract § 2.3 with feat-001
+/// api-contract § 4): mod-006's fields and «Порядок», the stored parent unless it
+/// is in «Удалена», and the rows nested beneath it.
+/// </summary>
+public sealed record BacklogRowView(
+    int Order,
+    Guid Id,
+    string Identifier,
+    int Number,
+    WorkItemTypeView Type,
+    string Title,
+    WorkItemAssigneeView? Assignee,
+    WorkItemStateView State,
+    WorkItemRefView? Parent,
+    IReadOnlyList<BacklogChildView> Children)
+{
+    /// <summary>
+    /// The backlog's rows with their tree (<see cref="BacklogTree.Nest"/>): <paramref name="levels"/>
+    /// holds the backlog's own items first, then those of the same team's
+    /// backlog one level below, and so on; <paramref name="liveParents"/> the
+    /// rows' parents that are not in «Удалена». The top-level rows are numbered
+    /// «Порядок» from 1; a nested row has none (BR-H-11).
+    /// </summary>
+    public static IReadOnlyList<BacklogRowView> Tree(
+        IReadOnlyList<IReadOnlyList<BacklogItemRow>> levels, IReadOnlyDictionary<Guid, WorkItemRefView> liveParents)
+    {
+        var byId = levels.SelectMany(rows => rows).ToDictionary(row => row.Id);
+
+        var tree = BacklogTree.Nest(levels
+            .Select(rows => (IReadOnlyCollection<BacklogTreeEntry>)rows.Select(row => new BacklogTreeEntry(row.Id, row.Number, row.Place, row.ParentId)).ToList())
+            .ToList());
+
+        return tree
+            .Select((node, index) =>
+            {
+                var row = byId[node.ItemId];
+
+                return new BacklogRowView(
+                    index + 1, row.Id, row.Identifier, row.Number, row.Type, row.Title, row.Assignee, row.State,
+                    ParentOf(row, liveParents), BacklogChildView.Of(node.Children, byId, liveParents));
+            })
+            .ToList();
+    }
+
+    internal static WorkItemRefView? ParentOf(BacklogItemRow row, IReadOnlyDictionary<Guid, WorkItemRefView> liveParents) =>
+        row.ParentId is { } parentId && liveParents.TryGetValue(parentId, out var parent) ? parent : null;
+}
+
+/// <summary>A nested row (feat-001 api-contract § 4): a top-level row's fields without «Порядок».</summary>
+public sealed record BacklogChildView(
+    Guid Id,
+    string Identifier,
+    int Number,
+    WorkItemTypeView Type,
+    string Title,
+    WorkItemAssigneeView? Assignee,
+    WorkItemStateView State,
+    WorkItemRefView? Parent,
+    IReadOnlyList<BacklogChildView> Children)
+{
+    internal static IReadOnlyList<BacklogChildView> Of(
+        IReadOnlyList<BacklogTreeNode> nodes, IReadOnlyDictionary<Guid, BacklogItemRow> rows, IReadOnlyDictionary<Guid, WorkItemRefView> liveParents) =>
+        nodes
+            .Select(node =>
+            {
+                var row = rows[node.ItemId];
+
+                return new BacklogChildView(
+                    row.Id, row.Identifier, row.Number, row.Type, row.Title, row.Assignee, row.State,
+                    BacklogRowView.ParentOf(row, liveParents), Of(node.Children, rows, liveParents));
+            })
+            .ToList();
+}

@@ -1,0 +1,74 @@
+import { describe, expect, it } from 'vitest';
+import { ApiError } from '../../../shared/api/httpClient';
+import { serveWorkItems } from '../testApi';
+import { hierarchyDataset, ids, recordOf } from '../testFixtures';
+import { getParentCandidates, getWorkItem, saveWorkItem } from './workItemsApi';
+
+// feat-001 api-contract § 2.2, § 3.3, § 3.4 through the slice's own functions,
+// against the in-memory API the component tests use.
+
+const ORG = ids.example;
+const MSK = ids.msk;
+
+describe('getParentCandidates (feat-001 api-contract § 3.4)', () => {
+  it('asks with the text and no `levelAbove`, and gets the allowed items, most recently changed first', async () => {
+    const api = serveWorkItems(hierarchyDataset());
+
+    const answer = await getParentCandidates(ORG, MSK, 'MSK-US-2', '');
+
+    expect(api.reads('parent-candidates').map((request) => request.path)).toEqual([
+      `/api/organizations/${ORG}/projects/${MSK}/workitems/MSK-US-2/parent-candidates?text=`,
+    ]);
+    expect(answer.items.map((item) => item.identifier)).toEqual([
+      'MSK-FEAT-8',
+      'MSK-FEAT-6',
+      'MSK-BUG-4',
+      'MSK-EPIC-1',
+    ]);
+    expect(answer.moreMatched).toBe(false);
+  });
+
+  it('sends `levelAbove=true` only when asked, which narrows a feature’s candidates to epics', async () => {
+    const api = serveWorkItems(hierarchyDataset());
+
+    const answer = await getParentCandidates(ORG, MSK, 'MSK-FEAT-6', 'вход', { levelAbove: true });
+
+    expect(api.reads('parent-candidates').at(-1)?.path).toBe(
+      `/api/organizations/${ORG}/projects/${MSK}/workitems/MSK-FEAT-6/parent-candidates?text=${encodeURIComponent('вход')}&levelAbove=true`,
+    );
+    expect(answer.items.map((item) => item.identifier)).toEqual(['MSK-EPIC-1']);
+  });
+});
+
+describe('the item’s hierarchy and the save’s `parent` (feat-001 api-contract § 2.2, § 3.3)', () => {
+  it('a save with `parent` answers the stored parent, and the parent’s read lists the child', async () => {
+    const data = hierarchyDataset();
+    serveWorkItems(data);
+    const feat6 = recordOf(data, 6);
+
+    const saved = await saveWorkItem(ORG, MSK, 'MSK-US-2', {
+      parent: { parentId: feat6.id, seenParentId: null },
+    });
+
+    expect(saved.parent?.identifier).toBe('MSK-FEAT-6');
+    expect(saved.children).toEqual([]);
+    const parent = await getWorkItem(ORG, MSK, 'MSK-FEAT-6');
+    expect(parent.children.map((child) => child.identifier)).toEqual(['MSK-US-2']);
+  });
+
+  it('a stale `seenParentId` is refused with `workitems.link.parent_changed` and nothing changes', async () => {
+    const data = hierarchyDataset();
+    serveWorkItems(data);
+    recordOf(data, 2).parentId = recordOf(data, 8).id;
+
+    const refusal = await saveWorkItem(ORG, MSK, 'MSK-US-2', {
+      title: 'Другое',
+      parent: { parentId: recordOf(data, 6).id, seenParentId: null },
+    }).catch((error: unknown) => error);
+
+    expect(refusal).toBeInstanceOf(ApiError);
+    expect((refusal as ApiError).errorCode).toBe('workitems.link.parent_changed');
+    expect(recordOf(data, 2).parentId).toBe(recordOf(data, 8).id);
+    expect(recordOf(data, 2).title).toBe('Письмо со ссылкой');
+  });
+});

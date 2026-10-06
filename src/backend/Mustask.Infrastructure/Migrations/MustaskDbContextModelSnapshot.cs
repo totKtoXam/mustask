@@ -1042,6 +1042,9 @@ namespace Mustask.Infrastructure.Migrations
                     b.Property<int>("Number")
                         .HasColumnType("integer");
 
+                    b.Property<Guid?>("ParentId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid");
 
@@ -1065,6 +1068,9 @@ namespace Mustask.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_work_items");
 
+                    b.HasAlternateKey("ProjectId", "Id")
+                        .HasName("ak_work_items_project_id_id");
+
                     b.HasIndex("StateId")
                         .HasDatabaseName("ix_work_items_state_id");
 
@@ -1086,6 +1092,9 @@ namespace Mustask.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_work_items_project_id_number");
 
+                    b.HasIndex(new[] { "ProjectId", "ParentId" }, "ix_work_items_project_id_parent_id")
+                        .HasDatabaseName("ix_work_items_project_id_parent_id");
+
                     b.HasIndex(new[] { "ProjectId", "TypeId", "AreaId" }, "ix_work_items_project_id_type_id_area_id")
                         .HasDatabaseName("ix_work_items_project_id_type_id_area_id");
 
@@ -1094,6 +1103,8 @@ namespace Mustask.Infrastructure.Migrations
                             t.HasCheckConstraint("ck_work_items_description_length", "char_length(description) <= 100000");
 
                             t.HasCheckConstraint("ck_work_items_number_positive", "number >= 1");
+
+                            t.HasCheckConstraint("ck_work_items_parent_not_self", "parent_id IS NULL OR parent_id <> id");
 
                             t.HasCheckConstraint("ck_work_items_title_length", "char_length(title) BETWEEN 1 AND 255");
 
@@ -1123,6 +1134,9 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.Property("Number")
                                 .HasColumnName("number");
+
+                            t.Property("ParentId")
+                                .HasColumnName("parent_id");
 
                             t.Property("ProjectId")
                                 .HasColumnName("project_id");
@@ -1247,6 +1261,30 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.Property("LastNumber")
                                 .HasColumnName("last_number");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
+            modelBuilder.Entity("Mustask.Infrastructure.WorkItems.WorkItemHierarchyLock", b =>
+                {
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("ProjectId")
+                        .HasName("pk_work_item_hierarchy_locks");
+
+                    b.ToTable("work_item_hierarchy_locks", null, t =>
+                        {
+                            t.Property("ProjectId")
+                                .HasColumnName("project_id");
 
                             t.Property("xmin")
                                 .HasColumnName("xmin");
@@ -1392,6 +1430,13 @@ namespace Mustask.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_work_items_areas_project_id_area_id");
+
+                    b.HasOne("Mustask.Domain.WorkItems.WorkItem", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId", "ParentId")
+                        .HasPrincipalKey("ProjectId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_work_items_work_items_project_id_parent_id");
                 });
 
             modelBuilder.Entity("Mustask.Infrastructure.Boards.BacklogOrder", b =>
@@ -1436,6 +1481,16 @@ namespace Mustask.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_work_item_counters_projects_project_id");
+                });
+
+            modelBuilder.Entity("Mustask.Infrastructure.WorkItems.WorkItemHierarchyLock", b =>
+                {
+                    b.HasOne("Mustask.Domain.Organizations.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_work_item_hierarchy_locks_projects_project_id");
                 });
 
             modelBuilder.Entity("Mustask.Domain.Process.ProcessDefinition", b =>

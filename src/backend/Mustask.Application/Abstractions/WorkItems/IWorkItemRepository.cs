@@ -5,9 +5,11 @@ namespace Mustask.Application.Abstractions.WorkItems;
 /// <summary>
 /// The write side of work items (mod-003). Locks follow one order: the
 /// project's number counter (creation only), then the team a creation comes from
-/// (mod-006), then the item, then the area it moves into. Each lock is taken
-/// before the row it guards is read, so the read sees the row as the previous
-/// lock holder left it.
+/// (mod-006), then the project's hierarchy (a parent write only, feat-001), then
+/// the item, then the area it moves into, then its new and its stored parent (a
+/// parent write only). Each lock is taken before the row it guards is read, so
+/// the read sees the row as the previous lock holder left it. No holder of an
+/// area's lock waits on an item, so the area may come before the parents.
 /// </summary>
 public interface IWorkItemRepository
 {
@@ -46,6 +48,28 @@ public interface IWorkItemRepository
     /// granted, and one that is still there cannot be deleted until the commit.
     /// </summary>
     Task<bool> LockAreaAsync(Guid projectId, Guid areaId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// feat-001: locks the project's hierarchy <c>FOR UPDATE</c>, creating its row
+    /// on the project's first parent write. Every parent write takes it before
+    /// it locks its item, so from here to the commit no other parent write of the
+    /// project proceeds: the stored parent and the ancestry a write decides on
+    /// stay as it read them (BR-H-4, spec § NFR "two writes that would together
+    /// close a cycle never both succeed").
+    /// </summary>
+    Task LockHierarchyAsync(Guid projectId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// feat-001: the rest of a parent write of <paramref name="child"/>, which
+    /// <see cref="LockAsync"/> has locked after <see cref="LockHierarchyAsync"/>
+    /// (and, on a save that moves it, after its new area's lock):
+    /// the new parent, then the child's stored parent, each locked
+    /// <c>FOR NO KEY UPDATE</c> and tracked — a backlog reorder's foreign-key check
+    /// (<c>FOR KEY SHARE</c>) is never waited on — and the new parent's ancestry
+    /// as stored. <c>null</c> when <paramref name="newParentId"/> names no item of
+    /// the child's project (BR-H-1).
+    /// </summary>
+    Task<ParentWrite?> LockParentWriteAsync(WorkItem child, Guid? newParentId, Guid? seenParentId, CancellationToken cancellationToken);
 
     void Add(WorkItem item);
 

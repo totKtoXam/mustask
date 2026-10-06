@@ -172,7 +172,11 @@ The base is
   { "team": BoardTeam, "level": BoardLevel, "items": [ BacklogItem, … ] }
   ```
   `items` is the whole backlog in § 1's order, `order` 1..n; no paging
-  (spec § Screens: «No paging»), `[]` for an empty backlog.
+  (spec § Screens: «No paging»), `[]` for an empty backlog. Added by
+  feat-001 (its api-contract § 4): every element of `items` also carries
+  `parent` (the stored parent, `null` when none or in «Удалена») and
+  `children` (the same team's backlog one level below nested by the links,
+  each nested row without `order`); the board's cards (§ 3.3) do not.
 - **404** organization, project, team, level (§ 0.3).
 
 ### 3.2 `POST …/backlogs/{level}/reorder` — move one item (US-2)

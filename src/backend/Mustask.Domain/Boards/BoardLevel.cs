@@ -65,4 +65,18 @@ public static class BoardLevelNames
             _ => throw new ArgumentOutOfRangeException(nameof(level), level, "Unknown board level."),
         };
     }
+
+    /// <summary>
+    /// The level whose backlog nests beneath <paramref name="level"/>'s rows
+    /// (feat-001 BR-H-10): <c>features</c> beneath <c>epics</c>, <c>stories</c>
+    /// beneath <c>features</c>; nothing beneath <c>stories</c>, the «Задачи»
+    /// level having no backlog in this cut (OQ-5).
+    /// </summary>
+    public static BoardLevel? Below(this BoardLevel level) => level switch
+    {
+        BoardLevel.Epics => BoardLevel.Features,
+        BoardLevel.Features => BoardLevel.Stories,
+        BoardLevel.Stories => null,
+        _ => throw new ArgumentOutOfRangeException(nameof(level), level, "Unknown board level."),
+    };
 }

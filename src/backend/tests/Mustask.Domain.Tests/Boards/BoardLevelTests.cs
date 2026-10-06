@@ -54,4 +54,13 @@ public sealed class BoardLevelTests
         Assert.Equal(portfolio, BoardLevel.Features.Resolve([portfolio, requirement]));
         Assert.Equal(requirement, BoardLevel.Stories.Resolve([portfolio, requirement]));
     }
+
+    // feat-001 BR-H-10: «Эпики» nests «Фичи», «Фичи» nests «Истории», «Истории» nests nothing in this cut (OQ-5).
+    [Fact]
+    public void Below_TheLevelWhoseBacklogNestsBeneath()
+    {
+        Assert.Equal(BoardLevel.Features, BoardLevel.Epics.Below());
+        Assert.Equal(BoardLevel.Stories, BoardLevel.Features.Below());
+        Assert.Null(BoardLevel.Stories.Below());
+    }
 }

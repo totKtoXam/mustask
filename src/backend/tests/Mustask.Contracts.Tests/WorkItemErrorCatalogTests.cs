@@ -13,7 +13,10 @@ namespace Mustask.Contracts.Tests;
 /// </summary>
 public sealed class WorkItemErrorCatalogTests
 {
-    /// <summary>api-contract.md § 4 (mod-003), row by row: code, status, params and the Russian text.</summary>
+    /// <summary>
+    /// api-contract.md § 4 (mod-003) and feat-001's api-contract § 5 (the six <c>workitems.link.*</c> codes), row by
+    /// row: code, status, params and the Russian text.
+    /// </summary>
     public static TheoryData<string, int, string, string> ContractTable() => new()
     {
         { WorkItemErrorCodes.WorkItemNotFound, 404, "", "Рабочий элемент не найден." },
@@ -27,6 +30,12 @@ public sealed class WorkItemErrorCatalogTests
         { WorkItemErrorCodes.TypeNotFound, 404, "", "Тип рабочего элемента не найден." },
         { WorkItemErrorCodes.StateNotAllowed, 409, "", "Этот статус недоступен для рабочего элемента этого типа." },
         { WorkItemErrorCodes.AssigneeUnavailable, 409, "", "Этого пользователя нельзя назначить исполнителем." },
+        { WorkItemErrorCodes.ParentNotFound, 404, "", "Родитель не найден в этом проекте." },
+        { WorkItemErrorCodes.ParentLevelNotAllowed, 409, "", "Родителем может быть только рабочий элемент того же или более высокого уровня." },
+        { WorkItemErrorCodes.SelfParent, 409, "", "Рабочий элемент не может быть родителем самого себя." },
+        { WorkItemErrorCodes.Cycle, 409, "item,parent,path", "Нельзя выбрать родителем {parent}: он вложен в {item} ({path})." },
+        { WorkItemErrorCodes.ParentChanged, 409, "", "Родитель уже изменён другим участником. Данные обновлены — проверьте и повторите." },
+        { WorkItemErrorCodes.ItemDeleted, 409, "", "Удалённый рабочий элемент нельзя связывать." },
     };
 
     // mod-003 api-contract § 4: every code is registered with its status, params, the contract's ru text and a kk text.

@@ -2,8 +2,9 @@ namespace Mustask.Api.IntegrationTests.Features.Organizations;
 
 /// <summary>
 /// Every organization-addressed route that exists (mod-002 api-contract § 5,
-/// D-g): the 23 of the organizations module, mod-001's process read and the five
-/// of mod-003's work items (its api-contract § 5). A
+/// D-g): the 23 of the organizations module, mod-001's process read, the five
+/// of mod-003's work items (its api-contract § 5), mod-006's three and
+/// feat-001's two (its api-contract § 6). A
 /// later module that adds one adds it here, and the inventory test makes sure
 /// it cannot forget.
 /// </summary>
@@ -44,6 +45,10 @@ public static class OrganizationAddressedRoutes
         ("GET", "/api/organizations/{organizationId}/projects/{projectId}/workitems/{identifier}"),
         ("PATCH", "/api/organizations/{organizationId}/projects/{projectId}/workitems/{identifier}"),
         ("GET", "/api/organizations/{organizationId}/workitems/assignee-candidates"),
+
+        // feat-001 api-contract § 6: the parent write and the «Родитель» picker (BR-H-18).
+        ("PUT", "/api/organizations/{organizationId}/projects/{projectId}/workitems/{identifier}/parent"),
+        ("GET", "/api/organizations/{organizationId}/projects/{projectId}/workitems/{identifier}/parent-candidates"),
 
         // mod-006 api-contract § 5: a team's backlog, its reorder and its board (BR-M4-27).
         ("GET", "/api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}/backlogs/{level}"),

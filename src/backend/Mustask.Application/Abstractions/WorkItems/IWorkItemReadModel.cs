@@ -13,6 +13,20 @@ public interface IWorkItemReadModel
     /// <summary>The project's item with that number, or <c>null</c>.</summary>
     Task<WorkItemView?> FindAsync(Guid projectId, int number, CancellationToken cancellationToken);
 
+    /// <summary>The project's item with that number as an address needs it (its id and type), or <c>null</c>.</summary>
+    Task<WorkItemHead?> FindHeadAsync(Guid projectId, int number, CancellationToken cancellationToken);
+
+    /// <summary>The item as a link end (feat-001 api-contract § 2.1), which the caller knows exists.</summary>
+    Task<WorkItemRefView> GetRefAsync(Guid workItemId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The «Родитель» picker's candidates (feat-001 api-contract § 3.4): items of
+    /// the project of the search's types, not the excluded item, not in «Удалена»,
+    /// matching the text; at most <paramref name="search"/>'s limit, most recently
+    /// changed first, then by number descending, and whether more matched.
+    /// </summary>
+    Task<ParentCandidates> FindParentCandidatesAsync(ParentCandidateSearch search, CancellationToken cancellationToken);
+
     /// <summary>The item, which the caller knows exists (it has just written it, in the same transaction).</summary>
     Task<WorkItemView> GetAsync(Guid workItemId, CancellationToken cancellationToken);
 
@@ -26,7 +40,11 @@ public interface IWorkItemReadModel
 /// <summary>A page of the list: <paramref name="Count"/> is the project's item count, not the page's.</summary>
 public sealed record WorkItemPage(int Count, IReadOnlyList<WorkItemListItemView> Items);
 
-/// <summary><c>WorkItem</c> of api-contract § 1.1.</summary>
+/// <summary>
+/// <c>WorkItem</c> of api-contract § 1.1, with feat-001's <paramref name="Parent"/>
+/// (the stored one, in «Удалена» too) and <paramref name="Children"/> (direct,
+/// those in «Удалена» excepted, by level rank descending, then by number).
+/// </summary>
 public sealed record WorkItemView(
     Guid Id,
     string Identifier,
@@ -40,7 +58,31 @@ public sealed record WorkItemView(
     WorkItemAreaView Area,
     string CreatedBy,
     DateTimeOffset CreatedAt,
-    DateTimeOffset ChangedAt);
+    DateTimeOffset ChangedAt,
+    WorkItemRefView? Parent,
+    IReadOnlyList<WorkItemRefView> Children);
+
+/// <summary>An item as an address resolves it: its id and its type.</summary>
+public sealed record WorkItemHead(Guid Id, Guid TypeId);
+
+/// <summary><c>WorkItemRef</c> of feat-001 api-contract § 2.1: a parent, a child, a picker option.</summary>
+public sealed record WorkItemRefView(Guid Id, string Identifier, WorkItemTypeView Type, string Title, WorkItemStateView State);
+
+/// <summary>
+/// One search of the «Родитель» picker. <paramref name="Text"/> is trimmed and in
+/// lower case, empty for every candidate; <paramref name="ProjectKey"/> builds the
+/// identifiers the text is matched against.
+/// </summary>
+public sealed record ParentCandidateSearch(
+    Guid ProjectId,
+    string ProjectKey,
+    Guid ExcludedItemId,
+    IReadOnlyCollection<Guid> TypeIds,
+    string Text,
+    int Limit);
+
+/// <summary>At most the search's limit of candidates, and whether more matched.</summary>
+public sealed record ParentCandidates(IReadOnlyList<WorkItemRefView> Items, bool MoreMatched);
 
 /// <summary><c>WorkItemListItem</c> of api-contract § 1.2.</summary>
 public sealed record WorkItemListItemView(

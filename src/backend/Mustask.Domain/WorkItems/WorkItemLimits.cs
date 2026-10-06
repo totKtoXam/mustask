@@ -18,4 +18,7 @@ public static class WorkItemLimits
 
     /// <summary>The width of a user id: an opaque Keycloak subject (<c>sub</c>), as mod-014 stores it.</summary>
     public const int UserIdMaxLength = 255;
+
+    /// <summary>The most options the «Родитель» picker answers at once (feat-001 spec § Screens and copy).</summary>
+    public const int ParentCandidatesShown = 20;
 }

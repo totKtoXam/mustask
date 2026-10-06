@@ -3,20 +3,25 @@
 // answers (§ 0.4), the list's order and paging (§ 2.1), replays by
 // `requestId` (§ 2.2), saves of the sent fields only (§ 2.4), and the
 // assignee search (§ 2.5); plus the process and area reads the screens reuse
-// (§ 3). It keeps the contract's answers, not every rule of the backend.
+// (§ 3). feat-001's api-contract adds the item's `parent` and `children`
+// (§ 2.2), the save's `parent` with the parent write's checks in their order
+// (§ 3.2, § 3.3) and the parent search (§ 3.4). It keeps the contract's
+// answers, not every rule of the backend.
 import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
 import type { AreaNode } from '../organizations';
-import type { WorkItem, WorkItemListItem } from './api/workItemsApi';
+import type { WorkItem, WorkItemListItem, WorkItemRef } from './api/workItemsApi';
 import {
   AREAS_URL,
   CANDIDATES_URL,
+  PARENT_CANDIDATES_URL,
   PROBLEM_HEADERS,
   PROCESS_URL,
   WORK_ITEMS_URL,
   WORK_ITEM_URL,
   exampleDataset,
   problem,
+  problemWithParams,
   process,
   validationProblem,
   type Dataset,
@@ -170,12 +175,140 @@ export class WorkItemsTestApi {
   }
 
   answer(record: WorkItemRecord): WorkItem {
+    const parent = record.parentId ? this.byId(record.parentId) : undefined;
+    const children = this.data.items
+      .filter((candidate) => candidate.parentId === record.id && !this.removed(candidate))
+      .sort(
+        (first, second) => this.rank(second) - this.rank(first) || first.number - second.number,
+      );
     return {
       ...this.listItem(record),
       projectId: record.projectId,
       description: record.description,
       createdBy: 'e2e-test-user',
       createdAt: record.createdAt,
+      parent: parent ? this.ref(parent) : null,
+      children: children.map((child) => this.ref(child)),
+    };
+  }
+
+  // ---- the hierarchy (feat-001 § 1, § 2.1)
+
+  /** § 2.1: a parent, a child or a candidate. */
+  ref(record: WorkItemRecord): WorkItemRef {
+    const { id, identifier, type, title, state } = this.listItem(record);
+    return { id, identifier, type, title, state };
+  }
+
+  private byId(id: string): WorkItemRecord | undefined {
+    return this.data.items.find((candidate) => candidate.id === id);
+  }
+
+  /** The level rank of the record's type (mod-001's `backlogLevels[].rank`). */
+  private rank(record: WorkItemRecord): number {
+    const levelId = this.type(record.typeId).backlogLevel.id;
+    return process.backlogLevels.find((level) => level.id === levelId)?.rank ?? 0;
+  }
+
+  /** § 0.4: in «Удалена» — its state's category is `Removed`. */
+  private removed(record: WorkItemRecord): boolean {
+    const state = this.type(record.typeId).states.find(
+      (candidate) => candidate.id === record.stateId,
+    );
+    return state?.category.code === 'Removed';
+  }
+
+  private identifierOf(record: WorkItemRecord): string {
+    return this.listItem(record).identifier;
+  }
+
+  /** § 0.3 step 2: `parentId` names an item of this project, or the write is refused. */
+  private newParent(project: ProjectRecord, parentId: unknown): WorkItemRecord | null {
+    if (parentId === null || parentId === undefined) {
+      return null;
+    }
+    const found =
+      typeof parentId === 'string' && UUID.test(parentId)
+        ? this.data.items.find(
+            (candidate) =>
+              candidate.projectId === project.id && candidate.id === parentId.toLowerCase(),
+          )
+        : undefined;
+    if (!found) refuse('workitems.link.parent_not_found');
+    return found;
+  }
+
+  /**
+   * § 3.2's checks 3–7 in their order: deleted, the stale view, self, the
+   * level, the cycle with its path. The first that fails refuses.
+   */
+  private checkParent(
+    record: WorkItemRecord,
+    parent: WorkItemRecord | null,
+    seenParentId: unknown,
+  ): void {
+    if (this.removed(record) || (parent && this.removed(parent))) {
+      refuse('workitems.link.item_deleted');
+    }
+    const stored = record.parentId ? this.byId(record.parentId) : undefined;
+    const seen = typeof seenParentId === 'string' ? seenParentId.toLowerCase() : null;
+    const matches =
+      stored === undefined
+        ? seen === null
+        : stored.id === seen || (seen === null && this.removed(stored));
+    if (!matches) refuse('workitems.link.parent_changed');
+    if (parent === null) {
+      return;
+    }
+    if (parent.id === record.id) refuse('workitems.link.self_parent');
+    if (this.rank(parent) < this.rank(record)) refuse('workitems.link.parent_level_not_allowed');
+    const chain: WorkItemRecord[] = [];
+    for (let current: WorkItemRecord | undefined = parent; current;) {
+      chain.push(current);
+      if (current.id === record.id) {
+        throw new Refusal(
+          problemWithParams('workitems.link.cycle', {
+            parent: this.identifierOf(parent),
+            item: this.identifierOf(record),
+            path: chain
+              .reverse()
+              .map((link) => this.identifierOf(link))
+              .join(' → '),
+          }),
+        );
+      }
+      current = current.parentId ? this.byId(current.parentId) : undefined;
+    }
+  }
+
+  /** § 3.4: the item's own project, never itself or a deleted item, of an allowed type. */
+  private parentCandidates(record: WorkItemRecord, text: string | null, levelAbove: boolean) {
+    const needle = (text ?? '').trim().toLocaleLowerCase('ru');
+    if (needle.length > 255) {
+      return { items: [], moreMatched: false };
+    }
+    const own = this.rank(record);
+    const above = Math.min(
+      ...process.backlogLevels.map((level) => level.rank).filter((rank) => rank > own),
+    );
+    const matched = this.data.items
+      .filter(
+        (candidate) =>
+          candidate.projectId === record.projectId &&
+          candidate.id !== record.id &&
+          !this.removed(candidate) &&
+          (levelAbove ? this.rank(candidate) === above : this.rank(candidate) >= own) &&
+          (this.identifierOf(candidate).toLocaleLowerCase('ru').includes(needle) ||
+            candidate.title.toLocaleLowerCase('ru').includes(needle)),
+      )
+      .sort(
+        (first, second) =>
+          Date.parse(second.changedAt) - Date.parse(first.changedAt) ||
+          second.number - first.number,
+      );
+    return {
+      items: matched.slice(0, CANDIDATE_LIMIT).map((candidate) => this.ref(candidate)),
+      moreMatched: matched.length > CANDIDATE_LIMIT,
     };
   }
 
@@ -293,6 +426,10 @@ export class WorkItemsTestApi {
       );
       if (!area) refuse('organizations.area.not_found');
     }
+    // feat-001 § 3.3: `parent: null` or none leaves the parent as it is.
+    const parentChange = body.parent as
+      { parentId?: unknown; seenParentId?: unknown } | null | undefined;
+    const parent = parentChange ? this.newParent(project, parentChange.parentId) : null;
     const type = this.type(record.typeId);
     if (typeof body.stateId === 'string') {
       const state = type.states.find((candidate) => candidate.id === body.stateId);
@@ -308,15 +445,29 @@ export class WorkItemsTestApi {
         refuse('workitems.workitem.assignee_unavailable');
       }
     }
+    if (parentChange) {
+      this.checkParent(record, parent, parentChange.seenParentId);
+    }
 
     const before = JSON.stringify(record);
+    const parentBefore = record.parentId ?? null;
     if (typeof body.title === 'string') record.title = body.title.trim();
     if (typeof body.description === 'string') record.description = body.description;
     if (typeof body.stateId === 'string') record.stateId = body.stateId;
     if (assigneeId !== undefined) record.assigneeId = assigneeId;
     if (typeof body.areaId === 'string') record.areaId = body.areaId;
+    const parentAfter = parentChange ? (parent?.id ?? null) : parentBefore;
+    if (parentAfter !== parentBefore) record.parentId = parentAfter;
     if (JSON.stringify(record) !== before) {
-      record.changedAt = this.now();
+      const now = this.now();
+      record.changedAt = now;
+      // BR-H-5: each live parent the save adds or removes moves «Изменён» too.
+      if (parentAfter !== parentBefore) {
+        for (const id of [parentBefore, parentAfter]) {
+          const touched = id ? this.byId(id) : undefined;
+          if (touched && !this.removed(touched)) touched.changedAt = now;
+        }
+      }
     }
     return record;
   }
@@ -435,6 +586,17 @@ export class WorkItemsTestApi {
         answer((p, url) => {
           this.organization(one(p, 'organizationId'));
           return this.candidates(url.searchParams.get('text'));
+        }),
+      ),
+      http.get(
+        PARENT_CANDIDATES_URL,
+        answer((p, url) => {
+          const record = this.item(pr(p), one(p, 'identifier'));
+          return this.parentCandidates(
+            record,
+            url.searchParams.get('text'),
+            url.searchParams.get('levelAbove') === 'true',
+          );
         }),
       ),
     ];

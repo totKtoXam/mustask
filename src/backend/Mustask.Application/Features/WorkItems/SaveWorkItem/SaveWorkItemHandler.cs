@@ -16,21 +16,26 @@ namespace Mustask.Application.Features.WorkItems.SaveWorkItem;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The order of answers</b> (api-contract § 0.4): the address from the
-/// outside in, as the read resolves it; the values (400, every field reason at
-/// once); the area (404); the state, then the assignee (409, decided by the
-/// domain). A refusal throws before anything is flushed, and the transaction
-/// rolls back.
+/// <b>The order of answers</b> (api-contract § 0.4, feat-001 api-contract
+/// § 3.3): the address from the outside in, as the read resolves it; the values
+/// (400, every field reason at once); the area, then the new parent (404); the
+/// state, then the assignee (409, decided by the domain), then the parent's
+/// 409s (<see cref="WorkItemHierarchy.Write"/>). A refusal throws before
+/// anything is flushed, and the transaction rolls back: every field, the parent
+/// included, stays as it was (feat-001 BR-H-6).
 /// </para>
 /// <para>
-/// <b>Locks.</b> The item <c>FOR UPDATE</c>, before it is loaded: two saves of
-/// one item run one after the other, and the second applies its own fields to
-/// what the first stored, so a field it did not send keeps the first's value
-/// and a field both sent keeps the later one (BR-M3-25). Then, when the area
-/// changes, the new area <c>FOR SHARE</c>: mod-002's deletion locks it
-/// <c>FOR UPDATE</c> and asks for its work items after its lock, so a deletion
-/// and a save into that area never both succeed (BR-M3-24). The project is not
-/// locked: a write beneath only reads its containers' status (ADR-0026 rule 8).
+/// <b>Locks.</b> When the save carries a parent (feat-001), the project's
+/// hierarchy <c>FOR UPDATE</c> first, as every parent write takes it. Then the
+/// item <c>FOR UPDATE</c>, before it is loaded: two saves of one item run one
+/// after the other, and the second applies its own fields to what the first
+/// stored, so a field it did not send keeps the first's value and a field both
+/// sent keeps the later one (BR-M3-25). Then, when the area changes, the new
+/// area <c>FOR SHARE</c>: mod-002's deletion locks it <c>FOR UPDATE</c> and asks
+/// for its work items after its lock, so a deletion and a save into that area
+/// never both succeed (BR-M3-24). Then the new and the stored parent
+/// <c>FOR NO KEY UPDATE</c>. The project is not locked: a write beneath only
+/// reads its containers' status (ADR-0026 rule 8).
 /// </para>
 /// </remarks>
 public sealed class SaveWorkItemHandler(
@@ -65,10 +70,18 @@ public sealed class SaveWorkItemHandler(
                     throw new NotFoundException(WorkItemErrorCodes.WorkItemNotFound);
                 }
 
+                var process = await processes.FindByOrganizationAsync(organizationId, ct)
+                    ?? throw new InvalidOperationException($"The organization {organizationId} has no process.");
+
+                if (command.Parent is not null)
+                {
+                    await workItems.LockHierarchyAsync(projectId, ct);
+                }
+
                 var item = await workItems.LockAsync(projectId, identifier.Number, ct)
                     ?? throw new NotFoundException(WorkItemErrorCodes.WorkItemNotFound);
 
-                var type = await ItemTypeAsync(organizationId, item.TypeId, ct);
+                var type = ItemType(process, item.TypeId);
 
                 if (!string.Equals(type.TypeKey, identifier.TypeKey, StringComparison.Ordinal))
                 {
@@ -81,7 +94,13 @@ public sealed class SaveWorkItemHandler(
                 // 3. The area: one of the item's own project, still there under the lock (BR-M3-23, BR-M3-24).
                 var areaId = await LockAreaAsync(projectId, item.AreaId, command.AreaId, ct);
 
-                // 4. The state and the assignee, which the domain decides.
+                // 3b. The new parent, an item of this project, and the rest of the parent write (feat-001 BR-H-1).
+                var parentWrite = command.Parent is { } change
+                    ? await workItems.LockParentWriteAsync(item, change.NewParentId(), change.SeenId(), ct)
+                        ?? throw new NotFoundException(WorkItemErrorCodes.ParentNotFound)
+                    : null;
+
+                // 4. The state and the assignee, then the parent, which the domain decides.
                 var edit = new WorkItemEdit(
                     title,
                     command.Description,
@@ -89,7 +108,15 @@ public sealed class SaveWorkItemHandler(
                     await AssigneeOfAsync(command.Assignee, ct),
                     areaId);
 
-                if (item.Save(edit, type, clock.UtcNow))
+                var now = clock.UtcNow;
+                var changed = item.Save(edit, type, now);
+
+                if (parentWrite is not null)
+                {
+                    changed |= WorkItemHierarchy.Write(parentWrite, ProcessHierarchy.Of(process), project.Key, now);
+                }
+
+                if (changed)
                 {
                     await workItems.SaveAsync(ct);
                 }
@@ -183,11 +210,8 @@ public sealed class SaveWorkItemHandler(
     }
 
     /// <summary>The item's own type in the organization's process. It is always there: the type never changes (BR-M3-1).</summary>
-    private async Task<WorkItemTypeStates> ItemTypeAsync(Guid organizationId, Guid typeId, CancellationToken cancellationToken)
+    private static WorkItemTypeStates ItemType(ProcessDefinitionRow process, Guid typeId)
     {
-        var process = await processes.FindByOrganizationAsync(organizationId, cancellationToken)
-            ?? throw new InvalidOperationException($"The organization {organizationId} has no process.");
-
         var type = process.WorkItemTypes.SingleOrDefault(candidate => candidate.Id == typeId)
             ?? throw new InvalidOperationException($"The type {typeId} of a work item is not in its organization's process.");
 

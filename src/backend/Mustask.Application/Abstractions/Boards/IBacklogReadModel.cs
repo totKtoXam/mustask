@@ -19,6 +19,14 @@ public interface IBacklogReadModel
     /// A fixed number of queries.
     /// </summary>
     Task<BacklogRead> ReadAsync(BacklogScope scope, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// feat-001: the project's items among <paramref name="workItemIds"/> that are
+    /// not in «Удалена», as link ends by id — the «Родитель» cells of a backlog's
+    /// rows (BR-H-8, BR-H-13). One query, whatever the count.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, WorkItemRefView>> FindLiveParentsAsync(
+        Guid projectId, IReadOnlyCollection<Guid> workItemIds, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -51,7 +59,11 @@ public sealed record BacklogScope(
 /// <summary>What <see cref="IBacklogReadModel.ReadAsync"/> answers.</summary>
 public sealed record BacklogRead(WorkItemAreaView DefaultArea, IReadOnlyList<BacklogItemRow> Items);
 
-/// <summary>An item of the backlog: mod-003's fields a row and a card show, and its place here, <c>null</c> when unplaced.</summary>
+/// <summary>
+/// An item of the backlog: mod-003's fields a row and a card show, its place
+/// here, <c>null</c> when unplaced, and its stored parent (feat-001), whatever
+/// that parent's state.
+/// </summary>
 public sealed record BacklogItemRow(
     Guid Id,
     string Identifier,
@@ -60,4 +72,5 @@ public sealed record BacklogItemRow(
     WorkItemTypeView Type,
     string Title,
     WorkItemAssigneeView? Assignee,
-    WorkItemStateView State);
+    WorkItemStateView State,
+    Guid? ParentId);

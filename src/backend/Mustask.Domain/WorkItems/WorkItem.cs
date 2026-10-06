@@ -76,6 +76,12 @@ public sealed class WorkItem
     public DateTimeOffset ChangedAt { get; private set; }
 
     /// <summary>
+    /// The item's one parent, an item of the same project, or <c>null</c> (feat-001 BR-H-1). Written only by
+    /// <see cref="WorkItemHierarchy.Write"/>, which holds the rules; a parent's deletion leaves it as it is (BR-H-8).
+    /// </summary>
+    public Guid? ParentId { get; private set; }
+
+    /// <summary>
     /// A new item (US-1, BR-M3-20): its type's initial state, no assignee, an
     /// empty description and the project's root area. The caller has validated
     /// the title (<see cref="WorkItemText.ValidateTitle"/>), resolved the type in
@@ -187,6 +193,16 @@ public sealed class WorkItem
 
         return changed;
     }
+
+    /// <summary>The link's half on the child (BR-H-3): the new parent, or none, and the write's time.</summary>
+    internal void LinkTo(Guid? parentId, DateTimeOffset now)
+    {
+        ParentId = parentId;
+        ChangedAt = now;
+    }
+
+    /// <summary>The link's half on a live parent it adds or removes (BR-H-5): only «Изменён» moves.</summary>
+    internal void MarkLinkChanged(DateTimeOffset now) => ChangedAt = now;
 }
 
 /// <summary>

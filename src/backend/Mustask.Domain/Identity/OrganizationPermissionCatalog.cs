@@ -23,6 +23,9 @@ public static class OrganizationPermissionCatalog
     /// <summary>Reordering a team's backlog (mod-006 BR-M4-27). Nothing checks it before <c>mod-016</c>.</summary>
     public const string BoardsBacklogReorder = "boards.backlog.reorder";
 
+    /// <summary>Setting, replacing and clearing a work item's parent (feat-001 BR-H-18). Nothing checks it before <c>mod-016</c>.</summary>
+    public const string WorkItemsLinkWrite = "workitems.link.write";
+
     /// <summary>Human-readable descriptions of the codes (diagnostics, logs).</summary>
     public static readonly IReadOnlyDictionary<string, string> Descriptions = new Dictionary<string, string>
     {
@@ -30,6 +33,7 @@ public static class OrganizationPermissionCatalog
         [WorkItemsWorkItemRead] = "Просмотр рабочих элементов проекта",
         [WorkItemsWorkItemWrite] = "Создание и изменение рабочих элементов проекта",
         [BoardsBacklogReorder] = "Изменение порядка бэклога команды",
+        [WorkItemsLinkWrite] = "Изменение связей рабочих элементов проекта",
     };
 
     /// <summary>All organization-scoped codes.</summary>

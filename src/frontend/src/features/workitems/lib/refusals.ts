@@ -3,8 +3,8 @@ import { organizationErrorCodes, workItemErrorCodes } from '../../../shared/api/
 import { apiErrorText } from '../../../shared/lib/apiErrorText';
 import { notFoundLevel, type WorkItemsNotFoundLevel } from './notFoundLevel';
 
-/** The fields a write's refusal can land on: the dialog has «Заголовок», the form all five. */
-export type RefusalField = 'title' | 'description' | 'state' | 'assignee' | 'area';
+/** The fields a write's refusal can land on: the dialog has «Заголовок», the form all six. */
+export type RefusalField = 'title' | 'description' | 'state' | 'assignee' | 'area' | 'parent';
 
 /** Where a write's refusal shows (spec § Error codes; api-contract § 0.5). */
 export interface PlacedRefusal {
@@ -19,12 +19,30 @@ export interface PlacedRefusal {
   frame: WorkItemsNotFoundLevel | null;
 }
 
-/** The answers about one value of the body, each with the field it lands on. */
+/**
+ * The answers about one value of the body, each with the field it lands on.
+ * feat-001 spec § Screens and copy: every `workitems.link.*` refusal is
+ * «Родитель»'s error text — the parent's not-found included, never a frame.
+ */
 const FIELD_OF_CODE: Readonly<Record<string, RefusalField>> = {
   [workItemErrorCodes.stateNotAllowed]: 'state',
   [workItemErrorCodes.assigneeUnavailable]: 'assignee',
   [organizationErrorCodes.areaNotFound]: 'area',
+  [workItemErrorCodes.linkParentNotFound]: 'parent',
+  [workItemErrorCodes.linkParentLevelNotAllowed]: 'parent',
+  [workItemErrorCodes.linkSelfParent]: 'parent',
+  [workItemErrorCodes.linkCycle]: 'parent',
+  [workItemErrorCodes.linkParentChanged]: 'parent',
+  [workItemErrorCodes.linkItemDeleted]: 'parent',
 };
+
+/**
+ * feat-001 BR-H-4: the parent the user saw is no longer the stored one — the
+ * form reads the item again before it shows the refusal.
+ */
+export function isParentChanged(error: unknown): boolean {
+  return error instanceof ApiError && error.errorCode === workItemErrorCodes.linkParentChanged;
+}
 
 /** `workitems.validation_failed`'s field names a field of the screen shows (§ 0.5). */
 const VALIDATED_FIELDS: Readonly<Record<string, RefusalField>> = {

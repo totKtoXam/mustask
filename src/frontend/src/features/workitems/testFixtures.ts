@@ -19,6 +19,8 @@ export const AREAS_URL = `${PROJECT_URL}/areas`;
 export const WORK_ITEMS_URL = `${PROJECT_URL}/workitems`;
 export const WORK_ITEM_URL = `${WORK_ITEMS_URL}/:identifier`;
 export const CANDIDATES_URL = `${ORGANIZATION_URL}/workitems/assignee-candidates`;
+/** feat-001 api-contract § 3.4: «Родитель»'s search. */
+export const PARENT_CANDIDATES_URL = `${WORK_ITEM_URL}/parent-candidates`;
 
 /** Stable ids: canonical lowercase uuids, never shown on screen. */
 export const ids = {
@@ -100,6 +102,8 @@ export interface WorkItemRecord {
   createdAt: string;
   changedAt: string;
   requestId: string | null;
+  /** feat-001: the stored parent's record id; absent or `null` is none. */
+  parentId?: string | null;
 }
 
 export interface Dataset {
@@ -213,6 +217,60 @@ export function exampleDataset(): Dataset {
   return data;
 }
 
+/**
+ * feat-001's stories' dataset (US-1 «Data», US-2's chain): in «Мастаск»'s
+ * «Платформа» MSK-EPIC-1 «Вход и регистрация», MSK-US-2 «Письмо со ссылкой»,
+ * MSK-TASK-3 «Шаблон письма», MSK-BUG-4 «Ссылка истекает раньше срока»,
+ * MSK-FEAT-6 «Вход по ссылке», MSK-FEAT-8 «Вход через SSO», none with a parent,
+ * each changed a minute after the one before in that order; MSK-TASK-10 →
+ * MSK-TASK-11 → MSK-TASK-12, each the parent of the next, changed earlier; and
+ * OPS-EPIC-2 «Склад», an epic of another project («Операции» stands for the
+ * story's «Склад»).
+ */
+export function hierarchyDataset(): Dataset {
+  const data = emptyDataset();
+  const at = (minute: number) => new Date(Date.UTC(2026, 9, 5, 9, minute)).toISOString();
+  const platform = (
+    number: number,
+    typeKey: string,
+    title: string,
+    minute: number,
+    overrides: Partial<WorkItemRecord> = {},
+  ) =>
+    item(ids.msk, number, typeKey, title, {
+      areaId: ids.platform,
+      changedAt: at(minute),
+      ...overrides,
+    });
+  const task10 = platform(10, 'TASK', 'Подготовить окружение', 1);
+  const task11 = platform(11, 'TASK', 'Настроить почтовый сервис', 2, { parentId: task10.id });
+  const task12 = platform(12, 'TASK', 'Проверить доставку', 3, { parentId: task11.id });
+  data.items.push(
+    task10,
+    task11,
+    task12,
+    platform(1, 'EPIC', 'Вход и регистрация', 11),
+    platform(2, 'US', 'Письмо со ссылкой', 12),
+    platform(3, 'TASK', 'Шаблон письма', 13),
+    platform(4, 'BUG', 'Ссылка истекает раньше срока', 14),
+    platform(6, 'FEAT', 'Вход по ссылке', 16),
+    platform(8, 'FEAT', 'Вход через SSO', 18),
+    item(ids.ops, 2, 'EPIC', 'Склад', { changedAt: at(30) }),
+  );
+  return data;
+}
+
+/** The record of «Мастаск»'s item `number` in `data`. */
+export function recordOf(data: Dataset, number: number): WorkItemRecord {
+  const found = data.items.find(
+    (candidate) => candidate.projectId === ids.msk && candidate.number === number,
+  );
+  if (!found) {
+    throw new Error(`No item ${number} in «Мастаск».`);
+  }
+  return found;
+}
+
 interface Catalog {
   codes: Record<string, { statuses: number[]; ru: string }>;
 }
@@ -252,6 +310,8 @@ export interface ProblemBody {
   detail: string;
   errorCode: string;
   errors?: Record<string, { code: string; detail: string }[]>;
+  /** feat-001 § 0.5: only `workitems.link.cycle` carries any. */
+  params?: Record<string, string>;
 }
 
 /** The answer for `code`, with the catalog's status and text. */
@@ -265,6 +325,18 @@ export function problem(code: string): ProblemBody {
     title: code,
     detail: entry.ru,
     errorCode: code,
+  };
+}
+
+/** The answer for `code` whose text the catalog renders with `params` (`{name}` placeholders). */
+export function problemWithParams(code: string, params: Record<string, string>): ProblemBody {
+  const body = problem(code);
+  return {
+    ...body,
+    detail: body.detail.replace(/\{(\w+)\}/g, (placeholder: string, name: string) =>
+      Object.prototype.hasOwnProperty.call(params, name) ? (params[name] ?? '') : placeholder,
+    ),
+    params,
   };
 }
 

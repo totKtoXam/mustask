@@ -78,7 +78,89 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
         return await context.Areas.AnyAsync(area => area.Id == areaId && area.ProjectId == projectId, cancellationToken);
     }
 
+    public async Task LockHierarchyAsync(Guid projectId, CancellationToken cancellationToken)
+    {
+        // A concurrent first parent write of the project waits here on the other's uncommitted key, then does nothing.
+        await context.Database.ExecuteSqlInterpolatedAsync(
+            $"INSERT INTO work_item_hierarchy_locks (project_id) VALUES ({projectId}) ON CONFLICT (project_id) DO NOTHING",
+            cancellationToken);
+
+        await context.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT 1 FROM work_item_hierarchy_locks WHERE project_id = {projectId} FOR UPDATE",
+            cancellationToken);
+    }
+
+    public async Task<ParentWrite?> LockParentWriteAsync(WorkItem child, Guid? newParentId, Guid? seenParentId, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(child);
+
+        WorkItem? newParent = null;
+
+        if (newParentId is { } parentId)
+        {
+            newParent = await LockLinkEndAsync(child.ProjectId, parentId, cancellationToken);
+
+            if (newParent is null)
+            {
+                return null;
+            }
+        }
+
+        // The stored parent is there: its key is Restrict, and nothing purges an item in this cut.
+        var storedParent = child.ParentId is { } storedId
+            ? await LockLinkEndAsync(child.ProjectId, storedId, cancellationToken)
+                ?? throw new InvalidOperationException($"The stored parent {storedId} of the work item {child.Id} is missing.")
+            : null;
+
+        IReadOnlyCollection<HierarchyLink> ancestry = newParent is null ? [] : await AncestryAsync(child.ProjectId, newParent.Id, cancellationToken);
+
+        return new ParentWrite(child, storedParent, newParent, seenParentId, ancestry);
+    }
+
     public void Add(WorkItem item) => context.WorkItems.Add(item);
 
     public Task SaveAsync(CancellationToken cancellationToken) => context.SaveChangesAsync(cancellationToken);
+
+    /// <summary>
+    /// A link end of a parent write: the project's item with that id, locked
+    /// <c>FOR NO KEY UPDATE</c> — the write changes no key of it — then loaded
+    /// tracked (an item already tracked, the child named as its own parent, comes
+    /// back as itself). <c>null</c> when the project has no such item.
+    /// </summary>
+    private async Task<WorkItem?> LockLinkEndAsync(Guid projectId, Guid workItemId, CancellationToken cancellationToken)
+    {
+        await context.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT 1 FROM work_items WHERE id = {workItemId} AND project_id = {projectId} FOR NO KEY UPDATE",
+            cancellationToken);
+
+        return await context.WorkItems.SingleOrDefaultAsync(item => item.Id == workItemId && item.ProjectId == projectId, cancellationToken);
+    }
+
+    /// <summary>
+    /// The item and every ancestor of it, as stored, in one recursive statement
+    /// (LINQ cannot express it). <c>UNION</c> rather than <c>UNION ALL</c>: a row
+    /// already found is not walked again, so the statement ends even if a defect
+    /// ever stored a cycle. Read under the hierarchy lock, so no parent write of
+    /// the project moves a link meanwhile. The outer <c>SELECT</c> names its
+    /// columns after the properties: the snake_case convention names the table's
+    /// columns, not those of a SQL source EF composes over.
+    /// </summary>
+    private async Task<IReadOnlyCollection<HierarchyLink>> AncestryAsync(Guid projectId, Guid workItemId, CancellationToken cancellationToken) =>
+        await context.WorkItems
+            .FromSqlInterpolated($"""
+                WITH RECURSIVE ancestry (id, project_id, parent_id, type_id, number) AS (
+                    SELECT item.id, item.project_id, item.parent_id, item.type_id, item.number
+                    FROM work_items AS item
+                    WHERE item.id = {workItemId} AND item.project_id = {projectId}
+                    UNION
+                    SELECT parent.id, parent.project_id, parent.parent_id, parent.type_id, parent.number
+                    FROM work_items AS parent
+                    JOIN ancestry ON parent.id = ancestry.parent_id
+                )
+                SELECT id AS "Id", project_id AS "ProjectId", parent_id AS "ParentId", type_id AS "TypeId", number AS "Number"
+                FROM ancestry
+                """)
+            .AsNoTracking()
+            .Select(item => new HierarchyLink(item.Id, item.ParentId, item.TypeId, item.Number))
+            .ToListAsync(cancellationToken);
 }

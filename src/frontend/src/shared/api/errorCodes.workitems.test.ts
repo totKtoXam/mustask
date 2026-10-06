@@ -19,19 +19,28 @@ function readCatalog(): ErrorCatalog {
   return JSON.parse(readFileSync(WORKITEMS_CATALOG, 'utf8')) as ErrorCatalog;
 }
 
-/** mod-003 api-contract § 4, row by row: code and status; no code has parameters. */
-const CONTRACT_TABLE: readonly (readonly [string, number])[] = [
-  ['workitems.workitem.not_found', 404],
-  ['workitems.validation_failed', 400],
-  ['workitems.workitem.title_required', 400],
-  ['workitems.workitem.title_too_long', 400],
-  ['workitems.workitem.title_multiline', 400],
-  ['workitems.workitem.description_too_long', 400],
-  ['workitems.workitem.request_id_invalid', 400],
-  ['workitems.invalid_page', 400],
-  ['workitems.workitem.type_not_found', 404],
-  ['workitems.workitem.state_not_allowed', 409],
-  ['workitems.workitem.assignee_unavailable', 409],
+/**
+ * mod-003 api-contract § 4 and feat-001 api-contract § 5, row by row: code,
+ * status and parameters (only the cycle has any).
+ */
+const CONTRACT_TABLE: readonly (readonly [string, number, readonly string[]])[] = [
+  ['workitems.workitem.not_found', 404, []],
+  ['workitems.validation_failed', 400, []],
+  ['workitems.workitem.title_required', 400, []],
+  ['workitems.workitem.title_too_long', 400, []],
+  ['workitems.workitem.title_multiline', 400, []],
+  ['workitems.workitem.description_too_long', 400, []],
+  ['workitems.workitem.request_id_invalid', 400, []],
+  ['workitems.invalid_page', 400, []],
+  ['workitems.workitem.type_not_found', 404, []],
+  ['workitems.workitem.state_not_allowed', 409, []],
+  ['workitems.workitem.assignee_unavailable', 409, []],
+  ['workitems.link.parent_not_found', 404, []],
+  ['workitems.link.parent_level_not_allowed', 409, []],
+  ['workitems.link.self_parent', 409, []],
+  ['workitems.link.cycle', 409, ['item', 'parent', 'path']],
+  ['workitems.link.parent_changed', 409, []],
+  ['workitems.link.item_deleted', 409, []],
 ];
 
 describe('mod-003 api-contract § 4: the panel holds the workitems codes one to one with the catalog', () => {
@@ -44,14 +53,14 @@ describe('mod-003 api-contract § 4: the panel holds the workitems codes one to 
     expect(new Set(constants).size).toBe(constants.length);
   });
 
-  it('matches api-contract § 4 row by row: the 11 codes, their statuses, no parameters', () => {
+  it('matches the contracts row by row: the 17 codes, their statuses, their parameters', () => {
     const catalog = readCatalog();
 
     expect(Object.values(workItemErrorCodes)).toHaveLength(CONTRACT_TABLE.length);
-    for (const [code, status] of CONTRACT_TABLE) {
+    for (const [code, status, params] of CONTRACT_TABLE) {
       expect(Object.values(workItemErrorCodes)).toContain(code);
       expect(catalog.codes[code]?.statuses).toEqual([status]);
-      expect(Object.keys(catalog.codes[code]?.params ?? {})).toEqual([]);
+      expect(Object.keys(catalog.codes[code]?.params ?? {}).sort()).toEqual(params);
     }
   });
 });

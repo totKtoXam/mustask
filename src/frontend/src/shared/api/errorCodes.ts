@@ -77,6 +77,20 @@ export const workItemErrorCodes = {
   stateNotAllowed: 'workitems.workitem.state_not_allowed',
   /** 409: the error under «Исполнитель». */
   assigneeUnavailable: 'workitems.workitem.assignee_unavailable',
+  // feat-001 api-contract § 5: the Parent/Child link. Where each shows is its spec § Screens and copy — the error under
+  // «Родитель» on the form and in the dialog, the notice on «Убрать родителя».
+  /** 404 to the body's `parentId`: never a frame. */
+  linkParentNotFound: 'workitems.link.parent_not_found',
+  /** 409. */
+  linkParentLevelNotAllowed: 'workitems.link.parent_level_not_allowed',
+  /** 409. */
+  linkSelfParent: 'workitems.link.self_parent',
+  /** 409 with `params.parent`, `params.item`, `params.path`. */
+  linkCycle: 'workitems.link.cycle',
+  /** 409: the view is read again first. */
+  linkParentChanged: 'workitems.link.parent_changed',
+  /** 409. */
+  linkItemDeleted: 'workitems.link.item_deleted',
 } as const;
 
 export type WorkItemErrorCode = (typeof workItemErrorCodes)[keyof typeof workItemErrorCodes];

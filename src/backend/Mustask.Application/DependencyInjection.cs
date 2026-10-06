@@ -40,9 +40,11 @@ using Mustask.Application.Features.UserDirectory.BeginSnapshot;
 using Mustask.Application.Features.UserDirectory.CompleteSnapshot;
 using Mustask.Application.Features.WorkItems.CreateWorkItem;
 using Mustask.Application.Features.WorkItems.GetAssigneeCandidates;
+using Mustask.Application.Features.WorkItems.GetParentCandidates;
 using Mustask.Application.Features.WorkItems.GetWorkItem;
 using Mustask.Application.Features.WorkItems.GetWorkItems;
 using Mustask.Application.Features.WorkItems.SaveWorkItem;
+using Mustask.Application.Features.WorkItems.SetWorkItemParent;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Mustask.Application;
@@ -106,6 +108,10 @@ public static class DependencyInjection
         services.AddScoped<GetWorkItemHandler>();
         services.AddScoped<SaveWorkItemHandler>();
         services.AddScoped<GetAssigneeCandidatesHandler>();
+
+        // Work item links (feat-001): the parent write and the «Родитель» picker, routes of WorkItemEndpoints.cs too.
+        services.AddScoped<SetWorkItemParentHandler>();
+        services.AddScoped<GetParentCandidatesHandler>();
 
         // Boards and backlogs (mod-006): one handler per route of BoardEndpoints.cs.
         services.AddScoped<GetBacklogHandler>();

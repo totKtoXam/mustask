@@ -2,9 +2,11 @@ using Mustask.Api.Authorization;
 using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Application.Features.WorkItems.CreateWorkItem;
 using Mustask.Application.Features.WorkItems.GetAssigneeCandidates;
+using Mustask.Application.Features.WorkItems.GetParentCandidates;
 using Mustask.Application.Features.WorkItems.GetWorkItem;
 using Mustask.Application.Features.WorkItems.GetWorkItems;
 using Mustask.Application.Features.WorkItems.SaveWorkItem;
+using Mustask.Application.Features.WorkItems.SetWorkItemParent;
 using Mustask.Domain.Identity;
 using Gridify;
 using Microsoft.AspNetCore.Http;
@@ -33,6 +35,15 @@ public static class WorkItemEndpoints
         $"Declares {OrganizationPermissionCatalog.WorkItemsWorkItemWrite}, an organization-scoped code that no token carries "
         + "and nothing checks yet (BR-M3-27): any signed-in user, until mod-016 retrofits the check; a non-member then "
         + "gets the not-found answer, not a 403.";
+
+    private static readonly string SaveAccess =
+        $"{WriteAccess} A `parent` in the save is a parent write, which mod-016 also checks against "
+        + $"{OrganizationPermissionCatalog.WorkItemsLinkWrite} (feat-001 BR-H-18).";
+
+    private static readonly string LinkAccess =
+        $"Declares {OrganizationPermissionCatalog.WorkItemsLinkWrite}, an organization-scoped code that no token carries "
+        + "and nothing checks yet (feat-001 BR-H-18): any signed-in user, until mod-016 retrofits the check; a non-member "
+        + "then gets the not-found answer, not a 403.";
 
     public static IEndpointRouteBuilder MapWorkItemEndpoints(this IEndpointRouteBuilder app)
     {
@@ -65,15 +76,33 @@ public static class WorkItemEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        // § 2.4. Save the form: exactly the fields sent.
+        // § 2.4. Save the form: exactly the fields sent; feat-001 § 3.3 adds the parent.
         workItems.MapPatch("/{identifier}", SaveWorkItemAsync)
-            .AuthenticatedOnly(WriteAccess)
+            .AuthenticatedOnly(SaveAccess)
             .RequiresOrganizationContext()
             .Produces<WorkItemView>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
+
+        // feat-001 § 3.2. The parent write: set, replace or clear the item's parent.
+        workItems.MapPut("/{identifier}/parent", SetWorkItemParentAsync)
+            .AuthenticatedOnly(LinkAccess)
+            .RequiresOrganizationContext()
+            .Produces<SetWorkItemParentResponse>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        // feat-001 § 3.4. The «Родитель» picker: this item's possible parents.
+        workItems.MapGet("/{identifier}/parent-candidates", GetParentCandidatesAsync)
+            .AuthenticatedOnly(ReadAccess)
+            .RequiresOrganizationContext()
+            .Produces<ParentCandidatesResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         // § 2.5. The assignee picker: organization-level, as mod-016 will narrow it to the organization's members.
         app.MapGet("/api/organizations/{organizationId}/workitems/assignee-candidates", GetAssigneeCandidatesAsync)
@@ -130,10 +159,37 @@ public static class WorkItemEndpoints
             request?.Description,
             request?.StateId,
             request?.Assignee is { } assignee ? new AssigneeChange(assignee.UserId) : null,
-            request?.AreaId);
+            request?.AreaId,
+            request?.Parent is { } parent ? new ParentChange(parent.ParentId, parent.SeenParentId) : null);
 
         return Results.Ok((await handler.Handle(command, cancellationToken)).Item);
     }
+
+    private static async Task<IResult> SetWorkItemParentAsync(
+        string organizationId,
+        string projectId,
+        string identifier,
+        ParentChangeRequest? request,
+        SetWorkItemParentHandler handler,
+        CancellationToken cancellationToken)
+    {
+        // A missing body is {}: clear, having seen none (api-contract § 3.2).
+        var change = new ParentChange(request?.ParentId, request?.SeenParentId);
+
+        return Results.Ok(await handler.Handle(new SetWorkItemParentCommand(organizationId, projectId, identifier, change), cancellationToken));
+    }
+
+    private static async Task<IResult> GetParentCandidatesAsync(
+        string organizationId,
+        string projectId,
+        string identifier,
+        string? text,
+        bool? levelAbove,
+        GetParentCandidatesHandler handler,
+        CancellationToken cancellationToken) =>
+        Results.Ok(await handler.Handle(
+            new GetParentCandidatesQuery(organizationId, projectId, identifier, text, levelAbove ?? false),
+            cancellationToken));
 
     private static async Task<IResult> GetAssigneeCandidatesAsync(
         string organizationId, string? text, GetAssigneeCandidatesHandler handler, CancellationToken cancellationToken) =>
@@ -150,7 +206,11 @@ public static class WorkItemEndpoints
         string? Description,
         string? StateId,
         AssigneeRequest? Assignee,
-        string? AreaId);
+        string? AreaId,
+        ParentChangeRequest? Parent);
 
     private sealed record AssigneeRequest(string? UserId);
+
+    /// <summary>feat-001 api-contract § 2.3: <c>parentId</c> <c>null</c> clears; <c>seenParentId</c> <c>null</c> saw none.</summary>
+    private sealed record ParentChangeRequest(string? ParentId, string? SeenParentId);
 }

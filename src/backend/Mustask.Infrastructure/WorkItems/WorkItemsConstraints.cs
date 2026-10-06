@@ -20,7 +20,13 @@ internal static class WorkItemsConstraints
     /// <summary>mod-006 BR-M4-5: a team's backlog of a level reads the project's items of the level's types in the team's areas.</summary>
     public const string ProjectTypeArea = "ix_work_items_project_id_type_id_area_id";
 
+    /// <summary>feat-001 BR-H-1, BR-H-7: the parent's composite key, and a parent's children.</summary>
+    public const string ProjectParent = "ix_work_items_project_id_parent_id";
+
     public const string NumberPositive = "ck_work_items_number_positive";
+
+    /// <summary>feat-001 BR-H-2: an item is never its own parent.</summary>
+    public const string ParentNotSelf = "ck_work_items_parent_not_self";
 
     public static readonly string TitleLengthCheck = $"char_length(title) BETWEEN 1 AND {WorkItemLimits.TitleMaxLength}";
 
