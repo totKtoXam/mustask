@@ -44,6 +44,11 @@ public static class OrganizationAddressedRoutes
         ("GET", "/api/organizations/{organizationId}/projects/{projectId}/workitems/{identifier}"),
         ("PATCH", "/api/organizations/{organizationId}/projects/{projectId}/workitems/{identifier}"),
         ("GET", "/api/organizations/{organizationId}/workitems/assignee-candidates"),
+
+        // mod-006 api-contract § 5: a team's backlog, its reorder and its board (BR-M4-27).
+        ("GET", "/api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}/backlogs/{level}"),
+        ("POST", "/api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}/backlogs/{level}/reorder"),
+        ("GET", "/api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}/boards/{level}"),
     ];
 
     /// <summary>The route's address for <paramref name="organizationId"/>, with fresh ids below it.</summary>
@@ -53,7 +58,8 @@ public static class OrganizationAddressedRoutes
             .Replace("{projectId}", Guid.CreateVersion7().ToString(), StringComparison.Ordinal)
             .Replace("{teamId}", Guid.CreateVersion7().ToString(), StringComparison.Ordinal)
             .Replace("{areaId}", Guid.CreateVersion7().ToString(), StringComparison.Ordinal)
-            .Replace("{identifier}", "PRM-BUG-1", StringComparison.Ordinal);
+            .Replace("{identifier}", "PRM-BUG-1", StringComparison.Ordinal)
+            .Replace("{level}", "stories", StringComparison.Ordinal);
 
     /// <summary>A body every write route binds: each field present and well formed, so only the address can be wrong.</summary>
     public static object? Body(string method) =>
@@ -68,6 +74,8 @@ public static class OrganizationAddressedRoutes
                 requestId = Guid.CreateVersion7().ToString(),
                 typeId = Guid.CreateVersion7().ToString(),
                 title = "Заголовок",
+                itemId = Guid.CreateVersion7().ToString(),
+                position = "top",
             }
             : null;
 

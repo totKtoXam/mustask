@@ -178,10 +178,12 @@ ignored.
 | `requestId` | **required.** A UUID the panel generates once per submission of the dialog and sends again unchanged on every retry of that submission (a double activation of «Создать», a resend after a lost answer). It is the idempotency key of BR-M3-26, unique per project. |
 | `typeId` | the id of one of the five types of the organization's process (mod-001's process read) |
 | `title` | Заголовок (§ 0.6) |
+| `teamId` | optional, added by mod-006 (its api-contract § 7): the team whose backlog or board the item is created from. The item then takes that team's default area as it stands at creation instead of the root (mod-006 BR-M4-21). Absent or `null`: the root, exactly as before. |
 
 The item takes its type's initial state («Новая»), no assignee, an empty
-description and the project's root area (BR-M3-20); its number is the next of
-the project's one sequence (BR-M3-5).
+description and the project's root area (BR-M3-20) — or, with `teamId`, that
+team's default area; its number is the next of the project's one sequence
+(BR-M3-5).
 
 - **201** `WorkItem`, `Location: /api/organizations/{organizationId}/projects/{projectId}/workitems/{identifier}`.
 - **200** `WorkItem` — **a replay**: the project already has the item this
@@ -194,7 +196,10 @@ the project's one sequence (BR-M3-5).
   `errors.title`: `title_required`, `title_too_long` or `title_multiline`.
 - **404** organization, project (§ 0.3); `workitems.workitem.type_not_found`
   — `typeId` is missing, malformed, unknown or a type of another
-  organization's process.
+  organization's process; `organizations.team.not_found` (mod-006) —
+  `teamId` is present and malformed, unknown, a team of another project or
+  a deleted team. The team is answered after the type and after the replay
+  check: a replay answers 200 with its item whatever its team has become.
 
 ### 2.3 `GET …/workitems/{identifier}` — one item (US-3)
 

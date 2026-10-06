@@ -17,6 +17,9 @@ internal static class WorkItemsConstraints
     /// <summary>BR-M3-24: the area deletion looks for any item of the project in the area.</summary>
     public const string ProjectArea = "ix_work_items_project_id_area_id";
 
+    /// <summary>mod-006 BR-M4-5: a team's backlog of a level reads the project's items of the level's types in the team's areas.</summary>
+    public const string ProjectTypeArea = "ix_work_items_project_id_type_id_area_id";
+
     public const string NumberPositive = "ck_work_items_number_positive";
 
     public static readonly string TitleLengthCheck = $"char_length(title) BETWEEN 1 AND {WorkItemLimits.TitleMaxLength}";

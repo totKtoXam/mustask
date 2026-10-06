@@ -25,6 +25,7 @@ import { NEW_WORK_ITEM_LABEL, TypePickerMenu } from '../components/TypePickerMen
 import { useCreateWorkItem } from '../hooks/mutations';
 import { useWorkItems } from '../hooks/queries';
 import { notFoundLevel } from '../lib/notFoundLevel';
+import { creatableTypes } from '../lib/process';
 import { workItemPath } from '../paths';
 
 /** The table's seven columns (spec § Page «Рабочие элементы»), the skeleton's headers too. */
@@ -87,7 +88,7 @@ function WorkItemsList({
       }
     : undefined;
   const loading = query.isPending || (query.isError && query.isFetching);
-  const types = process.data?.workItemTypes ?? [];
+  const types = creatableTypes(process.data?.workItemTypes ?? []);
 
   return (
     <>

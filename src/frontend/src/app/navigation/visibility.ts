@@ -102,7 +102,8 @@ function pagePath(pathname: string): string {
 /**
  * `currentPage` is the address of the page on screen, or `null` while a
  * not-found frame answers the address: no page is current then, so no entry
- * is marked (BR-13).
+ * is marked (BR-13). An entry's sibling views (mod-006's level tabs) are its
+ * page as the landing is.
  */
 export function entryMarker(
   currentPage: string | null,
@@ -114,10 +115,11 @@ export function entryMarker(
     return null;
   }
   const path = pagePath(currentPage);
-  if (path === landing) {
+  const pages = [landing, ...(entry.views?.(selection) ?? [])];
+  if (pages.includes(path)) {
     return 'page';
   }
-  return path.startsWith(`${landing}/`) ? 'true' : null;
+  return pages.some((page) => path.startsWith(`${page}/`)) ? 'true' : null;
 }
 
 /**

@@ -23,6 +23,23 @@ export function useCreateWorkItem(organizationId: string, projectId: string) {
   });
 }
 
+/**
+ * § 2.4 with `{ stateId }` alone, for any item of the project: mod-006's card
+ * move (its api-contract § 6) — the same write as choosing the state on the
+ * form, with the same cache updates.
+ */
+export function useSetWorkItemState(organizationId: string, projectId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ identifier, stateId }: { identifier: string; stateId: string }) =>
+      saveWorkItem(organizationId, projectId, identifier, { stateId }),
+    onSuccess: (item) => {
+      client.setQueryData(keys.item(organizationId, projectId, item.identifier), item);
+      return client.invalidateQueries({ queryKey: keys.lists(organizationId, projectId) });
+    },
+  });
+}
+
 /** § 2.4: the answer is the item as stored, so the form shows it without another read. */
 export function useSaveWorkItem(organizationId: string, projectId: string, identifier: string) {
   const client = useQueryClient();

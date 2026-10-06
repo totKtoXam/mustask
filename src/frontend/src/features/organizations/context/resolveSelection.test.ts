@@ -224,3 +224,42 @@ describe('mod-002 US-8 Scenario: The address sets the switcher — the decision'
     ).toEqual({ kind: 'none' });
   });
 });
+
+describe('mod-006 spec § Screens and copy: a team-level address sets the team too — the decision', () => {
+  const organizations = ready('Альфа', 'Бета');
+  const chosen = { organizationId: 'Бета', projectId: 'Отчётность', teamId: 'Отчётность' };
+  const address = { organizationId: 'Альфа', projectId: 'Пример проекта', teamId: 'Платформа' };
+
+  it('waits for the project’s teams, then sets all three levels from the address', () => {
+    expect(
+      addressSync({
+        address,
+        chosen,
+        organizations,
+        addressProjects: PROJECTS.Альфа!,
+        addressTeams: LOADING_LIST,
+      }),
+    ).toEqual({ kind: 'wait' });
+    expect(
+      addressSync({
+        address,
+        chosen,
+        organizations,
+        addressProjects: PROJECTS.Альфа!,
+        addressTeams: TEAMS['Пример проекта']!,
+      }),
+    ).toEqual({ kind: 'set', selection: address });
+  });
+
+  it('sets nothing for a team the project’s active teams do not hold (deleted, another project’s)', () => {
+    expect(
+      addressSync({
+        address: { ...address, teamId: 'Аналитика' },
+        chosen,
+        organizations,
+        addressProjects: PROJECTS.Альфа!,
+        addressTeams: TEAMS['Пример проекта']!,
+      }),
+    ).toEqual({ kind: 'none' });
+  });
+});

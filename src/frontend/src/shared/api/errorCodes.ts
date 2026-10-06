@@ -80,3 +80,24 @@ export const workItemErrorCodes = {
 } as const;
 
 export type WorkItemErrorCode = (typeof workItemErrorCodes)[keyof typeof workItemErrorCodes];
+
+/**
+ * `boards.*` — `contracts/errors/boards.json`, which mod-006 owns (its
+ * api-contract § 4). The drift test beside this file checks the constants
+ * against that catalog in both directions. Only `reorderStale` is a user's
+ * case (spec § Notices); the other three answer a panel defect and are shown
+ * as any other refusal: the level's not-found as the page's `ErrorBanner`,
+ * the two 400s as the reorder's notice with the server's text.
+ */
+export const boardErrorCodes = {
+  /** 409: the moved or the named item has left the backlog; the backlog is read again first. */
+  reorderStale: 'boards.backlog.reorder_stale',
+  /** 404: `{level}` is not one of the three, or the process has no such level. */
+  levelNotFound: 'boards.level.not_found',
+  /** 400 with `errors.position`: a panel defect. */
+  validationFailed: 'boards.validation_failed',
+  /** A field reason of `validationFailed`. */
+  positionInvalid: 'boards.backlog.position_invalid',
+} as const;
+
+export type BoardErrorCode = (typeof boardErrorCodes)[keyof typeof boardErrorCodes];

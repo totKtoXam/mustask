@@ -5,6 +5,7 @@ using Mustask.Application.Abstractions;
 using Mustask.Api.Authentication;
 using Mustask.Api.Authentication.Readiness;
 using Mustask.Api.Authorization;
+using Mustask.Api.Features.Boards;
 using Mustask.Api.Features.Dictionaries;
 using Mustask.Api.Features.Organizations;
 using Mustask.Api.Features.Process;
@@ -304,6 +305,7 @@ app.MapProcessEndpoints();
 app.MapSessionEndpoints();
 app.MapUserDirectoryEndpoints();
 app.MapWorkItemEndpoints();
+app.MapBoardEndpoints();
 
 app.Run();
 

@@ -27,6 +27,15 @@ public sealed class OrganizationPermissionCatalogTests
         Assert.Contains("workitems.workitem.write", OrganizationPermissionCatalog.AllCodes);
     }
 
+    // mod-006 BR-M4-27: the reorder's code is registered under its exact name as an organization-scoped code, outside
+    // the realm import (OrganizationPermissionRealmTests scans every code of AllCodes).
+    [Fact]
+    public void BoardsBacklogReorder_IsRegisteredUnderItsExactName()
+    {
+        Assert.Equal("boards.backlog.reorder", OrganizationPermissionCatalog.BoardsBacklogReorder);
+        Assert.Contains("boards.backlog.reorder", OrganizationPermissionCatalog.AllCodes);
+    }
+
     [Fact]
     public void AllCodes_AreWellFormed()
     {

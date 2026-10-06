@@ -20,12 +20,16 @@ public static class OrganizationPermissionCatalog
     /// <summary>Creating and saving work items, and the assignee candidates a save needs (mod-003 BR-M3-27). Nothing checks it before <c>mod-016</c>.</summary>
     public const string WorkItemsWorkItemWrite = "workitems.workitem.write";
 
+    /// <summary>Reordering a team's backlog (mod-006 BR-M4-27). Nothing checks it before <c>mod-016</c>.</summary>
+    public const string BoardsBacklogReorder = "boards.backlog.reorder";
+
     /// <summary>Human-readable descriptions of the codes (diagnostics, logs).</summary>
     public static readonly IReadOnlyDictionary<string, string> Descriptions = new Dictionary<string, string>
     {
         [ProcessDefinitionRead] = "Просмотр определения процесса организации",
         [WorkItemsWorkItemRead] = "Просмотр рабочих элементов проекта",
         [WorkItemsWorkItemWrite] = "Создание и изменение рабочих элементов проекта",
+        [BoardsBacklogReorder] = "Изменение порядка бэклога команды",
     };
 
     /// <summary>All organization-scoped codes.</summary>

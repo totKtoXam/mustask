@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AnonymousScreen } from '../features/auth/AnonymousScreen';
 import { RequireAuth } from '../features/auth/RequireAuth';
+import { BACKLOG_ROUTE, BOARD_ROUTE, BacklogPage, BoardPage } from '../features/boards';
 import { LanguageFormPage, LanguagesRegistryPage } from '../features/dictionaries';
 import { HomePage } from '../features/home/HomePage';
 import {
@@ -83,6 +84,13 @@ export function AppRoutes() {
               page answers a level it does not find with its own frame. */}
           <Route path={WORK_ITEMS_ROUTE} element={<WorkItemsPage />} />
           <Route path={WORK_ITEM_ROUTE} element={<WorkItemFormPage />} />
+          {/* A team's boards and backlogs (mod-006 spec § Screens and copy),
+              team-level pages. No gate: every signed-in user passes until
+              mod-016 (BR-M4-27); each page answers a level that is not one of
+              the three as an unknown address, and an address level it does
+              not find with its own frame. */}
+          <Route path={BOARD_ROUTE} element={<BoardPage />} />
+          <Route path={BACKLOG_ROUTE} element={<BacklogPage />} />
           {/* An unknown address keeps the address and answers inside the
               shell — no redirect to «Главная» (mod-015 BR-13, D-13). */}
           <Route path="*" element={<NotFound level="page" />} />

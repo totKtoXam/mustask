@@ -1,4 +1,5 @@
 using Mustask.Application.Abstractions.WorkItems;
+using Mustask.Domain.Organizations;
 using Mustask.Domain.WorkItems;
 using Microsoft.EntityFrameworkCore;
 
@@ -35,6 +36,20 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
         return await context.Database
             .SqlQuery<int>($"SELECT last_number AS \"Value\" FROM work_item_counters WHERE project_id = {projectId}")
             .SingleAsync(cancellationToken);
+    }
+
+    public async Task<Guid?> LockTeamDefaultAreaAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken)
+    {
+        await context.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT 1 FROM teams WHERE id = {teamId} AND project_id = {projectId} FOR SHARE",
+            cancellationToken);
+
+        // A new statement under READ COMMITTED: a team deleted, or a default moved, by the lock's previous holder reads so.
+        return await context.Teams
+            .AsNoTracking()
+            .Where(team => team.Id == teamId && team.ProjectId == projectId && team.Status == TeamStatus.Active)
+            .Select(team => context.Areas.Where(area => area.DefaultOfTeamId == team.Id).Select(area => (Guid?)area.Id).FirstOrDefault())
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public Task<Guid?> FindCreatedByRequestAsync(Guid projectId, Guid requestId, CancellationToken cancellationToken) =>

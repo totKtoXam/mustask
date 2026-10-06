@@ -4,12 +4,22 @@ namespace Mustask.Application.Abstractions.WorkItems;
 
 /// <summary>
 /// The write side of work items (mod-003). Locks follow one order: the
-/// project's number counter (creation only), then the item, then the area it
-/// moves into. Each lock is taken before the row it guards is read, so the read
-/// sees the row as the previous lock holder left it.
+/// project's number counter (creation only), then the team a creation comes from
+/// (mod-006), then the item, then the area it moves into. Each lock is taken
+/// before the row it guards is read, so the read sees the row as the previous
+/// lock holder left it.
 /// </summary>
 public interface IWorkItemRepository
 {
+    /// <summary>
+    /// mod-006 (BR-M4-21): locks the team <c>FOR SHARE</c> and answers its
+    /// default area as it stands, or <c>null</c> when it is not an active team of
+    /// the project. A default change locks the team <c>FOR NO KEY UPDATE</c> and a
+    /// deletion <c>FOR UPDATE</c> (mod-002), so neither can move the answer before
+    /// the commit, and a default area is never deleted while it is one.
+    /// </summary>
+    Task<Guid?> LockTeamDefaultAreaAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken);
+
     /// <summary>
     /// Locks the project's number counter <c>FOR UPDATE</c>, creating it on the
     /// project's first creation. From here to the commit no other creation of

@@ -62,6 +62,9 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         builder.HasIndex(item => new { item.ProjectId, item.ChangedAt, item.Number }, WorkItemsConstraints.ProjectChangedAt)
             .IsDescending(false, true, true);
         builder.HasIndex(item => new { item.ProjectId, item.AreaId }, WorkItemsConstraints.ProjectArea);
+        // mod-006: the backlog's membership (Boards/BacklogMembership) is an equality on the project and a short list each
+        // of types and areas, so every (type, area) pair is one range of this index and no other level's items are read.
+        builder.HasIndex(item => new { item.ProjectId, item.TypeId, item.AreaId }, WorkItemsConstraints.ProjectTypeArea);
 
         builder.ToTable(table =>
         {

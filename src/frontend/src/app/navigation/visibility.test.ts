@@ -59,19 +59,20 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () =>
     const shown = [...labels(visible), ...visible.settings.map(({ section }) => section.label)];
 
     for (const label of [
-      'Доски',
-      'Бэклоги',
       'Спринты',
       'Запросы',
       // mod-002: «Проект» holds built pages now, hidden only on the placeholder;
-      // mod-003: so is «Рабочие элементы», a project-scoped entry.
-      ...(organizationHidden ? ['Организация', 'Процесс', 'Проект', 'Рабочие элементы'] : []),
+      // mod-003: so is «Рабочие элементы», a project-scoped entry;
+      // mod-006: and «Доски» and «Бэклоги», team-scoped ones.
+      ...(organizationHidden
+        ? ['Организация', 'Процесс', 'Проект', 'Рабочие элементы', 'Доски', 'Бэклоги']
+        : []),
     ]) {
       expect(shown).not.toContain(label);
     }
   });
 
-  it('registers only built pages: «Главная», «Рабочие элементы», «Организация» → «Общие», «Проекты», «Процесс», «Проект» → «Общие», «Команды», «Области» and «Справочники» → «Языки»', () => {
+  it('registers only built pages: «Главная», «Рабочие элементы», «Доски», «Бэклоги», «Организация» → «Общие», «Проекты», «Процесс», «Проект» → «Общие», «Команды», «Области» and «Справочники» → «Языки»', () => {
     const registered = [
       ...navigationModel.top,
       ...navigationModel.work,
@@ -80,6 +81,8 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () =>
     expect(registered.map((entry) => entry.label)).toEqual([
       'Главная',
       'Рабочие элементы',
+      'Доски',
+      'Бэклоги',
       'Общие',
       'Проекты',
       'Процесс',
@@ -252,6 +255,58 @@ describe('US-3 Scenario: The current page is marked', () => {
   it('marks nothing and knows no settings page where no page is current', () => {
     expect(entryMarker(null, languages, selection)).toBeNull();
     expect(isSettingsPage(null, navigationModel, selection)).toBe(false);
+  });
+});
+
+describe('mod-006 spec § Navigation: «Доски» and «Бэклоги», team-level entries whose level tabs are their page', () => {
+  const entry = (id: string) =>
+    navigationModel.work.find((candidate) => candidate.id === id) as NavigationEntry;
+  const team = { organizationId: 'org-1', projectId: 'prj-1', teamId: 'team-1' };
+  const prefix = '/organizations/org-1/projects/prj-1/teams/team-1';
+
+  it('stand after «Рабочие элементы», «Доски» first; team-scoped; declare workitems.workitem.read', () => {
+    expect(navigationModel.work.map((candidate) => candidate.label)).toEqual([
+      'Рабочие элементы',
+      'Доски',
+      'Бэклоги',
+    ]);
+    for (const id of ['boards', 'backlogs']) {
+      expect(entry(id).scope).toBe('team');
+      expect(entry(id).permission).toBe('workitems.workitem.read');
+      expect(entry(id).landing({ organizationId: 'org-1', projectId: 'prj-1' })).toBeNull();
+    }
+    expect(entry('boards').landing(team)).toBe(`${prefix}/boards/stories`);
+    expect(entry('backlogs').landing(team)).toBe(`${prefix}/backlogs/stories`);
+  });
+
+  it('are shown once a real team is chosen, not with a project alone', () => {
+    for (const id of ['boards', 'backlogs']) {
+      expect(isEntryVisible(entry(id), allowEverything, { isReal: true, selection: team })).toBe(
+        true,
+      );
+      expect(
+        isEntryVisible(entry(id), allowEverything, {
+          isReal: true,
+          selection: { organizationId: 'org-1', projectId: 'prj-1' },
+        }),
+      ).toBe(false);
+    }
+  });
+
+  it.each([
+    ['boards', 'backlogs'],
+    ['backlogs', 'boards'],
+  ])('«%s» marks `page` on every level tab, leaves a trail on none, and not «%s»', (id, other) => {
+    const visible = visibleModel(navigationModel, allowEverything, {
+      isReal: true,
+      selection: team,
+    });
+    for (const level of ['epics', 'features', 'stories']) {
+      expect(entryMarker(`${prefix}/${id}/${level}`, entry(id), team)).toBe('page');
+      expect(deriveTrail(`${prefix}/${id}/${level}`, visible, team)).toEqual([]);
+    }
+    expect(entryMarker(`${prefix}/${id}/tasks`, entry(id), team)).toBeNull();
+    expect(entryMarker(`${prefix}/${other}/stories`, entry(id), team)).toBeNull();
   });
 });
 

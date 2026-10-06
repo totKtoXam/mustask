@@ -94,6 +94,9 @@ describe('mod-003 US-1 Scenario: A work item is created with only a title', () =
     expect(body.typeId).toBe(processType('TASK').id);
     expect(body.title).toBe('  Настроить сборку  ');
     expect(body.requestId).toMatch(UUID);
+    // mod-006 US-7 Scenario "An item created from the project's list goes to
+    // the first team": the list names no team, so the item takes the root.
+    expect(body).not.toHaveProperty('teamId');
 
     const table = await screen.findByRole('table', { name: 'Рабочие элементы' });
     const first = within(table).getAllByRole('row')[1] as HTMLElement;

@@ -1,12 +1,19 @@
 import { ApiError } from '../../../shared/api/httpClient';
 import { organizationErrorCodes, workItemErrorCodes } from '../../../shared/api/errorCodes';
 
-/** The levels with a not-found frame on this slice's pages (spec § Not-found answers). */
-export type WorkItemsNotFoundLevel = 'organization' | 'project' | 'workItem';
+/**
+ * The levels with a not-found frame on this slice's pages (spec § Not-found
+ * answers), and the team a create from a team's surface names: mod-006
+ * api-contract § 7 lets that create answer the team's not-found, which the
+ * dialog shows in its `Alert` and the surface's page as its frame once the
+ * dialog closes. No read of this slice answers it.
+ */
+export type WorkItemsNotFoundLevel = 'organization' | 'project' | 'team' | 'workItem';
 
 const LEVELS: Readonly<Record<string, WorkItemsNotFoundLevel>> = {
   [organizationErrorCodes.notFound]: 'organization',
   [organizationErrorCodes.projectNotFound]: 'project',
+  [organizationErrorCodes.teamNotFound]: 'team',
   [workItemErrorCodes.notFound]: 'workItem',
 };
 

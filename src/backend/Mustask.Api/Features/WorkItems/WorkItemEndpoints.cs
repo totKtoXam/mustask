@@ -96,7 +96,7 @@ public static class WorkItemEndpoints
         string organizationId, string projectId, CreateWorkItemRequest? request, CreateWorkItemHandler handler, CancellationToken cancellationToken)
     {
         var result = await handler.Handle(
-            new CreateWorkItemCommand(organizationId, projectId, request?.RequestId, request?.TypeId, request?.Title),
+            new CreateWorkItemCommand(organizationId, projectId, request?.RequestId, request?.TypeId, request?.Title, request?.TeamId),
             cancellationToken);
 
         if (!result.Created)
@@ -141,7 +141,8 @@ public static class WorkItemEndpoints
 
     // --- Request bodies: every field nullable, so a missing one reaches the handler as a validation answer -----
 
-    private sealed record CreateWorkItemRequest(string? RequestId, string? TypeId, string? Title);
+    /// <summary><c>teamId</c> is mod-006's (its api-contract § 7): optional, the team surface the item is created from.</summary>
+    private sealed record CreateWorkItemRequest(string? RequestId, string? TypeId, string? Title, string? TeamId);
 
     /// <summary>A field that is absent or <c>null</c> is not changed (BR-M3-25); <c>assignee.userId</c> <c>null</c> clears it.</summary>
     private sealed record SaveWorkItemRequest(

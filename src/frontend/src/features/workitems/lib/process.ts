@@ -23,3 +23,27 @@ export function editableStates(type: WorkItemType): StateDefinition[] {
 export function initialState(type: WorkItemType): StateDefinition | undefined {
   return type.states.find((state) => state.isInitial) ?? type.states[0];
 }
+
+/**
+ * A type the create dialog and the type picker offer: its look, and the name
+ * of the state a new item of it starts in, which the dialog's text quotes.
+ * The project's list builds them from the process read (`creatableTypes`); a
+ * team's backlog or board from its level's types (mod-006 api-contract § 2.2).
+ */
+export interface CreatableType {
+  id: string;
+  name: string;
+  /** The appearance token the theme draws. */
+  appearance: string;
+  initialStateName: string;
+}
+
+/** The process's types as the dialog offers them, in the order the read gives them. */
+export function creatableTypes(types: readonly WorkItemType[]): CreatableType[] {
+  return types.map((type) => ({
+    id: type.id,
+    name: type.name,
+    appearance: type.appearance,
+    initialStateName: initialState(type)?.name ?? '',
+  }));
+}

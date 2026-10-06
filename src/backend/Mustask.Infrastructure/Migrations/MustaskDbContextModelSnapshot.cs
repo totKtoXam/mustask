@@ -1086,6 +1086,9 @@ namespace Mustask.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_work_items_project_id_number");
 
+                    b.HasIndex(new[] { "ProjectId", "TypeId", "AreaId" }, "ix_work_items_project_id_type_id_area_id")
+                        .HasDatabaseName("ix_work_items_project_id_type_id_area_id");
+
                     b.ToTable("work_items", t =>
                         {
                             t.HasCheckConstraint("ck_work_items_description_length", "char_length(description) <= 100000");
@@ -1132,6 +1135,86 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.Property("TypeId")
                                 .HasColumnName("type_id");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
+            modelBuilder.Entity("Mustask.Infrastructure.Boards.BacklogOrder", b =>
+                {
+                    b.Property<Guid>("TeamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BacklogLevelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("TeamId", "BacklogLevelId")
+                        .HasName("pk_backlog_orders");
+
+                    b.HasIndex("BacklogLevelId")
+                        .HasDatabaseName("ix_backlog_orders_backlog_level_id");
+
+                    b.ToTable("backlog_orders", null, t =>
+                        {
+                            t.Property("TeamId")
+                                .HasColumnName("team_id");
+
+                            t.Property("BacklogLevelId")
+                                .HasColumnName("backlog_level_id");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
+            modelBuilder.Entity("Mustask.Infrastructure.Boards.BacklogPlace", b =>
+                {
+                    b.Property<Guid>("WorkItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BacklogLevelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TeamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("WorkItemId")
+                        .HasName("pk_backlog_places");
+
+                    b.HasIndex("TeamId", "BacklogLevelId")
+                        .HasDatabaseName("ix_backlog_places_team_id_backlog_level_id");
+
+                    b.ToTable("backlog_places", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_backlog_places_position", "position >= 1");
+
+                            t.Property("WorkItemId")
+                                .HasColumnName("work_item_id");
+
+                            t.Property("BacklogLevelId")
+                                .HasColumnName("backlog_level_id");
+
+                            t.Property("Position")
+                                .HasColumnName("position");
+
+                            t.Property("TeamId")
+                                .HasColumnName("team_id");
 
                             t.Property("xmin")
                                 .HasColumnName("xmin");
@@ -1309,6 +1392,40 @@ namespace Mustask.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_work_items_areas_project_id_area_id");
+                });
+
+            modelBuilder.Entity("Mustask.Infrastructure.Boards.BacklogOrder", b =>
+                {
+                    b.HasOne("Mustask.Domain.Process.BacklogLevel", null)
+                        .WithMany()
+                        .HasForeignKey("BacklogLevelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_backlog_orders_backlog_levels_backlog_level_id");
+
+                    b.HasOne("Mustask.Domain.Organizations.Team", null)
+                        .WithMany()
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_backlog_orders_teams_team_id");
+                });
+
+            modelBuilder.Entity("Mustask.Infrastructure.Boards.BacklogPlace", b =>
+                {
+                    b.HasOne("Mustask.Domain.WorkItems.WorkItem", null)
+                        .WithOne()
+                        .HasForeignKey("Mustask.Infrastructure.Boards.BacklogPlace", "WorkItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_backlog_places_work_items_work_item_id");
+
+                    b.HasOne("Mustask.Infrastructure.Boards.BacklogOrder", null)
+                        .WithMany()
+                        .HasForeignKey("TeamId", "BacklogLevelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_backlog_places_backlog_orders_team_id_backlog_level_id");
                 });
 
             modelBuilder.Entity("Mustask.Infrastructure.WorkItems.WorkItemCounter", b =>

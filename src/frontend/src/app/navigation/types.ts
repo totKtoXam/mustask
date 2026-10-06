@@ -22,6 +22,14 @@ export interface NavigationEntry {
    * context lacks the level the scope needs (BR-18 prefixes).
    */
   landing(selection: WorkContextSelection): string | null;
+  /**
+   * The addresses of the entry's page's other views, when they are siblings
+   * of the landing rather than beneath it — mod-006's level tabs
+   * (`…/backlogs/epics` beside the landing `…/backlogs/stories`). Each is the
+   * entry's page as the landing is: marked `page`, no trail, and the switcher
+   * moves it to the landing in the new context. Absent: the landing alone.
+   */
+  views?(selection: WorkContextSelection): readonly string[];
 }
 
 /**
@@ -44,7 +52,7 @@ export interface SettingsSection {
 export interface NavigationModel {
   /** «Главная». */
   top: readonly MainNavigationEntry[];
-  /** The work hubs: «Рабочие элементы», «Доски»… — none built yet. */
+  /** The work hubs: «Рабочие элементы», «Доски», «Бэклоги»… — as their pages are built. */
   work: readonly MainNavigationEntry[];
   settings: readonly SettingsSection[];
 }

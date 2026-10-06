@@ -53,12 +53,16 @@ function organizationIdIn(url: string): string {
 /** Opens the organization list through the switcher, its only way in (D-d). */
 async function openOrganizationList(page: Page) {
   const none = switcher(page).getByRole('link', { name: 'Нет организаций' });
+  const current = switcher(page).getByRole('button', { name: /^Организация:/ });
+  // The shell and «Главная» render before the organizations read answers, so
+  // a one-shot `isVisible()` on the link took «no link yet» for «the switcher
+  // has an organization» and then waited the whole test for a button that an
+  // empty stand never shows. Wait for either answer, then choose.
+  await expect(none.or(current)).toBeVisible();
   if (await none.isVisible()) {
     await none.click();
   } else {
-    await switcher(page)
-      .getByRole('button', { name: /^Организация:/ })
-      .click();
+    await current.click();
     await page.getByRole('menuitem', { name: 'Все организации' }).click();
   }
   await expect(page).toHaveURL(/\/organizations$/);

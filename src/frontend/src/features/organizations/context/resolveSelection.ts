@@ -48,7 +48,10 @@ export type AddressSync =
  * the carried levels take the address's ids. A level below the carried ones
  * keeps the current choice when it belongs to the new level above; the
  * resolution then gives it its first entry otherwise. A team's page carries
- * the organization and the project only (`addressContext`).
+ * the organization and the project only (`addressContext`). A team-level
+ * address — mod-006's backlogs and boards, `…/teams/:t/…` — carries the team
+ * too, and sets it once the project's active teams hold it (mod-006 spec
+ * § Screens and copy: the switcher follows the address).
  */
 export function addressSync(input: {
   address: AddressContext;
@@ -56,8 +59,10 @@ export function addressSync(input: {
   organizations: LevelList;
   /** The address's organization's active projects, when it carries a project. */
   addressProjects: LevelList;
+  /** The address's project's active teams, when it carries a team. */
+  addressTeams?: LevelList;
 }): AddressSync {
-  const { address, chosen, organizations, addressProjects } = input;
+  const { address, chosen, organizations, addressProjects, addressTeams = LOADING_LIST } = input;
   if (!address.organizationId) {
     return { kind: 'none' };
   }
@@ -83,12 +88,28 @@ export function addressSync(input: {
     return { kind: 'none' };
   }
   const sameProject = sameOrganization && chosen.projectId === address.projectId;
+  if (!address.teamId) {
+    return {
+      kind: 'set',
+      selection: {
+        organizationId: address.organizationId,
+        projectId: address.projectId,
+        teamId: sameProject ? chosen.teamId : undefined,
+      },
+    };
+  }
+  if (addressTeams.status !== 'ready') {
+    return { kind: 'wait' };
+  }
+  if (!holds(addressTeams, address.teamId)) {
+    return { kind: 'none' };
+  }
   return {
     kind: 'set',
     selection: {
       organizationId: address.organizationId,
       projectId: address.projectId,
-      teamId: sameProject ? chosen.teamId : undefined,
+      teamId: address.teamId,
     },
   };
 }

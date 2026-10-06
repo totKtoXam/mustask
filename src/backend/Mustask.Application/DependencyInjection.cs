@@ -1,3 +1,6 @@
+using Mustask.Application.Features.Boards.GetBacklog;
+using Mustask.Application.Features.Boards.GetBoard;
+using Mustask.Application.Features.Boards.ReorderBacklog;
 using Mustask.Application.Features.Dictionaries.CreateLanguage;
 using Mustask.Application.Features.Dictionaries.GetLanguages;
 using Mustask.Application.Features.Dictionaries.SetDefaultLanguage;
@@ -103,6 +106,11 @@ public static class DependencyInjection
         services.AddScoped<GetWorkItemHandler>();
         services.AddScoped<SaveWorkItemHandler>();
         services.AddScoped<GetAssigneeCandidatesHandler>();
+
+        // Boards and backlogs (mod-006): one handler per route of BoardEndpoints.cs.
+        services.AddScoped<GetBacklogHandler>();
+        services.AddScoped<ReorderBacklogHandler>();
+        services.AddScoped<GetBoardHandler>();
 
         return services;
     }

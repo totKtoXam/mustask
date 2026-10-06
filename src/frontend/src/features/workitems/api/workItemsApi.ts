@@ -86,6 +86,11 @@ export interface CreateWorkItemBody {
   requestId: string;
   typeId: string;
   title: string;
+  /**
+   * mod-006 api-contract § 7: the team whose backlog or board the item is
+   * created from — it takes that team's default area. Absent: the root.
+   */
+  teamId?: string;
 }
 
 /**

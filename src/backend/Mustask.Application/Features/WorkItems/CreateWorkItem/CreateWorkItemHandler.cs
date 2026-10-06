@@ -12,15 +12,17 @@ namespace Mustask.Application.Features.WorkItems.CreateWorkItem;
 /// <summary>
 /// The create dialog's submission (US-1): a new item of the chosen type with
 /// only a title, in its type's initial state, unassigned, with an empty
-/// description, in the project's root area (BR-M3-20), numbered from the
-/// project's one sequence (BR-M3-5).
+/// description, in the project's root area (BR-M3-20) — or, created from a
+/// team's backlog or board, in that team's default area as it stands
+/// (mod-006 BR-M4-21) — numbered from the project's one sequence (BR-M3-5).
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>The order of answers</b> (api-contract § 0.4): the address from the
 /// outside in (the organization-context filter has answered for the
 /// organization; the project must be the organization's and reachable); the
-/// values, with every field reason at once; the type; then the creation.
+/// values, with every field reason at once; the type; the replay; the team,
+/// when one is named (mod-006 api-contract § 7); then the creation.
 /// </para>
 /// <para>
 /// <b>The number and the replay</b> (BR-M3-5, BR-M3-26). The project's counter
@@ -89,9 +91,24 @@ public sealed class CreateWorkItemHandler(
                     return new CreateWorkItemResult(await readModel.GetAsync(existingId, ct), Created: false);
                 }
 
+                // 5. The area: the root, or the team's default as it stands now (mod-006 BR-M4-21), read under the
+                // team's lock. A team named but malformed, unknown, of another project or deleted answers not found.
+                var areaId = project.RootAreaId;
+
+                if (command.TeamId is not null)
+                {
+                    if (!AddressedId.TryParse(command.TeamId, out var teamId)
+                        || await workItems.LockTeamDefaultAreaAsync(projectId, teamId, ct) is not { } defaultAreaId)
+                    {
+                        throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
+                    }
+
+                    areaId = defaultAreaId;
+                }
+
                 var number = await workItems.TakeNextNumberAsync(projectId, ct);
 
-                var item = WorkItem.Create(projectId, number, type, project.RootAreaId, title, requestId, clock.UtcNow, currentUser.SubjectId);
+                var item = WorkItem.Create(projectId, number, type, areaId, title, requestId, clock.UtcNow, currentUser.SubjectId);
                 workItems.Add(item);
                 await workItems.SaveAsync(ct);
 

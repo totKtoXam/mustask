@@ -1,5 +1,14 @@
+import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import ListAltOutlinedIcon from '@mui/icons-material/ListAltOutlined';
+import ViewWeekOutlinedIcon from '@mui/icons-material/ViewWeekOutlined';
+import {
+  backlogLevelPaths,
+  backlogsLandingPath,
+  boardLevelPaths,
+  boardsLandingPath,
+  boardsPermissions,
+} from '../../features/boards';
 import { dictionariesPermissions, LANGUAGES_PATH } from '../../features/dictionaries';
 import {
   areasPath,
@@ -33,7 +42,10 @@ export const SETTINGS_LABEL = 'Настройки';
  * (D-18), which mod-002's context source makes it. mod-003 adds the first
  * work hub, «Рабочие элементы» (design § 4.1; mod-003 OQ-5): project-scoped,
  * so it shows once a real project is chosen, and current on the item's form
- * beneath its landing (mod-003 D-5).
+ * beneath its landing (mod-003 D-5). mod-006 adds «Доски» and «Бэклоги»
+ * after it (its spec § Navigation): team-scoped, so they show once a real
+ * team is chosen; each lands on its «Истории» tab and its other level tabs are
+ * its page too (`views`), so the switcher moves any of them to the landing.
  */
 export const navigationModel: NavigationModel = {
   top: [
@@ -56,6 +68,36 @@ export const navigationModel: NavigationModel = {
         selection.organizationId && selection.projectId
           ? workItemsPath(selection.organizationId, selection.projectId)
           : null,
+    },
+    {
+      id: 'boards',
+      label: 'Доски',
+      icon: ViewWeekOutlinedIcon,
+      scope: 'team',
+      permission: boardsPermissions.workItemRead,
+      landing: (selection) =>
+        selection.organizationId && selection.projectId && selection.teamId
+          ? boardsLandingPath(selection.organizationId, selection.projectId, selection.teamId)
+          : null,
+      views: (selection) =>
+        selection.organizationId && selection.projectId && selection.teamId
+          ? boardLevelPaths(selection.organizationId, selection.projectId, selection.teamId)
+          : [],
+    },
+    {
+      id: 'backlogs',
+      label: 'Бэклоги',
+      icon: FormatListNumberedIcon,
+      scope: 'team',
+      permission: boardsPermissions.workItemRead,
+      landing: (selection) =>
+        selection.organizationId && selection.projectId && selection.teamId
+          ? backlogsLandingPath(selection.organizationId, selection.projectId, selection.teamId)
+          : null,
+      views: (selection) =>
+        selection.organizationId && selection.projectId && selection.teamId
+          ? backlogLevelPaths(selection.organizationId, selection.projectId, selection.teamId)
+          : [],
     },
   ],
   settings: [

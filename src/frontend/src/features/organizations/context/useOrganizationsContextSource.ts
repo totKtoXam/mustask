@@ -1,6 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
+import {
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 import { HOME_PATH } from '../../../shared/config/paths';
 import type {
   SwitchTargetResolver,
@@ -60,6 +65,49 @@ interface SyncState {
   done: boolean;
 }
 
+/** The levels below a choice that the address carries, whose first entries the move needs. */
+interface FirstEntriesWanted {
+  /** An organization chosen on a project- or team-level page: its first project. */
+  project: boolean;
+  /** A project or organization chosen on a team-level page: that project's first team. */
+  team: boolean;
+}
+
+/**
+ * The selection a move asks the resolver with: the choice, its first project
+ * and that project's first team where the address carries those levels, each
+ * read first on the switcher's own keys (design § 2.2, § 3.5; plan-frontend
+ * § 4.5, R-8). A level with no entry stays unset, and the resolver answers
+ * «Главная» for it (mod-015 BR-18: the entry is not visible there).
+ */
+async function withFirstEntries(
+  queryClient: QueryClient,
+  next: WorkContextSelection,
+  wanted: FirstEntriesWanted,
+): Promise<WorkContextSelection> {
+  const { organizationId } = next;
+  if (organizationId === undefined) {
+    return next;
+  }
+  let { projectId } = next;
+  if (wanted.project) {
+    const projects = await queryClient.fetchQuery({
+      queryKey: organizationsKeys.projects(organizationId, 'active'),
+      queryFn: () => getProjects(organizationId, 'active'),
+    });
+    projectId = projects[0]?.id;
+  }
+  if (!wanted.team || projectId === undefined) {
+    return { organizationId, projectId };
+  }
+  const teamsOf = projectId;
+  const teams = await queryClient.fetchQuery({
+    queryKey: organizationsKeys.teams(organizationId, teamsOf),
+    queryFn: () => getTeams(organizationId, teamsOf),
+  });
+  return { organizationId, projectId, teamId: teams[0]?.id };
+}
+
 /**
  * The switcher's data source on real lists (US-8; D-b, D-n, D-o; design § 3).
  * It reads one level at a time — the active organizations, the effective
@@ -71,7 +119,8 @@ interface SyncState {
  * holds the id, for every page alike); remembers it under
  * `mustask.context.<sub>`; raises the fallback notice when a remembered or
  * chosen entry is gone (P-2 (a)); and moves the page on a choice at a level
- * the address carries, through the resolver `app/` hands it.
+ * the address carries, through the resolver `app/` hands it, once the first
+ * entries of the carried levels below the choice are read.
  */
 export function useOrganizationsContextSource({
   enabled,
@@ -144,14 +193,31 @@ export function useOrganizationsContextSource({
   });
   const teams = organizationId && projectId ? listOf(teamsQuery) : LOADING_LIST;
 
+  // A team-level address (mod-006): its project's teams, once that project is
+  // found, so the team it carries is found before anything is set. On the
+  // effective project this is the same key, so the same request.
+  const addressProjects =
+    address.organizationId === organizationId ? projects : listOf(addressProjectsQuery);
+  const addressTeamsWanted =
+    !syncDone &&
+    address.teamId !== undefined &&
+    addressProjects.status === 'ready' &&
+    addressProjects.items.some((item) => item.id === address.projectId);
+  const addressTeamsQuery = useQuery({
+    queryKey: organizationsKeys.teams(address.organizationId ?? '', address.projectId ?? ''),
+    queryFn: () => getTeams(address.organizationId ?? '', address.projectId ?? ''),
+    enabled: enabled && addressTeamsWanted,
+    ...LEVEL_QUERY_OPTIONS,
+  });
+
   // 1. The address, once per pathname, once its lists are read.
   if (enabled && !syncDone) {
     const decision = addressSync({
       address,
       chosen,
       organizations,
-      addressProjects:
-        address.organizationId === organizationId ? projects : listOf(addressProjectsQuery),
+      addressProjects,
+      addressTeams: addressTeamsWanted ? listOf(addressTeamsQuery) : LOADING_LIST,
     });
     if (decision.kind !== 'wait') {
       setSync({ path: pathname, done: true });
@@ -204,6 +270,14 @@ export function useOrganizationsContextSource({
     }
   }, [enabled, subject, writes, settled, effective]);
 
+  // The move of a choice that waits for a read. Only the latest choice moves
+  // the page, and only from the page it was made on (design § 3.6: only a
+  // choice moves pages): a later choice or another page drops it.
+  const pendingMove = useRef<object | null>(null);
+  useEffect(() => {
+    pendingMove.current = null;
+  }, [pathname]);
+
   const select = useCallback(
     (level: WorkContextLevel, id: string) => {
       const next: WorkContextSelection =
@@ -216,6 +290,7 @@ export function useOrganizationsContextSource({
       setWrites((count) => count + 1);
       // The choice is not undone by the address it leaves (plan-frontend § 4.5).
       setSync({ path: pathname, done: true });
+      pendingMove.current = null;
 
       const carried = addressContext(pathname);
       const carriesLevel =
@@ -227,28 +302,38 @@ export function useOrganizationsContextSource({
       if (!carriesLevel || !resolveSwitchTarget) {
         return;
       }
-      if (level === 'organization' && carried.projectId !== undefined) {
-        // A project-level page goes to the new organization's first project,
-        // which is read first (design § 2.2, plan R-8).
-        queryClient
-          .fetchQuery({
-            queryKey: organizationsKeys.projects(id, 'active'),
-            queryFn: () => getProjects(id, 'active'),
-          })
-          .then(
-            (list) =>
-              navigate(
-                resolveSwitchTarget({
-                  pathname,
-                  carried,
-                  next: { organizationId: id, projectId: list[0]?.id },
-                }),
-              ),
-            () => navigate(HOME_PATH),
-          );
+      const moveTo = (selection: WorkContextSelection) =>
+        navigate(resolveSwitchTarget({ pathname, carried, next: selection }));
+
+      // The levels the address carries below the choice take their first
+      // entries, read before the page moves: a project-level page goes to the
+      // new organization's first project (design § 2.2, plan R-8), a
+      // team-level page to the project's first team, its default (design
+      // § 3.5; mod-015 BR-18 for mod-006's «Бэклоги» and «Доски»). The page
+      // stays while the read is pending; a failed read opens «Главная»
+      // (plan-frontend § 4.5).
+      const wanted: FirstEntriesWanted = {
+        project: level === 'organization' && carried.projectId !== undefined,
+        team: level !== 'team' && carried.teamId !== undefined,
+      };
+      if (!wanted.project && !wanted.team) {
+        moveTo(next);
         return;
       }
-      navigate(resolveSwitchTarget({ pathname, carried, next }));
+      const move = {};
+      pendingMove.current = move;
+      withFirstEntries(queryClient, next, wanted).then(
+        (selection) => {
+          if (pendingMove.current === move) {
+            moveTo(selection);
+          }
+        },
+        () => {
+          if (pendingMove.current === move) {
+            navigate(HOME_PATH);
+          }
+        },
+      );
     },
     [effective, pathname, navigate, queryClient, resolveSwitchTarget],
   );

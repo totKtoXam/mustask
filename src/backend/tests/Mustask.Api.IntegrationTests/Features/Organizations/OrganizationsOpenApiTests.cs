@@ -22,10 +22,13 @@ public sealed class OrganizationsOpenApiTests(MustaskApiFactory factory)
         "GET /api/organizations",
         "GET /api/organizations/deactivated",
         "POST /api/organizations",
-        // The addressed routes of other modules — mod-001's process read, mod-003's work items — are not this module's.
+        // The addressed routes of other modules — mod-001's process read, mod-003's work items, mod-006's backlogs and
+        // boards — are not this module's.
         .. OrganizationAddressedRoutes.All
             .Where(route => !route.Template.EndsWith("/process", StringComparison.Ordinal)
-                && !route.Template.Contains("/workitems", StringComparison.Ordinal))
+                && !route.Template.Contains("/workitems", StringComparison.Ordinal)
+                && !route.Template.Contains("/backlogs/", StringComparison.Ordinal)
+                && !route.Template.Contains("/boards/", StringComparison.Ordinal))
             .Select(route => $"{route.Method} {route.Template}"),
     ];
 

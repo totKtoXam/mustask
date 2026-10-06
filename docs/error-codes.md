@@ -18,6 +18,10 @@ guarantees it exists and differs from the Russian, not its quality
 
 | Code | HTTP status(es) | Russian | Kazakh | Origin | Deprecated | kk |
 |---|---|---|---|---|---|---|
+|boards.backlog.position_invalid|400|Некорректная позиция перемещения.|Жылжыту орны дұрыс емес.|boards|—|needs review|
+|boards.backlog.reorder_stale|409|Не удалось переместить: бэклог изменился. Список обновлён — повторите перемещение.|Жылжыту мүмкін болмады: бэклог өзгерді. Тізім жаңартылды — жылжытуды қайталаңыз.|boards|—|needs review|
+|boards.level.not_found|404|Уровень бэклога не найден.|Бэклог деңгейі табылмады.|boards|—|needs review|
+|boards.validation_failed|400|Проверьте правильность запроса.|Сұраудың дұрыстығын тексеріңіз.|boards|—|needs review|
 |dictionaries.invalid_page_size|400|Некорректные параметры страницы: размер страницы — от 1 до {limit}, номер страницы не может быть отрицательным.|Бет параметрлері дұрыс емес: бет өлшемі — 1-ден {limit} дейін, бет нөмірі теріс бола алмайды.|dictionaries|—|needs review|
 |dictionaries.invalid_query_syntax|400|Выражение «{field}» не удалось разобрать. Проверьте синтаксис.|«{field}» өрнегін талдау мүмкін болмады. Синтаксисті тексеріңіз.|dictionaries|—|needs review|
 |dictionaries.languages.already_exists|409|Язык с кодом «{code}» уже существует.|Коды «{code}» тіл бұрыннан бар.|dictionaries|—|needs review|

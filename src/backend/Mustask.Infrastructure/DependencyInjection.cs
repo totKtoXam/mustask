@@ -1,8 +1,10 @@
 using Mustask.Application.Abstractions;
+using Mustask.Application.Abstractions.Boards;
 using Mustask.Application.Abstractions.Dictionaries;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
 using Mustask.Application.Features.Organizations;
+using Mustask.Infrastructure.Boards;
 using Mustask.Infrastructure.Dictionaries;
 using Mustask.Infrastructure.Dictionaries.Seeding;
 using Mustask.Infrastructure.Organizations;
@@ -77,6 +79,9 @@ public static class DependencyInjection
         // Work items (mod-003): M3's repository and read model, and its answer to M1's area-usage port.
         builder.Services.AddWorkItemsInfrastructure();
 
+        // Boards and backlogs (mod-006): M4's backlog read model and the order's repository.
+        builder.Services.AddBoardsInfrastructure();
+
         return builder;
     }
 
@@ -91,6 +96,19 @@ public static class DependencyInjection
         services.AddScoped<IWorkItemRepository, WorkItemRepository>();
         services.AddScoped<IWorkItemReadModel, WorkItemReadModel>();
         services.AddScoped<IAreaUsage, WorkItemAreaUsage>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// The boards module's read model and repository, both scoped. Public, like
+    /// <see cref="AddWorkItemsInfrastructure"/>, so a test host that builds its
+    /// own context wires the same set.
+    /// </summary>
+    public static IServiceCollection AddBoardsInfrastructure(this IServiceCollection services)
+    {
+        services.AddScoped<IBacklogReadModel, BacklogReadModel>();
+        services.AddScoped<IBacklogRepository, BacklogRepository>();
 
         return services;
     }

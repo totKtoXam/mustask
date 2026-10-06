@@ -1,0 +1,34 @@
+{
+  "module": "boards",
+  "origin": "slice",
+  "codes": {
+    "boards.backlog.reorder_stale": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Не удалось переместить: бэклог изменился. Список обновлён — повторите перемещение.",
+      "kk": "Жылжыту мүмкін болмады: бэклог өзгерді. Тізім жаңартылды — жылжытуды қайталаңыз.",
+      "kkNeedsReview": true
+    },
+    "boards.level.not_found": {
+      "statuses": [404],
+      "params": {},
+      "ru": "Уровень бэклога не найден.",
+      "kk": "Бэклог деңгейі табылмады.",
+      "kkNeedsReview": true
+    },
+    "boards.validation_failed": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Проверьте правильность запроса.",
+      "kk": "Сұраудың дұрыстығын тексеріңіз.",
+      "kkNeedsReview": true
+    },
+    "boards.backlog.position_invalid": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Некорректная позиция перемещения.",
+      "kk": "Жылжыту орны дұрыс емес.",
+      "kkNeedsReview": true
+    }
+  }
+}
