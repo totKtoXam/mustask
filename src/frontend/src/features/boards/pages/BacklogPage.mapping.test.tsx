@@ -254,6 +254,7 @@ describe('US-5 Scenario: What a row’s menu offers', () => {
       'Родитель',
       'Исполнитель',
       'Статус',
+      'Приоритет',
       'Действия',
     ]);
     for (const row of rowsOf(table)) {
@@ -289,7 +290,7 @@ describe('US-5 Scenario: What a row’s menu offers', () => {
     await userEvent.click(expandControl('MSK-EPIC-1'));
 
     expect(within(table).queryAllByRole('button', { name: /^Ещё действия/ })).toEqual([]);
-    expect(within(table).getAllByRole('columnheader')).toHaveLength(8);
+    expect(within(table).getAllByRole('columnheader')).toHaveLength(9);
 
     await chooseLevel('Фичи');
     const features = await findBacklogTable();

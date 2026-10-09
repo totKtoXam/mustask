@@ -16,6 +16,7 @@ import {
   item,
   stateId,
   type Dataset,
+  type WorkItemOverrides,
   type WorkItemRecord,
 } from '../workitems/testFixtures';
 
@@ -131,7 +132,7 @@ export function platformItem(
   number: number,
   typeKey: string,
   title: string,
-  overrides: Partial<WorkItemRecord> = {},
+  overrides: WorkItemOverrides = {},
 ): WorkItemRecord {
   return item(ids.msk, number, typeKey, title, { areaId: ids.platform, ...overrides });
 }

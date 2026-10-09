@@ -12,7 +12,9 @@ export const CELL = {
   parent: 5,
   assignee: 6,
   state: 7,
-  actions: 8,
+  /** feat-022: «Приоритет», after «Статус». */
+  priority: 8,
+  actions: 9,
 } as const;
 
 export function findBacklogTable(): Promise<HTMLElement> {

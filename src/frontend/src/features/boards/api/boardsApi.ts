@@ -6,7 +6,8 @@
 // card move and the creation are mod-003's writes (§ 6), reached through that
 // slice's barrel, not here. feat-001's api-contract § 4 adds the backlog's
 // tree: each row's `parent` and its `children` one level below; the board
-// does not change (BR-H-17).
+// does not change (BR-H-17). feat-022's api-contract § 5 adds «Приоритет» to
+// every row, nested ones included, and to every card.
 import { apiFetch } from '../../../shared/api/httpClient';
 import type {
   WorkItemAssignee,
@@ -47,6 +48,8 @@ export interface BacklogItem {
   /** `null`: «Не назначен». */
   assignee: WorkItemAssignee | null;
   state: WorkItemStateReference;
+  /** feat-022 § 5: the item's «Приоритет», 1 (the highest) to 4. */
+  priority: number;
 }
 
 /**

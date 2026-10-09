@@ -91,6 +91,24 @@ export const workItemErrorCodes = {
   linkParentChanged: 'workitems.link.parent_changed',
   /** 409. */
   linkItemDeleted: 'workitems.link.item_deleted',
+  // feat-022 api-contract § 6: field reasons of `validationFailed` for the fields per type, keyed by the field's
+  // request name. Each is that field's error, except `fieldNotOnType`, the error `Alert` above the band.
+  /** A number field below 0 or above 9 999. */
+  numberOutOfRange: 'workitems.workitem.number_out_of_range',
+  /** A decimal field with more than two digits after the point. */
+  numberTooPrecise: 'workitems.workitem.number_too_precise',
+  /** «Бизнес-ценность» with a fraction. */
+  integerRequired: 'workitems.workitem.integer_required',
+  /** A list field with a key the list does not hold. */
+  valueNotInList: 'workitems.workitem.value_not_in_list',
+  /** A date outside 2000–2099. */
+  dateOutOfRange: 'workitems.workitem.date_out_of_range',
+  /** On `targetDate`: earlier than the start date. */
+  targetBeforeStart: 'workitems.workitem.target_before_start',
+  /** A type's text field over 100 000 characters. */
+  textTooLong: 'workitems.workitem.text_too_long',
+  /** A field the item's type does not have: a panel defect, the error `Alert` above the band. */
+  fieldNotOnType: 'workitems.workitem.field_not_on_type',
 } as const;
 
 export type WorkItemErrorCode = (typeof workItemErrorCodes)[keyof typeof workItemErrorCodes];

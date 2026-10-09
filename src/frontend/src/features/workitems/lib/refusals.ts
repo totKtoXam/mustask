@@ -1,10 +1,16 @@
 import { ApiError } from '../../../shared/api/httpClient';
 import { organizationErrorCodes, workItemErrorCodes } from '../../../shared/api/errorCodes';
 import { apiErrorText } from '../../../shared/lib/apiErrorText';
+import type { WorkItemFieldName } from '../api/workItemsApi';
+import { WORK_ITEM_FIELD_NAMES } from './fields';
 import { notFoundLevel, type WorkItemsNotFoundLevel } from './notFoundLevel';
 
-/** The fields a write's refusal can land on: the dialog has «Заголовок», the form all six. */
-export type RefusalField = 'title' | 'description' | 'state' | 'assignee' | 'area' | 'parent';
+/**
+ * The fields a write's refusal can land on: the dialog has «Заголовок», the
+ * form mod-003's six and the fields its type has (feat-022), by their JSON names.
+ */
+export type RefusalField =
+  'title' | 'description' | 'state' | 'assignee' | 'area' | 'parent' | WorkItemFieldName;
 
 /** Where a write's refusal shows (spec § Error codes; api-contract § 0.5). */
 export interface PlacedRefusal {
@@ -44,18 +50,23 @@ export function isParentChanged(error: unknown): boolean {
   return error instanceof ApiError && error.errorCode === workItemErrorCodes.linkParentChanged;
 }
 
-/** `workitems.validation_failed`'s field names a field of the screen shows (§ 0.5). */
+/**
+ * `workitems.validation_failed`'s field names a field of the screen shows
+ * (§ 0.5): mod-003's two, and feat-022's by their own names (its § 3.2).
+ */
 const VALIDATED_FIELDS: Readonly<Record<string, RefusalField>> = {
   title: 'title',
   description: 'description',
+  ...Object.fromEntries(WORK_ITEM_FIELD_NAMES.map((name) => [name, name])),
 };
 
 /**
  * Places a write's refusal by its `errorCode` alone, never by its text
  * (frontend.md "Named values"). The text is always the server's: the answer's
  * `detail`, or a field reason's own `detail`. A field reason about `requestId`
- * or `page` — a panel defect — and a code about a field the screen lacks go
- * to the `Alert`.
+ * or `page` — a panel defect — a code about a field the screen lacks, and
+ * feat-022's `field_not_on_type` — the panel never sends such a field — go to
+ * the `Alert`.
  */
 export function placeRefusal(error: unknown, fields: readonly RefusalField[]): PlacedRefusal {
   const frame = notFoundLevel(error);
@@ -74,7 +85,8 @@ export function placeRefusal(error: unknown, fields: readonly RefusalField[]): P
       if (!detail) {
         continue;
       }
-      const field = VALIDATED_FIELDS[name];
+      const field =
+        reasons[0]?.code === workItemErrorCodes.fieldNotOnType ? undefined : VALIDATED_FIELDS[name];
       if (field && fields.includes(field)) {
         placed.fields[field] = detail;
       } else {

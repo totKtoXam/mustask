@@ -132,6 +132,7 @@ public sealed class CreateWorkItemHandler(
             : new WorkItemTypeStates(
                 type.Id,
                 type.Key,
+                type.Appearance,
                 type.States.Select(state => new WorkItemTypeState(state.Id, state.Position, state.Category)).ToList());
     }
 }

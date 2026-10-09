@@ -12,7 +12,8 @@ import { ParentPicker } from './ParentPicker';
 
 /**
  * The form's section «Связанная работа» (feat-001 US-1, US-3; spec § Screens
- * and copy; mod-015 § 10.3), below «Описание»: «Родитель» — the draft's value
+ * and copy; mod-015 § 10.3), last in the right column of feat-022's grid, as
+ * mod-015 § 10.3 places it under «Планирование»: «Родитель» — the draft's value
  * with its state beside it, and «Открыть <ID>» to the stored parent's form
  * while one is stored — then the read-only «Дочерние элементы (<n>)».
  */
@@ -44,7 +45,7 @@ export function RelatedWorkSection({
   const headingId = useId();
   const childrenHeadingId = useId();
   return (
-    <Box component="section" aria-labelledby={headingId} sx={{ mt: 3 }}>
+    <Box component="section" aria-labelledby={headingId}>
       <Typography
         id={headingId}
         variant="h2"

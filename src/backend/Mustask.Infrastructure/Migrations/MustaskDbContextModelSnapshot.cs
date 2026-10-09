@@ -1014,6 +1014,13 @@ namespace Mustask.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AcceptanceCriteria")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Activity")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
                     b.Property<Guid>("AreaId")
                         .HasColumnType("uuid");
 
@@ -1021,8 +1028,15 @@ namespace Mustask.Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
+                    b.Property<int?>("BusinessValue")
+                        .HasColumnType("integer");
+
                     b.Property<DateTimeOffset>("ChangedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("CompletedWork")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1039,17 +1053,60 @@ namespace Mustask.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<decimal?>("Effort")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)");
+
                     b.Property<int>("Number")
                         .HasColumnType("integer");
+
+                    b.Property<decimal?>("OriginalEstimate")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)");
 
                     b.Property<Guid?>("ParentId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("Priority")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(2);
+
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid");
 
+                    b.Property<decimal?>("RemainingWork")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)");
+
+                    b.Property<string>("ReproSteps")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("Risk")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("Severity")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("StartDate")
+                        .HasColumnType("date");
+
                     b.Property<Guid>("StateId")
                         .HasColumnType("uuid");
+
+                    b.Property<decimal?>("StoryPoints")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)");
+
+                    b.Property<string>("SystemInfo")
+                        .HasColumnType("text");
+
+                    b.Property<DateOnly?>("TargetDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal?>("TimeCriticality")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -1058,6 +1115,10 @@ namespace Mustask.Infrastructure.Migrations
 
                     b.Property<Guid>("TypeId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("ValueArea")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
 
                     b.Property<uint>("xmin")
                         .IsConcurrencyToken()
@@ -1100,16 +1161,58 @@ namespace Mustask.Infrastructure.Migrations
 
                     b.ToTable("work_items", t =>
                         {
+                            t.HasCheckConstraint("ck_work_items_acceptance_criteria_length", "char_length(acceptance_criteria) <= 100000");
+
+                            t.HasCheckConstraint("ck_work_items_activity", "activity IN ('Deployment', 'Design', 'Development', 'Documentation', 'Requirements', 'Testing')");
+
+                            t.HasCheckConstraint("ck_work_items_business_value", "business_value BETWEEN 0 AND 9999");
+
+                            t.HasCheckConstraint("ck_work_items_completed_work", "completed_work BETWEEN 0 AND 9999");
+
                             t.HasCheckConstraint("ck_work_items_description_length", "char_length(description) <= 100000");
+
+                            t.HasCheckConstraint("ck_work_items_effort", "effort BETWEEN 0 AND 9999");
 
                             t.HasCheckConstraint("ck_work_items_number_positive", "number >= 1");
 
+                            t.HasCheckConstraint("ck_work_items_original_estimate", "original_estimate BETWEEN 0 AND 9999");
+
                             t.HasCheckConstraint("ck_work_items_parent_not_self", "parent_id IS NULL OR parent_id <> id");
+
+                            t.HasCheckConstraint("ck_work_items_priority", "priority BETWEEN 1 AND 4");
+
+                            t.HasCheckConstraint("ck_work_items_remaining_work", "remaining_work BETWEEN 0 AND 9999");
+
+                            t.HasCheckConstraint("ck_work_items_repro_steps_length", "char_length(repro_steps) <= 100000");
+
+                            t.HasCheckConstraint("ck_work_items_risk", "risk BETWEEN 1 AND 3");
+
+                            t.HasCheckConstraint("ck_work_items_severity", "severity BETWEEN 1 AND 4");
+
+                            t.HasCheckConstraint("ck_work_items_start_date", "start_date BETWEEN DATE '2000-01-01' AND DATE '2099-12-31'");
+
+                            t.HasCheckConstraint("ck_work_items_story_points", "story_points BETWEEN 0 AND 9999");
+
+                            t.HasCheckConstraint("ck_work_items_system_info_length", "char_length(system_info) <= 100000");
+
+                            t.HasCheckConstraint("ck_work_items_target_date", "target_date BETWEEN DATE '2000-01-01' AND DATE '2099-12-31'");
+
+                            t.HasCheckConstraint("ck_work_items_target_not_before_start", "target_date >= start_date");
+
+                            t.HasCheckConstraint("ck_work_items_time_criticality", "time_criticality BETWEEN 0 AND 9999");
 
                             t.HasCheckConstraint("ck_work_items_title_length", "char_length(title) BETWEEN 1 AND 255");
 
+                            t.HasCheckConstraint("ck_work_items_value_area", "value_area IN ('Business', 'Architectural')");
+
                             t.Property("Id")
                                 .HasColumnName("id");
+
+                            t.Property("AcceptanceCriteria")
+                                .HasColumnName("acceptance_criteria");
+
+                            t.Property("Activity")
+                                .HasColumnName("activity");
 
                             t.Property("AreaId")
                                 .HasColumnName("area_id");
@@ -1117,8 +1220,14 @@ namespace Mustask.Infrastructure.Migrations
                             t.Property("AssigneeId")
                                 .HasColumnName("assignee_id");
 
+                            t.Property("BusinessValue")
+                                .HasColumnName("business_value");
+
                             t.Property("ChangedAt")
                                 .HasColumnName("changed_at");
+
+                            t.Property("CompletedWork")
+                                .HasColumnName("completed_work");
 
                             t.Property("CreatedAt")
                                 .HasColumnName("created_at");
@@ -1132,23 +1241,62 @@ namespace Mustask.Infrastructure.Migrations
                             t.Property("Description")
                                 .HasColumnName("description");
 
+                            t.Property("Effort")
+                                .HasColumnName("effort");
+
                             t.Property("Number")
                                 .HasColumnName("number");
+
+                            t.Property("OriginalEstimate")
+                                .HasColumnName("original_estimate");
 
                             t.Property("ParentId")
                                 .HasColumnName("parent_id");
 
+                            t.Property("Priority")
+                                .HasColumnName("priority");
+
                             t.Property("ProjectId")
                                 .HasColumnName("project_id");
 
+                            t.Property("RemainingWork")
+                                .HasColumnName("remaining_work");
+
+                            t.Property("ReproSteps")
+                                .HasColumnName("repro_steps");
+
+                            t.Property("Risk")
+                                .HasColumnName("risk");
+
+                            t.Property("Severity")
+                                .HasColumnName("severity");
+
+                            t.Property("StartDate")
+                                .HasColumnName("start_date");
+
                             t.Property("StateId")
                                 .HasColumnName("state_id");
+
+                            t.Property("StoryPoints")
+                                .HasColumnName("story_points");
+
+                            t.Property("SystemInfo")
+                                .HasColumnName("system_info");
+
+                            t.Property("TargetDate")
+                                .HasColumnName("target_date");
+
+                            t.Property("TimeCriticality")
+                                .HasColumnName("time_criticality");
 
                             t.Property("Title")
                                 .HasColumnName("title");
 
                             t.Property("TypeId")
                                 .HasColumnName("type_id");
+
+                            t.Property("ValueArea")
+                                .HasColumnName("value_area");
 
                             t.Property("xmin")
                                 .HasColumnName("xmin");

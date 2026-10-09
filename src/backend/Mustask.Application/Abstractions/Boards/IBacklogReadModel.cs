@@ -60,9 +60,9 @@ public sealed record BacklogScope(
 public sealed record BacklogRead(WorkItemAreaView DefaultArea, IReadOnlyList<BacklogItemRow> Items);
 
 /// <summary>
-/// An item of the backlog: mod-003's fields a row and a card show, its place
-/// here, <c>null</c> when unplaced, and its stored parent (feat-001), whatever
-/// that parent's state.
+/// An item of the backlog: mod-003's fields a row and a card show, its
+/// «Приоритет» (feat-022), its place here, <c>null</c> when unplaced, and its
+/// stored parent (feat-001), whatever that parent's state.
 /// </summary>
 public sealed record BacklogItemRow(
     Guid Id,
@@ -73,4 +73,5 @@ public sealed record BacklogItemRow(
     string Title,
     WorkItemAssigneeView? Assignee,
     WorkItemStateView State,
+    int Priority,
     Guid? ParentId);

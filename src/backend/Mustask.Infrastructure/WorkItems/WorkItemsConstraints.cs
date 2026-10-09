@@ -1,3 +1,4 @@
+using System.Globalization;
 using Mustask.Domain.WorkItems;
 
 namespace Mustask.Infrastructure.WorkItems;
@@ -31,4 +32,50 @@ internal static class WorkItemsConstraints
     public static readonly string TitleLengthCheck = $"char_length(title) BETWEEN 1 AND {WorkItemLimits.TitleMaxLength}";
 
     public static readonly string DescriptionLengthCheck = $"char_length(description) <= {WorkItemLimits.DescriptionMaxLength}";
+
+    /// <summary>feat-022: a number field's digits in all, two of them after the point — 9 999.99 at most.</summary>
+    public const int NumberPrecision = 6;
+
+    /// <summary>feat-022: the longest key of «Вид работ» and «Вид ценности» («Documentation», 13), with room.</summary>
+    public const int ListKeyMaxLength = 16;
+
+    /// <summary>
+    /// feat-022 api-contract § 1: every field's range, by name. Which fields a type has is the domain's alone
+    /// (<see cref="WorkItemFieldSet"/>): a check cannot see the type's kind, which lives in another table.
+    /// </summary>
+    public static readonly IReadOnlyList<(string Name, string Sql)> FieldChecks =
+    [
+        ("ck_work_items_priority", $"priority BETWEEN {WorkItemFieldRules.HighestPriority} AND {WorkItemFieldRules.LowestPriority}"),
+        ("ck_work_items_risk", $"risk BETWEEN {WorkItemFieldRules.HighestRisk} AND {WorkItemFieldRules.LowestRisk}"),
+        ("ck_work_items_severity", $"severity BETWEEN {WorkItemFieldRules.HighestSeverity} AND {WorkItemFieldRules.LowestSeverity}"),
+        ("ck_work_items_story_points", NumberCheck("story_points")),
+        ("ck_work_items_effort", NumberCheck("effort")),
+        ("ck_work_items_business_value", NumberCheck("business_value")),
+        ("ck_work_items_time_criticality", NumberCheck("time_criticality")),
+        ("ck_work_items_original_estimate", NumberCheck("original_estimate")),
+        ("ck_work_items_remaining_work", NumberCheck("remaining_work")),
+        ("ck_work_items_completed_work", NumberCheck("completed_work")),
+        ("ck_work_items_start_date", DateCheck("start_date")),
+        ("ck_work_items_target_date", DateCheck("target_date")),
+        ("ck_work_items_target_not_before_start", "target_date >= start_date"),
+        ("ck_work_items_activity", KeyCheck<WorkItemActivity>("activity")),
+        ("ck_work_items_value_area", KeyCheck<WorkItemValueArea>("value_area")),
+        ("ck_work_items_acceptance_criteria_length", TextCheck("acceptance_criteria")),
+        ("ck_work_items_repro_steps_length", TextCheck("repro_steps")),
+        ("ck_work_items_system_info_length", TextCheck("system_info")),
+    ];
+
+    // A check passes on NULL, so every optional field may be empty.
+    private static string NumberCheck(string column) => $"{column} BETWEEN 0 AND {WorkItemFieldRules.NumberMax}";
+
+    private static string DateCheck(string column) =>
+        $"{column} BETWEEN DATE '{IsoDate(WorkItemFieldRules.EarliestDate)}' AND DATE '{IsoDate(WorkItemFieldRules.LatestDate)}'";
+
+    private static string IsoDate(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private static string KeyCheck<T>(string column)
+        where T : struct, Enum =>
+        $"{column} IN ({string.Join(", ", Enum.GetNames<T>().Select(name => $"'{name}'"))})";
+
+    private static string TextCheck(string column) => $"char_length({column}) <= {WorkItemFieldRules.TextMaxLength}";
 }

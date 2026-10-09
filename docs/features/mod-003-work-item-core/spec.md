@@ -227,7 +227,7 @@ tabs, «Ещё действия», Итерация, Теги and «Обсужд
 
 | State | Shown |
 |---|---|
-| Loading | band and strip skeletons, `FormSkeleton` for «Описание» |
+| Loading | band and strip skeletons, `FormSkeleton` for «Описание» (since feat-022: a skeleton per column) |
 | Error | `ErrorBanner` + «Повторить» under the title «Рабочий элемент» |
 | Not found | § Not-found answers |
 

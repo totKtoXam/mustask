@@ -7,6 +7,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sampleProcessDefinition } from '../process/testFixtures';
 import type { WorkItemType } from '../process';
+import type { WorkItemFields } from './api/workItemsApi';
+import { WORK_ITEM_FIELD_NAMES, fieldsOf } from './lib/fields';
 
 /** The base URL is `test.env.VITE_API_BASE_URL` in vite.config.ts. */
 export const API = 'http://localhost:5000';
@@ -106,6 +108,33 @@ export interface WorkItemRecord {
   requestId: string | null;
   /** feat-001: the stored parent's record id; absent or `null` is none. */
   parentId?: string | null;
+  /** feat-022: all 17 fields, `null` where the type lacks one (api-contract § 2). */
+  fields: WorkItemFields;
+}
+
+/** A record's overrides: any field, and the fields per type one by one. */
+export type WorkItemOverrides = Partial<Omit<WorkItemRecord, 'fields'>> & {
+  fields?: Partial<WorkItemFields>;
+};
+
+/**
+ * feat-022 api-contract § 3.1 (BR-M3-37): a new item's fields — «Приоритет» 2,
+ * a bug's «Серьёзность» 3, «Вид ценности» `Business` where the type has it,
+ * the type's texts `""`, everything else `null`.
+ */
+export function defaultFields(appearance: string): WorkItemFields {
+  const has = new Set(fieldsOf(appearance));
+  const fields = Object.fromEntries(WORK_ITEM_FIELD_NAMES.map((name) => [name, null])) as Record<
+    keyof WorkItemFields,
+    unknown
+  >;
+  fields.priority = 2;
+  if (has.has('severity')) fields.severity = 3;
+  if (has.has('valueArea')) fields.valueArea = 'Business';
+  for (const text of ['acceptanceCriteria', 'reproSteps', 'systemInfo'] as const) {
+    if (has.has(text)) fields[text] = '';
+  }
+  return fields as unknown as WorkItemFields;
 }
 
 export interface Dataset {
@@ -128,10 +157,11 @@ export function item(
   number: number,
   typeKey: string,
   title: string,
-  overrides: Partial<WorkItemRecord> = {},
+  overrides: WorkItemOverrides = {},
 ): WorkItemRecord {
   itemCount += 1;
   const type = processType(typeKey);
+  const { fields, ...rest } = overrides;
   return {
     id: `b1000000-0000-4000-8000-${String(itemCount).padStart(12, '0')}`,
     projectId,
@@ -145,7 +175,8 @@ export function item(
     createdAt: SAVED_AT,
     changedAt: SAVED_AT,
     requestId: null,
-    ...overrides,
+    ...rest,
+    fields: { ...defaultFields(type.appearance), ...fields },
   };
 }
 
@@ -237,7 +268,7 @@ export function hierarchyDataset(): Dataset {
     typeKey: string,
     title: string,
     minute: number,
-    overrides: Partial<WorkItemRecord> = {},
+    overrides: WorkItemOverrides = {},
   ) =>
     item(ids.msk, number, typeKey, title, {
       areaId: ids.platform,

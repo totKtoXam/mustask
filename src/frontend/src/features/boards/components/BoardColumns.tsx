@@ -46,6 +46,11 @@ const NEW_CARD_LABEL = 'Новый элемент';
 /** The card menu's subheader, which also names the menu. */
 const MOVE_TO_COLUMN = 'Переместить в колонку';
 
+/** feat-022 spec § Backlog and board: the card's priority, after «Исполнитель». */
+function priorityText(priority: number): string {
+  return `Приоритет: ${priority}`;
+}
+
 interface DragState {
   cardId: string;
   /** The column the pointer is over, when it is one the card may go to. */
@@ -352,7 +357,8 @@ export function BoardColumns({
 /**
  * One card (spec § Page «Доски», BR-M4-14): a 4 px stripe in the type's
  * colour; the type icon, ID and «Заголовок» as a link to the form; the
- * category dot and the state; «Исполнитель»; and «Ещё действия: <ID>». The
+ * category dot and the state; «Исполнитель», then «Приоритет: <n>» as a
+ * caption (feat-022 BR-M3-39); and «Ещё действия: <ID>». The
  * card itself is the drag source. Memoized, so a drag over one column redraws
  * no card.
  */
@@ -424,9 +430,16 @@ const BoardCard = memo(function BoardCard({
       <Typography component="div" variant="body2">
         <StateName state={card.state} />
       </Typography>
-      <Typography component="div" variant="body2">
-        <AssigneeName assignee={card.assignee} />
-      </Typography>
+      <Box
+        sx={{ display: 'flex', alignItems: 'center', columnGap: 1, flexWrap: 'wrap', minWidth: 0 }}
+      >
+        <Typography component="div" variant="body2" sx={{ minWidth: 0 }}>
+          <AssigneeName assignee={card.assignee} />
+        </Typography>
+        <Typography component="div" variant="caption" color="text.secondary">
+          {priorityText(card.priority)}
+        </Typography>
+      </Box>
     </Card>
   );
 });

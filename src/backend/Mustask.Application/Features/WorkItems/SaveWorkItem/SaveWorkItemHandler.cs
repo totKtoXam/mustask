@@ -18,7 +18,9 @@ namespace Mustask.Application.Features.WorkItems.SaveWorkItem;
 /// <para>
 /// <b>The order of answers</b> (api-contract § 0.4, feat-001 api-contract
 /// § 3.3): the address from the outside in, as the read resolves it; the values
-/// (400, every field reason at once); the area, then the new parent (404); the
+/// (400, every field reason at once — feat-022's fields included, checked by the
+/// domain against the item's type and its stored dates, under the item's lock,
+/// feat-022 api-contract § 3.2); the area, then the new parent (404); the
 /// state, then the assignee (409, decided by the domain), then the parent's
 /// 409s (<see cref="WorkItemHierarchy.Write"/>). A refusal throws before
 /// anything is flushed, and the transaction rolls back: every field, the parent
@@ -89,7 +91,7 @@ public sealed class SaveWorkItemHandler(
                 }
 
                 // 2. The values, every field reason at once.
-                var title = ValidateValues(command);
+                var title = ValidateValues(command, item, type);
 
                 // 3. The area: one of the item's own project, still there under the lock (BR-M3-23, BR-M3-24).
                 var areaId = await LockAreaAsync(projectId, item.AreaId, command.AreaId, ct);
@@ -106,7 +108,8 @@ public sealed class SaveWorkItemHandler(
                     command.Description,
                     StateIdOf(command.StateId),
                     await AssigneeOfAsync(command.Assignee, ct),
-                    areaId);
+                    areaId,
+                    command.Fields);
 
                 var now = clock.UtcNow;
                 var changed = item.Save(edit, type, now);
@@ -125,8 +128,11 @@ public sealed class SaveWorkItemHandler(
             },
             cancellationToken);
 
-    /// <summary>The trimmed title when one was sent; throws one validation answer with every field reason.</summary>
-    private static string? ValidateValues(SaveWorkItemCommand command)
+    /// <summary>
+    /// The trimmed title when one was sent; throws one validation answer with every field reason, feat-022's fields
+    /// keyed by their request names (its api-contract § 1).
+    /// </summary>
+    private static string? ValidateValues(SaveWorkItemCommand command, WorkItem item, WorkItemTypeStates type)
     {
         var errors = new Dictionary<string, IReadOnlyList<FieldError>>(StringComparer.Ordinal);
         string? title = null;
@@ -146,6 +152,14 @@ public sealed class SaveWorkItemHandler(
         if (command.Description is not null && WorkItemText.ValidateDescription(command.Description) is { } descriptionReason)
         {
             errors["description"] = [new FieldError(descriptionReason)];
+        }
+
+        if (command.Fields is { } fields)
+        {
+            foreach (var reason in item.CheckFields(fields, type))
+            {
+                errors[RequestName(reason.Field)] = [new FieldError(reason.Code)];
+            }
         }
 
         return errors.Count > 0
@@ -209,6 +223,29 @@ public sealed class SaveWorkItemHandler(
         return new AssigneeEdit(userId, isAvailable);
     }
 
+    /// <summary>The request's name of a feat-022 field: the key of its reasons under <c>errors</c> (its api-contract § 1).</summary>
+    private static string RequestName(WorkItemField field) => field switch
+    {
+        WorkItemField.Priority => "priority",
+        WorkItemField.Risk => "risk",
+        WorkItemField.StoryPoints => "storyPoints",
+        WorkItemField.Effort => "effort",
+        WorkItemField.BusinessValue => "businessValue",
+        WorkItemField.TimeCriticality => "timeCriticality",
+        WorkItemField.StartDate => "startDate",
+        WorkItemField.TargetDate => "targetDate",
+        WorkItemField.Severity => "severity",
+        WorkItemField.Activity => "activity",
+        WorkItemField.OriginalEstimate => "originalEstimate",
+        WorkItemField.RemainingWork => "remainingWork",
+        WorkItemField.CompletedWork => "completedWork",
+        WorkItemField.ValueArea => "valueArea",
+        WorkItemField.AcceptanceCriteria => "acceptanceCriteria",
+        WorkItemField.ReproSteps => "reproSteps",
+        WorkItemField.SystemInfo => "systemInfo",
+        _ => throw new ArgumentOutOfRangeException(nameof(field), field, "Unknown work item field."),
+    };
+
     /// <summary>The item's own type in the organization's process. It is always there: the type never changes (BR-M3-1).</summary>
     private static WorkItemTypeStates ItemType(ProcessDefinitionRow process, Guid typeId)
     {
@@ -218,6 +255,7 @@ public sealed class SaveWorkItemHandler(
         return new WorkItemTypeStates(
             type.Id,
             type.Key,
+            type.Appearance,
             type.States.Select(state => new WorkItemTypeState(state.Id, state.Position, state.Category)).ToList());
     }
 }

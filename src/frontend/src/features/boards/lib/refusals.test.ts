@@ -68,7 +68,7 @@ describe('levelAbove and the «Действия» column (BR-H-14)', () => {
   });
 
   it('the skeleton has the actions’ blank header only where the table has the column', () => {
-    expect(backlogSkeletonColumns('epics')).toHaveLength(8);
+    expect(backlogSkeletonColumns('epics')).toHaveLength(9);
     expect(backlogSkeletonColumns('stories')).toEqual([
       'Порядок',
       '',
@@ -78,6 +78,7 @@ describe('levelAbove and the «Действия» column (BR-H-14)', () => {
       'Родитель',
       'Исполнитель',
       'Статус',
+      'Приоритет',
       '',
     ]);
   });

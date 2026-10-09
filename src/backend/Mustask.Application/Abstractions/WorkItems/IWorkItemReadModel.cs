@@ -43,7 +43,8 @@ public sealed record WorkItemPage(int Count, IReadOnlyList<WorkItemListItemView>
 /// <summary>
 /// <c>WorkItem</c> of api-contract § 1.1, with feat-001's <paramref name="Parent"/>
 /// (the stored one, in «Удалена» too) and <paramref name="Children"/> (direct,
-/// those in «Удалена» excepted, by level rank descending, then by number).
+/// those in «Удалена» excepted, by level rank descending, then by number), and
+/// feat-022's fields (its api-contract § 2), on the wire beside the others.
 /// </summary>
 public sealed record WorkItemView(
     Guid Id,
@@ -60,7 +61,49 @@ public sealed record WorkItemView(
     DateTimeOffset CreatedAt,
     DateTimeOffset ChangedAt,
     WorkItemRefView? Parent,
-    IReadOnlyList<WorkItemRefView> Children);
+    IReadOnlyList<WorkItemRefView> Children)
+{
+    /// <summary>feat-022: «Приоритет», 1..4, on every type.</summary>
+    public required int Priority { get; init; }
+
+    /// <summary>«Риск» 1..3; <c>null</c> when empty or not on the type, as every optional field below.</summary>
+    public required int? Risk { get; init; }
+
+    public required decimal? StoryPoints { get; init; }
+
+    public required decimal? Effort { get; init; }
+
+    public required int? BusinessValue { get; init; }
+
+    public required decimal? TimeCriticality { get; init; }
+
+    /// <summary>A calendar date, <c>YYYY-MM-DD</c> on the wire.</summary>
+    public required DateOnly? StartDate { get; init; }
+
+    public required DateOnly? TargetDate { get; init; }
+
+    /// <summary>«Серьёзность» 1..4, always set on a bug, <c>null</c> on every other type.</summary>
+    public required int? Severity { get; init; }
+
+    /// <summary>A key of «Вид работ» (<c>Deployment</c> … <c>Testing</c>), or <c>null</c>.</summary>
+    public required string? Activity { get; init; }
+
+    public required decimal? OriginalEstimate { get; init; }
+
+    public required decimal? RemainingWork { get; init; }
+
+    public required decimal? CompletedWork { get; init; }
+
+    /// <summary><c>Business</c> or <c>Architectural</c>, always set on an epic, a feature and a story, <c>null</c> on the others.</summary>
+    public required string? ValueArea { get; init; }
+
+    /// <summary>A story's text, <c>""</c> when empty; <c>null</c> on every other type, as the two bug texts below.</summary>
+    public required string? AcceptanceCriteria { get; init; }
+
+    public required string? ReproSteps { get; init; }
+
+    public required string? SystemInfo { get; init; }
+}
 
 /// <summary>An item as an address resolves it: its id and its type.</summary>
 public sealed record WorkItemHead(Guid Id, Guid TypeId);

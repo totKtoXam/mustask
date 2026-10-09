@@ -92,11 +92,19 @@ guarantees it exists and differs from the Russian, not its quality
 |workitems.link.self_parent|409|Рабочий элемент не может быть родителем самого себя.|Жұмыс элементі өзіне-өзі ата-аналық элемент бола алмайды.|workitems|—|needs review|
 |workitems.validation_failed|400|Проверьте правильность заполнения полей.|Өрістердің дұрыс толтырылғанын тексеріңіз.|workitems|—|needs review|
 |workitems.workitem.assignee_unavailable|409|Этого пользователя нельзя назначить исполнителем.|Бұл пайдаланушыны орындаушы етіп тағайындауға болмайды.|workitems|—|needs review|
+|workitems.workitem.date_out_of_range|400|Укажите дату с 2000 по 2099 год.|2000 жылдан 2099 жылға дейінгі күнді көрсетіңіз.|workitems|—|needs review|
 |workitems.workitem.description_too_long|400|Не более 100 000 символов.|100 000 таңбадан аспауы керек.|workitems|—|needs review|
+|workitems.workitem.field_not_on_type|400|Это поле недоступно для рабочего элемента этого типа.|Бұл өріс осы түрдегі жұмыс элементі үшін қолжетімсіз.|workitems|—|needs review|
+|workitems.workitem.integer_required|400|Введите целое число.|Бүтін сан енгізіңіз.|workitems|—|needs review|
 |workitems.workitem.not_found|404|Рабочий элемент не найден.|Жұмыс элементі табылмады.|workitems|—|needs review|
+|workitems.workitem.number_out_of_range|400|Допустимо значение от 0 до 9 999.|0-ден 9 999-ға дейінгі мән енгізуге болады.|workitems|—|needs review|
+|workitems.workitem.number_too_precise|400|Не более двух знаков после запятой.|Үтірден кейін екі таңбадан аспауы керек.|workitems|—|needs review|
 |workitems.workitem.request_id_invalid|400|Не удалось отправить форму. Обновите страницу и попробуйте ещё раз.|Пішінді жіберу мүмкін болмады. Бетті жаңартып, қайталап көріңіз.|workitems|—|needs review|
 |workitems.workitem.state_not_allowed|409|Этот статус недоступен для рабочего элемента этого типа.|Бұл күй осы түрдегі жұмыс элементі үшін қолжетімсіз.|workitems|—|needs review|
+|workitems.workitem.target_before_start|400|Целевая дата не может быть раньше даты начала.|Мақсатты күн басталу күнінен ерте болмауы керек.|workitems|—|needs review|
+|workitems.workitem.text_too_long|400|Не более 100 000 символов.|100 000 таңбадан аспауы керек.|workitems|—|needs review|
 |workitems.workitem.title_multiline|400|Заголовок должен быть в одну строку.|Тақырып бір жолда болуы керек.|workitems|—|needs review|
 |workitems.workitem.title_required|400|Введите заголовок.|Тақырыпты енгізіңіз.|workitems|—|needs review|
 |workitems.workitem.title_too_long|400|Не более 255 символов.|255 таңбадан аспауы керек.|workitems|—|needs review|
 |workitems.workitem.type_not_found|404|Тип рабочего элемента не найден.|Жұмыс элементінің түрі табылмады.|workitems|—|needs review|
+|workitems.workitem.value_not_in_list|400|Выберите значение из списка.|Тізімнен мән таңдаңыз.|workitems|—|needs review|

@@ -158,6 +158,77 @@ describe('placeRefusal (spec § Error codes; api-contract § 0.5)', () => {
   });
 });
 
+describe('placeRefusal: the fields per type (feat-022 spec § Error codes; api-contract § 3.2)', () => {
+  const EPIC_FORM: readonly RefusalField[] = [
+    ...FORM,
+    'risk',
+    'effort',
+    'businessValue',
+    'targetDate',
+  ];
+
+  function fieldReasons(reasons: Record<string, [string, string]>) {
+    return refusal(400, 'workitems.validation_failed', 'Проверьте правильность заполнения полей.', {
+      errors: Object.fromEntries(
+        Object.entries(reasons).map(([field, [code, detail]]) => [field, [{ code, detail }]]),
+      ),
+    });
+  }
+
+  it('puts each reason under its field, keyed by the JSON name, with the server’s text', () => {
+    const placed = placeRefusal(
+      fieldReasons({
+        businessValue: [
+          'workitems.workitem.number_out_of_range',
+          'Допустимо значение от 0 до 9 999.',
+        ],
+        targetDate: [
+          'workitems.workitem.target_before_start',
+          'Целевая дата не может быть раньше даты начала.',
+        ],
+        risk: ['workitems.workitem.value_not_in_list', 'Выберите значение из списка.'],
+      }),
+      EPIC_FORM,
+    );
+
+    expect(placed).toEqual({
+      fields: {
+        businessValue: 'Допустимо значение от 0 до 9 999.',
+        targetDate: 'Целевая дата не может быть раньше даты начала.',
+        risk: 'Выберите значение из списка.',
+      },
+      alert: null,
+      frame: null,
+    });
+  });
+
+  it('`field_not_on_type` goes to the Alert, even keyed by a field the form shows', () => {
+    const text = 'Это поле недоступно для рабочего элемента этого типа.';
+    const placed = placeRefusal(
+      fieldReasons({ effort: ['workitems.workitem.field_not_on_type', text] }),
+      EPIC_FORM,
+    );
+
+    expect(placed).toEqual({ fields: {}, alert: text, frame: null });
+  });
+
+  it('a reason about a field the type’s form lacks goes to the Alert, beside a placed one', () => {
+    const placed = placeRefusal(
+      fieldReasons({
+        storyPoints: [
+          'workitems.workitem.number_too_precise',
+          'Не более двух знаков после запятой.',
+        ],
+        effort: ['workitems.workitem.number_out_of_range', 'Допустимо значение от 0 до 9 999.'],
+      }),
+      EPIC_FORM,
+    );
+
+    expect(placed.fields).toEqual({ effort: 'Допустимо значение от 0 до 9 999.' });
+    expect(placed.alert).toBe('Не более двух знаков после запятой.');
+  });
+});
+
 describe('placeRefusal: the six link codes (feat-001 spec § Screens and copy, § Error codes)', () => {
   it.each([
     ['workitems.link.parent_not_found', 404, 'Родитель не найден в этом проекте.'],

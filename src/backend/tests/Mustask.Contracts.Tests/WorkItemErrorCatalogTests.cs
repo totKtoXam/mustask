@@ -36,6 +36,16 @@ public sealed class WorkItemErrorCatalogTests
         { WorkItemErrorCodes.Cycle, 409, "item,parent,path", "Нельзя выбрать родителем {parent}: он вложен в {item} ({path})." },
         { WorkItemErrorCodes.ParentChanged, 409, "", "Родитель уже изменён другим участником. Данные обновлены — проверьте и повторите." },
         { WorkItemErrorCodes.ItemDeleted, 409, "", "Удалённый рабочий элемент нельзя связывать." },
+
+        // feat-022 api-contract § 6: the field reasons of the fields per type.
+        { WorkItemErrorCodes.NumberOutOfRange, 400, "", "Допустимо значение от 0 до 9 999." },
+        { WorkItemErrorCodes.NumberTooPrecise, 400, "", "Не более двух знаков после запятой." },
+        { WorkItemErrorCodes.IntegerRequired, 400, "", "Введите целое число." },
+        { WorkItemErrorCodes.ValueNotInList, 400, "", "Выберите значение из списка." },
+        { WorkItemErrorCodes.DateOutOfRange, 400, "", "Укажите дату с 2000 по 2099 год." },
+        { WorkItemErrorCodes.TargetBeforeStart, 400, "", "Целевая дата не может быть раньше даты начала." },
+        { WorkItemErrorCodes.TextTooLong, 400, "", "Не более 100 000 символов." },
+        { WorkItemErrorCodes.FieldNotOnType, 400, "", "Это поле недоступно для рабочего элемента этого типа." },
     };
 
     // mod-003 api-contract § 4: every code is registered with its status, params, the contract's ru text and a kk text.

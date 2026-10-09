@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import type { WorkItem, WorkItemRef } from '../api/workItemsApi';
-import { changesOf, draftOf, hasChanges, rebaseDraft } from './draft';
+import { defaultFields } from '../testFixtures';
+import {
+  changesOf,
+  draftErrors,
+  draftOf,
+  hasChanges,
+  isDirty,
+  rebaseDraft,
+  type WorkItemDraft,
+} from './draft';
+import { INCOMPLETE_DATE } from './fieldValues';
 
 function ref(id: string, identifier: string, title: string): WorkItemRef {
   return {
@@ -35,6 +45,7 @@ const ITEM: WorkItem = {
   changedAt: '2026-10-05T14:30:00+00:00',
   parent: null,
   children: [],
+  ...defaultFields('bug'),
 };
 
 // BR-M3-25, api-contract § 2.4: a save sends exactly the fields that changed.
@@ -165,5 +176,217 @@ describe('rebaseDraft: the fresh read after `parent_changed` (feat-001 spec § S
       assignee: null,
       area,
     });
+  });
+});
+
+// feat-022 api-contract § 3.2, BR-M3-38: the fields per type ride the same
+// rule — only the type's fields that changed, texts as strings, every other
+// field in `{ value }`, `{ value: null }` to empty.
+
+function itemOf(appearance: string, fields: Partial<WorkItem> = {}): WorkItem {
+  return { ...ITEM, ...defaultFields(appearance), type: { ...ITEM.type, appearance }, ...fields };
+}
+
+function withFields(item: WorkItem, fields: Partial<WorkItemDraft['fields']>): WorkItemDraft {
+  const draft = draftOf(item);
+  return { ...draft, fields: { ...draft.fields, ...fields } };
+}
+
+describe('changesOf: the fields per type (feat-022 US-1 «A save sends only the fields the user changed»)', () => {
+  it.each(['epic', 'feature', 'story', 'task', 'bug'])(
+    'is empty for the loaded %s with its defaults: «Сохранить» stays disabled',
+    (appearance) => {
+      const item = itemOf(appearance);
+      expect(changesOf(item, draftOf(item))).toEqual({});
+      expect(isDirty(item, draftOf(item))).toBe(false);
+    },
+  );
+
+  it('shows a stored number with «,» and no trailing zeros, and a stored list value by its key', () => {
+    const item = itemOf('task', { remainingWork: 5.5, originalEstimate: 8, activity: 'Testing' });
+    expect(draftOf(item).fields).toMatchObject({
+      remainingWork: '5,5',
+      originalEstimate: '8',
+      completedWork: '',
+      activity: 'Testing',
+      priority: '2',
+    });
+  });
+
+  it('sends US-1’s three values of a story in one body: points, risk in `{ value }`, the criteria as a string', () => {
+    const item = itemOf('story');
+    const draft = withFields(item, {
+      storyPoints: '5',
+      risk: '2',
+      acceptanceCriteria: 'Вход без пароля',
+    });
+    expect(changesOf(item, draft)).toEqual({
+      storyPoints: { value: 5 },
+      risk: { value: 2 },
+      acceptanceCriteria: 'Вход без пароля',
+    });
+  });
+
+  it('reads «,» and «.» alike and ignores spaces at either end (US-3: «5,5», «2.5»)', () => {
+    const item = itemOf('task');
+    expect(
+      changesOf(item, withFields(item, { remainingWork: ' 5,5 ', completedWork: '2.5' })),
+    ).toEqual({ remainingWork: { value: 5.5 }, completedWork: { value: 2.5 } });
+  });
+
+  it('«2,50» against a stored 2,5 is no change (US-1 «Nothing to save»)', () => {
+    const item = itemOf('story', { storyPoints: 2.5 });
+    const draft = withFields(item, { storyPoints: '2,50' });
+    expect(changesOf(item, draft)).toEqual({});
+    expect(isDirty(item, draft)).toBe(false);
+  });
+
+  it('empties a number with `{ value: null }`, and 0 is a value of its own (US-2, US-3)', () => {
+    const item = itemOf('epic', { effort: 5 });
+    expect(changesOf(item, withFields(item, { effort: '' }))).toEqual({ effort: { value: null } });
+    expect(changesOf(item, withFields(item, { effort: '0' }))).toEqual({ effort: { value: 0 } });
+  });
+
+  it('sends a list by its key — a number for Приоритет, Риск, Серьёзность, a string for the others', () => {
+    const item = itemOf('bug');
+    expect(
+      changesOf(item, withFields(item, { priority: '1', severity: '1', activity: 'Development' })),
+    ).toEqual({
+      priority: { value: 1 },
+      severity: { value: 1 },
+      activity: { value: 'Development' },
+    });
+    const epic = itemOf('epic', { risk: 2 });
+    expect(changesOf(epic, withFields(epic, { risk: '', valueArea: 'Architectural' }))).toEqual({
+      risk: { value: null },
+      valueArea: { value: 'Architectural' },
+    });
+  });
+
+  it('sends a date as `YYYY-MM-DD`, empties it with `{ value: null }`', () => {
+    const item = itemOf('feature', { targetDate: '2027-03-31' });
+    expect(changesOf(item, withFields(item, { startDate: '2026-11-01', targetDate: '' }))).toEqual({
+      startDate: { value: '2026-11-01' },
+      targetDate: { value: null },
+    });
+  });
+
+  it('empties a type text with `""`, never `null`', () => {
+    const item = itemOf('bug', { reproSteps: 'Шаги' });
+    expect(changesOf(item, withFields(item, { reproSteps: '' }))).toEqual({ reproSteps: '' });
+  });
+
+  it('never sends a field the type lacks (BR-M3-30), whatever the draft holds', () => {
+    const item = itemOf('task');
+    const draft = withFields(item, {
+      storyPoints: '5',
+      acceptanceCriteria: 'x',
+      startDate: '2026-01-01',
+    });
+    expect(changesOf(item, draft)).toEqual({});
+    expect(isDirty(item, draft)).toBe(false);
+  });
+
+  it('a number’s text that is not a number, or a date typed in part, is not sent but counts as a change', () => {
+    const epic = itemOf('epic');
+    const notANumber = withFields(epic, { effort: 'пять' });
+    expect(changesOf(epic, notANumber)).toEqual({});
+    expect(isDirty(epic, notANumber)).toBe(true);
+
+    const partial = withFields(epic, { startDate: INCOMPLETE_DATE });
+    expect(changesOf(epic, partial)).toEqual({});
+    expect(isDirty(epic, partial)).toBe(true);
+  });
+
+  it('travels with mod-003’s fields and the parent in one body', () => {
+    const item = itemOf('task');
+    const draft = { ...withFields(item, { priority: '4' }), title: 'Новый', parent: FEAT_6 };
+    expect(changesOf(item, draft)).toEqual({
+      title: 'Новый',
+      parent: { parentId: 'feat-6', seenParentId: null },
+      priority: { value: 4 },
+    });
+  });
+});
+
+describe('draftErrors: the browser’s checks (feat-022 spec § Controls and copy)', () => {
+  it.each([
+    ['effort', '-1', 'Допустимо значение от 0 до 9 999.'],
+    ['timeCriticality', '10000', 'Допустимо значение от 0 до 9 999.'],
+    ['effort', '2,555', 'Не более двух знаков после запятой.'],
+    ['businessValue', '2,5', 'Введите целое число.'],
+    ['effort', 'пять', 'Введите число.'],
+  ] as const)('US-2: «%s» = «%s» is refused with «%s»', (name, text, message) => {
+    const epic = itemOf('epic');
+    expect(draftErrors(epic, withFields(epic, { [name]: text }))).toEqual({ [name]: message });
+  });
+
+  it('US-3: «1,333» hours are refused, never rounded', () => {
+    const task = itemOf('task');
+    expect(draftErrors(task, withFields(task, { originalEstimate: '1,333' }))).toEqual({
+      originalEstimate: 'Не более двух знаков после запятой.',
+    });
+  });
+
+  it('accepts 0, 9 999, two decimals, a whole Бизнес-ценность and an emptied field', () => {
+    const epic = itemOf('epic', { effort: 3 });
+    expect(
+      draftErrors(
+        epic,
+        withFields(epic, { effort: '', timeCriticality: '9999', businessValue: '0' }),
+      ),
+    ).toEqual({});
+    const task = itemOf('task');
+    expect(draftErrors(task, withFields(task, { remainingWork: '0,25' }))).toEqual({});
+  });
+
+  it('a date typed in part, and a date outside 2000–2099', () => {
+    const epic = itemOf('epic');
+    expect(draftErrors(epic, withFields(epic, { startDate: INCOMPLETE_DATE }))).toEqual({
+      startDate: 'Введите дату полностью.',
+    });
+    expect(draftErrors(epic, withFields(epic, { targetDate: '1999-12-31' }))).toEqual({
+      targetDate: 'Укажите дату с 2000 по 2099 год.',
+    });
+  });
+
+  it('US-2: a start after the stored target is refused under «Целевая дата», though only the start changed', () => {
+    const epic = itemOf('epic', { targetDate: '2027-03-31' });
+    expect(draftErrors(epic, withFields(epic, { startDate: '2027-04-01' }))).toEqual({
+      targetDate: 'Целевая дата не может быть раньше даты начала.',
+    });
+    expect(
+      draftErrors(epic, withFields(epic, { startDate: '2027-04-01', targetDate: '2027-06-30' })),
+    ).toEqual({});
+    expect(draftErrors(epic, withFields(epic, { targetDate: '' }))).toEqual({});
+  });
+
+  it('a type text of 100 001 characters: «Не более 100 000 символов.»', () => {
+    const bug = itemOf('bug');
+    expect(draftErrors(bug, withFields(bug, { systemInfo: 'о'.repeat(100_001) }))).toEqual({
+      systemInfo: 'Не более 100 000 символов.',
+    });
+  });
+
+  it('checks only what changed, and «Заголовок» and «Описание» as mod-003 does', () => {
+    const story = itemOf('story');
+    expect(draftErrors(story, draftOf(story))).toEqual({});
+    expect(draftErrors(story, { ...withFields(story, { storyPoints: 'x' }), title: ' ' })).toEqual({
+      title: 'Введите заголовок.',
+      storyPoints: 'Введите число.',
+    });
+  });
+});
+
+describe('rebaseDraft: the fields per type', () => {
+  it('keeps a touched field, takes every other from the fresh read', () => {
+    const loaded = itemOf('task');
+    const fresh: WorkItem = { ...loaded, remainingWork: 4, parent: FEAT_8 };
+    const draft = withFields(loaded, { activity: 'Testing' });
+
+    const rebased = rebaseDraft(loaded, fresh, draft);
+
+    expect(rebased.fields).toMatchObject({ activity: 'Testing', remainingWork: '4' });
+    expect(changesOf(fresh, rebased)).toEqual({ activity: { value: 'Testing' } });
   });
 });

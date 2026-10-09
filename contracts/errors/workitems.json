@@ -120,6 +120,62 @@
       "ru": "Удалённый рабочий элемент нельзя связывать.",
       "kk": "Жойылған жұмыс элементін байланыстыруға болмайды.",
       "kkNeedsReview": true
+    },
+    "workitems.workitem.number_out_of_range": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Допустимо значение от 0 до 9 999.",
+      "kk": "0-ден 9 999-ға дейінгі мән енгізуге болады.",
+      "kkNeedsReview": true
+    },
+    "workitems.workitem.number_too_precise": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Не более двух знаков после запятой.",
+      "kk": "Үтірден кейін екі таңбадан аспауы керек.",
+      "kkNeedsReview": true
+    },
+    "workitems.workitem.integer_required": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Введите целое число.",
+      "kk": "Бүтін сан енгізіңіз.",
+      "kkNeedsReview": true
+    },
+    "workitems.workitem.value_not_in_list": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Выберите значение из списка.",
+      "kk": "Тізімнен мән таңдаңыз.",
+      "kkNeedsReview": true
+    },
+    "workitems.workitem.date_out_of_range": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Укажите дату с 2000 по 2099 год.",
+      "kk": "2000 жылдан 2099 жылға дейінгі күнді көрсетіңіз.",
+      "kkNeedsReview": true
+    },
+    "workitems.workitem.target_before_start": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Целевая дата не может быть раньше даты начала.",
+      "kk": "Мақсатты күн басталу күнінен ерте болмауы керек.",
+      "kkNeedsReview": true
+    },
+    "workitems.workitem.text_too_long": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Не более 100 000 символов.",
+      "kk": "100 000 таңбадан аспауы керек.",
+      "kkNeedsReview": true
+    },
+    "workitems.workitem.field_not_on_type": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Это поле недоступно для рабочего элемента этого типа.",
+      "kk": "Бұл өріс осы түрдегі жұмыс элементі үшін қолжетімсіз.",
+      "kkNeedsReview": true
     }
   }
 }

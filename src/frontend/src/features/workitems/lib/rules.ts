@@ -15,6 +15,15 @@ export const ruleTexts = {
   titleTooLong: 'Не более 255 символов.',
   titleMultiline: 'Заголовок должен быть в одну строку.',
   descriptionTooLong: 'Не более 100 000 символов.',
+  // feat-022 spec § Controls and copy: the checks of the fields per type.
+  notANumber: 'Введите число.',
+  numberOutOfRange: 'Допустимо значение от 0 до 9 999.',
+  numberTooPrecise: 'Не более двух знаков после запятой.',
+  integerRequired: 'Введите целое число.',
+  dateIncomplete: 'Введите дату полностью.',
+  dateOutOfRange: 'Укажите дату с 2000 по 2099 год.',
+  targetBeforeStart: 'Целевая дата не может быть раньше даты начала.',
+  textTooLong: 'Не более 100 000 символов.',
 } as const;
 
 /** The line breaks the server refuses in a title (api-contract § 0.6). */

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Mustask.Application.Abstractions.UserDirectory;
 using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Domain.Organizations;
@@ -146,9 +147,10 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
     }
 
     /// <summary>
-    /// <paramref name="items"/> with their project key, type and state, in one
-    /// statement. The list leaves the description out: it can hold 100 000
-    /// characters a row and the list never shows it.
+    /// <paramref name="items"/> with their project key, type and state, and
+    /// feat-022's fields, in one statement. The list leaves the description and
+    /// the type's texts out: each can hold 100 000 characters a row and the list
+    /// never shows them.
     /// </summary>
     private IQueryable<ItemRow> Rows(IQueryable<WorkItem> items, bool includeDescription = true) =>
         from item in items.AsNoTracking()
@@ -174,7 +176,25 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             includeDescription ? item.Description : string.Empty,
             item.CreatedBy,
             item.CreatedAt,
-            item.ChangedAt);
+            item.ChangedAt,
+            new FieldsRow(
+                item.Priority,
+                item.Risk,
+                item.StoryPoints,
+                item.Effort,
+                item.BusinessValue,
+                item.TimeCriticality,
+                item.StartDate,
+                item.TargetDate,
+                item.Severity,
+                item.Activity,
+                item.OriginalEstimate,
+                item.RemainingWork,
+                item.CompletedWork,
+                item.ValueArea,
+                includeDescription ? item.AcceptanceCriteria : null,
+                includeDescription ? item.ReproSteps : null,
+                includeDescription ? item.SystemInfo : null));
 
     /// <summary><paramref name="items"/> as link ends, with their project key, type, level rank and state, in one statement.</summary>
     private IQueryable<WorkItemRefRow> RefRows(IQueryable<WorkItem> items) => WorkItemRefs.Rows(context, items.AsNoTracking());
@@ -212,6 +232,8 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         var assignees = await AssigneesAsync([row], cancellationToken);
         var (parent, children) = await LinksAsync(row, cancellationToken);
 
+        var fields = row.Fields;
+
         return new WorkItemView(
             row.Id,
             Identifier(row),
@@ -227,8 +249,36 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             row.CreatedAt,
             row.ChangedAt,
             parent,
-            children);
+            children)
+        {
+            Priority = fields.Priority,
+            Risk = fields.Risk,
+            StoryPoints = Shortest(fields.StoryPoints),
+            Effort = Shortest(fields.Effort),
+            BusinessValue = fields.BusinessValue,
+            TimeCriticality = Shortest(fields.TimeCriticality),
+            StartDate = fields.StartDate,
+            TargetDate = fields.TargetDate,
+            Severity = fields.Severity,
+            Activity = fields.Activity?.ToString(),
+            OriginalEstimate = Shortest(fields.OriginalEstimate),
+            RemainingWork = Shortest(fields.RemainingWork),
+            CompletedWork = Shortest(fields.CompletedWork),
+            ValueArea = fields.ValueArea?.ToString(),
+            AcceptanceCriteria = fields.AcceptanceCriteria,
+            ReproSteps = fields.ReproSteps,
+            SystemInfo = fields.SystemInfo,
+        };
     }
+
+    /// <summary>
+    /// feat-022 api-contract § 1: a number in its shortest form. The column keeps two decimals, so a stored 2.5 reads
+    /// back as 2.50; the API answers 2.5 (and 8, not 8.00). The value itself never changes.
+    /// </summary>
+    private static decimal? Shortest(decimal? value) =>
+        value is { } number
+            ? decimal.Parse(number.ToString("0.##", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture)
+            : null;
 
     private static WorkItemRefView Ref(WorkItemRefRow row) => WorkItemRefs.View(row);
 
@@ -290,5 +340,26 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         string Description,
         string CreatedBy,
         DateTimeOffset CreatedAt,
-        DateTimeOffset ChangedAt);
+        DateTimeOffset ChangedAt,
+        FieldsRow Fields);
+
+    /// <summary>feat-022's fields as stored; the texts are <c>null</c> in the list's rows, which leave them out.</summary>
+    private sealed record FieldsRow(
+        int Priority,
+        int? Risk,
+        decimal? StoryPoints,
+        decimal? Effort,
+        int? BusinessValue,
+        decimal? TimeCriticality,
+        DateOnly? StartDate,
+        DateOnly? TargetDate,
+        int? Severity,
+        WorkItemActivity? Activity,
+        decimal? OriginalEstimate,
+        decimal? RemainingWork,
+        decimal? CompletedWork,
+        WorkItemValueArea? ValueArea,
+        string? AcceptanceCriteria,
+        string? ReproSteps,
+        string? SystemInfo);
 }

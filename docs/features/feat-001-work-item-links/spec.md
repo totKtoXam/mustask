@@ -148,6 +148,9 @@ level. It sits in the tab order where the tabs did, after the command bar.
 
 Below «Описание», an `h2` section «Связанная работа» (mod-015 § 10.3):
 
+> Superseded in part by feat-022 (spec § Screens and copy): the form is laid
+> out in sections, and «Связанная работа» stands last in the right column.
+
 | Control | Content and copy |
 |---|---|
 | «Родитель» | `Autocomplete`, label «Родитель», helper «Родителем может быть: <типы через запятую>.» (BR-H-2's types for this item). First option always «Нет родителя». With an empty input: the 20 most recently changed allowed items; typing filters by identifier or «Заголовок», case-insensitive, most recently changed first. An option: type icon, «<ID> <Заголовок>», the state (category dot + name) as secondary text. While searching «Поиск…»; no match «Ничего не найдено»; more than 20 a last, non-selectable «Показаны первые 20. Уточните запрос.»; failure «Не удалось выполнить поиск. Попробуйте ещё раз.». The value reads as an option; empty, «Нет родителя» |

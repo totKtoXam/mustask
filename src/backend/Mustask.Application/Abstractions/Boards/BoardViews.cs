@@ -36,7 +36,7 @@ public sealed record BoardLevelView(string Code, string Name, IReadOnlyList<Boar
 /// <summary>A type of the level: mod-003's type fields and the state a new item of it takes (BR-M3-20).</summary>
 public sealed record BoardTypeView(Guid Id, string Key, string Name, string Appearance, WorkItemStateView InitialState);
 
-/// <summary>A backlog row and a board card (api-contract § 2.3): mod-003's fields and «Порядок».</summary>
+/// <summary>A backlog row and a board card (api-contract § 2.3): mod-003's fields, «Порядок» and feat-022's «Приоритет».</summary>
 public sealed record BacklogItemView(
     int Order,
     Guid Id,
@@ -45,7 +45,8 @@ public sealed record BacklogItemView(
     WorkItemTypeView Type,
     string Title,
     WorkItemAssigneeView? Assignee,
-    WorkItemStateView State)
+    WorkItemStateView State,
+    int Priority)
 {
     /// <summary><paramref name="rows"/> in the backlog's order (<see cref="StackRank.Order"/>), numbered from 1.</summary>
     public static IReadOnlyList<BacklogItemView> InOrder(IReadOnlyList<BacklogItemRow> rows)
@@ -57,7 +58,7 @@ public sealed record BacklogItemView(
             {
                 var row = byId[id];
 
-                return new BacklogItemView(index + 1, row.Id, row.Identifier, row.Number, row.Type, row.Title, row.Assignee, row.State);
+                return new BacklogItemView(index + 1, row.Id, row.Identifier, row.Number, row.Type, row.Title, row.Assignee, row.State, row.Priority);
             })
             .ToList();
     }
@@ -77,6 +78,7 @@ public sealed record BacklogRowView(
     string Title,
     WorkItemAssigneeView? Assignee,
     WorkItemStateView State,
+    int Priority,
     WorkItemRefView? Parent,
     IReadOnlyList<BacklogChildView> Children)
 {
@@ -102,7 +104,7 @@ public sealed record BacklogRowView(
                 var row = byId[node.ItemId];
 
                 return new BacklogRowView(
-                    index + 1, row.Id, row.Identifier, row.Number, row.Type, row.Title, row.Assignee, row.State,
+                    index + 1, row.Id, row.Identifier, row.Number, row.Type, row.Title, row.Assignee, row.State, row.Priority,
                     ParentOf(row, liveParents), BacklogChildView.Of(node.Children, byId, liveParents));
             })
             .ToList();
@@ -121,6 +123,7 @@ public sealed record BacklogChildView(
     string Title,
     WorkItemAssigneeView? Assignee,
     WorkItemStateView State,
+    int Priority,
     WorkItemRefView? Parent,
     IReadOnlyList<BacklogChildView> Children)
 {
@@ -132,7 +135,7 @@ public sealed record BacklogChildView(
                 var row = rows[node.ItemId];
 
                 return new BacklogChildView(
-                    row.Id, row.Identifier, row.Number, row.Type, row.Title, row.Assignee, row.State,
+                    row.Id, row.Identifier, row.Number, row.Type, row.Title, row.Assignee, row.State, row.Priority,
                     BacklogRowView.ParentOf(row, liveParents), Of(node.Children, rows, liveParents));
             })
             .ToList();

@@ -11,16 +11,16 @@ public sealed class WorkItemTests
     private static readonly DateTimeOffset Later = Created.AddHours(2);
 
     /// <summary>«Баг» as mod-001 seeds it: «Новая», «Активна», «Разрешена», «Закрыта», «Удалена».</summary>
-    private static readonly WorkItemTypeStates Bug = Type("BUG", StateCategory.Proposed, StateCategory.InProgress, StateCategory.Resolved, StateCategory.Completed, StateCategory.Removed);
+    private static readonly WorkItemTypeStates Bug = Type("BUG", AppearanceToken.Bug, StateCategory.Proposed, StateCategory.InProgress, StateCategory.Resolved, StateCategory.Completed, StateCategory.Removed);
 
     /// <summary>«Задача»: «Новая», «Активна», «Закрыта», «Удалена».</summary>
-    private static readonly WorkItemTypeStates Task = Type("TASK", StateCategory.Proposed, StateCategory.InProgress, StateCategory.Completed, StateCategory.Removed);
+    private static readonly WorkItemTypeStates Task = Type("TASK", AppearanceToken.Task, StateCategory.Proposed, StateCategory.InProgress, StateCategory.Completed, StateCategory.Removed);
 
     private static readonly Guid ProjectId = Guid.CreateVersion7();
     private static readonly Guid RootAreaId = Guid.CreateVersion7();
 
-    private static WorkItemTypeStates Type(string key, params StateCategory[] categories) =>
-        new(Guid.CreateVersion7(), key, categories.Select((category, index) => new WorkItemTypeState(Guid.CreateVersion7(), index + 1, category)).ToList());
+    private static WorkItemTypeStates Type(string key, AppearanceToken appearance, params StateCategory[] categories) =>
+        new(Guid.CreateVersion7(), key, appearance, categories.Select((category, index) => new WorkItemTypeState(Guid.CreateVersion7(), index + 1, category)).ToList());
 
     private static Guid StateOf(WorkItemTypeStates type, StateCategory category) => type.States.First(state => state.Category == category).Id;
 

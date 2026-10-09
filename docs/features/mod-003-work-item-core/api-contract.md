@@ -136,6 +136,7 @@ is gone.
 | `createdBy`, `createdAt` | the creator and the creation time (BR-M3-28); not shown in this task |
 | `changedAt` | the time of the latest save that changed a value; the creation time until then (BR-M3-28) |
 | `parent`, `children` | added by feat-001 (its api-contract § 2.2): the stored parent as a `WorkItemRef`, or `null`; the direct children, those in «Удалена» excepted, by level rank descending then `number` |
+| `priority`, `risk`, `storyPoints`, `effort`, `businessValue`, `timeCriticality`, `startDate`, `targetDate`, `severity`, `activity`, `originalEstimate`, `remainingWork`, `completedWork`, `valueArea`, `acceptanceCriteria`, `reproSteps`, `systemInfo` | added by feat-022 (its api-contract § 1, § 2): the planning, classification, estimation and text fields per type, on every type, `null` where the type does not have the field. The create answers them with their defaults (its § 3.1); `WorkItemListItem` (§ 1.2) does not change |
 
 ### 1.2 `WorkItemListItem` — a row of the list
 
@@ -232,6 +233,7 @@ field leave the later one; no conflict is ever reported.
 | `assignee` | `{ "userId": "<id>" }` assigns an active user of the directory; `{ "userId": null }` (or `{}`) clears to «Не назначен» (BR-M3-22). `"assignee": null` or no `assignee` leaves it unchanged. |
 | `areaId` | an area of the item's own project, the root included (BR-M3-23) |
 | `parent` | added by feat-001 (its api-contract § 3.3): optional `{ "parentId", "seenParentId" }`, the parent write of its § 3.2 in this same save, all fields or none; absent or `null` leaves the parent unchanged. Its 404 `workitems.link.parent_not_found` follows the area's, its five 409s follow the assignee's |
+| the 17 fields of feat-022 | added by feat-022 (its api-contract § 3.2): each optional; a text as `"<text>"` (`""` empties), every other as `{ "value": … }` (`{ "value": null }` empties); absent or `null` leaves it unchanged. A field the item's type does not have is refused; their reasons join this 400 |
 
 A value equal to the stored one changes nothing: re-sending the current
 state, or the current assignee even when that user has become inactive since,

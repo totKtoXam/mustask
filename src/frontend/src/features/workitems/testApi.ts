@@ -6,11 +6,20 @@
 // (§ 3). feat-001's api-contract adds the item's `parent` and `children`
 // (§ 2.2), the save's `parent` with the parent write's checks in their order
 // (§ 3.2, § 3.3), the parent write on its own (§ 3.2) and the parent search
-// (§ 3.4). It keeps the contract's answers, not every rule of the backend.
+// (§ 3.4). feat-022's api-contract adds the 17 fields per type to the answer
+// (§ 2), their defaults on create (§ 3.1) and their save with its reasons
+// (§ 3.2). It keeps the contract's answers, not every rule of the backend.
 import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
 import type { AreaNode } from '../organizations';
-import type { WorkItem, WorkItemListItem, WorkItemRef } from './api/workItemsApi';
+import type {
+  WorkItem,
+  WorkItemFieldName,
+  WorkItemFields,
+  WorkItemListItem,
+  WorkItemRef,
+} from './api/workItemsApi';
+import { LIST_FIELDS, WORK_ITEM_FIELD_NAMES, fieldsOf, kindOf } from './lib/fields';
 import {
   AREAS_URL,
   CANDIDATES_URL,
@@ -20,6 +29,7 @@ import {
   WORK_ITEMS_URL,
   WORK_ITEM_PARENT_URL,
   WORK_ITEM_URL,
+  defaultFields,
   exampleDataset,
   problem,
   problemWithParams,
@@ -56,6 +66,47 @@ const IDENTIFIER = /^([A-Z][A-Z0-9]{1,9})-([A-Z]+)-([1-9][0-9]*)$/;
 const LINE_BREAK = /[\n\r\v\f\u0085\u2028\u2029]/;
 const CANDIDATE_LIMIT = 20;
 const PAGE_SIZE = 50;
+
+/**
+ * feat-022 § 3.2's value reason of a field the type has, sent `value` not
+ * `null` — a list key, a number's range then its precision, a date's range, a
+ * text's length — or `null`.
+ */
+function fieldReason(name: WorkItemFieldName, value: unknown): string | null {
+  switch (kindOf(name)) {
+    case 'text':
+      return typeof value === 'string' && value.length > 100_000
+        ? 'workitems.workitem.text_too_long'
+        : null;
+    case 'list': {
+      const keys = LIST_FIELDS[name as keyof typeof LIST_FIELDS].options.map((option) =>
+        LIST_FIELDS[name as keyof typeof LIST_FIELDS].numeric ? Number(option.key) : option.key,
+      );
+      return keys.includes(value as never) ? null : 'workitems.workitem.value_not_in_list';
+    }
+    case 'number': {
+      const number = Number(value);
+      if (number < 0 || number > 9_999) return 'workitems.workitem.number_out_of_range';
+      if (name === 'businessValue') {
+        return Number.isInteger(number) ? null : 'workitems.workitem.integer_required';
+      }
+      return Math.round(number * 100) / 100 === number
+        ? null
+        : 'workitems.workitem.number_too_precise';
+    }
+    case 'date':
+      return typeof value === 'string' && value >= '2000-01-01' && value <= '2099-12-31'
+        ? null
+        : 'workitems.workitem.date_out_of_range';
+  }
+}
+
+/** BR-M3-31: an always-set field emptied by a save takes its default. */
+const EMPTIED_DEFAULTS: Partial<Record<WorkItemFieldName, unknown>> = {
+  priority: 2,
+  severity: 3,
+  valueArea: 'Business',
+};
 
 function titleReason(title: unknown): string | null {
   const trimmed = typeof title === 'string' ? title.trim() : '';
@@ -190,6 +241,7 @@ export class WorkItemsTestApi {
       createdAt: record.createdAt,
       parent: parent ? this.ref(parent) : null,
       children: children.map((child) => this.ref(child)),
+      ...record.fields,
     };
   }
 
@@ -430,9 +482,53 @@ export class WorkItemsTestApi {
       createdAt: now,
       changedAt: now,
       requestId: requestId.toLowerCase(),
+      // feat-022 § 3.1: the body's fields are ignored; the type's defaults.
+      fields: defaultFields(type.appearance),
     };
     this.data.items.push(record);
     return { status: 201, item: record };
+  }
+
+  /**
+   * feat-022 § 3.2: the fields sent — absent or `null` leaves one alone, a
+   * text as a string, any other in `{ value }` — with their reasons: not on
+   * the type, then the value, then the target before the start against what
+   * would be stored. Answers the values to store, or adds the reasons.
+   */
+  private fieldsSent(
+    record: WorkItemRecord,
+    body: Record<string, unknown>,
+    reasons: Record<string, string>,
+  ): Partial<WorkItemFields> {
+    const has = new Set(fieldsOf(this.type(record.typeId).appearance));
+    const sent: Record<string, unknown> = {};
+    for (const name of WORK_ITEM_FIELD_NAMES) {
+      const member = body[name];
+      if (member === undefined || member === null) continue;
+      if (!has.has(name)) {
+        reasons[name] = 'workitems.workitem.field_not_on_type';
+        continue;
+      }
+      const value =
+        kindOf(name) === 'text' ? member : ((member as { value?: unknown }).value ?? null);
+      const reason = value === null ? null : fieldReason(name, value);
+      if (reason) {
+        reasons[name] = reason;
+        continue;
+      }
+      sent[name] = value === null ? (EMPTIED_DEFAULTS[name] ?? null) : value;
+    }
+    const after = { ...record.fields, ...sent };
+    if (
+      !reasons.startDate &&
+      !reasons.targetDate &&
+      after.startDate !== null &&
+      after.targetDate !== null &&
+      after.targetDate < after.startDate
+    ) {
+      reasons.targetDate = 'workitems.workitem.target_before_start';
+    }
+    return sent as Partial<WorkItemFields>;
   }
 
   private save(project: ProjectRecord, record: WorkItemRecord, body: Record<string, unknown>) {
@@ -444,6 +540,7 @@ export class WorkItemsTestApi {
     if (typeof body.description === 'string' && body.description.length > 100_000) {
       reasons.description = 'workitems.workitem.description_too_long';
     }
+    const fields = this.fieldsSent(record, body, reasons);
     if (Object.keys(reasons).length > 0) {
       throw new Refusal(validationProblem(reasons));
     }
@@ -485,6 +582,7 @@ export class WorkItemsTestApi {
     if (typeof body.areaId === 'string') record.areaId = body.areaId;
     const parentAfter = parentChange ? (parent?.id ?? null) : parentBefore;
     if (parentAfter !== parentBefore) record.parentId = parentAfter;
+    record.fields = { ...record.fields, ...fields };
     if (JSON.stringify(record) !== before) {
       const now = this.now();
       record.changedAt = now;

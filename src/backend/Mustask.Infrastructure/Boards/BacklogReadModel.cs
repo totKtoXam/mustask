@@ -42,6 +42,7 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
                     state.Id,
                     state.Name,
                     state.Category,
+                    member.Item.Priority,
                     member.Item.ParentId))
             .ToListAsync(cancellationToken);
 
@@ -60,6 +61,7 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
                     row.StateId,
                     row.StateName,
                     new WorkItemStateCategoryView(row.StateCategory.ToString(), StateCategoryLabels.Of(row.StateCategory))),
+                row.Priority,
                 row.ParentId))
             .ToList();
 
@@ -124,5 +126,6 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
         Guid StateId,
         string StateName,
         StateCategory StateCategory,
+        int Priority,
         Guid? ParentId);
 }

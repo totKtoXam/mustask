@@ -630,8 +630,9 @@ export function BacklogTable({
  * One line: «Порядок» and the handle on a top-level row (blank on a nested
  * one), ID, «Тип», «Заголовок» — indented 24 px per tier below the top, then
  * the expand control or a 28 px gap, then the link to the form — «Родитель»,
- * «Исполнитель», «Статус», and on «Фичи» and «Истории» «Ещё действия» on a
- * top-level row (BR-M4-14; feat-001 spec § Page «Бэклоги»). Memoized, so a
+ * «Исполнитель», «Статус», «Приоритет» as its number (feat-022 BR-M3-39), and
+ * on «Фичи» and «Истории» «Ещё действия» on a top-level row (BR-M4-14;
+ * feat-001 spec § Page «Бэклоги»). Memoized, so a
  * drop line moving over a long backlog redraws two rows, not all of them.
  *
  * The handle is an `IconButton` drawn as a `span` (MUI keeps it a `button`
@@ -768,6 +769,7 @@ const BacklogLine = memo(function BacklogLine({
       <TableCell>
         <StateName state={item.state} />
       </TableCell>
+      <TableCell>{item.priority}</TableCell>
       {withActions && (
         <TableCell padding="checkbox">
           {top && (

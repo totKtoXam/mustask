@@ -22,12 +22,12 @@ public sealed class WorkItemHierarchyTests
     private static readonly Guid ProjectId = Guid.CreateVersion7();
     private static readonly Guid RootAreaId = Guid.CreateVersion7();
 
-    private static readonly WorkItemTypeStates Epic = Type("EPIC");
-    private static readonly WorkItemTypeStates Feature = Type("FEAT");
-    private static readonly WorkItemTypeStates Story = Type("US");
-    private static readonly WorkItemTypeStates Bug = Type("BUG");
-    private static readonly WorkItemTypeStates Task = Type("TASK");
-    private static readonly WorkItemTypeStates DeletedEpic = Type("DEL");
+    private static readonly WorkItemTypeStates Epic = Type("EPIC", AppearanceToken.Epic);
+    private static readonly WorkItemTypeStates Feature = Type("FEAT", AppearanceToken.Feature);
+    private static readonly WorkItemTypeStates Story = Type("US", AppearanceToken.Story);
+    private static readonly WorkItemTypeStates Bug = Type("BUG", AppearanceToken.Bug);
+    private static readonly WorkItemTypeStates Task = Type("TASK", AppearanceToken.Task);
+    private static readonly WorkItemTypeStates DeletedEpic = Type("DEL", AppearanceToken.Epic);
 
     private static readonly HierarchyTypes Types = new(
     [
@@ -41,8 +41,8 @@ public sealed class WorkItemHierarchyTests
 
     private readonly Dictionary<Guid, WorkItem> _items = [];
 
-    private static WorkItemTypeStates Type(string key) =>
-        new(Guid.CreateVersion7(), key, [new WorkItemTypeState(Guid.CreateVersion7(), 1, StateCategory.Proposed), new WorkItemTypeState(Guid.CreateVersion7(), 2, StateCategory.Removed)]);
+    private static WorkItemTypeStates Type(string key, AppearanceToken appearance) =>
+        new(Guid.CreateVersion7(), key, appearance, [new WorkItemTypeState(Guid.CreateVersion7(), 1, StateCategory.Proposed), new WorkItemTypeState(Guid.CreateVersion7(), 2, StateCategory.Removed)]);
 
     /// <summary>A live type of the level: only its «Удалена» counts as deleted.</summary>
     private static HierarchyType Level(WorkItemTypeStates type, int rank) =>

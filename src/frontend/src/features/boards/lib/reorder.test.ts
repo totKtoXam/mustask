@@ -23,6 +23,7 @@ function row(identifier: string, order: number): BacklogItem {
     title: identifier,
     assignee: null,
     state: { id: 'new', name: 'Новая', category: { code: 'Proposed', label: 'Новые' } },
+    priority: 2,
   };
 }
 

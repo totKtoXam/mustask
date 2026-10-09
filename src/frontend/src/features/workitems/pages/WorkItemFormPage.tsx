@@ -10,6 +10,7 @@ import Skeleton from '@mui/material/Skeleton';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme, type Theme } from '@mui/material/styles';
 import { useProcessDefinition } from '../../process';
 import { apiErrorText } from '../../../shared/lib/apiErrorText';
@@ -18,22 +19,31 @@ import { FormSkeleton } from '../../../shared/ui/FormSkeleton';
 import { PageHeader } from '../../../shared/ui/PageHeader';
 import { NotFound } from '../../../shared/ui/StateFrame';
 import { TypeMark } from '../../../shared/ui/WorkTrackingMarks';
-import type { WorkItem, WorkItemStateReference } from '../api/workItemsApi';
+import type { WorkItem, WorkItemFieldName, WorkItemStateReference } from '../api/workItemsApi';
 import { AreaPicker } from '../components/AreaPicker';
 import { AssigneePicker } from '../components/AssigneePicker';
+import { FieldControl } from '../components/FieldControl';
+import { FormSection } from '../components/FormSection';
 import { HeaderChrome } from '../components/HeaderChrome';
 import { useNotice } from '../components/Notice';
 import { RelatedWorkSection } from '../components/RelatedWorkSection';
 import { StatePicker } from '../components/StatePicker';
 import { useSaveWorkItem } from '../hooks/mutations';
 import { useRefreshWorkItem, useWorkItem } from '../hooks/queries';
-import { changesOf, draftOf, hasChanges, rebaseDraft, type WorkItemDraft } from '../lib/draft';
+import {
+  changesOf,
+  draftErrors,
+  draftOf,
+  isDirty,
+  rebaseDraft,
+  type WorkItemDraft,
+} from '../lib/draft';
+import { TEXT_FIELDS, TEXT_HELPER, fieldsOf, layoutOf } from '../lib/fields';
 import { notFoundLevel, type WorkItemsNotFoundLevel } from '../lib/notFoundLevel';
 import { allowedParentTypes, editableStates, parentHelperText, typeById } from '../lib/process';
 import { isParentChanged, placeRefusal, type RefusalField } from '../lib/refusals';
-import { descriptionError, titleError } from '../lib/rules';
 
-/** Every field of the form a refusal can land on. */
+/** mod-003's fields of the form a refusal can land on; feat-022 adds the type's own. */
 const FORM_FIELDS: readonly RefusalField[] = [
   'title',
   'description',
@@ -44,6 +54,26 @@ const FORM_FIELDS: readonly RefusalField[] = [
 ];
 
 type FieldErrors = Partial<Record<RefusalField, string>>;
+
+/**
+ * The «Детали» grid (mod-015 § 10.3; feat-022 spec § The form's sections): two
+ * columns, 8/4, at ≥ 1280 px; one below, the left column's sections first.
+ */
+function gridSx(wide: boolean) {
+  return {
+    mt: 3,
+    display: 'grid',
+    gridTemplateColumns: wide ? 'minmax(0, 2fr) minmax(0, 1fr)' : 'minmax(0, 1fr)',
+    gap: 3,
+    alignItems: 'start',
+  } as const;
+}
+
+/** Whether the form stands in two columns: `lg` is 1280 px (ADR-0024). */
+function useWideForm(): boolean {
+  const theme = useTheme();
+  return useMediaQuery(theme.breakpoints.up('lg'));
+}
 
 /** The band's stripe in the type's colour (mod-015 § 10.3: 4 px). */
 function bandSx(appearance: string) {
@@ -65,8 +95,11 @@ function bandSx(appearance: string) {
  * «Обсуждение»), a project-level page at `…/workitems/:identifier` (D-5). Its
  * read validates the whole address and answers the outermost level not found.
  * Keyed by the address, so another item starts with its own values. feat-001
- * adds the section «Связанная работа» below «Описание»: «Родитель» is a field
- * of the draft, and the children list is read-only.
+ * adds the section «Связанная работа»: «Родитель» is a field of the draft, and
+ * the children list is read-only. feat-022 lays the body out in sections per
+ * type, by `type.appearance`: «Описание» and the type's texts on the left,
+ * «Планирование», «Трудозатраты (часы)» or «Классификация» on the right, and
+ * «Связанная работа» last there, as mod-015 § 10.3 places it.
  */
 export function WorkItemFormPage() {
   const {
@@ -125,12 +158,13 @@ function WorkItemForm({
 }
 
 /**
- * Loading (spec § States): band and strip skeletons, `FormSkeleton` for
- * «Описание» and for «Связанная работа» (feat-001 spec § Screens and copy).
- * The second is hidden from assistive technology: one «Загрузка данных» is
- * announced for the page.
+ * Loading (feat-022 spec § States): band and strip skeletons, and a
+ * `FormSkeleton` in each column of the «Детали» grid — the type, and so its
+ * sections, is not known yet. The second is hidden from assistive technology:
+ * one «Загрузка данных» is announced for the page.
  */
 function FormLoading() {
+  const wide = useWideForm();
   return (
     <>
       <HeaderChrome />
@@ -146,11 +180,11 @@ function FormLoading() {
           ))}
         </Stack>
       </Box>
-      <Box sx={{ mt: 3 }}>
+      <Box sx={gridSx(wide)}>
         <FormSkeleton fields={1} />
-      </Box>
-      <Box aria-hidden="true" sx={{ mt: 3 }}>
-        <FormSkeleton fields={2} />
+        <Box aria-hidden="true">
+          <FormSkeleton fields={3} />
+        </Box>
       </Box>
     </>
   );
@@ -170,6 +204,7 @@ function LoadedForm({
   onGone(level: WorkItemsNotFoundLevel): void;
 }) {
   const theme = useTheme();
+  const wide = useWideForm();
   const process = useProcessDefinition(organizationId);
   const save = useSaveWorkItem(organizationId, projectId, identifier);
   const refresh = useRefreshWorkItem(organizationId, projectId, identifier);
@@ -182,29 +217,40 @@ function LoadedForm({
 
   const draft = edited ?? draftOf(item);
   const changes = changesOf(item, draft);
+  const dirty = isDirty(item, draft);
   const busy = save.isPending;
+  const layout = layoutOf(item.type.appearance);
+  const formFields: readonly RefusalField[] = [...FORM_FIELDS, ...fieldsOf(item.type.appearance)];
 
   function edit(field: RefusalField, patch: Partial<WorkItemDraft>) {
     setEdited((current) => ({ ...(current ?? draftOf(item)), ...patch }));
     setErrors((current) => ({ ...current, [field]: undefined }));
   }
 
+  /**
+   * One field per type edited: its error clears; «Дата начала» clears
+   * «Целевая дата»'s too, where the pair's order is reported (BR-M3-35).
+   */
+  function editField(name: WorkItemFieldName, value: string) {
+    setEdited((current) => {
+      const base = current ?? draftOf(item);
+      return { ...base, fields: { ...base.fields, [name]: value } };
+    });
+    setErrors((current) => ({
+      ...current,
+      [name]: undefined,
+      ...(name === 'startDate' ? { targetDate: undefined } : {}),
+    }));
+  }
+
   async function handleSave(event: FormEvent) {
     event.preventDefault();
-    if (busy || !hasChanges(changes)) {
+    if (busy || !dirty) {
       return;
     }
-    const refused: FieldErrors = {};
-    const title = changes.title !== undefined ? titleError(changes.title) : null;
-    const description =
-      changes.description !== undefined ? descriptionError(changes.description) : null;
-    if (title) {
-      refused.title = title;
-    }
-    if (description) {
-      refused.description = description;
-    }
-    if (title || description) {
+    // The browser's checks: nothing is sent while one stands.
+    const refused: FieldErrors = draftErrors(item, draft);
+    if (Object.keys(refused).length > 0) {
       setErrors((current) => ({ ...current, ...refused }));
       return;
     }
@@ -215,7 +261,7 @@ function LoadedForm({
       setErrors({});
       show('Изменения сохранены.');
     } catch (error) {
-      const placed = placeRefusal(error, FORM_FIELDS);
+      const placed = placeRefusal(error, formFields);
       if (placed.frame) {
         onGone(placed.frame);
         return;
@@ -296,7 +342,7 @@ function LoadedForm({
         <Button
           type="submit"
           variant="contained"
-          disabled={busy || !hasChanges(changes)}
+          disabled={busy || !dirty}
           startIcon={busy ? <CircularProgress size={theme.spacing(2)} /> : undefined}
           sx={{ flexShrink: 0 }}
         >
@@ -327,39 +373,74 @@ function LoadedForm({
           onChange={(area) => edit('area', { area })}
         />
       </Stack>
-      <Box component="section" sx={{ mt: 3 }}>
-        <Typography
-          variant="h2"
-          component="h2"
-          sx={{ pb: 1, mb: 2, borderBottom: 1, borderColor: 'divider' }}
-        >
-          Описание
-        </Typography>
-        <TextField
-          label="Описание"
-          placeholder="Добавьте описание"
-          multiline
-          minRows={6}
-          fullWidth
-          value={draft.description}
-          disabled={busy}
-          error={errors.description !== undefined}
-          helperText={errors.description ?? 'До 100 000 символов'}
-          onChange={(event) => edit('description', { description: event.target.value })}
-        />
+      <Box sx={gridSx(wide)}>
+        <Stack spacing={3} useFlexGap sx={{ minWidth: 0 }}>
+          <FormSection title="Описание">
+            <TextField
+              label="Описание"
+              placeholder="Добавьте описание"
+              multiline
+              minRows={6}
+              fullWidth
+              value={draft.description}
+              disabled={busy}
+              error={errors.description !== undefined}
+              helperText={errors.description ?? TEXT_HELPER}
+              onChange={(event) => edit('description', { description: event.target.value })}
+            />
+          </FormSection>
+          {layout.texts.map((name) => (
+            <FormSection key={name} title={TEXT_FIELDS[name].label}>
+              <TextField
+                label={TEXT_FIELDS[name].label}
+                placeholder={TEXT_FIELDS[name].placeholder}
+                multiline
+                minRows={6}
+                fullWidth
+                value={draft.fields[name]}
+                disabled={busy}
+                error={errors[name] !== undefined}
+                helperText={errors[name] ?? TEXT_HELPER}
+                onChange={(event) => editField(name, event.target.value)}
+              />
+            </FormSection>
+          ))}
+        </Stack>
+        <Stack spacing={3} useFlexGap sx={{ minWidth: 0 }}>
+          {layout.sections.map((section) => (
+            <FormSection key={section.title} title={section.title}>
+              <Stack
+                spacing={2}
+                useFlexGap
+                sx={{ maxWidth: wide ? undefined : theme.layout.formColumnWidth }}
+              >
+                {section.fields.map((name) => (
+                  <FieldControl
+                    key={name}
+                    name={name}
+                    value={draft.fields[name]}
+                    disabled={busy}
+                    error={errors[name]}
+                    onChange={(value) => editField(name, value)}
+                  />
+                ))}
+              </Stack>
+            </FormSection>
+          ))}
+          <RelatedWorkSection
+            organizationId={organizationId}
+            projectId={projectId}
+            identifier={identifier}
+            stored={item.parent}
+            childItems={item.children}
+            value={draft.parent}
+            disabled={busy}
+            error={errors.parent}
+            helperText={parentHelper}
+            onChange={(parent) => edit('parent', { parent })}
+          />
+        </Stack>
       </Box>
-      <RelatedWorkSection
-        organizationId={organizationId}
-        projectId={projectId}
-        identifier={identifier}
-        stored={item.parent}
-        childItems={item.children}
-        value={draft.parent}
-        disabled={busy}
-        error={errors.parent}
-        helperText={parentHelper}
-        onChange={(parent) => edit('parent', { parent })}
-      />
       {notice}
     </Box>
   );

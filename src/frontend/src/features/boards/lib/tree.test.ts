@@ -14,6 +14,7 @@ function node(identifier: string, children: BacklogTreeItem[] = []): BacklogTree
     title: identifier,
     assignee: null,
     state: { id: 's', name: 'Новая', category: { code: 'Proposed', label: 'Новые' } },
+    priority: 2,
     parent: null,
     children,
   };

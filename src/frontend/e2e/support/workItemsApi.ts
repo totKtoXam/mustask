@@ -1,7 +1,8 @@
 // Spec 22: Node-side access to the routes a work item spec sets up through the
 // API instead of the panel — mod-002's area create (its api-contract § 4.2)
 // and mod-003's create and save (its api-contract § 2.2, § 2.4); spec 24 adds
-// feat-001's parent write (its api-contract § 3.2). Every call goes through
+// feat-001's parent write (its api-contract § 3.2), spec 25 a save of
+// feat-022's fields per type (its api-contract § 3.2). Every call goes through
 // `organizationsApi.ts`'s `send`, so the token exchange, its rules (never
 // logged, never handed to a page) and the prior `signIn(page, …)` it needs
 // are that module's.
@@ -112,6 +113,25 @@ export function moveWorkItem(
     'PATCH',
     `${projectPath(organizationId, projectId)}/workitems/${encodeURIComponent(identifier)}`,
     { areaId },
+  );
+}
+
+/**
+ * § 2.4 with feat-022 § 3.2's fields per type: a save of exactly `body` —
+ * texts as strings, every other field in `{ value }`.
+ */
+export function saveWorkItem(
+  request: APIRequestContext,
+  organizationId: string,
+  projectId: string,
+  identifier: string,
+  body: Record<string, unknown>,
+): Promise<WorkItemDto> {
+  return call(
+    request,
+    'PATCH',
+    `${projectPath(organizationId, projectId)}/workitems/${encodeURIComponent(identifier)}`,
+    body,
   );
 }
 

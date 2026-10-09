@@ -7,7 +7,9 @@
 // api-contract § 4 adds each backlog row's live `parent` and its `children` on
 // the same team's backlog one level below, recursively, and the parent write
 // (§ 3.2, its checks in their order) and search (§ 3.4) the backlog maps a
-// row with. It keeps the contract's answers, not every rule of the backend.
+// row with. feat-022's api-contract § 5 adds each row's and each card's
+// `priority`, and § 2 the fields per type to mod-003's answer. It keeps the
+// contract's answers, not every rule of the backend.
 import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
 import type { WorkItemType } from '../process';
@@ -18,6 +20,7 @@ import {
   WORK_ITEMS_URL,
   WORK_ITEM_PARENT_URL,
   WORK_ITEM_URL,
+  defaultFields,
   problemWithParams,
   process,
 } from '../workitems/testFixtures';
@@ -230,13 +233,16 @@ export class BoardsTestApi {
         name: state?.name ?? '',
         category: state?.category ?? { code: 'Proposed', label: '' },
       },
+      // feat-022 § 5: «Приоритет», after the state.
+      priority: record.fields.priority,
     };
   }
 
-  /** mod-003 § 1.1: what its create and save answer. */
+  /** mod-003 § 1.1 with feat-022 § 2: what its create and save answer. */
   private workItem(record: WorkItemRecord) {
     return {
       ...this.itemFields(record),
+      ...record.fields,
       projectId: record.projectId,
       description: record.description,
       area: { id: record.areaId, path: this.areaPath(record.areaId) },
@@ -431,6 +437,7 @@ export class BoardsTestApi {
       createdAt: now,
       changedAt: now,
       requestId,
+      fields: defaultFields(type.appearance),
     };
     this.data.items.push(record);
     return { status: 201, record };

@@ -1,7 +1,8 @@
 // The backlog table's headers (spec § Page «Бэклоги»; BR-M4-14; feat-001
 // spec § Page «Бэклоги»: «Родитель» after «Заголовок», and «Действия» on the
-// levels whose rows can be given a parent), shared by the table and the
-// page's loading skeleton.
+// levels whose rows can be given a parent; feat-022 spec § Backlog and board:
+// «Приоритет» after «Статус»), shared by the table and the page's loading
+// skeleton.
 import { levelAbove, type BoardLevelCode } from '../lib/levels';
 
 /** The handle column's header: visually hidden, read by assistive technology. */
@@ -17,6 +18,7 @@ export const ITEM_COLUMNS = [
   'Родитель',
   'Исполнитель',
   'Статус',
+  'Приоритет',
 ] as const;
 
 /** feat-001: the row menu's column on «Фичи» and «Истории», its header visually hidden. */

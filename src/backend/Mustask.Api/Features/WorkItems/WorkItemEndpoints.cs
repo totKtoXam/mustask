@@ -8,6 +8,7 @@ using Mustask.Application.Features.WorkItems.GetWorkItems;
 using Mustask.Application.Features.WorkItems.SaveWorkItem;
 using Mustask.Application.Features.WorkItems.SetWorkItemParent;
 using Mustask.Domain.Identity;
+using Mustask.Domain.WorkItems;
 using Gridify;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -160,10 +161,35 @@ public static class WorkItemEndpoints
             request?.StateId,
             request?.Assignee is { } assignee ? new AssigneeChange(assignee.UserId) : null,
             request?.AreaId,
-            request?.Parent is { } parent ? new ParentChange(parent.ParentId, parent.SeenParentId) : null);
+            request?.Parent is { } parent ? new ParentChange(parent.ParentId, parent.SeenParentId) : null,
+            request is null ? null : FieldsOf(request));
 
         return Results.Ok((await handler.Handle(command, cancellationToken)).Item);
     }
+
+    /// <summary>feat-022 api-contract § 3.2: a wrapper sent is a field sent, its <c>value</c> <c>null</c> to empty it.</summary>
+    private static WorkItemFieldsEdit FieldsOf(SaveWorkItemRequest request) => new()
+    {
+        Priority = Sent(request.Priority),
+        Risk = Sent(request.Risk),
+        StoryPoints = Sent(request.StoryPoints),
+        Effort = Sent(request.Effort),
+        BusinessValue = Sent(request.BusinessValue),
+        TimeCriticality = Sent(request.TimeCriticality),
+        StartDate = Sent(request.StartDate),
+        TargetDate = Sent(request.TargetDate),
+        Severity = Sent(request.Severity),
+        Activity = Sent(request.Activity),
+        OriginalEstimate = Sent(request.OriginalEstimate),
+        RemainingWork = Sent(request.RemainingWork),
+        CompletedWork = Sent(request.CompletedWork),
+        ValueArea = Sent(request.ValueArea),
+        AcceptanceCriteria = request.AcceptanceCriteria,
+        ReproSteps = request.ReproSteps,
+        SystemInfo = request.SystemInfo,
+    };
+
+    private static FieldEdit<T>? Sent<T>(FieldRequest<T>? field) => field is null ? null : new FieldEdit<T>(field.Value);
 
     private static async Task<IResult> SetWorkItemParentAsync(
         string organizationId,
@@ -200,14 +226,39 @@ public static class WorkItemEndpoints
     /// <summary><c>teamId</c> is mod-006's (its api-contract § 7): optional, the team surface the item is created from.</summary>
     private sealed record CreateWorkItemRequest(string? RequestId, string? TypeId, string? Title, string? TeamId);
 
-    /// <summary>A field that is absent or <c>null</c> is not changed (BR-M3-25); <c>assignee.userId</c> <c>null</c> clears it.</summary>
+    /// <summary>
+    /// A field that is absent or <c>null</c> is not changed (BR-M3-25); <c>assignee.userId</c> <c>null</c> clears it.
+    /// feat-022's fields (its api-contract § 3.2): a text as a string, <c>""</c> to empty it; every other in a
+    /// <c>{ "value": … }</c> wrapper, <c>{ "value": null }</c> or <c>{}</c> to empty it. A value of the wrong JSON
+    /// type fails binding (400 <c>http.bad_request</c>).
+    /// </summary>
     private sealed record SaveWorkItemRequest(
         string? Title,
         string? Description,
         string? StateId,
         AssigneeRequest? Assignee,
         string? AreaId,
-        ParentChangeRequest? Parent);
+        ParentChangeRequest? Parent,
+        FieldRequest<int?>? Priority,
+        FieldRequest<int?>? Risk,
+        FieldRequest<decimal?>? StoryPoints,
+        FieldRequest<decimal?>? Effort,
+        FieldRequest<decimal?>? BusinessValue,
+        FieldRequest<decimal?>? TimeCriticality,
+        FieldRequest<DateOnly?>? StartDate,
+        FieldRequest<DateOnly?>? TargetDate,
+        FieldRequest<int?>? Severity,
+        FieldRequest<string?>? Activity,
+        FieldRequest<decimal?>? OriginalEstimate,
+        FieldRequest<decimal?>? RemainingWork,
+        FieldRequest<decimal?>? CompletedWork,
+        FieldRequest<string?>? ValueArea,
+        string? AcceptanceCriteria,
+        string? ReproSteps,
+        string? SystemInfo);
+
+    /// <summary>feat-022: one sent field; <c>value</c> absent or <c>null</c> empties it.</summary>
+    private sealed record FieldRequest<T>(T Value);
 
     private sealed record AssigneeRequest(string? UserId);
 

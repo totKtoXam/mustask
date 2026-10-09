@@ -5,8 +5,21 @@ import type {
   WorkItemAssignee,
   WorkItemRef,
 } from '../api/workItemsApi';
+import { WORK_ITEM_FIELD_NAMES } from './fields';
+import {
+  changedFields,
+  fieldChanges,
+  fieldErrors,
+  fieldsDraftOf,
+  type FieldsDraft,
+} from './fieldValues';
+import type { RefusalField } from './refusals';
+import { descriptionError, titleError } from './rules';
 
-/** What the form edits (spec § Page: a work item's form): the six values, as typed or picked. */
+/**
+ * What the form edits (spec § Page: a work item's form): the six values, as
+ * typed or picked, and feat-022's fields per type as their controls hold them.
+ */
 export interface WorkItemDraft {
   title: string;
   description: string;
@@ -16,6 +29,8 @@ export interface WorkItemDraft {
   area: WorkItemArea;
   /** feat-001 BR-H-6: `null` is «Нет родителя». */
   parent: WorkItemRef | null;
+  /** feat-022: all 17, those the type lacks never sent. */
+  fields: FieldsDraft;
 }
 
 /** The form's values as the item was loaded or last saved. */
@@ -27,11 +42,14 @@ export function draftOf(item: WorkItem): WorkItemDraft {
     assignee: item.assignee,
     area: item.area,
     parent: item.parent,
+    fields: fieldsDraftOf(item),
   };
 }
 
 /** The draft's value of each field as the save compares it: an id where the field names one. */
-function comparable(draft: WorkItemDraft): Record<keyof WorkItemDraft, string | null> {
+function comparable(
+  draft: WorkItemDraft,
+): Record<Exclude<keyof WorkItemDraft, 'fields'>, string | null> {
   return {
     title: draft.title,
     description: draft.description,
@@ -75,12 +93,45 @@ export function changesOf(item: WorkItem, draft: WorkItemDraft): SaveWorkItemBod
     // `parentId: null` clears it; an absent `parent` would keep it.
     body.parent = { parentId, seenParentId };
   }
-  return body;
+  // feat-022 § 3.2: the type's fields that changed, by the same rule.
+  return { ...body, ...fieldChanges(item, draft.fields) };
 }
 
-/** «Сохранить» is enabled only while this is true (spec § Page: a work item's form). */
+/** Whether a save body carries anything. */
 export function hasChanges(body: SaveWorkItemBody): boolean {
   return Object.keys(body).length > 0;
+}
+
+/**
+ * «Сохранить» is enabled only while this is true (spec § Page: a work item's
+ * form; feat-022 spec § Saving): a value differs from the loaded one — a
+ * number field's text that is not a number, or a date typed in part, counts,
+ * so its check can speak.
+ */
+export function isDirty(item: WorkItem, draft: WorkItemDraft): boolean {
+  return hasChanges(changesOf(item, draft)) || changedFields(item, draft.fields).length > 0;
+}
+
+/**
+ * The browser's checks of the changed values, run on «Сохранить», each under
+ * its field: «Заголовок» and «Описание» (mod-003), then the fields per type
+ * (feat-022 spec § Controls and copy). Nothing is sent while one stands.
+ */
+export function draftErrors(
+  item: WorkItem,
+  draft: WorkItemDraft,
+): Partial<Record<RefusalField, string>> {
+  const errors: Partial<Record<RefusalField, string>> = {};
+  const title = draft.title !== item.title ? titleError(draft.title) : null;
+  const description =
+    draft.description !== item.description ? descriptionError(draft.description) : null;
+  if (title) {
+    errors.title = title;
+  }
+  if (description) {
+    errors.description = description;
+  }
+  return { ...errors, ...fieldErrors(item, draft.fields) };
 }
 
 /**
@@ -94,10 +145,17 @@ export function rebaseDraft(
   fresh: WorkItem,
   draft: WorkItemDraft,
 ): WorkItemDraft {
-  const before = comparable(draftOf(loaded));
+  const loadedDraft = draftOf(loaded);
+  const before = comparable(loadedDraft);
   const now = comparable(draft);
-  const touched = (field: keyof WorkItemDraft) => now[field] !== before[field];
+  const touched = (field: Exclude<keyof WorkItemDraft, 'fields'>) => now[field] !== before[field];
   const next = draftOf(fresh);
+  const fields = { ...next.fields };
+  for (const name of WORK_ITEM_FIELD_NAMES) {
+    if (draft.fields[name] !== loadedDraft.fields[name]) {
+      fields[name] = draft.fields[name];
+    }
+  }
   return {
     title: touched('title') ? draft.title : next.title,
     description: touched('description') ? draft.description : next.description,
@@ -105,5 +163,6 @@ export function rebaseDraft(
     assignee: touched('assignee') ? draft.assignee : next.assignee,
     area: touched('area') ? draft.area : next.area,
     parent: next.parent,
+    fields,
   };
 }

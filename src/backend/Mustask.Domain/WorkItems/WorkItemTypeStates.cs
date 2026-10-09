@@ -4,13 +4,15 @@ namespace Mustask.Domain.WorkItems;
 
 /// <summary>
 /// One work item type of the organization's process as a work item needs it:
-/// its identity, its key and its states (mod-001). States are referenced by
-/// identity, never by name (mod-001 BR-M2-9): two equal labels on two types are
-/// two states.
+/// its identity, its key, its kind and its states (mod-001). States are
+/// referenced by identity, never by name (mod-001 BR-M2-9): two equal labels on
+/// two types are two states. The kind is the type's appearance token, fixed and
+/// unique in its process: it decides the fields the type has (feat-022,
+/// <see cref="WorkItemFieldSet"/>).
 /// </summary>
 public sealed record WorkItemTypeStates
 {
-    public WorkItemTypeStates(Guid typeId, string typeKey, IReadOnlyList<WorkItemTypeState> states)
+    public WorkItemTypeStates(Guid typeId, string typeKey, AppearanceToken appearance, IReadOnlyList<WorkItemTypeState> states)
     {
         ArgumentException.ThrowIfNullOrEmpty(typeKey);
         ArgumentNullException.ThrowIfNull(states);
@@ -22,12 +24,16 @@ public sealed record WorkItemTypeStates
 
         TypeId = typeId;
         TypeKey = typeKey;
+        Appearance = appearance;
         States = states;
     }
 
     public Guid TypeId { get; }
 
     public string TypeKey { get; }
+
+    /// <summary>The type's kind (feat-022): what <see cref="WorkItemFieldSet"/> reads, never the name or the key.</summary>
+    public AppearanceToken Appearance { get; }
 
     public IReadOnlyList<WorkItemTypeState> States { get; }
 

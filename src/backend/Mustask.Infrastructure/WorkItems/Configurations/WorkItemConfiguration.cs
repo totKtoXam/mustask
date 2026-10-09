@@ -41,6 +41,19 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         builder.Property(item => item.CreatedBy).HasMaxLength(WorkItemLimits.UserIdMaxLength).IsRequired();
         builder.Property(item => item.ChangedAt).IsRequired();
 
+        // feat-022: the fields per type. Priority defaults to 2 in the database too, so a row written outside the domain
+        // (the migration's existing rows, a bulk insert) takes BR-M3-37's value; the others are null where the type lacks
+        // them, and the domain decides which a type has. Numbers keep two decimals in at most four integer digits.
+        builder.Property(item => item.Priority).IsRequired().HasDefaultValue(WorkItemFieldRules.DefaultPriority);
+        builder.Property(item => item.StoryPoints).HasPrecision(WorkItemsConstraints.NumberPrecision, WorkItemFieldRules.NumberDecimals);
+        builder.Property(item => item.Effort).HasPrecision(WorkItemsConstraints.NumberPrecision, WorkItemFieldRules.NumberDecimals);
+        builder.Property(item => item.TimeCriticality).HasPrecision(WorkItemsConstraints.NumberPrecision, WorkItemFieldRules.NumberDecimals);
+        builder.Property(item => item.OriginalEstimate).HasPrecision(WorkItemsConstraints.NumberPrecision, WorkItemFieldRules.NumberDecimals);
+        builder.Property(item => item.RemainingWork).HasPrecision(WorkItemsConstraints.NumberPrecision, WorkItemFieldRules.NumberDecimals);
+        builder.Property(item => item.CompletedWork).HasPrecision(WorkItemsConstraints.NumberPrecision, WorkItemFieldRules.NumberDecimals);
+        builder.Property(item => item.Activity).HasConversion<string>().HasMaxLength(WorkItemsConstraints.ListKeyMaxLength);
+        builder.Property(item => item.ValueArea).HasConversion<string>().HasMaxLength(WorkItemsConstraints.ListKeyMaxLength);
+
         builder.HasOne<Project>()
             .WithMany()
             .HasForeignKey(item => item.ProjectId)
@@ -86,6 +99,12 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
             table.HasCheckConstraint(WorkItemsConstraints.ParentNotSelf, "parent_id IS NULL OR parent_id <> id");
             table.HasCheckConstraint("ck_work_items_title_length", WorkItemsConstraints.TitleLengthCheck);
             table.HasCheckConstraint("ck_work_items_description_length", WorkItemsConstraints.DescriptionLengthCheck);
+
+            // feat-022: the ranges of its api-contract § 1, as the database's backstop to the domain's checks.
+            foreach (var (name, sql) in WorkItemsConstraints.FieldChecks)
+            {
+                table.HasCheckConstraint(name, sql);
+            }
         });
     }
 }

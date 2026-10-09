@@ -8,6 +8,8 @@
 // api-contract § 2–§ 3 adds the hierarchy: the item's `parent` and
 // `children`, the save's `parent`, the «Родитель» picker's search, and the
 // parent write on its own that a team's backlog maps a row with (§ 3.2).
+// feat-022's api-contract § 1–§ 3 adds the 17 fields per type to the item and
+// to the save.
 import { apiFetch } from '../../../shared/api/httpClient';
 
 /** § 1.1 `type`: as mod-001's process read gives it. */
@@ -61,8 +63,45 @@ export interface WorkItemRef {
   state: WorkItemStateReference;
 }
 
+/**
+ * feat-022 api-contract § 1, § 2: the planning, classification, estimation and
+ * text fields. Every item carries all 17; a field its type does not have
+ * (`fieldsOf`, by `type.appearance`) is always `null`. On its own type:
+ * `priority`, a bug's `severity` and `valueArea` are never `null`, a text is
+ * `""` when empty, any other field is `null` when empty. Numbers come in their
+ * shortest form, dates as `YYYY-MM-DD`, list values as their Latin keys.
+ */
+export interface WorkItemFields {
+  /** 1..4, 1 the highest; every type has it. */
+  priority: number;
+  /** 1..3. */
+  risk: number | null;
+  storyPoints: number | null;
+  effort: number | null;
+  /** An integer. */
+  businessValue: number | null;
+  timeCriticality: number | null;
+  startDate: string | null;
+  targetDate: string | null;
+  /** 1..4. */
+  severity: number | null;
+  /** `Deployment`, `Design`, `Development`, `Documentation`, `Requirements`, `Testing`. */
+  activity: string | null;
+  originalEstimate: number | null;
+  remainingWork: number | null;
+  completedWork: number | null;
+  /** `Business` or `Architectural`. */
+  valueArea: string | null;
+  acceptanceCriteria: string | null;
+  reproSteps: string | null;
+  systemInfo: string | null;
+}
+
+/** feat-022 § 1's JSON names. */
+export type WorkItemFieldName = keyof WorkItemFields;
+
 /** § 1.1: the form's item — what create, read and save answer. */
-export interface WorkItem {
+export interface WorkItem extends WorkItemFields {
   id: string;
   identifier: string;
   number: number;
@@ -90,10 +129,19 @@ export interface WorkItem {
   children: WorkItemRef[];
 }
 
-/** § 1.2: a row of the list; feat-001 § 2.2 leaves it without the hierarchy. */
+/**
+ * § 1.2: a row of the list; feat-001 § 2.2 leaves it without the hierarchy,
+ * feat-022 § 2 without the fields per type (BR-M3-40).
+ */
 export type WorkItemListItem = Omit<
   WorkItem,
-  'projectId' | 'description' | 'createdBy' | 'createdAt' | 'parent' | 'children'
+  | 'projectId'
+  | 'description'
+  | 'createdBy'
+  | 'createdAt'
+  | 'parent'
+  | 'children'
+  | WorkItemFieldName
 >;
 
 /** § 2.1: ADR-0015's `Paging<T>`; `count` is the project's item count. */
@@ -105,7 +153,7 @@ export interface WorkItemPage {
 /** § 2.1: the list's fixed page size; the route takes `page` only. */
 export const WORK_ITEMS_PAGE_SIZE = 50;
 
-/** § 2.2's body. */
+/** § 2.2's body; feat-022 § 3.1: none of the fields per type (BR-M3-40). */
 export interface CreateWorkItemBody {
   /** The submission's idempotency key (BR-M3-26), the same on every retry of it. */
   requestId: string;
@@ -129,11 +177,33 @@ export interface ParentChange {
 }
 
 /**
+ * feat-022 § 3.2: how a field other than the three texts is sent —
+ * `{ value: null }` empties it (an always-set one takes its default).
+ */
+export interface FieldValue<T> {
+  value: T | null;
+}
+
+/** feat-022 § 3.2: the three type texts, sent as strings — `""` empties one. */
+export type WorkItemTextFieldName = 'acceptanceCriteria' | 'reproSteps' | 'systemInfo';
+
+/** feat-022 § 3.2: every other field of § 1, sent in a `{ value }` wrapper. */
+export type WorkItemValueFieldName = Exclude<WorkItemFieldName, WorkItemTextFieldName>;
+
+/** feat-022 § 3.2's 17 optional members: absent leaves the field unchanged. */
+export type SaveFieldsBody = {
+  [Name in WorkItemValueFieldName]?: FieldValue<NonNullable<WorkItemFields[Name]>>;
+} & {
+  [Name in WorkItemTextFieldName]?: string;
+};
+
+/**
  * § 2.4's body: only the fields that changed. `assignee: { userId: null }`
  * clears the assignee; an absent `assignee` keeps it. feat-001 § 3.3: an
  * absent `parent` leaves the parent as it is, whoever changed it meanwhile.
+ * feat-022 § 3.2 adds the fields per type, by the same rule.
  */
-export interface SaveWorkItemBody {
+export interface SaveWorkItemBody extends SaveFieldsBody {
   title?: string;
   description?: string;
   stateId?: string;

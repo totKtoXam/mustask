@@ -26,6 +26,7 @@ const HEADERS = [
   'Родитель',
   'Исполнитель',
   'Статус',
+  'Приоритет',
   'Действия',
 ];
 
@@ -144,6 +145,7 @@ describe('US-1 Scenario: A row shows the item at a glance and opens it', () => {
       'Нет',
       'Не назначен',
       'Активна',
+      '2',
       '',
     ]);
     const handle = within(row).getByRole('button', { name: 'Переместить MSK-BUG-4' });
@@ -317,7 +319,18 @@ describe('spec § Page «Бэклоги», State Loading', () => {
       within(skeleton)
         .getAllByRole('columnheader')
         .map((header) => header.textContent),
-    ).toEqual(['Порядок', '', 'ID', 'Тип', 'Заголовок', 'Родитель', 'Исполнитель', 'Статус', '']);
+    ).toEqual([
+      'Порядок',
+      '',
+      'ID',
+      'Тип',
+      'Заголовок',
+      'Родитель',
+      'Исполнитель',
+      'Статус',
+      'Приоритет',
+      '',
+    ]);
     expect(screen.getByRole('heading', { level: 1, name: 'Бэклоги' })).toBeInTheDocument();
     expect(levelButton()).toHaveAccessibleName('Уровень: Истории');
     // The primary waits for the read: the level's types come with it.

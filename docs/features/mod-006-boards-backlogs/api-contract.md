@@ -158,6 +158,7 @@ page; the creation itself takes the default as it stands when it runs (§ 7).
 | `id` | the work item's id: what a reorder names |
 | `identifier`, `number`, `type`, `title`, `state` | exactly as mod-003's `WorkItem` (its api-contract § 1.1); `identifier` is what the form's address uses |
 | `assignee` | as mod-003: `null` for «Не назначен»; `{ "id", "displayName", "email" }`, both names `null` for «Неизвестный пользователь» |
+| `priority` | added by feat-022 (its api-contract § 5): the item's «Приоритет», an integer 1..4 — on every backlog row, nested rows included, and every board card |
 
 ## 3. Routes
 

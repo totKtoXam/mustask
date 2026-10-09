@@ -74,4 +74,30 @@ public static class WorkItemErrorCodes
 
     /// <summary>The item, or the new parent, is in «Удалена» (BR-H-8).</summary>
     public const string ItemDeleted = "workitems.link.item_deleted";
+
+    // --- feat-022: the fields per type (its api-contract § 3.2, § 6), field reasons of ValidationFailed ----------
+
+    /// <summary>A number field below 0 or above 9 999 (BR-M3-32).</summary>
+    public const string NumberOutOfRange = "workitems.workitem.number_out_of_range";
+
+    /// <summary>A decimal field with more than two digits after the point (BR-M3-32).</summary>
+    public const string NumberTooPrecise = "workitems.workitem.number_too_precise";
+
+    /// <summary>«Бизнес-ценность» with a fraction (BR-M3-32).</summary>
+    public const string IntegerRequired = "workitems.workitem.integer_required";
+
+    /// <summary>A fixed list's field with a key the list does not hold (BR-M3-31).</summary>
+    public const string ValueNotInList = "workitems.workitem.value_not_in_list";
+
+    /// <summary>A date before 2000-01-01 or after 2099-12-31 (BR-M3-35).</summary>
+    public const string DateOutOfRange = "workitems.workitem.date_out_of_range";
+
+    /// <summary>«Целевая дата» earlier than «Дата начала» once the save is applied, reported on the target (BR-M3-35).</summary>
+    public const string TargetBeforeStart = "workitems.workitem.target_before_start";
+
+    /// <summary>A type's text field over 100 000 characters (BR-M3-36).</summary>
+    public const string TextTooLong = "workitems.workitem.text_too_long";
+
+    /// <summary>A value sent for a field the item's type does not have (BR-M3-30).</summary>
+    public const string FieldNotOnType = "workitems.workitem.field_not_on_type";
 }

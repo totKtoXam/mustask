@@ -224,7 +224,10 @@ describe('mod-003 US-3 Scenario Outline: An invalid value is refused and nothing
     await userEvent.click(save());
 
     expect(screen.getByText('Не более 100 000 символов.')).toBeInTheDocument();
-    expect(screen.queryByText('До 100 000 символов')).not.toBeInTheDocument();
+    // feat-022: a bug's own texts keep their helpers; «Описание»'s is replaced.
+    expect(
+      within(screen.getByRole('region', { name: 'Описание' })).queryByText('До 100 000 символов'),
+    ).not.toBeInTheDocument();
     expect(description()).toHaveAttribute('aria-invalid', 'true');
     expect(patches(api)).toEqual([]);
   });

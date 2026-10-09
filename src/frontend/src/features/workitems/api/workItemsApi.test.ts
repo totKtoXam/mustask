@@ -123,3 +123,64 @@ describe('the item’s hierarchy and the save’s `parent` (feat-001 api-contrac
     expect(recordOf(data, 2).title).toBe('Письмо со ссылкой');
   });
 });
+
+describe('the fields per type (feat-022 api-contract § 2, § 3.2)', () => {
+  it('the read carries all 17 fields: the type’s defaults, `null` where the type lacks one', async () => {
+    serveWorkItems(hierarchyDataset());
+
+    const bug = await getWorkItem(ORG, MSK, 'MSK-BUG-4');
+
+    expect(bug).toMatchObject({
+      priority: 2,
+      severity: 3,
+      reproSteps: '',
+      systemInfo: '',
+      storyPoints: null,
+      activity: null,
+      valueArea: null,
+      acceptanceCriteria: null,
+      startDate: null,
+    });
+  });
+
+  it('PATCHes texts as strings and every other field in `{ value }`, and answers them as stored', async () => {
+    const data = hierarchyDataset();
+    const api = serveWorkItems(data);
+
+    const saved = await saveWorkItem(ORG, MSK, 'MSK-US-2', {
+      storyPoints: { value: 5 },
+      risk: { value: 2 },
+      acceptanceCriteria: 'Вход без пароля',
+    });
+
+    expect(api.writes()).toEqual([
+      {
+        method: 'PATCH',
+        path: `/api/organizations/${ORG}/projects/${MSK}/workitems/MSK-US-2`,
+        body: {
+          storyPoints: { value: 5 },
+          risk: { value: 2 },
+          acceptanceCriteria: 'Вход без пароля',
+        },
+      },
+    ]);
+    expect(saved).toMatchObject({ storyPoints: 5, risk: 2, acceptanceCriteria: 'Вход без пароля' });
+    expect(recordOf(data, 2).fields.storyPoints).toBe(5);
+  });
+
+  it('a refused value stores nothing; its reason is keyed by the JSON name', async () => {
+    const data = hierarchyDataset();
+    serveWorkItems(data);
+
+    const refusal = await saveWorkItem(ORG, MSK, 'MSK-FEAT-6', {
+      risk: { value: 1 },
+      businessValue: { value: 10_000 },
+    }).catch((error: unknown) => error);
+
+    expect((refusal as ApiError).errorCode).toBe('workitems.validation_failed');
+    expect((refusal as ApiError).body?.errors?.businessValue?.[0]?.code).toBe(
+      'workitems.workitem.number_out_of_range',
+    );
+    expect(recordOf(data, 6).fields.risk).toBeNull();
+  });
+});
