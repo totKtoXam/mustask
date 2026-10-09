@@ -2,7 +2,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   createWorkItem,
   saveWorkItem,
+  setWorkItemParent,
   type CreateWorkItemBody,
+  type ParentChange,
   type SaveWorkItemBody,
 } from '../api/workItemsApi';
 import { workItemsKeys as keys } from '../api/queryKeys';
@@ -37,6 +39,26 @@ export function useSetWorkItemState(organizationId: string, projectId: string) {
       client.setQueryData(keys.item(organizationId, projectId, item.identifier), item);
       return client.invalidateQueries({ queryKey: keys.lists(organizationId, projectId) });
     },
+  });
+}
+
+/**
+ * feat-001 § 3.2 for any item of the project: mod-006's backlog maps a row's
+ * parent with it (BR-H-14). A write touches the child and its old and new
+ * parents — their «Изменён», their `parent` and `children` — so every item
+ * the form has read in the project, and every page of the list, is read
+ * again when next shown. A refusal changes nothing.
+ */
+export function useSetWorkItemParent(organizationId: string, projectId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ identifier, change }: { identifier: string; change: ParentChange }) =>
+      setWorkItemParent(organizationId, projectId, identifier, change),
+    onSuccess: () =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: keys.items(organizationId, projectId) }),
+        client.invalidateQueries({ queryKey: keys.lists(organizationId, projectId) }),
+      ]),
   });
 }
 

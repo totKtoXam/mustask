@@ -6,7 +6,8 @@
 // not-found code. The process and area reads the screens also use are mod-001's
 // and mod-002's, unchanged (§ 3), through those slices' barrels. feat-001's
 // api-contract § 2–§ 3 adds the hierarchy: the item's `parent` and
-// `children`, the save's `parent`, and the «Родитель» picker's search.
+// `children`, the save's `parent`, the «Родитель» picker's search, and the
+// parent write on its own that a team's backlog maps a row with (§ 3.2).
 import { apiFetch } from '../../../shared/api/httpClient';
 
 /** § 1.1 `type`: as mod-001's process read gives it. */
@@ -141,6 +142,11 @@ export interface SaveWorkItemBody {
   parent?: ParentChange;
 }
 
+/** feat-001 § 3.2's answer: the item's parent as stored after the write, `null` for none. */
+export interface ParentWriteResult {
+  parent: WorkItemRef | null;
+}
+
 /** § 2.5: one candidate; `email` is `""` when the user has none. */
 export interface AssigneeCandidate {
   id: string;
@@ -225,6 +231,23 @@ export function getAssigneeCandidates(
 ): Promise<AssigneeCandidates> {
   const query = new URLSearchParams({ text });
   return apiFetch(`${organizationApiPath(organizationId)}/workitems/assignee-candidates?${query}`);
+}
+
+/**
+ * feat-001 § 3.2: the parent write on its own — sets, replaces or clears the
+ * item's parent in one write (BR-H-3), refused with `parent_changed` when the
+ * stored parent is not `seenParentId` (BR-H-4).
+ */
+export function setWorkItemParent(
+  organizationId: string,
+  projectId: string,
+  identifier: string,
+  change: ParentChange,
+): Promise<ParentWriteResult> {
+  return apiFetch(`${workItemApiPath(organizationId, projectId, identifier)}/parent`, {
+    method: 'PUT',
+    body: change,
+  });
 }
 
 /** Options of the parent search. */

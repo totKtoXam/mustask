@@ -10,6 +10,7 @@ import { PageHeader } from '../../../shared/ui/PageHeader';
 import { NotFound, StateFrame } from '../../../shared/ui/StateFrame';
 import { BoardColumns } from '../components/BoardColumns';
 import { BoardSkeleton } from '../components/BoardSkeleton';
+import { LevelMenu } from '../components/LevelMenu';
 import { useNotice } from '../components/Notice';
 import { StatusRegion } from '../components/StatusRegion';
 import { useBoard, useReadTeamAgain } from '../hooks/queries';
@@ -17,19 +18,19 @@ import { useNewWorkItem } from '../hooks/useNewWorkItem';
 import { isBoardEmpty } from '../lib/board';
 import { isBoardLevel, type BoardLevelCode } from '../lib/levels';
 import { notFoundLevel } from '../lib/refusals';
-import { levelViews } from '../lib/views';
 import { backlogPath, boardPath } from '../paths';
 
 /** spec § Page «Доски»: the secondary command to the same team's and level's backlog. */
 const SHOW_BACKLOG_LABEL = 'Показать бэклог';
 
 /**
- * «Доски» (US-4, US-5, US-6, US-7's board scenario; spec § Page «Доски»;
- * mod-015 § 10.4 without «Настройки доски» and column collapse): a team's
- * board of one level. `:level` is one of the three or the address is unknown
- * (mod-015 BR-13); the board's read validates the rest of the address. Keyed
- * by its team, so another team starts afresh, while the level tabs keep the
- * header.
+ * «Канбан» (US-4, US-5, US-6, US-7's board scenario; spec § Page «Доски»,
+ * renamed by feat-001 BR-H-16 — the address segment `boards` stays; mod-015
+ * § 10.4 without «Настройки доски» and column collapse): a team's board of
+ * one level. `:level` is one of the three or the address is unknown (mod-015
+ * BR-13); the board's read validates the rest of the address. Keyed by its
+ * team, so another team starts afresh, while choosing a level in the level
+ * drop-down (feat-001 US-6) keeps the header and the drop-down's focus.
  */
 export function BoardPage() {
   const {
@@ -97,8 +98,7 @@ function TeamBoard({
   return (
     <>
       <PageHeader
-        title="Доски"
-        views={levelViews((tab) => boardPath(organizationId, projectId, teamId, tab))}
+        title="Канбан"
         commands={[
           {
             label: SHOW_BACKLOG_LABEL,
@@ -107,6 +107,10 @@ function TeamBoard({
           },
         ]}
       />
+      <LevelMenu
+        level={level}
+        pathOf={(other) => boardPath(organizationId, projectId, teamId, other)}
+      />
       {loading ? (
         <BoardSkeleton />
       ) : query.isError ? (
@@ -114,7 +118,7 @@ function TeamBoard({
       ) : isBoardEmpty(query.data) ? (
         <StateFrame
           icon={ViewWeekOutlinedIcon}
-          heading="На доске нет рабочих элементов"
+          heading="Канбан пуст"
           hint="Новые рабочие элементы этого уровня появятся в колонке «Новые»."
           action={{ label: NEW_WORK_ITEM_LABEL, icon: <AddIcon />, onClick: newItem.open }}
         />

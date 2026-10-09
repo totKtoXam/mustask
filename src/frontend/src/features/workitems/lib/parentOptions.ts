@@ -24,23 +24,30 @@ function hint(text: string): ParentOption {
 }
 
 /**
- * The lines the list shows: «Нет родителя» always first, then «Поиск…» while
+ * The lines the list shows: «Нет родителя» first, then «Поиск…» while
  * asking, the failure, «Ничего не найдено», or up to 20 items with «Показаны
  * первые 20. Уточните запрос.» last when more matched (api-contract § 3.4).
+ * `none: false` leaves «Нет родителя» out — the backlog's dialog «Изменить
+ * родителя», whose clear is «Убрать родителя» (feat-001 spec § Page
+ * «Бэклоги»).
  */
-export function parentOptions(search: ParentSearch): ParentOption[] {
+export function parentOptions(
+  search: ParentSearch,
+  { none = true }: { none?: boolean } = {},
+): ParentOption[] {
+  const first: ParentOption[] = none ? [NO_PARENT_OPTION] : [];
   switch (search.status) {
     case 'searching':
-      return [NO_PARENT_OPTION, hint(parentPickerTexts.searching)];
+      return [...first, hint(parentPickerTexts.searching)];
     case 'failed':
-      return [NO_PARENT_OPTION, hint(parentPickerTexts.failed)];
+      return [...first, hint(parentPickerTexts.failed)];
     case 'done': {
       const { items, moreMatched } = search.result;
       if (items.length === 0) {
-        return [NO_PARENT_OPTION, hint(parentPickerTexts.noMatch)];
+        return [...first, hint(parentPickerTexts.noMatch)];
       }
       const lines: ParentOption[] = [
-        NO_PARENT_OPTION,
+        ...first,
         ...items.map((item): ParentOption => ({ kind: 'item', item })),
       ];
       if (moreMatched) {

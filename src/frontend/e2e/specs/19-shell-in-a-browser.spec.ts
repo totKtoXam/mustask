@@ -809,8 +809,8 @@ test.describe('19. the application shell in a browser (mod-015)', () => {
       // «Главная» at 1440 px: from the skip link, the listed order. A project
       // is chosen, so mod-003's project-scoped «Рабочие элементы» stands in the
       // work group after «Главная» (mod-003 spec § Navigation); a team is
-      // chosen too, so mod-006's team-scoped «Доски» and «Бэклоги» follow it
-      // (mod-006 spec § Navigation).
+      // chosen too, so mod-006's team-scoped «Канбан» (named «Доски» until
+      // feat-001 BR-H-16) and «Бэклоги» follow it (mod-006 spec § Navigation).
       await page.goto('/home');
       await expect(page.getByRole('heading', { level: 1, name: 'Главная' })).toBeVisible();
       const home = await tabStops(page, 12);
@@ -821,7 +821,7 @@ test.describe('19. the application shell in a browser (mod-015)', () => {
         expect.stringMatching(/^Профиль/),
         'Главная',
         'Рабочие элементы',
-        'Доски',
+        'Канбан',
         'Бэклоги',
         'Настройки',
         'Свернуть меню',
@@ -842,7 +842,7 @@ test.describe('19. the application shell in a browser (mod-015)', () => {
         expect.stringMatching(/^Профиль/),
         'Главная',
         'Рабочие элементы',
-        'Доски',
+        'Канбан',
         'Бэклоги',
         'Настройки',
         'Общие',

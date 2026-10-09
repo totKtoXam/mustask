@@ -117,7 +117,7 @@ describe('US-6 Scenario: Creating from the empty board', () => {
   it('«Аналитика»’s «Эпики» frame opens the dialog with «Эпик»; after «Миграция данных» the four columns show, its card in «Новые»', async () => {
     serveBoards(storiesDataset());
     renderBoards(boardAddress('epics', ids.analyticsTeam));
-    await screen.findByRole('heading', { level: 2, name: 'На доске нет рабочих элементов' });
+    await screen.findByRole('heading', { level: 2, name: 'Канбан пуст' });
 
     await userEvent.click(screen.getByRole('button', { name: 'Новый рабочий элемент' }));
     expect(within(await dialog()).getByRole('combobox', { name: 'Тип' })).toHaveTextContent('Эпик');
@@ -131,9 +131,7 @@ describe('US-6 Scenario: Creating from the empty board', () => {
       'Завершённые, рабочих элементов: 0',
     ]);
     expect(cardsIn(board, 'Новые')).toEqual(['MSK-EPIC-12']);
-    expect(
-      screen.queryByRole('heading', { level: 2, name: 'На доске нет рабочих элементов' }),
-    ).toBeNull();
+    expect(screen.queryByRole('heading', { level: 2, name: 'Канбан пуст' })).toBeNull();
   });
 });
 

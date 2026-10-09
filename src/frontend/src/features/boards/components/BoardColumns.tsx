@@ -240,7 +240,8 @@ export function BoardColumns({
   return (
     <Box
       component="section"
-      aria-label="Доска"
+      // feat-001 BR-H-16: the board region is named as the page, «Канбан».
+      aria-label="Канбан"
       sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, overflowX: 'auto', pb: 2 }}
     >
       {shown.columns.map((column, columnIndex) => {

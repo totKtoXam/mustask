@@ -63,16 +63,16 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () =>
       'Запросы',
       // mod-002: «Проект» holds built pages now, hidden only on the placeholder;
       // mod-003: so is «Рабочие элементы», a project-scoped entry;
-      // mod-006: and «Доски» and «Бэклоги», team-scoped ones.
+      // mod-006: and «Доски» (feat-001: «Канбан») and «Бэклоги», team-scoped ones.
       ...(organizationHidden
-        ? ['Организация', 'Процесс', 'Проект', 'Рабочие элементы', 'Доски', 'Бэклоги']
+        ? ['Организация', 'Процесс', 'Проект', 'Рабочие элементы', 'Канбан', 'Бэклоги']
         : []),
     ]) {
       expect(shown).not.toContain(label);
     }
   });
 
-  it('registers only built pages: «Главная», «Рабочие элементы», «Доски», «Бэклоги», «Организация» → «Общие», «Проекты», «Процесс», «Проект» → «Общие», «Команды», «Области» and «Справочники» → «Языки»', () => {
+  it('registers only built pages: «Главная», «Рабочие элементы», «Канбан», «Бэклоги», «Организация» → «Общие», «Проекты», «Процесс», «Проект» → «Общие», «Команды», «Области» and «Справочники» → «Языки»', () => {
     const registered = [
       ...navigationModel.top,
       ...navigationModel.work,
@@ -81,7 +81,7 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () =>
     expect(registered.map((entry) => entry.label)).toEqual([
       'Главная',
       'Рабочие элементы',
-      'Доски',
+      'Канбан',
       'Бэклоги',
       'Общие',
       'Проекты',
@@ -258,16 +258,16 @@ describe('US-3 Scenario: The current page is marked', () => {
   });
 });
 
-describe('mod-006 spec § Navigation: «Доски» and «Бэклоги», team-level entries whose level tabs are their page', () => {
+describe('mod-006 spec § Navigation: «Доски» (feat-001 BR-H-16: «Канбан») and «Бэклоги», team-level entries whose levels are their page', () => {
   const entry = (id: string) =>
     navigationModel.work.find((candidate) => candidate.id === id) as NavigationEntry;
   const team = { organizationId: 'org-1', projectId: 'prj-1', teamId: 'team-1' };
   const prefix = '/organizations/org-1/projects/prj-1/teams/team-1';
 
-  it('stand after «Рабочие элементы», «Доски» first; team-scoped; declare workitems.workitem.read', () => {
+  it('stand after «Рабочие элементы», «Канбан» first; team-scoped; declare workitems.workitem.read', () => {
     expect(navigationModel.work.map((candidate) => candidate.label)).toEqual([
       'Рабочие элементы',
-      'Доски',
+      'Канбан',
       'Бэклоги',
     ]);
     for (const id of ['boards', 'backlogs']) {
@@ -296,7 +296,7 @@ describe('mod-006 spec § Navigation: «Доски» and «Бэклоги», tea
   it.each([
     ['boards', 'backlogs'],
     ['backlogs', 'boards'],
-  ])('«%s» marks `page` on every level tab, leaves a trail on none, and not «%s»', (id, other) => {
+  ])('«%s» marks `page` on every level, leaves a trail on none, and not «%s»', (id, other) => {
     const visible = visibleModel(navigationModel, allowEverything, {
       isReal: true,
       selection: team,

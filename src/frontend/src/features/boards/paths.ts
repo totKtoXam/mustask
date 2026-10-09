@@ -44,7 +44,7 @@ export function backlogsLandingPath(
   return backlogPath(organizationId, projectId, teamId, LANDING_LEVEL);
 }
 
-/** «Доски»'s landing: the team's «Истории» board (spec § Navigation). */
+/** «Канбан»'s landing: the team's «Истории» board (spec § Navigation; feat-001 BR-H-16). */
 export function boardsLandingPath(
   organizationId: string,
   projectId: string,
@@ -53,12 +53,12 @@ export function boardsLandingPath(
   return boardPath(organizationId, projectId, teamId, LANDING_LEVEL);
 }
 
-/** The three level tabs of a team's «Бэклоги», in tab order: the entry's page, each of them. */
+/** The three levels of a team's «Бэклоги», in rank order: the entry's page, each of them. */
 export function backlogLevelPaths(organizationId: string, projectId: string, teamId: string) {
   return BOARD_LEVELS.map((level) => backlogPath(organizationId, projectId, teamId, level));
 }
 
-/** The three level tabs of a team's «Доски», in tab order. */
+/** The three levels of a team's «Канбан», in rank order. */
 export function boardLevelPaths(organizationId: string, projectId: string, teamId: string) {
   return BOARD_LEVELS.map((level) => boardPath(organizationId, projectId, teamId, level));
 }

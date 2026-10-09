@@ -44,8 +44,10 @@ export const SETTINGS_LABEL = 'Настройки';
  * so it shows once a real project is chosen, and current on the item's form
  * beneath its landing (mod-003 D-5). mod-006 adds «Доски» and «Бэклоги»
  * after it (its spec § Navigation): team-scoped, so they show once a real
- * team is chosen; each lands on its «Истории» tab and its other level tabs are
+ * team is chosen; each lands on its «Истории» level and its other levels are
  * its page too (`views`), so the switcher moves any of them to the landing.
+ * feat-001 renames «Доски» to «Канбан» (BR-H-16; the id and the address
+ * segment `boards` stay) and puts the levels in a drop-down (BR-H-15).
  */
 export const navigationModel: NavigationModel = {
   top: [
@@ -71,7 +73,7 @@ export const navigationModel: NavigationModel = {
     },
     {
       id: 'boards',
-      label: 'Доски',
+      label: 'Канбан',
       icon: ViewWeekOutlinedIcon,
       scope: 'team',
       permission: boardsPermissions.workItemRead,

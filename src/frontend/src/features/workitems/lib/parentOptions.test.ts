@@ -53,6 +53,22 @@ describe('«Родитель»’s lines (feat-001 spec § Screens and copy)', (
     ).toEqual(['Нет родителя', 'MSK-FEAT-6 Вход по ссылке']);
   });
 
+  it('leaves «Нет родителя» out for the backlog’s dialog (feat-001 US-5), every other line kept', () => {
+    const without = { none: false };
+    expect(labels(parentOptions({ status: 'searching' }, without))).toEqual(['Поиск…']);
+    expect(labels(parentOptions({ status: 'failed' }, without))).toEqual([
+      'Не удалось выполнить поиск. Попробуйте ещё раз.',
+    ]);
+    expect(
+      labels(parentOptions({ status: 'done', result: { items: [], moreMatched: false } }, without)),
+    ).toEqual(['Ничего не найдено']);
+    expect(
+      labels(
+        parentOptions({ status: 'done', result: { items: [FEAT_6], moreMatched: true } }, without),
+      ),
+    ).toEqual(['MSK-FEAT-6 Вход по ссылке', 'Показаны первые 20. Уточните запрос.']);
+  });
+
   it('reads the value as an option: «Нет родителя» or the item', () => {
     expect(parentOptionOf(null)).toBe(NO_PARENT_OPTION);
     expect(parentOptionLabel(parentOptionOf(FEAT_6))).toBe('MSK-FEAT-6 Вход по ссылке');

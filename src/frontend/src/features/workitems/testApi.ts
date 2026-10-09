@@ -5,8 +5,8 @@
 // assignee search (§ 2.5); plus the process and area reads the screens reuse
 // (§ 3). feat-001's api-contract adds the item's `parent` and `children`
 // (§ 2.2), the save's `parent` with the parent write's checks in their order
-// (§ 3.2, § 3.3) and the parent search (§ 3.4). It keeps the contract's
-// answers, not every rule of the backend.
+// (§ 3.2, § 3.3), the parent write on its own (§ 3.2) and the parent search
+// (§ 3.4). It keeps the contract's answers, not every rule of the backend.
 import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
 import type { AreaNode } from '../organizations';
@@ -18,6 +18,7 @@ import {
   PROBLEM_HEADERS,
   PROCESS_URL,
   WORK_ITEMS_URL,
+  WORK_ITEM_PARENT_URL,
   WORK_ITEM_URL,
   exampleDataset,
   problem,
@@ -279,6 +280,32 @@ export class WorkItemsTestApi {
       }
       current = current.parentId ? this.byId(current.parentId) : undefined;
     }
+  }
+
+  /**
+   * § 3.2: the parent write on its own — the body's parent, the checks in
+   * their order, then the link; «Изменён» moves on the child and each live
+   * parent it adds or removes (BR-H-5). The answer is the stored parent.
+   */
+  private writeParent(
+    project: ProjectRecord,
+    record: WorkItemRecord,
+    body: Record<string, unknown>,
+  ): { parent: WorkItemRef | null } {
+    const parent = this.newParent(project, body.parentId);
+    this.checkParent(record, parent, body.seenParentId);
+    const before = record.parentId ?? null;
+    const after = parent?.id ?? null;
+    if (after !== before) {
+      record.parentId = after;
+      const now = this.now();
+      record.changedAt = now;
+      for (const id of [before, after]) {
+        const touched = id ? this.byId(id) : undefined;
+        if (touched && !this.removed(touched)) touched.changedAt = now;
+      }
+    }
+    return { parent: parent ? this.ref(parent) : null };
   }
 
   /** § 3.4: the item's own project, never itself or a deleted item, of an allowed type. */
@@ -586,6 +613,13 @@ export class WorkItemsTestApi {
         answer((p, url) => {
           this.organization(one(p, 'organizationId'));
           return this.candidates(url.searchParams.get('text'));
+        }),
+      ),
+      http.put(
+        WORK_ITEM_PARENT_URL,
+        answer((p, _url, body) => {
+          const project = pr(p);
+          return this.writeParent(project, this.item(project, one(p, 'identifier')), body);
         }),
       ),
       http.get(

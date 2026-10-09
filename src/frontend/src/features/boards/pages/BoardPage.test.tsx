@@ -7,6 +7,7 @@ import { server } from '../../../test/mocks/server';
 import { CATEGORY_MARKER_CLASS } from '../../../shared/ui/WorkTrackingMarks';
 import { serveBoards } from '../testApi';
 import { cardOf, cardsIn, columnList, columnNames, findBoard } from '../testBoard';
+import { chooseLevel, levelButton } from '../testLevels';
 import {
   BOARD_URL,
   boardsDataset,
@@ -23,10 +24,6 @@ import { boardAddress, backlogAddress, mskForm, renderBoards, teamPrefix } from 
 afterEach(() => {
   focusManager.setFocused(undefined);
 });
-
-function tab(name: string) {
-  return screen.getByRole('tab', { name });
-}
 
 describe('US-4 Scenario Outline: Each level’s board has its own columns', () => {
   it.each([
@@ -151,47 +148,41 @@ describe('US-4 Scenario: A column with no cards stays on the board', () => {
 });
 
 describe('US-4 Scenario: A level with no items shows the empty frame', () => {
-  it('«Платформа» with no «Эпик»: the frame replaces the columns, header and tabs kept', async () => {
+  it('«Платформа» with no «Эпик»: «Канбан пуст» replaces the columns, header and drop-down kept (feat-001 US-6)', async () => {
     serveBoards(storiesDataset());
     renderBoards(boardAddress('epics'));
 
-    expect(
-      await screen.findByRole('heading', { level: 2, name: 'На доске нет рабочих элементов' }),
-    ).toBeVisible();
+    expect(await screen.findByRole('heading', { level: 2, name: 'Канбан пуст' })).toBeVisible();
     expect(
       screen.getByText('Новые рабочие элементы этого уровня появятся в колонке «Новые».'),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Новый рабочий элемент' })).toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'Доска' })).toBeNull();
-    expect(screen.getByRole('heading', { level: 1, name: 'Доски' })).toBeInTheDocument();
-    expect(tab('Эпики')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('region', { name: 'Канбан' })).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'Канбан' })).toBeInTheDocument();
+    expect(levelButton()).toHaveAccessibleName('Уровень: Эпики');
   });
 });
 
-describe('US-4 Scenario: Entry, tabs and the link to the backlog', () => {
-  it('«Доски» opens `<team>/boards/stories`; the tabs; «Фичи» → «Показать бэклог» → its «Показать доску»', async () => {
+describe('US-4 Scenario: Entry, levels and the link to the backlog (feat-001 US-6: «Канбан», the drop-down)', () => {
+  it('«Канбан» opens `<team>/boards/stories`; the drop-down; «Фичи» → «Показать бэклог» → its «Показать канбан»', async () => {
     serveBoards(storiesDataset());
     renderBoards(mskForm('MSK-US-3'));
 
     const navigation = screen.getByRole('navigation', { name: 'Основное меню' });
-    const entry = within(navigation).getByRole('link', { name: 'Доски' });
+    const entry = within(navigation).getByRole('link', { name: 'Канбан' });
     expect(entry).toHaveAttribute('href', boardAddress('stories'));
     await userEvent.click(entry);
 
     expect(screen.getByTestId('location')).toHaveTextContent(boardAddress('stories'));
-    expect(screen.getByRole('heading', { level: 1, name: 'Доски' })).toBeInTheDocument();
-    await waitFor(() => expect(document.title).toBe('Доски — Mustask'));
-    expect(screen.getAllByRole('tab').map((element) => element.textContent)).toEqual([
-      'Эпики',
-      'Фичи',
-      'Истории',
-    ]);
-    expect(tab('Истории')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('heading', { level: 1, name: 'Канбан' })).toBeInTheDocument();
+    await waitFor(() => expect(document.title).toBe('Канбан — Mustask'));
+    expect(screen.queryAllByRole('tab')).toEqual([]);
+    expect(levelButton()).toHaveAccessibleName('Уровень: Истории');
     expect(entry).toHaveAttribute('aria-current', 'page');
-    // «Доски» has no primary (spec § Page «Доски»).
+    // «Канбан» has no primary (spec § Page «Доски»).
     expect(screen.queryByRole('button', { name: 'Новый рабочий элемент' })).toBeNull();
 
-    await userEvent.click(tab('Фичи'));
+    await chooseLevel('Фичи');
     expect(screen.getByTestId('location')).toHaveTextContent(boardAddress('features'));
     const toBacklog = screen.getByRole('link', { name: 'Показать бэклог' });
     expect(toBacklog.querySelector('[data-testid="FormatListBulletedIcon"]')).not.toBeNull();
@@ -199,7 +190,7 @@ describe('US-4 Scenario: Entry, tabs and the link to the backlog', () => {
     expect(screen.getByTestId('location')).toHaveTextContent(backlogAddress('features'));
     expect(screen.getByRole('heading', { level: 1, name: 'Бэклоги' })).toBeInTheDocument();
 
-    const toBoard = screen.getByRole('link', { name: 'Показать доску' });
+    const toBoard = screen.getByRole('link', { name: 'Показать канбан' });
     expect(toBoard.querySelector('[data-testid="ViewWeekOutlinedIcon"]')).not.toBeNull();
     await userEvent.click(toBoard);
     expect(screen.getByTestId('location')).toHaveTextContent(boardAddress('features'));
@@ -234,9 +225,9 @@ describe('US-4 Scenario: Failure and not found are the backlog’s', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Сервис не ответил.');
-    expect(screen.getByRole('heading', { level: 1, name: 'Доски' })).toBeInTheDocument();
-    expect(screen.getAllByRole('tab')).toHaveLength(3);
-    expect(screen.queryByRole('region', { name: 'Доска' })).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'Канбан' })).toBeInTheDocument();
+    expect(levelButton()).toHaveAccessibleName('Уровень: Истории');
+    expect(screen.queryByRole('region', { name: 'Канбан' })).toBeNull();
 
     await userEvent.click(within(alert).getByRole('button', { name: 'Повторить' }));
 
@@ -274,12 +265,12 @@ describe('US-4 Scenario: Failure and not found are the backlog’s', () => {
     renderBoards(`${prefix}/boards/stories`);
 
     expect(await screen.findByRole('heading', { level: 1, name: frame })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { level: 1, name: 'Доски' })).toBeNull();
+    expect(screen.queryByRole('heading', { level: 1, name: 'Канбан' })).toBeNull();
   });
 });
 
 describe('spec § Page «Доски», State Loading', () => {
-  it('keeps the header and tabs and shows column skeletons inside «Загрузка данных»', async () => {
+  it('keeps the header and the level drop-down and shows column skeletons inside «Загрузка данных»', async () => {
     serveBoards(storiesDataset());
     let release: () => void = () => {};
     const held = new Promise<void>((resolve) => {
@@ -295,9 +286,9 @@ describe('spec § Page «Доски», State Loading', () => {
     renderBoards(boardAddress());
 
     expect(await screen.findByRole('status', { name: 'Загрузка данных' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1, name: 'Доски' })).toBeInTheDocument();
-    expect(screen.getAllByRole('tab')).toHaveLength(3);
-    expect(screen.queryByRole('region', { name: 'Доска' })).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'Канбан' })).toBeInTheDocument();
+    expect(levelButton()).toHaveAccessibleName('Уровень: Истории');
+    expect(screen.queryByRole('region', { name: 'Канбан' })).toBeNull();
 
     release();
     expect(await findBoard()).toBeInTheDocument();
@@ -334,6 +325,6 @@ describe('US-7 Scenario: A state set on the form moves the card (pass B)', () =>
     const cells = within(first)
       .getAllByRole('cell')
       .map((cell) => cell.textContent);
-    expect([cells[0], cells[2], cells[6]]).toEqual(['1', 'MSK-US-9', 'Разрешена']);
+    expect([cells[0], cells[2], cells[7]]).toEqual(['1', 'MSK-US-9', 'Разрешена']);
   });
 });

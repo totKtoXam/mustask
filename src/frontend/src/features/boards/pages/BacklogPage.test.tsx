@@ -14,9 +14,20 @@ import {
   stateId,
   storiesDataset,
 } from '../testFixtures';
+import { chooseLevel, levelButton, levelMenu } from '../testLevels';
 import { backlogAddress, mskForm, renderBoards, teamPrefix } from '../testRender';
 
-const HEADERS = ['Порядок', 'Перемещение', 'ID', 'Тип', 'Заголовок', 'Исполнитель', 'Статус'];
+const HEADERS = [
+  'Порядок',
+  'Перемещение',
+  'ID',
+  'Тип',
+  'Заголовок',
+  'Родитель',
+  'Исполнитель',
+  'Статус',
+  'Действия',
+];
 
 async function backlogTable() {
   return screen.findByRole('table', { name: 'Бэклог' });
@@ -41,10 +52,6 @@ function orders(table: HTMLElement): string[] {
   return rowsOf(table).map((row) => cellsOf(row)[0] ?? '');
 }
 
-function tab(name: string) {
-  return screen.getByRole('tab', { name });
-}
-
 /** US-1's first scenario's items, with MSK-US-7 in «Отчёты», which has no owner of its own. */
 function membershipDataset() {
   const data = boardsDataset();
@@ -67,10 +74,10 @@ describe('US-1 Scenario: A team’s backlog holds its own items of the level', (
 
     expect(identifiers(await backlogTable())).toEqual(['MSK-US-2', 'MSK-BUG-4']);
 
-    await userEvent.click(tab('Эпики'));
+    await chooseLevel('Эпики');
     await waitFor(async () => expect(identifiers(await backlogTable())).toEqual(['MSK-EPIC-1']));
 
-    await userEvent.click(tab('Фичи'));
+    await chooseLevel('Фичи');
     await waitFor(async () => expect(identifiers(await backlogTable())).toEqual(['MSK-FEAT-6']));
   });
 
@@ -93,7 +100,7 @@ describe('US-1 Scenario: Closed and resolved items stay on the backlog', () => {
     renderBoards(backlogAddress());
 
     const rows = rowsOf(await backlogTable());
-    expect(rows.map((row) => [cellsOf(row)[2], cellsOf(row)[6]])).toEqual([
+    expect(rows.map((row) => [cellsOf(row)[2], cellsOf(row)[7]])).toEqual([
       ['MSK-US-2', 'Закрыта'],
       ['MSK-BUG-4', 'Разрешена'],
     ]);
@@ -112,7 +119,7 @@ describe('US-1 Scenario: Items nobody has ordered yet are listed by number', () 
 });
 
 describe('US-1 Scenario: A row shows the item at a glance and opens it', () => {
-  it('reads «Порядок», the handle, the identifier, «Баг» with its icon, the title link, «Не назначен» and the state with its dot', async () => {
+  it('reads «Порядок», the handle, the identifier, «Баг» with its icon, the title link, «Родитель» «Нет» (feat-001 BR-H-13), «Не назначен», the state with its dot and «Ещё действия» (feat-001 BR-H-14)', async () => {
     const data = boardsDataset();
     data.items.push(
       platformItem(4, 'BUG', 'Падение при входе', { stateId: stateId('BUG', 'Активна') }),
@@ -134,15 +141,17 @@ describe('US-1 Scenario: A row shows the item at a glance and opens it', () => {
       'MSK-BUG-4',
       'Баг',
       'Падение при входе',
+      'Нет',
       'Не назначен',
       'Активна',
+      '',
     ]);
     const handle = within(row).getByRole('button', { name: 'Переместить MSK-BUG-4' });
     expect(handle).toHaveAttribute('aria-haspopup', 'menu');
     expect(handle.querySelector('[data-testid="DragIndicatorIcon"]')).not.toBeNull();
     const cells = within(row).getAllByRole('cell');
     expect(cells[3]?.querySelector('[data-testid="BugReportIcon"]')).not.toBeNull();
-    expect(cells[6]?.querySelector(`.${CATEGORY_MARKER_CLASS}`)).not.toBeNull();
+    expect(cells[7]?.querySelector(`.${CATEGORY_MARKER_CLASS}`)).not.toBeNull();
 
     await userEvent.click(within(row).getByRole('link', { name: 'Падение при входе' }));
 
@@ -159,15 +168,15 @@ describe('US-1 Scenario: A row shows the item at a glance and opens it', () => {
     renderBoards(backlogAddress());
 
     const rows = rowsOf(await backlogTable());
-    expect(rows.map((row) => cellsOf(row)[5])).toEqual([
+    expect(rows.map((row) => cellsOf(row)[6])).toEqual([
       'АСАнна Смирнова',
       'Неизвестный пользователь',
     ]);
   });
 });
 
-describe('US-1 Scenario: The level is chosen by tabs and kept in the address', () => {
-  it('«Бэклоги» in the main navigation opens the team’s «Истории», and each tab is its own address', async () => {
+describe('US-1 Scenario: The level is chosen by the level drop-down and kept in the address (feat-001 US-6)', () => {
+  it('«Бэклоги» in the main navigation opens the team’s «Истории», and each level is its own address', async () => {
     serveBoards(storiesDataset());
     renderBoards(mskForm('MSK-US-3'));
 
@@ -179,22 +188,25 @@ describe('US-1 Scenario: The level is chosen by tabs and kept in the address', (
     expect(screen.getByTestId('location')).toHaveTextContent(backlogAddress('stories'));
     expect(screen.getByRole('heading', { level: 1, name: 'Бэклоги' })).toBeInTheDocument();
     await waitFor(() => expect(document.title).toBe('Бэклоги — Mustask'));
-    expect(screen.getAllByRole('tab').map((element) => element.textContent)).toEqual([
-      'Эпики',
-      'Фичи',
-      'Истории',
+    expect(screen.queryAllByRole('tab')).toEqual([]);
+    expect(levelButton()).toHaveAccessibleName('Уровень: Истории');
+    await userEvent.click(levelButton());
+    const menu = await levelMenu();
+    const levels = within(menu).getAllByRole('menuitem');
+    expect(levels.map((element) => element.textContent)).toEqual(['Эпики', 'Фичи', 'Истории']);
+    expect(levels.map((element) => element.getAttribute('href'))).toEqual([
+      backlogAddress('epics'),
+      backlogAddress('features'),
+      backlogAddress('stories'),
     ]);
-    expect(tab('Истории')).toHaveAttribute('aria-selected', 'true');
-    expect(tab('Эпики')).toHaveAttribute('href', backlogAddress('epics'));
-    expect(tab('Фичи')).toHaveAttribute('href', backlogAddress('features'));
-    expect(tab('Истории')).toHaveAttribute('href', backlogAddress('stories'));
+    await userEvent.keyboard('{Escape}');
     expect(entry).toHaveAttribute('aria-current', 'page');
     expect(screen.queryByRole('navigation', { name: 'Путь к странице' })).toBeNull();
 
-    // Another tab is the entry's page too: still current, still no trail.
-    await userEvent.click(tab('Фичи'));
+    // Another level is the entry's page too: still current, still no trail.
+    await chooseLevel('Фичи');
     expect(screen.getByTestId('location')).toHaveTextContent(backlogAddress('features'));
-    expect(tab('Фичи')).toHaveAttribute('aria-selected', 'true');
+    expect(levelButton()).toHaveAccessibleName('Уровень: Фичи');
     expect(within(navigation).getByRole('link', { name: 'Бэклоги' })).toHaveAttribute(
       'aria-current',
       'page',
@@ -213,7 +225,7 @@ describe('US-1 Scenario: The level is chosen by tabs and kept in the address', (
   });
 });
 
-describe('US-1 Scenario: An empty backlog shows the empty frame, header and tabs kept', () => {
+describe('US-1 Scenario: An empty backlog shows the empty frame, header and level drop-down kept', () => {
   it('shows «Бэклог пуст» with its hint and «Новый рабочий элемент» on «Аналитика»’s «Эпики»', async () => {
     serveBoards(storiesDataset());
     renderBoards(backlogAddress('epics', ids.analyticsTeam));
@@ -224,12 +236,12 @@ describe('US-1 Scenario: An empty backlog shows the empty frame, header and tabs
     ).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Новый рабочий элемент' })).toHaveLength(2);
     expect(screen.getByRole('heading', { level: 1, name: 'Бэклоги' })).toBeInTheDocument();
-    expect(tab('Эпики')).toHaveAttribute('aria-selected', 'true');
+    expect(levelButton()).toHaveAccessibleName('Уровень: Эпики');
     expect(screen.queryByRole('table', { name: 'Бэклог' })).not.toBeInTheDocument();
   });
 });
 
-describe('US-1 Scenario: A failed read is retried in place, header and tabs kept', () => {
+describe('US-1 Scenario: A failed read is retried in place, header and level drop-down kept', () => {
   it('shows the server’s text with «Повторить» in place of the table, and the rows after a retry', async () => {
     const api = serveBoards(storiesDataset());
     server.use(
@@ -248,7 +260,7 @@ describe('US-1 Scenario: A failed read is retried in place, header and tabs kept
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Сервис не ответил.');
     expect(screen.getByRole('heading', { level: 1, name: 'Бэклоги' })).toBeInTheDocument();
-    expect(screen.getAllByRole('tab')).toHaveLength(3);
+    expect(levelButton()).toHaveAccessibleName('Уровень: Истории');
     expect(screen.queryByRole('table', { name: 'Бэклог' })).not.toBeInTheDocument();
 
     await userEvent.click(within(alert).getByRole('button', { name: 'Повторить' }));
@@ -285,7 +297,7 @@ describe('US-1 Scenario: A failed read is retried in place, header and tabs kept
 });
 
 describe('spec § Page «Бэклоги», State Loading', () => {
-  it('keeps the header and tabs and shows the skeleton under the real headers inside «Загрузка данных»', async () => {
+  it('keeps the header and the level drop-down and shows the skeleton under the real headers inside «Загрузка данных»', async () => {
     serveBoards(storiesDataset());
     let release: () => void = () => {};
     const held = new Promise<void>((resolve) => {
@@ -305,9 +317,9 @@ describe('spec § Page «Бэклоги», State Loading', () => {
       within(skeleton)
         .getAllByRole('columnheader')
         .map((header) => header.textContent),
-    ).toEqual(['Порядок', '', 'ID', 'Тип', 'Заголовок', 'Исполнитель', 'Статус']);
+    ).toEqual(['Порядок', '', 'ID', 'Тип', 'Заголовок', 'Родитель', 'Исполнитель', 'Статус', '']);
     expect(screen.getByRole('heading', { level: 1, name: 'Бэклоги' })).toBeInTheDocument();
-    expect(screen.getAllByRole('tab')).toHaveLength(3);
+    expect(levelButton()).toHaveAccessibleName('Уровень: Истории');
     // The primary waits for the read: the level's types come with it.
     expect(screen.queryByRole('button', { name: 'Новый рабочий элемент' })).toBeNull();
 

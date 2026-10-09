@@ -122,7 +122,7 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7) — on 
 
     for (const label of [
       'Рабочие элементы',
-      'Доски',
+      'Канбан',
       'Бэклоги',
       'Спринты',
       'Запросы',

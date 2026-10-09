@@ -441,7 +441,7 @@ by the entry's type.
 |---|---|---|---|---|---|---|
 | Main, top | «Главная» | `HomeOutlined` | none | instance | `/home` | yes |
 | Main, work | «Рабочие элементы» | `ListAltOutlined` | `workitems.workitem.read` | project | `/organizations/:o/projects/:p/workitems` | no (mod-003) |
-| Main, work | «Доски» | `ViewWeekOutlined` | per mod-006 | team | `/organizations/:o/projects/:p/teams/:t/boards/stories` | no (mod-006) |
+| Main, work | «Доски» (superseded: «Канбан», feat-001 BR-H-16, built by feat-026) | `ViewWeekOutlined` | per mod-006 | team | `/organizations/:o/projects/:p/teams/:t/boards/stories` | no (mod-006) |
 | Main, work | «Бэклоги» | `FormatListNumbered` | per mod-006 | team | `…/teams/:t/backlogs/stories` | no (mod-006) |
 | Main, work | «Спринты» (release 2) | `DateRangeOutlined` | per mod-011 | team | `…/teams/:t/sprints` | no |
 | Main, work | «Запросы» (release 2) | `ManageSearch` | per mod-008 | project | `…/projects/:p/queries` | no |
@@ -967,6 +967,13 @@ chooses the prefix, organization or project, within BR-18.
 
 ### 10.4 Board (mod-006)
 
+> **Superseded in part** by feat-001 BR-H-15 and BR-H-16 (its spec § Screens
+> and copy), built by feat-026: the page and its navigation entry are
+> «Канбан», not «Доски», and the level is chosen by the drop-down «Уровень:
+> <уровень>» under the `h1` in place of the tabs «Эпики», «Фичи», «Истории» —
+> on «Бэклоги» (§ 10.5) too. The address segment `boards` is unchanged. The
+> rows below are left as written.
+
 | Block | MUI | Copy and behaviour |
 |---|---|---|
 | Header | `PageHeader` «Доски», tabs «Эпики», «Фичи», «Истории» (addresses `…/boards/epics`, `…/features`, `…/stories`); secondary «Показать бэклог» (`FormatListBulleted`), «Настройки доски» (`SettingsOutlined`, opens § 9.6) | no primary on a board |
@@ -981,6 +988,11 @@ Empty: the frame replaces all columns: «На доске нет рабочих �
 рабочий элемент».
 
 ### 10.5 Ordered backlog with the planning pane (mod-006, mod-007)
+
+> **Superseded in part** by feat-001 BR-H-15 and BR-H-16, built by feat-026:
+> the tabs are the drop-down «Уровень: <уровень>», as on «Канбан» (§ 10.4),
+> and «Показать доску» reads «Показать канбан». The rows below are left as
+> written.
 
 | Block | MUI | Copy and behaviour |
 |---|---|---|

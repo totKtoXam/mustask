@@ -3,12 +3,24 @@
 // type level and resolved area owner (§ 1), placed then unplaced by number
 // (§ 1), the reorder with its stale refusal and its places (§ 3.2), the board's
 // columns from the seeded process (§ 3.3); plus mod-003's create with `teamId`
-// (§ 7) and its state save (§ 6), and mod-001's process read. It keeps the
-// contract's answers, not every rule of the backend.
+// (§ 7) and its state save (§ 6), and mod-001's process read. feat-001's
+// api-contract § 4 adds each backlog row's live `parent` and its `children` on
+// the same team's backlog one level below, recursively, and the parent write
+// (§ 3.2, its checks in their order) and search (§ 3.4) the backlog maps a
+// row with. It keeps the contract's answers, not every rule of the backend.
 import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
 import type { WorkItemType } from '../process';
-import { PROCESS_URL, WORK_ITEMS_URL, WORK_ITEM_URL, process } from '../workitems/testFixtures';
+import type { BacklogTreeItem } from './api/boardsApi';
+import {
+  PARENT_CANDIDATES_URL,
+  PROCESS_URL,
+  WORK_ITEMS_URL,
+  WORK_ITEM_PARENT_URL,
+  WORK_ITEM_URL,
+  problemWithParams,
+  process,
+} from '../workitems/testFixtures';
 import type { WorkItemRecord } from '../workitems/testFixtures';
 import {
   BACKLOG_URL,
@@ -49,10 +61,18 @@ const LEVEL_NAMES: Readonly<Record<string, string>> = {
   stories: 'Истории',
 };
 
+/** feat-001 § 4: the backlog whose rows nest under a row of this one; «Истории» has none (OQ-5). */
+const LEVEL_BELOW: Readonly<Record<string, string>> = {
+  epics: 'features',
+  features: 'stories',
+};
+
 /** BR-M4-2: categories in board order; Removed has no column. */
 const CATEGORY_ORDER = ['Proposed', 'InProgress', 'Resolved', 'Completed'] as const;
 const IDENTIFIER = /^([A-Z][A-Z0-9]{1,9})-([A-Z]+)-([1-9][0-9]*)$/;
 const UUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+/** feat-001 § 3.4: the search answers at most 20. */
+const CANDIDATE_LIMIT = 20;
 
 type Params = Record<string, string | readonly string[] | undefined>;
 
@@ -258,7 +278,45 @@ export class BoardsTestApi {
   backlog(team: TeamRecord, level: string) {
     return {
       ...this.surface(team, level),
-      items: this.members(team, level).map((record, index) => this.backlogItem(record, index + 1)),
+      items: this.members(team, level).map((record, index) => ({
+        order: index + 1,
+        ...this.treeItem(team, level, record),
+      })),
+    };
+  }
+
+  // ---- the tree (feat-001 § 4)
+
+  private byId(id: string | null | undefined): WorkItemRecord | undefined {
+    return id ? this.data.items.find((candidate) => candidate.id === id) : undefined;
+  }
+
+  /** § 0.4: in «Удалена» — its state's category is `Removed`. */
+  private removed(record: WorkItemRecord): boolean {
+    const state = this.type(record.typeId).states.find(
+      (candidate) => candidate.id === record.stateId,
+    );
+    return state?.category.code === 'Removed';
+  }
+
+  /** § 2.1: a parent, a child or a candidate. */
+  ref(record: WorkItemRecord) {
+    const { id, identifier, type, title, state } = this.itemFields(record);
+    return { id, identifier, type, title, state };
+  }
+
+  /** A row without `order`: its fields, its live parent, its children one level below. */
+  private treeItem(team: TeamRecord, level: string, record: WorkItemRecord): BacklogTreeItem {
+    const parent = this.byId(record.parentId);
+    const below = LEVEL_BELOW[level];
+    return {
+      ...this.itemFields(record),
+      parent: parent && !this.removed(parent) ? this.ref(parent) : null,
+      children: below
+        ? this.members(team, below)
+            .filter((child) => child.parentId === record.id)
+            .map((child) => this.treeItem(team, below, child))
+        : [],
     };
   }
 
@@ -409,11 +467,122 @@ export class BoardsTestApi {
     }
   }
 
+  // ---- the parent write and its search (feat-001 § 3.2, § 3.4)
+
+  /** The level rank of the record's type (mod-001's `backlogLevels[].rank`). */
+  private rank(record: WorkItemRecord): number {
+    const levelId = this.type(record.typeId).backlogLevel.id;
+    return process.backlogLevels.find((candidate) => candidate.id === levelId)?.rank ?? 0;
+  }
+
+  private identifierOf(record: WorkItemRecord): string {
+    return this.itemFields(record).identifier;
+  }
+
+  /** § 0.3 step 2: `parentId` names an item of this project, or the write is refused. */
+  private newParent(projectId: string, parentId: unknown): WorkItemRecord | null {
+    if (parentId === null || parentId === undefined) {
+      return null;
+    }
+    const found =
+      typeof parentId === 'string' && UUID.test(parentId)
+        ? this.data.items.find(
+            (candidate) =>
+              candidate.projectId === projectId && candidate.id === parentId.toLowerCase(),
+          )
+        : undefined;
+    if (!found) refuse('workitems.link.parent_not_found');
+    return found;
+  }
+
+  /**
+   * § 3.2 in order: the parent's not-found, deleted, the stale view (a view
+   * that saw none matches a deleted parent), self, the level, the cycle with
+   * its path; then the link, «Изменён» moving on the child and each live
+   * parent it adds or removes (BR-H-5).
+   */
+  private writeParent(projectId: string, record: WorkItemRecord, body: Record<string, unknown>) {
+    const parent = this.newParent(projectId, body.parentId);
+    if (this.removed(record) || (parent && this.removed(parent))) {
+      refuse('workitems.link.item_deleted');
+    }
+    const stored = this.byId(record.parentId);
+    const seen = typeof body.seenParentId === 'string' ? body.seenParentId.toLowerCase() : null;
+    const matches =
+      stored === undefined
+        ? seen === null
+        : stored.id === seen || (seen === null && this.removed(stored));
+    if (!matches) refuse('workitems.link.parent_changed');
+    if (parent) {
+      if (parent.id === record.id) refuse('workitems.link.self_parent');
+      if (this.rank(parent) < this.rank(record)) {
+        refuse('workitems.link.parent_level_not_allowed');
+      }
+      const chain: WorkItemRecord[] = [];
+      for (let current: WorkItemRecord | undefined = parent; current;) {
+        chain.push(current);
+        if (current.id === record.id) {
+          throw new Refusal(
+            problemWithParams('workitems.link.cycle', {
+              parent: this.identifierOf(parent),
+              item: this.identifierOf(record),
+              path: chain
+                .reverse()
+                .map((link) => this.identifierOf(link))
+                .join(' → '),
+            }),
+          );
+        }
+        current = this.byId(current.parentId);
+      }
+    }
+    const before = record.parentId ?? null;
+    const after = parent?.id ?? null;
+    if (after !== before) {
+      record.parentId = after;
+      const now = this.now();
+      record.changedAt = now;
+      for (const id of [before, after]) {
+        const touched = this.byId(id);
+        if (touched && !this.removed(touched)) touched.changedAt = now;
+      }
+    }
+    return { parent: parent ? this.ref(parent) : null };
+  }
+
+  /** § 3.4: this project's live items of an allowed type — with `levelAbove`, the level directly above. */
+  private parentCandidates(record: WorkItemRecord, text: string | null, levelAbove: boolean) {
+    const needle = (text ?? '').trim().toLocaleLowerCase('ru');
+    const own = this.rank(record);
+    const above = Math.min(
+      ...process.backlogLevels.map((candidate) => candidate.rank).filter((rank) => rank > own),
+    );
+    const matched = this.data.items
+      .filter(
+        (candidate) =>
+          candidate.projectId === record.projectId &&
+          candidate.id !== record.id &&
+          !this.removed(candidate) &&
+          (levelAbove ? this.rank(candidate) === above : this.rank(candidate) >= own) &&
+          (this.identifierOf(candidate).toLocaleLowerCase('ru').includes(needle) ||
+            candidate.title.toLocaleLowerCase('ru').includes(needle)),
+      )
+      .sort(
+        (first, second) =>
+          Date.parse(second.changedAt) - Date.parse(first.changedAt) ||
+          second.number - first.number,
+      );
+    return {
+      items: matched.slice(0, CANDIDATE_LIMIT).map((candidate) => this.ref(candidate)),
+      moreMatched: matched.length > CANDIDATE_LIMIT,
+    };
+  }
+
   // ---- MSW
 
   handlers(): HttpHandler[] {
     const answer =
-      (run: (params: Params, body: Record<string, unknown>) => unknown) =>
+      (run: (params: Params, body: Record<string, unknown>, url: URL) => unknown) =>
       async ({ request, params }: { request: Request; params: Params }) => {
         const raw = request.method === 'GET' ? '' : await request.text();
         const body = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
@@ -424,7 +593,7 @@ export class BoardsTestApi {
           body: raw ? body : undefined,
         });
         try {
-          const result = run(params, body);
+          const result = run(params, body, url);
           if (result instanceof HttpResponse) {
             return result;
           }
@@ -496,6 +665,26 @@ export class BoardsTestApi {
           const record = this.record(project.id, one(p, 'identifier'));
           this.saveState(record, body);
           return this.workItem(record);
+        }),
+      ),
+      http.put(
+        WORK_ITEM_PARENT_URL,
+        answer((p, body) => {
+          const project = this.project(one(p, 'organizationId'), one(p, 'projectId'));
+          const record = this.record(project.id, one(p, 'identifier'));
+          return this.writeParent(project.id, record, body);
+        }),
+      ),
+      http.get(
+        PARENT_CANDIDATES_URL,
+        answer((p, _body, url) => {
+          const project = this.project(one(p, 'organizationId'), one(p, 'projectId'));
+          const record = this.record(project.id, one(p, 'identifier'));
+          return this.parentCandidates(
+            record,
+            url.searchParams.get('text'),
+            url.searchParams.get('levelAbove') === 'true',
+          );
         }),
       ),
     ];

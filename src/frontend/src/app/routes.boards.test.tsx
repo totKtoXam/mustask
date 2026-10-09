@@ -221,16 +221,16 @@ describe('mod-006 the backlog route in the shell', () => {
     expect(screen.queryByRole('navigation', { name: 'Путь к странице' })).toBeNull();
   });
 
-  it('opens «Доски» as the one h1 and tab, its entry current, «Бэклоги» not, no trail', async () => {
+  it('opens «Канбан» (mod-006’s «Доски», feat-001 BR-H-16) as the one h1 and tab, its entry current, «Бэклоги» not, no trail', async () => {
     serveOrganizations();
     serveBoards(alfaDataset());
     renderRoutes(teamAddress(organizationIds.platformTeam, 'boards', 'epics'));
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Доски' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Канбан' })).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-    await waitFor(() => expect(document.title).toBe('Доски — Mustask'));
+    await waitFor(() => expect(document.title).toBe('Канбан — Mustask'));
     await waitFor(() => expect(switcherLevels()[2]).toBe('Команда: Платформа'));
-    const boards = await within(mainNavigation()).findByRole('link', { name: 'Доски' });
+    const boards = await within(mainNavigation()).findByRole('link', { name: 'Канбан' });
     expect(boards).toHaveAttribute(
       'href',
       teamAddress(organizationIds.platformTeam, 'boards', 'stories'),
@@ -242,7 +242,7 @@ describe('mod-006 the backlog route in the shell', () => {
     expect(screen.queryByRole('navigation', { name: 'Путь к странице' })).toBeNull();
   });
 
-  it('lists «Доски» and «Бэклоги» after «Рабочие элементы» in the work group once a team is chosen', async () => {
+  it('lists «Канбан» and «Бэклоги» after «Рабочие элементы» in the work group once a team is chosen', async () => {
     serveOrganizations();
     serveBoards(alfaDataset());
     renderRoutes(`${PRM}/settings/general`);
@@ -250,7 +250,7 @@ describe('mod-006 the backlog route in the shell', () => {
     const backlogs = await within(mainNavigation()).findByRole('link', { name: 'Бэклоги' });
     const links = within(mainNavigation()).getAllByRole('link');
     const workItems = within(mainNavigation()).getByRole('link', { name: 'Рабочие элементы' });
-    const boards = within(mainNavigation()).getByRole('link', { name: 'Доски' });
+    const boards = within(mainNavigation()).getByRole('link', { name: 'Канбан' });
     expect(links.indexOf(boards)).toBe(links.indexOf(workItems) + 1);
     expect(links.indexOf(backlogs)).toBe(links.indexOf(workItems) + 2);
     await userEvent.click(backlogs);
@@ -260,11 +260,11 @@ describe('mod-006 the backlog route in the shell', () => {
     );
     expect(await backlogRows()).toEqual(['PRM-US-2']);
 
-    await userEvent.click(within(mainNavigation()).getByRole('link', { name: 'Доски' }));
+    await userEvent.click(within(mainNavigation()).getByRole('link', { name: 'Канбан' }));
     expect(screen.getByTestId('location')).toHaveTextContent(
       teamAddress(organizationIds.prmTeam, 'boards', 'stories'),
     );
-    expect(await screen.findByRole('region', { name: 'Доска' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: 'Канбан' })).toBeInTheDocument();
   });
 });
 
@@ -284,7 +284,7 @@ describe('mod-006 US-1 Scenario: Switching the team keeps the entry, not the lev
       ),
     );
     expect(await backlogRows()).toEqual(['PRM-US-2']);
-    expect(screen.getByRole('tab', { name: 'Истории' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('button', { name: 'Уровень: Истории' })).toBeInTheDocument();
   });
 
   it('the same on a board: «Платформа»’s «Эпики» board, «Пример проекта» chosen, opens its «Истории» board', async () => {
@@ -301,7 +301,7 @@ describe('mod-006 US-1 Scenario: Switching the team keeps the entry, not the lev
         teamAddress(organizationIds.prmTeam, 'boards', 'stories'),
       ),
     );
-    expect(await screen.findByRole('region', { name: 'Доска' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: 'Канбан' })).toBeInTheDocument();
   });
 });
 
@@ -315,9 +315,9 @@ describe('mod-015 BR-18 on a team-level page: a project or organization choice k
     if (surface === 'backlogs') {
       expect(await backlogRows()).toEqual([identifier]);
     } else {
-      expect(await screen.findByRole('region', { name: 'Доска' })).toBeInTheDocument();
+      expect(await screen.findByRole('region', { name: 'Канбан' })).toBeInTheDocument();
     }
-    expect(screen.getByRole('tab', { name: 'Истории' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('button', { name: 'Уровень: Истории' })).toBeInTheDocument();
   }
 
   async function choose(level: 'Организация' | 'Проект', name: string) {
@@ -462,7 +462,7 @@ describe('mod-015 BR-18 on a team-level page: a project or organization choice k
 
     expect(screen.getByTestId('location')).toHaveTextContent(address);
     expect(screen.getByRole('heading', { level: 1, name: 'Бэклоги' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Фичи' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('button', { name: 'Уровень: Фичи' })).toBeInTheDocument();
 
     release();
     const landing = `${ANL}/teams/${organizationIds.anlTeam}/backlogs/stories`;
@@ -484,7 +484,7 @@ describe('mod-006 the not-found frames on a team-level address', () => {
         await screen.findByRole('heading', { level: 1, name: 'Страница не найдена' }),
       ).toBeInTheDocument();
       await within(mainNavigation()).findByRole('link', { name: 'Бэклоги' });
-      for (const name of ['Доски', 'Бэклоги']) {
+      for (const name of ['Канбан', 'Бэклоги']) {
         expect(within(mainNavigation()).getByRole('link', { name })).not.toHaveAttribute(
           'aria-current',
         );

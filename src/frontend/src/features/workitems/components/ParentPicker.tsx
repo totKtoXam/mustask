@@ -24,10 +24,15 @@ import { StateName } from './Marks';
  * «Родитель» (feat-001 US-1; spec § Screens and copy): an `Autocomplete` that
  * searches this item's parent candidates as the user types (api-contract
  * § 3.4) — from an empty text, which asks for the 20 most recently changed —
- * «Нет родителя» always first. Nothing is asked until the list first opens.
- * Hints — searching, nothing found, the first 20 only, a failed search — are
- * lines that cannot be chosen. The list is the search's answer as it is; the
- * field never filters it again. The assignee picker's pattern.
+ * «Нет родителя» first. Nothing is asked until the list first opens. Hints —
+ * searching, nothing found, the first 20 only, a failed search — are lines
+ * that cannot be chosen. The list is the search's answer as it is; the field
+ * never filters it again. The assignee picker's pattern.
+ *
+ * The backlog's dialog «Изменить родителя» (feat-001 US-5) takes it without
+ * «Нет родителя» (`offerNone={false}`; an empty value then reads as an empty
+ * field) and searches only the level directly above (`levelAbove`, § 3.4);
+ * the value is kept whatever its level.
  */
 export function ParentPicker({
   organizationId,
@@ -37,6 +42,9 @@ export function ParentPicker({
   disabled,
   error,
   helperText,
+  levelAbove = false,
+  offerNone = true,
+  autoFocus = false,
   onChange,
 }: {
   organizationId: string;
@@ -48,18 +56,27 @@ export function ParentPicker({
   error: string | undefined;
   /** «Родителем может быть: …», shown while there is no error. */
   helperText: string | null;
+  /** feat-001 § 3.4 `levelAbove=true`: only the level directly above the item's own. */
+  levelAbove?: boolean;
+  /** Whether «Нет родителя» is offered; without it, no value is an empty field. */
+  offerNone?: boolean;
+  /** The field takes focus when it mounts: a dialog's first field (mod-015 § 9.5). */
+  autoFocus?: boolean;
   onChange(parent: WorkItemRef | null): void;
 }) {
+  const labelOf = (option: ParentOption) =>
+    option.kind === 'none' && !offerNone ? '' : parentOptionLabel(option);
   // One object per value: MUI resets the typed text whenever `value` is a new
   // object, so a fresh option on every render would wipe each keystroke.
   const selected = useMemo(() => parentOptionOf(value), [value]);
-  const [inputValue, setInputValue] = useState(parentOptionLabel(selected));
+  const [inputValue, setInputValue] = useState(labelOf(selected));
   const [typed, setTyped] = useState('');
   const [opened, setOpened] = useState(false);
   const text = typed.trim();
   const settled = useDebouncedValue(text);
   const query = useParentCandidates(organizationId, projectId, identifier, settled, {
     enabled: opened,
+    levelAbove,
   });
 
   let search: ParentSearch;
@@ -70,7 +87,7 @@ export function ParentPicker({
   } else {
     search = { status: 'done', result: query.data };
   }
-  const shown = parentOptions(search);
+  const shown = parentOptions(search, { none: offerNone });
   // The chosen item stays among the options MUI knows even while the search
   // shows others, so the field keeps its value; only `shown` is listed.
   const options = shown.some((option) => sameParentOption(option, selected))
@@ -102,7 +119,7 @@ export function ParentPicker({
           onChange(option.item);
         }
       }}
-      getOptionLabel={parentOptionLabel}
+      getOptionLabel={labelOf}
       getOptionKey={parentOptionKey}
       getOptionDisabled={(option) => option.kind === 'hint'}
       isOptionEqualToValue={sameParentOption}
@@ -124,6 +141,7 @@ export function ParentPicker({
           {...params}
           label="Родитель"
           size="small"
+          autoFocus={autoFocus}
           error={error !== undefined}
           helperText={error ?? helperText ?? undefined}
           slotProps={{

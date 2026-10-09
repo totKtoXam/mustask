@@ -8,24 +8,29 @@ const NOTICE_DURATION_MS = 6000;
 interface Shown {
   id: number;
   text: string;
-  severity: 'success' | 'error';
+  /** `plain`: mod-003's creation notice, a plain message. */
+  severity: 'plain' | 'success' | 'error';
 }
 
 /**
  * A page's one notice, 6 s at the bottom left; a newer one replaces it:
- * «Рабочий элемент <ID> создан.» as plain text (mod-003's), a refused move as
- * an `Alert severity="error"` (spec § Notices).
+ * «Рабочий элемент <ID> создан.» as plain text (mod-003's), a parent written
+ * from the backlog as an `Alert severity="success"` (feat-001 spec § Notices
+ * on «Бэклоги»), a refused move or parent write as an `Alert
+ * severity="error"` (spec § Notices).
  */
 export function useNotice(): {
   notice: ReactNode;
   showSuccess(text: string): void;
+  showSuccessAlert(text: string): void;
   showError(text: string): void;
 } {
   const [shown, setShown] = useState<Shown | null>(null);
   const show = useCallback((text: string, severity: Shown['severity']) => {
     setShown((current) => ({ id: (current?.id ?? 0) + 1, text, severity }));
   }, []);
-  const showSuccess = useCallback((text: string) => show(text, 'success'), [show]);
+  const showSuccess = useCallback((text: string) => show(text, 'plain'), [show]);
+  const showSuccessAlert = useCallback((text: string) => show(text, 'success'), [show]);
   const showError = useCallback((text: string) => show(text, 'error'), [show]);
   const close = () => setShown(null);
 
@@ -41,14 +46,14 @@ export function useNotice(): {
         }
       }}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-      message={shown.severity === 'success' ? shown.text : undefined}
+      message={shown.severity === 'plain' ? shown.text : undefined}
     >
-      {shown.severity === 'error' ? (
-        <Alert severity="error" onClose={close}>
+      {shown.severity === 'plain' ? undefined : (
+        <Alert severity={shown.severity} onClose={close}>
           {shown.text}
         </Alert>
-      ) : undefined}
+      )}
     </Snackbar>
   );
-  return { notice, showSuccess, showError };
+  return { notice, showSuccess, showSuccessAlert, showError };
 }

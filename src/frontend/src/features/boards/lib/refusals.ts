@@ -1,5 +1,5 @@
 import { ApiError } from '../../../shared/api/httpClient';
-import { organizationErrorCodes } from '../../../shared/api/errorCodes';
+import { organizationErrorCodes, workItemErrorCodes } from '../../../shared/api/errorCodes';
 
 /** The levels of the address with a not-found frame on both pages (spec § Not-found answers). */
 export type BoardsNotFoundLevel = 'organization' | 'project' | 'team';
@@ -46,4 +46,50 @@ export function moveRefusalNotice(error: unknown): string | null {
     return MOVE_FAILED_TEXT;
   }
   return error.body?.detail || MOVE_FAILED_TEXT;
+}
+
+/** feat-001 spec § Notices on «Бэклоги»: no answer, or an answer without a code. */
+export const PARENT_SAVE_FAILED_TEXT = 'Не удалось сохранить родителя. Попробуйте ещё раз.';
+
+/** feat-001 api-contract § 5: the refusals about the link itself. */
+const LINK_CODES: ReadonlySet<string> = new Set([
+  workItemErrorCodes.linkParentNotFound,
+  workItemErrorCodes.linkParentLevelNotAllowed,
+  workItemErrorCodes.linkSelfParent,
+  workItemErrorCodes.linkCycle,
+  workItemErrorCodes.linkParentChanged,
+  workItemErrorCodes.linkItemDeleted,
+]);
+
+/** Where a refused parent write shows (feat-001 spec § Page «Бэклоги», § Notices on «Бэклоги»). */
+export interface ParentRefusal {
+  /** A `workitems.link.*` refusal: the dialog's «Родитель» error, its text the server's. */
+  field: string | null;
+  /** The dialog's `Alert` for any other refusal, the notice of «Убрать родителя» for any; `null` for none. */
+  notice: string | null;
+  /** `workitems.link.parent_changed`: the backlog is read again and the dialog shows its parent. */
+  parentChanged: boolean;
+}
+
+/**
+ * Places a refused parent write by its `errorCode` alone (frontend.md "Named
+ * values"): a `workitems.link.*` code is the field's error in the dialog and
+ * the notice of «Убрать родителя», with the server's `detail` (the cycle's
+ * rendered with its path); a not-found of the address shows nothing — the
+ * page, read again, is replaced by its frame; any other code its `detail`;
+ * no answer, or one without a code, `PARENT_SAVE_FAILED_TEXT`.
+ */
+export function parentRefusal(error: unknown): ParentRefusal {
+  const parentChanged =
+    error instanceof ApiError && error.errorCode === workItemErrorCodes.linkParentChanged;
+  if (notFoundLevel(error) !== null) {
+    return { field: null, notice: null, parentChanged };
+  }
+  if (!(error instanceof ApiError) || error.errorCode === undefined) {
+    return { field: null, notice: PARENT_SAVE_FAILED_TEXT, parentChanged };
+  }
+  const text = error.body?.detail || PARENT_SAVE_FAILED_TEXT;
+  return LINK_CODES.has(error.errorCode)
+    ? { field: text, notice: text, parentChanged }
+    : { field: null, notice: text, parentChanged };
 }

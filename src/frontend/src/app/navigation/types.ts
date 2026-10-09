@@ -52,7 +52,7 @@ export interface SettingsSection {
 export interface NavigationModel {
   /** «Главная». */
   top: readonly MainNavigationEntry[];
-  /** The work hubs: «Рабочие элементы», «Доски», «Бэклоги»… — as their pages are built. */
+  /** The work hubs: «Рабочие элементы», «Канбан», «Бэклоги»… — as their pages are built. */
   work: readonly MainNavigationEntry[];
   settings: readonly SettingsSection[];
 }

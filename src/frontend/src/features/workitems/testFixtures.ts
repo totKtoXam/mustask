@@ -21,6 +21,8 @@ export const WORK_ITEM_URL = `${WORK_ITEMS_URL}/:identifier`;
 export const CANDIDATES_URL = `${ORGANIZATION_URL}/workitems/assignee-candidates`;
 /** feat-001 api-contract § 3.4: «Родитель»'s search. */
 export const PARENT_CANDIDATES_URL = `${WORK_ITEM_URL}/parent-candidates`;
+/** feat-001 api-contract § 3.2: the parent write on its own. */
+export const WORK_ITEM_PARENT_URL = `${WORK_ITEM_URL}/parent`;
 
 /** Stable ids: canonical lowercase uuids, never shown on screen. */
 export const ids = {

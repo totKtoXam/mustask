@@ -4,10 +4,13 @@
 // from an answer and are sent as received, re-encoded in the path and never
 // validated (§ 0.2): a malformed one answers its level's not-found code. The
 // card move and the creation are mod-003's writes (§ 6), reached through that
-// slice's barrel, not here.
+// slice's barrel, not here. feat-001's api-contract § 4 adds the backlog's
+// tree: each row's `parent` and its `children` one level below; the board
+// does not change (BR-H-17).
 import { apiFetch } from '../../../shared/api/httpClient';
 import type {
   WorkItemAssignee,
+  WorkItemRef,
   WorkItemStateReference,
   WorkItemTypeReference,
 } from '../../workitems';
@@ -32,7 +35,7 @@ export interface BoardLevel {
   types: BoardLevelType[];
 }
 
-/** § 2.3: a backlog row, a board card. */
+/** § 2.3: a board card; on the backlog, a row's own fields (feat-001 § 4 adds its tree). */
 export interface BacklogItem {
   /** «Порядок»: 1-based and dense over the backlog; on a card, its backlog position. */
   order: number;
@@ -46,11 +49,35 @@ export interface BacklogItem {
   state: WorkItemStateReference;
 }
 
+/**
+ * feat-001 api-contract § 4: a nested row — mod-006's item without `order`
+ * (a nested row has no «Порядок», BR-H-11) — with its parent and its own
+ * children, recursively.
+ */
+export interface BacklogTreeItem extends Omit<BacklogItem, 'order'> {
+  /**
+   * The stored parent, whatever its level or team (BR-H-13), or `null` when
+   * there is none or it is in «Удалена» (BR-H-8): the cell reads «Нет».
+   */
+  parent: WorkItemRef | null;
+  /**
+   * The row's children on the same team's backlog of the level directly
+   * below, in that backlog's order; `[]` when there is none, so a row has an
+   * expand control exactly when this is not empty (BR-H-12).
+   */
+  children: BacklogTreeItem[];
+}
+
+/** § 3.1 with feat-001 § 4: a top-level row, with its «Порядок». */
+export interface BacklogRow extends BacklogTreeItem {
+  order: number;
+}
+
 /** § 3.1's answer: the whole backlog in its order, `[]` when empty. */
 export interface Backlog {
   team: BoardTeam;
   level: BoardLevel;
-  items: BacklogItem[];
+  items: BacklogRow[];
 }
 
 /** § 3.2's three positions (BR-M4-25). */

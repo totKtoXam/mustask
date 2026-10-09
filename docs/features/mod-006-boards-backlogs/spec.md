@@ -215,6 +215,11 @@ mod-016 (mod-015 BR-8). Pass A registers «Бэклоги», pass B «Доски
 
 ### Page «Бэклоги» (US-1, US-2, US-3)
 
+> **Superseded in part** by feat-001 BR-H-15 and BR-H-16 (its spec § Screens
+> and copy), built by feat-026: the tabs «Эпики», «Фичи», «Истории» are one
+> drop-down «Уровень: <уровень>» under the `h1`, and «Показать доску» reads
+> «Показать канбан». The text and tables below are left as written.
+
 Address `/organizations/:organizationId/projects/:projectId/teams/:teamId/backlogs/:level`,
 `:level` one of `epics`, `features`, `stories`; any other is an unknown
 address, «Страница не найдена» (mod-015 BR-13). mod-015 § 10.5 without the
@@ -249,6 +254,13 @@ dragging are off; then the backlog is read again. A refusal: § Notices.
 | Not found | § Not-found answers |
 
 ### Page «Доски» (US-4, US-5, US-6)
+
+> **Superseded in part** by feat-001 BR-H-15 and BR-H-16 (its spec § Screens
+> and copy), built by feat-026: the page and its navigation entry
+> (§ Navigation) are «Канбан» — `h1` «Канбан», tab title «Канбан — Mustask»,
+> region «Канбан», empty frame «Канбан пуст» — and the tabs are the drop-down
+> «Уровень: <уровень>», as on «Бэклоги». The address segment `boards` is
+> unchanged. The text and tables below are left as written.
 
 Address `/organizations/:organizationId/projects/:projectId/teams/:teamId/boards/:level`,
 `:level` as above. mod-015 § 10.4 without «Настройки доски» and column

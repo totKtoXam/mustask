@@ -8,26 +8,32 @@ import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
 import { PageHeader } from '../../../shared/ui/PageHeader';
 import { RegistrySkeleton } from '../../../shared/ui/RegistrySkeleton';
 import { NotFound, StateFrame } from '../../../shared/ui/StateFrame';
-import { BACKLOG_SKELETON_COLUMNS } from '../components/backlogColumns';
+import { backlogSkeletonColumns } from '../components/backlogColumns';
 import { BacklogTable } from '../components/BacklogTable';
+import { LevelMenu } from '../components/LevelMenu';
 import { useNotice } from '../components/Notice';
 import { StatusRegion } from '../components/StatusRegion';
 import { useBacklog, useReadTeamAgain } from '../hooks/queries';
 import { useNewWorkItem } from '../hooks/useNewWorkItem';
 import { isBoardLevel, type BoardLevelCode } from '../lib/levels';
 import { notFoundLevel } from '../lib/refusals';
-import { levelViews } from '../lib/views';
 import { backlogPath, boardPath } from '../paths';
 
-/** spec § Page «Бэклоги»: the secondary command to the same team's and level's board. */
-const SHOW_BOARD_LABEL = 'Показать доску';
+/**
+ * spec § Page «Бэклоги»: the secondary command to the same team's and level's
+ * board, named «Канбан» since feat-001 (BR-H-16).
+ */
+const SHOW_BOARD_LABEL = 'Показать канбан';
 
 /**
  * «Бэклоги» (US-1, US-2, US-3, US-7; spec § Page «Бэклоги»; mod-015 § 10.5
  * without «Итерация» and the planning pane): a team's ordered backlog of one
  * level. `:level` is one of the three or the address is unknown (mod-015
  * BR-13); the backlog's read validates the rest of the address. Keyed by its
- * team, so another team starts afresh, while the level tabs keep the header.
+ * team, so another team starts afresh, while choosing a level in the level
+ * drop-down (feat-001 US-6) keeps the header and the drop-down's focus. Since
+ * feat-001 the table is the backlog's tree with the «Родитель» column (US-4)
+ * and, on «Фичи» and «Истории», the row menu that maps a parent (US-5).
  */
 export function BacklogPage() {
   const {
@@ -63,7 +69,7 @@ function TeamBacklog({
 }) {
   const query = useBacklog(organizationId, projectId, teamId, level);
   const readAgain = useReadTeamAgain(organizationId, projectId, teamId);
-  const { notice, showSuccess, showError } = useNotice();
+  const { notice, showSuccess, showSuccessAlert, showError } = useNotice();
   const [announcement, setAnnouncement] = useState('');
   const newItem = useNewWorkItem({
     organizationId,
@@ -87,7 +93,6 @@ function TeamBacklog({
     <>
       <PageHeader
         title="Бэклоги"
-        views={levelViews((tab) => backlogPath(organizationId, projectId, teamId, tab))}
         primaryAction={newItem.command}
         commands={[
           {
@@ -97,8 +102,12 @@ function TeamBacklog({
           },
         ]}
       />
+      <LevelMenu
+        level={level}
+        pathOf={(other) => backlogPath(organizationId, projectId, teamId, other)}
+      />
       {loading ? (
-        <RegistrySkeleton columns={BACKLOG_SKELETON_COLUMNS} />
+        <RegistrySkeleton columns={backlogSkeletonColumns(level)} />
       ) : query.isError ? (
         <ErrorBanner error={query.error} onRetry={() => void query.refetch()} />
       ) : query.data.items.length === 0 ? (
@@ -117,6 +126,7 @@ function TeamBacklog({
           level={level}
           items={query.data.items}
           announce={setAnnouncement}
+          showSuccess={showSuccessAlert}
           showError={showError}
         />
       )}

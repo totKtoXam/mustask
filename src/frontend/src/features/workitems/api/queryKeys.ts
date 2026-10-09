@@ -11,6 +11,9 @@ export const workItemsKeys = {
     [ROOT, 'list', organizationId, projectId] as const,
   list: (organizationId: string, projectId: string, page: number) =>
     [ROOT, 'list', organizationId, projectId, page] as const,
+  /** Every item of a project the form has read. */
+  items: (organizationId: string, projectId: string) =>
+    [ROOT, 'item', organizationId, projectId] as const,
   item: (organizationId: string, projectId: string, identifier: string) =>
     [ROOT, 'item', organizationId, projectId, identifier] as const,
   assigneeCandidates: (organizationId: string, text: string) =>

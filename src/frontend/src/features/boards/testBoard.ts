@@ -2,9 +2,9 @@
 // name, a column's cards in order, a card's own controls.
 import { screen, within } from '@testing-library/react';
 
-/** The board region «Доска». */
+/** The board region, «Канбан» since feat-001 (BR-H-16). */
 export async function findBoard(): Promise<HTMLElement> {
-  return screen.findByRole('region', { name: 'Доска' });
+  return screen.findByRole('region', { name: 'Канбан' });
 }
 
 /** Every column's list, in board order. */

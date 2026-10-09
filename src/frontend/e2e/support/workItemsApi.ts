@@ -1,9 +1,10 @@
 // Spec 22: Node-side access to the routes a work item spec sets up through the
 // API instead of the panel — mod-002's area create (its api-contract § 4.2)
-// and mod-003's create and save (its api-contract § 2.2, § 2.4). Every call
-// goes through `organizationsApi.ts`'s `send`, so the token exchange, its
-// rules (never logged, never handed to a page) and the prior `signIn(page, …)`
-// it needs are that module's.
+// and mod-003's create and save (its api-contract § 2.2, § 2.4); spec 24 adds
+// feat-001's parent write (its api-contract § 3.2). Every call goes through
+// `organizationsApi.ts`'s `send`, so the token exchange, its rules (never
+// logged, never handed to a page) and the prior `signIn(page, …)` it needs
+// are that module's.
 import { randomUUID } from 'node:crypto';
 import type { APIRequestContext } from '@playwright/test';
 import { send } from './organizationsApi';
@@ -24,7 +25,7 @@ export interface WorkItemDto {
 
 async function call<T>(
   request: APIRequestContext,
-  method: 'GET' | 'POST' | 'PATCH',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH',
   path: string,
   body?: unknown,
 ): Promise<T> {
@@ -111,5 +112,26 @@ export function moveWorkItem(
     'PATCH',
     `${projectPath(organizationId, projectId)}/workitems/${encodeURIComponent(identifier)}`,
     { areaId },
+  );
+}
+
+/**
+ * feat-001 § 3.2: `identifier`'s parent set to `parentId` (`null` clears it),
+ * having seen `seenParentId` — none by default, which is what a freshly
+ * created item has.
+ */
+export function setParent(
+  request: APIRequestContext,
+  organizationId: string,
+  projectId: string,
+  identifier: string,
+  parentId: string | null,
+  seenParentId: string | null = null,
+): Promise<{ parent: { identifier: string } | null }> {
+  return call(
+    request,
+    'PUT',
+    `${projectPath(organizationId, projectId)}/workitems/${encodeURIComponent(identifier)}/parent`,
+    { parentId, seenParentId },
   );
 }

@@ -152,6 +152,57 @@ export function storiesDataset(
   return data;
 }
 
+/**
+ * feat-001's US-4 «Data» on «Платформа»: US-1's MSK-EPIC-1 «Вход и
+ * регистрация», MSK-US-2 «Письмо со ссылкой», MSK-TASK-3 «Шаблон письма»,
+ * MSK-BUG-4 «Ссылка истекает раньше срока», MSK-FEAT-6 «Вход по ссылке»,
+ * MSK-FEAT-8 «Вход через SSO»; MSK-EPIC-20 «Отчётность», MSK-FEAT-23 «Вход по
+ * коду», MSK-US-22 «Запомнить устройство»; and MSK-FEAT-21 «Аудит входа» in
+ * «Мастаск», team «Мастаск». MSK-EPIC-1 is the parent of MSK-FEAT-6,
+ * MSK-FEAT-8, MSK-FEAT-21 and MSK-US-22; MSK-FEAT-6 of MSK-US-2 and MSK-BUG-4;
+ * MSK-FEAT-8 of MSK-FEAT-23. «Фичи» of «Платформа» is placed MSK-FEAT-8,
+ * MSK-FEAT-6, MSK-FEAT-23; the other backlogs were never reordered.
+ */
+export function treeDataset(): BoardsDataset {
+  const data = boardsDataset();
+  const epic1 = platformItem(1, 'EPIC', 'Вход и регистрация');
+  const feat6 = platformItem(6, 'FEAT', 'Вход по ссылке', { parentId: epic1.id });
+  const feat8 = platformItem(8, 'FEAT', 'Вход через SSO', { parentId: epic1.id });
+  const feat23 = platformItem(23, 'FEAT', 'Вход по коду', { parentId: feat8.id });
+  data.items.push(
+    epic1,
+    platformItem(2, 'US', 'Письмо со ссылкой', { parentId: feat6.id }),
+    platformItem(3, 'TASK', 'Шаблон письма'),
+    platformItem(4, 'BUG', 'Ссылка истекает раньше срока', { parentId: feat6.id }),
+    feat6,
+    feat8,
+    platformItem(20, 'EPIC', 'Отчётность'),
+    item(ids.msk, 21, 'FEAT', 'Аудит входа', { areaId: ids.mskRoot, parentId: epic1.id }),
+    platformItem(22, 'US', 'Запомнить устройство', { parentId: epic1.id }),
+    feat23,
+  );
+  [feat8, feat6, feat23].forEach((record, index) =>
+    data.places.push({
+      itemId: record.id,
+      teamId: ids.platformTeam,
+      level: 'features',
+      position: index + 1,
+    }),
+  );
+  return data;
+}
+
+/** The record of «Мастаск»'s item `number` in `data`. */
+export function mskRecord(data: Pick<Dataset, 'items'>, number: number): WorkItemRecord {
+  const found = data.items.find(
+    (candidate) => candidate.projectId === ids.msk && candidate.number === number,
+  );
+  if (!found) {
+    throw new Error(`No item ${number} in «Мастаск».`);
+  }
+  return found;
+}
+
 interface Catalog {
   codes: Record<string, { statuses: number[]; ru: string }>;
 }

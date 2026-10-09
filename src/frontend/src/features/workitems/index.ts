@@ -14,10 +14,18 @@ export { CreateWorkItemDialog, type CreateDialogTeam } from './components/Create
 export { AssigneeName, StateName, TypeName } from './components/Marks';
 export { NEW_WORK_ITEM_LABEL, TypePickerMenu } from './components/TypePickerMenu';
 export { useCreateWorkItem, useSetWorkItemState } from './hooks/mutations';
+// feat-001 frontend pass B: mod-006's backlog maps a row's parent one level up
+// with this slice's parent write and its «Родитель» picker (BR-H-14), and
+// links a row's «Родитель» to the parent's form.
+export { ParentPicker } from './components/ParentPicker';
+export { useSetWorkItemParent } from './hooks/mutations';
 export type { CreatableType } from './lib/process';
 export type {
+  ParentChange,
+  ParentWriteResult,
   WorkItem,
   WorkItemAssignee,
+  WorkItemRef,
   WorkItemStateReference,
   WorkItemTypeReference,
 } from './api/workItemsApi';

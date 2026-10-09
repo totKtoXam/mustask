@@ -24,6 +24,10 @@ import {
  * card's «Ещё действия» — which are the complete ones; the pointer drags are
  * the browser's own drag and drop and are covered by the component tests.
  *
+ * Brought in line with feat-001 (its spec § E2E): the level is chosen in the
+ * drop-down «Уровень: <уровень>» that replaced the tabs (BR-H-15), and the
+ * board is named «Канбан» (BR-H-16); spec 24 covers both.
+ *
  * Nothing is injected and nothing on the session flow is stubbed
  * (`src/test/e2eSessionGuard.test.ts`). The create dialog's initial focus is
  * not asserted (tech-009: `FormDialog` under StrictMode).
@@ -112,10 +116,8 @@ test.describe('23. backlogs and boards (mod-006)', () => {
     await page.goto(`${teamPrefix}/backlogs/stories`);
     await expect(page.getByRole('heading', { level: 1, name: 'Бэклоги' })).toBeVisible();
     await expect(page).toHaveTitle('Бэклоги — Mustask');
-    await expect(page.getByRole('tab', { name: 'Истории' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
+    await expect(page.getByRole('button', { name: 'Уровень: Истории' })).toBeVisible();
+    await expect(page.getByRole('tab')).toHaveCount(0);
     await expect(main(page).getByRole('heading', { level: 2, name: 'Бэклог пуст' })).toBeVisible();
 
     // US-3: two stories and a bug, each last; the dialog names the team's default area.
@@ -160,10 +162,10 @@ test.describe('23. backlogs and boards (mod-006)', () => {
     await expect(backlogTable(page)).toBeVisible();
     await expect.poll(() => backlogRows(page)).toEqual(reordered);
 
-    // US-4: «Показать доску» opens the same team's and level's board.
-    await page.getByRole('link', { name: 'Показать доску' }).click();
+    // US-4: «Показать канбан» opens the same team's and level's board.
+    await page.getByRole('link', { name: 'Показать канбан' }).click();
     await expect(page).toHaveURL(new RegExp(`${teamPrefix}/boards/stories$`));
-    await expect(page.getByRole('heading', { level: 1, name: 'Доски' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Канбан' })).toBeVisible();
     await expect(column(page, 'Новые')).toHaveAccessibleName('Новые, рабочих элементов: 3');
     await expect(column(page, 'В работе')).toHaveAccessibleName('В работе, рабочих элементов: 0');
 
@@ -257,10 +259,7 @@ test.describe('23. backlogs and boards (mod-006)', () => {
       ),
     );
     await expect(page.getByRole('heading', { level: 1, name: 'Бэклоги' })).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'Истории' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
+    await expect(page.getByRole('button', { name: 'Уровень: Истории' })).toBeVisible();
     await expect(main(page).getByRole('heading', { level: 2, name: 'Бэклог пуст' })).toBeVisible();
     await expect(switcher(page).getByRole('button', { name: /^Проект:/ })).toHaveAttribute(
       'aria-label',
