@@ -60,6 +60,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] feat-020-work-item-preview-pane — The preview pane beside the work item list (mod-015 design 10.2) · epic:core/work-items · size:S · deps:mod-003 · note:-
 - [ ] feat-021-work-item-concurrency-token — The client-visible concurrency token on work item writes with its ADR (doc-001 BR-11) and the stale-move notice on the board (doc-003); deferred by mod-003 D-2 and mod-006 D-2 · epic:core/work-items · size:M · deps:mod-003,mod-006 · note:-
 - [ ] feat-025-boards-touch-drag — Dragging backlog rows and board cards on touch screens: the browser's native drag does not start from a touch, so only the menus work there; needs a drag library, hence an ADR and the human's choice (mod-006 Plan, frontend 6) · epic:core/backlogs-boards · size:S · deps:mod-006 · note:-
+- [ ] tech-022-stage-reading-diet — Agents read only what their stage needs: each stage file names the docs to read, the orchestrator stops loading all of docs/ai-workflow, routing.md and git.md trimmed of history and duplicated rationale (about 200 KB of process docs today, read before the first useful step) · epic:workflow · size:S · deps:- · note:-
 
 ## Withdrawn (number taken, task not done)
 
