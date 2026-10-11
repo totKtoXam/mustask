@@ -3,6 +3,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { processType } from '../../workitems/testFixtures';
 import { serveBoards, type BoardsTestApi } from '../testApi';
+import { findBacklogTable, identifiers } from '../testBacklog';
 import { boardsDataset, ids, platformItem, stateId, storiesDataset } from '../testFixtures';
 import { backlogAddress, renderBoards } from '../testRender';
 
@@ -10,17 +11,6 @@ import { backlogAddress, renderBoards } from '../testRender';
 // BR-M4-21; api-contract § 7).
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-
-async function backlogTable() {
-  return screen.findByRole('table', { name: 'Бэклог' });
-}
-
-function identifiers(table: HTMLElement): string[] {
-  return within(table)
-    .getAllByRole('row')
-    .slice(1)
-    .map((row) => within(row).getAllByRole('cell')[2]?.textContent ?? '');
-}
 
 /** The header's primary; an empty backlog's frame repeats it. */
 async function primary() {
@@ -51,16 +41,18 @@ describe('US-3 Scenario: The primary offers only the level’s types', () => {
   it('on «Истории» a menu lists «Пользовательская история» and «Баг», each with its icon', async () => {
     serveBoards(storiesDataset());
     renderBoards(backlogAddress('stories'));
-    await backlogTable();
+    await findBacklogTable();
 
     const button = await primary();
     expect(button).toHaveAttribute('aria-haspopup', 'menu');
-    expect(button.querySelector('[data-testid="ExpandMoreIcon"]')).not.toBeNull();
+    // The reference's primary draws no trailing chevron; the menu is still announced.
+    expect(button.querySelector('[data-testid="ExpandMoreIcon"]')).toBeNull();
+    expect(button.querySelector('[data-testid="AddIcon"]')).not.toBeNull();
     await userEvent.click(button);
     const menu = await screen.findByRole('menu', { name: 'Новый рабочий элемент' });
     const entries = within(menu).getAllByRole('menuitem');
     expect(entries.map((entry) => entry.textContent)).toEqual(['Пользовательская история', 'Баг']);
-    expect(entries[0]?.querySelector('[data-testid="MenuBookIcon"]')).not.toBeNull();
+    expect(entries[0]?.querySelector('[data-testid="StoryIcon"]')).not.toBeNull();
     expect(entries[1]?.querySelector('[data-testid="BugReportIcon"]')).not.toBeNull();
     expect(button).toHaveAttribute('aria-expanded', 'true');
   });
@@ -75,7 +67,7 @@ describe('US-3 Scenario: The primary offers only the level’s types', () => {
       data.items.push(platformItem(1, level === 'epics' ? 'EPIC' : 'FEAT', 'Уже есть'));
       serveBoards(data);
       renderBoards(backlogAddress(level));
-      await backlogTable();
+      await findBacklogTable();
 
       const button = await primary();
       expect(button).not.toHaveAttribute('aria-haspopup');
@@ -100,7 +92,7 @@ describe('US-3 Scenario: The item takes the team’s default area and lands last
   it('names «Новая», «Платформа» and the team; creates with the team; the notice; the row last', async () => {
     const api = serveBoards(reorderedStories());
     renderBoards(backlogAddress());
-    const table = await backlogTable();
+    const table = await findBacklogTable();
     expect(identifiers(table)).toEqual(['MSK-US-3', 'MSK-US-9']);
 
     await userEvent.click(await primary());
@@ -116,8 +108,13 @@ describe('US-3 Scenario: The item takes the team’s default area and lands last
     expect(within(found).getByRole('combobox', { name: 'Тип' })).toHaveTextContent(
       'Пользовательская история',
     );
-    // The team's text needs no area tree: nothing but the backlog was read.
-    expect(api.requests.every((request) => request.path.includes('/backlogs/'))).toBe(true);
+    // The team's text needs no area tree: only the backlog, and the process that names the row «+» types, were read.
+    expect(api.requests.some((request) => request.path.includes('/areas'))).toBe(false);
+    expect(
+      api.requests.every(
+        (request) => request.path.includes('/backlogs/') || request.path.endsWith('/process'),
+      ),
+    ).toBe(true);
 
     await userEvent.type(
       within(found).getByRole('textbox', { name: 'Заголовок' }),
@@ -145,7 +142,7 @@ describe('US-3 Scenario: The item takes the team’s default area and lands last
   it('names a «Баг»’s own initial state as «Тип» changes to it', async () => {
     serveBoards(reorderedStories());
     renderBoards(backlogAddress());
-    await backlogTable();
+    await findBacklogTable();
 
     await userEvent.click(await primary());
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Баг' }));
@@ -166,7 +163,7 @@ describe('US-3 Scenario: The first team’s default area is the root', () => {
     data.items.push(platformItem(1, 'FEAT', 'Чужая фича', { areaId: ids.mskRoot }));
     const api = serveBoards(data);
     renderBoards(backlogAddress('features', ids.mskTeam));
-    const table = await backlogTable();
+    const table = await findBacklogTable();
 
     await userEvent.click(await primary());
     const found = await dialog();
@@ -187,7 +184,7 @@ describe('US-3 Scenario: The default area is read when the item is created', () 
   it('another user’s new default «Платформа / API» is the one the item takes; the others keep «Платформа»', async () => {
     const api = serveBoards(reorderedStories());
     renderBoards(backlogAddress());
-    const table = await backlogTable();
+    const table = await findBacklogTable();
     await userEvent.click(await primary());
     await userEvent.click(
       await screen.findByRole('menuitem', { name: 'Пользовательская история' }),
@@ -213,7 +210,7 @@ describe('US-3 Scenario: Creation rules stay mod-003’s', () => {
   it('an empty «Заголовок» is refused under the field with nothing sent; a double «Создать» creates one item', async () => {
     const api = serveBoards(reorderedStories());
     renderBoards(backlogAddress());
-    const table = await backlogTable();
+    const table = await findBacklogTable();
     await userEvent.click(await primary());
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Баг' }));
     const found = await dialog();
@@ -237,7 +234,7 @@ describe('US-3 Scenario: The team was deleted while the dialog was open', () => 
   it('shows «Команда не найдена.» in the dialog, creates nothing, and closing shows the frame', async () => {
     const api = serveBoards(reorderedStories());
     renderBoards(backlogAddress());
-    await backlogTable();
+    await findBacklogTable();
     await userEvent.click(await primary());
     await userEvent.click(
       await screen.findByRole('menuitem', { name: 'Пользовательская история' }),
@@ -288,7 +285,7 @@ describe('US-3 Scenario: Creating from the empty backlog', () => {
     );
     await userEvent.click(within(found).getByRole('button', { name: 'Создать' }));
 
-    expect(identifiers(await backlogTable())).toEqual(['MSK-BUG-12']);
+    expect(identifiers(await findBacklogTable())).toEqual(['MSK-BUG-12']);
     expect(screen.queryByRole('heading', { level: 2, name: 'Бэклог пуст' })).toBeNull();
     expect(api.item(ids.msk, 12).areaId).toBe(ids.analyticsArea);
   });

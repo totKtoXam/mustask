@@ -273,9 +273,10 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
 
     /// <summary>
     /// feat-022 api-contract § 1: a number in its shortest form. The column keeps two decimals, so a stored 2.5 reads
-    /// back as 2.50; the API answers 2.5 (and 8, not 8.00). The value itself never changes.
+    /// back as 2.50; the API answers 2.5 (and 8, not 8.00). The value itself never changes. The backlog's rows
+    /// (feat-027) answer «Трудоёмкость» through this one rule too.
     /// </summary>
-    private static decimal? Shortest(decimal? value) =>
+    internal static decimal? Shortest(decimal? value) =>
         value is { } number
             ? decimal.Parse(number.ToString("0.##", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture)
             : null;

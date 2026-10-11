@@ -1,4 +1,4 @@
-import type { ThemeOptions } from '@mui/material/styles';
+import { alpha, type ThemeOptions } from '@mui/material/styles';
 import { navigationEntryClass } from './classNames';
 import { tooltipEnterDelayMs, typeScale } from './tokens';
 
@@ -56,6 +56,20 @@ export const components: ThemeOptions['components'] = {
             },
           },
           {
+            // The grey secondary button of the team head (feat-027 design
+            // § 2.5): neutral, so the page still has one accent action.
+            props: { variant: 'contained', color: 'inherit' },
+            style: {
+              color: theme.palette.text.primary,
+              '--variant-containedColor': theme.palette.text.primary,
+              '--variant-containedBg': theme.palette.shell.buttonNeutral,
+              '@media (hover: hover)': {
+                '&:hover': { '--variant-containedBg': theme.palette.shell.buttonNeutralHover },
+              },
+              '& .MuiButton-startIcon, & .MuiButton-endIcon': { color: theme.palette.text.primary },
+            },
+          },
+          {
             props: { size: 'small' },
             style: { minHeight: 0 },
           },
@@ -68,6 +82,25 @@ export const components: ThemeOptions['components'] = {
       sizeSmall: ({ theme }) => ({
         padding: theme.spacing(0.5),
         '& .MuiSvgIcon-root': { fontSize: theme.typography.pxToRem(20) },
+      }),
+    },
+  },
+  MuiLink: {
+    styleOverrides: {
+      root: ({ theme }) => ({
+        variants: [
+          {
+            // A link is text, and text needs 4.5:1. The accent (feat-027 D-10,
+            // `#0078D4`) is 4.26:1 on the application background, so a link in
+            // the default colour takes the accent's dark companion; a link that
+            // names another colour (`inherit`, the title link) is untouched.
+            props: { color: 'primary' },
+            style: {
+              color: theme.palette.primary.dark,
+              '--Link-underlineColor': alpha(theme.palette.primary.dark, 0.4),
+            },
+          },
+        ],
       }),
     },
   },
@@ -131,6 +164,10 @@ export const components: ThemeOptions['components'] = {
       root: ({ theme }) => ({
         minHeight: theme.density.tabHeight,
         color: theme.palette.text.secondary,
+        // MUI draws a tab in `typography.button`, which is Semibold now: only
+        // the selected tab keeps it, the others are Regular (feat-027 design
+        // § 2.1).
+        fontWeight: theme.typography.fontWeightRegular,
         '&.Mui-selected': {
           color: theme.palette.text.primary,
           fontWeight: typeScale.button.weight,

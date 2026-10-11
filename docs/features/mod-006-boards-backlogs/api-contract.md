@@ -159,6 +159,10 @@ page; the creation itself takes the default as it stands when it runs (§ 7).
 | `identifier`, `number`, `type`, `title`, `state` | exactly as mod-003's `WorkItem` (its api-contract § 1.1); `identifier` is what the form's address uses |
 | `assignee` | as mod-003: `null` for «Не назначен»; `{ "id", "displayName", "email" }`, both names `null` for «Неизвестный пользователь» |
 | `priority` | added by feat-022 (its api-contract § 5): the item's «Приоритет», an integer 1..4 — on every backlog row, nested rows included, and every board card |
+| `effort`, `businessValue`, `valueArea` | added by feat-027 (its api-contract § 2.1) on **backlog rows only**, nested rows included: «Трудоёмкость», «Бизнес-ценность», «Вид ценности» as feat-022 answers them on the item, `null` where the type does not have the field. A board card does not carry them. |
+
+On the backlog read, feat-027 (its api-contract § 2.1) narrows `order` to the
+top-level rows, dense over them; a card's `order` is unchanged.
 
 ## 3. Routes
 
@@ -178,6 +182,13 @@ The base is
   `parent` (the stored parent, `null` when none or in «Удалена») and
   `children` (the same team's backlog one level below nested by the links,
   each nested row without `order`); the board's cards (§ 3.3) do not.
+  Changed by feat-027 (its api-contract § 1, § 2): `children` nest the tree
+  at full depth — every level below this one, the «Задачи» level included,
+  each child of this team and not in «Удалена», by level then its backlog's
+  order — and an item whose parent is of this level and this team stands
+  beneath that parent only, not among the top-level rows; `order` numbers the
+  top-level rows 1..n; every row gains `effort`, `businessValue` and
+  `valueArea` (§ 2.3).
 - **404** organization, project, team, level (§ 0.3).
 
 ### 3.2 `POST …/backlogs/{level}/reorder` — move one item (US-2)
@@ -311,7 +322,7 @@ inventory test lists them. OpenAPI tag `Boards`.
 
 | Field | Meaning |
 |---|---|
-| `teamId` | optional. The team whose backlog or board the item is created from: the item takes that team's default area **as it stands when the item is created** (the first team's is the root), instead of the project's root. Absent or `null`: the root, as before. |
+| `teamId` | optional. The team whose backlog or board the item is created from: the item takes that team's default area **as it stands when the item is created** (the first team's is the root), instead of the project's root. Absent or `null`: the root, as before. *Changed by feat-027: when the same request also names a `parentId` (mod-003 § 2.2), the item takes the parent's area as stored instead — the team is still checked (404 below), but its default area is not taken.* |
 
 - **404** `organizations.team.not_found` — `teamId` is malformed, unknown, a
   team of another project, or a deleted team (US-3 "The team was deleted
@@ -325,4 +336,7 @@ inventory test lists them. OpenAPI tag `Boards`.
   answers not found.
 
 Every other field, answer and rule of mod-003 § 2.2 is unchanged; a request
-without `teamId` behaves exactly as before.
+without `teamId` behaves exactly as before. *Changed by feat-027: mod-003
+§ 2.2 gained the optional `parentId`, with its 404 and 409s and the parent's
+area (feat-027 api-contract § 3); a request with `parentId` follows that
+section, not this one, for its area and its `parent`.*

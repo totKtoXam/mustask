@@ -14,15 +14,19 @@ namespace Mustask.Application.Features.WorkItems.CreateWorkItem;
 /// only a title, in its type's initial state, unassigned, with an empty
 /// description, in the project's root area (BR-M3-20) — or, created from a
 /// team's backlog or board, in that team's default area as it stands
-/// (mod-006 BR-M4-21) — numbered from the project's one sequence (BR-M3-5).
+/// (mod-006 BR-M4-21); or, created from a backlog row, beneath that row's item
+/// and in its area as stored (feat-027 BR-T-10) — numbered from the project's
+/// one sequence (BR-M3-5).
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The order of answers</b> (api-contract § 0.4): the address from the
-/// outside in (the organization-context filter has answered for the
-/// organization; the project must be the organization's and reachable); the
-/// values, with every field reason at once; the type; the replay; the team,
-/// when one is named (mod-006 api-contract § 7); then the creation.
+/// <b>The order of answers</b> (api-contract § 0.4, feat-027 api-contract § 3):
+/// the address from the outside in (the organization-context filter has answered
+/// for the organization; the project must be the organization's and reachable);
+/// the values, with every field reason at once; the type; the replay; the team,
+/// when one is named (mod-006 api-contract § 7); the parent, when one is named —
+/// its not-found, then the domain's 409s (the deleted parent, the level, the
+/// depth bound of feat-027 D-9); then the creation.
 /// </para>
 /// <para>
 /// <b>The number and the replay</b> (BR-M3-5, BR-M3-26). The project's counter
@@ -33,6 +37,15 @@ namespace Mustask.Application.Features.WorkItems.CreateWorkItem;
 /// moment waits for the first to commit, then finds its item and answers it,
 /// with no number consumed. The unique index on the submission key is the
 /// backstop. The root area needs no lock: it is never deleted (BR-M1-11).
+/// </para>
+/// <para>
+/// <b>The parent</b> (feat-027 api-contract § 3, "Concurrency"): after the
+/// number's and the team's locks, the parent write's own order — the project's
+/// hierarchy, then the parent as a link end — so the parent is read as the last
+/// parent write, save or deletion of it committed. Its area needs no lock: an
+/// area that holds an item is never deleted (mod-003 § 6), and the parent's lock
+/// keeps it there until the commit. A refusal rolls the transaction back, the
+/// number's increment with it.
 /// </para>
 /// </remarks>
 public sealed class CreateWorkItemHandler(
@@ -80,8 +93,11 @@ public sealed class CreateWorkItemHandler(
                 }
 
                 // 3. The type: one of the organization's process (BR-M3-1).
-                var type = await FindTypeAsync(organizationId, command.TypeId, ct)
-                    ?? throw new NotFoundException(WorkItemErrorCodes.TypeNotFound);
+                if (await processes.FindByOrganizationAsync(organizationId, ct) is not { } process
+                    || TypeOf(process, command.TypeId) is not { } type)
+                {
+                    throw new NotFoundException(WorkItemErrorCodes.TypeNotFound);
+                }
 
                 // 4. The number, and the replay after its lock.
                 await workItems.LockNumberSequenceAsync(projectId, ct);
@@ -106,9 +122,32 @@ public sealed class CreateWorkItemHandler(
                     areaId = defaultAreaId;
                 }
 
+                // 6. feat-027: the parent, under the parent write's order — the hierarchy, then the parent itself. One
+                // malformed, unknown or of another project answers alike (BR-H-1); its area then wins over the team's.
+                WorkItem? parent = null;
+                IReadOnlyCollection<HierarchyLink> parentAncestry = [];
+
+                if (command.ParentId is not null)
+                {
+                    if (!AddressedId.TryParse(command.ParentId, out var parentId))
+                    {
+                        throw new NotFoundException(WorkItemErrorCodes.ParentNotFound);
+                    }
+
+                    await workItems.LockHierarchyAsync(projectId, ct);
+
+                    parent = await workItems.LockNewParentAsync(projectId, parentId, ct)
+                        ?? throw new NotFoundException(WorkItemErrorCodes.ParentNotFound);
+                    parentAncestry = await workItems.AncestryAsync(projectId, parent.Id, ct);
+                }
+
                 var number = await workItems.TakeNextNumberAsync(projectId, ct);
 
-                var item = WorkItem.Create(projectId, number, type, areaId, title, requestId, clock.UtcNow, currentUser.SubjectId);
+                var item = parent is null
+                    ? WorkItem.Create(projectId, number, type, areaId, title, requestId, clock.UtcNow, currentUser.SubjectId)
+                    : WorkItemHierarchy.CreateChild(
+                        parent, parentAncestry, ProcessHierarchy.Of(process), number, type, title, requestId, clock.UtcNow, currentUser.SubjectId);
+
                 workItems.Add(item);
                 await workItems.SaveAsync(ct);
 
@@ -117,15 +156,14 @@ public sealed class CreateWorkItemHandler(
             cancellationToken);
 
     /// <summary>The type of the organization's process with that id, or <c>null</c> for a malformed, unknown or foreign one.</summary>
-    private async Task<WorkItemTypeStates?> FindTypeAsync(Guid organizationId, string? rawTypeId, CancellationToken cancellationToken)
+    private static WorkItemTypeStates? TypeOf(ProcessDefinitionRow process, string? rawTypeId)
     {
         if (!AddressedId.TryParse(rawTypeId, out var typeId))
         {
             return null;
         }
 
-        var process = await processes.FindByOrganizationAsync(organizationId, cancellationToken);
-        var type = process?.WorkItemTypes.SingleOrDefault(candidate => candidate.Id == typeId);
+        var type = process.WorkItemTypes.SingleOrDefault(candidate => candidate.Id == typeId);
 
         return type is null
             ? null

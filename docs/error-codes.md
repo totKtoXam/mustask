@@ -85,6 +85,7 @@ guarantees it exists and differs from the Russian, not its quality
 |user_directory.value_too_long|400|Превышена максимальная длина: {limit} символов.|Ең үлкен ұзындықтан асып кетті: {limit} таңба.|user_directory|—|needs review|
 |workitems.invalid_page|400|Некорректный номер страницы.|Бет нөмірі дұрыс емес.|workitems|—|needs review|
 |workitems.link.cycle|409|Нельзя выбрать родителем {parent}: он вложен в {item} ({path}).|{parent} элементін ата-аналық ретінде таңдауға болмайды: ол {item} ішіне енгізілген ({path}).|workitems|—|needs review|
+|workitems.link.depth_exceeded|409|Слишком глубокая вложенность: в цепочке родителей может быть не больше {limit} элементов.|Кірістіру тым терең: ата-аналық элементтер тізбегінде {limit} элементтен артық болмауы керек.|workitems|—|needs review|
 |workitems.link.item_deleted|409|Удалённый рабочий элемент нельзя связывать.|Жойылған жұмыс элементін байланыстыруға болмайды.|workitems|—|needs review|
 |workitems.link.parent_changed|409|Родитель уже изменён другим участником. Данные обновлены — проверьте и повторите.|Ата-аналық элементті басқа қатысушы өзгертіп қойған. Деректер жаңартылды — тексеріп, қайталаңыз.|workitems|—|needs review|
 |workitems.link.parent_level_not_allowed|409|Родителем может быть только рабочий элемент того же или более высокого уровня.|Ата-аналық элемент тек сол деңгейдегі немесе жоғарырақ деңгейдегі жұмыс элементі бола алады.|workitems|—|needs review|

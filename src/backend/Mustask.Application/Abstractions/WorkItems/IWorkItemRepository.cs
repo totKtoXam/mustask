@@ -5,11 +5,12 @@ namespace Mustask.Application.Abstractions.WorkItems;
 /// <summary>
 /// The write side of work items (mod-003). Locks follow one order: the
 /// project's number counter (creation only), then the team a creation comes from
-/// (mod-006), then the project's hierarchy (a parent write only, feat-001), then
-/// the item, then the area it moves into, then its new and its stored parent (a
-/// parent write only). Each lock is taken before the row it guards is read, so
-/// the read sees the row as the previous lock holder left it. No holder of an
-/// area's lock waits on an item, so the area may come before the parents.
+/// (mod-006), then the project's hierarchy (a parent write, feat-001, or a
+/// creation with a parent, feat-027), then the item, then the area it moves into,
+/// then its new and its stored parent (a parent write, or a creation's parent).
+/// Each lock is taken before the row it guards is read, so the read sees the row
+/// as the previous lock holder left it. No holder of an area's lock waits on an
+/// item, so the area may come before the parents.
 /// </summary>
 public interface IWorkItemRepository
 {
@@ -66,10 +67,24 @@ public interface IWorkItemRepository
     /// the new parent, then the child's stored parent, each locked
     /// <c>FOR NO KEY UPDATE</c> and tracked — a backlog reorder's foreign-key check
     /// (<c>FOR KEY SHARE</c>) is never waited on — and the new parent's ancestry
-    /// as stored. <c>null</c> when <paramref name="newParentId"/> names no item of
+    /// as stored, and — for the depth bound (feat-027 D-9) — the height of the child's own subtree, each in one
+    /// recursive statement. <c>null</c> when <paramref name="newParentId"/> names no item of
     /// the child's project (BR-H-1).
     /// </summary>
     Task<ParentWrite?> LockParentWriteAsync(WorkItem child, Guid? newParentId, Guid? seenParentId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// feat-027 (BR-T-10): the parent a creation names, after <see cref="LockHierarchyAsync"/> — the project's item
+    /// with that id, locked <c>FOR NO KEY UPDATE</c> as a parent write's link end and tracked, so its area and state
+    /// stay as read until the commit; <c>null</c> when the project has no such item (BR-H-1).
+    /// </summary>
+    Task<WorkItem?> LockNewParentAsync(Guid projectId, Guid parentId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// feat-027 D-9: the item and every ancestor of it as stored, in one recursive statement (the creation's parent,
+    /// for the depth bound). Read under the hierarchy lock, so no link of the project moves meanwhile.
+    /// </summary>
+    Task<IReadOnlyCollection<HierarchyLink>> AncestryAsync(Guid projectId, Guid workItemId, CancellationToken cancellationToken);
 
     void Add(WorkItem item);
 

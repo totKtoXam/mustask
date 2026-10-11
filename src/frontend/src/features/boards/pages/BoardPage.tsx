@@ -1,27 +1,21 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import AddIcon from '@mui/icons-material/Add';
-import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import ViewWeekOutlinedIcon from '@mui/icons-material/ViewWeekOutlined';
 import { useProcessDefinition } from '../../process';
 import { NEW_WORK_ITEM_LABEL, type WorkItemStateReference } from '../../workitems';
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
-import { PageHeader } from '../../../shared/ui/PageHeader';
 import { NotFound, StateFrame } from '../../../shared/ui/StateFrame';
 import { BoardColumns } from '../components/BoardColumns';
 import { BoardSkeleton } from '../components/BoardSkeleton';
-import { LevelMenu } from '../components/LevelMenu';
 import { useNotice } from '../components/Notice';
 import { StatusRegion } from '../components/StatusRegion';
+import { TeamHead } from '../components/TeamHead';
 import { useBoard, useReadTeamAgain } from '../hooks/queries';
 import { useNewWorkItem } from '../hooks/useNewWorkItem';
 import { isBoardEmpty } from '../lib/board';
 import { isBoardLevel, type BoardLevelCode } from '../lib/levels';
 import { notFoundLevel } from '../lib/refusals';
-import { backlogPath, boardPath } from '../paths';
-
-/** spec § Page «Доски»: the secondary command to the same team's and level's backlog. */
-const SHOW_BACKLOG_LABEL = 'Показать бэклог';
 
 /**
  * «Канбан» (US-4, US-5, US-6, US-7's board scenario; spec § Page «Доски»,
@@ -30,7 +24,10 @@ const SHOW_BACKLOG_LABEL = 'Показать бэклог';
  * one level. `:level` is one of the three or the address is unknown (mod-015
  * BR-13); the board's read validates the rest of the address. Keyed by its
  * team, so another team starts afresh, while choosing a level in the level
- * drop-down (feat-001 US-6) keeps the header and the drop-down's focus.
+ * drop-down (feat-001 US-6) keeps the header and the drop-down's focus. Its
+ * head is the backlog's (feat-027 BR-T-16): the team's name, the tab «Канбан»,
+ * the level drop-down at its right end and «Показать бэклог»; a board has no
+ * primary action in the head (mod-015 § 10.4).
  */
 export function BoardPage() {
   const {
@@ -97,19 +94,13 @@ function TeamBoard({
 
   return (
     <>
-      <PageHeader
-        title="Канбан"
-        commands={[
-          {
-            label: SHOW_BACKLOG_LABEL,
-            icon: <FormatListBulletedIcon />,
-            to: backlogPath(organizationId, projectId, teamId, level),
-          },
-        ]}
-      />
-      <LevelMenu
+      <TeamHead
+        page="board"
+        organizationId={organizationId}
+        projectId={projectId}
+        teamId={teamId}
         level={level}
-        pathOf={(other) => boardPath(organizationId, projectId, teamId, other)}
+        teamName={query.data?.team.name}
       />
       {loading ? (
         <BoardSkeleton />

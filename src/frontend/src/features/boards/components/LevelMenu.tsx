@@ -1,6 +1,5 @@
 import { useId, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -8,16 +7,17 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { BOARD_LEVELS, LEVEL_LABELS, type BoardLevelCode } from '../lib/levels';
 
 /**
- * The level drop-down (feat-001 US-6, BR-H-15; its spec § Level drop-down),
- * in mod-015 § 6.1's views row under the `h1`, where mod-006's tabs stood:
- * «Уровень: <уровень>» opens a menu of «Эпики», «Фичи», «Истории» in rank
- * order, each a link to its own address, the current one selected and
- * `aria-current="page"`. Choosing changes only the address's `:level`, so
- * the browser's back returns to the previous level. Keyboard per mod-015
- * § 12.4: Enter, Space or ArrowDown opens on the current level (MUI's
- * `selectedMenu`), the arrows and Home/End move, Enter chooses, Escape closes;
- * focus comes back to the button either way, and the page keeps the button
- * mounted across levels, so it then reads the new one.
+ * The level drop-down (feat-001 US-6, BR-H-15; feat-027 design § 3.4), at the
+ * right end of the head's tab row: a text button whose visible label is the
+ * level — «Эпики» — and whose accessible name is «Уровень: Эпики» (the name
+ * contains the visible label, WCAG 2.5.3, and is what the E2E selects by). It
+ * opens a menu of «Эпики», «Фичи», «Истории» in rank order, each a link to its
+ * own address, the current one selected and `aria-current="page"`. Choosing
+ * changes only the address's `:level`, so the browser's back returns to the
+ * previous level. Keyboard per mod-015 § 12.4: Enter, Space or ArrowDown opens
+ * on the current level (MUI's `selectedMenu`), the arrows and Home/End move,
+ * Enter chooses, Escape closes; focus comes back to the button either way, and
+ * the page keeps the button mounted across levels, so it then reads the new one.
  */
 export function LevelMenu({
   level,
@@ -37,11 +37,13 @@ export function LevelMenu({
   }
 
   return (
-    <Box sx={{ pb: 1 }}>
+    <>
       <Button
         id={buttonId}
         variant="text"
+        size="small"
         endIcon={<ExpandMoreIcon />}
+        aria-label={`Уровень: ${LEVEL_LABELS[level]}`}
         aria-haspopup="menu"
         aria-expanded={open ? 'true' : 'false'}
         aria-controls={open ? menuId : undefined}
@@ -52,8 +54,9 @@ export function LevelMenu({
             openMenu(event);
           }
         }}
+        sx={{ flexShrink: 0, '& .MuiButton-endIcon': { color: 'text.primary' } }}
       >
-        {`Уровень: ${LEVEL_LABELS[level]}`}
+        {LEVEL_LABELS[level]}
       </Button>
       <Menu
         id={menuId}
@@ -79,6 +82,6 @@ export function LevelMenu({
           );
         })}
       </Menu>
-    </Box>
+    </>
   );
 }

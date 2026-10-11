@@ -1,10 +1,10 @@
 import type { SvgIconComponent } from '@mui/icons-material';
-import AssignmentIcon from '@mui/icons-material/Assignment';
+import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import BugReportIcon from '@mui/icons-material/BugReport';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined';
-import LandscapeIcon from '@mui/icons-material/Landscape';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
+import { CrownIcon } from './CrownIcon';
+import { StoryIcon } from './StoryIcon';
 import {
   APPEARANCE_TOKENS,
   CATEGORY_CODES,
@@ -38,11 +38,14 @@ export interface WorkTrackingLookups {
   categoryColour(code: string): string;
 }
 
+// feat-027 design § 2.4: the crown, the two-page book and the clipboard with a
+// check are the reference screen's epic, story and task; one lookup, so every
+// place that draws a type changes with it.
 const TYPE_ICONS: Record<AppearanceToken, SvgIconComponent> = {
-  epic: LandscapeIcon,
+  epic: CrownIcon,
   feature: EmojiEventsIcon,
-  story: MenuBookIcon,
-  task: AssignmentIcon,
+  story: StoryIcon,
+  task: AssignmentTurnedInIcon,
   bug: BugReportIcon,
 };
 

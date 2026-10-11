@@ -29,11 +29,11 @@ function rgb(hex: string): string {
 
 /** The icon the theme draws per token (mod-015 design § 2.3), by MUI's own test id. */
 const TOKEN_ICONS: Record<string, string> = {
-  epic: 'LandscapeIcon',
+  epic: 'CrownIcon',
   feature: 'EmojiEventsIcon',
-  story: 'MenuBookIcon',
+  story: 'StoryIcon',
   bug: 'BugReportIcon',
-  task: 'AssignmentIcon',
+  task: 'AssignmentTurnedInIcon',
 };
 
 const CATEGORY_CODES = ['Proposed', 'InProgress', 'Resolved', 'Completed', 'Removed'];

@@ -2,7 +2,9 @@
 // API instead of the panel — mod-002's area create (its api-contract § 4.2)
 // and mod-003's create and save (its api-contract § 2.2, § 2.4); spec 24 adds
 // feat-001's parent write (its api-contract § 3.2), spec 25 a save of
-// feat-022's fields per type (its api-contract § 3.2). Every call goes through
+// feat-022's fields per type (its api-contract § 3.2), spec 26 a create that
+// names its team and its parent (feat-027's api-contract § 3) and the id of a
+// state by its name (mod-001's process, for a save of `stateId`). Every call goes through
 // `organizationsApi.ts`'s `send`, so the token exchange, its rules (never
 // logged, never handed to a page) and the prior `signIn(page, …)` it needs
 // are that module's.
@@ -87,12 +89,51 @@ export async function typeId(
   return type.id;
 }
 
+/**
+ * One state's id from the organization's process (mod-001 api-contract § 1):
+ * the state `name` of the type `key`, for a save of `stateId` (mod-003 § 2.4).
+ */
+export async function stateId(
+  request: APIRequestContext,
+  organizationId: string,
+  key: string,
+  name: string,
+): Promise<string> {
+  const process = await call<{
+    workItemTypes: { key: string; states: { id: string; name: string }[] }[];
+  }>(request, 'GET', `/api/organizations/${encodeURIComponent(organizationId)}/process`);
+  const state = process.workItemTypes
+    .find((candidate) => candidate.key === key)
+    ?.states.find((candidate) => candidate.name === name);
+  if (!state) throw new Error(`The process has no state «${name}» on the type ${key}.`);
+  return state.id;
+}
+
 /** § 2.2: a fresh submission, so a fresh `requestId`. */
 export function createWorkItem(
   request: APIRequestContext,
   organizationId: string,
   projectId: string,
   body: { typeId: string; title: string },
+): Promise<WorkItemDto> {
+  return call(request, 'POST', `${projectPath(organizationId, projectId)}/workitems`, {
+    requestId: randomUUID(),
+    ...body,
+  });
+}
+
+/**
+ * § 2.2 with mod-006's `teamId` and feat-027's `parentId` (its api-contract
+ * § 3): a create that lands in the default area of `teamId`, or — beneath
+ * `parentId` — in the parent's area, linked to it in the same request. A fresh
+ * submission, so a fresh `requestId`. `createWorkItem` above stays the plain
+ * create, with neither.
+ */
+export function createWorkItemIn(
+  request: APIRequestContext,
+  organizationId: string,
+  projectId: string,
+  body: { typeId: string; title: string; teamId?: string; parentId?: string },
 ): Promise<WorkItemDto> {
   return call(request, 'POST', `${projectPath(organizationId, projectId)}/workitems`, {
     requestId: randomUUID(),

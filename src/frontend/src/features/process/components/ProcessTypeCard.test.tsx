@@ -16,7 +16,7 @@ describe('ProcessTypeCard — one type, read-only (design DD-1, layout B)', () =
 
     const section = screen.getByRole('region', { name: 'Эпик' });
     const heading = within(section).getByRole('heading', { level: 2, name: 'Эпик' });
-    const icon = within(heading).getByTestId('LandscapeIcon');
+    const icon = within(heading).getByTestId('CrownIcon');
     expect(icon).toHaveAttribute('aria-hidden', 'true');
     expect(section).not.toHaveTextContent('epic');
   });

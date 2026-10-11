@@ -117,6 +117,12 @@ as literals (BR-1).
 | Row hover | `palette.action.hover` | `#F0F0F0` | hovered table row, menu item |
 | Row selected | `palette.shell.rowSelected` | `#E5F0FA` | selected list row (preview pane), selected tree row |
 
+> **Changed by feat-027 (D-10, 2026-10-11):** the accent is `#0078D4`, the
+> reference's (a white label on it is 4.53:1). As text it is 4.26:1 on the
+> application background, under the 4.5:1 floor, so `MuiLink` draws a link in
+> `palette.primary.dark` (`#0C5598`), not in the accent. The selected row's
+> fill `#E5F0FA` and `accentDark` stay. See feat-027 design § 2.2.
+
 Semantic colours carry meaning only and stay darker than MUI's defaults
 (ADR-0007): `error` `#C42B1C`, `warning` `#9D5D00`, `success` `#107C10`,
 `info` `#01579B`, each with white contrast text.
@@ -181,6 +187,16 @@ the theme keeps no second copy.
 | `Completed` | `#107C10` | filled dot | «Завершённые» |
 | `Removed` | `#A4262C` | hollow ring | «Удалённые» |
 
+> **Changed by feat-027 (D-10, 2026-10-11):** the type colours are the
+> reference's — epic `#E06C00`, feature `#773B93`, story `#0098C7`, task
+> `#A4880A`, bug `#CC293D` — and so are the `Proposed` dot `#B2B2B2` and the
+> `Completed` dot `#339933`; the epic's icon is `CrownIcon`, the story's
+> `StoryIcon`, the task's `AssignmentTurnedIn` (the table above lists the
+> originals). The 3.98:1 floor stated below is lowered, and the contrast test
+> exempts, the epic, story and task icons and the `Proposed` dot — graphics
+> that text on the same row repeats — each with its reason; every graphic that is the
+> only carrier keeps 3:1. See feat-027 design § 2.2, § 2.4.
+
 No type or category colour equals the accent; every one is at least 3.98:1
 on every surface it sits on (content, application background, row hover,
 row selected). Colour is never alone: a type icon is followed by the type
@@ -193,8 +209,20 @@ because an icon scaled to 8 px loses the ring.
 
 ### 2.4 Typography
 
+> **Superseded by feat-027 D-7 (Segoe UI, weight 600), 2026-10-09:** the
+> panel's family is no longer Roboto but `"Segoe UI", -apple-system,
+> BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif`
+> (`@fontsource/roboto` is not imported any more; the dependency entry stays),
+> and every weight 500 in the table below — and in this document's component
+> notes (the selected tab label § 2.6, the product mark and the user menu
+> § 3.2, the settings navigation's subheader § 4.4; wherever this document
+> says 500) — is **600**, because Segoe UI has no 500 face. Sizes and line heights are
+> unchanged. See feat-027 design § 2.1. The prototype under `prototype/`
+> still names Roboto and 500, as a sketch of the original design.
+
 Family: Roboto (already loaded by the panel through `@fontsource/roboto`),
-then `"Segoe UI", system-ui, Arial, sans-serif`. `typography.fontSize` 14.
+then `"Segoe UI", system-ui, Arial, sans-serif` — *superseded by feat-027 D-7:
+Segoe UI first, no Roboto, see the note above*. `typography.fontSize` 14.
 Buttons are not upper-cased (`textTransform: none`).
 
 | Variant | Size / line | Weight | Use |
@@ -994,6 +1022,17 @@ Empty: the frame replaces all columns: «На доске нет рабочих �
 > and «Показать доску» reads «Показать канбан». The rows below are left as
 > written.
 
+> **Superseded in part** by feat-027 (its spec BR-T-1, BR-T-13, BR-T-14,
+> BR-T-16 and `design.md` § 3, § 4), 2026-10-09..11: the page head is the
+> team's name as the `h1` with a drop-down to another team, one tab «Бэклог»
+> and the level drop-down at the tab row's right end, «Новый рабочий элемент»
+> and «Показать канбан» at the top right (the same head is on «Канбан»,
+> § 10.4); the table is the hierarchy column, «Порядок», «Тип», «Заголовок»
+> (the tree, with «⋮»), «Статус», «Трудоёмкость», «Бизнес-ценность», «Вид
+> ценности», with no drag-handle column — the whole row drags, and the
+> handle's menu «Переместить <id>» is the top-level row's «Ещё действия»
+> (feat-027 D-11). The rows below are left as written.
+
 | Block | MUI | Copy and behaviour |
 |---|---|---|
 | Header | «Бэклоги», tabs «Эпики», «Фичи», «Истории»; primary «Новый рабочий элемент» (picker of the level's types); secondary «Показать доску» (`ViewWeekOutlined`), «Планирование» (`ViewSidebarOutlined`, `aria-pressed`) | — |
@@ -1166,7 +1205,9 @@ overlay opens without animation.
 inline CSS, inline SVG copies of the Material icon glyphs the panel already
 renders, vanilla JavaScript, the theme tokens of § 2 as CSS variables. It
 loads nothing from any host (no fonts, scripts or images; Roboto is used if
-installed, else the system sans-serif) and adds no dependency (BR-17, R-26).
+installed, else the system sans-serif — *superseded by feat-027 D-7: the panel
+draws Segoe UI at weight 600, which the prototype does not*) and adds no
+dependency (BR-17, R-26).
 Open it from disk or from any static server; addresses are hash routes
 (`#/organizations/org-1/projects/prj-1/workitems`), so the browser's address
 bar shows the context in the address.

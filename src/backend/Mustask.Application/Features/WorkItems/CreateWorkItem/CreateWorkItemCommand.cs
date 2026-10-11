@@ -11,10 +11,15 @@ namespace Mustask.Application.Features.WorkItems.CreateWorkItem;
 /// mod-006 (BR-M4-21): the team whose backlog or board the item is created from; it then takes that team's default
 /// area instead of the root. <c>null</c> when the request has none.
 /// </param>
+/// <param name="ParentId">
+/// feat-027 (BR-T-10, its api-contract § 3): the item to create the new one beneath; it then takes that item's area
+/// and is linked beneath it. <c>null</c> when the request has none.
+/// </param>
 public sealed record CreateWorkItemCommand(
     string? OrganizationId,
     string? ProjectId,
     string? RequestId,
     string? TypeId,
     string? Title,
-    string? TeamId = null);
+    string? TeamId = null,
+    string? ParentId = null);

@@ -19,9 +19,30 @@ export const CATEGORY_MARKER_CLASS = 'WorkTrackingCategoryMarker';
  * is never text. An unknown token gets the theme's neutral fallback and
  * nothing throws.
  */
-export function TypeMark({ appearance }: { appearance: string }) {
-  const { icon: Icon, colour } = useTheme().workTracking.typeAppearance(appearance);
-  return <Icon fontSize="small" aria-hidden="true" sx={{ color: colour, flexShrink: 0 }} />;
+export function TypeMark({
+  appearance,
+  compact = false,
+  colour: override,
+}: {
+  appearance: string;
+  /** The backlog's 16 px icon (feat-027 design § 4.4) instead of the 20 px one. */
+  compact?: boolean;
+  /** Another colour than the type's own — the selected row's dark blue (feat-027 design § 4.4). */
+  colour?: string;
+}) {
+  const theme = useTheme();
+  const { icon: Icon, colour } = theme.workTracking.typeAppearance(appearance);
+  return (
+    <Icon
+      fontSize={compact ? 'inherit' : 'small'}
+      aria-hidden="true"
+      sx={{
+        color: override ?? colour,
+        flexShrink: 0,
+        ...(compact ? { fontSize: theme.layout.backlogTable.typeIcon } : {}),
+      }}
+    />
+  );
 }
 
 function markerSx(code: string) {

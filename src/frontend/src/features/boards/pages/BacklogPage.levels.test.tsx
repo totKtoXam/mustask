@@ -6,6 +6,7 @@ import { Route, useNavigate } from 'react-router-dom';
 import { authValue, renderShell } from '../../../test/renderShell';
 import { BACKLOG_ROUTE, BOARD_ROUTE } from '../paths';
 import { serveBoards } from '../testApi';
+import { findBacklogTable, identifiers } from '../testBacklog';
 import { cardsIn, findBoard } from '../testBoard';
 import { platformItem, storiesDataset } from '../testFixtures';
 import { chooseLevel, levelButton, levelMenu } from '../testLevels';
@@ -32,11 +33,7 @@ function dataset() {
 }
 
 async function backlogIdentifiers(): Promise<string[]> {
-  const table = await screen.findByRole('table', { name: 'Бэклог' });
-  return within(table)
-    .getAllByRole('row')
-    .slice(1)
-    .map((row) => within(row).getAllByRole('cell')[2]?.textContent ?? '');
+  return identifiers(await findBacklogTable());
 }
 
 /** The browser's back, as a test presses it: the router's own history step. */
@@ -67,20 +64,25 @@ function renderWithBack(path: string) {
   });
 }
 
-describe('US-6 Scenario: The drop-down replaces the tabs on «Бэклоги»', () => {
-  it('reads «Уровень: Истории» under the h1, offers the three levels with «Истории» current, and «Фичи» opens its own address with focus kept on the button', async () => {
+describe('US-6 Scenario: The drop-down replaces the tabs on «Бэклоги» (feat-027 BR-T-16: at the tab row’s right end)', () => {
+  it('reads «Истории» named «Уровень: Истории» at the right end of the tab row, offers the three levels with «Истории» current, and «Фичи» opens its own address with focus kept on the button', async () => {
     serveBoards(dataset());
     renderBoards(backlogAddress('stories'));
 
     expect(await backlogIdentifiers()).toEqual(['MSK-US-3', 'MSK-BUG-5']);
-    expect(screen.queryAllByRole('tab')).toEqual([]);
+    // One tab, «Бэклог»: the level is no tab but the drop-down beside it.
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Бэклог']);
     const button = levelButton();
     expect(button).toHaveAccessibleName('Уровень: Истории');
+    expect(button).toHaveTextContent('Истории');
+    expect(button.parentElement).toBe(
+      screen.getByRole('tablist').closest('.MuiTabs-root')?.parentElement,
+    );
     expect(button).toHaveAttribute('aria-haspopup', 'menu');
     expect(button).toHaveAttribute('aria-expanded', 'false');
     expect(button.querySelector('[data-testid="ExpandMoreIcon"]')).not.toBeNull();
     // Under the h1, after the command bar: the next control in document order.
-    const heading = screen.getByRole('heading', { level: 1, name: 'Бэклоги' });
+    const heading = screen.getByRole('heading', { level: 1, name: 'Платформа' });
     const toBoard = screen.getByRole('link', { name: 'Показать канбан' });
     expect(heading.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(toBoard.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -112,12 +114,13 @@ describe('US-6 Scenario: The drop-down replaces the tabs on «Бэклоги»',
 });
 
 describe('US-6 Scenario: The same drop-down on «Канбан»', () => {
-  it('`<team>/boards/epics` reads «Канбан» and «Уровень: Эпики»; «Истории» opens `<team>/boards/stories`', async () => {
+  it('`<team>/boards/epics` reads the team, the tab «Канбан» and «Уровень: Эпики»; «Истории» opens `<team>/boards/stories`', async () => {
     serveBoards(dataset());
     renderBoards(boardAddress('epics'));
 
     expect(cardsIn(await findBoard(), 'Новые')).toEqual(['MSK-EPIC-1']);
-    expect(screen.getByRole('heading', { level: 1, name: 'Канбан' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Платформа' })).toBeInTheDocument();
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Канбан']);
     expect(levelButton()).toHaveAccessibleName('Уровень: Эпики');
 
     await chooseLevel('Истории');
@@ -208,7 +211,7 @@ describe('US-6 Scenario: Each level keeps its own address', () => {
 });
 
 describe('US-6 Scenario: The board is named «Канбан» everywhere it is named', () => {
-  it('the entry, the h1, the browser tab, the region and «Показать канбан» read «Канбан»; nothing reads «Доски» or «Показать доску»', async () => {
+  it('the entry, the tab, the browser tab, the region and «Показать канбан» read «Канбан»; nothing reads «Доски» or «Показать доску»', async () => {
     serveBoards(dataset());
     renderBoards(mskForm('MSK-US-3'));
 
@@ -219,7 +222,8 @@ describe('US-6 Scenario: The board is named «Канбан» everywhere it is na
     await userEvent.click(entry);
 
     expect(await findBoard()).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1, name: 'Канбан' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Платформа' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Канбан' })).toHaveAttribute('aria-selected', 'true');
     await waitFor(() => expect(document.title).toBe('Канбан — Mustask'));
     expect(document.body).not.toHaveTextContent(/Доски|Показать доску/);
 
@@ -228,7 +232,7 @@ describe('US-6 Scenario: The board is named «Канбан» everywhere it is na
     expect(await backlogIdentifiers()).toEqual(['MSK-FEAT-6']);
     const toBoard = screen.getByRole('link', { name: 'Показать канбан' });
     expect(toBoard).toHaveAttribute('href', boardAddress('features'));
-    expect(toBoard.querySelector('[data-testid="ViewWeekOutlinedIcon"]')).not.toBeNull();
+    expect(toBoard.querySelector('[data-testid="ArrowCircleRightOutlinedIcon"]')).not.toBeNull();
     expect(document.body).not.toHaveTextContent(/Доски|Показать доску/);
 
     await userEvent.click(toBoard);

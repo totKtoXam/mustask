@@ -6,7 +6,8 @@ import { createWorkItem, saveWorkItem, typeId, type WorkItemDto } from '../suppo
 /**
  * 25. The work item form's fields per type (feat-022 US-1..US-6) against the
  * real backend: one case per type for the form, one for «Приоритет» on the
- * backlog and the kanban. The spec names no E2E scenarios of its own.
+ * kanban card — and, since feat-027 D-7 took it off the backlog row, on no
+ * column of the backlog. The spec names no E2E scenarios of its own.
  *
  * Every case creates what it needs the way spec 24 does — an organization
  * with one project through mod-002's API, its items through mod-003's create
@@ -180,21 +181,32 @@ test.describe('25. the work item form’s fields per type (feat-022)', () => {
     await expect(date(page, 'Дата начала')).toHaveValue('2026-11-01');
 
     // US-1: below 1280 px one column, the left one's sections first.
+    // The permanent navigation animates its width when the viewport crosses a
+    // breakpoint (mod-015 design § 2.6), and the page moves with it for about
+    // 225 ms: the boxes are read once the two sections stand on one left edge.
     await page.setViewportSize({ width: 1279, height: 900 });
+    await expect
+      .poll(async () =>
+        Math.abs(
+          (await box(region(page, 'Планирование'))).x - (await box(region(page, 'Описание'))).x,
+        ),
+      )
+      .toBeLessThan(2);
     const folded = await box(region(page, 'Описание'));
     const below = await box(region(page, 'Планирование'));
     expect(below.y).toBeGreaterThan(folded.y + folded.height - 1);
-    expect(Math.abs(below.x - folded.x)).toBeLessThan(2);
     expect((await box(list(page, 'Приоритет'))).width).toBeLessThanOrEqual(480);
 
-    // US-1: at 640 px the page never scrolls sideways.
+    // US-1: at 640 px the page never scrolls sideways (once the navigation has settled).
     await page.setViewportSize({ width: 640, height: 900 });
     await expect(list(page, 'Вид ценности')).toBeVisible();
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
-      ),
-    ).toBe(true);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      )
+      .toBe(true);
   });
 
   test('25.2 «Фича»: the epic’s fields; «Риск» emptied to «Не указан»; a number emptied and 0 kept (US-2)', async ({
@@ -352,7 +364,7 @@ test.describe('25. the work item form’s fields per type (feat-022)', () => {
     await expect(textbox(page, 'Оставшаяся работа')).toHaveValue('3');
   });
 
-  test('25.6 «Приоритет» on the backlog row and the kanban card, changed on the form (US-6)', async ({
+  test('25.6 «Приоритет» on the kanban card, changed on the form, and no column of it on the backlog (US-6)', async ({
     page,
   }) => {
     await signIn(page, { returnPath: '/home' });
@@ -368,20 +380,17 @@ test.describe('25. the work item form’s fields per type (feat-022)', () => {
     await choose(page, 'Приоритет', '1');
     await saveForm(page);
 
-    // The backlog: «Приоритет» right after «Статус».
+    // The backlog: «Приоритет» is no column of it any more (feat-027 BR-T-1, D-7) — the rows
+    // stand, the headers hold none of it; it stays on the card and the form.
     await page.goto(`${teamPrefix}/backlogs/stories`);
     const table = page.getByRole('table', { name: 'Бэклог' });
     // `allInnerTexts` does not wait: read the headers once the table has drawn them.
     await expect(table.getByRole('columnheader', { name: 'Статус' })).toBeVisible();
     const headers = await table.getByRole('columnheader').allInnerTexts();
-    expect(headers[headers.indexOf('Статус') + 1]).toBe('Приоритет');
-    const priorityIndex = headers.indexOf('Приоритет');
-    const rowOf = (identifier: string) =>
-      table.locator('tbody tr').filter({
-        has: page.locator('td:nth-child(3)', { hasText: new RegExp(`^${identifier}$`) }),
-      });
-    await expect(rowOf(story.identifier).getByRole('cell').nth(priorityIndex)).toHaveText('1');
-    await expect(rowOf(bug.identifier).getByRole('cell').nth(priorityIndex)).toHaveText('3');
+    expect(headers).not.toContain('Приоритет');
+    await expect(table.getByRole('columnheader', { name: 'Приоритет' })).toHaveCount(0);
+    await expect(table.locator(`tbody tr[data-identifier="${story.identifier}"]`)).toHaveCount(1);
+    await expect(table.locator(`tbody tr[data-identifier="${bug.identifier}"]`)).toHaveCount(1);
 
     // The kanban: the card's third line.
     await page.goto(`${teamPrefix}/boards/stories`);
@@ -393,12 +402,10 @@ test.describe('25. the work item form’s fields per type (feat-022)', () => {
       'Приоритет: 3',
     );
 
-    // Changed on the form again, read again on both.
+    // Changed on the form again, read again on the card.
     await open(story.identifier);
     await choose(page, 'Приоритет', '4');
     await saveForm(page);
-    await page.goto(`${teamPrefix}/backlogs/stories`);
-    await expect(rowOf(story.identifier).getByRole('cell').nth(priorityIndex)).toHaveText('4');
     await page.goto(`${teamPrefix}/boards/stories`);
     await expect(board.getByRole('listitem').filter({ hasText: story.identifier })).toContainText(
       'Приоритет: 4',

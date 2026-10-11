@@ -21,6 +21,16 @@ public interface IBacklogReadModel
     Task<BacklogRead> ReadAsync(BacklogScope scope, CancellationToken cancellationToken);
 
     /// <summary>
+    /// feat-027 (api-contract § 1): the tree set of a backlog page — the team's
+    /// items of every level of <paramref name="scope"/>, by mod-006's conditions —
+    /// each with its place on its own level's backlog of the team, in no
+    /// particular order (the tree is the domain's <see cref="BacklogTree"/>), and
+    /// the team's default area. The same fixed number of queries as
+    /// <see cref="ReadAsync"/>, whatever the levels and the depth.
+    /// </summary>
+    Task<BacklogRead> ReadTreeAsync(BacklogTreeScope scope, CancellationToken cancellationToken);
+
+    /// <summary>
     /// feat-001: the project's items among <paramref name="workItemIds"/> that are
     /// not in «Удалена», as link ends by id — the «Родитель» cells of a backlog's
     /// rows (BR-H-8, BR-H-13). One query, whatever the count.
@@ -47,22 +57,47 @@ public sealed record BacklogScope(
     {
         var types = levelTypes.ToList();
 
-        return new BacklogScope(
-            projectId,
-            teamId,
-            levelId,
-            types.Select(type => type.Id).ToList(),
-            types.SelectMany(type => type.States).Where(state => state.Category != StateCategory.Removed).Select(state => state.Id).ToList());
+        return new BacklogScope(projectId, teamId, levelId, types.Select(type => type.Id).ToList(), ShownStates(types));
+    }
+
+    /// <summary>The types' states outside the Removed category (condition 4).</summary>
+    internal static IReadOnlyCollection<Guid> ShownStates(IEnumerable<WorkItemTypeRow> types) =>
+        types.SelectMany(type => type.States).Where(state => state.Category != StateCategory.Removed).Select(state => state.Id).ToList();
+}
+
+/// <summary>
+/// feat-027 (api-contract § 1): the backlogs one page's tree is read from — the
+/// team's backlog of the page's level and of every level ranked below it, the
+/// «Задачи» level included — as one membership: those levels' types and their
+/// states outside the Removed category. Condition 3 is resolved by the reader,
+/// as for <see cref="BacklogScope"/>.
+/// </summary>
+public sealed record BacklogTreeScope(
+    Guid ProjectId,
+    Guid TeamId,
+    IReadOnlyCollection<Guid> TypeIds,
+    IReadOnlyCollection<Guid> ShownStateIds)
+{
+    /// <summary>The tree set of the team's page whose level and the levels below it have <paramref name="treeTypes"/>.</summary>
+    public static BacklogTreeScope Of(Guid projectId, Guid teamId, IEnumerable<WorkItemTypeRow> treeTypes)
+    {
+        var types = treeTypes.ToList();
+
+        return new BacklogTreeScope(projectId, teamId, types.Select(type => type.Id).ToList(), BacklogScope.ShownStates(types));
     }
 }
 
-/// <summary>What <see cref="IBacklogReadModel.ReadAsync"/> answers.</summary>
+/// <summary>What <see cref="IBacklogReadModel.ReadAsync"/> and <see cref="IBacklogReadModel.ReadTreeAsync"/> answer.</summary>
 public sealed record BacklogRead(WorkItemAreaView DefaultArea, IReadOnlyList<BacklogItemRow> Items);
 
 /// <summary>
 /// An item of the backlog: mod-003's fields a row and a card show, its
-/// «Приоритет» (feat-022), its place here, <c>null</c> when unplaced, and its
-/// stored parent (feat-001), whatever that parent's state.
+/// «Приоритет» (feat-022), its place on its level's backlog of the team,
+/// <c>null</c> when unplaced, and its stored parent (feat-001), whatever that
+/// parent's state. feat-027: the rank of its type's level, and the three values a
+/// backlog row shows beside the priority — «Трудоёмкость» in its shortest form,
+/// «Бизнес-ценность», «Вид ценности» as its list key — each <c>null</c> when empty
+/// or when the type has no such field. A board card shows none of the three.
 /// </summary>
 public sealed record BacklogItemRow(
     Guid Id,
@@ -74,4 +109,8 @@ public sealed record BacklogItemRow(
     WorkItemAssigneeView? Assignee,
     WorkItemStateView State,
     int Priority,
-    Guid? ParentId);
+    Guid? ParentId,
+    int LevelRank,
+    decimal? Effort,
+    int? BusinessValue,
+    string? ValueArea);

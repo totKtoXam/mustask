@@ -36,14 +36,20 @@ internal static class LinksTestData
         [23] = ("FEAT", "Вход по коду"),
     };
 
-    /// <summary>The project's items 1..<paramref name="upTo"/>, by identifier («MSK-FEAT-6»).</summary>
-    public static async Task<IReadOnlyDictionary<string, Item>> CreateItemsAsync(MustaskApiFactory factory, WorkItemsWorld world, int upTo)
+    /// <summary>
+    /// The project's items 1..<paramref name="upTo"/>, by identifier («MSK-FEAT-6»); <paramref name="overrides"/> names
+    /// the items another task's stories add over these (feat-027's MSK-BUG-5, MSK-TASK-7).
+    /// </summary>
+    public static async Task<IReadOnlyDictionary<string, Item>> CreateItemsAsync(
+        MustaskApiFactory factory, WorkItemsWorld world, int upTo, IReadOnlyDictionary<int, (string Type, string Title)>? overrides = null)
     {
         var items = new Dictionary<string, Item>(StringComparer.Ordinal);
 
         for (var number = 1; number <= upTo; number++)
         {
-            var (type, title) = StoryItems.TryGetValue(number, out var known) ? known : ("TASK", $"Заполнитель {number}");
+            var (type, title) = overrides is not null && overrides.TryGetValue(number, out var added) ? added
+                : StoryItems.TryGetValue(number, out var known) ? known
+                : ("TASK", $"Заполнитель {number}");
             var answer = await WorkItemsTestData.CreateAsync(factory, world, type, title);
             Assert.Equal(HttpStatusCode.Created, answer.Status);
 

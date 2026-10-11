@@ -51,7 +51,11 @@ export function moveRefusalNotice(error: unknown): string | null {
 /** feat-001 spec § Notices on «Бэклоги»: no answer, or an answer without a code. */
 export const PARENT_SAVE_FAILED_TEXT = 'Не удалось сохранить родителя. Попробуйте ещё раз.';
 
-/** feat-001 api-contract § 5: the refusals about the link itself. */
+/**
+ * feat-001 api-contract § 5: the refusals about the link itself, and feat-027
+ * D-9's — a chain of parents holds at most 64 items — which a drop, the dialog
+ * and the inline add row can all meet.
+ */
 const LINK_CODES: ReadonlySet<string> = new Set([
   workItemErrorCodes.linkParentNotFound,
   workItemErrorCodes.linkParentLevelNotAllowed,
@@ -59,6 +63,7 @@ const LINK_CODES: ReadonlySet<string> = new Set([
   workItemErrorCodes.linkCycle,
   workItemErrorCodes.linkParentChanged,
   workItemErrorCodes.linkItemDeleted,
+  workItemErrorCodes.linkDepthExceeded,
 ]);
 
 /** Where a refused parent write shows (feat-001 spec § Page «Бэклоги», § Notices on «Бэклоги»). */

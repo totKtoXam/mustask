@@ -20,9 +20,9 @@ function readCatalog(): ErrorCatalog {
 }
 
 /**
- * mod-003 api-contract § 4, feat-001 api-contract § 5 and feat-022
- * api-contract § 6, row by row: code, status and parameters (only the cycle
- * has any).
+ * mod-003 api-contract § 4, feat-001 api-contract § 5, feat-022 api-contract
+ * § 6 and feat-027 api-contract § 5, row by row: code, status and parameters
+ * (only the cycle and the depth bound have any).
  */
 const CONTRACT_TABLE: readonly (readonly [string, number, readonly string[]])[] = [
   ['workitems.workitem.not_found', 404, []],
@@ -42,6 +42,7 @@ const CONTRACT_TABLE: readonly (readonly [string, number, readonly string[]])[] 
   ['workitems.link.cycle', 409, ['item', 'parent', 'path']],
   ['workitems.link.parent_changed', 409, []],
   ['workitems.link.item_deleted', 409, []],
+  ['workitems.link.depth_exceeded', 409, ['limit']],
   ['workitems.workitem.number_out_of_range', 400, []],
   ['workitems.workitem.number_too_precise', 400, []],
   ['workitems.workitem.integer_required', 400, []],
@@ -62,7 +63,7 @@ describe('mod-003 api-contract § 4: the panel holds the workitems codes one to 
     expect(new Set(constants).size).toBe(constants.length);
   });
 
-  it('matches the contracts row by row: the 25 codes, their statuses, their parameters', () => {
+  it('matches the contracts row by row: the 26 codes, their statuses, their parameters', () => {
     const catalog = readCatalog();
 
     expect(Object.values(workItemErrorCodes)).toHaveLength(CONTRACT_TABLE.length);

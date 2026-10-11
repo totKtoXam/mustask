@@ -6,6 +6,7 @@ import { HttpResponse, delay, http } from 'msw';
 import { server } from '../../../test/mocks/server';
 import { CATEGORY_MARKER_CLASS } from '../../../shared/ui/WorkTrackingMarks';
 import { serveBoards } from '../testApi';
+import { CELL, cellText, findBacklogTable, rowsOf } from '../testBacklog';
 import { cardOf, cardsIn, columnList, columnNames, findBoard } from '../testBoard';
 import { chooseLevel, levelButton } from '../testLevels';
 import {
@@ -158,7 +159,7 @@ describe('US-4 Scenario: A level with no items shows the empty frame', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Новый рабочий элемент' })).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Канбан' })).toBeNull();
-    expect(screen.getByRole('heading', { level: 1, name: 'Канбан' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Платформа' })).toBeInTheDocument();
     expect(levelButton()).toHaveAccessibleName('Уровень: Эпики');
   });
 });
@@ -174,9 +175,9 @@ describe('US-4 Scenario: Entry, levels and the link to the backlog (feat-001 US-
     await userEvent.click(entry);
 
     expect(screen.getByTestId('location')).toHaveTextContent(boardAddress('stories'));
-    expect(screen.getByRole('heading', { level: 1, name: 'Канбан' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Платформа' })).toBeInTheDocument();
     await waitFor(() => expect(document.title).toBe('Канбан — Mustask'));
-    expect(screen.queryAllByRole('tab')).toEqual([]);
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Канбан']);
     expect(levelButton()).toHaveAccessibleName('Уровень: Истории');
     expect(entry).toHaveAttribute('aria-current', 'page');
     // «Канбан» has no primary (spec § Page «Доски»).
@@ -185,13 +186,13 @@ describe('US-4 Scenario: Entry, levels and the link to the backlog (feat-001 US-
     await chooseLevel('Фичи');
     expect(screen.getByTestId('location')).toHaveTextContent(boardAddress('features'));
     const toBacklog = screen.getByRole('link', { name: 'Показать бэклог' });
-    expect(toBacklog.querySelector('[data-testid="FormatListBulletedIcon"]')).not.toBeNull();
+    expect(toBacklog.querySelector('[data-testid="ArrowCircleLeftOutlinedIcon"]')).not.toBeNull();
     await userEvent.click(toBacklog);
     expect(screen.getByTestId('location')).toHaveTextContent(backlogAddress('features'));
-    expect(screen.getByRole('heading', { level: 1, name: 'Бэклоги' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Платформа' })).toBeInTheDocument();
 
     const toBoard = screen.getByRole('link', { name: 'Показать канбан' });
-    expect(toBoard.querySelector('[data-testid="ViewWeekOutlinedIcon"]')).not.toBeNull();
+    expect(toBoard.querySelector('[data-testid="ArrowCircleRightOutlinedIcon"]')).not.toBeNull();
     await userEvent.click(toBoard);
     expect(screen.getByTestId('location')).toHaveTextContent(boardAddress('features'));
   });
@@ -225,7 +226,7 @@ describe('US-4 Scenario: Failure and not found are the backlog’s', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Сервис не ответил.');
-    expect(screen.getByRole('heading', { level: 1, name: 'Канбан' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Платформа' })).toBeInTheDocument();
     expect(levelButton()).toHaveAccessibleName('Уровень: Истории');
     expect(screen.queryByRole('region', { name: 'Канбан' })).toBeNull();
 
@@ -265,7 +266,13 @@ describe('US-4 Scenario: Failure and not found are the backlog’s', () => {
     renderBoards(`${prefix}/boards/stories`);
 
     expect(await screen.findByRole('heading', { level: 1, name: frame })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { level: 1, name: 'Канбан' })).toBeNull();
+    // The frame replaces the whole page (design § 3.6): no head beside it — the frame's own
+    // is the page's one `h1`, with no tab row and no level drop-down (F-6).
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.queryByRole('tablist', { name: 'Вид страницы' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Уровень: / })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Сменить команду' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Показать бэклог' })).toBeNull();
   });
 });
 
@@ -286,7 +293,7 @@ describe('spec § Page «Доски», State Loading', () => {
     renderBoards(boardAddress());
 
     expect(await screen.findByRole('status', { name: 'Загрузка данных' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1, name: 'Канбан' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Платформа' })).toBeInTheDocument();
     expect(levelButton()).toHaveAccessibleName('Уровень: Истории');
     expect(screen.queryByRole('region', { name: 'Канбан' })).toBeNull();
 
@@ -319,12 +326,12 @@ describe('US-7 Scenario: A state set on the form moves the card (pass B)', () =>
 
     view.unmount();
     renderBoards(backlogAddress());
-    const table = await screen.findByRole('table', { name: 'Бэклог' });
-    const [first] = within(table).getAllByRole('row').slice(1);
+    const [first] = rowsOf(await findBacklogTable());
     if (!first) throw new Error('No row.');
-    const cells = within(first)
-      .getAllByRole('cell')
-      .map((cell) => cell.textContent);
-    expect([cells[0], cells[2], cells[7]]).toEqual(['1', 'MSK-US-9', 'Разрешена']);
+    expect([
+      cellText(first, CELL.order),
+      first.dataset.identifier,
+      cellText(first, CELL.state),
+    ]).toEqual(['1', 'MSK-US-9', 'Разрешена']);
   });
 });

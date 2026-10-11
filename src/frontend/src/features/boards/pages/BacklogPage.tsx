@@ -1,39 +1,38 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import Box from '@mui/material/Box';
 import AddIcon from '@mui/icons-material/Add';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
-import ViewWeekOutlinedIcon from '@mui/icons-material/ViewWeekOutlined';
 import { NEW_WORK_ITEM_LABEL } from '../../workitems';
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
-import { PageHeader } from '../../../shared/ui/PageHeader';
 import { RegistrySkeleton } from '../../../shared/ui/RegistrySkeleton';
 import { NotFound, StateFrame } from '../../../shared/ui/StateFrame';
 import { backlogSkeletonColumns } from '../components/backlogColumns';
 import { BacklogTable } from '../components/BacklogTable';
-import { LevelMenu } from '../components/LevelMenu';
 import { useNotice } from '../components/Notice';
 import { StatusRegion } from '../components/StatusRegion';
+import { TeamHead } from '../components/TeamHead';
 import { useBacklog, useReadTeamAgain } from '../hooks/queries';
 import { useNewWorkItem } from '../hooks/useNewWorkItem';
 import { isBoardLevel, type BoardLevelCode } from '../lib/levels';
 import { notFoundLevel } from '../lib/refusals';
-import { backlogPath, boardPath } from '../paths';
 
 /**
- * spec § Page «Бэклоги»: the secondary command to the same team's and level's
- * board, named «Канбан» since feat-001 (BR-H-16).
- */
-const SHOW_BOARD_LABEL = 'Показать канбан';
-
-/**
- * «Бэклоги» (US-1, US-2, US-3, US-7; spec § Page «Бэклоги»; mod-015 § 10.5
- * without «Итерация» and the planning pane): a team's ordered backlog of one
- * level. `:level` is one of the three or the address is unknown (mod-015
- * BR-13); the backlog's read validates the rest of the address. Keyed by its
- * team, so another team starts afresh, while choosing a level in the level
- * drop-down (feat-001 US-6) keeps the header and the drop-down's focus. Since
- * feat-001 the table is the backlog's tree with the «Родитель» column (US-4)
- * and, on «Фичи» and «Истории», the row menu that maps a parent (US-5).
+ * «Бэклоги» (feat-027 US-1..US-6; spec § Page «Бэклоги»; mod-015 § 10.5 without
+ * «Итерация» and the planning pane): a team's ordered backlog of one level,
+ * under the team head (BR-T-16) — the team's name, the tab «Бэклог», the level
+ * drop-down at its right end, «Новый рабочий элемент» and «Показать канбан».
+ * `:level` is one of the three or the address is unknown (mod-015 BR-13); the
+ * backlog's read validates the rest of the address. Keyed by its team, so
+ * another team starts afresh, while choosing a level in the level drop-down
+ * (feat-001 US-6) keeps the head and the drop-down's focus. The table is the
+ * backlog's whole tree (US-2) with the inline add of a child (US-4), a row
+ * dropped onto another (US-5) and any row's parent changed from its menu (US-6).
+ *
+ * A re-read that fails while the table is shown leaves the table as it was —
+ * its rows, what is expanded, the selection, the scroll — with the error above
+ * it; a retry that succeeds takes the error away (tech-012 m2, folded in by
+ * feat-027 D-6).
  */
 export function BacklogPage() {
   const {
@@ -70,7 +69,12 @@ function TeamBacklog({
   const query = useBacklog(organizationId, projectId, teamId, level);
   const readAgain = useReadTeamAgain(organizationId, projectId, teamId);
   const { notice, showSuccess, showSuccessAlert, showError } = useNotice();
-  const [announcement, setAnnouncement] = useState('');
+  // Each message counts, so one equal to the last is spoken again (F-11).
+  const [announcement, setAnnouncement] = useState({ text: '', serial: 0 });
+  const announce = useCallback(
+    (text: string) => setAnnouncement(({ serial }) => ({ text, serial: serial + 1 })),
+    [],
+  );
   const newItem = useNewWorkItem({
     organizationId,
     projectId,
@@ -87,52 +91,60 @@ function TeamBacklog({
     return <NotFound level={frame} />;
   }
 
-  const loading = query.isPending || (query.isError && query.isFetching);
+  const data = query.data;
+  // Only a page that has never been read is loading: a re-read, or the retry
+  // of a failed one, keeps what is shown.
+  const loading = data === undefined && (query.isPending || (query.isError && query.isFetching));
+  const primaryAction = newItem.command && { ...newItem.command, hideMenuIndicator: true };
 
   return (
     <>
-      <PageHeader
-        title="Бэклоги"
-        primaryAction={newItem.command}
-        commands={[
-          {
-            label: SHOW_BOARD_LABEL,
-            icon: <ViewWeekOutlinedIcon />,
-            to: boardPath(organizationId, projectId, teamId, level),
-          },
-        ]}
-      />
-      <LevelMenu
+      <TeamHead
+        page="backlog"
+        organizationId={organizationId}
+        projectId={projectId}
+        teamId={teamId}
         level={level}
-        pathOf={(other) => backlogPath(organizationId, projectId, teamId, other)}
+        teamName={data?.team.name}
+        primaryAction={primaryAction}
       />
       {loading ? (
-        <RegistrySkeleton columns={backlogSkeletonColumns(level)} />
-      ) : query.isError ? (
-        <ErrorBanner error={query.error} onRetry={() => void query.refetch()} />
-      ) : query.data.items.length === 0 ? (
-        <StateFrame
-          icon={InboxOutlinedIcon}
-          heading="Бэклог пуст"
-          hint="Добавьте рабочий элемент — он встанет в конец бэклога."
-          action={{ label: NEW_WORK_ITEM_LABEL, icon: <AddIcon />, onClick: newItem.open }}
-        />
+        <RegistrySkeleton columns={backlogSkeletonColumns()} />
+      ) : data === undefined ? (
+        query.isError && <ErrorBanner error={query.error} onRetry={() => void query.refetch()} />
       ) : (
-        <BacklogTable
-          key={level}
-          organizationId={organizationId}
-          projectId={projectId}
-          teamId={teamId}
-          level={level}
-          items={query.data.items}
-          announce={setAnnouncement}
-          showSuccess={showSuccessAlert}
-          showError={showError}
-        />
+        <>
+          {query.isError && (
+            <Box sx={{ mb: 2 }}>
+              <ErrorBanner error={query.error} onRetry={() => void query.refetch()} />
+            </Box>
+          )}
+          {data.items.length === 0 ? (
+            <StateFrame
+              icon={InboxOutlinedIcon}
+              heading="Бэклог пуст"
+              hint="Добавьте рабочий элемент — он встанет в конец бэклога."
+              action={{ label: NEW_WORK_ITEM_LABEL, icon: <AddIcon />, onClick: newItem.open }}
+            />
+          ) : (
+            <BacklogTable
+              key={level}
+              organizationId={organizationId}
+              projectId={projectId}
+              teamId={teamId}
+              level={level}
+              items={data.items}
+              announce={announce}
+              showSuccess={showSuccessAlert}
+              showCreated={showSuccess}
+              showError={showError}
+            />
+          )}
+        </>
       )}
       {newItem.elements}
       {notice}
-      <StatusRegion text={announcement} />
+      <StatusRegion text={announcement.text} serial={announcement.serial} />
     </>
   );
 }

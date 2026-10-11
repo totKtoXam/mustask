@@ -164,6 +164,13 @@ export interface CreateWorkItemBody {
    * created from — it takes that team's default area. Absent: the root.
    */
   teamId?: string;
+  /**
+   * feat-027 api-contract § 3: the item the new one is created beneath — the
+   * backlog row whose «+» opened the inline add row. `ParentChange`'s own
+   * member, flat; absent: no parent, exactly as before. With it the item takes
+   * the parent's area, so `teamId` is not sent beside it.
+   */
+  parentId?: string;
 }
 
 /**

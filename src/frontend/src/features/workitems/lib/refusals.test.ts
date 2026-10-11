@@ -229,7 +229,7 @@ describe('placeRefusal: the fields per type (feat-022 spec § Error codes; api-c
   });
 });
 
-describe('placeRefusal: the six link codes (feat-001 spec § Screens and copy, § Error codes)', () => {
+describe('placeRefusal: the link codes (feat-001 spec § Screens and copy, § Error codes; feat-027 D-9)', () => {
   it.each([
     ['workitems.link.parent_not_found', 404, 'Родитель не найден в этом проекте.'],
     [
@@ -249,6 +249,12 @@ describe('placeRefusal: the six link codes (feat-001 spec § Screens and copy, �
       'Родитель уже изменён другим участником. Данные обновлены — проверьте и повторите.',
     ],
     ['workitems.link.item_deleted', 409, 'Удалённый рабочий элемент нельзя связывать.'],
+    // `detail` is the finished text, the limit filled in by the server.
+    [
+      'workitems.link.depth_exceeded',
+      409,
+      'Слишком глубокая вложенность: в цепочке родителей может быть не больше 64 элементов.',
+    ],
   ])('%s is «Родитель»’s error with the server’s text, never a frame', (code, status, text) => {
     expect(notFoundLevel(refusal(status, code, text))).toBeNull();
     expect(placeRefusal(refusal(status, code, text), FORM)).toEqual({

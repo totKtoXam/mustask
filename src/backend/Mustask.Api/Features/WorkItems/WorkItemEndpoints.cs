@@ -37,6 +37,10 @@ public static class WorkItemEndpoints
         + "and nothing checks yet (BR-M3-27): any signed-in user, until mod-016 retrofits the check; a non-member then "
         + "gets the not-found answer, not a 403.";
 
+    private static readonly string CreateAccess =
+        $"{WriteAccess} A `parentId` in the create is a parent write, which mod-016 also checks against "
+        + $"{OrganizationPermissionCatalog.WorkItemsLinkWrite} (feat-027 BR-T-17).";
+
     private static readonly string SaveAccess =
         $"{WriteAccess} A `parent` in the save is a parent write, which mod-016 also checks against "
         + $"{OrganizationPermissionCatalog.WorkItemsLinkWrite} (feat-001 BR-H-18).";
@@ -59,15 +63,17 @@ public static class WorkItemEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        // § 2.2. Create; a replay of a submission answers 200 with the item it created.
+        // § 2.2. Create; a replay of a submission answers 200 with the item it created. With feat-027's `parentId`
+        // it creates the item beneath that parent, refused by the parent write's 404 and 409s.
         workItems.MapPost("/", CreateWorkItemAsync)
-            .AuthenticatedOnly(WriteAccess)
+            .AuthenticatedOnly(CreateAccess)
             .RequiresOrganizationContext()
             .Produces<WorkItemView>(StatusCodes.Status201Created)
             .Produces<WorkItemView>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
         // § 2.3. One item by its identifier.
         workItems.MapGet("/{identifier}", GetWorkItemAsync)
@@ -126,7 +132,8 @@ public static class WorkItemEndpoints
         string organizationId, string projectId, CreateWorkItemRequest? request, CreateWorkItemHandler handler, CancellationToken cancellationToken)
     {
         var result = await handler.Handle(
-            new CreateWorkItemCommand(organizationId, projectId, request?.RequestId, request?.TypeId, request?.Title, request?.TeamId),
+            new CreateWorkItemCommand(
+                organizationId, projectId, request?.RequestId, request?.TypeId, request?.Title, request?.TeamId, request?.ParentId),
             cancellationToken);
 
         if (!result.Created)
@@ -223,8 +230,11 @@ public static class WorkItemEndpoints
 
     // --- Request bodies: every field nullable, so a missing one reaches the handler as a validation answer -----
 
-    /// <summary><c>teamId</c> is mod-006's (its api-contract § 7): optional, the team surface the item is created from.</summary>
-    private sealed record CreateWorkItemRequest(string? RequestId, string? TypeId, string? Title, string? TeamId);
+    /// <summary>
+    /// <c>teamId</c> is mod-006's (its api-contract § 7): optional, the team surface the item is created from.
+    /// <c>parentId</c> is feat-027's (its api-contract § 3): optional, the item to create the new one beneath.
+    /// </summary>
+    private sealed record CreateWorkItemRequest(string? RequestId, string? TypeId, string? Title, string? TeamId, string? ParentId);
 
     /// <summary>
     /// A field that is absent or <c>null</c> is not changed (BR-M3-25); <c>assignee.userId</c> <c>null</c> clears it.

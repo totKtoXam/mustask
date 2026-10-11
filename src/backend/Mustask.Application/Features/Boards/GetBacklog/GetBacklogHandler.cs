@@ -8,21 +8,21 @@ using Mustask.Shared.Exceptions;
 namespace Mustask.Application.Features.Boards.GetBacklog;
 
 /// <summary>
-/// A team's backlog of one level (US-1): the items § Model's conditions 1–4
-/// select at this moment (BR-M4-5), placed ones by their places, then the
-/// unplaced ones by number (BR-M4-24), numbered «Порядок» 1..n. With feat-001's
-/// tree (its api-contract § 4, BR-H-9..-13): each row's live parent, and beneath
-/// it the same team's backlog one level below, read the same way, nested by the
-/// links in that backlog's own order — «Эпики» three tiers, «Фичи» two,
-/// «Истории» one.
+/// A team's backlog page of one level (mod-006 US-1) with its tree at full depth
+/// (feat-027 US-1, US-2; api-contract § 1, § 2): the tree set — the team's live
+/// items of this level and of every level ranked below it, the «Задачи» level
+/// included — read at this moment; the top-level rows in the backlog's order
+/// (BR-M4-24), numbered «Порядок» 1..n; beneath each its children, by level then
+/// each level's backlog order, recursively; every row's «Родитель».
 /// </summary>
 /// <remarks>
-/// Not found from the outside in (api-contract § 0.3): the organization (the
-/// filter has answered), the project — malformed, unknown, of another
+/// Not found from the outside in (mod-006 api-contract § 0.3): the organization
+/// (the filter has answered), the project — malformed, unknown, of another
 /// organization or not reachable — the team — malformed, unknown, of another
 /// project or deleted (BR-M4-20) — then the level, by the organization's
-/// process. Reads only, no transaction: each level is its own snapshot, so a
-/// link written between two of them shows at the next read (BR-H-19).
+/// process. Reads only, no transaction, a fixed number of statements: the tree
+/// set at once, whatever the depth, then the live parents outside it. A link
+/// written between the two shows at the next read (BR-T-15).
 /// </remarks>
 public sealed class GetBacklogHandler(
     IOrganizationStructure structure,
@@ -58,26 +58,22 @@ public sealed class GetBacklogHandler(
         }
 
         var processLevel = process.BacklogLevels.Single(row => row.Id == resolved.Id);
-        var processLevels = process.BacklogLevels.Select(row => new ProcessLevel(row.Id, row.Rank, row.Kind)).ToList();
         var types = process.WorkItemTypes.Where(type => type.BacklogLevelId == resolved.Id).ToList();
 
-        var read = await backlogs.ReadAsync(BacklogScope.Of(projectId, teamId, resolved.Id, types), cancellationToken);
+        // The tree set: this level's backlog and those of every level ranked below it (api-contract § 1).
+        var treeLevels = process.BacklogLevels.Where(row => row.Rank <= resolved.Rank).Select(row => row.Id).ToHashSet();
+        var treeTypes = process.WorkItemTypes.Where(type => treeLevels.Contains(type.BacklogLevelId));
 
-        // feat-001: the same team's backlogs below, one level at a time, while the process has the level.
-        var levels = new List<IReadOnlyList<BacklogItemRow>> { read.Items };
+        var read = await backlogs.ReadTreeAsync(BacklogTreeScope.Of(projectId, teamId, treeTypes), cancellationToken);
 
-        for (var below = level.Below(); below?.Resolve(processLevels) is { } lower; below = below.Value.Below())
-        {
-            var lowerTypes = process.WorkItemTypes.Where(type => type.BacklogLevelId == lower.Id);
-            levels.Add((await backlogs.ReadAsync(BacklogScope.Of(projectId, teamId, lower.Id, lowerTypes), cancellationToken)).Items);
-        }
-
-        var parentIds = levels.SelectMany(rows => rows).Select(row => row.ParentId).OfType<Guid>().ToList();
-        var liveParents = await backlogs.FindLiveParentsAsync(projectId, parentIds, cancellationToken);
+        // A parent inside the set is live and is its own row; only those outside it are read (feat-001 BR-H-13).
+        var inSet = read.Items.Select(row => row.Id).ToHashSet();
+        var parentsOutside = read.Items.Select(row => row.ParentId).OfType<Guid>().Where(id => !inSet.Contains(id)).Distinct().ToList();
+        var liveParentsOutside = await backlogs.FindLiveParentsAsync(projectId, parentsOutside, cancellationToken);
 
         return new BacklogResponse(
             new BoardTeamView(team.Id, team.Name, read.DefaultArea),
             BoardLevelView.Of(level, processLevel, types),
-            BacklogRowView.Tree(levels, liveParents));
+            BacklogRowView.Tree(resolved.Rank, read.Items, liveParentsOutside));
     }
 }

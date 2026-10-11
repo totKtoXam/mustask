@@ -4,21 +4,23 @@ import { FormDialog } from '../../../shared/ui/FormDialog';
 import type { BacklogTreeItem } from '../api/boardsApi';
 
 /**
- * The dialog «Изменить родителя» (feat-001 US-5; spec § Page «Бэклоги»;
- * mod-015 § 9.5, `maxWidth="sm"`): «<Тип> <ID> «<Заголовок>»», then the
- * form's «Родитель» picker without «Нет родителя», searching only the level
- * directly above (`levelAbove`), its helper naming that level; the current
- * parent preselected whatever its level, the field focused (mod-015 § 9.5).
- * «Сохранить» waits for a different parent. Busy per mod-015 § 9.1: every
- * control off, Escape ignored. A `workitems.link.*` refusal is the field's
- * error, any other the `Alert`; the caller owns the choice so that a read
- * after `parent_changed` can put the stored parent in it.
+ * The dialog «Изменить родителя» (feat-001 US-5, widened by feat-027 US-6;
+ * mod-015 § 9.5, `maxWidth="sm"`): «<Тип> <ID> «<Заголовок>»», then the form's
+ * «Родитель» picker without «Нет родителя» — that is «Убрать родителя» — offering
+ * every type BR-H-2 allows above the row's own, as the form's picker does, so the
+ * keyboard reaches every parent a drop does (BR-T-14); its helper names those
+ * types, «Родителем может быть: …». The current parent is preselected whatever
+ * its level, the field focused (mod-015 § 9.5). «Сохранить» waits for a
+ * different parent. Busy per mod-015 § 9.1: every control off, Escape ignored. A
+ * `workitems.link.*` refusal is the field's error, any other the `Alert`; the
+ * caller owns the choice so that a read after `parent_changed` can put the
+ * stored parent in it.
  */
 export function ChangeParentDialog({
   organizationId,
   projectId,
   row,
-  aboveLabel,
+  helperText,
   value,
   busy,
   fieldError,
@@ -35,8 +37,8 @@ export function ChangeParentDialog({
    * waits for a parent other than this one (BR-H-4).
    */
   row: Pick<BacklogTreeItem, 'identifier' | 'title' | 'type' | 'parent'>;
-  /** The level above's label, «Эпики» or «Фичи». */
-  aboveLabel: string;
+  /** «Родителем может быть: <типы через запятую>.»; `null` while the process is not read. */
+  helperText: string | null;
   value: WorkItemRef | null;
   busy: boolean;
   fieldError: string | undefined;
@@ -64,8 +66,7 @@ export function ChangeParentDialog({
         value={value}
         disabled={busy}
         error={fieldError}
-        helperText={`Предлагаются элементы уровня «${aboveLabel}». Родителя другого уровня можно выбрать в форме рабочего элемента.`}
-        levelAbove
+        helperText={helperText}
         offerNone={false}
         autoFocus
         onChange={onChange}

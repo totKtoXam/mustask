@@ -167,13 +167,13 @@ the moved state stays.
 | BR-M4-3 | A card has no board position of its own; moving it writes only its state, as § Model states, last write wins (no token, D-2). | doc-003 BR-M4-3; doc-001 BR-11; D-2 |
 | BR-M4-5 | A backlog and its board hold the items § Model's conditions 1–4 select, recomputed at every read. | doc-003 BR-M4-5; doc-001 BR-3; mod-002 BR-M1-11 |
 | BR-M4-6 | An item that comes onto a backlog is unplaced there and lands below every placed item; its former place elsewhere is not carried over. | doc-003 BR-M4-6; this cut's precision BR-M4-24 |
-| BR-M4-8 | Reordering is the only way to change the order, by pointer drag or by its keyboard equivalent, which offers «В начало», «Выше», «Ниже», «В конец» — the positions a drag can reach (mod-015 § 10.5; WCAG 2.1.1). There is no numeric rank field and no create-at-position. | doc-003 BR-M4-8, amended by mod-015 § 10.5 |
+| BR-M4-8 | Reordering is the only way to change the order, by pointer drag or by its keyboard equivalent, which offers «В начало», «Выше», «Ниже», «В конец» — the positions a drag can reach (mod-015 § 10.5; WCAG 2.1.1). There is no numeric rank field and no create-at-position. *Superseded in part by feat-027 BR-T-13 (D-7, D-11) on the backlog: the keyboard equivalent is the four entries in the row's «Ещё действия», not the handle's menu «Переместить <ID>», and a drag may start from any point of the row.* | doc-003 BR-M4-8, amended by mod-015 § 10.5 |
 | BR-M4-13 | Items that predate a backlog's first reorder are listed by identifier number; nothing is backfilled by hand. | doc-003 BR-M4-13 |
-| BR-M4-14 | A backlog row shows «Порядок», ID, «Тип», «Заголовок», «Исполнитель», «Статус»; a card shows type, ID, «Заголовок», «Статус», «Исполнитель». Приоритет and Теги join them with their own lines (§ Out of scope). | doc-003 BR-M4-14; mod-003 § Out of scope |
+| BR-M4-14 | A backlog row shows «Порядок», ID, «Тип», «Заголовок», «Исполнитель», «Статус»; a card shows type, ID, «Заголовок», «Статус», «Исполнитель». Приоритет and Теги join them with their own lines (§ Out of scope). *Superseded in part by feat-027 BR-T-1 (D-7) for the backlog row: its columns are the hierarchy column, «Порядок», «Тип», «Заголовок», «Статус», «Трудоёмкость», «Бизнес-ценность», «Вид ценности» — no ID, «Исполнитель» or «Приоритет» (the card keeps its fields).* | doc-003 BR-M4-14; mod-003 § Out of scope |
 | BR-M4-15 | A column lists its cards in the backlog's order; a card move keeps the item's place. Dragging within a column is not offered in this cut (OQ-4). | doc-003 BR-M4-15 |
 | BR-M4-18 | A column that maps no state of a card's type offers that card no drop target and is not offered in its keyboard menu; a direct request for a state of another type is refused with mod-003's `workitems.workitem.state_not_allowed`. | doc-003 BR-M4-18; mod-003 BR-M3-21 |
 | BR-M4-20 | A deleted team's backlog and board addresses answer «Команда не найдена»; its areas pass to the first team (mod-002), so its items come onto the first team's backlogs unplaced. | doc-003 BR-M4-20; doc-010 D-6; mod-002 BR-M1-18 |
-| BR-M4-21 | Creating from a team's backlog or board uses mod-003's dialog with the type choice limited to the level's types; the item takes the team's default area as it stands when the item is created (the first team's is the root), mod-003's initial state, and lands last on that team's backlog. The dialog has no Область field (mod-003's dialog), so a different area is set afterwards on the form, which moves the item (US-7). | doc-003 BR-M4-21; doc-010 D-7; mod-002 BR-M1-14 |
+| BR-M4-21 | Creating from a team's backlog or board uses mod-003's dialog with the type choice limited to the level's types; the item takes the team's default area as it stands when the item is created (the first team's is the root), mod-003's initial state, and lands last on that team's backlog. The dialog has no Область field (mod-003's dialog), so a different area is set afterwards on the form, which moves the item (US-7). *Changed by feat-027: an item created from a backlog row, with that row as its parent (feat-027 BR-T-10), takes the parent's area as stored instead of the team's default.* | doc-003 BR-M4-21; doc-010 D-7; mod-002 BR-M1-14 |
 | BR-M4-23 | The level → types mapping and the shown states are § Model's: every state outside the Removed category. | mod-001 BR-M2-4; doc-003 BR-M4-16; OQ-2 |
 | BR-M4-24 | Placed and unplaced items, where items land and how places are given, as § Model states. | this task's call under D-2 (OQ-5) |
 | BR-M4-25 | A reorder names its backlog (team, level), the moved item and one position: the top, the bottom, or directly after a named item. Reorders of one backlog apply one at a time in arrival order; last write wins with no notice, as § Model defines. | doc-001 BR-11, BR-12; D-2 |
@@ -219,6 +219,17 @@ mod-016 (mod-015 BR-8). Pass A registers «Бэклоги», pass B «Доски
 > and copy), built by feat-026: the tabs «Эпики», «Фичи», «Истории» are one
 > drop-down «Уровень: <уровень>» under the `h1`, and «Показать доску» reads
 > «Показать канбан». The text and tables below are left as written.
+
+> **Superseded in part** by feat-027 (its spec BR-T-1, BR-T-13, BR-T-14,
+> BR-T-16 and `design.md`): the page's head is the team's
+> name as the `h1` with one tab «Бэклог»; the table's columns are the
+> hierarchy column, «Порядок», «Тип», «Заголовок» (the tree, with «⋮»),
+> «Статус», «Трудоёмкость», «Бизнес-ценность», «Вид ценности» — no «ID»,
+> «Исполнитель», «Приоритет» or handle column; and the handle with its menu
+> «Переместить <ID>» is gone: the reorder is dragged from any point of a
+> top-level row (the dotted grip at its edge is a hint), and its keyboard
+> path, «В начало», «Выше», «Ниже», «В конец», is in the row's «Ещё действия».
+> The text and tables below are left as written.
 
 Address `/organizations/:organizationId/projects/:projectId/teams/:teamId/backlogs/:level`,
 `:level` one of `epics`, `features`, `stories`; any other is an unknown

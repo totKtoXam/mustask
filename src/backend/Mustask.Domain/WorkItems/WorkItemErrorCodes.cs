@@ -75,6 +75,15 @@ public static class WorkItemErrorCodes
     /// <summary>The item, or the new parent, is in «Удалена» (BR-H-8).</summary>
     public const string ItemDeleted = "workitems.link.item_deleted";
 
+    // --- feat-027: the hierarchy's depth bound (its D-9, api-contract § 5) ----------------------------------------
+
+    /// <summary>
+    /// The write would make a chain of parents longer than <see cref="Mustask.Domain.WorkItems.WorkItemHierarchy.MaxChainLength"/>
+    /// items; param <c>limit</c>, a number. Answered by the parent write, the form's save with a <c>parent</c> and the
+    /// create with a <c>parentId</c>, after the cycle check.
+    /// </summary>
+    public const string DepthExceeded = "workitems.link.depth_exceeded";
+
     // --- feat-022: the fields per type (its api-contract § 3.2, § 6), field reasons of ValidationFailed ----------
 
     /// <summary>A number field below 0 or above 9 999 (BR-M3-32).</summary>

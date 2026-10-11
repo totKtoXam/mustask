@@ -181,11 +181,14 @@ ignored.
 | `typeId` | the id of one of the five types of the organization's process (mod-001's process read) |
 | `title` | Заголовок (§ 0.6) |
 | `teamId` | optional, added by mod-006 (its api-contract § 7): the team whose backlog or board the item is created from. The item then takes that team's default area as it stands at creation instead of the root (mod-006 BR-M4-21). Absent or `null`: the root, exactly as before. |
+| `parentId` | optional, added by feat-027 (its api-contract § 3): the item to create the new one beneath. The item then takes the parent's area as stored at creation (over `teamId`'s default) and is linked beneath it in the same transaction, the parent's `changedAt` moving; refused, with nothing created, by 404 `workitems.link.parent_not_found` and 409 `workitems.link.item_deleted` / `workitems.link.parent_level_not_allowed` / `workitems.link.depth_exceeded` (the parent's chain of ancestors already holds 64 items; feat-027 D-9), checked after the replay and the team. Absent or `null`: no parent, exactly as before. |
 
 The item takes its type's initial state («Новая»), no assignee, an empty
 description and the project's root area (BR-M3-20) — or, with `teamId`, that
 team's default area; its number is the next of the project's one sequence
-(BR-M3-5).
+(BR-M3-5). *Changed by feat-027: with `parentId` the area is the parent's as
+stored, over the root and over `teamId`'s default, and the answer's `parent`
+is that parent (feat-001 § 2.2's `null` is for a create without `parentId`).*
 
 - **201** `WorkItem`, `Location: /api/organizations/{organizationId}/projects/{projectId}/workitems/{identifier}`.
 - **200** `WorkItem` — **a replay**: the project already has the item this
@@ -202,6 +205,13 @@ team's default area; its number is the next of the project's one sequence
   `teamId` is present and malformed, unknown, a team of another project or
   a deleted team. The team is answered after the type and after the replay
   check: a replay answers 200 with its item whatever its team has become.
+  `workitems.link.parent_not_found` (feat-027) — `parentId` is present and
+  malformed, names nothing, or an item of another project; after the team.
+- **409** (feat-027, with `parentId` only) `workitems.link.item_deleted` —
+  the parent is in «Удалена»; then `workitems.link.parent_level_not_allowed`
+  — the parent's level ranks below the new item's; then
+  `workitems.link.depth_exceeded` — the parent's chain of ancestors, itself
+  included, already holds 64 items (feat-027 D-9).
 
 ### 2.3 `GET …/workitems/{identifier}` — one item (US-3)
 
@@ -232,7 +242,7 @@ field leave the later one; no conflict is ever reported.
 | `stateId` | a state of the item's own type other than its «Удалена» (category `Removed`), any of them from any other, forwards or backwards (BR-M3-21) |
 | `assignee` | `{ "userId": "<id>" }` assigns an active user of the directory; `{ "userId": null }` (or `{}`) clears to «Не назначен» (BR-M3-22). `"assignee": null` or no `assignee` leaves it unchanged. |
 | `areaId` | an area of the item's own project, the root included (BR-M3-23) |
-| `parent` | added by feat-001 (its api-contract § 3.3): optional `{ "parentId", "seenParentId" }`, the parent write of its § 3.2 in this same save, all fields or none; absent or `null` leaves the parent unchanged. Its 404 `workitems.link.parent_not_found` follows the area's, its five 409s follow the assignee's |
+| `parent` | added by feat-001 (its api-contract § 3.3): optional `{ "parentId", "seenParentId" }`, the parent write of its § 3.2 in this same save, all fields or none; absent or `null` leaves the parent unchanged. Its 404 `workitems.link.parent_not_found` follows the area's, its six 409s (feat-001's five and feat-027's `depth_exceeded`) follow the assignee's |
 | the 17 fields of feat-022 | added by feat-022 (its api-contract § 3.2): each optional; a text as `"<text>"` (`""` empties), every other as `{ "value": … }` (`{ "value": null }` empties); absent or `null` leaves it unchanged. A field the item's type does not have is refused; their reasons join this 400 |
 
 A value equal to the stored one changes nothing: re-sending the current

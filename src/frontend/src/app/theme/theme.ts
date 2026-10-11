@@ -4,6 +4,7 @@ import { ruRU } from '@mui/material/locale';
 import { components } from './components';
 import {
   baseFontSize,
+  cardShadow,
   breakpointValues,
   colourRoles,
   density,
@@ -11,6 +12,7 @@ import {
   fontFamily,
   htmlFontSize,
   layout,
+  mediumWeight,
   semanticColours,
   shellPalette,
   typeScale,
@@ -32,6 +34,8 @@ function variant({ size, lineHeight, weight }: ScaleEntry) {
 const typography: TypographyVariantsOptions = {
   fontFamily,
   fontSize: baseFontSize,
+  // `fontWeightMedium` is what `sx` and the shell's `fontWeight: 'fontWeightMedium'` read.
+  fontWeightMedium: mediumWeight,
   htmlFontSize,
   h1: variant(typeScale.h1),
   h2: variant(typeScale.h2),
@@ -41,6 +45,7 @@ const typography: TypographyVariantsOptions = {
   subtitle2: variant(typeScale.subtitle2),
   caption: variant(typeScale.caption),
   button: { ...variant(typeScale.button), textTransform: 'none' },
+  tableCell: variant(typeScale.tableCell),
 };
 
 const baseTheme = createTheme(
@@ -86,6 +91,7 @@ const baseTheme = createTheme(
     },
     layout,
     density,
+    cardShadow,
     // MUI's own keyboard focus ring: a solid accent outline of `focusRing`
     // on every button, list item, tab, link, sort label and icon button,
     // inset automatically where a clipping ancestor would cut it (BR-5).

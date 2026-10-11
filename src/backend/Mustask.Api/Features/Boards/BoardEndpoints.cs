@@ -1,10 +1,14 @@
+using System.Text.Json;
 using Mustask.Api.Authorization;
 using Mustask.Application.Features.Boards.GetBacklog;
 using Mustask.Application.Features.Boards.GetBoard;
 using Mustask.Application.Features.Boards.ReorderBacklog;
 using Mustask.Domain.Identity;
+using Mustask.Domain.WorkItems;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Json;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Options;
 
 namespace Mustask.Api.Features.Boards;
 
@@ -65,8 +69,16 @@ public static class BoardEndpoints
     }
 
     private static async Task<IResult> GetBacklogAsync(
-        string organizationId, string projectId, string teamId, string level, GetBacklogHandler handler, CancellationToken cancellationToken) =>
-        Results.Ok(await handler.Handle(new GetBacklogQuery(organizationId, projectId, teamId, level), cancellationToken));
+        string organizationId,
+        string projectId,
+        string teamId,
+        string level,
+        GetBacklogHandler handler,
+        IOptions<JsonOptions> json,
+        CancellationToken cancellationToken) =>
+        TypedResults.Json(
+            await handler.Handle(new GetBacklogQuery(organizationId, projectId, teamId, level), cancellationToken),
+            BacklogJson.For(json.Value.SerializerOptions));
 
     private static async Task<IResult> ReorderBacklogAsync(
         string organizationId,
@@ -91,4 +103,31 @@ public static class BoardEndpoints
     // --- Request body: every field nullable, so a missing one reaches the handler as its answer -----
 
     private sealed record ReorderBacklogRequest(string? ItemId, string? Position, string? AfterItemId);
+
+    /// <summary>
+    /// How the backlog's answer is written (feat-027): the platform's own options, with a deeper limit. The tree is as
+    /// deep as the longest chain of parents, which the hierarchy bounds at
+    /// <see cref="WorkItemHierarchy.MaxChainLength"/> items (BR-T-4, D-9), and every nested row costs the writer two
+    /// levels — the row and its <c>children</c> — so the platform's 64 would turn a chain of about thirty links into a
+    /// 500 for the whole page. The limit is derived from the bound: the answer object, its <c>items</c> and the first
+    /// row take three levels, each further link two, and the deepest value of a row (<c>parent.state.category</c>)
+    /// three more; <see cref="Headroom"/> is what the derivation leaves for a nested object a row may yet gain. A chain
+    /// stored before the bound that is longer than this fails the write of the answer, as the writer's recursion has
+    /// to be bounded; the mapping before it is iterative and cannot fail on any depth. Built once from the first
+    /// request's options: they are the application's, the same for every request.
+    /// </summary>
+    private static class BacklogJson
+    {
+        private const int AnswerAndFirstRowLevels = 3;
+        private const int RowsNestedValueLevels = 3;
+        private const int Headroom = 10;
+
+        private const int MaxDepth =
+            AnswerAndFirstRowLevels + (2 * (WorkItemHierarchy.MaxChainLength - 1)) + RowsNestedValueLevels + Headroom;
+
+        private static JsonSerializerOptions? options;
+
+        public static JsonSerializerOptions For(JsonSerializerOptions platform) =>
+            options ??= new JsonSerializerOptions(platform) { MaxDepth = MaxDepth };
+    }
 }

@@ -8,23 +8,36 @@ import { WORK_ITEM_PARENT_URL } from '../../workitems/testFixtures';
 import { serveBoards, type BoardsTestApi } from '../testApi';
 import {
   CELL,
+  actions as actionsButton,
   cellText,
-  expandControl,
   findBacklogTable,
-  handle,
+  openActions,
   outline,
-  parentOf,
   rowOf,
   rowsOf,
 } from '../testBacklog';
 import { catalogText, ids, mskRecord, stateId, treeDataset } from '../testFixtures';
 import { chooseLevel } from '../testLevels';
+import {
+  holdParentWrites,
+  listedParents,
+  openParentDialog,
+  parentField,
+  parentWrites,
+  pickParent,
+  saveButton,
+} from '../testParentDialog';
 import { backlogAddress, renderBoards } from '../testRender';
 
 // feat-001 US-5 on US-4's «Data» (`treeDataset`): «Изменить родителя…» and
-// «Убрать родителя» from a top-level row of «Фичи» or «Истории», the parent
-// write (api-contract § 3.2) with the search one level up (§ 3.4), then the
-// backlog read again. US-7's backlog scenarios close the file.
+// «Убрать родителя» from «Ещё действия» of a row, the parent write
+// (api-contract § 3.2) with the search for every type BR-H-2 allows (feat-027
+// US-6: no `levelAbove`), then the backlog read again, which since feat-027 nests
+// the whole tree, expanded as far as it goes: MSK-FEAT-23 stands beneath
+// MSK-FEAT-8 and MSK-US-22 beneath MSK-EPIC-1 on «Эпики». There is no «Родитель»
+// column any more (feat-027 D-7): a parent shows in the nesting, in the stored
+// data and in «Убрать родителя» waiting for one. US-7's backlog scenarios close
+// the file; feat-027 US-6's keyboard path is in `BacklogPage.reparent.test.tsx`.
 
 const PARENT_CHANGED_TEXT = catalogText('workitems.link.parent_changed');
 const FAILED_TEXT = 'Не удалось сохранить родителя. Попробуйте ещё раз.';
@@ -32,10 +45,6 @@ const FAILED_TEXT = 'Не удалось сохранить родителя. П
 afterEach(() => {
   focusManager.setFocused(undefined);
 });
-
-function parentWrites(api: BoardsTestApi) {
-  return api.writes().filter((request) => request.path.endsWith('/parent'));
-}
 
 /** Lets the tab lose and regain focus, as the browser reports it: the backlog is read again. */
 async function refocusTab() {
@@ -47,121 +56,69 @@ async function refocusTab() {
   });
 }
 
-/** A row's «Ещё действия»; found while a menu or the dialog hides the page too. */
-function actionsButton(identifier: string): HTMLElement {
-  return screen.getByRole('button', { name: `Ещё действия: ${identifier}`, hidden: true });
-}
-
-async function openActions(identifier: string): Promise<HTMLElement> {
-  await userEvent.click(actionsButton(identifier));
-  return screen.findByRole('menu', { name: `Ещё действия: ${identifier}` });
-}
-
-async function openDialog(identifier: string): Promise<HTMLElement> {
-  const menu = await openActions(identifier);
-  await userEvent.click(within(menu).getByRole('menuitem', { name: 'Изменить родителя…' }));
-  return screen.findByRole('dialog', { name: 'Изменить родителя' });
-}
-
-function parentField(dialog: HTMLElement): HTMLElement {
-  return within(dialog).getByRole('combobox', { name: 'Родитель' });
-}
-
-/** The open list's lines, «<ID> <Заголовок>» without the state. */
-function lines(): string[] {
-  return within(screen.getByRole('listbox'))
-    .getAllByRole('option')
-    .map((option) => {
-      const primary = option.querySelector('.MuiListItemText-primary');
-      return (primary ?? option).textContent ?? '';
-    });
-}
-
-/** Opens the dialog's «Родитель», waits for the list, and picks the line starting with `identifier`. */
-async function pick(dialog: HTMLElement, identifier: string) {
-  await userEvent.click(parentField(dialog));
-  await userEvent.click(await screen.findByRole('option', { name: new RegExp(`^${identifier} `) }));
-}
-
-function save(dialog: HTMLElement): HTMLElement {
-  return within(dialog).getByRole('button', { name: 'Сохранить' });
-}
-
-/** Holds every parent write until `release()`, then lets the in-memory API take it. */
-function holdParentWrites() {
-  let release: () => void = () => {};
-  const held = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  server.use(
-    http.put(WORK_ITEM_PARENT_URL, async () => {
-      await held;
-      return undefined;
-    }),
-  );
-  return { release };
-}
-
 describe('US-5 Scenario: A story gets a feature as its parent', () => {
-  it('MSK-US-22 under MSK-EPIC-1 is given MSK-FEAT-8 from «Истории»: the dialog, the features only, the notice, the cell, focus back; the tree on «Фичи» follows', async () => {
+  it('MSK-US-22 under MSK-EPIC-1 is given MSK-FEAT-8 from «Истории»: the dialog, the features only, the notice, the link, focus back; the tree on «Фичи» follows', async () => {
     const api = serveBoards(treeDataset());
     renderBoards(backlogAddress('stories'));
-    const table = await findBacklogTable();
-    expect(parentOf(table, 'MSK-US-22')).toBe('MSK-EPIC-1');
+    await findBacklogTable();
+    expect(mskRecord(api.data, 22).parentId).toBe(mskRecord(api.data, 1).id);
 
-    const dialog = await openDialog('MSK-US-22');
+    const dialog = await openParentDialog('MSK-US-22');
     expect(
       within(dialog).getByText('Пользовательская история MSK-US-22 «Запомнить устройство»'),
     ).toBeInTheDocument();
     const field = parentField(dialog);
     expect(field).toHaveValue('MSK-EPIC-1 Вход и регистрация');
     expect(field).toHaveFocus();
+    // Every type BR-H-2 allows above a story, named as the form names them (feat-027 BR-T-14).
     expect(field).toHaveAccessibleDescription(
-      'Предлагаются элементы уровня «Фичи». Родителя другого уровня можно выбрать в форме рабочего элемента.',
+      'Родителем может быть: Эпик, Фича, Пользовательская история, Баг.',
     );
-    expect(save(dialog)).toBeDisabled();
+    expect(saveButton(dialog)).toBeDisabled();
 
     await userEvent.click(field);
     await screen.findByRole('option', { name: /^MSK-FEAT-8 / });
-    expect(lines()).toEqual([
+    // Epics, features, stories and bugs, the item itself and the task not among them.
+    expect(listedParents()).toEqual([
       'MSK-FEAT-23 Вход по коду',
       'MSK-FEAT-21 Аудит входа',
+      'MSK-EPIC-20 Отчётность',
       'MSK-FEAT-8 Вход через SSO',
       'MSK-FEAT-6 Вход по ссылке',
+      'MSK-BUG-4 Ссылка истекает раньше срока',
+      'MSK-US-2 Письмо со ссылкой',
+      'MSK-EPIC-1 Вход и регистрация',
     ]);
     expect(api.reads('parent-candidates')[0]?.path).toBe(
-      `/api/organizations/${ids.example}/projects/${ids.msk}/workitems/MSK-US-22/parent-candidates?text=&levelAbove=true`,
+      `/api/organizations/${ids.example}/projects/${ids.msk}/workitems/MSK-US-22/parent-candidates?text=`,
     );
     await userEvent.click(screen.getByRole('option', { name: /^MSK-FEAT-8 / }));
-    expect(save(dialog)).toBeEnabled();
-    await userEvent.click(save(dialog));
+    expect(saveButton(dialog)).toBeEnabled();
+    await userEvent.click(saveButton(dialog));
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'У MSK-US-22 теперь родитель MSK-FEAT-8.',
     );
     expect(screen.getByRole('alert')).toHaveClass('MuiAlert-colorSuccess');
-    expect(parentOf(table, 'MSK-US-22')).toBe('MSK-FEAT-8');
+    expect(mskRecord(api.data, 22).parentId).toBe(mskRecord(api.data, 8).id);
     await waitFor(() => expect(actionsButton('MSK-US-22')).toHaveFocus());
     expect(parentWrites(api).map((request) => request.body)).toEqual([
       { parentId: mskRecord(api.data, 8).id, seenParentId: mskRecord(api.data, 1).id },
     ]);
 
     await chooseLevel('Фичи');
+    // Beneath MSK-FEAT-8 the feature comes first, then the story (feat-027 BR-T-6).
     await waitFor(async () =>
       expect(outline(await findBacklogTable())).toEqual([
         'MSK-FEAT-8',
+        '  MSK-FEAT-23',
+        '  MSK-US-22',
         'MSK-FEAT-6',
-        'MSK-FEAT-23',
+        '  MSK-US-2',
+        '  MSK-BUG-4',
       ]),
     );
-    await userEvent.click(expandControl('MSK-FEAT-8'));
-    expect(outline(await findBacklogTable())).toEqual([
-      'MSK-FEAT-8',
-      '  MSK-US-22',
-      'MSK-FEAT-6',
-      'MSK-FEAT-23',
-    ]);
   });
 });
 
@@ -171,12 +128,10 @@ describe('US-5 Scenario: A feature gets an epic, replacing its old one in one wr
     renderBoards(backlogAddress('features'));
     await findBacklogTable();
 
-    const dialog = await openDialog('MSK-FEAT-6');
-    expect(parentField(dialog)).toHaveAccessibleDescription(
-      'Предлагаются элементы уровня «Эпики». Родителя другого уровня можно выбрать в форме рабочего элемента.',
-    );
-    await pick(dialog, 'MSK-EPIC-20');
-    await userEvent.click(save(dialog));
+    const dialog = await openParentDialog('MSK-FEAT-6');
+    expect(parentField(dialog)).toHaveAccessibleDescription('Родителем может быть: Эпик, Фича.');
+    await pickParent(dialog, 'MSK-EPIC-20');
+    await userEvent.click(saveButton(dialog));
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'У MSK-FEAT-6 теперь родитель MSK-EPIC-20.',
     );
@@ -184,24 +139,23 @@ describe('US-5 Scenario: A feature gets an epic, replacing its old one in one wr
     expect(mskRecord(api.data, 6).parentId).toBe(mskRecord(api.data, 20).id);
     expect(parentWrites(api)).toHaveLength(1);
     await chooseLevel('Эпики');
-    await findBacklogTable();
-    await waitFor(() => expect(expandControl('MSK-EPIC-20')).toBeInTheDocument());
-    await userEvent.click(expandControl('MSK-EPIC-1'));
-    await userEvent.click(expandControl('MSK-EPIC-20'));
-    await userEvent.click(expandControl('MSK-FEAT-6'));
-    expect(outline(await findBacklogTable())).toEqual([
-      'MSK-EPIC-1',
-      '  MSK-FEAT-8',
-      'MSK-EPIC-20',
-      '  MSK-FEAT-6',
-      '    MSK-US-2',
-      '    MSK-BUG-4',
-    ]);
+    await waitFor(async () =>
+      expect(outline(await findBacklogTable())).toEqual([
+        'MSK-EPIC-1',
+        '  MSK-FEAT-8',
+        '    MSK-FEAT-23',
+        '  MSK-US-22',
+        'MSK-EPIC-20',
+        '  MSK-FEAT-6',
+        '    MSK-US-2',
+        '    MSK-BUG-4',
+      ]),
+    );
   });
 });
 
 describe('US-5 Scenario: «Убрать родителя» clears the parent', () => {
-  it('MSK-FEAT-6 reads «Нет» at once, then the notice; it keeps its row and «Порядок»; on «Эпики» it is beneath no row', async () => {
+  it('MSK-FEAT-6 keeps its row and «Порядок», the notice follows the write, and «Убрать родителя» then waits for a parent; on «Эпики» it is beneath no row', async () => {
     const api = serveBoards(treeDataset());
     const { release } = holdParentWrites();
     renderBoards(backlogAddress('features'));
@@ -210,100 +164,131 @@ describe('US-5 Scenario: «Убрать родителя» clears the parent', (
     const menu = await openActions('MSK-FEAT-6');
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Убрать родителя' }));
 
-    expect(parentOf(table, 'MSK-FEAT-6')).toBe('Нет');
+    // While the write is saved the table is off and the notice has not come.
+    expect(actionsButton('MSK-FEAT-6')).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.queryByRole('alert')).toBeNull();
     release();
     expect(await screen.findByRole('alert')).toHaveTextContent('У MSK-FEAT-6 больше нет родителя.');
-    expect(parentOf(table, 'MSK-FEAT-6')).toBe('Нет');
     expect(cellText(rowOf(table, 'MSK-FEAT-6'), CELL.order)).toBe('2');
-    expect(outline(table)).toEqual(['MSK-FEAT-8', 'MSK-FEAT-6', 'MSK-FEAT-23']);
+    expect(outline(table)).toEqual([
+      'MSK-FEAT-8',
+      '  MSK-FEAT-23',
+      'MSK-FEAT-6',
+      '  MSK-US-2',
+      '  MSK-BUG-4',
+    ]);
     await waitFor(() => expect(actionsButton('MSK-FEAT-6')).toHaveFocus());
     expect(parentWrites(api).map((request) => request.body)).toEqual([
       { parentId: null, seenParentId: mskRecord(api.data, 1).id },
     ]);
     expect(mskRecord(api.data, 6).parentId).toBeNull();
+    const again = await openActions('MSK-FEAT-6');
+    expect(within(again).getByRole('menuitem', { name: 'Убрать родителя' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    await userEvent.keyboard('{Escape}');
 
     await chooseLevel('Эпики');
-    await findBacklogTable();
-    await userEvent.click(expandControl('MSK-EPIC-1'));
-    expect(outline(await findBacklogTable())).toEqual([
-      'MSK-EPIC-1',
-      '  MSK-FEAT-8',
-      'MSK-EPIC-20',
-    ]);
+    await waitFor(async () =>
+      expect(outline(await findBacklogTable())).toEqual([
+        'MSK-EPIC-1',
+        '  MSK-FEAT-8',
+        '    MSK-FEAT-23',
+        '  MSK-US-22',
+        'MSK-EPIC-20',
+      ]),
+    );
   });
 });
 
-describe('US-5 Scenario: What a row’s menu offers', () => {
-  it('«Фичи» and «Истории» top-level rows have «Ещё действия: <ID>» with both entries; «Убрать родителя» is disabled without a parent', async () => {
+describe('US-5 Scenario: What a row’s menu offers (feat-027 BR-T-14)', () => {
+  it('every top-level row of «Фичи» has «Ещё действия: <ID>» with the four moves and both parent entries; «Убрать родителя» is disabled without a parent', async () => {
     const data = treeDataset();
-    mskRecord(data, 23).parentId = null;
+    mskRecord(data, 6).parentId = null;
     serveBoards(data);
     renderBoards(backlogAddress('features'));
     const table = await findBacklogTable();
 
-    expect(
-      within(table)
-        .getAllByRole('columnheader')
-        .map((header) => header.textContent),
-    ).toEqual([
-      'Порядок',
-      'Перемещение',
-      'ID',
-      'Тип',
-      'Заголовок',
-      'Родитель',
-      'Исполнитель',
-      'Статус',
-      'Приоритет',
-      'Действия',
-    ]);
     for (const row of rowsOf(table)) {
-      const identifier = cellText(row, CELL.identifier);
+      const identifier = row.dataset.identifier as string;
       const button = within(row).getByRole('button', { name: `Ещё действия: ${identifier}` });
       expect(button).toHaveAttribute('aria-haspopup', 'menu');
-      expect(button.querySelector('[data-testid="MoreHorizIcon"]')).not.toBeNull();
+      expect(button.querySelector('[data-testid="MoreVertIcon"]')).not.toBeNull();
     }
 
-    const menu = await openActions('MSK-FEAT-6');
-    expect(actionsButton('MSK-FEAT-6')).toHaveAttribute('aria-expanded', 'true');
+    const menu = await openActions('MSK-FEAT-8');
+    expect(actionsButton('MSK-FEAT-8')).toHaveAttribute('aria-expanded', 'true');
     const entries = within(menu).getAllByRole('menuitem');
     expect(entries.map((entry) => entry.textContent)).toEqual([
+      'В начало',
+      'Выше',
+      'Ниже',
+      'В конец',
       'Изменить родителя…',
       'Убрать родителя',
     ]);
-    expect(entries[0]?.querySelector('[data-testid="AccountTreeOutlinedIcon"]')).not.toBeNull();
-    expect(entries[1]?.querySelector('[data-testid="LinkOffIcon"]')).not.toBeNull();
-    expect(entries[1]).not.toHaveAttribute('aria-disabled');
+    expect(within(menu).getByText('Переместить')).toBeInTheDocument();
+    expect(entries[4]?.querySelector('[data-testid="AccountTreeOutlinedIcon"]')).not.toBeNull();
+    expect(entries[5]?.querySelector('[data-testid="LinkOffIcon"]')).not.toBeNull();
+    expect(entries[5]).not.toHaveAttribute('aria-disabled');
     await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
 
-    const without = await openActions('MSK-FEAT-23');
+    const without = await openActions('MSK-FEAT-6');
     expect(within(without).getByRole('menuitem', { name: 'Убрать родителя' })).toHaveAttribute(
       'aria-disabled',
       'true',
     );
   });
 
-  it('«Эпики» rows have no «Ещё действия» and no «Действия» column; nested rows have none either', async () => {
+  it('a nested row has «Ещё действия» too, with the two parent entries and no moves; an epic’s menu has the moves and both parent entries — an epic can have an epic as its parent', async () => {
     serveBoards(treeDataset());
     renderBoards(backlogAddress('epics'));
     const table = await findBacklogTable();
-    await userEvent.click(expandControl('MSK-EPIC-1'));
 
-    expect(within(table).queryAllByRole('button', { name: /^Ещё действия/ })).toEqual([]);
-    expect(within(table).getAllByRole('columnheader')).toHaveLength(9);
+    const entriesOf = (menu: HTMLElement) =>
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((entry) => entry.textContent);
+    const nested = await openActions('MSK-FEAT-6');
+    expect(entriesOf(nested)).toEqual(['Изменить родителя…', 'Убрать родителя']);
+    expect(within(nested).queryByText('Переместить')).toBeNull();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
 
-    await chooseLevel('Фичи');
-    const features = await findBacklogTable();
-    await waitFor(() =>
-      expect(outline(features)).toEqual(['MSK-FEAT-8', 'MSK-FEAT-6', 'MSK-FEAT-23']),
-    );
-    await userEvent.click(expandControl('MSK-FEAT-6'));
-    for (const nested of ['MSK-US-2', 'MSK-BUG-4']) {
-      expect(
-        within(rowOf(features, nested)).queryByRole('button', { name: /^Ещё действия/ }),
-      ).toBeNull();
-      expect(cellText(rowOf(features, nested), CELL.actions)).toBe('');
-    }
+    const epic = await openActions('MSK-EPIC-20');
+    expect(entriesOf(epic)).toEqual([
+      'В начало',
+      'Выше',
+      'Ниже',
+      'В конец',
+      'Изменить родителя…',
+      'Убрать родителя',
+    ]);
+    expect(rowOf(table, 'MSK-FEAT-6')).toHaveAttribute('data-tier', '1');
+  });
+
+  it('«Изменить родителя…» on a nested feature offers the epics and the features, as on its own level; the search asks for every allowed type', async () => {
+    const api = serveBoards(treeDataset());
+    renderBoards(backlogAddress('epics'));
+    await findBacklogTable();
+
+    const dialog = await openParentDialog('MSK-FEAT-23');
+
+    expect(within(dialog).getByText('Фича MSK-FEAT-23 «Вход по коду»')).toBeInTheDocument();
+    expect(parentField(dialog)).toHaveValue('MSK-FEAT-8 Вход через SSO');
+    expect(parentField(dialog)).toHaveAccessibleDescription('Родителем может быть: Эпик, Фича.');
+    await userEvent.click(parentField(dialog));
+    await screen.findByRole('option', { name: /^MSK-EPIC-1 / });
+    expect(listedParents()).toEqual([
+      'MSK-FEAT-21 Аудит входа',
+      'MSK-EPIC-20 Отчётность',
+      'MSK-FEAT-8 Вход через SSO',
+      'MSK-FEAT-6 Вход по ссылке',
+      'MSK-EPIC-1 Вход и регистрация',
+    ]);
+    expect(api.reads('parent-candidates')[0]?.path).not.toContain('levelAbove');
   });
 });
 
@@ -313,13 +298,13 @@ describe('US-5 Scenario: «Сохранить» waits for a different parent', (
     renderBoards(backlogAddress('features'));
     await findBacklogTable();
 
-    const dialog = await openDialog('MSK-FEAT-6');
+    const dialog = await openParentDialog('MSK-FEAT-6');
     expect(parentField(dialog)).toHaveValue('MSK-EPIC-1 Вход и регистрация');
-    expect(save(dialog)).toBeDisabled();
-    await pick(dialog, 'MSK-EPIC-1');
-    expect(save(dialog)).toBeDisabled();
-    await pick(dialog, 'MSK-EPIC-20');
-    expect(save(dialog)).toBeEnabled();
+    expect(saveButton(dialog)).toBeDisabled();
+    await pickParent(dialog, 'MSK-EPIC-1');
+    expect(saveButton(dialog)).toBeDisabled();
+    await pickParent(dialog, 'MSK-EPIC-20');
+    expect(saveButton(dialog)).toBeEnabled();
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
@@ -340,9 +325,9 @@ describe('US-5 Scenario: The mapping changes no order and no other field', () =>
     const table = await findBacklogTable();
     const before = api.order(ids.platformTeam, 'stories');
 
-    const dialog = await openDialog('MSK-US-2');
-    await pick(dialog, 'MSK-FEAT-8');
-    await userEvent.click(save(dialog));
+    const dialog = await openParentDialog('MSK-US-2');
+    await pickParent(dialog, 'MSK-FEAT-8');
+    await userEvent.click(saveButton(dialog));
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'У MSK-US-2 теперь родитель MSK-FEAT-8.',
     );
@@ -357,17 +342,18 @@ describe('US-5 Scenario: The mapping changes no order and no other field', () =>
     ]);
 
     await chooseLevel('Эпики');
-    await findBacklogTable();
-    await userEvent.click(expandControl('MSK-EPIC-1'));
-    await userEvent.click(expandControl('MSK-FEAT-8'));
-    expect(outline(await findBacklogTable())).toEqual([
-      'MSK-EPIC-1',
-      '  MSK-FEAT-8',
-      '    MSK-US-2',
-      '    MSK-US-22',
-      '  MSK-FEAT-6',
-      'MSK-EPIC-20',
-    ]);
+    await waitFor(async () =>
+      expect(outline(await findBacklogTable())).toEqual([
+        'MSK-EPIC-1',
+        '  MSK-FEAT-8',
+        '    MSK-FEAT-23',
+        '    MSK-US-2',
+        '    MSK-US-22',
+        '  MSK-FEAT-6',
+        '    MSK-BUG-4',
+        'MSK-EPIC-20',
+      ]),
+    );
   });
 });
 
@@ -375,15 +361,15 @@ describe('US-5 Scenario: A parent changed meanwhile refuses the mapping', () => 
   it('Борис maps MSK-US-2 to MSK-FEAT-23 after Анна mapped it to MSK-FEAT-8: the code’s text under «Родитель», the backlog read again, MSK-FEAT-8 preselected', async () => {
     const api = serveBoards(treeDataset());
     renderBoards(backlogAddress('stories'));
-    const table = await findBacklogTable();
-    expect(parentOf(table, 'MSK-US-2')).toBe('MSK-FEAT-6');
+    await findBacklogTable();
+    expect(mskRecord(api.data, 2).parentId).toBe(mskRecord(api.data, 6).id);
 
-    const dialog = await openDialog('MSK-US-2');
-    await pick(dialog, 'MSK-FEAT-23');
+    const dialog = await openParentDialog('MSK-US-2');
+    await pickParent(dialog, 'MSK-FEAT-23');
     // Анна's write, taken as the server would.
     mskRecord(api.data, 2).parentId = mskRecord(api.data, 8).id;
     const reads = api.reads('/backlogs/stories').length;
-    await userEvent.click(save(dialog));
+    await userEvent.click(saveButton(dialog));
 
     await waitFor(() =>
       expect(parentField(dialog)).toHaveAccessibleDescription(PARENT_CHANGED_TEXT),
@@ -391,50 +377,48 @@ describe('US-5 Scenario: A parent changed meanwhile refuses the mapping', () => 
     expect(parentField(dialog)).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByRole('dialog', { name: 'Изменить родителя' })).toBe(dialog);
     expect(api.reads('/backlogs/stories').length).toBeGreaterThan(reads);
-    expect(parentOf(table, 'MSK-US-2')).toBe('MSK-FEAT-8');
     expect(parentField(dialog)).toHaveValue('MSK-FEAT-8 Вход через SSO');
-    expect(save(dialog)).toBeDisabled();
+    expect(saveButton(dialog)).toBeDisabled();
     expect(mskRecord(api.data, 2).parentId).toBe(mskRecord(api.data, 8).id);
     expect(within(dialog).queryByRole('alert')).toBeNull();
   });
 
   /** Opens the dialog on MSK-US-2 (MSK-FEAT-6), then Анна's MSK-FEAT-8 lands and the tab is read again. */
-  async function dialogUnderARead(api: BoardsTestApi, table: HTMLElement) {
-    const dialog = await openDialog('MSK-US-2');
+  async function dialogUnderARead(api: BoardsTestApi) {
+    const dialog = await openParentDialog('MSK-US-2');
     expect(parentField(dialog)).toHaveValue('MSK-FEAT-6 Вход по ссылке');
     mskRecord(api.data, 2).parentId = mskRecord(api.data, 8).id;
     const reads = api.reads('/backlogs/stories').length;
     await refocusTab();
     await waitFor(() => expect(api.reads('/backlogs/stories').length).toBeGreaterThan(reads));
-    await waitFor(() => expect(parentOf(table, 'MSK-US-2')).toBe('MSK-FEAT-8'));
     return dialog;
   }
 
   it('a re-read under the open dialog changes nothing in it: MSK-FEAT-6 still shown, «Сохранить» off until another parent is picked', async () => {
     const api = serveBoards(treeDataset());
     renderBoards(backlogAddress('stories'));
-    const table = await findBacklogTable();
+    await findBacklogTable();
 
-    const dialog = await dialogUnderARead(api, table);
+    const dialog = await dialogUnderARead(api);
 
     expect(parentField(dialog)).toHaveValue('MSK-FEAT-6 Вход по ссылке');
-    expect(save(dialog)).toBeDisabled();
-    await pick(dialog, 'MSK-FEAT-6');
-    expect(save(dialog)).toBeDisabled();
-    await pick(dialog, 'MSK-FEAT-23');
-    expect(save(dialog)).toBeEnabled();
+    expect(saveButton(dialog)).toBeDisabled();
+    await pickParent(dialog, 'MSK-FEAT-6');
+    expect(saveButton(dialog)).toBeDisabled();
+    await pickParent(dialog, 'MSK-FEAT-23');
+    expect(saveButton(dialog)).toBeEnabled();
     expect(parentWrites(api)).toEqual([]);
   });
 
   it('a parent picked after that re-read is sent with MSK-FEAT-6 as seen: refused, read again, MSK-FEAT-8 preselected; the retry is decided on MSK-FEAT-8', async () => {
     const api = serveBoards(treeDataset());
     renderBoards(backlogAddress('stories'));
-    const table = await findBacklogTable();
-    const dialog = await dialogUnderARead(api, table);
+    await findBacklogTable();
+    const dialog = await dialogUnderARead(api);
 
-    await pick(dialog, 'MSK-FEAT-23');
+    await pickParent(dialog, 'MSK-FEAT-23');
     const reads = api.reads('/backlogs/stories').length;
-    await userEvent.click(save(dialog));
+    await userEvent.click(saveButton(dialog));
 
     await waitFor(() => expect(parentWrites(api)).toHaveLength(1));
     expect(parentWrites(api).map((request) => request.body)).toEqual([
@@ -446,16 +430,16 @@ describe('US-5 Scenario: A parent changed meanwhile refuses the mapping', () => 
     expect(mskRecord(api.data, 2).parentId).toBe(mskRecord(api.data, 8).id);
     expect(api.reads('/backlogs/stories').length).toBeGreaterThan(reads);
     expect(parentField(dialog)).toHaveValue('MSK-FEAT-8 Вход через SSO');
-    expect(save(dialog)).toBeDisabled();
+    expect(saveButton(dialog)).toBeDisabled();
 
-    await pick(dialog, 'MSK-FEAT-23');
-    await userEvent.click(save(dialog));
+    await pickParent(dialog, 'MSK-FEAT-23');
+    await userEvent.click(saveButton(dialog));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(parentWrites(api).map((request) => request.body)[1]).toEqual({
       parentId: mskRecord(api.data, 23).id,
       seenParentId: mskRecord(api.data, 8).id,
     });
-    expect(parentOf(table, 'MSK-US-2')).toBe('MSK-FEAT-23');
+    expect(mskRecord(api.data, 2).parentId).toBe(mskRecord(api.data, 23).id);
   });
 
   it('a save with no answer keeps the parent the dialog showed: Анна’s MSK-FEAT-8, read after it, is refused on the retry, not overwritten', async () => {
@@ -472,16 +456,16 @@ describe('US-5 Scenario: A parent changed meanwhile refuses the mapping', () => 
       ),
     );
     renderBoards(backlogAddress('stories'));
-    const table = await findBacklogTable();
+    await findBacklogTable();
 
-    const dialog = await openDialog('MSK-US-2');
-    await pick(dialog, 'MSK-FEAT-23');
-    await userEvent.click(save(dialog));
+    const dialog = await openParentDialog('MSK-US-2');
+    await pickParent(dialog, 'MSK-FEAT-23');
+    await userEvent.click(saveButton(dialog));
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(FAILED_TEXT);
-    await waitFor(() => expect(parentOf(table, 'MSK-US-2')).toBe('MSK-FEAT-8'));
+    expect(mskRecord(api.data, 2).parentId).toBe(mskRecord(api.data, 8).id);
     expect(parentField(dialog)).toHaveValue('MSK-FEAT-23 Вход по коду');
 
-    await userEvent.click(save(dialog));
+    await userEvent.click(saveButton(dialog));
     await waitFor(() => expect(parentWrites(api)).toHaveLength(1));
     expect(parentWrites(api).map((request) => request.body)).toEqual([
       { parentId: mskRecord(api.data, 23).id, seenParentId: mskRecord(api.data, 6).id },
@@ -494,11 +478,11 @@ describe('US-5 Scenario: A parent changed meanwhile refuses the mapping', () => 
   });
 });
 
-describe('US-5 Scenario: A refused clear puts the cell back', () => {
-  it('`workitems.link.parent_changed` on «Убрать родителя»: the backlog read again shows the stored parent, and the code’s text is the error notice', async () => {
+describe('US-5 Scenario: A refused clear changes nothing', () => {
+  it('`workitems.link.parent_changed` on «Убрать родителя»: the backlog is read again, the stored parent stays, and the code’s text is the error notice', async () => {
     const api = serveBoards(treeDataset());
     renderBoards(backlogAddress('features'));
-    const table = await findBacklogTable();
+    await findBacklogTable();
     // Another user gave MSK-FEAT-6 MSK-EPIC-20 meanwhile.
     mskRecord(api.data, 6).parentId = mskRecord(api.data, 20).id;
 
@@ -508,21 +492,20 @@ describe('US-5 Scenario: A refused clear puts the cell back', () => {
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(PARENT_CHANGED_TEXT);
     expect(alert).toHaveClass('MuiAlert-colorError');
-    expect(parentOf(table, 'MSK-FEAT-6')).toBe('MSK-EPIC-20');
     expect(mskRecord(api.data, 6).parentId).toBe(mskRecord(api.data, 20).id);
   });
 
   it('a re-read under the open menu keeps the parent it opened on: «Убрать родителя» sends MSK-EPIC-1 as seen and is refused, MSK-EPIC-20 kept', async () => {
     const api = serveBoards(treeDataset());
     renderBoards(backlogAddress('features'));
-    const table = await findBacklogTable();
-    expect(parentOf(table, 'MSK-FEAT-6')).toBe('MSK-EPIC-1');
+    await findBacklogTable();
 
     const menu = await openActions('MSK-FEAT-6');
     // Another user gives MSK-FEAT-6 MSK-EPIC-20 while the menu is open, and the tab is read again.
     mskRecord(api.data, 6).parentId = mskRecord(api.data, 20).id;
+    const reads = api.reads('/backlogs/features').length;
     await refocusTab();
-    await waitFor(() => expect(parentOf(table, 'MSK-FEAT-6')).toBe('MSK-EPIC-20'));
+    await waitFor(() => expect(api.reads('/backlogs/features').length).toBeGreaterThan(reads));
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Убрать родителя' }));
 
     const alert = await screen.findByRole('alert');
@@ -531,21 +514,21 @@ describe('US-5 Scenario: A refused clear puts the cell back', () => {
     expect(parentWrites(api).map((request) => request.body)).toEqual([
       { parentId: null, seenParentId: mskRecord(api.data, 1).id },
     ]);
-    expect(parentOf(table, 'MSK-FEAT-6')).toBe('MSK-EPIC-20');
     expect(mskRecord(api.data, 6).parentId).toBe(mskRecord(api.data, 20).id);
   });
 
-  it('with no answer at all «Не удалось сохранить родителя. Попробуйте ещё раз.» is shown and the cell is back', async () => {
-    serveBoards(treeDataset());
+  it('with no answer at all «Не удалось сохранить родителя. Попробуйте ещё раз.» is shown and the parent stays', async () => {
+    const api = serveBoards(treeDataset());
     server.use(http.put(WORK_ITEM_PARENT_URL, () => HttpResponse.error()));
     renderBoards(backlogAddress('features'));
-    const table = await findBacklogTable();
+    await findBacklogTable();
 
     const menu = await openActions('MSK-FEAT-6');
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Убрать родителя' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(FAILED_TEXT);
-    await waitFor(() => expect(parentOf(table, 'MSK-FEAT-6')).toBe('MSK-EPIC-1'));
+    expect(mskRecord(api.data, 6).parentId).toBe(mskRecord(api.data, 1).id);
+    await waitFor(() => expect(actionsButton('MSK-FEAT-6')).not.toHaveAttribute('aria-disabled'));
   });
 
   it('in the dialog, no answer is its `Alert` with the same text, the dialog open and the choice kept', async () => {
@@ -554,19 +537,19 @@ describe('US-5 Scenario: A refused clear puts the cell back', () => {
     renderBoards(backlogAddress('features'));
     await findBacklogTable();
 
-    const dialog = await openDialog('MSK-FEAT-6');
-    await pick(dialog, 'MSK-EPIC-20');
-    await userEvent.click(save(dialog));
+    const dialog = await openParentDialog('MSK-FEAT-6');
+    await pickParent(dialog, 'MSK-EPIC-20');
+    await userEvent.click(saveButton(dialog));
 
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(FAILED_TEXT);
     expect(parentField(dialog)).toHaveValue('MSK-EPIC-20 Отчётность');
     expect(parentField(dialog)).not.toHaveAttribute('aria-invalid', 'true');
-    expect(save(dialog)).toBeEnabled();
+    expect(saveButton(dialog)).toBeEnabled();
   });
 });
 
 describe('US-5 Scenario: One write at a time', () => {
-  it('while «Убрать родителя» is saved every handle and «Ещё действия» is off, and on again once the backlog is read', async () => {
+  it('while «Убрать родителя» is saved every row is undraggable and every «Ещё действия» is off, and on again once the backlog is read', async () => {
     serveBoards(treeDataset());
     const { release } = holdParentWrites();
     renderBoards(backlogAddress('features'));
@@ -575,9 +558,8 @@ describe('US-5 Scenario: One write at a time', () => {
     const menu = await openActions('MSK-FEAT-6');
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Убрать родителя' }));
 
-    for (const identifier of ['MSK-FEAT-8', 'MSK-FEAT-6', 'MSK-FEAT-23']) {
-      expect(handle(identifier)).toHaveAttribute('aria-disabled', 'true');
-      expect(handle(identifier)).toHaveAttribute('draggable', 'false');
+    for (const identifier of ['MSK-FEAT-8', 'MSK-FEAT-6']) {
+      expect(rowOf(table, identifier)).toHaveAttribute('draggable', 'false');
       expect(actionsButton(identifier)).toHaveAttribute('aria-disabled', 'true');
     }
     await userEvent.click(actionsButton('MSK-FEAT-8'));
@@ -585,36 +567,42 @@ describe('US-5 Scenario: One write at a time', () => {
 
     release();
     await screen.findByRole('alert');
-    for (const identifier of ['MSK-FEAT-8', 'MSK-FEAT-6', 'MSK-FEAT-23']) {
-      expect(handle(identifier)).not.toHaveAttribute('aria-disabled');
+    for (const identifier of ['MSK-FEAT-8', 'MSK-FEAT-6']) {
+      expect(rowOf(table, identifier)).toHaveAttribute('draggable', 'true');
       expect(actionsButton(identifier)).not.toHaveAttribute('aria-disabled');
     }
-    expect(outline(table)).toEqual(['MSK-FEAT-8', 'MSK-FEAT-6', 'MSK-FEAT-23']);
+    expect(outline(table)).toEqual([
+      'MSK-FEAT-8',
+      '  MSK-FEAT-23',
+      'MSK-FEAT-6',
+      '  MSK-US-2',
+      '  MSK-BUG-4',
+    ]);
   });
 
   it('while the dialog saves it is busy — every control off — and so is the table behind it', async () => {
     serveBoards(treeDataset());
     const { release } = holdParentWrites();
     renderBoards(backlogAddress('features'));
-    await findBacklogTable();
+    const table = await findBacklogTable();
 
-    const dialog = await openDialog('MSK-FEAT-6');
-    await pick(dialog, 'MSK-EPIC-20');
-    await userEvent.click(save(dialog));
+    const dialog = await openParentDialog('MSK-FEAT-6');
+    await pickParent(dialog, 'MSK-EPIC-20');
+    await userEvent.click(saveButton(dialog));
 
-    await waitFor(() => expect(save(dialog)).toBeDisabled());
+    await waitFor(() => expect(saveButton(dialog)).toBeDisabled());
     expect(within(dialog).getByRole('button', { name: 'Отмена' })).toBeDisabled();
     expect(within(dialog).getByRole('button', { name: 'Закрыть' })).toBeDisabled();
     expect(parentField(dialog)).toBeDisabled();
-    expect(save(dialog).querySelector('.MuiCircularProgress-root')).not.toBeNull();
-    expect(handle('MSK-FEAT-8')).toHaveAttribute('aria-disabled', 'true');
+    expect(saveButton(dialog).querySelector('.MuiCircularProgress-root')).not.toBeNull();
+    expect(rowOf(table, 'MSK-FEAT-8')).toHaveAttribute('draggable', 'false');
     expect(actionsButton('MSK-FEAT-8')).toHaveAttribute('aria-disabled', 'true');
     await userEvent.keyboard('{Escape}');
     expect(screen.getByRole('dialog', { name: 'Изменить родителя' })).toBeInTheDocument();
 
     release();
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(handle('MSK-FEAT-8')).not.toHaveAttribute('aria-disabled');
+    expect(actionsButton('MSK-FEAT-8')).not.toHaveAttribute('aria-disabled');
   });
 });
 
@@ -622,30 +610,30 @@ describe('US-5 Scenario: The menu is the complete path by keyboard', () => {
   it('Enter on «Ещё действия: MSK-US-2», Enter on «Изменить родителя…», «sso», the arrows and Enter, Tab to «Сохранить» and Enter: MSK-FEAT-8, focus back', async () => {
     const api = serveBoards(treeDataset());
     renderBoards(backlogAddress('stories'));
-    const table = await findBacklogTable();
+    await findBacklogTable();
 
     actionsButton('MSK-US-2').focus();
     await userEvent.keyboard('{Enter}');
     const menu = await screen.findByRole('menu', { name: 'Ещё действия: MSK-US-2' });
-    await waitFor(() =>
-      expect(within(menu).getByRole('menuitem', { name: 'Изменить родителя…' })).toHaveFocus(),
-    );
+    // The first entry is «В начало», disabled on the first row: focus lands on the first one that is on.
+    const change = within(menu).getByRole('menuitem', { name: 'Изменить родителя…' });
+    await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
+    change.focus();
     await userEvent.keyboard('{Enter}');
     const dialog = await screen.findByRole('dialog', { name: 'Изменить родителя' });
     await waitFor(() => expect(parentField(dialog)).toHaveFocus());
 
     await userEvent.keyboard('{Control>}a{/Control}{Backspace}sso');
-    await waitFor(() => expect(lines()).toEqual(['MSK-FEAT-8 Вход через SSO']));
+    await waitFor(() => expect(listedParents()).toEqual(['MSK-FEAT-8 Вход через SSO']));
     await userEvent.keyboard('{ArrowDown}{Enter}');
     expect(parentField(dialog)).toHaveValue('MSK-FEAT-8 Вход через SSO');
     await userEvent.tab();
     expect(within(dialog).getByRole('button', { name: 'Отмена' })).toHaveFocus();
     await userEvent.tab();
-    expect(save(dialog)).toHaveFocus();
+    expect(saveButton(dialog)).toHaveFocus();
     await userEvent.keyboard('{Enter}');
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(parentOf(table, 'MSK-US-2')).toBe('MSK-FEAT-8');
     expect(mskRecord(api.data, 2).parentId).toBe(mskRecord(api.data, 8).id);
     await waitFor(() => expect(actionsButton('MSK-US-2')).toHaveFocus());
   });
@@ -670,8 +658,7 @@ describe('US-7 Scenario: The mapping replaces the link to a deleted parent', () 
     mskRecord(data, 1).stateId = stateId('EPIC', 'Удалена');
     const api = serveBoards(data);
     renderBoards(backlogAddress('features'));
-    const table = await findBacklogTable();
-    expect(parentOf(table, 'MSK-FEAT-6')).toBe('Нет');
+    await findBacklogTable();
 
     const actions = await openActions('MSK-FEAT-6');
     expect(within(actions).getByRole('menuitem', { name: 'Убрать родителя' })).toHaveAttribute(
@@ -681,14 +668,20 @@ describe('US-7 Scenario: The mapping replaces the link to a deleted parent', () 
     await userEvent.click(within(actions).getByRole('menuitem', { name: 'Изменить родителя…' }));
     const dialog = await screen.findByRole('dialog', { name: 'Изменить родителя' });
     expect(parentField(dialog)).toHaveValue('');
-    expect(save(dialog)).toBeDisabled();
+    expect(saveButton(dialog)).toBeDisabled();
 
     await userEvent.click(parentField(dialog));
     await screen.findByRole('option', { name: /^MSK-EPIC-20 / });
-    // A deleted item is never offered (US-7 Scenario: A deleted item is not offered as a parent).
-    expect(lines()).toEqual(['MSK-EPIC-20 Отчётность']);
+    // A deleted item is never offered (US-7 Scenario: A deleted item is not offered as a parent):
+    // MSK-EPIC-1 is not among the epics and features, nor is MSK-FEAT-6 itself.
+    expect(listedParents()).toEqual([
+      'MSK-FEAT-23 Вход по коду',
+      'MSK-FEAT-21 Аудит входа',
+      'MSK-EPIC-20 Отчётность',
+      'MSK-FEAT-8 Вход через SSO',
+    ]);
     await userEvent.click(screen.getByRole('option', { name: /^MSK-EPIC-20 / }));
-    await userEvent.click(save(dialog));
+    await userEvent.click(saveButton(dialog));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'У MSK-FEAT-6 теперь родитель MSK-EPIC-20.',
@@ -697,7 +690,6 @@ describe('US-7 Scenario: The mapping replaces the link to a deleted parent', () 
       { parentId: mskRecord(api.data, 20).id, seenParentId: null },
     ]);
     expect(mskRecord(api.data, 6).parentId).toBe(mskRecord(api.data, 20).id);
-    expect(parentOf(table, 'MSK-FEAT-6')).toBe('MSK-EPIC-20');
   });
 
   it('a parent deleted after it was picked is refused with «Удалённый рабочий элемент нельзя связывать.» under «Родитель»', async () => {
@@ -705,16 +697,16 @@ describe('US-7 Scenario: The mapping replaces the link to a deleted parent', () 
     renderBoards(backlogAddress('features'));
     await findBacklogTable();
 
-    const dialog = await openDialog('MSK-FEAT-23');
-    await pick(dialog, 'MSK-EPIC-20');
+    const dialog = await openParentDialog('MSK-FEAT-6');
+    await pickParent(dialog, 'MSK-EPIC-20');
     mskRecord(api.data, 20).stateId = stateId('EPIC', 'Удалена');
-    await userEvent.click(save(dialog));
+    await userEvent.click(saveButton(dialog));
 
     await waitFor(() =>
       expect(parentField(dialog)).toHaveAccessibleDescription(
         'Удалённый рабочий элемент нельзя связывать.',
       ),
     );
-    expect(mskRecord(api.data, 23).parentId).toBe(mskRecord(api.data, 8).id);
+    expect(mskRecord(api.data, 6).parentId).toBe(mskRecord(api.data, 1).id);
   });
 });

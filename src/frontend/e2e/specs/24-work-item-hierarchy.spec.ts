@@ -21,6 +21,14 @@ import { createWorkItem, setParent, typeId, type WorkItemDto } from '../support/
  * BR-H-15). US-7 has no case here: no item can be deleted through the panel
  * before mod-005 (spec § E2E).
  *
+ * Brought in line with feat-027 (its spec § E2E; D-7): the backlog's tree opens
+ * expanded as deep as the data go (D-6) and the rows are found by their
+ * `data-identifier` and `data-tier` — there is no ID cell and no «Родитель»
+ * column — the reorder and the parent change are the row's «Ещё действия»,
+ * whose dialog offers every type BR-H-2 allows, and the page's `h1` is the
+ * team's name with the one tab «Бэклог» / «Канбан» under it. The drop onto a
+ * row, the inline add and the head's look are spec 26's.
+ *
  * Nothing is injected and nothing on the session flow is stubbed
  * (`src/test/e2eSessionGuard.test.ts`). The dialog's initial focus is not
  * asserted (tech-009 D-3: `FormDialog` under StrictMode).
@@ -77,39 +85,43 @@ async function fixture(page: Page) {
     return made;
   }
 
-  return { ...context, prefix, teamPrefix, item };
+  return { ...context, firstTeam, prefix, teamPrefix, item };
 }
 
-/** A backlog row's cells: «Порядок» 0, the handle 1, ID 2, … «Родитель» 5. */
-const ID_CELL = 2;
-const PARENT_CELL = 5;
+/** The cell of a backlog row that holds «Порядок» (feat-027 design § 4.3): the hierarchy column comes first. */
+const ORDER_CELL = 1;
 
-/** «<ID>» for a top-level row, «  <ID>» per tier for a nested one, top to bottom. */
+/**
+ * «<ID>» for a top-level row, «  <ID>» per tier for a nested one, top to bottom:
+ * a row is found by its `data-identifier`, its nesting is its `data-tier`
+ * (feat-027 design § 7 — there is no ID cell and no «Родитель» column).
+ */
 async function outline(page: Page): Promise<string[]> {
-  const rows = backlogTable(page).locator('tbody tr');
+  const rows = backlogTable(page).locator('tbody tr[data-identifier]');
   const count = await rows.count();
   const result: string[] = [];
   for (let index = 0; index < count; index += 1) {
     const row = rows.nth(index);
     const tier = Number((await row.getAttribute('data-tier')) ?? '0');
-    const identifier = (await row.getByRole('cell').nth(ID_CELL).innerText()).trim();
+    const identifier = (await row.getAttribute('data-identifier')) ?? '';
     result.push(`${'  '.repeat(tier)}${identifier}`);
   }
   return result;
 }
 
-/** A backlog row by its identifier, in its own ID cell (a «Родитель» cell may read it too). */
+/** A backlog row by its identifier. */
 function row(page: Page, identifier: string): Locator {
-  return backlogTable(page)
-    .locator('tbody tr')
-    .filter({
-      has: page.locator(`td:nth-child(${ID_CELL + 1})`, { hasText: new RegExp(`^${identifier}$`) }),
-    });
+  return backlogTable(page).locator(`tbody tr[data-identifier="${identifier}"]`);
 }
 
-/** A row's «Родитель» cell. */
-function parentCell(page: Page, identifier: string): Locator {
-  return row(page, identifier).getByRole('cell').nth(PARENT_CELL);
+/** A row's «Порядок» cell: its number on a top-level row, blank on a nested one. */
+function orderCell(page: Page, identifier: string): Locator {
+  return row(page, identifier).getByRole('cell').nth(ORDER_CELL);
+}
+
+/** A row's «Ещё действия: <ID>» (feat-027 BR-T-14: on every row). */
+function actionsButton(page: Page, identifier: string): Locator {
+  return page.getByRole('button', { name: `Ещё действия: ${identifier}`, exact: true });
 }
 
 /** The form's «Родитель»: types `text` and picks the line starting with `identifier`. */
@@ -235,7 +247,7 @@ test.describe('24. the work item hierarchy (feat-001)', () => {
     ).toHaveCount(0);
   });
 
-  test('24.3 «Эпики»: an epic expanded to its features and a feature to its stories, collapsed; a reorder of epics keeps the children (US-4)', async ({
+  test('24.3 «Эпики»: the tree opens expanded as far as the data go, an epic collapsed and expanded by keyboard, a nested row has no «Порядок» and no moves; a reorder of epics keeps the children (US-4)', async ({
     page,
   }) => {
     await signIn(page, { returnPath: '/home' });
@@ -246,82 +258,111 @@ test.describe('24. the work item hierarchy (feat-001)', () => {
     const byLink = await item('FEAT', 'Вход по ссылке', signIn1);
     const letter = await item('US', 'Письмо со ссылкой', byLink);
     const expiry = await item('BUG', 'Ссылка истекает раньше срока', byLink);
-
-    // Rows start collapsed; only the epic with children shows a control.
-    await page.goto(`${teamPrefix}/backlogs/epics`);
-    await expect(levelButton(page)).toHaveAccessibleName('Уровень: Эпики');
-    await expect.poll(() => outline(page)).toEqual([signIn1.identifier, reports.identifier]);
-    const expandEpic = page.getByRole('button', { name: `Развернуть ${signIn1.identifier}` });
-    await expect(expandEpic).toHaveAttribute('aria-expanded', 'false');
-    await expect(
-      page.getByRole('button', { name: `Развернуть ${reports.identifier}` }),
-    ).toHaveCount(0);
-
-    // Expanded by keyboard: its features, one tier in, «Родитель» the epic, focus kept.
-    await expandEpic.focus();
-    await page.keyboard.press('Enter');
-    const collapseEpic = page.getByRole('button', { name: `Свернуть ${signIn1.identifier}` });
-    await expect(collapseEpic).toBeFocused();
-    await expect(collapseEpic).toHaveAttribute('aria-expanded', 'true');
-    await expect
-      .poll(() => outline(page))
-      .toEqual([
-        signIn1.identifier,
-        `  ${sso.identifier}`,
-        `  ${byLink.identifier}`,
-        reports.identifier,
-      ]);
-    await expect(parentCell(page, sso.identifier)).toHaveText(signIn1.identifier);
-    await expect(row(page, sso.identifier).getByRole('cell').first()).toHaveText('');
-    await expect(page.getByRole('button', { name: `Переместить ${sso.identifier}` })).toHaveCount(
-      0,
-    );
-
-    // A feature one tier further: its story and bug.
-    await page.getByRole('button', { name: `Развернуть ${byLink.identifier}` }).click();
-    await expect
-      .poll(() => outline(page))
-      .toEqual([
-        signIn1.identifier,
-        `  ${sso.identifier}`,
-        `  ${byLink.identifier}`,
-        `    ${letter.identifier}`,
-        `    ${expiry.identifier}`,
-        reports.identifier,
-      ]);
-
-    // Collapsed: only the epics again.
-    await collapseEpic.click();
-    await expect.poll(() => outline(page)).toEqual([signIn1.identifier, reports.identifier]);
-
-    // A reorder moves the epic with its shown children, and keeps them shown.
-    await page.getByRole('button', { name: `Развернуть ${signIn1.identifier}` }).click();
-    await page.getByRole('button', { name: `Переместить ${reports.identifier}` }).click();
-    await page
-      .getByRole('menu', { name: `Переместить ${reports.identifier}` })
-      .getByRole('menuitem', { name: 'Выше' })
-      .click();
-    await expect(page.getByRole('status').filter({ hasText: 'перемещён' })).toHaveText(
-      `${reports.identifier} перемещён: позиция 1 из 2.`,
-    );
-    const reordered = [
-      reports.identifier,
+    const expanded = [
       signIn1.identifier,
       `  ${sso.identifier}`,
       `  ${byLink.identifier}`,
       `    ${letter.identifier}`,
       `    ${expiry.identifier}`,
+      reports.identifier,
     ];
-    await expect.poll(() => outline(page)).toEqual(reordered);
-    // Read again after the reorder: still expanded; a reload starts collapsed.
+
+    // The first state is expanded as deep as the data go (feat-027 D-6 OQ-2 (d));
+    // only a row with children shows a control.
+    await page.goto(`${teamPrefix}/backlogs/epics`);
+    await expect(levelButton(page)).toHaveAccessibleName('Уровень: Эпики');
+    await expect.poll(() => outline(page)).toEqual(expanded);
+    const collapseEpic = page.getByRole('button', { name: `Свернуть ${signIn1.identifier}` });
+    await expect(collapseEpic).toHaveAttribute('aria-expanded', 'true');
     await expect(
-      page.getByRole('button', { name: `Свернуть ${signIn1.identifier}` }),
-    ).toBeVisible();
+      page.getByRole('button', {
+        name: new RegExp(`^(Развернуть|Свернуть) ${reports.identifier}$`),
+      }),
+    ).toHaveCount(0);
+
+    // Collapsed by keyboard: only the epics, focus kept.
+    await collapseEpic.focus();
+    await page.keyboard.press('Enter');
+    const expandEpic = page.getByRole('button', { name: `Развернуть ${signIn1.identifier}` });
+    await expect(expandEpic).toBeFocused();
+    await expect(expandEpic).toHaveAttribute('aria-expanded', 'false');
+    await expect.poll(() => outline(page)).toEqual([signIn1.identifier, reports.identifier]);
+
+    // Expanded again by keyboard: its features one tier in; the feature that was open stays open.
+    await page.keyboard.press('Enter');
+    await expect(collapseEpic).toBeFocused();
+    await expect.poll(() => outline(page)).toEqual(expanded);
+    await expect(row(page, sso.identifier)).toHaveAttribute('data-tier', '1');
+
+    // «Порядок» numbers the top-level rows only; a nested row's menu has no moves.
+    await expect(orderCell(page, signIn1.identifier)).toHaveText('1');
+    await expect(orderCell(page, reports.identifier)).toHaveText('2');
+    await expect(orderCell(page, sso.identifier)).toHaveText('');
+    await actionsButton(page, sso.identifier).click();
+    const nestedMenu = page.getByRole('menu', { name: `Ещё действия: ${sso.identifier}` });
+    await expect(nestedMenu.getByRole('menuitem')).toHaveText([
+      'Изменить родителя…',
+      'Убрать родителя',
+    ]);
+    await page.keyboard.press('Escape');
+    await expect(nestedMenu).toHaveCount(0);
+
+    // The user folds one feature, so the state is no longer the first one: what follows can then
+    // tell keeping it from forgetting it (a panel that reset to the first state on a re-read, or
+    // kept the fold across a reload, would be caught by the lines below).
+    await page.getByRole('button', { name: `Свернуть ${byLink.identifier}` }).click();
+    await expect
+      .poll(() => outline(page))
+      .toEqual([
+        signIn1.identifier,
+        `  ${sso.identifier}`,
+        `  ${byLink.identifier}`,
+        reports.identifier,
+      ]);
+
+    // A reorder through the epic's row menu moves it with its shown children, and keeps them shown.
+    const reread = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'GET' &&
+        new URL(response.url()).pathname.endsWith('/backlogs/epics'),
+    );
+    await actionsButton(page, reports.identifier).click();
+    await page
+      .getByRole('menu', { name: `Ещё действия: ${reports.identifier}` })
+      .getByRole('menuitem', { name: 'Выше' })
+      .click();
+    await expect(page.getByRole('status').filter({ hasText: 'перемещён' })).toHaveText(
+      `${reports.identifier} перемещён: позиция 1 из 2.`,
+    );
+    // Read again after the reorder: the fold is kept, the feature's two children stay hidden.
+    await reread;
+    await expect
+      .poll(() => outline(page))
+      .toEqual([
+        reports.identifier,
+        signIn1.identifier,
+        `  ${sso.identifier}`,
+        `  ${byLink.identifier}`,
+      ]);
+    await expect(
+      page.getByRole('button', { name: `Развернуть ${byLink.identifier}` }),
+    ).toHaveAttribute('aria-expanded', 'false');
+
+    // A reload starts at the first state again: the feature is open and its children are back.
     await page.reload();
-    await expect.poll(() => outline(page)).toEqual([reports.identifier, signIn1.identifier]);
+    await expect
+      .poll(() => outline(page))
+      .toEqual([
+        reports.identifier,
+        signIn1.identifier,
+        `  ${sso.identifier}`,
+        `  ${byLink.identifier}`,
+        `    ${letter.identifier}`,
+        `    ${expiry.identifier}`,
+      ]);
   });
 
-  test('24.4 «Истории»: «Изменить родителя…» to a feature, the epic’s tree shows it; «Убрать родителя» (US-5)', async ({
+  test('24.4 «Истории»: «Изменить родителя…» to a feature, offered with every type BR-H-2 allows, the epic’s tree shows it; «Убрать родителя» (US-5)', async ({
     page,
   }) => {
     await signIn(page, { returnPath: '/home' });
@@ -332,10 +373,9 @@ test.describe('24. the work item hierarchy (feat-001)', () => {
 
     await page.goto(`${teamPrefix}/backlogs/stories`);
     await expect.poll(() => outline(page)).toEqual([story.identifier]);
-    await expect(parentCell(page, story.identifier)).toHaveText('Нет');
 
     // The menu by keyboard: Enter opens on «Изменить родителя…», Enter chooses.
-    const actions = page.getByRole('button', { name: `Ещё действия: ${story.identifier}` });
+    const actions = actionsButton(page, story.identifier);
     await actions.focus();
     await page.keyboard.press('Enter');
     const menu = page.getByRole('menu', { name: `Ещё действия: ${story.identifier}` });
@@ -348,72 +388,87 @@ test.describe('24. the work item hierarchy (feat-001)', () => {
       `Пользовательская история ${story.identifier} «Запомнить устройство»`,
     );
     const field = dialog.getByRole('combobox', { name: 'Родитель' });
+    // The dialog offers every type BR-H-2 allows above a story, as the form does (feat-027 BR-T-14).
     await expect(field).toHaveAccessibleDescription(
-      'Предлагаются элементы уровня «Фичи». Родителя другого уровня можно выбрать в форме рабочего элемента.',
+      'Родителем может быть: Эпик, Фича, Пользовательская история, Баг.',
     );
     await expect(dialog.getByRole('button', { name: 'Сохранить' })).toBeDisabled();
     // The field takes focus as the dialog opens; under StrictMode the dev
     // server's first focus is not to be relied on (tech-009 D-3), so it is
     // clicked first.
     await field.click();
+    // The epic is offered beside the feature, and there is no «Нет родителя» — that is «Убрать родителя».
+    await expect(
+      page.getByRole('option', { name: new RegExp(`^${epic.identifier} `) }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('option', { name: new RegExp(`^${feature.identifier} `) }),
+    ).toBeVisible();
+    await expect(page.getByRole('option', { name: 'Нет родителя' })).toHaveCount(0);
     await page.keyboard.type('sso');
-    const option = page.getByRole('option', { name: new RegExp(`^${feature.identifier} `) });
-    await expect(option).toBeVisible();
-    // Only the level above is offered: the epic is not.
+    // The search for «sso» has answered once the epic, which does not match, has left the list.
     await expect(
       page.getByRole('option', { name: new RegExp(`^${epic.identifier} `) }),
     ).toHaveCount(0);
+    await expect(
+      page.getByRole('option', { name: new RegExp(`^${feature.identifier} `) }),
+    ).toBeVisible();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
     await expect(field).toHaveValue(`${feature.identifier} Вход через SSO`);
     await dialog.getByRole('button', { name: 'Сохранить' }).click();
 
+    // There is no «Родитель» column: the notice carries it. The feature is a level above this
+    // page, so the story stays a top-level row; focus returns to «Ещё действия».
     await expect(dialog).toHaveCount(0);
     await expect(page.getByRole('alert')).toContainText(
       `У ${story.identifier} теперь родитель ${feature.identifier}.`,
     );
-    await expect(parentCell(page, story.identifier)).toHaveText(feature.identifier);
     await expect(actions).toBeFocused();
 
-    // The epic's tree shows the story beneath the feature.
+    // The epic's tree shows the story beneath the feature, already expanded (D-6).
     await levelButton(page).click();
     await page.getByRole('menuitem', { name: 'Эпики' }).click();
     await expect(page).toHaveURL(new RegExp(`${teamPrefix}/backlogs/epics$`));
-    await page.getByRole('button', { name: `Развернуть ${epic.identifier}` }).click();
-    await page.getByRole('button', { name: `Развернуть ${feature.identifier}` }).click();
     await expect
       .poll(() => outline(page))
       .toEqual([epic.identifier, `  ${feature.identifier}`, `    ${story.identifier}`]);
 
-    // «Убрать родителя»: «Нет» at once, the notice, and the tree lets go.
+    // «Убрать родителя»: the notice, and the tree lets go.
     await page.goBack();
     await expect(page).toHaveURL(new RegExp(`${teamPrefix}/backlogs/stories$`));
-    await page.getByRole('button', { name: `Ещё действия: ${story.identifier}` }).click();
+    await actionsButton(page, story.identifier).click();
     await page.getByRole('menuitem', { name: 'Убрать родителя' }).click();
-    await expect(parentCell(page, story.identifier)).toHaveText('Нет');
     await expect(page.getByRole('alert')).toContainText(
       `У ${story.identifier} больше нет родителя.`,
     );
-    await page.reload();
-    await expect(parentCell(page, story.identifier)).toHaveText('Нет');
+    await page.goto(`${teamPrefix}/backlogs/epics`);
+    await expect.poll(() => outline(page)).toEqual([epic.identifier, `  ${feature.identifier}`]);
   });
 
-  test('24.5 the level drop-down on «Бэклоги» and «Канбан» by keyboard, the address and back; the entry, h1 and «Показать канбан» read «Канбан» (US-6)', async ({
+  test('24.5 the level drop-down on «Бэклоги» and «Канбан» by keyboard, the address and back; the team’s name is the h1 with the one tab «Бэклог» / «Канбан»; the entry and «Показать канбан» read «Канбан» (US-6)', async ({
     page,
   }) => {
     await signIn(page, { returnPath: '/home' });
-    const { teamPrefix, item } = await fixture(page);
+    const { firstTeam, teamPrefix, item } = await fixture(page);
     const epic = await item('EPIC', 'Вход и регистрация');
     const feature = await item('FEAT', 'Вход через SSO');
     const story = await item('US', 'Запомнить устройство');
 
-    // «Бэклоги»: no tabs, the drop-down reads the level.
+    // «Бэклоги»: the `h1` is the team's name (the browser tab names the page), «Бэклог» the one
+    // tab, the drop-down reads the level and keeps «Уровень: <уровень>» as its name (BR-T-16).
     await page.goto(`${teamPrefix}/backlogs/stories`);
-    await expect(page.getByRole('heading', { level: 1, name: 'Бэклоги' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: firstTeam.name })).toBeVisible();
+    await expect(page).toHaveTitle('Бэклоги — Mustask');
     await expect.poll(() => outline(page)).toEqual([story.identifier]);
-    await expect(page.getByRole('tab')).toHaveCount(0);
+    await expect(page.getByRole('tab')).toHaveCount(1);
+    await expect(page.getByRole('tab', { name: 'Бэклог' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
     const button = levelButton(page);
     await expect(button).toHaveAccessibleName('Уровень: Истории');
+    await expect(button).toHaveText('Истории');
     await expect(button).toHaveAttribute('aria-haspopup', 'menu');
 
     // ArrowDown opens on the current level; ArrowUp and Enter choose «Фичи».
@@ -443,11 +498,16 @@ test.describe('24. the work item hierarchy (feat-001)', () => {
     await expect(page).toHaveURL(new RegExp(`${teamPrefix}/backlogs/stories$`));
     await expect(levelButton(page)).toHaveAccessibleName('Уровень: Истории');
 
-    // The rename: «Показать канбан», then «Канбан» in the h1, the tab, the region, the entry.
+    // The rename: «Показать канбан», then «Канбан» in the tab title, the one tab, the region, the entry.
     await page.getByRole('link', { name: 'Показать канбан' }).click();
     await expect(page).toHaveURL(new RegExp(`${teamPrefix}/boards/stories$`));
-    await expect(page.getByRole('heading', { level: 1, name: 'Канбан' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: firstTeam.name })).toBeVisible();
     await expect(page).toHaveTitle('Канбан — Mustask');
+    await expect(page.getByRole('tab')).toHaveCount(1);
+    await expect(page.getByRole('tab', { name: 'Канбан' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
     await expect(page.getByRole('region', { name: 'Канбан' })).toContainText(story.identifier);
     const entry = mainNavigation(page).getByRole('link', { name: 'Канбан' });
     await expect(entry).toHaveAttribute('aria-current', 'page');

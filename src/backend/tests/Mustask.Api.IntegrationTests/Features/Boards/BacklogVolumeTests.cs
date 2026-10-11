@@ -11,9 +11,10 @@ namespace Mustask.Api.IntegrationTests.Features.Boards;
 /// of one team and level with 5 000 items is served within 2 s, a reorder within
 /// 1 s — measured on the request as the panel sends it, after one warm-up call of each operation,
 /// against the real membership query and its index. The level's 5 000 items
-/// share their area with 2 000 items of another level, which the read must not
-/// touch. The items are inserted with one statement: through the create endpoint
-/// the setup alone would take minutes.
+/// share their area with 2 000 tasks with no parent: the board must not touch
+/// them, and the backlog's tree set (feat-027) reads them but nests none, so no
+/// row shows them. The items are inserted with one statement: through the create
+/// endpoint the setup alone would take minutes.
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]

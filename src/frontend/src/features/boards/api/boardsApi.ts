@@ -5,9 +5,12 @@
 // validated (§ 0.2): a malformed one answers its level's not-found code. The
 // card move and the creation are mod-003's writes (§ 6), reached through that
 // slice's barrel, not here. feat-001's api-contract § 4 adds the backlog's
-// tree: each row's `parent` and its `children` one level below; the board
-// does not change (BR-H-17). feat-022's api-contract § 5 adds «Приоритет» to
-// every row, nested ones included, and to every card.
+// tree: each row's `parent` and its `children`; the board does not change
+// (BR-H-17). feat-022's api-contract § 5 adds «Приоритет» to every row, nested
+// ones included, and to every card. feat-027's api-contract § 1–§ 2 makes that
+// tree the whole one — every level below the page's, at full depth, in the one
+// answer — numbers only the top-level rows, and adds `effort`, `businessValue`
+// and `valueArea` to every row.
 import { apiFetch } from '../../../shared/api/httpClient';
 import type {
   WorkItemAssignee,
@@ -36,7 +39,10 @@ export interface BoardLevel {
   types: BoardLevelType[];
 }
 
-/** § 2.3: a board card; on the backlog, a row's own fields (feat-001 § 4 adds its tree). */
+/**
+ * § 2.3: a board card; on the backlog, a row's own fields — feat-001 § 4 and
+ * feat-027 § 2 add its parent, its tree and its three planning values.
+ */
 export interface BacklogItem {
   /** «Порядок»: 1-based and dense over the backlog; on a card, its backlog position. */
   order: number;
@@ -53,30 +59,50 @@ export interface BacklogItem {
 }
 
 /**
- * feat-001 api-contract § 4: a nested row — mod-006's item without `order`
- * (a nested row has no «Порядок», BR-H-11) — with its parent and its own
- * children, recursively.
+ * feat-027 api-contract § 2.2: a nested row — mod-006's item without `order`
+ * (a nested row has no «Порядок», BR-T-2) — with its parent, the three planning
+ * values and its own children, recursively.
  */
 export interface BacklogTreeItem extends Omit<BacklogItem, 'order'> {
   /**
+   * feat-027 § 2.1: «Трудоёмкость» in its shortest form (`2.5`, `20`), or
+   * `null` — empty, or a type without the field (only an epic and a feature
+   * have it).
+   */
+  effort: number | null;
+  /** feat-027 § 2.1: «Бизнес-ценность», an integer, or `null` as `effort`. */
+  businessValue: number | null;
+  /**
+   * feat-027 § 2.1: «Вид ценности», the list key `Business` or
+   * `Architectural`; `null` on a task and a bug, which do not have it.
+   */
+  valueArea: string | null;
+  /**
    * The stored parent, whatever its level or team (BR-H-13), or `null` when
-   * there is none or it is in «Удалена» (BR-H-8): the cell reads «Нет».
+   * there is none or it is in «Удалена» (BR-H-8). The table draws no «Родитель»
+   * column (feat-027 D-7); the panel keeps this for a drop's seen parent
+   * (BR-H-4). On a nested row it is always the row it stands beneath.
    */
   parent: WorkItemRef | null;
   /**
-   * The row's children on the same team's backlog of the level directly
-   * below, in that backlog's order; `[]` when there is none, so a row has an
-   * expand control exactly when this is not empty (BR-H-12).
+   * The row's children by feat-027 § 1 — its direct children on the team,
+   * live, of any level below its own or its own, each with its own children,
+   * at most 64 rows deep (a chain of parents holds at most 64 items, D-9;
+   * api-contract § 1) — in that section's order; `[]` when there is none, so
+   * a row has an expand control exactly when this is not empty (BR-T-7).
    */
   children: BacklogTreeItem[];
 }
 
-/** § 3.1 with feat-001 § 4: a top-level row, with its «Порядок». */
+/** § 3.1 with feat-027 § 2.1: a top-level row, with its «Порядок» over the top-level rows. */
 export interface BacklogRow extends BacklogTreeItem {
   order: number;
 }
 
-/** § 3.1's answer: the whole backlog in its order, `[]` when empty. */
+/**
+ * § 3.1's answer: the page's top-level rows in their order, each with the whole
+ * tree beneath it (feat-027 § 2); `[]` when empty.
+ */
 export interface Backlog {
   team: BoardTeam;
   level: BoardLevel;

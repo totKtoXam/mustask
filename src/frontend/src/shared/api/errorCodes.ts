@@ -91,6 +91,13 @@ export const workItemErrorCodes = {
   linkParentChanged: 'workitems.link.parent_changed',
   /** 409. */
   linkItemDeleted: 'workitems.link.item_deleted',
+  // feat-027 api-contract § 5 (its D-9): the hierarchy's depth bound — a chain of parents holds at most 64 items.
+  /**
+   * 409 with `params.limit` (the bound, a number): the parent write, the form's save with a `parent` and the create with
+   * a `parentId` all answer it after the cycle check, when the new link would make a chain longer. The text is the
+   * server's `detail`.
+   */
+  linkDepthExceeded: 'workitems.link.depth_exceeded',
   // feat-022 api-contract § 6: field reasons of `validationFailed` for the fields per type, keyed by the field's
   // request name. Each is that field's error, except `fieldNotOnType`, the error `Alert` above the band.
   /** A number field below 0 or above 9 999. */

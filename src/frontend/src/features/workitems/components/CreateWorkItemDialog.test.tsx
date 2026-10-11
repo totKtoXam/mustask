@@ -9,11 +9,11 @@ import { MSK_LIST, renderWorkItems } from '../testRender';
 
 const TYPES_IN_ORDER = ['Эпик', 'Фича', 'Пользовательская история', 'Баг', 'Задача'];
 const ICONS_IN_ORDER = [
-  'LandscapeIcon',
+  'CrownIcon',
   'EmojiEventsIcon',
-  'MenuBookIcon',
+  'StoryIcon',
   'BugReportIcon',
-  'AssignmentIcon',
+  'AssignmentTurnedInIcon',
 ];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 

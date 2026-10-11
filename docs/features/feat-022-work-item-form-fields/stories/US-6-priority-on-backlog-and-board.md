@@ -14,6 +14,12 @@ each one**.
 Spec BR-M3-39, § Backlog and board; doc-003 BR-M4-14; mod-006 BR-M4-14.
 Holds only while OQ-1 keeps option (a).
 
+> **Superseded in part** by feat-027 BR-T-1, BR-T-3 (D-7): the backlog has no
+> «Приоритет» column, so the first two scenarios below ("The backlog shows a
+> «Приоритет» column", "The backlog skeleton names the new column") and the
+> backlog halves of the last two no longer hold; the board card's parts stand.
+> Left as written.
+
 ```gherkin
 Scenario: The backlog shows a «Приоритет» column
   Given a team's «Истории» backlog with MSK-US-12 of «Приоритет» 1 and

@@ -193,6 +193,38 @@ export function treeDataset(): BoardsDataset {
   return data;
 }
 
+/**
+ * feat-027's US-1 «Data»: `treeDataset`'s items with the planning values and
+ * the deeper links of the stories — MSK-EPIC-1 «Вход и регистрация» of
+ * «Трудоёмкость» 20, «Бизнес-ценность» 300, «Бизнес» and «Приоритет» 1;
+ * MSK-EPIC-20 «Отчётность» «Архитектура» of «Приоритет» 2; MSK-FEAT-8 of
+ * «Трудоёмкость» 2,5; MSK-FEAT-6 in «Платформа / API»; MSK-TASK-3 «Шаблон
+ * письма» of «Приоритет» 3. MSK-US-2 is the parent of MSK-BUG-5 «Письмо не
+ * доходит», MSK-TASK-3 and MSK-TASK-7 «Настроить SMTP», the last in «Мастаск»'s
+ * area (another team's, so beneath no row of «Платформа»).
+ */
+export function fullTreeDataset(): BoardsDataset {
+  const data = treeDataset();
+  const us2 = mskRecord(data, 2);
+  Object.assign(mskRecord(data, 1).fields, {
+    effort: 20,
+    businessValue: 300,
+    valueArea: 'Business',
+    priority: 1,
+  });
+  Object.assign(mskRecord(data, 20).fields, { valueArea: 'Architectural', priority: 2 });
+  Object.assign(mskRecord(data, 8).fields, { effort: 2.5 });
+  mskRecord(data, 6).areaId = ids.api;
+  const task3 = mskRecord(data, 3);
+  task3.parentId = us2.id;
+  task3.fields.priority = 3;
+  data.items.push(
+    platformItem(5, 'BUG', 'Письмо не доходит', { parentId: us2.id }),
+    item(ids.msk, 7, 'TASK', 'Настроить SMTP', { areaId: ids.mskRoot, parentId: us2.id }),
+  );
+  return data;
+}
+
 /** The record of «Мастаск»'s item `number` in `data`. */
 export function mskRecord(data: Pick<Dataset, 'items'>, number: number): WorkItemRecord {
   const found = data.items.find(

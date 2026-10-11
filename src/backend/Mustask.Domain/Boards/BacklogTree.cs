@@ -1,67 +1,115 @@
 namespace Mustask.Domain.Boards;
 
-/// <summary>An item of one backlog as the tree needs it: its stack rank entry and its stored parent.</summary>
-public sealed record BacklogTreeEntry(Guid ItemId, int Number, int? Place, Guid? ParentId);
+/// <summary>
+/// An item of a backlog page's tree set (feat-027 api-contract § 1) as the tree
+/// needs it: its stack rank entry on its own level's backlog of the team (the
+/// place <c>null</c> when unplaced there — always, on the «Задачи» level), its
+/// stored parent, and the rank of its level (mod-001 BR-M2-4, a higher rank is
+/// a higher level).
+/// </summary>
+public sealed record BacklogTreeEntry(Guid ItemId, int Number, int? Place, Guid? ParentId, int LevelRank);
 
-/// <summary>A row of the tree: the item and the rows nested beneath it, in their own backlog's order.</summary>
+/// <summary>A row of the tree: the item and the rows nested beneath it, in display order.</summary>
 public sealed record BacklogTreeNode(Guid ItemId, IReadOnlyList<BacklogTreeNode> Children);
 
 /// <summary>
-/// A team's backlog with its tree (feat-001 BR-H-9..-11): the tree is read from
-/// the links, the backlogs store none of it. The backlog's own items are the
-/// top-level rows, in its stack rank (mod-006 BR-M4-24); beneath a row are the
-/// items of the same team's backlog exactly one level below whose stored parent
-/// is that row, in that backlog's own stack rank, and so on down.
+/// A team's backlog page with its tree at full depth (feat-027 BR-T-4..-6): the
+/// tree is read from the links, the backlogs store none of it. The entries are
+/// the tree set — the team's live items of the page's level and of every level
+/// ranked below it.
 /// </summary>
 public static class BacklogTree
 {
     /// <summary>
-    /// Nests <paramref name="levels"/>: the backlog's own entries first, then the
-    /// entries of the same team's backlog one level below, and so on. An item
-    /// whose parent is not an entry of the level directly above — no parent, a
-    /// parent on its own level or further up, on another team's backlog, or in
-    /// «Удалена» (no backlog holds such an item) — nests under no row: it is a
-    /// top-level row of its own level's backlog only (BR-H-10).
+    /// Nests <paramref name="entries"/> for the page of the level ranked <paramref name="levelRank"/>:
+    /// <list type="bullet">
+    /// <item>an entry stands beneath its stored parent exactly when that parent is an entry too and its level ranks
+    /// the same or higher (BR-H-2) — a child of another team or in «Удалена» is no entry, so it nests nowhere;</item>
+    /// <item>the top-level rows are the entries of the page's level that stand beneath no entry (BR-T-5): a
+    /// same-level child stands beneath its parent only;</item>
+    /// <item>an entry of a lower level that stands beneath no entry is not on the page;</item>
+    /// <item>rows stand by level, highest first, then in their level's stack rank (BR-T-6, <see cref="StackRank.Order"/>);
+    /// the top-level rows likewise.</item>
+    /// </list>
+    /// Every entry stands at most once. Entries a stored cycle would join — no parent write makes one — stand beneath
+    /// one another and none at the top, so they are not reached; the walk keeps a visited set besides, and is a loop,
+    /// not a recursion, so no depth of the tree can exhaust the stack.
     /// </summary>
-    public static IReadOnlyList<BacklogTreeNode> Nest(IReadOnlyList<IReadOnlyCollection<BacklogTreeEntry>> levels)
+    public static IReadOnlyList<BacklogTreeNode> Nest(int levelRank, IReadOnlyCollection<BacklogTreeEntry> entries)
     {
-        ArgumentNullException.ThrowIfNull(levels);
+        ArgumentNullException.ThrowIfNull(entries);
 
-        if (levels.Count == 0)
+        var byId = entries.ToDictionary(entry => entry.ItemId);
+
+        // Display order once for the whole set: each level's stack rank, the levels from the highest down.
+        var ordered = entries
+            .GroupBy(entry => entry.LevelRank)
+            .OrderByDescending(level => level.Key)
+            .SelectMany(level => StackRank.Order(level.Select(entry => new StackRankEntry(entry.ItemId, entry.Number, entry.Place))));
+
+        var beneath = new Dictionary<Guid, List<Guid>>();
+        var top = new List<Guid>();
+
+        foreach (var id in ordered)
         {
-            return [];
+            var entry = byId[id];
+
+            if (ParentOf(entry, byId) is { } parentId)
+            {
+                if (!beneath.TryGetValue(parentId, out var siblings))
+                {
+                    beneath[parentId] = siblings = [];
+                }
+
+                siblings.Add(id);
+            }
+            else if (entry.LevelRank == levelRank)
+            {
+                top.Add(id);
+            }
         }
 
-        // From the lowest level up: a level's rows take their children from the rows already built beneath it.
-        IReadOnlyDictionary<Guid, List<BacklogTreeNode>> beneath = new Dictionary<Guid, List<BacklogTreeNode>>();
-        IReadOnlyList<BacklogTreeNode> rows = [];
+        return Build(top, beneath);
+    }
 
-        for (var index = levels.Count - 1; index >= 0; index--)
+    /// <summary>The entry's parent when it nests beneath it: an entry of its own level or a higher one, not itself.</summary>
+    private static Guid? ParentOf(BacklogTreeEntry entry, IReadOnlyDictionary<Guid, BacklogTreeEntry> byId) =>
+        entry.ParentId is { } parentId
+        && parentId != entry.ItemId
+        && byId.TryGetValue(parentId, out var parent)
+        && parent.LevelRank >= entry.LevelRank
+            ? parentId
+            : null;
+
+    /// <summary>The rows from <paramref name="top"/> down, depth first, each list in the order it was given.</summary>
+    private static List<BacklogTreeNode> Build(List<Guid> top, Dictionary<Guid, List<Guid>> beneath)
+    {
+        var rows = new List<BacklogTreeNode>();
+        var visited = new HashSet<Guid>();
+        var pending = new Stack<(Guid ItemId, List<BacklogTreeNode> Into)>();
+
+        for (var index = top.Count - 1; index >= 0; index--)
         {
-            var entries = levels[index];
-            var byId = entries.ToDictionary(entry => entry.ItemId);
-            var children = beneath;
+            pending.Push((top[index], rows));
+        }
 
-            rows = StackRank.Order(entries.Select(entry => new StackRankEntry(entry.ItemId, entry.Number, entry.Place)))
-                .Select(id => new BacklogTreeNode(id, children.TryGetValue(id, out var nested) ? nested : []))
-                .ToList();
-
-            var byParent = new Dictionary<Guid, List<BacklogTreeNode>>();
-
-            foreach (var row in rows)
+        while (pending.TryPop(out var next))
+        {
+            if (!visited.Add(next.ItemId))
             {
-                if (byId[row.ItemId].ParentId is { } parentId)
-                {
-                    if (!byParent.TryGetValue(parentId, out var siblings))
-                    {
-                        byParent[parentId] = siblings = [];
-                    }
-
-                    siblings.Add(row);
-                }
+                continue;
             }
 
-            beneath = byParent;
+            var children = new List<BacklogTreeNode>();
+            next.Into.Add(new BacklogTreeNode(next.ItemId, children));
+
+            if (beneath.TryGetValue(next.ItemId, out var nested))
+            {
+                for (var index = nested.Count - 1; index >= 0; index--)
+                {
+                    pending.Push((nested[index], children));
+                }
+            }
         }
 
         return rows;

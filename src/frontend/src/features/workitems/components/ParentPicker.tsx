@@ -29,10 +29,11 @@ import { StateName } from './Marks';
  * that cannot be chosen. The list is the search's answer as it is; the field
  * never filters it again. The assignee picker's pattern.
  *
- * The backlog's dialog «Изменить родителя» (feat-001 US-5) takes it without
- * «Нет родителя» (`offerNone={false}`; an empty value then reads as an empty
- * field) and searches only the level directly above (`levelAbove`, § 3.4);
- * the value is kept whatever its level.
+ * The backlog's dialog «Изменить родителя» (feat-001 US-5, feat-027 US-6)
+ * takes it without «Нет родителя» (`offerNone={false}`; an empty value then
+ * reads as an empty field): it offers every type the form does (feat-027
+ * api-contract § 4: the parent search without `levelAbove`), and the value is
+ * kept whatever its level.
  */
 export function ParentPicker({
   organizationId,
@@ -42,7 +43,6 @@ export function ParentPicker({
   disabled,
   error,
   helperText,
-  levelAbove = false,
   offerNone = true,
   autoFocus = false,
   onChange,
@@ -56,8 +56,6 @@ export function ParentPicker({
   error: string | undefined;
   /** «Родителем может быть: …», shown while there is no error. */
   helperText: string | null;
-  /** feat-001 § 3.4 `levelAbove=true`: only the level directly above the item's own. */
-  levelAbove?: boolean;
   /** Whether «Нет родителя» is offered; without it, no value is an empty field. */
   offerNone?: boolean;
   /** The field takes focus when it mounts: a dialog's first field (mod-015 § 9.5). */
@@ -76,7 +74,6 @@ export function ParentPicker({
   const settled = useDebouncedValue(text);
   const query = useParentCandidates(organizationId, projectId, identifier, settled, {
     enabled: opened,
-    levelAbove,
   });
 
   let search: ParentSearch;

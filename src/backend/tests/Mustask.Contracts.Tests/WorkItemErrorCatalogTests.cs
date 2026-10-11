@@ -14,8 +14,8 @@ namespace Mustask.Contracts.Tests;
 public sealed class WorkItemErrorCatalogTests
 {
     /// <summary>
-    /// api-contract.md § 4 (mod-003) and feat-001's api-contract § 5 (the six <c>workitems.link.*</c> codes), row by
-    /// row: code, status, params and the Russian text.
+    /// api-contract.md § 4 (mod-003), feat-001's api-contract § 5 (the six <c>workitems.link.*</c> codes) and
+    /// feat-027's § 5 (the depth bound), row by row: code, status, params and the Russian text.
     /// </summary>
     public static TheoryData<string, int, string, string> ContractTable() => new()
     {
@@ -36,6 +36,9 @@ public sealed class WorkItemErrorCatalogTests
         { WorkItemErrorCodes.Cycle, 409, "item,parent,path", "Нельзя выбрать родителем {parent}: он вложен в {item} ({path})." },
         { WorkItemErrorCodes.ParentChanged, 409, "", "Родитель уже изменён другим участником. Данные обновлены — проверьте и повторите." },
         { WorkItemErrorCodes.ItemDeleted, 409, "", "Удалённый рабочий элемент нельзя связывать." },
+
+        // feat-027 api-contract § 5 (its D-9): the depth bound; the limit goes out as the one parameter.
+        { WorkItemErrorCodes.DepthExceeded, 409, "limit", "Слишком глубокая вложенность: в цепочке родителей может быть не больше {limit} элементов." },
 
         // feat-022 api-contract § 6: the field reasons of the fields per type.
         { WorkItemErrorCodes.NumberOutOfRange, 400, "", "Допустимо значение от 0 до 9 999." },

@@ -113,9 +113,41 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
             : null;
 
         IReadOnlyCollection<HierarchyLink> ancestry = newParent is null ? [] : await AncestryAsync(child.ProjectId, newParent.Id, cancellationToken);
+        var subtreeHeight = newParent is null ? 1 : await SubtreeHeightAsync(child.ProjectId, child.Id, cancellationToken);
 
-        return new ParentWrite(child, storedParent, newParent, seenParentId, ancestry);
+        return new ParentWrite(child, storedParent, newParent, seenParentId, ancestry, subtreeHeight);
     }
+
+    public Task<WorkItem?> LockNewParentAsync(Guid projectId, Guid parentId, CancellationToken cancellationToken) =>
+        LockLinkEndAsync(projectId, parentId, cancellationToken);
+
+    /// <summary>
+    /// The item and every ancestor of it, as stored, in one recursive statement
+    /// (LINQ cannot express it). <c>UNION</c> rather than <c>UNION ALL</c>: a row
+    /// already found is not walked again, so the statement ends even if a defect
+    /// ever stored a cycle. Read under the hierarchy lock, so no parent write of
+    /// the project moves a link meanwhile. The outer <c>SELECT</c> names its
+    /// columns after the properties: the snake_case convention names the table's
+    /// columns, not those of a SQL source EF composes over.
+    /// </summary>
+    public async Task<IReadOnlyCollection<HierarchyLink>> AncestryAsync(Guid projectId, Guid workItemId, CancellationToken cancellationToken) =>
+        await context.WorkItems
+            .FromSqlInterpolated($"""
+                WITH RECURSIVE ancestry (id, project_id, parent_id, type_id, number) AS (
+                    SELECT item.id, item.project_id, item.parent_id, item.type_id, item.number
+                    FROM work_items AS item
+                    WHERE item.id = {workItemId} AND item.project_id = {projectId}
+                    UNION
+                    SELECT parent.id, parent.project_id, parent.parent_id, parent.type_id, parent.number
+                    FROM work_items AS parent
+                    JOIN ancestry ON parent.id = ancestry.parent_id
+                )
+                SELECT id AS "Id", project_id AS "ProjectId", parent_id AS "ParentId", type_id AS "TypeId", number AS "Number"
+                FROM ancestry
+                """)
+            .AsNoTracking()
+            .Select(item => new HierarchyLink(item.Id, item.ParentId, item.TypeId, item.Number))
+            .ToListAsync(cancellationToken);
 
     public void Add(WorkItem item) => context.WorkItems.Add(item);
 
@@ -137,30 +169,33 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
     }
 
     /// <summary>
-    /// The item and every ancestor of it, as stored, in one recursive statement
-    /// (LINQ cannot express it). <c>UNION</c> rather than <c>UNION ALL</c>: a row
-    /// already found is not walked again, so the statement ends even if a defect
-    /// ever stored a cycle. Read under the hierarchy lock, so no parent write of
-    /// the project moves a link meanwhile. The outer <c>SELECT</c> names its
-    /// columns after the properties: the snake_case convention names the table's
-    /// columns, not those of a SQL source EF composes over.
+    /// The height of the item's own subtree, the item counted (1 for an item with no children), in one recursive
+    /// statement (LINQ cannot express it) over the stored links — the number of items on the longest chain from the
+    /// item down (feat-027 D-9). The recursion stops at <see cref="WorkItemHierarchy.MaxChainLength"/> levels: a height
+    /// that large refuses any write whatever the new parent's chain, so the exact figure past it is not needed, and the
+    /// statement ends even if a defect ever stored a cycle (<c>UNION ALL</c> is safe, as an item has one parent column
+    /// and so is reached by one path). Joined by project and parent, so the
+    /// <c>(project_id, parent_id)</c> index serves it. Read under the hierarchy lock, so no parent write of the project
+    /// moves a link meanwhile.
     /// </summary>
-    private async Task<IReadOnlyCollection<HierarchyLink>> AncestryAsync(Guid projectId, Guid workItemId, CancellationToken cancellationToken) =>
-        await context.WorkItems
-            .FromSqlInterpolated($"""
-                WITH RECURSIVE ancestry (id, project_id, parent_id, type_id, number) AS (
-                    SELECT item.id, item.project_id, item.parent_id, item.type_id, item.number
+    private async Task<int> SubtreeHeightAsync(Guid projectId, Guid workItemId, CancellationToken cancellationToken)
+    {
+        const int cap = WorkItemHierarchy.MaxChainLength;
+
+        return await context.Database
+            .SqlQuery<int>($"""
+                WITH RECURSIVE subtree (id, depth) AS (
+                    SELECT item.id, 1
                     FROM work_items AS item
                     WHERE item.id = {workItemId} AND item.project_id = {projectId}
-                    UNION
-                    SELECT parent.id, parent.project_id, parent.parent_id, parent.type_id, parent.number
-                    FROM work_items AS parent
-                    JOIN ancestry ON parent.id = ancestry.parent_id
+                    UNION ALL
+                    SELECT child.id, subtree.depth + 1
+                    FROM work_items AS child
+                    JOIN subtree ON child.parent_id = subtree.id AND child.project_id = {projectId}
+                    WHERE subtree.depth < {cap}
                 )
-                SELECT id AS "Id", project_id AS "ProjectId", parent_id AS "ParentId", type_id AS "TypeId", number AS "Number"
-                FROM ancestry
+                SELECT COALESCE(MAX(depth), 1) AS "Value" FROM subtree
                 """)
-            .AsNoTracking()
-            .Select(item => new HierarchyLink(item.Id, item.ParentId, item.TypeId, item.Number))
-            .ToListAsync(cancellationToken);
+            .SingleAsync(cancellationToken);
+    }
 }

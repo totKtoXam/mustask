@@ -19,16 +19,6 @@ export const LEVEL_LABELS: Readonly<Record<BoardLevelCode, string>> = {
 };
 
 /**
- * The level directly above, or `null` for «Эпики»: a row of «Фичи» or
- * «Истории» is given a parent of that level from the backlog (feat-001
- * BR-H-14); its label names it in the dialog's helper.
- */
-export function levelAbove(level: BoardLevelCode): BoardLevelCode | null {
-  const rank = BOARD_LEVELS.indexOf(level);
-  return rank > 0 ? (BOARD_LEVELS[rank - 1] ?? null) : null;
-}
-
-/**
  * Whether an address segment names one of the three levels, exact spelling
  * and lower case (api-contract § 0.2); any other is an unknown address
  * (mod-015 BR-13) and never reaches the API.

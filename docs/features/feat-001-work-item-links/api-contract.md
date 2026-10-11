@@ -56,7 +56,7 @@ backlog does not nest under it.
 
 `application/problem+json`, as everywhere (mod-003 § 0.5): `errorCode`,
 `detail` (the Russian text of § 5), and `params` only for
-`workitems.link.cycle`. Where the panel shows a link refusal is spec
+`workitems.link.cycle` and, since feat-027 D-9, `workitems.link.depth_exceeded`. Where the panel shows a link refusal is spec
 § Screens and copy: under «Родитель» on the form and in the dialog, as a
 notice on «Убрать родителя».
 
@@ -79,8 +79,12 @@ notice on «Убрать родителя».
   The panel derives the helper «Родителем может быть: …» from the same
   process read (the types whose level's rank is the item's own or higher,
   in the process's display order), as it derives mod-003's editable states.
-- **No self-link, no cycle, no depth limit.** A cycle is possible only
-  inside one level.
+- **No self-link, no cycle; a chain holds at most 64 items.** A cycle is
+  possible only inside one level. *Changed by feat-027 D-9: this was «no
+  depth limit»; a chain of parents — from a top item down to its deepest
+  descendant — now holds at most 64 items, and a link that would make any
+  chain longer is refused with 409 `workitems.link.depth_exceeded` (§ 3.2,
+  § 3.3, § 5).*
 - **Deletion** (BR-H-8). A parent's deletion never removes its links; its
   children keep it as their stored parent. The form shows such a parent with
   its state; the backlog treats the child as unparented (§ 4).
@@ -110,7 +114,9 @@ api-contract § 1.1).
 | `children` | `WorkItemRef[]`: the item's direct children, those in «Удалена» excepted (BR-H-7), by level rank descending, then by `number` ascending. `[]` when there is none. Never paged. |
 
 Every route that answers `WorkItem` answers them: the read (§ 3.1), the
-create (mod-003 § 2.2: `null` and `[]`) and the save (§ 3.3).
+create (mod-003 § 2.2: `null` and `[]` — *changed by feat-027: a create that
+names a `parentId` answers that parent as a `WorkItemRef`, not `null`*) and
+the save (§ 3.3).
 `WorkItemListItem` (mod-003 § 1.2, the project's list) does not change.
 
 ### 2.3 `ParentChange` — one parent write
@@ -159,7 +165,13 @@ answers, and nothing changes:
    its ancestors. `params`: `parent` — the new parent's identifier, `item` —
    the item's identifier, `path` — the chain from the item down to the new
    parent, identifiers joined by « → » («MSK-TASK-10 → MSK-TASK-11 →
-   MSK-TASK-12»), all `string`.
+   MSK-TASK-12»), all `string`;
+8. `workitems.link.depth_exceeded` (409), added by feat-027 D-9: the new
+   parent's chain of ancestors, itself included, plus the height of the
+   item's own subtree (the item counted, 1 for an item with no children) is
+   more than 64. `params`: `limit` — 64, a `number`. Not checked when the
+   write clears the parent or names the stored parent again: no chain gets
+   longer.
 
 Then the write is accepted. A `parentId` equal to the stored parent changes
 nothing, `changedAt` included. Otherwise the stored parent becomes
@@ -171,7 +183,7 @@ state and no backlog place changes.
 - **200** `{ "parent": WorkItemRef | null }` — the item's parent as stored
   after the write.
 - **404** organization, project, work item (§ 0.3); `workitems.link.parent_not_found`.
-- **409** the five codes above.
+- **409** the six codes above (the sixth, `depth_exceeded`, by feat-027 D-9).
 
 **Concurrency** (spec § NFR). Parent writes of one project run one after
 another: each takes the project's hierarchy lock before it reads anything it
@@ -204,12 +216,12 @@ another parent where one is stored replaces it (OQ-2).
 2. 400 `workitems.validation_failed`, every field reason at once;
 3. the body's not-found: the area (`organizations.area.not_found`), then the
    parent (`workitems.link.parent_not_found`);
-4. 409: the state, the assignee (mod-003), then § 3.2's checks 3–7 in their
-   order.
+4. 409: the state, the assignee (mod-003), then § 3.2's checks 3–8 in their
+   order (8 added by feat-027 D-9).
 
 - **200** `WorkItem` (§ 2.2) as stored after the save, `parent` and
   `children` included.
-- Every other answer of mod-003 § 2.4 unchanged; plus the 404 and the five
+- Every other answer of mod-003 § 2.4 unchanged; plus the 404 and the six
   409s of § 3.2.
 
 ### 3.4 `GET …/workitems/{identifier}/parent-candidates?text=ссылк&levelAbove=false` — the «Родитель» picker (US-1, US-2, US-5, US-7)
@@ -264,6 +276,14 @@ or in «Удалена» nests under no row; it is a top-level row of its own le
 backlog only (BR-H-10). Rows are not paged and nothing is collapsed by the
 server: what is expanded is the panel's (BR-H-12).
 
+**Superseded on the backlog read by feat-027** (its api-contract § 1, § 2):
+`children` hold the tree at full depth — every level below the row's, the
+«Задачи» level included, of the same team and not in «Удалена», by level then
+that level's backlog order — and an item whose parent is on its own level and
+team stands beneath that parent only, so it is not a top-level row. A parent
+two levels up or more nests its child too. `parent` is unchanged. The tree is
+at most 64 rows deep, the bound of § 1 (feat-027 D-9).
+
 The board (mod-006 § 3.3) does not change: a card has no `parent` and no
 `children` (BR-H-17).
 
@@ -286,6 +306,7 @@ with `kkNeedsReview`):
 | `workitems.link.cycle` | 409 | `parent`, `item`, `path` (`string`) | «Нельзя выбрать родителем {parent}: он вложен в {item} ({path}).» |
 | `workitems.link.parent_changed` | 409 | — | «Родитель уже изменён другим участником. Данные обновлены — проверьте и повторите.» |
 | `workitems.link.item_deleted` | 409 | — | «Удалённый рабочий элемент нельзя связывать.» |
+| `workitems.link.depth_exceeded` | 409 | `limit` (`number`) | «Слишком глубокая вложенность: в цепочке родителей может быть не больше {limit} элементов.» — added by feat-027 D-9 |
 
 No panel-defect code is added: a malformed `parentId` is a parent that names
 nothing, a malformed `seenParentId` a parent that never matches, and a

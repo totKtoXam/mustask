@@ -29,3 +29,12 @@ export type {
   WorkItemStateReference,
   WorkItemTypeReference,
 } from './api/workItemsApi';
+// feat-027: the backlog's inline add row makes mod-003's create itself — with
+// the same one `requestId` per submission, the same title check and the same
+// placing of a refusal — so the dialog's own helpers are shared through the barrel.
+export { newRequestId } from './lib/requestId';
+export { placeRefusal, type PlacedRefusal } from './lib/refusals';
+export { titleError } from './lib/rules';
+// feat-027 US-6: the backlog's «Изменить родителя…» offers every parent type
+// BR-H-2 allows and names them in its helper, as the form does.
+export { allowedParentTypes, parentHelperText } from './lib/process';

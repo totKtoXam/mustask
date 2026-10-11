@@ -1,38 +1,37 @@
-// The backlog table's headers (spec § Page «Бэклоги»; BR-M4-14; feat-001
-// spec § Page «Бэклоги»: «Родитель» after «Заголовок», and «Действия» on the
-// levels whose rows can be given a parent; feat-022 spec § Backlog and board:
-// «Приоритет» after «Статус»), shared by the table and the page's loading
-// skeleton.
-import { levelAbove, type BoardLevelCode } from '../lib/levels';
+// The backlog table's headers (feat-027 BR-T-1; design § 4.3), shared by the
+// table and the page's loading skeleton: the hierarchy column, «Порядок»,
+// «Тип», «Заголовок», «Статус», «Трудоёмкость», «Бизнес-ценность», «Вид
+// ценности» — and no more. The hierarchy column's header holds the two level
+// buttons; it is named by an `aria-label` on the cell, not by its content.
 
-/** The handle column's header: visually hidden, read by assistive technology. */
-export const HANDLE_HEADER = 'Перемещение';
+/** The hierarchy column's name: an `aria-label` on its header cell (design § 4.5). */
+export const HIERARCHY_HEADER = 'Иерархия';
 
 export const ORDER_HEADER = 'Порядок';
+export const TYPE_HEADER = 'Тип';
+export const TITLE_HEADER = 'Заголовок';
+export const STATE_HEADER = 'Статус';
+export const EFFORT_HEADER = 'Трудоёмкость';
+export const BUSINESS_VALUE_HEADER = 'Бизнес-ценность';
+export const VALUE_AREA_HEADER = 'Вид ценности';
 
-/** The headers after «Порядок» and the handle. */
-export const ITEM_COLUMNS = [
-  'ID',
-  'Тип',
-  'Заголовок',
-  'Родитель',
-  'Исполнитель',
-  'Статус',
-  'Приоритет',
-] as const;
-
-/** feat-001: the row menu's column on «Фичи» and «Истории», its header visually hidden. */
-export const ACTIONS_HEADER = 'Действия';
-
-/** Whether the level's rows have «Ещё действия» (BR-H-14): there is a level above it. */
-export function hasRowActions(level: BoardLevelCode): boolean {
-  return levelAbove(level) !== null;
-}
+/** The hierarchy header's two buttons (BR-T-8). */
+export const EXPAND_ONE_LEVEL_LABEL = 'Развернуть на один уровень';
+export const COLLAPSE_ONE_LEVEL_LABEL = 'Свернуть на один уровень';
 
 /**
- * The skeleton's headers: the table's own, the handle's and the actions'
- * left blank, as they are hidden on the table too.
+ * The skeleton's headers: the table's own, the hierarchy header left blank —
+ * its buttons are the table's (design § 4.12).
  */
-export function backlogSkeletonColumns(level: BoardLevelCode): string[] {
-  return [ORDER_HEADER, '', ...ITEM_COLUMNS, ...(hasRowActions(level) ? [''] : [])];
+export function backlogSkeletonColumns(): string[] {
+  return [
+    '',
+    ORDER_HEADER,
+    TYPE_HEADER,
+    TITLE_HEADER,
+    STATE_HEADER,
+    EFFORT_HEADER,
+    BUSINESS_VALUE_HEADER,
+    VALUE_AREA_HEADER,
+  ];
 }

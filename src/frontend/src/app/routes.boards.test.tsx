@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { AuthContext } from '../features/auth/AuthContext';
 import { serveBoards } from '../features/boards/testApi';
+import { identifiers } from '../features/boards/testBacklog';
 import { boardsDataset, item, type BoardsDataset } from '../features/boards/testFixtures';
 import {
   ORGANIZATIONS_URL,
@@ -188,20 +189,16 @@ function switcherLevels(): string[] {
 }
 
 async function backlogRows(): Promise<string[]> {
-  const table = await screen.findByRole('table', { name: 'Бэклог' });
-  return within(table)
-    .getAllByRole('row')
-    .slice(1)
-    .map((row) => within(row).getAllByRole('cell')[2]?.textContent ?? '');
+  return identifiers(await screen.findByRole('table', { name: 'Бэклог' }));
 }
 
 describe('mod-006 the backlog route in the shell', () => {
-  it('opens «Бэклоги» as the one h1 and tab, its entry current, no trail, and the switcher follows the team in the address', async () => {
+  it('opens «Бэклоги» as the one h1 — the team’s name — and tab, its entry current, no trail, and the switcher follows the team in the address', async () => {
     serveOrganizations();
     serveBoards(alfaDataset());
     renderRoutes(teamAddress(organizationIds.platformTeam, 'backlogs', 'features'));
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Бэклоги' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Платформа' })).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     await waitFor(() => expect(document.title).toBe('Бэклоги — Mustask'));
     // Not the project's first team, which a project-level address would leave chosen.
@@ -221,12 +218,12 @@ describe('mod-006 the backlog route in the shell', () => {
     expect(screen.queryByRole('navigation', { name: 'Путь к странице' })).toBeNull();
   });
 
-  it('opens «Канбан» (mod-006’s «Доски», feat-001 BR-H-16) as the one h1 and tab, its entry current, «Бэклоги» not, no trail', async () => {
+  it('opens «Канбан» (mod-006’s «Доски», feat-001 BR-H-16) as the one h1 — the team’s name — and tab, its entry current, «Бэклоги» not, no trail', async () => {
     serveOrganizations();
     serveBoards(alfaDataset());
     renderRoutes(teamAddress(organizationIds.platformTeam, 'boards', 'epics'));
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Канбан' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Платформа' })).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     await waitFor(() => expect(document.title).toBe('Канбан — Mustask'));
     await waitFor(() => expect(switcherLevels()[2]).toBe('Команда: Платформа'));
@@ -461,7 +458,7 @@ describe('mod-015 BR-18 on a team-level page: a project or organization choice k
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     expect(screen.getByTestId('location')).toHaveTextContent(address);
-    expect(screen.getByRole('heading', { level: 1, name: 'Бэклоги' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Платформа' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Уровень: Фичи' })).toBeInTheDocument();
 
     release();

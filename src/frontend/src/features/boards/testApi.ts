@@ -4,12 +4,16 @@
 // (§ 1), the reorder with its stale refusal and its places (§ 3.2), the board's
 // columns from the seeded process (§ 3.3); plus mod-003's create with `teamId`
 // (§ 7) and its state save (§ 6), and mod-001's process read. feat-001's
-// api-contract § 4 adds each backlog row's live `parent` and its `children` on
-// the same team's backlog one level below, recursively, and the parent write
+// api-contract § 4 adds each backlog row's live `parent`, and the parent write
 // (§ 3.2, its checks in their order) and search (§ 3.4) the backlog maps a
 // row with. feat-022's api-contract § 5 adds each row's and each card's
-// `priority`, and § 2 the fields per type to mod-003's answer. It keeps the
-// contract's answers, not every rule of the backend.
+// `priority`, and § 2 the fields per type to mod-003's answer. feat-027's
+// api-contract § 1–§ 2 makes each backlog answer the whole tree at full depth
+// over one tree set — the page's level and every level below it, «Задачи»
+// included, a same-level child only beneath its parent — with `order` on the
+// top-level rows only and `effort`, `businessValue`, `valueArea` on every row;
+// § 3 adds the create's optional `parentId`. It keeps the contract's answers,
+// not every rule of the backend.
 import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
 import type { WorkItemType } from '../process';
@@ -64,12 +68,6 @@ const LEVEL_NAMES: Readonly<Record<string, string>> = {
   stories: 'Истории',
 };
 
-/** feat-001 § 4: the backlog whose rows nest under a row of this one; «Истории» has none (OQ-5). */
-const LEVEL_BELOW: Readonly<Record<string, string>> = {
-  epics: 'features',
-  features: 'stories',
-};
-
 /** BR-M4-2: categories in board order; Removed has no column. */
 const CATEGORY_ORDER = ['Proposed', 'InProgress', 'Resolved', 'Completed'] as const;
 const IDENTIFIER = /^([A-Z][A-Z0-9]{1,9})-([A-Z]+)-([1-9][0-9]*)$/;
@@ -94,9 +92,20 @@ export class BoardsTestApi {
   readonly data: BoardsDataset;
   readonly requests: RecordedRequest[] = [];
   private clock = Date.UTC(2026, 9, 6);
+  /** The paths (by their ending) whose next POST is carried out, but whose answer is lost. */
+  private readonly lostAnswers: string[] = [];
 
   constructor(data: BoardsDataset = boardsDataset()) {
     this.data = data;
+  }
+
+  /**
+   * A lost answer, as a dropped connection makes it: the next POST to a path ending
+   * in `suffix` is recorded and carried out — the item exists — and the page gets a
+   * network error. A resend is then the case the `requestId` exists for.
+   */
+  loseNextAnswer(suffix: string): void {
+    this.lostAnswers.push(suffix);
   }
 
   private now(): string {
@@ -281,17 +290,89 @@ export class BoardsTestApi {
     };
   }
 
+  /** feat-027 § 2: the top-level rows, «Порядок» 1..n over them, the whole tree beneath each. */
   backlog(team: TeamRecord, level: string) {
+    const pageRank = this.rankOfLevel(level);
+    const tree = this.treeSet(team, pageRank);
+    const nested = this.nestedUnder(team, tree);
+    const topLevel = this.members(team, level).filter((record) => !nested.parentOf.has(record.id));
     return {
       ...this.surface(team, level),
-      items: this.members(team, level).map((record, index) => ({
+      items: topLevel.map((record, index) => ({
         order: index + 1,
-        ...this.treeItem(team, level, record),
+        ...this.treeItem(nested.childrenOf, record, new Set()),
       })),
     };
   }
 
-  // ---- the tree (feat-001 § 4)
+  // ---- the tree (feat-027 § 1; feat-001 § 4 for `parent`)
+
+  /** The rank of a page's level (mod-001's `backlogLevels[].rank`, a higher rank is a higher level). */
+  private rankOfLevel(level: string): number {
+    const name = LEVEL_NAMES[level];
+    return process.backlogLevels.find((candidate) => candidate.name === name)?.rank ?? 0;
+  }
+
+  /**
+   * § 1's tree set: the project's live items of the page's level or any level
+   * ranked below it whose area resolves to the team — the «Задачи» level
+   * included, which has no route of its own.
+   */
+  private treeSet(team: TeamRecord, pageRank: number): WorkItemRecord[] {
+    return this.data.items.filter(
+      (record) =>
+        record.projectId === team.projectId &&
+        this.rank(record) <= pageRank &&
+        !this.removed(record) &&
+        this.resolvedOwner(record.areaId) === team.id,
+    );
+  }
+
+  /**
+   * One level's backlog order on the team (§ 1): the three levels with a route
+   * as `members` gives it; «Задачи», which has no places before feat-023, by number.
+   */
+  private levelOrder(team: TeamRecord, rank: number): WorkItemRecord[] {
+    const name = process.backlogLevels.find((candidate) => candidate.rank === rank)?.name;
+    const code = Object.keys(LEVEL_NAMES).find((candidate) => LEVEL_NAMES[candidate] === name);
+    if (code) {
+      return this.members(team, code);
+    }
+    return this.treeSet(team, rank)
+      .filter((record) => this.rank(record) === rank)
+      .sort((first, second) => first.number - second.number);
+  }
+
+  /**
+   * § 1's nesting over the tree set: an item stands beneath its stored parent
+   * exactly when that parent is in the set and ranks the same or higher
+   * (BR-H-2). The children of a row stand by level rank, highest first, then
+   * in their level's backlog order (BR-T-6).
+   */
+  private nestedUnder(team: TeamRecord, set: readonly WorkItemRecord[]) {
+    const inSet = new Set(set.map((record) => record.id));
+    const position = new Map<string, number>();
+    for (const rank of new Set(set.map((record) => this.rank(record)))) {
+      this.levelOrder(team, rank).forEach((record, index) => position.set(record.id, index));
+    }
+    const parentOf = new Map<string, WorkItemRecord>();
+    const childrenOf = new Map<string, WorkItemRecord[]>();
+    for (const record of set) {
+      const parent = this.byId(record.parentId);
+      if (parent && inSet.has(parent.id) && this.rank(parent) >= this.rank(record)) {
+        parentOf.set(record.id, parent);
+        childrenOf.set(parent.id, [...(childrenOf.get(parent.id) ?? []), record]);
+      }
+    }
+    for (const children of childrenOf.values()) {
+      children.sort(
+        (first, second) =>
+          this.rank(second) - this.rank(first) ||
+          (position.get(first.id) ?? 0) - (position.get(second.id) ?? 0),
+      );
+    }
+    return { parentOf, childrenOf };
+  }
 
   private byId(id: string | null | undefined): WorkItemRecord | undefined {
     return id ? this.data.items.find((candidate) => candidate.id === id) : undefined;
@@ -311,18 +392,27 @@ export class BoardsTestApi {
     return { id, identifier, type, title, state };
   }
 
-  /** A row without `order`: its fields, its live parent, its children one level below. */
-  private treeItem(team: TeamRecord, level: string, record: WorkItemRecord): BacklogTreeItem {
+  /**
+   * A row without `order` (§ 2.2): its fields, the three planning values of
+   * § 2.1, its live parent and its children, recursively — a visited set keeps a
+   * stored cycle, which no write makes, from looping.
+   */
+  private treeItem(
+    childrenOf: ReadonlyMap<string, readonly WorkItemRecord[]>,
+    record: WorkItemRecord,
+    visited: ReadonlySet<string>,
+  ): BacklogTreeItem {
     const parent = this.byId(record.parentId);
-    const below = LEVEL_BELOW[level];
+    const path = new Set(visited).add(record.id);
     return {
       ...this.itemFields(record),
+      effort: record.fields.effort,
+      businessValue: record.fields.businessValue,
+      valueArea: record.fields.valueArea,
       parent: parent && !this.removed(parent) ? this.ref(parent) : null,
-      children: below
-        ? this.members(team, below)
-            .filter((child) => child.parentId === record.id)
-            .map((child) => this.treeItem(team, below, child))
-        : [],
+      children: (childrenOf.get(record.id) ?? [])
+        .filter((child) => !path.has(child.id))
+        .map((child) => this.treeItem(childrenOf, child, path)),
     };
   }
 
@@ -413,6 +503,13 @@ export class BoardsTestApi {
       typeof body.teamId === 'string' && body.teamId !== ''
         ? this.team(projectId, body.teamId)
         : undefined;
+    // feat-027 § 3, the answers after the team's: the parent's not-found
+    // (`parentId` absent or null is no parent), «Удалена», then the level.
+    const parent = this.newParent(projectId, body.parentId);
+    if (parent && this.removed(parent)) refuse('workitems.link.item_deleted');
+    if (parent && this.rank(parent) < this.rankOfType(type.id)) {
+      refuse('workitems.link.parent_level_not_allowed');
+    }
     const root = this.data.areas.find(
       (area) => area.projectId === projectId && area.parentId === null,
     );
@@ -433,13 +530,19 @@ export class BoardsTestApi {
       description: '',
       stateId: (type.states.find((state) => state.isInitial) ?? type.states[0])?.id ?? '',
       assigneeId: null,
-      areaId: team?.defaultAreaId ?? root?.id ?? '',
+      // feat-027 § 3: the parent's area as stored now; else the team's default, else the root.
+      areaId: parent?.areaId ?? team?.defaultAreaId ?? root?.id ?? '',
       createdAt: now,
       changedAt: now,
       requestId,
+      parentId: parent?.id ?? null,
       fields: defaultFields(type.appearance),
     };
     this.data.items.push(record);
+    if (parent) {
+      // BR-H-5: the parent's «Изменён» moves to the creation time.
+      parent.changedAt = now;
+    }
     return { status: 201, record };
   }
 
@@ -478,7 +581,11 @@ export class BoardsTestApi {
 
   /** The level rank of the record's type (mod-001's `backlogLevels[].rank`). */
   private rank(record: WorkItemRecord): number {
-    const levelId = this.type(record.typeId).backlogLevel.id;
+    return this.rankOfType(record.typeId);
+  }
+
+  private rankOfType(typeId: string): number {
+    const levelId = this.type(typeId).backlogLevel.id;
     return process.backlogLevels.find((candidate) => candidate.id === levelId)?.rank ?? 0;
   }
 
@@ -601,6 +708,15 @@ export class BoardsTestApi {
         });
         try {
           const result = run(params, body, url);
+          const lost =
+            request.method === 'POST'
+              ? this.lostAnswers.findIndex((suffix) => url.pathname.endsWith(suffix))
+              : -1;
+          if (lost >= 0) {
+            // The request was carried out and recorded; the answer never arrives.
+            this.lostAnswers.splice(lost, 1);
+            return HttpResponse.error();
+          }
           if (result instanceof HttpResponse) {
             return result;
           }
@@ -662,7 +778,12 @@ export class BoardsTestApi {
         answer((p, body) => {
           const project = this.project(one(p, 'organizationId'), one(p, 'projectId'));
           const { status, record } = this.create(project.id, body);
-          return HttpResponse.json(this.workItem(record), { status });
+          const parent = this.byId(record.parentId);
+          // feat-027 § 3: 201 `WorkItem` with `parent` the parent's `WorkItemRef`.
+          return HttpResponse.json(
+            { ...this.workItem(record), parent: parent ? this.ref(parent) : null, children: [] },
+            { status },
+          );
         }),
       ),
       http.patch(
@@ -711,11 +832,16 @@ export class BoardsTestApi {
     );
   }
 
-  /** The identifiers of a team's backlog of one level, in its order. */
+  /**
+   * The identifiers of a team's backlog of one level, in its order: the whole
+   * backlog the reorder orders (mod-006 § 3.2), items nested beneath a row of
+   * their own level included — not the page's top-level rows, which `backlog`
+   * answers.
+   */
   order(teamId: string, levelCode = 'stories'): string[] {
     const found = this.data.teams.find((candidate) => candidate.id === teamId);
     if (!found) throw new Error(`No team ${teamId}.`);
-    return this.backlog(found, levelCode).items.map((row) => row.identifier);
+    return this.members(found, levelCode).map((record) => this.identifierOf(record));
   }
 
   /** The stored record of a number in a project. */

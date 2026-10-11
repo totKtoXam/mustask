@@ -29,6 +29,9 @@ public sealed class WorkItemHierarchyTests
     private static readonly WorkItemTypeStates Task = Type("TASK", AppearanceToken.Task);
     private static readonly WorkItemTypeStates DeletedEpic = Type("DEL", AppearanceToken.Epic);
 
+    /// <summary>A story type of the middle level whose items count as in «Удалена», for the orders that need a deleted parent of a LOWER level.</summary>
+    private static readonly WorkItemTypeStates DeletedStory = Type("DELS", AppearanceToken.Story);
+
     private static readonly HierarchyTypes Types = new(
     [
         Level(Epic, 4),
@@ -56,13 +59,23 @@ public sealed class WorkItemHierarchyTests
         return item;
     }
 
-    /// <summary>The write as a handler builds it: the stored parent as loaded, the ancestry walked from the new parent.</summary>
+    /// <summary>
+    /// The write as a handler builds it: the stored parent as loaded, the ancestry walked from the new parent, the
+    /// height of the child's own subtree over the stored links.
+    /// </summary>
     private ParentWrite Request(WorkItem child, WorkItem? newParent, Guid? seen)
     {
         var stored = child.ParentId is { } storedId ? _items[storedId] : null;
+
+        return new ParentWrite(child, stored, newParent, seen, AncestryOf(newParent), HeightOf(child));
+    }
+
+    /// <summary>The item and every ancestor of it as stored, as the repository's recursive statement answers.</summary>
+    private List<HierarchyLink> AncestryOf(WorkItem? start)
+    {
         var ancestry = new List<HierarchyLink>();
 
-        for (var current = newParent; current is not null; current = current.ParentId is { } next ? _items[next] : null)
+        for (var current = start; current is not null; current = current.ParentId is { } next ? _items[next] : null)
         {
             ancestry.Add(new HierarchyLink(current.Id, current.ParentId, current.TypeId, current.Number));
 
@@ -72,7 +85,45 @@ public sealed class WorkItemHierarchyTests
             }
         }
 
-        return new ParentWrite(child, stored, newParent, seen, ancestry);
+        return ancestry;
+    }
+
+    /// <summary>The number of items on the longest chain from the item down, itself counted (1 for a leaf).</summary>
+    private int HeightOf(WorkItem item)
+    {
+        var childrenOf = _items.Values.Where(other => other.ParentId is not null).ToLookup(other => other.ParentId!.Value);
+        var (height, level) = (0, new List<WorkItem> { item });
+
+        while (level.Count > 0)
+        {
+            height++;
+            level = level.SelectMany(parent => childrenOf[parent.Id]).ToList();
+        }
+
+        return height;
+    }
+
+    /// <summary>
+    /// A chain of <paramref name="length"/> tasks, each beneath the one before, made by the parent write itself; the
+    /// numbers run from <paramref name="firstNumber"/>. Returns the chain from its top item down.
+    /// </summary>
+    private List<WorkItem> Chain(int length, int firstNumber = 100)
+    {
+        var chain = new List<WorkItem>();
+
+        for (var index = 0; index < length; index++)
+        {
+            var item = New(Task, firstNumber + index);
+
+            if (chain.Count > 0)
+            {
+                Link(item, chain[^1]);
+            }
+
+            chain.Add(item);
+        }
+
+        return chain;
     }
 
     private bool Write(WorkItem child, WorkItem? newParent, Guid? seen, DateTimeOffset? at = null) =>
@@ -378,10 +429,262 @@ public sealed class WorkItemHierarchyTests
         var elsewhere = WorkItem.Create(Guid.CreateVersion7(), 1, Feature, RootAreaId, "Чужая", Guid.CreateVersion7(), Created, "sub");
         _items[elsewhere.Id] = elsewhere;
 
-        Assert.Throws<ArgumentException>(() => WorkItemHierarchy.Write(new ParentWrite(story, feature, null, null, []), Types, Key, Later));
+        Assert.Throws<ArgumentException>(() => WorkItemHierarchy.Write(new ParentWrite(story, feature, null, null, [], 1), Types, Key, Later));
         Assert.Throws<ArgumentException>(() => WorkItemHierarchy.Write(Request(story, elsewhere, null), Types, Key, Later));
-        Assert.Throws<ArgumentException>(() => WorkItemHierarchy.Write(new ParentWrite(story, null, feature, null, []), Types, Key, Later));
+        Assert.Throws<ArgumentException>(() => WorkItemHierarchy.Write(new ParentWrite(story, null, feature, null, [], 1), Types, Key, Later));
+        Assert.Throws<ArgumentException>(() => WorkItemHierarchy.Write(new ParentWrite(story, null, feature, null, AncestryOf(feature), 0), Types, Key, Later));
     }
+
+    // --- feat-027 D-9: the depth bound -------------------------------------------------------------------------------
+
+    // D-9 · a link that makes a chain of exactly 64 items is accepted, one that makes 65 is refused: a task beneath the
+    // 63rd and the 64th item of a chain of tasks (the parent's chain of ancestors, itself included, plus the new item).
+    [Fact]
+    public void Write_AChainOfExactlyTheBound_Accepted_OneMoreRefused()
+    {
+        var chain = Chain(WorkItemHierarchy.MaxChainLength - 1);
+        var last = New(Task, 500);
+        var over = New(Task, 501);
+
+        Assert.True(Write(last, chain[^1], seen: null));
+        var refused = Refused(() => Write(over, last, seen: null));
+
+        Assert.Equal(64, WorkItemHierarchy.MaxChainLength);
+        Assert.Equal(WorkItemErrorCodes.DepthExceeded, refused.Code);
+        Assert.Equal(64m, refused.Params["limit"].Value);
+        Assert.Equal((chain[^1].Id, (Guid?)null), (last.ParentId, over.ParentId));
+        Assert.Equal((Later, Created), (last.ChangedAt, over.ChangedAt));
+    }
+
+    // D-9 · the moved item's own subtree counts: the parent's chain of ancestors plus the subtree's height. A subtree of
+    // 24 items (a chain) fits beneath a parent whose chain holds 40, and does not beneath one whose chain holds 41.
+    [Theory]
+    [InlineData(40, 24, true)]
+    [InlineData(41, 24, false)]
+    [InlineData(1, 63, true)]
+    [InlineData(1, 64, false)]
+    [InlineData(63, 1, true)]
+    [InlineData(64, 1, false)]
+    public void Write_TheMovedSubtreeCounts_ParentChainPlusSubtreeHeight(int parentChain, int subtreeHeight, bool accepted)
+    {
+        var parent = Chain(parentChain, firstNumber: 1000)[^1];
+        var moved = Chain(subtreeHeight, firstNumber: 2000)[0];
+        var parentChangedBefore = parent.ChangedAt;
+
+        if (accepted)
+        {
+            Assert.True(Write(moved, parent, seen: null));
+            Assert.Equal(parent.Id, moved.ParentId);
+        }
+        else
+        {
+            Assert.Equal(WorkItemErrorCodes.DepthExceeded, Refused(() => Write(moved, parent, seen: null)).Code);
+            Assert.Null(moved.ParentId);
+            Assert.Equal(parentChangedBefore, parent.ChangedAt);
+        }
+    }
+
+    // D-9 · replacing a parent is checked the same: the moved subtree's height against the new parent's chain, not the
+    // old one's.
+    [Fact]
+    public void Write_ReplacingTheParent_ChecksTheNewParentsChain()
+    {
+        var deep = Chain(64, firstNumber: 1000)[^1];
+        var shallow = New(Task, 3000);
+        var moved = New(Task, 3001);
+        Link(moved, shallow);
+
+        var refused = Refused(() => Write(moved, deep, seen: shallow.Id));
+
+        Assert.Equal(WorkItemErrorCodes.DepthExceeded, refused.Code);
+        Assert.Equal((shallow.Id, Linked), (moved.ParentId, moved.ChangedAt));
+    }
+
+    // D-9 · a clear and the stored parent named again are not depth checks: no chain gets longer, so a subtree stored
+    // deeper than the bound before it (no write makes one now) can still be taken out of its parent.
+    [Fact]
+    public void Write_AClearAndTheStoredParentAgain_AreNotCheckedForDepth()
+    {
+        var parent = New(Task, 1);
+        var child = New(Task, 2);
+        Link(child, parent);
+        var tooDeepStored = 200;
+
+        var cleared = WorkItemHierarchy.Write(new ParentWrite(child, parent, null, parent.Id, [], tooDeepStored), Types, Key, Later);
+        Link(child, parent);
+        var again = WorkItemHierarchy.Write(new ParentWrite(child, parent, parent, parent.Id, AncestryOf(parent), tooDeepStored), Types, Key, Later);
+
+        Assert.True(cleared);
+        Assert.False(again);
+    }
+
+    // D-9 · the order: the cycle is answered before the depth (the more specific fault), and the level, the stale view
+    // and a deleted item before both.
+    [Fact]
+    public void Write_DepthComesAfterTheOtherChecks()
+    {
+        var chain = Chain(64);
+        var lowerLevel = New(Story, 600);
+        var oneMore = New(Task, 601);
+        var stale = New(Task, 602);
+        Link(stale, oneMore);
+
+        // The top of a full chain beneath its own tail: a cycle, although it would be too deep as well.
+        Assert.Equal(WorkItemErrorCodes.Cycle, Refused(() => Write(chain[0], chain[^1], seen: null)).Code);
+        // A story beneath the chain's tail: the level, although the chain is full.
+        Assert.Equal(WorkItemErrorCodes.ParentLevelNotAllowed, Refused(() => Write(lowerLevel, chain[^1], seen: null)).Code);
+        // A stale view beneath a full chain: the stale view first.
+        Assert.Equal(WorkItemErrorCodes.ParentChanged, Refused(() => Write(stale, chain[^1], seen: null)).Code);
+        // And at last, only the depth.
+        Assert.Equal(WorkItemErrorCodes.DepthExceeded, Refused(() => Write(oneMore, chain[^1], seen: null)).Code);
+    }
+
+    // --- feat-027: a child created from a row (BR-T-10) ------------------------------------------------------------
+
+    private WorkItem Child(WorkItem parent, WorkItemTypeStates type, int number) =>
+        WorkItemHierarchy.CreateChild(parent, AncestryOf(parent), Types, number, type, "Повторная отправка письма", Guid.CreateVersion7(), Later, "creator-sub");
+
+    // feat-027 US-4 · "The child takes the parent's area, state and defaults": a story created beneath MSK-FEAT-6 of
+    // «Платформа / API» is in that area, in its initial state, unassigned, with feat-022's defaults, MSK-FEAT-6 its
+    // parent; its «Изменён» is its creation time and MSK-FEAT-6's moves to the same time.
+    [Fact]
+    public void CreateChild_TakesTheParentsArea_LinksIt_AndMovesTheParentsChanged()
+    {
+        var apiArea = Guid.CreateVersion7();
+        var feature = WorkItem.Create(ProjectId, 6, Feature, apiArea, "Вход по ссылке", Guid.CreateVersion7(), Created, "creator-sub");
+
+        var story = Child(feature, Story, 24);
+
+        Assert.Equal((ProjectId, 24, Story.TypeId, apiArea), (story.ProjectId, story.Number, story.TypeId, story.AreaId));
+        Assert.Equal((Story.InitialStateId, (string?)null, 2), (story.StateId, story.AssigneeId, story.Priority));
+        Assert.Equal(WorkItemValueArea.Business, story.ValueArea);
+        Assert.Equal(feature.Id, story.ParentId);
+        Assert.Equal((Later, Later, Later), (story.CreatedAt, story.ChangedAt, feature.ChangedAt));
+        Assert.Equal((apiArea, Feature.InitialStateId, (Guid?)null), (feature.AreaId, feature.StateId, feature.ParentId));
+    }
+
+    // feat-027 US-4 · each row's entries (BR-T-9) are pairs BR-H-2 allows — a feature beneath an epic, a story or a bug
+    // beneath a feature, a task or a bug beneath a story — and so is a child of the parent's own level or one skipping
+    // levels. The pair a task beneath a bug is no row entry (D-6 OQ-6 (b) withdrew it) but a BR-H-2 pair all the same, and
+    // is kept here as the process's own rule.
+    [Theory]
+    [InlineData("EPIC", "FEAT")]
+    [InlineData("FEAT", "US")]
+    [InlineData("FEAT", "BUG")]
+    [InlineData("US", "TASK")]
+    [InlineData("US", "BUG")]
+    [InlineData("BUG", "TASK")]
+    [InlineData("FEAT", "FEAT")]
+    [InlineData("EPIC", "TASK")]
+    public void CreateChild_APairTheProcessAllows_IsLinked(string parentKey, string childKey)
+    {
+        var parent = New(TypeOf(parentKey), 1);
+
+        Assert.Equal(parent.Id, Child(parent, TypeOf(childKey), 2).ParentId);
+    }
+
+    // feat-027 BR-T-10: a parent of a lower level is refused with `parent_level_not_allowed`, and the parent is
+    // untouched.
+    [Theory]
+    [InlineData("US", "FEAT")]
+    [InlineData("TASK", "BUG")]
+    [InlineData("FEAT", "EPIC")]
+    public void CreateChild_ALowerLevelParent_RefusedAsParentLevelNotAllowed(string parentKey, string childKey)
+    {
+        var parent = New(TypeOf(parentKey), 1);
+
+        var refused = Assert.Throws<ConflictException>(() => Child(parent, TypeOf(childKey), 2));
+
+        Assert.Equal(WorkItemErrorCodes.ParentLevelNotAllowed, refused.Code);
+        Assert.Equal(Created, parent.ChangedAt);
+    }
+
+    // feat-027 US-4 · "A parent gone meanwhile refuses the create": a parent in «Удалена» is refused with
+    // `item_deleted`. A deleted epic is of the top level, so the level check would allow a feature and an epic beneath it:
+    // their refusal can only be the deleted state.
+    [Fact]
+    public void CreateChild_ADeletedParent_RefusedAsItemDeleted()
+    {
+        var deleted = New(DeletedEpic, 1);
+
+        Assert.Equal(WorkItemErrorCodes.ItemDeleted, Assert.Throws<ConflictException>(() => Child(deleted, Feature, 2)).Code);
+        Assert.Equal(WorkItemErrorCodes.ItemDeleted, Assert.Throws<ConflictException>(() => Child(deleted, Epic, 3)).Code);
+        Assert.Equal(Created, deleted.ChangedAt);
+    }
+
+    // feat-027 US-4 · the order of CreateChild: «Удалена» before the level. A deleted parent of a LOWER level than the
+    // child is one both checks would refuse — a feature beneath a deleted story — and `item_deleted` is the answer; with
+    // the two checks swapped it would be `parent_level_not_allowed`.
+    [Fact]
+    public void CreateChild_ADeletedLowerLevelParent_RefusedAsItemDeleted_BeforeTheLevel()
+    {
+        var types = new HierarchyTypes(
+        [
+            Level(Feature, 3),
+            new HierarchyType(DeletedStory.TypeId, DeletedStory.TypeKey, 2, [DeletedStory.InitialStateId]),
+        ]);
+        var deleted = New(DeletedStory, 1);
+        var liveLowerLevel = New(Task, 4);
+
+        Assert.False(WorkItemHierarchy.AllowsParent(types.Of(Feature.TypeId).LevelRank, types.Of(deleted.TypeId).LevelRank));
+        var refused = Assert.Throws<ConflictException>(() =>
+            WorkItemHierarchy.CreateChild(deleted, AncestryOf(deleted), types, 2, Feature, "Фича", Guid.CreateVersion7(), Later, "creator-sub"));
+
+        Assert.Equal(WorkItemErrorCodes.ItemDeleted, refused.Code);
+        Assert.Equal(Created, deleted.ChangedAt);
+
+        // The same pair on a live lower-level parent is the level's refusal, so the test tells the two answers apart.
+        var levelOnly = new HierarchyTypes([Level(Feature, 3), Level(Task, 1)]);
+        Assert.Equal(
+            WorkItemErrorCodes.ParentLevelNotAllowed,
+            Assert.Throws<ConflictException>(() =>
+                WorkItemHierarchy.CreateChild(liveLowerLevel, AncestryOf(liveLowerLevel), levelOnly, 3, Feature, "Фича", Guid.CreateVersion7(), Later, "creator-sub")).Code);
+    }
+
+    // feat-027 D-9 · a child is the next item of its parent's chain: beneath the 63rd item of a chain it makes 64 and is
+    // created, beneath the 64th it would make 65 and is refused with `depth_exceeded`, creating nothing.
+    [Fact]
+    public void CreateChild_BeneathTheBoundsLastLink_Created_BeneathTheBoundItself_Refused()
+    {
+        var chain = Chain(WorkItemHierarchy.MaxChainLength);
+
+        var made = Child(chain[^2], Task, 700);
+        var refused = Assert.Throws<ConflictException>(() => Child(chain[^1], Task, 701));
+
+        Assert.Equal(chain[^2].Id, made.ParentId);
+        Assert.Equal(WorkItemErrorCodes.DepthExceeded, refused.Code);
+        Assert.Equal(64m, refused.Params["limit"].Value);
+        Assert.Equal(Linked, chain[^1].ChangedAt);
+    }
+
+    // feat-027 D-9 · the order: a deleted parent and a parent of a lower level are answered before the depth, even at the
+    // bound's end.
+    [Fact]
+    public void CreateChild_AtTheBound_DeletedAndLevelAreAnsweredBeforeTheDepth()
+    {
+        var types = new HierarchyTypes([Level(Task, 1), Level(Story, 2), new HierarchyType(DeletedStory.TypeId, DeletedStory.TypeKey, 2, [DeletedStory.InitialStateId])]);
+        var chain = Chain(WorkItemHierarchy.MaxChainLength - 1);
+        var deletedTail = New(DeletedStory, 800);
+        var liveTail = New(Task, 801);
+
+        // The links are stored straight: the process these two types belong to is the test's own, not `Types`.
+        deletedTail.LinkTo(chain[^1].Id, Linked);
+        liveTail.LinkTo(chain[^1].Id, Linked);
+
+        // The deleted story is the 64th item of the chain; a task beneath it would be the 65th.
+        Assert.Equal(
+            WorkItemErrorCodes.ItemDeleted,
+            Assert.Throws<ConflictException>(() =>
+                WorkItemHierarchy.CreateChild(deletedTail, AncestryOf(deletedTail), types, 802, Task, "Задача", Guid.CreateVersion7(), Later, "creator-sub")).Code);
+        // A story beneath the 64th item, a task: the level is not allowed, although it would be the 65th too.
+        Assert.Equal(
+            WorkItemErrorCodes.ParentLevelNotAllowed,
+            Assert.Throws<ConflictException>(() =>
+                WorkItemHierarchy.CreateChild(liveTail, AncestryOf(liveTail), types, 803, Story, "История", Guid.CreateVersion7(), Later, "creator-sub")).Code);
+    }
+
+    private static WorkItemTypeStates TypeOf(string key) =>
+        new[] { Epic, Feature, Story, Bug, Task }.Single(type => type.TypeKey == key);
 
     private static Guid[] Ids(params WorkItemTypeStates[] types) => types.Select(type => type.TypeId).Order().ToArray();
 

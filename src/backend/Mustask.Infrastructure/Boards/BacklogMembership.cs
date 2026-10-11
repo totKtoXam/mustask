@@ -75,4 +75,31 @@ internal static class BacklogMembership
                    Place = place != null && place.TeamId == teamId && place.BacklogLevelId == levelId ? place.Position : null,
                };
     }
+
+    /// <summary>
+    /// feat-027 (api-contract § 1): the members of a page's tree set — the same four conditions over every level of
+    /// <paramref name="scope"/> at once, in one statement — each with its place on the team's backlog of its own type's
+    /// level, joined by the place's key as <see cref="Members"/> joins it.
+    /// </summary>
+    public static IQueryable<BacklogMember> TreeMembers(MustaskDbContext context, BacklogTreeScope scope, IReadOnlyCollection<Guid> teamAreas)
+    {
+        var typeIds = scope.TypeIds.ToList();
+        var stateIds = scope.ShownStateIds.ToList();
+        var areaIds = teamAreas.ToList();
+        var teamId = scope.TeamId;
+
+        return from item in context.WorkItems.AsNoTracking()
+               where item.ProjectId == scope.ProjectId
+                   && typeIds.Contains(item.TypeId)
+                   && areaIds.Contains(item.AreaId)
+                   && stateIds.Contains(item.StateId)
+               join type in context.WorkItemTypes.AsNoTracking() on item.TypeId equals type.Id
+               join place in context.Set<BacklogPlace>().AsNoTracking() on item.Id equals place.WorkItemId into placed
+               from place in placed.DefaultIfEmpty()
+               select new BacklogMember
+               {
+                   Item = item,
+                   Place = place != null && place.TeamId == teamId && place.BacklogLevelId == type.BacklogLevelId ? place.Position : null,
+               };
+    }
 }

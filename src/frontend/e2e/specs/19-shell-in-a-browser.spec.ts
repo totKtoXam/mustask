@@ -88,7 +88,7 @@ const DESIGN = {
   contentSurface: 'rgb(255, 255, 255)',
   tableHeader: 'rgb(243, 243, 243)',
   rowHover: 'rgb(240, 240, 240)',
-  accent: 'rgb(15, 108, 189)',
+  accent: 'rgb(0, 120, 212)',
   accentContrastText: 'rgb(255, 255, 255)',
   topBarHeight: 48,
   navigationWidth: 240,

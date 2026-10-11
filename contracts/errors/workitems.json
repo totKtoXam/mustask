@@ -121,6 +121,13 @@
       "kk": "Жойылған жұмыс элементін байланыстыруға болмайды.",
       "kkNeedsReview": true
     },
+    "workitems.link.depth_exceeded": {
+      "statuses": [409],
+      "params": { "limit": "number" },
+      "ru": "Слишком глубокая вложенность: в цепочке родителей может быть не больше {limit} элементов.",
+      "kk": "Кірістіру тым терең: ата-аналық элементтер тізбегінде {limit} элементтен артық болмауы керек.",
+      "kkNeedsReview": true
+    },
     "workitems.workitem.number_out_of_range": {
       "statuses": [400],
       "params": {},

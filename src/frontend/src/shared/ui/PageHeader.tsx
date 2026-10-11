@@ -5,6 +5,7 @@ import {
   useState,
   type MouseEvent,
   type ReactElement,
+  type ReactNode,
   type Ref,
 } from 'react';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
@@ -47,6 +48,19 @@ export interface Command {
    * `ExpandMore` as its trailing icon. Absent: a plain command, as before.
    */
   menuOpen?: boolean;
+  /**
+   * `menuOpen` is set but the button draws no trailing `ExpandMore`
+   * (feat-027 design § 3.5: the reference screen's primary has none);
+   * `aria-haspopup` and `aria-expanded` stay, so the picker is still
+   * announced. Absent: as before.
+   */
+  hideMenuIndicator?: boolean;
+  /**
+   * `neutral`: the command is the grey filled button of feat-027 design § 2.5
+   * instead of a text button — a neutral colour, so the header still has one
+   * accent action. Absent: a text button, as before.
+   */
+  tone?: 'neutral';
 }
 
 /** One view of a page: a tab that is its own address (design § 6.1). */
@@ -76,6 +90,24 @@ export interface PageHeaderProps {
    * `h1` takes the ref and `tabIndex={-1}`; absent, the title is as before.
    */
   titleRef?: Ref<HTMLHeadingElement>;
+  /**
+   * What the browser's tab reads when it is not the `title` (feat-027 design
+   * § 3.3: the `h1` is the team, the tab says which page of it).
+   */
+  documentTitle?: string;
+  /** The leading icon of the first row, `aria-hidden` by the caller (feat-027 design § 3.2). */
+  titleIcon?: ReactElement;
+  /** A control right after the `h1`, in the same row — the team drop-down (feat-027 design § 3.3). */
+  titleControl?: ReactNode;
+  /** The right end of the views row — the level drop-down (feat-027 design § 3.4). */
+  viewsEnd?: ReactNode;
+  /**
+   * `team`: the spacing of the team head (feat-027 design § 3.2) — 28 px above
+   * the first row, the views row 12 px under it, 20 px below — the title
+   * group's 10 px gap, and a tab that stands flush with the content's left
+   * edge. Absent: the spacing every other page has.
+   */
+  variant?: 'team';
 }
 
 /** Class names the tests and later patterns can address. */
@@ -94,7 +126,7 @@ function commandProps(command: Command) {
   const opensMenu = command.menuOpen !== undefined;
   return {
     onClick: command.onClick,
-    endIcon: opensMenu ? <ExpandMoreIcon /> : undefined,
+    endIcon: opensMenu && !command.hideMenuIndicator ? <ExpandMoreIcon /> : undefined,
     'aria-haspopup': opensMenu ? ('menu' as const) : undefined,
     'aria-expanded': opensMenu
       ? command.menuOpen
@@ -117,8 +149,13 @@ export function PageHeader({
   views,
   viewsLabel,
   titleRef,
+  documentTitle,
+  titleIcon,
+  titleControl,
+  viewsEnd,
+  variant,
 }: PageHeaderProps) {
-  useDocumentTitle(title);
+  useDocumentTitle(documentTitle ?? title);
   const { registerHeader, trail, trailPlacement } = usePageChrome();
   const titleId = useId();
 
@@ -133,27 +170,48 @@ export function PageHeader({
   const commandsKey = commands.map((command) => command.label).join('\u0000');
 
   return (
-    <Box className={pageHeaderClasses.root} sx={{ pt: 2, pb: 1 }}>
+    <Box
+      className={pageHeaderClasses.root}
+      sx={variant === 'team' ? { pt: 3.5, pb: 2.5 } : { pt: 2, pb: 1 }}
+    >
       {trailPlacement === 'header' && trail.length > 0 && (
         <Box sx={{ mb: 1 }}>
           <PageTrail segments={trail} />
         </Box>
       )}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Typography
-          variant="h1"
-          component="h1"
-          id={titleId}
-          ref={titleRef}
-          tabIndex={titleRef ? -1 : undefined}
-          sx={{ flex: '0 1 auto', minWidth: 0, overflowWrap: 'anywhere' }}
+        <Box
+          sx={{
+            flex: '0 1 auto',
+            minWidth: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: variant === 'team' ? 1.25 : 1,
+          }}
         >
-          {title}
-        </Typography>
+          {titleIcon}
+          <Typography
+            variant="h1"
+            component="h1"
+            id={titleId}
+            ref={titleRef}
+            tabIndex={titleRef ? -1 : undefined}
+            sx={{ flex: '0 1 auto', minWidth: 0, overflowWrap: 'anywhere' }}
+          >
+            {title}
+          </Typography>
+          {titleControl}
+        </Box>
         <CommandBar key={commandsKey} primaryAction={primaryAction} commands={commands} />
       </Box>
       {views && views.length > 0 && (
-        <PageViews views={views} labelledBy={titleId} label={viewsLabel} />
+        <PageViews
+          views={views}
+          labelledBy={titleId}
+          label={viewsLabel}
+          end={viewsEnd}
+          variant={variant}
+        />
       )}
     </Box>
   );
@@ -254,7 +312,8 @@ function CommandBar({
           ref={(element: HTMLElement | null) => {
             commandRefs.current[index] = element;
           }}
-          variant="text"
+          variant={command.tone === 'neutral' ? 'contained' : 'text'}
+          color={command.tone === 'neutral' ? 'inherit' : 'primary'}
           startIcon={command.icon}
           disabled={command.disabled}
           sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
@@ -316,10 +375,14 @@ function PageViews({
   views,
   labelledBy,
   label,
+  end,
+  variant,
 }: {
   views: readonly PageView[];
   labelledBy: string;
   label?: string;
+  end?: ReactNode;
+  variant?: 'team';
 }) {
   const { pathname } = useLocation();
   const selected =
@@ -328,16 +391,48 @@ function PageViews({
       .sort((first, second) => second.to.length - first.to.length)
       .find((view) => pathname.startsWith(`${view.to}/`));
 
-  return (
+  const team = variant === 'team';
+  const tabs = (
     <Tabs
       value={selected?.to ?? false}
       aria-label={label}
       aria-labelledby={label === undefined ? labelledBy : undefined}
-      sx={{ mt: 1 }}
+      sx={team ? undefined : { mt: 1 }}
     >
       {views.map((view) => (
-        <Tab key={view.to} component={RouterLink} to={view.to} value={view.to} label={view.label} />
+        <Tab
+          key={view.to}
+          component={RouterLink}
+          to={view.to}
+          value={view.to}
+          label={view.label}
+          // The team head's tab stands flush with the table's left edge, its
+          // underline the label's width (feat-027 design § 3.2). Its own
+          // vertical padding — 16 px over the 17.5 px line and 6 px under — makes
+          // the row 40 px (`density.tabHeight`) with the label 8 px above the
+          // underline, as the reference draws it; the default 12 + 12 made it
+          // 42 px, the label 14 px above the underline, and the head 2 px
+          // taller than `layout.backlogTable.viewportOffset` assumes (V-2).
+          sx={team ? { px: 0, minWidth: 0, mr: 2, pt: 2, pb: 0.75 } : undefined}
+        />
       ))}
     </Tabs>
+  );
+  if (end === undefined && !team) {
+    return tabs;
+  }
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 2,
+        mt: team ? 1.5 : 1,
+      }}
+    >
+      {tabs}
+      {end}
+    </Box>
   );
 }

@@ -121,7 +121,7 @@ Per type: Эпик and Фича gain 8 fields, История 5, Задача 5,
 | BR-M3-36 | Критерии приёмки, Шаги воспроизведения and Сведения о системе are plain text of 0..100 000 characters, stored and shown as entered with line breaks, nothing interpreted as markup (`text_too_long`), as BR-M3-19 has it for Описание. | doc-002 W-5, US-12; D-2; D-6 (OQ-4); mod-003 BR-M3-19 |
 | BR-M3-37 | A new item takes Приоритет 2, on a Баг Серьёзность 3, on an Эпик, Фича or История Вид ценности «Бизнес», and every other new field empty. An item created before this task ships reads the same values from the first moment, and receiving them moves neither its «Изменён» nor its place in the list. | doc-002 § Fields; research § Fields; this task's call for existing items |
 | BR-M3-38 | The new fields join the form's one save under BR-M3-25: a save changes exactly the fields the user changed, all of them or none, so one refused value stores nothing. Emptying an optional field is a change. «Изменён» moves when at least one value changes (BR-M3-28). | mod-003 BR-M3-25, BR-M3-28 |
-| BR-M3-39 | The backlog row and the board card show Приоритет (OQ-1). | doc-003 BR-M4-14; mod-006 BR-M4-14 |
+| BR-M3-39 | The backlog row and the board card show Приоритет (OQ-1). *Superseded in part by feat-027 BR-T-1, BR-T-3 (D-7): the backlog row no longer shows Приоритет — the backlog table has no such column; the board card keeps it.* | doc-003 BR-M4-14; mod-006 BR-M4-14 |
 | BR-M3-40 | The project's list gains no column and the create dialog no field: a new item takes BR-M3-37's values, and the dialog's text «Остальные поля заполняются в его форме.» stays true. | doc-002 US-11; mod-015 § 10.1; D-2 |
 
 ## Operation completeness
@@ -237,6 +237,12 @@ error text; any other is an error `Alert` above the band, the input kept.
 | Saving, saved, refused | § Saving |
 
 ### Backlog and board (US-6, OQ-1)
+
+> **Superseded in part** by feat-027 BR-T-1, BR-T-3 (D-7, 2026-10-09): the
+> backlog table has no «Приоритет» column — its columns are the hierarchy
+> column, «Порядок», «Тип», «Заголовок», «Статус», «Трудоёмкость»,
+> «Бизнес-ценность» and «Вид ценности». The board card's «Приоритет: <n>»
+> stays. The paragraph below is left as written.
 
 mod-006's backlog table gains the column «Приоритет» after «Статус», the
 value as a number; its skeleton shows the header too. A board card's third

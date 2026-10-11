@@ -40,6 +40,8 @@ const FIELD_OF_CODE: Readonly<Record<string, RefusalField>> = {
   [workItemErrorCodes.linkCycle]: 'parent',
   [workItemErrorCodes.linkParentChanged]: 'parent',
   [workItemErrorCodes.linkItemDeleted]: 'parent',
+  // feat-027 D-9: a chain of parents holds at most 64 items; `detail` is the finished text.
+  [workItemErrorCodes.linkDepthExceeded]: 'parent',
 };
 
 /**

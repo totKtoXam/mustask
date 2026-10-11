@@ -65,9 +65,10 @@ public sealed record BacklogItemView(
 }
 
 /// <summary>
-/// A top-level row of a team's backlog (mod-006 api-contract § 2.3 with feat-001
-/// api-contract § 4): mod-006's fields and «Порядок», the stored parent unless it
-/// is in «Удалена», and the rows nested beneath it.
+/// A top-level row of a team's backlog page (feat-027 api-contract § 2.1): mod-006's
+/// fields, «Порядок» among the top-level rows, feat-022's «Приоритет» and the
+/// three planning values, the stored parent unless it is in «Удалена», and the
+/// whole tree beneath it.
 /// </summary>
 public sealed record BacklogRowView(
     int Order,
@@ -79,42 +80,40 @@ public sealed record BacklogRowView(
     WorkItemAssigneeView? Assignee,
     WorkItemStateView State,
     int Priority,
+    decimal? Effort,
+    int? BusinessValue,
+    string? ValueArea,
     WorkItemRefView? Parent,
     IReadOnlyList<BacklogChildView> Children)
 {
     /// <summary>
-    /// The backlog's rows with their tree (<see cref="BacklogTree.Nest"/>): <paramref name="levels"/>
-    /// holds the backlog's own items first, then those of the same team's
-    /// backlog one level below, and so on; <paramref name="liveParents"/> the
-    /// rows' parents that are not in «Удалена». The top-level rows are numbered
-    /// «Порядок» from 1; a nested row has none (BR-H-11).
+    /// The page's rows with their tree (<see cref="BacklogTree.Nest"/>):
+    /// <paramref name="rows"/> are the tree set read for the page of the level ranked
+    /// <paramref name="levelRank"/>; <paramref name="liveParentsOutside"/> the rows'
+    /// parents outside the set that are not in «Удалена» — a parent inside it is
+    /// live by the set's own condition and is its own row. The top-level rows are
+    /// numbered «Порядок» from 1; a nested row has none (BR-T-2).
     /// </summary>
     public static IReadOnlyList<BacklogRowView> Tree(
-        IReadOnlyList<IReadOnlyList<BacklogItemRow>> levels, IReadOnlyDictionary<Guid, WorkItemRefView> liveParents)
+        int levelRank, IReadOnlyList<BacklogItemRow> rows, IReadOnlyDictionary<Guid, WorkItemRefView> liveParentsOutside)
     {
-        var byId = levels.SelectMany(rows => rows).ToDictionary(row => row.Id);
+        var byId = rows.ToDictionary(row => row.Id);
+        var parents = new ParentCells(byId, liveParentsOutside);
 
-        var tree = BacklogTree.Nest(levels
-            .Select(rows => (IReadOnlyCollection<BacklogTreeEntry>)rows.Select(row => new BacklogTreeEntry(row.Id, row.Number, row.Place, row.ParentId)).ToList())
-            .ToList());
-
-        return tree
+        return BacklogTree.Nest(levelRank, rows.Select(row => new BacklogTreeEntry(row.Id, row.Number, row.Place, row.ParentId, row.LevelRank)).ToList())
             .Select((node, index) =>
             {
                 var row = byId[node.ItemId];
 
                 return new BacklogRowView(
                     index + 1, row.Id, row.Identifier, row.Number, row.Type, row.Title, row.Assignee, row.State, row.Priority,
-                    ParentOf(row, liveParents), BacklogChildView.Of(node.Children, byId, liveParents));
+                    row.Effort, row.BusinessValue, row.ValueArea, parents.Of(row), BacklogChildView.Of(node.Children, byId, parents));
             })
             .ToList();
     }
-
-    internal static WorkItemRefView? ParentOf(BacklogItemRow row, IReadOnlyDictionary<Guid, WorkItemRefView> liveParents) =>
-        row.ParentId is { } parentId && liveParents.TryGetValue(parentId, out var parent) ? parent : null;
 }
 
-/// <summary>A nested row (feat-001 api-contract § 4): a top-level row's fields without «Порядок».</summary>
+/// <summary>A nested row (feat-027 api-contract § 2.2): a top-level row's fields without «Порядок».</summary>
 public sealed record BacklogChildView(
     Guid Id,
     string Identifier,
@@ -124,19 +123,60 @@ public sealed record BacklogChildView(
     WorkItemAssigneeView? Assignee,
     WorkItemStateView State,
     int Priority,
+    decimal? Effort,
+    int? BusinessValue,
+    string? ValueArea,
     WorkItemRefView? Parent,
     IReadOnlyList<BacklogChildView> Children)
 {
+    /// <summary>
+    /// The views of <paramref name="nodes"/> and of every row beneath them, built without recursion (feat-027 D-9,
+    /// review B-1): a loop over an explicit stack of levels still to fill, so no depth of the tree — a chain stored
+    /// before the depth bound included — can exhaust the stack of the thread that maps it, which would end the whole
+    /// process. Each view takes its <c>Children</c> list at once, empty, and the loop fills it when it reaches that
+    /// level; the lists are not read until the mapping returns.
+    /// </summary>
     internal static IReadOnlyList<BacklogChildView> Of(
-        IReadOnlyList<BacklogTreeNode> nodes, IReadOnlyDictionary<Guid, BacklogItemRow> rows, IReadOnlyDictionary<Guid, WorkItemRefView> liveParents) =>
-        nodes
-            .Select(node =>
+        IReadOnlyList<BacklogTreeNode> nodes, IReadOnlyDictionary<Guid, BacklogItemRow> rows, ParentCells parents)
+    {
+        var views = new List<BacklogChildView>(nodes.Count);
+        var pending = new Stack<(IReadOnlyList<BacklogTreeNode> Nodes, List<BacklogChildView> Into)>();
+        pending.Push((nodes, views));
+
+        while (pending.TryPop(out var level))
+        {
+            foreach (var node in level.Nodes)
             {
                 var row = rows[node.ItemId];
+                var children = new List<BacklogChildView>(node.Children.Count);
 
-                return new BacklogChildView(
+                level.Into.Add(new BacklogChildView(
                     row.Id, row.Identifier, row.Number, row.Type, row.Title, row.Assignee, row.State, row.Priority,
-                    BacklogRowView.ParentOf(row, liveParents), Of(node.Children, rows, liveParents));
-            })
-            .ToList();
+                    row.Effort, row.BusinessValue, row.ValueArea, parents.Of(row), children));
+
+                if (node.Children.Count > 0)
+                {
+                    pending.Push((node.Children, children));
+                }
+            }
+        }
+
+        return views;
+    }
+}
+
+/// <summary>
+/// The «Родитель» cells of a page (feat-001 BR-H-13, BR-H-8): a parent in the tree
+/// set is built from its own row; one outside it is the live parent read for it,
+/// or none when it is in «Удалена».
+/// </summary>
+internal sealed class ParentCells(IReadOnlyDictionary<Guid, BacklogItemRow> rows, IReadOnlyDictionary<Guid, WorkItemRefView> liveOutside)
+{
+    public WorkItemRefView? Of(BacklogItemRow row) =>
+        row.ParentId switch
+        {
+            null => null,
+            { } id when rows.TryGetValue(id, out var parent) => new WorkItemRefView(parent.Id, parent.Identifier, parent.Type, parent.Title, parent.State),
+            { } id => liveOutside.GetValueOrDefault(id),
+        };
 }
