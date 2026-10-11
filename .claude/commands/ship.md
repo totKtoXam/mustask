@@ -11,8 +11,10 @@ Feature: $ARGUMENTS
 2. Run the **code-reviewer** subagent (stage 8). For L features —
    additionally a SECOND code-reviewer as a separate call, only for the
    security checklist (see 06-code-review.md).
-   Blocker/major findings → send back to the corresponding developer,
-   repeat QA on the affected part, at most 2 rounds.
+   Blocker/major findings → send back to the corresponding developer, then
+   a delta read within the caps (`docs/ai-workflow/routing.md`, "Ceremony
+   caps by size": S/M one, L two); QA re-runs on the affected part only when
+   the fix changed runtime code or tests.
 3. Prepare the gate-3 package for the human per
    `docs/ai-workflow/stages/07-mr-complete.md`: summary, how to run
    it, what to check by hand. Wait for the verdict, record it in

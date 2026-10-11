@@ -30,7 +30,9 @@ of the three human gates one remains — the final one.
    plan is not written. The QA agent checks that the plan from `status.md` is
    covered by tests, runs the tests of the affected module + smoke of the
    neighbouring ones, looks for regressions around the change. Defects — as a
-   list in `review.md`, the cycle runs until zero blockers. The model
+   list in `review.md`; the re-checks follow
+   [04-backend.md](04-backend.md), § 5 item 3 — at most two, a minor is a
+   debt — and the cycle ends when no blocker or major is open. The model
    tier is `standard`; the rules of "Saving runs" from
    [04-backend.md](04-backend.md) apply. The scope of checking is set not by
    the size of the task but by what was changed: `scripts/verify.sh`

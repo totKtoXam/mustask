@@ -19,5 +19,6 @@ Never:
   developer;
 - set `gate-3`. That is the human's;
 - write findings into `status.md`. They go to `review.md`, under a section
-  for this round and side (`## Round 1 — backend`); `status.md` gets at most
+  for this round (`## Round 1`; an L reviewed by side adds the side,
+  `## Round 1 — backend`); `status.md` gets at most
   one `## Log` line saying the round ran and how many findings are open.

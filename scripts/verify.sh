@@ -192,24 +192,34 @@ if [ "$need_prose" = 1 ]; then
     # marks an archive, and an archive is never rewritten to fit a later rule
     # (that is also why editing an old folder — a translation, a link fix —
     # must not turn into a demand to restructure it).
+    # Lines and bytes both: long lines beat a line count alone (feat-027 had
+    # 73 lines and 35 KB).
     over=""
     warn=""
+    long=""
     for file in $changed; do
         case "$file" in docs/features/*/status.md) ;; *) continue ;; esac
         [ -f "$file" ] || continue
         grep -q "^- stage: complete" "$file" && continue
         n=$(wc -l < "$file" | tr -d " ")
-        if [ "$n" -gt 250 ]; then
-            over="$over $file:$n"
-        elif [ "$n" -gt 150 ]; then
-            warn="$warn $file:$n"
+        b=$(wc -c < "$file" | tr -d " ")
+        if [ "$n" -gt 250 ] || [ "$b" -gt 24576 ]; then
+            over="$over $file:${n}L/${b}B"
+        elif [ "$n" -gt 150 ] || [ "$b" -gt 12288 ]; then
+            warn="$warn $file:${n}L/${b}B"
         fi
+        # One Log entry, one line of at most 300 characters.
+        k=$(LC_ALL=C.UTF-8 awk '{sub(/\r$/, "")} /^## /{inlog=($0=="## Log")} inlog && /^- / && length($0)>300{c++} END{print c+0}' "$file")
+        [ "$k" -gt 0 ] && long="$long $file:$k"
     done
+    if [ -n "$long" ]; then
+        note "    Log entries over 300 characters, move the detail to the commit or review.md:$long"
+    fi
     if [ -n "$warn" ]; then
-        note "    over 150 lines, roll the oldest Log into history.md:$warn"
+        note "    over 150 lines or 12 KB, roll the oldest Log into history.md:$warn"
     fi
     if [ -n "$over" ]; then
-        printf "    over 250 lines:%s\n" "$over" >&2
+        printf "    over 250 lines or 24 KB:%s\n" "$over" >&2
         fail "status.md has become a journal (docs/features/README.md, \"Size budget\")"
     else
         pass "status.md stays within its budget"

@@ -57,17 +57,22 @@ loop economy below is a rule, not a default the orchestrator may tighten:
   `status.md`, the developer fixes, and one delta round follows. A round
   that reports "still waiting for the decision" has spent a session on
   nothing.
-- **At most 2 fix rounds** after round 1; if it does not converge —
-  escalate to the human with the open list, do not start round 4.
+- **The number of rounds is capped by size** —
+  [routing.md](../routing.md), "Ceremony caps by size": on `S` and `M` one
+  round over the whole diff, run as one session after the last development
+  stage, and at most one delta read after it; on `L` at most two delta reads,
+  and only `L` may fan the round out into lenses and skeptics. If it does not
+  converge within the cap — escalate to the human with the open list, do not
+  start another read.
 
 The L security pass (below) runs once, after the last general round, and
 its findings follow the same rules: a major gets one fix and one delta
 re-check, a minor becomes a debt.
 
 **Findings go into `docs/features/<id>/review.md`**, not into `status.md`.
-Round and side get their own section — `## Round 1 — backend`,
-`## Round 2 — backend`, `## Round 1 — frontend` — so the second round is a
-delta over the first and not a re-read of everything. `status.md` gets one
+Each round gets its own section — `## Round 1`, `## Round 2 (delta)`; an `L`
+reviewed by side keeps the side in the heading, `## Round 1 — backend` — so
+the second round is a delta over the first and not a re-read of everything. `status.md` gets one
 line in `## Log` saying the round happened and how many findings are still
 open; the findings themselves, their severity and their resolution live in
 `review.md`. A reviewer who appends a findings section to `status.md` is

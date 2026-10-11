@@ -135,8 +135,11 @@ gate-3: pending | approved | rejected: <reason>
 
 ## Log
 
-<!-- Newest first. Recent entries only: when status.md outgrows its budget,
-     the oldest entries move to history.md verbatim. -->
+<!-- Newest first. One entry is one line of at most 300 characters: who,
+     what happened, the commit or the verdict. The details are in the commit
+     message, review.md or qa.md, and the entry points there. Recent entries
+     only: when status.md outgrows its budget, the oldest entries move to
+     history.md verbatim. -->
 
 - 2026-08-21 [business-analyst] spec.md ready, 2 open questions
 - ...
@@ -147,11 +150,18 @@ gate-3: pending | approved | rejected: <reason>
 `status.md` answers "where is this task now", not "how did it get here".
 That is a budget, and it is checked:
 
-| Lines | Meaning |
-|-------|---------|
-| ≤ 100 | target |
-| > 150 | warning — roll the oldest `## Log` entries into `history.md` |
-| > 250 | `scripts/verify.sh` fails on a `status.md` you changed |
+| Lines | Bytes | Meaning |
+|-------|-------|---------|
+| ≤ 100 | ≤ 8 KB | target |
+| > 150 | > 12 KB | warning — roll the oldest `## Log` entries into `history.md` |
+| > 250 | > 24 KB | `scripts/verify.sh` fails on a `status.md` you changed |
+
+Either column trips the row. The bytes column exists because the lines one
+alone was beaten by long lines: feat-027's `status.md` had 73 lines and 35 KB,
+single `## Log` entries of 1–3 thousand characters, and every agent entering
+the task read all of it. `verify.sh` also counts, per file, the `## Log` entries over 300
+characters — a note, not a failure: the cure is to move the detail into the
+commit message or `review.md` and leave the pointer.
 
 **Which tasks this applies to.** The format is mandatory for new tasks and
 for tasks currently in flight — the latter adopt it at their next stage, not

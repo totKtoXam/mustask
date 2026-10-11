@@ -51,7 +51,10 @@ handed to a fresh context without handing over the whole conversation with it:
 - the queue and the number — `scripts/queue.sh add|take|withdraw`;
 - `status.md`: the stage, the gate verdicts, the `## Log`. No other role
   writes this file (`feature.md`, "Context isolation and file ownership");
-- choosing who runs next, and writing their brief;
+- choosing who runs next, and writing their brief — within the task's
+  ceremony caps ([routing.md](../routing.md), "Ceremony caps by size"): one
+  more review read, E2E run or check pass than the table allows runs only
+  when the human asks for it, and the ask goes into `## Log`;
 - the ending: `scripts/finish-task.sh`, or the MR when there is a remote.
 
 ## Delegated

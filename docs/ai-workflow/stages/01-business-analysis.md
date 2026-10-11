@@ -80,6 +80,10 @@ a story file next to the story that does use it.
   any one of them, and a budget tight enough to squeeze it would pay for the
   tidiness by deleting requirements. This is the only place these numbers are
   stated — do not restate them elsewhere.
+- **An `M` holds at most three stories** ([routing.md](../routing.md),
+  "Route shortcuts for `M`"). A decomposition that comes out at four or more
+  is not written out: return a split proposal to the orchestrator — which
+  stories make the first cut, which go to the queue.
 
 ## Definition of Done
 

@@ -250,6 +250,63 @@ has two shortcuts:
 Both shortcuts are about logistics, not about strictness: code review, tests
 together with the code and the final gate are not touched at any size.
 
+**An `M` holds at most three user stories.** A fourth is a second task: the
+orchestrator splits the line at classification into cuts that each ship on
+their own, and queues the rest (`scripts/queue.sh add`). The story count can
+be estimated at classification from the line and the analyses it cites,
+unlike the diff, so it is the size signal the classification can act on;
+when stage 1 writes the stories out and the count comes to four or more, the
+analyst returns a split proposal instead
+([stages/01-business-analysis.md](stages/01-business-analysis.md), "Rules").
+"Escalation by volume" above still catches the diff that outgrows its route
+later.
+
+### Ceremony caps by size
+
+The stage files say how each pass is done; this table says how many of them a
+task gets. It is a ceiling, not a target, and the orchestrator does not raise
+it on its own judgement: a pass beyond the cap runs only when the human asks
+for it in chat, and that request is a line in the task's `## Log`.
+
+| | `F` | `S` | `M` | `L` |
+|---|---|---|---|---|
+| Code review rounds | none — the human's diff look | 1 | 1 | 1 + the security pass |
+| Delta reads after a round's blocker/major fixes | — | at most 1 | at most 1 | at most 2 |
+| How a round is run | — | one code-reviewer session over the whole diff | one code-reviewer session over the whole diff | may fan out (lenses, a skeptic per finding) |
+| QA passes (each with its own defect re-checks) | none | 1, light | 1 (the shortcut above) | 2 |
+| Full E2E runs | none | 1 + the two exceptions below | 1 + the two exceptions below | 1 + the two exceptions below |
+
+- **A round reviews the whole diff, once, after the last development stage.**
+  On `S` and `M` there is no early round over the backend while the frontend
+  is still being written: two half-rounds are two sessions that each pay to
+  enter, and the second re-reads the first.
+- **A delta read is owed only to a blocker or a major**, as 06-code-review.md
+  already says for minors. After the last delta read allowed here, whatever
+  is still open goes to the human with the list — not to another read.
+- **After an E2E failure, re-run only the spec files that failed**, once the
+  fix is in. A second full run is owed only to the two exceptions of
+  05-frontend.md, in the paragraph after step 5: the first run went
+  against mocks rather than the real backend, or it reported a warm stand
+  (§ 7). Each answers a question the first run could not; neither re-checks
+  green.
+- **A QA pass's defect re-checks are part of that pass**, bounded where the
+  pass is defined — [04-backend.md](stages/04-backend.md), § 5 item 3: at
+  most two, over the fixes and what they could have broken, never for a
+  minor.
+- **No pass outside this table** — a visual comparison against reference
+  screenshots, a "reader's re-check" of a fix, a second look at a review's
+  verdict. Screenshots from the one E2E run are what a visual check reads;
+  the round's own delta read is the re-check.
+
+> Introduced on 2026-10-12 by tech-021. On 2026-10-09 the human decided "one
+> review round and one E2E run per task", and the decision lived only in the
+> orchestrator's memory. feat-027 then ran a backend round and a frontend
+> round, each as a fan-out of four lenses with a skeptic per finding, a
+> reader's re-check after each, two frontend fix passes, two full E2E runs of
+> 69 tests and a look pass against the reference: ~9.5 h of agent work over
+> 55 h of calendar time. bug-002 wrote a 361-line review.md for a 16-line
+> test fix.
+
 ## Model tiers and parallelism
 
 Which model executes a stage, and what may run at the same time, are in
