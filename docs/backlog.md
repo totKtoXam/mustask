@@ -25,6 +25,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] tech-016-ui-kit-m1-boards — Move the backlog and the board onto the UI kit (tech-015 M-1) · epic:platform/ui · size:S · deps:tech-015 · note:-
 - [ ] tech-017-ui-kit-m2-registries — Move registries and trees onto the UI kit (tech-015 M-2) · epic:platform/ui · size:M · deps:tech-015 · note:-
 - [ ] tech-018-ui-kit-m3-forms — Move forms and dialogs onto the UI kit, the label above the frame (tech-015 M-3) · epic:platform/ui · size:M · deps:tech-015 · note:-
+- [ ] tech-019-ui-kit-m4-shell — Move the shell onto the UI kit (tech-015 M-4) · epic:platform/ui · size:S · deps:tech-015 · note:-
 ## Later (waiting on analysis/dependencies)
 - [ ] mod-004-work-item-attachments — MVP. Founds attachment storage on each organization's own Google Drive: connect/check/disconnect on the organization settings (doc-002 US-13), upload, list, download, remove one's own (doc-010 D-11), admin moderation, a purge deletes the item's files; per-organization secrets; owes the attachment-storage ADR · epic:core/work-items · size:L · deps:mod-005 · note:doc-001 decomposition (b)
 - [ ] feat-002-work-item-comments — MVP. Обсуждение: add; edit or delete one's own comment under the ownership predicate (doc-010 D-11) with an edited marker; admin moderation; history (BR-M3-12); no comment on a «Удалена» item (doc-001 BR-14) · epic:core/work-items · size:M · deps:mod-003,mod-016 · note:doc-001 decomposition (b)
