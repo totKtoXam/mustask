@@ -176,6 +176,13 @@ not been checked yet, not what is convenient to re-check:
 - **For skeleton `tech` tasks** (no business logic — solution, CI, config) a
   full coverage matrix is not written: a checklist of "structure follows
   conventions, it builds, tests pass, it runs" + a defect list.
+- **`qa.md` has a size budget** — 16 KB a pass or an E2E run, 32 KB the file
+  ([../../features/README.md](../../features/README.md), "Artifact
+  budgets"); it applies to the Frontend section (05-frontend.md, § 7) as to
+  this one. A run is recorded as its command, its totals, each failure with
+  its cause and fix, and the stand record — not a row per passing test: the
+  JSON report already holds those, and the next reader needs what went
+  wrong.
 
 ## Definition of Done
 

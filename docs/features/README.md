@@ -170,6 +170,31 @@ old shape, nobody splits them retroactively, and their size is not a finding.
 The check therefore looks only at a `status.md` that the current change
 actually touches; an untouched archive never fails it.
 
+### Artifact budgets
+
+Every agent after a stage reads what that stage wrote, so an artifact's size
+is paid again by each of them. `spec.md` and the story files keep their line
+budgets where they are stated,
+[01-business-analysis.md](../ai-workflow/stages/01-business-analysis.md),
+"Rules". The rest:
+
+| Artifact | Budget | Over it |
+|----------|--------|---------|
+| `design.md` | 32 KB | the designer returns a split proposal to the orchestrator instead of writing on ([03-ux-design.md](../ai-workflow/stages/03-ux-design.md)) |
+| `review.md` | 16 KB a round, 32 KB the file | the round is written shorter: findings, not essays ([06-code-review.md](../ai-workflow/stages/06-code-review.md)) |
+| `qa.md` | 16 KB a pass or an E2E run, 32 KB the file | the section is written shorter: failures and totals, not a row per passing test ([04-backend.md](../ai-workflow/stages/04-backend.md), § 5) |
+
+`scripts/verify.sh` names a changed `design.md`, `review.md` or `qa.md` of a
+task in flight that has passed 32 KB — a note, not a failure. Designs already
+in flight stand at 75–212 KB, and rewriting an approved design to fit costs
+more than the reading it saves; a new task meets the budget as it writes.
+The per-round and per-run numbers are for the author, not the script.
+
+> Introduced on 2026-10-12 by tech-023. Across the folders in `main`,
+> `design.md` averaged 72 KB, `review.md` 53 KB and `qa.md` 44 KB;
+> feat-027 alone carried a 77 KB design, a 154 KB review and a 28 KB QA
+> report into every session that came after them.
+
 ### What goes where
 
 | Content | File |

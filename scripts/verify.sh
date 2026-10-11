@@ -225,6 +225,25 @@ if [ "$need_prose" = 1 ]; then
         pass "status.md stays within its budget"
     fi
 
+    # design.md, review.md and qa.md have budgets too — docs/features/README.md,
+    # "Artifact budgets". A note, not a failure: designs in flight are already
+    # far past it, and rewriting an approved design costs more than it saves.
+    big=""
+    for file in $changed; do
+        case "$file" in
+            docs/features/*/design.md|docs/features/*/review.md|docs/features/*/qa.md) ;;
+            *) continue ;;
+        esac
+        [ -f "$file" ] || continue
+        st="$(dirname "$file")/status.md"
+        [ -f "$st" ] && grep -q "^- stage: complete" "$st" && continue
+        b=$(wc -c < "$file" | tr -d " ")
+        [ "$b" -gt 32768 ] && big="$big $file:$((b / 1024))KB"
+    done
+    if [ -n "$big" ]; then
+        note "    over the 32 KB artifact budget (docs/features/README.md, \"Artifact budgets\"):$big"
+    fi
+
     # spec.md and its stories state the target requirements; findings and
     # verdicts belong in review.md, and how a decision was reached belongs in
     # history.md.

@@ -21,3 +21,9 @@ written in an earlier project and lightly neutralized for reuse here: other
 task ids they mention, commit hashes, and files such as a stand runbook or a
 second (`partner`) realm do not exist in this repository. Read them for the
 shape of the work, not as facts about this codebase.
+
+**Their length is not the model.** Both folders predate the artifact budgets
+([docs/features/README.md](../../features/README.md), "Artifact budgets")
+and are two to three times over them — tech-159's `review.md` is 105 KB and
+its `qa.md` 61 KB, tech-172's `review.md` 55 KB. Copy the structure, not the
+length.

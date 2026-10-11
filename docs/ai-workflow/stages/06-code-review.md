@@ -69,6 +69,13 @@ The L security pass (below) runs once, after the last general round, and
 its findings follow the same rules: a major gets one fix and one delta
 re-check, a minor becomes a debt.
 
+**`review.md` has a size budget** — 16 KB a round, 32 KB the file
+([../../features/README.md](../../features/README.md), "Artifact budgets").
+A finding is file:line, the essence, the severity and the fix in a few
+lines; the claims list is one line a claim. The reasoning that led to a
+finding stays in the session — the developer needs the defect and the fix,
+and every later reader pays for each paragraph.
+
 **Findings go into `docs/features/<id>/review.md`**, not into `status.md`.
 Each round gets its own section — `## Round 1`, `## Round 2 (delta)`; an `L`
 reviewed by side keeps the side in the heading, `## Round 1 — backend` — so

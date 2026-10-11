@@ -35,6 +35,12 @@ frontend developer assembles them instead of inventing them.
   specifications — we fix the structure, the components and the states.
 - Reuse: before designing, look at the `design.md` of neighboring features —
   identical tasks are solved with identical patterns.
+- **`design.md` has a size budget** — 32 KB
+  ([../../features/README.md](../../features/README.md), "Artifact
+  budgets"). A design heading past it is two tasks: return a split proposal
+  to the orchestrator — which screens make this cut, and what goes to the
+  queue. Theme or app-wide changes the screens need are their own task, not a
+  chapter of this design.
 
 ## Human Gate 2
 
