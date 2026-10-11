@@ -19,3 +19,4 @@ starts** is not written here — its number is held by the branch and the
 - [x] feat-007-work-item-type-fields — withdrawn: absorbed by feat-022-work-item-form-fields (human, 2026-10-05), 2026-10-05
 - [x] feat-014-work-item-estimation-fields — withdrawn: absorbed by feat-022-work-item-form-fields (human, 2026-10-05), 2026-10-05
 - [x] feat-004-backlog-hierarchy — withdrawn: folded into feat-001-work-item-links: the human's order of 2026-10-05 makes the hierarchy one cut (feat-001 D-2), 2026-10-06
+- [x] tech-022-stage-reading-diet — withdrawn: re-scoped: process docs are already read per stage (feature.md step 1); the reading weight is in feature artifacts, now tech-023, 2026-10-12
