@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test, type Browser, type Locator, type Page } from '@playwright/test';
 import { signIn } from '../support/auth';
 import {
   addTeam,
@@ -9,6 +9,7 @@ import {
   send,
   teams,
 } from '../support/organizationsApi';
+import { createWorkItemIn, saveWorkItem, stateId, typeId } from '../support/workItemsApi';
 
 /**
  * 23. Backlogs and boards (mod-006 US-1..US-6) against the real backend.
@@ -33,6 +34,12 @@ import {
  * `data-identifier` — there is no ID cell — and «Порядок» is the second cell,
  * after the hierarchy column; the reorder's menu is the row's «Ещё действия: <ID>»,
  * which took over from the handle column D-7 removed.
+ *
+ * Brought in line with bug-004 D-3 (one name, one meaning): a board column is
+ * headed by the name of the state it maps — «Новая», «Активна», «Разрешена»,
+ * «Закрыта» on «Эпики», «Фичи» and «Истории» — and the category labels
+ * («Новые», «В работе», «Решённые», «Завершённые») are no header; «Разрешена»
+ * is one column holding the story's and the bug's (23.4).
  *
  * Nothing is injected and nothing on the session flow is stubbed
  * (`src/test/e2eSessionGuard.test.ts`). The create dialog's initial focus is
@@ -94,6 +101,26 @@ async function backlogRows(page: Page): Promise<[string, string][]> {
 const column = (page: Page, header: string) =>
   page.getByRole('list', { name: new RegExp(`^${header}, рабочих элементов: `) });
 
+/** bug-004 D-3: the seeded headers of «Эпики», «Фичи» and «Истории», left to right. */
+const BOARD_HEADERS = ['Новая', 'Активна', 'Разрешена', 'Закрыта'];
+
+/** The board's column headers as the page draws them: the `h2` of each column. */
+const headersOf = (page: Page) =>
+  page.getByRole('region', { name: 'Канбан' }).getByRole('heading', { level: 2 });
+
+/** A category dot's colour as a computed style reads it: the theme's `Resolved` (`tokens.ts`, `#00796B`). */
+const RESOLVED_DOT = 'rgb(0, 121, 107)';
+
+/** The dot of a state, in the card or the row `holder` finds. */
+const dotOf = (holder: Locator) => holder.locator('.WorkTrackingCategoryMarker');
+
+/** A GET through the API on the signed-in page's session, parsed. */
+async function readJson<T>(page: Page, path: string): Promise<T> {
+  const response = await send(page.request, 'GET', path);
+  expect(response.ok(), `GET ${path}`).toBe(true);
+  return (await response.json()) as T;
+}
+
 /** Creates an item of `type` titled `title` from the surface's «Новый рабочий элемент» or «Новый элемент». */
 async function createFrom(page: Page, button: string, type: string, title: string) {
   await page.getByRole('button', { name: button }).first().click();
@@ -120,7 +147,7 @@ test.describe('23. backlogs and boards (mod-006)', () => {
     }
   });
 
-  test('23.1 happy path: created on the first team’s «Истории» backlog, reordered by its menu and kept, moved on the board by the card’s menu and kept, created on the board last in «Новые» (US-1..US-6)', async ({
+  test('23.1 happy path: created on the first team’s «Истории» backlog, reordered by its menu and kept, moved on the board by the card’s menu and kept, created on the board last in «Новая» (US-1..US-6)', async ({
     page,
   }) => {
     await signIn(page, { returnPath: '/home' });
@@ -194,39 +221,37 @@ test.describe('23. backlogs and boards (mod-006)', () => {
       'aria-selected',
       'true',
     );
-    await expect(column(page, 'Новые')).toHaveAccessibleName('Новые, рабочих элементов: 3');
-    await expect(column(page, 'В работе')).toHaveAccessibleName('В работе, рабочих элементов: 0');
+    // bug-004 D-3: a column is headed by the name of the state it maps, not by its category.
+    await expect(column(page, 'Новая')).toHaveAccessibleName('Новая, рабочих элементов: 3');
+    await expect(column(page, 'Активна')).toHaveAccessibleName('Активна, рабочих элементов: 0');
 
-    // US-5: a card to «В работе» by its menu; kept after a reload, and its form says «Активна».
+    // US-5: a card to «Активна» by its menu; kept after a reload, and its form says «Активна».
     await page.getByRole('button', { name: `Ещё действия: ${key}-US-1` }).click();
     const cardMenu = page.getByRole('menu', { name: 'Переместить в колонку' });
-    await expect(cardMenu.getByRole('menuitem')).toHaveText([
-      'В работе',
-      'Разрешена',
-      'Завершённые',
-    ]);
-    await cardMenu.getByRole('menuitem', { name: 'В работе' }).click();
-    await expect(column(page, 'В работе').getByRole('listitem')).toHaveCount(1);
-    await expect(column(page, 'В работе')).toContainText(`${key}-US-1`);
+    await expect(cardMenu.getByRole('menuitem')).toHaveText(['Активна', 'Разрешена', 'Закрыта']);
+    await cardMenu.getByRole('menuitem', { name: 'Активна' }).click();
+    await expect(column(page, 'Активна').getByRole('listitem')).toHaveCount(1);
+    await expect(column(page, 'Активна')).toContainText(`${key}-US-1`);
     await expect(page.getByRole('button', { name: `Ещё действия: ${key}-US-1` })).toBeFocused();
     await page.reload();
-    await expect(column(page, 'В работе')).toContainText(`${key}-US-1`);
-    await expect(column(page, 'В работе')).toContainText('Активна');
-    await expect(column(page, 'Новые')).toHaveAccessibleName('Новые, рабочих элементов: 2');
+    await expect(column(page, 'Активна')).toContainText(`${key}-US-1`);
+    // The column's list is named by its header, so the card's own state line is the text it holds.
+    await expect(column(page, 'Активна').getByRole('listitem')).toContainText('Активна');
+    await expect(column(page, 'Новая')).toHaveAccessibleName('Новая, рабочих элементов: 2');
 
-    await column(page, 'В работе').getByRole('link', { name: 'Вход по паролю' }).click();
+    await column(page, 'Активна').getByRole('link', { name: 'Вход по паролю' }).click();
     await expect(
       page.getByRole('heading', { level: 1, name: `Пользовательская история ${key}-US-1` }),
     ).toBeVisible();
     await expect(page.getByRole('combobox', { name: 'Статус' })).toContainText('Активна');
 
-    // US-6: «Новый элемент» on the board; the new card is the last of «Новые».
+    // US-6: «Новый элемент» on the board; the new card is the last of «Новая».
     await page.goto(`${teamPrefix}/boards/stories`);
-    await expect(column(page, 'Новые')).toHaveAccessibleName('Новые, рабочих элементов: 2');
+    await expect(column(page, 'Новая')).toHaveAccessibleName('Новая, рабочих элементов: 2');
     await createFrom(page, 'Новый элемент', 'Баг', 'Сбой выгрузки');
     await expect(page.getByText(`Рабочий элемент ${key}-BUG-4 создан.`)).toBeVisible();
-    await expect(column(page, 'Новые').getByRole('listitem')).toHaveCount(3);
-    await expect(column(page, 'Новые').getByRole('listitem').last()).toContainText(`${key}-BUG-4`);
+    await expect(column(page, 'Новая').getByRole('listitem')).toHaveCount(3);
+    await expect(column(page, 'Новая').getByRole('listitem').last()).toContainText(`${key}-BUG-4`);
   });
 
   test('23.2 failure: an unknown level address answers «Страница не найдена», a deleted team’s backlog «Команда не найдена» (US-1, US-7)', async ({
@@ -299,5 +324,178 @@ test.describe('23. backlogs and boards (mod-006)', () => {
       'aria-label',
       'Команда: Аналитика',
     );
+  });
+
+  test('23.4 one name, one column: on «Истории» a story and a bug both in «Разрешена» stand in the one column «Разрешена», a card moved there takes «Разрешена» of its own type, and «Эпики», «Фичи» and «Истории» are headed «Новая», «Активна», «Разрешена», «Закрыта» (bug-004 D-3, US-4, US-5)', async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await signIn(page, { returnPath: '/home' });
+    const { organization, project, firstTeam, teamPrefix } = await fixture(page);
+    const request = page.request;
+    const typeIds = {
+      EPIC: await typeId(request, organization.id, 'EPIC'),
+      FEAT: await typeId(request, organization.id, 'FEAT'),
+      US: await typeId(request, organization.id, 'US'),
+      BUG: await typeId(request, organization.id, 'BUG'),
+    };
+    type TypeKey = keyof typeof typeIds;
+    const stateOf = (key: TypeKey, name: string) => stateId(request, organization.id, key, name);
+    // The two states the one column maps: the story's «Разрешена» and the bug's — two states, one name.
+    const resolved = {
+      US: await stateOf('US', 'Разрешена'),
+      BUG: await stateOf('BUG', 'Разрешена'),
+    };
+    expect(resolved.US).not.toBe(resolved.BUG);
+
+    /** An item of the type `key` on the first team's default area, put in the state `state` when one is named. */
+    async function item(key: TypeKey, title: string, state?: string) {
+      const made = await createWorkItemIn(request, organization.id, project.id, {
+        typeId: typeIds[key],
+        title,
+        teamId: firstTeam.id,
+      });
+      if (state !== undefined) {
+        await saveWorkItem(request, organization.id, project.id, made.identifier, {
+          stateId: await stateOf(key, state),
+        });
+      }
+      return made;
+    }
+
+    // The board of «Истории» holds: a story and a bug already in «Разрешена», a story and a bug in
+    // «Новая» that the card menu moves there; «Эпики» an epic in «Разрешена», «Фичи» a feature in «Активна».
+    const story = await item('US', 'История на проверке', 'Разрешена');
+    const bug = await item('BUG', 'Баг на проверке', 'Разрешена');
+    const lateStory = await item('US', 'История к проверке');
+    const lateBug = await item('BUG', 'Баг к проверке');
+    const epic = await item('EPIC', 'Эпик на проверке', 'Разрешена');
+    const feature = await item('FEAT', 'Фича в работе', 'Активна');
+
+    const readItem = (identifier: string) =>
+      readJson<{ state: { id: string; name: string; category: { code: string } } }>(
+        page,
+        `/api/organizations/${organization.id}/projects/${project.id}/workitems/${identifier}`,
+      );
+    const resolvedColumn = column(page, 'Разрешена');
+    const cardIn = (list: Locator, identifier: string) =>
+      list.getByRole('listitem').filter({ hasText: identifier });
+
+    await test.step('«Истории»: four columns headed by state names, the story’s and the bug’s «Разрешена» in the one column', async () => {
+      await page.goto(`${teamPrefix}/boards/stories`);
+      await expect(headersOf(page)).toHaveText(BOARD_HEADERS);
+      await expect(column(page, 'Новая')).toHaveAccessibleName('Новая, рабочих элементов: 2');
+      await expect(column(page, 'Активна')).toHaveAccessibleName('Активна, рабочих элементов: 0');
+      await expect(resolvedColumn).toHaveAccessibleName('Разрешена, рабочих элементов: 2');
+      await expect(column(page, 'Закрыта')).toHaveAccessibleName('Закрыта, рабочих элементов: 0');
+      for (const card of [story, bug]) {
+        await expect(cardIn(resolvedColumn, card.identifier)).toHaveCount(1);
+        await expect(cardIn(resolvedColumn, card.identifier)).toContainText('Разрешена');
+      }
+      for (const card of [lateStory, lateBug]) {
+        await expect(cardIn(column(page, 'Новая'), card.identifier)).toHaveCount(1);
+      }
+    });
+
+    await test.step('the dot of «Разрешена» is the Resolved one for the story as for the bug, on the board and on the backlog', async () => {
+      for (const card of [story, bug]) {
+        await expect(dotOf(cardIn(resolvedColumn, card.identifier))).toHaveCSS(
+          'background-color',
+          RESOLVED_DOT,
+        );
+      }
+      await page.goto(`${teamPrefix}/backlogs/stories`);
+      for (const card of [story, bug]) {
+        const row = backlogTable(page).locator(`tbody tr[data-identifier="${card.identifier}"]`);
+        await expect(row).toContainText('Разрешена');
+        await expect(dotOf(row)).toHaveCSS('background-color', RESOLVED_DOT);
+      }
+    });
+
+    await test.step('a card moved to «Разрешена» takes «Разрешена» of its own type, the story’s and the bug’s alike, and the board keeps them in the one column', async () => {
+      await page.goto(`${teamPrefix}/boards/stories`);
+      await expect(resolvedColumn).toHaveAccessibleName('Разрешена, рабочих элементов: 2');
+      for (const [card, key] of [
+        [lateStory, 'US'],
+        [lateBug, 'BUG'],
+      ] as const) {
+        await page.getByRole('button', { name: `Ещё действия: ${card.identifier}` }).click();
+        const menu = page.getByRole('menu', { name: 'Переместить в колонку' });
+        await expect(menu.getByRole('menuitem')).toHaveText(['Активна', 'Разрешена', 'Закрыта']);
+        await menu.getByRole('menuitem', { name: 'Разрешена', exact: true }).click();
+        await expect(cardIn(resolvedColumn, card.identifier)).toHaveCount(1);
+        // Saved, and with the state of the card's own type — not the other type's.
+        await expect
+          .poll(async () => (await readItem(card.identifier)).state, {
+            message: `${card.identifier} is saved in the «Разрешена» of ${key}`,
+          })
+          .toMatchObject({
+            id: resolved[key],
+            name: 'Разрешена',
+            category: { code: 'Resolved' },
+          });
+      }
+      await expect(resolvedColumn).toHaveAccessibleName('Разрешена, рабочих элементов: 4');
+      await expect(column(page, 'Новая')).toHaveAccessibleName('Новая, рабочих элементов: 0');
+
+      await page.reload();
+      await expect(headersOf(page)).toHaveText(BOARD_HEADERS);
+      await expect(resolvedColumn).toHaveAccessibleName('Разрешена, рабочих элементов: 4');
+      for (const card of [story, bug, lateStory, lateBug]) {
+        await expect(cardIn(resolvedColumn, card.identifier)).toHaveCount(1);
+      }
+    });
+
+    await test.step('the board read says the same: one Resolved column that maps each type’s own «Разрешена»', async () => {
+      const board = await readJson<{
+        columns: {
+          key: string;
+          header: string;
+          category: { code: string };
+          targets: { typeId: string; stateId: string | null }[];
+          items: { identifier: string }[];
+        }[];
+      }>(page, `/api${teamPrefix}/boards/stories`);
+      expect(board.columns.map((c) => [c.key, c.header, c.category.code])).toEqual([
+        ['Proposed-1', 'Новая', 'Proposed'],
+        ['InProgress-1', 'Активна', 'InProgress'],
+        ['Resolved-1', 'Разрешена', 'Resolved'],
+        ['Completed-1', 'Закрыта', 'Completed'],
+      ]);
+      const third = board.columns[2];
+      // One entry per type of the level, in the process's display order: the story, then the bug.
+      expect(third.targets.map((t) => [t.typeId, t.stateId])).toEqual([
+        [typeIds.US, resolved.US],
+        [typeIds.BUG, resolved.BUG],
+      ]);
+      expect(third.items.map((i) => i.identifier).sort()).toEqual(
+        [story, bug, lateStory, lateBug].map((card) => card.identifier).sort(),
+      );
+      // The seeded process has no column some type of its level cannot enter.
+      for (const c of board.columns) {
+        expect(
+          c.targets.map((t) => t.stateId),
+          `the targets of «${c.header}»`,
+        ).not.toContain(null);
+      }
+    });
+
+    await test.step('«Эпики» and «Фичи» are headed the same four names', async () => {
+      await page.goto(`${teamPrefix}/boards/epics`);
+      await expect(headersOf(page)).toHaveText(BOARD_HEADERS);
+      await expect(cardIn(resolvedColumn, epic.identifier)).toHaveCount(1);
+      await expect(resolvedColumn).toHaveAccessibleName('Разрешена, рабочих элементов: 1');
+      await expect(dotOf(cardIn(resolvedColumn, epic.identifier))).toHaveCSS(
+        'background-color',
+        RESOLVED_DOT,
+      );
+
+      await page.goto(`${teamPrefix}/boards/features`);
+      await expect(headersOf(page)).toHaveText(BOARD_HEADERS);
+      await expect(cardIn(column(page, 'Активна'), feature.identifier)).toHaveCount(1);
+      await expect(column(page, 'Разрешена')).toHaveAccessibleName(
+        'Разрешена, рабочих элементов: 0',
+      );
+    });
   });
 });

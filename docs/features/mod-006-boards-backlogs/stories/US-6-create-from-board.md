@@ -13,6 +13,14 @@ the board**.
 
 Data: US-1's. The dialog and its rules are US-3's. Spec BR-M4-15, -21.
 
+> **Superseded in part by bug-004 D-3 (2026-10-12), one name, one meaning:**
+> the board's columns are headed by the names of the states they map, so the
+> first column of the seeded board is «Новая», not «Новые». Read every «Новые»
+> in this story — the persona line and the scenarios' titles and steps — as
+> «Новая». «Новый элемент» still sits at the top of the first column, and a new
+> card is still the last one in it. Everything else stands. The text is left as
+> written (spec § Model's note, US-4's note).
+
 ```gherkin
 Scenario: «Новый элемент» sits at the top of the first column
   When the user opens the «Истории» board of «Платформа»

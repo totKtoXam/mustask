@@ -50,15 +50,11 @@ function states(rows: readonly (readonly [string, CategoryCode])[]): StateDefini
   }));
 }
 
+/**
+ * The states of Эпик, Фича, Пользовательская история and Баг: one name, one meaning
+ * (bug-004 D-3) — «Разрешена» is Resolved on every type that has it.
+ */
 const STANDARD_STATES = [
-  ['Новая', 'Proposed'],
-  ['Активна', 'InProgress'],
-  ['Разрешена', 'InProgress'],
-  ['Закрыта', 'Completed'],
-  ['Удалена', 'Removed'],
-] as const;
-
-const BUG_STATES = [
   ['Новая', 'Proposed'],
   ['Активна', 'InProgress'],
   ['Разрешена', 'Resolved'],
@@ -119,7 +115,7 @@ const workItemTypes: WorkItemType[] = [
     name: 'Баг',
     appearance: 'bug',
     backlogLevel: level('Истории'),
-    states: states(BUG_STATES),
+    states: states(STANDARD_STATES),
   },
   {
     id: nextId(),

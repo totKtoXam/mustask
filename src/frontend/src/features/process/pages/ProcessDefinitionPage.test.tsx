@@ -203,11 +203,12 @@ describe('mod-001 US-2 Scenario: A seeded process is shown in full', () => {
         'Типы рабочих элементов организации, их статусы и уровни бэклога. Процесс задан системой и доступен только для просмотра.',
       ),
     ).toBeInTheDocument();
+    // bug-004 D-3: the second sentence, «У разных типов один и тот же статус может относиться к разным
+    // категориям.», is gone — a state name has one category on every type.
     expect(
-      screen.getByText(
-        'Категория показывает, к какой стадии работы относится статус. У разных типов один и тот же статус может относиться к разным категориям.',
-      ),
+      screen.getByText('Категория показывает, к какой стадии работы относится статус.'),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/к разным категориям/)).toBeNull();
   });
 });
 
@@ -257,22 +258,37 @@ describe('mod-001 US-2 Scenario: Categories are shown by their Russian labels', 
   });
 });
 
-describe('mod-001 US-2 Scenario: One state label belongs to two categories', () => {
-  it('reads «Разрешена» as «В работе» on «Пользовательская история» and «Решённые» on «Баг», in two colours', async () => {
+// bug-004 D-3 supersedes mod-001 US-2's "One state label belongs to two categories" (doc-010 D-4): one name, one
+// meaning — «Разрешена» is «Решённые» on every type that has it, in one colour.
+describe('mod-001 US-2 Scenario: One state name belongs to one category', () => {
+  it('reads «Разрешена» as «Решённые» on «Эпик», «Фича», «Пользовательская история» and «Баг» alike, in one colour', async () => {
     serve();
     renderPage();
     await cards();
 
-    const story = rowsOf(tableOf('Пользовательская история')).find(
-      (row) => row.name === 'Разрешена',
-    )!;
-    const bug = rowsOf(tableOf('Баг')).find((row) => row.name === 'Разрешена')!;
-
-    expect(story.label).toBe('В работе');
-    expect(bug.label).toBe('Решённые');
-    expect(getComputedStyle(story.marker).backgroundColor).not.toBe(
-      getComputedStyle(bug.marker).backgroundColor,
+    const rows = ['Эпик', 'Фича', 'Пользовательская история', 'Баг'].map((type) =>
+      rowsOf(tableOf(type)).find((row) => row.name === 'Разрешена')!,
     );
+
+    expect(rows.map((row) => row.label)).toEqual(['Решённые', 'Решённые', 'Решённые', 'Решённые']);
+    expect(new Set(rows.map((row) => getComputedStyle(row.marker).backgroundColor)).size).toBe(1);
+    expect(rowsOf(tableOf('Задача')).some((row) => row.name === 'Разрешена')).toBe(false);
+  });
+
+  it('shows no state name in two categories anywhere in the process', async () => {
+    serve();
+    renderPage();
+    await cards();
+
+    const labelsOfName = new Map<string, Set<string>>();
+    for (const type of sampleProcessDefinition.workItemTypes) {
+      for (const row of rowsOf(tableOf(type.name))) {
+        labelsOfName.set(row.name, (labelsOfName.get(row.name) ?? new Set()).add(row.label));
+      }
+    }
+    for (const [name, labels] of labelsOfName) {
+      expect([name, labels.size]).toEqual([name, 1]);
+    }
   });
 });
 

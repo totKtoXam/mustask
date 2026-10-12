@@ -11,6 +11,15 @@ organization's work items are typed and stated before I ever open one**.
 
 ## Acceptance criteria
 
+> **Superseded in part by bug-004 D-3 (2026-10-12), one name, one meaning:**
+> the scenario "One state label belongs to two categories" no longer holds.
+> «Разрешена» shows the category «Решённые» on «Эпик», «Фича», «Пользовательская
+> история» and «Баг» alike, in one colour, and no state name of the process
+> shows two categories. The screen's description lost its second sentence
+> («У разных типов один и тот же статус может относиться к разным
+> категориям.», design T-03), which said the opposite. The scenarios are left
+> as written.
+
 ```gherkin
 Scenario: A seeded process is shown in full
   Given an organization identifier a process has been seeded for (US-1)

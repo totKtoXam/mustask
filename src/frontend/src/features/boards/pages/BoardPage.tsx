@@ -13,7 +13,7 @@ import { StatusRegion } from '../components/StatusRegion';
 import { TeamHead } from '../components/TeamHead';
 import { useBoard, useReadTeamAgain } from '../hooks/queries';
 import { useNewWorkItem } from '../hooks/useNewWorkItem';
-import { isBoardEmpty } from '../lib/board';
+import { emptyBoardHint, isBoardEmpty } from '../lib/board';
 import { isBoardLevel, type BoardLevelCode } from '../lib/levels';
 import { notFoundLevel } from '../lib/refusals';
 
@@ -110,7 +110,7 @@ function TeamBoard({
         <StateFrame
           icon={ViewWeekOutlinedIcon}
           heading="Канбан пуст"
-          hint="Новые рабочие элементы этого уровня появятся в колонке «Новые»."
+          hint={emptyBoardHint(query.data)}
           action={{ label: NEW_WORK_ITEM_LABEL, icon: <AddIcon />, onClick: newItem.open }}
         />
       ) : (

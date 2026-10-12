@@ -272,6 +272,27 @@ For the seeded process: `epics` and `features` have «Новые», «В раб�
 (US «Разрешена», BUG `null`), «Решённые» (US `null`, BUG «Разрешена»),
 «Завершённые» (spec § Model).
 
+> **Changed by bug-004 D-3 (2026-10-12), one name, one meaning** — a note in
+> that task's `status.md` records it; the shape of the answer (the fields
+> above) does not change, only these values:
+>
+> - `header`: **the name of the state the column maps** for the first type, in
+>   display order, that maps one — for every column, not only for k > 1. The
+>   category's label is no header; the column's `category` still carries it.
+> - `key`: unchanged in form; the seeded keys are `Proposed-1`,
+>   `InProgress-1`, `Resolved-1`, `Completed-1` — `InProgress-2` is gone,
+>   because «Разрешена» is in the Resolved category on every type.
+> - the seeded process: `epics`, `features` and `stories` all have «Новая»,
+>   «Активна», «Разрешена», «Закрыта», each column mapping every type of its
+>   level (the story's and the bug's «Разрешена» are two states under one
+>   column). The example above reads `"key": "Resolved-1"`,
+>   `"category": { "code": "Resolved", "label": "Решённые" }`, with both
+>   `targets` non-null.
+> - a `null` target remains possible for a process shaped differently
+>   (BR-M4-18); the seeded one has none.
+>
+> The table and the example above are left as written.
+
 ## 4. Error codes
 
 New, module `boards`, `contracts/errors/boards.json` (Kazakh texts with

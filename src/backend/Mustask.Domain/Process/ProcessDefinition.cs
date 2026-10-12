@@ -88,6 +88,17 @@ public sealed class ProcessDefinition
             process._workItemTypes.Add(created);
         }
 
+        process.EnsureStateNamesHaveOneCategory();
+
         return process;
     }
+
+    /// <summary>
+    /// Refuses a process in which a state name stands in more than one category on its types (bug-004 D-3,
+    /// <see cref="StateNameRule"/>). <see cref="Seed"/> is the only code that creates a state through the aggregate
+    /// today and calls it; a write path that creates or renames a state later must call it before it saves.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">A state name stands in more than one category.</exception>
+    public void EnsureStateNamesHaveOneCategory() =>
+        StateNameRule.Require(_workItemTypes.SelectMany(type => type.States).Select(state => (state.Name, state.Category)));
 }

@@ -49,6 +49,44 @@ public sealed class ProcessBlueprintTests
         Assert.Throws<InvalidOperationException>(broken.EnsureValid);
     }
 
+    // bug-004 D-3: a state name has one category on every type of the process.
+    [Fact]
+    public void EnsureValid_ANameInTwoCategoriesOnTwoTypes_Throws()
+    {
+        var story = Shipped.Types.Single(type => type.Key == "US");
+        var states = story.States.Select(state => state.Name == "Разрешена" ? state with { Category = StateCategory.InProgress } : state).ToList();
+        var broken = WithTypes(types => [.. types.Where(type => type.Key != "US"), story with { States = states }]);
+
+        var exception = Assert.Throws<InvalidOperationException>(broken.EnsureValid);
+        Assert.Contains("«Разрешена»", exception.Message);
+    }
+
+    [Fact]
+    public void EnsureValid_TwoNamesEachInTwoCategories_NamesBoth()
+    {
+        // «Новая» as Active on the task, and «Закрыта» as Resolved on the epic: both are reported.
+        var task = Shipped.Types.Single(type => type.Key == "TASK");
+        var epic = Shipped.Types.Single(type => type.Key == "EPIC");
+        var broken = WithTypes(types =>
+        [
+            .. types.Where(type => type.Key is not ("TASK" or "EPIC")),
+            task with { States = [.. task.States.Select(state => state.Name == "Новая" ? state with { Category = StateCategory.InProgress } : state)] },
+            epic with { States = [.. epic.States.Select(state => state.Name == "Закрыта" ? state with { Category = StateCategory.Resolved } : state)] },
+        ]);
+
+        var exception = Assert.Throws<InvalidOperationException>(broken.EnsureValid);
+        Assert.Contains("«Новая»", exception.Message);
+        Assert.Contains("«Закрыта»", exception.Message);
+    }
+
+    [Fact]
+    public void Breaches_NamesCompareAsStored()
+    {
+        // The rule is about the stored name: a different spelling is a different name.
+        Assert.Empty(StateNameRule.Breaches([("Разрешена", StateCategory.Resolved), ("разрешена", StateCategory.InProgress)]));
+        Assert.Equal(["Разрешена"], StateNameRule.Breaches([("Разрешена", StateCategory.Resolved), ("Разрешена", StateCategory.InProgress), ("Разрешена", StateCategory.Resolved)]));
+    }
+
     [Fact]
     public void EnsureValid_DuplicateKey_Throws()
     {

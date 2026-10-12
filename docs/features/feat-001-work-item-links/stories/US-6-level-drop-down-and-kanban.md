@@ -14,6 +14,14 @@ the same on both pages and the names read as the team uses them**.
 Data: US-1's. `<team>` is `/organizations/<o>/projects/<p>/teams/<t>` of
 «Платформа». Spec BR-H-15, -16, -17, § The rename, § Level drop-down.
 
+> **Superseded in part by bug-004 D-3 (2026-10-12), one name, one meaning:**
+> the board's columns are headed by the names of the states they map, so the
+> empty board's hint names the first column by its own header and reads
+> «Новые рабочие элементы этого уровня появятся в колонке «Новая».» — read the
+> hint in "The board is named «Канбан» everywhere it is named" so (the
+> product copy is `emptyBoardHint` in the panel). Everything else stands. The
+> scenario is left as written (mod-006 US-4's note, spec § Model's note).
+
 ```gherkin
 Scenario: The drop-down replaces the tabs on «Бэклоги»
   When the user opens `<team>/backlogs/stories`

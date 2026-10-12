@@ -40,12 +40,12 @@ public sealed class GetBoardEndpointTests(MustaskApiFactory factory)
 
     // --- US-4 ------------------------------------------------------------------------------------------------------
 
-    // US-4 · "Each level's board has its own columns" (BR-M4-2): «Эпики» and «Фичи» four, «Истории» five, with the keys
-    // and categories of api-contract § 3.3.
+    // US-4 · "Each level's board has its own columns" (BR-M4-2): the three levels four, headed by the names of the states
+    // they map (bug-004 D-3), with the keys and categories of api-contract § 3.3. The category's label is no header.
     [Theory]
-    [InlineData("epics", "Новые,В работе,Разрешена,Завершённые", "Proposed-1,InProgress-1,InProgress-2,Completed-1")]
-    [InlineData("features", "Новые,В работе,Разрешена,Завершённые", "Proposed-1,InProgress-1,InProgress-2,Completed-1")]
-    [InlineData("stories", "Новые,В работе,Разрешена,Решённые,Завершённые", "Proposed-1,InProgress-1,InProgress-2,Resolved-1,Completed-1")]
+    [InlineData("epics", "Новая,Активна,Разрешена,Закрыта", "Proposed-1,InProgress-1,Resolved-1,Completed-1")]
+    [InlineData("features", "Новая,Активна,Разрешена,Закрыта", "Proposed-1,InProgress-1,Resolved-1,Completed-1")]
+    [InlineData("stories", "Новая,Активна,Разрешена,Закрыта", "Proposed-1,InProgress-1,Resolved-1,Completed-1")]
     public async Task Get_EachLevel_HasItsColumns(string level, string headers, string keys)
     {
         var world = await BoardsTestData.CreateWorldAsync(factory);
@@ -54,10 +54,15 @@ public sealed class GetBoardEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(headers.Split(','), columns.Select(column => column.GetProperty("header").GetString()));
         Assert.Equal(keys.Split(','), columns.Select(column => column.GetProperty("key").GetString()));
-        Assert.Equal("В работе", columns[2].GetProperty("category").GetProperty("label").GetString());
+        // The column's category stays in the answer (its code and label); only the header is the state's name.
+        Assert.Equal(
+            ["Proposed:Новые", "InProgress:В работе", "Resolved:Решённые", "Completed:Завершённые"],
+            columns.Select(column => $"{column.GetProperty("category").GetProperty("code").GetString()}:{column.GetProperty("category").GetProperty("label").GetString()}"));
+        Assert.DoesNotContain(columns, column => column.GetProperty("header").GetString() == column.GetProperty("category").GetProperty("label").GetString());
     }
 
-    // spec § Model's table for «Истории»: what a drop writes per type, "—" being no drop target (BR-M4-18).
+    // spec § Model's table for «Истории»: what a drop writes per type, "—" being no drop target (BR-M4-18); a story's
+    // «Разрешена» and a bug's stand in one column (bug-004), each type's own state under it.
     [Fact]
     public async Task Get_Stories_TargetsAsTheSpecsTable()
     {
@@ -70,18 +75,39 @@ public sealed class GetBoardEndpointTests(MustaskApiFactory factory)
             BoardsTestData.Target(column, type.Id) is { } state ? type.States.Single(candidate => candidate.Id.ToString() == state).Name : "—";
 
         Assert.Equal(
-            ["Новые: Новая Новая", "В работе: Активна Активна", "Разрешена: Разрешена —", "Решённые: — Разрешена", "Завершённые: Закрыта Закрыта"],
+            ["Новая: Новая Новая", "Активна: Активна Активна", "Разрешена: Разрешена Разрешена", "Закрыта: Закрыта Закрыта"],
             board.GetProperty("columns").EnumerateArray().Select(column =>
                 $"{column.GetProperty("header").GetString()}: {Cell(column, us)} {Cell(column, bug)}"));
+        Assert.NotEqual(
+            BoardsTestData.Target(BoardsTestData.Column(board, "Разрешена"), us.Id),
+            BoardsTestData.Target(BoardsTestData.Column(board, "Разрешена"), bug.Id));
+    }
+
+    // bug-004 D-1 · the report: a story in «Разрешена» and a bug in «Разрешена» are cards of one column, in the backlog's order.
+    [Fact]
+    public async Task Get_AStoryAndABugInRazreshena_AreCardsOfOneColumn()
+    {
+        var world = await BoardsTestData.CreateWorldAsync(factory);
+        var story = await BoardsTestData.CreateAsync(factory, world, "US", "История", world.PlatformAreaId);
+        var bug = await BoardsTestData.CreateAsync(factory, world, "BUG", "Баг", world.PlatformAreaId);
+        await BoardsTestData.SetStateAsync(factory, world, story, "US", "Разрешена");
+        await BoardsTestData.SetStateAsync(factory, world, bug, "BUG", "Разрешена");
+
+        var board = await BoardAsync(world, world.PlatformId);
+
+        Assert.Equal([story.Identifier, bug.Identifier], BoardsTestData.Cards(BoardsTestData.Column(board, "Разрешена")));
+        Assert.Equal(
+            ["Новая:", "Активна:", $"Разрешена: {story.Identifier} {bug.Identifier}", "Закрыта:"],
+            BoardsTestData.Columns(board));
     }
 
     // US-4 · "A card sits in the column its type and state map to".
     [Theory]
-    [InlineData("US", "Новая", "stories", "Новые")]
-    [InlineData("BUG", "Активна", "stories", "В работе")]
+    [InlineData("US", "Новая", "stories", "Новая")]
+    [InlineData("BUG", "Активна", "stories", "Активна")]
     [InlineData("US", "Разрешена", "stories", "Разрешена")]
-    [InlineData("BUG", "Разрешена", "stories", "Решённые")]
-    [InlineData("BUG", "Закрыта", "stories", "Завершённые")]
+    [InlineData("BUG", "Разрешена", "stories", "Разрешена")]
+    [InlineData("BUG", "Закрыта", "stories", "Закрыта")]
     [InlineData("EPIC", "Разрешена", "epics", "Разрешена")]
     public async Task Get_Card_SitsInItsColumn(string typeKey, string state, string level, string header)
     {
@@ -95,7 +121,7 @@ public sealed class GetBoardEndpointTests(MustaskApiFactory factory)
         Assert.Single(board.GetProperty("columns").EnumerateArray(), column => BoardsTestData.Cards(column).Length > 0);
     }
 
-    // US-4 · "The board holds the backlog's items in the backlog's order" (BR-M4-15): «Новые» lists them in the backlog's
+    // US-4 · "The board holds the backlog's items in the backlog's order" (BR-M4-15): «Новая» lists them in the backlog's
     // order, not another team's item; after a reorder, in the new order.
     [Fact]
     public async Task Get_Cards_InTheBacklogsOrder_OnlyTheTeams()
@@ -107,13 +133,13 @@ public sealed class GetBoardEndpointTests(MustaskApiFactory factory)
         var us9 = await BoardsTestData.CreateAsync(factory, world, "US", "Девятая", world.PlatformAreaId);
 
         var board = await BoardAsync(world, world.PlatformId);
-        Assert.Equal([us3.Identifier, bug5.Identifier, us9.Identifier], BoardsTestData.Cards(BoardsTestData.Column(board, "Новые")));
+        Assert.Equal([us3.Identifier, bug5.Identifier, us9.Identifier], BoardsTestData.Cards(BoardsTestData.Column(board, "Новая")));
         Assert.DoesNotContain(BoardsTestData.Columns(board), column => column.Contains(rootStory.Identifier, StringComparison.Ordinal));
 
         await BoardsTestData.MoveAsync(factory, world, world.PlatformId, BoardsTestData.Top(us9));
 
         var after = await BoardAsync(world, world.PlatformId);
-        Assert.Equal([us9.Identifier, us3.Identifier, bug5.Identifier], BoardsTestData.Cards(BoardsTestData.Column(after, "Новые")));
+        Assert.Equal([us9.Identifier, us3.Identifier, bug5.Identifier], BoardsTestData.Cards(BoardsTestData.Column(after, "Новая")));
     }
 
     // US-4 · "A card shows the item at a glance and opens it": type, identifier, title, state with its category, the
@@ -127,7 +153,7 @@ public sealed class GetBoardEndpointTests(MustaskApiFactory factory)
         var anna = await WorkItemsTestData.AddUserAsync(factory, "Анна", "Смирнова");
         await WorkItemsTestData.SaveAsync(factory, world.Items, bug.Identifier, new { assignee = new { userId = anna } });
 
-        var card = BoardsTestData.Column(await BoardAsync(world, world.PlatformId), "В работе").GetProperty("items")[0];
+        var card = BoardsTestData.Column(await BoardAsync(world, world.PlatformId), "Активна").GetProperty("items")[0];
 
         Assert.Equal((bug.Identifier, "Неверный счётчик", "bug"), (
             card.GetProperty("identifier").GetString(), card.GetProperty("title").GetString(), card.GetProperty("type").GetProperty("appearance").GetString()));
@@ -135,7 +161,7 @@ public sealed class GetBoardEndpointTests(MustaskApiFactory factory)
         Assert.Equal("Анна Смирнова", card.GetProperty("assignee").GetProperty("displayName").GetString());
     }
 
-    // US-4 · "A column with no cards stays on the board": all five columns, four with no card.
+    // US-4 · "A column with no cards stays on the board": all four columns, three with no card.
     [Fact]
     public async Task Get_ColumnsWithoutCards_StayOnTheBoard()
     {
@@ -143,7 +169,7 @@ public sealed class GetBoardEndpointTests(MustaskApiFactory factory)
         var us = await BoardsTestData.CreateAsync(factory, world, "US", "Новая", world.PlatformAreaId);
 
         Assert.Equal(
-            [$"Новые: {us.Identifier}", "В работе:", "Разрешена:", "Решённые:", "Завершённые:"],
+            [$"Новая: {us.Identifier}", "Активна:", "Разрешена:", "Закрыта:"],
             BoardsTestData.Columns(await BoardAsync(world, world.PlatformId)));
     }
 
@@ -153,7 +179,7 @@ public sealed class GetBoardEndpointTests(MustaskApiFactory factory)
     {
         var world = await BoardsTestData.CreateWorldAsync(factory);
 
-        Assert.Equal(["Новые:", "В работе:", "Разрешена:", "Завершённые:"], BoardsTestData.Columns(await BoardAsync(world, world.PlatformId, "epics")));
+        Assert.Equal(["Новая:", "Активна:", "Разрешена:", "Закрыта:"], BoardsTestData.Columns(await BoardAsync(world, world.PlatformId, "epics")));
     }
 
     // US-4 · "Failure and not found are the backlog's": each address of US-1's not-found outline, `boards` for `backlogs`.
@@ -176,8 +202,9 @@ public sealed class GetBoardEndpointTests(MustaskApiFactory factory)
 
     // --- US-5 ------------------------------------------------------------------------------------------------------
 
-    // US-5 · "A move writes the state its column maps for the card's type": a story to «Разрешена», a bug to «Решённые» —
-    // both «Разрешена» on their forms; title, assignee and area unchanged, «Изменён» the move's, the backlog place kept.
+    // US-5 · "A move writes the state its column maps for the card's type": a story and a bug both to «Разрешена» — each
+    // takes its own type's state, and both stand in the one column; title, assignee and area unchanged, «Изменён» the
+    // move's, the backlog place kept.
     [Fact]
     public async Task Move_WritesTheColumnsStateForTheType_NothingElse()
     {
@@ -190,34 +217,35 @@ public sealed class GetBoardEndpointTests(MustaskApiFactory factory)
         var before = await WorkItemsTestData.ReadAsync(factory, world.Items, us2.Identifier);
 
         var story = await DropAsync(world, us2, "US", "Разрешена");
-        var bug = await DropAsync(world, bug5, "BUG", "Решённые");
+        var bug = await DropAsync(world, bug5, "BUG", "Разрешена");
 
         Assert.Equal((HttpStatusCode.OK, HttpStatusCode.OK), (story.Status, bug.Status));
         Assert.Equal(("Разрешена", "Разрешена"), (StateName(story.Body), StateName(bug.Body)));
+        Assert.Equal(
+            ("Resolved", "Resolved"),
+            (story.Body.GetProperty("state").GetProperty("category").GetProperty("code").GetString(), bug.Body.GetProperty("state").GetProperty("category").GetProperty("code").GetString()));
         Assert.Equal(
             (before.GetProperty("title").GetString(), before.GetProperty("assignee").ValueKind, before.GetProperty("area").GetProperty("id").GetGuid()),
             (story.Body.GetProperty("title").GetString(), story.Body.GetProperty("assignee").ValueKind, story.Body.GetProperty("area").GetProperty("id").GetGuid()));
         Assert.True(story.Body.GetProperty("changedAt").GetDateTimeOffset() > before.GetProperty("changedAt").GetDateTimeOffset());
 
         var board = await BoardAsync(world, world.PlatformId);
-        Assert.Equal([us2.Identifier], BoardsTestData.Cards(BoardsTestData.Column(board, "Разрешена")));
-        Assert.Equal([bug5.Identifier], BoardsTestData.Cards(BoardsTestData.Column(board, "Решённые")));
+        Assert.Equal([bug5.Identifier, us2.Identifier], BoardsTestData.Cards(BoardsTestData.Column(board, "Разрешена")));
         Assert.Equal([bug5.Identifier, us2.Identifier], await BoardsTestData.RowsAsync(factory, world, world.PlatformId));
     }
 
-    // US-5 · "A column without a state for the type is no drop target": «Разрешена» maps nothing for a bug, «Решённые»
-    // nothing for a story; a request sent directly with the story's «Разрешена» for the bug is refused, the bug unchanged.
+    // US-5 · BR-M4-18 · "A request for a state of another type is refused": «Разрешена» is one column that maps both types,
+    // but each type's own state under it; the story's «Разрешена» sent directly for the bug is refused, the bug unchanged.
     [Fact]
-    public async Task Move_ToAColumnWithoutAStateForTheType_IsRefused()
+    public async Task Move_ToAStateOfAnotherType_IsRefused()
     {
         var world = await BoardsTestData.CreateWorldAsync(factory);
         var bug5 = await BoardsTestData.CreateAsync(factory, world, "BUG", "Пятый", world.PlatformAreaId);
         var board = await BoardAsync(world, world.PlatformId);
 
-        Assert.Null(BoardsTestData.Target(BoardsTestData.Column(board, "Разрешена"), world.TypeId("BUG")));
-        Assert.Null(BoardsTestData.Target(BoardsTestData.Column(board, "Решённые"), world.TypeId("US")));
-
         var storysResolved = BoardsTestData.Target(BoardsTestData.Column(board, "Разрешена"), world.TypeId("US"));
+        Assert.NotNull(storysResolved);
+        Assert.NotNull(BoardsTestData.Target(BoardsTestData.Column(board, "Разрешена"), world.TypeId("BUG")));
         var answer = await WorkItemsTestData.SaveAsync(factory, world.Items, bug5.Identifier, new { stateId = storysResolved });
 
         BoardsTestData.AssertRefused(answer, HttpStatusCode.Conflict, "workitems.workitem.state_not_allowed");
@@ -225,8 +253,8 @@ public sealed class GetBoardEndpointTests(MustaskApiFactory factory)
         Assert.Equal("Новая", StateName(await WorkItemsTestData.ReadAsync(factory, world.Items, bug5.Identifier)));
     }
 
-    // US-5 · "The card's menu moves it by keyboard": a bug in «Новые» is offered «В работе», «Решённые», «Завершённые» —
-    // the other columns that map a state of its type — and «Решённые» puts it in «Разрешена».
+    // US-5 · "The card's menu moves it by keyboard": a bug in «Новая» is offered «Активна», «Разрешена», «Закрыта» —
+    // the other columns that map a state of its type — and «Разрешена» puts it in «Разрешена».
     [Fact]
     public async Task Move_CardMenu_OffersTheOtherColumnsOfItsType()
     {
@@ -237,12 +265,12 @@ public sealed class GetBoardEndpointTests(MustaskApiFactory factory)
         var offered = board.GetProperty("columns").EnumerateArray()
             .Where(column => BoardsTestData.Target(column, world.TypeId("BUG")) is not null && !BoardsTestData.Cards(column).Contains(bug5.Identifier))
             .Select(column => column.GetProperty("header").GetString());
-        Assert.Equal(["В работе", "Решённые", "Завершённые"], offered);
+        Assert.Equal(["Активна", "Разрешена", "Закрыта"], offered);
 
-        var moved = await DropAsync(world, bug5, "BUG", "Решённые");
+        var moved = await DropAsync(world, bug5, "BUG", "Разрешена");
 
         Assert.Equal("Разрешена", StateName(moved.Body));
-        Assert.Equal([bug5.Identifier], BoardsTestData.Cards(BoardsTestData.Column(await BoardAsync(world, world.PlatformId), "Решённые")));
+        Assert.Equal([bug5.Identifier], BoardsTestData.Cards(BoardsTestData.Column(await BoardAsync(world, world.PlatformId), "Разрешена")));
     }
 
     // US-5 · "The card lands at its backlog place in the new column".
@@ -256,11 +284,11 @@ public sealed class GetBoardEndpointTests(MustaskApiFactory factory)
         await BoardsTestData.SetStateAsync(factory, world, us3, "US", "Активна");
         await BoardsTestData.SetStateAsync(factory, world, us11, "US", "Активна");
 
-        await DropAsync(world, us9, "US", "В работе");
+        await DropAsync(world, us9, "US", "Активна");
 
         Assert.Equal(
             [us3.Identifier, us9.Identifier, us11.Identifier],
-            BoardsTestData.Cards(BoardsTestData.Column(await BoardAsync(world, world.PlatformId), "В работе")));
+            BoardsTestData.Cards(BoardsTestData.Column(await BoardAsync(world, world.PlatformId), "Активна")));
     }
 
     // US-5 · "Two users move the same card, the later decides": no token, no notice (BR-M4-3).
@@ -270,8 +298,8 @@ public sealed class GetBoardEndpointTests(MustaskApiFactory factory)
         var world = await BoardsTestData.CreateWorldAsync(factory);
         var us2 = await BoardsTestData.CreateAsync(factory, world, "US", "Вторая", world.PlatformAreaId);
 
-        var anna = await DropAsync(world, us2, "US", "Завершённые");
-        var boris = await DropAsync(world, us2, "US", "В работе");
+        var anna = await DropAsync(world, us2, "US", "Закрыта");
+        var boris = await DropAsync(world, us2, "US", "Активна");
 
         Assert.Equal((HttpStatusCode.OK, HttpStatusCode.OK), (anna.Status, boris.Status));
         Assert.Equal("Активна", StateName(await WorkItemsTestData.ReadAsync(factory, world.Items, us2.Identifier)));

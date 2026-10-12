@@ -148,6 +148,29 @@ the seeded process (mod-001 contract § 1.4; doc-010 D-23 (c)):
 | «Эпики», «Фичи» | «Новые» → «Новая» · «В работе» → «Активна» · «Разрешена» → «Разрешена» · «Завершённые» → «Закрыта» |
 | «Истории» | «Новые» → both «Новая» · «В работе» → both «Активна» · «Разрешена» → История «Разрешена», Баг — · «Решённые» → История —, Баг «Разрешена» · «Завершённые» → both «Закрыта» |
 
+> **Superseded in part by bug-004 D-3 (2026-10-12), one name, one meaning:**
+> «Разрешена» is in the Resolved category on «Эпик», «Фича», «Пользовательская
+> история» and «Баг», and a state name has one category on every type of the
+> process. Columns are still derived per category and k-th state, but a column
+> is **headed by the name of the state it maps** — the types' shared name, and
+> where they differ the first type's in display order (the tie rule above,
+> now for every column, not only the further ones) — and the category's label
+> is no header. The seeded result on all three levels is «Новая», «Активна»,
+> «Разрешена», «Закрыта», each mapping every type of its level; the story's
+> and the bug's «Разрешена» stand in one column, each type's own state under
+> it. So the paragraph's header rule and the table above, with its «Новые»,
+> «В работе», «Решённые» and «Завершённые» headers, the «Разрешена»/«Решённые»
+> pair of «Истории» and the "—" cells, are left as written but no longer hold.
+> A column that maps no state for a type still exists for a process shaped
+> differently (BR-M4-18) — the seed has none. The column keys lose
+> `InProgress-2`: the seeded keys are `Proposed-1`, `InProgress-1`,
+> `Resolved-1`, `Completed-1`. The empty board's hint (§ Page «Доски») names
+> the first column by its own header, «Новая». The other places that name a
+> column by its old header read the same way: the «Новый элемент» row of § Page
+> «Доски»'s block table ("the first column, «Новые»" is «Новая»), the dialog
+> section's "the last card of «Новые»" («Новая») and OQ-2's "in «Завершённые»"
+> («Закрыта»).
+
 A card sits in the column its type's current state maps to. Moving it to
 another column writes one thing: the item's Статус becomes the state that
 column maps for its type — the same change as choosing it on the form
@@ -163,7 +186,7 @@ the moved state stays.
 | # | Rule | Source |
 |---|------|--------|
 | BR-M4-1 | «Эпики», «Фичи» and «Истории» each have one backlog and one board per active team, every team included, whenever it was created; no «Задачи» board, and in this cut no «Задачи» backlog either (OQ-3). | doc-003 BR-M4-1, BR-M4-13; D-2 |
-| BR-M4-2 | The columns per (type, state) and their headers, as § Model states, derived from the process. | doc-003 BR-M4-2; doc-010 D-4, D-5, D-23 (c) |
+| BR-M4-2 | The columns per (type, state) and their headers, as § Model states, derived from the process. *Superseded in part by bug-004 D-3: a column is headed by the name of the state it maps, not by the category's label (§ Model's note); «Разрешена» is one column for the story and the bug.* | doc-003 BR-M4-2; doc-010 D-4, D-5, D-23 (c) |
 | BR-M4-3 | A card has no board position of its own; moving it writes only its state, as § Model states, last write wins (no token, D-2). | doc-003 BR-M4-3; doc-001 BR-11; D-2 |
 | BR-M4-5 | A backlog and its board hold the items § Model's conditions 1–4 select, recomputed at every read. | doc-003 BR-M4-5; doc-001 BR-3; mod-002 BR-M1-11 |
 | BR-M4-6 | An item that comes onto a backlog is unplaced there and lands below every placed item; its former place elsewhere is not carried over. | doc-003 BR-M4-6; this cut's precision BR-M4-24 |

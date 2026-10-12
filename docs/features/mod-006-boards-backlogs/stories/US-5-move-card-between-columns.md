@@ -15,6 +15,18 @@ Data: US-1's; the «Истории» board of «Платформа». Users «А
 «Борис Петров». Spec § Model (what a card move writes), BR-M4-3, -15, -18;
 mod-003 BR-M3-21, BR-M3-25.
 
+> **Superseded in part by bug-004 D-3 (2026-10-12), one name, one meaning:**
+> columns are headed by state names and the story's and the bug's «Разрешена»
+> are one column, each type mapped to its own state. Read «В работе» as
+> «Активна», «Новые» as «Новая», «Завершённые» as «Закрыта» and «Решённые» as
+> «Разрешена» throughout; in the first scenario both cards are dragged to the
+> one «Разрешена» and stand in it together; the menu of the third scenario
+> lists «Активна», «Разрешена», «Закрыта»; and the second scenario no longer
+> has a seeded example, because every seeded column maps both types — its rule
+> (BR-M4-18) holds for a process shaped differently, and for a request sent
+> directly with a state of another type, which stays refused. The scenarios
+> are left as written.
+
 ```gherkin
 Scenario: A move writes the state its column maps for the card's type
   Given MSK-US-2 and MSK-BUG-5 in «Активна», in «В работе»

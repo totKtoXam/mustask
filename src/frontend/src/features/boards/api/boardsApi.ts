@@ -127,7 +127,7 @@ export interface BoardColumnTarget {
 export interface BoardColumn {
   /** `<category code>-<k>`, stable for the process. */
   key: string;
-  /** The column's title: the category's label for k = 1, else the state it maps. */
+  /** The column's title: the name of the state it maps for the first type, in display order, that maps one (bug-004 D-3). */
   header: string;
   /** The column's category; its code is never shown. */
   category: { code: string; label: string };

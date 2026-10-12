@@ -67,16 +67,19 @@ public sealed class GetProcessDefinitionHandlerTests
             task.States.Select(state => (state.Name, state.Category.Code, state.Category.Label)));
     }
 
-    // US-2 · "One state label belongs to two categories" (doc-010 D-4).
+    // US-2 · "One state name has one category" (bug-004 D-3, superseding doc-010 D-4's two categories of «Разрешена»):
+    // the label is «Решённые» on every type that has the state.
     [Fact]
-    public async Task Handle_FoundProcess_ResolvedOfStoryAndBugDifferInCategory()
+    public async Task Handle_FoundProcess_ResolvedHasOneCategoryOnEveryType()
     {
         var handler = NewHandler(FakeProcessDefinitionReadModel.Seeded());
 
         var response = await handler.Handle(new GetProcessDefinitionQuery(KnownOrganization), CancellationToken.None);
 
-        Assert.Equal("В работе", Category(Type(response, "US"), "Разрешена"));
-        Assert.Equal("Решённые", Category(Type(response, "BUG"), "Разрешена"));
+        foreach (var key in new[] { "EPIC", "FEAT", "US", "BUG" })
+        {
+            Assert.Equal("Решённые", Category(Type(response, key), "Разрешена"));
+        }
     }
 
     // Design R-25: the server fixes the order, the handler keeps what the read model gave and sorts nothing.

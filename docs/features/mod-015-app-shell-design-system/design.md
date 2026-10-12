@@ -1002,6 +1002,14 @@ chooses the prefix, organization or project, within BR-18.
 > on «Бэклоги» (§ 10.5) too. The address segment `boards` is unchanged. The
 > rows below are left as written.
 
+> **Superseded in part by bug-004 D-3 (2026-10-12):** the *Columns* row's
+> default headers are not the category labels. A column is headed by the name
+> of the state it maps (mod-006 BR-M4-2), so the seeded boards read «Новая»,
+> «Активна», «Разрешена», «Закрыта» — four columns on all three levels — and
+> the empty frame's hint below names the first column by its own header,
+> «Новая». The category labels stay where a category is shown (the process
+> screen, § 2.3's legend). The rows are left as written.
+
 | Block | MUI | Copy and behaviour |
 |---|---|---|
 | Header | `PageHeader` «Доски», tabs «Эпики», «Фичи», «Истории» (addresses `…/boards/epics`, `…/features`, `…/stories`); secondary «Показать бэклог» (`FormatListBulleted`), «Настройки доски» (`SettingsOutlined`, opens § 9.6) | no primary on a board |

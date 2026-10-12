@@ -71,3 +71,15 @@ export function applyCardMove<T extends Pick<Board, 'columns'>>(
 export function isBoardEmpty(board: Pick<Board, 'columns'>): boolean {
   return board.columns.every((column) => column.items.length === 0);
 }
+
+/**
+ * The empty frame's hint (spec § Page «Доски»): a new work item takes its type's initial state,
+ * which the board's first column maps. The column is named by its own header — the state's name
+ * (bug-004 D-3), «Новая» on the seeded process — never by a word held here.
+ */
+export function emptyBoardHint(board: Pick<Board, 'columns'>): string {
+  const first = board.columns[0]?.header;
+  return first
+    ? `Новые рабочие элементы этого уровня появятся в колонке «${first}».`
+    : 'Новые рабочие элементы этого уровня появятся на доске.';
+}

@@ -151,6 +151,12 @@ the default board column header (doc-010 D-5):
 | Completed | «Завершённые» | yes |
 | Removed | «Удалённые» | never: a deleted item is on no board (doc-001 BR-14) |
 
+> **Superseded in part by bug-004 D-3 (2026-10-12):** the labels are not the
+> board's default column headers any more. A column is headed by the name of
+> the state it maps (mod-006 BR-M4-2), as the reference tracker heads its
+> columns; the labels stay on the process-definition screen, in the glossary
+> and wherever a category is shown. The table above is left as written.
+
 Every type's full state list, in order (first = initial state; «Удалена»
 last and never on the ordinary state control), each state mapped to exactly
 one category (doc-001 BR-2). One label set serves every type, whatever its
@@ -183,6 +189,27 @@ type's state identity (BR-M2-9); only a state filter goes by the label:
   every type, so its result spans two categories — InProgress items of
   Эпик, Фича and Пользовательская история and Resolved items of Баг
   (doc-002, doc-005).
+
+> **Superseded by bug-004 D-3 (2026-10-12): one name, one meaning.**
+> «Разрешена» is **Resolved** on Эпик, Фича, Пользовательская история and Баг
+> alike — done, awaiting verification — so the first row of the states table
+> reads «Разрешена»→Resolved, and "One label, two categories" no longer holds.
+> The rule is general: **a state name has one category on every type of a
+> process.** The seed is tested against it, and any path that creates or
+> renames a state must refuse a breach (`StateNameRule`; today only the seed
+> creates states). Of the three bullets above: the first reads «Разрешена»
+> counts as Resolved on every type; the second goes — the «Истории» board has
+> one column «Разрешена» holding the story's and the bug's cards, each type
+> mapped to its own state, and columns are headed by state names (mod-006
+> BR-M4-2); the third reads one category, and the filter's result is one
+> category on every type. Existing processes were moved by the migration
+> `MoveResolvedStatesToResolvedCategory`, which touches only states still as
+> seeded and names every process where a state name still stands in two
+> categories — in the PostgreSQL server log, which `dotnet ef database update`
+> does not print, so the check is a step run afterwards
+> (`docs/runbooks/local-migrations.md`, "Migrations that report"). A state
+> renamed or repositioned by hand that breaks no rule is named nowhere. The
+> text and tables above are left as written.
 
 «Удалена» is seeded on every type like any other state, but it is not on the
 ordinary state control: MUSTASK gives it to all five types uniformly via

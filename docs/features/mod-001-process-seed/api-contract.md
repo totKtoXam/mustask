@@ -105,6 +105,13 @@ Example, abbreviated to two of the five types; § 1.4 has the full content:
 }
 ```
 
+> **Superseded in part by bug-004 D-3 (2026-10-12), one name, one meaning:**
+> the first type of this example, `EPIC`, now reads `"Разрешена"` with
+> `"category": { "code": "Resolved", "label": "Решённые" }` — as `BUG`'s
+> already does — and so do `FEAT` and `US`. The shape of the answer is
+> unchanged; only the category of those three states is. The lines above are
+> left as written.
+
 ### 1.3 Errors
 
 Every error body is `application/problem+json`, with `status`, `detail`
@@ -136,6 +143,12 @@ they never change for a given process.
 | 3 | US | Пользовательская история | story | Истории | as EPIC |
 | 4 | BUG | Баг | bug | Истории | 1 Новая → Proposed / Новые; 2 Активна → InProgress / В работе; 3 Разрешена → Resolved / Решённые; 4 Закрыта → Completed / Завершённые; 5 Удалена → Removed / Удалённые |
 | 5 | TASK | Задача | task | Задачи | 1 Новая → Proposed / Новые; 2 Активна → InProgress / В работе; 3 Закрыта → Completed / Завершённые; 4 Удалена → Removed / Удалённые |
+
+> **Superseded in part by bug-004 D-3 (2026-10-12):** rows 1–3 read
+> `3 Разрешена → Resolved / Решённые`, as row 4 does, and "as EPIC" carries
+> that to `FEAT` and `US`. A state name has one category on every type of the
+> process (`StateNameRule`, tested against the seed). The rows are left as
+> written.
 
 | `backlogLevels` # | `name` | `rank` | `kind` |
 |---|---|---|---|

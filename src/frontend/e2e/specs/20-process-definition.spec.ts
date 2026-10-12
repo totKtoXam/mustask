@@ -7,7 +7,12 @@ import {
   deleteEphemeralUser,
   userExistsById,
 } from '../support/keycloakAdmin';
-import { createOrganization, deactivateOrganization, runName } from '../support/organizationsApi';
+import {
+  createOrganization,
+  deactivateOrganization,
+  runName,
+  send,
+} from '../support/organizationsApi';
 
 /**
  * 20. The read-only process definition (mod-001 US-2, design.md layout B).
@@ -122,15 +127,41 @@ test.describe('20. the read-only process definition (mod-001)', () => {
     }
     await expect(taskRows.nth(0)).toContainText('Начальный');
 
-    // doc-010 D-4: one label, two categories.
-    await expect(
-      statesOf(page, 'Пользовательская история')
-        .locator('tbody tr')
-        .filter({ hasText: 'Разрешена' }),
-    ).toContainText('В работе');
-    await expect(
-      statesOf(page, 'Баг').locator('tbody tr').filter({ hasText: 'Разрешена' }),
-    ).toContainText('Решённые');
+    // bug-004 D-3 (it replaced doc-010 D-4's "one label, two categories"): one name, one
+    // meaning — «Разрешена» is «Решённые» on every type that has it, the story's as the bug's.
+    for (const name of ['Эпик', 'Фича', 'Пользовательская история', 'Баг']) {
+      await expect(
+        statesOf(page, name).locator('tbody tr').filter({ hasText: 'Разрешена' }),
+        `«Разрешена» of «${name}»`,
+      ).toContainText('Решённые');
+    }
+
+    // The same rule on the contract itself (mod-001 api-contract § 1.2): no state name has two
+    // categories anywhere in the process, and «Разрешена» is `Resolved` on the four types.
+    const read = await send(page.request, 'GET', `/api/organizations/${organizationId}/process`);
+    expect(read.ok(), 'the process read').toBe(true);
+    const process = (await read.json()) as {
+      workItemTypes: { key: string; states: { name: string; category: { code: string } }[] }[];
+    };
+    const categoriesOf = new Map<string, Set<string>>();
+    for (const type of process.workItemTypes) {
+      for (const state of type.states) {
+        categoriesOf.set(
+          state.name,
+          (categoriesOf.get(state.name) ?? new Set<string>()).add(state.category.code),
+        );
+      }
+    }
+    expect(
+      [...categoriesOf].filter(([, codes]) => codes.size > 1).map(([name]) => name),
+      'state names that stand in two categories',
+    ).toEqual([]);
+    for (const key of ['EPIC', 'FEAT', 'US', 'BUG']) {
+      const resolved = process.workItemTypes
+        .find((type) => type.key === key)
+        ?.states.find((state) => state.name === 'Разрешена');
+      expect(resolved?.category.code, `«Разрешена» of ${key}`).toBe('Resolved');
+    }
 
     await expect(page).toHaveTitle('Процесс — Mustask');
     // BR-M2-13: nothing on the screen changes the process.

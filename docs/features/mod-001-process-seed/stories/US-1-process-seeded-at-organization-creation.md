@@ -14,6 +14,14 @@ first**.
 
 ## Acceptance criteria
 
+> **Superseded in part by bug-004 D-3 (2026-10-12), one name, one meaning:**
+> «Разрешена» is in the category Resolved on «Эпик», «Фича» and
+> «Пользовательская история» as on «Баг», so the first scenario's "each in the
+> category stated there" reads doc-007's table as amended, and no state name
+> of the seeded process has two categories (`StateNameRule`; the seed refuses
+> a breach). Identities stay separate, as the last line of that scenario says.
+> The scenarios are left as written.
+
 ```gherkin
 Scenario: A new organization identifier receives the complete seeded process
   Given an organization identifier no process has been seeded for

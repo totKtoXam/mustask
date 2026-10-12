@@ -90,6 +90,9 @@ Scenario: "Under" reaches sub-nodes, "=" does not
     team's current iteration and of its descendants
 
 Scenario: «Статус = Разрешена» spans two categories
+  # Superseded by bug-004 D-3 (2026-10-12): «Разрешена» is Resolved on the
+  # story as on the bug, so the two categories are one. Both are still
+  # returned; write the check against the seeded process, not this wording.
   Given a «Пользовательская история» and a «Баг», both in «Разрешена»
   When a member runs «Статус = Разрешена»
   Then both are returned, although the story's state is InProgress and the

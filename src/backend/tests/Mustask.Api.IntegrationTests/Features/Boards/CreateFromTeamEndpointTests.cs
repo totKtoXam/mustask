@@ -214,7 +214,8 @@ public sealed class CreateFromTeamEndpointTests(MustaskApiFactory factory)
 
     // --- US-6 ------------------------------------------------------------------------------------------------------
 
-    // US-6 · "The new card is the last of «Новые», in the team's area": the «Фичи» board of «Платформа».
+    // US-6 · "The new card is the last of «Новые», in the team's area" (the column reads «Новая», bug-004 D-3): the
+    // «Фичи» board of «Платформа».
     [Fact]
     public async Task Create_FromTheBoard_IsTheLastCardOfNew_AndTheLastRow()
     {
@@ -226,7 +227,7 @@ public sealed class CreateFromTeamEndpointTests(MustaskApiFactory factory)
         var created = Created(answer);
         Assert.Equal("Платформа", AreaPath(answer));
         var board = (await BoardsTestData.GetBoardAsync(factory, world, world.PlatformId, "features")).Body;
-        Assert.Equal($"Новые: {feat6.Identifier} {created.Identifier}", BoardsTestData.Columns(board)[0]);
+        Assert.Equal($"Новая: {feat6.Identifier} {created.Identifier}", BoardsTestData.Columns(board)[0]);
         Assert.Equal([feat6.Identifier, created.Identifier], await BoardsTestData.RowsAsync(factory, world, world.PlatformId, "features"));
     }
 
@@ -242,23 +243,24 @@ public sealed class CreateFromTeamEndpointTests(MustaskApiFactory factory)
         var created = Created(answer);
         Assert.Equal("Мастаск", AreaPath(answer));
         var board = (await BoardsTestData.GetBoardAsync(factory, world, world.FirstTeamId)).Body;
-        Assert.Equal($"Новые: {earlier.Identifier} {created.Identifier}", BoardsTestData.Columns(board)[0]);
+        Assert.Equal($"Новая: {earlier.Identifier} {created.Identifier}", BoardsTestData.Columns(board)[0]);
     }
 
     // US-6 · "Creating from the empty board": the «Эпики» board of «Аналитика» has its four columns, all empty; after the
-    // creation its card is in «Новые». US-3 · "Creating from the empty backlog": the backlog then has the one row.
+    // creation its card is in «Новые» (the column reads «Новая», bug-004 D-3). US-3 · "Creating from the empty backlog":
+    // the backlog then has the one row.
     [Fact]
     public async Task Create_FromTheEmptyBoard_CardInNew()
     {
         var world = await BoardsTestData.CreateWorldAsync(factory);
         var (analytics, _) = await BoardsTestData.AddTeamAsync(factory, world, "Аналитика");
         var before = (await BoardsTestData.GetBoardAsync(factory, world, analytics, "epics")).Body;
-        Assert.Equal(["Новые:", "В работе:", "Разрешена:", "Завершённые:"], BoardsTestData.Columns(before));
+        Assert.Equal(["Новая:", "Активна:", "Разрешена:", "Закрыта:"], BoardsTestData.Columns(before));
 
         var created = Created(await BoardsTestData.CreateFromTeamAsync(factory, world, "EPIC", "Миграция данных", analytics.ToString()));
 
         var after = (await BoardsTestData.GetBoardAsync(factory, world, analytics, "epics")).Body;
-        Assert.Equal([$"Новые: {created.Identifier}", "В работе:", "Разрешена:", "Завершённые:"], BoardsTestData.Columns(after));
+        Assert.Equal([$"Новая: {created.Identifier}", "Активна:", "Разрешена:", "Закрыта:"], BoardsTestData.Columns(after));
         Assert.Equal([created.Identifier], await BoardsTestData.RowsAsync(factory, world, analytics, "epics"));
     }
 }

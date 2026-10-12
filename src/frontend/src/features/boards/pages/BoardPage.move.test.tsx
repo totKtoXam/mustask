@@ -8,7 +8,14 @@ import { server } from '../../../test/mocks/server';
 import { serveBoards, type BoardsTestApi } from '../testApi';
 import { cardMenuButton, cardOf, cardsIn, columnBox, columnList, findBoard } from '../testBoard';
 import { dataTransfer, fireDrag } from '../testDrag';
-import { boardsDataset, catalogText, ids, platformItem, stateId } from '../testFixtures';
+import {
+  addStoryOnlyReviewState,
+  boardsDataset,
+  catalogText,
+  ids,
+  platformItem,
+  stateId,
+} from '../testFixtures';
 import { boardAddress, renderBoards } from '../testRender';
 
 // US-5: moving a card on «Платформа»'s «Истории» board. The page is Анна's;
@@ -79,7 +86,7 @@ async function dragCard(board: HTMLElement, identifier: string, header: string) 
 }
 
 describe('US-5 Scenario: A move writes the state its column maps for the card’s type', () => {
-  it('drags MSK-US-2 to «Разрешена» and MSK-BUG-5 to «Решённые»: both at once, both «Разрешена», nothing else changed, the order kept', async () => {
+  it('drags MSK-US-2 and MSK-BUG-5 to «Разрешена»: both at once, in the one column, each its own type’s «Разрешена», nothing else changed, the order kept', async () => {
     const api = serveBoards(activeDataset());
     renderBoards(boardAddress());
     const board = await findBoard();
@@ -91,11 +98,11 @@ describe('US-5 Scenario: A move writes the state its column maps for the card’
     await dragCard(board, 'MSK-US-2', 'Разрешена');
     expect(cardsIn(board, 'Разрешена')).toEqual(['MSK-US-2']);
     await waitFor(() => expect(cardMenuButton('MSK-US-2')).not.toHaveAttribute('aria-disabled'));
-    await dragCard(board, 'MSK-BUG-5', 'Решённые');
-    expect(cardsIn(board, 'Решённые')).toEqual(['MSK-BUG-5']);
+    await dragCard(board, 'MSK-BUG-5', 'Разрешена');
+    expect(cardsIn(board, 'Разрешена')).toEqual(['MSK-US-2', 'MSK-BUG-5']);
     await waitFor(() => expect(cardMenuButton('MSK-BUG-5')).not.toHaveAttribute('aria-disabled'));
 
-    expect(cardsIn(board, 'В работе')).toEqual([]);
+    expect(cardsIn(board, 'Активна')).toEqual([]);
     const us = api.item(ids.msk, 2);
     const bug = api.item(ids.msk, 5);
     expect(us.stateId).toBe(stateId('US', 'Разрешена'));
@@ -124,34 +131,68 @@ describe('US-5 Scenario: A move writes the state its column maps for the card’
 });
 
 describe('US-5 Scenario: A column without a state for the type is no drop target', () => {
-  it('MSK-BUG-5 over «Разрешена» and MSK-US-2 over «Решённые»: no drop area, the drop refused, nothing sent', async () => {
+  // The seeded «Истории» columns map both types (bug-004 D-3), so the case needs a process the seed does not write:
+  // a state only «Пользовательская история» has, «Проверка», in the Resolved category (doc-007's customization is not
+  // built; the in-memory API derives the columns from this fixture exactly as the backend derives them).
+  let review: { stateId: string; restore(): void } | null = null;
+
+  afterEach(() => {
+    review?.restore();
+    review = null;
+  });
+
+  it('a story-only «Проверка»: MSK-BUG-5 over it has no drop area and the drop is refused, nothing sent; MSK-US-2 drops there', async () => {
+    review = addStoryOnlyReviewState();
     const api = serveBoards(activeDataset());
     renderBoards(boardAddress());
     const board = await findBoard();
 
     const transfer = dataTransfer();
     await act(async () => fireDrag('dragStart', cardOf(board, 'MSK-BUG-5'), transfer));
-    expect(columnBox(board, 'Разрешена')).not.toHaveAttribute('data-drop-target');
-    expect(columnBox(board, 'В работе')).not.toHaveAttribute('data-drop-target');
-    expect(columnBox(board, 'Решённые')).toHaveAttribute('data-drop-target', 'true');
-    expect(columnBox(board, 'Новые')).toHaveAttribute('data-drop-target', 'true');
+    expect(columnBox(board, 'Проверка')).not.toHaveAttribute('data-drop-target');
+    expect(columnBox(board, 'Активна')).not.toHaveAttribute('data-drop-target');
+    expect(columnBox(board, 'Разрешена')).toHaveAttribute('data-drop-target', 'true');
+    expect(columnBox(board, 'Новая')).toHaveAttribute('data-drop-target', 'true');
+    expect(columnBox(board, 'Закрыта')).toHaveAttribute('data-drop-target', 'true');
     await act(async () => fireDrag('dragEnd', cardOf(board, 'MSK-BUG-5'), transfer));
 
-    expect(await dragCard(board, 'MSK-BUG-5', 'Разрешена')).toEqual({
-      accepted: false,
-      dropTarget: false,
-    });
-    expect(await dragCard(board, 'MSK-US-2', 'Решённые')).toEqual({
+    expect(await dragCard(board, 'MSK-BUG-5', 'Проверка')).toEqual({
       accepted: false,
       dropTarget: false,
     });
     // Its own column is none either.
-    expect(await dragCard(board, 'MSK-US-2', 'В работе')).toEqual({
+    expect(await dragCard(board, 'MSK-US-2', 'Активна')).toEqual({
       accepted: false,
       dropTarget: false,
     });
-    expect(cardsIn(board, 'В работе')).toEqual(['MSK-US-2', 'MSK-BUG-5']);
+    expect(cardsIn(board, 'Активна')).toEqual(['MSK-US-2', 'MSK-BUG-5']);
     expect(patches(api)).toEqual([]);
+
+    // The story may go there, and the card menu of the bug does not offer the column.
+    expect(await dragCard(board, 'MSK-US-2', 'Проверка')).toMatchObject({ dropTarget: true });
+    await waitFor(() => expect(cardMenuButton('MSK-US-2')).not.toHaveAttribute('aria-disabled'));
+    expect(api.item(ids.msk, 2).stateId).toBe(review.stateId);
+    await userEvent.click(cardMenuButton('MSK-BUG-5'));
+    const menu = await screen.findByRole('menu', { name: 'Переместить в колонку' });
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((entry) => entry.textContent),
+    ).toEqual(['Новая', 'Разрешена', 'Закрыта']);
+  });
+
+  it('«Разрешена» is a drop area for a bug and for a story alike — the seeded process has no column without a state for either', async () => {
+    serveBoards(activeDataset());
+    renderBoards(boardAddress());
+    const board = await findBoard();
+
+    for (const identifier of ['MSK-US-2', 'MSK-BUG-5']) {
+      const transfer = dataTransfer();
+      await act(async () => fireDrag('dragStart', cardOf(board, identifier), transfer));
+      expect(columnBox(board, 'Разрешена')).toHaveAttribute('data-drop-target', 'true');
+      expect(columnBox(board, 'Активна')).not.toHaveAttribute('data-drop-target');
+      await act(async () => fireDrag('dragEnd', cardOf(board, identifier), transfer));
+    }
   });
 
   it('a refusal of the state — `workitems.workitem.state_not_allowed` — shows its text and puts the card back', async () => {
@@ -173,17 +214,17 @@ describe('US-5 Scenario: A column without a state for the type is no drop target
     const board = await findBoard();
 
     await userEvent.click(cardMenuButton('MSK-BUG-5'));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Решённые' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Разрешена' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Этот статус недоступен для рабочего элемента этого типа.',
     );
-    expect(cardsIn(board, 'В работе')).toEqual(['MSK-US-2', 'MSK-BUG-5']);
+    expect(cardsIn(board, 'Активна')).toEqual(['MSK-US-2', 'MSK-BUG-5']);
   });
 });
 
 describe('US-5 Scenario: The card’s menu moves it by keyboard', () => {
-  it('MSK-BUG-5 in «Новые»: «Переместить в колонку» lists «В работе», «Решённые», «Завершённые»; «Решённые» moves it, focus follows, it is announced', async () => {
+  it('MSK-BUG-5 in «Новая»: «Переместить в колонку» lists «Активна», «Разрешена», «Закрыта»; «Разрешена» moves it, focus follows, it is announced', async () => {
     const data = boardsDataset();
     data.items.push(platformItem(5, 'BUG', 'Неверный счётчик'));
     const api = serveBoards(data);
@@ -199,21 +240,21 @@ describe('US-5 Scenario: The card’s menu moves it by keyboard', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((entry) => entry.textContent),
-    ).toEqual(['В работе', 'Решённые', 'Завершённые']);
+    ).toEqual(['Активна', 'Разрешена', 'Закрыта']);
     expect(cardMenuButton('MSK-BUG-5')).toHaveAttribute('aria-expanded', 'true');
-    within(menu).getByRole('menuitem', { name: 'Решённые' }).focus();
+    within(menu).getByRole('menuitem', { name: 'Разрешена' }).focus();
     expect(cardMenuButton('MSK-BUG-5')).not.toHaveFocus();
     await userEvent.keyboard('{Enter}');
 
-    expect(cardsIn(board, 'Решённые')).toEqual(['MSK-BUG-5']);
-    expect(cardsIn(board, 'Новые')).toEqual([]);
-    // The card is drawn anew in «Решённые»: focus is on its button there.
-    const moved = within(columnList(board, 'Решённые')).getByRole('button', {
+    expect(cardsIn(board, 'Разрешена')).toEqual(['MSK-BUG-5']);
+    expect(cardsIn(board, 'Новая')).toEqual([]);
+    // The card is drawn anew in «Разрешена»: focus is on its button there.
+    const moved = within(columnList(board, 'Разрешена')).getByRole('button', {
       name: 'Ещё действия: MSK-BUG-5',
       hidden: true,
     });
     await waitFor(() => expect(moved).toHaveFocus());
-    expect(announcer()).toHaveTextContent('MSK-BUG-5 перемещён в колонку «Решённые».');
+    expect(announcer()).toHaveTextContent('MSK-BUG-5 перемещён в колонку «Разрешена».');
 
     await waitFor(() => expect(cardMenuButton('MSK-BUG-5')).not.toHaveAttribute('aria-disabled'));
     expect(cardMenuButton('MSK-BUG-5')).toHaveFocus();
@@ -237,7 +278,7 @@ describe('US-5 Scenario: The card’s menu moves it by keyboard', () => {
 });
 
 describe('US-5 Scenario: The card lands at its backlog place in the new column', () => {
-  it('MSK-US-9 dropped on «В работе» stands between MSK-US-3 and MSK-US-11, and shows «Активна» at once', async () => {
+  it('MSK-US-9 dropped on «Активна» stands between MSK-US-3 and MSK-US-11, and shows «Активна» at once', async () => {
     const data = boardsDataset();
     data.items.push(
       platformItem(3, 'US', 'Три', { stateId: stateId('US', 'Активна') }),
@@ -248,26 +289,26 @@ describe('US-5 Scenario: The card lands at its backlog place in the new column',
     const { release } = holdMoves();
     renderBoards(boardAddress());
     const board = await findBoard();
-    expect(cardsIn(board, 'В работе')).toEqual(['MSK-US-3', 'MSK-US-11']);
+    expect(cardsIn(board, 'Активна')).toEqual(['MSK-US-3', 'MSK-US-11']);
 
-    await dragCard(board, 'MSK-US-9', 'В работе');
+    await dragCard(board, 'MSK-US-9', 'Активна');
 
-    expect(cardsIn(board, 'В работе')).toEqual(['MSK-US-3', 'MSK-US-9', 'MSK-US-11']);
+    expect(cardsIn(board, 'Активна')).toEqual(['MSK-US-3', 'MSK-US-9', 'MSK-US-11']);
     // The state's name comes from the process read beside the board.
     expect(within(cardOf(board, 'MSK-US-9')).getByText('Активна')).toBeInTheDocument();
     expect(
-      within(columnList(board, 'В работе')).getByRole('button', {
+      within(columnList(board, 'Активна')).getByRole('button', {
         name: 'Ещё действия: MSK-US-9',
       }),
     ).toHaveFocus();
     release();
     await waitFor(() => expect(cardMenuButton('MSK-US-9')).not.toHaveAttribute('aria-disabled'));
-    expect(cardsIn(board, 'В работе')).toEqual(['MSK-US-3', 'MSK-US-9', 'MSK-US-11']);
+    expect(cardsIn(board, 'Активна')).toEqual(['MSK-US-3', 'MSK-US-9', 'MSK-US-11']);
   });
 });
 
 describe('US-5 Scenario: Two users move the same card, the later decides', () => {
-  it('Анна moves MSK-US-2 to «Завершённые», Борис then to «В работе»: it is in «Активна», no notice', async () => {
+  it('Анна moves MSK-US-2 to «Закрыта», Борис then to «Активна»: it is in «Активна», no notice', async () => {
     const data = boardsDataset();
     data.items.push(platformItem(2, 'US', 'Вход по паролю'));
     const api = serveBoards(data);
@@ -275,18 +316,18 @@ describe('US-5 Scenario: Two users move the same card, the later decides', () =>
     const board = await findBoard();
 
     await userEvent.click(cardMenuButton('MSK-US-2'));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Завершённые' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Закрыта' }));
     await waitFor(() => expect(cardMenuButton('MSK-US-2')).not.toHaveAttribute('aria-disabled'));
-    expect(cardsIn(board, 'Завершённые')).toEqual(['MSK-US-2']);
+    expect(cardsIn(board, 'Закрыта')).toEqual(['MSK-US-2']);
 
-    // Борис, whose board still showed «Новые».
+    // Борис, whose board still showed «Новая».
     api.item(ids.msk, 2).stateId = stateId('US', 'Активна');
     act(() => {
       focusManager.setFocused(false);
       focusManager.setFocused(true);
     });
 
-    await waitFor(() => expect(cardsIn(board, 'В работе')).toEqual(['MSK-US-2']));
+    await waitFor(() => expect(cardsIn(board, 'Активна')).toEqual(['MSK-US-2']));
     expect(screen.queryByRole('alert')).toBeNull();
   });
 });
@@ -299,11 +340,11 @@ describe('US-5 Scenario: A failed move puts the card back', () => {
     const board = await findBoard();
 
     await userEvent.click(cardMenuButton('MSK-US-2'));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Завершённые' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Закрыта' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(FAILED_TEXT);
-    expect(cardsIn(board, 'В работе')).toEqual(['MSK-US-2', 'MSK-BUG-5']);
-    expect(cardsIn(board, 'Завершённые')).toEqual([]);
+    expect(cardsIn(board, 'Активна')).toEqual(['MSK-US-2', 'MSK-BUG-5']);
+    expect(cardsIn(board, 'Закрыта')).toEqual([]);
   });
 });
 
@@ -315,7 +356,7 @@ describe('US-5 Scenario: One move at a time', () => {
     const board = await findBoard();
 
     await userEvent.click(cardMenuButton('MSK-US-2'));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Завершённые' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Закрыта' }));
 
     for (const identifier of ['MSK-US-2', 'MSK-US-3', 'MSK-BUG-5']) {
       expect(cardMenuButton(identifier)).toHaveAttribute('aria-disabled', 'true');
@@ -336,6 +377,6 @@ describe('US-5 Scenario: One move at a time', () => {
     expect(api.reads('/boards/stories')).toHaveLength(reads + 1);
     expect(patches(api)).toHaveLength(1);
     expect(cardOf(board, 'MSK-US-3')).toHaveAttribute('draggable', 'true');
-    expect(cardsIn(board, 'Завершённые')).toEqual(['MSK-US-2']);
+    expect(cardsIn(board, 'Закрыта')).toEqual(['MSK-US-2']);
   });
 });

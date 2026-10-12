@@ -53,8 +53,7 @@ export function ProcessDefinitionPage() {
         доступен только для просмотра.
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 2 }}>
-        Категория показывает, к какой стадии работы относится статус. У разных типов один и тот же
-        статус может относиться к разным категориям.
+        Категория показывает, к какой стадии работы относится статус.
       </Typography>
       {loading ? (
         <ProcessDefinitionSkeleton />

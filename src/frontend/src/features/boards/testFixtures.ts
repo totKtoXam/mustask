@@ -14,6 +14,7 @@ import {
   emptyDataset,
   ids as workItemIds,
   item,
+  processType,
   stateId,
   type Dataset,
   type WorkItemOverrides,
@@ -124,6 +125,37 @@ export function boardsDataset(): BoardsDataset {
     ],
     owners: { [ids.platform]: ids.platformTeam, [ids.analyticsArea]: ids.analyticsTeam },
     places: [],
+  };
+}
+
+/**
+ * A process the seed does not write (doc-007's customization is not built): «Пользовательская
+ * история» gains a state «Проверка» in the Resolved category, after «Разрешена», which «Баг» does
+ * not have. The seeded «Истории» columns map both types, so this is the one way a test gets a
+ * column that maps a state of the story and none of the bug (BR-M4-18). The fixture is shared by
+ * the file's tests: `restore()` puts the states back, and every test that calls this must call it.
+ */
+export function addStoryOnlyReviewState(): { stateId: string; restore(): void } {
+  const story = processType('US');
+  const saved = structuredClone(story.states);
+  const removed = story.states[story.states.length - 1];
+  if (!removed) {
+    throw new Error('«Пользовательская история» has no states in the process fixture.');
+  }
+  const id = '10000000-0000-4000-8000-0000000000a1';
+  story.states.splice(story.states.length - 1, 0, {
+    id,
+    name: 'Проверка',
+    order: removed.order,
+    isInitial: false,
+    category: { code: 'Resolved', label: 'Решённые' },
+  });
+  removed.order += 1;
+  return {
+    stateId: id,
+    restore: () => {
+      story.states.splice(0, story.states.length, ...saved);
+    },
   };
 }
 

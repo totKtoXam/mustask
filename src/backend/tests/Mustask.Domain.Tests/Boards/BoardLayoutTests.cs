@@ -41,19 +41,26 @@ public sealed class BoardLayoutTests
         return id;
     }
 
-    // US-4 · "Each level's board has its own columns": «Эпики» and «Фичи» have four, «Истории» five, in board order.
+    // bug-004 D-3 · US-4 · "Each level's board has its own columns": the three levels have four, headed by the names of
+    // the states they map («Новая», «Активна», «Разрешена», «Закрыта»), not by the categories' labels, in board order.
     [Theory]
-    [InlineData("Эпики", "Новые,В работе,Разрешена,Завершённые")]
-    [InlineData("Фичи", "Новые,В работе,Разрешена,Завершённые")]
-    [InlineData("Истории", "Новые,В работе,Разрешена,Решённые,Завершённые")]
+    [InlineData("Эпики", "Новая,Активна,Разрешена,Закрыта")]
+    [InlineData("Фичи", "Новая,Активна,Разрешена,Закрыта")]
+    [InlineData("Истории", "Новая,Активна,Разрешена,Закрыта")]
     public void Derive_SeededProcess_HasTheSpecsColumns(string level, string headers)
     {
         var layout = BoardLayout.Derive(Seeded(level).Types);
 
         Assert.Equal(headers.Split(','), layout.Columns.Select(column => column.Header));
+        Assert.Equal(
+            ["Proposed-1", "InProgress-1", "Resolved-1", "Completed-1"],
+            layout.Columns.Select(column => column.Key));
+        Assert.DoesNotContain(
+            layout.Columns,
+            column => StateCategoryLabels.Of(column.Category) == column.Header);
     }
 
-    // spec § Model's table for «Истории»: what a drop writes per type, "—" being no drop target (BR-M4-18).
+    // spec § Model's table for «Истории»: what a drop writes per type; every column maps both types (bug-004 D-3).
     [Fact]
     public void Derive_SeededStories_MapsEachTypeAsTheSpecsTable()
     {
@@ -67,26 +74,23 @@ public sealed class BoardLayoutTests
 
         Assert.Equal(
             [
-                "Новые: US:Новая BUG:Новая",
-                "В работе: US:Активна BUG:Активна",
-                "Разрешена: US:Разрешена —",
-                "Решённые: — BUG:Разрешена",
-                "Завершённые: US:Закрыта BUG:Закрыта",
+                "Новая: US:Новая BUG:Новая",
+                "Активна: US:Активна BUG:Активна",
+                "Разрешена: US:Разрешена BUG:Разрешена",
+                "Закрыта: US:Закрыта BUG:Закрыта",
             ],
             layout.Columns.Select(column => $"{column.Header}: {Cell(column, us)} {Cell(column, bug)}"));
-        Assert.Equal(
-            ["Proposed-1", "InProgress-1", "InProgress-2", "Resolved-1", "Completed-1"],
-            layout.Columns.Select(column => column.Key));
     }
 
     // US-4 · "A card sits in the column its type and state map to"; Removed («Удалена») has no column.
     [Theory]
-    [InlineData("Истории", "US", "Новая", "Новые")]
-    [InlineData("Истории", "BUG", "Активна", "В работе")]
+    [InlineData("Истории", "US", "Новая", "Новая")]
+    [InlineData("Истории", "BUG", "Активна", "Активна")]
     [InlineData("Истории", "US", "Разрешена", "Разрешена")]
-    [InlineData("Истории", "BUG", "Разрешена", "Решённые")]
-    [InlineData("Истории", "BUG", "Закрыта", "Завершённые")]
+    [InlineData("Истории", "BUG", "Разрешена", "Разрешена")]
+    [InlineData("Истории", "BUG", "Закрыта", "Закрыта")]
     [InlineData("Эпики", "EPIC", "Разрешена", "Разрешена")]
+    [InlineData("Фичи", "FEAT", "Разрешена", "Разрешена")]
     [InlineData("Истории", "US", "Удалена", null)]
     public void ColumnOf_SeededState_IsTheSpecsColumn(string level, string type, string state, string? column)
     {
@@ -98,8 +102,26 @@ public sealed class BoardLayoutTests
         Assert.Equal(column, index is { } found ? layout.Columns[found].Header : null);
     }
 
-    // A process shaped differently: a further column of a category is headed by the state it maps for the first type, in
-    // display order, that maps one; a category no type has gets no column; types map their k-th state of the category.
+    // bug-004 D-1 · the report: a story in «Разрешена» and a bug in «Разрешена» stood in different columns. Now they
+    // stand in one — the same index, so one column on the board.
+    [Fact]
+    public void ColumnOf_AStoryAndABugInRazreshena_AreInOneColumn()
+    {
+        var (types, states) = Seeded("Истории");
+        var layout = BoardLayout.Derive(types);
+
+        var story = layout.ColumnOf(TypeIdOf("US"), states["US:Разрешена"]);
+        var bug = layout.ColumnOf(TypeIdOf("BUG"), states["BUG:Разрешена"]);
+
+        Assert.NotNull(story);
+        Assert.Equal(story, bug);
+        Assert.Single(layout.Columns, column => column.Header == "Разрешена");
+    }
+
+    // A process shaped differently, its types' names differing (a process of one's own is doc-007's, not built yet):
+    // a column is headed by the state it maps for the first type, in display order, that maps one — the first type's
+    // «Черновик», not the alphabetically first «Новая»; a category no type has gets no column; types map their k-th
+    // state of the category, so a further column is headed by the only type that has it.
     [Fact]
     public void Derive_DifferentProcess_ColumnsFollowTheMostStatesPerCategory()
     {
@@ -129,9 +151,54 @@ public sealed class BoardLayoutTests
             ]),
         ]);
 
-        Assert.Equal(["Новые", "В работе", "Тест", "Принята", "Завершённые"], layout.Columns.Select(column => column.Header));
+        Assert.Equal(["Черновик", "Ревью", "Тест", "Принята", "Готово"], layout.Columns.Select(column => column.Header));
+        Assert.Equal(["Proposed-1", "InProgress-1", "InProgress-2", "InProgress-3", "Completed-1"], layout.Columns.Select(column => column.Key));
         Assert.Equal((firstReview, secondReview), (layout.Columns[1].StateFor(first), layout.Columns[1].StateFor(second)));
         Assert.Equal(((Guid?)null, (Guid?)secondTest), (layout.Columns[2].StateFor(first), layout.Columns[2].StateFor(second)));
         Assert.DoesNotContain(layout.Columns, column => column.Category is StateCategory.Resolved or StateCategory.Removed);
+    }
+
+    // The tie rule at the first column of a category: the types' names differ, the first type in display order heads it,
+    // whatever the second says, and both types' states stay mapped by that one column.
+    [Fact]
+    public void Derive_TypesNameTheirFirstStateDifferently_TheFirstTypesNameHeadsTheColumn()
+    {
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        var firstState = Guid.NewGuid();
+        var secondState = Guid.NewGuid();
+
+        var layout = BoardLayout.Derive(
+        [
+            new LayoutType(first, [new LayoutState(firstState, "Яблоко", StateCategory.Proposed, 1)]),
+            new LayoutType(second, [new LayoutState(secondState, "Арбуз", StateCategory.Proposed, 1)]),
+        ]);
+
+        var column = Assert.Single(layout.Columns);
+        Assert.Equal("Яблоко", column.Header);
+        Assert.Equal((firstState, secondState), (column.StateFor(first), column.StateFor(second)));
+    }
+
+    // A category only one type has (as a task has no Resolved state): its column is headed by that type's state and maps
+    // nothing for the other, which is then no drop target there (BR-M4-18).
+    [Fact]
+    public void Derive_ACategoryOnlyOneTypeHas_MapsTheOtherTypeToNone()
+    {
+        var withReview = Guid.NewGuid();
+        var without = Guid.NewGuid();
+        var review = Guid.NewGuid();
+
+        var layout = BoardLayout.Derive(
+        [
+            new LayoutType(withReview,
+            [
+                new LayoutState(Guid.NewGuid(), "Новая", StateCategory.Proposed, 1),
+                new LayoutState(review, "Проверка", StateCategory.Resolved, 2),
+            ]),
+            new LayoutType(without, [new LayoutState(Guid.NewGuid(), "Новая", StateCategory.Proposed, 1)]),
+        ]);
+
+        Assert.Equal(["Новая", "Проверка"], layout.Columns.Select(column => column.Header));
+        Assert.Equal(((Guid?)review, (Guid?)null), (layout.Columns[1].StateFor(withReview), layout.Columns[1].StateFor(without)));
     }
 }

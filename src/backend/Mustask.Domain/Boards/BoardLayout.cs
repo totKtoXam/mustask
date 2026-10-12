@@ -28,12 +28,15 @@ public sealed record BoardColumn(StateCategory Category, int Index, string Heade
 /// <summary>
 /// The columns of a level's board, derived from the process on every read and
 /// never stored (spec § The board's columns, doc-003 BR-M4-2): the categories in
-/// the order «Новые» → «В работе» → «Решённые» → «Завершённые», Removed having
-/// none; within a category as many columns as the most states any type of the
-/// level has there, the k-th mapping each type to its k-th state of that
-/// category in the process's order, or to none. The first column of a category
-/// is headed by the category's label, a further one by the name of the state it
-/// maps for the first type, in display order, that maps one.
+/// the order Proposed → InProgress → Resolved → Completed, Removed having none;
+/// within a category as many columns as the most states any type of the level
+/// has there, the k-th mapping each type to its k-th state of that category in
+/// the process's order, or to none. A column is headed by the name of the state
+/// it maps (bug-004 D-3), as the reference tracker heads its columns: the
+/// types' shared name — one name has one category on every type
+/// (<see cref="StateNameRule"/>) — and, where the names differ, the first
+/// type's in display order that maps a state there. The category's label is no
+/// header: it stays in the process settings and wherever a category is shown.
 /// </summary>
 public sealed class BoardLayout
 {
@@ -82,9 +85,7 @@ public sealed class BoardLayout
                     .Select(type => new ColumnTarget(type.TypeId, k < type.States.Count ? type.States[k].StateId : null))
                     .ToList();
 
-                var header = k == 0
-                    ? StateCategoryLabels.Of(category)
-                    : statesOfType.First(type => k < type.States.Count).States[k].Name;
+                var header = statesOfType.First(type => k < type.States.Count).States[k].Name;
 
                 columns.Add(new BoardColumn(category, k + 1, header, targets));
             }

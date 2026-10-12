@@ -33,9 +33,9 @@ public sealed class GetProcessDefinitionEndpointTests(MustaskApiFactory factory)
     // api-contract.md § 1.4, as written: key, name, appearance, level and the states "order name -> code / label".
     private static readonly (string Key, string Name, string Appearance, string Level, string States)[] ExpectedTypes =
     [
-        ("EPIC", "Эпик", "epic", "Эпики", "1 Новая Proposed Новые; 2 Активна InProgress В работе; 3 Разрешена InProgress В работе; 4 Закрыта Completed Завершённые; 5 Удалена Removed Удалённые"),
-        ("FEAT", "Фича", "feature", "Фичи", "1 Новая Proposed Новые; 2 Активна InProgress В работе; 3 Разрешена InProgress В работе; 4 Закрыта Completed Завершённые; 5 Удалена Removed Удалённые"),
-        ("US", "Пользовательская история", "story", "Истории", "1 Новая Proposed Новые; 2 Активна InProgress В работе; 3 Разрешена InProgress В работе; 4 Закрыта Completed Завершённые; 5 Удалена Removed Удалённые"),
+        ("EPIC", "Эпик", "epic", "Эпики", "1 Новая Proposed Новые; 2 Активна InProgress В работе; 3 Разрешена Resolved Решённые; 4 Закрыта Completed Завершённые; 5 Удалена Removed Удалённые"),
+        ("FEAT", "Фича", "feature", "Фичи", "1 Новая Proposed Новые; 2 Активна InProgress В работе; 3 Разрешена Resolved Решённые; 4 Закрыта Completed Завершённые; 5 Удалена Removed Удалённые"),
+        ("US", "Пользовательская история", "story", "Истории", "1 Новая Proposed Новые; 2 Активна InProgress В работе; 3 Разрешена Resolved Решённые; 4 Закрыта Completed Завершённые; 5 Удалена Removed Удалённые"),
         ("BUG", "Баг", "bug", "Истории", "1 Новая Proposed Новые; 2 Активна InProgress В работе; 3 Разрешена Resolved Решённые; 4 Закрыта Completed Завершённые; 5 Удалена Removed Удалённые"),
         ("TASK", "Задача", "task", "Задачи", "1 Новая Proposed Новые; 2 Активна InProgress В работе; 3 Закрыта Completed Завершённые; 4 Удалена Removed Удалённые"),
     ];
@@ -222,9 +222,10 @@ public sealed class GetProcessDefinitionEndpointTests(MustaskApiFactory factory)
         Assert.Equal(4, states.Count);
     }
 
-    // US-2 · "One state label belongs to two categories" (doc-010 D-4).
+    // US-2 · "One state name has one category" (bug-004 D-3, superseding doc-010 D-4's two categories of «Разрешена»):
+    // «Разрешена» is Resolved, «Решённые», on every type that has it, and no name of the process has two categories.
     [Fact]
-    public async Task Get_SeededOrganization_ResolvedOfStoryAndBugDifferInCategory()
+    public async Task Get_SeededOrganization_EveryStateNameHasOneCategoryOnEveryType()
     {
         var (organizationId, _) = await SeedOrganizationAsync();
 
@@ -232,9 +233,13 @@ public sealed class GetProcessDefinitionEndpointTests(MustaskApiFactory factory)
 
         string Resolved(string key) => TypeByKey(body, key).GetProperty("states").EnumerateArray()
             .Single(state => state.GetProperty("name").GetString() == "Разрешена")
-            .GetProperty("category").GetProperty("label").GetString()!;
-        Assert.Equal("В работе", Resolved("US"));
-        Assert.Equal("Решённые", Resolved("BUG"));
+            .GetProperty("category").GetProperty("code").GetString()!;
+        Assert.All(new[] { "EPIC", "FEAT", "US", "BUG" }, key => Assert.Equal("Resolved", Resolved(key)));
+
+        var categoriesOfName = body.GetProperty("workItemTypes").EnumerateArray()
+            .SelectMany(type => type.GetProperty("states").EnumerateArray())
+            .GroupBy(state => state.GetProperty("name").GetString()!, state => state.GetProperty("category").GetProperty("code").GetString()!);
+        Assert.All(categoriesOfName, sameName => Assert.Single(sameName.Distinct()));
     }
 
     // Canonical form in either letter case names the same organization (api-contract § 1.1).

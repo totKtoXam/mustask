@@ -416,7 +416,11 @@ export class BoardsTestApi {
     };
   }
 
-  /** § 3.3: BR-M4-2's columns, each with its cards in the backlog's order. */
+  /**
+   * § 3.3: BR-M4-2's columns, each with its cards in the backlog's order. A column is headed by the
+   * name of the state it maps for the first type, in display order, that maps one (bug-004 D-3) — the
+   * category's label is no header, it stays in the column's `category`.
+   */
   board(team: TeamRecord, level: string) {
     const types = this.levelTypes(level);
     const items = this.members(team, level).map((record, index) =>
@@ -437,7 +441,7 @@ export class BoardsTestApi {
         const firstMapped = perType.find((states) => states[k - 1])?.[k - 1];
         columns.push({
           key: `${code}-${k}`,
-          header: k === 1 ? label : (firstMapped?.name ?? ''),
+          header: firstMapped?.name ?? '',
           category: { code, label },
           targets,
           items: items.filter((card) =>

@@ -262,6 +262,27 @@ describe('US-1 Scenario: The state is a dot by its category and the name', () =>
     expect(getComputedStyle(dot('MSK-EPIC-1')).width).toBe('8px');
     expect(getComputedStyle(dot('MSK-EPIC-1').parentElement as Element).gap).toBe('6px');
   });
+
+  it('«Разрешена» shows the Resolved colour on a story, an epic and a bug alike — one name, one meaning (bug-004 D-3)', async () => {
+    const data = fullTreeDataset();
+    mskRecord(data, 1).stateId = stateId('EPIC', 'Разрешена');
+    mskRecord(data, 2).stateId = stateId('US', 'Разрешена');
+    mskRecord(data, 4).stateId = stateId('BUG', 'Разрешена');
+    serveBoards(data);
+    renderBoards(backlogAddress('epics'));
+    const table = await findBacklogTable();
+
+    const dot = (identifier: string) =>
+      cellOf(rowOf(table, identifier), CELL.state).querySelector(
+        `.${CATEGORY_MARKER_CLASS}`,
+      ) as HTMLElement;
+    const resolved = rgb(theme.workTracking.categoryColour('Resolved'));
+    for (const identifier of ['MSK-EPIC-1', 'MSK-US-2', 'MSK-BUG-4']) {
+      expect(cellText(rowOf(table, identifier), CELL.state)).toBe('Разрешена');
+      expect(getComputedStyle(dot(identifier)).backgroundColor).toBe(resolved);
+    }
+    expect(resolved).not.toBe(rgb(theme.workTracking.categoryColour('InProgress')));
+  });
 });
 
 describe('US-1 Scenario: Only top-level rows are numbered', () => {

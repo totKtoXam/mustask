@@ -13,6 +13,19 @@ without opening every item**.
 
 Data: US-1's. Spec § Model (the board's columns), BR-M4-1, -2, -14, -15.
 
+> **Superseded in part by bug-004 D-3 (2026-10-12), one name, one meaning:**
+> the columns are headed by the names of the states they map, and «Разрешена»
+> is Resolved on every type. Read the first outline's examples as «Новая»,
+> «Активна», «Разрешена», «Закрыта» on all three levels (four columns, not
+> five on «Истории»); the second outline's column cells as «Новая» (for a
+> story in «Новая»), «Активна», «Разрешена» for both a story and a bug in
+> «Разрешена» (not «Решённые» for the bug), «Закрыта» and «Разрешена» (epic);
+> «Новые» in the third scenario as «Новая»; the fifth scenario's "all five
+> columns, the other four with the count 0" as all four, the other three; and
+> the empty frame's hint as «Новые рабочие элементы этого уровня появятся в
+> колонке «Новая».». Everything else stands. The scenarios are left as
+> written.
+
 ```gherkin
 Scenario Outline: Each level's board has its own columns
   When the user opens the <level> board of «Платформа»

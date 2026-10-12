@@ -64,6 +64,9 @@ public sealed record ProcessBlueprint(IReadOnlyList<LevelBlueprint> Levels, IRea
                 throw new InvalidOperationException($"Type {type.Key} must have exactly one Removed state, and it must be the last.");
             }
         }
+
+        // One name, one meaning (bug-004 D-3): across the types, not within one, where names are already unique.
+        StateNameRule.Require(Types.SelectMany(type => type.States).Select(state => (state.Name, state.Category)));
     }
 
     private static void RequireUnique<T>(IEnumerable<T> values, string what)
@@ -103,21 +106,21 @@ public static class SeededProcess
     private static readonly StateBlueprint ClosedState = new("Закрыта", StateCategory.Completed);
     private static readonly StateBlueprint DeletedState = new("Удалена", StateCategory.Removed);
 
-    // The same label, two categories (doc-010 D-4): "Разрешена" is In progress on the
-    // portfolio and story types, and Resolved on a bug.
-    private static readonly StateBlueprint ResolvedInProgress = new("Разрешена", StateCategory.InProgress);
-    private static readonly StateBlueprint ResolvedResolved = new("Разрешена", StateCategory.Resolved);
+    // One name, one meaning (bug-004 D-3, which supersedes doc-010 D-4's two categories of this label):
+    // "Разрешена" is Resolved — done, awaiting verification — on every type that has it, a bug and the
+    // portfolio and story types alike. EnsureValid refuses a process in which a name is in two categories.
+    private static readonly StateBlueprint ResolvedState = new("Разрешена", StateCategory.Resolved);
 
-    private static readonly StateBlueprint[] FiveStatesInProgress = [NewState, ActiveState, ResolvedInProgress, ClosedState, DeletedState];
+    private static readonly StateBlueprint[] FiveStates = [NewState, ActiveState, ResolvedState, ClosedState, DeletedState];
 
     /// <summary>The blueprint of every organization's process. Its types are in the backlog order of design DD-2: a story before a bug on their shared level.</summary>
     public static ProcessBlueprint Blueprint { get; } = new(
         [EpicLevel, FeatureLevel, StoryLevel, TaskLevel],
         [
-            new("EPIC", "Эпик", AppearanceToken.Epic, EpicLevel, FiveStatesInProgress),
-            new("FEAT", "Фича", AppearanceToken.Feature, FeatureLevel, FiveStatesInProgress),
-            new("US", "Пользовательская история", AppearanceToken.Story, StoryLevel, FiveStatesInProgress),
-            new("BUG", "Баг", AppearanceToken.Bug, StoryLevel, [NewState, ActiveState, ResolvedResolved, ClosedState, DeletedState]),
+            new("EPIC", "Эпик", AppearanceToken.Epic, EpicLevel, FiveStates),
+            new("FEAT", "Фича", AppearanceToken.Feature, FeatureLevel, FiveStates),
+            new("US", "Пользовательская история", AppearanceToken.Story, StoryLevel, FiveStates),
+            new("BUG", "Баг", AppearanceToken.Bug, StoryLevel, FiveStates),
             new("TASK", "Задача", AppearanceToken.Task, TaskLevel, [NewState, ActiveState, ClosedState, DeletedState]),
         ]);
 }

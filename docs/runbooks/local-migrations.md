@@ -114,6 +114,66 @@ Verified 2026-10-01 (tech-002): the stand came up against a PostgreSQL on
 `localhost:5432` with the migrations applied to the database `mustask` —
 Keycloak, the API `/health` and the panel were up.
 
+## Migrations that report
+
+`dotnet ef database update` prints "Applying migration … Done." for each
+migration and nothing a migration says itself: a PostgreSQL `NOTICE` or
+`WARNING` raised inside it lands in the **PostgreSQL server log** (container
+mode: `docker logs` of the stand's database container; external mode: the
+server's own log), never in the terminal, with or without `--verbose`. A
+migration whose result needs a person's decision therefore comes with a query
+to run **after** the update, and an empty answer means nothing needs deciding.
+Run it with any SQL client against the same database (`psql`, an IDE's database
+console).
+
+### `MoveResolvedStatesToResolvedCategory` (bug-004 D-3)
+
+It moves «Разрешена» on Эпик, Фича and Пользовательская история from
+InProgress to Resolved, for the rows still as the old seed wrote them (type key
+EPIC, FEAT or US, third state, InProgress), and touches nothing else. After
+`database update`, run the check — the `SELECT` of the migration's own report,
+pinned equal to it by `MoveResolvedStatesToResolvedCategoryRunbookTests`:
+
+```sql
+SELECT process.organization_id AS organization_id,
+       state.name AS state_name,
+       string_agg(DISTINCT state.category, ', ' ORDER BY state.category) AS categories
+FROM state_definitions AS state
+JOIN work_item_types AS kind ON kind.id = state.work_item_type_id
+JOIN processes AS process ON process.id = kind.process_id
+GROUP BY process.id, process.organization_id, state.name
+HAVING count(DISTINCT state.category) > 1
+ORDER BY process.organization_id, state.name;
+```
+
+- **No rows:** no process has a state name in two categories.
+- **A row:** that organization's process still has the name in more than one
+  category, because someone changed a row by hand; the migration did not guess.
+  Its board shows the name in two columns until the categories agree. There is
+  no screen to change a state yet (doc-007's customization is not built), so
+  decide per row and set `state_definitions.category` by hand.
+
+The check names only the breach of the one-category rule. A state renamed or
+repositioned by hand that breaks no rule is not named anywhere: nothing needs
+deciding there.
+
+**Running the move again.** `database update` applies the migration once per
+database. A checkout built before it that shares the database (external mode)
+keeps writing the old seed's shape for every organization it creates, and
+`database update` is then a no-op. The move is idempotent — it selects only rows
+still as the old seed wrote them — so run it by hand once more, then the check:
+
+```sql
+UPDATE state_definitions AS state
+SET category = 'Resolved'
+FROM work_item_types AS kind
+WHERE kind.id = state.work_item_type_id
+  AND kind.key IN ('EPIC', 'FEAT', 'US')
+  AND state.name = 'Разрешена'
+  AND state.position = 3
+  AND state.category = 'InProgress';
+```
+
 ## After a stand reset
 
 `scripts/stand-reset.sh` (PowerShell: `scripts/stand-reset.ps1`; mod-014,

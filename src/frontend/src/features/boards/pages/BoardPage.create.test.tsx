@@ -21,16 +21,16 @@ async function create(title: string) {
 }
 
 describe('US-6 Scenario: «Новый элемент» sits at the top of the first column', () => {
-  it('is the first control in «Новые» and opens the menu of «Пользовательская история» and «Баг»', async () => {
+  it('is the first control in «Новая» and opens the menu of «Пользовательская история» and «Баг»', async () => {
     serveBoards(storiesDataset(['US-3']));
     renderBoards(boardAddress());
     const board = await findBoard();
 
-    const first = within(columnBox(board, 'Новые')).getAllByRole('button')[0];
+    const first = within(columnBox(board, 'Новая')).getAllByRole('button')[0];
     expect(first).toHaveTextContent('Новый элемент');
     expect(first?.querySelector('[data-testid="AddIcon"]')).not.toBeNull();
     expect(first).toHaveAttribute('aria-haspopup', 'menu');
-    expect(within(columnBox(board, 'В работе')).queryByText('Новый элемент')).toBeNull();
+    expect(within(columnBox(board, 'Активна')).queryByText('Новый элемент')).toBeNull();
     if (!first) throw new Error('No control.');
     await userEvent.click(first);
 
@@ -50,7 +50,7 @@ describe('US-6 Scenario: «Новый элемент» sits at the top of the fi
     renderBoards(boardAddress('features'));
     const board = await findBoard();
 
-    const button = within(columnBox(board, 'Новые')).getByRole('button', { name: 'Новый элемент' });
+    const button = within(columnBox(board, 'Новая')).getByRole('button', { name: 'Новый элемент' });
     expect(button).not.toHaveAttribute('aria-haspopup');
     await userEvent.click(button);
 
@@ -66,8 +66,8 @@ describe('US-6 Scenario: «Новый элемент» sits at the top of the fi
   });
 });
 
-describe('US-6 Scenario: The new card is the last of «Новые», in the team’s area', () => {
-  it('a «Фича» «Отчёты по командам» from «Новый элемент»: the notice, then MSK-FEAT-6 and the new card in «Новые»', async () => {
+describe('US-6 Scenario: The new card is the last of «Новая», in the team’s area', () => {
+  it('a «Фича» «Отчёты по командам» from «Новый элемент»: the notice, then MSK-FEAT-6 and the new card in «Новая»', async () => {
     const data = boardsDataset();
     data.items.push(platformItem(6, 'FEAT', 'Отчёты'));
     const api = serveBoards(data);
@@ -75,7 +75,7 @@ describe('US-6 Scenario: The new card is the last of «Новые», in the team
     const board = await findBoard();
 
     await userEvent.click(
-      within(columnBox(board, 'Новые')).getByRole('button', { name: 'Новый элемент' }),
+      within(columnBox(board, 'Новая')).getByRole('button', { name: 'Новый элемент' }),
     );
     const found = await dialog();
     expect(
@@ -86,7 +86,7 @@ describe('US-6 Scenario: The new card is the last of «Новые», in the team
     await create('Отчёты по командам');
 
     expect(await screen.findByText('Рабочий элемент MSK-FEAT-7 создан.')).toBeInTheDocument();
-    await waitFor(() => expect(cardsIn(board, 'Новые')).toEqual(['MSK-FEAT-6', 'MSK-FEAT-7']));
+    await waitFor(() => expect(cardsIn(board, 'Новая')).toEqual(['MSK-FEAT-6', 'MSK-FEAT-7']));
     expect(api.item(ids.msk, 7).areaId).toBe(ids.platform);
     expect(api.order(ids.platformTeam, 'features')).toEqual(['MSK-FEAT-6', 'MSK-FEAT-7']);
     const post = api.writes().find((request) => request.path.endsWith('/workitems'));
@@ -95,7 +95,7 @@ describe('US-6 Scenario: The new card is the last of «Новые», in the team
 });
 
 describe('US-6 Scenario: On the first team’s board the area is the root', () => {
-  it('a «Баг» on «Мастаск»’s «Истории» board takes «Мастаск» and is the last card in «Новые»', async () => {
+  it('a «Баг» on «Мастаск»’s «Истории» board takes «Мастаск» and is the last card in «Новая»', async () => {
     const data = boardsDataset();
     data.items.push(item(ids.msk, 5, 'US', 'Сводка', { areaId: ids.mskRoot }));
     const api = serveBoards(data);
@@ -103,18 +103,18 @@ describe('US-6 Scenario: On the first team’s board the area is the root', () =
     const board = await findBoard();
 
     await userEvent.click(
-      within(columnBox(board, 'Новые')).getByRole('button', { name: 'Новый элемент' }),
+      within(columnBox(board, 'Новая')).getByRole('button', { name: 'Новый элемент' }),
     );
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Баг' }));
     await create('Сбой');
 
-    await waitFor(() => expect(cardsIn(board, 'Новые')).toEqual(['MSK-US-5', 'MSK-BUG-6']));
+    await waitFor(() => expect(cardsIn(board, 'Новая')).toEqual(['MSK-US-5', 'MSK-BUG-6']));
     expect(api.item(ids.msk, 6).areaId).toBe(ids.mskRoot);
   });
 });
 
 describe('US-6 Scenario: Creating from the empty board', () => {
-  it('«Аналитика»’s «Эпики» frame opens the dialog with «Эпик»; after «Миграция данных» the four columns show, its card in «Новые»', async () => {
+  it('«Аналитика»’s «Эпики» frame opens the dialog with «Эпик»; after «Миграция данных» the four columns show, its card in «Новая»', async () => {
     serveBoards(storiesDataset());
     renderBoards(boardAddress('epics', ids.analyticsTeam));
     await screen.findByRole('heading', { level: 2, name: 'Канбан пуст' });
@@ -125,12 +125,12 @@ describe('US-6 Scenario: Creating from the empty board', () => {
 
     const board = await findBoard();
     expect(columnNames(board)).toEqual([
-      'Новые, рабочих элементов: 1',
-      'В работе, рабочих элементов: 0',
+      'Новая, рабочих элементов: 1',
+      'Активна, рабочих элементов: 0',
       'Разрешена, рабочих элементов: 0',
-      'Завершённые, рабочих элементов: 0',
+      'Закрыта, рабочих элементов: 0',
     ]);
-    expect(cardsIn(board, 'Новые')).toEqual(['MSK-EPIC-12']);
+    expect(cardsIn(board, 'Новая')).toEqual(['MSK-EPIC-12']);
     expect(screen.queryByRole('heading', { level: 2, name: 'Канбан пуст' })).toBeNull();
   });
 });
@@ -141,7 +141,7 @@ describe('US-6 Scenario: The team was deleted while the dialog was open', () => 
     renderBoards(boardAddress());
     const board = await findBoard();
     await userEvent.click(
-      within(columnBox(board, 'Новые')).getByRole('button', { name: 'Новый элемент' }),
+      within(columnBox(board, 'Новая')).getByRole('button', { name: 'Новый элемент' }),
     );
     await userEvent.click(
       await screen.findByRole('menuitem', { name: 'Пользовательская история' }),

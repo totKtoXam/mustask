@@ -53,9 +53,9 @@ public sealed class SeededProcessTests
 
     // US-1 · "...each type has exactly the states doc-007 lists for it, in that order, each in the category stated there".
     [Theory]
-    [InlineData("EPIC", "1 Новая Proposed; 2 Активна InProgress; 3 Разрешена InProgress; 4 Закрыта Completed; 5 Удалена Removed")]
-    [InlineData("FEAT", "1 Новая Proposed; 2 Активна InProgress; 3 Разрешена InProgress; 4 Закрыта Completed; 5 Удалена Removed")]
-    [InlineData("US", "1 Новая Proposed; 2 Активна InProgress; 3 Разрешена InProgress; 4 Закрыта Completed; 5 Удалена Removed")]
+    [InlineData("EPIC", "1 Новая Proposed; 2 Активна InProgress; 3 Разрешена Resolved; 4 Закрыта Completed; 5 Удалена Removed")]
+    [InlineData("FEAT", "1 Новая Proposed; 2 Активна InProgress; 3 Разрешена Resolved; 4 Закрыта Completed; 5 Удалена Removed")]
+    [InlineData("US", "1 Новая Proposed; 2 Активна InProgress; 3 Разрешена Resolved; 4 Закрыта Completed; 5 Удалена Removed")]
     [InlineData("BUG", "1 Новая Proposed; 2 Активна InProgress; 3 Разрешена Resolved; 4 Закрыта Completed; 5 Удалена Removed")]
     [InlineData("TASK", "1 Новая Proposed; 2 Активна InProgress; 3 Закрыта Completed; 4 Удалена Removed")]
     public void Seed_NewOrganization_EachTypeHasItsStatesInOrderWithTheirCategories(string key, string expected)
@@ -63,6 +63,39 @@ public sealed class SeededProcessTests
         var process = Seed();
 
         Assert.Equal(expected, StatesOf(Type(process, key)));
+    }
+
+    // bug-004 D-3 · one name, one meaning: «Разрешена» is Resolved on every type that has it (it superseded doc-010 D-4's
+    // two categories of the label), and no name of the seed stands in two categories on two types.
+    [Fact]
+    public void Seed_NewOrganization_EveryStateNameHasOneCategoryOnEveryType()
+    {
+        var process = Seed();
+        var states = process.WorkItemTypes.SelectMany(type => type.States).ToList();
+
+        Assert.Empty(StateNameRule.Breaches(states.Select(state => (state.Name, state.Category))));
+        Assert.All(
+            states.GroupBy(state => state.Name),
+            sameName => Assert.Single(sameName.Select(state => state.Category).Distinct()));
+        Assert.Equal(
+            ["EPIC", "FEAT", "US", "BUG"],
+            process.WorkItemTypes.Where(type => type.States.Any(state => state.Name == "Разрешена")).Select(type => type.Key));
+        Assert.All(states.Where(state => state.Name == "Разрешена"), state => Assert.Equal(StateCategory.Resolved, state.Category));
+    }
+
+    // bug-004 D-3 · the rule reaches the aggregate: a state added later under a name that already stands in another
+    // category is refused. Seed is the only code that creates a state today; this is what a later write path calls.
+    [Fact]
+    public void EnsureStateNamesHaveOneCategory_ANameInTwoCategories_Throws()
+    {
+        var process = Seed();
+
+        Assert.Null(Record.Exception(process.EnsureStateNamesHaveOneCategory));
+
+        Type(process, "TASK").AddState("Разрешена", StateCategory.InProgress, position: 5);
+
+        var exception = Assert.Throws<InvalidOperationException>(process.EnsureStateNamesHaveOneCategory);
+        Assert.Contains("«Разрешена»", exception.Message);
     }
 
     // US-1 · "«Задача» has no state in the Resolved category".

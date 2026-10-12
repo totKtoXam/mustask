@@ -118,7 +118,7 @@ describe('US-6 Scenario: The same drop-down on «Канбан»', () => {
     serveBoards(dataset());
     renderBoards(boardAddress('epics'));
 
-    expect(cardsIn(await findBoard(), 'Новые')).toEqual(['MSK-EPIC-1']);
+    expect(cardsIn(await findBoard(), 'Новая')).toEqual(['MSK-EPIC-1']);
     expect(screen.getByRole('heading', { level: 1, name: 'Платформа' })).toBeInTheDocument();
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Канбан']);
     expect(levelButton()).toHaveAccessibleName('Уровень: Эпики');
@@ -127,7 +127,7 @@ describe('US-6 Scenario: The same drop-down on «Канбан»', () => {
 
     expect(screen.getByTestId('location')).toHaveTextContent(boardAddress('stories'));
     await waitFor(async () =>
-      expect(cardsIn(await findBoard(), 'Новые')).toEqual(['MSK-US-3', 'MSK-BUG-5']),
+      expect(cardsIn(await findBoard(), 'Новая')).toEqual(['MSK-US-3', 'MSK-BUG-5']),
     );
     expect(levelButton()).toHaveAccessibleName('Уровень: Истории');
   });
@@ -237,7 +237,7 @@ describe('US-6 Scenario: The board is named «Канбан» everywhere it is na
 
     await userEvent.click(toBoard);
     expect(screen.getByTestId('location')).toHaveTextContent(boardAddress('features'));
-    expect(cardsIn(await findBoard(), 'Новые')).toEqual(['MSK-FEAT-6']);
+    expect(cardsIn(await findBoard(), 'Новая')).toEqual(['MSK-FEAT-6']);
   });
 
   it('a level with no item shows «Канбан пуст» with mod-006’s hint and «Новый рабочий элемент»', async () => {
@@ -246,7 +246,7 @@ describe('US-6 Scenario: The board is named «Канбан» everywhere it is na
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Канбан пуст' })).toBeVisible();
     expect(
-      screen.getByText('Новые рабочие элементы этого уровня появятся в колонке «Новые».'),
+      screen.getByText('Новые рабочие элементы этого уровня появятся в колонке «Новая».'),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Новый рабочий элемент' })).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent(/Доски|На доске нет рабочих элементов/);

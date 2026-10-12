@@ -39,6 +39,14 @@ US-7, US-12) and has to be reconciled with its `design.md` when that exists
   stand's demonstration seed, the error-code and permission-code registration.
   They are backend work with nothing to look at (§ "Story coverage").
 
+> **Superseded in part by bug-004 D-3 (2026-10-12), one name, one meaning:**
+> «Разрешена» is in the category «Решённые» on «Эпик», «Фича»,
+> «Пользовательская история» and «Баг», in one colour, so DD-10 and the
+> description's second sentence (T-03, PC-2, and the wireframes that show
+> it) are gone: the screen no longer says that one status can sit in
+> different categories. The mock-ups, the prototype and the rows below that
+> show «Разрешена» as «В работе» on three types are left as written.
+
 ### Points to confirm at gate-2
 
 | # | Point | Recommended |

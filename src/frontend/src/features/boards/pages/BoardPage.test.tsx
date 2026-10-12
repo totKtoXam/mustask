@@ -28,9 +28,9 @@ afterEach(() => {
 
 describe('US-4 Scenario Outline: Each level’s board has its own columns', () => {
   it.each([
-    ['epics', 'EPIC', ['Новые', 'В работе', 'Разрешена', 'Завершённые']],
-    ['features', 'FEAT', ['Новые', 'В работе', 'Разрешена', 'Завершённые']],
-    ['stories', 'US', ['Новые', 'В работе', 'Разрешена', 'Решённые', 'Завершённые']],
+    ['epics', 'EPIC', ['Новая', 'Активна', 'Разрешена', 'Закрыта']],
+    ['features', 'FEAT', ['Новая', 'Активна', 'Разрешена', 'Закрыта']],
+    ['stories', 'US', ['Новая', 'Активна', 'Разрешена', 'Закрыта']],
   ])(
     'the «%s» board of «Платформа» has its columns in order, each header with its count',
     async (level, typeKey, columns) => {
@@ -50,7 +50,7 @@ describe('US-4 Scenario Outline: Each level’s board has its own columns', () =
       );
       for (const name of columns) {
         const box = columnList(board, name).closest('[data-column]') as HTMLElement;
-        expect(within(box).getByText(name === 'Новые' ? '1' : '0')).toBeInTheDocument();
+        expect(within(box).getByText(name === 'Новая' ? '1' : '0')).toBeInTheDocument();
       }
     },
   );
@@ -58,11 +58,11 @@ describe('US-4 Scenario Outline: Each level’s board has its own columns', () =
 
 describe('US-4 Scenario Outline: A card sits in the column its type and state map to', () => {
   it.each([
-    ['stories', 'US', 'Новая', 'Новые'],
-    ['stories', 'BUG', 'Активна', 'В работе'],
+    ['stories', 'US', 'Новая', 'Новая'],
+    ['stories', 'BUG', 'Активна', 'Активна'],
     ['stories', 'US', 'Разрешена', 'Разрешена'],
-    ['stories', 'BUG', 'Разрешена', 'Решённые'],
-    ['stories', 'BUG', 'Закрыта', 'Завершённые'],
+    ['stories', 'BUG', 'Разрешена', 'Разрешена'],
+    ['stories', 'BUG', 'Закрыта', 'Закрыта'],
     ['epics', 'EPIC', 'Разрешена', 'Разрешена'],
   ])('on «%s», a %s in «%s» is in «%s»', async (level, typeKey, state, column) => {
     const data = boardsDataset();
@@ -75,16 +75,46 @@ describe('US-4 Scenario Outline: A card sits in the column its type and state ma
   });
 });
 
+describe('bug-004 D-1 Scenario: A story in «Разрешена» and a bug in «Разрешена» stand in one column', () => {
+  it('shows MSK-US-3 and MSK-BUG-5 in the one column «Разрешена» with the same dot, and no «Решённые» or «В работе» header', async () => {
+    const data = boardsDataset();
+    data.items.push(
+      platformItem(3, 'US', 'История', { stateId: stateId('US', 'Разрешена') }),
+      platformItem(4, 'US', 'Другая', { stateId: stateId('US', 'Активна') }),
+      platformItem(5, 'BUG', 'Баг', { stateId: stateId('BUG', 'Разрешена') }),
+    );
+    serveBoards(data);
+    renderBoards(boardAddress());
+
+    const board = await findBoard();
+    expect(cardsIn(board, 'Разрешена')).toEqual(['MSK-US-3', 'MSK-BUG-5']);
+    expect(cardsIn(board, 'Активна')).toEqual(['MSK-US-4']);
+    expect(
+      within(board)
+        .getAllByRole('heading', { level: 2 })
+        .map((heading) => heading.textContent),
+    ).toEqual(['Новая', 'Активна', 'Разрешена', 'Закрыта']);
+
+    // The state's dot follows its category, which is one for «Разрешена» on both types.
+    const dotOf = (identifier: string) =>
+      getComputedStyle(
+        cardOf(board, identifier).querySelector(`.${CATEGORY_MARKER_CLASS}`) as HTMLElement,
+      ).backgroundColor;
+    expect(dotOf('MSK-US-3')).toBe(dotOf('MSK-BUG-5'));
+    expect(dotOf('MSK-US-3')).not.toBe(dotOf('MSK-US-4'));
+  });
+});
+
 describe('US-4 Scenario: The board holds the backlog’s items in the backlog’s order', () => {
-  it('«Новые» shows MSK-US-3, MSK-BUG-5, MSK-US-9, count 3, no MSK-US-5; after MSK-US-9 is moved to the top it is first', async () => {
+  it('«Новая» shows MSK-US-3, MSK-BUG-5, MSK-US-9, count 3, no MSK-US-5; after MSK-US-9 is moved to the top it is first', async () => {
     const data = storiesDataset(['US-3', 'BUG-5', 'US-9']);
     data.items.push(item(ids.msk, 5, 'US', 'Чужая', { areaId: ids.mskRoot }));
     const api = serveBoards(data);
     renderBoards(boardAddress());
 
     const board = await findBoard();
-    expect(cardsIn(board, 'Новые')).toEqual(['MSK-US-3', 'MSK-BUG-5', 'MSK-US-9']);
-    expect(columnList(board, 'Новые')).toHaveAccessibleName('Новые, рабочих элементов: 3');
+    expect(cardsIn(board, 'Новая')).toEqual(['MSK-US-3', 'MSK-BUG-5', 'MSK-US-9']);
+    expect(columnList(board, 'Новая')).toHaveAccessibleName('Новая, рабочих элементов: 3');
     expect(within(board).queryByText('MSK-US-5')).toBeNull();
 
     api.reorderAsAnotherUser(ids.platformTeam, 'stories', {
@@ -96,7 +126,7 @@ describe('US-4 Scenario: The board holds the backlog’s items in the backlog’
       focusManager.setFocused(true);
     });
     await waitFor(() =>
-      expect(cardsIn(board, 'Новые')).toEqual(['MSK-US-9', 'MSK-US-3', 'MSK-BUG-5']),
+      expect(cardsIn(board, 'Новая')).toEqual(['MSK-US-9', 'MSK-US-3', 'MSK-BUG-5']),
     );
   });
 });
@@ -134,16 +164,15 @@ describe('US-4 Scenario: A card shows the item at a glance and opens it', () => 
 });
 
 describe('US-4 Scenario: A column with no cards stays on the board', () => {
-  it('shows all five columns when every story is «Новая», the other four with 0', async () => {
+  it('shows all four columns when every story is «Новая», the other three with 0', async () => {
     serveBoards(storiesDataset(['US-3', 'BUG-5']));
     renderBoards(boardAddress());
 
     expect(columnNames(await findBoard())).toEqual([
-      'Новые, рабочих элементов: 2',
-      'В работе, рабочих элементов: 0',
+      'Новая, рабочих элементов: 2',
+      'Активна, рабочих элементов: 0',
       'Разрешена, рабочих элементов: 0',
-      'Решённые, рабочих элементов: 0',
-      'Завершённые, рабочих элементов: 0',
+      'Закрыта, рабочих элементов: 0',
     ]);
   });
 });
@@ -155,7 +184,7 @@ describe('US-4 Scenario: A level with no items shows the empty frame', () => {
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Канбан пуст' })).toBeVisible();
     expect(
-      screen.getByText('Новые рабочие элементы этого уровня появятся в колонке «Новые».'),
+      screen.getByText('Новые рабочие элементы этого уровня появятся в колонке «Новая».'),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Новый рабочий элемент' })).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Канбан' })).toBeNull();
@@ -232,7 +261,7 @@ describe('US-4 Scenario: Failure and not found are the backlog’s', () => {
 
     await userEvent.click(within(alert).getByRole('button', { name: 'Повторить' }));
 
-    expect(cardsIn(await findBoard(), 'Новые')).toEqual([
+    expect(cardsIn(await findBoard(), 'Новая')).toEqual([
       'MSK-US-3',
       'MSK-BUG-5',
       'MSK-US-9',
@@ -309,7 +338,7 @@ describe('US-7 Scenario: A state set on the form moves the card (pass B)', () =>
     const api = serveBoards(data);
     const view = renderBoards(boardAddress());
     const board = await findBoard();
-    expect(cardsIn(board, 'Новые')).toEqual(['MSK-US-3', 'MSK-US-9']);
+    expect(cardsIn(board, 'Новая')).toEqual(['MSK-US-3', 'MSK-US-9']);
     api.reorderAsAnotherUser(ids.platformTeam, 'stories', {
       itemId: api.item(ids.msk, 9).id,
       position: 'top',

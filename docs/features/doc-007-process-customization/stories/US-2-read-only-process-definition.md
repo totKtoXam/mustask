@@ -45,6 +45,9 @@ Scenario: Categories are shown by their Russian labels
   And no category is shown by its English name
 
 Scenario: One state label may belong to two categories
+  # Superseded by bug-004 D-3 (2026-10-12): a state name has one category on
+  # every type; «Разрешена» of «Пользовательская история» shows «Решённые»,
+  # like the bug's. The spec's note ("One label, two categories") says so.
   Given the organization's built-in process
   When a member compares «Пользовательская история» and «Баг» on the
     process-definition screen
