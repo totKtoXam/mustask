@@ -37,9 +37,19 @@ Scenario: An unknown format is refused
   Then it is refused with a field reason on the description and nothing is stored
 
 Scenario: A format with no description changes nothing
-  Given a save request with a format declaration and no description
+  Given a save request with format html and no description
   When it is saved
   Then the stored description and its format are unchanged
+
+Scenario: An unknown format with no description is still refused
+  Given a save request with format "markdown" and no description
+  When it is saved
+  Then it is refused with the same field reason and nothing is stored
+
+Scenario: Equality is of value and format together
+  Given a stored html description "<p>a</p>"
+  When a request re-sends "<p>a</p>" as html, and another sends "<p>a</p>" with no declaration
+  Then the first changes nothing (changedAt does not move) and the second is a change, stored as plain
 
 Scenario: A plain write over an html description is honoured
   Given an html description and a save request, no declaration, description "text"
@@ -47,7 +57,7 @@ Scenario: A plain write over an html description is honoured
   Then it is stored as plain "text", exactly as sent
 
 Scenario: Visible text is counted by BR-RT-8
-  Given html values and expected counts: "<p>a&amp;b</p>" is 3; "<p>a</p><p>b</p>" is 3; "<ul><li>a</li><li>b</li></ul>" is 3; "<p>a<br>b</p>" is 3; "<table><tbody><tr><td>a</td><td>b</td></tr></tbody></table>" is 3; "<p>😀</p>" is 2
+  Given html values and expected counts: "<p>a&amp;b</p>" is 3; "<p>a</p><p>b</p>" is 3; "<ul><li>a</li><li>b</li></ul>" is 3; "<p>a<br>b</p>" is 3; "<table><tbody><tr><td>a</td><td>b</td></tr></tbody></table>" is 3; "<p>😀</p>" is 2; and in the editor's canonical form "<ul><li><p>a</p></li><li><p>b</p></li></ul>" is 3, "<table><tbody><tr><td><p>a</p></td><td><p>b</p></td></tr></tbody></table>" is 3, "<ul><li><p>a</p><ul><li><p>b</p></li></ul></li></ul>" is 3
   When each is counted by the server and by the client
   Then both return the expected count (one shared fixture file)
 
@@ -72,13 +82,18 @@ Scenario: The markup ceiling has its own reason
   Then it is refused with workitems.workitem.description_markup_too_large, «Слишком много разметки. Упростите форматирование или сократите текст.», and nothing is stored
   And the reason is not description_too_long
 
+Scenario: Over both limits, the markup reason wins
+  Given an html description with 100 001 visible code units whose reduced markup is above 1 000 000
+  When it is saved
+  Then it is refused with description_markup_too_large only
+
 Scenario: An oversized request is refused before parsing
   Given a request description of 2 000 001 code units
   When it is saved
   Then it is refused with description_markup_too_large without being parsed
 
 Scenario: Legacy worst cases fit the ceiling
-  Given html converted from 100 000 "&" (500 000 code units) and from 100 000 line feeds (700 007 code units)
+  Given html converted from 100 000 "&" in one paragraph (500 007 code units, 100 000 visible) and from 100 000 line feeds (700 007 code units, 100 000 visible)
   When each is saved
   Then both are stored
 

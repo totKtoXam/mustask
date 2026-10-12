@@ -328,3 +328,113 @@ spec's own wording and by the human's route confirmation (R-1), and the
 contract change is breaking unless R-2 makes it additive. Scope «Описание» only
 is respected (the other fields and comments are out of scope); nothing in the
 spec asks for E2E.
+
+## Round 2 — requirements (delta)
+
+Read: `spec.md` and `stories/US-1..US-4` at e07f409 against the round-1
+findings, plus mod-003 api-contract § 0.6 and § 2.4 (PATCH semantics) for the
+additive-contract check. The human's decisions D-1..D-4 (spec.md:23-30) are
+not re-opened.
+
+Verdict: **needs-fixes** — two new majors (R-14, R-15), both wording-level and
+both for the analyst (iteration 2 of 2); no question for the human. Once they
+are fixed the spec is ready for gate-1 without another review round.
+
+### Round-1 findings
+
+| # | Status | Where resolved |
+|---|---|---|
+| R-1 | resolved | size `L` stated (spec.md:11-12, :142), ADR a design deliverable (D-2, spec.md:28), OQ-4 folded into it; status.md:4, :34 |
+| R-2 | resolved | BR-RT-10 additive contract with explicit format, absent = `plain` (spec.md:84); amendments listed in BR-RT-13 (spec.md:87); US-4:18-47 |
+| R-3 | resolved | BR-RT-11 (spec.md:85), BR-RT-5 end to end (spec.md:79); US-3:44-59, :67-70; US-2:104-108. The canonical-form rule it introduced is not yet consistent with the allow-list — R-14 |
+| R-4 | resolved | BR-RT-3 (spec.md:77); US-2 § Allow-list (US-2:15-47); mXSS re-parse scenario (US-2:94-97); `react/no-danger` (spec.md:103), BR-RT-12. The re-parse uses the sanitizer's own parser (US-2:119-124), not a browser's: accepted-risk, covered by the client loading through the editor schema and the manual probe |
+| R-5 | resolved | US-1 § Verification (US-1:120-142); NFR Speed restated as server time (spec.md:104-107) |
+| R-6 | resolved, except R-15 | BR-RT-7/8 (spec.md:81-82): units, entities, block separators, ceiling 1 000 000 derived from the legacy worst case, own reason; client counter (US-1:98-102, shared fixtures US-4:49-52); BR-RT-6 boundaries (spec.md:80, US-2:110-114); blank-lines legacy (US-3:61-65); down-migration (spec.md:116-120) |
+| R-7 | resolved | legacy rule in BR-RT-9 (spec.md:83); US-3:19-37 incl. indentation and CR LF; BR-RT-12 requires whitespace-preserving rendering for future surfaces |
+| R-8 | resolved | BR-RT-12 (spec.md:86); out of scope (spec.md:127-128) |
+| R-9 | resolved | BR-RT-1 levels 3-4, nesting 3 (spec.md:75); US-1:38-49, :80-84 |
+| R-10 | resolved | US-1 § Interface copy (US-1:15-26); error-code entries owed at design (spec.md:154-155) |
+| R-11 | resolved | US-1:69-73, :109-113 |
+| R-12 | resolved | follow-up line carries comments, sized `M` (spec.md:143-147) |
+| R-13 | resolved (moot) | OQs settled by the human; rollback story owed to the ADR (D-2, spec.md:116-120); the marker's reason is BR-RT-10 |
+
+Numbers checked: 100 000 LF → 100 001 `<p></p>` = 700 007 is the true
+maximum of the legacy rule (an LF costs 7 per source character, `&` 5, U+00A0
+serialised as `&nbsp;` 6, `&\n` pairs 6), so the 1 000 000 ceiling holds for
+every legal legacy text, and the visible count of a converted value equals its
+length minus the CRs, never more. 2 000 000 before parsing is consistent: the
+panel never sends more than the ceiling (it checks its own serialisation, BPMN
+step H), so the cap only bites hostile or foreign input.
+
+### R-14
+Severity: major
+Affects: BR-RT-5 (spec.md:79), US-2 § Allow-list (US-2:19-40), US-2 "The editor's canonical form is the server's" (US-2:104-108), US-3 "Editor and server agree on the canonical form" (US-3:67-70)
+Problem: BR-RT-5 promises that *any* value the server stored, loaded into the
+editor and serialised without edits, reduces back to itself, and US-3:67-70
+demands byte equality between the editor's serialisation and the server's
+canonical form. The allow-list admits structures the editor's schema cannot
+hold, so for API-written html both are false:
+- `thead` is kept (US-2:26), but a TipTap table has no `thead`: the header row
+  is `th` cells inside `tbody`. A stored `<thead>` loads and serialises as
+  `<tbody>`.
+- Inline content directly inside `li`, `th`, `td` is kept as is (the loose-text
+  rule, US-2:38-39, only covers the top level and inline beside blocks), but the
+  editor always emits `<li><p>…</p></li>` and `<td><p>…</p></td>`.
+- Marks inside inline code (`<code><strong>x</strong></code>`) are allowed,
+  but TipTap's code mark excludes other marks; headings, code blocks and `br`
+  in a heading are allowed by the table but not stated for the editor.
+- TipTap's own table and link output (`colgroup`/`col`, `style="min-width…"`,
+  `colspan="1" rowspan="1"`, link `target="_blank"` and `rel="… nofollow"`) is
+  removed by the server, so "serialised without edits" equals the canonical
+  form only if the client applies the same normalisation after `getHTML()`;
+  the spec does not say the client serialiser includes it, and the client's
+  markup-ceiling check (BPMN H) has to measure after it.
+A fixture set that avoids these cases passes while the rule stays false;
+one that includes them fails.
+Required resolution: Make the server's output the editor's canonical form and
+say so in US-2: `thead` rows go into `tbody` (header cells stay `th`); inline
+content directly in `li`/`th`/`td` is wrapped in `p`; no marks inside `code`;
+which blocks may sit in a list item. State that the client's serialisation is
+the editor's output plus a normalisation to that form, used for the dirty
+baseline, the request and the client-side ceiling check. Alternatively narrow
+BR-RT-5 to values the editor itself produced — but then say a foreign html
+value may be re-canonicalised on the first save that changes Описание.
+Status: open
+Resolution:
+
+### R-15
+Severity: major
+Affects: US-3 "Legacy text of any length still saves" (US-3:39-42); BR-RT-7 (spec.md:81)
+Problem: Both legacy texts have a visible count of exactly 100 000 after
+conversion (100 000 `&`; 100 000 LF → 100 000 block separators). "Adds one
+character and saves" makes the visible text 100 001, which BR-RT-7 and
+US-4:54-57 refuse with `description_too_long`. The scenario's "both saves
+succeed" contradicts the rule it is meant to exercise, and the client check
+(US-1:98-102) would refuse before sending.
+Required resolution: Make the edit length-neutral (replace one character, or
+make one existing character bold), or start from 99 999 characters. Keep the
+markup figures; see m-1 for the first one.
+Status: open
+Resolution:
+
+### Minors (round 2)
+
+- **m-1** US-3:42, US-4:81, spec.md:81 — 100 000 `&` in one paragraph is
+  500 007 code units (`<p>` + `</p>`), not 500 000. Harmless to the ceiling;
+  fix the figure, the test asserts it.
+- **m-2** BR-RT-8 (spec.md:82) — "consecutive blocks" is ambiguous for nested
+  blocks: in the editor's form `<li><p>a</p></li>` and `<td><p>a</p></td>`,
+  li and p are both blocks. Say separators go between leaf (text-holding)
+  blocks, and add fixtures in the editor's canonical form beside the p-less
+  ones of US-4:50.
+- **m-3** US-1 has the markup-ceiling copy (US-1:26) and the BPMN a client
+  check (spec.md:56), but no scenario for the client refusing above
+  1 000 000.
+- **m-4** Reason precedence is open when visible > 100 000 and reduced markup
+  > 1 000 000 at once (one reason per field, mod-003 § 0.6); and when an
+  unknown format arrives with no description (US-4:34-42: refused or
+  ignored?).
+- **m-5** mod-003 § 2.4 "a value equal to the stored one changes nothing,
+  `changedAt` moves only on a change": say equality compares the pair (value,
+  format), so a plain write of "<p>a</p>" over a stored html "<p>a</p>" is a
+  change, and an html re-send of the stored canonical value is not.

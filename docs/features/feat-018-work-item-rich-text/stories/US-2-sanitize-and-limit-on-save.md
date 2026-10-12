@@ -23,7 +23,23 @@ size limits are US-4's.
 | `pre` | none | always `<pre><code>…</code></pre>`; any `class` (language) removed |
 | `ul`, `ol`, `li` | none | nested at most 3 levels; deeper list markup is unwrapped, text kept; `start` removed |
 | `a` | `href`, `rel` | `rel` is always `noopener noreferrer`; `target` and `title` removed; link rules below |
-| `table`, `thead`, `tbody`, `tr`, `th`, `td` | none | top level only (a table inside a table or a list item is unwrapped); `tfoot` becomes `tbody`; `colspan`, `rowspan`, `style`, `colgroup`, `col` removed |
+| `table`, `tbody`, `tr`, `th`, `td` | none | top level only (a table inside a table or a list item is unwrapped); `thead` and `tfoot` rows are moved into `tbody`, header cells stay `th`; `colspan`, `rowspan` (also `="1"`), `style`, `colgroup`, `col` removed |
+
+## Canonical structure
+
+The reduced output is the editor's canonical form (BR-RT-5); the editor's
+schema is configured to hold exactly this and no more:
+
+- `li`, `th`, `td` hold only `p` blocks and, in `li`, nested `ul`/`ol`; inline
+  content written directly in them is wrapped in `p`; a heading, `pre` or
+  table inside them is unwrapped to `p`, text kept.
+- Inside inline `code` no other mark survives (`strong`, `em`, `a` are
+  unwrapped, text kept). Elsewhere marks nest in one fixed order: `a`
+  outermost, then `strong`, then `em`; adjacent equal marks merge; empty
+  inline elements are removed.
+- A `br` inside a heading is kept; inside `pre` it becomes a line feed in the
+  text.
+- An empty block is `<p></p>`; `ol` has no `start`; cells are never merged.
 
 - **Dropped with their content:** `script`, `style`, `iframe`, `object`,
   `embed`, `template`, `svg`, `math`, `noscript`, `head`, `title`, `link`,
@@ -101,11 +117,16 @@ Scenario: Reduction is idempotent
   When it is saved again unchanged
   Then the stored value is identical
 
+Scenario: Structures the editor cannot hold are canonicalised
+  Given "<table><thead><tr><th>h</th></tr></thead><tbody><tr><td>a</td></tr></tbody></table>", "<ul><li>a<ul><li>b</li></ul></li></ul>", "<code><strong>x</strong></code>" and "<em><strong><a href='https://example.org'>l</a></strong></em>"
+  When each is saved
+  Then the stored values are "<table><tbody><tr><th><p>h</p></th></tr><tr><td><p>a</p></td></tr></tbody></table>", "<ul><li><p>a</p><ul><li><p>b</p></li></ul></li></ul>", "<p><code>x</code></p>" and the link outermost around strong around em
+
 Scenario: The editor's canonical form is the server's
-  Given the shared fixture file of (input, canonical) pairs
-  When the server reduces each input
-  Then it equals canonical, and reducing canonical again returns canonical
-  # the client suite loads canonical in the editor and expects the same string back (US-3)
+  Given the shared fixture file of (input, canonical, editor output) triples, the editor outputs including colgroup, style min-width, colspan="1", link target and nofollow, ol start
+  When the server reduces each input and each editor output
+  Then both equal canonical, and reducing canonical again returns canonical
+  # the client suite loads canonical in the editor, normalises its output (BR-RT-5) and expects canonical back (US-3)
 
 Scenario: An empty-looking description is stored as empty
   Given a description of only empty paragraphs, whitespace, a table of empty cells, a code block of spaces, or a link with no text

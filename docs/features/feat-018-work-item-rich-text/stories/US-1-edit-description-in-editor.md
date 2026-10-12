@@ -101,6 +101,12 @@ Scenario: Over the visible limit the client refuses as the server does
   Then nothing is sent and «Не более 100 000 символов.» is shown under the editor
   And a text of exactly 100 000 is sent
 
+Scenario: Over the markup ceiling the client refuses
+  Given Описание whose normalised canonical markup is 1 000 001 code units while its visible text is under 100 000 (a table of many one-character cells)
+  When the member presses Save
+  Then nothing is sent and «Слишком много разметки. Упростите форматирование или сократите текст.» is shown under the editor
+  And when both limits are exceeded that message is the one shown (the server's precedence)
+
 Scenario: A save refused by the server keeps the member's input
   Given a description the server refuses (US-4)
   When the save fails
@@ -137,6 +143,6 @@ browser, recorded in the QA report.
 | Link not followed | C (click, no navigation) | — |
 | Undo/redo | C (history keymap) | — |
 | Keyboard only | C | screen-reader announcement of the live region and the toolbar: M |
-| Client limit | U (shared fixtures with the server) + C | — |
+| Client limits (visible, markup ceiling, precedence) | U (shared fixtures with the server, counted on the normalised string) + C | — |
 | Refused save keeps input; server value after save; disabled while saving | C (mocked API) | — |
 | Editor opening speed with 100 000 characters | — | M, observation only (NFR Speed) |

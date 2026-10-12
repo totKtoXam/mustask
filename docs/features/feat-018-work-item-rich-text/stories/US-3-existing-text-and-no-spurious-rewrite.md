@@ -37,9 +37,10 @@ Scenario: Markup characters in legacy text are not interpreted
   Then the editor shows exactly those characters as text, nothing is bold, and no script runs
 
 Scenario: Legacy text of any length still saves
-  Given a legacy description of exactly 100 000 characters of "&", and another of 100 000 line feeds
-  When the member opens the work item, adds one character and saves
-  Then both saves succeed (the stored markup is 500 000 and 700 007 code units, within the ceiling of US-4)
+  Given a legacy description of exactly 100 000 characters of "&", and another of 99 999 line feeds
+  When the member opens the work item and, in the first, replaces one "&" by "a" (length-neutral), in the second types one character in the first paragraph
+  Then both saves succeed: each has exactly 100 000 visible code units, and the stored markup is 500 003 and 700 001 code units, within the ceiling of US-4
+  # the unedited worst case (100 000 line feeds, 700 007 markup) is a server scenario in US-4
 
 Scenario: Opening does not make the form dirty
   Given a legacy description, and a formatted description with a table and nested lists
@@ -65,9 +66,10 @@ Scenario: A legacy description of blank lines only
   And when the member edits it so that no non-whitespace remains, it is stored as ""
 
 Scenario: Editor and server agree on the canonical form
-  Given each canonical value of the shared fixture file (US-2)
-  When it is loaded in the editor and serialised without edits
+  Given each canonical value of the shared fixture file (US-2), including header-row tables, nested lists with paragraphs in items, links and code
+  When it is loaded in the editor and serialised without edits, then normalised (BR-RT-5)
   Then the string is the canonical value itself
+  And the form is not dirty, and the raw editor output (with colgroup, style, nofollow) is never what is compared or sent
 
 Scenario: Stored markup outside the subset is not rendered
   Given a stored html description holding a script element, an onclick attribute, an image and a javascript: link (as if written by another path)

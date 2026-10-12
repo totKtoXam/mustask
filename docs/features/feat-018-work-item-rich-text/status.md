@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/018-work-item-rich-text
-- stage: 02-requirements-review
+- stage: gate-1
 - epic: core/work-items
 - deps: mod-003
 - gates: gate-1, gate-2, gate-3
@@ -33,4 +33,5 @@ Summary (from the queue line or an argument): Описание as rich text (doc
 - 2026-10-12 [orchestrator] stage 02 round 1: verdict needs-human-decision; 1 blocker (R-1 size must be L: ADR is unavoidable, contract change), 7 majors, 5 minors — see review.md. Waiting for human: re-confirm size L + OQ-1..3.
 - 2026-10-12 [human] size re-confirmed as L (escalation from M: an ADR on the editor is unavoidable — routing.md ADR threshold — and the `description` contract meaning changes). Diverges from the queue line's size:M.
 - 2026-10-12 [human] OQ-1/OQ-4: sanitized HTML + TipTap (ProseMirror) + server-side sanitizer, new dependency accepted (ADR written and accepted before code). OQ-2: lazy conversion at read with a stored-format marker, no data migration. OQ-3: the limit counts visible text, with a higher physical storage ceiling.
-- 2026-10-12 [orchestrator] next: analyst revises spec/stories for review findings R-1..R-13 under these decisions; one delta read; then gate-1 (human approval is still pending).
+- 2026-10-12 [orchestrator] stage 02 round 2 (delta): R-1..R-13 resolved; R-14, R-15 + m-1..m-5 fixed by the analyst in the last allowed iteration (review.md Round 2). Spec + US-1..US-4 at gate-1, human approval pending.
+- 2026-10-12 [orchestrator] next (superseded): analyst revises spec/stories for review findings R-1..R-13 under these decisions; one delta read; then gate-1 (human approval is still pending).
