@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>feat-018 — редактор «Описание» (прототип)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* Prototype only: the real build takes every value from the MUI theme (ADR-0024). */
+  :root { --accent:#0078D4; --accent-dark:#0C5598; --text:#242424; --muted:#616161; --border:#8A8A8A;
+          --divider:#E0E0E0; --head:#F3F3F3; --err:#C42B1C; --bg:#F8F8F8; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/20px "Segoe UI", Arial, sans-serif; color:var(--text); background:var(--bg); }
+  .bar { background:#fff; border-bottom:1px solid var(--divider); padding:8px 16px; display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .bar b { margin-right:8px; }
+  .bar button { font:inherit; padding:2px 8px; border:1px solid var(--divider); background:#fff; border-radius:4px; cursor:pointer; }
+  .bar button[aria-pressed=true] { border-color:var(--accent); background:#E5F0FA; }
+  main { max-width:720px; margin:24px auto; padding:0 16px; }
+  h2 { font-size:16px; line-height:24px; margin:0 0 16px; padding-bottom:8px; border-bottom:1px solid var(--divider); }
+  .field { border:1px solid var(--border); border-radius:4px; background:#fff; }
+  .field:hover { border-color:var(--text); }
+  .field:focus-within { border:2px solid var(--accent); margin:-1px; }
+  .field.err, .field.err:focus-within { border:1px solid var(--err); margin:0; }
+  .field.off { background:#fff; border-color:#C8C8C8; color:#8a8a8a; }
+  [role=toolbar] { display:flex; flex-wrap:wrap; gap:2px; padding:4px; border-bottom:1px solid var(--divider); align-items:center; }
+  [role=toolbar] button { width:32px; height:32px; border:0; background:none; border-radius:4px; cursor:pointer; font:600 13px "Segoe UI",Arial; color:var(--text); }
+  [role=toolbar] button:hover:not(:disabled) { background:#F0F0F0; }
+  [role=toolbar] button[aria-pressed=true] { background:#E5F0FA; color:var(--accent-dark); }
+  [role=toolbar] button:disabled { color:#B8B8B8; cursor:default; }
+  [role=toolbar] button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .sep { width:1px; height:20px; background:var(--divider); margin:0 4px; }
+  #ed { min-height:140px; max-height:70vh; overflow:auto; padding:8px 12px; outline:none; }
+  #ed:empty::before { content:attr(data-placeholder); color:var(--muted); }
+  #ed h3 { font-size:16px; line-height:24px; margin:12px 0 4px; }
+  #ed h4 { font-size:14px; line-height:20px; margin:12px 0 4px; }
+  #ed p { margin:0 0 8px; } #ed a { color:var(--accent-dark); text-decoration:underline; }
+  #ed code { background:var(--head); border-radius:4px; padding:0 4px; font-family:Consolas,monospace; }
+  #ed pre { background:var(--head); border-radius:4px; padding:8px 12px; font-family:Consolas,monospace; overflow:auto; }
+  #ed table { border-collapse:collapse; } #ed td, #ed th { border:1px solid var(--divider); padding:4px 8px; min-width:60px; }
+  #ed th { background:var(--head); font-weight:600; }
+  .row { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:12px; line-height:16px; margin:4px 14px 0; color:var(--muted); }
+  .row .e { color:var(--err); } .row .n { color:var(--text); } .count.over { color:var(--err); font-weight:600; }
+  .skel { background:linear-gradient(90deg,#eee,#f7f7f7,#eee); height:200px; border-radius:4px; }
+  .banner { border:1px solid var(--err); border-left-width:4px; padding:8px 12px; border-radius:4px; background:#fff; display:flex; justify-content:space-between; }
+  dialog { border:0; border-radius:4px; padding:0; width:min(420px,92vw); box-shadow:0 8px 24px rgba(0,0,0,.25); }
+  dialog form { padding:16px; } dialog h3 { margin:0 0 12px; font-size:16px; }
+  dialog input { width:100%; padding:6px 8px; border:1px solid var(--border); border-radius:4px; font:inherit; }
+  dialog .a { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+  dialog .a button { font:inherit; padding:5px 14px; border-radius:4px; border:1px solid var(--divider); background:#fff; cursor:pointer; }
+  dialog .a button.p { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .hint { color:var(--muted); font-size:12px; margin-top:12px; }
+</style>
+</head>
+<body>
+<div class="bar" id="states"><b>Состояние:</b></div>
+<main>
+  <h2>Описание</h2>
+  <div id="host"></div>
+  <p class="hint">Прототип: структура, состояния и тексты. Форматирование здесь — упрощённое (execCommand), в сборке — TipTap.
+    Состояния переключаются сверху. Ctrl+B / Ctrl+I работают, Ctrl+K открывает окно «Ссылка».</p>
+</main>
+
+<dialog id="dlg">
+  <form method="dialog" id="linkForm">
+    <h3>Ссылка</h3>
+    <label for="addr">Адрес ссылки</label>
+    <input id="addr" placeholder="https://…" autocomplete="off">
+    <div id="addrErr" class="row e" style="margin:4px 0 0"></div>
+    <div class="a"><button type="button" id="cancel">Отмена</button><button class="p" type="submit">Применить</button></div>
+  </form>
+</dialog>
+
+<script>
+const LIMIT = 100000;
+const T = {
+  toolbar:'Форматирование описания', ph:'Добавьте описание', helper:'До 100 000 символов',
+  long:'Не более 100 000 символов.', markup:'Слишком много разметки. Упростите форматирование или сократите текст.',
+  img:'Изображения в описание не вставляются.', badLink:'Допустимы адреса, начинающиеся с http://, https:// или mailto:.',
+  loadFail:'Не удалось загрузить редактор.', retry:'Повторить', loading:'Загрузка редактора',
+};
+const CTRL = [ // [label, glyph, command, group]
+  ['Отменить','↶','undo',0],['Повторить','↷','redo',0],
+  ['Заголовок 3','H3','h3',1],['Заголовок 4','H4','h4',1],
+  ['Полужирный','B','bold',2],['Курсив','I','italic',2],['Код в строке','‹›','code',2],
+  ['Маркированный список','•≡','insertUnorderedList',3],['Нумерованный список','1≡','insertOrderedList',3],
+  ['Увеличить отступ списка','⇥','indent',3],['Уменьшить отступ списка','⇤','outdent',3],
+  ['Ссылка','🔗','link',4],['Убрать ссылку','⊘','unlink',4],
+  ['Блок кода','{ }','pre',5],['Таблица','▦','table',5],['Операции с таблицей','▦▾','tableops',5],
+];
+const STATES = ['Пусто','Заполнено','Фокус','Идёт сохранение','Больше 100 000','Слишком много разметки','Отказ сервера','Вставка изображения','Загрузка редактора','Сбой загрузки'];
+const bar = document.getElementById('states');
+const host = document.getElementById('host');
+let state = 'Заполнено';
+STATES.forEach(s => { const b=document.createElement('button'); b.textContent=s; b.onclick=()=>{state=s;render();}; bar.append(b); });
+const SAMPLE = '<h3>Шаги</h3><p>Открыть <b>форму</b> и посмотреть <a href="https://example.org">ссылку</a>.</p><ul><li>первый пункт</li><li>второй пункт</li></ul><p>Команда: <code>npm test</code></p>';
+
+function render(){
+  [...bar.querySelectorAll('button')].forEach(b=>b.setAttribute('aria-pressed', b.textContent===state));
+  if (state==='Загрузка редактора'){ host.innerHTML='<div class="skel" role="status" aria-busy="true"><span style="position:absolute;left:-9999px">'+T.loading+'</span></div><div class="row"><span>'+T.helper+'</span></div>'; return; }
+  if (state==='Сбой загрузки'){ host.innerHTML='<div class="banner" role="alert"><span>'+T.loadFail+'</span><button id="r">'+T.retry+'</button></div><div class="row"><span>'+T.helper+'</span></div>'; document.getElementById('r').onclick=()=>{state='Заполнено';render();}; return; }
+  const off = state==='Идёт сохранение';
+  const over = state==='Больше 100 000';
+  const err = over ? T.long : state==='Слишком много разметки' ? T.markup : state==='Отказ сервера' ? T.long : '';
+  const count = over ? 100450 : 0;
+  const empty = state==='Пусто';
+  let html = '<div class="field'+(err?' err':'')+(off?' off':'')+'" id="field"><div role="toolbar" aria-label="'+T.toolbar+'">';
+  let g=0; CTRL.forEach(c=>{ if(c[3]!==g){html+='<span class="sep"></span>';g=c[3];}
+    const pressed = ['h3','bold'].includes(c[2]) && !empty && false;
+    html+='<button type="button" title="'+c[0]+'" aria-label="'+c[0]+'" data-c="'+c[2]+'"'+(off?' disabled':'')+(c[2]==='tableops'?' disabled':'')+'>'+c[1]+'</button>'; });
+  html += '</div><div id="ed" role="textbox" aria-multiline="true" aria-label="Описание" aria-placeholder="'+T.ph+'" data-placeholder="'+T.ph+'" contenteditable="'+(!off)+'"'
+        + (err?' aria-invalid="true" aria-describedby="help"':'')+'>'+(empty?'':SAMPLE)+'</div></div>';
+  html += '<div class="row n" id="notice" role="status" aria-live="polite">'+(state==='Вставка изображения'?'ⓘ '+T.img:'')+'</div>';
+  html += '<div class="row"><span id="help" class="'+(err?'e':'')+'"'+(err?' role="alert"':'')+'>'+(err||T.helper)+'</span>'
+        + (over?'<span class="count over" aria-label="Символов: 100 450 из 100 000">100 450 / 100 000</span>':'')+'</div>';
+  host.innerHTML = html;
+  const ed = document.getElementById('ed');
+  if (state==='Фокус') ed.focus();
+  host.querySelectorAll('[data-c]').forEach(b=>{
+    b.onmousedown = e => e.preventDefault();   // keep the selection in the editor
+    b.onclick = () => run(b.dataset.c);
+  });
+  // roving tabindex: one tab stop in the toolbar
+  const btns=[...host.querySelectorAll('[role=toolbar] button:not(:disabled)')];
+  btns.forEach((b,i)=>b.tabIndex=i?-1:0);
+  host.querySelector('[role=toolbar]').onkeydown = e => {
+    const i=btns.indexOf(document.activeElement); if(i<0) return;
+    const k={ArrowRight:i+1,ArrowLeft:i-1,Home:0,End:btns.length-1}[e.key]; if(k===undefined) return;
+    e.preventDefault(); btns.forEach(b=>b.tabIndex=-1); const n=btns[(k+btns.length)%btns.length]; n.tabIndex=0; n.focus();
+  };
+  ed.onkeydown = e => { if((e.ctrlKey||e.metaKey)&&e.key==='k'){ e.preventDefault(); run('link'); } };
+  ed.addEventListener('dragover', e=>e.preventDefault());
+  ed.addEventListener('drop', e=>{ e.preventDefault(); if(e.dataTransfer.files.length) note(); });
+  ed.addEventListener('paste', e=>{ if([...(e.clipboardData.files||[])].length){ e.preventDefault(); note(); } });
+  ed.addEventListener('input', ()=>{ document.getElementById('notice').textContent=''; });
+}
+function note(){ const n=document.getElementById('notice'); n.textContent=''; setTimeout(()=>n.textContent='ⓘ '+T.img,30); }
+function run(c){
+  const ed=document.getElementById('ed'); ed.focus();
+  if(c==='h3'||c==='h4') document.execCommand('formatBlock',false,c);
+  else if(c==='pre') document.execCommand('formatBlock',false,'pre');
+  else if(c==='code'){ const s=getSelection().toString(); if(s) document.execCommand('insertHTML',false,'<code>'+s+'</code>'); }
+  else if(c==='table') document.execCommand('insertHTML',false,'<table><tr><th>&nbsp;</th><th>&nbsp;</th><th>&nbsp;</th></tr><tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr><tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr></table><p><br></p>');
+  else if(c==='link') openLink();
+  else if(c!=='tableops') document.execCommand(c);
+}
+let saved;
+function openLink(){
+  const sel=getSelection(); saved=sel.rangeCount?sel.getRangeAt(0).cloneRange():null;
+  const d=document.getElementById('dlg'); document.getElementById('addr').value=''; document.getElementById('addrErr').textContent='';
+  d.showModal(); document.getElementById('addr').focus();
+}
+document.getElementById('cancel').onclick=()=>{document.getElementById('dlg').close(); document.getElementById('ed').focus();};
+document.getElementById('linkForm').onsubmit=e=>{
+  e.preventDefault(); const v=document.getElementById('addr').value.trim();
+  if(!/^(https?:\/\/|mailto:)/i.test(v)){ document.getElementById('addrErr').textContent=v?T.badLink:'Укажите адрес ссылки.'; return; }
+  document.getElementById('dlg').close(); const ed=document.getElementById('ed'); ed.focus();
+  if(saved){const s=getSelection(); s.removeAllRanges(); s.addRange(saved);} document.execCommand('createLink',false,v);
+};
+render();
+</script>
+</body>
+</html>

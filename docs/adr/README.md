@@ -43,6 +43,7 @@ anything already fixed by the conventions.
 
 Keep the list current (append-only, newest on top):
 
+- ADR-0027 — Store the work item description as server-sanitized HTML, edited with TipTap beside MUI · proposed
 - ADR-0024 — Build every panel screen on one shell and one theme, carry the work context in the address, and name type appearance by a closed token set · accepted
 - ADR-0025 — Project Keycloak users through a read-only event-listener provider that pushes signed, ordered state into MUSTASK · proposed
 - ADR-0025 — Project Keycloak users through a read-only event-listener provider that pushes signed, ordered state into MUSTASK · accepted

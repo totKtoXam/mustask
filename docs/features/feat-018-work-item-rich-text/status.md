@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/018-work-item-rich-text
-- stage: 03-design
+- stage: gate-2
 - epic: core/work-items
 - deps: mod-003
 - gates: gate-1, gate-2, gate-3
