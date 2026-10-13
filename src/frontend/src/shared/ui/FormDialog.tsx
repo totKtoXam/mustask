@@ -57,8 +57,12 @@ export function FormDialog({
       slotProps={{
         paper: {
           component: 'form',
-          onSubmit: (event: { preventDefault(): void }) => {
+          onSubmit: (event: { preventDefault(): void; stopPropagation(): void }) => {
             event.preventDefault();
+            // The dialog renders in a portal inside its caller's React tree: its submit
+            // would bubble to a `<form onSubmit>` the caller sits in (feat-018, the
+            // link prompt inside the work item form).
+            event.stopPropagation();
             if (!submitDisabled) {
               onSubmit();
             }
