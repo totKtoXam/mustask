@@ -66,7 +66,11 @@ public sealed class WorkItem
 
     public string Title { get; private set; } = null!;
 
+    /// <summary>The text as stored: exactly as sent when <see cref="DescriptionFormat"/> is plain, the reduced html otherwise.</summary>
     public string Description { get; private set; } = null!;
+
+    /// <summary>feat-018: how <see cref="Description"/> is to be read; an empty description is always plain.</summary>
+    public DescriptionFormat DescriptionFormat { get; private set; } = DescriptionFormat.Plain;
 
     /// <summary>The client's key of the submission that created the item (BR-M3-26): a replay of it creates nothing.</summary>
     public Guid CreationRequestId { get; private set; }
@@ -263,6 +267,17 @@ public sealed class WorkItem
             throw new ArgumentException("The fields are checked before the save.", nameof(edit));
         }
 
+        // The stored invariants of the description: a caller defect, never user input (the handler has validated).
+        if (edit.Description is { } text)
+        {
+            GuardDescription(text, edit.DescriptionFormat ?? DescriptionFormat.Plain);
+        }
+        else if (edit.DescriptionFormat is not null)
+        {
+            // A format with no description changes nothing and is not carried into the domain.
+            throw new ArgumentException("A description format comes with a description.", nameof(edit));
+        }
+
         // The checks first, so a refusal leaves the item as it was.
         if (edit.StateId is { } stateId && stateId != StateId && !type.Allows(stateId))
         {
@@ -282,10 +297,17 @@ public sealed class WorkItem
             changed = true;
         }
 
-        if (edit.Description is { } description && description != Description)
+        if (edit.Description is { } description)
         {
-            Description = description;
-            changed = true;
+            // feat-018 BR-RT-10: the pair (value, format) is what changes; a plain value is the one sent.
+            var pair = WorkItemDescription.Of(description, edit.DescriptionFormat ?? DescriptionFormat.Plain);
+
+            if (pair.Value != Description || pair.Format != DescriptionFormat)
+            {
+                Description = pair.Value;
+                DescriptionFormat = pair.Format;
+                changed = true;
+            }
         }
 
         if (edit.StateId is { } newStateId && newStateId != StateId)
@@ -317,6 +339,19 @@ public sealed class WorkItem
         }
 
         return changed;
+    }
+
+    private static void GuardDescription(string text, DescriptionFormat format)
+    {
+        switch (format)
+        {
+            case DescriptionFormat.Plain when text.Length > WorkItemLimits.DescriptionMaxLength:
+                throw new ArgumentException("A plain description is validated before the save.", nameof(text));
+            case DescriptionFormat.Html when text.Length == 0:
+                throw new ArgumentException("An empty description is plain.", nameof(text));
+            case DescriptionFormat.Html when WorkItemText.CodePoints(text) > WorkItemLimits.DescriptionMarkupMaxLength:
+                throw new ArgumentException("An html description is reduced and bounded before the save.", nameof(text));
+        }
     }
 
     /// <summary>BR-M3-37: the values a new item of kind <paramref name="kind"/> takes; every other field stays empty.</summary>
@@ -533,7 +568,8 @@ public sealed record WorkItemEdit(
     Guid? StateId = null,
     AssigneeEdit? Assignee = null,
     Guid? AreaId = null,
-    WorkItemFieldsEdit? Fields = null);
+    WorkItemFieldsEdit? Fields = null,
+    DescriptionFormat? DescriptionFormat = null);
 
 /// <summary>
 /// The sent assignee: a user id, or <c>null</c> for «Не назначен» (BR-M3-22).
