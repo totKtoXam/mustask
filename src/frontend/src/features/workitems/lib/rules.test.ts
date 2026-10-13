@@ -36,14 +36,25 @@ describe('titleError', () => {
   });
 });
 
+// feat-018 BR-RT-7, US-4: the draft's description is the editor's canonical html.
 describe('descriptionError', () => {
-  it('accepts 0..100 000 characters, markup and line breaks included', () => {
+  it('accepts 0..100 000 visible characters, markup included', () => {
     expect(descriptionError('')).toBeNull();
-    expect(descriptionError('<b>важно</b>\nшаг 2')).toBeNull();
-    expect(descriptionError('о'.repeat(100_000))).toBeNull();
+    expect(descriptionError('<p><strong>важно</strong></p><p>шаг 2</p>')).toBeNull();
+    expect(descriptionError(`<p>${'о'.repeat(100_000)}</p>`)).toBeNull();
   });
 
-  it('refuses 100 001 with «Не более 100 000 символов.»', () => {
-    expect(descriptionError('о'.repeat(100_001))).toBe('Не более 100 000 символов.');
+  it('refuses 100 001 visible characters with «Не более 100 000 символов.»', () => {
+    expect(descriptionError(`<p>${'о'.repeat(100_001)}</p>`)).toBe('Не более 100 000 символов.');
+  });
+
+  it('counts by code point, never by UTF-16 unit', () => {
+    expect(descriptionError(`<p>${'😀'.repeat(100_000)}</p>`)).toBeNull();
+    expect(descriptionError(`<p>${'😀'.repeat(100_001)}</p>`)).toBe('Не более 100 000 символов.');
+  });
+
+  it('refuses markup over the ceiling with its own text, which wins over the visible limit', () => {
+    const text = 'Слишком много разметки. Упростите форматирование или сократите текст.';
+    expect(descriptionError(`<p>${'<b>я</b>x'.repeat(60_000)}</p>`)).toBe(text);
   });
 });

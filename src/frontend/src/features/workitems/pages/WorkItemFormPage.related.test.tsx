@@ -23,6 +23,7 @@ async function openForm(identifier: string, data: Dataset = hierarchyDataset()) 
   const api = serveWorkItems(data);
   const view = renderWorkItems(mskForm(identifier));
   await screen.findByRole('textbox', { name: 'Заголовок' });
+  await screen.findByRole('textbox', { name: 'Описание' }, { timeout: 20_000 });
   return { api, view, data };
 }
 
@@ -700,6 +701,8 @@ describe('feat-001 US-3 Scenario: The list follows a link written elsewhere at t
     expect(within(related()).getByText('Дочерних элементов нет.')).toBeInTheDocument();
 
     await userEvent.type(screen.getByRole('textbox', { name: 'Описание' }), 'Шаги');
+    // The editor reports a typed change after its short delay (plan § 7.2).
+    await waitFor(() => expect(save()).toBeEnabled());
     await userEvent.click(save());
 
     expect(await screen.findByText('Изменения сохранены.')).toBeInTheDocument();

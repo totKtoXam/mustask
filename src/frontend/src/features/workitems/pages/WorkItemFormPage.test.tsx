@@ -3,6 +3,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { server } from '../../../test/mocks/server';
+import { pasteInto } from '../../../test/richTextEditor';
 import { serveWorkItems, type WorkItemsTestApi } from '../testApi';
 import { WORK_ITEM_URL, exampleDataset, ids, validationProblem } from '../testFixtures';
 import { MSK_LIST, mskForm, renderWorkItems } from '../testRender';
@@ -13,6 +14,8 @@ async function openForm(path = BUG_4, data = exampleDataset()) {
   const api = serveWorkItems(data);
   const view = renderWorkItems(path);
   await screen.findByRole('textbox', { name: 'Заголовок' });
+  // The editor of «Описание» is a lazy chunk (feat-018): the form is ready when it is.
+  await screen.findByRole('textbox', { name: 'Описание' }, { timeout: 20_000 });
   return {
     api,
     view,
@@ -140,7 +143,8 @@ describe('mod-003 US-3 Scenario: A title and a description are changed in one sa
     await userEvent.clear(title());
     await userEvent.paste('Падение при входе через SSO');
     await userEvent.type(description(), 'Шаги');
-    expect(save()).toBeEnabled();
+    // The editor reports a typed change after its short delay (plan § 7.2).
+    await waitFor(() => expect(save()).toBeEnabled());
     await userEvent.click(save());
 
     expect(await screen.findByText('Изменения сохранены.')).toBeInTheDocument();
@@ -149,11 +153,15 @@ describe('mod-003 US-3 Scenario: A title and a description are changed in one sa
       {
         method: 'PATCH',
         path: `/api/organizations/${ids.example}/projects/${ids.msk}/workitems/MSK-BUG-4`,
-        body: { title: 'Падение при входе через SSO', description: 'Шаги' },
+        body: {
+          title: 'Падение при входе через SSO',
+          description: '<p>Шаги</p>',
+          descriptionFormat: 'html',
+        },
       },
     ]);
     expect(title()).toHaveValue('Падение при входе через SSO');
-    expect(description()).toHaveValue('Шаги');
+    expect(description()).toHaveTextContent('Шаги');
     expect(screen.getByRole('heading', { level: 1, name: 'Баг MSK-BUG-4' })).toBeInTheDocument();
 
     const trail = screen.getByRole('navigation', { name: 'Путь к странице' });
@@ -168,15 +176,19 @@ describe('mod-003 US-3 Scenario: A title and a description are changed in one sa
   it('reopening the form shows the stored values', async () => {
     const { api, view, title, description, save } = await openForm();
     await userEvent.type(description(), 'Сохранено');
+    await waitFor(() => expect(save()).toBeEnabled());
     await userEvent.click(save());
     await screen.findByText('Изменения сохранены.');
 
     view.unmount();
     renderWorkItems(BUG_4);
 
-    expect(await screen.findByRole('textbox', { name: 'Описание' })).toHaveValue('Сохранено');
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'Описание' })).toHaveTextContent('Сохранено'),
+    );
     expect(title()).toHaveValue('Падение при входе');
-    expect(api.record(ids.msk, 4).description).toBe('Сохранено');
+    expect(api.record(ids.msk, 4).description).toBe('<p>Сохранено</p>');
+    expect(api.record(ids.msk, 4).descriptionFormat).toBe('html');
   });
 });
 
@@ -219,7 +231,9 @@ describe('mod-003 US-3 Scenario Outline: An invalid value is refused and nothing
 
   it('a description of 100 001 characters: «Не более 100 000 символов.» under «Описание»', async () => {
     const { api, description, save } = await openForm();
-    fireEvent.change(description(), { target: { value: 'о'.repeat(100_001) } });
+    await userEvent.click(description());
+    pasteInto(description(), { text: 'о'.repeat(100_001) });
+    await waitFor(() => expect(save()).toBeEnabled());
 
     await userEvent.click(save());
 
@@ -228,7 +242,7 @@ describe('mod-003 US-3 Scenario Outline: An invalid value is refused and nothing
     expect(
       within(screen.getByRole('region', { name: 'Описание' })).queryByText('До 100 000 символов'),
     ).not.toBeInTheDocument();
-    expect(description()).toHaveAttribute('aria-invalid', 'true');
+    await waitFor(() => expect(description()).toHaveAttribute('aria-invalid', 'true'));
     expect(patches(api)).toEqual([]);
   });
 
@@ -246,27 +260,31 @@ describe('mod-003 US-3 Scenario Outline: An invalid value is refused and nothing
       ),
     );
     await userEvent.type(description(), 'Длинно');
+    await waitFor(() => expect(save()).toBeEnabled());
 
     await userEvent.click(save());
 
     expect(await screen.findByText('Не более 100 000 символов.')).toBeInTheDocument();
-    expect(description()).toHaveValue('Длинно');
+    expect(description()).toHaveTextContent('Длинно');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });
 
-describe('mod-003 US-3 Scenario: The description is plain text', () => {
-  it('keeps «<b>важно</b>» literally, with «шаг 2» on the next line', async () => {
+describe('mod-003 US-3 / feat-018 US-1 Scenario: Typed markup characters are text', () => {
+  it('keeps «<b>важно</b>» literally, with «шаг 2» in the next paragraph', async () => {
     const { api, description, save } = await openForm();
     const text = '<b>важно</b>\nшаг 2';
-    fireEvent.change(description(), { target: { value: text } });
+    await userEvent.click(description());
+    pasteInto(description(), { text });
+    await waitFor(() => expect(save()).toBeEnabled());
 
     await userEvent.click(save());
     await screen.findByText('Изменения сохранены.');
 
-    expect(description()).toHaveValue(text);
+    expect(description()).toHaveTextContent('<b>важно</b>');
+    expect(description()).toHaveTextContent('шаг 2');
     expect(document.querySelector('b')).toBeNull();
-    expect(api.record(ids.msk, 4).description).toBe(text);
+    expect(api.record(ids.msk, 4).description).toBe('<p>&lt;b&gt;важно&lt;/b&gt;</p><p>шаг 2</p>');
   });
 });
 
@@ -276,11 +294,15 @@ describe('mod-003 US-3 Scenario: Two users save the same form one after the othe
     // A saved the title meanwhile.
     api.record(ids.msk, 4).title = 'Первый';
     await userEvent.type(description(), 'Шаги');
+    await waitFor(() => expect(save()).toBeEnabled());
 
     await userEvent.click(save());
 
     expect(await screen.findByText('Изменения сохранены.')).toBeInTheDocument();
-    expect(patches(api)[0]?.body).toEqual({ description: 'Шаги' });
+    expect(patches(api)[0]?.body).toEqual({
+      description: '<p>Шаги</p>',
+      descriptionFormat: 'html',
+    });
     expect(api.record(ids.msk, 4).title).toBe('Первый');
     expect(title()).toHaveValue('Первый');
     // The notice is the only alert: nothing speaks of a conflict.

@@ -1,7 +1,7 @@
 import { Extension, type Editor } from '@tiptap/core';
 
 /** What a notice says: the image that was not pasted, the code that was copied. */
-export type NoticeKind = 'image' | 'copied';
+export type NoticeKind = 'image' | 'copied' | 'copyFailed';
 
 /** What the editor's behaviours ask of the component around it. */
 export interface EditorBindings {
@@ -9,6 +9,8 @@ export interface EditorBindings {
   openLink: () => void;
   /** Say a notice in the live region. */
   notice: (kind: NoticeKind) => void;
+  /** Report a change that is still waiting for its delay, now (Tab leaving the body, blur). */
+  flush: () => void;
 }
 
 /**
@@ -21,7 +23,7 @@ export const RtBindings = Extension.create<unknown, EditorBindings>({
   name: 'rtBindings',
 
   addStorage() {
-    return { openLink: () => {}, notice: () => {} };
+    return { openLink: () => {}, notice: () => {}, flush: () => {} };
   },
 });
 

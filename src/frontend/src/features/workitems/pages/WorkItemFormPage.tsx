@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent } from 'react';
+import { useId, useRef, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -17,6 +17,10 @@ import { apiErrorText } from '../../../shared/lib/apiErrorText';
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
 import { FormSkeleton } from '../../../shared/ui/FormSkeleton';
 import { PageHeader } from '../../../shared/ui/PageHeader';
+import {
+  RichTextEditor,
+  type RichTextEditorHandle,
+} from '../../../shared/ui/RichTextEditor/RichTextEditor';
 import { NotFound } from '../../../shared/ui/StateFrame';
 import { TypeMark } from '../../../shared/ui/WorkTrackingMarks';
 import type { WorkItem, WorkItemFieldName, WorkItemStateReference } from '../api/workItemsApi';
@@ -214,9 +218,15 @@ function LoadedForm({
   const [errors, setErrors] = useState<FieldErrors>({});
   const [alert, setAlert] = useState<string | null>(null);
   const titleHelperId = useId();
+  const editorRef = useRef<RichTextEditorHandle>(null);
+  /**
+   * The editor reports its change after a short delay (and at once on `flush()`): what it
+   * last reported, so a save that flushes first reads the description as it is now, not as
+   * the last render saw it (plan § 7.2). `null`: nothing reported since the last save.
+   */
+  const reportedDescription = useRef<string | null>(null);
 
   const draft = edited ?? draftOf(item);
-  const changes = changesOf(item, draft);
   const dirty = isDirty(item, draft);
   const busy = save.isPending;
   const layout = layoutOf(item.type.appearance);
@@ -245,18 +255,28 @@ function LoadedForm({
 
   async function handleSave(event: FormEvent) {
     event.preventDefault();
-    if (busy || !dirty) {
+    if (busy) {
+      return;
+    }
+    // A change the editor still holds is reported first, synchronously.
+    editorRef.current?.flush();
+    const current: WorkItemDraft =
+      reportedDescription.current === null
+        ? draft
+        : { ...draft, description: reportedDescription.current };
+    if (!isDirty(item, current)) {
       return;
     }
     // The browser's checks: nothing is sent while one stands.
-    const refused: FieldErrors = draftErrors(item, draft);
+    const refused: FieldErrors = draftErrors(item, current);
     if (Object.keys(refused).length > 0) {
-      setErrors((current) => ({ ...current, ...refused }));
+      setErrors((previous) => ({ ...previous, ...refused }));
       return;
     }
     setAlert(null);
     try {
-      await save.mutateAsync(changes);
+      await save.mutateAsync(changesOf(item, current));
+      reportedDescription.current = null;
       setEdited(null);
       setErrors({});
       show('Изменения сохранены.');
@@ -270,7 +290,7 @@ function LoadedForm({
         // feat-001 BR-H-4: read the item again first, then «Родитель» shows
         // the stored parent; the user's other changes stay on the form.
         try {
-          setEdited(rebaseDraft(item, await refresh(), draft));
+          setEdited(rebaseDraft(item, await refresh(), current));
         } catch (readError) {
           const gone = notFoundLevel(readError);
           if (gone) {
@@ -376,17 +396,17 @@ function LoadedForm({
       <Box sx={gridSx(wide)}>
         <Stack spacing={3} useFlexGap sx={{ minWidth: 0 }}>
           <FormSection title="Описание">
-            <TextField
+            <RichTextEditor
+              ref={editorRef}
               label="Описание"
-              placeholder="Добавьте описание"
-              multiline
-              minRows={6}
-              fullWidth
               value={draft.description}
               disabled={busy}
-              error={errors.description !== undefined}
-              helperText={errors.description ?? TEXT_HELPER}
-              onChange={(event) => edit('description', { description: event.target.value })}
+              helperText={TEXT_HELPER}
+              errorText={errors.description}
+              onChange={({ html }) => {
+                reportedDescription.current = html;
+                edit('description', { description: html });
+              }}
             />
           </FormSection>
           {layout.texts.map((name) => (

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Popover from '@mui/material/Popover';
 import TextField from '@mui/material/TextField';
@@ -17,6 +19,8 @@ interface EmojiData {
 interface EmojiPopoverProps {
   anchorEl: HTMLElement | null;
   copy: RichTextCopy['emoji'];
+  /** The load of the data failed (design gap G-1: the editor's own failure copy and button). */
+  failure: { message: string; retry: string };
   onPick: (emoji: string) => void;
   /** `escape` is a close from the keyboard: focus goes back to the opener. */
   onClose: (reason: 'escape' | 'other') => void;
@@ -26,10 +30,13 @@ interface EmojiPopoverProps {
 let loaded: Promise<EmojiData> | null = null;
 
 function loadEmoji(): Promise<EmojiData> {
-  loaded ??= import('virtual:rich-text-emoji').then((module) => ({
-    groups: module.groups,
-    emoji: module.emoji,
-  }));
+  loaded ??= import('virtual:rich-text-emoji')
+    .then((module) => ({ groups: module.groups, emoji: module.emoji }))
+    .catch((error: unknown) => {
+      // A failed load is not kept: «Повторить» asks again.
+      loaded = null;
+      throw error;
+    });
   return loaded;
 }
 
@@ -40,10 +47,11 @@ function loadEmoji(): Promise<EmojiData> {
  * search picks the first match, Enter or Space on an emoji picks it. The data is
  * bundled, loaded on first open: no request, no image, system glyphs.
  */
-export function EmojiPopover({ anchorEl, copy, onPick, onClose }: EmojiPopoverProps) {
+export function EmojiPopover({ anchorEl, copy, failure, onPick, onClose }: EmojiPopoverProps) {
   const open = anchorEl !== null;
   const [data, setData] = useState<EmojiData | null>(null);
   const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const grid = useRef<HTMLDivElement>(null);
@@ -63,7 +71,7 @@ export function EmojiPopover({ anchorEl, copy, onPick, onClose }: EmojiPopoverPr
     return () => {
       current = false;
     };
-  }, [open, data]);
+  }, [open, data, attempt]);
 
   const matches = useMemo(() => (data ? searchEmoji(data.emoji, query) : []), [data, query]);
   const grouped = query.trim().length === 0;
@@ -169,7 +177,25 @@ export function EmojiPopover({ anchorEl, copy, onPick, onClose }: EmojiPopoverPr
 
   let content;
   if (failed) {
-    content = null;
+    content = (
+      <Alert
+        severity="error"
+        action={
+          <Button
+            color="inherit"
+            size="small"
+            onClick={() => {
+              setFailed(false);
+              setAttempt((count) => count + 1);
+            }}
+          >
+            {failure.retry}
+          </Button>
+        }
+      >
+        {failure.message}
+      </Alert>
+    );
   } else if (data === null) {
     content = (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>

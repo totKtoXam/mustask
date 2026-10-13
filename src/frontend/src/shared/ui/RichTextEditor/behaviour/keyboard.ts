@@ -191,6 +191,9 @@ function handleKey(
 
   switch (event.key) {
     case 'Tab': {
+      // Leaving the body: the pending change is reported first, so the form's «Сохранить» is
+      // enabled before the focus moves on (a disabled button is skipped by Tab).
+      if (!event.altKey && !mod) bindingsOf(editor).flush();
       if (wasArmed || event.altKey || mod) return false;
       if (inCode) {
         indentCode(view, event.shiftKey);

@@ -137,6 +137,7 @@ export function Toolbar({ editor, copy, ui }: ToolbarProps) {
       <EmojiPopover
         anchorEl={emojiOpen && opened ? opened.anchor : null}
         copy={copy.emoji}
+        failure={{ message: copy.loadFailed, retry: copy.retry }}
         onPick={(emoji) => {
           editor.chain().insertContent({ type: 'text', text: emoji }).run();
           closeOpened('body');

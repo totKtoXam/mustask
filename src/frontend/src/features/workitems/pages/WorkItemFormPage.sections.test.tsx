@@ -461,7 +461,10 @@ describe('feat-022 US-5 Scenario Outline: A new item takes its type’s defaults
     }
     for (const input of screen.getAllByRole('textbox')) {
       const name = input.getAttribute('aria-label') ?? '';
-      if (name !== 'Заголовок' && !input.closest('[role="combobox"]')) {
+      if (name === 'Описание') {
+        // The rich-text editor (feat-018): a contenteditable, empty as text.
+        expect(input).toHaveTextContent('');
+      } else if (name !== 'Заголовок' && !input.closest('[role="combobox"]')) {
         expect(input).toHaveValue('');
       }
     }

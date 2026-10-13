@@ -117,7 +117,7 @@ describe('mod-003 US-1 Scenario: A work item is created with only a title', () =
 
     // «And its form shows an empty Описание».
     await userEvent.click(within(first).getByRole('link', { name: 'Настроить сборку' }));
-    expect(await screen.findByRole('textbox', { name: 'Описание' })).toHaveValue('');
+    expect(await screen.findByRole('textbox', { name: 'Описание' })).toHaveTextContent('');
   });
 
   it('names each type’s own initial state as «Тип» changes', async () => {

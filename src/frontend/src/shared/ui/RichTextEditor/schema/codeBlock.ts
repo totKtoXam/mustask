@@ -120,9 +120,13 @@ export const RtCodeBlock = CodeBlock.extend<CodeBlockOptions & { chrome: CodeChr
       // The pointer never takes the focus from the body.
       copy.addEventListener('mousedown', (event) => event.preventDefault());
       copy.addEventListener('click', () => {
-        void navigator.clipboard?.writeText(node.textContent).then(
+        if (!navigator.clipboard) {
+          bindingsOf(editor).notice('copyFailed');
+          return;
+        }
+        void navigator.clipboard.writeText(node.textContent).then(
           () => bindingsOf(editor).notice('copied'),
-          () => undefined,
+          () => bindingsOf(editor).notice('copyFailed'),
         );
       });
 

@@ -548,9 +548,13 @@ export const TOOLBAR_GROUPS: readonly ToolbarGroup[] = [
         state: (context) => ({ disabled: context.disabled || !context.inCodeBlock }),
         run: (editor) => {
           const text = editor.state.selection.$from.parent.textContent;
-          void navigator.clipboard?.writeText(text).then(
+          if (!navigator.clipboard) {
+            bindingsOf(editor).notice('copyFailed');
+            return;
+          }
+          void navigator.clipboard.writeText(text).then(
             () => bindingsOf(editor).notice('copied'),
-            () => undefined,
+            () => bindingsOf(editor).notice('copyFailed'),
           );
         },
       },

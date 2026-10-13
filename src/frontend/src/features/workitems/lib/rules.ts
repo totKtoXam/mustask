@@ -3,18 +3,19 @@
 // submit and cleared as the field is edited. The server runs the same rules
 // and has the last word; these only spare a round trip. The texts are the
 // spec's, the same as the catalog's.
+import { checkDescription, normaliseRichText } from '../../../shared/lib/richText';
 
 /** BR-M3-3: at most 255 UTF-16 code units after trimming. */
 export const TITLE_MAX_LENGTH = 255;
-
-/** BR-M3-19: at most 100 000 UTF-16 code units. */
-export const DESCRIPTION_MAX_LENGTH = 100_000;
 
 export const ruleTexts = {
   titleRequired: 'Введите заголовок.',
   titleTooLong: 'Не более 255 символов.',
   titleMultiline: 'Заголовок должен быть в одну строку.',
   descriptionTooLong: 'Не более 100 000 символов.',
+  // feat-018 api-contract § 4 / US-4: the reduced markup is over the ceiling.
+  descriptionMarkupTooLarge:
+    'Слишком много разметки. Упростите форматирование или сократите текст.',
   // feat-022 spec § Controls and copy: the checks of the fields per type.
   notANumber: 'Введите число.',
   numberOutOfRange: 'Допустимо значение от 0 до 9 999.',
@@ -48,7 +49,18 @@ export function titleError(title: string): string | null {
   return null;
 }
 
-/** «Описание» is refused only for its length; it is stored exactly as typed. */
-export function descriptionError(description: string): string | null {
-  return description.length > DESCRIPTION_MAX_LENGTH ? ruleTexts.descriptionTooLong : null;
+/**
+ * «Описание» is the editor's canonical html (feat-018): refused only for its
+ * size, by the same function the editor's live counter uses (BR-RT-7, US-4) —
+ * the markup ceiling first, so a value over both answers the markup text.
+ */
+export function descriptionError(html: string): string | null {
+  switch (checkDescription(normaliseRichText(html))) {
+    case 'markup-too-large':
+      return ruleTexts.descriptionMarkupTooLarge;
+    case 'too-long':
+      return ruleTexts.descriptionTooLong;
+    default:
+      return null;
+  }
 }

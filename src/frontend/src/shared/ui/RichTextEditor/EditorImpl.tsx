@@ -257,12 +257,17 @@ function EditorBody({
     extensions,
     content: initial,
     editable: !disabled,
+    // `useEditor` applies its options again on every render, so the attributes that change
+    // (invalid, disabled, described-by) belong here, not in a `setOptions` of an effect.
     editorProps: {
       attributes: {
         role: 'textbox',
         'aria-multiline': 'true',
         'aria-label': label,
         'aria-placeholder': placeholder,
+        ...(invalid ? { 'aria-invalid': 'true' } : {}),
+        ...(disabled ? { 'aria-disabled': 'true' } : {}),
+        ...(describedBy ? { 'aria-describedby': describedBy } : {}),
       },
     },
   });
@@ -302,7 +307,13 @@ function EditorBody({
     bindEditor(editor, {
       openLink,
       notice: (kind) =>
-        onNoticeRef.current(kind === 'image' ? copy.notices.image : copy.notices.codeCopied),
+        onNoticeRef.current(
+          kind === 'image'
+            ? copy.notices.image
+            : kind === 'copied'
+              ? copy.notices.codeCopied
+              : copy.notices.codeCopyFailed,
+        ),
     });
     const clear = () => onNoticeRef.current(hintRef.current);
     // The paste or drop that raised a notice is itself an edit: it does not clear it.
@@ -317,7 +328,7 @@ function EditorBody({
       editor.off('update', clearOnEdit);
       editor.off('blur', clear);
     };
-  }, [editor, openLink, copy.notices.image, copy.notices.codeCopied]);
+  }, [editor, openLink, copy.notices.image, copy.notices.codeCopied, copy.notices.codeCopyFailed]);
 
   useEffect(() => {
     if (!editor) return undefined;
@@ -361,9 +372,13 @@ function EditorBody({
     };
 
     editor.on('update', schedule);
+    // The pending change is reported as the focus leaves, too.
+    editor.on('blur', flush);
+    bindEditor(editor, { flush });
     flushRef.current = flush;
     return () => {
       editor.off('update', schedule);
+      editor.off('blur', flush);
       if (timer.current !== null) clearTimeout(timer.current);
       timer.current = null;
       if (flushRef.current === flush) flushRef.current = null;
@@ -393,22 +408,6 @@ function EditorBody({
   useEffect(() => {
     if (editor && editor.isEditable !== !disabled) editor.setEditable(!disabled, false);
   }, [editor, disabled]);
-
-  useEffect(() => {
-    editor?.setOptions({
-      editorProps: {
-        attributes: {
-          role: 'textbox',
-          'aria-multiline': 'true',
-          'aria-label': label,
-          'aria-placeholder': placeholder,
-          ...(invalid ? { 'aria-invalid': 'true' } : {}),
-          ...(disabled ? { 'aria-disabled': 'true' } : {}),
-          ...(describedBy ? { 'aria-describedby': describedBy } : {}),
-        },
-      },
-    });
-  }, [editor, label, placeholder, invalid, disabled, describedBy]);
 
   if (!editor) return null;
 

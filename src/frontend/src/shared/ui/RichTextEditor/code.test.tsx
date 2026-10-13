@@ -86,6 +86,24 @@ describe('code block: insert, language, copy (US-6, BR-RT-16)', () => {
     expect(editor().getHTML()).toBe('<pre><code>a\n\tb</code></pre>');
   });
 
+  it('says «Не удалось скопировать код.» when the clipboard refuses (G-2), from the toolbar and the strip', async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'));
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const { button, editor, body } = await mountEditor('<pre><code>x</code></pre>');
+    select(editor(), positionOf(editor(), 'x') + 1);
+
+    await waitFor(() => expect(button('Копировать код')).toBeEnabled());
+    await user.click(button('Копировать код'));
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('Не удалось скопировать код.'),
+    );
+
+    await user.click(body.querySelector('.rt-codeblock-copy') as HTMLElement);
+    expect(writeText).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole('status')).toHaveTextContent('Не удалось скопировать код.');
+  });
+
   it('copies from the strip for the pointer, which is not a tab stop', async () => {
     const user = userEvent.setup();
     const writeText = stubClipboard();

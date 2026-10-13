@@ -5,6 +5,7 @@ import type {
   WorkItemAssignee,
   WorkItemRef,
 } from '../api/workItemsApi';
+import { legacyToHtml } from '../../../shared/lib/richText';
 import { WORK_ITEM_FIELD_NAMES } from './fields';
 import {
   changedFields,
@@ -33,11 +34,36 @@ export interface WorkItemDraft {
   fields: FieldsDraft;
 }
 
+/**
+ * The string the editor starts from and the dirty check compares with
+ * (BR-RT-11, plan § 11.2): the stored html as it is, or a stored plain
+ * description converted by the legacy rule (BR-RT-9). Opening a description
+ * is never a change. Called several times a render, so one entry is kept.
+ */
+let baselineKey: { description: string; format: string } | null = null;
+let baselineValue = '';
+
+export function descriptionBaseline(
+  item: Pick<WorkItem, 'description' | 'descriptionFormat'>,
+): string {
+  if (
+    baselineKey &&
+    baselineKey.description === item.description &&
+    baselineKey.format === item.descriptionFormat
+  ) {
+    return baselineValue;
+  }
+  baselineValue =
+    item.descriptionFormat === 'html' ? item.description : legacyToHtml(item.description);
+  baselineKey = { description: item.description, format: item.descriptionFormat };
+  return baselineValue;
+}
+
 /** The form's values as the item was loaded or last saved. */
 export function draftOf(item: WorkItem): WorkItemDraft {
   return {
     title: item.title,
-    description: item.description,
+    description: descriptionBaseline(item),
     stateId: item.state.id,
     assignee: item.assignee,
     area: item.area,
@@ -73,8 +99,11 @@ export function changesOf(item: WorkItem, draft: WorkItemDraft): SaveWorkItemBod
   if (draft.title !== item.title) {
     body.title = draft.title;
   }
-  if (draft.description !== item.description) {
+  // The description and its format go together and only when it changed (BR-RT-10, BR-RT-11): an
+  // untouched one is never sent, so a legacy plain text stays plain until a change is saved.
+  if (draft.description !== descriptionBaseline(item)) {
     body.description = draft.description;
+    body.descriptionFormat = 'html';
   }
   if (draft.stateId !== item.state.id) {
     body.stateId = draft.stateId;
@@ -124,7 +153,7 @@ export function draftErrors(
   const errors: Partial<Record<RefusalField, string>> = {};
   const title = draft.title !== item.title ? titleError(draft.title) : null;
   const description =
-    draft.description !== item.description ? descriptionError(draft.description) : null;
+    draft.description !== descriptionBaseline(item) ? descriptionError(draft.description) : null;
   if (title) {
     errors.title = title;
   }

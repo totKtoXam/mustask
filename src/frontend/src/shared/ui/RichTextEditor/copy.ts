@@ -87,6 +87,8 @@ export interface RichTextCopy {
     codeHint: string;
     tableHint: string;
     codeCopied: string;
+    /** The clipboard refused (design gap G-2): new copy, for the human at gate-3. */
+    codeCopyFailed: string;
   };
 }
 
@@ -193,5 +195,6 @@ export const DEFAULT_COPY: RichTextCopy = {
     codeHint: 'Tab вставляет отступ. Esc, затем Tab — выйти из блока.',
     tableHint: 'Tab переходит между ячейками. Esc, затем Tab — выйти из таблицы.',
     codeCopied: 'Код скопирован',
+    codeCopyFailed: 'Не удалось скопировать код.',
   },
 };
