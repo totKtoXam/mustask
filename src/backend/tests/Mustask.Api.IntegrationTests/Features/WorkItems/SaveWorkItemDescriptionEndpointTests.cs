@@ -303,7 +303,10 @@ public sealed class SaveWorkItemDescriptionEndpointTests(MustaskApiFactory facto
         watch.Stop();
 
         Assert.Equal(MarkupTooLarge, Reason(answer));
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(2), $"Took {watch.Elapsed}.");
+        // The NFR's 2 s is asserted on the reduction itself (ReducerRulesTests.Reduce_Amplifying2000000Units_*, which
+        // is not under a host's other work); this end-to-end bound adds the request's JSON, the transaction and the
+        // refusal, and is loose enough not to be a measure of the machine it runs on (QA D-7).
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(5), $"Took {watch.Elapsed}.");
     }
 
     // US-4 · "Legacy worst cases fit the ceiling": 100 000 '&' and 100 000 line feeds, as the client would send them.
@@ -323,17 +326,10 @@ public sealed class SaveWorkItemDescriptionEndpointTests(MustaskApiFactory facto
         Assert.Equal(kind == "amp" ? html : "", Text(answer.Body, "description"));
     }
 
-    // US-4 · "A lone surrogate counts one on both sides": the stored value holds U+FFFD.
-    [Fact]
-    public async Task Save_Html_LoneSurrogate_StoredAsReplacementCharacter()
-    {
-        var (world, bug) = await BugAsync();
-
-        var answer = await WorkItemsTestData.SaveAsync(
-            factory, world, bug, new { description = "<p>a\uD83Db</p>", descriptionFormat = "html" });
-
-        Assert.Equal("<p>a�b</p>", Text(answer.Body, "description"));
-    }
+    // US-4 · "A lone surrogate counts one on both sides" is a reducer rule (visible-count fixture
+    // `lone-surrogate`, QA_Reduce_SurrogatesSplitByATag_*): a lone surrogate cannot reach it over HTTP, because the
+    // platform's JSON binder refuses one (see SaveWorkItemDescriptionQaTests, the wire characterisation). The test
+    // that stood here sent it through a serializer that had already replaced it, and proved nothing.
 
     // US-4 · "Response time holds": a 100 000-character visible description is read and saved within a second.
     [Fact]

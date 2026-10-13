@@ -258,13 +258,13 @@ public sealed class SaveWorkItemDescriptionHandlerTests
 
         public RichTextReduction Result { get; set; } = new(false, "<p>x</p>", 8, 1, true);
 
-        public RichTextReduction Reduce(string html, RichTextReductionLimits limits, CancellationToken cancellationToken)
+        public Task<RichTextReduction> ReduceAsync(string html, RichTextReductionLimits limits, CancellationToken cancellationToken)
         {
             Calls.Add(html);
             InTransactionAtCall.Add(unitOfWork.InTransaction);
             LastLimits = limits;
 
-            return Result;
+            return Task.FromResult(Result);
         }
     }
 

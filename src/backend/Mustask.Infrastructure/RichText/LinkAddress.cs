@@ -74,6 +74,14 @@ internal static class LinkAddress
             return false;
         }
 
+        // Neither is part of an address (a browser percent-encodes them), and the HTML serialisation of an attribute
+        // value is not agreed on for them (escaped or not, by browser version), which would make the stored string
+        // differ from the editor's: such an address is not kept (QA D-6).
+        if (cleaned.AsSpan().IndexOfAny('<', '>') >= 0)
+        {
+            return false;
+        }
+
         href = cleaned;
 
         return true;

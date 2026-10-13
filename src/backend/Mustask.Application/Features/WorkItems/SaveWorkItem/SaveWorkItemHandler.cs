@@ -55,7 +55,7 @@ public sealed class SaveWorkItemHandler(
     {
         // feat-018: the description is read, reduced and measured before the transaction, with no lock held (the
         // reduction is CPU-bound and has no I/O); its refusal is raised with the other field reasons at step 2.
-        var prepared = PrepareDescription(command, cancellationToken);
+        var prepared = await PrepareDescriptionAsync(command, cancellationToken);
 
         return await HandleAsync(command, prepared, cancellationToken);
     }
@@ -66,7 +66,7 @@ public sealed class SaveWorkItemHandler(
     /// no description, nothing more; a plain value is checked against 100 000 units; html is refused above the
     /// request cap without parsing, else reduced, then the markup ceiling, then the visible limit, then BR-RT-6.
     /// </summary>
-    private PreparedDescription PrepareDescription(SaveWorkItemCommand command, CancellationToken cancellationToken)
+    private async Task<PreparedDescription> PrepareDescriptionAsync(SaveWorkItemCommand command, CancellationToken cancellationToken)
     {
         if (WorkItemText.ValidateFormat(command.DescriptionFormat, out var format) is { } formatReason)
         {
@@ -90,7 +90,7 @@ public sealed class SaveWorkItemHandler(
             return PreparedDescription.Refused(sizeReason);
         }
 
-        var reduction = reducer.Reduce(
+        var reduction = await reducer.ReduceAsync(
             description, new RichTextReductionLimits(WorkItemLimits.DescriptionMarkupMaxLength), cancellationToken);
 
         if (reduction.Exceeded)
@@ -103,7 +103,7 @@ public sealed class SaveWorkItemHandler(
             : PreparedDescription.Of(WorkItemText.Describe(reduction.Html, reduction.HasContent));
     }
 
-    /// <summary>The outcome of <see cref="PrepareDescription"/>: nothing sent, a reason, or the pair to store.</summary>
+    /// <summary>The outcome of <see cref="PrepareDescriptionAsync"/>: nothing sent, a reason, or the pair to store.</summary>
     private readonly record struct PreparedDescription(WorkItemDescription? Value, string? Reason)
     {
         public static PreparedDescription NotSent { get; } = new(null, null);

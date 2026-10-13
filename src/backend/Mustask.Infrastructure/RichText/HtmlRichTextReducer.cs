@@ -1,4 +1,6 @@
+using System.Runtime.CompilerServices;
 using System.Text;
+using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
 using Mustask.Application.Abstractions.RichText;
@@ -12,21 +14,35 @@ public sealed class RichTextOptions
 
     /// <summary>
     /// How many reductions run at once. A 2 000 000-unit input can hold hundreds of thousands of nodes, so a burst
-    /// queues instead of exhausting memory; <c>0</c> means <c>max(2, ProcessorCount)</c>.
+    /// queues (awaiting, holding no thread) instead of exhausting memory; <c>0</c> means <c>max(2, ProcessorCount)</c>.
     /// </summary>
     public int MaxConcurrentReductions { get; set; }
 
     /// <summary>
-    /// The parse's work budget in milliseconds. The HTML5 tree builder is quadratic in nesting depth (spike, plan
-    /// § 6.1), so hostile deep nesting is bounded by time, not by our walker; expiry is "exceeded". Legitimate input
-    /// at the ceiling parses in well under a second.
+    /// The last-resort safety net, in milliseconds: a reduction still running after this long is abandoned with a
+    /// server error (<see cref="RichTextReductionAbortedException"/>), never a refusal reason. What the reduction
+    /// accepts or refuses does <b>not</b> depend on it: those are the deterministic bounds of
+    /// <see cref="RichTextGuardLimits"/>, which keep legitimate input orders of magnitude inside this.
     /// </summary>
-    public int ParseBudgetMilliseconds { get; set; } = 1_500;
+    public int SafetyNetMilliseconds { get; set; } = 20_000;
 }
 
 /// <summary>
-/// <see cref="IRichTextReducer"/> on AngleSharp's WHATWG parser (ADR-0027 decision 5, plan-backend § 5): normalise
-/// the raw string, parse once, walk the document into the canonical model, write it under the output budget.
+/// The reduction was abandoned by the safety net (a wall-clock bound, or the parser nearly out of stack) rather than
+/// refused by a deterministic bound: a server defect or an overloaded host, answered as a server error.
+/// </summary>
+public sealed class RichTextReductionAbortedException : Exception
+{
+    public RichTextReductionAbortedException(string message, Exception? inner = null)
+        : base(message, inner)
+    {
+    }
+}
+
+/// <summary>
+/// <see cref="IRichTextReducer"/> on AngleSharp's WHATWG parser (ADR-0027 decision 5, plan-backend § 5): bound the raw
+/// string structurally (deterministic, before the parser sees it), normalise, parse once on a dedicated thread with a
+/// large stack, walk the document into the canonical model, write it under the output budget.
 /// </summary>
 internal sealed class HtmlRichTextReducer : IRichTextReducer, IDisposable
 {
@@ -37,29 +53,72 @@ internal sealed class HtmlRichTextReducer : IRichTextReducer, IDisposable
     /// <summary>Each position of a table is at least <c>&lt;td&gt;&lt;p&gt;&lt;/p&gt;&lt;/td&gt;</c>.</summary>
     private const int MinCellMarkup = 16;
 
-    private readonly RichTextVocabulary vocabulary;
-    private readonly SemaphoreSlim gate;
-    private readonly TimeSpan parseBudget;
+    /// <summary>
+    /// The parser's stack. The tree builder recurses once per preformatted start tag in a run and per nested template;
+    /// the guard bounds both far below what this holds (about 4 KB a level), and the stack check in the element hook
+    /// is the net under that. The memory is reserved, not committed.
+    /// </summary>
+    private const int ParserStackBytes = 32 * 1024 * 1024;
 
-    public HtmlRichTextReducer(RichTextVocabulary vocabulary, RichTextOptions? options = null)
+    private readonly RichTextVocabulary vocabulary;
+    private readonly RichTextGuardLimits guard;
+    private readonly SemaphoreSlim gate;
+    private readonly TimeSpan safetyNet;
+
+    public HtmlRichTextReducer(RichTextVocabulary vocabulary, RichTextOptions? options = null, RichTextGuardLimits? guard = null)
     {
         options ??= new RichTextOptions();
         this.vocabulary = vocabulary;
+        this.guard = guard ?? RichTextGuardLimits.Default;
         var slots = options.MaxConcurrentReductions > 0 ? options.MaxConcurrentReductions : Math.Max(2, Environment.ProcessorCount);
         gate = new SemaphoreSlim(slots, slots);
-        parseBudget = TimeSpan.FromMilliseconds(Math.Max(1, options.ParseBudgetMilliseconds));
+        safetyNet = TimeSpan.FromMilliseconds(Math.Max(1, options.SafetyNetMilliseconds));
     }
 
-    public RichTextReduction Reduce(string html, RichTextReductionLimits limits, CancellationToken cancellationToken)
+    /// <summary>The synchronous form, for callers with no request to keep free (tests and tools).</summary>
+    public RichTextReduction Reduce(string html, RichTextReductionLimits limits, CancellationToken cancellationToken) =>
+        ReduceAsync(html, limits, cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
+
+    public async Task<RichTextReduction> ReduceAsync(string html, RichTextReductionLimits limits, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(html);
         ArgumentNullException.ThrowIfNull(limits);
 
-        gate.Wait(cancellationToken);
+        var text = Normalise(html);
+
+        // The deterministic structural bounds come first, on the caller's thread: linear, no parser, no slot.
+        if (!RichTextInputGuard.IsWithinBounds(text, guard))
+        {
+            return RichTextReduction.OverTheBound;
+        }
+
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
-            return ReduceCore(Normalise(html), limits.MaxMarkupCodePoints, cancellationToken);
+            var done = new TaskCompletionSource<RichTextReduction>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            var thread = new Thread(
+                () =>
+                {
+                    try
+                    {
+                        done.SetResult(ReduceCore(text, limits.MaxMarkupCodePoints, cancellationToken));
+                    }
+                    catch (Exception exception)
+                    {
+                        done.SetException(exception);
+                    }
+                },
+                ParserStackBytes)
+            {
+                IsBackground = true,
+                Name = "rich-text-reduction",
+            };
+
+            thread.Start();
+
+            return await done.Task.ConfigureAwait(false);
         }
         finally
         {
@@ -71,21 +130,28 @@ internal sealed class HtmlRichTextReducer : IRichTextReducer, IDisposable
 
     private RichTextReduction ReduceCore(string text, int limit, CancellationToken cancellationToken)
     {
+        using var net = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        net.CancelAfter(safetyNet);
+
         IHtmlDocument document;
 
-        using (var parseCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+        try
         {
-            parseCancellation.CancelAfter(parseBudget);
-
-            try
-            {
-                var parser = new HtmlParser(new HtmlParserOptions { IsScripting = true });
-                document = parser.ParseDocumentAsync(Wrapper + text, parseCancellation.Token).GetAwaiter().GetResult();
-            }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-            {
-                return RichTextReduction.OverTheBound;
-            }
+            var watcher = new TreeWatcher(guard);
+            var options = new HtmlParserOptions { IsScripting = true, OnCreated = watcher.Created };
+            document = new HtmlParser(options).ParseDocumentAsync(Wrapper + text, net.Token).GetAwaiter().GetResult();
+        }
+        catch (RichTextBudgetExceededException)
+        {
+            return RichTextReduction.OverTheBound;
+        }
+        catch (InsufficientExecutionStackException exception)
+        {
+            throw new RichTextReductionAbortedException("The parser nearly ran out of stack.", exception);
+        }
+        catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new RichTextReductionAbortedException("The reduction passed its safety net.", exception);
         }
 
         try
@@ -96,11 +162,18 @@ internal sealed class HtmlRichTextReducer : IRichTextReducer, IDisposable
                 return new RichTextReduction(false, string.Empty, 0, 0, false);
             }
 
-            var converter = new DomConverter(vocabulary, limit / MinCellMarkup, limit, cancellationToken);
+            var converter = new DomConverter(vocabulary, limit / MinCellMarkup, guard.MaxDomDepth, net.Token);
             var blocks = converter.Convert(document.Body);
 
-            var writer = new CanonicalWriter(vocabulary, limit, converter.DroppedWhitespace);
+            var writer = new CanonicalWriter(vocabulary, limit);
             writer.Write(blocks);
+
+            // US-4 "Limits come before the empty rule": a value with nothing in it is stored as "" and its size is
+            // what was read; a value with content is bounded by what is written (BR-RT-7 (2): the reduced markup).
+            if (!writer.HasContent && writer.MarkupLength + converter.DroppedWhitespace > limit)
+            {
+                return RichTextReduction.OverTheBound;
+            }
 
             return new RichTextReduction(
                 false, writer.Html, (int)writer.MarkupLength, (int)writer.VisibleLength, writer.HasContent);
@@ -109,9 +182,54 @@ internal sealed class HtmlRichTextReducer : IRichTextReducer, IDisposable
         {
             return RichTextReduction.OverTheBound;
         }
+        catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new RichTextReductionAbortedException("The reduction passed its safety net.", exception);
+        }
         finally
         {
             document.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Watches the tree as the parser builds it, from its element hook: the nesting of the previously created element
+    /// (read from the tree itself, so it is exact) and the number of elements are bounded deterministically, and the
+    /// stack is checked, so a recursion nobody foresaw ends as a server error, not a dead process.
+    /// </summary>
+    private sealed class TreeWatcher(RichTextGuardLimits limits)
+    {
+        private IElement? previous;
+        private int created;
+        private long work;
+
+        public void Created(IElement element, AngleSharp.Text.TextPosition position)
+        {
+            RuntimeHelpers.EnsureSufficientExecutionStack();
+
+            if (++created > limits.MaxElements)
+            {
+                throw new RichTextBudgetExceededException();
+            }
+
+            if (previous is not null)
+            {
+                var depth = 0;
+
+                for (var node = previous.ParentElement; node is not null; node = node.ParentElement)
+                {
+                    depth++;
+                }
+
+                work += depth + 1;
+
+                if (depth > limits.MaxDomDepth || work > limits.MaxTreeWork)
+                {
+                    throw new RichTextBudgetExceededException();
+                }
+            }
+
+            previous = element;
         }
     }
 

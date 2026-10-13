@@ -263,8 +263,10 @@ free of third-party packages; the domain keeps the format enum, the limits and
 the order they are applied in (`WorkItemText`). The closed class vocabularies and
 the shared fixtures live in `contracts/rich-text/` (see `contracts/README.md`):
 a token is never written as a literal in server code. The reduction is a
-security boundary: hostile nesting is bounded by a work budget on the parse, the
-walkers are iterative, and the hostile corpus is a permanent test input.
+security boundary: what it accepts or refuses is decided by deterministic
+structural bounds computed from the input (never by a clock), the parser runs on
+a dedicated large-stack thread behind an async gate, the walkers are iterative,
+and the hostile corpus is a permanent test input.
 
 ## Named values
 

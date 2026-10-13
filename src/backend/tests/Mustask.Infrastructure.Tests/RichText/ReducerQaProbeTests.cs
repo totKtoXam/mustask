@@ -253,7 +253,7 @@ public sealed class ReducerQaProbeTests(ITestOutputHelper output)
     // budget must not turn a document whose reduced markup is below the ceiling into a refusal. QA D-5 (minor): 840 000
     // of reduced markup plus 350 000 of dropped indentation is refused. Recorded, not sent back; the panel never
     // sends indented html. Skipped so that a minor does not keep the suite red.
-    [Fact(Skip = "QA D-5 (minor, carried to gate-3): dropped whitespace between blocks counts against the markup ceiling")]
+    [Fact]
     public void QA_Reduce_IndentedHtml_ReducedBelowTheCeiling_IsAccepted()
     {
         // 90 000 paragraphs of 5 characters (about 11 units each reduced: 990 000) spaced by 1 000 000 - ... of indent
@@ -359,11 +359,13 @@ public sealed class ReducerQaProbeTests(ITestOutputHelper output)
     // QA D-2 (major): the parse budget is a cancellation token, and AngleSharp checks it between tokens, not inside
     // one. A single start tag with many distinct attribute names is quadratic inside the token (duplicate check), so
     // the budget never fires: 1.79 M units ran 441 s on the QA machine. The sizes below are what the probe measured.
-    [Theory(Skip = "QA D-2: 10 000 attributes take 2.6 s, 20 000 take 7.7 s, 40 000 take 30 s; un-skip when fixed")]
+    [Theory]
+    [InlineData(65)]
     [InlineData(10_000)]
     [InlineData(20_000)]
     [InlineData(40_000)]
-    public void QA_Reduce_ManyDistinctAttributesInOneTag_IsAnsweredWithinTheNfr(int attributes)
+    [InlineData(190_000)]
+    public void QA_Reduce_ManyDistinctAttributesInOneTag_IsRefusedAtOnce(int attributes)
     {
         var input = "<p " + string.Concat(Enumerable.Range(0, attributes).Select(i => $"a{i}=1 ")) + ">x";
 
@@ -372,7 +374,17 @@ public sealed class ReducerQaProbeTests(ITestOutputHelper output)
         watch.Stop();
 
         output.WriteLine($"attributes={attributes} units={input.Length} elapsed={watch.ElapsedMilliseconds} ms exceeded={reduction.Exceeded}");
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(2.5), $"{attributes} attributes took {watch.Elapsed}.");
+        Assert.True(reduction.Exceeded);
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(1), $"{attributes} attributes took {watch.Elapsed}.");
+    }
+
+    // The same tag at the bound is read: the bound is on the count, nothing else (QA D-2, deterministic).
+    [Fact]
+    public void QA_Reduce_SixtyFourAttributesInOneTag_AreAccepted()
+    {
+        var input = "<p " + string.Concat(Enumerable.Range(0, 64).Select(i => $"a{i}=1 ")) + ">x</p>";
+
+        Assert.Equal("<p>x</p>", Stored(input));
     }
 
     // QA D-1 (blocker): consecutive <pre> or <listing> start tags nest AngleSharp's tree builder on the call stack
@@ -380,12 +392,20 @@ public sealed class ReducerQaProbeTests(ITestOutputHelper output)
     // units) overflow a thread-pool thread's stack, which no handler can catch: the whole process dies. The parse
     // budget does not help, the overflow comes in milliseconds. Skipped so that the suite stays runnable while the
     // defect is open (a crash takes the test host down with it); un-skip when it is fixed.
-    [Theory(Skip = "QA D-1: stack overflow kills the process; un-skip when fixed")]
-    [InlineData("<pre>", 400)]
-    [InlineData("<pre>", 400_000)]
-    [InlineData("<listing>", 400)]
-    [InlineData("<pre><listing>", 200_000)]
-    public void QA_Reduce_ConsecutivePreStartTags_AreRefusedNotACrash(string piece, int count)
+    [Theory]
+    // An unclosed pre nests (each is inside the last), so these runs are refused by the nesting bound (160) long
+    // before the parser's recursion could matter; the count bound (1 000) is the second line under it.
+    [InlineData("<pre>", 100, false)]
+    [InlineData("<pre>", 150, false)]
+    [InlineData("<pre>", 400, true)]
+    [InlineData("<pre>", 1_001, true)]
+    [InlineData("<pre>", 400_000, true)]
+    [InlineData("<listing>", 150, false)]
+    [InlineData("<listing>", 400, true)]
+    [InlineData("<pre><listing>", 200_000, true)]
+    [InlineData("<pre>\n", 150, false)]
+    [InlineData("<pre>\n", 1_000, true)]
+    public void QA_Reduce_ConsecutivePreStartTags_AreAnsweredNotACrash(string piece, int count, bool refused)
     {
         var input = string.Concat(Enumerable.Repeat(piece, count)) + "x";
 
@@ -393,8 +413,8 @@ public sealed class ReducerQaProbeTests(ITestOutputHelper output)
         var reduction = Reduce(input);
         watch.Stop();
 
+        Assert.Equal(refused, reduction.Exceeded);
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(2.5), $"Took {watch.Elapsed}.");
-        Assert.NotNull(reduction); // reaching this line at all is the assertion
     }
 
     // --- time: legitimate documents against the parse budget (evidence, not a verdict) ------------------------------
@@ -496,34 +516,27 @@ public sealed class ReducerQaProbeTests(ITestOutputHelper output)
 
         output.WriteLine(
             $"{name}: units={input.Length} reduce[ms]={string.Join("/", samples)} exceeded={string.Join("/", exceeded)} "
-            + $"parse-only[ms]={parseWatch.ElapsedMilliseconds} elements={nodes} reducedMarkup={markup} budget=1500");
+            + $"parse-only[ms]={parseWatch.ElapsedMilliseconds} elements={nodes} reducedMarkup={markup}");
 
-        // Evidence only (QA R-1): whether a legitimate document is refused here depends on the host, so it is not asserted.
+        // QA R-1, closed: the answer is a function of the input alone (deterministic bounds, no wall clock), so a
+        // legitimate document up to the ceiling is accepted on any host, every time.
+        Assert.All(exceeded, wasExceeded => Assert.False(wasExceeded, $"{name} was refused."));
     }
 
-    // How much of the 1 500 ms a legitimate document uses: the smallest budget of a ladder that still accepts it, on a
-    // fresh reducer each time (so each rung is cold for the reducer but warm for the JIT after the first), idle and with
-    // one busy thread per core standing in for a loaded or slower host.
+    // QA R-1: the same answer under load. One busy thread per core stands in for a slower or contended host; the
+    // documents the spec insists are storable (US-4 legacy worst case, ceiling-sized tables and lists) are accepted.
     [Theory]
-    [InlineData("table-10col-canonical", false)]
-    [InlineData("table-10col-canonical", true)]
-    [InlineData("nested-lists-canonical", false)]
-    [InlineData("nested-lists-canonical", true)]
-    [InlineData("table-1col-canonical", true)]
-    [InlineData("table-10col-250k", true)]
-    [InlineData("table-10col-500k", true)]
-    [InlineData("table-10col-500k", false)]
-    [InlineData("legacy-100001-empty-paragraphs", false)]
-    [InlineData("legacy-100001-empty-paragraphs", true)]
-    [InlineData("legacy-100000-ampersands", true)]
-    public void QA_Reduce_LegitimateLargeDocument_SmallestAcceptingBudget(string name, bool loaded)
+    [InlineData("table-10col-canonical")]
+    [InlineData("table-1col-canonical")]
+    [InlineData("nested-lists-canonical")]
+    [InlineData("legacy-100001-empty-paragraphs")]
+    [InlineData("legacy-100000-ampersands")]
+    public void QA_Reduce_LegitimateLargeDocument_IsAcceptedUnderLoad(string name)
     {
         var input = name switch
         {
             "table-10col-canonical" => TableDoc(10, 1_000_000, header: true),
             "table-1col-canonical" => TableDoc(1, 1_000_000, header: false),
-            "table-10col-250k" => TableDoc(10, 250_000, header: true),
-            "table-10col-500k" => TableDoc(10, 500_000, header: true),
             "legacy-100001-empty-paragraphs" => string.Concat(Enumerable.Repeat("<p></p>", 100_001)),
             "legacy-100000-ampersands" => "<p>" + string.Concat(Enumerable.Repeat("&amp;", 100_000)) + "</p>",
             _ => NestedLists(1_000_000),
@@ -532,43 +545,35 @@ public sealed class ReducerQaProbeTests(ITestOutputHelper output)
         using var stop = new CancellationTokenSource();
         var busy = new List<Thread>();
 
-        if (loaded)
+        for (var index = 0; index < Environment.ProcessorCount; index++)
         {
-            for (var index = 0; index < Environment.ProcessorCount; index++)
+            var thread = new Thread(() =>
             {
-                var thread = new Thread(() =>
+                var x = 0L;
+
+                while (!stop.IsCancellationRequested)
                 {
-                    var x = 0L;
+                    x++;
+                }
 
-                    while (!stop.IsCancellationRequested)
-                    {
-                        x++;
-                    }
-
-                    GC.KeepAlive(x);
-                });
-                thread.IsBackground = true;
-                thread.Start();
-                busy.Add(thread);
-            }
+                GC.KeepAlive(x);
+            })
+            {
+                IsBackground = true,
+            };
+            thread.Start();
+            busy.Add(thread);
         }
 
         try
         {
-            // warm the JIT once with the generous budget, as the process would be after its first request
-            new HtmlRichTextReducer(Vocabulary, new RichTextOptions { ParseBudgetMilliseconds = 60_000 })
-                .Reduce(input, new RichTextReductionLimits(Ceiling), CancellationToken.None);
+            var watch = Stopwatch.StartNew();
+            var first = Reduce(input);
+            watch.Stop();
+            output.WriteLine($"{name} loaded: {watch.ElapsedMilliseconds} ms exceeded={first.Exceeded}");
 
-            var accepted = new List<string>();
-
-            foreach (var budget in new[] { 100, 200, 300, 400, 500, 600, 800, 1000, 1250, 1500 })
-            {
-                var reducer = new HtmlRichTextReducer(Vocabulary, new RichTextOptions { ParseBudgetMilliseconds = budget });
-                var result = reducer.Reduce(input, new RichTextReductionLimits(Ceiling), CancellationToken.None);
-                accepted.Add($"{budget}:{(result.Exceeded ? "refused" : "ok")}");
-            }
-
-            output.WriteLine($"{name} loaded={loaded} cores={Environment.ProcessorCount}: {string.Join(" ", accepted)}");
+            Assert.False(first.Exceeded);
+            Assert.Equal(first.Html, Reduce(input).Html);
         }
         finally
         {
@@ -581,22 +586,30 @@ public sealed class ReducerQaProbeTests(ITestOutputHelper output)
         }
     }
 
-    // The mechanism, shown directly: the same legitimate document is accepted or refused depending on the budget only,
-    // i.e. on how fast the host is. A tenth of the default stands in for a host ten times slower.
+    // QA R-1: the safety net is a server error, never a refusal reason; what the reduction accepts or refuses does not
+    // depend on it. A one-millisecond net abandons a ceiling-sized document with an exception.
     [Fact]
-    public void QA_Reduce_SameLegitimateDocument_DependsOnHostSpeedThroughTheBudget()
+    public void QA_Reduce_SafetyNet_IsAServerErrorNotARefusal()
     {
         var input = TableDoc(10, 1_000_000, header: true);
-        var generous = new HtmlRichTextReducer(Vocabulary, new RichTextOptions { ParseBudgetMilliseconds = 60_000 });
-        var tight = new HtmlRichTextReducer(Vocabulary, new RichTextOptions { ParseBudgetMilliseconds = 5 });
+        var impatient = new HtmlRichTextReducer(Vocabulary, new RichTextOptions { SafetyNetMilliseconds = 1 });
 
+        Assert.Throws<RichTextReductionAbortedException>(
+            () => impatient.Reduce(input, new RichTextReductionLimits(Ceiling), CancellationToken.None));
+
+        // The same document with the default net is accepted: only the net differs.
+        Assert.False(Reduce(input).Exceeded);
+    }
+
+    // QA R-1: the same input gives the same answer however often it is asked, on a reducer of any size.
+    [Fact]
+    public void QA_Reduce_Answer_IsAFunctionOfTheInputOnly()
+    {
+        var hostile = "<p " + string.Concat(Enumerable.Range(0, 1_000).Select(i => $"a{i}=1 ")) + ">x";
+        var small = new HtmlRichTextReducer(Vocabulary, new RichTextOptions { MaxConcurrentReductions = 1 });
         var limits = new RichTextReductionLimits(Ceiling);
-        var accepted = generous.Reduce(input, limits, CancellationToken.None);
-        var refused = tight.Reduce(input, limits, CancellationToken.None);
 
-        Assert.False(accepted.Exceeded);
-        Assert.True(accepted.MarkupLength <= Ceiling);
-        output.WriteLine($"markup={accepted.MarkupLength}: budget 60000 ms exceeded={accepted.Exceeded}; budget 5 ms exceeded={refused.Exceeded}");
-        Assert.True(refused.Exceeded, "documented: expiry is 'exceeded' whatever the input's size");
+        Assert.All(Enumerable.Range(0, 3), _ => Assert.True(small.Reduce(hostile, limits, CancellationToken.None).Exceeded));
+        Assert.All(Enumerable.Range(0, 3), _ => Assert.False(small.Reduce("<p>a</p>", limits, CancellationToken.None).Exceeded));
     }
 }

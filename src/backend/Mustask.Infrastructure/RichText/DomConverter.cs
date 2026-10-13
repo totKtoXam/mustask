@@ -23,7 +23,7 @@ internal sealed class DomConverter
 
     private readonly RichTextVocabulary vocabulary;
     private readonly long maxPositions;
-    private readonly long droppedLimit;
+    private readonly int maxDepth;
     private readonly CancellationToken cancellationToken;
 
     private readonly List<Container> containers = [];
@@ -36,11 +36,11 @@ internal sealed class DomConverter
     private long droppedWhitespace;
     private int visited;
 
-    public DomConverter(RichTextVocabulary vocabulary, long maxPositions, long droppedLimit, CancellationToken cancellationToken)
+    public DomConverter(RichTextVocabulary vocabulary, long maxPositions, int maxDepth, CancellationToken cancellationToken)
     {
         this.vocabulary = vocabulary;
         this.maxPositions = maxPositions;
-        this.droppedLimit = droppedLimit;
+        this.maxDepth = maxDepth;
         this.cancellationToken = cancellationToken;
     }
 
@@ -86,6 +86,13 @@ internal sealed class DomConverter
                 if (Enter(next))
                 {
                     stack.Push(next);
+
+                    // The parser's own nesting is bounded while it builds (the tree watcher); this is the same bound
+                    // on what the walk meets, so the answer never depends on which of them noticed first.
+                    if (stack.Count > maxDepth)
+                    {
+                        throw new RichTextBudgetExceededException();
+                    }
                 }
                 else
                 {
@@ -312,11 +319,6 @@ internal sealed class DomConverter
             {
                 // Whitespace between blocks is dropped, but it was read: it counts against the budget.
                 droppedWhitespace += CodePoints(data);
-
-                if (droppedWhitespace > droppedLimit)
-                {
-                    throw new RichTextBudgetExceededException();
-                }
 
                 return;
             }

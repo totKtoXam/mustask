@@ -207,16 +207,9 @@ public sealed class SaveWorkItemDescriptionQaTests(MustaskApiFactory factory, IT
         watch.Stop();
 
         output.WriteLine($"markup={html.Length} save={watch.ElapsedMilliseconds} ms status={(int)saved.Status} body={(saved.Status == HttpStatusCode.OK ? "ok" : saved.Body.GetProperty("errors").GetRawText())}");
-        if (saved.Status != HttpStatusCode.OK)
-        {
-            Assert.Equal(HttpStatusCode.BadRequest, saved.Status);
-            Assert.Equal(
-                "workitems.workitem.description_markup_too_large",
-                saved.Body.GetProperty("errors").GetProperty("description").EnumerateArray().Single().GetProperty("code").GetString());
 
-            return;
-        }
-
+        // R-1, closed: the bounds are deterministic, so a legitimate document is stored on any host.
+        Assert.Equal(HttpStatusCode.OK, saved.Status);
         Assert.Equal(html, saved.Body.GetProperty("description").GetString());
 
         var reopened = await WorkItemsTestData.ReadAsync(factory, world, bug);

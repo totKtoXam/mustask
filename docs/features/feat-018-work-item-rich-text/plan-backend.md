@@ -268,7 +268,7 @@ is pinned: `AngleSharp` 1.7.2.
 | Q3 | Class match is exact and case-sensitive; tab splits, U+00A0 does not. | Same as US-7, but tokens must be bound to elements and written from the table: ours. |
 | Q4 | Kept `//evil.example`, `#frag`, `/x` as links; trimmed C0 and removed tab inside the scheme correctly. | `LinkAddress.TryRead` is the rule (as expected), the library's check is not enough. |
 | Q6a | **`HtmlParser.ParseFragment(html, bodyContext)` is quadratic in the number of sibling elements**: 4 000 `<p>` 1.3 s, 16 000 `<p>` 28 s, 40 000 `<p><b>` 390 s. `ParseDocument("<!DOCTYPE html><html><head></head><body>" + html)` is near linear: 1.15 M units (64 000 `<p>`) 0.34 s, 1.6 M units `<p><b>` 0.62 s, 2.3 M units of tables 1.1 s. | Reducer parses as a document after an explicit `<body>` (same "in body" insertion mode as the fragment case). `ParseFragment` is never used on input. |
-| Q6b | **Parse time is quadratic in nesting depth** (tree builder's scope checks): `<b>` 16 000 deep 1.3 s, 64 000 deep 18 s; `<div>` 64 000 deep 58 s; `<table>` 32 000 deep 43 s. A 2 000 000-unit hostile input (hundreds of thousands deep) would take hours. No stack overflow was seen up to 64 000 deep. | Not solvable "in our walker": the parse itself is the hazard. The reducer parses with a **work budget (cancellation after `RichText:ParseBudgetMilliseconds`, default 1 500)** and treats expiry as `Exceeded` (refused with `description_markup_too_large`, the existing reason). Legitimate input parses in well under 0.7 s at the ceiling. Reported to the orchestrator as a deviation (§ 14 item 3 said "never a new refusal reason"; no new reason, but a new refusal condition). |
+| Q6b | **Parse time is quadratic in nesting depth** (tree builder's scope checks): `<b>` 16 000 deep 1.3 s, 64 000 deep 18 s; `<div>` 64 000 deep 58 s; `<table>` 32 000 deep 43 s. A 2 000 000-unit hostile input (hundreds of thousands deep) would take hours. No stack overflow was seen up to 64 000 deep. | **Superseded by § 6.3** (the wall-clock budget below was withdrawn after QA R-1; deterministic bounds replace it). Not solvable "in our walker": the parse itself is the hazard. The reducer parses with a **work budget (cancellation after `RichText:ParseBudgetMilliseconds`, default 1 500)** and treats expiry as `Exceeded` (refused with `description_markup_too_large`, the existing reason). Legitimate input parses in well under 0.7 s at the ceiling. Reported to the orchestrator as a deviation (§ 14 item 3 said "never a new refusal reason"; no new reason, but a new refusal condition). |
 | Q5, Q7 | Not probed in the spike (Q5 is moot with S2: attributes are read, never kept, by our walker; the spike's Q7 probe was cut short by the Q6b hang). | The mXSS round trip is a permanent test instead: the stored value is re-parsed by AngleSharp, scripting on and off, and reduced again; it must be identical. |
 
 ### 6.2 As built: decisions the spec left to the implementation (stage 04b)
@@ -306,6 +306,43 @@ Each is covered by a fixture case or a rules test; the editor's normaliser
   is built.
 - **Concurrency gate and options** are `RichText:MaxConcurrentReductions` and
   `RichText:ParseBudgetMilliseconds` (configuration section `RichText`).
+
+### 6.3 Defect loop 1 (QA D-1..D-7, R-1, R-2): deterministic bounds replace the parse budget
+
+§ 6.1's wall-clock parse budget is **withdrawn**: it made the same document accepted or refused depending on the
+host (QA R-1), did not fire inside one token (D-2) and did not stop a stack overflow (D-1). What a reduction
+accepts or refuses is now a function of the input alone; the clock survives only as a safety net that answers a
+server error. In the order they run (`RichTextInputGuard`, `HtmlRichTextReducer`):
+
+| # | Bound | Value | Where | Why legitimate input is far inside it |
+|---|---|---|---|---|
+| 1 | raw request value | 2 000 000 units | handler (domain) | unchanged |
+| 2 | length of a value holding tree-builder markup: `<!`, `<?`, script, style, title, textarea, xmp, iframe, noembed, noframes, noscript, plaintext, svg, math, select, option, optgroup, frameset, frame, template | 8 000 units | guard | the panel sends allow-list markup; its tokenizer-exactness is only claimed without these |
+| 3 | start and end tag tokens | 350 000 | guard (exact tag tokenization) | ceiling-sized canonical: under 290 000 |
+| 4 | attributes in one tag | 64 | guard | pasted markup carries about ten |
+| 5 | sum of squares of attributes per tag | 8 000 000 | guard | tokenizer duplicate check is quadratic |
+| 6 | `pre` / `listing` start tags | 1 000 | guard | recursion of the tree builder (D-1) |
+| 7 | DOM depth (html and body included) | 160 | tree watcher in the parser's element hook, and the walker | canonical: 17 |
+| 8 | elements the parser creates | 300 000 | tree watcher | canonical ceiling: under 260 000 |
+| 9 | sum over created elements of nesting at creation | 6 000 000 | tree watcher | canonical: under 3 000 000, measured table: 0.4 M |
+
+Refusal is the existing `description_markup_too_large`. Further:
+
+- The parser runs on a **dedicated thread with a 32 MB stack**, never a pool thread. The depth bound (7) already
+  caps the `pre`/`template` recursion at about 160 levels; the stack and
+  `RuntimeHelpers.EnsureSufficientExecutionStack()` in the element hook are the net under it (an overflow that
+  nobody foresaw is a server error, not a dead process). An every-tag-name flood test guards the class.
+- **Safety net** `RichText:SafetyNetMilliseconds` (default 20 000): expiry throws
+  `RichTextReductionAbortedException`, answered by the platform's server error. It never decides acceptance.
+- **Async gate (R-2).** `IRichTextReducer.ReduceAsync`: `SemaphoreSlim.WaitAsync` and a dedicated thread completing a
+  task, so no request thread is blocked while waiting or reducing.
+- **D-3.** a CR (reached by `&#13;`) is written as LF, which is what a re-parse of the stored value gives.
+- **D-5.** The ceiling bounds the reduced markup (BR-RT-7 (2)); the whitespace dropped between blocks counts only for a
+  value with no content, which US-4 requires refused when it is over the ceiling, never stored as "".
+- **D-6.** An address holding `<` or `>` is not kept as a link (its text stays): the serialisation of those in an
+  attribute is not agreed between browser versions, and a URL does not contain them.
+- **D-4.** A lone surrogate cannot reach the reducer over HTTP: the platform's JSON binder refuses it (400
+  `http.bad_request`, nothing stored). The panel replaces lone surrogates itself (BR-RT-8).
 
 ## 7. Handler: `SaveWorkItem`
 

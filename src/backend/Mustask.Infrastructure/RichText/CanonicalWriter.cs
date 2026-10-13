@@ -21,11 +21,10 @@ internal sealed class CanonicalWriter
     private long visible;
     private bool leafSeen;
 
-    public CanonicalWriter(RichTextVocabulary vocabulary, long limit, long alreadyCounted)
+    public CanonicalWriter(RichTextVocabulary vocabulary, long limit)
     {
         this.vocabulary = vocabulary;
         this.limit = limit;
-        markup = alreadyCounted;
     }
 
     public long VisibleLength => visible;
@@ -349,6 +348,12 @@ internal sealed class CanonicalWriter
             {
                 case 0:
                     continue;
+                case '\r':
+                    // A numeric reference to CR survives the parser, but a parse of the written value turns a CR
+                    // into LF: the canonical form is the LF, or the stored value would not be a fixed point (D-3).
+                    builder.Append('\n');
+                    Count(1);
+                    break;
                 case '&':
                     builder.Append("&amp;");
                     Count(5);

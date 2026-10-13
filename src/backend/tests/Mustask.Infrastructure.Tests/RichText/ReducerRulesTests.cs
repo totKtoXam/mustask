@@ -247,15 +247,17 @@ public sealed class ReducerRulesTests
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(4), $"Took {watch.Elapsed}.");
     }
 
-    // A deep but legitimate-looking nesting (a few hundred levels) is reduced, on the default stack, without a crash.
+    // Nesting is bounded by DOM depth (160 including html and body), deterministically: 150 levels are read, 3 000
+    // are refused, and neither depends on how fast the host is.
     [Fact]
-    public void Reduce_ModeratelyDeepNesting_IsReducedIterativelyOnTheCallersStack()
+    public void Reduce_NestingBound_IsDeterministic()
     {
-        var input = string.Concat(Enumerable.Repeat("<div>", 3_000)) + "deep" + string.Concat(Enumerable.Repeat("</div>", 3_000));
+        string Nested(int levels) =>
+            string.Concat(Enumerable.Repeat("<div>", levels)) + "deep" + string.Concat(Enumerable.Repeat("</div>", levels));
 
-        var thread = new Thread(() => Assert.Equal("<p>deep</p>", Stored(input)), 256 * 1024);
-        thread.Start();
-        thread.Join();
+        Assert.Equal("<p>deep</p>", Stored(Nested(150)));
+        Assert.True(Reduce(Nested(160)).Exceeded);
+        Assert.True(Reduce(Nested(3_000)).Exceeded);
     }
 
     // A tag count that would write more table positions than the bound allows is refused before it is built.
