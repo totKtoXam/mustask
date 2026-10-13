@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/018-work-item-rich-text
-- stage: gate-2
+- stage: 04-backend (plan)
 - epic: core/work-items
 - deps: mod-003
 - gates: gate-1, gate-2, gate-3
@@ -11,7 +11,7 @@
 ## Gates
 
 gate-1: approved 2026-10-13 (human, in chat: "Approve" on the amended spec + US-1..US-7, review rounds 3–4 closed; first approved 2026-10-12 on US-1..US-4)
-gate-2: pending
+gate-2: approved 2026-10-13 (human, in chat: "Approve и принять ADR-0027"; syntax highlighting via lowlight decorations is IN scope — design.md D-2 flips and is amended)
 gate-3: pending
 
 ## Plan

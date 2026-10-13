@@ -1,8 +1,11 @@
 # ADR-0027: Store the work item description as server-sanitized HTML with closed class palettes, edited with TipTap beside MUI
 
-- Status: proposed
-- Date: 2026-10-12 (amended 2026-10-13 for the widened scope, D-5..D-7; still
-  `proposed`, only the human accepts)
+- Status: accepted
+- Date: 2026-10-12 (amended 2026-10-13 for the widened scope, D-5..D-7;
+  accepted 2026-10-13 by the human in chat at gate-2 of feat-018, together
+  with syntax highlighting through lowlight as editor decorations; package
+  licences and the highlighter's behaviour are still confirmed at version
+  pin time and on the spike)
 - Context: feat-018-work-item-rich-text, stage 03-design (first design
   artifact, size `L`, spec D-2) — `docs/features/feat-018-work-item-rich-text/`.
   Departs from [ADR-0007](0007-frontend-ui-stack-and-screen-state-canon.md)
