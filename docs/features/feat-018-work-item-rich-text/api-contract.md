@@ -129,9 +129,10 @@ legacy text to html is the displaying client's job (BR-RT-9, D-3).
   reason, same 400, decided from the request value alone (no clock, no host):
   nesting deeper than 160 levels (html and body counted); more than 300 000
   elements; more than 350 000 start and end tags; more than 64 attributes in one
-  tag (or squares of per-tag attribute counts over 8 000 000); more than 1 000
-  `pre`/`listing` start tags; a sum over elements of their nesting over
-  6 000 000; and a value longer than 8 000 units holding any comment,
+  tag (or squares of per-tag attribute counts over 8 000 000); a sum over
+  elements of their nesting over 6 000 000; foster-parenting work over
+  16 000 000 (text or inline content between table tags, charged by the
+  parent's size; canonical output has none); and a value longer than 8 000 units holding any comment,
   declaration, processing instruction, or script, style, title, textarea, xmp,
   iframe, noembed, noframes, noscript, plaintext, svg, math, select, option,
   optgroup, frameset, frame or template markup. The panel's canonical output

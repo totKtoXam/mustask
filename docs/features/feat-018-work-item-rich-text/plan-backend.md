@@ -321,7 +321,8 @@ server error. In the order they run (`RichTextInputGuard`, `HtmlRichTextReducer`
 | 3 | start and end tag tokens | 350 000 | guard (exact tag tokenization) | ceiling-sized canonical: under 290 000 |
 | 4 | attributes in one tag | 64 | guard | pasted markup carries about ten |
 | 5 | sum of squares of attributes per tag | 8 000 000 | guard | tokenizer duplicate check is quadratic |
-| 6 | `pre` / `listing` start tags | 1 000 | guard | recursion of the tree builder (D-1) |
+| 6 | ~~`pre` / `listing` start tags~~ | removed in loop 2 (QA D-9) | | the recursion (D-1) needs a run of unclosed ones, each the child of the last, so bound 7 caps it at about 160 frames; 1 000 closed code blocks are canonical output |
+| 6a | foster-parenting work: sum over inserted nodes and appended characters before a table of the parent's child count | 16 000 000 | tree watcher (child counts, last child, text before it) | canonical output has none; about 4 000 insertions reach it, under 0.1 s (QA D-8) |
 | 7 | DOM depth (html and body included) | 160 | tree watcher in the parser's element hook, and the walker | canonical: 17 |
 | 8 | elements the parser creates | 300 000 | tree watcher | canonical ceiling: under 260 000 |
 | 9 | sum over created elements of nesting at creation | 6 000 000 | tree watcher | canonical: under 3 000 000, measured table: 0.4 M |
