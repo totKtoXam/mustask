@@ -333,6 +333,118 @@
       "input": "<pre><code class=\"language-python\">a = 1</code></pre>",
       "editorOutput": "<pre data-language=\"python\"><code class=\"language-python hljs\">a = 1</code></pre>",
       "canonical": "<pre><code class=\"language-python\">a = 1</code></pre>"
+    },
+    {
+      "id": "br-after-marked-run",
+      "story": "US-7",
+      "note": "A br is written inside the marks open at that point (those of the preceding run), never given marks of its own.",
+      "input": "<p><strong>a</strong><br>b</p>",
+      "canonical": "<p><strong>a<br></strong>b</p>"
+    },
+    {
+      "id": "br-leading-has-no-marks",
+      "story": "US-7",
+      "note": "A leading br has no run before it, so it carries no marks.",
+      "input": "<p><br><strong>a</strong></p>",
+      "canonical": "<p><br><strong>a</strong></p>"
+    },
+    {
+      "id": "blank-by-rune-whitespace",
+      "story": "US-7",
+      "note": "Blank is the Unicode White_Space set as .NET Rune.IsWhiteSpace has it: U+00A0, U+3000 and U+0085 are blank.",
+      "input": "<p>\u00a0</p><p>\u3000</p><p>\u0085</p>",
+      "canonical": ""
+    },
+    {
+      "id": "zero-width-space-is-content",
+      "story": "US-7",
+      "note": "U+200B is not white space (category Cf): the paragraph has content.",
+      "input": "<p>\u200b</p>",
+      "canonical": "<p>\u200b</p>"
+    },
+    {
+      "id": "byte-order-mark-is-content",
+      "story": "US-7",
+      "note": "U+FEFF is not white space for Rune.IsWhiteSpace (a JavaScript \\s would call it so): the paragraph has content.",
+      "input": "<p>\ufeff</p>",
+      "canonical": "<p>\ufeff</p>"
+    },
+    {
+      "id": "nbsp-between-blocks-is-a-paragraph",
+      "story": "US-7",
+      "note": "Only ASCII whitespace between blocks is dropped: a U+00A0 there opens a paragraph.",
+      "input": "<p>a</p>\u00a0<p>b</p>",
+      "canonical": "<p>a</p><p>&nbsp;</p><p>b</p>"
+    },
+    {
+      "id": "link-address-refused-forms",
+      "story": "US-2",
+      "note": "http(s) need // right after the colon and a host; mailto needs an address before any ?. The text stays.",
+      "input": "<p><a href=\"https:example.org\">a</a> <a href=\"https:/x\">b</a> <a href=\"http://\">c</a> <a href=\"http://:80\">d</a> <a href=\"mailto:\">e</a> <a href=\"mailto:?subject=x\">f</a></p>",
+      "canonical": "<p>a b c d e f</p>"
+    },
+    {
+      "id": "link-address-kept-forms",
+      "story": "US-2",
+      "note": "Userinfo is stripped only to find the host; the scheme is matched case-insensitively and written as read.",
+      "input": "<p><a href=\"http://u@h\">u</a> <a href=\"HTTPS://EXAMPLE.ORG\">v</a></p>",
+      "canonical": "<p><a href=\"http://u@h\" rel=\"noopener noreferrer\">u</a> <a href=\"HTTPS://EXAMPLE.ORG\" rel=\"noopener noreferrer\">v</a></p>"
+    },
+    {
+      "id": "rowspan-zero-to-group-end",
+      "story": "US-7",
+      "note": "rowspan 0 means to the end of the row group.",
+      "input": "<table><tr><td rowspan=\"0\">a</td><td>b</td></tr><tr><td>c</td></tr></table>",
+      "canonical": "<table><tbody><tr><td><p>a</p></td><td><p>b</p></td></tr><tr><td><p></p></td><td><p>c</p></td></tr></tbody></table>"
+    },
+    {
+      "id": "rowspan-stops-at-row-group",
+      "story": "US-7",
+      "note": "A rowspan never crosses from thead into tbody.",
+      "input": "<table><thead><tr><th rowspan=\"2\">h</th><th>x</th></tr></thead><tbody><tr><td>a</td><td>b</td></tr></tbody></table>",
+      "canonical": "<table><tbody><tr><th><p>h</p></th><th><p>x</p></th></tr><tr><td><p>a</p></td><td><p>b</p></td></tr></tbody></table>"
+    },
+    {
+      "id": "table-padding-takes-last-cell-element",
+      "story": "US-7",
+      "note": "A short row is padded with the element of its own last cell: here td, after a th.",
+      "input": "<table><tr><th>h</th><td>a</td><td>b</td></tr><tr><th>x</th><td>y</td></tr></table>",
+      "canonical": "<table><tbody><tr><th><p>h</p></th><td><p>a</p></td><td><p>b</p></td></tr><tr><th><p>x</p></th><td><p>y</p></td><td><p></p></td></tr></tbody></table>"
+    },
+    {
+      "id": "empty-list-item",
+      "story": "US-7",
+      "note": "An item with nothing in it is an item with an empty paragraph, never an empty li.",
+      "input": "<p>x</p><ul><li></li></ul>",
+      "canonical": "<p>x</p><ul><li><p></p></li></ul>"
+    },
+    {
+      "id": "item-holding-only-an-empty-list",
+      "story": "US-7",
+      "note": "An item whose only content is a list with no item gets an empty paragraph.",
+      "input": "<p>x</p><ul><li><ul></ul></li></ul>",
+      "canonical": "<p>x</p><ul><li><p></p></li></ul>"
+    },
+    {
+      "id": "empty-table-cell",
+      "story": "US-7",
+      "note": "An empty cell is a cell with an empty paragraph.",
+      "input": "<p>x</p><table><tr><td></td><td>y</td></tr></table>",
+      "canonical": "<p>x</p><table><tbody><tr><td><p></p></td><td><p>y</p></td></tr></tbody></table>"
+    },
+    {
+      "id": "table-caption-before-table",
+      "story": "US-7",
+      "note": "Content the table does not hold in a cell is placed before the table, in a paragraph.",
+      "input": "<table><caption>cap</caption><tr><td>a</td></tr></table>",
+      "canonical": "<p>cap</p><table><tbody><tr><td><p>a</p></td></tr></tbody></table>"
+    },
+    {
+      "id": "nested-links-split",
+      "story": "US-2",
+      "note": "An anchor inside an anchor closes the outer one (the parser's adoption agency); the text after stays outside any link.",
+      "input": "<p><a href=\"https://a.org\">x<a href=\"https://b.org\">y</a>z</a></p>",
+      "canonical": "<p><a href=\"https://a.org\" rel=\"noopener noreferrer\">x</a><a href=\"https://b.org\" rel=\"noopener noreferrer\">y</a>z</p>"
     }
   ]
 }
