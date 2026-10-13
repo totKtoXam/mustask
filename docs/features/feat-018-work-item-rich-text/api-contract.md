@@ -10,6 +10,15 @@ This is an **additive amendment** of mod-003's contract
 renamed, no status code changes. A client that sends no declaration and reads
 only `description` sees today's behaviour exactly (BR-RT-10).
 
+> **Changed after QA (2026-10-13, defect loop 1; orchestrator's note owed in
+> status.md).** The wall-clock parse budget is gone: refusals by size or
+> structure are deterministic (§ 3, "Structural bounds"), still
+> `description_markup_too_large`, 400. New stored-value notes (CR to LF, no
+> `<`/`>` in a kept href), the JSON lone-surrogate wire behaviour, and the
+> safety net answering 500 are in § 3. Shape, fields, routes, codes and
+> statuses are unchanged; only the set of inputs refused with an existing
+> reason widened. Copy proposal for that reason: § 4 notes.
+
 ## 0. Summary
 
 1. `PATCH …/workitems/{identifier}` takes an optional `descriptionFormat`
@@ -112,11 +121,34 @@ legacy text to html is the displaying client's job (BR-RT-9, D-3).
   | # | Check | Over the bound | Reason |
   |---|---|---|---|
   | 1 | the raw request value, UTF-16 code units, **before any parsing** | more than 2 000 000 | `description_markup_too_large` |
-  | 2 | the reduced markup, Unicode code points; the reduction stops as soon as its output passes the bound | more than 1 000 000 | `description_markup_too_large` |
+  | 2 | the reduced markup, Unicode code points; the reduction stops as soon as its output passes the bound; **and the deterministic structural bounds below** | more than 1 000 000, or a structural bound passed | `description_markup_too_large` |
   | 3 | the visible text of the reduced html (BR-RT-8), Unicode code points | more than 100 000 | `description_too_long` |
   | 4 | no non-whitespace character in the visible text | — | stored as `""`, format `plain` (BR-RT-6) |
 
-  A value over both limits gets `description_markup_too_large` only. Checks
+  **Structural bounds of check 2** (QA loop 1; plan-backend § 6.3). Same
+  reason, same 400, decided from the request value alone (no clock, no host):
+  nesting deeper than 160 levels (html and body counted); more than 300 000
+  elements; more than 350 000 start and end tags; more than 64 attributes in one
+  tag (or squares of per-tag attribute counts over 8 000 000); more than 1 000
+  `pre`/`listing` start tags; a sum over elements of their nesting over
+  6 000 000; and a value longer than 8 000 units holding any comment,
+  declaration, processing instruction, or script, style, title, textarea, xmp,
+  iframe, noembed, noframes, noscript, plaintext, svg, math, select, option,
+  optgroup, frameset, frame or template markup. The panel's canonical output
+  is inside all of them; a client sending large non-canonical markup is not.
+  The same input always gets the same answer.
+- **Stored-value notes.** A character reference to CR (`&#13;`) is stored as
+  LF (what a re-parse of the stored value gives). An address containing `<` or
+  `>` is not kept as a link; its text stays (US-2's address rule, extended).
+- **Wire.** A lone surrogate in a JSON string escape is refused by the
+  platform's JSON binder before the handler (400 `http.bad_request`, nothing
+  stored); the U+FFFD replacement of BR-RT-8 applies to what reaches the
+  reducer. The panel replaces lone surrogates itself.
+- **Safety net.** A reduction that is abandoned by a wall-clock bound
+  (`RichText:SafetyNetMilliseconds`, default 20 000) or runs the parser out of
+  stack is a server defect and answers the platform's **500**, never a
+  refusal reason; what is accepted or refused never depends on it.
+- A value over both limits gets `description_markup_too_large` only. Checks
   1–3 come before 4: a blank value over the ceiling is refused, not stored as
   `""`. "Visible text" and "code points" are defined by BR-RT-8 (a lone
   surrogate is replaced by U+FFFD, in the stored html as well and counted 1;
@@ -150,6 +182,15 @@ reason per field (mod-003 § 0.5 is unchanged: the fields of an error are
 
 Notes:
 
+- `description_markup_too_large` also answers the structural bounds of § 3
+  check 2. **Text honesty:** «Слишком много разметки. Упростите форматирование
+  или сократите текст.» fits nesting, element, tag and attribute bounds (too
+  much markup), but "сократите текст" misleads for a short value rejected for
+  holding a comment or a script (8 000-unit rule). Proposal, not applied
+  (`contracts/errors` is unchanged): «Слишком сложная разметка. Упростите
+  форматирование или уберите вставленное содержимое.» The panel never produces
+  these cases (its output is canonical), so the copy is seen only by a foreign
+  client or a defect; the human decides at gate-3 with the catalog diff.
 - The meaning of `description_too_long` widens, its text does not: for
   `plain` it is 100 000 UTF-16 units, for `html` 100 000 code points of
   visible text.
