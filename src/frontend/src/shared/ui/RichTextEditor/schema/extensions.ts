@@ -13,6 +13,8 @@ import { Text } from '@tiptap/extension-text';
 import { Underline } from '@tiptap/extension-underline';
 import { Dropcursor, Gapcursor, Placeholder, UndoRedo } from '@tiptap/extensions';
 import { readLinkAddress } from '../../../lib/richText';
+import { RtAutoLink } from '../behaviour/autoLink';
+import { RtKeyboard } from '../behaviour/keyboard';
 import { RtCodeBlock } from './codeBlock';
 import { RtColor, RtHighlight, RtSize } from './rtMarks';
 import { RtTable, RtTableCell, RtTableHeader, RtTableRow } from './table';
@@ -156,6 +158,8 @@ export function createExtensions(placeholder: string): AnyExtension[] {
       placeholder,
       showOnlyWhenEditable: true,
     }),
+    RtKeyboard,
+    RtAutoLink,
   ];
 }
 
@@ -190,4 +194,6 @@ export const EXTENSION_NAMES = [
   'gapCursor',
   'dropCursor',
   'placeholder',
+  'rtKeyboard',
+  'rtAutoLink',
 ] as const;

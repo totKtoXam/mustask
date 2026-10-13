@@ -19,6 +19,7 @@ export {
 export { normaliseRichText, type NormalisedRichText } from './normalise';
 export { legacyToHtml } from './legacy';
 export { promptAddress, readLinkAddress } from './linkAddress';
+export { findAutoLinks, type AutoLink } from './autolink';
 export {
   DESCRIPTION_COUNTER_FROM,
   DESCRIPTION_MAX_MARKUP,
