@@ -1,0 +1,29 @@
+{
+  "$comment": "feat-018 / ADR-0027 decision 10, plan-frontend § 10.2. Gzipped bytes as `dist/bundle-report.json` measures them (node:zlib, level 6). The baseline is the app's single entry chunk on the branch before the editor was reachable from it. The ceilings are PROPOSED by the developer from the first measurement (slice 3) and wait for the human to confirm or change them (ADR-0027 decision 10); `scripts/check-bundle.mjs` (`npm run bundle:check`, after `npm run build`) holds the build to them.",
+  "status": "proposed",
+  "measured": {
+    "date": "2026-10-13",
+    "slice": "3 (editor core, before marks menus, link dialog, emoji picker, tables, code highlighting)",
+    "entryGzipBytes": 279519,
+    "pureLibraryGzipBytes": 6200,
+    "editorChunkGzipBytes": 161256,
+    "highlighterChunkGzipBytes": 23617,
+    "emojiChunkGzipBytes": 46857
+  },
+  "baseline": {
+    "entryGzipBytes": 279519
+  },
+  "ceilings": {
+    "entryGrowthGzipBytes": 10240,
+    "editorChunkGzipBytes": 225280,
+    "emojiChunkGzipBytes": 53248
+  },
+  "forbiddenInEntryClosure": [
+    "prosemirror",
+    "@tiptap",
+    "lowlight",
+    "highlight.js",
+    "emojibase",
+    "virtual:rich-text-emoji"
+  ]
+}

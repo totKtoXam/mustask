@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview",
+    "bundle:check": "node scripts/check-bundle.mjs",
     "e2e": "playwright test"
   },
   "dependencies": {

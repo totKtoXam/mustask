@@ -80,7 +80,8 @@ function emojiDataPlugin(): Plugin {
 
 /**
  * Build only: writes `bundle-report.json` beside the chunks — per chunk its
- * name, entry flags, gzipped size, static and dynamic imports and module ids —
+ * name, entry flags, gzipped size, static and dynamic imports and modules (id
+ * and rendered bytes) —
  * which `scripts/check-bundle.mjs` reads against `bundle-budget.json`
  * (plan-frontend § 10.2).
  */
@@ -100,7 +101,10 @@ function bundleReportPlugin(): Plugin {
                 gzipBytes: gzipSync(output.code).length,
                 imports: output.imports,
                 dynamicImports: output.dynamicImports,
-                modules: Object.keys(output.modules),
+                modules: Object.entries(output.modules).map(([id, module]) => ({
+                  id,
+                  bytes: module.renderedLength,
+                })),
               },
             ]
           : [],
