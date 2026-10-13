@@ -43,4 +43,27 @@ public sealed class WorkItemsOpenApiTests(MustaskApiFactory factory)
 
         Assert.Equal(ContractOperations.Order(StringComparer.Ordinal), operations);
     }
+
+    // feat-018 api-contract § 1, § 2: the save's body and every work item carry descriptionFormat beside description.
+    [Fact]
+    public async Task OpenApiDocument_WorkItemSchemas_CarryDescriptionFormatBesideDescription()
+    {
+        var response = await factory.CreateClient().GetAsync("/openapi/v1.json");
+        var document = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        var schemas = document.GetProperty("components").GetProperty("schemas").EnumerateObject()
+            .Where(schema => schema.Name.Contains("WorkItem", StringComparison.Ordinal)
+                && schema.Value.TryGetProperty("properties", out var properties)
+                && properties.TryGetProperty("description", out _))
+            .ToList();
+
+        Assert.True(schemas.Count >= 2, "Expected the save request and the work item schemas to carry a description.");
+
+        foreach (var schema in schemas)
+        {
+            Assert.True(
+                schema.Value.GetProperty("properties").TryGetProperty("descriptionFormat", out _),
+                $"{schema.Name} has description but no descriptionFormat.");
+        }
+    }
 }
