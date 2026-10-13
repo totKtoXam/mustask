@@ -3,14 +3,14 @@
 - type: feature
 - size: L
 - branch: feat/018-work-item-rich-text
-- stage: gate-1
+- stage: 03-design
 - epic: core/work-items
 - deps: mod-003
 - gates: gate-1, gate-2, gate-3
 
 ## Gates
 
-gate-1: pending — reopened 2026-10-13 for the scope amendment (was approved 2026-10-12 on spec + US-1..US-4, review rounds 1–2 closed)
+gate-1: approved 2026-10-13 (human, in chat: "Approve" on the amended spec + US-1..US-7, review rounds 3–4 closed; first approved 2026-10-12 on US-1..US-4)
 gate-2: pending
 gate-3: pending
 
