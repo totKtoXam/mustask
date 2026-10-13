@@ -6,6 +6,7 @@
 // `app/` — they read the values through `useTheme()` or an `sx` callback.
 import type { CSSProperties } from '@mui/material/styles/createMixins';
 import type { DensityTokens, LayoutTokens, ShellPalette } from './tokens';
+import type { RichTextTheme } from './richText';
 import type { WorkTrackingLookups } from './workTracking';
 
 declare module '@mui/material/styles' {
@@ -19,6 +20,8 @@ declare module '@mui/material/styles' {
     layout: LayoutTokens;
     density: DensityTokens;
     workTracking: WorkTrackingLookups;
+    /** The colours the rich-text class tokens stand for (feat-018 design § Palettes). */
+    richText: RichTextTheme;
     /** The soft glow round the backlog's card (feat-027 design § 2.6). */
     cardShadow: string;
   }
