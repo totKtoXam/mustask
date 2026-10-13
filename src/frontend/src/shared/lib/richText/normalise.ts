@@ -189,8 +189,11 @@ class RootContainer extends Container {
 class ListContainer extends Container {
   private implicitItem: ItemBlock | null = null;
 
-  constructor(readonly list: ListBlock) {
+  readonly list: ListBlock;
+
+  constructor(list: ListBlock) {
     super();
+    this.list = list;
   }
 
   resetImplicit(): void {
@@ -208,8 +211,11 @@ class ListContainer extends Container {
 }
 
 class ItemContainer extends Container {
-  constructor(private readonly item: ItemBlock) {
+  private readonly item: ItemBlock;
+
+  constructor(item: ItemBlock) {
     super();
+    this.item = item;
   }
 
   add(block: Block): void {
@@ -221,8 +227,11 @@ class TableContainer extends Container {
   /** Text and blocks outside any cell are put before the table, where a parser foster-parents them. */
   readonly before: Block[] = [];
 
-  constructor(readonly table: TableBlock) {
+  readonly table: TableBlock;
+
+  constructor(table: TableBlock) {
     super();
+    this.table = table;
   }
 
   add(block: Block): void {
@@ -231,11 +240,13 @@ class TableContainer extends Container {
 }
 
 class RowContainer extends Container {
-  constructor(
-    private readonly tableContainer: TableContainer,
-    readonly row: RowBlock,
-  ) {
+  private readonly tableContainer: TableContainer;
+  readonly row: RowBlock;
+
+  constructor(tableContainer: TableContainer, row: RowBlock) {
     super();
+    this.tableContainer = tableContainer;
+    this.row = row;
   }
 
   add(block: Block): void {
@@ -244,8 +255,11 @@ class RowContainer extends Container {
 }
 
 class CellContainer extends Container {
-  constructor(private readonly cell: CellBlock) {
+  private readonly cell: CellBlock;
+
+  constructor(cell: CellBlock) {
     super();
+    this.cell = cell;
   }
 
   add(block: Block): void {
@@ -290,10 +304,13 @@ class DomConverter {
 
   droppedWhitespace = 0;
 
-  constructor(
-    private readonly maxPositions: number,
-    private readonly droppedLimit: number,
-  ) {}
+  private readonly maxPositions: number;
+  private readonly droppedLimit: number;
+
+  constructor(maxPositions: number, droppedLimit: number) {
+    this.maxPositions = maxPositions;
+    this.droppedLimit = droppedLimit;
+  }
 
   convert(body: Element): Block[] {
     const root = new RootContainer();
@@ -763,10 +780,10 @@ class CanonicalWriter {
   visibleLength = 0;
   hasContent = false;
 
-  constructor(
-    private readonly limit: number,
-    alreadyCounted: number,
-  ) {
+  private readonly limit: number;
+
+  constructor(limit: number, alreadyCounted: number) {
+    this.limit = limit;
     this.markup = alreadyCounted;
   }
 

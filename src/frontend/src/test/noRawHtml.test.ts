@@ -69,7 +69,11 @@ function productSources(directory: string): string[] {
     if (statSync(full).isDirectory()) {
       if (entry === 'test') continue;
       result.push(...productSources(full));
-    } else if (/\.(ts|tsx)$/.test(entry) && !/\.test\.(ts|tsx)$/.test(entry) && !entry.endsWith('.d.ts')) {
+    } else if (
+      /\.(ts|tsx)$/.test(entry) &&
+      !/\.test\.(ts|tsx)$/.test(entry) &&
+      !entry.endsWith('.d.ts')
+    ) {
       result.push(full);
     }
   }
@@ -109,7 +113,8 @@ describe('no raw html reaches the page (BR-RT-12)', () => {
   it('is clean across the product sources', () => {
     const findings = productSources(SRC).flatMap((file) =>
       findRawHtml(file, readFileSync(file, 'utf8')).map(
-        (finding) => `${path.relative(SRC, file).replaceAll('\\', '/')}:${finding.line} ${finding.what}`,
+        (finding) =>
+          `${path.relative(SRC, file).replaceAll('\\', '/')}:${finding.line} ${finding.what}`,
       ),
     );
 

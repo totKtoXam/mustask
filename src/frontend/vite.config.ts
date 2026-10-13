@@ -50,7 +50,9 @@ function emojiDataPlugin(): Plugin {
     load(id) {
       if (id !== EMOJI_RESOLVED) return undefined;
 
-      const entries = JSON.parse(readFileSync(dataFile('compact.json'), 'utf8')) as EmojibaseEntry[];
+      const entries = JSON.parse(
+        readFileSync(dataFile('compact.json'), 'utf8'),
+      ) as EmojibaseEntry[];
       const messages = JSON.parse(readFileSync(dataFile('messages.json'), 'utf8')) as {
         groups: EmojibaseGroup[];
       };

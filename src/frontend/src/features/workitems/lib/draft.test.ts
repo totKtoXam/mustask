@@ -33,6 +33,7 @@ const ITEM: WorkItem = {
   type: { id: 'type-bug', key: 'BUG', name: 'Баг', appearance: 'bug' },
   title: 'Падение при входе',
   description: '',
+  descriptionFormat: 'plain',
   state: {
     id: 'state-active',
     name: 'Активна',

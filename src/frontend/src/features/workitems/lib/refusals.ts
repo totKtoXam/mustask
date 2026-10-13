@@ -63,12 +63,24 @@ const VALIDATED_FIELDS: Readonly<Record<string, RefusalField>> = {
 };
 
 /**
+ * Field reasons the server reports under a field's name but that are a defect
+ * of the panel, not a value the user typed: they go to the form's banner, never
+ * under the field. feat-022's `field_not_on_type` (the panel never sends a
+ * field the type lacks) and feat-018's `description_format_unknown` (api-
+ * contract § 4: reported under `errors.description`, shown in the banner).
+ */
+const BANNER_REASONS: ReadonlySet<string> = new Set([
+  workItemErrorCodes.fieldNotOnType,
+  workItemErrorCodes.descriptionFormatUnknown,
+]);
+
+/**
  * Places a write's refusal by its `errorCode` alone, never by its text
  * (frontend.md "Named values"). The text is always the server's: the answer's
  * `detail`, or a field reason's own `detail`. A field reason about `requestId`
- * or `page` — a panel defect — a code about a field the screen lacks, and
- * feat-022's `field_not_on_type` — the panel never sends such a field — go to
- * the `Alert`.
+ * or `page` — a panel defect — a code about a field the screen lacks, feat-022's
+ * `field_not_on_type` — the panel never sends such a field — and feat-018's
+ * `description_format_unknown` go to the `Alert`.
  */
 export function placeRefusal(error: unknown, fields: readonly RefusalField[]): PlacedRefusal {
   const frame = notFoundLevel(error);
@@ -87,8 +99,7 @@ export function placeRefusal(error: unknown, fields: readonly RefusalField[]): P
       if (!detail) {
         continue;
       }
-      const field =
-        reasons[0]?.code === workItemErrorCodes.fieldNotOnType ? undefined : VALIDATED_FIELDS[name];
+      const field = BANNER_REASONS.has(reasons[0]?.code ?? '') ? undefined : VALIDATED_FIELDS[name];
       if (field && fields.includes(field)) {
         placed.fields[field] = detail;
       } else {

@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sampleProcessDefinition } from '../process/testFixtures';
 import type { WorkItemType } from '../process';
-import type { WorkItemFields } from './api/workItemsApi';
+import type { DescriptionFormat, WorkItemFields } from './api/workItemsApi';
 import { WORK_ITEM_FIELD_NAMES, fieldsOf } from './lib/fields';
 
 /** The base URL is `test.env.VITE_API_BASE_URL` in vite.config.ts. */
@@ -100,6 +100,8 @@ export interface WorkItemRecord {
   typeId: string;
   title: string;
   description: string;
+  /** feat-018: how `description` is stored; absent is `plain` (every pre-editor row). */
+  descriptionFormat?: DescriptionFormat;
   stateId: string;
   assigneeId: string | null;
   areaId: string;

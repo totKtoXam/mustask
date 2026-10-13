@@ -212,6 +212,30 @@ describe('placeRefusal: the fields per type (feat-022 spec § Error codes; api-c
     expect(placed).toEqual({ fields: {}, alert: text, frame: null });
   });
 
+  it('feat-018: the two limit reasons of the description are its field error', () => {
+    for (const [code, text] of [
+      ['workitems.workitem.description_too_long', 'Не более 100 000 символов.'],
+      [
+        'workitems.workitem.description_markup_too_large',
+        'Слишком много разметки. Упростите форматирование или сократите текст.',
+      ],
+    ] as const) {
+      const placed = placeRefusal(fieldReasons({ description: [code, text] }), FORM);
+
+      expect(placed).toEqual({ fields: { description: text }, alert: null, frame: null });
+    }
+  });
+
+  it('feat-018: `description_format_unknown` goes to the banner, though reported under the description', () => {
+    const text = 'Неизвестный формат описания. Обновите страницу и попробуйте ещё раз.';
+    const placed = placeRefusal(
+      fieldReasons({ description: ['workitems.workitem.description_format_unknown', text] }),
+      FORM,
+    );
+
+    expect(placed).toEqual({ fields: {}, alert: text, frame: null });
+  });
+
   it('a reason about a field the type’s form lacks goes to the Alert, beside a placed one', () => {
     const placed = placeRefusal(
       fieldReasons({

@@ -36,14 +36,16 @@ export default tseslint.config(
         'error',
         {
           selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
-          message: 'Stored html is never assigned to the page (BR-RT-12): render it through the editor schema.',
+          message:
+            'Stored html is never assigned to the page (BR-RT-12): render it through the editor schema.',
         },
       ],
       'no-restricted-properties': [
         'error',
         ...['innerHTML', 'outerHTML', 'insertAdjacentHTML'].map((property) => ({
           property,
-          message: 'Stored html is never assigned to the page (BR-RT-12): render it through the editor schema.',
+          message:
+            'Stored html is never assigned to the page (BR-RT-12): render it through the editor schema.',
         })),
       ],
     },
