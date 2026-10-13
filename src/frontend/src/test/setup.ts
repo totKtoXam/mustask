@@ -4,6 +4,8 @@ import { cleanup, configure } from '@testing-library/react';
 import { resetSessionModule } from '../shared/api/session';
 import { server } from './mocks/server';
 import { installMatchMedia, resetViewport } from './viewport';
+// Additive jsdom geometry stubs for the rich-text editor (feat-018, plan § 12.2).
+import './richTextDom';
 
 // jsdom has no matchMedia: the stub answers MUI's useMediaQuery for a
 // 1440 px window with motion allowed, unless a test sets otherwise
