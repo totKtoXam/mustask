@@ -254,6 +254,23 @@ and writer are ours; the sanitizer's contribution is the parse, the
 element/attribute/scheme allow-list and its field time against hostile
 input. The security-relevant tests do not change with the choice.
 
+### 6.1 Spike result (stage 04b, 2026-10-13)
+
+Throwaway console against `HtmlSanitizer` 9.2.1039 and `AngleSharp` 1.7.2
+(Release build, .NET 10). **Decision: S2, AngleSharp alone with our own
+walker. `HtmlSanitizer` and `AngleSharp.Css` are not added.** Only one package
+is pinned: `AngleSharp` 1.7.2.
+
+| Q | Finding | Consequence |
+|---|---|---|
+| Q1 | With `KeepChildNodes` on, the content of `script`, `style`, `noscript`, `iframe` is **kept as text** (`<script>alert(1)</script>x` gives `alert(1)x`); with it off, an unlisted `div`/`font` is dropped with its text. The drop-with-content vs unwrap split of US-2 is not expressible by configuration. AngleSharp parses `svg`/`math` children as foreign elements (an `img onerror` inside `svg style` is an element in the svg subtree). Comments and `<![CDATA[` outside foreign content arrive as comment nodes. | The allow-list stage is ours (S1's own condition for falling back). |
+| Q2 | `Sanitize*` is string to string, or `SanitizeDom(IHtmlDocument, IHtmlElement, ...)`; either way its filter then needs a second pass of ours (class tokens per element, link rule, canonical pass). | Nothing gained from the library but a second configuration to keep equal to ours. |
+| Q3 | Class match is exact and case-sensitive; tab splits, U+00A0 does not. | Same as US-7, but tokens must be bound to elements and written from the table: ours. |
+| Q4 | Kept `//evil.example`, `#frag`, `/x` as links; trimmed C0 and removed tab inside the scheme correctly. | `LinkAddress.TryRead` is the rule (as expected), the library's check is not enough. |
+| Q6a | **`HtmlParser.ParseFragment(html, bodyContext)` is quadratic in the number of sibling elements**: 4 000 `<p>` 1.3 s, 16 000 `<p>` 28 s, 40 000 `<p><b>` 390 s. `ParseDocument("<!DOCTYPE html><html><head></head><body>" + html)` is near linear: 1.15 M units (64 000 `<p>`) 0.34 s, 1.6 M units `<p><b>` 0.62 s, 2.3 M units of tables 1.1 s. | Reducer parses as a document after an explicit `<body>` (same "in body" insertion mode as the fragment case). `ParseFragment` is never used on input. |
+| Q6b | **Parse time is quadratic in nesting depth** (tree builder's scope checks): `<b>` 16 000 deep 1.3 s, 64 000 deep 18 s; `<div>` 64 000 deep 58 s; `<table>` 32 000 deep 43 s. A 2 000 000-unit hostile input (hundreds of thousands deep) would take hours. No stack overflow was seen up to 64 000 deep. | Not solvable "in our walker": the parse itself is the hazard. The reducer parses with a **work budget (cancellation after `RichText:ParseBudgetMilliseconds`, default 1 500)** and treats expiry as `Exceeded` (refused with `description_markup_too_large`, the existing reason). Legitimate input parses in well under 0.7 s at the ceiling. Reported to the orchestrator as a deviation (§ 14 item 3 said "never a new refusal reason"; no new reason, but a new refusal condition). |
+| Q5, Q7 | Not probed in the spike (Q5 is moot with S2: attributes are read, never kept, by our walker; the spike's Q7 probe was cut short by the Q6b hang). | The mXSS round trip is a permanent test instead: the stored value is re-parsed by AngleSharp, scripting on and off, and reduced again; it must be identical. |
+
 ## 7. Handler: `SaveWorkItem`
 
 ```
