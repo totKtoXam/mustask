@@ -271,6 +271,42 @@ is pinned: `AngleSharp` 1.7.2.
 | Q6b | **Parse time is quadratic in nesting depth** (tree builder's scope checks): `<b>` 16 000 deep 1.3 s, 64 000 deep 18 s; `<div>` 64 000 deep 58 s; `<table>` 32 000 deep 43 s. A 2 000 000-unit hostile input (hundreds of thousands deep) would take hours. No stack overflow was seen up to 64 000 deep. | Not solvable "in our walker": the parse itself is the hazard. The reducer parses with a **work budget (cancellation after `RichText:ParseBudgetMilliseconds`, default 1 500)** and treats expiry as `Exceeded` (refused with `description_markup_too_large`, the existing reason). Legitimate input parses in well under 0.7 s at the ceiling. Reported to the orchestrator as a deviation (§ 14 item 3 said "never a new refusal reason"; no new reason, but a new refusal condition). |
 | Q5, Q7 | Not probed in the spike (Q5 is moot with S2: attributes are read, never kept, by our walker; the spike's Q7 probe was cut short by the Q6b hang). | The mXSS round trip is a permanent test instead: the stored value is re-parsed by AngleSharp, scripting on and off, and reduced again; it must be identical. |
 
+### 6.2 As built: decisions the spec left to the implementation (stage 04b)
+
+Each is covered by a fixture case or a rules test; the editor's normaliser
+(frontend plan) must make the same choice.
+
+- **Unwrapped list markup is a paragraph boundary.** `ul`/`ol`/`li` beyond three
+  levels, or outside a root/item container (in a table cell), are unwrapped
+  (US-2) but their items do not run together: `…<li>3<ul><li>4</li></ul>` gives
+  paragraphs "3" and "4" in the depth-3 item (fixture `lists-depth-three`).
+  Unknown *block* elements (`div`, `blockquote`) are not boundaries, as the
+  story's example requires.
+- **`br` is written inside the marks open at that point** (those of the
+  preceding run); a leading `br` has none. The canonical form is a function of
+  the sequence of runs and breaks only, so it is a fixed point.
+- **Whitespace dropped between blocks is ASCII whitespace** (space, tab, LF, FF,
+  CR) in a position with no open paragraph; any other whitespace (U+00A0)
+  makes a paragraph. "No non-whitespace character" (BR-RT-6) is
+  `Rune.IsWhiteSpace` (Unicode White_Space, U+00A0 and U+3000 included; U+200B
+  is not whitespace).
+- **Empty containers.** A list with no item and a table with no row are removed;
+  a list item or table cell with nothing to write is `<li><p></p></li>`,
+  `<td><p></p></td>`; an empty code block stays `<pre><code></code></pre>`.
+- **Code blocks.** The language is the first valid token of the first direct
+  `code` child of the `pre`; the extra leading LF the plan's writer note
+  mentioned is not needed (a `code` sits between `pre` and its text).
+- **Link address.** `http(s)` needs `//` right after the colon and a host that is
+  not empty after userinfo and port; no space, control, backslash or markup
+  character in the authority; `mailto` needs a non-empty address before `?`
+  with no space or control. `https:example.org` and `https:/x` are refused.
+- **Table spans.** `colspan` is clamped to 1 000, `rowspan` to the rows left in
+  its row group (`0` = to the end of the group); a table whose positions could
+  not fit the markup ceiling (16 code points each) is "exceeded" before the grid
+  is built.
+- **Concurrency gate and options** are `RichText:MaxConcurrentReductions` and
+  `RichText:ParseBudgetMilliseconds` (configuration section `RichText`).
+
 ## 7. Handler: `SaveWorkItem`
 
 ```

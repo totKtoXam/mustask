@@ -252,6 +252,20 @@ purged ([ADR-0026](../adr/0026-soft-deactivation-by-status.md)).
   interface, at read time, and apply it to their own data. They never
   copy it and never subscribe to it.
 
+### Rich text
+
+A field that stores user-formatted text keeps sanitized HTML under an explicit
+format marker ([ADR-0027](../adr/0027-rich-text-as-sanitized-html-with-tiptap.md)).
+The reduction to the safe subset is the port `IRichTextReducer`
+(`Mustask.Application/Abstractions/RichText`), implemented in
+`Mustask.Infrastructure/RichText` on the AngleSharp parser, so the domain stays
+free of third-party packages; the domain keeps the format enum, the limits and
+the order they are applied in (`WorkItemText`). The closed class vocabularies and
+the shared fixtures live in `contracts/rich-text/` (see `contracts/README.md`):
+a token is never written as a literal in server code. The reduction is a
+security boundary: hostile nesting is bounded by a work budget on the parse, the
+walkers are iterative, and the hostile corpus is a permanent test input.
+
 ## Named values
 
 A literal in code is acceptable only if it carries no domain meaning (a
