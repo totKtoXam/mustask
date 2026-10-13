@@ -63,6 +63,7 @@ this file — a merge conflict over the queue is impossible.
 - [ ] feat-021-work-item-concurrency-token — The client-visible concurrency token on work item writes with its ADR (doc-001 BR-11) and the stale-move notice on the board (doc-003); deferred by mod-003 D-2 and mod-006 D-2 · epic:core/work-items · size:M · deps:mod-003,mod-006 · note:-
 - [ ] feat-025-boards-touch-drag — Dragging backlog rows and board cards on touch screens: the browser's native drag does not start from a touch, so only the menus work there; needs a drag library, hence an ADR and the human's choice (mod-006 Plan, frontend 6) · epic:core/backlogs-boards · size:S · deps:mod-006 · note:-
 - [ ] feat-034-board-card-effort — Board card shows the item's «Трудоёмкость» (Story Points) under the assignee, like the reference card (feat-032 research/reference-card.png); split from feat-032 by the human 2026-10-12 · epic:core/backlogs-boards · size:S · deps:feat-032 · note:-
+- [ ] tech-027-kit-card-e2e-first-run — Run E2E 27 (the work item card) and 28 (the UI kit) for the first time and the side-by-side check of the card against the reference; fix what they find (skipped by the human, tech-015 D-7, feat-029 D-5) · epic:platform/ui · size:S · deps:feat-029 · note:-
 
 ## Withdrawn (number taken, task not done)
 
