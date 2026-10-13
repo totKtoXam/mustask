@@ -1100,3 +1100,62 @@ and the four fixture files exist. Remaining, none a blocker:
 | 5 | `docs/conventions/frontend.md` § MUI sentence naming the editor and ADR-0027 and the ADR-0007 index line are owed "on acceptance"; the sentence is a slice 7 commit unless the orchestrator already did it | orchestrator |
 | 6 | The Kazakh texts of the two new reasons are `kkNeedsReview` (backend plan § 14.6); the panel shows only the server's `detail`, so no frontend change | human at gate-3 |
 | 7 | Run economy: the plan assumes targeted vitest runs until the CPU all-clear (tech-028); a full `verify.sh` is owed once, at the end of slice 7 | orchestrator |
+
+## 15. As built (stage 6b, closed 2026-10-13)
+
+What stands in the code, where it differs from §§ 1–14, and what is left to a human. Slices 0–7 are
+committed; `scripts/verify.sh` and the whole-suite run are **owed** (tech-028 asked every session to
+pause them), as is E2E (the human's standing answer is no).
+
+### 15.1 Differences from the plan, all recorded where they were made
+
+| Plan | As built | Why |
+|---|---|---|
+| § 7.2 synchronous report | **debounced 150 ms** report and `flush()` on a `ref`; the form flushes on submit, the editor flushes on Tab out of the body and on blur | spike S3 (jsdom: 660 ms on 100 000 visible characters with marks) |
+| § 3.1 `@tiptap/extension-code-block-lowlight` | own decoration plugin `RtCodeHighlight` (F-3) | its plugin has no cap and no idle delay |
+| § 5.1 Tab bindings | the table's and the list keymap's stock Tab are **removed**; Tab is `RtKeyboard`'s alone | an armed Tab must not be taken by a second binding |
+| § 9.1 `React.lazy` + boundary | own `import()` in an effect, state for the component, an `Alert` with «Повторить» | `static-components` lint; a rejected `lazy` is cached |
+| § 9 emoji chunk failure (G-1) | the popover shows «Не удалось загрузить редактор.» and «Повторить» (the human's decision) | no new copy |
+| § 9 copy failure (G-2) | notice line «Не удалось скопировать код.» — **new copy for the human at gate-3** | the human's decision |
+| § 6.2 headings in a cell | disabled in a cell too (cells are `paragraph+`) | the coordinator confirmed |
+| link mark | `@tiptap/extension-link` kept (the in-house link mark, about 20 KB gzipped, is not adopted) | the coordinator's decision |
+| § 11.2 `DESCRIPTION_MAX_LENGTH` | gone; `descriptionError` takes the canonical html | BR-RT-7 |
+
+### 15.2 The bundle, measured on the real build (`npm run build` wiring, gzipped)
+
+| | bytes | against the proposed ceiling |
+|---|---|---|
+| entry chunk (baseline 279 519) | **289 381**, **+9 862** | growth ceiling 10 240 |
+| editor chunk (`EditorImpl`, with ProseMirror, TipTap, the toolbar, the highlighter, the link dialog) | **182 041** | 225 280 |
+| emoji chunk | **46 857** | 53 248 |
+
+The entry growth is the pure library (normaliser, vocabulary, legacy conversion, limits, link rule), the
+wrapper, and `theme.richText`; no editor-library module is reachable from the entry (`bundle:check`
+passes). The editor chunk is below the isolated measurement (223 654) because the MUI parts the entry
+already holds are not counted again. The ceilings stay *proposed* in `bundle-budget.json` until the human
+confirms them (ADR-0027 decision 10).
+
+### 15.3 Left to a human (QA by hand — jsdom cannot show it)
+
+1. **S6**: a failed chunk load retried in Chrome and Firefox («Повторить» after the network came back);
+   if it does not retry, add the `location.reload()` fallback.
+2. **Real clipboard sources**: a web page, an office editor, a spreadsheet (Excel/Calc as html and as
+   tab text), VS Code and a JetBrains IDE; Ctrl+Shift+V; an image copied from a page; a dropped file.
+3. **Keys on the platform**: ⌘ on macOS (tooltips and shortcuts), Ctrl+click on a link, ArrowDown at the end
+   of a **wrapped** last line of a code block (jsdom has no layout, so this was only tested at the end of
+   the text), Ctrl+Z after an auto-link in a real browser (history grouping by time).
+4. **Emoji**: glyphs per OS (Windows has gaps; flags are omitted by design), first-open time of the picker
+   (1 644 buttons), the grid at 640 px.
+5. **Screen reader pass** (NVDA/VoiceOver): toolbar name and roving, pressed/expanded states, the notice
+   line (image, «Код скопирован», the Tab hints on entering a block), the counter's name, the dialog and the
+   popover, the menus.
+6. **Look**: light/dark mapping of the palette (the dark column is specified and tested, not drawn), the
+   code colours on the block background, the two-row toolbar at 640 px, the card's focus and error frames,
+   the table's active-cell frame and scroll wrapper, the colouring latency while typing in a long block.
+7. **Opening speed** with 100 000 visible characters (observation, not a gate).
+
+### 15.4 Owed
+
+- `scripts/verify.sh` (whole frontend and backend suites), after the tech-028 all-clear.
+- The human's confirmation of the three ceilings, and of the new copy «Не удалось скопировать код.».
+- Server side of the fixtures: the 22 cases added by the frontend run in the backend suite (QA re-check).

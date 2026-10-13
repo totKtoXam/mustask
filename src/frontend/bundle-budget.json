@@ -3,12 +3,12 @@
   "status": "proposed",
   "measured": {
     "date": "2026-10-13",
-    "slice": "5 (editor complete: marks, link dialog, emoji, tables, code with colouring, paste), throwaway entry that holds the wrapper and the library statically",
-    "entryGzipBytes": 279519,
-    "pureLibraryGzipBytes": 6900,
-    "editorChunkGzipBytes": 223654,
+    "slice": "7 (the real build: the form uses the editor)",
+    "entryGzipBytes": 289381,
+    "entryGrowthGzipBytes": 9862,
+    "editorChunkGzipBytes": 182041,
     "emojiChunkGzipBytes": 46857,
-    "note": "The editor chunk includes the highlighter (23 617 B at slice 3) and every MUI part only the editor uses in that isolated build; in the real app build the parts the entry already holds are not counted again. Final numbers at slice 7."
+    "note": "Real numbers from vite build with the page wired. The highlighter (about 24 KB) is inside the editor chunk. The ceilings below are still the developer's proposal until the human confirms them (ADR-0027 decision 10)."
   },
   "baseline": {
     "entryGzipBytes": 279519
