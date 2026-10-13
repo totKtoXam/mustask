@@ -179,10 +179,44 @@ describe('normaliseRichText: size guards', () => {
     expect(result.markupLength).toBe(100_007);
   });
 
-  it('counts whitespace it read and dropped against the markup budget', () => {
+  it('bounds a value with content by what is written: dropped whitespace between blocks is not counted (D-5)', () => {
     const gap = ' '.repeat(600_000);
     const result = normaliseRichText('<p>a</p>' + gap + '<p>b</p>' + gap);
 
+    expect(result.html).toBe('<p>a</p><p>b</p>');
+    expect(result.markupLength).toBe(16);
+  });
+
+  it('counts the whitespace it read for a value with nothing in it, which is then refused (D-5, US-4)', () => {
+    const gap = ' '.repeat(600_000);
+    const result = normaliseRichText('<p></p>' + gap + '<p></p>' + gap);
+
     expect(result.markupLength).toBe(DESCRIPTION_MAX_MARKUP + 1);
+  });
+
+  it('stays blank, not refused, when the whitespace read is within the ceiling', () => {
+    const result = normaliseRichText('<p></p>' + ' '.repeat(1000));
+
+    expect(result.html).toBe('');
+    expect(result.hasContent).toBe(false);
+    expect(result.markupLength).toBe(7);
+  });
+});
+
+describe('normaliseRichText: server rules of the defect loop (backend plan § 6.3)', () => {
+  it('writes a CR reached by a numeric reference as an LF, counted once (D-3)', () => {
+    const result = normaliseRichText('<p>a&#13;b</p><pre><code>c&#x0D;d</code></pre>');
+
+    expect(result.html).toBe('<p>a\nb</p><pre><code>c\nd</code></pre>');
+    expect(result.visibleLength).toBe(3 + 1 + 3);
+    expect(normaliseRichText(result.html).html).toBe(result.html);
+  });
+
+  it('keeps no link whose address holds < or >, and keeps its text (D-6)', () => {
+    expect(normaliseRichText('<p><a href="https://e.org/a&lt;b">x</a></p>').html).toBe('<p>x</p>');
+    expect(normaliseRichText('<p><a href="https://e.org/?q=&gt;">y</a></p>').html).toBe('<p>y</p>');
+    expect(normaliseRichText('<p><a href="https://e.org/a%3Cb">z</a></p>').html).toBe(
+      '<p><a href="https://e.org/a%3Cb" rel="noopener noreferrer">z</a></p>',
+    );
   });
 });

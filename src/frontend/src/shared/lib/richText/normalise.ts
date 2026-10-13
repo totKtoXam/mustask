@@ -305,11 +305,9 @@ class DomConverter {
   droppedWhitespace = 0;
 
   private readonly maxPositions: number;
-  private readonly droppedLimit: number;
 
-  constructor(maxPositions: number, droppedLimit: number) {
+  constructor(maxPositions: number) {
     this.maxPositions = maxPositions;
-    this.droppedLimit = droppedLimit;
   }
 
   convert(body: Element): Block[] {
@@ -520,9 +518,9 @@ class DomConverter {
 
     if (this.currentLeaf === null) {
       if (isAllAsciiWhitespace(data)) {
-        // Whitespace between blocks is dropped, but it was read: it counts against the budget.
+        // Whitespace between blocks is dropped. It was read, and it counts only for a value with
+        // nothing in it (backend plan § 6.3 D-5, US-4): see `normaliseBody`.
         this.droppedWhitespace += data.length;
-        if (this.droppedWhitespace > this.droppedLimit) throw new BudgetExceeded();
         return;
       }
       this.startLeaf('p');
@@ -782,9 +780,9 @@ class CanonicalWriter {
 
   private readonly limit: number;
 
-  constructor(limit: number, alreadyCounted: number) {
+  constructor(limit: number) {
     this.limit = limit;
-    this.markup = alreadyCounted;
+    this.markup = 0;
   }
 
   html(): string {
@@ -1060,6 +1058,9 @@ class CanonicalWriter {
 
       let escaped: string | null = null;
       if (codePoint === 0) escaped = '';
+      // A numeric reference to CR survives the parser, but a parse of the written value turns a CR into
+      // LF: the canonical form is the LF, or the stored value would not be a fixed point (D-3).
+      else if (codePoint === 0x0d) escaped = '\n';
       else if (codePoint === 0x26) escaped = '&amp;';
       else if (codePoint === 0x3c) escaped = '&lt;';
       else if (codePoint === 0x3e) escaped = '&gt;';
@@ -1158,11 +1159,17 @@ export function normaliseRichText(raw: string): NormalisedRichText {
 export function normaliseBody(body: Element): NormalisedRichText {
   try {
     const limit = DESCRIPTION_MAX_MARKUP;
-    const converter = new DomConverter(Math.floor(limit / MIN_CELL_MARKUP), limit);
+    const converter = new DomConverter(Math.floor(limit / MIN_CELL_MARKUP));
     const blocks = converter.convert(body);
 
-    const writer = new CanonicalWriter(limit, converter.droppedWhitespace);
+    const writer = new CanonicalWriter(limit);
     writer.write(blocks);
+
+    // US-4 "limits come before the empty rule": a value with nothing in it is stored as "" and
+    // its size is what was read; a value with content is bounded by what is written (BR-RT-7 (2)).
+    if (!writer.hasContent && writer.markupLength + converter.droppedWhitespace > limit) {
+      return OVER_THE_BOUND;
+    }
 
     return {
       html: writer.hasContent ? writer.html() : '',

@@ -17,6 +17,7 @@
     { "id": "lone-surrogate", "story": "US-4", "note": "A lone high surrogate between two letters is replaced by U+FFFD and counts 1; the stored html holds U+FFFD. {U+D83D} stands for the UTF-16 code unit itself (a lone surrogate is not valid in every JSON reader): substitute it before use.", "html": "<p>a{U+D83D}b</p>", "count": 3, "stored": "<p>a�b</p>" },
     { "id": "nbsp", "story": "US-4", "note": "U+00A0 counts 1 (written as an entity, never counted as six).", "html": "<p>a&nbsp;b</p>", "count": 3 },
     {"id":"br-inside-mark","story":"US-4","note":"A br inside a mark is one LF.","html":"<p><strong>a<br></strong>b</p>","count":3},
-    {"id":"heading-and-code-block","story":"US-4","note":"One LF between the leaf blocks, one inside the code block.","html":"<h3>t</h3><pre><code>x\ny</code></pre>","count":5}
+    {"id":"heading-and-code-block","story":"US-4","note":"One LF between the leaf blocks, one inside the code block.","html":"<h3>t</h3><pre><code>x\ny</code></pre>","count":5},
+    {"id":"cr-reference-counts-one","story":"US-4","note":"A CR reached by a numeric reference is one character, written as LF.","html":"<p>a&#13;b</p>","count":3}
   ]
 }

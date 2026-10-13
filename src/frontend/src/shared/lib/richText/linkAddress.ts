@@ -38,6 +38,11 @@ export function readLinkAddress(raw: string | null | undefined): string | null {
     return null;
   }
 
+  // Neither is part of an address (a browser percent-encodes them), and the HTML serialisation of
+  // an attribute value is not agreed on for them, which would make the stored string differ from the
+  // editor's: such an address is not kept (backend plan § 6.3 D-6).
+  if (cleaned.includes('<') || cleaned.includes('>')) return null;
+
   return cleaned;
 }
 

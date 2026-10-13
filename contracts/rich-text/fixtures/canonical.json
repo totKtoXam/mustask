@@ -445,6 +445,27 @@
       "note": "An anchor inside an anchor closes the outer one (the parser's adoption agency); the text after stays outside any link.",
       "input": "<p><a href=\"https://a.org\">x<a href=\"https://b.org\">y</a>z</a></p>",
       "canonical": "<p><a href=\"https://a.org\" rel=\"noopener noreferrer\">x</a><a href=\"https://b.org\" rel=\"noopener noreferrer\">y</a>z</p>"
+    },
+    {
+      "id": "cr-reference-is-lf",
+      "story": "US-7",
+      "note": "A numeric reference to CR survives the parser, but a parse of the written value turns a CR into LF: the canonical form is the LF, so the stored value is a fixed point.",
+      "input": "<p>a&#13;b</p>",
+      "canonical": "<p>a\nb</p>"
+    },
+    {
+      "id": "cr-reference-in-code-block",
+      "story": "US-7",
+      "note": "The same inside a code block: the character is the LF.",
+      "input": "<pre><code>a&#x0D;b</code></pre>",
+      "canonical": "<pre><code>a\nb</code></pre>"
+    },
+    {
+      "id": "link-address-angle-brackets-refused",
+      "story": "US-2",
+      "note": "An address holding < or > is not kept as a link (its serialisation in an attribute is not agreed between browsers): the text stays.",
+      "input": "<p><a href=\"https://e.org/a&lt;b\">x</a> <a href=\"https://e.org/?q=&gt;\">y</a> <a href=\"mailto:a&lt;b@e.org\">z</a></p>",
+      "canonical": "<p>x y z</p>"
     }
   ]
 }
