@@ -45,6 +45,35 @@ export const colourRoles = {
   /** The grey secondary button of the team head (feat-027 design § 2.5). */
   buttonNeutral: '#EBEBEB',
   buttonNeutralHover: '#E2E2E2',
+  /**
+   * The hover frame of a kit field and of a card control (tech-015 design
+   * § 3.2): 1.67:1 on white, 1.58:1 on the application background. Decoration —
+   * the label names the field and the focus frame carries the 3:1 — so it sits
+   * between 1.5 and 2:1 and under `inputBorder`; `theme.test.tsx` pins that
+   * range, not the hex.
+   */
+  fieldHover: '#C8C8C8',
+  /**
+   * A field's label, the band's labels and its meta line: the reference's
+   * label grey. 4.95:1 on white and 4.66:1 on the application background —
+   * `contrast.test.ts` pins both at 4.5, so a lighter grey fails. `#737373` is
+   * 4.46:1 on the band and is not used. Hints and empty texts stay
+   * `textSecondary`.
+   */
+  cardLabel: '#707070',
+  /**
+   * The rule under a section's head: the reference's, 1.20:1 on white, lighter
+   * than `divider`. A decorative line — the head and the content carry the
+   * structure — so it is exempt from the 3:1 rule for graphics.
+   */
+  sectionRule: '#EAEAEA',
+  /**
+   * The disabled split button's fill and label: the reference's clean look
+   * (2.63:1; a disabled control is outside the contrast floor), not MUI's
+   * disabled grey, which is a darker block with a fainter label.
+   */
+  splitDisabledFill: '#F0F0F0',
+  splitDisabledText: '#959595',
 } as const;
 
 /** Semantic colours: meaning only, darker than MUI's defaults (ADR-0007). */
@@ -110,6 +139,11 @@ export interface ShellPalette {
   addAction: string;
   buttonNeutral: string;
   buttonNeutralHover: string;
+  fieldHover: string;
+  cardLabel: string;
+  sectionRule: string;
+  splitDisabledFill: string;
+  splitDisabledText: string;
 }
 
 export const shellPalette: ShellPalette = {
@@ -122,6 +156,11 @@ export const shellPalette: ShellPalette = {
   addAction: colourRoles.addAction,
   buttonNeutral: colourRoles.buttonNeutral,
   buttonNeutralHover: colourRoles.buttonNeutralHover,
+  fieldHover: colourRoles.fieldHover,
+  cardLabel: colourRoles.cardLabel,
+  sectionRule: colourRoles.sectionRule,
+  splitDisabledFill: colourRoles.splitDisabledFill,
+  splitDisabledText: colourRoles.splitDisabledText,
 };
 
 /** The width classes of BR-10 and D-8 (design § 3.6). */
@@ -152,14 +191,226 @@ export interface LayoutTokens {
    * and on the left of «Меню настроек» (design § 4.4).
    */
   dividerWidth: number;
+  /**
+   * The width of a control's or a row's frame — a field's hover, rest and focus
+   * frames, a row's selection and drop frames, the `Removed` ring (tech-015
+   * design § 3.3). Not `dividerWidth` (a rule between surfaces): equal today,
+   * different roles.
+   */
+  frame: FrameTokens;
+  /**
+   * The measures of a button that is only an icon, by where it stands
+   * (tech-015 design § 3.3). The first three were lifted from the backlog's
+   * group, where they were first measured.
+   */
+  iconAction: IconActionTokens;
+  /** The type icon, state dot and avatar beside a name (tech-015 design § 3.3). */
+  mark: MarkTokens;
+  /** The spinner of a busy button and of a field's busy adornment. */
+  inlineSpinner: number;
+  /** The page head's rhythm and the page panel's spacing (tech-015 design § 3.3). */
+  pageHead: PageHeadTokens;
+  /** The table family's measures (tech-015 design § 3.3). */
+  table: TableTokens;
+  /** The field family's measures (tech-015 design § 3.3). */
+  field: FieldTokens;
+  /** A titled group inside the card or a form. */
+  section: SectionTokens;
+  /** The body's columns. */
+  columns: ColumnsTokens;
+  /** The work item card's shell, header, band and tab strip. */
+  card: CardTokens;
   /** The backlog table and its page's head (feat-027 design § 2.3). */
   backlogTable: BacklogTableTokens;
 }
 
+/** `theme.layout.frame` — the thin and the thick frame. */
+export interface FrameTokens {
+  thin: number;
+  thick: number;
+}
+
+/** One icon-only button: the target's box and the glyph inside it, in px. */
+export interface IconActionSize {
+  box: number;
+  glyph: number;
+}
+
+/** `theme.layout.iconAction` — a target is at least 24 px (WCAG 2.5.8). */
+export interface IconActionTokens {
+  /** A table row's «+» and «⋮». */
+  row: IconActionSize;
+  /** The tree chevron and the team chevron; also the empty box of a row with no children. */
+  chevron: IconActionSize;
+  /** The two square buttons of the hierarchy header. */
+  header: IconActionSize;
+  /** The card header's toolbar and the dialog's two icons. */
+  bar: IconActionSize;
+}
+
 /**
- * `theme.layout.backlogTable` — the backlog table's measures in px (feat-027
- * design § 2.3), taken from the reference screen and checked against the two
- * acceptance windows by `theme.test.tsx`.
+ * `theme.layout.mark` — the marks that stand beside a name, with one gap for
+ * every mark-and-name pair.
+ */
+export interface MarkTokens {
+  /** The type icon in a card or a form. */
+  typeIcon: number;
+  /** The type icon in a table row. */
+  typeIconCompact: number;
+  /** The state dot in a field of the card's band. */
+  categoryDotField: number;
+  /** The space between a mark and its name. */
+  nameGap: number;
+  /** The avatar beside a name, and the slot of a person's empty glyph. */
+  avatarInline: number;
+  /** The empty person's thin glyph, inside the `avatarInline` slot. */
+  personGlyph: number;
+}
+
+/**
+ * `theme.layout.pageHead` — `PageHeader`'s team rhythm: `top` + a 32 px row +
+ * `viewsGap` + a 40 px tab row + `bottom` = 132. `trailGap` is the space
+ * between a trail drawn above the title and the title; `panelTop` the space
+ * above a page's panel.
+ */
+export interface PageHeadTokens {
+  top: number;
+  viewsGap: number;
+  bottom: number;
+  titleGap: number;
+  titleIcon: number;
+  trailGap: number;
+  panelTop: number;
+}
+
+/** `theme.layout.table` — what any table of the kit shares. */
+export interface TableTokens {
+  /** The header row's height. */
+  headerHeight: number;
+  /** The least height of a table that scrolls inside itself. */
+  minHeight: number;
+  /** The indent of one depth. */
+  treeIndent: number;
+  /**
+   * Where the title column's header label starts: the depth-0 icon's left edge
+   * (the cell's padding, the chevron slot and a gap) and a few px more, as the
+   * reference's label stands over the icon.
+   */
+  titleLabelInset: number;
+  /** The static separator at a header cell's right edge. */
+  separatorHeight: number;
+  /** The draggable strip at the row's left edge. */
+  gripHitWidth: number;
+  /** The dotted line's distance from the card's left edge. */
+  gripDotOffset: number;
+  /** The dotted mark's height: four 2 px dots 6 px apart, centred on the row. */
+  gripMarkHeight: number;
+  /** One dot of the grip. */
+  gripDot: number;
+  /** The distance between two dots of the grip. */
+  gripPitch: number;
+  /** A dragged row's opacity. */
+  draggedOpacity: number;
+}
+
+/**
+ * `theme.layout.field` — a value box is the text's line plus 2 × `padY`; label
+ * + `gap` + box + `gap` is 48 whether the field is empty or filled.
+ */
+export interface FieldTokens {
+  padY: number;
+  /** The box of a body-size value (20 + 2 × `padY`). */
+  box: number;
+  /** The box of the card's title (24 + 2 × `padY`). */
+  titleBox: number;
+  gap: number;
+  /** A single-line text starts here: the 1 px frame and 5 of padding. */
+  textInset: number;
+  /** A multi-line text starts here: the frame and 7 of padding. */
+  textAreaInset: number;
+  /**
+   * The space above a text that stands under a head of its own name
+   * (`labelPlacement="hidden"`): it replaces the label's line there.
+   */
+  textAreaTop: number;
+  /**
+   * The space between a label-column adornment's right edge and the value's
+   * text: 19, the reference's, which puts a 10 px dot's centre at label + 64.
+   */
+  adornmentGap: number;
+  /** The least rows of a text area. */
+  textMinRows: number;
+}
+
+/** `theme.layout.section` — a head, a rule and a body; the area spaces the sections. */
+export interface SectionTokens {
+  headGap: number;
+  bodyTop: number;
+  /** The space between two sections of one column; owned by the column, never a margin. */
+  gap: number;
+  /** The content inset of the card's fields. */
+  inset: number;
+}
+
+/** `theme.layout.columns` — one, two or three columns by the container's width. */
+export interface ColumnsTokens {
+  gutter: number;
+  top: number;
+  bottom: number;
+  gap: number;
+  sideWidth: number;
+  /** The container's width from which three columns stand. */
+  threeMin: number;
+  /** The container's width from which two columns stand. */
+  twoMin: number;
+}
+
+/**
+ * `theme.layout.card` — measured on the reference's work item card at a pixel
+ * ratio of 1.25 (tech-015 design § 3.3, feat-029 design § 2).
+ */
+export interface CardTokens {
+  /** The dialog's share of the window. */
+  dialogShare: number;
+  typeBar: number;
+  typeBarCompact: number;
+  headerInset: number;
+  rightInset: number;
+  headerPadTop: number;
+  headerRowGap: number;
+  headerPadBottom: number;
+  /** The space between the actions of row 3 (the Save group and each icon button). */
+  actionGap: number;
+  /** The distance of the dialog's ✕ box from the card's right edge. */
+  dialogIconInset: number;
+  /** The space between the dialog's ⤢ and ✕. */
+  dialogIconGap: number;
+  bandMinHeight: number;
+  bandPaddingTop: number;
+  bandRow: number;
+  bandRowGap: number;
+  /** The label column of a band row — the label's own width. */
+  bandLabelWidth: number;
+  /** A property block's fixed width. */
+  bandBlockWidth: number;
+  /** The least a block shrinks to, and the width it keeps when the blocks stack. */
+  bandBlockMin: number;
+  bandBlockGap: number;
+  tabStripHeight: number;
+  tabPadX: number;
+  /** How far the selected tab's indicator stands above the strip's bottom. */
+  tabIndicatorOffset: number;
+  /** The shell's width below which the header's third row wraps and the band's blocks stack. */
+  stackBelow: number;
+}
+
+/**
+ * `theme.layout.backlogTable` — the backlog table's own measures in px
+ * (feat-027 design § 2.3): its columns and what its page keeps round the card,
+ * taken from the reference screen and checked against the two acceptance
+ * windows by `theme.test.tsx`. The generic ones (indent, glyphs, grip,
+ * separator) are the kit's `iconAction`, `mark` and `table` groups since
+ * tech-015.
  */
 export interface BacklogTableTokens {
   hierarchyColumn: number;
@@ -171,29 +422,6 @@ export interface BacklogTableTokens {
   effortColumn: number;
   businessValueColumn: number;
   valueAreaColumn: number;
-  /** The indent of one depth. */
-  treeIndent: number;
-  /** The chevron's box, and the empty box of a row with no children. */
-  chevronSlot: number;
-  /** The box of a row's «+» and «⋮». */
-  rowControl: number;
-  /** The two square buttons of the hierarchy header. */
-  headerButton: number;
-  typeIcon: number;
-  /** The tree chevron and the team chevron. */
-  chevronGlyph: number;
-  /** The glyph of a row's «+» and «⋮». */
-  actionGlyph: number;
-  /** The glyph of the two square header buttons. */
-  headerGlyph: number;
-  /** The draggable strip at the row's left edge. */
-  gripHitWidth: number;
-  /** The dotted line's distance from the card's left edge. */
-  gripDotOffset: number;
-  /** The dotted mark's height: four 2 px dots 6 px apart, centred on the row. */
-  gripMarkHeight: number;
-  /** The static separator at a header cell's right edge. */
-  separatorHeight: number;
   /** What the page keeps above and below the card: top bar + head + bottom padding. */
   viewportOffset: number;
 }
@@ -207,19 +435,99 @@ export const backlogTable: BacklogTableTokens = {
   effortColumn: 64,
   businessValueColumn: 64,
   valueAreaColumn: 104,
+  viewportOffset: 204,
+};
+
+const frame: FrameTokens = { thin: 1, thick: 2 };
+
+const iconAction: IconActionTokens = {
+  row: { box: 24, glyph: 16 },
+  chevron: { box: 24, glyph: 20 },
+  header: { box: 24, glyph: 18 },
+  bar: { box: 32, glyph: 18 },
+};
+
+const mark: MarkTokens = {
+  typeIcon: 20,
+  typeIconCompact: 16,
+  categoryDotField: 10,
+  nameGap: 6,
+  avatarInline: 24,
+  personGlyph: 16,
+};
+
+const pageHead: PageHeadTokens = {
+  top: 28,
+  viewsGap: 12,
+  bottom: 20,
+  titleGap: 10,
+  titleIcon: 24,
+  trailGap: 8,
+  panelTop: 16,
+};
+
+const table: TableTokens = {
+  headerHeight: 40,
+  minHeight: 240,
   treeIndent: 16,
-  chevronSlot: 24,
-  rowControl: 24,
-  headerButton: 24,
-  typeIcon: 16,
-  chevronGlyph: 20,
-  actionGlyph: 16,
-  headerGlyph: 18,
+  titleLabelInset: 36,
+  separatorHeight: 20,
   gripHitWidth: 16,
   gripDotOffset: 7,
   gripMarkHeight: 20,
-  separatorHeight: 20,
-  viewportOffset: 204,
+  gripDot: 2,
+  gripPitch: 6,
+  draggedOpacity: 0.6,
+};
+
+const field: FieldTokens = {
+  padY: 4,
+  box: 28,
+  titleBox: 32,
+  gap: 2,
+  textInset: 6,
+  textAreaInset: 8,
+  textAreaTop: 15,
+  adornmentGap: 19,
+  textMinRows: 3,
+};
+
+const section: SectionTokens = { headGap: 12, bodyTop: 4, gap: 32, inset: 8 };
+
+const columns: ColumnsTokens = {
+  gutter: 12,
+  top: 16,
+  bottom: 24,
+  gap: 16,
+  sideWidth: 320,
+  threeMin: 1040,
+  twoMin: 680,
+};
+
+const card: CardTokens = {
+  dialogShare: 0.9,
+  typeBar: 10,
+  typeBarCompact: 4,
+  headerInset: 18,
+  rightInset: 8,
+  headerPadTop: 4,
+  headerRowGap: 8,
+  headerPadBottom: 8,
+  actionGap: 11,
+  dialogIconInset: 5,
+  dialogIconGap: 2,
+  bandMinHeight: 76,
+  bandPaddingTop: 6,
+  bandRow: 32,
+  bandRowGap: 4,
+  bandLabelWidth: 82,
+  bandBlockWidth: 253,
+  bandBlockMin: 240,
+  bandBlockGap: 32,
+  tabStripHeight: 36,
+  tabPadX: 10,
+  tabIndicatorOffset: 4,
+  stackBelow: 720,
 };
 
 export const layout: LayoutTokens = {
@@ -240,6 +548,16 @@ export const layout: LayoutTokens = {
   contextSkeletonHeight: 24,
   selectedMarkerWidth: 3,
   dividerWidth: 1,
+  frame,
+  iconAction,
+  mark,
+  inlineSpinner: 16,
+  pageHead,
+  table,
+  field,
+  section,
+  columns,
+  card,
   backlogTable,
 };
 
@@ -286,7 +604,21 @@ export const typeScale = {
    * the reference screen. The rest of the panel keeps the 14 px body.
    */
   tableCell: { size: 13, lineHeight: 20, weight: 400 },
+  /**
+   * The work item card's id and title (tech-015 design § 3.2): 17 / 24, Regular,
+   * between the 16 px section head and the 20 px page title.
+   */
+  cardTitle: { size: 17, lineHeight: 24, weight: 400 },
 } as const;
+
+/** The corner radius of every surface and control (was a literal in `theme.ts`). */
+export const shapeRadius = 4;
+
+/**
+ * How long a notice stays before it goes (tech-015 design § 3.2): one value
+ * for `NoticeProvider`, where five copies of 6000 stood in the slices.
+ */
+export const noticeDurationMs = 6000;
 
 /**
  * The soft glow round the backlog's card (feat-027 design § 2.6) — not MUI's

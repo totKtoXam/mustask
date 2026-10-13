@@ -33,6 +33,7 @@ import {
   placeRefusal,
   useCreateWorkItem,
   useSetWorkItemParent,
+  useWorkItemDialog,
   workItemPath,
   type ParentWriteResult,
   type WorkItem,
@@ -243,6 +244,9 @@ export function BacklogTable({
   const setParent = useSetWorkItemParent(organizationId, projectId);
   const createItem = useCreateWorkItem(organizationId, projectId);
   const readAgain = useReadTeamAgain(organizationId, projectId, teamId);
+  // A title's plain click opens the card as a dialog over the backlog (feat-029 BR-C-1);
+  // `open` keeps its identity, so the memoised rows are not redrawn by the navigation.
+  const { open: openItem } = useWorkItemDialog();
   const process = useProcessDefinition(organizationId);
   const view = useMoveView(items);
   const [actions, setActions] = useState<ActionsMenuState | null>(null);
@@ -1033,6 +1037,7 @@ export function BacklogTable({
                   addMenuId={addMenu?.row.id === item.id ? addMenuId : null}
                   actionsId={actions?.row.id === item.id ? actionsMenuId : null}
                   formPath={workItemPath(organizationId, projectId, item.identifier)}
+                  onOpenItem={openItem}
                   onSelect={select}
                   onToggle={toggle}
                   onAdd={handleAdd}

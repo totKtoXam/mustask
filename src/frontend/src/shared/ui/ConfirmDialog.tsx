@@ -26,6 +26,11 @@ export interface ConfirmDialogProps {
    * accident (mod-002 design § 4.3). Absent: MUI's initial focus as before.
    */
   cancelAutoFocus?: boolean;
+  /**
+   * The cancel button's label. Default «Отмена»; the card's unsaved-changes question
+   * reads «Продолжить редактирование» (tech-015 design § 5.10).
+   */
+  cancelLabel?: string;
   onConfirm: () => void;
   onClose: () => void;
 }
@@ -46,6 +51,7 @@ export function ConfirmDialog({
   error,
   destructive = false,
   cancelAutoFocus = false,
+  cancelLabel = 'Отмена',
   onConfirm,
   onClose,
 }: ConfirmDialogProps) {
@@ -63,7 +69,13 @@ export function ConfirmDialog({
         {children}
       </DialogContent>
       <DialogActions>
-        <CancelButton open={open} focusOnOpen={cancelAutoFocus} disabled={busy} onClick={onClose} />
+        <CancelButton
+          open={open}
+          label={cancelLabel}
+          focusOnOpen={cancelAutoFocus}
+          disabled={busy}
+          onClick={onClose}
+        />
         <Button
           variant="contained"
           color={destructive ? 'error' : 'primary'}
@@ -95,11 +107,13 @@ export function ConfirmDialog({
  */
 function CancelButton({
   open,
+  label,
   focusOnOpen,
   disabled,
   onClick,
 }: {
   open: boolean;
+  label: string;
   focusOnOpen: boolean;
   disabled: boolean;
   onClick: () => void;
@@ -114,7 +128,7 @@ function CancelButton({
 
   return (
     <Button ref={ref} variant="text" onClick={onClick} disabled={disabled}>
-      Отмена
+      {label}
     </Button>
   );
 }

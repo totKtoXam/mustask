@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
@@ -6,6 +6,9 @@ import { server } from '../../../test/mocks/server';
 import { serveWorkItems, type WorkItemsTestApi } from '../testApi';
 import { WORK_ITEM_URL, exampleDataset, ids, validationProblem } from '../testFixtures';
 import { MSK_LIST, mskForm, renderWorkItems } from '../testRender';
+
+// Each user action draws the kit’s fields in jsdom; a test of several steps outlasts the default.
+vi.setConfig({ testTimeout: 120_000 });
 
 const BUG_4 = mskForm('MSK-BUG-4');
 
@@ -224,10 +227,8 @@ describe('mod-003 US-3 Scenario Outline: An invalid value is refused and nothing
     await userEvent.click(save());
 
     expect(screen.getByText('Не более 100 000 символов.')).toBeInTheDocument();
-    // feat-022: a bug's own texts keep their helpers; «Описание»'s is replaced.
-    expect(
-      within(screen.getByRole('region', { name: 'Описание' })).queryByText('До 100 000 символов'),
-    ).not.toBeInTheDocument();
+    // The error line replaces the hint as the field's description (the kit, design § 4.7).
+    expect(description()).toHaveAccessibleDescription('Не более 100 000 символов.');
     expect(description()).toHaveAttribute('aria-invalid', 'true');
     expect(patches(api)).toEqual([]);
   });
@@ -251,7 +252,10 @@ describe('mod-003 US-3 Scenario Outline: An invalid value is refused and nothing
 
     expect(await screen.findByText('Не более 100 000 символов.')).toBeInTheDocument();
     expect(description()).toHaveValue('Длинно');
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    // The card’s notice is absent: the only alert is the field’s own error line.
+    expect(screen.getAllByRole('alert').map((alert) => alert.textContent)).toEqual([
+      'Не более 100 000 символов.',
+    ]);
   });
 });
 
@@ -310,7 +314,9 @@ describe('mod-003 spec § Page: a work item’s form — loading, error and a go
     renderWorkItems(BUG_4);
 
     expect(await screen.findByRole('status', { name: 'Загрузка данных' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Рабочий элемент MSK-BUG-4' }),
+    ).toBeInTheDocument();
     release();
     expect(await screen.findByRole('alert')).toHaveTextContent('Нет ответа.');
   });

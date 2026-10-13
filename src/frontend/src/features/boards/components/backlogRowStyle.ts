@@ -90,11 +90,11 @@ export function rowSx(selected: boolean) {
 /** A row's own small control: the 24 px box of «+» and «⋮», its glyph the token's. */
 export function controlSx(theme: Theme) {
   return {
-    width: theme.layout.backlogTable.rowControl,
-    height: theme.layout.backlogTable.rowControl,
+    width: theme.layout.iconAction.row.box,
+    height: theme.layout.iconAction.row.box,
     p: 0,
     flexShrink: 0,
-    '& .MuiSvgIcon-root': { fontSize: theme.layout.backlogTable.actionGlyph },
+    '& .MuiSvgIcon-root': { fontSize: theme.layout.iconAction.row.glyph },
   };
 }
 
@@ -112,7 +112,7 @@ export function controlSx(theme: Theme) {
  * keyboard path is «Ещё действия».
  */
 export function gripSx(theme: Theme, off: boolean) {
-  const table = theme.layout.backlogTable;
+  const { table } = theme.layout;
   const dot = theme.palette.action.disabled;
   return {
     position: 'absolute',

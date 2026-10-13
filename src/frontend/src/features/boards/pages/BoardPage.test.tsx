@@ -157,9 +157,12 @@ describe('US-4 Scenario: A card shows the item at a glance and opens it', () => 
       'menu',
     );
 
-    await userEvent.click(within(card).getByRole('link', { name: 'Неверный счётчик' }));
-
-    expect(screen.getByTestId('location')).toHaveTextContent(mskForm('MSK-BUG-5'));
+    // A plain click opens the card as a dialog (BoardPage.card.test.tsx); the address stays the
+    // item's own page, for a new tab (feat-029 BR-C-1).
+    expect(within(card).getByRole('link', { name: 'Неверный счётчик' })).toHaveAttribute(
+      'href',
+      mskForm('MSK-BUG-5'),
+    );
   });
 });
 

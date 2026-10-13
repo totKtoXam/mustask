@@ -19,6 +19,7 @@ import {
   teamsPath,
 } from '../../features/organizations';
 import { processDefinitionPath, processPermissions } from '../../features/process';
+import { UI_KIT_PATH, uiKitPermissions } from '../../features/uikit';
 import { workItemsPath, workItemsPermissions } from '../../features/workitems';
 import { HOME_PATH } from '../../shared/config/paths';
 import type { NavigationModel } from './types';
@@ -179,6 +180,21 @@ export const navigationModel: NavigationModel = {
           scope: 'instance',
           permission: dictionariesPermissions.languagesRead,
           landing: () => LANGUAGES_PATH,
+        },
+      ],
+    },
+    // The UI kit's showcase (tech-015 design § 10.1): last, so «Настройки» still lands on
+    // the first visible entry as before. Shown only to the holders of the showcase's code.
+    {
+      id: 'interface',
+      label: 'Интерфейс',
+      entries: [
+        {
+          id: 'ui-kit',
+          label: 'Витрина компонентов',
+          scope: 'instance',
+          permission: uiKitPermissions.showcaseRead,
+          landing: () => UI_KIT_PATH,
         },
       ],
     },

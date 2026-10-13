@@ -13,7 +13,7 @@ src/
       pages/         # pages wired into the router
       index.ts       # the slice's ONLY public entry point
   shared/            # reusable code WITHOUT business logic:
-    ui/              # wrappers over MUI (PageHeader, ConfirmDialog…)
+    ui/              # the UI kit: wrappers over MUI (PageHeader, ConfirmDialog…), see ui-kit.md
     api/             # http client, error handling, auth interceptor
     lib/             # utilities, formatters (dates, IIN/BIN etc.)
     config/          # constants, env
@@ -99,6 +99,25 @@ registry, form and dialog in code.
 - **Dates:** formatted with `dayjs` in `shared/lib/format.ts`.
 - **Widths:** supported down to 640 CSS px, with the overlay navigation
   below 1024 px (ADR-0024).
+
+## UI kit
+
+Every screen is built from the panel's UI kit — `shared/ui`, the look that
+feat-027 matched to the reference screen — described in
+[ui-kit.md](ui-kit.md) and shown alive, in every state, on the panel's
+«Витрина компонентов» page (`/ui-kit`, for administrators; the table family from
+tech-016). A part the kit
+lacks is added to the kit first, with its tests, its showcase entry and its guide
+block, and only then used; a feature never re-implements a kit part (a page head
+included: a heading element of its own, or `useDocumentTitle` / `usePageChrome`
+instead of `usePageHead`), imports a MUI part the kit wraps, or styles MUI's
+insides (`.Mui…`). `src/test/kitGuard.test.ts` enforces it, with an allow-list of
+today's violations — an exact count per file and rule, cut from the scan of one
+commit — that only shrinks; `src/test/colourLiterals.test.ts` keeps colour in the
+theme, inside shorthands too. Where a kit component and the older paragraphs of
+"MUI" above disagree (secondary commands as text buttons, the list of shared
+patterns), the kit wins: those paragraphs describe the legacy look of the
+screens that have not moved yet.
 
 ## Data and state
 

@@ -22,6 +22,22 @@ Node 23. The dev server is pinned to port 3000 — that port is in the
 - `npm test` — Vitest (Testing Library + MSW) in single-run mode. Never picks
   up `e2e/**` (`vite.config.ts` excludes it explicitly).
 
+## UI kit — build from it, add to it first
+
+A screen is built from the panel's UI kit (`src/shared/ui`, tokens in
+`src/app/theme`) and from nothing the kit already provides: do not import a MUI
+part the kit wraps (`TextField`, `Button`, `Menu`, `Snackbar`, `Alert`, `Paper`,
+the `Table*` family…), do not draw a surface, icon button, menu, notice or page
+head of your own (no `<input>`, `<button>`, `<h1>`, no `component="h2"`), do not
+style MUI's insides (`.Mui…`). A pattern the kit lacks goes into
+the kit first — component, test, showcase entry, guide block — and is then used.
+Read `docs/conventions/ui-kit.md` before you write a screen; the panel's
+«Витрина компонентов» (`/ui-kit`, administrators) shows every component in every
+state (the table family from tech-016). `src/test/kitGuard.test.ts` enforces the rule under `npm test`, with an
+allow-list of today's violations (an exact count per file and rule) that only
+shrinks: when it fails, use the kit part its message names, lower or remove an
+entry when you fix its file, and never raise one or add one.
+
 ## E2E test suite (Playwright)
 
 `playwright.config.ts`, specs in `e2e/specs/`, shared helpers in

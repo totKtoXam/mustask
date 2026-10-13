@@ -38,3 +38,10 @@ export { titleError } from './lib/rules';
 // feat-027 US-6: the backlog's «Изменить родителя…» offers every parent type
 // BR-H-2 allows and names them in its helper, as the form does.
 export { allowedParentTypes, parentHelperText } from './lib/process';
+// feat-029: the dialog's place in the address (`?workitem=<ID>`), which the backlog and
+// the board read to open the card over themselves (BR-C-1, BR-C-2).
+export { WORK_ITEM_PARAM, useWorkItemDialog } from './hooks/useWorkItemDialog';
+// feat-029 pass B: the backlog and the board mount the card's dialog once and open it from
+// a title — a plain click only; a modified click follows the title's `href`.
+export { WorkItemCardDialog } from './components/WorkItemCardDialog';
+export { isPlainClick } from './lib/plainClick';

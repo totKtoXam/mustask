@@ -24,6 +24,7 @@ import {
   TeamsPage,
 } from '../features/organizations';
 import { PROCESS_DEFINITION_ROUTE, ProcessDefinitionPage } from '../features/process';
+import { UI_KIT_PATH, UiKitShowcasePage } from '../features/uikit';
 import {
   WORK_ITEMS_ROUTE,
   WORK_ITEM_ROUTE,
@@ -55,6 +56,10 @@ export function AppRoutes() {
               route: the page makes no permission check (design DD-6), and
               the API answers a missing organization with its own code. */}
           <Route path={PROCESS_DEFINITION_ROUTE} element={<ProcessDefinitionPage />} />
+          {/* The UI kit's showcase (tech-015 design § 10.1): an instance-level settings
+              page, outside any work context. The page gates itself (a permission, not a
+              role) and makes no API request. */}
+          <Route path={UI_KIT_PATH} element={<UiKitShowcasePage />} />
           {/* Organizations, projects, teams and areas (mod-002 design § 1):
               nine routes for seven pages inside the slice's pathless layout
               route, which hosts its notice. No gate on any route: every

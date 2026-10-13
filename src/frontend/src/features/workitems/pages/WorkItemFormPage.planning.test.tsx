@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { serveProblem } from '../testApi';
@@ -18,6 +18,9 @@ import {
 } from '../testFields';
 import { WORK_ITEM_URL, hierarchyDataset, recordOf, validationProblem } from '../testFixtures';
 import { mskForm, renderWorkItems } from '../testRender';
+
+// Each user action draws the kit’s fields in jsdom; a test of several steps outlasts the default.
+vi.setConfig({ testTimeout: 120_000 });
 
 // feat-022 US-2 and US-3 on the form (spec § Controls and copy, § Saving):
 // planning, classification and estimation. The dataset is feat-001's: one

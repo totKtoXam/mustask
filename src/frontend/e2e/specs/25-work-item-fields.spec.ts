@@ -20,6 +20,14 @@ import { createWorkItem, saveWorkItem, typeId, type WorkItemDto } from '../suppo
  * Dates are typed into the browser's own date field (status.md D-6, OQ-2
  * (a)) as Playwright fills one: `YYYY-MM-DD`. Nothing is injected and nothing
  * on the session flow is stubbed (`src/test/e2eSessionGuard.test.ts`).
+ *
+ * Brought in line with feat-029 (its spec § E2E; BR-C-14, BR-C-20): the form is the
+ * kit's card, whose fields are borderless and draw each label as a real `<label>`
+ * (`labelsOf`), whose body is three columns at 1 440 px, two at 1 000 and one at
+ * 640 by the card's own width (25.1); every name, description and placeholder
+ * stays, and so does «Не указан» as the value of an empty optional list — the kit's
+ * `InlineSelectField` shows its `emptyLabel` while nothing is chosen, where feat-029's
+ * US-3 and design § 4.6 say «blank at rest»: the kit wins (tech-015 D-5), see spec 27.3.
  */
 
 const created: string[] = [];
@@ -90,8 +98,12 @@ async function saveForm(page: Page) {
   await expect(save(page)).toBeDisabled();
 }
 
-/** A section's controls' labels, top to bottom: MUI draws a list's label as no `label` element. */
-const labelsOf = (page: Page, name: string) => region(page, name).locator('.MuiInputLabel-root');
+/**
+ * A section's controls' labels, top to bottom: the kit's inline fields draw each as a
+ * real `<label>` (tech-015 § 5.7; feat-029 spec § E2E — MUI's `.MuiInputLabel-root`
+ * is no longer drawn).
+ */
+const labelsOf = (page: Page, name: string) => region(page, name).locator('label');
 
 /** Picks `option` from the fixed list `name`. */
 async function choose(page: Page, name: string, option: string) {
@@ -125,7 +137,7 @@ test.describe('25. the work item form’s fields per type (feat-022)', () => {
     }
   });
 
-  test('25.1 «Эпик»: two columns at 1440 px, one at 1279 px, no sideways scroll at 640 px; planning and classification saved and kept; a target date before the start refused (US-1, US-2, US-5)', async ({
+  test('25.1 «Эпик»: three columns at 1440 px, two at 1000 px, one at 640 px with no sideways scroll (the card’s own width, feat-029 BR-C-14); planning and classification saved and kept; a target date before the start refused (US-1, US-2, US-5)', async ({
     page,
   }) => {
     await signIn(page, { returnPath: '/home' });
@@ -142,7 +154,9 @@ test.describe('25. the work item form’s fields per type (feat-022)', () => {
     await expect(textbox(page, 'Трудоёмкость')).toHaveAttribute('placeholder', 'Не оценено');
     await expect(date(page, 'Дата начала')).toHaveValue('');
 
-    // US-1: «Планирование» stands to the right of «Описание».
+    // US-1 and feat-029 BR-C-14: the card's body is three columns at 1440 px with the navigation
+    // expanded (a body of about 1128): «Планирование» to the right of «Описание», «Связанная
+    // работа» to the right of both.
     expect(await sectionOrder(page)).toEqual([
       'Описание',
       'Планирование',
@@ -151,7 +165,9 @@ test.describe('25. the work item form’s fields per type (feat-022)', () => {
     ]);
     const description = await box(region(page, 'Описание'));
     const planning = await box(region(page, 'Планирование'));
+    const related = await box(region(page, 'Связанная работа'));
     expect(planning.x).toBeGreaterThan(description.x + description.width - 1);
+    expect(related.x).toBeGreaterThan(planning.x + planning.width - 1);
 
     // US-2: the seven values in one save, kept after a reload.
     await choose(page, 'Риск', '1 — Высокий');
@@ -180,11 +196,29 @@ test.describe('25. the work item form’s fields per type (feat-022)', () => {
     await page.reload();
     await expect(date(page, 'Дата начала')).toHaveValue('2026-11-01');
 
-    // US-1: below 1280 px one column, the left one's sections first.
+    // US-1 and feat-029 BR-C-14: the card's own width folds the columns. At 1000 px the
+    // navigation is an overlay and the body about 944 wide: two columns — «Планирование»
+    // right of «Описание», «Связанная работа» under the sections.
     // The permanent navigation animates its width when the viewport crosses a
     // breakpoint (mod-015 design § 2.6), and the page moves with it for about
-    // 225 ms: the boxes are read once the two sections stand on one left edge.
-    await page.setViewportSize({ width: 1279, height: 900 });
+    // 225 ms: the boxes are read once the layout has settled.
+    await page.setViewportSize({ width: 1000, height: 900 });
+    await expect
+      .poll(async () => {
+        const sections = await box(region(page, 'Планирование'));
+        const underneath = await box(region(page, 'Связанная работа'));
+        return (
+          Math.abs(underneath.x - sections.x) < 2 && underneath.y > sections.y + sections.height - 1
+        );
+      })
+      .toBe(true);
+    const texts = await box(region(page, 'Описание'));
+    const sections = await box(region(page, 'Планирование'));
+    expect(sections.x).toBeGreaterThan(texts.x + texts.width - 1);
+
+    // At 640 px one column, the texts first; a field takes at most 480, and the page
+    // never scrolls sideways (once the navigation has settled).
+    await page.setViewportSize({ width: 640, height: 900 });
     await expect
       .poll(async () =>
         Math.abs(
@@ -196,9 +230,6 @@ test.describe('25. the work item form’s fields per type (feat-022)', () => {
     const below = await box(region(page, 'Планирование'));
     expect(below.y).toBeGreaterThan(folded.y + folded.height - 1);
     expect((await box(list(page, 'Приоритет'))).width).toBeLessThanOrEqual(480);
-
-    // US-1: at 640 px the page never scrolls sideways (once the navigation has settled).
-    await page.setViewportSize({ width: 640, height: 900 });
     await expect(list(page, 'Вид ценности')).toBeVisible();
     await expect
       .poll(() =>

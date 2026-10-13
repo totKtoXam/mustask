@@ -93,12 +93,14 @@ describe('US-12 Scenario: Tab order follows the layout', () => {
     ]);
   });
 
-  it('on «Языки»: mark, three levels, user menu, the rail’s «Главная» and «Настройки», «Языки» in «Меню настроек», the page', async () => {
+  it('on «Языки»: mark, three levels, user menu, the rail’s «Главная» and «Настройки», «Языки» and the showcase in «Меню настроек», the page', async () => {
     const user = userEvent.setup();
     renderShell({ path: '/dictionaries/languages', auth: authValue(administrator) });
 
-    const sequence = await tabSequence(user, 10);
+    const sequence = await tabSequence(user, 11);
 
+    // An administrator holds the showcase's code (`dictionaries.languages.write`, tech-015
+    // D-5), so «Витрина компонентов» is a settings entry and a stop of its own.
     expect(sequence).toEqual([
       'Перейти к содержимому',
       'Mustask',
@@ -109,6 +111,7 @@ describe('US-12 Scenario: Tab order follows the layout', () => {
       'Главная',
       'Настройки',
       'Языки',
+      'Витрина компонентов',
       'Действие страницы',
     ]);
     // The second «Языки» stop is the settings entry, not a trail segment.

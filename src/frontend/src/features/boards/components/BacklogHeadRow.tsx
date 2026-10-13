@@ -30,7 +30,7 @@ const SEPARATED = 'BacklogHead-separated';
  * `stickyHeader`, which keeps the separators in view too.
  */
 function headCellSx(theme: Theme) {
-  const table = theme.layout.backlogTable;
+  const { table } = theme.layout;
   return {
     ...theme.typography.caption,
     color: theme.palette.text.secondary,
@@ -72,20 +72,20 @@ const clipped = {
 
 /** The two small square outlined buttons of the hierarchy header (design § 4.5). */
 function levelButtonSx(theme: Theme, available: boolean) {
-  const table = theme.layout.backlogTable;
+  const { header } = theme.layout.iconAction;
   // An idle button — nothing to open or close — keeps a readable outline and
   // glyph: the reference draws the pair alike, and `action.disabled` (about
   // 1.9:1) made «+» look broken beside the black «−» (V-3).
   const colour = available ? theme.palette.text.primary : theme.palette.text.secondary;
   return {
-    width: table.headerButton,
-    height: table.headerButton,
+    width: header.box,
+    height: header.box,
     p: 0,
     border: `1px solid ${colour}`,
     borderRadius: `${Number(theme.shape.borderRadius) / 2}px`,
     backgroundColor: theme.palette.background.paper,
     color: colour,
-    '& .MuiSvgIcon-root': { fontSize: table.headerGlyph },
+    '& .MuiSvgIcon-root': { fontSize: header.glyph },
     '&:hover': { backgroundColor: available ? theme.palette.action.hover : undefined },
   };
 }

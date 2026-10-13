@@ -34,6 +34,12 @@ export interface StateFrameProps {
    */
   fullPage?: boolean;
   /**
+   * A frame inside a dialog or a panel (tech-015 design § 5.12): `pt 2`, `pb 2`,
+   * an `h2` and **no tab title** — the page behind keeps its own. It implies not
+   * `fullPage`: given both, the frame is compact.
+   */
+  compact?: boolean;
+  /**
    * A handle on the heading, for a page that moves focus to it — after a
    * retry that ended in not found (mod-001 review round 1 F4). Given, the
    * heading takes the ref and `tabIndex={-1}`; absent, it is as before.
@@ -55,9 +61,12 @@ export function StateFrame({
   heading,
   hint,
   action,
-  fullPage = false,
+  fullPage: fullPageRequested = false,
+  compact = false,
   headingRef,
 }: StateFrameProps) {
+  // A compact frame is the dialog's or the panel's: it never replaces the page.
+  const fullPage = fullPageRequested && !compact;
   useDocumentTitle(fullPage ? heading : undefined);
 
   return (
@@ -69,8 +78,8 @@ export function StateFrame({
         alignItems: 'center',
         textAlign: 'center',
         gap: 1,
-        pt: 8,
-        pb: 4,
+        pt: compact ? 2 : 8,
+        pb: compact ? 2 : 4,
         px: 2,
       }}
     >
@@ -144,10 +153,23 @@ const NOT_FOUND_HEADINGS: Record<NotFoundLevel, string> = {
 
 export function NotFound({
   level,
+  compact = false,
+  hint = 'Проверьте адрес или вернитесь на главную.',
+  action = { label: 'На главную', icon: <HomeOutlinedIcon />, to: HOME_PATH },
   headingRef,
   keepNavigation = false,
 }: {
   level: NotFoundLevel;
+  /**
+   * The frame stands inside a dialog or a panel over a page that is found
+   * (tech-015 design § 5.12): an `h2`, no tab title and no registration with the
+   * shell — the chrome is the host page's. It implies `keepNavigation`.
+   */
+  compact?: boolean;
+  /** The host's own words — the dialog's «Проверьте адрес или закройте окно.». */
+  hint?: string;
+  /** The host's own action — the dialog's «Закрыть». Absent: «На главную». */
+  action?: StateFrameAction;
   /** A handle on the frame's `h1`, as `StateFrame`'s `headingRef`. */
   headingRef?: Ref<HTMLHeadingElement>;
   /**
@@ -160,20 +182,23 @@ export function NotFound({
 }) {
   // Whatever the address looks like, there is no page here: the shell marks
   // nothing current and shows no settings navigation (the spec's BPMN answers
-  // «… не найдена» before that decision).
+  // «… не найдена» before that decision). A compact frame is not the page's
+  // answer, so it leaves the shell alone.
   const { registerNotFound } = usePageChrome();
+  const leaveShellAlone = keepNavigation || compact;
   useLayoutEffect(
-    () => (keepNavigation ? undefined : registerNotFound()),
-    [registerNotFound, keepNavigation],
+    () => (leaveShellAlone ? undefined : registerNotFound()),
+    [registerNotFound, leaveShellAlone],
   );
 
   return (
     <StateFrame
-      fullPage
+      fullPage={!compact}
+      compact={compact}
       icon={SearchOffIcon}
       heading={NOT_FOUND_HEADINGS[level]}
-      hint="Проверьте адрес или вернитесь на главную."
-      action={{ label: 'На главную', icon: <HomeOutlinedIcon />, to: HOME_PATH }}
+      hint={hint}
+      action={action}
       headingRef={headingRef}
     />
   );

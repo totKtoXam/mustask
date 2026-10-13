@@ -111,10 +111,9 @@ describe('US-1 Scenario: A row shows the item at a glance and opens it (feat-027
     const link = within(row).getByRole('link', { name: 'Падение при входе' });
     expect(link).toHaveAttribute('title', 'MSK-BUG-4: Падение при входе');
     expect(link).toHaveAccessibleDescription('MSK-BUG-4. Уровень вложенности: 1.');
-
-    await userEvent.click(link);
-
-    expect(screen.getByTestId('location')).toHaveTextContent(mskForm('MSK-BUG-4'));
+    // A plain click opens the card as a dialog (BacklogPage.card.test.tsx); the address stays
+    // the item's own page, for a new tab (feat-029 BR-C-1).
+    expect(link).toHaveAttribute('href', mskForm('MSK-BUG-4'));
   });
 
   it('shows no assignee on the row: «Исполнитель» is not a column here', async () => {

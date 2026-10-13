@@ -33,7 +33,11 @@ import { createWorkItemIn, saveWorkItem, stateId, typeId } from '../support/work
  * «Бэклог» / «Канбан» under it; the backlog's rows are found by their
  * `data-identifier` — there is no ID cell — and «Порядок» is the second cell,
  * after the hierarchy column; the reorder's menu is the row's «Ещё действия: <ID>»,
- * which took over from the handle column D-7 removed.
+ * which took over from the handle column D-7 removed. And with feat-029 (its spec
+ * § E2E; BR-C-1): a kanban card's title keeps its link to the full page but a plain
+ * click opens the work item as a dialog over the board, so 23.1 reads «Статус»
+ * inside the dialog named «<Тип> <ID>» and `?workitem=` on the board's address,
+ * not an `h1`; spec 27 is the card's own.
  *
  * Brought in line with bug-004 D-3 (one name, one meaning): a board column is
  * headed by the name of the state it maps — «Новая», «Активна», «Разрешена»,
@@ -239,11 +243,23 @@ test.describe('23. backlogs and boards (mod-006)', () => {
     await expect(column(page, 'Активна').getByRole('listitem')).toContainText('Активна');
     await expect(column(page, 'Новая')).toHaveAccessibleName('Новая, рабочих элементов: 2');
 
-    await column(page, 'Активна').getByRole('link', { name: 'Вход по паролю' }).click();
-    await expect(
-      page.getByRole('heading', { level: 1, name: `Пользовательская история ${key}-US-1` }),
-    ).toBeVisible();
-    await expect(page.getByRole('combobox', { name: 'Статус' })).toContainText('Активна');
+    // feat-029 BR-C-1: the card's title opens the work item as a dialog over the board — named
+    // «<Тип> <ID>», with `?workitem=` on the board's own address — and it reads «Статус» inside
+    // the dialog; the full page is the link's `href`, spec 27's.
+    const card = column(page, 'Активна').getByRole('link', { name: 'Вход по паролю' });
+    await expect(card).toHaveAttribute('href', new RegExp(`/workitems/${key}-US-1$`));
+    await card.click();
+    const itemDialog = page.getByRole('dialog', {
+      name: `Пользовательская история ${key}-US-1`,
+      exact: true,
+    });
+    await expect(itemDialog).toBeVisible();
+    await expect(page).toHaveURL(
+      new RegExp(`${teamPrefix}/boards/stories\\?workitem=${key}-US-1$`),
+    );
+    await expect(itemDialog.getByRole('combobox', { name: 'Статус', exact: true })).toContainText(
+      'Активна',
+    );
 
     // US-6: «Новый элемент» on the board; the new card is the last of «Новая».
     await page.goto(`${teamPrefix}/boards/stories`);

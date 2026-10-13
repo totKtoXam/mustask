@@ -72,7 +72,7 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () =>
     }
   });
 
-  it('registers only built pages: «Главная», «Рабочие элементы», «Канбан», «Бэклоги», «Организация» → «Общие», «Проекты», «Процесс», «Проект» → «Общие», «Команды», «Области» and «Справочники» → «Языки»', () => {
+  it('registers only built pages: «Главная», «Рабочие элементы», «Канбан», «Бэклоги», «Организация» → «Общие», «Проекты», «Процесс», «Проект» → «Общие», «Команды», «Области», «Справочники» → «Языки» and «Интерфейс» → «Витрина компонентов»', () => {
     const registered = [
       ...navigationModel.top,
       ...navigationModel.work,
@@ -90,7 +90,27 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () =>
       'Команды',
       'Области',
       'Языки',
+      'Витрина компонентов',
     ]);
+  });
+
+  // tech-015 design § 10.1: the showcase's entry is the last of the settings, so «Настройки»
+  // still lands on the first visible entry as before; it shows to the holders of its code only.
+  it('puts «Интерфейс» → «Витрина компонентов» last, instance-scoped and gated by its code', () => {
+    const section = navigationModel.settings.at(-1);
+    expect(section?.label).toBe('Интерфейс');
+    expect(section?.entries.map((entry) => entry.label)).toEqual(['Витрина компонентов']);
+    expect(section?.entries[0]?.scope).toBe('instance');
+    expect(section?.entries[0]?.permission).toBe('dictionaries.languages.write');
+    expect(section?.entries[0]?.landing({})).toBe('/ui-kit');
+  });
+
+  it.each([
+    ['holds the showcase code', ['dictionaries.languages.write'], true],
+    ['holds the read code only', ['dictionaries.languages.read'], false],
+  ])('shows the showcase entry only to who %s', (_case, codes, shown) => {
+    const visible = visibleModel(navigationModel, (code) => codes.includes(code), real);
+    expect(labels(visible).includes('Витрина компонентов')).toBe(shown);
   });
 });
 

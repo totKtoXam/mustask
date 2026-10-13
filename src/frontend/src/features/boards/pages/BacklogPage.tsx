@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import AddIcon from '@mui/icons-material/Add';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
-import { NEW_WORK_ITEM_LABEL } from '../../workitems';
+import { NEW_WORK_ITEM_LABEL, WorkItemCardDialog } from '../../workitems';
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
 import { RegistrySkeleton } from '../../../shared/ui/RegistrySkeleton';
 import { NotFound, StateFrame } from '../../../shared/ui/StateFrame';
@@ -68,6 +68,8 @@ function TeamBacklog({
 }) {
   const query = useBacklog(organizationId, projectId, teamId, level);
   const readAgain = useReadTeamAgain(organizationId, projectId, teamId);
+  // The card's dialog changed an item behind the table (BR-C-21): the backlog reads again.
+  const readAfterCard = useCallback(() => void readAgain(), [readAgain]);
   const { notice, showSuccess, showSuccessAlert, showError } = useNotice();
   // Each message counts, so one equal to the last is spoken again (F-11).
   const [announcement, setAnnouncement] = useState({ text: '', serial: 0 });
@@ -143,6 +145,11 @@ function TeamBacklog({
         </>
       )}
       {newItem.elements}
+      <WorkItemCardDialog
+        organizationId={organizationId}
+        projectId={projectId}
+        onChanged={readAfterCard}
+      />
       {notice}
       <StatusRegion text={announcement.text} serial={announcement.serial} />
     </>

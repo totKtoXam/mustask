@@ -49,11 +49,11 @@ export function columnOf(name: string): string[] {
 }
 
 /**
- * The labels of a section's controls, top to bottom — a list's label included,
- * which MUI does not draw as a `label` element.
+ * The labels of a section's controls, top to bottom: the kit draws every field's
+ * label as a real `label` element, a list's included.
  */
 export function controlsOf(name: string): string[] {
-  return Array.from(section(name).querySelectorAll('.MuiInputLabel-root')).map(
+  return Array.from(section(name).querySelectorAll('label')).map(
     (label) => label.textContent ?? '',
   );
 }

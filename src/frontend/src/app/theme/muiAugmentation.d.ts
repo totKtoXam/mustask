@@ -21,18 +21,24 @@ declare module '@mui/material/styles' {
     workTracking: WorkTrackingLookups;
     /** The soft glow round the backlog's card (feat-027 design § 2.6). */
     cardShadow: string;
+    /** How long a notice stays, in ms (tech-015 design § 3.2). */
+    noticeDurationMs: number;
   }
   interface ThemeOptions {
     layout?: LayoutTokens;
     density?: DensityTokens;
     cardShadow?: string;
+    noticeDurationMs?: number;
   }
   interface TypographyVariants {
     /** The backlog table's body text, 13 / 20 (feat-027 design § 2.6). */
     tableCell: CSSProperties;
+    /** The work item card's id and title, 17 / 24 (tech-015 design § 3.2). */
+    cardTitle: CSSProperties;
   }
   interface TypographyVariantsOptions {
     tableCell?: CSSProperties;
+    cardTitle?: CSSProperties;
   }
   interface Mixins {
     /** Hides content visually and keeps it for assistive technology. */
@@ -43,5 +49,6 @@ declare module '@mui/material/styles' {
 declare module '@mui/material/Typography' {
   interface TypographyPropsVariantOverrides {
     tableCell: true;
+    cardTitle: true;
   }
 }

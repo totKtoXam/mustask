@@ -26,7 +26,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   AssigneeName,
   StateName,
+  isPlainClick,
   useSetWorkItemState,
+  useWorkItemDialog,
   workItemPath,
   type WorkItemStateReference,
 } from '../../workitems';
@@ -101,6 +103,9 @@ export function BoardColumns({
   const client = useQueryClient();
   const setState = useSetWorkItemState(organizationId, projectId);
   const readAgain = useReadTeamAgain(organizationId, projectId, teamId);
+  // A title's plain click opens the card as a dialog over the board (feat-029 BR-C-1);
+  // `open` keeps its identity, so the memoised cards are not redrawn by the navigation.
+  const { open: openItem } = useWorkItemDialog();
   const view = useMoveView(board);
   const [menu, setMenu] = useState<{ anchor: HTMLElement; cardId: string } | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -313,6 +318,7 @@ export function BoardColumns({
                   menuOpen={menu?.cardId === card.id}
                   menuId={menuId}
                   formPath={workItemPath(organizationId, projectId, card.identifier)}
+                  onOpenItem={openItem}
                   onOpenMenu={openMenu}
                   onDragStart={startDrag}
                   onDragEnd={endDrag}
@@ -368,6 +374,7 @@ const BoardCard = memo(function BoardCard({
   menuOpen,
   menuId,
   formPath,
+  onOpenItem,
   onOpenMenu,
   onDragStart,
   onDragEnd,
@@ -377,7 +384,10 @@ const BoardCard = memo(function BoardCard({
   saving: boolean;
   menuOpen: boolean;
   menuId: string;
+  /** The item's full page: the title's `href`, followed by a modified click (BR-C-1). */
   formPath: string;
+  /** A plain click on the title opens the item's card as a dialog over the board (BR-C-1). */
+  onOpenItem(identifier: string): void;
   onOpenMenu(event: MouseEvent<HTMLElement>, cardId: string): void;
   onDragStart(event: DragEvent<HTMLElement>, card: BacklogItem): void;
   onDragEnd(): void;
@@ -389,6 +399,8 @@ const BoardCard = memo(function BoardCard({
       elevation={1}
       draggable={!saving}
       data-card={card.identifier}
+      // The card's dialog gives focus back to this card's title by the identifier (BR-C-4).
+      data-identifier={card.identifier}
       onDragStart={(event: DragEvent<HTMLElement>) => onDragStart(event, card)}
       onDragEnd={onDragEnd}
       sx={(theme) => ({
@@ -409,6 +421,12 @@ const BoardCard = memo(function BoardCard({
           component={RouterLink}
           to={formPath}
           variant="body2"
+          onClick={(event: MouseEvent<HTMLElement>) => {
+            if (isPlainClick(event)) {
+              event.preventDefault();
+              onOpenItem(card.identifier);
+            }
+          }}
           sx={{ flex: '1 1 auto', minWidth: 0, overflowWrap: 'anywhere' }}
         >
           {card.title}

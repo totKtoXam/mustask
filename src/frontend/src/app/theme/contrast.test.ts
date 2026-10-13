@@ -29,6 +29,13 @@ const workTrackingSurfaces = {
   'row selected': surfaces['row selected'],
 };
 
+// Where a kit field stands: on a card or a form (white) and in the card's band
+// (the application background).
+const fieldSurfaces = {
+  content: surfaces.content,
+  'application background': surfaces['application background'],
+};
+
 type Pair = [name: string, foreground: string, background: string];
 
 function on(name: string, foreground: string, onto: Record<string, string>): Pair[] {
@@ -116,6 +123,15 @@ const textPairs: Pair[] = [
     palette.text.primary,
     palette.shell.buttonNeutralHover,
   ],
+  // The kit's pairs (tech-015 design § 6). A field's and the band's label is
+  // `cardLabel`, lighter than `text.secondary`: 4.95 on white and 4.66 on the
+  // band, so a lighter grey (`#737373` is 4.46 on the band) fails here.
+  ...on('field label', palette.shell.cardLabel, fieldSurfaces),
+  ...on('hint or empty text', palette.text.secondary, fieldSurfaces),
+  ['eyebrow on content', palette.primary.dark, surfaces.content],
+  ['error line on content', palette.error.main, surfaces.content],
+  ['tag text on the neutral tag', palette.text.primary, palette.shell.buttonNeutral],
+  ['tag text on the accent tag', palette.text.primary, palette.shell.rowSelected],
 ];
 
 const nonTextPairs: Pair[] = [
@@ -132,6 +148,10 @@ const nonTextPairs: Pair[] = [
   // The idle «+» of the hierarchy header (feat-027 V-3) stands on the white
   // header and is the only carrier of the button: tested strictly.
   ...on('idle level button', palette.text.secondary, { content: surfaces.content }),
+  // The focus frame of a kit control on the grey button's fill (white, the band
+  // and the selected row's tint are in `surfaces` above), and an error frame.
+  ['focus indicator on the grey button', palette.primary.main, palette.shell.buttonNeutral],
+  ['error frame on content', palette.error.main, surfaces.content],
   ...APPEARANCE_TOKENS.filter((token) => !exemptNames.has(`type ${token}`)).flatMap((token) =>
     on(`type ${token}`, theme.workTracking.typeAppearance(token).colour, workTrackingSurfaces),
   ),
@@ -207,6 +227,86 @@ describe('feat-027 D-10 Scenario: graphics whose meaning the row’s text repeat
         contrastRatio(theme.workTracking.categoryColour('Completed'), background),
       ).toBeGreaterThanOrEqual(NON_TEXT);
     }
+  });
+});
+
+describe('tech-015 Scenario: the field’s hover frame is decoration', () => {
+  const { fieldHover, inputBorder } = palette.shell;
+
+  it.each(Object.entries(fieldSurfaces))(
+    'sits between 1.5 and 2:1 on %s and under the input border’s ratio',
+    (_surface, background) => {
+      const ratio = contrastRatio(fieldHover, background);
+      expect(ratio).toBeGreaterThanOrEqual(1.5);
+      expect(ratio).toBeLessThan(2);
+      expect(ratio).toBeLessThan(contrastRatio(inputBorder, background));
+    },
+  );
+});
+
+/**
+ * Pairs the kit draws and the contrast floor does not ask of (tech-015 design
+ * § 6): recorded, not asserted. Each still misses its floor (otherwise it is
+ * tested strictly again) and still shows.
+ */
+const EXEMPT_FROM_FLOOR: readonly {
+  name: string;
+  foreground: string;
+  background: string;
+  floor: number;
+  /** The least ratio at which the pair still reads. */
+  shows: number;
+  reason: string;
+}[] = [
+  {
+    name: 'disabled split button label',
+    foreground: palette.shell.splitDisabledText,
+    background: palette.shell.splitDisabledFill,
+    floor: TEXT,
+    shows: 2.5,
+    reason:
+      'a disabled control is outside WCAG 1.4.3, and the pair is the reference’s own clean look; MUI’s disabled grey is a darker block with a fainter label',
+  },
+  {
+    name: 'section rule',
+    foreground: palette.shell.sectionRule,
+    background: palette.background.paper,
+    floor: NON_TEXT,
+    shows: 1.1,
+    reason:
+      'a decorative line that nothing is lost without — the section’s head and its content carry the structure — and lighter than the divider',
+  },
+];
+
+describe('tech-015 Scenario: pairs exempt from the floor', () => {
+  it.each(EXEMPT_FROM_FLOOR.map((entry) => [entry.name, entry] as const))(
+    '%s gives its reason in words',
+    (_name, entry) => {
+      expect(entry.reason.length).toBeGreaterThan(30);
+    },
+  );
+
+  it.each(EXEMPT_FROM_FLOOR.map((entry) => [entry.name, entry] as const))(
+    '%s needs the exemption: it misses its floor, so it is not tested strictly by luck',
+    (_name, entry) => {
+      expect(contrastRatio(entry.foreground, entry.background)).toBeLessThan(entry.floor);
+    },
+  );
+
+  it.each(EXEMPT_FROM_FLOOR.map((entry) => [entry.name, entry] as const))(
+    '%s still shows',
+    (_name, entry) => {
+      expect(contrastRatio(entry.foreground, entry.background)).toBeGreaterThanOrEqual(entry.shows);
+    },
+  );
+
+  it('keeps the disabled split button at the reference’s 2.63:1 and the rule lighter than the divider', () => {
+    expect(
+      contrastRatio(palette.shell.splitDisabledText, palette.shell.splitDisabledFill),
+    ).toBeCloseTo(2.63, 1);
+    expect(contrastRatio(palette.shell.sectionRule, palette.background.paper)).toBeLessThan(
+      contrastRatio(palette.divider, palette.background.paper),
+    );
   });
 });
 

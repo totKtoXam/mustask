@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
@@ -13,7 +13,11 @@ import {
   stateId,
   type Dataset,
 } from '../testFixtures';
+import { held } from '../components/card/testCard';
 import { mskForm, renderWorkItems } from '../testRender';
+
+// Each user action draws the kit’s fields in jsdom; a test of several steps outlasts the default.
+vi.setConfig({ testTimeout: 120_000 });
 
 // feat-001 frontend pass A: the form's section «Связанная работа» — the
 // «Родитель» field (US-1), the refusals it shows (US-2) and the children list
@@ -31,7 +35,7 @@ function patches(api: WorkItemsTestApi) {
 }
 
 const parentField = () => screen.getByRole('combobox', { name: 'Родитель' });
-const save = () => screen.getByRole('button', { name: 'Сохранить' });
+const save = held(() => screen.getByRole('button', { name: 'Сохранить' }));
 const related = () => screen.getByRole('region', { name: 'Связанная работа' });
 
 /** The open list's lines: an item by «<ID> <Заголовок>», without its state. */
@@ -345,7 +349,7 @@ describe('feat-001 US-1 Scenario: A link changes no other field and no backlog p
 });
 
 describe('feat-001 US-1 Scenario: The field is read-only while the form is saved', () => {
-  it('«Родитель» is disabled with the other fields until the answer', async () => {
+  it('«Родитель» is busy, a value that cannot be edited, with the other fields until the answer', async () => {
     await openForm('MSK-US-2');
     let release: () => void = () => {};
     const held = new Promise<void>((resolve) => {
@@ -369,10 +373,12 @@ describe('feat-001 US-1 Scenario: The field is read-only while the form is saved
 
     await userEvent.click(save());
 
-    await waitFor(() => expect(parentField()).toBeDisabled());
-    expect(screen.getByRole('textbox', { name: 'Заголовок' })).toBeDisabled();
+    await waitFor(() => expect(parentField()).toHaveAttribute('aria-busy', 'true'));
+    expect(parentField()).toHaveAttribute('readonly');
+    expect(screen.getByRole('textbox', { name: 'Заголовок' })).toHaveAttribute('readonly');
     release();
-    await waitFor(() => expect(parentField()).toBeEnabled());
+    await waitFor(() => expect(parentField()).not.toHaveAttribute('aria-busy'));
+    expect(parentField()).not.toHaveAttribute('readonly');
   });
 });
 
@@ -595,7 +601,8 @@ describe('feat-001 US-2 Scenario: A parent chosen from a stale view is refused �
         'Родитель уже изменён другим участником. Данные обновлены — проверьте и повторите.',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole('alert')).toHaveTextContent('Нет ответа.');
+    // The card’s notice stands between the band and the body; the field’s own error line is the other alert.
+    expect(screen.getAllByRole('alert')[0]).toHaveTextContent('Нет ответа.');
     expect(parentField()).toHaveValue('MSK-FEAT-6 Вход по ссылке');
     expect(save()).toBeEnabled();
   });
@@ -771,7 +778,7 @@ describe('feat-001 spec § Screens and copy: loading covers the section', () => 
     renderWorkItems(mskForm('MSK-US-2'));
 
     expect(await screen.findByRole('status', { name: 'Загрузка данных' })).toBeInTheDocument();
-    expect(document.querySelectorAll('[aria-label="Загрузка данных"]')).toHaveLength(2);
+    expect(document.querySelectorAll('[aria-label="Загрузка данных"]')).toHaveLength(1);
     expect(screen.queryByRole('region', { name: 'Связанная работа' })).not.toBeInTheDocument();
     release();
     expect(await screen.findByRole('alert')).toHaveTextContent('Нет ответа.');

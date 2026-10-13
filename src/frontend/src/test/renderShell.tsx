@@ -40,9 +40,9 @@ export function authValue(
 
 /** Shows the router's current address, so a test can read where a link led. */
 export function LocationProbe() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   return (
-    <div data-testid="location" hidden>
+    <div data-testid="location" data-search={search} hidden>
       {pathname}
     </div>
   );

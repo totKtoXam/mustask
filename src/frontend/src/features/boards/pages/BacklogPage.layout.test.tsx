@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { act, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { act, waitFor, within } from '@testing-library/react';
 import { focusManager } from '@tanstack/react-query';
 import { theme } from '../../../app/theme';
 import { CATEGORY_MARKER_CLASS } from '../../../shared/ui/WorkTrackingMarks';
@@ -173,8 +172,8 @@ describe('US-1 Scenario: The title cell carries the chevron, the icon and the pl
     expect(cellText(row, CELL.state)).toBe('Новая');
     expect(cellOf(row, CELL.state).querySelector(`.${CATEGORY_MARKER_CLASS}`)).not.toBeNull();
 
-    await userEvent.click(link);
-    expect(screen.getByTestId('location')).toHaveTextContent(mskForm('MSK-EPIC-1'));
+    // A plain click opens the card as a dialog (BacklogPage.card.test.tsx); the address stays
+    // the item's own page, for a new tab (feat-029 BR-C-1).
   });
 
   it('describes a nested row’s depth for assistive technology: «<ID>. Уровень вложенности: <n>.»', async () => {

@@ -76,7 +76,7 @@ describe('V-1 Scenario: The header separators are thin lines, not a band', () =>
       const style = (rules[rules.length - 1] as CSSStyleRule).style;
       expect(style.getPropertyValue('width'), `${header.textContent}: width`).toBe('1px');
       expect(style.getPropertyValue('height'), `${header.textContent}: height`).toBe(
-        `${theme.layout.backlogTable.separatorHeight}px`,
+        `${theme.layout.table.separatorHeight}px`,
       );
       expect(style.getPropertyValue('background-color')).toBe(theme.palette.divider);
     }
@@ -143,11 +143,11 @@ describe('V-4 Scenario: The grip is the reference’s four dots, not a dotted li
     expect(style.backgroundPosition).toBe('7px center');
     expect(style.backgroundRepeat).toBe('no-repeat');
     // The mark holds exactly four dots (2 px each, 6 px apart: 4 × 2 + 3 × 4 = 20 px).
-    expect(Math.floor((theme.layout.backlogTable.gripMarkHeight + 4) / 6)).toBe(4);
+    expect(Math.floor((theme.layout.table.gripMarkHeight + 4) / 6)).toBe(4);
     // The hit strip is not shrunk with it: the cell's full height, 16 px wide.
     expect(style.top).toBe(0);
     expect(style.bottom).toBe(0);
-    expect(style.width).toBe(theme.layout.backlogTable.gripHitWidth);
+    expect(style.width).toBe(theme.layout.table.gripHitWidth);
 
     const drawn = getComputedStyle(grip(table, 'MSK-EPIC-1'));
     expect(drawn.backgroundSize).toBe('1px 20px');
@@ -191,9 +191,9 @@ describe('V-5 Scenario: The chevrons and the row «+» are hairlines', () => {
     await findBacklogTable();
 
     const chevron = expandControl('MSK-EPIC-1').querySelector('svg') as Element;
-    expect(getComputedStyle(chevron).fontSize).toBe(`${theme.layout.backlogTable.chevronGlyph}px`);
+    expect(getComputedStyle(chevron).fontSize).toBe(`${theme.layout.iconAction.chevron.glyph}px`);
     const add = (await addControl('MSK-EPIC-1')).querySelector('svg') as Element;
-    expect(getComputedStyle(add).fontSize).toBe(`${theme.layout.backlogTable.actionGlyph}px`);
+    expect(getComputedStyle(add).fontSize).toBe(`${theme.layout.iconAction.row.glyph}px`);
   });
 });
 
@@ -209,7 +209,7 @@ describe('V-6 Scenario: The team chevron stands close to the name', () => {
     // 10 px of the title group's gap, 4 px pulled in, about 6 px of the glyph's own inset (2 px of
     // box and 4.5 of the path's 24 units, at 20 px): the ink starts 12 px after the name.
     const gap = px(getComputedStyle(button.parentElement as Element).gap);
-    const inset = (24 - theme.layout.backlogTable.chevronGlyph) / 2 + (4.5 * 20) / 24;
+    const inset = (24 - theme.layout.iconAction.chevron.glyph) / 2 + (4.5 * 20) / 24;
     expect(Math.round(gap + px(getComputedStyle(button).marginLeft) + inset)).toBe(12);
   });
 });

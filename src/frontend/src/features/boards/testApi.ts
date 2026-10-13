@@ -261,6 +261,12 @@ export class BoardsTestApi {
     };
   }
 
+  /** The item with its parent and children, as a read or a save of the card answers (feat-029). */
+  private fullItem(record: WorkItemRecord) {
+    const parent = this.byId(record.parentId);
+    return { ...this.workItem(record), parent: parent ? this.ref(parent) : null, children: [] };
+  }
+
   private surface(team: TeamRecord, level: string) {
     const types = this.levelTypes(level);
     return {
@@ -567,6 +573,11 @@ export class BoardsTestApi {
   }
 
   private saveState(record: WorkItemRecord, body: Record<string, unknown>) {
+    // feat-029: the card saves a title too, and the backlog behind it must show it.
+    if (typeof body.title === 'string' && record.title !== body.title) {
+      record.title = body.title;
+      record.changedAt = this.now();
+    }
     if (typeof body.stateId === 'string') {
       const state = this.type(record.typeId).states.find(
         (candidate) => candidate.id === body.stateId,
@@ -790,13 +801,21 @@ export class BoardsTestApi {
           );
         }),
       ),
+      // feat-029: the card's dialog reads the item over the backlog and the board.
+      http.get(
+        WORK_ITEM_URL,
+        answer((p) => {
+          const project = this.project(one(p, 'organizationId'), one(p, 'projectId'));
+          return this.fullItem(this.record(project.id, one(p, 'identifier')));
+        }),
+      ),
       http.patch(
         WORK_ITEM_URL,
         answer((p, body) => {
           const project = this.project(one(p, 'organizationId'), one(p, 'projectId'));
           const record = this.record(project.id, one(p, 'identifier'));
           this.saveState(record, body);
-          return this.workItem(record);
+          return this.fullItem(record);
         }),
       ),
       http.put(

@@ -2,6 +2,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
+import { NoticeProvider } from '../shared/ui';
 
 /**
  * Рендер с провайдерами страничных тестов: свежий QueryClient без ретраев
@@ -21,6 +22,12 @@ export function renderWithProviders(
   // снаружи: AuthContext сам зовёт useQueryClient() (сброс кэша
   // на выходе), и снаружи провайдера этот hook падает.
   const routed = <MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>;
-  const tree = <QueryClientProvider client={queryClient}>{wrapper ? wrapper(routed) : routed}</QueryClientProvider>;
+  // The kit's `NoticeProvider`, which `AppLayout` mounts in the product: a page under
+  // test may call `useNotice().show(...)` and the notice is drawn.
+  const tree = (
+    <QueryClientProvider client={queryClient}>
+      <NoticeProvider>{wrapper ? wrapper(routed) : routed}</NoticeProvider>
+    </QueryClientProvider>
+  );
   return render(tree);
 }

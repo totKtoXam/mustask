@@ -13,7 +13,9 @@ import {
   htmlFontSize,
   layout,
   mediumWeight,
+  noticeDurationMs,
   semanticColours,
+  shapeRadius,
   shellPalette,
   typeScale,
 } from './tokens';
@@ -46,6 +48,7 @@ const typography: TypographyVariantsOptions = {
   caption: variant(typeScale.caption),
   button: { ...variant(typeScale.button), textTransform: 'none' },
   tableCell: variant(typeScale.tableCell),
+  cardTitle: variant(typeScale.cardTitle),
 };
 
 const baseTheme = createTheme(
@@ -72,7 +75,7 @@ const baseTheme = createTheme(
       shell: shellPalette,
     },
     typography,
-    shape: { borderRadius: 4 },
+    shape: { borderRadius: shapeRadius },
     mixins: {
       // MUI's default toolbar is 56/64 px, responsive; the top bar is 48 px
       // at every width (BR-3).
@@ -92,6 +95,7 @@ const baseTheme = createTheme(
     layout,
     density,
     cardShadow,
+    noticeDurationMs,
     // MUI's own keyboard focus ring: a solid accent outline of `focusRing`
     // on every button, list item, tab, link, sort label and icon button,
     // inset automatically where a clipping ancestor would cut it (BR-5).

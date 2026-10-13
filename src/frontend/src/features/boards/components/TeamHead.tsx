@@ -8,12 +8,11 @@ import ArrowCircleLeftOutlinedIcon from '@mui/icons-material/ArrowCircleLeftOutl
 import ArrowCircleRightOutlinedIcon from '@mui/icons-material/ArrowCircleRightOutlined';
 import ViewWeekOutlinedIcon from '@mui/icons-material/ViewWeekOutlined';
 import { useWorkContext } from '../../../shared/lib/workContext';
+import { BacklogIcon, ThinChevronDownIcon } from '../../../shared/ui';
 import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
 import type { BoardLevelCode } from '../lib/levels';
 import { backlogPath, boardPath } from '../paths';
-import { BacklogIcon } from './BacklogIcon';
 import { LevelMenu } from './LevelMenu';
-import { ThinChevronDownIcon } from './ThinIcons';
 
 /** The two pages that wear the head (feat-027 BR-T-16). */
 export type TeamPage = 'backlog' | 'board';
@@ -221,8 +220,8 @@ function TeamMenu({
             }
           }}
           sx={(theme) => ({
-            width: theme.layout.backlogTable.chevronSlot,
-            height: theme.layout.backlogTable.chevronSlot,
+            width: theme.layout.iconAction.chevron.box,
+            height: theme.layout.iconAction.chevron.box,
             p: 0,
             // The glyph's ink starts about 6 px inside its 24 px box (the 2 px
             // the 20 px glyph is inset and the path's own 4.5 units), which with
@@ -230,7 +229,7 @@ function TeamMenu({
             // name; the reference's is 12 (V-6).
             ml: -0.5,
             color: 'text.primary',
-            '& .MuiSvgIcon-root': { fontSize: theme.layout.backlogTable.chevronGlyph },
+            '& .MuiSvgIcon-root': { fontSize: theme.layout.iconAction.chevron.glyph },
           })}
         >
           <ThinChevronDownIcon />

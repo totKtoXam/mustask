@@ -11,6 +11,7 @@ import {
   type SwitchTargetResolver,
   type WorkContextSource,
 } from '../shared/lib/workContext';
+import { NoticeProvider } from '../shared/ui';
 import {
   PageChromeContext,
   type PageChrome,
@@ -78,10 +79,20 @@ export interface AppLayoutProps {
  * navigation on settings pages, and the main region hosting the page.
  *
  * It provides what pages share with the frame: the one permission check
- * (BR-8), the work context (BR-11) and the page chrome through which a page
- * header registers and the shell derives its trail (BR-6).
+ * (BR-8), the work context (BR-11), the page chrome through which a page
+ * header registers and the shell derives its trail (BR-6), and the one notice
+ * host the kit's `useNotice` talks to (tech-015 design § 5.12) — above the
+ * routes, so a notice outlives the page that raised it.
  */
-export function AppLayout({ contextSource }: AppLayoutProps) {
+export function AppLayout(props: AppLayoutProps) {
+  return (
+    <NoticeProvider>
+      <AppFrame {...props} />
+    </NoticeProvider>
+  );
+}
+
+function AppFrame({ contextSource }: AppLayoutProps) {
   const { can, status, subject } = useAuth();
   const model = useNavigationModel();
   const { pathname } = useLocation();

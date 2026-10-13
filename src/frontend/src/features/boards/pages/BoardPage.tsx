@@ -1,9 +1,13 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import AddIcon from '@mui/icons-material/Add';
 import ViewWeekOutlinedIcon from '@mui/icons-material/ViewWeekOutlined';
 import { useProcessDefinition } from '../../process';
-import { NEW_WORK_ITEM_LABEL, type WorkItemStateReference } from '../../workitems';
+import {
+  NEW_WORK_ITEM_LABEL,
+  WorkItemCardDialog,
+  type WorkItemStateReference,
+} from '../../workitems';
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
 import { NotFound, StateFrame } from '../../../shared/ui/StateFrame';
 import { BoardColumns } from '../components/BoardColumns';
@@ -66,6 +70,8 @@ function TeamBoard({
   // a failed read only leaves the card's old state shown until the board's.
   const process = useProcessDefinition(organizationId);
   const readAgain = useReadTeamAgain(organizationId, projectId, teamId);
+  // The card's dialog changed an item behind the columns (BR-C-21): the board reads again.
+  const readAfterCard = useCallback(() => void readAgain(), [readAgain]);
   const { notice, showSuccess, showError } = useNotice();
   const [announcement, setAnnouncement] = useState('');
   const newItem = useNewWorkItem({
@@ -128,6 +134,11 @@ function TeamBoard({
         />
       )}
       {newItem.elements}
+      <WorkItemCardDialog
+        organizationId={organizationId}
+        projectId={projectId}
+        onChanged={readAfterCard}
+      />
       {notice}
       <StatusRegion text={announcement} />
     </>

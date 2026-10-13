@@ -7,6 +7,8 @@ import TableRow from '@mui/material/TableRow';
 import Tooltip from '@mui/material/Tooltip';
 import { useTheme } from '@mui/material/styles';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import { isPlainClick } from '../../workitems';
+import { ThinAddIcon, ThinChevronDownIcon, ThinChevronRightIcon } from '../../../shared/ui';
 import { CategoryMarker, TypeMark } from '../../../shared/ui/WorkTrackingMarks';
 import type { BacklogTreeItem } from '../api/boardsApi';
 import { addControlLabel, addEntryLabel, type AddEntry } from '../lib/addChild';
@@ -23,7 +25,6 @@ import {
   type LineEdge,
 } from './backlogRowStyle';
 import { BacklogCell } from './BacklogCell';
-import { ThinAddIcon, ThinChevronDownIcon, ThinChevronRightIcon } from './ThinIcons';
 
 /**
  * One row of the backlog (feat-027 US-1, US-2, US-4; design § 4): the
@@ -52,6 +53,7 @@ export const BacklogRow = memo(function BacklogRow({
   addMenuId,
   actionsId,
   formPath,
+  onOpenItem,
   onSelect,
   onToggle,
   onAdd,
@@ -81,7 +83,10 @@ export const BacklogRow = memo(function BacklogRow({
   addMenuId: string | null;
   /** The open «⋮» menu's id when it is this row's. */
   actionsId: string | null;
+  /** The item's full page: the title's `href`, followed by a modified click (BR-C-1). */
   formPath: string;
+  /** A plain click on the title opens the item's card as a dialog over this page (BR-C-1). */
+  onOpenItem(identifier: string): void;
   onSelect(id: string): void;
   onToggle(id: string): void;
   onAdd(
@@ -96,7 +101,7 @@ export const BacklogRow = memo(function BacklogRow({
   registerAdd(id: string, element: HTMLElement | null): void;
 }) {
   const theme = useTheme();
-  const table = theme.layout.backlogTable;
+  const { table, iconAction } = theme.layout;
   const describedBy = useId();
   const [onlyEntry] = addEntries;
   const addMany = addEntries.length > 1;
@@ -187,12 +192,12 @@ export const BacklogRow = memo(function BacklogRow({
               aria-expanded={expanded ? 'true' : 'false'}
               onClick={() => onToggle(item.id)}
               sx={(current) => ({
-                width: current.layout.backlogTable.chevronSlot,
-                height: current.layout.backlogTable.chevronSlot,
+                width: current.layout.iconAction.chevron.box,
+                height: current.layout.iconAction.chevron.box,
                 p: 0,
                 flexShrink: 0,
                 color: 'text.primary',
-                '& .MuiSvgIcon-root': { fontSize: current.layout.backlogTable.chevronGlyph },
+                '& .MuiSvgIcon-root': { fontSize: current.layout.iconAction.chevron.glyph },
               })}
             >
               {expanded ? <ThinChevronDownIcon /> : <ThinChevronRightIcon />}
@@ -200,7 +205,11 @@ export const BacklogRow = memo(function BacklogRow({
           ) : (
             <Box
               aria-hidden="true"
-              sx={{ width: table.chevronSlot, height: table.chevronSlot, flexShrink: 0 }}
+              sx={{
+                width: iconAction.chevron.box,
+                height: iconAction.chevron.box,
+                flexShrink: 0,
+              }}
             />
           )}
           <Box
@@ -219,6 +228,12 @@ export const BacklogRow = memo(function BacklogRow({
             color="inherit"
             underline="hover"
             title={`${item.identifier}: ${item.title}`}
+            onClick={(event: MouseEvent<HTMLElement>) => {
+              if (isPlainClick(event)) {
+                event.preventDefault();
+                onOpenItem(item.identifier);
+              }
+            }}
             // A link drags by itself: without this the browser would drag its address,
             // not the row.
             draggable={false}

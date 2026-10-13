@@ -17,10 +17,10 @@ import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
 import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
 import { RegistrySkeleton } from '../../../shared/ui/RegistrySkeleton';
 import { NotFound, StateFrame } from '../../../shared/ui/StateFrame';
+import { useNotice } from '../../../shared/ui';
 import { WORK_ITEMS_PAGE_SIZE } from '../api/workItemsApi';
 import { CreateWorkItemDialog } from '../components/CreateWorkItemDialog';
 import { AssigneeName, StateName, TypeName } from '../components/Marks';
-import { useNotice } from '../components/Notice';
 import { NEW_WORK_ITEM_LABEL, TypePickerMenu } from '../components/TypePickerMenu';
 import { useCreateWorkItem } from '../hooks/mutations';
 import { useWorkItems } from '../hooks/queries';
@@ -64,7 +64,7 @@ function WorkItemsList({
   const query = useWorkItems(organizationId, projectId, page + 1);
   const process = useProcessDefinition(organizationId);
   const create = useCreateWorkItem(organizationId, projectId);
-  const { notice, show } = useNotice();
+  const { show } = useNotice();
   const [pickerAnchor, setPickerAnchor] = useState<HTMLElement | null>(null);
   const [creatingTypeId, setCreatingTypeId] = useState<string | null>(null);
 
@@ -192,7 +192,6 @@ function WorkItemsList({
           }}
         />
       )}
-      {notice}
     </>
   );
 }
