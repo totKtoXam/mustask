@@ -1146,6 +1146,16 @@ export function normaliseRichText(raw: string): NormalisedRichText {
   // A frameset replaces the body; nothing of it is kept.
   if (body === null || body.localName !== 'body') return EMPTY;
 
+  return normaliseBody(body);
+}
+
+/**
+ * The reduction of an already parsed `<body>`: what `normaliseRichText` does
+ * after the parse. The paste pipeline hands it a document it has adjusted
+ * (styles read into marks, code recognised) so the result is never serialised
+ * to a string and parsed again.
+ */
+export function normaliseBody(body: Element): NormalisedRichText {
   try {
     const limit = DESCRIPTION_MAX_MARKUP;
     const converter = new DomConverter(Math.floor(limit / MIN_CELL_MARKUP), limit);

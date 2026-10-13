@@ -16,7 +16,9 @@ export {
   type MarkKind,
   type VocabularyToken,
 } from './vocabulary';
-export { normaliseRichText, type NormalisedRichText } from './normalise';
+export { normaliseBody, normaliseRichText, type NormalisedRichText } from './normalise';
+export { reducePastedHtml, type ReducedPaste } from './pasteReduce';
+export { tabularRows } from './spreadsheetPaste';
 export { legacyToHtml } from './legacy';
 export { promptAddress, readLinkAddress } from './linkAddress';
 export { findAutoLinks, type AutoLink } from './autolink';
