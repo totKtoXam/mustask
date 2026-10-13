@@ -1,0 +1,65 @@
+{
+  "$comment": "feat-018 / ADR-0027 decision 6: the closed vocabularies of the rich-text subset, the only source of a class token. The server embeds this file (Mustask.Infrastructure/RichText) and writes a token from this table, never from the input; the panel imports the same file. Adding, renaming or removing an entry is a contract change (docs/features/feat-018-work-item-rich-text/spec.md BR-RT-14, BR-RT-16).",
+  "version": 1,
+  "markOrder": ["link", "bold", "italic", "underline", "strike", "highlight", "textColor", "fontSize"],
+  "families": [
+    {
+      "kind": "textColor",
+      "element": "span",
+      "tokens": [
+        { "name": "gray", "class": "rt-color-gray" },
+        { "name": "red", "class": "rt-color-red" },
+        { "name": "orange", "class": "rt-color-orange" },
+        { "name": "green", "class": "rt-color-green" },
+        { "name": "teal", "class": "rt-color-teal" },
+        { "name": "blue", "class": "rt-color-blue" },
+        { "name": "purple", "class": "rt-color-purple" },
+        { "name": "pink", "class": "rt-color-pink" }
+      ]
+    },
+    {
+      "kind": "highlight",
+      "element": "mark",
+      "tokens": [
+        { "name": "yellow", "class": "rt-hl-yellow" },
+        { "name": "orange", "class": "rt-hl-orange" },
+        { "name": "red", "class": "rt-hl-red" },
+        { "name": "green", "class": "rt-hl-green" },
+        { "name": "teal", "class": "rt-hl-teal" },
+        { "name": "blue", "class": "rt-hl-blue" },
+        { "name": "purple", "class": "rt-hl-purple" },
+        { "name": "gray", "class": "rt-hl-gray" }
+      ]
+    },
+    {
+      "kind": "fontSize",
+      "element": "span",
+      "tokens": [
+        { "name": "xs", "class": "rt-size-xs" },
+        { "name": "sm", "class": "rt-size-sm" },
+        { "name": "lg", "class": "rt-size-lg" },
+        { "name": "xl", "class": "rt-size-xl" }
+      ]
+    },
+    {
+      "kind": "codeLanguage",
+      "element": "code",
+      "within": "pre",
+      "plain": "plain",
+      "tokens": [
+        { "name": "javascript", "class": "language-javascript" },
+        { "name": "typescript", "class": "language-typescript" },
+        { "name": "json", "class": "language-json" },
+        { "name": "html", "class": "language-html" },
+        { "name": "xml", "class": "language-xml" },
+        { "name": "css", "class": "language-css" },
+        { "name": "sql", "class": "language-sql" },
+        { "name": "csharp", "class": "language-csharp" },
+        { "name": "python", "class": "language-python" },
+        { "name": "bash", "class": "language-bash" },
+        { "name": "yaml", "class": "language-yaml" },
+        { "name": "markdown", "class": "language-markdown" }
+      ]
+    }
+  ]
+}
