@@ -151,10 +151,49 @@ Monospace stack from the theme (`monospace` if none), 13 px / 20 px, `tab-size`
 (not stored): the language name left, «Копировать код» right. Language is
 chosen in the toolbar's «Язык кода» menu (13 items: «Простой текст» and the 12
 of BR-RT-16; the current one checked; the label of the strip follows). Copy puts
-the exact text on the clipboard and announces «Код скопирован» (polite). No
-syntax colouring in this task: the language is a stored class and a label
-(D-2). Nothing is executed or fetched. Entry announces and shows the Tab hint
-(§ Keyboard).
+the exact text on the clipboard and announces «Код скопирован» (polite).
+Colouring: § Syntax colouring. Nothing is executed or fetched. Entry announces
+and shows the Tab hint (§ Keyboard).
+
+#### Syntax colouring (ADR-0027; supersedes the earlier D-2)
+
+The grammars are lowlight's; the result is applied as **editor decorations over
+the text nodes**, never as a highlighter's HTML string, and **never stored**:
+no class, element or attribute for a token appears in the stored value or in
+the normalised string, so the canonical form (BR-RT-5, US-7) is unchanged and
+a colour-only change is never a dirty form. Theme tokens, `theme.richText.code`
+(read through the theme object, no literals), contrast measured against the
+code block background (light `shell.tableHeader` `#F3F3F3`, dark assumed
+`#2B2B2B`), 4.5:1 required:
+
+| Token class (decoration) | Covers | Light | on bg | Dark | on bg |
+|---|---|---|---|---|---|
+| `keyword` | keywords, built-in literals, tag names | `#8F2D9E` | 6.23 | `#D9A0F0` | 6.90 |
+| `string` | strings, template parts, regex | `#0F6B2B` | 5.99 | `#8FD6A0` | 8.29 |
+| `number` | numbers, units, colour literals | `#B3410A` | 5.15 | `#FFB085` | 7.96 |
+| `comment` | comments (also italic) | `#5C5C5C` | 6.03 | `#ABABAB` | 6.17 |
+| `function` | function and method names, titles | `#0B5CAD` | 6.01 | `#7DBEF7` | 7.13 |
+| `type` | class and type names | `#8A5A00` | 5.34 | `#EBC25A` | 8.36 |
+| `attribute` | attributes, properties, keys | `#006D77` | 5.48 | `#6FD6DE` | 8.33 |
+| `punctuation` | operators, brackets, separators | `#4F4F4F` | 7.38 | `#C4C4C4` | 8.12 |
+
+Anything the grammar does not classify keeps `text.primary`. Rules:
+- **Scope.** Only the 12 languages of BR-RT-16. `plain` and a value outside
+  the list (shown as plain) are not coloured, and their grammar is not loaded.
+- **Loading.** The 12 grammars ship in the editor's lazy chunk (the form
+  route), no other grammar and no request at run time; a grammar that is not
+  ready simply leaves the block uncoloured until it is, with no layout change.
+- **Size cap.** A block of more than 20 000 code points or 1 000 lines is not
+  coloured (D-9); the decorations are recomputed for the edited block only,
+  after a 150 ms idle, never per keystroke, so typing is not delayed.
+- **No effect on behaviour.** Decorations are not nodes: caret, selection,
+  Tab and Shift+Tab, Esc then Tab, the three exits, the gap cursor, undo, paste
+  and the copied text (plain text, exact) are as without colouring; the
+  decorated text is the same characters, so BR-RT-8 counts are unchanged.
+- **Accessibility.** Colour carries no meaning the text does not: the language
+  is named in the strip and the menu, comments are also italic, and every
+  token colour meets 4.5:1 on the block in both themes. Assistive technology
+  reads the block as plain text (decorations add no elements to the reading).
 
 ### Tables (BR-RT-17)
 
@@ -333,12 +372,13 @@ placeholder, helper). Additions, final wording:
 | # | Decision | Why / cost |
 |---|---|---|
 | D-1 | Table operations are one toolbar button with a `Menu`, not eight buttons | eight glyph-only buttons do not fit the toolbar's two rows; names are exactly US-6's; the cost is one extra click and a new name «Операции с таблицей» |
-| D-2 | **No syntax colouring** in this task; language is stored and shown as a label | the spec allows colouring by decoration only, and the ADR names no highlighter; revisit with one if wanted (a new dependency, so the human's call) |
+| D-2 | ~~No syntax colouring~~ **Superseded at gate-2:** colouring is in this task (lowlight decorations, ADR-0027), 8 token classes as theme tokens, not stored | see § Syntax colouring |
 | D-3 | «Язык кода» and «Копировать код» live in the toolbar; the in-block strip repeats them for the pointer only (`tabIndex=-1`) | otherwise Tab leaving the editor would stop on every block's controls, against BR-RT-16 |
 | D-4 | Markdown input rules on for `### `, `#### `, `- `, `* `, `1. `, backticks, ``` ``` ```; `#`, `##` stay text | familiar to tracker users; each yields only what the toolbar offers; Backspace right after reverts |
 | D-5 | A text colour on a highlight is the member's choice, not blocked | 64 pairs, worst 3.09:1; blocking would hide valid pairs; a note, not a rule |
 | D-6 | Emoji set and picker data: the ADR must name it; the design assumes a bundled data set of Russian names loaded with the editor chunk | spec § Open questions; picker UI does not depend on which |
 | D-7 | The image notice also appears when only an image of a rich paste is dropped | otherwise content is lost silently |
+| D-9 | Colouring cap: 20 000 code points or 1 000 lines per block, skipped silently above it | keeps typing and opening fast; the number is the developer's to confirm by measurement (QA observation) |
 | D-8 | «Ссылка» opens with «Текст ссылки» when nothing is selected, as US-5 says; with the caret in a link the field is prefilled | no disabled state needed |
 
 ## Prototype and verification
@@ -351,5 +391,8 @@ code block (Tab, Shift+Tab, Enter twice, Ctrl+Enter, ↓, language, copy), table
 auto-link and the first-undo rule, paste reduction, file drop notice, live
 counter, light and dark and 640 px switches, and the states strip (empty,
 filled, saving, over limit, markup refusal, server refusal, editor loading and
-failure). Its document model is simplified DOM code, not the engine; its
+failure), and coloured code for the 12 languages (a small hand-rolled,
+approximate tokenizer; the build uses lowlight grammars; plain and blocks over
+the cap show none, and the stored value is the text only). Its document model is
+simplified DOM code, not the engine; its
 «stored value» panel is a sketch of the canonical form, not the server's.

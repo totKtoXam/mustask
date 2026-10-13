@@ -12,6 +12,14 @@
     --c-gray:#616161; --c-red:#C42B1C; --c-orange:#9D5D00; --c-green:#107C10; --c-teal:#00796B; --c-blue:#0B5CAD; --c-purple:#773B93; --c-pink:#B4236B;
     --h-yellow:#FFE680; --h-orange:#FFC58A; --h-red:#FFB4AB; --h-green:#B5E5AE; --h-teal:#9FE0D8; --h-blue:#B0D6F7; --h-purple:#D9C2F0; --h-gray:#D4D4D4;
   }
+  :root {
+    --t-keyword:#8F2D9E; --t-string:#0F6B2B; --t-number:#B3410A; --t-comment:#5C5C5C; --t-function:#0B5CAD; --t-type:#8A5A00; --t-attribute:#006D77; --t-punctuation:#4F4F4F;
+  }
+  [data-theme=dark] {
+    --t-keyword:#D9A0F0; --t-string:#8FD6A0; --t-number:#FFB085; --t-comment:#ABABAB; --t-function:#7DBEF7; --t-type:#EBC25A; --t-attribute:#6FD6DE; --t-punctuation:#C4C4C4;
+  }
+  #ed .tok-keyword{color:var(--t-keyword)} #ed .tok-string{color:var(--t-string)} #ed .tok-number{color:var(--t-number)} #ed .tok-comment{color:var(--t-comment);font-style:italic}
+  #ed .tok-function{color:var(--t-function)} #ed .tok-type{color:var(--t-type)} #ed .tok-attribute{color:var(--t-attribute)} #ed .tok-punctuation{color:var(--t-punctuation)}
   [data-theme=dark] {
     --bg:#181818; --paper:#1F1F1F; --text:#F5F5F5; --muted:#B8B8B8; --accent:#479EF5; --accent-dark:#6CB6F5;
     --border:#8A8A8A; --divider:#404040; --head:#2B2B2B; --err:#FF8F85; --hover:#2B2B2B; --sel:#1D3A57;
@@ -302,6 +310,73 @@ function setLang(lang) {
   const cb = closest((selRange() || {}).startContainer, '.cb'); if (!cb) return;
   cb.dataset.lang = lang; cb.querySelector('.cb-chrome span').textContent = LANGS.find(x => x[0] === lang)[1]; commit();
 }
+/* ----- syntax colouring: PROTOTYPE tokenizer, hand-rolled and approximate. The build uses lowlight grammars (ADR-0027)
+   and applies the result as editor decorations; here the tokens are spans inside the code element, which serialize()
+   never reads (it takes textContent), so the stored value is unchanged either way. Plain, unknown language and
+   blocks over HL_CAP characters get no colouring. ----- */
+const HL_CAP = 20000;
+const JS_KW = 'const let var function return if else for while switch case break new class extends import export from default async await try catch finally throw typeof instanceof this null undefined true false of in yield void delete static super';
+const KW = {
+  javascript: JS_KW, typescript: JS_KW + ' interface type enum implements readonly public private protected as namespace declare abstract any string number boolean',
+  json: 'true false null', yaml: 'true false null yes no', markdown: '', css: '', html: '', xml: '',
+  sql: 'select from where insert into values update set delete create table alter drop join left right inner outer on group by order having limit and or not null as distinct union primary key index like in is',
+  csharp: 'using namespace class struct interface enum public private protected internal static void int string bool var new return if else for foreach while switch case break try catch finally throw async await null true false this base override virtual abstract readonly get set',
+  python: 'def class return if elif else for while in not and or is import from as with try except finally raise lambda None True False pass break continue yield async await self',
+  bash: 'if then else elif fi for do done while case esac function in echo export local return exit cd',
+};
+const LINE_C = { javascript: '//', typescript: '//', csharp: '//', sql: '--', python: '#', bash: '#', yaml: '#' };
+function tokenize(lang, s) {
+  const kw = new Set((KW[lang] || '').split(/\s+/).filter(Boolean)), out = []; let i = 0;
+  const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const put = (cls, t) => out.push(cls ? '<span class="tok-' + cls + '">' + esc(t) + '</span>' : esc(t));
+  const markup = lang === 'html' || lang === 'xml';
+  while (i < s.length) {
+    const rest = s.slice(i); let m;
+    if (markup && (m = rest.match(/^<!--[\s\S]*?(-->|$)/))) put('comment', m[0]);
+    else if (markup && (m = rest.match(/^<\/?[A-Za-z][\w:-]*/))) put('keyword', m[0]);
+    else if (markup && (m = rest.match(/^[\w:-]+(?==)/))) put('attribute', m[0]);
+    else if (lang === 'markdown' && (i === 0 || s[i - 1] === '\n') && (m = rest.match(/^#{1,6} [^\n]*/))) put('keyword', m[0]);
+    else if (LINE_C[lang] && rest.startsWith(LINE_C[lang])) { m = rest.match(/^[^\n]*/); put('comment', m[0]); }
+    else if (/^(javascript|typescript|csharp|css|sql)$/.test(lang) && (m = rest.match(/^\/\*[\s\S]*?(\*\/|$)/))) put('comment', m[0]);
+    else if ((m = rest.match(/^("(?:\\.|[^"\\\n])*"?|'(?:\\.|[^'\\\n])*'?|`(?:\\.|[^`\\])*`?)/)) && lang !== 'markdown') {
+      const after = s.slice(i + m[0].length); put(lang === 'json' && /^\s*:/.test(after) ? 'attribute' : 'string', m[0]);
+    }
+    else if (lang === 'markdown' && (m = rest.match(/^`[^`\n]+`/))) put('string', m[0]);
+    else if (lang === 'css' && (m = rest.match(/^#[0-9a-fA-F]{3,8}\b/))) put('number', m[0]);
+    else if (lang === 'css' && (m = rest.match(/^-?[A-Za-z][\w-]*(?=\s*:)/))) put('attribute', m[0]);
+    else if (lang === 'yaml' && (i === 0 || /\n\s*$/.test(s.slice(0, i))) && (m = rest.match(/^[\w.-]+(?=:)/))) put('attribute', m[0]);
+    else if ((m = rest.match(/^\d[\d_]*(\.\d+)?([a-zA-Z%]+)?/)) && lang !== 'markdown') put('number', m[0]);
+    else if ((m = rest.match(/^[A-Za-z_$@][\w$]*/))) {
+      const w = m[0], nxt = s[i + w.length];
+      put(kw.has(w) || kw.has(w.toLowerCase()) && lang === 'sql' ? 'keyword' : nxt === '(' ? 'function' : /^[A-Z]/.test(w) && lang !== 'bash' && lang !== 'yaml' ? 'type' : '', w);
+    }
+    else if ((m = rest.match(/^[{}()[\];,.:<>=+\-*/%!&|^~?]+/)) && lang !== 'markdown') put('punctuation', m[0]);
+    else { m = [rest[0]]; put('', m[0]); }
+    i += m[0].length;
+  }
+  return out.join('');
+}
+function caretOffset(code) {
+  const r = selRange(); if (!r || !code.contains(r.startContainer)) return -1;
+  const q = document.createRange(); q.selectNodeContents(code); q.setEnd(r.startContainer, r.startOffset); return q.toString().length;
+}
+function restoreCaret(code, off) {
+  const w = document.createTreeWalker(code, NodeFilter.SHOW_TEXT); let n, acc = 0;
+  while ((n = w.nextNode())) { if (acc + n.length >= off) { setSel(n, off - acc); return; } acc += n.length; }
+  setSel(code, code.childNodes.length);
+}
+function highlightAll() {
+  if (!root()) return;
+  root().querySelectorAll('.cb').forEach(cb => {
+    const code = cb.querySelector('code'), lang = cb.dataset.lang, text = code.textContent;
+    const colour = lang !== 'plain' && KW[lang] !== undefined && text.length <= HL_CAP;
+    const has = code.querySelector('[class^=tok-]');
+    if (!colour) { if (has) { const off = caretOffset(code); code.textContent = text; if (off >= 0) restoreCaret(code, off); } return; }
+    const off = caretOffset(code); const html = tokenize(lang, text);
+    if (code.innerHTML !== html) { code.innerHTML = html; if (off >= 0) restoreCaret(code, off); }
+  });
+}
+let hlT; function scheduleHighlight() { clearTimeout(hlT); hlT = setTimeout(highlightAll, 150); }
 function copyCode(cb) {
   const text = cb.querySelector('code').textContent;
   (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.resolve()).catch(() => {}).then(() => say(T.copied));
@@ -407,7 +482,7 @@ function commit() {
   if (H.s[H.i] !== h) { H.s = H.s.slice(0, H.i + 1); H.s.push(h); H.i = H.s.length - 1; }
   if (S.lastAuto && S.lastAuto.pending) { S.lastAuto.hist = H.i; delete S.lastAuto.pending; }
   else if (S.lastAuto && S.lastAuto.hist !== H.i) S.lastAuto = null;
-  refresh();
+  scheduleHighlight(); refresh();
 }
 function undo() { if (H.i > 0) { H.i--; root().innerHTML = H.s[H.i]; caretIn(root(), true); refresh(); } }
 function redo() { if (H.i < H.s.length - 1) { H.i++; root().innerHTML = H.s[H.i]; caretIn(root(), true); refresh(); } }
@@ -761,6 +836,7 @@ function render() {
   if (state === 'Сбой загрузки') { host.innerHTML = '<div class="banner" role="alert"><span>' + T.loadFail + '</span><button class="save" id="retry" type="button">' + T.retry + '</button></div><div class="rows"><span>' + T.helper + '</span></div>';
     $('#retry').onclick = () => { state = 'Заполнено'; render(); }; return; }
   mountEditor(state === 'Пусто' ? '' : SAMPLE);
+  if (state !== 'Пусто') { root().appendChild(makeCodeBlock('def greet(name: str) -> str:\n    # приветствие\n    return f"Привет, {name}" + str(42)\n', 'python')); H.s = []; H.i = -1; commit(); }
   if (state === 'Идёт сохранение') $('#save').disabled = true;
 }
 $('#save').onclick = () => {
@@ -786,7 +862,7 @@ $('#lcancel').onclick = () => { closeDlg(); root().focus(); if (S.savedRange) se
 $('#dlg').addEventListener('cancel', () => { setTimeout(() => { root().focus(); if (S.savedRange) setSelRange(S.savedRange); }); });
 render();
 window.__proto = { S, H, T, root, serialize, visibleText, countOf, toggleMark, setFamily, clearFormatting, setHeading, toggleList, indent, toggleCodeBlock, setLang, insertTable, tableOp,
-  cellNav, normalizeUrl, trimAddress, autoLink, undoAutoLink, applyLink, tsvTable, reduceHtml, onKeydown, onPaste, onDrop, refresh, undo, redo, exitBlock, tableOf, cellOfSel, mountEditor, run, dedentCode, caretIn, setSel, makeCodeBlock };
+  tokenize, highlightAll, cellNav, normalizeUrl, trimAddress, autoLink, undoAutoLink, applyLink, tsvTable, reduceHtml, onKeydown, onPaste, onDrop, refresh, undo, redo, exitBlock, tableOf, cellOfSel, mountEditor, run, dedentCode, caretIn, setSel, makeCodeBlock };
 </script>
 </body>
 </html>
