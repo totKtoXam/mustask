@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/018-work-item-rich-text
-- stage: 04-backend (development)
+- stage: 05-qa-backend ∥ 06-frontend (plan)
 - epic: core/work-items
 - deps: mod-003
 - gates: gate-1, gate-2, gate-3
@@ -43,3 +43,6 @@ Summary (from the queue line or an argument): Описание as rich text (doc
 - 2026-10-13 [orchestrator] stage 02 round 4 (delta): verdict approve-for-gate-1, no blockers or majors; minors m-16..m-24 applied by the analyst as small edits, m-15 handed to design.md. Spec + US-1..US-7 at gate-1 (reopened), human approval pending; the previous design.md, prototype and ADR-0027 (proposed) predate the amendment and are redone after gate-1.
 - 2026-10-13 [human] gate-1 approved on the amended spec + US-1..US-7. gate-2 approved ("Approve и принять ADR-0027"); ADR-0027 accepted; syntax highlighting through lowlight decorations IS in scope (design.md D-2 superseded). ADR-0007's index line now says "amended by ADR-0027".
 - 2026-10-13 [orchestrator] stage 04a done: plan-backend.md + api-contract.md written (additive `descriptionFormat` plain|html; two new reasons description_markup_too_large, description_format_unknown; migration AddWorkItemDescriptionFormat; no lanes). Contract fixed — any change needs a note here and a Log line. Decisions: spec gap "ceiling vs blank 1 000 001-code-point value" — US-4 governs (refused, counts text read). Directory.Packages.props: the developer may add exactly the two package lines (HtmlSanitizer and the AngleSharp pins) after the spike. BR-RT-13 amendments (mod-003, feat-022, doc-002, feat-002 note) are applied at the end of stage 4/6, each with a status.md note. No E2E (human instruction).
+- 2026-10-13 [orchestrator] stage 04b done (commits 05a68cd..4569225): spike chose AngleSharp alone (S2, pin 1.7.2; HtmlSanitizer not added — allowed by ADR-0027 fallback), migration AddWorkItemDescriptionFormat, reducer, handler, shared vocabulary + fixtures. Targeted suites green (Domain 534, Application 569, Architecture 83, Contracts 191, Infrastructure 474, Api WorkItems+Boards 391). `scripts/verify.sh` NOT run: tech-028 asked all sessions to pause full runs (CPU) — owed after the all-clear, before code review. api-contract.md unchanged.
+- 2026-10-13 [orchestrator] OPEN for the human at gate-3: deviation — hostile deeply nested html is refused by a parse time budget (`RichText:ParseBudgetMilliseconds`, 1500 ms) with the existing reason description_markup_too_large; refusal by time is not hardware-independent (legit input at the ceiling parses in <0.7 s here). Backend QA is asked to probe it. Also owed: native proofreading of the two kk texts; spec wording on "ceiling vs blank value" to be clarified; frontend normaliser must match plan-backend.md § 6.2 choices.
+- 2026-10-13 [orchestrator] backend QA (stage 5, targeted runs only) runs in parallel with the frontend plan (dispatch.md "Parallelism").
