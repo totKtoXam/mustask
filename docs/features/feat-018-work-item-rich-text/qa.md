@@ -83,7 +83,7 @@ process of mine is left running; Testcontainers' containers are reaped by Ryuk.
   member can take the API down with a 2 KB body. The developer's depth test
   (`Reduce_HostileDeepNesting_IsBoundedInTime`) covers `b`, `div`, `ul`,
   `table` but not `pre`/`listing`.
-- Status: open
+- Status: fixed in de5e52f, verified in re-check 1
 
 #### D-2: the parse budget does not fire inside one tag; many distinct attributes take minutes
 
@@ -97,7 +97,7 @@ process of mine is left running; Testcontainers' containers are reaped by Ryuk.
 - Expected / Actual: refused within about 2 s / one request pins a core and a
   gate slot (`MaxConcurrentReductions` = cores) for minutes; a handful of
   requests starve the API. Cancellation is checked between tokens only.
-- Status: open
+- Status: fixed in de5e52f, verified in re-check 1 (its sibling D-8 was missed by the new bounds)
 
 #### D-3: a character reference to CR is stored raw and is not stable under re-parse
 
@@ -110,7 +110,7 @@ process of mine is left running; Testcontainers' containers are reaped by Ryuk.
   found by the random generator before `&#13;` was removed from it.
 - Expected / Actual: text with CR is written as the parser's preprocessing
   would see it (LF), a fixed point / raw CR stored.
-- Status: open
+- Status: fixed in de5e52f, verified in re-check 1
 
 #### D-4: a lone surrogate on the wire is a 400 `http.bad_request`, not U+FFFD
 
@@ -124,7 +124,7 @@ process of mine is left running; Testcontainers' containers are reaped by Ryuk.
 - Expected / Actual: contract § 3 and US-4 say replaced and stored / 400.
   Needs a contract note or a deliberate binder setting, and the developer's
   test fixed.
-- Status: open (minor, carried to gate-3)
+- Status: documented in plan § 6.3, characterised by a test; minor, carried to gate-3
 
 #### D-5: whitespace between blocks counts against the 1 000 000 ceiling
 
@@ -135,7 +135,7 @@ process of mine is left running; Testcontainers' containers are reaped by Ryuk.
   Plan § 5.1 chose this to satisfy "blank over the ceiling is refused"; counting
   the dropped whitespace only when the result is blank satisfies both. The
   panel never sends indented html.
-- Status: open (minor, carried to gate-3)
+- Status: fixed in de5e52f (minor, verified)
 
 #### D-6: hostile text survives inside a stored `href` value
 
@@ -150,7 +150,7 @@ process of mine is left running; Testcontainers' containers are reaped by Ryuk.
   values, so the editor's `innerHTML` may differ from the server's byte for
   byte on such a link.
 - Expected / Actual: refuse such an address or escape them / stored raw.
-- Status: open (minor, carried to gate-3)
+- Status: fixed in de5e52f (minor, verified: an address with < or > is not a link)
 
 #### D-7: a developer test depends on host speed
 
@@ -159,7 +159,7 @@ process of mine is left running; Testcontainers' containers are reaped by Ryuk.
   expects `Exceeded == false` for 222 000 `<table>` tags; under load the parse
   budget fired and it went red in the one full run of the project on the QA
   machine (its parse sits near the budget there). Same root as R-1.
-- Status: open (minor)
+- Status: fixed in de5e52f (minor, verified: the test is green, its outcome no longer depends on time)
 
 ### Risk R-1 (reported with evidence, not a verdict): the parse time budget
 
@@ -214,6 +214,61 @@ the markup reason").
 
 ### Verdict
 
-blockers: 1 (D-1) · majors: 2 (D-2, D-3) · minors: 4 (D-4..D-7) · risk: R-1 ·
-result: **fail**. Return D-1, D-2, D-3 to the backend developer; the re-check
-covers the fixes and what they could break, nothing else.
+First pass: blockers: 1 (D-1) · majors: 2 (D-2, D-3) · minors: 4 (D-4..D-7) ·
+risk: R-1 · result: fail. Superseded by re-check 1 below.
+
+### Re-check 1 (commit de5e52f; scope: the fixes and what they could break)
+
+Method: the new reducer driven in a **fresh process per case** (a throwaway
+console, reflection on `HtmlRichTextReducer`, scratchpad `flood2/`), once as
+shipped ("guarded") and once with the guard's tag, attribute and `pre` bounds
+switched off so that only the tree watcher and the 32 MB parser stack stand
+("watcheronly"); plus the in-repo suites.
+
+| Item | Result |
+|------|--------|
+| D-1 `pre`/`listing`/`template`, 2 M units | guarded: refused in 22 to 25 ms; watcheronly: refused in 0.25 to 0.33 s by the depth bound. Every element name (172 specs: about 140 flat names, obsolete and foreign included, plus pairs and nests) at 2 M units: guarded, 172 of 172 exit 0 answered, none died; watcheronly 162 answered, 10 hit the 20 s safety net as a *server error* (raw-text names and `<a><table>`), none died |
+| D-2 distinct attributes | 65 refused at once, 64 accepted, 190 000 refused in under 1 s (guard); every single-token giant still 0.2 to 0.6 s |
+| D-3 CR | `&#13;` and `&#x0D;` written as LF; stable under re-parse; 5 seeds x 500 random inputs with CR references, tables, links, code, comments: idempotent, in allow-list, stable |
+| R-1 legitimate documents vs bounds | 9 documents built to sit near each bound, 0.4 to 1 M units, with a busy thread per core: all accepted, same answer twice (142 000 empty paragraphs 994 000; 99 990 `<br>` in one paragraph; 13 000 x three-level empty list items 975 000; all eight marks per run 995 000; 50 000-cell row; 17 000 small tables; 50 000 alternating marks; 12 000 links; mixed headings/lists/tables/code). Cold fresh-process answers for 1 M units of tables, lists, marks and plain text equal the in-process ones. The ceiling table that was refused end to end in pass 1 (999 834 units) is stored, 200 in 1.8 s |
+| R-2 | the gate awaits and the parse runs on its own thread: 24 writes of 500 000 units at once, reads of another item answered in 60 to 209 ms meanwhile, all writes 200 |
+| Safety net | forced to 1 ms through configuration: 500, nothing stored; never a 400 |
+| Fixture files, whole | `canonical.json` 63 cases (input, editorOutput where present, canonical, fixed point, stable under re-parse, in allow-list), `visible-count.json` 14, `legacy.json` 7, `hostile-corpus.json` 36: 185 of 185 pass, no failing case, so no client-side expectation to diagnose either |
+| Un-skipped tests are real | read the diff: attribute theory asserts `Exceeded` and under 1 s (190 000), pre theory asserts the refusal and the 64 / 100 / 150 accepted edge, indented-html test asserts acceptance at 840 000; none was weakened |
+
+New defects found by the re-check:
+
+#### D-8: foster-parented inline content between tables is quadratic and no bound counts it
+
+- Severity: **major** (NFR Speed; same class as D-2, a request pins a core)
+- Steps: `<table>x` repeated, or `<table><b>`, `<table><a>`, `<b><table>`,
+  `<p><table>`: 100 000 units 0.9 s, 300 000 units 6.3 s (`<table><b>` 3.0 s),
+  500 000 units of `<a><table>` 5.5 s, 1 000 000 units run to the 20 s safety
+  net and answer 500. Tags (250 000) and elements (125 000) are inside their
+  bounds, depth is 3. Canonical many-table documents are fine (17 000 small
+  tables 0.8 to 3 s), so a count of `<table>` start tags (or of foster-parent
+  events) would separate them. Test (red): `QA_Reduce_FosterParentedInline*`.
+- Expected / Actual: answered in about 2 s whatever the answer / seconds to
+  tens of seconds per request; the gate is the number of cores.
+- Status: open
+
+#### D-9: 1 001 sequential code blocks are refused by the `pre` start-tag bound
+
+- Severity: minor
+- Steps: `<pre><code>x</code></pre>` x 1 001 (25 KB): refused in 9 ms with
+  "too much markup". 1 000 pass. The recursion the bound guards against needs
+  unclosed nesting, which the depth bound already caps at 160.
+- Status: open (minor, carried to gate-3; test skipped)
+
+### Verdict (re-check 1)
+
+blockers: 0 · majors: 1 open (D-8) · minors: D-4, D-9 carried · risk R-1
+closed, R-2 closed · result: **fail**, one major. Return D-8 to the backend
+developer; re-check 2 covers it and what a table-start-tag bound could break
+(canonical many-table documents, the 17 000-table case). Tests of this pass:
+`ReducerQaProbeTests` 5 added (3 red for D-8, 1 skipped for D-9); integration
+`SaveWorkItemDescriptionQaTests` 16, all green. Commands: `dotnet test
+src/backend/tests/Mustask.Infrastructure.Tests --filter FullyQualifiedName~RichText`
+(683: 679 passed, 3 red D-8, 1 skipped), `...Mustask.Api.IntegrationTests
+--filter FullyQualifiedName~SaveWorkItemDescription` (51 passed),
+Application `~SaveWorkItem` 19, Domain `~WorkItem` 178, Architecture 83, all green.

@@ -612,4 +612,154 @@ public sealed class ReducerQaProbeTests(ITestOutputHelper output)
         Assert.All(Enumerable.Range(0, 3), _ => Assert.True(small.Reduce(hostile, limits, CancellationToken.None).Exceeded));
         Assert.All(Enumerable.Range(0, 3), _ => Assert.False(small.Reduce("<p>a</p>", limits, CancellationToken.None).Exceeded));
     }
+
+    // --- re-check 1 (after commit de5e52f) ----------------------------------------------------------------------------
+
+    // QA D-8 (major): text or an inline element between table start tags is foster-parented by the tree builder, and
+    // that is quadratic in the number of tables, which none of the bounds counts (tags and elements stay far inside
+    // theirs). 100 000 units take 0.9 s, 300 000 take 6.3 s, 1 000 000 run into the 20 s safety net (a server error).
+    // The answer wanted is a fast one, refusal or not; the answer is not asserted, the time is.
+    [Theory]
+    [InlineData("<table>x", 300_000)]
+    [InlineData("<table><b>", 300_000)]
+    [InlineData("<table><a>", 300_000)]
+    public void QA_Reduce_FosterParentedInlineContentBetweenTables_IsAnsweredWithinTheNfr(string piece, int units)
+    {
+        var input = string.Concat(Enumerable.Repeat(piece, units / piece.Length));
+
+        var watch = Stopwatch.StartNew();
+        var reduction = Reduce(input);
+        watch.Stop();
+
+        output.WriteLine($"{piece} x{units / piece.Length}: {watch.ElapsedMilliseconds} ms exceeded={reduction.Exceeded}");
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(2.5), $"{piece} took {watch.Elapsed}.");
+    }
+
+    // QA D-9 (minor): the preformatted start-tag bound counts tags, not nesting. 1 001 closed code blocks are canonical
+    // editor output (about 25 000 bytes) and are refused. Skipped (a minor is carried, not sent back).
+    [Fact(Skip = "QA D-9 (minor, carried to gate-3): 1 001 sequential code blocks are refused by MaxPreformattedStartTags")]
+    public void QA_Reduce_ManySequentialCodeBlocks_AreNotRefusedByTheBound()
+    {
+        var input = string.Concat(Enumerable.Repeat("<pre><code>x</code></pre>", 1_001));
+
+        Assert.False(Reduce(input).Exceeded);
+    }
+
+    // The sequence is accepted up to the bound as the developer documents it, so this is the edge.
+    [Fact]
+    public void QA_Reduce_ThousandSequentialCodeBlocks_AreAccepted()
+    {
+        var input = string.Concat(Enumerable.Repeat("<pre><code>x</code></pre>", 1_000));
+
+        Assert.False(Reduce(input).Exceeded);
+    }
+
+    // QA R-1 re-check: documents built to sit as near as legitimate output can to each structural bound, with a busy
+    // thread per core. All are canonical, under the ceiling and the visible limit; none may be refused, and the answer
+    // is the same twice.
+    public static IEnumerable<object[]> BoundHuggingDocuments()
+    {
+        // the most elements: empty paragraphs, then brs inside one paragraph at the visible limit
+        yield return ["142k-empty-paragraphs", string.Concat(Enumerable.Repeat("<p></p>", 142_000))];
+        yield return ["100k-br-in-one-paragraph", "<p>" + string.Concat(Enumerable.Repeat("<br>", 99_990)) + "x</p>"];
+        // the most tags per unit: empty list items three levels deep
+        yield return ["nested-empty-list-items", string.Concat(Enumerable.Repeat("<ul><li><p></p><ul><li><p></p><ul><li><p></p></li></ul></li></ul></li></ul>", 13_000))];
+        // the deepest legitimate paragraph: every mark at once, link outermost
+        yield return ["all-marks-per-run", string.Concat(Enumerable.Repeat("<p><a href=\"https://e.org\" rel=\"noopener noreferrer\"><strong><em><u><s><mark class=\"rt-hl-red\"><span class=\"rt-color-red\"><span class=\"rt-size-lg\">x</span></span></mark></s></u></em></strong></a></p>", 5_000))];
+        // one very wide row, and many small tables
+        yield return ["one-row-60k-cells", "<table><tbody><tr>" + string.Concat(Enumerable.Repeat("<td><p>x</p></td>", 50_000)) + "</tr></tbody></table>"];
+        yield return ["17k-small-tables", string.Concat(Enumerable.Repeat("<table><tbody><tr><td><p>x</p></td></tr></tbody></table>", 17_000))];
+        // many marks with alternating state in one paragraph
+        yield return ["alternating-marks", "<p>" + string.Concat(Enumerable.Repeat("<strong>a</strong>b", 50_000)) + "</p>"];
+        // many links
+        yield return ["20k-links", "<p>" + string.Concat(Enumerable.Repeat("<a href=\"https://e.org/p?q=1\" rel=\"noopener noreferrer\">l</a> ", 12_000)) + "</p>"];
+        // mixed headings, lists, tables, code
+        yield return ["mixed-5k", string.Concat(Enumerable.Repeat("<h3>t</h3><p>text <strong>b</strong></p><ul><li><p>a</p></li></ul><table><tbody><tr><td><p>c</p></td></tr></tbody></table><pre><code class=\"language-sql\">select 1</code></pre>", 900))];
+    }
+
+    [Theory]
+    [MemberData(nameof(BoundHuggingDocuments))]
+    public void QA_Reduce_BoundHuggingLegitimateDocument_IsAcceptedUnderLoad_AndDeterministic(string name, string input)
+    {
+        Assert.True(input.Length <= 1_000_000 + 64, $"{name}: {input.Length} units");
+
+        using var stop = new CancellationTokenSource();
+        var busy = Enumerable.Range(0, Environment.ProcessorCount).Select(_ =>
+        {
+            var thread = new Thread(() =>
+            {
+                var x = 0L;
+
+                while (!stop.IsCancellationRequested)
+                {
+                    x++;
+                }
+
+                GC.KeepAlive(x);
+            })
+            {
+                IsBackground = true,
+            };
+            thread.Start();
+
+            return thread;
+        }).ToList();
+
+        try
+        {
+            var watch = Stopwatch.StartNew();
+            var first = Reduce(input);
+            watch.Stop();
+            output.WriteLine($"{name}: units={input.Length} {watch.ElapsedMilliseconds} ms exceeded={first.Exceeded} markup={first.MarkupLength} visible={first.VisibleLength}");
+
+            Assert.False(first.Exceeded, $"{name} was refused");
+            Assert.Equal(first.Html, Reduce(input).Html);
+        }
+        finally
+        {
+            stop.Cancel();
+
+            foreach (var thread in busy)
+            {
+                thread.Join();
+            }
+        }
+    }
+
+    // Idempotency and stability once more, after the loop's changes: a CR reference, foster parenting, marks.
+    [Fact]
+    public void QA_Reduce_RandomStructures_AfterTheBounds_AreIdempotentAndStable()
+    {
+        string[] pieces =
+        [
+            "<p>", "</p>", "<b>", "</b>", "<a href=\"https://e.org/x\">", "</a>", "<a href=\"https://e.org/<x>\">", "<code>", "</code>",
+            "<table>", "</table>", "<tr>", "<td>", "<th>", "<td colspan=2>", "</tr>", "text", "x", " ", "\n", "&#13;", "&#13;&#10;",
+            "&amp;", "&nbsp;", "<br>", "<ul>", "<li>", "</li>", "</ul>", "<pre>", "</pre>", "<pre><code class=\"language-sql\">", "</code></pre>",
+            "<span class=\"rt-color-red\">", "</span>", "<u>", "</u>", "<h4>", "</h4>", "<div>", "</div>", "<!-- c -->", "<font>", "</font>",
+        ];
+
+        foreach (var seed in new[] { 3, 5, 8, 13, 21 })
+        {
+            var random = new Random(seed);
+
+            for (var round = 0; round < 500; round++)
+            {
+                var builder = new StringBuilder();
+
+                for (var index = random.Next(1, 50); index > 0; index--)
+                {
+                    builder.Append(pieces[random.Next(pieces.Length)]);
+                }
+
+                var input = builder.ToString();
+                var once = Stored(input);
+                var twice = Stored(once);
+
+                Assert.True(once == twice, $"seed {seed} round {round} not idempotent: {input}\nonce:  {once}\ntwice: {twice}");
+                Assert.DoesNotContain('\r', once);
+                AssertInsideAllowList(once);
+                AssertStableUnderReparse(once);
+            }
+        }
+    }
 }

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net;
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Mustask.Api.IntegrationTests.Features.Organizations;
@@ -181,6 +182,82 @@ public sealed class SaveWorkItemDescriptionQaTests(MustaskApiFactory factory, IT
         Assert.All(results, answer => Assert.Equal(HttpStatusCode.OK, answer.Status));
         Assert.All(results, answer => Assert.Equal("<p><strong>same</strong></p>", answer.Body.GetProperty("description").GetString()));
         Assert.Single(results.Select(answer => answer.Body.GetProperty("changedAt").GetString()).Distinct());
+    }
+
+    // Re-check 1, safety net: when the wall-clock net trips (here forced to 1 ms) the answer is the platform's server
+    // error, never the 400 markup reason, and nothing is stored.
+    [Fact]
+    public async Task Save_WhenTheSafetyNetTrips_Is5xx_Not400_NothingStored()
+    {
+        var (world, bug) = await BugAsync();
+        var before = await WorkItemsTestData.StoredAsync(factory, world.ProjectId);
+
+        var builder = new StringBuilder("<table><tbody>");
+        var row = "<tr>" + string.Concat(Enumerable.Repeat("<td><p>x</p></td>", 10)) + "</tr>";
+
+        while (builder.Length < 400_000)
+        {
+            builder.Append(row);
+        }
+
+        var html = builder.Append("</tbody></table>").ToString();
+
+        using var impatient = factory.WithWebHostBuilder(host => host.UseSetting("RichText:SafetyNetMilliseconds", "1"));
+        using var request = new HttpRequestMessage(HttpMethod.Patch, WorkItemsTestData.Item(world, bug))
+        {
+            Content = JsonContent.Create(new { description = html, descriptionFormat = "html" }),
+        };
+        request.WithBearer(OrganizationsTokens.SignedIn());
+
+        using var response = await impatient.CreateClient().SendAsync(request);
+
+        output.WriteLine($"{(int)response.StatusCode}");
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal(before, await WorkItemsTestData.StoredAsync(factory, world.ProjectId));
+    }
+
+    // Re-check 1, R-2: a burst of large reductions at once does not block the pool: reads of other items answer while
+    // the reductions run, and every write answers 200 (nothing is refused for being slow).
+    [Fact]
+    public async Task Save_BurstOfLargeDocuments_KeepsTheApiResponsive()
+    {
+        var world = await WorkItemsTestData.CreateWorldAsync(factory);
+        var items = new List<string>();
+
+        for (var index = 0; index < 24; index++)
+        {
+            items.Add(await WorkItemsTestData.CreateItemAsync(factory, world, "BUG", $"Ошибка {index}"));
+        }
+
+        var builder = new StringBuilder("<table><tbody>");
+        var row = "<tr>" + string.Concat(Enumerable.Repeat("<td><p>x</p></td><td><p></p></td>", 5)) + "</tr>";
+
+        while (builder.Length < 500_000)
+        {
+            builder.Append(row);
+        }
+
+        var html = builder.Append("</tbody></table>").ToString();
+        var probe = items[0];
+
+        var writes = items.Select(item => WorkItemsTestData.SaveAsync(factory, world, item, new { description = html, descriptionFormat = "html" })).ToList();
+        await Task.Delay(300);
+
+        var latencies = new List<long>();
+
+        for (var index = 0; index < 5; index++)
+        {
+            var watch = Stopwatch.StartNew();
+            var read = await WorkItemsTestData.GetAsync(factory, world, probe);
+            latencies.Add(watch.ElapsedMilliseconds);
+            Assert.Equal(HttpStatusCode.OK, read.Status);
+        }
+
+        var answers = await Task.WhenAll(writes);
+
+        output.WriteLine($"reads during the burst: {string.Join(" ", latencies)} ms; writes: {string.Join(",", answers.Select(answer => (int)answer.Status).Distinct())}");
+        Assert.All(answers, answer => Assert.Equal(HttpStatusCode.OK, answer.Status));
+        Assert.True(latencies.Max() < 10_000, $"A read took {latencies.Max()} ms during the burst.");
     }
 
     // QA R-1 (risk, evidence): a canonical table document of 999 834 units, under both limits (visible about 86 000),
