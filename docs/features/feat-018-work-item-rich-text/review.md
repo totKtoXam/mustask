@@ -665,3 +665,87 @@ code were already in the gate-1-approved subset. **Recommendation: keep one L,
 do not split**; the L ceremony (separate gates, security pass, two QA passes)
 fits the security surface. If the diff later doubles again, escalation by
 volume applies and US-5 is the cut to spin out.
+
+## Round 4 — requirements (delta)
+
+Read: `spec.md` and `stories/US-1..US-7` at 1f2f6d5, against the Round 3
+findings only. The last delta read the L cap allows. D-1..D-7 and the no-E2E
+instruction are not re-opened.
+
+Verdict: **approve-for-gate-1** — R-16..R-21 and m-6..m-13 are resolved; the
+fixes introduced no blocker and no major. Ten minors below, all one-clause
+edits or design-stage notes; none needs another review round or a human
+answer.
+
+### Round-3 findings
+
+| Finding | Status | Where |
+|---|---|---|
+| R-16 Tab exceptions | resolved | spec.md:99 (two exceptions, Esc arms exactly the next keystroke, a picker's Esc does not arm), spec.md:100, NFR spec.md:125-127, US-1:89, US-6:21-22, US-6:34-41, US-6:109 |
+| R-17 rectangular tables | resolved | spec.md:88 ("rectangular tables without merged cells"), spec.md:100, US-7:45-52, US-7:122-127 (colspan, rowspan, short row, empty row), US-6:43-47 |
+| R-18 canonical gaps | resolved | spec.md:88 ("every element and attribute … not a closed list"), spec.md:98, US-7:29-44, US-7:72-75 (inner wins), US-7:92-95 (one `s` "cd"), US-7:97-100 (code vs marks, link kept), US-7:107-110 (pre in li), US-2:23-24 (aligned with US-7) |
+| R-19 auto-link reach, undo, prompt | resolved | spec.md:101, US-5:26, US-5:82-121 |
+| R-20 TSV paste trigger | resolved | spec.md:100 (defers to US-6), US-6:49-54 (html table, or ≥ 3 lines with equal tab count ≥ 1; Ctrl/Cmd+Shift+V), US-1:67-68 |
+| R-21 layout-bound exits, trailing paragraph | resolved | spec.md:99 (ArrowDown at end of text; no stored paragraph), spec.md:100 (Ctrl/Cmd+Enter, gap cursor), US-6:56-65, US-6:79-82, US-6:112-113 |
+| m-6 doc-002 amendment | resolved | spec.md:96 |
+| m-7 "doc-002 D-8" | resolved | spec.md:87 |
+| m-8 new dependencies | resolved | spec.md:99 (decorations), spec.md:102 (bundled data, no CDN), spec.md:179-183 |
+| m-9 class token matching | resolved | spec.md:97, US-7:54-56, US-7:67-70 |
+| m-10 amplification, lone surrogates | resolved | spec.md:90 (early abort), spec.md:91 (U+FFFD), spec.md:122-123 (timing), US-2:104-107 |
+| m-11 Shift+Tab level | resolved | spec.md:99, US-6:76 |
+| m-12 pasted styles | resolved | spec.md:98, US-1:70-75 |
+| m-13 order, not content | resolved | US-5:46 |
+
+Checked and found consistent: BR-RT-14..20 against US-1, US-2, US-5, US-6,
+US-7 (Tab exceptions, list indent by buttons only, heading without size, clear
+formatting keeps links, palettes); the early abort against idempotency (the
+abort threshold equals the ceiling, a stored value is ≤ 1 000 000 and
+re-reduces to itself, so the abort never fires on a canonical value; client
+and server refuse the same values); the rectangular rule against the editor
+(prosemirror-tables' `fixTables` is a no-op on a server-canonical table, so
+byte identity holds; pasted merges must be split on paste, US-6:46); code
+excluding every mark but link is a plain `excludes` on a customised code mark
+and parses `<strong><code>` and `<code><strong>` to the canonical result in
+both directions; nested same-family marks: ProseMirror's self-exclusion keeps
+the inner, as US-7:33-35 says; Verification tables of all seven stories use
+only U/C/I/M, no E2E.
+
+### Minors (round 4)
+
+- **m-15** spec.md:99, US-6:62-65, :79-82 — holdable, owed to design.md: stock
+  `prosemirror-gapcursor` refuses a gap cursor after a node with inline content
+  unless the node is `isolating`, TipTap's code-block exits (`exitCode`,
+  `exitOnArrowDown`, triple Enter) insert a paragraph, and TipTap v3
+  StarterKit's TrailingNode appends one. The code block must be `isolating`
+  (or carry a custom selection), the exits custom, TrailingNode off. The table
+  is already isolating, so its gap cursor works stock.
+- **m-16** spec.md:98, US-7:36-39 — "a link inside code is hoisted outward
+  around the code" is undefined for a link covering part of the code; the
+  editor keeps the link on its own text (`<code>a</code><a …><code>b</code></a><code>c</code>`
+  for `<code>a<a …>b</a>c</code>`). Say so and add that fixture, else the server
+  may widen the link and the triple disagrees.
+- **m-17** spec.md:101 vs US-1:68, US-6:54 — BR-RT-18 auto-links any paste and
+  links a selection a URL is pasted over; US-1 says Ctrl/Cmd+Shift+V pastes "no
+  link". Add the plain-paste exception to BR-RT-18.
+- **m-18** US-6:50, :53 — a spreadsheet's `text/plain` ends with a line break,
+  so its last "line" has 0 tabs and fails "the same number of tabs"; say a
+  final empty line is ignored.
+- **m-19** spec.md:91 — a lone surrogate is replaced "before counting"; say the
+  reduction also replaces it in the stored html (a UTF-8 store cannot hold one).
+- **m-20** spec.md:89-90 — BR-RT-6 vs the ceiling: a blank value whose markup
+  passes 1 000 000 (≈ 143 000 empty paragraphs) is refused, not stored `""`;
+  state that the limits are checked before BR-RT-6 applies (matches the BPMN).
+- **m-21** US-6:112 — the manual row "exit by ArrowDown from the last row" has
+  no rule or scenario behind it any more (BR-RT-17 has only Ctrl/Cmd+Enter);
+  drop it or state the behaviour. US-6:56's title says "from its last row"
+  while the scenario works from any cell.
+- **m-22** spec.md:100 — "Tab and Shift+Tab move between cells" is stated
+  twice in BR-RT-17; keep the second.
+- **m-23** US-5:117-121 — the first-undo-removes-only-the-link rule (BR-RT-18)
+  also covers a pasted address; the scenario tests typing only. Add the paste
+  case.
+- **m-24** US-7:107-110 — the title says "a cell or a list item", the fixture
+  has only the list item; add the cell. No client scenario covers pasting a
+  multi-line `pre` into a cell or list item: the editor needs a paste
+  transform there (ProseMirror would otherwise lift the block out of the
+  cell); add it to US-6:43-47.

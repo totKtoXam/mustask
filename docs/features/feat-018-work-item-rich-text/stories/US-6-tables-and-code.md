@@ -47,13 +47,13 @@ Scenario: A pasted table is reduced
   And pasting inside a table cell inserts the pasted cells' text as paragraphs, no table nests
 
 Scenario: A spreadsheet range becomes a table only on clear evidence
-  Given a range copied from a spreadsheet application (the clipboard carries an html table), or plain text of at least 3 lines that all have the same number, at least 1, of tabs
+  Given a range copied from a spreadsheet application (the clipboard carries an html table), or plain text of at least 3 lines that all have the same number, at least 1, of tabs (one final empty line, from a trailing line feed, is ignored)
   When the member pastes it outside a table and a code block
   Then it becomes a table without a header row, one cell per value, and Ctrl+Z removes it whole
   And plain text with tabs of differing counts, or of fewer than 3 lines, is inserted as paragraphs, tabs kept
   And Ctrl+Shift+V (Cmd+Shift+V) pastes any of these as plain paragraphs, no table
 
-Scenario: A table can be left from its last row
+Scenario: A table is left by Ctrl+Enter
   Given a table as the last block
   When the member presses Ctrl+Enter (Cmd+Enter) in a cell
   Then the cursor is after the table, with no paragraph stored until the member types there
@@ -94,6 +94,12 @@ Scenario: Code from an IDE or a web page is reduced to a block
   And a language class of the pasted element is kept only when it is in the closed list, else the block is plain
   And pasted plain multi-line text inside a code block is inserted verbatim, tabs kept, and pasted html there is inserted as its text
 
+Scenario: A pasted code block inside a cell or a list item becomes paragraphs
+  Given a multi-line code block (a pre element, or an IDE copy) and the cursor in a table cell, then in a list item
+  When the member pastes it
+  Then each line becomes a paragraph in the cell or item, indentation kept, and no code block is nested there
+  And the stored value is what US-7 canonicalises for the same input
+
 Scenario: Nothing in code executes
   Given a code block holding "<script>alert(1)</script>" and "<img src=x onerror=alert(1)>"
   When it is saved, reopened and shown
@@ -109,7 +115,7 @@ Scenario: Nothing in code executes
 | Tab between cells; exit at ends; Esc then Tab arming (one keystroke, not after a picker's Esc) | C (`userEvent.tab`, keydown) | the live-region announcement by a screen reader: M |
 | Pasted HTML table, rectangular result; nesting; list in cell | C (stubbed `clipboardData`) + U (the reduction, US-7) | a real copy from a spreadsheet application: M |
 | Spreadsheet evidence rule, ragged and short tab text, Ctrl+Shift+V | C | — |
-| Table exit by Ctrl/Cmd+Enter; untouched final block unchanged | C | exit by ArrowDown from the last row (vertical motion needs layout): M |
+| Table exit by Ctrl/Cmd+Enter; untouched final block unchanged | C | — (the table has no ArrowDown exit; the code block's wrapped last line is the manual row below) |
 | Code block, language list, Tab/Shift+Tab (tab, spaces), Esc, exit by Enter twice / Ctrl+Enter / ArrowDown at end of text | C | ArrowDown on a wrapped last line (layout): M; screen-reader announcement: M |
 | Copy button | C (stubbed `navigator.clipboard`) | the real clipboard permission prompt: M |
 | IDE paste | C (fixture HTML of a VS Code-style copy, a plain `pre`) | a real IDE's clipboard: M |

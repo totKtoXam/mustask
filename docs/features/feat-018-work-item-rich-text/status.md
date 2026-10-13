@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/018-work-item-rich-text
-- stage: 01-business-analysis (scope amendment; gate-1 reopened)
+- stage: gate-1
 - epic: core/work-items
 - deps: mod-003
 - gates: gate-1, gate-2, gate-3
@@ -40,3 +40,4 @@ Summary (from the queue line or an argument): Описание as rich text (doc
 - 2026-10-13 [human] decisions: delivery as three consecutive tasks — A (this task, feat-018): the editor with all text formatting, tables, code, links; B: images (upload as attachments, shown in the text, crop); C: @mentions and # work-item links. Colour, highlight and font size: closed palette stored as classes, no inline style. The PR-link button is omitted: the product has no pull-request entity (ordinary link covers it).
 - 2026-10-13 [orchestrator] effect on A: spec amended (BR-RT-3 allow-list gains underline, strike, highlight/colour/size classes, indent/outdent lists, clear formatting, emoji; BR-RT-4 unchanged — images stay out of A and go to B; code and table behaviour specified), gate-1 reopened, gate-2 not yet given. Queueing B and C is BLOCKED: `scripts/queue.sh add` refuses because the main checkout has an untracked `.agents/teamwork/` — a human decision, not touched.
 - 2026-10-13 [orchestrator] size L re-confirmed for the amended scope (routing.md "escalation by volume"): the diff grew by US-5..US-7 and the requirements review (round 3) recommended keeping one L, not splitting; if the diff doubles again, US-5 is the cut. Round 3: R-16..R-21 and m-6..m-13 fixed by the analyst; one delta read (round 4) owed, then gate-1 (human).
+- 2026-10-13 [orchestrator] stage 02 round 4 (delta): verdict approve-for-gate-1, no blockers or majors; minors m-16..m-24 applied by the analyst as small edits, m-15 handed to design.md. Spec + US-1..US-7 at gate-1 (reopened), human approval pending; the previous design.md, prototype and ADR-0027 (proposed) predate the amendment and are redone after gate-1.

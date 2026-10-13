@@ -115,10 +115,10 @@ Scenario: A pasted address over a selection links the selection
   Then the selected text is a link to it and the address is not inserted
 
 Scenario: The first undo after an auto-link removes only the link
-  Given a typed address that has just become a link
+  Given a typed address that has just become a link, and likewise a pasted address
   When the member presses Ctrl+Z (Cmd+Z)
   Then the text stays and is no longer a link
-  And a second Ctrl+Z undoes the typing
+  And a second Ctrl+Z undoes the typing (or the paste)
 
 Scenario: A legacy text is not auto-linked on open
   Given a legacy description holding "https://example.org"

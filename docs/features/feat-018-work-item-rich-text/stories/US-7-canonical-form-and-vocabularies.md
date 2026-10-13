@@ -95,7 +95,7 @@ Scenario: Legacy and foreign tags are normalised
   Then the stored value is a strong "a", an em "b" and one s "cd" (adjacent equal marks merged)
 
 Scenario: Code wins over marks, a link survives
-  Given "<strong><code>x</code></strong>", "<a href='https://example.org'><code>y</code></a>", "<code><a href='https://example.org'>z</a></code>" and "<code><strong>w</strong></code>"
+  Given "<code>a<a href='https://example.org'>b</a>c</code>" (the link keeps its own extent: code "a", linked code "b", code "c"), "<strong><code>x</code></strong>", "<a href='https://example.org'><code>y</code></a>", "<code><a href='https://example.org'>z</a></code>" and "<code><strong>w</strong></code>"
   When each is saved
   Then the stored values are "<p><code>x</code></p>", "<p><a href=\"https://example.org\" rel=\"noopener noreferrer\"><code>y</code></a></p>", the same shape for z, and "<p><code>w</code></p>"
 
@@ -105,9 +105,9 @@ Scenario: A code block takes no marks
   Then the stored value is a block whose text is "y" LF "z"
 
 Scenario: A multi-line code block inside a cell or a list item is unwrapped per line
-  Given "<ul><li><pre><code>a\n\nb</code></pre></li></ul>"
-  When it is saved
-  Then the item holds three paragraphs "a", "" and "b"
+  Given "<ul><li><pre><code>a\n\nb</code></pre></li></ul>" and "<table><tr><td><pre><code>a\n\nb</code></pre></td></tr></table>"
+  When each is saved
+  Then the list item and the table cell each hold three paragraphs "a", "" and "b"
 
 Scenario: A heading drops size only
   Given "<h3><span class='rt-size-xl'>big</span> <strong>bold</strong></h3>"

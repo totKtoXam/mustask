@@ -98,6 +98,11 @@ Scenario: A lone surrogate counts one on both sides
   When it is counted by the server and by the client
   Then both count 3 (the surrogate replaced by U+FFFD), and the stored value holds U+FFFD
 
+Scenario: Limits come before the empty rule
+  Given an html description of whitespace only, 1 000 001 code points long
+  When it is saved
+  Then it is refused with description_markup_too_large and not stored as ""
+
 Scenario: Amplifying input is refused promptly
   Given a request description of 2 000 000 UTF-16 units that re-nests marks on every character
   When it is saved
