@@ -1,0 +1,338 @@
+{
+  "$comment": "feat-018 BR-RT-5: (input, canonical[, editorOutput]) triples run by the server's and the panel's suites. Server: reduce(input) = canonical, reduce(editorOutput) = canonical, reduce(canonical) = canonical, where a result with no non-whitespace visible text is stored as the empty string (BR-RT-6). Panel: load canonical in the editor, serialise, normalise: canonical. Authored by the backend from US-2/US-7; the panel adds editorOutput columns and its own cases, both suites run the whole file.",
+  "version": 1,
+  "cases": [
+    {
+      "id": "subset-kept",
+      "story": "US-2",
+      "note": "Formatting inside the subset is kept: headings, marks, nested lists, links, code, code block with a language, table.",
+      "input": "<h3>Title</h3><h4>Sub</h4><p><strong>b</strong><em>i</em><u>u</u><s>s</s><code>c</code></p><ul><li><p>a</p><ol><li><p>b</p></li></ol></li></ul><pre><code class=\"language-sql\">select 1</code></pre><table><tbody><tr><th><p>h</p></th></tr><tr><td><p>d</p></td></tr></tbody></table>",
+      "canonical": "<h3>Title</h3><h4>Sub</h4><p><strong>b</strong><em>i</em><u>u</u><s>s</s><code>c</code></p><ul><li><p>a</p><ol><li><p>b</p></li></ol></li></ul><pre><code class=\"language-sql\">select 1</code></pre><table><tbody><tr><th><p>h</p></th></tr><tr><td><p>d</p></td></tr></tbody></table>"
+    },
+    {
+      "id": "executable-stripped",
+      "story": "US-2",
+      "note": "script, iframe, style, an event attribute and an inline style around ordinary text: their content is gone, the text stays.",
+      "input": "<p>a<script>x()</script>b</p><iframe src=\"https://e.org\">z</iframe><style>p{color:red}</style><p onclick=\"x()\" style=\"color:red\">c</p>",
+      "canonical": "<p>ab</p><p>c</p>"
+    },
+    {
+      "id": "unknown-unwrapped",
+      "story": "US-2",
+      "note": "Unknown elements are unwrapped, their text kept.",
+      "input": "<div><font color='red'>красный</font> <span style='color:red'>стиль</span> <blockquote>цитата</blockquote></div>",
+      "canonical": "<p>красный стиль цитата</p>"
+    },
+    {
+      "id": "attributes-removed",
+      "story": "US-2",
+      "note": "id, class, title, data-*, style, ol start and a stray td colspan are not stored.",
+      "input": "<p id='x' class='y' title='z' data-a='1' style='color:red'>t</p><ol start='5'><li>a</li></ol><td colspan='2'>",
+      "canonical": "<p>t</p><ol><li><p>a</p></li></ol>"
+    },
+    {
+      "id": "heading-levels",
+      "story": "US-2",
+      "note": "Levels 1, 2 and 3 are stored as 3, levels 4, 5 and 6 as 4.",
+      "input": "<h1>a</h1><h2>b</h2><h3>c</h3><h4>d</h4><h5>e</h5><h6>f</h6>",
+      "canonical": "<h3>a</h3><h3>b</h3><h3>c</h3><h4>d</h4><h4>e</h4><h4>f</h4>"
+    },
+    {
+      "id": "links-absolute-safe-only",
+      "story": "US-2",
+      "note": "Only http, https and mailto with a host or an address stay links, with rel and no target; the rest keep their text.",
+      "input": "<p><a href=\"https://example.org\" target=\"_blank\">a</a> <a href=\"http://example.org\">b</a> <a href=\"mailto:a@example.org\">c</a> <a href=\"javascript:alert(1)\">d</a> <a href=\"data:text/html;base64,AAAA\">e</a> <a href=\"vbscript:x\">f</a> <a href=\" JaVaScRiPt:x\">g</a> <a href=\"java&#9;script:x\">h</a> <a href=\"/rel\">i</a> <a href=\"//evil.example\">j</a> <a href=\"#frag\">k</a> <a href=\"\">l</a></p>",
+      "canonical": "<p><a href=\"https://example.org\" rel=\"noopener noreferrer\">a</a> <a href=\"http://example.org\" rel=\"noopener noreferrer\">b</a> <a href=\"mailto:a@example.org\" rel=\"noopener noreferrer\">c</a> d e f g h i j k l</p>"
+    },
+    {
+      "id": "link-address-as-read",
+      "story": "US-2",
+      "note": "The stored href is the address as read: trimmed, tab/LF/CR removed, entities decoded and re-escaped, not re-encoded.",
+      "input": "<p><a href=\"  https://e.org/a&#9;b?x=1&amp;y=2  \">q</a></p>",
+      "canonical": "<p><a href=\"https://e.org/ab?x=1&amp;y=2\" rel=\"noopener noreferrer\">q</a></p>"
+    },
+    {
+      "id": "images-dropped",
+      "story": "US-2",
+      "note": "No image element is stored in this task; the surrounding text stays, a link holding only an image is gone.",
+      "input": "<p>a<img src=\"https://e.org/x.png\">b<img src=\"data:image/png;base64,AAAA\"><a href=\"https://e.org\"><img src=\"x.png\"></a>c</p>",
+      "canonical": "<p>abc</p>"
+    },
+    {
+      "id": "idempotent-escaping",
+      "story": "US-2",
+      "note": "Reduction is idempotent; text escapes and U+00A0 is written as an entity.",
+      "input": "<p>a &amp; b &lt; c &gt; d&nbsp;e</p>",
+      "canonical": "<p>a &amp; b &lt; c &gt; d&nbsp;e</p>"
+    },
+    {
+      "id": "loose-text-wrapped",
+      "story": "US-2",
+      "note": "Loose text and inline content beside blocks is wrapped in p; whitespace between blocks is dropped.",
+      "input": "hello <b>w</b><p>a</p> <p>b</p>tail",
+      "canonical": "<p>hello <strong>w</strong></p><p>a</p><p>b</p><p>tail</p>"
+    },
+    {
+      "id": "br-kept-in-block",
+      "story": "US-2",
+      "note": "A br inside a block is kept as a void element.",
+      "input": "<p>a<br>b</p><h3>x<br>y</h3>",
+      "canonical": "<p>a<br>b</p><h3>x<br>y</h3>"
+    },
+    {
+      "id": "lists-depth-three",
+      "story": "US-2",
+      "note": "Lists nest three deep; deeper list markup is unwrapped, its text kept in its own paragraph; ol start removed.",
+      "input": "<ol start=\"3\"><li>1<ul><li>2<ul><li>3<ul><li>4</li></ul></li></ul></li></ul></li></ol>",
+      "canonical": "<ol><li><p>1</p><ul><li><p>2</p><ul><li><p>3</p><p>4</p></li></ul></li></ul></li></ol>"
+    },
+    {
+      "id": "palette-kept-or-dropped",
+      "story": "US-7",
+      "note": "Palette classes are kept on their element, anything else is dropped, a class on p is dropped.",
+      "input": "<span class='rt-color-red'>a</span><mark class='rt-hl-yellow'>b</mark><span class='rt-size-lg'>c</span><span class='rt-color-chartreuse'>d</span><span class='evil rt-color-blue'>e</span><span style='color:red'>f</span><mark>g</mark><p class='rt-color-red'>h</p>",
+      "canonical": "<p><span class=\"rt-color-red\">a</span><mark class=\"rt-hl-yellow\">b</mark><span class=\"rt-size-lg\">c</span>d<span class=\"rt-color-blue\">e</span>fg</p><p>h</p>"
+    },
+    {
+      "id": "tokens-exact-match",
+      "story": "US-7",
+      "note": "Tokens are split on ASCII whitespace and matched exactly and case-sensitively; the class is written from the table.",
+      "input": "<span class='rt-color-red&#9;x'>a</span><span class='RT-COLOR-RED'>b</span><span class=' rt-color-red '>c</span><span class='rt-color-red-dark'>d</span>",
+      "canonical": "<p><span class=\"rt-color-red\">a</span>b<span class=\"rt-color-red\">c</span>d</p>"
+    },
+    {
+      "id": "token-nbsp-is-not-a-separator",
+      "story": "US-7",
+      "note": "U+00A0 is not ASCII whitespace: the whole value is one unknown token.",
+      "input": "<span class='rt-color-red&#xA0;x'>a</span>",
+      "canonical": "<p>a</p>"
+    },
+    {
+      "id": "same-family-inner-wins",
+      "story": "US-7",
+      "note": "The inner of nested same-family marks wins for its text.",
+      "input": "<span class='rt-color-red'>a<span class='rt-color-blue'>b</span>c</span>",
+      "canonical": "<p><span class=\"rt-color-red\">a</span><span class=\"rt-color-blue\">b</span><span class=\"rt-color-red\">c</span></p>"
+    },
+    {
+      "id": "two-tokens-split-in-order",
+      "story": "US-7",
+      "note": "Two tokens on one element are split: the colour span around the size span.",
+      "input": "<span class='rt-size-lg rt-color-red'>x</span>",
+      "canonical": "<p><span class=\"rt-color-red\"><span class=\"rt-size-lg\">x</span></span></p>"
+    },
+    {
+      "id": "code-language-closed-list",
+      "story": "US-7",
+      "note": "A language outside the closed list is dropped (plain); the first valid token wins.",
+      "input": "<pre><code class='language-python'>a</code></pre><pre><code class='language-brainfuck'>b</code></pre><pre><code class='language-python x'>c</code></pre>",
+      "canonical": "<pre><code class=\"language-python\">a</code></pre><pre><code>b</code></pre><pre><code class=\"language-python\">c</code></pre>"
+    },
+    {
+      "id": "mark-order-link-strong-em",
+      "story": "US-7",
+      "note": "Marks nest link, strong, em.",
+      "input": "<em><strong><a href='https://example.org'>l</a></strong></em>",
+      "canonical": "<p><a href=\"https://example.org\" rel=\"noopener noreferrer\"><strong><em>l</em></strong></a></p>"
+    },
+    {
+      "id": "mark-order-u-s-colour",
+      "story": "US-7",
+      "note": "Marks nest u, s, colour span.",
+      "input": "<span class='rt-color-red'><s><u>x</u></s></span>",
+      "canonical": "<p><u><s><span class=\"rt-color-red\">x</span></s></u></p>"
+    },
+    {
+      "id": "legacy-tags-merged",
+      "story": "US-7",
+      "note": "b, i, strike and del are normalised; adjacent equal marks merge (strike and del into one s).",
+      "input": "<b>a</b><i>b</i><strike>c</strike><del>d</del>",
+      "canonical": "<p><strong>a</strong><em>b</em><s>cd</s></p>"
+    },
+    {
+      "id": "code-keeps-extent-link-hoisted",
+      "story": "US-7",
+      "note": "A link inside inline code keeps its own extent: code a, linked code b, code c.",
+      "input": "<code>a<a href='https://example.org'>b</a>c</code>",
+      "canonical": "<p><code>a</code><a href=\"https://example.org\" rel=\"noopener noreferrer\"><code>b</code></a><code>c</code></p>"
+    },
+    {
+      "id": "code-wins-over-strong",
+      "story": "US-7",
+      "note": "Marks around inline code are dropped, the code stays.",
+      "input": "<strong><code>x</code></strong>",
+      "canonical": "<p><code>x</code></p>"
+    },
+    {
+      "id": "link-around-code-stays",
+      "story": "US-7",
+      "note": "A link around inline code stays outermost.",
+      "input": "<a href='https://example.org'><code>y</code></a>",
+      "canonical": "<p><a href=\"https://example.org\" rel=\"noopener noreferrer\"><code>y</code></a></p>"
+    },
+    {
+      "id": "link-inside-code-hoisted",
+      "story": "US-7",
+      "note": "A link inside code is hoisted outward around the code.",
+      "input": "<code><a href='https://example.org'>z</a></code>",
+      "canonical": "<p><a href=\"https://example.org\" rel=\"noopener noreferrer\"><code>z</code></a></p>"
+    },
+    {
+      "id": "marks-inside-code-dropped",
+      "story": "US-7",
+      "note": "Marks inside inline code are dropped.",
+      "input": "<code><strong>w</strong></code>",
+      "canonical": "<p><code>w</code></p>"
+    },
+    {
+      "id": "code-block-no-marks",
+      "story": "US-7",
+      "note": "A code block holds text only; a br in it is a line feed.",
+      "input": "<pre><code><em>y</em><br>z</code></pre>",
+      "canonical": "<pre><code>y\nz</code></pre>"
+    },
+    {
+      "id": "code-block-leading-line-feed",
+      "story": "US-7",
+      "note": "A code block whose text starts with line feeds keeps them: the code element sits between pre and the text, so no parser drops one.",
+      "input": "<pre><code>\n\nx</code></pre>",
+      "canonical": "<pre><code>\n\nx</code></pre>"
+    },
+    {
+      "id": "pre-in-list-item-per-line",
+      "story": "US-7",
+      "note": "A multi-line code block inside a list item is one paragraph per line, empty lines kept.",
+      "input": "<ul><li><pre><code>a\n\nb</code></pre></li></ul>",
+      "canonical": "<ul><li><p>a</p><p></p><p>b</p></li></ul>"
+    },
+    {
+      "id": "pre-in-cell-per-line",
+      "story": "US-7",
+      "note": "The same inside a table cell.",
+      "input": "<table><tr><td><pre><code>a\n\nb</code></pre></td></tr></table>",
+      "canonical": "<table><tbody><tr><td><p>a</p><p></p><p>b</p></td></tr></tbody></table>"
+    },
+    {
+      "id": "heading-drops-size-only",
+      "story": "US-7",
+      "note": "A heading drops the size mark; other marks stay.",
+      "input": "<h3><span class='rt-size-xl'>big</span> <strong>bold</strong></h3>",
+      "canonical": "<h3>big <strong>bold</strong></h3>"
+    },
+    {
+      "id": "thead-into-body",
+      "story": "US-7",
+      "note": "Rows of thead go into the body; cells hold paragraphs.",
+      "input": "<table><thead><tr><th>h</th></tr></thead><tbody><tr><td>a</td></tr></tbody></table>",
+      "canonical": "<table><tbody><tr><th><p>h</p></th></tr><tr><td><p>a</p></td></tr></tbody></table>"
+    },
+    {
+      "id": "list-item-paragraphs",
+      "story": "US-7",
+      "note": "Inline content directly in a list item is wrapped in p; a nested list stays beside it.",
+      "input": "<ul><li>a<ul><li>b</li></ul></li></ul>",
+      "canonical": "<ul><li><p>a</p><ul><li><p>b</p></li></ul></li></ul>"
+    },
+    {
+      "id": "table-in-cell-unwrapped",
+      "story": "US-7",
+      "note": "A table inside a cell becomes its cells' paragraphs in place.",
+      "input": "<table><tr><td>x<table><tr><td>inner</td></tr></table></td></tr></table>",
+      "canonical": "<table><tbody><tr><td><p>x</p><p>inner</p></td></tr></tbody></table>"
+    },
+    {
+      "id": "table-colspan",
+      "story": "US-7",
+      "note": "A cell spanning two columns keeps its content at its top-left, the other position is an empty cell.",
+      "input": "<table><tr><td colspan='2'>a</td></tr><tr><td>b</td><td>c</td></tr></table>",
+      "canonical": "<table><tbody><tr><td><p>a</p></td><td><p></p></td></tr><tr><td><p>b</p></td><td><p>c</p></td></tr></tbody></table>"
+    },
+    {
+      "id": "table-rowspan",
+      "story": "US-7",
+      "note": "A cell spanning two rows: the covered position below is an empty cell, the next cell of that row moves right.",
+      "input": "<table><tr><td rowspan='2'>a</td><td>b</td></tr><tr><td>c</td></tr></table>",
+      "canonical": "<table><tbody><tr><td><p>a</p></td><td><p>b</p></td></tr><tr><td><p></p></td><td><p>c</p></td></tr></tbody></table>"
+    },
+    {
+      "id": "table-short-row-padded",
+      "story": "US-7",
+      "note": "A short row is padded at its end to the widest row.",
+      "input": "<table><tr><td>a</td></tr><tr><td>b</td><td>c</td></tr></table>",
+      "canonical": "<table><tbody><tr><td><p>a</p></td><td><p></p></td></tr><tr><td><p>b</p></td><td><p>c</p></td></tr></tbody></table>"
+    },
+    {
+      "id": "table-short-header-row-padded-with-th",
+      "story": "US-7",
+      "note": "Padding takes the element of the row's last cell.",
+      "input": "<table><tr><th>h1</th><th>h2</th></tr><tr><th>x</th></tr></table>",
+      "canonical": "<table><tbody><tr><th><p>h1</p></th><th><p>h2</p></th></tr><tr><th><p>x</p></th><th><p></p></th></tr></tbody></table>"
+    },
+    {
+      "id": "table-without-cells-removed",
+      "story": "US-7",
+      "note": "A row with no cell and a table with no row are removed: nothing is left.",
+      "input": "<table><tr></tr></table>",
+      "canonical": ""
+    },
+    {
+      "id": "empty-paragraphs-are-empty",
+      "story": "US-7",
+      "note": "Only empty paragraphs and whitespace: stored as the empty description.",
+      "input": "<p></p><p> </p>",
+      "canonical": ""
+    },
+    {
+      "id": "empty-table-cells-are-empty",
+      "story": "US-7",
+      "note": "A table of empty cells is stored as the empty description.",
+      "input": "<table><tr><td></td><td> </td></tr></table>",
+      "canonical": ""
+    },
+    {
+      "id": "blank-code-block-is-empty",
+      "story": "US-7",
+      "note": "A code block of spaces is stored as the empty description.",
+      "input": "<pre><code>   </code></pre>",
+      "canonical": ""
+    },
+    {
+      "id": "link-without-text-is-empty",
+      "story": "US-7",
+      "note": "A link with no text is removed; nothing is left.",
+      "input": "<a href=\"https://e.org\"></a>",
+      "canonical": ""
+    },
+    {
+      "id": "code-block-with-content-is-not-empty",
+      "story": "US-7",
+      "note": "A code block holding a character is not empty.",
+      "input": "<pre><code>a</code></pre>",
+      "canonical": "<pre><code>a</code></pre>"
+    },
+    {
+      "id": "editor-table-chrome",
+      "story": "US-7",
+      "note": "The editor's table output with colgroup, min-width style and colspan/rowspan 1 reduces to the canonical table.",
+      "input": "<table><tbody><tr><th><p>h</p></th><td><p>d</p></td></tr></tbody></table>",
+      "editorOutput": "<table style=\"min-width: 50px\"><colgroup><col style=\"min-width: 25px\"><col></colgroup><tbody><tr><th colspan=\"1\" rowspan=\"1\"><p>h</p></th><td colspan=\"1\" rowspan=\"1\"><p>d</p></td></tr></tbody></table>",
+      "canonical": "<table><tbody><tr><th><p>h</p></th><td><p>d</p></td></tr></tbody></table>"
+    },
+    {
+      "id": "editor-link-chrome",
+      "story": "US-7",
+      "note": "The editor's link output with target and nofollow reduces to the canonical link.",
+      "input": "<p><a href=\"https://example.org\" rel=\"noopener noreferrer\">l</a></p>",
+      "editorOutput": "<p><a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://example.org\">l</a></p>",
+      "canonical": "<p><a href=\"https://example.org\" rel=\"noopener noreferrer\">l</a></p>"
+    },
+    {
+      "id": "editor-code-block-chrome",
+      "story": "US-7",
+      "note": "The editor's code block output with a highlighter class and a data attribute reduces to the canonical block.",
+      "input": "<pre><code class=\"language-python\">a = 1</code></pre>",
+      "editorOutput": "<pre data-language=\"python\"><code class=\"language-python hljs\">a = 1</code></pre>",
+      "canonical": "<pre><code class=\"language-python\">a = 1</code></pre>"
+    }
+  ]
+}

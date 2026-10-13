@@ -1,0 +1,20 @@
+{
+  "$comment": "feat-018 BR-RT-8: (html, count) pairs, counted in Unicode code points by server and client: one LF between consecutive leaf blocks (paragraph, heading, code block), one per br, none before the first or after the last; a lone surrogate is replaced by U+FFFD and counts 1. Run by both suites.",
+  "version": 1,
+  "cases": [
+    { "id": "entity", "story": "US-4", "note": "&amp; is one character.", "html": "<p>a&amp;b</p>", "count": 3 },
+    { "id": "two-paragraphs", "story": "US-4", "note": "One LF between leaf blocks.", "html": "<p>a</p><p>b</p>", "count": 3 },
+    { "id": "list-unwrapped-items", "story": "US-4", "note": "A list item is a container and adds no separator of its own.", "html": "<ul><li>a</li><li>b</li></ul>", "count": 3 },
+    { "id": "br", "story": "US-4", "note": "A br is one LF.", "html": "<p>a<br>b</p>", "count": 3 },
+    { "id": "table", "story": "US-4", "note": "A cell is a container.", "html": "<table><tbody><tr><td>a</td><td>b</td></tr></tbody></table>", "count": 3 },
+    { "id": "emoji", "story": "US-4", "note": "Two UTF-16 units, one code point.", "html": "<p>😀</p>", "count": 1 },
+    { "id": "zwj-sequence", "story": "US-4", "note": "Three emoji and two joiners: each code point counts.", "html": "<p>👨‍👩‍👧</p>", "count": 5 },
+    { "id": "canonical-list", "story": "US-4", "note": "Editor canonical form.", "html": "<ul><li><p>a</p></li><li><p>b</p></li></ul>", "count": 3 },
+    { "id": "canonical-table", "story": "US-4", "note": "Editor canonical form.", "html": "<table><tbody><tr><td><p>a</p></td><td><p>b</p></td></tr></tbody></table>", "count": 3 },
+    { "id": "canonical-nested-list", "story": "US-4", "note": "Editor canonical form.", "html": "<ul><li><p>a</p><ul><li><p>b</p></li></ul></li></ul>", "count": 3 },
+    { "id": "empty-paragraphs", "story": "US-4", "note": "An empty paragraph is a leaf block of zero length.", "html": "<p></p><p></p><p></p>", "count": 2 },
+    { "id": "code-block", "story": "US-4", "note": "The line feed inside a code block is a character.", "html": "<pre><code>a\nb</code></pre><p>c</p>", "count": 5 },
+    { "id": "lone-surrogate", "story": "US-4", "note": "A lone high surrogate between two letters is replaced by U+FFFD and counts 1; the stored html holds U+FFFD. {U+D83D} stands for the UTF-16 code unit itself (a lone surrogate is not valid in every JSON reader): substitute it before use.", "html": "<p>a{U+D83D}b</p>", "count": 3, "stored": "<p>a�b</p>" },
+    { "id": "nbsp", "story": "US-4", "note": "U+00A0 counts 1 (written as an entity, never counted as six).", "html": "<p>a&nbsp;b</p>", "count": 3 }
+  ]
+}

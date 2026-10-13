@@ -3,6 +3,9 @@ using Mustask.Application.Abstractions.Boards;
 using Mustask.Application.Abstractions.Dictionaries;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
+using Mustask.Application.Abstractions.RichText;
+using Mustask.Infrastructure.RichText;
+using Microsoft.Extensions.Configuration;
 using Mustask.Application.Features.Organizations;
 using Mustask.Infrastructure.Boards;
 using Mustask.Infrastructure.Dictionaries;
@@ -96,6 +99,15 @@ public static class DependencyInjection
         services.AddScoped<IWorkItemRepository, WorkItemRepository>();
         services.AddScoped<IWorkItemReadModel, WorkItemReadModel>();
         services.AddScoped<IAreaUsage, WorkItemAreaUsage>();
+
+        // feat-018 / ADR-0027: the rich-text reduction. A singleton: it holds the vocabulary and the concurrency gate.
+        services.AddSingleton<IRichTextReducer>(provider =>
+        {
+            var options = new RichTextOptions();
+            provider.GetService<IConfiguration>()?.GetSection(RichTextOptions.SectionName).Bind(options);
+
+            return new HtmlRichTextReducer(RichTextVocabulary.LoadEmbedded(), options);
+        });
 
         return services;
     }
