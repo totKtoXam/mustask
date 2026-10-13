@@ -1,0 +1,219 @@
+# QA — feat-018-work-item-rich-text
+
+## Backend
+
+Session: separate, clean context, 2026-10-13, size L deep pass. The plan was
+written from `spec.md`, US-2, US-3 (server half), US-4, US-7, `api-contract.md`
+and ADR-0027 before any implementation file was opened (stage 04-backend § 5);
+coverage was then checked against commits `05a68cd..4569225` and plan-backend
+§ 6.2. E2E: not run, not asked: the human's standing answer is NO
+(paused 2026-10-12), and this is not the last QA stage before review (frontend
+QA follows). `scripts/verify.sh` and every frontend suite were not run
+(machine saturated, another session asked for no full runs): targeted
+`dotnet test` only.
+
+### Coverage matrix
+
+Dev = a test the developer wrote (file under `src/backend/tests`), QA = added
+in this pass (`ReducerQaProbeTests`, `SaveWorkItemDescriptionQaTests`).
+
+| Criterion | Check | Type | Status |
+|-----------|-------|------|--------|
+| US-2 kept subset, stripped, unwrapped, attributes, headings, links (12 addresses), images | `canonical.json` ids `subset-kept` .. `images-dropped`, `LinkAddress_*`; PATCH then GET `Save_FixtureCanonicalCases_RoundTripThroughPatchGet` | U+I (Dev) | ✔ |
+| US-2 hostile corpus, re-parse stability (scripting on and off) | `Reduce_HostileCorpus_*`, `Save_HostileCorpus_StoredValueClean` (Dev); 40 more payloads, mXSS (noscript/title, math/mglyph/style, CDATA in svg, nested forms, foreign content) `QA_Reduce_HostilePayload_*` | U+I | ✔ |
+| US-2 early abort, amplification | `Reduce_Amplifying2000000Units_*`, `Save_Html_Amplifying_RefusedWithin2s` (Dev) | U+I timed | ✔ for that shape; see D-1, D-2 for shapes that bypass it |
+| US-2 idempotent | `Reduce_RandomMarkup_*` (Dev, 1 000 inputs) + `QA_Reduce_RandomStructures_*` (5 seeds x 600, wider grammar) | U | ✔ except D-3 |
+| US-4 no declaration, html reported, empty plain, unknown format with and without description, format only, equality, plain over html | `SaveWorkItemDescriptionEndpointTests` (Dev, whole file, 36 tests green) + `Save_FormatNullOrAbsent_*`, `Save_FormatOfAnotherJsonType_*` (QA, 8 raw-JSON cases) | I | ✔ |
+| US-4 counts, limits at both edges, markup reason order, request cap, blank over ceiling, legacy worst cases | `VisibleCountTests`, `ValidateReduced_*`, `Save_Html_*` (Dev); `QA_Reduce_AstralAtTheRawCap_*`, `QA_Reduce_EscapedCharacters_*`, `QA_Reduce_SurrogatesSplitByATag_*` (QA) | U+I | ✔ |
+| US-4 lone surrogate "counts 3, stored U+FFFD" | reducer yes; over HTTP the binder answers 400 (D-4) | U+I | ✔ unit, ✖ wire (minor) |
+| US-4 migration (rows unchanged, 100 000 whole, checks, down guard, up again) | `AddWorkItemDescriptionFormatMigrationTests` x3 (Dev), run here on a clean container | M | ✔ |
+| US-4 response time | `Save_And_Get_100000VisibleCharacters_Within1s` (Dev); ceiling-sized document end to end (QA) | I timed | ✔ 100 000 visible; ✖ at the ceiling on a loaded host (R-1) |
+| US-7 palettes, exact match, same family, two tokens, language list, mark order, legacy tags, code/link shapes, code block, headings, tables (rectangular), empty-looking | canonical.json (62 cases) via `FixtureParityTests` + 14 class-token and 16 link-address inputs of QA | U | ✔ |
+| US-7 editor output equals canonical | `editorOutput` of `editor-*-chrome` cases | U | ✔ |
+| US-3 server half: other field leaves description untouched, list never carries it | `Save_OtherFieldOnly_*`, `List_NeverCarries*` (Dev) | I | ✔ |
+| NFR safety: vocabulary file equals server table, no token literal | `Vocabulary_Embedded_EqualsTheFileOnDisk`, `ServerCode_HoldsNoTokenLiteral` (Dev) | U | ✔ |
+| § 0.4 order: 404 before 400 | `Save_BadPathOversizedDescription_404` (Dev); unknown format on a missing item, on another organization's item (QA) | I | ✔ |
+
+### Additional scenarios (adversarial, QA)
+
+| # | Scenario | Result |
+|---|----------|--------|
+| A-1 | 40 hostile payloads: noscript/title/textarea/iframe raw text, `math mtext table mglyph style`, `svg desc CDATA`, `form math mtext`, `a href=x table a`, listing/noembed/noframes, body/html/frameset handlers, scripting on and off | no element outside the allow-list, stable, idempotent |
+| A-2 | class tokens: NBSP and VT are not separators, FF is, entity-encoded name, duplicate `class` attribute, tokens on `p h3 li a pre code mark`, `LANGUAGE-PYTHON`, two languages | as BR-RT-14 |
+| A-3 | links: `&Tab;java&NewLine;script&colon;`, hex entities without semicolons, NBSP and U+2028 before the scheme, `https://@`, `https://?q`, `http:\\evil`, `https://evil\@good`, `file:`, `blob:`, empty text | removed or kept as read, stable |
+| A-4 | 3 000 deep `div` on a 256 KB stack (Dev), 2 000 000 units of every flat tag among 86 (AngleSharp harness, 1 process each) | only `<pre>` and `<listing>` kill the process (D-1) |
+| A-5 | 24 hostile shapes at 2 000 000 units, time to answer | all refused or accepted in 0.1 to 1.9 s, except distinct attributes (D-2) |
+| A-6 | arithmetic: 999 993 astral at the raw cap = 1 000 000 markup, +1 refused; `&amp;` counted as written; pair split by a tag = two U+FFFD | exact |
+| A-7 | 6 concurrent PATCH, html and title mixed; 4 identical html in parallel | all 200, both fields land, one `changedAt` |
+| A-8 | alternating plain / html / plain of the same text | each a change, `changedAt` moves |
+| A-9 | raw JSON: `descriptionFormat` null, absent, boolean, array, object, 1.5; `\u0000` in html | as the contract; NUL removed |
+| A-10 | indented / pretty-printed html at 700 000 reduced | accepted; at 840 000 reduced plus 350 000 indent refused (D-5) |
+
+### Runs
+
+All `dotnet test`, one project at a time, Debug, from the worktree root. No
+process of mine is left running; Testcontainers' containers are reaped by Ryuk.
+
+| What | Result |
+|------|--------|
+| `src/backend/tests/Mustask.Domain.Tests --filter FullyQualifiedName~WorkItem` | 178 passed |
+| `src/backend/tests/Mustask.Application.Tests --filter FullyQualifiedName~SaveWorkItem` | 19 passed |
+| `src/backend/tests/Mustask.Contracts.Tests` (all) | 191 passed |
+| `src/backend/tests/Mustask.Infrastructure.Tests --filter "FullyQualifiedName~RichText\|FullyQualifiedName~AddWorkItemDescriptionFormat"` | 454: 446 passed, 6 failed, 2 skipped. Failed: 4 x D-3 (QA), 1 x D-5 (QA, since skipped), 1 x D-7 (Dev test `Reduce_HostileDeepNesting_IsBoundedInTime(table)`) |
+| same project, `FullyQualifiedName~ReducerQaProbeTests` after skips | 126: 119 passed, 4 failed (D-3), 3 skipped (D-1, D-2, D-5) |
+| `src/backend/tests/Mustask.Api.IntegrationTests --filter FullyQualifiedName~SaveWorkItemDescription` | 50 tests, 48 green, 2 were QA tests with my own errors (visible limit of my table, surrogate expectation); fixed, then `SaveWorkItemDescriptionQaTests` 14/14 |
+
+### Defects
+
+#### D-1: consecutive `<pre>` or `<listing>` start tags crash the API process
+
+- Severity: **blocker**
+- Steps: `PATCH …/workitems/{id}` with `{"descriptionFormat":"html","description":"<pre><pre>…"}`, 400 repetitions
+  (2 000 units; 200 repetitions pass). Same with `<listing>`. Reproduced
+  through the real reducer (test host died with `Stack overflow` in
+  `HtmlDomBuilder.InBodyStartTag → InBody → Home → PreventNewLine`, repeated)
+  and in a standalone AngleSharp 1.7.2 harness with the reducer's exact parse
+  call: exit code `0xC00000FD` at 400, 2 000, 20 000 and 2 000 000 units.
+  `<pre><code>`, `<p><pre>`, `<li><pre>`, `<textarea>` and 84 other tags
+  flooded flat do not crash. Test (skipped):
+  `QA_Reduce_ConsecutivePreStartTags_AreRefusedNotACrash`.
+- Expected / Actual: refusal with `description_markup_too_large` (or a 400)
+  in under 2 s / process terminated; a stack overflow cannot be caught, and
+  the parse budget does not help, it comes in milliseconds. Any signed-in
+  member can take the API down with a 2 KB body. The developer's depth test
+  (`Reduce_HostileDeepNesting_IsBoundedInTime`) covers `b`, `div`, `ul`,
+  `table` but not `pre`/`listing`.
+- Status: open
+
+#### D-2: the parse budget does not fire inside one tag; many distinct attributes take minutes
+
+- Severity: **major** (NFR Speed: "a hostile 2 000 000-code-unit input ... refused within 2 s")
+- Steps: `<p a0=1 a1=1 … a190000=1>x` (1.79 M units). Elapsed 441 s on the QA
+  machine, answer `Exceeded` only afterwards. Scaling: 5 000 attributes
+  (39 K units) 0.9 s, 10 000 (79 K) 2.6 s, 20 000 (169 K) 7.7 s, 40 000
+  (349 K) 30 s: quadratic in the tag. Every other single-token giant
+  (2 M-unit comment, tag name, attribute value, entity, doctype, CDATA)
+  parses in 0.2 to 0.6 s. Test (skipped): `QA_Reduce_ManyDistinctAttributesInOneTag_*`.
+- Expected / Actual: refused within about 2 s / one request pins a core and a
+  gate slot (`MaxConcurrentReductions` = cores) for minutes; a handful of
+  requests starve the API. Cancellation is checked between tokens only.
+- Status: open
+
+#### D-3: a character reference to CR is stored raw and is not stable under re-parse
+
+- Severity: **major** (NFR Safety: "every stored value re-parses and re-reduces to itself"; BR-RT-5 idempotency)
+- Steps: save `<p>a&#13;b</p>` as html (also `&#x0D;`, in `pre`, in `li`).
+  Stored `<p>a\rb</p>`; a second parse turns CR into LF, so
+  `reduce(stored) != stored` and the editor's re-serialisation of the stored
+  value differs from it (dirty on open, BR-RT-11). Tests (red):
+  `QA_Reduce_NumericReferenceToCarriageReturn_*` (4 cases); the same defect
+  found by the random generator before `&#13;` was removed from it.
+- Expected / Actual: text with CR is written as the parser's preprocessing
+  would see it (LF), a fixed point / raw CR stored.
+- Status: open
+
+#### D-4: a lone surrogate on the wire is a 400 `http.bad_request`, not U+FFFD
+
+- Severity: minor
+- Steps: raw body `{"description":"<p>a\ud83db</p>","descriptionFormat":"html"}`
+  (what `JSON.stringify` writes for a lone surrogate): the platform binder
+  refuses the request, 400, nothing stored. The developer's
+  `Save_Html_LoneSurrogate_StoredAsReplacementCharacter` is vacuous: the test
+  client's serializer had already replaced the surrogate. Characterised by
+  `Save_Html_LoneSurrogateEscapeOnTheWire_IsRefusedByTheBinder_NothingStored`.
+- Expected / Actual: contract § 3 and US-4 say replaced and stored / 400.
+  Needs a contract note or a deliberate binder setting, and the developer's
+  test fixed.
+- Status: open (minor, carried to gate-3)
+
+#### D-5: whitespace between blocks counts against the 1 000 000 ceiling
+
+- Severity: minor
+- Steps: 70 000 `<p>hello</p>` joined by `"\n    "` (840 000 reduced, 350 000
+  of indent): refused. Skipped test `QA_Reduce_IndentedHtml_*`.
+- Expected / Actual: BR-RT-7 (2) is "the reduced html": accepted / refused.
+  Plan § 5.1 chose this to satisfy "blank over the ceiling is refused"; counting
+  the dropped whitespace only when the result is blank satisfies both. The
+  panel never sends indented html.
+- Status: open (minor, carried to gate-3)
+
+#### D-6: hostile text survives inside a stored `href` value
+
+- Severity: minor
+- Steps: `<a href="mailto:a@example.org?body=<script>alert(1)</script>">` and
+  `<a href='https://e.org/"><img src=x onerror=alert(1)>'>` store the literal
+  `<script>` / `<img … onerror=…>` inside the quoted attribute (`<` and `>`
+  are not escaped there, api-contract § 3). Inert for an HTML parser and the
+  tree is clean (`QA_Reduce_HostilePayload_*` passes), but a lexical check of
+  the stored string (the corpus's own `mustNotContain` is lexical) fails, and
+  the HTML Standard's current serialisation escapes `<` and `>` in attribute
+  values, so the editor's `innerHTML` may differ from the server's byte for
+  byte on such a link.
+- Expected / Actual: refuse such an address or escape them / stored raw.
+- Status: open (minor, carried to gate-3)
+
+#### D-7: a developer test depends on host speed
+
+- Severity: minor
+- Steps: `Reduce_HostileDeepNesting_IsBoundedInTime(tag: "table", refused: False)`
+  expects `Exceeded == false` for 222 000 `<table>` tags; under load the parse
+  budget fired and it went red in the one full run of the project on the QA
+  machine (its parse sits near the budget there). Same root as R-1.
+- Status: open (minor)
+
+### Risk R-1 (reported with evidence, not a verdict): the parse time budget
+
+`RichText:ParseBudgetMilliseconds` = 1 500 is a wall-clock cancellation on the
+parse. The same input is accepted or refused depending on the host. Evidence,
+all on the 22-logical-core QA machine shared with other sessions (so "idle" is
+not idle); smallest budget of a ladder that still accepted the document, after
+one warm-up; "loaded" = one busy thread per core:
+
+| Document (canonical, under both limits) | idle | loaded |
+|---|---|---|
+| 10-column table, 999 886 units | 300 ms (one run 800 ms) | 800 ms; in another run 1 500 ms |
+| 1-column table, 999 979 units | n/m | refused at 1 500 ms, ok at 800 ms (two runs) |
+| nested lists, 999 960 units | 400 ms (one run 1 500 ms) | 600 ms; refused at 1 500 ms in another run |
+| spec's legacy worst case, 100 001 `<p></p>` (700 007) | 300 ms | 800 ms |
+| 10-column table, 500 000 / 250 000 units | 200 ms | 300 / 400 ms |
+
+- End to end: a canonical table document of 999 834 units (visible 86 000,
+  under both limits) was refused with `description_markup_too_large` after
+  1.9 to 2.0 s in each of the three runs of `Save_TableDocumentAtTheCeiling_*`
+  made with that document (after a warm-up save); the first full `Reduce` of a
+  process was 2 017 ms (cold JIT, 10-column table, accepted).
+- Reduce total is 1.1 to 2.0 s for 1 M units here, so the NFR "PATCH at the
+  ceiling within 2 s" is also not met on this host; the budget covers only the
+  parse, the walk and the write are on top.
+- The documents at risk are the ones the spec insists are storable
+  (US-4 "Legacy worst cases fit the ceiling" is 700 007 units) and any
+  table-heavy one above about 500 000 units. The refusal text tells the user to
+  simplify formatting, which does not apply. The panel's re-save of a stored
+  document after one character edit re-parses it whole, so a document that was
+  once accepted can be refused later on a busier host.
+- Margin on a 3x slower or contended host: 1M-unit documents sit between 0.2 and
+  1.0 of the budget idle here; below 500 000 units the margin is 4x or more.
+  Nothing in the budget scales with the input's size.
+- The same mechanism is why D-1 and D-2 matter: the budget is the only bound
+  and it is neither a stack bound nor a within-token bound.
+
+### Risk R-2 (observation)
+
+The reducer is synchronous on the request thread: `SemaphoreSlim.Wait` and
+`ParseDocumentAsync(...).GetAwaiter().GetResult()`. Under a burst of large
+bodies the pool threads are blocked, not awaited; this was reasoned, not
+measured.
+
+### Tests added
+
+`src/backend/tests/Mustask.Infrastructure.Tests/RichText/ReducerQaProbeTests.cs`
+(126 cases, 3 skipped for D-1, D-2, D-5; 4 red for D-3) and
+`src/backend/tests/Mustask.Api.IntegrationTests/Features/WorkItems/SaveWorkItemDescriptionQaTests.cs`
+(14, green; one of them records R-1 and asserts only "200 and round trip, or
+the markup reason").
+
+### Verdict
+
+blockers: 1 (D-1) · majors: 2 (D-2, D-3) · minors: 4 (D-4..D-7) · risk: R-1 ·
+result: **fail**. Return D-1, D-2, D-3 to the backend developer; the re-check
+covers the fixes and what they could break, nothing else.
