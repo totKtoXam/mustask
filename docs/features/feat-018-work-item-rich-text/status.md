@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/018-work-item-rich-text
-- stage: 04-backend (plan)
+- stage: 04-backend (development)
 - epic: core/work-items
 - deps: mod-003
 - gates: gate-1, gate-2, gate-3
@@ -41,3 +41,5 @@ Summary (from the queue line or an argument): Описание as rich text (doc
 - 2026-10-13 [orchestrator] effect on A: spec amended (BR-RT-3 allow-list gains underline, strike, highlight/colour/size classes, indent/outdent lists, clear formatting, emoji; BR-RT-4 unchanged — images stay out of A and go to B; code and table behaviour specified), gate-1 reopened, gate-2 not yet given. Queueing B and C is BLOCKED: `scripts/queue.sh add` refuses because the main checkout has an untracked `.agents/teamwork/` — a human decision, not touched.
 - 2026-10-13 [orchestrator] size L re-confirmed for the amended scope (routing.md "escalation by volume"): the diff grew by US-5..US-7 and the requirements review (round 3) recommended keeping one L, not splitting; if the diff doubles again, US-5 is the cut. Round 3: R-16..R-21 and m-6..m-13 fixed by the analyst; one delta read (round 4) owed, then gate-1 (human).
 - 2026-10-13 [orchestrator] stage 02 round 4 (delta): verdict approve-for-gate-1, no blockers or majors; minors m-16..m-24 applied by the analyst as small edits, m-15 handed to design.md. Spec + US-1..US-7 at gate-1 (reopened), human approval pending; the previous design.md, prototype and ADR-0027 (proposed) predate the amendment and are redone after gate-1.
+- 2026-10-13 [human] gate-1 approved on the amended spec + US-1..US-7. gate-2 approved ("Approve и принять ADR-0027"); ADR-0027 accepted; syntax highlighting through lowlight decorations IS in scope (design.md D-2 superseded). ADR-0007's index line now says "amended by ADR-0027".
+- 2026-10-13 [orchestrator] stage 04a done: plan-backend.md + api-contract.md written (additive `descriptionFormat` plain|html; two new reasons description_markup_too_large, description_format_unknown; migration AddWorkItemDescriptionFormat; no lanes). Contract fixed — any change needs a note here and a Log line. Decisions: spec gap "ceiling vs blank 1 000 001-code-point value" — US-4 governs (refused, counts text read). Directory.Packages.props: the developer may add exactly the two package lines (HtmlSanitizer and the AngleSharp pins) after the spike. BR-RT-13 amendments (mod-003, feat-022, doc-002, feat-002 note) are applied at the end of stage 4/6, each with a status.md note. No E2E (human instruction).

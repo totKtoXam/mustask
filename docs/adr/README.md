@@ -63,7 +63,7 @@ Keep the list current (append-only, newest on top):
 - ADR-0010 — Implement optimistic concurrency via `xmin` by an automatic convention · accepted
 - ADR-0009 — Use EF Core + Npgsql as the primary data access · accepted
 - ADR-0008 — Issue JWTs ourselves (RS256) instead of plugging in an external IdP · superseded by ADR-0018
-- ADR-0007 — Fix the frontend UI stack and the canonical screen states · accepted, partially narrowed by ADR-0019, amended by ADR-0024
+- ADR-0007 — Fix the frontend UI stack and the canonical screen states · accepted, partially narrowed by ADR-0019, amended by ADR-0024 and ADR-0027
 - ADR-0006 — Error texts live in a shared catalog, not in server code · proposed
 - ADR-0005 — Treat error codes as a stable registry — part of the API contract · accepted
 - ADR-0004 — Business errors are exceptions, mapping to ProblemDetails is centralized · accepted, partially superseded by ADR-0006
