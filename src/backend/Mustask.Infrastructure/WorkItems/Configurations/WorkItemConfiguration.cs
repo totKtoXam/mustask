@@ -36,6 +36,13 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         builder.Property(item => item.AssigneeId).HasMaxLength(WorkItemLimits.UserIdMaxLength);
         builder.Property(item => item.Title).HasMaxLength(WorkItemLimits.TitleMaxLength).IsRequired();
         builder.Property(item => item.Description).IsRequired();
+        // feat-018: by name (Named values rule 2); Plain by default, so every row written before the column — and any
+        // written outside the domain — reads as plain text exactly as it was stored, no row rewritten (D-3).
+        builder.Property(item => item.DescriptionFormat)
+            .HasConversion<string>()
+            .HasMaxLength(WorkItemsConstraints.ListKeyMaxLength)
+            .IsRequired()
+            .HasDefaultValue(DescriptionFormat.Plain);
         builder.Property(item => item.CreationRequestId).IsRequired();
         builder.Property(item => item.CreatedAt).IsRequired();
         builder.Property(item => item.CreatedBy).HasMaxLength(WorkItemLimits.UserIdMaxLength).IsRequired();
@@ -99,6 +106,9 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
             table.HasCheckConstraint(WorkItemsConstraints.ParentNotSelf, "parent_id IS NULL OR parent_id <> id");
             table.HasCheckConstraint("ck_work_items_title_length", WorkItemsConstraints.TitleLengthCheck);
             table.HasCheckConstraint("ck_work_items_description_length", WorkItemsConstraints.DescriptionLengthCheck);
+            table.HasCheckConstraint(WorkItemsConstraints.PlainDescriptionLengthName, WorkItemsConstraints.PlainDescriptionLengthCheck);
+            table.HasCheckConstraint(WorkItemsConstraints.EmptyDescriptionPlainName, WorkItemsConstraints.EmptyDescriptionPlainCheck);
+            table.HasCheckConstraint(WorkItemsConstraints.DescriptionFormatName, WorkItemsConstraints.DescriptionFormatCheck);
 
             // feat-022: the ranges of its api-contract § 1, as the database's backstop to the domain's checks.
             foreach (var (name, sql) in WorkItemsConstraints.FieldChecks)

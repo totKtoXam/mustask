@@ -63,6 +63,12 @@ public sealed record WorkItemView(
     WorkItemRefView? Parent,
     IReadOnlyList<WorkItemRefView> Children)
 {
+    /// <summary>
+    /// feat-018: how <c>Description</c> is to be read, <c>plain</c> or <c>html</c> (its api-contract § 2); always set,
+    /// <c>plain</c> for an empty description.
+    /// </summary>
+    public required string DescriptionFormat { get; init; }
+
     /// <summary>feat-022: «Приоритет», 1..4, on every type.</summary>
     public required int Priority { get; init; }
 

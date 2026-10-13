@@ -31,7 +31,28 @@ internal static class WorkItemsConstraints
 
     public static readonly string TitleLengthCheck = $"char_length(title) BETWEEN 1 AND {WorkItemLimits.TitleMaxLength}";
 
-    public static readonly string DescriptionLengthCheck = $"char_length(description) <= {WorkItemLimits.DescriptionMaxLength}";
+    /// <summary>
+    /// The physical ceiling of the column (feat-018 ADR-0027 decision 8): 1 000 000 characters, the unit of
+    /// <c>char_length</c> being the application's unit for html. A plain description keeps its own bound below.
+    /// </summary>
+    public static readonly string DescriptionLengthCheck = $"char_length(description) <= {WorkItemLimits.DescriptionMarkupMaxLength}";
+
+    /// <summary>feat-018: only a plain description is bounded by BR-M3-19's 100 000.</summary>
+    public const string PlainDescriptionLengthName = "ck_work_items_plain_description_length";
+
+    public static readonly string PlainDescriptionLengthCheck =
+        $"description_format = '{nameof(DescriptionFormat.Html)}' OR char_length(description) <= {WorkItemLimits.DescriptionMaxLength}";
+
+    /// <summary>feat-018 api-contract § 1.1: an empty description is always plain.</summary>
+    public const string EmptyDescriptionPlainName = "ck_work_items_empty_description_plain";
+
+    public static readonly string EmptyDescriptionPlainCheck =
+        $"description_format = '{nameof(DescriptionFormat.Plain)}' OR description <> ''";
+
+    public const string DescriptionFormatName = "ck_work_items_description_format";
+
+    public static readonly string DescriptionFormatCheck = KeyCheck<DescriptionFormat>("description_format");
+
 
     /// <summary>feat-022: a number field's digits in all, two of them after the point — 9 999.99 at most.</summary>
     public const int NumberPrecision = 6;

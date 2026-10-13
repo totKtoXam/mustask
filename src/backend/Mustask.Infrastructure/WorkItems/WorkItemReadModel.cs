@@ -174,6 +174,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             item.AreaId,
             item.Title,
             includeDescription ? item.Description : string.Empty,
+            item.DescriptionFormat,
             item.CreatedBy,
             item.CreatedAt,
             item.ChangedAt,
@@ -251,6 +252,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             parent,
             children)
         {
+            DescriptionFormat = DescriptionFormats.Key(row.DescriptionFormat),
             Priority = fields.Priority,
             Risk = fields.Risk,
             StoryPoints = Shortest(fields.StoryPoints),
@@ -339,6 +341,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         Guid AreaId,
         string Title,
         string Description,
+        DescriptionFormat DescriptionFormat,
         string CreatedBy,
         DateTimeOffset CreatedAt,
         DateTimeOffset ChangedAt,
