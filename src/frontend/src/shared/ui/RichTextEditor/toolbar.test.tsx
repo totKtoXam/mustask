@@ -41,12 +41,23 @@ const NAMES = [
   'Повторить',
   'Заголовок 3',
   'Заголовок 4',
+  'Размер шрифта',
   'Полужирный',
   'Курсив',
+  'Подчёркнутый',
+  'Зачёркнутый',
+  'Код в строке',
+  'Цвет текста',
+  'Выделение цветом',
+  'Очистить форматирование',
   'Маркированный список',
   'Нумерованный список',
   'Увеличить отступ списка',
   'Уменьшить отступ списка',
+  'Ссылка',
+  'Убрать ссылку',
+  'Открыть в новой вкладке',
+  'Эмодзи',
 ];
 
 describe('toolbar', () => {
@@ -81,14 +92,14 @@ describe('toolbar', () => {
     expect(button('Заголовок 3').tabIndex).toBe(-1);
 
     await user.keyboard('{End}');
-    // The two list-indent controls are disabled outside a list: the last enabled one is the numbered list.
-    expect(button('Нумерованный список')).toHaveFocus();
+    // The last enabled one: «Убрать ссылку» and «Открыть…» are disabled outside a link.
+    expect(button('Эмодзи')).toHaveFocus();
 
     await user.keyboard('{ArrowRight}');
     expect(button('Заголовок 3')).toHaveFocus();
 
     await user.keyboard('{ArrowLeft}');
-    expect(button('Нумерованный список')).toHaveFocus();
+    expect(button('Эмодзи')).toHaveFocus();
 
     await user.keyboard('{Home}');
     expect(button('Заголовок 3')).toHaveFocus();
@@ -99,7 +110,7 @@ describe('toolbar', () => {
     const { button } = await mount('<p>a</p>');
 
     act(() => button('Заголовок 3').focus());
-    await user.keyboard('{ArrowRight}{ArrowRight}');
+    await user.keyboard('{ArrowRight}{ArrowRight}{ArrowRight}');
     expect(button('Полужирный')).toHaveFocus();
 
     await user.tab();

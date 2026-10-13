@@ -1,13 +1,16 @@
-import { useEffect, useRef, useState, type MutableRefObject } from 'react';
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import Box from '@mui/material/Box';
 import { styled } from '@mui/material/styles';
 import { getSchema, type Editor } from '@tiptap/core';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { FONT_SIZES, HIGHLIGHTS, TEXT_COLOURS, normaliseRichText } from '../../lib/richText';
+import { bindOpenLink } from './behaviour/keyboard';
+import { applyLink, linkSeed, type LinkSeed } from './behaviour/linkCommands';
 import { documentJson } from './behaviour/loadDocument';
 import type { RichTextCopy } from './copy';
 import { createExtensions } from './schema/extensions';
+import { LinkDialog } from './toolbar/LinkDialog';
 import { Toolbar } from './toolbar/Toolbar';
 
 /** What the editor reports on a change of the document (plan-frontend § 7.2). */
@@ -190,6 +193,7 @@ function EditorBody({
   });
 
   const [extensions] = useState(() => createExtensions(placeholder));
+  const [seed, setSeed] = useState<LinkSeed | null>(null);
   // The document is built once, from the value the editor mounts with; later
   // values are the caller's echo or a replacement (the sync effect below).
   const [initial] = useState(() => documentJson(getSchema(extensions), value));
@@ -207,6 +211,14 @@ function EditorBody({
       },
     },
   });
+
+  // Ctrl/Cmd+K and the toolbar's «Ссылка» both open the prompt through this one hook.
+  const openLink = useCallback(() => {
+    if (editor && editor.isEditable) setSeed(linkSeed(editor));
+  }, [editor]);
+  useEffect(() => {
+    if (editor) bindOpenLink(editor, openLink);
+  }, [editor, openLink]);
 
   useEffect(() => {
     if (!editor) return undefined;
@@ -303,10 +315,25 @@ function EditorBody({
 
   return (
     <Box>
-      <Toolbar editor={editor} copy={copy} />
+      <Toolbar editor={editor} copy={copy} ui={{ openLink }} />
       <Content>
         <EditorContent editor={editor} />
       </Content>
+      {seed && (
+        <LinkDialog
+          copy={copy.link}
+          initialAddress={seed.address}
+          askText={seed.askText}
+          onApply={(address, text) => {
+            applyLink(editor, address, text);
+            setSeed(null);
+          }}
+          onClose={() => {
+            setSeed(null);
+            editor.commands.focus();
+          }}
+        />
+      )}
     </Box>
   );
 }

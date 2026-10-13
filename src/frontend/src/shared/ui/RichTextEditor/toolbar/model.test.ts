@@ -12,9 +12,10 @@ describe('toolbar model', () => {
   it('lists the groups and controls in order', () => {
     expect(TOOLBAR_GROUPS.map((group) => [group.id, group.controls.map((c) => c.id)])).toEqual([
       ['history', ['undo', 'redo']],
-      ['block', ['h3', 'h4']],
-      ['marks', ['bold', 'italic']],
+      ['block', ['h3', 'h4', 'size']],
+      ['marks', ['bold', 'italic', 'underline', 'strike', 'code', 'colour', 'highlight', 'clear']],
       ['lists', ['bullet', 'ordered', 'indent', 'outdent']],
+      ['links', ['link', 'unlink', 'open', 'emoji']],
     ]);
   });
 
@@ -28,12 +29,23 @@ describe('toolbar model', () => {
       'Повторить',
       'Заголовок 3',
       'Заголовок 4',
+      'Размер шрифта',
       'Полужирный',
       'Курсив',
+      'Подчёркнутый',
+      'Зачёркнутый',
+      'Код в строке',
+      'Цвет текста',
+      'Выделение цветом',
+      'Очистить форматирование',
       'Маркированный список',
       'Нумерованный список',
       'Увеличить отступ списка',
       'Уменьшить отступ списка',
+      'Ссылка',
+      'Убрать ссылку',
+      'Открыть в новой вкладке',
+      'Эмодзи',
     ]);
     expect(new Set(names).size).toBe(names.length);
   });
