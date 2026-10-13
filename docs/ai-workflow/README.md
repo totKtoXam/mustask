@@ -101,6 +101,24 @@ separate service. Its duties:
    completes the queue is not changed — its line left at start
    ([../features/numbering.md](../features/numbering.md)).
 
+Agents do not run the whole frontend suite in parallel: while working they run
+Vitest on their own files, and `scripts/verify.sh` once, before the last commit
+(`VERIFY_FULL=1` forces the full suite; full runs queue on a lock in the git
+directory, see the header of `scripts/verify.sh`).
+
+**One full run per tree.** A green `VERIFY_FULL=1` run on a clean tree leaves a
+stamp in the git directory, keyed by the tree hash and the merge-base. Every
+later gate that needs the full guarantee — QA, code review, `finish-task.sh`,
+`pre-push` — runs `VERIFY_FULL=1 bash scripts/verify.sh` and gets "already
+verified" instantly while the tree and the merge-base are the same and the
+working tree is clean; a commit changes the tree and a rebase changes the
+merge-base, and the next run is real. A QA or review session therefore never
+re-runs the suite by hand: it runs `VERIFY_FULL=1 bash scripts/verify.sh`,
+which is instant when the stamp exists, and adds targeted tests where its own
+judgement says. The stamp is a statement about the code on this machine, not
+about a worktree's `node_modules` or Docker: after changing the environment
+use `VERIFY_FORCE=1`, which ignores the stamp.
+
 ## Vendor adapters
 
 | Environment | Entry point | Roles |

@@ -20,7 +20,9 @@ fi
 
 printf '[pre-push] scripts/verify.sh\n'
 
-if ! (cd "$repo" && sh "$verify"); then
+# The push is the last gate before an MR: always the whole frontend suite
+# (verify.sh alone runs only the tests the branch reaches, tech-028).
+if ! (cd "$repo" && VERIFY_FULL=1 sh "$verify"); then
     printf '\n[pre-push] Check failed — push stopped.\n\n' >&2
     exit 1
 fi

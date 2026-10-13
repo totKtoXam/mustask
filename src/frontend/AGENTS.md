@@ -21,6 +21,24 @@ Node 23. The dev server is pinned to port 3000 — that port is in the
 - `npm run lint` — ESLint; `npm run format` / `format:check` — Prettier.
 - `npm test` — Vitest (Testing Library + MSW) in single-run mode. Never picks
   up `e2e/**` (`vite.config.ts` excludes it explicitly).
+- While you work, run Vitest on your own files (`npx vitest run
+  src/features/<x>`), not the whole suite; `npm run test:fast` is the whole
+  suite without the heavy page tests listed in `src/test/slowFiles.json` (about
+  a third of the full run; regenerate the list with `node scripts/slow-files.mjs
+  <vitest-json-report>`). `bash scripts/verify.sh` runs the
+  frontend tests that reach what the branch changed
+  (`vitest run --changed <merge-base>`); a change to `src/test/**`,
+  `src/app/theme/**` or `src/shared/ui/**` runs everything on its own, and the
+  tests that read sources off disk (kit guard, colour scan, e2e guards) always
+  run next to the affected ones. Force the whole suite with `VERIFY_FULL=1 bash
+  scripts/verify.sh` — `finish-task.sh` and the pre-push hook do, so a merge or
+  a push is always gated by a full run — instant when a green full run of the
+  same tree and merge-base, on a clean working tree, already left its stamp in
+  the git directory (`VERIFY_FORCE=1` repeats it; use it after changing
+  `node_modules` or the environment). A full run holds a lock
+  in the shared git directory (`vitest-full.lock`): only one runs at a time
+  across worktrees, the next one waits (a lock older than 60 min or with a dead
+  owner is taken over).
 
 ## UI kit — build from it, add to it first
 

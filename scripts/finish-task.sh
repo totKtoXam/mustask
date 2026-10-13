@@ -181,7 +181,9 @@ $dirty
 
 Uncommitted work does not reach the squash. Commit it or put it aside first."
 printf '\nRunning scripts/verify.sh in %s\n\n' "$task_worktree"
-( cd "$task_worktree" && sh scripts/verify.sh ) || die "verify.sh is red — not merging."
+# The merge gate is always the full frontend suite: verify.sh alone runs only
+# the tests the branch's changes reach.
+( cd "$task_worktree" && VERIFY_FULL=1 sh scripts/verify.sh ) || die "verify.sh is red — not merging."
 
 # --- 6. the message --------------------------------------------------------------
 

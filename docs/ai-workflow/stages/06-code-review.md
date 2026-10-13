@@ -6,6 +6,10 @@
 `design.md`, `api-contract.md`, and — for item 6's second direction — the
 prose outside the diff that describes behaviour the diff changes
 **Output:** findings in `docs/features/<id>/review.md`
+**Tests:** the reviewer does not hand-run the suite. When a full run is worth
+having, it is `VERIFY_FULL=1 bash scripts/verify.sh` — instant when the
+developer's run of this very tree left its stamp (README, "One full run per
+tree"); a targeted test is the reviewer's own call.
 
 What happens after the review — the human gate, the MR, completion — is in
 [07-mr-complete.md](07-mr-complete.md). The reviewer has no business there and

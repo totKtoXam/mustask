@@ -6,16 +6,46 @@
 # Directory.Packages.props edit does — that's a dependency graph for the
 # whole solution, not "just a config".
 #
-#   scripts/verify.sh          run the checks
-#   scripts/verify.sh --list   only show the classification
+#   scripts/verify.sh                    run the checks
+#   scripts/verify.sh --list             only show the classification
+#   VERIFY_FULL=1 scripts/verify.sh      the whole frontend suite
 #
 # Comparison base is main, overridden by the BASE variable.
 # An unknown path is treated as code: missing a breakage costs more than an
 # extra build.
+#
+# Frontend tests (tech-028): by default Vitest runs only the tests that reach
+# a file changed since the merge-base with $BASE (`vitest run --changed`), and
+# the whole suite when there is no merge-base. A change to the test harness,
+# the theme or the kit (forceRerunTriggers in vite.config.ts) runs everything
+# by itself. Tests that read sources off disk (the kit guard, the colour scan,
+# the e2e guards, the error-code readers) are found by grep and always run next
+# to the affected ones: no import ever reaches them. VERIFY_FULL=1 forces the
+# whole suite; scripts/finish-task.sh and .githooks/pre-push set it, so a merge
+# or a push is always gated by a full run. A full run holds a lock in the
+# shared git directory (<git-common-dir>/vitest-full.lock): one full run at a
+# time across all worktrees, the rest wait. A lock older than 60 minutes or
+# held by a dead process is taken over. Affected-only runs take no lock.
+#
+# Green stamp (tech-030): a green VERIFY_FULL=1 run on a clean tree (and the
+# tree still the same when the checks end), with no check skipped, writes
+# <git-common-dir>/verify-stamps/<tree>-<merge-base>. The next VERIFY_FULL=1
+# run of the same tree and merge-base — the same code, a clean working tree —
+# returns green at once, so QA, review, finish-task.sh and pre-push do not
+# repeat a suite that already passed. It is a statement about the code on this
+# machine: the stamp lives in the git directory every worktree shares, but
+# node_modules, ignored local files and Docker are each worktree's own, so
+# after changing the environment run with VERIFY_FORCE=1. A run that goes on
+# (forced, or a miss) deletes the old stamp first: a red or partial run never
+# leaves a green one behind.
 
 set -eu
 
 BASE=${BASE:-main}
+VERIFY_FULL=${VERIFY_FULL:-0}
+# The fast tier (npm run test:fast, tech-029) is a development aid: whatever
+# the caller exported, a verification never runs with it.
+unset VITEST_FAST
 LIST_ONLY=0
 [ "${1:-}" = "--list" ] && LIST_ONLY=1
 
@@ -43,18 +73,116 @@ find_python() {
     return 1
 }
 
-PYTHON_COMMAND=$(find_python || true)
+# VERIFY_PYTHON overrides the search (an empty value means "no python"): the
+# stamp cases need a run that skips a check.
+if [ "${VERIFY_PYTHON+set}" = set ]; then
+    PYTHON_COMMAND=$VERIFY_PYTHON
+else
+    PYTHON_COMMAND=$(find_python || true)
+fi
 
 failed=""
 passed=""
 
 note() { printf "%s\n" "$1"; }
+# A check that could not run (no Docker, no python, ...): the run may still be
+# green, but it must not leave a stamp that says the tree was fully verified.
+unchecked=0
+skipped() { unchecked=1; note "$1"; }
 fail() { failed="$failed  - $1
 "; printf "  FAIL: %s\n" "$1" >&2; }
 pass() { passed="$passed  - $1
 "; printf "  ok: %s\n" "$1"; }
 
 merge_base=$(git merge-base HEAD "$BASE" 2>/dev/null || echo "")
+
+# --- One full Vitest run at a time ---------------------------------------------------
+# Several agents in several worktrees each running the whole jsdom suite
+# starve each other of cores and turn timeouts into false failures. The lock is
+# a directory (mkdir is atomic) in the git directory all worktrees share, with
+# owner.txt: pid, worktree, start time (epoch seconds). Waiting is unbounded
+# on purpose, but a lock never outlives its owner or an hour.
+vitest_lock_dir=""
+vitest_lock_held=0
+vitest_lock_max_age=3600
+
+vitest_lock_field() { sed -n "s/^$1: //p" "$vitest_lock_dir/owner.txt" 2>/dev/null | head -n 1; }
+
+vitest_lock_release() {
+    [ "$vitest_lock_held" = 1 ] || return 0
+    vitest_lock_held=0
+    # Only our own: after a takeover the directory belongs to someone else.
+    [ "$(vitest_lock_field pid)" = "$$" ] && rm -rf "$vitest_lock_dir"
+    return 0
+}
+
+vitest_lock_acquire() {
+    common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+    if [ -z "$common" ]; then
+        note "  no git directory — the full run goes without a lock"
+        return 0
+    fi
+    vitest_lock_dir="$common/vitest-full.lock"
+    trap vitest_lock_release EXIT
+    trap 'exit 130' INT TERM
+    waited=0
+    unreadable=0
+    while :; do
+        if mkdir "$vitest_lock_dir" 2>/dev/null; then
+            {
+                printf "pid: %s\n" "$$"
+                printf "worktree: %s\n" "$(git rev-parse --show-toplevel)"
+                printf "started: %s\n" "$(date +%s)"
+            } > "$vitest_lock_dir/owner.txt"
+            vitest_lock_held=1
+            return 0
+        fi
+        owner_pid=$(vitest_lock_field pid)
+        owner_started=$(vitest_lock_field started)
+        stale=""
+        if [ -z "$owner_pid" ] || [ -z "$owner_started" ]; then
+            # Between the owner's mkdir and its owner.txt, or a broken lock:
+            # give the first a moment, then treat it as the second.
+            unreadable=$((unreadable + 1))
+            [ "$unreadable" -gt 10 ] && stale="no owner.txt"
+        else
+            unreadable=0
+            now=$(date +%s)
+            if [ $((now - owner_started)) -gt "$vitest_lock_max_age" ]; then
+                stale="held for over 60 minutes by pid $owner_pid"
+            elif ! kill -0 "$owner_pid" 2>/dev/null; then
+                stale="owner pid $owner_pid is dead"
+            fi
+        fi
+        if [ -n "$stale" ]; then
+            # rename is atomic: of several waiters that all judged the lock
+            # stale only one gets the directory, and it checks below whose
+            # it was. A `kill -0` blind spot remains: a pid written by a
+            # different runtime (WSL bash) looks dead — the 60 minutes still
+            # bound it.
+            grave="$vitest_lock_dir.stale.$$"
+            if mv "$vitest_lock_dir" "$grave" 2>/dev/null; then
+                # We may have renamed a lock another waiter took in between:
+                # check whom the renamed directory belonged to, and put a
+                # live one back (best effort — a third mkdir may have won).
+                grave_pid=$(sed -n "s/^pid: //p" "$grave/owner.txt" 2>/dev/null | head -n 1)
+                if [ "$grave_pid" = "$owner_pid" ] || [ -z "$owner_pid" ]; then
+                    note "  stale full-run lock removed ($stale)"
+                    rm -rf "$grave"
+                elif ! mv "$grave" "$vitest_lock_dir" 2>/dev/null; then
+                    rm -rf "$grave"
+                fi
+            fi
+            unreadable=0
+            continue
+        fi
+        if [ $((waited % 30)) -eq 0 ]; then
+            note "  waiting for another full run: pid $owner_pid in $(vitest_lock_field worktree)"
+        fi
+        sleep 2
+        waited=$((waited + 2))
+    done
+}
 
 changed=$(
     {
@@ -150,6 +278,44 @@ if [ "$need_prose$need_agents$need_shell$need_ci$need_dotnet$need_frontend$need_
 fi
 
 [ "$LIST_ONLY" = 1 ] && exit 0
+
+# --- The green stamp (tech-030) ---------------------------------------------------
+# A green VERIFY_FULL=1 run on a clean tree leaves a stamp keyed by the tree
+# hash and the merge-base (the second decides which buckets ran). The same
+# code, tested once: finish-task.sh and pre-push, both VERIFY_FULL=1, find it
+# and do not repeat the run. VERIFY_FORCE=1 ignores it. Never written from a
+# dirty tree or from a run that skipped a check.
+# Is the working tree exactly HEAD? By the exit code of `git status`, not by its
+# silence (a failing `git status` prints nothing), and without files flagged
+# assume-unchanged / skip-worktree, which `git status` hides.
+tree_is_clean() {
+    porcelain=$(git status --porcelain 2>/dev/null) || return 1
+    [ -z "$porcelain" ] || return 1
+    hidden=$(git ls-files -v 2>/dev/null | grep -E '^[hS] ' || true)
+    [ -z "$hidden" ]
+}
+
+stamp_file=""
+stamp_tree=""
+stamp_commit=""
+common_dir=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+if [ "$VERIFY_FULL" = 1 ] && [ -n "$common_dir" ] && tree_is_clean; then
+    stamp_tree=$(git rev-parse "HEAD^{tree}" 2>/dev/null || true)
+    stamp_commit=$(git rev-parse HEAD 2>/dev/null || true)
+    if [ -n "$stamp_tree" ]; then
+        stamp_file="$common_dir/verify-stamps/$stamp_tree-$(printf '%.12s' "${merge_base:-none}")"
+        if [ "${VERIFY_FORCE:-0}" != 1 ] && [ -f "$stamp_file" ]; then
+            note "Already verified green: this tree and merge-base passed a full run on this machine (VERIFY_FORCE=1 to repeat)."
+            sed 's/^/  /' "$stamp_file"
+            note ""
+            note "RESULT: green"
+            exit 0
+        fi
+        # A run that goes on is a new verdict: the old stamp must not outlive a
+        # red or partial one (`VERIFY_FORCE=1` that fails, a check that skips).
+        rm -f "$stamp_file"
+    fi
+fi
 
 # --- Prose ----------------------------------------------------------------------
 if [ "$need_prose" = 1 ]; then
@@ -302,7 +468,7 @@ if [ "$need_agents" = 1 ]; then
             pass "JSON in AI configuration is valid"
         fi
     else
-        note "  NOT CHECKED: no python, AI configuration JSON needs a manual check"
+        skipped "  NOT CHECKED: no python, AI configuration JSON needs a manual check"
     fi
 
     if [ -n "$PYTHON_COMMAND" ]; then
@@ -312,7 +478,7 @@ if [ "$need_agents" = 1 ]; then
             fail "Claude Code/Codex AI workflow compatibility"
         fi
     else
-        note "  NOT CHECKED: no python, AI workflow adapters not checked"
+        skipped "  NOT CHECKED: no python, AI workflow adapters not checked"
     fi
 
     touches_hooks=0
@@ -335,7 +501,7 @@ if [ "$need_agents" = 1 ]; then
                 fail "offline table .claude/hooks/tests/run_adapter_cases.py"
             fi
         else
-            note "  NOT CHECKED: no python, hook offline tables not run"
+            skipped "  NOT CHECKED: no python, hook offline tables not run"
         fi
 
         codex_ps_command=""
@@ -351,7 +517,7 @@ if [ "$need_agents" = 1 ]; then
                 fail "Codex Windows hook: Bash to PowerShell adapter"
             fi
         else
-            note "  NOT CHECKED: no PowerShell, Windows hook adapter not run"
+            skipped "  NOT CHECKED: no PowerShell, Windows hook adapter not run"
         fi
     fi
 fi
@@ -370,15 +536,20 @@ if [ "$need_shell" = 1 ]; then
                 if [ -n "$PYTHON_COMMAND" ]; then
                     "$PYTHON_COMMAND" -c "import ast, pathlib, sys; ast.parse(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))" "$file" 2>/dev/null \
                         || bad="$bad $file(syntax)"
+                else
+                    skipped "  NOT CHECKED: no python, $file syntax not checked"
                 fi
                 ;;
             *.ps1)
+                ps_found=0
                 for ps_command in pwsh powershell.exe; do
                     command -v "$ps_command" >/dev/null 2>&1 || continue
+                    ps_found=1
                     "$ps_command" -NoProfile -Command \
                         '& { param([string]$Path) $tokens=$null; $errors=$null; [System.Management.Automation.Language.Parser]::ParseFile($Path, [ref]$tokens, [ref]$errors) | Out-Null; if ($errors.Count) { $errors | ForEach-Object { [Console]::Error.WriteLine($_.Message) }; exit 1 } }' \
                         "$file" || bad="$bad $file($ps_command syntax)"
                 done
+                [ "$ps_found" = 1 ] || skipped "  NOT CHECKED: no PowerShell, $file syntax not checked"
                 ;;
         esac
     done
@@ -400,7 +571,7 @@ if [ "$need_shell" = 1 ]; then
         MINGW*|MSYS*|CYGWIN*) ;;
         *)
             if [ "$touches_wrappers" = 1 ]; then
-                note "  NOT CHECKED: not Windows, invoke-sh.ps1 cases not run"
+                skipped "  NOT CHECKED: not Windows, invoke-sh.ps1 cases not run"
             fi
             touches_wrappers=0
             ;;
@@ -419,7 +590,7 @@ if [ "$need_shell" = 1 ]; then
                 fail "PowerShell wrappers: invoke-sh.ps1 cases"
             fi
         else
-            note "  NOT CHECKED: no PowerShell, invoke-sh.ps1 cases not run"
+            skipped "  NOT CHECKED: no PowerShell, invoke-sh.ps1 cases not run"
         fi
     fi
 
@@ -433,6 +604,21 @@ if [ "$need_shell" = 1 ]; then
             pass "handoff.sh: short-id resolution cases"
         else
             fail "handoff.sh: short-id resolution cases"
+        fi
+    fi
+
+    # The green stamp of this very script (tech-030): the cases run a nested
+    # verify.sh in a throwaway repository, so they are cheap and never touch the
+    # real stamps.
+    touches_stamp=0
+    for file in $changed; do
+        case "$file" in scripts/verify.sh|scripts/tests/verify-stamp-cases.sh) touches_stamp=1 ;; esac
+    done
+    if [ "$touches_stamp" = 1 ]; then
+        if sh scripts/tests/verify-stamp-cases.sh; then
+            pass "verify.sh: green stamp cases"
+        else
+            fail "verify.sh: green stamp cases"
         fi
     fi
 fi
@@ -453,7 +639,7 @@ if [ "$need_ci" = 1 ]; then
             pass "CI workflow: YAML is valid"
         fi
     else
-        note "  NOT CHECKED: no python with PyYAML, CI workflow needs a manual check"
+        skipped "  NOT CHECKED: no python with PyYAML, CI workflow needs a manual check"
     fi
 fi
 
@@ -470,7 +656,7 @@ if [ "$need_dotnet" = 1 ]; then
                 fail "backend tests"
             fi
         else
-            note "  Docker not running: skipping integration tests, running the rest"
+            skipped "  Docker not running: skipping integration tests, running the rest"
             for project in src/backend/tests/*/; do
                 case "$project" in *IntegrationTests/) continue ;; esac
                 [ -d "$project" ] || continue
@@ -484,7 +670,7 @@ if [ "$need_dotnet" = 1 ]; then
                     fail "tests ${project%/}"
                 fi
             done
-            note "  NOT CHECKED: integration tests, Docker required"
+            skipped "  NOT CHECKED: integration tests, Docker required"
         fi
     else
         fail "backend build"
@@ -551,10 +737,41 @@ if [ "$need_frontend" = 1 ]; then
         else
             fail "build $app"
         fi
-        if (cd "$app" && npm test --if-present -- --run); then
-            pass "tests $app"
+        if [ "$VERIFY_FULL" = 1 ] || [ -z "$merge_base" ]; then
+            if [ "$VERIFY_FULL" = 1 ]; then
+                note "  tests $app: the whole suite (VERIFY_FULL=1)"
+            else
+                note "  tests $app: the whole suite (no merge-base with $BASE)"
+            fi
+            vitest_lock_acquire
+            if (cd "$app" && npm test --if-present -- --run); then
+                vitest_lock_release
+                pass "tests $app"
+            else
+                vitest_lock_release
+                fail "tests $app"
+            fi
         else
-            fail "tests $app"
+            # --passWithNoTests: a change that no test reaches is not a failure.
+            note "  tests $app: only those reaching changes since $(printf '%.9s' "$merge_base") (VERIFY_FULL=1 for the whole suite)"
+            if (cd "$app" && npm test --if-present -- --run --changed "$merge_base" --passWithNoTests); then
+                pass "tests $app (affected)"
+            else
+                fail "tests $app (affected)"
+            fi
+            # `--changed` follows imports, and these tests read sources, the
+            # error-code contracts or other tests off disk instead: no
+            # change would ever "reach" them, so they always run (the kit
+            # guard, the colour scan, the e2e guards, the contract readers).
+            guards=$(cd "$app" && grep -rlE "node:fs|from 'fs'|readFileSync|readdirSync" src --include='*.test.ts' --include='*.test.tsx' 2>/dev/null | sort || true)
+            if [ -n "$guards" ]; then
+                # shellcheck disable=SC2086 -- file names have no spaces
+                if (cd "$app" && npm test --if-present -- --run $guards); then
+                    pass "tests $app (source-reading guards, always run)"
+                else
+                    fail "tests $app (source-reading guards)"
+                fi
+            fi
         fi
     done
 fi
@@ -564,6 +781,25 @@ if [ -n "$failed" ]; then
     note "RESULT: failed"
     printf "%s" "$failed"
     exit 1
+fi
+
+if [ -n "$stamp_file" ] && [ "$unchecked" = 0 ]; then
+    # The run lasted minutes: stamp only if the tree is still the one that was
+    # tested — same commit, same tree, still clean.
+    if [ "$(git rev-parse HEAD 2>/dev/null)" = "$stamp_commit" ] &&
+       [ "$(git rev-parse 'HEAD^{tree}' 2>/dev/null)" = "$stamp_tree" ] && tree_is_clean; then
+        mkdir -p "$(dirname "$stamp_file")" 2>/dev/null &&
+        {
+            printf "verified: %s\n" "$(date '+%Y-%m-%d %H:%M:%S')"
+            printf "branch:   %s\n" "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
+            printf "commit:   %s\n" "$stamp_commit"
+            printf "base:     %s\n" "${merge_base:-none}"
+        } > "$stamp_file" 2>/dev/null || true
+    else
+        note "  no green stamp: the tree changed while the checks ran"
+    fi
+    # Stamps for trees nobody asks about any more.
+    find "$(dirname "$stamp_file")" -type f -mtime +30 -exec rm -f {} + 2>/dev/null || true
 fi
 
 note "RESULT: green"

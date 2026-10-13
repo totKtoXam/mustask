@@ -29,7 +29,10 @@ of the three human gates one remains — the final one.
 3. **QA (a separate session, clean context).** In a light form: a full test
    plan is not written. The QA agent checks that the plan from `status.md` is
    covered by tests, runs the tests of the affected module + smoke of the
-   neighbouring ones, looks for regressions around the change. Defects — as a
+   neighbouring ones (the whole suite is `VERIFY_FULL=1 bash scripts/verify.sh`,
+   instant when the developer's run of this tree left its stamp — never a
+   hand-run of the suite, see [../README.md](../README.md), "One full run per
+   tree"), looks for regressions around the change. Defects — as a
    list in `review.md`; the re-checks follow
    [04-backend.md](04-backend.md), § 5 item 3 — at most two, a minor is a
    debt — and the cycle ends when no blocker or major is open. The model

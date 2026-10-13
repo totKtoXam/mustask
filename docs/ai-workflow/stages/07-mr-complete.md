@@ -30,8 +30,10 @@ After `gate-3: approved` — or, under standing approval (AGENTS.md,
 1. Rebase onto `main`. If main brought its own EF migrations — the feature's
    migrations are regenerated on top of fresh main (a model snapshot conflict
    is the normal scenario for this step, not a surprise). Do not run the full
-   suite by hand here: `pre-push` runs `scripts/verify.sh` on the way out
-   (step 1 of "Opening the MR"), and it is the same run. Run something
+   suite by hand here: `pre-push` runs `VERIFY_FULL=1 scripts/verify.sh` on
+   the way out (step 1 of "Opening the MR"), and it is the same run — instant
+   when the green stamp for this tree exists (README, "One full run per
+   tree"), a real full run after a rebase changed the tree. Run something
    targeted only if the rebase actually touched the code — regenerated
    migrations, a resolved conflict — and even then only over what moved.
 2. **Complete goes into the squash itself, it does not catch up with it.**

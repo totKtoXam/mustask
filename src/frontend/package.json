@@ -10,11 +10,13 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
+    "test:fast": "node scripts/test-fast.mjs",
     "test:watch": "vitest",
     "preview": "vite preview",
     "e2e": "playwright test"
   },
   "dependencies": {
+    "@emotion/cache": "^11.14.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@fontsource/roboto": "^5.3.0",
