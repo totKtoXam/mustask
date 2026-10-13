@@ -240,7 +240,7 @@ function ControlMenu({ control, anchor, context, copy, onChoose, onClose }: Cont
       slotProps={{ list: { 'aria-label': control.name(copy) } }}
     >
       {options.map((option) => {
-        const checked = option.value === current;
+        const checked = option.checked ?? option.value === current;
         const colour = option.swatch
           ? (theme: { richText: { colour(className: string): string | null } }) =>
               theme.richText.colour(option.swatch?.className ?? '') ?? 'transparent'
@@ -248,8 +248,8 @@ function ControlMenu({ control, anchor, context, copy, onChoose, onClose }: Cont
         return (
           <MenuItem
             key={option.value ?? 'reset'}
-            role="menuitemradio"
-            aria-checked={checked}
+            role={option.role ?? 'menuitemradio'}
+            aria-checked={option.role === 'menuitem' ? undefined : checked}
             selected={checked}
             disabled={option.disabled}
             divider={option.divided}

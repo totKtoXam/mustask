@@ -58,6 +58,11 @@ const NAMES = [
   'Убрать ссылку',
   'Открыть в новой вкладке',
   'Эмодзи',
+  'Блок кода',
+  'Язык кода',
+  'Копировать код',
+  'Таблица',
+  'Операции с таблицей',
 ];
 
 describe('toolbar', () => {
@@ -93,13 +98,13 @@ describe('toolbar', () => {
 
     await user.keyboard('{End}');
     // The last enabled one: «Убрать ссылку» and «Открыть…» are disabled outside a link.
-    expect(button('Эмодзи')).toHaveFocus();
+    expect(button('Таблица')).toHaveFocus();
 
     await user.keyboard('{ArrowRight}');
     expect(button('Заголовок 3')).toHaveFocus();
 
     await user.keyboard('{ArrowLeft}');
-    expect(button('Эмодзи')).toHaveFocus();
+    expect(button('Таблица')).toHaveFocus();
 
     await user.keyboard('{Home}');
     expect(button('Заголовок 3')).toHaveFocus();

@@ -14,8 +14,11 @@ import { Underline } from '@tiptap/extension-underline';
 import { Dropcursor, Gapcursor, Placeholder, UndoRedo } from '@tiptap/extensions';
 import { readLinkAddress } from '../../../lib/richText';
 import { RtAutoLink } from '../behaviour/autoLink';
+import { RtBindings } from '../behaviour/bindings';
+import { RtCodeHighlight } from '../behaviour/codeHighlight';
 import { RtKeyboard } from '../behaviour/keyboard';
-import { RtCodeBlock } from './codeBlock';
+import { RtPaste } from '../behaviour/paste';
+import { RtCodeBlock, type CodeChrome } from './codeBlock';
 import { RtColor, RtHighlight, RtSize } from './rtMarks';
 import { RtTable, RtTableCell, RtTableHeader, RtTableRow } from './table';
 
@@ -43,15 +46,14 @@ const RtOrderedList = OrderedList.extend({
 /**
  * An item holds paragraphs and nested lists only. The stock Tab and Shift-Tab
  * are removed: Tab never indents (BR-RT-20); indent and outdent are `Mod-]`,
- * `Mod-[` and the toolbar's two buttons.
+ * `Mod-[` (the product's keymap, `behaviour/keyboard.ts`, with the depth
+ * guards) and the toolbar's two buttons.
  */
 const RtListItem = ListItem.extend({
   content: 'paragraph (paragraph | bulletList | orderedList)*',
   addKeyboardShortcuts() {
     return {
       Enter: () => this.editor.commands.splitListItem(this.name),
-      'Mod-]': () => this.editor.commands.sinkListItem(this.name),
-      'Mod-[': () => this.editor.commands.liftListItem(this.name),
     };
   },
 });
@@ -126,7 +128,7 @@ const RtCode = Code.extend({
  * underline 700, strike 600, highlight 500, colour 400, size 300, code 200.
  * `placeholder` is the text shown while the document is empty, fixed at mount.
  */
-export function createExtensions(placeholder: string): AnyExtension[] {
+export function createExtensions(placeholder: string, chrome?: CodeChrome): AnyExtension[] {
   return [
     Document,
     Paragraph,
@@ -146,7 +148,7 @@ export function createExtensions(placeholder: string): AnyExtension[] {
     RtColor,
     RtSize,
     RtCode.extend({ priority: 200 }),
-    RtCodeBlock,
+    chrome ? RtCodeBlock.configure({ chrome }) : RtCodeBlock,
     RtTable,
     RtTableRow,
     RtTableCell,
@@ -158,8 +160,11 @@ export function createExtensions(placeholder: string): AnyExtension[] {
       placeholder,
       showOnlyWhenEditable: true,
     }),
+    RtBindings,
     RtKeyboard,
     RtAutoLink,
+    RtPaste,
+    RtCodeHighlight,
   ];
 }
 
@@ -194,6 +199,9 @@ export const EXTENSION_NAMES = [
   'gapCursor',
   'dropCursor',
   'placeholder',
+  'rtBindings',
   'rtKeyboard',
   'rtAutoLink',
+  'rtPaste',
+  'rtCodeHighlight',
 ] as const;

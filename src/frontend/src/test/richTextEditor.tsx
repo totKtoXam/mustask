@@ -70,11 +70,11 @@ export async function mountEditor(
   };
 }
 
-/** The position just inside the first text node equal to `text`. */
+/** The position of the first character of the first text node equal to `text`. */
 export function positionOf(editor: Editor, text: string): number {
   let found = -1;
   editor.state.doc.descendants((node, pos) => {
-    if (found < 0 && node.isText && node.text === text) found = pos + 1;
+    if (found < 0 && node.isText && node.text === text) found = pos;
   });
   if (found < 0) throw new Error(`No text node ${JSON.stringify(text)} in the document.`);
   return found;

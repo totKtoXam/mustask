@@ -12,6 +12,11 @@ import FormatSizeIcon from '@mui/icons-material/FormatSize';
 import FormatStrikethroughIcon from '@mui/icons-material/FormatStrikethrough';
 import FormatUnderlinedIcon from '@mui/icons-material/FormatUnderlined';
 import BorderColorIcon from '@mui/icons-material/BorderColor';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import DataObjectIcon from '@mui/icons-material/DataObject';
+import LanguageIcon from '@mui/icons-material/Language';
+import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
+import TableChartIcon from '@mui/icons-material/TableChart';
 import CodeIcon from '@mui/icons-material/Code';
 import LinkIcon from '@mui/icons-material/Link';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
@@ -19,7 +24,16 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import RedoIcon from '@mui/icons-material/Redo';
 import UndoIcon from '@mui/icons-material/Undo';
 import type { Editor } from '@tiptap/core';
-import { FONT_SIZES, HIGHLIGHTS, TEXT_COLOURS, type VocabularyToken } from '../../../lib/richText';
+import { isInTable, rowIsHeader, selectedRect } from '@tiptap/pm/tables';
+import {
+  CODE_LANGUAGES,
+  CODE_LANGUAGE_PLAIN,
+  FONT_SIZES,
+  HIGHLIGHTS,
+  TEXT_COLOURS,
+  type VocabularyToken,
+} from '../../../lib/richText';
+import { bindingsOf } from '../behaviour/bindings';
 import { clearFormatting } from '../behaviour/clearFormatting';
 import type { RichTextCopy } from '../copy';
 
@@ -50,6 +64,13 @@ export interface ToolbarContext {
   inLink: boolean;
   /** The address of the link at the selection, or `null`. */
   href: string | null;
+  /** The language of the code block at the selection (vocabulary name), or `null`. */
+  codeLanguage: string | null;
+  /** In a table: its size, whether its first row is the header row, and whether the caret is in it. */
+  tableRows: number;
+  tableColumns: number;
+  headerRow: boolean;
+  inHeaderRow: boolean;
   canUndo: boolean;
   canRedo: boolean;
   canSink: boolean;
@@ -74,6 +95,17 @@ export function selectToolbarContext(editor: Editor): ToolbarContext {
     if (name === 'table') inTable = true;
   }
   const parent = $from.parent;
+  let tableRows = 0;
+  let tableColumns = 0;
+  let headerRow = false;
+  let inHeaderRow = false;
+  if (inTable && isInTable(editor.state)) {
+    const rect = selectedRect(editor.state);
+    tableRows = rect.map.height;
+    tableColumns = rect.map.width;
+    headerRow = rowIsHeader(rect.map, rect.table, 0);
+    inHeaderRow = headerRow && rect.top === 0;
+  }
   const tokenOf = (mark: string) => {
     const token = editor.getAttributes(mark).token as string | undefined;
     return token ?? null;
@@ -99,6 +131,12 @@ export function selectToolbarContext(editor: Editor): ToolbarContext {
     size: tokenOf('rtSize'),
     inLink: editor.isActive('link'),
     href: (editor.getAttributes('link').href as string | undefined) ?? null,
+    codeLanguage:
+      parent.type.name === 'codeBlock' ? ((parent.attrs.language as string | null) ?? null) : null,
+    tableRows,
+    tableColumns,
+    headerRow,
+    inHeaderRow,
     canUndo: editor.can().undo(),
     canRedo: editor.can().redo(),
     canSink: editor.can().sinkListItem('listItem'),
@@ -129,6 +167,10 @@ export interface MenuOption {
   disabled?: boolean;
   /** An item separated from the ones above by a divider. */
   divided?: boolean;
+  /** Overrides "is the current value" (a check item such as the header row). */
+  checked?: boolean;
+  /** `menuitemradio` unless the item is an operation or a check. */
+  role?: 'menuitem' | 'menuitemcheckbox' | 'menuitemradio';
 }
 
 export interface ToolbarControl {
@@ -454,6 +496,144 @@ export const TOOLBAR_GROUPS: readonly ToolbarGroup[] = [
       },
       // RESERVED (feat-NNN images, mentions-links): append «Изображение», «Упомянуть»,
       // «Ссылка на рабочий элемент» here, after 'emoji', before group 'code'.
+    ],
+  },
+  {
+    id: 'code',
+    controls: [
+      {
+        id: 'codeblock',
+        name: (copy) => copy.controls.codeblock,
+        shortcut: 'Mod+Alt+C',
+        icon: DataObjectIcon,
+        kind: 'toggle',
+        state: (context) => ({
+          pressed: context.inCodeBlock,
+          disabled: context.disabled || context.inTable || context.inListItem,
+        }),
+        run: (editor) => {
+          editor.chain().toggleCodeBlock().run();
+        },
+      },
+      {
+        id: 'language',
+        name: (copy) => copy.controls.language,
+        icon: LanguageIcon,
+        kind: 'menu',
+        state: (context) => ({
+          disabled: context.disabled || !context.inCodeBlock,
+          value: context.codeLanguage ?? CODE_LANGUAGE_PLAIN,
+        }),
+        options: (copy) => [
+          { value: CODE_LANGUAGE_PLAIN, label: copy.languages[CODE_LANGUAGE_PLAIN] ?? '' },
+          ...CODE_LANGUAGES.map((token) => ({
+            value: token.name,
+            label: copy.languages[token.name] ?? token.name,
+          })),
+        ],
+        choose: (editor, value) => {
+          editor
+            .chain()
+            .updateAttributes('codeBlock', {
+              language: value === null || value === CODE_LANGUAGE_PLAIN ? null : value,
+            })
+            .run();
+        },
+      },
+      {
+        id: 'copy',
+        name: (copy) => copy.controls.copy,
+        icon: ContentCopyIcon,
+        kind: 'action',
+        state: (context) => ({ disabled: context.disabled || !context.inCodeBlock }),
+        run: (editor) => {
+          const text = editor.state.selection.$from.parent.textContent;
+          void navigator.clipboard?.writeText(text).then(
+            () => bindingsOf(editor).notice('copied'),
+            () => undefined,
+          );
+        },
+      },
+    ],
+  },
+  {
+    id: 'table',
+    controls: [
+      {
+        id: 'table',
+        name: (copy) => copy.controls.table,
+        icon: TableChartIcon,
+        kind: 'action',
+        state: (context) => ({
+          disabled:
+            context.disabled || context.inTable || context.inListItem || context.inCodeBlock,
+        }),
+        run: (editor) => {
+          editor.chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+        },
+      },
+      {
+        id: 'tableOps',
+        name: (copy) => copy.controls.tableOps,
+        icon: MoreHorizIcon,
+        kind: 'menu',
+        state: (context) => ({ disabled: context.disabled || !context.inTable, value: null }),
+        options: (copy, context) => {
+          const operation = (value: string, label: string, disabled = false): MenuOption => ({
+            value,
+            label,
+            disabled,
+            checked: false,
+            role: 'menuitem',
+          });
+          return [
+            operation('rowAbove', copy.tableMenu.rowAbove, context.inHeaderRow),
+            operation('rowBelow', copy.tableMenu.rowBelow),
+            operation('columnLeft', copy.tableMenu.columnLeft),
+            operation('columnRight', copy.tableMenu.columnRight),
+            operation('deleteRow', copy.tableMenu.deleteRow, context.tableRows <= 1),
+            operation('deleteColumn', copy.tableMenu.deleteColumn, context.tableColumns <= 1),
+            {
+              value: 'headerRow',
+              label: copy.tableMenu.headerRow,
+              checked: context.headerRow,
+              role: 'menuitemcheckbox',
+            },
+            { ...operation('deleteTable', copy.tableMenu.deleteTable), divided: true },
+          ];
+        },
+        choose: (editor, value) => {
+          const chain = editor.chain();
+          switch (value) {
+            case 'rowAbove':
+              chain.addRowBefore().run();
+              break;
+            case 'rowBelow':
+              chain.addRowAfter().run();
+              break;
+            case 'columnLeft':
+              chain.addColumnBefore().run();
+              break;
+            case 'columnRight':
+              chain.addColumnAfter().run();
+              break;
+            case 'deleteRow':
+              chain.deleteRow().run();
+              break;
+            case 'deleteColumn':
+              chain.deleteColumn().run();
+              break;
+            case 'headerRow':
+              chain.toggleHeaderRow().run();
+              break;
+            case 'deleteTable':
+              chain.deleteTable().run();
+              break;
+            default:
+              break;
+          }
+        },
+      },
     ],
   },
 ];

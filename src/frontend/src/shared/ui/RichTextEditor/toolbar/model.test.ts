@@ -6,7 +6,7 @@ import { formatShortcut } from './formatShortcut';
 /**
  * Adding a control is a deliberate edit of this test (plan-frontend § 6.3):
  * the model is data, and tasks B and C append to it. The marks menus, links,
- * code and table groups arrive with their slices of feat-018.
+ * every control of the design's 26 is here.
  */
 describe('toolbar model', () => {
   it('lists the groups and controls in order', () => {
@@ -16,6 +16,8 @@ describe('toolbar model', () => {
       ['marks', ['bold', 'italic', 'underline', 'strike', 'code', 'colour', 'highlight', 'clear']],
       ['lists', ['bullet', 'ordered', 'indent', 'outdent']],
       ['links', ['link', 'unlink', 'open', 'emoji']],
+      ['code', ['codeblock', 'language', 'copy']],
+      ['table', ['table', 'tableOps']],
     ]);
   });
 
@@ -46,6 +48,11 @@ describe('toolbar model', () => {
       'Убрать ссылку',
       'Открыть в новой вкладке',
       'Эмодзи',
+      'Блок кода',
+      'Язык кода',
+      'Копировать код',
+      'Таблица',
+      'Операции с таблицей',
     ]);
     expect(new Set(names).size).toBe(names.length);
   });

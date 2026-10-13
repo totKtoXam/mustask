@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useId,
   useImperativeHandle,
@@ -112,6 +113,25 @@ export function RichTextEditor({
   const copy = useMemo(() => ({ ...DEFAULT_COPY, ...copyOverrides }), [copyOverrides]);
   const ids = { helper: useId(), counter: useId(), notice: useId() };
   const flushRef = useRef<(() => void) | null>(null);
+
+  // The notice line (design § States, plan § 9.2): one polite live region, always in the DOM.
+  // The same message again — a second dropped image — is announced again: the region is
+  // emptied first and filled in the next task.
+  const [notice, setNotice] = useState('');
+  const noticeRef = useRef('');
+  const showNotice = useCallback((message: string) => {
+    if (message !== '' && message === noticeRef.current) {
+      noticeRef.current = '';
+      setNotice('');
+      window.setTimeout(() => {
+        noticeRef.current = message;
+        setNotice(message);
+      }, 0);
+      return;
+    }
+    noticeRef.current = message;
+    setNotice(message);
+  }, []);
   useImperativeHandle(ref, () => ({ flush: () => flushRef.current?.() }), []);
 
   // The editor's chunk: loaded once, and again when «Повторить» is pressed (a failed dynamic
@@ -173,6 +193,7 @@ export function RichTextEditor({
             describedBy={describedBy}
             copy={copy}
             flushRef={flushRef}
+            onNotice={showNotice}
             onEditorReady={onEditorReady}
           />
         ) : failed ? (
@@ -230,7 +251,9 @@ export function RichTextEditor({
         role="status"
         aria-live="polite"
         sx={{ display: 'block', px: 1.75, minHeight: 0 }}
-      />
+      >
+        {notice}
+      </Typography>
     </Box>
   );
 }

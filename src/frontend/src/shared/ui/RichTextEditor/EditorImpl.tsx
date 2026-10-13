@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
+import { useEditorState } from '@tiptap/react';
 import Box from '@mui/material/Box';
 import { styled } from '@mui/material/styles';
 import { getSchema, type Editor } from '@tiptap/core';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { FONT_SIZES, HIGHLIGHTS, TEXT_COLOURS, normaliseRichText } from '../../lib/richText';
-import { bindOpenLink } from './behaviour/keyboard';
+import { bindEditor } from './behaviour/bindings';
+import { CODE_TOKENS } from './behaviour/codeHighlight';
 import { applyLink, linkSeed, type LinkSeed } from './behaviour/linkCommands';
 import { documentJson } from './behaviour/loadDocument';
 import type { RichTextCopy } from './copy';
@@ -45,6 +47,8 @@ export interface EditorImplProps {
   copy: RichTextCopy;
   /** Set to the editor's `flush()` while it is mounted. */
   flushRef: MutableRefObject<(() => void) | null>;
+  /** The live region's message (`''` clears it): a notice, or the Tab hint of a block. */
+  onNotice: (message: string) => void;
   /** `@internal`, tests: the live editor, `null` on unmount. */
   onEditorReady?: (editor: Editor | null) => void;
 }
@@ -57,6 +61,15 @@ export interface EditorImplProps {
  */
 const Content = styled('div')(({ theme }) => {
   const body = theme.typography.body1;
+  const codeRules = Object.fromEntries(
+    CODE_TOKENS.map((token) => [
+      `& .rt-code-${token}`,
+      {
+        color: theme.richText.code(token),
+        ...(token === 'comment' ? { fontStyle: 'italic' } : {}),
+      },
+    ]),
+  );
   const tokenRules = Object.fromEntries([
     ...TEXT_COLOURS.map((token) => [
       `& .${token.class}`,
@@ -121,6 +134,41 @@ const Content = styled('div')(({ theme }) => {
         borderRadius: theme.shape.borderRadius,
         '& code': { padding: 0, background: 'none', fontFamily: 'inherit' },
       },
+      // A code block: the strip above `pre`, never stored (design § Code blocks).
+      '& .rt-codeblock': {
+        border: `1px solid ${theme.palette.divider}`,
+        borderRadius: theme.shape.borderRadius,
+        backgroundColor: theme.richText.codeBackground(),
+        overflow: 'hidden',
+        '& pre': { border: 0, borderRadius: 0, background: 'none' },
+      },
+      '& .rt-codeblock-strip': {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: theme.spacing(0, 1),
+        borderBottom: `1px solid ${theme.palette.divider}`,
+        color: theme.palette.text.secondary,
+        fontSize: theme.typography.caption.fontSize,
+        userSelect: 'none',
+      },
+      '& .rt-codeblock-copy': {
+        display: 'inline-flex',
+        border: 0,
+        padding: theme.spacing(0.5),
+        background: 'none',
+        color: 'inherit',
+        cursor: 'pointer',
+        borderRadius: theme.shape.borderRadius,
+        '& svg': { width: theme.spacing(2), height: theme.spacing(2), fill: 'currentColor' },
+        '&:hover': { backgroundColor: theme.palette.action.hover },
+      },
+      // A table wider than the card scrolls inside its own wrapper (ADR-0024 § 5).
+      '& .rt-table-scroll': { overflowX: 'auto' },
+      '& .rt-cell-active': {
+        boxShadow: `inset 0 0 0 ${theme.spacing(0.25)} ${theme.palette.primary.main}`,
+      },
+      '& .selectedCell': { backgroundColor: theme.palette.shell.rowSelected },
       '& table': { borderCollapse: 'collapse', width: '100%' },
       '& th, & td': {
         border: `1px solid ${theme.palette.divider}`,
@@ -141,6 +189,7 @@ const Content = styled('div')(({ theme }) => {
         pointerEvents: 'none',
       },
       ...tokenRules,
+      ...codeRules,
     },
   };
 });
@@ -181,6 +230,7 @@ function EditorBody({
   describedBy,
   copy,
   flushRef,
+  onNotice,
   onEditorReady,
   onReplace,
 }: EditorImplProps & { onReplace: () => void }) {
@@ -192,7 +242,12 @@ function EditorBody({
     onChangeRef.current = onChange;
   });
 
-  const [extensions] = useState(() => createExtensions(placeholder));
+  const [extensions] = useState(() =>
+    createExtensions(placeholder, {
+      languages: copy.languages,
+      copyLabel: copy.controls.copy,
+    }),
+  );
   const [seed, setSeed] = useState<LinkSeed | null>(null);
   // The document is built once, from the value the editor mounts with; later
   // values are the caller's echo or a replacement (the sync effect below).
@@ -216,9 +271,53 @@ function EditorBody({
   const openLink = useCallback(() => {
     if (editor && editor.isEditable) setSeed(linkSeed(editor));
   }, [editor]);
+  // The notices of the behaviours (an image not pasted, code copied), and the
+  // Tab hint of the block the caret is in (design § Keyboard): the hint on the
+  // transition into a code block or a table, cleared on leaving or blur; a
+  // notice until the next edit or blur.
+  const onNoticeRef = useRef(onNotice);
+  const hint = useEditorState({
+    editor,
+    selector: ({ editor: current }) => {
+      if (!current || !current.isFocused) return '';
+      const { $from } = current.state.selection;
+      if ($from.parent.type.name === 'codeBlock') return copy.notices.codeHint;
+      for (let depth = $from.depth; depth > 0; depth--) {
+        const name = $from.node(depth).type.name;
+        if (name === 'tableCell' || name === 'tableHeader') return copy.notices.tableHint;
+      }
+      return '';
+    },
+  });
+  const hintRef = useRef('');
   useEffect(() => {
-    if (editor) bindOpenLink(editor, openLink);
-  }, [editor, openLink]);
+    onNoticeRef.current = onNotice;
+    hintRef.current = hint;
+  });
+  useEffect(() => {
+    onNoticeRef.current(hint);
+  }, [hint]);
+  useEffect(() => {
+    if (!editor) return undefined;
+    bindEditor(editor, {
+      openLink,
+      notice: (kind) =>
+        onNoticeRef.current(kind === 'image' ? copy.notices.image : copy.notices.codeCopied),
+    });
+    const clear = () => onNoticeRef.current(hintRef.current);
+    // The paste or drop that raised a notice is itself an edit: it does not clear it.
+    const clearOnEdit = ({ transaction }: { transaction: { getMeta(key: string): unknown } }) => {
+      const source = transaction.getMeta('uiEvent');
+      if (source === 'paste' || source === 'drop') return;
+      clear();
+    };
+    editor.on('update', clearOnEdit);
+    editor.on('blur', clear);
+    return () => {
+      editor.off('update', clearOnEdit);
+      editor.off('blur', clear);
+    };
+  }, [editor, openLink, copy.notices.image, copy.notices.codeCopied]);
 
   useEffect(() => {
     if (!editor) return undefined;

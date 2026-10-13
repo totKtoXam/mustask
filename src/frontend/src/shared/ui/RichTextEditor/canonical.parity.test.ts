@@ -96,10 +96,11 @@ describe('hostile-corpus.json: the stored markup itself is not rendered', () => 
 
   it.each(cases.map((c) => [c.id, c] as const))('%s', (_id, c) => {
     const editor = open(c.input);
-    // What the editor serialises and what it puts on the page (the content, not its own root).
-    const surfaces = [editor.getHTML(), editor.view.dom.innerHTML].map((surface) =>
-      surface.toLowerCase(),
-    );
+    // What the editor serialises and what it puts on the page (the content, not its own
+    // root, and not the code block's strip: chrome the editor draws itself, with an icon).
+    const page = editor.view.dom.cloneNode(true) as HTMLElement;
+    page.querySelectorAll('.rt-codeblock-strip').forEach((strip) => strip.remove());
+    const surfaces = [editor.getHTML(), page.innerHTML].map((surface) => surface.toLowerCase());
 
     for (const surface of surfaces) {
       for (const needle of c.mustNotContain) {
