@@ -250,7 +250,7 @@ New defects found by the re-check:
   events) would separate them. Test (red): `QA_Reduce_FosterParentedInline*`.
 - Expected / Actual: answered in about 2 s whatever the answer / seconds to
   tens of seconds per request; the gate is the number of cores.
-- Status: open
+- Status: fixed in c07118b, verified in re-check 2 for every shape named here and 60 variants; its sibling D-10 remains
 
 #### D-9: 1 001 sequential code blocks are refused by the `pre` start-tag bound
 
@@ -258,7 +258,7 @@ New defects found by the re-check:
 - Steps: `<pre><code>x</code></pre>` x 1 001 (25 KB): refused in 9 ms with
   "too much markup". 1 000 pass. The recursion the bound guards against needs
   unclosed nesting, which the depth bound already caps at 160.
-- Status: open (minor, carried to gate-3; test skipped)
+- Status: fixed in c07118b (10 000 sequential code blocks accepted; verified)
 
 ### Verdict (re-check 1)
 
@@ -272,3 +272,44 @@ src/backend/tests/Mustask.Infrastructure.Tests --filter FullyQualifiedName~RichT
 (683: 679 passed, 3 red D-8, 1 skipped), `...Mustask.Api.IntegrationTests
 --filter FullyQualifiedName~SaveWorkItemDescription` (51 passed),
 Application `~SaveWorkItem` 19, Domain `~WorkItem` 178, Architecture 83, all green.
+
+### Re-check 2 (commits c07118b, ea044d7; scope: D-8, D-9, what the bound could break; the last re-check)
+
+| Item | Result |
+|------|--------|
+| D-8 and D-9 tests real | read the diff: my three red D-8 tests and the D-9 test are unchanged apart from the skip removed; the developer's added tests assert both the 2.5 s time and `Exceeded` determinism at 2 000 000 units |
+| Foster shapes, fresh process, 2 M units, guarded | 75 specs (my D-8 shapes; foster through nested tables, tables in cells, `caption`, `colgroup`, `col`, svg/math/template inside tables, many tables with one child, alternating table/text, `form`, `input`, `pre`, lists, formatting elements): 73 answered under 2.1 s, none died; **2 reached the 20 s safety net (500): `<table>x</table>y` and `<tbody>x`**, see D-10 |
+| Legitimate shapes | developer's: 17 000 and 17 800 small tables, 8 000 tables between paragraphs (also pretty-printed), 10 000 sequential code blocks. Mine: 280 cells of 40 paragraphs, 9 000 table/paragraph alternations, 4 000 table/list/code triples, 5 000 tables with marks and links, a 25 000 `th` row over a 25 000 `td` row, and the 9 near-bound documents of re-check 1 under a busy thread per core: all accepted, output equals input, 0.1 to 1.3 s. No canonical shape found that the bound refuses |
+| Nesting, fresh process | `<pre>` x 150 accepted, x 160 and above refused; same for `listing`; `template` x 300 accepted, 340 refused; pre inside table inside list item x 18..22, pre in table in table, svg/foreignObject and math/mglyph with pre, `b`/`a`/`div` wrapped pre and `template`: every case answered with exit 0 on the 32 MB stack, none died |
+| Safety net | forced to 1 ms: 500, nothing stored (API test green) |
+| Fixture files, whole | `canonical.json` 66 cases (two checks each), `visible-count.json` 17, `legacy.json` 7, `hostile-corpus.json` 36: 192 of 192 tests pass |
+| Other suites | `Mustask.Infrastructure.Tests ~RichText` 712 passed before my additions; `Mustask.Api.IntegrationTests ~SaveWorkItemDescription` 51 passed |
+
+#### D-10: text split by tokens the tree builder ignores is quadratic and no bound counts it
+
+- Severity: **major** (NFR Speed; the same class as D-2 and D-8: one request pins a core, the gate is the number of cores)
+- Steps: `<td>x`, `<tr>x`, `<tbody>x`, `<th>x`, `<col>x`, `<html>x`, `<body>x`, an unmatched end tag
+  followed by `x`, or `<table>x</table>y`, repeated. `<td>x`: 150 000 units
+  0.5 s, 300 000 1.0 s, 600 000 4.5 to 5.4 s, 1 000 000 13.2 s, 2 000 000 the
+  20 s safety net and a 500. `<table>x</table>y` 600 000 units 6.0 s. The
+  parser appends each piece to one text node (visible text only 120 000
+  characters); tags (240 000) are inside their bound, no element is created,
+  and the table work bound does not see it because no table is open.
+- Expected / Actual: a refusal or an answer in about 2 s / seconds to tens of
+  seconds. A deterministic bound on the number of text pieces appended to one
+  node (or on text tokens between ignored tags) would separate it from
+  canonical output, which has no ignored tags.
+- Test (red): `QA_Reduce_TextSplitByIgnoredTokens_IsAnsweredWithinTheNfr` (4 cases).
+- Status: open. No re-check is left in this loop (two done): the orchestrator
+  decides between a third fix round and carrying it to gate-3 as a known DoS.
+
+### Final backend verdict
+
+blockers: 0 · majors: 1 open (D-10) · minors: D-4 (documented, carried) ·
+R-1, R-2 closed · D-1..D-3 and D-5..D-9 closed ·
+result: **fail** (not "backend QA pass"). D-10 is the one remaining way for a
+signed-in member to hold a core for seconds, up to 20 s and then a 500 at the
+request cap. Commands: `dotnet test src/backend/tests/Mustask.Infrastructure.Tests --filter "FullyQualifiedName~RichText"`
+(4 red: D-10), `... --filter FullyQualifiedName~ReducerFixtureTests` (192 passed),
+`dotnet test src/backend/tests/Mustask.Api.IntegrationTests --filter FullyQualifiedName~SaveWorkItemDescription` (51 passed);
+fresh-process harness `flood2.dll guarded|watcheronly <units> <spec>|@<file>`.

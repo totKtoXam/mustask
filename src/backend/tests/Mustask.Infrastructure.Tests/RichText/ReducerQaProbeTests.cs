@@ -726,6 +726,51 @@ public sealed class ReducerQaProbeTests(ITestOutputHelper output)
         }
     }
 
+    // QA D-10 (major, re-check 2): text pieces separated by tokens the tree builder ignores (a stray td, tr, tbody, an
+    // unmatched end tag, the text after a closed table) are appended to one text node by string concatenation, which
+    // is quadratic in the number of pieces, and no bound counts it: 150 000 units 0.5 s, 300 000 1.0 s, 600 000
+    // 4.5 to 6.6 s, 1 000 000 13 s, 2 000 000 the 20 s safety net (a 500). Not table foster parenting only.
+    [Theory]
+    [InlineData("<td>x", 600_000)]
+    [InlineData("<tr>x", 600_000)]
+    [InlineData("<tbody>x", 600_000)]
+    [InlineData("<table>x</table>y", 600_000)]
+    public void QA_Reduce_TextSplitByIgnoredTokens_IsAnsweredWithinTheNfr(string piece, int units)
+    {
+        var input = string.Concat(Enumerable.Repeat(piece, units / piece.Length));
+
+        var watch = Stopwatch.StartNew();
+        var reduction = Reduce(input);
+        watch.Stop();
+
+        output.WriteLine($"{piece} x{units / piece.Length}: {watch.ElapsedMilliseconds} ms exceeded={reduction.Exceeded}");
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(2.5), $"{piece} took {watch.Elapsed}.");
+    }
+
+    // Re-check 2: canonical table shapes the new foster-parenting bound must not touch.
+    public static IEnumerable<object[]> TableShapes()
+    {
+        var cell = "<td>" + string.Concat(Enumerable.Repeat("<p>cell paragraph</p>", 40)) + "</td>";
+        yield return ["long-cells", "<table><tbody>" + string.Concat(Enumerable.Repeat("<tr>" + cell + cell + "</tr>", 140)) + "</tbody></table>"];
+        yield return ["table-paragraph-alternating", string.Concat(Enumerable.Repeat("<table><tbody><tr><td><p>x</p></td></tr></tbody></table><p>text</p>", 9_000))];
+        yield return ["table-list-code-alternating", string.Concat(Enumerable.Repeat("<table><tbody><tr><th><p>h</p></th></tr></tbody></table><ul><li><p>a</p><ul><li><p>b</p></li></ul></li></ul><pre><code>c</code></pre>", 4_000))];
+        yield return ["tables-with-marks", string.Concat(Enumerable.Repeat("<table><tbody><tr><td><p><strong>b</strong><em>i</em></p></td><td><p><a href=\"https://e.org\" rel=\"noopener noreferrer\">l</a></p></td></tr></tbody></table>", 5_000))];
+        yield return ["headers-everywhere", "<table><tbody><tr>" + string.Concat(Enumerable.Repeat("<th><p>h</p></th>", 25_000)) + "</tr><tr>" + string.Concat(Enumerable.Repeat("<td><p></p></td>", 25_000)) + "</tr></tbody></table>"];
+    }
+
+    [Theory]
+    [MemberData(nameof(TableShapes))]
+    public void QA_Reduce_CanonicalTableShapes_AreAccepted(string name, string input)
+    {
+        var watch = Stopwatch.StartNew();
+        var reduction = Reduce(input);
+        watch.Stop();
+
+        output.WriteLine($"{name}: units={input.Length} {watch.ElapsedMilliseconds} ms exceeded={reduction.Exceeded} markup={reduction.MarkupLength}");
+        Assert.False(reduction.Exceeded, $"{name} was refused");
+        Assert.Equal(input, reduction.Html);
+    }
+
     // Idempotency and stability once more, after the loop's changes: a CR reference, foster parenting, marks.
     [Fact]
     public void QA_Reduce_RandomStructures_AfterTheBounds_AreIdempotentAndStable()
