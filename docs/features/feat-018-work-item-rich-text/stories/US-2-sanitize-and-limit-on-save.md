@@ -20,8 +20,8 @@ are US-7's.
 | `p`, `br` | none | `br` only inside a block |
 | `h3`, `h4` | none | `h1`, `h2`, `h3` become `h3`; `h4`, `h5`, `h6` become `h4` |
 | `strong`, `em`, `u`, `s` | none | `b` becomes `strong`, `i` becomes `em`, `strike` and `del` become `s` |
-| `mark` | `class` | one highlight token of BR-RT-14, else the element is unwrapped |
-| `span` | `class` | one colour or size token of BR-RT-14, else unwrapped; `style` always removed |
+| `mark` | `class` | the highlight token(s) of BR-RT-14 found in it (split on whitespace, exact match; several are split into nested elements, US-7); none valid: unwrapped |
+| `span` | `class` | the colour and size tokens found, same rule; none valid: unwrapped; `style` always removed |
 | `code` | `class` (in `pre` only) | inline code; inside `pre` it is the block's content and may carry `language-<name>` of BR-RT-16 |
 | `pre` | none | always `<pre><code>…</code></pre>`; text only |
 | `ul`, `ol`, `li` | none | nested at most 3 levels; deeper list markup is unwrapped, text kept; `start` removed |
@@ -100,6 +100,11 @@ Scenario: A stored value is stable under a browser's re-parse
   Given the stored value of every payload in the corpus
   When it is parsed again by an HTML5 parser, serialised, and reduced again
   Then the result is identical to the stored value (re-parse and re-reduce change nothing)
+
+Scenario: The reduction stops early
+  Given a hostile input of 2 000 000 UTF-16 units that toggles a link per character around eight stacked marks
+  When it is saved
+  Then it is refused with description_markup_too_large within 2 seconds, the output never built past 1 000 000 code points
 
 Scenario: Reduction is idempotent
   Given a description already saved and read back

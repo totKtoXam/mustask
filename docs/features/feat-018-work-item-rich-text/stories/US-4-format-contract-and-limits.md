@@ -93,6 +93,16 @@ Scenario: An oversized request is refused before parsing
   When it is saved
   Then it is refused with description_markup_too_large without being parsed
 
+Scenario: A lone surrogate counts one on both sides
+  Given an html description holding a lone high surrogate between two letters
+  When it is counted by the server and by the client
+  Then both count 3 (the surrogate replaced by U+FFFD), and the stored value holds U+FFFD
+
+Scenario: Amplifying input is refused promptly
+  Given a request description of 2 000 000 UTF-16 units that re-nests marks on every character
+  When it is saved
+  Then it is refused with description_markup_too_large within 2 seconds, without building output past the ceiling
+
 Scenario: Legacy worst cases fit the ceiling
   Given html converted from 100 000 "&" in one paragraph (500 007 code points, 100 000 visible) and from 100 000 line feeds (700 007 code points, 100 000 visible)
   When each is saved

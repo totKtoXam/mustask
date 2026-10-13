@@ -64,7 +64,15 @@ Scenario: Paste is reduced to the subset
   When the member pastes it into the editor
   Then the heading is kept as level 3 (levels 4 to 6 become 4), bold and underline are kept
   And the red colour and the font size are gone (never mapped to the palette) and the image is dropped
-  And pasting plain text inserts it as paragraphs, line breaks kept
+  And pasting plain text inserts it as paragraphs, line breaks kept, except a tab-separated block that US-6 turns into a table
+  And Ctrl+Shift+V (Cmd+Shift+V) always pastes the clipboard's text as plain paragraphs, no table, no link, no formatting
+
+Scenario: Bold, italic, underline and strikethrough are recognised from pasted styles
+  Given pasted html "<b style='font-weight:normal'><span style='font-weight:700'>a</span> b <span style='font-style:italic'>c</span> <span style='text-decoration:underline'>d</span> <span style='text-decoration:line-through'>e</span> <span style='font-weight:400'>f</span></b>"
+  When the member pastes it
+  Then a is bold, c italic, d underlined, e struck through
+  And b and f are plain: the wrapper declaring font-weight normal does not make the whole paste bold
+  And every other style is gone
 
 Scenario: Images and files are not inserted
   Given an image file, or an image from another page, dragged onto the editor, or a file pasted from the clipboard
@@ -78,7 +86,7 @@ Scenario: The editor is operable by keyboard alone
   Then focus enters the editor and leaves it again, Tab is not captured as indentation
   And the toolbar is reachable and its controls, including the palette and emoji pickers, can be activated from the keyboard
   And the editor has the accessible name «Описание»
-  And the two exceptions are US-6's: Tab inside a code block and between table cells
+  And the only two exceptions are US-6's, each announced on entry and each left by Esc then Tab: Tab inserts an indent inside a code block, and Tab moves between the cells of a table
 
 Scenario: Over the visible limit the client refuses as the server does
   Given Описание whose visible text counted by BR-RT-8 is 100 001 code points
@@ -121,7 +129,7 @@ browser, recorded in the QA report.
 | Nested lists, Tab, shortcuts [ ] | C (focus order with `userEvent.tab`, keydown) | macOS Cmd: M |
 | Survives save and reopen | C (editor load/serialise) + I (PATCH then GET) | — |
 | Shortcuts, undo/redo | C (keydown on the editor, history keymap) | real browser shortcut collisions: M |
-| Paste reduced | C (stubbed `clipboardData` with HTML and text) | a real copy from a real web page: M |
+| Paste reduced; pasted styles and the `font-weight:normal` wrapper; Ctrl+Shift+V | C (stubbed `clipboardData` with HTML and text) | a real copy from a real web page or an office web editor: M |
 | Images and files | C (stubbed drop/paste `files`) | the browser's own navigate-to-file default: M |
 | Keyboard only | C | screen-reader announcement of the live region and the toolbar: M |
 | Client limits (visible, markup ceiling, precedence) | U (shared fixtures with the server, counted on the normalised string) + C | — |

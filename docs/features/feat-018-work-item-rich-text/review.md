@@ -438,3 +438,230 @@ Resolution:
   `changedAt` moves only on a change": say equality compares the pair (value,
   format), so a plain write of "<p>a</p>" over a stored html "<p>a</p>" is a
   change, and an html re-send of the stored canonical value is not.
+
+## Round 3 — requirements (scope amendment)
+
+Read: `spec.md` and `stories/US-1..US-7` in the working tree (amendment of
+2026-10-13, uncommitted over d96c771), status.md § Route confirmation,
+routing.md (L thresholds, story cap, escalation by volume), 01-business-analysis
+§ Rules (line budgets), doc-002 BR-M3-4. Delta only: rounds 1–2 stay closed;
+D-1..D-7 and the no-E2E instruction are not re-opened.
+
+Verdict: **needs-fixes** — no blocker, six majors, all wording-level and for
+the analyst; no question for the human. After the fixes, one delta read
+(the L cap allows two per round) and the spec goes to gate-1.
+
+### Rule → story mapping (new and changed rules)
+
+| Rule | Stories | Gap |
+|---|---|---|
+| BR-RT-1, -3 (widened subset, class) | US-1, US-2, US-7 | US-2 "one token" vs US-7 split (R-18) |
+| BR-RT-4 (images out of A) | US-1, US-2 | cites "D-8", which is doc-002's (m-7) |
+| BR-RT-5 (canonical form) | US-3, US-7 | ragged tables, code vs enclosing marks, nested same-family tokens (R-17, R-18) |
+| BR-RT-7, -8 (code points) | US-1, US-3, US-4, US-5 | amplification before the ceiling check (m-10) |
+| BR-RT-13 (amendments) | — (orchestrator) | doc-002 wording (m-6) |
+| BR-RT-14 palettes | US-5, US-7 | — |
+| BR-RT-15 mark order, paste | US-5, US-7, US-1 | pasted `font-weight` etc. has no scenario (m-12) |
+| BR-RT-16 code | US-6, US-7 | Tab exception contradiction (R-16); layout-bound exit (R-21) |
+| BR-RT-17 tables | US-6, US-7 | "no cells invented" vs a rectangular table (R-17); TSV paste (R-20) |
+| BR-RT-18 links | US-5, US-3 | auto-link scope and undo (R-19) |
+| BR-RT-19 emoji | US-5, US-4 | — |
+| BR-RT-20 lists, clear formatting | US-1, US-5 | — |
+
+### R-16
+Severity: major
+Affects: BR-RT-16 (spec.md:99), NFR Accessibility (spec.md:125-127), BR-RT-17 (spec.md:100), US-1:81, US-6:33-37, :61-65
+Problem: BR-RT-16 calls Esc-then-Tab in a code block "the one documented
+exception to 'Tab is never captured'", and the NFR says "Tab is never captured,
+except inside a code block". BR-RT-17, US-1:81 and US-6:33-37 capture Tab in
+table cells too. Three normative places disagree on the number of exceptions,
+and the table one has no announcement (the code block has the live-region
+hint, US-6:21) and no quick exit: a keyboard user in cell 2 of a 10×10 table
+tabs through 98 cells to leave. The Esc "arming" is also undefined (does any
+other key in between disarm it? does Esc while a picker is open count?).
+Required resolution: Name both exceptions in BR-RT-16 and the NFR. Give
+tables the same exit as code (Esc then Tab leaves the editor from any cell),
+or state that tabbing through is the accepted exit. Announce the table
+behaviour on entering a table (copy in US-6). Define Esc as arming exactly the
+next keystroke, and not when a popup/picker consumed the Esc.
+Status: open
+Resolution:
+
+### R-17
+Severity: major
+Affects: BR-RT-17 (spec.md:100) "no cells invented", BR-RT-5 (spec.md:88), US-6:39-43, :45-48, US-7:39-42, :84-87
+Problem: Unmerging "content kept in the one cell, no cells invented" leaves
+ragged rows (`<tr><td colspan=2>a</td></tr><tr><td>b</td><td>c</td></tr>` →
+1 cell then 2). The editor's table model (prosemirror-tables) assumes a
+rectangular grid and its normalisation pads short rows with empty cells on the
+next transaction; its commands misbehave on ragged maps. Consequences: a stored
+ragged table (API-written, or the server's own unmerge output) loads and
+re-serialises with extra cells, so BR-RT-5's byte identity and "not dirty on
+open" (US-3) fail; and unmerging without filling the spanned positions shifts
+every following cell one column left, scrambling pasted data. A ragged TSV
+range (US-6:45-48) has the same problem. Empty `<tr>`/`<table>` have no rule.
+Required resolution: Make the canonical table rectangular: a cell with
+colspan n / rowspan m keeps its content at its top-left position and each
+spanned position becomes an empty cell `<td><p></p></td>` (`th` in a row of
+`th`, or say which); short rows are padded at the end to the widest row; rows
+with no cell and tables with no row are removed. Replace "no cells invented"
+accordingly and add a ragged and a rowspan case to the US-7 fixture.
+Status: open
+Resolution:
+
+### R-18
+Severity: major
+Affects: BR-RT-15 (spec.md:98), US-7 § Canonical structure (US-7:29-35), US-7:69-72, US-2:23-24, BR-RT-5 normalisation list (spec.md:88)
+Problem: The canonical form is underdetermined where the editor's schema
+will decide on its own, so the (input, canonical, editor output) triples can
+disagree:
+- Inline code vs enclosing marks: US-7 says marks *inside* `code` are
+  unwrapped, but not what `<strong><code>x</code></strong>` or
+  `<a href=…><code>x</code></a>` become. TipTap's code mark excludes every
+  other mark, so the editor drops the bold and the **link** — a linked
+  identifier loses its link. Say which survives (and whether link is the
+  exception).
+- Nested elements of one family (`<span class=rt-color-red>a<span
+  class=rt-color-blue>b</span></span>`): "within a family the first valid
+  token wins" covers one element only; the editor applies the inner mark
+  (same-type marks exclude each other). Say inner wins.
+- US-7:69-72 expects "strong, em, s, s elements" for
+  `<strike>c</strike><del>d</del>`, but BR-RT-15 merges adjacent equal marks:
+  canonical is one `<s>cd</s>`.
+- US-2:23-24 says `span`/`mark` keep "one … token, else the element is
+  unwrapped"; US-7 splits several valid tokens into nested elements. Align
+  US-2 with US-7.
+- Cells and list items "hold only p": a heading or `ul` becomes `p`, but a
+  `pre` (multi-line) inside a cell or `li` — one `p` per line, or `br`?
+- BR-RT-5's normalisation enumerates what it removes (colgroup, style,
+  colspan=1, data-*, target, nofollow); TipTap also emits `ol start`/`type`
+  when set. State the rule as "every attribute not in the allow-list".
+Required resolution: Add these to US-7 § Canonical structure with a fixture
+each; fix US-7:72 and US-2:23-24.
+Status: open
+Resolution:
+
+### R-19
+Severity: major
+Affects: BR-RT-18 (spec.md:101), US-5:80-83, :91-96
+Problem: Auto-link is stated as a goal, not a rule the test can pin down, and
+the library default (linkify) does more than the rule allows: it links bare
+domains and e-mails (`example.org`, `a@b.ru`) and file names on country TLDs
+(`setup.py`, `readme.md`, `main.rs`); trailing punctuation
+(`(см. https://example.org).`) is undefined; auto-link inside inline code and
+headings is not addressed; pasting a URL over a selection (link-on-paste) is
+not addressed. "Ctrl+Z turns the last one back into plain text" is not the
+editor's behaviour out of the box: auto-link is applied in the same history
+step as the typed or pasted text, so undo removes the text, not just the link —
+this needs dedicated work and must be stated precisely. Finally the prompt
+refuses "www.example.org" (US-5:80-83: not absolute) while auto-link accepts
+it as https — two rules for the same input.
+Required resolution: State: only text starting `http://`, `https://`,
+`mailto:` or `www.` is auto-linked (no bare domains, no bare e-mails); trailing
+`.,;:!?)»"'` not part of the address unless balanced; never inside inline
+code; pasting an allowed address over a selection links the selection (or
+not — choose). Undo: "the first Ctrl+Z after an auto-link removes the link and
+keeps the text". The prompt accepts `www.` the same way (prefix https). Add
+fixtures for each.
+Status: open
+Resolution:
+
+### R-20
+Severity: major
+Affects: BR-RT-17 (spec.md:100), US-6:45-48, US-1:67, BR-RT-9 spirit
+Problem: "Plain text with tabs and line feeds, at least 2 lines of at least
+2 columns" becomes a table. US-1:67 says pasted plain text is inserted as
+paragraphs, line breaks kept. Tab-separated logs, `make` output, tab-indented
+steps — common in a description — now turn into tables without the member
+asking. The rule also leaves ragged lines (R-17) and the escape hatch open.
+Required resolution: Narrow the trigger (every line has the same number of
+tabs, ≥ 1, and ≥ 2 lines; and/or only when the clipboard came with a
+`text/html` table), add "Ctrl+Shift+V pastes as plain paragraphs" (or another
+explicit escape), and amend US-1:67 to point at the exception.
+Status: open
+Resolution:
+
+### R-21
+Severity: major
+Affects: BR-RT-16 (spec.md:99), US-6:50-53, :67-70, US-6 § Verification (:94-103)
+Problem: Two exits depend on layout, which jsdom does not have, yet are
+marked C: "ArrowDown on its last line" of a code block (a wrapped last line is
+only known from layout; the editor's own exit fires at the end of the block's
+text) and "ArrowDown from its last row" of a table (vertical motion and the gap
+cursor use coordinates). The table scenario has no row in the verification
+table at all. And the obvious way to meet "an empty paragraph follows the
+table" — a trailing-paragraph plugin — appends `<p></p>` on load, which breaks
+BR-RT-5's byte identity and the not-dirty-on-open rule for every description
+that ends with a table or a code block.
+Required resolution: Reword the code exit to "ArrowDown at the end of the
+block's text" (C). For the table, either mark ArrowDown as M, or specify a
+deterministic exit (e.g. Ctrl/Cmd+Enter in a cell inserts a paragraph after the
+table) that is C; add the row to the verification table. State that leaving a
+final table or code block never changes the serialisation of an untouched
+value (no stored trailing paragraph, or the trailing paragraph is dropped by
+normalisation and BR-RT-6 — choose one).
+Status: open
+Resolution:
+
+### Minors (round 3)
+
+- **m-6** BR-RT-13 (spec.md:96), doc-002 amendment: doc-002 BR-M3-4 already
+  has headings, lists (unbounded nesting), links, code blocks, tables. The real
+  widening of the *stored* subset is underline, strikethrough, highlight,
+  colour, size (closed class palettes) and the code-block language class.
+  Indent/outdent (nesting is already "lists"), emoji (plain text) and auto-link
+  (editor behaviour) are not subset changes; listing them blurs the amendment.
+  Say also that the subset is shared by all BR-M3-4 fields, so the type-fields
+  and comment line inherits the palettes; and drop "(and, when B and C merge,
+  images and mentions)" — those amendments are B's and C's own (BR-M3-4
+  already allows images as attachments). Name who applies it (a note in
+  doc-002's `status.md`, like mod-003's).
+- **m-7** BR-RT-4 (spec.md:87) cites "D-8"; this spec has D-1..D-7. Write
+  "doc-002 D-8".
+- **m-8** New dependencies: an emoji picker/data set and a syntax highlighter
+  are not in D-2's accepted set, and ADR-0027 (still `proposed`) does not
+  mention them. Owe them to the ADR (or state built in-house). Add: emoji data
+  bundled, native glyphs, no request to a CDN; highlighting applied as
+  decorations over text nodes, never by inserting a highlighter's HTML string.
+- **m-9** Class tokens: say matching is exact and case-sensitive after
+  splitting on ASCII whitespace, and the server emits the token from its own
+  table (never echoes the input attribute), so `class="rt-color-red&#9;x"` and
+  `RT-COLOR-RED` have a defined result.
+- **m-10** Size arithmetic re-checked: the legacy figures (700 007, 500 007)
+  still hold — the legacy rule emits no `span`/`mark`/class; the panel's
+  normalised string ≤ 1 000 000 code points is ≤ 2 000 000 UTF-16 units, so the
+  pre-parse cap never trips for it; `char_length` counts code points, matching
+  BR-RT-7; a table of one-character cells reaches the ceiling at the visible
+  limit (US-1:90 is consistent). Gap: canonical re-nesting amplifies — with link
+  outermost, toggling the link per character reopens the whole eight-mark
+  stack per character, roughly ×8 — so a 2 000 000-unit hostile input builds
+  tens of MB before the ceiling refuses it. Require the reduction to abort once
+  output passes 1 000 000, and add a timing case at the pre-parse cap to NFR
+  Speed. Also define lone surrogates (counted 1, or refused) so the .NET and JS
+  counters agree.
+- **m-11** BR-RT-16 Shift+Tab "removes one leading level": define a level
+  (one tab; or up to N leading spaces).
+- **m-12** BR-RT-15's paste recognition from `font-weight` / `font-style` /
+  `text-decoration` has no scenario; add one, including the wrapper
+  `<b style="font-weight:normal">` that office web editors put around a whole
+  copy (it must not make everything bold).
+- **m-13** US-5:42-45: the selection has six marks, the "stored nesting" line
+  lists eight; say "in the order link, bold, …" as an order, not a content
+  claim.
+- **m-14** Route: the amendment roughly doubles the approved scope;
+  routing.md:74-75 and :204-207 want a re-confirmation of the route. The
+  human's D-5 is the substance; the orchestrator should log an explicit "size
+  L re-confirmed for the amended scope" line.
+
+### Size
+
+One `L` with seven stories is within the rules: routing.md caps stories only
+for `M` (routing.md:253); spec.md is 186 lines (budget ~250) and the largest
+story (US-1) 130 lines (budget ~150). Per-story delivery
+(01-business-analysis § Per-story delivery) would technically allow US-5
+(palettes, emoji) to ship later, being an additive widening; but D-5 puts all
+text formatting in A, and US-5/US-6 are not shippable without US-7. Tables and
+code were already in the gate-1-approved subset. **Recommendation: keep one L,
+do not split**; the L ceremony (separate gates, security pass, two QA passes)
+fits the security surface. If the diff later doubles again, escalation by
+volume applies and US-5 is the cut to spin out.

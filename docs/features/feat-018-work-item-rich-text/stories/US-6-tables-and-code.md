@@ -9,7 +9,7 @@ As a **member editing a description**, I want **proper tables and proper code
 display and editing**, so that **steps, data and snippets stay readable and
 can be copied**.
 
-BR-RT-16, BR-RT-17, BR-RT-6, BR-RT-8.
+BR-RT-16, BR-RT-17, BR-RT-5, BR-RT-6, BR-RT-8.
 
 ## Interface copy (Russian)
 
@@ -19,6 +19,7 @@ BR-RT-16, BR-RT-17, BR-RT-6, BR-RT-8.
 | Code controls | «Блок кода», «Язык кода», «Копировать код»; status «Код скопирован» |
 | Languages | «Простой текст», «JavaScript», «TypeScript», «JSON», «HTML», «XML», «CSS», «SQL», «C#», «Python», «Bash», «YAML», «Markdown» |
 | Hint on entering a code block | «Tab вставляет отступ. Esc, затем Tab — выйти из блока.» (live region) |
+| Hint on entering a table | «Tab переходит между ячейками. Esc, затем Tab — выйти из таблицы.» (live region) |
 
 ## Acceptance criteria
 
@@ -35,22 +36,33 @@ Scenario: Tab moves between cells
   When the member presses Tab, then Shift+Tab
   Then the cursor moves to the next cell, then back
   And Tab in the last cell, or Shift+Tab in the first, moves focus out of the editor and adds no row
+  And entering the table announces «Tab переходит между ячейками. Esc, затем Tab — выйти из таблицы.»
+  And Esc then Tab, pressed in any cell, moves focus out of the editor forward (Esc then Shift+Tab backward)
+  And Esc followed by any other key does nothing special, and an Esc that closed a picker or prompt does not arm the exit
 
 Scenario: A pasted table is reduced
   Given an HTML table copied from a web page with merged cells, column widths and a list in one cell
   When the member pastes it
-  Then it becomes a table without colspan, rowspan or widths, the merged cell's content in its one cell, the list as paragraphs
+  Then it becomes a rectangular table without colspan, rowspan or widths: a merged cell's content sits in its top-left position and the positions it covered are empty cells, short rows are padded, the list is paragraphs
   And pasting inside a table cell inserts the pasted cells' text as paragraphs, no table nests
 
-Scenario: A spreadsheet range becomes a table
-  Given a range copied from a spreadsheet, as HTML with a table, or as plain text with tabs and line feeds, at least 2 lines of at least 2 columns
+Scenario: A spreadsheet range becomes a table only on clear evidence
+  Given a range copied from a spreadsheet application (the clipboard carries an html table), or plain text of at least 3 lines that all have the same number, at least 1, of tabs
   When the member pastes it outside a table and a code block
   Then it becomes a table without a header row, one cell per value, and Ctrl+Z removes it whole
+  And plain text with tabs of differing counts, or of fewer than 3 lines, is inserted as paragraphs, tabs kept
+  And Ctrl+Shift+V (Cmd+Shift+V) pastes any of these as plain paragraphs, no table
 
-Scenario: A table at the end of the text can be left
+Scenario: A table can be left from its last row
   Given a table as the last block
-  When the member presses ArrowDown from its last row
-  Then an empty paragraph follows the table and holds the cursor
+  When the member presses Ctrl+Enter (Cmd+Enter) in a cell
+  Then the cursor is after the table, with no paragraph stored until the member types there
+  And when a block follows the table the cursor goes to its start
+
+Scenario: Leaving a final table or code block never changes an untouched value
+  Given a description ending with a table and one ending with a code block, both loaded untouched
+  When the member moves the cursor into and out of the last block by keyboard and focus
+  Then the serialised value equals the stored one, the form is not dirty and no trailing paragraph appeared
 
 Scenario: Insert a code block with a language
   Given the cursor in a paragraph with text
@@ -61,13 +73,13 @@ Scenario: Insert a code block with a language
 Scenario: Tab indents inside code and Esc leaves
   Given the cursor in a code block
   When the member presses Tab, then Shift+Tab, then Esc and Tab
-  Then a tab character is inserted, then one leading level is removed, then focus leaves the block and the editor
+  Then a tab character is inserted, then one leading level is removed (one tab, else up to four leading spaces, on each selected line), then focus leaves the block and the editor
   And entering the block announces «Tab вставляет отступ. Esc, затем Tab — выйти из блока.»
 
 Scenario: The code block can be left in the document
   Given the cursor at the end of a code block
-  When the member presses Enter twice (or Ctrl+Enter, Cmd+Enter, or ArrowDown on the last line)
-  Then the block ends without the two trailing line feeds and a paragraph holds the cursor
+  When the member presses Enter twice (or Ctrl+Enter, Cmd+Enter, or ArrowDown at the end of its text)
+  Then the block ends without the two trailing line feeds and the cursor is after it (at the next block's start, or after the document's end without a stored paragraph until the member types)
 
 Scenario: Copy the code
   Given a code block of three lines with indentation
@@ -94,10 +106,11 @@ Scenario: Nothing in code executes
 | Scenario | Automated | Not automatable (manual) |
 |---|---|---|
 | Table operations in every direction, header toggle, no merge/resize | C | pointer-based column resize absent: M (visual) |
-| Tab between cells; exit at ends | C (`userEvent.tab`) | — |
-| Pasted HTML table; nesting; list in cell | C (stubbed `clipboardData`) + U (the reduction, US-7) | a real copy from a spreadsheet application: M |
-| Spreadsheet range as tab text | C | — |
-| Code block, language list, Tab/Shift+Tab/Esc, exit by Enter/Ctrl+Enter/ArrowDown | C | the live-region announcement by a screen reader: M |
+| Tab between cells; exit at ends; Esc then Tab arming (one keystroke, not after a picker's Esc) | C (`userEvent.tab`, keydown) | the live-region announcement by a screen reader: M |
+| Pasted HTML table, rectangular result; nesting; list in cell | C (stubbed `clipboardData`) + U (the reduction, US-7) | a real copy from a spreadsheet application: M |
+| Spreadsheet evidence rule, ragged and short tab text, Ctrl+Shift+V | C | — |
+| Table exit by Ctrl/Cmd+Enter; untouched final block unchanged | C | exit by ArrowDown from the last row (vertical motion needs layout): M |
+| Code block, language list, Tab/Shift+Tab (tab, spaces), Esc, exit by Enter twice / Ctrl+Enter / ArrowDown at end of text | C | ArrowDown on a wrapped last line (layout): M; screen-reader announcement: M |
 | Copy button | C (stubbed `navigator.clipboard`) | the real clipboard permission prompt: M |
 | IDE paste | C (fixture HTML of a VS Code-style copy, a plain `pre`) | a real IDE's clipboard: M |
 | Nothing executes | C (load, assert no script/handler in the document) + I (stored value) | — |

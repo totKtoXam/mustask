@@ -23,7 +23,7 @@ BR-RT-14, BR-RT-15, BR-RT-18, BR-RT-19, BR-RT-20, BR-RT-3.
 | Sizes (4) | «Очень мелкий», «Мелкий», «Крупный», «Очень крупный»; reset «Обычный размер» |
 | Link controls | «Ссылка», «Убрать ссылку», «Открыть в новой вкладке» |
 | Link prompt | title «Ссылка», fields «Адрес ссылки» (hint «https://…») and «Текст ссылки» (shown when nothing is selected), buttons «Применить», «Отмена» |
-| Unsupported link address | «Допустимы адреса, начинающиеся с http://, https:// или mailto:.» |
+| Unsupported link address | «Допустимы адреса, начинающиеся с http://, https://, mailto: или www.» |
 
 ## Acceptance criteria
 
@@ -42,13 +42,15 @@ Scenario: Highlight, colour and size come from closed palettes
 Scenario: Marks combine and keep the canonical order
   Given a selection made bold, italic, underlined, highlighted, coloured and large
   When the member saves and reopens
-  Then all six are shown, and the stored nesting is link, bold, italic, underline, strikethrough, highlight, colour, size
+  Then all six are shown
+  And the stored elements nest in the canonical order (link, bold, italic, underline, strikethrough, highlight, colour, size; only those present)
 
-Scenario: Inline code carries no other mark
+Scenario: Inline code carries no mark but a link
   Given a selection that is bold and coloured
   When the member activates «Код в строке»
-  Then it is monospace and neither bold nor coloured
-  And inside inline code the bold, colour, highlight and size controls are disabled
+  Then it is monospace and neither bold nor coloured (code wins)
+  And inside inline code the bold, italic, underline, strikethrough, colour, highlight and size controls are disabled
+  And «Ссылка» stays available: a link may wrap inline code, and a linked identifier keeps its link when made code
 
 Scenario: A heading takes no size
   Given the cursor is in a level 3 heading
@@ -80,7 +82,8 @@ Scenario: Edit and remove a link
 Scenario: A link with an unsupported address is not accepted
   Given the link prompt
   When the member enters "javascript:alert(1)" (or "/relative", "//evil.example")
-  Then no link is created and the prompt shows «Допустимы адреса, начинающиеся с http://, https:// или mailto:.»
+  Then no link is created and the prompt shows «Допустимы адреса, начинающиеся с http://, https://, mailto: или www.»
+  And "www.example.org" is accepted and stored as "https://www.example.org", as auto-link does
 
 Scenario: A link is opened on purpose, not by a click
   Given a link in the description
@@ -92,8 +95,30 @@ Scenario: A typed or pasted address becomes a link
   Given the cursor in a paragraph
   When the member types "https://example.org " (a space or Enter after it), or pastes "www.example.org", or pastes "mailto:a@example.org"
   Then each becomes a link (the www form to "https://www.example.org")
-  And Ctrl+Z turns the last one back into plain text
   And "javascript:alert(1)" typed or pasted stays plain text
+
+Scenario: Auto-link has a precise reach
+  Given the cursor in a paragraph
+  When the member types or pastes "example.org", "a@b.ru", "setup.py", "ftp://x.org" and "(см. https://example.org)."
+  Then the first four stay plain text
+  And in the last one the link is "https://example.org" without the closing parenthesis and the full stop
+  And "https://example.org/a_(b)" keeps its balanced parenthesis inside the link
+
+Scenario: Auto-link does not fire where it must not
+  Given the cursor in inline code, in a code block, and in an existing link
+  When the member types or pastes "https://example.org " in each
+  Then it stays text in each (no nested or code link)
+
+Scenario: A pasted address over a selection links the selection
+  Given the selection "документация"
+  When the member pastes "https://example.org"
+  Then the selected text is a link to it and the address is not inserted
+
+Scenario: The first undo after an auto-link removes only the link
+  Given a typed address that has just become a link
+  When the member presses Ctrl+Z (Cmd+Z)
+  Then the text stays and is no longer a link
+  And a second Ctrl+Z undoes the typing
 
 Scenario: A legacy text is not auto-linked on open
   Given a legacy description holding "https://example.org"
@@ -111,5 +136,6 @@ Scenario: A legacy text is not auto-linked on open
 | Emoji picker, count | C (keyboard) + U (counting fixture) | the picker's visual rendering of colour emoji on each OS: M |
 | Link add, edit, remove, refusal | C | — |
 | Open in new tab | C (assert the opener call has `noopener,noreferrer`, no navigation) | the browser actually opening a tab: M |
-| Auto-link typed and pasted, undo | C (input rules; paste event) | — |
+| Auto-link reach, exclusions, paste over selection | C (input rules; paste event; fixtures of what links and what does not) | — |
+| First undo removes only the link | C (custom history step, so asserted explicitly) | — |
 | Legacy not auto-linked | C | — |
