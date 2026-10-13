@@ -10,7 +10,7 @@ the same, and a description I did not touch to stay exactly as it was**, so
 that **turning on rich text loses nothing and rewrites nothing behind my
 back**.
 
-BR-RT-5, BR-RT-8, BR-RT-9, BR-RT-11, BR-RT-12. The conversion is lazy (D-3):
+BR-RT-5, BR-RT-8, BR-RT-9, BR-RT-11, BR-RT-12, BR-RT-18 (no auto-link on open). The conversion is lazy (D-3):
 the stored plain value is never rewritten by reading.
 
 ## Acceptance criteria
@@ -31,6 +31,11 @@ Scenario: CR LF is accepted as a difference
   When the member opens it
   Then the editor shows two paragraphs "a" and "b"
 
+Scenario: Emoji in legacy text count by code point
+  Given a legacy description of 50 000 "😀" (100 000 UTF-16 units)
+  When the member opens the work item, replaces one with "a" and saves
+  Then the save succeeds, the visible count being 50 000 code points
+
 Scenario: Markup characters in legacy text are not interpreted
   Given a legacy description "<b>жирный</b> & <script>alert(1)</script>"
   When the member opens it
@@ -39,7 +44,7 @@ Scenario: Markup characters in legacy text are not interpreted
 Scenario: Legacy text of any length still saves
   Given a legacy description of exactly 100 000 characters of "&", and another of 99 999 line feeds
   When the member opens the work item and, in the first, replaces one "&" by "a" (length-neutral), in the second types one character in the first paragraph
-  Then both saves succeed: each has exactly 100 000 visible code units, and the stored markup is 500 003 and 700 001 code units, within the ceiling of US-4
+  Then both saves succeed: each has exactly 100 000 visible code points, and the stored markup is 500 003 and 700 001 code points, within the ceiling of US-4
   # the unedited worst case (100 000 line feeds, 700 007 markup) is a server scenario in US-4
 
 Scenario: Opening does not make the form dirty
@@ -66,7 +71,7 @@ Scenario: A legacy description of blank lines only
   And when the member edits it so that no non-whitespace remains, it is stored as ""
 
 Scenario: Editor and server agree on the canonical form
-  Given each canonical value of the shared fixture file (US-2), including header-row tables, nested lists with paragraphs in items, links and code
+  Given each canonical value of the shared fixture file (US-7), including every mark and palette token, header-row tables, nested lists with paragraphs in items, links and code blocks with a language
   When it is loaded in the editor and serialised without edits, then normalised (BR-RT-5)
   Then the string is the canonical value itself
   And the form is not dirty, and the raw editor output (with colgroup, style, nofollow) is never what is compared or sent
