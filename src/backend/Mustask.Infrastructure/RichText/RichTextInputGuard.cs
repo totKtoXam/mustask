@@ -30,12 +30,10 @@ internal sealed record RichTextGuardLimits
     public long MaxAttributeSquares { get; init; } = 8_000_000;
 
     /// <summary>
-    /// <c>pre</c> and <c>listing</c> start tags: the tree builder processes the token after one inside the call that
-    /// handled it, so a run of them recurses once per tag (QA D-1). The parse also runs on a large dedicated stack.
+    /// The nesting of the parsed tree (html and body included): hostile depth makes every scope check linear, and it
+    /// is what caps the tree builder's recursion on a run of <c>pre</c>, <c>listing</c> or <c>template</c> start tags
+    /// (each of a run is the child of the one before; QA D-1, D-9). The parse also runs on a 32 MB dedicated stack.
     /// </summary>
-    public int MaxPreformattedStartTags { get; init; } = 1_000;
-
-    /// <summary>The nesting of the parsed tree (html and body included): hostile depth makes every scope check linear.</summary>
     public int MaxDomDepth { get; init; } = 160;
 
     /// <summary>
@@ -51,6 +49,15 @@ internal sealed record RichTextGuardLimits
     /// elements under them is not a document.
     /// </summary>
     public long MaxTreeWork { get; init; } = 6_000_000;
+
+    /// <summary>
+    /// Foster parenting: text and inline content that meets a table is put before it, and the DOM finds the table's
+    /// index, linear in the parent's children, for each node inserted and each character appended to the text
+    /// already there (QA D-8). Each is charged at the parent's child count, read from the tree (child counts, last
+    /// child and the text before it: never sibling links, which are linear searches). Canonical output never needs
+    /// it; about 4 000 such insertions into one parent reach the bound, which costs under 0.1 s.
+    /// </summary>
+    public long MaxInsertionWork { get; init; } = 16_000_000;
 }
 
 /// <summary>What the guard's scan saw: tags, the most attributes in one tag, their squares, preformatted start tags.</summary>
@@ -168,12 +175,12 @@ internal static class RichTextInputGuard
                 }
             }
 
-            if (!isEnd && (name.Equals("pre", StringComparison.OrdinalIgnoreCase) || name.Equals("listing", StringComparison.OrdinalIgnoreCase))
-                && ++preformatted > limits.MaxPreformattedStartTags)
+            // Counted for the record only: the tree builder recurses once per pre/listing start tag in a run, and
+            // each of a run is the child of the one before, so the nesting bound of the tree watcher (160) is what
+            // caps that recursion, whatever the number of closed blocks (QA D-9).
+            if (!isEnd && (name.Equals("pre", StringComparison.OrdinalIgnoreCase) || name.Equals("listing", StringComparison.OrdinalIgnoreCase)))
             {
-                stats = Snapshot();
-
-                return false;
+                preformatted++;
             }
 
             index = SkipAttributes(text, nameEnd, out var attributes);

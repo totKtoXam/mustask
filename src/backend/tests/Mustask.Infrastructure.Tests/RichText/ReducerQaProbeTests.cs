@@ -637,7 +637,7 @@ public sealed class ReducerQaProbeTests(ITestOutputHelper output)
 
     // QA D-9 (minor): the preformatted start-tag bound counts tags, not nesting. 1 001 closed code blocks are canonical
     // editor output (about 25 000 bytes) and are refused. Skipped (a minor is carried, not sent back).
-    [Fact(Skip = "QA D-9 (minor, carried to gate-3): 1 001 sequential code blocks are refused by MaxPreformattedStartTags")]
+    [Fact]
     public void QA_Reduce_ManySequentialCodeBlocks_AreNotRefusedByTheBound()
     {
         var input = string.Concat(Enumerable.Repeat("<pre><code>x</code></pre>", 1_001));

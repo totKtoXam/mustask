@@ -18,7 +18,6 @@ public sealed class RichTextInputGuardTests
         MaxTags = int.MaxValue,
         MaxAttributesPerTag = int.MaxValue,
         MaxAttributeSquares = long.MaxValue,
-        MaxPreformattedStartTags = int.MaxValue,
     };
 
     private static GuardStats Stats(string text)
@@ -128,26 +127,43 @@ public sealed class RichTextInputGuardTests
         Assert.False(RichTextInputGuard.IsWithinBounds(string.Concat(Enumerable.Repeat(tag, 2_000)), RichTextGuardLimits.Default));
     }
 
-    // D-1: the preformatted start tags the tree builder processes recursively.
-    [Theory]
-    [InlineData("<pre>", 1_000, true)]
-    [InlineData("<pre>", 1_001, false)]
-    [InlineData("<listing>", 1_001, false)]
-    [InlineData("<PRE >", 1_001, false)]
-    public void IsWithinBounds_PreformattedStartTags(string piece, int count, bool within)
+    // D-1 / D-9: the guard does not count preformatted start tags as a bound (it only reports them): what caps the
+    // tree builder's recursion is the nesting bound of the tree watcher, tested on the reducer below.
+    [Fact]
+    public void Scan_ReportsPreformattedStartTags_ButDoesNotBoundThem()
     {
-        var html = string.Concat(Enumerable.Repeat(piece, count));
+        var html = string.Concat(Enumerable.Repeat("<pre><code>x</code></pre><LISTING>y</listing>", 2_000));
 
-        Assert.Equal(within, RichTextInputGuard.IsWithinBounds(html, RichTextGuardLimits.Default));
+        Assert.True(RichTextInputGuard.Scan(html, RichTextGuardLimits.Default, out var stats));
+        Assert.Equal(4_000, stats.Preformatted);
     }
 
-    [Fact]
-    public void IsWithinBounds_ManySequentialCodeBlocks_AreFine()
+    [Theory]
+    [InlineData(1_001)]
+    [InlineData(2_000)]
+    [InlineData(10_000)]
+    public void Reduce_ManySequentialClosedCodeBlocks_AreAccepted(int count)
     {
-        var html = string.Concat(Enumerable.Repeat("<pre><code>x</code></pre>", 1_000));
+        var html = string.Concat(Enumerable.Repeat("<pre><code>x</code></pre>", count));
 
-        Assert.True(RichTextInputGuard.IsWithinBounds(html, RichTextGuardLimits.Default));
-        Assert.False(Reduce(html).Exceeded);
+        var reduction = Reduce(html);
+
+        Assert.False(reduction.Exceeded);
+        Assert.Equal(html, reduction.Html);
+    }
+
+    // The recursion is capped by nesting: a run of unclosed ones is refused at 160, closed ones are not counted.
+    [Theory]
+    [InlineData("<pre>", 150, false)]
+    [InlineData("<pre>", 161, true)]
+    [InlineData("<listing>", 161, true)]
+    [InlineData("<template>", 161, true)]
+    [InlineData("<pre><listing>", 100_000, true)]
+    public void Reduce_RunOfUnclosedPreformattedStartTags_IsCappedByTheNestingBound(string piece, int count, bool refused)
+    {
+        var html = string.Concat(Enumerable.Repeat(piece, count)) + "x";
+
+        Assert.Equal(refused, Reduce(html).Exceeded);
     }
 
     // Markup whose handling depends on the tree builder is read only when short; plain allow-list markup is read
@@ -191,6 +207,71 @@ public sealed class RichTextInputGuardTests
     {
         Assert.True(RichTextInputGuard.IsWithinBounds(string.Concat(Enumerable.Repeat("<b></b>", 175_000)), RichTextGuardLimits.Default));
         Assert.False(RichTextInputGuard.IsWithinBounds(string.Concat(Enumerable.Repeat("<b></b>", 175_001)), RichTextGuardLimits.Default));
+    }
+
+    // QA D-8: text and inline content that meets a table is foster-parented before it, and the DOM's insertion
+    // before a node is linear in the parent's children. The bound counts that work from the tree, deterministically.
+    [Theory]
+    [InlineData("<table>x")]
+    [InlineData("<table><b>")]
+    [InlineData("<table><a>")]
+    [InlineData("<b><table>")]
+    [InlineData("<a><table>")]
+    [InlineData("<p><table>")]
+    [InlineData("<table><tr>y<td>")]
+    [InlineData("x<table>")]
+    public void Reduce_FosterParentedContentBetweenTables_IsBoundedAndDeterministic(string piece)
+    {
+        // 2 000 000 units, the request cap: the QA repros ran 1 000 000 of these into the 20 s safety net.
+        var input = string.Concat(Enumerable.Repeat(piece, 2_000_000 / piece.Length));
+
+        var watch = Stopwatch.StartNew();
+        var first = Reduce(input);
+        watch.Stop();
+
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(2.5), $"{piece} took {watch.Elapsed}.");
+        Assert.Equal(first.Exceeded, Reduce(input).Exceeded);
+    }
+
+    // Foster text that merges into the text node already before a table adds no child, so growth does not see it; the
+    // cost of it must still be small however many blocks precede the table.
+    [Theory]
+    [InlineData("<tr>y")]
+    [InlineData("<td>y")]
+    [InlineData("y")]
+    [InlineData("<b>y</b>")]
+    public void Reduce_ManyFosterTokensIntoOneTable_AfterManyBlocks_IsBounded(string piece)
+    {
+        var input = string.Concat(Enumerable.Repeat("<p>a</p>", 40_000)) + "<table>" + string.Concat(Enumerable.Repeat(piece, 300_000 / piece.Length));
+
+        var watch = Stopwatch.StartNew();
+        var reduction = Reduce(input);
+        watch.Stop();
+
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(2.5), $"{piece} took {watch.Elapsed}.");
+        Assert.Equal(reduction.Exceeded, Reduce(input).Exceeded);
+    }
+
+    // Many tables as canonical output has them are not foster parenting and are not charged.
+    [Theory]
+    [InlineData(17_000)]
+    [InlineData(17_800)] // 996 800 units, just under the ceiling
+    public void Reduce_ManySmallCanonicalTables_AreAccepted(int count)
+    {
+        var html = string.Concat(Enumerable.Repeat("<table><tbody><tr><td><p>x</p></td></tr></tbody></table>", count));
+
+        Assert.False(Reduce(html).Exceeded);
+    }
+
+    // Tables between paragraphs, the same pretty-printed, and a few thousand loose-text tables: all read.
+    [Fact]
+    public void Reduce_TablesBetweenParagraphs_AndModestLooseText_AreAccepted()
+    {
+        var between = string.Concat(Enumerable.Repeat("<p>a</p>\n<table><tr><td>x</td></tr></table>\n", 8_000));
+        var loose = string.Concat(Enumerable.Repeat("text<table><tr><td>x</td></tr></table>", 2_000));
+
+        Assert.False(Reduce(between).Exceeded);
+        Assert.False(Reduce(loose).Exceeded);
     }
 
     // The tree watcher: the element count is read from the parser's own factory, deterministically. The most a

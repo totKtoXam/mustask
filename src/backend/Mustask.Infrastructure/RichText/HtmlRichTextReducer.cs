@@ -192,47 +192,6 @@ internal sealed class HtmlRichTextReducer : IRichTextReducer, IDisposable
         }
     }
 
-    /// <summary>
-    /// Watches the tree as the parser builds it, from its element hook: the nesting of the previously created element
-    /// (read from the tree itself, so it is exact) and the number of elements are bounded deterministically, and the
-    /// stack is checked, so a recursion nobody foresaw ends as a server error, not a dead process.
-    /// </summary>
-    private sealed class TreeWatcher(RichTextGuardLimits limits)
-    {
-        private IElement? previous;
-        private int created;
-        private long work;
-
-        public void Created(IElement element, AngleSharp.Text.TextPosition position)
-        {
-            RuntimeHelpers.EnsureSufficientExecutionStack();
-
-            if (++created > limits.MaxElements)
-            {
-                throw new RichTextBudgetExceededException();
-            }
-
-            if (previous is not null)
-            {
-                var depth = 0;
-
-                for (var node = previous.ParentElement; node is not null; node = node.ParentElement)
-                {
-                    depth++;
-                }
-
-                work += depth + 1;
-
-                if (depth > limits.MaxDomDepth || work > limits.MaxTreeWork)
-                {
-                    throw new RichTextBudgetExceededException();
-                }
-            }
-
-            previous = element;
-        }
-    }
-
     /// <summary>U+0000 removed, each lone surrogate replaced by U+FFFD (BR-RT-8, BR-RT-9), before anything parses it.</summary>
     internal static string Normalise(string raw)
     {
