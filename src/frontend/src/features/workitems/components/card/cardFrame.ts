@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import type { WorkItemEdits } from '../../lib/edits';
 import type { CardTabSlot } from './cardSlots';
 
 /**
@@ -73,6 +72,6 @@ export interface CardFrameProps {
   busy: boolean;
   /** Edits are unsaved: the dialog's `guard.dirty`. */
   dirty: boolean;
-  /** What the user touched: carried to the page by «Развернуть на страницу». */
-  edits: WorkItemEdits;
+  /** The item's own page: where the dialog's type line leads, in a new tab. */
+  pagePath: string;
 }

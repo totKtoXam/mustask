@@ -241,21 +241,28 @@ describe('tech-015 Scenario: DialogShell (design § 5.10)', () => {
   });
 
   describe('Scenario: the two icons', () => {
-    it('draws «Развернуть на страницу» and «Закрыть» first in the DOM, with their tooltips', async () => {
+    it('draws «Развернуть на весь экран» and «Закрыть» first in the DOM, with their tooltips', async () => {
       const user = userEvent.setup();
       render(<Card onExpand={() => {}} />);
       const buttons = within(paper()).getAllByRole('button');
       expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
-        'Развернуть на страницу',
+        'Развернуть на весь экран',
         'Закрыть',
       ]);
       await user.hover(screen.getByRole('button', { name: 'Закрыть' }));
       expect(await screen.findByRole('tooltip')).toHaveTextContent('Закрыть');
     });
 
-    it('draws no «Развернуть на страницу» without onExpand', () => {
+    it('names the button «Свернуть» and fills the whole window while expanded', () => {
+      render(<Card onExpand={() => {}} expanded />);
+      expect(screen.getByRole('button', { name: 'Свернуть' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Развернуть на весь экран' })).toBeNull();
+      expect(paper()).toHaveClass('MuiDialog-paperFullScreen');
+    });
+
+    it('draws no «Развернуть на весь экран» without onExpand', () => {
       render(<Card />);
-      expect(screen.queryByRole('button', { name: 'Развернуть на страницу' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Развернуть на весь экран' })).toBeNull();
       expect(screen.getByRole('button', { name: 'Закрыть' })).toBeInTheDocument();
     });
 
@@ -286,7 +293,7 @@ describe('tech-015 Scenario: DialogShell (design § 5.10)', () => {
       const onExpand = vi.fn();
       const onClose = vi.fn();
       render(<Card onExpand={onExpand} onClose={onClose} guard={GUARD} />);
-      await user.click(screen.getByRole('button', { name: 'Развернуть на страницу' }));
+      await user.click(screen.getByRole('button', { name: 'Развернуть на весь экран' }));
       expect(onExpand).toHaveBeenCalledOnce();
       expect(onClose).not.toHaveBeenCalled();
       expect(screen.getAllByRole('dialog')).toHaveLength(1);
@@ -465,7 +472,7 @@ describe('tech-015 Scenario: DialogShell (design § 5.10)', () => {
       const user = userEvent.setup();
       const onExpand = vi.fn();
       render(<Card busy onExpand={onExpand} />);
-      const expand = screen.getByRole('button', { name: 'Развернуть на страницу' });
+      const expand = screen.getByRole('button', { name: 'Развернуть на весь экран' });
       const close = screen.getByRole('button', { name: 'Закрыть' });
       expect(expand).toHaveAttribute('aria-disabled', 'true');
       expect(close).toHaveAttribute('aria-disabled', 'true');

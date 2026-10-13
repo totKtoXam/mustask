@@ -73,9 +73,9 @@ describe('tech-015 Scenario: PanelShell (design § 5.10)', () => {
       expect(getComputedStyle(panel(container)).maxHeight).not.toMatch(/\d/);
     });
 
-    it('has no «Развернуть на страницу» and no «Закрыть»: the trail leads back', () => {
+    it('has no «Развернуть на весь экран» and no «Закрыть»: the trail leads back', () => {
       render(<PanelShell>Тело</PanelShell>);
-      expect(screen.queryByRole('button', { name: 'Развернуть на страницу' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Развернуть на весь экран' })).toBeNull();
       expect(screen.queryByRole('button', { name: 'Закрыть' })).toBeNull();
     });
   });

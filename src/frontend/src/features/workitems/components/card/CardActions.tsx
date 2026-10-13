@@ -14,7 +14,7 @@ import { cardTexts } from '../../lib/cardTexts';
  * The action row's right end (feat-029 BR-C-8..BR-C-11; design § 4.2), in the
  * order the Tab key meets it: a place kept for «Следить», the Save group, then
  * «Обновить», «Отменить все изменения» and «Ещё действия». Nothing here is the
- * dialog's: its «Развернуть на страницу» and «Закрыть» are the shell's.
+ * dialog's: its «Развернуть на весь экран» and «Закрыть» are the shell's.
  *
  * The Save group is the card's one filled button. Clean it is `disabled`, and the
  * kit draws that in the reference's pale grey; while a save runs it is `busy`,

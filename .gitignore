@@ -47,3 +47,6 @@ Thumbs.db
 # Account-specific token rates for scripts/usage-report.py; the template
 # .claude/usage-prices.example.json is committed, the filled-in copy is not.
 .claude/usage-prices.json
+
+# Local state of other agent tools (teamwork runs), never committed.
+.agents/teamwork/

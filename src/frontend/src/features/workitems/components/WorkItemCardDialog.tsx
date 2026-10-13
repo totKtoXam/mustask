@@ -5,7 +5,6 @@ import { useWorkItem } from '../hooks/queries';
 import { useWorkItemDialog } from '../hooks/useWorkItemDialog';
 import { cardTexts, loadingName } from '../lib/cardTexts';
 import { notFoundLevel, type WorkItemsNotFoundLevel } from '../lib/notFoundLevel';
-import { workItemPath } from '../paths';
 import { createFrameStore } from './card/frameStore';
 import { DialogFrame, PublishFrame } from './card/KitFrames';
 import { WorkItemCard } from './card/WorkItemCard';
@@ -52,6 +51,9 @@ export function WorkItemCardDialog({
     }
     setShown(identifier);
   }
+  // Whether the dialog fills the window outlives a switch to a related item, which
+  // draws a dialog of its own.
+  const [expanded, setExpanded] = useState(false);
   const target = identifier ?? shown;
   if (target === null) {
     return null;
@@ -63,6 +65,8 @@ export function WorkItemCardDialog({
       projectId={projectId}
       identifier={target}
       open={identifier !== null}
+      expanded={expanded}
+      onToggleExpanded={() => setExpanded((current) => !current)}
       onExited={() => {
         restoreFocus(opener ?? target);
         setShown((current) => (current === target ? null : current));
@@ -78,6 +82,8 @@ function CardDialog({
   projectId,
   identifier,
   open,
+  expanded,
+  onToggleExpanded,
   onExited,
   onChanged,
 }: {
@@ -85,6 +91,8 @@ function CardDialog({
   projectId: string;
   identifier: string;
   open: boolean;
+  expanded: boolean;
+  onToggleExpanded: () => void;
   onExited: () => void;
   onChanged?: () => void;
 }) {
@@ -95,8 +103,7 @@ function CardDialog({
   const [gone, setGone] = useState<WorkItemsNotFoundLevel | null>(null);
   // The card hands its frame to the shell below; the host draws no shell of its own.
   const [frames] = useState(createFrameStore);
-  const pagePath = workItemPath(organizationId, projectId, identifier);
-  const { close, expand } = dialog;
+  const { close } = dialog;
 
   // What the shell's panel holds while the card has published no frame: the loading
   // skeleton (also for the instant between the read and the card's first frame), the
@@ -154,7 +161,8 @@ function CardDialog({
         fallback={fallback}
         open={open}
         onClose={() => close()}
-        onExpand={(edits) => expand(pagePath, edits)}
+        expanded={expanded}
+        onToggleExpanded={onToggleExpanded}
         onExited={onExited}
       />
       {card}

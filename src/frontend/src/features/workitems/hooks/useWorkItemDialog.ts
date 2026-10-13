@@ -1,6 +1,5 @@
 import { useCallback, useLayoutEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CARRIED_EDITS_KEY, isUntouched, type WorkItemEdits } from '../lib/edits';
 
 /** The address parameter the dialog lives in (BR-C-2): `?workitem=MSK-US-2`. */
 export const WORK_ITEM_PARAM = 'workitem';
@@ -97,12 +96,6 @@ export interface WorkItemDialogAddress {
    * address.
    */
   close: () => void;
-  /**
-   * «Развернуть на страницу» (BR-C-3): pushes the item's page, carrying `edits`
-   * in the router state for the page to read once. The dialog's entry stays
-   * under it, so Back returns to it.
-   */
-  expand: (pagePath: string, edits?: WorkItemEdits) => void;
 }
 
 /**
@@ -154,7 +147,7 @@ export function useWorkItemDialog(): WorkItemDialogAddress {
         { pathname: from.pathname, search: rest === '' ? '' : `?${rest}`, hash: from.hash },
         {
           replace: true,
-          state: stateWithout(from.state, CARD_DEPTH_KEY, CARD_BASE_KEY, CARRIED_EDITS_KEY),
+          state: stateWithout(from.state, CARD_DEPTH_KEY, CARD_BASE_KEY),
         },
       );
     },
@@ -174,7 +167,7 @@ export function useWorkItemDialog(): WorkItemDialogAddress {
         { pathname: current.pathname, search: `?${params.toString()}`, hash: current.hash },
         {
           state: {
-            ...stateWithout(current.state, CARRIED_EDITS_KEY, CARD_BASE_KEY),
+            ...stateWithout(current.state, CARD_BASE_KEY),
             [CARD_DEPTH_KEY]: current.depth + 1,
             ...(onAddress ? { [CARD_BASE_KEY]: BASE_ADDRESS } : {}),
           },
@@ -221,14 +214,5 @@ export function useWorkItemDialog(): WorkItemDialogAddress {
     }
   }, [key, replaceWithoutParameter]);
 
-  const expand = useCallback(
-    (pagePath: string, edits?: WorkItemEdits) => {
-      navigate(pagePath, {
-        state: edits && !isUntouched(edits) ? { [CARRIED_EDITS_KEY]: edits } : undefined,
-      });
-    },
-    [navigate],
-  );
-
-  return { identifier, depth, open, switchTo: open, close, expand };
+  return { identifier, depth, open, switchTo: open, close };
 }

@@ -8,7 +8,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme, type Theme } from '@mui/material/styles';
 import { IconAction } from '../actions/IconAction';
 import { CARD_ICONS_INSET, cardContainerSx } from '../card/cardContainer';
-import { ThinCloseIcon, ThinExpandIcon } from '../icons/ThinIcons';
+import { ThinCloseIcon, ThinCollapseIcon, ThinExpandIcon } from '../icons/ThinIcons';
 import { ConfirmDialog } from '../ConfirmDialog';
 
 /** Why a dialog is being closed: Escape, a click outside it, or its «Закрыть». */
@@ -52,8 +52,13 @@ export interface DialogShellProps {
   label?: string;
   /** A request is running: nothing closes the dialog and its two icons are inert. */
   busy?: boolean;
-  /** Draws «Развернуть на страницу»; a plain callback, the host navigates. Never guarded. */
+  /**
+   * Draws «Развернуть на весь экран» (and «Свернуть» while `expanded`): a plain callback,
+   * the host keeps the state. Never guarded.
+   */
   onExpand?: () => void;
+  /** The card fills the whole window instead of 90 % of it. */
+  expanded?: boolean;
   /** Opt-in: a dismissal of a dirty dialog asks first. */
   guard?: DialogGuard;
   /** The width below which the dialog is full screen; `false` never. Default `md` (1024 px) for the card. */
@@ -62,7 +67,8 @@ export interface DialogShellProps {
   onExited?: () => void;
 }
 
-const EXPAND_LABEL = 'Развернуть на страницу';
+const EXPAND_LABEL = 'Развернуть на весь экран';
+const COLLAPSE_LABEL = 'Свернуть';
 const CLOSE_LABEL = 'Закрыть';
 const GUARD_CANCEL_LABEL = 'Продолжить редактирование';
 
@@ -98,7 +104,7 @@ function cardPaperSx(theme: Theme, fullScreen: boolean) {
  * The card size draws **no dimming**: its backdrop is `invisible` — still rendered, so a
  * click outside still reaches `onClose('backdrop')` and the guard — and MUI's own
  * elevation-24 shadow separates it from the page. A `ConfirmDialog` opened over it
- * dims; a question does. Its two icons, «Развернуть на страницу» and «Закрыть», are the
+ * dims; a question does. Its two icons, «Развернуть на весь экран» and «Закрыть», are the
  * first controls in the DOM, `layout.card.dialogIconGap` apart and the ✕
  * `dialogIconInset` from the edge.
  *
@@ -121,6 +127,7 @@ export function DialogShell({
   label,
   busy = false,
   onExpand,
+  expanded = false,
   guard,
   fullScreenBelow,
   onExited,
@@ -131,7 +138,8 @@ export function DialogShell({
   const card = size === 'card';
   const below = fullScreenBelow ?? (card ? 'md' : false);
   const narrow = useMediaQuery(theme.breakpoints.down('md'));
-  const fullScreen = below === 'md' && narrow;
+  // «Развернуть на весь экран» fills the window the way a narrow window does.
+  const fullScreen = (below === 'md' && narrow) || (card && expanded);
 
   // Exactly one name: a heading of its own, a heading elsewhere, or a label.
   const names = [title, labelledBy, label].filter((name) => name !== undefined).length;
@@ -193,8 +201,8 @@ export function DialogShell({
           >
             {onExpand && (
               <IconAction
-                label={EXPAND_LABEL}
-                icon={<ThinExpandIcon />}
+                label={expanded ? COLLAPSE_LABEL : EXPAND_LABEL}
+                icon={expanded ? <ThinCollapseIcon /> : <ThinExpandIcon />}
                 inactive={busy}
                 onClick={onExpand}
               />

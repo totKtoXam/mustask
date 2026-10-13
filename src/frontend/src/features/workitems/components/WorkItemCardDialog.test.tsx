@@ -126,7 +126,7 @@ describe('feat-029 US-1: the frame at once, then the card', () => {
     const loading = await screen.findByRole('dialog', { name: 'Рабочий элемент MSK-US-2' });
     expect(within(loading).getAllByRole('status')).toHaveLength(1);
     expect(within(loading).getByRole('status')).toHaveAccessibleName('Загрузка данных');
-    expect(within(loading).getByRole('button', { name: 'Развернуть на страницу' })).toBeVisible();
+    expect(within(loading).getByRole('button', { name: 'Развернуть на весь экран' })).toBeVisible();
     expect(within(loading).getByRole('button', { name: 'Закрыть' })).toBeVisible();
 
     release();
@@ -154,7 +154,7 @@ describe('feat-029 US-1: the frame at once, then the card', () => {
     ).toBeVisible();
     expect(screen.getAllByRole('dialog')).toEqual([dialog]);
     expect(dialog).toHaveAccessibleName('Рабочий элемент MSK-US-2');
-    expect(within(dialog).getByRole('button', { name: 'Развернуть на страницу' })).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'Развернуть на весь экран' })).toBeVisible();
   });
 
   it('opens from a title with one history entry; Esc goes back and focus returns to the title', async () => {
@@ -208,7 +208,7 @@ describe('feat-029 US-1: the frame at once, then the card', () => {
     ).toBeVisible();
     expect(within(dialog).getByText('Проверьте адрес или закройте окно.')).toBeVisible();
     expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
-    expect(within(dialog).getByRole('button', { name: 'Развернуть на страницу' })).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'Развернуть на весь экран' })).toBeVisible();
     const frame = dialog.querySelector<HTMLElement>('.StateFrame-root');
     if (!frame) throw new Error('No frame.');
 
@@ -274,15 +274,30 @@ describe('feat-029 US-6: closing and expanding with edits (BR-C-3, BR-C-4)', () 
     expect(api.writes()).toHaveLength(0);
   });
 
-  it('carries the edits to the page with «Развернуть на страницу», with no question', async () => {
+  it('stretches over the whole window with «Развернуть на весь экран», keeping the address and the edits', async () => {
     await openLoaded(['/home', OPEN]);
     fill(title(), 'Письмо для входа');
+    const before = where().textContent;
 
-    await userEvent.click(screen.getByRole('button', { name: 'Развернуть на страницу' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Развернуть на весь экран' }));
 
-    expect(await screen.findByTestId('where')).toHaveTextContent(PAGE);
-    expect(where()).toHaveAttribute('data-state', '{"edits":{"title":"Письмо для входа"}}');
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Свернуть' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(where().textContent).toBe(before);
+    expect(title()).toHaveValue('Письмо для входа');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Свернуть' }));
+    expect(screen.getByRole('button', { name: 'Развернуть на весь экран' })).toBeInTheDocument();
+  });
+
+  it('leads the type line to the item’s page in a new tab', async () => {
+    await openLoaded(['/home', OPEN]);
+
+    const link = within(screen.getByRole('dialog')).getByRole('link', {
+      name: /Пользовательская история MSK-US-2/,
+    });
+    expect(link).toHaveAttribute('href', PAGE);
+    expect(link).toHaveAttribute('target', '_blank');
   });
 });
 

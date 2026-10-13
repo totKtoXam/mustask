@@ -1,7 +1,6 @@
 import { useLayoutEffect, useSyncExternalStore, type ReactNode } from 'react';
 import { DialogShell, PanelShell, type DialogCloseReason } from '../../../../shared/ui';
 import { closeGuardTexts } from '../../lib/cardTexts';
-import type { WorkItemEdits } from '../../lib/edits';
 import type { CardFrameProps } from './cardFrame';
 import type { FrameStore } from './frameStore';
 import { useCardParts } from './useCardParts';
@@ -9,7 +8,7 @@ import { useCardParts } from './useCardParts';
 /**
  * The card on a page (feat-029 design § 5): the shell's trail above, then one white
  * panel on the application background. The page scrolls, not the card, and the type
- * line is the page's `h1`. No «Развернуть на страницу» and no «Закрыть»: the trail
+ * line is the page's `h1`. No «Развернуть на весь экран» and no «Закрыть»: the trail
  * leads back.
  */
 export function PageFrame({ frame, trail }: { frame: CardFrameProps; trail?: ReactNode }) {
@@ -38,8 +37,8 @@ export function PublishFrame({ store, frame }: { store: FrameStore; frame: CardF
  * The card as a dialog over a page (design § 4.1): 90 % of the window, no dimming, the
  * header and the band fixed and the body scrolling, named by the type line (`h2`). Its
  * «Закрыть», Esc and a click outside ask «Закрыть без сохранения?» while edits stand
- * (D-4), and none of them closes it while a save runs. «Развернуть на страницу» is a
- * plain callback: the host opens the page and carries the edits.
+ * (D-4), and none of them closes it while a save runs. «Развернуть на весь экран» is a
+ * plain callback: the host keeps whether the dialog fills the window.
  *
  * It is the one shell of the dialog in every state (design § 6): until the card has
  * published a frame to `store` it is named `label` and holds `fallback` — the skeleton,
@@ -54,7 +53,8 @@ export function DialogFrame({
   fallback,
   open = true,
   onClose,
-  onExpand,
+  expanded,
+  onToggleExpanded,
   onExited,
 }: {
   store: FrameStore;
@@ -67,8 +67,10 @@ export function DialogFrame({
   open?: boolean;
   /** The user chose to close — after the question, if edits stood. */
   onClose: (reason: DialogCloseReason) => void;
-  /** «Развернуть на страницу»; the edits are the card's, `undefined` before it is there. */
-  onExpand: (edits?: WorkItemEdits) => void;
+  /** The dialog fills the whole window instead of 90 % of it. */
+  expanded: boolean;
+  /** «Развернуть на весь экран» / «Свернуть». */
+  onToggleExpanded: () => void;
   /** After the dialog has closed: the host restores focus if the opener is gone. */
   onExited?: () => void;
 }) {
@@ -86,7 +88,8 @@ export function DialogFrame({
       labelledBy={frame?.headingId}
       label={frame ? undefined : label}
       busy={frame?.busy}
-      onExpand={() => onExpand(frame?.edits)}
+      onExpand={onToggleExpanded}
+      expanded={expanded}
       guard={{
         dirty: frame?.dirty ?? false,
         title: guard.title,

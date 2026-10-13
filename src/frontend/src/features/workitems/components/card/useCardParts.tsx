@@ -88,6 +88,7 @@ function partsOf(
       appearance={frame.appearance}
       typeLabel={frame.typeName}
       identifier={frame.identifier}
+      typeHref={headingLevel === 2 ? frame.pagePath : undefined}
       headingLevel={headingLevel}
       headingId={frame.headingId}
       title={frame.title}

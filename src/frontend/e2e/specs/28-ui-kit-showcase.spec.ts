@@ -402,7 +402,7 @@ test.describe('28. the UI kit showcase', () => {
       windowBox.x +
         windowBox.width -
         (await centreXOf(
-          cardWindow.getByRole('button', { name: 'Развернуть на страницу', exact: true }),
+          cardWindow.getByRole('button', { name: 'Развернуть на весь экран', exact: true }),
         )),
       MEASURE.dialogExpandCentre,
     );

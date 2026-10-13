@@ -231,9 +231,9 @@ describe('tech-015 Scenario: CardHeaderBar (design § 5.9)', () => {
   });
 
   describe('Scenario: no dialog icon is the bar’s', () => {
-    it('draws no «Развернуть на страницу» and no «Закрыть»: they are the shell’s', () => {
+    it('draws no «Развернуть на весь экран» and no «Закрыть»: they are the shell’s', () => {
       renderBar();
-      expect(screen.queryByRole('button', { name: 'Развернуть на страницу' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Развернуть на весь экран' })).toBeNull();
       expect(screen.queryByRole('button', { name: 'Закрыть' })).toBeNull();
     });
   });

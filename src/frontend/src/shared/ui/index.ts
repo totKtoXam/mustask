@@ -9,6 +9,7 @@ export {
   ThinChevronDownIcon,
   ThinChevronRightIcon,
   ThinCloseIcon,
+  ThinCollapseIcon,
   ThinExpandIcon,
   ThinMoreVerticalIcon,
   ThinPersonIcon,

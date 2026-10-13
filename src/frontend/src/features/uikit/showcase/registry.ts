@@ -70,6 +70,7 @@ export const showcaseRegistry: readonly ShowcaseSection[] = [
       'ThinAddIcon',
       'ThinRemoveIcon',
       'ThinCloseIcon',
+      'ThinCollapseIcon',
       'ThinExpandIcon',
       'ThinMoreVerticalIcon',
       'ThinRefreshIcon',

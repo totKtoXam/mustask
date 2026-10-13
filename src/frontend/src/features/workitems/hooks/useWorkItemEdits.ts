@@ -8,7 +8,6 @@ import {
   editedDraft,
   firstErrorField,
   hasUnsavedEdits,
-  normaliseEdits,
   rebaseEdits,
   touchedChanges,
   withEdit,
@@ -56,11 +55,6 @@ export interface WorkItemEditsOptions {
   identifier: string;
   /** The item as stored now: the cache entry, which a save and a read replace. */
   item: WorkItem;
-  /**
-   * Edits carried from another card (the dialog's «Развернуть на страницу»,
-   * BR-C-3), read once; an edit that equals what `item` stores is dropped.
-   */
-  initialEdits?: WorkItemEdits;
   /** Tells the user a short result («Изменения сохранены.») — the kit's `useNotice().show`. */
   notify: (text: string) => void;
   /** The path's own level is gone (BR-C-17): the host shows that level's frame. */
@@ -124,7 +118,6 @@ export function useWorkItemEdits({
   projectId,
   identifier,
   item,
-  initialEdits,
   notify,
   onGone,
   onSaved,
@@ -132,9 +125,7 @@ export function useWorkItemEdits({
 }: WorkItemEditsOptions): WorkItemEditsState {
   const { mutateAsync: sendChanges } = useSaveWorkItem(organizationId, projectId, identifier);
   const readItem = useRefreshWorkItem(organizationId, projectId, identifier);
-  const [edits, setEdits] = useState<WorkItemEdits>(() =>
-    initialEdits ? normaliseEdits(item, initialEdits) : NO_EDITS,
-  );
+  const [edits, setEdits] = useState<WorkItemEdits>(NO_EDITS);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [alert, setAlert] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);

@@ -34,6 +34,7 @@ function CardDialog({
   const card = useDemoCard({ headingLevel: 2, headingId, idBase: CARD_DIALOG_ID, long: true });
   // A busy window cannot be closed; the button inside it lets the demo's "save" finish.
   const [busy, setBusy] = useState(mode === 'busy');
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <DialogShell
@@ -53,10 +54,8 @@ function CardDialog({
             }
           : undefined
       }
-      onExpand={() => {
-        onClose();
-        document.getElementById('card')?.scrollIntoView();
-      }}
+      onExpand={() => setExpanded((current) => !current)}
+      expanded={expanded}
       onClose={() => onClose()}
     >
       {busy && <ActionButton label="Завершить сохранение" onClick={() => setBusy(false)} />}

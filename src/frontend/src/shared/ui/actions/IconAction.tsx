@@ -44,7 +44,7 @@ const TONE_COLOUR = {
 /**
  * Every icon-only button (tech-015 design § 5.2): a row's «+» and «⋮», a tree
  * chevron, the header's two square buttons, the card's toolbar and the dialog's
- * «Развернуть на страницу» and «Закрыть». MUI's medium `IconButton` with its own
+ * «Развернуть на весь экран» and «Закрыть». MUI's medium `IconButton` with its own
  * box and glyph from the tokens, inside a `Tooltip` that shows on hover and on
  * keyboard focus, and on a disabled button too.
  *

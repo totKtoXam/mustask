@@ -9,7 +9,6 @@ import {
   hasUnsavedEdits,
   isUntouched,
   normaliseEdits,
-  readCarriedEdits,
   rebaseEdits,
   touchedChanges,
   withEdit,
@@ -229,30 +228,5 @@ describe('where the first error is looked for (design § 4.6)', () => {
     expect(firstErrorField({}, 'story')).toBeUndefined();
     // A field the type lacks is not looked for.
     expect(firstErrorField({ severity: 'x' }, 'story')).toBeUndefined();
-  });
-});
-
-describe('edits carried from the dialog to the page (BR-C-3)', () => {
-  it('reads the edits a router state carries', () => {
-    const edits: WorkItemEdits = {
-      title: 'Новый',
-      assignee: null,
-      parent: { value: FEAT_8, seenParentId: 'feat-6' },
-      fields: { priority: '1' },
-    };
-
-    expect(readCarriedEdits({ edits })).toEqual(edits);
-  });
-
-  it('leaves out what is not an edit, and reads nothing from a state with no edits', () => {
-    expect(readCarriedEdits(undefined)).toBeUndefined();
-    expect(readCarriedEdits(null)).toBeUndefined();
-    expect(readCarriedEdits({})).toBeUndefined();
-    expect(readCarriedEdits({ edits: 'x' })).toBeUndefined();
-    expect(
-      readCarriedEdits({
-        edits: { title: 7, description: 'Текст', fields: { priority: 1, risk: '2', nothing: 'x' } },
-      }),
-    ).toEqual({ description: 'Текст', fields: { risk: '2' } });
   });
 });

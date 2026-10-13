@@ -322,18 +322,17 @@ describe('feat-029: what the card hands its shell (the frame’s contract)', () 
     expect(frame.notice).toBeNull();
     expect(frame.busy).toBe(false);
     expect(frame.dirty).toBe(false);
-    expect(frame.edits).toEqual({});
+    expect(frame.pagePath).toMatch(/\/workitems\/MSK-BUG-4$/);
     const related = frame.extra[0];
     expect(related && 'subsection' in related ? related.subsection?.count : null).toBe(0);
   });
 
-  it('hands over the edits and the dirty flag, so the dialog can guard and expand', async () => {
+  it('hands over the dirty flag, so the dialog can guard', async () => {
     const { seen, renderFrame } = capture();
     await openCard('MSK-US-2', { card: { renderFrame } });
 
     await userEvent.type(screen.getByRole('textbox', { name: 'Заголовок' }), '!');
 
     expect((seen.frame as CardFrameProps).dirty).toBe(true);
-    expect((seen.frame as CardFrameProps).edits).toEqual({ title: 'Письмо со ссылкой!' });
   });
 });

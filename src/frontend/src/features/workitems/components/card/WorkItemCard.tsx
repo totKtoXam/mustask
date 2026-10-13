@@ -23,7 +23,6 @@ import {
   type GuardTexts,
 } from '../../lib/cardTexts';
 import { editHandlers } from '../../lib/editHandlers';
-import type { WorkItemEdits } from '../../lib/edits';
 import { createFieldRegistry } from '../../lib/fieldRegistry';
 import { TEXT_FIELDS, layoutOf } from '../../lib/fields';
 import type { WorkItemsNotFoundLevel } from '../../lib/notFoundLevel';
@@ -58,8 +57,6 @@ export interface WorkItemCardProps {
    * the card existed.
    */
   renderFrame: (frame: CardFrameProps) => ReactNode;
-  /** Edits carried from the dialog by «Развернуть на страницу» (BR-C-3). */
-  initialEdits?: WorkItemEdits;
   /** BR-C-19: every field a value, no Save group, no undo. Nothing sets it today. */
   readOnly?: boolean;
   /** The reason a read-only card gives; default «Рабочий элемент доступен только для чтения.». */
@@ -102,7 +99,6 @@ export function WorkItemCard({
   notify,
   onGone,
   renderFrame,
-  initialEdits,
   readOnly = false,
   readOnlyText = cardTexts.readOnly,
   onClose,
@@ -120,7 +116,6 @@ export function WorkItemCard({
     projectId,
     identifier: item.identifier,
     item,
-    initialEdits,
     notify,
     onGone,
     onSaved,
@@ -393,7 +388,7 @@ export function WorkItemCard({
     extra,
     busy: saving,
     dirty: state.isDirty,
-    edits: state.edits,
+    pagePath: workItemPath(organizationId, projectId, item.identifier),
   };
 
   return (

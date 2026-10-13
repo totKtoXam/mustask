@@ -23,7 +23,7 @@ export interface PanelShellProps {
  * the `kit-card` container its header and band read.
  *
  * **The page scrolls, not the card**: the header, the band and the tab strip scroll with
- * it, nothing is fixed, and the body has no inner scrollbar. No «Развернуть на страницу»
+ * it, nothing is fixed, and the body has no inner scrollbar. No «Развернуть на весь экран»
  * and no «Закрыть» — the trail leads back. The space above is the shell's, not the host's:
  * `layout.pageHead.panelTop`, then the trail with `trailGap` under it.
  */

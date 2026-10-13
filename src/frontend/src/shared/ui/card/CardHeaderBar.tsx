@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import Box from '@mui/material/Box';
+import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
 import type { Theme } from '@mui/material/styles';
 import { TypeLabel } from '../marks/TypeLabel';
@@ -23,6 +24,11 @@ export interface CardHeaderBarProps {
   typeLabel: string;
   /** The item's identifier, e.g. «MSK-US-2». */
   identifier: string;
+  /**
+   * Where the type line leads, opened in a new tab: the item's own page, from the
+   * dialog. Without it — on the page itself — the line is plain text.
+   */
+  typeHref?: string;
   /** 1 on the page, 2 in the dialog, 3 inside a showcase section. */
   headingLevel: 1 | 2 | 3;
   /** The heading's id: what the dialog's `aria-labelledby` points at. */
@@ -41,7 +47,7 @@ export interface CardHeaderBarProps {
  * («<Тип> <ID>», which is the heading), the identifier and the title, and the assignee
  * with the actions — `headerRowGap` apart: 4 + 32 + 8 + 32 + 8 + 32 + 8 = 124.
  *
- * The dialog's «Развернуть на страницу» and «Закрыть» are not this bar's: `DialogShell`
+ * The dialog's «Развернуть на весь экран» and «Закрыть» are not this bar's: `DialogShell`
  * draws them over the right end of row 1. Below `layout.card.stackBelow` — the shell's
  * width, read as a container query — row 3 wraps: the meta on its own line, the actions
  * under it at the right.
@@ -50,6 +56,7 @@ export function CardHeaderBar({
   appearance,
   typeLabel,
   identifier,
+  typeHref,
   headingLevel,
   headingId,
   title,
@@ -87,7 +94,21 @@ export function CardHeaderBar({
             paddingRight: `var(${CARD_ICONS_INSET}, 0px)`,
           })}
         >
-          <TypeLabel eyebrow appearance={appearance} name={`${typeLabel} ${identifier}`} />
+          {typeHref === undefined ? (
+            <TypeLabel eyebrow appearance={appearance} name={`${typeLabel} ${identifier}`} />
+          ) : (
+            <Link
+              href={typeHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Открыть на отдельной странице"
+              underline="hover"
+              color="inherit"
+              sx={{ display: 'inline-flex', minWidth: 0, maxWidth: '100%' }}
+            >
+              <TypeLabel eyebrow appearance={appearance} name={`${typeLabel} ${identifier}`} />
+            </Link>
+          )}
         </Typography>
         <Box
           sx={(theme) => ({

@@ -243,7 +243,7 @@ showcase's E2E.
 
 - Interface text is Russian and final in the feature's `design.md`; code never
   invents it. The kit owns only the few defaults listed in tech-015's design § 7
-  («Развернуть на страницу», «Закрыть», «Ещё действия», «Не назначен»,
+  («Развернуть на весь экран», «Закрыть», «Ещё действия», «Не назначен»,
   «Продолжить редактирование», «Загрузка данных»).
 - A control's accessible name is its label, never its value. A row's controls
   name their row. A hidden label is still passed.

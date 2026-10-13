@@ -357,18 +357,3 @@ describe('feat-029 US-5: refresh and undo', () => {
     expect(t.notify).toHaveBeenCalledWith(cardTexts.notices.undone);
   });
 });
-
-describe('feat-029 BR-C-3: edits carried from the dialog', () => {
-  it('starts from them, minus any that equal what the item stores', async () => {
-    const t = await setup({
-      hook: { initialEdits: { title: 'Письмо со ссылкой', fields: { priority: '1' } } },
-    });
-
-    expect(t.state().edits).toEqual({ fields: { priority: '1' } });
-    expect(t.state().isDirty).toBe(true);
-    expect(t.state().draft.fields.priority).toBe('1');
-
-    expect(await save(t)).toBe('saved');
-    expect(patches(t.api)[0]?.body).toEqual({ priority: { value: 1 } });
-  });
-});

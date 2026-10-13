@@ -303,20 +303,3 @@ describe('feat-029 US-4: refusals', () => {
     await waitFor(() => expect(onGone).toHaveBeenCalledWith('workItem'));
   });
 });
-
-describe('feat-029 BR-C-3: edits carried from the dialog', () => {
-  it('stand on the page as they stood, and the other fields show the stored values', async () => {
-    const { api } = await openCard('MSK-US-2', {
-      card: { initialEdits: { title: 'Письмо для входа', fields: { priority: '1' } } },
-    });
-
-    expect(title()).toHaveValue('Письмо для входа');
-    expect(screen.getByRole('combobox', { name: 'Приоритет' })).toHaveTextContent('1');
-    expect(save()).toBeEnabled();
-
-    await userEvent.click(save());
-
-    await waitFor(() => expect(patches(api)).toHaveLength(1));
-    expect(patches(api)[0]?.body).toEqual({ title: 'Письмо для входа', priority: { value: 1 } });
-  });
-});

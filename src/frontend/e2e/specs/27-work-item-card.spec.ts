@@ -27,7 +27,7 @@ import {
  * real backend: the dialog by a click and by its address (27.1), its header,
  * band and tab at the reference's measures (27.2), the three columns and the
  * fields without frames by type (27.3), editing and saving only what was touched
- * (27.4), refresh, undo-all and the link (27.5), closing and expanding with
+ * (27.4), refresh, undo-all and the link (27.5), closing and expanding to the window with
  * edits (27.6), and the page by its address at every width (27.7).
  *
  * Written from the spec, the stories and the design, in parallel with the code
@@ -300,7 +300,9 @@ const undoButton = (scope: Locator) =>
 const moreButton = (scope: Locator) =>
   scope.getByRole('button', { name: 'Ещё действия', exact: true });
 const expandButton = (scope: Locator) =>
-  scope.getByRole('button', { name: 'Развернуть на страницу', exact: true });
+  scope.getByRole('button', { name: 'Развернуть на весь экран', exact: true });
+const collapseButton = (scope: Locator) =>
+  scope.getByRole('button', { name: 'Свернуть', exact: true });
 const closeButton = (scope: Locator) => scope.getByRole('button', { name: 'Закрыть', exact: true });
 const tabList = (scope: Locator) =>
   scope.getByRole('tablist', { name: 'Разделы рабочего элемента', exact: true });
@@ -1688,7 +1690,7 @@ test.describe('27. the work item card (feat-029)', () => {
     });
   });
 
-  test('27.6 every way to close asks when an edit is unsaved and Esc belongs to what is open; Back is not guarded; a switch to a related item asks too; «Развернуть на страницу» brings the edits to the page (US-6)', async ({
+  test('27.6 every way to close asks when an edit is unsaved and Esc belongs to what is open; Back is not guarded; a switch to a related item asks too; «Развернуть на весь экран» stretches the dialog and the type line opens the page in a new tab (US-6)', async ({
     page,
   }) => {
     test.setTimeout(240_000);
@@ -1834,57 +1836,42 @@ test.describe('27. the work item card (feat-029)', () => {
       await expect(link).toBeFocused();
     });
 
-    await test.step('«Развернуть на страницу» takes the edits to the page with no question; Back shows the dialog without them', async () => {
+    await test.step('«Развернуть на весь экран» stretches the dialog over the window and keeps the address and the edits; «Свернуть» gives the 90 % back', async () => {
       await openFromBacklog();
       await titleField(card).fill('Письмо со ссылкой для входа');
-      await choose(page, card, 'Приоритет', '1');
+      const before = await box(card);
       await expandButton(card).click();
 
-      const pageCardOfStory = pageCard(page);
-      await expect.poll(() => pathOf(page)).toBe(fx.pageOf(story.identifier));
       await expect(confirmation(page, CLOSE_TITLE)).toHaveCount(0);
-      await expect(
-        page.getByRole('heading', {
-          level: 1,
-          name: `${TYPE.story} ${story.identifier}`,
-          exact: true,
-        }),
-      ).toBeVisible();
-      await expect(titleField(pageCardOfStory)).toHaveValue('Письмо со ссылкой для входа');
-      await expect(list(pageCardOfStory, 'Приоритет')).toHaveText('1');
-      await expect(saveButton(pageCardOfStory)).toBeEnabled();
-      await expect(undoButton(pageCardOfStory)).toBeEnabled();
-      // The page has neither control the dialog has.
-      await expect(expandButton(pageCardOfStory)).toHaveCount(0);
-      await expect(closeButton(pageCardOfStory)).toHaveCount(0);
-
-      await page.goBack();
       await expect(card).toBeVisible();
-      await expect.poll(() => workitemParam(page)).toBe(story.identifier);
+      expect(workitemParam(page)).toBe(story.identifier);
       expect(pathOf(page)).toBe(fx.backlog);
-      await expect(titleField(card)).toHaveValue('Письмо со ссылкой');
+      const window = page.viewportSize();
+      const stretched = await box(card);
+      near(stretched.width, window?.width ?? 0, 2, 'the dialog fills the window’s width');
+      near(stretched.height, window?.height ?? 0, 2, 'the dialog fills the window’s height');
+      expect(stretched.width).toBeGreaterThan(before.width);
+      await expect(titleField(card)).toHaveValue('Письмо со ссылкой для входа');
+
+      await collapseButton(card).click();
+      near((await box(card)).width, before.width, 2, 'the dialog is back to 90 %');
+      await expect(titleField(card)).toHaveValue('Письмо со ссылкой для входа');
+      await undoButton(card).click();
       await expect(saveButton(card)).toBeDisabled();
     });
 
-    await test.step('edits do not travel to a changed item: the page shows the edited text and the stored priority; a save sends the text alone', async () => {
-      await description.fill('Описание из окна');
-      await fx.save(story.identifier, { priority: { value: 3 } });
-      await expandButton(card).click();
-      const pageCardOfStory = pageCard(page);
-      await expect.poll(() => pathOf(page)).toBe(fx.pageOf(story.identifier));
-      await expect(textbox(pageCardOfStory, 'Описание')).toHaveValue('Описание из окна');
-      await expect(list(pageCardOfStory, 'Приоритет')).toHaveText('3');
-      await expect(saveButton(pageCardOfStory)).toBeEnabled();
-      expect(await saveCard(page, pageCardOfStory, story.identifier)).toEqual({
-        description: 'Описание из окна',
+    await test.step('the type line opens the item’s page in a new tab and leaves the dialog where it is', async () => {
+      const typeLink = card.getByRole('link', {
+        name: `${TYPE.story} ${story.identifier}`,
       });
+      await expect(typeLink).toHaveAttribute('target', '_blank');
+      const [tab] = await Promise.all([page.context().waitForEvent('page'), typeLink.click()]);
+      await tab.waitForLoadState();
+      expect(new URL(tab.url()).pathname).toBe(fx.pageOf(story.identifier));
+      await tab.close();
 
-      // The trail of the page leads to the project's list.
-      await page
-        .getByRole('navigation', { name: 'Путь к странице' })
-        .getByRole('link', { name: 'Рабочие элементы' })
-        .click();
-      await expect.poll(() => pathOf(page)).toBe(fx.workItems);
+      await expect(card).toBeVisible();
+      expect(workitemParam(page)).toBe(story.identifier);
     });
   });
 

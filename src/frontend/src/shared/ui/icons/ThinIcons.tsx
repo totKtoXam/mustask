@@ -40,10 +40,16 @@ export const ThinRemoveIcon = createSvgIcon(line('M5 12h14'), 'ThinRemove');
 /** A diagonal cross: «Закрыть» and a tag's remove. */
 export const ThinCloseIcon = createSvgIcon(line('M6 6l12 12M18 6 6 18'), 'ThinClose');
 
-/** Two arrowheads pointing outwards, «⤢»: «Развернуть на страницу». */
+/** Two arrowheads pointing outwards, «⤢»: «Развернуть на весь экран». */
 export const ThinExpandIcon = createSvgIcon(
   line('M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7'),
   'ThinExpand',
+);
+
+/** Two arrowheads pointing inwards, «⤡»: «Свернуть» the stretched dialog. */
+export const ThinCollapseIcon = createSvgIcon(
+  line('M20 10h-6V4M13 11l7-7M4 14h6v6M11 13l-7 7'),
+  'ThinCollapse',
 );
 
 /** Three dots in a column, «⋮» — the one filled glyph of the set. */

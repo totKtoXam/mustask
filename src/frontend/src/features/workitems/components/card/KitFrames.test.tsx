@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { DialogCloseReason } from '../../../../shared/ui';
-import type { WorkItemEdits } from '../../lib/edits';
 import type { CardFrameProps } from './cardFrame';
 import { createFrameStore } from './frameStore';
 import { DialogFrame, PublishFrame } from './KitFrames';
@@ -15,7 +14,7 @@ const TYPE_LINE = 'Пользовательская история MSK-US-2';
 /** The card in the dialog's frame, as the dialog host hosts it. */
 async function openDialog() {
   const onClose = vi.fn<(reason: DialogCloseReason) => void>();
-  const onExpand = vi.fn<(edits?: WorkItemEdits) => void>();
+  const onToggleExpanded = vi.fn<() => void>();
   const store = createFrameStore();
   const t = await openCard('MSK-US-2', {
     card: {
@@ -29,13 +28,14 @@ async function openDialog() {
             label={`Рабочий элемент ${frame.identifier}`}
             fallback={null}
             onClose={onClose}
-            onExpand={onExpand}
+            expanded={false}
+            onToggleExpanded={onToggleExpanded}
           />
         </>
       ),
     },
   });
-  return { ...t, onClose, onExpand };
+  return { ...t, onClose, onToggleExpanded };
 }
 
 const title = held(() => screen.getByRole('textbox', { name: 'Заголовок' }));
@@ -49,13 +49,14 @@ describe('feat-029 US-1: the dialog’s shell before a card has published a fram
         label="Рабочий элемент MSK-US-2"
         fallback={<p>Пока ничего</p>}
         onClose={vi.fn()}
-        onExpand={vi.fn()}
+        expanded={false}
+        onToggleExpanded={vi.fn()}
       />,
     );
 
     const dialog = screen.getByRole('dialog', { name: 'Рабочий элемент MSK-US-2' });
     expect(within(dialog).getByText('Пока ничего')).toBeVisible();
-    expect(within(dialog).getByRole('button', { name: 'Развернуть на страницу' })).toBeEnabled();
+    expect(within(dialog).getByRole('button', { name: 'Развернуть на весь экран' })).toBeEnabled();
     expect(within(dialog).getByRole('button', { name: 'Закрыть' })).toBeEnabled();
     expect(within(dialog).queryByRole('heading')).not.toBeInTheDocument();
   });
@@ -68,7 +69,7 @@ describe('feat-029 US-1, US-2: the card in the dialog’s frame', () => {
     const dialog = screen.getByRole('dialog', { name: TYPE_LINE });
     expect(within(dialog).getByRole('heading', { level: 2, name: TYPE_LINE })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
-    expect(within(dialog).getByRole('button', { name: 'Развернуть на страницу' })).toBeEnabled();
+    expect(within(dialog).getByRole('button', { name: 'Развернуть на весь экран' })).toBeEnabled();
     expect(within(dialog).getByRole('button', { name: 'Закрыть' })).toBeEnabled();
     expect(
       within(dialog).getByRole('tablist', { name: 'Разделы рабочего элемента' }),
@@ -118,15 +119,26 @@ describe('feat-029 US-1, US-2: the card in the dialog’s frame', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('expands to the page without a question, carrying what was touched', async () => {
-    const { onExpand } = await openDialog();
+  it('expands to the whole window without a question, whatever was touched', async () => {
+    const { onToggleExpanded } = await openDialog();
     fill(title(), 'Письмо для входа');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Развернуть на страницу' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Развернуть на весь экран' }));
 
-    expect(onExpand).toHaveBeenCalledWith({ title: 'Письмо для входа' });
+    expect(onToggleExpanded).toHaveBeenCalledTimes(1);
     expect(
       screen.queryByRole('dialog', { name: 'Закрыть без сохранения?' }),
     ).not.toBeInTheDocument();
+  });
+
+  it('leads the type line to the item’s own page, in a new tab', async () => {
+    await openDialog();
+
+    const link = within(screen.getByRole('dialog', { name: TYPE_LINE })).getByRole('link', {
+      name: TYPE_LINE,
+    });
+    expect(link).toHaveAttribute('href', expect.stringMatching(/\/workitems\/MSK-US-2$/));
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
   });
 });

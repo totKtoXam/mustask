@@ -1,6 +1,6 @@
 // The work item card's interface texts, final in feat-029's design § 9 and
 // nowhere else. The labels, lists, hints and placeholders of the fields stay
-// in `fields.ts`; the kit owns its few defaults («Развернуть на страницу»,
+// in `fields.ts`; the kit owns its few defaults («Развернуть на весь экран»,
 // «Закрыть», «Ещё действия», «Загрузка данных», «Продолжить редактирование»).
 
 export const cardTexts = {

@@ -2,12 +2,9 @@ import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { MemoryRouter, useLocation, useNavigate, type To } from 'react-router-dom';
-import type { WorkItemEdits } from '../lib/edits';
-import { useCarriedEdits } from './useCarriedEdits';
 import { useWorkItemDialog } from './useWorkItemDialog';
 
 const BACKLOG = '/organizations/o/teams/t/backlog';
-const PAGE = '/organizations/o/projects/p/workitems/MSK-US-2';
 
 interface Entry {
   pathname: string;
@@ -220,68 +217,5 @@ describe('feat-029 US-1: the dialog lives in the address (BR-C-2)', () => {
     t.go('/organizations/o/teams/other/backlog');
 
     expect(t.current().dialog.identifier).toBeNull();
-  });
-});
-
-describe('feat-029 US-6: expanding carries the unsaved edits (BR-C-3)', () => {
-  const EDITS: WorkItemEdits = { title: 'Письмо со ссылкой для входа', fields: { priority: '1' } };
-
-  it('pushes the page with the edits in the router state, and Back returns to the dialog', () => {
-    const t = setup([BACKLOG]);
-    act(() => t.current().dialog.open('MSK-US-2'));
-
-    act(() => t.current().dialog.expand(PAGE, EDITS));
-
-    expect(t.current().location.pathname).toBe(PAGE);
-    expect(t.current().location.state).toEqual({ edits: EDITS });
-    expect(t.current().dialog.identifier).toBeNull();
-
-    t.go(-1);
-    expect(t.current().dialog.identifier).toBe('MSK-US-2');
-  });
-
-  it('carries nothing when nothing is touched', () => {
-    const t = setup([BACKLOG]);
-    act(() => t.current().dialog.open('MSK-US-2'));
-
-    act(() => t.current().dialog.expand(PAGE, {}));
-
-    expect(t.current().location.state).toBeNull();
-  });
-});
-
-describe('feat-029 US-6: the page reads the carried edits once', () => {
-  function pageSetup(state: unknown) {
-    const view = renderHook(() => ({ carried: useCarriedEdits(), location: useLocation() }), {
-      wrapper: ({ children }: { children: ReactNode }) => (
-        <MemoryRouter initialEntries={[{ pathname: PAGE, state }]}>{children}</MemoryRouter>
-      ),
-    });
-    return view;
-  }
-
-  it('hands over the edits and clears them from the router state, keeping the rest of it', async () => {
-    const view = pageSetup({ edits: { title: 'Новый' }, from: 'dialog' });
-
-    expect(view.result.current.carried).toEqual({ title: 'Новый' });
-    await waitFor(() => expect(view.result.current.location.state).toEqual({ from: 'dialog' }));
-    // Read once: still the same after the state is gone.
-    expect(view.result.current.carried).toEqual({ title: 'Новый' });
-    view.rerender();
-    expect(view.result.current.carried).toEqual({ title: 'Новый' });
-  });
-
-  it('has none for a page opened by its address', () => {
-    const view = pageSetup(undefined);
-
-    expect(view.result.current.carried).toBeUndefined();
-    expect(view.result.current.location.state).toBeNull();
-  });
-
-  it('leaves out what is not an edit, and still clears the state', async () => {
-    const view = pageSetup({ edits: { title: 7 } });
-
-    expect(view.result.current.carried).toBeUndefined();
-    await waitFor(() => expect(view.result.current.location.state).toBeNull());
   });
 });

@@ -12,10 +12,8 @@ import {
 import type { WorkItem } from '../api/workItemsApi';
 import { PageFrame } from '../components/card/KitFrames';
 import { WorkItemCard } from '../components/card/WorkItemCard';
-import { useCarriedEdits } from '../hooks/useCarriedEdits';
 import { useWorkItem } from '../hooks/queries';
 import { cardTexts, loadingName } from '../lib/cardTexts';
-import type { WorkItemEdits } from '../lib/edits';
 import { notFoundLevel, type WorkItemsNotFoundLevel } from '../lib/notFoundLevel';
 import { workItemsPath } from '../paths';
 
@@ -53,8 +51,6 @@ function WorkItemPage({
   identifier: string;
 }) {
   const query = useWorkItem(organizationId, projectId, identifier);
-  // The edits the dialog's «Развернуть на страницу» carried, read once (BR-C-3).
-  const carried = useCarriedEdits();
   const [gone, setGone] = useState<WorkItemsNotFoundLevel | null>(null);
 
   const level = gone ?? (query.isError ? notFoundLevel(query.error) : null);
@@ -79,7 +75,6 @@ function WorkItemPage({
       organizationId={organizationId}
       projectId={projectId}
       item={query.data}
-      initialEdits={carried}
       onGone={setGone}
     />
   );
@@ -104,13 +99,11 @@ function PageCard({
   organizationId,
   projectId,
   item,
-  initialEdits,
   onGone,
 }: {
   organizationId: string;
   projectId: string;
   item: WorkItem;
-  initialEdits: WorkItemEdits | undefined;
   onGone: (level: WorkItemsNotFoundLevel) => void;
 }) {
   const { show } = useNotice();
@@ -136,7 +129,6 @@ function PageCard({
       mode="page"
       notify={show}
       onGone={onGone}
-      initialEdits={initialEdits}
       onClose={goBack}
       renderFrame={(frame) => <PageFrame frame={frame} trail={trail} />}
     />

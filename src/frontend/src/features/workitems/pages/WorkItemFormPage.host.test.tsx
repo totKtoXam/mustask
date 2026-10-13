@@ -9,7 +9,7 @@ import { NoticeProvider } from '../../../shared/ui';
 import { fill, held } from '../components/card/testCard';
 import { cardTexts } from '../lib/cardTexts';
 import { serveWorkItems, type WorkItemsTestApi } from '../testApi';
-import { WORK_ITEM_URL, hierarchyDataset, ids, recordOf } from '../testFixtures';
+import { WORK_ITEM_URL, hierarchyDataset, ids } from '../testFixtures';
 import { WorkItemFormPage } from './WorkItemFormPage';
 import { WORK_ITEM_ROUTE, workItemsPath } from '../paths';
 
@@ -69,7 +69,7 @@ describe('feat-029 US-7: the page is the card', () => {
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     await waitFor(() => expect(document.title).toBe('Пользовательская история MSK-US-2 — Mustask'));
     expect(
-      screen.queryByRole('button', { name: 'Развернуть на страницу' }),
+      screen.queryByRole('button', { name: 'Развернуть на весь экран' }),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Закрыть' })).not.toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -102,40 +102,6 @@ describe('feat-029 US-7: the page is the card', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Нет ответа.');
   });
 });
-
-describe('feat-029 BR-C-3: edits the dialog carried to the page', () => {
-  it('stand as they stood, with the stored values for every field the user did not touch', async () => {
-    const data = hierarchyDataset();
-    // Another user changed «Приоритет» before the page was read.
-    recordOf(data, 2).fields.priority = 1;
-    const api = serveWorkItems(data);
-    renderPage([
-      {
-        pathname: STORY,
-        state: { edits: { description: 'Мой текст', title: 'Письмо для входа' } },
-      },
-    ]);
-    await screen.findByRole('textbox', { name: 'Заголовок' });
-
-    expect(title()).toHaveValue('Письмо для входа');
-    expect(screen.getByRole('textbox', { name: 'Описание' })).toHaveValue('Мой текст');
-    expect(screen.getByRole('combobox', { name: 'Приоритет' })).toHaveTextContent('1');
-    expect(screen.getByRole('button', { name: 'Сохранить' })).toBeEnabled();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
-
-    await waitFor(() => expect(patches(api)).toHaveLength(1));
-    expect(patches(api)[0]?.body).toEqual({ title: 'Письмо для входа', description: 'Мой текст' });
-  });
-
-  it('are read once: a page opened by its address starts clean', async () => {
-    await openPage([STORY]);
-
-    expect(screen.getByRole('button', { name: 'Сохранить' })).toBeDisabled();
-    expect(title()).toHaveValue('Письмо со ссылкой');
-  });
-});
-
 describe('feat-029 BR-C-8: «Сохранить и закрыть» on the page', () => {
   async function saveAndClose() {
     await userEvent.click(screen.getByRole('button', { name: 'Ещё варианты сохранения' }));
