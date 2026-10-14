@@ -30,7 +30,7 @@ export const WORK_ITEM_FIELD_NAMES: readonly WorkItemFieldName[] = [
   'systemInfo',
 ];
 
-/** The five kinds of type the process holds fixed (mod-001's appearance tokens). */
+/** The appearance tokens this slice draws a work item form for (a subset of mod-001's tokens). */
 export const TYPE_APPEARANCES = ['epic', 'feature', 'story', 'task', 'bug'] as const;
 export type TypeAppearance = (typeof TYPE_APPEARANCES)[number];
 

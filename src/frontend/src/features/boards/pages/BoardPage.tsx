@@ -135,6 +135,7 @@ function TeamBoard({
           stateOf={stateOf}
           announce={setAnnouncement}
           showError={showError}
+          showCreated={showSuccess}
         />
       )}
       {newItem.elements}

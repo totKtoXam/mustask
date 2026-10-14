@@ -7,6 +7,7 @@ import {
   ThinAddIcon,
   ThinChevronDownIcon,
   ThinChevronRightIcon,
+  ThinChevronUpIcon,
   ThinCloseIcon,
   ThinCollapseIcon,
   ThinExpandIcon,
@@ -25,6 +26,7 @@ import { noop } from '../noop';
 
 const GLYPHS: readonly (readonly [string, ComponentType])[] = [
   ['ThinChevronDownIcon', ThinChevronDownIcon],
+  ['ThinChevronUpIcon', ThinChevronUpIcon],
   ['ThinChevronRightIcon', ThinChevronRightIcon],
   ['ThinAddIcon', ThinAddIcon],
   ['ThinRemoveIcon', ThinRemoveIcon],

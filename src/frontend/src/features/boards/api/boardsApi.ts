@@ -59,6 +59,31 @@ export interface BacklogItem {
 }
 
 /**
+ * feat-032 api-contract § 2.2: one entry of a card's checklist — a direct child
+ * of the card's item, live, of appearance `task`, `bug` or `testcase`. It carries
+ * no `order`, `priority`, parent, area or planning value.
+ */
+export interface ChecklistChild {
+  id: string;
+  identifier: string;
+  number: number;
+  type: WorkItemTypeReference;
+  title: string;
+  /** `null`: «Не назначен»; `displayName` `null`: «Неизвестный пользователь». */
+  assignee: WorkItemAssignee | null;
+  state: WorkItemStateReference;
+}
+
+/**
+ * feat-032 api-contract § 2.1: a board card — `BacklogItem` plus its `checklist`,
+ * the card's children in the order of their numbers; `[]` when it has none, never
+ * absent. (Not `children`: feat-027 pins that a board card carries none.)
+ */
+export interface BoardCardItem extends BacklogItem {
+  checklist: ChecklistChild[];
+}
+
+/**
  * feat-027 api-contract § 2.2: a nested row — mod-006's item without `order`
  * (a nested row has no «Порядок», BR-T-2) — with its parent, the three planning
  * values and its own children, recursively.
@@ -134,7 +159,7 @@ export interface BoardColumn {
   /** One entry per type of the level, in display order. */
   targets: BoardColumnTarget[];
   /** The cards, in the backlog's order; `order` is the backlog position. */
-  items: BacklogItem[];
+  items: BoardCardItem[];
 }
 
 /** § 3.3's answer: every column, an empty one with `[]`. */

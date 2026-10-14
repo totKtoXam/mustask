@@ -23,6 +23,7 @@ import type { Theme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { useQueryClient } from '@tanstack/react-query';
+import { useProcessDefinition } from '../../process';
 import {
   AssigneeName,
   StateName,
@@ -33,17 +34,23 @@ import {
   type WorkItemStateReference,
 } from '../../workitems';
 import { CategoryMarker, TypeMark } from '../../../shared/ui/WorkTrackingMarks';
-import type { BacklogItem, Board, BoardColumn } from '../api/boardsApi';
+import type { BacklogItem, Board, BoardCardItem, BoardColumn } from '../api/boardsApi';
 import { boardsKeys } from '../api/queryKeys';
 import { useReadTeamAgain } from '../hooks/queries';
+import { useChecklists, type AddField, type ChecklistEnv } from '../hooks/useChecklists';
 import { useMoveView } from '../hooks/useMoveView';
 import type { NewWorkItem } from '../hooks/useNewWorkItem';
 import { applyCardMove, columnOf, columnTarget, moveTargets } from '../lib/board';
 import type { BoardLevelCode } from '../lib/levels';
+import type { ChecklistKind } from '../lib/checklist';
 import { isAccessRefusal, moveRefusalNotice } from '../lib/refusals';
+import { CardChecklists } from './CardChecklists';
 
 /** spec § Page «Доски»: the button at the top of the first column. */
 const NEW_CARD_LABEL = 'Новый элемент';
+
+/** The process's types until it is read. */
+const NO_TYPES: never[] = [];
 
 /** The card menu's subheader, which also names the menu. */
 const MOVE_TO_COLUMN = 'Переместить в колонку';
@@ -88,6 +95,7 @@ export function BoardColumns({
   stateOf,
   announce,
   showError,
+  showCreated,
 }: {
   organizationId: string;
   projectId: string;
@@ -99,6 +107,8 @@ export function BoardColumns({
   stateOf(typeId: string, stateId: string): WorkItemStateReference | undefined;
   announce(text: string): void;
   showError(text: string): void;
+  /** mod-003's plain notice of a created item (feat-032 BR-C-9). */
+  showCreated(text: string): void;
 }) {
   const client = useQueryClient();
   const setState = useSetWorkItemState(organizationId, projectId);
@@ -116,7 +126,26 @@ export function BoardColumns({
   const menuId = useId();
   const subheaderId = useId();
 
-  const { saving, shown } = view;
+  const process = useProcessDefinition(organizationId);
+  // feat-032 BR-C-8: a task created from a card is a write too — the controls are off while it is
+  // saved, as for a move or a tick (`view` sees only the writes that change what is shown).
+  const [creating, setCreating] = useState(false);
+  const { saving: moving, shown } = view;
+  const saving = moving || creating;
+  const checklists = useChecklists({
+    organizationId,
+    projectId,
+    teamId,
+    level,
+    board,
+    view,
+    inFlightRef: inFlight,
+    setCreating,
+    types: process.data?.workItemTypes ?? NO_TYPES,
+    announce,
+    showError,
+    showCreated,
+  });
   // mod-016 design § 6.2: without `workitems.workitem.write` (the reader) a card
   // has no «Ещё действия», no dragging, and the first column no «Новый элемент».
   const { canWrite } = newItem;
@@ -331,6 +360,9 @@ export function BoardColumns({
                   canWrite={canWrite}
                   menuOpen={menu?.cardId === card.id}
                   menuId={menuId}
+                  checklistEnv={checklists.env}
+                  openKinds={checklists.openKinds(card.id)}
+                  adding={checklists.addFieldOf(card.id)}
                   formPath={workItemPath(organizationId, projectId, card.identifier)}
                   onOpenItem={openItem}
                   onOpenMenu={openMenu}
@@ -388,6 +420,9 @@ const BoardCard = memo(function BoardCard({
   canWrite,
   menuOpen,
   menuId,
+  checklistEnv,
+  openKinds,
+  adding,
   formPath,
   onOpenItem,
   onOpenMenu,
@@ -395,12 +430,15 @@ const BoardCard = memo(function BoardCard({
   onDragEnd,
   registerMenuButton,
 }: {
-  card: BacklogItem;
+  card: BoardCardItem;
   saving: boolean;
   /** `workitems.workitem.write`: without it the card has no menu and no drag. */
   canWrite: boolean;
   menuOpen: boolean;
   menuId: string;
+  checklistEnv: ChecklistEnv;
+  openKinds: readonly ChecklistKind[];
+  adding: AddField | null;
   /** The item's full page: the title's `href`, followed by a modified click (BR-C-1). */
   formPath: string;
   /** A plain click on the title opens the item's card as a dialog over the board (BR-C-1). */
@@ -410,6 +448,9 @@ const BoardCard = memo(function BoardCard({
   onDragEnd(): void;
   registerMenuButton(cardId: string, element: HTMLElement | null): void;
 }) {
+  // feat-032 BR-C-12, design § 9: a press that starts inside the checklist (`data-no-drag`) never
+  // starts the card's drag; the whole card stays the drag source for the rest of its surface.
+  const pressedInChecklist = useRef(false);
   return (
     <Card
       role="listitem"
@@ -418,8 +459,20 @@ const BoardCard = memo(function BoardCard({
       data-card={card.identifier}
       // The card's dialog gives focus back to this card's title by the identifier (BR-C-4).
       data-identifier={card.identifier}
-      onDragStart={(event: DragEvent<HTMLElement>) => onDragStart(event, card)}
-      onDragEnd={onDragEnd}
+      onMouseDownCapture={(event: MouseEvent<HTMLElement>) => {
+        pressedInChecklist.current = (event.target as Element).closest('[data-no-drag]') !== null;
+      }}
+      onDragStart={(event: DragEvent<HTMLElement>) => {
+        if (pressedInChecklist.current) {
+          event.preventDefault();
+          return;
+        }
+        onDragStart(event, card);
+      }}
+      onDragEnd={() => {
+        pressedInChecklist.current = false;
+        onDragEnd();
+      }}
       sx={(theme) => ({
         p: 1,
         display: 'flex',
@@ -477,6 +530,13 @@ const BoardCard = memo(function BoardCard({
           {priorityText(card.priority)}
         </Typography>
       </Box>
+      <CardChecklists
+        card={card}
+        env={checklistEnv}
+        openKinds={openKinds}
+        adding={adding}
+        off={saving || !canWrite}
+      />
     </Card>
   );
 });

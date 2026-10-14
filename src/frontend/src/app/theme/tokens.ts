@@ -85,8 +85,11 @@ export const semanticColours = {
   contrastText: '#FFFFFF',
 } as const;
 
-/** The appearance token set a process seed stores per type (BR-4, D-16). */
-export const APPEARANCE_TOKENS = ['epic', 'feature', 'story', 'task', 'bug'] as const;
+/**
+ * The appearance token set a process seed stores per type (BR-4, D-16); feat-032 BR-C-11
+ * adds `testcase`, whose spelling feat-031 adopts.
+ */
+export const APPEARANCE_TOKENS = ['epic', 'feature', 'story', 'task', 'bug', 'testcase'] as const;
 export type AppearanceToken = (typeof APPEARANCE_TOKENS)[number];
 
 /** doc-007's state-category codes; the theme keys on the code, never on a label (BR-4). */
@@ -112,6 +115,8 @@ export const typeColours: Record<AppearanceToken, string> = {
   story: '#0098C7',
   task: '#A4880A',
   bug: '#CC293D',
+  /** feat-032 design § 2: the flask's near-black neutral, 11.4:1 on white, so it needs no contrast exemption. */
+  testcase: '#3B3A39',
 };
 
 /**

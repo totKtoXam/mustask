@@ -139,7 +139,7 @@ public sealed record WorkItemListItemView(
     WorkItemAreaView Area,
     DateTimeOffset ChangedAt);
 
-/// <param name="Appearance"><c>epic</c>, <c>feature</c>, <c>story</c>, <c>task</c> or <c>bug</c>.</param>
+/// <param name="Appearance"><c>epic</c>, <c>feature</c>, <c>story</c>, <c>task</c>, <c>bug</c> or <c>testcase</c>.</param>
 public sealed record WorkItemTypeView(Guid Id, string Key, string Name, string Appearance);
 
 public sealed record WorkItemStateView(Guid Id, string Name, WorkItemStateCategoryView Category);

@@ -10,7 +10,7 @@ export type BacklogLevelKind = 'portfolio' | 'requirement' | 'task';
 export type WorkItemTypeKey = 'EPIC' | 'FEAT' | 'US' | 'BUG' | 'TASK';
 
 /** The appearance token a type stores (D-6); the theme draws it. */
-export type AppearanceToken = 'epic' | 'feature' | 'story' | 'task' | 'bug';
+export type AppearanceToken = 'epic' | 'feature' | 'story' | 'task' | 'bug' | 'testcase';
 
 /** doc-007's state-category codes; never shown, only looked up in the theme. */
 export type CategoryCode = 'Proposed' | 'InProgress' | 'Resolved' | 'Completed' | 'Removed';

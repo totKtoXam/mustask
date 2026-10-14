@@ -13,7 +13,8 @@ namespace Mustask.Application.Features.Boards.GetBoard;
 /// A team's board of one level (US-4): the backlog's items (the same
 /// membership read, BR-M4-5) in the backlog's order (BR-M4-15), each in the
 /// column its type's current state maps to, the columns derived from the
-/// organization's process on this read (BR-M4-2, <see cref="BoardLayout"/>).
+/// organization's process on this read (BR-M4-2, <see cref="BoardLayout"/>); each
+/// card carries its checklist of task, bug and test-case children (feat-032).
 /// </summary>
 /// <remarks>
 /// Not found from the outside in, exactly as the backlog's read (api-contract
@@ -64,7 +65,13 @@ public sealed class GetBoardHandler(
         var read = await backlogs.ReadAsync(BacklogScope.Of(projectId, teamId, resolved.Id, types), cancellationToken);
 
         // Every item of the backlog has a state outside Removed of one of the level's types, so it has exactly one column.
-        var cards = BacklogItemView.InOrder(read.Items).ToLookup(item => layout.ColumnOf(item.Type.Id, item.State.Id));
+        var items = BacklogItemView.InOrder(read.Items);
+
+        // feat-032 BR-C-10: every card's checklist comes with the board, in one more read for all the cards at once.
+        var checklists = await backlogs.ReadChecklistsAsync(projectId, items.Select(item => item.Id).ToList(), cancellationToken);
+        var cards = items
+            .Select(item => BoardCardView.Of(item, checklists))
+            .ToLookup(card => layout.ColumnOf(card.Type.Id, card.State.Id));
 
         var columns = layout.Columns
             .Select((column, index) => new BoardColumnView(

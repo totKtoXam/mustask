@@ -25,6 +25,9 @@ function line(path: string) {
  */
 export const ThinChevronDownIcon = createSvgIcon(line('M4.5 8.5 12 16l7.5-7.5'), 'ThinChevronDown');
 
+/** A chevron pointing up: the bottom of a board card's open checklist (feat-032 design § 4.1). */
+export const ThinChevronUpIcon = createSvgIcon(line('M4.5 15.5 12 8l7.5 7.5'), 'ThinChevronUp');
+
 /** A chevron pointing right: a collapsed row. */
 export const ThinChevronRightIcon = createSvgIcon(
   line('M8.5 4.5 16 12l-7.5 7.5'),

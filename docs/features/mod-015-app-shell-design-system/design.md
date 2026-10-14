@@ -303,7 +303,7 @@ Content padding: 24 px left and right at ≥ 1024 px, 16 px below.
 - Theme unit test: the density tokens (14 px, 48 px, row ≤ 40 px), the
   colour roles (navigation ≠ application background, top bar = content
   surface, secondary labels neutral), the contrast table of § 2.1 and § 2.3,
-  the five tokens and five categories distinct and none equal to the accent,
+  the five tokens (superseded in part by feat-032 (2026-10-12): the set of appearance tokens is six, `testcase` joins the five (see feat-032's api-contract § 4 and spec BR-C-11).) and five categories distinct and none equal to the accent,
   and the two lookups (§ 2.3).
 - Colour-literal check, run by `npm test` (BR-1): scans `src/frontend/src/`
   except `app/theme/`, `*.test.*` and `src/test/` for a string literal that is
@@ -1062,6 +1062,7 @@ Empty: «Бэклог пуст», «Добавьте рабочий элемен
 Type icons and dots follow § 2.3 everywhere: list, board card, backlog,
 form band, type picker, header-strip status. The prototype's «Язык
 оформления» page shows the five tokens and five categories with their labels.
+*Superseded in part by feat-032 (2026-10-12): the set of appearance tokens is six, `testcase` joins the five (see feat-032's api-contract § 4 and spec BR-C-11).*
 
 ### 10.7 Tree registry — «Области», «Итерации» (built by mod-002, D-19)
 

@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>feat-032: карточка с чек-листами (прототип)</title>
+<style>
+  body { font: 14px/20px "Segoe UI", Arial, sans-serif; background: #f3f2f1; margin: 24px; color: #201f1e; }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  p.note { color: #605e5c; max-width: 640px; margin: 0 0 16px; }
+  .board { display: flex; gap: 16px; align-items: flex-start; }
+  .col { width: 280px; background: #fff; border: 1px solid #e1dfdd; border-radius: 4px; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+  .col h2 { font-size: 12px; font-weight: 600; margin: 0 4px; }
+  .card { background: #fff; border-radius: 4px; border-left: 4px solid #0098c7; box-shadow: 0 1px 3px rgba(0,0,0,.25); padding: 8px; display: flex; flex-direction: column; gap: 4px; cursor: grab; }
+  .card.plain { border-left-color: #cc293d; }
+  .line { display: flex; gap: 8px; align-items: flex-start; }
+  .line .t { flex: 1; }
+  a { color: #0c5598; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; background: #339933; }
+  .dot.new { background: #b2b2b2; }
+  .av { width: 24px; height: 24px; border-radius: 50%; background: #bdbdbd; color: #fff; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .row { display: flex; align-items: center; gap: 8px; }
+  .counters { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+  button { font: inherit; color: inherit; background: none; border: 0; border-radius: 4px; padding: 3px 8px; cursor: pointer; }
+  button:hover { background: rgba(0,0,0,.04); }
+  button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid #0078d4; outline-offset: 1px; }
+  .counter[aria-expanded="true"] { background: rgba(0,0,0,.08); }
+  .counter svg { vertical-align: -3px; margin-right: 4px; }
+  .panel { background: #f8f8f8; border-radius: 4px; padding: 4px; margin-top: 4px; cursor: default; }
+  .panel ul { list-style: none; margin: 0; padding: 0; }
+  .panel li { display: flex; align-items: center; gap: 4px; min-height: 32px; border-radius: 2px; }
+  .panel li:hover { background: rgba(0,0,0,.04); }
+  .panel li .ttl { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .chev { text-align: center; }
+  .chev button { width: 24px; height: 24px; padding: 0; }
+  input[type=checkbox] { margin: 6px; }
+  [aria-disabled="true"] { color: #a19f9d; }
+  .field input { flex: 1; height: 28px; border: 1px solid #0078d4; border-radius: 4px; padding: 0 8px; font: inherit; }
+  .err { color: #a4262c; font-size: 12px; margin: 2px 0 4px 56px; }
+  .spacer { width: 28px; flex: none; }
+  #log { margin-top: 16px; font-size: 12px; color: #605e5c; min-height: 18px; }
+  #toast { position: fixed; left: 16px; bottom: 16px; background: #323130; color: #fff; padding: 8px 12px; border-radius: 4px; display: none; }
+  .hint { margin-top: 12px; font-size: 12px; color: #605e5c; max-width: 640px; }
+</style>
+</head>
+<body>
+<h1>Канбан, «Истории», колонка «Активна» (прототип)</h1>
+<p class="note">Нажмите на счётчик, поставьте галочку, добавьте задачу. «Имитировать отказ» делает следующую запись неудачной.
+Перетащите карточку за её верхнюю часть: перетаскивание из блока чек-листов не начинается.</p>
+
+<div class="board">
+  <div class="col" id="col">
+    <h2>Активна <span style="font-weight:400;color:#605e5c">2</span></h2>
+    <div role="list">
+      <div class="card" id="us2" draggable="true" role="listitem" data-card="MSK-US-2">
+        <div class="line"><span style="color:#0098c7">&#128214;</span><span>MSK-US-2</span><a class="t" href="#">Повторная отправка письма</a><button aria-label="Ещё действия: MSK-US-2">&#8943;</button></div>
+        <div><span class="dot" style="background:#0078d4"></span>Активна</div>
+        <div class="row"><span class="av" aria-hidden="true">АС</span>Анна Смирнова <span style="color:#605e5c;font-size:12px">Приоритет: 2</span></div>
+        <div data-no-drag class="no-drag" id="checklist"></div>
+      </div>
+      <div class="card" style="margin-top:8px" id="us9" draggable="true" role="listitem" data-card="MSK-US-9">
+        <div class="line"><span style="color:#0098c7">&#128214;</span><span>MSK-US-9</span><a class="t" href="#">Новая история без задач</a><button aria-label="Ещё действия: MSK-US-9">&#8943;</button></div>
+        <div><span class="dot new"></span>Новая</div>
+        <div class="row"><span style="color:#605e5c">Не назначен</span></div>
+        <div data-no-drag id="checklist9"></div>
+      </div>
+      <div class="card plain" style="margin-top:8px" draggable="true" role="listitem" data-card="MSK-BUG-4">
+        <div class="line"><span style="color:#cc293d">&#128027;</span><span>MSK-BUG-4</span><a class="t" href="#">Ошибка в отчёте</a><button aria-label="Ещё действия: MSK-BUG-4">&#8943;</button></div>
+        <div><span class="dot" style="background:#0078d4"></span>Активна</div>
+        <div class="row"><span style="color:#605e5c">Не назначен</span></div>
+        <!-- a card with no checklist: no row at all -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="hint"><label><input type="checkbox" id="fail"> Имитировать отказ следующей записи</label>
+&nbsp;·&nbsp; идёт запись: <b id="busy">нет</b></p>
+<div id="log" role="status"></div>
+<div id="toast" role="alert"></div>
+
+<script>
+const ICON = {
+  task: '<svg width="16" height="16" viewBox="0 0 24 24" fill="#a4880a"><path d="M19 3h-4.2A3 3 0 0 0 9.2 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm-7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm-2 14-4-4 1.4-1.4L10 14.2l6.6-6.6L18 9z"/></svg>',
+  bug: '<svg width="16" height="16" viewBox="0 0 24 24" fill="#cc293d"><path d="M20 8h-2.8a6 6 0 0 0-1.2-1.5L17.6 5 16.2 3.6 14.3 5.5A6 6 0 0 0 12 5c-.8 0-1.6.2-2.3.5L7.8 3.6 6.4 5 8 6.5A6 6 0 0 0 6.8 8H4v2h2.1c-.1.3-.1.7-.1 1v1H4v2h2v1c0 .3 0 .7.1 1H4v2h2.8a6 6 0 0 0 10.4 0H20v-2h-2.1c.1-.3.1-.7.1-1v-1h2v-2h-2v-1c0-.3 0-.7-.1-1H20z"/></svg>',
+  testcase: '<svg width="16" height="16" viewBox="0 0 24 24" fill="#3b3a39"><path d="M7 2v2h1v5.5L3.5 18A2 2 0 0 0 5.3 21h13.4a2 2 0 0 0 1.8-3L16 9.5V4h1V2z"/></svg>'
+};
+const NAME = { task: 'Задача', bug: 'Баг', testcase: 'Тест-кейс' };
+const users = { 'Анна Смирнова': 'АС', 'Борис Петров': 'БП' };
+// children of MSK-US-2 and MSK-US-9
+const data = {
+  'MSK-US-2': [
+    { id: 'MSK-TASK-3', kind: 'task', title: 'be', done: true, who: 'Анна Смирнова' },
+    { id: 'MSK-TASK-4', kind: 'task', title: 'fe', done: false, who: null },
+    { id: 'MSK-TASK-6', kind: 'task', title: 'qa', done: false, who: 'Борис Петров' },
+    { id: 'MSK-BUG-5', kind: 'bug', title: 'Неверный счётчик', done: true, who: 'Борис Петров' },
+    { id: 'MSK-BUG-8', kind: 'bug', title: 'Дубль', done: false, who: 'Анна Смирнова' },
+    { id: 'MSK-TC-10', kind: 'testcase', title: 'Письмо приходит', done: false, who: 'Анна Смирнова' },
+    { id: 'MSK-TC-12', kind: 'testcase', title: 'Письмо не дублируется', done: true, who: 'Анна Смирнова' }
+  ],
+  'MSK-US-9': []
+};
+const offersTask = { 'MSK-US-2': true, 'MSK-US-9': true };
+const open = {};            // `${card}|${kind}` -> true; held outside the card's DOM
+const draft = {};           // card -> { title, error }
+let writing = false, nextId = 11, noDrag = false;
+
+const $ = (s, r = document) => r.querySelector(s);
+const log = t => { $('#log').textContent = t; };
+function toast(t) { const el = $('#toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(() => el.style.display = 'none', 6000); }
+function setBusy(b) { writing = b; $('#busy').textContent = b ? 'да' : 'нет'; }
+
+function counters(card) {
+  const kids = data[card], out = [];
+  for (const kind of ['task', 'bug', 'testcase']) {
+    const list = kids.filter(c => c.kind === kind);
+    if (!list.length && !(kind === 'task' && offersTask[card])) continue;
+    out.push({ kind, list, done: list.filter(c => c.done).length });
+  }
+  return out;
+}
+
+function render(card, host) {
+  const cs = counters(card);
+  if (!cs.length) { host.innerHTML = ''; return; }
+  const focused = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.focusKey : null;
+  host.innerHTML = '';
+  const group = document.createElement('div');
+  group.className = 'counters'; group.setAttribute('role', 'group');
+  group.setAttribute('aria-label', 'Вложенные элементы: ' + card);
+  host.appendChild(group);
+  for (const c of cs) {
+    const isOpen = !!open[card + '|' + c.kind];
+    const b = document.createElement('button');
+    b.className = 'counter'; b.dataset.focusKey = 'counter-' + c.kind;
+    b.setAttribute('aria-expanded', isOpen);
+    const text = c.kind === 'testcase' ? String(c.list.length) : c.done + '/' + c.list.length;
+    b.setAttribute('aria-label', c.kind === 'testcase'
+      ? `${c.list.length} — ${card}, ${NAME[c.kind]}: ${c.list.length}`
+      : `${c.done}/${c.list.length} — ${card}, ${NAME[c.kind]}: выполнено ${c.done} из ${c.list.length}`);
+    b.innerHTML = ICON[c.kind] + text;
+    b.onclick = () => { open[card + '|' + c.kind] = !open[card + '|' + c.kind]; render(card, host); $('[data-focus-key="counter-' + c.kind + '"]', host).focus(); };
+    group.appendChild(b);
+  }
+  for (const c of cs) {
+    if (!open[card + '|' + c.kind]) continue;
+    const panel = document.createElement('div'); panel.className = 'panel';
+    const ul = document.createElement('ul');
+    ul.setAttribute('aria-label', `Список: ${NAME[c.kind]} (${card})`);
+    if (c.kind === 'task' && offersTask[card]) {
+      const li = document.createElement('li');
+      const add = document.createElement('button');
+      add.dataset.focusKey = 'add'; add.innerHTML = '&#43; Добавить задачу';
+      add.setAttribute('aria-label', 'Добавить задачу (' + card + ')');
+      if (writing) add.setAttribute('aria-disabled', 'true');
+      add.onclick = () => { if (writing) return; draft[card] = draft[card] || { title: '', error: null }; render(card, host); $('input', host).focus(); };
+      li.appendChild(add); ul.appendChild(li);
+      if (draft[card]) {
+        const f = document.createElement('li'); f.className = 'field';
+        f.innerHTML = '<span class="spacer"></span>' + ICON.task;
+        const inp = document.createElement('input');
+        inp.placeholder = 'Введите заголовок'; inp.value = draft[card].title;
+        inp.setAttribute('aria-label', 'Заголовок: Задача (' + card + ')');
+        if (draft[card].error) inp.setAttribute('aria-invalid', 'true');
+        inp.oninput = () => { draft[card].title = inp.value; draft[card].error = null; };
+        inp.onkeydown = e => {
+          if (e.key === 'Escape') { e.stopPropagation(); delete draft[card]; render(card, host); $('[data-focus-key="add"]', host).focus(); }
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (writing) return;
+            if (!inp.value.trim()) { delete draft[card]; render(card, host); $('[data-focus-key="add"]', host).focus(); return; }
+            if (inp.value.length > 255) { draft[card].error = 'Не более 255 символов.'; render(card, host); $('input', host).focus(); return; }
+            setBusy(true); inp.readOnly = true;
+            setTimeout(() => {
+              setBusy(false);
+              if ($('#fail').checked) { draft[card].error = 'Родитель не найден в этом проекте.'; render(card, host); $('input', host).focus(); return; }
+              const id = 'MSK-TASK-' + (nextId++);
+              data[card].push({ id, kind: 'task', title: inp.value, done: false, who: null });
+              delete draft[card]; toast('Рабочий элемент ' + id + ' создан.'); render(card, host); $('[data-focus-key="add"]', host).focus();
+            }, 500);
+          }
+        };
+        f.appendChild(inp); ul.appendChild(f);
+        if (draft[card].error) { const e = document.createElement('div'); e.className = 'err'; e.setAttribute('role', 'alert'); e.textContent = draft[card].error; ul.appendChild(e); }
+      }
+    }
+    for (const ch of c.list) {
+      const li = document.createElement('li'); li.dataset.child = ch.id;
+      if (c.kind !== 'testcase') {
+        const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = ch.done;
+        cb.setAttribute('aria-label', ch.id + ': выполнено'); cb.dataset.focusKey = 'cb-' + ch.id;
+        if (writing) cb.setAttribute('aria-disabled', 'true');
+        cb.onchange = () => {
+          if (writing) { cb.checked = ch.done; return; }
+          const was = ch.done; ch.done = cb.checked; setBusy(true);
+          log(`${ch.id}: статус «${ch.done ? 'Закрыта' : 'Новая'}».`);
+          render(card, host); $('[data-focus-key="cb-' + ch.id + '"]', host).focus();
+          setTimeout(() => {
+            setBusy(false);
+            if ($('#fail').checked) { ch.done = was; toast('Не удалось сохранить статус. Попробуйте ещё раз.'); }
+            render(card, host); const el = $('[data-focus-key="cb-' + ch.id + '"]', host); if (el) el.focus();
+          }, 600);
+        };
+        li.appendChild(cb);
+      }
+      const mark = document.createElement('span'); mark.innerHTML = ICON[ch.kind]; mark.style.display = 'inline-flex'; li.appendChild(mark);
+      const av = document.createElement('span'); av.className = 'av'; av.setAttribute('role', 'img');
+      const label = ch.who || 'Не назначен'; av.setAttribute('aria-label', label); av.title = label;
+      av.textContent = ch.who ? users[ch.who] : '○'; li.appendChild(av);
+      const a = document.createElement('a'); a.className = 'ttl'; a.href = '#'; a.textContent = ch.title; a.title = ch.id + ': ' + ch.title; li.appendChild(a);
+      ul.appendChild(li);
+    }
+    panel.appendChild(ul);
+    const chev = document.createElement('div'); chev.className = 'chev';
+    const cb = document.createElement('button');
+    cb.setAttribute('aria-label', `Свернуть список: ${NAME[c.kind]} (${card})`); cb.innerHTML = '&#8963;';
+    cb.onclick = () => { open[card + '|' + c.kind] = false; render(card, host); $('[data-focus-key="counter-' + c.kind + '"]', host).focus(); };
+    chev.appendChild(cb); panel.appendChild(chev); host.appendChild(panel);
+  }
+}
+
+// the drag guard: remember whether the press began inside the checklist block
+document.addEventListener('mousedown', e => { noDrag = !!e.target.closest('[data-no-drag]'); }, true);
+document.querySelectorAll('.card').forEach(c => c.addEventListener('dragstart', e => {
+  if (noDrag || writing) { e.preventDefault(); }
+}));
+document.addEventListener('dragend', () => { noDrag = false; });
+
+render('MSK-US-2', $('#checklist'));
+render('MSK-US-9', $('#checklist9'));
+</script>
+</body>
+</html>

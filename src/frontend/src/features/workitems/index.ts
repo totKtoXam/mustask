@@ -11,7 +11,10 @@ export { workItemsPermissions } from './permissions';
 // spec § Dialog; api-contract § 6, § 7), and draws a row's or a card's type,
 // state and assignee as this slice's list does.
 export { CreateWorkItemDialog, type CreateDialogTeam } from './components/CreateWorkItemDialog';
-export { AssigneeName, StateName, TypeName } from './components/Marks';
+export { AssigneeAvatar, AssigneeName, StateName, TypeName } from './components/Marks';
+// feat-032: a board card's checklist row shows the assignee as an avatar alone, named by the
+// same words as the list's «Исполнитель».
+export { UNKNOWN_USER_LABEL, assigneeLabel } from './lib/assignee';
 export { NEW_WORK_ITEM_LABEL, TypePickerMenu } from './components/TypePickerMenu';
 export { useCreateWorkItem, useSetWorkItemState } from './hooks/mutations';
 // feat-001 frontend pass B: mod-006's backlog maps a row's parent one level up

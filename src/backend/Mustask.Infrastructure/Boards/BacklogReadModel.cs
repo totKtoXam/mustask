@@ -1,6 +1,7 @@
 using Mustask.Application.Abstractions.Boards;
 using Mustask.Application.Abstractions.UserDirectory;
 using Mustask.Application.Abstractions.WorkItems;
+using Mustask.Domain.Boards;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.Process;
 using Mustask.Domain.UserDirectory;
@@ -37,6 +38,72 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
         var members = BacklogMembership.TreeMembers(context, scope, BacklogMembership.TeamAreas(tree, scope.TeamId));
 
         return new BacklogRead(DefaultArea(tree, scope.TeamId), await ItemsAsync(members, scope.ProjectId, cancellationToken));
+    }
+
+    /// <summary>
+    /// feat-032: the checklists of a board's cards, one statement and then the assignees' lookups, whatever the cards'
+    /// number. The children are narrowed in SQL — the project, the stored parent among the cards, a state outside the
+    /// Removed category, a type of a <see cref="CardChecklist.Kinds"/> kind — and not by Область: a child of another
+    /// team is in its parent's checklist (BR-C-1). Read by number, so each list keeps creation order (BR-C-5).
+    /// </summary>
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<ChecklistChildView>>> ReadChecklistsAsync(
+        Guid projectId, IReadOnlyCollection<Guid> parentIds, CancellationToken cancellationToken)
+    {
+        var parents = parentIds.Distinct().ToList();
+
+        if (parents.Count == 0)
+        {
+            return new Dictionary<Guid, IReadOnlyList<ChecklistChildView>>();
+        }
+
+        var kinds = CardChecklist.Kinds.ToList();
+
+        var rows = await (
+                from item in context.WorkItems.AsNoTracking()
+                join project in context.Projects on item.ProjectId equals project.Id
+                join type in context.WorkItemTypes on item.TypeId equals type.Id
+                join state in context.StateDefinitions on item.StateId equals state.Id
+                where item.ProjectId == projectId
+                    && item.ParentId != null
+                    && parents.Contains(item.ParentId.Value)
+                    && state.Category != StateCategory.Removed
+                    && kinds.Contains(type.Appearance)
+                orderby item.Number
+                select new ChecklistRow(
+                    item.ParentId!.Value,
+                    item.Id,
+                    project.Key,
+                    item.Number,
+                    type.Id,
+                    type.Key,
+                    type.Name,
+                    type.Appearance,
+                    item.Title,
+                    item.AssigneeId,
+                    state.Id,
+                    state.Name,
+                    state.Category))
+            .ToListAsync(cancellationToken);
+
+        var assignees = await AssigneesAsync(rows.Select(row => row.AssigneeId), projectId, cancellationToken);
+
+        return rows
+            .GroupBy(row => row.ParentId)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<ChecklistChildView>)group
+                    .Select(row => new ChecklistChildView(
+                        row.Id,
+                        WorkItemIdentifier.Format(row.ProjectKey, row.TypeKey, row.Number),
+                        row.Number,
+                        new WorkItemTypeView(row.TypeId, row.TypeKey, row.TypeName, row.TypeAppearance.ToWireName()),
+                        row.Title,
+                        Assignee(row.AssigneeId, assignees),
+                        new WorkItemStateView(
+                            row.StateId,
+                            row.StateName,
+                            new WorkItemStateCategoryView(row.StateCategory.ToString(), StateCategoryLabels.Of(row.StateCategory)))))
+                    .ToList());
     }
 
     public async Task<IReadOnlyDictionary<Guid, WorkItemRefView>> FindLiveParentsAsync(
@@ -99,7 +166,7 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
                     member.Item.ValueArea))
             .ToListAsync(cancellationToken);
 
-        var assignees = await AssigneesAsync(rows, projectId, cancellationToken);
+        var assignees = await AssigneesAsync(rows.Select(row => row.AssigneeId), projectId, cancellationToken);
 
         return rows
             .Select(row => new BacklogItemRow(
@@ -132,9 +199,9 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
     /// with the people, never with the rows' depth or number. And — mod-016 BR-M1-26 — which of them are members of the
     /// project's organization right now (one more statement, <see cref="ProjectMembers"/>).
     /// </summary>
-    private async Task<Assignees> AssigneesAsync(IReadOnlyCollection<Row> rows, Guid projectId, CancellationToken cancellationToken)
+    private async Task<Assignees> AssigneesAsync(IEnumerable<string?> assigneeIds, Guid projectId, CancellationToken cancellationToken)
     {
-        var ids = rows.Select(row => row.AssigneeId).OfType<string>().Distinct(StringComparer.Ordinal).ToList();
+        var ids = assigneeIds.OfType<string>().Distinct(StringComparer.Ordinal).ToList();
 
         if (ids.Count == 0)
         {
@@ -156,6 +223,21 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
                 new WorkItemAssigneeView(id, user.DisplayName, user.Email, assignees.Members.Contains(id)),
             { } id => new WorkItemAssigneeView(id, null, null, assignees.Members.Contains(id)),
         };
+
+    private sealed record ChecklistRow(
+        Guid ParentId,
+        Guid Id,
+        string ProjectKey,
+        int Number,
+        Guid TypeId,
+        string TypeKey,
+        string TypeName,
+        AppearanceToken TypeAppearance,
+        string Title,
+        string? AssigneeId,
+        Guid StateId,
+        string StateName,
+        StateCategory StateCategory);
 
     /// <summary>The directory's answer for the backlog's assignees and the ones among them who are members of the organization.</summary>
     private sealed record Assignees(IReadOnlyDictionary<string, DirectoryUser> Known, HashSet<string> Members);

@@ -17,7 +17,7 @@ export interface WorkItemTypeReference {
   id: string;
   key: string;
   name: string;
-  /** The appearance token the theme draws (`epic`, `feature`, `story`, `task`, `bug`). */
+  /** The appearance token the theme draws (`epic`, `feature`, `story`, `task`, `bug`, `testcase`). */
   appearance: string;
 }
 

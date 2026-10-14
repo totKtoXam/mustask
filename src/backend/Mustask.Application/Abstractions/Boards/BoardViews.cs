@@ -65,6 +65,39 @@ public sealed record BacklogItemView(
 }
 
 /// <summary>
+/// A board card (feat-032 api-contract § 2.1): a <see cref="BacklogItemView"/>'s fields and the
+/// <see cref="Checklist"/> of children. The backlog's rows do not carry it.
+/// </summary>
+public sealed record BoardCardView(
+    int Order,
+    Guid Id,
+    string Identifier,
+    int Number,
+    WorkItemTypeView Type,
+    string Title,
+    WorkItemAssigneeView? Assignee,
+    WorkItemStateView State,
+    int Priority,
+    IReadOnlyList<ChecklistChildView> Checklist)
+{
+    /// <summary><paramref name="item"/> with its checklist from <paramref name="checklists"/>, by the item's id; none: an empty list.</summary>
+    public static BoardCardView Of(BacklogItemView item, IReadOnlyDictionary<Guid, IReadOnlyList<ChecklistChildView>> checklists) =>
+        new(
+            item.Order, item.Id, item.Identifier, item.Number, item.Type, item.Title, item.Assignee, item.State, item.Priority,
+            checklists.TryGetValue(item.Id, out var children) ? children : []);
+}
+
+/// <summary>One entry of a card's checklist (feat-032 api-contract § 2.2): a task, a bug or a test case beneath the card's item.</summary>
+public sealed record ChecklistChildView(
+    Guid Id,
+    string Identifier,
+    int Number,
+    WorkItemTypeView Type,
+    string Title,
+    WorkItemAssigneeView? Assignee,
+    WorkItemStateView State);
+
+/// <summary>
 /// A top-level row of a team's backlog page (feat-027 api-contract § 2.1): mod-006's
 /// fields, «Порядок» among the top-level rows, feat-022's «Приоритет» and the
 /// three planning values, the stored parent unless it is in «Удалена», and the
