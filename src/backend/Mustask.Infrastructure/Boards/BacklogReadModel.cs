@@ -5,6 +5,7 @@ using Mustask.Domain.Organizations;
 using Mustask.Domain.Process;
 using Mustask.Domain.UserDirectory;
 using Mustask.Domain.WorkItems;
+using Mustask.Infrastructure.Organizations;
 using Mustask.Infrastructure.WorkItems;
 using Microsoft.EntityFrameworkCore;
 
@@ -27,7 +28,7 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
         var tree = await BacklogMembership.AreaTreeAsync(context, scope.ProjectId, cancellationToken);
         var members = BacklogMembership.Members(context, scope, BacklogMembership.TeamAreas(tree, scope.TeamId));
 
-        return new BacklogRead(DefaultArea(tree, scope.TeamId), await ItemsAsync(members, cancellationToken));
+        return new BacklogRead(DefaultArea(tree, scope.TeamId), await ItemsAsync(members, scope.ProjectId, cancellationToken));
     }
 
     public async Task<BacklogRead> ReadTreeAsync(BacklogTreeScope scope, CancellationToken cancellationToken)
@@ -35,7 +36,7 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
         var tree = await BacklogMembership.AreaTreeAsync(context, scope.ProjectId, cancellationToken);
         var members = BacklogMembership.TreeMembers(context, scope, BacklogMembership.TeamAreas(tree, scope.TeamId));
 
-        return new BacklogRead(DefaultArea(tree, scope.TeamId), await ItemsAsync(members, cancellationToken));
+        return new BacklogRead(DefaultArea(tree, scope.TeamId), await ItemsAsync(members, scope.ProjectId, cancellationToken));
     }
 
     public async Task<IReadOnlyDictionary<Guid, WorkItemRefView>> FindLiveParentsAsync(
@@ -67,7 +68,8 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
     }
 
     /// <summary><paramref name="members"/> as rows and cards: one statement, then one lookup of their assignees.</summary>
-    private async Task<IReadOnlyList<BacklogItemRow>> ItemsAsync(IQueryable<BacklogMember> members, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<BacklogItemRow>> ItemsAsync(
+        IQueryable<BacklogMember> members, Guid projectId, CancellationToken cancellationToken)
     {
         var rows = await (
                 from member in members
@@ -97,7 +99,7 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
                     member.Item.ValueArea))
             .ToListAsync(cancellationToken);
 
-        var assignees = await AssigneesAsync(rows, cancellationToken);
+        var assignees = await AssigneesAsync(rows, projectId, cancellationToken);
 
         return rows
             .Select(row => new BacklogItemRow(
@@ -126,32 +128,37 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
     /// (mod-014 api-contract § A.5: above it a consumer splits). A page's tree set holds every level of the page and the
     /// «Задачи» level, up to 20 000 rows, so its distinct assignees pass 500 in an organization of a few hundred people;
     /// one lookup of them all would answer the whole page 400 <c>user_directory.too_many_ids</c> (feat-027 review B-3).
-    /// One statement per batch, so the count grows with the people, never with the rows' depth or number.
+    /// One statement per batch (<see cref="UserDirectoryBatches"/>, the one definition of the split), so the count grows
+    /// with the people, never with the rows' depth or number. And — mod-016 BR-M1-26 — which of them are members of the
+    /// project's organization right now (one more statement, <see cref="ProjectMembers"/>).
     /// </summary>
-    private async Task<IReadOnlyDictionary<string, DirectoryUser>> AssigneesAsync(IReadOnlyCollection<Row> rows, CancellationToken cancellationToken)
+    private async Task<Assignees> AssigneesAsync(IReadOnlyCollection<Row> rows, Guid projectId, CancellationToken cancellationToken)
     {
-        var known = new Dictionary<string, DirectoryUser>(StringComparer.Ordinal);
-        var ids = rows.Select(row => row.AssigneeId).OfType<string>().Distinct(StringComparer.Ordinal);
+        var ids = rows.Select(row => row.AssigneeId).OfType<string>().Distinct(StringComparer.Ordinal).ToList();
 
-        foreach (var batch in ids.Chunk(UserDirectoryLimits.IdsPerRead))
+        if (ids.Count == 0)
         {
-            foreach (var (id, user) in (await directory.LookupAsync(batch, cancellationToken)).Known)
-            {
-                known[id] = user;
-            }
+            return new Assignees(new Dictionary<string, DirectoryUser>(StringComparer.Ordinal), []);
         }
 
-        return known;
+        var known = (await UserDirectoryBatches.LookupAllAsync(directory, ids, cancellationToken)).Known;
+        var members = await ProjectMembers.MemberIdsAsync(context, projectId, ids, cancellationToken);
+
+        return new Assignees(known, members);
     }
 
     /// <summary>As mod-003's read: an id the directory does not know keeps its id and has no name («Неизвестный пользователь»).</summary>
-    private static WorkItemAssigneeView? Assignee(string? assigneeId, IReadOnlyDictionary<string, DirectoryUser> known) =>
+    private static WorkItemAssigneeView? Assignee(string? assigneeId, Assignees assignees) =>
         assigneeId switch
         {
             null => null,
-            { } id when known.TryGetValue(id, out var user) => new WorkItemAssigneeView(id, user.DisplayName, user.Email),
-            { } id => new WorkItemAssigneeView(id, null, null),
+            { } id when assignees.Known.TryGetValue(id, out var user) =>
+                new WorkItemAssigneeView(id, user.DisplayName, user.Email, assignees.Members.Contains(id)),
+            { } id => new WorkItemAssigneeView(id, null, null, assignees.Members.Contains(id)),
         };
+
+    /// <summary>The directory's answer for the backlog's assignees and the ones among them who are members of the organization.</summary>
+    private sealed record Assignees(IReadOnlyDictionary<string, DirectoryUser> Known, HashSet<string> Members);
 
     private sealed record Row(
         Guid Id,

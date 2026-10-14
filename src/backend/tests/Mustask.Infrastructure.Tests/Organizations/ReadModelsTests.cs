@@ -1,4 +1,5 @@
 using Mustask.Application.Abstractions.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Infrastructure.Tests.Process;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -100,7 +101,7 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
 
         var teams = await ReadAsync<ITeamReadModel, IReadOnlyList<TeamRow>>(
             null,
-            readModel => readModel.ListActiveAsync(structure.Organization.Id, projectId, CancellationToken.None));
+            readModel => readModel.ListActiveAsync(structure.Organization.Id, projectId, "nobody", CancellationToken.None));
 
         Assert.Equal(["Ядро", "альфа", "Платформа"], teams.Select(team => team.Name));
         Assert.True(teams[0].IsFirstTeam);
@@ -123,7 +124,7 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
 
         var teams = await ReadAsync<ITeamReadModel, IReadOnlyList<TeamRow>>(
             null,
-            readModel => readModel.ListActiveAsync(structure.Organization.Id, projectId, CancellationToken.None));
+            readModel => readModel.ListActiveAsync(structure.Organization.Id, projectId, "nobody", CancellationToken.None));
         var deleted = await ReadAsync<ITeamReadModel, TeamRow?>(
             null,
             readModel => readModel.FindReachableAsync(structure.Organization.Id, projectId, structure.SecondTeam.Team.Id, CancellationToken.None));
@@ -132,32 +133,55 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
         Assert.Null(deleted);
     }
 
-    // US-2 · "listed separately": one status per list; the active one by id only while active.
+    // US-2 · "listed separately": one status per list; the active one by id only while active. mod-016 BR-M1-7: the lists hold
+    // the organizations the user is a member of, and nothing of the others.
     [Fact]
     public async Task Organizations_ListAndFind_FollowTheStatus()
     {
+        var user = "u-list-" + Guid.CreateVersion7().ToString("N");
         var active = await database.CreateStructureAsync();
         var deactivated = await database.CreateStructureAsync();
         await database.ExecuteAsync("UPDATE organizations SET status = 'Deactivated' WHERE id = @id", ("id", deactivated.Organization.Id));
+        await database.AddMemberAsync(active.Organization.Id, user, OrganizationRole.Viewer);
+        await database.AddMemberAsync(deactivated.Organization.Id, user, OrganizationRole.Admin);
 
         var activeList = await ReadAsync<IOrganizationReadModel, IReadOnlyList<OrganizationRow>>(
-            null, readModel => readModel.ListAsync(OrganizationStatus.Active, CancellationToken.None));
+            null, readModel => readModel.ListAsync(OrganizationStatus.Active, user, null, CancellationToken.None));
         var deactivatedList = await ReadAsync<IOrganizationReadModel, IReadOnlyList<OrganizationRow>>(
-            null, readModel => readModel.ListAsync(OrganizationStatus.Deactivated, CancellationToken.None));
+            null, readModel => readModel.ListAsync(OrganizationStatus.Deactivated, user, null, CancellationToken.None));
         var foundDeactivated = await ReadAsync<IOrganizationReadModel, OrganizationRow?>(
             null, readModel => readModel.FindActiveAsync(deactivated.Organization.Id, CancellationToken.None));
-        var status = await ReadAsync<IOrganizationReadModel, OrganizationStatus?>(
-            null, readModel => readModel.FindStatusAsync(deactivated.Organization.Id, CancellationToken.None));
-        var unknown = await ReadAsync<IOrganizationReadModel, OrganizationStatus?>(
-            null, readModel => readModel.FindStatusAsync(Guid.CreateVersion7(), CancellationToken.None));
 
-        Assert.Contains(activeList, row => row.Id == active.Organization.Id);
-        Assert.DoesNotContain(activeList, row => row.Id == deactivated.Organization.Id);
-        Assert.Contains(deactivatedList, row => row.Id == deactivated.Organization.Id);
-        Assert.DoesNotContain(deactivatedList, row => row.Id == active.Organization.Id);
+        Assert.Equal([active.Organization.Id], activeList.Select(row => row.Id));
+        Assert.Equal([deactivated.Organization.Id], deactivatedList.Select(row => row.Id));
         Assert.Null(foundDeactivated);
-        Assert.Equal(OrganizationStatus.Deactivated, status);
-        Assert.Null(unknown);
+    }
+
+    // mod-016 US-2 · "The organization list holds only the user's organizations" and "Deactivated lists and restore are the
+    // administrators'" (BR-M1-7, BR-M1-35): the membership narrows the list in the one statement — a user of no organization, a
+    // user of another, and a role outside `onlyRoles` see nothing; the organization's other members do not change it.
+    [Fact]
+    public async Task Organizations_List_IsNarrowedByTheCallersMembershipAndRole()
+    {
+        var admin = "u-admin-" + Guid.CreateVersion7().ToString("N");
+        var member = "u-member-" + Guid.CreateVersion7().ToString("N");
+        var outsider = "u-outsider-" + Guid.CreateVersion7().ToString("N");
+        var organization = await database.CreateStructureAsync();
+        await database.ExecuteAsync("UPDATE organizations SET status = 'Deactivated' WHERE id = @id", ("id", organization.Organization.Id));
+        await database.AddMemberAsync(organization.Organization.Id, admin, OrganizationRole.Admin);
+        await database.AddMemberAsync(organization.Organization.Id, member, OrganizationRole.Member);
+        IReadOnlyCollection<OrganizationRole> restoring = [OrganizationRole.Admin];
+
+        async Task<IReadOnlyList<Guid>> ListedAsync(string user, IReadOnlyCollection<OrganizationRole>? roles) =>
+            (await ReadAsync<IOrganizationReadModel, IReadOnlyList<OrganizationRow>>(
+                null, readModel => readModel.ListAsync(OrganizationStatus.Deactivated, user, roles, CancellationToken.None)))
+            .Select(row => row.Id).ToList();
+
+        Assert.Equal([organization.Organization.Id], await ListedAsync(admin, restoring));
+        Assert.Equal([organization.Organization.Id], await ListedAsync(member, null));
+        Assert.Empty(await ListedAsync(member, restoring));
+        Assert.Empty(await ListedAsync(outsider, null));
+        Assert.Empty(await ListedAsync(outsider, restoring));
     }
 
     // US-3 · "deactivated" and BR-M1-22: a project is found only reachable and only under its own organization.

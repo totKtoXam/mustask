@@ -153,8 +153,13 @@ public sealed record WorkItemStateCategoryView(string Code, string Label);
 /// both <c>null</c> when the directory does not know <paramref name="Id"/>
 /// («Неизвестный пользователь»); <paramref name="Email"/> is empty for a known
 /// user without one.
+/// <paramref name="IsMember"/> (mod-016 BR-M1-26, api-contract § 3.3) is whether the assignee is
+/// currently a member of the item's organization, in any role. It reads the membership alone (BR-M1-32):
+/// <c>false</c> for an ex-member and for an id that never was a member, <c>true</c> for a member the directory
+/// does not know yet (a creator the projection has not received, BR-M1-25). The «неактивен» and
+/// «не в организации» marks are feat-017's.
 /// </summary>
-public sealed record WorkItemAssigneeView(string Id, string? DisplayName, string? Email);
+public sealed record WorkItemAssigneeView(string Id, string? DisplayName, string? Email, bool IsMember);
 
 /// <param name="Path">mod-002 DC-9: «Платформа / API», the root by its own name.</param>
 public sealed record WorkItemAreaView(Guid Id, string Path);

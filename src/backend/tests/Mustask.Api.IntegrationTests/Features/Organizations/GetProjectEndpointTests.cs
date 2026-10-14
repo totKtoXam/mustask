@@ -22,8 +22,9 @@ public sealed class GetProjectEndpointTests(MustaskApiFactory factory)
             $"/api/organizations/{organizationId}/projects/{Uri.EscapeDataString(projectId)}",
             token: token ?? OrganizationsTokens.SignedIn());
 
-    // US-3 · "The project settings": the project's name and its key, read-only (BR-M1-23). A signed-in user without any
-    // right opens it (BR-M1-19), and the answer is the one project addressed, not a neighbour.
+    // US-3 · "The project settings": the project's name and its key, read-only (BR-M1-23). A token without any right opens
+    // it for a member (organizations.project.read comes from the membership, mod-016 BR-M1-7), and the answer is the one
+    // project addressed, not a neighbour.
     [Fact]
     public async Task Get_Reachable_ReturnsNameAndKey()
     {

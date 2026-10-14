@@ -40,7 +40,7 @@ import { useMoveView } from '../hooks/useMoveView';
 import type { NewWorkItem } from '../hooks/useNewWorkItem';
 import { applyCardMove, columnOf, columnTarget, moveTargets } from '../lib/board';
 import type { BoardLevelCode } from '../lib/levels';
-import { moveRefusalNotice } from '../lib/refusals';
+import { isAccessRefusal, moveRefusalNotice } from '../lib/refusals';
 
 /** spec § Page «Доски»: the button at the top of the first column. */
 const NEW_CARD_LABEL = 'Новый элемент';
@@ -94,7 +94,7 @@ export function BoardColumns({
   teamId: string;
   level: BoardLevelCode;
   board: Board;
-  newItem: Pick<NewWorkItem, 'open' | 'opensMenu' | 'menuOpen'>;
+  newItem: Pick<NewWorkItem, 'canWrite' | 'open' | 'opensMenu' | 'menuOpen'>;
   /** A state's name and category from the process, once it is read. */
   stateOf(typeId: string, stateId: string): WorkItemStateReference | undefined;
   announce(text: string): void;
@@ -117,6 +117,9 @@ export function BoardColumns({
   const subheaderId = useId();
 
   const { saving, shown } = view;
+  // mod-016 design § 6.2: without `workitems.workitem.write` (the reader) a card
+  // has no «Ещё действия», no dragging, and the first column no «Новый элемент».
+  const { canWrite } = newItem;
 
   // The moved card is drawn anew in its new column: focus goes to its
   // «Ещё действия» there, and back to it if a later redraw drops it. A passive
@@ -153,6 +156,12 @@ export function BoardColumns({
       await setState.mutateAsync({ identifier: card.identifier, stateId });
     } catch (error) {
       notice = moveRefusalNotice(error);
+      if (isAccessRefusal(error) && notice !== null) {
+        // At once, not after the read: the codes are read again meanwhile, and a role that
+        // changed replaces this notice with its own (mod-016 design § 2.4).
+        showError(notice);
+        notice = null;
+      }
     }
     // The board is read again whatever the answer, before a refusal's notice.
     await readAgain();
@@ -185,7 +194,7 @@ export function BoardColumns({
 
   const startDrag = useCallback(
     (event: DragEvent<HTMLElement>, card: BacklogItem) => {
-      if (saving) {
+      if (saving || !canWrite) {
         event.preventDefault();
         return;
       }
@@ -195,7 +204,7 @@ export function BoardColumns({
       }
       setDrag({ cardId: card.id, over: null });
     },
-    [saving],
+    [saving, canWrite],
   );
 
   const endDrag = useCallback(() => setDrag(null), []);
@@ -290,7 +299,7 @@ export function BoardColumns({
                 {column.items.length}
               </Typography>
             </Box>
-            {columnIndex === 0 && (
+            {columnIndex === 0 && canWrite && (
               <Button
                 variant="text"
                 startIcon={<AddIcon />}
@@ -319,6 +328,7 @@ export function BoardColumns({
                   key={card.id}
                   card={card}
                   saving={saving}
+                  canWrite={canWrite}
                   menuOpen={menu?.cardId === card.id}
                   menuId={menuId}
                   formPath={workItemPath(organizationId, projectId, card.identifier)}
@@ -336,7 +346,7 @@ export function BoardColumns({
       <Menu
         id={menuId}
         anchorEl={menu?.anchor ?? null}
-        open={menu !== null}
+        open={menu !== null && canWrite}
         onClose={closeMenu}
         disableRestoreFocus
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
@@ -375,6 +385,7 @@ export function BoardColumns({
 const BoardCard = memo(function BoardCard({
   card,
   saving,
+  canWrite,
   menuOpen,
   menuId,
   formPath,
@@ -386,6 +397,8 @@ const BoardCard = memo(function BoardCard({
 }: {
   card: BacklogItem;
   saving: boolean;
+  /** `workitems.workitem.write`: without it the card has no menu and no drag. */
+  canWrite: boolean;
   menuOpen: boolean;
   menuId: string;
   /** The item's full page: the title's `href`, followed by a modified click (BR-C-1). */
@@ -401,7 +414,7 @@ const BoardCard = memo(function BoardCard({
     <Card
       role="listitem"
       elevation={1}
-      draggable={!saving}
+      draggable={canWrite && !saving}
       data-card={card.identifier}
       // The card's dialog gives focus back to this card's title by the identifier (BR-C-4).
       data-identifier={card.identifier}
@@ -412,7 +425,7 @@ const BoardCard = memo(function BoardCard({
         display: 'flex',
         flexDirection: 'column',
         gap: 0.5,
-        cursor: saving ? 'default' : 'grab',
+        cursor: saving || !canWrite ? 'default' : 'grab',
         borderLeft: `${theme.spacing(0.5)} solid ${theme.workTracking.typeAppearance(card.type.appearance).colour}`,
       })}
     >
@@ -435,19 +448,21 @@ const BoardCard = memo(function BoardCard({
         >
           {card.title}
         </Link>
-        <IconButton
-          size="small"
-          ref={(element: HTMLElement | null) => registerMenuButton(card.id, element)}
-          aria-label={`Ещё действия: ${card.identifier}`}
-          aria-haspopup="menu"
-          aria-expanded={menuOpen ? 'true' : 'false'}
-          aria-controls={menuOpen ? menuId : undefined}
-          aria-disabled={saving ? 'true' : undefined}
-          onClick={(event: MouseEvent<HTMLElement>) => onOpenMenu(event, card.id)}
-          sx={{ mt: -0.5, color: saving ? 'text.disabled' : undefined }}
-        >
-          <MoreHorizIcon fontSize="small" />
-        </IconButton>
+        {canWrite && (
+          <IconButton
+            size="small"
+            ref={(element: HTMLElement | null) => registerMenuButton(card.id, element)}
+            aria-label={`Ещё действия: ${card.identifier}`}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen ? 'true' : 'false'}
+            aria-controls={menuOpen ? menuId : undefined}
+            aria-disabled={saving ? 'true' : undefined}
+            onClick={(event: MouseEvent<HTMLElement>) => onOpenMenu(event, card.id)}
+            sx={{ mt: -0.5, color: saving ? 'text.disabled' : undefined }}
+          >
+            <MoreHorizIcon fontSize="small" />
+          </IconButton>
+        )}
       </Box>
       <Typography component="div" variant="body2">
         <StateName state={card.state} />

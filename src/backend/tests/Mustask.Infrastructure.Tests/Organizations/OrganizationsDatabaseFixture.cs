@@ -1,9 +1,13 @@
 using Mustask.Application;
 using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Process;
+using Mustask.Application.Abstractions.UserDirectory;
 using Mustask.Application.Features.Process;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
+using Mustask.Domain.UserDirectory;
 using Mustask.Infrastructure.Process;
+using Mustask.Infrastructure.UserDirectory;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
@@ -80,10 +84,67 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
         });
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IProcessSeedStore, ProcessSeedStore>();
+        services.AddScoped<IUserDirectory, UserDirectoryReadModel>();
         services.AddApplication();
         services.AddOrganizationsInfrastructure();
 
         return services.BuildServiceProvider();
+    }
+
+    /// <summary>
+    /// Puts users into the user projection (mod-014) the way its push does, so the member reads (mod-016) have people to name.
+    /// The projection is shared by the collection and never emptied, so a test names its users by ids no other test uses.
+    /// </summary>
+    public async Task SeedUsersAsync(params (string Id, string FirstName, string LastName, string Email, bool Enabled)[] users)
+    {
+        await using var context = NewContext();
+        var pushes = users
+            .Select(user => new UserPush(user.Id, 1_700_000_000_000_000, $"user.{user.Id}", user.FirstName, user.LastName, user.Email, user.Enabled, Deleted: false))
+            .ToList();
+
+        context.DirectoryUsers.AddRange(ProjectionBatch.Apply(pushes, new Dictionary<string, ProjectedUser>(), DateTimeOffset.UtcNow, snapshotId: null).Added);
+        await context.SaveChangesAsync();
+    }
+
+    /// <summary>Adds an organization membership as the domain makes it, written directly.</summary>
+    public async Task AddMemberAsync(Guid organizationId, string userId, OrganizationRole role = OrganizationRole.Member, string addedBy = Creator)
+    {
+        await using var context = NewContext();
+
+        context.OrganizationMemberships.Add(OrganizationMembership.Add(organizationId, userId, role, addedBy, Now));
+        await context.SaveChangesAsync();
+    }
+
+    /// <summary>Adds a team membership as the domain makes it, written directly.</summary>
+    public async Task AddTeamMemberAsync(Guid organizationId, Guid teamId, string userId)
+    {
+        await using var context = NewContext();
+
+        context.TeamMemberships.Add(TeamMembership.Add(teamId, organizationId, userId));
+        await context.SaveChangesAsync();
+    }
+
+    /// <summary>The first column of every row of <paramref name="sql"/>, as text (<c>NULL</c> is the word <c>NULL</c>).</summary>
+    public async Task<List<string>> QueryAsync(string sql, params (string Name, object Value)[] parameters)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(sql, connection);
+
+        foreach (var (name, value) in parameters)
+        {
+            command.Parameters.AddWithValue(name, value);
+        }
+
+        var rows = new List<string>();
+        await using var reader = await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            rows.Add(reader.IsDBNull(0) ? "NULL" : Convert.ToString(reader.GetValue(0), System.Globalization.CultureInfo.InvariantCulture)!);
+        }
+
+        return rows;
     }
 
     /// <summary>

@@ -6,7 +6,7 @@ namespace Mustask.Contracts.Tests;
 /// <summary>
 /// US-2 (mod-001-process-seed) · "The read's code is registered, and nothing
 /// grants it yet" (BR-M2-10, status.md D-8). <see cref="KeycloakRealmRolesTests"/>
-/// keeps the realm's client roles equal to <c>PermissionCatalog.AllCodes</c>;
+/// keeps the realm's client roles equal to <c>PermissionCatalog.InstanceCodes</c>;
 /// this file closes the other side: no organization-scoped code is declared in
 /// the realm import at all. The scan is deliberately wider than the known
 /// places (client roles, realm roles, composites, group mappings, default
@@ -26,7 +26,7 @@ public sealed class OrganizationPermissionRealmTests
         {
             using var document = JsonDocument.Parse(File.ReadAllText(file.FullName));
 
-            var mentions = FindMentions(document.RootElement, OrganizationPermissionCatalog.AllCodes);
+            var mentions = FindMentions(document.RootElement, PermissionCatalog.OrganizationCodes);
 
             Assert.True(
                 mentions.Count == 0,
@@ -46,10 +46,10 @@ public sealed class OrganizationPermissionRealmTests
         {
             using var document = JsonDocument.Parse(File.ReadAllText(file.FullName));
 
-            var found = FindMentions(document.RootElement, PermissionCatalog.AllCodes);
+            var found = FindMentions(document.RootElement, PermissionCatalog.InstanceCodes);
 
             Assert.Equal(
-                PermissionCatalog.AllCodes.Order(StringComparer.Ordinal),
+                PermissionCatalog.InstanceCodes.Order(StringComparer.Ordinal),
                 found.Distinct().Order(StringComparer.Ordinal));
         }
     }
@@ -65,7 +65,7 @@ public sealed class OrganizationPermissionRealmTests
     {
         using var document = JsonDocument.Parse(json);
 
-        var mentions = FindMentions(document.RootElement, OrganizationPermissionCatalog.AllCodes);
+        var mentions = FindMentions(document.RootElement, PermissionCatalog.OrganizationCodes);
 
         Assert.True(mentions.Count > 0, $"A mention in {place} was not found.");
     }
@@ -75,7 +75,7 @@ public sealed class OrganizationPermissionRealmTests
     {
         using var document = JsonDocument.Parse("""{ "roles": { "client": { "mustask-api": [ { "name": "dictionaries.languages.read" } ] } } }""");
 
-        Assert.Empty(FindMentions(document.RootElement, OrganizationPermissionCatalog.AllCodes));
+        Assert.Empty(FindMentions(document.RootElement, PermissionCatalog.OrganizationCodes));
     }
 
     private static IReadOnlyList<FileInfo> RealmFiles() =>

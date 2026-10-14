@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ApiError } from '../../../shared/api/httpClient';
 import { backlogSkeletonColumns } from '../components/backlogColumns';
 import { catalogText, problem } from '../testFixtures';
-import { PARENT_SAVE_FAILED_TEXT, parentRefusal } from './refusals';
+import { PARENT_SAVE_FAILED_TEXT, isAccessRefusal, parentRefusal } from './refusals';
 
 // feat-001 spec § Page «Бэклоги» and § Notices on «Бэклоги»: where a refused
 // parent write shows.
@@ -70,6 +70,21 @@ describe('parentRefusal', () => {
     expect(parentRefusal(new ApiError(500, { status: 500, title: 'Ошибка' })).notice).toBe(
       PARENT_SAVE_FAILED_TEXT,
     );
+  });
+});
+
+describe('isAccessRefusal (mod-016 design § 2.4)', () => {
+  it('is the scoped check’s 403 by its code alone', () => {
+    expect(isAccessRefusal(refusal('organizations.access.forbidden'))).toBe(true);
+  });
+
+  it.each([
+    ['another refusal', refusal('workitems.link.cycle')],
+    ['an answer without a code', new ApiError(403, { status: 403, title: 'Недостаточно прав' })],
+    ['a failure without an answer', new Error('Failed to fetch')],
+    ['nothing', undefined],
+  ])('is not %s', (_case, error) => {
+    expect(isAccessRefusal(error)).toBe(false);
   });
 });
 

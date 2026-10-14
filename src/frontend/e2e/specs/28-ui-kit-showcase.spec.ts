@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { signIn } from '../support/auth';
 import { env } from '../support/env';
 import {
-  createEphemeralReaderUser,
+  createEphemeralUserWithoutGroup,
   deleteEphemeralUser,
   userExistsById,
 } from '../support/keycloakAdmin';
@@ -175,7 +175,7 @@ test.describe('28. the UI kit showcase', () => {
     page,
   }) => {
     const { keycloakUrl, realm } = env();
-    const reader = await createEphemeralReaderUser(keycloakUrl, realm);
+    const reader = await createEphemeralUserWithoutGroup(keycloakUrl, realm);
     try {
       await signIn(page, { username: reader.username, returnPath: SHOWCASE_PATH });
       await expect(page.getByText('Доступ ограничен')).toBeVisible();

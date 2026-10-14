@@ -103,6 +103,9 @@ public static class JwtBearerSetup
 
         services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicies>();
 
+        // mod-016 (ADR-0027): the organization-scoped check. Scoped, because it reads the request's database context.
+        services.AddScoped<IAuthorizationHandler, OrganizationPermissionHandler>();
+
         services.AddAuthorizationBuilder()
             .AddPolicy(PermissionPolicies.AuthenticatedOnlyPolicyName, policy => policy.RequireAuthenticatedUser())
             // Deny-all — недостижимое требование делает Forbid

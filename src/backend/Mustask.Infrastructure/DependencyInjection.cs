@@ -131,6 +131,12 @@ public static class DependencyInjection
         services.AddScoped<IAreaTreeReadModel, AreaTreeReadModel>();
         services.AddScoped<IOrganizationStructure, OrganizationStructure>();
 
+        // Organization access (mod-016): the memberships' repositories and reads, and the scoped check's one read.
+        services.AddScoped<IMembershipRepository, MembershipRepository>();
+        services.AddScoped<ITeamMembershipRepository, TeamMembershipRepository>();
+        services.AddScoped<IMemberReadModel, MemberReadModel>();
+        services.AddScoped<IOrganizationAccessReadModel, OrganizationAccessReadModel>();
+
         return services;
     }
 }

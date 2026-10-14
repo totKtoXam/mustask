@@ -117,7 +117,11 @@ function TeamBoard({
           icon={ViewWeekOutlinedIcon}
           heading="Канбан пуст"
           hint={emptyBoardHint(query.data)}
-          action={{ label: NEW_WORK_ITEM_LABEL, icon: <AddIcon />, onClick: newItem.open }}
+          action={
+            newItem.canWrite
+              ? { label: NEW_WORK_ITEM_LABEL, icon: <AddIcon />, onClick: newItem.open }
+              : undefined
+          }
         />
       ) : (
         <BoardColumns

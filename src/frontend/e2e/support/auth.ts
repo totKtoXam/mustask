@@ -28,8 +28,8 @@ const SIGN_IN_TIMEOUT = 30_000;
  * final redirect leg back to `returnPath`.
  *
  * `options.username` defaults to the fixture user (`impersonation.ts`'s own
- * default) — the permission-gating spec (16) is the only caller that signs
- * in as a different, ephemeral identity instead.
+ * default) — the specs that need another identity (16, 19.9, 20.4, 21.6 and
+ * 27-30) sign in as a throwaway user instead (`keycloakAdmin.ts`).
  */
 export async function signIn(page: Page, options: { returnPath?: string; username?: string } = {}): Promise<void> {
   const { panelUrl, apiUrl } = env();

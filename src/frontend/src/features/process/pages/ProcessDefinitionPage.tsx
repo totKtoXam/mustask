@@ -15,9 +15,11 @@ import { isOrganizationNotFound } from '../lib/readFailure';
  * design.md layout B): the title, two sentences of description and a card
  * per type. Four states — loading, content, read failed with «Повторить»,
  * and «Организация не найдена» — and no empty or access-denied state (design
- * DD-5). The page makes no permission check (DD-6): until mod-016 every
- * signed-in user reads the same definition, and after it a non-member gets
- * the API's not-found answer, which this page already renders.
+ * DD-5). The page makes no permission check (DD-6): the organization gate
+ * above it does (mod-016 design § 2.1) — a non-member meets «Организация не
+ * найдена», a member without the read code «Доступ ограничен» — and the API's
+ * not-found answer, which this page already renders, is the same frame for a
+ * read that races a removal.
  *
  * The header stays mounted across loading, content and a failed read; only
  * the not-found frame replaces the whole page, title included. The page

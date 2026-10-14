@@ -1,7 +1,13 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AnonymousScreen } from '../features/auth/AnonymousScreen';
 import { RequireAuth } from '../features/auth/RequireAuth';
-import { BACKLOG_ROUTE, BOARD_ROUTE, BacklogPage, BoardPage } from '../features/boards';
+import {
+  BACKLOG_ROUTE,
+  BOARD_ROUTE,
+  BacklogPage,
+  BoardPage,
+  boardsPermissions,
+} from '../features/boards';
 import { LanguageFormPage, LanguagesRegistryPage } from '../features/dictionaries';
 import { HomePage } from '../features/home/HomePage';
 import {
@@ -9,10 +15,14 @@ import {
   AreasPage,
   DEACTIVATED_ORGANIZATIONS_ROUTE,
   DEACTIVATED_PROJECTS_ROUTE,
+  MEMBERS_ROUTE,
   ORGANIZATIONS_ROUTE,
   ORGANIZATION_GENERAL_ROUTE,
+  MembersPage,
+  OrganizationGate,
   OrganizationGeneralPage,
   OrganizationListPage,
+  OrganizationPage,
   OrganizationsSection,
   PROJECTS_ROUTE,
   PROJECT_GENERAL_ROUTE,
@@ -22,14 +32,20 @@ import {
   TEAM_ROUTE,
   TeamPage,
   TeamsPage,
+  organizationsPermissions,
 } from '../features/organizations';
-import { PROCESS_DEFINITION_ROUTE, ProcessDefinitionPage } from '../features/process';
+import {
+  PROCESS_DEFINITION_ROUTE,
+  ProcessDefinitionPage,
+  processPermissions,
+} from '../features/process';
 import { UI_KIT_PATH, UiKitShowcasePage } from '../features/uikit';
 import {
   WORK_ITEMS_ROUTE,
   WORK_ITEM_ROUTE,
   WorkItemFormPage,
   WorkItemsPage,
+  workItemsPermissions,
 } from '../features/workitems';
 import { HOME_PATH } from '../shared/config/paths';
 import { NotFound } from '../shared/ui/StateFrame';
@@ -52,50 +68,205 @@ export function AppRoutes() {
           <Route path="/dictionaries/languages" element={<LanguagesRegistryPage />} />
           <Route path="/dictionaries/languages/new" element={<LanguageFormPage />} />
           <Route path="/dictionaries/languages/:code" element={<LanguageFormPage />} />
-          {/* The read-only process screen (mod-001 D-9). No gate on the
-              route: the page makes no permission check (design DD-6), and
-              the API answers a missing organization with its own code. */}
-          <Route path={PROCESS_DEFINITION_ROUTE} element={<ProcessDefinitionPage />} />
           {/* The UI kit's showcase (tech-015 design § 10.1): an instance-level settings
-              page, outside any work context. The page gates itself (a permission, not a
-              role) and makes no API request. */}
+              page, outside any work context and outside the organization gate. The page
+              gates itself (a permission, not a role) and makes no API request. */}
           <Route path={UI_KIT_PATH} element={<UiKitShowcasePage />} />
           {/* Organizations, projects, teams and areas (mod-002 design § 1):
-              nine routes for seven pages inside the slice's pathless layout
-              route, which hosts its notice. No gate on any route: every
-              signed-in user passes until mod-016 (BR-M1-19), and each page
-              answers a context it does not find with its own frame. The
-              static `deactivated` outranks `:organizationId`. */}
+              ten routes for eight pages inside the slice's pathless layout
+              route, which hosts its notice. The two lists carry no
+              organization and stand outside any gate: they are open to every
+              signed-in user and hold the user's own organizations. Every other
+              route sits under the organization gate (mod-016 design § 2.1,
+              plan-frontend P-14), which reads the access of the organization
+              in the address, and each page is wrapped by `OrganizationPage`
+              with the read code the page needs, its title and the skeleton of
+              its first rows: «Организация не найдена» for a non-member, «Доступ
+              ограничен» for a missing code, one state order for every page.
+              The static `deactivated` outranks `:organizationId`. */}
           <Route element={<OrganizationsSection />}>
             <Route path={ORGANIZATIONS_ROUTE} element={<OrganizationListPage view="active" />} />
             <Route
               path={DEACTIVATED_ORGANIZATIONS_ROUTE}
               element={<OrganizationListPage view="deactivated" />}
             />
-            <Route path={ORGANIZATION_GENERAL_ROUTE} element={<OrganizationGeneralPage />} />
-            <Route path={PROJECTS_ROUTE} element={<ProjectListPage view="active" />} />
-            <Route
-              path={DEACTIVATED_PROJECTS_ROUTE}
-              element={<ProjectListPage view="deactivated" />}
-            />
-            <Route path={PROJECT_GENERAL_ROUTE} element={<ProjectGeneralPage />} />
-            <Route path={TEAMS_ROUTE} element={<TeamsPage />} />
-            <Route path={TEAM_ROUTE} element={<TeamPage />} />
-            <Route path={AREAS_ROUTE} element={<AreasPage />} />
+            <Route element={<OrganizationGate />}>
+              <Route
+                path={ORGANIZATION_GENERAL_ROUTE}
+                element={
+                  <OrganizationPage
+                    code={organizationsPermissions.organizationRead}
+                    title="Общие"
+                    skeleton="form"
+                  >
+                    <OrganizationGeneralPage />
+                  </OrganizationPage>
+                }
+              />
+              <Route
+                path={PROJECTS_ROUTE}
+                element={
+                  <OrganizationPage
+                    code={organizationsPermissions.projectRead}
+                    title="Проекты"
+                    skeleton="registry"
+                    columns={['Название', 'Ключ']}
+                  >
+                    <ProjectListPage view="active" />
+                  </OrganizationPage>
+                }
+              />
+              <Route
+                path={DEACTIVATED_PROJECTS_ROUTE}
+                element={
+                  <OrganizationPage
+                    code={organizationsPermissions.projectDeactivate}
+                    title="Проекты"
+                    skeleton="registry"
+                    columns={['Название', 'Ключ', '']}
+                  >
+                    <ProjectListPage view="deactivated" />
+                  </OrganizationPage>
+                }
+              />
+              <Route
+                path={MEMBERS_ROUTE}
+                element={
+                  <OrganizationPage
+                    code={organizationsPermissions.membershipRead}
+                    title="Участники"
+                    skeleton="registry"
+                    columns={['Имя', 'Почта', 'Роль', 'Добавлен', 'Роль изменена']}
+                  >
+                    <MembersPage />
+                  </OrganizationPage>
+                }
+              />
+              <Route
+                path={PROJECT_GENERAL_ROUTE}
+                element={
+                  <OrganizationPage
+                    code={organizationsPermissions.projectRead}
+                    title="Общие"
+                    skeleton="form"
+                  >
+                    <ProjectGeneralPage />
+                  </OrganizationPage>
+                }
+              />
+              <Route
+                path={TEAMS_ROUTE}
+                element={
+                  <OrganizationPage
+                    code={organizationsPermissions.teamRead}
+                    title="Команды"
+                    skeleton="registry"
+                    columns={['Команда', 'Область по умолчанию', '']}
+                  >
+                    <TeamsPage />
+                  </OrganizationPage>
+                }
+              />
+              <Route
+                path={TEAM_ROUTE}
+                element={
+                  <OrganizationPage
+                    code={organizationsPermissions.teamRead}
+                    title="Команда"
+                    skeleton="form"
+                  >
+                    <TeamPage />
+                  </OrganizationPage>
+                }
+              />
+              <Route
+                path={AREAS_ROUTE}
+                element={
+                  <OrganizationPage
+                    code={organizationsPermissions.areaRead}
+                    title="Области"
+                    skeleton="registry"
+                    columns={['Область', 'Владелец', '']}
+                  >
+                    <AreasPage />
+                  </OrganizationPage>
+                }
+              />
+            </Route>
           </Route>
-          {/* Work items (mod-003 spec § Screens and copy): the project's list
-              and an item's form, both project-level pages (D-5). No gate:
-              every signed-in user passes until mod-016 (BR-M3-27), and each
-              page answers a level it does not find with its own frame. */}
-          <Route path={WORK_ITEMS_ROUTE} element={<WorkItemsPage />} />
-          <Route path={WORK_ITEM_ROUTE} element={<WorkItemFormPage />} />
-          {/* A team's boards and backlogs (mod-006 spec § Screens and copy),
-              team-level pages. No gate: every signed-in user passes until
-              mod-016 (BR-M4-27); each page answers a level that is not one of
-              the three as an unknown address, and an address level it does
-              not find with its own frame. */}
-          <Route path={BOARD_ROUTE} element={<BoardPage />} />
-          <Route path={BACKLOG_ROUTE} element={<BacklogPage />} />
+          {/* The process, the work items, a team's backlog and board: pages of
+              an organization, each under the gate with its own instance (the
+              slices that own them stay outside the organizations slice).
+              The read-only process screen (mod-001 D-9) makes no permission
+              check of its own: the wrapper does (design § 2.1). Work items
+              (mod-003 spec § Screens and copy): the project's list and an
+              item's form, both project-level pages (D-5). A team's boards and
+              backlogs (mod-006 spec § Screens and copy), team-level pages:
+              each answers a level that is not one of the three as an unknown
+              address, and an address level it does not find with its own
+              frame. */}
+          <Route element={<OrganizationGate />}>
+            <Route
+              path={PROCESS_DEFINITION_ROUTE}
+              element={
+                <OrganizationPage
+                  code={processPermissions.definitionRead}
+                  title="Процесс"
+                  skeleton="form"
+                >
+                  <ProcessDefinitionPage />
+                </OrganizationPage>
+              }
+            />
+            <Route
+              path={WORK_ITEMS_ROUTE}
+              element={
+                <OrganizationPage
+                  code={workItemsPermissions.workItemRead}
+                  title="Рабочие элементы"
+                  skeleton="registry"
+                >
+                  <WorkItemsPage />
+                </OrganizationPage>
+              }
+            />
+            <Route
+              path={WORK_ITEM_ROUTE}
+              element={
+                <OrganizationPage
+                  code={workItemsPermissions.workItemRead}
+                  title="Рабочий элемент"
+                  skeleton="form"
+                >
+                  <WorkItemFormPage />
+                </OrganizationPage>
+              }
+            />
+            <Route
+              path={BOARD_ROUTE}
+              element={
+                <OrganizationPage
+                  code={boardsPermissions.workItemRead}
+                  title="Канбан"
+                  skeleton="registry"
+                >
+                  <BoardPage />
+                </OrganizationPage>
+              }
+            />
+            <Route
+              path={BACKLOG_ROUTE}
+              element={
+                <OrganizationPage
+                  code={boardsPermissions.workItemRead}
+                  title="Бэклоги"
+                  skeleton="registry"
+                >
+                  <BacklogPage />
+                </OrganizationPage>
+              }
+            />
+          </Route>
           {/* An unknown address keeps the address and answers inside the
               shell — no redirect to «Главная» (mod-015 BR-13, D-13). */}
           <Route path="*" element={<NotFound level="page" />} />

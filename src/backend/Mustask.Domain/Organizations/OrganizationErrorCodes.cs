@@ -90,4 +90,39 @@ public static class OrganizationErrorCodes
 
     /// <summary>The root is renamed only with its project and is never moved, re-owned or deleted (BR-M1-11).</summary>
     public const string AreaRootIsFixed = "organizations.area.root_is_fixed";
+
+    // ----- mod-016: organization access (api-contract § 5) -----
+
+    /// <summary>
+    /// «Недостаточно прав»: the caller is a member of the organization of the address, but the role's bundle lacks the
+    /// route's code (ADR-0027). The one 403 of the scoped check, whatever module the route belongs to.
+    /// </summary>
+    public const string AccessForbidden = "organizations.access.forbidden";
+
+    /// <summary>The user already has a membership in the organization, or a concurrent add took it first (BR-M1-5).</summary>
+    public const string MembershipAlreadyMember = "organizations.membership.already_member";
+
+    /// <summary>The change would leave no known active administrator (BR-M1-4, BR-M1-32).</summary>
+    public const string MembershipLastAdmin = "organizations.membership.last_admin";
+
+    /// <summary>The user is unknown to the user projection or inactive, so cannot be added (BR-M1-32).</summary>
+    public const string MembershipUserUnavailable = "organizations.membership.user_unavailable";
+
+    /// <summary>The user has no membership in the organization (also one another administrator just removed).</summary>
+    public const string MembershipNotFound = "organizations.membership.not_found";
+
+    /// <summary>Field reason of <c>role</c>: not exactly <c>admin</c>, <c>member</c> or <c>viewer</c>.</summary>
+    public const string MembershipRoleInvalid = "organizations.membership.role_invalid";
+
+    /// <summary>Field reason of <c>userId</c>: missing, blank or over 255 characters.</summary>
+    public const string MembershipUserInvalid = "organizations.membership.user_invalid";
+
+    /// <summary>The user is already in the team, or a concurrent add took it first.</summary>
+    public const string TeamMemberExists = "organizations.team.member_exists";
+
+    /// <summary>The user is not an active member of the team's organization (BR-M1-10, BR-M1-32).</summary>
+    public const string TeamMemberNotInOrganization = "organizations.team.member_not_in_organization";
+
+    /// <summary>The user is not in the team (also one another administrator just removed).</summary>
+    public const string TeamMemberNotFound = "organizations.team.member_not_found";
 }

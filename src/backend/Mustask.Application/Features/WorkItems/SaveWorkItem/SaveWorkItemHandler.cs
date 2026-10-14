@@ -1,8 +1,10 @@
 using Mustask.Application.Abstractions;
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
 using Mustask.Application.Abstractions.UserDirectory;
 using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Application.Features.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.WorkItems;
 using Mustask.Shared.Errors;
@@ -17,7 +19,10 @@ namespace Mustask.Application.Features.WorkItems.SaveWorkItem;
 /// <remarks>
 /// <para>
 /// <b>The order of answers</b> (api-contract § 0.4, feat-001 api-contract
-/// § 3.3): the address from the outside in, as the read resolves it; the values
+/// § 3.3, mod-016 api-contract § 4.2): the scoped check has answered for the
+/// organization and the route's code; a save that carries a parent then answers
+/// 403 when the role lacks <c>workitems.link.write</c>, before anything below;
+/// the address from the outside in, as the read resolves it; the values
 /// (400, every field reason at once — feat-022's fields included, checked by the
 /// domain against the item's type and its stored dates, under the item's lock,
 /// feat-022 api-contract § 3.2); the area, then the new parent (404); the
@@ -44,13 +49,25 @@ public sealed class SaveWorkItemHandler(
     IOrganizationStructure structure,
     IProcessDefinitionReadModel processes,
     IUserDirectory directory,
+    IMemberReadModel members,
     IWorkItemRepository workItems,
     IWorkItemReadModel readModel,
+    IOrganizationAccess access,
     IClock clock,
     IUnitOfWork unitOfWork)
 {
-    public async Task<SaveWorkItemResult> Handle(SaveWorkItemCommand command, CancellationToken cancellationToken) =>
-        await unitOfWork.ExecuteInTransactionAsync(
+    public async Task<SaveWorkItemResult> Handle(SaveWorkItemCommand command, CancellationToken cancellationToken)
+    {
+        // 0. The second code of a parent write (mod-016 api-contract § 4.2, feat-001 BR-H-18): the route declares
+        // workitems.workitem.write, and a save that carries a parent needs workitems.link.write as well. It is checked first,
+        // before the project, the item or the parent is looked at and before any 400, so a role without it learns nothing about
+        // any of them and nothing changes. Under the bundles of D-8 the two codes never differ.
+        if (command.Parent is not null && !access.Holds(PermissionCatalog.WorkItemsLinkWrite))
+        {
+            throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
+        }
+
+        return await unitOfWork.ExecuteInTransactionAsync(
             async ct =>
             {
                 // 1. The address: the organization, the project, the identifier, the item and its type.
@@ -107,7 +124,7 @@ public sealed class SaveWorkItemHandler(
                     title,
                     command.Description,
                     StateIdOf(command.StateId),
-                    await AssigneeOfAsync(command.Assignee, ct),
+                    await AssigneeOfAsync(command.Assignee, organizationId, ct),
                     areaId,
                     command.Fields);
 
@@ -127,6 +144,7 @@ public sealed class SaveWorkItemHandler(
                 return new SaveWorkItemResult(await readModel.GetAsync(item.Id, ct));
             },
             cancellationToken);
+    }
 
     /// <summary>
     /// The trimmed title when one was sent; throws one validation answer with every field reason, feat-022's fields
@@ -204,8 +222,13 @@ public sealed class SaveWorkItemHandler(
             : throw new ConflictException(WorkItemErrorCodes.StateNotAllowed);
     }
 
-    /// <summary>The sent assignee with whether the directory knows them as active (BR-M3-22); the domain decides.</summary>
-    private async Task<AssigneeEdit?> AssigneeOfAsync(AssigneeChange? change, CancellationToken cancellationToken)
+    /// <summary>
+    /// The sent assignee with whether they can be assigned (BR-M3-22, mod-016 BR-M1-26): known to the directory, active
+    /// there, <b>and a member of the item's organization</b> in any role. The domain decides, and refuses only a
+    /// <i>newly set</i> unavailable assignee: an assignee who was set and has since left, or been disabled, stays and never
+    /// refuses a save of other fields, and clearing the assignee is always allowed.
+    /// </summary>
+    private async Task<AssigneeEdit?> AssigneeOfAsync(AssigneeChange? change, Guid organizationId, CancellationToken cancellationToken)
     {
         if (change is null)
         {
@@ -218,7 +241,9 @@ public sealed class SaveWorkItemHandler(
         }
 
         var lookup = await directory.LookupAsync([userId], cancellationToken);
-        var isAvailable = lookup.Known.TryGetValue(userId, out var user) && user.IsActive;
+        var isAvailable = lookup.Known.TryGetValue(userId, out var user)
+            && user.IsActive
+            && await members.IsMemberAsync(organizationId, userId, cancellationToken);
 
         return new AssigneeEdit(userId, isAvailable);
     }

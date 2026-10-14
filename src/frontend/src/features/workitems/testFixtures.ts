@@ -91,6 +91,12 @@ export interface UserRecord {
   displayName: string;
   email: string;
   active: boolean;
+  /**
+   * mod-016: a member of the organization (any role). Absent: a member — the
+   * stories' directory is the organization's. A user who left is no candidate
+   * and cannot be newly assigned; an assignee who left stays on the item.
+   */
+  member?: boolean;
 }
 
 export interface WorkItemRecord {

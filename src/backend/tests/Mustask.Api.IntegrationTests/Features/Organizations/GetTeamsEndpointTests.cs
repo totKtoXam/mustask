@@ -9,9 +9,9 @@ namespace Mustask.Api.IntegrationTests.Features.Organizations;
 /// (api-contract § 3.1) through the real host and a real PostgreSQL (plan-backend
 /// § 14.3, lane L-15). Every test builds its own organization
 /// (<see cref="OrganizationsTestData"/>): the database is shared and never
-/// emptied. The requests carry a token with no right at all, because every
-/// endpoint but the creation of an organization is open to any signed-in user
-/// until mod-016 (BR-M1-19).
+/// emptied. The requests carry a token with no right at all: the read needs
+/// <c>organizations.team.read</c>, which comes from the caller's membership
+/// (mod-016 ADR-0027), and the caller is the organization's creator, an administrator.
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]
@@ -58,7 +58,8 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
         Assert.Equal(JsonValueKind.Array, answer.Body.ValueKind);
         Assert.All(answer.Body.EnumerateArray(), item =>
         {
-            Assert.Equal(["defaultArea", "id", "isFirstTeam", "name", "projectId"], PropertyNames(item));
+            // mod-016 api-contract § 3.3: each team says whether the caller is in it.
+            Assert.Equal(["defaultArea", "id", "isFirstTeam", "isMember", "name", "projectId"], PropertyNames(item));
             Assert.Equal(["id", "path"], PropertyNames(item.GetProperty("defaultArea")));
         });
         Assert.Equal(
@@ -71,6 +72,73 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
                 new ListedTeam(platform.Team.Id, projectId, "Платформа", false, api.Id, "Платформа / API"),
             ],
             Read(answer.Body));
+    }
+
+    private async Task<Dictionary<string, bool>> IsMemberByNameAsync(Guid organizationId, Guid projectId, string subject)
+    {
+        var answer = await OrganizationsApi.SendAsync(
+            factory,
+            HttpMethod.Get,
+            $"/api/organizations/{organizationId}/projects/{projectId}/teams",
+            token: OrganizationsTokens.SignedIn(subject));
+
+        Assert.Equal(HttpStatusCode.OK, answer.Status);
+
+        return answer.Body.EnumerateArray().ToDictionary(team => team.GetProperty("name").GetString()!, team => team.GetProperty("isMember").GetBoolean());
+    }
+
+    // mod-016 US-7 · "Choosing a project selects the user's own team" (BR-M1-27, D-5): each team says whether the CALLER is in it;
+    // another user's membership does not count; "in no team of the project" marks none. The panel picks the first marked team.
+    [Fact]
+    public async Task Get_EachTeamSaysWhetherTheCallerIsInIt_OthersMembershipsDoNotCount_NoTeamMarksNone()
+    {
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
+        var project = await OrganizationsTestData.CreateProjectAsync(factory, organization.Id);
+        var projectId = project.Project.Id;
+        var platform = await OrganizationsTestData.AddTeamAsync(factory, projectId, "Платформа");
+        var analytics = await OrganizationsTestData.AddTeamAsync(factory, projectId, "Аналитика");
+        var me = MembershipTestData.NewUserId();
+        var you = MembershipTestData.NewUserId();
+        var alone = MembershipTestData.NewUserId();
+        foreach (var user in new[] { me, you, alone })
+        {
+            await MembershipTestData.AddMemberAsync(factory, organization.Id, user);
+        }
+
+        await MembershipTestData.AddTeamMemberAsync(factory, organization.Id, platform.Team.Id, me);
+        await MembershipTestData.AddTeamMemberAsync(factory, organization.Id, analytics.Team.Id, me);
+        await MembershipTestData.AddTeamMemberAsync(factory, organization.Id, project.FirstTeam.Id, you);
+
+        var mine = await IsMemberByNameAsync(organization.Id, projectId, me);
+        var yours = await IsMemberByNameAsync(organization.Id, projectId, you);
+        var none = await IsMemberByNameAsync(organization.Id, projectId, alone);
+
+        Assert.Equal(new Dictionary<string, bool> { ["Пример проекта"] = false, ["Аналитика"] = true, ["Платформа"] = true }, mine);
+        Assert.Equal(new Dictionary<string, bool> { ["Пример проекта"] = true, ["Аналитика"] = false, ["Платформа"] = false }, yours);
+        Assert.All(none.Values, flag => Assert.False(flag));
+    }
+
+    // mod-016 BR-M1-27 · "a change to them counts from the next time that list is read": the flag follows the add and the removal of
+    // a team membership, and the removal of the organization membership (which ends every team membership, BR-M1-36).
+    [Fact]
+    public async Task Get_TheFlagFollowsTheNextReadAfterAnAddARemovalAndALeavingOfTheOrganization()
+    {
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
+        var project = await OrganizationsTestData.CreateProjectAsync(factory, organization.Id);
+        var platform = await OrganizationsTestData.AddTeamAsync(factory, project.Project.Id, "Платформа");
+        var me = MembershipTestData.NewUserId();
+        await MembershipTestData.AddMemberAsync(factory, organization.Id, me);
+
+        var before = await IsMemberByNameAsync(organization.Id, project.Project.Id, me);
+        await MembershipTestData.AddTeamMemberAsync(factory, organization.Id, platform.Team.Id, me);
+        var added = await IsMemberByNameAsync(organization.Id, project.Project.Id, me);
+        await MembershipTestData.RemoveMemberAsync(factory, organization.Id, me);
+        await MembershipTestData.AddMemberAsync(factory, organization.Id, me);
+        var afterLeaving = await IsMemberByNameAsync(organization.Id, project.Project.Id, me);
+
+        Assert.False(before["Платформа"]);
+        Assert.True(added["Платформа"]);
+        Assert.False(afterLeaving["Платформа"]);
     }
 
     // US-3 · "A project is created ready to use": its first team, named after it, owns the root and has it as its default

@@ -37,18 +37,23 @@ function serveProcess() {
   server.use(http.get(PROCESS_DEFINITION_URL, () => HttpResponse.json(sampleProcessDefinition)));
 }
 
+/**
+ * A non-member's answers (api-contract § 0.1): the same 404 «Организация не
+ * найдена» from the access read the gate makes and from the process read.
+ */
 function serveNotFound() {
+  const notFound = () =>
+    HttpResponse.json(
+      {
+        status: 404,
+        detail: 'Организация не найдена.',
+        errorCode: 'organizations.organization.not_found',
+      },
+      { status: 404, headers: { 'Content-Type': 'application/problem+json' } },
+    );
   server.use(
-    http.get(PROCESS_DEFINITION_URL, () =>
-      HttpResponse.json(
-        {
-          status: 404,
-          detail: 'Организация не найдена.',
-          errorCode: 'organizations.organization.not_found',
-        },
-        { status: 404, headers: { 'Content-Type': 'application/problem+json' } },
-      ),
-    ),
+    http.get(PROCESS_DEFINITION_URL, notFound),
+    http.get('http://localhost:5000/api/organizations/:organizationId/access', notFound),
   );
 }
 
@@ -90,7 +95,10 @@ describe('mod-001 US-2 Scenario: No visible entry or link leads to the screen be
     renderRoutes(PROCESS_ADDRESS, authValue([]));
 
     expect(await screen.findByRole('region', { name: 'Задача' })).toBeInTheDocument();
+    // The gate reads the organization's access first (mod-016), and the page's
+    // own read starts only when the codes are held.
     expect(readUrls).toEqual([
+      `http://localhost:5000/api/organizations/${DEMONSTRATION_ORGANIZATION_ID}/access`,
       `http://localhost:5000/api/organizations/${DEMONSTRATION_ORGANIZATION_ID}/process`,
     ]);
   });

@@ -50,6 +50,16 @@ function AssigneeFieldView({
   const selected = useMemo(() => (value === null ? null : optionOf(value)), [value]);
   const [inputValue, setInputValue] = useState(selected === null ? '' : optionLabel(selected));
   const [typed, setTyped] = useState('');
+  // A field that turns read-only (the role lost the write code, mod-016 design § 7) shows
+  // its value, not the text a search was typed with.
+  const [wasReadOnly, setWasReadOnly] = useState(readOnly);
+  if (readOnly !== wasReadOnly) {
+    setWasReadOnly(readOnly);
+    if (readOnly) {
+      setInputValue(selected === null ? '' : optionLabel(selected));
+      setTyped('');
+    }
+  }
   const text = searchTextOf(typed);
   const settled = useDebouncedValue(text);
   const query = useAssigneeCandidates(organizationId, settled, isSearchable(settled));

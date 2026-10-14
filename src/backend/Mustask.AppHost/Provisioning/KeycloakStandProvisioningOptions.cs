@@ -30,8 +30,14 @@ public sealed record KeycloakStandProvisioningOptions
 
     /// <summary>
     /// Group the fixture user is put in — the same group realm `mustask`'s own
-    /// human administrator (`mustask`) uses today, so the fixture identity
-    /// carries the administrator rights it needs with no new role/group of its own.
+    /// human administrator (`mustask`) uses, so the fixture identity carries the
+    /// rights it needs with no new role/group of its own. Since mod-016 (ADR-0027,
+    /// BR-M1-29) the group maps the realm role `instance-admin`: the fixture is
+    /// the <b>instance</b> administrator — it reads and writes the dictionaries
+    /// and creates organizations, and becomes the administrator of each
+    /// organization it creates, as any creator does. It holds no organization
+    /// right of its own: a user it did not add to an organization sees nothing
+    /// of it, and the specs that need a second user add one on «Участники».
     /// </summary>
     public string GroupPath { get; init; } = "/Администраторы";
 

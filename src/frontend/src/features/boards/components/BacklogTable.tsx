@@ -35,10 +35,14 @@ import {
   useSetWorkItemParent,
   useWorkItemDialog,
   workItemPath,
+  workItemsPermissions,
   type ParentWriteResult,
   type WorkItem,
   type WorkItemRef,
 } from '../../workitems';
+import { useAccessCheck } from '../../../shared/lib/access';
+import { focusMainRegion } from '../../../shared/lib/mainRegion';
+import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
 import { TypeMark } from '../../../shared/ui/WorkTrackingMarks';
 import type {
   Backlog,
@@ -59,7 +63,12 @@ import {
   type DropVerdict,
 } from '../lib/drop';
 import type { BoardLevelCode } from '../lib/levels';
-import { moveRefusalNotice, parentRefusal, type ParentRefusal } from '../lib/refusals';
+import {
+  isAccessRefusal,
+  moveRefusalNotice,
+  parentRefusal,
+  type ParentRefusal,
+} from '../lib/refusals';
 import {
   MOVE_ENTRIES,
   MOVE_ENTRY_LABELS,
@@ -80,6 +89,7 @@ import {
   toggled,
   treeLines,
 } from '../lib/tree';
+import { boardsPermissions } from '../permissions';
 import { AddChildRow, type AddCancel } from './AddChildRow';
 import { BacklogHeadRow } from './BacklogHeadRow';
 import { BacklogRow } from './BacklogRow';
@@ -212,6 +222,16 @@ interface AddingState {
  * One write at a time: while a move, a parent write or a create is saved every
  * row is not draggable and every «+», «⋮» and both header buttons is off
  * (`aria-disabled`), so focus can stay where it is (BR-T-15).
+ *
+ * Which control is drawn follows the served codes (mod-016 design § 6.2, the
+ * backlog as in main): «+» needs `workitems.workitem.write` and
+ * `workitems.link.write` both (the create carries the parent); «⋮» is drawn on a
+ * row while one of its items is — the move group (a top-level row) on
+ * `boards.backlog.reorder`, the parent group on `workitems.link.write`; a row is
+ * draggable, and draws its grip, while one of its drops is allowed — onto a
+ * row with the link code, between top-level blocks with the reorder code. A
+ * drag offers only the targets of the codes held. A reader holds none of the
+ * three and so reads only.
  */
 export function BacklogTable({
   organizationId,
@@ -248,6 +268,11 @@ export function BacklogTable({
   // `open` keeps its identity, so the memoised rows are not redrawn by the navigation.
   const { open: openItem } = useWorkItemDialog();
   const process = useProcessDefinition(organizationId);
+  const access = useAccessCheck();
+  const canWrite = access(workItemsPermissions.workItemWrite, 'organization');
+  const canLink = access(workItemsPermissions.linkWrite, 'organization');
+  const canReorder = access(boardsPermissions.backlogReorder, 'organization');
+  const canAdd = canWrite && canLink;
   const view = useMoveView(items);
   const [actions, setActions] = useState<ActionsMenuState | null>(null);
   const [addMenu, setAddMenu] = useState<AddMenuState | null>(null);
@@ -419,6 +444,33 @@ export function BacklogTable({
     rowsRef.current = rows;
   }, [rows]);
 
+  // «+» goes when `workitems.workitem.write` or `workitems.link.write` does (a served-codes
+  // re-read after a 403, a role change): an add row still open goes with it, its title is
+  // dropped and focus goes to the main region — the control that had it is gone (mod-016
+  // plan P-10). One whose create is being saved lives to its answer.
+  useEffect(() => {
+    const open = addingRef.current;
+    if (canAdd || open === null || open.busy) {
+      return;
+    }
+    addRequestId.current = null;
+    setAdding(null);
+    const active = document.activeElement;
+    if (active === null || active === document.body || tableRef.current?.contains(active)) {
+      focusMainRegion();
+    }
+  }, [canAdd, addRow]);
+
+  /**
+   * Whether the user's codes give a row any «⋮» item and any drop (design § 6.2): the parent
+   * group and a drop onto a row need the link code, the move group and a drop between
+   * top-level blocks the reorder code and a top-level row.
+   */
+  const rowControls = useCallback(
+    (top: boolean) => canLink || (top && canReorder),
+    [canLink, canReorder],
+  );
+
   function backlogRead(): BacklogRowData[] | undefined {
     return client.getQueryData<Backlog>(
       boardsKeys.backlog(organizationId, projectId, teamId, level),
@@ -462,6 +514,7 @@ export function BacklogTable({
     // The rows as shown: this puts the table into its saving state, controls off.
     view.begin(rows);
     let refusal: ParentRefusal | null = null;
+    let noticed = false;
     try {
       await setParent.mutateAsync({
         identifier: row.identifier,
@@ -469,6 +522,11 @@ export function BacklogTable({
       });
     } catch (error) {
       refusal = parentRefusal(error);
+      if (isAccessRefusal(error) && refusal.notice !== null) {
+        // At once, not after the read: the codes are read again meanwhile (design § 2.4).
+        showError(refusal.notice);
+        noticed = true;
+      }
     }
     // The backlog is read again whatever the answer, before the notice.
     await readAgain();
@@ -476,7 +534,7 @@ export function BacklogTable({
     view.end(backlogRead(), items);
     if (refusal === null) {
       showSuccess(`У ${row.identifier} больше нет родителя.`);
-    } else if (refusal.notice !== null) {
+    } else if (refusal.notice !== null && !noticed) {
       showError(refusal.notice);
     }
   }
@@ -705,11 +763,11 @@ export function BacklogTable({
   const openActions = useCallback(
     (event: MouseEvent<HTMLElement> | KeyboardEvent<HTMLElement>, id: string) => {
       const row = findInTree(rows, id);
-      if (!off && row) {
+      if (!off && row && rowControls(rows.some((top) => top.id === id))) {
         setActions({ anchor: event.currentTarget, row });
       }
     },
-    [off, rows],
+    [off, rows, rowControls],
   );
 
   const handleAdd = useCallback(
@@ -719,7 +777,7 @@ export function BacklogTable({
       entries: readonly AddEntry[],
     ) => {
       const [only] = entries;
-      if (off || !only || addRowStays()) {
+      if (off || !canAdd || !only || addRowStays()) {
         return;
       }
       if (entries.length === 1) {
@@ -728,7 +786,7 @@ export function BacklogTable({
         setAddMenu({ anchor: event.currentTarget, row, entries });
       }
     },
-    [off, openAdd, addRowStays],
+    [off, canAdd, openAdd, addRowStays],
   );
 
   const select = useCallback((id: string) => setSelectedId(id), []);
@@ -749,7 +807,7 @@ export function BacklogTable({
   const startDrag = useCallback(
     (event: DragEvent<HTMLElement>, id: string, identifier: string) => {
       const dragged = off ? undefined : findInTree(rows, id);
-      if (!dragged) {
+      if (!dragged || !rowControls(rows.some((top) => top.id === id))) {
         event.preventDefault();
         return;
       }
@@ -774,7 +832,7 @@ export function BacklogTable({
         dim: false,
       });
     },
-    [off, rows],
+    [off, rows, rowControls],
   );
 
   const endDrag = useCallback(() => setDrag(null), []);
@@ -795,7 +853,9 @@ export function BacklogTable({
     if (!element || !identifier || !row || !dragged) {
       return null;
     }
-    if (rows.some((top) => top.id === dragState.id)) {
+    // The drop line needs the reorder code; the targets that are rows need the link code. A drag
+    // offers only the targets of the codes held (design § 6.2).
+    if (canReorder && rows.some((top) => top.id === dragState.id)) {
       const box = element.getBoundingClientRect();
       const block = Number(element.dataset.block);
       if (row.id === rows[block]?.id && event.clientY < box.top + box.height / 4) {
@@ -804,6 +864,9 @@ export function BacklogTable({
       if (blockEnds.get(block) === identifier && event.clientY > box.bottom - box.height / 4) {
         return { kind: 'gap', gap: block + 1 };
       }
+    }
+    if (!canLink) {
+      return null;
     }
     return {
       kind: 'row',
@@ -886,6 +949,7 @@ export function BacklogTable({
     view.begin(rows);
     let written: ParentWriteResult | null = null;
     let refusal: ParentRefusal | null = null;
+    let noticed = false;
     try {
       written = await setParent.mutateAsync({
         identifier: dragged.identifier,
@@ -893,6 +957,11 @@ export function BacklogTable({
       });
     } catch (error) {
       refusal = parentRefusal(error);
+      if (isAccessRefusal(error) && refusal.notice !== null) {
+        // At once, not after the read: the codes are read again meanwhile (design § 2.4).
+        showError(refusal.notice);
+        noticed = true;
+      }
     }
     // The backlog is read again whatever the answer, before the notice.
     await readAgain();
@@ -908,7 +977,7 @@ export function BacklogTable({
       showSuccess(
         `У ${dragged.identifier} теперь родитель ${written.parent?.identifier ?? target.identifier}.`,
       );
-    } else if (refusal?.notice) {
+    } else if (refusal?.notice && !noticed) {
       showError(refusal.notice);
     }
   }
@@ -916,6 +985,9 @@ export function BacklogTable({
   /** The open «⋮» menu's row as it opened, while it is still in the backlog. */
   const actionsRow = actions && findInTree(rows, actions.row.id) ? actions.row : undefined;
   const actionsIndex = actionsRow ? rows.findIndex((row) => row.id === actionsRow.id) : -1;
+  // The move group is a top-level row's and needs `boards.backlog.reorder`; the parent items
+  // need `workitems.link.write` (design § 6.2).
+  const showMoveGroup = actionsIndex >= 0 && canReorder;
 
   function chooseMove(entry: MoveEntry) {
     const body = entryMove(rows, actionsIndex, entry);
@@ -1033,7 +1105,13 @@ export function BacklogTable({
                   expanded={expanded.has(item.id)}
                   selected={selectedId === item.id}
                   off={off}
-                  addEntries={entriesByAppearance.get(item.type.appearance) ?? NO_ENTRIES}
+                  draggable={rowControls(top)}
+                  showActions={rowControls(top)}
+                  addEntries={
+                    canAdd
+                      ? (entriesByAppearance.get(item.type.appearance) ?? NO_ENTRIES)
+                      : NO_ENTRIES
+                  }
                   addMenuId={addMenu?.row.id === item.id ? addMenuId : null}
                   actionsId={actions?.row.id === item.id ? actionsMenuId : null}
                   formPath={workItemPath(organizationId, projectId, item.identifier)}
@@ -1073,7 +1151,7 @@ export function BacklogTable({
       <Menu
         id={actionsMenuId}
         anchorEl={actions?.anchor ?? null}
-        open={actions !== null}
+        open={actions !== null && (showMoveGroup || canLink)}
         onClose={() => setActions(null)}
         slotProps={{
           list: {
@@ -1081,12 +1159,12 @@ export function BacklogTable({
           },
         }}
       >
-        {actionsIndex >= 0 && (
+        {showMoveGroup && (
           <ListSubheader id={moveHeadingId} role="presentation">
             {MOVE_HEADING}
           </ListSubheader>
         )}
-        {actionsIndex >= 0 &&
+        {showMoveGroup &&
           MOVE_ENTRIES.map((entry) => (
             <MenuItem
               key={entry}
@@ -1099,24 +1177,28 @@ export function BacklogTable({
               {MOVE_ENTRY_LABELS[entry]}
             </MenuItem>
           ))}
-        {actionsIndex >= 0 && <Divider />}
-        <MenuItem onClick={chooseChange}>
-          <ListItemIcon sx={{ color: 'primary.main' }}>
-            <AccountTreeOutlinedIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>{CHANGE_PARENT_LABEL}</ListItemText>
-        </MenuItem>
-        <MenuItem disabled={!actionsRow?.parent} onClick={chooseClear}>
-          <ListItemIcon sx={{ color: 'primary.main' }}>
-            <LinkOffIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>{CLEAR_PARENT_LABEL}</ListItemText>
-        </MenuItem>
+        {showMoveGroup && canLink && <Divider />}
+        {canLink && (
+          <MenuItem onClick={chooseChange}>
+            <ListItemIcon sx={{ color: 'primary.main' }}>
+              <AccountTreeOutlinedIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>{CHANGE_PARENT_LABEL}</ListItemText>
+          </MenuItem>
+        )}
+        {canLink && (
+          <MenuItem disabled={!actionsRow?.parent} onClick={chooseClear}>
+            <ListItemIcon sx={{ color: 'primary.main' }}>
+              <LinkOffIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>{CLEAR_PARENT_LABEL}</ListItemText>
+          </MenuItem>
+        )}
       </Menu>
       <Menu
         id={addMenuId}
         anchorEl={addMenu?.anchor ?? null}
-        open={addMenu !== null}
+        open={addMenu !== null && canAdd}
         onClose={() => setAddMenu(null)}
         slotProps={{
           list: {
@@ -1136,27 +1218,29 @@ export function BacklogTable({
         ))}
       </Menu>
       {dialog && (
-        <ChangeParentDialog
-          organizationId={organizationId}
-          projectId={projectId}
-          row={dialog.row}
-          helperText={dialogHelper}
-          value={dialog.chosen}
-          busy={dialog.busy}
-          fieldError={dialog.fieldError}
-          alert={dialog.alert}
-          onChange={(chosen) =>
-            setDialog((current) =>
-              current === null ? null : { ...current, chosen, fieldError: undefined },
-            )
-          }
-          onSubmit={() => void saveParent()}
-          onClose={() => {
-            if (!dialog.busy) {
-              setDialog(null);
+        <RequiresOrganizationCode code={workItemsPermissions.linkWrite}>
+          <ChangeParentDialog
+            organizationId={organizationId}
+            projectId={projectId}
+            row={dialog.row}
+            helperText={dialogHelper}
+            value={dialog.chosen}
+            busy={dialog.busy}
+            fieldError={dialog.fieldError}
+            alert={dialog.alert}
+            onChange={(chosen) =>
+              setDialog((current) =>
+                current === null ? null : { ...current, chosen, fieldError: undefined },
+              )
             }
-          }}
-        />
+            onSubmit={() => void saveParent()}
+            onClose={() => {
+              if (!dialog.busy) {
+                setDialog(null);
+              }
+            }}
+          />
+        </RequiresOrganizationCode>
       )}
     </TableContainer>
   );

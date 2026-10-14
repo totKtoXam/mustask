@@ -1,4 +1,14 @@
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { rereadAccess } from '../access/accessCache';
+import { rememberRole } from '../access/roleMemory';
+import {
+  addMember,
+  addTeamMember,
+  changeMemberRole,
+  removeMember,
+  removeTeamMember,
+} from '../api/membershipApi';
+import type { OrganizationRole } from '../lib/roles';
 import {
   addTeam,
   createArea,
@@ -256,4 +266,83 @@ export function useDeleteArea(organizationId: string, projectId: string) {
     (areaId: string) => deleteArea(organizationId, projectId, areaId),
     false,
   );
+}
+
+// mod-016 members (api-contract § 1.4–§ 1.6) and team members (§ 2.3–§ 2.4)
+
+export function useAddMember(organizationId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { userId: string; role: OrganizationRole }) =>
+      addMember(organizationId, body),
+    onSuccess: () => invalidate(client, keys.members(organizationId)),
+  });
+}
+
+/**
+ * `selfId` is the caller's own user id: a role the caller gives themselves
+ * applies to their next request, so the new role is remembered *before* the
+ * served codes are read again — that action's own notice speaks and the
+ * role-change notice stays silent (design § 2.4) — and the codes are read at
+ * once (BR-M1-31, design § 3.6): with no reload the controls the role no
+ * longer allows go.
+ */
+export function useChangeMemberRole(organizationId: string, selfId: string | undefined) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: OrganizationRole }) =>
+      changeMemberRole(organizationId, userId, role),
+    onSuccess: (_member, { userId, role }) => {
+      const reads = [invalidate(client, keys.members(organizationId))];
+      if (selfId !== undefined && userId === selfId) {
+        rememberRole(client, organizationId, role);
+        reads.push(rereadAccess(client, organizationId));
+      }
+      return Promise.all(reads);
+    },
+  });
+}
+
+/**
+ * Removing someone else re-reads the members and the organization's team
+ * members (the user left every team, BR-M1-36). Removing oneself leaves the
+ * page: the members list is only marked stale — its read would answer
+ * «Организация не найдена» — and the organization lists are read, so the
+ * switcher falls back (design § 3.7).
+ */
+export function useRemoveMember(organizationId: string, selfId: string | undefined) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => removeMember(organizationId, userId),
+    onSuccess: (_result, userId) => {
+      if (selfId !== undefined && userId === selfId) {
+        void client.invalidateQueries({
+          queryKey: keys.members(organizationId),
+          refetchType: 'none',
+        });
+        void client.invalidateQueries({
+          queryKey: keys.teamMembersOf(organizationId),
+          refetchType: 'none',
+        });
+        return invalidate(client, keys.organizations('active'));
+      }
+      return invalidate(client, keys.members(organizationId), keys.teamMembersOf(organizationId));
+    },
+  });
+}
+
+export function useAddTeamMember(organizationId: string, projectId: string, teamId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => addTeamMember(organizationId, projectId, teamId, userId),
+    onSuccess: () => invalidate(client, keys.teamMembers(organizationId, projectId, teamId)),
+  });
+}
+
+export function useRemoveTeamMember(organizationId: string, projectId: string, teamId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => removeTeamMember(organizationId, projectId, teamId, userId),
+    onSuccess: () => invalidate(client, keys.teamMembers(organizationId, projectId, teamId)),
+  });
 }

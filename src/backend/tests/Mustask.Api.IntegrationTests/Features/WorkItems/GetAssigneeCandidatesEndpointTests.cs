@@ -7,8 +7,8 @@ namespace Mustask.Api.IntegrationTests.Features.WorkItems;
 
 /// <summary>
 /// <c>GET /api/organizations/{organizationId}/workitems/assignee-candidates?text=</c>
-/// (mod-003 api-contract § 2.5, US-4, BR-M3-22): every active user of the
-/// directory, by display name or e-mail. Each test empties the projection
+/// (mod-003 api-contract § 2.5, US-4, BR-M3-22; mod-016 BR-M1-26): every active member of the organization, found
+/// in the directory by display name or e-mail. Each test empties the projection
 /// first (<see cref="UserDirectoryTestData.ResetAsync"/>), as mod-014's own
 /// read tests do: the collection shares one database.
 /// </summary>
@@ -17,16 +17,27 @@ namespace Mustask.Api.IntegrationTests.Features.WorkItems;
 [Collection(MustaskApiCollection.Name)]
 public sealed class GetAssigneeCandidatesEndpointTests(MustaskApiFactory factory)
 {
-    /// <summary>US-4's directory: «Анна Смирнова» and «Анна Кузнецова» active, «Пётр Иванов» inactive.</summary>
+    /// <summary>
+    /// US-4's directory, all members of the organization: «Анна Смирнова» and «Анна Кузнецова» active, «Пётр Иванов» inactive
+    /// (mod-016 BR-M1-26: the picker offers the members; who is not a member is the next file's, AssigneeMembershipEndpointTests).
+    /// </summary>
     private async Task<(Guid OrganizationId, string Smirnova, string Kuznetsova, string Ivanov)> DirectoryAsync()
     {
         await UserDirectoryTestData.ResetAsync(factory);
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
-        var smirnova = await WorkItemsTestData.AddUserAsync(factory, "Анна", "Смирнова", "anna.smirnova@example.com");
-        var kuznetsova = await WorkItemsTestData.AddUserAsync(factory, "Анна", "Кузнецова", "anna.kuznetsova@example.com");
-        var ivanov = await WorkItemsTestData.AddUserAsync(factory, "Пётр", "Иванов", "petr.ivanov@example.com", active: false);
+        var smirnova = await AddMemberUserAsync(organization.Id, "Анна", "Смирнова", "anna.smirnova@example.com");
+        var kuznetsova = await AddMemberUserAsync(organization.Id, "Анна", "Кузнецова", "anna.kuznetsova@example.com");
+        var ivanov = await AddMemberUserAsync(organization.Id, "Пётр", "Иванов", "petr.ivanov@example.com", active: false);
 
         return (organization.Id, smirnova, kuznetsova, ivanov);
+    }
+
+    private async Task<string> AddMemberUserAsync(Guid organizationId, string firstName, string lastName, string? email = null, bool active = true)
+    {
+        var id = await WorkItemsTestData.AddUserAsync(factory, firstName, lastName, email, active);
+        await MembershipTestData.AddMemberAsync(factory, organizationId, id);
+
+        return id;
     }
 
     private Task<Answer> SearchAsync(Guid organizationId, string? text) =>
@@ -86,7 +97,7 @@ public sealed class GetAssigneeCandidatesEndpointTests(MustaskApiFactory factory
         var directory = await DirectoryAsync();
         for (var index = 1; index <= 25; index++)
         {
-            await WorkItemsTestData.AddUserAsync(factory, "Мария", $"Тестова{index:00}");
+            await AddMemberUserAsync(directory.OrganizationId, "Мария", $"Тестова{index:00}");
         }
 
         var answer = await SearchAsync(directory.OrganizationId, "мария");

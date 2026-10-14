@@ -13,6 +13,7 @@
 // be added back: a suite that can write realm configuration is one refactor
 // away from doing it again for convenience.
 
+import { randomUUID } from 'node:crypto';
 import { nodeUrl } from './env';
 import { StaleStandCredentialError, withStandFile } from './standFile';
 import type { StandFile } from './standFile';
@@ -77,20 +78,24 @@ export async function logoutUserSessions(keycloakUrl: string, realm: string, use
 }
 
 /**
- * The permission-gating spec (16): the fixture user is
- * deliberately full-admin (`KeycloakStandProvisioner`'s `GroupPath`,
- * `/Администраторы`) — every route in the app is open to it, so there is no
- * real "denied" case to observe through it alone. Rather than temporarily
- * changing the shared fixture's own group (a different suite/session may
- * depend on it staying admin for the whole time this stand is up), this
- * creates a throwaway user in the realm's own pre-existing
- * `/Сотрудники` group (`deploy/keycloak/realms/mustask-realm.json`) —
- * the `viewer` role, `dictionaries.languages.read` only, no
- * `dictionaries.languages.write`. `createUser`+group-membership is within
- * `mustask-e2e`'s existing `manage-users` role — no new realm-management
- * scope needed, no realm-wide setting touched. `deleteEphemeralUser` below
- * must be called from the same spec's own cleanup so nothing outlives the
- * test that created it.
+ * The throwaway users of the suite (specs 16, 19.9, 20.4, 21.6 and 27-30). The
+ * fixture user is deliberately full-admin (`KeycloakStandProvisioner`'s
+ * `GroupPath`, `/Администраторы`) — every route in the app is open to it, so
+ * there is no real "denied" case to observe through it alone. Rather than
+ * temporarily changing the shared fixture's own group (a different
+ * suite/session may depend on it staying admin for the whole time this stand
+ * is up), a spec creates a throwaway user and deletes it in its own cleanup
+ * (`deleteEphemeralUser`, then `userExistsById`; `deleteEphemeralUsers` does
+ * both) so nothing outlives the test that created it.
+ *
+ * Since mod-016 (D-7) the realm has no `/Сотрудники` group and no `viewer`
+ * role: a user in NO group is the instance-level reader — it reads the
+ * dictionaries through the realm's default roles and holds nothing else. It
+ * holds no organization right either; those are never in the token and come
+ * from a membership (ADR-0027), which a spec gives it through the API
+ * (`membersApi.ts`). Creating a user is within `mustask-e2e`'s existing
+ * `manage-users` role — no new realm-management scope needed, no realm-wide
+ * setting touched.
  *
  * **The profile must be complete, not just `username`+`enabled`.** Live
  * finding (spec 16's first real run): realm `mustask`'s declarative user
@@ -108,8 +113,6 @@ export async function logoutUserSessions(keycloakUrl: string, realm: string, use
  * matching the fixture (a freshly created user's default is already `[]`
  * unless something asks for a specific action, and nothing here does).
  */
-const READER_GROUP_PATH = '/Сотрудники';
-
 export interface EphemeralUser {
   id: string;
   username: string;
@@ -153,47 +156,12 @@ async function createProfiledUser(
   return userId;
 }
 
-export async function createEphemeralReaderUser(keycloakUrl: string, realm: string): Promise<EphemeralUser> {
-  return withStandFile(async (stand) => {
-    const token = await getServiceAccountToken(keycloakUrl, realm, stand);
-    const authHeader = { Authorization: `Bearer ${token}` };
-    const username = `e2e-permission-check-${Date.now()}`;
-    const userId = await createProfiledUser(keycloakUrl, realm, authHeader, {
-      username,
-      lastName: 'Reader',
-      description: 'reader user',
-    });
-
-    const groupPath = READER_GROUP_PATH.split('/')
-      .filter((segment) => segment.length > 0)
-      .map(encodeURIComponent)
-      .join('/');
-    const groupResponse = await fetch(`${nodeUrl(keycloakUrl)}/admin/realms/${realm}/group-by-path/${groupPath}`, {
-      headers: authHeader,
-    });
-    if (!groupResponse.ok) {
-      throw new Error(`Could not resolve group '${READER_GROUP_PATH}': HTTP ${groupResponse.status}`);
-    }
-    const group = (await groupResponse.json()) as { id: string };
-
-    const joinResponse = await fetch(`${nodeUrl(keycloakUrl)}/admin/realms/${realm}/users/${userId}/groups/${group.id}`, {
-      method: 'PUT',
-      headers: authHeader,
-    });
-    if (!joinResponse.ok) {
-      throw new Error(`Could not add '${username}' to group '${READER_GROUP_PATH}': HTTP ${joinResponse.status}`);
-    }
-
-    return { id: userId, username };
-  });
-}
-
 /**
- * The process-definition spec (20, mod-001 US-2 "Every signed-in user sees
- * the same definition"): a throwaway user in no group at all, so its token
- * carries no `mustask-api` code. Same profile, same `manage-users` right and
- * the same cleanup duty (`deleteEphemeralUser`, then `userExistsById`) as
- * `createEphemeralReaderUser` above.
+ * A throwaway user in no group at all (specs 16, 19.9, 20.4, 21.6, 27.8): its
+ * token carries `dictionaries.languages.read` from the realm's default roles and
+ * nothing else — the reader of the dictionaries (D-7) and a non-member of every
+ * organization. Replaces the former reader user in the `/Сотрудники` group, which
+ * the realm no longer has.
  */
 export async function createEphemeralUserWithoutGroup(keycloakUrl: string, realm: string): Promise<EphemeralUser> {
   return withStandFile(async (stand) => {
@@ -206,6 +174,87 @@ export async function createEphemeralUserWithoutGroup(keycloakUrl: string, realm
       description: 'user without a group',
     });
     return { id: userId, username };
+  });
+}
+
+/**
+ * A throwaway user for the membership specs (27-30, mod-016): a complete
+ * profile, in no group, so its token carries no organization right of any kind
+ * (ADR-0027) — whatever it may do in an organization it may do as a member of
+ * it, added through the API. The name is «E2E <label> <token>», unique per run
+ * (names are shown, searched and compared by it), where `token` is 8 hex digits
+ * that also appear in the e-mail's user part: a search text that finds this
+ * user and no other. Same `manage-users` right and the same cleanup duty
+ * (`deleteEphemeralUsers`) as the others.
+ */
+export interface EphemeralMember extends EphemeralUser {
+  email: string;
+  displayName: string;
+  /** 8 hex digits in the display name; typed into a user search, they find exactly this user. */
+  token: string;
+}
+
+export async function createEphemeralMember(
+  keycloakUrl: string,
+  realm: string,
+  label: string,
+): Promise<EphemeralMember> {
+  return withStandFile(async (stand) => {
+    const token = await getServiceAccountToken(keycloakUrl, realm, stand);
+    const authHeader = { Authorization: `Bearer ${token}` };
+    const unique = randomUUID().slice(0, 8);
+    const username = `e2e-member-${unique}`;
+    const lastName = `${label} ${unique}`;
+    const userId = await createProfiledUser(keycloakUrl, realm, authHeader, {
+      username,
+      lastName,
+      description: 'member user',
+    });
+    return {
+      id: userId,
+      username,
+      email: `${username}@stand.local`,
+      // The projection's rule (mod-014 BR-UP-3): first name, a space, last name.
+      displayName: `E2E ${lastName}`,
+      token: unique,
+    };
+  });
+}
+
+/**
+ * Disables or enables an account (Users → Enabled in the console): the
+ * «неактивен» case of mod-016 US-1 and US-3. Reads the user and writes the whole
+ * representation back with `enabled` changed — a partial `PUT` could drop
+ * profile attributes of the realm's declarative user profile. Within
+ * `mustask-e2e`'s `manage-users` right. The user projection learns of it
+ * through Keycloak's admin event, a moment later (ADR-0025): wait for it with
+ * `membersApi.ts`'s `awaitNotOffered` or `awaitMemberState`.
+ */
+export async function setUserEnabled(
+  keycloakUrl: string,
+  realm: string,
+  userId: string,
+  enabled: boolean,
+): Promise<void> {
+  return withStandFile(async (stand) => {
+    const token = await getServiceAccountToken(keycloakUrl, realm, stand);
+    const authHeader = { Authorization: `Bearer ${token}` };
+    const address = `${nodeUrl(keycloakUrl)}/admin/realms/${realm}/users/${userId}`;
+    const read = await fetch(address, { headers: authHeader });
+    if (!read.ok) {
+      throw new Error(`Could not read user '${userId}': HTTP ${read.status}`);
+    }
+    const representation = (await read.json()) as Record<string, unknown>;
+    const write = await fetch(address, {
+      method: 'PUT',
+      headers: { ...authHeader, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...representation, enabled }),
+    });
+    if (!write.ok) {
+      throw new Error(
+        `Could not set user '${userId}' enabled=${enabled}: HTTP ${write.status} ${await write.text()}`,
+      );
+    }
   });
 }
 
@@ -238,4 +287,31 @@ export async function userExistsById(keycloakUrl: string, realm: string, userId:
     }
     return true;
   });
+}
+
+/**
+ * The cleanup of the membership specs: deletes every user in `users` and
+ * confirms each is gone, so a failed delete cannot leave a throwaway identity
+ * behind. Runs them all before it throws, naming the ones left. MUSTASK's user
+ * projection keeps each such user's record, held `Deleted` with the name and
+ * e-mail last received (mod-014 BR-UP-5), as it keeps every deleted user's:
+ * one row per throwaway user, shown «неактивен» where the user was a member.
+ */
+export async function deleteEphemeralUsers(
+  keycloakUrl: string,
+  realm: string,
+  users: readonly Pick<EphemeralUser, 'id'>[],
+): Promise<void> {
+  const left: string[] = [];
+  for (const user of users) {
+    try {
+      await deleteEphemeralUser(keycloakUrl, realm, user.id);
+      if (await userExistsById(keycloakUrl, realm, user.id)) left.push(user.id);
+    } catch {
+      left.push(user.id);
+    }
+  }
+  if (left.length > 0) {
+    throw new Error(`Throwaway users were not deleted from realm '${realm}': ${left.join(', ')}`);
+  }
 }

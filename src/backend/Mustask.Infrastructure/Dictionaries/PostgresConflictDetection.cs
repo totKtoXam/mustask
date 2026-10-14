@@ -30,4 +30,12 @@ internal static class PostgresConflictDetection
     public static bool IsUniqueViolationOnConstraint(DbUpdateException ex, string constraintName) =>
         ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } pg
         && string.Equals(pg.ConstraintName, constraintName, StringComparison.Ordinal);
+
+    /// <summary>
+    /// A foreign key (23503) named <paramref name="constraintName"/> refused the write: the row it points at is gone, or
+    /// went while the insert ran. mod-016's team membership onto the organization membership is the first (BR-M1-10).
+    /// </summary>
+    public static bool IsForeignKeyViolationOnConstraint(DbUpdateException ex, string constraintName) =>
+        ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.ForeignKeyViolation } pg
+        && string.Equals(pg.ConstraintName, constraintName, StringComparison.Ordinal);
 }

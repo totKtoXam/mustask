@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
-import { useWorkContext } from '../../../shared/lib/workContext';
+import { useNoticeHost } from '../../../shared/lib/noticeCorner';
 import { NotifyContext, type Notify, type OrganizationsNotice } from './notice';
 
 /** How long a notice stays (design § 4.5). */
@@ -15,27 +15,24 @@ interface ShownNotice extends OrganizationsNotice {
 /**
  * The pathless layout route around the slice's nine routes (plan-frontend
  * § 7.4): it hosts the slice's one `Snackbar`, 6 s at the bottom left, so a
- * notice survives the page an action opens. One notice at a time (DC-7): the
- * switcher's fallback notice wins, so this one closes when the switcher
- * raises a fallback.
+ * notice survives the page an action opens. One notice at a time (DC-7,
+ * mod-016 DC-11): the switcher's fallback notice wins, so this one closes
+ * when the switcher raises a fallback and when the shell raises the
+ * role-change notice, and a notice shown here closes the role-change notice
+ * (`useNoticeHost`).
  */
 export function OrganizationsSection() {
   const [notice, setNotice] = useState<ShownNotice | null>(null);
-
-  const notify = useCallback<Notify>((text, severity = 'success') => {
-    setNotice((current) => ({ id: (current?.id ?? 0) + 1, text, severity }));
-  }, []);
-
-  const fallbackId = useWorkContext().fallback?.id ?? null;
-  const [seenFallbackId, setSeenFallbackId] = useState(fallbackId);
-  if (seenFallbackId !== fallbackId) {
-    setSeenFallbackId(fallbackId);
-    if (fallbackId !== null) {
-      setNotice(null);
-    }
-  }
-
   const close = () => setNotice(null);
+  const claim = useNoticeHost(close);
+
+  const notify = useCallback<Notify>(
+    (text, severity = 'success') => {
+      claim();
+      setNotice((current) => ({ id: (current?.id ?? 0) + 1, text, severity }));
+    },
+    [claim],
+  );
 
   return (
     <NotifyContext.Provider value={notify}>

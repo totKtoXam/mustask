@@ -7,6 +7,7 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import { useTheme } from '@mui/material/styles';
 import { DialogTitleBar } from './DialogTitleBar';
+import { useDialogLocked } from './RequiresOrganizationCode';
 
 export interface ConfirmDialogProps {
   open: boolean;
@@ -56,6 +57,9 @@ export function ConfirmDialog({
   onClose,
 }: ConfirmDialogProps) {
   const theme = useTheme();
+  // The code of the wrapping page has gone (RequiresOrganizationCode): the
+  // dialog stays with its refusal, but nothing it could do is allowed.
+  const locked = useDialogLocked();
 
   return (
     <Dialog open={open} onClose={busy ? undefined : onClose} maxWidth="xs" fullWidth>
@@ -80,7 +84,7 @@ export function ConfirmDialog({
           variant="contained"
           color={destructive ? 'error' : 'primary'}
           onClick={onConfirm}
-          disabled={busy}
+          disabled={busy || locked}
           startIcon={busy ? <CircularProgress size={theme.spacing(2)} /> : undefined}
         >
           {confirmLabel}

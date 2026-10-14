@@ -102,7 +102,7 @@ describe('mod-002 US-8 Scenario: «Все организации» opens the lis
 });
 
 describe('mod-002 US-8 Scenario: «Нет организаций» leads to the list', () => {
-  it('links to the list with no project or team level, where «Организаций пока нет» shows', async () => {
+  it('links to the list with no project or team level, where «Вы пока не состоите ни в одной организации» shows', async () => {
     serve(emptyDataset());
     renderApp('/home');
 
@@ -111,7 +111,10 @@ describe('mod-002 US-8 Scenario: «Нет организаций» leads to the 
     await userEvent.click(link);
 
     expect(
-      await screen.findByRole('heading', { level: 2, name: 'Организаций пока нет' }),
+      await screen.findByRole('heading', {
+        level: 2,
+        name: 'Вы пока не состоите ни в одной организации',
+      }),
     ).toBeInTheDocument();
   });
 });
@@ -134,7 +137,16 @@ describe('mod-002 US-8 Scenario: Settings through the shell’s navigation', () 
     const links = within(navigation)
       .getAllByRole('link')
       .map((link) => link.textContent);
-    expect(links).toEqual(['Общие', 'Проекты', 'Процесс', 'Общие', 'Команды', 'Области', 'Языки']);
+    expect(links).toEqual([
+      'Общие',
+      'Проекты',
+      'Участники',
+      'Процесс',
+      'Общие',
+      'Команды',
+      'Области',
+      'Языки',
+    ]);
     expect(within(navigation).getByText('Организация')).toBeInTheDocument();
     expect(within(navigation).getByText('Проект')).toBeInTheDocument();
     expect(within(navigation).getAllByRole('link', { name: 'Общие' })[0]).toHaveAttribute(

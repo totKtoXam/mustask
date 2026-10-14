@@ -16,7 +16,7 @@ namespace Mustask.Application.Features.Organizations.GetAreaTree;
 /// <remarks>
 /// <para>
 /// <b>The order of answers</b> (plan-backend § 5.3): only the address
-/// applies. The organization-context filter has answered for the organization
+/// applies. The scoped check has answered for the organization
 /// already; the handler parses it again only to name the container of the next
 /// read. A malformed, unknown, deactivated or foreign project, or one of a
 /// deactivated organization, is <see cref="OrganizationErrorCodes.ProjectNotFound"/>

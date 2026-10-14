@@ -11,19 +11,29 @@ type PendingFocus =
  * its own, other rows usable; on success the row leaves, the notice, and
  * focus moves to the next row's «Восстановить», else the previous one's,
  * else the selected tab; on failure the row and its focus stay and the error
- * notice carries the server's text.
+ * notice carries the server's text — unless the page answers the refusal
+ * itself (`answeredByPage`), and then nothing speaks over it.
  */
 export function useRestore<R>({
   rows,
   restore,
   notice,
   container,
+  answeredByPage,
 }: {
   rows: readonly { id: string; name: string }[] | undefined;
   restore(id: string): Promise<R>;
   notice(name: string): string;
   /** The page, to find its selected tab when the list is left empty. */
   container: RefObject<HTMLElement | null>;
+  /**
+   * A refusal the page answers by itself, with no message of its own: under an
+   * organization the 404 «Организация не найдена» takes the whole page (the
+   * gate's row 3), and a notice would only speak over that frame (mod-016
+   * design § 9, DC-12). The organization list names none: its restore keeps
+   * the error notice of mod-002 § 5.5.
+   */
+  answeredByPage?(error: unknown): boolean;
 }) {
   const notify = useNotify();
   const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set());
@@ -80,7 +90,9 @@ export function useRestore<R>({
       notify(notice(name));
     } catch (error) {
       pending.current = { kind: 'failed', id };
-      notify(apiErrorText(error), 'error');
+      if (!answeredByPage?.(error)) {
+        notify(apiErrorText(error), 'error');
+      }
     } finally {
       setBusyIds((current) => {
         const next = new Set(current);

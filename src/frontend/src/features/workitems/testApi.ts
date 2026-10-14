@@ -220,6 +220,8 @@ export class WorkItemsTestApi {
               id: record.assigneeId,
               displayName: user?.displayName ?? null,
               email: user ? user.email : null,
+              // api-contract § 3.3: the membership alone.
+              isMember: user !== undefined && user.member !== false,
             },
       area: { id: record.areaId, path: this.areaPath(record.areaId) },
       changedAt: record.changedAt,
@@ -565,7 +567,7 @@ export class WorkItemsTestApi {
     const assigneeId = assignee ? (assignee.userId ?? null) : undefined;
     if (assigneeId) {
       const user = this.data.users.find((candidate) => candidate.id === assigneeId);
-      if ((!user || !user.active) && assigneeId !== record.assigneeId) {
+      if ((!user || !user.active || user.member === false) && assigneeId !== record.assigneeId) {
         refuse('workitems.workitem.assignee_unavailable');
       }
     }
@@ -619,6 +621,7 @@ export class WorkItemsTestApi {
       .filter(
         (user) =>
           user.active &&
+          user.member !== false &&
           (user.displayName.toLocaleLowerCase('ru').includes(needle) ||
             user.email.toLocaleLowerCase('ru').includes(needle)),
       )

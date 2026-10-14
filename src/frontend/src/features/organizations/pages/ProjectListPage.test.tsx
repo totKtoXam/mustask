@@ -109,6 +109,48 @@ describe('mod-002 US-3 Scenario: Restored', () => {
   });
 });
 
+describe('mod-016 design § 9 Scenario: a restore refused on the deactivated tab', () => {
+  async function restoreOld() {
+    renderPage({ path: ALFA_DEACTIVATED });
+    const table = await screen.findByRole('table', { name: 'Деактивированные проекты' });
+    const restore = within(table).getByRole('button', { name: 'Восстановить «Старый проект»' });
+    await userEvent.click(restore);
+    await waitFor(() => expect(restore).toBeEnabled());
+    return restore;
+  }
+
+  // The 404 «Организация не найдена» takes the whole page (the gate's row 3,
+  // DC-12) and has no message of its own: under an organization no Snackbar
+  // shows it over the frame. Only the organization list keeps its Snackbar.
+  it('shows no notice for the 404 «Организация не найдена», which the gate answers with its frame', async () => {
+    serveOrganizations();
+    serveProblem(
+      'post',
+      `${PROJECTS_URL}/:projectId/restore`,
+      problem('organizations.organization.not_found'),
+    );
+
+    await restoreOld();
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByText('Организация не найдена.')).not.toBeInTheDocument();
+  });
+
+  it('keeps the error notice with the server’s text for any other refusal, and the row with its focus', async () => {
+    serveOrganizations();
+    serveProblem(
+      'post',
+      `${PROJECTS_URL}/:projectId/restore`,
+      problem('organizations.project.not_found'),
+    );
+
+    const restore = await restoreOld();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Проект не найден.');
+    await waitFor(() => expect(restore).toHaveFocus());
+  });
+});
+
 describe('mod-002 US-2 Scenario: Restored exactly as it was (a project deactivated on its own)', () => {
   it('«Старый проект» stays under the deactivated tab after its organization is restored', async () => {
     const api = serveOrganizations();

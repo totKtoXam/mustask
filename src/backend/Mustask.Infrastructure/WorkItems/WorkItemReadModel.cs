@@ -125,7 +125,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         var rows = await Rows(pageItems, includeDescription: false).ToListAsync(cancellationToken);
 
         var paths = await AreaPathsAsync(projectId, cancellationToken);
-        var assignees = await AssigneesAsync(rows, cancellationToken);
+        var assignees = await AssigneesAsync(rows, projectId, cancellationToken);
 
         // The joins do not promise the page's order, so the page, already narrowed in SQL, is put back in it here.
         var items = rows
@@ -229,7 +229,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
     private async Task<WorkItemView> ViewAsync(ItemRow row, CancellationToken cancellationToken)
     {
         var paths = await AreaPathsAsync(row.ProjectId, cancellationToken);
-        var assignees = await AssigneesAsync([row], cancellationToken);
+        var assignees = await AssigneesAsync([row], row.ProjectId, cancellationToken);
         var (parent, children) = await LinksAsync(row, cancellationToken);
 
         var fields = row.Fields;
@@ -294,16 +294,23 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         return new AreaTree(nodes);
     }
 
-    private async Task<IReadOnlyDictionary<string, DirectoryUser>> AssigneesAsync(IReadOnlyCollection<ItemRow> rows, CancellationToken cancellationToken)
+    /// <summary>
+    /// The page's assignees: who the directory knows, by one lookup, and — mod-016 BR-M1-26 — which of them are members of
+    /// the project's organization right now, by one more statement (<see cref="ProjectMembers"/>).
+    /// </summary>
+    private async Task<Assignees> AssigneesAsync(IReadOnlyCollection<ItemRow> rows, Guid projectId, CancellationToken cancellationToken)
     {
         var ids = rows.Select(row => row.AssigneeId).OfType<string>().Distinct(StringComparer.Ordinal).ToList();
 
         if (ids.Count == 0)
         {
-            return new Dictionary<string, DirectoryUser>(StringComparer.Ordinal);
+            return new Assignees(new Dictionary<string, DirectoryUser>(StringComparer.Ordinal), []);
         }
 
-        return (await directory.LookupAsync(ids, cancellationToken)).Known;
+        var known = (await directory.LookupAsync(ids, cancellationToken)).Known;
+        var members = await ProjectMembers.MemberIdsAsync(context, projectId, ids, cancellationToken);
+
+        return new Assignees(known, members);
     }
 
     private static string Identifier(ItemRow row) => WorkItemIdentifier.Format(row.ProjectKey, row.TypeKey, row.Number);
@@ -314,13 +321,17 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         new(row.StateId, row.StateName, new WorkItemStateCategoryView(row.StateCategory.ToString(), StateCategoryLabels.Of(row.StateCategory)));
 
     /// <summary>An id the directory does not know keeps its id and has no name (US-2 «Неизвестный пользователь»).</summary>
-    private static WorkItemAssigneeView? Assignee(ItemRow row, IReadOnlyDictionary<string, DirectoryUser> known) =>
+    private static WorkItemAssigneeView? Assignee(ItemRow row, Assignees assignees) =>
         row.AssigneeId switch
         {
             null => null,
-            { } id when known.TryGetValue(id, out var user) => new WorkItemAssigneeView(id, user.DisplayName, user.Email),
-            { } id => new WorkItemAssigneeView(id, null, null),
+            { } id when assignees.Known.TryGetValue(id, out var user) =>
+                new WorkItemAssigneeView(id, user.DisplayName, user.Email, assignees.Members.Contains(id)),
+            { } id => new WorkItemAssigneeView(id, null, null, assignees.Members.Contains(id)),
         };
+
+    /// <summary>The directory's answer for the page's assignees and the ones among them who are members of the organization.</summary>
+    private sealed record Assignees(IReadOnlyDictionary<string, DirectoryUser> Known, HashSet<string> Members);
 
     private sealed record ItemRow(
         Guid Id,

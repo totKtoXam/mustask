@@ -12,6 +12,7 @@ import {
 import { dictionariesPermissions, LANGUAGES_PATH } from '../../features/dictionaries';
 import {
   areasPath,
+  membersPath,
   organizationGeneralPath,
   organizationsPermissions,
   projectGeneralPath,
@@ -38,9 +39,13 @@ export const SETTINGS_LABEL = 'Настройки';
  * «Организация» → «Общие», «Проекты» and «Проект» → «Общие», «Команды»,
  * «Области» (its design § 2.1, DC-1), so with a real context «Настройки»
  * opens the organization's «Общие». mod-001's «Процесс» (mod-001 D-5,
- * mod-015 D-12) is third in «Организация» now, fourth once mod-016's
- * «Участники» exists. Scoped entries stay hidden until the context is real
- * (D-18), which mod-002's context source makes it. mod-003 adds the first
+ * mod-015 D-12) was third in «Организация», and is fourth since mod-016's
+ * «Участники» (registered with its page, BR-7). Scoped
+ * entries stay hidden until the context is real (D-18), which mod-002's
+ * context source makes it, and — mod-016 design § 6.1 — until the organization's
+ * served codes are read: every entry's code is a read code all three roles
+ * hold, so the three roles see the same entries and the difference is in the
+ * controls. mod-003 adds the first
  * work hub, «Рабочие элементы» (design § 4.1; mod-003 OQ-5): project-scoped,
  * so it shows once a real project is chosen, and current on the item's form
  * beneath its landing (mod-003 D-5). mod-006 adds «Доски» and «Бэклоги»
@@ -123,6 +128,14 @@ export const navigationModel: NavigationModel = {
           permission: organizationsPermissions.projectRead,
           landing: (selection) =>
             selection.organizationId ? projectsPath(selection.organizationId) : null,
+        },
+        {
+          id: 'members',
+          label: 'Участники',
+          scope: 'organization',
+          permission: organizationsPermissions.membershipRead,
+          landing: (selection) =>
+            selection.organizationId ? membersPath(selection.organizationId) : null,
         },
         {
           id: 'process',

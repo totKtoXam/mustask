@@ -22,7 +22,7 @@ public sealed class LiveKeycloakFixture : IAsyncLifetime
 {
     public const string ServiceAccountClientId = "live-service-client";
 
-    private const string ImageTag = "mustask-keycloak-provider-live:test";
+    internal const string ImageTag = "mustask-keycloak-provider-live:test";
 
     /// <summary>How long the fixture waits for the first push (<see cref="FirstPushAfterReady"/>); well past any bound a test asserts.</summary>
     public static readonly TimeSpan StartWindowWait = TimeSpan.FromSeconds(60);
@@ -206,7 +206,7 @@ public sealed class LiveKeycloakFixture : IAsyncLifetime
         return (location!.Segments[^1], stopwatch.Elapsed);
     }
 
-    private static void BuildImage()
+    internal static void BuildImage()
     {
         var context = Path.Combine(FindRepositoryRoot(), "deploy", "keycloak");
         var start = new ProcessStartInfo("docker")

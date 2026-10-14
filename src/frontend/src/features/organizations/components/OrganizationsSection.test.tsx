@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { NoticeCornerContext } from '../../../shared/lib/noticeCorner';
 import { WorkContextContext, type WorkContextSource } from '../../../shared/lib/workContext';
 import { contextSource } from '../testRender';
 import { useNotify } from './notice';
@@ -81,5 +82,58 @@ describe('mod-002 DC-7: one notice at a time, the switcher’s fallback wins', (
     rerender(tree(contextSource({ fallback: { id: 1, names: ['Альфа'] } })));
 
     expect(screen.queryByText('Команда «Ядро» удалена.')).not.toBeInTheDocument();
+  });
+});
+
+describe('mod-016 DC-11: the shell’s role-change notice shares the corner', () => {
+  function withCorner(roleChangeId: number | null, claim: () => void = () => {}) {
+    return (
+      <NoticeCornerContext.Provider value={{ roleChangeId, claim }}>
+        {tree(contextSource())}
+      </NoticeCornerContext.Provider>
+    );
+  }
+
+  it('closes its notice when the shell raises a role-change notice', async () => {
+    const { rerender } = render(withCorner(null));
+    await userEvent.click(screen.getByRole('button', { name: 'Успех' }));
+    expect(screen.getByText('Команда «Ядро» удалена.')).toBeInTheDocument();
+
+    rerender(withCorner(1));
+
+    expect(screen.queryByText('Команда «Ядро» удалена.')).not.toBeInTheDocument();
+  });
+
+  it('closes for the next role-change notice too, and keeps its own while none is raised', async () => {
+    const { rerender } = render(withCorner(1));
+    await userEvent.click(screen.getByRole('button', { name: 'Успех' }));
+    rerender(withCorner(1));
+    expect(screen.getByText('Команда «Ядро» удалена.')).toBeInTheDocument();
+
+    rerender(withCorner(2));
+
+    expect(screen.queryByText('Команда «Ядро» удалена.')).not.toBeInTheDocument();
+  });
+
+  it('claims the corner when it shows a notice, so a newer notice replaces the shell’s', async () => {
+    const claim = vi.fn();
+    render(withCorner(1, claim));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Успех' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Отказ' }));
+
+    expect(claim).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows a refusal notice of its own when the role is unchanged, and the shell’s alone when it changed', async () => {
+    const { rerender } = render(withCorner(null));
+    await userEvent.click(screen.getByRole('button', { name: 'Отказ' }));
+    expect(screen.getByText('Организация не найдена.')).toBeInTheDocument();
+
+    rerender(withCorner(null));
+    expect(screen.getByText('Организация не найдена.')).toBeInTheDocument();
+
+    rerender(withCorner(3));
+    expect(screen.queryByText('Организация не найдена.')).not.toBeInTheDocument();
   });
 });

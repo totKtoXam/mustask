@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Mustask.AppHost.Provisioning;
 using Mustask.Domain.Identity;
 
 namespace Mustask.Contracts.Tests;
@@ -27,6 +28,12 @@ public class KeycloakRealmRolesTests
 {
     private const string MustaskRealm = "mustask-realm.json";
 
+    /// <summary>The instance administrator (mod-016 BR-M1-29): dictionaries, and the right to create organizations. Nothing inside an organization.</summary>
+    private const string InstanceAdminRole = "instance-admin";
+
+    /// <summary>The realm's default roles (Keycloak names it <c>default-roles-&lt;realm&gt;</c>): what every user holds, a user in no group included.</summary>
+    private const string DefaultRole = "default-roles-mustask";
+
     // --- Права ↔ PermissionCatalog --------------------------------------------
 
     [Fact]
@@ -34,7 +41,7 @@ public class KeycloakRealmRolesTests
     {
         var permissions = ClientRoleNames(MustaskRealm, "mustask-api");
 
-        var missing = PermissionCatalog.AllCodes
+        var missing = PermissionCatalog.InstanceCodes
             .Where(code => !permissions.Contains(code))
             .OrderBy(code => code, StringComparer.Ordinal)
             .ToList();
@@ -50,7 +57,7 @@ public class KeycloakRealmRolesTests
     public void MustaskRealm_HasNoClientRolesOutsideThePermissionCatalog()
     {
         var extra = ClientRoleNames(MustaskRealm, "mustask-api")
-            .Where(role => !PermissionCatalog.AllCodes.Contains(role))
+            .Where(role => !PermissionCatalog.InstanceCodes.Contains(role))
             .OrderBy(role => role, StringComparer.Ordinal)
             .ToList();
 
@@ -95,7 +102,11 @@ public class KeycloakRealmRolesTests
     public void Realm_EveryRoleIsCompositeOfDeclaredPermissionsOnly(string fileName, string resourceClient)
     {
         var permissions = ClientRoleNames(fileName, resourceClient);
-        var roles = RealmRoles(fileName).ToList();
+
+        // mod-016 (BR-M1-37): the realm's default role and the two realm roles Keycloak itself puts in it are declared in the
+        // import, so the drift check and the tests read one declaration — they are not business roles and have their own tests
+        // (DefaultRole_HoldsReadAndOnlyKnownBuiltIns). Nothing else is exempt: no loosening for the rest.
+        var roles = BusinessRoles(fileName).ToList();
 
         Assert.NotEmpty(roles);
 
@@ -130,37 +141,124 @@ public class KeycloakRealmRolesTests
     }
 
     /// <summary>
-    /// Хотя бы одна роль обязана держать все права Mustask, и хотя бы одна
-    /// группа обязана её выдавать — иначе после импорта в системе нет
-    /// никого, кто мог бы что-то исправить.
+    /// Хотя бы одна роль обязана держать все права экземпляра — и только их, — и хотя бы одна
+    /// группа обязана её выдавать: иначе после импорта в системе нет никого, кто мог бы что-то
+    /// исправить (doc-006 constraint 3). mod-016 (BR-M1-29): роль называется <c>instance-admin</c>;
+    /// она держит ровно коды уровня экземпляра и ни одного кода организации — права внутри
+    /// организации выводятся из членства, а не из роли Keycloak.
     /// </summary>
     [Theory]
     [InlineData(MustaskRealm, "mustask-api")]
-    public void Realm_HasAdminRoleWithEveryPermission_MappedToSomeGroup(string fileName, string resourceClient)
+    public void Realm_HasInstanceAdminWithEveryInstanceCodeAndNoOther_MappedToSomeGroup(string fileName, string resourceClient)
     {
         var permissions = ClientRoleNames(fileName, resourceClient);
 
-        var admin = RealmRoles(fileName)
-            .SingleOrDefault(role => role.GetProperty("name").GetString() == "admin");
+        var instanceAdmin = RealmRoles(fileName)
+            .SingleOrDefault(role => role.GetProperty("name").GetString() == InstanceAdminRole);
 
         Assert.True(
-            admin.ValueKind == JsonValueKind.Object,
-            $"В `{fileName}` нет роли `admin`.");
+            instanceAdmin.ValueKind == JsonValueKind.Object,
+            $"В `{fileName}` нет роли `{InstanceAdminRole}`.");
 
-        var granted = Names(admin.GetProperty("composites").GetProperty("client").GetProperty(resourceClient))
+        var granted = Names(instanceAdmin.GetProperty("composites").GetProperty("client").GetProperty(resourceClient))
             .ToHashSet(StringComparer.Ordinal);
 
         var missing = permissions.Where(permission => !granted.Contains(permission)).ToList();
 
         Assert.True(
             missing.Count == 0,
-            $"Роль `admin` в `{fileName}` не держит права: {string.Join(", ", missing)}. "
-            + "Право, которого нет у администратора, нельзя выдать никому без правки импорта.");
+            $"Роль `{InstanceAdminRole}` в `{fileName}` не держит права: {string.Join(", ", missing)}. "
+            + "Право, которого нет у администратора экземпляра, нельзя выдать никому без правки импорта.");
+
+        Assert.Equal(
+            PermissionCatalog.InstanceCodes.Order(StringComparer.Ordinal),
+            granted.Order(StringComparer.Ordinal));
+        Assert.DoesNotContain(granted, PermissionCatalog.OrganizationCodes.Contains);
 
         Assert.True(
-            AllGroups(fileName).Any(group => GroupRoles(group).Contains("admin")),
-            $"В `{fileName}` ни одна группа не выдаёт роль `admin`. После импорта в realm'е "
-            + "не будет ни одного администратора.");
+            AllGroups(fileName).Any(group => GroupRoles(group).Contains(InstanceAdminRole)),
+            $"В `{fileName}` ни одна группа не выдаёт роль `{InstanceAdminRole}`. После импорта в realm'е "
+            + "не будет ни одного администратора экземпляра.");
+    }
+
+    // --- mod-016: the inventory of the realm (BR-M1-29, US-8) ---------------------
+
+    /// <summary>
+    /// US-8 · "The realm import holds exactly the named inventory": the realm roles are the instance administrator, the
+    /// dictionaries administrator, the organization creator and the realm's default roles (the default role and the two realm roles
+    /// Keycloak itself puts in it); the groups are exactly /Администраторы, /Администраторы справочников and /Создатели организаций.
+    /// No role is named <c>admin</c>, <c>member</c> or <c>viewer</c> — a Keycloak role that pretends to grant organization rights —
+    /// and there is no group /Сотрудники.
+    /// </summary>
+    [Fact]
+    public void RealmInventory_IsExactlyTheNamedOne()
+    {
+        var roles = RealmRoleNames(MustaskRealm);
+        var groupPaths = AllGroupPaths(MustaskRealm);
+
+        Assert.Equal(
+            new[] { InstanceAdminRole, "dictionaries-admin", "organization-creator", DefaultRole }
+                .Concat(KeycloakStandDriftCheck.BuiltInRealmRoles)
+                .Order(StringComparer.Ordinal),
+            roles.Order(StringComparer.Ordinal));
+        Assert.Equal(
+            new[] { "/Администраторы", "/Администраторы справочников", "/Создатели организаций" }.Order(StringComparer.Ordinal),
+            groupPaths.Order(StringComparer.Ordinal));
+        Assert.Empty(roles.Intersect(new[] { "admin", "member", "viewer" }, StringComparer.Ordinal));
+        Assert.DoesNotContain(groupPaths, path => path.StartsWith("/Сотрудники", StringComparison.Ordinal));
+    }
+
+    /// <summary>US-8 · each group maps exactly the role the inventory names for it.</summary>
+    [Fact]
+    public void Groups_MapExactlyTheirNamedRoles()
+    {
+        var mapping = AllGroups(MustaskRealm).ToDictionary(
+            group => group.GetProperty("name").GetString()!,
+            group => GroupRoles(group).Order(StringComparer.Ordinal).ToList(),
+            StringComparer.Ordinal);
+
+        Assert.Equal([InstanceAdminRole], mapping["Администраторы"]);
+        Assert.Equal(["dictionaries-admin"], mapping["Администраторы справочников"]);
+        Assert.Equal(["organization-creator"], mapping["Создатели организаций"]);
+    }
+
+    /// <summary>
+    /// US-8 / BR-M1-29, BR-M1-37 · "Every signed-in user reads the dictionaries": the realm's default roles hold
+    /// <c>dictionaries.languages.read</c> — declared in a form the contract tests and the stand's drift check both read (the role is
+    /// in <c>roles.realm</c> with its composites, and the top-level <c>defaultRole</c> names it; spike of plan-backend § 4.3: Keycloak
+    /// 26.4 imports exactly this) — and no other code of <c>mustask-api</c>. Its other composites are exactly the built-ins Keycloak
+    /// gives every realm: <c>offline_access</c>, <c>uma_authorization</c> and the account client's <c>view-profile</c> and
+    /// <c>manage-account</c>.
+    /// </summary>
+    [Fact]
+    public void DefaultRole_HoldsReadAndOnlyKnownBuiltIns()
+    {
+        var realm = Realm(MustaskRealm);
+        var role = RealmRoles(MustaskRealm).SingleOrDefault(candidate => candidate.GetProperty("name").GetString() == DefaultRole);
+
+        Assert.True(role.ValueKind == JsonValueKind.Object, $"В `{MustaskRealm}` нет роли `{DefaultRole}` в roles.realm.");
+        Assert.Equal(DefaultRole, realm.GetProperty("defaultRole").GetProperty("name").GetString());
+        Assert.True(role.GetProperty("composite").GetBoolean());
+
+        var composites = role.GetProperty("composites");
+        var client = composites.GetProperty("client");
+
+        Assert.Equal([PermissionCatalog.DictionariesLanguagesRead], Names(client.GetProperty("mustask-api")));
+        Assert.Equal(
+            ["manage-account", "view-profile"],
+            Names(client.GetProperty("account")).OrderBy(name => name, StringComparer.Ordinal));
+        Assert.Equal(["account", "mustask-api"], client.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal));
+        Assert.Equal(
+            KeycloakStandDriftCheck.BuiltInRealmRoles.Order(StringComparer.Ordinal),
+            Names(composites.GetProperty("realm")).OrderBy(name => name, StringComparer.Ordinal));
+
+        // The two built-ins are declared without composites of their own: nothing hides in them.
+        foreach (var builtIn in KeycloakStandDriftCheck.BuiltInRealmRoles)
+        {
+            var declared = RealmRoles(MustaskRealm).Single(candidate => candidate.GetProperty("name").GetString() == builtIn);
+
+            Assert.False(declared.TryGetProperty("composites", out _), $"The built-in `{builtIn}` carries composites.");
+        }
     }
 
     // --- Группы: ссылаются только на объявленные роли -------------------------
@@ -535,6 +633,39 @@ public class KeycloakRealmRolesTests
         RealmRoles(fileName)
             .Select(role => role.GetProperty("name").GetString()!)
             .ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>The realm roles that are named sets of rights: every role but the default role and Keycloak's two built-ins in it.</summary>
+    private static IEnumerable<JsonElement> BusinessRoles(string fileName) =>
+        RealmRoles(fileName).Where(role =>
+            role.GetProperty("name").GetString() is { } name
+            && name != DefaultRole
+            && !KeycloakStandDriftCheck.BuiltInRealmRoles.Contains(name));
+
+    private static List<string> AllGroupPaths(string fileName)
+    {
+        var paths = new List<string>();
+
+        void Visit(IEnumerable<JsonElement> groups, string parent)
+        {
+            foreach (var group in groups)
+            {
+                var path = parent + "/" + group.GetProperty("name").GetString();
+                paths.Add(path);
+
+                if (group.TryGetProperty("subGroups", out var subGroups))
+                {
+                    Visit(subGroups.EnumerateArray(), path);
+                }
+            }
+        }
+
+        if (Realm(fileName).TryGetProperty("groups", out var top))
+        {
+            Visit(top.EnumerateArray(), string.Empty);
+        }
+
+        return paths;
+    }
 
     private static HashSet<string> ClientRoleNames(string fileName, string clientId)
     {

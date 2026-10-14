@@ -79,11 +79,49 @@ export interface AreaRecord {
   ownerTeamId: string | null;
 }
 
+/** A user in a team (mod-016 api-contract § 2): the team list's `isMember` reads it. */
+export interface TeamMemberRecord {
+  teamId: string;
+  userId: string;
+}
+
+/** A person as the user projection holds them (mod-016 api-contract § 0.4). */
+export interface UserRecord {
+  id: string;
+  displayName: string | null;
+  email: string | null;
+  state: 'active' | 'inactive' | 'unknown';
+}
+
+/** A user's role in an organization (mod-016 api-contract § 1.2). */
+export interface MembershipRecord {
+  organizationId: string;
+  userId: string;
+  role: 'admin' | 'member' | 'viewer';
+  addedAt?: string;
+  addedBy?: string;
+  roleChangedAt?: string | null;
+  roleChangedBy?: string | null;
+}
+
 export interface Dataset {
   organizations: OrganizationRecord[];
   projects: ProjectRecord[];
   teams: TeamRecord[];
   areas: AreaRecord[];
+  /** The projection's users (mod-016 § 0.4); empty by default. */
+  users?: UserRecord[];
+  /**
+   * Who is in which organization, in which role. Absent: the acting user is the
+   * administrator of every active organization, which is what the slice's
+   * existing flows assume; present (even empty): exactly these, and
+   * `serveMemberships` answers by them.
+   */
+  memberships?: MembershipRecord[];
+  /** Who is in which team; empty by default, so no team is the acting user's own. */
+  teamMembers?: TeamMemberRecord[];
+  /** The caller the handlers answer as (the token's `sub`); needed with `teamMembers` and `memberships`. */
+  actingUserId?: string;
 }
 
 /**

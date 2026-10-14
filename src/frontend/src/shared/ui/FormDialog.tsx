@@ -8,6 +8,7 @@ import DialogContent from '@mui/material/DialogContent';
 import Stack from '@mui/material/Stack';
 import { useTheme } from '@mui/material/styles';
 import { DialogTitleBar } from './DialogTitleBar';
+import { useDialogLocked } from './RequiresOrganizationCode';
 
 export interface FormDialogProps {
   open: boolean;
@@ -47,6 +48,9 @@ export function FormDialog({
   onClose,
 }: FormDialogProps) {
   const theme = useTheme();
+  // The code of the wrapping page has gone (RequiresOrganizationCode): the
+  // dialog stays with its values, but nothing it could do is allowed.
+  const locked = useDialogLocked();
 
   return (
     <Dialog
@@ -59,7 +63,7 @@ export function FormDialog({
           component: 'form',
           onSubmit: (event: { preventDefault(): void }) => {
             event.preventDefault();
-            if (!submitDisabled) {
+            if (!submitDisabled && !locked) {
               onSubmit();
             }
           },
@@ -80,7 +84,7 @@ export function FormDialog({
         <Button
           type="submit"
           variant="contained"
-          disabled={busy || submitDisabled}
+          disabled={busy || submitDisabled || locked}
           startIcon={busy ? <CircularProgress size={theme.spacing(2)} /> : undefined}
         >
           {submitLabel}

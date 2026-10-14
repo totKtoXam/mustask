@@ -39,7 +39,7 @@ namespace Mustask.Application.Features.Organizations.RestoreProject;
 /// project is serialized with this one. The organization is not locked: its
 /// status is only read, and its deactivation writes one row and reads nothing
 /// beneath, so the two are always serializable (ADR-0026 rule 8). The
-/// organization-context filter has answered for the organization already; the
+/// scoped check has answered for the organization already; the
 /// handler reads it again so that it stays right when called without the filter.
 /// </para>
 /// </remarks>

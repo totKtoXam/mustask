@@ -32,12 +32,14 @@ const VIEWS = [
 ];
 
 /**
- * «Организации» (US-1, US-2, US-8; design § 5): the instance's organizations
- * in two tabs that are addresses. The switcher's «Все организации» and «Нет
- * организаций» are its only ways in (D-d). Every signed-in user sees every
- * organization (BR-M1-19); «Создать организацию» needs the create right in
- * the token, the one check this slice makes. No filter and no paging: tens
- * of organizations (NFR Volumes).
+ * «Организации» (US-1, US-2, US-8; design § 5): the user's own organizations
+ * in two tabs that are addresses — the active ones the user belongs to, and in
+ * the deactivated tab those the user administers (mod-016 BR-M1-35; the server
+ * narrows both). The switcher's «Все организации» and «Нет организаций» are
+ * its only ways in (D-d). The page needs no organization role and stands
+ * outside the gate: «Создать организацию» needs the create right in the token,
+ * the one check it makes. No filter and no paging: tens of organizations (NFR
+ * Volumes).
  */
 export function OrganizationListPage({ view }: { view: ListView }) {
   const access = useAccessCheck();
@@ -76,11 +78,11 @@ export function OrganizationListPage({ view }: { view: ListView }) {
         view === 'active' ? (
           <StateFrame
             icon={InboxOutlinedIcon}
-            heading="Организаций пока нет"
+            heading="Вы пока не состоите ни в одной организации"
             hint={
               canCreate
-                ? 'Создайте первую организацию кнопкой «Создать организацию» выше.'
-                : 'Право на создание организаций выдаёт администратор'
+                ? 'Создайте организацию кнопкой «Создать организацию» выше или попросите администратора организации добавить вас.'
+                : 'Попросите администратора организации добавить вас.'
             }
             action={canCreate ? createAction : undefined}
           />
@@ -88,7 +90,7 @@ export function OrganizationListPage({ view }: { view: ListView }) {
           <StateFrame
             icon={InboxOutlinedIcon}
             heading="Деактивированных организаций нет"
-            hint="Сюда попадают организации, деактивированные в их настройках. Их можно восстановить."
+            hint="Здесь показываются деактивированные организации, в которых вы администратор. Их можно восстановить."
           />
         )
       ) : (

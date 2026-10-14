@@ -5,6 +5,8 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HttpResponse, http } from 'msw';
 import { server } from '../../../test/mocks/server';
+import { checkFor } from '../../../test/organizationRoles';
+import { AccessCheckContext } from '../../../shared/lib/access';
 import { NoticeProvider } from '../../../shared/ui';
 import { fill, held } from '../components/card/testCard';
 import { cardTexts } from '../lib/cardTexts';
@@ -30,21 +32,26 @@ function Where() {
   return <p data-testid="where">{`${location.pathname}${location.search}`}</p>;
 }
 
-/** The page in its route, inside the providers the shell mounts, with a history of `entries`. */
+/**
+ * The page in its route, inside the providers the shell mounts, with a history of `entries`;
+ * the gate above it (mod-016) hands the administrator’s codes.
+ */
 function renderPage(entries: (string | Entry)[], index = entries.length - 1) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <NoticeProvider>
-        <MemoryRouter initialEntries={entries} initialIndex={index}>
-          <Routes>
-            <Route path={WORK_ITEM_ROUTE} element={<WorkItemFormPage />} />
-            <Route path="*" element={<Where />} />
-          </Routes>
-        </MemoryRouter>
-      </NoticeProvider>
+      <AccessCheckContext.Provider value={checkFor('admin')}>
+        <NoticeProvider>
+          <MemoryRouter initialEntries={entries} initialIndex={index}>
+            <Routes>
+              <Route path={WORK_ITEM_ROUTE} element={<WorkItemFormPage />} />
+              <Route path="*" element={<Where />} />
+            </Routes>
+          </MemoryRouter>
+        </NoticeProvider>
+      </AccessCheckContext.Provider>
     </QueryClientProvider>,
   );
 }

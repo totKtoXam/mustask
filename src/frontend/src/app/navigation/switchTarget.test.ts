@@ -241,3 +241,72 @@ describe('mod-015 BR-18 on a team-level page: a project or organization choice k
     expect(from(backlog, { organizationId: 'o2', projectId: undefined })).toBe('/home');
   });
 });
+
+describe('mod-016 design § 2.5, DC-8: a switch does not wait for the codes of the organization it opens', () => {
+  const members = {
+    id: 'members',
+    label: 'Участники',
+    scope: 'organization' as const,
+    permission: 'organizations.membership.read',
+    landing: (s: WorkContextSelection) =>
+      s.organizationId ? `/organizations/${s.organizationId}/settings/members` : null,
+  };
+  const withMembers: NavigationModel = {
+    ...model,
+    settings: [
+      { id: 'organization', label: 'Организация', entries: [members] },
+      ...model.settings.slice(1),
+    ],
+  };
+  const fromMembers = '/organizations/o1/settings/members';
+  const noOrganizationCodes: AccessCheck = (_code, scope) => scope === 'instance';
+
+  function open(access: AccessCheck, isCodesRead: (organizationId: string | undefined) => boolean) {
+    return switchTarget(
+      withMembers,
+      access,
+      { pathname: fromMembers, carried: { organizationId: 'o1' }, next: betaRep },
+      isCodesRead,
+    );
+  }
+
+  it('opens «Участники» of B from «Участники» of A while B’s codes are unread', () => {
+    expect(open(noOrganizationCodes, () => false)).toBe('/organizations/o2/settings/members');
+  });
+
+  it('asks the code once the codes are read: a read B without it opens «Главная»', () => {
+    expect(open(noOrganizationCodes, () => true)).toBe('/home');
+  });
+
+  it('opens the entry of a read B that holds the code', () => {
+    expect(
+      open(
+        () => true,
+        () => true,
+      ),
+    ).toBe('/organizations/o2/settings/members');
+  });
+
+  it('asks about the organization it switches to, not the one it leaves', () => {
+    const askedAbout: (string | undefined)[] = [];
+    const access: AccessCheck = (_code, _scope, organizationId) => {
+      askedAbout.push(organizationId);
+      return organizationId === 'o2';
+    };
+
+    expect(open(access, (organizationId) => organizationId === 'o2')).toBe(
+      '/organizations/o2/settings/members',
+    );
+    expect(askedAbout).toEqual(['o2']);
+  });
+
+  it('takes every organization as read when it is given no way to know', () => {
+    expect(
+      switchTarget(withMembers, noOrganizationCodes, {
+        pathname: fromMembers,
+        carried: { organizationId: 'o1' },
+        next: betaRep,
+      }),
+    ).toBe('/home');
+  });
+});

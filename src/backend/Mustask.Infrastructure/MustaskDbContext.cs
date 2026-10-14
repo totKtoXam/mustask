@@ -49,6 +49,11 @@ public sealed class MustaskDbContext(DbContextOptions<MustaskDbContext> options)
 
     public DbSet<Area> Areas => Set<Area>();
 
+    /// <summary>Organization access (mod-016): who belongs to which organization with which role, and who is in which team.</summary>
+    public DbSet<OrganizationMembership> OrganizationMemberships => Set<OrganizationMembership>();
+
+    public DbSet<TeamMembership> TeamMemberships => Set<TeamMembership>();
+
     /// <summary>M3's work items (mod-003); their per-project counter is mapped too, with no DbSet (raw SQL only).</summary>
     public DbSet<WorkItem> WorkItems => Set<WorkItem>();
 

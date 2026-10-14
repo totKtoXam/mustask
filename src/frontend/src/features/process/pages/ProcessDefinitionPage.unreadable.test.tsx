@@ -34,12 +34,16 @@ type Answer = () => Response | Promise<Response>;
 const typeAt = (body: Loose, index: number) => (body.workItemTypes as Loose[])[index]!;
 const stateAt = (type: Loose, index: number) => (type.states as Loose[])[index]!;
 
+// The page's own reads of the process: the organization gate above it reads the
+// access first (mod-016), which these tests do not count.
 const reads: string[] = [];
 const onRequest = ({ request }: { request: Request }) => {
-  if (request.url.includes('/api/organizations/')) {
+  if (request.url.includes('/api/organizations/') && request.url.endsWith('/process')) {
     reads.push(request.url);
   }
 };
+
+const ACCESS_URL = 'http://localhost:5000/api/organizations/:organizationId/access';
 
 beforeEach(() => {
   reads.length = 0;
@@ -59,7 +63,17 @@ function problem(status: number, errorCode: string, detail: string): Answer {
 }
 
 const serverError = problem(500, 'http.internal_error', 'Внутренняя ошибка сервера.');
-const notFound = problem(404, NOT_FOUND_CODE, 'Организация не найдена.');
+const notFoundBody = problem(404, NOT_FOUND_CODE, 'Организация не найдена.');
+
+/**
+ * The caller is no longer a member (api-contract § 0.1): the process read says
+ * so, and so does every access read after it — the one the shell starts when it
+ * sees the 404 included, which is why the answer flips the access read first.
+ */
+const notFound: Answer = () => {
+  server.use(http.get(ACCESS_URL, notFoundBody));
+  return notFoundBody();
+};
 const good: Answer = () => HttpResponse.json(sampleProcessDefinition);
 
 function broken(breakIt: (body: Loose) => void): Answer {
@@ -304,46 +318,47 @@ describe('QA re-check 1, D-4: a 200 with a part missing is a failed read, not th
   });
 });
 
-describe('QA re-check 1, D-5: a retry that ends in «Организация не найдена» puts focus on the frame’s heading', () => {
-  async function expectFocusOnNotFoundHeading() {
+// mod-016 design § 2.2, DC-12: a 404 «Организация не найдена» from the page's own
+// read turns the page into the gate's full-page frame at once, and focus goes to
+// the main region (P-10) — the page that would have focused its heading is gone.
+describe('QA re-check 1, D-5: a retry that ends in «Организация не найдена» puts focus in the main region', () => {
+  async function expectFocusInMainRegion() {
     const heading = await screen.findByRole('heading', {
       level: 1,
       name: 'Организация не найдена',
     });
-    await waitFor(() => expect(document.activeElement).toBe(heading));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('main')));
     expect(document.activeElement).not.toBe(document.body);
-    expect(heading.tagName).toBe('H1');
-    expect(heading).toHaveAttribute('tabindex', '-1');
     expect(screen.getAllByRole('heading', { level: 1 })).toEqual([heading]);
     return heading;
   }
 
-  it('moves focus from the removed «Повторить» to the h1 after a 500 and then the not-found code', async () => {
+  it('moves focus from the removed «Повторить» to the main region after a 500 and then the not-found code', async () => {
     serveInOrder(serverError, notFound);
     renderApp();
     const alert = await expectFailedRead();
 
     await retry(alert);
 
-    await expectFocusOnNotFoundHeading();
+    await expectFocusInMainRegion();
     await waitFor(() => expect(document.title).toBe('Организация не найдена — Mustask'));
     expect(screen.queryByRole('button', { name: 'Повторить' })).not.toBeInTheDocument();
     expect(reads).toHaveLength(2);
   });
 
-  it('lets the next Tab reach «На главную» from the focused heading', async () => {
+  it('lets the next Tab reach «На главную» from the main region', async () => {
     serveInOrder(serverError, notFound);
     renderApp();
     const alert = await expectFailedRead();
     const user = await retry(alert);
-    await expectFocusOnNotFoundHeading();
+    await expectFocusInMainRegion();
 
     await user.tab();
 
     expect(screen.getByRole('link', { name: 'На главную' })).toHaveFocus();
   });
 
-  it('follows every attempt: «Повторить» after a second 500, the heading after the not-found code', async () => {
+  it('follows every attempt: «Повторить» after a second 500, the main region after the not-found code', async () => {
     const held = gate();
     serveInOrder(serverError, afterGate(held, serverError), notFound);
     renderApp();
@@ -355,11 +370,11 @@ describe('QA re-check 1, D-5: a retry that ends in «Организация не
 
     await retry(second);
 
-    await expectFocusOnNotFoundHeading();
+    await expectFocusInMainRegion();
     expect(reads).toHaveLength(3);
   });
 
-  it('puts focus on the heading when the first answer was an unreadable 200', async () => {
+  it('puts focus in the main region when the first answer was an unreadable 200', async () => {
     serveInOrder(
       broken((body) => {
         delete typeAt(body, 0).backlogLevel;
@@ -371,7 +386,7 @@ describe('QA re-check 1, D-5: a retry that ends in «Организация не
 
     await retry(alert);
 
-    await expectFocusOnNotFoundHeading();
+    await expectFocusInMainRegion();
   });
 
   it('puts focus back on «Повторить» when a retry after a 500 gets an unreadable 200', async () => {
@@ -394,11 +409,13 @@ describe('QA re-check 1, D-5: a retry that ends in «Организация не
     await expectFocusOnNewRetry(clicked);
   });
 
-  it('moves no focus when the first read already finds no organization', async () => {
-    serveInOrder(notFound);
+  it('moves no focus when the access read already finds no organization, and the page reads nothing', async () => {
+    server.use(http.get(ACCESS_URL, notFoundBody));
+    serveInOrder(good);
     renderApp();
 
     await screen.findByRole('heading', { level: 1, name: 'Организация не найдена' });
     expect(document.activeElement).toBe(document.body);
+    expect(reads).toEqual([]);
   });
 });

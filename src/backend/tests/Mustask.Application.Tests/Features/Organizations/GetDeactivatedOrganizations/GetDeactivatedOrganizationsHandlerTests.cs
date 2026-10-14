@@ -1,6 +1,8 @@
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Features.Organizations.GetDeactivatedOrganizations;
+using Mustask.Application.Tests.TestDoubles;
 using Mustask.Application.Tests.TestDoubles.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 
 namespace Mustask.Application.Tests.Features.Organizations.GetDeactivatedOrganizations;
@@ -8,13 +10,16 @@ namespace Mustask.Application.Tests.Features.Organizations.GetDeactivatedOrganiz
 /// <summary>
 /// <c>GET /api/organizations/deactivated</c> on fakes (plan-backend § 14.3,
 /// lane L-2): which organizations the list holds, in what order, and that the
-/// handler asks the read model for exactly the deactivated status. The route
-/// has no address and no body, so there is no order of answers to pin.
+/// handler asks the read model for exactly the deactivated status and the roles
+/// that may restore (mod-016 BR-M1-35). The route has no address and no body, so
+/// there is no order of answers to pin.
 /// </summary>
 public sealed class GetDeactivatedOrganizationsHandlerTests
 {
+    private static readonly FakeCurrentUser User = new();
+
     private static GetDeactivatedOrganizationsHandler HandlerOver(InMemoryOrganizations store) =>
-        new(new FakeOrganizationReadModel(store));
+        new(new FakeOrganizationReadModel(store), User);
 
     private static Task<GetDeactivatedOrganizationsResult> HandleAsync(GetDeactivatedOrganizationsHandler handler) =>
         handler.Handle(new GetDeactivatedOrganizationsQuery(), CancellationToken.None);
@@ -25,8 +30,8 @@ public sealed class GetDeactivatedOrganizationsHandlerTests
     public async Task Handle_ActiveAndDeactivated_ListsTheDeactivatedOnly()
     {
         var store = new InMemoryOrganizations();
-        var active = store.AddOrganization("Активная");
-        var deactivated = store.AddOrganization("Пример организации");
+        var active = store.AddOrganizationOf(User.SubjectId, "Активная");
+        var deactivated = store.AddOrganizationOf(User.SubjectId, "Пример организации");
         deactivated.Deactivate();
 
         var result = await HandleAsync(HandlerOver(store));
@@ -42,7 +47,7 @@ public sealed class GetDeactivatedOrganizationsHandlerTests
     public async Task Handle_DeactivatedWithProjectsBeneath_IsListedAndTheProjectsAreUntouched()
     {
         var store = new InMemoryOrganizations();
-        var organization = store.AddOrganization();
+        var organization = store.AddOrganizationOf(User.SubjectId);
         var project = store.AddProject(organization);
         store.AddTeam(project);
         organization.Deactivate();
@@ -61,7 +66,7 @@ public sealed class GetDeactivatedOrganizationsHandlerTests
     public async Task Handle_ActiveOrganizationWithDeactivatedProject_IsNotListed()
     {
         var store = new InMemoryOrganizations();
-        var organization = store.AddOrganization();
+        var organization = store.AddOrganizationOf(User.SubjectId);
         store.AddProject(organization).Project.Deactivate();
 
         var result = await HandleAsync(HandlerOver(store));
@@ -74,7 +79,7 @@ public sealed class GetDeactivatedOrganizationsHandlerTests
     public async Task Handle_RestoredOrganization_LeavesTheList()
     {
         var store = new InMemoryOrganizations();
-        var organization = store.AddOrganization();
+        var organization = store.AddOrganizationOf(User.SubjectId);
         organization.Deactivate();
         var handler = HandlerOver(store);
 
@@ -91,7 +96,7 @@ public sealed class GetDeactivatedOrganizationsHandlerTests
     public async Task Handle_NoDeactivatedOrganization_ReturnsEmpty()
     {
         var store = new InMemoryOrganizations();
-        store.AddOrganization();
+        store.AddOrganizationOf(User.SubjectId);
 
         var result = await HandleAsync(HandlerOver(store));
 
@@ -106,7 +111,7 @@ public sealed class GetDeactivatedOrganizationsHandlerTests
         var store = new InMemoryOrganizations();
         foreach (var name in new[] { "Яблоко", "бета", "Гамма", "Альфа" })
         {
-            store.AddOrganization(name).Deactivate();
+            store.AddOrganizationOf(User.SubjectId, name).Deactivate();
         }
 
         var result = await HandleAsync(HandlerOver(store));
@@ -114,10 +119,42 @@ public sealed class GetDeactivatedOrganizationsHandlerTests
         Assert.Equal(["Альфа", "бета", "Гамма", "Яблоко"], result.Items.Select(item => item.Name));
     }
 
-    // The read model owns the order (SQL, plan-backend § 6.5): the handler hands the rows on as they come and says
-    // which status it wants.
+    // mod-016 US-2 · "Deactivated lists and restore are the administrators'" (BR-M1-35, D-13): the user is admin in C and
+    // member in D, both deactivated — C is listed and D is not; a viewer's deactivated organization is not listed either.
     [Fact]
-    public async Task Handle_AsksForTheDeactivatedStatus_AndKeepsTheReadModelsOrder()
+    public async Task Handle_ListsOnlyTheOrganizationsWhereTheRoleHoldsTheDeactivateCode()
+    {
+        var store = new InMemoryOrganizations();
+        var c = store.AddOrganizationOf(User.SubjectId, "C", OrganizationRole.Admin);
+        var d = store.AddOrganizationOf(User.SubjectId, "D", OrganizationRole.Member);
+        var e = store.AddOrganizationOf(User.SubjectId, "E", OrganizationRole.Viewer);
+        c.Deactivate();
+        d.Deactivate();
+        e.Deactivate();
+
+        var result = await HandleAsync(HandlerOver(store));
+
+        Assert.Equal([c.Id], result.Items.Select(item => item.Id));
+    }
+
+    // mod-016 US-2 · a deactivated organization the user is no member of is not listed, whoever created it.
+    [Fact]
+    public async Task Handle_DeactivatedOrganizationOfSomeoneElse_IsNotListed()
+    {
+        var store = new InMemoryOrganizations();
+        store.AddOrganizationOf("someone-else", "Чужая").Deactivate();
+        store.AddOrganization("Без участников").Deactivate();
+
+        var result = await HandleAsync(HandlerOver(store));
+
+        Assert.Empty(result.Items);
+    }
+
+    // The read model owns the order (SQL, plan-backend § 6.5): the handler hands the rows on as they come and says
+    // which status it wants — and for which roles: those whose bundle holds `organizations.organization.deactivate`,
+    // derived from the bundles, not hard-coded (BR-M1-35).
+    [Fact]
+    public async Task Handle_AsksForTheDeactivatedStatus_TheCallerAndTheRolesHoldingTheCode_AndKeepsTheReadModelsOrder()
     {
         var rows = new[]
         {
@@ -127,9 +164,13 @@ public sealed class GetDeactivatedOrganizationsHandlerTests
         };
         var readModel = new RowsReadModel(rows);
 
-        var result = await HandleAsync(new GetDeactivatedOrganizationsHandler(readModel));
+        var result = await HandleAsync(new GetDeactivatedOrganizationsHandler(readModel, User));
 
         Assert.Equal([OrganizationStatus.Deactivated], readModel.RequestedStatuses);
+        Assert.Equal([User.SubjectId], readModel.RequestedUsers);
+        Assert.Equal(
+            OrganizationRoleBundles.RolesHolding(PermissionCatalog.OrganizationsOrganizationDeactivate),
+            Assert.Single(readModel.RequestedRoles)!);
         Assert.Equal(rows.Select(row => new OrganizationListItemResponse(row.Id, row.Name)), result.Items);
     }
 
@@ -138,17 +179,21 @@ public sealed class GetDeactivatedOrganizationsHandlerTests
     {
         public List<OrganizationStatus> RequestedStatuses { get; } = [];
 
-        public Task<IReadOnlyList<OrganizationRow>> ListAsync(OrganizationStatus status, CancellationToken cancellationToken)
+        public List<string> RequestedUsers { get; } = [];
+
+        public List<IReadOnlyCollection<OrganizationRole>?> RequestedRoles { get; } = [];
+
+        public Task<IReadOnlyList<OrganizationRow>> ListAsync(
+            OrganizationStatus status, string userId, IReadOnlyCollection<OrganizationRole>? onlyRoles, CancellationToken cancellationToken)
         {
             RequestedStatuses.Add(status);
+            RequestedUsers.Add(userId);
+            RequestedRoles.Add(onlyRoles);
 
             return Task.FromResult(rows);
         }
 
         public Task<OrganizationRow?> FindActiveAsync(Guid organizationId, CancellationToken cancellationToken) =>
-            throw new InvalidOperationException("The list reads nothing by id.");
-
-        public Task<OrganizationStatus?> FindStatusAsync(Guid organizationId, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("The list reads nothing by id.");
     }
 }

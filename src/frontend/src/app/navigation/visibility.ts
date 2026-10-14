@@ -14,6 +14,15 @@ import type {
 export interface NavigationContext {
   isReal: boolean;
   selection: WorkContextSelection;
+  /**
+   * The switch resolver's question about an organization whose codes are not
+   * read yet (mod-016 design § 2.5, DC-8): the code of a non-instance entry is
+   * not asked — every entry's code is a read code all three roles hold — and
+   * the entry's page existing and the context being real still decide. The
+   * shell's own navigation never sets it: unread codes hide the entries
+   * (design § 6.1).
+   */
+  skipServedCodes?: boolean;
 }
 
 export interface VisibleSettingsSection {
@@ -47,14 +56,24 @@ function scopeSelected(scope: NavigationScope, selection: WorkContextSelection):
  * An entry is shown only when its page is registered, the shared check
  * passes for its code, and — for an organization-, project- or team-scoped
  * entry — the context it needs is real (BR-7, BR-8, D-18). The placeholder
- * source is never real, so every scoped entry stays hidden in this build.
+ * source is never real, so a scoped entry stays hidden in a build without a
+ * real context.
+ *
+ * The check is asked about the selection's organization (mod-016 design
+ * § 2.6): the codes of an organization are served per organization, and an
+ * organization whose codes are unread, failed or answered 404 answers "no".
  */
 export function isEntryVisible(
   entry: NavigationEntry,
   access: AccessCheck,
   context: NavigationContext,
 ): boolean {
-  if (entry.permission !== undefined && !access(entry.permission, entry.scope)) {
+  const skipCode = context.skipServedCodes === true && entry.scope !== 'instance';
+  if (
+    entry.permission !== undefined &&
+    !skipCode &&
+    !access(entry.permission, entry.scope, context.selection.organizationId)
+  ) {
     return false;
   }
   if (entry.scope === 'instance') {
@@ -123,19 +142,21 @@ export function entryMarker(
 }
 
 /**
- * Whether the page on screen is a settings page: the landing of a registered
- * settings entry or a page beneath it (BR-19). An address no page serves
- * (`null`, see `entryMarker`) is not one, whatever it starts with. The
- * settings navigation is shown on it only while at least one settings entry
- * is visible.
+ * Whether the page on screen is a settings page: the landing of an entry the
+ * user sees, or a page beneath it (BR-19; mod-016 design § 6.1). An address no
+ * page serves (`null`, see `entryMarker`) is not one, whatever it starts with,
+ * and neither is a page that no *visible* entry matches — an organization's
+ * settings page while its codes are unread: it shows no settings navigation,
+ * no marker and no trail until the read answers. The settings navigation is
+ * shown on it only while at least one settings entry is visible.
  */
 export function isSettingsPage(
   currentPage: string | null,
-  model: NavigationModel,
+  visible: VisibleNavigation,
   selection: WorkContextSelection,
 ): boolean {
-  return model.settings.some((section) =>
-    section.entries.some((entry) => entryMarker(currentPage, entry, selection) !== null),
+  return visible.settings.some(({ entries }) =>
+    entries.some((entry) => entryMarker(currentPage, entry, selection) !== null),
   );
 }
 

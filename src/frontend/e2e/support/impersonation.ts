@@ -140,12 +140,12 @@ function parseSetCookieNamesAndValues(headers: string[]): Array<{ name: string; 
  * `http://localhost` because Chromium treats `localhost` as a potentially
  * trustworthy origin (the same fact `mustask.session` already relies on).
  *
- * `username` defaults to the fixture user (`E2E_USER`, every existing spec's
- * only caller) — the permission-gating spec (16) is the one caller that
- * passes a different, ephemeral username (`keycloakAdmin.ts`'s
- * `createEphemeralReaderUser`), to obtain a real Keycloak session for an
- * identity with fewer permissions than the fixture's own admin group, without
- * touching the fixture's own group membership (a shared identity other
+ * `username` defaults to the fixture user (`E2E_USER`). A spec that needs an
+ * identity with fewer rights than the fixture's own admin group passes a
+ * throwaway user's username (`keycloakAdmin.ts`'s
+ * `createEphemeralUserWithoutGroup` or `createEphemeralMember`, as specs 16,
+ * 19.9, 20.4, 21.6 and 27-30 do), to obtain a real Keycloak session for it
+ * without touching the fixture's own group membership (a shared identity other
  * specs/suites depend on).
  */
 export async function obtainKeycloakSsoCookies(username?: string): Promise<InjectableCookie[]> {

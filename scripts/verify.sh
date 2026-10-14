@@ -225,8 +225,12 @@ classify() {
         deploy/keycloak/providers/*|deploy/keycloak/Dockerfile|deploy/keycloak/.dockerignore)
                                                      echo provider ;;
         # Keycloak realm-import — a contract artifact: checked by
-        # KeycloakRealmRolesTests from Mustask.Contracts.Tests.
-        deploy/keycloak/realms/*)                    echo dotnet ;;
+        # KeycloakRealmRolesTests from Mustask.Contracts.Tests (dotnet) — and
+        # imported by a real Keycloak, which no file test can promise (mod-016
+        # D-16 OP-10: an import Keycloak rejects only shows when it is
+        # started): the provider bucket runs the live tests tagged
+        # KeycloakProvider, LiveRealmImportTests among them. Two buckets.
+        deploy/keycloak/realms/*)                    echo "dotnet provider" ;;
         # Login themes: KeycloakRealmRolesTests checks that the theme exists
         # and that the files listed in its `styles` exist. It can't check how
         # the page looks — after a Keycloak version bump it still needs a
@@ -251,21 +255,24 @@ need_provider=0
 
 note "Changed files:"
 for file in $changed; do
-    bucket=$(classify "$file")
-    printf "  %-9s %s\n" "$bucket" "$file"
-    case "$bucket" in
-        prose)    need_prose=1 ;;
-        agents)
-            need_prose=1
-            need_agents=1
-            case "$file" in .codex/hooks/*.ps1) need_shell=1 ;; esac
-            ;;
-        shell)    need_shell=1 ;;
-        ci)       need_ci=1 ;;
-        dotnet)   need_dotnet=1 ;;
-        frontend) need_frontend=1 ;;
-        provider) need_provider=1 ;;
-    esac
+    buckets=$(classify "$file")
+    printf "  %-9s %s\n" "$buckets" "$file"
+    # A file may belong to more than one bucket (a realm import: dotnet and provider).
+    for bucket in $buckets; do
+        case "$bucket" in
+            prose)    need_prose=1 ;;
+            agents)
+                need_prose=1
+                need_agents=1
+                case "$file" in .codex/hooks/*.ps1) need_shell=1 ;; esac
+                ;;
+            shell)    need_shell=1 ;;
+            ci)       need_ci=1 ;;
+            dotnet)   need_dotnet=1 ;;
+            frontend) need_frontend=1 ;;
+            provider) need_provider=1 ;;
+        esac
+    done
 done
 
 note ""

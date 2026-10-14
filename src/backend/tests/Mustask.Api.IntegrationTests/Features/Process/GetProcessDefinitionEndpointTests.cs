@@ -17,8 +17,9 @@ namespace Mustask.Api.IntegrationTests.Features.Process;
 /// <summary>
 /// US-2 (mod-001-process-seed): <c>GET /api/organizations/{organizationId}/process</c>
 /// through the real host and a real PostgreSQL, the contract of api-contract.md § 1.
-/// Since mod-002 the read runs behind the organization-context filter (mod-002
-/// D-g, its api-contract § 9), so every test creates a real organization: its
+/// Since mod-016 the read runs behind the scoped check (ADR-0027: the caller's
+/// membership of the organization, which mod-002's organization-context filter
+/// did before), so every test creates a real organization: its
 /// process seeded through the seam (<see cref="IProcessSeed"/> inside
 /// <see cref="IUnitOfWork"/>) and its row stored, as organization creation does.
 /// No test counts processes globally: the database is shared.
@@ -54,7 +55,11 @@ public sealed class GetProcessDefinitionEndpointTests(MustaskApiFactory factory)
         return request;
     }
 
-    private static string SignedIn() => KeycloakTestRealm.CreateToken([]);
+    /// <summary>
+    /// A signed-in user with no token-carried right who is a member of the seeded organization: the test data's creator, its
+    /// administrator (mod-016 ADR-0027: the process read needs <c>process.definition.read</c>, which the membership holds).
+    /// </summary>
+    private static string SignedIn() => OrganizationsTokens.SignedIn();
 
     private async Task<(Guid OrganizationId, ProcessId Id)> SeedOrganizationAsync()
     {
@@ -172,13 +177,14 @@ public sealed class GetProcessDefinitionEndpointTests(MustaskApiFactory factory)
         Assert.Equal(ids.Count, ids.Distinct().Count());
     }
 
-    // US-2 · "Every signed-in user sees the same definition": one token holds every realm code, the other holds none.
+    // US-2 · "Every signed-in user sees the same definition": one token holds every realm code, the other holds none — both are
+    // the same member of the organization, whose membership (not the token) holds the code (mod-016 ADR-0027).
     [Fact]
     public async Task Get_UserWithEveryRealmCodeAndUserWithNone_SeeIdenticalDefinitions()
     {
         var (organizationId, _) = await SeedOrganizationAsync();
-        var everything = KeycloakTestRealm.CreateToken([.. PermissionCatalog.AllCodes]);
-        var nothing = KeycloakTestRealm.CreateToken([]);
+        var everything = KeycloakTestRealm.CreateToken([.. PermissionCatalog.AllCodes], options => options.Subject = OrganizationsTestData.Creator);
+        var nothing = KeycloakTestRealm.CreateToken([], options => options.Subject = OrganizationsTestData.Creator);
 
         var withEverything = await factory.CreateClient().SendAsync(Request(organizationId.ToString(), everything));
         var withNothing = await factory.CreateClient().SendAsync(Request(organizationId.ToString(), nothing));
@@ -189,13 +195,19 @@ public sealed class GetProcessDefinitionEndpointTests(MustaskApiFactory factory)
     }
 
     // US-2 · "Every signed-in user sees the same definition": a token with no resource roles at all, and a token
-    // that carries the declared code itself, are served the same (the code is declared, not checked: BR-M2-10).
+    // that carries the declared code itself, are served the same — the code is read from the membership, never from the
+    // token (mod-016 ADR-0027, which supersedes "declared, not checked", BR-M2-10).
     [Fact]
     public async Task Get_TokenCarryingTheDeclaredCodeAndTokenWithoutResourceRoles_SeeIdenticalDefinitions()
     {
         var (organizationId, _) = await SeedOrganizationAsync();
-        var carrying = KeycloakTestRealm.CreateToken([OrganizationPermissionCatalog.ProcessDefinitionRead]);
-        var bare = KeycloakTestRealm.CreateToken(configure: options => options.Permissions = null);
+        var carrying = KeycloakTestRealm.CreateToken(
+            [PermissionCatalog.ProcessDefinitionRead], options => options.Subject = OrganizationsTestData.Creator);
+        var bare = KeycloakTestRealm.CreateToken(configure: options =>
+        {
+            options.Permissions = null;
+            options.Subject = OrganizationsTestData.Creator;
+        });
 
         var first = await factory.CreateClient().SendAsync(Request(organizationId.ToString(), carrying));
         var second = await factory.CreateClient().SendAsync(Request(organizationId.ToString(), bare));
@@ -338,6 +350,10 @@ public sealed class GetProcessDefinitionEndpointTests(MustaskApiFactory factory)
                         id,
                         OrganizationsTestData.Now,
                         OrganizationsTestData.Creator));
+
+                    // The creator founds it as the create handler does (mod-016 BR-M1-25): the same all-or-nothing operation.
+                    scope.ServiceProvider.GetRequiredService<IMembershipRepository>()
+                        .Add(OrganizationMembership.Founder(organizationId, OrganizationsTestData.Creator, OrganizationsTestData.Now));
                     await organizations.SaveAsync(ct);
                     seeded.SetResult(id);
                     await release.Task;

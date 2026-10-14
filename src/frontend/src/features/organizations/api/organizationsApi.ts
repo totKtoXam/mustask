@@ -49,6 +49,14 @@ export interface Team {
   defaultArea: AreaReference;
 }
 
+/**
+ * mod-016 api-contract § 3.3: a team of the project's list also says whether
+ * the caller is in it. The single-team read and the writes carry no such flag.
+ */
+export interface TeamInList extends Team {
+  isMember: boolean;
+}
+
 /** § 4.1: a team an area node names. */
 export interface TeamReference {
   id: string;
@@ -175,7 +183,7 @@ export function restoreProject(organizationId: string, projectId: string): Promi
 
 // § 3 Teams
 
-export function getTeams(organizationId: string, projectId: string): Promise<Team[]> {
+export function getTeams(organizationId: string, projectId: string): Promise<TeamInList[]> {
   return apiFetch(`${projectApiPath(organizationId, projectId)}/teams`);
 }
 

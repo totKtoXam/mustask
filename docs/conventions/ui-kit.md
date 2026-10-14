@@ -225,7 +225,9 @@ keyboard model and draws with the parts.
 at a time, bottom left, clickaway ignored (Escape dismisses it, and a success or
 error notice closes by «Закрыть»); never an action or a link in it. The hook needs
 the `NoticeProvider` that `AppLayout` mounts (`renderWithProviders` mounts it in
-tests) and throws outside one.
+tests) and throws outside one. The corner is shared with the shell's two notices
+(mod-016 DC-11): the provider closes its notice when the switcher's fallback or
+the role-change notice is raised, and showing one closes the role-change notice.
 `InlineNotice` — `severity`, `title`, `action`; it owns **no margin** (the
 container spaces it). `StateFrame` and its two variants as mod-015 § 7; `compact`
 inside a dialog — an `h2`, no tab title, and (for `NotFound`) no change to the
@@ -372,7 +374,10 @@ site fails too**, and a stale entry (a count above what the file now has) fails,
 so you lower or remove the entry when you fix the file. There is no «add an
 entry»: an entry for a file the baseline does not know, or a count above the
 baseline's, fails — fix the code, or add the part to the kit first. The goal is
-an empty list (tech-020 requires it). Colour has its own test,
+an empty list (tech-020 requires it). One exception is on record: mod-016, built in
+parallel with the kit and merged after it, re-cut the baseline at its rebased
+commit 554bb6e so that its pre-kit screens join the list like the pages before
+them (mod-016 D-24, the human's decision of 2026-10-13). Colour has its own test,
 `src/test/colourLiterals.test.ts` — a colour anywhere in a literal (a shorthand, a
 gradient, a shadow, `…!important`), a named colour, `grey.N` and `common.*` as the value
 of a colour property (also through a `const` that feeds one), `palette.grey` and

@@ -380,7 +380,7 @@ public sealed class AddTeamEndpointTests(MustaskApiFactory factory)
 
         return await scope.ServiceProvider
             .GetRequiredService<ITeamReadModel>()
-            .ListActiveAsync(structure.OrganizationId, structure.ProjectId, CancellationToken.None);
+            .ListActiveAsync(structure.OrganizationId, structure.ProjectId, "nobody", CancellationToken.None);
     }
 
     /// <summary>Renames a child area as US-5 does, in a unit of work of its own.</summary>

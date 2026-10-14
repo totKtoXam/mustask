@@ -3,9 +3,21 @@
 // builders and the permission codes for the navigation model, and the
 // switcher's context source (mod-002 D-b, D-n, D-o). `app/` imports this
 // slice through this file only.
+//
+// mod-016 adds the served-access layer: the gate and the page wrapper that
+// put every organization page in the one state order of its design § 2.1, the
+// shell's check built from the served codes, the watcher that re-reads them,
+// and the access read the shell makes for the switcher's selection.
+export { OrganizationGate } from './access/OrganizationGate';
+export { OrganizationPage } from './access/OrganizationPage';
+export type { OrganizationPageProps } from './access/OrganizationPage';
+export { useAccessWatcher } from './access/useAccessWatcher';
+export { useOrganizationAccess } from './access/useOrganizationAccess';
+export { useServedAccessCheck } from './access/servedAccess';
 export { OrganizationsSection } from './components/OrganizationsSection';
 export { useOrganizationsContextSource } from './context/useOrganizationsContextSource';
 export { AreasPage } from './pages/AreasPage';
+export { MembersPage } from './pages/MembersPage';
 export { OrganizationGeneralPage } from './pages/OrganizationGeneralPage';
 export { OrganizationListPage } from './pages/OrganizationListPage';
 export { ProjectGeneralPage } from './pages/ProjectGeneralPage';
@@ -16,6 +28,7 @@ export {
   AREAS_ROUTE,
   DEACTIVATED_ORGANIZATIONS_ROUTE,
   DEACTIVATED_PROJECTS_ROUTE,
+  MEMBERS_ROUTE,
   ORGANIZATIONS_PATH,
   ORGANIZATIONS_ROUTE,
   ORGANIZATION_GENERAL_ROUTE,
@@ -24,6 +37,7 @@ export {
   TEAMS_ROUTE,
   TEAM_ROUTE,
   areasPath,
+  membersPath,
   organizationGeneralPath,
   projectGeneralPath,
   projectsPath,

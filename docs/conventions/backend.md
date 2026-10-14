@@ -141,7 +141,16 @@ src/backend/
   decides only when the flag is not set.
 - Input validation — at the boundary (the slice's validator);
   authorization — explicit on every endpoint (policy), "forgot it means
-  closed."
+  closed." Two kinds of right (ADR-0027): an **instance** code comes from the
+  token (`.RequiresPermission(code)`); an **organization** code is derived from
+  the caller's membership in the organization of the address
+  (`.RequiresOrganizationPermission(code)`), and a route with
+  `{organizationId}` that declares none fails `scripts/verify.sh` (the inventory
+  test, `OrganizationAccessInventoryTests`). The scoped check runs before the
+  body is read and answers 401, then 404 «Организация не найдена» for a
+  non-member (the same bytes as for an organization that does not exist), then
+  403 for a role without the code; a handler that needs a second code asks
+  `IOrganizationAccess`.
 
 ## Database
 
@@ -243,7 +252,9 @@ purged ([ADR-0026](../adr/0026-soft-deactivation-by-status.md)).
   module wants the object with its status, reachable or not.
 - **Reachability is checked in one place per module.** For M1 that is
   `Mustask.Infrastructure/Organizations/Reachability.cs`, and at the
-  boundary the organization-context endpoint filter. An unreachable
+  boundary the scoped authorization requirement with its handler
+  (`OrganizationPermissionHandler`, [ADR-0027](../adr/0027-organization-access-from-membership.md);
+  it replaced mod-002's endpoint filter). An unreachable
   object answers its level's not-found code, never "deactivated".
 - **Reservation is a unique index.** A name that stays reserved gets a
   unique index over all rows. A name freed by removal gets a partial

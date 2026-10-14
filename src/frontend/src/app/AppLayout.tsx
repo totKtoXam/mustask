@@ -3,9 +3,18 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
 import type { Theme } from '@mui/material/styles';
+import Alert from '@mui/material/Alert';
+import Snackbar from '@mui/material/Snackbar';
 import { useAuth } from '../features/auth/AuthContext';
-import { useOrganizationsContextSource } from '../features/organizations';
-import { AccessCheckContext, type AccessCheck } from '../shared/lib/access';
+import {
+  useAccessWatcher,
+  useOrganizationAccess,
+  useOrganizationsContextSource,
+  useServedAccessCheck,
+} from '../features/organizations';
+import { AccessCheckContext } from '../shared/lib/access';
+import { MAIN_REGION_ID } from '../shared/lib/mainRegion';
+import { NoticeCornerContext } from '../shared/lib/noticeCorner';
 import {
   WorkContextContext,
   type SwitchTargetResolver,
@@ -30,6 +39,9 @@ import { TopBar } from './shell/TopBar';
 
 const MAIN_NAVIGATION_ID = 'main-navigation';
 const OVERLAY_ID = 'navigation-overlay';
+
+/** How long the role-change notice stays (mod-016 design § 2.4, as the other notices). */
+const ROLE_CHANGE_NOTICE_MS = 6000;
 
 /** Width changes of the permanent navigation; none under reduced motion (design § 2.6). */
 function widthTransition(theme: Theme) {
@@ -82,34 +94,32 @@ export interface AppLayoutProps {
  * (BR-8), the work context (BR-11), the page chrome through which a page
  * header registers and the shell derives its trail (BR-6), and the one notice
  * host the kit's `useNotice` talks to (tech-015 design § 5.12) — above the
- * routes, so a notice outlives the page that raised it.
+ * routes, so a notice outlives the page that raised it. The host stands under
+ * the work context and the notice corner (mod-016 DC-11): it closes when the
+ * shell raises the switcher's fallback or the role-change notice.
+ *
+ * The check is built from served access (mod-016, ADR-0027): an instance code
+ * from the token, an organization code from what `GET …/access` served for
+ * the organization asked about. The shell reads the switcher's selection's
+ * access so the navigation has its codes; the gate of an organization's pages
+ * reads the address's and binds the check to it. A watcher re-reads the codes
+ * after a scoped 403/404 and raises the role-change notice (design § 2).
  */
-export function AppLayout(props: AppLayoutProps) {
-  return (
-    <NoticeProvider>
-      <AppFrame {...props} />
-    </NoticeProvider>
-  );
-}
-
-function AppFrame({ contextSource }: AppLayoutProps) {
-  const { can, status, subject } = useAuth();
+export function AppLayout({ contextSource }: AppLayoutProps) {
+  const { can, subject } = useAuth();
   const model = useNavigationModel();
   const { pathname } = useLocation();
 
-  // Instance codes come from the token (ADR-0018). Until mod-016 serves the
-  // organization-scoped ones, any signed-in user satisfies them, as the
-  // API's authenticated-only guard does (BR-8 interim clause, D-18).
-  const access = useCallback<AccessCheck>(
-    (code, scope) => (scope === 'instance' ? can(code) : status === 'authenticated'),
-    [can, status],
-  );
+  // Instance codes come from the token (ADR-0018); organization codes from
+  // the served access in the tab's cache (design § 2.6). Unread, failed or
+  // answered 404: "no".
+  const { access, isCodesRead } = useServedAccessCheck(can);
 
   // The switcher-data registry (mod-002 D-n, D-o): the organizations slice's
   // source, handed the switch-target resolver the navigation model gives.
   const resolveSwitchTarget = useCallback<SwitchTargetResolver>(
-    (request) => switchTarget(model, access, request),
-    [model, access],
+    (request) => switchTarget(model, access, request, isCodesRead),
+    [model, access, isCodesRead],
   );
   const realSource = useOrganizationsContextSource({
     enabled: contextSource === undefined,
@@ -119,6 +129,20 @@ function AppFrame({ contextSource }: AppLayoutProps) {
   const source = contextSource ?? realSource;
 
   const { isReal, selection } = source;
+  // The access of the switcher's selection, for the navigation's entries; a
+  // placeholder context reads nothing.
+  useOrganizationAccess(selection.organizationId, { enabled: isReal });
+  const fallbackShown = Boolean(source.fallback);
+  const organizationName = useCallback(
+    (organizationId: string) =>
+      source.organizations.find((organization) => organization.id === organizationId)?.name,
+    [source.organizations],
+  );
+  const { roleChange, dismissRoleChange } = useAccessWatcher({ fallbackShown, organizationName });
+  const noticeCorner = useMemo(
+    () => ({ roleChangeId: roleChange?.id ?? null, claim: dismissRoleChange }),
+    [roleChange?.id, dismissRoleChange],
+  );
   const visible = useMemo(
     () => visibleModel(model, access, { isReal, selection }),
     [model, access, isReal, selection],
@@ -133,8 +157,11 @@ function AppFrame({ contextSource }: AppLayoutProps) {
   }, []);
   const currentPage = notFoundShown ? null : pathname;
 
+  // A page that no visible entry matches is beneath no landing: while an
+  // organization's codes are unread its settings pages show no settings
+  // navigation, no marker and no trail (design § 6.1).
   const settingsShown =
-    visible.settingsLanding !== null && isSettingsPage(currentPage, model, selection);
+    visible.settingsLanding !== null && isSettingsPage(currentPage, visible, selection);
   const layout = useNavigationLayout(settingsShown);
 
   // The page header registers here; without one (a full-page frame) there
@@ -186,105 +213,134 @@ function AppFrame({ contextSource }: AppLayoutProps) {
   return (
     <AccessCheckContext.Provider value={access}>
       <WorkContextContext.Provider value={source}>
-        <PageChromeContext.Provider value={chrome}>
-          <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-            <SkipLink onSkip={focusMain} />
-            <TopBar
-              menu={
-                overlay
-                  ? { overlayId: OVERLAY_ID, open: overlayOpen, onOpen: () => setOverlayOpen(true) }
-                  : undefined
-              }
-              trail={trailPlacement === 'topBar' ? trail : []}
-            />
-            {overlay ? (
-              <NavigationOverlay
-                id={OVERLAY_ID}
-                open={overlayOpen}
-                onClose={() => setOverlayOpen(false)}
-                onExited={overlayExited}
-              >
+        <NoticeCornerContext.Provider value={noticeCorner}>
+          <NoticeProvider>
+            <PageChromeContext.Provider value={chrome}>
+              <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+                <SkipLink onSkip={focusMain} />
+                <TopBar
+                  menu={
+                    overlay
+                      ? {
+                          overlayId: OVERLAY_ID,
+                          open: overlayOpen,
+                          onOpen: () => setOverlayOpen(true),
+                        }
+                      : undefined
+                  }
+                  trail={trailPlacement === 'topBar' ? trail : []}
+                />
+                {overlay ? (
+                  <NavigationOverlay
+                    id={OVERLAY_ID}
+                    open={overlayOpen}
+                    onClose={() => setOverlayOpen(false)}
+                    onExited={overlayExited}
+                  >
+                    <Box
+                      sx={{
+                        width: (theme) =>
+                          settingsShown ? theme.layout.railWidth : theme.layout.navigationWidth,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <MainNavigation
+                        id={MAIN_NAVIGATION_ID}
+                        variant={settingsShown ? 'rail' : 'expanded'}
+                        visible={visible}
+                        currentPage={currentPage}
+                        settingsCurrent={settingsShown}
+                        onEntryChosen={chooseInOverlay}
+                      />
+                    </Box>
+                    {settingsShown && (
+                      <Box
+                        sx={{
+                          width: (theme) => theme.layout.settingsNavigationWidth,
+                          borderLeft: settingsDivider,
+                        }}
+                      >
+                        <SettingsNavigation
+                          visible={visible}
+                          currentPage={currentPage}
+                          onEntryChosen={chooseInOverlay}
+                        />
+                      </Box>
+                    )}
+                  </NavigationOverlay>
+                ) : (
+                  <>
+                    <Drawer
+                      variant="permanent"
+                      sx={navigationDrawerSx((theme) =>
+                        layout.main === 'expanded'
+                          ? theme.layout.navigationWidth
+                          : theme.layout.railWidth,
+                      )}
+                    >
+                      <MainNavigation
+                        id={MAIN_NAVIGATION_ID}
+                        variant={layout.main === 'expanded' ? 'expanded' : 'rail'}
+                        visible={visible}
+                        currentPage={currentPage}
+                        settingsCurrent={settingsShown}
+                        toggle={layout.toggleShown ? { onToggle: layout.toggle } : undefined}
+                      />
+                    </Drawer>
+                    {settingsShown && (
+                      <Drawer
+                        variant="permanent"
+                        sx={navigationDrawerSx(
+                          (theme) => theme.layout.settingsNavigationWidth,
+                          (theme) => theme.layout.railWidth,
+                        )}
+                      >
+                        <SettingsNavigation visible={visible} currentPage={currentPage} />
+                      </Drawer>
+                    )}
+                  </>
+                )}
                 <Box
+                  component="main"
+                  id={MAIN_REGION_ID}
+                  tabIndex={-1}
+                  ref={mainRef}
                   sx={{
-                    width: (theme) =>
-                      settingsShown ? theme.layout.railWidth : theme.layout.navigationWidth,
-                    flexShrink: 0,
+                    flexGrow: 1,
+                    minWidth: 0,
+                    px: { xs: 2, md: 3 },
+                    pb: 3,
+                    '&:focus': { outline: 'none' },
                   }}
                 >
-                  <MainNavigation
-                    id={MAIN_NAVIGATION_ID}
-                    variant={settingsShown ? 'rail' : 'expanded'}
-                    visible={visible}
-                    currentPage={currentPage}
-                    settingsCurrent={settingsShown}
-                    onEntryChosen={chooseInOverlay}
-                  />
+                  <Box sx={(theme) => theme.mixins.toolbar} />
+                  <Outlet />
                 </Box>
-                {settingsShown && (
-                  <Box
-                    sx={{
-                      width: (theme) => theme.layout.settingsNavigationWidth,
-                      borderLeft: settingsDivider,
+                {roleChange && (
+                  // The shell's own notice (mod-016 design § 2.4, DC-11): it is
+                  // here, beside the switcher's fallback notice, so it shows the
+                  // same on every organization page whichever slice hosts the
+                  // page's own notices. A newer notice of a page replaces it.
+                  <Snackbar
+                    key={roleChange.id}
+                    open
+                    autoHideDuration={ROLE_CHANGE_NOTICE_MS}
+                    onClose={(_event, reason) => {
+                      if (reason !== 'clickaway') {
+                        dismissRoleChange();
+                      }
                     }}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                   >
-                    <SettingsNavigation
-                      visible={visible}
-                      currentPage={currentPage}
-                      onEntryChosen={chooseInOverlay}
-                    />
-                  </Box>
+                    <Alert severity="info" onClose={dismissRoleChange}>
+                      {roleChange.text}
+                    </Alert>
+                  </Snackbar>
                 )}
-              </NavigationOverlay>
-            ) : (
-              <>
-                <Drawer
-                  variant="permanent"
-                  sx={navigationDrawerSx((theme) =>
-                    layout.main === 'expanded'
-                      ? theme.layout.navigationWidth
-                      : theme.layout.railWidth,
-                  )}
-                >
-                  <MainNavigation
-                    id={MAIN_NAVIGATION_ID}
-                    variant={layout.main === 'expanded' ? 'expanded' : 'rail'}
-                    visible={visible}
-                    currentPage={currentPage}
-                    settingsCurrent={settingsShown}
-                    toggle={layout.toggleShown ? { onToggle: layout.toggle } : undefined}
-                  />
-                </Drawer>
-                {settingsShown && (
-                  <Drawer
-                    variant="permanent"
-                    sx={navigationDrawerSx(
-                      (theme) => theme.layout.settingsNavigationWidth,
-                      (theme) => theme.layout.railWidth,
-                    )}
-                  >
-                    <SettingsNavigation visible={visible} currentPage={currentPage} />
-                  </Drawer>
-                )}
-              </>
-            )}
-            <Box
-              component="main"
-              id="main-content"
-              tabIndex={-1}
-              ref={mainRef}
-              sx={{
-                flexGrow: 1,
-                minWidth: 0,
-                px: { xs: 2, md: 3 },
-                pb: 3,
-                '&:focus': { outline: 'none' },
-              }}
-            >
-              <Box sx={(theme) => theme.mixins.toolbar} />
-              <Outlet />
-            </Box>
-          </Box>
-        </PageChromeContext.Provider>
+              </Box>
+            </PageChromeContext.Provider>
+          </NoticeProvider>
+        </NoticeCornerContext.Provider>
       </WorkContextContext.Provider>
     </AccessCheckContext.Provider>
   );

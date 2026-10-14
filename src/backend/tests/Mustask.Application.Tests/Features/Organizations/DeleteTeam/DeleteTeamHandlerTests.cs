@@ -23,6 +23,7 @@ public sealed class DeleteTeamHandlerTests
             Handler = new DeleteTeamHandler(
                 new FakeProjectRepository(Store),
                 new FakeTeamRepository(Store),
+                new FakeTeamMembershipRepository(Store),
                 new FakeUnitOfWork());
         }
 
@@ -226,17 +227,56 @@ public sealed class DeleteTeamHandlerTests
         Assert.True(sibling.FirstTeam.IsActive);
     }
 
-    // plan-backend § 8.2: the team FOR UPDATE, then the set-based re-own to the first team, then one save. No project lock, no
-    // area lock of the handler's own (the statement takes the area rows it changes).
+    // plan-backend § 8.2: the team FOR UPDATE, then the set-based re-own to the first team, then (mod-016) the end of the team's
+    // memberships under the same lock, then one save. No project lock, no area lock of the handler's own (the statement takes
+    // the area rows it changes).
     [Fact]
-    public async Task Handle_LocksTheTeamForUpdate_ThenReassignsSetBased_ThenSavesOnce()
+    public async Task Handle_LocksTheTeamForUpdate_ThenReassignsSetBased_ThenEndsTheMemberships_ThenSavesOnce()
     {
         var f = new Fixture();
 
         await f.HandleAsync(f.Command());
 
         Assert.Equal(
-            [$"lock team update {f.Platform.Team.Id}", $"reassign {f.Platform.Team.Id} {f.Project.FirstTeam.Id}", "save"],
+            [
+                $"lock team update {f.Platform.Team.Id}",
+                $"reassign {f.Platform.Team.Id} {f.Project.FirstTeam.Id}",
+                $"end team memberships {f.Platform.Team.Id}",
+                "save",
+            ],
             f.Store.Calls);
+    }
+
+    // mod-016 US-3 · "A deleted team's memberships end" (BR-M1-18, BR-M1-36): neither member is in «Платформа» any longer, the
+    // one who is also in «Аналитика» still is, and the organization memberships are untouched.
+    [Fact]
+    public async Task Handle_EndsTheTeamsMemberships_AMemberOfAnotherTeamStaysThere()
+    {
+        var f = new Fixture();
+        var analytics = f.Store.AddTeam(f.Project, "Аналитика");
+        f.Store.AddMember(f.Organization, "anna");
+        f.Store.AddMember(f.Organization, "oleg");
+        f.Store.AddTeamMember(f.Organization, f.Platform.Team, "anna");
+        f.Store.AddTeamMember(f.Organization, f.Platform.Team, "oleg");
+        f.Store.AddTeamMember(f.Organization, analytics.Team, "oleg");
+
+        await f.HandleAsync(f.Command());
+
+        var remaining = Assert.Single(f.Store.TeamMemberships);
+        Assert.Equal((analytics.Team.Id, "oleg"), (remaining.TeamId, remaining.UserId));
+        Assert.Equal(2, f.Store.Memberships.Count);
+    }
+
+    // mod-016 · a refused deletion ends nothing: the first team keeps its members.
+    [Fact]
+    public async Task Handle_FirstTeamRefused_EndsNoMembership()
+    {
+        var f = new Fixture();
+        f.Store.AddMember(f.Organization, "anna");
+        f.Store.AddTeamMember(f.Organization, f.Project.FirstTeam, "anna");
+
+        await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(teamId: f.Project.FirstTeam.Id.ToString())));
+
+        Assert.Single(f.Store.TeamMemberships);
     }
 }

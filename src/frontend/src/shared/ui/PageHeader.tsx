@@ -78,6 +78,11 @@ export interface PageHeaderProps {
   primaryAction?: Command;
   /** Secondary commands: text buttons with a leading icon, in this order. */
   commands?: readonly Command[];
+  /**
+   * The page's views as tabs. A plain header draws them for two or more; one
+   * view draws none (mod-016 DC-2) unless the header is the team head
+   * (`variant="team"`) or has a `viewsEnd`.
+   */
   views?: readonly PageView[];
   /**
    * The views' own accessible name, e.g. «Организации по статусу» (mod-002
@@ -217,7 +222,7 @@ export function PageHeader({
           variant={variant}
         />
       </Box>
-      {views && views.length > 0 && (
+      {views && showsViews(views, variant, viewsEnd) && (
         <PageViews
           views={views}
           labelledBy={titleId}
@@ -228,6 +233,22 @@ export function PageHeader({
       )}
     </Box>
   );
+}
+
+/**
+ * Whether the views are drawn. A strip of one tab is a control in all but
+ * name (mod-016 DC-2): a plain header draws it only for two or more views, so
+ * a reader who is left with «Активные» alone sees no tab. The team head of
+ * «Бэклоги» and «Канбан» (`variant="team"`, feat-027) keeps its one tab with
+ * the level drop-down beside it; so does any header that hands the end of the
+ * row something (`viewsEnd`).
+ */
+function showsViews(
+  views: readonly PageView[],
+  variant: PageHeaderProps['variant'],
+  viewsEnd: ReactNode,
+): boolean {
+  return views.length > 1 || (views.length === 1 && (variant === 'team' || viewsEnd !== undefined));
 }
 
 /**

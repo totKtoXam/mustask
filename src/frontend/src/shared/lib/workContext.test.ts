@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  defaultEntry,
   firstSelection,
   resolveWorkContext,
   selectInWorkContext,
@@ -100,5 +101,59 @@ describe('resolveWorkContext', () => {
     expect(context.organization?.id).toBe('org-1');
     expect(context.project?.id).toBe('prj-1');
     expect(context.team?.id).toBe('team-1');
+  });
+});
+
+describe('defaultEntry (mod-016 D-5, US-7)', () => {
+  const teams = [
+    { id: 't-1', isMember: false },
+    { id: 't-2', isMember: true },
+    { id: 't-3', isMember: true },
+  ];
+
+  it('is the first entry the user is a member of, in the list’s order', () => {
+    expect(defaultEntry(teams)?.id).toBe('t-2');
+  });
+
+  it('is the first entry when the user is in none of them or the list does not say', () => {
+    expect(defaultEntry([{ id: 'a', isMember: false }, { id: 'b' }])?.id).toBe('a');
+    expect(defaultEntry([{ id: 'a' }, { id: 'b' }])?.id).toBe('a');
+  });
+
+  it('is nothing for an empty list', () => {
+    expect(defaultEntry([])).toBeUndefined();
+  });
+
+  it('chooses the team a context opens on, below a chosen project or organization', () => {
+    const withMembership: WorkContextOrganization[] = [
+      {
+        id: 'org-1',
+        name: 'Организация',
+        projects: [
+          {
+            id: 'prj-1',
+            name: 'Проект',
+            teams: [
+              { id: 't-1', name: 'Первая', isMember: false },
+              { id: 't-2', name: 'Вторая', isMember: true },
+            ],
+          },
+        ],
+      },
+    ];
+
+    expect(firstSelection(withMembership).teamId).toBe('t-2');
+    expect(selectInWorkContext(withMembership, {}, 'organization', 'org-1').teamId).toBe('t-2');
+    expect(
+      selectInWorkContext(withMembership, { organizationId: 'org-1' }, 'project', 'prj-1').teamId,
+    ).toBe('t-2');
+    // A chosen team and a resolved id that is found are never replaced.
+    expect(
+      resolveWorkContext(withMembership, {
+        organizationId: 'org-1',
+        projectId: 'prj-1',
+        teamId: 't-1',
+      }).team?.id,
+    ).toBe('t-1');
   });
 });

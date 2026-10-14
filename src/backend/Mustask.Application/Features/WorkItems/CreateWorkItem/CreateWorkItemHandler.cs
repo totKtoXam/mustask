@@ -1,7 +1,9 @@
 using Mustask.Application.Abstractions;
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
 using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Application.Features.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.WorkItems;
 using Mustask.Shared.Errors;
@@ -20,9 +22,13 @@ namespace Mustask.Application.Features.WorkItems.CreateWorkItem;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The order of answers</b> (api-contract § 0.4, feat-027 api-contract § 3):
-/// the address from the outside in (the organization-context filter has answered
-/// for the organization; the project must be the organization's and reachable);
+/// <b>The order of answers</b> (api-contract § 0.4, feat-027 api-contract § 3,
+/// mod-016 api-contract § 4.2): the scoped check has answered for the organization
+/// and the route's code (<c>workitems.workitem.write</c>) before the handler runs;
+/// then, when the create carries a <c>parentId</c>, the second code — a parent
+/// write needs <c>workitems.link.write</c> too, and its 403 comes before every
+/// other answer about the parent or the project; then the address from the
+/// outside in (the project must be the organization's and reachable);
 /// the values, with every field reason at once; the type; the replay; the team,
 /// when one is named (mod-006 api-contract § 7); the parent, when one is named —
 /// its not-found, then the domain's 409s (the deleted parent, the level, the
@@ -53,12 +59,21 @@ public sealed class CreateWorkItemHandler(
     IProcessDefinitionReadModel processes,
     IWorkItemRepository workItems,
     IWorkItemReadModel readModel,
+    IOrganizationAccess access,
     ICurrentUser currentUser,
     IClock clock,
     IUnitOfWork unitOfWork)
 {
-    public async Task<CreateWorkItemResult> Handle(CreateWorkItemCommand command, CancellationToken cancellationToken) =>
-        await unitOfWork.ExecuteInTransactionAsync(
+    public async Task<CreateWorkItemResult> Handle(CreateWorkItemCommand command, CancellationToken cancellationToken)
+    {
+        // 0. The second code of a parent write (mod-016 api-contract § 4.2): checked first, before the project or the parent is
+        // looked at, so a role without it learns nothing about either. Under the bundles of D-8 the two codes never differ.
+        if (command.ParentId is not null && !access.Holds(PermissionCatalog.WorkItemsLinkWrite))
+        {
+            throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
+        }
+
+        return await unitOfWork.ExecuteInTransactionAsync(
             async ct =>
             {
                 // 1. The address.
@@ -154,6 +169,7 @@ public sealed class CreateWorkItemHandler(
                 return new CreateWorkItemResult(await readModel.GetAsync(item.Id, ct), Created: true);
             },
             cancellationToken);
+    }
 
     /// <summary>The type of the organization's process with that id, or <c>null</c> for a malformed, unknown or foreign one.</summary>
     private static WorkItemTypeStates? TypeOf(ProcessDefinitionRow process, string? rawTypeId)

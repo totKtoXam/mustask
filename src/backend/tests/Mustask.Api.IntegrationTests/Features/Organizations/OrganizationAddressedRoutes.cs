@@ -1,60 +1,102 @@
+using Mustask.Domain.Identity;
+
 namespace Mustask.Api.IntegrationTests.Features.Organizations;
 
+/// <summary>One organization-addressed route and the organization code it declares (mod-016 api-contract § 4).</summary>
+public sealed record OrganizationRoute(string Method, string Template, string Code)
+{
+    public string Key => $"{Method} {Template}";
+
+    /// <summary>Only the organization's restore accepts a deactivated organization (api-contract § 4.1 row 7).</summary>
+    public bool AcceptsDeactivated => Key == OrganizationAddressedRoutes.Restore;
+
+    public bool IsWrite => Method is "POST" or "PUT" or "PATCH" or "DELETE";
+
+    /// <summary>The route without its code, for the tests that predate the codes.</summary>
+    public void Deconstruct(out string method, out string template)
+    {
+        method = Method;
+        template = Template;
+    }
+}
+
 /// <summary>
-/// Every organization-addressed route that exists (mod-002 api-contract § 5,
-/// D-g): the 23 of the organizations module, mod-001's process read, the five
-/// of mod-003's work items (its api-contract § 5), mod-006's three and
-/// feat-001's two (its api-contract § 6). A
-/// later module that adds one adds it here, and the inventory test makes sure
-/// it cannot forget.
+/// Every organization-addressed route that exists, with the organization code each declares (mod-016 api-contract § 4.1–§ 4.2 and
+/// § 1–§ 2): the 23 of mod-002, mod-001's process read, the seven of mod-003 and feat-001 (their api-contract § 5 and § 6, rows 28–34),
+/// mod-006's three (rows 35–37) and the ten of mod-016's own access and memberships. A later module that adds one adds it here with
+/// its code, and the inventory test (<c>OrganizationAccessInventoryTests</c>) makes sure it cannot forget: a route under
+/// <c>{organizationId}</c> that is not in this list, or is in it with another code than the one it declares, turns the build red.
 /// </summary>
 public static class OrganizationAddressedRoutes
 {
     public const string Restore = "POST /api/organizations/{organizationId}/restore";
 
-    public static readonly IReadOnlyList<(string Method, string Template)> All =
+    private const string Org = "/api/organizations/{organizationId}";
+    private const string Project = Org + "/projects/{projectId}";
+    private const string Team = Project + "/teams/{teamId}";
+    private const string Area = Project + "/areas/{areaId}";
+    private const string Item = Project + "/workitems/{identifier}";
+
+    public static readonly IReadOnlyList<OrganizationRoute> All =
     [
-        ("GET", "/api/organizations/{organizationId}"),
-        ("PUT", "/api/organizations/{organizationId}/name"),
-        ("POST", "/api/organizations/{organizationId}/deactivate"),
-        ("POST", "/api/organizations/{organizationId}/restore"),
-        ("GET", "/api/organizations/{organizationId}/projects"),
-        ("GET", "/api/organizations/{organizationId}/projects/deactivated"),
-        ("POST", "/api/organizations/{organizationId}/projects"),
-        ("GET", "/api/organizations/{organizationId}/projects/{projectId}"),
-        ("PUT", "/api/organizations/{organizationId}/projects/{projectId}/name"),
-        ("POST", "/api/organizations/{organizationId}/projects/{projectId}/deactivate"),
-        ("POST", "/api/organizations/{organizationId}/projects/{projectId}/restore"),
-        ("GET", "/api/organizations/{organizationId}/projects/{projectId}/teams"),
-        ("GET", "/api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}"),
-        ("POST", "/api/organizations/{organizationId}/projects/{projectId}/teams"),
-        ("PUT", "/api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}/name"),
-        ("PUT", "/api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}/default-area"),
-        ("DELETE", "/api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}"),
-        ("GET", "/api/organizations/{organizationId}/projects/{projectId}/areas"),
-        ("POST", "/api/organizations/{organizationId}/projects/{projectId}/areas"),
-        ("PUT", "/api/organizations/{organizationId}/projects/{projectId}/areas/{areaId}/name"),
-        ("PUT", "/api/organizations/{organizationId}/projects/{projectId}/areas/{areaId}/parent"),
-        ("PUT", "/api/organizations/{organizationId}/projects/{projectId}/areas/{areaId}/owner"),
-        ("DELETE", "/api/organizations/{organizationId}/projects/{projectId}/areas/{areaId}"),
-        ("GET", "/api/organizations/{organizationId}/process"),
+        // mod-002 api-contract § 5 (rows 4-26).
+        new("GET", Org, PermissionCatalog.OrganizationsOrganizationRead),
+        new("PUT", Org + "/name", PermissionCatalog.OrganizationsOrganizationWrite),
+        new("POST", Org + "/deactivate", PermissionCatalog.OrganizationsOrganizationDeactivate),
+        new("POST", Org + "/restore", PermissionCatalog.OrganizationsOrganizationDeactivate),
+        new("GET", Org + "/projects", PermissionCatalog.OrganizationsProjectRead),
+        new("GET", Org + "/projects/deactivated", PermissionCatalog.OrganizationsProjectDeactivate),
+        new("POST", Org + "/projects", PermissionCatalog.OrganizationsProjectWrite),
+        new("GET", Project, PermissionCatalog.OrganizationsProjectRead),
+        new("PUT", Project + "/name", PermissionCatalog.OrganizationsProjectWrite),
+        new("POST", Project + "/deactivate", PermissionCatalog.OrganizationsProjectDeactivate),
+        new("POST", Project + "/restore", PermissionCatalog.OrganizationsProjectDeactivate),
+        new("GET", Project + "/teams", PermissionCatalog.OrganizationsTeamRead),
+        new("GET", Team, PermissionCatalog.OrganizationsTeamRead),
+        new("POST", Project + "/teams", PermissionCatalog.OrganizationsTeamWrite),
+        new("PUT", Team + "/name", PermissionCatalog.OrganizationsTeamWrite),
+        new("PUT", Team + "/default-area", PermissionCatalog.OrganizationsTeamWrite),
+        new("DELETE", Team, PermissionCatalog.OrganizationsTeamWrite),
+        new("GET", Project + "/areas", PermissionCatalog.OrganizationsAreaRead),
+        new("POST", Project + "/areas", PermissionCatalog.OrganizationsAreaWrite),
+        new("PUT", Area + "/name", PermissionCatalog.OrganizationsAreaWrite),
+        new("PUT", Area + "/parent", PermissionCatalog.OrganizationsAreaWrite),
+        new("PUT", Area + "/owner", PermissionCatalog.OrganizationsAreaWrite),
+        new("DELETE", Area, PermissionCatalog.OrganizationsAreaWrite),
 
-        // mod-003 api-contract § 5: the work items routes (BR-M3-27).
-        ("GET", "/api/organizations/{organizationId}/projects/{projectId}/workitems"),
-        ("POST", "/api/organizations/{organizationId}/projects/{projectId}/workitems"),
-        ("GET", "/api/organizations/{organizationId}/projects/{projectId}/workitems/{identifier}"),
-        ("PATCH", "/api/organizations/{organizationId}/projects/{projectId}/workitems/{identifier}"),
-        ("GET", "/api/organizations/{organizationId}/workitems/assignee-candidates"),
+        // mod-001: the process read (row 27).
+        new("GET", Org + "/process", PermissionCatalog.ProcessDefinitionRead),
 
-        // feat-001 api-contract § 6: the parent write and the «Родитель» picker (BR-H-18).
-        ("PUT", "/api/organizations/{organizationId}/projects/{projectId}/workitems/{identifier}/parent"),
-        ("GET", "/api/organizations/{organizationId}/projects/{projectId}/workitems/{identifier}/parent-candidates"),
+        // mod-003 api-contract § 5: the work items routes (rows 28-31, 34); feat-001 api-contract § 6: the parent write and the
+        // «Родитель» picker (rows 32-33).
+        new("GET", Project + "/workitems", PermissionCatalog.WorkItemsWorkItemRead),
+        new("POST", Project + "/workitems", PermissionCatalog.WorkItemsWorkItemWrite),
+        new("GET", Item, PermissionCatalog.WorkItemsWorkItemRead),
+        new("PATCH", Item, PermissionCatalog.WorkItemsWorkItemWrite),
+        new("PUT", Item + "/parent", PermissionCatalog.WorkItemsLinkWrite),
+        new("GET", Item + "/parent-candidates", PermissionCatalog.WorkItemsWorkItemRead),
+        new("GET", Org + "/workitems/assignee-candidates", PermissionCatalog.WorkItemsWorkItemWrite),
 
-        // mod-006 api-contract § 5: a team's backlog, its reorder and its board (BR-M4-27).
-        ("GET", "/api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}/backlogs/{level}"),
-        ("POST", "/api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}/backlogs/{level}/reorder"),
-        ("GET", "/api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}/boards/{level}"),
+        // mod-006 api-contract § 5: a team's backlog, its reorder and its board (rows 35-37).
+        new("GET", Team + "/backlogs/{level}", PermissionCatalog.WorkItemsWorkItemRead),
+        new("POST", Team + "/backlogs/{level}/reorder", PermissionCatalog.BoardsBacklogReorder),
+        new("GET", Team + "/boards/{level}", PermissionCatalog.WorkItemsWorkItemRead),
+
+        // mod-016 api-contract § 1-§ 2: the access and the memberships.
+        new("GET", Org + "/access", PermissionCatalog.OrganizationsOrganizationRead),
+        new("GET", Org + "/members", PermissionCatalog.OrganizationsMembershipRead),
+        new("GET", Org + "/member-candidates", PermissionCatalog.OrganizationsMembershipWrite),
+        new("POST", Org + "/members", PermissionCatalog.OrganizationsMembershipWrite),
+        new("PUT", Org + "/members/{userId}/role", PermissionCatalog.OrganizationsMembershipWrite),
+        new("DELETE", Org + "/members/{userId}", PermissionCatalog.OrganizationsMembershipWrite),
+        new("GET", Team + "/members", PermissionCatalog.OrganizationsTeamRead),
+        new("GET", Team + "/member-candidates", PermissionCatalog.OrganizationsTeamWrite),
+        new("POST", Team + "/members", PermissionCatalog.OrganizationsTeamWrite),
+        new("DELETE", Team + "/members/{userId}", PermissionCatalog.OrganizationsTeamWrite),
     ];
+
+    /// <summary>The ten routes of mod-016's own access and memberships (api-contract § 1-§ 2), the last of <see cref="All"/>.</summary>
+    public static IEnumerable<OrganizationRoute> Memberships => All.Skip(All.Count - 10);
 
     /// <summary>The route's address for <paramref name="organizationId"/>, with fresh ids below it.</summary>
     public static string Path(string template, string organizationId) =>
@@ -63,6 +105,7 @@ public static class OrganizationAddressedRoutes
             .Replace("{projectId}", Guid.CreateVersion7().ToString(), StringComparison.Ordinal)
             .Replace("{teamId}", Guid.CreateVersion7().ToString(), StringComparison.Ordinal)
             .Replace("{areaId}", Guid.CreateVersion7().ToString(), StringComparison.Ordinal)
+            .Replace("{userId}", "u-" + Guid.CreateVersion7().ToString("N"), StringComparison.Ordinal)
             .Replace("{identifier}", "PRM-BUG-1", StringComparison.Ordinal)
             .Replace("{level}", "stories", StringComparison.Ordinal);
 
@@ -81,6 +124,8 @@ public static class OrganizationAddressedRoutes
                 title = "Заголовок",
                 itemId = Guid.CreateVersion7().ToString(),
                 position = "top",
+                userId = "u-" + Guid.CreateVersion7().ToString("N"),
+                role = "viewer",
             }
             : null;
 

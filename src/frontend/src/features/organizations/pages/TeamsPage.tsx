@@ -13,9 +13,11 @@ import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import { useAccessCheck } from '../../../shared/lib/access';
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
 import { PageHeader } from '../../../shared/ui/PageHeader';
 import { RegistrySkeleton } from '../../../shared/ui/RegistrySkeleton';
+import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
 import { NotFound } from '../../../shared/ui/StateFrame';
 import type { Team } from '../api/organizationsApi';
 import { NameDialog } from '../components/NameDialog';
@@ -27,6 +29,7 @@ import { useAddTeam } from '../hooks/mutations';
 import { useTeams } from '../hooks/queries';
 import { notFoundLevel } from '../lib/notFoundLevel';
 import { teamPath } from '../paths';
+import { organizationsPermissions } from '../permissions';
 
 /** The first team's mark: text, never colour alone (design § 9.2). */
 export const FIRST_TEAM_CHIP = 'Владеет корневой областью';
@@ -45,6 +48,8 @@ export function TeamsPage() {
   const query = useTeams(organizationId, projectId);
   const addTeam = useAddTeam(organizationId, projectId);
   const notify = useNotify();
+  const access = useAccessCheck();
+  const canWrite = access(organizationsPermissions.teamWrite, 'organization');
   const [adding, setAdding] = useState(false);
   const [dialog, setDialog] = useState<TeamDialog>(null);
 
@@ -93,14 +98,22 @@ export function TeamsPage() {
     <>
       <PageHeader
         title="Команды"
-        primaryAction={{
-          label: 'Добавить команду',
-          icon: <AddIcon />,
-          onClick: () => setAdding(true),
-        }}
+        primaryAction={
+          canWrite
+            ? {
+                label: 'Добавить команду',
+                icon: <AddIcon />,
+                onClick: () => setAdding(true),
+              }
+            : undefined
+        }
       />
       {loading ? (
-        <RegistrySkeleton columns={['Команда', 'Область по умолчанию', '']} />
+        <RegistrySkeleton
+          columns={
+            canWrite ? ['Команда', 'Область по умолчанию', ''] : ['Команда', 'Область по умолчанию']
+          }
+        />
       ) : query.isError ? (
         <ErrorBanner error={query.error} onRetry={() => void query.refetch()} />
       ) : (
@@ -110,7 +123,7 @@ export function TeamsPage() {
               <TableRow>
                 <TableCell>Команда</TableCell>
                 <TableCell>Область по умолчанию</TableCell>
-                <TableCell />
+                {canWrite && <TableCell />}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -130,35 +143,39 @@ export function TeamsPage() {
                   <TableCell sx={{ maxWidth: 0, width: '50%' }}>
                     <TruncatedName name={team.defaultArea.path} />
                   </TableCell>
-                  <TableCell align="right">
-                    <RowActionsMenu name={team.name} actions={rowActions(team)} />
-                  </TableCell>
+                  {canWrite && (
+                    <TableCell align="right">
+                      <RowActionsMenu name={team.name} actions={rowActions(team)} />
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </TableContainer>
       )}
-      {adding && (
-        <NameDialog
-          title="Новая команда"
-          helper="От 1 до 100 символов. Под корневой областью появится область с тем же названием, и она станет областью по умолчанию команды."
-          submitLabel="Добавить"
-          submit={(name) => addTeam.mutateAsync(name)}
-          onSucceeded={(team) => {
-            setAdding(false);
-            notify(`Команда «${team.name}» добавлена.`);
-          }}
+      <RequiresOrganizationCode code={organizationsPermissions.teamWrite}>
+        {adding && (
+          <NameDialog
+            title="Новая команда"
+            helper="От 1 до 100 символов. Под корневой областью появится область с тем же названием, и она станет областью по умолчанию команды."
+            submitLabel="Добавить"
+            submit={(name) => addTeam.mutateAsync(name)}
+            onSucceeded={(team) => {
+              setAdding(false);
+              notify(`Команда «${team.name}» добавлена.`);
+            }}
+            onClose={closeDialog}
+          />
+        )}
+        <TeamDialogs
+          organizationId={organizationId}
+          projectId={projectId}
+          dialog={dialog}
+          firstTeamName={firstTeamName}
           onClose={closeDialog}
         />
-      )}
-      <TeamDialogs
-        organizationId={organizationId}
-        projectId={projectId}
-        dialog={dialog}
-        firstTeamName={firstTeamName}
-        onClose={closeDialog}
-      />
+      </RequiresOrganizationCode>
     </>
   );
 }

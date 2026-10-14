@@ -26,17 +26,32 @@ function everyEntry(model: NavigationModel): NavigationEntry[] {
  * 2. That entry's landing in the new context when it is visible there (a tab
  *    is a view, not an entry: the landing is the active tab); otherwise, or
  *    when no entry matches, «Главная».
+ *
+ * The check is asked about `next`'s organization, and when that
+ * organization's codes are not read yet (`isCodesRead`) it is not asked at
+ * all: the switch does not wait for them (mod-016 design § 2.5, DC-8), every
+ * entry's code being a read code all three roles hold, so a switch from
+ * «Участники» of A opens «Участники» of B whatever B's codes. The page then
+ * runs the gate's state order.
  */
 export function switchTarget(
   model: NavigationModel,
   access: AccessCheck,
   { pathname, carried, next }: SwitchRequest,
+  isCodesRead: (organizationId: string | undefined) => boolean = () => true,
 ): string {
   const entry = everyEntry(model).find(
     (candidate) =>
       candidate.scope !== 'instance' && entryMarker(pathname, candidate, carried) !== null,
   );
-  if (!entry || !isEntryVisible(entry, access, { isReal: true, selection: next })) {
+  if (
+    !entry ||
+    !isEntryVisible(entry, access, {
+      isReal: true,
+      selection: next,
+      skipServedCodes: !isCodesRead(next.organizationId),
+    })
+  ) {
     return HOME_PATH;
   }
   return entry.landing(next) ?? HOME_PATH;

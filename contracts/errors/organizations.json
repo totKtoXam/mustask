@@ -162,6 +162,76 @@
       "ru": "Корневая область меняется только вместе с проектом",
       "kk": "Түбірлік аймақ тек жобамен бірге өзгереді",
       "kkNeedsReview": true
+    },
+    "organizations.access.forbidden": {
+      "statuses": [403],
+      "params": {},
+      "ru": "Недостаточно прав",
+      "kk": "Құқықтар жеткіліксіз",
+      "kkNeedsReview": true
+    },
+    "organizations.membership.already_member": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Пользователь уже состоит в организации",
+      "kk": "Пайдаланушы ұйымның құрамында бұрыннан бар",
+      "kkNeedsReview": true
+    },
+    "organizations.membership.last_admin": {
+      "statuses": [409],
+      "params": {},
+      "ru": "В организации должен остаться хотя бы один администратор",
+      "kk": "Ұйымда кемінде бір әкімші қалуы керек",
+      "kkNeedsReview": true
+    },
+    "organizations.membership.user_unavailable": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Этого пользователя нельзя добавить в организацию",
+      "kk": "Бұл пайдаланушыны ұйымға қосуға болмайды",
+      "kkNeedsReview": true
+    },
+    "organizations.membership.not_found": {
+      "statuses": [404],
+      "params": {},
+      "ru": "Участник не найден.",
+      "kk": "Мүше табылмады.",
+      "kkNeedsReview": true
+    },
+    "organizations.membership.role_invalid": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Выберите роль: администратор, участник или читатель",
+      "kk": "Рөлді таңдаңыз: әкімші, қатысушы немесе оқырман",
+      "kkNeedsReview": true
+    },
+    "organizations.membership.user_invalid": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Укажите пользователя",
+      "kk": "Пайдаланушыны көрсетіңіз",
+      "kkNeedsReview": true
+    },
+    "organizations.team.member_exists": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Пользователь уже состоит в команде",
+      "kk": "Пайдаланушы командада бұрыннан бар",
+      "kkNeedsReview": true
+    },
+    "organizations.team.member_not_in_organization": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Добавить в команду можно только активного участника организации",
+      "kk": "Командаға ұйымның тек белсенді мүшесін ғана қосуға болады",
+      "kkNeedsReview": true
+    },
+    "organizations.team.member_not_found": {
+      "statuses": [404],
+      "params": {},
+      "ru": "Участник команды не найден.",
+      "kk": "Команда мүшесі табылмады.",
+      "kkNeedsReview": true
     }
   }
 }

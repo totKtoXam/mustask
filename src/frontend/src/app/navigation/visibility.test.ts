@@ -72,7 +72,7 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () =>
     }
   });
 
-  it('registers only built pages: «Главная», «Рабочие элементы», «Канбан», «Бэклоги», «Организация» → «Общие», «Проекты», «Процесс», «Проект» → «Общие», «Команды», «Области», «Справочники» → «Языки» and «Интерфейс» → «Витрина компонентов»', () => {
+  it('registers only built pages: «Главная», «Рабочие элементы», «Канбан», «Бэклоги», «Организация» → «Общие», «Проекты», «Участники», «Процесс», «Проект» → «Общие», «Команды», «Области», «Справочники» → «Языки» and «Интерфейс» → «Витрина компонентов»', () => {
     const registered = [
       ...navigationModel.top,
       ...navigationModel.work,
@@ -85,6 +85,7 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () =>
       'Бэклоги',
       'Общие',
       'Проекты',
+      'Участники',
       'Процесс',
       'Общие',
       'Команды',
@@ -136,7 +137,12 @@ describe('mod-001 US-2 Scenario: No visible entry or link leads to the screen be
     const section = navigationModel.settings.find((candidate) => candidate.id === 'organization');
 
     expect(section?.label).toBe('Организация');
-    expect(section?.entries.map((entry) => entry.label)).toEqual(['Общие', 'Проекты', 'Процесс']);
+    expect(section?.entries.map((entry) => entry.label)).toEqual([
+      'Общие',
+      'Проекты',
+      'Участники',
+      'Процесс',
+    ]);
     expect(processEntry().landing({ organizationId: DEMONSTRATION_ID })).toBe(
       `/organizations/${DEMONSTRATION_ID}/settings/process`,
     );
@@ -253,11 +259,12 @@ describe('US-3 Scenario: The current page is marked', () => {
     expect(entryMarker('/home', languages, selection)).toBeNull();
   });
 
-  it('knows a settings page by the registered settings entries', () => {
-    expect(isSettingsPage('/dictionaries/languages', navigationModel, selection)).toBe(true);
-    expect(isSettingsPage('/dictionaries/languages/new', navigationModel, selection)).toBe(true);
-    expect(isSettingsPage('/home', navigationModel, selection)).toBe(false);
-    expect(isSettingsPage('/no-such-page', navigationModel, selection)).toBe(false);
+  it('knows a settings page by the settings entries the user sees', () => {
+    const visible = visibleModel(navigationModel, allowEverything, { isReal: false, selection });
+    expect(isSettingsPage('/dictionaries/languages', visible, selection)).toBe(true);
+    expect(isSettingsPage('/dictionaries/languages/new', visible, selection)).toBe(true);
+    expect(isSettingsPage('/home', visible, selection)).toBe(false);
+    expect(isSettingsPage('/no-such-page', visible, selection)).toBe(false);
   });
 
   // qa.md D-1: the router serves `/home/` as `/home`, so the slash must not
@@ -273,8 +280,110 @@ describe('US-3 Scenario: The current page is marked', () => {
 
   // qa.md D-2: while a not-found frame answers the address there is no page.
   it('marks nothing and knows no settings page where no page is current', () => {
+    const visible = visibleModel(navigationModel, allowEverything, { isReal: false, selection });
     expect(entryMarker(null, languages, selection)).toBeNull();
-    expect(isSettingsPage(null, navigationModel, selection)).toBe(false);
+    expect(isSettingsPage(null, visible, selection)).toBe(false);
+  });
+});
+
+describe('mod-016 design § 2.6: the check is asked about the selection’s organization', () => {
+  it('passes the selection’s organization to the shared check for every entry with a code', () => {
+    const asked: [string, string, string | undefined][] = [];
+    const access: AccessCheck = (code, scope, organizationId) => {
+      asked.push([code, scope, organizationId]);
+      return true;
+    };
+
+    isEntryVisible(organizationEntry, access, real);
+    isEntryVisible(projectEntry, access, real);
+
+    expect(asked).toEqual([
+      ['test.organization.read', 'organization', 'org-1'],
+      ['test.project.read', 'project', 'org-1'],
+    ]);
+  });
+
+  it('shows an organization’s entry only by that organization’s codes', () => {
+    const heldByA: AccessCheck = (_code, _scope, organizationId) => organizationId === 'org-a';
+
+    expect(
+      isEntryVisible(organizationEntry, heldByA, {
+        isReal: true,
+        selection: { organizationId: 'org-a' },
+      }),
+    ).toBe(true);
+    expect(
+      isEntryVisible(organizationEntry, heldByA, {
+        isReal: true,
+        selection: { organizationId: 'org-b' },
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('mod-016 design § 2.5, DC-8: the switch resolver does not wait for unread codes', () => {
+  const unread: AccessCheck = (_code, scope) => scope === 'instance';
+
+  it('does not ask the code of a non-instance entry when told the codes are not read', () => {
+    expect(isEntryVisible(organizationEntry, unread, { ...real, skipServedCodes: true })).toBe(
+      true,
+    );
+    expect(isEntryVisible(projectEntry, unread, { ...real, skipServedCodes: true })).toBe(true);
+  });
+
+  it('still needs the page to exist, a real context and the landing', () => {
+    expect(
+      isEntryVisible(organizationEntry, unread, { ...placeholder, skipServedCodes: true }),
+    ).toBe(false);
+    expect(
+      isEntryVisible(projectEntry, unread, {
+        isReal: true,
+        selection: { organizationId: 'org-1' },
+        skipServedCodes: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps asking an instance entry its code from the token', () => {
+    const languages = navigationModel.settings
+      .flatMap((section) => section.entries)
+      .find((entry) => entry.id === 'languages') as NavigationEntry;
+
+    expect(isEntryVisible(languages, () => false, { ...real, skipServedCodes: true })).toBe(false);
+    expect(isEntryVisible(languages, () => true, { ...real, skipServedCodes: true })).toBe(true);
+  });
+
+  it('is not what the shell’s own navigation does: unread codes hide the entries', () => {
+    expect(isEntryVisible(organizationEntry, unread, real)).toBe(false);
+  });
+});
+
+describe('mod-016 design § 6.1: a settings page needs a visible entry', () => {
+  const model: NavigationModel = {
+    top: navigationModel.top,
+    work: [],
+    settings: [{ id: 'organization', label: 'Организация', entries: [organizationEntry] }],
+  };
+  const selection: WorkContextSelection = { organizationId: 'org-1' };
+  const page = '/organizations/org-1/test';
+
+  it('is not a settings page while the entry’s organization codes are unread', () => {
+    const hidden = visibleModel(model, () => false, { isReal: true, selection });
+
+    expect(isSettingsPage(page, hidden, selection)).toBe(false);
+    expect(deriveTrail(page, hidden, selection)).toEqual([]);
+    expect(hidden.settingsLanding).toBeNull();
+  });
+
+  it('is one, with its trail, once the codes are read', () => {
+    const shown = visibleModel(model, allowEverything, { isReal: true, selection });
+
+    expect(isSettingsPage(page, shown, selection)).toBe(true);
+    expect(isSettingsPage(`${page}/deeper`, shown, selection)).toBe(true);
+    expect(deriveTrail(page, shown, selection)).toEqual([
+      { label: 'Настройки' },
+      { label: 'Организация' },
+    ]);
   });
 });
 

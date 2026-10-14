@@ -18,6 +18,11 @@ function renderHeader(props: PageHeaderProps) {
 }
 
 const views = [{ label: 'Бэклог', to: '/backlog' }];
+// A plain header draws a tab strip for two views or more (mod-016 DC-2).
+const twoViews = [
+  { label: 'Бэклог', to: '/backlog' },
+  { label: 'Архив', to: '/archive' },
+];
 
 describe('feat-027 design § 3.5 Scenario: The browser tab can differ from the heading', () => {
   it('reads «<documentTitle> — Mustask» while the h1 is the title', async () => {
@@ -110,7 +115,7 @@ describe('feat-027 design § 3.5 Scenario: The team variant’s spacing', () => 
   });
 
   it('leaves the other pages’ tabs on the theme’s own padding', () => {
-    renderHeader({ title: 'Языки', views });
+    renderHeader({ title: 'Языки', views: twoViews });
 
     const style = getComputedStyle(screen.getByRole('tab', { name: 'Бэклог' }));
     expect(parseFloat(style.paddingTop)).toBe(12);
@@ -118,7 +123,7 @@ describe('feat-027 design § 3.5 Scenario: The team variant’s spacing', () => 
   });
 
   it('leaves the other pages at 16 px above, 8 px below and an 8 px gap before the tabs', () => {
-    const { container } = renderHeader({ title: 'Языки', views });
+    const { container } = renderHeader({ title: 'Языки', views: twoViews });
 
     const style = getComputedStyle(container.querySelector('.PageHeader-root') as HTMLElement);
     expect(parseFloat(style.paddingTop)).toBe(16);

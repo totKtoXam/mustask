@@ -71,7 +71,13 @@ describe('mod-002 design § 1: the slice’s nine routes in the shell', () => {
     serveOrganizations();
     renderRoutes(path);
 
-    expect(await screen.findByRole('heading', { level: 1, name: title })).toBeInTheDocument();
+    // An organization's page draws its header over a skeleton while the codes
+    // are read (mod-016 design § 2.1, row 1) and the page's own header replaces
+    // it; the page is settled when nothing loads any more.
+    await waitFor(() =>
+      expect(screen.queryByRole('status', { name: 'Загрузка данных' })).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole('heading', { level: 1, name: title })).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     await waitFor(() => expect(document.title).toBe(`${title} — Mustask`));
   });
@@ -108,7 +114,11 @@ describe('mod-002 US-3 Scenario: The «Процесс» link', () => {
     server.use(http.get(PROCESS_DEFINITION_URL, () => HttpResponse.json(sampleProcessDefinition)));
     renderRoutes(`/organizations/${ids.alfa}/projects/${ids.prm}/settings/general`);
 
-    await userEvent.click(await screen.findByRole('link', { name: 'Процесс' }));
+    // The page's own link: «Процесс» is in the settings navigation too, once
+    // the organization's codes are read.
+    await userEvent.click(
+      await within(await screen.findByRole('main')).findByRole('link', { name: 'Процесс' }),
+    );
 
     expect(await screen.findByRole('region', { name: 'Эпик' })).toBeInTheDocument();
     expect(screen.getByTestId('location')).toHaveTextContent(

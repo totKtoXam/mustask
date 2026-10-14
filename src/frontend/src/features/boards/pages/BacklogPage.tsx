@@ -125,8 +125,16 @@ function TeamBacklog({
             <StateFrame
               icon={InboxOutlinedIcon}
               heading="Бэклог пуст"
-              hint="Добавьте рабочий элемент — он встанет в конец бэклога."
-              action={{ label: NEW_WORK_ITEM_LABEL, icon: <AddIcon />, onClick: newItem.open }}
+              hint={
+                newItem.canWrite
+                  ? 'Добавьте рабочий элемент — он встанет в конец бэклога.'
+                  : 'Рабочие элементы создают участники организации с ролью «Участник» или «Администратор».'
+              }
+              action={
+                newItem.canWrite
+                  ? { label: NEW_WORK_ITEM_LABEL, icon: <AddIcon />, onClick: newItem.open }
+                  : undefined
+              }
             />
           ) : (
             <BacklogTable

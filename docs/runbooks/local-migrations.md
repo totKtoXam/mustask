@@ -195,3 +195,26 @@ switches the stand). Afterwards the database is empty:
 
 Then seed the Keycloak users (`bash scripts/keycloak-seed.sh`); the first
 reconciliation of the user projection loads them into the new database.
+
+## A stand with data that moves to organization access (mod-016) — no reset
+
+The migration `AddOrganizationAccess` is not only schema: it **seeds** the
+memberships. In the same migration, each existing organization — active or
+deactivated — gets exactly one member, an `admin`: the creator the organization
+already records (whatever the user projection says of them), added by
+themselves at the organization's creation time; and a project's creator joins
+the project's first team when they are then a member of its organization.
+Nobody else is seeded: everyone else gets «Организация не найдена» until an
+administrator adds them on «Участники». `Down` drops the two membership tables
+(the organizations, projects and teams stay).
+
+For a stand that holds data you want to keep, this is the order (the full text,
+with what each step does to Keycloak, is in `src/backend/AGENTS.md`, "A stand
+that predates mod-016"): back up if you want to; apply the migrations as above
+(the migration seeds the creators); start the stand — the `keycloak` resource
+stays unhealthy, because the drift check reports the old realm roles; run
+`bash scripts/migrate-live-realm.sh` (PowerShell
+`scripts/migrate-live-realm.ps1`) with `KEYCLOAK_ADMIN_PASSWORD` in the
+environment; the next probe passes. **Do not run `scripts/stand-reset.sh`** for
+these findings, although the check's text names it: it would delete the data
+this order keeps.

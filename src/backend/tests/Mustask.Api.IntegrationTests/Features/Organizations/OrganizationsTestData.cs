@@ -27,9 +27,14 @@ public static class OrganizationsTestData
     public static EntityName Name(string value) =>
         EntityName.TryCreate(value, out var name) ? name : throw new ArgumentException($"«{value}» is not a valid name.", nameof(value));
 
-    /// <summary>An organization with its seeded process, active or deactivated.</summary>
+    /// <summary>
+    /// An organization with its seeded process, active or deactivated. By default it is <paramref name="founded"/> as the
+    /// create handler founds one (mod-016 BR-M1-25): <see cref="Creator"/> is its only member, an <c>admin</c> added by
+    /// themselves, so a test that signs in with <see cref="OrganizationsTokens.SignedIn"/> administers the organization it
+    /// built. A test that needs an organization nobody belongs to passes <c>founded: false</c>.
+    /// </summary>
     public static Task<Organization> CreateOrganizationAsync(
-        MustaskApiFactory factory, string? name = null, OrganizationStatus status = OrganizationStatus.Active) =>
+        MustaskApiFactory factory, string? name = null, OrganizationStatus status = OrganizationStatus.Active, bool founded = true) =>
         InUnitOfWorkAsync(factory, async (services, ct) =>
         {
             var organizationId = Guid.CreateVersion7();
@@ -43,18 +48,29 @@ public static class OrganizationsTestData
 
             var organizations = services.GetRequiredService<IOrganizationRepository>();
             organizations.Add(organization);
+
+            if (founded)
+            {
+                services.GetRequiredService<IMembershipRepository>().Add(OrganizationMembership.Founder(organizationId, Creator, Now));
+            }
+
             await organizations.SaveAsync(ct);
 
             return organization;
         });
 
-    /// <summary>A project with its first team and its root (US-3), active or deactivated.</summary>
+    /// <summary>
+    /// A project with its first team and its root (US-3), active or deactivated. As the create handler does (BR-M1-25), the
+    /// project's creator (<see cref="Creator"/>) is the first team's only member when they are a member of the organization;
+    /// a test that wants the first team empty passes <c>creatorJoinsFirstTeam: false</c>.
+    /// </summary>
     public static Task<NewProject> CreateProjectAsync(
         MustaskApiFactory factory,
         Guid organizationId,
         string name = "Пример проекта",
         string key = "PRM",
-        ProjectStatus status = ProjectStatus.Active) =>
+        ProjectStatus status = ProjectStatus.Active,
+        bool creatorJoinsFirstTeam = true) =>
         InUnitOfWorkAsync(factory, async (services, ct) =>
         {
             var project = Project.Create(organizationId, Name(name), key, Now, Creator);
@@ -66,16 +82,24 @@ public static class OrganizationsTestData
 
             var projects = services.GetRequiredService<IProjectRepository>();
             projects.Add(project);
+
+            if (creatorJoinsFirstTeam && await services.GetRequiredService<IMembershipRepository>().ExistsAsync(organizationId, Creator, ct))
+            {
+                services.GetRequiredService<ITeamMembershipRepository>()
+                    .Add(TeamMembership.Add(project.FirstTeam.Id, organizationId, Creator));
+            }
+
             await projects.SaveAsync(ct);
 
             return project;
         });
 
     /// <summary>An active organization with one project «Пример проекта» (PRM) and a second team «Платформа» with its area.</summary>
-    public static async Task<OrganizationStructure> CreateStructureAsync(MustaskApiFactory factory, string? organizationName = null)
+    public static async Task<OrganizationStructure> CreateStructureAsync(
+        MustaskApiFactory factory, string? organizationName = null, bool founded = true, bool creatorJoinsFirstTeam = true)
     {
-        var organization = await CreateOrganizationAsync(factory, organizationName);
-        var project = await CreateProjectAsync(factory, organization.Id);
+        var organization = await CreateOrganizationAsync(factory, organizationName, founded: founded);
+        var project = await CreateProjectAsync(factory, organization.Id, creatorJoinsFirstTeam: creatorJoinsFirstTeam);
         var platform = await AddTeamAsync(factory, project.Project.Id, "Платформа");
 
         return new OrganizationStructure(organization, project, platform);

@@ -1,7 +1,9 @@
 import { Route } from 'react-router-dom';
 import { vi } from 'vitest';
+import type { ServedAccess, TestRole } from '../../test/organizationRoles';
 import { authValue, renderShell } from '../../test/renderShell';
 import type { WorkContextSelection, WorkContextSource } from '../../shared/lib/workContext';
+import { OrganizationGate } from '../organizations';
 import { BacklogPage } from './pages/BacklogPage';
 import { BoardPage } from './pages/BoardPage';
 import { BACKLOG_ROUTE, BOARD_ROUTE } from './paths';
@@ -62,12 +64,20 @@ export function teamContext(selection: WorkContextSelection = {}): WorkContextSo
   };
 }
 
-/** The slice's routes, as `app/routes.tsx` registers them, and a stub for every other page. */
+/**
+ * The slice's routes, as `app/routes.tsx` registers them, and a stub for every
+ * other page. They sit under the organization gate, as there (mod-016): a page
+ * asks `useAccessCheck()` for the organization in its address, and the shell
+ * primes that organization's codes by the `role` of `renderBoards`. The pages
+ * are mounted without `OrganizationPage`, so no test meets the gate's first rows.
+ */
 export function boardsRoutes() {
   return (
     <>
-      <Route path={BOARD_ROUTE} element={<BoardPage />} />
-      <Route path={BACKLOG_ROUTE} element={<BacklogPage />} />
+      <Route element={<OrganizationGate />}>
+        <Route path={BOARD_ROUTE} element={<BoardPage />} />
+        <Route path={BACKLOG_ROUTE} element={<BacklogPage />} />
+      </Route>
       <Route path="*" element={<p>Другая страница</p>} />
     </>
   );
@@ -78,11 +88,22 @@ export function boardsRoutes() {
  * page chrome) with a stub context and session, as `app/routes.tsx` mounts the
  * slice.
  */
-export function renderBoards(path: string, options: { context?: WorkContextSource } = {}) {
+export function renderBoards(
+  path: string,
+  options: {
+    context?: WorkContextSource;
+    /**
+     * The caller's role in the selected organization (mod-016): the administrator
+     * by default; a `ServedAccess` is a bundle of exactly its codes.
+     */
+    role?: TestRole | ServedAccess;
+  } = {},
+) {
   return renderShell({
     path,
     auth: authValue([]),
     contextSource: options.context ?? teamContext(),
     routes: boardsRoutes(),
+    access: options.role ?? 'admin',
   });
 }

@@ -14,8 +14,10 @@ namespace Mustask.Api.IntegrationTests.Features.Organizations;
 /// (<see cref="OrganizationsTestData"/>): the database is shared and never
 /// emptied. A deactivation is arranged through the data helpers, never through
 /// another lane's endpoint, and the outcome is read back through the seam and the
-/// read models of phase 1. Every request is made by a signed-in user with no
-/// right at all, because until mod-016 any signed-in user may restore (BR-M1-19).
+/// read models of phase 1. Every request is made by the organization's creator, an
+/// administrator, with a token that carries no right: the restore needs
+/// <c>organizations.organization.deactivate</c>, which only an administrator's
+/// membership holds (mod-016 BR-M1-7, D-13).
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]
@@ -90,7 +92,8 @@ public sealed class RestoreOrganizationEndpointTests(MustaskApiFactory factory)
     private async Task<IReadOnlyList<Guid>> ListedOrganizationsAsync(OrganizationStatus status)
     {
         using var scope = factory.Services.CreateScope();
-        var rows = await scope.ServiceProvider.GetRequiredService<IOrganizationReadModel>().ListAsync(status, CancellationToken.None);
+        var rows = await scope.ServiceProvider.GetRequiredService<IOrganizationReadModel>()
+            .ListAsync(status, OrganizationsTestData.Creator, onlyRoles: null, CancellationToken.None);
 
         return rows.Select(row => row.Id).ToList();
     }
@@ -105,7 +108,8 @@ public sealed class RestoreOrganizationEndpointTests(MustaskApiFactory factory)
 
     // US-2 · "The organization is restored exactly as it was": «Пример организации» comes back with its name, process,
     // project, teams, default areas and area tree as before, and is listed among the active organizations again. The
-    // answer is the contract's Organization (api-contract § 1.7). The caller holds no right: any signed-in user may.
+    // answer is the contract's Organization (api-contract § 1.7). The token carries no right: the caller is the creator, an
+    // administrator, and the membership gives the code.
     [Fact]
     public async Task Restore_BringsBackNameProcessProjectsTeamsDefaultsAndTrees()
     {

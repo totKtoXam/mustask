@@ -22,12 +22,20 @@ export interface ProblemDetails {
 export class ApiError extends Error {
   readonly status: number;
   readonly body: ProblemDetails | null;
+  /**
+   * The request path (with its query) that got the answer, set by `send()` for
+   * a non-OK answer; absent on an error built by hand. The access watcher
+   * reads it to tell an organization-scoped 403/404 from any other
+   * (mod-016 plan-frontend P-4): absent means "not scoped".
+   */
+  readonly path?: string;
 
-  constructor(status: number, body: ProblemDetails | null) {
+  constructor(status: number, body: ProblemDetails | null, path?: string) {
     super(body?.errorCode ?? body?.title ?? `HTTP ${status}`);
     this.name = 'ApiError';
     this.status = status;
     this.body = body;
+    this.path = path;
   }
 
   get errorCode(): string | undefined {
@@ -109,7 +117,7 @@ async function send(path: string, options: SendOptions = {}): Promise<Response> 
   }
 
   if (!response.ok) {
-    throw new ApiError(response.status, await parseProblem(response));
+    throw new ApiError(response.status, await parseProblem(response), path);
   }
 
   return response;

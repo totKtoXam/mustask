@@ -22,9 +22,10 @@ public sealed class CreateWorkItemEndpointTests(MustaskApiFactory factory)
     public async Task Create_TitleOnly_Returns201_WithTheItemsDefaults()
     {
         var world = await WorkItemsTestData.CreateWorldAsync(factory);
-        var subject = OrganizationsTokens.NewSubject();
+        var author = await Organizations.MembershipTestData.NewMemberAsync(factory, world.OrganizationId, Mustask.Domain.Identity.OrganizationRole.Member);
+        var subject = author.Id;
 
-        var answer = await WorkItemsTestData.CreateAsync(factory, world, "TASK", "  Настроить сборку  ", token: OrganizationsTokens.SignedIn(subject));
+        var answer = await WorkItemsTestData.CreateAsync(factory, world, "TASK", "  Настроить сборку  ", token: author.Token);
 
         Assert.Equal(HttpStatusCode.Created, answer.Status);
         Assert.Equal($"/api/organizations/{world.OrganizationId}/projects/{world.ProjectId}/workitems/MSK-TASK-1", answer.Location!.OriginalString);

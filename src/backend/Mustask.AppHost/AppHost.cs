@@ -8,6 +8,15 @@ using Mustask.AppHost.Stand;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
+// mod-016 (BR-M1-28, D-6, D-16): `--migrate-live-realm` (scripts/migrate-live-realm.sh and .ps1) moves the realm of a stand whose
+// Keycloak store was created from the pre-mod-016 import to the realm the new import declares, in place, with no reset. It is handled
+// before anything is declared — no resource starts, Aspire never sees the flag — and it is stand-only code like the reset (ADR-0023).
+// The administrator's password is read from KEYCLOAK_ADMIN_PASSWORD, never from an argument.
+if (KeycloakLiveRealmCommand.IsRequested(args))
+{
+    return await KeycloakLiveRealmCommand.RunAsync(args, Environment.GetEnvironmentVariable, Console.Out, handler: null, CancellationToken.None);
+}
+
 // mod-014 (ADR-0025 § 7): `--stand-reset` (scripts/stand-reset.sh) declares
 // the stand exactly as a start would — so the mode, the volume names and the
 // database come from this same code — and then wipes that pair instead of

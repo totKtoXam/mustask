@@ -224,6 +224,7 @@ const TEST_HELPERS: ReadonlySet<string> = new Set([
   'features/boards/testParentDialog.ts',
   'features/boards/testRender.tsx',
   'features/dictionaries/testFixtures.ts',
+  'features/organizations/access/testAccess.tsx',
   'features/organizations/testApi.ts',
   'features/organizations/testFixtures.ts',
   'features/organizations/testRender.tsx',
@@ -1796,12 +1797,12 @@ describe('tech-015 Scenario: the tree holds the rule (design § 9.2, § 9.3)', (
 
   it.skipIf(EMIT)('holds at least one baseline entry of every rule that had an offender', () => {
     const present = new Set(BASELINE.map((entry) => entry.rule));
+    // The re-cut at 554bb6e (mod-016): KIT-14 and KIT-17 had their last offenders in the
+    // work-item form and the boards' icons, which feat-029 and tech-015 moved into the kit.
     for (const rule of [
       ...Array.from({ length: 11 }, (_unused, index) => `KIT-${index + 1}`),
-      'KIT-14',
       'KIT-15',
       'KIT-16',
-      'KIT-17',
       'KIT-21',
       'KIT-22',
     ]) {
@@ -1809,52 +1810,53 @@ describe('tech-015 Scenario: the tree holds the rule (design § 9.2, § 9.3)', (
     }
   });
 
-  it.skipIf(EMIT)(
-    'matches the independent scan of design § 9.2 — files and sites per rule, 128 entries',
-    () => {
-      // The designer’s count of commit bd3bb22 (design § 9.2, last column). A
-      // difference is a bug in a rule, explained or fixed before the baseline is
-      // committed; a re-cut from a newer main brings this table to the new cut
-      // (the re-cut from 5614f58 changed no entry: bug-004 added no site).
-      const DESIGN_TOTALS: Readonly<Record<string, readonly [files: number, sites: number]>> = {
-        'KIT-1': [14, 59],
-        'KIT-2': [20, 54],
-        'KIT-3': [14, 55],
-        'KIT-4': [5, 10],
-        'KIT-5': [9, 22],
-        'KIT-6': [6, 12],
-        'KIT-7': [12, 28],
-        'KIT-8': [14, 164],
-        'KIT-9': [1, 3],
-        'KIT-10': [10, 26],
-        'KIT-11': [2, 4],
-        'KIT-12': [0, 0],
-        'KIT-13': [0, 0],
-        'KIT-14': [2, 4],
-        'KIT-15': [8, 11],
-        'KIT-16': [2, 5],
-        'KIT-17': [1, 1],
-        'KIT-18': [0, 0],
-        'KIT-21': [6, 7],
-        'KIT-22': [2, 6],
-        'KIT-23': [0, 0],
-        'KIT-24': [0, 0],
-      };
-      const totals = (rule: string): [number, number] => {
-        const entries = BASELINE.filter((entry) => entry.rule === rule);
-        return [entries.length, entries.reduce((sum, entry) => sum + entry.count, 0)];
-      };
-      for (const [rule, expected] of Object.entries(DESIGN_TOTALS)) {
-        expect(totals(rule), rule).toEqual([...expected]);
-      }
-      expect(BASELINE).toHaveLength(128);
-      expect(new Set(BASELINE.map((entry) => entry.rule))).toEqual(
-        new Set(
-          Object.entries(DESIGN_TOTALS)
-            .filter(([, [files]]) => files > 0)
-            .map(([rule]) => rule),
-        ),
-      );
-    },
-  );
+  it.skipIf(EMIT)('matches the totals of the cut — files and sites per rule, 125 entries', () => {
+    // The totals of the cut at 554bb6e. The table began as the designer’s independent
+    // scan of commit bd3bb22 (design § 9.2, last column; the re-cut from 5614f58 changed
+    // no entry: bug-004 added no site), a difference being a bug in a rule, explained or
+    // fixed before the baseline is committed. A re-cut brings it to the new cut, in the
+    // same commit: this one (mod-016, rebased onto tech-015 and feat-029) dropped the
+    // work-item form's and the boards' icons’ entries, which the kit and the card
+    // replaced (KIT-14, KIT-17 now 0), and added the organization members' screens
+    // and the shell's role-change notice.
+    const CUT_TOTALS: Readonly<Record<string, readonly [files: number, sites: number]>> = {
+      'KIT-1': [12, 46],
+      'KIT-2': [19, 52],
+      'KIT-3': [14, 54],
+      'KIT-4': [5, 10],
+      'KIT-5': [10, 24],
+      'KIT-6': [7, 14],
+      'KIT-7': [14, 32],
+      'KIT-8': [16, 201],
+      'KIT-9': [1, 3],
+      'KIT-10': [10, 23],
+      'KIT-11': [2, 4],
+      'KIT-12': [0, 0],
+      'KIT-13': [0, 0],
+      'KIT-14': [0, 0],
+      'KIT-15': [8, 11],
+      'KIT-16': [2, 5],
+      'KIT-17': [0, 0],
+      'KIT-18': [0, 0],
+      'KIT-21': [4, 4],
+      'KIT-22': [1, 2],
+      'KIT-23': [0, 0],
+      'KIT-24': [0, 0],
+    };
+    const totals = (rule: string): [number, number] => {
+      const entries = BASELINE.filter((entry) => entry.rule === rule);
+      return [entries.length, entries.reduce((sum, entry) => sum + entry.count, 0)];
+    };
+    for (const [rule, expected] of Object.entries(CUT_TOTALS)) {
+      expect(totals(rule), rule).toEqual([...expected]);
+    }
+    expect(BASELINE).toHaveLength(125);
+    expect(new Set(BASELINE.map((entry) => entry.rule))).toEqual(
+      new Set(
+        Object.entries(CUT_TOTALS)
+          .filter(([, [files]]) => files > 0)
+          .map(([rule]) => rule),
+      ),
+    );
+  });
 });

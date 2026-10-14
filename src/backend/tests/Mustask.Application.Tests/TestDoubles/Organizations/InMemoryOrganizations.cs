@@ -1,6 +1,9 @@
 using System.Globalization;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.Process;
+using Mustask.Shared.Errors;
+using Mustask.Shared.Exceptions;
 
 namespace Mustask.Application.Tests.TestDoubles.Organizations;
 
@@ -10,7 +13,9 @@ namespace Mustask.Application.Tests.TestDoubles.Organizations;
 /// It records every lock and every save in <see cref="Calls"/>, so a test can
 /// pin the order of answers and the lock order (plan-backend § 5.3, § 8.2),
 /// and it can make the next save fail the way the loser of a race does
-/// (<see cref="FailNextSave"/>).
+/// (<see cref="FailNextSave"/>). mod-016 adds the memberships and the database
+/// rules around them that a handler leans on: the primary keys and the
+/// composite key from a team membership to the organization membership.
 /// </summary>
 public sealed class InMemoryOrganizations
 {
@@ -29,10 +34,15 @@ public sealed class InMemoryOrganizations
 
     public List<Area> Areas { get; } = [];
 
+    public List<OrganizationMembership> Memberships { get; } = [];
+
+    public List<TeamMembership> TeamMemberships { get; } = [];
+
     /// <summary>
     /// Every lock and save, in order: <c>lock organization {id}</c>, <c>lock project {id}</c>,
     /// <c>lock team {mode} {id}</c>, <c>lock area {mode} {id}</c>, <c>lock root {mode} {projectId}</c>,
-    /// <c>lock default {teamId}</c>, <c>reassign {from} {to}</c>, <c>save</c>.
+    /// <c>lock default {teamId}</c>, <c>reassign {from} {to}</c>, <c>lock member {userId}</c>,
+    /// <c>delete member {userId}</c>, <c>end team memberships {teamId}</c>, <c>save</c>.
     /// </summary>
     public List<string> Calls { get; } = [];
 
@@ -57,6 +67,33 @@ public sealed class InMemoryOrganizations
         Organizations.Add(organization);
 
         return organization;
+    }
+
+    /// <summary>An organization that <paramref name="userId"/> belongs to in <paramref name="role"/> (the list handlers narrow by membership).</summary>
+    public Organization AddOrganizationOf(string userId, string name = "Пример организации", OrganizationRole role = OrganizationRole.Admin)
+    {
+        var organization = AddOrganization(name);
+        AddMember(organization, userId, role);
+
+        return organization;
+    }
+
+    /// <summary>A membership of <paramref name="userId"/> in <paramref name="organization"/>, added by the organization's creator.</summary>
+    public OrganizationMembership AddMember(Organization organization, string userId, OrganizationRole role = OrganizationRole.Member)
+    {
+        var membership = OrganizationMembership.Add(organization.Id, userId, role, Creator, Now);
+        Memberships.Add(membership);
+
+        return membership;
+    }
+
+    /// <summary>A team membership, as the database would hold it: the user must be a member of the organization.</summary>
+    public TeamMembership AddTeamMember(Organization organization, Team team, string userId)
+    {
+        var membership = TeamMembership.Add(team.Id, organization.Id, userId);
+        TeamMemberships.Add(membership);
+
+        return membership;
     }
 
     public NewProject AddProject(Organization organization, string name = "Пример проекта", string key = "PRM")
@@ -98,6 +135,9 @@ public sealed class InMemoryOrganizations
 
     public Organization? FindOrganization(Guid id) => Organizations.SingleOrDefault(organization => organization.Id == id);
 
+    public OrganizationMembership? FindMembership(Guid organizationId, string userId) =>
+        Memberships.SingleOrDefault(membership => membership.OrganizationId == organizationId && membership.UserId == userId);
+
     public Project? FindProject(Guid organizationId, Guid projectId) =>
         Projects.SingleOrDefault(project => project.Id == projectId && project.OrganizationId == organizationId);
 
@@ -117,6 +157,22 @@ public sealed class InMemoryOrganizations
     /// <summary>A repository's <c>Remove</c>: gone at once (the fakes do not model a deferred delete).</summary>
     internal void Unstore(Area area) => Areas.Remove(area);
 
+    /// <summary>
+    /// The database's <c>DELETE FROM organization_memberships</c> with the cascade of its composite key: the user's team
+    /// memberships of that organization go in the same statement (BR-M1-36). Answers whether a membership was deleted.
+    /// </summary>
+    internal bool DeleteMembership(Guid organizationId, string userId)
+    {
+        var removed = Memberships.RemoveAll(membership => membership.OrganizationId == organizationId && membership.UserId == userId) > 0;
+
+        if (removed)
+        {
+            TeamMemberships.RemoveAll(membership => membership.OrganizationId == organizationId && membership.UserId == userId);
+        }
+
+        return removed;
+    }
+
     internal Task SaveAsync()
     {
         Record("save");
@@ -128,7 +184,16 @@ public sealed class InMemoryOrganizations
             throw failure;
         }
 
-        foreach (var entity in _pending)
+        // A flush is atomic: the entities are checked against the keys first, and a refusal stores none of them.
+        var staged = _pending.ToList();
+        _pending.Clear();
+
+        if (Refuse(staged) is { } refusal)
+        {
+            throw refusal;
+        }
+
+        foreach (var entity in staged)
         {
             switch (entity)
             {
@@ -144,13 +209,51 @@ public sealed class InMemoryOrganizations
                 case Area area:
                     Areas.Add(area);
                     break;
+                case OrganizationMembership membership:
+                    Memberships.Add(membership);
+                    break;
+                case TeamMembership membership:
+                    TeamMemberships.Add(membership);
+                    break;
                 default:
                     throw new InvalidOperationException($"The store keeps no {entity.GetType().Name}.");
             }
         }
 
-        _pending.Clear();
-
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// The database rules of the memberships, as <c>OrganizationsSaveChanges</c> maps them: a second membership of one user in
+    /// one organization (<c>already_member</c>), a second membership of one user in one team (<c>team.member_exists</c>), and a
+    /// team membership whose organization membership is not there (<c>team.member_not_in_organization</c>), counting the
+    /// memberships staged in the same flush.
+    /// </summary>
+    private MustaskException? Refuse(IReadOnlyList<object> staged)
+    {
+        var memberships = Memberships.Concat(staged.OfType<OrganizationMembership>()).ToList();
+
+        foreach (var added in staged.OfType<OrganizationMembership>())
+        {
+            if (Memberships.Any(existing => existing.OrganizationId == added.OrganizationId && existing.UserId == added.UserId))
+            {
+                return new ConflictException(OrganizationErrorCodes.MembershipAlreadyMember, ErrorParams.None);
+            }
+        }
+
+        foreach (var added in staged.OfType<TeamMembership>())
+        {
+            if (TeamMemberships.Any(existing => existing.TeamId == added.TeamId && existing.UserId == added.UserId))
+            {
+                return new ConflictException(OrganizationErrorCodes.TeamMemberExists, ErrorParams.None);
+            }
+
+            if (!memberships.Any(existing => existing.OrganizationId == added.OrganizationId && existing.UserId == added.UserId))
+            {
+                return new ConflictException(OrganizationErrorCodes.TeamMemberNotInOrganization, ErrorParams.None);
+            }
+        }
+
+        return null;
     }
 }

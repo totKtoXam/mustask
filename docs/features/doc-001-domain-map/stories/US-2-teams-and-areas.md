@@ -2,7 +2,7 @@
 
 - story: US-2
 - depends-on: US-1
-- shippable: no — delivered by mod-002-organizations-projects-teams
+- shippable: no — delivered by mod-002-organizations-projects-teams (organizations, projects, teams, areas) and mod-016-organization-access (memberships, team memberships and the access checks)
 - status: pending
 
 As an **organization administrator** (MVP has no project-scoped admin role —

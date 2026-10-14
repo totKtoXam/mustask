@@ -404,4 +404,48 @@ public sealed class DeleteTeamEndpointTests(MustaskApiFactory factory)
         Assert.Equal(structure.FirstTeamId, tree[structure.Platform.Area.Id].OwnerTeamId);
         Assert.DoesNotContain(tree.PreOrder(), node => node.OwnerTeamId == teamId || node.DefaultOfTeamId == teamId);
     }
+
+    // mod-016 US-3 · "A deleted team's memberships end" (mod-002 BR-M1-18, BR-M1-36): «Платформа» has two members, one of whom is
+    // also in the first team. After the deletion the deleted team has no members; the first team keeps hers; both stay members of
+    // the organization; and the deleted team's member list and page answer `team.not_found`.
+    [Fact]
+    public async Task Delete_EndsTheTeamsMemberships_TheOtherTeamKeepsHers_BothStayInTheOrganization()
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory, creatorJoinsFirstTeam: false);
+        var teamId = structure.Platform.Team.Id;
+        var reader = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, Mustask.Domain.Identity.OrganizationRole.Viewer);
+        var both = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, Mustask.Domain.Identity.OrganizationRole.Member);
+        var onlyHere = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, Mustask.Domain.Identity.OrganizationRole.Member);
+        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, teamId, both.Id);
+        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, teamId, onlyHere.Id);
+        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.FirstTeamId, both.Id);
+
+        var answer = await DeleteAsync(structure, teamId);
+
+        Assert.Equal(HttpStatusCode.NoContent, answer.Status);
+        Assert.Empty(await MembershipTestData.TeamMemberIdsAsync(factory, teamId));
+        Assert.Equal([both.Id], await MembershipTestData.TeamMemberIdsAsync(factory, structure.FirstTeamId));
+        Assert.NotNull(await MembershipTestData.FindMembershipAsync(factory, structure.OrganizationId, both.Id));
+        Assert.NotNull(await MembershipTestData.FindMembershipAsync(factory, structure.OrganizationId, onlyHere.Id));
+
+        var teamPath = $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{teamId}";
+        var members = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, $"{teamPath}/members", token: reader.Token);
+        var page = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, teamPath, token: reader.Token);
+        Assert.Equal((HttpStatusCode.NotFound, TeamNotFoundCode), (members.Status, members.ErrorCode));
+        Assert.Equal((HttpStatusCode.NotFound, TeamNotFoundCode), (page.Status, page.ErrorCode));
+    }
+
+    // mod-016 US-3: a team with no members is deleted as before — the memberships step finds nothing to end.
+    [Fact]
+    public async Task Delete_ATeamWithNoMembers_StillSucceeds()
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory, creatorJoinsFirstTeam: false);
+        var other = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, Mustask.Domain.Identity.OrganizationRole.Member);
+        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.FirstTeamId, other.Id);
+
+        var answer = await DeleteAsync(structure, structure.Platform.Team.Id);
+
+        Assert.Equal(HttpStatusCode.NoContent, answer.Status);
+        Assert.Equal([other.Id], await MembershipTestData.TeamMemberIdsAsync(factory, structure.FirstTeamId));
+    }
 }

@@ -97,7 +97,7 @@ public sealed class SaveWorkItemParentEndpointTests(MustaskApiFactory factory)
     public async Task Patch_WithoutParent_LeavesTheParentWhoeverSetIt()
     {
         var (world, items) = await WorldAsync();
-        var anna = await WorkItemsTestData.AddUserAsync(factory, "Анна", "Смирнова");
+        var anna = await WorkItemsTestData.AddMemberAsync(factory, world, "Анна", "Смирнова");
         await LinksTestData.LinkAsync(factory, world, items["MSK-US-2"], items["MSK-FEAT-6"]);
 
         var assigned = await WorkItemsTestData.SaveAsync(factory, world, "MSK-US-2", new { assignee = new { userId = anna } });

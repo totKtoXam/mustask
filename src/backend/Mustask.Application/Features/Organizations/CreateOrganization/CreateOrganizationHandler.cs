@@ -36,9 +36,16 @@ namespace Mustask.Application.Features.Organizations.CreateOrganization;
 /// rows go with it (BR-M1-3). A lost name race rolls back the same way:
 /// "the refused creation leaves no seeded process behind" (US-1).
 /// </para>
+/// <para>
+/// <b>The founder</b> (mod-016 BR-M1-25; US-6, US-3 "A creator the projection does not know yet still gets the creation
+/// memberships"): in the same unit of work, the same flush, the creator becomes the organization's <c>admin</c> — added
+/// by themselves at the creation time — whatever the user projection says of them; a failed seed or a refused name leaves
+/// no membership either. They administer at once, because access is read from the membership alone (BR-M1-32).
+/// </para>
 /// </remarks>
 public sealed class CreateOrganizationHandler(
     IOrganizationRepository organizations,
+    IMembershipRepository memberships,
     IProcessSeed processSeed,
     IClock clock,
     ICurrentUser currentUser,
@@ -80,6 +87,7 @@ public sealed class CreateOrganizationHandler(
                 // index, and the repository answers it with the pre-check's code (plan-backend § 6.3).
                 var organization = Organization.Create(organizationId, name, processId, clock.UtcNow, currentUser.SubjectId);
                 organizations.Add(organization);
+                memberships.Add(OrganizationMembership.Founder(organization.Id, currentUser.SubjectId, organization.CreatedAt));
                 await organizations.SaveAsync(ct);
 
                 return new CreateOrganizationResult(new OrganizationResponse(organization.Id, organization.Name));

@@ -60,8 +60,8 @@ public sealed class CreateOrganizationEndpointTests(MustaskApiFactory factory)
         Assert.Equal(["id", "name"], PropertyNames(answer.Body));
         Assert.Equal(name, answer.Body.GetProperty("name").GetString());
 
-        Assert.Contains((id, name), await ListAsync(Path));
-        Assert.DoesNotContain((id, name), await ListAsync($"{Path}/deactivated"));
+        Assert.Contains((id, name), await ListAsync(Path, subject));
+        Assert.DoesNotContain((id, name), await ListAsync($"{Path}/deactivated", subject));
 
         using var scope = factory.Services.CreateScope();
         var info = await scope.ServiceProvider.GetRequiredService<IOrganizationStructure>()
@@ -73,9 +73,53 @@ public sealed class CreateOrganizationEndpointTests(MustaskApiFactory factory)
         Assert.InRange(info.CreatedAt, startedAt, answeredAt);
 
         var process = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Get, $"{OrganizationsApi.Organization(id)}/process", token: OrganizationsTokens.SignedIn());
+            factory, HttpMethod.Get, $"{OrganizationsApi.Organization(id)}/process", token: OrganizationsTokens.SignedIn(subject));
         Assert.Equal(HttpStatusCode.OK, process.Status);
         Assert.Equal(info.ProcessId.Value, process.Body.GetProperty("id").GetGuid());
+    }
+
+    // mod-016 US-6 · "doc-006 US-2 scenario 1" (BR-M1-25): the creator becomes the organization's administrator in the same
+    // operation — added by themselves at the creation time, no role change, nobody else — and administers at once: the served
+    // access of the new organization answers admin for their very next request, with no re-login (BR-M1-6).
+    [Fact]
+    public async Task Create_TheCreatorBecomesItsOnlyMember_AsAdmin_AddedByThemselves_AndAdministersAtOnce()
+    {
+        var subject = OrganizationsTokens.NewSubject();
+        var startedAt = DateTimeOffset.UtcNow;
+
+        var created = await CreateAsync(new { name = OrganizationsTestData.UniqueName("Пример организации") }, OrganizationsTokens.WithCreateRight(subject));
+        var answeredAt = DateTimeOffset.UtcNow;
+
+        Assert.Equal(HttpStatusCode.Created, created.Status);
+        var id = created.Body.GetProperty("id").GetGuid();
+        var membership = await MembershipTestData.FindMembershipAsync(factory, id, subject);
+        Assert.NotNull(membership);
+        Assert.Equal(Mustask.Domain.Identity.OrganizationRole.Admin, membership.Role);
+        Assert.Equal(subject, membership.AddedBy);
+        Assert.InRange(membership.AddedAt, startedAt, answeredAt);
+        Assert.Null(membership.RoleChangedBy);
+        Assert.Null(membership.RoleChangedAt);
+        Assert.Equal(1, await CountAsync("SELECT count(*) FROM organization_memberships WHERE organization_id::text = @p", id.ToString()));
+
+        var access = await OrganizationsApi.SendAsync(
+            factory, HttpMethod.Get, $"{OrganizationsApi.Organization(id)}/access", token: OrganizationsTokens.SignedIn(subject));
+        Assert.Equal(HttpStatusCode.OK, access.Status);
+        Assert.Equal("admin", access.Body.GetProperty("role").GetString());
+    }
+
+    // mod-016 US-3 · "A creator the projection does not know yet still gets the creation memberships" (BR-M1-25, BR-M1-32): the
+    // creator is a token subject the user projection has never received; the organization is created and they administer it.
+    [Fact]
+    public async Task Create_ACreatorTheProjectionDoesNotKnow_StillBecomesItsAdministrator()
+    {
+        var subject = OrganizationsTokens.NewSubject();
+        Assert.Null(await UserDirectory.UserDirectoryTestData.FindAsync(factory, subject));
+
+        var created = await CreateAsync(new { name = OrganizationsTestData.UniqueName("Пример организации") }, OrganizationsTokens.WithCreateRight(subject));
+
+        Assert.Equal(HttpStatusCode.Created, created.Status);
+        var membership = await MembershipTestData.FindMembershipAsync(factory, created.Body.GetProperty("id").GetGuid(), subject);
+        Assert.Equal(Mustask.Domain.Identity.OrganizationRole.Admin, membership!.Role);
     }
 
     // US-1 · "The name is trimmed and its length checked": «  Пример организации  » is stored as «Пример организации».
@@ -213,7 +257,8 @@ public sealed class CreateOrganizationEndpointTests(MustaskApiFactory factory)
     public async Task Create_SeedFails_Returns500CreateFailed_NothingLeft_RetrySucceeds()
     {
         var name = OrganizationsTestData.UniqueName("Пример организации");
-        var token = OrganizationsTokens.WithCreateRight();
+        var subject = OrganizationsTokens.NewSubject();
+        var token = OrganizationsTokens.WithCreateRight(subject);
         var orphansBefore = await CountOrphanProcessesAsync();
         var seed = new SeedSwitch { Fail = true };
 
@@ -245,6 +290,9 @@ public sealed class CreateOrganizationEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(orphansBefore, await CountOrphanProcessesAsync());
 
+        // mod-016 US-6 (doc-006 US-2 scenario 5): a failed process seed leaves no membership either.
+        Assert.Equal(0, await CountAsync("SELECT count(*) FROM organization_memberships WHERE user_id = @p", subject));
+
         seed.Fail = false;
         var retry = await PostAsync(client, new { name }, token);
 
@@ -252,6 +300,7 @@ public sealed class CreateOrganizationEndpointTests(MustaskApiFactory factory)
         Assert.Equal(name, retry.Body.GetProperty("name").GetString());
         Assert.Equal(retry.Body.GetProperty("id").GetGuid(), await IdOfAsync(name));
         Assert.Equal(orphansBefore, await CountOrphanProcessesAsync());
+        Assert.Equal(1, await CountAsync("SELECT count(*) FROM organization_memberships WHERE user_id = @p", subject));
     }
 
     // US-1 · "Without the right the action is neither offered nor accepted" (backend half): refused with the create endpoint's
@@ -345,10 +394,10 @@ public sealed class CreateOrganizationEndpointTests(MustaskApiFactory factory)
     private static IEnumerable<string> PropertyNames(JsonElement element) =>
         element.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal);
 
-    /// <summary>A list of organizations as the panel reads it (api-contract § 1.1, § 1.2), by any signed-in user.</summary>
-    private async Task<IReadOnlyList<(Guid Id, string Name)>> ListAsync(string path)
+    /// <summary>The list as the creator of the organization reads it: the lists hold the caller's own organizations (mod-016 BR-M1-7).</summary>
+    private async Task<IReadOnlyList<(Guid Id, string Name)>> ListAsync(string path, string subject)
     {
-        var answer = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, path, token: OrganizationsTokens.SignedIn());
+        var answer = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, path, token: OrganizationsTokens.SignedIn(subject));
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
 

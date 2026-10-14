@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { signIn } from '../support/auth';
 import { env } from '../support/env';
-import { createEphemeralReaderUser, deleteEphemeralUser, userExistsById } from '../support/keycloakAdmin';
+import { createEphemeralUserWithoutGroup, deleteEphemeralUser, userExistsById } from '../support/keycloakAdmin';
 
 /**
  * Permission gating end to end, through a real Keycloak access token rather
@@ -13,6 +13,10 @@ import { createEphemeralReaderUser, deleteEphemeralUser, userExistsById } from '
  * write-gated screen is refused by the real route gate, not only by a
  * fabricated one.
  *
+ * Scenarios (mod-016 US-8 "Every signed-in user reads the dictionaries", D-7):
+ * 16.1 a user in no group reads «Языки» and has no write control, and a
+ * direct URL into the write form is «Доступ ограничен».
+ *
  * The fixture user (`e2e-fixture`) is deliberately full-admin
  * (`KeycloakStandProvisioner`'s `GroupPath`, `/Администраторы` — every
  * `dictionaries.*` code the realm defines) precisely so the rest of this
@@ -22,22 +26,23 @@ import { createEphemeralReaderUser, deleteEphemeralUser, userExistsById } from '
  * session's e2e run, or a human, may depend on it staying admin for as long
  * as this stand is up — the same reason this suite never touches realm
  * settings a spec did not itself set), this spec creates a throwaway user in
- * the realm's own pre-existing read-only group instead
- * (`deploy/keycloak/realms/mustask-realm.json`'s `viewer` role:
- * `dictionaries.languages.read`, no `dictionaries.languages.write`) — created
- * and deleted by this spec alone (`keycloakAdmin.ts`'s
- * `createEphemeralReaderUser`/`deleteEphemeralUser`), within `mustask-e2e`'s
- * existing `manage-users` right — no new realm-management scope, no
- * realm-wide setting touched, nothing left behind in Keycloak whether the
- * test passes or fails. MUSTASK's user projection (mod-014) does keep the
- * throwaway user's record, held `Deleted` with the name and e-mail last
- * received, as it keeps every deleted user's by design (BR-UP-5): one such
- * row per run.
+ * no group at all. Since mod-016 that user IS the reader (D-7): the realm no
+ * longer has the `/Сотрудники` group and the `viewer` role — the realm's
+ * default roles carry `dictionaries.languages.read` to every signed-in user,
+ * and nothing carries `dictionaries.languages.write` but `instance-admin` and
+ * `dictionaries-admin`. The user is created and deleted by this spec alone
+ * (`keycloakAdmin.ts`'s `createEphemeralUserWithoutGroup`/`deleteEphemeralUser`),
+ * within `mustask-e2e`'s existing `manage-users` right — no new
+ * realm-management scope, no realm-wide setting touched, nothing left behind in
+ * Keycloak whether the test passes or fails. MUSTASK's user projection (mod-014)
+ * does keep the throwaway user's record, held `Deleted` with the name and
+ * e-mail last received, as it keeps every deleted user's by design (BR-UP-5):
+ * one such row per run.
  */
 test.describe('16. dictionaries permission gating, real token, real realm', () => {
-  test('a read-only role sees the languages registry but is denied a write-gated screen by direct URL', async ({ page }) => {
+  test('16.1 a user in no group sees the languages registry but is denied a write-gated screen by direct URL (US-8)', async ({ page }) => {
     const { keycloakUrl, realm } = env();
-    const reader = await createEphemeralReaderUser(keycloakUrl, realm);
+    const reader = await createEphemeralUserWithoutGroup(keycloakUrl, realm);
     try {
       // Positive: `languages.read` alone opens the registry — the
       // route-level gate and the read side of the page.

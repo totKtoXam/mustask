@@ -57,10 +57,19 @@ export interface WorkItemCardProps {
    * the card existed.
    */
   renderFrame: (frame: CardFrameProps) => ReactNode;
-  /** BR-C-19: every field a value, no Save group, no undo. Nothing sets it today. */
+  /**
+   * BR-C-19: every field read-only, no Save group, no undo. The hosts set it from the
+   * served access — the reader holds no `workitems.workitem.write` (mod-016 design § 6.5).
+   */
   readOnly?: boolean;
   /** The reason a read-only card gives; default «Рабочий элемент доступен только для чтения.». */
   readOnlyText?: string;
+  /**
+   * «Родитель» alone is read-only on a card that is editable otherwise: the member who
+   * holds `workitems.workitem.write` but not `workitems.link.write` (mod-016 design § 6.2).
+   * A read-only card has it already.
+   */
+  parentReadOnly?: boolean;
   /** «Сохранить и закрыть», once the save was accepted: the dialog closes, the page goes back. */
   onClose?: () => void;
   /**
@@ -101,6 +110,7 @@ export function WorkItemCard({
   renderFrame,
   readOnly = false,
   readOnlyText = cardTexts.readOnly,
+  parentReadOnly = false,
   onClose,
   onOpenItem,
   onSaved,
@@ -277,7 +287,8 @@ export function WorkItemCard({
           onChange={on.parent}
           onOpenItem={onOpenItem ? openItem : undefined}
           inputRef={fields.ref('parent')}
-          {...common}
+          busy={saving}
+          readOnly={readOnly || parentReadOnly}
         />
       </Box>
     ),

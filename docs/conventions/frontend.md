@@ -84,7 +84,12 @@ registry, form and dialog in code.
 - **Permissions.** Pages and navigation decide through one check —
   `useAuth().can(code)` for instance codes, `useAccessCheck()`
   (`shared/lib/access`) for a scoped code — and keep no copy of its
-  answers.
+  answers. An organization's codes are never in the token: the panel reads
+  them from the access endpoint, and every page of an organization sits
+  under `OrganizationGate` with an `OrganizationPage` wrapper that names the
+  read code the page needs (mod-016, ADR-0027). Below it `useAccessCheck()`
+  answers for the organization in the address, so a page passes no
+  organization.
 - **Work item type look.** A type's icon and colour come from its stored
   appearance token through `theme.workTracking.typeAppearance(token)`, a
   state's colour from its category code through `categoryColour(code)`;

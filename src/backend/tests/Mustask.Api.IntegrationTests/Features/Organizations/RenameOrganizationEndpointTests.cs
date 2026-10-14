@@ -13,8 +13,9 @@ namespace Mustask.Api.IntegrationTests.Features.Organizations;
 /// with a suffix: the database is shared, never emptied, and organization
 /// names are unique instance-wide. The tests read the stored state through the
 /// repositories and read models, not through another lane's routes. The
-/// organization level of the not-found answers (malformed, unknown, deactivated)
-/// is phase 1's, once for all routes (<c>OrganizationContextFilterTests</c>).
+/// organization level of the not-found answers (malformed, unknown, deactivated, a
+/// non-member) is the scoped check's, once for all routes (<c>ScopedAccessTests</c>,
+/// mod-016 ADR-0027).
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]
@@ -23,7 +24,8 @@ public sealed class RenameOrganizationEndpointTests(MustaskApiFactory factory)
 {
     private const string NameLengthDetail = "Название должно содержать от 1 до 100 символов";
 
-    // Any signed-in user may rename (BR-M1-19): the token has no create right.
+    // The caller is the creator, the administrator of every organization the test data builds, who holds
+    // organizations.organization.write (mod-016 BR-M1-7); the token has no create right and needs none.
     private Task<Answer> SendAsync(Guid organizationId, object? body, CommitGate? gate = null) =>
         OrganizationsApi.SendAsync(
             factory,
@@ -37,7 +39,7 @@ public sealed class RenameOrganizationEndpointTests(MustaskApiFactory factory)
         SendAsync(organizationId, new { name }, gate);
 
     // US-2 · "The organization is renamed": «Пример организации 2» (padded), a name free instance-wide. It answers the stored,
-    // trimmed name, and every signed-in user sees it listed under the new name.
+    // trimmed name, and the creator, a member, sees it listed under the new name.
     [Fact]
     public async Task Rename_FreeName_Returns200_ListShowsNewName()
     {
@@ -228,13 +230,13 @@ public sealed class RenameOrganizationEndpointTests(MustaskApiFactory factory)
             factory,
             async (services, ct) => await services.GetRequiredService<IOrganizationRepository>().LockAsync(organizationId, ct)))!.Name;
 
-    /// <summary>The active organizations as the list read serves them, every signed-in user alike (BR-M1-19).</summary>
+    /// <summary>The active organizations as the list read serves them to the test data's creator, who administers them (mod-016 BR-M1-7).</summary>
     private async Task<IReadOnlyList<OrganizationRow>> ActiveListAsync()
     {
         using var scope = factory.Services.CreateScope();
 
         return await scope.ServiceProvider.GetRequiredService<IOrganizationReadModel>()
-            .ListAsync(OrganizationStatus.Active, CancellationToken.None);
+            .ListAsync(OrganizationStatus.Active, OrganizationsTestData.Creator, onlyRoles: null, CancellationToken.None);
     }
 
     /// <summary>
@@ -251,7 +253,7 @@ public sealed class RenameOrganizationEndpointTests(MustaskApiFactory factory)
         var project = await scope.ServiceProvider.GetRequiredService<IProjectReadModel>()
             .FindReachableAsync(structure.OrganizationId, structure.ProjectId, CancellationToken.None);
         var teams = await scope.ServiceProvider.GetRequiredService<ITeamReadModel>()
-            .ListActiveAsync(structure.OrganizationId, structure.ProjectId, CancellationToken.None);
+            .ListActiveAsync(structure.OrganizationId, structure.ProjectId, "nobody", CancellationToken.None);
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
 
         return

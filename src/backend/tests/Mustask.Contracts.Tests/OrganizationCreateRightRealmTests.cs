@@ -9,8 +9,10 @@ namespace Mustask.Contracts.Tests;
 /// <c>organizations.organization.create</c> lives in the realm import, never in a
 /// screen. A realm administrator grants it by adding a user to the group
 /// «Создатели организаций», whose role carries that one code and nothing else;
-/// the administrator role carries it too. <see cref="KeycloakRealmRolesTests"/>
-/// keeps the code a client role; this file pins who holds it.
+/// the instance administrator role carries it too (mod-016 BR-M1-29 renamed the
+/// realm role <c>admin</c> to <c>instance-admin</c>: it holds the instance codes
+/// only). <see cref="KeycloakRealmRolesTests"/> keeps the code a client role;
+/// this file pins who holds it.
 /// </summary>
 public sealed class OrganizationCreateRightRealmTests
 {
@@ -18,7 +20,7 @@ public sealed class OrganizationCreateRightRealmTests
     private const string ResourceClient = "mustask-api";
     private const string CreatorRole = "organization-creator";
     private const string CreatorGroup = "Создатели организаций";
-    private const string AdminRole = "admin";
+    private const string InstanceAdminRole = "instance-admin";
 
     [Fact]
     public void PermissionCatalog_DeclaresTheCreateRight()
@@ -50,23 +52,23 @@ public sealed class OrganizationCreateRightRealmTests
             $"The group «{CreatorGroup}» has subgroups: membership of a subgroup would grant the right unseen.");
     }
 
-    // D-i: the administrator role carries every code, the create right included.
+    // D-i, mod-016 BR-M1-29: the instance administrator role carries every instance code, the create right included.
     [Fact]
-    public void AdminRole_CarriesTheCreateRight()
+    public void InstanceAdminRole_CarriesTheCreateRight()
     {
-        Assert.Contains(PermissionCatalog.OrganizationsOrganizationCreate, PermissionsByRole()[AdminRole]);
+        Assert.Contains(PermissionCatalog.OrganizationsOrganizationCreate, PermissionsByRole()[InstanceAdminRole]);
     }
 
     // BR-M1-19: no other role grants the right quietly; a third holder is a decision, not an edit.
     [Fact]
-    public void CreateRight_IsHeldOnlyByAdminAndTheCreatorRole()
+    public void CreateRight_IsHeldOnlyByTheInstanceAdminAndTheCreatorRole()
     {
         var holders = PermissionsByRole()
             .Where(pair => pair.Value.Contains(PermissionCatalog.OrganizationsOrganizationCreate))
             .Select(pair => pair.Key)
             .Order(StringComparer.Ordinal);
 
-        Assert.Equal([AdminRole, CreatorRole], holders);
+        Assert.Equal([InstanceAdminRole, CreatorRole], holders);
     }
 
     // BR-M1-19: only the administrator group and the creator group give a role holding the right.

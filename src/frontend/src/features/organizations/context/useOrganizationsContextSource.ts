@@ -7,14 +7,15 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 import { HOME_PATH } from '../../../shared/config/paths';
-import type {
-  SwitchTargetResolver,
-  WorkContextFallback,
-  WorkContextLevel,
-  WorkContextOrganization,
-  WorkContextSelection,
-  WorkContextSource,
-  WorkContextStatus,
+import {
+  defaultEntry,
+  type SwitchTargetResolver,
+  type WorkContextFallback,
+  type WorkContextLevel,
+  type WorkContextOrganization,
+  type WorkContextSelection,
+  type WorkContextSource,
+  type WorkContextStatus,
 } from '../../../shared/lib/workContext';
 import { getOrganizations, getProjects, getTeams } from '../api/organizationsApi';
 import { organizationsKeys } from '../api/queryKeys';
@@ -45,7 +46,7 @@ export interface OrganizationsContextSourceOptions {
  */
 const LEVEL_QUERY_OPTIONS = { refetchOnWindowFocus: true } as const;
 
-const NOTHING: readonly { id: string; name: string }[] = [];
+const NOTHING: LevelList['items'] = [];
 
 function statusOf(query: UseQueryResult<unknown>): WorkContextStatus {
   if (query.isSuccess) {
@@ -54,7 +55,7 @@ function statusOf(query: UseQueryResult<unknown>): WorkContextStatus {
   return query.isError && !query.isFetching ? 'failed' : 'loading';
 }
 
-function listOf(query: UseQueryResult<readonly { id: string; name: string }[]>): LevelList {
+function listOf(query: UseQueryResult<LevelList['items']>): LevelList {
   const status = statusOf(query);
   return { status, items: status === 'ready' ? (query.data ?? NOTHING) : NOTHING };
 }
@@ -75,10 +76,11 @@ interface FirstEntriesWanted {
 
 /**
  * The selection a move asks the resolver with: the choice, its first project
- * and that project's first team where the address carries those levels, each
- * read first on the switcher's own keys (design § 2.2, § 3.5; plan-frontend
- * § 4.5, R-8). A level with no entry stays unset, and the resolver answers
- * «Главная» for it (mod-015 BR-18: the entry is not visible there).
+ * and that project's default team (the first one the user is in, else the
+ * first; mod-016 D-5) where the address carries those levels, each read first
+ * on the switcher's own keys (design § 2.2, § 3.5; plan-frontend § 4.5, R-8).
+ * A level with no entry stays unset, and the resolver answers «Главная» for
+ * it (mod-015 BR-18: the entry is not visible there).
  */
 async function withFirstEntries(
   queryClient: QueryClient,
@@ -105,7 +107,7 @@ async function withFirstEntries(
     queryKey: organizationsKeys.teams(organizationId, teamsOf),
     queryFn: () => getTeams(organizationId, teamsOf),
   });
-  return { organizationId, projectId, teamId: teams[0]?.id };
+  return { organizationId, projectId, teamId: defaultEntry(teams)?.id };
 }
 
 /**
@@ -371,7 +373,11 @@ export function useOrganizationsContextSource({
                 name: project.name,
                 teams:
                   project.id === effectiveProjectId
-                    ? teamItems.map((team) => ({ id: team.id, name: team.name }))
+                    ? teamItems.map((team) => ({
+                        id: team.id,
+                        name: team.name,
+                        isMember: team.isMember,
+                      }))
                     : [],
               }))
             : [],

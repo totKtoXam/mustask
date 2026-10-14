@@ -1,5 +1,6 @@
 import { HttpResponse, http } from 'msw';
 import { encodeTestToken } from '../jwt';
+import { servedFor } from '../organizationRoles';
 
 // Базовый URL совпадает с test.env.VITE_API_BASE_URL в vite.config.ts.
 const api = 'http://localhost:5000';
@@ -56,4 +57,14 @@ export const handlers = [
   // that mounts the real routes reads nothing else unless it serves a
   // dataset of its own (mod-002 plan-frontend § 2.4).
   http.get(`${api}/api/organizations`, () => HttpResponse.json([])),
+
+  // The served access of an organization (mod-016 api-contract § 1.1): the
+  // shell reads it for the selection and the gate for the address. By
+  // default the caller is the organization's administrator, so a test that
+  // mounts the shell with a real selection (and `onUnhandledRequest:
+  // 'error'`) needs nothing more; a test about another role serves its own
+  // (`organizationRoles.ts`, `testMembership.ts`).
+  http.get(`${api}/api/organizations/:organizationId/access`, () =>
+    HttpResponse.json(servedFor('admin')),
+  ),
 ];

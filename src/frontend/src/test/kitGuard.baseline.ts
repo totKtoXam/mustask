@@ -1,8 +1,10 @@
-// The scan of commit 5614f58, and nothing else (tech-015 design § 9.3): every (file, rule)
+// The scan of commit 554bb6e, and nothing else (tech-015 design § 9.3): every (file, rule)
 // the kit guard found there, with the number of sites. Frozen — a change other than a
 // re-cut from a newer main (logged in the task’s status.md) is a review stop. The list
 // that migrations lower is kitGuard.allow.ts; this file never changes with them.
-export const BASELINE_COMMIT = '5614f58';
+// The one exception: mod-016 D-24 (the human, 2026-10-13) — mod-016 merged after the kit,
+// so the cut is its rebased commit 554bb6e and its pre-kit screens joined the allow-list.
+export const BASELINE_COMMIT = '554bb6e';
 
 export interface BaselineEntry {
   file: string;
@@ -11,6 +13,8 @@ export interface BaselineEntry {
 }
 
 export const BASELINE: readonly BaselineEntry[] = [
+  { file: 'app/AppLayout.tsx', rule: 'KIT-4', count: 2 },
+  { file: 'app/AppLayout.tsx', rule: 'KIT-5', count: 2 },
   { file: 'app/AppLayout.tsx', rule: 'KIT-15', count: 1 },
   { file: 'app/shell/ContextSwitcher.tsx', rule: 'KIT-2', count: 3 },
   { file: 'app/shell/ContextSwitcher.tsx', rule: 'KIT-3', count: 5 },
@@ -35,7 +39,6 @@ export const BASELINE: readonly BaselineEntry[] = [
   { file: 'features/boards/components/BacklogHeadRow.tsx', rule: 'KIT-2', count: 2 },
   { file: 'features/boards/components/BacklogHeadRow.tsx', rule: 'KIT-8', count: 13 },
   { file: 'features/boards/components/BacklogHeadRow.tsx', rule: 'KIT-15', count: 1 },
-  { file: 'features/boards/components/BacklogIcon.tsx', rule: 'KIT-14', count: 1 },
   { file: 'features/boards/components/BacklogRow.tsx', rule: 'KIT-2', count: 4 },
   { file: 'features/boards/components/BacklogRow.tsx', rule: 'KIT-8', count: 2 },
   { file: 'features/boards/components/BacklogRow.tsx', rule: 'KIT-15', count: 1 },
@@ -56,7 +59,6 @@ export const BASELINE: readonly BaselineEntry[] = [
   { file: 'features/boards/components/TeamHead.tsx', rule: 'KIT-2', count: 2 },
   { file: 'features/boards/components/TeamHead.tsx', rule: 'KIT-3', count: 4 },
   { file: 'features/boards/components/TeamHead.tsx', rule: 'KIT-15', count: 1 },
-  { file: 'features/boards/components/ThinIcons.tsx', rule: 'KIT-14', count: 3 },
   { file: 'features/boards/components/backlogRowStyle.ts', rule: 'KIT-15', count: 1 },
   { file: 'features/boards/components/backlogRowStyle.ts', rule: 'KIT-16', count: 4 },
   { file: 'features/dictionaries/components/DefaultLanguageDialog.tsx', rule: 'KIT-9', count: 3 },
@@ -75,11 +77,16 @@ export const BASELINE: readonly BaselineEntry[] = [
   { file: 'features/dictionaries/pages/LanguagesRegistryPage.tsx', rule: 'KIT-7', count: 2 },
   { file: 'features/dictionaries/pages/LanguagesRegistryPage.tsx', rule: 'KIT-8', count: 22 },
   { file: 'features/home/HomePage.tsx', rule: 'KIT-7', count: 2 },
+  { file: 'features/organizations/components/AddMemberDialog.tsx', rule: 'KIT-1', count: 2 },
+  { file: 'features/organizations/components/AddMemberDialog.tsx', rule: 'KIT-3', count: 2 },
   { file: 'features/organizations/components/AreaDialogs.tsx', rule: 'KIT-1', count: 6 },
   { file: 'features/organizations/components/AreaDialogs.tsx', rule: 'KIT-2', count: 2 },
   { file: 'features/organizations/components/AreaDialogs.tsx', rule: 'KIT-3', count: 2 },
   { file: 'features/organizations/components/AreaDialogs.tsx', rule: 'KIT-5', count: 2 },
   { file: 'features/organizations/components/AreaDialogs.tsx', rule: 'KIT-10', count: 2 },
+  { file: 'features/organizations/components/ChangeRoleDialog.tsx', rule: 'KIT-1', count: 2 },
+  { file: 'features/organizations/components/ChangeRoleDialog.tsx', rule: 'KIT-3', count: 2 },
+  { file: 'features/organizations/components/ChangeRoleDialog.tsx', rule: 'KIT-5', count: 2 },
   { file: 'features/organizations/components/CreateProjectDialog.tsx', rule: 'KIT-1', count: 3 },
   { file: 'features/organizations/components/DefaultAreaDialog.tsx', rule: 'KIT-1', count: 2 },
   { file: 'features/organizations/components/DefaultAreaDialog.tsx', rule: 'KIT-2', count: 2 },
@@ -87,6 +94,8 @@ export const BASELINE: readonly BaselineEntry[] = [
   { file: 'features/organizations/components/DefaultAreaDialog.tsx', rule: 'KIT-5', count: 2 },
   { file: 'features/organizations/components/DefaultAreaDialog.tsx', rule: 'KIT-10', count: 2 },
   { file: 'features/organizations/components/FactsPanel.tsx', rule: 'KIT-7', count: 2 },
+  { file: 'features/organizations/components/MembersTable.tsx', rule: 'KIT-7', count: 2 },
+  { file: 'features/organizations/components/MembersTable.tsx', rule: 'KIT-8', count: 20 },
   { file: 'features/organizations/components/NameDialog.tsx', rule: 'KIT-1', count: 2 },
   { file: 'features/organizations/components/OrganizationsSection.tsx', rule: 'KIT-4', count: 2 },
   { file: 'features/organizations/components/OrganizationsSection.tsx', rule: 'KIT-5', count: 2 },
@@ -94,6 +103,13 @@ export const BASELINE: readonly BaselineEntry[] = [
   { file: 'features/organizations/components/RestoreButton.tsx', rule: 'KIT-10', count: 2 },
   { file: 'features/organizations/components/RowActionsMenu.tsx', rule: 'KIT-2', count: 2 },
   { file: 'features/organizations/components/RowActionsMenu.tsx', rule: 'KIT-3', count: 4 },
+  { file: 'features/organizations/components/RowActionsMenu.tsx', rule: 'KIT-10', count: 2 },
+  { file: 'features/organizations/components/TeamMembersSection.tsx', rule: 'KIT-2', count: 2 },
+  { file: 'features/organizations/components/TeamMembersSection.tsx', rule: 'KIT-7', count: 2 },
+  { file: 'features/organizations/components/TeamMembersSection.tsx', rule: 'KIT-8', count: 17 },
+  { file: 'features/organizations/components/TeamMembersSection.tsx', rule: 'KIT-21', count: 1 },
+  { file: 'features/organizations/components/UserLine.tsx', rule: 'KIT-6', count: 2 },
+  { file: 'features/organizations/components/UserSearchField.tsx', rule: 'KIT-1', count: 4 },
   { file: 'features/organizations/pages/AreasPage.tsx', rule: 'KIT-6', count: 2 },
   { file: 'features/organizations/pages/OrganizationListPage.tsx', rule: 'KIT-7', count: 2 },
   { file: 'features/organizations/pages/OrganizationListPage.tsx', rule: 'KIT-8', count: 16 },
@@ -112,31 +128,14 @@ export const BASELINE: readonly BaselineEntry[] = [
   { file: 'features/process/components/ProcessTypeCard.tsx', rule: 'KIT-7', count: 2 },
   { file: 'features/process/components/ProcessTypeCard.tsx', rule: 'KIT-8', count: 15 },
   { file: 'features/process/components/ProcessTypeCard.tsx', rule: 'KIT-21', count: 1 },
-  { file: 'features/workitems/components/AreaPicker.tsx', rule: 'KIT-1', count: 4 },
-  { file: 'features/workitems/components/AssigneePicker.tsx', rule: 'KIT-1', count: 4 },
   { file: 'features/workitems/components/CreateWorkItemDialog.tsx', rule: 'KIT-1', count: 3 },
   { file: 'features/workitems/components/CreateWorkItemDialog.tsx', rule: 'KIT-2', count: 2 },
   { file: 'features/workitems/components/CreateWorkItemDialog.tsx', rule: 'KIT-3', count: 2 },
   { file: 'features/workitems/components/CreateWorkItemDialog.tsx', rule: 'KIT-5', count: 2 },
   { file: 'features/workitems/components/CreateWorkItemDialog.tsx', rule: 'KIT-10', count: 2 },
-  { file: 'features/workitems/components/FieldControl.tsx', rule: 'KIT-1', count: 4 },
-  { file: 'features/workitems/components/FieldControl.tsx', rule: 'KIT-3', count: 3 },
-  { file: 'features/workitems/components/FormSection.tsx', rule: 'KIT-21', count: 1 },
-  { file: 'features/workitems/components/HeaderChrome.tsx', rule: 'KIT-22', count: 4 },
   { file: 'features/workitems/components/Marks.tsx', rule: 'KIT-11', count: 2 },
-  { file: 'features/workitems/components/Notice.tsx', rule: 'KIT-4', count: 2 },
   { file: 'features/workitems/components/ParentPicker.tsx', rule: 'KIT-1', count: 6 },
-  { file: 'features/workitems/components/RelatedWorkSection.tsx', rule: 'KIT-2', count: 2 },
-  { file: 'features/workitems/components/RelatedWorkSection.tsx', rule: 'KIT-21', count: 2 },
-  { file: 'features/workitems/components/StatePicker.tsx', rule: 'KIT-1', count: 2 },
-  { file: 'features/workitems/components/StatePicker.tsx', rule: 'KIT-3', count: 2 },
   { file: 'features/workitems/components/TypePickerMenu.tsx', rule: 'KIT-3', count: 4 },
-  { file: 'features/workitems/pages/WorkItemFormPage.tsx', rule: 'KIT-1', count: 7 },
-  { file: 'features/workitems/pages/WorkItemFormPage.tsx', rule: 'KIT-2', count: 2 },
-  { file: 'features/workitems/pages/WorkItemFormPage.tsx', rule: 'KIT-5', count: 2 },
-  { file: 'features/workitems/pages/WorkItemFormPage.tsx', rule: 'KIT-10', count: 5 },
-  { file: 'features/workitems/pages/WorkItemFormPage.tsx', rule: 'KIT-17', count: 1 },
-  { file: 'features/workitems/pages/WorkItemFormPage.tsx', rule: 'KIT-21', count: 1 },
   { file: 'features/workitems/pages/WorkItemsPage.tsx', rule: 'KIT-7', count: 2 },
   { file: 'features/workitems/pages/WorkItemsPage.tsx', rule: 'KIT-8', count: 22 },
 ];

@@ -40,6 +40,13 @@ export interface StateFrameProps {
    */
   compact?: boolean;
   /**
+   * The heading's level for a frame that is not full page and stands under an
+   * `h2` — the empty team's frame inside «Участники команды» (mod-016 design
+   * § 4.3): the element is an `h3`, the look is the `h2`'s. Absent: `h2`. A
+   * full-page frame is always the page's `h1`.
+   */
+  headingLevel?: 2 | 3;
+  /**
    * A handle on the heading, for a page that moves focus to it — after a
    * retry that ended in not found (mod-001 review round 1 F4). Given, the
    * heading takes the ref and `tabIndex={-1}`; absent, it is as before.
@@ -63,6 +70,7 @@ export function StateFrame({
   action,
   fullPage: fullPageRequested = false,
   compact = false,
+  headingLevel = 2,
   headingRef,
 }: StateFrameProps) {
   // A compact frame is the dialog's or the panel's: it never replaces the page.
@@ -86,7 +94,7 @@ export function StateFrame({
       <Icon fontSize="large" sx={{ color: 'text.secondary', mb: 1 }} />
       <Typography
         variant={fullPage ? 'h1' : 'h2'}
-        component={fullPage ? 'h1' : 'h2'}
+        component={fullPage ? 'h1' : headingLevel === 3 ? 'h3' : 'h2'}
         ref={headingRef}
         tabIndex={headingRef ? -1 : undefined}
       >

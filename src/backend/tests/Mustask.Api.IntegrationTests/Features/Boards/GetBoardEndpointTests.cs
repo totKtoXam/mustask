@@ -150,7 +150,7 @@ public sealed class GetBoardEndpointTests(MustaskApiFactory factory)
         var world = await BoardsTestData.CreateWorldAsync(factory);
         var bug = await BoardsTestData.CreateAsync(factory, world, "BUG", "Неверный счётчик", world.PlatformAreaId);
         await BoardsTestData.SetStateAsync(factory, world, bug, "BUG", "Активна");
-        var anna = await WorkItemsTestData.AddUserAsync(factory, "Анна", "Смирнова");
+        var anna = await WorkItemsTestData.AddMemberAsync(factory, world.Items, "Анна", "Смирнова");
         await WorkItemsTestData.SaveAsync(factory, world.Items, bug.Identifier, new { assignee = new { userId = anna } });
 
         var card = BoardsTestData.Column(await BoardAsync(world, world.PlatformId), "Активна").GetProperty("items")[0];
@@ -159,6 +159,9 @@ public sealed class GetBoardEndpointTests(MustaskApiFactory factory)
             card.GetProperty("identifier").GetString(), card.GetProperty("title").GetString(), card.GetProperty("type").GetProperty("appearance").GetString()));
         Assert.Equal(("Активна", "В работе"), (StateName(card), card.GetProperty("state").GetProperty("category").GetProperty("label").GetString()));
         Assert.Equal("Анна Смирнова", card.GetProperty("assignee").GetProperty("displayName").GetString());
+
+        // mod-016 BR-M1-26 (api-contract § 3.3, US-5 "The reads say whether the assignee is still a member").
+        Assert.True(card.GetProperty("assignee").GetProperty("isMember").GetBoolean());
     }
 
     // US-4 · "A column with no cards stays on the board": all four columns, three with no card.

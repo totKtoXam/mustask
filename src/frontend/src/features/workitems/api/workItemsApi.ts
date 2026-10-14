@@ -43,6 +43,14 @@ export interface WorkItemAssignee {
   id: string;
   displayName: string | null;
   email: string | null;
+  /**
+   * mod-016 api-contract § 3.3: the assignee is a member of the item's organization
+   * now (any role; the flag reads the membership alone, BR-M1-32). Typed and not
+   * shown: the marks «неактивен» and «не в организации» are feat-017's (D-4), and
+   * until it ships an ex-member assignee reads like any other. Absent on a
+   * candidate of the picker's search, which is members only.
+   */
+  isMember?: boolean;
 }
 
 /** § 1.1 `area`: its current path (mod-002 DC-9), the root by its own name. */

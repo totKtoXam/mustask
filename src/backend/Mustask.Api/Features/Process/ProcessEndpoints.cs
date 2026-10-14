@@ -17,20 +17,21 @@ public static class ProcessEndpoints
     {
         // The route sits under /api/organizations/..., not under /api/<module>/... as
         // backend.md's default would put it (status.md D-9, after mod-015 D-17), and the
-        // parameter is named organizationId because mod-002's organization-context filter
-        // keys on that name (mod-002 D-g).
+        // parameter is named organizationId because the scoped check keys on that name
+        // (mod-002 D-g, mod-016 ADR-0027).
         //
         // The parameter is a plain string with no constraint, so a malformed value reaches
-        // the handler and gets the not-found code. A :guid constraint would turn it into
+        // the check and gets the not-found code. A :guid constraint would turn it into
         // http.not_found, and a malformed value must not be told apart from an unknown one.
+        //
+        // mod-016 (api-contract § 4.2 row 27): the organization code is derived from the caller's
+        // membership, never from the token. A non-member, and a deactivated or unknown organization,
+        // get the one not-found answer; a role without the code gets 403.
         app.MapGet("/api/organizations/{organizationId}/process", GetProcessDefinitionAsync)
-            .AuthenticatedOnly(
-                $"Declares {OrganizationPermissionCatalog.ProcessDefinitionRead}, an organization-scoped code that "
-                + "no token carries and nothing checks yet: it is not in the realm import (BR-M2-10). "
-                + "mod-016 retrofits the check, and a non-member then gets the not-found answer, not a 403.")
-            // mod-002 D-g: an organization that does not exist or is deactivated answers not found before the read.
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.ProcessDefinitionRead)
             .Produces<ProcessDefinitionResponse>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithTags("Process");
 

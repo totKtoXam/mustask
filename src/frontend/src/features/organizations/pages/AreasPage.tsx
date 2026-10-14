@@ -9,7 +9,9 @@ import DriveFileMoveOutlinedIcon from '@mui/icons-material/DriveFileMoveOutlined
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
+import { useAccessCheck } from '../../../shared/lib/access';
 import { PageHeader } from '../../../shared/ui/PageHeader';
+import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
 import { NotFound, StateFrame } from '../../../shared/ui/StateFrame';
 import {
   TreeRegistry,
@@ -35,6 +37,7 @@ import {
 import { useAreaTree, useTeams } from '../hooks/queries';
 import { rootOf } from '../lib/areaTree';
 import { notFoundLevel } from '../lib/notFoundLevel';
+import { organizationsPermissions } from '../permissions';
 
 type AreaDialog =
   | { kind: 'create'; parent: AreaNode }
@@ -65,6 +68,8 @@ export function AreasPage() {
   const setAreaOwner = useSetAreaOwner(organizationId, projectId);
   const deleteArea = useDeleteArea(organizationId, projectId);
   const notify = useNotify();
+  const access = useAccessCheck();
+  const canWrite = access(organizationsPermissions.areaWrite, 'organization');
   const treeRef = useRef<TreeRegistryHandle>(null);
   const [dialog, setDialog] = useState<AreaDialog>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -112,6 +117,11 @@ export function AreasPage() {
   }
 
   function actions(area: AreaNode): TreeRegistryAction[] {
+    // mod-016 design § 6.2: every area write needs `organizations.area.write`;
+    // without it no node has an action and the table draws no actions column.
+    if (!canWrite) {
+      return [];
+    }
     const createChild: TreeRegistryAction = {
       label: 'Новая дочерняя область',
       icon: <AddIcon fontSize="small" />,
@@ -154,7 +164,7 @@ export function AreasPage() {
       <PageHeader
         title="Области"
         commands={
-          query.isSuccess && root
+          query.isSuccess && root && canWrite
             ? [
                 { label: 'Новая область', icon: <AddIcon />, onClick: createUnderRoot },
                 {
@@ -194,6 +204,7 @@ export function AreasPage() {
           area.defaultOfTeam ? <Chip size="small" label="По умолчанию" /> : null
         }
         actions={actions}
+        showActions={canWrite ? undefined : false}
         selectedId={selectedId}
         onSelect={setSelectedId}
         expanded={expandedIds}
@@ -217,68 +228,78 @@ export function AreasPage() {
           <StateFrame
             icon={InboxOutlinedIcon}
             heading="Вложенных областей пока нет"
-            hint="Создайте первую область кнопкой «Новая область» выше."
-            action={{ label: 'Новая область', icon: <AddIcon />, onClick: createUnderRoot }}
+            hint={
+              canWrite
+                ? 'Создайте первую область кнопкой «Новая область» выше.'
+                : 'Области задаёт администратор организации.'
+            }
+            action={
+              canWrite
+                ? { label: 'Новая область', icon: <AddIcon />, onClick: createUnderRoot }
+                : undefined
+            }
           />
         </Box>
       )}
-      {dialog?.kind === 'create' && (
-        <CreateAreaDialog
-          parent={dialog.parent}
-          teams={teams}
-          submit={(body) => createArea.mutateAsync(body)}
-          onSucceeded={(area) => {
-            expand(dialog.parent.id);
-            settle(area.id, `Область «${area.name}» создана.`);
-          }}
-          onClose={closeDialog}
-        />
-      )}
-      {dialog?.kind === 'rename' && (
-        <NameDialog
-          title="Переименование области"
-          initialName={dialog.area.name}
-          submitLabel="Сохранить"
-          submit={(name) => renameArea.mutateAsync({ areaId: dialog.area.id, name })}
-          onSucceeded={() => settle(dialog.area.id, 'Область переименована.', false)}
-          onClose={closeDialog}
-        />
-      )}
-      {dialog?.kind === 'move' && (
-        <MoveAreaDialog
-          area={dialog.area}
-          tree={areas}
-          submit={(parentId) => moveArea.mutateAsync({ areaId: dialog.area.id, parentId })}
-          onSucceeded={({ parentId }) => {
-            expand(parentId);
-            settle(dialog.area.id, `Область «${dialog.area.name}» перемещена.`);
-          }}
-          onClose={closeDialog}
-        />
-      )}
-      {dialog?.kind === 'owner' && (
-        <AreaOwnerDialog
-          area={dialog.area}
-          teams={teams}
-          submit={(ownerTeamId) =>
-            setAreaOwner.mutateAsync({ areaId: dialog.area.id, ownerTeamId })
-          }
-          onSucceeded={() =>
-            settle(dialog.area.id, `Владелец области «${dialog.area.name}» изменён.`, false)
-          }
-          onClose={closeDialog}
-        />
-      )}
-      {dialog?.kind === 'delete' && (
-        <DeleteAreaDialog
-          area={dialog.area}
-          action={() => deleteArea.mutateAsync(dialog.area.id)}
-          onSucceeded={() =>
-            settle(dialog.area.parentId ?? '', `Область «${dialog.area.name}» удалена.`)
-          }
-          onClose={closeDialog}
-        />
-      )}
+      <RequiresOrganizationCode code={organizationsPermissions.areaWrite}>
+        {dialog?.kind === 'create' && (
+          <CreateAreaDialog
+            parent={dialog.parent}
+            teams={teams}
+            submit={(body) => createArea.mutateAsync(body)}
+            onSucceeded={(area) => {
+              expand(dialog.parent.id);
+              settle(area.id, `Область «${area.name}» создана.`);
+            }}
+            onClose={closeDialog}
+          />
+        )}
+        {dialog?.kind === 'rename' && (
+          <NameDialog
+            title="Переименование области"
+            initialName={dialog.area.name}
+            submitLabel="Сохранить"
+            submit={(name) => renameArea.mutateAsync({ areaId: dialog.area.id, name })}
+            onSucceeded={() => settle(dialog.area.id, 'Область переименована.', false)}
+            onClose={closeDialog}
+          />
+        )}
+        {dialog?.kind === 'move' && (
+          <MoveAreaDialog
+            area={dialog.area}
+            tree={areas}
+            submit={(parentId) => moveArea.mutateAsync({ areaId: dialog.area.id, parentId })}
+            onSucceeded={({ parentId }) => {
+              expand(parentId);
+              settle(dialog.area.id, `Область «${dialog.area.name}» перемещена.`);
+            }}
+            onClose={closeDialog}
+          />
+        )}
+        {dialog?.kind === 'owner' && (
+          <AreaOwnerDialog
+            area={dialog.area}
+            teams={teams}
+            submit={(ownerTeamId) =>
+              setAreaOwner.mutateAsync({ areaId: dialog.area.id, ownerTeamId })
+            }
+            onSucceeded={() =>
+              settle(dialog.area.id, `Владелец области «${dialog.area.name}» изменён.`, false)
+            }
+            onClose={closeDialog}
+          />
+        )}
+        {dialog?.kind === 'delete' && (
+          <DeleteAreaDialog
+            area={dialog.area}
+            action={() => deleteArea.mutateAsync(dialog.area.id)}
+            onSucceeded={() =>
+              settle(dialog.area.parentId ?? '', `Область «${dialog.area.name}» удалена.`)
+            }
+            onClose={closeDialog}
+          />
+        )}
+      </RequiresOrganizationCode>
     </>
   );
 }

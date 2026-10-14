@@ -6,6 +6,13 @@
 # deploy/keycloak/realms when the container is created; only the people are
 # added here.
 #
+# What a token carries is instance-level only (mod-016, ADR-0027): the
+# administrator (group "Администраторы" -> role instance-admin) reads and writes
+# the dictionaries and may create organizations; every other user, in no group at
+# all, reads the dictionaries through the realm's default roles. Rights INSIDE an
+# organization are not Keycloak's: they come from the user's membership in that
+# organization, which an organization administrator grants on «Участники».
+#
 # Why users aren't in the realm-import: their passwords are secrets, and
 # realm-import lives in the repository (AGENTS.md: secrets only through
 # environment variables / user-secrets).
@@ -23,15 +30,21 @@
 #                             same one set in AppHost's user-secrets under
 #                             `Parameters:keycloak-admin-password` (required)
 #
-#   Required user — the administrator:
+#   Required user — the instance administrator:
 #   MUSTASK_USER, MUSTASK_PASSWORD    realm mustask, group "Администраторы"
 #                                     (default name `mustask`)
 #
 #   Optional — created only if a password is given; needed to look at the
 #   access model through eyes other than an administrator's:
-#   MEMBER_PASSWORD      realm mustask, user `member` in group
-#                        "Сотрудники / Участники" — gets the member role
-#                        from its own group and viewer from the parent
+#   MEMBER_PASSWORD      realm mustask, user `member` in NO group — it reads
+#                        the dictionaries through the realm's default roles and
+#                        sees no organization until an organization
+#                        administrator adds it on «Участники» (US-8)
+#
+# The administrator's token never appears on a command line: the password goes
+# to Keycloak over stdin, and the access token it returns is kept in a private
+# temporary file that curl reads as its configuration (curl -K), so neither is
+# visible in the process list. The file is removed when the script ends.
 #
 # Passwords must satisfy the realm's policy: minimum 12 characters, both
 # letter cases, and a digit.
@@ -72,8 +85,14 @@ token=$(
 
 [ -n "$token" ] || die "Could not get a Keycloak admin token — check KEYCLOAK_ADMIN_PASSWORD. The store keeps the administrator password it was created with: if Parameters:keycloak-admin-password was changed since, restore the old value or reset the stand (scripts/stand-reset.sh)."
 
+# Private files (mktemp makes them 0600; umask keeps anything else the same). The
+# token is written with the `printf` builtin and a redirection — not an argument of
+# any process — as a curl configuration line, and curl reads it with -K.
+umask 077
 body_file=$(mktemp)
-trap 'rm -f "$body_file"' EXIT
+auth_file=$(mktemp)
+trap 'rm -f "$body_file" "$auth_file"' EXIT
+printf 'header = "Authorization: Bearer %s"\n' "$token" > "$auth_file"
 
 # Three non-obvious things, all found out on a live stand:
 #
@@ -94,13 +113,13 @@ api() {
 
     if [ -n "$body" ]; then
         printf '%s' "$body" | curl -sS -o "$body_file" -w '%{http_code}' -X "$method" \
-            -H "Authorization: Bearer $token" \
+            -K "$auth_file" \
             -H "Content-Type: application/json;charset=UTF-8" \
             --data-binary @- \
             "$KEYCLOAK_URI/admin/realms/$path"
     else
         curl -sS -o "$body_file" -w '%{http_code}' -X "$method" \
-            -H "Authorization: Bearer $token" \
+            -K "$auth_file" \
             "$KEYCLOAK_URI/admin/realms/$path"
     fi
 }
@@ -158,7 +177,11 @@ seed_user() {
     last=$5
     group_path=$6
 
-    printf '\n== realm %s: user %s -> group %s\n' "$realm" "$username" "$group_path"
+    if [ -n "$group_path" ]; then
+        printf '\n== realm %s: user %s -> group %s\n' "$realm" "$username" "$group_path"
+    else
+        printf '\n== realm %s: user %s -> no group (the default roles only)\n' "$realm" "$username"
+    fi
 
     profile="{\"username\":\"$username\",\"enabled\":true,\"emailVerified\":true,\"email\":\"$username@stand.local\",\"firstName\":\"$first\",\"lastName\":\"$last\"}"
 
@@ -193,6 +216,9 @@ seed_user() {
         *)   printf '   [!] password: %s %s\n' "$code" "$(cat "$body_file")"; return 1 ;;
     esac
 
+    # A user with no group holds the realm's default roles and nothing else.
+    [ -n "$group_path" ] || return 0
+
     group_id=$(group_id_by_path "$realm" "$group_path")
     [ -n "$group_id" ] || { printf '   [!] no group %s in realm %s — did the realm import not happen?\n' "$group_path" "$realm"; return 1; }
 
@@ -208,7 +234,7 @@ failed=0
 seed_user mustask "$MUSTASK_USER" "$MUSTASK_PASSWORD" "Администратор" "Mustask" "/Администраторы" || failed=1
 
 if [ -n "${MEMBER_PASSWORD:-}" ]; then
-    seed_user mustask member "$MEMBER_PASSWORD" "Участник" "Mustask" "/Сотрудники/Участники" || failed=1
+    seed_user mustask member "$MEMBER_PASSWORD" "Участник" "Mustask" "" || failed=1
 fi
 
 if [ "$failed" -eq 0 ]; then

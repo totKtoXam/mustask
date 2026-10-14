@@ -28,6 +28,17 @@ import {
  * One fault is injected on purpose (21.5): the switcher's projects read is
  * refused at the network layer, as 19.8 and 20.3 do. Nothing on the session
  * flow is stubbed (`src/test/e2eSessionGuard.test.ts`).
+ *
+ * Adapted for mod-016 (organization access; D-3, D-7): the fixture user creates
+ * every organization a case opens, so it is that organization's administrator
+ * and keeps every right these cases use. 21.1's settings list gains
+ * «Участники» (US-4); 21.6's user in no group meets the empty list of
+ * US-2 — «Вы пока не состоите ни в одной организации» with «Попросите
+ * администратора организации добавить вас.» and no «Создать организацию» —
+ * and the direct create still answers 403
+ * `organizations.organization.create_forbidden` (the instance code is the
+ * token's, ADR-0027). 21.3's deactivated list shows the organization to its
+ * administrator (BR-M1-35). 21.2, 21.4, 21.5, 21.7 and 21.8 are unchanged.
  */
 
 const created: string[] = [];
@@ -105,9 +116,11 @@ test.describe('21. organizations, projects, teams and areas (mod-002)', () => {
       `Организация: ${name}`,
     );
     await expect(switcher(page).getByText('Нет проектов')).toBeVisible();
+    // mod-016 US-4: «Участники» sits between «Проекты» and «Процесс» for every role.
     await expect(settingsNavigation(page).getByRole('link')).toContainText([
       'Общие',
       'Проекты',
+      'Участники',
       'Процесс',
     ]);
   });
@@ -338,7 +351,7 @@ test.describe('21. organizations, projects, teams and areas (mod-002)', () => {
     );
   });
 
-  test('21.6 a user in no group: no «Создать организацию», the list visible; a direct create answers 403 «Недостаточно прав» (US-1 "Without the right")', async ({
+  test('21.6 a user in no group: the empty list says they belong to nothing and asks for no «Создать организацию»; a direct create answers 403 «Недостаточно прав» (US-1 "Without the right"; mod-016 US-2 "A user who belongs to no organization sees an explicit empty state")', async ({
     browser,
   }) => {
     const { keycloakUrl, realm } = env();
@@ -348,6 +361,13 @@ test.describe('21. organizations, projects, teams and areas (mod-002)', () => {
       const page = await context.newPage();
       await signIn(page, { returnPath: '/organizations', username: user.username });
       await expect(page.getByRole('heading', { level: 1, name: 'Организации' })).toBeVisible();
+      // The list holds only the user's own organizations (D-3) — none (design § 5).
+      await expect(
+        page.getByRole('heading', { level: 2, name: 'Вы пока не состоите ни в одной организации' }),
+      ).toBeVisible();
+      await expect(
+        page.getByText('Попросите администратора организации добавить вас.', { exact: true }),
+      ).toBeVisible();
       await expect(page.getByRole('button', { name: 'Создать организацию' })).toHaveCount(0);
 
       const response = await send(page.request, 'POST', '/api/organizations', {

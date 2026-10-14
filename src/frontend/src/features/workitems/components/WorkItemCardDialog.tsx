@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import { CardSkeleton, ErrorBanner, NotFound, useNotice } from '../../../shared/ui';
 import { useWorkItem } from '../hooks/queries';
+import { useWorkItemAccess } from '../hooks/useWorkItemAccess';
 import { useWorkItemDialog } from '../hooks/useWorkItemDialog';
 import { cardTexts, loadingName } from '../lib/cardTexts';
 import { notFoundLevel, type WorkItemsNotFoundLevel } from '../lib/notFoundLevel';
@@ -99,6 +100,8 @@ function CardDialog({
   const dialog = useWorkItemDialog();
   const query = useWorkItem(organizationId, projectId, identifier);
   const { show } = useNotice();
+  // The role views (mod-016 design § 6.5), as the page's: the host asks, the card shows.
+  const { readOnly, parentReadOnly } = useWorkItemAccess();
   // The level a save found gone, or the read's own answer.
   const [gone, setGone] = useState<WorkItemsNotFoundLevel | null>(null);
   // The card hands its frame to the shell below; the host draws no shell of its own.
@@ -139,6 +142,8 @@ function CardDialog({
         projectId={projectId}
         item={query.data}
         mode="dialog"
+        readOnly={readOnly}
+        parentReadOnly={parentReadOnly}
         notify={show}
         onGone={setGone}
         onClose={close}

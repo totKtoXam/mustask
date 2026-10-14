@@ -54,6 +54,21 @@ internal static class OrganizationsSaveChanges
         {
             throw new ConflictException(OrganizationErrorCodes.AreaNameTaken, ErrorParams.None, exception);
         }
+        catch (DbUpdateException exception) when (PostgresConflictDetection.IsUniqueViolationOnConstraint(exception, OrganizationsConstraints.MembershipPrimaryKey))
+        {
+            // mod-016 BR-M1-5: the same user added to an organization twice; a lost race answers like the pre-check.
+            throw new ConflictException(OrganizationErrorCodes.MembershipAlreadyMember, ErrorParams.None, exception);
+        }
+        catch (DbUpdateException exception) when (PostgresConflictDetection.IsUniqueViolationOnConstraint(exception, OrganizationsConstraints.TeamMembershipPrimaryKey))
+        {
+            // mod-016: the same user added to a team twice.
+            throw new ConflictException(OrganizationErrorCodes.TeamMemberExists, ErrorParams.None, exception);
+        }
+        catch (DbUpdateException exception) when (PostgresConflictDetection.IsForeignKeyViolationOnConstraint(exception, OrganizationsConstraints.TeamMembershipOrganizationMembership))
+        {
+            // mod-016 BR-M1-10: the organization membership ended while a team membership was being added.
+            throw new ConflictException(OrganizationErrorCodes.TeamMemberNotInOrganization, ErrorParams.None, exception);
+        }
     }
 
     /// <summary>The added or modified entity of that type the failed flush was writing.</summary>

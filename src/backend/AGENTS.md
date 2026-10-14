@@ -17,8 +17,10 @@ run from there, not from this directory.
   external PostgreSQL — see "External database" below), the frontend
   (Vite dev server, `AddViteApp`, `VITE_API_BASE_URL` is passed through from
   the `api` endpoint) and Keycloak with the `mustask` realm (ADR-0018; the
-  access model is groups → roles → permissions, and permissions arrive in
-  the token as `resource_access.mustask-api.roles`), and opens the Aspire
+  instance-level access model is groups → roles → permissions, arriving in
+  the token as `resource_access.mustask-api.roles`; rights inside an
+  organization come from the membership, ADR-0027 — see "The access model"
+  below), and opens the Aspire
   dashboard with links, logs and traces. `Mustask.Api` is a resource server
   of realm `mustask` (ADR-0018): it checks a Bearer access token's
   signature, `iss` and `aud` against the realm's JWKS, configured by
@@ -89,7 +91,9 @@ run from there, not from this directory.
   `scripts/stand-reset.ps1`): it wipes exactly this stand's pair — in
   external mode it drops and recreates only the database the connection
   string names — and prints the next steps (migrations, seed); its header has
-  the details. The provider pushes user changes to `Mustask.Api`'s
+  the details. **One exception to that remedy:** the drift findings of a store
+  that predates mod-016 are cleared by `bash scripts/migrate-live-realm.sh`,
+  never by the reset — see "A stand that predates mod-016" below. The provider pushes user changes to `Mustask.Api`'s
   `/api/user-directory/feed` signed with a secret AppHost generates per run
   (no fourth user secret). It reaches the api at
   `http://host.docker.internal:{Ports:Api}` — the api's own port on the Docker
@@ -99,7 +103,13 @@ run from there, not from this directory.
   shortens the reconciliation period for a QA run. `scripts/verify.sh` checks
   a provider change in its `provider` bucket — Docker required: `docker build
   --target provider deploy/keycloak`, then the .NET tests tagged
-  `KeycloakProvider` with `MUSTASK_KEYCLOAK_PROVIDER_TESTS=1`.
+  `KeycloakProvider` with `MUSTASK_KEYCLOAK_PROVIDER_TESTS=1`. A realm-import
+  edit (`deploy/keycloak/realms/*`) is checked in both buckets: by the contract
+  tests, and by `LiveRealmImportTests`, where a real Keycloak imports the
+  repository's real file (an import Keycloak rejects only shows when it is
+  started). `LiveRealmMigrationTests` — the live-realm command against a
+  throwaway Keycloak — has a switch of its own,
+  `MUSTASK_KEYCLOAK_LIVE_REALM_TESTS=1`, that no bucket sets: it runs on purpose.
 - The stand's ports come from configuration: the defaults are in
   `appsettings.json` of the `Mustask.AppHost` project (the `Ports` section), and
   are overridden by the environment variables `Ports__Api`, `Ports__Frontend`,
@@ -120,11 +130,53 @@ run from there, not from this directory.
   environment in both directions). The base address of a running
   `Mustask.Api` — from the Aspire dashboard or from the Information line in
   the log at startup.
+- The access model (mod-016, ADR-0027) in three lines. **Instance rights come
+  from the token**: the realm roles are `instance-admin` (group
+  «Администраторы»: the dictionaries and creating organizations),
+  `dictionaries-admin` and `organization-creator`; every signed-in user, in no
+  group at all, reads the dictionaries through the realm's default roles.
+  **Rights inside an organization come from the user's membership in it**
+  (`admin`, `member` or `viewer`), read from the database on every request —
+  nothing about them is in the token — so a role change applies on the next
+  request. **Every route with `{organizationId}` declares an organization code**
+  (`.RequiresOrganizationPermission(PermissionCatalog.X)`); the inventory test
+  fails `scripts/verify.sh` for one that does not, and a non-member of the
+  organization of the address gets 404 «Организация не найдена», never a 403.
 - An organization on the stand: sign in to the panel as the administrator
   (group «Администраторы») or as a member of «Создатели организаций», and
   create one there (`POST /api/organizations`, which needs the right
   `organizations.organization.create`); its process is seeded in the same
-  step. There is no seeded demonstration organization. A stand whose Keycloak
-  was created before that group existed picks the realm import up only after
-  a stand reset — `bash scripts/stand-reset.sh`, see "Keycloak on the stand"
-  above; until then its drift check keeps the stand unhealthy (mod-002 D-j).
+  step, and the creator becomes **its administrator** in the same
+  transaction. Everyone else is added on the organization's «Участники» page
+  by an administrator and sees nothing of it before that — the seeded `member`
+  user (`scripts/keycloak-seed.sh`, `MEMBER_PASSWORD`) is in no group and sees
+  no organization until it is added. There is no seeded demonstration
+  organization. A stand whose Keycloak was created before mod-016 is moved with
+  `bash scripts/migrate-live-realm.sh`, below; a stand created before the group
+  «Создатели организаций» existed picks the realm import up only after a stand
+  reset — `bash scripts/stand-reset.sh`, see "Keycloak on the stand" above;
+  until then its drift check keeps the stand unhealthy (mod-002 D-j).
+- **A stand that predates mod-016 — the order of steps** (BR-M1-28, BR-M1-37;
+  the stand's data stays, there is no reset). (1) Back up first if you want
+  to: the database `mustask` and the Keycloak volume. (2) Apply the migration
+  per the runbook (`docs/runbooks/local-migrations.md`): it seeds the creator
+  of every existing organization as its administrator (nobody else — everyone
+  else gets «Организация не найдена» until an administrator adds them).
+  (3) Start the AppHost. The `keycloak` resource stays unhealthy and the stand
+  not ready: the drift check reports the old realm roles `admin`, `member` and
+  `viewer`, the new `instance-admin`, the composites of `default-roles-mustask`
+  and the mappings of `/Администраторы` — its text names the reset, which is
+  **not** the remedy. (4) Run `bash scripts/migrate-live-realm.sh` (PowerShell
+  `scripts/migrate-live-realm.ps1`) with `KEYCLOAK_ADMIN_PASSWORD` in the
+  environment (the password of `Parameters:keycloak-admin-password`; never an
+  argument) and `KEYCLOAK_URI` if Keycloak is not on 5010. It creates
+  `instance-admin`, gives it to `/Администраторы`, to every other group that
+  mapped `admin` and to every user given `admin` directly, adds the read of the
+  dictionaries to the default roles, and only then deletes the roles `admin`,
+  `member`, `viewer` and the groups `/Сотрудники/Участники` and `/Сотрудники`;
+  nobody is created or deleted and every user keeps their id. It is safe to
+  repeat; exit code 2 means it stopped before any change and named a structure
+  it does not know (read the report, fix it in the Keycloak console, run again);
+  exit code 1 means a request failed — run it again. (5) The next probe of the
+  drift check passes and the stand comes up ready. Run it on a task stand
+  first; never `stand-reset.sh` for these findings.

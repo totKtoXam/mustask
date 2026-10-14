@@ -44,6 +44,17 @@ const CONTRACT_TABLE: readonly (readonly [string, number, readonly string[]])[] 
   ['organizations.area.is_team_default', 409, ['team']],
   ['organizations.area.not_empty', 409, []],
   ['organizations.area.root_is_fixed', 409, []],
+  // mod-016 api-contract § 5: the scoped check, the memberships and the team members.
+  ['organizations.access.forbidden', 403, []],
+  ['organizations.membership.already_member', 409, []],
+  ['organizations.membership.last_admin', 409, []],
+  ['organizations.membership.user_unavailable', 409, []],
+  ['organizations.membership.not_found', 404, []],
+  ['organizations.membership.role_invalid', 400, []],
+  ['organizations.membership.user_invalid', 400, []],
+  ['organizations.team.member_exists', 409, []],
+  ['organizations.team.member_not_in_organization', 409, []],
+  ['organizations.team.member_not_found', 404, []],
 ];
 
 describe('mod-002 api-contract § 6: the panel holds the organizations codes one to one with the catalog', () => {
@@ -56,7 +67,7 @@ describe('mod-002 api-contract § 6: the panel holds the organizations codes one
     expect(new Set(constants).size).toBe(constants.length);
   });
 
-  it('matches api-contract § 6 row by row: the 23 codes, their statuses and parameters', () => {
+  it('matches api-contract § 6 row by row: the 33 codes (mod-002’s 23 and mod-016’s 10), their statuses and parameters', () => {
     const catalog = readCatalog();
 
     expect(Object.values(organizationErrorCodes)).toHaveLength(CONTRACT_TABLE.length);

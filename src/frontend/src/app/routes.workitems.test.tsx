@@ -73,9 +73,12 @@ describe('mod-003 the two routes in the shell', () => {
     serveWorkItems(alfaDataset());
     renderRoutes(LIST);
 
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'Рабочие элементы' }),
-    ).toBeInTheDocument();
+    // The gate draws the page's header over a skeleton while the codes are
+    // read (mod-016 design § 2.1, row 1) and the page's own header replaces it.
+    await waitFor(() =>
+      expect(screen.queryByRole('status', { name: 'Загрузка данных' })).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole('heading', { level: 1, name: 'Рабочие элементы' })).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     await waitFor(() => expect(document.title).toBe('Рабочие элементы — Mustask'));
     const entry = await within(mainNavigation()).findByRole('link', { name: 'Рабочие элементы' });

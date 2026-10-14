@@ -18,4 +18,14 @@ public static class OrganizationLimits
 
     /// <summary>The width of a creator record: an opaque Keycloak subject (<c>sub</c>).</summary>
     public const int CreatedByMaxLength = 255;
+
+    /// <summary>
+    /// The width of a member's user id in a membership: an opaque Keycloak subject (mod-016 api-contract § 0.3). Its own
+    /// constant, not <see cref="CreatedByMaxLength"/>: the two are equal by coincidence of the identifier they hold,
+    /// and changing one must not silently change the other (docs/conventions/backend.md, "Named values", 5).
+    /// </summary>
+    public const int UserIdMaxLength = 255;
+
+    /// <summary>The width of a stored role name (<c>admin</c>, <c>member</c>, <c>viewer</c>).</summary>
+    public const int RoleMaxLength = 16;
 }

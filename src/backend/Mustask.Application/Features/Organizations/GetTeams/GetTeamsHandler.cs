@@ -1,3 +1,4 @@
+using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Exceptions;
@@ -15,7 +16,7 @@ namespace Mustask.Application.Features.Organizations.GetTeams;
 /// <remarks>
 /// <para>
 /// <b>The order of answers</b> (plan-backend § 5.3): the address, from the
-/// outermost level in. The organization-context filter has answered for the
+/// outermost level in. The scoped check has answered for the
 /// organization already; the handler parses it again only to name its container.
 /// The address ends at the project, so nothing else can refuse a read.
 /// </para>
@@ -38,8 +39,15 @@ namespace Mustask.Application.Features.Organizations.GetTeams;
 /// list, so the <c>null</c> is the project check, and no query is spent on a
 /// separate one.
 /// </para>
+/// <para>
+/// <b>Which teams the caller is in</b> (mod-016 BR-M1-27, D-5; US-7): each team carries
+/// <c>isMember</c>, the caller's own membership, read with the list in the same query, so a
+/// change to the memberships counts from the next read of the list. The choice of the
+/// default team (the first of the list's order the caller is in, else the first) is the
+/// panel's.
+/// </para>
 /// </remarks>
-public sealed class GetTeamsHandler(ITeamReadModel teams, IAreaTreeReadModel areaTree)
+public sealed class GetTeamsHandler(ITeamReadModel teams, IAreaTreeReadModel areaTree, ICurrentUser currentUser)
 {
     public async Task<GetTeamsResult> Handle(GetTeamsQuery query, CancellationToken cancellationToken)
     {
@@ -54,7 +62,7 @@ public sealed class GetTeamsHandler(ITeamReadModel teams, IAreaTreeReadModel are
             throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
         }
 
-        var rows = await teams.ListActiveAsync(organizationId, projectId, cancellationToken);
+        var rows = await teams.ListActiveAsync(organizationId, projectId, currentUser.SubjectId, cancellationToken);
         var nodes = await areaTree.GetNodesAsync(organizationId, projectId, cancellationToken)
             ?? throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
 
@@ -66,7 +74,8 @@ public sealed class GetTeamsHandler(ITeamReadModel teams, IAreaTreeReadModel are
                     row.ProjectId,
                     row.Name,
                     row.IsFirstTeam,
-                    new TeamDefaultAreaResponse(row.DefaultAreaId, tree.PathOf(row.DefaultAreaId))))
+                    new TeamDefaultAreaResponse(row.DefaultAreaId, tree.PathOf(row.DefaultAreaId)),
+                    row.IsMember))
                 .ToList());
     }
 }

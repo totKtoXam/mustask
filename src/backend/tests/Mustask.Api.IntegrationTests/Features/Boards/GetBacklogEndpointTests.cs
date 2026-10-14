@@ -97,7 +97,7 @@ public sealed class GetBacklogEndpointTests(MustaskApiFactory factory)
         var bug = await BoardsTestData.CreateAsync(factory, world, "BUG", "Падение при входе", world.PlatformAreaId);
         await BoardsTestData.SetStateAsync(factory, world, bug, "BUG", "Активна");
         var story = await BoardsTestData.CreateAsync(factory, world, "US", "Назначенная", world.PlatformAreaId);
-        var anna = await WorkItemsTestData.AddUserAsync(factory, "Анна", "Смирнова", "anna@example.org");
+        var anna = await WorkItemsTestData.AddMemberAsync(factory, world.Items, "Анна", "Смирнова", "anna@example.org");
         await WorkItemsTestData.SaveAsync(factory, world.Items, story.Identifier, new { assignee = new { userId = anna } });
 
         var answer = await BoardsTestData.GetBacklogAsync(factory, world, world.PlatformId);
@@ -121,6 +121,9 @@ public sealed class GetBacklogEndpointTests(MustaskApiFactory factory)
 
         var assigned = answer.Body.GetProperty("items")[1].GetProperty("assignee");
         Assert.Equal((anna, "Анна Смирнова"), (assigned.GetProperty("id").GetString(), assigned.GetProperty("displayName").GetString()));
+
+        // mod-016 BR-M1-26 (api-contract § 3.3, US-5 "The reads say whether the assignee is still a member").
+        Assert.True(assigned.GetProperty("isMember").GetBoolean());
     }
 
     // US-1 · "The level is chosen by tabs": the response names the team with its default area (the dialog's text) and the

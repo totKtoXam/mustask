@@ -367,9 +367,11 @@ public sealed class GetAreaTreeEndpointTests(MustaskApiFactory factory)
         Assert.Equal("Организация не найдена.", answer.Detail);
     }
 
-    // US-1 · "every signed-in user sees every organization" (BR-M1-19): the tree needs no right beyond signing in.
+    // mod-016 US-2 · the tree needs no token-carried right, only the membership: the caller is the creator, an administrator,
+    // and organizations.area.read comes from the membership (a member and a viewer read it too, a stranger gets 404 — the
+    // inventory and ScopedAccessTests call every role).
     [Fact]
-    public async Task Get_UserWithoutAnyRight_ReadsTheTree()
+    public async Task Get_ATokenWithNoRight_ReadsTheTreeOnTheMembership()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
 

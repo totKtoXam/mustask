@@ -287,6 +287,79 @@ namespace Mustask.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Mustask.Domain.Organizations.OrganizationMembership", b =>
+                {
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<DateTimeOffset>("AddedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("AddedBy")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTimeOffset?>("RoleChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RoleChangedBy")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("OrganizationId", "UserId")
+                        .HasName("pk_organization_memberships");
+
+                    b.HasIndex(new[] { "UserId" }, "ix_organization_memberships_user_id")
+                        .HasDatabaseName("ix_organization_memberships_user_id");
+
+                    b.ToTable("organization_memberships", t =>
+                        {
+                            t.HasCheckConstraint("ck_organization_memberships_role", "role IN ('admin', 'member', 'viewer')");
+
+                            t.HasCheckConstraint("ck_organization_memberships_role_change", "(role_changed_by IS NULL) = (role_changed_at IS NULL)");
+
+                            t.Property("OrganizationId")
+                                .HasColumnName("organization_id");
+
+                            t.Property("UserId")
+                                .HasColumnName("user_id");
+
+                            t.Property("AddedAt")
+                                .HasColumnName("added_at");
+
+                            t.Property("AddedBy")
+                                .HasColumnName("added_by");
+
+                            t.Property("Role")
+                                .HasColumnName("role");
+
+                            t.Property("RoleChangedAt")
+                                .HasColumnName("role_changed_at");
+
+                            t.Property("RoleChangedBy")
+                                .HasColumnName("role_changed_by");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
             modelBuilder.Entity("Mustask.Domain.Organizations.Project", b =>
                 {
                     b.Property<Guid>("Id")
@@ -453,6 +526,46 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.Property("Status")
                                 .HasColumnName("status");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
+            modelBuilder.Entity("Mustask.Domain.Organizations.TeamMembership", b =>
+                {
+                    b.Property<Guid>("TeamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("TeamId", "UserId")
+                        .HasName("pk_team_memberships");
+
+                    b.HasIndex(new[] { "OrganizationId", "UserId" }, "ix_team_memberships_organization_id_user_id")
+                        .HasDatabaseName("ix_team_memberships_organization_id_user_id");
+
+                    b.ToTable("team_memberships", t =>
+                        {
+                            t.Property("TeamId")
+                                .HasColumnName("team_id");
+
+                            t.Property("UserId")
+                                .HasColumnName("user_id");
+
+                            t.Property("OrganizationId")
+                                .HasColumnName("organization_id");
 
                             t.Property("xmin")
                                 .HasColumnName("xmin");
@@ -1480,6 +1593,16 @@ namespace Mustask.Infrastructure.Migrations
                         .HasConstraintName("fk_organizations_processes_process_id");
                 });
 
+            modelBuilder.Entity("Mustask.Domain.Organizations.OrganizationMembership", b =>
+                {
+                    b.HasOne("Mustask.Domain.Organizations.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_organization_memberships_organizations_organization_id");
+                });
+
             modelBuilder.Entity("Mustask.Domain.Organizations.Project", b =>
                 {
                     b.HasOne("Mustask.Domain.Organizations.Organization", null)
@@ -1498,6 +1621,23 @@ namespace Mustask.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_teams_projects_project_id");
+                });
+
+            modelBuilder.Entity("Mustask.Domain.Organizations.TeamMembership", b =>
+                {
+                    b.HasOne("Mustask.Domain.Organizations.Team", null)
+                        .WithMany()
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_team_memberships_teams_team_id");
+
+                    b.HasOne("Mustask.Domain.Organizations.OrganizationMembership", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_team_memberships_organization_memberships");
                 });
 
             modelBuilder.Entity("Mustask.Domain.Process.BacklogLevel", b =>

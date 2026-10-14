@@ -14,8 +14,8 @@ namespace Mustask.Api.IntegrationTests.Features.Organizations;
 /// own organization (<see cref="OrganizationsTestData"/>): the database is
 /// shared and never emptied, so no test asserts the full content of a global
 /// list. The organization level of the not-found theories (malformed, unknown,
-/// deactivated, on every route) is phase 1's
-/// <c>OrganizationContextFilterTests</c>; here the deactivated case is the
+/// deactivated, a non-member, on every route) is the scoped check's
+/// <c>ScopedAccessTests</c> (mod-016 ADR-0027); here the deactivated case is the
 /// route's own second call.
 /// </summary>
 [Trait("Category", "Integration")]
@@ -37,7 +37,8 @@ public sealed class DeactivateOrganizationEndpointTests(MustaskApiFactory factor
         OrganizationsApi.SendAsync(factory, HttpMethod.Get, path, token: OrganizationsTokens.SignedIn());
 
     // US-2 · "The organization is deactivated": 204 with no body, it leaves the active organizations and is among the
-    // deactivated ones (BR-M1-24). The token carries no right: every signed-in user may deactivate (BR-M1-19).
+    // deactivated ones (BR-M1-24). The token carries no right: the caller is the creator, the administrator, who holds
+    // organizations.organization.deactivate (mod-016 BR-M1-7, D-13).
     [Fact]
     public async Task Deactivate_Returns204_LeavesActiveList_JoinsDeactivatedList()
     {

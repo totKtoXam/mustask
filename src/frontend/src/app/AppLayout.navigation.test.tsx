@@ -1,11 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Route } from 'react-router-dom';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
+import { HttpResponse, http } from 'msw';
+import { OrganizationGate, OrganizationPage } from '../features/organizations';
+import { organizationsKeys } from '../features/organizations/api/queryKeys';
+import { API } from '../features/organizations/testFixtures';
 import { useAccessCheck } from '../shared/lib/access';
 import type { WorkContextSource } from '../shared/lib/workContext';
 import { AccessDenied } from '../shared/ui/StateFrame';
+import { server } from '../test/mocks/server';
+import { ADMIN_CODES, servedWith } from '../test/organizationRoles';
 import {
   authValue,
   LANGUAGES_READ,
@@ -161,12 +167,34 @@ describe('US-3 Scenario: An organization-scoped entry waits for a real context (
     return access(TEST_CODE, 'organization') ? <p>Тестовая страница</p> : <AccessDenied />;
   }
 
+  // An organization's page sits under the gate (mod-016 design § 2.1), which
+  // binds the check to the organization in the address.
   const routes = (
     <>
       {stubRoutes()}
-      <Route path="/organizations/:organizationId/test" element={<TestOrganizationPage />} />
+      <Route element={<OrganizationGate />}>
+        <Route
+          path="/organizations/:organizationId/test"
+          element={
+            <OrganizationPage code={TEST_CODE} title="Тестовая страница" skeleton="form">
+              <TestOrganizationPage />
+            </OrganizationPage>
+          }
+        />
+      </Route>
     </>
   );
+
+  /** The served access of `org-1`: the administrator's bundle plus, if asked, the test code. */
+  function serveOrganizationOne(withTestCode: boolean) {
+    server.use(
+      http.get(`${API}/api/organizations/org-1/access`, () =>
+        HttpResponse.json(
+          servedWith('admin', withTestCode ? [...ADMIN_CODES, TEST_CODE] : ADMIN_CODES),
+        ),
+      ),
+    );
+  }
 
   const realSource: WorkContextSource = {
     status: 'ready',
@@ -185,26 +213,51 @@ describe('US-3 Scenario: An organization-scoped entry waits for a real context (
     expect(screen.queryByRole('link', { name: 'Тестовый раздел' })).not.toBeInTheDocument();
   });
 
-  it('its page opened by address is not refused with «Доступ ограничен»', () => {
+  it('its page opened by address is the page when the organization serves the code', async () => {
+    serveOrganizationOne(true);
     renderShell({ path: '/organizations/org-1/test', auth: authValue([]), model, routes });
 
-    expect(screen.getByText('Тестовая страница')).toBeInTheDocument();
+    expect(await screen.findByText('Тестовая страница', { selector: 'p' })).toBeInTheDocument();
     expect(screen.queryByText('Доступ ограничен')).not.toBeInTheDocument();
   });
 
-  it('is shown to any signed-in user once the source reports a real organization, without a reload', () => {
+  it('its page opened by address is «Доступ ограничен» when the served bundle lacks the code', async () => {
+    serveOrganizationOne(false);
+    renderShell({ path: '/organizations/org-1/test', auth: authValue([]), model, routes });
+
+    expect(await screen.findByRole('heading', { name: 'Доступ ограничен' })).toBeInTheDocument();
+    expect(screen.queryByText('Тестовая страница', { selector: 'p' })).not.toBeInTheDocument();
+  });
+
+  it('is shown once the source reports a real organization and its served codes hold the entry’s, without a reload', async () => {
+    serveOrganizationOne(true);
     const shell = renderShell({ auth: authValue([]), model, routes });
     const location = screen.getByTestId('location');
     expect(screen.queryByRole('link', { name: 'Тестовый раздел' })).not.toBeInTheDocument();
 
     shell.update({ contextSource: realSource });
 
-    expect(within(mainNavigation()).getByRole('link', { name: 'Тестовый раздел' })).toHaveAttribute(
-      'href',
-      '/organizations/org-1/test',
-    );
+    // The codes are unread for the first frame: the entry is not drawn yet.
+    expect(screen.queryByRole('link', { name: 'Тестовый раздел' })).not.toBeInTheDocument();
+    expect(
+      await within(mainNavigation()).findByRole('link', { name: 'Тестовый раздел' }),
+    ).toHaveAttribute('href', '/organizations/org-1/test');
     // The same document and router: the location probe was not remounted.
     expect(screen.getByTestId('location')).toBe(location);
+  });
+
+  it('stays hidden when the served bundle lacks the entry’s code', async () => {
+    serveOrganizationOne(false);
+    const shell = renderShell({ auth: authValue([]), model, routes });
+
+    shell.update({ contextSource: realSource });
+
+    await waitFor(() =>
+      expect(shell.queryClient.getQueryData(organizationsKeys.access('org-1'))).toMatchObject({
+        kind: 'member',
+      }),
+    );
+    expect(screen.queryByRole('link', { name: 'Тестовый раздел' })).not.toBeInTheDocument();
   });
 });
 

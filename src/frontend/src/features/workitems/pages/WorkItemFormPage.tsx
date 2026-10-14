@@ -13,6 +13,7 @@ import type { WorkItem } from '../api/workItemsApi';
 import { PageFrame } from '../components/card/KitFrames';
 import { WorkItemCard } from '../components/card/WorkItemCard';
 import { useWorkItem } from '../hooks/queries';
+import { useWorkItemAccess } from '../hooks/useWorkItemAccess';
 import { cardTexts, loadingName } from '../lib/cardTexts';
 import { notFoundLevel, type WorkItemsNotFoundLevel } from '../lib/notFoundLevel';
 import { workItemsPath } from '../paths';
@@ -107,6 +108,9 @@ function PageCard({
   onGone: (level: WorkItemsNotFoundLevel) => void;
 }) {
   const { show } = useNotice();
+  // The role views (mod-016 design § 6.5): the card is read-only without the write
+  // code, and «Родитель» alone is without the link code.
+  const { readOnly, parentReadOnly } = useWorkItemAccess();
   const navigate = useNavigate();
   const location = useLocation();
   const { trail } = usePageHead({ title: `${item.type.name} ${item.identifier}` });
@@ -127,6 +131,8 @@ function PageCard({
       projectId={projectId}
       item={item}
       mode="page"
+      readOnly={readOnly}
+      parentReadOnly={parentReadOnly}
       notify={show}
       onGone={onGone}
       onClose={goBack}

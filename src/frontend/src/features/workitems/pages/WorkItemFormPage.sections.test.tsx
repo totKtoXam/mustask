@@ -140,7 +140,9 @@ describe('feat-022 US-1 Scenario: Several new fields are saved in one save', () 
     expect(await screen.findByRole('textbox', { name: 'Оценка в пунктах' })).toHaveValue('5');
     expect(list('Риск')).toHaveTextContent('2 — Средний');
     expect(textbox('Критерии приёмки')).toHaveValue('Вход без пароля');
-  });
+    // Two mounts and a typed text: past the default 20 s when the machine is shared
+    // with other builds.
+  }, 60_000);
 });
 
 describe('feat-022 US-1 Scenario: A save sends only the fields the user changed', () => {
@@ -351,7 +353,9 @@ describe('feat-022 US-4 Scenario: The field starts empty and is saved with the o
     expect(patches(api).map((request) => request.body)).toEqual([
       { priority: { value: 1 }, reproSteps: 'Открыть ссылку', systemInfo: 'Chrome 140' },
     ]);
-  });
+    // Typed character by character: about 12 s alone, past the default 20 s
+    // when the machine is shared with other builds.
+  }, 60_000);
 });
 
 describe('feat-022 US-4 Scenario: The text is plain', () => {

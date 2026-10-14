@@ -49,6 +49,8 @@ export const BacklogRow = memo(function BacklogRow({
   expanded,
   selected,
   off,
+  draggable,
+  showActions,
   addEntries,
   addMenuId,
   actionsId,
@@ -77,7 +79,20 @@ export const BacklogRow = memo(function BacklogRow({
   selected: boolean;
   /** A write is being saved: the grip, «+» and «⋮» are off. */
   off: boolean;
-  /** What the row's «+» offers; none draws no «+» (BR-T-9). */
+  /**
+   * The user's codes allow some drop of this row (mod-016 design § 6.2): a drop
+   * onto a row needs `workitems.link.write`, a move between top-level blocks
+   * `boards.backlog.reorder` and a top-level row. Without either the row draws
+   * no grip and is not a drag source.
+   */
+  draggable: boolean;
+  /** One of the «⋮» menu's items is allowed: without it the row draws no «Ещё действия». */
+  showActions: boolean;
+  /**
+   * What the row's «+» offers; none draws no «+» (BR-T-9) — also when the user
+   * lacks `workitems.workitem.write` or `workitems.link.write` (the create
+   * carries the parent).
+   */
   addEntries: readonly AddEntry[];
   /** The open «+» menu's id when it is this row's. */
   addMenuId: string | null;
@@ -119,20 +134,22 @@ export const BacklogRow = memo(function BacklogRow({
       // The whole row is the drag source (D-11): a press anywhere on it drags it, the
       // buttons inside it included. The one text field of the table is in the add row,
       // which is not this component and is never draggable.
-      draggable={!off}
+      draggable={draggable && !off}
       onDragStart={(event: DragEvent<HTMLElement>) => onDragStart(event, item.id, item.identifier)}
       onDragEnd={onDragEnd}
       sx={line ? [rowSx(selected), dropLineSx(line)] : rowSx(selected)}
     >
       <BacklogCell kind="hierarchy">
-        <Box
-          component="span"
-          className={CONTROL}
-          data-grip=""
-          aria-hidden="true"
-          tabIndex={-1}
-          sx={(current) => gripSx(current, off)}
-        />
+        {draggable && (
+          <Box
+            component="span"
+            className={CONTROL}
+            data-grip=""
+            aria-hidden="true"
+            tabIndex={-1}
+            sx={(current) => gripSx(current, off)}
+          />
+        )}
         {onlyEntry && (
           <Tooltip title={addMany ? 'Добавить дочерний элемент' : addEntryLabel(onlyEntry)}>
             <IconButton
@@ -246,30 +263,32 @@ export const BacklogRow = memo(function BacklogRow({
             {`${item.identifier}. Уровень вложенности: ${tier + 1}.`}
           </Box>
           <Box sx={{ flex: '1 1 0', minWidth: 0 }} />
-          <IconButton
-            size="small"
-            className={CONTROL}
-            ref={(element: HTMLElement | null) => registerActions(item.id, element)}
-            aria-label={`Ещё действия: ${item.identifier}`}
-            aria-haspopup="menu"
-            aria-expanded={actionsId !== null ? 'true' : 'false'}
-            aria-controls={actionsId ?? undefined}
-            aria-disabled={off ? 'true' : undefined}
-            onClick={(event: MouseEvent<HTMLElement>) => onOpenActions(event, item.id)}
-            onKeyDown={(event: KeyboardEvent<HTMLElement>) => {
-              // mod-015 § 12.4: ArrowDown opens a menu too.
-              if (event.key === 'ArrowDown') {
-                event.preventDefault();
-                onOpenActions(event, item.id);
-              }
-            }}
-            sx={(current) => ({
-              ...controlSx(current),
-              color: off ? current.palette.text.disabled : current.palette.text.primary,
-            })}
-          >
-            <MoreVertIcon />
-          </IconButton>
+          {showActions && (
+            <IconButton
+              size="small"
+              className={CONTROL}
+              ref={(element: HTMLElement | null) => registerActions(item.id, element)}
+              aria-label={`Ещё действия: ${item.identifier}`}
+              aria-haspopup="menu"
+              aria-expanded={actionsId !== null ? 'true' : 'false'}
+              aria-controls={actionsId ?? undefined}
+              aria-disabled={off ? 'true' : undefined}
+              onClick={(event: MouseEvent<HTMLElement>) => onOpenActions(event, item.id)}
+              onKeyDown={(event: KeyboardEvent<HTMLElement>) => {
+                // mod-015 § 12.4: ArrowDown opens a menu too.
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault();
+                  onOpenActions(event, item.id);
+                }
+              }}
+              sx={(current) => ({
+                ...controlSx(current),
+                color: off ? current.palette.text.disabled : current.palette.text.primary,
+              })}
+            >
+              <MoreVertIcon />
+            </IconButton>
+          )}
         </Box>
       </BacklogCell>
       <BacklogCell>

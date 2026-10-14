@@ -1,5 +1,7 @@
 using Mustask.Application.Features.Organizations.GetOrganizations;
+using Mustask.Application.Tests.TestDoubles;
 using Mustask.Application.Tests.TestDoubles.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.Process;
 
@@ -7,9 +9,9 @@ namespace Mustask.Application.Tests.Features.Organizations.GetOrganizations;
 
 /// <summary>
 /// <c>GET /api/organizations</c> on fakes (plan-backend § 13, lane L-1): the
-/// active organizations, in the order the read model gives them, whoever the
-/// user is. The query is a projection, so there is no order of answers to pin
-/// beyond "active only", "no reordering" and "no write".
+/// active organizations the caller is a member of (mod-016 BR-M1-7), in the order
+/// the read model gives them. The query is a projection, so there is no order of
+/// answers to pin beyond "active only", "mine only", "no reordering" and "no write".
 /// </summary>
 public sealed class GetOrganizationsHandlerTests
 {
@@ -17,12 +19,17 @@ public sealed class GetOrganizationsHandlerTests
     {
         public Fixture()
         {
-            Handler = new GetOrganizationsHandler(new FakeOrganizationReadModel(Store));
+            Handler = new GetOrganizationsHandler(new FakeOrganizationReadModel(Store), User);
         }
 
         public InMemoryOrganizations Store { get; } = new();
 
+        public FakeCurrentUser User { get; } = new();
+
         public GetOrganizationsHandler Handler { get; }
+
+        /// <summary>An organization the signed-in user belongs to.</summary>
+        public Organization Mine(string name, OrganizationRole role = OrganizationRole.Admin) => Store.AddOrganizationOf(User.SubjectId, name, role);
 
         public Task<GetOrganizationsResult> HandleAsync() => Handler.Handle(new GetOrganizationsQuery(), CancellationToken.None);
     }
@@ -43,7 +50,7 @@ public sealed class GetOrganizationsHandlerTests
     public async Task Handle_OnlyDeactivatedOrganizations_ReturnsEmpty()
     {
         var f = new Fixture();
-        f.Store.AddOrganization("Закрытая").Deactivate();
+        f.Mine("Закрытая").Deactivate();
 
         var result = await f.HandleAsync();
 
@@ -55,7 +62,7 @@ public sealed class GetOrganizationsHandlerTests
     public async Task Handle_ActiveOrganization_IsListedWithIdAndName()
     {
         var f = new Fixture();
-        var organization = f.Store.AddOrganization("Акме");
+        var organization = f.Mine("Акме");
 
         var result = await f.HandleAsync();
 
@@ -68,8 +75,8 @@ public sealed class GetOrganizationsHandlerTests
     public async Task Handle_DeactivatedOrganization_IsLeftOut_UntilRestored()
     {
         var f = new Fixture();
-        var kept = f.Store.AddOrganization("Остаётся");
-        var closed = f.Store.AddOrganization("Закрытая");
+        var kept = f.Mine("Остаётся");
+        var closed = f.Mine("Закрытая");
         closed.Deactivate();
 
         var whileDeactivated = await f.HandleAsync();
@@ -87,31 +94,77 @@ public sealed class GetOrganizationsHandlerTests
     public async Task Handle_ListsInDisplayOrder_YoBesideYeAndLetterCaseIgnored()
     {
         var f = new Fixture();
-        f.Store.AddOrganization("Ель");
-        f.Store.AddOrganization("Бета");
-        f.Store.AddOrganization("Ёлка");
-        f.Store.AddOrganization("альфа");
+        f.Mine("Ель");
+        f.Mine("Бета");
+        f.Mine("Ёлка");
+        f.Mine("альфа");
 
         var result = await f.HandleAsync();
 
         Assert.Equal(["альфа", "Бета", "Ёлка", "Ель"], result.Items.Select(item => item.Name));
     }
 
-    // US-1 · "Every signed-in user sees every organization" (BR-M1-19, api-contract § 0.1): the list is not narrowed by who
-    // created an organization, and the handler has no current user to narrow by.
+    // mod-016 US-2 · "The organization list holds only the user's organizations" (BR-M1-7): an organization the user holds no
+    // membership in is not listed, whoever created it — an organization of another creator, one of the same creator without
+    // a membership (a creator who has since been removed), and one where only somebody else is a member.
     [Fact]
-    public async Task Handle_OrganizationsOfOtherCreators_AreAllListed()
+    public async Task Handle_OrganizationsTheUserIsNotAMemberOf_AreNotListed()
     {
         var f = new Fixture();
-        var own = f.Store.AddOrganization("Альфа");
+        var mine = f.Mine("Альфа");
         var foreign = Organization.Create(
             Guid.CreateVersion7(), InMemoryOrganizations.Name("Бета"), ProcessId.New(), InMemoryOrganizations.Now, "7a3c9d2e-0000-4000-8000-0000000000aa");
         f.Store.Organizations.Add(foreign);
+        var noOneInIt = f.Store.AddOrganization("Гамма");
+        var someoneElses = f.Store.AddOrganizationOf("someone-else", "Дельта");
 
         var result = await f.HandleAsync();
 
-        Assert.NotEqual(own.CreatedBy, foreign.CreatedBy);
-        Assert.Equal([own.Id, foreign.Id], result.Items.Select(item => item.Id));
+        Assert.Equal([mine.Id], result.Items.Select(item => item.Id));
+        Assert.DoesNotContain(result.Items, item => item.Id == foreign.Id || item.Id == noOneInIt.Id || item.Id == someoneElses.Id);
+    }
+
+    // mod-016 US-2 · the list holds the organizations "in any role": an admin, a member and a viewer all see theirs.
+    [Theory]
+    [InlineData(OrganizationRole.Admin)]
+    [InlineData(OrganizationRole.Member)]
+    [InlineData(OrganizationRole.Viewer)]
+    public async Task Handle_TheUsersOrganization_IsListedInAnyRole(OrganizationRole role)
+    {
+        var f = new Fixture();
+        var organization = f.Mine("Акме", role);
+
+        var result = await f.HandleAsync();
+
+        Assert.Equal([organization.Id], result.Items.Select(item => item.Id));
+    }
+
+    // mod-016 US-2 · "A user who belongs to no organization sees an explicit empty state": other people's organizations exist,
+    // the user is in none of them, and the answer is an empty list — not an error.
+    [Fact]
+    public async Task Handle_UserWithNoMembership_GetsAnEmptyList_WhoeverElseHasOrganizations()
+    {
+        var f = new Fixture();
+        f.Store.AddOrganizationOf("someone-else", "Чужая");
+
+        var result = await f.HandleAsync();
+
+        Assert.Empty(result.Items);
+    }
+
+    // mod-016 api-contract § 0.1 · the list is the caller's: the handler asks the read model for the token's subject and any role.
+    [Fact]
+    public async Task Handle_AsksTheReadModelForTheCurrentUser_InAnyRole()
+    {
+        var f = new Fixture();
+        var other = f.Store.AddOrganization("Чужая");
+        f.Store.AddMember(other, "someone-else");
+        f.User.SubjectId = "the-caller";
+        var theirs = f.Store.AddOrganizationOf("the-caller", "Своя", OrganizationRole.Viewer);
+
+        var result = await f.HandleAsync();
+
+        Assert.Equal([theirs.Id], result.Items.Select(item => item.Id));
     }
 
     // plan-backend § 6.4: a read. It takes no lock and saves nothing.
@@ -119,7 +172,7 @@ public sealed class GetOrganizationsHandlerTests
     public async Task Handle_IsARead_TakesNoLockAndSavesNothing()
     {
         var f = new Fixture();
-        f.Store.AddOrganization("Акме");
+        f.Mine("Акме");
 
         await f.HandleAsync();
 

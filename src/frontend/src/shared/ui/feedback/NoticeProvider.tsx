@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import { useTheme } from '@mui/material/styles';
+import { useNoticeHost } from '../../lib/noticeCorner';
 import { NoticeContext, type NoticeApi, type NoticeSeverity } from './noticeContext';
 
 interface Shown {
@@ -28,13 +29,21 @@ export function NoticeProvider({ children }: { children: ReactNode }) {
   const theme = useTheme();
   const [shown, setShown] = useState<Shown | null>(null);
   const serial = useRef(0);
+  const close = useCallback(() => setShown(null), []);
+  // One notice at a time in the corner (mod-016 DC-11): the host closes when the
+  // shell raises the switcher's fallback or the role-change notice, and showing a
+  // notice closes the role-change notice.
+  const claim = useNoticeHost(close);
 
-  const show = useCallback((text: string, severity: NoticeSeverity = 'plain') => {
-    serial.current += 1;
-    setShown({ id: serial.current, text, severity });
-  }, []);
+  const show = useCallback(
+    (text: string, severity: NoticeSeverity = 'plain') => {
+      claim();
+      serial.current += 1;
+      setShown({ id: serial.current, text, severity });
+    },
+    [claim],
+  );
   const api = useMemo<NoticeApi>(() => ({ show }), [show]);
-  const close = () => setShown(null);
 
   return (
     <NoticeContext.Provider value={api}>

@@ -66,7 +66,9 @@ describe('feat-022 US-2 Scenario: An epic’s planning and classification are sa
     expect(dateField('Дата начала')).toHaveValue('2026-11-01');
     expect(dateField('Целевая дата')).toHaveValue('2027-03-31');
     expect(list('Вид ценности')).toHaveTextContent('Архитектура');
-  });
+    // Two renders of the form and many typed steps: 10–12 s alone, past the
+    // default 20 s when the machine is shared with other builds.
+  }, 60_000);
 
   it('a «Фича» offers the same fields in the same order', async () => {
     await openFieldsForm(ITEM_OF_TYPE['Фича']);

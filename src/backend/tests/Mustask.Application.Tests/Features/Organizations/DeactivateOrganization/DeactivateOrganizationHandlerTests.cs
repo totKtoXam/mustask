@@ -1,6 +1,7 @@
 using Mustask.Application.Features.Organizations.DeactivateOrganization;
 using Mustask.Application.Tests.TestDoubles;
 using Mustask.Application.Tests.TestDoubles.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Exceptions;
 
@@ -13,11 +14,15 @@ namespace Mustask.Application.Tests.Features.Organizations.DeactivateOrganizatio
 /// </summary>
 public sealed class DeactivateOrganizationHandlerTests
 {
+    /// <summary>The user whose lists are read back (the lists hold the organizations of the caller, mod-016 BR-M1-7).</summary>
+    private const string Lister = "u-lister";
+
     private sealed class Fixture
     {
         public Fixture()
         {
             Organization = Store.AddOrganization();
+            Store.AddMember(Organization, Lister, OrganizationRole.Admin);
             Project = Store.AddProject(Organization);
             Platform = Store.AddTeam(Project);
             Reports = Store.AddArea(Project.Root, "Отчёты", Platform.Team);
@@ -56,14 +61,14 @@ public sealed class DeactivateOrganizationHandlerTests
     public async Task Handle_ActiveOrganization_LeavesTheActiveList_JoinsTheDeactivatedList()
     {
         var f = new Fixture();
-        var other = f.Store.AddOrganization("Другая организация");
+        var other = f.Store.AddOrganizationOf(Lister, "Другая организация");
 
         await f.HandleAsync();
 
         Assert.Equal(OrganizationStatus.Deactivated, f.Organization.Status);
-        Assert.DoesNotContain(await f.ReadModel.ListAsync(OrganizationStatus.Active, CancellationToken.None), row => row.Id == f.Organization.Id);
-        Assert.Contains(await f.ReadModel.ListAsync(OrganizationStatus.Deactivated, CancellationToken.None), row => row.Id == f.Organization.Id && row.Name == f.Organization.Name);
-        Assert.Contains(await f.ReadModel.ListAsync(OrganizationStatus.Active, CancellationToken.None), row => row.Id == other.Id);
+        Assert.DoesNotContain(await f.ReadModel.ListAsync(OrganizationStatus.Active, Lister, null, CancellationToken.None), row => row.Id == f.Organization.Id);
+        Assert.Contains(await f.ReadModel.ListAsync(OrganizationStatus.Deactivated, Lister, null, CancellationToken.None), row => row.Id == f.Organization.Id && row.Name == f.Organization.Name);
+        Assert.Contains(await f.ReadModel.ListAsync(OrganizationStatus.Active, Lister, null, CancellationToken.None), row => row.Id == other.Id);
         Assert.Null(await f.ReadModel.FindActiveAsync(f.Organization.Id, CancellationToken.None));
     }
 

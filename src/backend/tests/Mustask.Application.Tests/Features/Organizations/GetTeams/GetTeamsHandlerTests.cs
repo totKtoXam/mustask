@@ -1,4 +1,5 @@
 using Mustask.Application.Features.Organizations.GetTeams;
+using Mustask.Application.Tests.TestDoubles;
 using Mustask.Application.Tests.TestDoubles.Organizations;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Exceptions;
@@ -19,8 +20,11 @@ public sealed class GetTeamsHandlerTests
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization);
             Platform = Store.AddTeam(Project);
-            Handler = new GetTeamsHandler(new FakeTeamReadModel(Store), new FakeAreaTreeReadModel(Store));
+            Handler = new GetTeamsHandler(new FakeTeamReadModel(Store), new FakeAreaTreeReadModel(Store), User);
         }
+
+        /// <summary>The acting user: a member of the organization, in no team until a test says so.</summary>
+        public FakeCurrentUser User { get; } = new() { SubjectId = "4c1f0e6a-0000-4000-8000-00000000a11a" };
 
         public InMemoryOrganizations Store { get; } = new();
 
@@ -108,6 +112,72 @@ public sealed class GetTeamsHandlerTests
 
         Assert.Equal(["Пример проекта", "Платформа"], result.Items.Select(team => team.Name));
         Assert.DoesNotContain(result.Items, team => team.Id == core.Team.Id);
+    }
+
+    // mod-016 US-7 · "Choosing a project selects the user's own team" (BR-M1-27, D-5): each team says whether the CALLER is
+    // in it, in the list's order; another user's membership does not count.
+    [Fact]
+    public async Task Handle_EachTeamSaysWhetherTheCallerIsInIt_InTheListsOrder()
+    {
+        var f = new Fixture();
+        var analytics = f.Store.AddTeam(f.Project, "Аналитика");
+        f.Store.AddMember(f.Organization, f.User.SubjectId);
+        f.Store.AddMember(f.Organization, "someone-else");
+        f.Store.AddTeamMember(f.Organization, f.Platform.Team, f.User.SubjectId);
+        f.Store.AddTeamMember(f.Organization, f.Project.FirstTeam, "someone-else");
+
+        var result = await f.HandleAsync(f.Query());
+
+        Assert.Equal(
+            [("Пример проекта", false), ("Аналитика", false), ("Платформа", true)],
+            result.Items.Select(team => (team.Name, team.IsMember)));
+        Assert.NotEqual(Guid.Empty, analytics.Team.Id);
+    }
+
+    // mod-016 US-7 · "Several teams — the first of them in the project's order": the flag is set on every team the caller is in.
+    [Fact]
+    public async Task Handle_CallerInSeveralTeams_EveryOneOfThemIsMarked()
+    {
+        var f = new Fixture();
+        var analytics = f.Store.AddTeam(f.Project, "Аналитика");
+        f.Store.AddMember(f.Organization, f.User.SubjectId);
+        f.Store.AddTeamMember(f.Organization, f.Platform.Team, f.User.SubjectId);
+        f.Store.AddTeamMember(f.Organization, analytics.Team, f.User.SubjectId);
+
+        var result = await f.HandleAsync(f.Query());
+
+        Assert.Equal(["Аналитика", "Платформа"], result.Items.Where(team => team.IsMember).Select(team => team.Name));
+    }
+
+    // mod-016 US-7 · "In no team of the project — the project's first team": no team is marked, so the panel falls back.
+    [Fact]
+    public async Task Handle_CallerInNoTeam_NoTeamIsMarked()
+    {
+        var f = new Fixture();
+        f.Store.AddMember(f.Organization, f.User.SubjectId);
+
+        var result = await f.HandleAsync(f.Query());
+
+        Assert.All(result.Items, team => Assert.False(team.IsMember));
+    }
+
+    // mod-016 BR-M1-27 · "a change to them counts from the next time that list is read": the flag follows the memberships
+    // at read time, nothing is cached.
+    [Fact]
+    public async Task Handle_TheFlagFollowsTheMembershipsAtReadTime()
+    {
+        var f = new Fixture();
+        f.Store.AddMember(f.Organization, f.User.SubjectId);
+
+        var before = await f.HandleAsync(f.Query());
+        f.Store.AddTeamMember(f.Organization, f.Platform.Team, f.User.SubjectId);
+        var added = await f.HandleAsync(f.Query());
+        f.Store.TeamMemberships.Clear();
+        var removed = await f.HandleAsync(f.Query());
+
+        Assert.DoesNotContain(before.Items, team => team.IsMember);
+        Assert.Equal(["Платформа"], added.Items.Where(team => team.IsMember).Select(team => team.Name));
+        Assert.DoesNotContain(removed.Items, team => team.IsMember);
     }
 
     // BR-M1-20: behind the filter the organization id is well formed; if it were not, the outermost level answers.

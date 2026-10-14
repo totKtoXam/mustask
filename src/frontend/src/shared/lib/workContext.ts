@@ -14,12 +14,17 @@ export type WorkContextLevel = 'organization' | 'project' | 'team';
 export interface WorkContextTeam {
   id: string;
   name: string;
+  /** The user is in this team (mod-016 api-contract § 3.3); absent: not known. */
+  isMember?: boolean;
 }
 
 export interface WorkContextProject {
   id: string;
   name: string;
-  /** In the source's order; the project's first team is its default (D-19). */
+  /**
+   * In the source's order; the project's default team is the first one the
+   * user is a member of, else the first (`defaultEntry`; mod-016 D-5).
+   */
   teams: readonly WorkContextTeam[];
 }
 
@@ -69,7 +74,8 @@ export interface WorkContextSource {
   /**
    * `false` for the placeholder dataset: organization-, project- and
    * team-scoped navigation entries stay hidden until a real context exists
-   * (BR-8 interim clause, D-18).
+   * (BR-8, D-18), and, once it does, until the organization's served codes
+   * are read (mod-016 design § 6.1).
    */
   isReal: boolean;
   /**
@@ -108,11 +114,24 @@ export interface WorkContext {
   team?: WorkContextTeam;
 }
 
-function pick<T extends { id: string }>(
+/**
+ * The entry a level opens on when nothing, or nothing found, is chosen
+ * (BR-11): the first entry the user is a member of, else the first. Only the
+ * team level carries `isMember` (mod-016 D-5, BR-M1-27: the project's default
+ * team is the first team of the user's own, in the project's order); the
+ * levels above carry none and give their first entry as before.
+ */
+export function defaultEntry<T extends { id: string; isMember?: boolean }>(
+  entries: readonly T[],
+): T | undefined {
+  return entries.find((entry) => entry.isMember === true) ?? entries[0];
+}
+
+function pick<T extends { id: string; isMember?: boolean }>(
   entries: readonly T[],
   id: string | undefined,
 ): T | undefined {
-  return entries.find((entry) => entry.id === id) ?? entries[0];
+  return entries.find((entry) => entry.id === id) ?? defaultEntry(entries);
 }
 
 /**
@@ -139,7 +158,7 @@ function selectionOf(context: WorkContext): WorkContextSelection {
   };
 }
 
-/** The first organization, its first project and that project's first team. */
+/** The first organization, its first project and that project's default team. */
 export function firstSelection(
   organizations: readonly WorkContextOrganization[],
 ): WorkContextSelection {
@@ -147,8 +166,9 @@ export function firstSelection(
 }
 
 /**
- * Chooses `id` at `level` and resets every level below it to its first entry
- * (BR-11): the first team is the project's default until mod-016 (D-19).
+ * Chooses `id` at `level` and resets every level below it to its default entry
+ * (BR-11): the first of a project's teams the user is a member of, else its
+ * first (`defaultEntry`; mod-016 D-5).
  */
 export function selectInWorkContext(
   organizations: readonly WorkContextOrganization[],

@@ -42,6 +42,29 @@ export const organizationErrorCodes = {
   areaIsTeamDefault: 'organizations.area.is_team_default',
   areaNotEmpty: 'organizations.area.not_empty',
   areaRootIsFixed: 'organizations.area.root_is_fixed',
+  // mod-016 api-contract § 5: the scoped check, the memberships and the team members.
+  // Where each shows is design § 9 (the screens of «Участники» and «Участники команды»,
+  // the dialogs and the notices of the existing pages).
+  /** 403: the one answer of the scoped check to a member whose role lacks the code, whatever the module of the route. */
+  accessForbidden: 'organizations.access.forbidden',
+  /** 409. */
+  membershipAlreadyMember: 'organizations.membership.already_member',
+  /** 409: the change would leave no known active administrator. */
+  membershipLastAdmin: 'organizations.membership.last_admin',
+  /** 409: the user is unknown to the projection or inactive. */
+  membershipUserUnavailable: 'organizations.membership.user_unavailable',
+  /** 404 to a member in the path: the list is read again. */
+  membershipNotFound: 'organizations.membership.not_found',
+  /** A field reason of `validationFailed`. */
+  membershipRoleInvalid: 'organizations.membership.role_invalid',
+  /** A field reason of `validationFailed`. */
+  membershipUserInvalid: 'organizations.membership.user_invalid',
+  /** 409. */
+  teamMemberExists: 'organizations.team.member_exists',
+  /** 409: only an active member of the organization joins a team. */
+  teamMemberNotInOrganization: 'organizations.team.member_not_in_organization',
+  /** 404 to a team member in the path. */
+  teamMemberNotFound: 'organizations.team.member_not_found',
 } as const;
 
 export type OrganizationErrorCode =

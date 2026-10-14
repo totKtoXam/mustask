@@ -34,18 +34,27 @@ namespace Mustask.Api.Features.Organizations;
 
 /// <summary>
 /// <c>/api/organizations/*</c>: M1's structure (mod-002 api-contract § 1-§ 5),
-/// every route mapped here and wired to its own slice. The route parameters
-/// are plain strings with no constraint, so a malformed id reaches the filter
-/// or the handler and gets its level's not-found code instead of a routing
-/// 404 (BR-M1-20). Id fields in bodies are strings for the same reason.
+/// every route mapped here and wired to its own slice. Every route with an
+/// <c>{organizationId}</c> declares its organization code with
+/// <c>RequiresOrganizationPermission</c> (mod-016 ADR-0027, api-contract § 4.1):
+/// the scoped check answers 401, then 404 for a non-member, then 403 for a role
+/// without the code, all before a body is read. The route parameters are plain
+/// strings with no constraint, so a malformed id reaches the check or the
+/// handler and gets its level's not-found code instead of a routing 404
+/// (BR-M1-20). Id fields in bodies are strings for the same reason.
 /// </summary>
 public static class OrganizationEndpoints
 {
     private const string Tag = "Organizations";
 
-    private const string InterimAccess =
-        "Interim access (BR-M1-19, C-2): any signed-in user, until mod-016 retrofits the organization-scoped check; "
-        + "a non-member then gets the not-found answer, not a 403.";
+    private const string ListsOnlyMine =
+        "Lists only the organizations the caller belongs to, in any role (mod-016 BR-M1-7, api-contract § 4.1 row 1): "
+        + "the route names no organization, so no organization code applies, and a caller with no membership gets an empty list.";
+
+    private const string DeactivatedListsOnlyMine =
+        "Lists only the deactivated organizations where the caller's role may deactivate and restore the organization "
+        + "(mod-016 BR-M1-35, api-contract § 4.1 row 2): the route names no organization, so the narrowing is by membership "
+        + "inside the read, and the roles are derived from the bundles.";
 
     public static IEndpointRouteBuilder MapOrganizationEndpoints(this IEndpointRouteBuilder app)
     {
@@ -53,12 +62,12 @@ public static class OrganizationEndpoints
 
         // § 1. Organizations. "/deactivated" is a literal segment: the router ranks it above "{organizationId}".
         organizations.MapGet("/", GetOrganizationsAsync)
-            .AuthenticatedOnly(InterimAccess)
+            .AuthenticatedOnly(ListsOnlyMine)
             .Produces<IReadOnlyList<Application.Features.Organizations.GetOrganizations.OrganizationListItemResponse>>()
             .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         organizations.MapGet("/deactivated", GetDeactivatedOrganizationsAsync)
-            .AuthenticatedOnly(InterimAccess)
+            .AuthenticatedOnly(DeactivatedListsOnlyMine)
             .Produces<IReadOnlyList<Application.Features.Organizations.GetDeactivatedOrganizations.OrganizationListItemResponse>>()
             .ProducesProblem(StatusCodes.Status401Unauthorized);
 
@@ -73,141 +82,141 @@ public static class OrganizationEndpoints
             .ProducesProblem(StatusCodes.Status500InternalServerError);
 
         organizations.MapGet("/{organizationId}", GetOrganizationAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsOrganizationRead)
             .Produces<Application.Features.Organizations.GetOrganization.OrganizationResponse>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         organizations.MapPut("/{organizationId}/name", RenameOrganizationAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsOrganizationWrite)
             .Produces<Application.Features.Organizations.RenameOrganization.OrganizationResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         organizations.MapPost("/{organizationId}/deactivate", DeactivateOrganizationAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsOrganizationDeactivate)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         // The one request a deactivated organization accepts (api-contract § 1.7).
         organizations.MapPost("/{organizationId}/restore", RestoreOrganizationAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext(acceptsDeactivated: true)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsOrganizationDeactivate, acceptsDeactivated: true)
             .Produces<Application.Features.Organizations.RestoreOrganization.OrganizationResponse>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         // § 2. Projects.
         var projects = organizations.MapGroup("/{organizationId}/projects");
 
         projects.MapGet("/", GetProjectsAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectRead)
             .Produces<IReadOnlyList<Application.Features.Organizations.GetProjects.ProjectListItemResponse>>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         projects.MapGet("/deactivated", GetDeactivatedProjectsAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectDeactivate)
             .Produces<IReadOnlyList<Application.Features.Organizations.GetDeactivatedProjects.ProjectListItemResponse>>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         projects.MapPost("/", CreateProjectAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectWrite)
             .Produces<Application.Features.Organizations.CreateProject.ProjectResponse>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         projects.MapGet("/{projectId}", GetProjectAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectRead)
             .Produces<Application.Features.Organizations.GetProject.ProjectResponse>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         projects.MapPut("/{projectId}/name", RenameProjectAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectWrite)
             .Produces<Application.Features.Organizations.RenameProject.ProjectResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         projects.MapPost("/{projectId}/deactivate", DeactivateProjectAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectDeactivate)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         projects.MapPost("/{projectId}/restore", RestoreProjectAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectDeactivate)
             .Produces<Application.Features.Organizations.RestoreProject.ProjectResponse>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         // § 3. Teams.
         var teams = projects.MapGroup("/{projectId}/teams");
 
         teams.MapGet("/", GetTeamsAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamRead)
             .Produces<IReadOnlyList<Application.Features.Organizations.GetTeams.TeamResponse>>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         teams.MapGet("/{teamId}", GetTeamAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamRead)
             .Produces<Application.Features.Organizations.GetTeam.TeamResponse>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         teams.MapPost("/", AddTeamAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamWrite)
             .Produces<Application.Features.Organizations.AddTeam.TeamResponse>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         teams.MapPut("/{teamId}/name", RenameTeamAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamWrite)
             .Produces<Application.Features.Organizations.RenameTeam.TeamResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         teams.MapPut("/{teamId}/default-area", SetTeamDefaultAreaAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamWrite)
             .Produces<Application.Features.Organizations.SetTeamDefaultArea.TeamResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         teams.MapDelete("/{teamId}", DeleteTeamAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamWrite)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
@@ -215,53 +224,53 @@ public static class OrganizationEndpoints
         var areas = projects.MapGroup("/{projectId}/areas");
 
         areas.MapGet("/", GetAreaTreeAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaRead)
             .Produces<IReadOnlyList<AreaNodeResponse>>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         areas.MapPost("/", CreateAreaAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite)
             .Produces<Application.Features.Organizations.CreateArea.AreaResponse>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         areas.MapPut("/{areaId}/name", RenameAreaAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite)
             .Produces<Application.Features.Organizations.RenameArea.AreaResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         areas.MapPut("/{areaId}/parent", MoveAreaAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite)
             .Produces<Application.Features.Organizations.MoveArea.AreaResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         areas.MapPut("/{areaId}/owner", SetAreaOwnerAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite)
             .Produces<Application.Features.Organizations.SetAreaOwner.AreaResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         areas.MapDelete("/{areaId}", DeleteAreaAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 

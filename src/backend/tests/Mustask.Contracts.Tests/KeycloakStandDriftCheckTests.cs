@@ -89,10 +89,57 @@ public sealed class KeycloakStandDriftCheckTests
     public async Task ACompositeThatDiffers_Fails()
     {
         var live = FakeKeycloak.FromImport(Import(), PanelSecret, AdminPassword);
-        live.RealmRoles["viewer"].Client["mustask-api"].Add("dictionaries.languages.write");
+        live.RealmRoles["dictionaries-admin"].Client["mustask-api"].Add("organizations.organization.create");
 
-        AssertOneFindingNamingTheReset(await CheckAsync(live), "`viewer`");
+        AssertOneFindingNamingTheReset(await CheckAsync(live), "`dictionaries-admin`");
     }
+
+    // mod-016 BR-M1-37: the default roles are declared in the import, so their composites are compared exactly — the read code every
+    // user gets is part of the realm, and a live realm whose default role lacks it (a store created before mod-016) is not ready.
+    [Fact]
+    public async Task TheDefaultRoleWithoutTheReadCode_FailsNamingItAndTheReset()
+    {
+        var live = FakeKeycloak.FromImport(Import(), PanelSecret, AdminPassword);
+        live.RealmRoles["default-roles-mustask"].Client["mustask-api"].Remove("dictionaries.languages.read");
+
+        AssertOneFindingNamingTheReset(await CheckAsync(live), "`default-roles-mustask`");
+    }
+
+    // The same for an extra composite: a default role that grants a code to everyone is as much a drift as one that lacks one.
+    [Fact]
+    public async Task TheDefaultRoleWithAnExtraCode_FailsNamingIt()
+    {
+        var live = FakeKeycloak.FromImport(Import(), PanelSecret, AdminPassword);
+        live.RealmRoles["default-roles-mustask"].Client["mustask-api"].Add("dictionaries.languages.write");
+
+        AssertOneFindingNamingTheReset(await CheckAsync(live), "`default-roles-mustask`");
+    }
+
+    // mod-016 BR-M1-37, US-8 "The stand comes up ready after the script": a live realm created from the PRE-mod-016 import, checked
+    // against the new one, fails with exactly the findings src/backend/AGENTS.md names — the realm roles admin, member and viewer,
+    // the missing instance-admin, the default role's composites and the mappings of /Администраторы — and nothing else; the command
+    // of BR-M1-28 clears all of them (KeycloakLiveRealmMigrationTests), not the reset the findings name.
+    [Fact]
+    public async Task TheOldRealm_FailsWithExactlyTheFindingsTheAgentsFileNames()
+    {
+        var oldImport = KeycloakRealmImport.Parse(File.ReadAllText(PreMod016RealmPath), StandValues);
+        var live = FakeKeycloak.FromImport(oldImport, PanelSecret, AdminPassword);
+
+        var findings = await CheckAsync(live);
+
+        Assert.Equal(6, findings.Count);
+        Assert.Contains(findings, finding => finding.StartsWith("Realm role `admin` is in the live realm but not in the realm import", StringComparison.Ordinal));
+        Assert.Contains(findings, finding => finding.StartsWith("Realm role `member` is in the live realm but not in the realm import", StringComparison.Ordinal));
+        Assert.Contains(findings, finding => finding.StartsWith("Realm role `viewer` is in the live realm but not in the realm import", StringComparison.Ordinal));
+        Assert.Contains(findings, finding => finding.StartsWith("Realm role `instance-admin` is in the realm import but not in the live realm", StringComparison.Ordinal));
+        Assert.Contains(findings, finding => finding.StartsWith("Realm role `default-roles-mustask` has other composites", StringComparison.Ordinal));
+        Assert.Contains(findings, finding => finding.StartsWith("Group `/Администраторы` has other role mappings", StringComparison.Ordinal));
+        Assert.All(findings, finding => Assert.Contains("scripts/stand-reset.sh", finding, StringComparison.Ordinal));
+    }
+
+    /// <summary>The import as it was before mod-016, kept as test data: the realm of the human's stand today.</summary>
+    internal static string PreMod016RealmPath =>
+        Path.Combine(RepositoryLayout.Root.FullName, "src", "backend", "tests", "Mustask.Contracts.Tests", "TestData", "mustask-realm.pre-mod-016.json");
 
     [Fact]
     public async Task AClientRoleMissingOrExtra_Fails()
@@ -116,14 +163,14 @@ public sealed class KeycloakStandDriftCheckTests
     public async Task ADeclaredGroupMissingOrMappedOtherwise_Fails()
     {
         var missing = FakeKeycloak.FromImport(Import(), PanelSecret, AdminPassword);
-        missing.Groups.Remove("/Сотрудники/Участники");
+        missing.Groups.Remove("/Администраторы справочников");
 
-        AssertOneFindingNamingTheReset(await CheckAsync(missing), "`/Сотрудники/Участники`");
+        AssertOneFindingNamingTheReset(await CheckAsync(missing), "`/Администраторы справочников`");
 
         var remapped = FakeKeycloak.FromImport(Import(), PanelSecret, AdminPassword);
-        remapped.Groups["/Сотрудники"].Realm.Add("admin");
+        remapped.Groups["/Создатели организаций"].Realm.Add("dictionaries-admin");
 
-        AssertOneFindingNamingTheReset(await CheckAsync(remapped), "`/Сотрудники`");
+        AssertOneFindingNamingTheReset(await CheckAsync(remapped), "`/Создатели организаций`");
     }
 
     // ADR-0025 § 7 / D-16: groups are compared one way — a group created in the console does not stop the stand.
@@ -131,7 +178,7 @@ public sealed class KeycloakStandDriftCheckTests
     public async Task AGroupOnlyInTheLiveRealm_IsIgnored()
     {
         var live = FakeKeycloak.FromImport(Import(), PanelSecret, AdminPassword);
-        live.Groups["/Отдел продаж"] = (new HashSet<string>(StringComparer.Ordinal) { "member" }, new Dictionary<string, HashSet<string>>(StringComparer.Ordinal));
+        live.Groups["/Отдел продаж"] = (new HashSet<string>(StringComparer.Ordinal) { "dictionaries-admin" }, new Dictionary<string, HashSet<string>>(StringComparer.Ordinal));
 
         Assert.Empty(await CheckAsync(live));
     }
@@ -189,7 +236,22 @@ public sealed class KeycloakStandDriftCheckTests
         Assert.Equal("http://localhost:3000", panel.RootUrl);
         Assert.Contains("http://localhost:5000/api/session/callback", panel.RedirectUris);
         Assert.True(panel.HasSecret);
-        Assert.Contains(Import().Groups, group => group.Path == "/Сотрудники/Участники");
+        Assert.Equal(
+            ["/Администраторы", "/Администраторы справочников", "/Создатели организаций"],
+            Import().Groups.Select(group => group.Path).Order(StringComparer.Ordinal));
+        Assert.DoesNotContain(Import().Groups, group => group.Path.StartsWith("/Сотрудники", StringComparison.Ordinal));
+    }
+
+    // mod-016 BR-M1-37: the import's default roles are read like any other declared role — the drift check and the contract tests
+    // read the one declaration.
+    [Fact]
+    public void TheImport_DeclaresTheDefaultRoleWithItsComposites()
+    {
+        var role = Import().RealmRoles["default-roles-mustask"];
+
+        Assert.Equal(["offline_access", "uma_authorization"], role.RealmComposites.Order(StringComparer.Ordinal));
+        Assert.Equal(["dictionaries.languages.read"], role.ClientComposites["mustask-api"]);
+        Assert.Equal(["manage-account", "view-profile"], role.ClientComposites["account"].Order(StringComparer.Ordinal));
     }
 
     /// <summary>A Keycloak admin surface over an in-memory realm (and the realm's public endpoint).</summary>
@@ -220,10 +282,14 @@ public sealed class KeycloakStandDriftCheckTests
                 live.RealmRoles[role.Name] = (role.RealmComposites.ToHashSet(StringComparer.Ordinal), Copy(role.ClientComposites));
             }
 
-            // Keycloak's own, not in any import.
-            live.RealmRoles["offline_access"] = ([], new(StringComparer.Ordinal));
-            live.RealmRoles["uma_authorization"] = ([], new(StringComparer.Ordinal));
-            live.RealmRoles["default-roles-mustask"] = (["offline_access", "uma_authorization"], new(StringComparer.Ordinal));
+            // Keycloak's own: every realm has them. An import declares them (mod-016: the realm's default roles are in the import,
+            // BR-M1-37) and the lines above copied the declaration; an import that does not — the pre-mod-016 one kept as test
+            // data — gets them as Keycloak creates them, the default role with the account client's two roles it always carries.
+            live.RealmRoles.TryAdd("offline_access", ([], new(StringComparer.Ordinal)));
+            live.RealmRoles.TryAdd("uma_authorization", ([], new(StringComparer.Ordinal)));
+            live.RealmRoles.TryAdd(
+                "default-roles-mustask",
+                (["offline_access", "uma_authorization"], new(StringComparer.Ordinal) { ["account"] = ["view-profile", "manage-account"] }));
 
             foreach (var client in import.Clients.Values)
             {

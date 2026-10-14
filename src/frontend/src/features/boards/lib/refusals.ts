@@ -25,6 +25,18 @@ export function notFoundLevel(error: unknown): BoardsNotFoundLevel | null {
   return code !== undefined ? (LEVELS[code] ?? null) : null;
 }
 
+/**
+ * The scoped check refused the write (`organizations.access.forbidden`, 403;
+ * mod-016 design § 9): the user's role no longer holds the code. By the
+ * `errorCode` alone. The page shows the refusal's notice at once, before the
+ * read that follows its write: the shell reads the served codes again, and a
+ * role that changed replaces that notice with its own (design § 2.4) — a
+ * refusal shown after the role-change notice would be the newer and close it.
+ */
+export function isAccessRefusal(error: unknown): boolean {
+  return error instanceof ApiError && error.errorCode === organizationErrorCodes.accessForbidden;
+}
+
 /** spec § Notices: no answer, or an answer without a code. */
 export const MOVE_FAILED_TEXT = 'Не удалось сохранить перемещение. Попробуйте ещё раз.';
 

@@ -10,7 +10,7 @@ namespace Mustask.Api.IntegrationTests.Features.Organizations;
 /// builds its own organization (<see cref="OrganizationsTestData"/>): the
 /// database is shared and never emptied, so no test asserts the content of a
 /// list it does not own. The route has no level below the organization, whose
-/// not-found theory is phase 1's (<c>OrganizationContextFilterTests</c>).
+/// not-found theory is the scoped check's (<c>ScopedAccessTests</c>, mod-016 ADR-0027).
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]
@@ -24,7 +24,8 @@ public sealed class GetDeactivatedProjectsEndpointTests(MustaskApiFactory factor
 
     // US-3 · "A deactivated project is restored exactly as it was": the organization's deactivated projects are listed, the
     // active ones are not, and the item is exactly { id, name, key } (api-contract § 2.1, § 2.2). Deactivating the active
-    // project moves it into the list too. The caller holds no create right: every signed-in user may read (BR-M1-19).
+    // project moves it into the list too. The token carries no create right: the caller is the creator, an administrator,
+    // who holds organizations.project.deactivate, the code this list is read with (mod-016 D-13).
     [Fact]
     public async Task Get_ListsDeactivatedOnly()
     {

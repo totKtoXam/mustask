@@ -11,8 +11,8 @@ namespace Mustask.Api.IntegrationTests.Features.Organizations;
 /// (<see cref="OrganizationsTestData"/>): the database is shared and never
 /// emptied, so a test asserts on its own organization's list and nothing wider.
 /// The organization level of the not-found theory (malformed, unknown,
-/// deactivated) is phase 1's, once for every route
-/// (<c>OrganizationContextFilterTests</c>); here one test only pins that a
+/// deactivated, a non-member) is the scoped check's, once for every route
+/// (<c>ScopedAccessTests</c>, mod-016 ADR-0027); here one test only pins that a
 /// deactivated organization does not answer an empty list, and that a restore
 /// brings the list back.
 /// </summary>
@@ -103,15 +103,17 @@ public sealed class GetProjectsEndpointTests(MustaskApiFactory factory)
         Assert.Equal(["Отчётность"], Names(secondList));
     }
 
-    // US-1 · "Every signed-in user sees every organization" (BR-M1-19): a user with no right at all, and one who holds the
-    // create right, get the same list.
+    // US-1 · "Every signed-in user sees every organization" (BR-M1-19) — since mod-016 every MEMBER of it does, in any role: a
+    // viewer with no right at all, and a member who holds the create right, get the same list.
     [Fact]
-    public async Task Get_AnySignedInUser_SeesTheSameList()
+    public async Task Get_AnyMember_SeesTheSameList()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        var viewer = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, Mustask.Domain.Identity.OrganizationRole.Viewer);
+        var member = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, Mustask.Domain.Identity.OrganizationRole.Member);
 
-        var withoutRight = await GetAsync(structure.OrganizationId, OrganizationsTokens.SignedIn());
-        var withRight = await GetAsync(structure.OrganizationId, OrganizationsTokens.WithCreateRight());
+        var withoutRight = await GetAsync(structure.OrganizationId, viewer.Token);
+        var withRight = await GetAsync(structure.OrganizationId, OrganizationsTokens.WithCreateRight(member.Id));
 
         Assert.Equal(HttpStatusCode.OK, withoutRight.Status);
         Assert.Equal(["Пример проекта"], Names(withoutRight));

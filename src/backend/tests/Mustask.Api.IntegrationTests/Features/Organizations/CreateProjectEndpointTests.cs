@@ -92,10 +92,11 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
     public async Task Create_RecordsCreator()
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
-        var subject = OrganizationsTokens.NewSubject();
+        var admin = await MembershipTestData.NewMemberAsync(factory, organization.Id, Mustask.Domain.Identity.OrganizationRole.Admin);
+        var subject = admin.Id;
 
         var started = DateTimeOffset.UtcNow;
-        var answer = await CreateAsync(organization.Id, new { name = "Пример проекта", key = "PRM" }, OrganizationsTokens.SignedIn(subject));
+        var answer = await CreateAsync(organization.Id, new { name = "Пример проекта", key = "PRM" }, admin.Token);
         var answered = DateTimeOffset.UtcNow;
 
         Assert.Equal(HttpStatusCode.Created, answer.Status);
@@ -417,6 +418,147 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.Conflict, b.Status);
         Assert.Equal(NameTaken, b.ErrorCode);
         Assert.Equal((1, 1, 1), await CountAsync(organization.Id));
+    }
+
+    // mod-016 US-3 · "The project's creator is the first team's first member" (BR-M1-25, BR-M1-10): the administrator who creates a
+    // project is the only member of its first team — and of nothing else of the organization's teams.
+    [Fact]
+    public async Task Create_TheCreatingAdministrator_IsTheOnlyMemberOfTheFirstTeam()
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        var admin = await MembershipTestData.NewNamedMemberAsync(factory, structure.OrganizationId, Mustask.Domain.Identity.OrganizationRole.Admin, "Анна", "Администратор");
+
+        var answer = await CreateAsync(structure.OrganizationId, new { name = "Новый проект", key = "NEW" }, admin.Token);
+
+        Assert.Equal(HttpStatusCode.Created, answer.Status);
+        var projectId = answer.Body.GetProperty("id").GetGuid();
+        var firstTeamId = await FirstTeamIdAsync(projectId);
+        Assert.Equal([admin.Id], await MembershipTestData.TeamMemberIdsAsync(factory, firstTeamId));
+        Assert.Equal([(firstTeamId, structure.OrganizationId)], await MembershipTestData.TeamMembershipsOfAsync(factory, admin.Id));
+
+        var members = await OrganizationsApi.SendAsync(
+            factory, HttpMethod.Get, $"{OrganizationsApi.Teams(structure.OrganizationId, projectId)}/{firstTeamId}/members", token: admin.Token);
+        Assert.Equal([admin.Id], members.Body.EnumerateArray().Select(item => item.GetProperty("id").GetString()));
+    }
+
+    // mod-016 US-3 · "A creator the projection does not know" (BR-M1-25, BR-M1-32, mod-014 BR-UP-17): the creating administrator, a
+    // token subject the projection has never received, still creates the project and is the first team's only member — shown
+    // «Неизвестный пользователь» until the projection receives them.
+    [Fact]
+    public async Task Create_ACreatorTheProjectionDoesNotKnow_StillJoinsTheFirstTeam_ShownUnknown()
+    {
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
+        var admin = await MembershipTestData.NewMemberAsync(factory, organization.Id, Mustask.Domain.Identity.OrganizationRole.Admin);
+        Assert.Null(await UserDirectory.UserDirectoryTestData.FindAsync(factory, admin.Id));
+
+        var answer = await CreateAsync(organization.Id, new { name = "Проект неизвестного", key = "UNK" }, admin.Token);
+
+        Assert.Equal(HttpStatusCode.Created, answer.Status);
+        var projectId = answer.Body.GetProperty("id").GetGuid();
+        var firstTeamId = await FirstTeamIdAsync(projectId);
+        var members = await OrganizationsApi.SendAsync(
+            factory, HttpMethod.Get, $"{OrganizationsApi.Teams(organization.Id, projectId)}/{firstTeamId}/members", token: admin.Token);
+        var only = Assert.Single(members.Body.EnumerateArray());
+        Assert.Equal((admin.Id, "unknown"), (only.GetProperty("id").GetString(), only.GetProperty("state").GetString()));
+    }
+
+    // mod-016 US-3 · "A creator the projection does not know yet still gets the creation memberships" (BR-M1-25, mod-014 BR-UP-17),
+    // end to end: a signed-in user holding the create right whom the projection has never received creates the organization and then
+    // the project in it. Both succeed; they hold the admin membership and are the first team's only member, and both lists show
+    // them «Неизвестный пользователь».
+    [Fact]
+    public async Task Create_AnOrganizationThenAProject_ByAUserTheProjectionDoesNotKnow_BothSucceed_TheyAreShownUnknown()
+    {
+        var subject = OrganizationsTokens.NewSubject();
+        var token = OrganizationsTokens.WithCreateRight(subject);
+        Assert.Null(await UserDirectory.UserDirectoryTestData.FindAsync(factory, subject));
+
+        var organization = await OrganizationsApi.SendAsync(
+            factory, HttpMethod.Post, "/api/organizations", new { name = OrganizationsTestData.UniqueName("Пример организации") }, token);
+        Assert.Equal(HttpStatusCode.Created, organization.Status);
+        var organizationId = organization.Body.GetProperty("id").GetGuid();
+
+        var project = await CreateAsync(organizationId, new { name = "Пример проекта", key = "PRM" }, token);
+        Assert.Equal(HttpStatusCode.Created, project.Status);
+        var projectId = project.Body.GetProperty("id").GetGuid();
+        var firstTeamId = await FirstTeamIdAsync(projectId);
+
+        var members = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, $"{OrganizationsApi.Organization(organizationId)}/members", token: token);
+        var teamMembers = await OrganizationsApi.SendAsync(
+            factory, HttpMethod.Get, $"{OrganizationsApi.Teams(organizationId, projectId)}/{firstTeamId}/members", token: token);
+
+        var member = Assert.Single(members.Body.EnumerateArray());
+        Assert.Equal((subject, "admin", "unknown"), (
+            member.GetProperty("user").GetProperty("id").GetString(),
+            member.GetProperty("role").GetString(),
+            member.GetProperty("user").GetProperty("state").GetString()));
+        Assert.Equal("unknown", member.GetProperty("addedBy").GetProperty("state").GetString());
+        var teamMember = Assert.Single(teamMembers.Body.EnumerateArray());
+        Assert.Equal((subject, "unknown"), (teamMember.GetProperty("id").GetString(), teamMember.GetProperty("state").GetString()));
+    }
+
+    // mod-016 BR-M1-10 · team members are a subset of the organization's members, and since pass B only an administrator reaches
+    // this route: a signed-in user who is not a member gets the organization's not-found, creates nothing and joins no team; a
+    // member and a viewer get 403 and create nothing either.
+    [Fact]
+    public async Task Create_ByANonMember_Is404_AMemberOrViewerIs403_NothingIsCreated_NoTeamIsJoined()
+    {
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
+        var stranger = OrganizationsTokens.NewSubject();
+        var member = await MembershipTestData.NewMemberAsync(factory, organization.Id, Mustask.Domain.Identity.OrganizationRole.Member);
+        var viewer = await MembershipTestData.NewMemberAsync(factory, organization.Id, Mustask.Domain.Identity.OrganizationRole.Viewer);
+
+        var nonMember = await CreateAsync(organization.Id, new { name = "Проект чужого", key = "STR" }, OrganizationsTokens.SignedIn(stranger));
+        var asMember = await CreateAsync(organization.Id, new { name = "Проект участника", key = "MEM" }, member.Token);
+        var asViewer = await CreateAsync(organization.Id, new { name = "Проект читателя", key = "VWR" }, viewer.Token);
+
+        Assert.Equal((HttpStatusCode.NotFound, "organizations.organization.not_found"), (nonMember.Status, nonMember.ErrorCode));
+        Assert.Equal((HttpStatusCode.Forbidden, "organizations.access.forbidden"), (asMember.Status, asMember.ErrorCode));
+        Assert.Equal((HttpStatusCode.Forbidden, "organizations.access.forbidden"), (asViewer.Status, asViewer.ErrorCode));
+        Assert.Empty(await MembershipTestData.TeamMembershipsOfAsync(factory, stranger));
+
+        var projects = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, $"{OrganizationsApi.Organization(organization.Id)}/projects", token: OrganizationsTokens.SignedIn());
+        Assert.DoesNotContain(
+            projects.Body.EnumerateArray().Select(project => project.GetProperty("key").GetString()),
+            key => key is "STR" or "MEM" or "VWR");
+    }
+
+    // mod-016 NFR Concurrency · "creating a project while the creator's membership is removed" (BR-M1-10): the creator's removal is
+    // held at its commit; the creation passes the membership check, then blocks at the team membership's key on the member row.
+    // The removal commits, the key refuses, and the whole creation rolls back with the creator's next answer — «Организация не
+    // найдена» — leaving no project, team or area.
+    [Fact]
+    public async Task Create_TheCreatorsMembershipEndsMidRequest_RollsBack_Returns404OrganizationNotFound()
+    {
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
+        var remover = await MembershipTestData.NewNamedMemberAsync(factory, organization.Id, Mustask.Domain.Identity.OrganizationRole.Admin, "Борис", "Администратор");
+        var creator = await MembershipTestData.NewNamedMemberAsync(factory, organization.Id, Mustask.Domain.Identity.OrganizationRole.Admin, "Анна", "Создатель");
+        using var gate = factory.CommitGates.Open();
+
+        var removal = OrganizationsApi.SendAsync(
+            factory, HttpMethod.Delete, $"{OrganizationsApi.Organization(organization.Id)}/members/{creator.Id}", token: remover.Token, gate: gate);
+        await Task.WhenAny(gate.Reached, removal);
+        Assert.False(removal.IsCompleted, "The removal finished before reaching its commit gate.");
+
+        var creation = CreateAsync(organization.Id, new { name = "Проект гонки", key = "RCE" }, creator.Token);
+        await PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, creation);
+        Assert.False(creation.IsCompleted, "The creation did not wait for the removal's lock on the membership.");
+
+        gate.Release();
+        var (removed, created) = (await removal, await creation);
+
+        Assert.Equal(HttpStatusCode.NoContent, removed.Status);
+        Assert.Equal((HttpStatusCode.NotFound, "organizations.organization.not_found"), (created.Status, created.ErrorCode));
+        Assert.Equal((0, 0, 0), await CountAsync(organization.Id));
+        Assert.Empty(await MembershipTestData.TeamMembershipsOfAsync(factory, creator.Id));
+    }
+
+    private async Task<Guid> FirstTeamIdAsync(Guid projectId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var project = await scope.ServiceProvider.GetRequiredService<IOrganizationStructure>().FindProjectAsync(projectId, CancellationToken.None);
+
+        return project!.FirstTeamId;
     }
 
     private async Task<IReadOnlyList<ProjectRow>> ListActiveProjectsAsync(Guid organizationId)

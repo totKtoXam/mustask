@@ -8,7 +8,7 @@ namespace Mustask.Application.Features.Organizations.RestoreOrganization;
 /// <summary>
 /// <c>POST /api/organizations/{organizationId}/restore</c> (US-2 "The organization is
 /// restored exactly as it was"). It is the one request a deactivated organization
-/// accepts, so the organization-context filter lets a deactivated organization
+/// accepts, so the scoped check lets a deactivated organization
 /// through on this route only (plan-backend § 7.3).
 /// </summary>
 /// <remarks>

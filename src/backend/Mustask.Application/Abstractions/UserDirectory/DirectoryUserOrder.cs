@@ -17,6 +17,13 @@ public static class DirectoryUserOrder
 
     public static IComparer<DirectoryUser> Comparer { get; } = Comparer<DirectoryUser>.Create(Compare);
 
+    /// <summary>
+    /// The tie-break alone: user ids in Unicode code-point order. mod-016 puts the users the projection does not know
+    /// after every user with a name, "last, by id" (api-contract § 0.5), and needs the same id order for them.
+    /// </summary>
+    public static IComparer<string> IdComparer { get; } = Comparer<string>.Create(
+        (left, right) => ReferenceEquals(left, right) ? 0 : CompareCodePoints(left, right));
+
     private static int Compare(DirectoryUser? left, DirectoryUser? right)
     {
         if (ReferenceEquals(left, right))

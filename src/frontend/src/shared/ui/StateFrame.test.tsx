@@ -141,6 +141,27 @@ describe('US-7 Scenario: One frame for the full-area states', () => {
     expect(document.title).toBe('Языки — Mustask');
   });
 
+  it('takes an h3 for a frame that stands under an h2 and looks the same (mod-016 design § 4.3)', () => {
+    render(
+      <>
+        <StateFrame icon={InboxOutlinedIcon} heading="Как h2" />
+        <StateFrame icon={InboxOutlinedIcon} heading="Как h3" headingLevel={3} />
+      </>,
+    );
+
+    const h2 = screen.getByRole('heading', { level: 2, name: 'Как h2' });
+    const h3 = screen.getByRole('heading', { level: 3, name: 'Как h3' });
+    expect(h3.tagName).toBe('H3');
+    expect(h3.className).toBe(h2.className);
+    expect(getComputedStyle(h3).fontSize).toBe(getComputedStyle(h2).fontSize);
+  });
+
+  it('keeps a full-page frame the page’s h1 whatever the level asked', () => {
+    render(<StateFrame fullPage icon={InboxOutlinedIcon} heading="Страница" headingLevel={3} />);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Страница' })).toBeInTheDocument();
+  });
+
   it('offers at most one action, an outlined button with its leading icon', async () => {
     const onClick = vi.fn();
     render(

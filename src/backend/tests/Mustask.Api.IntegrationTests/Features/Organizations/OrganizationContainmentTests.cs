@@ -1,0 +1,249 @@
+using System.Net;
+using Mustask.Api.IntegrationTests.Features.WorkItems;
+using Mustask.Application.Features.Organizations;
+using Mustask.Domain.Identity;
+using Mustask.Domain.Organizations;
+using Mustask.Domain.WorkItems;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Mustask.Api.IntegrationTests.Features.Organizations;
+
+/// <summary>
+/// mod-016 US-2 · "Containment" (ADR-0027, plan-backend § 3.5 "Resolution chains", § 4.2 item 7): the scoped check admits a caller
+/// to the organization of the <b>address</b>; every nested id — a project, a team, an area, a work item, and an id in a body — must
+/// then lie inside that organization (and inside the project the path carries). The test fixes one user who administers both A and
+/// B, and addresses A with an id that belongs to B: for every row of <see cref="OrganizationAddressedRoutes.All"/> that carries the
+/// nested id, the answer is its level's «…not found» (api-contract § 0.1 row 4) and nothing of B changes. A handler that does not
+/// hold its link fails here, and the check cannot be fooled by a caller with the right in the wrong organization.
+/// </summary>
+[Trait("Category", "Integration")]
+[Trait("Category", "RequiresDocker")]
+[Collection(MustaskApiCollection.Name)]
+public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
+{
+    /// <summary>The ids of one organization's structure, as an address takes them.</summary>
+    private sealed record Side(WorkItemsWorld World, Guid TeamId, Guid AreaId, string Identifier, Guid ItemId)
+    {
+        public string OrganizationId => World.OrganizationId.ToString();
+
+        public string ProjectId => World.ProjectId.ToString();
+    }
+
+    private sealed record TwoOrganizations(string Token, Side A, Side B);
+
+    private static readonly IReadOnlyDictionary<string, string> NotFoundOf = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["project"] = OrganizationErrorCodes.ProjectNotFound,
+        ["team"] = OrganizationErrorCodes.TeamNotFound,
+        ["area"] = OrganizationErrorCodes.AreaNotFound,
+        ["item"] = WorkItemErrorCodes.WorkItemNotFound,
+    };
+
+    private static readonly IReadOnlyDictionary<string, string> Placeholder = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["project"] = "{projectId}",
+        ["team"] = "{teamId}",
+        ["area"] = "{areaId}",
+        ["item"] = "{identifier}",
+    };
+
+    public static TheoryData<string, string, string> NestedIds()
+    {
+        var data = new TheoryData<string, string, string>();
+
+        foreach (var route in OrganizationAddressedRoutes.All)
+        {
+            foreach (var (kind, placeholder) in Placeholder)
+            {
+                if (route.Template.Contains(placeholder, StringComparison.Ordinal))
+                {
+                    data.Add(route.Method, route.Template, kind);
+                }
+            }
+        }
+
+        return data;
+    }
+
+    /// <summary>
+    /// An organization's structure; <paramref name="fillers"/> items are created first so that the two organizations' items never
+    /// share an identifier (both projects are keyed MSK): B's item is MSK-US-2 and A has no item numbered 2.
+    /// </summary>
+    private async Task<Side> BuildAsync(int fillers)
+    {
+        var world = await WorkItemsTestData.CreateWorldAsync(factory);
+        var team = await OrganizationsTestData.AddTeamAsync(factory, world.ProjectId, "Платформа");
+
+        for (var filler = 0; filler < fillers; filler++)
+        {
+            await WorkItemsTestData.CreateItemAsync(factory, world, "TASK", $"Заполнитель {filler}");
+        }
+
+        var item = await WorkItemsTestData.CreateAsync(factory, world, "US", "Чужая история");
+        Assert.Equal(HttpStatusCode.Created, item.Status);
+
+        return new Side(world, team.Team.Id, team.Area.Id, item.Body.GetProperty("identifier").GetString()!, item.Body.GetProperty("id").GetGuid());
+    }
+
+    /// <summary>One user who administers both organizations; A and B each hold a project, a second team with its area, and a work item.</summary>
+    private async Task<TwoOrganizations> TwoAsync()
+    {
+        var a = await BuildAsync(fillers: 0);
+        var b = await BuildAsync(fillers: 1);
+        var user = MembershipTestData.NewUserId();
+        await MembershipTestData.AddMemberAsync(factory, a.World.OrganizationId, user, OrganizationRole.Admin);
+        await MembershipTestData.AddMemberAsync(factory, b.World.OrganizationId, user, OrganizationRole.Admin);
+
+        return new TwoOrganizations(OrganizationsTokens.SignedIn(user), a, b);
+    }
+
+    /// <summary>The route's address in A, with the nested id of <paramref name="kind"/> taken from B and every other from A.</summary>
+    private static string AddressOf(string template, TwoOrganizations world, string kind) =>
+        template
+            .Replace("{organizationId}", world.A.OrganizationId, StringComparison.Ordinal)
+            .Replace("{projectId}", kind == "project" ? world.B.ProjectId : world.A.ProjectId, StringComparison.Ordinal)
+            .Replace("{teamId}", (kind == "team" ? world.B.TeamId : world.A.TeamId).ToString(), StringComparison.Ordinal)
+            .Replace("{areaId}", (kind == "area" ? world.B.AreaId : world.A.AreaId).ToString(), StringComparison.Ordinal)
+            .Replace("{identifier}", kind == "item" ? world.B.Identifier : world.A.Identifier, StringComparison.Ordinal)
+            .Replace("{userId}", "u-" + Guid.CreateVersion7().ToString("N"), StringComparison.Ordinal)
+            .Replace("{level}", "stories", StringComparison.Ordinal);
+
+    // US-2 · "the resource's organization decides": a path id of B inside A's address is refused as an id that does not exist, at
+    // its own level — on every route that carries one.
+    [Theory]
+    [MemberData(nameof(NestedIds))]
+    public async Task APathIdOfAnotherOrganization_IsRefusedAsNotFound_AtItsOwnLevel(string method, string template, string kind)
+    {
+        var world = await TwoAsync();
+
+        var answer = await OrganizationsApi.SendAsync(
+            factory, new HttpMethod(method), AddressOf(template, world, kind), OrganizationAddressedRoutes.Body(method), world.Token);
+
+        Assert.True(
+            answer.Status == HttpStatusCode.NotFound && answer.ErrorCode == NotFoundOf[kind],
+            $"{method} {template} with the {kind} of another organization answered {(int)answer.Status} {answer.ErrorCode}, not {NotFoundOf[kind]}.");
+    }
+
+    // The refused requests change nothing of the other organization: its project, teams, areas, items and name are as they were.
+    [Fact]
+    public async Task TheRefusedRequests_ChangeNothingOfTheOtherOrganization()
+    {
+        var world = await TwoAsync();
+        var projectBefore = await StateAsync(world.B);
+
+        foreach (var route in OrganizationAddressedRoutes.All)
+        {
+            foreach (var (kind, placeholder) in Placeholder)
+            {
+                if (!route.Template.Contains(placeholder, StringComparison.Ordinal) || route.AcceptsDeactivated)
+                {
+                    continue;
+                }
+
+                await OrganizationsApi.SendAsync(
+                    factory, new HttpMethod(route.Method), AddressOf(route.Template, world, kind), OrganizationAddressedRoutes.Body(route.Method), world.Token);
+            }
+        }
+
+        Assert.Equal(projectBefore, await StateAsync(world.B));
+    }
+
+    private async Task<string> StateAsync(Side side)
+    {
+        using var scope = factory.Services.CreateScope();
+        var structure = scope.ServiceProvider.GetRequiredService<IOrganizationStructure>();
+        var organization = await structure.FindOrganizationAsync(side.World.OrganizationId, CancellationToken.None);
+        var project = await structure.FindProjectAsync(side.World.ProjectId, CancellationToken.None);
+        var team = await structure.FindTeamAsync(side.TeamId, CancellationToken.None);
+        var tree = await OrganizationsTestData.ReadTreeAsync(factory, side.World.ProjectId);
+        var items = await WorkItemsTestData.StoredAsync(factory, side.World.ProjectId);
+
+        return string.Join(
+            " | ",
+            organization!.Name,
+            organization.Status,
+            project!.Name,
+            project.IsReachable,
+            team!.Name,
+            team.Status,
+            string.Join("; ", tree.PreOrder()),
+            string.Join("; ", items.Select(item => $"{item.Number} {item.Title} {item.AreaId} {item.StateId} {item.ChangedAt:O}")));
+    }
+
+    // US-2 · "An area's or a team's body id outside the address is refused" (mod-002 BR-M1-22): an administrator of A and of B sets
+    // the owner of an area of A to a team of B, and the default area of a team of A to an area of B — refused as for an id that does
+    // not exist, and nothing changes.
+    [Fact]
+    public async Task AnAreaOrTeamIdOfAnotherOrganizationInABody_IsRefusedAsNotFound_NothingChanges()
+    {
+        var world = await TwoAsync();
+        var a = world.A;
+        var project = $"/api/organizations/{a.OrganizationId}/projects/{a.ProjectId}";
+        var treeBefore = (await OrganizationsTestData.ReadTreeAsync(factory, a.World.ProjectId)).PreOrder().ToList();
+
+        var owner = await OrganizationsApi.SendAsync(
+            factory, HttpMethod.Put, $"{project}/areas/{a.AreaId}/owner", new { ownerTeamId = world.B.TeamId.ToString() }, world.Token);
+        var defaultArea = await OrganizationsApi.SendAsync(
+            factory, HttpMethod.Put, $"{project}/teams/{a.TeamId}/default-area", new { areaId = world.B.AreaId.ToString() }, world.Token);
+        var parent = await OrganizationsApi.SendAsync(
+            factory, HttpMethod.Put, $"{project}/areas/{a.AreaId}/parent", new { parentId = world.B.AreaId.ToString() }, world.Token);
+        var created = await OrganizationsApi.SendAsync(
+            factory,
+            HttpMethod.Post,
+            $"{project}/areas",
+            new { parentId = world.B.AreaId.ToString(), name = OrganizationsTestData.UniqueName("Область"), ownerTeamId = (string?)null },
+            world.Token);
+        var createdOwned = await OrganizationsApi.SendAsync(
+            factory,
+            HttpMethod.Post,
+            $"{project}/areas",
+            new { parentId = a.World.RootAreaId.ToString(), name = OrganizationsTestData.UniqueName("Область"), ownerTeamId = world.B.TeamId.ToString() },
+            world.Token);
+
+        Assert.Equal((HttpStatusCode.NotFound, OrganizationErrorCodes.TeamNotFound), (owner.Status, owner.ErrorCode));
+        Assert.Equal((HttpStatusCode.NotFound, OrganizationErrorCodes.AreaNotFound), (defaultArea.Status, defaultArea.ErrorCode));
+        Assert.Equal((HttpStatusCode.NotFound, OrganizationErrorCodes.AreaNotFound), (parent.Status, parent.ErrorCode));
+        Assert.Equal((HttpStatusCode.NotFound, OrganizationErrorCodes.AreaNotFound), (created.Status, created.ErrorCode));
+        Assert.Equal((HttpStatusCode.NotFound, OrganizationErrorCodes.TeamNotFound), (createdOwned.Status, createdOwned.ErrorCode));
+        Assert.Equal(treeBefore, (await OrganizationsTestData.ReadTreeAsync(factory, a.World.ProjectId)).PreOrder().ToList());
+    }
+
+    // US-2 · "A work item's body id outside the address is refused" (mod-003 BR-M3-23, feat-001 BR-H-1, mod-006 BR-M4-21): a member
+    // of A and of B saves a work item of A with an area or a parent of B, or creates one in A from a team of B or beneath a parent of
+    // B — refused as for an id that does not exist, and nothing changes.
+    [Fact]
+    public async Task AWorkItemBodyIdOfAnotherOrganization_IsRefusedAsNotFound_NothingChanges()
+    {
+        var world = await TwoAsync();
+        var a = world.A;
+        var own = await WorkItemsTestData.CreateItemAsync(factory, a.World, "TASK", "Своя задача");
+        var storedBefore = await WorkItemsTestData.StoredAsync(factory, a.World.ProjectId);
+        var typeId = a.World.Types["TASK"].Id.ToString();
+
+        var saveArea = await OrganizationsApi.SendAsync(
+            factory, HttpMethod.Patch, WorkItemsTestData.Item(a.World, own), new { areaId = world.B.AreaId.ToString() }, world.Token);
+        var saveParent = await OrganizationsApi.SendAsync(
+            factory, HttpMethod.Patch, WorkItemsTestData.Item(a.World, own), new { parent = new { parentId = world.B.ItemId.ToString() } }, world.Token);
+        var setParent = await OrganizationsApi.SendAsync(
+            factory, HttpMethod.Put, $"{WorkItemsTestData.Item(a.World, own)}/parent", new { parentId = world.B.ItemId.ToString() }, world.Token);
+        var createFromTeam = await OrganizationsApi.SendAsync(
+            factory,
+            HttpMethod.Post,
+            WorkItemsTestData.List(a.World),
+            new { requestId = Guid.NewGuid().ToString(), typeId, title = "Из чужой команды", teamId = world.B.TeamId.ToString() },
+            world.Token);
+        var createBeneath = await OrganizationsApi.SendAsync(
+            factory,
+            HttpMethod.Post,
+            WorkItemsTestData.List(a.World),
+            new { requestId = Guid.NewGuid().ToString(), typeId, title = "Под чужим родителем", parentId = world.B.ItemId.ToString() },
+            world.Token);
+
+        Assert.Equal((HttpStatusCode.NotFound, OrganizationErrorCodes.AreaNotFound), (saveArea.Status, saveArea.ErrorCode));
+        Assert.Equal((HttpStatusCode.NotFound, WorkItemErrorCodes.ParentNotFound), (saveParent.Status, saveParent.ErrorCode));
+        Assert.Equal((HttpStatusCode.NotFound, WorkItemErrorCodes.ParentNotFound), (setParent.Status, setParent.ErrorCode));
+        Assert.Equal((HttpStatusCode.NotFound, OrganizationErrorCodes.TeamNotFound), (createFromTeam.Status, createFromTeam.ErrorCode));
+        Assert.Equal((HttpStatusCode.NotFound, WorkItemErrorCodes.ParentNotFound), (createBeneath.Status, createBeneath.ErrorCode));
+        Assert.Equal(storedBefore, await WorkItemsTestData.StoredAsync(factory, a.World.ProjectId));
+    }
+}

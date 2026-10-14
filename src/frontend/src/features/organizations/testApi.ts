@@ -5,6 +5,7 @@
 // contract's answers, not every rule of the backend: what a test needs.
 import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
+import { servedFor } from '../../test/organizationRoles';
 import type {
   AreaNode,
   Organization,
@@ -12,6 +13,7 @@ import type {
   Project,
   ProjectListItem,
   Team,
+  TeamInList,
 } from './api/organizationsApi';
 import {
   AREAS_URL,
@@ -244,11 +246,25 @@ export class OrganizationsTestApi {
     };
   }
 
-  private teamList(project: ProjectRecord): Team[] {
+  /**
+   * The project's team list (api-contract § 3.1): the first team, then the
+   * rest by name, each saying whether the acting user is in it (mod-016
+   * § 3.3). A dataset without team members makes nobody a member, so the
+   * default team is the first, as before.
+   */
+  private teamList(project: ProjectRecord): TeamInList[] {
     const active = this.data.teams.filter((team) => team.projectId === project.id && !team.deleted);
     const first = active.filter((team) => team.isFirstTeam);
     const rest = active.filter((team) => !team.isFirstTeam).sort(byName);
-    return [...first, ...rest].map((team) => this.teamAnswer(team));
+    const actingUserId = this.data.actingUserId;
+    return [...first, ...rest].map((team) => ({
+      ...this.teamAnswer(team),
+      isMember:
+        actingUserId !== undefined &&
+        (this.data.teamMembers ?? []).some(
+          (member) => member.teamId === team.id && member.userId === actingUserId,
+        ),
+    }));
   }
 
   private areaAnswer(area: AreaRecord) {
@@ -655,6 +671,18 @@ export class OrganizationsTestApi {
         answer(200, (p) => {
           const { id, name } = this.organization(o(p));
           return { id, name };
+        }),
+      ),
+      // The caller's served access (mod-016 api-contract § 1.1): the dataset's
+      // acting user is the administrator of every active organization, and an
+      // unknown or deactivated one is the 404 «Организация не найдена» — the
+      // same answer a non-member gets — so every flow, "unknown organization →
+      // «Организация не найдена»" included, keeps its meaning under the gate.
+      http.get(
+        `${ORGANIZATION_URL}/access`,
+        answer(200, (p) => {
+          this.organization(o(p));
+          return servedFor('admin');
         }),
       ),
       http.put(

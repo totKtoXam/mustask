@@ -1,7 +1,9 @@
 import { Route } from 'react-router-dom';
 import { vi } from 'vitest';
+import type { ServedAccess, TestRole } from '../../test/organizationRoles';
 import { authValue, renderShell } from '../../test/renderShell';
 import type { WorkContextSelection, WorkContextSource } from '../../shared/lib/workContext';
+import { OrganizationGate } from '../organizations';
 import { WorkItemFormPage } from './pages/WorkItemFormPage';
 import { WorkItemsPage } from './pages/WorkItemsPage';
 import { WORK_ITEMS_ROUTE, WORK_ITEM_ROUTE } from './paths';
@@ -39,12 +41,20 @@ export function projectContext(selection: WorkContextSelection = {}): WorkContex
   };
 }
 
-/** The slice's two routes, as `app/routes.tsx` registers them. */
+/**
+ * The slice's two routes, as `app/routes.tsx` registers them, under the
+ * organization gate as there (mod-016): a page asks `useAccessCheck()` for the
+ * organization in its address, and the shell primes that organization's codes
+ * by the `role` of `renderWorkItems`. The pages are mounted without
+ * `OrganizationPage`, so no test meets the gate's first rows.
+ */
 export function workItemRoutes() {
   return (
     <>
-      <Route path={WORK_ITEMS_ROUTE} element={<WorkItemsPage />} />
-      <Route path={WORK_ITEM_ROUTE} element={<WorkItemFormPage />} />
+      <Route element={<OrganizationGate />}>
+        <Route path={WORK_ITEMS_ROUTE} element={<WorkItemsPage />} />
+        <Route path={WORK_ITEM_ROUTE} element={<WorkItemFormPage />} />
+      </Route>
       <Route path="*" element={<p>Другая страница</p>} />
     </>
   );
@@ -56,11 +66,22 @@ export function workItemRoutes() {
  * slice: the page under test is the one `path` opens, and a flow moves through
  * links as the product does.
  */
-export function renderWorkItems(path: string, options: { context?: WorkContextSource } = {}) {
+export function renderWorkItems(
+  path: string,
+  options: {
+    context?: WorkContextSource;
+    /**
+     * The caller's role in the selected organization (mod-016): the administrator
+     * by default; a `ServedAccess` is a bundle of exactly its codes.
+     */
+    role?: TestRole | ServedAccess;
+  } = {},
+) {
   return renderShell({
     path,
     auth: authValue([]),
     contextSource: options.context ?? projectContext(),
     routes: workItemRoutes(),
+    access: options.role ?? 'admin',
   });
 }

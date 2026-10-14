@@ -1,6 +1,7 @@
 using Mustask.Application.Features.Organizations.CreateOrganization;
 using Mustask.Application.Tests.TestDoubles;
 using Mustask.Application.Tests.TestDoubles.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Errors;
 using Mustask.Shared.Exceptions;
@@ -25,6 +26,7 @@ public sealed class CreateOrganizationHandlerTests
             User = new FakeCurrentUser { DisplayName = "Иван Петров", SubjectId = Subject };
             Handler = new CreateOrganizationHandler(
                 new FakeOrganizationRepository(Store),
+                new FakeMembershipRepository(Store),
                 Seed,
                 Clock,
                 User,
@@ -224,6 +226,76 @@ public sealed class CreateOrganizationHandlerTests
         Assert.Equal(OrganizationErrorCodes.OrganizationNameTaken, refusal.Code);
         Assert.Equal(ErrorParam.Text("Пример организации"), refusal.Params["name"]);
         Assert.Empty(f.Store.Organizations);
+    }
+
+    // mod-016 US-6 / BR-M1-25 · "doc-006 US-2 scenario 1": the creator becomes the organization's administrator, added by
+    // themselves at the organization's creation time, with no role change — and nobody else holds a membership.
+    [Fact]
+    public async Task Handle_Creates_TheCreatorBecomesTheOnlyMember_AsAdmin_AddedByThemselves()
+    {
+        var f = new Fixture();
+
+        var result = await f.HandleAsync("Пример организации");
+
+        var membership = Assert.Single(f.Store.Memberships);
+        Assert.Equal(result.Response.Id, membership.OrganizationId);
+        Assert.Equal(Subject, membership.UserId);
+        Assert.Equal(OrganizationRole.Admin, membership.Role);
+        Assert.Equal(Subject, membership.AddedBy);
+        Assert.Equal(f.Clock.UtcNow, membership.AddedAt);
+        Assert.Null(membership.RoleChangedBy);
+        Assert.Null(membership.RoleChangedAt);
+    }
+
+    // mod-016 US-6 · "doc-006 US-2 scenario 5 — a failed process seed leaves nothing behind", no membership either: the seed,
+    // a refused name and a lost race each leave neither the organization nor its founder.
+    [Fact]
+    public async Task Handle_SeedFails_NoMembershipIsStored()
+    {
+        var f = new Fixture();
+        f.Seed.Failure = new InvalidOperationException("The seed is down.");
+
+        await Assert.ThrowsAsync<OrganizationCreateFailedException>(() => f.HandleAsync("Пример организации"));
+
+        Assert.Empty(f.Store.Organizations);
+        Assert.Empty(f.Store.Memberships);
+    }
+
+    [Fact]
+    public async Task Handle_NameTaken_NoMembershipIsStored()
+    {
+        var f = new Fixture();
+        f.Store.AddOrganization("Пример организации");
+
+        await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync("Пример организации"));
+
+        Assert.Empty(f.Store.Memberships);
+    }
+
+    [Fact]
+    public async Task Handle_LosesTheNameRace_NoMembershipIsStored()
+    {
+        var f = new Fixture();
+        f.Store.FailNextSave(new ConflictException(OrganizationErrorCodes.OrganizationNameTaken, new ErrorParams { ["name"] = ErrorParam.Text("x") }));
+
+        await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync("Пример организации"));
+
+        Assert.Empty(f.Store.Organizations);
+        Assert.Empty(f.Store.Memberships);
+    }
+
+    // mod-016 US-3 · "A creator the projection does not know yet still gets the creation memberships" (BR-M1-25): the handler
+    // never consults the user projection (it has no reference to it), so a creator it does not know is stored the same.
+    [Fact]
+    public async Task Handle_TheMembershipIsWrittenInTheSameSaveAsTheOrganization()
+    {
+        var f = new Fixture();
+
+        await f.HandleAsync("Пример организации");
+
+        Assert.Equal(1, f.Store.SaveCount);
+        Assert.Single(f.Store.Organizations);
+        Assert.Single(f.Store.Memberships);
     }
 
     // Two creations are two organizations: each is seeded under its own key.

@@ -1,4 +1,8 @@
-import type { WorkContextSelection, WorkContextStatus } from '../../../shared/lib/workContext';
+import {
+  defaultEntry,
+  type WorkContextSelection,
+  type WorkContextStatus,
+} from '../../../shared/lib/workContext';
 import type { AddressContext } from './addressContext';
 
 /**
@@ -11,7 +15,11 @@ import type { AddressContext } from './addressContext';
 /** One level's list as read, in the order the server gives it. */
 export interface LevelList {
   status: WorkContextStatus;
-  items: readonly { id: string; name: string }[];
+  /**
+   * `isMember` rides the team level only (mod-016 api-contract § 3.3): the
+   * user is in the team. The levels above carry none.
+   */
+  items: readonly { id: string; name: string; isMember?: boolean }[];
 }
 
 export const LOADING_LIST: LevelList = { status: 'loading', items: [] };
@@ -22,15 +30,16 @@ function holds(list: LevelList, id: string | undefined): boolean {
 
 /**
  * A level's effective id: the chosen one while its ready list holds it, else
- * the list's first entry (the project's first team is its default, design
- * § 3.5). A level that is loading or failed has none: a failure is not a
- * deletion, and the remembered id is kept (design § 3.2).
+ * the list's default entry — the first entry, and for a project's teams the
+ * first one the user is a member of (`defaultEntry`; mod-016 D-5, design § 8).
+ * A level that is loading or failed has none: a failure is not a deletion, and
+ * the remembered id is kept (design § 3.2).
  */
 export function effectiveId(list: LevelList, chosenId: string | undefined): string | undefined {
   if (list.status !== 'ready') {
     return undefined;
   }
-  return holds(list, chosenId) ? chosenId : list.items[0]?.id;
+  return holds(list, chosenId) ? chosenId : defaultEntry(list.items)?.id;
 }
 
 /** What the address does to the selection once its lists are read. */
@@ -149,7 +158,8 @@ function nameOf(list: LevelList, id: string | undefined): string | undefined {
  * The effective selection, top-down (plan-frontend § 4.2):
  *
  * - each level keeps its chosen id while its ready list holds it, else takes
- *   the first entry, and the levels below take their first entries;
+ *   its default entry (the first; for a project's teams the user's own first,
+ *   `defaultEntry`), and the levels below take theirs;
  * - a level falls back when it had a chosen id, its parent is the one that id
  *   was chosen under, and its ready list no longer holds it. The
  *   replacement is reported once every level below has settled, naming the

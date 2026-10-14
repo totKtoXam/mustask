@@ -86,35 +86,44 @@ describe('mod-002 US-1 Scenario: Granted and revoked in the console (the token r
   });
 });
 
-describe('mod-002 US-1 Scenario: No organization yet', () => {
-  it('the holder of the right sees «Организаций пока нет» as an h2 with «Создать организацию» in the frame', async () => {
+describe('mod-016 US-2 Scenario: The user is in no organization (design § 5)', () => {
+  it('the holder of the right sees «Вы пока не состоите ни в одной организации» as an h2 with «Создать организацию» in the frame', async () => {
     serveOrganizations(emptyDataset());
     renderPage({ path: '/organizations', permissions: CREATE_RIGHT });
 
     expect(
-      await screen.findByRole('heading', { level: 2, name: 'Организаций пока нет' }),
+      await screen.findByRole('heading', {
+        level: 2,
+        name: 'Вы пока не состоите ни в одной организации',
+      }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('Создайте первую организацию кнопкой «Создать организацию» выше.'),
+      screen.getByText(
+        'Создайте организацию кнопкой «Создать организацию» выше или попросите администратора организации добавить вас.',
+      ),
     ).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Создать организацию' })).toHaveLength(2);
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 
-  it('a user without it sees the hint «Право на создание организаций выдаёт администратор» and no action', async () => {
+  it('a user without it sees «Попросите администратора организации добавить вас.» and no action', async () => {
     serveOrganizations(emptyDataset());
     renderPage({ path: '/organizations' });
 
     expect(
-      await screen.findByRole('heading', { level: 2, name: 'Организаций пока нет' }),
+      await screen.findByRole('heading', {
+        level: 2,
+        name: 'Вы пока не состоите ни в одной организации',
+      }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('Право на создание организаций выдаёт администратор'),
+      screen.getByText('Попросите администратора организации добавить вас.'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Создать организацию' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Организаций пока нет')).not.toBeInTheDocument();
   });
 
-  it('the deactivated tab’s empty frame has no action', async () => {
+  it('the deactivated tab’s empty frame has no action and says whose organizations it lists', async () => {
     serveOrganizations(emptyDataset());
     renderPage({ path: '/organizations/deactivated', permissions: CREATE_RIGHT });
 
@@ -123,7 +132,7 @@ describe('mod-002 US-1 Scenario: No organization yet', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Сюда попадают организации, деактивированные в их настройках. Их можно восстановить.',
+        'Здесь показываются деактивированные организации, в которых вы администратор. Их можно восстановить.',
       ),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Создать организацию' })).toBeInTheDocument();

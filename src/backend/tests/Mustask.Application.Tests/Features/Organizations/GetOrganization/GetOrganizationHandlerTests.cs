@@ -9,7 +9,7 @@ namespace Mustask.Application.Tests.Features.Organizations.GetOrganization;
 /// <c>GET /api/organizations/{organizationId}</c> on fakes (api-contract § 1.4):
 /// the organization as stored, and the organization level's not-found answer
 /// (BR-M1-20, ADR-0026 rule 5). The handler answers it itself, besides the
-/// organization-context filter that stands before it in the host.
+/// scoped check (ADR-0027) that stands before it in the host.
 /// </summary>
 public sealed class GetOrganizationHandlerTests
 {
@@ -43,8 +43,8 @@ public sealed class GetOrganizationHandlerTests
         Assert.Equal(new OrganizationResponse(padded.Id, "Организация «Ёлка»"), result.Response);
     }
 
-    // US-1 · "Every signed-in user sees every organization": the query carries no user and no right, so each organization
-    // is served by its id alone; and a read takes no lock (plan-backend § 8.2).
+    // US-1 · the query carries no user and no right (since mod-016 the scoped check decides who may ask, before the
+    // handler), so each organization is served by its id alone; and a read takes no lock (plan-backend § 8.2).
     [Fact]
     public async Task Handle_SeveralOrganizations_ServesTheAddressedOneByIdAlone_TakingNoLock()
     {

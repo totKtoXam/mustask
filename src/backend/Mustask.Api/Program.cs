@@ -2,6 +2,7 @@ using Mustask.Api.ApiExplorer;
 using Mustask.Api.CurrentUser;
 using Mustask.Api.ErrorHandling;
 using Mustask.Application.Abstractions;
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Api.Authentication;
 using Mustask.Api.Authentication.Readiness;
 using Mustask.Api.Authorization;
@@ -136,6 +137,10 @@ builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, ForbiddenEr
 // the anonymous constant.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
+
+// mod-016 (ADR-0027): the role the scoped check resolved for this request, for the handlers that need it (the served access,
+// the second code of a parent write). Asking on a route without the check throws.
+builder.Services.AddScoped<IOrganizationAccess, HttpContextOrganizationAccess>();
 
 // ADR-0018: Mustask.Api как resource server realm'а Keycloak. Значения
 // читаются один раз из builder.Configuration до Build() — единственный
@@ -301,6 +306,7 @@ app.UseAuthorization();
 
 app.MapDictionaryEndpoints();
 app.MapOrganizationEndpoints();
+app.MapMembershipEndpoints();
 app.MapProcessEndpoints();
 app.MapSessionEndpoints();
 app.MapUserDirectoryEndpoints();

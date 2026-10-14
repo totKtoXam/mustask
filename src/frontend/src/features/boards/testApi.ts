@@ -236,6 +236,8 @@ export class BoardsTestApi {
               id: record.assigneeId,
               displayName: user?.displayName ?? null,
               email: user ? user.email : null,
+              // mod-016 api-contract § 3.3: the membership alone.
+              isMember: user !== undefined && user.member !== false,
             },
       state: {
         id: state?.id ?? record.stateId,

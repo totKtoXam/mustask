@@ -1,4 +1,5 @@
 using Mustask.Application.Abstractions.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 
 namespace Mustask.Application.Tests.TestDoubles.Organizations;
@@ -6,19 +7,26 @@ namespace Mustask.Application.Tests.TestDoubles.Organizations;
 /// <summary>In-memory <see cref="IOrganizationReadModel"/> over <see cref="InMemoryOrganizations"/>.</summary>
 public sealed class FakeOrganizationReadModel(InMemoryOrganizations store) : IOrganizationReadModel
 {
-    public Task<IReadOnlyList<OrganizationRow>> ListAsync(OrganizationStatus status, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<OrganizationRow>>(store
-            .InDisplayOrder(store.Organizations.Where(organization => organization.Status == status), organization => organization.Name, organization => organization.Id)
+    public Task<IReadOnlyList<OrganizationRow>> ListAsync(
+        OrganizationStatus status, string userId, IReadOnlyCollection<OrganizationRole>? onlyRoles, CancellationToken cancellationToken)
+    {
+        var mine = store.Organizations.Where(organization =>
+            organization.Status == status
+            && store.Memberships.Any(membership =>
+                membership.OrganizationId == organization.Id
+                && membership.UserId == userId
+                && (onlyRoles is null || onlyRoles.Contains(membership.Role))));
+
+        return Task.FromResult<IReadOnlyList<OrganizationRow>>(store
+            .InDisplayOrder(mine, organization => organization.Name, organization => organization.Id)
             .Select(organization => new OrganizationRow(organization.Id, organization.Name))
             .ToList());
+    }
 
     public Task<OrganizationRow?> FindActiveAsync(Guid organizationId, CancellationToken cancellationToken) =>
         Task.FromResult(store.FindOrganization(organizationId) is { IsActive: true } organization
             ? new OrganizationRow(organization.Id, organization.Name)
             : null);
-
-    public Task<OrganizationStatus?> FindStatusAsync(Guid organizationId, CancellationToken cancellationToken) =>
-        Task.FromResult(store.FindOrganization(organizationId)?.Status);
 }
 
 /// <summary>In-memory <see cref="IProjectReadModel"/> over <see cref="InMemoryOrganizations"/>.</summary>
@@ -45,7 +53,7 @@ public sealed class FakeProjectReadModel(InMemoryOrganizations store) : IProject
 /// <summary>In-memory <see cref="ITeamReadModel"/> over <see cref="InMemoryOrganizations"/>.</summary>
 public sealed class FakeTeamReadModel(InMemoryOrganizations store) : ITeamReadModel
 {
-    public Task<IReadOnlyList<TeamRow>> ListActiveAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<TeamRow>> ListActiveAsync(Guid organizationId, Guid projectId, string userId, CancellationToken cancellationToken)
     {
         var teams = store.IsReachable(organizationId, projectId)
             ? store.Teams.Where(team => team.ProjectId == projectId && team.IsActive)
@@ -54,7 +62,10 @@ public sealed class FakeTeamReadModel(InMemoryOrganizations store) : ITeamReadMo
         return Task.FromResult<IReadOnlyList<TeamRow>>(store
             .InDisplayOrder(teams, team => team.Name, team => team.Id)
             .OrderByDescending(team => team.IsFirstTeam)
-            .Select(Row)
+            .Select(team => Row(team) with
+            {
+                IsMember = store.TeamMemberships.Any(membership => membership.TeamId == team.Id && membership.UserId == userId),
+            })
             .ToList());
     }
 

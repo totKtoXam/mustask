@@ -7,23 +7,28 @@ namespace Mustask.Contracts.Tests;
 /// <see cref="KeycloakRealmRolesTests"/> proves the registry is closed — every
 /// permission code exists as a client role and no role invents one — but
 /// nothing there pins down *who holds* the dictionary codes. The read code
-/// belongs to **every** panel role, because the dictionaries (e.g. the list
+/// belongs to **every signed-in user**, because the dictionaries (e.g. the list
 /// of languages) are reference data every screen may need, and the API is
-/// deny-all, so "everyone reads it" has to be spelled as a grant. A future
-/// realm edit dropping the read code from `member` or `viewer` would leave
-/// those users with an empty list and a 403 no log explains — the failure
-/// this file exists to catch.
+/// deny-all, so "everyone reads it" has to be spelled as a grant. Since mod-016
+/// (BR-M1-29, D-15 (3)) the grant is the realm's **default role**: Keycloak gives
+/// it to every user, a user in no group included, and the organization roles
+/// `member` and `viewer` no longer exist in the realm. A future realm edit
+/// dropping the read code from the default role would leave users with an
+/// empty list and a 403 no log explains — the failure this file exists to catch.
 /// </summary>
 public sealed class DictionaryPermissionsRealmTests
 {
     private const string MustaskRealm = "mustask-realm.json";
     private const string ResourceClient = "mustask-api";
     private const string DictionariesAdminRole = "dictionaries-admin";
+    private const string InstanceAdminRole = "instance-admin";
+    private const string DefaultRole = "default-roles-mustask";
 
     /// <summary>
     /// Roles that grant one instance right and nothing else (mod-002 D-u): an
-    /// add-on to a panel role, never a panel role of their own. A user holds
-    /// one of them beside a panel role, so they carry no dictionary read code.
+    /// add-on to the default role, never a role of their own. A user holds
+    /// one of them beside the default role (which reads the dictionaries for
+    /// everyone), so they carry no dictionary code.
     /// <c>organization-creator</c> carries the create right only (BR-M1-19:
     /// "grants nothing else").
     /// </summary>
@@ -42,22 +47,34 @@ public sealed class DictionaryPermissionsRealmTests
         PermissionCatalog.DictionariesLanguagesWrite,
     ];
 
-    /// <summary>Every dictionary read code in every realm role of the panel.</summary>
+    /// <summary>
+    /// US-8 · "Every signed-in user reads the dictionaries" (BR-M1-29): the realm's default role holds every dictionary read code,
+    /// so a user in no group, a member of /Создатели организаций only and a member of /Администраторы справочников all read.
+    /// </summary>
     [Fact]
-    public void EveryPanelRole_HoldsEveryDictionaryReadCode()
+    public void TheDefaultRole_HoldsEveryDictionaryReadCode_SoEverySignedInUserReads()
     {
-        var rolesWithoutRead = PermissionsByRole()
-            .Where(pair => !GrantOnlyRoles.Contains(pair.Key))
-            .Where(pair => ReadCodes.Any(code => !pair.Value.Contains(code)))
-            .Select(pair => pair.Key)
-            .Order(StringComparer.Ordinal)
-            .ToList();
+        var byRole = PermissionsByRole();
+
+        Assert.True(byRole.ContainsKey(DefaultRole), $"В realm `mustask` нет роли `{DefaultRole}` в roles.realm.");
+
+        var missing = ReadCodes.Where(code => !byRole[DefaultRole].Contains(code)).ToList();
 
         Assert.True(
-            rolesWithoutRead.Count == 0,
-            $"Роли realm `mustask` без права чтения справочников: {string.Join(", ", rolesWithoutRead)}. "
-            + "`dictionaries.*.read` входит в каждую роль панели — справочники нужны всем "
+            missing.Count == 0,
+            $"Роль по умолчанию `{DefaultRole}` не держит права чтения справочников: {string.Join(", ", missing)}. "
+            + "`dictionaries.*.read` получает каждый вошедший пользователь — справочники нужны всем "
             + "экранам, а политика API deny-all.");
+    }
+
+    /// <summary>The roles that carry a write also carry the reads — an administrator who cannot read the list cannot edit it.</summary>
+    [Fact]
+    public void EveryRoleHoldingAWriteCode_AlsoHoldsTheReadCodes()
+    {
+        var writers = PermissionsByRole().Where(pair => WriteCodes.Any(code => pair.Value.Contains(code))).ToList();
+
+        Assert.NotEmpty(writers);
+        Assert.All(writers, pair => Assert.All(ReadCodes, code => Assert.Contains(code, pair.Value)));
     }
 
     /// <summary>
@@ -94,15 +111,16 @@ public sealed class DictionaryPermissionsRealmTests
     }
 
     /// <summary>
-    /// `...write` only for `admin` (which must hold everything) and
-    /// for the dictionaries administrator — a third role quietly gaining the
-    /// right to edit the dictionaries is a decision, not an edit.
+    /// `...write` only for `instance-admin` (which must hold every instance code)
+    /// and for the dictionaries administrator — a third role quietly gaining the
+    /// right to edit the dictionaries is a decision, not an edit. In particular the
+    /// default role, which every user holds, never does.
     /// </summary>
     [Fact]
-    public void WriteCodes_AreHeldOnlyByAdminAndTheDictionariesAdministrator()
+    public void WriteCodes_AreHeldOnlyByTheInstanceAdminAndTheDictionariesAdministrator()
     {
         var unexpected = PermissionsByRole()
-            .Where(pair => pair.Key is not ("admin" or DictionariesAdminRole))
+            .Where(pair => pair.Key is not (InstanceAdminRole or DictionariesAdminRole))
             .Where(pair => WriteCodes.Any(code => pair.Value.Contains(code)))
             .Select(pair => pair.Key)
             .Order(StringComparer.Ordinal)
@@ -110,7 +128,7 @@ public sealed class DictionaryPermissionsRealmTests
 
         Assert.True(
             unexpected.Count == 0,
-            $"Право изменения справочников выдано ролям, кроме admin и {DictionariesAdminRole}: {string.Join(", ", unexpected)}.");
+            $"Право изменения справочников выдано ролям, кроме {InstanceAdminRole} и {DictionariesAdminRole}: {string.Join(", ", unexpected)}.");
     }
 
     /// <summary>Every dictionary code is in the catalog the API checks against.</summary>

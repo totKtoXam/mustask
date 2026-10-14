@@ -5,6 +5,8 @@ import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-rou
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HttpResponse, http } from 'msw';
 import { server } from '../../../test/mocks/server';
+import { checkFor } from '../../../test/organizationRoles';
+import { AccessCheckContext } from '../../../shared/lib/access';
 import { NoticeProvider } from '../../../shared/ui';
 import { useWorkItemDialog } from '../hooks/useWorkItemDialog';
 import { serveProblem, serveWorkItems, type WorkItemsTestApi } from '../testApi';
@@ -70,16 +72,20 @@ function renderBacklog(
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  // The page under the gate hands the dialog the administrator's codes (mod-016): the
+  // dialog asks the served access whether the card is read-only.
   return render(
     <QueryClientProvider client={client}>
-      <NoticeProvider>
-        <MemoryRouter initialEntries={entries} initialIndex={index}>
-          <Routes>
-            <Route path={BACKLOG} element={<Backlog onChanged={onChanged} />} />
-            <Route path="*" element={<Where />} />
-          </Routes>
-        </MemoryRouter>
-      </NoticeProvider>
+      <AccessCheckContext.Provider value={checkFor('admin')}>
+        <NoticeProvider>
+          <MemoryRouter initialEntries={entries} initialIndex={index}>
+            <Routes>
+              <Route path={BACKLOG} element={<Backlog onChanged={onChanged} />} />
+              <Route path="*" element={<Where />} />
+            </Routes>
+          </MemoryRouter>
+        </NoticeProvider>
+      </AccessCheckContext.Provider>
     </QueryClientProvider>,
   );
 }

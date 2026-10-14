@@ -32,9 +32,21 @@ namespace Mustask.Application.Features.Organizations.CreateProject;
 /// between fails the insert on its index, which the repository answers with the
 /// pre-check's code (plan-backend § 6.3).
 /// </para>
+/// <para>
+/// <b>The creator joins the first team</b> (mod-016 BR-M1-25; US-3 "The project's creator is its first team's first
+/// member"): in the same flush, the creating administrator becomes the only member of the project's first team, whatever
+/// the user projection says of them — always, with no look at their membership first (plan-backend § 3.6 row 12). Team
+/// members are a subset of the organization's members (BR-M1-10) and the scoped check admits only an administrator here, so
+/// the creator is a member when the request starts. If their membership ends at any moment before the flush — between the
+/// check and this handler, or later — the database refuses the team membership through the composite key, the whole
+/// creation rolls back, and the answer is the organization's not-found: exactly what the creator's next request would say.
+/// There is no window in which the project is created for a user who is no longer a member (review round 1a BE-CON-5). The
+/// rule lapses with the first team when feat-028 moves teams to the organization.
+/// </para>
 /// </remarks>
 public sealed class CreateProjectHandler(
     IOrganizationReadModel organizations,
+    ITeamMembershipRepository teamMemberships,
     IProjectRepository projects,
     IClock clock,
     ICurrentUser currentUser,
@@ -44,7 +56,7 @@ public sealed class CreateProjectHandler(
         await unitOfWork.ExecuteInTransactionAsync(
             async ct =>
             {
-                // 1. The address. The organization-context filter has answered for it already; the handler checks again,
+                // 1. The address. The scoped check has answered for it already; the handler checks again,
                 // because the filter is the boundary and not the only check (plan-backend § 7.3), and a project must never
                 // be written into an organization that is not active (ADR-0026 rule 5, BR-M1-20).
                 if (!AddressedId.TryParse(command.OrganizationId, out var organizationId)
@@ -100,12 +112,25 @@ public sealed class CreateProjectHandler(
 
                 // The project, its first team and its root, all named after the project, the root owned by the first team
                 // and its default (BR-M1-9, BR-M1-11, BR-M1-14). The creator is the token's subject (BR-M1-21).
-                var created = Project.Create(organizationId, name, key, clock.UtcNow, currentUser.SubjectId);
+                var creatorId = currentUser.SubjectId;
+                var created = Project.Create(organizationId, name, key, clock.UtcNow, creatorId);
                 projects.Add(created);
+
+                // The creator joins the first team (BR-M1-25, BR-M1-10). No look at their membership first: the composite key
+                // of team_memberships is the one place that judges it, at the flush, and it cannot be raced.
+                teamMemberships.Add(TeamMembership.Add(created.FirstTeam.Id, organizationId, creatorId));
 
                 // 6. Save. A concurrent creation of the same name or key that committed first fails this insert on its unique
                 // index, and the repository answers with the pre-check's code.
-                await projects.SaveAsync(ct);
+                try
+                {
+                    await projects.SaveAsync(ct);
+                }
+                catch (ConflictException refusal) when (refusal.Code == OrganizationErrorCodes.TeamMemberNotInOrganization)
+                {
+                    // The creator is not (or no longer) a member: nothing is created, and they are a non-member now.
+                    throw new NotFoundException(OrganizationErrorCodes.OrganizationNotFound, ErrorParams.None, refusal);
+                }
 
                 var project = created.Project;
 

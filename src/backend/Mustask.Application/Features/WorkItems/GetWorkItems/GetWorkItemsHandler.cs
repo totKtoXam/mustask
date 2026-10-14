@@ -15,7 +15,7 @@ namespace Mustask.Application.Features.WorkItems.GetWorkItems;
 /// </summary>
 /// <remarks>
 /// The order of answers (api-contract § 0.4): the address from the outside in —
-/// the organization-context filter has answered for the organization; the
+/// the scoped check has answered for the organization; the
 /// project must be the organization's and reachable (BR-M3-27, mod-002
 /// BR-M1-20) — then the page. Reads only, no transaction.
 /// </remarks>

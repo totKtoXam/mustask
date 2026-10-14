@@ -8,7 +8,7 @@ import {
 } from '@playwright/test';
 import { signIn } from '../support/auth';
 import { env } from '../support/env';
-import { createEphemeralReaderUser, deleteEphemeralUser } from '../support/keycloakAdmin';
+import { createEphemeralUserWithoutGroup, deleteEphemeralUser } from '../support/keycloakAdmin';
 import {
   createContext,
   deactivateAllOrganizations,
@@ -35,7 +35,18 @@ import {
  * itself.
  *
  * The fixture user is a dictionaries administrator (see spec 16's header);
- * 19.9 signs in a throwaway reader the way spec 16 does.
+ * 19.9 signs in a throwaway user in no group the way spec 16 does — since
+ * mod-016 that user is the reader (D-7, US-8).
+ *
+ * Adapted for mod-016 (organization access): 19.5's tab order gains
+ * «Участники» between «Проекты» and «Процесс» (US-4 "Every role sees
+ * «Участники» in the settings navigation"), and every case that walks the
+ * navigation first waits for the organization's entries, which stay hidden
+ * until the served access is read (design § 6.1, BR-M1-31) — a reload no
+ * longer shows them from the first frame; 19.5's request log gains the
+ * switcher's access read of the chosen organization; the groups below
+ * deactivate only the fixture's own organizations (D-3), which are all the
+ * fixture sees.
  *
  * One fault is injected on purpose (19.8): the languages request is held
  * back, then refused at the network layer, to see the loading and error
@@ -657,7 +668,7 @@ test.describe('19. the application shell in a browser (mod-015)', () => {
       await expect(page.getByRole('alert')).toHaveCount(0);
     });
 
-    test('19.9 a reader’s page header is as high as an administrator’s (US-6, BR-9)', async ({
+    test('19.9 a reader’s page header — a user in no group — is as high as an administrator’s (US-6, BR-9; mod-016 US-8)', async ({
       page,
       browser,
     }) => {
@@ -667,7 +678,7 @@ test.describe('19. the application shell in a browser (mod-015)', () => {
       const administratorHeight = (await header(page).boundingBox())?.height;
 
       const { keycloakUrl, realm } = env();
-      const reader = await createEphemeralReaderUser(keycloakUrl, realm);
+      const reader = await createEphemeralUserWithoutGroup(keycloakUrl, realm);
       const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
       try {
         const readerPage = await context.newPage();
@@ -813,6 +824,9 @@ test.describe('19. the application shell in a browser (mod-015)', () => {
       // feat-001 BR-H-16) and «Бэклоги» follow it (mod-006 spec § Navigation).
       await page.goto('/home');
       await expect(page.getByRole('heading', { level: 1, name: 'Главная' })).toBeVisible();
+      // The organization's entries show once its served access is read
+      // (mod-016 design § 6.1): a reload does not draw them from the first frame.
+      await expect(mainNavigation(page).getByRole('link', { name: 'Бэклоги' })).toBeVisible();
       const home = await tabStops(page, 12);
       expect(home.map((stop) => stop.name)).toEqual([
         'Перейти к содержимому',
@@ -833,8 +847,13 @@ test.describe('19. the application shell in a browser (mod-015)', () => {
       await page.goto('/dictionaries/languages');
       await expect(page.getByRole('table', { name: 'Реестр языков' })).toBeVisible();
       // With an organization and a project chosen, «Меню настроек» holds
-      // their entries before «Справочники» (mod-002 design § 2.1).
-      const languages = await tabStops(page, 20);
+      // their entries before «Справочники» (mod-002 design § 2.1) — once the
+      // organization's served access is read (mod-016 design § 6.1). «Языки» is
+      // there from the first frame, «Организация» and «Проект» join above it.
+      await expect(
+        settingsNavigation(page).getByRole('link', { name: 'Участники' }),
+      ).toBeVisible();
+      const languages = await tabStops(page, 21);
       expect(languages.map((stop) => stop.name)).toEqual([
         'Перейти к содержимому',
         'Mustask',
@@ -847,6 +866,7 @@ test.describe('19. the application shell in a browser (mod-015)', () => {
         'Настройки',
         'Общие',
         'Проекты',
+        'Участники',
         'Процесс',
         'Общие',
         'Команды',
@@ -898,14 +918,18 @@ test.describe('19. the application shell in a browser (mod-015)', () => {
       await expect(page.getByRole('table', { name: 'Реестр языков' })).toBeVisible();
       page.off('request', record);
       const secondId = second?.organization.id ?? '';
-      expect(
-        requests
-          .filter((url) => !url.includes('/api/session/token'))
-          .map((url) => new URL(url).pathname),
-      ).toEqual([
+      const paths = requests
+        .filter((url) => !url.includes('/api/session/token'))
+        .map((url) => new URL(url).pathname);
+      // mod-016 BR-M1-31: choosing an organization also reads its served access
+      // (the shell's one question of what the user may do there); apart from it
+      // the requests are the same two, in the same order.
+      const accessPath = `/api/organizations/${secondId}/access`;
+      expect(paths.filter((path) => path !== accessPath)).toEqual([
         `/api/organizations/${secondId}/projects`,
         `/api/organizations/${secondId}/projects/${second?.project.id ?? ''}/teams`,
       ]);
+      expect(paths.filter((path) => path === accessPath).length).toBeGreaterThanOrEqual(1);
 
       // The user menu by keyboard: ArrowDown opens on «Выйти», Escape returns focus.
       const profile = page.getByRole('banner').getByRole('button', { name: /^Профиль/ });
@@ -1093,8 +1117,14 @@ test.describe('19. the application shell in a browser (mod-015)', () => {
       // With an organization chosen, «Настройки» opens its «Общие» (mod-002
       // design § 2.1); «Языки» is reached through «Меню настроек». Until the
       // switcher's lists arrive no organization is chosen and «Настройки»
-      // still leads to «Языки», so the click waits for the three levels.
+      // still leads to «Языки», so the click waits for the three levels — and,
+      // since mod-016, for the organization's served access: its entries show
+      // once the codes are read (design § 6.1), and «Настройки» opens «Общие»
+      // only then.
       await expect(switcher(page).getByRole('button')).toHaveCount(3);
+      await expect(
+        mainNavigation(page).getByRole('link', { name: 'Рабочие элементы' }),
+      ).toBeVisible();
       await mainNavigation(page).getByRole('link', { name: 'Настройки' }).click();
       await expect(page.getByRole('heading', { level: 1, name: 'Общие' })).toBeVisible();
       await settingsNavigation(page).getByRole('link', { name: 'Языки' }).click();
@@ -1117,6 +1147,12 @@ test.describe('19. the application shell in a browser (mod-015)', () => {
       await page.keyboard.press('Escape');
       await expect(mainNavigation(page)).toHaveCount(0);
       await menuButton(page).click();
+      // The switch above read the chosen organization's served access in the
+      // background; its entries are drawn once it is held, and «Настройки»
+      // opens «Общие» only then (mod-016 design § 6.1, § 2.5).
+      await expect(
+        mainNavigation(page).getByRole('link', { name: 'Рабочие элементы' }),
+      ).toBeVisible();
       await mainNavigation(page).getByRole('link', { name: 'Настройки' }).click();
       await expect(page.getByRole('heading', { level: 1, name: 'Общие' })).toBeVisible();
       await page.goto('/no-such-page');

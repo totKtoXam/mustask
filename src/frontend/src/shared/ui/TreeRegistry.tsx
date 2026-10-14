@@ -68,6 +68,14 @@ export interface TreeRegistryProps<N extends TreeRegistryNode> {
   /** Shown after the label, e.g. a chip. */
   adornment?(node: N): ReactNode;
   actions(node: N): readonly TreeRegistryAction[];
+  /**
+   * Whether the actions column — its header cell, a cell and a «Действия»
+   * button per row — is drawn. Absent: the table draws it when some node has
+   * an action, so a user with no write code gets no column of dead buttons
+   * (mod-016 DC-2), and the loading skeleton keeps its blank column. `false`
+   * leaves the column out of the skeleton too, for a user who will not get it.
+   */
+  showActions?: boolean;
   selectedId: string | null;
   onSelect(id: string): void;
   /** The expanded set is the caller's: it decides what starts expanded and what a change expands. */
@@ -149,6 +157,7 @@ export function TreeRegistry<N extends TreeRegistryNode>({
   nodes,
   adornment,
   actions,
+  showActions,
   selectedId,
   onSelect,
   expanded,
@@ -159,6 +168,7 @@ export function TreeRegistry<N extends TreeRegistryNode>({
   ref,
 }: TreeRegistryProps<N>) {
   const rows = useMemo(() => visibleRows(nodes, expanded), [nodes, expanded]);
+  const hasActions = showActions ?? nodes.some((node) => actions(node).length > 0);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const rowElements = useRef(new Map<string, HTMLTableRowElement>());
   const actionButtons = useRef(new Map<string, HTMLButtonElement>());
@@ -206,7 +216,13 @@ export function TreeRegistry<N extends TreeRegistryNode>({
 
   if (loading) {
     return (
-      <RegistrySkeleton columns={[firstColumn, ...columns.map((column) => column.header), '']} />
+      <RegistrySkeleton
+        columns={[
+          firstColumn,
+          ...columns.map((column) => column.header),
+          ...(showActions === false ? [] : ['']),
+        ]}
+      />
     );
   }
   if (error !== undefined && error !== null) {
@@ -299,7 +315,7 @@ export function TreeRegistry<N extends TreeRegistryNode>({
                   {column.header}
                 </TableCell>
               ))}
-              <TableCell role="columnheader" />
+              {hasActions && <TableCell role="columnheader" />}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -410,34 +426,36 @@ export function TreeRegistry<N extends TreeRegistryNode>({
                       {column.render(node)}
                     </TableCell>
                   ))}
-                  <TableCell
-                    role="gridcell"
-                    align="right"
-                    sx={{ width: (theme) => theme.spacing(6) }}
-                  >
-                    <IconButton
-                      size="small"
-                      ref={(element: HTMLButtonElement | null) => {
-                        if (element) {
-                          actionButtons.current.set(node.id, element);
-                        } else {
-                          actionButtons.current.delete(node.id);
-                        }
-                      }}
-                      tabIndex={tabbable ? 0 : -1}
-                      aria-label={`Действия: ${node.label}`}
-                      aria-haspopup="menu"
-                      aria-expanded={menu?.id === node.id ? 'true' : 'false'}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setFocusedId(node.id);
-                        setMenu({ id: node.id, anchor: event.currentTarget });
-                      }}
-                      onKeyDown={(event) => event.stopPropagation()}
+                  {hasActions && (
+                    <TableCell
+                      role="gridcell"
+                      align="right"
+                      sx={{ width: (theme) => theme.spacing(6) }}
                     >
-                      <MoreHorizIcon fontSize="small" />
-                    </IconButton>
-                  </TableCell>
+                      <IconButton
+                        size="small"
+                        ref={(element: HTMLButtonElement | null) => {
+                          if (element) {
+                            actionButtons.current.set(node.id, element);
+                          } else {
+                            actionButtons.current.delete(node.id);
+                          }
+                        }}
+                        tabIndex={tabbable ? 0 : -1}
+                        aria-label={`Действия: ${node.label}`}
+                        aria-haspopup="menu"
+                        aria-expanded={menu?.id === node.id ? 'true' : 'false'}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setFocusedId(node.id);
+                          setMenu({ id: node.id, anchor: event.currentTarget });
+                        }}
+                        onKeyDown={(event) => event.stopPropagation()}
+                      >
+                        <MoreHorizIcon fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                  )}
                 </TableRow>
               );
             })}

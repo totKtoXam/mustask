@@ -2,7 +2,7 @@
 
 - story: US-1
 - depends-on: -
-- shippable: no — delivered by mod-002-organizations-projects-teams
+- shippable: no — delivered by mod-002-organizations-projects-teams (organizations, projects, teams, areas) and mod-016-organization-access (memberships, team memberships and the access checks)
 - status: pending
 
 As an **instance administrator, or a user granted the "create organizations"

@@ -18,37 +18,15 @@ namespace Mustask.Api.Features.WorkItems;
 /// <summary>
 /// M3's work item routes (mod-003 api-contract § 2), each wired to its own
 /// slice. They sit under <c>/api/organizations/{organizationId}/…</c>, as
-/// mod-002's and mod-001's do, behind the authenticated guard and mod-002's
-/// organization-context filter (BR-M3-27). Route parameters are plain strings
-/// with no constraint, so a malformed id or identifier reaches the handler and
-/// gets its level's not-found code instead of a routing 404.
+/// mod-002's and mod-001's do, each behind the scoped check of its organization
+/// code (mod-016 api-contract § 4.2, rows 28–34): the code comes from the caller's
+/// membership, never from the token. Route parameters are plain strings with no
+/// constraint, so a malformed id or identifier reaches the handler and gets its
+/// level's not-found code instead of a routing 404.
 /// </summary>
 public static class WorkItemEndpoints
 {
     private const string Tag = "WorkItems";
-
-    private static readonly string ReadAccess =
-        $"Declares {OrganizationPermissionCatalog.WorkItemsWorkItemRead}, an organization-scoped code that no token carries "
-        + "and nothing checks yet (BR-M3-27): any signed-in user, until mod-016 retrofits the check; a non-member then "
-        + "gets the not-found answer, not a 403.";
-
-    private static readonly string WriteAccess =
-        $"Declares {OrganizationPermissionCatalog.WorkItemsWorkItemWrite}, an organization-scoped code that no token carries "
-        + "and nothing checks yet (BR-M3-27): any signed-in user, until mod-016 retrofits the check; a non-member then "
-        + "gets the not-found answer, not a 403.";
-
-    private static readonly string CreateAccess =
-        $"{WriteAccess} A `parentId` in the create is a parent write, which mod-016 also checks against "
-        + $"{OrganizationPermissionCatalog.WorkItemsLinkWrite} (feat-027 BR-T-17).";
-
-    private static readonly string SaveAccess =
-        $"{WriteAccess} A `parent` in the save is a parent write, which mod-016 also checks against "
-        + $"{OrganizationPermissionCatalog.WorkItemsLinkWrite} (feat-001 BR-H-18).";
-
-    private static readonly string LinkAccess =
-        $"Declares {OrganizationPermissionCatalog.WorkItemsLinkWrite}, an organization-scoped code that no token carries "
-        + "and nothing checks yet (feat-001 BR-H-18): any signed-in user, until mod-016 retrofits the check; a non-member "
-        + "then gets the not-found answer, not a 403.";
 
     public static IEndpointRouteBuilder MapWorkItemEndpoints(this IEndpointRouteBuilder app)
     {
@@ -56,69 +34,74 @@ public static class WorkItemEndpoints
 
         // § 2.1. The project's list.
         workItems.MapGet("/", GetWorkItemsAsync)
-            .AuthenticatedOnly(ReadAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead)
             .Produces<Paging<WorkItemListItemView>>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         // § 2.2. Create; a replay of a submission answers 200 with the item it created. With feat-027's `parentId`
-        // it creates the item beneath that parent, refused by the parent write's 404 and 409s.
+        // it creates the item beneath that parent, refused by the parent write's 404 and 409s. The route's one code
+        // is workitems.workitem.write; a `parentId` is a parent write, which the handler also holds to
+        // workitems.link.write, first of all its answers (api-contract § 4.2, "The second code of rows 29 and 31").
         workItems.MapPost("/", CreateWorkItemAsync)
-            .AuthenticatedOnly(CreateAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemWrite)
             .Produces<WorkItemView>(StatusCodes.Status201Created)
             .Produces<WorkItemView>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         // § 2.3. One item by its identifier.
         workItems.MapGet("/{identifier}", GetWorkItemAsync)
-            .AuthenticatedOnly(ReadAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead)
             .Produces<WorkItemView>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        // § 2.4. Save the form: exactly the fields sent; feat-001 § 3.3 adds the parent.
+        // § 2.4. Save the form: exactly the fields sent; feat-001 § 3.3 adds the parent, which the handler also holds
+        // to workitems.link.write, first of all its answers (feat-001 BR-H-18).
         workItems.MapPatch("/{identifier}", SaveWorkItemAsync)
-            .AuthenticatedOnly(SaveAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemWrite)
             .Produces<WorkItemView>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         // feat-001 § 3.2. The parent write: set, replace or clear the item's parent.
         workItems.MapPut("/{identifier}/parent", SetWorkItemParentAsync)
-            .AuthenticatedOnly(LinkAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsLinkWrite)
             .Produces<SetWorkItemParentResponse>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         // feat-001 § 3.4. The «Родитель» picker: this item's possible parents.
         workItems.MapGet("/{identifier}/parent-candidates", GetParentCandidatesAsync)
-            .AuthenticatedOnly(ReadAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead)
             .Produces<ParentCandidatesResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        // § 2.5. The assignee picker: organization-level, as mod-016 will narrow it to the organization's members.
+        // § 2.5. The assignee picker: organization-level, narrowed to the organization's active members (mod-016
+        // BR-M1-26). A GET with a write code is legitimate: the picker is a write control, so a viewer is refused
+        // (api-contract § 4.2 row 34).
         app.MapGet("/api/organizations/{organizationId}/workitems/assignee-candidates", GetAssigneeCandidatesAsync)
             .WithTags(Tag)
-            .AuthenticatedOnly(WriteAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemWrite)
             .Produces<AssigneeCandidatesResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         return app;
@@ -141,7 +124,7 @@ public static class WorkItemEndpoints
             return Results.Ok(result.Item);
         }
 
-        // The organization id passed the filter, so it is canonical in some letter case; responses write it in lower case.
+        // The organization id passed the scoped check, so it is canonical in some letter case; responses write it in lower case.
         var location = $"/api/organizations/{organizationId.ToLowerInvariant()}/projects/{result.Item.ProjectId}/workitems/{result.Item.Identifier}";
 
         return Results.Created(location, result.Item);

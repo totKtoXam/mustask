@@ -37,6 +37,24 @@ internal static class OrganizationsConstraints
     /// <summary>BR-M1-14: one default area per team.</summary>
     public const string AreaDefault = "ix_areas_default_of_team_id";
 
+    /// <summary>BR-M1-5: one membership per user per organization — the primary key <c>(organization_id, user_id)</c> (mod-016).</summary>
+    public const string MembershipPrimaryKey = "pk_organization_memberships";
+
+    /// <summary>"My organizations" and the scoped check's read by user (mod-016).</summary>
+    public const string MembershipUser = "ix_organization_memberships_user_id";
+
+    /// <summary>A user is in a team at most once — the primary key <c>(team_id, user_id)</c> (mod-016).</summary>
+    public const string TeamMembershipPrimaryKey = "pk_team_memberships";
+
+    /// <summary>
+    /// BR-M1-10: a team member is an organization member — the composite key onto the organization membership, which
+    /// cascades a removal (BR-M1-36) and closes the add-versus-remove race (mod-016 plan-backend § 3.8).
+    /// </summary>
+    public const string TeamMembershipOrganizationMembership = "fk_team_memberships_organization_memberships";
+
+    /// <summary>The index of that composite key; it also serves "the teams I am in".</summary>
+    public const string TeamMembershipOrganizationUser = "ix_team_memberships_organization_id_user_id";
+
     /// <summary>BR-M1-1: 1 to 100 characters, on every table with a name.</summary>
     public static readonly string NameLengthCheck = $"char_length(name) BETWEEN 1 AND {OrganizationLimits.NameMaxLength}";
 }

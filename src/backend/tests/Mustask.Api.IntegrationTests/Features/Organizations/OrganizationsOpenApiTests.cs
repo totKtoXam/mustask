@@ -23,13 +23,14 @@ public sealed class OrganizationsOpenApiTests(MustaskApiFactory factory)
         "GET /api/organizations/deactivated",
         "POST /api/organizations",
         // The addressed routes of other modules — mod-001's process read, mod-003's work items, mod-006's backlogs and
-        // boards — are not this module's.
+        // boards — are not this module's. The rest of the list is mod-002's and, last, mod-016's access and memberships
+        // (api-contract § 1–§ 2).
         .. OrganizationAddressedRoutes.All
             .Where(route => !route.Template.EndsWith("/process", StringComparison.Ordinal)
                 && !route.Template.Contains("/workitems", StringComparison.Ordinal)
                 && !route.Template.Contains("/backlogs/", StringComparison.Ordinal)
                 && !route.Template.Contains("/boards/", StringComparison.Ordinal))
-            .Select(route => $"{route.Method} {route.Template}"),
+            .Select(route => route.Key),
     ];
 
     [Fact]
@@ -42,7 +43,7 @@ public sealed class OrganizationsOpenApiTests(MustaskApiFactory factory)
             .Select(operation => $"{operation.Method} {operation.Path}")
             .Order(StringComparer.Ordinal);
 
-        Assert.Equal(26, ContractOperations.Length);
+        Assert.Equal(36, ContractOperations.Length);
         Assert.Equal(ContractOperations.Order(StringComparer.Ordinal), ofTheModule);
     }
 
@@ -60,16 +61,22 @@ public sealed class OrganizationsOpenApiTests(MustaskApiFactory factory)
         Assert.Equal(["POST /api/organizations/{organizationId}/projects"], withKey);
     }
 
-    // US-1 · "No screen grants the right": nothing under /api/organizations names a right, a role or a group.
+    // US-1 · "No screen grants the right": nothing under /api/organizations names a right, a role or a group. mod-016 adds exactly one
+    // route that says "role": the change of an organization MEMBER's role (api-contract § 1.5) — an organization role of ADR-0027, a
+    // column of our own membership table, not a Keycloak role, right or group; nothing here writes the realm (ADR-0023).
+    private const string MembershipRoleRoute = "/api/organizations/{organizationId}/members/{userId}/role";
+
     [Fact]
-    public async Task OpenApiDocument_NoOrganizationOperationWritesRightsRolesOrGroups()
+    public async Task OpenApiDocument_NoOrganizationOperationWritesRightsRolesOrGroups_ExceptTheMemberRoleOfTheOrganization()
     {
         var operations = await OperationsAsync();
 
         Assert.DoesNotContain(
             operations,
             operation => operation.Path.StartsWith("/api/organizations", StringComparison.Ordinal)
+                && operation.Path != MembershipRoleRoute
                 && new[] { "role", "group", "permission", "right" }.Any(word => operation.Path.Contains(word, StringComparison.OrdinalIgnoreCase)));
+        Assert.Single(operations, operation => operation.Path == MembershipRoleRoute);
     }
 
     private async Task<List<(string Path, string Method, JsonElement Operation)>> OperationsAsync() => (await DocumentAsync()).Operations;

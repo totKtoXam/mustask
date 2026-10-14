@@ -52,7 +52,7 @@ public sealed class SetTeamDefaultAreaHandler(
         await unitOfWork.ExecuteInTransactionAsync(
             async ct =>
             {
-                // 1. The address, from the outermost level in. The organization-context filter has answered for the
+                // 1. The address, from the outermost level in. The scoped check has answered for the
                 // organization already; the handler parses it again only to name its container in the next read.
                 if (!AddressedId.TryParse(command.OrganizationId, out var organizationId))
                 {

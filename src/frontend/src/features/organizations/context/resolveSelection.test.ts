@@ -70,6 +70,67 @@ describe('mod-002 US-8 Scenario: The default team is the first team', () => {
   });
 });
 
+/** A team list in the project's order, the named teams being the user's own (api-contract § 3.3). */
+function teamsOf(names: string[], own: string[]): LevelList {
+  return {
+    status: 'ready',
+    items: names.map((name) => ({ id: name, name, isMember: own.includes(name) })),
+  };
+}
+
+describe('mod-016 US-7: the default team is the first team the user is in (D-5)', () => {
+  const project = { organizationId: 'Альфа', projectId: 'Пример проекта' } as const;
+  const resolveTeam = (chosen: WorkContextSelection, teams: LevelList) =>
+    resolve(chosen, { teams: { 'Пример проекта': teams } });
+
+  it('a user in one team gets it, not the project’s first', () => {
+    const teams = teamsOf(['Пример проекта', 'Платформа', 'Мобильная'], ['Платформа']);
+
+    expect(resolveTeam(project, teams).selection.teamId).toBe('Платформа');
+  });
+
+  it('a user in several gets the first of them in the project’s order', () => {
+    const teams = teamsOf(['Пример проекта', 'Платформа', 'Мобильная'], ['Мобильная', 'Платформа']);
+
+    expect(resolveTeam(project, teams).selection.teamId).toBe('Платформа');
+  });
+
+  it('a user in none gets the project’s first team, as before', () => {
+    const teams = teamsOf(['Пример проекта', 'Платформа'], []);
+
+    expect(resolveTeam(project, teams).selection.teamId).toBe('Пример проекта');
+  });
+
+  it('a list that says nothing of membership gives its first entry', () => {
+    expect(resolve(project).selection.teamId).toBe('Пример проекта');
+  });
+
+  it('a remembered team that still exists is kept whoever is in it', () => {
+    const teams = teamsOf(['Пример проекта', 'Платформа'], ['Платформа']);
+    const resolution = resolveTeam({ ...project, teamId: 'Пример проекта' }, teams);
+
+    expect(resolution.selection.teamId).toBe('Пример проекта');
+    expect(resolution.replacement).toBeNull();
+  });
+
+  it('a remembered team that is gone falls back to the user’s own, named in the notice', () => {
+    const teams = teamsOf(['Пример проекта', 'Платформа'], ['Платформа']);
+    const resolution = resolveTeam({ ...project, teamId: 'Удалённая' }, teams);
+
+    expect(resolution.replacement).toEqual({
+      selection: { ...project, teamId: 'Платформа' },
+      names: ['Альфа', 'Пример проекта', 'Платформа'],
+    });
+  });
+
+  it('the levels above carry no membership and keep their first entries', () => {
+    expect(resolve({}).selection).toMatchObject({
+      organizationId: 'Альфа',
+      projectId: 'Аналитика',
+    });
+  });
+});
+
 describe('mod-002 US-8 Scenario: A remembered selection that is gone falls back', () => {
   it('a deleted team: the project’s first team, announced with every level', () => {
     const resolution = resolve({

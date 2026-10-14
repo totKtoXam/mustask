@@ -34,6 +34,21 @@ function Probe() {
   );
 }
 
+/** `can` for a token carrying exactly `permissions`, read through the provider. */
+function CanProbe({ codes }: { codes: string[] }) {
+  const auth = useAuth();
+  return (
+    <div>
+      <div data-testid="status">{auth.status}</div>
+      {codes.map((code) => (
+        <div key={code} data-testid={`can:${code}`}>
+          {String(auth.can(code))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function renderAuth() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -187,7 +202,9 @@ describe('AuthContext', () => {
       ),
       http.post(`${api}/api/session/token`, () => new HttpResponse(null, { status: 503 })),
     );
-    server.use(http.get(`${api}/api/dictionaries/languages`, () => new HttpResponse(null, { status: 401 })));
+    server.use(
+      http.get(`${api}/api/dictionaries/languages`, () => new HttpResponse(null, { status: 401 })),
+    );
 
     renderAuth();
     await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('authenticated'));
@@ -245,5 +262,41 @@ describe('AuthContext', () => {
     screen.getByText('signOut').click();
 
     await waitFor(() => expect(screen.getByTestId('reason')).toHaveTextContent('logout_failed'));
+  });
+
+  it('mod-016: a token with instance roles only answers false for an organization code (ADR-0027)', async () => {
+    setUrl('/home');
+    server.use(
+      http.post(`${api}/api/session/token`, () =>
+        HttpResponse.json({
+          accessToken: fakeAccessToken({
+            permissions: ['dictionaries.languages.read', 'organizations.organization.create'],
+          }),
+          expiresAt: new Date(Date.now() + 900_000).toISOString(),
+          expiresIn: 900,
+        }),
+      ),
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <CanProbe
+            codes={[
+              'dictionaries.languages.read',
+              'organizations.organization.create',
+              'workitems.workitem.write',
+              'organizations.membership.read',
+            ]}
+          />
+        </AuthProvider>
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('authenticated'));
+    expect(screen.getByTestId('can:dictionaries.languages.read')).toHaveTextContent('true');
+    expect(screen.getByTestId('can:organizations.organization.create')).toHaveTextContent('true');
+    expect(screen.getByTestId('can:workitems.workitem.write')).toHaveTextContent('false');
+    expect(screen.getByTestId('can:organizations.membership.read')).toHaveTextContent('false');
   });
 });

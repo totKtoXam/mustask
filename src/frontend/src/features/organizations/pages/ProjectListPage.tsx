@@ -10,9 +10,11 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import AddIcon from '@mui/icons-material/Add';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
+import { useAccessCheck } from '../../../shared/lib/access';
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
 import { PageHeader } from '../../../shared/ui/PageHeader';
 import { RegistrySkeleton } from '../../../shared/ui/RegistrySkeleton';
+import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
 import { NotFound, StateFrame } from '../../../shared/ui/StateFrame';
 import type { ListView } from '../api/organizationsApi';
 import { CreateProjectDialog } from '../components/CreateProjectDialog';
@@ -24,6 +26,7 @@ import { useProjects } from '../hooks/queries';
 import { useRestore } from '../hooks/useRestore';
 import { notFoundLevel } from '../lib/notFoundLevel';
 import { deactivatedProjectsPath, projectGeneralPath, projectsPath } from '../paths';
+import { organizationsPermissions } from '../permissions';
 
 /**
  * «Проекты» (US-1, US-3; design § 7): an organization's projects in two tabs
@@ -36,6 +39,7 @@ export function ProjectListPage({ view }: { view: ListView }) {
   const createProject = useCreateProject(organizationId);
   const restoreProject = useRestoreProject(organizationId);
   const notify = useNotify();
+  const access = useAccessCheck();
   const [creating, setCreating] = useState(false);
   const pageRef = useRef<HTMLDivElement>(null);
   const restore = useRestore({
@@ -43,6 +47,8 @@ export function ProjectListPage({ view }: { view: ListView }) {
     restore: (id) => restoreProject.mutateAsync(id),
     notice: (name) => `Проект «${name}» восстановлен.`,
     container: pageRef,
+    // The gate turns the page into «Организация не найдена»; no notice over it (design § 9).
+    answeredByPage: (error) => notFoundLevel(error) === 'organization',
   });
 
   const level = query.isError ? notFoundLevel(query.error) : null;
@@ -50,9 +56,16 @@ export function ProjectListPage({ view }: { view: ListView }) {
     return <NotFound level={level} />;
   }
 
+  // mod-016 design § 6.2: «Создать проект» needs `organizations.project.write`
+  // and the tab «Деактивированные» `organizations.project.deactivate`; without
+  // the second the strip has one view and is not drawn.
+  const canCreate = access(organizationsPermissions.projectWrite, 'organization');
+  const canSeeDeactivated = access(organizationsPermissions.projectDeactivate, 'organization');
   const views = [
     { label: 'Активные', to: projectsPath(organizationId) },
-    { label: 'Деактивированные', to: deactivatedProjectsPath(organizationId) },
+    ...(canSeeDeactivated
+      ? [{ label: 'Деактивированные', to: deactivatedProjectsPath(organizationId) }]
+      : []),
   ];
   const createAction = {
     label: 'Создать проект',
@@ -66,7 +79,7 @@ export function ProjectListPage({ view }: { view: ListView }) {
     <Box ref={pageRef}>
       <PageHeader
         title="Проекты"
-        primaryAction={query.isSuccess ? createAction : undefined}
+        primaryAction={query.isSuccess && canCreate ? createAction : undefined}
         views={views}
         viewsLabel="Проекты по статусу"
       />
@@ -79,8 +92,12 @@ export function ProjectListPage({ view }: { view: ListView }) {
           <StateFrame
             icon={InboxOutlinedIcon}
             heading="Пока нет проектов"
-            hint="Создайте первый проект кнопкой «Создать проект» выше."
-            action={createAction}
+            hint={
+              canCreate
+                ? 'Создайте первый проект кнопкой «Создать проект» выше.'
+                : 'Проекты создаёт администратор организации.'
+            }
+            action={canCreate ? createAction : undefined}
           />
         ) : (
           <StateFrame
@@ -133,19 +150,21 @@ export function ProjectListPage({ view }: { view: ListView }) {
         </TableContainer>
       )}
       {creating && (
-        <CreateProjectDialog
-          submit={(body) => createProject.mutateAsync(body)}
-          onSucceeded={(project) => {
-            setCreating(false);
-            notify(`Проект «${project.name}» создан.`);
-          }}
-          onClose={(contextGone) => {
-            setCreating(false);
-            if (contextGone) {
-              void query.refetch();
-            }
-          }}
-        />
+        <RequiresOrganizationCode code={organizationsPermissions.projectWrite}>
+          <CreateProjectDialog
+            submit={(body) => createProject.mutateAsync(body)}
+            onSucceeded={(project) => {
+              setCreating(false);
+              notify(`Проект «${project.name}» создан.`);
+            }}
+            onClose={(contextGone) => {
+              setCreating(false);
+              if (contextGone) {
+                void query.refetch();
+              }
+            }}
+          />
+        </RequiresOrganizationCode>
       )}
     </Box>
   );

@@ -78,10 +78,20 @@ function ParentFieldView({
   const [inputValue, setInputValue] = useState(labelOf(selected));
   const [typed, setTyped] = useState('');
   const [opened, setOpened] = useState(false);
+  // A field that turns read-only (the role lost a write code, mod-016 design § 6.2) shows
+  // its value, not the text a search was typed with.
+  const [wasReadOnly, setWasReadOnly] = useState(readOnly);
+  if (readOnly !== wasReadOnly) {
+    setWasReadOnly(readOnly);
+    if (readOnly) {
+      setInputValue(labelOf(selected));
+      setTyped('');
+    }
+  }
   const text = typed.trim();
   const settled = useDebouncedValue(text);
   const query = useParentCandidates(organizationId, projectId, identifier, settled, {
-    enabled: opened,
+    enabled: opened && !readOnly,
   });
 
   let search: ParentSearch;
@@ -122,6 +132,10 @@ function ParentFieldView({
         setTyped(reason === 'input' ? next : '');
       }}
       onOpen={() => {
+        // A read-only field asks nothing: the search needs the write code (mod-016).
+        if (readOnly) {
+          return;
+        }
         setOpened(true);
         if (query.isError) {
           void query.refetch();

@@ -41,6 +41,18 @@ public sealed class OrganizationErrorCatalogTests
         { OrganizationErrorCodes.AreaIsTeamDefault, 409, "team:string", "Область используется как область по умолчанию команды «{team}»" },
         { OrganizationErrorCodes.AreaNotEmpty, 409, "", "Нельзя удалить область, в которой есть рабочие элементы (включая удалённые) или вложенные области" },
         { OrganizationErrorCodes.AreaRootIsFixed, 409, "", "Корневая область меняется только вместе с проектом" },
+
+        // mod-016 api-contract.md § 5 (the spec's list plus the two field reasons of P-9, status.md D-16 OP-5).
+        { OrganizationErrorCodes.AccessForbidden, 403, "", "Недостаточно прав" },
+        { OrganizationErrorCodes.MembershipAlreadyMember, 409, "", "Пользователь уже состоит в организации" },
+        { OrganizationErrorCodes.MembershipLastAdmin, 409, "", "В организации должен остаться хотя бы один администратор" },
+        { OrganizationErrorCodes.MembershipUserUnavailable, 409, "", "Этого пользователя нельзя добавить в организацию" },
+        { OrganizationErrorCodes.MembershipNotFound, 404, "", "Участник не найден." },
+        { OrganizationErrorCodes.MembershipRoleInvalid, 400, "", "Выберите роль: администратор, участник или читатель" },
+        { OrganizationErrorCodes.MembershipUserInvalid, 400, "", "Укажите пользователя" },
+        { OrganizationErrorCodes.TeamMemberExists, 409, "", "Пользователь уже состоит в команде" },
+        { OrganizationErrorCodes.TeamMemberNotInOrganization, 409, "", "Добавить в команду можно только активного участника организации" },
+        { OrganizationErrorCodes.TeamMemberNotFound, 404, "", "Участник команды не найден." },
     };
 
     // mod-002 api-contract § 6: every code is registered with its status, params, the contract's ru text and a kk text.

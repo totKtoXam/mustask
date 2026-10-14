@@ -12,10 +12,12 @@ import TableRow from '@mui/material/TableRow';
 import AddIcon from '@mui/icons-material/Add';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import { useProcessDefinition } from '../../process';
+import { useAccessCheck } from '../../../shared/lib/access';
 import { formatDateTime } from '../../../shared/lib/format';
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
 import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
 import { RegistrySkeleton } from '../../../shared/ui/RegistrySkeleton';
+import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
 import { NotFound, StateFrame } from '../../../shared/ui/StateFrame';
 import { useNotice } from '../../../shared/ui';
 import { WORK_ITEMS_PAGE_SIZE } from '../api/workItemsApi';
@@ -27,6 +29,7 @@ import { useWorkItems } from '../hooks/queries';
 import { notFoundLevel } from '../lib/notFoundLevel';
 import { creatableTypes } from '../lib/process';
 import { workItemPath } from '../paths';
+import { workItemsPermissions } from '../permissions';
 
 /** The table's seven columns (spec § Page «Рабочие элементы»), the skeleton's headers too. */
 const COLUMNS = ['ID', 'Тип', 'Заголовок', 'Исполнитель', 'Статус', 'Область', 'Изменён'];
@@ -65,6 +68,8 @@ function WorkItemsList({
   const process = useProcessDefinition(organizationId);
   const create = useCreateWorkItem(organizationId, projectId);
   const { show } = useNotice();
+  const access = useAccessCheck();
+  const canWrite = access(workItemsPermissions.workItemWrite, 'organization');
   const [pickerAnchor, setPickerAnchor] = useState<HTMLElement | null>(null);
   const [creatingTypeId, setCreatingTypeId] = useState<string | null>(null);
 
@@ -79,14 +84,15 @@ function WorkItemsList({
     }
   };
   // Rendered once the organization's process is loaded: the picker lists its types.
-  const createAction: Command | undefined = process.isSuccess
-    ? {
-        label: NEW_WORK_ITEM_LABEL,
-        icon: <AddIcon />,
-        menuOpen: pickerAnchor !== null,
-        onClick: openPicker,
-      }
-    : undefined;
+  const createAction: Command | undefined =
+    process.isSuccess && canWrite
+      ? {
+          label: NEW_WORK_ITEM_LABEL,
+          icon: <AddIcon />,
+          menuOpen: pickerAnchor !== null,
+          onClick: openPicker,
+        }
+      : undefined;
   const loading = query.isPending || (query.isError && query.isFetching);
   const types = creatableTypes(process.data?.workItemTypes ?? []);
 
@@ -104,7 +110,11 @@ function WorkItemsList({
         <StateFrame
           icon={InboxOutlinedIcon}
           heading="Рабочих элементов пока нет"
-          hint="Создайте первый рабочий элемент кнопкой «Новый рабочий элемент» выше."
+          hint={
+            canWrite
+              ? 'Создайте первый рабочий элемент кнопкой «Новый рабочий элемент» выше.'
+              : 'Рабочие элементы создают участники организации с ролью «Участник» или «Администратор».'
+          }
           action={
             createAction && {
               label: NEW_WORK_ITEM_LABEL,
@@ -164,6 +174,7 @@ function WorkItemsList({
       )}
       <TypePickerMenu
         anchor={pickerAnchor}
+        allowed={canWrite}
         types={types}
         onChoose={(type) => {
           setPickerAnchor(null);
@@ -172,25 +183,27 @@ function WorkItemsList({
         onClose={() => setPickerAnchor(null)}
       />
       {creatingTypeId !== null && (
-        <CreateWorkItemDialog
-          organizationId={organizationId}
-          projectId={projectId}
-          types={types}
-          initialTypeId={creatingTypeId}
-          submit={(body) => create.mutateAsync(body)}
-          onCreated={(item) => {
-            setCreatingTypeId(null);
-            // OQ-4: the user stays on the list, on its first page, the new row on top.
-            setPage(0);
-            show(`Рабочий элемент ${item.identifier} создан.`);
-          }}
-          onClose={(contextGone) => {
-            setCreatingTypeId(null);
-            if (contextGone) {
-              void query.refetch();
-            }
-          }}
-        />
+        <RequiresOrganizationCode code={workItemsPermissions.workItemWrite}>
+          <CreateWorkItemDialog
+            organizationId={organizationId}
+            projectId={projectId}
+            types={types}
+            initialTypeId={creatingTypeId}
+            submit={(body) => create.mutateAsync(body)}
+            onCreated={(item) => {
+              setCreatingTypeId(null);
+              // OQ-4: the user stays on the list, on its first page, the new row on top.
+              setPage(0);
+              show(`Рабочий элемент ${item.identifier} создан.`);
+            }}
+            onClose={(contextGone) => {
+              setCreatingTypeId(null);
+              if (contextGone) {
+                void query.refetch();
+              }
+            }}
+          />
+        </RequiresOrganizationCode>
       )}
     </>
   );
