@@ -32,7 +32,7 @@ import {
   workItemPath,
   type WorkItemStateReference,
 } from '../../workitems';
-import { TypeMark } from '../../../shared/ui/WorkTrackingMarks';
+import { CategoryMarker, TypeMark } from '../../../shared/ui/WorkTrackingMarks';
 import type { BacklogItem, Board, BoardColumn } from '../api/boardsApi';
 import { boardsKeys } from '../api/queryKeys';
 import { useReadTeamAgain } from '../hooks/queries';
@@ -274,11 +274,15 @@ export function BoardColumns({
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 1,
+                // The column's status category as a stripe on top, in the colour of the
+                // category dots the backlog and the card draw (the code is never shown).
+                borderTop: `${theme.spacing(0.5)} solid ${theme.workTracking.categoryColour(column.category.code)}`,
               }),
               ...(isDropArea ? [dropAreaSx(drag?.over === column.key)] : []),
             ]}
           >
-            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, px: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 0.5 }}>
+              <CategoryMarker code={column.category.code} />
               <Typography component="h2" variant="subtitle2">
                 {column.header}
               </Typography>

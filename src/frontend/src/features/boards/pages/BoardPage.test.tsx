@@ -3,11 +3,12 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { focusManager } from '@tanstack/react-query';
 import { HttpResponse, delay, http } from 'msw';
+import { theme } from '../../../app/theme';
 import { server } from '../../../test/mocks/server';
 import { CATEGORY_MARKER_CLASS } from '../../../shared/ui/WorkTrackingMarks';
 import { serveBoards } from '../testApi';
 import { CELL, cellText, findBacklogTable, rowsOf } from '../testBacklog';
-import { cardOf, cardsIn, columnList, columnNames, findBoard } from '../testBoard';
+import { cardOf, cardsIn, columnBox, columnList, columnNames, findBoard } from '../testBoard';
 import { chooseLevel, levelButton } from '../testLevels';
 import {
   BOARD_URL,
@@ -24,6 +25,38 @@ import { boardAddress, backlogAddress, mskForm, renderBoards, teamPrefix } from 
 
 afterEach(() => {
   focusManager.setFocused(undefined);
+});
+
+/** `#242424` → `rgb(36, 36, 36)`, the form jsdom's computed style reports. */
+function rgb(hex: string): string {
+  const value = Number.parseInt(hex.slice(1), 16);
+  return `rgb(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255})`;
+}
+
+describe('Board columns are coloured by their status category', () => {
+  it('each column has a stripe on top and a dot in its header in its category’s colour', async () => {
+    const data = boardsDataset();
+    data.items.push(platformItem(1, 'US', 'Первый'));
+    serveBoards(data);
+    renderBoards(boardAddress());
+    const board = await findBoard();
+
+    const columns: [string, string][] = [
+      ['Новая', 'Proposed'],
+      ['Активна', 'InProgress'],
+      ['Разрешена', 'Resolved'],
+      ['Закрыта', 'Completed'],
+    ];
+    for (const [header, category] of columns) {
+      const colour = rgb(theme.workTracking.categoryColour(category));
+      const box = columnBox(board, header);
+      expect(getComputedStyle(box).borderTopColor).toBe(colour);
+      expect(getComputedStyle(box).borderTopWidth).toBe('4px');
+      const dot = box.querySelector<HTMLElement>(`.${CATEGORY_MARKER_CLASS}`);
+      expect(dot, `the «${header}» column's category dot`).not.toBeNull();
+      expect(getComputedStyle(dot as HTMLElement).backgroundColor).toBe(colour);
+    }
+  });
 });
 
 describe('US-4 Scenario Outline: Each level’s board has its own columns', () => {
