@@ -74,6 +74,19 @@ const PAGE_SIZE = 50;
  */
 function fieldReason(name: WorkItemFieldName, value: unknown): string | null {
   switch (kindOf(name)) {
+    case 'criteria':
+      if (!Array.isArray(value)) return 'workitems.workitem.criteria_invalid';
+      for (const item of value) {
+        if (!item || typeof item !== 'object') return 'workitems.workitem.criteria_invalid';
+        if (
+          typeof (item as { given?: unknown }).given !== 'string' ||
+          typeof (item as { when?: unknown }).when !== 'string' ||
+          typeof (item as { then?: unknown }).then !== 'string'
+        ) {
+          return 'workitems.workitem.criteria_invalid';
+        }
+      }
+      return null;
     case 'text':
       return typeof value === 'string' && value.length > 100_000
         ? 'workitems.workitem.text_too_long'
@@ -220,7 +233,6 @@ export class WorkItemsTestApi {
               id: record.assigneeId,
               displayName: user?.displayName ?? null,
               email: user ? user.email : null,
-              // api-contract § 3.3: the membership alone.
               isMember: user !== undefined && user.member !== false,
             },
       area: { id: record.areaId, path: this.areaPath(record.areaId) },
@@ -512,7 +524,9 @@ export class WorkItemsTestApi {
         continue;
       }
       const value =
-        kindOf(name) === 'text' ? member : ((member as { value?: unknown }).value ?? null);
+        kindOf(name) === 'text' || kindOf(name) === 'criteria'
+          ? member
+          : ((member as { value?: unknown }).value ?? null);
       const reason = value === null ? null : fieldReason(name, value);
       if (reason) {
         reasons[name] = reason;

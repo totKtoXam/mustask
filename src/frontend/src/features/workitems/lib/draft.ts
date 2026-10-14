@@ -1,8 +1,10 @@
 import type {
+  AcceptanceCriterion,
   SaveWorkItemBody,
   WorkItem,
   WorkItemArea,
   WorkItemAssignee,
+  WorkItemFieldName,
   WorkItemRef,
 } from '../api/workItemsApi';
 import { WORK_ITEM_FIELD_NAMES } from './fields';
@@ -11,10 +13,47 @@ import {
   fieldChanges,
   fieldErrors,
   fieldsDraftOf,
-  type FieldsDraft,
+  type FieldsDraft as FieldValuesDraft,
 } from './fieldValues';
 import type { RefusalField } from './refusals';
 import { descriptionError, titleError } from './rules';
+
+/** A scenario item of the acceptance criteria draft */
+export interface DraftCriterion {
+  id: string;
+  given: string;
+  when: string;
+  then: string;
+}
+
+/**
+ * What the form edits for the fields per type.
+ * acceptanceCriteria holds structured DraftCriterion items for User Story.
+ */
+export type FieldsDraft = {
+  [K in Exclude<WorkItemFieldName, 'acceptanceCriteria'>]: string;
+} & {
+  acceptanceCriteria: DraftCriterion[];
+};
+
+let criterionIdCounter = 0;
+
+export function createCriterionDraft(
+  criterion?: Partial<AcceptanceCriterion>,
+  id?: string,
+): DraftCriterion {
+  criterionIdCounter += 1;
+  const unique =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2, 9);
+  return {
+    id: id ?? `ac-${criterionIdCounter}-${unique}`,
+    given: criterion?.given ?? '',
+    when: criterion?.when ?? '',
+    then: criterion?.then ?? '',
+  };
+}
 
 /**
  * What the form edits (spec § Page: a work item's form): the six values, as
@@ -35,6 +74,12 @@ export interface WorkItemDraft {
 
 /** The form's values as the item was loaded or last saved. */
 export function draftOf(item: WorkItem): WorkItemDraft {
+  const baseFields = fieldsDraftOf(item);
+  const prefix = item.identifier || item.id || 'item';
+  const acceptanceCriteria: DraftCriterion[] = (item.acceptanceCriteria ?? []).map((c, index) =>
+    createCriterionDraft(c, `${prefix}-ac-${index}`),
+  );
+
   return {
     title: item.title,
     description: item.description,
@@ -42,7 +87,10 @@ export function draftOf(item: WorkItem): WorkItemDraft {
     assignee: item.assignee,
     area: item.area,
     parent: item.parent,
-    fields: fieldsDraftOf(item),
+    fields: {
+      ...(baseFields as unknown as Record<string, string>),
+      acceptanceCriteria,
+    } as FieldsDraft,
   };
 }
 
@@ -58,6 +106,31 @@ function comparable(
     area: draft.area.id,
     parent: draft.parent?.id ?? null,
   };
+}
+
+/**
+ * The save's body: exactly the fields whose value differs from the loaded one
+ * (BR-M3-25; api-contract § 2.4), so a field the user did not change keeps
+ * whatever is stored when the save lands. A value changed and changed back is
+ * no change; the current state picked again is no change (US-5). The parent
+ * likewise (feat-001 § 3.3): sent only when another one, or none, is chosen,
+ * with the loaded parent as the one the user saw (BR-H-4).
+ */
+export function criteriaDiffer(
+  stored: readonly AcceptanceCriterion[] | null,
+  draftCriteria: readonly DraftCriterion[],
+): boolean {
+  const original = stored ?? [];
+  if (draftCriteria.length !== original.length) {
+    return true;
+  }
+  return draftCriteria.some((c, i) => {
+    const o = original[i];
+    if (!o) {
+      return true;
+    }
+    return c.given !== o.given || c.when !== o.when || c.then !== o.then;
+  });
 }
 
 /**
@@ -94,7 +167,21 @@ export function changesOf(item: WorkItem, draft: WorkItemDraft): SaveWorkItemBod
     body.parent = { parentId, seenParentId };
   }
   // feat-022 § 3.2: the type's fields that changed, by the same rule.
-  return { ...body, ...fieldChanges(item, draft.fields) };
+  const fields = fieldChanges(item, draft.fields as unknown as FieldValuesDraft);
+
+  const isStory =
+    item.type.appearance === 'story' ||
+    item.type.key === 'US' ||
+    (item as { typeKey?: string }).typeKey === 'US';
+  if (isStory && criteriaDiffer(item.acceptanceCriteria, draft.fields.acceptanceCriteria)) {
+    body.acceptanceCriteria = draft.fields.acceptanceCriteria.map(({ given, when, then }) => ({
+      given,
+      when,
+      then,
+    }));
+  }
+
+  return { ...body, ...fields };
 }
 
 /** Whether a save body carries anything. */
@@ -109,7 +196,19 @@ export function hasChanges(body: SaveWorkItemBody): boolean {
  * so its check can speak.
  */
 export function isDirty(item: WorkItem, draft: WorkItemDraft): boolean {
-  return hasChanges(changesOf(item, draft)) || changedFields(item, draft.fields).length > 0;
+  const isStory =
+    item.type.appearance === 'story' ||
+    item.type.key === 'US' ||
+    (item as { typeKey?: string }).typeKey === 'US';
+  const criteriaChanged =
+    isStory && criteriaDiffer(item.acceptanceCriteria, draft.fields.acceptanceCriteria);
+
+  const otherFieldsChanged =
+    changedFields(item, draft.fields as unknown as FieldValuesDraft).filter(
+      (name) => name !== 'acceptanceCriteria',
+    ).length > 0;
+
+  return hasChanges(changesOf(item, draft)) || criteriaChanged || otherFieldsChanged;
 }
 
 /**
@@ -131,7 +230,7 @@ export function draftErrors(
   if (description) {
     errors.description = description;
   }
-  return { ...errors, ...fieldErrors(item, draft.fields) };
+  return { ...errors, ...fieldErrors(item, draft.fields as unknown as FieldValuesDraft) };
 }
 
 /**
@@ -152,8 +251,15 @@ export function rebaseDraft(
   const next = draftOf(fresh);
   const fields = { ...next.fields };
   for (const name of WORK_ITEM_FIELD_NAMES) {
-    if (draft.fields[name] !== loadedDraft.fields[name]) {
-      fields[name] = draft.fields[name];
+    if (name === 'acceptanceCriteria') {
+      if (criteriaDiffer(loaded.acceptanceCriteria, draft.fields.acceptanceCriteria)) {
+        fields.acceptanceCriteria = draft.fields.acceptanceCriteria;
+      }
+    } else {
+      const fieldKey = name as Exclude<WorkItemFieldName, 'acceptanceCriteria'>;
+      if (draft.fields[fieldKey] !== loadedDraft.fields[fieldKey]) {
+        fields[fieldKey] = draft.fields[fieldKey];
+      }
     }
   }
   return {

@@ -43,13 +43,6 @@ export interface WorkItemAssignee {
   id: string;
   displayName: string | null;
   email: string | null;
-  /**
-   * mod-016 api-contract § 3.3: the assignee is a member of the item's organization
-   * now (any role; the flag reads the membership alone, BR-M1-32). Typed and not
-   * shown: the marks «неактивен» and «не в организации» are feat-017's (D-4), and
-   * until it ships an ex-member assignee reads like any other. Absent on a
-   * candidate of the picker's search, which is members only.
-   */
   isMember?: boolean;
 }
 
@@ -79,6 +72,12 @@ export interface WorkItemRef {
  * `""` when empty, any other field is `null` when empty. Numbers come in their
  * shortest form, dates as `YYYY-MM-DD`, list values as their Latin keys.
  */
+export interface AcceptanceCriterion {
+  given: string;
+  when: string;
+  then: string;
+}
+
 export interface WorkItemFields {
   /** 1..4, 1 the highest; every type has it. */
   priority: number;
@@ -100,7 +99,7 @@ export interface WorkItemFields {
   completedWork: number | null;
   /** `Business` or `Architectural`. */
   valueArea: string | null;
-  acceptanceCriteria: string | null;
+  acceptanceCriteria: AcceptanceCriterion[] | null;
   reproSteps: string | null;
   systemInfo: string | null;
 }
@@ -199,17 +198,22 @@ export interface FieldValue<T> {
   value: T | null;
 }
 
-/** feat-022 § 3.2: the three type texts, sent as strings — `""` empties one. */
-export type WorkItemTextFieldName = 'acceptanceCriteria' | 'reproSteps' | 'systemInfo';
+/** feat-022 § 3.2: the two type texts, sent as strings — `""` empties one. */
+export type WorkItemTextFieldName = 'reproSteps' | 'systemInfo';
 
-/** feat-022 § 3.2: every other field of § 1, sent in a `{ value }` wrapper. */
-export type WorkItemValueFieldName = Exclude<WorkItemFieldName, WorkItemTextFieldName>;
+/** feat-022 § 3.2: every other field of § 1, sent in a `{ value }` wrapper, except acceptanceCriteria. */
+export type WorkItemValueFieldName = Exclude<
+  WorkItemFieldName,
+  WorkItemTextFieldName | 'acceptanceCriteria'
+>;
 
 /** feat-022 § 3.2's 17 optional members: absent leaves the field unchanged. */
 export type SaveFieldsBody = {
   [Name in WorkItemValueFieldName]?: FieldValue<NonNullable<WorkItemFields[Name]>>;
 } & {
   [Name in WorkItemTextFieldName]?: string;
+} & {
+  acceptanceCriteria?: AcceptanceCriterion[];
 };
 
 /**
@@ -225,6 +229,7 @@ export interface SaveWorkItemBody extends SaveFieldsBody {
   assignee?: { userId: string | null };
   areaId?: string;
   parent?: ParentChange;
+  acceptanceCriteria?: AcceptanceCriterion[];
 }
 
 /** feat-001 § 3.2's answer: the item's parent as stored after the write, `null` for none. */

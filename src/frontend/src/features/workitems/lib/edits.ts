@@ -13,8 +13,16 @@ import type {
   WorkItemFieldName,
   WorkItemRef,
 } from '../api/workItemsApi';
-import { changesOf, draftOf, isDirty, type WorkItemDraft } from './draft';
-import { fieldsDraftOf, type FieldsDraft } from './fieldValues';
+import {
+  changesOf,
+  criteriaDiffer,
+  draftOf,
+  isDirty,
+  type DraftCriterion,
+  type FieldsDraft,
+  type WorkItemDraft,
+} from './draft';
+import { fieldsDraftOf } from './fieldValues';
 import { WORK_ITEM_FIELD_NAMES, layoutOf } from './fields';
 import type { RefusalField } from './refusals';
 
@@ -50,7 +58,8 @@ export type Edit =
   | { field: 'assignee'; value: WorkItemAssignee | null }
   | { field: 'area'; value: WorkItemArea }
   | { field: 'parent'; value: WorkItemRef | null }
-  | { field: WorkItemFieldName; value: string };
+  | { field: 'acceptanceCriteria'; value: DraftCriterion[] }
+  | { field: Exclude<WorkItemFieldName, 'acceptanceCriteria'>; value: string };
 
 export const NO_EDITS: WorkItemEdits = {};
 
@@ -110,7 +119,7 @@ function put<K extends keyof WorkItemEdits>(
 function putField(
   item: WorkItem,
   edits: WorkItemEdits,
-  name: WorkItemFieldName,
+  name: Exclude<WorkItemFieldName, 'acceptanceCriteria'>,
   value: string,
 ): WorkItemEdits {
   const fields = { ...edits.fields };
@@ -154,6 +163,16 @@ export function withEdit(item: WorkItem, edits: WorkItemEdits, edit: Edit): Work
         (edit.value?.id ?? null) !== (stored.parent?.id ?? null),
       );
     }
+    case 'acceptanceCriteria': {
+      const differ = criteriaDiffer(item.acceptanceCriteria, edit.value);
+      const fields = { ...edits.fields };
+      if (differ) {
+        fields.acceptanceCriteria = edit.value;
+      } else {
+        delete fields.acceptanceCriteria;
+      }
+      return put(edits, 'fields', fields, Object.keys(fields).length > 0);
+    }
     default:
       return putField(item, edits, edit.field, edit.value);
   }
@@ -171,8 +190,13 @@ export function normaliseEdits(item: WorkItem, edits: WorkItemEdits): WorkItemEd
   if (edits.assignee !== undefined) apply({ field: 'assignee', value: edits.assignee });
   if (edits.area !== undefined) apply({ field: 'area', value: edits.area });
   for (const name of WORK_ITEM_FIELD_NAMES) {
-    const value = edits.fields?.[name];
-    if (value !== undefined) apply({ field: name, value });
+    if (name === 'acceptanceCriteria') {
+      const criteria = edits.fields?.acceptanceCriteria;
+      if (criteria !== undefined) apply({ field: 'acceptanceCriteria', value: criteria });
+    } else {
+      const value = edits.fields?.[name];
+      if (value !== undefined) apply({ field: name, value });
+    }
   }
   if (
     edits.parent !== undefined &&
@@ -212,6 +236,7 @@ export function cardFieldOrder(appearance: string): readonly RefusalField[] {
     'state',
     'area',
     'description',
+    ...(layout.isStory ? (['acceptanceCriteria'] as const) : []),
     ...layout.texts,
     ...layout.sections.flatMap((section) => section.fields),
     'parent',

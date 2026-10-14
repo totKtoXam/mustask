@@ -4,6 +4,7 @@ import type {
   WorkItemFieldName,
   WorkItemRef,
 } from '../api/workItemsApi';
+import type { DraftCriterion } from './draft';
 import type { Edit } from './edits';
 import { WORK_ITEM_FIELD_NAMES } from './fields';
 
@@ -21,13 +22,19 @@ export interface EditHandlers {
   assignee: (assignee: WorkItemAssignee | null) => void;
   area: (area: WorkItemArea) => void;
   parent: (parent: WorkItemRef | null) => void;
+  acceptanceCriteria: (criteria: DraftCriterion[]) => void;
   /** feat-022's fields per type, as their controls hold them. */
   field: Readonly<Record<WorkItemFieldName, (value: string) => void>>;
 }
 
 export function editHandlers(change: (edit: Edit) => void): EditHandlers {
   const field = Object.fromEntries(
-    WORK_ITEM_FIELD_NAMES.map((name) => [name, (value: string) => change({ field: name, value })]),
+    WORK_ITEM_FIELD_NAMES.map((name) => [
+      name,
+      name === 'acceptanceCriteria'
+        ? (_value: string) => {}
+        : (value: string) => change({ field: name, value }),
+    ]),
   ) as Record<WorkItemFieldName, (value: string) => void>;
   return {
     title: (value) => change({ field: 'title', value }),
@@ -36,6 +43,7 @@ export function editHandlers(change: (edit: Edit) => void): EditHandlers {
     assignee: (value) => change({ field: 'assignee', value }),
     area: (value) => change({ field: 'area', value }),
     parent: (value) => change({ field: 'parent', value }),
+    acceptanceCriteria: (criteria) => change({ field: 'acceptanceCriteria', value: criteria }),
     field,
   };
 }

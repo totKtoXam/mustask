@@ -104,6 +104,37 @@ public static class WorkItemFieldRules
         return value.Length > TextMaxLength ? WorkItemErrorCodes.TextTooLong : null;
     }
 
+    /// <summary>Validates each scenario in the acceptance criteria list (R1).</summary>
+    public static string? ValidateAcceptanceCriteria(IReadOnlyList<AcceptanceCriterion> criteria)
+    {
+        ArgumentNullException.ThrowIfNull(criteria);
+
+        foreach (var criterion in criteria)
+        {
+            if (criterion is null)
+            {
+                continue;
+            }
+
+            if (ValidateText(criterion.Given) is { } givenCode)
+            {
+                return givenCode;
+            }
+
+            if (ValidateText(criterion.When) is { } whenCode)
+            {
+                return whenCode;
+            }
+
+            if (ValidateText(criterion.Then) is { } thenCode)
+            {
+                return thenCode;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>A «Вид работ» key, exactly as § The field table spells it, or <c>null</c>.</summary>
     public static WorkItemActivity? ParseActivity(string key) => Parse<WorkItemActivity>(key);
 

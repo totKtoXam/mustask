@@ -38,7 +38,7 @@ const SECTIONS: Record<
   },
   'Пользовательская история': {
     Описание: { textbox: ['Описание'] },
-    'Критерии приёмки': { textbox: ['Критерии приёмки'] },
+    'Критерии приёмки': {},
     Планирование: { textbox: ['Оценка в пунктах'], combobox: ['Приоритет', 'Риск'] },
     Классификация: { combobox: ['Вид ценности'] },
   },
@@ -190,10 +190,9 @@ describe('feat-029 US-3: each type has its sections', () => {
     expect(description).toHaveLength(1);
     expect(description[0]).toHaveAttribute('placeholder', 'Добавьте описание');
     expect(description[0]).toHaveAccessibleDescription('До 100 000 символов');
-    expect(screen.getByRole('textbox', { name: 'Критерии приёмки' })).toHaveAttribute(
-      'placeholder',
-      'Опишите, по каким признакам история считается готовой',
-    );
+    expect(region('Критерии приёмки')).toBeInTheDocument();
+    expect(screen.getByText('Критерии приёмки не заданы.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Добавить критерий' })).toBeInTheDocument();
   });
 
   it('keeps the fields’ hints in their descriptions and their placeholders as attributes', async () => {

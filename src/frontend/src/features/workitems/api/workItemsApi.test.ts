@@ -147,10 +147,18 @@ describe('the fields per type (feat-022 api-contract § 2, § 3.2)', () => {
     const data = hierarchyDataset();
     const api = serveWorkItems(data);
 
+    const criteria = [
+      {
+        given: 'пользователь на странице входа',
+        when: 'вводит пароль',
+        then: 'происходит перенаправление в личный кабинет',
+      },
+    ];
+
     const saved = await saveWorkItem(ORG, MSK, 'MSK-US-2', {
       storyPoints: { value: 5 },
       risk: { value: 2 },
-      acceptanceCriteria: 'Вход без пароля',
+      acceptanceCriteria: criteria,
     });
 
     expect(api.writes()).toEqual([
@@ -160,11 +168,11 @@ describe('the fields per type (feat-022 api-contract § 2, § 3.2)', () => {
         body: {
           storyPoints: { value: 5 },
           risk: { value: 2 },
-          acceptanceCriteria: 'Вход без пароля',
+          acceptanceCriteria: criteria,
         },
       },
     ]);
-    expect(saved).toMatchObject({ storyPoints: 5, risk: 2, acceptanceCriteria: 'Вход без пароля' });
+    expect(saved).toMatchObject({ storyPoints: 5, risk: 2, acceptanceCriteria: criteria });
     expect(recordOf(data, 2).fields.storyPoints).toBe(5);
   });
 

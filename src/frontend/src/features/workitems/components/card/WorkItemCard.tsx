@@ -29,6 +29,7 @@ import type { WorkItemsNotFoundLevel } from '../../lib/notFoundLevel';
 import { allowedParentTypes, editableStates, parentHelperText, typeById } from '../../lib/process';
 import type { RefusalField } from '../../lib/refusals';
 import { workItemPath } from '../../paths';
+import { AcceptanceCriteriaSection } from '../AcceptanceCriteriaSection';
 import { AreaField } from './AreaField';
 import { AssigneeField } from './AssigneeField';
 import { CardActions } from './CardActions';
@@ -210,6 +211,12 @@ export function WorkItemCard({
       ? { severity: 'info', text: readOnlyText }
       : null;
 
+  const isStory =
+    layout.isStory ||
+    item.type.appearance === 'story' ||
+    item.type.key === 'US' ||
+    (item as { typeKey?: string }).typeKey === 'US';
+
   const main: CardColumnItem[] = [
     {
       key: 'description',
@@ -225,6 +232,23 @@ export function WorkItemCard({
         />
       ),
     },
+    ...(isStory
+      ? [
+          {
+            key: 'acceptanceCriteria',
+            title: 'Критерии приёмки',
+            content: (
+              <AcceptanceCriteriaSection
+                criteria={draft.fields.acceptanceCriteria}
+                disabled={common.busy}
+                readOnly={common.readOnly}
+                errors={errors}
+                onChange={on.acceptanceCriteria}
+              />
+            ),
+          },
+        ]
+      : []),
     ...layout.texts.map((name): CardColumnItem => ({
       key: name,
       title: TEXT_FIELDS[name].label,

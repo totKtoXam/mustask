@@ -90,7 +90,7 @@ describe('feat-029 BR-C-18: the places kept', () => {
     const detailsTab = screen.getByRole('tab', { name: cardTexts.tabs.details });
     const historyTab = screen.getByRole('tab', { name: 'История' });
     const related = screen.getByRole('region', { name: cardTexts.relatedWork });
-    const lastText = screen.getByRole('textbox', { name: 'Критерии приёмки' });
+    const lastText = screen.getByRole('region', { name: 'Критерии приёмки' });
 
     // Header row 3: the assignee, the comments count, the tags; then «Следить» before the Save group.
     expect(follows(probe(PROBES.commentsCount), assignee)).toBe(true);

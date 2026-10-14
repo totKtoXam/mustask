@@ -30,13 +30,12 @@ describe('feat-029 D-4: the card’s texts', () => {
     render(
       <>
         <TextBlock name="description" value="" {...common} />
-        <TextBlock name="acceptanceCriteria" value="" {...common} />
         <TextBlock name="reproSteps" value="" {...common} />
         <TextBlock name="systemInfo" value="" {...common} />
       </>,
     );
 
-    expect(seen.areas.map((props) => props.minRows)).toEqual([2, 2, 2, 2]);
+    expect(seen.areas.map((props) => props.minRows)).toEqual([2, 2, 2]);
   });
 
   it('are named by their head: the label is the head’s text and is not drawn', () => {

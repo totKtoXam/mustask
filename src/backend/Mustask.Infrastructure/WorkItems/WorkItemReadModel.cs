@@ -265,7 +265,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             RemainingWork = Shortest(fields.RemainingWork),
             CompletedWork = Shortest(fields.CompletedWork),
             ValueArea = fields.ValueArea?.ToString(),
-            AcceptanceCriteria = fields.AcceptanceCriteria,
+            AcceptanceCriteria = fields.AcceptanceCriteria?.Select(c => new AcceptanceCriterionView(c.Given, c.When, c.Then)).ToList(),
             ReproSteps = fields.ReproSteps,
             SystemInfo = fields.SystemInfo,
         };
@@ -371,7 +371,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         decimal? RemainingWork,
         decimal? CompletedWork,
         WorkItemValueArea? ValueArea,
-        string? AcceptanceCriteria,
+        IReadOnlyList<AcceptanceCriterion>? AcceptanceCriteria,
         string? ReproSteps,
         string? SystemInfo);
 }
