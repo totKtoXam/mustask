@@ -10,7 +10,7 @@
 
 ## Gates
 
-gate-3: approved
+gate-3: approved · PR #1 https://github.com/totKtoXam/mustask/pull/1
 
 ## Plan
 
@@ -44,6 +44,8 @@ gate-3: approved
 - 2026-10-15 [E2E] Human selected no browser E2E for tech-032. No browser E2E, application stand or desktop relocation was run; actual session transfer remains a manual check.
 
 - 2026-10-15 [gate-3] Human explicitly approved in chat. Marked complete for the PR squash; publication follows, merge remains human-owned.
+
+- 2026-10-15 [PR] Opened https://github.com/totKtoXam/mustask/pull/1 against main after green pre-push verification. Squash merge is available; automatic branch deletion is disabled. Awaiting human merge.
 
 ## Notes
 
