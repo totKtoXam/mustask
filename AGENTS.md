@@ -60,6 +60,18 @@ read it before your first task. In short:
 - Tests are written together with the code; an MR with failing tests is not
   opened.
 - Secrets — only through environment variables / user secrets, never in code.
+- **Bind the actual agent session before task work.** After `new-task` creates
+  a worktree, bind the session itself to that worktree before implementation,
+  QA, review or subagent delegation. From the bound session, show its
+  host/project root plus `git rev-parse --show-toplevel` and
+  `git branch --show-current`; all must identify the task worktree and branch.
+  A shell `cd`, `git -C` or a command-specific `workdir` does not move an
+  existing desktop session. Where the vendor surfaces an IDE/Open target, it
+  must point at the task worktree. Use native current-session relocation only
+  when this session supports it and its confirmation is available. Otherwise
+  keep the worktree, branch and files, prepare an interactive handoff, and
+  stop the original session for the human to transfer; do not substitute an
+  unattended or background session. See `docs/ai-workflow/handoff.md`.
 - If you started a background process — an application, a search, anything —
   either finish with it and stop it yourself, or list it explicitly in your
   answer: what exactly is running, on which URL/port (for applications, take

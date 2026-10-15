@@ -126,44 +126,31 @@ that never gets as far as titling itself.
 
 ## Vendors
 
-Both CLIs group sessions by working directory. "The same project" is
-therefore the `cd` in the printed command — there is no grouping API, and the
-script does not pretend there is.
+The command directory can choose where a **new** CLI session starts. It does
+not relocate an existing desktop session. After `new-task`, the session doing
+the work must be bound to the existing task worktree and prove its
+host/project root, Git toplevel and branch there. A shell `cd`, `git -C` or a
+tool-local workdir is insufficient; an IDE/Open target, when surfaced, must
+also identify that worktree.
 
 | Situation | Claude Code | Codex |
 |---|---|---|
 | Task not started yet | a background task chip — the app spawns the session with its own worktree, which is right, because the new session creates the branch itself | `codex "$(cat <prompt>)"` from the main worktree |
-| Task already started | a background task chip as well — **remove the task's worktree first**, then the chip's fresh worktree checks the branch out. Fallback: `claude -n '<id>' "$(cat <prompt>)"` **from the task's worktree** | the same, `codex` |
+| Task already started | use a confirmed native relocation of the current session when available; otherwise the human starts an ordinary interactive session in the existing task worktree | the same; `codex "$(cat <prompt>)"` starts the replacement from the existing task worktree |
 
-A task chip creates its own fresh worktree on a `claude/*` branch. For a task
-that has not started that is exactly right: the new session runs
-`scripts/new-task.sh` inside it and makes the proper branch. For a task
-already in flight the branch and all its commits exist already, and only one
-worktree may hold a branch at a time — so the task's worktree goes first:
+For a started task, reuse its task worktree, branch, dirty and ignored files.
+Do not remove or recreate the worktree just to bind a session, and do not run
+`new-task.sh` again. A vendor operation that can move another thread, register
+a managed checkout, or set a command directory is not proof that the current
+session relocated. Use native relocation only if it is supported for the
+current session and reports confirmation.
 
-```sh
-git worktree remove <path>
-```
-
-The branch keeps every commit; a worktree is a checkout, not the history. The
-chip's fresh worktree then switches onto that branch, which is why the prompt
-for a started task tells the new session to `git switch <branch>` first and
-**not** to run `new-task.sh` again — the branch, the folder and the queue line
-exist.
-
-On Windows that remove can report `Permission denied` and still have done most
-of the job. Measured 2026-09-15: git had deregistered the worktree and emptied
-the directory, and only the now-empty folder stayed behind, on which `rmdir`
-then reported `Device or resource busy`. So after a failed remove check `git
-worktree list` and `git branch -v` instead of trusting the exit code — the
-branch may already be free, and the chip then safe to click. Clear the
-leftover directory when you can: it will block a later `scripts/new-task.sh`
-for the same slug.
-
-The printed `claude -n '<id>' "$(cat <prompt>)"` command is the fallback, not
-the default — for when no chip is available (another vendor, a session without
-the tool) or when the human would rather start the session in a terminal. It
-runs from the task's worktree, so it is the one route that keeps it.
+When native relocation is unavailable, the original session writes or checks
+the handoff prompt, stops work, and the human starts the interactive
+replacement from the existing task worktree. The replacement confirms its
+host/project root, Git toplevel and branch before it resumes. This retains the
+human at every gate; it does not authorize an unattended or background
+replacement.
 
 If the vendor's CLI is not installed, the script says so and prints what to
 install instead of a command it knows will fail. It does not install

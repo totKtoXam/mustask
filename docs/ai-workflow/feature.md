@@ -52,7 +52,18 @@ a subagent, and that file is the only place the boundary is drawn.
    queue line in `main` literally (outside the queue — only `hot`), claims the
    work by creating the branch, creates the worktree and `status.md`; a taken
    branch = the task has already been taken, take the next line.
-5. Write the confirmed classification and the grounds for the size into
+5. Bind the **actual agent session** to the new task worktree before any
+   implementation, QA, review or subagent delegation. From that bound session
+   confirm the host/project root, `git rev-parse --show-toplevel`, and
+   `git branch --show-current` against the task worktree and branch. A shell
+   `cd`, `git -C` or a command-specific `workdir` is not evidence that an
+   existing desktop session moved; any vendor IDE/Open target must name the
+   task worktree too. Native relocation is valid only when this session
+   supports it and confirms the result. If it is unavailable, preserve the
+   checkout and use the human-visible interactive handoff in `handoff.md`,
+   then stop the original session for transfer. Do not create an unattended
+   replacement.
+6. Write the confirmed classification and the grounds for the size into
    `## Log`, remove the line of the taken task with `scripts/queue.sh take
    <short-id>` — it refuses while no branch holds the number — as a separate
    commit into `main` that changes only `docs/backlog.md`, then run all the
@@ -92,6 +103,9 @@ from `routing.md`.
 
 ## Context isolation and file ownership
 
+- Session binding is a startup condition for every implementation, QA, review
+  or delegation run. The session must be bound and confirmed before the run;
+  a tool-local directory setting cannot satisfy this condition.
 - Every stage is performed by a fresh session or subagent. QA and review are
   never performed by the author of the artifact under check.
 - **A task boundary is where a session may end**, and often should. Review,

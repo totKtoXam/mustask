@@ -322,13 +322,20 @@ ${summary:+Summary (from the queue line or an argument): $summary}
 STATUS
 
 printf '\nDone. Next:\n'
-printf '  1. Open an agent session with working directory %s\n' "$worktree"
-printf '  2. Review and commit docs/features/%s/status.md (on the task branch)\n' "$id"
+printf '  1. Bind the actual agent session to %s before any task work.\n' "$worktree"
+printf '     This script cannot rebind its parent session.\n'
+printf '  2. In the bound session, confirm its host/project root plus\n'
+printf '     git rev-parse --show-toplevel and git branch --show-current.\n'
+printf '     They must identify this worktree and %s.\n' "$branch"
+printf '  3. A shell cd or command-specific workdir is insufficient. If native\n'
+printf '     relocation is unavailable, prepare an interactive human handoff from\n'
+printf '     this worktree and stop the original session before continuing.\n'
+printf '  4. Review and commit docs/features/%s/status.md (on the task branch)\n' "$id"
 if [ "$prefix" = 'hot' ]; then
-    printf '  3. This task is outside the queue: ask the orchestrator to reflect it in\n'
+    printf '  5. This task is outside the queue: ask the orchestrator to reflect it in\n'
     printf '     the main queue after the fact\n'
 else
-    printf '  3. The orchestrator removes the task line from the queue with a separate\n'
+    printf '  5. The orchestrator removes the task line from the queue with a separate\n'
     printf '     commit to main that changes only docs/backlog.md — remind them\n'
 fi
-printf '  4. When done: git worktree remove %s\n\n' "$worktree"
+printf '  6. When done: git worktree remove %s\n\n' "$worktree"
