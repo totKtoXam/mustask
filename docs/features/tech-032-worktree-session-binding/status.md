@@ -47,6 +47,8 @@ gate-3: approved · PR #1 https://github.com/totKtoXam/mustask/pull/1
 
 - 2026-10-15 [PR] Opened https://github.com/totKtoXam/mustask/pull/1 against main after green pre-push verification. Squash merge is available; automatic branch deletion is disabled. Awaiting human merge.
 
+- 2026-10-15 [CI correction] Linux CI exposed missing executable modes for scripts/handoff.sh and scripts/new-task.sh (100644); Windows local -x checks had passed. Corrected the Git index modes to 100755; script contents are unchanged.
+
 ## Notes
 
 Summary (from the queue line or an argument): Bind agent sessions to the task worktree after new-task
