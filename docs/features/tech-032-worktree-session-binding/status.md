@@ -3,14 +3,14 @@
 - type: tech
 - size: S
 - branch: tech/032-worktree-session-binding
-- stage: gate-3
+- stage: complete
 - epic: workflow
 - deps: -
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved
 
 ## Plan
 
@@ -42,6 +42,8 @@ gate-3: pending
 
 - 2026-10-15 [review delta] APPROVE: F1/F2 closed, no open blocker/major/minor findings. QA round-1 report is retained as history; prose/output-only corrections were checked by the reviewer delta. Gate-3 remains pending; no PR opened.
 - 2026-10-15 [E2E] Human selected no browser E2E for tech-032. No browser E2E, application stand or desktop relocation was run; actual session transfer remains a manual check.
+
+- 2026-10-15 [gate-3] Human explicitly approved in chat. Marked complete for the PR squash; publication follows, merge remains human-owned.
 
 ## Notes
 
