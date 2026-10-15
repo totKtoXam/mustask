@@ -55,9 +55,22 @@ a subagent, and that file is the only place the boundary is drawn.
 5. Write the confirmed classification and the grounds for the size into
    `## Log`, remove the line of the taken task with `scripts/queue.sh take
    <short-id>` — it refuses while no branch holds the number — as a separate
-   commit into `main` that changes only `docs/backlog.md`, then run all the
-   work in the task worktree. `main` stays the hub and is not otherwise
-   edited.
+   commit into `main` that changes only `docs/backlog.md`. `main` stays the
+   hub and is not otherwise edited.
+6. Bind the **actual agent session** to the checkout assigned to its run
+   before implementation, QA, review or subagent delegation. An
+   implementation or orchestrator run uses the task worktree and confirms its
+   task branch with `git branch --show-current`; a permitted detached QA/review
+   run uses its own checkout and confirms `git rev-parse HEAD` is the expected
+   task commit. From every bound session, confirm the host/project root and
+   `git rev-parse --show-toplevel`. A shell
+   `cd`, `git -C` or a command-specific `workdir` is not evidence that an
+   existing desktop session moved; any vendor IDE/Open target must name the
+   assigned checkout. Native relocation is valid only when this session
+   supports it and confirms the result. If it is unavailable, preserve the
+   checkout and use the human-visible interactive handoff in `handoff.md`,
+   then stop the original session for transfer. Do not create an unattended
+   replacement.
 
 ## Route
 
@@ -92,6 +105,12 @@ from `routing.md`.
 
 ## Context isolation and file ownership
 
+- Session binding is a startup condition for every implementation, QA, review
+  or delegation run. Implementation/orchestrator work is bound to the task
+  worktree and verifies its branch with `git branch --show-current`; permitted
+  detached QA/review work is bound to its own checkout and verifies `git
+  rev-parse HEAD` against the expected task commit.
+  A tool-local directory setting cannot satisfy this condition.
 - Every stage is performed by a fresh session or subagent. QA and review are
   never performed by the author of the artifact under check.
 - **A task boundary is where a session may end**, and often should. Review,

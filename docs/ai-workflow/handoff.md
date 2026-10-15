@@ -126,44 +126,34 @@ that never gets as far as titling itself.
 
 ## Vendors
 
-Both CLIs group sessions by working directory. "The same project" is
-therefore the `cd` in the printed command — there is no grouping API, and the
-script does not pretend there is.
+The command directory can choose where a **new** CLI session starts. It does
+not relocate an existing desktop session. An implementation or orchestrator
+session binds to the task worktree and verifies its branch with `git branch
+--show-current`; a permitted detached QA/review session binds to its own
+checkout and verifies `git rev-parse HEAD` against the expected task commit.
+Every session proves its host/project root and Git toplevel. A shell `cd`,
+`git -C` or a tool-local workdir is insufficient; an
+IDE/Open target, when surfaced, must also identify the assigned checkout.
 
 | Situation | Claude Code | Codex |
 |---|---|---|
 | Task not started yet | a background task chip — the app spawns the session with its own worktree, which is right, because the new session creates the branch itself | `codex "$(cat <prompt>)"` from the main worktree |
-| Task already started | a background task chip as well — **remove the task's worktree first**, then the chip's fresh worktree checks the branch out. Fallback: `claude -n '<id>' "$(cat <prompt>)"` **from the task's worktree** | the same, `codex` |
+| Task already started | use a confirmed native relocation of the current session when available; otherwise the human starts an ordinary interactive session in the existing task worktree | the same; `codex "$(cat <prompt>)"` starts the replacement from the existing task worktree |
 
-A task chip creates its own fresh worktree on a `claude/*` branch. For a task
-that has not started that is exactly right: the new session runs
-`scripts/new-task.sh` inside it and makes the proper branch. For a task
-already in flight the branch and all its commits exist already, and only one
-worktree may hold a branch at a time — so the task's worktree goes first:
+For a started task, reuse its task worktree, branch, dirty and ignored files.
+Do not remove or recreate the worktree just to bind a session, and do not run
+`new-task.sh` again. A vendor operation that can move another thread, register
+a managed checkout, or set a command directory is not proof that the current
+session relocated. Use native relocation only if it is supported for the
+current session and reports confirmation.
 
-```sh
-git worktree remove <path>
-```
-
-The branch keeps every commit; a worktree is a checkout, not the history. The
-chip's fresh worktree then switches onto that branch, which is why the prompt
-for a started task tells the new session to `git switch <branch>` first and
-**not** to run `new-task.sh` again — the branch, the folder and the queue line
-exist.
-
-On Windows that remove can report `Permission denied` and still have done most
-of the job. Measured 2026-09-15: git had deregistered the worktree and emptied
-the directory, and only the now-empty folder stayed behind, on which `rmdir`
-then reported `Device or resource busy`. So after a failed remove check `git
-worktree list` and `git branch -v` instead of trusting the exit code — the
-branch may already be free, and the chip then safe to click. Clear the
-leftover directory when you can: it will block a later `scripts/new-task.sh`
-for the same slug.
-
-The printed `claude -n '<id>' "$(cat <prompt>)"` command is the fallback, not
-the default — for when no chip is available (another vendor, a session without
-the tool) or when the human would rather start the session in a terminal. It
-runs from the task's worktree, so it is the one route that keeps it.
+When native relocation is unavailable, the original session writes or checks
+the handoff prompt, stops work, and the human starts the interactive
+replacement from the assigned checkout. The replacement confirms its
+host/project root and Git toplevel; an implementation/orchestrator run also
+confirms the task branch, while detached QA/review confirms HEAD at the
+expected task commit. This retains the human at every gate; it does not
+authorize an unattended or background replacement.
 
 If the vendor's CLI is not installed, the script says so and prints what to
 install instead of a command it knows will fail. It does not install
@@ -177,15 +167,13 @@ gates. Where a run genuinely needs no human, the answer is the
 [stages/00-orchestrator.md](stages/00-orchestrator.md), which is cheaper than
 a whole process that re-reads `AGENTS.md` from scratch.
 
-A task chip is not one of those three, and the line between them is whether a
-human is in the loop — not whether an agent initiated the run. The human
-clicks the chip; it opens an ordinary session in the sidebar; that session
-asks its own questions and waits for its own gate-3, with someone there to
-answer. The three above have nobody to answer them at all. This is also why
-the handing-off session cannot just start the next one itself: an
+A human-delivered interactive session is distinct from the unattended forms
+above. A task chip can be such delivery for a queued task; for a started task,
+the human starts or relocates an ordinary session at the existing task
+worktree. That session asks its own questions and waits for its own gate-3.
+This is why the handing-off session cannot start the next one itself: an
 `AskUserQuestion` form only asks, and a `claude` process started from a tool
-call has no terminal and never appears in the sidebar. The chip is the one
-delivery that keeps a human between the prompt and the session.
+call has no terminal and never appears in the sidebar.
 
 ## Archiving the old session
 
