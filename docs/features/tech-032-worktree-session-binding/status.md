@@ -3,7 +3,7 @@
 - type: tech
 - size: S
 - branch: tech/032-worktree-session-binding
-- stage: 06-code-review
+- stage: gate-3
 - epic: workflow
 - deps: -
 - gates: gate-3
@@ -38,6 +38,9 @@ gate-3: pending
 - 2026-10-15 [QA/review round 1] Two majors returned to implementation: detached QA/review checkout proof and queue bookkeeping before unsupported-relocation handoff. Findings are in qa.md and review.md; corrections stay within the five workflow files.
 
 - 2026-10-15 [fix round 1] Binding proof now supports the documented detached QA/review checkout at the expected task commit. Startup Log and queue take precede a possible session transfer. Proportional verify.ps1 passed after script edits; final branch-confirmation wording received git diff --check and reviewer delta instead of a duplicate suite. QA is not repeated for prose/output-only corrections.
+
+- 2026-10-15 [review delta] APPROVE: F1/F2 closed, no open blocker/major/minor findings. QA round-1 report is retained as history; prose/output-only corrections were checked by the reviewer delta. Gate-3 remains pending; no PR opened.
+- 2026-10-15 [E2E] Human question submitted for this task; response pending. No browser E2E, application stand or desktop relocation was run.
 
 ## Notes
 
