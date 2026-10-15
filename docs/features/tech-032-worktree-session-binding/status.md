@@ -21,6 +21,7 @@ gate-3: pending
 
 ## Decisions
 
+- Human declined browser E2E for tech-032; actual desktop session transfer remains a manual check.
 - Human confirmed route option 1: tech/S, four implementation files, ordinary QA/review/gate-3; no standing approval or merge authorization.
 - Scope: AGENTS.md, docs/ai-workflow/feature.md, docs/ai-workflow/handoff.md, scripts/new-task.sh, scripts/handoff.sh. No application runtime, API, secrets or dependency change.
 - The rule is vendor-neutral. CLI cwd alone cannot rebind an existing desktop session; unsupported native relocation requires an explicit interactive handoff, not a claim of success.
@@ -40,7 +41,7 @@ gate-3: pending
 - 2026-10-15 [fix round 1] Binding proof now supports the documented detached QA/review checkout at the expected task commit. Startup Log and queue take precede a possible session transfer. Proportional verify.ps1 passed after script edits; final branch-confirmation wording received git diff --check and reviewer delta instead of a duplicate suite. QA is not repeated for prose/output-only corrections.
 
 - 2026-10-15 [review delta] APPROVE: F1/F2 closed, no open blocker/major/minor findings. QA round-1 report is retained as history; prose/output-only corrections were checked by the reviewer delta. Gate-3 remains pending; no PR opened.
-- 2026-10-15 [E2E] Human question submitted for this task; response pending. No browser E2E, application stand or desktop relocation was run.
+- 2026-10-15 [E2E] Human selected no browser E2E for tech-032. No browser E2E, application stand or desktop relocation was run; actual session transfer remains a manual check.
 
 ## Notes
 
