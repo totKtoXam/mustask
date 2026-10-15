@@ -127,11 +127,13 @@ that never gets as far as titling itself.
 ## Vendors
 
 The command directory can choose where a **new** CLI session starts. It does
-not relocate an existing desktop session. After `new-task`, the session doing
-the work must be bound to the existing task worktree and prove its
-host/project root, Git toplevel and branch there. A shell `cd`, `git -C` or a
-tool-local workdir is insufficient; an IDE/Open target, when surfaced, must
-also identify that worktree.
+not relocate an existing desktop session. An implementation or orchestrator
+session binds to the task worktree and verifies its branch with `git branch
+--show-current`; a permitted detached QA/review session binds to its own
+checkout and verifies `git rev-parse HEAD` against the expected task commit.
+Every session proves its host/project root and Git toplevel. A shell `cd`,
+`git -C` or a tool-local workdir is insufficient; an
+IDE/Open target, when surfaced, must also identify the assigned checkout.
 
 | Situation | Claude Code | Codex |
 |---|---|---|
@@ -147,10 +149,11 @@ current session and reports confirmation.
 
 When native relocation is unavailable, the original session writes or checks
 the handoff prompt, stops work, and the human starts the interactive
-replacement from the existing task worktree. The replacement confirms its
-host/project root, Git toplevel and branch before it resumes. This retains the
-human at every gate; it does not authorize an unattended or background
-replacement.
+replacement from the assigned checkout. The replacement confirms its
+host/project root and Git toplevel; an implementation/orchestrator run also
+confirms the task branch, while detached QA/review confirms HEAD at the
+expected task commit. This retains the human at every gate; it does not
+authorize an unattended or background replacement.
 
 If the vendor's CLI is not installed, the script says so and prints what to
 install instead of a command it knows will fail. It does not install

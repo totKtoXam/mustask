@@ -3,7 +3,7 @@
 - type: tech
 - size: S
 - branch: tech/032-worktree-session-binding
-- stage: 04-qa
+- stage: 06-code-review
 - epic: workflow
 - deps: -
 - gates: gate-3
@@ -34,6 +34,10 @@ gate-3: pending
 - 2026-10-15 [scope] Added scripts/handoff.sh as the fifth implementation file: its generated removal/fresh-checkout advice contradicted the preservation rule. Size remains S: five files in workflow tooling, same route and gates.
 
 - 2026-10-15 [verify] scripts/verify.ps1 exit 0; proportional docs/workflow/tooling checks and all four handoff short-ID resolution cases passed. git diff --check passed. No runtime service was started; actual desktop session relocation was not exercised.
+
+- 2026-10-15 [QA/review round 1] Two majors returned to implementation: detached QA/review checkout proof and queue bookkeeping before unsupported-relocation handoff. Findings are in qa.md and review.md; corrections stay within the five workflow files.
+
+- 2026-10-15 [fix round 1] Binding proof now supports the documented detached QA/review checkout at the expected task commit. Startup Log and queue take precede a possible session transfer. Proportional verify.ps1 passed after script edits; final branch-confirmation wording received git diff --check and reviewer delta instead of a duplicate suite. QA is not repeated for prose/output-only corrections.
 
 ## Notes
 

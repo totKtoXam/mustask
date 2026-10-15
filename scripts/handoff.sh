@@ -174,22 +174,31 @@ cwd=${worktree:-$main_worktree}
         printf 'Continue task %s. It is already started: branch `%s`, stage `%s`.\n\n' \
             "$id" "$branch" "${stage:-unknown}"
         if [ -n "$worktree" ]; then
-            printf 'Reuse the existing task worktree `%s`, including its branch, dirty\n' "$worktree"
+            printf 'For implementation/orchestrator work, reuse the existing task worktree\n'
+            printf '`%s`, including its branch, dirty\n' "$worktree"
             printf 'and ignored files. Do NOT run `scripts/new-task.sh`, `scripts/queue.sh\n'
             printf 'take`, `git switch`, or remove/recreate the worktree.\n\n'
-            printf 'Before any work, bind the actual host session to this worktree and confirm\n'
-            printf 'the host/project root, `git rev-parse --show-toplevel`, and `git branch\n'
-            printf '--show-current`; all must identify this worktree and `%s`. A shell\n' "$branch"
+            printf 'For implementation/orchestrator work, bind the actual host session to this\n'
+            printf 'worktree and confirm the host/project root, `git rev-parse --show-toplevel`,\n'
+            printf 'and `git branch --show-current`; all must identify this worktree and `%s`.\n' "$branch"
+            printf 'A permitted detached QA/review run instead uses its assigned checkout and\n'
+            printf 'confirms its host/project root, Git toplevel, and `git rev-parse HEAD` at\n'
+            printf 'the expected task commit. A shell\n'
             printf '`cd`, `git -C` or command-specific workdir does not relocate an existing\n'
             printf 'desktop session. Use native relocation only when this current session\n'
             printf 'supports it and confirms it. Otherwise prepare this handoff, stop the\n'
             printf 'original session, and let the human start an interactive replacement from\n'
-            printf 'this existing task worktree. Do not use an unattended replacement.\n\n'
+            printf 'the checkout assigned to that run: this task worktree for implementation/\n'
+            printf 'orchestrator work, or a detached reader checkout at the expected task\n'
+            printf 'commit for QA/review. Do not use an unattended replacement.\n\n'
         else
             printf 'No registered task worktree was found for `%s`. Do not treat main or a\n' "$branch"
-            printf 'fresh worktree as valid task context. Locate the existing task checkout,\n'
-            printf 'then bind the actual host session to it and confirm its host/project root,\n'
-            printf 'Git toplevel and branch before resuming. Do not run `new-task.sh` again.\n\n'
+            printf 'fresh worktree as valid implementation/orchestrator task context. Locate\n'
+            printf 'that checkout, then bind the actual host session to it and confirm its\n'
+            printf 'host/project root, Git toplevel and branch before resuming. A detached\n'
+            printf 'QA/review run instead locates its assigned reader checkout and confirms\n'
+            printf 'its host/project root, Git toplevel and HEAD at the expected task commit.\n'
+            printf 'Do not run `new-task.sh` again.\n\n'
         fi
         printf 'Read `docs/features/%s/status.md` first and continue from the `stage:` in\n' "$id"
         printf 'it, then the artifacts that stage needs and the matching\n'
@@ -200,13 +209,16 @@ cwd=${worktree:-$main_worktree}
         printf 'Start task %s. It is queued in main and not started: no branch, no\n' "$id"
         printf 'folder, nothing claimed yet.\n\n'
         printf 'Classify it per `docs/ai-workflow/routing.md`, show the `ROUTE` block and\n'
-        printf 'wait for the human. Only then `scripts/new-task.sh %s` and\n' \
+        printf 'wait for the human. Only then `scripts/new-task.sh %s`.\n' \
             "$(printf '%s' "$id" | sed 's/^\([a-z]*\)-[0-9][0-9]*-/\1 /')"
-        printf '`scripts/queue.sh take %s`.\n' "$short"
-        printf 'After `new-task.sh`, bind the actual host session to the created task\n'
-        printf 'worktree and confirm its host/project root, Git toplevel and branch before\n'
-        printf 'implementation, QA, review or delegation. A shell `cd` or command-local\n'
-        printf 'workdir does not relocate an existing desktop session.\n'
+        printf 'Record the confirmed route and size, then take the queue line in its\n'
+        printf 'separate main-only commit with `scripts/queue.sh take %s` before task\n' "$short"
+        printf 'work. After `new-task.sh`, bind an\n'
+        printf 'implementation/orchestrator session to the created task worktree and\n'
+        printf 'confirm its host/project root, Git toplevel and branch. A permitted\n'
+        printf 'detached QA/review run confirms its own checkout, host/project root, Git\n'
+        printf 'toplevel and HEAD at the expected task commit. A shell `cd` or\n'
+        printf 'command-local workdir does not relocate an existing desktop session.\n'
         if [ -n "$queue_line" ]; then
             printf '\nThe queue line, verbatim:\n\n    %s\n' "$queue_line"
         fi
