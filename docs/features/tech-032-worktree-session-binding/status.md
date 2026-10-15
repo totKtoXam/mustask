@@ -3,7 +3,7 @@
 - type: tech
 - size: S
 - branch: tech/032-worktree-session-binding
-- stage: 04-backend
+- stage: 04-qa
 - epic: workflow
 - deps: -
 - gates: gate-3
@@ -22,7 +22,7 @@ gate-3: pending
 ## Decisions
 
 - Human confirmed route option 1: tech/S, four implementation files, ordinary QA/review/gate-3; no standing approval or merge authorization.
-- Scope: AGENTS.md, docs/ai-workflow/feature.md, docs/ai-workflow/handoff.md, scripts/new-task.sh. No application runtime, API, secrets or dependency change.
+- Scope: AGENTS.md, docs/ai-workflow/feature.md, docs/ai-workflow/handoff.md, scripts/new-task.sh, scripts/handoff.sh. No application runtime, API, secrets or dependency change.
 - The rule is vendor-neutral. CLI cwd alone cannot rebind an existing desktop session; unsupported native relocation requires an explicit interactive handoff, not a claim of success.
 
 ## Log
@@ -30,6 +30,10 @@ gate-3: pending
 - 2026-10-15 [route] Human confirmed option 1 in chat. Size S: four files in workflow tooling, no L threshold; only gate-3 applies.
 - 2026-10-15 [queue] Local main contains four unrelated unpublished commits. Only this task's queue-add change was projected onto origin/main (b19abb44); foreign changes were not published or rewritten.
 - 2026-10-15 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/tech-032-worktree-session-binding
+
+- 2026-10-15 [scope] Added scripts/handoff.sh as the fifth implementation file: its generated removal/fresh-checkout advice contradicted the preservation rule. Size remains S: five files in workflow tooling, same route and gates.
+
+- 2026-10-15 [verify] scripts/verify.ps1 exit 0; proportional docs/workflow/tooling checks and all four handoff short-ID resolution cases passed. git diff --check passed. No runtime service was started; actual desktop session relocation was not exercised.
 
 ## Notes
 

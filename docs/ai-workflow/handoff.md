@@ -164,15 +164,13 @@ gates. Where a run genuinely needs no human, the answer is the
 [stages/00-orchestrator.md](stages/00-orchestrator.md), which is cheaper than
 a whole process that re-reads `AGENTS.md` from scratch.
 
-A task chip is not one of those three, and the line between them is whether a
-human is in the loop — not whether an agent initiated the run. The human
-clicks the chip; it opens an ordinary session in the sidebar; that session
-asks its own questions and waits for its own gate-3, with someone there to
-answer. The three above have nobody to answer them at all. This is also why
-the handing-off session cannot just start the next one itself: an
+A human-delivered interactive session is distinct from the unattended forms
+above. A task chip can be such delivery for a queued task; for a started task,
+the human starts or relocates an ordinary session at the existing task
+worktree. That session asks its own questions and waits for its own gate-3.
+This is why the handing-off session cannot start the next one itself: an
 `AskUserQuestion` form only asks, and a `claude` process started from a tool
-call has no terminal and never appears in the sidebar. The chip is the one
-delivery that keeps a human between the prompt and the session.
+call has no terminal and never appears in the sidebar.
 
 ## Archiving the old session
 
