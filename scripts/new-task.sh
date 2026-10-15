@@ -322,13 +322,26 @@ ${summary:+Summary (from the queue line or an argument): $summary}
 STATUS
 
 printf '\nDone. Next:\n'
-printf '  1. Open an agent session with working directory %s\n' "$worktree"
-printf '  2. Review and commit docs/features/%s/status.md (on the task branch)\n' "$id"
 if [ "$prefix" = 'hot' ]; then
-    printf '  3. This task is outside the queue: ask the orchestrator to reflect it in\n'
-    printf '     the main queue after the fact\n'
+    printf '  1. The orchestrator records the confirmed route and size in status.md.\n'
 else
-    printf '  3. The orchestrator removes the task line from the queue with a separate\n'
-    printf '     commit to main that changes only docs/backlog.md — remind them\n'
+    printf '  1. The orchestrator records the confirmed route and size in status.md,\n'
+    printf '     then takes the queue line in its separate main-only commit.\n'
 fi
-printf '  4. When done: git worktree remove %s\n\n' "$worktree"
+printf '  2. Bind the actual implementation/orchestrator session to %s.\n' "$worktree"
+printf '     This script cannot rebind its parent session.\n'
+printf '  3. In that bound session, confirm its host/project root plus\n'
+printf '     git rev-parse --show-toplevel and git branch --show-current.\n'
+printf '     They must identify this worktree and %s.\n' "$branch"
+printf '  4. A shell cd or command-specific workdir is insufficient. If native\n'
+printf '     relocation is unavailable, prepare an interactive human handoff from\n'
+printf '     this worktree and stop the original session before continuing.\n'
+printf '  5. Review and commit docs/features/%s/status.md (on the task branch)\n' "$id"
+if [ "$prefix" = 'hot' ]; then
+    printf '  6. This task is outside the queue: ask the orchestrator to reflect it in\n'
+    printf '     the main queue after the fact.\n'
+else
+    printf '  6. The queue line was taken in step 1; do not continue task work until\n'
+    printf '     that separate main-only commit is complete.\n'
+fi
+printf '  7. When done: git worktree remove %s\n\n' "$worktree"
