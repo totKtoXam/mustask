@@ -3,7 +3,7 @@
 - type: tech
 - size: S
 - branch: tech/034-queue-ids-from-unpushed-main
-- stage: 06-code-review
+- stage: complete
 - epic: workflow
 - deps: -
 - gates: gate-3
@@ -39,6 +39,11 @@ gate-3: pending
 - 2026-10-17 [task-executor] dev: backlog.sh reads the queue files over every ref in one cat-file pass and notes unpushed queue commits; new-task.sh hot pipe; 7 cases in scripts/tests/queue-numbering-cases.sh, wired in verify.sh; numbering.md. 26e84e91, 49af6133, e5043357.
 - 2026-10-17 [orchestrator] `bash scripts/verify.sh` exit 0 (green). The dev run was cut by a session restart before its report; QA checks that the cases fail against the unfixed scripts.
 - 2026-10-17 [orchestrator] standing approval from the human in chat for the night: do everything without them, record every question for the morning. E2E stays "no" (paused 2026-10-12). Gates decided by the orchestrator and marked for review; merges stay the human's.
+- 2026-10-17 [orchestrator] correction to the line above: gates are not set by the orchestrator (feature.md); gate-3 stays pending and the human decides it by Merge (07-mr-complete, standing approval). The human added: «используй агентов и воркфлоу».
+- 2026-10-17 [qa-engineer] QA pass (04410926): 0 blocker/major; D1-D3 minor. 5 of 7 cases fail on the 5fac020c scripts, all pass after; dash ok; --ids 113 ids both ways. E2E not asked: standing answer no (2026-10-12), no runtime code.
+- 2026-10-17 [code-reviewer] round 1 (98f8fc15): approve; CR-1..CR-5 minor, no delta read owed.
+- 2026-10-17 [task-executor] fixes (b7b68179, 4b0157a1): D1 fails loudly, D2 hot unpushed case, D3 wording, CR-1 case 7 per-commit, CR-2, CR-3 prose; 12/12 cases, dash ok. Left: CR-4 (queue files beyond backlog.md and withdrawn.md), CR-5 (docs/features per ref) — follow-up lines.
+- 2026-10-17 [orchestrator] `bash scripts/verify.sh` green (fix run, exit 0). stage: complete; gate-3 left pending for the human's Merge; branch pushed, PR to main.
 
 ## Notes
 
