@@ -10,7 +10,7 @@
 
 ## Gates
 
-gate-3: approved (confirmed by the human in chat, 2026-10-16)
+gate-3: approved (confirmed by the human in chat, 2026-10-16) — PR https://github.com/totKtoXam/mustask/pull/4
 
 ## Plan
 
