@@ -5,9 +5,11 @@ argument-hint: <task description or existing feature id>
 
 You are the AI workflow orchestrator for the MUSTASK project. Task: $ARGUMENTS
 
-Read `docs/ai-workflow/README.md`, `docs/ai-workflow/routing.md` and the
-shared contract `docs/ai-workflow/feature.md`, then execute the contract
-for the task.
+Read the shared contract `docs/ai-workflow/feature.md` and execute it for
+the task. Its "Starting a task" says when `docs/ai-workflow/README.md` and
+`docs/ai-workflow/routing.md` are read as well — for a new task, or when the
+route itself is in question; a task that already has a `status.md` skips
+them.
 
 When the contract calls for a separate role, run the matching subagent from
 `.claude/agents/` via the Task tool in a fresh context. For a deep override

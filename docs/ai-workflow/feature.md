@@ -101,7 +101,7 @@ Skipped stages and shortcuts are determined by `routing.md`:
 Every role reads the corresponding instruction from
 `docs/ai-workflow/stages/*.md` and the project conventions. The vendor adapter
 picks the concrete agent profile and model by the `deep/standard/fast` levels
-from `routing.md`.
+from [dispatch.md](dispatch.md).
 
 ## Context isolation and file ownership
 

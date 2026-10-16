@@ -69,4 +69,11 @@ questions. The human, in `status.md`:
 gate-1: approved | rejected: <reason / answers to the questions>
 ```
 
-Stage 3 continues — only after `gate-1: approved`.
+Stage 3 continues — only after `gate-1: approved`. **Except on `M` with a
+UI** ([../routing.md](../routing.md), "Route shortcuts for `M`"): there the
+verdict is not asked here — `gate-1` is left as it is (`pending`, or the
+package's `rejected: …` on a rework round), stage 3 starts on the
+reviewed spec (verdict `approved-by-ai`, or `needs-human-decision` with the
+open questions carried into the package), and the human decides `gate-1` and
+`gate-2` together after stage 3. An `M` with no UI has no stage 3 to package
+with, so its `gate-1` is asked here as usual.
