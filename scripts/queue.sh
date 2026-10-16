@@ -27,7 +27,9 @@
 # The number is issued HERE and only here, by the commit that puts the line
 # in (docs/features/numbering.md). `add` computes it from
 # `scripts/backlog.sh --ids` — the same three sources, so there is one
-# implementation of "which numbers are taken", not two.
+# implementation of "which numbers are taken", not two. The queue files are
+# read there over every local and remote-tracking branch, so a number issued
+# by an earlier `add` or `withdraw` that is not pushed yet is already taken.
 #
 # The queue lives in main, so every subcommand commits in the MAIN worktree,
 # whichever worktree you run it from. `.githooks/pre-commit` allows a commit

@@ -9,6 +9,14 @@
 #   scripts/backlog.sh          summary
 #   scripts/backlog.sh --ids    only the taken numbers (for checking numbering)
 #   scripts/backlog.sh --done   finished tasks: merge date, id, epic, size
+#
+# Two different reads of the queue, on purpose:
+#   - the QUEUED list is origin/main (else main): what everybody else can see;
+#   - the TAKEN numbers (--ids, NUMBERS, and so `queue.sh add`) are the queue
+#     files — docs/backlog.md and docs/backlog/withdrawn.md — over EVERY local
+#     and remote-tracking branch (docs/features/numbering.md, source 3).
+#     `queue.sh add` commits to local main, so a number issued before the push
+#     is on no remote branch; reading origin/main alone issued it twice.
 
 set -eu
 
@@ -19,37 +27,38 @@ set -eu
 cd "$(git rev-parse --show-toplevel)"
 
 # Queue: origin/main with a configured remote (fresher than local), else
-# main. Both unavailable — said out loud, not a silent empty queue: this
-# command is used to check number occupancy. Read once (N-2), the source is
-# remembered for the section header (N-3).
+# main. Both unavailable — said out loud, not a silent empty queue. Read once
+# (N-2), the source is remembered for the section header (N-3). This is the
+# QUEUED list only; the taken numbers do not depend on it (taken_ids below).
 queue_src=origin/main
 queue_cache=$(git show origin/main:docs/backlog.md 2>/dev/null) \
     || { queue_src=main; queue_cache=$(git show main:docs/backlog.md 2>/dev/null); } \
     || { queue_src='?'; queue_cache=''
-         printf 'Warning: docs/backlog.md could not be read from either origin/main or main — the queue and numbers from it are NOT accounted for.\n' >&2; }
+         printf 'Warning: docs/backlog.md could not be read from either origin/main or main — the QUEUED list is empty; numbers are still counted from the queue files of every other branch.\n' >&2; }
 
 main_backlog() {
     printf '%s\n' "$queue_cache"
 }
 
-# The withdrawn list lives in docs/backlog/withdrawn.md. It is
-# still the queue as far as numbering goes: a withdrawn number is taken
-# forever and is never reused.
-withdrawn_cache=''
-if [ "$queue_src" != '?' ]; then
-    withdrawn_cache=$(git show "$queue_src:docs/backlog/withdrawn.md" 2>/dev/null || true)
-fi
-
-main_withdrawn() {
-    printf '%s\n' "$withdrawn_cache"
+# The queue files' numbers over every ref in refs/heads and refs/remotes (not
+# refs/stash), in ONE pass: for-each-ref names `<commit>:<file>` for each ref
+# and a single cat-file --batch reads them all — a git process per ref is what
+# this replaced. Two refs on one commit are read once (sort -u).
+# docs/backlog/withdrawn.md counts too: a withdrawn number is taken forever
+# and is never reused. A ref without the file answers "missing" — no match.
+queue_file_numbers() {
+    git for-each-ref --format='%(objectname):docs/backlog.md%0a%(objectname):docs/backlog/withdrawn.md' \
+        refs/heads refs/remotes 2>/dev/null \
+        | sort -u \
+        | git cat-file --batch 2>/dev/null \
+        | grep -oE "^- \[[ x]\] [a-z]+-[0-9]{3}" | grep -oE "[a-z]+-[0-9]{3}$" || true
 }
 
 taken_ids() {
     {
         ls docs/features 2>/dev/null | grep -oE "^[a-z]+-[0-9]{3}" || true
         git branch --all --format="%(refname:short)" | grep -oE "[a-z]+/[0-9]{3}" | tr "/" "-" || true
-        main_backlog | grep -oE "^- \[[ x]\] [a-z]+-[0-9]{3}" | grep -oE "[a-z]+-[0-9]{3}$" || true
-        main_withdrawn | grep -oE "^- \[[ x]\] [a-z]+-[0-9]{3}" | grep -oE "[a-z]+-[0-9]{3}$" || true
+        queue_file_numbers
     } | sort -u
 }
 
@@ -149,6 +158,16 @@ else
             printf '    %-40s size:%-2s deps:%s\n' "$id" "$size" "$deps"
         done
     done
+fi
+# Queue commits on local main that origin/main does not have yet (`queue.sh add`
+# commits locally, the push comes later). The list above is origin/main, so
+# they are not in it; their numbers are counted (taken_ids), their lines are
+# not shown.
+if [ "$queue_src" = origin/main ] && git rev-parse --verify --quiet main >/dev/null 2>&1; then
+    unpushed_queue=$(git rev-list --count origin/main..main -- docs/backlog.md docs/backlog 2>/dev/null || echo 0)
+    if [ "${unpushed_queue:-0}" -gt 0 ]; then
+        printf '  (+%s unpushed queue commit(s) on local main; their numbers are counted, their lines are not listed)\n' "$unpushed_queue"
+    fi
 fi
 
 printf '\n=== EPICS ===\n\n'

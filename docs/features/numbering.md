@@ -54,9 +54,17 @@ PowerShell); everything below is what they enforce.
   2. `docs/features/<id>/` directories — across all branches, not just the
      current one:
      `git for-each-ref --format='%(refname)' refs/heads refs/remotes | xargs -I{} git ls-tree --name-only {}:docs/features`;
-  3. `docs/backlog.md` — also across all branches, including the `Done`
-     section:
+  3. the queue files — `docs/backlog.md` and `docs/backlog/withdrawn.md` —
+     also across all branches, including the `Done` section:
      `git for-each-ref --format='%(refname)' refs/heads refs/remotes | xargs -I{} git show {}:docs/backlog.md`.
+     "All branches" includes local `main` ahead of `origin/main`:
+     `queue.sh add` and `withdraw` commit to local `main`, and the push comes
+     later, so the number of an unpushed queue commit is on no remote branch
+     and a count that reads `origin/main` alone issues it a second time
+     (`feat-039` and `mod-017` were issued twice that way). `scripts/backlog.sh
+     --ids` reads these files in one pass, `git for-each-ref | git cat-file
+     --batch`, and `scripts/new-task.sh hot` reads them ref by ref; both are
+     covered by `scripts/tests/queue-numbering-cases.sh`.
 
   The walk is deliberately limited to `refs/heads refs/remotes` — otherwise
   `refs/stash` would end up in the set.
