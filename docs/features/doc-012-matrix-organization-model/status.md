@@ -33,6 +33,7 @@ No backend/frontend plan: a docs task. Input: [input-brief.md](input-brief.md)
 - 2026-10-16 [orchestrator] the human chose to start from scratch: an external agent's attempt was reviewed and rejected; only its pitfalls go in, as prior-art.md.
 - 2026-10-16 [orchestrator] origin/main was synced by PR #2 (squash ee54131a); local main reset to it, trees identical, the old commits stay on sync/main-2026-10-16. Session bound natively (EnterWorktree) to this worktree, branch confirmed.
 - 2026-10-16 [orchestrator] stage 1 done: 7 audits, spec.md, US-1..US-11, ADR-0028/0029 proposed (both go to gate-1), OQ-1..OQ-6. A completeness critic found 25 gaps; 24 fixed, the spec's packed long lines left. verify.sh green. Stage 2 goes to a new session.
+- 2026-10-16 [orchestrator] owed: local main has queue commits not on origin (6d97479b Take doc-012; 8886d8c2 Queue tech-033 from another session). After gate-1, bring them to origin by a PR together with the delivery-line queue commits.
 
 ## Notes
 
