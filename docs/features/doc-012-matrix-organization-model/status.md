@@ -3,7 +3,7 @@
 - type: docs
 - size: L
 - branch: doc/012-matrix-organization-model
-- stage: 01-business-analysis
+- stage: 02-requirements-review
 - epic: product/analysis
 - deps: mod-002,mod-016,doc-004
 - gates: gate-1, gate-3
@@ -32,6 +32,7 @@ No backend/frontend plan: a docs task. Input: [input-brief.md](input-brief.md)
 - 2026-10-16 [orchestrator] human decision: a project has a default team, set in its settings or inferred when exactly one team is linked.
 - 2026-10-16 [orchestrator] the human chose to start from scratch: an external agent's attempt was reviewed and rejected; only its pitfalls go in, as prior-art.md.
 - 2026-10-16 [orchestrator] origin/main was synced by PR #2 (squash ee54131a); local main reset to it, trees identical, the old commits stay on sync/main-2026-10-16. Session bound natively (EnterWorktree) to this worktree, branch confirmed.
+- 2026-10-16 [orchestrator] stage 1 done: 7 audits, spec.md, US-1..US-11, ADR-0028/0029 proposed (both go to gate-1), OQ-1..OQ-6. A completeness critic found 25 gaps; 24 fixed, the spec's packed long lines left. verify.sh green. Stage 2 goes to a new session.
 
 ## Notes
 
