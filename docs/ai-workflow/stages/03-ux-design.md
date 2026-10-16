@@ -57,5 +57,7 @@ On `M` this is one package with `gate-1`
 ([../routing.md](../routing.md), "Route shortcuts for `M`"): the human gets
 the spec summary with its open questions and the design together, and gives
 two verdicts in one answer. A `gate-1: rejected` there sends the spec back to
-stage 1, and the design is redone against the corrected spec before the
-package is shown again.
+stage 1; after a fresh stage-2 verdict stage 3 runs again with `gate-1`
+still reading `rejected: …` (only the human changes it), the design is
+redone against the corrected spec, and the package — both gates — is shown
+again.

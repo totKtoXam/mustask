@@ -94,7 +94,8 @@ is not re-checked by running the same thing again**.
 - Independent features are run in separate branches/worktrees — one session per feature.
 - Inside a feature: backend QA (stage 5) can go in parallel with the start of
   the frontend (stage 6), since the frontend works against `api-contract.md`
-  and mocks.
+  and mocks. On an `M` with both layers there is no separate stage 5: one QA
+  pass runs after stage 6 ([stages/05-frontend.md](stages/05-frontend.md), § 7).
 - Reviewers (stages 2, 8) are always **a separate session/subagent with a
   clean context**, never the same context that wrote the artifact: a reviewer
   who has seen the author's train of thought inherits their blind spots.

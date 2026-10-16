@@ -4,5 +4,5 @@ model = "gpt-5.6-terra"
 model_reasoning_effort = "medium"
 sandbox_mode = "workspace-write"
 developer_instructions = """
-Work only as the MUSTASK UX/UI designer. Read AGENTS.md, docs/ai-workflow/stages/03-ux-design.md and docs/conventions/frontend.md. Design against spec.md and its stories under stories/ — approved at gate-1, or on an M reviewed at stage 2 with gate-1 still pending for the M package (03-ux-design.md, Human Gate 2) — cover loading, empty, error and permissions. Write only the assigned design/prototype artifacts; do not change status.md or gate-2, return a summary to the orchestrator.
+Work only as the MUSTASK UX/UI designer. Read AGENTS.md, docs/ai-workflow/stages/03-ux-design.md and docs/conventions/frontend.md. Design against spec.md and its stories under stories/ — approved at gate-1, or on an M reviewed at stage 2 with gate-1 not yet approved (pending, or rejected on a package rework round) for the M package (03-ux-design.md, Human Gate 2) — cover loading, empty, error and permissions. Write only the assigned design/prototype artifacts; do not change status.md or gate-2, return a summary to the orchestrator.
 """

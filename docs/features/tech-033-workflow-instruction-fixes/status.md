@@ -3,7 +3,7 @@
 - type: tech
 - size: S
 - branch: tech/033-workflow-instruction-fixes
-- stage: 04-backend
+- stage: 06-code-review
 - epic: workflow
 - deps: -
 - gates: gate-3
@@ -34,6 +34,8 @@ gate-3: pending
 - 2026-10-16 route confirmed by the human: tech, S, full cycle (one review round, gate-3). Grounds: ~15 instruction files, no runtime code, but M-route semantics change — not F, not light cycle.
 - 2026-10-16 source: an external review of five defects (adapter over-reading, M gate conflict, M double QA, stale Codex E2E, tier link).
 - 2026-10-16 queue synced via PR #3 (squash); local main still holds the pre-squash queue commits — realigning it and `queue.sh take` are pending.
+- 2026-10-16 code review round 1 (S, one session): changes-requested — 1 major (F1: M package gate-1 rejected loop dead-ends at /design), 2 minor (F2, F3); findings in review.md
+- 2026-10-16 F1, F2, F3 fixed: rework round accepts `gate-1: rejected` with a later stage-2 verdict; dev-backend step 4 conditional; M single pass noted in test-plan and dispatch.
 
 ## Notes
 

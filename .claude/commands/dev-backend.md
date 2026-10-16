@@ -14,6 +14,6 @@ Feature: $ARGUMENTS
    frontend:** its QA is a single pass over both layers, run by
    `/dev-frontend` after stage 6 (`docs/ai-workflow/stages/04-backend.md`,
    § 5). Report that backend QA is deferred to it.
-4. Blocker defects → send back to backend-developer; at most 2 cycles,
+4. When step 3 ran — blocker defects → send back to backend-developer; at most 2 cycles,
    then escalate to the human. On completion, report the outcome and the
    path to qa.md (section Backend).
