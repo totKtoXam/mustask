@@ -614,6 +614,23 @@ if [ "$need_shell" = 1 ]; then
         fi
     fi
 
+    # Queue numbering: which numbers are taken, so what queue.sh add and
+    # new-task.sh hot may issue (tech-034).
+    touches_numbering=0
+    for file in $changed; do
+        case "$file" in
+            scripts/backlog.sh|scripts/queue.sh|scripts/new-task.sh|scripts/tests/queue-numbering-cases.sh)
+                touches_numbering=1 ;;
+        esac
+    done
+    if [ "$touches_numbering" = 1 ]; then
+        if sh scripts/tests/queue-numbering-cases.sh; then
+            pass "queue numbering: taken-number cases"
+        else
+            fail "queue numbering: taken-number cases"
+        fi
+    fi
+
     # The green stamp of this very script (tech-030): the cases run a nested
     # verify.sh in a throwaway repository, so they are cheap and never touch the
     # real stamps.
