@@ -36,6 +36,7 @@ gate-3: pending
 - 2026-10-16 queue synced via PR #3 (squash); local main still holds the pre-squash queue commits — realigning it and `queue.sh take` are pending.
 - 2026-10-16 code review round 1 (S, one session): changes-requested — 1 major (F1: M package gate-1 rejected loop dead-ends at /design), 2 minor (F2, F3); findings in review.md
 - 2026-10-16 F1, F2, F3 fixed: rework round accepts `gate-1: rejected` with a later stage-2 verdict; dev-backend step 4 conditional; M single pass noted in test-plan and dispatch.
+- 2026-10-16 code review delta (round 1): approve — F1–F3 resolved, 0 blocker/major; minor F4 (routing.md "stays pending") fixed in place; details in review.md
 
 ## Notes
 

@@ -61,3 +61,14 @@ Direction 2:
 - Not swept: existing `docs/features/*/` artifacts and `docs/templates/examples/` (historical records, not instructions).
 
 Note for the orchestrator (not a finding): this task's `status.md` still says `stage: 04-backend`.
+
+## Round 1 — delta
+
+Scope: `git diff d3e897fb..f802c038` against F1–F3. `bash scripts/verify.sh` — green.
+Verdict: **approve** (no blocker/major open; F4 a new minor debt).
+
+- **F1 — resolved.** `.claude/commands/design.md:8-13` accepts `gate-1: rejected: …` only with a stage-2 verdict recorded after the rejection; step 3 (`:15-18`) packages whenever gate-1 is not yet approved. `review-requirements.md:11-15`, `02-requirements-review.md:73-76` and `.codex/agents/ux-designer.toml:7` leave gate-1 as it is; `03-ux-design.md:59-63` re-runs stage 3 and re-shows both gates. The loop closes, and no agent sets gate-1.
+- **F2 — resolved.** `.claude/commands/dev-backend.md:17` is conditional on step 3.
+- **F3 — resolved.** `docs/ai-workflow/dispatch.md:97-98`, `docs/templates/test-plan.md:6-7`.
+- **F4 — minor (new, debt).** `docs/ai-workflow/routing.md:244` still says "Until the package `gate-1` stays `pending`" — narrower than 02/03 now say for the rework round. Nothing gates on this sentence and it links to 02, so no agent acts wrongly. Fix: "stays as the human left it (`pending`, or `rejected` on a rework round)".
+- Regressions checked: `rejected` with a stage-2 verdict older than the rejection still stops (correct); `03-ux-design.md:4-6` input line names only `pending` but defers to "Human Gate 2", which covers the rework; a gate-2-only rejection takes the `gate-1: approved` path, unaffected.
