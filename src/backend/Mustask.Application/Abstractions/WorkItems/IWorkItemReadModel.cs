@@ -97,13 +97,16 @@ public sealed record WorkItemView(
     /// <summary><c>Business</c> or <c>Architectural</c>, always set on an epic, a feature and a story, <c>null</c> on the others.</summary>
     public required string? ValueArea { get; init; }
 
-    /// <summary>A story's text, <c>""</c> when empty; <c>null</c> on every other type, as the two bug texts below.</summary>
-    public required string? AcceptanceCriteria { get; init; }
+    /// <summary>A story's scenarios, [] when empty; null on every other type.</summary>
+    public required IReadOnlyList<AcceptanceCriterionView>? AcceptanceCriteria { get; init; }
 
     public required string? ReproSteps { get; init; }
 
     public required string? SystemInfo { get; init; }
 }
+
+/// <summary>A single scenario of a user story's acceptance criteria (R1).</summary>
+public sealed record AcceptanceCriterionView(string Given, string When, string Then);
 
 /// <summary>An item as an address resolves it: its id and its type.</summary>
 public sealed record WorkItemHead(Guid Id, Guid TypeId);
@@ -139,7 +142,7 @@ public sealed record WorkItemListItemView(
     WorkItemAreaView Area,
     DateTimeOffset ChangedAt);
 
-/// <param name="Appearance"><c>epic</c>, <c>feature</c>, <c>story</c>, <c>task</c> or <c>bug</c>.</param>
+/// <param name="Appearance"><c>epic</c>, <c>feature</c>, <c>story</c>, <c>task</c>, <c>bug</c> or <c>testcase</c>.</param>
 public sealed record WorkItemTypeView(Guid Id, string Key, string Name, string Appearance);
 
 public sealed record WorkItemStateView(Guid Id, string Name, WorkItemStateCategoryView Category);

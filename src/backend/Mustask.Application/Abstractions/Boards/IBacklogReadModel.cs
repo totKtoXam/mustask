@@ -31,6 +31,16 @@ public interface IBacklogReadModel
     Task<BacklogRead> ReadTreeAsync(BacklogTreeScope scope, CancellationToken cancellationToken);
 
     /// <summary>
+    /// feat-032 (api-contract § 1): the checklists of the cards of a board — for each of
+    /// <paramref name="parentIds"/>, its direct children in <paramref name="projectId"/> that are outside the
+    /// Removed category and whose type is of a <see cref="CardChecklist.Kinds"/> kind, whatever their Область or
+    /// state, in the order of their numbers. A parent with no such child has no entry. A fixed number of queries:
+    /// the rows in one statement, then the assignees' lookups, whatever the number of parents.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<ChecklistChildView>>> ReadChecklistsAsync(
+        Guid projectId, IReadOnlyCollection<Guid> parentIds, CancellationToken cancellationToken);
+
+    /// <summary>
     /// feat-001: the project's items among <paramref name="workItemIds"/> that are
     /// not in «Удалена», as link ends by id — the «Родитель» cells of a backlog's
     /// rows (BR-H-8, BR-H-13). One query, whatever the count.

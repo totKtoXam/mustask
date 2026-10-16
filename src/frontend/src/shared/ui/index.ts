@@ -8,6 +8,7 @@ export {
   ThinAddIcon,
   ThinChevronDownIcon,
   ThinChevronRightIcon,
+  ThinChevronUpIcon,
   ThinCloseIcon,
   ThinCollapseIcon,
   ThinExpandIcon,

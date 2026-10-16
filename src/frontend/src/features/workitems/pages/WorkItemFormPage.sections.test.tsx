@@ -122,7 +122,10 @@ describe('feat-022 US-1 Scenario: Several new fields are saved in one save', () 
 
     await retype('Оценка в пунктах', '5');
     await choose('Риск', '2 — Средний');
-    await userEvent.type(textbox('Критерии приёмки'), 'Вход без пароля');
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить критерий' }));
+    fireEvent.change(textbox('GIVEN (предусловие)'), { target: { value: 'Дано' } });
+    fireEvent.change(textbox('WHEN (действие)'), { target: { value: 'Вход без пароля' } });
+    fireEvent.change(textbox('THEN (ожидаемый результат)'), { target: { value: 'Успех' } });
     await userEvent.click(save());
 
     expect(await screen.findByText('Изменения сохранены.')).toBeInTheDocument();
@@ -131,7 +134,13 @@ describe('feat-022 US-1 Scenario: Several new fields are saved in one save', () 
       {
         storyPoints: { value: 5 },
         risk: { value: 2 },
-        acceptanceCriteria: 'Вход без пароля',
+        acceptanceCriteria: [
+          {
+            given: 'Дано',
+            when: 'Вход без пароля',
+            then: 'Успех',
+          },
+        ],
       },
     ]);
 
@@ -139,10 +148,8 @@ describe('feat-022 US-1 Scenario: Several new fields are saved in one save', () 
     renderWorkItems(mskForm('MSK-US-2'));
     expect(await screen.findByRole('textbox', { name: 'Оценка в пунктах' })).toHaveValue('5');
     expect(list('Риск')).toHaveTextContent('2 — Средний');
-    expect(textbox('Критерии приёмки')).toHaveValue('Вход без пароля');
-    // Two mounts and a typed text: past the default 20 s when the machine is shared
-    // with other builds.
-  }, 60_000);
+    expect(textbox('WHEN (действие)')).toHaveValue('Вход без пароля');
+  });
 });
 
 describe('feat-022 US-1 Scenario: A save sends only the fields the user changed', () => {
@@ -286,13 +293,13 @@ describe('feat-022 US-4 Scenario Outline: Each text field appears on its own typ
   it.each([
     ['Эпик', []],
     ['Фича', []],
-    ['Пользовательская история', ['Критерии приёмки']],
+    ['Пользовательская история', []],
     ['Задача', []],
     ['Баг', ['Шаги воспроизведения', 'Сведения о системе']],
   ] as const)('a «%s» shows %j', async (type, shown) => {
     await openFieldsForm(ITEM_OF_TYPE[type]);
 
-    for (const name of ['Критерии приёмки', 'Шаги воспроизведения', 'Сведения о системе']) {
+    for (const name of ['Шаги воспроизведения', 'Сведения о системе']) {
       if ((shown as readonly string[]).includes(name)) {
         expect(textbox(name)).toBeInTheDocument();
       } else {
@@ -327,14 +334,11 @@ describe('feat-022 US-4 Scenario: The section sits under «Описание»', 
     expect(textbox('Сведения о системе')).toHaveAccessibleDescription('До 100 000 символов');
   });
 
-  it('a «Пользовательская история» has «Критерии приёмки» there, with its placeholder', async () => {
+  it('a «Пользовательская история» has «Критерии приёмки» there, with its button', async () => {
     await openFieldsForm(ITEM_OF_TYPE['Пользовательская история']);
 
     expect(columnOf('Описание')).toEqual(['Описание', 'Критерии приёмки']);
-    expect(textbox('Критерии приёмки')).toHaveAttribute(
-      'placeholder',
-      'Опишите, по каким признакам история считается готовой',
-    );
+    expect(screen.getByRole('button', { name: 'Добавить критерий' })).toBeInTheDocument();
   });
 });
 
@@ -353,9 +357,7 @@ describe('feat-022 US-4 Scenario: The field starts empty and is saved with the o
     expect(patches(api).map((request) => request.body)).toEqual([
       { priority: { value: 1 }, reproSteps: 'Открыть ссылку', systemInfo: 'Chrome 140' },
     ]);
-    // Typed character by character: about 12 s alone, past the default 20 s
-    // when the machine is shared with other builds.
-  }, 60_000);
+  });
 });
 
 describe('feat-022 US-4 Scenario: The text is plain', () => {
@@ -363,14 +365,15 @@ describe('feat-022 US-4 Scenario: The text is plain', () => {
     const data = hierarchyDataset();
     await openFieldsForm(ITEM_OF_TYPE['Пользовательская история'], data);
     const text = '<b>важно</b>\nшаг 2';
-    fireEvent.change(textbox('Критерии приёмки'), { target: { value: text } });
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить критерий' }));
+    fireEvent.change(textbox('GIVEN (предусловие)'), { target: { value: text } });
 
     await userEvent.click(save());
     await screen.findByText('Изменения сохранены.');
 
-    expect(textbox('Критерии приёмки')).toHaveValue(text);
+    expect(textbox('GIVEN (предусловие)')).toHaveValue(text);
     expect(document.querySelector('b')).toBeNull();
-    expect(recordOf(data, 2).fields.acceptanceCriteria).toBe(text);
+    expect(recordOf(data, 2).fields.acceptanceCriteria?.[0]?.given).toBe(text);
   });
 });
 

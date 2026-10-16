@@ -60,6 +60,26 @@ export function moveRefusalNotice(error: unknown): string | null {
   return error.body?.detail || MOVE_FAILED_TEXT;
 }
 
+/** feat-032 spec § Screens and copy: no answer, or an answer without a code. */
+export const STATE_FAILED_TEXT = 'Не удалось сохранить статус. Попробуйте ещё раз.';
+
+/**
+ * The notice a refused tick or untick of a checklist row shows (feat-032 spec
+ * § Screens and copy), or `null` for none: a not-found of the address shows no
+ * notice — the page, read again, is replaced by its frame. The server's `detail`
+ * for an answer with a code, by the `errorCode` alone; `STATE_FAILED_TEXT` for
+ * no answer or one without a code.
+ */
+export function stateRefusalNotice(error: unknown): string | null {
+  if (notFoundLevel(error) !== null) {
+    return null;
+  }
+  if (!(error instanceof ApiError) || error.errorCode === undefined) {
+    return STATE_FAILED_TEXT;
+  }
+  return error.body?.detail || STATE_FAILED_TEXT;
+}
+
 /** feat-001 spec § Notices on «Бэклоги»: no answer, or an answer without a code. */
 export const PARENT_SAVE_FAILED_TEXT = 'Не удалось сохранить родителя. Попробуйте ещё раз.';
 

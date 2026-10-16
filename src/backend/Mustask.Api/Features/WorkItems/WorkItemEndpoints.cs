@@ -174,7 +174,9 @@ public static class WorkItemEndpoints
         RemainingWork = Sent(request.RemainingWork),
         CompletedWork = Sent(request.CompletedWork),
         ValueArea = Sent(request.ValueArea),
-        AcceptanceCriteria = request.AcceptanceCriteria,
+        AcceptanceCriteria = request.AcceptanceCriteria?.Select(c => c is null
+            ? new AcceptanceCriterion(string.Empty, string.Empty, string.Empty)
+            : new AcceptanceCriterion(c.Given ?? string.Empty, c.When ?? string.Empty, c.Then ?? string.Empty)).ToList(),
         ReproSteps = request.ReproSteps,
         SystemInfo = request.SystemInfo,
     };
@@ -246,9 +248,11 @@ public static class WorkItemEndpoints
         FieldRequest<decimal?>? RemainingWork,
         FieldRequest<decimal?>? CompletedWork,
         FieldRequest<string?>? ValueArea,
-        string? AcceptanceCriteria,
+        IReadOnlyList<AcceptanceCriterionRequest>? AcceptanceCriteria,
         string? ReproSteps,
         string? SystemInfo);
+
+    private sealed record AcceptanceCriterionRequest(string? Given, string? When, string? Then);
 
     /// <summary>feat-022: one sent field; <c>value</c> absent or <c>null</c> empties it.</summary>
     private sealed record FieldRequest<T>(T Value);

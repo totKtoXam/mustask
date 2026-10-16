@@ -129,8 +129,8 @@ public sealed class WorkItem
     /// <summary>«Вид ценности», set on every epic, feature and story (BR-M3-31).</summary>
     public WorkItemValueArea? ValueArea { get; private set; }
 
-    /// <summary>«Критерии приёмки», a story's plain text, <c>""</c> when empty (BR-M3-36).</summary>
-    public string? AcceptanceCriteria { get; private set; }
+    /// <summary>«Критерии приёмки», a story's structured scenarios, <c>[]</c> when empty, <c>null</c> on other types (R1, BR-M3-36).</summary>
+    public IReadOnlyList<AcceptanceCriterion>? AcceptanceCriteria { get; private set; }
 
     /// <summary>«Шаги воспроизведения», a bug's plain text, <c>""</c> when empty.</summary>
     public string? ReproSteps { get; private set; }
@@ -221,7 +221,7 @@ public sealed class WorkItem
         Check(reasons, kind, WorkItemField.RemainingWork, fields.RemainingWork, WorkItemFieldRules.ValidateDecimal);
         Check(reasons, kind, WorkItemField.CompletedWork, fields.CompletedWork, WorkItemFieldRules.ValidateDecimal);
         CheckKey(reasons, kind, WorkItemField.ValueArea, fields.ValueArea, key => WorkItemFieldRules.ParseValueArea(key) is not null);
-        CheckText(reasons, kind, WorkItemField.AcceptanceCriteria, fields.AcceptanceCriteria);
+        CheckAcceptanceCriteria(reasons, kind, fields.AcceptanceCriteria);
         CheckText(reasons, kind, WorkItemField.ReproSteps, fields.ReproSteps);
         CheckText(reasons, kind, WorkItemField.SystemInfo, fields.SystemInfo);
 
@@ -325,7 +325,7 @@ public sealed class WorkItem
         Priority = WorkItemFieldRules.DefaultPriority;
         Severity = kind.Has(WorkItemField.Severity) ? WorkItemFieldRules.DefaultSeverity : null;
         ValueArea = kind.Has(WorkItemField.ValueArea) ? WorkItemFieldRules.DefaultValueArea : null;
-        AcceptanceCriteria = kind.Has(WorkItemField.AcceptanceCriteria) ? string.Empty : null;
+        AcceptanceCriteria = kind.Has(WorkItemField.AcceptanceCriteria) ? [] : null;
         ReproSteps = kind.Has(WorkItemField.ReproSteps) ? string.Empty : null;
         SystemInfo = kind.Has(WorkItemField.SystemInfo) ? string.Empty : null;
     }
@@ -414,7 +414,11 @@ public sealed class WorkItem
 
         if (fields.AcceptanceCriteria is { } acceptanceCriteria)
         {
-            changed |= Set(AcceptanceCriteria, acceptanceCriteria, value => AcceptanceCriteria = value);
+            if (!SequenceEqual(AcceptanceCriteria, acceptanceCriteria))
+            {
+                AcceptanceCriteria = acceptanceCriteria;
+                changed = true;
+            }
         }
 
         if (fields.ReproSteps is { } reproSteps)
@@ -498,6 +502,40 @@ public sealed class WorkItem
         {
             reasons.Add(new WorkItemFieldReason(field, code));
         }
+    }
+
+    /// <summary>Sent acceptance criteria scenarios: not on the type, or scenario text length reason.</summary>
+    private static void CheckAcceptanceCriteria(
+        List<WorkItemFieldReason> reasons, AppearanceToken kind, IReadOnlyList<AcceptanceCriterion>? sent)
+    {
+        if (sent is null)
+        {
+            return;
+        }
+
+        if (!kind.Has(WorkItemField.AcceptanceCriteria))
+        {
+            reasons.Add(new WorkItemFieldReason(WorkItemField.AcceptanceCriteria, WorkItemErrorCodes.FieldNotOnType));
+        }
+        else if (WorkItemFieldRules.ValidateAcceptanceCriteria(sent) is { } code)
+        {
+            reasons.Add(new WorkItemFieldReason(WorkItemField.AcceptanceCriteria, code));
+        }
+    }
+
+    private static bool SequenceEqual(IReadOnlyList<AcceptanceCriterion>? first, IReadOnlyList<AcceptanceCriterion>? second)
+    {
+        if (ReferenceEquals(first, second))
+        {
+            return true;
+        }
+
+        if (first is null || second is null)
+        {
+            return false;
+        }
+
+        return first.SequenceEqual(second);
     }
 
     private void RequireOwnType(WorkItemTypeStates type)

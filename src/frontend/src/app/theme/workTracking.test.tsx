@@ -4,6 +4,7 @@ import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import BugReportIcon from '@mui/icons-material/BugReport';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined';
+import ScienceIcon from '@mui/icons-material/Science';
 import { CrownIcon } from './CrownIcon';
 import { StoryIcon } from './StoryIcon';
 import { theme } from './theme';
@@ -12,8 +13,8 @@ import { APPEARANCE_TOKENS, CATEGORY_CODES } from './tokens';
 const { typeAppearance, categoryColour } = theme.workTracking;
 
 describe('US-1 Scenario: Appearance tokens (BR-4, D-6, D-16)', () => {
-  it('has exactly the five tokens epic, feature, story, task and bug', () => {
-    expect([...APPEARANCE_TOKENS]).toEqual(['epic', 'feature', 'story', 'task', 'bug']);
+  it('has exactly the six tokens epic, feature, story, task, bug and testcase (feat-032 BR-C-11)', () => {
+    expect([...APPEARANCE_TOKENS]).toEqual(['epic', 'feature', 'story', 'task', 'bug', 'testcase']);
   });
 
   it('gives each token one icon and one colour, no two sharing either', () => {
@@ -64,6 +65,11 @@ describe('feat-027 design § 2.4: the type icons of the reference screen', () =>
     expect(typeAppearance('task').icon).toBe(AssignmentTurnedInIcon);
   });
 
+  // feat-032 BR-C-11, design § 2: US-1 "Test cases are a count only".
+  it('draws a test case as a flask', () => {
+    expect(typeAppearance('testcase').icon).toBe(ScienceIcon);
+  });
+
   it('builds the story’s book with createSvgIcon as two solid pages, not Material’s page-and-text-lines MenuBook', () => {
     const { container } = render(<StoryIcon />);
 
@@ -98,6 +104,7 @@ describe('feat-027 D-10: the reference’s colours, panel-wide through the one l
     ['story', '#0098C7'],
     ['bug', '#CC293D'],
     ['task', '#A4880A'],
+    ['testcase', '#3B3A39'],
   ])('draws the %s icon in %s', (token, colour) => {
     expect(typeAppearance(token).colour).toBe(colour);
   });

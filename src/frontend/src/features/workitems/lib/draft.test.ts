@@ -213,17 +213,30 @@ describe('changesOf: the fields per type (feat-022 US-1 «A save sends only the 
     });
   });
 
-  it('sends US-1’s three values of a story in one body: points, risk in `{ value }`, the criteria as a string', () => {
+  it('sends US-1’s three values of a story in one body: points, risk in `{ value }`, and structured acceptance criteria', () => {
     const item = itemOf('story');
     const draft = withFields(item, {
       storyPoints: '5',
       risk: '2',
-      acceptanceCriteria: 'Вход без пароля',
+      acceptanceCriteria: [
+        {
+          id: 'crit-1',
+          given: 'пользователь на странице',
+          when: 'вводит пароль',
+          then: 'входит',
+        },
+      ],
     });
     expect(changesOf(item, draft)).toEqual({
       storyPoints: { value: 5 },
       risk: { value: 2 },
-      acceptanceCriteria: 'Вход без пароля',
+      acceptanceCriteria: [
+        {
+          given: 'пользователь на странице',
+          when: 'вводит пароль',
+          then: 'входит',
+        },
+      ],
     });
   });
 
@@ -280,7 +293,7 @@ describe('changesOf: the fields per type (feat-022 US-1 «A save sends only the 
     const item = itemOf('task');
     const draft = withFields(item, {
       storyPoints: '5',
-      acceptanceCriteria: 'x',
+      acceptanceCriteria: [{ id: 'crit-x', given: 'x', when: 'y', then: 'z' }],
       startDate: '2026-01-01',
     });
     expect(changesOf(item, draft)).toEqual({});

@@ -53,7 +53,7 @@ public sealed class WireNamesTests
         }
 
         Assert.Equal(
-            ["epic", "feature", "story", "task", "bug"],
+            ["epic", "feature", "story", "task", "bug", "testcase"],
             Enum.GetValues<AppearanceToken>().Select(token => token.ToWireName()));
     }
 

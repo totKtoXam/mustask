@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { BacklogItem, Board, BoardColumn } from '../api/boardsApi';
+import type { BoardCardItem, Board, BoardColumn } from '../api/boardsApi';
 import {
   applyCardMove,
   columnOf,
@@ -16,7 +16,7 @@ import {
 const US = 'type-us';
 const BUG = 'type-bug';
 
-function card(identifier: string, order: number, typeId: string, stateName: string): BacklogItem {
+function card(identifier: string, order: number, typeId: string, stateName: string): BoardCardItem {
   return {
     order,
     id: `id-${identifier}`,
@@ -32,6 +32,7 @@ function card(identifier: string, order: number, typeId: string, stateName: stri
     assignee: null,
     state: { id: `${typeId}-${stateName}`, name: stateName, category: { code: 'X', label: 'X' } },
     priority: 2,
+    checklist: [],
   };
 }
 
@@ -39,7 +40,7 @@ function column(
   key: string,
   header: string,
   targets: Record<string, string | null>,
-  items: BacklogItem[],
+  items: BoardCardItem[],
 ): BoardColumn {
   return {
     key,

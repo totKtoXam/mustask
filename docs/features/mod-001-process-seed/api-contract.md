@@ -47,7 +47,7 @@ Development stand's data.
 | `workItemTypes[].id` | uuid | The type's stable identity. |
 | `workItemTypes[].key` | string | `EPIC`, `FEAT`, `US`, `BUG` or `TASK`. Latin, fixed, unique in the process. |
 | `workItemTypes[].name` | string | Russian name. |
-| `workItemTypes[].appearance` | string | The appearance token: `epic`, `feature`, `story`, `task` or `bug`. Each type has a different one (D-6). |
+| `workItemTypes[].appearance` | string | The appearance token: `epic`, `feature`, `story`, `task` or `bug`. Each type has a different one (D-6). *Superseded in part by feat-032 (2026-10-12): the set of appearance tokens is six, `testcase` joins the five (see feat-032's api-contract § 4 and spec BR-C-11).* |
 | `workItemTypes[].backlogLevel` | object | The level hosting the type: `{ "id", "name" }`, equal to one entry of `backlogLevels`. |
 | `workItemTypes[].states` | array of `State` | The type's states, ordered by `order` ascending. |
 | `states[].id` | uuid | The state's own identity. Two equal labels on two types are two states (BR-M2-9). |

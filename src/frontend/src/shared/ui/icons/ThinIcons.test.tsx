@@ -5,6 +5,7 @@ import {
   ThinAddIcon,
   ThinChevronDownIcon,
   ThinChevronRightIcon,
+  ThinChevronUpIcon,
   ThinCloseIcon,
   ThinExpandIcon,
   ThinMoreVerticalIcon,
@@ -28,6 +29,7 @@ interface Glyph {
 
 const GLYPHS: readonly Glyph[] = [
   { Icon: ThinChevronDownIcon, testId: 'ThinChevronDownIcon', path: 'M4.5 8.5 12 16l7.5-7.5' },
+  { Icon: ThinChevronUpIcon, testId: 'ThinChevronUpIcon', path: 'M4.5 15.5 12 8l7.5 7.5' },
   { Icon: ThinChevronRightIcon, testId: 'ThinChevronRightIcon', path: 'M8.5 4.5 16 12l-7.5 7.5' },
   { Icon: ThinAddIcon, testId: 'ThinAddIcon', path: 'M12 5v14M5 12h14' },
   { Icon: ThinRemoveIcon, testId: 'ThinRemoveIcon', path: 'M5 12h14' },
@@ -72,8 +74,8 @@ const GLYPHS: readonly Glyph[] = [
 ];
 
 describe('tech-015 Scenario: the kit’s icons (design § 5.1)', () => {
-  it('has the twelve glyphs of the table', () => {
-    expect(GLYPHS).toHaveLength(12);
+  it('has the thirteen glyphs of the table', () => {
+    expect(GLYPHS).toHaveLength(13);
   });
 
   describe.each(GLYPHS)('$testId', ({ Icon, testId, path, filled }) => {

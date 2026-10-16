@@ -1,7 +1,9 @@
+using System.Text.Json;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.Process;
 using Mustask.Domain.WorkItems;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Mustask.Infrastructure.WorkItems.Configurations;
@@ -53,6 +55,25 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         builder.Property(item => item.CompletedWork).HasPrecision(WorkItemsConstraints.NumberPrecision, WorkItemFieldRules.NumberDecimals);
         builder.Property(item => item.Activity).HasConversion<string>().HasMaxLength(WorkItemsConstraints.ListKeyMaxLength);
         builder.Property(item => item.ValueArea).HasConversion<string>().HasMaxLength(WorkItemsConstraints.ListKeyMaxLength);
+
+        var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Create(System.Text.Unicode.UnicodeRanges.All),
+        };
+        var criteriaComparer = new ValueComparer<IReadOnlyList<AcceptanceCriterion>?>(
+            (c1, c2) => (c1 == null && c2 == null) || (c1 != null && c2 != null && c1.SequenceEqual(c2)),
+            c => c == null ? 0 : c.Aggregate(0, (hash, item) => HashCode.Combine(hash, item.GetHashCode())),
+            c => c == null ? null : c.ToList());
+
+        builder.Property(item => item.AcceptanceCriteria)
+            .HasConversion(
+                v => v == null ? null : JsonSerializer.Serialize(v, jsonOptions),
+                v => v == null ? null : (string.IsNullOrWhiteSpace(v) || v == "[]"
+                    ? new List<AcceptanceCriterion>()
+                    : (v.StartsWith('[')
+                        ? (JsonSerializer.Deserialize<List<AcceptanceCriterion>>(v, jsonOptions) ?? new List<AcceptanceCriterion>())
+                        : new List<AcceptanceCriterion> { new(string.Empty, string.Empty, v) })))
+            .Metadata.SetValueComparer(criteriaComparer);
 
         builder.HasOne<Project>()
             .WithMany()

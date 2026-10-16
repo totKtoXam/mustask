@@ -1,5 +1,7 @@
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
+import Tooltip from '@mui/material/Tooltip';
+import { UserAvatar as KitAvatar } from '../../../shared/ui';
 import Typography from '@mui/material/Typography';
 import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
 import { initials } from '../../../shared/lib/initials';
@@ -54,6 +56,30 @@ export function UserAvatar({ name }: { name: string | null }) {
     >
       {letters ?? <PersonOutlineOutlinedIcon fontSize="inherit" />}
     </Avatar>
+  );
+}
+
+/**
+ * An assignee shown by the avatar alone (feat-032 design § 4.2): a board's
+ * checklist row has no name beside it, so the avatar carries it — 24 px,
+ * `role="img"`, the name as its accessible name and its tooltip (`assigneeLabel`:
+ * the person's name, «Не назначен», «Неизвестный пользователь»). The initials of a
+ * known person, the neutral person icon for nobody and for a name the directory
+ * does not know. Not a tab stop: the tooltip is for the pointer.
+ */
+export function AssigneeAvatar({ assignee }: { assignee: WorkItemAssignee | null }) {
+  const label = assigneeLabel(assignee);
+  return (
+    <Tooltip title={label}>
+      <Box
+        component="span"
+        role="img"
+        aria-label={label}
+        sx={{ display: 'inline-flex', flexShrink: 0 }}
+      >
+        <KitAvatar name={assignee?.displayName ?? ''} />
+      </Box>
+    </Tooltip>
   );
 }
 

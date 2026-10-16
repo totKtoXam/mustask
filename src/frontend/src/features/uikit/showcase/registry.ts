@@ -66,6 +66,7 @@ export const showcaseRegistry: readonly ShowcaseSection[] = [
       'Тонкие значки — для знаков, которые в образце нарисованы линией; остальные — контурные значки Material.',
     covers: [
       'ThinChevronDownIcon',
+      'ThinChevronUpIcon',
       'ThinChevronRightIcon',
       'ThinAddIcon',
       'ThinRemoveIcon',

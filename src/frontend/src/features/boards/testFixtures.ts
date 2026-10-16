@@ -12,6 +12,7 @@ import {
   API,
   PROJECT_URL,
   emptyDataset,
+  process,
   ids as workItemIds,
   item,
   processType,
@@ -159,6 +160,56 @@ export function addStoryOnlyReviewState(): { stateId: string; restore(): void } 
   };
 }
 
+/**
+ * feat-032 BR-C-11: the fixture process that has a test-case type, which the seeded one does not
+ * until feat-031 is in main. «Тест-кейс» (`TC`, appearance `testcase`) joins «Задачи» with
+ * the states «Новая», «Готов» and «Закрыта», and «Удалена» as every type has it. Like
+ * `addStoryOnlyReviewState`, the fixture is shared by the file's tests: `restore()` takes the
+ * type away again, and every test that calls this must call it.
+ */
+export function addTestcaseType(): { typeId: string; restore(): void } {
+  const typeId = '10000000-0000-4000-8000-0000000000b1';
+  const tasks = process.backlogLevels.find((candidate) => candidate.name === 'Задачи');
+  if (!tasks) {
+    throw new Error('No «Задачи» level in the process fixture.');
+  }
+  const state = (
+    offset: number,
+    name: string,
+    code: string,
+    label: string,
+    isInitial: boolean,
+  ) => ({
+    id: `10000000-0000-4000-8000-0000000000b${offset + 2}`,
+    name,
+    order: offset,
+    isInitial,
+    category: { code, label },
+  });
+  process.workItemTypes.push({
+    id: typeId,
+    key: 'TC',
+    name: 'Тест-кейс',
+    appearance: 'testcase',
+    backlogLevel: { id: tasks.id, name: tasks.name },
+    states: [
+      state(1, 'Новая', 'Proposed', 'Новые', true),
+      state(2, 'Готов', 'InProgress', 'В работе', false),
+      state(3, 'Закрыта', 'Completed', 'Завершённые', false),
+      state(4, 'Удалена', 'Removed', 'Удалённые', false),
+    ],
+  } as unknown as (typeof process.workItemTypes)[number]);
+  return {
+    typeId,
+    restore: () => {
+      const at = process.workItemTypes.findIndex((candidate) => candidate.id === typeId);
+      if (at >= 0) {
+        process.workItemTypes.splice(at, 1);
+      }
+    },
+  };
+}
+
 /** A «Мастаск» item in «Платформа» (the team's own area), «Новая» unless overridden. */
 export function platformItem(
   number: number,
@@ -255,6 +306,74 @@ export function fullTreeDataset(): BoardsDataset {
     item(ids.msk, 7, 'TASK', 'Настроить SMTP', { areaId: ids.mskRoot, parentId: us2.id }),
   );
   return data;
+}
+
+/**
+ * feat-032 US-1's «Data»: «Платформа»'s «Истории» board with MSK-US-2 «Повторная отправка
+ * письма» in «Активна», assigned to «Анна Смирнова», under MSK-FEAT-11 «Вход по ссылке»
+ * («Фичи»), which also has MSK-BUG-1 «Активна» (US-1 numbers it 4, which MSK-TASK-4 holds: a number is the project's, and so MSK-FEAT-6 is MSK-FEAT-11 here, MSK-TASK-6 holding 6); MSK-US-9 «Новая» with nobody assigned and no
+ * children. MSK-US-2's children: the tasks MSK-TASK-3 «be» («Закрыта», Анна), MSK-TASK-4 «fe»
+ * («Новая», nobody), MSK-TASK-6 «qa» («Активна», Борис) and MSK-TASK-7 «release» (seeded
+ * directly into «Удалена», Борис); the bugs MSK-BUG-5 «Неверный счётчик» («Закрыта», Борис)
+ * and MSK-BUG-8 «Дубль» («Разрешена», Анна) — each also a card of its own on the board.
+ */
+export function checklistDataset(): BoardsDataset {
+  const data = boardsDataset();
+  const feat6 = platformItem(11, 'FEAT', 'Вход по ссылке');
+  const us2 = platformItem(2, 'US', 'Повторная отправка письма', {
+    stateId: stateId('US', 'Активна'),
+    assigneeId: ids.anna,
+    parentId: feat6.id,
+  });
+  const child = (
+    number: number,
+    typeKey: string,
+    title: string,
+    state: string,
+    assigneeId: string | null,
+  ) =>
+    platformItem(number, typeKey, title, {
+      parentId: us2.id,
+      stateId: stateId(typeKey, state),
+      assigneeId,
+    });
+  data.items.push(
+    feat6,
+    us2,
+    platformItem(9, 'US', 'Выход из системы'),
+    platformItem(1, 'BUG', 'Ссылка истекает раньше срока', {
+      parentId: feat6.id,
+      stateId: stateId('BUG', 'Активна'),
+    }),
+    child(3, 'TASK', 'be', 'Закрыта', ids.anna),
+    child(4, 'TASK', 'fe', 'Новая', null),
+    child(6, 'TASK', 'qa', 'Активна', ids.boris),
+    child(7, 'TASK', 'release', 'Удалена', ids.boris),
+    child(5, 'BUG', 'Неверный счётчик', 'Закрыта', ids.boris),
+    child(8, 'BUG', 'Дубль', 'Разрешена', ids.anna),
+  );
+  return data;
+}
+
+/**
+ * Adds US-1's fixture test cases to `checklistDataset()`: MSK-TC-10 «Письмо приходит»
+ * («Готов», Анна) and MSK-TC-12 «Письмо не дублируется» («Закрыта», Анна), children of MSK-US-2.
+ * Call `addTestcaseType()` first.
+ */
+export function addTestCases(data: BoardsDataset): void {
+  const us2 = mskRecord(data, 2);
+  for (const [number, title, state] of [
+    [10, 'Письмо приходит', 'Готов'],
+    [12, 'Письмо не дублируется', 'Закрыта'],
+  ] as const) {
+    data.items.push(
+      platformItem(number, 'TC', title, {
+        parentId: us2.id,
+        stateId: stateId('TC', state),
+        assigneeId: ids.anna,
+      }),
+    );
+  }
 }
 
 /** The record of «Мастаск»'s item `number` in `data`. */

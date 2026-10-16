@@ -1,5 +1,5 @@
 import type { WorkItemStateReference } from '../../workitems';
-import type { BacklogItem, Board, BoardColumn } from '../api/boardsApi';
+import type { BacklogItem, Board, BoardCardItem, BoardColumn } from '../api/boardsApi';
 
 // Where a card may go on the board and how the board looks after it goes
 // (spec § Model "The board's columns and what a card move writes"; BR-M4-3,
@@ -49,7 +49,7 @@ export function applyCardMove<T extends Pick<Board, 'columns'>>(
   if (!from || !card || from.key === toKey) {
     return board;
   }
-  const moved: BacklogItem = state ? { ...card, state } : card;
+  const moved: BoardCardItem = state ? { ...card, state } : card;
   return {
     ...board,
     columns: board.columns.map((column) => {

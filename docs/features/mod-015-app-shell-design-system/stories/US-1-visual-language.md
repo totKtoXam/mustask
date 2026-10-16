@@ -50,6 +50,7 @@ Scenario: Contrast (BR-5)
     and category colour are at least 3:1 against the content surface
 
 Scenario: Appearance tokens (BR-4, D-6, D-16)
+  # Superseded in part by feat-032 (2026-10-12): the set of appearance tokens is six, `testcase` joins the five (see feat-032's api-contract § 4 and spec BR-C-11).
   Given the theme
   When a unit test reads its work-tracking tokens
   Then there is exactly one icon and one colour for each appearance token

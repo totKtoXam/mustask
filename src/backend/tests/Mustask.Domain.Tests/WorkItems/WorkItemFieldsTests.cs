@@ -82,7 +82,7 @@ public sealed class WorkItemFieldsTests
         Assert.Equal(2, item.Priority);
         Assert.Equal(severity, item.Severity);
         Assert.Equal(valueArea, item.ValueArea);
-        Assert.Equal(kind == AppearanceToken.Story ? string.Empty : null, item.AcceptanceCriteria);
+        Assert.Equal(kind == AppearanceToken.Story ? (IReadOnlyList<AcceptanceCriterion>)[] : null, item.AcceptanceCriteria);
         Assert.Equal(kind == AppearanceToken.Bug ? string.Empty : null, item.ReproSteps);
         Assert.Equal(kind == AppearanceToken.Bug ? string.Empty : null, item.SystemInfo);
         Assert.All(
@@ -107,7 +107,7 @@ public sealed class WorkItemFieldsTests
         AssertOnly(Check(New(Bug), Bug, new WorkItemFieldsEdit { ValueArea = Value<string?>("Business") }), WorkItemField.ValueArea, WorkItemErrorCodes.FieldNotOnType);
         AssertOnly(Check(New(Epic), Epic, new WorkItemFieldsEdit { Severity = Value<int?>(1) }), WorkItemField.Severity, WorkItemErrorCodes.FieldNotOnType);
         AssertOnly(Check(New(Task), Task, new WorkItemFieldsEdit { StartDate = Value<DateOnly?>(new DateOnly(2026, 11, 1)) }), WorkItemField.StartDate, WorkItemErrorCodes.FieldNotOnType);
-        AssertOnly(Check(New(Task), Task, new WorkItemFieldsEdit { AcceptanceCriteria = "Готово" }), WorkItemField.AcceptanceCriteria, WorkItemErrorCodes.FieldNotOnType);
+        AssertOnly(Check(New(Task), Task, new WorkItemFieldsEdit { AcceptanceCriteria = [new AcceptanceCriterion("Готово", "Когда", "Тогда")] }), WorkItemField.AcceptanceCriteria, WorkItemErrorCodes.FieldNotOnType);
         AssertOnly(Check(New(Story), Story, new WorkItemFieldsEdit { ReproSteps = "" }), WorkItemField.ReproSteps, WorkItemErrorCodes.FieldNotOnType);
         AssertOnly(Check(New(Epic), Epic, new WorkItemFieldsEdit { SystemInfo = "Windows" }), WorkItemField.SystemInfo, WorkItemErrorCodes.FieldNotOnType);
         AssertOnly(Check(New(Feature), Feature, new WorkItemFieldsEdit { Activity = Value<string?>(null) }), WorkItemField.Activity, WorkItemErrorCodes.FieldNotOnType);
@@ -205,7 +205,7 @@ public sealed class WorkItemFieldsTests
 
         Assert.Empty(Check(bug, Bug, new WorkItemFieldsEdit { ReproSteps = new string('ж', 100_000), SystemInfo = "" }));
         AssertOnly(Check(bug, Bug, new WorkItemFieldsEdit { SystemInfo = new string('ж', 100_001) }), WorkItemField.SystemInfo, WorkItemErrorCodes.TextTooLong);
-        AssertOnly(Check(New(Story), Story, new WorkItemFieldsEdit { AcceptanceCriteria = new string('ж', 100_001) }), WorkItemField.AcceptanceCriteria, WorkItemErrorCodes.TextTooLong);
+        AssertOnly(Check(New(Story), Story, new WorkItemFieldsEdit { AcceptanceCriteria = [new AcceptanceCriterion(new string('ж', 100_001), "", "")] }), WorkItemField.AcceptanceCriteria, WorkItemErrorCodes.TextTooLong);
     }
 
     // US-1 · "One refused value stores nothing": every field's reason at once, one a field.
@@ -355,13 +355,13 @@ public sealed class WorkItemFieldsTests
     public void Save_EqualValues_ChangeNothing_ChangedAtStays()
     {
         var story = New(Story);
-        story.Save(new WorkItemEdit(Fields: new WorkItemFieldsEdit { StoryPoints = Value<decimal?>(2.5m), AcceptanceCriteria = "Вход" }), Story, Later);
+        story.Save(new WorkItemEdit(Fields: new WorkItemFieldsEdit { StoryPoints = Value<decimal?>(2.5m), AcceptanceCriteria = [new AcceptanceCriterion("Вход", "Пароль", "Успех")] }), Story, Later);
 
         Assert.False(story.Save(
             new WorkItemEdit(Fields: new WorkItemFieldsEdit
             {
                 StoryPoints = Value<decimal?>(2.50m),
-                AcceptanceCriteria = "Вход",
+                AcceptanceCriteria = [new AcceptanceCriterion("Вход", "Пароль", "Успех")],
                 Priority = Value<int?>(null),
                 ValueArea = Value<string?>("Business"),
                 Risk = Value<int?>(null),
@@ -400,5 +400,86 @@ public sealed class WorkItemFieldsTests
             Task,
             Later));
         Assert.Equal(("Элемент", 2, Created), (task.Title, task.Priority, task.ChangedAt));
+    }
+
+    // --- Structured Acceptance Criteria (R1, R4) -------------------------------------------------------------------
+
+    [Fact]
+    public void CheckFields_ValidScenarios_AreAccepted()
+    {
+        var story = New(Story);
+        var scenarios = new[]
+        {
+            new AcceptanceCriterion("Given context", "When action", "Then result"),
+            new AcceptanceCriterion("Given another context", "When another action", "Then another result"),
+        };
+
+        var reasons = Check(story, Story, new WorkItemFieldsEdit { AcceptanceCriteria = scenarios });
+
+        Assert.Empty(reasons);
+    }
+
+    [Fact]
+    public void CheckFields_EmptyScenarioListOnStory_IsAccepted()
+    {
+        var story = New(Story);
+        var reasons = Check(story, Story, new WorkItemFieldsEdit { AcceptanceCriteria = [] });
+
+        Assert.Empty(reasons);
+    }
+
+    [Theory]
+    [InlineData(AppearanceToken.Epic)]
+    [InlineData(AppearanceToken.Feature)]
+    [InlineData(AppearanceToken.Task)]
+    [InlineData(AppearanceToken.Bug)]
+    public void CheckFields_AcceptanceCriteriaOnNonStoryTypes_IsFieldNotOnType(AppearanceToken kind)
+    {
+        var type = TypeOf(kind);
+        var item = New(type);
+        var reasons = Check(item, type, new WorkItemFieldsEdit
+        {
+            AcceptanceCriteria = [new AcceptanceCriterion("Given", "When", "Then")],
+        });
+
+        AssertOnly(reasons, WorkItemField.AcceptanceCriteria, WorkItemErrorCodes.FieldNotOnType);
+    }
+
+    [Fact]
+    public void CheckFields_ScenarioStepOver100000_IsTextTooLong()
+    {
+        var story = New(Story);
+        var longText = new string('a', 100_001);
+
+        AssertOnly(
+            Check(story, Story, new WorkItemFieldsEdit { AcceptanceCriteria = [new AcceptanceCriterion(longText, "When", "Then")] }),
+            WorkItemField.AcceptanceCriteria,
+            WorkItemErrorCodes.TextTooLong);
+
+        AssertOnly(
+            Check(story, Story, new WorkItemFieldsEdit { AcceptanceCriteria = [new AcceptanceCriterion("Given", longText, "Then")] }),
+            WorkItemField.AcceptanceCriteria,
+            WorkItemErrorCodes.TextTooLong);
+
+        AssertOnly(
+            Check(story, Story, new WorkItemFieldsEdit { AcceptanceCriteria = [new AcceptanceCriterion("Given", "When", longText)] }),
+            WorkItemField.AcceptanceCriteria,
+            WorkItemErrorCodes.TextTooLong);
+    }
+
+    [Fact]
+    public void Save_AcceptanceCriteria_UpdatesValueAndChangedAt()
+    {
+        var story = New(Story);
+        var scenarios = new[]
+        {
+            new AcceptanceCriterion("Given authenticated", "When submits", "Then saved"),
+        };
+
+        var changed = story.Save(new WorkItemEdit(Fields: new WorkItemFieldsEdit { AcceptanceCriteria = scenarios }), Story, Later);
+
+        Assert.True(changed);
+        Assert.Equal(Later, story.ChangedAt);
+        Assert.Equal(scenarios, story.AcceptanceCriteria);
     }
 }

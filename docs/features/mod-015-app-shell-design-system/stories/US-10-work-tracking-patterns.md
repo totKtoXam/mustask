@@ -27,6 +27,7 @@ Scenario: Work item list with a type picker
     «Баг», each with the icon and colour of its appearance token (BR-4)
 
 Scenario: Type and category language
+  # Superseded in part by feat-032 (2026-10-12): the set of appearance tokens is six, `testcase` joins the five (see feat-032's api-contract § 4 and spec BR-C-11).
   Given the prototype
   Then it shows each of the five appearance tokens and each of the five
     categories with its label beside its colour, none in the accent colour

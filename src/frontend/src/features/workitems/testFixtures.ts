@@ -137,7 +137,8 @@ export function defaultFields(appearance: string): WorkItemFields {
   fields.priority = 2;
   if (has.has('severity')) fields.severity = 3;
   if (has.has('valueArea')) fields.valueArea = 'Business';
-  for (const text of ['acceptanceCriteria', 'reproSteps', 'systemInfo'] as const) {
+  if (has.has('acceptanceCriteria')) fields.acceptanceCriteria = [];
+  for (const text of ['reproSteps', 'systemInfo'] as const) {
     if (has.has(text)) fields[text] = '';
   }
   return fields as unknown as WorkItemFields;

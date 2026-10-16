@@ -42,7 +42,7 @@ public sealed record WorkItemFieldsEdit
     /// <summary>The list key as sent; anything but a member name of <see cref="WorkItemValueArea"/> is not in the list.</summary>
     public FieldEdit<string?>? ValueArea { get; init; }
 
-    public string? AcceptanceCriteria { get; init; }
+    public IReadOnlyList<AcceptanceCriterion>? AcceptanceCriteria { get; init; }
 
     public string? ReproSteps { get; init; }
 

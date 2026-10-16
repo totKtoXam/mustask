@@ -72,6 +72,8 @@ const LEVEL_NAMES: Readonly<Record<string, string>> = {
 const CATEGORY_ORDER = ['Proposed', 'InProgress', 'Resolved', 'Completed'] as const;
 const IDENTIFIER = /^([A-Z][A-Z0-9]{1,9})-([A-Z]+)-([1-9][0-9]*)$/;
 const UUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+/** feat-032 api-contract § 1: the appearances a checklist holds. */
+const CHECKLIST_APPEARANCES: ReadonlySet<string> = new Set(['task', 'bug', 'testcase']);
 /** feat-001 § 3.4: the search answers at most 20. */
 const CANDIDATE_LIMIT = 20;
 
@@ -425,15 +427,37 @@ export class BoardsTestApi {
   }
 
   /**
+   * feat-032 api-contract § 1: a card's `checklist` — the direct children in its project outside the
+   * Removed category whose type has the appearance task, bug or testcase, whatever their area, by
+   * number; a child carries no `order` and no `priority`.
+   */
+  private checklist(parent: WorkItemRecord) {
+    return this.data.items
+      .filter(
+        (record) =>
+          record.parentId === parent.id &&
+          record.projectId === parent.projectId &&
+          !this.removed(record) &&
+          CHECKLIST_APPEARANCES.has(this.type(record.typeId).appearance),
+      )
+      .sort((first, second) => first.number - second.number)
+      .map((record) => {
+        const { id, identifier, number, type, title, assignee, state } = this.itemFields(record);
+        return { id, identifier, number, type, title, assignee, state };
+      });
+  }
+
+  /**
    * § 3.3: BR-M4-2's columns, each with its cards in the backlog's order. A column is headed by the
    * name of the state it maps for the first type, in display order, that maps one (bug-004 D-3) — the
    * category's label is no header, it stays in the column's `category`.
    */
   board(team: TeamRecord, level: string) {
     const types = this.levelTypes(level);
-    const items = this.members(team, level).map((record, index) =>
-      this.backlogItem(record, index + 1),
-    );
+    const items = this.members(team, level).map((record, index) => ({
+      ...this.backlogItem(record, index + 1),
+      checklist: this.checklist(record),
+    }));
     const columns = [];
     for (const code of CATEGORY_ORDER) {
       const perType = types.map((type) =>
