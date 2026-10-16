@@ -2,14 +2,14 @@
 
 - story: US-3
 - depends-on: US-1, US-2, US-4
-- shippable: no — an analysis story: `feat-028-org-level-teams` delivers its project–team part, `mod-NNN-area-workspace` its area part
+- shippable: no — an analysis story: `feat-028-org-level-teams` delivers its project–team part, `mod-018-area-workspace` its area part
 - status: pending
 
 As a **manager of a project, a team or an area** (a holder of «Управление» on it, or the organization admin), I want **to
 link and unlink projects, teams and areas from the page of either end**, so that **one team works on several projects and
 one project sits in several areas with no copies, and taking a team off a project never leaves its work with an unlinked owner**.
 
-"A manager of both ends" is the organization admin; once `mod-NNN-scoped-access` merges it is also a user holding «Управление»
+"A manager of both ends" is the organization admin; once `mod-019-scoped-access` merges it is also a user holding «Управление»
 on both objects of the pair (BR-MX-6), and that line re-runs these scenarios for such a user; removing an area link needs
 «Управление» on either end. A clause that needs a grant, a visibility or a sprint is marked with the line that owes it (spec § Stories).
 
@@ -35,11 +35,11 @@ Scenario: The multiselect offers only what the user may link (BR-MX-1, BR-MX-5, 
   When the organization admin searches the team multiselect on A's page
   Then it offers VENUS and JUPITER, and never MARS (linked), SATURN (deleted) or PLUTO (organization O2)
   And a project multiselect never offers a deactivated project or a project of O2
-  And (owed by `mod-NNN-scoped-access`) a user holding «Управление» on A and VENUS only is offered VENUS and not JUPITER,
+  And (owed by `mod-019-scoped-access`) a user holding «Управление» on A and VENUS only is offered VENUS and not JUPITER,
     and one holding «Изменение» but not «Управление» on A sees A's linked teams and areas, each with a way to open it, and no command to link or unlink
-  And (owed by `feat-NNN-project-visibility`) a project multiselect never offers a project the user may not see
+  And (owed by `feat-041-project-visibility`) a project multiselect never offers a project the user may not see
 
-Scenario: «Управление» on one end creates no link and removes no project–team link (BR-MX-6, BR-MX-23; owed by `mod-NNN-scoped-access`)
+Scenario: «Управление» on one end creates no link and removes no project–team link (BR-MX-6, BR-MX-23; owed by `mod-019-scoped-access`)
   Given U, not an organization admin, holds «Управление» on project A only, and A is linked to MARS and Logistics, and Logistics to MARS
   When U asks, by any request, to link A with VENUS or with Finance, or to unlink A from MARS
   Then each answer is 403, and the links of A, VENUS, Finance, MARS and Logistics are as before
@@ -75,14 +75,14 @@ Scenario: SC-01, SC-06 — a linked object stays one object (BR-MX-2, BR-MX-16)
   And Logistics and Finance each list A, A's page lists both, and the organization's project list holds A once
   And A has the same work items with the same identifiers, and no team, project, area or work item was created
 
-Scenario: Links disclose nothing (BR-MX-7, BR-MX-21; SC-05: no widening through a team; owed by `feat-NNN-project-visibility`)
+Scenario: Links disclose nothing (BR-MX-7, BR-MX-21; SC-05: no widening through a team; owed by `feat-041-project-visibility`)
   Given team MARS and area Logistics are each linked to projects A and R, and user V may see A but not R
   When V opens MARS's page or Logistics's page
   Then the only linked project shown is A, and every count of linked projects is what it would be had R never been linked
   And when V, a manager of MARS, asks to link a project V may not see, the answer is «Проект не найден», as for no project
   And a member of MARS with no grant on R still gets «Проект не найден» at R's address: the link grants nothing
 
-Scenario: A link gives no power over its other end beyond ending the link (BR-MX-6; P-9; owed by `mod-NNN-scoped-access`)
+Scenario: A link gives no power over its other end beyond ending the link (BR-MX-6; P-9; owed by `mod-019-scoped-access`)
   Given project A is linked to area Logistics and team MARS, and P holds «Управление» on A and nothing on Logistics or MARS
   When P opens A's page
   Then Logistics and MARS are listed with a way to open them, and nothing on A's page renames, moves, deletes or configures them
@@ -110,7 +110,7 @@ Scenario: SC-09 — the unlink dialog states the team's items in the project (BR
   Given MARS and VENUS are linked to project A, and MARS owns 3 items of B and 7 of A, in every state category, Removed included
   When a manager of A and MARS asks to unlink them, from either page
   Then the confirmation states that MARS owns 7 items in A and asks for one destination for all of them: VENUS or «Без команды»
-  And no team that is not linked to A is offered, and (owed by `mod-NNN-scoped-access`) VENUS is offered whether or not the manager holds a grant on it
+  And no team that is not linked to A is offered, and (owed by `mod-019-scoped-access`) VENUS is offered whether or not the manager holds a grant on it
   And cancelling it, with or without a destination chosen, leaves the link, the items, their sprints, their backlog places and A's default-team setting as they were
 
 Scenario: SC-09 — confirming reassigns the items in one operation (BR-MX-9, BR-MX-12, BR-MX-13, BR-MX-14, BR-MX-18)

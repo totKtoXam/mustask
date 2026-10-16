@@ -2,7 +2,7 @@
 
 - story: US-4
 - depends-on: -
-- shippable: no — specified for `mod-NNN-work-item-owning-team`, which ships it together with US-7's team part
+- shippable: no — specified for `mod-017-work-item-owning-team`, which ships it together with US-7's team part
 - status: pending
 
 As a **user who may change a project's work items**, I want **to see and set the one team responsible for

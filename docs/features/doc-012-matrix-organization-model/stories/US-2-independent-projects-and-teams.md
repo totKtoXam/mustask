@@ -2,12 +2,12 @@
 
 - story: US-2
 - depends-on: US-4
-- shippable: no — an analysis story; `feat-028-org-level-teams` delivers it, and `mod-NNN-work-item-owning-team` already ships the default-team setting over a project's own teams (§ Decomposition)
+- shippable: no — an analysis story; `feat-028-org-level-teams` delivers it, and `mod-017-work-item-owning-team` already ships the default-team setting over a project's own teams (§ Decomposition)
 - status: pending
 
 As an **organization administrator**, I want **to create projects and teams that need nothing else to exist, and to staff and delete teams without touching any project**, so that **a project can start with no team or area, and a team that serves several projects exists once**.
 
-Cast: in organization «Ромашка» Ann and Ivan are admins, Max a member and Vera a viewer. Oleg's membership of «Ромашка» was removed. Team "Orion" belongs to another organization. A clause that names the area Logistics is owed by `mod-NNN-area-workspace`, and one that names a grant or a sprint by `mod-NNN-scoped-access` or `mod-007-iterations`: that line verifies it. What a holder of «Управление» may do on a project or a team is § Roles'.
+Cast: in organization «Ромашка» Ann and Ivan are admins, Max a member and Vera a viewer. Oleg's membership of «Ромашка» was removed. Team "Orion" belongs to another organization. A clause that names the area Logistics is owed by `mod-018-area-workspace`, and one that names a grant or a sprint by `mod-019-scoped-access` or `mod-007-iterations`: that line verifies it. What a holder of «Управление» may do on a project or a team is § Roles'.
 
 ## Acceptance criteria
 
@@ -128,7 +128,7 @@ Scenario: A team is deleted in one operation (BR-MX-12, BR-MX-2, BR-MX-9, BR-MX-
   Then MARS is linked to no project, and no project, area or work item is deleted
   And its 15 items show «Без команды», keeping their project, identifier, assignee, estimates and project backlog place
   And the memberships of Max and Vera end, MARS is in no list or picker, and its address answers «Команда не найдена»
-  And its area links and the grants on it end (owed by `mod-NNN-area-workspace`, `mod-NNN-scoped-access`), and its items leave its sprints (owed by `mod-007-iterations`)
+  And its area links and the grants on it end (owed by `mod-018-area-workspace`, `mod-019-scoped-access`), and its items leave its sprints (owed by `mod-007-iterations`)
 
 Scenario: The deletion reaches a deactivated project too (BR-MX-12, BR-MX-11; ADR-0026 rule 2)
   Given deactivated project "Delta" is linked to MARS, MARS owns 3 of its items, and its settings name MARS

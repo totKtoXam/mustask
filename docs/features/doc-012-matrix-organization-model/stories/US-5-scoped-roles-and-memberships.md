@@ -2,7 +2,7 @@
 
 - story: US-5
 - depends-on: US-1, US-2, US-3, US-7
-- shippable: no — analysis only; delivered by `mod-NNN-scoped-access`
+- shippable: no — analysis only; delivered by `mod-019-scoped-access`
 - status: pending
 
 As a **holder of «Управление» on an area, a project or a team**, I want **to give organization members a role of
@@ -11,7 +11,7 @@ their work needs on the objects it concerns, and nothing more (BR-MX-20, BR-MX-2
 
 ## Acceptance criteria
 
-Every project here has the visibility «Организация», as every project has until `feat-NNN-project-visibility`
+Every project here has the visibility «Организация», as every project has until `feat-041-project-visibility`
 merges (ADR-0029 § 8), so U reads every project through the organization role, and a grant shows in what U
 may change. What grants decide about seeing a project is US-6's. Sprint management by a team grant is US-9's.
 

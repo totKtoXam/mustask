@@ -2,7 +2,7 @@
 
 - story: US-6
 - depends-on: US-3, US-5, US-7
-- shippable: no — an analysis story: `feat-NNN-project-visibility` delivers it, over the links (US-3), grants (US-5) and views (US-7) it decides on
+- shippable: no — an analysis story: `feat-041-project-visibility` delivers it, over the links (US-3), grants (US-5) and views (US-7) it decides on
 - status: pending
 
 As a **holder of «Управление» on a project**, I want **to set who may see the project at all — the whole organization, the participants
@@ -13,8 +13,8 @@ of its areas, or only those granted access to it**, so that **confidential work 
 Visibility is decided on the server by the one policy of BR-MX-23, before any data is returned (brief § 10.4 items 1-4, § 14). The
 organization admin sees every project (OQ-3, answered A). "Matches the twin" means:
 U's answer equals U's answer in North-twin, seeded by the same steps as the Background but without X and its items — rows, order,
-totals, page counts, «ещё» flags and figures, ids aside (§ Non-functional requirements; P-4). A surface built after `feat-NNN-project-visibility`
-merges carries its scenario below into the line that builds it: area views and the overview (`feat-NNN-area-board-and-overview`),
+totals, page counts, «ещё» flags and figures, ids aside (§ Non-functional requirements; P-4). A surface built after `feat-041-project-visibility`
+merges carries its scenario below into the line that builds it: area views and the overview (`feat-042-area-board-and-overview`),
 sprints (`mod-007-iterations`), search and filters (feat-003, `feat-013-board-backlog-filter`).
 
 ```gherkin
@@ -88,13 +88,13 @@ Scenario: Team and project views and their counts (BR-MX-16, BR-MX-17)
   Then no item of X is shown or counted, MARS's and Y's views match the twin, and X's answer «Проект не найден»
   And U's reorder of MARS's stories backlog, naming Y's items only, takes effect as in the twin, is never stale because of X's items, and leaves their relative order (BR-MX-18)
 
-Scenario: Area views and their counts (owed by `feat-NNN-area-board-and-overview`)
+Scenario: Area views and their counts (owed by `feat-042-area-board-and-overview`)
   Given «Включая дочерние области» is on, and X and Y are also linked to Warehouse, a child of Logistics
   When U opens Logistics' stories backlog and board
   Then the first page holds Y's 50 stories, once each, there is no second page, and the totals match the twin (BR-MX-16)
 
 Scenario: The work item list and its total
-  When U opens «Рабочие элементы» for Y and (owed by `feat-NNN-area-project-team-navigation`) in the organization's «Рабочие элементы»
+  When U opens «Рабочие элементы» for Y and (owed by `feat-043-area-project-team-navigation`) in the organization's «Рабочие элементы»
   Then no item of X is listed, and the rows, the total and the pages match the twin
 
 Scenario: Parent candidates and their «ещё» flag
@@ -105,7 +105,7 @@ Scenario: Parent and child refs and the card's checklist counters
   When U reads Y's feature with its children, and opens its card on MARS's board
   Then its parent and child refs and the card's checklist counters match the twin, and no ref names an item of X
 
-Scenario: The area overview's figures (owed by `feat-NNN-area-board-and-overview`)
+Scenario: The area overview's figures (owed by `feat-042-area-board-and-overview`)
   When U opens Logistics' overview
   Then its projects, teams, participants and counts by status match the twin, and (owed by `mod-007-iterations`) so do its active sprints, and no figure counts X or its items
 

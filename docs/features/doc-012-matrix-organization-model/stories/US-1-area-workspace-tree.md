@@ -2,7 +2,7 @@
 
 - story: US-1
 - depends-on: -
-- shippable: no — an analysis story; `mod-NNN-area-workspace` delivers it together with US-3's area links
+- shippable: no — an analysis story; `mod-018-area-workspace` delivers it together with US-3's area links
 - status: pending
 
 As an **organization admin, or a holder of «Управление» on an area**, I want **to create, rename, describe, move and
@@ -11,7 +11,7 @@ get workspaces that projects and teams can be linked to, with nothing stored ins
 
 The tree belongs to the organization, not to a project. Links follow BR-MX-5..-8, what grants and «Наследовать доступ»
 reach BR-MX-22, and a work item's «Область» OQ-1. Grants arrive after this story's line: a clause that needs one is
-marked "owed by `mod-NNN-scoped-access`", and that line verifies it. The examples use the brief's tree (§ 3.2):
+marked "owed by `mod-019-scoped-access`", and that line verifies it. The examples use the brief's tree (§ 3.2):
 «Логистика» with the children «Складские системы» and «Транспортные системы», and the top-level «Финансы» and
 «Инфраструктура». A top-level area is level 1; a path is joined by « / ». "Refused" means the quoted text is answered
 and nothing changes.
@@ -36,7 +36,7 @@ Scenario: The create form takes the optional fields in one operation (brief § 1
   Then only the name is required; the parent, the description, projects, teams, participants and access settings are optional
   And the parent picker offers only areas the user may create children in, and no parent only to the organization admin
   When they create «Транспортные системы» under «Логистика» with a description, the project A, the team MARS
-    and a participant holding «Изменение» (the participant: owed by `mod-NNN-scoped-access`)
+    and a participant holding «Изменение» (the participant: owed by `mod-019-scoped-access`)
   Then the area, its two links and the grant all exist after the one operation, each made by BR-MX-5, -6 and -20; a «Наследовать доступ» set off in the same form is applied last (BR-MX-3)
   And when any link or grant in the operation is refused by those rules, nothing is created, the area included
 
@@ -59,7 +59,7 @@ Scenario: Two writes of one name at the same moment keep one (NFR Concurrency)
   Then exactly one «Аналитика» exists at that level, and the other request is refused as a taken name
 
 Scenario: An area moves with its whole subtree (BR-MX-3)
-  Given the example tree, «Логистика» linked to the project A and holding one participant (owed by `mod-NNN-scoped-access`)
+  Given the example tree, «Логистика» linked to the project A and holding one participant (owed by `mod-019-scoped-access`)
   When «Логистика» is moved under «Финансы»
   Then the tree shows «Финансы / Логистика / Складские системы» and «Финансы / Логистика / Транспортные системы»,
     and no top-level «Логистика»
@@ -95,7 +95,7 @@ Scenario: Rename, description and the inheritance switch are edited
   Then the tree shows «Логистика и доставка / Складские системы» and «Логистика и доставка / Транспортные системы»
   And the description is empty again, and «Складские системы» shows the switch off on every later read, with its links and participants unchanged; what the switch changes in access is BR-MX-22's
 
-Scenario: A holder of «Управление» manages the area and the areas below it; the switch and a move away need the parent too (BR-MX-3; owed by `mod-NNN-scoped-access`)
+Scenario: A holder of «Управление» manages the area and the areas below it; the switch and a move away need the parent too (BR-MX-3; owed by `mod-019-scoped-access`)
   Given a user whose only grant is «Управление» on «Логистика», reaching its children by inheritance (BR-MX-22)
   When they create «Аналитика» under «Логистика», rename «Транспортные системы», delete «Аналитика», and turn «Наследовать доступ» off on «Складские системы»
   Then each succeeds, and the last ends their own «Управление» on «Складские системы», which only the admin, or a holder of «Управление» on it and on «Логистика», turns on again
@@ -107,7 +107,7 @@ Scenario: A holder of «Управление» manages the area and the areas be
 
 Scenario: Nobody else writes to an area, a linked project or team included (BR-MX-6, P-9)
   Given «Логистика» linked to the project A and the team MARS, and users with no area grant other than as listed:
-    a member, a viewer, and (owed by `mod-NNN-scoped-access`) holders of «Изменение» on «Логистика», of project
+    a member, a viewer, and (owed by `mod-019-scoped-access`) holders of «Изменение» on «Логистика», of project
     «Управление» on A and of team «Управление» on MARS
   When any of them creates, renames, describes, moves, switches or deletes an area, on the page or by a direct request
   Then it is answered 403, and nothing changes
@@ -122,13 +122,13 @@ Scenario: Every member reads the whole tree, within 2 s at the stated volume (NF
 
 Scenario: Deleting a leaf ends its links and grants and nothing else (BR-MX-8, BR-MX-2; NFR Concurrency)
   Given «Логистика / Складские системы» is linked to the project A and the team MARS, A and MARS are also linked
-    to «Финансы», and a user holds «Изменение» on «Складские системы» (owed by `mod-NNN-scoped-access`)
+    to «Финансы», and a user holds «Изменение» on «Складские системы» (owed by `mod-019-scoped-access`)
   When the organization admin deletes «Логистика»
   Then it is refused with «Нельзя удалить область, в которой есть вложенные области»
   When they delete «Складские системы», after a confirmation that names its team links, its links to projects the user may see
     (a deactivated one marked «деактивирован»), and its grants, and says it cannot be undone
   Then it is gone from the tree, and its two links and the grant are gone
-  And a holder of «Управление» on «Складские системы» alone, who may not see a «Ограниченный» project R linked to it (owed by `feat-NNN-project-visibility`),
+  And a holder of «Управление» on «Складские системы» alone, who may not see a «Ограниченный» project R linked to it (owed by `feat-041-project-visibility`),
     deletes it without R in the confirmation or its counts, and R's link ends too (BR-MX-21)
   And A, MARS, every other link of theirs, A's work items, «Логистика» and «Транспортные системы» are as before
   And no action restores it: «Складские системы» created again under «Логистика» has no link and no participant

@@ -2,7 +2,7 @@
 
 - story: US-10
 - depends-on: US-1, US-2, US-3, US-4, US-5, US-6, US-7, US-8, US-9, US-12
-- shippable: no — an analysis story; `feat-NNN-area-project-team-navigation`, the last line, delivers it over the links, views, grants, visibility and sprints of US-3 to US-9 and US-12
+- shippable: no — an analysis story; `feat-043-area-project-team-navigation`, the last line, delivers it over the links, views, grants, visibility and sprints of US-3 to US-9 and US-12
 - status: pending
 
 As an **organization member**, I want **to reach each area, project and team of my organization from the main navigation and the context switcher, each on a page of its own**, so that **I find work by the object it belongs to, am never led through a hierarchy the model does not have, and keep my place as I move**.
@@ -45,7 +45,7 @@ Scenario: The organization's settings hold only what is the organization's (repl
 Scenario: An area's page (brief § 11.2; SC-03, SC-08)
   When Olga opens «Логистика»
   Then its sections are «Обзор», «Канбан», «Бэклог», «Проекты», «Команды» and «Участники»; «Настройки» is added only for a holder of «Управление» on the area
-  And until `feat-NNN-area-analytics` there is no analytics section: the area's figures are those of its «Обзор» (US-8)
+  And until `feat-044-area-analytics` there is no analytics section: the area's figures are those of its «Обзор» (US-8)
   And «Обзор» shows the child areas «Склад» and «Транспорт» and counts 3 projects (A, B and C, as «Включая дочерние области» is on), 2 teams and 1 participant (US-8)
   And «Проекты» lists A and B, its own links, and not C, which «Склад»'s «Проекты» lists and «Логистика»'s «Обзор» counts; «Команды» lists MARS and VENUS; «Участники» lists Irina, direct, and «Склад»'s lists her, inherited (US-5)
   And «Склад»'s «Обзор» shows «Логистика» as its parent, and every area, project and team shown opens its own page

@@ -2,7 +2,7 @@
 
 - story: US-8
 - depends-on: US-6, US-7
-- shippable: no — an analysis story: `feat-NNN-area-board-and-overview` delivers it; the area views' filters are US-11's
+- shippable: no — an analysis story: `feat-042-area-board-and-overview` delivers it; the area views' filters are US-11's
 - status: pending
 
 As a **member of the organization working in an area**, I want **the area's backlog, board and overview to gather the
