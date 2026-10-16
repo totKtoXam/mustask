@@ -11,7 +11,7 @@ of its areas, or only those granted access to it**, so that **confidential work 
 ## Acceptance criteria
 
 Visibility is decided on the server by the one policy of BR-MX-23, before any data is returned (brief § 10.4 items 1-4, § 14). The
-organization admin sees every project, per OQ-3 option A; option B would change the scenarios that say so. "Matches the twin" means:
+organization admin sees every project (OQ-3, answered A). "Matches the twin" means:
 U's answer equals U's answer in North-twin, seeded by the same steps as the Background but without X and its items — rows, order,
 totals, page counts, «ещё» flags and figures, ids aside (§ Non-functional requirements; P-4). A surface built after `feat-NNN-project-visibility`
 merges carries its scenario below into the line that builds it: area views and the overview (`feat-NNN-area-board-and-overview`),
@@ -94,7 +94,7 @@ Scenario: Area views and their counts (owed by `feat-NNN-area-board-and-overview
   Then the first page holds Y's 50 stories, once each, there is no second page, and the totals match the twin (BR-MX-16)
 
 Scenario: The work item list and its total
-  When U opens «Рабочие элементы» for Y and in every context whose list spans projects
+  When U opens «Рабочие элементы» for Y and (owed by `feat-NNN-area-project-team-navigation`) in the organization's «Рабочие элементы»
   Then no item of X is listed, and the rows, the total and the pages match the twin
 
 Scenario: Parent candidates and their «ещё» flag
@@ -107,7 +107,7 @@ Scenario: Parent and child refs and the card's checklist counters
 
 Scenario: The area overview's figures (owed by `feat-NNN-area-board-and-overview`)
   When U opens Logistics' overview
-  Then its projects, teams, participants, counts by status and active sprints match the twin, and no figure counts X or its items
+  Then its projects, teams, participants and counts by status match the twin, and (owed by `mod-007-iterations`) so do its active sprints, and no figure counts X or its items
 
 Scenario: Sprint totals and a closed sprint's outcome (owed by `mod-007-iterations`; BR-MX-14)
   When U opens MARS's Active sprint, its sprint board and the Closed sprint's outcome
@@ -120,7 +120,7 @@ Scenario: Search and autocomplete, wherever they exist (brief § 10.4 item 4)
 Scenario: A Restricted project linked to two areas and a team stays protected (SC-06, BR-MX-7)
   Given X is also linked to area Finance, and U holds «Управление» on Finance too
   When U opens Logistics, Finance and MARS: their project lists, views and link pickers
-  Then X appears nowhere, not even as an existing link, and saving a link picker never unlinks X
+  Then X appears nowhere, neither as a linked row nor as an option of an add multiselect, and no link or unlink U sends from these pages removes a link of X
   And K, holding no area or team grant, sees X's items on the views of both areas and of MARS, each once (BR-MX-16)
   And when the organization admin unlinks X from Finance, nothing changes for U or K on Logistics
 

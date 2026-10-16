@@ -67,8 +67,9 @@ Required resolution:
   - Race "*Unlink vs a save that sets that team:* whichever locks the link second is refused, and the key backs it." → "*Unlink vs a save that sets that team:* a save that locks the link first commits, and the unlink, re-reading under its lock, reassigns it too; a save that locks it second finds no link and is refused, and the key backs it. *Two unlinks in one project, or an unlink vs its destination's unlink or deletion:* the team-id order serializes them; the later one re-reads and is refused if its destination is no longer linked."
 Fix: edit
 Source: L2-1, L2-2, L2-9, L2-10 (US-2 part)
-Status: open
-Resolution:
+Status: resolved
+Resolution: BR-MX-12 now fixes both orders of the race («Команда не участвует в проекте.» after the unlink), the destination answers, the always-named destination and «Изменён»; US-3's race scenario (8 items, destination refusals, two unlinks never a 500, a late item goes to «Без команды»), US-4's race scenario and US-2 (SATURN text, "Delta" named in «Удаление команды», deletion-race answer) follow. ADR-0028 Rule 8: lock order (3) "then team id", Unlink locks the destination's link FOR SHARE, Team deletion reaches deactivated projects, the save race rewritten, a two-unlinks race added.
+Beyond the entry: BR-MX-12 says a team deletion reaches deactivated projects; US-3 also covers a destination that is the unlinked team itself. Depends-on headers of US-2, US-3, US-4 set per R-20.
 
 ### R-2
 Severity: blocker
@@ -80,8 +81,8 @@ Required resolution:
 - ADR-0029 § 7 Concurrency: "either the save completes before the removal or it is refused (US-5). A write that governs access … re-evaluates the actor's code inside its transaction, after the locks ADR-0028 rule 6 orders, as `ChangeMemberRoleHandler` re-reads the actor's role today (BE-SEC-1)." → "a save checked before the removal committed is kept, and one checked after it is refused (US-5). A write that governs access is checked like any other request. Two managers who remove each other's grants at the same moment may both succeed, which leaves the object to the organization admin, who manages every object (§ 9)."
 Fix: edit
 Source: L3-1
-Status: open
-Resolution:
+Status: resolved
+Resolution: spec NFR Concurrency drops the grant-removal race and says an access change is decided by the access committed when the check runs (and, after R-1, that an unlink or close takes in a save that committed first); US-5's scenario is retitled and its Then made testable; ADR-0029 § 7 Concurrency says both orders pass and leaves a mutual-removal write skew to the organization admin.
 
 ### R-3
 Severity: blocker
@@ -96,8 +97,8 @@ Required resolution:
 - ADR-0028 § 7 *Addresses*, after "no prefix nests one object under another.": add "Owned objects stay under their owner: a work item under its project, a sprint under its team (`…/teams/:teamId/sprints/:sprintId`, in the panel and the API). A sprint id of another team answers «Спринт не найден.», as one that names nothing does."
 Fix: edit
 Source: L3-2, L6-2
-Status: open
-Resolution:
+Status: resolved
+Resolution: BR-MX-24 puts the sprint's and the work item's not-found before the 403, keeps the restore exception and names a grantee or new member as a body id («Участник не найден.»); ADR-0029 § 1 row 3, § 6 step 2, § 7 (route values, filtered-read bullet) and § 8 item 4, and ADR-0028 § 7 *Addresses* (a sprint under its team) and *Amends* follow. US-5's last scenario pins the missing-item answer (404, not 403).
 
 ### R-4
 Severity: blocker
@@ -108,8 +109,8 @@ Required resolution:
 - US-8: "Then no view or figure of «Логистика» holds PD-US-1" → "Then no view of «Логистика», and no figure of its overview but MARS's active sprint (US-9), holds PD-US-1". "And each figure equals the total" → "And each figure but the active sprints equals the total".
 Fix: edit
 Source: L4-1
-Status: open
-Resolution:
+Status: resolved
+Resolution: BR-MX-17 now says the overview also shows each linked team's Active sprint as that team's sprint board counts it, whatever the items' projects. US-8 excepts the active-sprint figure from "no figure holds PD-US-1" and from "each figure equals the total", and the overview scenario gains a checkable PD-US-1 case. It cites US-12 (the story R-12 creates for the area figure), not US-9 as the entry proposed.
 
 ### R-5
 Severity: blocker
@@ -121,8 +122,8 @@ Required resolution:
 - US-12 (split from US-9 by R-12): a new scenario: "Given B is deactivated, and the Active «Спринт 12» holds integration in «Активна» / When Pavel closes «Спринт 12» towards «Спринт 13» / Then neither the sprint board nor the close confirmation shows integration or B / And once B is restored, integration is in «Спринт 13»".
 Fix: edit
 Source: L4-2, L2-8
-Status: open
-Resolution:
+Status: resolved
+Resolution: The mod-002 BR-M1-20 fate row now names the three exceptions (team deletion BR-MX-12, area deletion BR-MX-8, sprint close BR-MX-14); BR-MX-14 says a deactivated project's items are moved and recorded like any others and count on no board, outcome or overview figure until restore. US-12 gains "A close reaches a deactivated project's items without showing them"; US-9's removal outline counts a deactivated project's items as held; ADR-0028 § 10 says the outcome rows count on no figure while the project is deactivated.
 
 ### R-6
 Severity: major
@@ -139,8 +140,9 @@ Required resolution, depending on the human's answer:
 Fix: human
 Decision: the human's, asked before the fixes
 Source: L2-4, L3-4, L2-5, L3-6, L2-10 (US-1 part)
-Status: open
-Resolution:
+Status: resolved
+Resolution: The human's answer A applied. BR-MX-3 (the switch and a move away also need the current parent's «Управление»; a one-operation create checks the parent and applies the switch last; moves and the switch need nothing from linked projects), BR-MX-6 (create needs both ends, a project–team unlink both, an area link's removal either), BR-MX-8 (deletion by the area's own «Управление», hidden links end unnamed), the Area and area-link rows of Operation completeness, BPMN A1. US-1 (parent requirement, deletion confirmation, hidden-link deletion), US-3 (either-end removal, P's page) and ADR-0029 § 4 and § 6 Consequence writes follow; § Roles was written under R-10.
+Beyond the entry: BR-MX-3 states that turning the switch off ends the actor's own inherited «Управление» on the area, which only the admin or a direct holder on both the area and its parent turns on again, so the self lock-out is bounded, not removed. US-10 line 87 still says an unlink needs «Управление» on both ends: B5 must say "either end" for an area link.
 
 ### R-7
 Severity: major
@@ -152,8 +154,8 @@ Required resolution, depending on the human's answer:
 Fix: human
 Decision: the human's, asked before the fixes
 Source: L1-1
-Status: open
-Resolution:
+Status: resolved
+Resolution: Human R-7 A. § Decomposition gains `feat-NNN-area-analytics` (M; amends doc-005 D-15 and BR-M6-1; deps mod-009-dashboards-widgets, feat-NNN-area-board-and-overview and, added, the navigation line, which gives the area's page its sections). § Out of scope names the line, and US-10's area page reads "until `feat-NNN-area-analytics` there is no analytics section".
 
 ### R-8
 Severity: major
@@ -165,8 +167,8 @@ Required resolution, depending on the human's answer:
 Fix: human
 Decision: the human's, asked before the fixes
 Source: L1-2
-Status: open
-Resolution:
+Status: resolved
+Resolution: Human R-8 A. § Out of scope: the area-visibility bullet reads "declined by the human (gate-1, 2026-10-17)", keeps its argument and now states the accepted cost (a confidential program's area name stays readable by every member).
 
 ### R-9
 Severity: major
@@ -180,8 +182,8 @@ Required resolution:
 - NFR Non-disclosure: after "«ещё» flags included" add ", BR-MX-21's two named exceptions aside".
 Fix: edit
 Source: L2-3, L3-5
-Status: open
-Resolution:
+Status: resolved
+Resolution: Glossary "Link", BR-MX-7 (an area–project link is the one path that carries access), BR-MX-21 (the two named exceptions), NFR Non-disclosure and the Update cell of the three link rows ("nothing to edit") reworded as the entry proposes.
 
 ### R-10
 Severity: major
@@ -205,8 +207,8 @@ Required resolution:
 - US-5, "A team grant reaches the team and none of its projects' items": title → "…, a sprint close aside (US-9)". Append to its Then: "and U's setting an item's sprint answers 403 «Недостаточно прав»".
 Fix: edit
 Source: L3-3, L3-7, L7-2
-Status: open
-Resolution:
+Status: resolved
+Resolution: § Roles Member, Project, Area «Управление» (with R-6 A's parent rule) and Team «Планирование» rows follow the matrix; BR-MX-22 names the sprint-close exception; BR-MX-23's first source is the role bundle always on the organization, areas, teams and sprints and on a project only when «Организация»; ADR-0029 § 4 gains the top-level move on `area.create` and a read-code bullet. US-5's team-grant scenario cites US-12 (R-12 moves the close there) and adds the refused sprint set.
 
 ### R-11
 Severity: major
@@ -217,8 +219,8 @@ Required resolution:
 - ADR-0028 § 8, the last bullet of "What the slices read instead": append "A write that changes another module's rows goes through that module's write contract (§ 6 *Rule 7*)." R-23 extends the amends lists.
 Fix: edit
 Source: L6-1
-Status: open
-Resolution:
+Status: resolved
+Resolution: ADR-0028 § 6 gains *Rule 7* (one in-process write contract per owning module, called by the Organizations handler inside its transaction, locking in *Rule 8*'s order) and says it is a narrow exception to ADR-0026 rule 7; § 8's last bullet points to it. The amends lists that name rule 7 are R-23's.
 
 ### R-12
 Severity: major
@@ -236,8 +238,8 @@ Required resolution: The analyst defines the board in BR-MX-14, within its line,
 Split US-9 into US-9 "A team's sprint lifecycle" (numbering, names, dates, start, removal, who manages) and US-12 "Items in a team's sprint" (joining, team change, close, outcome, the sprint board, project boards, the area overview's figure). `mod-007-iterations` delivers both. Add the story table row for US-12, with depends-on per R-20. The Sprint row's Surface cell becomes "the team's «Спринты», with its sprint board".
 Fix: rework
 Source: L4-5
-Status: open
-Resolution:
+Status: resolved
+Resolution: BR-MX-14 now defines the sprint board (Active sprint, «У команды нет активного спринта.», one level, process columns, team order, state moves as on the team board and no reorder, totals after visibility) as a view inside the team's «Спринты»; the Sprint row's Surface cell follows. US-9 is the lifecycle (85 lines); the new `US-12-items-in-a-team-sprint.md` (130 lines) holds joining, close, outcome, races, boards and the area figure; the story table has the US-12 row with R-20's depends-on.
 
 ### R-13
 Severity: major
@@ -257,8 +259,8 @@ Required resolution:
   - The dates scenario: an Active sprint's dates changed are accepted and cleared are refused with «У активного спринта должны быть обе даты.»; a Closed sprint's dates changed are refused.
 Fix: edit
 Source: L4-3, L4-4, L4-6
-Status: open
-Resolution:
+Status: resolved
+Resolution: BR-MX-14 as the entry proposes (close moves the Proposed, In Progress and Resolved categories; the outcome is the Completed category at close; Completed and «Удалена» items keep the Closed sprint, a reopened one too; removal allowed with «Удалена» items only, clearing them; Active dates changeable but not clearable, Closed dates fixed); BR-MX-15 name length and comparison; the doc-004 BR-M5-4, -11 fate row; ADR-0028 Rule 9 and § 10. Stories: US-9 removal row, dates and names scenarios; US-12 «Удалена» in the close and the reopen step. I wrote the two refusal texts the entry left open, «Даты завершённого спринта изменить нельзя.» and «Название спринта — от 1 до 100 символов.»
 
 ### R-14
 Severity: major
@@ -276,8 +278,8 @@ Required resolution:
 - US-12: turn "A save into a closing sprint is refused or becomes part of the close" into an outline over the five pairs, with the loser and the unchanged state in each row.
 Fix: edit
 Source: L4-7 (races), L2-7
-Status: open
-Resolution:
+Status: resolved
+Resolution: BR-MX-14 names the races, but says "one order and no server error", not "one loser": a close against an unlink, or against a save that changes an item's team, refuses neither request. ADR-0028: sprint creation locks the team `FOR SHARE`, then the counter row, which now has a place in lock-order item (4); sprint writes lock the team `FOR SHARE`; the Sprint close case is reworded and § 10 gains *Sprint races* (lock, re-reading request and result per pair). US-12 has a six-row race outline; US-9 gains the numbering race and a creation against a team deletion.
 
 ### R-15
 Severity: major
@@ -289,8 +291,8 @@ Required resolution:
 - US-11: title "The level, the filters and «Включая дочерние области» are remembered per view and per user" → "The level and the filters are remembered per view and per user, and «Включая дочерние области» per area and per user"; "off on Logistics' board" → "off on Logistics"; "and Logistics' board has the switch off" → "and Logistics' board, backlog and overview have the switch off".
 Fix: edit
 Source: L4-8, L4-14
-Status: open
-Resolution:
+Status: resolved
+Resolution: BR-MX-17 states the switch as one choice per user and area, shared by backlog, board and overview, on until turned off, and that area views offer no create command. US-8's data paragraph, switch-off, empty-states (a child-only area) and paging scenarios follow. US-11's remember scenario splits the switch (per area) from the level and filters (per view).
 
 ### R-16
 Severity: major
@@ -308,8 +310,8 @@ No option shows a count. The brief's "date" (§ 7.1) is «Целевая дат�
 Add an Examples row: "| «Спринт» | «Без спринта» | B1 | A3 | A3, B1 |".
 Fix: edit
 Source: L4-9, L1-8
-Status: open
-Resolution:
+Status: resolved
+Resolution: US-11 gains the option-source list after its data table (project, team, assignee, sprint with «Текущий спринт» and «Без спринта», type, status; no counts; «Целевая дата» is the brief's date) and the «Без спринта» Examples row. Beyond the entry: the sprint scenario now pins Closed sprints, newest-first order and «Текущий спринт», and "counts" became "totals and column counts" in the non-disclosure scenario, since no option shows a count.
 
 ### R-17
 Severity: major
@@ -321,8 +323,8 @@ Required resolution:
 - US-7: "Given MARS owns 5 000 stories across A, B and C, and A holds 5 000 stories" → "Given an organization at the spec's NFR volumes, where MARS is linked to 50 projects of all three visibilities and owns 5 000 stories across them, A holds 5 000 stories, and U holds 50 area and project grants".
 Fix: edit
 Source: L4-10, L4-11 (US-7 part), L4-7 (budget part)
-Status: open
-Resolution:
+Status: resolved
+Resolution: NFR Client load now states the 5 000-item assumption and the accepted risk above it. NFR Volumes sizes the area view at 10 or more projects and carries over doc-004's 5 s all-or-nothing bulk write for sprint close, unlink and team deletion. US-7's large-view Given runs at the NFR volumes over 50 projects of all three visibilities with 50 grants, and the scenario is marked owed by the team-views and visibility lines.
 
 ### R-18
 Severity: major
@@ -339,8 +341,8 @@ Required resolution:
 - Fate row "doc-003 US-2 (a filtered backlog reorders against the full list)" → "doc-003 US-2 (a filtered backlog reorders against the full list) and BR-M4-22 (the views' filter bar is the list's)", with the Fate cell becoming "kept on team, project and area views (US-11, NFR Query shape)".
 Fix: edit
 Source: L1-5, L5-9, L4-11 (Query shape part)
-Status: open
-Resolution:
+Status: resolved
+Resolution: NFR Query shape counts statements against rows, projects, teams, areas, tree depth and grants, and binds the views and the «Рабочие элементы» list to one filter specification. Reworded better than proposed: the line that adds a filter first founds it (lines 2 and 4 publish filters before feat-003), then feat-003 and feat-013 (D-14) extend it. Rows 2, 4 and 10 say "a dimension of" and "extending", feat-013 keeps feat-003 in deps and per-area «Включая дочерние области»; the doc-003 US-2 row adds BR-M4-22 and the retired area filter (OQ-1 A).
 
 ### R-19
 Severity: major
@@ -362,8 +364,8 @@ Required resolution: The analyst picks (A) interim-surface clauses or (B) moving
 - Notes for the queue: "feat-038 (onboarding) is unaffected, but must not assume that a project comes with a team" → "feat-038 (onboarding) must not assume that a project comes with a team, and its landing on the organization's project list moves to `…/projects` with the navigation line; whichever merges second adjusts it, noted in feat-038's status.md".
 Fix: rework
 Source: L5-1, L5-5
-Status: open
-Resolution:
+Status: resolved
+Resolution: Option A. The Surface header and the Task cells of lines 1, 3, 4, 6, 7, 8 and 9 name their interim entry and address (project views, linked teams, switcher team level, project grants, area views, team and project «Спринты»); line 4's Breaks adds the switcher's context model, and a sentence after the table makes the rule general. ADR-0028 § 7 Old addresses and the feat-028, team-surfaces and navigation rows carry the moved settings addresses; US-10's retired-kind clause and the Notes (feat-038) follow. Spec cells only: no new line.
 
 ### R-20
 Severity: major
@@ -383,8 +385,8 @@ Required resolution:
 - The story-file lines above are applied by the batch that owns each file. This entry's batch owns the spec's paragraph, the table rows of every story but US-9 and US-12, and the decomposition.
 Fix: edit
 Source: L5-2, L7-4
-Status: open
-Resolution:
+Status: resolved
+Resolution: § Stories paragraph names the owning team and the multi-project team in the owed-by list; story-table rows US-2 → US-4, US-3 → US-1, US-2, US-4, US-4 → "-" (US-9 and US-12 are B3's). US-10 also gains US-12 (its team page shows the sprint board, its project page the Closed-sprint list). Decomposition rows 2 and 4 say what each takes from US-7. Story headers and US-6/US-7 markers belong to the batches that own those files.
 
 ### R-21
 Severity: major
@@ -403,8 +405,8 @@ Required resolution:
 - US-10: every «Доска» → «Канбан» (the trail reads «Ромашка / Команды / MARS / Канбан»). In the switcher scenario, add "And its organization part lists her active organizations by name and ends with «Все организации», as today".
 Fix: edit
 Source: L5-3, L5-4
-Status: open
-Resolution:
+Status: resolved
+Resolution: The BR-M1-23/-24 fate row is split in two: replaced (mod-015 BR-6, BR-11's project and team levels, BR-18's switch rule, ADR-0024 § 1 and § 4) and kept (organization level with «Все организации», BR-19, «Главная», feat-001 BR-H-15/-16, the human's «Канбан»). BR-11 and BR-H-16 are split rather than wholly moved, since their organization level and the name «Канбан» survive. US-10: every «Доска» → «Канбан»; the switcher scenario adds the organization part. Spec +1 line.
 
 ### R-22
 Severity: major
@@ -427,8 +429,8 @@ Required resolution: Widen the cells, with no new sub-table because of the line 
 - Row 7 Breaks: "mod-003 assignee candidates (gain a project)" → "mod-016 api-contract § 3.4 and inventory row 34 (`…/workitems/assignee-candidates` moves under the project)".
 Fix: rework
 Source: L5-7, L5-12, L6-3 (Breaks-cell part)
-Status: open
-Resolution:
+Status: resolved
+Resolution: The Decomposition cells state each reword's scope, deps and size: mod-011 (sprint backlog and «Задачи» taskboard, deps mod-007-iterations, feat-009), feat-003 and mod-008 (area filter and "Under" dropped, OQ-1 A), feat-023 and feat-024 (deps, feat-023 becomes M), feat-008 («Текущий спринт»), an epic on every row, row 11 (bug-003, tech-019), row 7 Breaks (mod-016 api-contract § 3.4, inventory row 34). feat-013's deps gain feat-003-work-item-search.
 
 ### R-23
 Severity: major
@@ -450,8 +452,8 @@ Required resolution:
   - "ADR-0024 § 2; ADR-0026 rules 1, 2, 3, 6, 8, 9" → "… rules 1, 2, 3, 5, 6, 7, 8, 9", with "not-found levels (5); consequence writes across modules (7)" added to its Why.
 Fix: edit
 Source: L6-3, L6-4
-Status: open
-Resolution:
+Status: resolved
+Resolution: ADR-0028 Retires points at the spec's fate table; its Context and Amends add ADR-0026 rules 5 and 7 and the index-line instruction, and § 6 gains a *Rule 5* bullet (*Rule 7* is R-11's). ADR-0029 Consequences name the fate table as authority, give `mod-007-iterations` and the navigation line their set-form duties and tie the matrix's visibility cross to `feat-NNN-project-visibility`; the spec's doc-006 BR-M1-7 and ADR-0024/0026 fate rows follow.
 
 ### R-24
 Severity: major
@@ -471,8 +473,8 @@ Required resolution:
 - ADR-0028 § Problem: "and the human's waiver, under which rows may be dropped but merged migrations are never edited" → "the human's waiver, under which rows may be dropped (status.md); and `docs/conventions/backend.md`, under which a merged migration is never edited". Add before § Consequences: "**Departures from `docs/conventions/*`:** none under OQ-4 (A); option B would depart from backend.md's never-edit rule and record it here."
 Fix: edit
 Source: L1-3, L1-10, L5-13, L6-5
-Status: open
-Resolution:
+Status: resolved
+Resolution: OQ-1 names both duties, the departure from brief § 2 and the rejected option C; OQ-4 (B) and OQ-5 carry the added text, and OQ-1..OQ-6 are marked answered A (gate-1, 2026-10-17). BR-MX-9 and ADR-0028 § 1 say that no structure operation changes an item's project; ADR-0028 § 3 and Problem are reworded and a Departures line is added (none under OQ-4 A).
 
 ### R-25
 Severity: minor
@@ -481,8 +483,8 @@ Problem: In US-3 and US-10 the link multiselect only adds: a linked end is never
 Required resolution: US-6: "Then X appears nowhere, not even as an existing link, and saving a link picker never unlinks X" → "Then X appears nowhere, neither as a linked row nor as an option of an add multiselect, and no link or unlink U sends from these pages removes a link of X".
 Fix: edit
 Source: L7-1
-Status: open
-Resolution:
+Status: resolved
+Resolution: US-6's scenario "A Restricted project linked to two areas and a team stays protected" now says X is neither a linked row nor an option of an add multiselect, and no link or unlink U sends removes a link of X. R-20's two owed-by lines in US-6 (the organization's «Рабочие элементы», the overview's active sprints) are applied.
 
 ### R-26
 Severity: minor
@@ -493,8 +495,8 @@ Required resolution:
 - US-4, the child scenario: append "And a story added to PA-FEAT-6 while MARS is being unlinked from A takes PA-FEAT-6's team as stored when the story is saved, and is moved with it".
 Fix: edit
 Source: L2-6
-Status: open
-Resolution:
+Status: resolved
+Resolution: BR-MX-10 rewritten with the child first ("as stored when the child is saved") and no «Команда» field on a row's or a checklist's add; US-4's child scenario gains the unlink-race line and "even on a card opened over another team's page"; BPMN W2 reordered to the same precedence.
 
 ### R-27
 Severity: minor
@@ -506,8 +508,8 @@ Required resolution:
 - US-7 "An item that changes team…": append to its last Then "; set back to MARS, S stands unplaced on MARS's backlog".
 Fix: edit
 Source: L4-12, L5-8
-Status: open
-Resolution:
+Status: resolved
+Resolution: The fate table drops BR-M4-13 from the "kept per view" row and retires it with BR-M4-24, whose Why now also ends mod-006 § Model's return to a former place. BR-MX-18 orders ties by project key and number. US-7's tie-break scenario adds A 9 and A 10 so a text compare fails, and its team-change scenario adds the set-back-to-MARS case.
 
 ### R-28
 Severity: minor
@@ -518,8 +520,8 @@ Required resolution:
 - ADR-0028 § 11: "BR-MX-19 then applies to the set of projects a view *can* show" → "The shared-view columns that BR-MX-19 leaves to that line then come from the set of projects a view *can* show and the user may see".
 Fix: edit
 Source: L4-13, L2-12
-Status: open
-Resolution:
+Status: resolved
+Resolution: BR-MX-19 now gives every view the organization process's columns for the level, whatever it shows (OQ-2 A), and leaves the state-category columns to the line that lets processes differ. ADR-0028 § 11 matches: those columns come from the projects a view can show and the user may see.
 
 ### R-29
 Severity: minor
@@ -535,8 +537,8 @@ Required resolution: Change node texts only (no new line):
 - U1 → "A manager of both ends unlinks a team from a project".
 Fix: edit
 Source: L2-11, L3-9
-Status: open
-Resolution:
+Status: resolved
+Resolution: Node texts A1, A2, A2x, G1, W1, SP1 and U1 changed as listed, with no line added; A1 also names the current parent's «Управление» for a move (R-6), and W2 follows the BR-MX-10 precedence.
 
 ### R-30
 Severity: minor
@@ -549,8 +551,8 @@ Required resolution:
 - US-10: the team's sections "and «Участники»" → "and «Участники и доступ»". Append to that scenario's last line: ", and «Участники и доступ» lists the team's members, who get no role from it, apart from the grants on MARS with their roles".
 Fix: edit
 Source: L1-7, L7-3
-Status: open
-Resolution:
+Status: resolved
+Resolution: Glossary "Grant / participant" states how brief § 9's area membership and project participation map to grants and the organization role; BR-MX-26 lists teams and grants only; the Grant and Team membership Surface cells follow. US-10: the team's sections end in «Участники и доступ», and a VENUS check (Olga a member with no role, Pavel's grant) uses the Background.
 
 ### R-31
 Severity: minor
@@ -582,8 +584,8 @@ Required resolution:
   - Keep the file at or under 150 lines.
 Fix: edit
 Source: L5-11, L7-5, L5-6
-Status: open
-Resolution:
+Status: resolved
+Resolution: BR-MX-27 names an area by its path outside the tree, BR-MX-28 fixes the switcher's group order and the browser as the place of the remembered choice, ADR-0028 § 7 Breadcrumbs and The switcher follow. US-10 (149 lines) adds Irina, «Склад» linked to A and C, the «Обзор» counts as numbers, paths in trails and area names, the list order and D's area-link command.
 
 ### R-32
 Severity: minor
@@ -592,8 +594,8 @@ Problem: The registry gives «Проект не найден.», «Команд�
 Required resolution: spec.md § Stories, at the end of the paragraph after the table, append: "A quoted «… не найден(а)» or a 403 in a story is the docs/error-codes.md entry with that text (organizations.project.not_found, organizations.team.not_found, organizations.area.not_found, organizations.access.forbidden «Недостаточно прав»), its full stop included."
 Fix: edit
 Source: L7-6
-Status: open
-Resolution:
+Status: resolved
+Resolution: § Stories closes with the registry rule. Corrected from the proposal: «Недостаточно прав» has no full stop in docs/error-codes.md, so the rule says "spelled as the registry spells it" and lists «Организация не найдена.» as well.
 
 ### R-33
 Severity: minor
@@ -608,8 +610,8 @@ Required resolution:
 - NFR Regression: append "E2E specs, outside `scripts/verify.sh`, are not part of "green": each line answers the E2E question per task (routing.md) and names in its MR the specs its address changes break, and the SC-01..SC-10 clauses run through their stories' owed-by re-runs (brief §§ 16, 18.6)."
 Fix: edit
 Source: L1-6, L1-11, L1-4
-Status: open
-Resolution:
+Status: resolved
+Resolution: the blockers bullet names doc-011 and doc-010 D-18 as the owner; the last bullet gives the reason for notifications and automations (none in `src/backend`); NFR Regression adds the E2E trace, citing SC-01..SC-09 because SC-10 is deferred by OQ-2 A.
 
 ### R-34
 Severity: minor
@@ -621,5 +623,90 @@ Required resolution, depending on the human's answer:
 Fix: human
 Decision: the human's, asked before the fixes
 Source: L1-9
-Status: open
+Status: resolved
+Resolution: The human's answer B (gate-1, 2026-10-17): BR-MX-14 says a deleted team's Closed sprints and outcomes stay listed, read-only, on the «Спринты» of the projects whose items they record; BR-MX-13 and the Sprint row follow, ADR-0028 Rule 2 and § 10 *The archive read* replace "unreachable with the team", and US-12 has the scenario. US-10 lists no «Спринты» section on a project, so the list is defined as the Closed sprints, live teams' included, that record the project's items; the section must be added to US-10.
+
+## Round 2 — delta
+
+A clean-context reviewer who wrote none of the artifacts did this round. It is a delta check: every round-1 Resolution against the current spec.md, the twelve story files (US-12 new) and the ADR-0028/0029 drafts, and the human's answers of 2026-10-17 (status.md Log). This session had no shell, so `git diff f10005f6` was not run. Instead, each changed section was read in full against the Resolution that claims it.
+
+- **Round-1 entries.** All 34 hold. Each Resolution's edits are present where it says they are. The two cross-batch items that round 1 left owed are done. US-10's link row now says "either end" for an area link (R-6). The project page lists «Спринты» as the read-only Closed-sprint list (R-34). No entry is reopened.
+- **The human's answers are applied wherever they bite.**
+  - R-6 A appears in BR-MX-3, BR-MX-6, BR-MX-8, § Roles, the Area and link rows, BPMN A1/L2/U1, US-1, US-3, US-10 and ADR-0029 § 4/§ 6. A project–team unlink still needs both ends everywhere.
+  - R-7 A adds the line `feat-NNN-area-analytics`. It sits after `mod-009-dashboards-widgets`, which is queued as release 3 under the epic `core/queries-dashboards`, and amends doc-005 D-15 and BR-M6-1. § Out of scope and US-10 refer to it.
+  - R-8 A: § Out of scope records it.
+  - R-34 B: BR-MX-13/-14, the Sprint row, ADR-0028 Rule 2 and § 10, US-12 and US-10 follow it.
+  - OQ-1..OQ-6 are all marked answered A, and every place that depends on them follows. R-39 removes the leftover option-B branches.
+- **Parallel batches.** The parallel batches left the BR ids, the story table and the per-story depends-on headers consistent with each other. Only the US-9/US-12 split left references behind, and R-36 fixes them.
+- **Budgets** (`wc -l`):
+  - spec.md has 248 lines (budget ~250).
+  - Stories: US-1 150, US-2 150, US-3 149, US-4 150, US-5 150, US-6 150, US-7 150, US-8 138, US-9 85, US-10 149, US-11 115, US-12 130. None is over 150. Every round-2 edit is line-neutral.
+
+### R-35
+Severity: minor
+Affects: US-12 (the race outline's close-vs-deletion row; "A deleted team's Closed sprints stay readable…"); BR-MX-14; ADR-0028 § 10 *The archive read*
+Problem: In the race row "Pavel closes «Спринт 12»; the organization admin deletes MARS", the expected result is that the Closed «Спринт 12» and its outcome "stay readable after the deletion". The outline's Given holds only «Активна» items, so the close records an empty outcome. The archive read lists only Closed sprints that record a project's items, so this sprint is listed on no «Спринты». The row cannot pass. The archive scenario expects "the latest closed first", but its Given never says which sprint closed later. BR-MX-14 was also silent on one consequence: a deleted team's Closed sprint whose outcome is empty is listed nowhere. That narrows the human's R-34 B wording ("Closed sprints … stay readable") without saying so.
+Required resolution: rewrite the row to state what the close and the deletion leave. Order the two closes in the archive scenario's Given. State the empty-outcome case in BR-MX-14.
+Fix: edit
+Status: resolved
 Resolution:
+- The US-12 row now reads: "the close commits first, moving login and integration to «Спринт 13», and the deletion then leaves both «Без команды» with no sprint".
+- The archive Given now says «Спринт 11» closed after VENUS's «Спринт 4».
+- BR-MX-14 appends: "one whose outcome recorded no item records no project and is listed on none".
+- The human sees this case at gate-1. The only things lost are the name and dates of a deleted team's sprint that completed nothing.
+
+### R-36
+Severity: minor
+Affects: spec § Stories (US-11 row); US-11 header; US-4 (sprint block); US-8 (overview scenario); ADR-0029 Consequences (`mod-007-iterations` bullet)
+Problem: R-12 split US-9 while R-20 and R-23 ran in parallel, and four references kept pointing at US-9 alone.
+- US-11's data and sprint filter need items' sprint pointers, which US-12 brings, but US-11 depends on US-9 only.
+- US-4's sprint scenarios are marked "owed by `mod-007-iterations` (US-9)", though they are US-12 material.
+- ADR-0029 gives `mod-007-iterations` the set form "(US-6, US-9)", though the sprint board and the area figure are US-12's. It also does not mention the gate on the new project «Спринты».
+- US-8's sprint clause is marked "with US-12", not with the "owed by" marker that spec § Stories defines.
+Required resolution: point each reference at US-12, and add the project «Спринты» read to the mod-007 duty.
+Fix: edit
+Status: resolved
+Resolution:
+- The US-11 table row and header now depend on US-7, US-8, US-9, US-12.
+- US-4's block reads "(US-9, US-12)".
+- US-8 reads "(owed by `mod-007-iterations`, US-12)".
+- ADR-0029's `mod-007-iterations` bullet adds "the step-3 gate on a project's «Спринты» (US-6, US-9, US-12)".
+
+### R-37
+Severity: minor
+Affects: ADR-0028 § 7 *Old addresses*; ADR-0028 Consequences (navigation row); spec § Decomposition (`mod-007-iterations` row); US-10
+Problem: ADR-0028 § 7 lists "sprints" among the project-settings pages that the navigation line retires as «Страница не найдена». But the mod-007 row puts the project's «Спринты» at `…/projects/:p/sprints`. That is a section address under the project prefix, and it stays the section US-10 shows. Only its entry sits in the project's settings for now, as with the area views under R-19's pattern. The navigation line would therefore retire a live address. The spec's navigation Breaks cell does not list sprints, so the spec and the ADR disagreed.
+Required resolution: keep both «Спринты» addresses and move only their interim entries.
+Fix: edit
+Status: resolved
+Resolution:
+- § 7 drops "sprints" from the retired project-settings pages. It adds that `…/teams/:t/sprints` and `…/projects/:p/sprints` stay and only their interim entries move.
+- The Consequences navigation row now says that the «Спринты» entries move onto the team's and the project's pages.
+
+### R-38
+Severity: minor
+Affects: ADR-0029 § 4 (Link management bullet; the `organizations.area.create` row); BR-MX-3 (R-6 A)
+Problem: Under R-6 A, a move away from a parent and a switch of «Наследовать доступ» also need «Управление» on the current parent, and "the organization admin at the top level" (BR-MX-3). ADR-0029 § 4 checks `organizations.area.write` "on the area's current parent", which a top-level area does not have. `organizations.area.create` covers only "a top-level area, and a move to the top level". So no code was named for moving a top-level area under a parent, or for switching inheritance on a top-level area. The generated matrix test would have no row for either.
+Required resolution: name `organizations.area.create` for a top-level area's current parent.
+Fix: edit
+Status: resolved
+Resolution:
+- The § 4 bullet now reads "…on the area's current parent, or `organizations.area.create` when the area is top-level (BR-MX-3)".
+- The Covers cell of `organizations.area.create` now reads "a top-level area; a move to or from the top level, and «Наследовать доступ» on a top-level area (BR-MX-3)".
+
+### R-39
+Severity: minor
+Affects: ADR-0028 § 3 and § 6 *Rule 8*; ADR-0029 §§ 2, 6, 7; US-6 preamble; BR-MX-3
+Problem: Text left behind by the fix batches.
+- ADR-0028 *Rule 8* introduces its race list with "Each NFR race then has one loser". Its own bullets (an unlink vs a save, the sprint races) and BR-MX-12/-14 say that sometimes neither request loses.
+- Branches for options the human rejected remain in decision text that goes for acceptance. They are ADR-0028 § 3 ("If gate-1 chooses option B…"), ADR-0029 § 2 ("Under OQ-1 (B)…") and § 6 ("If OQ-3 resolves (B)…"), and US-6 ("option B would change the scenarios").
+- ADR-0029 § 7's body-id list lacks the grantee and the new team member that BR-MX-24 now names (R-3).
+- BR-MX-3's "in a one-operation create the grant is checked on the parent" can be read as the actor's code or as the grants the form gives.
+Required resolution: reword each place to match the decided behaviour.
+Fix: edit
+Status: resolved
+Resolution:
+- *Rule 8* now opens with "ends in one order and no server error; the later request is refused, or completes on what the earlier one left".
+- The four option-B branches are removed, and ADR-0028 § 3 records that the human chose A.
+- ADR-0029 § 7's body-id list adds a grantee and a new team member.
+- BR-MX-3 now reads "«Управление» is checked on the parent for everything the form sets, its participants and the switch included, and the switch is applied last".

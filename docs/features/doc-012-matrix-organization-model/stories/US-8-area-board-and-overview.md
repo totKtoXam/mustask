@@ -24,8 +24,8 @@ Area–team links: MARS to «Логистика» and «Финансы», VENUS 
 PD-US-1 (MARS), PR-US-1 (no team). Users: «Анна», organization admin; «Борис», member with no grant; «Вера», viewer
 with «Изменение» on «Проект A»; «Глеб», member with «Чтение» on «Логистика», its only direct participant.
 «Включая дочерние области» is on the first time a user opens an area's view, as an area matches itself and its
-descendants (doc-001 BR-15, kept); it is then remembered per view (US-11). The active sprints of linked teams join the
-overview with US-9.
+descendants (doc-001 BR-15, kept); it is then remembered per user and area, for the backlog, the board and the overview
+alike (US-11). The active sprints of linked teams join the overview with US-12.
 
 ```gherkin
 Scenario: An area's views hold its projects' and its child areas' items, each once (BR-MX-16, BR-MX-17; SC-03, SC-08)
@@ -45,7 +45,7 @@ Scenario: Aggregation reaches every depth and still counts an item once (BR-MX-1
 
 Scenario: Turning child areas off narrows only that user's view (BR-MX-17; SC-08)
   When Борис turns «Включая дочерние области» off on «Логистика»
-  Then its views hold PA-US-1, PA-US-2, PA-US-3, PC-US-1 and PC-US-2, and PB-US-1 is gone
+  Then its views hold PA-US-1, PA-US-2, PA-US-3, PC-US-1 and PC-US-2, and PB-US-1 is gone, from its overview's count too
   And Анна's views of «Логистика» are unchanged
 
 Scenario: A project linked to two areas shows on both, once on each (BR-MX-16; SC-06)
@@ -57,7 +57,8 @@ Scenario: A project linked to two areas shows on both, once on each (BR-MX-16; S
 
 Scenario: A team linked to two areas adds no item to either (BR-MX-7, BR-MX-22; SC-05)
   Given MARS is linked to «Логистика» and to «Финансы» and owns PB-US-1 and PD-US-1
-  Then no view or figure of «Логистика» holds PD-US-1, Анна's included, and none of «Финансы» holds PB-US-1
+  Then no view of «Логистика», and no figure of its overview but MARS's active sprint (US-12), holds PD-US-1, Анна's
+    included, and none of «Финансы» holds PB-US-1
   When Глеб opens the «Истории» board of «Финансы»
   Then it holds PA-US-1, PA-US-2 and PA-US-3, and not PD-US-1: his grant on «Логистика» does not reach «Проект D»
   And the overview of «Финансы» lists «Проект A» alone and counts 3 «Истории»
@@ -87,6 +88,7 @@ Scenario: An area view has no order of its own: it sorts and pages, in flat rows
   And a child stands as a row of its own, never beneath its parent: feat-027 BR-T-4 and BR-T-5 nest rows on team and
     project views only
   And the backlog offers no reordering, and a reorder of MARS's or «Проект A»'s backlog changes nothing in it
+  And neither the backlog nor the board of an area offers a create command
   And each board column shows at most 50 cards, then the next ones on request, and its header counts all of them
 
 Scenario: The first page of a large area view comes within 2 s (NFR)
@@ -107,10 +109,13 @@ Scenario: The overview shows the area's projects, teams, participants and figure
   Then it lists the projects «Проект A», «Проект B» and «Проект C», the teams MARS and VENUS, and Глеб as a
     participant with «Чтение»
   And it counts 6 «Истории», all of them «Новая», and none at «Эпики» or «Фичи»
-  And each figure equals the total or a column count of the matching view for Борис, under the same
-    «Включая дочерние области»: turned off, the projects are «Проект A» and «Проект C», and the count is 5
+  And each figure but the active sprints equals the total or a column count of the matching view for Борис, under the
+    same «Включая дочерние области»: turned off, the projects are «Проект A» and «Проект C», and the count is 5
   And the teams and participants are the area's own, the participants direct and inherited (US-5), whatever that switch
   And Анна's overview also lists «Проект R», and counts 7
+  And (owed by `mod-007-iterations`, US-12) it shows the Active sprint of MARS and of VENUS as each team's sprint board counts it for the user,
+    whatever the items' projects: PD-US-1 in MARS's Active sprint is in that figure for Анна and in no other figure or
+    view of «Логистика», and not for Борис, who may not see «Проект D»
 
 Scenario: An area with no projects, teams or participants shows empty states (brief § 3.2)
   Given «Инфраструктура», a new top-level area with no link and no participant
@@ -120,6 +125,8 @@ Scenario: An area with no projects, teams or participants shows empty states (br
   And a way to link a project or a team is offered only to a user who holds «Управление» on «Инфраструктура»
   And an area whose only project is «Проект R» shows Борис the same no-projects state, and Анна its items
   And at «Эпики», where its projects have no item, «Логистика» shows the empty-view frame, not the no-projects state
+  And once «Инфраструктура» has a child area linked to «Проект B», it links no project itself: with the switch on it
+    shows PB-US-1, and with the switch off the no-projects state
 
 Scenario: Missing areas and deactivated projects (BR-MX-1, BR-MX-24; mod-002 BR-M1-20)
   When a member opens an area that does not exist, has been deleted or belongs to another organization

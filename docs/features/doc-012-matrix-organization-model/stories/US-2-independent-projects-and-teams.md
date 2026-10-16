@@ -1,7 +1,7 @@
 # US-2: Projects and teams exist on their own inside the organization
 
 - story: US-2
-- depends-on: -
+- depends-on: US-4
 - shippable: no — an analysis story; `feat-028-org-level-teams` delivers it, and `mod-NNN-work-item-owning-team` already ships the default-team setting over a project's own teams (§ Decomposition)
 - status: pending
 
@@ -97,7 +97,7 @@ Scenario: An admin chooses the default among the linked teams (BR-MX-11, BR-MX-1
   Then it offers MARS, VENUS and no team, and never SATURN
   When Ann chooses VENUS
   Then VENUS is marked «По умолчанию», and an item created outside a team's surface starts with VENUS
-  And a request naming SATURN is refused and changes nothing, and Max's request to set any default is refused with 403
+  And a request naming SATURN is refused with «Команда не участвует в проекте.» and changes nothing, and Max's request to set any default is refused with 403
 
 Scenario: Two linked teams and no setting give no default; the one left is inferred (BR-MX-11)
   Given "Alpha" is linked to MARS and VENUS, and its settings name no team
@@ -132,12 +132,13 @@ Scenario: A team is deleted in one operation (BR-MX-12, BR-MX-2, BR-MX-9, BR-MX-
 
 Scenario: The deletion reaches a deactivated project too (BR-MX-12, BR-MX-11; ADR-0026 rule 2)
   Given deactivated project "Delta" is linked to MARS, MARS owns 3 of its items, and its settings name MARS
-  When Ann deletes MARS and then restores "Delta"
-  Then "Delta" comes back with no link to MARS, its 3 items «Без команды», and no default-team setting
+  When Ann deletes MARS, and then restores "Delta"
+  Then the «Удаление команды» she confirmed named "Delta" — 3, marked «деактивирован»
+  And "Delta" comes back with no link to MARS, its 3 items «Без команды», and no default-team setting
 
 Scenario: A write racing the deletion never leaves work on a deleted team (BR-MX-12; § NFR Concurrency)
   When Max saves ALP-9 with owning team MARS, or Ivan links MARS to another project, concurrently with Ann's deletion of MARS
-  Then either that write is refused, or it lands wholly before the deletion, which then includes it: no item stays owned by MARS and no link names it
+  Then either that write is refused with «Команда не найдена.», or it lands wholly before the deletion, which then includes it: no item stays owned by MARS and no link names it
 
 Scenario: A deactivated project keeps its links and gets them back on restore (ADR-0026 rules 2-3; BR-MX-5)
   Given "Alpha" is linked to MARS, VENUS and Logistics, and its settings name VENUS

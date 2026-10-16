@@ -1,7 +1,7 @@
 # US-11: A user filters team, project and area views
 
 - story: US-11
-- depends-on: US-7, US-8, US-9
+- depends-on: US-7, US-8, US-9, US-12
 - shippable: no — an analysis story: `feat-013-board-backlog-filter` delivers it (spec § Decomposition)
 - status: pending
 
@@ -25,6 +25,18 @@ hidden from U. The level is «Истории». Each item is on the views of its
 
 With no filter, U's MARS backlog therefore holds A1 and B1, A's holds A1, A2 and A3, and Logistics' holds A1, A2, A3 and B1.
 
+A filter's options are:
+
+- «Проект»: the projects the view reaches that the user may see;
+- «Команда»: the teams linked to those projects, then «Без команды»;
+- «Исполнитель»: the people assigned to the view's items that the user may see, then «Не назначен»;
+- «Спринт»: on a team's views «Текущий спринт» (its Active sprint) and the team's sprints; elsewhere the sprints of the
+  teams that own the view's visible items; newest first, each naming its team, Closed ones included, then «Без спринта»;
+- «Тип» and «Статус»: those the process gives the level.
+
+No option shows a count. The brief's "date" (§ 7.1) is «Целевая дата», the date that plans an item's delivery; «Дата
+начала» and the creation and change times are not view filters.
+
 ```gherkin
 Scenario Outline: Each filter narrows each kind of view to its matching items (BR-MX-16, BR-MX-17, BR-MX-21)
   When U filters MARS's backlog, A's backlog and Logistics' backlog by <filter> <value>
@@ -42,6 +54,7 @@ Scenario Outline: Each filter narrows each kind of view to its matching items (B
     | «Статус»      | «Активна»         | B1     | A2      | A2, B1 |
     | «Приоритет»   | 1                 | A1, B1 | A1      | A1, B1 |
     | «Спринт»      | MARS's «Спринт 3» | A1     | A1      | A1     |
+    | «Спринт»      | «Без спринта»     | B1     | A3      | A3, B1 |
     | keyword       | «оплат»           | A1     | A1, A2  | A1, A2 |
 
 Scenario: A keyword matches the title or the identifier, ignoring letter case
@@ -59,18 +72,23 @@ Scenario: Filters combine: an item matches every filter chosen, and any one valu
   Then it holds A1 and B1 and reads 2 in total
   And clearing «Приоритет» adds A2 and A3, and clearing every filter gives back A1, A2, A3 and B1, each once
 
-Scenario: Options and counts come after visibility, and a filter discloses nothing (BR-MX-1, BR-MX-21; NFR Non-disclosure)
+Scenario: Options and totals come after visibility, and a filter discloses nothing (BR-MX-1, BR-MX-21; NFR Non-disclosure)
   When U opens the filters of MARS's backlog and of Logistics' board
   Then «Проект» offers A and B and never C, «Команда» on Logistics offers MARS, VENUS and «Без команды», and every
-    option, count and total equals the one for the same data without C
+    option, total and column count equals the one for the same data without C
   And a view requested filtered by C, by a project or a team of another organization, or by an id that names nothing
     gives one and the same answer, which reveals neither C nor the other organization
   And U's filters narrow only U's view: another user's views of Logistics and its overview stay as they were (SC-03)
 
 Scenario: The sprint filter lists the sprints of the teams that own items in the view (brief § 8.7; SC-02)
   Given team ORION is linked to A and owns no item there
+  And MARS's «Спринт 2» (Closed), VENUS's «Спринт 5» (Planned) and MARS's «Спринт 3» (Active) were created in that
+    order, and VENUS has no Active sprint
   When U opens the «Спринт» filter of A's views
-  Then it lists the sprints of MARS and of VENUS, each entry naming its team, and none of ORION's
+  Then it lists MARS's «Спринт 3», VENUS's «Спринт 5» and MARS's «Спринт 2», newest first, each entry naming its team,
+    then «Без спринта», and none of ORION's sprints
+  And on MARS's views it lists «Текущий спринт» (MARS's «Спринт 3»), «Спринт 3», «Спринт 2», then «Без спринта»;
+    choosing «Текущий спринт» leaves A1 alone; on VENUS's views it offers no «Текущий спринт»
   And choosing VENUS's «Спринт 5» leaves A2 alone, and once it is renamed «Спринт 3» the two sprints of that name are
     still told apart by their team
 
@@ -80,11 +98,11 @@ Scenario: A filtered team or project backlog reorders against the full list (doc
   Then the unfiltered backlog reads A4, A1, B1, B2: every item the filter hid keeps its relative order
   And the same holds on A's backlog, while an area view, which has no order, offers no reordering, filtered or not
 
-Scenario: The level, the filters and «Включая дочерние области» are remembered per view and per user (brief §§ 11.6.10, 17)
+Scenario: The level and the filters are remembered per view and per user, and «Включая дочерние области» per area and per user (brief §§ 11.6.10, 17)
   Given on MARS's board U picked the level «Фичи» and the project filter A, and turned «Включая дочерние области» off
-    on Logistics' board
+    on Logistics
   When U opens MARS's backlog and comes back, reloads the page, or signs out and in again in the same browser
-  Then MARS's board shows «Фичи» filtered to A, and Logistics' board has the switch off
+  Then MARS's board shows «Фичи» filtered to A, and Logistics' board, backlog and overview have the switch off
   And VENUS's and A's boards keep their own choices, another user in that browser gets none of U's, and an area view
     U opens for the first time has the switch on
   And a remembered value U may no longer use, such as B once unlinked from MARS or a project that turned hidden, is

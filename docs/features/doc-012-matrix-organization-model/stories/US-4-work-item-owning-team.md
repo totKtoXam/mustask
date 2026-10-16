@@ -1,7 +1,7 @@
 # US-4: A work item has an optional owning team
 
 - story: US-4
-- depends-on: US-3
+- depends-on: -
 - shippable: no — specified for `mod-NNN-work-item-owning-team`, which ships it together with US-7's team part
 - status: pending
 
@@ -99,7 +99,8 @@ Scenario: A child starts with its parent's team, else the project default
   Given A's settings name VENUS the default team; PA-FEAT-6 is MARS's and PA-FEAT-7 has no owning team
   When a story is added to PA-FEAT-6 from its row (feat-027 US-4), and another to PA-FEAT-7
   Then the first is MARS's and the second VENUS's, both in project A (BR-MX-10)
-  And neither a row's add nor a card checklist's add (feat-032 US-3) has a «Команда» field: the child takes this default, and its team is changed afterwards on its card
+  And neither a row's add nor a card checklist's add (feat-032 US-3) has a «Команда» field: the child takes this default, even on a card opened over another team's page, and its team is changed afterwards on its card
+  And a story added to PA-FEAT-6 while MARS is being unlinked from A (owed by `feat-028-org-level-teams`) takes PA-FEAT-6's team as stored when the story is saved, and is moved with it
 
 Scenario: A child may have another team than its parent, in the same project (brief § 6, last paragraph)
   When the user sets PA-TASK-13's «Команда» to «VENUS» and saves
@@ -121,11 +122,11 @@ Scenario: A person moving between teams moves no item (SC-04)
 Scenario: A save or a creation that sets a team while it is being unlinked (BR-MX-12; owed by `feat-028-org-level-teams`)
   Given MARS is being unlinked from A with «Без команды» as the destination (US-3)
   When a save setting PA-US-20's «Команда» to «MARS», or a creation with «MARS», overlaps the unlink, in either order
-  Then either that write is refused, the item unchanged or not created, and the unlink completes; or the
-    unlink is refused, the link kept, and the write is stored
-  And in no order does an item of A end owned by MARS while MARS is not linked to A, and neither request answers with a server error
+  Then it either commits first and the unlink reassigns it with the others, or it comes after the unlink and is refused
+    with «Команда не участвует в проекте.», the item unchanged or not created
+  And the unlink is never refused for it, no item of A ends owned by MARS while MARS is not linked to A, and no request answers with a server error
 
-# From here on, owed by `mod-007-iterations` (US-9). MARS has the Active «Спринт 3», which holds PA-US-12, and
+# From here on, owed by `mod-007-iterations` (US-9, US-12). MARS has the Active «Спринт 3», which holds PA-US-12, and
 # the Closed «Спринт 2», whose outcome lists the completed PA-US-14 (MARS's, 3 story points); VENUS has the
 # Planned «Спринт 5» and the Closed «Спринт 4».
 

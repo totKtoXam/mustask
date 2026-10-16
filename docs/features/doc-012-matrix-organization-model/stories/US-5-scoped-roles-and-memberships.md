@@ -5,10 +5,9 @@
 - shippable: no — analysis only; delivered by `mod-NNN-scoped-access`
 - status: pending
 
-As a **holder of «Управление» on an area, a project or a team**, I want **to give organization members
-a role of that object's scope, and to have an area's grants reach the areas below it**, so that **each
-person can do what their work needs on the objects it concerns, and nothing more (BR-MX-20, BR-MX-22,
-BR-MX-23)**.
+As a **holder of «Управление» on an area, a project or a team**, I want **to give organization members a role of
+that object's scope, and to have an area's grants reach the areas below it**, so that **each person can do what
+their work needs on the objects it concerns, and nothing more (BR-MX-20, BR-MX-22, BR-MX-23)**.
 
 ## Acceptance criteria
 
@@ -97,10 +96,11 @@ Scenario: A team linked to two areas carries nothing between them (SC-05)
   When U opens MARS's board and moves a card of X and a card of Q
   Then the board offers U moves on the cards of X only; the move of X's card is kept, and a direct move of Q's answers 403 «Недостаточно прав» (BR-MX-7, BR-MX-22)
 
-Scenario: A team grant reaches the team and none of its projects' items
+Scenario: A team grant reaches the team and none of its projects' items, a sprint close aside (US-12)
   Given U holds «Планирование» on MARS, and MARS owns items of WMS and P
   When U reorders MARS's backlog, changes an item of P and of WMS, and reorders P's own backlog
   Then the reorder of MARS's backlog takes effect, and each of the others answers 403 «Недостаточно прав»
+  And so does putting an item of WMS into a sprint of MARS (owed by `mod-007-iterations`)
   And a «Читатель» who is a member of MARS with no grant is shown no reorder control on MARS's backlog,
     and the same reorder answers 403: belonging to a team grants nothing (§ Roles)
 
@@ -134,16 +134,17 @@ Scenario: A person moves from MARS to VENUS (SC-04)
 Scenario: Removing the organization membership ends every grant and team membership (BR-MX-20)
   Given U holds grants on «Логистика», WMS and MARS, and is a member of MARS
   When an organization admin removes U from the organization
-  Then U is listed on none of those objects and in no team
-  And adding U to the organization again gives back none of them
+  Then U is listed on none of those objects and in no team, and adding U again gives back none of them
 
-Scenario: A grant removal and a request that uses it do not both pass (§ Non-functional, Concurrency)
+Scenario: A grant removal applies from the next check (§ Non-functional, Concurrency)
   Given U holds «Изменение» on WMS only
   When the grant is removed while U's save of a WMS item is in flight
-  Then either the save completes before the removal, or it is refused and the item is unchanged
+  Then a save whose check ran before the removal committed is kept, a save checked after it answers 403
+    «Недостаточно прав» and leaves the item unchanged, and no save is half-applied
 
 Scenario: The order of the answers (BR-MX-24)
   When a change to an item of P is requested with no sign-in, by a signed-in user who is not a member,
     and by a member whose organization role is «Читатель» and who holds no grant
   Then they answer 401, «Организация не найдена» and 403 «Недостаточно прав», and nothing changes
+  And that «Читатель» changing an item id that names nothing in P answers «Рабочий элемент не найден.», not 403
 ```

@@ -38,6 +38,8 @@ No backend/frontend plan: a docs task. Input: [input-brief.md](input-brief.md)
 - 2026-10-17 [orchestrator] round 1: 5 lenses + 2 cross-checks, judged by one consolidator (the human cut a per-finding verification of ~230 agents to 3): 70 findings → R-1..R-34 in review.md (5 blocker, 19 major, 10 minor).
 - 2026-10-17 [orchestrator] human answers in chat: R-6 A (the parent's «Управление» for «Наследовать доступ» and moves away; either end removes an area link), R-7 A (queue an area-analytics line), R-8 A (no area visibility), R-34 B (a deleted team's closed sprints stay readable).
 - 2026-10-17 [orchestrator] human answers in chat: OQ-1 A (retire the item's «Область»), OQ-2 A (defer), OQ-3 A (admin has full access), OQ-4 A (additive migrations), OQ-5 A (doc-011 waits and restates), OQ-6 A (one Active sprint).
+- 2026-10-17 [orchestrator] fixes: five analyst batches with disjoint files resolved R-1..R-34 and applied every answer; US-9 split into US-9 (lifecycle) and US-12 (items, close, outcome, board). spec.md 248 lines, stories ≤ 150.
+- 2026-10-17 [requirements-reviewer] round 2 delta in review.md: approved-by-ai — all 34 resolutions hold, 5 new minors (R-35..R-39) fixed in place; for gate-1: a deleted team's Closed sprint that recorded no item is listed nowhere (R-35). verify.sh green.
 
 ## Notes
 

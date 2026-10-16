@@ -37,7 +37,7 @@ Scenario: The create form takes the optional fields in one operation (brief § 1
   And the parent picker offers only areas the user may create children in, and no parent only to the organization admin
   When they create «Транспортные системы» under «Логистика» with a description, the project A, the team MARS
     and a participant holding «Изменение» (the participant: owed by `mod-NNN-scoped-access`)
-  Then the area, its two links and the grant all exist after the one operation, each made by BR-MX-5, -6 and -20
+  Then the area, its two links and the grant all exist after the one operation, each made by BR-MX-5, -6 and -20; a «Наследовать доступ» set off in the same form is applied last (BR-MX-3)
   And when any link or grant in the operation is refused by those rules, nothing is created, the area included
 
 Scenario: A name is 1–100 characters and is saved trimmed; a description holds at most 2 000 (BR-MX-4)
@@ -55,8 +55,7 @@ Scenario: Sibling names are unique, and top-level areas are siblings of each oth
   And «Финансы» can be renamed «финансы», since its only match is itself
 
 Scenario: Two writes of one name at the same moment keep one (NFR Concurrency)
-  When two users create a top-level «Аналитика» at the same moment, or one creates «Аналитика» under «Логистика»
-    while another renames «Транспортные системы» «Аналитика»
+  When two users create a top-level «Аналитика» at the same moment, or one creates «Аналитика» under «Логистика» while another renames «Транспортные системы» «Аналитика»
   Then exactly one «Аналитика» exists at that level, and the other request is refused as a taken name
 
 Scenario: An area moves with its whole subtree (BR-MX-3)
@@ -94,17 +93,17 @@ Scenario: Rename, description and the inheritance switch are edited
   When the organization admin renames «Логистика» «Логистика и доставка», sets and then clears its description,
     and turns «Наследовать доступ» off on «Складские системы»
   Then the tree shows «Логистика и доставка / Складские системы» and «Логистика и доставка / Транспортные системы»
-  And the description is empty again, and «Складские системы» shows the switch off on every later read,
-    with its links and participants unchanged; what the switch changes in access is BR-MX-22's
+  And the description is empty again, and «Складские системы» shows the switch off on every later read, with its links and participants unchanged; what the switch changes in access is BR-MX-22's
 
-Scenario: A holder of «Управление» manages the area and the areas below it, and a move needs both ends (BR-MX-3; owed by `mod-NNN-scoped-access`)
+Scenario: A holder of «Управление» manages the area and the areas below it; the switch and a move away need the parent too (BR-MX-3; owed by `mod-NNN-scoped-access`)
   Given a user whose only grant is «Управление» on «Логистика», reaching its children by inheritance (BR-MX-22)
-  When they create «Аналитика» under «Логистика», rename «Транспортные системы» and delete «Аналитика»
-  Then each succeeds
-  When they create a top-level area, create a child of «Финансы», rename «Финансы»,
+  When they create «Аналитика» under «Логистика», rename «Транспортные системы», delete «Аналитика», and turn «Наследовать доступ» off on «Складские системы»
+  Then each succeeds, and the last ends their own «Управление» on «Складские системы», which only the admin, or a holder of «Управление» on it and on «Логистика», turns on again
+  When they create a top-level area, create a child of «Финансы», rename «Финансы», switch «Наследовать доступ» off on «Логистика»,
     or move «Транспортные системы» under «Финансы» or to the top level
   Then each is answered 403, and nothing changes
-  And with «Управление» on «Финансы» as well, the move under «Финансы» succeeds; the top level stays the admin's
+  And a user whose only grant is «Управление» on «Транспортные системы» is answered 403 turning its switch off or moving it: both need «Логистика» too
+  And with «Управление» on «Финансы» as well, the first user's move under «Финансы» succeeds; moving «Логистика», and the top level, stay the admin's
 
 Scenario: Nobody else writes to an area, a linked project or team included (BR-MX-6, P-9)
   Given «Логистика» linked to the project A and the team MARS, and users with no area grant other than as listed:
@@ -126,19 +125,20 @@ Scenario: Deleting a leaf ends its links and grants and nothing else (BR-MX-8, B
     to «Финансы», and a user holds «Изменение» on «Складские системы» (owed by `mod-NNN-scoped-access`)
   When the organization admin deletes «Логистика»
   Then it is refused with «Нельзя удалить область, в которой есть вложенные области»
-  When they delete «Складские системы», after a confirmation that names its links and grants and says it cannot be undone
+  When they delete «Складские системы», after a confirmation that names its team links, its links to projects the user may see
+    (a deactivated one marked «деактивирован»), and its grants, and says it cannot be undone
   Then it is gone from the tree, and its two links and the grant are gone
+  And a holder of «Управление» on «Складские системы» alone, who may not see a «Ограниченный» project R linked to it (owed by `feat-NNN-project-visibility`),
+    deletes it without R in the confirmation or its counts, and R's link ends too (BR-MX-21)
   And A, MARS, every other link of theirs, A's work items, «Логистика» and «Транспортные системы» are as before
   And no action restores it: «Складские системы» created again under «Логистика» has no link and no participant
-  And a deletion that runs at once with a child created under the area, or with an area moved under it, refuses one
-    of the two, and no area is left under a deleted parent
+  And a deletion that runs at once with a child created under the area, or with an area moved under it, refuses one of the two, and no area is left under a deleted parent
 
 Scenario: An organization with no areas works fully (brief § 3.1.4, SC-07, BR-MX-2)
   Given the organization has no areas
   When the organization admin opens «Области»
   Then they see «В организации пока нет областей» with the create action, and a member sees it without the action
-  And a project and a team are created, a work item is created in the project, and the project's board opens with it,
-    with no area anywhere
+  And a project and a team are created, a work item is created in the project, and the project's board opens with it, with no area anywhere
 
 Scenario: An id from another organization names nothing (BR-MX-1, BR-MX-24)
   Given the organization «Другая» has its own top-level «Логистика», which did not clash with «Компания»'s
