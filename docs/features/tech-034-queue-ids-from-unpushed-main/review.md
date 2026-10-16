@@ -250,3 +250,37 @@ Direction 2:
 - Hot counts withdrawn numbers: numbering.md:98-100 ("three sources") is now true; feature.md:50-54 unaffected. None.
 - verify.sh runs a new case file: grepped `handoff-cases`, `queue-numbering-cases` — no prose lists per-script cases. None.
 - Not swept: other tasks' `docs/features/*/` artifacts and `docs/templates/examples/` (historical).
+
+## Fixes (fix pass after QA and code review round 1)
+
+Cases: `sh scripts/tests/queue-numbering-cases.sh` 12 of 12 PASS (also under
+`--shell dash`); `bash scripts/verify.sh` `RESULT: green`. Fail-before: against
+the pre-fix scripts the D1 cases (4) and the D3 case fail; against a
+`refs/remotes`-only hot path case 3b fails; against a git-per-distinct-commit
+read case 7 fails.
+
+- D1 — fixed in b7b68179. `backlog.sh` `queue_file_numbers` returns non-zero
+  with a message on stderr when `for-each-ref` or `cat-file --batch` fails or
+  answers fewer requests than asked; `--ids` exits 1, the summary prints
+  `unavailable` under NUMBERS and exits 1, `queue.sh next|add` refuse (main
+  untouched). Cases 9-12 (git shim: exit 128, and exit 0 with no output).
+- D2 — fixed in b7b68179. Case 3b: unpushed `queue.sh add hot`, then
+  `new-task.sh hot` expects `hot/002`; killed by the `refs/remotes`-only mutant.
+- D3 — fixed in b7b68179. The line now reads `(+N unpushed queue commit(s) on
+  local main: add/take/withdraw not in origin/main yet, so this list may differ
+  from main; their numbers are counted)`; case 4 pins `add/take/withdraw`.
+- CR-1 — fixed in b7b68179. Case 7 gives each extra branch its own commit;
+  killed by the git-per-distinct-commit mutant (12 vs 60 processes).
+- CR-2 — fixed in b7b68179. `numbering.md` source 3 names `backlog.sh --ids` and
+  the one-pass command over both queue files.
+- CR-3 — fixed in b7b68179. Both `backlog.sh` comments reworded.
+- CR-4 — left: the read needs a redesign (`cat-file` cannot glob
+  `docs/backlog/*.md`; `git grep` over many trees nears the Windows
+  command-line limit) and nothing is lost until `Later` is split out of
+  `docs/backlog.md` (39 of ~40 entries); the "When to split" table is not in
+  this pass's paths, so the orchestrator should queue it.
+- CR-5 — comment fixed in b7b68179 (`queue.sh` header says source 2 is this
+  worktree's folders); left: reading `docs/features` per ref is outside the
+  plan, the orchestrator should queue it.
+- O1, O2 — not findings; untouched (O2: `git update-index --chmod=+x` for the
+  three scripts is the orchestrator's call before the PR).
