@@ -34,6 +34,10 @@ No backend/frontend plan: a docs task. Input: [input-brief.md](input-brief.md)
 - 2026-10-16 [orchestrator] origin/main was synced by PR #2 (squash ee54131a); local main reset to it, trees identical, the old commits stay on sync/main-2026-10-16. Session bound natively (EnterWorktree) to this worktree, branch confirmed.
 - 2026-10-16 [orchestrator] stage 1 done: 7 audits, spec.md, US-1..US-11, ADR-0028/0029 proposed (both go to gate-1), OQ-1..OQ-6. A completeness critic found 25 gaps; 24 fixed, the spec's packed long lines left. verify.sh green. Stage 2 goes to a new session.
 - 2026-10-16 [orchestrator] owed: local main has queue commits not on origin (6d97479b Take doc-012; 8886d8c2 Queue tech-033 from another session). After gate-1, bring them to origin by a PR together with the delivery-line queue commits.
+- 2026-10-16 [orchestrator] stage 2 started in a new session bound to this worktree. Round 1 fans out into five read-only lenses (coverage, structure, access, views/sprints, navigation/decomposition); fixes follow in runs owning disjoint files.
+- 2026-10-17 [orchestrator] round 1: 5 lenses + 2 cross-checks, judged by one consolidator (the human cut a per-finding verification of ~230 agents to 3): 70 findings → R-1..R-34 in review.md (5 blocker, 19 major, 10 minor).
+- 2026-10-17 [orchestrator] human answers in chat: R-6 A (the parent's «Управление» for «Наследовать доступ» and moves away; either end removes an area link), R-7 A (queue an area-analytics line), R-8 A (no area visibility), R-34 B (a deleted team's closed sprints stay readable).
+- 2026-10-17 [orchestrator] human answers in chat: OQ-1 A (retire the item's «Область»), OQ-2 A (defer), OQ-3 A (admin has full access), OQ-4 A (additive migrations), OQ-5 A (doc-011 waits and restates), OQ-6 A (one Active sprint).
 
 ## Notes
 
