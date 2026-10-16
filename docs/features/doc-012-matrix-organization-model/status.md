@@ -3,7 +3,7 @@
 - type: docs
 - size: L
 - branch: doc/012-matrix-organization-model
-- stage: gate-3
+- stage: complete
 - epic: product/analysis
 - deps: mod-002,mod-016,doc-004
 - gates: gate-1, gate-3
@@ -11,7 +11,7 @@
 ## Gates
 
 gate-1: approved (by the human in chat, 2026-10-17)
-gate-3: pending
+gate-3: approved (by the human in chat, 2026-10-17)
 
 ## Plan
 
@@ -45,6 +45,7 @@ No backend/frontend plan: a docs task. Input: [input-brief.md](input-brief.md)
 - 2026-10-17 [orchestrator] local main was not reset to origin/main (auto-mode refused a hard reset); 6d97479b/8886d8c2 equal origin's #3 in tree, so queue commits reach origin through a sync branch cut from origin/main.
 - 2026-10-17 [orchestrator] queue, queue-only commits on local main: lines mod-017, mod-018, mod-019, feat-039..feat-044 entered; 22 superseded lines reworded, feat-028 moved to Later behind mod-017, feat-008 deps to mod-007,feat-003; feat-010 withdrawn. doc-011 and feat-038 left to their branches.
 - 2026-10-17 [orchestrator] the queue commits go to origin by PR #5 (sync/main-2026-10-17, cut from origin/main); spec.md decomposition carries the issued ids. Branch rebased onto origin/main 2130f560, no conflicts. gate-3 requested from the human.
+- 2026-10-17 [orchestrator] gate-3: approved by the human in chat; stage: complete; branch pushed, PR to main opened (squash, branch kept). The human merges; PR #5 (queue) should go first.
 
 ## Notes
 
