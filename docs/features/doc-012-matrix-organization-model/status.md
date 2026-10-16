@@ -3,7 +3,7 @@
 - type: docs
 - size: L
 - branch: doc/012-matrix-organization-model
-- stage: 02-requirements-review
+- stage: gate-3
 - epic: product/analysis
 - deps: mod-002,mod-016,doc-004
 - gates: gate-1, gate-3
@@ -43,6 +43,8 @@ No backend/frontend plan: a docs task. Input: [input-brief.md](input-brief.md)
 - 2026-10-17 [orchestrator] gate-1 approved by the human in chat; ADR-0028 and ADR-0029 accepted with it (index updated). Next: the delivery lines into the queue, the superseded lines reworded or withdrawn, then the final diff and gate-3.
 - 2026-10-17 [orchestrator] queue.sh issued duplicate ids (feat-039, mod-017 twice): backlog.sh reads the queue from origin/main, so unpushed local queue commits are invisible. Renumbered by hand; the fix is a follow-up task.
 - 2026-10-17 [orchestrator] local main was not reset to origin/main (auto-mode refused a hard reset); 6d97479b/8886d8c2 equal origin's #3 in tree, so queue commits reach origin through a sync branch cut from origin/main.
+- 2026-10-17 [orchestrator] queue, queue-only commits on local main: lines mod-017, mod-018, mod-019, feat-039..feat-044 entered; 22 superseded lines reworded, feat-028 moved to Later behind mod-017, feat-008 deps to mod-007,feat-003; feat-010 withdrawn. doc-011 and feat-038 left to their branches.
+- 2026-10-17 [orchestrator] the queue commits go to origin by PR #5 (sync/main-2026-10-17, cut from origin/main); spec.md decomposition carries the issued ids. Branch rebased onto origin/main 2130f560, no conflicts. gate-3 requested from the human.
 
 ## Notes
 
