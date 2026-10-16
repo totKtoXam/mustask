@@ -35,6 +35,12 @@ against `api-contract.md`, and on mocks (MSW) until the backend is ready.
 
 ## 7. Frontend QA (separate session, clean context)
 
+**On `M` with a backend this is the task's single QA pass**
+([../routing.md](../routing.md), "Route shortcuts for `M`"): stage 5 was not
+run, so one QA session writes both the Backend section
+([04-backend.md](04-backend.md), § 5, steps 1–3) and the Frontend section
+below, and returns defects to whichever developer owns them.
+
 1. The **Frontend** section of the feature's `qa.md`, per the test-plan
    template: a criterion/screen → check matrix.
 2. Run the tests, add the missing component tests.

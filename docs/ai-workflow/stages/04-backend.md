@@ -123,6 +123,11 @@ this way settles it: `python scripts/usage-report.py --task <id>`.
 
 ## 5. Backend QA (separate session, clean context)
 
+**On `M` with a frontend this stage is not run on its own** — stages 5 and 7
+are one QA pass after stage 6 ([../routing.md](../routing.md), "Route shortcuts
+for `M`"; [05-frontend.md](05-frontend.md), § 7). On `M` without a frontend
+this stage is that single pass.
+
 The QA agent **does not look at the implementation before writing the test
 plan** — only spec + api-contract:
 
