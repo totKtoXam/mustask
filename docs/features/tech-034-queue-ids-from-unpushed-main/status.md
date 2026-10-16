@@ -3,7 +3,7 @@
 - type: tech
 - size: S
 - branch: tech/034-queue-ids-from-unpushed-main
-- stage: 04-backend
+- stage: 06-code-review
 - epic: workflow
 - deps: -
 - gates: gate-3
@@ -36,6 +36,9 @@ gate-3: pending
 - 2026-10-17 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/tech-034-queue-ids-from-unpushed-main
 - 2026-10-17 [orchestrator] route confirmed by the human (question form): tech, S, the full S route — development, QA and code review in clean contexts, then gate-3. The missing pipe in new-task.sh's hot withdrawn scan is folded in: same numbering defect, told to the human in chat.
 - 2026-10-17 [orchestrator] after PR #5 merged, local main saved to backup/main-2026-10-17 (a360042c) and reset to origin/main 5fac020c with the human's approval; nothing on it was missing from origin. Take commit 15094ef8 is on local main, unpushed (rides the next sync).
+- 2026-10-17 [task-executor] dev: backlog.sh reads the queue files over every ref in one cat-file pass and notes unpushed queue commits; new-task.sh hot pipe; 7 cases in scripts/tests/queue-numbering-cases.sh, wired in verify.sh; numbering.md. 26e84e91, 49af6133, e5043357.
+- 2026-10-17 [orchestrator] `bash scripts/verify.sh` exit 0 (green). The dev run was cut by a session restart before its report; QA checks that the cases fail against the unfixed scripts.
+- 2026-10-17 [orchestrator] standing approval from the human in chat for the night: do everything without them, record every question for the morning. E2E stays "no" (paused 2026-10-12). Gates decided by the orchestrator and marked for review; merges stay the human's.
 
 ## Notes
 
