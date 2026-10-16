@@ -156,3 +156,97 @@ against the real repo (they commit to main — covered by the sandbox cases).
 
 Scratch artifacts (mutants, probes, outputs) are plain files under the
 session scratchpad `qa034/`; no process of mine is still running.
+
+## Round 1 (code review)
+
+Scope: `git diff 5fac020c..HEAD -- scripts docs/features/numbering.md` at
+`04410926`, read against `## Plan`. QA's D1-D3 and O1-O2 are known and not
+repeated. Verdict: **approve** — no blocker, no major; five minors (debt).
+Not re-run in full (verify green per Log and QA); the cases file was run once
+against a CR-1 mutant. Timing: `--ids` 0.6 s; the full summary 61 s against
+72 s for the `5fac020c` script (Windows spawn cost in the pre-existing loops).
+
+Correct as built: the union is a superset of the old read (`origin/main` and
+`main` are both in `refs/heads refs/remotes`); `%0a` is git's format escape;
+cat-file gets full shas, so no ref-name ambiguity, and a `missing` reply cannot
+match the `^- \[` filter; the `+N unpushed` count is path-limited and guarded
+by `queue_src`; no bashism in the new lines (QA ran them under dash).
+
+### Findings
+
+**CR-1 — minor (test). Case 7 does not pin "one pass".**
+`scripts/tests/queue-numbering-cases.sh:235-238` puts all 12 extra branches on
+the same commit as `main`, so a read that spawns git per *distinct commit*
+keeps the process count flat. Mutant: `queue_file_numbers` as `for c in
+$(git for-each-ref --format='%(objectname)' refs/heads refs/remotes | sort -u);
+do git show "$c:docs/backlog.md"; git show "$c:docs/backlog/withdrawn.md";
+done | grep ...` — `--scripts <mutant>`: 7 of 7 PASS. In this repo that is 166
+processes (83 distinct commits). Fix: one commit per branch, e.g.
+`g branch "scratch/b$n" "$(g commit-tree -p HEAD -m "b$n" 'HEAD^{tree}')"`.
+
+**CR-2 — minor (prose). The source-3 command reads one of the two files.**
+`docs/features/numbering.md:57-58` (changed here) names both queue files;
+the command on `:59` is still `xargs -I{} git show {}:docs/backlog.md` — run
+by hand it misses every withdrawn number. The prescribed tool is
+`backlog.sh --ids` (`:72-73`), so nobody is steered wrong. Fix: add
+`{}:docs/backlog/withdrawn.md` to the command, or replace it with "`scripts/
+backlog.sh --ids` (one pass)".
+
+**CR-3 — minor (comments). Two backlog.sh comments no longer match.**
+`scripts/backlog.sh:29` "origin/main ... (fresher than local)" — the block this
+diff adds at `:162-165` says local main can carry queue commits origin/main
+lacks. `:45-46` "a git process per ref is what this replaced" — the replaced
+code (`5fac020c:scripts/backlog.sh:21-45`) read `origin/main` alone with two
+`git show`; per-ref is the avoided alternative (the numbering.md command,
+`new-task.sh hot`). Fix: "(fresher for others' pushes; own unpushed queue
+commits are noted under QUEUED)"; "is what this avoids".
+
+**CR-4 — minor (latent). The queue files are two hardcoded names.**
+`scripts/backlog.sh:50` and `scripts/new-task.sh:134-139` read `docs/backlog.md`
+and `docs/backlog/withdrawn.md` only; the queue is `docs/backlog.md` plus any
+`docs/backlog/*.md` (`.githooks/pre-commit:33-45`, AGENTS.md), and the summary
+note here counts the whole `docs/backlog` (`backlog.sh:167`). `docs/backlog.md`
+"When to split" moves `Later` to `docs/backlog/later.md` past ~40 entries;
+`Later` holds 39. After that split, numbers added to `later.md` are invisible
+to `--ids` (older refs' copies hide it for a while). Pre-existing names, but
+this diff rewrote the read. Fix: read every queue file in the one pass —
+`git grep -h -E '^- \[[ x]\] [a-z]+-[0-9]{3}' <distinct shas> -- docs/backlog.md
+'docs/backlog/*.md'` is a single process over many trees — or add "teach
+backlog.sh and new-task.sh hot the new file" to the split table; queue it.
+
+**CR-5 — minor (prose, pre-existing). Source 2 is not "across all branches".**
+`scripts/queue.sh:29-30` "the same three sources", and numbering.md source 2
+(`:54-56`, across all branches), but `taken_ids` reads `ls docs/features` of
+the current worktree (`backlog.sh:59`). `queue.sh add` from an older task
+worktree misses folders merged since it branched unless a branch name or a
+queue line on some ref still carries the number (usually true now that every
+ref is read). Fix: narrow the sentence ("this worktree's folders") or read
+`docs/features` per distinct commit; queue it, it is outside this plan.
+
+### Behavioural claims checked
+
+- numbering.md:57-58 (both queue files, all branches) → `backlog.sh:50-51`, `new-task.sh:131-139`.
+- numbering.md:59 (source-3 command) → CR-2.
+- numbering.md:60-64 (add/withdraw commit to local main, push later; origin/main-only count reissues) → `queue.sh:145-147` (commit in the main worktree, no push); cases 1-2 fail on `5fac020c` (QA § 2).
+- numbering.md:64-66 (`--ids` one pass, for-each-ref | cat-file --batch) → `backlog.sh:49-55`; its guard → CR-1.
+- numbering.md:66 (hot reads ref by ref) → `new-task.sh:131-139`.
+- numbering.md:66-67 (both covered by the cases) → backlog.sh: cases 1, 2, 4, 6; hot on unpushed main → QA D2.
+- numbering.md:69-70 (heads and remotes only, not stash) → `backlog.sh:51`, `new-task.sh:110`; case 6.
+- backlog.sh:13-17 (QUEUED origin/main else main; TAKEN from queue files of every ref feeds --ids, NUMBERS, queue.sh add) → `:33-35`, `:49-62`, `:226`, `queue.sh:96`; source 2 → CR-5.
+- backlog.sh:18-19, queue.sh:30-32 (unpushed add/withdraw number already taken) → `backlog.sh:49-55`; cases 1-2.
+- backlog.sh:29 (fresher than local), :45-46 (what this replaced) → CR-3.
+- backlog.sh:30-32 (QUEUED only; numbers independent) → `:49-55` never reads `queue_cache`.
+- backlog.sh:37 (warning: numbers still counted from every other branch) → `:49-55`.
+- backlog.sh:46-48 (one read per commit; withdrawn counted; missing → no match) → `:52`, `:50`, `:54`.
+- backlog.sh:162-165 (unpushed numbers counted, lines not shown) → `:166-170`, case 4; take/withdraw → QA D3.
+- queue.sh:28-30 (same three sources) → CR-5.
+- cases :21-22 (verify runs it on the four files) → `verify.sh:617-631`.
+- cases :25-27 (`--scripts`, `--shell`) → `:34-44`, `:95`, `:156`, `:169`; caveat: `queue.sh:96` runs backlog.sh with plain `sh`, but each of the three also runs directly under `$shell` (cases 3-7). No finding.
+- new-task.sh:123-126 (hot: three sources over heads/remotes) → `:110`, `:128-142`, now incl. withdrawn (`:138-139`).
+
+Direction 2:
+- Where taken queue numbers are read (origin/main → every ref): grepped `--ids`, `origin/main`, `withdrawn`, `numbers are taken` in `docs/` (not features/*, templates/examples), `.claude/`, `.codex/`, `.agents/`, `.githooks/`, the AGENTS.md files. Hits: `docs/backlog.md:80-84` ("backlog.sh counts the numbers in it" → `backlog.sh:50`), `:95` table ("all three and all branches" → source 3 true; source 2 → CR-5), `docs/backlog/withdrawn.md:8-11` → `backlog.sh:50`, `docs/ai-workflow/README.md:145` (command only). No stale "origin/main only" text.
+- QUEUED gains the unpushed line: grepped `QUEUED`, `unpushed` — only this task's queue line. None.
+- Hot counts withdrawn numbers: numbering.md:98-100 ("three sources") is now true; feature.md:50-54 unaffected. None.
+- verify.sh runs a new case file: grepped `handoff-cases`, `queue-numbering-cases` — no prose lists per-script cases. None.
+- Not swept: other tasks' `docs/features/*/` artifacts and `docs/templates/examples/` (historical).
