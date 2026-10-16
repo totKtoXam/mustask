@@ -1,6 +1,6 @@
 # ADR-0028: Organize an organization as independent areas, projects and teams joined by links, with the organization as the only tenant boundary
 
-- Status: proposed
+- Status: accepted (by the human in chat, at doc-012 gate-1, 2026-10-17)
 - Date: 2026-10-16
 - Context: `doc-012-matrix-organization-model`, stage 1 (business analysis): [spec](../features/doc-012-matrix-organization-model/spec.md) BR-MX-1..-19, -27, -28, NFR, OQ-1, OQ-2, OQ-4; audits [1](../features/doc-012-matrix-organization-model/audit/1-org-structure.md), [3](../features/doc-012-matrix-organization-model/audit/3-work-items.md), [4](../features/doc-012-matrix-organization-model/audit/4-boards-backlogs.md), [5](../features/doc-012-matrix-organization-model/audit/5-iterations.md); [prior-art](../features/doc-012-matrix-organization-model/prior-art.md) P-1..P-3, P-7, P-8, P-10. Amends [ADR-0024](0024-app-shell-and-visual-language.md) § 2 and [ADR-0026](0026-soft-deactivation-by-status.md) rules 1, 2, 3, 5, 6, 7, 8 and 9. Its access half is ADR-0029 (scoped access), drafted beside it. It goes to the human with the spec at doc-012's gate-1, the nearest gate ([README](README.md), Process 2), and only the human sets `accepted`; the delivery lines implement it and none of them accepts it (spec § Decomposition).
 

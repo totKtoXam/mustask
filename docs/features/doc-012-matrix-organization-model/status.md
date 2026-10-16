@@ -10,7 +10,7 @@
 
 ## Gates
 
-gate-1: pending
+gate-1: approved (by the human in chat, 2026-10-17)
 gate-3: pending
 
 ## Plan
@@ -40,6 +40,9 @@ No backend/frontend plan: a docs task. Input: [input-brief.md](input-brief.md)
 - 2026-10-17 [orchestrator] human answers in chat: OQ-1 A (retire the item's «Область»), OQ-2 A (defer), OQ-3 A (admin has full access), OQ-4 A (additive migrations), OQ-5 A (doc-011 waits and restates), OQ-6 A (one Active sprint).
 - 2026-10-17 [orchestrator] fixes: five analyst batches with disjoint files resolved R-1..R-34 and applied every answer; US-9 split into US-9 (lifecycle) and US-12 (items, close, outcome, board). spec.md 248 lines, stories ≤ 150.
 - 2026-10-17 [requirements-reviewer] round 2 delta in review.md: approved-by-ai — all 34 resolutions hold, 5 new minors (R-35..R-39) fixed in place; for gate-1: a deleted team's Closed sprint that recorded no item is listed nowhere (R-35). verify.sh green.
+- 2026-10-17 [orchestrator] gate-1 approved by the human in chat; ADR-0028 and ADR-0029 accepted with it (index updated). Next: the delivery lines into the queue, the superseded lines reworded or withdrawn, then the final diff and gate-3.
+- 2026-10-17 [orchestrator] queue.sh issued duplicate ids (feat-039, mod-017 twice): backlog.sh reads the queue from origin/main, so unpushed local queue commits are invisible. Renumbered by hand; the fix is a follow-up task.
+- 2026-10-17 [orchestrator] local main was not reset to origin/main (auto-mode refused a hard reset); 6d97479b/8886d8c2 equal origin's #3 in tree, so queue commits reach origin through a sync branch cut from origin/main.
 
 ## Notes
 

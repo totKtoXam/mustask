@@ -43,8 +43,8 @@ anything already fixed by the conventions.
 
 Keep the list current (append-only, newest on top):
 
-- ADR-0029 — Compute effective permissions once, from organization, area, project and team scopes over the membership-derived codes · proposed (amends ADR-0027)
-- ADR-0028 — Organize an organization as independent areas, projects and teams joined by links, with the organization as the only tenant boundary · proposed (amends ADR-0024, ADR-0026)
+- ADR-0029 — Compute effective permissions once, from organization, area, project and team scopes over the membership-derived codes · accepted (amends ADR-0027)
+- ADR-0028 — Organize an organization as independent areas, projects and teams joined by links, with the organization as the only tenant boundary · accepted (amends ADR-0024, ADR-0026)
 - ADR-0027 — Derive organization access from the membership of the resource's organization, and keep Keycloak to instance roles · accepted (amends ADR-0018)
 - ADR-0024 — Build every panel screen on one shell and one theme, carry the work context in the address, and name type appearance by a closed token set · accepted
 - ADR-0025 — Project Keycloak users through a read-only event-listener provider that pushes signed, ordered state into MUSTASK · proposed

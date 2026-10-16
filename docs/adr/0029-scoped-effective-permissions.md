@@ -1,6 +1,6 @@
 # ADR-0029: Compute effective permissions once, from organization, area, project and team scopes over the membership-derived codes
 
-- Status: proposed
+- Status: accepted (by the human in chat, at doc-012 gate-1, 2026-10-17)
 - Date: 2026-10-16
 - Context: `doc-012-matrix-organization-model`, stage 1 (business analysis): [spec](../features/doc-012-matrix-organization-model/spec.md) § Roles, BR-MX-20..-26, NFR, OQ-3; stories [US-5](../features/doc-012-matrix-organization-model/stories/US-5-scoped-roles-and-memberships.md) and [US-6](../features/doc-012-matrix-organization-model/stories/US-6-project-visibility.md); [audit 2](../features/doc-012-matrix-organization-model/audit/2-access.md), [audit 3](../features/doc-012-matrix-organization-model/audit/3-work-items.md); [prior-art](../features/doc-012-matrix-organization-model/prior-art.md) P-4, P-5, P-10. **Extends and amends [ADR-0027](0027-organization-access-from-membership.md)**. It reads the model of [ADR-0028](0028-matrix-organization-model.md): the area tree, the links, the grant relations and visibility. It goes to the human with the spec at doc-012's gate-1, the nearest gate, and only the human sets `accepted` (`docs/adr/README.md`, Process 2); the delivery lines implement it, `mod-NNN-scoped-access` most of it, and none of them accepts it (spec § Decomposition).
 
