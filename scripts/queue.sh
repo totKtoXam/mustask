@@ -26,10 +26,12 @@
 #
 # The number is issued HERE and only here, by the commit that puts the line
 # in (docs/features/numbering.md). `add` computes it from
-# `scripts/backlog.sh --ids` — the same three sources, so there is one
-# implementation of "which numbers are taken", not two. The queue files are
-# read there over every local and remote-tracking branch, so a number issued
-# by an earlier `add` or `withdraw` that is not pushed yet is already taken.
+# `scripts/backlog.sh --ids` — one implementation of "which numbers are taken",
+# not two: branch names, this worktree's docs/features folders and the queue
+# files. The queue files are read there over every local and remote-tracking
+# branch, so a number issued by an earlier `add` or `withdraw` that is not
+# pushed yet is already taken. If that read fails, `add` and `next` refuse
+# rather than issue a number from a partial list.
 #
 # The queue lives in main, so every subcommand commits in the MAIN worktree,
 # whichever worktree you run it from. `.githooks/pre-commit` allows a commit
@@ -92,12 +94,25 @@ A queue commit must contain only the queue. Deal with these changes first."
 
 # --- helpers --------------------------------------------------------------------
 
-taken_ids() {
-    sh "$repo/scripts/backlog.sh" --ids
+# The taken numbers are read into $taken_cache by `read_taken`, at top level
+# (never inside a $(...), where `die` would end only the substitution). When
+# backlog.sh cannot read the queue files it says why on stderr and exits
+# non-zero, and this refuses: a number issued from a partial list is a number
+# issued twice (tech-034, QA D1).
+taken_cache=''
+read_taken() {
+    taken_cache=$(sh "$repo/scripts/backlog.sh" --ids) \
+        || die "${1:-Could not read the taken numbers (scripts/backlog.sh --ids failed, see above), so no number is issued from a partial list.
+Nothing was changed.}"
 }
 
-# Next free number for a prefix. Leading zeros are stripped as text: 008 in
-# arithmetic is an octal trap, and 10#008 is a bashism that dash rejects.
+taken_ids() {
+    [ -z "$taken_cache" ] || printf '%s\n' "$taken_cache"
+}
+
+# Next free number for a prefix, from $taken_cache. Leading zeros are stripped
+# as text: 008 in arithmetic is an octal trap, and 10#008 is a bashism that dash
+# rejects.
 next_number() {
     last=$(taken_ids | grep -oE "^$1-[0-9]{3}$" | grep -oE '[0-9]{3}$' | sort -n | tail -1 || true)
     bare=$(printf '%s' "${last:-000}" | sed 's/^0*//')
@@ -157,6 +172,7 @@ case "$command" in
 next)
     prefix=${1:-}
     [ -n "$prefix" ] || die "Usage: scripts/queue.sh next <prefix>"
+    read_taken
     printf '%s-%s\n' "$prefix" "$(next_number "$prefix")"
     # A read-only query: no invariant footer, so the output can be used as is.
     exit 0
@@ -216,8 +232,12 @@ If '$clash' is real work — it is already started, and there is nothing to
 queue. If it was created by mistake and holds no commits and no folder, delete
 it and run this again."
     fi
+    read_taken
     number=$(next_number "$prefix")
     id="$prefix-$number-$slug"
+    # Read again, as late as possible: the check is against the queue as it is
+    # now, not against the list the number was computed from.
+    read_taken
     taken_ids | grep -qx "$prefix-$number" && die "Number $prefix-$number is already taken — the count is stale, run scripts/backlog.sh --ids."
 
     entry="- [ ] $id — $description · epic:$epic · size:$size · deps:$deps · note:$note"
@@ -311,5 +331,8 @@ esac
 # exactly one, `take` and `withdraw` keep every one of them. Checked out loud,
 # because a lost number is the one failure here that is silent until two tasks
 # answer to the same id.
+read_taken "The queue commit above was made, but the taken numbers could not be read
+afterwards (scripts/backlog.sh --ids failed, see above), so the check that no
+number went missing did not run. Run scripts/backlog.sh --ids to see why."
 after=$(taken_ids | wc -l | tr -d ' ')
 printf 'Taken numbers now: %s\n' "$after"

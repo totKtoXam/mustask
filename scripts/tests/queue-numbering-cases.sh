@@ -162,6 +162,22 @@ new-task.sh hot exit $rc_hot, branches: $(g branch --list 'hot/*' | tr -d ' *+' 
 $log"
 check "new-task.sh hot skips a withdrawn hot number" "$ok"
 
+# 3b. The same hot path when the number lives only on local main, ahead of
+#     origin: `queue.sh add hot` commits locally and nothing is pushed, so
+#     origin/main does not have hot-001. new-task.sh must read local refs too
+#     (refs/heads), or it issues hot-001 a second time.
+build
+queue add hot one "One"
+rc_setup=$rc
+run "$shell" scripts/new-task.sh hot fix-it "A fix"
+rc_hot=$rc
+ok=1
+if [ "$rc_setup" = 0 ] && [ "$rc_hot" = 0 ] && g show-ref --verify --quiet refs/heads/hot/002-fix-it; then ok=0; fi
+log="hot-001 is queued on local main only, unpushed (setup exit $rc_setup)
+new-task.sh hot exit $rc_hot, branches: $(g branch --list 'hot/*' | tr -d ' *+' | tr '\n' ' ')(expected hot/002-fix-it)
+$log"
+check "new-task.sh hot counts a hot number that only an unpushed local main has" "$ok"
+
 # 4. The summary: numbers of unpushed queue commits are counted, their lines
 #    are not listed, and one line says they exist.
 build
@@ -172,10 +188,11 @@ if printf '%s\n' "$log" | grep -qE '^  tech +taken up to 011, next 012$' \
     && ! printf '%s\n' "$log" | grep -q 'tech-011-unpushed' \
     && printf '%s\n' "$log" | grep -q 'tech-010-existing' \
     && [ "$(printf '%s\n' "$log" | grep -c 'unpushed queue commit')" = 1 ] \
-    && printf '%s\n' "$log" | grep -qE '^  [(][+]1 unpushed queue commit'; then
+    && printf '%s\n' "$log" | grep -qE '^  [(][+]1 unpushed queue commit' \
+    && printf '%s\n' "$log" | grep -q 'add/take/withdraw'; then
     ok=0
 fi
-log="expected: 'tech taken up to 011, next 012', tech-011-unpushed not listed, one '(+1 unpushed queue commit...' line; got:
+log="expected: 'tech taken up to 011, next 012', tech-011-unpushed not listed, one '(+1 unpushed queue commit... add/take/withdraw...' line; got:
 $log"
 check "summary counts the unpushed number, lists only origin/main, says so in one line" "$ok"
 
@@ -222,7 +239,9 @@ log="expected tech-040 (local branch) and tech-050 (remote branch) present, tech
 $log"
 check "ids come from the queue files of every branch and remote branch, not from the stash" "$ok"
 
-# 7. One pass: the number of git processes does not grow with the number of refs.
+# 7. One pass: the number of git processes does not grow with the number of refs
+#    or of distinct commits behind them (each extra branch gets a commit of its
+#    own, so a read that spawns git per commit grows too).
 count_git() {  # <trace file> — git processes one `backlog.sh --ids` starts
     : > "$1"
     ( cd "$repo" && GIT_TRACE="$1" "$shell" scripts/backlog.sh --ids >/dev/null 2>&1 ) || true
@@ -234,13 +253,69 @@ few=$(count_git "$trace")
 n=0
 while [ "$n" -lt 12 ]; do
     n=$((n + 1))
-    g branch "scratch/b$n"
+    g branch "scratch/b$n" "$(g commit-tree -p HEAD -m "b$n" 'HEAD^{tree}')"
 done
 many=$(count_git "$trace")
 ok=1
 [ "$few" -gt 0 ] && [ "$few" = "$many" ] && ok=0
 log="git processes per backlog.sh --ids: $few with 1 branch, $many with 13 (they must be equal)"
-check "reading the queue files is one pass, not a git process per ref" "$ok"
+check "reading the queue files is one pass, not a git process per ref or commit" "$ok"
+
+# 8. A read that fails is an error, not an empty list (QA D1). A git shim first
+#    on PATH breaks `cat-file` only: once with exit 128, once silently (exit 0,
+#    no output). backlog.sh --ids and the summary must say so and exit non-zero,
+#    and queue.sh must refuse to issue a number from the list it did not get.
+build
+shimdir="$sandbox/shim"
+mkdir -p "$shimdir"
+real_git=$(command -v git)
+shim() {  # <what the shim does for `git cat-file`> — everything else is real git
+    printf '#!/bin/sh\ncase " $* " in\n    *" cat-file "*) %s ;;\nesac\nexec "%s" "$@"\n' "$1" "$real_git" \
+        > "$shimdir/git"
+    chmod +x "$shimdir/git"
+}
+shimmed() {  # <command...> — run in the repo with the shim first on PATH
+    run env PATH="$shimdir:$PATH" "$@"
+}
+no_ids() { ! printf '%s\n' "$log" | grep -qE '^[a-z]+-[0-9]{3}$'; }
+head_before=$(g rev-parse main)
+
+shim 'exit 128'
+shimmed "$shell" scripts/backlog.sh --ids
+ok=1
+if [ "$rc" != 0 ] && no_ids && printf '%s\n' "$log" | grep -q 'could not be read'; then ok=0; fi
+log="cat-file exits 128: backlog.sh --ids exit $rc (expected non-zero, an error message, no ids); got:
+$log"
+check "--ids fails loudly when git cat-file fails" "$ok"
+
+shim 'cat >/dev/null; exit 0'
+shimmed "$shell" scripts/backlog.sh --ids
+ok=1
+if [ "$rc" != 0 ] && no_ids && printf '%s\n' "$log" | grep -q 'answered 0 of'; then ok=0; fi
+log="cat-file exits 0 and prints nothing: backlog.sh --ids exit $rc (expected non-zero and 'answered 0 of N requests'); got:
+$log"
+check "--ids fails loudly when git cat-file answers nothing" "$ok"
+
+shim 'exit 128'
+shimmed "$shell" scripts/queue.sh next tech
+rc_next=$rc; log_next=$log
+shimmed "$shell" scripts/queue.sh add tech blind "Blind"
+rc_add=$rc; log_add=$log
+dirty=$(g status --porcelain)
+ok=1
+log=$log_next
+if [ "$rc_next" != 0 ] && no_ids && [ "$rc_add" != 0 ] && [ "$(g rev-parse main)" = "$head_before" ] && [ -z "$dirty" ]; then ok=0; fi
+log="cat-file exits 128: queue.sh next exit $rc_next (expected non-zero, no id), queue.sh add exit $rc_add (expected non-zero, main unmoved: $([ "$(g rev-parse main)" = "$head_before" ] && echo yes || echo NO), worktree clean: $([ -z "$dirty" ] && echo yes || echo NO))
+next: $log_next
+add: $log_add"
+check "queue.sh refuses to issue a number when the taken numbers cannot be read" "$ok"
+
+shimmed "$shell" scripts/backlog.sh
+ok=1
+if [ "$rc" != 0 ] && printf '%s\n' "$log" | grep -q 'could not be read'; then ok=0; fi
+log="cat-file exits 128: the summary exit $rc (expected non-zero and an error message); got:
+$log"
+check "the summary ends non-zero, not with a missing NUMBERS block, when the read fails" "$ok"
 
 if [ "$failures" != 0 ]; then
     printf '\n%s queue numbering case(s) failed.\n' "$failures" >&2
