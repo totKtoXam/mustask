@@ -3,14 +3,14 @@
 - type: tech
 - size: S
 - branch: tech/033-workflow-instruction-fixes
-- stage: 06-code-review
+- stage: complete
 - epic: workflow
 - deps: -
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved (confirmed by the human in chat, 2026-10-16)
 
 ## Plan
 
