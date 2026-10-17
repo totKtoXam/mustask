@@ -99,12 +99,17 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         return new ParentCandidates(items, rows.Count > search.Limit);
     }
 
-    public async Task<WorkItemPage> GetPageAsync(Guid projectId, int page, int pageSize, CancellationToken cancellationToken)
+    public async Task<WorkItemPage> GetPageAsync(
+        Guid projectId, int page, int pageSize, WorkItemFilter filter, CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(page, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(pageSize, 1);
 
-        var count = await context.WorkItems.CountAsync(item => item.ProjectId == projectId, cancellationToken);
+        // The team filter (mod-017 BR-OT-8) is one predicate for the list, the backlog and the board; the count and the page
+        // are composed on it, so a filter adds no statement.
+        var matching = WorkItemFilterPredicate.Apply(context.WorkItems.Where(item => item.ProjectId == projectId), filter);
+
+        var count = await matching.CountAsync(cancellationToken);
 
         // The offset is computed in long: a page far past the end must not overflow into a negative OFFSET.
         var skip = (long)(page - 1) * pageSize;
@@ -115,8 +120,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         }
 
         // The order and the page are taken in SQL, on the items themselves; the joins then only dress the page's rows.
-        var pageItems = context.WorkItems
-            .Where(item => item.ProjectId == projectId)
+        var pageItems = matching
             .OrderByDescending(item => item.ChangedAt)
             .ThenByDescending(item => item.Number)
             .Skip((int)skip)

@@ -107,9 +107,16 @@ public static class WorkItemEndpoints
         return app;
     }
 
+    // mod-017 api-contract § 3: the team filter is the repeated `teamId` — a team's id or `none`. Nothing is validated here: a
+    // value that names no team of the project selects nothing, and answers alike for each such value.
     private static async Task<IResult> GetWorkItemsAsync(
-        string organizationId, string projectId, int? page, GetWorkItemsHandler handler, CancellationToken cancellationToken) =>
-        Results.Ok((await handler.Handle(new GetWorkItemsQuery(organizationId, projectId, page), cancellationToken)).Page);
+        string organizationId,
+        string projectId,
+        int? page,
+        [Microsoft.AspNetCore.Mvc.FromQuery(Name = "teamId")] string[]? teamId,
+        GetWorkItemsHandler handler,
+        CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new GetWorkItemsQuery(organizationId, projectId, page, teamId), cancellationToken)).Page);
 
     private static async Task<IResult> CreateWorkItemAsync(
         string organizationId, string projectId, CreateWorkItemRequest? request, CreateWorkItemHandler handler, CancellationToken cancellationToken)

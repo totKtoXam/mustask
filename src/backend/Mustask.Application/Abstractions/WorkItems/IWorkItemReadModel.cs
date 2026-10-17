@@ -1,3 +1,5 @@
+using Mustask.Domain.WorkItems;
+
 namespace Mustask.Application.Abstractions.WorkItems;
 
 /// <summary>
@@ -32,12 +34,14 @@ public interface IWorkItemReadModel
 
     /// <summary>
     /// One page of the project's items in every state, most recently changed
-    /// first, then by number descending (BR-M3-29), and the project's item count.
+    /// first, then by number descending (BR-M3-29), and the count of the items
+    /// that match <paramref name="filter"/> (mod-017 BR-OT-8): the count and the page follow the filter, in the same
+    /// statements — a filter adds none.
     /// </summary>
-    Task<WorkItemPage> GetPageAsync(Guid projectId, int page, int pageSize, CancellationToken cancellationToken);
+    Task<WorkItemPage> GetPageAsync(Guid projectId, int page, int pageSize, WorkItemFilter filter, CancellationToken cancellationToken);
 }
 
-/// <summary>A page of the list: <paramref name="Count"/> is the project's item count, not the page's.</summary>
+/// <summary>A page of the list: <paramref name="Count"/> is the number of the project's items that match the filter, not the page's.</summary>
 public sealed record WorkItemPage(int Count, IReadOnlyList<WorkItemListItemView> Items);
 
 /// <summary>
