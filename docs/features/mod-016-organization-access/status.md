@@ -55,6 +55,7 @@ gate-3: approved · orchestrator under the human's standing approval of 2026-10-
 
 ## Log
 
+- 2026-10-17 [dev] P-10 note from `mod-017-work-item-owning-team` (BR-OT-10, -11; its api-contract § 9): `Team` in §§ 3.1, 3.3 loses `isFirstTeam` and the list is ordered by name; BR-M1-27 and US-7's default team read "the user's first team in that order, else the list's first"; in § 4.1 the routes of rows 19 (`PUT …/teams/{t}/default-area`) and 25 (`PUT …/areas/{a}/owner`) are gone and `PUT …/projects/{p}/default-team` and `GET …/teams/{t}/owned-items/count` join (both `organizations.team.write`), so the route inventory keeps its count.
 - 2026-10-12 [orchestrator] frontend review round 1b (two lenses + skeptics, wf_16243d94-0ff) on e67c587 + f20a640: 12 findings, 10 confirmed, 2 refuted; E2E run skipped by the human (D-22).
 - 2026-10-12 [frontend-developer] fix pass 1b, RC-1a-2: api-contract § 1.6 ("judged again under the lock") now lists the target's not-found before `last_admin`, as the handler answers; prose only, no shape or code change. plan-backend § 3.6 row 5 named the role check twice, keeps the later one.
 - 2026-10-12 [frontend-developer] round 1b fix pass: FE-TES-1 4bb10fc, FE-ACC-3 c7d78e6, FE-ACC-2 fbca6ed, FE-ACC-4 196cc6c, RC-1a-1..3 b1ae984; FE-TES-2, -4..-8 stay for the gate-3 debt line (D-22). verify: backend, lint, build green; 10 unrelated 20 s timeouts in 6 heavy files pass on a re-run.

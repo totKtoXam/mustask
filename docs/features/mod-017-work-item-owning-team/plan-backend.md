@@ -624,9 +624,41 @@ What differs from the text above, and why. Each is a decision of the implementat
    large = 1 250 per level and 50 teams): list 7, team backlog 11, team board 13, team reorder 15, teams list 1, owned count 3,
    deletion 9; the filtered project backlog and board take the statements of the unfiltered. A statement of the assignees' reads
    is skipped when a result has no assignee, so the seed gives every slice one and the numbers do not depend on the data.
+   The audit follow-up added four pins on the first green run (same small and large): one item (get) 7, one team (get, 2 and 50
+   teams) 2, a save that changes the team 17 (with the place drop and the answer's read), a child creation beneath a story 20.
 8. **Test helpers.** `OwningTeamTestData.SetOwningTeamAsync` drops the item's team place when the team changes (as a save
    does), because the place key refuses the change under a place; `OrganizationsTestData` loses `SetTeamDefaultAreaAsync` and
    the owner parameter of `AddAreaAsync`, and gains `SetDefaultTeamAsync`; `OrganizationStructure.FirstTeamId` became
    `ProjectTeamId` (the helpers' parameter name `creatorJoinsFirstTeam` is kept: a name, not a rule).
 9. **Renames (D-16) are listed in the commit messages** of the contraction (old → new), and so are the retired tests with their
    rule.
+
+### Audit follow-up
+
+A read-only audit of the backend pass against §§ 6, 7.4, 9, 11 and 12 found the gaps below. A-n is a place where the code left the
+plan's text, B-n a test the plan names that was missing or too weak. Each is closed, or left on purpose, as follows.
+
+- **A-1, A-2 — fixed in `3116964d`.** A `23503` on the project's default key (`fk_projects_teams_id_default_team_id`) was not mapped:
+  `OrganizationsSaveChanges` caught only the unique indexes and the team membership's key, so `PUT …/default-team` would have answered
+  500 if the team went in the race window. It now answers `404 organizations.team.not_found`, as D-15 and § 6 say (the owner key in
+  `WorkItemRepository.SaveAsync` already did). `OwningTeamBackstopTests` drives both backstops through the repositories' `SaveAsync`
+  (§ 7.4): a new item and a saved item moved to a team that does not exist and to another project's team, and the default setting
+  naming each — all assert the mapped not-found, the inner `DbUpdateException`, and that nothing is stored; the default-key cases
+  fail on the unfixed code.
+- **B-1, A-4 — fixed in `e9c509d9`.** The four statement-count pins § 9.4 lists and the pass missed: one item (get), one team
+  (2 against 50 teams), a save that changes the team, a child creation — each small = large; the numbers are in item 7 above.
+- **B-2 — fixed in `0f3acfa1`.** `Save_StateByFormAndCardMove_KeepTheTeam` became `Save_StateByFormAndCardMoveAndChecklistTick_KeepTheTeams`:
+  it also ticks the checklist (the child's own state save) and asserts the child keeps its own team and the story its own.
+- **B-3 — fixed in `0f3acfa1`.** `Create_TeamDeletedBeforeSubmit_Refused_ThenOtherTeamCreates_ReplayAnswers200OwnedByNone`: the refusal
+  creates nothing and consumes no number, the resubmission with another team creates exactly one item (the next number), the
+  replay of an item created before the deletion answers 200 with `team = null`.
+- **B-4 — fixed in `0f3acfa1`.** `OrganizationContainmentTests` seeds the other organization's item with an owning team and its
+  project with a named default team, and its state string (`StateAsync`, through `OwningTeamTestData.TeamStateAsync`) carries both; the
+  two body tests also compare the caller's own project before and after.
+- **B-5 — fixed in `0f3acfa1`.** `ProjectBacklogVolumeTests` seeds by owning team (two teams in turn, every item in the root
+  area) and its comments no longer speak of areas.
+- **A-3 — fixed in the commit that carries this list.** The P-10 notes (§ 11, step 17) are one dated line each under `## Log` of
+  mod-002, mod-003, mod-006, mod-015, mod-016, feat-027 and feat-039; feat-028 and feat-043 stay with the orchestrator (§ 11).
+- **B-6 — left, accepted.** `GetBacklogEndpointTests` (~:225) exercises the SQL helper's place drop; the endpoint path of the same
+  rule is covered by `OwnedViewsEndpointTests.Save_TeamBack_ComesBackUnplaced_NoFormerPlace`, so a second test of the helper would
+  pin the same behaviour twice.
