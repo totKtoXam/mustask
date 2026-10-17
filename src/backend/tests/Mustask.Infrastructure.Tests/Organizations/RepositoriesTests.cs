@@ -9,8 +9,8 @@ namespace Mustask.Infrastructure.Tests.Organizations;
 
 /// <summary>
 /// The write side's reads and locks (plan-backend § 5.1, § 7): a lock returns the row only inside the container it names
-/// (BR-M1-22), the pre-checks compare normalized names, and the deletion's lock takes every active team of the project in id
-/// order (mod-017 D-3, D-4).
+/// (BR-M1-22), the pre-checks compare normalized names, and the links' locks take a pair's links in team-id order and a team's
+/// links in project-id order (feat-028 plan-backend D-3, D-4, § 7.4).
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]

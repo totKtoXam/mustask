@@ -240,9 +240,9 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
             await database.QueryAsync("SELECT owning_team_id::text FROM work_items WHERE id = @item", ("item", large.FirstOwnStory)));
     }
 
-    // A child beneath a story: the default's lock — here the project names none, so the default is read, every active team is
-    // locked in one statement (2 teams or 50: one) and the default is read again — the number, the parent and its ancestry,
-    // the insert and the answer.
+    // A child beneath a story: the links' lock — here the project names no default, so every link of the project is locked
+    // FOR SHARE in one statement (2 teams or 50: one) and the default is read once under that lock (feat-028 plan-backend § 7.4) —
+    // the number, the parent and its ancestry, the insert and the answer.
     [Fact]
     public async Task ChildCreation_TheSameNumberOfStatements_For50AsFor5000Items()
     {

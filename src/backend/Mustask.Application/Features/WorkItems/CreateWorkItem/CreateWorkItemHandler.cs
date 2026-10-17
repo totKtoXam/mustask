@@ -128,11 +128,12 @@ public sealed class CreateWorkItemHandler(
                     throw new NotFoundException(WorkItemErrorCodes.TypeNotFound);
                 }
 
-                // 4. The team lock, before the number's (mod-017 plan-backend § 7.2, ADR-0028 rule 8), then the number and the
-                // replay after its lock. An explicit team with no parent is locked as a binder; every other creation that may
-                // take the default — no team sent, or a child, whatever team the parent has — locks the default as it
-                // stands, or every active team when the project has none, so a deletion of a team commits before it or
-                // waits for it, never in between (D-14). A creation that sends «Без команды» owns nothing: it locks nothing.
+                // 4. The link lock, before the number's (feat-028 plan-backend § 7, ADR-0028 rule 8), then the number and the
+                // replay after its lock. An explicit team with no parent has its link to the project locked as a binder; every
+                // other creation that may take the default — no team sent, or a child, whatever team the parent has — locks
+                // every link of the project and reads the default once under that lock, so an unlink or a deletion of a team
+                // commits before it or waits for it, never in between (mod-017 D-14). A creation that sends «Без команды» owns
+                // nothing: it locks nothing.
                 Guid? lockedDefaultTeamId = null;
 
                 if (command.ParentId is null && command.Team is { } named)
@@ -154,11 +155,11 @@ public sealed class CreateWorkItemHandler(
                     return new CreateWorkItemResult(await readModel.GetAsync(existingId, ct), Created: false);
                 }
 
-                // 5. The team (mod-017 api-contract § 0.2, BR-OT-2): an explicit team of a creation with no parent is judged
+                // 5. The team (feat-028 api-contract § 0.3, BR-OL-6): an explicit team of a creation with no parent is judged
                 // now, on a fresh read under the lock taken before the number's — a malformed, unknown, foreign or deleted
-                // team, or one of a deactivated project, answers 404, another active project's team 409. «Без команды» sent
-                // explicitly is none. No team sent takes the project default, locked above. A creation that names a parent
-                // reads no team at all (BR-OT-3): it is never refused for one.
+                // team answers 404, an active team of the organization that is not linked to the project 409. «Без команды»
+                // sent explicitly is none. No team sent takes the project default, resolved under the links' lock above. A
+                // creation that names a parent reads no team at all (mod-017 BR-OT-3): it is never refused for one.
                 Guid? owningTeamId = lockedDefaultTeamId;
 
                 if (command.ParentId is null && command.Team is { } sentTeam)

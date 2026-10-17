@@ -245,9 +245,9 @@ public sealed class SaveWorkItemHandler(
 
     /// <summary>
     /// <c>null</c> when no team was sent; «Без команды» for a sent <c>null</c>; otherwise the team, which must be an active
-    /// team of this project (api-contract § 0.2): a string that is no id, an unknown, foreign or deleted team, or a team of a
-    /// deactivated project answers 404 <c>team.not_found</c> alike, and an active team of another active project 409
-    /// <c>team.not_in_project</c>.
+    /// team linked to this project (feat-028 api-contract § 0.3, BR-OL-6): a string that is no id, or an unknown, foreign or
+    /// deleted team, answers 404 <c>team.not_found</c> alike, and an active team of the organization that is not linked to the
+    /// project 409 <c>team.not_in_project</c>.
     /// </summary>
     private async Task<TeamEdit?> DecideTeamAsync(TeamChange? change, Guid organizationId, Guid projectId, CancellationToken cancellationToken)
     {
