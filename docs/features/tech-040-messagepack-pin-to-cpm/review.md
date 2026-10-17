@@ -173,3 +173,50 @@ file; commits English, subjects ≤72, no attribution; `stage:` value valid (REA
   queue at completion), feat-039 `qa.md:70,151-177`, `review.md:156-158`, `status.md:49-50`,
   mod-017 `status.md:101` (merged history of their time). No hit in `docs/conventions/`,
   `.claude/`, `src/backend/AGENTS.md` or ADRs. None stale; nothing left unswept.
+
+## Delta read 1
+
+Verdict: **approve**. Open: 0 blocker, 0 major; 2 minors carried as debt to gate-3 —
+round 1 m-1 (`status.md:39`, the double-hyphen break attributed to an unanchored
+component) and QA D-1 (nothing queues the pin's removal). Scope: `git diff 3cf40bf3
+fc26dec0` — `Directory.Packages.props` (comment only, +6/-2), this folder's `review.md`
+(F1 resolution) and `status.md` (one log line). Prose-only fix, so no QA re-run is owed.
+
+### F1: resolved
+
+`Directory.Packages.props:19-23` now runs the check with the AppHost reference removed: the
+restore raises no NU1902, and `dotnet list package` lists MessagePack 2.5.303+ as
+transitive. Without csproj:21 the central entry (props:28) has no consumer and stays inert,
+because transitive pinning is off (no `CentralPackageTransitivePinningEnabled` in any
+`*.props`/`*.targets`/`*.csproj`). The list therefore shows Aspire's own resolution, which is
+the condition at props:17-19. The NU1902 half also covers the vulnerable 3.0.0-3.1.8 range,
+which a bare "2.5.303+" would let through. `status.md:47` (today's output, with the
+reference in place) no longer reads as the condition met, since the check names a state that
+line does not describe.
+
+### Nothing nearby broke
+
+- The fix commit touches three files only (`git show --stat fc26dec0`). No source, test,
+  `PackageVersion` or `PackageReference` line moved.
+- Within props:13-27 the only `--` are the comment delimiters (grep). `dotnet msbuild
+  Directory.Packages.props -getProperty:ManagePackageVersionsCentrally
+  -getItem:PackageVersion` loads the file: `true`, and the `MessagePack` item is present.
+- The developer's new `status.md` log line: 244 chars, within the 300 limit. This file
+  comes to ~15 KB after this section.
+
+### Behavioural claims (item 6, delta)
+
+- props:19-21 "with the reference removed ... no NU1902 and ... 2.5.303+ as transitive" →
+  CPM inertness above; QA's reproduction (this file, "Plan coverage" 2: central version, no
+  reference → restore exit 1, NU1902 on the transitive 2.5.302). No `NuGetAuditMode` is set
+  in the repository, so the transitive audit is the SDK default that reproduction exercised.
+- props:21-23 "with the reference in place ... a top-level 2.5.303 whatever Aspire
+  resolves" → csproj:21 + props:28, a direct reference with nearest-wins. A floor above
+  2.5.303 turns this into a downgrade restore error rather than a quiet listing. "Proves
+  nothing" still holds, and no agent would act differently, so this is not a finding.
+- Direction 2: the fix changes no behaviour, only how the drop check is stated. Grepped
+  `2.5.303` and `include.transitive` over the repository. Hits are the props comment itself;
+  this task's `status.md:24,31-32` (Plan, the pin verified today, not the drop check),
+  `:47` (log of today's state) and `:55` / `docs/backlog.md:39` (queue summary, no check);
+  and feat-039 / mod-017 merged history. None restates the old check form, so nothing is
+  stale. `Directory.Packages.props:64,79` predate this branch and are not swept here.
