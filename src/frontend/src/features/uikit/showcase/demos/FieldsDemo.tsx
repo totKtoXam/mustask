@@ -3,6 +3,7 @@ import Box from '@mui/material/Box';
 import {
   CategoryMarker,
   InlineDateField,
+  InlineMultiPickerField,
   InlineMultiSelectField,
   InlineNumberField,
   InlinePickerField,
@@ -17,6 +18,7 @@ import {
   DEMO_DESCRIPTION,
   DEMO_PEOPLE,
   DEMO_PRIORITIES,
+  DEMO_PROJECTS,
   DEMO_STATES,
   DEMO_TITLE,
 } from '../data';
@@ -66,6 +68,7 @@ export function FieldsDemo() {
   const [priority, setPriority] = useState('2');
   const [risk, setRisk] = useState('');
   const [teams, setTeams] = useState<string[]>([]);
+  const [projects, setProjects] = useState<string[]>([DEMO_PROJECTS[1]]);
   const [status, setStatus] = useState('Proposed');
   const [area, setArea] = useState<string | null>(DEMO_AREAS[0]);
   const [assignee, setAssignee] = useState<string | null>(DEMO_PEOPLE[0]);
@@ -208,6 +211,49 @@ export function FieldsDemo() {
           value={['mars', 'none']}
           onChange={noop}
           readOnly
+        />
+      </DemoGroup>
+      <DemoGroup caption="Выбор нескольких с поиском: выбранные — теги, список открыт, пока выбираете">
+        <InlineMultiPickerField<string>
+          label="Проекты"
+          frame="always"
+          hint="Необязательно"
+          value={projects}
+          options={DEMO_PROJECTS}
+          onChange={setProjects}
+          getOptionLabel={identity}
+        />
+      </DemoGroup>
+      <DemoGroup caption="Выбор нескольких с поиском: список загружается">
+        <InlineMultiPickerField<string>
+          label="Участники"
+          frame="always"
+          options={[]}
+          loading
+          value={[]}
+          onChange={noop}
+          getOptionLabel={identity}
+        />
+      </DemoGroup>
+      <DemoGroup caption="Выбор нескольких с поиском: ошибка">
+        <InlineMultiPickerField<string>
+          label="Команды"
+          frame="always"
+          error="Команда не найдена."
+          value={[DEMO_PROJECTS[0]]}
+          options={DEMO_PROJECTS}
+          onChange={noop}
+          getOptionLabel={identity}
+        />
+      </DemoGroup>
+      <DemoGroup caption="Выбор нескольких с поиском: только чтение">
+        <InlineMultiPickerField<string>
+          label="Состав"
+          readOnly
+          value={[DEMO_PROJECTS[0], DEMO_PROJECTS[1]]}
+          options={DEMO_PROJECTS}
+          onChange={noop}
+          getOptionLabel={identity}
         />
       </DemoGroup>
       <DemoGroup caption="Подпись слева: значок стоит в колонке подписи, текст — на одном уровне">

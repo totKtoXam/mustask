@@ -100,6 +100,17 @@ describe('tech-015 Scenario: Tag (design § 5.4)', () => {
       expect(onRemove).toHaveBeenCalledTimes(2);
     });
 
+    it('names the remove button as the host says (feat-028: «Убрать «Alpha»»), the default staying the kit’s', () => {
+      const { unmount } = render(
+        <Tag label="Alpha" onRemove={() => {}} removeLabel={(label) => `Убрать «${label}»`} />,
+      );
+      expect(screen.getByRole('button', { name: 'Убрать «Alpha»' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Удалить тег «Alpha»' })).toBeNull();
+      unmount();
+      render(<Tag label="Alpha" onRemove={() => {}} />);
+      expect(screen.getByRole('button', { name: 'Удалить тег «Alpha»' })).toBeInTheDocument();
+    });
+
     it('keeps the remove button a target of at least 24 px', () => {
       render(<Tag label="Discovery" onRemove={() => {}} />);
       const style = getComputedStyle(
