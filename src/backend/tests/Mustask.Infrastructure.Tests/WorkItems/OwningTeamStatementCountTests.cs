@@ -57,7 +57,7 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
     private const int ItemGetStatements = 7;
     private const int TeamGetStatements = 2;
     private const int TeamChangeSaveStatements = 17;
-    private const int ChildCreationStatements = 20;
+    private const int ChildCreationStatements = 22;
 
     [Fact]
     public async Task List_Unfiltered_Team_And_None_TheSameNumberOfStatements_For50AsFor5000Items()
@@ -240,7 +240,9 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
             await database.QueryAsync("SELECT owning_team_id::text FROM work_items WHERE id = @item", ("item", large.FirstOwnStory)));
     }
 
-    // A child beneath a story: the default's lock, the number, the parent and its ancestry, the insert and the answer.
+    // A child beneath a story: the default's lock — here the project names none, so the default is read, every active team is
+    // locked in one statement (2 teams or 50: one) and the default is read again — the number, the parent and its ancestry,
+    // the insert and the answer.
     [Fact]
     public async Task ChildCreation_TheSameNumberOfStatements_For50AsFor5000Items()
     {

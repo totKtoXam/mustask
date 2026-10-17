@@ -464,4 +464,174 @@ public sealed class DeleteOwnedItemsEndpointTests(MustaskApiFactory factory)
         Assert.Null((await StoredAsync(factory, world.ProjectId, creation.Body.GetProperty("identifier").GetString()!)).TeamId);
         await AssertInvariantsAsync(world);
     }
+
+    // --- Races in a project that names no default (BR-OT-4, BR-OT-13 (2); QA D-1, code review CR-1, security S-1) ---------
+    //
+    // A project of two teams and no default named has no default until one of the teams goes. A creation that may take the
+    // default (no team sent, or a child) must still queue against the deletion — which holds every active team — and read the
+    // default, and its parent, as they stand after it; with no lock the child kept the default it read before the wait.
+
+    /// <summary>
+    /// A project of its own team and DOOMED (<see cref="OwningTeamWorld.Mars"/> here) and no default named, in a new organization:
+    /// <see cref="OwningTeamWorld.OwnTeam"/> is the team that remains when DOOMED is deleted.
+    /// </summary>
+    private async Task<OwningTeamWorld> TwoTeamWorldAsync()
+    {
+        var world = await CreateWorldAsync(factory);
+        var two = await OrganizationsTestData.CreateProjectAsync(factory, world.OrganizationId, "Две команды", "TWO");
+        var doomed = await AddTeamAsync(factory, two.Project.Id, "DOOMED");
+
+        return world with
+        {
+            Items = world.Items with { ProjectId = two.Project.Id, RootAreaId = two.Root.Id, Key = "TWO" },
+            OwnTeam = two.Team.Id,
+            Mars = doomed,
+        };
+    }
+
+    private Task<Answer> CreateBeneathAsync(OwningTeamWorld world, Item parent, string typeKey, string title, CommitGate? gate = null) =>
+        OrganizationsApi.SendAsync(
+            factory,
+            HttpMethod.Post,
+            WorkItemsTestData.List(world.Items),
+            new
+            {
+                requestId = Guid.NewGuid().ToString(),
+                typeId = world.Items.Types[typeKey].Id.ToString(),
+                title,
+                parentId = parent.Id.ToString(),
+            },
+            OrganizationsTokens.SignedIn(),
+            gate);
+
+    private Task<Answer> CreateWithNoTeamFieldAsync(OwningTeamWorld world, string title, CommitGate? gate = null) =>
+        OrganizationsApi.SendAsync(
+            factory,
+            HttpMethod.Post,
+            WorkItemsTestData.List(world.Items),
+            new { requestId = Guid.NewGuid().ToString(), typeId = world.Items.Types["US"].Id.ToString(), title },
+            OrganizationsTokens.SignedIn(),
+            gate);
+
+    /// <summary>The first request held at its commit, the second queued behind its locks, then both released and answered.</summary>
+    private async Task<(Answer First, Answer Second)> RaceAsync(Func<CommitGate?, Task<Answer>> first, Func<CommitGate?, Task<Answer>> second)
+    {
+        using var gate = factory.CommitGates.Open();
+
+        var firstTask = first(gate);
+        await Task.WhenAny(gate.Reached, firstTask);
+        Assert.False(firstTask.IsCompleted, "The first request finished before reaching its commit gate.");
+
+        var secondTask = second(null);
+        await PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, secondTask);
+        Assert.False(secondTask.IsCompleted, "The second request did not wait for the first one.");
+
+        gate.Release();
+
+        return (await firstTask, await secondTask);
+    }
+
+    // BR-OT-13 (2) · a child beneath an item of the team, in both orders, when no default resolves: the creation first — it holds
+    // the project's teams, the deletion waits, then takes the child with the rest (no team); the deletion first — the child waits,
+    // reads its parent released and the default as it stands after the deletion, the one team left (BR-OT-4).
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Delete_VersusChildCreation_TwoTeamsNoNamedDefault_BothOrders(bool creationFirst)
+    {
+        var world = await TwoTeamWorldAsync();
+        var parent = await StoryAsync(world, "Родитель", world.Mars, "FEAT");
+        Assert.Null(await DefaultTeamAsync(factory, world.ProjectId));
+
+        Answer creation;
+        Answer deletion;
+
+        if (creationFirst)
+        {
+            (creation, deletion) = await RaceAsync(at => CreateBeneathAsync(world, parent, "US", "Ребёнок", at), at => DeleteAsync(world, world.Mars, at));
+        }
+        else
+        {
+            (deletion, creation) = await RaceAsync(at => DeleteAsync(world, world.Mars, at), at => CreateBeneathAsync(world, parent, "US", "Ребёнок", at));
+        }
+
+        Assert.Equal((HttpStatusCode.NoContent, HttpStatusCode.Created), (deletion.Status, creation.Status));
+        Assert.Null((await StoredAsync(factory, world.ProjectId, parent.Identifier)).TeamId);
+        Guid? expected = creationFirst ? null : world.OwnTeam;
+        Assert.Equal(expected, (await StoredAsync(factory, world.ProjectId, creation.Body.GetProperty("identifier").GetString()!)).TeamId);
+        await AssertInvariantsAsync(world);
+    }
+
+    // BR-OT-3 · the same without a parent: an item created with no team field while no default resolves takes the default as it
+    // stands when it is saved — none if it commits before the deletion, the team that remains if it comes after.
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Delete_VersusCreationWithNoTeamField_TwoTeamsNoNamedDefault_BothOrders(bool creationFirst)
+    {
+        var world = await TwoTeamWorldAsync();
+
+        Answer creation;
+        Answer deletion;
+
+        if (creationFirst)
+        {
+            (creation, deletion) = await RaceAsync(at => CreateWithNoTeamFieldAsync(world, "Без поля", at), at => DeleteAsync(world, world.Mars, at));
+        }
+        else
+        {
+            (deletion, creation) = await RaceAsync(at => DeleteAsync(world, world.Mars, at), at => CreateWithNoTeamFieldAsync(world, "Без поля", at));
+        }
+
+        Assert.Equal((HttpStatusCode.NoContent, HttpStatusCode.Created), (deletion.Status, creation.Status));
+        Guid? expected = creationFirst ? null : world.OwnTeam;
+        Assert.Equal(expected, (await StoredAsync(factory, world.ProjectId, creation.Body.GetProperty("identifier").GetString()!)).TeamId);
+        await AssertInvariantsAsync(world);
+    }
+
+    // S-1 outcome 1 · a grandchild beneath a child that was created while the team was being deleted. The child is held at its
+    // commit, the deletion queues behind the teams the child holds and is itself held at its commit once the child has
+    // committed (it has released the child with the rest); the grandchild then waits for the deletion, reads the child released
+    // and takes the default as it stands: nothing is left owned by the deleted team. (The interleaving the security pass wrote
+    // down — the grandchild holding the child when the release starts — cannot be forced with commit gates; this test pins what
+    // rules it out: a creation that may default always queues against the deletion.)
+    [Fact]
+    public async Task Delete_VersusChildThenGrandchildCreation_TwoTeamsNoNamedDefault_NothingStaysOnTheDeletedTeam()
+    {
+        var world = await TwoTeamWorldAsync();
+        var parent = await StoryAsync(world, "Родитель", world.Mars, "FEAT");
+        using var childGate = factory.CommitGates.Open();
+        using var deletionGate = factory.CommitGates.Open();
+
+        var childTask = CreateBeneathAsync(world, parent, "US", "Ребёнок", childGate);
+        await Task.WhenAny(childGate.Reached, childTask);
+        Assert.False(childTask.IsCompleted, "The child finished before reaching its commit gate.");
+
+        var deletionTask = DeleteAsync(world, world.Mars, deletionGate);
+        await PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, deletionTask);
+        Assert.False(deletionTask.IsCompleted, "The deletion did not wait for the teams the child holds.");
+
+        childGate.Release();
+        var child = await childTask;
+        Assert.Equal(HttpStatusCode.Created, child.Status);
+        await Task.WhenAny(deletionGate.Reached, deletionTask);
+        Assert.False(deletionTask.IsCompleted, "The deletion finished before reaching its commit gate.");
+
+        var childItem = new Item(child.Body.GetProperty("id").GetGuid(), child.Body.GetProperty("identifier").GetString()!);
+        Assert.Equal(world.Mars, (await StoredAsync(factory, world.ProjectId, childItem.Identifier)).TeamId);
+        var grandchildTask = CreateBeneathAsync(world, childItem, "TASK", "Внук");
+        await PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, grandchildTask);
+        Assert.False(grandchildTask.IsCompleted, "The grandchild did not wait for the deletion.");
+
+        deletionGate.Release();
+        var (deletion, grandchild) = (await deletionTask, await grandchildTask);
+
+        Assert.Equal((HttpStatusCode.NoContent, HttpStatusCode.Created), (deletion.Status, grandchild.Status));
+        Assert.Null((await StoredAsync(factory, world.ProjectId, parent.Identifier)).TeamId);
+        Assert.Null((await StoredAsync(factory, world.ProjectId, childItem.Identifier)).TeamId);
+        Assert.Equal(
+            world.OwnTeam,
+            (await StoredAsync(factory, world.ProjectId, grandchild.Body.GetProperty("identifier").GetString()!)).TeamId);
+        await AssertInvariantsAsync(world);
+    }
 }

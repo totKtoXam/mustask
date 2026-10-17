@@ -62,9 +62,22 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
     {
         for (var attempt = 0; attempt < DefaultTeamAttempts; attempt++)
         {
-            if (await DefaultTeams.ResolveAsync(context, projectId, cancellationToken) is not { } teamId)
+            var teamId = await DefaultTeams.ResolveAsync(context, projectId, cancellationToken);
+
+            if (teamId is null)
             {
-                return null;
+                // No default resolves now (two or more active teams, none named; BR-OT-4). The creation must still queue
+                // against a team's deletion, which holds every active team, and take the default as it stands after it
+                // (BR-OT-13 (2)): lock them all, then read the default again under the lock (mod-017 QA D-1, CR-1, S-1).
+                await LockActiveTeamsAsync(projectId, cancellationToken);
+                teamId = await DefaultTeams.ResolveAsync(context, projectId, cancellationToken);
+
+                if (teamId is null)
+                {
+                    // Still none under the lock: no deletion can commit before this creation does, so none is the default
+                    // as it stands, for the whole of the creation.
+                    return null;
+                }
             }
 
             await context.Database.ExecuteSqlInterpolatedAsync(
@@ -80,8 +93,22 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
             }
         }
 
-        return null;
+        // The attempts ran out (three deletions of the default in a row): the active teams are locked, whatever they are now.
+        await LockActiveTeamsAsync(projectId, cancellationToken);
+
+        return await DefaultTeams.ResolveAsync(context, projectId, cancellationToken);
     }
+
+    /// <summary>
+    /// Every active team of the project <c>FOR SHARE</c>, in id order — the order a deletion takes them in
+    /// (<c>TeamRepository.LockProjectTeamsAsync</c>), so the two queue and neither can deadlock; shares do not wait for each
+    /// other or for a binder's share. A team a deletion committed while the statement waited is skipped; a team added
+    /// meanwhile is not locked, and the creation depends on none that is new: it owns no item yet.
+    /// </summary>
+    private Task LockActiveTeamsAsync(Guid projectId, CancellationToken cancellationToken) =>
+        context.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT 1 FROM teams WHERE project_id = {projectId} AND status = 'Active' ORDER BY id FOR SHARE",
+            cancellationToken);
 
     public Task<Guid?> FindCreatedByRequestAsync(Guid projectId, Guid requestId, CancellationToken cancellationToken) =>
         context.WorkItems

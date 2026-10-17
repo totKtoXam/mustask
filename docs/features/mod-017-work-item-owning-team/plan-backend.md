@@ -47,7 +47,7 @@ settle, carry the night-delegation mark and stay open for the morning.
 | D-11 | The place key `(work_item_id, team_id) → work_items (id, owning_team_id)` is created **in SQL** in the second migration; the unique index `(id, owning_team_id)` it needs is declared in the model. | Verified with EF 10: an alternate key over `owning_team_id` makes the column `NOT NULL` (EF refuses a nullable key property), which would end «Без команды». A foreign key cannot be declared without a principal key, so it is SQL. The model snapshot stays consistent; a test pins the constraint. |
 | D-12 | **Lanes: yes**, reference use case **`SaveWorkItem`** (§ 10.2). | Eight lanes with disjoint zones; the binder pattern (lock the team, then decide, then write) is what four of them copy. |
 | D-13 | `Project.Create` returns `NewProject(Project, Team, Area Root)` (the property was `FirstTeam`); `Team.Delete(int activeTeamsOfProject)` carries the guard; `Team.Create` replaces `CreateFirst` and `CreateWithArea`. | "No team is the first" (BR-OT-11) reaches the names. |
-| D-14 | A child's creation **locks the project default team `FOR SHARE` before the number lock**, whether or not the parent has a team; it binds the parent's team by the owner key alone. | The fallback to the default is known only after the parent is locked; a lock not taken then would let the child land on a team a concurrent deletion has just committed (§ 7.3). The parent's team needs no lock: the deletion waits for the parent. |
+| D-14 | A child's creation **locks the project default team `FOR SHARE` before the number lock**, whether or not the parent has a team; when no default resolves (two or more active teams, none named) it locks **every active team of the project `FOR SHARE` in id order** and reads the default again under that lock; it binds the parent's team by the owner key alone. (Fix round, QA D-1 / review CR-1 / security S-1: the first text locked nothing when no default resolved.) | The fallback to the default is known only after the parent is locked; a lock not taken then would let the child land on a team a concurrent deletion has just committed, or keep a default the deletion has changed (§ 7.3). The parent's team needs no lock of its own: the creation holds a team the deletion needs (the default, or all of them when there is none), so it is wholly before or wholly after the deletion. "The deletion waits for the parent" alone is not enough — the deletion's owned set is read once, before a child committed during the wait exists. |
 | D-15 | A `23503` on the owner keys is mapped to `organizations.team.not_found` in `WorkItemRepository.SaveAsync` and on the default key in `ProjectRepository`. | ADR-0028 § 4: a key violation is a not-found refusal, never a 500. It is the backstop of the locks; no race of §7 should reach it. |
 | D-16 | A rewritten test whose **name states a retired rule** is renamed, the commit message listing old → new; one whose name survives keeps it. | The spec says a rewritten test "keeps its name and intent"; `…FirstTeamFirst…` cannot after BR-OT-11. P-1 traceability is the message. |
 
@@ -233,7 +233,7 @@ project) cannot cross. A binder of the *new* team takes nothing of the *old* one
 | Use case | In this order |
 |---|---|
 | `SaveWorkItem` (reference) | (second code) → address → **team `FOR SHARE`** if a non-null team is sent (lock only) → hierarchy row if a parent is sent → **item `FOR UPDATE`** → values → area `FOR SHARE` → **team decision** (`FindTeamAsync`, a fresh statement, `ProjectTeams.EnsureBindable`) → parent → `Save` → if the owner changed, **`ITeamBacklogPlaces.DropForItemAsync`** → flush. The place is deleted before the item's `UPDATE` because the place key is checked at the end of the update statement. |
-| `CreateWorkItem` | (second code) → address → values → type → **team lock** (an explicit non-null `team` with no parent: `LockTeamAsync`; no `team` field, or a parent: `LockDefaultTeamAsync`; `{ teamId: null }`: nothing) → number row → **replay (200)** → team decision (explicit only) → hierarchy row and parent `FOR NO KEY UPDATE` → team = parent's stored team, else the locked default → insert (the owner key takes a key share). |
+| `CreateWorkItem` | (second code) → address → values → type → **team lock** (an explicit non-null `team` with no parent: `LockTeamAsync`; no `team` field, or a parent: `LockDefaultTeamAsync` — the default `FOR SHARE`, or every active team `FOR SHARE` by id when no default resolves, then the default again; `{ teamId: null }`: nothing) → number row → **replay (200)** → team decision (explicit only) → hierarchy row and parent `FOR NO KEY UPDATE` → team = parent's stored team, else the locked default → insert (the owner key takes a key share). |
 | `SetDefaultTeam` | address → **team `FOR SHARE`** (tenant-scoped) → decision → project row `FOR NO KEY UPDATE` (re-check the status) → `NameDefaultTeam` → flush. |
 | `DeleteTeam` | address → **`LockProjectTeamsAsync`** (active teams, `FOR NO KEY UPDATE`, by id) → the addressed team must be among them (`team_not_found`) → `Team.Delete(count)` (`last_team_cannot_be_deleted`) → `LockOwnedAsync` → `DropForTeamAsync` → `ReleaseOwnedAsync(now)` → `ClearDefaultTeamAsync` → memberships end → flush the status. |
 | Team reorder | address → team `FOR SHARE` + active → members `FOR KEY SHARE` → order row `FOR UPDATE` → the locking read → stale check → drop and upsert. |
@@ -245,11 +245,17 @@ project) cannot cross. A binder of the *new* team takes nothing of the *old* one
    binder commits (its item or setting is then taken with the rest: `LockOwnedAsync` and `ReleaseOwnedAsync` run on fresh
    statements), or the deletion committed first and the binder, re-reading after its lock, finds `Deleted` and is refused
    `team_not_found`.
-2. **A child beneath an item of the team.** The child holds its parent `FOR NO KEY UPDATE` and inserts with the owner key
-   (a key share, which `FOR NO KEY UPDATE` does not wait on). Child first: the deletion's `LockOwnedAsync` waits for the parent,
-   then its release (a new statement) sees the committed child and reassigns it. Deletion first: the child's parent lock waits for
-   the deletion's `UPDATE`, re-reads the parent without a team, and takes the **default locked before the number row**
-   (D-14), which a deletion that named it has already cleared. The child is never refused for a team.
+2. **A child beneath an item of the team.** The child first locks a team the deletion needs — the **default** (D-14), or, when
+   no default resolves, **every active team** `FOR SHARE` by id and the default again — all **before the number row**; then it holds
+   its parent `FOR NO KEY UPDATE` and inserts with the owner key (a key share, which `FOR NO KEY UPDATE` does not wait on). The
+   deletion holds every active team `FOR NO KEY UPDATE`, so the two are never in flight together. Child first: the deletion
+   waits for the child's team lock, then its `LockOwnedAsync` sees the committed child, and the release reassigns it. Deletion
+   first: the child waits on its team lock, then reads the team deleted, the parent released (no team) and **the default as it
+   stands after the deletion** — the named one, or the one team left (BR-OT-4), else none. The child is never refused for a team.
+   A grandchild beneath a child created meanwhile is the same case one level down: it too is wholly before or wholly after the
+   deletion. (The first text rested on "the deletion waits for the parent" and locked nothing when no default resolved: the
+   child kept the default it read before the wait, and a grandchild could be inserted after the owned set was read — QA D-1,
+   review CR-1, security S-1.)
 3. **A reorder meets a team change of a member.** The reorder's member lock (`KEY SHARE`) conflicts with the save's
    `FOR UPDATE` on the item. Reorder first: the save waits, then drops the place the reorder wrote. Save first: the
    reorder's locking read, evaluated on the updated row, no longer sees the item as a member; the handler finds the moved or
@@ -265,7 +271,9 @@ Edges that could form a cycle and why they do not:
 
 - binder ↔ deletion: both take a team row first; nothing holds an item before it;
 - child creation ↔ deletion: with `FOR UPDATE` it **would** cycle (child: parent → team key share; deletion: team → parent), which is
-  D-3; with `FOR NO KEY UPDATE` the child's key share does not wait;
+  D-3; with `FOR NO KEY UPDATE` the child's key share does not wait. The child's own team locks (the default, or all the active teams
+  when there is none) come before its parent and in the deletion's order (ascending id), so the two queue on the team rows and
+  neither holds what the other waits for;
 - reorder ↔ save: the reorder holds the order row and key shares, the save holds an item and no order row; the save deletes a
   place row only after it holds the item, and the reorder writes place rows only after it holds the members;
 - default naming ↔ deletion: both take a team row, then the project row.
@@ -581,9 +589,17 @@ Lanes that need something shared escalate, they do not negotiate.
   (3) A large wave of renamed test names (D-16): the commit messages carry old → new. (4) The locking read of D-10 is raw SQL
   by reasons of row locking (backend.md "Raw SQL"), parameterized.
 - **The MR names:** the data dropped (§ 4.4); that no project gets a named default and a new item from the list in a
-  multi-team project starts «Без команды»; the retired and rewritten tests (§ 9.1); the broken E2E specs —
-  `21-organizations.spec.ts` (area owner and default-area copy) and any spec that places an item on a team through an area; the
-  deprecated codes; the clarification of ADR-0028 rule 8 (D-3).
+  multi-team project starts «Без команды»; the retired and rewritten tests (§ 9.1); the broken E2E specs (paused, so none is
+  edited; code review CR-2) — the API no longer returns a team's `isFirstTeam` or `defaultArea`, and the support type still
+  declares them (`e2e/support/organizationsApi.ts:37-38`), so `tsc` stays green while the specs throw at setup or on first use:
+  `21-organizations.spec.ts` (the «Область по умолчанию» dialog, `:222-225`, and areas passing to the first team),
+  `23-backlogs-boards.spec.ts` (`:72`, `:310`, «The project has no first team.»), `24-work-item-hierarchy.spec.ts` (`:59`),
+  `25-work-item-fields.spec.ts` (`:56`), `26-backlog-tree-editing.spec.ts` (`:138`), `27-work-item-card.spec.ts` (`:189`,
+  `platform!.defaultArea.id`), `28-team-members.spec.ts` (`:101`), `29-role-views.spec.ts` (`:105`) — all but 21 and 27 do
+  `teams.find((team) => team.isFirstTeam)` — and the support type `organizationsApi.ts`; also any spec that places an item on a
+  team through an area (read and found clear: `19-shell-in-a-browser.spec.ts:64`, a comment, and
+  `27-organization-members.spec.ts`, whose `const [firstTeam]` is positional); the deprecated codes; the clarification of
+  ADR-0028 rule 8 (D-3).
 - **Owed to the orchestrator (P-10 notes in each owner's `status.md`, not written here):** mod-002 api-contract §§ 2.3, 3.1–3.3,
   3.5, 3.6, 4.1, 4.2, 4.4–4.6, 5, 6, 7; mod-003 §§ 1.1, 1.2, 2.1, 2.2, 2.4, 4, 6; mod-006 §§ 1, 2.1, 2.3, 3, 7; mod-016 §§ 3.1,
   3.3, 4.1 (rows 19, 25) and the route inventory; feat-027 (a child's team, BR-T-1, -4, -5); feat-039 (BR-PB-6); mod-015 and
@@ -625,13 +641,24 @@ What differs from the text above, and why. Each is a decision of the implementat
    deletion 9; the filtered project backlog and board take the statements of the unfiltered. A statement of the assignees' reads
    is skipped when a result has no assignee, so the seed gives every slice one and the numbers do not depend on the data.
    The audit follow-up added four pins on the first green run (same small and large): one item (get) 7, one team (get, 2 and 50
-   teams) 2, a save that changes the team 17 (with the place drop and the answer's read), a child creation beneath a story 20.
+   teams) 2, a save that changes the team 17 (with the place drop and the answer's read), a child creation beneath a story 20 (22 after the fix round, item 10).
 8. **Test helpers.** `OwningTeamTestData.SetOwningTeamAsync` drops the item's team place when the team changes (as a save
    does), because the place key refuses the change under a place; `OrganizationsTestData` loses `SetTeamDefaultAreaAsync` and
    the owner parameter of `AddAreaAsync`, and gains `SetDefaultTeamAsync`; `OrganizationStructure.FirstTeamId` became
    `ProjectTeamId` (the helpers' parameter name `creatorJoinsFirstTeam` is kept: a name, not a rule).
 9. **Renames (D-16) are listed in the commit messages** of the contraction (old → new), and so are the retired tests with their
    rule.
+10. **Fix round (QA D-1, code review CR-1, security S-1): the default lock locks every active team when no default resolves.**
+    `LockDefaultTeamAsync` returned `null` and locked nothing in a project of two or more active teams with none named, so a
+    child (or a creation with no team field) did not queue against a team's deletion: it kept the default it had read across the
+    wait on its parent («Без команды» instead of the one team left, BR-OT-13 (2), BR-OT-4), and nothing ruled out a grandchild
+    inserted after the deletion read its owned set. It now locks the project's active teams `FOR SHARE` in id order (one
+    statement, the deletion's order) and reads the default again under that lock; its attempts-ran-out exit does the same. D-14,
+    § 7.2, § 7.3 (2) and § 7.4 carry the corrected text; no contract changes (api-contract § 2.7 already says "reassigned or on the
+    project default"). The cost is two statements on the creations that default in such a project (child creation 20 → 22,
+    pinned small = large), and a creation now waits for a team rename in flight. Tests: `DeleteOwnedItemsEndpointTests`
+    `…_TwoTeamsNoNamedDefault_BothOrders` (child; no team field) and `…_VersusChildThenGrandchildCreation_…`, with QA's
+    `OwningTeamQaEndpointTests.Delete_VersusChildCreation_TwoTeamsNoNamedDefault_…`; all but the child-first order fail without the lock.
 
 ### Audit follow-up
 

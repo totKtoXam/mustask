@@ -41,10 +41,13 @@ namespace Mustask.Application.Features.WorkItems.CreateWorkItem;
 /// <para>
 /// <b>The team's locks</b> (mod-017 plan-backend § 7, D-14; ADR-0028 rule 8). Before the number's lock, an explicit team of a
 /// creation with no parent is locked <c>FOR SHARE</c> as a binder; every other creation that may default — no team sent, or a
-/// child, whether or not its parent has a team — locks the project default team <c>FOR SHARE</c>, read as it stands. A
-/// deletion of a team commits before the creation (the creation then reads the team deleted) or waits for it and takes the
-/// new item with the rest; a child beneath an item of a team being deleted is never refused (the parent's team needs no lock:
-/// the deletion waits for the parent, and the child's owner key takes only a key share of the team).
+/// child, whether or not its parent has a team — locks the project default team <c>FOR SHARE</c>, read as it stands, or, when
+/// the project has no default (two or more active teams, none named), every active team <c>FOR SHARE</c> in id order and
+/// reads the default again under that lock. A deletion of a team holds all the project's active teams, so it commits before
+/// the creation (the creation then reads the team deleted, its parent released and the default as it stands after the
+/// deletion) or waits for it and takes the new item with the rest; a child beneath an item of a team being deleted is never
+/// refused (the parent's team needs no lock of its own: the creation holds a team the deletion needs, and the child's owner key
+/// takes only a key share of the team).
 /// </para>
 /// <para>
 /// <b>The number and the replay</b> (BR-M3-5, BR-M3-26). The project's counter
@@ -129,7 +132,8 @@ public sealed class CreateWorkItemHandler(
                 // 4. The team lock, before the number's (mod-017 plan-backend § 7.2, ADR-0028 rule 8), then the number and the
                 // replay after its lock. An explicit team with no parent is locked as a binder; every other creation that may
                 // take the default — no team sent, or a child, whatever team the parent has — locks the default as it
-                // stands, so a deletion of a team commits before it or waits for it, never in between (D-14).
+                // stands, or every active team when the project has none, so a deletion of a team commits before it or
+                // waits for it, never in between (D-14). A creation that sends «Без команды» owns nothing: it locks nothing.
                 Guid? lockedDefaultTeamId = null;
 
                 if (command.ParentId is null && command.Team is { } named)

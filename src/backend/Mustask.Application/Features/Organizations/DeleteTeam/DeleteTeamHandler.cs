@@ -37,7 +37,9 @@ namespace Mustask.Application.Features.Organizations.DeleteTeam;
 /// who is also in another team stays there); then the team is deleted — the name is free, and the address answers
 /// <c>team_not_found</c>. Areas, projects and other teams' items are untouched. The release is one statement over the committed
 /// rows, so an item given to the team, or a child created beneath one of its items, after the confirmation's count is reassigned
-/// all the same. All or nothing, within the transaction.
+/// all the same: every write that can give an item this team holds a team of the project <c>FOR SHARE</c> (a creation with no
+/// default holds them all), which the locks above wait for — it has committed when the owned items are locked, or it waits for
+/// this deletion's commit and reads the team deleted. All or nothing, within the transaction.
 /// </para>
 /// </remarks>
 public sealed class DeleteTeamHandler(

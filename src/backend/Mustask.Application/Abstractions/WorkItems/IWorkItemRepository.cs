@@ -30,7 +30,12 @@ public interface IWorkItemRepository
     /// mod-017 (BR-OT-3, BR-OT-13, plan-backend D-14): reads the project default team as it stands — the team the settings
     /// name, else the project's only active team, else none (<c>ProjectDefaultTeam</c>) — locks it <c>FOR SHARE</c>, and reads
     /// it again: a team found deleted means a deletion cleared the setting meanwhile, so the default is read again (three
-    /// attempts, then none; unreachable short of three namings in a row). Answers the locked team, or <c>null</c>. A creation
+    /// attempts, then the active teams are locked and the default read once more; unreachable short of three deletions in a
+    /// row). When no default resolves (two or more active teams, none named), <b>every active team is locked <c>FOR SHARE</c>
+    /// in id order</b> and the default is read again under that lock: a deletion of any team of the project holds them all
+    /// (<c>FOR NO KEY UPDATE</c>), so the creation either commits before the deletion reads the items it owns or reads the
+    /// default, and its parent, after the deletion — never in between (QA D-1, CR-1, S-1). Answers the locked team, or
+    /// <c>null</c> (none, with the teams locked). A creation
     /// that may take the default (no team sent, or a child) takes this lock <b>before</b> the number lock, whether or not it
     /// ends up using the default: the fallback is known only after the parent is locked, and a lock not taken then would let the
     /// child land on a team a concurrent deletion has just committed. A default that is named differently during the attempt
