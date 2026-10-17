@@ -119,6 +119,50 @@ public sealed class StackRankTests
         Assert.Equal(Read(Backlog()), Read(StackRank.Move(Backlog(), Bug5, StackRankPosition.After(Bug5))));
     }
 
+    // feat-039 US-2 · "New and unplaced items follow the placed ones" (BR-PB-4, BR-MX-18): on a project's backlog the entries give
+    // their creation time; the placed ones lead by place whatever their time, the unplaced follow by creation time, and the
+    // number breaks a tie — S6 (10:00), S7 and S8 (both 10:05, S7 the lower number), S9 numbered last but created earliest.
+    [Fact]
+    public void Order_ProjectEntries_PlacedThenUnplacedByCreationTimeThenNumber()
+    {
+        var (s6, s7, s8, s9, placed) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var ten = new DateTimeOffset(2026, 10, 10, 10, 0, 0, TimeSpan.Zero);
+
+        var order = StackRank.Order(
+        [
+            new(s8, 8, null, ten.AddMinutes(5)),
+            new(s7, 7, null, ten.AddMinutes(5)),
+            new(s9, 9, null, ten.AddHours(-3)),
+            new(s6, 6, null, ten),
+            new(placed, 20, 1, ten.AddDays(1)),
+        ]);
+
+        Assert.Equal([placed, s9, s6, s7, s8], order);
+    }
+
+    // feat-039 BR-PB-4: entries that give no creation time — a team's, and a project's tasks — keep the number tie-break exactly as
+    // before, so a team's order is not changed by the project's.
+    [Fact]
+    public void Order_EntriesWithoutACreationTime_StayByNumber()
+    {
+        var order = StackRank.Order([new(Us9, 9, null), new(Us3, 3, null, null), new(Us11, 11, 1)]);
+
+        Assert.Equal(["MSK-US-11", "MSK-US-3", "MSK-US-9"], Read(order));
+    }
+
+    // feat-039 BR-PB-4: a reorder on a project's backlog moves one item in the order the creation time gave, and the result is the
+    // order every item is placed at — an item created earlier but numbered later keeps its place relative to the others.
+    [Fact]
+    public void Move_OnProjectEntries_MovesInTheCreationTimeOrder()
+    {
+        var (early, late, middle) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var ten = new DateTimeOffset(2026, 10, 10, 10, 0, 0, TimeSpan.Zero);
+        var order = StackRank.Order([new(late, 1, null, ten.AddHours(1)), new(early, 3, null, ten), new(middle, 2, null, ten.AddMinutes(30))]);
+
+        Assert.Equal([early, middle, late], order);
+        Assert.Equal([middle, early, late], StackRank.Move(order, middle, StackRankPosition.Top));
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

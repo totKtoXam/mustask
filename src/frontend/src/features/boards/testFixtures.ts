@@ -29,6 +29,10 @@ export const TEAM_URL = `${PROJECT_URL}/teams/:teamId`;
 export const BACKLOG_URL = `${TEAM_URL}/backlogs/:level`;
 export const REORDER_URL = `${BACKLOG_URL}/reorder`;
 export const BOARD_URL = `${TEAM_URL}/boards/:level`;
+/** feat-039 api-contract § 3, § 5: the project's own, under the project and no team. */
+export const PROJECT_BACKLOG_URL = `${PROJECT_URL}/backlogs/:level`;
+export const PROJECT_REORDER_URL = `${PROJECT_BACKLOG_URL}/reorder`;
+export const PROJECT_BOARD_URL = `${PROJECT_URL}/boards/:level`;
 export { API };
 
 /** Stable ids: mod-003's, and this slice's teams. */
@@ -60,11 +64,20 @@ export interface PlaceRecord {
   position: number;
 }
 
+/** One item's one place on its project's backlog of one level (feat-039 api-contract § 6). */
+export interface ProjectPlaceRecord {
+  itemId: string;
+  level: string;
+  position: number;
+}
+
 export interface BoardsDataset extends Dataset {
   teams: TeamRecord[];
   /** An area's explicit owning team; an area absent here inherits its parent's. */
   owners: Record<string, string>;
   places: PlaceRecord[];
+  /** The project's own order, apart from every team's (feat-039 BR-PB-4). */
+  projectPlaces: ProjectPlaceRecord[];
 }
 
 /**
@@ -126,6 +139,7 @@ export function boardsDataset(): BoardsDataset {
     ],
     owners: { [ids.platform]: ids.platformTeam, [ids.analyticsArea]: ids.analyticsTeam },
     places: [],
+    projectPlaces: [],
   };
 }
 
@@ -233,6 +247,23 @@ export function storiesDataset(
     const [key = 'US', number = '0'] = entry.split('-');
     data.items.push(platformItem(Number(number), key, `Элемент ${entry}`));
   }
+  return data;
+}
+
+/**
+ * feat-039 US-1's «Data» in «Мастаск»: three stories on three teams' surfaces — MSK-US-2 «Вход по
+ * паролю» in the root area, which the first team «Мастаск» owns, MSK-US-3 «Выход» in «Платформа»'s,
+ * MSK-US-9 «Отчёт» in «Аналитика»'s — and OPS-US-1 «Приход товара» in the project «Операции», which
+ * no «Мастаск» view holds. All «Новая», nothing reordered, so the project's order is by number.
+ */
+export function projectDataset(): BoardsDataset {
+  const data = boardsDataset();
+  data.items.push(
+    item(ids.msk, 2, 'US', 'Вход по паролю', { areaId: ids.mskRoot }),
+    platformItem(3, 'US', 'Выход'),
+    item(ids.msk, 9, 'US', 'Отчёт', { areaId: ids.analyticsArea }),
+    item(ids.ops, 1, 'US', 'Приход товара'),
+  );
   return data;
 }
 

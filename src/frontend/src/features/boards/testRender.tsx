@@ -6,7 +6,9 @@ import type { WorkContextSelection, WorkContextSource } from '../../shared/lib/w
 import { OrganizationGate } from '../organizations';
 import { BacklogPage } from './pages/BacklogPage';
 import { BoardPage } from './pages/BoardPage';
-import { BACKLOG_ROUTE, BOARD_ROUTE } from './paths';
+import { ProjectBacklogPage } from './pages/ProjectBacklogPage';
+import { ProjectBoardPage } from './pages/ProjectBoardPage';
+import { BACKLOG_ROUTE, BOARD_ROUTE, PROJECT_BACKLOG_ROUTE, PROJECT_BOARD_ROUTE } from './paths';
 import { ids } from './testFixtures';
 
 /** A team's address prefix in «Мастаск», «Платформа» by default. */
@@ -22,6 +24,21 @@ export function backlogAddress(level = 'stories', teamId: string = ids.platformT
 /** A team's board of one level, «Истории» of «Платформа» by default. */
 export function boardAddress(level = 'stories', teamId: string = ids.platformTeam): string {
   return `${teamPrefix(teamId)}/boards/${level}`;
+}
+
+/** The project's address prefix in «Мастаск» (feat-039): no team in it. */
+export function projectPrefix(): string {
+  return `/organizations/${ids.example}/projects/${ids.msk}`;
+}
+
+/** The project's backlog of one level (feat-039 BR-PB-1), «Истории» by default. */
+export function projectBacklogAddress(level = 'stories'): string {
+  return `${projectPrefix()}/backlogs/${level}`;
+}
+
+/** The project's board of one level (feat-039 BR-PB-1), «Истории» by default. */
+export function projectBoardAddress(level = 'stories'): string {
+  return `${projectPrefix()}/boards/${level}`;
 }
 
 /** An item's form in «Мастаск», where a title links. */
@@ -77,6 +94,8 @@ export function boardsRoutes() {
       <Route element={<OrganizationGate />}>
         <Route path={BOARD_ROUTE} element={<BoardPage />} />
         <Route path={BACKLOG_ROUTE} element={<BacklogPage />} />
+        <Route path={PROJECT_BOARD_ROUTE} element={<ProjectBoardPage />} />
+        <Route path={PROJECT_BACKLOG_ROUTE} element={<ProjectBacklogPage />} />
       </Route>
       <Route path="*" element={<p>Другая страница</p>} />
     </>

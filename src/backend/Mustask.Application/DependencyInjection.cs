@@ -1,6 +1,9 @@
 using Mustask.Application.Features.Boards.GetBacklog;
 using Mustask.Application.Features.Boards.GetBoard;
+using Mustask.Application.Features.Boards.GetProjectBacklog;
+using Mustask.Application.Features.Boards.GetProjectBoard;
 using Mustask.Application.Features.Boards.ReorderBacklog;
+using Mustask.Application.Features.Boards.ReorderProjectBacklog;
 using Mustask.Application.Features.Dictionaries.CreateLanguage;
 using Mustask.Application.Features.Dictionaries.GetLanguages;
 using Mustask.Application.Features.Dictionaries.SetDefaultLanguage;
@@ -139,6 +142,11 @@ public static class DependencyInjection
         services.AddScoped<GetBacklogHandler>();
         services.AddScoped<ReorderBacklogHandler>();
         services.AddScoped<GetBoardHandler>();
+
+        // The project's own backlog, reorder and board (feat-039): the other three routes of BoardEndpoints.cs.
+        services.AddScoped<GetProjectBacklogHandler>();
+        services.AddScoped<ReorderProjectBacklogHandler>();
+        services.AddScoped<GetProjectBoardHandler>();
 
         return services;
     }

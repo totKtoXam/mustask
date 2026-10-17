@@ -17,8 +17,8 @@ import {
   workItemPath,
   type WorkItem,
 } from '../../workitems';
-import type { Board, BoardCardItem, ChecklistChild } from '../api/boardsApi';
-import { boardsKeys } from '../api/queryKeys';
+import type { BoardCardItem, BoardSurface, ChecklistChild } from '../api/boardsApi';
+import { boardKey } from '../api/queryKeys';
 import { addEntriesOf, type AddEntry } from '../lib/addChild';
 import { columnOf } from '../lib/board';
 import {
@@ -32,7 +32,8 @@ import {
 } from '../lib/checklist';
 import type { BoardLevelCode } from '../lib/levels';
 import { stateRefusalNotice } from '../lib/refusals';
-import { useReadTeamAgain } from './queries';
+import type { BoardScope } from '../lib/scope';
+import { useReadAgain } from './queries';
 import type { useMoveView } from './useMoveView';
 
 /** How an add field closed without a create: for the focus rules (design § 5). */
@@ -93,7 +94,7 @@ export interface ChecklistEnv {
 
 const NONE: readonly ChecklistKind[] = [];
 
-type MoveView = ReturnType<typeof useMoveView<Board>>;
+type MoveView = ReturnType<typeof useMoveView<BoardSurface>>;
 
 /**
  * The checklists of a board's cards (feat-032): which lists are open (BR-C-4:
@@ -106,7 +107,7 @@ type MoveView = ReturnType<typeof useMoveView<Board>>;
 export function useChecklists({
   organizationId,
   projectId,
-  teamId,
+  scope,
   level,
   board,
   view,
@@ -119,10 +120,10 @@ export function useChecklists({
 }: {
   organizationId: string;
   projectId: string;
-  teamId: string;
+  scope: BoardScope;
   level: BoardLevelCode;
   /** The last read. */
-  board: Board;
+  board: BoardSurface;
   view: MoveView;
   inFlightRef: MutableRefObject<boolean>;
   setCreating(creating: boolean): void;
@@ -137,7 +138,7 @@ export function useChecklists({
   // new object each render, which would make `actions` and `env` new and redraw every card.
   const { mutateAsync: setStateAsync } = useSetWorkItemState(organizationId, projectId);
   const { mutateAsync: createItemAsync } = useCreateWorkItem(organizationId, projectId);
-  const readAgain = useReadTeamAgain(organizationId, projectId, teamId);
+  const readAgain = useReadAgain(organizationId, projectId, scope);
   const { shown } = view;
 
   const [open, setOpen] = useState<ReadonlyMap<string, readonly ChecklistKind[]>>(new Map());
@@ -378,7 +379,7 @@ export function useChecklists({
       await readAgain();
       inFlightRef.current = false;
       moveView.end(
-        client.getQueryData<Board>(boardsKeys.board(organizationId, projectId, teamId, level)),
+        client.getQueryData<BoardSurface>(boardKey(organizationId, projectId, scope, level)),
         read,
       );
       if (notice !== null) {
@@ -395,7 +396,7 @@ export function useChecklists({
       readAgain,
       setStateAsync,
       showError,
-      teamId,
+      scope,
     ],
   );
 

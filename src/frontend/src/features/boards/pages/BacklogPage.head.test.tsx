@@ -104,14 +104,17 @@ describe('US-1 Scenario: The team drop-down moves to another team of the project
     const menu = await screen.findByRole('menu', { name: 'Команды проекта' });
     expect(button).toHaveAttribute('aria-expanded', 'true');
     const entries = within(menu).getAllByRole('menuitem');
+    // feat-039 BR-PB-7: «Весь проект» closes the list, after the teams, which keep their places.
     expect(entries.map((entry) => entry.textContent)).toEqual([
       'Мастаск',
       'Платформа',
       'Аналитика',
+      'Весь проект',
     ]);
     expect(entries.map((entry) => entry.getAttribute('aria-current'))).toEqual([
       null,
       'page',
+      null,
       null,
     ]);
     expect(entries[1]).toHaveClass('Mui-selected');
@@ -176,7 +179,7 @@ describe('US-1 Scenario: The team drop-down moves to another team of the project
 });
 
 describe('US-1 Scenario: A project with one team still has the drop-down', () => {
-  it('the h1 reads «Мастаск» with «Сменить команду» beside it, and its menu lists «Мастаск» alone, selected', async () => {
+  it('the h1 reads «Мастаск» with «Сменить команду» beside it, and its menu lists «Мастаск», selected, then «Весь проект»', async () => {
     serveBoards(storiesDataset());
     const context = teamContext({ teamId: ids.mskTeam });
     const [organization] = context.organizations;
@@ -200,9 +203,10 @@ describe('US-1 Scenario: A project with one team still has the drop-down', () =>
 
     const menu = await screen.findByRole('menu', { name: 'Команды проекта' });
     const entries = within(menu).getAllByRole('menuitem');
-    expect(entries.map((entry) => entry.textContent)).toEqual(['Мастаск']);
+    expect(entries.map((entry) => entry.textContent)).toEqual(['Мастаск', 'Весь проект']);
     expect(entries[0]).toHaveAttribute('aria-current', 'page');
     expect(entries[0]).toHaveClass('Mui-selected');
+    expect(entries[1]).not.toHaveAttribute('aria-current');
   });
 });
 

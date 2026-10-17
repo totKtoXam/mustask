@@ -23,7 +23,7 @@ public sealed record OrganizationRoute(string Method, string Template, string Co
 /// <summary>
 /// Every organization-addressed route that exists, with the organization code each declares (mod-016 api-contract § 4.1–§ 4.2 and
 /// § 1–§ 2): the 23 of mod-002, mod-001's process read, the seven of mod-003 and feat-001 (their api-contract § 5 and § 6, rows 28–34),
-/// mod-006's three (rows 35–37) and the ten of mod-016's own access and memberships. A later module that adds one adds it here with
+/// mod-006's three (rows 35–37), feat-039's three project routes beside them and the ten of mod-016's own access and memberships. A later module that adds one adds it here with
 /// its code, and the inventory test (<c>OrganizationAccessInventoryTests</c>) makes sure it cannot forget: a route under
 /// <c>{organizationId}</c> that is not in this list, or is in it with another code than the one it declares, turns the build red.
 /// </summary>
@@ -81,6 +81,11 @@ public static class OrganizationAddressedRoutes
         new("GET", Team + "/backlogs/{level}", PermissionCatalog.WorkItemsWorkItemRead),
         new("POST", Team + "/backlogs/{level}/reorder", PermissionCatalog.BoardsBacklogReorder),
         new("GET", Team + "/boards/{level}", PermissionCatalog.WorkItemsWorkItemRead),
+
+        // feat-039 api-contract § 5: the project's own backlog, its reorder and its board (no team in the address).
+        new("GET", Project + "/backlogs/{level}", PermissionCatalog.WorkItemsWorkItemRead),
+        new("POST", Project + "/backlogs/{level}/reorder", PermissionCatalog.BoardsBacklogReorder),
+        new("GET", Project + "/boards/{level}", PermissionCatalog.WorkItemsWorkItemRead),
 
         // mod-016 api-contract § 1-§ 2: the access and the memberships.
         new("GET", Org + "/access", PermissionCatalog.OrganizationsOrganizationRead),

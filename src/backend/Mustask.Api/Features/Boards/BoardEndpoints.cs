@@ -2,7 +2,10 @@ using System.Text.Json;
 using Mustask.Api.Authorization;
 using Mustask.Application.Features.Boards.GetBacklog;
 using Mustask.Application.Features.Boards.GetBoard;
+using Mustask.Application.Features.Boards.GetProjectBacklog;
+using Mustask.Application.Features.Boards.GetProjectBoard;
 using Mustask.Application.Features.Boards.ReorderBacklog;
+using Mustask.Application.Features.Boards.ReorderProjectBacklog;
 using Mustask.Domain.Identity;
 using Mustask.Domain.WorkItems;
 using Microsoft.AspNetCore.Http;
@@ -16,7 +19,8 @@ namespace Mustask.Api.Features.Boards;
 /// M4's routes (mod-006 api-contract § 3), each wired to its own slice. They sit
 /// under a team of a project of <c>/api/organizations/{organizationId}/…</c>, each
 /// behind the scoped check of its organization code (mod-016 api-contract § 4.2,
-/// rows 35–37). Route parameters are plain strings with no constraint, so a
+/// rows 35–37); beside them, the project's own backlog, reorder and board
+/// (feat-039 api-contract § 3), under the project with no team. Route parameters are plain strings with no constraint, so a
 /// malformed id or an unknown level reaches the handler and gets its level's
 /// not-found code instead of a routing 404. A card move and a creation are
 /// mod-003's routes (api-contract § 6).
@@ -55,6 +59,36 @@ public static class BoardEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // feat-039: the project's own backlog, reorder and board (api-contract § 3), beside the team's three. A project
+        // view has no team in its address.
+        var project = app.MapGroup("/api/organizations/{organizationId}/projects/{projectId}").WithTags(Tag);
+
+        // § 3.1. The project's backlog of a level, over every item of the project. Written with BacklogJson: the answer is a tree.
+        project.MapGet("/backlogs/{level}", GetProjectBacklogAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead)
+            .Produces<ProjectBacklogResponse>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // § 3.2. Move one item of the project's backlog in the project's own order; the panel reads the backlog again.
+        project.MapPost("/backlogs/{level}/reorder", ReorderProjectBacklogAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.BoardsBacklogReorder)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        // § 3.3. The project's board of a level.
+        project.MapGet("/boards/{level}", GetProjectBoardAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead)
+            .Produces<ProjectBoardResponse>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         return app;
     }
 
@@ -89,6 +123,36 @@ public static class BoardEndpoints
     private static async Task<IResult> GetBoardAsync(
         string organizationId, string projectId, string teamId, string level, GetBoardHandler handler, CancellationToken cancellationToken) =>
         Results.Ok(await handler.Handle(new GetBoardQuery(organizationId, projectId, teamId, level), cancellationToken));
+
+    private static async Task<IResult> GetProjectBacklogAsync(
+        string organizationId,
+        string projectId,
+        string level,
+        GetProjectBacklogHandler handler,
+        IOptions<JsonOptions> json,
+        CancellationToken cancellationToken) =>
+        TypedResults.Json(
+            await handler.Handle(new GetProjectBacklogQuery(organizationId, projectId, level), cancellationToken),
+            BacklogJson.For(json.Value.SerializerOptions));
+
+    private static async Task<IResult> ReorderProjectBacklogAsync(
+        string organizationId,
+        string projectId,
+        string level,
+        ReorderBacklogRequest? request,
+        ReorderProjectBacklogHandler handler,
+        CancellationToken cancellationToken)
+    {
+        await handler.Handle(
+            new ReorderProjectBacklogCommand(organizationId, projectId, level, request?.ItemId, request?.Position, request?.AfterItemId),
+            cancellationToken);
+
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> GetProjectBoardAsync(
+        string organizationId, string projectId, string level, GetProjectBoardHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok(await handler.Handle(new GetProjectBoardQuery(organizationId, projectId, level), cancellationToken));
 
     // --- Request body: every field nullable, so a missing one reaches the handler as its answer -----
 

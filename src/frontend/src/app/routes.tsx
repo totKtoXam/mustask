@@ -4,8 +4,12 @@ import { RequireAuth } from '../features/auth/RequireAuth';
 import {
   BACKLOG_ROUTE,
   BOARD_ROUTE,
+  PROJECT_BACKLOG_ROUTE,
+  PROJECT_BOARD_ROUTE,
   BacklogPage,
   BoardPage,
+  ProjectBacklogPage,
+  ProjectBoardPage,
   boardsPermissions,
 } from '../features/boards';
 import { LanguageFormPage, LanguagesRegistryPage } from '../features/dictionaries';
@@ -263,6 +267,34 @@ export function AppRoutes() {
                   skeleton="registry"
                 >
                   <BacklogPage />
+                </OrganizationPage>
+              }
+            />
+            {/* The project's own backlog and board (feat-039 BR-PB-1), project-level
+                pages of the same two entries (BR-PB-9): the same wrapper and read
+                code as a team's, an address `:level` the page does not serve or a
+                project or level the read does not find answered by its own frame. */}
+            <Route
+              path={PROJECT_BOARD_ROUTE}
+              element={
+                <OrganizationPage
+                  code={boardsPermissions.workItemRead}
+                  title="Канбан"
+                  skeleton="registry"
+                >
+                  <ProjectBoardPage />
+                </OrganizationPage>
+              }
+            />
+            <Route
+              path={PROJECT_BACKLOG_ROUTE}
+              element={
+                <OrganizationPage
+                  code={boardsPermissions.workItemRead}
+                  title="Бэклоги"
+                  skeleton="registry"
+                >
+                  <ProjectBacklogPage />
                 </OrganizationPage>
               }
             />
