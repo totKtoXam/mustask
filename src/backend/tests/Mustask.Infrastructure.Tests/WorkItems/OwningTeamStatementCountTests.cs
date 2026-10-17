@@ -1,8 +1,10 @@
 using System.Data.Common;
 using Mustask.Application;
 using Mustask.Application.Abstractions;
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
 using Mustask.Application.Abstractions.UserDirectory;
+using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Application.Features.Boards.GetBacklog;
 using Mustask.Application.Features.Boards.GetBoard;
 using Mustask.Application.Features.Boards.GetProjectBacklog;
@@ -10,8 +12,13 @@ using Mustask.Application.Features.Boards.GetProjectBoard;
 using Mustask.Application.Features.Boards.ReorderBacklog;
 using Mustask.Application.Features.Organizations.DeleteTeam;
 using Mustask.Application.Features.Organizations.GetTeamOwnedItemCount;
+using Mustask.Application.Features.Organizations.GetTeam;
 using Mustask.Application.Features.Organizations.GetTeams;
+using Mustask.Application.Features.WorkItems.CreateWorkItem;
+using Mustask.Application.Features.WorkItems.GetWorkItem;
 using Mustask.Application.Features.WorkItems.GetWorkItems;
+using Mustask.Application.Features.WorkItems.SaveWorkItem;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Infrastructure.Process;
 using Mustask.Infrastructure.Tests.Organizations;
@@ -47,6 +54,10 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
     private const int OwnedCountStatements = 3;
     private const int DeletionStatements = 9;
     private const int ReorderStatements = 15;
+    private const int ItemGetStatements = 7;
+    private const int TeamGetStatements = 2;
+    private const int TeamChangeSaveStatements = 17;
+    private const int ChildCreationStatements = 20;
 
     [Fact]
     public async Task List_Unfiltered_Team_And_None_TheSameNumberOfStatements_For50AsFor5000Items()
@@ -179,6 +190,81 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
         Assert.Equal(ReorderStatements, largeReorder);
     }
 
+    // One item by its identifier: the team it carries comes with the item's own statements, not with a statement of its own per team.
+    [Fact]
+    public async Task ItemGet_TheSameNumberOfStatements_For50AsFor5000Items()
+    {
+        var (small, large) = await SeedBothAsync();
+
+        var smallGet = await CountAsync((provider, ct) => provider.GetRequiredService<GetWorkItemHandler>()
+            .Handle(new GetWorkItemQuery(small.OrganizationId.ToString(), small.ProjectId.ToString(), small.OwnStoryIdentifier), ct));
+        var largeGet = await CountAsync((provider, ct) => provider.GetRequiredService<GetWorkItemHandler>()
+            .Handle(new GetWorkItemQuery(large.OrganizationId.ToString(), large.ProjectId.ToString(), large.OwnStoryIdentifier), ct));
+
+        Assert.Equal(smallGet, largeGet);
+        Assert.Equal(ItemGetStatements, largeGet);
+    }
+
+    // One team: its mark reads the project's setting and the count of active teams in the statement of the team, whatever the count.
+    [Fact]
+    public async Task TeamGet_TheSameNumberOfStatements_For2As50Teams()
+    {
+        var (small, large) = await SeedBothAsync();
+
+        var smallGet = await CountAsync((provider, ct) => provider.GetRequiredService<GetTeamHandler>()
+            .Handle(new GetTeamQuery(small.OrganizationId.ToString(), small.ProjectId.ToString(), Id(small.OwnTeam)), ct));
+        var largeGet = await CountAsync((provider, ct) => provider.GetRequiredService<GetTeamHandler>()
+            .Handle(new GetTeamQuery(large.OrganizationId.ToString(), large.ProjectId.ToString(), Id(large.OwnTeam)), ct));
+
+        Assert.Equal(smallGet, largeGet);
+        Assert.Equal(TeamGetStatements, largeGet);
+    }
+
+    // A save that changes the team: the binder's lock, the item, the decision, the place drop, the write and the answer.
+    [Fact]
+    public async Task Save_ChangingTheTeam_TheSameNumberOfStatements_For50AsFor5000Items()
+    {
+        var (small, large) = await SeedBothAsync();
+
+        var smallSave = await CountAsync((provider, ct) => provider.GetRequiredService<SaveWorkItemHandler>().Handle(
+            new SaveWorkItemCommand(
+                small.OrganizationId.ToString(), small.ProjectId.ToString(), small.OwnStoryIdentifier, Team: new TeamChange(Id(small.OtherTeam))), ct));
+        var largeSave = await CountAsync((provider, ct) => provider.GetRequiredService<SaveWorkItemHandler>().Handle(
+            new SaveWorkItemCommand(
+                large.OrganizationId.ToString(), large.ProjectId.ToString(), large.OwnStoryIdentifier, Team: new TeamChange(Id(large.OtherTeam))), ct));
+
+        Assert.Equal(smallSave, largeSave);
+        Assert.Equal(TeamChangeSaveStatements, largeSave);
+        Assert.Equal(
+            [Id(large.OtherTeam)],
+            await database.QueryAsync("SELECT owning_team_id::text FROM work_items WHERE id = @item", ("item", large.FirstOwnStory)));
+    }
+
+    // A child beneath a story: the default's lock, the number, the parent and its ancestry, the insert and the answer.
+    [Fact]
+    public async Task ChildCreation_TheSameNumberOfStatements_For50AsFor5000Items()
+    {
+        var (small, large) = await SeedBothAsync();
+
+        var smallCreate = await CountAsync((provider, ct) => provider.GetRequiredService<CreateWorkItemHandler>().Handle(
+            new CreateWorkItemCommand(
+                small.OrganizationId.ToString(), small.ProjectId.ToString(), Guid.CreateVersion7().ToString(), Id(small.TaskType), "Новая задача",
+                ParentId: Id(small.FirstOwnStory)), ct));
+        var largeCreate = await CountAsync((provider, ct) => provider.GetRequiredService<CreateWorkItemHandler>().Handle(
+            new CreateWorkItemCommand(
+                large.OrganizationId.ToString(), large.ProjectId.ToString(), Guid.CreateVersion7().ToString(), Id(large.TaskType), "Новая задача",
+                ParentId: Id(large.FirstOwnStory)), ct));
+
+        Assert.Equal(smallCreate, largeCreate);
+        Assert.Equal(ChildCreationStatements, largeCreate);
+        Assert.Equal(
+            [Id(large.OwnTeam)],
+            await database.QueryAsync(
+                "SELECT owning_team_id::text FROM work_items WHERE project_id = @project AND parent_id = @parent AND title = 'Новая задача'",
+                ("project", large.ProjectId),
+                ("parent", large.FirstOwnStory)));
+    }
+
     // --- Arrangement -------------------------------------------------------------------------------------------------
 
     private static string Id(Guid id) => id.ToString();
@@ -218,6 +304,7 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
         services.AddScoped<IProcessDefinitionReadModel, ProcessDefinitionReadModel>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<ICurrentUser>(new FixedUser());
+        services.AddScoped<IOrganizationAccess, AdministratorAccess>();
         services.AddApplication();
         services.AddOrganizationsInfrastructure();
         services.AddWorkItemsInfrastructure();
@@ -233,7 +320,20 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
         public string SubjectId => User;
     }
 
-    private sealed record Seeded(Guid OrganizationId, Guid ProjectId, Guid OwnTeam, Guid FirstOwnStory);
+    /// <summary>
+    /// <see cref="OtherTeam"/> is the project's second team; <see cref="OwnStoryIdentifier"/> addresses <see cref="FirstOwnStory"/>;
+    /// <see cref="TaskType"/> is the type of the lowest level, the one a child of a story takes.
+    /// </summary>
+    private sealed record Seeded(
+        Guid OrganizationId, Guid ProjectId, Guid OwnTeam, Guid FirstOwnStory, Guid OtherTeam, Guid TaskType, string OwnStoryIdentifier);
+
+    /// <summary>The caller as an administrator of the organization: the handlers ask for their second codes.</summary>
+    private sealed class AdministratorAccess : IOrganizationAccess
+    {
+        public OrganizationRole Role => OrganizationRole.Admin;
+
+        public bool Holds(string code) => OrganizationRoleBundles.Holds(Role, code);
+    }
 
     /// <summary>
     /// A project of <paramref name="perLevel"/> items on each of the four levels, item n beneath item n − perLevel of the level
@@ -305,12 +405,25 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
                 ("level", level));
         }
 
+        // The numbers were issued by the seed, so the counter stands where the creations of a real project would have left it.
+        await database.ExecuteAsync(
+            "INSERT INTO work_item_counters (project_id, last_number) VALUES (@project, @last)",
+            ("project", project),
+            ("last", levels.Length * perLevel));
+
         var story = await database.QueryAsync(
             "SELECT id::text FROM work_items WHERE project_id = @project AND number = @number",
             ("project", project),
             ("number", (2 * perLevel) + 1));
 
-        return new Seeded(organization, project, structure.Project.Team.Id, Guid.Parse(story.Single()));
+        return new Seeded(
+            organization,
+            project,
+            structure.Project.Team.Id,
+            Guid.Parse(story.Single()),
+            structure.SecondTeam.Id,
+            types["TASK"].Type,
+            $"PRM-US-{(2 * perLevel) + 1}");
     }
 
     /// <summary>Records the text of every statement a context sends, reads and writes alike.</summary>
