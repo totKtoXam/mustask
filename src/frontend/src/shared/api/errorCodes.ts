@@ -34,8 +34,8 @@ export const organizationErrorCodes = {
   projectKeyInvalid: 'organizations.project.key_invalid',
   projectKeyTaken: 'organizations.project.key_taken',
   teamNameTaken: 'organizations.team.name_taken',
-  // mod-017: the next four are deprecated in the catalog (the server no longer answers them; BR-OT-10, BR-OT-11), and
-  // stay here, one to one with it, until the frontend stage removes them with the screens that mention them.
+  // mod-017: the next four are deprecated in the catalog (the server no longer answers them; BR-OT-10, BR-OT-11).
+  // A retired code stays taken in the catalog and so here, one to one with it (the drift test); no screen uses them.
   teamDefaultAreaNotOwned: 'organizations.team.default_area_not_owned',
   teamFirstTeamDefaultFixed: 'organizations.team.first_team_default_fixed',
   teamFirstTeamCannotBeDeleted: 'organizations.team.first_team_cannot_be_deleted',

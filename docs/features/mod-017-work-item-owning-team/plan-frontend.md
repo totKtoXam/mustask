@@ -37,15 +37,22 @@ each design state is built once, in the cheapest form the design allows.
    `boards/testApi.ts` + fixtures: `teamId` on a record replaces area owners); old model tests
    retire by name (spec "Existing rules" fate table) instead of being bent.
 2. One shared `teamTexts` module in `workitems` for the picker/filter lines (design § 3, § 5.2).
-3. The default-team dialog and delete dialog reuse `NameDialog`-style `FormDialog` plumbing and
-   `ConfirmAction`; no new shared dialog.
+3. The default-team dialog reuses `FormDialog` + `InlineSelectField`; the delete dialog is
+   `ConfirmDialog` with one new prop (`confirmDisabled`); no new shared dialog.
 4. Component tests cover each design state once, at the slice that owns it; no per-surface copies.
 
-## Out of this pass
+## As built (deviations, none changes the contract)
 
-E2E (standing NO). Kazakh texts are the backend's. `status.md`, `backlog.md` untouched.
+- `ConfirmDialog.confirmDisabled` and `InlinePickerField` taking the host's `aria-describedby` as a
+  fallback (the dialog's backlog line); `useTeams({fresh})` reads afresh per opening.
+- `CreatableType.onBacklog` (from the process level's `kind`): no backlog line for a «Задача».
+- The backlog table's least width is now 1 180 px, so at 1 440 px with the navigation open it
+  scrolls in its card (design § 6.4 says "as before"; `theme.test.tsx` retires the 1 440 fit).
+- `BacklogHeadRow` draws its cells through one `HeadLabel`, so the kit guard's allow-list shrinks.
+- Test doubles: items carry `teamId`; boards fixtures give an item the team its area was named for.
 
-## Verification
+## Out of this pass, and verification
 
-While working: `npx vitest run <touched files>` and `npx eslint <touched files>`; at the end one
+E2E (standing NO). Kazakh texts are the backend's. `status.md`, `backlog.md` untouched. While
+working: `npx vitest run <touched files>`, `npx eslint <touched files>`; at the end one
 `BASE=0cf422c2 bash scripts/verify.sh`.
