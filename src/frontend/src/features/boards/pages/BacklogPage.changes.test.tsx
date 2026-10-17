@@ -45,8 +45,14 @@ function record(api: BoardsTestApi, number: number) {
   return api.item(ids.msk, number);
 }
 
-describe('US-7 Scenario: A new Область moves the item to the other team’s backlog', () => {
-  it('MSK-US-3 set to «Отчёты» leaves «Платформа» on the next read and is last on «Мастаск»', async () => {
+// mod-017 BR-OT-1, BR-OT-5, BR-OT-6, BR-OT-10: a team's backlog holds what the team owns; an
+// area decides nothing. Retired by name (doc-012 P-1; spec "Existing rules"): «An area given
+// another owner takes its items along», «An area moved under another parent takes its items
+// along», «An item that comes back before anything was ordered returns». Rewritten over the
+// owning team: the first and the last two scenarios below.
+
+describe('US-7 Scenario: An item given another owning team moves to the other team’s backlog', () => {
+  it('MSK-US-3 given to «Мастаск» leaves «Платформа» on the next read and is last on «Мастаск»', async () => {
     const data = changesDataset();
     data.items.push(platformItem(3, 'US', 'Экспорт'));
     const api = serveBoards(data);
@@ -54,7 +60,7 @@ describe('US-7 Scenario: A new Область moves the item to the other team�
     const table = await findBacklogTable();
     expect(identifiers(table)).toEqual(['MSK-US-3']);
 
-    record(api, 3).areaId = ids.reports;
+    api.giveTeam(ids.msk, 3, ids.mskTeam);
     expect(identifiers(table)).toEqual(['MSK-US-3']);
     expect(screen.queryByRole('alert')).toBeNull();
     returnToTab();
@@ -64,29 +70,8 @@ describe('US-7 Scenario: A new Область moves the item to the other team�
   });
 });
 
-describe('US-7 Scenario: An area given another owner takes its items along', () => {
-  it('«Мастаск» made the owner of «Платформа / API» takes MSK-US-3 and MSK-BUG-4 to its backlog, last', async () => {
-    const data = changesDataset();
-    data.items.push(
-      platformItem(3, 'US', 'Экспорт', { areaId: ids.api }),
-      platformItem(4, 'BUG', 'Падение', { areaId: ids.api }),
-      platformItem(9, 'US', 'Остаётся'),
-    );
-    const api = serveBoards(data);
-    renderBoards(backlogAddress());
-    const table = await findBacklogTable();
-    expect(identifiers(table)).toEqual(['MSK-US-3', 'MSK-BUG-4', 'MSK-US-9']);
-
-    api.data.owners[ids.api] = ids.mskTeam;
-    returnToTab();
-
-    await waitFor(() => expect(identifiers(table)).toEqual(['MSK-US-9']));
-    expect(api.order(ids.mskTeam)).toEqual(['MSK-US-5', 'MSK-US-7', 'MSK-US-3', 'MSK-BUG-4']);
-  });
-});
-
-describe('US-7 Scenario: An area moved under another parent takes its items along', () => {
-  it('«Платформа / API» moved under the root takes MSK-US-3 to the end of «Мастаск»', async () => {
+describe('US-7 Scenario: An area moved changes no team', () => {
+  it('«Платформа / API» moved under the root leaves MSK-US-3 on «Платформа»’s backlog', async () => {
     const data = changesDataset();
     data.items.push(platformItem(3, 'US', 'Экспорт', { areaId: ids.api }));
     const api = serveBoards(data);
@@ -99,12 +84,14 @@ describe('US-7 Scenario: An area moved under another parent takes its items alon
     );
     returnToTab();
 
-    await waitFor(() => expect(identifiers(table)).toEqual(['MSK-US-5', 'MSK-US-7', 'MSK-US-3']));
+    await waitFor(() => expect(api.reads('/backlogs/stories').length).toBeGreaterThan(1));
+    expect(identifiers(table)).toEqual(['MSK-US-5', 'MSK-US-7']);
+    expect(api.order(ids.platformTeam)).toEqual(['MSK-US-3']);
   });
 });
 
-describe('US-7 Scenario: An item that comes back before anything was ordered returns', () => {
-  it('MSK-US-9 away to «Отчёты» and back, with no reorder between, is first on «Платформа» again', async () => {
+describe('US-7 Scenario: An item given another team and given back returns unplaced, last', () => {
+  it('MSK-US-9 away to «Мастаск» and back is last on «Платформа»: the team place went with the change (BR-OT-6)', async () => {
     const data = changesDataset();
     data.items.push(
       platformItem(3, 'US', 'Три'),
@@ -117,17 +104,15 @@ describe('US-7 Scenario: An item that comes back before anything was ordered ret
     const table = await findBacklogTable();
     expect(identifiers(table)).toEqual(['MSK-US-9', 'MSK-US-3', 'MSK-US-11']);
 
-    record(api, 9).areaId = ids.reports;
+    api.giveTeam(ids.msk, 9, ids.mskTeam);
     returnToTab();
     await waitFor(() => expect(identifiers(table)).toEqual(['MSK-US-3', 'MSK-US-11']));
-    record(api, 9).areaId = ids.platform;
+    api.giveTeam(ids.msk, 9, ids.platformTeam);
     returnToTab();
 
-    await waitFor(() => expect(identifiers(table)).toEqual(['MSK-US-9', 'MSK-US-3', 'MSK-US-11']));
+    await waitFor(() => expect(identifiers(table)).toEqual(['MSK-US-3', 'MSK-US-11', 'MSK-US-9']));
   });
-});
 
-describe('US-7 Scenario: An item placed elsewhere meanwhile comes back last', () => {
   it('MSK-US-9 placed on «Мастаск» while away comes back below the placed rows of «Платформа»', async () => {
     const data = changesDataset();
     data.items.push(
@@ -140,20 +125,20 @@ describe('US-7 Scenario: An item placed elsewhere meanwhile comes back last', ()
     renderBoards(backlogAddress());
     const table = await findBacklogTable();
 
-    record(api, 9).areaId = ids.reports;
+    api.giveTeam(ids.msk, 9, ids.mskTeam);
     api.reorderAsAnotherUser(ids.mskTeam, 'stories', {
       itemId: record(api, 9).id,
       position: 'top',
     });
-    record(api, 9).areaId = ids.platform;
+    api.giveTeam(ids.msk, 9, ids.platformTeam);
     returnToTab();
 
     await waitFor(() => expect(identifiers(table)).toEqual(['MSK-US-3', 'MSK-US-11', 'MSK-US-9']));
   });
 });
 
-describe('US-7 Scenario: A deleted team’s items go to the first team, in creation order', () => {
-  it('«Аналитика»’s backlog answers «Команда не найдена»; «Мастаск» reads MSK-US-5, MSK-US-7, MSK-US-21, MSK-US-30', async () => {
+describe('US-7 Scenario: A deleted team’s items have no team', () => {
+  it('«Аналитика»’s backlog answers «Команда не найдена»; «Мастаск» reads MSK-US-5, MSK-US-7 only', async () => {
     const data = changesDataset();
     data.items.push(
       item(ids.msk, 21, 'US', 'Двадцать один', { areaId: ids.analyticsArea }),
@@ -164,11 +149,8 @@ describe('US-7 Scenario: A deleted team’s items go to the first team, in creat
     const view = renderBoards(backlogAddress('stories', ids.analyticsTeam));
     expect(identifiers(await findBacklogTable())).toEqual(['MSK-US-30', 'MSK-US-21']);
 
-    // «Аналитика» is deleted: its areas pass to the first team (mod-002).
-    api.data.teams = api.data.teams.map((team) =>
-      team.id === ids.analyticsTeam ? { ...team, active: false } : team,
-    );
-    api.data.owners[ids.analyticsArea] = ids.mskTeam;
+    // «Аналитика» is deleted: its items go to «Без команды» (mod-017 BR-OT-12), not to a first team.
+    api.deleteTeam(ids.analyticsTeam);
     returnToTab();
 
     expect(
@@ -178,11 +160,7 @@ describe('US-7 Scenario: A deleted team’s items go to the first team, in creat
 
     view.unmount();
     renderBoards(backlogAddress('stories', ids.mskTeam));
-    expect(identifiers(await findBacklogTable())).toEqual([
-      'MSK-US-5',
-      'MSK-US-7',
-      'MSK-US-21',
-      'MSK-US-30',
-    ]);
+    expect(identifiers(await findBacklogTable())).toEqual(['MSK-US-5', 'MSK-US-7']);
+    expect(record(api, 21).teamId).toBeNull();
   });
 });

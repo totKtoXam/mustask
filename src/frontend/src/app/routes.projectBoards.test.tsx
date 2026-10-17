@@ -97,41 +97,44 @@ function dataset(): BoardsDataset {
       id: organizationIds.prmTeam,
       projectId: organizationIds.prm,
       name: 'Пример проекта',
-      defaultAreaId: organizationIds.prmRoot,
-      first: true,
       active: true,
     },
     {
       id: organizationIds.platformTeam,
       projectId: organizationIds.prm,
       name: 'Платформа',
-      defaultAreaId: organizationIds.platformArea,
-      first: false,
       active: true,
     },
     {
       id: organizationIds.anlTeam,
       projectId: organizationIds.anl,
       name: 'Аналитика',
-      defaultAreaId: organizationIds.anlRoot,
-      first: true,
       active: true,
     },
     {
       id: organizationIds.repTeam,
       projectId: organizationIds.rep,
       name: 'Отчётность',
-      defaultAreaId: organizationIds.repRoot,
-      first: true,
       active: true,
     },
   ];
-  data.owners = { [organizationIds.platformArea]: organizationIds.platformTeam };
   data.items = [
-    item(organizationIds.prm, 1, 'US', 'Вход по паролю', { areaId: organizationIds.platformArea }),
-    item(organizationIds.prm, 2, 'US', 'Сводка проекта', { areaId: organizationIds.prmRoot }),
-    item(organizationIds.anl, 1, 'US', 'Отчёт по спринту', { areaId: organizationIds.anlRoot }),
-    item(organizationIds.rep, 1, 'US', 'Выгрузка отчёта', { areaId: organizationIds.repRoot }),
+    item(organizationIds.prm, 1, 'US', 'Вход по паролю', {
+      areaId: organizationIds.platformArea,
+      teamId: organizationIds.platformTeam,
+    }),
+    item(organizationIds.prm, 2, 'US', 'Сводка проекта', {
+      areaId: organizationIds.prmRoot,
+      teamId: organizationIds.prmTeam,
+    }),
+    item(organizationIds.anl, 1, 'US', 'Отчёт по спринту', {
+      areaId: organizationIds.anlRoot,
+      teamId: organizationIds.anlTeam,
+    }),
+    item(organizationIds.rep, 1, 'US', 'Выгрузка отчёта', {
+      areaId: organizationIds.repRoot,
+      teamId: organizationIds.repTeam,
+    }),
   ];
   return data;
 }
@@ -190,14 +193,14 @@ describe('feat-039 the project’s pages in the shell', () => {
         expect(switcherLevels()).toEqual([
           'Организация: Альфа',
           'Проект: Пример проекта',
-          'Команда: Пример проекта',
+          'Команда: Платформа',
         ]),
       );
       const current = await within(mainNavigation()).findByRole('link', { name: entry });
       expect(current).toHaveAttribute('aria-current', 'page');
       expect(current).toHaveAttribute(
         'href',
-        teamAddress(organizationIds.prmTeam, surface, 'stories'),
+        teamAddress(organizationIds.platformTeam, surface, 'stories'),
       );
       expect(within(mainNavigation()).getByRole('link', { name: other })).not.toHaveAttribute(
         'aria-current',
@@ -330,26 +333,26 @@ describe('feat-039 BR-PB-9 (c): a choice in the switcher on a project’s page',
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/home'));
   });
 
-  it('choosing «Платформа» at the team level moves nothing: the page stays, the switcher and both entries take the team', async () => {
+  it('choosing «Пример проекта» at the team level moves nothing: the page stays, the switcher and both entries take the team', async () => {
     serveOrganizations();
     serveBoards(dataset());
     renderRoutes(`${PRM}/backlogs/features`);
-    await waitFor(() => expect(switcherLevels()[2]).toBe('Команда: Пример проекта'));
+    await waitFor(() => expect(switcherLevels()[2]).toBe('Команда: Платформа'));
     await screen.findByRole('heading', { level: 2, name: 'Бэклог пуст' });
 
-    await choose('Команда', 'Платформа');
+    await choose('Команда', 'Пример проекта');
 
-    await waitFor(() => expect(switcherLevels()[2]).toBe('Команда: Платформа'));
+    await waitFor(() => expect(switcherLevels()[2]).toBe('Команда: Пример проекта'));
     expect(screen.getByTestId('location')).toHaveTextContent(`${PRM}/backlogs/features`);
     const backlogs = within(mainNavigation()).getByRole('link', { name: 'Бэклоги' });
     expect(backlogs).toHaveAttribute('aria-current', 'page');
     expect(backlogs).toHaveAttribute(
       'href',
-      teamAddress(organizationIds.platformTeam, 'backlogs', 'stories'),
+      teamAddress(organizationIds.prmTeam, 'backlogs', 'stories'),
     );
     expect(within(mainNavigation()).getByRole('link', { name: 'Канбан' })).toHaveAttribute(
       'href',
-      teamAddress(organizationIds.platformTeam, 'boards', 'stories'),
+      teamAddress(organizationIds.prmTeam, 'boards', 'stories'),
     );
     expect(screen.getByRole('heading', { level: 1, name: 'Пример проекта' })).toBeVisible();
   });

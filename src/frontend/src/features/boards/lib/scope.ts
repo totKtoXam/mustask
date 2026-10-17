@@ -27,6 +27,14 @@ export function scopeTeamId(scope: BoardScope): string | null {
 /** A backlog's or a board's answer under either scope: `team` on a team's, `project` on the project's. */
 export type SurfaceRead = Backlog | ProjectBacklog | Board | ProjectBoard;
 
+/**
+ * What a creation starts with (mod-017 BR-OT-3): on a team's backlog or board, that team; on
+ * the project's, nothing — the dialog takes the project's default team.
+ */
+export function startTeamOf(scope: BoardScope): string | undefined {
+  return scope.kind === 'team' ? scope.teamId : undefined;
+}
+
 /** The name the head's `h1` reads from the answer: the team's, or the project's (design § 3.3). */
 export function readName(read: SurfaceRead | undefined): string | undefined {
   if (read === undefined) {
@@ -35,13 +43,9 @@ export function readName(read: SurfaceRead | undefined): string | undefined {
   return 'team' in read ? read.team.name : read.project.name;
 }
 
-/**
- * What a creation needs of the answer — the team and the level — or `undefined` for the
- * project's answer: a creation from a project view starts with the project's default
- * team, which `mod-017-work-item-owning-team` brings, so there is none (BR-PB-6).
- */
-export function creationSurface<T extends SurfaceRead>(
-  read: T | undefined,
-): Extract<T, { team: unknown }> | undefined {
-  return read !== undefined && 'team' in read ? (read as Extract<T, { team: unknown }>) : undefined;
+/** What a creation needs of the answer: the level, whose types it offers. */
+export function creationSurface(
+  read: SurfaceRead | undefined,
+): { level: SurfaceRead['level'] } | undefined {
+  return read === undefined ? undefined : { level: read.level };
 }

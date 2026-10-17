@@ -10,8 +10,8 @@ import { ScopedBoard } from './BoardPage';
  * project's order. `:level` is one of the three or the address is unknown
  * (BR-PB-1); the read's own answers validate the rest of the address. Keyed by
  * its project, so another project starts afresh. The head, the columns, a move
- * and the checklists are the team board's; the first column has no «Новый
- * элемент» (BR-PB-6).
+ * and the checklists are the team board's; mod-017 lifts BR-PB-6 (the first
+ * column draws «Новый элемент») and adds the team filter.
  */
 export function ProjectBoardPage() {
   const {

@@ -26,41 +26,60 @@ import { scopeTeamId, type BoardScope } from '../lib/scope';
 const SURFACE_QUERY_OPTIONS = { refetchOnWindowFocus: true } as const;
 
 /**
+ * The project's views keep the rows they show while another team filter of the same level is
+ * read (mod-017 design § 5.2, § 6.3): the key of a project's read is
+ * `[boards, entity, organization, project, level, filter]`. A level change, and every read of a
+ * team's views, shows no stand-in: it is a read of another page.
+ */
+function keepWhileFiltering<T>(scope: BoardScope, level: BoardLevelCode) {
+  return (
+    previous: T | undefined,
+    previousQuery: { queryKey: readonly unknown[] } | undefined,
+  ): T | undefined =>
+    scope.kind === 'project' && previousQuery?.queryKey[4] === level ? previous : undefined;
+}
+
+/**
  * § 3.1: the backlog of one level, a team's or the project's (feat-039 § 3.1); its
- * first answer validates the whole address.
+ * first answer validates the whole address. The project's is narrowed by the team filter
+ * (`teamIds`, mod-017 § 3) and keeps the previous rows on screen while another filter is read.
  */
 export function useBacklog(
   organizationId: string,
   projectId: string,
   scope: BoardScope,
   level: BoardLevelCode,
+  teamIds: readonly string[] = [],
 ) {
   return useQuery<Backlog | ProjectBacklog>({
-    queryKey: backlogKey(organizationId, projectId, scope, level),
+    queryKey: backlogKey(organizationId, projectId, scope, level, teamIds),
     queryFn: () =>
       scope.kind === 'team'
         ? getBacklog(organizationId, projectId, scope.teamId, level)
-        : getProjectBacklog(organizationId, projectId, level),
+        : getProjectBacklog(organizationId, projectId, level, teamIds),
+    placeholderData: keepWhileFiltering<Backlog | ProjectBacklog>(scope, level),
     ...SURFACE_QUERY_OPTIONS,
   });
 }
 
 /**
  * § 3.3: the board of one level, a team's or the project's (feat-039 § 3.3); its
- * first answer validates the whole address.
+ * first answer validates the whole address. The project's is narrowed by the team filter.
  */
 export function useBoard(
   organizationId: string,
   projectId: string,
   scope: BoardScope,
   level: BoardLevelCode,
+  teamIds: readonly string[] = [],
 ) {
   return useQuery<Board | ProjectBoard>({
-    queryKey: boardKey(organizationId, projectId, scope, level),
+    queryKey: boardKey(organizationId, projectId, scope, level, teamIds),
     queryFn: () =>
       scope.kind === 'team'
         ? getBoard(organizationId, projectId, scope.teamId, level)
-        : getProjectBoard(organizationId, projectId, level),
+        : getProjectBoard(organizationId, projectId, level, teamIds),
+    placeholderData: keepWhileFiltering<Board | ProjectBoard>(scope, level),
     ...SURFACE_QUERY_OPTIONS,
   });
 }

@@ -354,8 +354,8 @@ describe('US-2 Scenario: A drop next to an item that has left is refused', () =>
     const api = serveBoards(storiesDataset());
     renderBoards(backlogAddress());
     const table = await findBacklogTable();
-    // MSK-BUG-5's Область is set to «Мастаск» on its form meanwhile.
-    api.item(ids.msk, 5).areaId = ids.mskRoot;
+    // MSK-BUG-5's «Команда» is set to «Мастаск» on its form meanwhile (mod-017 BR-OT-13).
+    api.giveTeam(ids.msk, 5, ids.mskTeam);
 
     await dragAndDrop(table, 'MSK-US-11', 'MSK-BUG-5', 'lower');
 
@@ -370,7 +370,7 @@ describe('US-2 Scenario: A drop next to an item that has left is refused', () =>
     const api = serveBoards(storiesDataset());
     renderBoards(backlogAddress());
     await findBacklogTable();
-    api.item(ids.msk, 11).areaId = ids.reports;
+    api.giveTeam(ids.msk, 11, ids.mskTeam);
 
     await userEvent.click(actions('MSK-US-11'));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'В начало' }));

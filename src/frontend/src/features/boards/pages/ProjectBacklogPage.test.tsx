@@ -144,6 +144,7 @@ describe('US-1 Scenario: A project’s backlog holds every item of the project, 
       'Тип',
       'Заголовок',
       'Статус',
+      'Команда',
       'Трудоёмкость',
       'Бизнес-ценность',
       'Вид ценности',
@@ -182,8 +183,10 @@ describe('US-1 Scenario: A row’s add works on the project’s backlog, without
   });
 });
 
-describe('US-1 Scenario: The head and the empty states carry no create command (BR-PB-6)', () => {
-  it('reads the project’s name from the page’s own read as the h1, with the one tab «Бэклог», «Уровень: Истории», «Показать канбан» to the project’s board, and no «Новый рабочий элемент»', async () => {
+// mod-017 lifts feat-039 BR-PB-6 (design § 6.1): the project's head carries «Новый рабочий элемент» for
+// a writer, and the empty level offers it. Rewritten, same scenario, over the new rule.
+describe('US-1 Scenario: The head and the empty states carry the create command for a writer (BR-PB-6 lifted)', () => {
+  it('reads the project’s name from the page’s own read as the h1, with the one tab «Бэклог», «Уровень: Истории», «Показать канбан» to the project’s board, and «Новый рабочий элемент»', async () => {
     const data = projectDataset();
     const project = data.projects.find((candidate) => candidate.id === ids.msk);
     if (!project) throw new Error('No project.');
@@ -207,7 +210,7 @@ describe('US-1 Scenario: The head and the empty states carry no create command (
     expect(getComputedStyle(toBoard).getPropertyValue('--variant-containedBg')).toBe(
       theme.palette.shell.buttonNeutral,
     );
-    expect(screen.queryByRole('button', { name: 'Новый рабочий элемент' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Новый рабочий элемент' })).toBeInTheDocument();
   });
 
   it('the level drop-down opens the project’s addresses at the other levels', async () => {
@@ -229,21 +232,36 @@ describe('US-1 Scenario: The head and the empty states carry no create command (
     ]);
   });
 
-  it.each([['admin'], ['member'], ['viewer']] as const)(
-    'an empty level reads «Бэклог пуст» with one hint for the %s and no action',
+  it.each([['admin'], ['member']] as const)(
+    'an empty level reads «Бэклог пуст» with the writer’s hint and the action for the %s',
     async (role) => {
       serveBoards(projectDataset());
       renderBoards(projectBacklogAddress('epics'), { role });
 
       expect(await screen.findByRole('heading', { level: 2, name: 'Бэклог пуст' })).toBeVisible();
-      expect(screen.getByText('В проекте нет рабочих элементов этого уровня.')).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Новый рабочий элемент' })).toBeNull();
-      expect(screen.queryByText(/Добавьте рабочий элемент/)).toBeNull();
-      expect(screen.queryByText(/Рабочие элементы создают участники/)).toBeNull();
+      expect(
+        screen.getByText('Добавьте рабочий элемент — он встанет в конец бэклога.'),
+      ).toBeInTheDocument();
+      // The header's primary and the frame's action.
+      expect(screen.getAllByRole('button', { name: 'Новый рабочий элемент' })).toHaveLength(2);
+      expect(screen.queryByText('В проекте нет рабочих элементов этого уровня.')).toBeNull();
       expect(screen.getByRole('heading', { level: 1, name: 'Мастаск' })).toBeInTheDocument();
       expect(levelButton()).toHaveAccessibleName('Уровень: Эпики');
     },
   );
+
+  it('an empty level reads «Бэклог пуст» with the reader’s hint and no action for the viewer', async () => {
+    serveBoards(projectDataset());
+    renderBoards(projectBacklogAddress('epics'), { role: 'viewer' });
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Бэклог пуст' })).toBeVisible();
+    expect(
+      screen.getByText(
+        'Рабочие элементы создают участники организации с ролью «Участник» или «Администратор».',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Новый рабочий элемент' })).toBeNull();
+  });
 });
 
 describe('US-1 Scenario: The team drop-down reaches the project’s views (BR-PB-7)', () => {
@@ -533,6 +551,7 @@ describe('US-1 Scenario: The read’s states (design § 7)', () => {
       'Тип',
       'Заголовок',
       'Статус',
+      'Команда',
       'Трудоёмкость',
       'Бизнес-ценность',
       'Вид ценности',

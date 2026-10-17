@@ -7,7 +7,7 @@ import TableRow from '@mui/material/TableRow';
 import Tooltip from '@mui/material/Tooltip';
 import { useTheme } from '@mui/material/styles';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import { isPlainClick } from '../../workitems';
+import { isPlainClick, teamTexts } from '../../workitems';
 import { ThinAddIcon, ThinChevronDownIcon, ThinChevronRightIcon } from '../../../shared/ui';
 import { CategoryMarker, TypeMark } from '../../../shared/ui/WorkTrackingMarks';
 import type { BacklogTreeItem } from '../api/boardsApi';
@@ -302,6 +302,17 @@ export const BacklogRow = memo(function BacklogRow({
             {item.state.name}
           </Box>
         </Box>
+      </BacklogCell>
+      <BacklogCell>
+        {item.team ? (
+          <Box component="span" title={item.team.name} sx={clipped}>
+            {item.team.name}
+          </Box>
+        ) : (
+          <Box component="span" sx={[clipped, { color: 'text.secondary' }]}>
+            {teamTexts.noTeam}
+          </Box>
+        )}
       </BacklogCell>
       <BacklogCell>{planningNumber(item.effort)}</BacklogCell>
       <BacklogCell>{planningNumber(item.businessValue)}</BacklogCell>

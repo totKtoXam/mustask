@@ -288,7 +288,7 @@ describe('the create with a parent (feat-027 api-contract § 3)', () => {
     expect({ ...us2, changedAt: before.changedAt }).toEqual(before);
   });
 
-  it('with `teamId` too the team is still checked, but the area is the parent’s', async () => {
+  it('with `team` too it is not read (mod-017 BR-OT-3): the child takes the parent’s team and area', async () => {
     const data = fullTreeDataset();
     serveBoards(data);
     const feat21 = mskRecord(data, 21);
@@ -297,15 +297,16 @@ describe('the create with a parent (feat-027 api-contract § 3)', () => {
       requestId: requestId(1),
       typeId: processType('US').id,
       title: 'История «Мастаска»',
-      teamId: PLATFORM,
+      team: { teamId: PLATFORM },
       parentId: feat21.id,
     });
 
     expect(status).toBe(201);
     expect(body.area).toMatchObject({ id: feat21.areaId });
+    expect(body.team).toEqual({ id: ids.mskTeam, name: 'Мастаск' });
   });
 
-  it('without `parentId` it behaves as before: no parent, the team’s default area', async () => {
+  it('without `parentId` it behaves as before: no parent, the root, and the team the body names', async () => {
     const data = fullTreeDataset();
     serveBoards(data);
 
@@ -313,12 +314,30 @@ describe('the create with a parent (feat-027 api-contract § 3)', () => {
       requestId: requestId(1),
       typeId: TASK,
       title: 'Без родителя',
-      teamId: PLATFORM,
+      team: { teamId: PLATFORM },
     });
 
     expect(status).toBe(201);
     expect(body.parent).toBeNull();
-    expect(body.area).toMatchObject({ id: ids.platform });
+    expect(body.area).toMatchObject({ id: ids.mskRoot });
+    expect(body.team).toEqual({ id: PLATFORM, name: 'Платформа' });
+  });
+
+  it('without `team` it takes the project’s default team, else none; `{ teamId: null }` is «Без команды» (api-contract § 0.2)', async () => {
+    const data = fullTreeDataset();
+    data.projects.find((project) => project.id === ids.msk)!.defaultTeamId = ids.analyticsTeam;
+    serveBoards(data);
+
+    const byDefault = await post({ requestId: requestId(1), typeId: TASK, title: 'По умолчанию' });
+    const none = await post({
+      requestId: requestId(2),
+      typeId: TASK,
+      title: 'Без команды',
+      team: { teamId: null },
+    });
+
+    expect(byDefault.body.team).toEqual({ id: ids.analyticsTeam, name: 'Аналитика' });
+    expect(none.body.team).toBeNull();
   });
 
   it('a replay of the `requestId` answers 200 with the one item, naming whatever parent the second body names', async () => {
@@ -420,7 +439,7 @@ describe('the create with a parent (feat-027 api-contract § 3)', () => {
     expect((refusal as ApiError).errorCode).toBe('workitems.link.parent_level_not_allowed');
   });
 
-  it('the answers keep the contract’s order: an unknown team before a parent that names nothing, a deleted parent before a level', async () => {
+  it('the answers keep the contract’s order: a team is not read beside a parent, a deleted parent comes before a level', async () => {
     const data = fullTreeDataset();
     mskRecord(data, 2).stateId = stateId('US', 'Удалена');
     serveBoards(data);
@@ -431,8 +450,17 @@ describe('the create with a parent (feat-027 api-contract § 3)', () => {
         requestId: requestId(1),
         typeId: TASK,
         title: 'Задача',
-        teamId: 'c2999999-0000-4000-8000-000000000000',
+        team: { teamId: 'c2999999-0000-4000-8000-000000000000' },
         parentId: 'not-an-id',
+      },
+    }).catch((error: unknown) => error);
+    const unknownTeam = await apiFetch(WORK_ITEMS, {
+      method: 'POST',
+      body: {
+        requestId: requestId(3),
+        typeId: TASK,
+        title: 'Задача',
+        team: { teamId: 'c2999999-0000-4000-8000-000000000000' },
       },
     }).catch((error: unknown) => error);
     const deleted = await apiFetch(WORK_ITEMS, {
@@ -445,7 +473,8 @@ describe('the create with a parent (feat-027 api-contract § 3)', () => {
       },
     }).catch((error: unknown) => error);
 
-    expect((team as ApiError).errorCode).toBe('organizations.team.not_found');
+    expect((team as ApiError).errorCode).toBe('workitems.link.parent_not_found');
+    expect((unknownTeam as ApiError).errorCode).toBe('organizations.team.not_found');
     expect((deleted as ApiError).errorCode).toBe('workitems.link.item_deleted');
   });
 });

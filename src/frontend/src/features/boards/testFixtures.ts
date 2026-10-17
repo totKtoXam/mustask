@@ -1,10 +1,11 @@
 // Test data of this slice: the stories' dataset (US-1 «Data»: «Мастаск» with
-// its first team «Мастаск», the team «Платформа» owning «Платформа», «Платформа
-// / API» and «Отчёты» with no owner of their own), the API's URLs as MSW
+// the teams «Мастаск», «Платформа» and «Аналитика»), the API's URLs as MSW
 // patterns, and problem bodies with the catalogs' own Russian texts. mod-003's
 // fixtures supply the organizations, projects, areas, users, the seeded
-// process and the item builder; this file adds the teams, the area owners and
-// the backlog places. `testApi.ts` serves it per api-contract.
+// process and the item builder; this file adds the teams and the backlog
+// places. Since mod-017 an item has an owning team of its own (BR-OT-1): the
+// builder below gives an item the team the stories' data names for its area
+// unless a test sets `teamId`. `testApi.ts` serves it per api-contract.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,15 +15,17 @@ import {
   emptyDataset,
   process,
   ids as workItemIds,
-  item,
+  item as baseItem,
   processType,
   stateId,
   type Dataset,
+  type TeamRecord,
   type WorkItemOverrides,
   type WorkItemRecord,
 } from '../workitems/testFixtures';
 
-export { item, stateId };
+export { stateId };
+export type { TeamRecord };
 
 /** The routes as MSW path patterns (api-contract § 3, § 5). */
 export const TEAM_URL = `${PROJECT_URL}/teams/:teamId`;
@@ -46,16 +49,6 @@ export const ids = {
   boris: 'u0000000-boris-petrov',
 } as const;
 
-export interface TeamRecord {
-  id: string;
-  projectId: string;
-  name: string;
-  defaultAreaId: string;
-  /** Owns the project's root; never deleted. */
-  first: boolean;
-  active: boolean;
-}
-
 /** One item's one place (BR-M4-24): on one team's backlog of one level. */
 export interface PlaceRecord {
   itemId: string;
@@ -72,9 +65,6 @@ export interface ProjectPlaceRecord {
 }
 
 export interface BoardsDataset extends Dataset {
-  teams: TeamRecord[];
-  /** An area's explicit owning team; an area absent here inherits its parent's. */
-  owners: Record<string, string>;
   places: PlaceRecord[];
   /** The project's own order, apart from every team's (feat-039 BR-PB-4). */
   projectPlaces: ProjectPlaceRecord[];
@@ -104,40 +94,11 @@ export function boardsDataset(): BoardsDataset {
   return {
     ...data,
     teams: [
-      {
-        id: ids.mskTeam,
-        projectId: ids.msk,
-        name: 'Мастаск',
-        defaultAreaId: ids.mskRoot,
-        first: true,
-        active: true,
-      },
-      {
-        id: ids.platformTeam,
-        projectId: ids.msk,
-        name: 'Платформа',
-        defaultAreaId: ids.platform,
-        first: false,
-        active: true,
-      },
-      {
-        id: ids.analyticsTeam,
-        projectId: ids.msk,
-        name: 'Аналитика',
-        defaultAreaId: ids.analyticsArea,
-        first: false,
-        active: true,
-      },
-      {
-        id: ids.opsTeam,
-        projectId: ids.ops,
-        name: 'Операции',
-        defaultAreaId: ids.opsRoot,
-        first: true,
-        active: true,
-      },
+      { id: ids.mskTeam, projectId: ids.msk, name: 'Мастаск', active: true },
+      { id: ids.platformTeam, projectId: ids.msk, name: 'Платформа', active: true },
+      { id: ids.analyticsTeam, projectId: ids.msk, name: 'Аналитика', active: true },
+      { id: ids.opsTeam, projectId: ids.ops, name: 'Операции', active: true },
     ],
-    owners: { [ids.platform]: ids.platformTeam, [ids.analyticsArea]: ids.analyticsTeam },
     places: [],
     projectPlaces: [],
   };
@@ -222,6 +183,36 @@ export function addTestcaseType(): { typeId: string; restore(): void } {
       }
     },
   };
+}
+
+/**
+ * The team the stories' data names for an area, which an item built here is owned by unless a test
+ * sets `teamId`: «Платформа» for its area and «API», «Аналитика» for its own, «Мастаск» for the root
+ * and «Отчёты», «Операции» for its project (the arrangement mod-006 read off the area owners).
+ */
+const TEAM_OF_AREA: Readonly<Record<string, string>> = {
+  [ids.mskRoot]: ids.mskTeam,
+  [ids.reports]: ids.mskTeam,
+  [ids.platform]: ids.platformTeam,
+  [ids.api]: ids.platformTeam,
+  [ids.analyticsArea]: ids.analyticsTeam,
+  [ids.opsRoot]: ids.opsTeam,
+  [ids.warehouse]: ids.opsTeam,
+};
+
+/** An item record with the dataset's defaults, owned by the team its area was named for (see above). */
+export function item(
+  projectId: string,
+  number: number,
+  typeKey: string,
+  title: string,
+  overrides: WorkItemOverrides = {},
+): WorkItemRecord {
+  const record = baseItem(projectId, number, typeKey, title, overrides);
+  if (overrides.teamId === undefined) {
+    record.teamId = TEAM_OF_AREA[record.areaId] ?? null;
+  }
+  return record;
 }
 
 /** A «Мастаск» item in «Платформа» (the team's own area), «Новая» unless overridden. */

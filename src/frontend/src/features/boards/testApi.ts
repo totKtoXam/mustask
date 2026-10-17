@@ -1,9 +1,11 @@
 // MSW handlers over an in-memory copy of the stories' dataset, answering per
 // mod-006's api-contract: not-found from the outside in (§ 0.3), membership by
-// type level and resolved area owner (§ 1), placed then unplaced by number
-// (§ 1), the reorder with its stale refusal and its places (§ 3.2), the board's
-// columns from the seeded process (§ 3.3); plus mod-003's create with `teamId`
-// (§ 7) and its state save (§ 6), and mod-001's process read. feat-001's
+// type level and owning team (mod-017 api-contract § 2.5), placed then unplaced by
+// number (§ 1), the reorder with its stale refusal and its places (§ 3.2), the
+// board's columns from the seeded process (§ 3.3); plus mod-003's create with
+// `team` (mod-017 § 2.2) and its state and team save (§ 6), the project's teams
+// read and the team filter of the project's views (mod-017 § 2.6, § 3), and
+// mod-001's process read. feat-001's
 // api-contract § 4 adds each backlog row's live `parent`, and the parent write
 // (§ 3.2, its checks in their order) and search (§ 3.4) the backlog maps a
 // row with. feat-022's api-contract § 5 adds each row's and each card's
@@ -19,8 +21,10 @@ import { server } from '../../test/mocks/server';
 import type { WorkItemType } from '../process';
 import type { BacklogTreeItem } from './api/boardsApi';
 import {
+  AREAS_URL,
   PARENT_CANDIDATES_URL,
   PROCESS_URL,
+  TEAMS_URL,
   WORK_ITEMS_URL,
   WORK_ITEM_PARENT_URL,
   WORK_ITEM_URL,
@@ -71,6 +75,8 @@ function refuse(code: string): never {
 interface Scope {
   projectId: string;
   team: TeamRecord | null;
+  /** The project's views only (mod-017 § 3): the chosen team ids and `none`; absent or empty is no filter. */
+  teamIds?: readonly string[];
 }
 
 function teamOf(team: TeamRecord): Scope {
@@ -187,22 +193,25 @@ export class BoardsTestApi {
     return names.length <= 1 ? (names[0] ?? '') : names.slice(1).join(' / ');
   }
 
-  /** mod-002's `resolvedOwner`: the explicit owner, else the nearest owned ancestor's, the root's being the first team. */
-  private resolvedOwner(areaId: string): string | undefined {
-    let current = this.data.areas.find((area) => area.id === areaId);
-    while (current) {
-      const owner = this.data.owners[current.id];
-      if (owner && this.data.teams.some((team) => team.id === owner && team.active)) {
-        return owner;
-      }
-      if (current.parentId === null) {
-        const projectId = current.projectId;
-        return this.data.teams.find((team) => team.projectId === projectId && team.first)?.id;
-      }
-      const parentId = current.parentId;
-      current = this.data.areas.find((area) => area.id === parentId);
-    }
-    return undefined;
+  /** api-contract § 3: any chosen value matches; a value naming no team of the project selects nothing. */
+  private inFilter(record: WorkItemRecord, scope: Scope): boolean {
+    const chosen = scope.teamIds ?? [];
+    if (chosen.length === 0) return true;
+    const known = new Set(
+      this.data.teams.filter((t) => t.projectId === scope.projectId && t.active).map((t) => t.id),
+    );
+    return chosen.some((value) =>
+      value === 'none'
+        ? !record.teamId || !known.has(record.teamId)
+        : known.has(value.toLowerCase()) && record.teamId === value.toLowerCase(),
+    );
+  }
+
+  private teamRef(record: WorkItemRecord): { id: string; name: string } | null {
+    const team = record.teamId
+      ? this.data.teams.find((candidate) => candidate.id === record.teamId && candidate.active)
+      : undefined;
+    return team ? { id: team.id, name: team.name } : null;
   }
 
   /**
@@ -219,7 +228,7 @@ export class BoardsTestApi {
       const state = this.type(record.typeId).states.find((s) => s.id === record.stateId);
       return (
         state?.category.code !== 'Removed' &&
-        (team === null || this.resolvedOwner(record.areaId) === team.id)
+        (team === null ? this.inFilter(record, scope) : record.teamId === team.id)
       );
     });
     const place = (record: WorkItemRecord) =>
@@ -244,6 +253,34 @@ export class BoardsTestApi {
           first.number - second.number,
       );
     return [...placed, ...unplaced];
+  }
+
+  /** mod-017 api-contract § 1.6: the area tree in pre-order, which the creation dialog reads for the root's path. */
+  private areaTree(projectId: string) {
+    const nodes: {
+      id: string;
+      parentId: string | null;
+      name: string;
+      path: string;
+      depth: number;
+    }[] = [];
+    const visit = (parentId: string | null, depth: number) => {
+      const children = this.data.areas
+        .filter((area) => area.projectId === projectId && area.parentId === parentId)
+        .sort((first, second) => first.name.localeCompare(second.name, 'ru'));
+      for (const area of children) {
+        nodes.push({
+          id: area.id,
+          parentId: area.parentId,
+          name: area.name,
+          path: this.areaPath(area.id),
+          depth,
+        });
+        visit(area.id, depth + 1);
+      }
+    };
+    visit(null, 0);
+    return nodes;
   }
 
   // ---- answers (§ 2)
@@ -281,6 +318,8 @@ export class BoardsTestApi {
       },
       // feat-022 § 5: «Приоритет», after the state.
       priority: record.fields.priority,
+      // mod-017 § 1.5: the owning team as it stands now, `null` for «Без команды».
+      team: this.teamRef(record),
     };
   }
 
@@ -312,13 +351,7 @@ export class BoardsTestApi {
     return {
       ...(team === null
         ? { project: { id: scope.projectId, name: project?.name ?? '' } }
-        : {
-            team: {
-              id: team.id,
-              name: team.name,
-              defaultArea: { id: team.defaultAreaId, path: this.areaPath(team.defaultAreaId) },
-            },
-          }),
+        : { team: { id: team.id, name: team.name } }),
       level: {
         code: level,
         name: LEVEL_NAMES[level] ?? '',
@@ -365,9 +398,9 @@ export class BoardsTestApi {
 
   /**
    * § 1's tree set: the project's live items of the page's level or any level
-   * ranked below it whose area resolves to the team — the «Задачи» level
-   * included, which has no route of its own. The project's has no area condition
-   * (feat-039 api-contract § 1).
+   * ranked below it that the team owns — the «Задачи» level included, which has
+   * no route of its own. The project's has every item, narrowed by the team
+   * filter alone (mod-017 api-contract § 2.6).
    */
   private treeSet(scope: Scope, pageRank: number): WorkItemRecord[] {
     const { team } = scope;
@@ -376,7 +409,7 @@ export class BoardsTestApi {
         record.projectId === scope.projectId &&
         this.rank(record) <= pageRank &&
         !this.removed(record) &&
-        (team === null || this.resolvedOwner(record.areaId) === team.id),
+        (team === null ? this.inFilter(record, scope) : record.teamId === team.id),
     );
   }
 
@@ -590,12 +623,10 @@ export class BoardsTestApi {
       (record) => record.projectId === projectId && record.requestId === requestId,
     );
     if (replay) return { status: 200, record: replay };
-    const team =
-      typeof body.teamId === 'string' && body.teamId !== ''
-        ? this.team(projectId, body.teamId)
-        : undefined;
-    // feat-027 § 3, the answers after the team's: the parent's not-found
-    // (`parentId` absent or null is no parent), «Удалена», then the level.
+    // mod-017 § 0.4: the replay, then the team (not read beside a parent), then the parent's
+    // not-found (`parentId` absent or null is no parent), «Удалена», then the level.
+    const hasParent = body.parentId !== null && body.parentId !== undefined;
+    const named = hasParent || !('team' in body) ? undefined : this.teamNamed(projectId, body.team);
     const parent = this.newParent(projectId, body.parentId);
     if (parent && this.removed(parent)) refuse('workitems.link.item_deleted');
     if (parent && this.rank(parent) < this.rankOfType(type.id)) {
@@ -621,8 +652,15 @@ export class BoardsTestApi {
       description: '',
       stateId: (type.states.find((state) => state.isInitial) ?? type.states[0])?.id ?? '',
       assigneeId: null,
-      // feat-027 § 3: the parent's area as stored now; else the team's default, else the root.
-      areaId: parent?.areaId ?? team?.defaultAreaId ?? root?.id ?? '',
+      // feat-027 § 3: the parent's area as stored now, else the root (mod-017 BR-OT-10).
+      areaId: parent?.areaId ?? root?.id ?? '',
+      // BR-OT-3: a child the parent's team, else the project's default; no parent, the team sent,
+      // else the default.
+      teamId: hasParent
+        ? (parent?.teamId ?? this.defaultTeamId(projectId))
+        : 'team' in body
+          ? (named?.id ?? null)
+          : this.defaultTeamId(projectId),
       createdAt: now,
       changedAt: now,
       requestId,
@@ -635,6 +673,29 @@ export class BoardsTestApi {
       parent.changedAt = now;
     }
     return { status: 201, record };
+  }
+
+  /** mod-017 api-contract § 0.2: the team a write names; a wrapper `{ teamId }`, `null` meaning none. */
+  private teamNamed(projectId: string, wrapper: unknown): TeamRecord | null {
+    const teamId = (wrapper as { teamId?: unknown } | null | undefined)?.teamId;
+    if (teamId === null || teamId === undefined) return null;
+    const found =
+      typeof teamId === 'string'
+        ? this.data.teams.find((candidate) => candidate.id === teamId.toLowerCase())
+        : undefined;
+    if (!found || !found.active) refuse('organizations.team.not_found');
+    if (found.projectId !== projectId) refuse('organizations.team.not_in_project');
+    return found;
+  }
+
+  /** BR-OT-4: the team the project's settings name, else its only active team, else none. */
+  private defaultTeamId(projectId: string): string | null {
+    const active = this.data.teams.filter((team) => team.projectId === projectId && team.active);
+    const named = this.data.projects.find((p) => p.id === projectId)?.defaultTeamId;
+    return (
+      active.find((team) => team.id === named)?.id ??
+      (active.length === 1 ? (active[0]?.id ?? null) : null)
+    );
   }
 
   private record(projectId: string, identifier: string | undefined): WorkItemRecord {
@@ -654,6 +715,15 @@ export class BoardsTestApi {
   }
 
   private saveState(record: WorkItemRecord, body: Record<string, unknown>) {
+    // mod-017 § 2.4: a changed team drops the item's team places (BR-OT-6) and moves «Изменён».
+    if (body.team !== undefined) {
+      const next = this.teamNamed(record.projectId, body.team);
+      if ((next?.id ?? null) !== (record.teamId ?? null)) {
+        this.data.places = this.data.places.filter((place) => place.itemId !== record.id);
+        record.teamId = next?.id ?? null;
+        record.changedAt = this.now();
+      }
+    }
     // feat-029: the card saves a title too, and the backlog behind it must show it.
     if (typeof body.title === 'string' && record.title !== body.title) {
       record.title = body.title;
@@ -834,9 +904,9 @@ export class BoardsTestApi {
       return teamOf(this.team(project.id, one(p, 'teamId')));
     };
     /** feat-039 § 0.4: the organization, then the project; there is no team level. */
-    const wholeProject = (p: Params): Scope => {
+    const wholeProject = (p: Params, url?: URL): Scope => {
       const project = this.project(one(p, 'organizationId'), one(p, 'projectId'));
-      return { projectId: project.id, team: null };
+      return { projectId: project.id, team: null, teamIds: url?.searchParams.getAll('teamId') };
     };
     const level = (p: Params) => {
       const segment = one(p, 'level') ?? '';
@@ -877,8 +947,8 @@ export class BoardsTestApi {
       // feat-039 api-contract § 3: the project's own backlog, reorder and board.
       http.get(
         PROJECT_BACKLOG_URL,
-        answer((p) => {
-          const found = wholeProject(p);
+        answer((p, _body, url) => {
+          const found = wholeProject(p, url);
           return this.backlog(found, level(p));
         }),
       ),
@@ -892,9 +962,40 @@ export class BoardsTestApi {
       ),
       http.get(
         PROJECT_BOARD_URL,
-        answer((p) => {
-          const found = wholeProject(p);
+        answer((p, _body, url) => {
+          const found = wholeProject(p, url);
           return this.board(found, level(p));
+        }),
+      ),
+      http.get(
+        AREAS_URL,
+        answer((p) => {
+          const project = this.project(one(p, 'organizationId'), one(p, 'projectId'));
+          return this.areaTree(project.id);
+        }),
+      ),
+      // mod-017 api-contract § 2.7: the project's teams, which the filter and the dialog read.
+      http.get(
+        TEAMS_URL,
+        answer((p) => {
+          const project = this.project(one(p, 'organizationId'), one(p, 'projectId'));
+          const active = this.data.teams
+            .filter((team) => team.projectId === project.id && team.active)
+            .sort((a, b) => a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' }));
+          const named = active.find((team) => team.id === project.defaultTeamId);
+          return active.map((team) => ({
+            id: team.id,
+            projectId: project.id,
+            name: team.name,
+            defaultMark: named
+              ? named.id === team.id
+                ? 'named'
+                : null
+              : active.length === 1
+                ? 'onlyTeam'
+                : null,
+            isMember: false,
+          }));
         }),
       ),
       http.post(
@@ -993,6 +1094,37 @@ export class BoardsTestApi {
     );
     if (!found) throw new Error(`No item ${number} in ${projectId}.`);
     return found;
+  }
+
+  /**
+   * Another screen's save that changes an item's owning team (mod-017 § 2.4), taken as the server
+   * would: the item's team places go with the change (BR-OT-6) and «Изменён» moves.
+   */
+  giveTeam(projectId: string, number: number, teamId: string | null): void {
+    const record = this.item(projectId, number);
+    this.data.places = this.data.places.filter((place) => place.itemId !== record.id);
+    record.teamId = teamId;
+    record.changedAt = this.now();
+  }
+
+  /**
+   * A team's deletion by another user (mod-017 § 2.7), taken as the server would: the team is
+   * gone, its items have no team, its places go, and a default naming it is cleared.
+   */
+  deleteTeam(teamId: string): void {
+    for (const team of this.data.teams) {
+      if (team.id === teamId) team.active = false;
+    }
+    for (const record of this.data.items) {
+      if (record.teamId === teamId) {
+        record.teamId = null;
+        record.changedAt = this.now();
+      }
+    }
+    this.data.places = this.data.places.filter((place) => place.teamId !== teamId);
+    for (const project of this.data.projects) {
+      if (project.defaultTeamId === teamId) project.defaultTeamId = null;
+    }
   }
 
   /** Another user's reorder (US-2 "Two users", US-7), taken as the server would. */

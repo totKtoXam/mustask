@@ -12,7 +12,7 @@ import { ScopedBacklog } from './BacklogPage';
  * project (a team frame cannot occur) and a level the process lacks. Keyed by its
  * project, so another project starts afresh, while the level drop-down keeps the
  * head. The head, the table, the row actions and the card over the page are the
- * team backlog's; the page offers no create command (BR-PB-6).
+ * team backlog's; mod-017 lifts BR-PB-6 (the page creates too) and adds the team filter.
  */
 export function ProjectBacklogPage() {
   const {

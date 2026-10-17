@@ -30,6 +30,7 @@ function card(identifier: string, order: number, typeId: string, stateName: stri
     },
     title: identifier,
     assignee: null,
+    team: null,
     state: { id: `${typeId}-${stateName}`, name: stateName, category: { code: 'X', label: 'X' } },
     priority: 2,
     checklist: [],

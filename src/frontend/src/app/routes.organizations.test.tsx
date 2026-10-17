@@ -148,14 +148,14 @@ describe('mod-002 US-8 Scenario: The address sets the switcher', () => {
       expect(switcherLevels()).toEqual([
         'Организация: Альфа',
         'Проект: Пример проекта',
-        'Команда: Пример проекта',
+        'Команда: Платформа',
       ]),
     );
     await waitFor(() =>
       expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')).toEqual({
         organizationId: ids.alfa,
         projectId: ids.prm,
-        teamId: ids.prmTeam,
+        teamId: ids.platformTeam,
       }),
     );
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();

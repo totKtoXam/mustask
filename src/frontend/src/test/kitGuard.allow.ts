@@ -209,7 +209,7 @@ export const ALLOWED: readonly AllowedEntry[] = [
   {
     file: 'features/boards/components/BacklogHeadRow.tsx',
     rule: 'KIT-8',
-    count: 13,
+    count: 7,
     until: 'tech-016',
     reason: 'a MUI table part; the backlog and board move to the kit in tech-016',
   },

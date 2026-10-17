@@ -99,8 +99,10 @@ describe('US-3 Scenario: The project’s board holds the backlog’s items in th
   });
 });
 
-describe('US-3 Scenario: The head of the project’s board (BR-PB-6, BR-PB-7)', () => {
-  it('reads the project’s name as the h1, the only tab «Канбан», «Уровень: Истории», «Показать бэклог» to the project’s backlog, and no primary command and no «Новый элемент»', async () => {
+// mod-017 lifts feat-039 BR-PB-6 (design § 6.1): the board has no primary, as a team's has none, and its
+// first column draws «Новый элемент» for a writer. Rewritten, same scenario, over the new rule.
+describe('US-3 Scenario: The head of the project’s board (BR-PB-7; BR-PB-6 lifted)', () => {
+  it('reads the project’s name as the h1, the only tab «Канбан», «Уровень: Истории», «Показать бэклог» to the project’s backlog, no primary command and «Новый элемент» in the first column', async () => {
     const data = activeDataset();
     const project = data.projects.find((candidate) => candidate.id === ids.msk);
     if (!project) throw new Error('No project.');
@@ -125,15 +127,17 @@ describe('US-3 Scenario: The head of the project’s board (BR-PB-6, BR-PB-7)', 
       theme.palette.shell.buttonNeutral,
     );
     expect(screen.queryByRole('button', { name: 'Новый рабочий элемент' })).toBeNull();
-    expect(within(board).queryByRole('button', { name: 'Новый элемент' })).toBeNull();
+    expect(
+      within(columnBox(board, 'Новая')).getByRole('button', { name: 'Новый элемент' }),
+    ).toBeInTheDocument();
   });
 
-  it('the first column draws only its header and its list, for a member as for an administrator', async () => {
+  it('the first column draws «Новый элемент» for a member as for an administrator, and none for a reader', async () => {
     serveBoards(activeDataset());
     renderBoards(projectBoardAddress(), { role: 'member' });
     const board = await findBoard();
 
-    expect(within(board).queryAllByRole('button', { name: 'Новый элемент' })).toHaveLength(0);
+    expect(within(board).getAllByRole('button', { name: 'Новый элемент' })).toHaveLength(1);
     expect(within(columnBox(board, 'Новая')).getByRole('heading', { level: 2 })).toHaveTextContent(
       'Новая',
     );
@@ -371,9 +375,12 @@ describe('US-3 Scenario: Who moves cards (BR-PB-5)', () => {
 });
 
 describe('US-3 Scenario: An empty board (BR-PB-6)', () => {
-  it.each([['admin'], ['viewer']] as const)(
-    'reads «Канбан пуст» with the first column’s own name in the hint and no action for the %s',
-    async (role) => {
+  it.each([
+    ['admin', true],
+    ['viewer', false],
+  ] as const)(
+    'reads «Канбан пуст» with the first column’s own name in the hint, the action for a writer only: the %s',
+    async (role, writer) => {
       serveBoards(projectDataset());
       renderBoards(projectBoardAddress('epics'), { role });
 
@@ -381,7 +388,9 @@ describe('US-3 Scenario: An empty board (BR-PB-6)', () => {
       expect(
         screen.getByText('Новые рабочие элементы этого уровня появятся в колонке «Новая».'),
       ).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Новый рабочий элемент' })).toBeNull();
+      expect(screen.queryAllByRole('button', { name: 'Новый рабочий элемент' })).toHaveLength(
+        writer ? 1 : 0,
+      );
       expect(screen.getByRole('heading', { level: 1, name: 'Мастаск' })).toBeInTheDocument();
       expect(levelButton()).toHaveAccessibleName('Уровень: Эпики');
     },

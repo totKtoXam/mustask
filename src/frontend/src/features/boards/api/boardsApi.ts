@@ -14,19 +14,20 @@
 // own backlog, reorder and board: the same rows, cards and columns over every
 // item of the project, answered with `project` where the team's answer has `team`.
 import { apiFetch } from '../../../shared/api/httpClient';
-import type {
-  WorkItemAssignee,
-  WorkItemRef,
-  WorkItemStateReference,
-  WorkItemTypeReference,
+import {
+  teamFilterQuery,
+  type WorkItemAssignee,
+  type WorkItemRef,
+  type WorkItemStateReference,
+  type WorkItemTeam,
+  type WorkItemTypeReference,
 } from '../../workitems';
 import type { BoardLevelCode } from '../lib/levels';
 
-/** § 2.1: the team, and its default area's path (mod-002 DC-9) the dialog quotes. */
+/** mod-017 api-contract § 1.4: the team as it stands now; it has no default area. */
 export interface BoardTeam {
   id: string;
   name: string;
-  defaultArea: { id: string; path: string };
 }
 
 /** feat-039 api-contract § 2.1: the project as it stands now, the project views' `h1`. */
@@ -64,6 +65,8 @@ export interface BacklogItem {
   state: WorkItemStateReference;
   /** feat-022 § 5: the item's «Приоритет», 1 (the highest) to 4. */
   priority: number;
+  /** mod-017 api-contract § 1.5: the owning team, `null` for «Без команды». */
+  team: WorkItemTeam | null;
 }
 
 /**
@@ -256,13 +259,25 @@ function projectBacklogApiPath(
   return `${projectApiPath(organizationId, projectId)}/backlogs/${level}`;
 }
 
-/** feat-039 § 3.1: the project's backlog of one level. */
+/**
+ * feat-039 § 3.1: the project's backlog of one level, narrowed by the team filter when it is
+ * set (mod-017 api-contract § 2.6, § 3): `teamId` repeated, `none` for «Без команды».
+ */
 export function getProjectBacklog(
   organizationId: string,
   projectId: string,
   level: BoardLevelCode,
+  teamIds: readonly string[] = [],
 ): Promise<ProjectBacklog> {
-  return apiFetch(projectBacklogApiPath(organizationId, projectId, level));
+  return apiFetch(
+    `${projectBacklogApiPath(organizationId, projectId, level)}${filterQuery(teamIds)}`,
+  );
+}
+
+/** `?teamId=…&teamId=…` for a filter, nothing without one. */
+function filterQuery(teamIds: readonly string[]): string {
+  const query = teamFilterQuery(teamIds);
+  return query === '' ? '' : `?${query.slice(1)}`;
 }
 
 /** feat-039 § 3.2: 204 with no body; the panel reads § 3.1 again. */
@@ -278,11 +293,14 @@ export function reorderProjectBacklog(
   });
 }
 
-/** feat-039 § 3.3: the project's board of one level. */
+/** feat-039 § 3.3: the project's board of one level, narrowed by the team filter when it is set. */
 export function getProjectBoard(
   organizationId: string,
   projectId: string,
   level: BoardLevelCode,
+  teamIds: readonly string[] = [],
 ): Promise<ProjectBoard> {
-  return apiFetch(`${projectApiPath(organizationId, projectId)}/boards/${level}`);
+  return apiFetch(
+    `${projectApiPath(organizationId, projectId)}/boards/${level}${filterQuery(teamIds)}`,
+  );
 }
