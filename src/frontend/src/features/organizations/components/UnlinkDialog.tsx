@@ -87,7 +87,9 @@ export function UnlinkDialog<R>({
     try {
       onSucceeded(await submit(owned === 0 || destination === NO_TEAM ? null : destination));
     } catch (error) {
-      const placed = placeRefusal(error, ['destination']);
+      // The destination field is drawn only when the team owns items; with none, every refusal is the alert's
+      // (a team deleted while the dialog is open must show, not land on a field that is not on the screen).
+      const placed = placeRefusal(error, owned > 0 ? ['destination'] : []);
       setFieldError(placed.fields.destination);
       setAlert(placed.alert);
       setContextGone((gone) => gone || placed.contextGone);

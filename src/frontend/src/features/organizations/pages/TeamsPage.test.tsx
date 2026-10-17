@@ -535,6 +535,32 @@ describe('feat-028 US-4 Scenario: «Отключить от проекта» rea
     expect(api.writes()[0]?.body).toEqual({ destination: { teamId: null } });
   });
 
+  it('owns none: the team deleted while the dialog is open is the alert «Команда не найдена.» (there is no field to carry it); closing reads the list again', async () => {
+    const { api, dialog } = await openUnlink();
+    await within(dialog).findByText('Отключить команду «Платформа» от проекта «Пример проекта»?');
+    api.data.teams.find((team) => team.id === ids.platformTeam)!.deleted = true;
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Отключить' }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Команда не найдена.');
+    expect(
+      screen.getByRole('dialog', { name: 'Отключение команды от проекта' }),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryByText('Команда отключена от проекта.')).not.toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole('table', { name: 'Команды' })).queryByRole('link', {
+          name: 'Платформа',
+        }),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
   it('while the count is read a skeleton stands in for the text and «Отключить» is unavailable', async () => {
     const held = gate();
     const { dialog } = await openUnlink({

@@ -384,6 +384,20 @@ describe('feat-028 US-4 Scenario: «Отключить от проекта» fro
     expect(api.writes()[0]?.body).toEqual({ destination: { teamId: null } });
   });
 
+  it('owns none: «Команда не найдена.» of the team itself is the dialog’s alert, as there is no field to carry it', async () => {
+    const { dialog } = await openUnlink(exampleDataset(), () =>
+      serveProblem('post', UNLINK_URL, problem('organizations.team.not_found')),
+    );
+
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Отключить' }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Команда не найдена.');
+    expect(within(dialog).queryByRole('combobox')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('dialog', { name: 'Отключение команды от проекта' }),
+    ).toBeInTheDocument();
+  });
+
   it('puts «Команда не найдена.» of a destination deleted meanwhile under the field and clears the choice', async () => {
     const { dialog } = await openUnlink(owning(2), () =>
       serveProblem('post', UNLINK_URL, problem('organizations.team.not_found')),
