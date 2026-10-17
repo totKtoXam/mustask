@@ -16,8 +16,12 @@
          so StreamJsonRpc keeps working. Mustask.AppHost carries the explicit
          reference that makes this version win. Drop this entry and that
          reference once Aspire's own graph resolves MessagePack 2.5.303 or
-         newer (`dotnet list package`, flag include transitive, on the
-         AppHost). CentralPackageTransitivePinningEnabled is deliberately
+         newer. Check with the AppHost reference removed: the restore raises
+         no NU1902 and `dotnet list package` (flag include transitive) on the
+         AppHost lists MessagePack 2.5.303+ as a transitive package. With the
+         reference in place that command shows MessagePack as a top-level
+         2.5.303 whatever Aspire resolves, so it proves nothing.
+         CentralPackageTransitivePinningEnabled is deliberately
          off: it would apply every PackageVersion here to every project, and
          the restore fails with NU1109 on the Npgsql and
          Microsoft.Extensions.Logging.Abstractions entries. -->

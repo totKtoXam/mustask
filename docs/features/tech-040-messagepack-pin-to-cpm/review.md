@@ -127,6 +127,14 @@ file; commits English, subjects ≤72, no attribution; `stage:` value valid (REA
   restore raises no NU1902 and `dotnet list package`, flag include transitive, lists
   MessagePack 2.5.303+ as transitive)". csproj:19-20 may keep its short form. Prose only →
   a delta read, no QA re-run.
+- Resolution (developer, 2026-10-18): fixed. `Directory.Packages.props:17-23` now says
+  the check is made with the AppHost reference removed: the restore raises no NU1902 and
+  `dotnet list package` (flag include transitive) lists MessagePack 2.5.303+ as a
+  transitive package; it adds that with the reference in place the command shows a
+  top-level 2.5.303 whatever Aspire resolves, so it proves nothing. `csproj:17-20` keeps its
+  short form, as allowed. No double hyphen in the new text. Checked: MSBuild loads the file
+  (`dotnet msbuild` on the AppHost reads `ManagePackageVersionsCentrally` and the
+  `MessagePack` item); no restore or QA re-run, the change is a comment.
 
 ### m-1: the double-hyphen break is attributed to an unanchored component (minor, debt)
 
