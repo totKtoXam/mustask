@@ -33,6 +33,8 @@ public sealed class OrganizationErrorCatalogTests
         { OrganizationErrorCodes.ProjectKeyInvalid, 400, "", "Ключ проекта: от 2 до 10 латинских заглавных букв и цифр, начиная с буквы" },
         { OrganizationErrorCodes.ProjectKeyTaken, 409, "key:string", "Ключ «{key}» уже используется в организации" },
         { OrganizationErrorCodes.TeamNameTaken, 409, "", "Команда с таким названием уже есть в проекте" },
+        { OrganizationErrorCodes.TeamNotInProject, 409, "", "Команда не участвует в проекте." },
+        { OrganizationErrorCodes.TeamLastTeamCannotBeDeleted, 409, "", "Нельзя удалить единственную команду проекта." },
         { OrganizationErrorCodes.TeamDefaultAreaNotOwned, 409, "", "Область по умолчанию должна принадлежать самой команде" },
         { OrganizationErrorCodes.TeamFirstTeamDefaultFixed, 409, "", "У первой команды область по умолчанию не меняется" },
         { OrganizationErrorCodes.TeamFirstTeamCannotBeDeleted, 409, "", "Нельзя удалить команду, которой принадлежит корневая область проекта" },

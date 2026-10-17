@@ -107,6 +107,20 @@
       "kk": "Жобада мұндай атауы бар команда бар",
       "kkNeedsReview": true
     },
+    "organizations.team.not_in_project": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Команда не участвует в проекте.",
+      "kk": "Команда жобаға қатыспайды.",
+      "kkNeedsReview": true
+    },
+    "organizations.team.last_team_cannot_be_deleted": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Нельзя удалить единственную команду проекта.",
+      "kk": "Жобаның жалғыз командасын жоюға болмайды.",
+      "kkNeedsReview": true
+    },
     "organizations.team.default_area_not_owned": {
       "statuses": [409],
       "params": {},

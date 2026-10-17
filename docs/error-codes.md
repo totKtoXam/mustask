@@ -72,11 +72,13 @@ guarantees it exists and differs from the Russian, not its quality
 |organizations.team.default_area_not_owned|409|Область по умолчанию должна принадлежать самой команде|Әдепкі аймақ команданың өзіне тиесілі болуы керек|organizations|—|needs review|
 |organizations.team.first_team_cannot_be_deleted|409|Нельзя удалить команду, которой принадлежит корневая область проекта|Жобаның түбірлік аймағы тиесілі команданы жоюға болмайды|organizations|—|needs review|
 |organizations.team.first_team_default_fixed|409|У первой команды область по умолчанию не меняется|Бірінші команданың әдепкі аймағы өзгермейді|organizations|—|needs review|
+|organizations.team.last_team_cannot_be_deleted|409|Нельзя удалить единственную команду проекта.|Жобаның жалғыз командасын жоюға болмайды.|organizations|—|needs review|
 |organizations.team.member_exists|409|Пользователь уже состоит в команде|Пайдаланушы командада бұрыннан бар|organizations|—|needs review|
 |organizations.team.member_not_found|404|Участник команды не найден.|Команда мүшесі табылмады.|organizations|—|needs review|
 |organizations.team.member_not_in_organization|409|Добавить в команду можно только активного участника организации|Командаға ұйымның тек белсенді мүшесін ғана қосуға болады|organizations|—|needs review|
 |organizations.team.name_taken|409|Команда с таким названием уже есть в проекте|Жобада мұндай атауы бар команда бар|organizations|—|needs review|
 |organizations.team.not_found|404|Команда не найдена.|Команда табылмады.|organizations|—|needs review|
+|organizations.team.not_in_project|409|Команда не участвует в проекте.|Команда жобаға қатыспайды.|organizations|—|needs review|
 |organizations.validation_failed|400|Проверьте правильность заполнения полей.|Өрістердің дұрыс толтырылғанын тексеріңіз.|organizations|—|needs review|
 |session.anonymous|401|Вы не вошли в систему.|Сіз жүйеге кірмегенсіз.|session|—|needs review|
 |session.expired|401|Сессия истекла. Войдите заново.|Сессия мерзімі аяқталды. Қайта кіріңіз.|session|—|needs review|

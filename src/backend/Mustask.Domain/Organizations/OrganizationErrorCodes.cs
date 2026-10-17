@@ -67,6 +67,15 @@ public static class OrganizationErrorCodes
     /// <summary>An active team of the project holds the name.</summary>
     public const string TeamNameTaken = "organizations.team.name_taken";
 
+    /// <summary>
+    /// mod-017 BR-OT-2: the team named in a work item's create or save, or as the project's default, is an active team of
+    /// another active project of the organization.
+    /// </summary>
+    public const string TeamNotInProject = "organizations.team.not_in_project";
+
+    /// <summary>mod-017 BR-OT-11: the project's last active team cannot be deleted (interim guard, lifted by feat-028).</summary>
+    public const string TeamLastTeamCannotBeDeleted = "organizations.team.last_team_cannot_be_deleted";
+
     /// <summary>The proposed default area's owner is inherited or another team (BR-M1-14).</summary>
     public const string TeamDefaultAreaNotOwned = "organizations.team.default_area_not_owned";
 
