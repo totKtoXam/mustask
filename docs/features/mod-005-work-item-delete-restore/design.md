@@ -298,33 +298,33 @@ A missing code hides the control and a direct write answers 403 «Недоста
 
 ## 13. Decisions for gate-2
 
-- [ ] **D-1 Where the card says who deleted it and when (BR-DR-7).** (A, recommended)
+- [x] **D-1 Where the card says who deleted it and when (BR-DR-7).** (A, recommended)
   A second line of the notice (§ 4): one place, read with the banner, it needs no new
   band slot and «Изменён» keeps its meaning (it shows the deletion's time already). (B)
   Put it in the band's meta line in place of «Изменён: …»: a name does not fit a short
   right-aligned line, and the marks have no room. (C) A section «Удаление» in the body:
-  another block on a card that is mostly fields. decided: A (recommended) — for the human at gate-2.
-- [ ] **D-2 The restore dialog.** (A, recommended) A form dialog of one field with the
+  another block on a card that is mostly fields. decided by the human in chat on 2026-10-18: A («⭐ Оставить все A»).
+- [x] **D-2 The restore dialog.** (A, recommended) A form dialog of one field with the
   held state preset (§ 5): one step to accept, one choice to change. (B) A confirmation
   that names the state and a link «Выбрать другой статус»: a second step for a rare choice.
-  decided: A (recommended) — for the human at gate-2.
-- [ ] **D-3 A hint when the parent is deleted.** (A, recommended) One sentence in the
+  decided by the human in chat on 2026-10-18: A («⭐ Оставить все A»).
+- [x] **D-3 A hint when the parent is deleted.** (A, recommended) One sentence in the
   restore dialog (§ 5): the item will be unparented in backlogs, which is otherwise
   discovered after the restore (BR-DR-4). It adds a ◆ string and reads the parent's
   state the card already has. (B) Omit it: less copy, an unexplained «Нет» in the backlog.
-  decided: A (recommended) — for the human at gate-2.
-- [ ] **D-4 «Удалить» in the menu.** (A, recommended) Neutral, with a divider before it
+  decided by the human in chat on 2026-10-18: A («⭐ Оставить все A»).
+- [x] **D-4 «Удалить» in the menu.** (A, recommended) Neutral, with a divider before it
   (§ 2): the action is reversible (mod-015 § 9.4), and only «Удалить навсегда» is red.
   (B) Error colour for both: one visual rule for "remove", but it cries wolf on a
-  reversible step. decided: A (recommended) — for the human at gate-2.
-- [ ] **D-5 A save that loses to a deletion.** (A, recommended) The error notice with the
+  reversible step. decided by the human in chat on 2026-10-18: A («⭐ Оставить все A»).
+- [x] **D-5 A save that loses to a deletion.** (A, recommended) The error notice with the
   server's text, the card turns read-only, the draft is dropped (§ 8): the card never
   keeps a form that cannot be saved. (B) Keep the draft hidden and bring it back on
   Restore: kinder to the typist, a draft held for an item that may never return, and
-  state the card does not have. decided: A (recommended) — for the human at gate-2.
-- [ ] **D-6 «Восстановить» in one place.** (A, recommended) The header's action row,
+  state the card does not have. decided by the human in chat on 2026-10-18: A («⭐ Оставить все A»).
+- [x] **D-6 «Восстановить» in one place.** (A, recommended) The header's action row,
   where «Сохранить» stood (§ 4). (B) Also as the notice's action: two ways to the same
-  dialog, and a second filled button. decided: A (recommended) — for the human at gate-2.
+  dialog, and a second filled button. decided by the human in chat on 2026-10-18: A («⭐ Оставить все A»).
 
 ## 14. Stories to screens
 
