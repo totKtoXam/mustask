@@ -3,15 +3,15 @@
 - type: feature
 - size: L
 - branch: feat/028-org-level-teams
-- stage: 03-ux-design
+- stage: 04-backend
 - epic: core/org-access
 - deps: mod-017
 - gates: gate-1, gate-2, gate-3
 
 ## Gates
 
-gate-1: pending
-gate-2: pending
+gate-1: approved (2026-10-17, human in chat: OQ-1 → C, the upgrade drops every team; OQ-2 A, plus an organization home page queued as feat-045 after mod-018; OQ-3..OQ-5 A)
+gate-2: approved (2026-10-17, human in chat: design D-1..D-5 «⭐ Оставить все A»)
 gate-3: pending
 
 ## Plan
@@ -37,8 +37,11 @@ to main. Plans: `plan-backend.md`, `plan-frontend.md`.
   `organizations.project.link`; admin-only until mod-019) and narrow
   `team.write`; of mod-016's inventory rows 15-26 that doc-012 names, only
   15-18 and 20 are team routes (21-26 are areas).
-- For the human at gate-1: spec OQ-1..OQ-5; at gate-2: design D-1..D-5. Each
-  went on with A, the recommended option.
+- The human at gate-1 + gate-2 (2026-10-17): OQ-1 C, not the recommended A,
+  so the upgrade drops every team, its members, places and the projects'
+  default teams, and the owned items go to «Без команды»; OQ-2 A, and the
+  organization home page the human asked for besides is feat-045 (after
+  mod-018); OQ-3, OQ-4, OQ-5 and D-1..D-5 A.
 
 ## Log
 
@@ -49,6 +52,7 @@ to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-17 [requirements-reviewer] the one round of the light route: approved-by-ai, R-1..R-14 minor, all fixed in place (767992cb).
 - 2026-10-17 [ux-designer] design.md (abb9dcab), no prototype (D-4); D-1..D-5 left for the human at gate-2, each going on with A.
 - 2026-10-17 [orchestrator] the gate-1 + gate-2 package goes to the human; no code before the answer.
+- 2026-10-17 [orchestrator] the human answered: gate-1 and gate-2 approved with OQ-1 → C (see Decisions); feat-045 queued (PR #13). The spec and design take OQ-1 C before the backend plan.
 
 ## Notes
 
