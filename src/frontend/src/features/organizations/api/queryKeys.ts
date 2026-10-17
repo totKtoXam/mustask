@@ -16,16 +16,30 @@ export const organizationsKeys = {
     [ROOT, 'projects', organizationId, view] as const,
   project: (organizationId: string, projectId: string) =>
     [ROOT, 'project', organizationId, projectId] as const,
+  /**
+   * A project's linked teams (feat-028 § 2.4): the page's table, the shell's team level and
+   * the work item pickers read this one key.
+   */
   teams: (organizationId: string, projectId: string) =>
     [ROOT, 'teams', organizationId, projectId] as const,
-  team: (organizationId: string, projectId: string, teamId: string) =>
-    [ROOT, 'team', organizationId, projectId, teamId] as const,
-  /** Every team page of a project. */
-  teamPages: (organizationId: string, projectId: string) =>
-    [ROOT, 'team', organizationId, projectId] as const,
-  /** mod-017 § 2.9: what one team's deletion would reassign. */
-  ownedItemsCount: (organizationId: string, projectId: string, teamId: string) =>
-    [ROOT, 'owned-items-count', organizationId, projectId, teamId] as const,
+  /** Every project's linked-team list of an organization: a team's rename or deletion refreshes them all. */
+  projectTeamLists: (organizationId: string) => [ROOT, 'teams', organizationId] as const,
+  /** The organization's own list of teams, with their projects (feat-028 § 2.1). */
+  orgTeams: (organizationId: string) => [ROOT, 'org-teams', organizationId] as const,
+  team: (organizationId: string, teamId: string) => [ROOT, 'team', organizationId, teamId] as const,
+  /** Every team page of an organization. */
+  teamPages: (organizationId: string) => [ROOT, 'team', organizationId] as const,
+  /** A team's projects (§ 2.2). */
+  teamProjects: (organizationId: string, teamId: string) =>
+    [ROOT, 'team-projects', organizationId, teamId] as const,
+  /** Every team's projects of an organization: a link or an unlink refreshes the ones on screen. */
+  teamProjectLists: (organizationId: string) => [ROOT, 'team-projects', organizationId] as const,
+  /** What one team's deletion would reassign, per project (§ 2.1). */
+  deletionCounts: (organizationId: string, teamId: string) =>
+    [ROOT, 'deletion-counts', organizationId, teamId] as const,
+  /** What one unlink would reassign (§ 2.4). */
+  unlinkCount: (organizationId: string, projectId: string, teamId: string) =>
+    [ROOT, 'unlink-count', organizationId, projectId, teamId] as const,
   areas: (organizationId: string, projectId: string) =>
     [ROOT, 'areas', organizationId, projectId] as const,
   /**
@@ -41,11 +55,11 @@ export const organizationsKeys = {
   memberCandidates: (organizationId: string, text: string) =>
     [ROOT, 'member-candidates', organizationId, text] as const,
   /** The members of one team (§ 2.1). */
-  teamMembers: (organizationId: string, projectId: string, teamId: string) =>
-    [ROOT, 'team-members', organizationId, projectId, teamId] as const,
+  teamMembers: (organizationId: string, teamId: string) =>
+    [ROOT, 'team-members', organizationId, teamId] as const,
   /** Every team-members list of an organization: a member's removal invalidates them all. */
   teamMembersOf: (organizationId: string) => [ROOT, 'team-members', organizationId] as const,
   /** The add-to-team search (§ 2.2). */
-  teamMemberCandidates: (organizationId: string, projectId: string, teamId: string, text: string) =>
-    [ROOT, 'team-member-candidates', organizationId, projectId, teamId, text] as const,
+  teamMemberCandidates: (organizationId: string, teamId: string, text: string) =>
+    [ROOT, 'team-member-candidates', organizationId, teamId, text] as const,
 };

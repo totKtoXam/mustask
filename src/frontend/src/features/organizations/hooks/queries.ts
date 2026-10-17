@@ -1,13 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import {
   getAreaTree,
+  getDeletionCounts,
   getOrganization,
+  getOrganizationTeams,
   getOrganizations,
-  getOwnedItemsCount,
   getProject,
   getProjects,
   getTeam,
+  getTeamProjects,
   getTeams,
+  getUnlinkCount,
   type ListView,
 } from '../api/organizationsApi';
 import {
@@ -36,10 +39,16 @@ export function useOrganization(organizationId: string, options: { enabled?: boo
   });
 }
 
-export function useProjects(organizationId: string, view: ListView) {
+export function useProjects(
+  organizationId: string,
+  view: ListView,
+  options: { enabled?: boolean; fresh?: boolean } = {},
+) {
   return useQuery({
     queryKey: organizationsKeys.projects(organizationId, view),
     queryFn: () => getProjects(organizationId, view),
+    enabled: options.enabled ?? true,
+    refetchOnMount: options.fresh ? 'always' : true,
   });
 }
 
@@ -51,9 +60,9 @@ export function useProject(organizationId: string, projectId: string) {
 }
 
 /**
- * The project's teams, by name with their default mark (mod-017 api-contract § 1.3). `fresh`: read
- * again on every mount even when the cache holds an answer — the creation dialog starts with
- * the default team as it stands when it opens, never a cached one (design § 4).
+ * The project's linked teams, by name with their default mark (feat-028 api-contract § 1.3).
+ * `fresh`: read again on every mount even when the cache holds an answer — the creation dialog
+ * starts with the default team as it stands when it opens, never a cached one (mod-017 design § 4).
  */
 export function useTeams(
   organizationId: string,
@@ -68,22 +77,57 @@ export function useTeams(
   });
 }
 
-export function useTeam(organizationId: string, projectId: string, teamId: string) {
+/**
+ * The organization's teams with their active projects (feat-028 § 2.1). `fresh`: a dialog
+ * that offers them as options reads them again when it opens (design § 6.1).
+ */
+export function useOrganizationTeams(
+  organizationId: string,
+  options: { enabled?: boolean; fresh?: boolean } = {},
+) {
   return useQuery({
-    queryKey: organizationsKeys.team(organizationId, projectId, teamId),
-    queryFn: () => getTeam(organizationId, projectId, teamId),
+    queryKey: organizationsKeys.orgTeams(organizationId),
+    queryFn: () => getOrganizationTeams(organizationId),
+    enabled: options.enabled ?? true,
+    refetchOnMount: options.fresh ? 'always' : true,
+  });
+}
+
+export function useTeam(organizationId: string, teamId: string) {
+  return useQuery({
+    queryKey: organizationsKeys.team(organizationId, teamId),
+    queryFn: () => getTeam(organizationId, teamId),
+  });
+}
+
+/** A team's active projects, by name (feat-028 § 2.2). */
+export function useTeamProjects(organizationId: string, teamId: string, enabled = true) {
+  return useQuery({
+    queryKey: organizationsKeys.teamProjects(organizationId, teamId),
+    queryFn: () => getTeamProjects(organizationId, teamId),
+    enabled,
   });
 }
 
 /**
- * mod-017 api-contract § 2.9: the items a deletion would reassign, read when the
- * confirmation opens and kept for no longer (`gcTime: 0`): the next opening counts
- * afresh. Never retried: a failure is the dialog's «Повторить».
+ * feat-028 § 2.1: the items a deletion would reassign, per linked project, read when the
+ * confirmation opens and kept for no longer (`gcTime: 0`): the next opening counts afresh.
+ * Never retried: a failure is the dialog's «Повторить».
  */
-export function useOwnedItemsCount(organizationId: string, projectId: string, teamId: string) {
+export function useDeletionCounts(organizationId: string, teamId: string) {
   return useQuery({
-    queryKey: organizationsKeys.ownedItemsCount(organizationId, projectId, teamId),
-    queryFn: () => getOwnedItemsCount(organizationId, projectId, teamId),
+    queryKey: organizationsKeys.deletionCounts(organizationId, teamId),
+    queryFn: () => getDeletionCounts(organizationId, teamId),
+    gcTime: 0,
+    retry: false,
+  });
+}
+
+/** feat-028 § 2.4: the items an unlink would reassign in the project; read as the deletion's are. */
+export function useUnlinkCount(organizationId: string, projectId: string, teamId: string) {
+  return useQuery({
+    queryKey: organizationsKeys.unlinkCount(organizationId, projectId, teamId),
+    queryFn: () => getUnlinkCount(organizationId, projectId, teamId),
     gcTime: 0,
     retry: false,
   });
@@ -104,10 +148,11 @@ export function useAreaTree(
 // mod-016 api-contract § 1.2–§ 1.3 and § 2.1–§ 2.2.
 
 /** The members of an organization (§ 1.2): a plain array, read whole. */
-export function useMembers(organizationId: string) {
+export function useMembers(organizationId: string, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: organizationsKeys.members(organizationId),
     queryFn: () => getMembers(organizationId),
+    enabled: options.enabled ?? true,
   });
 }
 
@@ -120,25 +165,24 @@ export function useMemberCandidates(organizationId: string, text: string, enable
   });
 }
 
-/** A team's members (§ 2.1). */
-export function useTeamMembers(organizationId: string, projectId: string, teamId: string) {
+/** A team's members (§ 2.1), at the team's address. */
+export function useTeamMembers(organizationId: string, teamId: string) {
   return useQuery({
-    queryKey: organizationsKeys.teamMembers(organizationId, projectId, teamId),
-    queryFn: () => getTeamMembers(organizationId, projectId, teamId),
+    queryKey: organizationsKeys.teamMembers(organizationId, teamId),
+    queryFn: () => getTeamMembers(organizationId, teamId),
   });
 }
 
 /** The add-to-team search (§ 2.2), asked only from 2 characters on (`enabled`). */
 export function useTeamMemberCandidates(
   organizationId: string,
-  projectId: string,
   teamId: string,
   text: string,
   enabled: boolean,
 ) {
   return useQuery({
-    queryKey: organizationsKeys.teamMemberCandidates(organizationId, projectId, teamId, text),
-    queryFn: () => searchTeamMemberCandidates(organizationId, projectId, teamId, text),
+    queryKey: organizationsKeys.teamMemberCandidates(organizationId, teamId, text),
+    queryFn: () => searchTeamMemberCandidates(organizationId, teamId, text),
     enabled,
   });
 }

@@ -2,7 +2,8 @@ import type { AccessCheck } from '../shared/lib/access';
 
 /**
  * The three organization roles and the codes each bundle holds, hand-copied
- * from mod-016 api-contract § 0.2 — the one duplication of the contract in
+ * from mod-016 api-contract § 0.2 and feat-028 api-contract § 0.1 (four codes,
+ * the administrator's alone) — the one duplication of the contract in
  * the panel (plan-frontend § 2.8, OP-7). Every bundle lists every code it
  * holds, so a missing code is a code left out of the list and never one
  * implied (design § 12). E2E 27.9 reads the served bundles against this
@@ -30,6 +31,11 @@ const ADMIN_ONLY_CODES = [
   'organizations.project.deactivate',
   'organizations.team.write',
   'organizations.area.write',
+  // feat-028 api-contract § 0.1 (ADR-0029): until mod-019 they are checked against the role alone.
+  'organizations.team.create',
+  'organizations.team.delete',
+  'organizations.team.link',
+  'organizations.project.link',
 ] as const;
 
 /** Held by the administrator and the member. */
@@ -39,7 +45,7 @@ const WORK_WRITE_CODES = [
   'boards.backlog.reorder',
 ] as const;
 
-/** Every code the administrator holds: all seventeen of § 0.2. */
+/** Every code the administrator holds: the seventeen of mod-016 § 0.2 and feat-028's four. */
 export const ADMIN_CODES: readonly string[] = [
   ...READ_CODES,
   ...ADMIN_ONLY_CODES,

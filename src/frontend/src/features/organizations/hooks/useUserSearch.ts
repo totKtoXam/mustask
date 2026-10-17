@@ -5,7 +5,7 @@ import { isSearchable, searchTextOf, type UserSearch } from '../lib/userSearch';
 /** What a user search looks in: the organization's active users, or the team's candidates. */
 export type UserSearchScope =
   | { kind: 'organization'; organizationId: string }
-  | { kind: 'team'; organizationId: string; projectId: string; teamId: string };
+  | { kind: 'team'; organizationId: string; teamId: string };
 
 /**
  * The state of the candidate search for what is typed now (design § 3.5): the
@@ -28,7 +28,6 @@ export function useUserSearch(
   );
   const inTeam = useTeamMemberCandidates(
     scope.organizationId,
-    scope.kind === 'team' ? scope.projectId : '',
     scope.kind === 'team' ? scope.teamId : '',
     settled,
     asked && scope.kind === 'team',

@@ -1,6 +1,7 @@
 // The three checks the browser makes before it sends (design § 4.4): only
 // what the stories state, checked on submit. A refused field sends nothing.
 // The texts are design § 4.4's, the same as the server's catalog.
+import { DESCRIPTION_LENGTH_TEXT, DESCRIPTION_MAX_LENGTH } from './teamTexts';
 
 export const NAME_LENGTH_TEXT = 'Название должно содержать от 1 до 100 символов';
 export const KEY_REQUIRED_TEXT = 'Укажите ключ проекта';
@@ -17,6 +18,14 @@ export const PROJECT_KEY_PATTERN = /^[A-Z][A-Z0-9]{1,9}$/;
 export function nameError(value: string): string | null {
   const length = value.trim().length;
   return length >= 1 && length <= NAME_MAX_LENGTH ? null : NAME_LENGTH_TEXT;
+}
+
+/**
+ * feat-028 BR-OL-3: a description is at most 2 000 characters, kept as typed — never trimmed — so
+ * the length is the text's own (UTF-16 code units, as the API counts them). An empty one is no description.
+ */
+export function descriptionError(value: string): string | null {
+  return value.length <= DESCRIPTION_MAX_LENGTH ? null : DESCRIPTION_LENGTH_TEXT;
 }
 
 /** The key's refusal, or `null`. The key is checked as typed (US-3: `prm` is refused). */

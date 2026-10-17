@@ -35,7 +35,8 @@ export interface MembersOptions {
   now?(): string;
 }
 
-const TEAM_URL = `${ORGANIZATIONS_URL}/:organizationId/projects/:projectId/teams/:teamId`;
+/** The team's address is the organization's since feat-028 (api-contract § 2.3). */
+const TEAM_URL = `${ORGANIZATIONS_URL}/:organizationId/teams/:teamId`;
 
 function answer(code: string): Response {
   const body = problem(code);
@@ -156,22 +157,13 @@ export function memberRoutes(
     members().filter((membership) => membership.organizationId === organizationId);
   const idOf = (value: unknown) => String(value).toLowerCase();
 
-  /** The team of the address, or the not-found answer of its outermost missing level. */
+  /** The team of the organization's address, or the not-found answer (a deleted or foreign one alike). */
   function teamOf(params: Record<string, unknown>): TeamRecord | Response {
-    const project = data.projects.find(
-      (candidate) =>
-        candidate.id === idOf(params.projectId) &&
-        candidate.organizationId === idOf(params.organizationId) &&
-        candidate.active,
-    );
-    if (!project) {
-      return answer('organizations.project.not_found');
-    }
     return (
       data.teams.find(
         (candidate) =>
           candidate.id === idOf(params.teamId) &&
-          candidate.projectId === project.id &&
+          candidate.organizationId === idOf(params.organizationId) &&
           !candidate.deleted,
       ) ?? answer('organizations.team.not_found')
     );
@@ -301,12 +293,7 @@ export function memberRoutes(
         // BR-M1-36: the user leaves every team of the organization.
         const teamIds = new Set(
           data.teams
-            .filter((team) =>
-              data.projects.some(
-                (project) =>
-                  project.id === team.projectId && project.organizationId === organizationId,
-              ),
-            )
+            .filter((team) => team.organizationId === organizationId)
             .map((team) => team.id),
         );
         data.teamMembers = teamMembers().filter(

@@ -14,11 +14,17 @@ import {
 
 // The bundles are hand-copied from api-contract § 0.2 (plan-frontend OP-7).
 // There is no machine-readable bundle in contracts/, so this test reads the
-// contract's own table and fails when the copy drifts from it.
+// contract's own table and fails when the copy drifts from it. feat-028 adds four
+// codes (its api-contract § 0.1), held by the administrator alone until mod-019.
 
 const CONTRACT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../../../docs/features/mod-016-organization-access/api-contract.md',
+);
+
+const TEAMS_CONTRACT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../../docs/features/feat-028-org-level-teams/api-contract.md',
 );
 
 /** `code -> [admin, member, viewer]` from the table of § 0.2. */
@@ -36,11 +42,36 @@ function contractMatrix(): Map<string, [boolean, boolean, boolean]> {
   return matrix;
 }
 
+/** The four codes feat-028 registers: the rows marked **new** in § 0.1, each held by `admin`. */
+function newTeamCodes(): string[] {
+  const text = readFileSync(TEAMS_CONTRACT, 'utf8');
+  const start = text.indexOf('### 0.1 ');
+  const end = text.indexOf('**A link joins two ends', start);
+  const codes: string[] = [];
+  for (const line of text.slice(start, end).split('\n')) {
+    const match = /^\| \*\*new\*\* `([a-z.]+)` \| admin \|/.exec(line);
+    if (match) {
+      codes.push(match[1] as string);
+    }
+  }
+  return codes;
+}
+
 describe('the hand-copied role bundles (api-contract § 0.2)', () => {
   it('agree with the contract’s table, role by role', () => {
     const matrix = contractMatrix();
 
     expect(matrix.size).toBe(17);
+    // feat-028 api-contract § 0.1: four more, the administrator's.
+    expect(newTeamCodes().sort()).toEqual([
+      'organizations.project.link',
+      'organizations.team.create',
+      'organizations.team.delete',
+      'organizations.team.link',
+    ]);
+    for (const code of newTeamCodes()) {
+      matrix.set(code, [true, false, false]);
+    }
     const heldBy = (index: number) =>
       [...matrix].filter(([, held]) => held[index]).map(([code]) => code);
     expect([...ADMIN_CODES].sort()).toEqual(heldBy(0).sort());
@@ -62,7 +93,7 @@ describe('the hand-copied role bundles (api-contract § 0.2)', () => {
     }
     expect(servedFor('viewer').permissions).toHaveLength(7);
     expect(servedFor('member').permissions).toHaveLength(10);
-    expect(servedFor('admin').permissions).toHaveLength(17);
+    expect(servedFor('admin').permissions).toHaveLength(21);
   });
 
   it('leave codes out of a served body, and ask an organization code from the bundle', () => {

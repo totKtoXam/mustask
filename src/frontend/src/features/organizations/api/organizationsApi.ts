@@ -1,9 +1,11 @@
 // The organizations module over HTTP, strictly per
-// docs/features/mod-002-organizations-projects-teams/api-contract.md § 1–§ 5:
-// one function per route, camelCase as all of Mustask.Api. Ids come from the
-// address or from an answer and are sent as received, re-encoded in the path
-// and never validated (§ 0.2). Every list is a plain array in the server's
-// display order, rendered as received (§ 0.6).
+// docs/features/mod-002-organizations-projects-teams/api-contract.md § 1–§ 5
+// and — for the teams, their links and the descriptions —
+// docs/features/feat-028-org-level-teams/api-contract.md: one function per
+// route, camelCase as all of Mustask.Api. Ids come from the address or from an
+// answer and are sent as received, re-encoded in the path and never validated
+// (§ 0.2). Every list is a plain array in the server's display order, rendered
+// as received (§ 0.6).
 import { apiFetch } from '../../../shared/api/httpClient';
 
 /** § 1.1: an organization in a list. */
@@ -25,35 +27,90 @@ export interface ProjectListItem {
   key: string;
 }
 
-/** § 2.3: one project. */
+/** § 2.3 and feat-028 § 1.4: one project; `description` is `null` when there is none. */
 export interface Project {
   id: string;
   organizationId: string;
   name: string;
   key: string;
+  description: string | null;
 }
 
 /**
- * mod-017 api-contract § 1.3: how a team stands for the project's default
- * (BR-OT-4). `named`: the settings name it; `onlyTeam`: nothing is named and it
- * is the project's only active team; `null`: neither.
+ * feat-028 api-contract § 1.3: how a linked team stands for the project's default
+ * (BR-OL-7). `named`: the settings name it; `onlyTeam`: nothing is named and it
+ * is the project's only linked team; `null`: neither.
  */
 export type DefaultMark = 'named' | 'onlyTeam';
 
-/** mod-017 api-contract § 1.3: the one shape every team answer uses. */
+/** feat-028 api-contract § 1.1: a team is the organization's; no project, no mark. */
 export interface Team {
   id: string;
-  projectId: string;
   name: string;
-  defaultMark: DefaultMark | null;
+  /** `null` when there is none. */
+  description: string | null;
+}
+
+/** feat-028 api-contract § 1.2: a project in the organization's list of teams (active projects only). */
+export interface TeamListProject {
+  id: string;
+  name: string;
+}
+
+/** feat-028 api-contract § 1.2: a row of the organization's list of teams. */
+export interface TeamListItem extends Team {
+  projects: TeamListProject[];
+}
+
+/** feat-028 api-contract § 1.2: a project on a team's page (active projects only). */
+export interface TeamProject {
+  id: string;
+  name: string;
+  key: string;
 }
 
 /**
- * mod-016 api-contract § 3.3: a team of the project's list also says whether
- * the caller is in it. The single-team read and the writes carry no such flag.
+ * feat-028 api-contract § 1.3 (with mod-016 § 3.3): a team linked to the project, in the project's
+ * list — its mark, and whether the caller is in it.
  */
-export interface TeamInList extends Team {
+export interface ProjectTeam {
+  id: string;
+  name: string;
+  defaultMark: DefaultMark | null;
   isMember: boolean;
+}
+
+/** feat-028 api-contract § 1.5: what a team owns in one linked project, deactivated ones included. */
+export interface DeletionCount {
+  projectId: string;
+  name: string;
+  active: boolean;
+  count: number;
+}
+
+export interface DeletionCounts {
+  projects: DeletionCount[];
+}
+
+/** feat-028 api-contract § 1.5: what an unlink would reassign. */
+export interface UnlinkCount {
+  count: number;
+}
+
+/** feat-028 api-contract § 2.1: the creation of a team, in one operation. */
+export interface CreateTeamBody {
+  name: string;
+  description?: string;
+  memberIds?: string[];
+  projectIds?: string[];
+}
+
+/** feat-028 api-contract § 2.4: the creation of a project. */
+export interface CreateProjectBody {
+  name: string;
+  key: string;
+  description?: string;
+  teamIds?: string[];
 }
 
 /** mod-017 api-contract § 1.6: one node of the area tree, which comes in pre-order. */
@@ -91,7 +148,13 @@ export function projectApiPath(organizationId: string, projectId: string): strin
   return `${organizationApiPath(organizationId)}/projects/${segment(projectId)}`;
 }
 
-function teamApiPath(organizationId: string, projectId: string, teamId: string): string {
+/** `…/teams/{t}`: a team's address is the organization's (feat-028 § 0.4). */
+export function teamApiPath(organizationId: string, teamId: string): string {
+  return `${organizationApiPath(organizationId)}/teams/${segment(teamId)}`;
+}
+
+/** `…/projects/{p}/teams/{t}`: the pair of a link. */
+function linkApiPath(organizationId: string, projectId: string, teamId: string): string {
   return `${projectApiPath(organizationId, projectId)}/teams/${segment(teamId)}`;
 }
 
@@ -138,11 +201,21 @@ export function getProjects(
   return apiFetch(`${organizationApiPath(organizationId)}/projects${listSuffix(view)}`);
 }
 
-export function createProject(
-  organizationId: string,
-  body: { name: string; key: string },
-): Promise<Project> {
+/** feat-028 § 2.4: creates no team; `teamIds` links the chosen ones in the same operation. */
+export function createProject(organizationId: string, body: CreateProjectBody): Promise<Project> {
   return apiFetch(`${organizationApiPath(organizationId)}/projects`, { method: 'POST', body });
+}
+
+/** feat-028 § 2.4: `null` (or an empty text) clears the description. */
+export function describeProject(
+  organizationId: string,
+  projectId: string,
+  description: string | null,
+): Promise<Project> {
+  return apiFetch(`${projectApiPath(organizationId, projectId)}/description`, {
+    method: 'PUT',
+    body: { description },
+  });
 }
 
 export function getProject(organizationId: string, projectId: string): Promise<Project> {
@@ -168,32 +241,107 @@ export function restoreProject(organizationId: string, projectId: string): Promi
   return apiFetch(`${projectApiPath(organizationId, projectId)}/restore`, { method: 'POST' });
 }
 
-// § 3 Teams
+// feat-028 §§ 2.1–2.4 Teams, their projects and their links
 
-export function getTeams(organizationId: string, projectId: string): Promise<TeamInList[]> {
-  return apiFetch(`${projectApiPath(organizationId, projectId)}/teams`);
+/** § 2.1: the organization's active teams by name, with their active projects; `[]` is the first state. */
+export function getOrganizationTeams(organizationId: string): Promise<TeamListItem[]> {
+  return apiFetch(`${organizationApiPath(organizationId)}/teams`);
 }
 
-export function getTeam(organizationId: string, projectId: string, teamId: string): Promise<Team> {
-  return apiFetch(teamApiPath(organizationId, projectId, teamId));
+/** § 2.1: one transaction — the team, its members and its links; nothing is created on a refusal. */
+export function createTeam(organizationId: string, body: CreateTeamBody): Promise<Team> {
+  return apiFetch(`${organizationApiPath(organizationId)}/teams`, { method: 'POST', body });
 }
 
-export function addTeam(organizationId: string, projectId: string, name: string): Promise<Team> {
-  return apiFetch(`${projectApiPath(organizationId, projectId)}/teams`, {
-    method: 'POST',
+export function getTeam(organizationId: string, teamId: string): Promise<Team> {
+  return apiFetch(teamApiPath(organizationId, teamId));
+}
+
+export function renameTeam(organizationId: string, teamId: string, name: string): Promise<Team> {
+  return apiFetch(`${teamApiPath(organizationId, teamId)}/name`, {
+    method: 'PUT',
     body: { name },
   });
 }
 
-export function renameTeam(
+/** § 2.1: the description as typed; `null` or an empty text clears it. */
+export function describeTeam(
+  organizationId: string,
+  teamId: string,
+  description: string | null,
+): Promise<Team> {
+  return apiFetch(`${teamApiPath(organizationId, teamId)}/description`, {
+    method: 'PUT',
+    body: { description },
+  });
+}
+
+/** § 2.1: what a deletion would reassign, per linked project; read when the confirmation opens. */
+export function getDeletionCounts(organizationId: string, teamId: string): Promise<DeletionCounts> {
+  return apiFetch(`${teamApiPath(organizationId, teamId)}/deletion-counts`);
+}
+
+/** § 2.1: 204; no 409 — a project may have no team. */
+export function deleteTeam(organizationId: string, teamId: string): Promise<void> {
+  return apiFetch(teamApiPath(organizationId, teamId), { method: 'DELETE' });
+}
+
+/** § 2.2: the team's active projects by name. */
+export function getTeamProjects(organizationId: string, teamId: string): Promise<TeamProject[]> {
+  return apiFetch(`${teamApiPath(organizationId, teamId)}/projects`);
+}
+
+/** § 2.2: 204; all or nothing; linking a linked pair changes nothing. */
+export function linkProjectsToTeam(
+  organizationId: string,
+  teamId: string,
+  projectIds: readonly string[],
+): Promise<void> {
+  return apiFetch(`${teamApiPath(organizationId, teamId)}/projects`, {
+    method: 'POST',
+    body: { projectIds },
+  });
+}
+
+/** § 2.4 (with mod-016 § 3.3): the project's linked teams by name, each with its mark and `isMember`. */
+export function getTeams(organizationId: string, projectId: string): Promise<ProjectTeam[]> {
+  return apiFetch(`${projectApiPath(organizationId, projectId)}/teams`);
+}
+
+/** § 2.4: 204; all or nothing; the path that once added a team now links existing ones. */
+export function linkTeamsToProject(
+  organizationId: string,
+  projectId: string,
+  teamIds: readonly string[],
+): Promise<void> {
+  return apiFetch(`${projectApiPath(organizationId, projectId)}/teams`, {
+    method: 'POST',
+    body: { teamIds },
+  });
+}
+
+/** § 2.4: what an unlink would reassign in this project; read when the confirmation opens. */
+export function getUnlinkCount(
   organizationId: string,
   projectId: string,
   teamId: string,
-  name: string,
-): Promise<Team> {
-  return apiFetch(`${teamApiPath(organizationId, projectId, teamId)}/name`, {
-    method: 'PUT',
-    body: { name },
+): Promise<UnlinkCount> {
+  return apiFetch(`${linkApiPath(organizationId, projectId, teamId)}/unlink-count`);
+}
+
+/**
+ * § 2.4 (SC-09): takes the team off the project; its items there go to `destinationTeamId`, or to
+ * «Без команды» for `null`. The `destination` wrapper and its `teamId` key are always sent (D-8).
+ */
+export function unlinkTeam(
+  organizationId: string,
+  projectId: string,
+  teamId: string,
+  destinationTeamId: string | null,
+): Promise<void> {
+  return apiFetch(`${linkApiPath(organizationId, projectId, teamId)}/unlink`, {
+    method: 'POST',
+    body: { destination: { teamId: destinationTeamId } },
   });
 }
 
@@ -207,23 +355,6 @@ export function setDefaultTeam(
     method: 'PUT',
     body: { teamId },
   });
-}
-
-/** mod-017 api-contract § 2.9: what a deletion would reassign, in any state; read when the dialog opens. */
-export function getOwnedItemsCount(
-  organizationId: string,
-  projectId: string,
-  teamId: string,
-): Promise<{ count: number }> {
-  return apiFetch(`${teamApiPath(organizationId, projectId, teamId)}/owned-items/count`);
-}
-
-export function deleteTeam(
-  organizationId: string,
-  projectId: string,
-  teamId: string,
-): Promise<void> {
-  return apiFetch(teamApiPath(organizationId, projectId, teamId), { method: 'DELETE' });
 }
 
 // § 4 Areas
