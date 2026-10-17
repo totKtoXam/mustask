@@ -3,11 +3,11 @@ import Box from '@mui/material/Box';
 import InputBase from '@mui/material/InputBase';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
-import { useTheme, type CSSObject, type Theme } from '@mui/material/styles';
+import { useTheme } from '@mui/material/styles';
 import { ThinChevronDownIcon } from '../icons/ThinIcons';
 import { FieldFrame } from './FieldFrame';
-import { OPEN } from './fieldStyles';
-import type { FieldFrameKind, FieldInputProps, FieldProps } from './fieldTypes';
+import { selectRules } from './fieldStyles';
+import type { FieldInputProps, FieldProps } from './fieldTypes';
 import { fieldControlState, useFieldIds } from './useFieldWiring';
 
 export interface SelectOption<V extends string> {
@@ -127,41 +127,4 @@ export function InlineSelectField<V extends string>({
       </Select>
     </FieldFrame>
   );
-}
-
-/**
- * The caret shows with the frame; the display fills the box and keeps the caret's room.
- * A state rule names the caret as a descendant of `&` (the root, once): a second `&` in it
- * would be the root's class again, and no element holds that class inside the root.
- */
-function selectRules(theme: Theme, frame: FieldFrameKind): CSSObject {
-  const icon = '.MuiSelect-icon';
-  const caret = `&& ${icon}`;
-  const shown = { opacity: 1 };
-  return {
-    '&& .MuiSelect-select': {
-      display: 'flex',
-      alignItems: 'center',
-      minWidth: 0,
-      padding: 0,
-      paddingRight: `${theme.layout.iconAction.chevron.glyph}px`,
-      height: 'auto',
-      minHeight: 0,
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap',
-    },
-    [caret]: {
-      right: 0,
-      fontSize: theme.layout.iconAction.chevron.glyph,
-      color: theme.palette.text.primary,
-      pointerEvents: 'none',
-      opacity: frame === 'always' ? 1 : 0,
-    },
-    [`&:hover ${icon}`]: shown,
-    [`&:focus-within ${icon}`]: shown,
-    [`&${OPEN} ${icon}`]: shown,
-    '@media (hover: none)': { [caret]: shown },
-    '&& .MuiSelect-select.Mui-disabled': { WebkitTextFillColor: theme.palette.text.disabled },
-  };
 }

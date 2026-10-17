@@ -146,6 +146,7 @@ export const showcaseRegistry: readonly ShowcaseSection[] = [
       'InlineNumberField',
       'InlineDateField',
       'InlineSelectField',
+      'InlineMultiSelectField',
       'InlinePickerField',
       'PersonField',
     ],

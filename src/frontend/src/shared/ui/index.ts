@@ -50,6 +50,10 @@ export { VisuallyHidden, type VisuallyHiddenProps } from './text/VisuallyHidden'
 
 // Fields (P4)
 export { InlineDateField, type InlineDateFieldProps } from './fields/InlineDateField';
+export {
+  InlineMultiSelectField,
+  type InlineMultiSelectFieldProps,
+} from './fields/InlineMultiSelectField';
 export { InlineNumberField, type InlineNumberFieldProps } from './fields/InlineNumberField';
 export {
   InlinePickerField,

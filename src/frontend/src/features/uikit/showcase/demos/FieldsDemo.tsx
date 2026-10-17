@@ -3,6 +3,7 @@ import Box from '@mui/material/Box';
 import {
   CategoryMarker,
   InlineDateField,
+  InlineMultiSelectField,
   InlineNumberField,
   InlinePickerField,
   InlineSelectField,
@@ -42,6 +43,12 @@ const STATE_OPTIONS: SelectOption<string>[] = DEMO_STATES.map(({ code, name }) =
   startAdornment: <CategoryMarker code={code} size="field" />,
 }));
 
+const TEAM_OPTIONS: SelectOption<string>[] = [
+  { value: 'mars', label: 'MARS' },
+  { value: 'venus', label: 'VENUS' },
+  { value: 'none', label: 'Без команды' },
+];
+
 const identity = (option: string) => option;
 
 export function FieldsDemo() {
@@ -58,6 +65,7 @@ export function FieldsDemo() {
   const [target, setTarget] = useState('');
   const [priority, setPriority] = useState('2');
   const [risk, setRisk] = useState('');
+  const [teams, setTeams] = useState<string[]>([]);
   const [status, setStatus] = useState('Proposed');
   const [area, setArea] = useState<string | null>(DEMO_AREAS[0]);
   const [assignee, setAssignee] = useState<string | null>(DEMO_PEOPLE[0]);
@@ -170,6 +178,36 @@ export function FieldsDemo() {
           options={RISK_OPTIONS}
           value={risk}
           onChange={setRisk}
+        />
+      </DemoGroup>
+      <DemoGroup caption="Выбор нескольких: пусто, рамка всегда (фильтр)">
+        <InlineMultiSelectField<string>
+          label="Команда"
+          frame="always"
+          emptyText="Все команды"
+          options={TEAM_OPTIONS}
+          value={teams}
+          onChange={setTeams}
+        />
+      </DemoGroup>
+      <DemoGroup caption="Выбор нескольких: список загружается">
+        <InlineMultiSelectField<string>
+          label="Исполнитель"
+          frame="always"
+          emptyText="Все исполнители"
+          options={[]}
+          loading
+          value={[]}
+          onChange={noop}
+        />
+      </DemoGroup>
+      <DemoGroup caption="Выбор нескольких: только чтение">
+        <InlineMultiSelectField<string>
+          label="Состояния"
+          options={TEAM_OPTIONS}
+          value={['mars', 'none']}
+          onChange={noop}
+          readOnly
         />
       </DemoGroup>
       <DemoGroup caption="Подпись слева: значок стоит в колонке подписи, текст — на одном уровне">
