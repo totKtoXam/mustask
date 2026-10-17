@@ -8,11 +8,10 @@ The server's refusal texts are the registry's (spec § Error codes).
 - Base: [mod-017](../mod-017-work-item-owning-team/design.md) § 7 (teams page, mark,
   default and delete dialogs), [mod-016](../mod-016-organization-access/design.md)
   (members), [ui-kit.md](../../conventions/ui-kit.md), ADR-0024 (640 px), BR-OL-12.
-- Prototype: **none** (D-4). Every screen is a registry page, a facts page with
-  sections, or a form / confirmation dialog, all of which the panel has. The one new
-  field (§ 2) is shown in the kit's showcase before a page uses it.
-- **New in the kit: one field** (`InlineMultiPickerField`) and one optional prop on
-  `Tag` (§ 2). No token, colour, icon, dependency or error code of mine.
+- Prototype: **none** (D-4): every screen is a registry page, a facts page or a dialog,
+  which the panel has; the one new field is built in the kit's showcase first.
+- **New in the kit: one field** and one optional prop on `Tag` (§ 2). No token, colour,
+  icon, dependency or error code of mine.
 
 ## 1. Screen map
 
@@ -34,9 +33,10 @@ A team's name opens its page; a project's name on that page opens the project's
 stays; the group headings and the trail tell the two apart, and the project page has
 an intro line (§ 7).
 
-Designed on the recommended options of the spec's OQ-1..OQ-5. OQ-4 B would add
-«Создать и добавить» to § 6.1; OQ-2 B or C removes the two header links of § 7; OQ-5 B
-preselects «Без команды» in § 6.2.
+Designed on the human's answers of 2026-10-17: OQ-1 C, OQ-2..OQ-5 A. OQ-1 C leaves **no
+team anywhere and every project without one** right after the upgrade (US-7): the
+normal first state, which the empty states of §§ 3, 6.1, 7 and 8 are written for. No
+organization home page here (feat-045).
 
 ## 2. Parts
 
@@ -47,9 +47,9 @@ preselects «Без команды» in § 6.2.
 | **New** `InlineMultiPickerField<O>` | MUI `Autocomplete multiple` on the kit's `FieldFrame`, with `InlinePickerField`'s props but `value: O[]`, `onChange(O[])` and `removeLabel(label)`; a host that searches the server passes `inputValue`, `onInputChange` and `filterOptions` returning its answer whole. The chosen are kit `Tag`s with a remove button before the input; the list stays open while picking, each option has `aria-selected` and a decorative `Checkbox` (`aria-hidden`); Backspace in an empty input removes the last; the box grows by rows, not in width. Accessible name = the label only | «Команды», «Проекты», «Участники» |
 | `Tag.removeLabel?` | optional prop; the default stays «Удалить тег «<label>»» | the picker passes «Убрать «Alpha»» ◆ |
 
-Why a kit part: BR-MX-27 and US-3 want a *searchable* multiselect (200 teams, a user
-search); `InlineMultiSelectField` is not. Per ui-kit.md § 7 it ships with its test, a
-showcase entry (every state) and a guide block before a page uses it (D-1).
+Why: US-3 wants a *searchable* multiselect (200 teams, a user search); `InlineMultiSelectField`
+is not (D-1). It ships with its test, a showcase entry (every state) and a guide block
+before a page uses it (ui-kit.md § 7).
 
 ## 3. «Команды» of the organization (US-1, US-5, US-7)
 
@@ -62,8 +62,8 @@ showcase entry (every state) and a guide block before a page uses it (D-1).
 ```
 
 - `PageHeader` «Команды» with the primary «Новая команда» (`AddIcon`) for the holder
-  of `team.create`. `DataTable` `aria-label="Команды организации"`, rows by name
-  ignoring case (the server's order), no paging, no search.
+  of `team.create`. `DataTable` (name: § 12), rows by name ignoring case (the server's
+  order), no paging, no search.
 - **«Команда»:** the name as a link to the team's page in `TruncatedText`.
   **«Проекты»:** the active projects' names joined by «, », cut; «Нет проектов»
   ◆ in `text.secondary` when none (a team whose only projects are deactivated reads
@@ -76,7 +76,7 @@ showcase entry (every state) and a guide block before a page uses it (D-1).
 |---|---|
 | Loading | `DataTable loading`: `TableSkeleton` with «Команда», «Проекты», «Описание» (+ the actions column) |
 | Error | the table's error: `InlineNotice` with the server's text and «Повторить» |
-| Empty | `StateFrame` `InboxOutlinedIcon`, «В организации пока нет команд» ◆, hint: «Создайте команду кнопкой «Новая команда» и подключите её к проектам.» ◆ for the holder with its action «Новая команда»; «Команды создаёт администратор организации.» ◆ otherwise, no action |
+| Empty | `StateFrame` `InboxOutlinedIcon`, «В организации пока нет команд» ◆ (the first state, right after the upgrade: US-7), hint: «Создайте команду кнопкой «Новая команда» и подключите её к проектам.» ◆ for the holder with its action «Новая команда»; «Команды создаёт администратор организации.» ◆ otherwise, no action |
 
 ## 4. A team's page (US-1, US-3, US-4, US-6)
 
@@ -97,7 +97,7 @@ showcase entry (every state) and a guide block before a page uses it (D-1).
   (`white-space: pre-wrap`, `overflowWrap: anywhere`, never cut here); none reads
   «Описание не задано» ◆ in `text.secondary`.
 - **«Проекты»:** `Section` (h2, `count`) with `ActionButton` «Добавить проект»
-  (`ThinAddIcon`) in its head, then a `DataTable` `aria-label="Проекты команды"`:
+  (`ThinAddIcon`) in its head, then a `DataTable` (name: § 12):
   «Проект» (a link in `TruncatedText` to that project's **«Команды»**, its end of the
   link, until feat-043 gives a project a page: D-3), «Ключ», and a row menu «Ещё
   действия: Alpha» with «Отключить от проекта» (destructive). Active projects only,
@@ -112,7 +112,7 @@ showcase entry (every state) and a guide block before a page uses it (D-1).
 | Facts failed | `ErrorBanner` with «Повторить» in place of the facts; sections load on their own |
 | «Проекты» failed | `InlineNotice` error with «Повторить» under the section head |
 | «Проекты» empty | `InlineEmpty` «Команда пока не участвует ни в одном проекте.» (the button stays for a holder) |
-| Team deleted or foreign | `NotFound` «Команда не найдена» with the settings navigation kept and «Команды» current |
+| Team deleted, dropped by the upgrade or foreign | `NotFound` «Команда не найдена» with the settings navigation kept and «Команды» current |
 
 ## 5. Dialogs of a team (US-1, US-5)
 
@@ -133,8 +133,9 @@ renaming); fields are kit fields, `frame="always"` (as mod-017 D-3):
 - «Название» `InlineTextField`, required, `autoFocus`. «Описание» `InlineTextArea`.
   «Участники» is `InlineMultiPickerField` over the server's user search (two
   characters, the option lines and hint rows of `userSearchTexts`); «Проекты» the
-  same over the active projects (option: name, key in `text.secondary`). «Проекты»
-  is drawn only for a user who holds both link codes.
+  same over the active projects (option: name, key in `text.secondary`; with none, its
+  list says «В организации нет активных проектов.» ◆). «Проекты» is drawn only for a
+  user who holds both link codes.
 - Checked on «Создать», nothing sent while refused: «Название» trimmed 1-100
   («Название должно содержать от 1 до 100 символов»), «Описание» at most 2 000
   characters (as typed, never trimmed; «Описание должно содержать не более 2000
@@ -201,12 +202,15 @@ chosen.
   сможет владеть рабочими элементами выбранных проектов. Доступ её участников к
   ним это не меняет.»
 - **Options:** the organization's active teams (projects) by name, read when the
-  dialog opens, minus the ones the page lists as linked (no route of its own); a
-  project option shows its key under the name.
+  dialog opens, minus the ones the page lists as linked; a project option shows its key
+  under the name.
 - No options: all linked — «Все команды организации уже работают над проектом.» ◆ /
-  «Команда уже работает над всеми проектами организации.» ◆; none exist — «В
-  организации пока нет команд.» ◆ / «В организации нет активных проектов.» ◆; typed
-  text matches nothing — «Ничего не найдено».
+  «Команда уже работает над всеми проектами организации.» ◆; typed text matches
+  nothing — «Ничего не найдено». **None exist** replaces the field with an info
+  `InlineNotice` and leaves «Добавить» unavailable: «В организации нет активных
+  проектов.» ◆ / «В организации пока нет команд. Создайте первую в разделе
+  «Организация» → «Команды».» ◆, the section's name a `Link` to § 3 (the first state
+  after the upgrade, US-7).
 - **States:** loading — the list says «Загрузка…», the field works; failed —
   `InlineNotice` «Не удалось загрузить команды. Попробуйте ещё раз.» (…«проекты»…)
   with «Повторить» in the field's place, «Добавить» unavailable; busy — all disabled.
@@ -241,8 +245,7 @@ The count of what the team owns *in that project* is read when it opens.
   line: for a team «Рабочие элементы встанут в конец бэклогов команды «VENUS».» ◆;
   for «Без команды» «Рабочие элементы останутся в бэклоге и на доске проекта, но не
   попадут в бэклог ни одной команды.» ◆.
-- With no other team linked the field still stands with «Без команды» alone and no
-  preselection (D-2).
+- With no other team linked the field stands with «Без команды» alone (D-2).
 - Owns none: no field, «Отключить команду «MARS» от проекта «Alpha»?» and the caption
   «Если «MARS» — команда проекта по умолчанию, настройка сбросится.» ◆; «Отключить»
   is available at once, and the request names «Без команды».
@@ -254,13 +257,12 @@ The count of what the team owns *in that project* is read when it opens.
 | Owns items, no choice | text and field; «Отключить» unavailable (aria-disabled, focusable) |
 | Busy | field disabled, both buttons inert, Escape and a click outside ignored |
 | Done | closes; notice «Команда отключена от проекта.»; the page is read again (the row goes; the mark may change); the shell's team lists are read again (the switcher's fallback notice alone when it falls back) |
-| 409 | «Команда не участвует в проекте.» under the field, the choice cleared, the project's teams read again |
-| 404 team | «Команда не найдена.» under the field, the same |
+| 409, 404 team | «Команда не участвует в проекте.» / «Команда не найдена.» under the field, the choice cleared, the project's teams read again |
 | 404 project | the alert «Проект не найден.»; the page read again shows its frame |
 | 400 | «Выберите команду или «Без команды»» under the field |
 | 403 | the alert «Недостаточно прав»; the codes are read again |
 
-## 7. The project's «Команды» (US-2, US-3, US-4, US-6)
+## 7. The project's «Команды» (US-2, US-3, US-4, US-6, US-7)
 
 ```
 Команды       [Бэклог проекта] [Доска проекта] [☆ Команда по умолчанию] [+ Добавить команду]
@@ -275,7 +277,8 @@ The count of what the team owns *in that project* is read when it opens.
   `DEFAULT_MARK_LABEL`), rows by name. The name links to the team's page in the
   organization's settings. **The row menu holds «Отключить от проекта»** (destructive)
   alone: «Переименовать» and «Удалить команду» are gone (BR-OL-5). The intro line is
-  `Typography body2` in `text.secondary`; «Организация» → «Команды» is a `Link` to § 3.
+  `Typography body2` in `text.secondary`, above the table and the empty state alike;
+  «Организация» → «Команды» is a `Link` to § 3.
 - Header: primary «Добавить команду» (`AddIcon`) for a user with both link codes;
   «Команда по умолчанию» (`StarBorderIcon`, `project.write`) while at least one team
   is linked. «Бэклог проекта» (`FormatListNumberedIcon`) and «Доска проекта»
@@ -289,7 +292,7 @@ The count of what the team owns *in that project* is read when it opens.
 |---|---|
 | Loading | `RegistrySkeleton` `['Команда', '']` / `['Команда']` |
 | Error | `ErrorBanner` with «Повторить» |
-| Empty | `StateFrame` `InboxOutlinedIcon`, «В проекте пока нет команд.»; hint «Добавьте команду организации — она сможет владеть рабочими элементами проекта. Без команд проект тоже работает: у его рабочих элементов будет «Без команды».» ◆ with the action «Добавить команду» for the holder, «Команды подключает администратор организации. Проект работает и без команд.» ◆ otherwise |
+| Empty | `StateFrame` `InboxOutlinedIcon`, «В проекте пока нет команд.» **A normal state, not a fault (every project is in it right after the upgrade, US-7):** no warning colour. Hint «Добавьте команду организации — она сможет владеть рабочими элементами проекта. Без команд проект тоже работает: у его рабочих элементов будет «Без команды».» ◆ with the action «Добавить команду» for the holder (§ 6.1 sends her on to «Команды» while the organization has none); «Команды подключает администратор организации. Проект работает и без команд.» ◆ otherwise |
 | Project gone or deactivated | `NotFound` «Проект не найден» |
 
 ## 8. The project: description and creation (US-2)
@@ -303,7 +306,9 @@ The count of what the team owns *in that project* is read when it opens.
   «Описание» (hint «Необязательно. Не более 2000 символов.») and
   `InlineMultiPickerField` «Команды» over the active teams (hint «Необязательно.
   Команды можно добавить позже на странице «Команды» проекта.» ◆), drawn only with
-  both link codes. A project is created with no team when it is left empty. Refusals:
+  both link codes; with no team in the organization (the first state, US-7) its list
+  says «В организации пока нет команд.» ◆. Left empty, the project is created with no
+  team: the normal case. Refusals:
   `team.not_found` «Команда не найдена.» → «Команды»; `description_length` →
   «Описание»; the rest as today. Notice «Проект «Beta» создан.» as today.
 - **«Переименование проекта»:** the text becomes «Корневая область проекта получит то
@@ -336,18 +341,17 @@ The count of what the team owns *in that project* is read when it opens.
 | «Бэклог проекта», «Доска проекта» (team-less project) | links | links | links | - |
 
 A missing code hides the control; a direct write answers 403 «Недостаточно прав»
-(error notice, 6 s) and the codes are read again. The «Проекты» and «Команды» fields
-of the two creation forms need both link codes.
+(error notice, 6 s) and the codes are read again.
 
 ## 11. Narrow widths (down to 640 CSS px, ADR-0024)
 
 - **Tables** scroll inside their card, the page never does; names are cut by
-  `TruncatedText`, the actions column stays. Page heads overflow into «Ещё действия».
-- **Team page:** `FactsPanel` puts the label above the value (today's); sections
-  stack; a section head with its button wraps.
+  `TruncatedText`, the actions column stays; page heads overflow into «Ещё действия».
+- **Team page:** `FactsPanel` puts the label above the value; sections stack; a section
+  head with its button wraps.
 - **Dialogs** are full width less their margins; fields, captions and tags wrap by
   rows; the picker's list is no wider than the window; the delete list scrolls inside.
-- Below 640 px nothing is claimed.
+  Below 640 px nothing is claimed.
 
 ## 12. Accessible names and focus
 
@@ -363,8 +367,7 @@ of the two creation forms need both link codes.
 Focus: a form dialog opens on its first field, the delete and unlink dialogs on
 «Отмена»; a refusal puts focus on the field it names; after a row's dialog closes,
 focus goes to that row's menu, or the next row's, or the primary button when the row
-is gone (`useRowFocus`); a created team returns it to «Новая команда». Escape closes
-the picker's list first, then the dialog.
+is gone (`useRowFocus`). Escape closes the picker's list first, then the dialog.
 
 ## 13. For the developer
 
@@ -376,43 +379,41 @@ the picker's list first, then the dialog.
   too; the user search and member routes at the team's address; link and unlink
   routes; `description` with `teamIds` / `projectIds` / `memberIds` on both creations.
 - **Refusals:** `RefusalField` gains `description`, `destination`, `teams`, `projects`
-  and `members`; `placeRefusal` maps `description_length`, `destination_required`,
-  `team.name_taken` (team), `project.not_found` (projects), `team.not_found` (teams
-  or destination), `team.not_in_project` (destination), `member_not_in_organization`.
+  and `members`; `placeRefusal` maps onto them the codes that §§ 5, 6 and 8 place.
 - **Routes and keys:** `ORG_TEAMS_ROUTE`, `ORG_TEAM_ROUTE`, `organizationTeamsPath`,
   `organizationTeamPath`; `TEAMS_ROUTE` stays. A link, unlink or deletion refreshes
   the organization's teams, the team's projects, the project's teams, the work item
   pickers and the shell's team lists.
 - **Kit guard:** new files use kit parts only; `TeamsPage`, `TeamPage` (moved),
   `TeamMembersSection`, `FactsPanel` keep their allow-list entries, lowered where a
-  site goes; `DeleteTeamDialog` is rewritten. The team page shows kit sections beside
-  the legacy members section until tech-017 (D-5).
-- **Tests:** the fate table names what retires; new cases are the states of §§ 3-8,
-  the dialog refusals, the picker part and the roles of § 10.
+  site goes; `DeleteTeamDialog` is rewritten.
+- **Tests:** the fate table names what retires; new cases are the states of §§ 3-8
+  (the first state of US-7 included), the dialog refusals, the picker part and the
+  roles of § 10.
 
 ## 14. Decisions
 
-For the human at gate-2; the design went on with A.
+**Kept by the human at gate-2 on 2026-10-17 («⭐ Оставить все A»): D-1..D-5 stand on
+A.** OQ-1 C changes none of them.
 
-- [ ] **D-1 The searchable multiselect.** (A, recommended) A new kit field
-  `InlineMultiPickerField` (§ 2). (B) The kit's `InlineMultiSelectField`: no new part,
-  but US-3's "types part of the name" and a user search cannot be built on it.
-- [ ] **D-2 The unlink with «Без команды» as the only destination.** (A, recommended)
-  The field stands with one option and nothing preselected: one code path, and the
-  choice that moves every item stays deliberate (OQ-5 A). (B) No field, a sentence
-  «Рабочие элементы станут «Без команды».» and «Отключить» available at once.
-- [ ] **D-3 Where a project row on a team's page leads.** (A, recommended) The
-  project's «Команды» (the spec's default, R-7): the other end of the link. (B) The
-  project's «Общие»: its name, key and description; the link is then one more click.
-- [ ] **D-4 A prototype.** (A, recommended) None: every screen is made of existing
-  patterns and the new field is built in the showcase first. (B) A clickable
-  prototype of the unlink dialog and the picker (stage 3 calls it mandatory for L).
-- [ ] **D-5 Mixed looks on the team's page.** (A, recommended) Kit sections beside the
-  legacy facts and members until tech-017 moves them. (B) Move `FactsPanel` and
-  `TeamMembersSection` to the kit here: a uniform page, a bigger line.
+- [x] **D-1 The searchable multiselect.** **Kept: A**, a new kit field
+  `InlineMultiPickerField` (§ 2); B was the kit's `InlineMultiSelectField`, which cannot
+  search.
+- [x] **D-2 The unlink with «Без команды» as the only destination.** **Kept: A**, the
+  field with one option, nothing preselected: one code path, a deliberate choice
+  (OQ-5 A); B was no field and «Отключить» at once.
+- [x] **D-3 Where a project row on a team's page leads.** **Kept: A**, the project's
+  «Команды», the other end of the link (R-7); B was its «Общие».
+- [x] **D-4 A prototype.** **Kept: A**, none: the new field is built in the showcase
+  first; B was a clickable prototype of the unlink dialog and the picker.
+- [x] **D-5 Mixed looks on the team's page.** **Kept: A**, kit sections beside the
+  legacy facts and members until tech-017; B was moving `FactsPanel` and
+  `TeamMembersSection` to the kit here.
 
 ## 15. Stories to screens
 
-US-1 §§ 3, 4, 5.1-5.2, 9 · US-2 §§ 7, 8 · US-3 §§ 4, 6.1, 7 · US-4 §§ 6.2, 7 · US-5
-§ 5.3 · US-6 §§ 4, 7 · US-7 nothing of its own (renamed teams and «Нет проектов» show in
-§ 3) · US-8 § 10 (the tenant answers are the backend's).
+Per surface in § 1's table. **US-7 has no screen of its own:** the first state (no team
+anywhere, no project with one) is the empty states of §§ 3, 6.1, 7 and 8, a dropped
+team's address is § 4's «Команда не найдена», and the cards, the owning-team picker and
+the switcher stay mod-017's and feat-039's. US-8 is § 10 (the tenant answers are the
+backend's).

@@ -40,10 +40,12 @@ Affects: BR-OL-13, US-7, OQ-1
 Problem: "the earliest created keeps it" cannot be computed: `teams` has no creation time (`TeamConfiguration.cs`), so the
 migration and its test would each pick their own meaning of "earliest".
 Required resolution: name the measure.
-Status: resolved
+Status: resolved; superseded by OQ-1 C (human, 2026-10-17)
 Resolution: fixed in place by the reviewer. BR-OL-13 reads "earliest" as the smallest id, team ids being time-ordered
 version-7 UUIDs (`Team.Create`, and no migration inserts teams); US-7's first collision row says "the smaller id". The
 backend plan checks that assumption against the stand's data.
+Superseded: the upgrade drops every team and compares no names, so "earliest" is not needed. BR-OL-13 and US-7 no longer
+carry the clause.
 
 ### R-2
 Severity: minor
@@ -52,9 +54,11 @@ Problem: the collision test read "ignoring case and spaces", wider than BR-OL-3'
 pass as a collision with "Platform". The 100-character cut also did not leave room for « 2», so a cut name that was already
 taken could break the length check.
 Required resolution: use BR-OL-3's comparison; make the cut include the suffix.
-Status: resolved
+Status: resolved; superseded by OQ-1 C (human, 2026-10-17)
 Resolution: fixed in place by the reviewer. BR-OL-13 now cites BR-OL-3's comparison and cuts so that the whole name,
 suffixes included, is at most 100 characters. US-7 gains a row for a cut name that is already taken.
+Superseded: no team is renamed in the upgrade, so neither the comparison nor the cut applies there. BR-OL-3's comparison
+still governs the names administrators give afterwards.
 
 ### R-3
 Severity: minor
@@ -149,9 +153,12 @@ Problem: "Nothing visible moves" was not true. A team whose only project is deac
 Gamma. Once teams are the organization's, it is listed in the organization's «Команды» and its page opens (US-1, "A team
 page does not depend on a project"). Renamed teams are visible too. An MR that says nothing visible moved would be wrong.
 Required resolution: name the visible changes.
-Status: resolved
+Status: resolved; superseded by OQ-1 C (human, 2026-10-17)
 Resolution: fixed in place by the reviewer. US-7's second scenario names both changes: the renamed teams, and Ops, listed
 with no project until Gamma is restored.
+Superseded: nothing is renamed and no team survives, so Ops is gone. The point of the finding holds in a larger form:
+"nothing visible moves" is false, and US-7's fourth scenario states what a user sees instead (no team anywhere, every item
+«Без команды»).
 
 ### R-10
 Severity: minor
@@ -214,7 +221,7 @@ bug-005 standing, and the orchestrator orders the two tasks.
 - **Name collisions.**
   - On a rename: US-1 (" venus" refused, "Mars" free against its own name).
   - Across organizations: US-1, US-8.
-  - On the upgrade: US-7, with R-1 and R-2.
+  - On the upgrade: US-7, with R-1 and R-2 (superseded by OQ-1 C: the upgrade drops every team and compares no names).
 - **A team linked to several projects (US-6).**
   - One name and one member list.
   - Views and their reorders per project (OQ-3 A); another project's places never move.
@@ -255,6 +262,10 @@ bug-005 standing, and the orchestrator orders the two tasks.
 OQ-1..OQ-5 stand, each with its options and its recommendation. All five are for the human at gate-1; the orchestrator
 puts them in the gate-1 + gate-2 package after the design. R-1 only makes OQ-1 A's "earliest" precise. The reviewer added
 no question.
+
+Decided by the human on 2026-10-17: OQ-1 C (the upgrade drops every team; R-1, R-2 and R-9 are superseded), OQ-2 A, OQ-3
+to OQ-5 A. The analyst applied them in `spec.md` (BR-OL-10, BR-OL-13, § Existing rules, § Open questions) and rewrote US-7.
+The finding statuses above are the only change to this file; nothing else the reviewer read or decided is touched.
 
 ### Verdict
 
