@@ -69,11 +69,11 @@ QA = `ProjectBoardsQaTests` (added by QA).
 - Steps: `dotnet build Mustask.sln` (or `VERIFY_FULL=1 bash scripts/verify.sh`) in this worktree.
 - Expected / Actual: builds / `error NU1902: Mustask.AppHost.csproj: package MessagePack 2.5.302 has a known vulnerability GHSA-qhrr-8q5h-9q3h` (warnings are errors). The task changes no `.csproj`, `.props`, `Mustask.sln` or AppHost file (`git diff a653917f..HEAD` on them is empty), so main fails the same way; the test projects build and run when built one by one.
 - Fix, outside this task: bump the package through Aspire or add a `NuGetAuditSuppress` for that advisory — a queue line; `Directory.*.props` go through the orchestrator.
-- Status: open (orchestrator)
+- Status: **closed** by `f8ea04ed`, verified in "Re-check 1" below (was: open, orchestrator)
 
 ### Verdict
 
-blockers: 0 · feature defects: 0 · result: **pass** for the backend of feat-039; the repository's verify stays red on D-1 until it is fixed elsewhere.
+blockers: 0 · feature defects: 0 · result: **pass** for the backend of feat-039; the repository's verify stayed red on D-1 until `f8ea04ed` (Re-check 1: green).
 
 ## Frontend
 
@@ -144,3 +144,42 @@ blockers: 0 · majors: 0 in the feature · result: **pass** (defects D-2, D-3 mi
 ## Owed, not testable yet
 
 No-owning-team items on the views (`mod-017-work-item-owning-team`); scoped grants and visibility, BR-MX-21..24 (`mod-019-scoped-access`, `feat-041-project-visibility`); Removed-category writes (`mod-005-work-item-delete-restore` — the tests make a Removed item through the existing delete); the 2 000-card bound (`feat-040-team-surfaces-across-projects`); the "no team in the project" switcher case beyond an empty list (`feat-028-org-level-teams`).
+
+## Re-check 1 (2026-10-17, the first of at most two; same QA pass)
+
+Scope: D-1 and what the fix could have broken. Since the pass the branch gained one commit, `f8ea04ed`: `<PackageReference
+Include="MessagePack" VersionOverride="2.5.303" />` in `Mustask.AppHost.csproj` (`git diff f396ad39..HEAD --stat`: that file, 5
+lines; no feature code, no test, no `Directory.*.props`). E2E: not asked, not run (standing NO).
+
+| Check | Result |
+|---|---|
+| D-1: `dotnet build Mustask.sln` (was `error NU1902`) | green, 0 errors. 8 warnings, all `MSB3073`: `git config core.hooksPath` could not lock the shared `.git/config` while another session wrote to it (`ContinueOnError`, gone on the next call) — not this change |
+| Resolved graph | AppHost `project.assets.json` / `deps.json`: `MessagePack` and `MessagePack.Annotations` 2.5.303; `dotnet list … package --vulnerable --include-transitive` on the AppHost: none (nuget.org reached, so the audit really ran) |
+| Nearby | the test projects compile only `Provisioning/` and `Stand/` sources of the AppHost in and carry no `MessagePack` in their assets; the architecture rules read `PackageReference`s of the layered projects, not the AppHost; no lock file, no other `VersionOverride` in the repository |
+| `VERIFY_FULL=1 bash scripts/verify.sh` | **`RESULT: green`, exit 0** — prose checks, backend build, backend tests, frontend lint, build, tests |
+| Backend tests (the first solution-wide run: the build works now) | Shared 53, Architecture 83, Contracts 242, Application 750, Domain 631, Infrastructure 288, Api.IntegrationTests 2 234 passed + 17 skipped (opt-in live-Keycloak); 0 failed. Counts equal the per-project run of the pass |
+| Frontend suite, whole, once (the pass had 5 timeouts from a frozen host) | 287 files, 4 348 passed, 6 skipped, 0 failed, 562 s. The hypothesis of the pass (environmental) holds; the `+1` file and `+3` tests are `ProjectBoards.qa.test.tsx`, added after that run |
+
+Not verified: the AppHost was not started. No test starts it, and the change is a patch bump on the 2.5 line of a library the
+AppHost takes in through Aspire; the build and the dependency audit are the evidence. The next `dotnet run` of the stand by the
+human is its smoke.
+
+### Defects
+
+D-1 **closed**. D-2 and D-3 unchanged and still open (minors; `git status` still shows `spec.md`, `review.md`, `stories/`
+untracked, and `status.md` still says `stage: 01-business-analysis`).
+
+#### D-4: the pin has no owner and sits outside `Directory.Packages.props` (new, from the fix)
+
+- Severity: **minor**, layer: repository / docs
+- Steps: read the `MessagePack` line in `Mustask.AppHost.csproj`.
+- Expected / Actual: the repository keeps pinned-for-a-reason versions in `Directory.Packages.props` with a comment (Npgsql, the
+  IdentityModel package) / the pin is a `VersionOverride` in the project, and its "drop this line when Aspire resolves a fixed
+  version" has no queue line, so nothing will prompt anyone to drop it. It builds and audits clean; it is a debt, not a fault.
+- Status: open, carried to gate-3 ("Deliberately left open"): orchestrator to move it to `Directory.Packages.props` as a
+  `PackageVersion` (the AppHost keeps its plain `PackageReference`) or leave it, and to queue the removal.
+
+### Verdict (re-check 1)
+
+blockers: 0 · majors: 0 · result: **pass**. D-1 is fixed and nothing nearby broke; `verify.sh` is green on this tree. Open:
+D-2, D-3, D-4, all minor; no second re-check is needed.
