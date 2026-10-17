@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Typography from '@mui/material/Typography';
 import { FormDialog, InlineSelectField } from '../../../shared/ui';
-import type { Team } from '../api/organizationsApi';
+import type { ProjectTeam } from '../api/organizationsApi';
 import { placeRefusal } from '../lib/refusals';
 
 /** The empty choice: no team is named, and the setting is cleared (api-contract § 2.8). */
@@ -22,7 +22,7 @@ export function DefaultTeamDialog({
   onRefused,
   onClose,
 }: {
-  teams: readonly Team[];
+  teams: readonly ProjectTeam[];
   /** `null` is «Не выбрана». */
   submit(teamId: string | null): Promise<unknown>;
   onSucceeded(): void;
