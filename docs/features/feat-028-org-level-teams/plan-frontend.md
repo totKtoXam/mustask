@@ -1,11 +1,8 @@
 # Plan — frontend (feat-028-org-level-teams)
 
-Stage 6 (L). Inputs: `spec.md`, US-1..US-8, `design.md` (D-1..D-5 on A, OQ-1 C, OQ-2..-5 A),
-`api-contract.md` (fixed), `plan-backend.md` § 11 "For the frontend plan" and § 12,
-`docs/conventions/frontend.md`, `ui-kit.md`. Code read: the slice `features/organizations`
-(`TeamsPage`, `TeamPage`, `TeamDialogs`, `DeleteTeamDialog`, `DefaultTeamDialog`, `TeamMembersSection`,
-`CreateProjectDialog`, `ProjectGeneralPage`, the context source), the kit's fields, `Tag`, `DataTable`,
-`Section`, the showcase registry, `kitGuard.allow.ts`. E2E: standing NO, not touched.
+Stage 6 (L). Inputs: `spec.md`, US-1..US-8, `design.md` (D-1..D-5 on A, OQ-1 C, OQ-2..-5 A), `api-contract.md`
+(fixed), `plan-backend.md` §§ 11-12, `frontend.md`, `ui-kit.md`; the slice `features/organizations`, the kit's
+fields, `Tag`, `DataTable`, `Section`, the showcase registry and `kitGuard.allow.ts` were read. E2E: standing NO.
 
 ## 1. Slices and files
 - **Kit (`shared/ui`), first, with tests, showcase entry and guide block:** `fields/InlineMultiPickerField`
@@ -55,7 +52,9 @@ The double and `testFixtures` move to the organization-owned team plus a link li
 dataset's names; new tests per state of §§ 3-8 and per role of § 10; retired tests by name with the rule id
 in a comment at the place (doc-012 P-1). Kit: field and `Tag` tests, showcase registry, `kitGuard` counts.
 
-## 6. For the human
-The create-team form has no server search for active members of the organization (the contract's search is
-at a team's address): `useMembers` filtered locally is used; recommended. The alternative, the organization's
-`member-candidates`, offers non-members and relies on the 409 `member_not_in_organization`.
+## 6. For the human, and as built
+- The create-team form has no server search of the organization's active members (the contract's search is at
+  a team's address): `GET …/members` filtered locally (`useMemberSearch`); recommended. The alternative, the
+  organization's `member-candidates`, offers non-members and leans on the 409 `member_not_in_organization`.
+- «Отключить» is natively disabled until a destination is chosen (`ConfirmDialog.confirmDisabled`), where
+  design § 6.2 says aria-disabled and focusable; the legacy dialog has no such state.

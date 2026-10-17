@@ -3,10 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { rulesFor } from '../../../test/kitTesting';
-import {
-  InlineMultiPickerField,
-  type InlineMultiPickerFieldProps,
-} from './InlineMultiPickerField';
+import { InlineMultiPickerField, type InlineMultiPickerFieldProps } from './InlineMultiPickerField';
 
 // feat-028 design § 2 «InlineMultiPickerField» (D-1): a searchable multiselect on the kit's
 // frame; the chosen are tags with a remove button; the list stays open while picking.
@@ -87,8 +84,14 @@ describe('feat-028 Scenario: InlineMultiPickerField (design § 2, D-1)', () => {
       expect(onChange).toHaveBeenLastCalledWith([ITEMS[0], ITEMS[2]]);
 
       expect(screen.getByRole('listbox')).toBeInTheDocument();
-      expect(screen.getByRole('option', { name: 'Alpha' })).toHaveAttribute('aria-selected', 'true');
-      expect(screen.getByRole('option', { name: 'Beta' })).toHaveAttribute('aria-selected', 'false');
+      expect(screen.getByRole('option', { name: 'Alpha' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+      expect(screen.getByRole('option', { name: 'Beta' })).toHaveAttribute(
+        'aria-selected',
+        'false',
+      );
     });
 
     it('draws a checkbox in each option for the eye only: hidden from the tree, out of the tab order', async () => {
@@ -237,15 +240,17 @@ describe('feat-028 Scenario: InlineMultiPickerField (design § 2, D-1)', () => {
       expect(await screen.findByRole('option', { name: 'Alpha A' })).toBeInTheDocument();
     });
 
-    it('cannot choose a line the host disabled', async () => {
+    it('cannot choose a line the host disabled, which is a hint and has no checkbox', async () => {
       const user = userEvent.setup();
       const onChange = vi.fn();
       render(<Harness onChange={onChange} getOptionDisabled={(item) => item.id === 'a'} />);
       await user.click(input());
-      expect(await screen.findByRole('option', { name: 'Alpha' })).toHaveAttribute(
-        'aria-disabled',
-        'true',
-      );
+      const hint = await screen.findByRole('option', { name: 'Alpha' });
+      expect(hint).toHaveAttribute('aria-disabled', 'true');
+      expect(hint.querySelector('.MuiCheckbox-root')).toBeNull();
+      expect(
+        screen.getByRole('option', { name: 'Beta' }).querySelector('.MuiCheckbox-root'),
+      ).not.toBeNull();
       await user.keyboard('{ArrowDown}{Enter}');
       expect(onChange).toHaveBeenLastCalledWith([ITEMS[1]]);
     });

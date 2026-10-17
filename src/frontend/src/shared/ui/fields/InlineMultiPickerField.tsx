@@ -29,7 +29,7 @@ export interface InlineMultiPickerFieldProps<O> extends FieldProps {
   isOptionEqualToValue?: (option: O, value: O) => boolean;
   /** A stable key, when two options can share a label. */
   getOptionKey?: (option: O) => string | number;
-  /** A line that is shown and cannot be chosen: a hint, «Поиск…». */
+  /** A line that is shown and cannot be chosen: a hint, «Поиск…». It has no checkbox. */
   getOptionDisabled?: (option: O) => boolean;
   /** An option's line in the list, after its checkbox; default its label. */
   renderOption?: (option: O, state: { selected: boolean }) => ReactNode;
@@ -133,14 +133,17 @@ export function InlineMultiPickerField<O>({
           const { key, ...rest } = props;
           return (
             <li key={key} {...rest}>
-              <Checkbox
-                size="small"
-                checked={optionState.selected}
-                disableRipple
-                aria-hidden="true"
-                slotProps={{ input: { tabIndex: -1, 'aria-hidden': true } }}
-                sx={{ p: 0, mr: 1 }}
-              />
+              {/* A line the host disabled is a hint, not a choice: it has no box. */}
+              {!getOptionDisabled?.(option) && (
+                <Checkbox
+                  size="small"
+                  checked={optionState.selected}
+                  disableRipple
+                  aria-hidden="true"
+                  slotProps={{ input: { tabIndex: -1, 'aria-hidden': true } }}
+                  sx={{ p: 0, mr: 1 }}
+                />
+              )}
               {renderOption
                 ? renderOption(option, { selected: optionState.selected })
                 : getOptionLabel(option)}

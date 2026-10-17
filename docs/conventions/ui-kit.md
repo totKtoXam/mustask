@@ -171,7 +171,7 @@ again; `onIncomplete` follows), select (`options`, `emptyLabel` makes it
 optional), multi-select (`value: string[]`, `options`, `emptyText`, `loading`, `onOpen`: the filters; a multiselectable listbox that stays open while the user ticks, the value the chosen names joined by «, »), picker (`options`, `loading`, `endAction`, `clearable`), multi-picker (feat-028: `InlineMultiPickerField`,
 the picker's props with `value: O[]`, `onChange(O[])` and `removeLabel`; the chosen are `Tag`s with a
 remove button before the input, Backspace in an empty input removes the last, the list is a multiselectable
-listbox that stays open while picking, each option with a decorative `aria-hidden` checkbox; the box grows
+listbox that stays open while picking, each option with a decorative `aria-hidden` checkbox (a line the host disables is a hint and has none); the box grows
 by rows, not in width; a host that searches the server passes `inputValue`, `onInputChange` and
 `filterOptions` returning its answer whole; *don't* use it for a few fixed options — that is the
 multi-select), person (an avatar once someone is set, the thin person glyph while nobody is). A select's
