@@ -3,7 +3,7 @@
 - type: tech
 - size: S
 - branch: tech/040-messagepack-pin-to-cpm
-- stage: 06-code-review
+- stage: complete
 - epic: platform/stand
 - deps: -
 - gates: gate-3
@@ -50,6 +50,7 @@ gate-3: pending
 - 2026-10-18 [code-reviewer] code review round 1: changes-requested; open 0 blocker, 1 major (F1, prose: the drop check in Directory.Packages.props), 1 minor (m-1), review.md.
 - 2026-10-18 [backend-developer] review round 1, F1 fixed: the drop check in Directory.Packages.props now names the removal of the AppHost reference; comment only, MSBuild loads the file; resolution under F1 in review.md. m-1 not in this round.
 - 2026-10-18 [code-reviewer] delta read 1: approve; F1 resolved; open 0 blocker, 0 major, 2 minors carried to gate-3 as debt (review m-1, QA D-1), review.md.
+- 2026-10-18 [orchestrator] stage: complete; gate-3 stays pending for the human (Merge button). Minors left: m-1 (Decisions prose), D-1 (no queue line holds the pin's removal). Next: verify.sh, push, PR.
 
 ## Notes
 
