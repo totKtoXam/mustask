@@ -536,7 +536,20 @@ if [ "$need_shell" = 1 ]; then
         [ -f "$file" ] || continue
         case "$file" in
             .githooks/*|*.sh)
-                sh -n "$file" 2>/dev/null || bad="$bad $file(syntax)"
+                # The syntax is read by the interpreter the shebang names (tech-039).
+                # `sh -n` on a bash script fails where sh is dash (the Linux CI)
+                # and passes where sh is bash (Git Bash), so a bash-only script
+                # was green here and red in CI.
+                case "$(head -n 1 "$file" | tr -d '\r')" in
+                    '#!/usr/bin/env bash'*|'#!/bin/bash'*|'#!/usr/bin/bash'*)
+                        if command -v bash >/dev/null 2>&1; then
+                            bash -n "$file" 2>/dev/null || bad="$bad $file(syntax)"
+                        else
+                            skipped "  NOT CHECKED: no bash, $file syntax not checked"
+                        fi
+                        ;;
+                    *) sh -n "$file" 2>/dev/null || bad="$bad $file(syntax)" ;;
+                esac
                 # The executable bit is the mode git holds, which is what the
                 # Linux CI checkout and every clone get (tech-039). `[ -x ]`
                 # reads the working tree, and on Windows it answers yes for any

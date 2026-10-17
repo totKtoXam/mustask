@@ -2,7 +2,7 @@
 # Cases for scripts/verify.sh itself. The green stamp (tech-030): when a full run
 # leaves a stamp, when a later full run takes it, and when it must not. The tooling
 # check of the executable bit (tech-039): the mode git holds decides, not the
-# working tree.
+# working tree; and of the syntax: the shebang's interpreter decides, not `sh`.
 #
 # The cases build a throwaway repository (main plus a task branch that changes
 # documents only, so verify.sh runs just the cheap prose checks) and run the real
@@ -121,6 +121,21 @@ g update-index --chmod=+x scripts/probe.sh && g commit -qm 'probe script, 100755
 out=$(run) && rc=0 || rc=$?
 [ "$rc" = 0 ] && has "$out" 'RESULT: green' && r=0 || r=1
 check 'the same script at 100755: green' $r
+
+# 11. the syntax is read by the interpreter the shebang names (tech-039). A bash
+# script with bash-only syntax (an array, `[[ ]]`) is green: `sh -n` would reject
+# it where sh is dash (the Linux CI) though Git Bash's sh, which is bash, accepts
+# it. The other half runs anywhere: a bash script that is broken is still red.
+printf '#!/usr/bin/env bash\nf() { local a=(1 2); [[ ${a[0]} = 1 ]] && echo ok; }\nf\n' > "$repo/scripts/probe-bash.sh"
+g update-index --add --chmod=+x scripts/probe-bash.sh && g commit -qm 'probe bash script'
+out=$(run) && rc=0 || rc=$?
+[ "$rc" = 0 ] && has "$out" 'RESULT: green' && r=0 || r=1
+check 'a bash-shebang script with bash-only syntax: green' $r
+printf '#!/usr/bin/env bash\nf() { local a=(1 2\n' > "$repo/scripts/probe-bash.sh"
+g commit -qam 'probe bash script, broken'
+out=$(run) && rc=0 || rc=$?
+[ "$rc" != 0 ] && has "$out" 'scripts/probe-bash.sh(syntax)' && r=0 || r=1
+check 'and a broken one is red, named by file' $r
 
 printf '%s passed\n' "$pass"
 [ "$failed" = 0 ]
