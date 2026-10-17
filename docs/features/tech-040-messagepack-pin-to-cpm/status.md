@@ -33,13 +33,18 @@ gate-3: pending
 4. `bash scripts/verify.sh` once (Directory.Packages.props brings up the whole
    suite, s-route.md); the command and the exit code go into the Log.
 
+## Decisions
+
+- The pin is an explicit AppHost `PackageReference` plus a central `PackageVersion`, not `CentralPackageTransitivePinningEnabled`: with the switch the solution restore fails with NU1109 (the Npgsql 8.0.3 and Logging.Abstractions 10.0.0 entries downgrade Api, Infrastructure and the tests); a `PackageVersion` alone, without the reference, leaves MessagePack at 2.5.302 and NU1902 fails the restore.
+- No double hyphen inside an XML comment in Directory.Packages.props: it broke the Aspire SDK's package check at restore.
+
 ## Log
 
 - 2026-10-18 [new-task] task started (scripts/new-task.sh; its worktree was removed so a worktree-isolated agent could take the branch)
 - 2026-10-18 [orchestrator] route S, ordinary cycle — confirmed by the human in chat («⭐ S, обычный цикл»)
-- 2026-10-18 [backend-developer] dev: `PackageVersion MessagePack 2.5.303` in Directory.Packages.props (comment: advisory + drop condition); AppHost keeps a plain `PackageReference` without VersionOverride. Restore experiments on this tree: (A) PackageVersion alone, no explicit reference: AppHost restores MessagePack 2.5.302 and fails with NU1902, so the pin only works with the reference; (B) CentralPackageTransitivePinningEnabled instead of the reference: MessagePack resolves 2.5.303, but the solution restore fails with NU1109 (Npgsql 8.0.3 and Logging.Abstractions 10.0.0 entries downgrade Api, Infrastructure and the test projects), so the switch stays off. Chosen: explicit reference, the repo's pattern for every other pin. A first draft of the comment had a double hyphen inside the XML comment, which broke the Aspire SDK's package check at restore; it is worded around now.
-- 2026-10-18 [backend-developer] proof: `dotnet restore Mustask.sln --force` exit 0; `dotnet build Mustask.sln --no-restore` exit 0, 0 errors, no NU1902 in the log (its 2 warnings are the EnableGitHooks `git config` lock race with a parallel worktree, not this change); `dotnet list package --include-transitive` for Mustask.AppHost: MessagePack requested 2.5.303, resolved 2.5.303; `--vulnerable --include-transitive`: no vulnerable packages.
-- 2026-10-18 [backend-developer] `bash scripts/verify.sh` RESULT: green, exit 0 (backend build; backend tests including integration: Api.IntegrationTests 2304 passed, 17 skipped, 0 failed; Infrastructure.Tests 325, Domain.Tests 658, Application.Tests 709, Contracts.Tests 244, Architecture.Tests 83, Shared.Tests 53; links, ids and status.md budget checks ok). E2E not asked: standing answer no (paused 2026-10-12). stage: 07-qa.
+- 2026-10-18 [backend-developer] dev: PackageVersion MessagePack 2.5.303 in Directory.Packages.props, plain PackageReference in the AppHost (no VersionOverride); the two restore experiments are in the commit body and Decisions.
+- 2026-10-18 [backend-developer] proof: restore --force exit 0; build exit 0 with 0 NU1902; `dotnet list package` (flag include transitive) on the AppHost resolves MessagePack 2.5.303; no vulnerable packages. The build's 2 warnings: the EnableGitHooks git-config lock race with a parallel worktree.
+- 2026-10-18 [backend-developer] `bash scripts/verify.sh` RESULT: green, exit 0 (backend build and tests incl. integration: Api.IntegrationTests 2304 passed, 17 skipped, 0 failed). E2E not asked: standing answer no (paused 2026-10-12). stage: 07-qa.
 
 ## Notes
 
