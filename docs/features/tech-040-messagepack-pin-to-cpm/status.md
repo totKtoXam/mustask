@@ -51,6 +51,7 @@ gate-3: pending
 - 2026-10-18 [backend-developer] review round 1, F1 fixed: the drop check in Directory.Packages.props now names the removal of the AppHost reference; comment only, MSBuild loads the file; resolution under F1 in review.md. m-1 not in this round.
 - 2026-10-18 [code-reviewer] delta read 1: approve; F1 resolved; open 0 blocker, 0 major, 2 minors carried to gate-3 as debt (review m-1, QA D-1), review.md.
 - 2026-10-18 [orchestrator] stage: complete; gate-3 stays pending for the human (Merge button). Minors left: m-1 (Decisions prose), D-1 (no queue line holds the pin's removal). Next: verify.sh, push, PR.
+- 2026-10-18 [orchestrator] `bash scripts/verify.sh` on a9961d58: RESULT: green, exit 0 (prose checks, backend build, backend tests incl. integration: Api.IntegrationTests 2304 passed, 17 skipped, 0 failed). E2E not run: standing answer NO.
 
 ## Notes
 
