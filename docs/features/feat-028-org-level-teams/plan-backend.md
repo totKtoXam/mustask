@@ -651,3 +651,48 @@ something shared escalates, it does not negotiate. Cross-cutting rows that no la
   default lock, and bug-005 superseded; D-6 the unlink as a `POST`, the count renamed `unlink-count` (settling US-1 against US-8); D-7 the second codes, including `team.write` for
   members at creation; D-8 `destination` requires its key. The spec's retirement of `GetTeamOwnedItemCountEndpointTests.Count_NotATeamOfTheProject_Returns404TeamNotFound` is
   reversed to a rewrite (§ 9.1) — an inconsistency of the spec table with US-8, found here.
+
+## 12. As built
+
+Written at the end of stage 4b, against the code of the branch. **`api-contract.md` is unchanged**: no deviation below reached an interface.
+Where the plan said "for the human", the option it went on with is what was built.
+
+### 12.1 Deviations from the plan
+
+| # | Plan | As built | Why |
+|---|---|---|---|
+| A-1 | § 4.2: `Down` restores the shape and leaves the teams empty. | `Down` also **inserts one active team per project, named after it**, as its last statement (the only rows it writes). | The previous migration's `Down` (`RetireAreaOwnership`) re-creates the first-team marker and needs every project to have an active team, as mod-002 guaranteed; with the new world's teamless projects it failed. A rollback past this migration is a stand reset anyway (§ 4.2); the migration test rolls back past it with a post-upgrade team, link, member and place present and applies it again. |
+| A-2 | § 3: `Project.Create(organizationId, name, key, description?, createdAt, createdBy)`. | `Project.Create(organizationId, name, key, createdAt, createdBy, description = null)`; `Team.Create(organizationId, name, description = null)`. | The optional value goes last, so the callers that predate the description keep their argument order (one overload, no call site reordered). |
+| A-3 | § 6: `IProjectTeamRepository.LockLinksAsync` returns the locked rows; `FindLinkedAsync(project, teamIds)`. | `LockLinksAsync` returns `Task` (the handler judges on the fresh `FindProjectTeamAsync` reads that follow, § 7.2), and every method takes the organization first, `FindLinkedAsync` included. | A lock statement that returns rows would invite judging on them; the organization in every statement is ADR-0028 rule 4. |
+| A-4 | § 9.1: `GetTeamOwnedItemCountEndpointTests.Count_NotATeamOfTheProject_Returns404TeamNotFound` is rewritten as `Count_NotLinkedToTheProject_Returns404TeamNotFound` in the same class. | The endpoint class is renamed **`GetUnlinkCountEndpointTests`** (the route is the unlink's `unlink-count` now), the method **`Count_NotALinkedActiveTeamOfTheProject_Returns404TeamNotFound`** (it also covers a team linked to no project and one of a deactivated project); the handler-test class `GetTeamOwnedItemCountHandlerTests` keeps its name (D-12 keeps the slice). | D-16: the name states the rule it tests. |
+| A-5 | § 9.3: one `TeamMembersAtTheTeamEndpointTests` class for the four member routes. | The four existing classes (`AddTeamMemberEndpointTests`, `GetTeamMembersEndpointTests`, `RemoveTeamMemberEndpointTests`, `SearchTeamMemberCandidatesEndpointTests`) are rewritten at the team's address; "one list serves every project" is `TeamAcrossProjectsEndpointTests.Members_AreMarkedInEveryProject`. | A new class would have copied four existing ones; the rewrite keeps their history and their names (P-1). |
+| A-6 | § 9.4: `LockOrder_UnlinkAndLink_AreAscendingByTeamId` reads the lock statements of the unlink and the link from the SQL log. | `TeamStatementCountTests.Unlink_LocksThePairOfLinksInOneOrderedStatement_AndNoTeamRow` (the unlink: one `FOR NO KEY UPDATE … ORDER BY` statement on `project_teams`, no team row, D-5); the creation's ordered lock is proved by `UnlinkRacesEndpointTests.Create_VersusTheDeletionOfTheNamedDefault_AndASecondDeletionOrAnUnlink_NoDeadlock` (four cases, both orders of the team ids). | The behaviour is what matters: the three requests of CR-7 finish. `SqlLogInterceptor` is the helper that pins a statement's shape. |
+| A-7 | § 9.3: scenario test names. | Several names differ from § 9.3's (the intent and the `// US-n · scenario` comments are kept). | Names were chosen against the test files as written; every scenario of § 9.3 has a test, and the commit messages carry old → new for the renamed ones. |
+
+### 12.2 Pinned numbers
+
+Statement counts (`TeamStatementCountTests`, small = large, pinned on the first green run): the organization's list **2** (2 teams over 2 projects and 200 over 50);
+the project's linked list **2**; a team's projects **2**; the deletion's counts **3** (2 and 50 projects); a link **4** (1 pair and 50, from the project's end and from the
+team's); the creation of a team **5** (1 project and 1 member, 50 and 200); the creation of a project **6** (1 team and 50); the unlink **11** (50 items and 5 000);
+the deletion **11** (2 projects and 50 items, 50 projects and 5 000). `OwningTeamStatementCountTests` and `ProjectBacklogStatementCountTests` are re-pinned.
+
+The migration's notice reads `feat-028: N teams, M team memberships, P team places, Q team order rows and R default-team settings dropped; S work items made without a team`;
+on the test data of US-7 (seven teams, two memberships, three places, two order rows, one setting, five owned items) it is
+`feat-028: 7 teams, 2 team memberships, 3 team places, 2 team order rows and 1 default-team settings dropped; 5 work items made without a team`.
+
+Volumes: `UnlinkTeamVolumeTests` (5 000 items within 5 s, the team's 200 items in another project untouched), `DeleteTeamVolumeTests` (5 000 over three projects within 5 s),
+`GetOrganizationTeamsVolumeTests` (200 teams over 50 projects within 2 s).
+
+### 12.3 For the human (the plan's recommendation was built)
+
+- **D-3** — the unlink locks the links `FOR NO KEY UPDATE`, where ADR-0028 rule 8 reads `FOR UPDATE`; the ADR's text stays as accepted, and `mod-018-area-workspace`'s amendment can carry the clarification.
+- **D-4** — a creation that may default locks every link of the project `FOR SHARE` in one statement ordered by team id; **bug-005 is superseded** (its cycle cannot form) and is kept as
+  the regression test `Create_VersusTheDeletionOfTheNamedDefault_AndASecondDeletionOrAnUnlink_NoDeadlock`; the orchestrator may withdraw it from the queue.
+- **D-7 / D-8** — the second codes are asked first of all (a creation with `memberIds` also needs `team.write`); `destination` requires its `teamId` key.
+- **A-1** — the `Down` writes one team per project.
+
+### 12.4 Owed to the other stages
+
+- **Frontend (stage 6):** `src/frontend/src/test/organizationRoles.ts` gains the four codes; "For the frontend plan" in § 11 stands.
+- **E2E:** the standing answer is NO; the specs § 11 lists are broken and not edited.
+- **P-10 notes** for mod-002, mod-016, mod-017, mod-006 and feat-039 (§ 11) are one Log line each in their `status.md`; the amendments of their contracts are the orchestrator's.
