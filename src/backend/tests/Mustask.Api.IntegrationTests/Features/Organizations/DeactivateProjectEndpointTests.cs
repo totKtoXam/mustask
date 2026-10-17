@@ -130,13 +130,12 @@ public sealed class DeactivateProjectEndpointTests(MustaskApiFactory factory)
         Assert.Equal(ProjectStatus.Deactivated, (await ReadProjectAsync(structure.ProjectId)).Status);
     }
 
-    // US-3 · "A project is deactivated": opening its address, or the address of one of its teams or areas, answers «Проект не
+    // US-3 · "A project is deactivated": opening its address, or the address of its linked teams or areas, answers «Проект не
     // найден» (BR-M1-20, ADR-0026 rule 5). Each read answers before the deactivation (so it is the deactivation that changes
     // it), and project.not_found after.
     [Theory]
     [InlineData("project")]
     [InlineData("teams")]
-    [InlineData("team")]
     [InlineData("areas")]
     public async Task Deactivate_ThenReadsBeneath_Return404ProjectNotFound(string read)
     {
@@ -145,7 +144,6 @@ public sealed class DeactivateProjectEndpointTests(MustaskApiFactory factory)
         {
             "project" => OrganizationsApi.Project(structure.OrganizationId, structure.ProjectId),
             "teams" => OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId),
-            "team" => $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{structure.Platform.Id}",
             _ => OrganizationsApi.Areas(structure.OrganizationId, structure.ProjectId),
         };
 
@@ -214,7 +212,7 @@ public sealed class DeactivateProjectEndpointTests(MustaskApiFactory factory)
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<MustaskDbContext>();
         var project = await db.Projects.AsNoTracking().SingleAsync(row => row.Id == projectId);
-        var teams = await db.Teams.AsNoTracking().Where(team => team.ProjectId == projectId).OrderBy(team => team.Id).ToListAsync();
+        var teams = await db.Teams.AsNoTracking().Where(team => db.ProjectTeams.Any(link => link.ProjectId == projectId && link.TeamId == team.Id)).OrderBy(team => team.Id).ToListAsync();
         var areas = await db.Areas.AsNoTracking().Where(area => area.ProjectId == projectId).OrderBy(area => area.Id).ToListAsync();
 
         return new Beneath(

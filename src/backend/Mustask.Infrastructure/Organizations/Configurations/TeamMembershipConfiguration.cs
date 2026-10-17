@@ -24,9 +24,13 @@ internal sealed class TeamMembershipConfiguration : IEntityTypeConfiguration<Tea
         builder.Property(membership => membership.OrganizationId).IsRequired();
         builder.Property(membership => membership.UserId).HasMaxLength(OrganizationLimits.UserIdMaxLength).IsRequired();
 
+        // feat-028 (ADR-0028 rule 4): the organization copy becomes a real key — (organization_id, team_id) onto the team's
+        // alternate key (organization_id, id) — so a membership never names a team of another organization.
         builder.HasOne<Team>()
             .WithMany()
-            .HasForeignKey(membership => membership.TeamId)
+            .HasForeignKey(membership => new { membership.OrganizationId, membership.TeamId })
+            .HasPrincipalKey(team => new { team.OrganizationId, team.Id })
+            .HasConstraintName(OrganizationsConstraints.TeamMembershipTeamKey)
             .OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<OrganizationMembership>()
             .WithMany()

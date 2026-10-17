@@ -45,6 +45,6 @@ public sealed class GetProjectHandler(IProjectReadModel projects)
             throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
         }
 
-        return new GetProjectResult(new ProjectResponse(project.Id, project.OrganizationId, project.Name, project.Key));
+        return new GetProjectResult(new ProjectResponse(project.Id, project.OrganizationId, project.Name, project.Key, project.Description));
     }
 }

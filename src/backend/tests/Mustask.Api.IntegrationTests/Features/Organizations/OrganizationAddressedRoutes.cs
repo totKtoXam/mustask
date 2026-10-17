@@ -23,7 +23,8 @@ public sealed record OrganizationRoute(string Method, string Template, string Co
 /// <summary>
 /// Every organization-addressed route that exists, with the organization code each declares (mod-016 api-contract § 4.1–§ 4.2 and
 /// § 1–§ 2): the 23 of mod-002, mod-001's process read, the seven of mod-003 and feat-001 (their api-contract § 5 and § 6, rows 28–34),
-/// mod-006's three (rows 35–37), feat-039's three project routes beside them and the ten of mod-016's own access and memberships. A later module that adds one adds it here with
+/// mod-006's three (rows 35–37), feat-039's three project routes beside them and the ten of mod-016's own access and memberships;
+/// feat-028 (api-contract § 4) moved the team routes to the organization's address: 55 routes in all. A later module that adds one adds it here with
 /// its code, and the inventory test (<c>OrganizationAccessInventoryTests</c>) makes sure it cannot forget: a route under
 /// <c>{organizationId}</c> that is not in this list, or is in it with another code than the one it declares, turns the build red.
 /// </summary>
@@ -34,6 +35,7 @@ public static class OrganizationAddressedRoutes
     private const string Org = "/api/organizations/{organizationId}";
     private const string Project = Org + "/projects/{projectId}";
     private const string Team = Project + "/teams/{teamId}";
+    private const string OrgTeam = Org + "/teams/{teamId}";
     private const string Area = Project + "/areas/{areaId}";
     private const string Item = Project + "/workitems/{identifier}";
 
@@ -51,13 +53,26 @@ public static class OrganizationAddressedRoutes
         new("PUT", Project + "/name", PermissionCatalog.OrganizationsProjectWrite),
         new("POST", Project + "/deactivate", PermissionCatalog.OrganizationsProjectDeactivate),
         new("POST", Project + "/restore", PermissionCatalog.OrganizationsProjectDeactivate),
-        new("PUT", Project + "/default-team", PermissionCatalog.OrganizationsTeamWrite),
+        // feat-028 api-contract § 4: the default team is the project's own setting (project.write) and must be linked; a project
+        // describes itself; its page links teams, unlinks one (the unlink and its count carry the project's link code, the team's is
+        // asked by the handler) and lists the linked ones.
+        new("PUT", Project + "/default-team", PermissionCatalog.OrganizationsProjectWrite),
+        new("PUT", Project + "/description", PermissionCatalog.OrganizationsProjectWrite),
         new("GET", Project + "/teams", PermissionCatalog.OrganizationsTeamRead),
-        new("GET", Team, PermissionCatalog.OrganizationsTeamRead),
-        new("POST", Project + "/teams", PermissionCatalog.OrganizationsTeamWrite),
-        new("PUT", Team + "/name", PermissionCatalog.OrganizationsTeamWrite),
-        new("GET", Team + "/owned-items/count", PermissionCatalog.OrganizationsTeamWrite),
-        new("DELETE", Team, PermissionCatalog.OrganizationsTeamWrite),
+        new("POST", Project + "/teams", PermissionCatalog.OrganizationsProjectLink),
+        new("POST", Team + "/unlink", PermissionCatalog.OrganizationsProjectLink),
+        new("GET", Team + "/unlink-count", PermissionCatalog.OrganizationsProjectLink),
+
+        // feat-028 api-contract § 2.1, § 2.2: the organization's teams, at the organization's address.
+        new("GET", Org + "/teams", PermissionCatalog.OrganizationsTeamRead),
+        new("POST", Org + "/teams", PermissionCatalog.OrganizationsTeamCreate),
+        new("GET", OrgTeam, PermissionCatalog.OrganizationsTeamRead),
+        new("PUT", OrgTeam + "/name", PermissionCatalog.OrganizationsTeamWrite),
+        new("PUT", OrgTeam + "/description", PermissionCatalog.OrganizationsTeamWrite),
+        new("DELETE", OrgTeam, PermissionCatalog.OrganizationsTeamDelete),
+        new("GET", OrgTeam + "/deletion-counts", PermissionCatalog.OrganizationsTeamDelete),
+        new("GET", OrgTeam + "/projects", PermissionCatalog.OrganizationsTeamRead),
+        new("POST", OrgTeam + "/projects", PermissionCatalog.OrganizationsTeamLink),
         new("GET", Project + "/areas", PermissionCatalog.OrganizationsAreaRead),
         new("POST", Project + "/areas", PermissionCatalog.OrganizationsAreaWrite),
         new("PUT", Area + "/name", PermissionCatalog.OrganizationsAreaWrite),
@@ -94,10 +109,10 @@ public static class OrganizationAddressedRoutes
         new("POST", Org + "/members", PermissionCatalog.OrganizationsMembershipWrite),
         new("PUT", Org + "/members/{userId}/role", PermissionCatalog.OrganizationsMembershipWrite),
         new("DELETE", Org + "/members/{userId}", PermissionCatalog.OrganizationsMembershipWrite),
-        new("GET", Team + "/members", PermissionCatalog.OrganizationsTeamRead),
-        new("GET", Team + "/member-candidates", PermissionCatalog.OrganizationsTeamWrite),
-        new("POST", Team + "/members", PermissionCatalog.OrganizationsTeamWrite),
-        new("DELETE", Team + "/members/{userId}", PermissionCatalog.OrganizationsTeamWrite),
+        new("GET", OrgTeam + "/members", PermissionCatalog.OrganizationsTeamRead),
+        new("GET", OrgTeam + "/member-candidates", PermissionCatalog.OrganizationsTeamWrite),
+        new("POST", OrgTeam + "/members", PermissionCatalog.OrganizationsTeamWrite),
+        new("DELETE", OrgTeam + "/members/{userId}", PermissionCatalog.OrganizationsTeamWrite),
     ];
 
     /// <summary>The ten routes of mod-016's own access and memberships (api-contract § 1-§ 2), the last of <see cref="All"/>.</summary>
@@ -131,6 +146,11 @@ public static class OrganizationAddressedRoutes
                 position = "top",
                 userId = "u-" + Guid.CreateVersion7().ToString("N"),
                 role = "viewer",
+                description = "Описание",
+                teamIds = Array.Empty<string>(),
+                projectIds = Array.Empty<string>(),
+                memberIds = Array.Empty<string>(),
+                destination = new { teamId = (string?)null },
             }
             : null;
 

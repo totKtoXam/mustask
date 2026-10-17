@@ -40,7 +40,7 @@ public sealed class AreasOwnNothingEndpointTests(MustaskApiFactory factory)
         Assert.Equal(treeBefore, (await OrganizationsTestData.ReadTreeAsync(factory, world.ProjectId)).PreOrder().ToList());
         Assert.Equal(
             HttpStatusCode.OK,
-            (await OrganizationsApi.SendAsync(factory, HttpMethod.Get, $"{Project(world)}/teams/{world.Mars}", token: OrganizationsTokens.SignedIn())).Status);
+            (await OrganizationsApi.SendAsync(factory, HttpMethod.Get, TeamTestData.Team(world.OrganizationId, world.Mars), token: OrganizationsTokens.SignedIn())).Status);
     }
 
     // US-6 · "moving or renaming an area moves no item": an item in the area keeps its team, its area and its «Изменён» through
@@ -124,7 +124,7 @@ public sealed class AreasOwnNothingEndpointTests(MustaskApiFactory factory)
         var member = await MembershipTestData.NewNamedMemberAsync(
             factory, world.OrganizationId, Mustask.Domain.Identity.OrganizationRole.Member, "Вера", "Новикова");
         var before = await StoredAsync(factory, world.ProjectId, item.Identifier);
-        var members = $"{Project(world)}/teams/{world.Mars}/members";
+        var members = $"{TeamTestData.Team(world.OrganizationId, world.Mars)}/members";
 
         var added = await OrganizationsApi.SendAsync(
             factory, HttpMethod.Post, members, new { userId = member.Id }, OrganizationsTokens.SignedIn());

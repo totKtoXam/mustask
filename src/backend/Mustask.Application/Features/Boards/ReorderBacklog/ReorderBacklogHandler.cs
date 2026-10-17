@@ -50,15 +50,13 @@ public sealed class ReorderBacklogHandler(
         }
 
         if (!AddressedId.TryParse(command.ProjectId, out var projectId)
-            || await structure.FindProjectAsync(projectId, cancellationToken) is not { IsReachable: true } project
-            || project.OrganizationId != organizationId)
+            || await structure.FindProjectAsync(organizationId, projectId, cancellationToken) is not { IsReachable: true } project)
         {
             throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
         }
 
         if (!AddressedId.TryParse(command.TeamId, out var teamId)
-            || await structure.FindTeamAsync(teamId, cancellationToken) is not { IsReachable: true } team
-            || team.ProjectId != projectId)
+            || await structure.FindProjectTeamAsync(organizationId, projectId, teamId, cancellationToken) is not { IsLinked: true, Team.IsReachable: true })
         {
             throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
         }

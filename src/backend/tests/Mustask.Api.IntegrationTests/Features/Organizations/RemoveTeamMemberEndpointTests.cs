@@ -4,7 +4,7 @@ using Mustask.Domain.Identity;
 namespace Mustask.Api.IntegrationTests.Features.Organizations;
 
 /// <summary>
-/// <c>DELETE /api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}/members/{userId}</c> (mod-016 api-contract
+/// <c>DELETE /api/organizations/{organizationId}/teams/{teamId}/members/{userId}</c> (mod-016 api-contract
 /// § 2.4; US-3 "An administrator removes a team member", "Removing a team member who is already gone"): the user leaves this team
 /// only — they stay in the organization with their role and still read every team.
 /// </summary>
@@ -19,7 +19,7 @@ public sealed class RemoveTeamMemberEndpointTests(MustaskApiFactory factory)
         OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Delete,
-            $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{teamId}/members/{Uri.EscapeDataString(userId)}",
+            $"{OrganizationsApi.OrgTeams(structure.OrganizationId)}/{teamId}/members/{Uri.EscapeDataString(userId)}",
             token: token);
 
     private async Task<(OrganizationStructure Structure, string AdminToken)> WorldAsync()
@@ -63,7 +63,7 @@ public sealed class RemoveTeamMemberEndpointTests(MustaskApiFactory factory)
 
         await RemoveAsync(structure, teamId, member.Id, token);
         var members = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Get, $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{teamId}/members", token: member.Token);
+            factory, HttpMethod.Get, $"{OrganizationsApi.OrgTeams(structure.OrganizationId)}/{teamId}/members", token: member.Token);
         var access = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, $"{OrganizationsApi.Organization(structure.OrganizationId)}/access", token: member.Token);
 
         Assert.Equal(HttpStatusCode.OK, members.Status);
@@ -99,22 +99,22 @@ public sealed class RemoveTeamMemberEndpointTests(MustaskApiFactory factory)
         Assert.Equal([elsewhere.Id], await MembershipTestData.TeamMemberIdsAsync(factory, structure.ProjectTeamId));
     }
 
-    // api-contract § 2 · the team must be reachable: a deleted, unknown, malformed or another project's team answers `team.not_found`,
-    // an unknown project `project.not_found` — and nothing is removed.
+    // feat-028 api-contract § 2.3 · the team must be an active team of THIS organization: an unknown, malformed or another organization's team answers
+    // `team.not_found` — and nothing is removed (the project left the address).
     [Fact]
     public async Task Remove_FromTheWrongContainerOrADeletedTeam_AnswersTheLevelNotFound()
     {
         var (structure, token) = await WorldAsync();
         var member = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, OrganizationRole.Member);
         await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.Platform.Id, member.Id);
-        var otherProject = await OrganizationsTestData.CreateProjectAsync(factory, structure.OrganizationId, "Другой проект", "OTH");
+        var elsewhere = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = OrganizationsApi.Organization(structure.OrganizationId);
 
         var wrongTeams = new[]
         {
-            $"{organization}/projects/{structure.ProjectId}/teams/{Guid.CreateVersion7()}/members/{member.Id}",
-            $"{organization}/projects/{structure.ProjectId}/teams/abc/members/{member.Id}",
-            $"{organization}/projects/{otherProject.Project.Id}/teams/{structure.Platform.Id}/members/{member.Id}",
+            $"{organization}/teams/{Guid.CreateVersion7()}/members/{member.Id}",
+            $"{organization}/teams/abc/members/{member.Id}",
+            $"{organization}/teams/{elsewhere.Platform.Id}/members/{member.Id}",
         };
 
         foreach (var path in wrongTeams)
@@ -124,13 +124,6 @@ public sealed class RemoveTeamMemberEndpointTests(MustaskApiFactory factory)
             Assert.Equal((HttpStatusCode.NotFound, "organizations.team.not_found"), (answer.Status, answer.ErrorCode));
         }
 
-        var wrongProject = await OrganizationsApi.SendAsync(
-            factory,
-            HttpMethod.Delete,
-            $"{organization}/projects/{Guid.CreateVersion7()}/teams/{structure.Platform.Id}/members/{member.Id}",
-            token: token);
-
-        Assert.Equal((HttpStatusCode.NotFound, "organizations.project.not_found"), (wrongProject.Status, wrongProject.ErrorCode));
         Assert.Equal([member.Id], await MembershipTestData.TeamMemberIdsAsync(factory, structure.Platform.Id));
     }
 

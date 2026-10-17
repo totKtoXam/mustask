@@ -36,7 +36,6 @@ public sealed class OrganizationErrorCatalogTests
         { OrganizationErrorCodes.ProjectKeyTaken, 409, "key:string", "Ключ «{key}» уже используется в организации" },
         { OrganizationErrorCodes.TeamNameTaken, 409, "", "Команда с таким названием уже есть в организации" },
         { OrganizationErrorCodes.TeamNotInProject, 409, "", "Команда не участвует в проекте." },
-        { OrganizationErrorCodes.TeamLastTeamCannotBeDeleted, 409, "", "Нельзя удалить единственную команду проекта." },
         { OrganizationErrorCodes.AreaNameTaken, 409, "", "Область с таким названием уже есть на этом уровне" },
         { OrganizationErrorCodes.AreaMoveIntoOwnSubtree, 409, "", "Нельзя переместить область внутрь неё самой или её вложенной области" },
         { OrganizationErrorCodes.AreaNotEmpty, 409, "", "Нельзя удалить область, в которой есть рабочие элементы (включая удалённые) или вложенные области" },
@@ -82,6 +81,8 @@ public sealed class OrganizationErrorCatalogTests
     [InlineData("organizations.team.first_team_default_fixed", "У первой команды область по умолчанию не меняется")]
     [InlineData("organizations.team.first_team_cannot_be_deleted", "Нельзя удалить команду, которой принадлежит корневая область проекта")]
     [InlineData("organizations.area.is_team_default", "Область используется как область по умолчанию команды «{team}»")]
+    // feat-028 BR-OL-10: the last-team guard is retired the same way.
+    [InlineData("organizations.team.last_team_cannot_be_deleted", "Нельзя удалить единственную команду проекта.")]
     public void RetiredCode_StaysInTheCatalog_Deprecated_WithNoConstant(string code, string ru)
     {
         var found = CatalogFixture.Catalog.TryGet(code, out var entry);

@@ -16,8 +16,12 @@ internal sealed class ProjectConfiguration : IEntityTypeConfiguration<Project>
     {
         builder.HasKey(project => project.Id);
         builder.Property(project => project.Id).ValueGeneratedNever();
+        // feat-028 (ADR-0028 rule 4): the target of the link's key onto the project, so the database refuses a link whose
+        // organization is not the project's.
+        builder.HasAlternateKey(project => new { project.OrganizationId, project.Id });
 
         builder.Property(project => project.OrganizationId).IsRequired();
+        builder.Property(project => project.Description).HasColumnType("text");
         builder.Property(project => project.Name).HasMaxLength(OrganizationLimits.NameMaxLength).IsRequired();
         builder.Property(project => project.NormalizedName).HasMaxLength(OrganizationLimits.NameMaxLength).IsRequired();
         builder.Property(project => project.Key).HasMaxLength(OrganizationLimits.KeyMaxLength).IsRequired();
@@ -33,14 +37,15 @@ internal sealed class ProjectConfiguration : IEntityTypeConfiguration<Project>
             .HasForeignKey(project => project.OrganizationId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // mod-017 (BR-OT-4): the default-team setting references one of the project's own teams: the key is composite,
-        // (id, default_team_id) onto the alternate key (project_id, id) of teams, so the database refuses another project's
-        // team. A null setting leaves it unchecked (MATCH SIMPLE). Restrict: no team row is removed, a team is deleted by
-        // its status, and the deletion clears the setting that names it in its own operation (BR-OT-12).
-        builder.HasOne<Team>()
+        // mod-017 (BR-OT-4), feat-028 (BR-OL-7): the default-team setting references one of the project's own links: the key is
+        // composite, (id, default_team_id) onto the link's primary key (project_id, team_id), so the database refuses a team
+        // that is not linked to the project. A null setting leaves it unchecked (MATCH SIMPLE). Restrict: no link row is removed
+        // under a setting; the unlink and the deletion clear the setting that names the team in their own operation first.
+        builder.HasOne<ProjectTeam>()
             .WithMany()
             .HasForeignKey(project => new { project.Id, project.DefaultTeamId })
-            .HasPrincipalKey(team => new { team.ProjectId, team.Id })
+            .HasPrincipalKey(link => new { link.ProjectId, link.TeamId })
+            .HasConstraintName(OrganizationsConstraints.ProjectDefaultTeamKey)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(project => new { project.OrganizationId, project.NormalizedName }, OrganizationsConstraints.ProjectName).IsUnique();
@@ -51,6 +56,7 @@ internal sealed class ProjectConfiguration : IEntityTypeConfiguration<Project>
             table.HasCheckConstraint("ck_projects_status", "status IN ('Active', 'Deactivated')");
             table.HasCheckConstraint("ck_projects_name_length", OrganizationsConstraints.NameLengthCheck);
             table.HasCheckConstraint("ck_projects_key_format", "key ~ '^[A-Z][A-Z0-9]{1,9}$'");
+            table.HasCheckConstraint("ck_projects_description_length", OrganizationsConstraints.DescriptionLengthCheck);
         });
     }
 }

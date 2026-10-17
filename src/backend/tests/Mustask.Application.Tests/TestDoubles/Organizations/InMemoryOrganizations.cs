@@ -32,6 +32,9 @@ public sealed class InMemoryOrganizations
 
     public List<Team> Teams { get; } = [];
 
+    /// <summary>The project–team links (feat-028 BR-OL-4): one per pair, with who made it and when.</summary>
+    public List<ProjectTeam> Links { get; } = [];
+
     public List<Area> Areas { get; } = [];
 
     public List<OrganizationMembership> Memberships { get; } = [];
@@ -105,14 +108,34 @@ public sealed class InMemoryOrganizations
         return project;
     }
 
-    /// <summary>An ordinary team of the project: no area, no first-team role (mod-017 BR-OT-11).</summary>
-    public Team AddTeam(NewProject project, string name = "Платформа")
+    /// <summary>A team of the organization (feat-028 BR-OL-1): linked to no project until <see cref="Link"/> says so.</summary>
+    public Team AddTeam(Organization organization, string name = "Платформа")
     {
-        var team = Team.Create(project.Project.Id, Name(name));
+        var team = Team.Create(organization.Id, Name(name));
         Teams.Add(team);
 
         return team;
     }
+
+    /// <summary>A link between the project and the team, made by <see cref="Creator"/> at <see cref="Now"/>.</summary>
+    public ProjectTeam Link(NewProject project, Team team)
+    {
+        var link = ProjectTeam.Link(project.Project.OrganizationId, project.Project.Id, team.Id, Creator, Now);
+        Links.Add(link);
+
+        return link;
+    }
+
+    /// <summary>A team of the project's organization, linked to the project.</summary>
+    public Team AddLinkedTeam(Organization organization, NewProject project, string name = "Платформа")
+    {
+        var team = AddTeam(organization, name);
+        Link(project, team);
+
+        return team;
+    }
+
+    public bool IsLinked(Guid projectId, Guid teamId) => Links.Any(link => link.ProjectId == projectId && link.TeamId == teamId);
 
     public Area AddArea(Area parent, string name)
     {
@@ -125,7 +148,6 @@ public sealed class InMemoryOrganizations
     public void Store(NewProject project)
     {
         Projects.Add(project.Project);
-        Teams.Add(project.Team);
         Areas.Add(project.Root);
     }
 
@@ -201,6 +223,9 @@ public sealed class InMemoryOrganizations
                     break;
                 case Team team:
                     Teams.Add(team);
+                    break;
+                case ProjectTeam link:
+                    Links.Add(link);
                     break;
                 case Area area:
                     Areas.Add(area);

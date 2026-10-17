@@ -42,73 +42,38 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
             .SingleAsync(cancellationToken);
     }
 
-    public Task LockTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
-        // The team is named with the organization of the address, so a team of another organization locks nothing (ADR-0028
-        // § 4): the later read finds it unknown, exactly as it finds an id that never existed. Only the team row is locked.
+    public Task LockTeamLinkAsync(Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
+        // The link is named with the organization of the address, so a team or a project of another organization locks nothing
+        // (ADR-0028 § 4): the later read finds the team unknown, exactly as it finds an id that never existed. Only the link row
+        // is locked (step 3 of rule 8); a deletion also holds the team row, which a binder of the link does not need.
         context.Database.ExecuteSqlInterpolatedAsync(
             $"""
              SELECT 1
-             FROM teams
-             JOIN projects ON projects.id = teams.project_id
-             WHERE teams.id = {teamId} AND projects.organization_id = {organizationId}
-             FOR SHARE OF teams
+             FROM project_teams
+             WHERE organization_id = {organizationId} AND project_id = {projectId} AND team_id = {teamId}
+             FOR SHARE
              """,
             cancellationToken);
 
-    /// <summary>How often the default is read again after the team it named is found deleted (plan-backend § 3).</summary>
-    private const int DefaultTeamAttempts = 3;
-
-    public async Task<Guid?> LockDefaultTeamAsync(Guid projectId, CancellationToken cancellationToken)
+    public async Task<Guid?> LockProjectLinksAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken)
     {
-        for (var attempt = 0; attempt < DefaultTeamAttempts; attempt++)
-        {
-            var teamId = await DefaultTeams.ResolveAsync(context, projectId, cancellationToken);
+        // Every link of the project FOR SHARE, in one statement ordered by team id — the order an unlink (the pair, by team id)
+        // and a deletion (the team's links, by project id) take them in, so a creation never waits for a link while holding another
+        // out of order (plan-backend D-4, § 7.4). Shares do not wait for each other or for a binder's share.
+        await context.Database.ExecuteSqlInterpolatedAsync(
+            $"""
+             SELECT 1
+             FROM project_teams
+             WHERE organization_id = {organizationId} AND project_id = {projectId}
+             ORDER BY team_id
+             FOR SHARE
+             """,
+            cancellationToken);
 
-            if (teamId is null)
-            {
-                // No default resolves now (two or more active teams, none named; BR-OT-4). The creation must still queue
-                // against a team's deletion, which holds every active team, and take the default as it stands after it
-                // (BR-OT-13 (2)): lock them all, then read the default again under the lock (mod-017 QA D-1, CR-1, S-1).
-                await LockActiveTeamsAsync(projectId, cancellationToken);
-                teamId = await DefaultTeams.ResolveAsync(context, projectId, cancellationToken);
-
-                if (teamId is null)
-                {
-                    // Still none under the lock: no deletion can commit before this creation does, so none is the default
-                    // as it stands, for the whole of the creation.
-                    return null;
-                }
-            }
-
-            await context.Database.ExecuteSqlInterpolatedAsync(
-                $"SELECT 1 FROM teams WHERE id = {teamId} AND project_id = {projectId} FOR SHARE",
-                cancellationToken);
-
-            // A new statement under READ COMMITTED: a team a deletion committed while the lock waited reads deleted, and the
-            // deletion has cleared the setting that named it, so the next attempt reads the default as it stands after it.
-            if (await context.Teams.AnyAsync(
-                    team => team.Id == teamId && team.ProjectId == projectId && team.Status == TeamStatus.Active, cancellationToken))
-            {
-                return teamId;
-            }
-        }
-
-        // The attempts ran out (three deletions of the default in a row): the active teams are locked, whatever they are now.
-        await LockActiveTeamsAsync(projectId, cancellationToken);
-
+        // A new statement under READ COMMITTED: the default as the unlinks and deletions that committed before the lock left it.
+        // Under the lock no unlink or deletion of this project's links can commit before this creation does.
         return await DefaultTeams.ResolveAsync(context, projectId, cancellationToken);
     }
-
-    /// <summary>
-    /// Every active team of the project <c>FOR SHARE</c>, in id order — the order a deletion takes them in
-    /// (<c>TeamRepository.LockProjectTeamsAsync</c>), so the two queue and neither can deadlock; shares do not wait for each
-    /// other or for a binder's share. A team a deletion committed while the statement waited is skipped; a team added
-    /// meanwhile is not locked, and the creation depends on none that is new: it owns no item yet.
-    /// </summary>
-    private Task LockActiveTeamsAsync(Guid projectId, CancellationToken cancellationToken) =>
-        context.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT 1 FROM teams WHERE project_id = {projectId} AND status = 'Active' ORDER BY id FOR SHARE",
-            cancellationToken);
 
     public Task<Guid?> FindCreatedByRequestAsync(Guid projectId, Guid requestId, CancellationToken cancellationToken) =>
         context.WorkItems

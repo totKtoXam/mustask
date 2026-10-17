@@ -101,7 +101,7 @@ public sealed class RenameProjectHandler(
                 // the name index, and the repository answers it with the pre-check's code (plan-backend § 6.3).
                 await projects.SaveAsync(ct);
 
-                return new RenameProjectResult(new ProjectResponse(project.Id, project.OrganizationId, project.Name, project.Key));
+                return new RenameProjectResult(new ProjectResponse(project.Id, project.OrganizationId, project.Name, project.Key, project.Description));
             },
             cancellationToken);
 }

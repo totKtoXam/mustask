@@ -73,8 +73,15 @@ internal static class OrganizationsSaveChanges
         }
         catch (DbUpdateException exception) when (PostgresConflictDetection.IsForeignKeyViolationOnConstraint(exception, OrganizationsConstraints.ProjectDefaultTeamKey))
         {
-            // mod-017 ADR-0028 § 4, plan-backend D-15: the default key refused a team that is not there. The team lock of
-            // SetDefaultTeam makes this unreachable; if a race ever reaches it, it answers as the team's absence does, never as a 500.
+            // mod-017 ADR-0028 § 4, plan-backend D-15 (feat-028 D-10): the default key refused a team that is not linked. The link
+            // lock of SetDefaultTeam makes this unreachable; if a race ever reaches it, it answers as the team's absence does,
+            // never as a 500.
+            throw new NotFoundException(OrganizationErrorCodes.TeamNotFound, ErrorParams.None, exception);
+        }
+        catch (DbUpdateException exception) when (PostgresConflictDetection.IsForeignKeyViolationOnConstraint(exception, OrganizationsConstraints.TeamMembershipTeamKey))
+        {
+            // feat-028 plan-backend § 8 "AddTeam": a team added to a team that is not there (a membership of a team the same flush
+            // did not insert, or of another organization). The team lock makes this unreachable; it answers as the team's absence.
             throw new NotFoundException(OrganizationErrorCodes.TeamNotFound, ErrorParams.None, exception);
         }
     }

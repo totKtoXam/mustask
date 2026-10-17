@@ -173,7 +173,7 @@ public sealed class GetAreaTreeEndpointTests(MustaskApiFactory factory)
         using var scope = factory.Services.CreateScope();
         var seam = scope.ServiceProvider.GetRequiredService<Mustask.Application.Features.Organizations.IOrganizationStructure>();
 
-        var project = await seam.FindProjectAsync(structure.ProjectId, CancellationToken.None);
+        var project = await seam.FindProjectAsync(structure.OrganizationId, structure.ProjectId, CancellationToken.None);
 
         Assert.NotNull(project);
         Assert.Equal(nodes[0].Id, project.RootAreaId);

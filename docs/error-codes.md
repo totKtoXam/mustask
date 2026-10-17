@@ -74,7 +74,7 @@ guarantees it exists and differs from the Russian, not its quality
 |organizations.team.destination_required|400|Выберите команду или «Без команды»|Команданы немесе «Командасыз» таңдаңыз|organizations|—|needs review|
 |organizations.team.first_team_cannot_be_deleted|409|Нельзя удалить команду, которой принадлежит корневая область проекта|Жобаның түбірлік аймағы тиесілі команданы жоюға болмайды|organizations|yes|needs review|
 |organizations.team.first_team_default_fixed|409|У первой команды область по умолчанию не меняется|Бірінші команданың әдепкі аймағы өзгермейді|organizations|yes|needs review|
-|organizations.team.last_team_cannot_be_deleted|409|Нельзя удалить единственную команду проекта.|Жобаның жалғыз командасын жоюға болмайды.|organizations|—|needs review|
+|organizations.team.last_team_cannot_be_deleted|409|Нельзя удалить единственную команду проекта.|Жобаның жалғыз командасын жоюға болмайды.|organizations|yes|needs review|
 |organizations.team.member_exists|409|Пользователь уже состоит в команде|Пайдаланушы командада бұрыннан бар|organizations|—|needs review|
 |organizations.team.member_not_found|404|Участник команды не найден.|Команда мүшесі табылмады.|organizations|—|needs review|
 |organizations.team.member_not_in_organization|409|Добавить в команду можно только активного участника организации|Командаға ұйымның тек белсенді мүшесін ғана қосуға болады|organizations|—|needs review|

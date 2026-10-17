@@ -10,8 +10,9 @@ using static Mustask.Api.IntegrationTests.Features.WorkItems.OwningTeamTestData;
 namespace Mustask.Api.IntegrationTests.Features.Organizations;
 
 /// <summary>
-/// <c>PUT …/projects/{projectId}/default-team</c> (mod-017 api-contract §§ 0.2, 2.8; US-3, BR-OT-4): an administrator names the
-/// team new items start on, or clears the setting. It decides a creation's starting value and nothing else. Every test builds its
+/// <c>PUT …/projects/{projectId}/default-team</c> (feat-028 api-contract §§ 0.3, 2.4: a team <b>linked to the project</b>, code
+/// <c>organizations.project.write</c>; mod-017 §§ 0.2, 2.8; US-3, BR-OT-4): an administrator names the team new items start on, or
+/// clears the setting. It decides a creation's starting value and nothing else. Every test builds its
 /// own world (<see cref="OwningTeamTestData"/>): the database is shared and never emptied.
 /// </summary>
 [Trait("Category", "Integration")]
@@ -66,7 +67,8 @@ public sealed class SetDefaultTeamEndpointTests(MustaskApiFactory factory)
         Assert.All(marks.Where(team => team.Id != world.Mars), team => Assert.Null(team.Mark));
     }
 
-    // US-3 · "the administrator chooses the default", the role: «Участник» holds no organizations.team.write.
+    // US-3 · "the administrator chooses the default", the role: «Участник» holds no organizations.project.write (feat-028 § 0.1: the naming
+    // moved from team.write to project.write; both are the administrator's alone).
     [Fact]
     public async Task Name_Member_Returns403()
     {
@@ -82,12 +84,14 @@ public sealed class SetDefaultTeamEndpointTests(MustaskApiFactory factory)
         Assert.Null(await SettingAsync(world.ProjectId));
     }
 
-    // US-3 · outline "refusals and roles": another project's team 409, a deleted, a deactivated project's, an unknown, a malformed
-    // and another organization's team 404 — the setting is as before.
+    // feat-028 § 0.3 · outline "refusals": an active team of the organization that is not linked to this project — another project's,
+    // a deactivated project's, one linked to none — is 409 not_in_project; a deleted, an unknown, a malformed and another
+    // organization's team is 404 — the setting is as before. Replaces the row "a team of a deactivated project is 404" (mod-017 § 0.3).
     [Theory]
     [InlineData("otherProject", HttpStatusCode.Conflict, TeamNotInProject)]
+    [InlineData("deactivatedProject", HttpStatusCode.Conflict, TeamNotInProject)]
+    [InlineData("linkedToNone", HttpStatusCode.Conflict, TeamNotInProject)]
     [InlineData("deleted", HttpStatusCode.NotFound, TeamNotFound)]
-    [InlineData("deactivatedProject", HttpStatusCode.NotFound, TeamNotFound)]
     [InlineData("unknown", HttpStatusCode.NotFound, TeamNotFound)]
     [InlineData("malformed", HttpStatusCode.NotFound, TeamNotFound)]
     [InlineData("foreign", HttpStatusCode.NotFound, TeamNotFound)]
@@ -95,9 +99,11 @@ public sealed class SetDefaultTeamEndpointTests(MustaskApiFactory factory)
     {
         var world = await CreateWorldAsync(factory);
         await WorkItemsTestData.ExecuteAsync(factory, $"UPDATE projects SET default_team_id = {world.Venus} WHERE id = {world.ProjectId}");
+        var unlinked = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, world.OrganizationId, "Ничья");
         var named = which switch
         {
             "otherProject" => world.OtherProjectTeam.ToString(),
+            "linkedToNone" => unlinked.Id.ToString(),
             "deleted" => world.DeletedTeam.ToString(),
             "deactivatedProject" => world.DeactivatedProjectTeam.ToString(),
             "foreign" => world.OtherOrganizationTeam.ToString(),
@@ -192,22 +198,26 @@ public sealed class SetDefaultTeamEndpointTests(MustaskApiFactory factory)
         Assert.Equal(world.Mars, await SettingAsync(world.ProjectId));
     }
 
-    // US-3 · "two teams and none named; one team; named wins": the teams read marks the named team «named»; with no team named,
-    // a project's only team is «onlyTeam»; a second team ends the inference.
+    // feat-028 BR-OL-7 · "two teams and none named; one team; named wins": the project's list marks the named team «named»; with no
+    // team named, the project's only LINKED team is «onlyTeam» (the organization's other teams do not count); a second link ends the
+    // inference. Replaces Marks_NamedOnlyTeamNone, which grew the project's teams with the old "add a team" route.
     [Fact]
     public async Task Marks_NamedOnlyTeamNone()
     {
         var world = await CreateWorldAsync(factory);
-        var single = await OrganizationsTestData.CreateProjectAsync(factory, world.OrganizationId, "Одна", "ONE");
+        var single = await OrganizationsTestData.CreateBareProjectAsync(factory, world.OrganizationId, "Одна", "ONE");
         var singleTeams = $"{OrganizationsApi.Teams(world.OrganizationId, single.Project.Id)}";
 
+        var none = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, singleTeams, token: OrganizationsTokens.SignedIn());
+        Assert.Empty(none.Body.EnumerateArray());
+
+        await OrganizationsTestData.LinkAsync(factory, single.Project.Id, world.Mars);
         var alone = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, singleTeams, token: OrganizationsTokens.SignedIn());
         Assert.Equal("onlyTeam", alone.Body.EnumerateArray().Single().GetProperty("defaultMark").GetString());
 
-        var added = await OrganizationsApi.SendAsync(factory, HttpMethod.Post, singleTeams, new { name = "Вторая" }, OrganizationsTokens.SignedIn());
-        Assert.Equal(HttpStatusCode.Created, added.Status);
-
+        await OrganizationsTestData.LinkAsync(factory, single.Project.Id, world.Venus);
         var several = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, singleTeams, token: OrganizationsTokens.SignedIn());
+        Assert.Equal(2, several.Body.GetArrayLength());
         Assert.All(several.Body.EnumerateArray(), team => Assert.Equal(System.Text.Json.JsonValueKind.Null, team.GetProperty("defaultMark").ValueKind));
 
         Assert.All(await MarksAsync(world), team => Assert.Null(team.Mark));
@@ -237,7 +247,7 @@ public sealed class SetDefaultTeamEndpointTests(MustaskApiFactory factory)
     {
         var world = await CreateWorldAsync(factory);
         using var gate = factory.CommitGates.Open();
-        var teamPath = $"{OrganizationsApi.Teams(world.OrganizationId, world.ProjectId)}/{world.Mars}";
+        var teamPath = TeamTestData.Team(world.OrganizationId, world.Mars);
 
         Task<Answer> Naming(CommitGate? at) => OrganizationsApi.SendAsync(
             factory, HttpMethod.Put, Path(world), new { teamId = world.Mars.ToString() }, OrganizationsTokens.SignedIn(), at);

@@ -12,6 +12,12 @@ namespace Mustask.Infrastructure.Tests.Boards;
 /// drops exactly its two tables and applies again. The tables keep the integrity the order relies on: a place belongs to an
 /// order row, is at least 1, and goes with its item. The database is this class's own: the test rolls a migration back.
 /// </summary>
+/// <remarks>
+/// feat-028 plan-backend § 9.1b (BR-OL-13): <c>OrganizationLevelTeams</c> empties the teams and their places, so a team place no
+/// longer survives a roll-back that crosses it. The round trip is therefore made <b>at this migration's own state</b>: the
+/// database is rolled back to <c>AddProjectBacklogOrder</c> itself, the legacy rows are written there with SQL, and only
+/// <c>AddProjectBacklogOrder</c> is rolled back and applied again — this line's migration is never crossed with data that matters.
+/// </remarks>
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]
 public sealed class AddProjectBacklogOrderMigrationTests(OrganizationsDatabaseFixture database) : IClassFixture<OrganizationsDatabaseFixture>
@@ -21,7 +27,8 @@ public sealed class AddProjectBacklogOrderMigrationTests(OrganizationsDatabaseFi
     [Fact]
     public async Task Migrator_AddProjectBacklogOrder_IsAdditive_RollsBackToItsTwoTables_AndAppliesAgain()
     {
-        var world = await SeedAsync();
+        await MigrateToAsync(MigrationName);
+        var world = await SeedAtTheMigrationAsync();
         await database.ExecuteAsync(
             """
             INSERT INTO project_backlog_orders (project_id, backlog_level_id) VALUES (@project, @level);
@@ -31,7 +38,7 @@ public sealed class AddProjectBacklogOrderMigrationTests(OrganizationsDatabaseFi
             ("level", world.LevelId),
             ("item", world.ItemId));
 
-        await RollBackAsync();
+        await RollBackOneStepAsync();
 
         Assert.False(await TableExistsAsync("project_backlog_orders"), "Rolling back must drop project_backlog_orders.");
         Assert.False(await TableExistsAsync("project_backlog_places"), "Rolling back must drop project_backlog_places.");
@@ -40,10 +47,7 @@ public sealed class AddProjectBacklogOrderMigrationTests(OrganizationsDatabaseFi
         Assert.Equal(["1"], await database.QueryAsync("SELECT count(*)::text FROM backlog_places WHERE work_item_id = @item", ("item", world.ItemId)));
         Assert.Equal(["1"], await database.QueryAsync("SELECT count(*)::text FROM work_items WHERE id = @item", ("item", world.ItemId)));
 
-        await using (var context = database.NewContext())
-        {
-            await context.Database.MigrateAsync();
-        }
+        await MigrateToAsync(MigrationName);
 
         Assert.True(await TableExistsAsync("project_backlog_orders"));
         Assert.True(await TableExistsAsync("project_backlog_places"));
@@ -74,7 +78,7 @@ public sealed class AddProjectBacklogOrderMigrationTests(OrganizationsDatabaseFi
             await context.Database.MigrateAsync();
         }
 
-        var world = await SeedAsync();
+        var world = await SeedAtHeadAsync();
         const string InsertPlace = "INSERT INTO project_backlog_places (work_item_id, project_id, backlog_level_id, position) VALUES (@item, @project, @level, @position)";
 
         await Assert.ThrowsAsync<PostgresException>(() => database.ExecuteAsync(
@@ -99,11 +103,29 @@ public sealed class AddProjectBacklogOrderMigrationTests(OrganizationsDatabaseFi
         Assert.Equal(["0"], await database.QueryAsync("SELECT count(*)::text FROM project_backlog_places WHERE work_item_id = @item", ("item", world.ItemId)));
     }
 
-    /// <summary>A project with one story, as the API writes it, found by name rather than by an id fixed in the test.</summary>
-    private async Task<World> SeedAsync()
+    /// <summary>A project with one story (no owning team: the current shape), as the API writes it, found by name rather than by an id fixed in the test.</summary>
+    private async Task<World> SeedAtHeadAsync()
     {
         var structure = await database.CreateStructureAsync();
-        var project = structure.Project.Project.Id;
+        var (levelId, item) = await InsertStoryAsync(structure.Organization.Id, structure.Project.Project.Id, structure.Project.Root.Id, null);
+
+        return new World(structure.Project.Project.Id, levelId, item);
+    }
+
+    /// <summary>
+    /// A project in the shape this migration found (a first team owning the root, written with SQL), one story and a team place on
+    /// it with the place's order row: <c>work_items</c> has no owning team at this point and the place names the area's team.
+    /// </summary>
+    private async Task<World> SeedAtTheMigrationAsync()
+    {
+        var structure = await database.CreateLegacyStructureAsync();
+        var (levelId, item) = await InsertStoryAsync(structure.OrganizationId, structure.ProjectId, structure.RootAreaId, structure.FirstTeamId);
+
+        return new World(structure.ProjectId, levelId, item);
+    }
+
+    private async Task<(Guid LevelId, Guid Item)> InsertStoryAsync(Guid organizationId, Guid projectId, Guid rootAreaId, Guid? placeTeam)
+    {
         var row = (await database.QueryAsync(
             """
             SELECT concat_ws('|', type.id::text, state.id::text, type.backlog_level_id::text)
@@ -112,37 +134,38 @@ public sealed class AddProjectBacklogOrderMigrationTests(OrganizationsDatabaseFi
             JOIN state_definitions AS state ON state.work_item_type_id = type.id AND state.position = 1
             WHERE process.organization_id = @organization AND type.key = 'US'
             """,
-            ("organization", structure.Organization.Id))).Single().Split('|');
+            ("organization", organizationId))).Single().Split('|');
         var item = Guid.CreateVersion7();
-
-        // mod-017: the place names the item's owning team (the place key), and the roll-back below passes through both
-        // mod-017 migrations. The rollback of RetireAreaOwnership makes the earliest active team of the project (by id) its
-        // first team and gives it the root, and the roll-forward maps every item to the team that owns its area — so the item
-        // is owned by that very team, and its place survives the round trip.
-        var owner = Guid.Parse((await database.QueryAsync(
-            "SELECT id::text FROM teams WHERE project_id = @project AND status = 'Active' ORDER BY id LIMIT 1",
-            ("project", project))).Single());
+        var level = Guid.Parse(row[2]);
 
         await database.ExecuteAsync(
             """
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, owning_team_id, title, description, creation_request_id, created_at, created_by, changed_at)
-            VALUES (@item, @project, 1, @type, @state, @area, @team, 'История', '', gen_random_uuid(), now(), 'migration-test', now());
-            INSERT INTO backlog_orders (team_id, backlog_level_id) VALUES (@team, @level);
-            INSERT INTO backlog_places (work_item_id, team_id, backlog_level_id, position) VALUES (@item, @team, @level, 1)
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at)
+            VALUES (@item, @project, 1, @type, @state, @area, 'История', '', gen_random_uuid(), now(), 'migration-test', now())
             """,
             ("item", item),
-            ("project", project),
+            ("project", projectId),
             ("type", Guid.Parse(row[0])),
             ("state", Guid.Parse(row[1])),
-            ("area", structure.Project.Root.Id),
-            ("team", owner),
-            ("level", Guid.Parse(row[2])));
+            ("area", rootAreaId));
 
-        return new World(project, Guid.Parse(row[2]), item);
+        if (placeTeam is { } team)
+        {
+            await database.ExecuteAsync(
+                """
+                INSERT INTO backlog_orders (team_id, backlog_level_id) VALUES (@team, @level);
+                INSERT INTO backlog_places (work_item_id, team_id, backlog_level_id, position) VALUES (@item, @team, @level, 1)
+                """,
+                ("item", item),
+                ("team", team),
+                ("level", level));
+        }
+
+        return (level, item);
     }
 
     /// <summary>Migrates to the migration before AddProjectBacklogOrder, found by name, never hard-coded.</summary>
-    private async Task RollBackAsync()
+    private async Task RollBackOneStepAsync()
     {
         await using var context = database.NewContext();
 
@@ -151,6 +174,15 @@ public sealed class AddProjectBacklogOrderMigrationTests(OrganizationsDatabaseFi
             .Last();
 
         await context.GetService<IMigrator>().MigrateAsync(previous);
+    }
+
+    /// <summary>Migrates to AddProjectBacklogOrder itself, forward or back, found by name.</summary>
+    private async Task MigrateToAsync(string suffix)
+    {
+        await using var context = database.NewContext();
+        var target = context.Database.GetMigrations().Single(id => id.EndsWith(suffix, StringComparison.Ordinal));
+
+        await context.GetService<IMigrator>().MigrateAsync(target);
     }
 
     private async Task<bool> TableExistsAsync(string table) =>

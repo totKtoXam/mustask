@@ -41,6 +41,29 @@ public sealed class RenameProjectEndpointTests(MustaskApiFactory factory)
             factory,
             (services, ct) => services.GetRequiredService<ITeamRepository>().FindNameAsync(teamId, ct));
 
+    // feat-028 US-2 · "rename keeps description and links": the rename writes the name and the root's name; the project's description
+    // (kept as typed), its links with who made them and when, and the setting that names a team stay as they were.
+    [Fact]
+    public async Task Rename_KeepsDescriptionAndLinks()
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        await OrganizationsTestData.SetDefaultTeamAsync(factory, structure.OrganizationId, structure.ProjectId, structure.Platform.Id);
+        await Mustask.Api.IntegrationTests.Features.WorkItems.WorkItemsTestData.ExecuteAsync(
+            factory, $"UPDATE projects SET description = {" Платформа\nи инструменты "} WHERE id = {structure.ProjectId}");
+        var linksBefore = (await TeamTestData.LinksOfProjectAsync(factory, structure.ProjectId))
+            .Select(link => (link.TeamId, link.LinkedBy, link.LinkedAt))
+            .ToList();
+
+        var answer = await RenameAsync(structure, "Платформа данных");
+
+        Assert.Equal(HttpStatusCode.OK, answer.Status);
+        Assert.Equal(" Платформа\nи инструменты ", answer.Body.GetProperty("description").GetString());
+        Assert.Equal(
+            linksBefore,
+            (await TeamTestData.LinksOfProjectAsync(factory, structure.ProjectId)).Select(link => (link.TeamId, link.LinkedBy, link.LinkedAt)).ToList());
+        Assert.Equal(structure.Platform.Id, await TeamTestData.SettingAsync(factory, structure.ProjectId));
+    }
+
     // US-3 · "Renaming a project renames its root area and keeps its key": «Пример проекта» (PRM) becomes «Платформа данных».
     // The root takes the name, the key and the teams (the project's own team keeps «Пример проекта») do not
     // change, and neither does the rest of the tree.
@@ -56,7 +79,7 @@ public sealed class RenameProjectEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal("application/json", answer.MediaType);
-        Assert.Equal(["id", "key", "name", "organizationId"], PropertyNames(answer.Body));
+        Assert.Equal(["description", "id", "key", "name", "organizationId"], PropertyNames(answer.Body));
         Assert.Equal(structure.ProjectId, answer.Body.GetProperty("id").GetGuid());
         Assert.Equal(structure.OrganizationId, answer.Body.GetProperty("organizationId").GetGuid());
         Assert.Equal("Платформа данных", answer.Body.GetProperty("name").GetString());

@@ -40,6 +40,12 @@ public sealed class FakeMemberReadModel(InMemoryOrganizations store, IUserDirect
     public Task<bool> IsMemberAsync(Guid organizationId, string userId, CancellationToken cancellationToken) =>
         Task.FromResult(store.FindMembership(organizationId, userId) is not null);
 
+    public Task<IReadOnlySet<string>> FilterMembersAsync(Guid organizationId, IReadOnlyCollection<string> userIds, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlySet<string>>(
+            store.Memberships.Where(membership => membership.OrganizationId == organizationId && userIds.Contains(membership.UserId))
+                .Select(membership => membership.UserId)
+                .ToHashSet(StringComparer.Ordinal));
+
     public async Task<int> CountOtherKnownActiveAdministratorsAsync(Guid organizationId, string exceptUserId, CancellationToken cancellationToken)
     {
         var administrators = store.Memberships

@@ -3,38 +3,66 @@ using Mustask.Shared.Exceptions;
 namespace Mustask.Domain.Organizations;
 
 /// <summary>
-/// A team as the rule about naming it reads it (mod-017 api-contract § 0.2): the facts of
-/// <c>IOrganizationStructure.FindTeamAsync</c>, whatever the team is. <paramref name="IsReachable"/> is <c>true</c>
-/// only for an active team of an active project of an active organization.
+/// A team as the rule about naming it reads it (feat-028 api-contract § 0.3): the facts of
+/// <c>IOrganizationStructure.FindProjectTeamAsync</c> — the team, and whether it is <b>linked to the project of the request</b>.
+/// A team of another organization never reaches this record: the structure answers <c>null</c> for it.
 /// </summary>
-public sealed record TeamFacts(Guid Id, Guid OrganizationId, Guid ProjectId, TeamStatus Status, bool IsReachable);
+public sealed record TeamFacts(Guid Id, Guid OrganizationId, TeamStatus Status, bool IsLinked);
 
 /// <summary>
-/// The one rule for a team named in a write (mod-017 BR-OT-2, BR-OT-4, BR-OT-16): a work item's create or save, and the
-/// project's default naming, all judge the team by this table. The first row that applies:
+/// The one rule for a team named in a write (mod-017 BR-OT-2, BR-OT-4, feat-028 BR-OL-6): a work item's create or save, the
+/// project's default naming and the destination of an unlink all judge the team by this table. The first row that applies:
 /// <list type="number">
-/// <item>no such team, a team of another organization, a deleted team, a team of a project that is not reachable →
-/// <see cref="OrganizationErrorCodes.TeamNotFound"/> (404), alike for each (ADR-0026 rule 5: a deactivation is never revealed;
-/// BR-OT-16: another tenant's id names nothing);</item>
-/// <item>an active team of another active project of the organization → <see cref="OrganizationErrorCodes.TeamNotInProject"/> (409);</item>
-/// <item>an active team of the project → accepted.</item>
+/// <item>no such team, a team of another organization, a deleted team →
+/// <see cref="OrganizationErrorCodes.TeamNotFound"/> (404), alike for each (ADR-0026 rule 5; BR-OL-1: another tenant's id
+/// names nothing);</item>
+/// <item>an active team of the organization that is not linked to the project →
+/// <see cref="OrganizationErrorCodes.TeamNotInProject"/> (409);</item>
+/// <item>an active team linked to the project → accepted.</item>
 /// </list>
 /// </summary>
 public static class ProjectTeams
 {
     /// <summary>
-    /// Accepts <paramref name="team"/> as a team of <paramref name="projectId"/> in <paramref name="organizationId"/>, or
+    /// Accepts <paramref name="team"/> as a team linked to the project of the request in <paramref name="organizationId"/>, or
     /// throws the refusal of the table above. The caller has judged the project of the address already (reachable, of the
-    /// organization), so a team of that project that is active is reachable.
+    /// organization).
     /// </summary>
-    public static void EnsureBindable(TeamFacts? team, Guid organizationId, Guid projectId)
+    public static void EnsureBindable(TeamFacts? team, Guid organizationId)
     {
-        if (team is null || team.OrganizationId != organizationId || team.Status != TeamStatus.Active || !team.IsReachable)
+        EnsureLinkable(team, organizationId);
+
+        if (!team!.IsLinked)
+        {
+            throw new ConflictException(OrganizationErrorCodes.TeamNotInProject);
+        }
+    }
+
+    /// <summary>
+    /// Accepts <paramref name="team"/> as a team that may be linked or named: an active team of the organization, linked or not.
+    /// Anything else is <see cref="OrganizationErrorCodes.TeamNotFound"/>.
+    /// </summary>
+    public static void EnsureLinkable(TeamFacts? team, Guid organizationId)
+    {
+        if (team is null || team.OrganizationId != organizationId || team.Status != TeamStatus.Active)
+        {
+            throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
+        }
+    }
+
+    /// <summary>
+    /// The destination of an unlink (BR-OL-8), judged under the links' locks on a fresh read: an unknown, foreign or deleted
+    /// team is <see cref="OrganizationErrorCodes.TeamNotFound"/>; the unlinked team itself, or an active team that is not
+    /// linked to the project, is <see cref="OrganizationErrorCodes.TeamNotInProject"/>.
+    /// </summary>
+    public static void EnsureDestination(TeamFacts? destination, Guid unlinkedTeamId)
+    {
+        if (destination is null || destination.Status != TeamStatus.Active)
         {
             throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
         }
 
-        if (team.ProjectId != projectId)
+        if (destination.Id == unlinkedTeamId || !destination.IsLinked)
         {
             throw new ConflictException(OrganizationErrorCodes.TeamNotInProject);
         }

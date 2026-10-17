@@ -1,3 +1,4 @@
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Features.Organizations.SetDefaultTeam;
 using Mustask.Application.Tests.TestDoubles;
 using Mustask.Application.Tests.TestDoubles.Organizations;
@@ -7,9 +8,9 @@ using Mustask.Shared.Exceptions;
 namespace Mustask.Application.Tests.Features.Organizations.SetDefaultTeam;
 
 /// <summary>
-/// <c>SetDefaultTeam</c> on fakes (mod-017 plan-backend § 5.3, § 7; US-3, BR-OT-4): what it stores, the order of its answers
-/// (api-contract § 0.4) and its lock order (ADR-0028 rule 8: the team <c>FOR SHARE</c>, then the project row, never the other
-/// way round).
+/// <c>SetDefaultTeam</c> on fakes (mod-017 plan-backend § 5.3, § 7; feat-028 plan-backend § 7.2; US-3, BR-OT-4, BR-OL-7): what it
+/// stores, the order of its answers (api-contract § 0.5) and its lock order (ADR-0028 rule 8: the <b>link</b> <c>FOR SHARE</c>, then
+/// the project row, never the other way round). Rewritten to "linked" (BR-OL-6; D-16).
 /// </summary>
 public sealed class SetDefaultTeamHandlerTests
 {
@@ -19,12 +20,8 @@ public sealed class SetDefaultTeamHandlerTests
         {
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization);
-            Platform = Store.AddTeam(Project);
-            Handler = new SetDefaultTeamHandler(
-                new FakeOrganizationStructure(Store),
-                new FakeProjectRepository(Store),
-                new FakeTeamRepository(Store),
-                new FakeUnitOfWork());
+            Platform = Store.AddLinkedTeam(Organization, Project);
+            Handler = Build(new FakeProjectRepository(Store));
         }
 
         public InMemoryOrganizations Store { get; } = new();
@@ -37,27 +34,32 @@ public sealed class SetDefaultTeamHandlerTests
 
         public SetDefaultTeamHandler Handler { get; }
 
+        public SetDefaultTeamHandler Build(IProjectRepository projects) =>
+            new(new FakeOrganizationStructure(Store), projects, new FakeProjectTeamRepository(Store), new FakeUnitOfWork());
+
         public SetDefaultTeamCommand Command(string? teamId, string? projectId = null, string? organizationId = null) =>
             new(organizationId ?? Organization.Id.ToString(), projectId ?? Project.Project.Id.ToString(), teamId);
 
         public Task HandleAsync(SetDefaultTeamCommand command) => Handler.Handle(command, CancellationToken.None);
     }
 
-    // US-3 · "The administrator chooses the default": the setting names «Платформа»; the team is locked before the project row.
+    // US-3 · "the default must be linked": the setting names «Платформа»; its link is locked before the project row.
     [Fact]
-    public async Task Handle_NamesTheTeam_LocksTheTeamShare_ThenTheProject_ThenSavesOnce()
+    public async Task Handle_NamesTheLinkedTeam_LocksTheLinkShare_ThenTheProject_ThenSavesOnce()
     {
         var f = new Fixture();
 
         await f.HandleAsync(f.Command(f.Platform.Id.ToString()));
 
         Assert.Equal(f.Platform.Id, f.Project.Project.DefaultTeamId);
-        Assert.Equal([$"lock team share {f.Platform.Id}", $"lock project {f.Project.Project.Id}", "save"], f.Store.Calls);
+        Assert.Equal(
+            [$"lock link share {f.Project.Project.Id} {f.Platform.Id}", $"lock project {f.Project.Project.Id}", "save"],
+            f.Store.Calls);
     }
 
-    // US-3 · "naming no team clears the setting": a missing id locks no team; the project row is locked and saved.
+    // US-3 · "naming no team clears the setting": a missing id locks no link; the project row is locked and saved.
     [Fact]
-    public async Task Handle_NoTeam_ClearsTheSetting_LocksNoTeam()
+    public async Task Handle_NoTeam_ClearsTheSetting_LocksNoLink()
     {
         var f = new Fixture();
         f.Project.Project.NameDefaultTeam(f.Platform.Id);
@@ -81,8 +83,8 @@ public sealed class SetDefaultTeamHandlerTests
         Assert.Equal(0, f.Store.SaveCount);
     }
 
-    // api-contract § 0.2 · a team that is not an active, reachable team of the organization answers team.not_found, whichever way it
-    // is not: malformed, unknown, deleted, of another organization.
+    // api-contract § 0.3 · a team that is not an active team of the organization answers team.not_found, whichever way it is not:
+    // malformed, unknown, deleted, of another organization.
     [Theory]
     [InlineData("malformed")]
     [InlineData("unknown")]
@@ -91,18 +93,18 @@ public sealed class SetDefaultTeamHandlerTests
     public async Task Handle_TeamNotFound_IsTeamNotFound_SettingUnchanged(string how)
     {
         var f = new Fixture();
-        var other = f.Store.AddProject(f.Store.AddOrganization("Другая организация"), "Чужой", "OTH");
+        var foreign = f.Store.AddTeam(f.Store.AddOrganization("Другая организация"), "Чужая");
         var teamId = how switch
         {
             "malformed" => "not-a-team",
             "unknown" => Guid.CreateVersion7().ToString(),
-            "of another organization" => other.Team.Id.ToString(),
+            "of another organization" => foreign.Id.ToString(),
             _ => f.Platform.Id.ToString(),
         };
 
         if (how == "deleted")
         {
-            f.Platform.Delete(2);
+            f.Platform.Delete();
         }
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(teamId)));
@@ -112,21 +114,22 @@ public sealed class SetDefaultTeamHandlerTests
         Assert.Equal(0, f.Store.SaveCount);
     }
 
-    // BR-OT-2, api-contract § 0.2 · an active team of another project of the organization: 409 team_not_in_project.
+    // BR-OL-6, api-contract § 0.3 · an active team of the organization that is NOT LINKED to the project: 409 team_not_in_project
+    // (renamed from ...TeamOfAnotherProjectOfTheOrganization_IsTeamNotInProject_SettingUnchanged, D-16).
     [Fact]
-    public async Task Handle_TeamOfAnotherProjectOfTheOrganization_IsTeamNotInProject_SettingUnchanged()
+    public async Task Handle_TeamNotLinkedToTheProject_IsTeamNotInProject_SettingUnchanged()
     {
         var f = new Fixture();
-        var sibling = f.Store.AddProject(f.Organization, "Второй проект", "SEC");
+        var unlinked = f.Store.AddTeam(f.Organization, "Не связана");
 
-        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(sibling.Team.Id.ToString())));
+        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(unlinked.Id.ToString())));
 
         Assert.Equal(OrganizationErrorCodes.TeamNotInProject, refusal.Code);
         Assert.Null(f.Project.Project.DefaultTeamId);
         Assert.Equal(0, f.Store.SaveCount);
     }
 
-    // api-contract § 0.4 · the address answers before the team: malformed and unknown organizations and projects, a deactivated
+    // api-contract § 0.5 · the address answers before the team: malformed and unknown organizations and projects, a deactivated
     // project and a project of another organization, each with its level's not-found, and nothing is locked.
     [Theory]
     [InlineData("malformed organization", "organizations.organization.not_found")]
@@ -164,11 +167,7 @@ public sealed class SetDefaultTeamHandlerTests
     public async Task Handle_ProjectDeactivatedWhileWaitingForItsLock_IsProjectNotFound_SavesNothing()
     {
         var f = new Fixture();
-        var handler = new SetDefaultTeamHandler(
-            new FakeOrganizationStructure(f.Store),
-            new DeactivatesAsTheLockIsGranted(new FakeProjectRepository(f.Store)),
-            new FakeTeamRepository(f.Store),
-            new FakeUnitOfWork());
+        var handler = f.Build(new DeactivatesAsTheLockIsGranted(new FakeProjectRepository(f.Store)));
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => handler.Handle(f.Command(f.Platform.Id.ToString()), CancellationToken.None));
 
@@ -177,8 +176,7 @@ public sealed class SetDefaultTeamHandlerTests
     }
 
     /// <summary>A project repository that lets a deactivation win the lock: the project is deactivated as the lock is granted.</summary>
-    private sealed class DeactivatesAsTheLockIsGranted(Mustask.Application.Abstractions.Organizations.IProjectRepository inner)
-        : Mustask.Application.Abstractions.Organizations.IProjectRepository
+    private sealed class DeactivatesAsTheLockIsGranted(IProjectRepository inner) : IProjectRepository
     {
         public Task<ProjectStatus?> FindNameHolderAsync(Guid organizationId, string normalizedName, Guid? exceptId, CancellationToken cancellationToken) =>
             inner.FindNameHolderAsync(organizationId, normalizedName, exceptId, cancellationToken);
@@ -189,6 +187,9 @@ public sealed class SetDefaultTeamHandlerTests
         public Task<bool> IsReachableAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken) =>
             inner.IsReachableAsync(organizationId, projectId, cancellationToken);
 
+        public Task<int> CountReachableAsync(Guid organizationId, IReadOnlyCollection<Guid> projectIds, CancellationToken cancellationToken) =>
+            inner.CountReachableAsync(organizationId, projectIds, cancellationToken);
+
         public async Task<Project?> LockAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken)
         {
             var project = await inner.LockAsync(organizationId, projectId, cancellationToken);
@@ -197,8 +198,11 @@ public sealed class SetDefaultTeamHandlerTests
             return project;
         }
 
-        public Task ClearDefaultTeamAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
-            inner.ClearDefaultTeamAsync(projectId, teamId, cancellationToken);
+        public Task ClearDefaultTeamAsync(Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
+            inner.ClearDefaultTeamAsync(organizationId, projectId, teamId, cancellationToken);
+
+        public Task ClearDefaultTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
+            inner.ClearDefaultTeamAsync(organizationId, teamId, cancellationToken);
 
         public void Add(NewProject project) => inner.Add(project);
 

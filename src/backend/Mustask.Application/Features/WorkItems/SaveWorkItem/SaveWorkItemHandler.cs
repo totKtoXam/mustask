@@ -89,8 +89,7 @@ public sealed class SaveWorkItemHandler(
                 }
 
                 if (!AddressedId.TryParse(command.ProjectId, out var projectId)
-                    || await structure.FindProjectAsync(projectId, ct) is not { IsReachable: true } project
-                    || project.OrganizationId != organizationId)
+                    || await structure.FindProjectAsync(organizationId, projectId, ct) is not { IsReachable: true } project)
                 {
                     throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
                 }
@@ -107,7 +106,7 @@ public sealed class SaveWorkItemHandler(
                 // The binder's lock first of all (mod-017 plan-backend § 7.1): only a team that is named as an id is locked.
                 if (TeamIdOf(command.Team) is { } namedTeamId)
                 {
-                    await workItems.LockTeamAsync(organizationId, namedTeamId, ct);
+                    await workItems.LockTeamLinkAsync(organizationId, projectId, namedTeamId, ct);
                 }
 
                 if (command.Parent is not null)
@@ -267,12 +266,11 @@ public sealed class SaveWorkItemHandler(
             throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
         }
 
-        var found = await structure.FindTeamAsync(teamId, cancellationToken);
+        var found = await structure.FindProjectTeamAsync(organizationId, projectId, teamId, cancellationToken);
 
         ProjectTeams.EnsureBindable(
-            found is null ? null : new TeamFacts(found.Id, found.OrganizationId, found.ProjectId, found.Status, found.IsReachable),
-            organizationId,
-            projectId);
+            found is null ? null : new TeamFacts(found.Team.Id, found.Team.OrganizationId, found.Team.Status, found.IsLinked),
+            organizationId);
 
         return new TeamEdit(teamId);
     }

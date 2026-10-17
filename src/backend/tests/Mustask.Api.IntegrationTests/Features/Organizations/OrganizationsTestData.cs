@@ -2,6 +2,7 @@ using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Features.Process;
 using Mustask.Domain.Organizations;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Mustask.Api.IntegrationTests.Features.Organizations;
@@ -60,17 +61,52 @@ public static class OrganizationsTestData
         });
 
     /// <summary>
-    /// A project with its team and its root (US-3), active or deactivated. As the create handler does (BR-M1-25), the
-    /// project's creator (<see cref="Creator"/>) is that team's only member when they are a member of the organization;
-    /// a test that wants the team empty passes <c>creatorJoinsFirstTeam: false</c>.
+    /// A project with its root and — as most arrangements of the other modules' tests need — <b>one team of the organization named
+    /// after it, linked to it</b> (feat-028: a project no longer comes with a team; a team is the organization's and a link joins it
+    /// to the project, so the arrangement builds both). Active or deactivated. Because the team stands for "the project's team" in
+    /// the tests written before the move, the project's creator (<see cref="Creator"/>) is that team's only member when they are a
+    /// member of the organization; a test that wants the team empty passes <c>creatorJoinsFirstTeam: false</c>. A test about a project
+    /// with <b>no</b> team builds it with <see cref="CreateBareProjectAsync"/>.
     /// </summary>
-    public static Task<NewProject> CreateProjectAsync(
+    public static Task<ProjectWithTeam> CreateProjectAsync(
         MustaskApiFactory factory,
         Guid organizationId,
         string name = "Пример проекта",
         string key = "PRM",
         ProjectStatus status = ProjectStatus.Active,
         bool creatorJoinsFirstTeam = true) =>
+        InUnitOfWorkAsync(factory, async (services, ct) =>
+        {
+            var project = Project.Create(organizationId, Name(name), key, Now, Creator);
+            var team = Team.Create(organizationId, Name(name));
+
+            if (status == ProjectStatus.Deactivated)
+            {
+                project.Project.Deactivate();
+            }
+
+            var projects = services.GetRequiredService<IProjectRepository>();
+            projects.Add(project);
+            services.GetRequiredService<ITeamRepository>().Add(team);
+            services.GetRequiredService<IProjectTeamRepository>().Add(ProjectTeam.Link(organizationId, project.Project.Id, team.Id, Creator, Now));
+
+            if (creatorJoinsFirstTeam && await services.GetRequiredService<IMembershipRepository>().ExistsAsync(organizationId, Creator, ct))
+            {
+                services.GetRequiredService<ITeamMembershipRepository>().Add(TeamMembership.Add(team.Id, organizationId, Creator));
+            }
+
+            await projects.SaveAsync(ct);
+
+            return new ProjectWithTeam(project.Project, project.Root, team);
+        });
+
+    /// <summary>A project with its root and <b>no team</b> (feat-028 BR-OL-2), active or deactivated.</summary>
+    public static Task<NewProject> CreateBareProjectAsync(
+        MustaskApiFactory factory,
+        Guid organizationId,
+        string name = "Пример проекта",
+        string key = "PRM",
+        ProjectStatus status = ProjectStatus.Active) =>
         InUnitOfWorkAsync(factory, async (services, ct) =>
         {
             var project = Project.Create(organizationId, Name(name), key, Now, Creator);
@@ -82,19 +118,12 @@ public static class OrganizationsTestData
 
             var projects = services.GetRequiredService<IProjectRepository>();
             projects.Add(project);
-
-            if (creatorJoinsFirstTeam && await services.GetRequiredService<IMembershipRepository>().ExistsAsync(organizationId, Creator, ct))
-            {
-                services.GetRequiredService<ITeamMembershipRepository>()
-                    .Add(TeamMembership.Add(project.Team.Id, organizationId, Creator));
-            }
-
             await projects.SaveAsync(ct);
 
             return project;
         });
 
-    /// <summary>An active organization with one project «Пример проекта» (PRM) and a second team «Платформа».</summary>
+    /// <summary>An active organization with one project «Пример проекта» (PRM), its team of the same name and a second linked team «Платформа».</summary>
     public static async Task<OrganizationStructure> CreateStructureAsync(
         MustaskApiFactory factory, string? organizationName = null, bool founded = true, bool creatorJoinsFirstTeam = true)
     {
@@ -105,17 +134,61 @@ public static class OrganizationsTestData
         return new OrganizationStructure(organization, project, platform);
     }
 
-    /// <summary>A second or later team (US-4): an ordinary one, with no area (mod-017 BR-OT-10).</summary>
+    /// <summary>
+    /// A team of the project's organization, <b>linked to the project</b> (feat-028): the helper the tests written before the move
+    /// call "a team of the project". It is ordinary: no area, no first-team role (mod-017 BR-OT-10, BR-OT-11).
+    /// </summary>
     public static Task<Team> AddTeamAsync(MustaskApiFactory factory, Guid projectId, string name) =>
         InUnitOfWorkAsync(factory, async (services, ct) =>
         {
-            var team = Team.Create(projectId, Name(name));
+            var organizationId = await OrganizationOfAsync(services, projectId, ct);
+            var team = Team.Create(organizationId, Name(name));
+            var teams = services.GetRequiredService<ITeamRepository>();
+            teams.Add(team);
+            services.GetRequiredService<IProjectTeamRepository>().Add(ProjectTeam.Link(organizationId, projectId, team.Id, Creator, Now));
+            await teams.SaveAsync(ct);
+
+            return team;
+        });
+
+    /// <summary>A team of the organization that is linked to no project (feat-028 BR-OL-1).</summary>
+    public static Task<Team> AddUnlinkedTeamAsync(MustaskApiFactory factory, Guid organizationId, string name) =>
+        InUnitOfWorkAsync(factory, async (services, ct) =>
+        {
+            var team = Team.Create(organizationId, Name(name));
             var teams = services.GetRequiredService<ITeamRepository>();
             teams.Add(team);
             await teams.SaveAsync(ct);
 
             return team;
         });
+
+    /// <summary>Links a team to a project, recording <see cref="Creator"/> and <see cref="Now"/> (feat-028 BR-OL-4).</summary>
+    public static Task LinkAsync(MustaskApiFactory factory, Guid projectId, Guid teamId) =>
+        InUnitOfWorkAsync(factory, async (services, ct) =>
+        {
+            var organizationId = await OrganizationOfAsync(services, projectId, ct);
+            var links = services.GetRequiredService<IProjectTeamRepository>();
+            links.Add(ProjectTeam.Link(organizationId, projectId, teamId, Creator, Now));
+            await links.SaveAsync(ct);
+
+            return true;
+        });
+
+    /// <summary>The id of the organization a project belongs to.</summary>
+    public static async Task<Guid> OrganizationOfAsync(MustaskApiFactory factory, Guid projectId)
+    {
+        using var scope = factory.Services.CreateScope();
+
+        return await OrganizationOfAsync(scope.ServiceProvider, projectId, CancellationToken.None);
+    }
+
+    private static Task<Guid> OrganizationOfAsync(IServiceProvider services, Guid projectId, CancellationToken cancellationToken) =>
+        services.GetRequiredService<Mustask.Infrastructure.MustaskDbContext>().Projects
+            .AsNoTracking()
+            .Where(project => project.Id == projectId)
+            .Select(project => project.OrganizationId)
+            .SingleAsync(cancellationToken);
 
     /// <summary>A child area (US-5): it owns nothing and has no team (mod-017 BR-OT-10).</summary>
     public static Task<Area> AddAreaAsync(MustaskApiFactory factory, Guid projectId, Guid parentId, string name) =>
@@ -132,22 +205,19 @@ public static class OrganizationsTestData
         });
 
     /// <summary>
-    /// Deletes a team as US-7 does (mod-017 BR-OT-12): through the use case itself, in its own unit of work — the items the team
-    /// owns go to «Без команды», its places and a default setting that named it go, its memberships end. The project must have
-    /// another team (BR-OT-11).
+    /// Deletes a team as US-5 does (feat-028 BR-OL-9): through the use case itself, in its own unit of work — the items the team
+    /// owns in every project it is linked to go to «Без команды», its places and the settings that named it go, its links and
+    /// memberships end. The project is only the way to find the organization.
     /// </summary>
     public static async Task DeleteTeamAsync(MustaskApiFactory factory, Guid projectId, Guid teamId)
     {
-        using var scope = factory.Services.CreateScope();
-        var project = await scope.ServiceProvider.GetRequiredService<Mustask.Application.Features.Organizations.IOrganizationStructure>()
-            .FindProjectAsync(projectId, CancellationToken.None)
-            ?? throw new ArgumentException("No such project.", nameof(projectId));
+        var organizationId = await OrganizationOfAsync(factory, projectId);
 
+        using var scope = factory.Services.CreateScope();
         await scope.ServiceProvider
             .GetRequiredService<Mustask.Application.Features.Organizations.DeleteTeam.DeleteTeamHandler>()
             .Handle(
-                new Mustask.Application.Features.Organizations.DeleteTeam.DeleteTeamCommand(
-                    project.OrganizationId.ToString(), projectId.ToString(), teamId.ToString()),
+                new Mustask.Application.Features.Organizations.DeleteTeam.DeleteTeamCommand(organizationId.ToString(), teamId.ToString()),
                 CancellationToken.None);
     }
 
@@ -160,7 +230,7 @@ public static class OrganizationsTestData
         {
             if (teamId is { } id)
             {
-                _ = await services.GetRequiredService<ITeamRepository>().LockForShareAsync(projectId, id, ct);
+                _ = await services.GetRequiredService<IProjectTeamRepository>().LockLinkForShareAsync(organizationId, projectId, id, ct);
             }
 
             var projects = services.GetRequiredService<IProjectRepository>();
@@ -237,7 +307,7 @@ public static class OrganizationsTestData
 }
 
 /// <summary>What <see cref="OrganizationsTestData.CreateStructureAsync"/> wrote.</summary>
-public sealed record OrganizationStructure(Organization Organization, NewProject Project, Team Platform)
+public sealed record OrganizationStructure(Organization Organization, ProjectWithTeam Project, Team Platform)
 {
     public Guid OrganizationId => Organization.Id;
 
@@ -248,3 +318,6 @@ public sealed record OrganizationStructure(Organization Organization, NewProject
     /// <summary>The team the project was created with: an ordinary team (mod-017 BR-OT-11).</summary>
     public Guid ProjectTeamId => Project.Team.Id;
 }
+
+/// <summary>A project, its root and the team of the organization built with it and linked to it (<see cref="OrganizationsTestData.CreateProjectAsync"/>).</summary>
+public sealed record ProjectWithTeam(Project Project, Area Root, Team Team);

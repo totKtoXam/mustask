@@ -160,11 +160,19 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
         using var scope = factory.Services.CreateScope();
         var structure = scope.ServiceProvider.GetRequiredService<IOrganizationStructure>();
         var organization = await structure.FindOrganizationAsync(side.World.OrganizationId, CancellationToken.None);
-        var project = await structure.FindProjectAsync(side.World.ProjectId, CancellationToken.None);
-        var team = await structure.FindTeamAsync(side.TeamId, CancellationToken.None);
+        var project = await structure.FindProjectAsync(side.World.OrganizationId, side.World.ProjectId, CancellationToken.None);
+        var team = await structure.FindTeamAsync(side.World.OrganizationId, side.TeamId, CancellationToken.None);
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, side.World.ProjectId);
         var items = await WorkItemsTestData.StoredAsync(factory, side.World.ProjectId);
         var teams = await OwningTeamTestData.TeamStateAsync(factory, side.World.ProjectId);
+
+        // feat-028: the links of the project and of the team — who made them and when — and the organization's teams are part of the state.
+        var projectLinks = (await TeamTestData.LinksOfProjectAsync(factory, side.World.ProjectId)).Select(link => $"{link.TeamId} {link.LinkedBy} {link.LinkedAt:O}");
+        var teamLinks = (await TeamTestData.LinksOfTeamAsync(factory, side.TeamId)).Select(link => $"{link.ProjectId} {link.LinkedBy} {link.LinkedAt:O}");
+        var organizationTeams = (await TeamTestData.StoredTeamsAsync(factory, side.World.OrganizationId))
+            .OrderBy(stored => stored.Id)
+            .Select(stored => $"{stored.Id} {stored.Name} {stored.Status} {stored.Description}");
+        var memberships = (await TeamTestData.TeamMemberIdsAsync(factory, side.TeamId));
 
         return string.Join(
             " | ",
@@ -176,7 +184,70 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
             team.Status,
             string.Join("; ", tree.PreOrder()),
             string.Join("; ", items.Select(item => $"{item.Number} {item.Title} {item.AreaId} {item.StateId} {item.ChangedAt:O}")),
-            teams);
+            teams,
+            string.Join("; ", projectLinks),
+            string.Join("; ", teamLinks),
+            string.Join("; ", organizationTeams),
+            string.Join("; ", memberships));
+    }
+
+    // feat-028 US-8 · "a foreign id answers as one that names nothing" (the ten rows, bytes compared): an administrator of A and of B names B's
+    // team as an unlink's destination, as a project's link, as a project's initial team; B's project as a team's link and as a new team's
+    // project; a person who belongs to B only as a new team's member. Every answer is the answer for an id that does not exist, status,
+    // code and text alike, and nothing of B changes. (The owner and the default are in the test above and in the one below.)
+    [Fact]
+    public async Task AForeignIdInAnOrganizationLevelBody_AnswersExactlyAsAnUnknownOne_NothingChanges()
+    {
+        var world = await TwoAsync();
+        var a = world.A;
+        var stranger = await MembershipTestData.NewNamedMemberAsync(factory, world.B.World.OrganizationId, OrganizationRole.Member, "Олег", "Из Б");
+        var project = $"/api/organizations/{a.OrganizationId}/projects/{a.ProjectId}";
+        var organization = $"/api/organizations/{a.OrganizationId}";
+        var before = await StateAsync(world.B);
+        var aBefore = await StateAsync(a);
+        var unknown = Guid.CreateVersion7().ToString();
+
+        async Task<Answer> SendAsync(HttpMethod method, string path, object body) =>
+            await OrganizationsApi.SendAsync(factory, method, path, body, world.Token);
+
+        var cases = new (string Name, Answer Foreign, Answer Unknown)[]
+        {
+            (
+                "an unlink's destination",
+                await SendAsync(HttpMethod.Post, $"{project}/teams/{a.TeamId}/unlink", new { destination = new { teamId = world.B.TeamId.ToString() } }),
+                await SendAsync(HttpMethod.Post, $"{project}/teams/{a.TeamId}/unlink", new { destination = new { teamId = unknown } })),
+            (
+                "a project's link",
+                await SendAsync(HttpMethod.Post, $"{project}/teams", new { teamIds = new[] { world.B.TeamId.ToString() } }),
+                await SendAsync(HttpMethod.Post, $"{project}/teams", new { teamIds = new[] { unknown } })),
+            (
+                "a new project's team",
+                await SendAsync(HttpMethod.Post, $"{organization}/projects", new { name = "Проект с чужой командой", key = "FRGN", teamIds = new[] { world.B.TeamId.ToString() } }),
+                await SendAsync(HttpMethod.Post, $"{organization}/projects", new { name = "Проект с чужой командой", key = "FRGN", teamIds = new[] { unknown } })),
+            (
+                "a team's link",
+                await SendAsync(HttpMethod.Post, $"{organization}/teams/{a.TeamId}/projects", new { projectIds = new[] { world.B.World.ProjectId.ToString() } }),
+                await SendAsync(HttpMethod.Post, $"{organization}/teams/{a.TeamId}/projects", new { projectIds = new[] { unknown } })),
+            (
+                "a new team's project",
+                await SendAsync(HttpMethod.Post, $"{organization}/teams", new { name = "Команда с чужим проектом", projectIds = new[] { world.B.World.ProjectId.ToString() } }),
+                await SendAsync(HttpMethod.Post, $"{organization}/teams", new { name = "Команда с чужим проектом", projectIds = new[] { unknown } })),
+            (
+                "a new team's member",
+                await SendAsync(HttpMethod.Post, $"{organization}/teams", new { name = "Команда с чужим человеком", memberIds = new[] { stranger.Id } }),
+                await SendAsync(HttpMethod.Post, $"{organization}/teams", new { name = "Команда с чужим человеком", memberIds = new[] { "nobody-" + Guid.CreateVersion7().ToString("N") } })),
+        };
+
+        foreach (var (name, foreign, unnamed) in cases)
+        {
+            Assert.True(
+                foreign.Status is HttpStatusCode.NotFound or HttpStatusCode.Conflict,
+                $"{name}: a foreign id answered {(int)foreign.Status} {foreign.ErrorCode}.");
+            Assert.Equal((unnamed.Status, unnamed.ErrorCode, unnamed.Detail), (foreign.Status, foreign.ErrorCode, foreign.Detail));
+        }
+
+        Assert.Equal(before, await StateAsync(world.B));
+        Assert.Equal(aBefore, await StateAsync(a));
     }
 
     // US-2 · "An area's or a team's body id outside the address is refused" (mod-002 BR-M1-22, mod-017 BR-OT-16): an administrator

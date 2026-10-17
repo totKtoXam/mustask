@@ -133,7 +133,8 @@
       "params": {},
       "ru": "Нельзя удалить единственную команду проекта.",
       "kk": "Жобаның жалғыз командасын жоюға болмайды.",
-      "kkNeedsReview": true
+      "kkNeedsReview": true,
+      "deprecated": true
     },
     "organizations.team.default_area_not_owned": {
       "statuses": [409],

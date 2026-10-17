@@ -42,9 +42,9 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
                 await organizations.LockAsync(Guid.CreateVersion7(), ct) is null,
                 await projects.LockAsync(structure.Organization.Id, projectId, ct) is not null,
                 await projects.LockAsync(other.Organization.Id, projectId, ct) is null,
-                await teams.LockForNoKeyUpdateAsync(projectId, structure.SecondTeam.Id, ct) is not null,
-                await teams.LockForNoKeyUpdateAsync(otherProjectId, structure.SecondTeam.Id, ct) is null,
-                await teams.LockForShareAsync(otherProjectId, structure.SecondTeam.Id, ct) is null,
+                await teams.LockForNoKeyUpdateAsync(structure.Organization.Id, structure.SecondTeam.Id, ct) is not null,
+                await teams.LockForNoKeyUpdateAsync(other.Organization.Id, structure.SecondTeam.Id, ct) is null,
+                await teams.LockForShareAsync(other.Organization.Id, structure.SecondTeam.Id, ct) is null,
                 await areas.LockForUpdateAsync(projectId, reports.Id, ct) is not null,
                 await areas.LockForShareAsync(otherProjectId, reports.Id, ct) is null,
                 await areas.FindAsync(otherProjectId, reports.Id, ct) is null,
@@ -82,8 +82,8 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
                 await projects.IsKeyTakenAsync(organizationId, "PRM", ct),
                 await projects.IsKeyTakenAsync(organizationId, "prm", ct),
                 await projects.IsReachableAsync(organizationId, projectId, ct),
-                await teams.IsActiveNameTakenAsync(projectId, "ПЛАТФОРМА", null, ct),
-                await teams.IsActiveNameTakenAsync(projectId, "ПЛАТФОРМА", structure.SecondTeam.Id, ct),
+                await teams.IsActiveNameTakenAsync(organizationId, "ПЛАТФОРМА", null, ct),
+                await teams.IsActiveNameTakenAsync(organizationId, "ПЛАТФОРМА", structure.SecondTeam.Id, ct),
                 await teams.FindNameAsync(structure.SecondTeam.Id, ct),
                 await areas.IsSiblingNameTakenAsync(structure.Project.Root.Id, "ПЛАТФОРМА", null, ct),
                 await areas.IsSiblingNameTakenAsync(structure.Project.Root.Id, "ПЛАТФОРМА", platformArea.Id, ct),
@@ -107,75 +107,148 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
             result);
     }
 
-    // mod-017 BR-OT-12, D-3, D-4 · the deletion's lock: every ACTIVE team of the project, and only of that project, tracked, in
-    // ascending id — one fixed order for every caller.
+    // feat-028 plan-backend D-3, § 7.4 · the unlink's lock: the links of one project to the named teams, FOR NO KEY UPDATE, in ONE
+    // statement ordered by team id — the same SQL whichever team an unlink names first. Replaces
+    // LockProjectTeams_ReturnsTheActiveTeamsOfTheProjectOnly_InAscendingId (retired with the last-team guard, BR-OL-10).
     [Fact]
-    public async Task LockProjectTeams_ReturnsTheActiveTeamsOfTheProjectOnly_InAscendingId()
+    public async Task LockLinks_OfAPair_InAscendingTeamId()
     {
         var structure = await database.CreateStructureAsync();
-        var other = await database.CreateStructureAsync();
-        var projectId = structure.Project.Project.Id;
-        var third = Team.Create(projectId, Name("Аналитика"));
-        var deleted = Team.Create(projectId, Name("Ядро"));
+        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Project.Id);
+        var log = new SqlLogInterceptor();
+
+        await InUnitOfWorkAsync(async (scope, ct) =>
+        {
+            var links = scope.ServiceProvider.GetRequiredService<IProjectTeamRepository>();
+            await links.LockLinksAsync(organizationId, projectId, [structure.SecondTeam.Id, structure.FirstTeam.Id], ct);
+            await links.LockLinksAsync(organizationId, projectId, [structure.FirstTeam.Id, structure.SecondTeam.Id], ct);
+
+            return true;
+        }, log);
+
+        var statements = log.Commands.Where(sql => sql.Contains("FROM project_teams", StringComparison.Ordinal)).ToList();
+        Assert.Equal(2, statements.Count);
+        Assert.All(statements, sql => Assert.Contains("ORDER BY team_id", sql, StringComparison.Ordinal));
+        Assert.All(statements, sql => Assert.Contains("FOR NO KEY UPDATE", sql, StringComparison.Ordinal));
+    }
+
+    // feat-028 plan-backend § 7.3 C-12 · the deletion's lock: ALL of one team's links, by project id, and the project ids they name;
+    // another team's links are not read.
+    [Fact]
+    public async Task LockTeamLinks_ReturnsTheTeamsLinksOnly_InAscendingProjectId()
+    {
+        var structure = await database.CreateStructureAsync();
+        var organizationId = structure.Organization.Id;
+        var second = await database.AddProjectAsync(organizationId, "Аналитика", "ANL");
         await using (var context = database.NewContext())
         {
-            context.Teams.AddRange(third, deleted);
+            context.ProjectTeams.Add(ProjectTeam.Link(organizationId, second.Project.Id, structure.FirstTeam.Id, Creator, Now));
             await context.SaveChangesAsync();
         }
 
-        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @id", ("id", deleted.Id));
+        var projects = await InUnitOfWorkAsync((scope, ct) =>
+            scope.ServiceProvider.GetRequiredService<IProjectTeamRepository>().LockTeamLinksAsync(organizationId, structure.FirstTeam.Id, ct));
+        var other = await InUnitOfWorkAsync((scope, ct) =>
+            scope.ServiceProvider.GetRequiredService<IProjectTeamRepository>().LockTeamLinksAsync(organizationId, structure.SecondTeam.Id, ct));
 
-        var locked = await InUnitOfWorkAsync((scope, ct) =>
-            scope.ServiceProvider.GetRequiredService<ITeamRepository>().LockProjectTeamsAsync(projectId, ct));
-
-        Assert.Equal(
-            new[] { structure.Project.Team.Id, structure.SecondTeam.Id, third.Id }.Order(),
-            locked.Select(team => team.Id));
-        Assert.DoesNotContain(locked, team => team.Id == other.Project.Team.Id);
+        Assert.Equal(new[] { structure.Project.Project.Id, second.Project.Id }.Order(), projects);
+        Assert.Equal([structure.Project.Project.Id], other);
     }
 
-    // mod-017 BR-OT-4 · the mark the rename answers: «named» for the team the settings name, «onlyTeam» for the only active team,
-    // else none — the same definition as the list's.
+    // feat-028 BR-OL-4 · the link statement: a pair already linked keeps its row, who linked it and when; a new pair is added with the
+    // caller and the time — one statement for every pair.
     [Fact]
-    public async Task GetMark_NamedOnlyTeamOrNone()
+    public async Task Link_AlreadyLinkedPair_KeepsItsRow_NewPairsAreAdded()
     {
         var structure = await database.CreateStructureAsync();
-        var projectId = structure.Project.Project.Id;
+        var organizationId = structure.Organization.Id;
+        var second = await database.AddProjectAsync(organizationId, "Аналитика", "ANL");
+        var later = Now.AddDays(3);
 
-        async Task<DefaultTeamMark> MarkAsync(Guid teamId) =>
-            await InUnitOfWorkAsync(async (scope, ct) =>
-            {
-                var teams = scope.ServiceProvider.GetRequiredService<ITeamRepository>();
-                var team = (await teams.LockForShareAsync(projectId, teamId, ct))!;
+        var made = await InUnitOfWorkAsync((scope, ct) =>
+            scope.ServiceProvider.GetRequiredService<IProjectTeamRepository>().LinkAsync(
+                organizationId,
+                [(structure.Project.Project.Id, structure.FirstTeam.Id), (second.Project.Id, structure.FirstTeam.Id)],
+                "someone-else",
+                later,
+                ct));
+        var rows = await database.QueryAsync(
+            "SELECT linked_by || '|' || linked_at::text FROM project_teams WHERE team_id = @team ORDER BY project_id",
+            ("team", structure.FirstTeam.Id));
 
-                return await teams.GetMarkAsync(team, ct);
-            });
-
-        var severalNoneNamed = await MarkAsync(structure.SecondTeam.Id);
-        await database.ExecuteAsync("UPDATE projects SET default_team_id = @team WHERE id = @project", ("team", structure.SecondTeam.Id), ("project", projectId));
-        var named = await MarkAsync(structure.SecondTeam.Id);
-        var notNamed = await MarkAsync(structure.Project.Team.Id);
-        await database.ExecuteAsync("UPDATE projects SET default_team_id = NULL WHERE id = @project", ("project", projectId));
-        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @id", ("id", structure.SecondTeam.Id));
-        var only = await MarkAsync(structure.Project.Team.Id);
-
-        Assert.Equal(DefaultTeamMark.None, severalNoneNamed);
-        Assert.Equal(DefaultTeamMark.Named, named);
-        Assert.Equal(DefaultTeamMark.None, notNamed);
-        Assert.Equal(DefaultTeamMark.OnlyTeam, only);
+        Assert.Equal(1, made);
+        Assert.Equal(2, rows.Count);
+        Assert.Contains(rows, row => row.StartsWith(Creator + "|", StringComparison.Ordinal));
+        Assert.Contains(rows, row => row.StartsWith("someone-else|", StringComparison.Ordinal));
     }
 
-    // mod-017 BR-OT-12 · the deletion's step: one statement clears the setting if it names the team, and only then.
+    // feat-028 BR-OL-1 · every link statement carries the organization: a foreign organization finds, links and removes nothing.
+    [Fact]
+    public async Task LinkStatements_OfAnotherOrganization_ChangeNothing()
+    {
+        var structure = await database.CreateStructureAsync();
+        var other = await database.CreateStructureAsync();
+
+        var found = await InUnitOfWorkAsync(async (scope, ct) =>
+        {
+            var links = scope.ServiceProvider.GetRequiredService<IProjectTeamRepository>();
+            await links.RemoveLinkAsync(other.Organization.Id, structure.Project.Project.Id, structure.FirstTeam.Id, ct);
+            await links.RemoveTeamLinksAsync(other.Organization.Id, structure.SecondTeam.Id, ct);
+
+            return (
+                await links.FindLinkedAsync(other.Organization.Id, structure.Project.Project.Id, [structure.FirstTeam.Id], ct),
+                await links.LockTeamLinksAsync(other.Organization.Id, structure.FirstTeam.Id, ct),
+                await links.LockLinkForShareAsync(other.Organization.Id, structure.Project.Project.Id, structure.FirstTeam.Id, ct));
+        });
+        var remaining = await database.QueryAsync(
+            "SELECT count(*)::text FROM project_teams WHERE project_id = @project", ("project", structure.Project.Project.Id));
+
+        Assert.Empty(found.Item1);
+        Assert.Empty(found.Item2);
+        Assert.False(found.Item3);
+        Assert.Equal(["2"], remaining);
+    }
+
+    // feat-028 BR-OL-3 · the unique name index is per organization: the same name in another organization is free.
+    [Fact]
+    public async Task ClearDefaultTeam_ByOrganization_ClearsEverySettingThatNamedTheTeam()
+    {
+        var structure = await database.CreateStructureAsync();
+        var organizationId = structure.Organization.Id;
+        var second = await database.AddProjectAsync(organizationId, "Аналитика", "ANL");
+        await using (var context = database.NewContext())
+        {
+            context.ProjectTeams.Add(ProjectTeam.Link(organizationId, second.Project.Id, structure.FirstTeam.Id, Creator, Now));
+            await context.SaveChangesAsync();
+        }
+
+        await database.ExecuteAsync(
+            "UPDATE projects SET default_team_id = @team WHERE id IN (@a, @b)",
+            ("team", structure.FirstTeam.Id), ("a", structure.Project.Project.Id), ("b", second.Project.Id));
+
+        await InUnitOfWorkAsync(async (scope, ct) =>
+        {
+            await scope.ServiceProvider.GetRequiredService<IProjectRepository>().ClearDefaultTeamAsync(organizationId, structure.FirstTeam.Id, ct);
+
+            return true;
+        });
+        var settings = await database.QueryAsync(
+            "SELECT count(*)::text FROM projects WHERE organization_id = @org AND default_team_id IS NOT NULL", ("org", organizationId));
+
+        Assert.Equal(["0"], settings);
+    }
+
+    // mod-017 BR-OT-12 · the unlink's step: one statement clears the setting of ONE project if it names the team, and only then.
     [Fact]
     public async Task ClearDefaultTeam_ClearsOnlyASettingThatNamesThatTeam()
     {
         var structure = await database.CreateStructureAsync();
-        var projectId = structure.Project.Project.Id;
+        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Project.Id);
         await database.ExecuteAsync("UPDATE projects SET default_team_id = @team WHERE id = @project", ("team", structure.SecondTeam.Id), ("project", projectId));
 
         await InUnitOfWorkAsync(async (scope, ct) =>
         {
-            await scope.ServiceProvider.GetRequiredService<IProjectRepository>().ClearDefaultTeamAsync(projectId, structure.Project.Team.Id, ct);
+            await scope.ServiceProvider.GetRequiredService<IProjectRepository>().ClearDefaultTeamAsync(organizationId, projectId, structure.FirstTeam.Id, ct);
 
             return true;
         });
@@ -183,7 +256,7 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
 
         await InUnitOfWorkAsync(async (scope, ct) =>
         {
-            await scope.ServiceProvider.GetRequiredService<IProjectRepository>().ClearDefaultTeamAsync(projectId, structure.SecondTeam.Id, ct);
+            await scope.ServiceProvider.GetRequiredService<IProjectRepository>().ClearDefaultTeamAsync(organizationId, projectId, structure.SecondTeam.Id, ct);
 
             return true;
         });
@@ -209,9 +282,9 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
         Assert.Equal(["альфа", "Платформа"], tree.ChildrenOf(structure.Project.Root.Id).Select(node => node.Name));
     }
 
-    private async Task<T> InUnitOfWorkAsync<T>(Func<IServiceScope, CancellationToken, Task<T>> work)
+    private async Task<T> InUnitOfWorkAsync<T>(Func<IServiceScope, CancellationToken, Task<T>> work, params Microsoft.EntityFrameworkCore.Diagnostics.IInterceptor[] interceptors)
     {
-        await using var provider = database.BuildServices();
+        await using var provider = database.BuildServices(interceptors);
         await using var scope = provider.CreateAsyncScope();
         var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 

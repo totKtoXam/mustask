@@ -24,7 +24,7 @@ public sealed class DeactivateOrganizationHandlerTests
             Organization = Store.AddOrganization();
             Store.AddMember(Organization, Lister, OrganizationRole.Admin);
             Project = Store.AddProject(Organization);
-            Platform = Store.AddTeam(Project);
+            Platform = Store.AddLinkedTeam(Organization, Project);
             Project.Project.NameDefaultTeam(Platform.Id);
             Reports = Store.AddArea(Project.Root, "Отчёты");
             Handler = new DeactivateOrganizationHandler(new FakeOrganizationRepository(Store), new FakeUnitOfWork());

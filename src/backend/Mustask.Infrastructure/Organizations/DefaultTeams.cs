@@ -4,9 +4,10 @@ using Microsoft.EntityFrameworkCore;
 namespace Mustask.Infrastructure.Organizations;
 
 /// <summary>
-/// The project default team (mod-017 BR-OT-4) read as it stands, in one statement: the named team when it is active, the
-/// number of the project's active teams, and one of them. <see cref="ProjectDefaultTeam"/> decides — the team the settings
-/// name, else the only active team, else none — so the structure seam, the creation's lock and the team list cannot disagree.
+/// The project default team (mod-017 BR-OT-4, feat-028 BR-OL-7) read as it stands, in one statement: the named team when it is
+/// still linked and active, the number of the project's linked active teams, and one of them. <see cref="ProjectDefaultTeam"/>
+/// decides — the team the settings name, else the only linked active team, else none — so the structure seam, the creation's
+/// lock and the team list cannot disagree.
 /// </summary>
 internal static class DefaultTeams
 {
@@ -18,14 +19,23 @@ internal static class DefaultTeams
             .Where(project => project.Id == projectId)
             .Select(project => new
             {
-                NamedActive = context.Teams
-                    .Where(team => team.Id == project.DefaultTeamId && team.ProjectId == project.Id && team.Status == TeamStatus.Active)
-                    .Select(team => (Guid?)team.Id)
+                NamedActive = (
+                        from link in context.ProjectTeams
+                        join team in context.Teams on link.TeamId equals team.Id
+                        where link.ProjectId == project.Id && team.Id == project.DefaultTeamId && team.Status == TeamStatus.Active
+                        select (Guid?)team.Id)
                     .FirstOrDefault(),
-                ActiveTeams = context.Teams.Count(team => team.ProjectId == project.Id && team.Status == TeamStatus.Active),
-                AnActive = context.Teams
-                    .Where(team => team.ProjectId == project.Id && team.Status == TeamStatus.Active)
-                    .Select(team => (Guid?)team.Id)
+                ActiveTeams = (
+                        from link in context.ProjectTeams
+                        join team in context.Teams on link.TeamId equals team.Id
+                        where link.ProjectId == project.Id && team.Status == TeamStatus.Active
+                        select team.Id)
+                    .Count(),
+                AnActive = (
+                        from link in context.ProjectTeams
+                        join team in context.Teams on link.TeamId equals team.Id
+                        where link.ProjectId == project.Id && team.Status == TeamStatus.Active
+                        select (Guid?)team.Id)
                     .FirstOrDefault(),
             })
             .SingleOrDefaultAsync(cancellationToken);

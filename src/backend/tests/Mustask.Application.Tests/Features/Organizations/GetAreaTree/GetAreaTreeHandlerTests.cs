@@ -31,7 +31,7 @@ public sealed class GetAreaTreeHandlerTests
         {
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization);
-            Platform = Store.AddTeam(Project);
+            Platform = Store.AddLinkedTeam(Organization, Project);
             Reports = Store.AddArea(Project.Root, "Отчёты");
             Quarterly = Store.AddArea(Reports, "Квартальные");
             March = Store.AddArea(Quarterly, "Март");

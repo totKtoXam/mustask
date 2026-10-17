@@ -184,7 +184,7 @@ public sealed class OwningTeamQaEndpointTests(MustaskApiFactory factory)
         Assert.Equal(second, (await StoredAsync(factory, two.Project.Id, first)).TeamId);
 
         Assert.Equal(HttpStatusCode.NoContent, (await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Delete, $"{teams}/{second}", token: OrganizationsTokens.SignedIn())).Status);
+            factory, HttpMethod.Delete, TeamTestData.Team(organization, second), token: OrganizationsTokens.SignedIn())).Status);
 
         Assert.Null(await DefaultSettingOfAsync(two.Project.Id));
         Assert.Equal([(two.Team.Id, "onlyTeam")], await MarksAsync(teams));
@@ -219,7 +219,7 @@ public sealed class OwningTeamQaEndpointTests(MustaskApiFactory factory)
         var deletion = OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Delete,
-            $"{OrganizationsApi.Teams(world.OrganizationId, two.Project.Id)}/{doomed}",
+            TeamTestData.Team(world.OrganizationId, doomed),
             token: OrganizationsTokens.SignedIn(),
             gate: gate);
         await Task.WhenAny(gate.Reached, deletion);
@@ -325,7 +325,7 @@ public sealed class OwningTeamQaEndpointTests(MustaskApiFactory factory)
         var venus = await StoryAsync(world, "Венера", world.Venus);
 
         var deleted = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Delete, $"{OrganizationsApi.Teams(world.OrganizationId, world.ProjectId)}/{world.Mars}", token: OrganizationsTokens.SignedIn());
+            factory, HttpMethod.Delete, TeamTestData.Team(world.OrganizationId, world.Mars), token: OrganizationsTokens.SignedIn());
         Assert.Equal(HttpStatusCode.NoContent, deleted.Status);
 
         var none = Query("none");

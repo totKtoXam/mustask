@@ -7,8 +7,9 @@ using Mustask.Shared.Exceptions;
 namespace Mustask.Application.Tests.Features.Organizations.GetTeams;
 
 /// <summary>
-/// <c>GetTeams</c> on fakes (plan-backend § 14.3, lane L-15; mod-017 BR-OT-4, BR-OT-11): the teams by name, the default mark of
-/// each, the deleted and the unreachable left out, and the order of answers of a read (§ 5.3).
+/// <c>GetTeams</c> on fakes (feat-028 api-contract § 1.3, § 2.4; US-2 "a project without a team works", US-3 "only linked teams are
+/// offered", "the mark follows the links"): the project's <b>linked</b> active teams, by name, each with its default mark (BR-OL-7) and
+/// whether the caller is in it. Rewritten from the project's own teams (mod-017 BR-OT-4, BR-OT-11; D-16).
 /// </summary>
 public sealed class GetTeamsHandlerTests
 {
@@ -18,223 +19,121 @@ public sealed class GetTeamsHandlerTests
         {
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization);
-            Platform = Store.AddTeam(Project);
-            Handler = new GetTeamsHandler(new FakeTeamReadModel(Store), User);
+            User.SubjectId = "u-caller";
+            Handler = new GetTeamsHandler(new FakeProjectReadModel(Store), new FakeTeamReadModel(Store), User);
         }
 
-        /// <summary>The acting user: a member of the organization, in no team until a test says so.</summary>
-        public FakeCurrentUser User { get; } = new() { SubjectId = "4c1f0e6a-0000-4000-8000-00000000a11a" };
-
         public InMemoryOrganizations Store { get; } = new();
+
+        public FakeCurrentUser User { get; } = new();
 
         public Organization Organization { get; }
 
         public NewProject Project { get; }
 
-        public Team Platform { get; }
-
         public GetTeamsHandler Handler { get; }
 
-        public GetTeamsQuery Query(string? organizationId = null, string? projectId = null) =>
+        public GetTeamsQuery Query(string? projectId = null, string? organizationId = null) =>
             new(organizationId ?? Organization.Id.ToString(), projectId ?? Project.Project.Id.ToString());
 
-        public Task<GetTeamsResult> HandleAsync(GetTeamsQuery query) => Handler.Handle(query, CancellationToken.None);
-
-        /// <summary>A team as the list shows it: the project's, with the mark given.</summary>
-        public static TeamResponse Listed(Guid projectId, Team team, string? mark = null) =>
-            new(team.Id, projectId, team.Name, mark);
+        public async Task<IReadOnlyList<TeamResponse>> ListAsync(GetTeamsQuery? query = null) =>
+            (await Handler.Handle(query ?? Query(), CancellationToken.None)).Items;
     }
 
-    // mod-017 US-4 · "The project's teams": every active team is listed by name in Russian collation, letter case not
-    // deciding — no team comes first (BR-OT-11) — and none carries a mark when the settings name none and there are several.
-    // Replaces Handle_ActiveTeams_FirstTeamFirstThenDisplayOrder_WithDefaultAreaPaths (D-16, BR-OT-11).
+    // US-2 · "a project without a team works" (the state of every project right after the upgrade): an empty list, not a not-found.
     [Fact]
-    public async Task Handle_ActiveTeams_ByName_NoTeamFirst_NoMarkWhenSeveralAndNoneNamed()
+    public async Task Handle_ProjectWithNoTeam_ReturnsEmpty()
     {
         var f = new Fixture();
-        var projectId = f.Project.Project.Id;
-        var beta = f.Store.AddTeam(f.Project, "Бета");
-        var alpha = f.Store.AddTeam(f.Project, "альфа");
-        var elsewhere = f.Store.AddProject(f.Organization, "Аналитика", "ANL");
-        f.Store.AddTeam(elsewhere, "Ядро");
 
-        var result = await f.HandleAsync(f.Query());
-
-        Assert.Equal(
-            [
-                Fixture.Listed(projectId, alpha),
-                Fixture.Listed(projectId, beta),
-                Fixture.Listed(projectId, f.Platform),
-                new TeamResponse(f.Project.Team.Id, projectId, "Пример проекта", null),
-            ],
-            result.Items);
+        Assert.Empty(await f.ListAsync());
     }
 
-    // mod-017 US-8 · "The default team is the only team": a project that has just been created lists its team alone, and
-    // the team carries «onlyTeam» (BR-OT-4). Replaces Handle_NewProject_ListsTheFirstTeamAlone_DefaultAreaIsTheRoot (D-16).
+    // US-3 · "only linked teams are offered": linked active teams by name, no team first; a team of the organization that is not
+    // linked, and a team of another organization, are left out. Two teams and none named: no mark.
     [Fact]
-    public async Task Handle_NewProject_ListsItsOnlyTeamAlone_MarkedOnlyTeam()
+    public async Task Get_OnlyLinkedActiveTeams_ByName_NoMarkWhenSeveralAndNoneNamed()
     {
         var f = new Fixture();
-        var created = f.Store.AddProject(f.Organization, "Аналитика", "ANL");
+        var beta = f.Store.AddLinkedTeam(f.Organization, f.Project, "Бета");
+        var alpha = f.Store.AddLinkedTeam(f.Organization, f.Project, "альфа");
+        f.Store.AddTeam(f.Organization, "Не связана");
+        f.Store.AddTeam(f.Store.AddOrganization("Другая"), "Чужая");
 
-        var result = await f.HandleAsync(f.Query(projectId: created.Project.Id.ToString()));
+        var teams = await f.ListAsync();
 
-        var only = Assert.Single(result.Items);
-        Assert.Equal(new TeamResponse(created.Team.Id, created.Project.Id, "Аналитика", "onlyTeam"), only);
+        Assert.Equal([new TeamResponse(alpha.Id, "альфа", null), new TeamResponse(beta.Id, "Бета", null)], teams);
     }
 
-    // mod-017 BR-OT-4: when the settings name a team, that one carries «named» and no other carries a mark.
+    // US-3 · "the mark follows the links": the only linked team is marked onlyTeam; naming one carries named and no other mark.
     [Fact]
-    public async Task Handle_NamedTeam_CarriesNamed_NoOtherCarriesAMark()
+    public async Task Get_DefaultMark_FollowsTheLinks_NamedOnlyTeamNone()
     {
         var f = new Fixture();
-        f.Project.Project.NameDefaultTeam(f.Platform.Id);
+        var alpha = f.Store.AddLinkedTeam(f.Organization, f.Project, "Альфа");
 
-        var result = await f.HandleAsync(f.Query());
+        Assert.Equal([new TeamResponse(alpha.Id, "Альфа", "onlyTeam")], await f.ListAsync());
 
-        Assert.Equal(["named"], result.Items.Where(team => team.DefaultMark is not null).Select(team => team.DefaultMark));
-        Assert.Equal(f.Platform.Id, result.Items.Single(team => team.DefaultMark == "named").Id);
+        var beta = f.Store.AddLinkedTeam(f.Organization, f.Project, "Бета");
+        Assert.All(await f.ListAsync(), team => Assert.Null(team.DefaultMark));
+
+        f.Project.Project.NameDefaultTeam(beta.Id);
+        var named = await f.ListAsync();
+        Assert.Equal("named", named.Single(team => team.Id == beta.Id).DefaultMark);
+        Assert.Null(named.Single(team => team.Id == alpha.Id).DefaultMark);
     }
 
-    // mod-017 BR-OT-4: after the other teams are deleted, the one left is the only team, whatever the settings said.
-    [Fact]
-    public async Task Handle_AfterTheOthersAreDeleted_TheLastTeamIsOnlyTeam()
-    {
-        var f = new Fixture();
-        f.Project.Team.Delete(2);
-
-        var result = await f.HandleAsync(f.Query());
-
-        Assert.Equal(new TeamResponse(f.Platform.Id, f.Project.Project.Id, "Платформа", "onlyTeam"), Assert.Single(result.Items));
-    }
-
-    // US-8 · "The switcher lists ... «Платформа» and «Пример проекта», and not the deleted team" (BR-M1-18).
     [Fact]
     public async Task Handle_DeletedTeam_IsLeftOut()
     {
         var f = new Fixture();
-        var core = f.Store.AddTeam(f.Project, "Ядро");
-        core.Delete(3);
+        var gone = f.Store.AddLinkedTeam(f.Organization, f.Project, "Ушла");
+        var stays = f.Store.AddLinkedTeam(f.Organization, f.Project, "Осталась");
+        gone.Delete();
 
-        var result = await f.HandleAsync(f.Query());
-
-        Assert.Equal(["Платформа", "Пример проекта"], result.Items.Select(team => team.Name));
-        Assert.DoesNotContain(result.Items, team => team.Id == core.Id);
+        Assert.Equal([stays.Id], (await f.ListAsync()).Select(team => team.Id));
     }
 
-    // mod-016 US-7 · "Choosing a project selects the user's own team" (BR-M1-27, D-5): each team says whether the CALLER is
-    // in it, in the list's order; another user's membership does not count.
+    // mod-016 BR-M1-27 · each team says whether the caller is in it, at read time.
     [Fact]
-    public async Task Handle_EachTeamSaysWhetherTheCallerIsInIt_InTheListsOrder()
+    public async Task Handle_EachTeamSaysWhetherTheCallerIsInIt()
     {
         var f = new Fixture();
-        var analytics = f.Store.AddTeam(f.Project, "Аналитика");
-        f.Store.AddMember(f.Organization, f.User.SubjectId);
-        f.Store.AddMember(f.Organization, "someone-else");
-        f.Store.AddTeamMember(f.Organization, f.Platform, f.User.SubjectId);
-        f.Store.AddTeamMember(f.Organization, f.Project.Team, "someone-else");
+        var alpha = f.Store.AddLinkedTeam(f.Organization, f.Project, "Альфа");
+        var beta = f.Store.AddLinkedTeam(f.Organization, f.Project, "Бета");
+        f.Store.AddMember(f.Organization, "u-caller");
+        f.Store.AddTeamMember(f.Organization, beta, "u-caller");
 
-        var result = await f.HandleAsync(f.Query());
+        var teams = await f.ListAsync();
 
-        Assert.Equal(
-            [("Аналитика", false), ("Платформа", true), ("Пример проекта", false)],
-            result.Items.Select(team => (team.Name, team.IsMember)));
-        Assert.NotEqual(Guid.Empty, analytics.Id);
+        Assert.False(teams.Single(team => team.Id == alpha.Id).IsMember);
+        Assert.True(teams.Single(team => team.Id == beta.Id).IsMember);
     }
 
-    // mod-016 US-7 · "Several teams — the first of them in the project's order": the flag is set on every team the caller is in.
-    [Fact]
-    public async Task Handle_CallerInSeveralTeams_EveryOneOfThemIsMarked()
-    {
-        var f = new Fixture();
-        var analytics = f.Store.AddTeam(f.Project, "Аналитика");
-        f.Store.AddMember(f.Organization, f.User.SubjectId);
-        f.Store.AddTeamMember(f.Organization, f.Platform, f.User.SubjectId);
-        f.Store.AddTeamMember(f.Organization, analytics, f.User.SubjectId);
-
-        var result = await f.HandleAsync(f.Query());
-
-        Assert.Equal(["Аналитика", "Платформа"], result.Items.Where(team => team.IsMember).Select(team => team.Name));
-    }
-
-    // mod-016 US-7 · "In no team of the project — the first of the list": no team is marked, so the panel falls back.
-    [Fact]
-    public async Task Handle_CallerInNoTeam_NoTeamIsMarked()
-    {
-        var f = new Fixture();
-        f.Store.AddMember(f.Organization, f.User.SubjectId);
-
-        var result = await f.HandleAsync(f.Query());
-
-        Assert.All(result.Items, team => Assert.False(team.IsMember));
-    }
-
-    // mod-016 BR-M1-27 · "a change to them counts from the next time that list is read": the flag follows the memberships
-    // at read time, nothing is cached.
-    [Fact]
-    public async Task Handle_TheFlagFollowsTheMembershipsAtReadTime()
-    {
-        var f = new Fixture();
-        f.Store.AddMember(f.Organization, f.User.SubjectId);
-
-        var before = await f.HandleAsync(f.Query());
-        f.Store.AddTeamMember(f.Organization, f.Platform, f.User.SubjectId);
-        var added = await f.HandleAsync(f.Query());
-        f.Store.TeamMemberships.Clear();
-        var removed = await f.HandleAsync(f.Query());
-
-        Assert.DoesNotContain(before.Items, team => team.IsMember);
-        Assert.Equal(["Платформа"], added.Items.Where(team => team.IsMember).Select(team => team.Name));
-        Assert.DoesNotContain(removed.Items, team => team.IsMember);
-    }
-
-    // BR-M1-20: behind the filter the organization id is well formed; if it were not, the outermost level answers.
-    [Fact]
-    public async Task Handle_MalformedOrganization_IsOrganizationNotFound_BeforeTheProject()
-    {
-        var f = new Fixture();
-
-        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Query(organizationId: "abc", projectId: "xyz")));
-
-        Assert.Equal(OrganizationErrorCodes.OrganizationNotFound, refusal.Code);
-    }
-
-    // US-3 · "A project id names no project of the organization" and "a project is deactivated" (BR-M1-20, BR-M1-22,
-    // ADR-0026 rule 5): nothing about a project that is malformed, unknown, of another organization, deactivated or
-    // beneath a deactivated organization is revealed.
+    // US-8 · the address answers by its level: a malformed organization, a malformed or unknown project, a deactivated project.
     [Theory]
-    [InlineData("null")]
-    [InlineData("malformed")]
-    [InlineData("unknown")]
-    [InlineData("of another organization")]
-    [InlineData("deactivated")]
-    [InlineData("under a deactivated organization")]
-    public async Task Handle_ProjectNotReachable_IsProjectNotFound(string how)
+    [InlineData("malformed organization", "organizations.organization.not_found")]
+    [InlineData("malformed project", "organizations.project.not_found")]
+    [InlineData("unknown project", "organizations.project.not_found")]
+    [InlineData("deactivated project", "organizations.project.not_found")]
+    public async Task Handle_AddressNotReachable_AnswersItsLevelsNotFound(string how, string code)
     {
         var f = new Fixture();
-        var other = f.Store.AddProject(f.Store.AddOrganization("Другая организация"), "Чужой", "OTH");
         var query = how switch
         {
-            "null" => new GetTeamsQuery(f.Organization.Id.ToString(), null),
-            "malformed" => f.Query(projectId: "not-an-id"),
-            "unknown" => f.Query(projectId: Guid.CreateVersion7().ToString()),
-            "of another organization" => f.Query(projectId: other.Project.Id.ToString()),
+            "malformed organization" => f.Query(organizationId: "abc"),
+            "malformed project" => f.Query(projectId: "abc"),
+            "unknown project" => f.Query(projectId: Guid.CreateVersion7().ToString()),
             _ => f.Query(),
         };
 
-        if (how == "deactivated")
+        if (how == "deactivated project")
         {
             f.Project.Project.Deactivate();
         }
 
-        if (how == "under a deactivated organization")
-        {
-            f.Organization.Deactivate();
-        }
+        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.ListAsync(query));
 
-        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(query));
-
-        Assert.Equal(OrganizationErrorCodes.ProjectNotFound, refusal.Code);
+        Assert.Equal(code, refusal.Code);
     }
 }

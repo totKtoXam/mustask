@@ -48,16 +48,16 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
 
     // Pinned: a change to one of these is a change to the query shape and is made on purpose (the numbers are the first run's).
     private const int ListStatements = 7;
-    private const int TeamBacklogStatements = 11;
-    private const int TeamBoardStatements = 13;
-    private const int TeamsListStatements = 1;
+    private const int TeamBacklogStatements = 10;
+    private const int TeamBoardStatements = 12;
+    private const int TeamsListStatements = 2;
     private const int OwnedCountStatements = 3;
-    private const int DeletionStatements = 9;
-    private const int ReorderStatements = 15;
+    private const int DeletionStatements = 11;
+    private const int ReorderStatements = 16;
     private const int ItemGetStatements = 7;
-    private const int TeamGetStatements = 2;
-    private const int TeamChangeSaveStatements = 17;
-    private const int ChildCreationStatements = 22;
+    private const int TeamGetStatements = 1;
+    private const int TeamChangeSaveStatements = 16;
+    private const int ChildCreationStatements = 21;
 
     [Fact]
     public async Task List_Unfiltered_Team_And_None_TheSameNumberOfStatements_For50AsFor5000Items()
@@ -160,17 +160,17 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
         Assert.Equal(OwnedCountStatements, largeCount);
     }
 
-    // The team deletion — the locks of every team, the owned items, the places, the release, the setting, the memberships, the
-    // status — takes the statements of a small project when the project has fifty teams and five thousand items.
+    // The team deletion — the team lock, the team's links, the owned items, the places, the reassignment, the settings, the links, the
+    // memberships, the status — takes the statements of a small project when the project has fifty teams and five thousand items.
     [Fact]
     public async Task Deletion_TheSameNumberOfStatements_For50ItemsAnd2AsFor5000ItemsAnd50Teams()
     {
         var (small, large) = await SeedBothAsync();
 
         var smallCount = await CountAsync((provider, ct) => provider.GetRequiredService<DeleteTeamHandler>()
-            .Handle(new DeleteTeamCommand(small.OrganizationId.ToString(), small.ProjectId.ToString(), Id(small.OwnTeam)), ct));
+            .Handle(new DeleteTeamCommand(small.OrganizationId.ToString(), Id(small.OwnTeam)), ct));
         var largeCount = await CountAsync((provider, ct) => provider.GetRequiredService<DeleteTeamHandler>()
-            .Handle(new DeleteTeamCommand(large.OrganizationId.ToString(), large.ProjectId.ToString(), Id(large.OwnTeam)), ct));
+            .Handle(new DeleteTeamCommand(large.OrganizationId.ToString(), Id(large.OwnTeam)), ct));
 
         Assert.Equal(smallCount, largeCount);
         Assert.Equal(DeletionStatements, largeCount);
@@ -212,9 +212,9 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
         var (small, large) = await SeedBothAsync();
 
         var smallGet = await CountAsync((provider, ct) => provider.GetRequiredService<GetTeamHandler>()
-            .Handle(new GetTeamQuery(small.OrganizationId.ToString(), small.ProjectId.ToString(), Id(small.OwnTeam)), ct));
+            .Handle(new GetTeamQuery(small.OrganizationId.ToString(), Id(small.OwnTeam)), ct));
         var largeGet = await CountAsync((provider, ct) => provider.GetRequiredService<GetTeamHandler>()
-            .Handle(new GetTeamQuery(large.OrganizationId.ToString(), large.ProjectId.ToString(), Id(large.OwnTeam)), ct));
+            .Handle(new GetTeamQuery(large.OrganizationId.ToString(), Id(large.OwnTeam)), ct));
 
         Assert.Equal(smallGet, largeGet);
         Assert.Equal(TeamGetStatements, largeGet);
@@ -347,14 +347,15 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
         var structure = await database.CreateStructureAsync();
         var organization = structure.Organization.Id;
         var project = structure.Project.Project.Id;
-        var teamIds = new List<Guid> { structure.Project.Team.Id, structure.SecondTeam.Id };
+        var teamIds = new List<Guid> { structure.FirstTeam.Id, structure.SecondTeam.Id };
 
         await using (var context = database.NewContext())
         {
             for (var index = teamIds.Count; index < teams; index++)
             {
-                var team = Team.Create(project, OrganizationsDatabaseFixture.Name($"Команда {index:D2}"));
+                var team = Team.Create(organization, OrganizationsDatabaseFixture.Name($"Команда {index:D2}"));
                 context.Teams.Add(team);
+                context.ProjectTeams.Add(ProjectTeam.Link(organization, project, team.Id, OrganizationsDatabaseFixture.Creator, OrganizationsDatabaseFixture.Now));
                 teamIds.Add(team.Id);
             }
 
@@ -421,7 +422,7 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
         return new Seeded(
             organization,
             project,
-            structure.Project.Team.Id,
+            structure.FirstTeam.Id,
             Guid.Parse(story.Single()),
             structure.SecondTeam.Id,
             types["TASK"].Type,

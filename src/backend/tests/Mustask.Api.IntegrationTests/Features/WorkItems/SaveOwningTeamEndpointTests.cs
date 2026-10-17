@@ -179,13 +179,14 @@ public sealed class SaveOwningTeamEndpointTests(MustaskApiFactory factory)
         Assert.Equal((world.Mars, "MARS"), TeamOf(answer.Body));
     }
 
-    // US-1 · "a team the project does not have", the four rows: another project's team is 409 «Команда не участвует в
-    // проекте.»; a deleted team, a team of a deactivated project, an unknown and a malformed id are 404 «Команда не найдена.».
+    // US-1 · "a team the project does not have" (feat-028 api-contract § 0.3): an active team of the organization that is not linked to the
+    // project — another project's, a deactivated project's (it is nobody's project's team now: mod-017's row "a team of a deactivated project is
+    // 404" is gone) — is 409 «Команда не участвует в проекте.»; a deleted team, an unknown and a malformed id are 404 «Команда не найдена.».
     // The refusal stores nothing of the request, the title sent with it included.
     [Theory]
     [InlineData("otherProject", HttpStatusCode.Conflict, TeamNotInProject)]
     [InlineData("deleted", HttpStatusCode.NotFound, TeamNotFound)]
-    [InlineData("deactivatedProject", HttpStatusCode.NotFound, TeamNotFound)]
+    [InlineData("deactivatedProject", HttpStatusCode.Conflict, TeamNotInProject)]
     [InlineData("unknown", HttpStatusCode.NotFound, TeamNotFound)]
     [InlineData("malformed", HttpStatusCode.NotFound, TeamNotFound)]
     public async Task Save_TeamRefusals_StoreNothing(string which, HttpStatusCode status, string code)

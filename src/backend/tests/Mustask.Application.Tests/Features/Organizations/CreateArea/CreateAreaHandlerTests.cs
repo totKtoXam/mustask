@@ -19,7 +19,7 @@ public sealed class CreateAreaHandlerTests
         {
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization);
-            Platform = Store.AddTeam(Project);
+            Platform = Store.AddLinkedTeam(Organization, Project);
             Handler = new CreateAreaHandler(
                 new FakeProjectRepository(Store),
                 new FakeAreaRepository(Store),

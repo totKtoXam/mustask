@@ -6,7 +6,7 @@ using Mustask.Domain.Identity;
 namespace Mustask.Api.IntegrationTests.Features.Organizations;
 
 /// <summary>
-/// <c>GET /api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}/member-candidates?text=</c> (mod-016
+/// <c>GET /api/organizations/{organizationId}/teams/{teamId}/member-candidates?text=</c> (mod-016
 /// api-contract § 2.2; US-3 "Only active members of the organization are offered and accepted", US-1 "Past 500 ids … the member
 /// searches still answer"): the search of «Добавление в команду» offers active members of this organization only — found by name or
 /// e-mail in the user projection, in batches above 500 ids — and is an administrator's control (<c>organizations.team.write</c>).
@@ -19,7 +19,7 @@ public sealed class SearchTeamMemberCandidatesEndpointTests(MustaskApiFactory fa
     private static string Tag() => Guid.NewGuid().ToString("N")[..8];
 
     private static string Path(OrganizationStructure structure, string? text, string? teamId = null) =>
-        $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{teamId ?? structure.Platform.Id.ToString()}/member-candidates"
+        $"{OrganizationsApi.OrgTeams(structure.OrganizationId)}/{teamId ?? structure.Platform.Id.ToString()}/member-candidates"
         + (text is null ? string.Empty : $"?text={Uri.EscapeDataString(text)}");
 
     private Task<Answer> SearchAsync(OrganizationStructure structure, string? text, string token) =>
@@ -154,10 +154,10 @@ public sealed class SearchTeamMemberCandidatesEndpointTests(MustaskApiFactory fa
         Assert.Equal("user_directory.validation_failed", answer.ErrorCode);
     }
 
-    // api-contract § 2 · the team must be reachable: a deleted team, an unknown one and a malformed one answer `team.not_found`; an
-    // unknown project `project.not_found`.
+    // feat-028 api-contract § 2.3 · the team must be an active team of this organization: a deleted team, an unknown one and a malformed one
+    // answer `team.not_found`; there is no project in the address any more.
     [Fact]
-    public async Task Search_ADeletedOrUnknownTeamAndProject_AnswerTheirLevelNotFound()
+    public async Task Search_ADeletedOrUnknownTeam_AnswerTeamNotFound()
     {
         var (structure, token) = await WorldAsync();
         await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, structure.Platform.Id);
@@ -165,18 +165,12 @@ public sealed class SearchTeamMemberCandidatesEndpointTests(MustaskApiFactory fa
         var deleted = await SearchAsync(structure, "вера", token);
         var unknownTeam = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, Path(structure, "вера", Guid.CreateVersion7().ToString()), token: token);
         var malformed = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, Path(structure, "вера", "abc"), token: token);
-        var unknownProject = await OrganizationsApi.SendAsync(
-            factory,
-            HttpMethod.Get,
-            $"{OrganizationsApi.Organization(structure.OrganizationId)}/projects/{Guid.CreateVersion7()}/teams/{structure.ProjectTeamId}/member-candidates?text=вера",
-            token: token);
 
         foreach (var answer in new[] { deleted, unknownTeam, malformed })
         {
             Assert.Equal((HttpStatusCode.NotFound, "organizations.team.not_found"), (answer.Status, answer.ErrorCode));
         }
 
-        Assert.Equal((HttpStatusCode.NotFound, "organizations.project.not_found"), (unknownProject.Status, unknownProject.ErrorCode));
     }
 
     // US-2 · "A member whose role lacks the code is refused": the search is a write control — a member and a viewer get 403.

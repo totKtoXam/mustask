@@ -54,7 +54,7 @@ public sealed class RemoveMemberHandlerTests
         var f = new Fixture();
         f.World.AddMember("user-vera", "Вера Новикова");
         f.World.Store.AddTeamMember(f.World.Organization, f.World.Platform, "user-oleg");
-        f.World.Store.AddTeamMember(f.World.Organization, f.World.Project.Team, "user-oleg");
+        f.World.Store.AddTeamMember(f.World.Organization, f.World.Platform, "user-oleg");
         f.World.Store.AddTeamMember(f.World.Organization, f.World.Platform, "user-vera");
 
         await f.HandleAsync(f.Command());

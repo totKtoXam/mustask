@@ -1,26 +1,31 @@
 using Mustask.Application.Features.Organizations.GetTeamOwnedItemCount;
 using Mustask.Application.Tests.TestDoubles.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Exceptions;
 
 namespace Mustask.Application.Tests.Features.Organizations.GetTeamOwnedItemCount;
 
 /// <summary>
-/// <c>GetTeamOwnedItemCount</c> on fakes (mod-017 api-contract § 2.9; US-7 "the confirmation counts"): the number of items a team
-/// owns, in any state, read through the work items module's contract; the address from the outermost level in; no lock and no
-/// write — the count is a read.
+/// <c>GetTeamOwnedItemCount</c> (the unlink's count) on fakes (feat-028 api-contract § 2.4, BR-OL-8; US-4 "the dialog states the items
+/// and one destination"): the number of items a team owns <b>in this project</b>, in any state; the address answered from the
+/// outermost level in, where a team not linked to the project is a not-found. Rewritten from the deletion's count (mod-017 BR-OT-12;
+/// D-16).
 /// </summary>
 public sealed class GetTeamOwnedItemCountHandlerTests
 {
     private sealed class Fixture
     {
-        public Fixture()
+        public Fixture(OrganizationRole role = OrganizationRole.Admin)
         {
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization);
-            Platform = Store.AddTeam(Project);
+            Other = Store.AddProject(Organization, "Второй проект", "SEC");
+            Platform = Store.AddLinkedTeam(Organization, Project);
+            Store.Link(Other, Platform);
             Ownership = new FakeWorkItemTeamOwnership(Store);
-            Handler = new GetTeamOwnedItemCountHandler(new FakeProjectReadModel(Store), new FakeTeamReadModel(Store), Ownership);
+            Handler = new GetTeamOwnedItemCountHandler(
+                new FakeProjectReadModel(Store), new FakeTeamReadModel(Store), Ownership, new FakeOrganizationAccess(role));
         }
 
         public InMemoryOrganizations Store { get; } = new();
@@ -29,69 +34,86 @@ public sealed class GetTeamOwnedItemCountHandlerTests
 
         public NewProject Project { get; }
 
+        public NewProject Other { get; }
+
         public Team Platform { get; }
 
         public FakeWorkItemTeamOwnership Ownership { get; }
 
         public GetTeamOwnedItemCountHandler Handler { get; }
 
-        public GetTeamOwnedItemCountQuery Query(string? teamId, string? projectId = null, string? organizationId = null) =>
-            new(organizationId ?? Organization.Id.ToString(), projectId ?? Project.Project.Id.ToString(), teamId);
+        public GetTeamOwnedItemCountQuery Query(string? teamId = null) =>
+            new(Organization.Id.ToString(), Project.Project.Id.ToString(), teamId ?? Platform.Id.ToString());
 
         public Task<GetTeamOwnedItemCountResult> HandleAsync(GetTeamOwnedItemCountQuery query) => Handler.Handle(query, CancellationToken.None);
     }
 
-    // US-7 · "the confirmation counts": the number is what the contract says the team owns now; a team that owns none counts zero.
+    // US-4 · "the dialog states the items": this project's items only, never another project's; zero when the team owns nothing.
     [Fact]
-    public async Task Handle_CountsWhatTheTeamOwns_ZeroWhenItOwnsNothing_LocksNothing()
+    public async Task Count_IsThisProjectsItemsInAnyState_NotAnotherProjects_LocksNothing()
     {
         var f = new Fixture();
-        f.Ownership.Owned[f.Platform.Id] = 12;
+        f.Ownership.Owned[(f.Project.Project.Id, f.Platform.Id)] = 7;
+        f.Ownership.Owned[(f.Other.Project.Id, f.Platform.Id)] = 100;
+        var empty = f.Store.AddLinkedTeam(f.Organization, f.Project, "Пустая");
 
-        var owning = await f.HandleAsync(f.Query(f.Platform.Id.ToString()));
-        var none = await f.HandleAsync(f.Query(f.Project.Team.Id.ToString()));
+        var count = await f.HandleAsync(f.Query());
+        var none = await f.HandleAsync(f.Query(empty.Id.ToString()));
 
-        Assert.Equal(12, owning.Count);
+        Assert.Equal(7, count.Count);
         Assert.Equal(0, none.Count);
         Assert.Empty(f.Store.Calls);
     }
 
-    // api-contract § 0.4 · the address is answered from the outermost level in.
+    // BR-OL-11, api-contract § 0.3 · a team not linked to the project, a deleted one, a foreign and a malformed one: team.not_found
+    // (renamed from Count_NotATeamOfTheProject_Returns404TeamNotFound, D-16).
     [Theory]
-    [InlineData("malformed organization", "organizations.organization.not_found")]
-    [InlineData("malformed project", "organizations.project.not_found")]
-    [InlineData("deactivated project", "organizations.project.not_found")]
-    [InlineData("malformed team", "organizations.team.not_found")]
-    [InlineData("unknown team", "organizations.team.not_found")]
-    [InlineData("deleted team", "organizations.team.not_found")]
-    [InlineData("team of another project", "organizations.team.not_found")]
-    public async Task Handle_Address_IsAnsweredFromTheOutermostLevelIn(string how, string code)
+    [InlineData("not linked")]
+    [InlineData("deleted")]
+    [InlineData("of another organization")]
+    [InlineData("malformed")]
+    public async Task Count_NotLinkedToTheProject_Returns404TeamNotFound(string how)
     {
         var f = new Fixture();
-        var sibling = f.Store.AddProject(f.Organization, "Второй проект", "SEC");
-        var team = f.Platform.Id.ToString();
+        var unlinked = f.Store.AddTeam(f.Organization, "Не связана");
+        var foreign = f.Store.AddTeam(f.Store.AddOrganization("Другая организация"), "Чужая");
         var query = how switch
         {
-            "malformed organization" => f.Query(team, organizationId: "abc"),
-            "malformed project" => f.Query(team, projectId: "abc"),
-            "malformed team" => f.Query("abc"),
-            "unknown team" => f.Query(Guid.CreateVersion7().ToString()),
-            "team of another project" => f.Query(sibling.Team.Id.ToString()),
-            _ => f.Query(team),
+            "not linked" => f.Query(unlinked.Id.ToString()),
+            "of another organization" => f.Query(foreign.Id.ToString()),
+            "malformed" => f.Query("not-a-team"),
+            _ => f.Query(),
         };
 
-        if (how == "deactivated project")
+        if (how == "deleted")
         {
-            f.Project.Project.Deactivate();
-        }
-
-        if (how == "deleted team")
-        {
-            f.Platform.Delete(2);
+            f.Platform.Delete();
         }
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(query));
 
-        Assert.Equal(code, refusal.Code);
+        Assert.Equal(OrganizationErrorCodes.TeamNotFound, refusal.Code);
+    }
+
+    [Fact]
+    public async Task Count_ProjectNotReachable_IsProjectNotFound_BeforeTheTeam()
+    {
+        var f = new Fixture();
+        f.Project.Project.Deactivate();
+
+        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Query("not-a-team")));
+
+        Assert.Equal(OrganizationErrorCodes.ProjectNotFound, refusal.Code);
+    }
+
+    // D-7 · the route declares project.link and the handler asks team.link first of all: a role without it learns nothing.
+    [Fact]
+    public async Task Count_WithoutTheSecondCode_Is403_BeforeAnyIdIsLooked_At()
+    {
+        var f = new Fixture(OrganizationRole.Member);
+
+        var refusal = await Assert.ThrowsAsync<ForbiddenException>(() => f.HandleAsync(f.Query("not-a-team")));
+
+        Assert.Equal(OrganizationErrorCodes.AccessForbidden, refusal.Code);
     }
 }

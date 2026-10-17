@@ -4,22 +4,68 @@ using Microsoft.EntityFrameworkCore;
 namespace Mustask.Infrastructure.WorkItems;
 
 /// <summary>
-/// <see cref="IWorkItemTeamOwnership"/> over <c>work_items</c> (mod-017 BR-OT-12, plan-backend § 7). Set-based statements, so
-/// a team that owns 5 000 items is released within the deletion's 5 seconds: the lock names its rows by the owner key's index,
-/// and the release is one <c>UPDATE</c>. Raw SQL only where LINQ cannot say it — row locking (backend.md, "Raw SQL").
+/// <see cref="IWorkItemTeamOwnership"/> over <c>work_items</c> (mod-017 BR-OT-12, feat-028 BR-OL-8, BR-OL-9; plan-backend § 7).
+/// Set-based statements over a <b>set of projects</b>, so a team that owns 5 000 items is reassigned within the 5 seconds whatever
+/// the number of projects it is linked to: the lock names its rows by the owner key's index
+/// (<c>ix_work_items_project_id_owning_team_id_type_id</c>), and the reassignment is one <c>UPDATE</c>. Raw SQL only where LINQ
+/// cannot say it — row locking (backend.md, "Raw SQL").
 /// </summary>
 internal sealed class WorkItemTeamOwnership(MustaskDbContext context) : IWorkItemTeamOwnership
 {
     public Task<int> CountOwnedAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
         context.WorkItems.CountAsync(item => item.ProjectId == projectId && item.OwningTeamId == teamId, cancellationToken);
 
-    public Task LockOwnedAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
-        context.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT 1 FROM work_items WHERE project_id = {projectId} AND owning_team_id = {teamId} ORDER BY id FOR UPDATE",
-            cancellationToken);
+    public async Task<IReadOnlyList<ProjectCount>> CountOwnedByProjectAsync(
+        Guid teamId, IReadOnlyCollection<Guid> projectIds, CancellationToken cancellationToken)
+    {
+        if (projectIds.Count == 0)
+        {
+            return [];
+        }
 
-    public Task<int> ReleaseOwnedAsync(Guid projectId, Guid teamId, DateTimeOffset now, CancellationToken cancellationToken) =>
-        context.Database.ExecuteSqlInterpolatedAsync(
-            $"UPDATE work_items SET owning_team_id = NULL, changed_at = {now} WHERE project_id = {projectId} AND owning_team_id = {teamId}",
+        var ids = projectIds.Distinct().ToArray();
+
+        return await context.WorkItems
+            .AsNoTracking()
+            .Where(item => item.OwningTeamId == teamId && ids.Contains(item.ProjectId))
+            .GroupBy(item => item.ProjectId)
+            .Select(group => new ProjectCount(group.Key, group.Count()))
+            .ToListAsync(cancellationToken);
+    }
+
+    public Task LockOwnedAsync(IReadOnlyCollection<Guid> projectIds, Guid teamId, CancellationToken cancellationToken)
+    {
+        if (projectIds.Count == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        var ids = projectIds.Distinct().ToArray();
+
+        // ORDER BY id before the lock: one fixed order for every caller, whatever the number of projects.
+        return context.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT 1 FROM work_items WHERE project_id = ANY({ids}) AND owning_team_id = {teamId} ORDER BY id FOR UPDATE",
             cancellationToken);
+    }
+
+    public async Task<int> ReassignOwnedAsync(
+        IReadOnlyCollection<Guid> projectIds, Guid teamId, Guid? destinationTeamId, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (projectIds.Count == 0)
+        {
+            return 0;
+        }
+
+        var ids = projectIds.Distinct().ToArray();
+
+        // The destination is written as a nullable parameter: «Без команды» is NULL, and the owner key is MATCH SIMPLE, so a null
+        // owner leaves it unchecked. A destination is a team linked to the item's project (the caller holds that link locked).
+        return await context.Database.ExecuteSqlInterpolatedAsync(
+            $"""
+             UPDATE work_items
+             SET owning_team_id = {destinationTeamId}, changed_at = {now}
+             WHERE project_id = ANY({ids}) AND owning_team_id = {teamId}
+             """,
+            cancellationToken);
+    }
 }

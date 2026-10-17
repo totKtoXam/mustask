@@ -6,14 +6,14 @@ using Mustask.Shared.Exceptions;
 namespace Mustask.Application.Features.Organizations.SearchTeamMemberCandidates;
 
 /// <summary>
-/// <c>GET /api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}/member-candidates?text=</c> (api-contract
-/// § 2.2; US-3 "Only active organization members are offered and accepted", US-1 "Past 500 ids the list and the member
-/// searches still answer"): the «Участник организации» search of the team page.
+/// <c>GET /api/organizations/{organizationId}/teams/{teamId}/member-candidates?text=</c> (feat-028 api-contract § 2.3, mod-016
+/// api-contract § 2.2; US-3 "Only active organization members are offered and accepted", US-1 "Past 500 ids the list and the
+/// member searches still answer"): the «Участник организации» search of the team page.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The order of answers</b> (api-contract § 0.1): the address from the outermost level in (the organization, the
-/// project, the team), then mod-014's own refusal of a text over 100 characters, passed through unchanged.
+/// <b>The order of answers</b> (api-contract § 0.5): the address from the outermost level in (the organization, the team),
+/// then mod-014's own refusal of a text over 100 characters, passed through unchanged.
 /// </para>
 /// <para>
 /// <b>Only active members of this organization are offered.</b> The search is restricted to the organization's member ids
@@ -24,7 +24,6 @@ namespace Mustask.Application.Features.Organizations.SearchTeamMemberCandidates;
 /// </para>
 /// </remarks>
 public sealed class SearchTeamMemberCandidatesHandler(
-    IProjectReadModel projects,
     ITeamReadModel teams,
     IMemberReadModel members,
     IUserDirectory directory)
@@ -37,14 +36,8 @@ public sealed class SearchTeamMemberCandidatesHandler(
             throw new NotFoundException(OrganizationErrorCodes.OrganizationNotFound);
         }
 
-        if (!AddressedId.TryParse(query.ProjectId, out var projectId)
-            || await projects.FindReachableAsync(organizationId, projectId, cancellationToken) is null)
-        {
-            throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
-        }
-
         if (!AddressedId.TryParse(query.TeamId, out var teamId)
-            || await teams.FindReachableAsync(organizationId, projectId, teamId, cancellationToken) is null)
+            || await teams.FindAsync(organizationId, teamId, cancellationToken) is null)
         {
             throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
         }

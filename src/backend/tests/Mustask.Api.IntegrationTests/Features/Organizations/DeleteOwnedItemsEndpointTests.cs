@@ -1,7 +1,6 @@
 using System.Net;
 using Mustask.Api.IntegrationTests.Features.Boards;
 using Mustask.Api.IntegrationTests.Features.WorkItems;
-using Mustask.Application.Features.Organizations;
 using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.Process;
@@ -9,13 +8,14 @@ using Mustask.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using static Mustask.Api.IntegrationTests.Features.WorkItems.OwningTeamTestData;
+using static Mustask.Api.IntegrationTests.Features.Organizations.TeamTestData;
 
 namespace Mustask.Api.IntegrationTests.Features.Organizations;
 
 /// <summary>
-/// A team's deletion over what it owns (mod-017 US-7, BR-OT-11, BR-OT-12, BR-OT-13; api-contract § 2.7): the items it owns go to
-/// «Без команды» with the operation's time, its places and a default setting that named it go, its memberships end, its name is
-/// free; the project's last team is refused; and the writes that name the team — a save, a creation, the default naming, a reorder,
+/// A team's deletion over what it owns (feat-028 US-5, BR-OL-9, BR-OL-10, SC-09; mod-017 US-7, BR-OT-12, BR-OT-13; api-contract § 2.1): the items it
+/// owns go to «Без команды» with the operation's time, its places, its links and a default setting that named it go, its memberships end,
+/// its name is free; there is no last-team guard (BR-OL-10); and the writes that name the team — a save, a creation, the default naming, a reorder,
 /// a child created beneath one of its items — either commit first and are taken with the rest, or come after and are refused,
 /// in both orders, with no server error, no item owned by a deleted team, no setting naming one and no place naming a team that
 /// does not own its item (plan-backend § 7.3). Every test builds its own world (<see cref="OwningTeamTestData"/>).
@@ -27,7 +27,7 @@ public sealed class DeleteOwnedItemsEndpointTests(MustaskApiFactory factory)
 {
     private const string TeamNotFound = "organizations.team.not_found";
 
-    private string TeamPath(OwningTeamWorld world, Guid teamId) => $"{OrganizationsApi.Teams(world.OrganizationId, world.ProjectId)}/{teamId}";
+    private string TeamPath(OwningTeamWorld world, Guid teamId) => Team(world.OrganizationId, teamId);
 
     private Task<Answer> DeleteAsync(OwningTeamWorld world, Guid teamId, CommitGate? gate = null) =>
         OrganizationsApi.SendAsync(factory, HttpMethod.Delete, TeamPath(world, teamId), token: OrganizationsTokens.SignedIn(), gate: gate);
@@ -88,7 +88,16 @@ public sealed class DeleteOwnedItemsEndpointTests(MustaskApiFactory factory)
                  """)
             .SingleAsync();
 
-        Assert.Equal((0, 0, 0), (ownedByDeleted, namedDeleted, await PlacesNamingAnotherTeamAsync(factory, world.ProjectId)));
+        var linkedDeleted = await context.Database
+            .SqlQuery<int>(
+                $"""
+                 SELECT count(*)::int AS "Value"
+                 FROM project_teams AS link JOIN teams AS team ON team.id = link.team_id
+                 WHERE link.organization_id = {world.OrganizationId} AND team.status = 'Deleted'
+                 """)
+            .SingleAsync();
+
+        Assert.Equal((0, 0, 0, 0), (ownedByDeleted, namedDeleted, linkedDeleted, await PlacesNamingAnotherTeamAsync(factory, world.ProjectId)));
     }
 
     // US-7 · "confirming sends the items to none": every item the team owns, in any state, has no owning team and shows the
@@ -139,22 +148,14 @@ public sealed class DeleteOwnedItemsEndpointTests(MustaskApiFactory factory)
         Assert.Equal(areasBefore.PreOrder(), (await OrganizationsTestData.ReadTreeAsync(factory, world.ProjectId)).PreOrder());
         Assert.Equal(TeamStatus.Deleted, (await StoredTeamAsync(world.Mars)).Status);
 
-        var recreated = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Post, OrganizationsApi.Teams(world.OrganizationId, world.ProjectId), new { name = "MARS" }, OrganizationsTokens.SignedIn());
+        var recreated = await CreateTeamAsync(factory, world.OrganizationId, new { name = "MARS" });
         var gone = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, TeamPath(world, world.Mars), token: OrganizationsTokens.SignedIn());
         Assert.Equal(HttpStatusCode.Created, recreated.Status);
         Assert.Equal((HttpStatusCode.NotFound, TeamNotFound), (gone.Status, gone.ErrorCode));
         await AssertInvariantsAsync(world);
     }
 
-    private async Task<TeamInfo> StoredTeamAsync(Guid teamId)
-    {
-        using var scope = factory.Services.CreateScope();
-
-        return await scope.ServiceProvider.GetRequiredService<Mustask.Application.Features.Organizations.IOrganizationStructure>()
-            .FindTeamAsync(teamId, CancellationToken.None)
-            ?? throw new InvalidOperationException($"The team {teamId} was never stored.");
-    }
+    private Task<Domain.Organizations.Team> StoredTeamAsync(Guid teamId) => TeamTestData.StoredTeamAsync(factory, teamId);
 
     // US-7 · "any team renamed or deleted": the team the project was created with goes like any other while another remains.
     [Fact]
@@ -183,75 +184,112 @@ public sealed class DeleteOwnedItemsEndpointTests(MustaskApiFactory factory)
         Assert.Null(await DefaultSettingAsync(world));
     }
 
-    // US-7 · "the last team cannot be deleted": 409 «Нельзя удалить единственную команду проекта.», and nothing changes.
+    // US-5 · "a project's last team can be deleted" (BR-OL-10; retires Delete_LastTeam_Returns409_ChangesNothing): the only team of a
+    // project goes, nothing is refused, its item is left without a team and the project works on.
     [Fact]
-    public async Task Delete_LastTeam_Returns409_ChangesNothing()
+    public async Task Delete_TheProjectsLastTeam_IsAllowed_ProjectWorksOn()
     {
         var world = await CreateWorldAsync(factory);
         var single = await OrganizationsTestData.CreateProjectAsync(factory, world.OrganizationId, "Одна", "ONE");
         var items = world.Items with { ProjectId = single.Project.Id, RootAreaId = single.Root.Id, Key = "ONE" };
         var story = await WorkItemsTestData.CreateAsync(factory, items, "US", "История");
         Assert.Equal(HttpStatusCode.Created, story.Status);
-        var stored = await StoredAsync(factory, single.Project.Id, story.Body.GetProperty("identifier").GetString()!);
-        Assert.Equal(single.Team.Id, stored.TeamId);
+        var identifier = story.Body.GetProperty("identifier").GetString()!;
+        Assert.Equal(single.Team.Id, (await StoredAsync(factory, single.Project.Id, identifier)).TeamId);
 
-        var answer = await OrganizationsApi.SendAsync(
-            factory,
-            HttpMethod.Delete,
-            $"{OrganizationsApi.Teams(world.OrganizationId, single.Project.Id)}/{single.Team.Id}",
-            token: OrganizationsTokens.SignedIn());
+        var answer = await DeleteAsync(world, single.Team.Id);
+        var next = await WorkItemsTestData.CreateAsync(factory, items, "US", "Следующая");
 
-        Assert.Equal((HttpStatusCode.Conflict, "organizations.team.last_team_cannot_be_deleted"), (answer.Status, answer.ErrorCode));
-        Assert.Equal("Нельзя удалить единственную команду проекта.", answer.Detail);
-        Assert.Equal(TeamStatus.Active, (await StoredTeamAsync(single.Team.Id)).Status);
-        Assert.Equal(stored, await StoredAsync(factory, single.Project.Id, story.Body.GetProperty("identifier").GetString()!));
+        Assert.Equal(HttpStatusCode.NoContent, answer.Status);
+        Assert.Equal(TeamStatus.Deleted, (await StoredTeamAsync(single.Team.Id)).Status);
+        Assert.Null((await StoredAsync(factory, single.Project.Id, identifier)).TeamId);
+        Assert.Empty(await LinksOfProjectAsync(factory, single.Project.Id));
+        Assert.Equal(HttpStatusCode.Created, next.Status);
+        Assert.Null((await StoredAsync(factory, single.Project.Id, next.Body.GetProperty("identifier").GetString()!)).TeamId);
     }
 
-    // US-7 · outline "two deletions that would empty a project": both lock all the project's teams in one order; the second
-    // waits, finds the first done and is refused — one done and one refused, never both.
+    // US-5 · "two deletions emptying a project" (C-14; retires Delete_TwoLastTeamsAtOnce_OneDoneOneRefused): the guard is gone, so
+    // two deletions of the two teams of one project are both done — they hold disjoint rows and neither waits for the other.
     [Fact]
-    public async Task Delete_TwoLastTeamsAtOnce_OneDoneOneRefused()
+    public async Task Delete_TwoTeamsThatEmptyAProject_AtOnce_BothDone()
     {
         var world = await CreateWorldAsync(factory);
         var pair = await OrganizationsTestData.CreateProjectAsync(factory, world.OrganizationId, "Пара", "PAR");
         var second = await AddTeamAsync(factory, pair.Project.Id, "SECOND");
-        var teams = $"{OrganizationsApi.Teams(world.OrganizationId, pair.Project.Id)}";
-        using var gate = factory.CommitGates.Open();
 
-        var first = OrganizationsApi.SendAsync(
-            factory, HttpMethod.Delete, $"{teams}/{pair.Team.Id}", token: OrganizationsTokens.SignedIn(), gate: gate);
-        await Task.WhenAny(gate.Reached, first);
-        Assert.False(first.IsCompleted, "The first deletion finished before reaching its commit gate.");
+        var answers = await Task.WhenAll(DeleteAsync(world, pair.Team.Id), DeleteAsync(world, second));
 
-        var other = OrganizationsApi.SendAsync(factory, HttpMethod.Delete, $"{teams}/{second}", token: OrganizationsTokens.SignedIn());
-        await PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, other);
-        Assert.False(other.IsCompleted, "The second deletion did not wait for the first one's locks.");
-
-        gate.Release();
-        var (a, b) = (await first, await other);
-
-        Assert.Equal(HttpStatusCode.NoContent, a.Status);
-        Assert.Equal((HttpStatusCode.Conflict, "organizations.team.last_team_cannot_be_deleted"), (b.Status, b.ErrorCode));
+        Assert.All(answers, answer => Assert.Equal(HttpStatusCode.NoContent, answer.Status));
+        Assert.Empty(await LinksOfProjectAsync(factory, pair.Project.Id));
         Assert.Equal(TeamStatus.Deleted, (await StoredTeamAsync(pair.Team.Id)).Status);
-        Assert.Equal(TeamStatus.Active, (await StoredTeamAsync(second)).Status);
+        Assert.Equal(TeamStatus.Deleted, (await StoredTeamAsync(second)).Status);
     }
 
-    // US-7 · "a deletion in a deactivated project": 404; the restore keeps every team, item, place and the setting.
+    // US-5 · "two deletions of one team" (C-14): the team row serializes them; the second answers team.not_found.
     [Fact]
-    public async Task Delete_InDeactivatedProject_Returns404_ThenRestoreKeepsEverything()
+    public async Task Delete_TheSameTeamTwiceAtOnce_OneDone_OneTeamNotFound()
+    {
+        var world = await CreateWorldAsync(factory);
+
+        var (first, second) = await RaceAsync(at => DeleteAsync(world, world.Mars, at), at => DeleteAsync(world, world.Mars, at));
+
+        Assert.Equal(HttpStatusCode.NoContent, first.Status);
+        Assert.Equal((HttpStatusCode.NotFound, TeamNotFound), (second.Status, second.ErrorCode));
+    }
+
+    // US-5 · "the deletion reaches a deactivated project" (BR-OL-9; retires Delete_InDeactivatedProject_Returns404_ThenRestoreKeepsEverything):
+    // the team is linked to a project that is deactivated; the items it owns there and the setting that names it are reassigned and
+    // cleared all the same, and the restore finds them clean.
+    [Fact]
+    public async Task Delete_DeactivatedProjectsItemsAndSetting_AreReassigned_RestoreFindsThemClean()
     {
         var world = await CreateWorldAsync(factory);
         var story = await StoryAsync(world, "История", world.Mars);
         await NameDefaultAsync(world, world.Mars);
         await OrganizationsTestData.SetProjectStatusAsync(factory, world.OrganizationId, world.ProjectId, ProjectStatus.Deactivated);
 
-        var refused = await DeleteAsync(world, world.Mars);
+        var deleted = await DeleteAsync(world, world.Mars);
         await OrganizationsTestData.SetProjectStatusAsync(factory, world.OrganizationId, world.ProjectId, ProjectStatus.Active);
 
-        Assert.Equal((HttpStatusCode.NotFound, "organizations.project.not_found"), (refused.Status, refused.ErrorCode));
-        Assert.Equal(TeamStatus.Active, (await StoredTeamAsync(world.Mars)).Status);
-        Assert.Equal(world.Mars, (await StoredAsync(factory, world.ProjectId, story.Identifier)).TeamId);
-        Assert.Equal(world.Mars, await DefaultSettingAsync(world));
+        Assert.Equal(HttpStatusCode.NoContent, deleted.Status);
+        Assert.Equal(TeamStatus.Deleted, (await StoredTeamAsync(world.Mars)).Status);
+        Assert.Null((await StoredAsync(factory, world.ProjectId, story.Identifier)).TeamId);
+        Assert.Null(await DefaultSettingAsync(world));
+        await AssertInvariantsAsync(world);
+    }
+
+    // US-5 · "a team linked to several projects" (BR-OL-9): the items it owns in EVERY linked project are reassigned, each project's
+    // setting that named it is cleared, and every link is removed.
+    [Fact]
+    public async Task Delete_ReassignsInEveryLinkedProject_ClearsEverySetting_RemovesEveryLink()
+    {
+        var world = await CreateWorldAsync(factory);
+        await OrganizationsTestData.LinkAsync(factory, world.OtherProjectId, world.Mars);
+        var alpha = await StoryAsync(world, "Альфа", world.Mars);
+        var beta = await OrganizationsApi.SendAsync(
+            factory,
+            HttpMethod.Post,
+            WorkItemsTestData.List(world.Items with { ProjectId = world.OtherProjectId, Key = "BET" }),
+            new
+            {
+                requestId = Guid.NewGuid().ToString(),
+                typeId = world.Items.Types["US"].Id.ToString(),
+                title = "Бета",
+                team = new { teamId = world.Mars.ToString() },
+            },
+            OrganizationsTokens.SignedIn());
+        Assert.Equal(HttpStatusCode.Created, beta.Status);
+        await NameDefaultAsync(world, world.Mars);
+        await WorkItemsTestData.ExecuteAsync(factory, $"UPDATE projects SET default_team_id = {world.Mars} WHERE id = {world.OtherProjectId}");
+
+        var answer = await DeleteAsync(world, world.Mars);
+
+        Assert.Equal(HttpStatusCode.NoContent, answer.Status);
+        Assert.Null((await StoredAsync(factory, world.ProjectId, alpha.Identifier)).TeamId);
+        Assert.Null((await StoredAsync(factory, world.OtherProjectId, beta.Body.GetProperty("identifier").GetString()!)).TeamId);
+        Assert.Null(await DefaultSettingAsync(world));
+        Assert.Null(await SettingAsync(factory, world.OtherProjectId));
+        Assert.Empty(await LinksOfTeamAsync(factory, world.Mars));
     }
 
     // --- Races (BR-OT-13) --------------------------------------------------------------------------------------------

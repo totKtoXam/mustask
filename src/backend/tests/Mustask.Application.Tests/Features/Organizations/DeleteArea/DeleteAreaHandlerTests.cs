@@ -150,7 +150,7 @@ public sealed class DeleteAreaHandlerTests
     public async Task Handle_LeafNamedLikeATeam_IsDeleted_TheTeamStays()
     {
         var f = new Fixture();
-        var team = f.Store.AddTeam(f.Project, "Платформа");
+        var team = f.Store.AddLinkedTeam(f.Organization, f.Project, "Платформа");
 
         await f.HandleAsync(f.Command(f.Platform));
 

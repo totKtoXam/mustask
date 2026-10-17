@@ -16,15 +16,15 @@ public sealed class GetTeamMembersHandlerTests
     {
         public Fixture()
         {
-            Handler = new GetTeamMembersHandler(World.ProjectReads, World.TeamReads, World.Members);
+            Handler = new GetTeamMembersHandler(World.TeamReads, World.Members);
         }
 
         public MembershipWorld World { get; } = new();
 
         public GetTeamMembersHandler Handler { get; }
 
-        public GetTeamMembersQuery Query(string? organizationId = null, string? projectId = null, string? teamId = null) =>
-            new(organizationId ?? World.OrganizationId, projectId ?? World.ProjectId, teamId ?? World.PlatformId);
+        public GetTeamMembersQuery Query(string? organizationId = null, string? teamId = null) =>
+            new(organizationId ?? World.OrganizationId, teamId ?? World.PlatformId);
 
         public async Task<IReadOnlyList<UserRefView>> ListAsync(GetTeamMembersQuery? query = null) =>
             (await Handler.Handle(query ?? Query(), CancellationToken.None)).Items;
@@ -51,7 +51,7 @@ public sealed class GetTeamMembersHandlerTests
         f.World.AddMember("u-anna", "Анна Петрова");
         f.Join("u-vera");
         f.Join("u-oleg");
-        f.World.Store.AddTeamMember(f.World.Organization, f.World.Project.Team, "u-anna");
+        f.World.Store.AddTeamMember(f.World.Organization, f.World.Store.AddLinkedTeam(f.World.Organization, f.World.Project, "Другая"), "u-anna");
 
         var members = await f.ListAsync();
 
@@ -110,7 +110,7 @@ public sealed class GetTeamMembersHandlerTests
     public async Task Handle_ADeletedTeam_IsTeamNotFound()
     {
         var f = new Fixture();
-        f.World.Platform.Delete(2);
+        f.World.Platform.Delete();
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.ListAsync());
 
@@ -121,19 +121,15 @@ public sealed class GetTeamMembersHandlerTests
     [Theory]
     [InlineData("malformed")]
     [InlineData("unknown")]
-    [InlineData("first team of another project")]
     [InlineData("team of another organization")]
-    public async Task Handle_TeamNotOfTheProject_IsTeamNotFound(string how)
+    public async Task Handle_TeamNotOfTheOrganization_IsTeamNotFound(string how)
     {
         var f = new Fixture();
-        var sibling = f.World.Store.AddProject(f.World.Organization, "Второй проект", "SEC");
-        var foreign = f.World.Store.AddTeam(
-            f.World.Store.AddProject(f.World.Store.AddOrganization("Другая организация"), "Чужой", "OTH"), "Чужая команда");
+        var foreign = f.World.Store.AddTeam(f.World.Store.AddOrganization("Другая организация"), "Чужая команда");
         var teamId = how switch
         {
             "malformed" => "not-a-team",
             "unknown" => Guid.CreateVersion7().ToString(),
-            "first team of another project" => sibling.Team.Id.ToString(),
             _ => foreign.Id.ToString(),
         };
 
@@ -142,30 +138,12 @@ public sealed class GetTeamMembersHandlerTests
         Assert.Equal(OrganizationErrorCodes.TeamNotFound, refusal.Code);
     }
 
-    [Theory]
-    [InlineData("malformed")]
-    [InlineData("deactivated")]
-    public async Task Handle_ProjectNotReachable_IsProjectNotFound_BeforeTheTeam(string how)
-    {
-        var f = new Fixture();
-
-        if (how == "deactivated")
-        {
-            f.World.Project.Project.Deactivate();
-        }
-
-        var refusal = await Assert.ThrowsAsync<NotFoundException>(
-            () => f.ListAsync(f.Query(projectId: how == "malformed" ? "abc" : null, teamId: "not-a-team")));
-
-        Assert.Equal(OrganizationErrorCodes.ProjectNotFound, refusal.Code);
-    }
-
     [Fact]
     public async Task Handle_MalformedOrganization_IsOrganizationNotFound_BeforeEverythingElse()
     {
         var f = new Fixture();
 
-        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.ListAsync(f.Query(organizationId: "abc", projectId: "x", teamId: "y")));
+        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.ListAsync(f.Query(organizationId: "abc", teamId: "y")));
 
         Assert.Equal(OrganizationErrorCodes.OrganizationNotFound, refusal.Code);
     }

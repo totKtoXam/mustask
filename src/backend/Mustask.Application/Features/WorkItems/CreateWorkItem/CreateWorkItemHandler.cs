@@ -39,15 +39,15 @@ namespace Mustask.Application.Features.WorkItems.CreateWorkItem;
 /// reads no team: it is never refused for one (BR-OT-3, BR-OT-13).
 /// </para>
 /// <para>
-/// <b>The team's locks</b> (mod-017 plan-backend § 7, D-14; ADR-0028 rule 8). Before the number's lock, an explicit team of a
-/// creation with no parent is locked <c>FOR SHARE</c> as a binder; every other creation that may default — no team sent, or a
-/// child, whether or not its parent has a team — locks the project default team <c>FOR SHARE</c>, read as it stands, or, when
-/// the project has no default (two or more active teams, none named), every active team <c>FOR SHARE</c> in id order and
-/// reads the default again under that lock. A deletion of a team holds all the project's active teams, so it commits before
-/// the creation (the creation then reads the team deleted, its parent released and the default as it stands after the
-/// deletion) or waits for it and takes the new item with the rest; a child beneath an item of a team being deleted is never
-/// refused (the parent's team needs no lock of its own: the creation holds a team the deletion needs, and the child's owner key
-/// takes only a key share of the team).
+/// <b>The link locks</b> (feat-028 plan-backend § 7, D-3, D-4; mod-017 D-14; ADR-0028 rule 8). Before the number's lock, an explicit
+/// team of a creation with no parent has its <b>link to the project</b> locked <c>FOR SHARE</c> as a binder; every other creation
+/// that may default — no team sent, or a child, whether or not its parent has a team — locks <b>every link of the project</b>
+/// <c>FOR SHARE</c> in one statement ordered by team id and reads the default once under that lock. An unlink of a team and a
+/// deletion of a team hold the link <c>FOR NO KEY UPDATE</c>, so they commit before the creation (it then reads the team not linked
+/// — 409 — or deleted — 404 —, its parent reassigned and the default as it stands after them) or wait for it and take the new item
+/// with the rest; a child beneath an item of a team being unlinked or deleted is never refused (the parent's team needs no lock of
+/// its own: the creation holds the links the unlink needs, and the child's owner key takes only a key share of the link). Every
+/// link lock a creation takes is in the unlink's and the deletion's order, so the cycle of mod-017 CR-7 cannot form.
 /// </para>
 /// <para>
 /// <b>The number and the replay</b> (BR-M3-5, BR-M3-26). The project's counter
@@ -98,8 +98,7 @@ public sealed class CreateWorkItemHandler(
                 }
 
                 if (!AddressedId.TryParse(command.ProjectId, out var projectId)
-                    || await structure.FindProjectAsync(projectId, ct) is not { IsReachable: true } project
-                    || project.OrganizationId != organizationId)
+                    || await structure.FindProjectAsync(organizationId, projectId, ct) is not { IsReachable: true } project)
                 {
                     throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
                 }
@@ -140,12 +139,12 @@ public sealed class CreateWorkItemHandler(
                 {
                     if (named.TeamId is not null && AddressedId.TryParse(named.TeamId, out var namedTeamId))
                     {
-                        await workItems.LockTeamAsync(organizationId, namedTeamId, ct);
+                        await workItems.LockTeamLinkAsync(organizationId, projectId, namedTeamId, ct);
                     }
                 }
                 else
                 {
-                    lockedDefaultTeamId = await workItems.LockDefaultTeamAsync(projectId, ct);
+                    lockedDefaultTeamId = await workItems.LockProjectLinksAsync(organizationId, projectId, ct);
                 }
 
                 await workItems.LockNumberSequenceAsync(projectId, ct);
@@ -220,12 +219,11 @@ public sealed class CreateWorkItemHandler(
             throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
         }
 
-        var found = await structure.FindTeamAsync(teamId, cancellationToken);
+        var found = await structure.FindProjectTeamAsync(organizationId, projectId, teamId, cancellationToken);
 
         ProjectTeams.EnsureBindable(
-            found is null ? null : new TeamFacts(found.Id, found.OrganizationId, found.ProjectId, found.Status, found.IsReachable),
-            organizationId,
-            projectId);
+            found is null ? null : new TeamFacts(found.Team.Id, found.Team.OrganizationId, found.Team.Status, found.IsLinked),
+            organizationId);
 
         return teamId;
     }

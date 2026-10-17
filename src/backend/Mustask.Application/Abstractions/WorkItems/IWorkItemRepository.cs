@@ -17,31 +17,26 @@ namespace Mustask.Application.Abstractions.WorkItems;
 public interface IWorkItemRepository
 {
     /// <summary>
-    /// mod-017 (ADR-0028 rule 8): locks the team <c>FOR SHARE</c> — the binder's lock, taken <b>first</b> of a write's locks —
-    /// and decides nothing. A team of another organization locks nothing (no lock spans organizations, ADR-0028 § 4), a
-    /// team that is unknown, deleted or of another project locks only its own row; the caller judges the team afterwards with
-    /// <c>ProjectTeams.EnsureBindable</c> on a fresh read. A deletion locks the team <c>FOR NO KEY UPDATE</c>
-    /// (plan-backend D-3), so a binder and a deletion of the same team serialize: the deletion first, the binder reads the
-    /// team deleted; the binder first, the deletion takes what the binder wrote.
+    /// feat-028 (ADR-0028 rule 8 step 3): locks the <b>link</b> between the project and the team <c>FOR SHARE</c> — the item
+    /// binder's lock, taken <b>first</b> of a write's locks — and decides nothing. A team of another organization locks nothing
+    /// (no lock spans organizations, ADR-0028 § 4: the statement carries the organization); the caller judges the team afterwards
+    /// with <c>ProjectTeams.EnsureBindable</c> on a fresh read. An unlink locks the link <c>FOR NO KEY UPDATE</c> and a deletion
+    /// locks all of the team's links so, so a binder and an unlink or a deletion of the same team serialize: the unlink first, the
+    /// binder reads the team not linked (409); the binder first, the unlink reassigns what the binder wrote.
     /// </summary>
-    Task LockTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken);
+    Task LockTeamLinkAsync(Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// mod-017 (BR-OT-3, BR-OT-13, plan-backend D-14): reads the project default team as it stands — the team the settings
-    /// name, else the project's only active team, else none (<c>ProjectDefaultTeam</c>) — locks it <c>FOR SHARE</c>, and reads
-    /// it again: a team found deleted means a deletion cleared the setting meanwhile, so the default is read again (three
-    /// attempts, then the active teams are locked and the default read once more; unreachable short of three deletions in a
-    /// row). When no default resolves (two or more active teams, none named), <b>every active team is locked <c>FOR SHARE</c>
-    /// in id order</b> and the default is read again under that lock: a deletion of any team of the project holds them all
-    /// (<c>FOR NO KEY UPDATE</c>), so the creation either commits before the deletion reads the items it owns or reads the
-    /// default, and its parent, after the deletion — never in between (QA D-1, CR-1, S-1). Answers the locked team, or
-    /// <c>null</c> (none, with the teams locked). A creation
-    /// that may take the default (no team sent, or a child) takes this lock <b>before</b> the number lock, whether or not it
-    /// ends up using the default: the fallback is known only after the parent is locked, and a lock not taken then would let the
-    /// child land on a team a concurrent deletion has just committed. A default that is named differently during the attempt
-    /// is taken as it was: the creation is ordered before the naming.
+    /// feat-028 (BR-OT-3, BR-OL-8, plan-backend D-4): locks <b>every link of the project</b> <c>FOR SHARE</c> in one statement
+    /// ordered by team id, then reads the project default team once under that lock — the team the settings name when it is
+    /// still linked and active, else the project's only linked active team, else none (<c>ProjectDefaultTeam</c>). A creation that
+    /// may take the default (no team sent, or a child, whatever team its parent has) takes this lock <b>before</b> the number
+    /// lock, whether or not it ends up using the default: the fallback is known only after the parent is locked, and a lock not
+    /// taken then would let the child land on a team a concurrent unlink or deletion has just committed. Every link lock a
+    /// creation takes is therefore in the unlink's and the deletion's order, so the three-request cycle of mod-017 CR-7 cannot
+    /// form. Answers the default team, or <c>null</c>.
     /// </summary>
-    Task<Guid?> LockDefaultTeamAsync(Guid projectId, CancellationToken cancellationToken);
+    Task<Guid?> LockProjectLinksAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Locks the project's number counter <c>FOR UPDATE</c>, creating it on the

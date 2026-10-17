@@ -43,7 +43,8 @@ public sealed class OrganizationsOpenApiTests(MustaskApiFactory factory)
             .Select(operation => $"{operation.Method} {operation.Path}")
             .Order(StringComparer.Ordinal);
 
-        Assert.Equal(36, ContractOperations.Length);
+        // feat-028 api-contract § 4: eight project-nested team routes out and sixteen organization-level ones in, 36 -> 44 of this module.
+        Assert.Equal(44, ContractOperations.Length);
         Assert.Equal(ContractOperations.Order(StringComparer.Ordinal), ofTheModule);
     }
 

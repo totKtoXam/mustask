@@ -132,10 +132,16 @@ public sealed class AddOrganizationAccessMigrationTests(OrganizationsDatabaseFix
         await context.GetService<IMigrator>().MigrateAsync(previous);
     }
 
+    /// <summary>
+    /// Migrates forward to <c>AddOrganizationAccess</c> itself, never to head (feat-028 plan-backend § 9.1b): the legacy rows below are
+    /// written in the old shape, and <c>OrganizationLevelTeams</c> would drop exactly the teams and memberships the test reads.
+    /// </summary>
     private async Task MigrateForwardAsync()
     {
         await using var context = database.NewContext();
-        await context.Database.MigrateAsync();
+        var target = context.Database.GetMigrations().Single(id => id.EndsWith(MigrationSuffix, StringComparison.Ordinal));
+
+        await context.GetService<IMigrator>().MigrateAsync(target);
     }
 
     private async Task<bool> TableExistsAsync(string table) =>

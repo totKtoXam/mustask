@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Mustask.Application.Features.Organizations;
 using Mustask.Domain.Organizations;
+using Microsoft.EntityFrameworkCore;
 
 namespace Mustask.Api.IntegrationTests.Features.Organizations;
 
@@ -51,7 +52,7 @@ public sealed class RestoreProjectEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal("application/json", answer.MediaType);
-        Assert.Equal(["id", "key", "name", "organizationId"], PropertyNames(answer.Body));
+        Assert.Equal(["description", "id", "key", "name", "organizationId"], PropertyNames(answer.Body));
         Assert.Equal(structure.ProjectId, answer.Body.GetProperty("id").GetGuid());
         Assert.Equal(structure.OrganizationId, answer.Body.GetProperty("organizationId").GetGuid());
         Assert.Equal("Пример проекта", answer.Body.GetProperty("name").GetString());
@@ -209,9 +210,9 @@ public sealed class RestoreProjectEndpointTests(MustaskApiFactory factory)
     {
         using var scope = factory.Services.CreateScope();
         var seam = scope.ServiceProvider.GetRequiredService<IOrganizationStructure>();
-        var project = await seam.FindProjectAsync(structure.ProjectId, CancellationToken.None)
+        var project = await seam.FindProjectAsync(structure.OrganizationId, structure.ProjectId, CancellationToken.None)
             ?? throw new InvalidOperationException("The project is gone.");
-        var teams = await seam.ListActiveTeamsAsync(structure.ProjectId, CancellationToken.None);
+        var teams = await seam.ListLinkedTeamsAsync(structure.OrganizationId, structure.ProjectId, CancellationToken.None);
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
 
         var lines = new List<string>
@@ -226,17 +227,23 @@ public sealed class RestoreProjectEndpointTests(MustaskApiFactory factory)
 
     private async Task<ProjectInfo> ReadProjectAsync(Guid projectId)
     {
+        var organizationId = await OrganizationsTestData.OrganizationOfAsync(factory, projectId);
         using var scope = factory.Services.CreateScope();
 
-        return await scope.ServiceProvider.GetRequiredService<IOrganizationStructure>().FindProjectAsync(projectId, CancellationToken.None)
+        return await scope.ServiceProvider.GetRequiredService<IOrganizationStructure>().FindProjectAsync(organizationId, projectId, CancellationToken.None)
             ?? throw new InvalidOperationException("The project is gone.");
     }
 
     private async Task<TeamInfo> ReadTeamAsync(Guid teamId)
     {
         using var scope = factory.Services.CreateScope();
+        var organizationId = await scope.ServiceProvider.GetRequiredService<Mustask.Infrastructure.MustaskDbContext>().Teams
+            .AsNoTracking()
+            .Where(team => team.Id == teamId)
+            .Select(team => team.OrganizationId)
+            .SingleAsync();
 
-        return await scope.ServiceProvider.GetRequiredService<IOrganizationStructure>().FindTeamAsync(teamId, CancellationToken.None)
+        return await scope.ServiceProvider.GetRequiredService<IOrganizationStructure>().FindTeamAsync(organizationId, teamId, CancellationToken.None)
             ?? throw new InvalidOperationException("The team is gone.");
     }
 
