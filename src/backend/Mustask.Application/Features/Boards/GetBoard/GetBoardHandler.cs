@@ -11,7 +11,7 @@ namespace Mustask.Application.Features.Boards.GetBoard;
 
 /// <summary>
 /// A team's board of one level (US-4): the backlog's items (the same
-/// membership read, BR-M4-5) in the backlog's order (BR-M4-15), each in the
+/// membership read, mod-017 BR-OT-5 — the items the team owns) in the backlog's order (BR-M4-15), each in the
 /// column its type's current state maps to, the columns derived from the
 /// organization's process on this read (BR-M4-2, <see cref="BoardLayout"/>); each
 /// card carries its checklist of task, bug and test-case children (feat-032).
@@ -62,10 +62,10 @@ public sealed class GetBoardHandler(
                 type.States.Select(state => new LayoutState(state.Id, state.Name, state.Category, state.Position)).ToList()))
             .ToList());
 
-        var read = await backlogs.ReadAsync(BacklogScope.Of(projectId, teamId, resolved.Id, types), cancellationToken);
+        var rows = await backlogs.ReadAsync(BacklogScope.Of(projectId, teamId, resolved.Id, types), cancellationToken);
 
         // Every item of the backlog has a state outside Removed of one of the level's types, so it has exactly one column.
-        var items = BacklogItemView.InOrder(read.Items);
+        var items = BacklogItemView.InOrder(rows);
 
         // feat-032 BR-C-10: every card's checklist comes with the board, in one more read for all the cards at once.
         var checklists = await backlogs.ReadChecklistsAsync(projectId, items.Select(item => item.Id).ToList(), cancellationToken);
@@ -83,7 +83,7 @@ public sealed class GetBoardHandler(
             .ToList();
 
         return new BoardResponse(
-            new BoardTeamView(team.Id, team.Name, read.DefaultArea),
+            new BoardTeamView(team.Id, team.Name),
             BoardLevelView.Of(level, processLevel, types),
             columns);
     }

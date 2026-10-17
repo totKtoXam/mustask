@@ -9,8 +9,9 @@ namespace Mustask.Application.Features.Boards.GetBacklog;
 
 /// <summary>
 /// A team's backlog page of one level (mod-006 US-1) with its tree at full depth
-/// (feat-027 US-1, US-2; api-contract § 1, § 2): the tree set — the team's live
-/// items of this level and of every level ranked below it, the «Задачи» level
+/// (feat-027 US-1, US-2; api-contract § 1, § 2): the tree set — the live items the team
+/// owns (mod-017 BR-OT-5; an item's area decides nothing) of this level and of every level
+/// ranked below it, the «Задачи» level
 /// included — read at this moment; the top-level rows in the backlog's order
 /// (BR-M4-24), numbered «Порядок» 1..n; beneath each its children, by level then
 /// each level's backlog order, recursively; every row's «Родитель».
@@ -64,16 +65,16 @@ public sealed class GetBacklogHandler(
         var treeLevels = process.BacklogLevels.Where(row => row.Rank <= resolved.Rank).Select(row => row.Id).ToHashSet();
         var treeTypes = process.WorkItemTypes.Where(type => treeLevels.Contains(type.BacklogLevelId));
 
-        var read = await backlogs.ReadTreeAsync(BacklogTreeScope.Of(projectId, teamId, treeTypes), cancellationToken);
+        var rows = await backlogs.ReadTreeAsync(BacklogTreeScope.Of(projectId, teamId, treeTypes), cancellationToken);
 
         // A parent inside the set is live and is its own row; only those outside it are read (feat-001 BR-H-13).
-        var inSet = read.Items.Select(row => row.Id).ToHashSet();
-        var parentsOutside = read.Items.Select(row => row.ParentId).OfType<Guid>().Where(id => !inSet.Contains(id)).Distinct().ToList();
+        var inSet = rows.Select(row => row.Id).ToHashSet();
+        var parentsOutside = rows.Select(row => row.ParentId).OfType<Guid>().Where(id => !inSet.Contains(id)).Distinct().ToList();
         var liveParentsOutside = await backlogs.FindLiveParentsAsync(projectId, parentsOutside, cancellationToken);
 
         return new BacklogResponse(
-            new BoardTeamView(team.Id, team.Name, read.DefaultArea),
+            new BoardTeamView(team.Id, team.Name),
             BoardLevelView.Of(level, processLevel, types),
-            BacklogRowView.Tree(resolved.Rank, read.Items, liveParentsOutside));
+            BacklogRowView.Tree(resolved.Rank, rows, liveParentsOutside));
     }
 }

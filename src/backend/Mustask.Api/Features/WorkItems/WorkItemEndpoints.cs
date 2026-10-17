@@ -116,7 +116,13 @@ public static class WorkItemEndpoints
     {
         var result = await handler.Handle(
             new CreateWorkItemCommand(
-                organizationId, projectId, request?.RequestId, request?.TypeId, request?.Title, request?.TeamId, request?.ParentId),
+                organizationId,
+                projectId,
+                request?.RequestId,
+                request?.TypeId,
+                request?.Title,
+                request?.Team is { } team ? new TeamChange(team.TeamId) : null,
+                request?.ParentId),
             cancellationToken);
 
         if (!result.Created)
@@ -217,10 +223,13 @@ public static class WorkItemEndpoints
     // --- Request bodies: every field nullable, so a missing one reaches the handler as a validation answer -----
 
     /// <summary>
-    /// <c>teamId</c> is mod-006's (its api-contract § 7): optional, the team surface the item is created from.
-    /// <c>parentId</c> is feat-027's (its api-contract § 3): optional, the item to create the new one beneath.
+    /// <c>team</c> is mod-017's (api-contract § 0.2), in the wrapper of <see cref="TeamRequest"/>: optional, the owning team
+    /// the dialog shows; absent, the item takes the project default team. It replaces mod-006's flat <c>teamId</c>, which a body
+    /// may still carry and which is ignored (unknown properties are, as everywhere).
+    /// <c>parentId</c> is feat-027's (its api-contract § 3): optional, the item to create the new one beneath; a request that
+    /// names a parent never reads <c>team</c>.
     /// </summary>
-    private sealed record CreateWorkItemRequest(string? RequestId, string? TypeId, string? Title, string? TeamId, string? ParentId);
+    private sealed record CreateWorkItemRequest(string? RequestId, string? TypeId, string? Title, TeamRequest? Team, string? ParentId);
 
     /// <summary>
     /// A field that is absent or <c>null</c> is not changed (BR-M3-25); <c>assignee.userId</c> <c>null</c> clears it.

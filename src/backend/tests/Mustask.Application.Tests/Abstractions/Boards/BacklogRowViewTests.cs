@@ -18,7 +18,7 @@ public sealed class BacklogRowViewTests
         new(Guid.CreateVersion7(), "Новая", new WorkItemStateCategoryView("Proposed", "Новые"));
 
     private static BacklogItemRow Row(int number, Guid id, Guid? parentId) =>
-        new(id, $"MSK-US-{number}", number, null, StoryType, $"Элемент {number}", null, NewState, 2, parentId, StoryRank, null, null, "Business");
+        new(id, $"MSK-US-{number}", number, null, StoryType, $"Элемент {number}", null, NewState, 2, parentId, StoryRank, null, null, "Business", null);
 
     private static IReadOnlyList<BacklogRowView> Map(IReadOnlyList<BacklogItemRow> rows) =>
         BacklogRowView.Tree(StoryRank, rows, new Dictionary<Guid, WorkItemRefView>());

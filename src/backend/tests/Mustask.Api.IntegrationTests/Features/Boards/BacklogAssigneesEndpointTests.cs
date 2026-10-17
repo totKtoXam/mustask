@@ -41,7 +41,7 @@ public sealed class BacklogAssigneesEndpointTests(MustaskApiFactory factory)
         var users = await SeedUsersAsync(Distinct);
         var unknown = Enumerable.Range(1, 3).Select(index => $"unknown-user-{index}-{Guid.NewGuid()}").ToArray();
         await BulkItemsTestData.InsertAssignedAsync(
-            factory, world.Items, world.PlatformAreaId, [.. users, .. unknown], firstNumber: 2, beneath: story.Id);
+            factory, world.Items, world.PlatformAreaId, [.. users, .. unknown], firstNumber: 2, beneath: story.Id, owningTeamId: world.PlatformId);
 
         var answer = await BoardsTestData.GetBacklogAsync(factory, world, world.PlatformId, "stories");
 
@@ -69,7 +69,7 @@ public sealed class BacklogAssigneesEndpointTests(MustaskApiFactory factory)
         const int stories = 505;
         var world = await BoardsTestData.CreateWorldAsync(factory);
         var users = await SeedUsersAsync(stories);
-        await BulkItemsTestData.InsertAssignedAsync(factory, world.Items, world.PlatformAreaId, users, firstNumber: 1, typeKey: "US");
+        await BulkItemsTestData.InsertAssignedAsync(factory, world.Items, world.PlatformAreaId, users, firstNumber: 1, typeKey: "US", owningTeamId: world.PlatformId);
 
         var answer = await BoardsTestData.GetBoardAsync(factory, world, world.PlatformId, "stories");
 

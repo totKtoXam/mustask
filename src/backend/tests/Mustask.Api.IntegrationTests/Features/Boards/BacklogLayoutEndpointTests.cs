@@ -105,10 +105,10 @@ public sealed class BacklogLayoutEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal([1, 2], epics.Select(row => row.GetProperty("order").GetInt32()));
         Assert.Equal(
-            ["order", "id", "identifier", "number", "type", "title", "assignee", "state", "priority", "effort", "businessValue", "valueArea", "parent", "children"],
+            ["order", "id", "identifier", "number", "type", "title", "assignee", "state", "priority", "team", "effort", "businessValue", "valueArea", "parent", "children"],
             epics[0].EnumerateObject().Select(member => member.Name));
         Assert.Equal(
-            ["id", "identifier", "number", "type", "title", "assignee", "state", "priority", "effort", "businessValue", "valueArea", "parent", "children"],
+            ["id", "identifier", "number", "type", "title", "assignee", "state", "priority", "team", "effort", "businessValue", "valueArea", "parent", "children"],
             epics[0].GetProperty("children")[0].EnumerateObject().Select(member => member.Name));
     }
 }

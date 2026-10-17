@@ -124,15 +124,18 @@ public static class BoardEndpoints
         string organizationId, string projectId, string teamId, string level, GetBoardHandler handler, CancellationToken cancellationToken) =>
         Results.Ok(await handler.Handle(new GetBoardQuery(organizationId, projectId, teamId, level), cancellationToken));
 
+    // mod-017 api-contract § 3: the team filter is the repeated `teamId` — a team's id or `none`. Nothing is validated here: a
+    // value that names no team of the project selects nothing, and the handler's filter says so alike for every such value.
     private static async Task<IResult> GetProjectBacklogAsync(
         string organizationId,
         string projectId,
         string level,
+        [Microsoft.AspNetCore.Mvc.FromQuery(Name = "teamId")] string[]? teamId,
         GetProjectBacklogHandler handler,
         IOptions<JsonOptions> json,
         CancellationToken cancellationToken) =>
         TypedResults.Json(
-            await handler.Handle(new GetProjectBacklogQuery(organizationId, projectId, level), cancellationToken),
+            await handler.Handle(new GetProjectBacklogQuery(organizationId, projectId, level, teamId), cancellationToken),
             BacklogJson.For(json.Value.SerializerOptions));
 
     private static async Task<IResult> ReorderProjectBacklogAsync(
@@ -151,8 +154,13 @@ public static class BoardEndpoints
     }
 
     private static async Task<IResult> GetProjectBoardAsync(
-        string organizationId, string projectId, string level, GetProjectBoardHandler handler, CancellationToken cancellationToken) =>
-        Results.Ok(await handler.Handle(new GetProjectBoardQuery(organizationId, projectId, level), cancellationToken));
+        string organizationId,
+        string projectId,
+        string level,
+        [Microsoft.AspNetCore.Mvc.FromQuery(Name = "teamId")] string[]? teamId,
+        GetProjectBoardHandler handler,
+        CancellationToken cancellationToken) =>
+        Results.Ok(await handler.Handle(new GetProjectBoardQuery(organizationId, projectId, level, teamId), cancellationToken));
 
     // --- Request body: every field nullable, so a missing one reaches the handler as its answer -----
 

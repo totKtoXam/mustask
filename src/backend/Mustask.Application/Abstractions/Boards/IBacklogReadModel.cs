@@ -2,6 +2,7 @@ using Mustask.Application.Abstractions.Process;
 using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Domain.Boards;
 using Mustask.Domain.Process;
+using Mustask.Domain.WorkItems;
 
 namespace Mustask.Application.Abstractions.Boards;
 
@@ -16,27 +17,27 @@ public interface IBacklogReadModel
     /// <summary>
     /// The backlog's items with what a row and a card show and their place on
     /// this backlog, in no particular order (the order is the domain's
-    /// <see cref="StackRank"/>), and the team's default area as it stands now.
-    /// A fixed number of queries.
+    /// <see cref="StackRank"/>). mod-017 (BR-OT-5): the items the team owns; no area tree is read. A fixed number of
+    /// statements: the items, then the assignees' lookups.
     /// </summary>
-    Task<BacklogRead> ReadAsync(BacklogScope scope, CancellationToken cancellationToken);
+    Task<IReadOnlyList<BacklogItemRow>> ReadAsync(BacklogScope scope, CancellationToken cancellationToken);
 
     /// <summary>
-    /// feat-027 (api-contract § 1): the tree set of a backlog page — the team's
-    /// items of every level of <paramref name="scope"/>, by mod-006's conditions —
+    /// feat-027 (api-contract § 1): the tree set of a backlog page — the items the team owns, of every level of
+    /// <paramref name="scope"/>, by mod-017's conditions —
     /// each with its place on its own level's backlog of the team, in no
-    /// particular order (the tree is the domain's <see cref="BacklogTree"/>), and
-    /// the team's default area. The same fixed number of queries as
+    /// particular order (the tree is the domain's <see cref="BacklogTree"/>). The same fixed number of statements as
     /// <see cref="ReadAsync"/>, whatever the levels and the depth.
     /// </summary>
-    Task<BacklogRead> ReadTreeAsync(BacklogTreeScope scope, CancellationToken cancellationToken);
+    Task<IReadOnlyList<BacklogItemRow>> ReadTreeAsync(BacklogTreeScope scope, CancellationToken cancellationToken);
 
     /// <summary>
     /// feat-039 (api-contract § 1): a project's backlog or board of one level — every item of the project of the
-    /// level's types in a state outside the Removed category, whatever its area or team, each with its place on the
+    /// level's types in a state outside the Removed category, whatever its area or team (none included) and narrowed
+    /// only by mod-017's team filter, each with its place on the
     /// project's backlog of the level, in no particular order (the order is the domain's <see cref="StackRank"/>,
     /// from the rows' <see cref="BacklogItemRow.CreatedAt"/>). No area tree is read: one statement for the items,
-    /// then the assignees' lookups, whatever the size.
+    /// then the assignees' lookups, whatever the size; a filter adds none.
     /// </summary>
     Task<IReadOnlyList<BacklogItemRow>> ReadProjectAsync(ProjectBacklogScope scope, CancellationToken cancellationToken);
 
@@ -44,7 +45,8 @@ public interface IBacklogReadModel
     /// feat-039 (api-contract § 1): the tree set of a project's backlog page — the project's items of every level of
     /// <paramref name="scope"/>, the «Задачи» level included, each with its place on the project's backlog of its own
     /// type's level (none on the «Задачи» level), in no particular order (the tree is the domain's
-    /// <see cref="BacklogTree"/>). The same fixed number of statements as <see cref="ReadProjectAsync"/>.
+    /// <see cref="BacklogTree"/>), narrowed only by the scope's team filter. The same fixed number of statements as
+    /// <see cref="ReadProjectAsync"/>.
     /// </summary>
     Task<IReadOnlyList<BacklogItemRow>> ReadProjectTreeAsync(ProjectBacklogTreeScope scope, CancellationToken cancellationToken);
 
@@ -68,10 +70,9 @@ public interface IBacklogReadModel
 }
 
 /// <summary>
-/// One backlog (team, level) of a project, and what its membership filters on:
-/// the level's types (condition 2) and their states outside the Removed category
-/// (condition 4). Condition 3, the team's areas, is resolved by the reader from
-/// the project's area tree at the moment of the read.
+/// One backlog (team, level) of a project, and what its membership filters on (mod-017 BR-OT-5): the items the team
+/// owns (condition 3), the level's types (condition 2) and their states outside the Removed category (condition 4).
+/// An item's area, its owner and its moves decide nothing.
 /// </summary>
 public sealed record BacklogScope(
     Guid ProjectId,
@@ -96,9 +97,8 @@ public sealed record BacklogScope(
 /// <summary>
 /// feat-027 (api-contract § 1): the backlogs one page's tree is read from — the
 /// team's backlog of the page's level and of every level ranked below it, the
-/// «Задачи» level included — as one membership: those levels' types and their
-/// states outside the Removed category. Condition 3 is resolved by the reader,
-/// as for <see cref="BacklogScope"/>.
+/// «Задачи» level included — as one membership: the items the team owns of those levels' types in states outside
+/// the Removed category, as for <see cref="BacklogScope"/>.
 /// </summary>
 public sealed record BacklogTreeScope(
     Guid ProjectId,
@@ -117,20 +117,23 @@ public sealed record BacklogTreeScope(
 
 /// <summary>
 /// feat-039: one project's backlog of a level (api-contract § 1) — the level's types (condition 2) and their states
-/// outside the Removed category (condition 3) of the project (condition 1). There is no team and no area condition.
+/// outside the Removed category (condition 3) of the project (condition 1). There is no team and no area condition;
+/// mod-017's <paramref name="Filter"/> (BR-OT-8) narrows the view only, and a reorder reads the scope with none.
 /// </summary>
 public sealed record ProjectBacklogScope(
     Guid ProjectId,
     Guid LevelId,
     IReadOnlyCollection<Guid> TypeIds,
-    IReadOnlyCollection<Guid> ShownStateIds)
+    IReadOnlyCollection<Guid> ShownStateIds,
+    WorkItemFilter Filter)
 {
     /// <summary>The scope of <paramref name="levelId"/>'s backlog of the project, from the organization's process.</summary>
-    public static ProjectBacklogScope Of(Guid projectId, Guid levelId, IEnumerable<WorkItemTypeRow> levelTypes)
+    public static ProjectBacklogScope Of(Guid projectId, Guid levelId, IEnumerable<WorkItemTypeRow> levelTypes, WorkItemFilter? filter = null)
     {
         var types = levelTypes.ToList();
 
-        return new ProjectBacklogScope(projectId, levelId, types.Select(type => type.Id).ToList(), BacklogScope.ShownStates(types));
+        return new ProjectBacklogScope(
+            projectId, levelId, types.Select(type => type.Id).ToList(), BacklogScope.ShownStates(types), filter ?? WorkItemFilter.None);
     }
 }
 
@@ -141,19 +144,18 @@ public sealed record ProjectBacklogScope(
 public sealed record ProjectBacklogTreeScope(
     Guid ProjectId,
     IReadOnlyCollection<Guid> TypeIds,
-    IReadOnlyCollection<Guid> ShownStateIds)
+    IReadOnlyCollection<Guid> ShownStateIds,
+    WorkItemFilter Filter)
 {
     /// <summary>The tree set of the project's page whose level and the levels below it have <paramref name="treeTypes"/>.</summary>
-    public static ProjectBacklogTreeScope Of(Guid projectId, IEnumerable<WorkItemTypeRow> treeTypes)
+    public static ProjectBacklogTreeScope Of(Guid projectId, IEnumerable<WorkItemTypeRow> treeTypes, WorkItemFilter? filter = null)
     {
         var types = treeTypes.ToList();
 
-        return new ProjectBacklogTreeScope(projectId, types.Select(type => type.Id).ToList(), BacklogScope.ShownStates(types));
+        return new ProjectBacklogTreeScope(
+            projectId, types.Select(type => type.Id).ToList(), BacklogScope.ShownStates(types), filter ?? WorkItemFilter.None);
     }
 }
-
-/// <summary>What <see cref="IBacklogReadModel.ReadAsync"/> and <see cref="IBacklogReadModel.ReadTreeAsync"/> answer.</summary>
-public sealed record BacklogRead(WorkItemAreaView DefaultArea, IReadOnlyList<BacklogItemRow> Items);
 
 /// <summary>
 /// An item of the backlog: mod-003's fields a row and a card show, its
@@ -182,4 +184,5 @@ public sealed record BacklogItemRow(
     decimal? Effort,
     int? BusinessValue,
     string? ValueArea,
+    WorkItemTeamView? Team,
     DateTimeOffset? CreatedAt = null);

@@ -2,6 +2,7 @@ using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.WorkItems;
 using Mustask.Infrastructure.Dictionaries;
+using Mustask.Infrastructure.Organizations;
 using Mustask.Shared.Errors;
 using Mustask.Shared.Exceptions;
 using Microsoft.EntityFrameworkCore;
@@ -54,18 +55,32 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
              """,
             cancellationToken);
 
-    public async Task<Guid?> LockTeamDefaultAreaAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken)
-    {
-        await context.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT 1 FROM teams WHERE id = {teamId} AND project_id = {projectId} FOR SHARE",
-            cancellationToken);
+    /// <summary>How often the default is read again after the team it named is found deleted (plan-backend § 3).</summary>
+    private const int DefaultTeamAttempts = 3;
 
-        // A new statement under READ COMMITTED: a team deleted, or a default moved, by the lock's previous holder reads so.
-        return await context.Teams
-            .AsNoTracking()
-            .Where(team => team.Id == teamId && team.ProjectId == projectId && team.Status == TeamStatus.Active)
-            .Select(team => context.Areas.Where(area => area.DefaultOfTeamId == team.Id).Select(area => (Guid?)area.Id).FirstOrDefault())
-            .FirstOrDefaultAsync(cancellationToken);
+    public async Task<Guid?> LockDefaultTeamAsync(Guid projectId, CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < DefaultTeamAttempts; attempt++)
+        {
+            if (await DefaultTeams.ResolveAsync(context, projectId, cancellationToken) is not { } teamId)
+            {
+                return null;
+            }
+
+            await context.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT 1 FROM teams WHERE id = {teamId} AND project_id = {projectId} FOR SHARE",
+                cancellationToken);
+
+            // A new statement under READ COMMITTED: a team a deletion committed while the lock waited reads deleted, and the
+            // deletion has cleared the setting that named it, so the next attempt reads the default as it stands after it.
+            if (await context.Teams.AnyAsync(
+                    team => team.Id == teamId && team.ProjectId == projectId && team.Status == TeamStatus.Active, cancellationToken))
+            {
+                return teamId;
+            }
+        }
+
+        return null;
     }
 
     public Task<Guid?> FindCreatedByRequestAsync(Guid projectId, Guid requestId, CancellationToken cancellationToken) =>

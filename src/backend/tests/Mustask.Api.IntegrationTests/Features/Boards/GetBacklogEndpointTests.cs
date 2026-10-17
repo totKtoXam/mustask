@@ -18,9 +18,10 @@ public sealed class GetBacklogEndpointTests(MustaskApiFactory factory)
 {
     // --- US-1 ------------------------------------------------------------------------------------------------------
 
-    // US-1 · "A team's backlog holds its own items of the level": the «Истории» backlog of «Платформа» holds its story and
-    // its bug (the bug's area inherits from «Платформа»), the «Эпики» and «Фичи» backlogs the epic and the feature; the
-    // root's story is on «Мастаск»'s backlog, and the task is on no backlog of this cut.
+    // mod-017 US-4 · "each team holds its own": the «Истории» backlog of «Платформа» holds the story and the bug the team
+    // owns, the «Эпики» and «Фичи» backlogs the epic and the feature; the story «Мастаск» owns is on «Мастаск»'s backlog,
+    // and the task is on no backlog of this cut. (The world puts an item in an area and gives it the team it meant by the
+    // area, BoardsTestData.OwnerOf; the area decides nothing.)
     [Fact]
     public async Task Get_HoldsTheTeamsItemsOfTheLevel_AndNothingElse()
     {
@@ -44,17 +45,6 @@ public sealed class GetBacklogEndpointTests(MustaskApiFactory factory)
                 Assert.DoesNotContain(task.Identifier, await BoardsTestData.RowsAsync(factory, world, team, level));
             }
         }
-    }
-
-    // US-1 · "An area with no owner of its own counts for its nearest owner": «Отчёты» inherits from the root.
-    [Fact]
-    public async Task Get_AreaWithoutOwner_CountsForTheNearestOwner()
-    {
-        var world = await BoardsTestData.CreateWorldAsync(factory);
-        var story = await BoardsTestData.CreateAsync(factory, world, "US", "Отчёт", world.ReportsAreaId);
-
-        Assert.Equal([story.Identifier], await BoardsTestData.RowsAsync(factory, world, world.FirstTeamId));
-        Assert.Empty(await BoardsTestData.RowsAsync(factory, world, world.PlatformId));
     }
 
     // US-1 · "Closed and resolved items stay on the backlog" (OQ-2): every state outside Removed.
@@ -126,8 +116,9 @@ public sealed class GetBacklogEndpointTests(MustaskApiFactory factory)
         Assert.True(assigned.GetProperty("isMember").GetBoolean());
     }
 
-    // US-1 · "The level is chosen by tabs": the response names the team with its default area (the dialog's text) and the
-    // level with its types in display order and their initial state (the dialog's picker and text, BR-M4-21).
+    // US-1 · "The level is chosen by tabs": the response names the team (mod-017 api-contract § 1.4: its id and name — a
+    // team has no default area now) and the level with its types in display order and their initial state (the dialog's
+    // picker and text, BR-M4-21).
     [Fact]
     public async Task Get_NamesTheTeamAndTheLevelWithItsTypes()
     {
@@ -137,9 +128,7 @@ public sealed class GetBacklogEndpointTests(MustaskApiFactory factory)
         var epics = (await BoardsTestData.GetBacklogAsync(factory, world, world.FirstTeamId, "epics")).Body;
 
         Assert.Equal((world.PlatformId, "Платформа"), (stories.GetProperty("team").GetProperty("id").GetGuid(), stories.GetProperty("team").GetProperty("name").GetString()));
-        Assert.Equal((world.PlatformAreaId, "Платформа"), (
-            stories.GetProperty("team").GetProperty("defaultArea").GetProperty("id").GetGuid(),
-            stories.GetProperty("team").GetProperty("defaultArea").GetProperty("path").GetString()));
+        Assert.Equal(["id", "name"], stories.GetProperty("team").EnumerateObject().Select(member => member.Name));
         Assert.Equal(("stories", "Истории"), (stories.GetProperty("level").GetProperty("code").GetString(), stories.GetProperty("level").GetProperty("name").GetString()));
         Assert.Equal(
             ["US Пользовательская история story Новая", "BUG Баг bug Новая"],
@@ -147,7 +136,7 @@ public sealed class GetBacklogEndpointTests(MustaskApiFactory factory)
                 $"{type.GetProperty("key").GetString()} {type.GetProperty("name").GetString()} {type.GetProperty("appearance").GetString()} "
                 + type.GetProperty("initialState").GetProperty("name").GetString()));
 
-        Assert.Equal("Мастаск", epics.GetProperty("team").GetProperty("defaultArea").GetProperty("path").GetString());
+        Assert.Equal((world.FirstTeamId, "Мастаск"), (epics.GetProperty("team").GetProperty("id").GetGuid(), epics.GetProperty("team").GetProperty("name").GetString()));
         Assert.Equal(["EPIC"], epics.GetProperty("level").GetProperty("types").EnumerateArray().Select(type => type.GetProperty("key").GetString()));
     }
 
@@ -230,84 +219,8 @@ public sealed class GetBacklogEndpointTests(MustaskApiFactory factory)
         return (world, us5, us7);
     }
 
-    // US-7 · "A new Область moves the item to the other team's backlog": it lands below every placed item there, though its
-    // number is the lowest (BR-M4-6, OQ-5).
-    [Fact]
-    public async Task Get_AreaSetOnTheForm_MovesTheItemToTheOtherTeam()
-    {
-        var world = await BoardsTestData.CreateWorldAsync(factory);
-        var us3 = await BoardsTestData.CreateAsync(factory, world, "US", "Третья", world.PlatformAreaId);
-        var us5 = await BoardsTestData.CreateAsync(factory, world, "US", "Пятая");
-        var us7 = await BoardsTestData.CreateAsync(factory, world, "US", "Седьмая");
-        await BoardsTestData.ReorderToAsync(factory, world, world.FirstTeamId, us5, us7);
-
-        await BoardsTestData.MoveToAreaAsync(factory, world, us3, world.ReportsAreaId);
-
-        Assert.Empty(await BoardsTestData.RowsAsync(factory, world, world.PlatformId));
-        Assert.Equal([us5.Identifier, us7.Identifier, us3.Identifier], await BoardsTestData.RowsAsync(factory, world, world.FirstTeamId));
-    }
-
-    // US-7 · "An area given another owner takes its items along" (mod-002's owner endpoint).
-    [Fact]
-    public async Task Get_AreaReOwned_TakesItsItemsAlong()
-    {
-        var (world, us5, us7) = await FirstTeamReorderedAsync();
-        var us = await BoardsTestData.CreateAsync(factory, world, "US", "История", world.ApiAreaId);
-        var bug = await BoardsTestData.CreateAsync(factory, world, "BUG", "Баг", world.ApiAreaId);
-        Assert.Equal([us.Identifier, bug.Identifier], await BoardsTestData.RowsAsync(factory, world, world.PlatformId));
-
-        var owner = await OrganizationsApi.SendAsync(
-            factory,
-            HttpMethod.Put,
-            $"{OrganizationsApi.Areas(world.OrganizationId, world.ProjectId)}/{world.ApiAreaId}/owner",
-            new { ownerTeamId = world.FirstTeamId.ToString() },
-            OrganizationsTokens.SignedIn());
-        Assert.Equal(HttpStatusCode.OK, owner.Status);
-
-        Assert.Empty(await BoardsTestData.RowsAsync(factory, world, world.PlatformId));
-        Assert.Equal(
-            [us5.Identifier, us7.Identifier, us.Identifier, bug.Identifier],
-            await BoardsTestData.RowsAsync(factory, world, world.FirstTeamId));
-    }
-
-    // US-7 · "An area moved under another parent takes its items along" (mod-002's move endpoint).
-    [Fact]
-    public async Task Get_AreaMoved_TakesItsItemsAlong()
-    {
-        var (world, us5, us7) = await FirstTeamReorderedAsync();
-        var us = await BoardsTestData.CreateAsync(factory, world, "US", "История", world.ApiAreaId);
-
-        var moved = await OrganizationsApi.SendAsync(
-            factory,
-            HttpMethod.Put,
-            $"{OrganizationsApi.Areas(world.OrganizationId, world.ProjectId)}/{world.ApiAreaId}/parent",
-            new { parentId = world.RootAreaId.ToString() },
-            OrganizationsTokens.SignedIn());
-        Assert.Equal(HttpStatusCode.OK, moved.Status);
-
-        Assert.Equal([us5.Identifier, us7.Identifier, us.Identifier], await BoardsTestData.RowsAsync(factory, world, world.FirstTeamId));
-        Assert.Empty(await BoardsTestData.RowsAsync(factory, world, world.PlatformId));
-    }
-
-    // US-7 · "An item that comes back before anything was ordered returns": its place on «Платформа» was never dropped.
-    [Fact]
-    public async Task Get_ItemBackWithNoReorderMeanwhile_ReturnsToItsPlace()
-    {
-        var world = await BoardsTestData.CreateWorldAsync(factory);
-        var us3 = await BoardsTestData.CreateAsync(factory, world, "US", "Третья", world.PlatformAreaId);
-        var us9 = await BoardsTestData.CreateAsync(factory, world, "US", "Девятая", world.PlatformAreaId);
-        var us11 = await BoardsTestData.CreateAsync(factory, world, "US", "Одиннадцатая", world.PlatformAreaId);
-        await BoardsTestData.ReorderToAsync(factory, world, world.PlatformId, us9, us3, us11);
-
-        await BoardsTestData.MoveToAreaAsync(factory, world, us9, world.ReportsAreaId);
-        Assert.Equal([us3.Identifier, us11.Identifier], await BoardsTestData.RowsAsync(factory, world, world.PlatformId));
-        await BoardsTestData.MoveToAreaAsync(factory, world, us9, world.PlatformAreaId);
-
-        Assert.Equal([us9.Identifier, us3.Identifier, us11.Identifier], await BoardsTestData.RowsAsync(factory, world, world.PlatformId));
-    }
-
-    // US-7 · "An item placed elsewhere meanwhile comes back last": the reorder of «Мастаск» placed it there, so it lost its
-    // place on «Платформа».
+    // mod-017 US-4 · "comes back unplaced" (BR-OT-6): an item given to «Мастаск» loses its place on «Платформа» in the same
+    // write, whatever the reorder of «Мастаск» did meanwhile, and comes back to «Платформа» last, with no memory of it.
     [Fact]
     public async Task Get_ItemPlacedElsewhereMeanwhile_ComesBackLast()
     {
@@ -325,36 +238,18 @@ public sealed class GetBacklogEndpointTests(MustaskApiFactory factory)
         Assert.Equal([us3.Identifier, us11.Identifier, us9.Identifier], await BoardsTestData.RowsAsync(factory, world, world.PlatformId));
     }
 
-    // US-7 · "A deleted team's items go to the first team, in creation order" (BR-M4-20): the deleted team's addresses
-    // answer «Команда не найдена», and its items come onto «Мастаск»'s backlog unplaced, by number.
-    [Fact]
-    public async Task Get_DeletedTeam_ItsItemsGoToTheFirstTeamByNumber()
-    {
-        var (world, us5, us7) = await FirstTeamReorderedAsync();
-        var (analytics, analyticsArea) = await BoardsTestData.AddTeamAsync(factory, world, "Аналитика");
-        var us21 = await BoardsTestData.CreateAsync(factory, world, "US", "Двадцать первая", analyticsArea);
-        var us30 = await BoardsTestData.CreateAsync(factory, world, "US", "Тридцатая", analyticsArea);
-        await BoardsTestData.ReorderToAsync(factory, world, analytics, us30, us21);
-
-        var deleted = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Delete, BoardsTestData.Team(world, analytics), token: OrganizationsTokens.SignedIn());
-        Assert.Equal(HttpStatusCode.NoContent, deleted.Status);
-
-        BoardsTestData.AssertRefused(await BoardsTestData.GetBacklogAsync(factory, world, analytics), HttpStatusCode.NotFound, "organizations.team.not_found");
-        BoardsTestData.AssertRefused(await BoardsTestData.GetBoardAsync(factory, world, analytics), HttpStatusCode.NotFound, "organizations.team.not_found");
-        Assert.Equal(
-            [us5.Identifier, us7.Identifier, us21.Identifier, us30.Identifier],
-            await BoardsTestData.RowsAsync(factory, world, world.FirstTeamId));
-    }
-
-    // US-7 · "An item created from the project's list goes to the first team": no team, the root area, the last row.
+    // mod-017 US-2 · "an item created from the list takes the project default team" (BR-OT-3): the world names «Мастаск» the
+    // default, so the item is on its backlog, the last row, and in the root area.
     [Fact]
     public async Task Get_ItemCreatedFromTheList_IsTheFirstTeamsLastRow()
     {
         var (world, us5, us7) = await FirstTeamReorderedAsync();
 
-        var bug = await BoardsTestData.CreateAsync(factory, world, "BUG", "Из списка");
+        var answer = await WorkItemsTestData.CreateAsync(factory, world.Items, "BUG", "Из списка");
 
+        Assert.Equal(HttpStatusCode.Created, answer.Status);
+        var bug = new Item(answer.Body.GetProperty("id").GetGuid(), answer.Body.GetProperty("identifier").GetString()!);
+        Assert.Equal("Мастаск", answer.Body.GetProperty("area").GetProperty("path").GetString());
         Assert.Equal([us5.Identifier, us7.Identifier, bug.Identifier], await BoardsTestData.RowsAsync(factory, world, world.FirstTeamId));
     }
 }

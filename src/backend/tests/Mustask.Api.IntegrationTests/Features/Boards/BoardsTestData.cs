@@ -8,12 +8,11 @@ namespace Mustask.Api.IntegrationTests.Features.Boards;
 /// <summary>
 /// The boards tests' data and requests (mod-006). Every test builds its own
 /// world of the stories' data (US-1): organization, project «Мастаск» keyed MSK
-/// with its root «Мастаск» and first team «Мастаск»; team «Платформа» owning its
-/// default area «Платформа» under the root; «Платформа / API» below it with no
-/// owner of its own; «Отчёты» under the root with no owner. Items are created
-/// through mod-003's endpoints and moved between areas with its PATCH, so what a
-/// test reads is what the API wrote; areas and teams change through mod-002's
-/// endpoints, as "elsewhere" (US-7).
+/// with its root «Мастаск» and first team «Мастаск»; team «Платформа» with the
+/// areas «Платформа», «Платформа / API» below it and «Отчёты» under the root. Items are created
+/// through mod-003's endpoints, so what a test reads is what the API wrote; since mod-017 an item stands on the backlog of
+/// the team that <b>owns</b> it, not of the area it is in, and <see cref="CreateAsync"/> gives it the team the world meant by
+/// the area it is put in (<see cref="OwnerOf"/>); teams change through mod-002's endpoints, as "elsewhere" (US-7).
 /// </summary>
 internal static class BoardsTestData
 {
@@ -27,6 +26,11 @@ internal static class BoardsTestData
         var platform = await OrganizationsTestData.AddTeamAsync(factory, project.Project.Id, "Платформа");
         var api = await OrganizationsTestData.AddAreaAsync(factory, project.Project.Id, platform.Area.Id, "API");
         var reports = await OrganizationsTestData.AddAreaAsync(factory, project.Project.Id, project.Root.Id, "Отчёты");
+
+        // The world was built when the root belonged to the first team: it is now the project's default team, so an item created
+        // with no team (mod-017 BR-OT-3) starts where the root would have put it (the stories keep their meaning).
+        await WorkItemsTestData.ExecuteAsync(
+            factory, $"UPDATE projects SET default_team_id = {project.FirstTeam.Id} WHERE id = {project.Project.Id}");
 
         return new BoardsWorld(items, project.FirstTeam.Id, platform.Team.Id, platform.Area.Id, api.Id, reports.Id);
     }
@@ -48,7 +52,9 @@ internal static class BoardsTestData
 
     /// <summary>
     /// An item of <paramref name="typeKey"/> created through mod-003's create (in the root), then moved into
-    /// <paramref name="areaId"/> with its PATCH when that is another area.
+    /// <paramref name="areaId"/> with its PATCH when that is another area (a classification path since mod-017), and given
+    /// the owning team the stories' world means by that area (<see cref="OwnerOf"/>): the world was built when an area
+    /// decided the team, and its tests keep their meaning by naming the area they put an item in.
     /// </summary>
     public static async Task<Item> CreateAsync(MustaskApiFactory factory, BoardsWorld world, string typeKey, string title, Guid? areaId = null)
     {
@@ -61,25 +67,44 @@ internal static class BoardsTestData
             await MoveToAreaAsync(factory, world, item, area);
         }
 
+        await OwningTeamTestData.SetOwningTeamAsync(factory, item.Id, OwnerOf(world, areaId));
+
         return item;
     }
 
-    /// <summary>The create request as the dialog on a team's surface sends it: with the team's id (api-contract § 7).</summary>
+    /// <summary>
+    /// The team the stories' world gave an item in that area: «Платформа» for its own area and for «Платформа / API», below it
+    /// with no owner of its own; «Мастаск», the first team, for the root and for «Отчёты».
+    /// </summary>
+    public static Guid OwnerOf(BoardsWorld world, Guid? areaId) =>
+        areaId == world.PlatformAreaId || areaId == world.ApiAreaId ? world.PlatformId : world.FirstTeamId;
+
+    /// <summary>Sets an item's owning team with SQL (mod-017): the team views hold what the team owns.</summary>
+    public static Task OwnedByAsync(MustaskApiFactory factory, Item item, Guid? teamId) =>
+        OwningTeamTestData.SetOwningTeamAsync(factory, item.Id, teamId);
+
+    /// <summary>The create request as the dialog on a team's surface sends it: with the team it shows (mod-017 api-contract § 0.2).</summary>
     public static Task<Answer> CreateFromTeamAsync(
         MustaskApiFactory factory, BoardsWorld world, string typeKey, string title, string teamId, Guid? requestId = null, CommitGate? gate = null) =>
         OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Post,
             WorkItemsTestData.List(world.Items),
-            new { requestId = (requestId ?? Guid.NewGuid()).ToString(), typeId = world.Items.Types[typeKey].Id.ToString(), title, teamId },
+            new { requestId = (requestId ?? Guid.NewGuid()).ToString(), typeId = world.Items.Types[typeKey].Id.ToString(), title, team = new { teamId } },
             OrganizationsTokens.SignedIn(),
             gate);
 
-    /// <summary>Sets the item's Область on its form (mod-003's PATCH); fails the test unless it answers 200.</summary>
+    /// <summary>
+    /// Puts the item where the stories' world meant by that area: its Область on its form (mod-003's PATCH; fails the test
+    /// unless it answers 200) and the team the world gave that area (<see cref="OwnerOf"/>). The two are separate since
+    /// mod-017 (BR-OT-10: moving an area or an item's Область changes no team); a test of that sets them apart.
+    /// </summary>
     public static async Task MoveToAreaAsync(MustaskApiFactory factory, BoardsWorld world, Item item, Guid areaId)
     {
         var answer = await WorkItemsTestData.SaveAsync(factory, world.Items, item.Identifier, new { areaId = areaId.ToString() });
         Assert.Equal(HttpStatusCode.OK, answer.Status);
+
+        await OwningTeamTestData.SetOwningTeamAsync(factory, item.Id, OwnerOf(world, areaId));
     }
 
     /// <summary>Sets the item's Статус to the state of that name of its own type (mod-003's PATCH, a card move or the form).</summary>

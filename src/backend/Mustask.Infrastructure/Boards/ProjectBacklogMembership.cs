@@ -1,4 +1,5 @@
 using Mustask.Application.Abstractions.Boards;
+using Mustask.Infrastructure.WorkItems;
 using Microsoft.EntityFrameworkCore;
 
 namespace Mustask.Infrastructure.Boards;
@@ -12,8 +13,10 @@ namespace Mustask.Infrastructure.Boards;
 /// <item>its type is one of the level's;</item>
 /// <item>its state is outside the Removed category.</item>
 /// </list>
-/// There is <b>no area condition and no team</b>: the item's area, the area's owning team or none do not narrow it,
-/// and the team's area tree is never read. The place is the item's on the <i>project's</i> backlog
+/// There is <b>no area condition and no team condition</b>: the item's area, its owning team or none do not narrow it,
+/// and no area tree is read. The one narrowing is mod-017's team filter (BR-OT-8), through
+/// <see cref="WorkItemFilterPredicate"/> — the same predicate as the list's — on the same statement: it adds none.
+/// The place is the item's on the <i>project's</i> backlog
 /// (<c>project_backlog_places</c>), apart from <see cref="BacklogMembership"/>'s team place.
 /// </summary>
 internal static class ProjectBacklogMembership
@@ -30,7 +33,7 @@ internal static class ProjectBacklogMembership
         var projectId = scope.ProjectId;
         var levelId = scope.LevelId;
 
-        return from item in context.WorkItems.AsNoTracking()
+        return from item in WorkItemFilterPredicate.Apply(context.WorkItems.AsNoTracking(), scope.Filter)
                where item.ProjectId == projectId
                    && typeIds.Contains(item.TypeId)
                    && stateIds.Contains(item.StateId)
@@ -53,7 +56,7 @@ internal static class ProjectBacklogMembership
         var stateIds = scope.ShownStateIds.ToList();
         var projectId = scope.ProjectId;
 
-        return from item in context.WorkItems.AsNoTracking()
+        return from item in WorkItemFilterPredicate.Apply(context.WorkItems.AsNoTracking(), scope.Filter)
                where item.ProjectId == projectId
                    && typeIds.Contains(item.TypeId)
                    && stateIds.Contains(item.StateId)

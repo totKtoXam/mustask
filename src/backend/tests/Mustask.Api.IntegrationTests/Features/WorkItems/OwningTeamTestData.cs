@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Mustask.Api.IntegrationTests.Features.Boards;
 using Mustask.Api.IntegrationTests.Features.Organizations;
 using Mustask.Domain.Organizations;
 using Mustask.Infrastructure;
@@ -68,6 +69,14 @@ internal static class OwningTeamTestData
         return new OwningTeamWorld(items, alpha.FirstTeam.Id, mars, venus, beta.Project.Id, jupiter, sleepingTeam, deleted, other.Id, saturn);
     }
 
+    /// <summary>
+    /// The world as the boards' helpers know it, so a test of the views uses <see cref="BoardsTestData"/> and
+    /// <see cref="ProjectBoardsTestData"/> (rows, boards, reorders) over the world of the stories: «Альфа»'s own team stands for
+    /// the first team, MARS for the second. The area ids are empty — the views read none.
+    /// </summary>
+    public static BoardsWorld BoardsViewOf(OwningTeamWorld world) =>
+        new(world.Items, world.OwnTeam, world.Mars, Guid.Empty, Guid.Empty, Guid.Empty);
+
     /// <summary>An ordinary team of the project, with no area (BR-OT-11).</summary>
     public static Task<Guid> AddTeamAsync(MustaskApiFactory factory, Guid projectId, string name) =>
         OrganizationsTestData.InUnitOfWorkAsync(factory, async (services, ct) =>
@@ -129,6 +138,21 @@ internal static class OwningTeamTestData
 
         return await scope.ServiceProvider.GetRequiredService<MustaskDbContext>().Database
             .SqlQuery<int>($"SELECT count(*)::int AS \"Value\" FROM backlog_places WHERE work_item_id = {workItemId}")
+            .SingleAsync();
+    }
+
+    /// <summary>The team places of the project's items that name a team other than the owner of their item (ADR-0028 rule 5): always zero.</summary>
+    public static async Task<int> PlacesNamingAnotherTeamAsync(MustaskApiFactory factory, Guid projectId)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+
+        return await scope.ServiceProvider.GetRequiredService<MustaskDbContext>().Database
+            .SqlQuery<int>(
+                $"""
+                 SELECT count(*)::int AS "Value"
+                 FROM backlog_places AS place JOIN work_items AS item ON item.id = place.work_item_id
+                 WHERE item.project_id = {projectId} AND place.team_id IS DISTINCT FROM item.owning_team_id
+                 """)
             .SingleAsync();
     }
 

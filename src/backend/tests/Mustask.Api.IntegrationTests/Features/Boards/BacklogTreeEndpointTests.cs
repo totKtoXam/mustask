@@ -206,7 +206,7 @@ public sealed class BacklogTreeEndpointTests(MustaskApiFactory factory)
     public async Task Get_AChainOfTheBoundsLength_IsAnsweredWhole()
     {
         var (world, items) = await BacklogTreeTestData.CreateWorldAsync(factory);
-        await BulkItemsTestData.InsertChainAsync(factory, world.Items, world.PlatformAreaId, length: 60, firstNumber: 24, beneath: items["MSK-TASK-3"].Id);
+        await BulkItemsTestData.InsertChainAsync(factory, world.Items, world.PlatformAreaId, length: 60, firstNumber: 24, beneath: items["MSK-TASK-3"].Id, owningTeamId: world.PlatformId);
 
         using var epics = await ReadDeepAsync(world, Epics);
         using var stories = await ReadDeepAsync(world, Stories);

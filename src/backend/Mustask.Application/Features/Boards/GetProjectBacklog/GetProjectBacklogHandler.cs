@@ -3,6 +3,7 @@ using Mustask.Application.Abstractions.Process;
 using Mustask.Application.Features.Organizations;
 using Mustask.Domain.Boards;
 using Mustask.Domain.Organizations;
+using Mustask.Domain.WorkItems;
 using Mustask.Shared.Exceptions;
 
 namespace Mustask.Application.Features.Boards.GetProjectBacklog;
@@ -52,7 +53,11 @@ public sealed class GetProjectBacklogHandler(
         var treeLevels = process.BacklogLevels.Where(row => row.Rank <= resolved.Rank).Select(row => row.Id).ToHashSet();
         var treeTypes = process.WorkItemTypes.Where(type => treeLevels.Contains(type.BacklogLevelId));
 
-        var rows = await backlogs.ReadProjectTreeAsync(ProjectBacklogTreeScope.Of(projectId, treeTypes), cancellationToken);
+        // The team filter (mod-017 BR-OT-8) narrows the tree set on the same statement: the tree is built over the matching
+        // items only, and a parent outside it is read as any parent outside the set (its «Родитель» cell, unfiltered).
+        var filter = WorkItemFilter.OfTeams(query.TeamIds);
+
+        var rows = await backlogs.ReadProjectTreeAsync(ProjectBacklogTreeScope.Of(projectId, treeTypes, filter), cancellationToken);
 
         // A parent inside the set is live and is its own row; only those outside it are read (feat-001 BR-H-13).
         var inSet = rows.Select(row => row.Id).ToHashSet();

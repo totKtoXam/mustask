@@ -35,9 +35,11 @@ public sealed class OrganizationStructureTests(OrganizationsDatabaseFixture data
             found);
     }
 
-    // US-6 · "Other modules get the same answer": the area with no team context is the root (BR-M1-14).
+    // US-6 · "Other modules get the same answer": the project, its root and its reachability. mod-017 BR-OT-4 (renamed from
+    // …ReturnsFirstTeamRootAndReachability, there is no first team): a project with two teams and none named has no default
+    // team.
     [Fact]
-    public async Task FindProject_ReturnsFirstTeamRootAndReachability()
+    public async Task FindProject_ReturnsTheDefaultTeamRootAndReachability()
     {
         var structure = await database.CreateStructureAsync();
         var projectId = structure.Project.Project.Id;
@@ -54,13 +56,38 @@ public sealed class OrganizationStructureTests(OrganizationsDatabaseFixture data
                 "PRM",
                 ProjectStatus.Active,
                 IsReachable: true,
-                structure.Project.FirstTeam.Id,
+                DefaultTeamId: null,
                 structure.Project.Root.Id,
                 Creator,
                 Now),
             reachable);
         Assert.Equal(ProjectStatus.Active, underDeactivated!.Status);
         Assert.False(underDeactivated.IsReachable);
+    }
+
+    // mod-017 BR-OT-4 · the one definition of the default: the named team; the only team when none is named; none when there are
+    // several and none is named; and a named team that was deleted is no longer named.
+    [Fact]
+    public async Task FindProject_DefaultTeam_NamedOnlyTeamNone_AndANamedTeamThatWasDeleted()
+    {
+        var structure = await database.CreateStructureAsync();
+        var projectId = structure.Project.Project.Id;
+        var (first, second) = (structure.Project.FirstTeam.Id, structure.SecondTeam.Team.Id);
+
+        Assert.Null((await ReadAsync(seam => seam.FindProjectAsync(projectId, CancellationToken.None)))!.DefaultTeamId);
+
+        await database.ExecuteAsync("UPDATE projects SET default_team_id = @team WHERE id = @id", ("team", second), ("id", projectId));
+        Assert.Equal(second, (await ReadAsync(seam => seam.FindProjectAsync(projectId, CancellationToken.None)))!.DefaultTeamId);
+
+        await database.ExecuteAsync(
+            "UPDATE areas SET owner_team_id = @first, default_of_team_id = NULL WHERE owner_team_id = @second; "
+            + "UPDATE teams SET status = 'Deleted' WHERE id = @second",
+            ("first", first),
+            ("second", second));
+        Assert.Equal(first, (await ReadAsync(seam => seam.FindProjectAsync(projectId, CancellationToken.None)))!.DefaultTeamId);
+
+        await database.ExecuteAsync("UPDATE projects SET default_team_id = NULL WHERE id = @id", ("id", projectId));
+        Assert.Equal(first, (await ReadAsync(seam => seam.FindProjectAsync(projectId, CancellationToken.None)))!.DefaultTeamId);
     }
 
     // US-7 · "Other modules read the deleted status" (doc-010 PR-9): Deleted, never null and never active, with no default.

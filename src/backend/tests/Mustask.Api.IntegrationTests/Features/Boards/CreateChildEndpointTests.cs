@@ -112,7 +112,7 @@ public sealed class CreateChildEndpointTests(MustaskApiFactory factory)
     }
 
     // US-4 · "«Новый рабочий элемент» still creates a top-level item": a «Фича» from «Фичи» with the team and no parent
-    // has no parent, the team's default area, and is the last top-level row.
+    // has no parent, the team (mod-017 BR-OT-3), the root area, and is the last top-level row.
     [Fact]
     public async Task Create_WithoutAParent_IsATopLevelItemAsBefore()
     {
@@ -121,12 +121,14 @@ public sealed class CreateChildEndpointTests(MustaskApiFactory factory)
         var answer = await BoardsTestData.CreateFromTeamAsync(factory, world, "FEAT", "Вход по токену", world.PlatformId.ToString());
 
         var created = Created(answer);
-        Assert.Equal((JsonValueKind.Null, "Платформа"), (answer.Body.GetProperty("parent").ValueKind, AreaPath(answer)));
+        Assert.Equal((JsonValueKind.Null, "Мастаск"), (answer.Body.GetProperty("parent").ValueKind, AreaPath(answer)));
+        Assert.Equal(world.PlatformId, answer.Body.GetProperty("team").GetProperty("id").GetGuid());
         Assert.Equal(["MSK-FEAT-8", "MSK-FEAT-6", created.Identifier], await BoardsTestData.RowsAsync(factory, world, world.PlatformId, "features"));
     }
 
-    // api-contract § 3: with a team and a parent, the team is checked but the area is the parent's — «Мастаск»'s default
-    // (the root) yields to MSK-FEAT-6's «Платформа / API».
+    // api-contract § 3, mod-017 BR-OT-3: a team sent with a parent is not read — a child's creation names no team — so the
+    // child takes the parent's area (a classification path: «Мастаск»'s default yields to MSK-FEAT-6's «Платформа / API») and
+    // the parent's team as stored («Платформа»), whatever team the body carries.
     [Fact]
     public async Task Create_WithATeamAndAParent_TakesTheParentsArea()
     {
@@ -136,6 +138,7 @@ public sealed class CreateChildEndpointTests(MustaskApiFactory factory)
 
         Created(answer);
         Assert.Equal("Платформа / API", AreaPath(answer));
+        Assert.Equal(world.PlatformId, answer.Body.GetProperty("team").GetProperty("id").GetGuid());
     }
 
     // --- Idempotency (BR-M3-26) -------------------------------------------------------------------------------------
@@ -244,8 +247,9 @@ public sealed class CreateChildEndpointTests(MustaskApiFactory factory)
         }
     }
 
-    // api-contract § 3, the order of answers: the values (400), the type (404), the replay (200) and the team (404) come
-    // before any of the parent's answers; of the parent's, «Удалена» before the level.
+    // api-contract § 3, the order of answers: the values (400), the type (404) and the replay (200) come before any of the
+    // parent's answers; a team the body carries is not read (mod-017 BR-OT-3), so an unknown one refuses nothing and the
+    // parent's answer stands; of the parent's, «Удалена» before the level.
     [Fact]
     public async Task Create_SeveralFaults_TheFirstInTheContractsOrderAnswers()
     {
@@ -269,21 +273,27 @@ public sealed class CreateChildEndpointTests(MustaskApiFactory factory)
         BoardsTestData.AssertRefused(invalid, HttpStatusCode.BadRequest, "workitems.validation_failed");
         BoardsTestData.AssertRefused(unknownType, HttpStatusCode.NotFound, "workitems.workitem.type_not_found");
         Assert.Equal(HttpStatusCode.OK, replay.Status);
-        BoardsTestData.AssertRefused(unknownTeam, HttpStatusCode.NotFound, "organizations.team.not_found");
+        BoardsTestData.AssertRefused(unknownTeam, HttpStatusCode.Conflict, "workitems.link.item_deleted");
         BoardsTestData.AssertRefused(deletedBeforeLevel, HttpStatusCode.Conflict, "workitems.link.item_deleted");
     }
 
     // --- Concurrency (spec § NFR) -----------------------------------------------------------------------------------
 
-    // api-contract § 3, "Concurrency": a save moving MSK-FEAT-6 into «Платформа» holds at its commit; the creation beneath
-    // MSK-FEAT-6 waits on the parent's lock, then takes the area the save committed.
+    // api-contract § 3, "Concurrency"; mod-017 BR-OT-3, BR-OT-13: a save moving MSK-FEAT-6 into «Платформа» and to the team
+    // «Мастаск» holds at its commit; the creation beneath MSK-FEAT-6 waits on the parent's lock, then takes the area and the
+    // team the save committed — the parent's team is read when the child is saved.
     [Fact]
     public async Task Create_WhileTheParentsAreaIsBeingChanged_WaitsThenTakesTheNewArea()
     {
         var (world, items) = await WorldAsync();
 
         using var gate = factory.CommitGates.Open();
-        var save = WorkItemsTestData.SaveAsync(factory, world.Items, "MSK-FEAT-6", new { areaId = world.PlatformAreaId.ToString() }, gate);
+        var save = WorkItemsTestData.SaveAsync(
+            factory,
+            world.Items,
+            "MSK-FEAT-6",
+            new { areaId = world.PlatformAreaId.ToString(), team = new { teamId = world.FirstTeamId.ToString() } },
+            gate);
         await Task.WhenAny(gate.Reached, save);
         Assert.False(save.IsCompleted, "The save finished before reaching its commit gate.");
 
@@ -296,6 +306,7 @@ public sealed class CreateChildEndpointTests(MustaskApiFactory factory)
         var answer = await creation;
         Created(answer);
         Assert.Equal("Платформа", AreaPath(answer));
+        Assert.Equal(world.FirstTeamId, answer.Body.GetProperty("team").GetProperty("id").GetGuid());
     }
 
     // api-contract § 3, "Concurrency": a parent write that moves MSK-FEAT-6 itself — beneath MSK-EPIC-20 — holds the item
