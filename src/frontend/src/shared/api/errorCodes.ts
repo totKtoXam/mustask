@@ -34,12 +34,18 @@ export const organizationErrorCodes = {
   projectKeyInvalid: 'organizations.project.key_invalid',
   projectKeyTaken: 'organizations.project.key_taken',
   teamNameTaken: 'organizations.team.name_taken',
+  // mod-017: the next four are deprecated in the catalog (the server no longer answers them; BR-OT-10, BR-OT-11).
+  // A retired code stays taken in the catalog and so here, one to one with it (the drift test); no screen uses them.
   teamDefaultAreaNotOwned: 'organizations.team.default_area_not_owned',
   teamFirstTeamDefaultFixed: 'organizations.team.first_team_default_fixed',
   teamFirstTeamCannotBeDeleted: 'organizations.team.first_team_cannot_be_deleted',
+  areaIsTeamDefault: 'organizations.area.is_team_default',
+  /** 409 (mod-017 api-contract § 0.2): an active team of another project of the organization, named in a write that binds to a team. */
+  teamNotInProject: 'organizations.team.not_in_project',
+  /** 409 (mod-017 BR-OT-11): the project's last active team is not deleted. */
+  teamLastTeamCannotBeDeleted: 'organizations.team.last_team_cannot_be_deleted',
   areaNameTaken: 'organizations.area.name_taken',
   areaMoveIntoOwnSubtree: 'organizations.area.move_into_own_subtree',
-  areaIsTeamDefault: 'organizations.area.is_team_default',
   areaNotEmpty: 'organizations.area.not_empty',
   areaRootIsFixed: 'organizations.area.root_is_fixed',
   // mod-016 api-contract § 5: the scoped check, the memberships and the team members.

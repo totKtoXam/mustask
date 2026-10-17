@@ -1,6 +1,10 @@
 using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.WorkItems;
+using Mustask.Infrastructure.Dictionaries;
+using Mustask.Infrastructure.Organizations;
+using Mustask.Shared.Errors;
+using Mustask.Shared.Exceptions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Mustask.Infrastructure.WorkItems;
@@ -38,19 +42,73 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
             .SingleAsync(cancellationToken);
     }
 
-    public async Task<Guid?> LockTeamDefaultAreaAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken)
-    {
-        await context.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT 1 FROM teams WHERE id = {teamId} AND project_id = {projectId} FOR SHARE",
+    public Task LockTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
+        // The team is named with the organization of the address, so a team of another organization locks nothing (ADR-0028
+        // § 4): the later read finds it unknown, exactly as it finds an id that never existed. Only the team row is locked.
+        context.Database.ExecuteSqlInterpolatedAsync(
+            $"""
+             SELECT 1
+             FROM teams
+             JOIN projects ON projects.id = teams.project_id
+             WHERE teams.id = {teamId} AND projects.organization_id = {organizationId}
+             FOR SHARE OF teams
+             """,
             cancellationToken);
 
-        // A new statement under READ COMMITTED: a team deleted, or a default moved, by the lock's previous holder reads so.
-        return await context.Teams
-            .AsNoTracking()
-            .Where(team => team.Id == teamId && team.ProjectId == projectId && team.Status == TeamStatus.Active)
-            .Select(team => context.Areas.Where(area => area.DefaultOfTeamId == team.Id).Select(area => (Guid?)area.Id).FirstOrDefault())
-            .FirstOrDefaultAsync(cancellationToken);
+    /// <summary>How often the default is read again after the team it named is found deleted (plan-backend § 3).</summary>
+    private const int DefaultTeamAttempts = 3;
+
+    public async Task<Guid?> LockDefaultTeamAsync(Guid projectId, CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < DefaultTeamAttempts; attempt++)
+        {
+            var teamId = await DefaultTeams.ResolveAsync(context, projectId, cancellationToken);
+
+            if (teamId is null)
+            {
+                // No default resolves now (two or more active teams, none named; BR-OT-4). The creation must still queue
+                // against a team's deletion, which holds every active team, and take the default as it stands after it
+                // (BR-OT-13 (2)): lock them all, then read the default again under the lock (mod-017 QA D-1, CR-1, S-1).
+                await LockActiveTeamsAsync(projectId, cancellationToken);
+                teamId = await DefaultTeams.ResolveAsync(context, projectId, cancellationToken);
+
+                if (teamId is null)
+                {
+                    // Still none under the lock: no deletion can commit before this creation does, so none is the default
+                    // as it stands, for the whole of the creation.
+                    return null;
+                }
+            }
+
+            await context.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT 1 FROM teams WHERE id = {teamId} AND project_id = {projectId} FOR SHARE",
+                cancellationToken);
+
+            // A new statement under READ COMMITTED: a team a deletion committed while the lock waited reads deleted, and the
+            // deletion has cleared the setting that named it, so the next attempt reads the default as it stands after it.
+            if (await context.Teams.AnyAsync(
+                    team => team.Id == teamId && team.ProjectId == projectId && team.Status == TeamStatus.Active, cancellationToken))
+            {
+                return teamId;
+            }
+        }
+
+        // The attempts ran out (three deletions of the default in a row): the active teams are locked, whatever they are now.
+        await LockActiveTeamsAsync(projectId, cancellationToken);
+
+        return await DefaultTeams.ResolveAsync(context, projectId, cancellationToken);
     }
+
+    /// <summary>
+    /// Every active team of the project <c>FOR SHARE</c>, in id order — the order a deletion takes them in
+    /// (<c>TeamRepository.LockProjectTeamsAsync</c>), so the two queue and neither can deadlock; shares do not wait for each
+    /// other or for a binder's share. A team a deletion committed while the statement waited is skipped; a team added
+    /// meanwhile is not locked, and the creation depends on none that is new: it owns no item yet.
+    /// </summary>
+    private Task LockActiveTeamsAsync(Guid projectId, CancellationToken cancellationToken) =>
+        context.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT 1 FROM teams WHERE project_id = {projectId} AND status = 'Active' ORDER BY id FOR SHARE",
+            cancellationToken);
 
     public Task<Guid?> FindCreatedByRequestAsync(Guid projectId, Guid requestId, CancellationToken cancellationToken) =>
         context.WorkItems
@@ -151,7 +209,19 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
 
     public void Add(WorkItem item) => context.WorkItems.Add(item);
 
-    public Task SaveAsync(CancellationToken cancellationToken) => context.SaveChangesAsync(cancellationToken);
+    public async Task SaveAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception) when (PostgresConflictDetection.IsForeignKeyViolationOnConstraint(exception, WorkItemsConstraints.OwningTeamKey))
+        {
+            // ADR-0028 § 4, plan-backend D-15: the owner key refused a team that is not there. The locks above make this
+            // unreachable; if a race ever reaches it, it answers as the team's absence does, never as a 500.
+            throw new NotFoundException(OrganizationErrorCodes.TeamNotFound, ErrorParams.None, exception);
+        }
+    }
 
     /// <summary>
     /// A link end of a parent write: the project's item with that id, locked

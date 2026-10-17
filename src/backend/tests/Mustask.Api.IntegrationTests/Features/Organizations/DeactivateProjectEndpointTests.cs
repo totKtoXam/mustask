@@ -145,7 +145,7 @@ public sealed class DeactivateProjectEndpointTests(MustaskApiFactory factory)
         {
             "project" => OrganizationsApi.Project(structure.OrganizationId, structure.ProjectId),
             "teams" => OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId),
-            "team" => $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{structure.Platform.Team.Id}",
+            "team" => $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{structure.Platform.Id}",
             _ => OrganizationsApi.Areas(structure.OrganizationId, structure.ProjectId),
         };
 
@@ -161,16 +161,16 @@ public sealed class DeactivateProjectEndpointTests(MustaskApiFactory factory)
     }
 
     // US-3 · "nothing under it is deleted" (ADR-0026 rule 2): the deactivation writes the project's own row. Every team and
-    // every area is where it was, with its owner and its default; the project keeps its name and key; the organization and
+    // every area is where it was, and the default-team setting is the one the administrator named; the project keeps its name and key; the organization and
     // the project's sibling stay active.
     [Fact]
     public async Task Deactivate_DeletesNothing_ChangesOnlyTheProjectsOwnStatus()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var sibling = await OrganizationsTestData.CreateProjectAsync(factory, structure.OrganizationId, "Второй проект", "SEC");
-        var reports = await OrganizationsTestData.AddAreaAsync(
-            factory, structure.ProjectId, structure.RootId, "Отчёты", structure.Platform.Team.Id);
+        var reports = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Отчёты");
         await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, reports.Id, "Квартальные");
+        await OrganizationsTestData.SetDefaultTeamAsync(factory, structure.OrganizationId, structure.ProjectId, structure.Platform.Id);
         var before = await ReadBeneathAsync(structure.ProjectId);
 
         var answer = await DeactivateAsync(structure);
@@ -179,8 +179,8 @@ public sealed class DeactivateProjectEndpointTests(MustaskApiFactory factory)
         var project = await ReadProjectAsync(structure.ProjectId);
 
         Assert.Equal(HttpStatusCode.NoContent, answer.Status);
-        Assert.Equal(2, after.Teams.Count);
-        Assert.Equal(4, after.Areas.Count);
+        Assert.Equal(3, after.Teams.Count);
+        Assert.Equal(3, after.Areas.Count);
         Assert.Equal(before.Teams, after.Teams);
         Assert.Equal(before.Areas, after.Areas);
         Assert.Equal(new ProjectState("Пример проекта", "PRM", ProjectStatus.Deactivated), project);
@@ -213,12 +213,13 @@ public sealed class DeactivateProjectEndpointTests(MustaskApiFactory factory)
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<MustaskDbContext>();
+        var project = await db.Projects.AsNoTracking().SingleAsync(row => row.Id == projectId);
         var teams = await db.Teams.AsNoTracking().Where(team => team.ProjectId == projectId).OrderBy(team => team.Id).ToListAsync();
         var areas = await db.Areas.AsNoTracking().Where(area => area.ProjectId == projectId).OrderBy(area => area.Id).ToListAsync();
 
         return new Beneath(
-            [.. teams.Select(team => $"{team.Id} {team.Name} {team.Status} first={team.IsFirstTeam}")],
-            [.. areas.Select(area => $"{area.Id} parent={area.ParentId} {area.Name} owner={area.OwnerTeamId} default={area.DefaultOfTeamId}")]);
+            [.. teams.Select(team => $"{team.Id} {team.Name} {team.Status}"), $"setting {project.DefaultTeamId}"],
+            [.. areas.Select(area => $"{area.Id} parent={area.ParentId} {area.Name}")]);
     }
 
     private sealed record ProjectState(string Name, string Key, ProjectStatus Status);

@@ -86,20 +86,20 @@ public sealed class RemoveMemberEndpointTests(MustaskApiFactory factory)
         var leaving = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, OrganizationRole.Member);
         var staying = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, OrganizationRole.Member);
         await MembershipTestData.AddMemberAsync(factory, other.OrganizationId, leaving.Id);
-        foreach (var teamId in new[] { structure.FirstTeamId, structure.Platform.Team.Id })
+        foreach (var teamId in new[] { structure.ProjectTeamId, structure.Platform.Id })
         {
             await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, teamId, leaving.Id);
             await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, teamId, staying.Id);
         }
 
-        await MembershipTestData.AddTeamMemberAsync(factory, other.OrganizationId, other.FirstTeamId, leaving.Id);
+        await MembershipTestData.AddTeamMemberAsync(factory, other.OrganizationId, other.ProjectTeamId, leaving.Id);
 
         var answer = await RemoveAsync(structure.OrganizationId, leaving.Id, admin.Token);
 
         Assert.Equal(HttpStatusCode.NoContent, answer.Status);
-        Assert.Equal([(other.FirstTeamId, other.OrganizationId)], await MembershipTestData.TeamMembershipsOfAsync(factory, leaving.Id));
-        Assert.Equal([staying.Id], await MembershipTestData.TeamMemberIdsAsync(factory, structure.FirstTeamId));
-        Assert.Equal([staying.Id], await MembershipTestData.TeamMemberIdsAsync(factory, structure.Platform.Team.Id));
+        Assert.Equal([(other.ProjectTeamId, other.OrganizationId)], await MembershipTestData.TeamMembershipsOfAsync(factory, leaving.Id));
+        Assert.Equal([staying.Id], await MembershipTestData.TeamMemberIdsAsync(factory, structure.ProjectTeamId));
+        Assert.Equal([staying.Id], await MembershipTestData.TeamMemberIdsAsync(factory, structure.Platform.Id));
         Assert.True(await IsMemberAsync(other.OrganizationId, leaving.Id));
     }
 
@@ -340,7 +340,7 @@ public sealed class RemoveMemberEndpointTests(MustaskApiFactory factory)
         var add = OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Post,
-            $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{structure.Platform.Team.Id}/members",
+            $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{structure.Platform.Id}/members",
             new { userId = user.Id },
             admin.Token);
         await PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, add);
@@ -369,7 +369,7 @@ public sealed class RemoveMemberEndpointTests(MustaskApiFactory factory)
         var add = OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Post,
-            $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{structure.Platform.Team.Id}/members",
+            $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{structure.Platform.Id}/members",
             new { userId = user.Id },
             admin.Token,
             gate);

@@ -32,23 +32,23 @@ public sealed class AddOrganizationAccessMigrationTests(OrganizationsDatabaseFix
         await RollBackAsync();
 
         // The data of the scenario, written while the tables do not exist (the organization rows are the old schema's).
-        var a = await database.CreateStructureAsync(organizationName: OrganizationsDatabaseFixture.UniqueName("А"), projectName: "Пример проекта", key: "PRM");
-        var b = await database.CreateStructureAsync(organizationName: OrganizationsDatabaseFixture.UniqueName("Б"), projectName: "Архив", key: "ARC");
-        var c = await database.CreateStructureAsync(organizationName: OrganizationsDatabaseFixture.UniqueName("В"), projectName: "Тень", key: "SHD");
-        var reports = await database.AddProjectAsync(a.Organization.Id, "Отчёты", "RPT");
+        var a = await database.CreateLegacyStructureAsync(organizationName: OrganizationsDatabaseFixture.UniqueName("А"), projectName: "Пример проекта", key: "PRM");
+        var b = await database.CreateLegacyStructureAsync(organizationName: OrganizationsDatabaseFixture.UniqueName("Б"), projectName: "Архив", key: "ARC");
+        var c = await database.CreateLegacyStructureAsync(organizationName: OrganizationsDatabaseFixture.UniqueName("В"), projectName: "Тень", key: "SHD");
+        var reports = await database.AddLegacyProjectAsync(a.OrganizationId, "Отчёты", "RPT");
 
         // A, active, by Anna; its project «Пример проекта» by Anna and «Отчёты» by Oleg, who is not a member of A.
         // B, deactivated, by Ivan; C by a creator no projection ever received (whatever the projection says — D-10).
-        await database.ExecuteAsync("UPDATE organizations SET created_by = 'anna' WHERE id = @id", ("id", a.Organization.Id));
-        await database.ExecuteAsync("UPDATE projects SET created_by = 'anna' WHERE id = @id", ("id", a.Project.Project.Id));
-        await database.ExecuteAsync("UPDATE projects SET created_by = 'oleg' WHERE id = @id", ("id", reports.Project.Id));
+        await database.ExecuteAsync("UPDATE organizations SET created_by = 'anna' WHERE id = @id", ("id", a.OrganizationId));
+        await database.ExecuteAsync("UPDATE projects SET created_by = 'anna' WHERE id = @id", ("id", a.ProjectId));
+        await database.ExecuteAsync("UPDATE projects SET created_by = 'oleg' WHERE id = @id", ("id", reports.ProjectId));
         await database.ExecuteAsync(
-            "UPDATE organizations SET created_by = 'ivan', status = 'Deactivated' WHERE id = @id", ("id", b.Organization.Id));
-        await database.ExecuteAsync("UPDATE projects SET created_by = 'ivan' WHERE id = @id", ("id", b.Project.Project.Id));
+            "UPDATE organizations SET created_by = 'ivan', status = 'Deactivated' WHERE id = @id", ("id", b.OrganizationId));
+        await database.ExecuteAsync("UPDATE projects SET created_by = 'ivan' WHERE id = @id", ("id", b.ProjectId));
         await database.ExecuteAsync(
-            "UPDATE organizations SET created_by = 'ghost-never-projected' WHERE id = @id", ("id", c.Organization.Id));
+            "UPDATE organizations SET created_by = 'ghost-never-projected' WHERE id = @id", ("id", c.OrganizationId));
         await database.ExecuteAsync(
-            "UPDATE projects SET created_by = 'ghost-never-projected' WHERE id = @id", ("id", c.Project.Project.Id));
+            "UPDATE projects SET created_by = 'ghost-never-projected' WHERE id = @id", ("id", c.ProjectId));
 
         var structureBefore = await StructureFingerprintAsync();
 
@@ -64,13 +64,13 @@ public sealed class AddOrganizationAccessMigrationTests(OrganizationsDatabaseFix
             WHERE o.id = ANY(@orgs)
             ORDER BY o.name
             """,
-            ("orgs", new[] { a.Organization.Id, b.Organization.Id, c.Organization.Id }));
+            ("orgs", new[] { a.OrganizationId, b.OrganizationId, c.OrganizationId }));
 
         Assert.Equal(
             [
-                $"{a.Organization.Id}|anna|admin|anna|true|-|-",
-                $"{b.Organization.Id}|ivan|admin|ivan|true|-|-",
-                $"{c.Organization.Id}|ghost-never-projected|admin|ghost-never-projected|true|-|-",
+                $"{a.OrganizationId}|anna|admin|anna|true|-|-",
+                $"{b.OrganizationId}|ivan|admin|ivan|true|-|-",
+                $"{c.OrganizationId}|ghost-never-projected|admin|ghost-never-projected|true|-|-",
             ],
             memberships);
 
@@ -79,28 +79,28 @@ public sealed class AddOrganizationAccessMigrationTests(OrganizationsDatabaseFix
         // not the second team «Платформа», not a first team of another project — gains a member.
         var teamMemberships = await database.QueryAsync(
             """
-            SELECT concat_ws('|', t.name, t.is_first_team::text, tm.user_id, (tm.organization_id = p.organization_id)::text)
+            SELECT concat_ws('|', t.name, tm.user_id, (tm.organization_id = p.organization_id)::text)
             FROM team_memberships tm JOIN teams t ON t.id = tm.team_id JOIN projects p ON p.id = t.project_id
             WHERE p.organization_id = ANY(@orgs)
             ORDER BY t.name
             """,
-            ("orgs", new[] { a.Organization.Id, b.Organization.Id, c.Organization.Id }));
+            ("orgs", new[] { a.OrganizationId, b.OrganizationId, c.OrganizationId }));
 
         Assert.Equal(
-            ["Архив|true|ivan|true", "Пример проекта|true|anna|true", "Тень|true|ghost-never-projected|true"],
+            ["Архив|ivan|true", "Пример проекта|anna|true", "Тень|ghost-never-projected|true"],
             teamMemberships);
         Assert.Equal(
             "0",
             Assert.Single(await database.QueryAsync(
                 "SELECT count(*) FROM team_memberships WHERE team_id = ANY(@teams)",
-                ("teams", new[] { a.SecondTeam.Team.Id, reports.FirstTeam.Id }))));
+                ("teams", new[] { a.SecondTeamId, reports.FirstTeamId }))));
 
         // Nobody else holds a membership in A, B or C (D-3).
         Assert.Equal(
             "3",
             Assert.Single(await database.QueryAsync(
                 "SELECT count(*) FROM organization_memberships WHERE organization_id = ANY(@orgs)",
-                ("orgs", new[] { a.Organization.Id, b.Organization.Id, c.Organization.Id }))));
+                ("orgs", new[] { a.OrganizationId, b.OrganizationId, c.OrganizationId }))));
 
         // Scenario "The migration can be reverted": the membership data is gone and the structure is exactly as before.
         await RollBackAsync();
@@ -116,7 +116,7 @@ public sealed class AddOrganizationAccessMigrationTests(OrganizationsDatabaseFix
             "3",
             Assert.Single(await database.QueryAsync(
                 "SELECT count(*) FROM organization_memberships WHERE organization_id = ANY(@orgs)",
-                ("orgs", new[] { a.Organization.Id, b.Organization.Id, c.Organization.Id }))));
+                ("orgs", new[] { a.OrganizationId, b.OrganizationId, c.OrganizationId }))));
         Assert.Equal(structureBefore, await StructureFingerprintAsync());
     }
 
@@ -141,14 +141,18 @@ public sealed class AddOrganizationAccessMigrationTests(OrganizationsDatabaseFix
     private async Task<bool> TableExistsAsync(string table) =>
         Assert.Single(await database.QueryAsync("SELECT to_regclass(@table)::text", ("table", table))) != "NULL";
 
-    /// <summary>A digest of everything the migration must leave alone: organizations, projects, teams and areas, column by column.</summary>
+    /// <summary>
+    /// A digest of everything the migration must leave alone: organizations, projects, teams and areas, column by column.
+    /// The columns mod-017 adds and drops (the area owner, the default area, the first-team flag) are left out: they are the
+    /// schema's of another line, and its rollback restores them for the rows' own state, not the dropped markers (OQ-4 A).
+    /// </summary>
     private async Task<string> StructureFingerprintAsync() =>
         Assert.Single(await database.QueryAsync(
             """
             SELECT md5(
                 coalesce((SELECT string_agg(o::text, ';' ORDER BY o.id) FROM organizations o), '') || '#' ||
-                coalesce((SELECT string_agg(p::text, ';' ORDER BY p.id) FROM projects p), '') || '#' ||
-                coalesce((SELECT string_agg(t::text, ';' ORDER BY t.id) FROM teams t), '') || '#' ||
-                coalesce((SELECT string_agg(a::text, ';' ORDER BY a.id) FROM areas a), ''))
+                coalesce((SELECT string_agg(concat_ws('|', p.id, p.organization_id, p.name, p.normalized_name, p.key, p.status, p.created_at, p.created_by), ';' ORDER BY p.id) FROM projects p), '') || '#' ||
+                coalesce((SELECT string_agg(concat_ws('|', t.id, t.project_id, t.name, t.normalized_name, t.status), ';' ORDER BY t.id) FROM teams t), '') || '#' ||
+                coalesce((SELECT string_agg(concat_ws('|', a.id, a.project_id, a.parent_id, a.name, a.normalized_name), ';' ORDER BY a.id) FROM areas a), ''))
             """));
 }

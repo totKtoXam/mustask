@@ -26,13 +26,22 @@ export const boardsKeys = {
   /** Every backlog of a project, all levels. */
   projectBacklogs: (organizationId: string, projectId: string) =>
     [ROOT, 'project-backlog', organizationId, projectId] as const,
-  projectBacklog: (organizationId: string, projectId: string, level: BoardLevelCode) =>
-    [ROOT, 'project-backlog', organizationId, projectId, level] as const,
+  /** The project's backlog under a team filter (mod-017 § 3): the chosen values, sorted, are part of the key. */
+  projectBacklog: (
+    organizationId: string,
+    projectId: string,
+    level: BoardLevelCode,
+    teamIds: readonly string[] = [],
+  ) => [ROOT, 'project-backlog', organizationId, projectId, level, [...teamIds].sort()] as const,
   /** Every board of a project, all levels. */
   projectBoards: (organizationId: string, projectId: string) =>
     [ROOT, 'project-board', organizationId, projectId] as const,
-  projectBoard: (organizationId: string, projectId: string, level: BoardLevelCode) =>
-    [ROOT, 'project-board', organizationId, projectId, level] as const,
+  projectBoard: (
+    organizationId: string,
+    projectId: string,
+    level: BoardLevelCode,
+    teamIds: readonly string[] = [],
+  ) => [ROOT, 'project-board', organizationId, projectId, level, [...teamIds].sort()] as const,
 };
 
 /** The backlog of one level under a scope. */
@@ -41,10 +50,11 @@ export function backlogKey(
   projectId: string,
   scope: BoardScope,
   level: BoardLevelCode,
+  teamIds: readonly string[] = [],
 ) {
   const teamId = scopeTeamId(scope);
   return teamId === null
-    ? boardsKeys.projectBacklog(organizationId, projectId, level)
+    ? boardsKeys.projectBacklog(organizationId, projectId, level, teamIds)
     : boardsKeys.backlog(organizationId, projectId, teamId, level);
 }
 
@@ -54,9 +64,10 @@ export function boardKey(
   projectId: string,
   scope: BoardScope,
   level: BoardLevelCode,
+  teamIds: readonly string[] = [],
 ) {
   const teamId = scopeTeamId(scope);
   return teamId === null
-    ? boardsKeys.projectBoard(organizationId, projectId, level)
+    ? boardsKeys.projectBoard(organizationId, projectId, level, teamIds)
     : boardsKeys.board(organizationId, projectId, teamId, level);
 }

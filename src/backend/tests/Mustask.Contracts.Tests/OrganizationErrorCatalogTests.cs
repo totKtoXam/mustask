@@ -33,12 +33,10 @@ public sealed class OrganizationErrorCatalogTests
         { OrganizationErrorCodes.ProjectKeyInvalid, 400, "", "Ключ проекта: от 2 до 10 латинских заглавных букв и цифр, начиная с буквы" },
         { OrganizationErrorCodes.ProjectKeyTaken, 409, "key:string", "Ключ «{key}» уже используется в организации" },
         { OrganizationErrorCodes.TeamNameTaken, 409, "", "Команда с таким названием уже есть в проекте" },
-        { OrganizationErrorCodes.TeamDefaultAreaNotOwned, 409, "", "Область по умолчанию должна принадлежать самой команде" },
-        { OrganizationErrorCodes.TeamFirstTeamDefaultFixed, 409, "", "У первой команды область по умолчанию не меняется" },
-        { OrganizationErrorCodes.TeamFirstTeamCannotBeDeleted, 409, "", "Нельзя удалить команду, которой принадлежит корневая область проекта" },
+        { OrganizationErrorCodes.TeamNotInProject, 409, "", "Команда не участвует в проекте." },
+        { OrganizationErrorCodes.TeamLastTeamCannotBeDeleted, 409, "", "Нельзя удалить единственную команду проекта." },
         { OrganizationErrorCodes.AreaNameTaken, 409, "", "Область с таким названием уже есть на этом уровне" },
         { OrganizationErrorCodes.AreaMoveIntoOwnSubtree, 409, "", "Нельзя переместить область внутрь неё самой или её вложенной области" },
-        { OrganizationErrorCodes.AreaIsTeamDefault, 409, "team:string", "Область используется как область по умолчанию команды «{team}»" },
         { OrganizationErrorCodes.AreaNotEmpty, 409, "", "Нельзя удалить область, в которой есть рабочие элементы (включая удалённые) или вложенные области" },
         { OrganizationErrorCodes.AreaRootIsFixed, 409, "", "Корневая область меняется только вместе с проектом" },
 
@@ -72,6 +70,26 @@ public sealed class OrganizationErrorCatalogTests
         Assert.False(string.IsNullOrWhiteSpace(entry.Kk));
         Assert.NotEqual(entry.Ru, entry.Kk);
         Assert.True(entry.KkNeedsReview, $"{code}: the Kazakh text is marked for review (plan-backend P-2).");
+    }
+
+    // mod-017 api-contract § 4, plan-backend D-5 · the four codes BR-M1-14 and BR-M1-18 retired keep their catalog entries, marked
+    // deprecated, with the texts they had: a retired id stays taken and is never reused (ADR-0005 rule 3); their C# constants are
+    // gone, so the table above does not list them.
+    [Theory]
+    [InlineData("organizations.team.default_area_not_owned", "Область по умолчанию должна принадлежать самой команде")]
+    [InlineData("organizations.team.first_team_default_fixed", "У первой команды область по умолчанию не меняется")]
+    [InlineData("organizations.team.first_team_cannot_be_deleted", "Нельзя удалить команду, которой принадлежит корневая область проекта")]
+    [InlineData("organizations.area.is_team_default", "Область используется как область по умолчанию команды «{team}»")]
+    public void RetiredCode_StaysInTheCatalog_Deprecated_WithNoConstant(string code, string ru)
+    {
+        var found = CatalogFixture.Catalog.TryGet(code, out var entry);
+
+        Assert.True(found, $"{code} left the error catalog: a retired code stays, marked deprecated.");
+        Assert.True(entry!.Deprecated);
+        Assert.Equal(ru, entry.Ru);
+        Assert.DoesNotContain(
+            typeof(OrganizationErrorCodes).GetFields(BindingFlags.Public | BindingFlags.Static),
+            field => field.IsLiteral && (string?)field.GetRawConstantValue() == code);
     }
 
     // The table above is the whole registry: no constant of OrganizationErrorCodes is left out of it, and none is invented.

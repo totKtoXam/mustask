@@ -6,6 +6,7 @@ import type {
   WorkItemAssignee,
   WorkItemFieldName,
   WorkItemRef,
+  WorkItemTeam,
 } from '../api/workItemsApi';
 import { WORK_ITEM_FIELD_NAMES } from './fields';
 import {
@@ -66,6 +67,8 @@ export interface WorkItemDraft {
   /** `null`: «Не назначен». */
   assignee: WorkItemAssignee | null;
   area: WorkItemArea;
+  /** mod-017: `null` is «Без команды». */
+  team: WorkItemTeam | null;
   /** feat-001 BR-H-6: `null` is «Нет родителя». */
   parent: WorkItemRef | null;
   /** feat-022: all 17, those the type lacks never sent. */
@@ -86,6 +89,7 @@ export function draftOf(item: WorkItem): WorkItemDraft {
     stateId: item.state.id,
     assignee: item.assignee,
     area: item.area,
+    team: item.team ?? null,
     parent: item.parent,
     fields: {
       ...(baseFields as unknown as Record<string, string>),
@@ -104,6 +108,7 @@ function comparable(
     stateId: draft.stateId,
     assignee: draft.assignee?.id ?? null,
     area: draft.area.id,
+    team: draft.team?.id ?? null,
     parent: draft.parent?.id ?? null,
   };
 }
@@ -159,6 +164,11 @@ export function changesOf(item: WorkItem, draft: WorkItemDraft): SaveWorkItemBod
   }
   if (draft.area.id !== item.area.id) {
     body.areaId = draft.area.id;
+  }
+  const teamId = draft.team?.id ?? null;
+  if (teamId !== (item.team?.id ?? null)) {
+    // mod-017 api-contract § 0.2: `{ teamId: null }` is «Без команды»; an absent `team` keeps the team.
+    body.team = { teamId };
   }
   const parentId = draft.parent?.id ?? null;
   const seenParentId = item.parent?.id ?? null;
@@ -268,6 +278,7 @@ export function rebaseDraft(
     stateId: touched('stateId') ? draft.stateId : next.stateId,
     assignee: touched('assignee') ? draft.assignee : next.assignee,
     area: touched('area') ? draft.area : next.area,
+    team: touched('team') ? draft.team : next.team,
     parent: next.parent,
     fields,
   };

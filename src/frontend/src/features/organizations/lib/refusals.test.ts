@@ -12,7 +12,7 @@ function refusal(code: string, params?: Record<string, string>): ApiError {
 const NAME: readonly RefusalField[] = ['name'];
 const PROJECT: readonly RefusalField[] = ['name', 'key'];
 const MOVE: readonly RefusalField[] = ['parent'];
-const DEFAULT_AREA: readonly RefusalField[] = ['area'];
+const DEFAULT_TEAM: readonly RefusalField[] = ['team'];
 const CONFIRM: readonly RefusalField[] = [];
 
 describe('mod-002 design § 4.4: every refusal lands where the table says, by its code', () => {
@@ -73,11 +73,12 @@ describe('mod-002 design § 4.4: every refusal lands where the table says, by it
       'Нельзя переместить область внутрь неё самой или её вложенной области',
       {},
     ],
+    ['organizations.team.not_found', DEFAULT_TEAM, 'team', 'Команда не найдена.', {}],
     [
-      'organizations.team.default_area_not_owned',
-      DEFAULT_AREA,
-      'area',
-      'Область по умолчанию должна принадлежать самой команде',
+      'organizations.team.not_in_project',
+      DEFAULT_TEAM,
+      'team',
+      'Команда не участвует в проекте.',
       {},
     ],
   ])('%s → the field «%s» of its dialog', (code, fields, field, text, params) => {
@@ -96,29 +97,19 @@ describe('mod-002 design § 4.4: every refusal lands where the table says, by it
     ],
     ['organizations.organization.create_forbidden', 'Недостаточно прав', {}],
     [
-      'organizations.area.is_team_default',
-      'Область используется как область по умолчанию команды «Платформа»',
-      { team: 'Платформа' },
-    ],
-    [
       'organizations.area.not_empty',
       'Нельзя удалить область, в которой есть рабочие элементы (включая удалённые) или вложенные области',
       {},
     ],
     [
-      'organizations.team.first_team_cannot_be_deleted',
-      'Нельзя удалить команду, которой принадлежит корневая область проекта',
+      'organizations.team.last_team_cannot_be_deleted',
+      'Нельзя удалить единственную команду проекта.',
       {},
     ],
     ['organizations.area.root_is_fixed', 'Корневая область меняется только вместе с проектом', {}],
     ['organizations.area.not_found', 'Область не найдена.', {}],
-    [
-      'organizations.team.first_team_default_fixed',
-      'У первой команды область по умолчанию не меняется',
-      {},
-    ],
   ])('%s → the dialog’s Alert with the server’s text', (code, text, params) => {
-    const placed = placeRefusal(refusal(code, params), ['name', 'key', 'area', 'parent']);
+    const placed = placeRefusal(refusal(code, params), ['name', 'key', 'parent']);
 
     expect(placed.fields).toEqual({});
     expect(placed.alert).toBe(text);

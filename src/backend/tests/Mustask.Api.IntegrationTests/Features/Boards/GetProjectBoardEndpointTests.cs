@@ -50,7 +50,7 @@ public sealed class GetProjectBoardEndpointTests(MustaskApiFactory factory)
         var cards = ProjectBoardsTestData.AllCards(board.Body);
         Assert.Equal(cards.Length, cards.Distinct().Count());
 
-        var mars = await BoardsTestData.GetBoardAsync(factory, world, world.FirstTeamId);
+        var mars = await BoardsTestData.GetBoardAsync(factory, world, world.ProjectTeamId);
         var venus = await BoardsTestData.GetBoardAsync(factory, world, world.PlatformId);
         Assert.Equal(
             cards.Order(StringComparer.Ordinal),
@@ -84,7 +84,7 @@ public sealed class GetProjectBoardEndpointTests(MustaskApiFactory factory)
         await ProjectBoardsTestData.MoveAsync(factory, world, BoardsTestData.Top(s3));
 
         var before = await ProjectBoardsTestData.GetBoardAsync(factory, world);
-        await BoardsTestData.MoveAsync(factory, world, world.FirstTeamId, BoardsTestData.Top(s2));
+        await BoardsTestData.MoveAsync(factory, world, world.ProjectTeamId, BoardsTestData.Top(s2));
         var after = await ProjectBoardsTestData.GetBoardAsync(factory, world);
 
         Assert.Equal(Ids(s3, s1), BoardsTestData.Cards(BoardsTestData.Column(before.Body, "Новая")));
@@ -122,10 +122,10 @@ public sealed class GetProjectBoardEndpointTests(MustaskApiFactory factory)
         var project = await ProjectBoardsTestData.GetBoardAsync(factory, world);
         Assert.Equal(Ids(s3), BoardsTestData.Cards(BoardsTestData.Column(project.Body, "Новая")));
         Assert.Equal(Ids(s1, s2), BoardsTestData.Cards(BoardsTestData.Column(project.Body, "Активна")));
-        var team = await BoardsTestData.GetBoardAsync(factory, world, world.FirstTeamId);
+        var team = await BoardsTestData.GetBoardAsync(factory, world, world.ProjectTeamId);
         Assert.Equal(Ids(s1, s2), BoardsTestData.Cards(BoardsTestData.Column(team.Body, "Активна")));
         Assert.Equal(Ids(s3, s1, s2), await ProjectBoardsTestData.RowsAsync(factory, world));
-        Assert.Contains(s1.Identifier, await BoardsTestData.RowsAsync(factory, world, world.FirstTeamId));
+        Assert.Contains(s1.Identifier, await BoardsTestData.RowsAsync(factory, world, world.ProjectTeamId));
     }
 
     // US-3 · "A card's checklist is the team board's" (BR-PB-6, feat-032 BR-C-1, -7): S1's two tasks, one on each team's surfaces,

@@ -39,9 +39,10 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
         CreateAsync(organizationId.ToString(), body, token, gate);
 
     // US-3 · "A project is created ready to use": active, listed with its name and key; one team and a root area, both named
-    // after the project, the root owned by that team for good and its default.
+    // after the project: the team an ordinary one and the root owned by nobody (mod-017 BR-OT-10, BR-OT-11). Renamed (D-16):
+    // Create_Returns201_WithFirstTeam_RootOwnedByItAndItsDefault -> Create_Returns201_WithOneOrdinaryTeamAndTheRoot.
     [Fact]
-    public async Task Create_Returns201_WithFirstTeam_RootOwnedByItAndItsDefault()
+    public async Task Create_Returns201_WithOneOrdinaryTeamAndTheRoot()
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
 
@@ -65,21 +66,18 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
         Assert.True(project.IsReachable);
         Assert.Equal(organization.Id, project.OrganizationId);
 
-        var firstTeam = await structure.FindTeamAsync(project.FirstTeamId, CancellationToken.None);
-        Assert.NotNull(firstTeam);
-        Assert.Equal("Пример проекта", firstTeam.Name);
-        Assert.True(firstTeam.IsFirstTeam);
-        Assert.Equal(TeamStatus.Active, firstTeam.Status);
-        Assert.Equal(project.RootAreaId, firstTeam.DefaultAreaId);
-        Assert.Equal(project.FirstTeamId, Assert.Single(await structure.ListActiveTeamsAsync(projectId, CancellationToken.None)).Id);
+        // The settings name no default team; the project's only team is its default by itself (mod-017 BR-OT-4).
+        var projectTeam = await structure.FindTeamAsync(project.DefaultTeamId!.Value, CancellationToken.None);
+        Assert.NotNull(projectTeam);
+        Assert.Equal("Пример проекта", projectTeam.Name);
+        Assert.Equal(TeamStatus.Active, projectTeam.Status);
+        Assert.Equal(project.DefaultTeamId!.Value, Assert.Single(await structure.ListActiveTeamsAsync(projectId, CancellationToken.None)).Id);
+        Assert.Null(await StoredDefaultSettingAsync(projectId));
 
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, projectId);
         Assert.Equal(1, tree.Count);
         Assert.Equal(project.RootAreaId, tree.Root.Id);
         Assert.Equal("Пример проекта", tree.Root.Name);
-        Assert.Equal(project.FirstTeamId, tree.Root.OwnerTeamId);
-        Assert.Equal(project.FirstTeamId, tree.Root.DefaultOfTeamId);
-        Assert.Equal(new ResolvedOwner(project.FirstTeamId, false), tree.ResolveOwner(tree.Root.Id));
 
         var listed = await ListActiveProjectsAsync(organization.Id);
         Assert.Equal(new ProjectRow(projectId, organization.Id, "Пример проекта", "PRM"), Assert.Single(listed));
@@ -421,9 +419,9 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
     }
 
     // mod-016 US-3 · "The project's creator is the first team's first member" (BR-M1-25, BR-M1-10): the administrator who creates a
-    // project is the only member of its first team — and of nothing else of the organization's teams.
+    // project is the only member of the team the project is created with — and of nothing else of the organization's teams.
     [Fact]
-    public async Task Create_TheCreatingAdministrator_IsTheOnlyMemberOfTheFirstTeam()
+    public async Task Create_TheCreatingAdministrator_IsTheOnlyMemberOfTheProjectsTeam()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var admin = await MembershipTestData.NewNamedMemberAsync(factory, structure.OrganizationId, Mustask.Domain.Identity.OrganizationRole.Admin, "Анна", "Администратор");
@@ -432,12 +430,12 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(HttpStatusCode.Created, answer.Status);
         var projectId = answer.Body.GetProperty("id").GetGuid();
-        var firstTeamId = await FirstTeamIdAsync(projectId);
-        Assert.Equal([admin.Id], await MembershipTestData.TeamMemberIdsAsync(factory, firstTeamId));
-        Assert.Equal([(firstTeamId, structure.OrganizationId)], await MembershipTestData.TeamMembershipsOfAsync(factory, admin.Id));
+        var projectTeamId = await ProjectTeamIdAsync(projectId);
+        Assert.Equal([admin.Id], await MembershipTestData.TeamMemberIdsAsync(factory, projectTeamId));
+        Assert.Equal([(projectTeamId, structure.OrganizationId)], await MembershipTestData.TeamMembershipsOfAsync(factory, admin.Id));
 
         var members = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Get, $"{OrganizationsApi.Teams(structure.OrganizationId, projectId)}/{firstTeamId}/members", token: admin.Token);
+            factory, HttpMethod.Get, $"{OrganizationsApi.Teams(structure.OrganizationId, projectId)}/{projectTeamId}/members", token: admin.Token);
         Assert.Equal([admin.Id], members.Body.EnumerateArray().Select(item => item.GetProperty("id").GetString()));
     }
 
@@ -445,7 +443,7 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
     // token subject the projection has never received, still creates the project and is the first team's only member — shown
     // «Неизвестный пользователь» until the projection receives them.
     [Fact]
-    public async Task Create_ACreatorTheProjectionDoesNotKnow_StillJoinsTheFirstTeam_ShownUnknown()
+    public async Task Create_ACreatorTheProjectionDoesNotKnow_StillJoinsTheProjectsTeam_ShownUnknown()
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
         var admin = await MembershipTestData.NewMemberAsync(factory, organization.Id, Mustask.Domain.Identity.OrganizationRole.Admin);
@@ -455,9 +453,9 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(HttpStatusCode.Created, answer.Status);
         var projectId = answer.Body.GetProperty("id").GetGuid();
-        var firstTeamId = await FirstTeamIdAsync(projectId);
+        var projectTeamId = await ProjectTeamIdAsync(projectId);
         var members = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Get, $"{OrganizationsApi.Teams(organization.Id, projectId)}/{firstTeamId}/members", token: admin.Token);
+            factory, HttpMethod.Get, $"{OrganizationsApi.Teams(organization.Id, projectId)}/{projectTeamId}/members", token: admin.Token);
         var only = Assert.Single(members.Body.EnumerateArray());
         Assert.Equal((admin.Id, "unknown"), (only.GetProperty("id").GetString(), only.GetProperty("state").GetString()));
     }
@@ -481,11 +479,11 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
         var project = await CreateAsync(organizationId, new { name = "Пример проекта", key = "PRM" }, token);
         Assert.Equal(HttpStatusCode.Created, project.Status);
         var projectId = project.Body.GetProperty("id").GetGuid();
-        var firstTeamId = await FirstTeamIdAsync(projectId);
+        var projectTeamId = await ProjectTeamIdAsync(projectId);
 
         var members = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, $"{OrganizationsApi.Organization(organizationId)}/members", token: token);
         var teamMembers = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Get, $"{OrganizationsApi.Teams(organizationId, projectId)}/{firstTeamId}/members", token: token);
+            factory, HttpMethod.Get, $"{OrganizationsApi.Teams(organizationId, projectId)}/{projectTeamId}/members", token: token);
 
         var member = Assert.Single(members.Body.EnumerateArray());
         Assert.Equal((subject, "admin", "unknown"), (
@@ -553,12 +551,24 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
         Assert.Empty(await MembershipTestData.TeamMembershipsOfAsync(factory, creator.Id));
     }
 
-    private async Task<Guid> FirstTeamIdAsync(Guid projectId)
+    /// <summary>The stored default-team setting of the project: what the administrator named, not the resolved default.</summary>
+    private async Task<Guid?> StoredDefaultSettingAsync(Guid projectId)
+    {
+        using var scope = factory.Services.CreateScope();
+
+        return await scope.ServiceProvider.GetRequiredService<MustaskDbContext>().Projects
+            .AsNoTracking()
+            .Where(project => project.Id == projectId)
+            .Select(project => project.DefaultTeamId)
+            .SingleAsync();
+    }
+
+    private async Task<Guid> ProjectTeamIdAsync(Guid projectId)
     {
         using var scope = factory.Services.CreateScope();
         var project = await scope.ServiceProvider.GetRequiredService<IOrganizationStructure>().FindProjectAsync(projectId, CancellationToken.None);
 
-        return project!.FirstTeamId;
+        return project!.DefaultTeamId!.Value;
     }
 
     private async Task<IReadOnlyList<ProjectRow>> ListActiveProjectsAsync(Guid organizationId)

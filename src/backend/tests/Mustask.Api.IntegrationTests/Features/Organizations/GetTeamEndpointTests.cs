@@ -25,65 +25,52 @@ public sealed class GetTeamEndpointTests(MustaskApiFactory factory)
     private Task<Answer> GetAsync(OrganizationStructure structure, Guid teamId) =>
         GetAsync(structure.OrganizationId.ToString(), structure.ProjectId.ToString(), teamId.ToString());
 
-    // US-4 · "The first team's default is the root, for good" and "The project's teams": «Пример проекта» is marked as the team
-    // that owns the root, and its default area is the root, whose path is its own name (DC-9).
+    // mod-017 US-4 · "No team is the first" (BR-OT-11): the team the project came with is read like any other — the shape is the
+    // one `Team` of api-contract § 1.3, with no first-team flag and no default area, and `isMember` is false on a single read.
+    // Replaces Get_FirstTeam_Returns200_DefaultAreaIsTheRoot (D-16).
     [Fact]
-    public async Task Get_FirstTeam_Returns200_DefaultAreaIsTheRoot()
+    public async Task Get_TheProjectsOwnTeam_Returns200_TheTeamShape()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
 
-        var answer = await GetAsync(structure, structure.FirstTeamId);
+        var answer = await GetAsync(structure, structure.ProjectTeamId);
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal("application/json", answer.MediaType);
-        Assert.Equal(["defaultArea", "id", "isFirstTeam", "name", "projectId"], PropertyNames(answer.Body));
-        Assert.Equal(structure.FirstTeamId, answer.Body.GetProperty("id").GetGuid());
+        Assert.Equal(["defaultMark", "id", "isMember", "name", "projectId"], PropertyNames(answer.Body));
+        Assert.Equal(structure.ProjectTeamId, answer.Body.GetProperty("id").GetGuid());
         Assert.Equal(structure.ProjectId, answer.Body.GetProperty("projectId").GetGuid());
         Assert.Equal("Пример проекта", answer.Body.GetProperty("name").GetString());
-        Assert.True(answer.Body.GetProperty("isFirstTeam").GetBoolean());
-
-        var defaultArea = answer.Body.GetProperty("defaultArea");
-        Assert.Equal(["id", "path"], PropertyNames(defaultArea));
-        Assert.Equal(structure.RootId, defaultArea.GetProperty("id").GetGuid());
-        Assert.Equal("Пример проекта", defaultArea.GetProperty("path").GetString());
+        Assert.False(answer.Body.GetProperty("isMember").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, answer.Body.GetProperty("defaultMark").ValueKind);
     }
 
-    // US-4 · "A second team comes with its own area": «Платформа» is not the first team, and its default is its own child of
-    // the root, so the path is the names below the root.
+    // mod-017 BR-OT-4 · the single read carries the same mark as the list: «named» for the team the settings name.
+    // Replaces Get_SecondTeam_Returns200_DefaultAreaIsItsOwnAreaUnderTheRoot (D-16).
     [Fact]
-    public async Task Get_SecondTeam_Returns200_DefaultAreaIsItsOwnAreaUnderTheRoot()
+    public async Task Get_NamedTeam_CarriesNamed_TheOtherCarriesNone()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        await OrganizationsTestData.SetDefaultTeamAsync(factory, structure.OrganizationId, structure.ProjectId, structure.Platform.Id);
 
-        var answer = await GetAsync(structure, structure.Platform.Team.Id);
+        var named = await GetAsync(structure, structure.Platform.Id);
+        var other = await GetAsync(structure, structure.ProjectTeamId);
 
-        Assert.Equal(HttpStatusCode.OK, answer.Status);
-        Assert.Equal(structure.Platform.Team.Id, answer.Body.GetProperty("id").GetGuid());
-        Assert.Equal("Платформа", answer.Body.GetProperty("name").GetString());
-        Assert.False(answer.Body.GetProperty("isFirstTeam").GetBoolean());
-
-        var defaultArea = answer.Body.GetProperty("defaultArea");
-        Assert.Equal(structure.Platform.Area.Id, defaultArea.GetProperty("id").GetGuid());
-        Assert.Equal("Платформа", defaultArea.GetProperty("path").GetString());
+        Assert.Equal("named", named.Body.GetProperty("defaultMark").GetString());
+        Assert.Equal("Платформа", named.Body.GetProperty("name").GetString());
+        Assert.Equal(JsonValueKind.Null, other.Body.GetProperty("defaultMark").ValueKind);
     }
 
-    // US-4 · "A team's default area is chosen among the areas it owns explicitly": with «Отчёты / API» as the default, the
-    // read shows that area and its path below the root, which the real read models and AreaTree agree on.
+    // mod-017 BR-OT-4 · when the other teams are deleted, the one left is the only team.
     [Fact]
-    public async Task Get_DefaultAreaBelowTheRoot_ReturnsItsPathBelowTheRoot()
+    public async Task Get_LastTeam_CarriesOnlyTeam()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var reports = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Отчёты");
-        var api = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, reports.Id, "API", structure.Platform.Team.Id);
-        await OrganizationsTestData.SetTeamDefaultAreaAsync(factory, structure.ProjectId, structure.Platform.Team.Id, api.Id);
+        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, structure.Platform.Id);
 
-        var answer = await GetAsync(structure, structure.Platform.Team.Id);
+        var answer = await GetAsync(structure, structure.ProjectTeamId);
 
-        Assert.Equal(HttpStatusCode.OK, answer.Status);
-        var defaultArea = answer.Body.GetProperty("defaultArea");
-        Assert.Equal(api.Id, defaultArea.GetProperty("id").GetGuid());
-        Assert.Equal("Отчёты / API", defaultArea.GetProperty("path").GetString());
-        Assert.Equal("Платформа", answer.Body.GetProperty("name").GetString());
+        Assert.Equal("onlyTeam", answer.Body.GetProperty("defaultMark").GetString());
     }
 
     // api-contract § 0.2: the canonical form is accepted in either letter case, in every level of the address.
@@ -95,10 +82,10 @@ public sealed class GetTeamEndpointTests(MustaskApiFactory factory)
         var answer = await GetAsync(
             structure.OrganizationId.ToString().ToUpperInvariant(),
             structure.ProjectId.ToString().ToUpperInvariant(),
-            structure.Platform.Team.Id.ToString().ToUpperInvariant());
+            structure.Platform.Id.ToString().ToUpperInvariant());
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
-        Assert.Equal(structure.Platform.Team.Id, answer.Body.GetProperty("id").GetGuid());
+        Assert.Equal(structure.Platform.Id, answer.Body.GetProperty("id").GetGuid());
     }
 
     // US-1 · "A visitor who is not signed in sees nothing": 401 before any not-found, even for an address that names nothing.
@@ -110,7 +97,7 @@ public sealed class GetTeamEndpointTests(MustaskApiFactory factory)
         var known = await OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Get,
-            $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{structure.Platform.Team.Id}");
+            $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{structure.Platform.Id}");
         var unknown = await OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Get,
@@ -141,7 +128,7 @@ public sealed class GetTeamEndpointTests(MustaskApiFactory factory)
             await OrganizationsTestData.SetOrganizationStatusAsync(factory, structure.OrganizationId, OrganizationStatus.Deactivated);
         }
 
-        var answer = await GetAsync(organizationId, structure.ProjectId.ToString(), structure.Platform.Team.Id.ToString());
+        var answer = await GetAsync(organizationId, structure.ProjectId.ToString(), structure.Platform.Id.ToString());
 
         Assert.Equal(HttpStatusCode.NotFound, answer.Status);
         Assert.Equal("organizations.organization.not_found", answer.ErrorCode);
@@ -173,7 +160,7 @@ public sealed class GetTeamEndpointTests(MustaskApiFactory factory)
             await OrganizationsTestData.SetProjectStatusAsync(factory, structure.OrganizationId, structure.ProjectId, ProjectStatus.Deactivated);
         }
 
-        var teamId = how == "deactivated" ? structure.Platform.Team.Id.ToString() : "not-a-team";
+        var teamId = how == "deactivated" ? structure.Platform.Id.ToString() : "not-a-team";
 
         var answer = await GetAsync(structure.OrganizationId.ToString(), projectId, teamId);
 
@@ -196,14 +183,14 @@ public sealed class GetTeamEndpointTests(MustaskApiFactory factory)
         var secondProject = await OrganizationsTestData.CreateProjectAsync(factory, structure.OrganizationId, "Второй проект", "SEC");
         var other = await OrganizationsTestData.CreateStructureAsync(factory);
         var deleted = await OrganizationsTestData.AddTeamAsync(factory, structure.ProjectId, "Ядро");
-        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, deleted.Team.Id);
+        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, deleted.Id);
         var teamId = how switch
         {
-            "malformed" => structure.Platform.Team.Id.ToString("N"),
+            "malformed" => structure.Platform.Id.ToString("N"),
             "unknown" => Guid.CreateVersion7().ToString(),
-            "of another project" => secondProject.FirstTeam.Id.ToString(),
-            "of another organization" => other.Platform.Team.Id.ToString(),
-            _ => deleted.Team.Id.ToString(),
+            "of another project" => secondProject.Team.Id.ToString(),
+            "of another organization" => other.Platform.Id.ToString(),
+            _ => deleted.Id.ToString(),
         };
 
         var answer = await GetAsync(structure.OrganizationId.ToString(), structure.ProjectId.ToString(), teamId);
@@ -220,14 +207,14 @@ public sealed class GetTeamEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var deleted = await OrganizationsTestData.AddTeamAsync(factory, structure.ProjectId, "Ядро");
-        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, deleted.Team.Id);
+        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, deleted.Id);
 
-        var platform = await GetAsync(structure, structure.Platform.Team.Id);
-        var first = await GetAsync(structure, structure.FirstTeamId);
+        var platform = await GetAsync(structure, structure.Platform.Id);
+        var first = await GetAsync(structure, structure.ProjectTeamId);
 
         Assert.Equal(HttpStatusCode.OK, platform.Status);
         Assert.Equal(HttpStatusCode.OK, first.Status);
-        Assert.Equal(structure.RootId, first.Body.GetProperty("defaultArea").GetProperty("id").GetGuid());
+        Assert.Equal(structure.ProjectTeamId, first.Body.GetProperty("id").GetGuid());
     }
 
     private static IEnumerable<string> PropertyNames(JsonElement element) =>

@@ -149,7 +149,7 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
 
     /// <summary>
     /// An active organization with its seeded process, and one project with its
-    /// first team, its root, a second team «Платформа» and that team's area,
+    /// team, its root and a second team «Платформа»,
     /// written through the domain in one unit of work.
     /// </summary>
     public async Task<SeededStructure> CreateStructureAsync(string? organizationName = null, string projectName = "Пример проекта", string key = "PRM")
@@ -168,12 +168,12 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
                 var organization = Organization.Create(
                     organizationId, Name(organizationName ?? UniqueName("Организация")), processId, Now, Creator);
                 var project = Project.Create(organizationId, Name(projectName), key, Now, Creator);
-                var second = Team.CreateWithArea(project.Project.Id, Name("Платформа"), project.Root);
+                var second = Team.Create(project.Project.Id, Name("Платформа"));
 
                 context.Organizations.Add(organization);
                 context.Projects.Add(project.Project);
-                context.Teams.AddRange(project.FirstTeam, second.Team);
-                context.Areas.AddRange(project.Root, second.Area);
+                context.Teams.AddRange(project.Team, second);
+                context.Areas.Add(project.Root);
                 await context.SaveChangesAsync(ct);
 
                 return new SeededStructure(organization, project, second);
@@ -181,16 +181,94 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
             CancellationToken.None);
     }
 
-    /// <summary>Adds a project with its first team and root to an existing organization.</summary>
+    /// <summary>Adds a project with its team and root to an existing organization.</summary>
     public async Task<NewProject> AddProjectAsync(Guid organizationId, string name, string key)
     {
         await using var context = NewContext();
         var project = Project.Create(organizationId, Name(name), key, Now, Creator);
 
         context.Projects.Add(project.Project);
-        context.Teams.Add(project.FirstTeam);
+        context.Teams.Add(project.Team);
         context.Areas.Add(project.Root);
         await context.SaveChangesAsync();
+
+        return project;
+    }
+
+    /// <summary>
+    /// An active organization with its seeded process and one project in the <b>legacy shape</b> the migrations before
+    /// mod-017 left (a first team that owns the root and holds it as its default area, a second team with its own default
+    /// area), written with SQL. A migration test that rolls the schema back past mod-017 and then needs data written "the old
+    /// way" uses it: the current model no longer has those columns, so the model cannot write them. The database must be
+    /// rolled back past <c>AddWorkItemOwningTeam</c> and <c>RetireAreaOwnership</c> when this is called.
+    /// </summary>
+    public async Task<LegacyStructure> CreateLegacyStructureAsync(
+        string? organizationName = null, string projectName = "Пример проекта", string key = "PRM")
+    {
+        await using var provider = BuildServices();
+        await using var scope = provider.CreateAsyncScope();
+        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var seed = scope.ServiceProvider.GetRequiredService<IProcessSeed>();
+        var context = scope.ServiceProvider.GetRequiredService<MustaskDbContext>();
+
+        var organizationId = Guid.CreateVersion7();
+
+        await unitOfWork.ExecuteInTransactionAsync(
+            async ct =>
+            {
+                var processId = await seed.SeedAsync(organizationId, ct);
+
+                context.Organizations.Add(
+                    Organization.Create(organizationId, Name(organizationName ?? UniqueName("Организация")), processId, Now, Creator));
+                await context.SaveChangesAsync(ct);
+
+                return true;
+            },
+            CancellationToken.None);
+
+        var project = await AddLegacyProjectAsync(organizationId, projectName, key);
+        var secondTeam = Guid.CreateVersion7();
+        var secondArea = Guid.CreateVersion7();
+
+        await ExecuteAsync(
+            """
+            INSERT INTO teams (id, project_id, name, normalized_name, status, is_first_team)
+            VALUES (@team, @project, 'Платформа', 'ПЛАТФОРМА', 'Active', false);
+            INSERT INTO areas (id, project_id, parent_id, name, normalized_name, owner_team_id, default_of_team_id)
+            VALUES (@area, @project, @root, 'Платформа', 'ПЛАТФОРМА', @team, @team)
+            """,
+            ("team", secondTeam),
+            ("project", project.ProjectId),
+            ("area", secondArea),
+            ("root", project.RootAreaId));
+
+        return new LegacyStructure(organizationId, project.ProjectId, project.FirstTeamId, project.RootAreaId, secondTeam, secondArea);
+    }
+
+    /// <summary>A project with its first team and its root, in the legacy shape (<see cref="CreateLegacyStructureAsync"/>).</summary>
+    public async Task<LegacyProject> AddLegacyProjectAsync(Guid organizationId, string name, string key)
+    {
+        var project = new LegacyProject(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7());
+        var entityName = Name(name);
+
+        await ExecuteAsync(
+            """
+            INSERT INTO projects (id, organization_id, name, normalized_name, key, status, created_at, created_by)
+            VALUES (@project, @organization, @name, @normalized, @key, 'Active', @now, @creator);
+            INSERT INTO teams (id, project_id, name, normalized_name, status, is_first_team)
+            VALUES (@team, @project, @name, @normalized, 'Active', true);
+            INSERT INTO areas (id, project_id, parent_id, name, normalized_name, owner_team_id, default_of_team_id)
+            VALUES (@root, @project, NULL, @name, @normalized, @team, @team)
+            """,
+            ("project", project.ProjectId),
+            ("organization", organizationId),
+            ("name", entityName.Value),
+            ("normalized", entityName.Normalized),
+            ("key", key),
+            ("now", Now),
+            ("creator", Creator),
+            ("team", project.FirstTeamId),
+            ("root", project.RootAreaId));
 
         return project;
     }
@@ -221,7 +299,13 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
 }
 
 /// <summary>What <see cref="OrganizationsDatabaseFixture.CreateStructureAsync"/> wrote.</summary>
-public sealed record SeededStructure(Organization Organization, NewProject Project, NewTeam SecondTeam);
+public sealed record SeededStructure(Organization Organization, NewProject Project, Team SecondTeam);
+
+/// <summary>What <see cref="OrganizationsDatabaseFixture.CreateLegacyStructureAsync"/> wrote: ids only, the model cannot read that shape.</summary>
+public sealed record LegacyStructure(Guid OrganizationId, Guid ProjectId, Guid FirstTeamId, Guid RootAreaId, Guid SecondTeamId, Guid SecondAreaId);
+
+/// <summary>A project in the legacy shape (<see cref="OrganizationsDatabaseFixture.AddLegacyProjectAsync"/>).</summary>
+public sealed record LegacyProject(Guid ProjectId, Guid FirstTeamId, Guid RootAreaId);
 
 [CollectionDefinition(Name)]
 public sealed class OrganizationsDatabaseCollection : ICollectionFixture<OrganizationsDatabaseFixture>

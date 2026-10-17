@@ -4,7 +4,7 @@ using Mustask.Domain.Organizations;
 namespace Mustask.Application.Tests.TestDoubles.Organizations;
 
 /// <summary>
-/// The state the membership handlers' tests share (mod-016): one organization with a project, its first team and a second team
+/// The state the membership handlers' tests share (mod-016): one organization with a project, its team and a second team
 /// «Платформа», a user directory, the acting administrator <see cref="AdminId"/> (projected, active, a member), and every fake
 /// the ten slices need, all over one <see cref="InMemoryOrganizations"/>.
 /// </summary>
@@ -42,7 +42,7 @@ public sealed class MembershipWorld
 
     public NewProject Project { get; }
 
-    public NewTeam Platform { get; }
+    public Team Platform { get; }
 
     public FakeMemberReadModel Members { get; }
 
@@ -64,7 +64,7 @@ public sealed class MembershipWorld
 
     public string ProjectId => Project.Project.Id.ToString();
 
-    public string PlatformId => Platform.Team.Id.ToString();
+    public string PlatformId => Platform.Id.ToString();
 
     /// <summary>A projected user (active unless said otherwise) who is a member of the organization.</summary>
     public string AddMember(string id, string displayName, OrganizationRole role = OrganizationRole.Member, bool isActive = true, string email = "")

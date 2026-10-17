@@ -48,3 +48,7 @@ export { organizationsPermissions } from './permissions';
 // tree unchanged (its api-contract § 3), on this slice's key.
 export { useAreaTree } from './hooks/queries';
 export type { AreaNode } from './api/organizationsApi';
+// mod-017: the work item's «Команда» picker and the team filter (workitems), and the creation
+// dialog of the project's views, read the project's teams on this slice's key.
+export { useTeams } from './hooks/queries';
+export type { DefaultMark, Team, TeamInList } from './api/organizationsApi';

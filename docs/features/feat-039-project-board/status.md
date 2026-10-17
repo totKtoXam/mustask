@@ -53,6 +53,7 @@ one code-review round → gate-3 → PR.
 
 ## Log
 
+- 2026-10-17 [dev] P-10 note from `mod-017-work-item-owning-team` (BR-OT-2, -3, -8; its api-contract § 9): BR-PB-6 is lifted — a project view offers the create command to a writer and the item starts with the project default team; §§ 3.1 and 3.3 gain the repeated `teamId` filter (a filter adds no statement) and `team` on rows and cards; BR-PB-1..-5 and -7..-9 stay.
 - 2026-10-17 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/feat-039-project-board
 - 2026-10-17 [orchestrator] route M (queue size; doc-012 § Decomposition: an additive view in the boards slice) taken under the human's night standing approval (no confirmation needed; gates stay pending for the human, work proceeds and is listed for the morning). E2E: no (paused 2026-10-12).
 - 2026-10-17 [orchestrator] the branch stacks on doc/012-matrix-organization-model (a653917f, PR #6 unmerged) so doc-012's spec, stories and ADR-0028/0029 are in the tree; the PR targets that branch until #6 merges. Stages run as agents through workflows («используй агентов и воркфлоу»).

@@ -115,10 +115,18 @@ public sealed class AddProjectBacklogOrderMigrationTests(OrganizationsDatabaseFi
             ("organization", structure.Organization.Id))).Single().Split('|');
         var item = Guid.CreateVersion7();
 
+        // mod-017: the place names the item's owning team (the place key), and the roll-back below passes through both
+        // mod-017 migrations. The rollback of RetireAreaOwnership makes the earliest active team of the project (by id) its
+        // first team and gives it the root, and the roll-forward maps every item to the team that owns its area — so the item
+        // is owned by that very team, and its place survives the round trip.
+        var owner = Guid.Parse((await database.QueryAsync(
+            "SELECT id::text FROM teams WHERE project_id = @project AND status = 'Active' ORDER BY id LIMIT 1",
+            ("project", project))).Single());
+
         await database.ExecuteAsync(
             """
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at)
-            VALUES (@item, @project, 1, @type, @state, @area, 'История', '', gen_random_uuid(), now(), 'migration-test', now());
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, owning_team_id, title, description, creation_request_id, created_at, created_by, changed_at)
+            VALUES (@item, @project, 1, @type, @state, @area, @team, 'История', '', gen_random_uuid(), now(), 'migration-test', now());
             INSERT INTO backlog_orders (team_id, backlog_level_id) VALUES (@team, @level);
             INSERT INTO backlog_places (work_item_id, team_id, backlog_level_id, position) VALUES (@item, @team, @level, 1)
             """,
@@ -127,7 +135,7 @@ public sealed class AddProjectBacklogOrderMigrationTests(OrganizationsDatabaseFi
             ("type", Guid.Parse(row[0])),
             ("state", Guid.Parse(row[1])),
             ("area", structure.Project.Root.Id),
-            ("team", structure.Project.FirstTeam.Id),
+            ("team", owner),
             ("level", Guid.Parse(row[2])));
 
         return new World(project, Guid.Parse(row[2]), item);

@@ -21,7 +21,7 @@ public sealed class RenameProjectHandlerTests
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization);
             Platform = Store.AddTeam(Project);
-            Reports = Store.AddArea(Project.Root, "Отчёты", Platform.Team);
+            Reports = Store.AddArea(Project.Root, "Отчёты");
             Quarterly = Store.AddArea(Reports, "Квартальные");
             Handler = new RenameProjectHandler(
                 new FakeProjectRepository(Store),
@@ -35,7 +35,7 @@ public sealed class RenameProjectHandlerTests
 
         public NewProject Project { get; }
 
-        public NewTeam Platform { get; }
+        public Team Platform { get; }
 
         public Area Reports { get; }
 
@@ -54,10 +54,10 @@ public sealed class RenameProjectHandlerTests
         /// <summary>Everything a rename must leave alone: every team, and every area but the root.</summary>
         public (string[] Teams, string[] Areas) Rest() =>
         (
-            Store.Teams.Select(team => $"{team.Id} {team.Name} {team.Status} {team.IsFirstTeam}").Order(StringComparer.Ordinal).ToArray(),
+            Store.Teams.Select(team => $"{team.Id} {team.Name} {team.Status}").Order(StringComparer.Ordinal).ToArray(),
             Store.Areas
                 .Where(area => !area.IsRoot)
-                .Select(area => $"{area.Id} {area.ParentId} {area.Name} {area.OwnerTeamId} {area.DefaultOfTeamId}")
+                .Select(area => $"{area.Id} {area.ParentId} {area.Name}")
                 .Order(StringComparer.Ordinal)
                 .ToArray());
     }
@@ -85,13 +85,16 @@ public sealed class RenameProjectHandlerTests
             return project;
         }
 
+        public Task ClearDefaultTeamAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
+            inner.ClearDefaultTeamAsync(projectId, teamId, cancellationToken);
+
         public void Add(NewProject project) => inner.Add(project);
 
         public Task SaveAsync(CancellationToken cancellationToken) => inner.SaveAsync(cancellationToken);
     }
 
     // US-3 · "Renaming a project renames its root area and keeps its key": «Пример проекта» (PRM) becomes «Платформа данных».
-    // The root takes the name and stays the first team's; the key, every team (the first keeps «Пример проекта») and the rest
+    // The root takes the name; the key, every team (the project's own team keeps «Пример проекта») and the rest
     // of the tree are unchanged.
     [Fact]
     public async Task Handle_FreeName_RenamesTheProjectAndItsRoot_KeepsTheKeyTheTeamsAndTheTree()
@@ -110,18 +113,15 @@ public sealed class RenameProjectHandlerTests
         Assert.Equal("Платформа данных", f.Project.Root.Name);
         Assert.Equal("ПЛАТФОРМА ДАННЫХ", f.Project.Root.NormalizedName);
         Assert.True(f.Project.Root.IsRoot);
-        Assert.Equal(f.Project.FirstTeam.Id, f.Project.Root.OwnerTeamId);
-        Assert.Equal(f.Project.FirstTeam.Id, f.Project.Root.DefaultOfTeamId);
 
-        Assert.Equal("Пример проекта", f.Project.FirstTeam.Name);
+        Assert.Equal("Пример проекта", f.Project.Team.Name);
         var (teamsAfter, areasAfter) = f.Rest();
         Assert.Equal(teamsBefore, teamsAfter);
         Assert.Equal(areasBefore, areasAfter);
 
-        var tree = new AreaTree(f.Store.Areas.Select(area => new AreaNode(area.Id, area.ParentId, area.Name, area.OwnerTeamId, area.DefaultOfTeamId)));
+        var tree = new AreaTree(f.Store.Areas.Select(area => new AreaNode(area.Id, area.ParentId, area.Name)));
         Assert.Equal("Платформа данных", tree.Root.Name);
         Assert.Equal("Отчёты / Квартальные", tree.PathOf(f.Quarterly.Id));
-        Assert.Equal(new ResolvedOwner(f.Platform.Team.Id, false), tree.ResolveOwner(f.Reports.Id));
     }
 
     // US-3 · "The name is unique in the organization" and api-contract § 0.6: a name never conflicts with the object's own

@@ -24,24 +24,20 @@ public interface IOrganizationStructure
     /// <summary>The organization with its status, process and creator (mod-016: the creator becomes the first administrator, BR-M1-21).</summary>
     Task<OrganizationInfo?> FindOrganizationAsync(Guid organizationId, CancellationToken cancellationToken);
 
-    /// <summary>The project with its status, reachability, first team, root area and creator (mod-003: the area with no team context, BR-M1-14).</summary>
+    /// <summary>The project with its status, reachability, default team, root area and creator (mod-017 BR-OT-4: the default team, resolved in one place).</summary>
     Task<ProjectInfo?> FindProjectAsync(Guid projectId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// The team with its status. A deleted team answers <see cref="TeamStatus.Deleted"/>
-    /// with no default area, never <c>null</c> and never active (US-7, doc-010 PR-9).
+    /// The team with its status. A deleted team answers <see cref="TeamStatus.Deleted"/>,
+    /// never <c>null</c> and never active (US-7, doc-010 PR-9).
     /// </summary>
     Task<TeamInfo?> FindTeamAsync(Guid teamId, CancellationToken cancellationToken);
 
-    /// <summary>The project's active teams: the first team first, then display order. A deleted team is left out.</summary>
-    Task<IReadOnlyList<TeamInfo>> ListActiveTeamsAsync(Guid projectId, CancellationToken cancellationToken);
-
     /// <summary>
-    /// The team that owns the area, resolved exactly as the tree read resolves it
-    /// (US-6), through <see cref="AreaTree"/>; <c>null</c> when the area does not
-    /// exist (a deleted area is gone).
+    /// The project's active teams by name in Russian collation (letter case not deciding), then by id: no team comes first
+    /// (mod-017 BR-OT-11). A deleted team is left out.
     /// </summary>
-    Task<AreaOwnerInfo?> FindAreaOwnerAsync(Guid areaId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<TeamInfo>> ListActiveTeamsAsync(Guid projectId, CancellationToken cancellationToken);
 }
 
 /// <summary>An organization for another module.</summary>
@@ -56,7 +52,11 @@ public sealed record OrganizationInfo(
 
 /// <summary>A project for another module.</summary>
 /// <param name="IsReachable"><c>true</c> when the project and its organization are both active.</param>
-/// <param name="RootAreaId">The area a work item created with no team context takes (BR-M1-14).</param>
+/// <param name="DefaultTeamId">
+/// mod-017 (BR-OT-4): the project default team as it stands now — the team the project's settings name, else its only
+/// active team, else <c>null</c> — resolved by <see cref="ProjectDefaultTeam"/> in the statement that reads the project.
+/// </param>
+/// <param name="RootAreaId">The area a new work item takes (a classification path until mod-018, mod-017 BR-OT-10).</param>
 public sealed record ProjectInfo(
     Guid Id,
     Guid OrganizationId,
@@ -64,13 +64,12 @@ public sealed record ProjectInfo(
     string Key,
     ProjectStatus Status,
     bool IsReachable,
-    Guid FirstTeamId,
+    Guid? DefaultTeamId,
     Guid RootAreaId,
     string CreatedBy,
     DateTimeOffset CreatedAt);
 
-/// <summary>A team for another module.</summary>
-/// <param name="DefaultAreaId">The team's default area; <c>null</c> for a deleted team.</param>
+/// <summary>A team for another module: a name and a status, no area and no first-team flag (mod-017 BR-OT-10, BR-OT-11).</summary>
 /// <param name="IsReachable"><c>true</c> when the team, its project and its organization are all active.</param>
 public sealed record TeamInfo(
     Guid Id,
@@ -78,16 +77,4 @@ public sealed record TeamInfo(
     Guid OrganizationId,
     string Name,
     TeamStatus Status,
-    bool IsFirstTeam,
-    Guid? DefaultAreaId,
-    bool IsReachable);
-
-/// <summary>The owner of an area for another module.</summary>
-/// <param name="IsInherited"><c>true</c> when the area has no explicit owner and inherits from an ancestor.</param>
-/// <param name="IsReachable"><c>true</c> when the area's project and organization are both active.</param>
-public sealed record AreaOwnerInfo(
-    Guid AreaId,
-    Guid ProjectId,
-    Guid OwningTeamId,
-    bool IsInherited,
     bool IsReachable);

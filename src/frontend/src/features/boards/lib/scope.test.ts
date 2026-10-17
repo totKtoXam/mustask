@@ -5,6 +5,7 @@ import {
   creationSurface,
   readName,
   scopeTeamId,
+  startTeamOf,
   teamScope,
   type SurfaceRead,
 } from './scope';
@@ -12,7 +13,7 @@ import {
 // feat-039: what a backlog or a board is of, and the keys and reads that follow from it.
 
 const level = { code: 'stories', name: 'Истории', types: [] };
-const team = { id: 't1', name: 'Платформа', defaultArea: { id: 'a1', path: 'Платформа' } };
+const team = { id: 't1', name: 'Платформа' };
 const teamBacklog: SurfaceRead = { team, level, items: [] };
 const projectBacklog: SurfaceRead = { project: { id: 'p1', name: 'Альфа' }, level, items: [] };
 const teamBoard: SurfaceRead = { team, level, columns: [] };
@@ -87,12 +88,19 @@ describe('readName', () => {
   });
 });
 
+// mod-017 lifts feat-039 BR-PB-6: every answer, a team's or the project's, offers a creation.
 describe('creationSurface', () => {
-  it('is the team’s answer, and none for the project’s: a creation needs a team (BR-PB-6)', () => {
-    expect(creationSurface(teamBacklog)).toBe(teamBacklog);
-    expect(creationSurface(teamBoard)).toBe(teamBoard);
-    expect(creationSurface(projectBacklog)).toBeUndefined();
-    expect(creationSurface(projectBoard)).toBeUndefined();
+  it('is the level of any answer, a team’s or the project’s, and none before the read', () => {
+    for (const read of [teamBacklog, teamBoard, projectBacklog, projectBoard]) {
+      expect(creationSurface(read)).toEqual({ level });
+    }
     expect(creationSurface(undefined)).toBeUndefined();
+  });
+});
+
+describe('startTeamOf', () => {
+  it('is the team of a team’s scope, and none for the project’s: the dialog takes its default team (BR-OT-3)', () => {
+    expect(startTeamOf(teamScope('t1'))).toBe('t1');
+    expect(startTeamOf(PROJECT_SCOPE)).toBeUndefined();
   });
 });

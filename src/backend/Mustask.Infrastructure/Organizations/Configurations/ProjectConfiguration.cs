@@ -33,6 +33,16 @@ internal sealed class ProjectConfiguration : IEntityTypeConfiguration<Project>
             .HasForeignKey(project => project.OrganizationId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // mod-017 (BR-OT-4): the default-team setting references one of the project's own teams: the key is composite,
+        // (id, default_team_id) onto the alternate key (project_id, id) of teams, so the database refuses another project's
+        // team. A null setting leaves it unchecked (MATCH SIMPLE). Restrict: no team row is removed, a team is deleted by
+        // its status, and the deletion clears the setting that names it in its own operation (BR-OT-12).
+        builder.HasOne<Team>()
+            .WithMany()
+            .HasForeignKey(project => new { project.Id, project.DefaultTeamId })
+            .HasPrincipalKey(team => new { team.ProjectId, team.Id })
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasIndex(project => new { project.OrganizationId, project.NormalizedName }, OrganizationsConstraints.ProjectName).IsUnique();
         builder.HasIndex(project => new { project.OrganizationId, project.Key }, OrganizationsConstraints.ProjectKey).IsUnique();
 

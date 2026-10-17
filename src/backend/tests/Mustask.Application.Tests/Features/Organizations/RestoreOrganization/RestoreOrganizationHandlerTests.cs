@@ -21,7 +21,8 @@ public sealed class RestoreOrganizationHandlerTests
             Organization = Store.AddOrganization(" Пример организации ");
             Project = Store.AddProject(Organization);
             Platform = Store.AddTeam(Project);
-            Reports = Store.AddArea(Project.Root, "Отчёты", Platform.Team);
+            Project.Project.NameDefaultTeam(Platform.Id);
+            Reports = Store.AddArea(Project.Root, "Отчёты");
             Quarterly = Store.AddArea(Reports, "Квартальные");
             Handler = new RestoreOrganizationHandler(new FakeOrganizationRepository(Store), new FakeUnitOfWork());
         }
@@ -32,7 +33,7 @@ public sealed class RestoreOrganizationHandlerTests
 
         public NewProject Project { get; }
 
-        public NewTeam Platform { get; }
+        public Team Platform { get; }
 
         public Area Reports { get; }
 
@@ -49,7 +50,7 @@ public sealed class RestoreOrganizationHandlerTests
     }
 
     /// <summary>
-    /// Everything beneath an organization as stored: statuses, names, keys, the first-team flag, owners and default marks.
+    /// Everything beneath an organization as stored: statuses, names and keys.
     /// A restore must leave it exactly as it found it.
     /// </summary>
     private static IReadOnlyList<string> Beneath(InMemoryOrganizations store) =>
@@ -57,9 +58,9 @@ public sealed class RestoreOrganizationHandlerTests
         .. store.Projects.Select(project =>
             $"project {project.Id} of {project.OrganizationId}: {project.Name} / {project.NormalizedName} / {project.Key} / {project.Status} / {project.CreatedBy}"),
         .. store.Teams.Select(team =>
-            $"team {team.Id} of {team.ProjectId}: {team.Name} / {team.NormalizedName} / {team.Status} / first={team.IsFirstTeam}"),
+            $"team {team.Id} of {team.ProjectId}: {team.Name} / {team.NormalizedName} / {team.Status}"),
         .. store.Areas.Select(area =>
-            $"area {area.Id} of {area.ProjectId} under {area.ParentId}: {area.Name} / owner={area.OwnerTeamId} / default={area.DefaultOfTeamId}"),
+            $"area {area.Id} of {area.ProjectId} under {area.ParentId}: {area.Name}"),
     ];
 
     // US-2 · "The organization is restored exactly as it was": it is back, under its stored name, with the answer the
@@ -77,7 +78,7 @@ public sealed class RestoreOrganizationHandlerTests
         Assert.Equal([f.Locked(), "save"], f.Store.Calls);
     }
 
-    // US-2 · "...with its name, process, projects, teams, default areas and area trees as before": the handler writes the
+    // US-2 · "...with its name, process, projects, teams, default-team setting and area trees as before": the handler writes the
     // organization's row alone, so nothing beneath it, and not the name or the process either, differs from before.
     [Fact]
     public async Task Handle_Restores_NameProcessProjectsTeamsDefaultsAndTreesExactlyAsTheyWere()
@@ -93,16 +94,14 @@ public sealed class RestoreOrganizationHandlerTests
         Assert.Equal((name, normalizedName, processId, createdBy), (f.Organization.Name, f.Organization.NormalizedName, f.Organization.ProcessId, f.Organization.CreatedBy));
         Assert.Equal(beneathBefore, Beneath(f.Store));
 
-        // The default areas: the first team keeps the root, «Платформа» keeps its own area, and «Отчёты» is explicit and no default.
-        Assert.Equal(f.Project.FirstTeam.Id, f.Project.Root.DefaultOfTeamId);
-        Assert.Equal(f.Platform.Team.Id, f.Platform.Area.DefaultOfTeamId);
-        Assert.Equal(((Guid?)f.Platform.Team.Id, (Guid?)null), (f.Reports.OwnerTeamId, f.Reports.DefaultOfTeamId));
+        // The default-team setting: the project names «Платформа», and the restore leaves it so.
+        Assert.Equal(f.Platform.Id, f.Project.Project.DefaultTeamId);
+        Assert.Equal(TeamStatus.Active, f.Platform.Status);
 
         // The tree answers as before, through reachability alone.
         Assert.True(f.Store.IsReachable(f.Organization.Id, f.Project.Project.Id));
-        var tree = new AreaTree(f.Store.Areas.Select(area => new AreaNode(area.Id, area.ParentId, area.Name, area.OwnerTeamId, area.DefaultOfTeamId)));
+        var tree = new AreaTree(f.Store.Areas.Select(area => new AreaNode(area.Id, area.ParentId, area.Name)));
         Assert.Equal("Отчёты / Квартальные", tree.PathOf(f.Quarterly.Id));
-        Assert.Equal(new ResolvedOwner(f.Platform.Team.Id, true), tree.ResolveOwner(f.Quarterly.Id));
     }
 
     // US-2 · "...«Старый проект» is still deactivated and is listed among the organization's deactivated projects":
@@ -121,7 +120,7 @@ public sealed class RestoreOrganizationHandlerTests
         Assert.False(f.Store.IsReachable(f.Organization.Id, old.Project.Id));
         Assert.Equal(ProjectStatus.Active, f.Project.Project.Status);
         Assert.True(f.Store.IsReachable(f.Organization.Id, f.Project.Project.Id));
-        Assert.Equal(TeamStatus.Active, old.FirstTeam.Status);
+        Assert.Equal(TeamStatus.Active, old.Team.Status);
     }
 
     // US-2 · "...restores it": only the addressed organization comes back; another deactivated one stays deactivated.

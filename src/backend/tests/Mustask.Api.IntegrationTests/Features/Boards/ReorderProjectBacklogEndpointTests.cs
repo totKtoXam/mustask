@@ -141,16 +141,16 @@ public sealed class ReorderProjectBacklogEndpointTests(MustaskApiFactory factory
         await ProjectBoardsTestData.MoveAsync(factory, world, BoardsTestData.Top(s3));
 
         Assert.Equal(Ids(s3, s1, s2, b4), await ProjectBoardsTestData.RowsAsync(factory, world));
-        Assert.Equal(Ids(s1, s2), await BoardsTestData.RowsAsync(factory, world, world.FirstTeamId));
+        Assert.Equal(Ids(s1, s2), await BoardsTestData.RowsAsync(factory, world, world.ProjectTeamId));
         Assert.Equal(Ids(s3, b4), await BoardsTestData.RowsAsync(factory, world, world.PlatformId));
 
-        await BoardsTestData.MoveAsync(factory, world, world.FirstTeamId, BoardsTestData.Top(s2));
+        await BoardsTestData.MoveAsync(factory, world, world.ProjectTeamId, BoardsTestData.Top(s2));
 
-        Assert.Equal(Ids(s2, s1), await BoardsTestData.RowsAsync(factory, world, world.FirstTeamId));
+        Assert.Equal(Ids(s2, s1), await BoardsTestData.RowsAsync(factory, world, world.ProjectTeamId));
         Assert.Equal(Ids(s3, s1, s2, b4), await ProjectBoardsTestData.RowsAsync(factory, world));
 
         var project = await ProjectBoardsTestData.GetBoardAsync(factory, world);
-        var team = await BoardsTestData.GetBoardAsync(factory, world, world.FirstTeamId);
+        var team = await BoardsTestData.GetBoardAsync(factory, world, world.ProjectTeamId);
         Assert.Equal(Ids(s3, s1, s2, b4), BoardsTestData.Cards(BoardsTestData.Column(project.Body, "Новая")));
         Assert.Equal(Ids(s2, s1), BoardsTestData.Cards(BoardsTestData.Column(team.Body, "Новая")));
     }
@@ -161,7 +161,7 @@ public sealed class ReorderProjectBacklogEndpointTests(MustaskApiFactory factory
     public async Task Reorder_WritesOnlyItsOwnPlaces()
     {
         var (world, s1, s2, s3, b4) = await ProjectAsync();
-        await BoardsTestData.MoveAsync(factory, world, world.FirstTeamId, BoardsTestData.Top(s2));
+        await BoardsTestData.MoveAsync(factory, world, world.ProjectTeamId, BoardsTestData.Top(s2));
         var teamBefore = await ProjectBoardsTestData.TeamPlacesAsync(factory, world);
         Assert.Empty(await ProjectBoardsTestData.PlacesAsync(factory, world));
 
@@ -171,7 +171,7 @@ public sealed class ReorderProjectBacklogEndpointTests(MustaskApiFactory factory
         var projectBefore = await ProjectBoardsTestData.PlacesAsync(factory, world);
         Assert.Equal(Ids(s2, s3, b4, s1), ProjectBoardsTestData.ByPosition(projectBefore, s1, s2, s3, b4));
 
-        await BoardsTestData.MoveAsync(factory, world, world.FirstTeamId, BoardsTestData.Bottom(s2));
+        await BoardsTestData.MoveAsync(factory, world, world.ProjectTeamId, BoardsTestData.Bottom(s2));
 
         Assert.Equal(projectBefore, await ProjectBoardsTestData.PlacesAsync(factory, world));
         Assert.Contains(await ProjectBoardsTestData.TeamPlacesAsync(factory, world), place => place.ItemId == s1.Id);
@@ -184,14 +184,14 @@ public sealed class ReorderProjectBacklogEndpointTests(MustaskApiFactory factory
     {
         var (world, s1, s2, s3, b4) = await ProjectAsync();
         await ProjectBoardsTestData.MoveAsync(factory, world, BoardsTestData.Top(s2));
-        await BoardsTestData.MoveAsync(factory, world, world.FirstTeamId, BoardsTestData.Bottom(s2));
+        await BoardsTestData.MoveAsync(factory, world, world.ProjectTeamId, BoardsTestData.Bottom(s2));
         var placeBefore = (await ProjectBoardsTestData.PlacesAsync(factory, world)).Single(place => place.ItemId == s1.Id);
 
         await BoardsTestData.MoveToAreaAsync(factory, world, s1, world.PlatformAreaId);
 
         Assert.Equal(Ids(s2, s1, s3, b4), await ProjectBoardsTestData.RowsAsync(factory, world));
         Assert.Equal(placeBefore, (await ProjectBoardsTestData.PlacesAsync(factory, world)).Single(place => place.ItemId == s1.Id));
-        Assert.DoesNotContain(s1.Identifier, await BoardsTestData.RowsAsync(factory, world, world.FirstTeamId));
+        Assert.DoesNotContain(s1.Identifier, await BoardsTestData.RowsAsync(factory, world, world.ProjectTeamId));
         Assert.Contains(s1.Identifier, await BoardsTestData.RowsAsync(factory, world, world.PlatformId));
     }
 
@@ -202,7 +202,7 @@ public sealed class ReorderProjectBacklogEndpointTests(MustaskApiFactory factory
         var (world, s1, s2, s3, b4) = await ProjectAsync();
         await ProjectBoardsTestData.MoveAsync(factory, world, BoardsTestData.Top(b4));
 
-        var created = await BoardsTestData.CreateFromTeamAsync(factory, world, "US", "Новая история", world.FirstTeamId.ToString());
+        var created = await BoardsTestData.CreateFromTeamAsync(factory, world, "US", "Новая история", world.ProjectTeamId.ToString());
 
         Assert.Equal(HttpStatusCode.Created, created.Status);
         var identifier = created.Body.GetProperty("identifier").GetString()!;
@@ -363,7 +363,7 @@ public sealed class ReorderProjectBacklogEndpointTests(MustaskApiFactory factory
         await Task.WhenAny(gate.Reached, project);
         Assert.False(project.IsCompleted, "The project reorder finished before reaching its commit gate.");
 
-        var team = await BoardsTestData.ReorderAsync(factory, world, world.FirstTeamId, BoardsTestData.Top(s2));
+        var team = await BoardsTestData.ReorderAsync(factory, world, world.ProjectTeamId, BoardsTestData.Top(s2));
 
         Assert.Equal(HttpStatusCode.NoContent, team.Status);
         Assert.False(project.IsCompleted, "The project reorder finished while its gate was closed.");
@@ -372,7 +372,7 @@ public sealed class ReorderProjectBacklogEndpointTests(MustaskApiFactory factory
 
         Assert.Equal(HttpStatusCode.NoContent, (await project).Status);
         Assert.Equal(Ids(s3, s1, s2, b4), await ProjectBoardsTestData.RowsAsync(factory, world));
-        Assert.Equal(Ids(s2, s1), await BoardsTestData.RowsAsync(factory, world, world.FirstTeamId));
+        Assert.Equal(Ids(s2, s1), await BoardsTestData.RowsAsync(factory, world, world.ProjectTeamId));
     }
 
     // ADR-0026 / api-contract § 0.4 step 3: the project deactivated while the reorder waited for its lock — the deactivation holds

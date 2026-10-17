@@ -15,6 +15,7 @@ using Mustask.Application.Features.Organizations.GetOrganizations;
 using Mustask.Application.Features.Organizations.GetProject;
 using Mustask.Application.Features.Organizations.GetProjects;
 using Mustask.Application.Features.Organizations.GetTeam;
+using Mustask.Application.Features.Organizations.GetTeamOwnedItemCount;
 using Mustask.Application.Features.Organizations.GetTeams;
 using Mustask.Application.Features.Organizations.MoveArea;
 using Mustask.Application.Features.Organizations.RenameArea;
@@ -23,8 +24,7 @@ using Mustask.Application.Features.Organizations.RenameProject;
 using Mustask.Application.Features.Organizations.RenameTeam;
 using Mustask.Application.Features.Organizations.RestoreOrganization;
 using Mustask.Application.Features.Organizations.RestoreProject;
-using Mustask.Application.Features.Organizations.SetAreaOwner;
-using Mustask.Application.Features.Organizations.SetTeamDefaultArea;
+using Mustask.Application.Features.Organizations.SetDefaultTeam;
 using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Microsoft.AspNetCore.Http;
@@ -168,6 +168,16 @@ public static class OrganizationEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // mod-017 api-contract § 2.8. Name the project's default team, or clear the setting (an empty body, {} and
+        // { "teamId": null } all clear it); only an administrator holds organizations.team.write.
+        projects.MapPut("/{projectId}/default-team", SetDefaultTeamAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamWrite)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
         // § 3. Teams.
         var teams = projects.MapGroup("/{projectId}/teams");
 
@@ -203,14 +213,13 @@ public static class OrganizationEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
-        teams.MapPut("/{teamId}/default-area", SetTeamDefaultAreaAsync)
+        // mod-017 api-contract § 2.9. What a deletion would reassign: the items the team owns, in any state.
+        teams.MapGet("/{teamId}/owned-items/count", GetTeamOwnedItemCountAsync)
             .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamWrite)
-            .Produces<Application.Features.Organizations.SetTeamDefaultArea.TeamResponse>()
-            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .Produces<GetTeamOwnedItemCountResult>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict);
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         teams.MapDelete("/{teamId}", DeleteTeamAsync)
             .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamWrite)
@@ -251,15 +260,6 @@ public static class OrganizationEndpoints
         areas.MapPut("/{areaId}/parent", MoveAreaAsync)
             .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite)
             .Produces<Application.Features.Organizations.MoveArea.AreaResponse>()
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict);
-
-        areas.MapPut("/{areaId}/owner", SetAreaOwnerAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite)
-            .Produces<Application.Features.Organizations.SetAreaOwner.AreaResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -346,6 +346,19 @@ public static class OrganizationEndpoints
 
     // --- § 3. Teams -------------------------------------------------------------------
 
+    private static async Task<IResult> SetDefaultTeamAsync(
+        string organizationId, string projectId, DefaultTeamRequest? request, SetDefaultTeamHandler handler, CancellationToken cancellationToken)
+    {
+        // A missing body is {}: clear (api-contract § 2.8, D-7).
+        await handler.Handle(new SetDefaultTeamCommand(organizationId, projectId, request?.TeamId), cancellationToken);
+
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> GetTeamOwnedItemCountAsync(
+        string organizationId, string projectId, string teamId, GetTeamOwnedItemCountHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok(await handler.Handle(new GetTeamOwnedItemCountQuery(organizationId, projectId, teamId), cancellationToken));
+
     private static async Task<IResult> GetTeamsAsync(string organizationId, string projectId, GetTeamsHandler handler, CancellationToken cancellationToken) =>
         Results.Ok((await handler.Handle(new GetTeamsQuery(organizationId, projectId), cancellationToken)).Items);
 
@@ -365,15 +378,6 @@ public static class OrganizationEndpoints
         string organizationId, string projectId, string teamId, NameRequest? request, RenameTeamHandler handler, CancellationToken cancellationToken) =>
         Results.Ok((await handler.Handle(new RenameTeamCommand(organizationId, projectId, teamId, request?.Name), cancellationToken)).Response);
 
-    private static async Task<IResult> SetTeamDefaultAreaAsync(
-        string organizationId,
-        string projectId,
-        string teamId,
-        DefaultAreaRequest? request,
-        SetTeamDefaultAreaHandler handler,
-        CancellationToken cancellationToken) =>
-        Results.Ok((await handler.Handle(new SetTeamDefaultAreaCommand(organizationId, projectId, teamId, request?.AreaId), cancellationToken)).Response);
-
     private static async Task<IResult> DeleteTeamAsync(
         string organizationId, string projectId, string teamId, DeleteTeamHandler handler, CancellationToken cancellationToken)
     {
@@ -391,7 +395,7 @@ public static class OrganizationEndpoints
         string organizationId, string projectId, CreateAreaRequest? request, CreateAreaHandler handler, CancellationToken cancellationToken)
     {
         var result = await handler.Handle(
-            new CreateAreaCommand(organizationId, projectId, request?.ParentId, request?.Name, request?.OwnerTeamId),
+            new CreateAreaCommand(organizationId, projectId, request?.ParentId, request?.Name),
             cancellationToken);
 
         return Results.Created($"{ProjectPath(organizationId, result.Response.ProjectId)}/areas/{result.Response.Id}", result.Response);
@@ -404,10 +408,6 @@ public static class OrganizationEndpoints
     private static async Task<IResult> MoveAreaAsync(
         string organizationId, string projectId, string areaId, ParentRequest? request, MoveAreaHandler handler, CancellationToken cancellationToken) =>
         Results.Ok((await handler.Handle(new MoveAreaCommand(organizationId, projectId, areaId, request?.ParentId), cancellationToken)).Response);
-
-    private static async Task<IResult> SetAreaOwnerAsync(
-        string organizationId, string projectId, string areaId, OwnerRequest? request, SetAreaOwnerHandler handler, CancellationToken cancellationToken) =>
-        Results.Ok((await handler.Handle(new SetAreaOwnerCommand(organizationId, projectId, areaId, request?.OwnerTeamId), cancellationToken)).Response);
 
     private static async Task<IResult> DeleteAreaAsync(
         string organizationId, string projectId, string areaId, DeleteAreaHandler handler, CancellationToken cancellationToken)
@@ -431,11 +431,10 @@ public static class OrganizationEndpoints
 
     private sealed record CreateProjectRequest(string? Name, string? Key);
 
-    private sealed record DefaultAreaRequest(string? AreaId);
+    /// <summary>mod-017 api-contract § 2.8: <c>teamId</c> a string, or <c>null</c> (or absent) to clear the setting.</summary>
+    private sealed record DefaultTeamRequest(string? TeamId);
 
-    private sealed record CreateAreaRequest(string? ParentId, string? Name, string? OwnerTeamId);
+    private sealed record CreateAreaRequest(string? ParentId, string? Name);
 
     private sealed record ParentRequest(string? ParentId);
-
-    private sealed record OwnerRequest(string? OwnerTeamId);
 }

@@ -424,6 +424,8 @@ export interface BacklogTableTokens {
   /** «Заголовок» takes the rest of the width, and at least this much. */
   titleColumnMin: number;
   stateColumn: number;
+  /** «Команда» (mod-017 design § 6.4), after «Статус»; the table's least width grows by this much. */
+  teamColumn: number;
   effortColumn: number;
   businessValueColumn: number;
   valueAreaColumn: number;
@@ -437,6 +439,7 @@ export const backlogTable: BacklogTableTokens = {
   typeColumn: 184,
   titleColumnMin: 400,
   stateColumn: 104,
+  teamColumn: 120,
   effortColumn: 64,
   businessValueColumn: 64,
   valueAreaColumn: 104,

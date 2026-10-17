@@ -1,38 +1,45 @@
 import { useWorkContext } from '../../../shared/lib/workContext';
 import type { Team } from '../api/organizationsApi';
-import { useDeleteTeam, useRenameTeam, useSetTeamDefaultArea } from '../hooks/mutations';
-import { DefaultAreaDialog } from './DefaultAreaDialog';
+import { useDeleteTeam, useRenameTeam, useSetDefaultTeam } from '../hooks/mutations';
+import { DefaultTeamDialog } from './DefaultTeamDialog';
 import { DeleteTeamDialog } from './DeleteTeamDialog';
 import { NameDialog } from './NameDialog';
 import { useNotify } from './notice';
 
-/** A team dialog to show: the team's rename, default area or deletion. */
-export type TeamDialog = { kind: 'rename' | 'defaultArea' | 'delete'; team: Team } | null;
+/**
+ * A team dialog to show: a team's rename or deletion, or the project's default
+ * team (mod-017 design § 7.1), which belongs to no one team.
+ */
+export type TeamDialog = { kind: 'rename' | 'delete'; team: Team } | { kind: 'defaultTeam' } | null;
 
 /**
- * The team dialogs of design § 9.5–§ 9.7, shared by «Команды» and a team's
- * page. Their notices follow DC-7: deleting the team the switcher holds makes
- * the switcher fall back, and its notice is the only one (a team's page never
- * chooses its team, design § 3.4).
+ * The team dialogs of design § 7, shared by «Команды» and a team's page. Their
+ * notices follow DC-7: deleting the team the switcher holds makes the switcher
+ * fall back, and its notice is the only one (a team's page never chooses its
+ * team, design § 3.4).
  */
 export function TeamDialogs({
   organizationId,
   projectId,
   dialog,
-  firstTeamName,
+  teams,
   onClose,
   onDeleted,
+  onTeamsStale,
 }: {
   organizationId: string;
   projectId: string;
   dialog: TeamDialog;
-  firstTeamName: string;
+  /** The project's teams as the page read them; «Команда по умолчанию» offers them. */
+  teams?: readonly Team[];
   /** `contextGone`: a not-found answer; the page reads itself again. */
   onClose(contextGone: boolean): void;
   onDeleted?(): void;
+  /** A choice was refused as not found or not in the project: the teams are read again. */
+  onTeamsStale?(): void;
 }) {
   const rename = useRenameTeam(organizationId, projectId);
-  const setDefaultArea = useSetTeamDefaultArea(organizationId, projectId);
+  const setDefaultTeam = useSetDefaultTeam(organizationId, projectId);
   const deleteTeam = useDeleteTeam(organizationId, projectId);
   const notify = useNotify();
   const context = useWorkContext();
@@ -40,17 +47,15 @@ export function TeamDialogs({
   if (!dialog) {
     return null;
   }
-  const { team } = dialog;
 
   switch (dialog.kind) {
     case 'rename':
       return (
         <NameDialog
           title="Переименование команды"
-          helper="Названия областей команды не изменятся."
-          initialName={team.name}
+          initialName={dialog.team.name}
           submitLabel="Сохранить"
-          submit={(name) => rename.mutateAsync({ teamId: team.id, name })}
+          submit={(name) => rename.mutateAsync({ teamId: dialog.team.id, name })}
           onSucceeded={() => {
             onClose(false);
             notify('Команда переименована.');
@@ -58,25 +63,27 @@ export function TeamDialogs({
           onClose={onClose}
         />
       );
-    case 'defaultArea':
+    case 'defaultTeam':
       return (
-        <DefaultAreaDialog
-          organizationId={organizationId}
-          projectId={projectId}
-          team={team}
-          submit={(areaId) => setDefaultArea.mutateAsync({ teamId: team.id, areaId })}
+        <DefaultTeamDialog
+          teams={teams ?? []}
+          submit={(teamId) => setDefaultTeam.mutateAsync(teamId)}
           onSucceeded={() => {
             onClose(false);
-            notify('Область по умолчанию изменена.');
+            notify('Команда по умолчанию изменена.');
           }}
+          onRefused={() => onTeamsStale?.()}
           onClose={onClose}
         />
       );
-    case 'delete':
+    case 'delete': {
+      const { team } = dialog;
       return (
         <DeleteTeamDialog
+          organizationId={organizationId}
+          projectId={projectId}
+          teamId={team.id}
           teamName={team.name}
-          firstTeamName={firstTeamName}
           action={async () => {
             const { selection } = context;
             const fallsBack =
@@ -96,5 +103,6 @@ export function TeamDialogs({
           onClose={onClose}
         />
       );
+    }
   }
 }

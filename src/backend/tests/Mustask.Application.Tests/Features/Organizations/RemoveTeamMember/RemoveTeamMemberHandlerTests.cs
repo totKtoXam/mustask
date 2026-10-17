@@ -17,7 +17,7 @@ public sealed class RemoveTeamMemberHandlerTests
         public Fixture()
         {
             World.AddMember("u-anna", "Анна Смирнова");
-            World.Store.AddTeamMember(World.Organization, World.Platform.Team, "u-anna");
+            World.Store.AddTeamMember(World.Organization, World.Platform, "u-anna");
             Handler = new RemoveTeamMemberHandler(World.ProjectReads, World.TeamReads, World.TeamMemberships);
         }
 
@@ -49,12 +49,12 @@ public sealed class RemoveTeamMemberHandlerTests
     public async Task Handle_OtherTeamsOfTheUser_AreUntouched()
     {
         var f = new Fixture();
-        f.World.Store.AddTeamMember(f.World.Organization, f.World.Project.FirstTeam, "u-anna");
+        f.World.Store.AddTeamMember(f.World.Organization, f.World.Project.Team, "u-anna");
 
         await f.HandleAsync(f.Command());
 
         var remaining = Assert.Single(f.World.Store.TeamMemberships);
-        Assert.Equal(f.World.Project.FirstTeam.Id, remaining.TeamId);
+        Assert.Equal(f.World.Project.Team.Id, remaining.TeamId);
     }
 
     // US-3 · "Removing a team member who is already gone": refused with the team-member not-found code.
@@ -102,7 +102,7 @@ public sealed class RemoveTeamMemberHandlerTests
     public async Task Handle_ADeletedTeam_IsTeamNotFound()
     {
         var f = new Fixture();
-        f.World.Platform.Team.Delete();
+        f.World.Platform.Delete(2);
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command()));
 
@@ -122,7 +122,7 @@ public sealed class RemoveTeamMemberHandlerTests
         {
             "malformed" => "not-a-team",
             "unknown" => Guid.CreateVersion7().ToString(),
-            _ => sibling.FirstTeam.Id.ToString(),
+            _ => sibling.Team.Id.ToString(),
         };
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(userId: "nobody", teamId: teamId)));

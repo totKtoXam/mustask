@@ -22,10 +22,13 @@ namespace Mustask.Application.Features.Boards.ReorderBacklog;
 /// locks, the team again and the stale check (409).
 /// </para>
 /// <para>
-/// <b>Locks</b> (status.md § Plan 5, ADR-0011): the team <c>FOR SHARE</c> — a
+/// <b>Locks</b> (status.md § Plan 5, ADR-0011; mod-017 plan-backend § 7, ADR-0028 rule 8): the team <c>FOR SHARE</c> — a
 /// write that binds to a team locks it and re-checks it is active, so a team
 /// deleted meanwhile answers not found and a deletion waits for the reorder —
-/// then the backlog's order row <c>FOR UPDATE</c>. Reorders of one backlog
+/// then the backlog's member items <c>FOR KEY SHARE</c> (a save that changes the owner of a member
+/// locks it <c>FOR UPDATE</c>, so the two end in one order and the places this reorder writes name
+/// a team that owns their items, BR-OT-13 (3)), then
+/// the backlog's order row <c>FOR UPDATE</c>, then the members read again in a locking statement. Reorders of one backlog
 /// therefore run one after another in arrival order, and each reads the order
 /// as the previous one committed it, in a new statement under READ COMMITTED:
 /// two reorders of different items both take effect, and of two of the same
@@ -85,15 +88,17 @@ public sealed class ReorderBacklogHandler(
         _ = await unitOfWork.ExecuteInTransactionAsync(
             async ct =>
             {
-                // 3. The locks, then the order as the previous reorder committed it.
-                if (!await backlogs.LockAsync(projectId, teamId, resolved.Id, ct))
+                // 3. The locks, then the order as the previous reorder committed it. A member that changed owner before the
+                // members were locked is no member of this backlog now (mod-017 BR-OT-6, BR-OT-13 (3)).
+                if (!await backlogs.LockAsync(scope, ct))
                 {
                     throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
                 }
 
                 var order = StackRank.Order(await backlogs.ReadEntriesAsync(scope, ct));
 
-                // 4. The move: a malformed or unknown item names nothing on this backlog, which is stale (BR-M4-26).
+                // 4. The move: a malformed or unknown item names nothing on this backlog, which is stale (BR-M4-26) — an
+                // item that has changed its owning team, before the reorder or while it waited, included.
                 if (!AddressedId.TryParse(command.ItemId, out var itemId))
                 {
                     throw new ConflictException(BoardErrorCodes.ReorderStale);

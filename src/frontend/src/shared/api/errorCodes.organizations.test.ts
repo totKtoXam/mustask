@@ -39,6 +39,10 @@ const CONTRACT_TABLE: readonly (readonly [string, number, readonly string[]])[] 
   ['organizations.team.default_area_not_owned', 409, []],
   ['organizations.team.first_team_default_fixed', 409, []],
   ['organizations.team.first_team_cannot_be_deleted', 409, []],
+  // mod-017 api-contract § 0.2 and § 2.7: the two codes the owning team adds. The four codes above are deprecated in the catalog
+  // and still held, one to one.
+  ['organizations.team.not_in_project', 409, []],
+  ['organizations.team.last_team_cannot_be_deleted', 409, []],
   ['organizations.area.name_taken', 409, []],
   ['organizations.area.move_into_own_subtree', 409, []],
   ['organizations.area.is_team_default', 409, ['team']],
@@ -67,7 +71,7 @@ describe('mod-002 api-contract § 6: the panel holds the organizations codes one
     expect(new Set(constants).size).toBe(constants.length);
   });
 
-  it('matches api-contract § 6 row by row: the 33 codes (mod-002’s 23 and mod-016’s 10), their statuses and parameters', () => {
+  it('matches api-contract § 6 row by row: the 35 codes (mod-002’s 23, mod-016’s 10 and mod-017’s 2), their statuses and parameters', () => {
     const catalog = readCatalog();
 
     expect(Object.values(organizationErrorCodes)).toHaveLength(CONTRACT_TABLE.length);

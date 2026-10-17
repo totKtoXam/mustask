@@ -8,7 +8,7 @@ namespace Mustask.Api.IntegrationTests.Features.Boards;
 
 /// <summary>
 /// feat-039 spec § Non-functional requirements, "Volumes and speed", and the "large" scenarios of US-1..US-3: with 5 000 items
-/// on each of the project's four levels, every item linked under an item of the level above and spread over two teams' areas,
+/// on each of the project's four levels, every item linked under an item of the level above and owned by one of two teams in turn,
 /// the project backlog of «Эпики» (20 000 rows with its tree) and of «Истории», and the project board of «Истории», are each
 /// served within 2 s, and a reorder of 5 000 stories and a card move within 1 s — measured as the panel sends them, after one
 /// warm-up call of each. The items are inserted with one statement per level: through the endpoints the setup alone would take
@@ -31,7 +31,8 @@ public sealed class ProjectBacklogVolumeTests(MustaskApiFactory factory, ITestOu
         var (epic, feature, story, task) = (world.Items.Types["EPIC"], world.Items.Types["FEAT"], world.Items.Types["US"], world.Items.Types["TASK"]);
 
         // Epics 1..5 000; feature n + 5 000 under epic n; story n + 10 000 under feature n + 5 000; task n + 15 000 under story
-        // n + 10 000. Every second item stands in the root area (team «Мастаск»), the others in «Платформа»'s.
+        // n + 10 000. Every second item is owned by the project's own team, the others by «Платформа» (mod-017: the owning team,
+        // not the area); every item stands in the root area, which owns nothing (BR-OT-10).
         await InsertLevelAsync(world, epic.Id, epic.StateId("Новая"), "Эпик", from: 1, linked: false);
         await InsertLevelAsync(world, feature.Id, feature.StateId("Новая"), "Фича", from: PerLevel + 1, linked: true);
         await InsertLevelAsync(world, story.Id, story.StateId("Новая"), "История", from: (2 * PerLevel) + 1, linked: true);
@@ -85,13 +86,17 @@ public sealed class ProjectBacklogVolumeTests(MustaskApiFactory factory, ITestOu
         Assert.Equal([last.Identifier, middle.Identifier], order.Take(2));
     }
 
-    /// <summary>The <see cref="PerLevel"/> items numbered from <paramref name="from"/>, item n under item n − <see cref="PerLevel"/> when linked, in alternate areas.</summary>
+    /// <summary>
+    /// The <see cref="PerLevel"/> items numbered from <paramref name="from"/>, item n under item n − <see cref="PerLevel"/> when
+    /// linked, owned by the project's own team and by «Платформа» in turn, all in the root area.
+    /// </summary>
     private Task InsertLevelAsync(BoardsWorld world, Guid typeId, Guid stateId, string title, int from, bool linked) =>
         WorkItemsTestData.ExecuteAsync(factory, $"""
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, parent_id)
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, parent_id, owning_team_id)
             SELECT gen_random_uuid(), {world.ProjectId}, n, {typeId}, {stateId},
-                   CASE WHEN n % 2 = 0 THEN {world.RootAreaId} ELSE {world.PlatformAreaId} END,
-                   {title} || ' ' || n, '', gen_random_uuid(), now() + n * interval '1 millisecond', 'volume-test', now(), parent.id
+                   {world.RootAreaId},
+                   {title} || ' ' || n, '', gen_random_uuid(), now() + n * interval '1 millisecond', 'volume-test', now(), parent.id,
+                   CASE WHEN n % 2 = 0 THEN {world.ProjectTeamId} ELSE {world.PlatformId} END
             FROM generate_series({from}, {from + PerLevel - 1}) AS n
             LEFT JOIN work_items AS parent ON parent.project_id = {world.ProjectId} AND parent.number = n - {PerLevel} AND {linked}
             """);

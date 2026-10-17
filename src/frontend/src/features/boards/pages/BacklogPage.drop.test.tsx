@@ -174,6 +174,7 @@ describe('US-5 Scenario: The whole row drags; the grip at its edge is only the h
       'Тип',
       'Заголовок',
       'Статус',
+      'Команда',
       'Трудоёмкость',
       'Бизнес-ценность',
       'Вид ценности',

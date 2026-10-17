@@ -236,12 +236,17 @@ interface AddingState {
  * drag offers only the targets of the codes held. A reader holds none of the
  * three and so reads only.
  */
+/** No team filter: a team's backlog, or the project's unfiltered. */
+const NO_TEAM_IDS: readonly string[] = [];
+
 export function BacklogTable({
   organizationId,
   projectId,
   scope,
   level,
   items,
+  teamIds = NO_TEAM_IDS,
+  busy = false,
   announce,
   showSuccess,
   showCreated,
@@ -253,6 +258,10 @@ export function BacklogTable({
   level: BoardLevelCode;
   /** The backlog as last read: the top-level rows, `order` 1..n, each with its whole tree. */
   items: readonly BacklogRowData[];
+  /** The project's team filter the rows were read under (mod-017 § 3): part of the cache key. */
+  teamIds?: readonly string[];
+  /** Another filter is being read: the rows shown are the previous ones (`aria-busy`). */
+  busy?: boolean;
   announce(text: string): void;
   /** A parent write's notice (feat-001 spec § Notices on «Бэклоги»). */
   showSuccess(text: string): void;
@@ -475,8 +484,9 @@ export function BacklogTable({
   );
 
   function backlogRead(): BacklogRowData[] | undefined {
-    return client.getQueryData<BacklogSurface>(backlogKey(organizationId, projectId, scope, level))
-      ?.items;
+    return client.getQueryData<BacklogSurface>(
+      backlogKey(organizationId, projectId, scope, level, teamIds),
+    )?.items;
   }
 
   async function move(body: ReorderBody) {
@@ -1030,6 +1040,7 @@ export function BacklogTable({
     table.orderColumn +
     table.typeColumn +
     table.stateColumn +
+    table.teamColumn +
     table.effortColumn +
     table.businessValueColumn +
     table.valueAreaColumn;
@@ -1062,6 +1073,7 @@ export function BacklogTable({
         size="small"
         stickyHeader
         aria-label="Бэклог"
+        aria-busy={busy ? 'true' : undefined}
         sx={{ tableLayout: 'fixed', width: '100%', minWidth: fixedWidth + table.titleColumnMin }}
       >
         <colgroup>
@@ -1070,6 +1082,7 @@ export function BacklogTable({
           <col style={{ width: table.typeColumn }} />
           <col />
           <col style={{ width: table.stateColumn }} />
+          <col style={{ width: table.teamColumn }} />
           <col style={{ width: table.effortColumn }} />
           <col style={{ width: table.businessValueColumn }} />
           <col style={{ width: table.valueAreaColumn }} />

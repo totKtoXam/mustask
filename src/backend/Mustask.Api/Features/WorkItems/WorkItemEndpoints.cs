@@ -107,16 +107,29 @@ public static class WorkItemEndpoints
         return app;
     }
 
+    // mod-017 api-contract § 3: the team filter is the repeated `teamId` — a team's id or `none`. Nothing is validated here: a
+    // value that names no team of the project selects nothing, and answers alike for each such value.
     private static async Task<IResult> GetWorkItemsAsync(
-        string organizationId, string projectId, int? page, GetWorkItemsHandler handler, CancellationToken cancellationToken) =>
-        Results.Ok((await handler.Handle(new GetWorkItemsQuery(organizationId, projectId, page), cancellationToken)).Page);
+        string organizationId,
+        string projectId,
+        int? page,
+        [Microsoft.AspNetCore.Mvc.FromQuery(Name = "teamId")] string[]? teamId,
+        GetWorkItemsHandler handler,
+        CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new GetWorkItemsQuery(organizationId, projectId, page, teamId), cancellationToken)).Page);
 
     private static async Task<IResult> CreateWorkItemAsync(
         string organizationId, string projectId, CreateWorkItemRequest? request, CreateWorkItemHandler handler, CancellationToken cancellationToken)
     {
         var result = await handler.Handle(
             new CreateWorkItemCommand(
-                organizationId, projectId, request?.RequestId, request?.TypeId, request?.Title, request?.TeamId, request?.ParentId),
+                organizationId,
+                projectId,
+                request?.RequestId,
+                request?.TypeId,
+                request?.Title,
+                request?.Team is { } team ? new TeamChange(team.TeamId) : null,
+                request?.ParentId),
             cancellationToken);
 
         if (!result.Created)
@@ -152,7 +165,8 @@ public static class WorkItemEndpoints
             request?.Assignee is { } assignee ? new AssigneeChange(assignee.UserId) : null,
             request?.AreaId,
             request?.Parent is { } parent ? new ParentChange(parent.ParentId, parent.SeenParentId) : null,
-            request is null ? null : FieldsOf(request));
+            request is null ? null : FieldsOf(request),
+            request?.Team is { } team ? new TeamChange(team.TeamId) : null);
 
         return Results.Ok((await handler.Handle(command, cancellationToken)).Item);
     }
@@ -216,10 +230,13 @@ public static class WorkItemEndpoints
     // --- Request bodies: every field nullable, so a missing one reaches the handler as a validation answer -----
 
     /// <summary>
-    /// <c>teamId</c> is mod-006's (its api-contract § 7): optional, the team surface the item is created from.
-    /// <c>parentId</c> is feat-027's (its api-contract § 3): optional, the item to create the new one beneath.
+    /// <c>team</c> is mod-017's (api-contract § 0.2), in the wrapper of <see cref="TeamRequest"/>: optional, the owning team
+    /// the dialog shows; absent, the item takes the project default team. It replaces mod-006's flat <c>teamId</c>, which a body
+    /// may still carry and which is ignored (unknown properties are, as everywhere).
+    /// <c>parentId</c> is feat-027's (its api-contract § 3): optional, the item to create the new one beneath; a request that
+    /// names a parent never reads <c>team</c>.
     /// </summary>
-    private sealed record CreateWorkItemRequest(string? RequestId, string? TypeId, string? Title, string? TeamId, string? ParentId);
+    private sealed record CreateWorkItemRequest(string? RequestId, string? TypeId, string? Title, TeamRequest? Team, string? ParentId);
 
     /// <summary>
     /// A field that is absent or <c>null</c> is not changed (BR-M3-25); <c>assignee.userId</c> <c>null</c> clears it.
@@ -234,6 +251,7 @@ public static class WorkItemEndpoints
         AssigneeRequest? Assignee,
         string? AreaId,
         ParentChangeRequest? Parent,
+        TeamRequest? Team,
         FieldRequest<int?>? Priority,
         FieldRequest<int?>? Risk,
         FieldRequest<decimal?>? StoryPoints,
@@ -258,6 +276,13 @@ public static class WorkItemEndpoints
     private sealed record FieldRequest<T>(T Value);
 
     private sealed record AssigneeRequest(string? UserId);
+
+    /// <summary>
+    /// mod-017 api-contract § 0.2: the owning team in a wrapper, as <c>assignee</c> is, because a flat <c>null</c> reads as
+    /// «not changed». <c>{ "teamId": null }</c> and <c>{}</c> are «Без команды»; absent, or <c>null</c> in place of the wrapper,
+    /// is not sent.
+    /// </summary>
+    private sealed record TeamRequest(string? TeamId);
 
     /// <summary>feat-001 api-contract § 2.3: <c>parentId</c> <c>null</c> clears; <c>seenParentId</c> <c>null</c> saw none.</summary>
     private sealed record ParentChangeRequest(string? ParentId, string? SeenParentId);

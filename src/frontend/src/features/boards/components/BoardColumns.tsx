@@ -28,11 +28,13 @@ import {
   AssigneeName,
   StateName,
   isPlainClick,
+  teamTexts,
   useSetWorkItemState,
   useWorkItemDialog,
   workItemPath,
   type WorkItemStateReference,
 } from '../../workitems';
+import { TruncatedText, VisuallyHidden } from '../../../shared/ui';
 import { CategoryMarker, TypeMark } from '../../../shared/ui/WorkTrackingMarks';
 import type { BacklogItem, BoardCardItem, BoardColumn, BoardSurface } from '../api/boardsApi';
 import { boardKey } from '../api/queryKeys';
@@ -86,12 +88,17 @@ function dropAreaSx(over: boolean) {
  * card menu is off (`aria-disabled`) and no card is draggable; then the board
  * is read again. A refusal puts the card back and shows its notice.
  */
+/** No team filter: a team's board, or the project's unfiltered. */
+const NO_TEAM_IDS: readonly string[] = [];
+
 export function BoardColumns({
   organizationId,
   projectId,
   scope,
   level,
   board,
+  teamIds = NO_TEAM_IDS,
+  busy = false,
   canWrite,
   newItem,
   stateOf,
@@ -104,15 +111,18 @@ export function BoardColumns({
   scope: BoardScope;
   level: BoardLevelCode;
   board: BoardSurface;
+  /** The project's team filter the board was read under (mod-017 § 3): part of the cache key. */
+  teamIds?: readonly string[];
+  /** Another filter is being read: the columns shown are the previous ones (`aria-busy`). */
+  busy?: boolean;
   /**
    * `workitems.workitem.write` (mod-016 design § 6.2): without it (the reader) a card has no
    * «Ещё действия», no dragging, and the first column no «Новый элемент».
    */
   canWrite: boolean;
   /**
-   * What the first column's «Новый элемент» opens. A team's board has it; the project's has
-   * none (feat-039 BR-PB-6: a creation from a project view starts with a default team, which
-   * `mod-017-work-item-owning-team` brings), and so draws no button.
+   * What the first column's «Новый элемент» opens. A team's board and, since mod-017 lifted
+   * feat-039 BR-PB-6, the project's have it.
    */
   newItem?: Pick<NewWorkItem, 'open' | 'opensMenu' | 'menuOpen'>;
   /** A state's name and category from the process, once it is read. */
@@ -149,6 +159,7 @@ export function BoardColumns({
     projectId,
     scope,
     level,
+    teamIds,
     board,
     view,
     inFlightRef: inFlight,
@@ -205,7 +216,7 @@ export function BoardColumns({
     await readAgain();
     inFlight.current = false;
     view.end(
-      client.getQueryData<BoardSurface>(boardKey(organizationId, projectId, scope, level)),
+      client.getQueryData<BoardSurface>(boardKey(organizationId, projectId, scope, level, teamIds)),
       board,
     );
     if (notice !== null) {
@@ -299,6 +310,7 @@ export function BoardColumns({
       component="section"
       // feat-001 BR-H-16: the board region is named as the page, «Канбан».
       aria-label="Канбан"
+      aria-busy={busy ? 'true' : undefined}
       sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, overflowX: 'auto', pb: 2 }}
     >
       {shown.columns.map((column, columnIndex) => {
@@ -418,8 +430,8 @@ export function BoardColumns({
 /**
  * One card (spec § Page «Доски», BR-M4-14): a 4 px stripe in the type's
  * colour; the type icon, ID and «Заголовок» as a link to the form; the
- * category dot and the state; «Исполнитель», then «Приоритет: <n>» as a
- * caption (feat-022 BR-M3-39); and «Ещё действия: <ID>». The
+ * category dot and the state with the owning team at the right (mod-017); «Исполнитель»,
+ * then «Приоритет: <n>» as a caption (feat-022 BR-M3-39); and «Ещё действия: <ID>». The
  * card itself is the drag source. Memoized, so a drag over one column redraws
  * no card.
  */
@@ -526,9 +538,21 @@ const BoardCard = memo(function BoardCard({
           </IconButton>
         )}
       </Box>
-      <Typography component="div" variant="body2">
-        <StateName state={card.state} />
-      </Typography>
+      {/* mod-017 design § 6.4: the state at the left, the owning team at the right (BR-OT-7). */}
+      <Box sx={{ display: 'flex', alignItems: 'center', columnGap: 1, minWidth: 0 }}>
+        <Typography component="div" variant="body2" sx={{ flex: '1 1 auto', minWidth: 0 }}>
+          <StateName state={card.state} />
+        </Typography>
+        <Typography
+          component="div"
+          variant="caption"
+          color="text.secondary"
+          sx={{ maxWidth: '50%', minWidth: 0, flex: '0 1 auto', ml: 'auto' }}
+        >
+          <VisuallyHidden>Команда: </VisuallyHidden>
+          <TruncatedText>{card.team?.name ?? teamTexts.noTeam}</TruncatedText>
+        </Typography>
+      </Box>
       <Box
         sx={{ display: 'flex', alignItems: 'center', columnGap: 1, flexWrap: 'wrap', minWidth: 0 }}
       >

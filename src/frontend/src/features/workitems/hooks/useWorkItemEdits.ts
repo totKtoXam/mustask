@@ -27,6 +27,7 @@ const CARD_FIELDS: readonly RefusalField[] = [
   'state',
   'assignee',
   'area',
+  'team',
   'parent',
 ];
 

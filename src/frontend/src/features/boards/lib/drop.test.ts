@@ -34,6 +34,7 @@ function node(
     type,
     title: identifier,
     assignee: null,
+    team: null,
     state,
     priority: 2,
     effort: null,

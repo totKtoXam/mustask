@@ -6,32 +6,18 @@ namespace Mustask.Domain.Tests.Organizations;
 
 public sealed class TeamTests
 {
-    // US-4 · "A second team comes with its own area": a child of the root named after it, owned by it and its default.
+    // mod-017 US-4 · "A team added later is an ordinary one" (BR-OT-11): a name and a status, no area, no first-team role.
     [Fact]
-    public void CreateWithArea_AddsARootChildOwnedAndDefault()
+    public void Create_IsAnActiveOrdinaryTeamOfTheProject()
     {
         var project = AProject();
 
-        var created = Team.CreateWithArea(project.Project.Id, Name(" Платформа "), project.Root);
+        var created = Team.Create(project.Project.Id, Name(" Платформа "));
 
-        Assert.Equal("Платформа", created.Team.Name);
-        Assert.False(created.Team.IsFirstTeam);
-        Assert.True(created.Team.IsActive);
-        Assert.Equal(project.Root.Id, created.Area.ParentId);
-        Assert.Equal("Платформа", created.Area.Name);
-        Assert.Equal(created.Team.Id, created.Area.OwnerTeamId);
-        Assert.Equal(created.Team.Id, created.Area.DefaultOfTeamId);
-    }
-
-    [Fact]
-    public void CreateWithArea_UnderAChildOrAnotherProjectsRoot_IsADefect()
-    {
-        var project = AProject();
-        var other = AProject("Другой", "OTH");
-        var child = Area.CreateChild(project.Root, Name("Отчёты"), ownerTeam: null);
-
-        Assert.Throws<ArgumentException>(() => Team.CreateWithArea(project.Project.Id, Name("Т"), child));
-        Assert.Throws<ArgumentException>(() => Team.CreateWithArea(project.Project.Id, Name("Т"), other.Root));
+        Assert.Equal(project.Project.Id, created.ProjectId);
+        Assert.Equal("Платформа", created.Name);
+        Assert.Equal("ПЛАТФОРМА", created.NormalizedName);
+        Assert.True(created.IsActive);
     }
 
     // US-4 · "A team is renamed": only the team's own name changes.
@@ -41,11 +27,11 @@ public sealed class TeamTests
         var project = AProject();
         var second = ASecondTeam(project);
 
-        second.Team.Rename(Name("Ядро"));
+        second.Rename(Name("Ядро"));
 
-        Assert.Equal("Ядро", second.Team.Name);
-        Assert.Equal("ЯДРО", second.Team.NormalizedName);
-        Assert.Equal("Платформа", second.Area.Name);
+        Assert.Equal("Ядро", second.Name);
+        Assert.Equal("ЯДРО", second.NormalizedName);
+        Assert.Equal(project.Project.Id, second.ProjectId);
     }
 
     // US-7 · "A team is deleted": the status is terminal.
@@ -54,22 +40,35 @@ public sealed class TeamTests
     {
         var second = ASecondTeam(AProject());
 
-        second.Team.Delete();
+        second.Delete(activeTeamsOfProject: 2);
 
-        Assert.Equal(TeamStatus.Deleted, second.Team.Status);
-        Assert.False(second.Team.IsActive);
-        Assert.Throws<InvalidOperationException>(second.Team.Delete);
+        Assert.Equal(TeamStatus.Deleted, second.Status);
+        Assert.False(second.IsActive);
+        Assert.Throws<InvalidOperationException>(() => second.Delete(activeTeamsOfProject: 2));
     }
 
-    // US-7 · "The first team cannot be deleted" (BR-M1-18).
+    // mod-017 US-7 · "any team renamed or deleted" (BR-OT-11): no team is the first; the team a project came with goes like
+    // any other while another remains.
     [Fact]
-    public void Delete_FirstTeam_IsRefused()
+    public void Delete_TheTeamTheProjectCameWith_IsAllowedWhenAnotherRemains()
     {
         var project = AProject();
 
-        var refusal = Assert.Throws<ConflictException>(project.FirstTeam.Delete);
+        project.Team.Delete(activeTeamsOfProject: 2);
 
-        Assert.Equal(OrganizationErrorCodes.TeamFirstTeamCannotBeDeleted, refusal.Code);
-        Assert.True(project.FirstTeam.IsActive);
+        Assert.Equal(TeamStatus.Deleted, project.Team.Status);
+    }
+
+    // mod-017 US-7 · "the last team cannot be deleted" (BR-OT-11, the interim guard lifted by feat-028): refused, and the team
+    // stays active.
+    [Fact]
+    public void Delete_LastTeam_IsRefused()
+    {
+        var project = AProject();
+
+        var refusal = Assert.Throws<ConflictException>(() => project.Team.Delete(activeTeamsOfProject: 1));
+
+        Assert.Equal(OrganizationErrorCodes.TeamLastTeamCannotBeDeleted, refusal.Code);
+        Assert.True(project.Team.IsActive);
     }
 }

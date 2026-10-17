@@ -60,9 +60,9 @@ public static class OrganizationsTestData
         });
 
     /// <summary>
-    /// A project with its first team and its root (US-3), active or deactivated. As the create handler does (BR-M1-25), the
-    /// project's creator (<see cref="Creator"/>) is the first team's only member when they are a member of the organization;
-    /// a test that wants the first team empty passes <c>creatorJoinsFirstTeam: false</c>.
+    /// A project with its team and its root (US-3), active or deactivated. As the create handler does (BR-M1-25), the
+    /// project's creator (<see cref="Creator"/>) is that team's only member when they are a member of the organization;
+    /// a test that wants the team empty passes <c>creatorJoinsFirstTeam: false</c>.
     /// </summary>
     public static Task<NewProject> CreateProjectAsync(
         MustaskApiFactory factory,
@@ -86,7 +86,7 @@ public static class OrganizationsTestData
             if (creatorJoinsFirstTeam && await services.GetRequiredService<IMembershipRepository>().ExistsAsync(organizationId, Creator, ct))
             {
                 services.GetRequiredService<ITeamMembershipRepository>()
-                    .Add(TeamMembership.Add(project.FirstTeam.Id, organizationId, Creator));
+                    .Add(TeamMembership.Add(project.Team.Id, organizationId, Creator));
             }
 
             await projects.SaveAsync(ct);
@@ -94,7 +94,7 @@ public static class OrganizationsTestData
             return project;
         });
 
-    /// <summary>An active organization with one project «Пример проекта» (PRM) and a second team «Платформа» with its area.</summary>
+    /// <summary>An active organization with one project «Пример проекта» (PRM) and a second team «Платформа».</summary>
     public static async Task<OrganizationStructure> CreateStructureAsync(
         MustaskApiFactory factory, string? organizationName = null, bool founded = true, bool creatorJoinsFirstTeam = true)
     {
@@ -105,12 +105,11 @@ public static class OrganizationsTestData
         return new OrganizationStructure(organization, project, platform);
     }
 
-    /// <summary>A second or later team with its own area under the root (US-4).</summary>
-    public static Task<NewTeam> AddTeamAsync(MustaskApiFactory factory, Guid projectId, string name) =>
+    /// <summary>A second or later team (US-4): an ordinary one, with no area (mod-017 BR-OT-10).</summary>
+    public static Task<Team> AddTeamAsync(MustaskApiFactory factory, Guid projectId, string name) =>
         InUnitOfWorkAsync(factory, async (services, ct) =>
         {
-            var root = await services.GetRequiredService<IAreaRepository>().LockRootAsync(projectId, forUpdate: false, ct);
-            var team = Team.CreateWithArea(projectId, Name(name), root);
+            var team = Team.Create(projectId, Name(name));
             var teams = services.GetRequiredService<ITeamRepository>();
             teams.Add(team);
             await teams.SaveAsync(ct);
@@ -118,67 +117,58 @@ public static class OrganizationsTestData
             return team;
         });
 
-    /// <summary>A child area, owned explicitly by <paramref name="ownerTeamId"/> or inheriting (US-5, US-6).</summary>
-    public static Task<Area> AddAreaAsync(MustaskApiFactory factory, Guid projectId, Guid parentId, string name, Guid? ownerTeamId = null) =>
+    /// <summary>A child area (US-5): it owns nothing and has no team (mod-017 BR-OT-10).</summary>
+    public static Task<Area> AddAreaAsync(MustaskApiFactory factory, Guid projectId, Guid parentId, string name) =>
         InUnitOfWorkAsync(factory, async (services, ct) =>
         {
-            var owner = ownerTeamId is { } teamId
-                ? await services.GetRequiredService<ITeamRepository>().LockForShareAsync(projectId, teamId, ct)
-                : null;
             var areas = services.GetRequiredService<IAreaRepository>();
             var parent = await areas.LockForShareAsync(projectId, parentId, ct)
                 ?? throw new ArgumentException("The parent is not an area of the project.", nameof(parentId));
-            var area = Area.CreateChild(parent, Name(name), owner);
+            var area = Area.CreateChild(parent, Name(name));
             areas.Add(area);
             await areas.SaveAsync(ct);
 
             return area;
         });
 
-    /// <summary>Deletes a team as US-7 does: its explicit areas pass to the first team, then the team is deleted.</summary>
-    public static Task DeleteTeamAsync(MustaskApiFactory factory, Guid projectId, Guid teamId) =>
-        InUnitOfWorkAsync(factory, async (services, ct) =>
-        {
-            var teams = services.GetRequiredService<ITeamRepository>();
-            var team = await teams.LockForUpdateAsync(projectId, teamId, ct)
-                ?? throw new ArgumentException("The team is not a team of the project.", nameof(teamId));
-            var first = await teams.GetFirstTeamAsync(projectId, ct);
+    /// <summary>
+    /// Deletes a team as US-7 does (mod-017 BR-OT-12): through the use case itself, in its own unit of work — the items the team
+    /// owns go to «Без команды», its places and a default setting that named it go, its memberships end. The project must have
+    /// another team (BR-OT-11).
+    /// </summary>
+    public static async Task DeleteTeamAsync(MustaskApiFactory factory, Guid projectId, Guid teamId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var project = await scope.ServiceProvider.GetRequiredService<Mustask.Application.Features.Organizations.IOrganizationStructure>()
+            .FindProjectAsync(projectId, CancellationToken.None)
+            ?? throw new ArgumentException("No such project.", nameof(projectId));
 
-            await teams.ReassignExplicitAreasAsync(team.Id, first.Id, ct);
-            team.Delete();
-            await teams.SaveAsync(ct);
-
-            return true;
-        });
+        await scope.ServiceProvider
+            .GetRequiredService<Mustask.Application.Features.Organizations.DeleteTeam.DeleteTeamHandler>()
+            .Handle(
+                new Mustask.Application.Features.Organizations.DeleteTeam.DeleteTeamCommand(
+                    project.OrganizationId.ToString(), projectId.ToString(), teamId.ToString()),
+                CancellationToken.None);
+    }
 
     /// <summary>
-    /// Makes <paramref name="areaId"/> the team's default area as US-4 does, without the endpoint, so a test needs no other
-    /// use case: the team <c>FOR NO KEY UPDATE</c>, then the current default and the new area <c>FOR UPDATE</c> in one
-    /// statement, the domain rule, and the old mark cleared and flushed before the new one is set, because the default
-    /// index is checked row by row (plan-backend § 8.2). Answers whether anything changed; the domain's refusal is thrown.
+    /// Names the project's default team (or clears the setting with <c>null</c>) as <c>PUT …/default-team</c> does, without the
+    /// endpoint (mod-017 BR-OT-4): the team <c>FOR SHARE</c>, the project row after it, the domain's write.
     /// </summary>
-    public static Task<bool> SetTeamDefaultAreaAsync(MustaskApiFactory factory, Guid projectId, Guid teamId, Guid areaId) =>
+    public static Task SetDefaultTeamAsync(MustaskApiFactory factory, Guid organizationId, Guid projectId, Guid? teamId) =>
         InUnitOfWorkAsync(factory, async (services, ct) =>
         {
-            var teams = services.GetRequiredService<ITeamRepository>();
-            var areas = services.GetRequiredService<IAreaRepository>();
-            var team = await teams.LockForNoKeyUpdateAsync(projectId, teamId, ct)
-                ?? throw new ArgumentException("The team is not a team of the project.", nameof(teamId));
-            var currentId = (await areas.GetNodesAsync(projectId, ct)).Single(node => node.DefaultOfTeamId == team.Id).Id;
-            var locked = await areas.LockManyForUpdateAsync(projectId, [currentId, areaId], ct);
-            var current = locked.Single(area => area.Id == currentId);
-            var next = locked.SingleOrDefault(area => area.Id == areaId)
-                ?? throw new ArgumentException("The area is not an area of the project.", nameof(areaId));
-
-            if (!TeamDefaultArea.RequiresChange(team, current, next))
+            if (teamId is { } id)
             {
-                return false;
+                _ = await services.GetRequiredService<ITeamRepository>().LockForShareAsync(projectId, id, ct);
             }
 
-            current.ClearDefault();
-            await areas.SaveAsync(ct);
-            next.MarkDefaultOf(team);
-            await areas.SaveAsync(ct);
+            var projects = services.GetRequiredService<IProjectRepository>();
+            var project = await projects.LockAsync(organizationId, projectId, ct)
+                ?? throw new ArgumentException("No such project in the organization.", nameof(projectId));
+
+            project.NameDefaultTeam(teamId);
+            await projects.SaveAsync(ct);
 
             return true;
         });
@@ -247,7 +237,7 @@ public static class OrganizationsTestData
 }
 
 /// <summary>What <see cref="OrganizationsTestData.CreateStructureAsync"/> wrote.</summary>
-public sealed record OrganizationStructure(Organization Organization, NewProject Project, NewTeam Platform)
+public sealed record OrganizationStructure(Organization Organization, NewProject Project, Team Platform)
 {
     public Guid OrganizationId => Organization.Id;
 
@@ -255,5 +245,6 @@ public sealed record OrganizationStructure(Organization Organization, NewProject
 
     public Guid RootId => Project.Root.Id;
 
-    public Guid FirstTeamId => Project.FirstTeam.Id;
+    /// <summary>The team the project was created with: an ordinary team (mod-017 BR-OT-11).</summary>
+    public Guid ProjectTeamId => Project.Team.Id;
 }

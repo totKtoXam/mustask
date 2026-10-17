@@ -119,8 +119,8 @@ public sealed class GetMembersEndpointTests(MustaskApiFactory factory)
         await MembershipTestData.ProjectUserAsync(factory, disabled, $"Олег{tag}", "Иванов", "oleg@example.org", active: false);
         await MembershipTestData.AddMemberAsync(factory, structure.OrganizationId, disabled, OrganizationRole.Viewer);
         await MembershipTestData.AddMemberAsync(factory, structure.OrganizationId, ghost, OrganizationRole.Admin);
-        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.Platform.Team.Id, disabled);
-        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.Platform.Team.Id, ghost);
+        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.Platform.Id, disabled);
+        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.Platform.Id, ghost);
         var reader = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, OrganizationRole.Member);
 
         var members = Items(await GetAsync(structure.OrganizationId, reader.Token));
@@ -143,7 +143,7 @@ public sealed class GetMembersEndpointTests(MustaskApiFactory factory)
         Assert.True(positions[ghost] > positions[reader.Id] || Name(members[positions[reader.Id]].GetProperty("user")) is null);
 
         // They keep their team memberships (BR-M1-17).
-        Assert.Equal(2, (await MembershipTestData.TeamMemberIdsAsync(factory, structure.Platform.Team.Id)).Count);
+        Assert.Equal(2, (await MembershipTestData.TeamMemberIdsAsync(factory, structure.Platform.Id)).Count);
     }
 
     // doc-006 US-3 scenario 14 · "a re-enabled account loses «неактивен»": a projection update flips the state back.

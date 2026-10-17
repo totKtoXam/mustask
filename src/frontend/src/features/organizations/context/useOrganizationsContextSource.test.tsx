@@ -98,8 +98,8 @@ describe('mod-002 US-8 Scenario: The switcher lists active organizations, projec
   });
 });
 
-describe('mod-002 US-8 Scenario: The default team is the first team', () => {
-  it('a project choice selects the project’s first team', async () => {
+describe('mod-002 US-8 Scenario: The default team is the list’s first team (mod-017 BR-OT-11: by name)', () => {
+  it('a project choice selects the list’s first team, «Платформа»', async () => {
     serveOrganizations();
     const { result } = mount();
     await settled(result);
@@ -107,12 +107,12 @@ describe('mod-002 US-8 Scenario: The default team is the first team', () => {
     act(() => result.current.select('project', ids.prm));
     await settled(result);
 
-    expect(shown(result.current)).toEqual(['Альфа', 'Пример проекта', 'Пример проекта']);
+    expect(shown(result.current)).toEqual(['Альфа', 'Пример проекта', 'Платформа']);
   });
 });
 
 describe('mod-002 US-8 Scenario: The address sets the switcher', () => {
-  it('«Бета» chosen, the settings of «Пример проекта» in «Альфа» opened: «Альфа», «Пример проекта», its first team, remembered', async () => {
+  it('«Бета» chosen, the settings of «Пример проекта» in «Альфа» opened: «Альфа», «Пример проекта», the list’s first team, remembered', async () => {
     serveOrganizations();
     remember({ organizationId: ids.beta, projectId: ids.rep, teamId: ids.repTeam });
     const { result } = mount({
@@ -122,13 +122,13 @@ describe('mod-002 US-8 Scenario: The address sets the switcher', () => {
     await waitFor(() => expect(result.current.selection.projectId).toBe(ids.prm));
     await settled(result);
 
-    expect(shown(result.current)).toEqual(['Альфа', 'Пример проекта', 'Пример проекта']);
+    expect(shown(result.current)).toEqual(['Альфа', 'Пример проекта', 'Платформа']);
     expect(result.current.fallback ?? null).toBeNull();
     await waitFor(() =>
       expect(remembered()).toEqual({
         organizationId: ids.alfa,
         projectId: ids.prm,
-        teamId: ids.prmTeam,
+        teamId: ids.platformTeam,
       }),
     );
   });
@@ -175,7 +175,7 @@ describe('mod-002 US-8 Scenario: The address sets the switcher', () => {
 
     await waitFor(() => expect(result.current.selection.projectId).toBe(ids.prm));
     await settled(result);
-    expect(result.current.selection.teamId).toBe(ids.prmTeam);
+    expect(result.current.selection.teamId).toBe(ids.platformTeam);
   });
 });
 

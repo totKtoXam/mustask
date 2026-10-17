@@ -8,9 +8,9 @@ namespace Mustask.Application.Features.Organizations.CreateArea;
 
 /// <summary>
 /// <c>POST /api/organizations/{organizationId}/projects/{projectId}/areas</c>
-/// (US-5 "A child area is created under any node", US-6 "created with or
-/// without an owner"). The reference use case of the module (plan-backend
-/// § 14.2): the lanes copy its order of answers, its locks and its race
+/// (US-5 "A child area is created under any node"; mod-017 US-6, BR-OT-10: an area owns nothing, so there is no owner to
+/// choose). The reference use case of the module (plan-backend § 14.2): the
+/// lanes copy its order of answers, its locks and its race
 /// handling.
 /// </summary>
 /// <remarks>
@@ -18,22 +18,18 @@ namespace Mustask.Application.Features.Organizations.CreateArea;
 /// <b>The order of answers</b> (plan-backend § 5.3, api-contract § 0.4), one
 /// numbered step each below: the address from the outside in; rules about the
 /// addressed object alone (none here: the address ends at the project); the
-/// values in the body, every reason at once; the references in the body, in
-/// lock order; the uniqueness pre-check; the save.
+/// values in the body, every reason at once; the parent in the body; the uniqueness pre-check; the save.
 /// </para>
 /// <para>
-/// <b>Locks</b> (plan-backend § 8.2): the owner team <c>FOR SHARE</c> (a team
-/// being deleted holds it <c>FOR UPDATE</c>, so the two serialize and the
-/// re-check of <c>Active</c> after the lock sees the outcome, ADR-0026 rule 8),
-/// then the parent <c>FOR SHARE</c> (a leaf being deleted holds it
+/// <b>Locks</b> (plan-backend § 8.2): the parent <c>FOR SHARE</c> (a leaf being deleted holds it
 /// <c>FOR UPDATE</c>, so no child is ever left under a deleted parent,
-/// BR-M1-13). The project is not locked: a write beneath only reads its
-/// containers' status (ADR-0026 rule 8).
+/// BR-M1-13). No team is locked: an area has none (mod-017 BR-OT-10). The project is not locked: a write beneath only reads its
+/// containers' status (ADR-0026 rule 8). An <c>ownerTeamId</c> that an old client still sends is ignored, as any unknown
+/// property is.
 /// </para>
 /// </remarks>
 public sealed class CreateAreaHandler(
     IProjectRepository projects,
-    ITeamRepository teams,
     IAreaRepository areas,
     IUnitOfWork unitOfWork)
 {
@@ -64,10 +60,8 @@ public sealed class CreateAreaHandler(
                         new Dictionary<string, IReadOnlyList<FieldError>> { ["name"] = [EntityName.LengthReason] });
                 }
 
-                // 4. References in the body, in lock order: the owner team, then the parent area. A reference that is
-                // malformed, unknown, not active or of another project gets its level's not-found code (BR-M1-22).
-                var owner = await LockOwnerAsync(projectId, command.OwnerTeamId, ct);
-
+                // 4. References in the body: the parent area. A reference that is malformed, unknown or of another project
+                // gets its level's not-found code (BR-M1-22).
                 if (!AddressedId.TryParse(command.ParentId, out var parentId))
                 {
                     throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
@@ -82,39 +76,14 @@ public sealed class CreateAreaHandler(
                     throw new ConflictException(OrganizationErrorCodes.AreaNameTaken);
                 }
 
-                var area = Area.CreateChild(parent, name, owner);
+                var area = Area.CreateChild(parent, name);
                 areas.Add(area);
 
                 // 6. Save. A concurrent creation of the same sibling name that committed first fails this insert on
                 // the sibling index, and the repository answers it with the pre-check's code (plan-backend § 6.3).
                 await areas.SaveAsync(ct);
 
-                return new CreateAreaResult(new AreaResponse(area.Id, area.ProjectId, parent.Id, area.Name, area.OwnerTeamId));
+                return new CreateAreaResult(new AreaResponse(area.Id, area.ProjectId, parent.Id, area.Name));
             },
             cancellationToken);
-
-    /// <summary>
-    /// <c>null</c> or absent: the area inherits (US-6). Otherwise an active team of
-    /// this project, locked <c>FOR SHARE</c> and re-checked after the lock: a team
-    /// deleted meanwhile answers <see cref="OrganizationErrorCodes.TeamNotFound"/>
-    /// (US-7, ADR-0026 rule 8).
-    /// </summary>
-    private async Task<Team?> LockOwnerAsync(Guid projectId, string? ownerTeamId, CancellationToken cancellationToken)
-    {
-        if (ownerTeamId is null)
-        {
-            return null;
-        }
-
-        if (!AddressedId.TryParse(ownerTeamId, out var teamId))
-        {
-            throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
-        }
-
-        var owner = await teams.LockForShareAsync(projectId, teamId, cancellationToken);
-
-        return owner is { IsActive: true }
-            ? owner
-            : throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
-    }
 }

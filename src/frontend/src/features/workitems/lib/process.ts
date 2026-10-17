@@ -41,6 +41,11 @@ export interface CreatableType {
   /** The appearance token the theme draws. */
   appearance: string;
   initialStateName: string;
+  /**
+   * Its level has a backlog (mod-017 design § 4): the creation dialog says where the item
+   * will stand. A «Задача» has none before feat-023, so neither line reads for it.
+   */
+  onBacklog: boolean;
 }
 
 /**
@@ -73,12 +78,19 @@ export function parentHelperText(types: readonly Pick<WorkItemType, 'name'>[]): 
     : null;
 }
 
-/** The process's types as the dialog offers them, in the order the read gives them. */
-export function creatableTypes(types: readonly WorkItemType[]): CreatableType[] {
+/**
+ * The process's types as the dialog offers them, in the order the read gives them. A type is on a
+ * backlog unless its level is the task level (`kind: 'task'`); without the levels every type is.
+ */
+export function creatableTypes(
+  types: readonly WorkItemType[],
+  levels: ProcessDefinitionResponse['backlogLevels'] = [],
+): CreatableType[] {
   return types.map((type) => ({
     id: type.id,
     name: type.name,
     appearance: type.appearance,
     initialStateName: initialState(type)?.name ?? '',
+    onBacklog: levels.find((level) => level.id === type.backlogLevel.id)?.kind !== 'task',
   }));
 }

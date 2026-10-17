@@ -53,7 +53,7 @@ public sealed class AddTeamMemberEndpointTests(MustaskApiFactory factory)
         var tag = Tag();
         var (structure, token, _) = await WorldAsync();
         var vera = await MemberUserAsync(structure, $"Вера{tag}", "Новикова", "vera@example.org", role: OrganizationRole.Viewer);
-        var teamId = structure.Platform.Team.Id;
+        var teamId = structure.Platform.Id;
 
         var answer = await AddAsync(structure, teamId, new { userId = vera }, token);
 
@@ -75,7 +75,7 @@ public sealed class AddTeamMemberEndpointTests(MustaskApiFactory factory)
     {
         var (structure, token, _) = await WorldAsync();
         var vera = await MemberUserAsync(structure, "Вера", "Листинг");
-        var teamId = structure.Platform.Team.Id;
+        var teamId = structure.Platform.Id;
 
         await AddAsync(structure, teamId, new { userId = vera }, token);
         var listed = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, TeamPath(structure, teamId), token: token);
@@ -91,7 +91,7 @@ public sealed class AddTeamMemberEndpointTests(MustaskApiFactory factory)
     {
         var (structure, token, _) = await WorldAsync();
         var other = await OrganizationsTestData.CreateOrganizationAsync(factory);
-        var teamId = structure.Platform.Team.Id;
+        var teamId = structure.Platform.Id;
         var projectedOnly = await WorkItemsTestData.AddUserAsync(factory, "Вера", "Посторонняя");
         var elsewhere = await WorkItemsTestData.AddUserAsync(factory, "Вера", "Соседняя");
         await MembershipTestData.AddMemberAsync(factory, other.Id, elsewhere);
@@ -116,11 +116,11 @@ public sealed class AddTeamMemberEndpointTests(MustaskApiFactory factory)
     {
         var (structure, token, _) = await WorldAsync();
         var vera = await MemberUserAsync(structure, "Вера", "Дважды");
-        var teamId = structure.Platform.Team.Id;
+        var teamId = structure.Platform.Id;
 
         var first = await AddAsync(structure, teamId, new { userId = vera }, token);
         var second = await AddAsync(structure, teamId, new { userId = vera }, token);
-        var other = await AddAsync(structure, structure.FirstTeamId, new { userId = vera }, token);
+        var other = await AddAsync(structure, structure.ProjectTeamId, new { userId = vera }, token);
 
         Assert.Equal(HttpStatusCode.Created, first.Status);
         Assert.Equal((HttpStatusCode.Conflict, "organizations.team.member_exists"), (second.Status, second.ErrorCode));
@@ -138,9 +138,9 @@ public sealed class AddTeamMemberEndpointTests(MustaskApiFactory factory)
     {
         var (structure, token, _) = await WorldAsync();
 
-        var answer = await AddAsync(structure, structure.Platform.Team.Id, new { userId }, token);
-        var empty = await AddAsync(structure, structure.Platform.Team.Id, new { }, token);
-        var tooLong = await AddAsync(structure, structure.Platform.Team.Id, new { userId = new string('u', 256) }, token);
+        var answer = await AddAsync(structure, structure.Platform.Id, new { userId }, token);
+        var empty = await AddAsync(structure, structure.Platform.Id, new { }, token);
+        var tooLong = await AddAsync(structure, structure.Platform.Id, new { userId = new string('u', 256) }, token);
 
         foreach (var refused in new[] { answer, empty, tooLong })
         {
@@ -158,16 +158,16 @@ public sealed class AddTeamMemberEndpointTests(MustaskApiFactory factory)
         var vera = await MemberUserAsync(structure, "Вера", "Адресная");
         var otherProject = await OrganizationsTestData.CreateProjectAsync(factory, structure.OrganizationId, "Другой проект", "OTH");
         var deleted = await OrganizationsTestData.AddTeamAsync(factory, structure.ProjectId, "Удалённая");
-        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, deleted.Team.Id);
+        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, deleted.Id);
         var organization = OrganizationsApi.Organization(structure.OrganizationId);
         var body = new { userId = vera };
 
         var wrongTeams = new[]
         {
-            $"{organization}/projects/{structure.ProjectId}/teams/{deleted.Team.Id}/members",
+            $"{organization}/projects/{structure.ProjectId}/teams/{deleted.Id}/members",
             $"{organization}/projects/{structure.ProjectId}/teams/{Guid.CreateVersion7()}/members",
             $"{organization}/projects/{structure.ProjectId}/teams/abc/members",
-            $"{organization}/projects/{structure.ProjectId}/teams/{otherProject.FirstTeam.Id}/members",
+            $"{organization}/projects/{structure.ProjectId}/teams/{otherProject.Team.Id}/members",
         };
 
         foreach (var path in wrongTeams)
@@ -178,7 +178,7 @@ public sealed class AddTeamMemberEndpointTests(MustaskApiFactory factory)
         }
 
         var wrongProject = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Post, $"{organization}/projects/{Guid.CreateVersion7()}/teams/{structure.Platform.Team.Id}/members", body, token);
+            factory, HttpMethod.Post, $"{organization}/projects/{Guid.CreateVersion7()}/teams/{structure.Platform.Id}/members", body, token);
 
         Assert.Equal((HttpStatusCode.NotFound, "organizations.project.not_found"), (wrongProject.Status, wrongProject.ErrorCode));
         Assert.Empty(await MembershipTestData.TeamMembershipsOfAsync(factory, vera));
@@ -193,7 +193,7 @@ public sealed class AddTeamMemberEndpointTests(MustaskApiFactory factory)
         var (structure, token, _) = await WorldAsync();
         var unknown = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, OrganizationRole.Admin);
 
-        var answer = await AddAsync(structure, structure.Platform.Team.Id, new { userId = unknown.Id }, token);
+        var answer = await AddAsync(structure, structure.Platform.Id, new { userId = unknown.Id }, token);
 
         Assert.Equal((HttpStatusCode.Conflict, NotInOrganization), (answer.Status, answer.ErrorCode));
     }
@@ -206,7 +206,7 @@ public sealed class AddTeamMemberEndpointTests(MustaskApiFactory factory)
         var (structure, token, _) = await WorldAsync();
         var second = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, OrganizationRole.Admin);
         var vera = await MemberUserAsync(structure, "Вера", "Гонка");
-        var teamId = structure.Platform.Team.Id;
+        var teamId = structure.Platform.Id;
 
         var answers = await Task.WhenAll(AddAsync(structure, teamId, new { userId = vera }, token), AddAsync(structure, teamId, new { userId = vera }, second.Token));
 
@@ -223,7 +223,7 @@ public sealed class AddTeamMemberEndpointTests(MustaskApiFactory factory)
     {
         var (structure, token, _) = await WorldAsync();
         var vera = await MemberUserAsync(structure, "Вера", "Команда");
-        var teamId = structure.Platform.Team.Id;
+        var teamId = structure.Platform.Id;
         using var gate = factory.CommitGates.Open();
 
         var add = AddAsync(structure, teamId, new { userId = vera }, token, gate);
@@ -252,7 +252,7 @@ public sealed class AddTeamMemberEndpointTests(MustaskApiFactory factory)
     {
         var (structure, token, _) = await WorldAsync();
         var vera = await MemberUserAsync(structure, "Вера", "Удаление");
-        var teamId = structure.Platform.Team.Id;
+        var teamId = structure.Platform.Id;
         using var gate = factory.CommitGates.Open();
 
         var deletion = OrganizationsApi.SendAsync(
@@ -282,10 +282,10 @@ public sealed class AddTeamMemberEndpointTests(MustaskApiFactory factory)
         var caller = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, role);
         var vera = await MemberUserAsync(structure, "Вера", "Закрытая");
 
-        var answer = await AddAsync(structure, structure.Platform.Team.Id, new { userId = vera }, caller.Token);
+        var answer = await AddAsync(structure, structure.Platform.Id, new { userId = vera }, caller.Token);
 
         Assert.Equal((HttpStatusCode.Forbidden, "organizations.access.forbidden"), (answer.Status, answer.ErrorCode));
-        Assert.Empty(await MembershipTestData.TeamMemberIdsAsync(factory, structure.Platform.Team.Id));
+        Assert.Empty(await MembershipTestData.TeamMemberIdsAsync(factory, structure.Platform.Id));
     }
 
     // US-2 · "A non-member gets «Организация не найдена»" and 401 without a token.
@@ -296,8 +296,8 @@ public sealed class AddTeamMemberEndpointTests(MustaskApiFactory factory)
         var vera = await MemberUserAsync(structure, "Вера", "Чужая");
         var body = new { userId = vera };
 
-        var nonMember = await AddAsync(structure, structure.Platform.Team.Id, body, MembershipTestData.Outsider());
-        var anonymous = await AddAsync(structure, structure.Platform.Team.Id, body, token: null);
+        var nonMember = await AddAsync(structure, structure.Platform.Id, body, MembershipTestData.Outsider());
+        var anonymous = await AddAsync(structure, structure.Platform.Id, body, token: null);
 
         Assert.Equal((HttpStatusCode.NotFound, "organizations.organization.not_found"), (nonMember.Status, nonMember.ErrorCode));
         Assert.Equal(HttpStatusCode.Unauthorized, anonymous.Status);

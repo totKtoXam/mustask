@@ -23,6 +23,9 @@ export const organizationsKeys = {
   /** Every team page of a project. */
   teamPages: (organizationId: string, projectId: string) =>
     [ROOT, 'team', organizationId, projectId] as const,
+  /** mod-017 § 2.9: what one team's deletion would reassign. */
+  ownedItemsCount: (organizationId: string, projectId: string, teamId: string) =>
+    [ROOT, 'owned-items-count', organizationId, projectId, teamId] as const,
   areas: (organizationId: string, projectId: string) =>
     [ROOT, 'areas', organizationId, projectId] as const,
   /**

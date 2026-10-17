@@ -163,7 +163,7 @@ describe('mod-002 US-8 Scenario: A project switch on a project-level page', () =
   it('on «Области» of «Пример проекта», «Аналитика» opens the «Области» of «Аналитика»', async () => {
     serve();
     renderApp(`/organizations/${ids.alfa}/projects/${ids.prm}/settings/areas`);
-    await expectLevels(['Организация: Альфа', 'Проект: Пример проекта', 'Команда: Пример проекта']);
+    await expectLevels(['Организация: Альфа', 'Проект: Пример проекта', 'Команда: Платформа']);
 
     await choose(/^Проект:/, 'Аналитика');
 
@@ -181,7 +181,7 @@ describe('mod-002 US-8 Scenario: A project switch on a project-level page', () =
       active: true,
     });
     renderApp(`/organizations/${ids.alfa}/projects/${ids.prm}/settings/general`);
-    await expectLevels(['Организация: Альфа', 'Проект: Пример проекта', 'Команда: Пример проекта']);
+    await expectLevels(['Организация: Альфа', 'Проект: Пример проекта', 'Команда: Платформа']);
 
     await choose(/^Организация:/, 'Бета');
     await waitFor(() =>
@@ -198,7 +198,7 @@ describe('mod-002 US-8 Scenario: A page addressing one team lands on its entry�
     serve();
     renderApp(`/organizations/${ids.alfa}/projects/${ids.prm}/settings/teams/${ids.platformTeam}`);
     await screen.findByRole('heading', { level: 1, name: 'Команда: Платформа' });
-    await expectLevels(['Организация: Альфа', 'Проект: Пример проекта', 'Команда: Пример проекта']);
+    await expectLevels(['Организация: Альфа', 'Проект: Пример проекта', 'Команда: Платформа']);
 
     await choose(/^Проект:/, 'Аналитика');
 
@@ -248,7 +248,7 @@ describe('mod-002 US-8 Scenario: Own changes without a reload', () => {
     serve();
     renderApp(`/organizations/${ids.alfa}/projects/${ids.prm}/settings/teams`);
     await screen.findByRole('table', { name: 'Команды' });
-    await expectLevels(['Организация: Альфа', 'Проект: Пример проекта', 'Команда: Пример проекта']);
+    await expectLevels(['Организация: Альфа', 'Проект: Пример проекта', 'Команда: Платформа']);
 
     await userEvent.click(screen.getByRole('button', { name: 'Добавить команду' }));
     const add = await screen.findByRole('dialog', { name: 'Новая команда' });
@@ -266,11 +266,11 @@ describe('mod-002 US-8 Scenario: Own changes without a reload', () => {
 
     expect(
       await screen.findByText(
-        'Ранее выбранный контекст недоступен. Выбрано: Альфа / Пример проекта / Пример проекта.',
+        'Ранее выбранный контекст недоступен. Выбрано: Альфа / Пример проекта / Платформа.',
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText('Команда «Ядро» удалена.')).not.toBeInTheDocument();
-    await expectLevels(['Организация: Альфа', 'Проект: Пример проекта', 'Команда: Пример проекта']);
+    await expectLevels(['Организация: Альфа', 'Проект: Пример проекта', 'Команда: Платформа']);
   });
 
   it('deactivating «Альфа» from its «Общие»: the deactivated list opens, the switcher on «Бета», the notice the fallback’s only', async () => {

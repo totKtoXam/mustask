@@ -29,20 +29,20 @@ public sealed class RestoreProjectEndpointTests(MustaskApiFactory factory)
     private Task<Answer> RestoreAsync(OrganizationStructure structure) =>
         RestoreAsync(structure.OrganizationId, structure.ProjectId.ToString());
 
-    // US-3 · "A deactivated project is restored exactly as it was": back with its name, key, teams, default areas and area
-    // tree as before. The structure has a second team with an explicitly owned child, a child that inherits, and a team
-    // deleted before the deactivation (its area passed to the first team), which stays deleted.
+    // US-3 · "A deactivated project is restored exactly as it was": back with its name, key, teams, default-team setting and
+    // area tree as before. The structure names «Платформа» the project's default team, has areas of its own, and a team deleted
+    // before the deactivation, which stays deleted. Renamed (D-16, BR-OT-14): Restore_BringsBackKeyTeamsDefaultsAndTree ->
+    // Restore_BringsBackKeyTeamsTheDefaultTeamAndTree.
     [Fact]
-    public async Task Restore_BringsBackKeyTeamsDefaultsAndTree()
+    public async Task Restore_BringsBackKeyTeamsTheDefaultTeamAndTree()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var reports = await OrganizationsTestData.AddAreaAsync(
-            factory, structure.ProjectId, structure.RootId, "Отчёты", structure.Platform.Team.Id);
+        var reports = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Отчёты");
         await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, reports.Id, "Квартальные");
         await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Архив");
         var core = await OrganizationsTestData.AddTeamAsync(factory, structure.ProjectId, "Ядро");
-        await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, core.Area.Id, "Сервисы", core.Team.Id);
-        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, core.Team.Id);
+        await OrganizationsTestData.SetDefaultTeamAsync(factory, structure.OrganizationId, structure.ProjectId, structure.Platform.Id);
+        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, core.Id);
         var before = await SnapshotAsync(structure);
         await OrganizationsTestData.SetProjectStatusAsync(factory, structure.OrganizationId, structure.ProjectId, ProjectStatus.Deactivated);
         Assert.False((await ReadProjectAsync(structure.ProjectId)).IsReachable);
@@ -61,8 +61,8 @@ public sealed class RestoreProjectEndpointTests(MustaskApiFactory factory)
         Assert.Equal(ProjectStatus.Active, restored.Status);
         Assert.True(restored.IsReachable);
         Assert.Equal(before, await SnapshotAsync(structure));
-        Assert.Equal(TeamStatus.Deleted, (await ReadTeamAsync(core.Team.Id)).Status);
-        Assert.Equal(TeamStatus.Active, (await ReadTeamAsync(structure.Platform.Team.Id)).Status);
+        Assert.Equal(TeamStatus.Deleted, (await ReadTeamAsync(core.Id)).Status);
+        Assert.Equal(TeamStatus.Active, (await ReadTeamAsync(structure.Platform.Id)).Status);
     }
 
     // api-contract § 2.7 · "Restoring an active project changes nothing and answers 200": the same shape, nothing written.
@@ -216,10 +216,10 @@ public sealed class RestoreProjectEndpointTests(MustaskApiFactory factory)
 
         var lines = new List<string>
         {
-            $"project {project.Id}|{project.OrganizationId}|{project.Name}|{project.Key}|{project.FirstTeamId}|{project.RootAreaId}|{project.CreatedBy}|{project.CreatedAt:O}",
+            $"project {project.Id}|{project.OrganizationId}|{project.Name}|{project.Key}|{project.DefaultTeamId}|{project.RootAreaId}|{project.CreatedBy}|{project.CreatedAt:O}",
         };
-        lines.AddRange(teams.Select(team => $"team {team.Id}|{team.Name}|{team.Status}|{team.IsFirstTeam}|{team.DefaultAreaId}"));
-        lines.AddRange(tree.PreOrder().Select(node => $"area {node.Id}|{node.ParentId}|{node.Name}|{node.OwnerTeamId}|{node.DefaultOfTeamId}"));
+        lines.AddRange(teams.Select(team => $"team {team.Id}|{team.Name}|{team.Status}"));
+        lines.AddRange(tree.PreOrder().Select(node => $"area {node.Id}|{node.ParentId}|{node.Name}"));
 
         return string.Join(Environment.NewLine, lines);
     }

@@ -42,6 +42,7 @@ const HEADERS = [
   'Тип',
   'Заголовок',
   'Статус',
+  'Команда',
   'Трудоёмкость',
   'Бизнес-ценность',
   'Вид ценности',
@@ -55,7 +56,7 @@ function headerNames(table: HTMLElement): string[] {
 }
 
 describe('US-1 Scenario: The columns stand in the reference screen’s order', () => {
-  it('reads «Иерархия», «Порядок», «Тип», «Заголовок», «Статус», «Трудоёмкость», «Бизнес-ценность», «Вид ценности» — and no ID, «Родитель», «Исполнитель», «Приоритет», «Действия» or handle column', async () => {
+  it('reads «Иерархия», «Порядок», «Тип», «Заголовок», «Статус», «Команда», «Трудоёмкость», «Бизнес-ценность», «Вид ценности» — and no ID, «Родитель», «Исполнитель», «Приоритет», «Действия» or handle column', async () => {
     serveBoards(fullTreeDataset());
     renderBoards(backlogAddress('epics'));
 
@@ -65,7 +66,7 @@ describe('US-1 Scenario: The columns stand in the reference screen’s order', (
     for (const gone of ['ID', 'Родитель', 'Исполнитель', 'Приоритет', 'Действия', 'Перемещение']) {
       expect(within(table).queryByRole('columnheader', { name: gone })).toBeNull();
     }
-    expect(within(table).getAllByRole('columnheader')).toHaveLength(8);
+    expect(within(table).getAllByRole('columnheader')).toHaveLength(9);
   });
 
   it('«Фичи» and «Истории» have the same headers', async () => {
@@ -94,7 +95,7 @@ describe('US-1 Scenario: The columns stand in the reference screen’s order', (
     }
   });
 
-  it('draws the header separators after «Тип», «Заголовок», «Статус», «Трудоёмкость» and «Бизнес-ценность» only', async () => {
+  it('draws the header separators after «Тип», «Заголовок», «Статус», «Команда», «Трудоёмкость» and «Бизнес-ценность» only', async () => {
     serveBoards(fullTreeDataset());
     renderBoards(backlogAddress('epics'));
     const table = await findBacklogTable();
@@ -103,18 +104,35 @@ describe('US-1 Scenario: The columns stand in the reference screen’s order', (
       .getAllByRole('columnheader')
       .filter((header) => header.classList.contains('BacklogHead-separated'))
       .map((header) => header.textContent);
-    expect(separated).toEqual(['Тип', 'Заголовок', 'Статус', 'Трудоёмкость', 'Бизнес-ценность']);
+    expect(separated).toEqual([
+      'Тип',
+      'Заголовок',
+      'Статус',
+      'Команда',
+      'Трудоёмкость',
+      'Бизнес-ценность',
+    ]);
   });
 
-  it('fixes the widths of the seven columns and lets «Заголовок» take the rest, the table never narrower than 1 060 px', async () => {
+  it('fixes the widths of the eight columns and lets «Заголовок» take the rest, the table never narrower than 1 180 px', async () => {
     serveBoards(fullTreeDataset());
     renderBoards(backlogAddress('epics'));
     const table = await findBacklogTable();
 
     const widths = Array.from(table.querySelectorAll('col')).map((col) => col.style.width);
-    expect(widths).toEqual(['72px', '68px', '184px', '', '104px', '64px', '64px', '104px']);
+    expect(widths).toEqual([
+      '72px',
+      '68px',
+      '184px',
+      '',
+      '104px',
+      '120px',
+      '64px',
+      '64px',
+      '104px',
+    ]);
     expect(getComputedStyle(table).tableLayout).toBe('fixed');
-    expect(getComputedStyle(table).minWidth).toBe('1060px');
+    expect(getComputedStyle(table).minWidth).toBe('1180px');
   });
 });
 
@@ -428,7 +446,7 @@ describe('US-1 Scenario: A narrow window scrolls the table, not the page', () =>
 
     const card = table.parentElement as HTMLElement;
     expect(getComputedStyle(card).overflowX).not.toBe('visible');
-    expect(getComputedStyle(table).minWidth).toBe('1060px');
+    expect(getComputedStyle(table).minWidth).toBe('1180px');
     expect(getComputedStyle(card).maxHeight).toContain('204px');
   });
 

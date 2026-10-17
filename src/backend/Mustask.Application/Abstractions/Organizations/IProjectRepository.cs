@@ -25,7 +25,14 @@ public interface IProjectRepository
     /// <summary>The project of any status in that organization, locked <c>FOR NO KEY UPDATE</c>; <c>null</c> when there is none.</summary>
     Task<Project?> LockAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken);
 
-    /// <summary>Adds the project with its first team and its root.</summary>
+    /// <summary>
+    /// mod-017 (BR-OT-12): clears the project's default-team setting if it names <paramref name="teamId"/>, with one statement;
+    /// the team deletion's step, after it holds every team of the project. Writes the project row (<c>NO KEY UPDATE</c>), never
+    /// before a team row (plan-backend § 7.1).
+    /// </summary>
+    Task ClearDefaultTeamAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken);
+
+    /// <summary>Adds the project with its team and its root.</summary>
     void Add(NewProject project);
 
     /// <inheritdoc cref="IOrganizationRepository.SaveAsync"/>

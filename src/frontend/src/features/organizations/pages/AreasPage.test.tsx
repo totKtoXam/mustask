@@ -26,23 +26,25 @@ function row(name: string): HTMLElement {
   return found;
 }
 
-function ownerCell(name: string): HTMLElement {
-  return within(row(name)).getAllByRole('gridcell')[1]!;
-}
-
 async function menuOf(name: string) {
   await userEvent.click(within(row(name)).getByRole('button', { name: `Действия: ${name}` }));
   return screen.findByRole('menu');
 }
 
 describe('mod-002 US-5 Scenario: Shown as the tree registry (the page)', () => {
-  it('loads with «Область» and «Владелец», then shows the root expanded with its children', async () => {
+  it('loads with «Область» alone, then shows the root expanded with its children', async () => {
     serveOrganizations();
     renderPage({ path: PRM_AREAS });
 
     const skeleton = screen.getByRole('status', { name: 'Загрузка данных' });
-    expect(within(skeleton).getByText('Владелец')).toBeInTheDocument();
+    expect(within(skeleton).getByText('Область')).toBeInTheDocument();
+    expect(within(skeleton).queryByText('Владелец')).not.toBeInTheDocument();
     await treegrid();
+
+    // mod-017 BR-OT-10: no owner, no inheritance mark, no default mark.
+    expect(screen.queryByRole('columnheader', { name: 'Владелец' })).not.toBeInTheDocument();
+    expect(screen.queryByText('унаследовано')).not.toBeInTheDocument();
+    expect(screen.queryByText('По умолчанию')).not.toBeInTheDocument();
 
     expect(row('Пример проекта')).toHaveAttribute('aria-expanded', 'true');
     expect(row('Платформа')).toHaveAttribute('aria-expanded', 'false');
@@ -79,24 +81,10 @@ describe('mod-002 US-5 Scenario: Shown as the tree registry (the page)', () => {
   });
 });
 
-describe('mod-002 US-6 Scenario: Inherits from the nearest owned ancestor', () => {
-  it('reads an inherited owner as «Пример проекта унаследовано», an explicit one plainly; defaults are marked', async () => {
-    serveOrganizations();
-    renderPage({ path: PRM_AREAS });
-    await treegrid();
-    await userEvent.click(screen.getByRole('button', { name: 'Развернуть «Платформа»' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Развернуть «API»' }));
+// mod-017 BR-OT-10: retired by name (doc-012 P-1) — «Inherits from the nearest owned ancestor» —
+// «reads an inherited owner as «Пример проекта унаследовано», an explicit one plainly; defaults are marked».
 
-    expect(ownerCell('Отчёты')).toHaveTextContent('Пример проекта унаследовано');
-    expect(ownerCell('Шлюз')).toHaveTextContent('Платформа унаследовано');
-    expect(ownerCell('Платформа')).toHaveTextContent(/^Платформа$/);
-    expect(within(row('API')).getByText('По умолчанию')).toBeInTheDocument();
-    expect(within(row('Пример проекта')).getByText('По умолчанию')).toBeInTheDocument();
-    expect(within(row('Платформа')).queryByText('По умолчанию')).not.toBeInTheDocument();
-  });
-});
-
-describe('mod-002 US-5 Scenario: The root comes with the project and follows it; US-6: the root’s owner is fixed', () => {
+describe('mod-002 US-5 Scenario: The root comes with the project and follows it', () => {
   it('the root’s menu holds «Новая дочерняя область» only; another area’s every action, «Удалить» in the error colour', async () => {
     serveOrganizations();
     renderPage({ path: PRM_AREAS });
@@ -115,13 +103,7 @@ describe('mod-002 US-5 Scenario: The root comes with the project and follows it;
       within(menu)
         .getAllByRole('menuitem')
         .map((item) => item.textContent),
-    ).toEqual([
-      'Новая дочерняя область',
-      'Переименовать',
-      'Переместить',
-      'Изменить владельца',
-      'Удалить',
-    ]);
+    ).toEqual(['Новая дочерняя область', 'Переименовать', 'Переместить', 'Удалить']);
   });
 });
 
@@ -173,7 +155,6 @@ describe('mod-002 US-5 Scenario: A child created under any node', () => {
     expect(api.writes()[0]?.body).toEqual({
       parentId: ids.prmRoot,
       name: 'Аналитика данных',
-      ownerTeamId: null,
     });
   });
 
@@ -210,8 +191,8 @@ describe('mod-002 US-5 Scenario: A child created under any node', () => {
   });
 });
 
-describe('mod-002 US-5 Scenario: Moves with its subtree; US-6: a move re-resolves inherited owners', () => {
-  it('moves «Отчёты» under «Платформа»: selected under its expanded new parent, the tree read again with its owner', async () => {
+describe('mod-002 US-5 Scenario: Moves with its subtree', () => {
+  it('moves «Отчёты» under «Платформа»: selected under its expanded new parent, the tree read again', async () => {
     const api = serveOrganizations();
     renderPage({ path: PRM_AREAS });
     await treegrid();
@@ -240,7 +221,6 @@ describe('mod-002 US-5 Scenario: Moves with its subtree; US-6: a move re-resolve
     await waitFor(() => expect(row('Отчёты')).toHaveFocus());
     expect(row('Отчёты')).toHaveAttribute('aria-level', '3');
     expect(row('Платформа')).toHaveAttribute('aria-expanded', 'true');
-    expect(ownerCell('Отчёты')).toHaveTextContent('Платформа унаследовано');
     expect(api.writes()).toEqual([
       {
         method: 'PUT',

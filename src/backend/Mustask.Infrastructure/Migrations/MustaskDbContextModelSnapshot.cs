@@ -113,9 +113,6 @@ namespace Mustask.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("DefaultOfTeamId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -125,9 +122,6 @@ namespace Mustask.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
-
-                    b.Property<Guid?>("OwnerTeamId")
-                        .HasColumnType("uuid");
 
                     b.Property<Guid?>("ParentId")
                         .HasColumnType("uuid");
@@ -147,19 +141,8 @@ namespace Mustask.Infrastructure.Migrations
                     b.HasAlternateKey("ProjectId", "Id")
                         .HasName("ak_areas_project_id_id");
 
-                    b.HasIndex("ProjectId", "DefaultOfTeamId")
-                        .HasDatabaseName("ix_areas_project_id_default_of_team_id");
-
-                    b.HasIndex("ProjectId", "OwnerTeamId")
-                        .HasDatabaseName("ix_areas_project_id_owner_team_id");
-
                     b.HasIndex("ProjectId", "ParentId")
                         .HasDatabaseName("ix_areas_project_id_parent_id");
-
-                    b.HasIndex(new[] { "DefaultOfTeamId" }, "ix_areas_default_of_team_id")
-                        .IsUnique()
-                        .HasDatabaseName("ix_areas_default_of_team_id")
-                        .HasFilter("default_of_team_id IS NOT NULL");
 
                     b.HasIndex(new[] { "ParentId", "NormalizedName" }, "ix_areas_parent_id_normalized_name")
                         .IsUnique()
@@ -175,26 +158,16 @@ namespace Mustask.Infrastructure.Migrations
 
                     b.ToTable("areas", t =>
                         {
-                            t.HasCheckConstraint("ck_areas_default_owned", "default_of_team_id IS NULL OR default_of_team_id = owner_team_id");
-
                             t.HasCheckConstraint("ck_areas_name_length", "char_length(name) BETWEEN 1 AND 100");
-
-                            t.HasCheckConstraint("ck_areas_root_owned", "parent_id IS NOT NULL OR owner_team_id IS NOT NULL");
 
                             t.Property("Id")
                                 .HasColumnName("id");
-
-                            t.Property("DefaultOfTeamId")
-                                .HasColumnName("default_of_team_id");
 
                             t.Property("Name")
                                 .HasColumnName("name");
 
                             t.Property("NormalizedName")
                                 .HasColumnName("normalized_name");
-
-                            t.Property("OwnerTeamId")
-                                .HasColumnName("owner_team_id");
 
                             t.Property("ParentId")
                                 .HasColumnName("parent_id");
@@ -373,6 +346,9 @@ namespace Mustask.Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
+                    b.Property<Guid?>("DefaultTeamId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Key")
                         .IsRequired()
                         .HasMaxLength(10)
@@ -405,6 +381,9 @@ namespace Mustask.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_projects");
 
+                    b.HasIndex("Id", "DefaultTeamId")
+                        .HasDatabaseName("ix_projects_id_default_team_id");
+
                     b.HasIndex(new[] { "OrganizationId", "Key" }, "ix_projects_organization_id_key")
                         .IsUnique()
                         .HasDatabaseName("ix_projects_organization_id_key");
@@ -430,6 +409,9 @@ namespace Mustask.Infrastructure.Migrations
                             t.Property("CreatedBy")
                                 .HasColumnName("created_by");
 
+                            t.Property("DefaultTeamId")
+                                .HasColumnName("default_team_id");
+
                             t.Property("Key")
                                 .HasColumnName("key");
 
@@ -454,9 +436,6 @@ namespace Mustask.Infrastructure.Migrations
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
-
-                    b.Property<bool>("IsFirstTeam")
-                        .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -491,11 +470,6 @@ namespace Mustask.Infrastructure.Migrations
                     b.HasIndex(new[] { "ProjectId" }, "ix_teams_project_id")
                         .HasDatabaseName("ix_teams_project_id");
 
-                    b.HasIndex(new[] { "ProjectId" }, "ix_teams_project_id_first_team")
-                        .IsUnique()
-                        .HasDatabaseName("ix_teams_project_id_first_team")
-                        .HasFilter("is_first_team");
-
                     b.HasIndex(new[] { "ProjectId", "NormalizedName" }, "ix_teams_project_id_normalized_name")
                         .IsUnique()
                         .HasDatabaseName("ix_teams_project_id_normalized_name")
@@ -503,17 +477,12 @@ namespace Mustask.Infrastructure.Migrations
 
                     b.ToTable("teams", t =>
                         {
-                            t.HasCheckConstraint("ck_teams_first_team_active", "NOT (is_first_team AND status = 'Deleted')");
-
                             t.HasCheckConstraint("ck_teams_name_length", "char_length(name) BETWEEN 1 AND 100");
 
                             t.HasCheckConstraint("ck_teams_status", "status IN ('Active', 'Deleted')");
 
                             t.Property("Id")
                                 .HasColumnName("id");
-
-                            t.Property("IsFirstTeam")
-                                .HasColumnName("is_first_team");
 
                             t.Property("Name")
                                 .HasColumnName("name");
@@ -1177,6 +1146,9 @@ namespace Mustask.Infrastructure.Migrations
                         .HasPrecision(6, 2)
                         .HasColumnType("numeric(6,2)");
 
+                    b.Property<Guid?>("OwningTeamId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("ParentId")
                         .HasColumnType("uuid");
 
@@ -1251,6 +1223,10 @@ namespace Mustask.Infrastructure.Migrations
                     b.HasIndex("TypeId")
                         .HasDatabaseName("ix_work_items_type_id");
 
+                    b.HasIndex(new[] { "Id", "OwningTeamId" }, "ix_work_items_id_owning_team_id")
+                        .IsUnique()
+                        .HasDatabaseName("ix_work_items_id_owning_team_id");
+
                     b.HasIndex(new[] { "ProjectId", "AreaId" }, "ix_work_items_project_id_area_id")
                         .HasDatabaseName("ix_work_items_project_id_area_id");
 
@@ -1265,6 +1241,9 @@ namespace Mustask.Infrastructure.Migrations
                     b.HasIndex(new[] { "ProjectId", "Number" }, "ix_work_items_project_id_number")
                         .IsUnique()
                         .HasDatabaseName("ix_work_items_project_id_number");
+
+                    b.HasIndex(new[] { "ProjectId", "OwningTeamId", "TypeId" }, "ix_work_items_project_id_owning_team_id_type_id")
+                        .HasDatabaseName("ix_work_items_project_id_owning_team_id_type_id");
 
                     b.HasIndex(new[] { "ProjectId", "ParentId" }, "ix_work_items_project_id_parent_id")
                         .HasDatabaseName("ix_work_items_project_id_parent_id");
@@ -1362,6 +1341,9 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.Property("OriginalEstimate")
                                 .HasColumnName("original_estimate");
+
+                            t.Property("OwningTeamId")
+                                .HasColumnName("owning_team_id");
 
                             t.Property("ParentId")
                                 .HasColumnName("parent_id");
@@ -1641,20 +1623,6 @@ namespace Mustask.Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_areas_projects_project_id");
 
-                    b.HasOne("Mustask.Domain.Organizations.Team", null)
-                        .WithMany()
-                        .HasForeignKey("ProjectId", "DefaultOfTeamId")
-                        .HasPrincipalKey("ProjectId", "Id")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_areas_teams_project_id_default_of_team_id");
-
-                    b.HasOne("Mustask.Domain.Organizations.Team", null)
-                        .WithMany()
-                        .HasForeignKey("ProjectId", "OwnerTeamId")
-                        .HasPrincipalKey("ProjectId", "Id")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_areas_teams_project_id_owner_team_id");
-
                     b.HasOne("Mustask.Domain.Organizations.Area", null)
                         .WithMany()
                         .HasForeignKey("ProjectId", "ParentId")
@@ -1691,6 +1659,13 @@ namespace Mustask.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_projects_organizations_organization_id");
+
+                    b.HasOne("Mustask.Domain.Organizations.Team", null)
+                        .WithMany()
+                        .HasForeignKey("Id", "DefaultTeamId")
+                        .HasPrincipalKey("ProjectId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_projects_teams_id_default_team_id");
                 });
 
             modelBuilder.Entity("Mustask.Domain.Organizations.Team", b =>
@@ -1798,6 +1773,13 @@ namespace Mustask.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_work_items_areas_project_id_area_id");
+
+                    b.HasOne("Mustask.Domain.Organizations.Team", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId", "OwningTeamId")
+                        .HasPrincipalKey("ProjectId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_work_items_teams_project_id_owning_team_id");
 
                     b.HasOne("Mustask.Domain.WorkItems.WorkItem", null)
                         .WithMany()

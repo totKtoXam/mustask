@@ -32,9 +32,9 @@ public sealed class BoardChecklistsVolumeTests(MustaskApiFactory factory, ITestO
         var task = world.Items.Types["TASK"];
 
         await WorkItemsTestData.ExecuteAsync(factory, $"""
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at)
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, owning_team_id)
             SELECT gen_random_uuid(), {world.ProjectId}, n, {us.Id}, {us.StateId("Новая")}, {world.PlatformAreaId},
-                   'История ' || n, '', gen_random_uuid(), now(), 'volume-test', now()
+                   'История ' || n, '', gen_random_uuid(), now(), 'volume-test', now(), {world.PlatformId}
             FROM generate_series(1, {Stories}) AS n
             """);
         await WorkItemsTestData.ExecuteAsync(factory, $"""

@@ -46,10 +46,22 @@ public sealed class FakeProjectRepository(InMemoryOrganizations store) : IProjec
         return Task.FromResult(store.FindProject(organizationId, projectId));
     }
 
+    public Task ClearDefaultTeamAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken)
+    {
+        store.Record($"clear default team {teamId}");
+
+        foreach (var project in store.Projects.Where(project => project.Id == projectId && project.DefaultTeamId == teamId))
+        {
+            project.NameDefaultTeam(null);
+        }
+
+        return Task.CompletedTask;
+    }
+
     public void Add(NewProject project)
     {
         store.Stage(project.Project);
-        store.Stage(project.FirstTeam);
+        store.Stage(project.Team);
         store.Stage(project.Root);
     }
 
@@ -59,17 +71,24 @@ public sealed class FakeProjectRepository(InMemoryOrganizations store) : IProjec
 /// <summary>In-memory <see cref="ITeamRepository"/> over <see cref="InMemoryOrganizations"/>.</summary>
 public sealed class FakeTeamRepository(InMemoryOrganizations store) : ITeamRepository
 {
-    public Task<Team?> LockForUpdateAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
-        LockAsync("update", projectId, teamId);
-
     public Task<Team?> LockForNoKeyUpdateAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
         LockAsync("no-key-update", projectId, teamId);
 
     public Task<Team?> LockForShareAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
         LockAsync("share", projectId, teamId);
 
-    public Task<Team> GetFirstTeamAsync(Guid projectId, CancellationToken cancellationToken) =>
-        Task.FromResult(store.Teams.Single(team => team.ProjectId == projectId && team.IsFirstTeam));
+    public Task<IReadOnlyList<Team>> LockProjectTeamsAsync(Guid projectId, CancellationToken cancellationToken)
+    {
+        store.Record($"lock project teams {projectId}");
+
+        return Task.FromResult<IReadOnlyList<Team>>(
+            store.Teams.Where(team => team.ProjectId == projectId && team.IsActive).OrderBy(team => team.Id).ToList());
+    }
+
+    public Task<DefaultTeamMark> GetMarkAsync(Team team, CancellationToken cancellationToken) =>
+        Task.FromResult(ProjectDefaultTeam.MarkOf(
+            store.Projects.Any(project => project.Id == team.ProjectId && project.DefaultTeamId == team.Id),
+            store.Teams.Count(other => other.ProjectId == team.ProjectId && other.IsActive)));
 
     public Task<bool> IsActiveNameTakenAsync(Guid projectId, string normalizedName, Guid? exceptId, CancellationToken cancellationToken) =>
         Task.FromResult(store.Teams.Any(team =>
@@ -78,24 +97,7 @@ public sealed class FakeTeamRepository(InMemoryOrganizations store) : ITeamRepos
     public Task<string?> FindNameAsync(Guid teamId, CancellationToken cancellationToken) =>
         Task.FromResult(store.Teams.Where(team => team.Id == teamId).Select(team => team.Name).FirstOrDefault());
 
-    public Task ReassignExplicitAreasAsync(Guid fromTeamId, Guid toTeamId, CancellationToken cancellationToken)
-    {
-        store.Record($"reassign {fromTeamId} {toTeamId}");
-
-        foreach (var area in store.Areas.Where(area => area.OwnerTeamId == fromTeamId))
-        {
-            area.ClearDefault();
-            area.SetOwner(toTeamId, defaultTeamName: null);
-        }
-
-        return Task.CompletedTask;
-    }
-
-    public void Add(NewTeam team)
-    {
-        store.Stage(team.Team);
-        store.Stage(team.Area);
-    }
+    public void Add(Team team) => store.Stage(team);
 
     public Task SaveAsync(CancellationToken cancellationToken) => store.SaveAsync();
 
@@ -127,33 +129,11 @@ public sealed class FakeAreaRepository(InMemoryOrganizations store) : IAreaRepos
         return Task.FromResult(Find(projectId, areaId));
     }
 
-    public Task<IReadOnlyList<Area>> LockManyForUpdateAsync(Guid projectId, IReadOnlyCollection<Guid> areaIds, CancellationToken cancellationToken)
-    {
-        var areas = store.Areas
-            .Where(area => area.ProjectId == projectId && areaIds.Contains(area.Id))
-            .OrderBy(area => area.Id)
-            .ToList();
-
-        foreach (var area in areas)
-        {
-            store.Record($"lock area update {area.Id}");
-        }
-
-        return Task.FromResult<IReadOnlyList<Area>>(areas);
-    }
-
     public Task<Area> LockRootAsync(Guid projectId, bool forUpdate, CancellationToken cancellationToken)
     {
         store.Record($"lock root {(forUpdate ? "update" : "share")} {projectId}");
 
         return Task.FromResult(store.Areas.Single(area => area.ProjectId == projectId && area.IsRoot));
-    }
-
-    public Task<Area?> LockDefaultOfAsync(Guid teamId, CancellationToken cancellationToken)
-    {
-        store.Record($"lock default {teamId}");
-
-        return Task.FromResult(store.Areas.SingleOrDefault(area => area.DefaultOfTeamId == teamId));
     }
 
     public Task<bool> HasChildrenAsync(Guid areaId, CancellationToken cancellationToken) =>
@@ -165,7 +145,7 @@ public sealed class FakeAreaRepository(InMemoryOrganizations store) : IAreaRepos
     public Task<IReadOnlyList<AreaNode>> GetNodesAsync(Guid projectId, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<AreaNode>>(store
             .InDisplayOrder(store.Areas.Where(area => area.ProjectId == projectId), area => area.Name, area => area.Id)
-            .Select(area => new AreaNode(area.Id, area.ParentId, area.Name, area.OwnerTeamId, area.DefaultOfTeamId))
+            .Select(area => new AreaNode(area.Id, area.ParentId, area.Name))
             .ToList());
 
     public void Add(Area area) => store.Stage(area);

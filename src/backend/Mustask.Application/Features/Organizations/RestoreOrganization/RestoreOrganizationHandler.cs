@@ -15,7 +15,7 @@ namespace Mustask.Application.Features.Organizations.RestoreOrganization;
 /// <para>
 /// <b>What it writes.</b> One row: the organization's own status (ADR-0026 rule 2).
 /// Nothing beneath is read or changed, so a project that was deactivated on its
-/// own before the organization stays deactivated, and the teams, the default areas
+/// own before the organization stays deactivated, and the teams, the default-team setting
 /// and the area trees come back through reachability alone, as they were
 /// (BR-M1-20). Restoring an active organization changes nothing and answers the
 /// same (api-contract § 1.7).

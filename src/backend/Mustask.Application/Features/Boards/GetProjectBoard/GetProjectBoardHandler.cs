@@ -5,6 +5,7 @@ using Mustask.Application.Features.Organizations;
 using Mustask.Domain.Boards;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.Process;
+using Mustask.Domain.WorkItems;
 using Mustask.Shared.Exceptions;
 
 namespace Mustask.Application.Features.Boards.GetProjectBoard;
@@ -54,7 +55,10 @@ public sealed class GetProjectBoardHandler(
                 type.States.Select(state => new LayoutState(state.Id, state.Name, state.Category, state.Position)).ToList()))
             .ToList());
 
-        var rows = await backlogs.ReadProjectAsync(ProjectBacklogScope.Of(projectId, resolved.Id, types), cancellationToken);
+        // The team filter (mod-017 BR-OT-8) narrows the columns and their cards; a card's checklist below is not narrowed.
+        var filter = WorkItemFilter.OfTeams(query.TeamIds);
+
+        var rows = await backlogs.ReadProjectAsync(ProjectBacklogScope.Of(projectId, resolved.Id, types, filter), cancellationToken);
 
         // Every item of the backlog has a state outside Removed of one of the level's types, so it has exactly one column.
         var items = BacklogItemView.InOrder(rows);

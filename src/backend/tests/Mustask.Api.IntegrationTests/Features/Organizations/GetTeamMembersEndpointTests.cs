@@ -49,9 +49,9 @@ public sealed class GetTeamMembersEndpointTests(MustaskApiFactory factory)
         var vera = MembershipTestData.NewUserId();
         await MembershipTestData.ProjectUserAsync(factory, vera, $"Вера{tag}", "Новикова", "vera@example.org");
         await MembershipTestData.AddMemberAsync(factory, structure.OrganizationId, vera);
-        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.Platform.Team.Id, vera);
+        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.Platform.Id, vera);
 
-        var answer = await GetAsync(structure, structure.Platform.Team.Id, reader.Token);
+        var answer = await GetAsync(structure, structure.Platform.Id, reader.Token);
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal(JsonValueKind.Array, answer.Body.ValueKind);
@@ -67,7 +67,7 @@ public sealed class GetTeamMembersEndpointTests(MustaskApiFactory factory)
     {
         var (structure, reader) = await WorldAsync();
 
-        var answer = await GetAsync(structure, structure.Platform.Team.Id, reader.Token);
+        var answer = await GetAsync(structure, structure.Platform.Id, reader.Token);
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal(JsonValueKind.Array, answer.Body.ValueKind);
@@ -84,7 +84,7 @@ public sealed class GetTeamMembersEndpointTests(MustaskApiFactory factory)
     {
         var tag = Tag();
         var (structure, reader) = await WorldAsync(role);
-        var teamId = structure.Platform.Team.Id;
+        var teamId = structure.Platform.Id;
         var boris = MembershipTestData.NewUserId();
         var anna = MembershipTestData.NewUserId();
         var oleg = MembershipTestData.NewUserId();
@@ -116,10 +116,10 @@ public sealed class GetTeamMembersEndpointTests(MustaskApiFactory factory)
         var (structure, reader) = await WorldAsync();
         var here = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, OrganizationRole.Member);
         var inFirstTeam = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, OrganizationRole.Member);
-        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.Platform.Team.Id, here.Id);
-        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.FirstTeamId, inFirstTeam.Id);
+        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.Platform.Id, here.Id);
+        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.ProjectTeamId, inFirstTeam.Id);
 
-        var answer = await GetAsync(structure, structure.Platform.Team.Id, reader.Token);
+        var answer = await GetAsync(structure, structure.Platform.Id, reader.Token);
 
         Assert.Equal([here.Id], Items(answer).Select(item => item.GetProperty("id").GetString()));
     }
@@ -130,10 +130,10 @@ public sealed class GetTeamMembersEndpointTests(MustaskApiFactory factory)
     {
         var (structure, reader) = await WorldAsync();
         var member = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, OrganizationRole.Member);
-        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.Platform.Team.Id, member.Id);
-        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, structure.Platform.Team.Id);
+        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.Platform.Id, member.Id);
+        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, structure.Platform.Id);
 
-        var answer = await GetAsync(structure, structure.Platform.Team.Id, reader.Token);
+        var answer = await GetAsync(structure, structure.Platform.Id, reader.Token);
 
         Assert.Equal((HttpStatusCode.NotFound, TeamNotFound), (answer.Status, answer.ErrorCode));
     }
@@ -147,7 +147,7 @@ public sealed class GetTeamMembersEndpointTests(MustaskApiFactory factory)
         var (structure, reader) = await WorldAsync();
         var otherProject = await OrganizationsTestData.CreateProjectAsync(factory, structure.OrganizationId, "Другой проект", "OTH");
         var elsewhere = await OrganizationsTestData.CreateStructureAsync(factory);
-        var teamId = structure.Platform.Team.Id.ToString();
+        var teamId = structure.Platform.Id.ToString();
         var organizationId = structure.OrganizationId;
 
         var cases = new (string Project, string Team, string Code)[]
@@ -155,7 +155,7 @@ public sealed class GetTeamMembersEndpointTests(MustaskApiFactory factory)
             (structure.ProjectId.ToString(), "abc", TeamNotFound),
             (structure.ProjectId.ToString(), Guid.CreateVersion7().ToString(), TeamNotFound),
             (structure.ProjectId.ToString(), Guid.Empty.ToString(), TeamNotFound),
-            (structure.ProjectId.ToString(), otherProject.FirstTeam.Id.ToString(), TeamNotFound),
+            (structure.ProjectId.ToString(), otherProject.Team.Id.ToString(), TeamNotFound),
             (otherProject.Project.Id.ToString(), teamId, TeamNotFound),
             (elsewhere.ProjectId.ToString(), teamId, ProjectNotFound),
             (Guid.CreateVersion7().ToString(), teamId, ProjectNotFound),
@@ -173,7 +173,7 @@ public sealed class GetTeamMembersEndpointTests(MustaskApiFactory factory)
 
         // A team of another organization, addressed through this organization's own project.
         var foreign = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Get, Path(organizationId, structure.ProjectId.ToString(), elsewhere.Platform.Team.Id.ToString()), token: reader.Token);
+            factory, HttpMethod.Get, Path(organizationId, structure.ProjectId.ToString(), elsewhere.Platform.Id.ToString()), token: reader.Token);
 
         Assert.Equal((HttpStatusCode.NotFound, TeamNotFound), (foreign.Status, foreign.ErrorCode));
     }
@@ -192,9 +192,9 @@ public sealed class GetTeamMembersEndpointTests(MustaskApiFactory factory)
             $"INSERT INTO organization_memberships (organization_id, user_id, role, added_by, added_at) SELECT {structure.OrganizationId}, 't' || lpad(i::text, 3, '0') || '-' || {tag}, 'member', {OrganizationsTestData.Creator}, now() FROM generate_series(0, 500) i");
         await WorkItems.WorkItemsTestData.ExecuteAsync(
             factory,
-            $"INSERT INTO team_memberships (team_id, organization_id, user_id) SELECT {structure.Platform.Team.Id}, {structure.OrganizationId}, user_id FROM organization_memberships WHERE organization_id = {structure.OrganizationId} AND user_id LIKE 't%-' || {tag}");
+            $"INSERT INTO team_memberships (team_id, organization_id, user_id) SELECT {structure.Platform.Id}, {structure.OrganizationId}, user_id FROM organization_memberships WHERE organization_id = {structure.OrganizationId} AND user_id LIKE 't%-' || {tag}");
 
-        var answer = await GetAsync(structure, structure.Platform.Team.Id, reader.Token);
+        var answer = await GetAsync(structure, structure.Platform.Id, reader.Token);
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal(501, Items(answer).Count);
@@ -206,7 +206,7 @@ public sealed class GetTeamMembersEndpointTests(MustaskApiFactory factory)
     public async Task Get_NonMember_Is404_NoToken_Is401()
     {
         var (structure, _) = await WorldAsync();
-        var path = Path(structure.OrganizationId, structure.ProjectId.ToString(), structure.Platform.Team.Id.ToString());
+        var path = Path(structure.OrganizationId, structure.ProjectId.ToString(), structure.Platform.Id.ToString());
 
         var nonMember = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, path, token: MembershipTestData.Outsider());
         var anonymous = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, path);

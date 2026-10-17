@@ -26,8 +26,8 @@ import {
   renameTeam,
   restoreOrganization,
   restoreProject,
-  setAreaOwner,
-  setTeamDefaultArea,
+  getOwnedItemsCount,
+  setDefaultTeam,
 } from './organizationsApi';
 
 interface Sent {
@@ -78,13 +78,14 @@ describe('mod-002 api-contract § 5: one function per route, as the contract nam
     await getTeam('o', 'p', 't');
     await addTeam('o', 'p', 'Платформа');
     await renameTeam('o', 'p', 't', 'Ядро');
-    await setTeamDefaultArea('o', 'p', 't', 'a');
+    await setDefaultTeam('o', 'p', 't');
+    await setDefaultTeam('o', 'p', null);
+    await getOwnedItemsCount('o', 'p', 't');
     await deleteTeam('o', 'p', 't');
     await getAreaTree('o', 'p');
-    await createArea('o', 'p', { parentId: 'r', name: 'API', ownerTeamId: null });
+    await createArea('o', 'p', { parentId: 'r', name: 'API' });
     await renameArea('o', 'p', 'a', 'Шлюз');
     await moveArea('o', 'p', 'a', 'r');
-    await setAreaOwner('o', 'p', 'a', null);
     await deleteArea('o', 'p', 'a');
 
     const base = '/api/organizations';
@@ -107,17 +108,18 @@ describe('mod-002 api-contract § 5: one function per route, as the contract nam
       { method: 'GET', path: `${base}/o/projects/p/teams/t`, body: undefined },
       { method: 'POST', path: `${base}/o/projects/p/teams`, body: { name: 'Платформа' } },
       { method: 'PUT', path: `${base}/o/projects/p/teams/t/name`, body: { name: 'Ядро' } },
-      { method: 'PUT', path: `${base}/o/projects/p/teams/t/default-area`, body: { areaId: 'a' } },
+      { method: 'PUT', path: `${base}/o/projects/p/default-team`, body: { teamId: 't' } },
+      { method: 'PUT', path: `${base}/o/projects/p/default-team`, body: { teamId: null } },
+      { method: 'GET', path: `${base}/o/projects/p/teams/t/owned-items/count`, body: undefined },
       { method: 'DELETE', path: `${base}/o/projects/p/teams/t`, body: undefined },
       { method: 'GET', path: `${base}/o/projects/p/areas`, body: undefined },
       {
         method: 'POST',
         path: `${base}/o/projects/p/areas`,
-        body: { parentId: 'r', name: 'API', ownerTeamId: null },
+        body: { parentId: 'r', name: 'API' },
       },
       { method: 'PUT', path: `${base}/o/projects/p/areas/a/name`, body: { name: 'Шлюз' } },
       { method: 'PUT', path: `${base}/o/projects/p/areas/a/parent`, body: { parentId: 'r' } },
-      { method: 'PUT', path: `${base}/o/projects/p/areas/a/owner`, body: { ownerTeamId: null } },
       { method: 'DELETE', path: `${base}/o/projects/p/areas/a`, body: undefined },
     ]);
   });

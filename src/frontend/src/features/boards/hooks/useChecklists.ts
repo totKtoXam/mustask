@@ -104,11 +104,15 @@ type MoveView = ReturnType<typeof useMoveView<BoardSurface>>;
  * the board again, as a card move does (BR-C-8): `inFlightRef` is the board's own, and
  * `setCreating` switches the controls off for a create, which `view` cannot see.
  */
+/** No team filter: a team's board, or the project's unfiltered. */
+const NO_TEAM_IDS: readonly string[] = [];
+
 export function useChecklists({
   organizationId,
   projectId,
   scope,
   level,
+  teamIds = NO_TEAM_IDS,
   board,
   view,
   inFlightRef,
@@ -122,6 +126,8 @@ export function useChecklists({
   projectId: string;
   scope: BoardScope;
   level: BoardLevelCode;
+  /** The project's team filter the board was read under (mod-017 § 3): part of the cache key. */
+  teamIds?: readonly string[];
   /** The last read. */
   board: BoardSurface;
   view: MoveView;
@@ -379,7 +385,9 @@ export function useChecklists({
       await readAgain();
       inFlightRef.current = false;
       moveView.end(
-        client.getQueryData<BoardSurface>(boardKey(organizationId, projectId, scope, level)),
+        client.getQueryData<BoardSurface>(
+          boardKey(organizationId, projectId, scope, level, teamIds),
+        ),
         read,
       );
       if (notice !== null) {
@@ -397,6 +405,7 @@ export function useChecklists({
       setStateAsync,
       showError,
       scope,
+      teamIds,
     ],
   );
 

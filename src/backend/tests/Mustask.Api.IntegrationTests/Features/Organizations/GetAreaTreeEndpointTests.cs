@@ -2,16 +2,15 @@ using System.Net;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Mustask.Application.Abstractions.Organizations;
-using Mustask.Application.Features.Organizations;
 using Mustask.Domain.Organizations;
 
 namespace Mustask.Api.IntegrationTests.Features.Organizations;
 
 /// <summary>
 /// <c>GET /api/organizations/{organizationId}/projects/{projectId}/areas</c>
-/// (api-contract § 4.1) through the real host and a real PostgreSQL: the
-/// project's area tree in pre-order with paths, depths and resolved owners, and
-/// the in-process seam's answer for the same areas. Every test builds its own
+/// (mod-017 api-contract § 1.6) through the real host and a real PostgreSQL: the
+/// project's area tree in pre-order with paths and depths — a node is its place, its name, its path and its depth, and
+/// nothing about a team (BR-OT-10). Every test builds its own
 /// organization (<see cref="OrganizationsTestData"/>): the database is shared
 /// and never emptied.
 /// </summary>
@@ -20,34 +19,20 @@ namespace Mustask.Api.IntegrationTests.Features.Organizations;
 [Collection(MustaskApiCollection.Name)]
 public sealed class GetAreaTreeEndpointTests(MustaskApiFactory factory)
 {
-    private const string FirstTeamName = "Пример проекта";
-
-    /// <summary>A team as a node of the tree names it.</summary>
-    private sealed record TeamRef(Guid Id, string Name);
+    private const string RootName = "Пример проекта";
 
     /// <summary>One node of the answer, read back into plain values.</summary>
-    private sealed record NodeView(
-        Guid Id,
-        Guid? ParentId,
-        string Name,
-        string Path,
-        int Depth,
-        Guid? OwnerTeamId,
-        TeamRef ResolvedOwner,
-        bool OwnerInherited,
-        TeamRef? DefaultOfTeam);
+    private sealed record NodeView(Guid Id, Guid? ParentId, string Name, string Path, int Depth);
 
     /// <summary>
-    /// The tree most tests read: a project «Пример проекта» whose first team has the same name, a second team «Платформа»
-    /// with its area, and
+    /// The tree most tests read: a project «Пример проекта», a second team «Платформа» (which owns no area), and
     /// <code>
-    /// Пример проекта      root, owned by the first team, its default
-    ///   архив             inherits the first team
-    ///   Отчёты            owned by «Платформа»
-    ///     Годовые         owned by the first team
-    ///     Квартальные     inherits «Платформа»
-    ///       Март          inherits «Платформа»
-    ///   Платформа         owned by «Платформа», its default
+    /// Пример проекта      root
+    ///   архив
+    ///   Отчёты
+    ///     Годовые
+    ///     Квартальные
+    ///       Март
     /// </code>
     /// </summary>
     private sealed record SampleTree(OrganizationStructure Structure, Area Reports, Area Quarterly, Area March, Area Yearly, Area Archive);
@@ -55,10 +40,10 @@ public sealed class GetAreaTreeEndpointTests(MustaskApiFactory factory)
     private async Task<SampleTree> CreateSampleTreeAsync()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var reports = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Отчёты", structure.Platform.Team.Id);
+        var reports = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Отчёты");
         var quarterly = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, reports.Id, "Квартальные");
         var march = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, quarterly.Id, "Март");
-        var yearly = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, reports.Id, "Годовые", structure.FirstTeamId);
+        var yearly = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, reports.Id, "Годовые");
         var archive = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "архив");
 
         return new SampleTree(structure, reports, quarterly, march, yearly, archive);
@@ -84,34 +69,24 @@ public sealed class GetAreaTreeEndpointTests(MustaskApiFactory factory)
                 NullableGuid(node.GetProperty("parentId")),
                 node.GetProperty("name").GetString()!,
                 node.GetProperty("path").GetString()!,
-                node.GetProperty("depth").GetInt32(),
-                NullableGuid(node.GetProperty("ownerTeamId")),
-                TeamOf(node.GetProperty("resolvedOwner"))!,
-                node.GetProperty("ownerInherited").GetBoolean(),
-                TeamOf(node.GetProperty("defaultOfTeam"))))
+                node.GetProperty("depth").GetInt32()))
             .ToList();
     }
 
     private static Guid? NullableGuid(JsonElement element) =>
         element.ValueKind == JsonValueKind.Null ? null : element.GetGuid();
 
-    private static TeamRef? TeamOf(JsonElement element) =>
-        element.ValueKind == JsonValueKind.Null
-            ? null
-            : new TeamRef(element.GetProperty("id").GetGuid(), element.GetProperty("name").GetString()!);
-
     private static IEnumerable<string> PropertyNames(JsonElement element) =>
         element.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal);
 
     // US-5 · "tree registry": the whole tree in pre-order (each node before its children, siblings in display order, the root
-    // first), each node with its path (DC-9), its depth, its explicit owner, its resolved owner and the team whose default it is.
+    // first), each node with its path (DC-9) and its depth. Rewritten without the owners (D-16, BR-OT-10): the test keeps its
+    // purpose, and its name is Get_ReturnsPreOrderNodes_WithPathsAndDepths.
     [Fact]
-    public async Task Get_ReturnsPreOrderNodes_WithPathsDepthsAndResolvedOwners()
+    public async Task Get_ReturnsPreOrderNodes_WithPathsAndDepths()
     {
         var tree = await CreateSampleTreeAsync();
         var structure = tree.Structure;
-        var first = new TeamRef(structure.FirstTeamId, FirstTeamName);
-        var platform = new TeamRef(structure.Platform.Team.Id, "Платформа");
 
         var answer = await GetAsync(structure);
 
@@ -119,18 +94,18 @@ public sealed class GetAreaTreeEndpointTests(MustaskApiFactory factory)
         Assert.Equal("application/json", answer.MediaType);
         Assert.Equal(
             [
-                new NodeView(structure.RootId, null, FirstTeamName, FirstTeamName, 0, structure.FirstTeamId, first, false, first),
-                new NodeView(tree.Archive.Id, structure.RootId, "архив", "архив", 1, null, first, true, null),
-                new NodeView(tree.Reports.Id, structure.RootId, "Отчёты", "Отчёты", 1, platform.Id, platform, false, null),
-                new NodeView(tree.Yearly.Id, tree.Reports.Id, "Годовые", "Отчёты / Годовые", 2, structure.FirstTeamId, first, false, null),
-                new NodeView(tree.Quarterly.Id, tree.Reports.Id, "Квартальные", "Отчёты / Квартальные", 2, null, platform, true, null),
-                new NodeView(tree.March.Id, tree.Quarterly.Id, "Март", "Отчёты / Квартальные / Март", 3, null, platform, true, null),
-                new NodeView(structure.Platform.Area.Id, structure.RootId, "Платформа", "Платформа", 1, platform.Id, platform, false, platform),
+                new NodeView(structure.RootId, null, RootName, RootName, 0),
+                new NodeView(tree.Archive.Id, structure.RootId, "архив", "архив", 1),
+                new NodeView(tree.Reports.Id, structure.RootId, "Отчёты", "Отчёты", 1),
+                new NodeView(tree.Yearly.Id, tree.Reports.Id, "Годовые", "Отчёты / Годовые", 2),
+                new NodeView(tree.Quarterly.Id, tree.Reports.Id, "Квартальные", "Отчёты / Квартальные", 2),
+                new NodeView(tree.March.Id, tree.Quarterly.Id, "Март", "Отчёты / Квартальные / Март", 3),
             ],
             Nodes(answer));
     }
 
-    // api-contract § 4.1: the exact shape of a node and of the team objects it holds.
+    // mod-017 api-contract § 1.6: the exact shape of a node — `ownerTeamId`, `resolvedOwner`, `ownerInherited` and
+    // `defaultOfTeam` are removed (BR-OT-10). Rewritten: Get_NodeShape_IsExactlyTheContracts keeps its name.
     [Fact]
     public async Task Get_NodeShape_IsExactlyTheContracts()
     {
@@ -139,61 +114,21 @@ public sealed class GetAreaTreeEndpointTests(MustaskApiFactory factory)
         var answer = await GetAsync(tree.Structure);
 
         var root = answer.Body.EnumerateArray().First();
-        var march = answer.Body.EnumerateArray().Single(node => node.GetProperty("id").GetGuid() == tree.March.Id);
-        Assert.Equal(
-            ["defaultOfTeam", "depth", "id", "name", "ownerInherited", "ownerTeamId", "parentId", "path", "resolvedOwner"],
-            PropertyNames(root));
-        Assert.Equal(["id", "name"], PropertyNames(root.GetProperty("resolvedOwner")));
-        Assert.Equal(["id", "name"], PropertyNames(root.GetProperty("defaultOfTeam")));
+        Assert.Equal(["depth", "id", "name", "parentId", "path"], PropertyNames(root));
         Assert.Equal(JsonValueKind.Null, root.GetProperty("parentId").ValueKind);
-        Assert.Equal(JsonValueKind.Null, march.GetProperty("ownerTeamId").ValueKind);
-        Assert.Equal(JsonValueKind.Null, march.GetProperty("defaultOfTeam").ValueKind);
     }
 
-    // US-5 · "root comes with the project" and "root only": a new project's tree is its root alone, named after the project,
-    // owned by the first team and that team's default.
+    // US-5 · "root comes with the project" and "root only": a new project's tree is its root alone, named after the project.
     [Fact]
     public async Task Get_NewProject_IsTheRootAlone()
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
         var project = await OrganizationsTestData.CreateProjectAsync(factory, organization.Id);
-        var first = new TeamRef(project.FirstTeam.Id, FirstTeamName);
 
         var answer = await GetAsync(organization.Id, project.Project.Id.ToString());
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
-        Assert.Equal(
-            [new NodeView(project.Root.Id, null, FirstTeamName, FirstTeamName, 0, project.FirstTeam.Id, first, false, first)],
-            Nodes(answer));
-    }
-
-    // US-6 · "An area inherits its owner from the nearest owned ancestor": the inherited ones are marked, the resolved owner is
-    // the nearest explicit one, and the root, owned by the first team, is the fallback of everything beneath it.
-    [Fact]
-    public async Task Get_InheritedOwnersMarked_RootFallsBackToFirstTeam()
-    {
-        var tree = await CreateSampleTreeAsync();
-        var structure = tree.Structure;
-
-        var nodes = Nodes(await GetAsync(structure)).ToDictionary(node => node.Id);
-
-        var root = nodes[structure.RootId];
-        Assert.Equal(structure.FirstTeamId, root.OwnerTeamId);
-        Assert.False(root.OwnerInherited);
-
-        var archive = nodes[tree.Archive.Id];
-        Assert.Null(archive.OwnerTeamId);
-        Assert.True(archive.OwnerInherited);
-        Assert.Equal(new TeamRef(structure.FirstTeamId, FirstTeamName), archive.ResolvedOwner);
-
-        var march = nodes[tree.March.Id];
-        Assert.Null(march.OwnerTeamId);
-        Assert.True(march.OwnerInherited);
-        Assert.Equal(new TeamRef(structure.Platform.Team.Id, "Платформа"), march.ResolvedOwner);
-
-        Assert.Equal(structure.FirstTeamId, nodes[tree.Yearly.Id].ResolvedOwner.Id);
-        Assert.False(nodes[tree.Yearly.Id].OwnerInherited);
-        Assert.All(nodes.Values, node => Assert.Equal(node.OwnerTeamId is null, node.OwnerInherited));
+        Assert.Equal([new NodeView(project.Root.Id, null, RootName, RootName, 0)], Nodes(answer));
     }
 
     // US-8 · "lists in order" applied to the tree (design § 4.6): siblings in Russian collation, ignoring letter case, «Ё»
@@ -210,54 +145,25 @@ public sealed class GetAreaTreeEndpointTests(MustaskApiFactory factory)
         var nodes = Nodes(await GetAsync(structure));
 
         var siblings = nodes.Where(node => node.ParentId == structure.RootId).Select(node => node.Name).ToList();
-        Assert.Equal(["альфа", "Бета", "Ёлка", "Ель", "Платформа"], siblings);
+        Assert.Equal(["альфа", "Бета", "Ёлка", "Ель"], siblings);
     }
 
-    // US-7 · "Deleted, areas pass to the first team": the tree shows the first team as the explicit owner of what the deleted
-    // team owned, the inherited ones follow, and no area is a deleted team's default any more.
+    // mod-017 US-7 · "A team deleted changes no area" (BR-OT-10, BR-OT-12): the tree is the same after the deletion of a team —
+    // there is no area to hand over and none loses a mark. Replaces Get_AfterTeamDeleted_ItsAreasBelongToTheFirstTeam_NoDefaultOfIt.
     [Fact]
-    public async Task Get_AfterTeamDeleted_ItsAreasBelongToTheFirstTeam_NoDefaultOfIt()
+    public async Task Get_AfterTeamDeleted_TheTreeIsUnchanged()
     {
         var tree = await CreateSampleTreeAsync();
         var structure = tree.Structure;
-        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, structure.Platform.Team.Id);
-        var first = new TeamRef(structure.FirstTeamId, FirstTeamName);
+        var before = Nodes(await GetAsync(structure));
 
-        var nodes = Nodes(await GetAsync(structure)).ToDictionary(node => node.Id);
+        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, structure.Platform.Id);
 
-        Assert.Equal(7, nodes.Count);
-        Assert.Equal(structure.FirstTeamId, nodes[tree.Reports.Id].OwnerTeamId);
-        Assert.Equal(structure.FirstTeamId, nodes[structure.Platform.Area.Id].OwnerTeamId);
-        Assert.Equal(first, nodes[tree.March.Id].ResolvedOwner);
-        Assert.True(nodes[tree.March.Id].OwnerInherited);
-        Assert.All(nodes.Values, node => Assert.Equal(first, node.ResolvedOwner));
-        Assert.Null(nodes[structure.Platform.Area.Id].DefaultOfTeam);
-        Assert.Equal(first, nodes[structure.RootId].DefaultOfTeam);
-        Assert.Single(nodes.Values, node => node.DefaultOfTeam is not null);
+        Assert.Equal(before, Nodes(await GetAsync(structure)));
     }
 
-    // US-6 · "other modules get the same answer as the tree": for every node of the tree, the seam's owner of that area is the
-    // tree's resolved owner, with the same inherited mark (plan-backend § 11).
-    [Fact]
-    public async Task Seam_FindAreaOwner_EqualsTheTreesResolvedOwner_ForEveryNode()
-    {
-        var tree = await CreateSampleTreeAsync();
-        var structure = tree.Structure;
-        var nodes = Nodes(await GetAsync(structure));
-        using var scope = factory.Services.CreateScope();
-        var seam = scope.ServiceProvider.GetRequiredService<IOrganizationStructure>();
-
-        Assert.Equal(7, nodes.Count);
-        foreach (var node in nodes)
-        {
-            var owner = await seam.FindAreaOwnerAsync(node.Id, CancellationToken.None);
-
-            Assert.Equal(new AreaOwnerInfo(node.Id, structure.ProjectId, node.ResolvedOwner.Id, node.OwnerInherited, IsReachable: true), owner);
-        }
-    }
-
-    // US-6 · "other modules get the same answer as the tree": the root the seam gives for a project is the tree's first node,
-    // and it is owned by the project's first team (BR-M1-14: where an item with no team context goes).
+    // US-6 · "other modules get the same answer as the tree": the root the seam gives for a project is the tree's first node. The
+    // in-process owner read of mod-002 (`FindAreaOwnerAsync`) is gone with the owner (mod-017 BR-OT-10, api-contract § 7).
     [Fact]
     public async Task Seam_ProjectRootArea_IsTheTreesRoot()
     {
@@ -265,34 +171,14 @@ public sealed class GetAreaTreeEndpointTests(MustaskApiFactory factory)
         var structure = tree.Structure;
         var nodes = Nodes(await GetAsync(structure));
         using var scope = factory.Services.CreateScope();
-        var seam = scope.ServiceProvider.GetRequiredService<IOrganizationStructure>();
+        var seam = scope.ServiceProvider.GetRequiredService<Mustask.Application.Features.Organizations.IOrganizationStructure>();
 
         var project = await seam.FindProjectAsync(structure.ProjectId, CancellationToken.None);
 
         Assert.NotNull(project);
         Assert.Equal(nodes[0].Id, project.RootAreaId);
         Assert.Null(nodes[0].ParentId);
-        Assert.Equal(nodes[0].OwnerTeamId, project.FirstTeamId);
         Assert.Single(nodes, node => node.ParentId is null);
-    }
-
-    // ADR-0026 rule 4 against rule 5: beneath a deactivated project the tree answers not found, while the seam still names
-    // the area's owner and says it is unreachable.
-    [Fact]
-    public async Task Seam_FindAreaOwner_UnderDeactivatedProject_IsUnreachable_WhereTheTreeAnswers404()
-    {
-        var tree = await CreateSampleTreeAsync();
-        var structure = tree.Structure;
-        var before = Nodes(await GetAsync(structure)).Single(node => node.Id == tree.March.Id);
-        await OrganizationsTestData.SetProjectStatusAsync(factory, structure.OrganizationId, structure.ProjectId, ProjectStatus.Deactivated);
-        using var scope = factory.Services.CreateScope();
-        var seam = scope.ServiceProvider.GetRequiredService<IOrganizationStructure>();
-
-        var answer = await GetAsync(structure);
-        var owner = await seam.FindAreaOwnerAsync(tree.March.Id, CancellationToken.None);
-
-        Assert.Equal(HttpStatusCode.NotFound, answer.Status);
-        Assert.Equal(new AreaOwnerInfo(tree.March.Id, structure.ProjectId, before.ResolvedOwner.Id, before.OwnerInherited, IsReachable: false), owner);
     }
 
     // US-1 · "A visitor who is not signed in sees nothing": the challenge comes before any other answer.
@@ -378,25 +264,23 @@ public sealed class GetAreaTreeEndpointTests(MustaskApiFactory factory)
         var answer = await GetAsync(structure.OrganizationId, structure.ProjectId.ToString(), OrganizationsTokens.SignedIn());
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
-        Assert.Equal(2, Nodes(answer).Count);
+        Assert.Single(Nodes(answer));
     }
 
     // NFR Volumes (QA pass 1, A-18): an area tree of 500 nodes and 10 levels returns over HTTP within 2 s, every node with its
-    // resolved owner. The read model's query count is pinned by ReadModelsTests; this is the end-to-end bound the NFR names.
-    // Fifty branches of ten levels, each branch's top owned explicitly by «Платформа» or by the first team in turn, the rest
-    // inheriting. One warm-up request first, so the bound measures the read, not the first call's JIT.
+    // path and depth. The read model's query count is pinned by ReadModelsTests; this is the end-to-end bound the NFR names.
+    // Fifty branches of ten levels. One warm-up request first, so the bound measures the read, not the first call's JIT.
+    // Rewritten without the owners (D-16, BR-OT-10): Get_FiveHundredNodesTenLevels_ReturnsWithinTwoSeconds_EveryNodeResolved
+    // -> Get_FiveHundredNodesTenLevels_ReturnsWithinTwoSeconds.
     [Fact]
-    public async Task Get_FiveHundredNodesTenLevels_ReturnsWithinTwoSeconds_EveryNodeResolved()
+    public async Task Get_FiveHundredNodesTenLevels_ReturnsWithinTwoSeconds()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
 
         await OrganizationsTestData.InUnitOfWorkAsync(factory, async (services, ct) =>
         {
             var areas = services.GetRequiredService<IAreaRepository>();
-            var teams = services.GetRequiredService<ITeamRepository>();
             var root = await areas.LockRootAsync(structure.ProjectId, forUpdate: false, ct);
-            var platform = await teams.LockForShareAsync(structure.ProjectId, structure.Platform.Team.Id, ct);
-            var first = await teams.LockForShareAsync(structure.ProjectId, structure.FirstTeamId, ct);
 
             for (var branch = 0; branch < 50; branch++)
             {
@@ -404,8 +288,7 @@ public sealed class GetAreaTreeEndpointTests(MustaskApiFactory factory)
 
                 for (var level = 1; level <= 10; level++)
                 {
-                    var owner = level == 1 ? (branch % 2 == 0 ? platform : first) : null;
-                    var child = Area.CreateChild(parent, OrganizationsTestData.Name($"Узел {branch:D2}-{level:D2}"), owner);
+                    var child = Area.CreateChild(parent, OrganizationsTestData.Name($"Узел {branch:D2}-{level:D2}"));
                     areas.Add(child);
                     parent = child;
                 }
@@ -423,12 +306,10 @@ public sealed class GetAreaTreeEndpointTests(MustaskApiFactory factory)
         stopwatch.Stop();
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(2), $"The 502-node tree took {stopwatch.Elapsed}.");
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(2), $"The 501-node tree took {stopwatch.Elapsed}.");
 
         var nodes = Nodes(answer);
-        Assert.Equal(502, nodes.Count);
+        Assert.Equal(501, nodes.Count);
         Assert.Equal(10, nodes.Max(node => node.Depth));
-        Assert.All(nodes, node => Assert.Contains(node.ResolvedOwner.Id, new[] { structure.FirstTeamId, structure.Platform.Team.Id }));
-        Assert.Equal(250, nodes.Count(node => node.Depth > 0 && node.ResolvedOwner.Id == structure.Platform.Team.Id && node.Name.StartsWith("Узел", StringComparison.Ordinal)));
     }
 }

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
-import Chip from '@mui/material/Chip';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -9,11 +8,12 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
 import { useAccessCheck } from '../../../shared/lib/access';
+import { Tag } from '../../../shared/ui';
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
 import { PageHeader } from '../../../shared/ui/PageHeader';
 import { RegistrySkeleton } from '../../../shared/ui/RegistrySkeleton';
@@ -27,18 +27,18 @@ import { TeamDialogs, type TeamDialog } from '../components/TeamDialogs';
 import { TruncatedName } from '../components/TruncatedName';
 import { useAddTeam } from '../hooks/mutations';
 import { useTeams } from '../hooks/queries';
+import { DEFAULT_MARK_LABEL } from '../lib/defaultMark';
 import { notFoundLevel } from '../lib/notFoundLevel';
 import { teamPath } from '../paths';
 import { organizationsPermissions } from '../permissions';
 
-/** The first team's mark: text, never colour alone (design § 9.2). */
-export const FIRST_TEAM_CHIP = 'Владеет корневой областью';
-
 /**
- * «Команды» (US-4, US-7; design § 9): a project's active teams, the first
- * team first with its chip, each with its default area's path and its row
- * menu. There is no empty state: a project always has its first team
- * (BR-M1-9).
+ * «Команды» (mod-017 US-3, US-6, US-7; design § 7): a project's active teams by
+ * name, as the server orders them — no team comes first. Each shows its mark
+ * «По умолчанию» when it is the project's default team, and has its row menu.
+ * «Команда по умолчанию» and «Добавить команду» are the holder of
+ * `organizations.team.write`'s; a project's last team has no «Удалить команду»
+ * (BR-OT-11). There is no empty state: a project always has a team.
  */
 export function TeamsPage() {
   const { organizationId = '', projectId = '' } = useParams<{
@@ -66,33 +66,29 @@ export function TeamsPage() {
     }
   }
 
+  const teams = query.data ?? [];
+
   function rowActions(team: Team): RowAction[] {
-    const rename: RowAction = {
-      label: 'Переименовать',
-      icon: <EditOutlinedIcon fontSize="small" />,
-      onClick: () => setDialog({ kind: 'rename', team }),
-    };
-    if (team.isFirstTeam) {
-      return [rename];
-    }
-    return [
-      rename,
+    const actions: RowAction[] = [
       {
-        label: 'Изменить область по умолчанию',
-        icon: <AccountTreeOutlinedIcon fontSize="small" />,
-        onClick: () => setDialog({ kind: 'defaultArea', team }),
+        label: 'Переименовать',
+        icon: <EditOutlinedIcon fontSize="small" />,
+        onClick: () => setDialog({ kind: 'rename', team }),
       },
-      {
+    ];
+    // BR-OT-11: a project's last team cannot be deleted (the interim guard).
+    if (teams.length > 1) {
+      actions.push({
         label: 'Удалить команду',
         icon: <DeleteOutlineOutlinedIcon fontSize="small" />,
         onClick: () => setDialog({ kind: 'delete', team }),
         destructive: true,
-      },
-    ];
+      });
+    }
+    return actions;
   }
 
   const loading = query.isPending || (query.isError && query.isFetching);
-  const firstTeamName = query.data?.find((team) => team.isFirstTeam)?.name ?? '';
 
   return (
     <>
@@ -107,13 +103,20 @@ export function TeamsPage() {
               }
             : undefined
         }
+        commands={
+          canWrite && query.isSuccess
+            ? [
+                {
+                  label: 'Команда по умолчанию',
+                  icon: <StarBorderIcon />,
+                  onClick: () => setDialog({ kind: 'defaultTeam' }),
+                },
+              ]
+            : undefined
+        }
       />
       {loading ? (
-        <RegistrySkeleton
-          columns={
-            canWrite ? ['Команда', 'Область по умолчанию', ''] : ['Команда', 'Область по умолчанию']
-          }
-        />
+        <RegistrySkeleton columns={canWrite ? ['Команда', ''] : ['Команда']} />
       ) : query.isError ? (
         <ErrorBanner error={query.error} onRetry={() => void query.refetch()} />
       ) : (
@@ -122,14 +125,13 @@ export function TeamsPage() {
             <TableHead>
               <TableRow>
                 <TableCell>Команда</TableCell>
-                <TableCell>Область по умолчанию</TableCell>
                 {canWrite && <TableCell />}
               </TableRow>
             </TableHead>
             <TableBody>
-              {query.data.map((team) => (
+              {teams.map((team) => (
                 <TableRow key={team.id} hover>
-                  <TableCell sx={{ maxWidth: 0, width: '50%' }}>
+                  <TableCell sx={{ maxWidth: 0, width: '100%' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
                       <Box sx={{ minWidth: 0 }}>
                         <TruncatedName
@@ -137,11 +139,12 @@ export function TeamsPage() {
                           to={teamPath(organizationId, projectId, team.id)}
                         />
                       </Box>
-                      {team.isFirstTeam && <Chip size="small" label={FIRST_TEAM_CHIP} />}
+                      {team.defaultMark && (
+                        <Box sx={{ flexShrink: 0 }}>
+                          <Tag label={DEFAULT_MARK_LABEL[team.defaultMark]} />
+                        </Box>
+                      )}
                     </Box>
-                  </TableCell>
-                  <TableCell sx={{ maxWidth: 0, width: '50%' }}>
-                    <TruncatedName name={team.defaultArea.path} />
                   </TableCell>
                   {canWrite && (
                     <TableCell align="right">
@@ -158,7 +161,7 @@ export function TeamsPage() {
         {adding && (
           <NameDialog
             title="Новая команда"
-            helper="От 1 до 100 символов. Под корневой областью появится область с тем же названием, и она станет областью по умолчанию команды."
+            helper="От 1 до 100 символов."
             submitLabel="Добавить"
             submit={(name) => addTeam.mutateAsync(name)}
             onSucceeded={(team) => {
@@ -172,8 +175,9 @@ export function TeamsPage() {
           organizationId={organizationId}
           projectId={projectId}
           dialog={dialog}
-          firstTeamName={firstTeamName}
+          teams={teams}
           onClose={closeDialog}
+          onTeamsStale={() => void query.refetch()}
         />
       </RequiresOrganizationCode>
     </>

@@ -10,8 +10,9 @@ namespace Mustask.Application.Features.WorkItems.GetWorkItems;
 
 /// <summary>
 /// The project's list (US-2, BR-M3-29): every item of the project in every
-/// state, most recently changed first, then by number descending, 50 a page.
-/// No filter, search or sort (feat-003).
+/// state, most recently changed first, then by number descending, 50 a page, each
+/// with its owning team (mod-017 BR-OT-7). The one filter is the team's (BR-OT-8); the
+/// others, search and sort are feat-003's.
 /// </summary>
 /// <remarks>
 /// The order of answers (api-contract § 0.4): the address from the outside in —
@@ -44,7 +45,11 @@ public sealed class GetWorkItemsHandler(IOrganizationStructure structure, IWorkI
                 new Dictionary<string, IReadOnlyList<FieldError>> { ["page"] = [new FieldError(WorkItemErrorCodes.InvalidPage)] });
         }
 
-        var result = await readModel.GetPageAsync(projectId, page, WorkItemLimits.ListPageSize, cancellationToken);
+        // The team filter (mod-017 BR-OT-8) is the same filter as the project's backlog and board take, with the same
+        // meaning; a value is never validated and never an error. The count and the page both follow it.
+        var filter = WorkItemFilter.OfTeams(query.TeamIds);
+
+        var result = await readModel.GetPageAsync(projectId, page, WorkItemLimits.ListPageSize, filter, cancellationToken);
 
         return new GetWorkItemsResult(new Paging<WorkItemListItemView>(result.Count, result.Items));
     }

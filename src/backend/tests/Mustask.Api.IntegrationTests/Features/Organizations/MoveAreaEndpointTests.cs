@@ -46,18 +46,17 @@ public sealed class MoveAreaEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal("application/json", answer.MediaType);
-        Assert.Equal(["id", "name", "ownerTeamId", "parentId", "projectId"], PropertyNames(answer.Body));
+        Assert.Equal(["id", "name", "parentId", "projectId"], PropertyNames(answer.Body));
         Assert.Equal(reports.Id, answer.Body.GetProperty("id").GetGuid());
         Assert.Equal(structure.ProjectId, answer.Body.GetProperty("projectId").GetGuid());
         Assert.Equal(archive.Id, answer.Body.GetProperty("parentId").GetGuid());
         Assert.Equal("Отчёты", answer.Body.GetProperty("name").GetString());
-        Assert.Equal(JsonValueKind.Null, answer.Body.GetProperty("ownerTeamId").ValueKind);
 
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
         Assert.Equal("Архив / Отчёты / Квартальные", tree.PathOf(quarterly.Id));
         Assert.Equal("Архив / Отчёты / Годовые", tree.PathOf(yearly.Id));
         Assert.DoesNotContain(tree.ChildrenOf(structure.RootId), node => node.Id == reports.Id);
-        Assert.Equal(6, tree.Count);
+        Assert.Equal(5, tree.Count);
     }
 
     // US-5 · "A move needs a free name at its destination": «Архив» already has «Отчёты» (compared ignoring case,
@@ -79,7 +78,7 @@ public sealed class MoveAreaEndpointTests(MustaskApiFactory factory)
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
         Assert.Equal(structure.RootId, tree[reports.Id].ParentId);
         Assert.Equal([held.Id], tree.ChildrenOf(archive.Id).Select(node => node.Id));
-        Assert.Equal(5, tree.Count);
+        Assert.Equal(4, tree.Count);
     }
 
     // US-5 · "A node is never moved under itself or its descendant": «Отчёты» under «Квартальные», under «Итоги» or under
@@ -142,9 +141,9 @@ public sealed class MoveAreaEndpointTests(MustaskApiFactory factory)
         Assert.Equal("Область не найдена.", answer.Detail);
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
         Assert.Equal(structure.RootId, tree[reports.Id].ParentId);
-        Assert.Equal(3, tree.Count);
+        Assert.Equal(2, tree.Count);
         Assert.Equal(1, (await OrganizationsTestData.ReadTreeAsync(factory, secondProject.Project.Id)).Count);
-        Assert.Equal(2, (await OrganizationsTestData.ReadTreeAsync(factory, other.ProjectId)).Count);
+        Assert.Equal(1, (await OrganizationsTestData.ReadTreeAsync(factory, other.ProjectId)).Count);
     }
 
     // api-contract § 4.4: the body's field is absent, as for a missing reference.
@@ -201,37 +200,17 @@ public sealed class MoveAreaEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var reports = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Отчёты");
-        var quarterly = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, reports.Id, "Квартальные", structure.Platform.Team.Id);
+        var quarterly = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, reports.Id, "Квартальные");
 
         var answer = await MoveAsync(structure, quarterly.Id, reports.Id);
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal(reports.Id, answer.Body.GetProperty("parentId").GetGuid());
-        Assert.Equal(structure.Platform.Team.Id, answer.Body.GetProperty("ownerTeamId").GetGuid());
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
         Assert.Equal("Отчёты / Квартальные", tree.PathOf(quarterly.Id));
-        Assert.Equal(4, tree.Count);
+        Assert.Equal(3, tree.Count);
     }
 
-    // US-6 · "A move re-resolves inherited owners and keeps explicit ones": «Отчёты» has no explicit owner, its child
-    // «Квартальные» is owned explicitly by the first team; «Отчёты» moves under «Платформа», the team's area.
-    [Fact]
-    public async Task Move_ReResolvesInheritedOwners_KeepsExplicitOnes()
-    {
-        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var reports = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Отчёты");
-        var quarterly = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, reports.Id, "Квартальные", structure.FirstTeamId);
-        var before = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
-        Assert.Equal(new ResolvedOwner(structure.FirstTeamId, true), before.ResolveOwner(reports.Id));
-
-        var answer = await MoveAsync(structure, reports.Id, structure.Platform.Area.Id);
-
-        Assert.Equal(HttpStatusCode.OK, answer.Status);
-        Assert.Equal(JsonValueKind.Null, answer.Body.GetProperty("ownerTeamId").ValueKind);
-        var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
-        Assert.Equal(new ResolvedOwner(structure.Platform.Team.Id, true), tree.ResolveOwner(reports.Id));
-        Assert.Equal(new ResolvedOwner(structure.FirstTeamId, false), tree.ResolveOwner(quarterly.Id));
-    }
 
     // US-1 · "A visitor who is not signed in sees nothing".
     [Fact]
@@ -291,13 +270,14 @@ public sealed class MoveAreaEndpointTests(MustaskApiFactory factory)
         var secondProject = await OrganizationsTestData.CreateProjectAsync(factory, structure.OrganizationId, "Второй проект", "SEC");
         var foreign = await OrganizationsTestData.AddAreaAsync(factory, secondProject.Project.Id, secondProject.Root.Id, "Чужая");
         var other = await OrganizationsTestData.CreateStructureAsync(factory);
+        var otherArea = await OrganizationsTestData.AddAreaAsync(factory, other.ProjectId, other.RootId, "Платформа");
         var areaId = how switch
         {
             "malformed" => "not-an-area",
             "unknown" => Guid.CreateVersion7().ToString(),
             "of another project" => foreign.Id.ToString(),
             "the root of another project" => secondProject.Root.Id.ToString(),
-            _ => other.Platform.Area.Id.ToString(),
+            _ => otherArea.Id.ToString(),
         };
 
         var answer = await MoveAsync(structure.OrganizationId, structure.ProjectId.ToString(), areaId, new { parentId = structure.RootId.ToString() });
@@ -306,8 +286,8 @@ public sealed class MoveAreaEndpointTests(MustaskApiFactory factory)
         Assert.Equal("organizations.area.not_found", answer.ErrorCode);
         Assert.Equal("Область не найдена.", answer.Detail);
         Assert.Equal(secondProject.Root.Id, (await OrganizationsTestData.ReadTreeAsync(factory, secondProject.Project.Id))[foreign.Id].ParentId);
-        Assert.Equal(2, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
-        Assert.Equal(other.RootId, (await OrganizationsTestData.ReadTreeAsync(factory, other.ProjectId))[other.Platform.Area.Id].ParentId);
+        Assert.Equal(1, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
+        Assert.Equal(other.RootId, (await OrganizationsTestData.ReadTreeAsync(factory, other.ProjectId))[otherArea.Id].ParentId);
     }
 
     // US-3 · "A project is deactivated": a write under it answers project.not_found and changes nothing (ADR-0026 rule 5).

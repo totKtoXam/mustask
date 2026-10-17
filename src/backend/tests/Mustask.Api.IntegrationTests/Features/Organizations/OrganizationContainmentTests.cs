@@ -73,6 +73,7 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
     {
         var world = await WorkItemsTestData.CreateWorldAsync(factory);
         var team = await OrganizationsTestData.AddTeamAsync(factory, world.ProjectId, "Платформа");
+        var area = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, world.RootAreaId, "Платформа");
 
         for (var filler = 0; filler < fillers; filler++)
         {
@@ -82,10 +83,15 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
         var item = await WorkItemsTestData.CreateAsync(factory, world, "US", "Чужая история");
         Assert.Equal(HttpStatusCode.Created, item.Status);
 
-        return new Side(world, team.Team.Id, team.Area.Id, item.Body.GetProperty("identifier").GetString()!, item.Body.GetProperty("id").GetGuid());
+        // mod-017: the item has an owning team and the project a named default team, so a refused request that changed either
+        // shows in the snapshot of the state (an unowned item and an unnamed setting would hide a write of none).
+        await OwningTeamTestData.SetOwningTeamAsync(factory, item.Body.GetProperty("id").GetGuid(), team.Id);
+        await WorkItemsTestData.ExecuteAsync(factory, $"UPDATE projects SET default_team_id = {team.Id} WHERE id = {world.ProjectId}");
+
+        return new Side(world, team.Id, area.Id, item.Body.GetProperty("identifier").GetString()!, item.Body.GetProperty("id").GetGuid());
     }
 
-    /// <summary>One user who administers both organizations; A and B each hold a project, a second team with its area, and a work item.</summary>
+    /// <summary>One user who administers both organizations; A and B each hold a project, a second team, an area and a work item.</summary>
     private async Task<TwoOrganizations> TwoAsync()
     {
         var a = await BuildAsync(fillers: 0);
@@ -124,7 +130,8 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
             $"{method} {template} with the {kind} of another organization answered {(int)answer.Status} {answer.ErrorCode}, not {NotFoundOf[kind]}.");
     }
 
-    // The refused requests change nothing of the other organization: its project, teams, areas, items and name are as they were.
+    // The refused requests change nothing of the other organization: its project, teams, areas, items, the items' owning teams, the
+    // project's default team and its name are as they were.
     [Fact]
     public async Task TheRefusedRequests_ChangeNothingOfTheOtherOrganization()
     {
@@ -157,6 +164,7 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
         var team = await structure.FindTeamAsync(side.TeamId, CancellationToken.None);
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, side.World.ProjectId);
         var items = await WorkItemsTestData.StoredAsync(factory, side.World.ProjectId);
+        var teams = await OwningTeamTestData.TeamStateAsync(factory, side.World.ProjectId);
 
         return string.Join(
             " | ",
@@ -167,12 +175,14 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
             team!.Name,
             team.Status,
             string.Join("; ", tree.PreOrder()),
-            string.Join("; ", items.Select(item => $"{item.Number} {item.Title} {item.AreaId} {item.StateId} {item.ChangedAt:O}")));
+            string.Join("; ", items.Select(item => $"{item.Number} {item.Title} {item.AreaId} {item.StateId} {item.ChangedAt:O}")),
+            teams);
     }
 
-    // US-2 · "An area's or a team's body id outside the address is refused" (mod-002 BR-M1-22): an administrator of A and of B sets
-    // the owner of an area of A to a team of B, and the default area of a team of A to an area of B — refused as for an id that does
-    // not exist, and nothing changes.
+    // US-2 · "An area's or a team's body id outside the address is refused" (mod-002 BR-M1-22, mod-017 BR-OT-16): an administrator
+    // of A and of B moves an area of A under an area of B, creates one under an area of B, and names a team of B the default team
+    // of the project of A — refused as for an id that does not exist, and nothing changes. The owner and default-area requests of
+    // mod-002 are gone (BR-OT-10); `PUT …/default-team` takes their place. Rewritten (D-16): the test keeps its name.
     [Fact]
     public async Task AnAreaOrTeamIdOfAnotherOrganizationInABody_IsRefusedAsNotFound_NothingChanges()
     {
@@ -180,37 +190,33 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
         var a = world.A;
         var project = $"/api/organizations/{a.OrganizationId}/projects/{a.ProjectId}";
         var treeBefore = (await OrganizationsTestData.ReadTreeAsync(factory, a.World.ProjectId)).PreOrder().ToList();
+        var teamsBefore = await OwningTeamTestData.TeamStateAsync(factory, a.World.ProjectId);
 
-        var owner = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Put, $"{project}/areas/{a.AreaId}/owner", new { ownerTeamId = world.B.TeamId.ToString() }, world.Token);
-        var defaultArea = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Put, $"{project}/teams/{a.TeamId}/default-area", new { areaId = world.B.AreaId.ToString() }, world.Token);
         var parent = await OrganizationsApi.SendAsync(
             factory, HttpMethod.Put, $"{project}/areas/{a.AreaId}/parent", new { parentId = world.B.AreaId.ToString() }, world.Token);
         var created = await OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Post,
             $"{project}/areas",
-            new { parentId = world.B.AreaId.ToString(), name = OrganizationsTestData.UniqueName("Область"), ownerTeamId = (string?)null },
+            new { parentId = world.B.AreaId.ToString(), name = OrganizationsTestData.UniqueName("Область") },
             world.Token);
-        var createdOwned = await OrganizationsApi.SendAsync(
-            factory,
-            HttpMethod.Post,
-            $"{project}/areas",
-            new { parentId = a.World.RootAreaId.ToString(), name = OrganizationsTestData.UniqueName("Область"), ownerTeamId = world.B.TeamId.ToString() },
-            world.Token);
+        var defaultTeam = await OrganizationsApi.SendAsync(
+            factory, HttpMethod.Put, $"{project}/default-team", new { teamId = world.B.TeamId.ToString() }, world.Token);
+        var unknownDefaultTeam = await OrganizationsApi.SendAsync(
+            factory, HttpMethod.Put, $"{project}/default-team", new { teamId = Guid.CreateVersion7().ToString() }, world.Token);
 
-        Assert.Equal((HttpStatusCode.NotFound, OrganizationErrorCodes.TeamNotFound), (owner.Status, owner.ErrorCode));
-        Assert.Equal((HttpStatusCode.NotFound, OrganizationErrorCodes.AreaNotFound), (defaultArea.Status, defaultArea.ErrorCode));
         Assert.Equal((HttpStatusCode.NotFound, OrganizationErrorCodes.AreaNotFound), (parent.Status, parent.ErrorCode));
         Assert.Equal((HttpStatusCode.NotFound, OrganizationErrorCodes.AreaNotFound), (created.Status, created.ErrorCode));
-        Assert.Equal((HttpStatusCode.NotFound, OrganizationErrorCodes.TeamNotFound), (createdOwned.Status, createdOwned.ErrorCode));
+        Assert.Equal((HttpStatusCode.NotFound, OrganizationErrorCodes.TeamNotFound), (defaultTeam.Status, defaultTeam.ErrorCode));
+        // mod-017 BR-OT-16: B's team answers exactly as an id that names nothing, status and body alike.
+        Assert.Equal((unknownDefaultTeam.Status, unknownDefaultTeam.ErrorCode, unknownDefaultTeam.Detail), (defaultTeam.Status, defaultTeam.ErrorCode, defaultTeam.Detail));
         Assert.Equal(treeBefore, (await OrganizationsTestData.ReadTreeAsync(factory, a.World.ProjectId)).PreOrder().ToList());
+        Assert.Equal(teamsBefore, await OwningTeamTestData.TeamStateAsync(factory, a.World.ProjectId));
     }
 
-    // US-2 · "A work item's body id outside the address is refused" (mod-003 BR-M3-23, feat-001 BR-H-1, mod-006 BR-M4-21): a member
-    // of A and of B saves a work item of A with an area or a parent of B, or creates one in A from a team of B or beneath a parent of
-    // B — refused as for an id that does not exist, and nothing changes.
+    // US-2 · "A work item's body id outside the address is refused" (mod-003 BR-M3-23, feat-001 BR-H-1, mod-017 BR-OT-16): a member
+    // of A and of B saves a work item of A with an area, a team or a parent of B, or creates one in A for a team of B or beneath a
+    // parent of B — refused as for an id that does not exist, and nothing changes.
     [Fact]
     public async Task AWorkItemBodyIdOfAnotherOrganization_IsRefusedAsNotFound_NothingChanges()
     {
@@ -218,6 +224,7 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
         var a = world.A;
         var own = await WorkItemsTestData.CreateItemAsync(factory, a.World, "TASK", "Своя задача");
         var storedBefore = await WorkItemsTestData.StoredAsync(factory, a.World.ProjectId);
+        var teamsBefore = await OwningTeamTestData.TeamStateAsync(factory, a.World.ProjectId);
         var typeId = a.World.Types["TASK"].Id.ToString();
 
         var saveArea = await OrganizationsApi.SendAsync(
@@ -230,8 +237,12 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
             factory,
             HttpMethod.Post,
             WorkItemsTestData.List(a.World),
-            new { requestId = Guid.NewGuid().ToString(), typeId, title = "Из чужой команды", teamId = world.B.TeamId.ToString() },
+            new { requestId = Guid.NewGuid().ToString(), typeId, title = "Из чужой команды", team = new { teamId = world.B.TeamId.ToString() } },
             world.Token);
+        var saveTeam = await OrganizationsApi.SendAsync(
+            factory, HttpMethod.Patch, WorkItemsTestData.Item(a.World, own), new { team = new { teamId = world.B.TeamId.ToString() } }, world.Token);
+        var unknownTeam = await OrganizationsApi.SendAsync(
+            factory, HttpMethod.Patch, WorkItemsTestData.Item(a.World, own), new { team = new { teamId = Guid.CreateVersion7().ToString() } }, world.Token);
         var createBeneath = await OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Post,
@@ -243,7 +254,11 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
         Assert.Equal((HttpStatusCode.NotFound, WorkItemErrorCodes.ParentNotFound), (saveParent.Status, saveParent.ErrorCode));
         Assert.Equal((HttpStatusCode.NotFound, WorkItemErrorCodes.ParentNotFound), (setParent.Status, setParent.ErrorCode));
         Assert.Equal((HttpStatusCode.NotFound, OrganizationErrorCodes.TeamNotFound), (createFromTeam.Status, createFromTeam.ErrorCode));
+        Assert.Equal((HttpStatusCode.NotFound, OrganizationErrorCodes.TeamNotFound), (saveTeam.Status, saveTeam.ErrorCode));
+        // mod-017 BR-OT-16: B's team answers exactly as an id that names nothing, status and body alike.
+        Assert.Equal((unknownTeam.Status, unknownTeam.ErrorCode, unknownTeam.Detail), (saveTeam.Status, saveTeam.ErrorCode, saveTeam.Detail));
         Assert.Equal((HttpStatusCode.NotFound, WorkItemErrorCodes.ParentNotFound), (createBeneath.Status, createBeneath.ErrorCode));
         Assert.Equal(storedBefore, await WorkItemsTestData.StoredAsync(factory, a.World.ProjectId));
+        Assert.Equal(teamsBefore, await OwningTeamTestData.TeamStateAsync(factory, a.World.ProjectId));
     }
 }

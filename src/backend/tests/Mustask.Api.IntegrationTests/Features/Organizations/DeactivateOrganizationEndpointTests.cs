@@ -76,7 +76,7 @@ public sealed class DeactivateOrganizationEndpointTests(MustaskApiFactory factor
             $"{organization}/projects/deactivated",
             project,
             $"{project}/teams",
-            $"{project}/teams/{structure.Platform.Team.Id}",
+            $"{project}/teams/{structure.Platform.Id}",
             $"{project}/areas",
         })
         {
@@ -96,7 +96,8 @@ public sealed class DeactivateOrganizationEndpointTests(MustaskApiFactory factor
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var old = await OrganizationsTestData.CreateProjectAsync(
             factory, structure.OrganizationId, "Старый проект", "OLD", ProjectStatus.Deactivated);
-        await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Отчёты", structure.Platform.Team.Id);
+        await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Отчёты");
+        await OrganizationsTestData.SetDefaultTeamAsync(factory, structure.OrganizationId, structure.ProjectId, structure.Platform.Id);
         await OrganizationsTestData.AddAreaAsync(factory, old.Project.Id, old.Root.Id, "Архив");
         var before = await BeneathAsync(structure.OrganizationId);
 
@@ -205,8 +206,8 @@ public sealed class DeactivateOrganizationEndpointTests(MustaskApiFactory factor
     }
 
     /// <summary>
-    /// Everything beneath the organization, as stored now and whatever its status: every project with its status, every team
-    /// with its status, every area with its parent, owner and default, and the process with its levels, types and states.
+    /// Everything beneath the organization, as stored now and whatever its status: every project with its status
+    /// and default-team setting, every team with its status, every area with its parent, and the process with its levels, types and states.
     /// </summary>
     private async Task<IReadOnlyList<string>> BeneathAsync(Guid organizationId)
     {
@@ -225,9 +226,9 @@ public sealed class DeactivateOrganizationEndpointTests(MustaskApiFactory factor
             .ToListAsync();
 
         var rows = new List<string>();
-        rows.AddRange(projects.Select(project => $"project {project.Id} {project.Status} {project.Name} {project.Key}"));
-        rows.AddRange(teams.Select(team => $"team {team.Id} {team.Status} {team.Name} first={team.IsFirstTeam}"));
-        rows.AddRange(areas.Select(area => $"area {area.Id} {area.Name} parent={area.ParentId} owner={area.OwnerTeamId} default={area.DefaultOfTeamId}"));
+        rows.AddRange(projects.Select(project => $"project {project.Id} {project.Status} {project.Name} {project.Key} default={project.DefaultTeamId}"));
+        rows.AddRange(teams.Select(team => $"team {team.Id} {team.Status} {team.Name}"));
+        rows.AddRange(areas.Select(area => $"area {area.Id} {area.Name} parent={area.ParentId}"));
 
         rows.AddRange(processes.Select(process =>
             $"process {process.Id.Value} levels={process.BacklogLevels.Count} types={process.WorkItemTypes.Count} states={process.WorkItemTypes.Sum(type => type.States.Count)}"));

@@ -38,9 +38,9 @@ public sealed class BacklogTreeVolumeTests(MustaskApiFactory factory, ITestOutpu
         // Epics 1..5 000; feature n + 5 000 under epic n; story n + 10 000 under feature n + 5 000; task n + 15 000 under
         // story n + 10 000.
         await WorkItemsTestData.ExecuteAsync(factory, $"""
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at)
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, owning_team_id)
             SELECT gen_random_uuid(), {world.ProjectId}, n, {epic.Id}, {epic.StateId("Новая")}, {world.PlatformAreaId},
-                   'Эпик ' || n, '', gen_random_uuid(), now(), 'volume-test', now()
+                   'Эпик ' || n, '', gen_random_uuid(), now(), 'volume-test', now(), {world.PlatformId}
             FROM generate_series(1, {PerLevel}) AS n
             """);
         await InsertLevelAsync(world, feature.Id, feature.StateId("Новая"), "Фича", from: PerLevel + 1);
@@ -98,9 +98,9 @@ public sealed class BacklogTreeVolumeTests(MustaskApiFactory factory, ITestOutpu
     /// <summary>The <see cref="PerLevel"/> items numbered from <paramref name="from"/>, item n under item n − <see cref="PerLevel"/>.</summary>
     private Task InsertLevelAsync(BoardsWorld world, Guid typeId, Guid stateId, string title, int from) =>
         WorkItemsTestData.ExecuteAsync(factory, $"""
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, parent_id)
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, parent_id, owning_team_id)
             SELECT gen_random_uuid(), {world.ProjectId}, n, {typeId}, {stateId}, {world.PlatformAreaId},
-                   {title} || ' ' || n, '', gen_random_uuid(), now(), 'volume-test', now(), parent.id
+                   {title} || ' ' || n, '', gen_random_uuid(), now(), 'volume-test', now(), parent.id, {world.PlatformId}
             FROM generate_series({from}, {from + PerLevel - 1}) AS n
             JOIN work_items AS parent ON parent.project_id = {world.ProjectId} AND parent.number = n - {PerLevel}
             """);

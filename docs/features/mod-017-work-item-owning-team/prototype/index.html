@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mod-017: команда рабочего элемента (прототип)</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font: 14px/20px "Segoe UI", Arial, sans-serif; background: #f3f2f1; margin: 0; color: #201f1e; }
+  header.top { background: #fff; border-bottom: 1px solid #e1dfdd; padding: 8px 16px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  header.top b { margin-right: 8px; }
+  main { padding: 20px 24px; max-width: 1100px; }
+  p.note { color: #605e5c; font-size: 12px; max-width: 700px; margin: 0 0 12px; }
+  button { font: inherit; color: inherit; background: #edebe9; border: 0; border-radius: 4px; padding: 5px 12px; cursor: pointer; }
+  button:hover { background: #e1dfdd; }
+  button.primary { background: #0078d4; color: #fff; }
+  button.ghost { background: none; }
+  button.danger { background: #a4262c; color: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+  button[aria-pressed="true"] { background: #fff; box-shadow: inset 0 -2px 0 #0078d4; }
+  :focus-visible { outline: 2px solid #0078d4; outline-offset: 1px; }
+  h1 { font-size: 20px; margin: 0 0 12px; font-weight: 600; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .grow { flex: 1; }
+  .card { background: #fff; border-radius: 4px; box-shadow: 0 1px 6px rgba(0,0,0,.18); }
+  .band { background: #f3f2f1; padding: 6px 18px 8px; display: grid; grid-template-columns: minmax(240px, 253px) minmax(240px, 253px) 1fr; column-gap: 32px; row-gap: 4px; align-items: start; }
+  @media (max-width: 720px) { .band { grid-template-columns: 1fr; } }
+  .prop { display: flex; align-items: center; min-height: 32px; gap: 8px; }
+  .prop > label { width: 82px; color: #605e5c; font-size: 12px; flex: none; }
+  .val { position: relative; flex: 1; min-width: 0; }
+  .val input, .val .box { width: 100%; height: 28px; border: 1px solid transparent; border-radius: 4px; padding: 0 6px; font: inherit; background: transparent; }
+  .val input:hover, .val input:focus { border-color: #8a8886; background: #fff; }
+  .always input, .always .box { border-color: #8a8886; background: #fff; }
+  .err { color: #a4262c; font-size: 12px; margin: 2px 0 0 90px; }
+  ul.list { position: absolute; z-index: 5; left: 0; right: 0; top: 30px; margin: 0; padding: 4px 0; list-style: none; background: #fff; border-radius: 4px; box-shadow: 0 4px 14px rgba(0,0,0,.3); max-height: 220px; overflow: auto; }
+  ul.list li { padding: 5px 10px; cursor: pointer; }
+  ul.list li[aria-selected="true"] { background: #e8f0fb; }
+  ul.list li.act, ul.list li:hover { background: #f3f2f1; }
+  ul.list li.static { color: #605e5c; cursor: default; }
+  .body { padding: 14px 18px; color: #605e5c; }
+  .tag { display: inline-block; background: #edebe9; border-radius: 10px; padding: 0 8px; font-size: 12px; margin-left: 8px; }
+  .mute { color: #605e5c; }
+  table { border-collapse: collapse; width: 100%; background: #fff; border-radius: 4px; box-shadow: 0 1px 6px rgba(0,0,0,.18); }
+  th { text-align: left; font-size: 12px; color: #605e5c; font-weight: 400; padding: 8px; }
+  td { padding: 7px 8px; border-top: 1px solid #f3f2f1; }
+  .wrap { overflow-x: auto; }
+  .bar { background: #fff; border: 1px solid #e1dfdd; border-radius: 4px; padding: 10px 14px; margin-bottom: 12px; display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+  .bar label { display: block; font-size: 12px; color: #605e5c; }
+  .frame { text-align: center; padding: 40px 12px; background: #fff; border-radius: 4px; box-shadow: 0 1px 6px rgba(0,0,0,.18); }
+  .frame h2 { font-size: 16px; margin: 4px 0; }
+  .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; padding: 12px; z-index: 20; }
+  .dlg { background: #fff; border-radius: 6px; width: 520px; max-width: 100%; padding: 18px 20px; box-shadow: 0 8px 28px rgba(0,0,0,.35); }
+  .dlg h2 { font-size: 18px; margin: 0 0 10px; font-weight: 600; }
+  .dlg .foot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  .fld { margin: 10px 0; }
+  .fld > label { display: block; font-size: 12px; color: #605e5c; margin-bottom: 2px; }
+  .skel { height: 28px; background: linear-gradient(90deg, #edebe9, #f8f8f8, #edebe9); border-radius: 4px; }
+  .cap { font-size: 12px; color: #605e5c; margin: 2px 0 0; }
+  .alert { background: #fde7e9; border-radius: 4px; padding: 8px 10px; display: flex; gap: 8px; align-items: center; }
+  #toast { position: fixed; left: 16px; bottom: 16px; background: #323130; color: #fff; padding: 8px 12px; border-radius: 4px; display: none; z-index: 30; }
+  .ms { position: relative; width: 240px; }
+  .ms .box { cursor: pointer; display: flex; align-items: center; line-height: 26px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; border: 1px solid #8a8886; border-radius: 4px; padding: 0 6px; height: 28px; background: #fff; }
+  .ms li input { margin-right: 8px; }
+</style>
+</head>
+<body>
+<header class="top" role="tablist" aria-label="Экраны прототипа">
+  <b>mod-017</b>
+  <button role="tab" aria-pressed="true" data-screen="card">Карточка</button>
+  <button role="tab" aria-pressed="false" data-screen="dialog">Новый рабочий элемент</button>
+  <button role="tab" aria-pressed="false" data-screen="list">Рабочие элементы</button>
+  <button role="tab" aria-pressed="false" data-screen="teams">Команды</button>
+  <span class="grow"></span>
+  <label>Роль <select id="role"><option value="admin">Администратор</option><option value="member">Участник</option><option value="reader">Читатель</option></select></label>
+</header>
+<main id="main"></main>
+<div id="toast" role="status"></div>
+<script>
+'use strict';
+// Mock data: «Альфа» (ALP) with MARS, VENUS, ATLAS. Settings name VENUS as the default team.
+var NONE = { id: null, name: 'Без команды' };
+var teams = [{ id: 't1', name: 'ATLAS' }, { id: 't2', name: 'MARS' }, { id: 't3', name: 'VENUS' }];
+var settings = { defaultId: 't3' };
+var items = [
+  { id: 'ALP-US-12', title: 'Вход по ссылке из письма', team: 't2', area: 'Альфа', who: 'Анна Смирнова', st: 'Новая' },
+  { id: 'ALP-US-14', title: 'Повторная отправка письма', team: 't2', area: 'Альфа / Склад', who: 'Не назначен', st: 'Активна' },
+  { id: 'ALP-US-20', title: 'Экспорт отчёта', team: 't3', area: 'Альфа', who: 'Ольга Петрова', st: 'Новая' },
+  { id: 'ALP-US-21', title: 'Подсказки в форме', team: null, area: 'Альфа', who: 'Не назначен', st: 'Новая' }
+];
+var state = { screen: 'card', role: 'admin', filter: [], cardTeam: 't2', cardErr: '', cardGone: false, dlg: null, toast: 0 };
+var $ = function (s, r) { return (r || document).querySelector(s); };
+var esc = function (t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+var byName = function () { return teams.slice().sort(function (a, b) { return a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1; }); };
+var nameOf = function (id) { var t = teams.filter(function (x) { return x.id === id; })[0]; return t ? t.name : NONE.name; };
+var canWrite = function () { return state.role !== 'reader'; };
+var isAdmin = function () { return state.role === 'admin'; };
+function toast(text) { var t = $('#toast'); t.textContent = text; t.style.display = 'block'; clearTimeout(state.toast); state.toast = setTimeout(function () { t.style.display = 'none'; }, 4000); }
+function defaultMark(id) { if (settings.defaultId === id) return 'По умолчанию'; return !settings.defaultId && teams.length === 1 ? 'По умолчанию: единственная команда' : ''; }
+function defaultTeam() { return settings.defaultId || (teams.length === 1 ? teams[0].id : null); }
+
+// ---- the card (§ 3) ----
+function pickerOptions() { return [NONE].concat(byName()); }
+function renderCard() {
+  var shown = state.cardTeam;
+  var box = canWrite()
+    ? '<input id="team-in" role="combobox" aria-expanded="false" aria-controls="team-list" aria-label="Команда" value="' + esc(nameOf(shown)) + '" autocomplete="off">'
+    : '<span class="box" style="padding-top:3px">' + esc(nameOf(shown)) + '</span>';
+  return '<h1>ALP-US-12 · Вход по ссылке из письма</h1>' +
+    '<p class="note">Полоса свойств: «Команда» стоит в блоке B, строка 2, под «Область». Откройте список, выберите команду, нажмите «Сохранить». «Имитировать: команда удалена» даёт отказ под полем. Сузьте окно до 720 px и меньше — блоки встают в столбец.</p>' +
+    '<div class="card"><div class="band">' +
+    '<div><div class="prop"><label>Статус</label><span>● Новая</span></div></div>' +
+    '<div><div class="prop"><label>Область</label><span>Альфа / Склад</span></div>' +
+    '<div class="prop"><label for="team-in">Команда</label><div class="val">' + box + '<ul class="list" id="team-list" role="listbox" hidden></ul></div></div>' +
+    (state.cardErr ? '<div class="err" role="alert">' + esc(state.cardErr) + '</div>' : '') + '</div>' +
+    '<div class="mute" style="text-align:right;font-size:12px">Изменён: 17.10.2026 09:14</div></div>' +
+    '<div class="body">' + (canWrite() ? '<button class="primary" id="save">Сохранить</button> <button id="gone">Имитировать: команда удалена</button>' : 'Рабочий элемент доступен только для чтения.') + '</div></div>';
+}
+function bindCard() {
+  var input = $('#team-in'), list = $('#team-list');
+  if (!input) return;
+  function open(loadingFirst) {
+    list.hidden = false; input.setAttribute('aria-expanded', 'true');
+    list.innerHTML = '<li class="static">Загрузка…</li>';
+    setTimeout(function () { fill(''); }, loadingFirst ? 450 : 0);
+  }
+  function fill(q) {
+    var opts = pickerOptions().filter(function (o) { return o.name.toLowerCase().indexOf(q.toLowerCase()) >= 0; });
+    list.innerHTML = opts.length ? opts.map(function (o) { return '<li role="option" data-id="' + (o.id || '') + '" aria-selected="' + (o.id === state.cardTeam) + '">' + esc(o.name) + '</li>'; }).join('') : '<li class="static">Ничего не найдено</li>';
+  }
+  input.addEventListener('focus', function () { input.select(); open(!state.loaded); state.loaded = true; });
+  input.addEventListener('input', function () { fill(input.value); });
+  input.addEventListener('keydown', function (e) { if (e.key === 'Escape') { list.hidden = true; input.value = nameOf(state.cardTeam); } });
+  list.addEventListener('mousedown', function (e) {
+    var li = e.target.closest('li[data-id]'); if (!li) return;
+    state.cardTeam = li.dataset.id || null; state.cardErr = ''; list.hidden = true; input.value = nameOf(state.cardTeam);
+  });
+  input.addEventListener('blur', function () { setTimeout(function () { list.hidden = true; input.value = nameOf(state.cardTeam); }, 120); });
+  $('#save').onclick = function () { if (state.cardGone) { state.cardErr = 'Команда не найдена.'; render(); $('#team-in').focus(); } else toast('Изменения сохранены.'); };
+  $('#gone').onclick = function () { state.cardGone = true; toast('Команда «' + nameOf(state.cardTeam) + '» удалена другим пользователем; нажмите «Сохранить».'); };
+}
+
+// ---- the creation dialog (§ 4) ----
+function openDialog(surfaceTeam) { state.dlg = { kind: 'create', surfaceTeam: surfaceTeam || null, loaded: false, failed: false, team: null, type: 'story', err: '' }; render(); setTimeout(function () { if (!state.dlg) return; var d = state.dlg; d.loaded = true; d.team = d.surfaceTeam || defaultTeam(); render(); }, 700); }
+function dialogHtml() {
+  var d = state.dlg;
+  var hint = '';
+  if (d.type !== 'task' && d.loaded) hint = d.team ? 'Встанет в конец бэклога команды «' + nameOf(d.team) + '».' : 'Попадёт только в бэклог проекта.';
+  var field = !d.loaded ? '<div class="skel" role="status" aria-label="Загрузка данных"></div>'
+    : '<select id="d-team" aria-label="Команда" style="width:100%;height:28px">' + pickerOptions().map(function (o) { return '<option value="' + (o.id || '') + '"' + (o.id === d.team ? ' selected' : '') + '>' + esc(o.name) + '</option>'; }).join('') + '</select>' + (d.err ? '<div class="err" style="margin-left:0" role="alert">' + esc(d.err) + '</div>' : '') + (hint ? '<p class="cap" id="d-hint">' + esc(hint) + '</p>' : '');
+  return '<div class="scrim"><div class="dlg" role="dialog" aria-modal="true" aria-label="Новый рабочий элемент"><h2>Новый рабочий элемент</h2>' +
+    '<p class="mute" style="margin:0">Рабочий элемент будет создан в статусе «Новая» в области «Альфа». Остальные поля заполняются в его форме.</p>' +
+    '<div class="fld"><label for="d-type">Тип</label><select id="d-type" style="width:100%;height:28px"><option value="story"' + (d.type === 'story' ? ' selected' : '') + '>Пользовательская история</option><option value="task"' + (d.type === 'task' ? ' selected' : '') + '>Задача</option></select></div>' +
+    '<div class="fld"><label for="d-team">Команда</label>' + field + '</div>' +
+    '<div class="fld"><label for="d-title">Заголовок *</label><input id="d-title" autofocus style="width:100%;height:28px;border:1px solid #8a8886;border-radius:4px;padding:0 6px"></div>' +
+    '<div class="foot"><button id="d-cancel">Отмена</button><button class="primary" id="d-ok"' + (d.loaded ? '' : ' disabled') + '>Создать</button></div></div></div>';
+}
+function bindDialog() {
+  var d = state.dlg; if (!d) return;
+  $('#d-cancel').onclick = function () { state.dlg = null; render(); };
+  $('#d-type').onchange = function (e) { d.type = e.target.value; render(); };
+  var sel = $('#d-team'); if (sel) sel.onchange = function (e) { d.team = e.target.value || null; d.err = ''; render(); };
+  $('#d-ok').onclick = function () { var title = $('#d-title').value.trim(); if (!title) { toast('Введите заголовок.'); return; } var team = d.team; state.dlg = null; toast('Рабочий элемент ALP-US-31 создан.' + (state.filter.length && state.filter.indexOf(team || 'none') < 0 ? ' Он не подходит под текущий фильтр.' : '')); render(); };
+}
+
+// ---- the list and the filter (§ 5) ----
+function matches(it) { return !state.filter.length || state.filter.indexOf(it.team || 'none') >= 0; }
+function filterOptions() { return byName().map(function (t) { return { id: t.id, name: t.name }; }).concat([{ id: 'none', name: 'Без команды' }]); }
+function renderList() {
+  var rows = items.filter(matches);
+  var names = filterOptions().filter(function (o) { return state.filter.indexOf(o.id) >= 0; }).map(function (o) { return o.name; }).join(', ');
+  var body = rows.length ? '<div class="wrap"><table aria-label="Рабочие элементы"><thead><tr><th>ID</th><th>Тип</th><th>Заголовок</th><th>Исполнитель</th><th>Статус</th><th>Команда</th><th>Область</th><th>Изменён</th></tr></thead><tbody>' +
+    rows.map(function (it) { return '<tr><td>' + it.id + '</td><td>История</td><td><a href="#">' + esc(it.title) + '</a></td><td>' + esc(it.who) + '</td><td>' + it.st + '</td><td' + (it.team ? '' : ' class="mute"') + '>' + esc(nameOf(it.team)) + '</td><td>' + esc(it.area) + '</td><td>17.10.2026 09:14</td></tr>'; }).join('') + '</tbody></table></div>'
+    : '<div class="frame"><h2>Ничего не найдено</h2><p class="mute">Ни один рабочий элемент не подходит под заданные условия фильтра.</p><button id="reset">Сбросить фильтр</button></div>';
+  return '<div class="row"><h1 class="grow">Рабочие элементы</h1>' + (canWrite() ? '<button class="primary" id="new">+ Новый рабочий элемент</button>' : '') + '</div>' +
+    '<div class="bar" role="group" aria-label="Фильтры"><span aria-hidden="true">⚲</span><div class="ms"><label id="ms-l">Команда</label>' +
+    '<div class="box" id="ms-box" tabindex="0" role="combobox" aria-labelledby="ms-l" aria-expanded="false">' + (names ? esc(names) : '<span class="mute">Все команды</span>') + '</div>' +
+    '<ul class="list" id="ms-list" role="listbox" aria-multiselectable="true" hidden style="top:46px"></ul></div><span class="grow"></span>' +
+    (state.filter.length ? '<button class="ghost" id="clear">⊘ Очистить фильтры</button>' : '') + '</div>' + body;
+}
+function bindList() {
+  var n = $('#new'); if (n) n.onclick = function () { openDialog(null); };
+  var r = $('#reset'); if (r) r.onclick = function () { state.filter = []; render(); };
+  var c = $('#clear'); if (c) c.onclick = function () { state.filter = []; render(); };
+  var box = $('#ms-box'), list = $('#ms-list'); if (!box) return;
+  function fill() { list.innerHTML = filterOptions().map(function (o) { return '<li role="option" data-id="' + o.id + '" aria-selected="' + (state.filter.indexOf(o.id) >= 0) + '"><input type="checkbox" aria-hidden="true" tabindex="-1"' + (state.filter.indexOf(o.id) >= 0 ? ' checked' : '') + '>' + esc(o.name) + '</li>'; }).join(''); }
+  function toggle(open) { list.hidden = !open; box.setAttribute('aria-expanded', String(open)); if (open) fill(); }
+  box.onclick = function () { toggle(list.hidden); };
+  box.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') { e.preventDefault(); toggle(true); } if (e.key === 'Escape') toggle(false); };
+  list.onclick = function (e) { var li = e.target.closest('li[data-id]'); if (!li) return; var id = li.dataset.id, i = state.filter.indexOf(id); if (i >= 0) state.filter.splice(i, 1); else state.filter.push(id); var open = true; render(); var b = $('#ms-box'); b.click(); b.focus(); };
+}
+
+// ---- «Команды» (§ 7) ----
+function renderTeams() {
+  var rows = byName();
+  return '<div class="row"><h1 class="grow">Команды</h1>' + (isAdmin() ? '<button id="deflt">☆ Команда по умолчанию</button> <button class="primary" id="add">+ Добавить команду</button>' : '') + '</div>' +
+    '<p class="note">Один столбец «Команда», строки по алфавиту, ни одна не «первая». Удалите команду — диалог считает её рабочие элементы. У последней команды проекта нет «Удалить команду».</p>' +
+    '<div class="wrap"><table aria-label="Команды"><thead><tr><th>Команда</th><th></th></tr></thead><tbody>' +
+    rows.map(function (t) { var m = defaultMark(t.id); return '<tr><td>' + esc(t.name) + (m ? '<span class="tag">' + m + '</span>' : '') + '</td><td style="text-align:right">' + (isAdmin() ? '<button class="ghost" data-ren="' + t.id + '">Переименовать</button>' + (teams.length > 1 ? '<button class="ghost" data-del="' + t.id + '">Удалить команду</button>' : '') : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+}
+function teamDialog() {
+  var d = state.dlg;
+  if (d.kind === 'default') {
+    return '<div class="scrim"><div class="dlg" role="dialog" aria-modal="true" aria-label="Команда по умолчанию"><h2>Команда по умолчанию</h2><p class="mute">Новые рабочие элементы проекта начинаются с этой команды, если их создают не со страницы команды и не как дочерние. Существующие рабочие элементы не меняются.' + (teams.length === 1 ? ' Пока в проекте одна команда, она и есть команда по умолчанию.' : '') + '</p><div class="fld"><label for="df">Команда</label><select id="df" style="width:100%;height:28px"><option value="">Не выбрана</option>' + byName().map(function (t) { return '<option value="' + t.id + '"' + (t.id === (settings.defaultId || '') ? ' selected' : '') + '>' + esc(t.name) + '</option>'; }).join('') + '</select></div><div class="foot"><button id="x">Отмена</button><button class="primary" id="ok" disabled>Сохранить</button></div></div></div>';
+  }
+  var t = teams.filter(function (x) { return x.id === d.id; })[0];
+  var n = items.filter(function (i) { return i.team === d.id; }).length;
+  var txt = !d.counted ? '<div class="skel" role="status" aria-label="Загрузка данных"></div>' : 'Удалить команду «' + esc(t.name) + '»? ' + (n ? 'Её рабочие элементы (' + n + ') станут «Без команды». ' : '') + 'Восстановить команду будет нельзя.';
+  return '<div class="scrim"><div class="dlg" role="dialog" aria-modal="true" aria-label="Удаление команды"><h2>Удаление команды</h2><div>' + txt + '</div><div class="foot"><button id="x" autofocus>Отмена</button><button class="danger" id="ok"' + (d.counted ? '' : ' disabled') + '>Удалить команду</button></div></div></div>';
+}
+function bindTeams() {
+  var a = $('#add'); if (a) a.onclick = function () { toast('Диалог «Новая команда»: «От 1 до 100 символов.»'); };
+  var df = $('#deflt'); if (df) df.onclick = function () { state.dlg = { kind: 'default' }; render(); };
+  document.querySelectorAll('[data-ren]').forEach(function (b) { b.onclick = function () { toast('Диалог «Переименование команды» (без сноски об областях).'); }; });
+  document.querySelectorAll('[data-del]').forEach(function (b) { b.onclick = function () { state.dlg = { kind: 'delete', id: b.dataset.del, counted: false }; render(); setTimeout(function () { if (state.dlg) { state.dlg.counted = true; render(); } }, 600); }; });
+}
+function bindTeamDialog() {
+  var d = state.dlg; if (!d || d.kind === 'create') return;
+  $('#x').onclick = function () { state.dlg = null; render(); };
+  if (d.kind === 'default') {
+    var s = $('#df'); s.onchange = function () { $('#ok').disabled = (s.value || '') === (settings.defaultId || ''); };
+    $('#ok').onclick = function () { settings.defaultId = s.value || null; state.dlg = null; toast('Команда по умолчанию изменена.'); render(); };
+  } else {
+    $('#ok').onclick = function () { var id = d.id, nm = nameOf(id); items.forEach(function (i) { if (i.team === id) i.team = null; }); teams = teams.filter(function (t) { return t.id !== id; }); if (settings.defaultId === id) settings.defaultId = null; state.filter = state.filter.filter(function (f) { return f !== id; }); state.dlg = null; toast('Команда «' + nm + '» удалена.'); render(); };
+  }
+}
+
+function render() {
+  document.querySelectorAll('header [data-screen]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.screen === state.screen)); });
+  var m = $('#main'), s = state.screen;
+  m.innerHTML = s === 'card' ? renderCard() : s === 'list' ? renderList() : s === 'teams' ? renderTeams() :
+    '<h1>Новый рабочий элемент</h1><p class="note">Диалог открывается из списка, с бэклога или доски проекта (команда по умолчанию проекта: ' + esc(nameOf(defaultTeam())) + ') и со страницы команды (команда страницы). Выберите «Задачу»: подсказки под полем исчезают.</p><button class="primary" id="o1">Из списка</button> <button id="o2">С бэклога MARS</button>';
+  if (state.dlg) { var host = document.createElement('div'); host.id = 'dlg-host'; host.innerHTML = state.dlg.kind === 'create' ? dialogHtml() : teamDialog(); document.body.appendChild(host); }
+  var old = document.querySelectorAll('#dlg-host'); for (var i = 0; i < old.length - (state.dlg ? 1 : 0); i++) old[i].remove();
+  if (!state.dlg) { var h = $('#dlg-host'); if (h) h.remove(); }
+  if (s === 'card') bindCard(); if (s === 'list') bindList(); if (s === 'teams') bindTeams();
+  if (s === 'dialog') { $('#o1').onclick = function () { openDialog(null); }; $('#o2').onclick = function () { openDialog('t2'); }; }
+  if (state.dlg && state.dlg.kind === 'create') bindDialog(); else bindTeamDialog();
+}
+document.querySelectorAll('header [data-screen]').forEach(function (b) { b.onclick = function () { state.screen = b.dataset.screen; state.dlg = null; render(); }; });
+$('#role').onchange = function (e) { state.role = e.target.value; render(); };
+render();
+</script>
+</body>
+</html>

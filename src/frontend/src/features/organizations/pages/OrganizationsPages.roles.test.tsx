@@ -110,7 +110,8 @@ describe.each(ROLES)(
       expect(within(table).queryAllByRole('button', { name: /^Действия: / })).toHaveLength(
         holds ? within(table).getAllByRole('row').length - 1 : 0,
       );
-      expect(within(table).getAllByRole('columnheader')).toHaveLength(holds ? 3 : 2);
+      expect(button('Команда по умолчанию')).toHaveLength(held(holds));
+      expect(within(table).getAllByRole('columnheader')).toHaveLength(holds ? 2 : 1);
       expect(within(table).getByRole('link', { name: 'Платформа' })).toBeVisible();
     });
 

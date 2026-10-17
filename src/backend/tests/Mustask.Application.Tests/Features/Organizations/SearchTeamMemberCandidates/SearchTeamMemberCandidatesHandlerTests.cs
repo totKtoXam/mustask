@@ -66,7 +66,7 @@ public sealed class SearchTeamMemberCandidatesHandlerTests
     {
         var f = new Fixture();
         f.World.AddMember("u-member", "Кузнецов Участник");
-        f.World.Store.AddTeamMember(f.World.Organization, f.World.Platform.Team, "u-member");
+        f.World.Store.AddTeamMember(f.World.Organization, f.World.Platform, "u-member");
 
         var result = await f.SearchAsync("кузнецов");
 
@@ -116,7 +116,7 @@ public sealed class SearchTeamMemberCandidatesHandlerTests
     public async Task Handle_ADeletedTeam_IsTeamNotFound()
     {
         var f = new Fixture();
-        f.World.Platform.Team.Delete();
+        f.World.Platform.Delete(2);
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.SearchAsync("кузнецов"));
 

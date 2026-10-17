@@ -208,7 +208,9 @@ public static class WorkItemHierarchy
 
     /// <summary>
     /// A new item created beneath <paramref name="parent"/> (feat-027 BR-T-10): mod-003's creation
-    /// (<see cref="WorkItem.Create"/>) in the parent's area as stored — so it lands on the parent's team — linked
+    /// (<see cref="WorkItem.Create"/>) in the parent's area as stored (a classification path, mod-017 BR-OT-10), owned by
+    /// <paramref name="owningTeamId"/> — the team the caller decided under the parent's lock, the parent's as stored else the
+    /// project default else none (<c>ProjectTeams.ChildTeam</c>, mod-017 BR-OT-3) — linked
     /// beneath the parent in the same step, its «Изменён» its creation time; the parent's «Изменён» moves to the same
     /// time (BR-H-5) and nothing else of it changes. Of <see cref="Write"/>'s checks, three can refuse an item that
     /// does not exist yet, in that order:
@@ -233,7 +235,8 @@ public static class WorkItemHierarchy
         string title,
         Guid creationRequestId,
         DateTimeOffset now,
-        string createdBy)
+        string createdBy,
+        Guid? owningTeamId)
     {
         ArgumentNullException.ThrowIfNull(parent);
         ArgumentNullException.ThrowIfNull(parentAncestry);
@@ -252,7 +255,7 @@ public static class WorkItemHierarchy
 
         RefuseTooDeep(Chain(parent, parentAncestry).Count + 1);
 
-        var child = WorkItem.Create(parent.ProjectId, number, type, parent.AreaId, title, creationRequestId, now, createdBy);
+        var child = WorkItem.Create(parent.ProjectId, number, type, parent.AreaId, title, creationRequestId, now, createdBy, owningTeamId);
         child.LinkTo(parent.Id, now);
         parent.MarkLinkChanged(now);
 

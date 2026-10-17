@@ -295,3 +295,31 @@ describe('placeRefusal: the link codes (feat-001 spec § Screens and copy, § Er
     expect(isParentChanged(new TypeError('Failed to fetch'))).toBe(false);
   });
 });
+
+describe('placeRefusal: the owning team (mod-017 design § 12, api-contract § 0.2)', () => {
+  const WITH_TEAM: readonly RefusalField[] = ['title', 'team'];
+
+  it.each([
+    ['organizations.team.not_in_project', 409, 'Команда не участвует в проекте.'],
+    ['organizations.team.not_found', 404, 'Команда не найдена.'],
+  ])(
+    '%s is the field «Команда», never a frame, where the form has the field',
+    (code, status, text) => {
+      const placed = placeRefusal(refusal(status, code, text), WITH_TEAM);
+
+      expect(placed).toEqual({ fields: { team: text }, alert: null, frame: null });
+    },
+  );
+
+  it('a screen without the field keeps the old reading: a team that is not found is the team frame, the other the Alert', () => {
+    expect(
+      placeRefusal(refusal(404, 'organizations.team.not_found', 'Команда не найдена.'), DIALOG),
+    ).toEqual({ fields: {}, alert: 'Команда не найдена.', frame: 'team' });
+    expect(
+      placeRefusal(
+        refusal(409, 'organizations.team.not_in_project', 'Команда не участвует в проекте.'),
+        DIALOG,
+      ),
+    ).toEqual({ fields: {}, alert: 'Команда не участвует в проекте.', frame: null });
+  });
+});

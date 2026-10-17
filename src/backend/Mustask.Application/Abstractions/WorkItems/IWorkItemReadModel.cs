@@ -1,3 +1,5 @@
+using Mustask.Domain.WorkItems;
+
 namespace Mustask.Application.Abstractions.WorkItems;
 
 /// <summary>
@@ -32,12 +34,14 @@ public interface IWorkItemReadModel
 
     /// <summary>
     /// One page of the project's items in every state, most recently changed
-    /// first, then by number descending (BR-M3-29), and the project's item count.
+    /// first, then by number descending (BR-M3-29), and the count of the items
+    /// that match <paramref name="filter"/> (mod-017 BR-OT-8): the count and the page follow the filter, in the same
+    /// statements — a filter adds none.
     /// </summary>
-    Task<WorkItemPage> GetPageAsync(Guid projectId, int page, int pageSize, CancellationToken cancellationToken);
+    Task<WorkItemPage> GetPageAsync(Guid projectId, int page, int pageSize, WorkItemFilter filter, CancellationToken cancellationToken);
 }
 
-/// <summary>A page of the list: <paramref name="Count"/> is the project's item count, not the page's.</summary>
+/// <summary>A page of the list: <paramref name="Count"/> is the number of the project's items that match the filter, not the page's.</summary>
 public sealed record WorkItemPage(int Count, IReadOnlyList<WorkItemListItemView> Items);
 
 /// <summary>
@@ -57,6 +61,7 @@ public sealed record WorkItemView(
     WorkItemStateView State,
     WorkItemAssigneeView? Assignee,
     WorkItemAreaView Area,
+    WorkItemTeamView? Team,
     string CreatedBy,
     DateTimeOffset CreatedAt,
     DateTimeOffset ChangedAt,
@@ -140,6 +145,7 @@ public sealed record WorkItemListItemView(
     WorkItemAssigneeView? Assignee,
     WorkItemStateView State,
     WorkItemAreaView Area,
+    WorkItemTeamView? Team,
     DateTimeOffset ChangedAt);
 
 /// <param name="Appearance"><c>epic</c>, <c>feature</c>, <c>story</c>, <c>task</c>, <c>bug</c> or <c>testcase</c>.</param>
@@ -166,3 +172,9 @@ public sealed record WorkItemAssigneeView(string Id, string? DisplayName, string
 
 /// <param name="Path">mod-002 DC-9: «Платформа / API», the root by its own name.</param>
 public sealed record WorkItemAreaView(Guid Id, string Path);
+
+/// <summary>
+/// mod-017 api-contract § 1.1 <c>WorkItemTeam</c>: the owning team <b>as it stands now</b> (a rename shows at once). The
+/// item's <c>team</c> is <c>null</c> for «Без команды»; a deleted team never appears, its items have none (BR-OT-12).
+/// </summary>
+public sealed record WorkItemTeamView(Guid Id, string Name);

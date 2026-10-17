@@ -12,11 +12,10 @@ import {
 import { useAccessCheck } from '../../../shared/lib/access';
 import type { Command } from '../../../shared/ui/PageHeader';
 import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
-import type { BoardLevel, BoardTeam } from '../api/boardsApi';
+import type { BoardLevel } from '../api/boardsApi';
 
-/** What a surface's read gives the creation: the team and its level. */
+/** What a surface's read gives the creation: its level, whose types it offers. */
 export interface CreationSurface {
-  team: BoardTeam;
   level: BoardLevel;
 }
 
@@ -40,23 +39,27 @@ export interface NewWorkItem {
 }
 
 /**
- * Creating from a team's backlog or board (US-3, US-6; spec § Dialog;
- * BR-M4-21): mod-003's picker and dialog with the level's types only — a
+ * Creating from a team's or the project's backlog or board (mod-006 US-3, US-6;
+ * mod-017 US-2): mod-003's picker and dialog with the level's types only — a
  * level of one type opens the dialog preset to it, a level of several the
- * picker first — and mod-003's create with the team's id (api-contract § 7),
- * a fresh `requestId` per submission as the dialog makes it. The dialog's text
- * quotes the team's default area as the surface read it.
+ * picker first — and mod-003's create with the team the dialog shows (mod-017
+ * api-contract § 2.2), a fresh `requestId` per submission as the dialog makes
+ * it. A team's surface starts the dialog with that team (`startTeamId`), the
+ * project's with the project's default team.
  */
 export function useNewWorkItem({
   organizationId,
   projectId,
   surface,
+  startTeamId,
   onCreated,
   onContextGone,
 }: {
   organizationId: string;
   projectId: string;
   surface: CreationSurface | undefined;
+  /** A team's backlog or board: that team starts the dialog. Absent: the project's default. */
+  startTeamId?: string;
   onCreated(item: WorkItem): void;
   /** The team, project or organization answered not found: the page is read again. */
   onContextGone(): void;
@@ -72,6 +75,8 @@ export function useNewWorkItem({
     name: type.name,
     appearance: type.appearance,
     initialStateName: type.initialState.name,
+    // Every type of a board level is on a backlog (the level has a route).
+    onBacklog: true,
   }));
   const opensMenu = types.length > 1;
 
@@ -97,7 +102,6 @@ export function useNewWorkItem({
         }
       : undefined;
 
-  const team = surface?.team;
   const elements = (
     <>
       <TypePickerMenu
@@ -110,15 +114,15 @@ export function useNewWorkItem({
         }}
         onClose={() => setAnchor(null)}
       />
-      {creatingTypeId !== null && team && (
+      {creatingTypeId !== null && surface && (
         <RequiresOrganizationCode code={workItemsPermissions.workItemWrite}>
           <CreateWorkItemDialog
             organizationId={organizationId}
             projectId={projectId}
             types={types}
             initialTypeId={creatingTypeId}
-            team={{ name: team.name, defaultAreaPath: team.defaultArea.path }}
-            submit={(body) => create.mutateAsync({ ...body, teamId: team.id })}
+            startTeamId={startTeamId}
+            submit={(body) => create.mutateAsync(body)}
             onCreated={(item) => {
               setCreatingTypeId(null);
               onCreated(item);

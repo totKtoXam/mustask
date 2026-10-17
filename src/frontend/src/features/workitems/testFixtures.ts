@@ -18,6 +18,8 @@ export const ORGANIZATION_URL = `${API}/api/organizations/:organizationId`;
 export const PROCESS_URL = `${ORGANIZATION_URL}/process`;
 export const PROJECT_URL = `${ORGANIZATION_URL}/projects/:projectId`;
 export const AREAS_URL = `${PROJECT_URL}/areas`;
+/** mod-017 api-contract § 2.7: the project's teams, which the picker and the filter read. */
+export const TEAMS_URL = `${PROJECT_URL}/teams`;
 export const WORK_ITEMS_URL = `${PROJECT_URL}/workitems`;
 export const WORK_ITEM_URL = `${WORK_ITEMS_URL}/:identifier`;
 export const CANDIDATES_URL = `${ORGANIZATION_URL}/workitems/assignee-candidates`;
@@ -40,6 +42,11 @@ export const ids = {
   opsRoot: 'a1000000-0000-4000-8000-000000000005',
   warehouse: 'a1000000-0000-4000-8000-000000000006',
   otherRoot: 'a1000000-0000-4000-8000-000000000007',
+  /** mod-017: «MARS» and «VENUS» of «Мастаск», «JUPITER» of «Операции», «SATURN» of «Мастаск Б». */
+  marsTeam: 'c3000000-0000-4000-8000-000000000001',
+  venusTeam: 'c3000000-0000-4000-8000-000000000002',
+  jupiterTeam: 'c3000000-0000-4000-8000-000000000003',
+  saturnTeam: 'c3000000-0000-4000-8000-000000000004',
   anna: 'u0000000-anna-smirnova',
   annaK: 'u0000000-anna-kuznetsova',
   petr: 'u0000000-petr-ivanov',
@@ -77,6 +84,16 @@ export interface ProjectRecord {
   name: string;
   key: string;
   active: boolean;
+  /** The team the project's settings name (mod-017 BR-OT-4); absent or `null`: none named. */
+  defaultTeamId?: string | null;
+}
+
+/** A team of a project (mod-017); `active: false` is a deleted team. */
+export interface TeamRecord {
+  id: string;
+  projectId: string;
+  name: string;
+  active: boolean;
 }
 
 export interface AreaRecord {
@@ -109,6 +126,8 @@ export interface WorkItemRecord {
   stateId: string;
   assigneeId: string | null;
   areaId: string;
+  /** The owning team (mod-017); absent or `null`: «Без команды». */
+  teamId?: string | null;
   createdAt: string;
   changedAt: string;
   requestId: string | null;
@@ -147,6 +166,7 @@ export function defaultFields(appearance: string): WorkItemFields {
 export interface Dataset {
   organizations: OrganizationRecord[];
   projects: ProjectRecord[];
+  teams: TeamRecord[];
   areas: AreaRecord[];
   users: UserRecord[];
   items: WorkItemRecord[];
@@ -204,6 +224,12 @@ export function emptyDataset(): Dataset {
       { id: ids.msk, organizationId: ids.example, name: 'Мастаск', key: 'MSK', active: true },
       { id: ids.ops, organizationId: ids.example, name: 'Операции', key: 'OPS', active: true },
       { id: ids.otherMsk, organizationId: ids.other, name: 'Мастаск Б', key: 'MSK', active: true },
+    ],
+    teams: [
+      { id: ids.marsTeam, projectId: ids.msk, name: 'MARS', active: true },
+      { id: ids.venusTeam, projectId: ids.msk, name: 'VENUS', active: true },
+      { id: ids.jupiterTeam, projectId: ids.ops, name: 'JUPITER', active: true },
+      { id: ids.saturnTeam, projectId: ids.otherMsk, name: 'SATURN', active: true },
     ],
     areas: [
       { id: ids.mskRoot, projectId: ids.msk, parentId: null, name: 'Мастаск' },

@@ -32,6 +32,11 @@ export interface ConfirmDialogProps {
    * reads «Продолжить редактирование» (tech-015 design § 5.10).
    */
   cancelLabel?: string;
+  /**
+   * The primary is unavailable while the host cannot say what it would do yet — the
+   * count of a team's items is still being read (mod-017 design § 7.2).
+   */
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   onClose: () => void;
 }
@@ -53,6 +58,7 @@ export function ConfirmDialog({
   destructive = false,
   cancelAutoFocus = false,
   cancelLabel = 'Отмена',
+  confirmDisabled = false,
   onConfirm,
   onClose,
 }: ConfirmDialogProps) {
@@ -84,7 +90,7 @@ export function ConfirmDialog({
           variant="contained"
           color={destructive ? 'error' : 'primary'}
           onClick={onConfirm}
-          disabled={busy || locked}
+          disabled={busy || locked || confirmDisabled}
           startIcon={busy ? <CircularProgress size={theme.spacing(2)} /> : undefined}
         >
           {confirmLabel}

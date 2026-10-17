@@ -6,9 +6,8 @@ namespace Mustask.Application.Features.Organizations.GetTeam;
 
 /// <summary>
 /// <c>GET /api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}</c>
-/// (api-contract § 3.2; US-4 "The project's teams" and "A team identifier that
-/// names no team of the project"). One active team with its default area's id
-/// and path.
+/// (mod-017 api-contract § 1.3; US-4 "The project's teams" and "A team identifier that
+/// names no team of the project"). One active team with its default mark (BR-OT-4).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -20,15 +19,10 @@ namespace Mustask.Application.Features.Organizations.GetTeam;
 /// </para>
 /// <para>
 /// <b>No locks and no unit of work</b> (plan-backend § 8): a read takes the
-/// committed rows of three statements. The default area comes from the same
-/// area snapshot as its path (not from the team row's own copy of the id), so a
-/// default that changes between the statements can never leave a path that
-/// names an area the snapshot no longer holds. A team whose default is no
-/// longer in the snapshot was deleted meanwhile (its default mark is cleared in
-/// the deleting transaction, BR-M1-18) and answers as a deleted team does.
+/// committed rows of two statements. A team has no area (mod-017 BR-OT-10), so no tree is read.
 /// </para>
 /// </remarks>
-public sealed class GetTeamHandler(IProjectReadModel projects, ITeamReadModel teams, IAreaTreeReadModel areaTree)
+public sealed class GetTeamHandler(IProjectReadModel projects, ITeamReadModel teams)
 {
     public async Task<GetTeamResult> Handle(GetTeamQuery query, CancellationToken cancellationToken)
     {
@@ -55,20 +49,6 @@ public sealed class GetTeamHandler(IProjectReadModel projects, ITeamReadModel te
             throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
         }
 
-        // 2. The area snapshot, for the default area's path (DC-9) through the one definition of it. A project that was
-        // deactivated since the check above is not reachable any more.
-        var nodes = await areaTree.GetNodesAsync(organizationId, projectId, cancellationToken)
-            ?? throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
-        var tree = new AreaTree(nodes.Select(node => node.ToNode()));
-
-        var defaultArea = tree.PreOrder().FirstOrDefault(node => node.DefaultOfTeamId == team.Id)
-            ?? throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
-
-        return new GetTeamResult(new TeamResponse(
-            team.Id,
-            team.ProjectId,
-            team.Name,
-            team.IsFirstTeam,
-            new TeamDefaultAreaResponse(defaultArea.Id, tree.PathOf(defaultArea.Id))));
+        return new GetTeamResult(new TeamResponse(team.Id, team.ProjectId, team.Name, team.Mark.ToWireName(), team.IsMember));
     }
 }

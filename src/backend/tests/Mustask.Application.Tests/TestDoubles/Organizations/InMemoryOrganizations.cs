@@ -40,9 +40,10 @@ public sealed class InMemoryOrganizations
 
     /// <summary>
     /// Every lock and save, in order: <c>lock organization {id}</c>, <c>lock project {id}</c>,
-    /// <c>lock team {mode} {id}</c>, <c>lock area {mode} {id}</c>, <c>lock root {mode} {projectId}</c>,
-    /// <c>lock default {teamId}</c>, <c>reassign {from} {to}</c>, <c>lock member {userId}</c>,
-    /// <c>delete member {userId}</c>, <c>end team memberships {teamId}</c>, <c>save</c>.
+    /// <c>lock team {mode} {id}</c>, <c>lock project teams {projectId}</c>, <c>lock area {mode} {id}</c>,
+    /// <c>lock root {mode} {projectId}</c>, <c>clear default team {teamId}</c>, <c>lock member {userId}</c>,
+    /// <c>delete member {userId}</c>, <c>end team memberships {teamId}</c>, <c>save</c>; the work items' and the
+    /// boards' calls of a team deletion (<see cref="FakeWorkItemTeamOwnership"/>) join the same list.
     /// </summary>
     public List<string> Calls { get; } = [];
 
@@ -104,17 +105,18 @@ public sealed class InMemoryOrganizations
         return project;
     }
 
-    public NewTeam AddTeam(NewProject project, string name = "Платформа")
+    /// <summary>An ordinary team of the project: no area, no first-team role (mod-017 BR-OT-11).</summary>
+    public Team AddTeam(NewProject project, string name = "Платформа")
     {
-        var team = Team.CreateWithArea(project.Project.Id, Name(name), project.Root);
-        Store(team);
+        var team = Team.Create(project.Project.Id, Name(name));
+        Teams.Add(team);
 
         return team;
     }
 
-    public Area AddArea(Area parent, string name, Team? owner = null)
+    public Area AddArea(Area parent, string name)
     {
-        var area = Area.CreateChild(parent, Name(name), owner);
+        var area = Area.CreateChild(parent, Name(name));
         Areas.Add(area);
 
         return area;
@@ -123,14 +125,8 @@ public sealed class InMemoryOrganizations
     public void Store(NewProject project)
     {
         Projects.Add(project.Project);
-        Teams.Add(project.FirstTeam);
+        Teams.Add(project.Team);
         Areas.Add(project.Root);
-    }
-
-    public void Store(NewTeam team)
-    {
-        Teams.Add(team.Team);
-        Areas.Add(team.Area);
     }
 
     public Organization? FindOrganization(Guid id) => Organizations.SingleOrDefault(organization => organization.Id == id);

@@ -7,9 +7,8 @@ using Mustask.Shared.Exceptions;
 namespace Mustask.Application.Tests.Features.Organizations.GetTeams;
 
 /// <summary>
-/// <c>GetTeams</c> on fakes (plan-backend § 14.3, lane L-15): the first team
-/// first, the default areas' paths, the deleted and the unreachable left out,
-/// and the order of answers of a read (§ 5.3).
+/// <c>GetTeams</c> on fakes (plan-backend § 14.3, lane L-15; mod-017 BR-OT-4, BR-OT-11): the teams by name, the default mark of
+/// each, the deleted and the unreachable left out, and the order of answers of a read (§ 5.3).
 /// </summary>
 public sealed class GetTeamsHandlerTests
 {
@@ -20,7 +19,7 @@ public sealed class GetTeamsHandlerTests
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization);
             Platform = Store.AddTeam(Project);
-            Handler = new GetTeamsHandler(new FakeTeamReadModel(Store), new FakeAreaTreeReadModel(Store), User);
+            Handler = new GetTeamsHandler(new FakeTeamReadModel(Store), User);
         }
 
         /// <summary>The acting user: a member of the organization, in no team until a test says so.</summary>
@@ -32,7 +31,7 @@ public sealed class GetTeamsHandlerTests
 
         public NewProject Project { get; }
 
-        public NewTeam Platform { get; }
+        public Team Platform { get; }
 
         public GetTeamsHandler Handler { get; }
 
@@ -41,25 +40,16 @@ public sealed class GetTeamsHandlerTests
 
         public Task<GetTeamsResult> HandleAsync(GetTeamsQuery query) => Handler.Handle(query, CancellationToken.None);
 
-        /// <summary>A team's default area moves to an area it owns explicitly, as US-4 "chosen among the areas it owns explicitly" does.</summary>
-        public void MoveDefault(NewTeam team, Area next)
-        {
-            var current = Store.Areas.Single(area => area.DefaultOfTeamId == team.Team.Id);
-
-            Assert.True(TeamDefaultArea.RequiresChange(team.Team, current, next));
-            current.ClearDefault();
-            next.MarkDefaultOf(team.Team);
-        }
-
-        /// <summary>A team as the list shows it, with its own area under the root as its default.</summary>
-        public static TeamResponse Listed(Guid projectId, NewTeam team) =>
-            new(team.Team.Id, projectId, team.Team.Name, false, new TeamDefaultAreaResponse(team.Area.Id, team.Area.Name));
+        /// <summary>A team as the list shows it: the project's, with the mark given.</summary>
+        public static TeamResponse Listed(Guid projectId, Team team, string? mark = null) =>
+            new(team.Id, projectId, team.Name, mark);
     }
 
-    // US-4 · "The project's teams": every active team is listed with its default area; US-8 · "The switcher lists ... the
-    // teams": «Пример проекта» first, then the rest in alphabetical order, although «Платформа» sorts before it by name.
+    // mod-017 US-4 · "The project's teams": every active team is listed by name in Russian collation, letter case not
+    // deciding — no team comes first (BR-OT-11) — and none carries a mark when the settings name none and there are several.
+    // Replaces Handle_ActiveTeams_FirstTeamFirstThenDisplayOrder_WithDefaultAreaPaths (D-16, BR-OT-11).
     [Fact]
-    public async Task Handle_ActiveTeams_FirstTeamFirstThenDisplayOrder_WithDefaultAreaPaths()
+    public async Task Handle_ActiveTeams_ByName_NoTeamFirst_NoMarkWhenSeveralAndNoneNamed()
     {
         var f = new Fixture();
         var projectId = f.Project.Project.Id;
@@ -68,26 +58,22 @@ public sealed class GetTeamsHandlerTests
         var elsewhere = f.Store.AddProject(f.Organization, "Аналитика", "ANL");
         f.Store.AddTeam(elsewhere, "Ядро");
 
-        // «Платформа» chooses «Платформа / API» as its default area, which it owns explicitly.
-        var api = f.Store.AddArea(f.Platform.Area, "API", owner: f.Platform.Team);
-        f.MoveDefault(f.Platform, api);
-
         var result = await f.HandleAsync(f.Query());
 
         Assert.Equal(
             [
-                new TeamResponse(f.Project.FirstTeam.Id, projectId, "Пример проекта", true, new TeamDefaultAreaResponse(f.Project.Root.Id, "Пример проекта")),
                 Fixture.Listed(projectId, alpha),
                 Fixture.Listed(projectId, beta),
-                new TeamResponse(f.Platform.Team.Id, projectId, "Платформа", false, new TeamDefaultAreaResponse(api.Id, "Платформа / API")),
+                Fixture.Listed(projectId, f.Platform),
+                new TeamResponse(f.Project.Team.Id, projectId, "Пример проекта", null),
             ],
             result.Items);
     }
 
-    // US-8 · "The default team is the project's first team": the first team owns the root, and its default area is the root,
-    // whose path is its own name (DC-9). A project that has just been created lists that team alone (US-3).
+    // mod-017 US-8 · "The default team is the only team": a project that has just been created lists its team alone, and
+    // the team carries «onlyTeam» (BR-OT-4). Replaces Handle_NewProject_ListsTheFirstTeamAlone_DefaultAreaIsTheRoot (D-16).
     [Fact]
-    public async Task Handle_NewProject_ListsTheFirstTeamAlone_DefaultAreaIsTheRoot()
+    public async Task Handle_NewProject_ListsItsOnlyTeamAlone_MarkedOnlyTeam()
     {
         var f = new Fixture();
         var created = f.Store.AddProject(f.Organization, "Аналитика", "ANL");
@@ -95,23 +81,46 @@ public sealed class GetTeamsHandlerTests
         var result = await f.HandleAsync(f.Query(projectId: created.Project.Id.ToString()));
 
         var only = Assert.Single(result.Items);
-        Assert.Equal(
-            new TeamResponse(created.FirstTeam.Id, created.Project.Id, "Аналитика", true, new TeamDefaultAreaResponse(created.Root.Id, "Аналитика")),
-            only);
+        Assert.Equal(new TeamResponse(created.Team.Id, created.Project.Id, "Аналитика", "onlyTeam"), only);
     }
 
-    // US-8 · "The switcher lists ... «Пример проекта» first, then «Платформа», and not the deleted team" (BR-M1-18).
+    // mod-017 BR-OT-4: when the settings name a team, that one carries «named» and no other carries a mark.
+    [Fact]
+    public async Task Handle_NamedTeam_CarriesNamed_NoOtherCarriesAMark()
+    {
+        var f = new Fixture();
+        f.Project.Project.NameDefaultTeam(f.Platform.Id);
+
+        var result = await f.HandleAsync(f.Query());
+
+        Assert.Equal(["named"], result.Items.Where(team => team.DefaultMark is not null).Select(team => team.DefaultMark));
+        Assert.Equal(f.Platform.Id, result.Items.Single(team => team.DefaultMark == "named").Id);
+    }
+
+    // mod-017 BR-OT-4: after the other teams are deleted, the one left is the only team, whatever the settings said.
+    [Fact]
+    public async Task Handle_AfterTheOthersAreDeleted_TheLastTeamIsOnlyTeam()
+    {
+        var f = new Fixture();
+        f.Project.Team.Delete(2);
+
+        var result = await f.HandleAsync(f.Query());
+
+        Assert.Equal(new TeamResponse(f.Platform.Id, f.Project.Project.Id, "Платформа", "onlyTeam"), Assert.Single(result.Items));
+    }
+
+    // US-8 · "The switcher lists ... «Платформа» and «Пример проекта», and not the deleted team" (BR-M1-18).
     [Fact]
     public async Task Handle_DeletedTeam_IsLeftOut()
     {
         var f = new Fixture();
         var core = f.Store.AddTeam(f.Project, "Ядро");
-        core.Team.Delete();
+        core.Delete(3);
 
         var result = await f.HandleAsync(f.Query());
 
-        Assert.Equal(["Пример проекта", "Платформа"], result.Items.Select(team => team.Name));
-        Assert.DoesNotContain(result.Items, team => team.Id == core.Team.Id);
+        Assert.Equal(["Платформа", "Пример проекта"], result.Items.Select(team => team.Name));
+        Assert.DoesNotContain(result.Items, team => team.Id == core.Id);
     }
 
     // mod-016 US-7 · "Choosing a project selects the user's own team" (BR-M1-27, D-5): each team says whether the CALLER is
@@ -123,15 +132,15 @@ public sealed class GetTeamsHandlerTests
         var analytics = f.Store.AddTeam(f.Project, "Аналитика");
         f.Store.AddMember(f.Organization, f.User.SubjectId);
         f.Store.AddMember(f.Organization, "someone-else");
-        f.Store.AddTeamMember(f.Organization, f.Platform.Team, f.User.SubjectId);
-        f.Store.AddTeamMember(f.Organization, f.Project.FirstTeam, "someone-else");
+        f.Store.AddTeamMember(f.Organization, f.Platform, f.User.SubjectId);
+        f.Store.AddTeamMember(f.Organization, f.Project.Team, "someone-else");
 
         var result = await f.HandleAsync(f.Query());
 
         Assert.Equal(
-            [("Пример проекта", false), ("Аналитика", false), ("Платформа", true)],
+            [("Аналитика", false), ("Платформа", true), ("Пример проекта", false)],
             result.Items.Select(team => (team.Name, team.IsMember)));
-        Assert.NotEqual(Guid.Empty, analytics.Team.Id);
+        Assert.NotEqual(Guid.Empty, analytics.Id);
     }
 
     // mod-016 US-7 · "Several teams — the first of them in the project's order": the flag is set on every team the caller is in.
@@ -141,15 +150,15 @@ public sealed class GetTeamsHandlerTests
         var f = new Fixture();
         var analytics = f.Store.AddTeam(f.Project, "Аналитика");
         f.Store.AddMember(f.Organization, f.User.SubjectId);
-        f.Store.AddTeamMember(f.Organization, f.Platform.Team, f.User.SubjectId);
-        f.Store.AddTeamMember(f.Organization, analytics.Team, f.User.SubjectId);
+        f.Store.AddTeamMember(f.Organization, f.Platform, f.User.SubjectId);
+        f.Store.AddTeamMember(f.Organization, analytics, f.User.SubjectId);
 
         var result = await f.HandleAsync(f.Query());
 
         Assert.Equal(["Аналитика", "Платформа"], result.Items.Where(team => team.IsMember).Select(team => team.Name));
     }
 
-    // mod-016 US-7 · "In no team of the project — the project's first team": no team is marked, so the panel falls back.
+    // mod-016 US-7 · "In no team of the project — the first of the list": no team is marked, so the panel falls back.
     [Fact]
     public async Task Handle_CallerInNoTeam_NoTeamIsMarked()
     {
@@ -170,7 +179,7 @@ public sealed class GetTeamsHandlerTests
         f.Store.AddMember(f.Organization, f.User.SubjectId);
 
         var before = await f.HandleAsync(f.Query());
-        f.Store.AddTeamMember(f.Organization, f.Platform.Team, f.User.SubjectId);
+        f.Store.AddTeamMember(f.Organization, f.Platform, f.User.SubjectId);
         var added = await f.HandleAsync(f.Query());
         f.Store.TeamMemberships.Clear();
         var removed = await f.HandleAsync(f.Query());

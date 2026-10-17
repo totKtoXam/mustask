@@ -78,7 +78,7 @@ migration is tracked in § 10.
 | a type, a state, a person | `TypeLabel`, `StateLabel`, `CategoryMarker`, `UserAvatar`, `PersonLabel` | an icon beside a text by hand |
 | a tag | `Tag`, `TagList` | `Chip` |
 | a long text cut to one line | `TruncatedText` | an ellipsis `sx` |
-| a value to read or edit | the fields: `InlineTextField`, `InlineTextArea`, `InlineNumberField`, `InlineDateField`, `InlineSelectField`, `InlinePickerField`, `PersonField` | `TextField`, `Autocomplete`, `InputBase`, an `<input>` or `<textarea>` of your own |
+| a value to read or edit | the fields: `InlineTextField`, `InlineTextArea`, `InlineNumberField`, `InlineDateField`, `InlineSelectField`, `InlineMultiSelectField` (several values: a filter), `InlinePickerField`, `PersonField` | `TextField`, `Autocomplete`, `InputBase`, an `<input>` or `<textarea>` of your own |
 | a text that stands under a section head of its own name | `InlineTextArea` with `labelPlacement="hidden"` and the head's text as its `label` | a `top` label under the head (a second, small «Описание» would be drawn); a bare padding of your own |
 | a band's label-left property with a dot or lock before its value | a field with `labelPlacement="start"` — the adornment stands in the label column by default | a dot drawn inside the value's box (the text would no longer line up) |
 | a panel | `Surface` | `Paper`, `Card`, `boxShadow` |
@@ -168,7 +168,7 @@ text's `text.secondary`. Kinds: text, text area (`minRows`), number (the *text*,
 date (`min`, `max`, `onIncomplete`: a date typed in part reports `onChange('')`
 first, so the prop and the control agree and completing it reports the date
 again; `onIncomplete` follows), select (`options`, `emptyLabel` makes it
-optional), picker (`options`, `loading`, `endAction`, `clearable`), person (an avatar once
+optional), multi-select (`value: string[]`, `options`, `emptyText`, `loading`, `onOpen`: the filters; a multiselectable listbox that stays open while the user ticks, the value the chosen names joined by «, »), picker (`options`, `loading`, `endAction`, `clearable`), person (an avatar once
 someone is set, the thin person glyph while nobody is). A select's name is its
 label only. A work item's parent field is a composition of the picker with
 `TypeLabel` and `StateLabel`, owned by its slice. *States*: rest, hover, focus,

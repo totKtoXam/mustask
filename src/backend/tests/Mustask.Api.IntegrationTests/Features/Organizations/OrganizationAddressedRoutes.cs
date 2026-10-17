@@ -39,7 +39,7 @@ public static class OrganizationAddressedRoutes
 
     public static readonly IReadOnlyList<OrganizationRoute> All =
     [
-        // mod-002 api-contract § 5 (rows 4-26).
+        // mod-002 api-contract § 5 (rows 4-26); mod-017 api-contract § 2.8-§ 2.9 swaps the two area-ownership routes (`…/default-area`, `…/areas/{areaId}/owner`) for `PUT …/default-team` and `GET …/owned-items/count`.
         new("GET", Org, PermissionCatalog.OrganizationsOrganizationRead),
         new("PUT", Org + "/name", PermissionCatalog.OrganizationsOrganizationWrite),
         new("POST", Org + "/deactivate", PermissionCatalog.OrganizationsOrganizationDeactivate),
@@ -51,17 +51,17 @@ public static class OrganizationAddressedRoutes
         new("PUT", Project + "/name", PermissionCatalog.OrganizationsProjectWrite),
         new("POST", Project + "/deactivate", PermissionCatalog.OrganizationsProjectDeactivate),
         new("POST", Project + "/restore", PermissionCatalog.OrganizationsProjectDeactivate),
+        new("PUT", Project + "/default-team", PermissionCatalog.OrganizationsTeamWrite),
         new("GET", Project + "/teams", PermissionCatalog.OrganizationsTeamRead),
         new("GET", Team, PermissionCatalog.OrganizationsTeamRead),
         new("POST", Project + "/teams", PermissionCatalog.OrganizationsTeamWrite),
         new("PUT", Team + "/name", PermissionCatalog.OrganizationsTeamWrite),
-        new("PUT", Team + "/default-area", PermissionCatalog.OrganizationsTeamWrite),
+        new("GET", Team + "/owned-items/count", PermissionCatalog.OrganizationsTeamWrite),
         new("DELETE", Team, PermissionCatalog.OrganizationsTeamWrite),
         new("GET", Project + "/areas", PermissionCatalog.OrganizationsAreaRead),
         new("POST", Project + "/areas", PermissionCatalog.OrganizationsAreaWrite),
         new("PUT", Area + "/name", PermissionCatalog.OrganizationsAreaWrite),
         new("PUT", Area + "/parent", PermissionCatalog.OrganizationsAreaWrite),
-        new("PUT", Area + "/owner", PermissionCatalog.OrganizationsAreaWrite),
         new("DELETE", Area, PermissionCatalog.OrganizationsAreaWrite),
 
         // mod-001: the process read (row 27).
@@ -123,7 +123,7 @@ public static class OrganizationAddressedRoutes
                 key = "PRM",
                 areaId = Guid.CreateVersion7().ToString(),
                 parentId = Guid.CreateVersion7().ToString(),
-                ownerTeamId = (string?)null,
+                teamId = (string?)null,
                 requestId = Guid.CreateVersion7().ToString(),
                 typeId = Guid.CreateVersion7().ToString(),
                 title = "Заголовок",

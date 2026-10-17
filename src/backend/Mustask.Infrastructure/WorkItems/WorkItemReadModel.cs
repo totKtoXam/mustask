@@ -99,12 +99,17 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         return new ParentCandidates(items, rows.Count > search.Limit);
     }
 
-    public async Task<WorkItemPage> GetPageAsync(Guid projectId, int page, int pageSize, CancellationToken cancellationToken)
+    public async Task<WorkItemPage> GetPageAsync(
+        Guid projectId, int page, int pageSize, WorkItemFilter filter, CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(page, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(pageSize, 1);
 
-        var count = await context.WorkItems.CountAsync(item => item.ProjectId == projectId, cancellationToken);
+        // The team filter (mod-017 BR-OT-8) is one predicate for the list, the backlog and the board; the count and the page
+        // are composed on it, so a filter adds no statement.
+        var matching = WorkItemFilterPredicate.Apply(context.WorkItems.Where(item => item.ProjectId == projectId), filter);
+
+        var count = await matching.CountAsync(cancellationToken);
 
         // The offset is computed in long: a page far past the end must not overflow into a negative OFFSET.
         var skip = (long)(page - 1) * pageSize;
@@ -115,8 +120,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         }
 
         // The order and the page are taken in SQL, on the items themselves; the joins then only dress the page's rows.
-        var pageItems = context.WorkItems
-            .Where(item => item.ProjectId == projectId)
+        var pageItems = matching
             .OrderByDescending(item => item.ChangedAt)
             .ThenByDescending(item => item.Number)
             .Skip((int)skip)
@@ -140,6 +144,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
                 Assignee(row, assignees),
                 State(row),
                 new WorkItemAreaView(row.AreaId, paths.PathOf(row.AreaId)),
+                Team(row),
                 row.ChangedAt))
             .ToList();
 
@@ -157,6 +162,8 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         join project in context.Projects on item.ProjectId equals project.Id
         join type in context.WorkItemTypes on item.TypeId equals type.Id
         join state in context.StateDefinitions on item.StateId equals state.Id
+        join team in context.Teams on item.OwningTeamId equals team.Id into owning
+        from team in owning.DefaultIfEmpty()
         select new ItemRow(
             item.Id,
             item.ProjectId,
@@ -172,6 +179,8 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             state.Category,
             item.AssigneeId,
             item.AreaId,
+            team == null ? null : team.Id,
+            team == null ? null : team.Name,
             item.Title,
             includeDescription ? item.Description : string.Empty,
             item.CreatedBy,
@@ -245,6 +254,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             State(row),
             Assignee(row, assignees),
             new WorkItemAreaView(row.AreaId, paths.PathOf(row.AreaId)),
+            Team(row),
             row.CreatedBy,
             row.CreatedAt,
             row.ChangedAt,
@@ -288,7 +298,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         var nodes = await context.Areas
             .AsNoTracking()
             .Where(area => area.ProjectId == projectId)
-            .Select(area => new AreaNode(area.Id, area.ParentId, area.Name, area.OwnerTeamId, area.DefaultOfTeamId))
+            .Select(area => new AreaNode(area.Id, area.ParentId, area.Name))
             .ToListAsync(cancellationToken);
 
         return new AreaTree(nodes);
@@ -314,6 +324,10 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
     }
 
     private static string Identifier(ItemRow row) => WorkItemIdentifier.Format(row.ProjectKey, row.TypeKey, row.Number);
+
+    /// <summary>The owning team by its current name, or none (mod-017 api-contract § 1.1).</summary>
+    private static WorkItemTeamView? Team(ItemRow row) =>
+        row.TeamId is { } id ? new WorkItemTeamView(id, row.TeamName!) : null;
 
     private static WorkItemTypeView Type(ItemRow row) => new(row.TypeId, row.TypeKey, row.TypeName, row.TypeAppearance.ToWireName());
 
@@ -348,6 +362,8 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         StateCategory StateCategory,
         string? AssigneeId,
         Guid AreaId,
+        Guid? TeamId,
+        string? TeamName,
         string Title,
         string Description,
         string CreatedBy,

@@ -138,13 +138,13 @@ public sealed class MemberReadModelTests(OrganizationsDatabaseFixture database)
 
         foreach (var id in new[] { $"v-{tag}", $"o-{tag}", $"ghost-{tag}" })
         {
-            await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Team.Id, id);
+            await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Id, id);
         }
 
-        await database.AddTeamMemberAsync(structure.Organization.Id, structure.Project.FirstTeam.Id, $"x-{tag}");
+        await database.AddTeamMemberAsync(structure.Organization.Id, structure.Project.Team.Id, $"x-{tag}");
 
         var members = await ReadAsync<IMemberReadModel, IReadOnlyList<UserRefView>>(
-            null, readModel => readModel.ListTeamMembersAsync(structure.SecondTeam.Team.Id, CancellationToken.None));
+            null, readModel => readModel.ListTeamMembersAsync(structure.SecondTeam.Id, CancellationToken.None));
 
         Assert.Equal(
             [
@@ -163,7 +163,7 @@ public sealed class MemberReadModelTests(OrganizationsDatabaseFixture database)
         var counter = new CommandCountingInterceptor();
 
         var members = await ReadAsync<IMemberReadModel, IReadOnlyList<UserRefView>>(
-            counter, readModel => readModel.ListTeamMembersAsync(structure.SecondTeam.Team.Id, CancellationToken.None));
+            counter, readModel => readModel.ListTeamMembersAsync(structure.SecondTeam.Id, CancellationToken.None));
 
         Assert.Empty(members);
         Assert.Single(counter.Commands);

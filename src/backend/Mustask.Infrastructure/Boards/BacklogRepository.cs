@@ -15,10 +15,24 @@ namespace Mustask.Infrastructure.Boards;
 /// backlog that took or dropped the same item's place meanwhile is never undone
 /// by a stale read.
 /// </summary>
+/// <remarks>
+/// mod-017 (BR-OT-6, BR-OT-13 (3), plan-backend D-10). A team place names the team that owns its item (ADR-0028 rule 5), and a
+/// reorder writes a place for <i>every</i> member, not only for the one it moves, so the members must not change owner
+/// while the reorder runs. The order of the locks is ADR-0028 rule 8's: the team <c>FOR SHARE</c> (step 2), the member items
+/// <c>FOR KEY SHARE</c> in id order (step 5), the order row <c>FOR UPDATE</c> (step 6), and then the members <b>read again in
+/// a locking statement</b>. A save of an item locks it <c>FOR UPDATE</c> first, so it conflicts with the key share: the
+/// reorder first, the save waits and then drops the place the reorder wrote; the save first, the reorder's locking read
+/// no longer finds the item a member. The place write's own foreign-key check onto the item is a key share too and never
+/// waits on this reorder's.
+/// </remarks>
 internal sealed class BacklogRepository(MustaskDbContext context) : IBacklogRepository
 {
-    public async Task<bool> LockAsync(Guid projectId, Guid teamId, Guid levelId, CancellationToken cancellationToken)
+    public async Task<bool> LockAsync(BacklogScope scope, CancellationToken cancellationToken)
     {
+        var (projectId, teamId, levelId) = (scope.ProjectId, scope.TeamId, scope.LevelId);
+        var typeIds = scope.TypeIds.ToArray();
+        var stateIds = scope.ShownStateIds.ToArray();
+
         await context.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT 1 FROM teams WHERE id = {teamId} AND project_id = {projectId} FOR SHARE",
             cancellationToken);
@@ -32,6 +46,17 @@ internal sealed class BacklogRepository(MustaskDbContext context) : IBacklogRepo
         {
             return false;
         }
+
+        // The members, in id order: ORDER BY is applied before the locks are taken, one fixed order for every caller.
+        await context.Database.ExecuteSqlInterpolatedAsync(
+            $"""
+             SELECT 1
+             FROM work_items
+             WHERE project_id = {projectId} AND owning_team_id = {teamId} AND type_id = ANY({typeIds}) AND state_id = ANY({stateIds})
+             ORDER BY id
+             FOR KEY SHARE
+             """,
+            cancellationToken);
 
         // A concurrent first reorder of the backlog waits here on the other's uncommitted key, then does nothing.
         await context.Database.ExecuteSqlInterpolatedAsync(
@@ -47,20 +72,41 @@ internal sealed class BacklogRepository(MustaskDbContext context) : IBacklogRepo
 
     public async Task<IReadOnlyList<StackRankEntry>> ReadEntriesAsync(BacklogScope scope, CancellationToken cancellationToken)
     {
-        var tree = await BacklogMembership.AreaTreeAsync(context, scope.ProjectId, cancellationToken);
+        var (projectId, teamId, levelId) = (scope.ProjectId, scope.TeamId, scope.LevelId);
+        var typeIds = scope.TypeIds.ToArray();
+        var stateIds = scope.ShownStateIds.ToArray();
 
-        return await BacklogMembership.Members(context, scope, BacklogMembership.TeamAreas(tree, scope.TeamId))
-            .Select(member => new StackRankEntry(member.Item.Id, member.Item.Number, member.Place))
+        // The membership of BacklogMembership (the project's items of the level's types in a shown state that the team owns)
+        // as a locking statement: raw SQL, parameterized, for row locking (backend.md "Raw SQL"). A member read here stays a
+        // member until the commit; one that changed owner before this read is not read.
+        var rows = await context.Database
+            .SqlQuery<MemberRow>(
+                $"""
+                 SELECT item.id AS "ItemId",
+                        item.number AS "Number",
+                        CASE WHEN place.team_id = {teamId} AND place.backlog_level_id = {levelId} THEN place.position END AS "Place"
+                 FROM work_items AS item
+                 LEFT JOIN backlog_places AS place ON place.work_item_id = item.id
+                 WHERE item.project_id = {projectId}
+                   AND item.owning_team_id = {teamId}
+                   AND item.type_id = ANY({typeIds})
+                   AND item.state_id = ANY({stateIds})
+                 ORDER BY item.id
+                 FOR KEY SHARE OF item
+                 """)
             .ToListAsync(cancellationToken);
+
+        return rows.Select(row => new StackRankEntry(row.ItemId, row.Number, row.Place)).ToList();
     }
 
     public async Task SaveOrderAsync(BacklogScope scope, IReadOnlyList<Guid> order, CancellationToken cancellationToken)
     {
         var ids = order.ToArray();
 
-        // The places this backlog holds for items that have left it: found here, so the delete names its few rows by key
-        // instead of testing every place against the whole order. Under the backlog's lock no other reorder of it adds a
-        // place; one of another backlog may take a row meanwhile, which the delete's own condition then skips.
+        // The places this backlog holds for items that have left it by state: found here, so the delete names its few rows by
+        // key instead of testing every place against the whole order. (An item that changed owner left no place: the save
+        // dropped it in its own write.) Under the backlog's lock no other reorder of it adds a place; one of another backlog
+        // may take a row meanwhile, which the delete's own condition then skips.
         var held = await context.Set<BacklogPlace>()
             .AsNoTracking()
             .Where(place => place.TeamId == scope.TeamId && place.BacklogLevelId == scope.LevelId)
@@ -77,7 +123,8 @@ internal sealed class BacklogRepository(MustaskDbContext context) : IBacklogRepo
         }
 
         // Every item at the place it stands at; an item placed on another backlog moves its one row here. A row already
-        // holding its value is not rewritten.
+        // holding its value is not rewritten. Every item written is a member the reorder holds locked, so the place's key
+        // onto the item's owner cannot fail.
         await context.Database.ExecuteSqlInterpolatedAsync(
             $"""
              INSERT INTO backlog_places (work_item_id, team_id, backlog_level_id, position)
@@ -89,5 +136,15 @@ internal sealed class BacklogRepository(MustaskDbContext context) : IBacklogRepo
                  IS DISTINCT FROM (excluded.team_id, excluded.backlog_level_id, excluded.position)
              """,
             cancellationToken);
+    }
+
+    /// <summary>A member of the backlog as the locking statement reads it.</summary>
+    private sealed class MemberRow
+    {
+        public Guid ItemId { get; set; }
+
+        public int Number { get; set; }
+
+        public int? Place { get; set; }
     }
 }

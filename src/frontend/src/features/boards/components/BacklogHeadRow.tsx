@@ -16,6 +16,7 @@ import {
   HIERARCHY_HEADER,
   ORDER_HEADER,
   STATE_HEADER,
+  TEAM_HEADER,
   TITLE_HEADER,
   TYPE_HEADER,
   VALUE_AREA_HEADER,
@@ -129,43 +130,45 @@ export function BacklogHeadRow({
             />
           </Box>
         </TableCell>
-        <TableCell sx={headCellSx}>
-          <Box component="span" sx={clipped}>
-            {ORDER_HEADER}
-          </Box>
-        </TableCell>
-        <TableCell className={SEPARATED} sx={headCellSx}>
-          <Box component="span" sx={clipped}>
-            {TYPE_HEADER}
-          </Box>
-        </TableCell>
-        <TableCell className={SEPARATED} sx={[headCellSx, { pl: TITLE_LABEL_INSET }]}>
-          <Box component="span" sx={clipped}>
-            {TITLE_HEADER}
-          </Box>
-        </TableCell>
-        <TableCell className={SEPARATED} sx={headCellSx}>
-          <Box component="span" sx={clipped}>
-            {STATE_HEADER}
-          </Box>
-        </TableCell>
-        <TableCell className={SEPARATED} title={EFFORT_HEADER} sx={headCellSx}>
-          <Box component="span" sx={clipped}>
-            {EFFORT_HEADER}
-          </Box>
-        </TableCell>
-        <TableCell className={SEPARATED} title={BUSINESS_VALUE_HEADER} sx={headCellSx}>
-          <Box component="span" sx={clipped}>
-            {BUSINESS_VALUE_HEADER}
-          </Box>
-        </TableCell>
-        <TableCell sx={headCellSx}>
-          <Box component="span" sx={clipped}>
-            {VALUE_AREA_HEADER}
-          </Box>
-        </TableCell>
+        <HeadLabel label={ORDER_HEADER} />
+        <HeadLabel label={TYPE_HEADER} separated />
+        <HeadLabel label={TITLE_HEADER} separated inset={TITLE_LABEL_INSET} />
+        <HeadLabel label={STATE_HEADER} separated />
+        <HeadLabel label={TEAM_HEADER} separated />
+        <HeadLabel label={EFFORT_HEADER} separated title={EFFORT_HEADER} />
+        <HeadLabel label={BUSINESS_VALUE_HEADER} separated title={BUSINESS_VALUE_HEADER} />
+        <HeadLabel label={VALUE_AREA_HEADER} />
       </TableRow>
     </TableHead>
+  );
+}
+
+/**
+ * A header cell with a label that is cut with an ellipsis and still named in full; `separated`
+ * draws the static line at its right edge, `title` gives the full label as the tooltip, `inset`
+ * moves the label right («Заголовок» stands over the title cell’s icon).
+ */
+function HeadLabel({
+  label,
+  separated = false,
+  title,
+  inset,
+}: {
+  label: string;
+  separated?: boolean;
+  title?: string;
+  inset?: string;
+}) {
+  return (
+    <TableCell
+      className={separated ? SEPARATED : undefined}
+      title={title}
+      sx={inset === undefined ? headCellSx : [headCellSx, { pl: inset }]}
+    >
+      <Box component="span" sx={clipped}>
+        {label}
+      </Box>
+    </TableCell>
   );
 }
 

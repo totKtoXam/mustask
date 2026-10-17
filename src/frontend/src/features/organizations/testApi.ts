@@ -162,31 +162,8 @@ export class OrganizationsTestApi {
     return found;
   }
 
-  private firstTeam(project: ProjectRecord): TeamRecord {
-    const found = this.data.teams.find(
-      (candidate) => candidate.projectId === project.id && candidate.isFirstTeam,
-    );
-    if (!found) {
-      throw new Error('The dataset has a project without its first team.');
-    }
-    return found;
-  }
-
   private children(parentId: string): AreaRecord[] {
     return this.data.areas.filter((candidate) => candidate.parentId === parentId);
-  }
-
-  private resolvedOwner(area: AreaRecord): TeamRecord {
-    let current: AreaRecord | undefined = area;
-    while (current && current.ownerTeamId === null) {
-      const parentId: string | null = current.parentId;
-      current = this.data.areas.find((candidate) => candidate.id === parentId);
-    }
-    const owner = this.data.teams.find((candidate) => candidate.id === current?.ownerTeamId);
-    if (!owner) {
-      throw new Error('The dataset has an area whose owner cannot be resolved.');
-    }
-    return owner;
   }
 
   private pathOf(area: AreaRecord): string {
@@ -235,29 +212,34 @@ export class OrganizationsTestApi {
     };
   }
 
+  /** mod-017 api-contract § 1.3: the named team, else the only active team, else none carries the mark. */
   private teamAnswer(team: TeamRecord): Team {
-    const area = this.data.areas.find((candidate) => candidate.id === team.defaultAreaId);
-    return {
-      id: team.id,
-      projectId: team.projectId,
-      name: team.name,
-      isFirstTeam: team.isFirstTeam,
-      defaultArea: { id: area?.id ?? '', path: area ? this.pathOf(area) : '' },
-    };
+    const project = this.data.projects.find((candidate) => candidate.id === team.projectId);
+    const active = this.data.teams.filter(
+      (candidate) => candidate.projectId === team.projectId && !candidate.deleted,
+    );
+    const named = active.find((candidate) => candidate.id === project?.defaultTeamId);
+    const mark = named
+      ? named.id === team.id
+        ? ('named' as const)
+        : null
+      : active.length === 1 && active[0]?.id === team.id
+        ? ('onlyTeam' as const)
+        : null;
+    return { id: team.id, projectId: team.projectId, name: team.name, defaultMark: mark };
   }
 
   /**
-   * The project's team list (api-contract § 3.1): the first team, then the
-   * rest by name, each saying whether the acting user is in it (mod-016
-   * § 3.3). A dataset without team members makes nobody a member, so the
-   * default team is the first, as before.
+   * The project's team list (api-contract § 1.3): by name in Russian collation,
+   * no team first, each saying whether the acting user is in it (mod-016
+   * § 3.3). A dataset without team members makes nobody a member.
    */
   private teamList(project: ProjectRecord): TeamInList[] {
-    const active = this.data.teams.filter((team) => team.projectId === project.id && !team.deleted);
-    const first = active.filter((team) => team.isFirstTeam);
-    const rest = active.filter((team) => !team.isFirstTeam).sort(byName);
+    const active = this.data.teams
+      .filter((team) => team.projectId === project.id && !team.deleted)
+      .sort(byName);
     const actingUserId = this.data.actingUserId;
-    return [...first, ...rest].map((team) => ({
+    return active.map((team) => ({
       ...this.teamAnswer(team),
       isMember:
         actingUserId !== undefined &&
@@ -273,27 +255,18 @@ export class OrganizationsTestApi {
       projectId: area.projectId,
       parentId: area.parentId,
       name: area.name,
-      ownerTeamId: area.ownerTeamId,
     };
   }
 
   private tree(project: ProjectRecord): AreaNode[] {
     const nodes: AreaNode[] = [];
     const visit = (area: AreaRecord, depth: number) => {
-      const owner = this.resolvedOwner(area);
-      const defaultOf = this.data.teams.find(
-        (team) => !team.deleted && team.defaultAreaId === area.id,
-      );
       nodes.push({
         id: area.id,
         parentId: area.parentId,
         name: area.name,
         path: this.pathOf(area),
         depth,
-        ownerTeamId: area.ownerTeamId,
-        resolvedOwner: { id: owner.id, name: owner.name },
-        ownerInherited: area.ownerTeamId === null,
-        defaultOfTeam: defaultOf ? { id: defaultOf.id, name: defaultOf.name } : null,
       });
       for (const child of this.children(area.id).sort(byName)) {
         visit(child, depth + 1);
@@ -376,22 +349,19 @@ export class OrganizationsTestApi {
       key,
       active: true,
     };
+    // BR-OT-11: the project's team is an ordinary one; the root area is owned by nobody.
     const first: TeamRecord = {
       id: newId('9'),
       projectId: project.id,
       name: project.name,
-      isFirstTeam: true,
       deleted: false,
-      defaultAreaId: null,
     };
     const root: AreaRecord = {
       id: newId('8'),
       projectId: project.id,
       parentId: null,
       name: project.name,
-      ownerTeamId: first.id,
     };
-    first.defaultAreaId = root.id;
     this.data.projects.push(project);
     this.data.teams.push(first);
     this.data.areas.push(root);
@@ -432,39 +402,15 @@ export class OrganizationsTestApi {
     ) {
       refuse('organizations.team.name_taken');
     }
-    const root = this.firstTeamRoot(project);
-    if (this.children(root.id).some((child) => sameName(child.name, name))) {
-      refuse('organizations.area.name_taken');
-    }
+    // BR-OT-11: adding a team creates no area.
     const team: TeamRecord = {
       id: newId('7'),
       projectId: project.id,
       name: name.trim(),
-      isFirstTeam: false,
       deleted: false,
-      defaultAreaId: null,
     };
-    const area: AreaRecord = {
-      id: newId('6'),
-      projectId: project.id,
-      parentId: root.id,
-      name: team.name,
-      ownerTeamId: team.id,
-    };
-    team.defaultAreaId = area.id;
     this.data.teams.push(team);
-    this.data.areas.push(area);
     return this.teamAnswer(team);
-  }
-
-  private firstTeamRoot(project: ProjectRecord): AreaRecord {
-    const root = this.data.areas.find(
-      (area) => area.projectId === project.id && area.parentId === null,
-    );
-    if (!root) {
-      throw new Error('The dataset has a project without its root area.');
-    }
-    return root;
   }
 
   private renameTeam(team: TeamRecord, project: ProjectRecord, body: Record<string, unknown>) {
@@ -485,36 +431,60 @@ export class OrganizationsTestApi {
     return this.teamAnswer(team);
   }
 
-  private setDefaultArea(team: TeamRecord, project: ProjectRecord, body: Record<string, unknown>) {
-    if (team.isFirstTeam) {
-      refuse('organizations.team.first_team_default_fixed');
+  /**
+   * mod-017 api-contract § 0.2, § 2.8: the team named in `PUT …/default-team`. An id that
+   * names nothing, a deleted team's or another organization's: 404; an active team of
+   * another active project of the organization: 409; `null` or none clears the setting.
+   */
+  private setDefaultTeam(project: ProjectRecord, body: Record<string, unknown>): void {
+    const named = body.teamId;
+    if (named === null || named === undefined) {
+      project.defaultTeamId = null;
+      return;
     }
-    const area = this.area(project, body.areaId as string | null | undefined);
-    if (area.ownerTeamId !== team.id) {
-      refuse('organizations.team.default_area_not_owned');
+    const found = this.data.teams.find(
+      (candidate) => typeof named === 'string' && candidate.id === named.toLowerCase(),
+    );
+    const owner = found && this.data.projects.find((candidate) => candidate.id === found.projectId);
+    if (
+      !found ||
+      found.deleted ||
+      !owner ||
+      !owner.active ||
+      owner.organizationId !== project.organizationId
+    ) {
+      refuse('organizations.team.not_found');
     }
-    team.defaultAreaId = area.id;
-    return this.teamAnswer(team);
+    if (found.projectId !== project.id) {
+      refuse('organizations.team.not_in_project');
+    }
+    project.defaultTeamId = found.id;
   }
 
+  /** mod-017 api-contract § 2.9: what a deletion would reassign, in any state. */
+  private ownedCount(team: TeamRecord): { count: number } {
+    return { count: this.data.ownedItemCounts?.[team.id] ?? 0 };
+  }
+
+  /** mod-017 api-contract § 2.7: the items go to «Без команды», the setting naming the team is cleared. */
   private deleteTeam(team: TeamRecord, project: ProjectRecord): void {
-    if (team.isFirstTeam) {
-      refuse('organizations.team.first_team_cannot_be_deleted');
-    }
-    const first = this.firstTeam(project);
-    for (const area of this.data.areas) {
-      if (area.ownerTeamId === team.id) {
-        area.ownerTeamId = first.id;
-      }
+    const active = this.data.teams.filter(
+      (candidate) => candidate.projectId === project.id && !candidate.deleted,
+    );
+    if (active.length <= 1) {
+      refuse('organizations.team.last_team_cannot_be_deleted');
     }
     team.deleted = true;
-    team.defaultAreaId = null;
+    if (project.defaultTeamId === team.id) {
+      project.defaultTeamId = null;
+    }
+    if (this.data.ownedItemCounts) {
+      this.data.ownedItemCounts[team.id] = 0;
+    }
   }
 
   private createArea(project: ProjectRecord, body: Record<string, unknown>) {
     validate({ name: nameReasons(body.name) });
-    const ownerTeamId = (body.ownerTeamId ?? null) as string | null;
-    const owner = ownerTeamId === null ? null : this.team(project, ownerTeamId);
     const parent = this.area(project, body.parentId as string | null | undefined);
     const name = text(body.name).trim();
     if (this.children(parent.id).some((child) => sameName(child.name, name))) {
@@ -525,7 +495,6 @@ export class OrganizationsTestApi {
       projectId: project.id,
       parentId: parent.id,
       name,
-      ownerTeamId: owner?.id ?? null,
     };
     this.data.areas.push(area);
     return this.areaAnswer(area);
@@ -577,34 +546,12 @@ export class OrganizationsTestApi {
     return this.areaAnswer(area);
   }
 
-  private setAreaOwner(area: AreaRecord, project: ProjectRecord, body: Record<string, unknown>) {
-    if (area.parentId === null) {
-      refuse('organizations.area.root_is_fixed');
-    }
-    const ownerTeamId = (body.ownerTeamId ?? null) as string | null;
-    const owner = ownerTeamId === null ? null : this.team(project, ownerTeamId);
-    const defaultOf = this.data.teams.find(
-      (team) => !team.deleted && team.defaultAreaId === area.id,
-    );
-    if (defaultOf && owner?.id !== defaultOf.id) {
-      refuse('organizations.area.is_team_default', { team: defaultOf.name });
-    }
-    area.ownerTeamId = owner?.id ?? null;
-    return this.areaAnswer(area);
-  }
-
   private deleteArea(area: AreaRecord): void {
     if (area.parentId === null) {
       refuse('organizations.area.root_is_fixed');
     }
     if (this.children(area.id).length > 0) {
       refuse('organizations.area.not_empty');
-    }
-    const defaultOf = this.data.teams.find(
-      (team) => !team.deleted && team.defaultAreaId === area.id,
-    );
-    if (defaultOf) {
-      refuse('organizations.area.is_team_default', { team: defaultOf.name });
     }
     this.data.areas.splice(this.data.areas.indexOf(area), 1);
   }
@@ -757,11 +704,12 @@ export class OrganizationsTestApi {
         }),
       ),
       http.put(
-        `${TEAM_URL}/default-area`,
-        answer(200, (p, b) => {
-          const { project, team } = tm(p);
-          return this.setDefaultArea(team, project, b);
-        }),
+        `${PROJECT_URL}/default-team`,
+        answer(204, (p, b) => this.setDefaultTeam(pr(p), b)),
+      ),
+      http.get(
+        `${TEAM_URL}/owned-items/count`,
+        answer(200, (p) => this.ownedCount(tm(p).team)),
       ),
       http.delete(
         TEAM_URL,
@@ -787,13 +735,6 @@ export class OrganizationsTestApi {
         answer(200, (p, b) => {
           const { project, area } = ar(p);
           return this.moveArea(area, project, b);
-        }),
-      ),
-      http.put(
-        `${AREA_URL}/owner`,
-        answer(200, (p, b) => {
-          const { project, area } = ar(p);
-          return this.setAreaOwner(area, project, b);
         }),
       ),
       http.delete(

@@ -107,26 +107,43 @@
       "kk": "Жобада мұндай атауы бар команда бар",
       "kkNeedsReview": true
     },
+    "organizations.team.not_in_project": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Команда не участвует в проекте.",
+      "kk": "Команда жобаға қатыспайды.",
+      "kkNeedsReview": true
+    },
+    "organizations.team.last_team_cannot_be_deleted": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Нельзя удалить единственную команду проекта.",
+      "kk": "Жобаның жалғыз командасын жоюға болмайды.",
+      "kkNeedsReview": true
+    },
     "organizations.team.default_area_not_owned": {
       "statuses": [409],
       "params": {},
       "ru": "Область по умолчанию должна принадлежать самой команде",
       "kk": "Әдепкі аймақ команданың өзіне тиесілі болуы керек",
-      "kkNeedsReview": true
+      "kkNeedsReview": true,
+      "deprecated": true
     },
     "organizations.team.first_team_default_fixed": {
       "statuses": [409],
       "params": {},
       "ru": "У первой команды область по умолчанию не меняется",
       "kk": "Бірінші команданың әдепкі аймағы өзгермейді",
-      "kkNeedsReview": true
+      "kkNeedsReview": true,
+      "deprecated": true
     },
     "organizations.team.first_team_cannot_be_deleted": {
       "statuses": [409],
       "params": {},
       "ru": "Нельзя удалить команду, которой принадлежит корневая область проекта",
       "kk": "Жобаның түбірлік аймағы тиесілі команданы жоюға болмайды",
-      "kkNeedsReview": true
+      "kkNeedsReview": true,
+      "deprecated": true
     },
     "organizations.area.name_taken": {
       "statuses": [409],
@@ -147,7 +164,8 @@
       "params": { "team": "string" },
       "ru": "Область используется как область по умолчанию команды «{team}»",
       "kk": "Аймақ «{team}» командасының әдепкі аймағы ретінде пайдаланылады",
-      "kkNeedsReview": true
+      "kkNeedsReview": true,
+      "deprecated": true
     },
     "organizations.area.not_empty": {
       "statuses": [409],

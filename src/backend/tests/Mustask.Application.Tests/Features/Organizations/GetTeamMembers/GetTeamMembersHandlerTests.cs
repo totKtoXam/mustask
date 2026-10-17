@@ -29,7 +29,7 @@ public sealed class GetTeamMembersHandlerTests
         public async Task<IReadOnlyList<UserRefView>> ListAsync(GetTeamMembersQuery? query = null) =>
             (await Handler.Handle(query ?? Query(), CancellationToken.None)).Items;
 
-        public void Join(string userId) => World.Store.AddTeamMember(World.Organization, World.Platform.Team, userId);
+        public void Join(string userId) => World.Store.AddTeamMember(World.Organization, World.Platform, userId);
     }
 
     // US-3 · "A team with no members says so": an empty list is an answer, not an error.
@@ -51,7 +51,7 @@ public sealed class GetTeamMembersHandlerTests
         f.World.AddMember("u-anna", "Анна Петрова");
         f.Join("u-vera");
         f.Join("u-oleg");
-        f.World.Store.AddTeamMember(f.World.Organization, f.World.Project.FirstTeam, "u-anna");
+        f.World.Store.AddTeamMember(f.World.Organization, f.World.Project.Team, "u-anna");
 
         var members = await f.ListAsync();
 
@@ -110,7 +110,7 @@ public sealed class GetTeamMembersHandlerTests
     public async Task Handle_ADeletedTeam_IsTeamNotFound()
     {
         var f = new Fixture();
-        f.World.Platform.Team.Delete();
+        f.World.Platform.Delete(2);
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.ListAsync());
 
@@ -133,8 +133,8 @@ public sealed class GetTeamMembersHandlerTests
         {
             "malformed" => "not-a-team",
             "unknown" => Guid.CreateVersion7().ToString(),
-            "first team of another project" => sibling.FirstTeam.Id.ToString(),
-            _ => foreign.Team.Id.ToString(),
+            "first team of another project" => sibling.Team.Id.ToString(),
+            _ => foreign.Id.ToString(),
         };
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.ListAsync(f.Query(teamId: teamId)));

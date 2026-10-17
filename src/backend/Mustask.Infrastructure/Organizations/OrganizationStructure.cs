@@ -7,9 +7,9 @@ namespace Mustask.Infrastructure.Organizations;
 /// <summary>
 /// The reads M1 offers other modules (api-contract § 7). By-id reads return the
 /// object with its status, reachable or not (ADR-0026 rule 4); reachability is
-/// computed through <see cref="Reachability"/>, and an area's owner through
-/// <see cref="AreaTree"/>, the same code the tree read uses (US-6). Each read
-/// runs a fixed number of queries.
+/// computed through <see cref="Reachability"/>, and the project default team through
+/// <see cref="ProjectDefaultTeam"/> (mod-017 BR-OT-4). An area has no owner any more, so there is no read of one (BR-OT-10).
+/// Each read runs a fixed number of queries.
 /// </summary>
 internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganizationStructure
 {
@@ -40,10 +40,17 @@ internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganiz
                 candidate.Status,
                 candidate.CreatedBy,
                 candidate.CreatedAt,
-                FirstTeamId = context.Teams
-                    .Where(team => team.ProjectId == candidate.Id && team.IsFirstTeam)
-                    .Select(team => team.Id)
-                    .First(),
+                // mod-017 BR-OT-4: the default team in one statement with the project — the named team when it is active, the
+                // count of the project's active teams, and one of them (read only when it is the only one).
+                NamedActiveTeamId = context.Teams
+                    .Where(team => team.Id == candidate.DefaultTeamId && team.ProjectId == candidate.Id && team.Status == TeamStatus.Active)
+                    .Select(team => (Guid?)team.Id)
+                    .FirstOrDefault(),
+                ActiveTeams = context.Teams.Count(team => team.ProjectId == candidate.Id && team.Status == TeamStatus.Active),
+                AnActiveTeamId = context.Teams
+                    .Where(team => team.ProjectId == candidate.Id && team.Status == TeamStatus.Active)
+                    .Select(team => (Guid?)team.Id)
+                    .FirstOrDefault(),
                 RootAreaId = context.Areas
                     .Where(area => area.ProjectId == candidate.Id && area.ParentId == null)
                     .Select(area => area.Id)
@@ -65,7 +72,7 @@ internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganiz
             project.Key,
             project.Status,
             isReachable,
-            project.FirstTeamId,
+            ProjectDefaultTeam.Resolve(project.NamedActiveTeamId, project.ActiveTeams, project.AnActiveTeamId),
             project.RootAreaId,
             project.CreatedBy,
             project.CreatedAt);
@@ -101,54 +108,13 @@ internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganiz
 
         var teams = await Stored(context.Teams
                 .Where(team => team.ProjectId == projectId && team.Status == TeamStatus.Active)
-                .OrderByDescending(team => team.IsFirstTeam)
-                .ThenBy(team => EF.Functions.Collate(team.Name, OrganizationsCollation.Russian))
+                .OrderBy(team => EF.Functions.Collate(team.Name, OrganizationsCollation.Russian))
                 .ThenBy(team => team.Id))
             .ToListAsync(cancellationToken);
 
         var isReachable = await IsProjectReachableAsync(organizationId.Value, projectId, cancellationToken);
 
         return teams.Select(team => ToInfo(team, isReachable)).ToList();
-    }
-
-    public async Task<AreaOwnerInfo?> FindAreaOwnerAsync(Guid areaId, CancellationToken cancellationToken)
-    {
-        var area = await context.Areas
-            .AsNoTracking()
-            .Where(candidate => candidate.Id == areaId)
-            .Select(candidate => new
-            {
-                candidate.ProjectId,
-                OrganizationId = context.Projects
-                    .Where(project => project.Id == candidate.ProjectId)
-                    .Select(project => project.OrganizationId)
-                    .First(),
-            })
-            .SingleOrDefaultAsync(cancellationToken);
-
-        if (area is null)
-        {
-            return null;
-        }
-
-        var nodes = await context.Areas
-            .AsNoTracking()
-            .Where(candidate => candidate.ProjectId == area.ProjectId)
-            .Select(candidate => new AreaNode(candidate.Id, candidate.ParentId, candidate.Name, candidate.OwnerTeamId, candidate.DefaultOfTeamId))
-            .ToListAsync(cancellationToken);
-
-        var tree = new AreaTree(nodes);
-
-        if (!tree.Contains(areaId))
-        {
-            // Deleted between the two reads: a deleted area is gone.
-            return null;
-        }
-
-        var owner = tree.ResolveOwner(areaId);
-        var isReachable = await IsProjectReachableAsync(area.OrganizationId, area.ProjectId, cancellationToken);
-
-        return new AreaOwnerInfo(areaId, area.ProjectId, owner.TeamId, owner.IsInherited, isReachable);
     }
 
     private Task<bool> IsProjectReachableAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken) =>
@@ -162,9 +128,7 @@ internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganiz
                 team.ProjectId,
                 context.Projects.Where(project => project.Id == team.ProjectId).Select(project => project.OrganizationId).First(),
                 team.Name,
-                team.Status,
-                team.IsFirstTeam,
-                context.Areas.Where(area => area.DefaultOfTeamId == team.Id).Select(area => (Guid?)area.Id).FirstOrDefault()));
+                team.Status));
 
     private static TeamInfo ToInfo(StoredTeam team, bool isReachable) => new(
         team.Id,
@@ -172,8 +136,6 @@ internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganiz
         team.OrganizationId,
         team.Name,
         team.Status,
-        team.IsFirstTeam,
-        team.Status == TeamStatus.Deleted ? null : team.DefaultAreaId,
         isReachable && team.Status == TeamStatus.Active);
 
     private sealed record StoredTeam(
@@ -181,7 +143,5 @@ internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganiz
         Guid ProjectId,
         Guid OrganizationId,
         string Name,
-        TeamStatus Status,
-        bool IsFirstTeam,
-        Guid? DefaultAreaId);
+        TeamStatus Status);
 }

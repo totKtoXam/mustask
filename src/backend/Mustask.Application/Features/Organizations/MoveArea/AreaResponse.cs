@@ -1,9 +1,8 @@
 namespace Mustask.Application.Features.Organizations.MoveArea;
 
 /// <summary>
-/// <c>Area</c> of api-contract § 4.1, the shape every area write returns. The
-/// panel refetches the tree after a write, because the change can move the
-/// resolved owners of a whole subtree. The slice's own copy of the shape.
+/// <c>Area</c> of mod-017 api-contract § 1.6 (replacing mod-002 § 4.2), the shape every area write returns. The panel refetches the
+/// tree after a write, because a move changes the paths of a whole subtree. The slice's own copy of the shape. An area has no
+/// owner any more (BR-OT-10).
 /// </summary>
-/// <param name="OwnerTeamId">The explicit owner; <c>null</c> means the owner is inherited.</param>
-public sealed record AreaResponse(Guid Id, Guid ProjectId, Guid ParentId, string Name, Guid? OwnerTeamId);
+public sealed record AreaResponse(Guid Id, Guid ProjectId, Guid ParentId, string Name);

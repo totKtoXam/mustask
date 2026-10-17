@@ -20,7 +20,7 @@ public sealed class RestoreProjectHandlerTests
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization);
             Platform = Store.AddTeam(Project);
-            Reports = Store.AddArea(Project.Root, "Отчёты", owner: Platform.Team);
+            Reports = Store.AddArea(Project.Root, "Отчёты");
             Quarterly = Store.AddArea(Reports, "Квартальные");
             Handler = new RestoreProjectHandler(
                 new FakeOrganizationReadModel(Store),
@@ -34,7 +34,7 @@ public sealed class RestoreProjectHandlerTests
 
         public NewProject Project { get; }
 
-        public NewTeam Platform { get; }
+        public Team Platform { get; }
 
         public Area Reports { get; }
 
@@ -52,13 +52,13 @@ public sealed class RestoreProjectHandlerTests
             (
                 string.Join(
                     ";",
-                    Store.Teams.OrderBy(team => team.Id).Select(team => $"{team.Id}|{team.ProjectId}|{team.Name}|{team.Status}|{team.IsFirstTeam}")),
+                    Store.Teams.OrderBy(team => team.Id).Select(team => $"{team.Id}|{team.ProjectId}|{team.Name}|{team.Status}")),
                 string.Join(
                     ";",
-                    Store.Areas.OrderBy(area => area.Id).Select(area => $"{area.Id}|{area.ProjectId}|{area.ParentId}|{area.Name}|{area.OwnerTeamId}|{area.DefaultOfTeamId}")));
+                    Store.Areas.OrderBy(area => area.Id).Select(area => $"{area.Id}|{area.ProjectId}|{area.ParentId}|{area.Name}")));
     }
 
-    // US-3 · "A deactivated project is restored exactly as it was": back with its name, key, teams, default areas and area
+    // US-3 · "A deactivated project is restored exactly as it was": back with its name, key, teams, default-team setting and area
     // tree as before. The restore writes one row, behind one lock, and saves once (ADR-0026 rule 2, plan-backend § 8.2).
     [Fact]
     public async Task Handle_DeactivatedProject_RestoresItExactly_WritingOnlyItsOwnRow()
@@ -78,23 +78,23 @@ public sealed class RestoreProjectHandlerTests
     }
 
     // US-3 · "A deactivated project is restored exactly as it was": the team deleted before the deactivation stays deleted,
-    // and the explicit owner and the default of the other team are as they were (nothing beneath is read or written).
+    // and the project's default-team setting is as it was (nothing beneath is read or written; mod-017 BR-OT-4).
+    // Renamed (D-16, BR-OT-10): Handle_DeactivatedProject_KeepsTeamStatusesOwnersAndDefaults -> ..._KeepsTeamStatusesAndTheDefaultTeamSetting.
     [Fact]
-    public async Task Handle_DeactivatedProject_KeepsTeamStatusesOwnersAndDefaults()
+    public async Task Handle_DeactivatedProject_KeepsTeamStatusesAndTheDefaultTeamSetting()
     {
         var f = new Fixture();
         var core = f.Store.AddTeam(f.Project, "Ядро");
-        core.Team.Delete();
+        core.Delete(3);
+        f.Project.Project.NameDefaultTeam(f.Platform.Id);
         f.Project.Project.Deactivate();
 
         await f.HandleAsync(f.Command());
 
-        Assert.Equal(TeamStatus.Deleted, core.Team.Status);
-        Assert.Equal(f.Platform.Team.Id, f.Reports.OwnerTeamId);
-        Assert.Null(f.Quarterly.OwnerTeamId);
-        Assert.Equal(f.Platform.Team.Id, f.Platform.Area.DefaultOfTeamId);
-        Assert.Equal(f.Project.FirstTeam.Id, f.Project.Root.DefaultOfTeamId);
-        Assert.Equal(f.Project.FirstTeam.Id, f.Project.Root.OwnerTeamId);
+        Assert.Equal(TeamStatus.Deleted, core.Status);
+        Assert.Equal(f.Platform.Id, f.Project.Project.DefaultTeamId);
+        Assert.Equal(TeamStatus.Active, f.Platform.Status);
+        Assert.Equal(f.Project.Root.Id, f.Reports.ParentId);
     }
 
     // US-3 · "A deactivated project is restored exactly as it was": a rename made before the deactivation stands, and the key

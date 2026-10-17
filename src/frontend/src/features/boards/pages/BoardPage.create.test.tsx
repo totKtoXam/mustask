@@ -66,7 +66,7 @@ describe('US-6 Scenario: «Новый элемент» sits at the top of the fi
   });
 });
 
-describe('US-6 Scenario: The new card is the last of «Новая», in the team’s area', () => {
+describe('US-6 Scenario: The new card is the last of «Новая», on the team', () => {
   it('a «Фича» «Отчёты по командам» from «Новый элемент»: the notice, then MSK-FEAT-6 and the new card in «Новая»', async () => {
     const data = boardsDataset();
     data.items.push(platformItem(6, 'FEAT', 'Отчёты'));
@@ -79,22 +79,28 @@ describe('US-6 Scenario: The new card is the last of «Новая», in the team
     );
     const found = await dialog();
     expect(
-      within(found).getByText(
-        'Рабочий элемент будет создан в статусе «Новая» в области «Платформа» и встанет в конец бэклога команды «Платформа». Остальные поля заполняются в его форме.',
+      await within(found).findByText(
+        'Рабочий элемент будет создан в статусе «Новая» в области «Мастаск». Остальные поля заполняются в его форме.',
       ),
     ).toBeInTheDocument();
+    expect(await within(found).findByRole('combobox', { name: 'Команда' })).toHaveValue(
+      'Платформа',
+    );
+    expect(within(found).getByText('Встанет в конец бэклога команды «Платформа».')).toBeVisible();
     await create('Отчёты по командам');
 
     expect(await screen.findByText('Рабочий элемент MSK-FEAT-7 создан.')).toBeInTheDocument();
     await waitFor(() => expect(cardsIn(board, 'Новая')).toEqual(['MSK-FEAT-6', 'MSK-FEAT-7']));
-    expect(api.item(ids.msk, 7).areaId).toBe(ids.platform);
+    expect(api.item(ids.msk, 7).areaId).toBe(ids.mskRoot);
     expect(api.order(ids.platformTeam, 'features')).toEqual(['MSK-FEAT-6', 'MSK-FEAT-7']);
     const post = api.writes().find((request) => request.path.endsWith('/workitems'));
-    expect((post?.body as { teamId: string }).teamId).toBe(ids.platformTeam);
+    expect((post?.body as { team: { teamId: string } }).team).toEqual({
+      teamId: ids.platformTeam,
+    });
   });
 });
 
-describe('US-6 Scenario: On the first team’s board the area is the root', () => {
+describe('US-6 Scenario: On «Мастаск»’s board the dialog starts with «Мастаск»', () => {
   it('a «Баг» on «Мастаск»’s «Истории» board takes «Мастаск» and is the last card in «Новая»', async () => {
     const data = boardsDataset();
     data.items.push(item(ids.msk, 5, 'US', 'Сводка', { areaId: ids.mskRoot }));
@@ -110,6 +116,7 @@ describe('US-6 Scenario: On the first team’s board the area is the root', () =
 
     await waitFor(() => expect(cardsIn(board, 'Новая')).toEqual(['MSK-US-5', 'MSK-BUG-6']));
     expect(api.item(ids.msk, 6).areaId).toBe(ids.mskRoot);
+    expect(api.item(ids.msk, 6).teamId).toBe(ids.mskTeam);
   });
 });
 
@@ -136,7 +143,7 @@ describe('US-6 Scenario: Creating from the empty board', () => {
 });
 
 describe('US-6 Scenario: The team was deleted while the dialog was open', () => {
-  it('shows «Команда не найдена.» in the dialog, creates nothing, and closing shows the frame', async () => {
+  it('shows «Команда не найдена.» under «Команда» (mod-017 BR-OT-13), creates nothing, and a pick clears it', async () => {
     const api = serveBoards(storiesDataset());
     renderBoards(boardAddress());
     const board = await findBoard();
@@ -147,17 +154,18 @@ describe('US-6 Scenario: The team was deleted while the dialog was open', () => 
       await screen.findByRole('menuitem', { name: 'Пользовательская история' }),
     );
 
+    await within(await dialog()).findByRole('combobox', { name: 'Команда' });
     api.data.teams = api.data.teams.map((team) =>
       team.id === ids.platformTeam ? { ...team, active: false } : team,
     );
     const found = await create('Экспорт');
 
-    expect(await within(found).findByRole('alert')).toHaveTextContent('Команда не найдена.');
+    expect(await within(found).findByText('Команда не найдена.')).toBeInTheDocument();
+    expect(within(found).getByRole('combobox', { name: 'Команда' })).toHaveFocus();
     expect(api.data.items).toHaveLength(4);
-    await userEvent.click(within(found).getByRole('button', { name: 'Отмена' }));
 
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'Команда не найдена' }),
-    ).toBeInTheDocument();
+    await userEvent.click(within(found).getByRole('combobox', { name: 'Команда' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Мастаск' }));
+    expect(within(found).queryByText('Команда не найдена.')).not.toBeInTheDocument();
   });
 });

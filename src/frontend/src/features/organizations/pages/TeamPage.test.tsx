@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { TEAM_URL, ids, problem } from '../testFixtures';
+import { TEAM_URL, exampleDataset, ids, problem } from '../testFixtures';
 import { serveOrganizations, serveProblem } from '../testApi';
 import { renderPage } from '../testRender';
 
@@ -10,30 +10,29 @@ function teamPage(teamId: string, projectId: string = ids.prm, organizationId: s
 }
 
 async function facts() {
-  await screen.findByText('Область по умолчанию');
+  await screen.findByText('Название');
   return screen.getByText('Название').closest('dl') as HTMLElement;
 }
 
 describe('mod-002 US-4: a team’s page (design § 10)', () => {
-  it('loads under «Команда» with a two-line skeleton, then reads «Команда: Платформа» with its facts', async () => {
+  it('loads under «Команда» with a one-line skeleton, then reads «Команда: Платформа» with its facts', async () => {
     serveOrganizations();
     renderPage({ path: teamPage(ids.platformTeam) });
 
     expect(screen.getByRole('heading', { level: 1, name: 'Команда' })).toBeInTheDocument();
     const skeleton = screen.getByRole('status', { name: 'Загрузка данных' });
-    expect(skeleton.querySelectorAll('.MuiSkeleton-rounded')).toHaveLength(2);
+    expect(skeleton.querySelectorAll('.MuiSkeleton-rounded')).toHaveLength(1);
 
     const panel = await facts();
     expect(
       screen.getByRole('heading', { level: 1, name: 'Команда: Платформа' }),
     ).toBeInTheDocument();
     expect(panel).toHaveTextContent('НазваниеПлатформа');
-    expect(panel).toHaveTextContent('Область по умолчаниюПлатформа / API');
-    expect(
-      within(panel).getByRole('button', { name: 'Изменить область по умолчанию' }),
-    ).toHaveTextContent('Изменить');
+    // mod-017 BR-OT-10, BR-OT-11: no default area, no 'Изменить'; no mark with two teams and no setting.
+    expect(panel).not.toHaveTextContent('Область по умолчанию');
+    expect(within(panel).queryByRole('button', { name: /Изменить/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Переименовать' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Удалить команду' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Удалить команду' })).toBeInTheDocument();
   });
 
   it('fails under the same title «Команда», with «Повторить»', async () => {
@@ -50,32 +49,47 @@ describe('mod-002 US-4: a team’s page (design § 10)', () => {
   });
 });
 
-describe('mod-002 US-4 Scenario: The first team’s default is the root', () => {
-  it('shows the chip and the caption, no «Изменить» and no «Удалить команду»', async () => {
-    serveOrganizations();
-    renderPage({ path: teamPage(ids.prmTeam) });
+// mod-017 BR-OT-11: retired by name (doc-012 P-1) — «The first team’s default is the root» —
+// «shows the chip and the caption, no «Изменить» and no «Удалить команду»».
+describe('mod-017 US-3, US-7 Scenario: A team’s mark and the project’s last team', () => {
+  it('the named default team carries «По умолчанию» in its name', async () => {
+    const data = exampleDataset();
+    data.projects.find((project) => project.id === ids.prm)!.defaultTeamId = ids.platformTeam;
+    serveOrganizations(data);
+    renderPage({ path: teamPage(ids.platformTeam) });
 
     const panel = await facts();
-    expect(panel).toHaveTextContent('НазваниеПример проектаВладеет корневой областью');
-    expect(panel).toHaveTextContent(
-      'Пример проектаКорневая область проекта. У первой команды область по умолчанию не меняется.',
-    );
-    expect(screen.queryByRole('button', { name: /Изменить/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Удалить команду' })).not.toBeInTheDocument();
+
+    expect(panel).toHaveTextContent('НазваниеПлатформаПо умолчанию');
+  });
+
+  it('the only team is marked «По умолчанию: единственная команда», has no «Удалить команду» and says why', async () => {
+    serveOrganizations();
+    renderPage({ path: teamPage(ids.anlTeam, ids.anl) });
+
+    const panel = await facts();
+
+    expect(panel).toHaveTextContent('НазваниеАналитикаПо умолчанию: единственная команда');
+    expect(
+      await within(panel).findByText('Единственную команду проекта удалить нельзя.'),
+    ).toBeVisible();
     expect(screen.getByRole('button', { name: 'Переименовать' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Удалить команду' })).not.toBeInTheDocument();
   });
 });
 
 describe('mod-002 US-7 Scenario: Deleted after a confirmation (from its own page)', () => {
   it('opens «Команды» of the same project with the notice', async () => {
-    serveOrganizations();
+    const data = exampleDataset();
+    data.ownedItemCounts = { [ids.platformTeam]: 5 };
+    serveOrganizations(data);
     renderPage({ path: teamPage(ids.platformTeam) });
     await facts();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Удалить команду' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Удалить команду' }));
     const dialog = await screen.findByRole('dialog', { name: 'Удаление команды' });
-    expect(dialog).toHaveTextContent(
-      'Удалить команду «Платформа»? Её области перейдут команде «Пример проекта». Восстановить команду будет нельзя.',
+    expect(await within(dialog).findByText(/Её рабочие элементы \(5\)/)).toHaveTextContent(
+      'Удалить команду «Платформа»? Её рабочие элементы (5) станут «Без команды». Восстановить команду будет нельзя.',
     );
     await userEvent.click(within(dialog).getByRole('button', { name: 'Удалить команду' }));
 

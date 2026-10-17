@@ -19,12 +19,11 @@ public sealed class DeleteAreaHandlerTests
         {
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization);
-            Platform = Store.AddTeam(Project);
+            Platform = Store.AddArea(Project.Root, "Платформа");
             Reports = Store.AddArea(Project.Root, "Отчёты");
             Quarterly = Store.AddArea(Reports, "Квартальные");
             Handler = new DeleteAreaHandler(
                 new FakeProjectRepository(Store),
-                new FakeTeamRepository(Store),
                 new FakeAreaRepository(Store),
                 Usage,
                 new FakeUnitOfWork());
@@ -39,8 +38,8 @@ public sealed class DeleteAreaHandlerTests
 
         public NewProject Project { get; }
 
-        /// <summary>The team «Платформа», with its own area under the root: owned by it and its default.</summary>
-        public NewTeam Platform { get; }
+        /// <summary>A leaf under the root named «Платформа» (like a team; a team has no area, mod-017 BR-OT-10).</summary>
+        public Area Platform { get; }
 
         /// <summary>«Отчёты» under the root, with the leaf child «Квартальные».</summary>
         public Area Reports { get; }
@@ -57,7 +56,7 @@ public sealed class DeleteAreaHandlerTests
         public Task HandleAsync(DeleteAreaCommand command) => Handler.Handle(command, CancellationToken.None);
     }
 
-    // US-5 · "Only an empty leaf is deleted": «Квартальные» has no children and is no team's default; it disappears and
+    // US-5 · "Only an empty leaf is deleted": «Квартальные» has no children and holds nothing; it disappears and
     // its neighbours stay. One lock, on the area, then one save.
     [Fact]
     public async Task Handle_EmptyLeaf_RemovesOnlyIt_LocksTheAreaOnce_SavesOnce()
@@ -69,7 +68,7 @@ public sealed class DeleteAreaHandlerTests
         Assert.Equal([$"lock area update {f.Quarterly.Id}", "save"], f.Store.Calls);
         Assert.DoesNotContain(f.Store.Areas, area => area.Id == f.Quarterly.Id);
         Assert.Contains(f.Store.Areas, area => area.Id == f.Reports.Id);
-        Assert.Contains(f.Store.Areas, area => area.Id == f.Platform.Area.Id);
+        Assert.Contains(f.Store.Areas, area => area.Id == f.Platform.Id);
         Assert.Contains(f.Store.Areas, area => area.Id == f.Project.Root.Id);
     }
 
@@ -128,10 +127,10 @@ public sealed class DeleteAreaHandlerTests
         Assert.DoesNotContain(f.Store.Areas, area => area.Id == f.Quarterly.Id);
     }
 
-    // US-5 · "root comes with the project" and BR-M1-11: the root has children and is the first team's default area, and
+    // US-5 · "root comes with the project" and BR-M1-11: the root has children, and
     // still the refusal is root_is_fixed (api-contract § 0.4 step 2 before the 409s of step 5).
     [Fact]
-    public async Task Handle_Root_IsRootIsFixed_BeforeTheChildrenAndTheDefault()
+    public async Task Handle_Root_IsRootIsFixed_BeforeTheChildren()
     {
         var f = new Fixture();
         var before = f.Store.Areas.Count;
@@ -143,46 +142,33 @@ public sealed class DeleteAreaHandlerTests
         Assert.Equal(0, f.Store.SaveCount);
     }
 
-    // US-6 · "A team's default area stays with its team": a leaf that is «Платформа»'s default is refused, naming the team.
+    // mod-017 US-5 · "an area is deleted like any other, whether or not a team shares its name" (BR-OT-10): a team has no
+    // default area, so a leaf named like a team is an empty leaf and goes — and the team stays. Replaces
+    // Handle_DefaultLeaf_IsAreaIsTeamDefault_NamingTheTeam_NothingRemoved, Handle_DefaultAreaWithAChild_IsAreaNotEmpty_BeforeTheDefault
+    // and Handle_FormerDefault_AfterTheDefaultMoved_IsDeleted (retired, BR-OT-10).
     [Fact]
-    public async Task Handle_DefaultLeaf_IsAreaIsTeamDefault_NamingTheTeam_NothingRemoved()
+    public async Task Handle_LeafNamedLikeATeam_IsDeleted_TheTeamStays()
     {
         var f = new Fixture();
+        var team = f.Store.AddTeam(f.Project, "Платформа");
 
-        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(f.Platform.Area)));
+        await f.HandleAsync(f.Command(f.Platform));
 
-        Assert.Equal(OrganizationErrorCodes.AreaIsTeamDefault, refusal.Code);
-        Assert.Equal("Платформа", refusal.Params["team"].Value);
-        Assert.Contains(f.Store.Areas, area => area.Id == f.Platform.Area.Id);
-        Assert.Equal(0, f.Store.SaveCount);
+        Assert.DoesNotContain(f.Store.Areas, area => area.Id == f.Platform.Id);
+        Assert.True(team.IsActive);
+        Assert.Equal([$"lock area update {f.Platform.Id}", "save"], f.Store.Calls);
     }
 
-    // The order inside step 5: a default area with a child is refused for the child first, as the domain orders them.
+    // The order inside step 5: an area with a child is refused with not_empty, whatever its name.
     [Fact]
-    public async Task Handle_DefaultAreaWithAChild_IsAreaNotEmpty_BeforeTheDefault()
+    public async Task Handle_LeafNamedLikeATeamWithAChild_IsAreaNotEmpty()
     {
         var f = new Fixture();
-        f.Store.AddArea(f.Platform.Area, "API", f.Platform.Team);
+        f.Store.AddArea(f.Platform, "API");
 
-        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(f.Platform.Area)));
+        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(f.Platform)));
 
         Assert.Equal(OrganizationErrorCodes.AreaNotEmpty, refusal.Code);
-    }
-
-    // US-6 · "once the team's default is changed to «Отчёты», the same actions are accepted": the former default is deleted.
-    [Fact]
-    public async Task Handle_FormerDefault_AfterTheDefaultMoved_IsDeleted()
-    {
-        var f = new Fixture();
-        var archive = f.Store.AddArea(f.Project.Root, "Архив", f.Platform.Team);
-        var former = f.Platform.Area;
-        former.ClearDefault();
-        archive.MarkDefaultOf(f.Platform.Team);
-
-        await f.HandleAsync(f.Command(former));
-
-        Assert.DoesNotContain(f.Store.Areas, area => area.Id == former.Id);
-        Assert.Equal(f.Platform.Team.Id, f.Store.Areas.Single(area => area.Id == archive.Id).DefaultOfTeamId);
     }
 
     // BR-M1-20: behind the filter the organization id is well formed; if it were not, the outermost level answers.

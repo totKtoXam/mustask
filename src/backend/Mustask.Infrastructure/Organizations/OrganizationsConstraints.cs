@@ -25,17 +25,11 @@ internal static class OrganizationsConstraints
     /// <summary>BR-M1-1: a team's name among the project's active teams; freed on delete.</summary>
     public const string TeamName = "ix_teams_project_id_normalized_name";
 
-    /// <summary>BR-M1-9: one first team per project.</summary>
-    public const string FirstTeam = "ix_teams_project_id_first_team";
-
     /// <summary>BR-M1-12: a name among siblings.</summary>
     public const string AreaName = "ix_areas_parent_id_normalized_name";
 
     /// <summary>BR-M1-11: one root per project.</summary>
     public const string AreaRoot = "ix_areas_project_id_root";
-
-    /// <summary>BR-M1-14: one default area per team.</summary>
-    public const string AreaDefault = "ix_areas_default_of_team_id";
 
     /// <summary>BR-M1-5: one membership per user per organization — the primary key <c>(organization_id, user_id)</c> (mod-016).</summary>
     public const string MembershipPrimaryKey = "pk_organization_memberships";
@@ -54,6 +48,12 @@ internal static class OrganizationsConstraints
 
     /// <summary>The index of that composite key; it also serves "the teams I am in".</summary>
     public const string TeamMembershipOrganizationUser = "ix_team_memberships_organization_id_user_id";
+
+    /// <summary>
+    /// mod-017 BR-OT-4 (ADR-0028 rule 9): the key of the project's default-team setting onto one of the project's own teams.
+    /// EF names it by convention; a violation is a team that is no longer there (plan-backend D-15).
+    /// </summary>
+    public const string ProjectDefaultTeamKey = "fk_projects_teams_id_default_team_id";
 
     /// <summary>BR-M1-1: 1 to 100 characters, on every table with a name.</summary>
     public static readonly string NameLengthCheck = $"char_length(name) BETWEEN 1 AND {OrganizationLimits.NameMaxLength}";

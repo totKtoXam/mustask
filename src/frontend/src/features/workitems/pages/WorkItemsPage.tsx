@@ -1,5 +1,6 @@
-import { useState, type MouseEvent } from 'react';
+import { useState, type MouseEvent, type ReactNode } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
+import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
@@ -10,11 +11,13 @@ import TableHead from '@mui/material/TableHead';
 import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
 import AddIcon from '@mui/icons-material/Add';
+import FilterListOffIcon from '@mui/icons-material/FilterListOff';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import { useProcessDefinition } from '../../process';
 import { useAccessCheck } from '../../../shared/lib/access';
 import { formatDateTime } from '../../../shared/lib/format';
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
+import { FilterBar } from '../../../shared/ui/FilterBar';
 import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
 import { RegistrySkeleton } from '../../../shared/ui/RegistrySkeleton';
 import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
@@ -23,21 +26,36 @@ import { useNotice } from '../../../shared/ui';
 import { WORK_ITEMS_PAGE_SIZE } from '../api/workItemsApi';
 import { CreateWorkItemDialog } from '../components/CreateWorkItemDialog';
 import { AssigneeName, StateName, TypeName } from '../components/Marks';
+import { TeamFilter } from '../components/TeamFilter';
 import { NEW_WORK_ITEM_LABEL, TypePickerMenu } from '../components/TypePickerMenu';
 import { useCreateWorkItem } from '../hooks/mutations';
 import { useWorkItems } from '../hooks/queries';
 import { notFoundLevel } from '../lib/notFoundLevel';
 import { creatableTypes } from '../lib/process';
+import { createdNotice, teamTexts } from '../lib/teams';
 import { workItemPath } from '../paths';
 import { workItemsPermissions } from '../permissions';
 
-/** The table's seven columns (spec § Page «Рабочие элементы»), the skeleton's headers too. */
-const COLUMNS = ['ID', 'Тип', 'Заголовок', 'Исполнитель', 'Статус', 'Область', 'Изменён'];
+/**
+ * The table's eight columns (spec § Page «Рабочие элементы»; mod-017 BR-OT-9: «Команда» before
+ * «Область»), the skeleton's headers too.
+ */
+const COLUMNS = [
+  'ID',
+  'Тип',
+  'Заголовок',
+  'Исполнитель',
+  'Статус',
+  'Команда',
+  'Область',
+  'Изменён',
+];
 
 /**
  * «Рабочие элементы» (US-1, US-2; spec § Page «Рабочие элементы»; mod-015
- * § 10.1 without its filter bar, secondary commands and pane): every item of
- * the project, the latest change first, 50 a page. The list's first read
+ * § 10.1 without secondary commands and pane): every item of the project, the
+ * latest change first, 50 a page, under the band «Фильтры» with the team filter
+ * (mod-017 US-5, BR-OT-9; design § 5): the chosen teams live in this page's state. The list's first read
  * validates the address. Keyed by its project, so another project starts on
  * its own first page.
  */
@@ -55,6 +73,11 @@ export function WorkItemsPage() {
   );
 }
 
+/** A text cell whose long words break instead of widening the table (design § 5.1). */
+function WrapCell({ children }: { children: ReactNode }) {
+  return <TableCell sx={{ overflowWrap: 'anywhere' }}>{children}</TableCell>;
+}
+
 function WorkItemsList({
   organizationId,
   projectId,
@@ -64,7 +87,9 @@ function WorkItemsList({
 }) {
   /** 0-based, as `TablePagination` counts; the route's `page` is 1-based. */
   const [page, setPage] = useState(0);
-  const query = useWorkItems(organizationId, projectId, page + 1);
+  /** The chosen team ids and `none` (BR-OT-8); a change shows page 1. */
+  const [teamIds, setTeamIds] = useState<string[]>([]);
+  const query = useWorkItems(organizationId, projectId, page + 1, teamIds);
   const process = useProcessDefinition(organizationId);
   const create = useCreateWorkItem(organizationId, projectId);
   const { show } = useNotice();
@@ -94,11 +119,24 @@ function WorkItemsList({
         }
       : undefined;
   const loading = query.isPending || (query.isError && query.isFetching);
-  const types = creatableTypes(process.data?.workItemTypes ?? []);
+  const types = creatableTypes(process.data?.workItemTypes ?? [], process.data?.backlogLevels);
+  const filtered = teamIds.length > 0;
+  const changeFilter = (next: string[]) => {
+    setTeamIds(next);
+    setPage(0);
+  };
 
   return (
     <>
       <PageHeader title="Рабочие элементы" primaryAction={createAction} />
+      <FilterBar active={filtered} onClear={() => changeFilter([])}>
+        <TeamFilter
+          organizationId={organizationId}
+          projectId={projectId}
+          value={teamIds}
+          onChange={changeFilter}
+        />
+      </FilterBar>
       {process.isError && notFoundLevel(process.error) === null && (
         <ErrorBanner error={process.error} onRetry={() => void process.refetch()} />
       )}
@@ -106,6 +144,17 @@ function WorkItemsList({
         <RegistrySkeleton columns={COLUMNS} />
       ) : query.isError ? (
         <ErrorBanner error={query.error} onRetry={() => void query.refetch()} />
+      ) : query.data.count === 0 && filtered ? (
+        <StateFrame
+          icon={FilterListOffIcon}
+          heading="Ничего не найдено"
+          hint="Ни один рабочий элемент не подходит под заданные условия фильтра."
+          action={{
+            label: 'Сбросить фильтр',
+            icon: <FilterListOffIcon />,
+            onClick: () => changeFilter([]),
+          }}
+        />
       ) : query.data.count === 0 ? (
         <StateFrame
           icon={InboxOutlinedIcon}
@@ -125,7 +174,7 @@ function WorkItemsList({
         />
       ) : (
         <TableContainer component={Paper} variant="outlined">
-          <Table size="small" aria-label="Рабочие элементы">
+          <Table size="small" aria-label="Рабочие элементы" aria-busy={query.isPlaceholderData}>
             <TableHead>
               <TableRow>
                 {COLUMNS.map((column) => (
@@ -140,21 +189,30 @@ function WorkItemsList({
                   <TableCell>
                     <TypeName type={item.type} />
                   </TableCell>
-                  <TableCell sx={{ overflowWrap: 'anywhere' }}>
+                  <WrapCell>
                     <Link
                       component={RouterLink}
                       to={workItemPath(organizationId, projectId, item.identifier)}
                     >
                       {item.title}
                     </Link>
-                  </TableCell>
+                  </WrapCell>
                   <TableCell>
                     <AssigneeName assignee={item.assignee} />
                   </TableCell>
                   <TableCell>
                     <StateName state={item.state} />
                   </TableCell>
-                  <TableCell>{item.area.path}</TableCell>
+                  <WrapCell>
+                    {item.team ? (
+                      item.team.name
+                    ) : (
+                      <Box component="span" sx={{ color: 'text.secondary' }}>
+                        {teamTexts.noTeam}
+                      </Box>
+                    )}
+                  </WrapCell>
+                  <WrapCell>{item.area.path}</WrapCell>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>
                     {formatDateTime(item.changedAt)}
                   </TableCell>
@@ -194,7 +252,7 @@ function WorkItemsList({
               setCreatingTypeId(null);
               // OQ-4: the user stays on the list, on its first page, the new row on top.
               setPage(0);
-              show(`Рабочий элемент ${item.identifier} создан.`);
+              show(createdNotice(item.identifier, item.team, teamIds));
             }}
             onClose={(contextGone) => {
               setCreatingTypeId(null);

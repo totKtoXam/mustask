@@ -39,6 +39,7 @@ const STORY: WorkItem = {
   state: { id: 'state-new', name: 'Новая', category: { code: 'Proposed', label: 'Новые' } },
   assignee: { id: 'anna', displayName: 'Анна Смирнова', email: 'anna@example.com' },
   area: { id: 'area-platform', path: 'Платформа' },
+  team: null,
   createdBy: 'creator',
   createdAt: '2026-10-05T14:30:00+00:00',
   changedAt: '2026-10-05T14:30:00+00:00',
@@ -204,13 +205,42 @@ describe('a fresh read of the item (BR-C-9)', () => {
   });
 });
 
+describe('the team edit (mod-017 design § 3)', () => {
+  const venus = { id: 'team-venus', name: 'VENUS' };
+
+  it('an untouched team is never named by the save', () => {
+    const edits = withEdit(STORY, NO_EDITS, { field: 'title', value: 'Другое' });
+    expect(touchedChanges(STORY, edits)).toEqual({ title: 'Другое' });
+  });
+
+  it('a pick sends the team, «Без команды» sends `{ teamId: null }`, and picking the stored team again is no edit', () => {
+    const picked = withEdit(STORY, NO_EDITS, { field: 'team', value: venus });
+    expect(touchedChanges(STORY, picked)).toEqual({ team: { teamId: 'team-venus' } });
+    expect(editedDraft(STORY, picked).team).toEqual(venus);
+
+    const owned = { ...STORY, team: venus };
+    const cleared = withEdit(owned, NO_EDITS, { field: 'team', value: null });
+    expect(touchedChanges(owned, cleared)).toEqual({ team: { teamId: null } });
+    expect(isUntouched(withEdit(STORY, picked, { field: 'team', value: null }))).toBe(true);
+    expect(isUntouched(withEdit(owned, cleared, { field: 'team', value: venus }))).toBe(true);
+  });
+
+  it('a fresh read that already holds the picked team drops the edit; «Отменить» restores the stored team', () => {
+    const picked = withEdit(STORY, NO_EDITS, { field: 'team', value: venus });
+    expect(rebaseEdits({ ...STORY, team: venus }, picked)).toEqual({});
+    expect(hasUnsavedEdits(STORY, picked)).toBe(true);
+    expect(hasUnsavedEdits(STORY, NO_EDITS)).toBe(false);
+  });
+});
+
 describe('where the first error is looked for (design § 4.6)', () => {
-  it('runs title, assignee, state, area, then the texts, the sections and «Родитель»', () => {
+  it('runs title, assignee, state, area, team, then the texts, the sections and «Родитель»', () => {
     expect(cardFieldOrder('story')).toEqual([
       'title',
       'assignee',
       'state',
       'area',
+      'team',
       'description',
       'acceptanceCriteria',
       'storyPoints',

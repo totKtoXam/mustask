@@ -29,17 +29,13 @@ function datasetWith(own: readonly string[]): Dataset {
       id: ANALYTICS_TEAM,
       projectId: ids.prm,
       name: 'Аналитика',
-      isFirstTeam: false,
       deleted: false,
-      defaultAreaId: ids.prmRoot,
     },
     {
       id: ANL_SECOND_TEAM,
       projectId: ids.anl,
       name: 'Вторая команда',
-      isFirstTeam: false,
       deleted: false,
-      defaultAreaId: ids.anlRoot,
     },
   );
   data.actingUserId = SUBJECT;
@@ -104,7 +100,7 @@ describe('mod-016 US-7 Scenario: Choosing a project selects the user’s own tea
 
     const alfa = result.current.organizations.find((entry) => entry.id === ids.alfa)!;
     const teams = alfa.projects.find((entry) => entry.id === ids.prm)!.teams;
-    expect(teams.map((team) => team.name)).toEqual(['Пример проекта', 'Аналитика', 'Платформа']);
+    expect(teams.map((team) => team.name)).toEqual(['Аналитика', 'Платформа', 'Пример проекта']);
   });
 });
 
@@ -121,8 +117,8 @@ describe('mod-016 US-7 Scenario: Several teams — the first of them in the proj
   });
 });
 
-describe('mod-016 US-7 Scenario: In no team of the project — the project’s first team', () => {
-  it('a member of the organization who is in none gets «Пример проекта», as before', async () => {
+describe('mod-016 US-7 Scenario: In no team of the project — the list’s first team (mod-017 BR-OT-11: by name)', () => {
+  it('a member of the organization who is in none gets «Аналитика», the list’s first', async () => {
     serveOrganizations(datasetWith([]));
     const { result } = mount();
     await settled(result);
@@ -130,10 +126,10 @@ describe('mod-016 US-7 Scenario: In no team of the project — the project’s f
     act(() => result.current.select('project', ids.prm));
     await settled(result);
 
-    expect(result.current.selection.teamId).toBe(ids.prmTeam);
+    expect(result.current.selection.teamId).toBe(ANALYTICS_TEAM);
   });
 
-  it('a user in a team of another project only still gets the project’s first', async () => {
+  it('a user in a team of another project only still gets the list’s first', async () => {
     serveOrganizations(datasetWith([ANL_SECOND_TEAM]));
     const { result } = mount();
     await settled(result);
@@ -141,7 +137,7 @@ describe('mod-016 US-7 Scenario: In no team of the project — the project’s f
     act(() => result.current.select('project', ids.prm));
     await settled(result);
 
-    expect(result.current.selection.teamId).toBe(ids.prmTeam);
+    expect(result.current.selection.teamId).toBe(ANALYTICS_TEAM);
   });
 });
 
@@ -244,7 +240,7 @@ describe('mod-016 US-7 on a team-level page (mod-015 BR-18): moving to another p
 });
 
 describe('mod-016 US-7 Scenario: Leaving the team changes the default the next time the list is read', () => {
-  it('after the membership is removed, choosing the project again gives its first team', async () => {
+  it('after the membership is removed, choosing the project again gives the list’s first team', async () => {
     const api = serveOrganizations(datasetWith([ids.platformTeam]));
     const { result } = mount();
     await settled(result);
@@ -256,6 +252,6 @@ describe('mod-016 US-7 Scenario: Leaving the team changes the default the next t
     await settled(result);
     act(() => result.current.select('project', ids.prm));
 
-    await waitFor(() => expect(result.current.selection.teamId).toBe(ids.prmTeam));
+    await waitFor(() => expect(result.current.selection.teamId).toBe(ANALYTICS_TEAM));
   });
 });

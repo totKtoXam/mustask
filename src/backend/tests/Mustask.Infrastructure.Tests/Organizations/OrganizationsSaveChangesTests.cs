@@ -76,7 +76,8 @@ public sealed class OrganizationsSaveChangesTests(OrganizationsDatabaseFixture d
         Assert.Equal("PRM", refusal.Params["key"].Value);
     }
 
-    // US-4 · "Two teams of one name at the same moment": the team index fires first, before the area's.
+    // US-4 · "Two teams of one name at the same moment": the team index answers; there is no area beside the team any more
+    // (mod-017 BR-OT-10).
     [Fact]
     public async Task SaveAsync_TeamNameRace_IsTeamNameTaken()
     {
@@ -85,10 +86,8 @@ public sealed class OrganizationsSaveChangesTests(OrganizationsDatabaseFixture d
         var refusal = await SaveRacingAsync(async (scope, ct) =>
         {
             var repository = scope.ServiceProvider.GetRequiredService<ITeamRepository>();
-            var root = await scope.ServiceProvider.GetRequiredService<IAreaRepository>()
-                .LockRootAsync(structure.Project.Project.Id, forUpdate: false, ct);
 
-            repository.Add(Team.CreateWithArea(structure.Project.Project.Id, Name("ПЛАТФОРМА"), root));
+            repository.Add(Team.Create(structure.Project.Project.Id, Name("ПЛАТФОРМА")));
             await repository.SaveAsync(ct);
         });
 
@@ -100,13 +99,14 @@ public sealed class OrganizationsSaveChangesTests(OrganizationsDatabaseFixture d
     public async Task SaveAsync_SiblingNameRace_IsAreaNameTaken()
     {
         var structure = await database.CreateStructureAsync();
+        await database.AddAreasAsync(Area.CreateChild(structure.Project.Root, Name("Платформа")));
 
         var refusal = await SaveRacingAsync(async (scope, ct) =>
         {
             var repository = scope.ServiceProvider.GetRequiredService<IAreaRepository>();
             var root = await repository.LockRootAsync(structure.Project.Project.Id, forUpdate: false, ct);
 
-            repository.Add(Area.CreateChild(root, Name(" платформа "), ownerTeam: null));
+            repository.Add(Area.CreateChild(root, Name(" платформа ")));
             await repository.SaveAsync(ct);
         });
 
@@ -126,24 +126,18 @@ public sealed class OrganizationsSaveChangesTests(OrganizationsDatabaseFixture d
         var error = await Assert.ThrowsAsync<DbUpdateException>(() => unitOfWork.ExecuteInTransactionAsync(
             async ct =>
             {
-                var projectId = structure.Project.Project.Id;
-                var areas = scope.ServiceProvider.GetRequiredService<IAreaRepository>();
-                var team = await scope.ServiceProvider.GetRequiredService<ITeamRepository>()
-                    .LockForShareAsync(projectId, structure.SecondTeam.Team.Id, ct);
-                var root = await areas.LockRootAsync(projectId, forUpdate: false, ct);
-                var owned = Area.CreateChild(root, Name("Второе"), team);
-                areas.Add(owned);
-                await areas.SaveAsync(ct);
-
-                // A second default of one team, skipping the clear: ix_areas_default_of_team_id, which no handler maps.
-                owned.MarkDefaultOf(team!);
-                await areas.SaveAsync(ct);
+                // A second organization on the first one's process: ix_organizations_process_id, which no handler maps (it was
+                // ix_areas_default_of_team_id before mod-017 dropped the default area).
+                var repository = scope.ServiceProvider.GetRequiredService<IOrganizationRepository>();
+                repository.Add(Organization.Create(
+                    Guid.CreateVersion7(), Name(UniqueName("Вторая организация")), structure.Organization.ProcessId, Now, Creator));
+                await repository.SaveAsync(ct);
 
                 return true;
             },
             CancellationToken.None));
 
-        Assert.Contains("ix_areas_default_of_team_id", error.InnerException?.Message ?? string.Empty, StringComparison.Ordinal);
+        Assert.Contains("ix_organizations_process_id", error.InnerException?.Message ?? string.Empty, StringComparison.Ordinal);
     }
 
     private async Task<ConflictException> SaveRacingAsync(Func<IServiceScope, CancellationToken, Task> write)

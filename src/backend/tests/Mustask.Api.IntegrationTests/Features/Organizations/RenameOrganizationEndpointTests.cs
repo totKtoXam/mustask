@@ -59,14 +59,14 @@ public sealed class RenameOrganizationEndpointTests(MustaskApiFactory factory)
         Assert.DoesNotContain(listed, row => row.Name == organization.Name);
     }
 
-    // US-2 · "its projects, teams and areas are unchanged": the project (name, key), the teams, the area tree with its owners
-    // and defaults, and the process are as they were.
+    // US-2 · "its projects, teams and areas are unchanged": the project (name, key), the teams, the area tree
+    // and the process are as they were.
     [Fact]
     public async Task Rename_LeavesProjectsTeamsAreasUnchanged()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         await OrganizationsTestData.AddAreaAsync(
-            factory, structure.ProjectId, structure.RootId, "Отчёты", structure.Platform.Team.Id);
+            factory, structure.ProjectId, structure.RootId, "Отчёты");
         var before = await SnapshotAsync(structure);
 
         var answer = await RenameAsync(structure.OrganizationId, OrganizationsTestData.UniqueName("Пример организации 2"));

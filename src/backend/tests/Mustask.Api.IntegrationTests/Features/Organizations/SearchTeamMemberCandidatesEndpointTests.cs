@@ -19,7 +19,7 @@ public sealed class SearchTeamMemberCandidatesEndpointTests(MustaskApiFactory fa
     private static string Tag() => Guid.NewGuid().ToString("N")[..8];
 
     private static string Path(OrganizationStructure structure, string? text, string? teamId = null) =>
-        $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{teamId ?? structure.Platform.Team.Id.ToString()}/member-candidates"
+        $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{teamId ?? structure.Platform.Id.ToString()}/member-candidates"
         + (text is null ? string.Empty : $"?text={Uri.EscapeDataString(text)}");
 
     private Task<Answer> SearchAsync(OrganizationStructure structure, string? text, string token) =>
@@ -72,7 +72,7 @@ public sealed class SearchTeamMemberCandidatesEndpointTests(MustaskApiFactory fa
         var (structure, token) = await WorldAsync();
         var vera = await WorkItemsTestData.AddUserAsync(factory, "Вера", "Командная", $"vera.{tag}@example.org");
         await MembershipTestData.AddMemberAsync(factory, structure.OrganizationId, vera);
-        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.Platform.Team.Id, vera);
+        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.Platform.Id, vera);
 
         var answer = await SearchAsync(structure, $"vera.{tag}@", token);
 
@@ -160,7 +160,7 @@ public sealed class SearchTeamMemberCandidatesEndpointTests(MustaskApiFactory fa
     public async Task Search_ADeletedOrUnknownTeamAndProject_AnswerTheirLevelNotFound()
     {
         var (structure, token) = await WorldAsync();
-        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, structure.Platform.Team.Id);
+        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, structure.Platform.Id);
 
         var deleted = await SearchAsync(structure, "вера", token);
         var unknownTeam = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, Path(structure, "вера", Guid.CreateVersion7().ToString()), token: token);
@@ -168,7 +168,7 @@ public sealed class SearchTeamMemberCandidatesEndpointTests(MustaskApiFactory fa
         var unknownProject = await OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Get,
-            $"{OrganizationsApi.Organization(structure.OrganizationId)}/projects/{Guid.CreateVersion7()}/teams/{structure.FirstTeamId}/member-candidates?text=вера",
+            $"{OrganizationsApi.Organization(structure.OrganizationId)}/projects/{Guid.CreateVersion7()}/teams/{structure.ProjectTeamId}/member-candidates?text=вера",
             token: token);
 
         foreach (var answer in new[] { deleted, unknownTeam, malformed })

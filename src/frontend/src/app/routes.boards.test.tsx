@@ -69,23 +69,24 @@ function alfaDataset(): BoardsDataset {
       id: organizationIds.prmTeam,
       projectId: organizationIds.prm,
       name: 'Пример проекта',
-      defaultAreaId: organizationIds.prmRoot,
-      first: true,
       active: true,
     },
     {
       id: organizationIds.platformTeam,
       projectId: organizationIds.prm,
       name: 'Платформа',
-      defaultAreaId: organizationIds.platformArea,
-      first: false,
       active: true,
     },
   ];
-  data.owners = { [organizationIds.platformArea]: organizationIds.platformTeam };
   data.items = [
-    item(organizationIds.prm, 1, 'US', 'Вход по паролю', { areaId: organizationIds.platformArea }),
-    item(organizationIds.prm, 2, 'US', 'Сводка проекта', { areaId: organizationIds.prmRoot }),
+    item(organizationIds.prm, 1, 'US', 'Вход по паролю', {
+      areaId: organizationIds.platformArea,
+      teamId: organizationIds.platformTeam,
+    }),
+    item(organizationIds.prm, 2, 'US', 'Сводка проекта', {
+      areaId: organizationIds.prmRoot,
+      teamId: organizationIds.prmTeam,
+    }),
   ];
   return data;
 }
@@ -133,22 +134,24 @@ function twoContextsDataset(): BoardsDataset {
       id: organizationIds.anlTeam,
       projectId: organizationIds.anl,
       name: 'Аналитика',
-      defaultAreaId: organizationIds.anlRoot,
-      first: true,
       active: true,
     },
     {
       id: organizationIds.repTeam,
       projectId: organizationIds.rep,
       name: 'Отчётность',
-      defaultAreaId: organizationIds.repRoot,
-      first: true,
       active: true,
     },
   );
   data.items.push(
-    item(organizationIds.anl, 1, 'US', 'Отчёт по спринту', { areaId: organizationIds.anlRoot }),
-    item(organizationIds.rep, 1, 'US', 'Выгрузка отчёта', { areaId: organizationIds.repRoot }),
+    item(organizationIds.anl, 1, 'US', 'Отчёт по спринту', {
+      areaId: organizationIds.anlRoot,
+      teamId: organizationIds.anlTeam,
+    }),
+    item(organizationIds.rep, 1, 'US', 'Выгрузка отчёта', {
+      areaId: organizationIds.repRoot,
+      teamId: organizationIds.repTeam,
+    }),
   );
   return data;
 }
@@ -252,14 +255,15 @@ describe('mod-006 the backlog route in the shell', () => {
     expect(links.indexOf(backlogs)).toBe(links.indexOf(workItems) + 2);
     await userEvent.click(backlogs);
 
+    // mod-017 BR-OT-11: the entry lands on the list's first team by name, «Платформа».
     expect(screen.getByTestId('location')).toHaveTextContent(
-      teamAddress(organizationIds.prmTeam, 'backlogs', 'stories'),
+      teamAddress(organizationIds.platformTeam, 'backlogs', 'stories'),
     );
-    expect(await backlogRows()).toEqual(['PRM-US-2']);
+    expect(await backlogRows()).toEqual(['PRM-US-1']);
 
     await userEvent.click(within(mainNavigation()).getByRole('link', { name: 'Канбан' }));
     expect(screen.getByTestId('location')).toHaveTextContent(
-      teamAddress(organizationIds.prmTeam, 'boards', 'stories'),
+      teamAddress(organizationIds.platformTeam, 'boards', 'stories'),
     );
     expect(await screen.findByRole('region', { name: 'Канбан' })).toBeInTheDocument();
   });
@@ -336,17 +340,10 @@ describe('mod-015 BR-18 on a team-level page: a project or organization choice k
   it.each([['backlogs'], ['boards']])(
     'on «%s», choosing «Аналитика» at the project level opens the «Истории» landing of its first team',
     async (surface) => {
-      // A second team that sorts before the first by name: the first team is
-      // the project's default (mod-002 design § 3.5), not the first by name.
+      // mod-017 BR-OT-11: no team is first; the switcher's team is the list's first by name, and
+      // «Аналитика» has one team. (Retired: the second team 'Агенты' that sorted before the
+      // project's first team - there is no first team now.)
       const organizations = organizationsDataset();
-      organizations.teams.push({
-        id: 'c0000000-0000-4000-8000-0000000000a1',
-        projectId: organizationIds.anl,
-        name: 'Агенты',
-        isFirstTeam: false,
-        deleted: false,
-        defaultAreaId: organizationIds.anlRoot,
-      });
       serveOrganizations(organizations);
       serveBoards(twoContextsDataset());
       const visited: string[] = [];

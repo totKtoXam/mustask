@@ -21,7 +21,7 @@ public sealed class RenameAreaHandlerTests
             Project = Store.AddProject(Organization);
             Platform = Store.AddTeam(Project);
             Reports = Store.AddArea(Project.Root, "Отчёты");
-            Quarterly = Store.AddArea(Reports, "Квартальные", Platform.Team);
+            Quarterly = Store.AddArea(Reports, "Квартальные");
             Handler = new RenameAreaHandler(
                 new FakeProjectRepository(Store),
                 new FakeAreaRepository(Store),
@@ -34,12 +34,12 @@ public sealed class RenameAreaHandlerTests
 
         public NewProject Project { get; }
 
-        public NewTeam Platform { get; }
+        public Team Platform { get; }
 
         /// <summary>A child of the root.</summary>
         public Area Reports { get; }
 
-        /// <summary>A child of <see cref="Reports"/>, owned explicitly by <see cref="Platform"/>: the area the tests rename.</summary>
+        /// <summary>A child of <see cref="Reports"/>: the area the tests rename.</summary>
         public Area Quarterly { get; }
 
         public RenameAreaHandler Handler { get; }
@@ -56,21 +56,22 @@ public sealed class RenameAreaHandlerTests
         public AreaTree Tree() =>
             new(Store.Areas
                 .Where(area => area.ProjectId == Project.Project.Id)
-                .Select(area => new AreaNode(area.Id, area.ParentId, area.Name, area.OwnerTeamId, area.DefaultOfTeamId)));
+                .Select(area => new AreaNode(area.Id, area.ParentId, area.Name)));
     }
 
     // US-5 · "A child area is renamed": «Отчёты / Квартальные» with children of its own becomes «Отчёты / Годовые»,
-    // with its children and its owner unchanged.
+    // with its children unchanged; the area has no owner to keep (mod-017 BR-OT-10).
+    // Renamed (D-16, BR-OT-10): Handle_ChildWithChildren_RenamesIt_KeepsChildrenAndOwner -> Handle_ChildWithChildren_RenamesIt_KeepsChildren.
     [Fact]
-    public async Task Handle_ChildWithChildren_RenamesIt_KeepsChildrenAndOwner()
+    public async Task Handle_ChildWithChildren_RenamesIt_KeepsChildren()
     {
         var f = new Fixture();
-        var firstQuarter = f.Store.AddArea(f.Quarterly, "Первый квартал");
-        var secondQuarter = f.Store.AddArea(f.Quarterly, "Второй квартал", f.Platform.Team);
+        f.Store.AddArea(f.Quarterly, "Первый квартал");
+        f.Store.AddArea(f.Quarterly, "Второй квартал");
 
         var result = await f.HandleAsync(f.Command(name: " Годовые "));
 
-        Assert.Equal(new AreaResponse(f.Quarterly.Id, f.Project.Project.Id, f.Reports.Id, "Годовые", f.Platform.Team.Id), result.Response);
+        Assert.Equal(new AreaResponse(f.Quarterly.Id, f.Project.Project.Id, f.Reports.Id, "Годовые"), result.Response);
 
         var tree = f.Tree();
         Assert.Equal("Отчёты / Годовые", tree.PathOf(f.Quarterly.Id));
@@ -78,11 +79,6 @@ public sealed class RenameAreaHandlerTests
         Assert.Equal(
             ["Второй квартал", "Первый квартал"],
             tree.ChildrenOf(f.Quarterly.Id).Select(node => node.Name).Order(StringComparer.Ordinal));
-        Assert.Equal(f.Platform.Team.Id, f.Quarterly.OwnerTeamId);
-        Assert.Equal(f.Platform.Team.Id, secondQuarter.OwnerTeamId);
-        Assert.Null(firstQuarter.OwnerTeamId);
-        Assert.Equal(new ResolvedOwner(f.Platform.Team.Id, true), tree.ResolveOwner(firstQuarter.Id));
-        Assert.Null(f.Quarterly.DefaultOfTeamId);
     }
 
     // US-5 · "Sibling names are unique, compared ignoring case and spaces": the area's own name, in any case, is not

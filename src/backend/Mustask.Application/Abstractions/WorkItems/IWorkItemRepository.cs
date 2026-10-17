@@ -3,11 +3,13 @@ using Mustask.Domain.WorkItems;
 namespace Mustask.Application.Abstractions.WorkItems;
 
 /// <summary>
-/// The write side of work items (mod-003). Locks follow one order: the
-/// project's number counter (creation only), then the team a creation comes from
-/// (mod-006), then the project's hierarchy (a parent write, feat-001, or a
-/// creation with a parent, feat-027), then the item, then the area it moves into,
-/// then its new and its stored parent (a parent write, or a creation's parent).
+/// The write side of work items (mod-003). Locks follow one order: the team a
+/// write binds to or may default to (mod-017, ADR-0028 rule 8 — first of all, so a
+/// team's deletion and every binder serialize on the team row), then the
+/// project's number counter (creation only), then the project's hierarchy (a
+/// parent write, feat-001, or a creation with a parent, feat-027), then the item,
+/// then the area it moves into, then its new and its stored parent (a parent
+/// write, or a creation's parent).
 /// Each lock is taken before the row it guards is read, so the read sees the row
 /// as the previous lock holder left it. No holder of an area's lock waits on an
 /// item, so the area may come before the parents.
@@ -15,13 +17,31 @@ namespace Mustask.Application.Abstractions.WorkItems;
 public interface IWorkItemRepository
 {
     /// <summary>
-    /// mod-006 (BR-M4-21): locks the team <c>FOR SHARE</c> and answers its
-    /// default area as it stands, or <c>null</c> when it is not an active team of
-    /// the project. A default change locks the team <c>FOR NO KEY UPDATE</c> and a
-    /// deletion <c>FOR UPDATE</c> (mod-002), so neither can move the answer before
-    /// the commit, and a default area is never deleted while it is one.
+    /// mod-017 (ADR-0028 rule 8): locks the team <c>FOR SHARE</c> — the binder's lock, taken <b>first</b> of a write's locks —
+    /// and decides nothing. A team of another organization locks nothing (no lock spans organizations, ADR-0028 § 4), a
+    /// team that is unknown, deleted or of another project locks only its own row; the caller judges the team afterwards with
+    /// <c>ProjectTeams.EnsureBindable</c> on a fresh read. A deletion locks the team <c>FOR NO KEY UPDATE</c>
+    /// (plan-backend D-3), so a binder and a deletion of the same team serialize: the deletion first, the binder reads the
+    /// team deleted; the binder first, the deletion takes what the binder wrote.
     /// </summary>
-    Task<Guid?> LockTeamDefaultAreaAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken);
+    Task LockTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// mod-017 (BR-OT-3, BR-OT-13, plan-backend D-14): reads the project default team as it stands — the team the settings
+    /// name, else the project's only active team, else none (<c>ProjectDefaultTeam</c>) — locks it <c>FOR SHARE</c>, and reads
+    /// it again: a team found deleted means a deletion cleared the setting meanwhile, so the default is read again (three
+    /// attempts, then the active teams are locked and the default read once more; unreachable short of three deletions in a
+    /// row). When no default resolves (two or more active teams, none named), <b>every active team is locked <c>FOR SHARE</c>
+    /// in id order</b> and the default is read again under that lock: a deletion of any team of the project holds them all
+    /// (<c>FOR NO KEY UPDATE</c>), so the creation either commits before the deletion reads the items it owns or reads the
+    /// default, and its parent, after the deletion — never in between (QA D-1, CR-1, S-1). Answers the locked team, or
+    /// <c>null</c> (none, with the teams locked). A creation
+    /// that may take the default (no team sent, or a child) takes this lock <b>before</b> the number lock, whether or not it
+    /// ends up using the default: the fallback is known only after the parent is locked, and a lock not taken then would let the
+    /// child land on a team a concurrent deletion has just committed. A default that is named differently during the attempt
+    /// is taken as it was: the creation is ordered before the naming.
+    /// </summary>
+    Task<Guid?> LockDefaultTeamAsync(Guid projectId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Locks the project's number counter <c>FOR UPDATE</c>, creating it on the

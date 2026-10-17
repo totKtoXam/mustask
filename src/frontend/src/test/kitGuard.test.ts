@@ -54,7 +54,7 @@ interface PartRule {
 const PART_RULES: readonly PartRule[] = [
   {
     id: 'KIT-1',
-    use: 'the fields (InlineTextField, InlineTextArea, InlineNumberField, InlineDateField, InlineSelectField, InlinePickerField, PersonField)',
+    use: 'the fields (InlineTextField, InlineTextArea, InlineNumberField, InlineDateField, InlineSelectField, InlineMultiSelectField, InlinePickerField, PersonField)',
     names: [
       'TextField',
       'Autocomplete',

@@ -30,6 +30,7 @@ using Mustask.Application.Features.Organizations.GetProject;
 using Mustask.Application.Features.Organizations.GetProjects;
 using Mustask.Application.Features.Organizations.GetTeam;
 using Mustask.Application.Features.Organizations.GetTeamMembers;
+using Mustask.Application.Features.Organizations.GetTeamOwnedItemCount;
 using Mustask.Application.Features.Organizations.GetTeams;
 using Mustask.Application.Features.Organizations.MoveArea;
 using Mustask.Application.Features.Organizations.RemoveMember;
@@ -42,8 +43,7 @@ using Mustask.Application.Features.Organizations.RestoreOrganization;
 using Mustask.Application.Features.Organizations.RestoreProject;
 using Mustask.Application.Features.Organizations.SearchMemberCandidates;
 using Mustask.Application.Features.Organizations.SearchTeamMemberCandidates;
-using Mustask.Application.Features.Organizations.SetAreaOwner;
-using Mustask.Application.Features.Organizations.SetTeamDefaultArea;
+using Mustask.Application.Features.Organizations.SetDefaultTeam;
 using Mustask.Application.Features.Process;
 using Mustask.Application.Features.Process.GetProcessDefinition;
 using Mustask.Application.Features.Process.SeedProcess;
@@ -106,13 +106,13 @@ public static class DependencyInjection
         services.AddScoped<GetTeamHandler>();
         services.AddScoped<AddTeamHandler>();
         services.AddScoped<RenameTeamHandler>();
-        services.AddScoped<SetTeamDefaultAreaHandler>();
+        services.AddScoped<SetDefaultTeamHandler>();
+        services.AddScoped<GetTeamOwnedItemCountHandler>();
         services.AddScoped<DeleteTeamHandler>();
         services.AddScoped<GetAreaTreeHandler>();
         services.AddScoped<CreateAreaHandler>();
         services.AddScoped<RenameAreaHandler>();
         services.AddScoped<MoveAreaHandler>();
-        services.AddScoped<SetAreaOwnerHandler>();
         services.AddScoped<DeleteAreaHandler>();
 
         // Organization access (mod-016): one handler per route of MembershipEndpoints.cs.

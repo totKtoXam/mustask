@@ -1,7 +1,7 @@
 namespace Mustask.Application.Features.Organizations.DeleteTeam;
 
 /// <summary>
-/// <c>DELETE /api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}</c> (US-7: delete a team, its areas passing to the first team (204)). Ids are the untrusted strings of the
+/// <c>DELETE /api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}</c> (US-7: delete a team, the items it owns passing to «Без команды» (204); mod-017 BR-OT-12). Ids are the untrusted strings of the
 /// address and the body: the handler parses them with <c>AddressedId</c>, so a
 /// malformed id gets its level's not-found code, never a 400 (BR-M1-20).
 /// </summary>
