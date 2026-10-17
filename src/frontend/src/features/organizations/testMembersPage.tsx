@@ -16,8 +16,8 @@ import type { WorkContextSource } from '../../shared/lib/workContext';
 /** «Участники» of «Альфа». */
 export const MEMBERS_PATH = `/organizations/${ids.alfa}/settings/members`;
 
-/** The team page of «Платформа» in «Пример проекта» of «Альфа». */
-export const PLATFORM_TEAM_PATH = `/organizations/${ids.alfa}/projects/${ids.prm}/settings/teams/${ids.platformTeam}`;
+/** The page of the team «Платформа» of «Альфа» (feat-028: the organization's team page). */
+export const PLATFORM_TEAM_PATH = `/organizations/${ids.alfa}/settings/teams/${ids.platformTeam}`;
 
 export interface OpenedPage extends ReturnType<typeof renderPage> {
   data: Dataset;

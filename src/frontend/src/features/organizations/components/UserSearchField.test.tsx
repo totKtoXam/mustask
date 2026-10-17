@@ -78,7 +78,6 @@ describe('mod-016 design § 3.5, § 4.4: UserSearchField', () => {
       scope: {
         kind: 'team',
         organizationId: ids.alfa,
-        projectId: ids.prm,
         teamId: ids.platformTeam,
       },
     });
@@ -88,7 +87,7 @@ describe('mod-016 design § 3.5, § 4.4: UserSearchField', () => {
     // Иван Петров is a member and active; Мария Орлова, who is in no organization, is not matched by «Ива» anyway.
     expect(await screen.findByRole('option', { name: /Иван Петров/ })).toBeVisible();
     expect(api.requests.map((request) => request.path)).toEqual([
-      `/api/organizations/${ids.alfa}/projects/${ids.prm}/teams/${ids.platformTeam}/member-candidates?text=${encodeURIComponent('Ива')}`,
+      `/api/organizations/${ids.alfa}/teams/${ids.platformTeam}/member-candidates?text=${encodeURIComponent('Ива')}`,
     ]);
 
     const field = screen.getByRole('combobox', { name: 'Пользователь' });

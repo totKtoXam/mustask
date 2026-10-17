@@ -140,6 +140,7 @@ describe('mod-002 US-8 Scenario: Settings through the shell’s navigation', () 
     expect(links).toEqual([
       'Общие',
       'Проекты',
+      'Команды',
       'Участники',
       'Процесс',
       'Общие',
@@ -193,18 +194,26 @@ describe('mod-002 US-8 Scenario: A project switch on a project-level page', () =
   });
 });
 
-describe('mod-002 US-8 Scenario: A page addressing one team lands on its entry’s page', () => {
-  it('from a team’s page, a project choice opens «Команды» of the new project', async () => {
+// feat-028 BR-OL-12 (doc-012 P-1): «from a team’s page, a project choice opens «Команды» of the new
+// project» is retired by name — a team's page is the organization's now, beneath «Команды» of the
+// organization, and an organization-level page is kept by a project choice, as «Общие» is.
+describe('feat-028 Scenario: A page addressing one team lands on its entry’s page', () => {
+  it('from a team’s page, a project choice keeps the page and an organization choice opens «Команды» of that organization', async () => {
     serve();
-    renderApp(`/organizations/${ids.alfa}/projects/${ids.prm}/settings/teams/${ids.platformTeam}`);
+    const teamPage = `/organizations/${ids.alfa}/settings/teams/${ids.platformTeam}`;
+    renderApp(teamPage);
     await screen.findByRole('heading', { level: 1, name: 'Команда: Платформа' });
+    // The team's page carries the organization only: the switcher holds its first project and team.
+    await expectLevels(['Организация: Альфа', 'Проект: Аналитика', 'Команда: Аналитика']);
+
+    await choose(/^Проект:/, 'Пример проекта');
+
     await expectLevels(['Организация: Альфа', 'Проект: Пример проекта', 'Команда: Платформа']);
+    expect(location()).toBe(teamPage);
 
-    await choose(/^Проект:/, 'Аналитика');
+    await choose(/^Организация:/, 'Бета');
 
-    await waitFor(() =>
-      expect(location()).toBe(`/organizations/${ids.alfa}/projects/${ids.anl}/settings/teams`),
-    );
+    await waitFor(() => expect(location()).toBe(`/organizations/${ids.beta}/settings/teams`));
   });
 });
 
@@ -244,22 +253,29 @@ describe('mod-002 US-8 Scenario: Own changes without a reload', () => {
     await waitFor(() => expect(within(switcher()).getByText('Нет проектов')).toBeInTheDocument());
   });
 
-  it('an added team joins the team level; chosen, then deleted, it falls back with the switcher’s notice only', async () => {
+  // feat-028 BR-OL-5 (doc-012 P-1): «an added team joins the team level; chosen, then deleted…» is
+  // retired by name — a team is created in the organization's «Команды» and linked to the project; its
+  // twin is below.
+  it('a created and linked team joins the team level of its project; chosen, then deleted, it falls back with the switcher’s notice only', async () => {
     serve();
-    renderApp(`/organizations/${ids.alfa}/projects/${ids.prm}/settings/teams`);
-    await screen.findByRole('table', { name: 'Команды' });
+    renderApp(`/organizations/${ids.alfa}/settings/teams`);
+    await screen.findByRole('table', { name: 'Команды организации' });
+    await choose(/^Проект:/, 'Пример проекта');
     await expectLevels(['Организация: Альфа', 'Проект: Пример проекта', 'Команда: Платформа']);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить команду' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Новая команда' }));
     const add = await screen.findByRole('dialog', { name: 'Новая команда' });
     await userEvent.type(within(add).getByRole('textbox', { name: 'Название' }), 'Ядро');
-    await userEvent.click(within(add).getByRole('button', { name: 'Добавить' }));
-    await screen.findByText('Команда «Ядро» добавлена.');
+    await userEvent.click(within(add).getByRole('combobox', { name: 'Проекты' }));
+    await userEvent.click(await screen.findByRole('option', { name: /Пример проекта/ }));
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(within(add).getByRole('button', { name: 'Создать' }));
+    await screen.findByText('Команда «Ядро» создана.');
 
     await choose(/^Команда:/, 'Ядро');
     await expectLevels(['Организация: Альфа', 'Проект: Пример проекта', 'Команда: Ядро']);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Действия: Ядро' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Ещё действия: Ядро' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Удалить команду' }));
     const remove = await screen.findByRole('dialog', { name: 'Удаление команды' });
     await userEvent.click(within(remove).getByRole('button', { name: 'Удалить команду' }));
@@ -297,16 +313,17 @@ describe('mod-002 design § 12: the navigation around each not-found frame', () 
   it('«Команда не найдена» keeps «Меню настроек» with «Команды» current and shows no trail', async () => {
     const api = serve();
     api.data.teams.find((team) => team.id === ids.platformTeam)!.deleted = true;
-    renderApp(`/organizations/${ids.alfa}/projects/${ids.prm}/settings/teams/${ids.platformTeam}`);
+    renderApp(`/organizations/${ids.alfa}/settings/teams/${ids.platformTeam}`);
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Команда не найдена' }),
     ).toBeInTheDocument();
     await waitFor(() => expect(settingsNavigation()).toBeInTheDocument());
-    expect(within(settingsNavigation()!).getByRole('link', { name: 'Команды' })).toHaveAttribute(
-      'aria-current',
-      'true',
-    );
+    // Two entries are named «Команды» since feat-028: the organization's and the project's; the
+    // team's page is beneath the organization's.
+    const teamsLinks = within(settingsNavigation()!).getAllByRole('link', { name: 'Команды' });
+    expect(teamsLinks.map((link) => link.getAttribute('aria-current'))).toEqual(['true', null]);
+    expect(teamsLinks[0]).toHaveAttribute('href', `/organizations/${ids.alfa}/settings/teams`);
     expect(screen.queryByRole('navigation', { name: 'Путь к странице' })).not.toBeInTheDocument();
   });
 

@@ -11,9 +11,9 @@ import { PLATFORM_TEAM_PATH, openPage, pickUser, rowsOf, searchUsers } from '../
 // mod-016 US-3, design § 4: «Участники команды» on the team page — states,
 // the add dialog, the immediate removal and the role views.
 
-const PRM_FIRST_TEAM_PATH = `/organizations/${ids.alfa}/projects/${ids.prm}/settings/teams/${ids.prmTeam}`;
+const PRM_FIRST_TEAM_PATH = `/organizations/${ids.alfa}/settings/teams/${ids.prmTeam}`;
 const TEAM = 'Участник организации';
-const MEMBERS_URL = `${ORGANIZATIONS_URL}/:organizationId/projects/:projectId/teams/:teamId/members`;
+const MEMBERS_URL = `${ORGANIZATIONS_URL}/:organizationId/teams/:teamId/members`;
 
 async function teamTable() {
   return screen.findByRole('table', { name: 'Участники команды', hidden: true });
@@ -129,8 +129,7 @@ describe('mod-016 US-3 Scenario: the members of a team', () => {
       organizations.requests.filter(
         (request) =>
           request.method === 'GET' &&
-          request.path ===
-            `/api/organizations/${ids.alfa}/projects/${ids.prm}/teams/${ids.platformTeam}`,
+          request.path === `/api/organizations/${ids.alfa}/teams/${ids.platformTeam}`,
       ).length;
 
     // The section’s own read answers «Команда не найдена»; the page, which owns
@@ -397,7 +396,7 @@ describe('mod-016 US-3 Scenario: removing from a team (design § 4.4)', () => {
       expect(rowsOf(table).map((cells) => cells[0])).toEqual(['Олег Ивановнеактивен']),
     );
     expect(deleteRequests(members)[0]?.path).toBe(
-      `/api/organizations/${ids.alfa}/projects/${ids.prm}/teams/${ids.platformTeam}/members/${people.ivan.id}`,
+      `/api/organizations/${ids.alfa}/teams/${ids.platformTeam}/members/${people.ivan.id}`,
     );
     expect(data.memberships!.find((m) => m.userId === people.ivan.id)!.role).toBe('admin');
     await waitFor(() =>

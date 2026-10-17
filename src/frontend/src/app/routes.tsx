@@ -25,15 +25,17 @@ import {
   MembersPage,
   OrganizationGate,
   OrganizationGeneralPage,
+  ORG_TEAMS_ROUTE,
+  ORG_TEAM_ROUTE,
   OrganizationListPage,
   OrganizationPage,
+  OrganizationTeamsPage,
   OrganizationsSection,
   PROJECTS_ROUTE,
   PROJECT_GENERAL_ROUTE,
   ProjectGeneralPage,
   ProjectListPage,
   TEAMS_ROUTE,
-  TEAM_ROUTE,
   TeamPage,
   TeamsPage,
   organizationsPermissions,
@@ -158,21 +160,25 @@ export function AppRoutes() {
                   </OrganizationPage>
                 }
               />
+              {/* feat-028: the teams are the organization's — their list and a team's page sit
+                  in its settings (BR-OL-12). The project's «Команды» lists the teams linked to
+                  it; `…/projects/:p/settings/teams/:t` is no route any more and the catch-all
+                  answers «Страница не найдена». */}
               <Route
-                path={TEAMS_ROUTE}
+                path={ORG_TEAMS_ROUTE}
                 element={
                   <OrganizationPage
                     code={organizationsPermissions.teamRead}
                     title="Команды"
                     skeleton="registry"
-                    columns={['Команда', 'Область по умолчанию', '']}
+                    columns={['Команда', 'Проекты', 'Описание']}
                   >
-                    <TeamsPage />
+                    <OrganizationTeamsPage />
                   </OrganizationPage>
                 }
               />
               <Route
-                path={TEAM_ROUTE}
+                path={ORG_TEAM_ROUTE}
                 element={
                   <OrganizationPage
                     code={organizationsPermissions.teamRead}
@@ -180,6 +186,19 @@ export function AppRoutes() {
                     skeleton="form"
                   >
                     <TeamPage />
+                  </OrganizationPage>
+                }
+              />
+              <Route
+                path={TEAMS_ROUTE}
+                element={
+                  <OrganizationPage
+                    code={organizationsPermissions.teamRead}
+                    title="Команды"
+                    skeleton="registry"
+                    columns={['Команда']}
+                  >
+                    <TeamsPage />
                   </OrganizationPage>
                 }
               />

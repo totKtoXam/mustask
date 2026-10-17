@@ -20,6 +20,7 @@ export { AreasPage } from './pages/AreasPage';
 export { MembersPage } from './pages/MembersPage';
 export { OrganizationGeneralPage } from './pages/OrganizationGeneralPage';
 export { OrganizationListPage } from './pages/OrganizationListPage';
+export { OrganizationTeamsPage } from './pages/OrganizationTeamsPage';
 export { ProjectGeneralPage } from './pages/ProjectGeneralPage';
 export { ProjectListPage } from './pages/ProjectListPage';
 export { TeamPage } from './pages/TeamPage';
@@ -32,13 +33,16 @@ export {
   ORGANIZATIONS_PATH,
   ORGANIZATIONS_ROUTE,
   ORGANIZATION_GENERAL_ROUTE,
+  ORG_TEAMS_ROUTE,
+  ORG_TEAM_ROUTE,
   PROJECTS_ROUTE,
   PROJECT_GENERAL_ROUTE,
   TEAMS_ROUTE,
-  TEAM_ROUTE,
   areasPath,
   membersPath,
   organizationGeneralPath,
+  organizationTeamPath,
+  organizationTeamsPath,
   projectGeneralPath,
   projectsPath,
   teamsPath,
@@ -51,4 +55,4 @@ export type { AreaNode } from './api/organizationsApi';
 // mod-017: the work item's «Команда» picker and the team filter (workitems), and the creation
 // dialog of the project's views, read the project's teams on this slice's key.
 export { useTeams } from './hooks/queries';
-export type { DefaultMark, Team, TeamInList } from './api/organizationsApi';
+export type { DefaultMark, ProjectTeam } from './api/organizationsApi';
