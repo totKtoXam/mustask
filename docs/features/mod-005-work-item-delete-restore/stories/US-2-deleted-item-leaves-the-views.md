@@ -13,9 +13,9 @@ Data: spec § Roles, "Common data"; MSK-US-12 is deleted by Mia unless a scenari
 
 ```gherkin
 Scenario: The project's list neither shows nor counts a deleted item
-  Given «Платформа» has 9 work items and MSK-US-12 is deleted
+  Given «Платформа» holds the 8 items of "Common data" and MSK-US-12 is deleted
   When Mia opens the project's «Рабочие элементы»
-  Then 8 rows show and the pagination's count says 8, whichever page she opens
+  Then 7 rows show and the pagination's count says 7, whichever page she opens
   And no control of the page shows deleted items: feat-003's «Удалена» filter does
 
 Scenario: Team backlogs and boards at every level lose the item
@@ -47,7 +47,7 @@ Scenario: A live child leads to its deleted parent
   Given MSK-EPIC-1 is deleted
   When Mia opens MSK-FEAT-8 and chooses its «Родитель»
   Then the field reads the identifier and title of MSK-EPIC-1 with the state «Удалена»
-  And the link opens the read-only card of MSK-EPIC-1, from which «Восстановить» is one click
+  And the link opens the read-only card of MSK-EPIC-1, which offers «Восстановить» (US-4)
 
 Scenario: Pickers and lists of the form skip a deleted item
   Given MSK-EPIC-1 and MSK-BUG-4 are deleted

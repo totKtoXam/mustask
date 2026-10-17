@@ -70,7 +70,12 @@ Scenario: Restoring something not deleted is refused
   When Ann's request lands first
   Then Mia's answer is 409 `workitems.workitem.not_deleted` «Рабочий элемент не удалён.» and her chosen state is not applied
   And her card reads the item and shows it live
-  And a restore of MSK-BUG-7, which was never deleted, is refused the same way
+  And a restore of MSK-BUG-7, which was never deleted, is refused the same way, even when it names «Удалена» or a state of another type (`not_deleted` before `state_not_allowed`, BR-DR-10)
+
+Scenario: A failed restore leaves the card as it was
+  Given the restore gets no answer or a server error
+  Then the confirmation stays open with the failure's text above the body, and MSK-US-12 is still deleted
+  And activating «Восстановить» twice in a row sends one request
 
 Scenario: A restore and a save of one item end in one order
   Given MSK-US-12 is deleted, and at the same moment Mia restores it and Ann saves a new title from a card that still shows it live

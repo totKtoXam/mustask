@@ -29,8 +29,9 @@ Scenario: Confirming removes the item
   When Ann confirms
   Then the notice «Рабочий элемент MSK-BUG-7 удалён навсегда.» shows, and the card closes (a dialog) or the page goes to the list (a full page)
   And the address of MSK-BUG-7 answers 404 `workitems.workitem.not_found` «Рабочий элемент не найден.», as an item that never was
-  And the item is on no list, board or backlog, and no later filter finds it
+  And the item is on no list, board or backlog, and no stored data references it any more (the check of BR-DR-16), so no later filter can find it
   And its place in every backlog order is gone, and the others keep their relative order
+  And a confirmation that gets no answer or a server error stays open with the failure's text, the item still deleted; activating «Удалить навсегда» twice sends one request
 
 Scenario: The children of a purged item survive without it
   Given MSK-EPIC-1 is deleted and has the children MSK-FEAT-6 and MSK-FEAT-8
@@ -38,6 +39,7 @@ Scenario: The children of a purged item survive without it
   Then both are live, in the states they had, with no parent link, and their «Изменён» shows the purge's time
   And their «Родитель» is empty, the picker does not offer MSK-EPIC-1, and no row of any backlog points at it
   And the purged item's own parent, if it had one, is unchanged, its «Изменён» time included
+  And a deleted child, MSK-BUG-4 under a purged MSK-FEAT-6, also loses the link and stays deleted; restored, it has no parent
 
 Scenario: The number is never issued again
   Given MSK-FEAT-23 is deleted and 23 is the project's highest number
@@ -70,6 +72,7 @@ Scenario: A purge and a restore of one item end in one order
 Scenario: A purge and a child's release of its link end in one order
   Given MSK-EPIC-1 is deleted and Mia releases MSK-FEAT-8's link as Ann purges MSK-EPIC-1
   Then both succeed in either order, or the release finds nothing to release, and MSK-FEAT-8 ends live without a parent
+  And a purge of MSK-EPIC-1 and Ann's deletion of MARS, which owns it and MSK-FEAT-6, end in one order with no server error: MSK-FEAT-6 ends «Без команды» and without a parent either way (BR-DR-11)
 
 Scenario: Other users' open views meet the purge as an unknown item
   Given Mia has MSK-BUG-7's read-only card open and Ann has a board that still shows a card of it

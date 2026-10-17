@@ -17,7 +17,7 @@ Scenario: «Удалить» is in the card's «⋮» and asks first
   When she opens «Ещё действия»
   Then the menu reads «Копировать ссылку» and «Удалить»
   When she chooses «Удалить»
-  Then a confirmation titled «Удалить рабочий элемент?» reads «Рабочий элемент MSK-US-12 получит статус «Удалена». Его можно будет восстановить. Дочерние элементы (1) не удаляются: пока он удалён, они показываются без родителя.»
+  Then a confirmation titled «Удалить рабочий элемент?» reads «Рабочий элемент MSK-US-12 получит статус «Удалена». Его можно будет восстановить. Дочерние элементы (1) не удаляются: пока он удалён, в бэклогах они показываются без родителя.»
   And its buttons are «Отмена» and «Удалить», the primary not in the error colour: the action is reversible
   And «Отмена», Escape and «Закрыть» change nothing
 
@@ -71,9 +71,20 @@ Scenario: A save and a deletion of one item end in one order
   And neither answer is a server error
 
 Scenario: A failed delete leaves the card as it was
-  Given the request fails, or the answer is a refusal
-  Then the confirmation stays open with the refusal's text above the body
+  Given the request gets no answer or a server error
+  Then the confirmation stays open with the failure's text above the body
   And the item is unchanged and still editable
+  And a 409 `…deleted` follows the scenario above, a 404 shows the card's not-found frame, and a 403 is handled as every refused write of the card is (mod-016)
+
+Scenario: Unsaved edits do not survive a deletion
+  Given Mia has typed a new title on MSK-US-12's card and not saved
+  When she chooses «Удалить»
+  Then the confirmation's text ends «Несохранённые изменения будут потеряны.»
+  And on confirming, the new title is not saved and the read-only card shows the stored values
+
+Scenario: One confirmation sends one request
+  When Mia activates «Удалить» in the confirmation twice in a row
+  Then one delete is sent, and no refusal of a second one is shown
 
 Scenario: A reader and a non-member cannot delete
   Given Rita is a «Читатель» of «Альфа»
@@ -88,6 +99,7 @@ Scenario: Unknown, foreign or deactivated addresses
   And nothing changes, and MSK-US-12 under the restored project is as it was
 
 Scenario: Retention has no clock
-  Given MSK-US-12 has been deleted for a year
-  Then it is still there, deleted, and nothing has run against it
+  Given MSK-US-12 has been deleted for a year (the test's clock)
+  Then it is still there, deleted, unchanged since the deletion
+  And the backend registers no scheduled or background job that changes work items
 ```

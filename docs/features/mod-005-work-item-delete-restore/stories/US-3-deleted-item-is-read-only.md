@@ -62,8 +62,9 @@ Scenario: A stale reorder naming a deleted item is refused
   Then the answer is 409 `boards.backlog.reorder_stale` and the order does not change
 
 Scenario: Link writes keep their own refusal (feat-001 BR-H-8, re-run)
-  When a parent write sets MSK-FEAT-8 under the deleted MSK-EPIC-1, or any parent on the deleted MSK-US-12, or a child is created under a deleted parent
+  When the parent route («Изменить родителя…», «Убрать родителя») or MSK-FEAT-8's own form save sets MSK-FEAT-8 under the deleted MSK-EPIC-1, or the parent route sets, replaces or clears the parent of the deleted MSK-US-12, or a child is created under a deleted parent
   Then each is refused with 409 `workitems.link.item_deleted` «Удалённый рабочий элемент нельзя связывать.»
+  And a form save of the deleted MSK-US-12 that names a parent answers `workitems.workitem.deleted` instead (BR-DR-8)
   And no link and no «Изменён» time changes
 
 Scenario: A draft in an open card is not saved after the deletion

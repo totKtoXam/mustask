@@ -21,7 +21,7 @@ Scenario: Deleting a parent keeps every child, with its state and its link
 
 Scenario: A child of a deleted parent is unparented in the backlogs
   When Mia opens the project's «Фичи» backlog
-  Then MSK-FEAT-6 and MSK-FEAT-8 are top-level rows of their own level, beneath no row
+  Then MSK-FEAT-6 and MSK-FEAT-8 are top-level rows of their own level, beneath no row, and their «Родитель» cells read «Нет»
   And the «Эпики» backlog does not list MSK-EPIC-1, so nothing expands to them
 
 Scenario: The child's form shows the deleted parent and lets go of it
@@ -41,9 +41,9 @@ Scenario: A deleted item is not offered as a parent
   Then neither the form's «Родитель» nor the dialog «Изменить родителя» offers MSK-EPIC-1, whatever is typed
 
 Scenario: No link is written to or from a deleted item
-  When a parent write names MSK-EPIC-1 as the parent of MSK-FEAT-23, or sets any parent on the deleted MSK-US-12
+  When a parent write names MSK-EPIC-1 as the parent of MSK-FEAT-23, or the parent route sets, replaces or clears the parent of the deleted MSK-US-12
   Then it is refused with 409 `workitems.link.item_deleted` «Удалённый рабочий элемент нельзя связывать.»
-  And MSK-FEAT-23 keeps its parent, and a child created under MSK-EPIC-1 is refused the same way
+  And MSK-FEAT-23 keeps its parent, MSK-US-12 keeps MSK-FEAT-8, and a child created under MSK-EPIC-1 is refused the same way
 
 Scenario: A deleted child leaves its parent's form, checklist and counter
   Given MSK-BUG-4 is deleted
