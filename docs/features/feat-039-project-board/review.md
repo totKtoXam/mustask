@@ -204,3 +204,42 @@ BR-T-7's unchanged `firstExpansion`, and the board's bound is deferred to feat-0
 - The route count 44 → 47: mod-016 `api-contract.md:432` and `history.md:47` still say 44; merged artifacts, and the
   inventory test enforces the list → no finding.
 - Not swept: doc-012's `audit/4-boards-backlogs.md` and `audit/6-frontend.md`, which describe the pre-doc-012 code.
+
+## Round 2 (delta read)
+
+Delta read, the one an M allows: `git diff cebe31b3..2261f41b` (27d3843a, 2261f41b; 7 files: `spec.md` and
+`stories/US-1..US-3` added, qa.md D-2/D-3 status lines, the doc comment in `BoardPage.tsx`, the header comment in
+`BoardPage.reread.test.tsx`), read against CR-1 and m-1 and the lines next to them. The only source change is in comments, so
+nothing was run. The four new documents were put through verify.sh's prose checks by hand: their links resolve and none
+carries a review section.
+
+Verdict: **approve** · blockers 0 · majors 0 · minors 3 open (m-2, m-3, m-4).
+
+- **CR-1: resolved on the branch.** `spec.md` and the three stories are committed by name (27d3843a), carrying BR-PB-9 and
+  OQ-6 as round 1 read them. The code's BR-PB/US/OQ citations now land on tracked text. **The rest becomes m-4.**
+- **m-4 (minor, docs: orchestrator; what is left of CR-1).** `status.md` has not changed. It still says
+  `stage: 01-business-analysis`, has no Log lines for stages 2-8, and its § Plan holds no developers' plan, which
+  `api-contract.md:5-6` points to. It also has no E2E = no decision and no "decided … for the human" list. This run does not
+  allow a developer or the reviewer to edit the file. The major half of CR-1 is gone: code no longer merges without its rules.
+  This half cannot slip through either. `finish-task.sh:135-147` refuses to merge unless status.md says `- stage: complete`
+  and `gate-3: approved`. Each decided item is in its own artifact (spec OQ-1..-6, design D-1..-5, qa.md D-2/D-4).
+  Fix (orchestrator, before gate-3 is presented): set the stage and add the Log lines. Add the plan, or repoint
+  `api-contract.md:5-6` with a status note. Add E2E = no and the decided list (OQ-1..-6, D-1..-5, QA D-4, m-2..m-4).
+- **m-1: closed.** `spec.md:67` (BR-PB-8) admits the one exception and cites feat-032 design § 7.1, which says it
+  (`feat-032-board-card-checklists/design.md:218`). `US-1-project-backlog.md:97` asserts it. `BoardPage.tsx:44-46` and
+  `BoardPage.reread.test.tsx:12-13` now cite § 7.1. qa.md D-2 is closed.
+- **m-2, m-3:** unchanged. They remain debts for gate-3.
+
+Claims, direction 1 (prose the delta adds):
+- BR-PB-8's exception (a failed team-board re-read keeps the columns, the error above) → `BoardPage.tsx:137-147`,
+  `BoardPage.reread.test.tsx:22`.
+- BR-PB-8 "no other existing test changes" → `git diff --numstat --diff-filter=M a653917f..HEAD` on tests. It shows the
+  route inventory (`OrganizationAccessInventoryTests.cs`, `OrganizationAddressedRoutes.cs`) and the drop-down list
+  (`BacklogPage.head.test.tsx`), both named by the rule. Three backend files only gain cases (`BacklogRowViewTests`,
+  `BacklogTreeTests`, `StackRankTests`: 0 deletions). → holds.
+- US-1:97 → as BR-PB-8's exception, above.
+- qa.md D-3 "half closed … open, the orchestrator's file" → m-4.
+- `BoardPage.tsx:122-123` "(design § 7, states 6 and 9)" is unchanged and unqualified. It is true of both pages, now that
+  the header names both sources. → no finding.
+
+Claims, direction 2: the delta changes no behaviour (comments and documents only). → none swept, none owed.
