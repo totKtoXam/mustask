@@ -825,7 +825,7 @@ export const ALLOWED: readonly AllowedEntry[] = [
   {
     file: 'features/workitems/pages/WorkItemsPage.tsx',
     rule: 'KIT-8',
-    count: 22,
+    count: 21,
     until: 'tech-017',
     reason: 'a MUI table part; registries and trees move to the kit in tech-017',
   },

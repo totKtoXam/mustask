@@ -9,8 +9,13 @@ export const workItemsKeys = {
   /** Every page of a project's list. */
   lists: (organizationId: string, projectId: string) =>
     [ROOT, 'list', organizationId, projectId] as const,
-  list: (organizationId: string, projectId: string, page: number) =>
-    [ROOT, 'list', organizationId, projectId, page] as const,
+  /** One page under a team filter (mod-017 § 3): the chosen values, sorted, are part of the key. */
+  list: (
+    organizationId: string,
+    projectId: string,
+    page: number,
+    teamIds: readonly string[] = [],
+  ) => [ROOT, 'list', organizationId, projectId, page, [...teamIds].sort()] as const,
   /** Every item of a project the form has read. */
   items: (organizationId: string, projectId: string) =>
     [ROOT, 'item', organizationId, projectId] as const,

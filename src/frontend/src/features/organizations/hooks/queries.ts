@@ -50,15 +50,21 @@ export function useProject(organizationId: string, projectId: string) {
   });
 }
 
+/**
+ * The project's teams, by name with their default mark (mod-017 api-contract § 1.3). `fresh`: read
+ * again on every mount even when the cache holds an answer — the creation dialog starts with
+ * the default team as it stands when it opens, never a cached one (design § 4).
+ */
 export function useTeams(
   organizationId: string,
   projectId: string,
-  options: { enabled?: boolean } = {},
+  options: { enabled?: boolean; fresh?: boolean } = {},
 ) {
   return useQuery({
     queryKey: organizationsKeys.teams(organizationId, projectId),
     queryFn: () => getTeams(organizationId, projectId),
     enabled: options.enabled ?? true,
+    refetchOnMount: options.fresh ? 'always' : true,
   });
 }
 

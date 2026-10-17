@@ -3,6 +3,7 @@ import type {
   WorkItemAssignee,
   WorkItemFieldName,
   WorkItemRef,
+  WorkItemTeam,
 } from '../api/workItemsApi';
 import type { DraftCriterion } from './draft';
 import type { Edit } from './edits';
@@ -21,6 +22,7 @@ export interface EditHandlers {
   state: (stateId: string) => void;
   assignee: (assignee: WorkItemAssignee | null) => void;
   area: (area: WorkItemArea) => void;
+  team: (team: WorkItemTeam | null) => void;
   parent: (parent: WorkItemRef | null) => void;
   acceptanceCriteria: (criteria: DraftCriterion[]) => void;
   /** feat-022's fields per type, as their controls hold them. */
@@ -42,6 +44,7 @@ export function editHandlers(change: (edit: Edit) => void): EditHandlers {
     state: (value) => change({ field: 'state', value }),
     assignee: (value) => change({ field: 'assignee', value }),
     area: (value) => change({ field: 'area', value }),
+    team: (value) => change({ field: 'team', value }),
     parent: (value) => change({ field: 'parent', value }),
     acceptanceCriteria: (criteria) => change({ field: 'acceptanceCriteria', value: criteria }),
     field,

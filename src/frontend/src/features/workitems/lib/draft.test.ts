@@ -40,6 +40,7 @@ const ITEM: WorkItem = {
   },
   assignee: { id: 'anna', displayName: 'Анна Смирнова', email: 'anna@example.com' },
   area: { id: 'area-api', path: 'Платформа / API' },
+  team: { id: 'team-mars', name: 'MARS' },
   createdBy: 'creator',
   createdAt: '2026-10-05T14:30:00+00:00',
   changedAt: '2026-10-05T14:30:00+00:00',
@@ -90,6 +91,20 @@ describe('changesOf', () => {
     ).toEqual({ areaId: 'area-root' });
     expect(
       changesOf(ITEM, { ...draftOf(ITEM), area: { id: 'area-api', path: 'Отчёты / Шлюз' } }),
+    ).toEqual({});
+  });
+
+  it('carries the team in a wrapper: a team by id, «Без команды» as `{ teamId: null }`, the same team is no change (mod-017 § 0.2)', () => {
+    const venus = { id: 'team-venus', name: 'VENUS' };
+    expect(changesOf(ITEM, { ...draftOf(ITEM), team: venus })).toEqual({
+      team: { teamId: 'team-venus' },
+    });
+    expect(changesOf(ITEM, { ...draftOf(ITEM), team: null })).toEqual({ team: { teamId: null } });
+    expect(
+      changesOf(ITEM, {
+        ...draftOf(ITEM),
+        team: { id: 'team-mars', name: 'MARS (переименована)' },
+      }),
     ).toEqual({});
   });
 

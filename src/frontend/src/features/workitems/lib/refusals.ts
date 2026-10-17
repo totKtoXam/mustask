@@ -10,7 +10,7 @@ import { notFoundLevel, type WorkItemsNotFoundLevel } from './notFoundLevel';
  * form mod-003's six and the fields its type has (feat-022), by their JSON names.
  */
 export type RefusalField =
-  'title' | 'description' | 'state' | 'assignee' | 'area' | 'parent' | WorkItemFieldName;
+  'title' | 'description' | 'state' | 'assignee' | 'area' | 'team' | 'parent' | WorkItemFieldName;
 
 /** Where a write's refusal shows (spec § Error codes; api-contract § 0.5). */
 export interface PlacedRefusal {
@@ -34,6 +34,9 @@ const FIELD_OF_CODE: Readonly<Record<string, RefusalField>> = {
   [workItemErrorCodes.stateNotAllowed]: 'state',
   [workItemErrorCodes.assigneeUnavailable]: 'assignee',
   [organizationErrorCodes.areaNotFound]: 'area',
+  // mod-017 api-contract § 0.2: on an item write the team is a body reference, not a path: field errors.
+  [organizationErrorCodes.teamNotFound]: 'team',
+  [organizationErrorCodes.teamNotInProject]: 'team',
   [workItemErrorCodes.linkParentNotFound]: 'parent',
   [workItemErrorCodes.linkParentLevelNotAllowed]: 'parent',
   [workItemErrorCodes.linkSelfParent]: 'parent',
@@ -62,6 +65,15 @@ const VALIDATED_FIELDS: Readonly<Record<string, RefusalField>> = {
   ...Object.fromEntries(WORK_ITEM_FIELD_NAMES.map((name) => [name, name])),
 };
 
+/** `organizations.team.not_found` on a write whose form has «Команда»: the body's team, not the address's. */
+function isTeamOfTheBody(error: unknown, fields: readonly RefusalField[]): boolean {
+  return (
+    error instanceof ApiError &&
+    error.errorCode === organizationErrorCodes.teamNotFound &&
+    fields.includes('team')
+  );
+}
+
 /**
  * Places a write's refusal by its `errorCode` alone, never by its text
  * (frontend.md "Named values"). The text is always the server's: the answer's
@@ -71,7 +83,9 @@ const VALIDATED_FIELDS: Readonly<Record<string, RefusalField>> = {
  * the `Alert`.
  */
 export function placeRefusal(error: unknown, fields: readonly RefusalField[]): PlacedRefusal {
-  const frame = notFoundLevel(error);
+  // A team named in the body is the field «Команда», never a frame (mod-017 design § 12); only a
+  // form that has the field takes it, any other falls to the frame as before.
+  const frame = isTeamOfTheBody(error, fields) ? null : notFoundLevel(error);
   if (frame !== null) {
     return { fields: {}, alert: apiErrorText(error), frame };
   }

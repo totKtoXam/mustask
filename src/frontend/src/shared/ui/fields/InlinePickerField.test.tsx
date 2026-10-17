@@ -359,3 +359,22 @@ describe('tech-015 Scenario: InlinePickerField (design § 5.7)', () => {
     });
   });
 });
+
+describe('mod-017: a description the host draws under the picker', () => {
+  it('is the combobox’s description unless the field has an error or a hint of its own', () => {
+    const { rerender } = render(
+      <Harness initial={ITEMS[0]} inputProps={{ 'aria-describedby': 'caption' }} />,
+    );
+    expect(input()).toHaveAttribute('aria-describedby', 'caption');
+
+    rerender(
+      <Harness
+        initial={ITEMS[0]}
+        error="Команда не найдена."
+        inputProps={{ 'aria-describedby': 'caption' }}
+      />,
+    );
+    expect(input().getAttribute('aria-describedby')).not.toBe('caption');
+    expect(input()).toHaveAccessibleDescription('Команда не найдена.');
+  });
+});

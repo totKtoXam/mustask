@@ -10,7 +10,7 @@ export { workItemsPermissions } from './permissions';
 // picker and create, moves a card with this slice's save of the state (its
 // spec § Dialog; api-contract § 6, § 7), and draws a row's or a card's type,
 // state and assignee as this slice's list does.
-export { CreateWorkItemDialog, type CreateDialogTeam } from './components/CreateWorkItemDialog';
+export { CreateWorkItemDialog } from './components/CreateWorkItemDialog';
 export { AssigneeAvatar, AssigneeName, StateName, TypeName } from './components/Marks';
 // feat-032: a board card's checklist row shows the assignee as an avatar alone, named by the
 // same words as the list's «Исполнитель».
@@ -30,8 +30,15 @@ export type {
   WorkItemAssignee,
   WorkItemRef,
   WorkItemStateReference,
+  WorkItemTeam,
   WorkItemTypeReference,
 } from './api/workItemsApi';
+// mod-017: the team filter is one dimension on three surfaces — the list (this slice) and the
+// project's backlog and board (boards) — with one meaning (BR-OT-8): the field, the query
+// parameter and the words the boards' column and card line share.
+export { TeamFilter } from './components/TeamFilter';
+export { NO_TEAM_FILTER_VALUE, teamFilterQuery } from './api/workItemsApi';
+export { createdNotice, teamTexts } from './lib/teams';
 // feat-027: the backlog's inline add row makes mod-003's create itself — with
 // the same one `requestId` per submission, the same title check and the same
 // placing of a refusal — so the dialog's own helpers are shared through the barrel.

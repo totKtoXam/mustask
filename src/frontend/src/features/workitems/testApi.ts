@@ -8,7 +8,10 @@
 // (§ 3.2, § 3.3), the parent write on its own (§ 3.2) and the parent search
 // (§ 3.4). feat-022's api-contract adds the 17 fields per type to the answer
 // (§ 2), their defaults on create (§ 3.1) and their save with its reasons
-// (§ 3.2). It keeps the contract's answers, not every rule of the backend.
+// (§ 3.2). mod-017's api-contract adds the owning team: `team` on every item and row, the
+// team in the create and the save (§ 2.2, § 2.4) with its two refusals (§ 0.2), the list's
+// `teamId` filter (§ 3) and the project's teams read the picker and the filter use.
+// It keeps the contract's answers, not every rule of the backend.
 import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
 import type { AreaNode } from '../organizations';
@@ -26,6 +29,7 @@ import {
   PARENT_CANDIDATES_URL,
   PROBLEM_HEADERS,
   PROCESS_URL,
+  TEAMS_URL,
   WORK_ITEMS_URL,
   WORK_ITEM_PARENT_URL,
   WORK_ITEM_URL,
@@ -38,6 +42,7 @@ import {
   type Dataset,
   type ProblemBody,
   type ProjectRecord,
+  type TeamRecord,
   type WorkItemRecord,
 } from './testFixtures';
 
@@ -208,6 +213,70 @@ export class WorkItemsTestApi {
     return names.length <= 1 ? (names[0] ?? '') : names.slice(1).join(' / ');
   }
 
+  /** mod-017 api-contract § 0.2: the team a write names — the first row that applies. */
+  private teamNamed(project: ProjectRecord, teamId: unknown): TeamRecord | null {
+    if (teamId === null || teamId === undefined) {
+      return null;
+    }
+    const found =
+      typeof teamId === 'string'
+        ? this.data.teams.find((candidate) => candidate.id === teamId.toLowerCase())
+        : undefined;
+    const owner = found && this.data.projects.find((candidate) => candidate.id === found.projectId);
+    if (
+      !found ||
+      !found.active ||
+      !owner ||
+      !owner.active ||
+      owner.organizationId !== project.organizationId
+    ) {
+      refuse('organizations.team.not_found');
+    }
+    if (found.projectId !== project.id) {
+      refuse('organizations.team.not_in_project');
+    }
+    return found;
+  }
+
+  private activeTeams(project: ProjectRecord): TeamRecord[] {
+    return this.data.teams
+      .filter((team) => team.projectId === project.id && team.active)
+      .sort(
+        (first, second) =>
+          first.name.localeCompare(second.name, 'ru', { sensitivity: 'base' }) ||
+          first.id.localeCompare(second.id),
+      );
+  }
+
+  /** BR-OT-4: the team the settings name, else the only active team, else none. */
+  private defaultTeam(project: ProjectRecord): TeamRecord | null {
+    const active = this.activeTeams(project);
+    return (
+      active.find((team) => team.id === project.defaultTeamId) ??
+      (active.length === 1 ? (active[0] ?? null) : null)
+    );
+  }
+
+  /** mod-017 api-contract § 1.3, for the picker and the filter. */
+  private teamList(project: ProjectRecord) {
+    const mark = this.defaultTeam(project);
+    const named = this.activeTeams(project).some((team) => team.id === project.defaultTeamId);
+    return this.activeTeams(project).map((team) => ({
+      id: team.id,
+      projectId: project.id,
+      name: team.name,
+      defaultMark: mark?.id === team.id ? (named ? 'named' : 'onlyTeam') : null,
+      isMember: false,
+    }));
+  }
+
+  private teamOf(record: WorkItemRecord): { id: string; name: string } | null {
+    const team = record.teamId
+      ? this.data.teams.find((candidate) => candidate.id === record.teamId && candidate.active)
+      : undefined;
+    return team ? { id: team.id, name: team.name } : null;
+  }
+
   // ---- answers (§ 1)
 
   private listItem(record: WorkItemRecord): WorkItemListItem {
@@ -236,6 +305,7 @@ export class WorkItemsTestApi {
               isMember: user !== undefined && user.member !== false,
             },
       area: { id: record.areaId, path: this.areaPath(record.areaId) },
+      team: this.teamOf(record),
       changedAt: record.changedAt,
     };
   }
@@ -420,10 +490,6 @@ export class WorkItemsTestApi {
           name: area.name,
           path: this.areaPath(area.id),
           depth,
-          ownerTeamId: null,
-          resolvedOwner: { id: 'team', name: project.name },
-          ownerInherited: depth > 0,
-          defaultOfTeam: null,
         });
         visit(area.id, depth + 1);
       }
@@ -432,13 +498,33 @@ export class WorkItemsTestApi {
     return nodes;
   }
 
-  private list(project: ProjectRecord, pageParameter: string | null) {
+  /** api-contract § 3: any chosen value matches; a value naming no team of the project selects nothing. */
+  private matchesFilter(
+    record: WorkItemRecord,
+    project: ProjectRecord,
+    teamIds: string[],
+  ): boolean {
+    if (teamIds.length === 0) {
+      return true;
+    }
+    const team = this.teamOf(record);
+    const known = new Set(this.activeTeams(project).map((candidate) => candidate.id));
+    return teamIds.some((value) =>
+      value === 'none'
+        ? team === null
+        : known.has(value.toLowerCase()) && team?.id === value.toLowerCase(),
+    );
+  }
+
+  private list(project: ProjectRecord, pageParameter: string | null, teamIds: string[]) {
     const page = pageParameter === null ? 1 : Number(pageParameter);
     if (page < 1) {
       throw new Refusal(validationProblem({ page: 'workitems.invalid_page' }));
     }
     const items = this.data.items
-      .filter((record) => record.projectId === project.id)
+      .filter(
+        (record) => record.projectId === project.id && this.matchesFilter(record, project, teamIds),
+      )
       .sort(
         (first, second) =>
           Date.parse(second.changedAt) - Date.parse(first.changedAt) ||
@@ -472,6 +558,16 @@ export class WorkItemsTestApi {
     if (replay) {
       return { status: 200, item: replay };
     }
+    // api-contract § 0.4: the replay precedes the team; a child takes its parent's team and a team
+    // sent beside a parent is not read (BR-OT-3).
+    const parent =
+      typeof body.parentId === 'string' ? this.newParent(project, body.parentId) : null;
+    const team = parent
+      ? ((parent.teamId ? this.teamNamed(project, parent.teamId) : null) ??
+        this.defaultTeam(project))
+      : 'team' in body
+        ? this.teamNamed(project, (body.team as { teamId?: unknown } | null)?.teamId)
+        : this.defaultTeam(project);
     const number =
       Math.max(
         0,
@@ -492,7 +588,9 @@ export class WorkItemsTestApi {
       description: '',
       stateId: (type.states.find((state) => state.isInitial) ?? type.states[0])?.id ?? '',
       assigneeId: null,
-      areaId: root?.id ?? '',
+      areaId: parent?.areaId ?? root?.id ?? '',
+      teamId: team?.id ?? null,
+      parentId: parent?.id ?? null,
       createdAt: now,
       changedAt: now,
       requestId: requestId.toLowerCase(),
@@ -566,6 +664,9 @@ export class WorkItemsTestApi {
       );
       if (!area) refuse('organizations.area.not_found');
     }
+    // mod-017 § 2.4: the team after the area; absent leaves it, `{ teamId: null }` is «Без команды».
+    const teamChange = body.team as { teamId?: unknown } | null | undefined;
+    const team = teamChange ? this.teamNamed(project, teamChange.teamId) : undefined;
     // feat-001 § 3.3: `parent: null` or none leaves the parent as it is.
     const parentChange = body.parent as
       { parentId?: unknown; seenParentId?: unknown } | null | undefined;
@@ -596,6 +697,7 @@ export class WorkItemsTestApi {
     if (typeof body.stateId === 'string') record.stateId = body.stateId;
     if (assigneeId !== undefined) record.assigneeId = assigneeId;
     if (typeof body.areaId === 'string') record.areaId = body.areaId;
+    if (team !== undefined) record.teamId = team?.id ?? null;
     const parentAfter = parentChange ? (parent?.id ?? null) : parentBefore;
     if (parentAfter !== parentBefore) record.parentId = parentAfter;
     record.fields = { ...record.fields, ...fields };
@@ -702,8 +804,14 @@ export class WorkItemsTestApi {
         answer((p) => this.tree(pr(p))),
       ),
       http.get(
+        TEAMS_URL,
+        answer((p) => this.teamList(pr(p))),
+      ),
+      http.get(
         WORK_ITEMS_URL,
-        answer((p, url) => this.list(pr(p), url.searchParams.get('page'))),
+        answer((p, url) =>
+          this.list(pr(p), url.searchParams.get('page'), url.searchParams.getAll('teamId')),
+        ),
       ),
       http.post(
         WORK_ITEMS_URL,

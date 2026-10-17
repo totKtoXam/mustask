@@ -53,6 +53,24 @@ export interface WorkItemArea {
 }
 
 /**
+ * mod-017 api-contract § 1.1: the owning team as it stands now (a rename shows at once);
+ * `null` on the item is «Без команды». A deleted team never appears.
+ */
+export interface WorkItemTeam {
+  id: string;
+  name: string;
+}
+
+/**
+ * mod-017 api-contract § 0.2: a team is sent in a wrapper, never flat, because a flat `null`
+ * would read as «not changed». `{ teamId: null }` is «Без команды»; the member left out of
+ * the body leaves the field alone.
+ */
+export interface TeamChange {
+  teamId: string | null;
+}
+
+/**
  * feat-001 api-contract § 2.1: a parent, a child or a picker option. Every
  * field means what it means in `WorkItem`.
  */
@@ -121,6 +139,8 @@ export interface WorkItem extends WorkItemFields {
   /** `null`: «Не назначен». */
   assignee: WorkItemAssignee | null;
   area: WorkItemArea;
+  /** mod-017 api-contract § 1.2: the owning team, `null` for «Без команды». */
+  team: WorkItemTeam | null;
   createdBy: string;
   createdAt: string;
   changedAt: string;
@@ -151,7 +171,7 @@ export type WorkItemListItem = Omit<
   | WorkItemFieldName
 >;
 
-/** § 2.1: ADR-0015's `Paging<T>`; `count` is the project's item count. */
+/** § 2.1: ADR-0015's `Paging<T>`; `count` is the number of items that match the filter (mod-017 § 2.1). */
 export interface WorkItemPage {
   count: number;
   data: WorkItemListItem[];
@@ -167,15 +187,15 @@ export interface CreateWorkItemBody {
   typeId: string;
   title: string;
   /**
-   * mod-006 api-contract § 7: the team whose backlog or board the item is
-   * created from — it takes that team's default area. Absent: the root.
+   * mod-017 api-contract § 2.2: the owning team the dialog shows; absent: the project's
+   * default team as stored when the item is saved (BR-OT-4). Never sent beside `parentId`.
    */
-  teamId?: string;
+  team?: TeamChange;
   /**
    * feat-027 api-contract § 3: the item the new one is created beneath — the
    * backlog row whose «+» opened the inline add row. `ParentChange`'s own
    * member, flat; absent: no parent, exactly as before. With it the item takes
-   * the parent's area, so `teamId` is not sent beside it.
+   * the parent's area and owning team (mod-017 BR-OT-3), so `team` is not sent beside it.
    */
   parentId?: string;
 }
@@ -228,6 +248,8 @@ export interface SaveWorkItemBody extends SaveFieldsBody {
   stateId?: string;
   assignee?: { userId: string | null };
   areaId?: string;
+  /** mod-017 api-contract § 2.4: absent keeps the stored team, whoever changed it meanwhile. */
+  team?: TeamChange;
   parent?: ParentChange;
   acceptanceCriteria?: AcceptanceCriterion[];
 }
@@ -274,13 +296,27 @@ function workItemApiPath(organizationId: string, projectId: string, identifier: 
   return `${workItemsApiPath(organizationId, projectId)}/${segment(identifier)}`;
 }
 
-/** § 2.1: one page of the project's list, 1-based. */
+/**
+ * mod-017 api-contract § 3: the filter's value for «Без команды» (`teamId=none`); any other value
+ * is a team's id.
+ */
+export const NO_TEAM_FILTER_VALUE = 'none';
+
+/** The `teamId=…` members of a filtered read, one per chosen value (api-contract § 3). */
+export function teamFilterQuery(teamIds: readonly string[]): string {
+  return teamIds.map((teamId) => `&teamId=${encodeURIComponent(teamId)}`).join('');
+}
+
+/** § 2.1: one page of the project's list, 1-based, narrowed by the team filter when it is set. */
 export function getWorkItems(
   organizationId: string,
   projectId: string,
   page: number,
+  teamIds: readonly string[] = [],
 ): Promise<WorkItemPage> {
-  return apiFetch(`${workItemsApiPath(organizationId, projectId)}?page=${page}`);
+  return apiFetch(
+    `${workItemsApiPath(organizationId, projectId)}?page=${page}${teamFilterQuery(teamIds)}`,
+  );
 }
 
 /** § 2.2: 201 creates; 200 is a replay of the same `requestId` — the same item either way. */

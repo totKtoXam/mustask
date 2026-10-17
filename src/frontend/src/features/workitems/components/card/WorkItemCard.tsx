@@ -33,6 +33,7 @@ import { AcceptanceCriteriaSection } from '../AcceptanceCriteriaSection';
 import { AreaField } from './AreaField';
 import { AssigneeField } from './AssigneeField';
 import { CardActions } from './CardActions';
+import { CardTeamField } from './CardTeamField';
 import type { CardColumnItem, CardFrameProps, CardNotice } from './cardFrame';
 import { ChildItems } from './ChildItems';
 import { oneColumnCap } from './oneColumn';
@@ -406,6 +407,16 @@ export function WorkItemCard({
           error={errors.area}
           onChange={on.area}
           inputRef={fields.ref('area')}
+          {...common}
+        />
+        {/* mod-017 design § 3: row 2 of block B, under «Область»; «Итерация» moves to row 3. */}
+        <CardTeamField
+          organizationId={organizationId}
+          projectId={projectId}
+          value={draft.team}
+          error={errors.team}
+          onChange={on.team}
+          inputRef={fields.ref('team')}
           {...common}
         />
         {slots.iteration}

@@ -147,6 +147,10 @@ export function InlinePickerField<O>({
               ...htmlInput,
               ...inputProps,
               ...state.aria,
+              // The field's own description (its error or hint) wins; a caption the host
+              // draws under the field (the creation dialog's backlog line) is the fallback.
+              'aria-describedby':
+                state.aria['aria-describedby'] ?? inputProps?.['aria-describedby'],
               'aria-readonly': state.locked ? true : undefined,
             }}
             endAdornment={
