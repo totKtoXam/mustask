@@ -128,14 +128,14 @@ Names: PB = `ProjectBacklogPage.test.tsx`, PR = `.reorder.test.tsx`, PL = `.larg
 - Severity: **minor**, layer: frontend
 - Steps: open a team board, make the next read fail (500; tab refocus), look at the page.
 - Expected / Actual: BR-PB-8 and the design (§ 2, "everything not in this table is the team page's") keep the team page as it was — the banner replaced the columns. Now `ScopedBoard` keeps the columns and shows the banner above them (new test `BoardPage.reread.test.tsx` pins it). It is the backlog's rule (feat-027 D-6) and design § 7 state 9 asks for it on the project board, so it is harmless, but it touches a team view and the spec says additive.
-- Status: open, carried to gate-3 as a debt ("Deliberately left open"): human to confirm keeping it, or gate it to the project scope.
+- Status: **closed** by code review round 1 (m-1): the behaviour stays, because feat-032's merged design § 7.1 already asked for it ("a failed re-read keeps the board and its open lists, with the banner above") and the old code missed it. BR-PB-8 now states the clause, US-1 has the line, and the citations in `BoardPage.tsx` and `BoardPage.reread.test.tsx` point to feat-032 design § 7.1 (was: open, carried to gate-3).
 
 #### D-3: artifacts of the earlier stages are not in git, and `status.md` is behind
 
 - Severity: **minor**, layer: docs (orchestrator-owned files)
 - Steps: `git status` — `spec.md`, `stories/US-1..3`, `review.md` of this feature are untracked; `status.md` says `stage: 01-business-analysis`, gates pending, and has no developers' plan (`api-contract.md` points at its `## Plan` section, which has no plan).
 - Expected / Actual: the PR carries the spec it is judged against, and `status.md` shows the stage and the plan / Actual: neither.
-- Status: open (orchestrator: commit the three paths by name, update `status.md`: stage, plan, E2E = no under Decisions, the OQ/D "decided … for the human" lines).
+- Status: half closed by code review round 1 (CR-1): `spec.md` and `stories/US-1..3` are committed by name. Open, the orchestrator's file: `status.md` (stage, plan, Log, E2E = no under Decisions, the OQ/D "decided … for the human" lines).
 
 ### Verdict
 
