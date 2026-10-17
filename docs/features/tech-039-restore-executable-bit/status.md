@@ -3,7 +3,7 @@
 - type: tech
 - size: S
 - branch: tech/039-restore-executable-bit
-- stage: 04-backend
+- stage: complete
 - epic: workflow
 - deps: -
 - gates: gate-3
@@ -24,6 +24,8 @@ gate-3: pending
 
 - 2026-10-18 [new-task] task started (scripts/new-task.sh; its worktree was removed so a worktree-isolated agent could take the branch)
 - 2026-10-18 [orchestrator] route S, light cycle — confirmed by the human in chat («⭐ S, лёгкий цикл»), which also grants standing approval for the light cycle on docs/.claude/scripts/hooks-only S tasks until revoked
+- 2026-10-18 [task-executor] dev: 8 files to 100755 (bf628cea; backlog.sh, queue.sh, verify.sh already were); verify.sh reads the mode from `git ls-files -s`; 3 cases in verify-stamp-cases.sh, 2 of them fail on the old verify.sh here (56fa037a)
+- 2026-10-18 [task-executor] `bash scripts/verify.sh` RESULT: green, exit 0 (shell and prose buckets, 22 cases). Light cycle: no QA or review session, no E2E (no runtime change). gate-3 left pending for the human
 
 ## Notes
 
