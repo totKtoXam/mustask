@@ -127,3 +127,114 @@ ADR-0028 can carry it.
 - Refusal placement (`workitems/lib/refusals.ts:69,88`).
 - The kit guard's counts, which only shrink.
 - N+1: `OwningTeamStatementCountTests` pins small = large.
+
+## Delta read 1
+
+The fix diff is `d3de449b..990a49ea`, one commit (`990a49ea`). It was read in a clean context against the four open majors: D-1
+(`qa.md`), CR-1 and CR-2 (this file), and S-1 (`review-security.md`). The reviewer ran these tests:
+- `DeleteOwnedItemsEndpointTests` and `OwningTeamQaEndpointTests`: 30/30 passed, and D-1's red test is now green;
+- `OwningTeamStatementCountTests`: 12/12 passed;
+- the creation races nearby (CreateChild, CreateFromTeam, AddTeam, SetDefaultTeam, CreateOwningTeam, CreateWorkItem,
+  DeleteAreaWithWorkItems, DeactivateOrganization, BacklogTree, SetWorkItemParent): 170/170 passed.
+
+`verify.sh` was not run, because this step does not own it. This is the light route's only delta read.
+
+**Verdict: approve.** All four majors are resolved. Two new minors are left for the human: CR-7, a narrow deadlock, and CR-8, a
+comment. CR-3..CR-6 and S-2 stay open as debts.
+
+### Resolution of the open majors
+
+- **D-1 / CR-1 · resolved.**
+  - When no default resolves, `WorkItemRepository.cs:65-81` locks every active team `FOR SHARE` in id order, then reads the
+    default again. The attempts' exit does the same (`:96-99`).
+  - The deletion takes the same rows `FOR NO KEY UPDATE` in id order (`TeamRepository.cs:35`), so the two serialize.
+  - QA's `Delete_VersusChildCreation_TwoTeamsNoNamedDefault_ChildTakesTheTeamThatRemains` passes with no change to the test.
+  - `DeleteOwnedItemsEndpointTests:540` (a child) and `:570` (no team field) add the 2-team case in both orders.
+- **S-1 · resolved.**
+  - Outcome 2 is fixed as above.
+  - Outcome 1: a grandchild that may default now queues on the teams the deletion holds. `:599` pins that it waits and lands on
+    the team that is left. The test says that the exact interleaving cannot be forced with commit gates. The lock argument
+    closes it.
+  - The prose that S-1 named is corrected:
+    - `CreateWorkItemHandler.cs:41-50`;
+    - `DeleteTeamHandler.cs:37-42`;
+    - plan D-14, § 7.2, § 7.3 (2) and § 7.4.
+  - api-contract § 2.7 needed no edit, because its sentence is now true.
+- **CR-2 · resolved.**
+  - The plan's "The MR names" now lists `e2e/support/organizationsApi.ts:37-38` and specs 21 and 23–29, with line numbers.
+    Each line was checked against a grep of `isFirstTeam`, `defaultArea` and «Область по умолчанию».
+  - `27-organization-members.spec.ts:401` is positional, so the plan is right to leave it out. QA D-4 over-counted it.
+  - `spec.md:144` still gives only spec 21 as its example. Its requirement, "the MR names the specs the line breaks", is met by the
+    plan's list, so this is not a finding.
+
+### New findings
+
+**CR-7 · minor · backend: a creation that finds its named default deleted can deadlock with a second deletion.**
+`WorkItemRepository.cs:83-90`, then `:72` or `:97`. The creation takes its team locks in two acquisitions that are not in one
+order. First it locks the named default X alone. If X then reads deleted, it locks every active team in id order. Three requests
+in one project produce a cycle:
+- D deletes X, the named default, and holds every active team. Creation C waits on X. D2, a deletion of another team, waits on
+  the lowest team.
+- D commits. D2 locks the teams below X and reaches X. PostgreSQL locks the newest version of an updated row before it re-checks
+  `status = 'Active'`, so D2 waits on C's share of X.
+- C reads X as deleted and finds two or more teams left, none named. It asks for every active team, starting from the lowest, and
+  D2 holds those. The result is `40P01`: one request answers 500, and there is no retry (`DependencyInjection.cs:42-55`
+  disables it).
+
+BR-OT-13 says no race ends in a server error. The comment at `:104` says "neither can deadlock", which holds only for one creation
+against one deletion. The window is narrow: two administrator deletions and one creation within about a second. The same cycle
+existed before the fix when exactly one team was left, because the retry then locked that team alone. The fix widens it to two
+or more teams left. Reasoned, not run: it needs three requests at once.
+
+**Fix (a simplification).** A creation that may default locks every active team `FOR SHARE` in id order first, then resolves the
+default once under that lock. Every team lock a creation takes is then in the deletion's order, so there is no cycle. The retry
+loop and the single-row lock go away, with one statement fewer. `ChildCreationStatements` moves. The cost is that every creation
+that defaults also waits for a rename of any team of the project.
+
+**CR-8 · minor · backend comment: one sentence is broader than the code.** `CreateWorkItemHandler.cs:136` says "A creation that
+sends «Без команды» owns nothing: it locks nothing." That holds only for a creation with no parent (`:139`). A child does not read
+its body's team, and it takes the default lock (`:148`). **Fix:** "A creation with no parent that sends «Без команды» …".
+
+### Behavioural claims checked (the fix diff)
+
+**Direction 1: claims the fix adds.**
+- `IWorkItemRepository.cs:33-38`, "never in between" → `WorkItemRepository.cs:65-81,96-99,108-111` against
+  `TeamRepository.cs:35`, and the three new tests. Caveat → CR-7.
+- `WorkItemRepository.cs:77-78`, "no deletion can commit before this creation does" → a deletion needs `NO KEY UPDATE` on the rows
+  `:110` holds `FOR SHARE`.
+- `WorkItemRepository.cs:104-106`:
+  - "neither can deadlock" holds pairwise; with a second deletion → CR-7;
+  - "a team a deletion committed … is skipped" → the `status = 'Active'` re-check under READ COMMITTED.
+- `DeleteTeamHandler.cs:40-42`, "every write that can give an item this team holds a team … `FOR SHARE`" → the binder
+  `WorkItemRepository.cs:45-55` (save and explicit create), the default `:84`, all teams `:110`.
+- `CreateWorkItemHandler.cs:44-50` → the same anchors. `:136` → CR-8.
+- plan D-14, § 7.2, § 7.3 (2), and § 7.4's child edge → the same anchors. § 7.4's "neither holds what the other waits for" is
+  pairwise → CR-7.
+- plan § 12 item 10:
+  - "20 → 22, small = large" → `OwningTeamStatementCountTests.cs:60`, which passes;
+  - "a creation now waits for a team rename in flight" → `RenameTeamHandler.cs:65`, `TeamRepository.cs:16` (`NO KEY UPDATE`);
+  - "all but the child-first order fail without the lock" → reasoned, not run against a revert. Child-first is held by the
+    parent lock alone.
+- plan "The MR names" (CR-2) → the grep hits above. `29-role-views.spec.ts:246` also names the retired «Изменить область по
+  умолчанию» button, but the list already names that spec.
+
+**Direction 2: behaviour the fix changes, in prose it does not touch.**
+- **Behaviour:** a creation that may default, in a project with no default, now holds every active team `FOR SHARE`.
+- **Identifiers grepped:** `LockDefaultTeamAsync`, `D-14`, "waits for the parent" and "locks the project default", under `docs/`
+  (excluding merged lines' artifacts) and `src/backend`.
+- **Hits:**
+  - the four files the fix edits;
+  - `ITeamRepository.cs:17-25`, still true because the deletion's mode did not change;
+  - api-contract § 2.7, true now;
+  - ADR-0022's D-14, which is another id.
+
+  None of them is a finding.
+- **Not swept:** ADR-0028 rule 8's step list. It names no default lock for a creation, and CR-6 already holds its text.
+
+### Still open, for the human (there is no second round)
+
+- **CR-7**, minor, new: the three-request deadlock. Its fix is a simplification and is worth a queue line.
+- **CR-8**, minor, new: one comment.
+- **Round 1 minors:** CR-3, CR-4 and CR-5. CR-6 carries the open question, decided: leave the ADR text and name the
+  clarification in the MR (recommended) under the night delegation — for the human.
+- **S-2**, minor, from the security pass, and QA's debts D-2..D-6.
