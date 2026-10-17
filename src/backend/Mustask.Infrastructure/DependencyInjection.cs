@@ -3,6 +3,7 @@ using Mustask.Application.Abstractions.Boards;
 using Mustask.Application.Abstractions.Dictionaries;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
+using Mustask.Application.Features.Boards;
 using Mustask.Application.Features.Organizations;
 using Mustask.Infrastructure.Boards;
 using Mustask.Infrastructure.Dictionaries;
@@ -110,6 +111,7 @@ public static class DependencyInjection
         services.AddScoped<IBacklogReadModel, BacklogReadModel>();
         services.AddScoped<IBacklogRepository, BacklogRepository>();
         services.AddScoped<IProjectBacklogRepository, ProjectBacklogRepository>();
+        services.AddScoped<ITeamBacklogPlaces, TeamBacklogPlaces>();
 
         return services;
     }

@@ -38,6 +38,9 @@ public interface ITeamRepository
     /// <summary>Adds the team with its default area.</summary>
     void Add(NewTeam team);
 
+    /// <summary>mod-017: adds an ordinary team, with no area (<see cref="Team.Create"/>).</summary>
+    void Add(Team team);
+
     /// <inheritdoc cref="IOrganizationRepository.SaveAsync"/>
     Task SaveAsync(CancellationToken cancellationToken);
 }

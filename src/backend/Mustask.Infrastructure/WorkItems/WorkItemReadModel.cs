@@ -140,6 +140,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
                 Assignee(row, assignees),
                 State(row),
                 new WorkItemAreaView(row.AreaId, paths.PathOf(row.AreaId)),
+                Team(row),
                 row.ChangedAt))
             .ToList();
 
@@ -157,6 +158,8 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         join project in context.Projects on item.ProjectId equals project.Id
         join type in context.WorkItemTypes on item.TypeId equals type.Id
         join state in context.StateDefinitions on item.StateId equals state.Id
+        join team in context.Teams on item.OwningTeamId equals team.Id into owning
+        from team in owning.DefaultIfEmpty()
         select new ItemRow(
             item.Id,
             item.ProjectId,
@@ -172,6 +175,8 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             state.Category,
             item.AssigneeId,
             item.AreaId,
+            team == null ? null : team.Id,
+            team == null ? null : team.Name,
             item.Title,
             includeDescription ? item.Description : string.Empty,
             item.CreatedBy,
@@ -245,6 +250,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             State(row),
             Assignee(row, assignees),
             new WorkItemAreaView(row.AreaId, paths.PathOf(row.AreaId)),
+            Team(row),
             row.CreatedBy,
             row.CreatedAt,
             row.ChangedAt,
@@ -315,6 +321,10 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
 
     private static string Identifier(ItemRow row) => WorkItemIdentifier.Format(row.ProjectKey, row.TypeKey, row.Number);
 
+    /// <summary>The owning team by its current name, or none (mod-017 api-contract § 1.1).</summary>
+    private static WorkItemTeamView? Team(ItemRow row) =>
+        row.TeamId is { } id ? new WorkItemTeamView(id, row.TeamName!) : null;
+
     private static WorkItemTypeView Type(ItemRow row) => new(row.TypeId, row.TypeKey, row.TypeName, row.TypeAppearance.ToWireName());
 
     private static WorkItemStateView State(ItemRow row) =>
@@ -348,6 +358,8 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         StateCategory StateCategory,
         string? AssigneeId,
         Guid AreaId,
+        Guid? TeamId,
+        string? TeamName,
         string Title,
         string Description,
         string CreatedBy,

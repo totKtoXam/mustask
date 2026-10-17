@@ -29,13 +29,19 @@ public static class ProjectDefaultTeam
     {
         ArgumentNullException.ThrowIfNull(activeTeamIds);
 
-        if (named is { } id && activeTeamIds.Contains(id))
-        {
-            return id;
-        }
-
-        return activeTeamIds.Count == 1 ? activeTeamIds.Single() : null;
+        return Resolve(
+            named is { } id && activeTeamIds.Contains(id) ? id : null,
+            activeTeamIds.Count,
+            activeTeamIds.Count == 1 ? activeTeamIds.Single() : null);
     }
+
+    /// <summary>
+    /// The same rule for a reader that has the count of the project's active teams and one of them rather than the list:
+    /// <paramref name="namedActive"/> is the named team when it is active (else <c>null</c>), <paramref name="activeTeams"/> the
+    /// number of active teams, <paramref name="soleActiveTeam"/> any active team (read only when there is exactly one).
+    /// </summary>
+    public static Guid? Resolve(Guid? namedActive, int activeTeams, Guid? soleActiveTeam) =>
+        namedActive ?? (activeTeams == 1 ? soleActiveTeam : null);
 
     /// <summary>
     /// The mark of one active team. <paramref name="isNamed"/> says the settings name this team; <paramref name="activeTeams"/>

@@ -15,6 +15,16 @@ namespace Mustask.Application.Abstractions.WorkItems;
 public interface IWorkItemRepository
 {
     /// <summary>
+    /// mod-017 (ADR-0028 rule 8): locks the team <c>FOR SHARE</c> — the binder's lock, taken <b>first</b> of a write's locks —
+    /// and decides nothing. A team of another organization locks nothing (no lock spans organizations, ADR-0028 § 4), a
+    /// team that is unknown, deleted or of another project locks only its own row; the caller judges the team afterwards with
+    /// <c>ProjectTeams.EnsureBindable</c> on a fresh read. A deletion locks the team <c>FOR NO KEY UPDATE</c>
+    /// (plan-backend D-3), so a binder and a deletion of the same team serialize: the deletion first, the binder reads the
+    /// team deleted; the binder first, the deletion takes what the binder wrote.
+    /// </summary>
+    Task LockTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// mod-006 (BR-M4-21): locks the team <c>FOR SHARE</c> and answers its
     /// default area as it stands, or <c>null</c> when it is not an active team of
     /// the project. A default change locks the team <c>FOR NO KEY UPDATE</c> and a

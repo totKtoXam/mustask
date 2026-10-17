@@ -40,10 +40,17 @@ internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganiz
                 candidate.Status,
                 candidate.CreatedBy,
                 candidate.CreatedAt,
-                FirstTeamId = context.Teams
-                    .Where(team => team.ProjectId == candidate.Id && team.IsFirstTeam)
-                    .Select(team => team.Id)
-                    .First(),
+                // mod-017 BR-OT-4: the default team in one statement with the project — the named team when it is active, the
+                // count of the project's active teams, and one of them (read only when it is the only one).
+                NamedActiveTeamId = context.Teams
+                    .Where(team => team.Id == candidate.DefaultTeamId && team.ProjectId == candidate.Id && team.Status == TeamStatus.Active)
+                    .Select(team => (Guid?)team.Id)
+                    .FirstOrDefault(),
+                ActiveTeams = context.Teams.Count(team => team.ProjectId == candidate.Id && team.Status == TeamStatus.Active),
+                AnActiveTeamId = context.Teams
+                    .Where(team => team.ProjectId == candidate.Id && team.Status == TeamStatus.Active)
+                    .Select(team => (Guid?)team.Id)
+                    .FirstOrDefault(),
                 RootAreaId = context.Areas
                     .Where(area => area.ProjectId == candidate.Id && area.ParentId == null)
                     .Select(area => area.Id)
@@ -65,7 +72,7 @@ internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganiz
             project.Key,
             project.Status,
             isReachable,
-            project.FirstTeamId,
+            ProjectDefaultTeam.Resolve(project.NamedActiveTeamId, project.ActiveTeams, project.AnActiveTeamId),
             project.RootAreaId,
             project.CreatedBy,
             project.CreatedAt);

@@ -272,7 +272,7 @@ public sealed class GetAreaTreeEndpointTests(MustaskApiFactory factory)
         Assert.NotNull(project);
         Assert.Equal(nodes[0].Id, project.RootAreaId);
         Assert.Null(nodes[0].ParentId);
-        Assert.Equal(nodes[0].OwnerTeamId, project.FirstTeamId);
+        Assert.Equal(nodes[0].OwnerTeamId, structure.FirstTeamId);
         Assert.Single(nodes, node => node.ParentId is null);
     }
 

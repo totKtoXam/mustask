@@ -24,7 +24,7 @@ public interface IOrganizationStructure
     /// <summary>The organization with its status, process and creator (mod-016: the creator becomes the first administrator, BR-M1-21).</summary>
     Task<OrganizationInfo?> FindOrganizationAsync(Guid organizationId, CancellationToken cancellationToken);
 
-    /// <summary>The project with its status, reachability, first team, root area and creator (mod-003: the area with no team context, BR-M1-14).</summary>
+    /// <summary>The project with its status, reachability, default team, root area and creator (mod-017 BR-OT-4: the default team, resolved in one place).</summary>
     Task<ProjectInfo?> FindProjectAsync(Guid projectId, CancellationToken cancellationToken);
 
     /// <summary>
@@ -56,7 +56,11 @@ public sealed record OrganizationInfo(
 
 /// <summary>A project for another module.</summary>
 /// <param name="IsReachable"><c>true</c> when the project and its organization are both active.</param>
-/// <param name="RootAreaId">The area a work item created with no team context takes (BR-M1-14).</param>
+/// <param name="DefaultTeamId">
+/// mod-017 (BR-OT-4): the project default team as it stands now — the team the project's settings name, else its only
+/// active team, else <c>null</c> — resolved by <see cref="ProjectDefaultTeam"/> in the statement that reads the project.
+/// </param>
+/// <param name="RootAreaId">The area a new work item takes (a classification path until mod-018, mod-017 BR-OT-10).</param>
 public sealed record ProjectInfo(
     Guid Id,
     Guid OrganizationId,
@@ -64,7 +68,7 @@ public sealed record ProjectInfo(
     string Key,
     ProjectStatus Status,
     bool IsReachable,
-    Guid FirstTeamId,
+    Guid? DefaultTeamId,
     Guid RootAreaId,
     string CreatedBy,
     DateTimeOffset CreatedAt);

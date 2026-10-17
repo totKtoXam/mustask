@@ -57,6 +57,13 @@ public sealed class Team
         return new NewTeam(team, area);
     }
 
+    /// <summary>
+    /// mod-017 (BR-OT-11): an ordinary team, with no area and no special role — neither first nor owner of anything. The
+    /// team a project is created with, and every team added later, are made so.
+    /// </summary>
+    public static Team Create(Guid projectId, EntityName name) =>
+        new(Guid.CreateVersion7(), projectId, name, isFirstTeam: false);
+
     internal static Team CreateFirst(Guid projectId, EntityName name) =>
         new(Guid.CreateVersion7(), projectId, name, isFirstTeam: true);
 

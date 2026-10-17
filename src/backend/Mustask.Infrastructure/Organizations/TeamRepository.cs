@@ -69,6 +69,8 @@ internal sealed class TeamRepository(MustaskDbContext context) : ITeamRepository
         context.Areas.Add(team.Area);
     }
 
+    public void Add(Team team) => context.Teams.Add(team);
+
     public Task SaveAsync(CancellationToken cancellationToken) => OrganizationsSaveChanges.SaveAsync(context, cancellationToken);
 
     private Task<Team?> LoadAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken) =>

@@ -97,6 +97,8 @@ public sealed class FakeTeamRepository(InMemoryOrganizations store) : ITeamRepos
         store.Stage(team.Area);
     }
 
+    public void Add(Team team) => store.Stage(team);
+
     public Task SaveAsync(CancellationToken cancellationToken) => store.SaveAsync();
 
     private Task<Team?> LockAsync(string mode, Guid projectId, Guid teamId)

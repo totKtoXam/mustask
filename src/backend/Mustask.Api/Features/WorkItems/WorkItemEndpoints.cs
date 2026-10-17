@@ -152,7 +152,8 @@ public static class WorkItemEndpoints
             request?.Assignee is { } assignee ? new AssigneeChange(assignee.UserId) : null,
             request?.AreaId,
             request?.Parent is { } parent ? new ParentChange(parent.ParentId, parent.SeenParentId) : null,
-            request is null ? null : FieldsOf(request));
+            request is null ? null : FieldsOf(request),
+            request?.Team is { } team ? new TeamChange(team.TeamId) : null);
 
         return Results.Ok((await handler.Handle(command, cancellationToken)).Item);
     }
@@ -234,6 +235,7 @@ public static class WorkItemEndpoints
         AssigneeRequest? Assignee,
         string? AreaId,
         ParentChangeRequest? Parent,
+        TeamRequest? Team,
         FieldRequest<int?>? Priority,
         FieldRequest<int?>? Risk,
         FieldRequest<decimal?>? StoryPoints,
@@ -258,6 +260,13 @@ public static class WorkItemEndpoints
     private sealed record FieldRequest<T>(T Value);
 
     private sealed record AssigneeRequest(string? UserId);
+
+    /// <summary>
+    /// mod-017 api-contract § 0.2: the owning team in a wrapper, as <c>assignee</c> is, because a flat <c>null</c> reads as
+    /// «not changed». <c>{ "teamId": null }</c> and <c>{}</c> are «Без команды»; absent, or <c>null</c> in place of the wrapper,
+    /// is not sent.
+    /// </summary>
+    private sealed record TeamRequest(string? TeamId);
 
     /// <summary>feat-001 api-contract § 2.3: <c>parentId</c> <c>null</c> clears; <c>seenParentId</c> <c>null</c> saw none.</summary>
     private sealed record ParentChangeRequest(string? ParentId, string? SeenParentId);

@@ -374,6 +374,8 @@ public sealed class SetAreaOwnerHandlerTests
 
         public void Add(NewTeam team) => inner.Add(team);
 
+        public void Add(Team team) => inner.Add(team);
+
         public Task SaveAsync(CancellationToken cancellationToken) => inner.SaveAsync(cancellationToken);
     }
 }

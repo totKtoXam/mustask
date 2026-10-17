@@ -57,6 +57,7 @@ public sealed record WorkItemView(
     WorkItemStateView State,
     WorkItemAssigneeView? Assignee,
     WorkItemAreaView Area,
+    WorkItemTeamView? Team,
     string CreatedBy,
     DateTimeOffset CreatedAt,
     DateTimeOffset ChangedAt,
@@ -140,6 +141,7 @@ public sealed record WorkItemListItemView(
     WorkItemAssigneeView? Assignee,
     WorkItemStateView State,
     WorkItemAreaView Area,
+    WorkItemTeamView? Team,
     DateTimeOffset ChangedAt);
 
 /// <param name="Appearance"><c>epic</c>, <c>feature</c>, <c>story</c>, <c>task</c>, <c>bug</c> or <c>testcase</c>.</param>
@@ -166,3 +168,9 @@ public sealed record WorkItemAssigneeView(string Id, string? DisplayName, string
 
 /// <param name="Path">mod-002 DC-9: «Платформа / API», the root by its own name.</param>
 public sealed record WorkItemAreaView(Guid Id, string Path);
+
+/// <summary>
+/// mod-017 api-contract § 1.1 <c>WorkItemTeam</c>: the owning team <b>as it stands now</b> (a rename shows at once). The
+/// item's <c>team</c> is <c>null</c> for «Без команды»; a deleted team never appears, its items have none (BR-OT-12).
+/// </summary>
+public sealed record WorkItemTeamView(Guid Id, string Name);

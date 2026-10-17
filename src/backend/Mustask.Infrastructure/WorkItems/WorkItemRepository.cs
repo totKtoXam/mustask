@@ -1,6 +1,9 @@
 using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.WorkItems;
+using Mustask.Infrastructure.Dictionaries;
+using Mustask.Shared.Errors;
+using Mustask.Shared.Exceptions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Mustask.Infrastructure.WorkItems;
@@ -37,6 +40,19 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
             .SqlQuery<int>($"SELECT last_number AS \"Value\" FROM work_item_counters WHERE project_id = {projectId}")
             .SingleAsync(cancellationToken);
     }
+
+    public Task LockTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
+        // The team is named with the organization of the address, so a team of another organization locks nothing (ADR-0028
+        // § 4): the later read finds it unknown, exactly as it finds an id that never existed. Only the team row is locked.
+        context.Database.ExecuteSqlInterpolatedAsync(
+            $"""
+             SELECT 1
+             FROM teams
+             JOIN projects ON projects.id = teams.project_id
+             WHERE teams.id = {teamId} AND projects.organization_id = {organizationId}
+             FOR SHARE OF teams
+             """,
+            cancellationToken);
 
     public async Task<Guid?> LockTeamDefaultAreaAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken)
     {
@@ -151,7 +167,19 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
 
     public void Add(WorkItem item) => context.WorkItems.Add(item);
 
-    public Task SaveAsync(CancellationToken cancellationToken) => context.SaveChangesAsync(cancellationToken);
+    public async Task SaveAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception) when (PostgresConflictDetection.IsForeignKeyViolationOnConstraint(exception, WorkItemsConstraints.OwningTeamKey))
+        {
+            // ADR-0028 § 4, plan-backend D-15: the owner key refused a team that is not there. The locks above make this
+            // unreachable; if a race ever reaches it, it answers as the team's absence does, never as a 500.
+            throw new NotFoundException(OrganizationErrorCodes.TeamNotFound, ErrorParams.None, exception);
+        }
+    }
 
     /// <summary>
     /// A link end of a parent write: the project's item with that id, locked

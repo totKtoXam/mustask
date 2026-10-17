@@ -65,21 +65,21 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
         Assert.True(project.IsReachable);
         Assert.Equal(organization.Id, project.OrganizationId);
 
-        var firstTeam = await structure.FindTeamAsync(project.FirstTeamId, CancellationToken.None);
+        var firstTeam = await structure.FindTeamAsync(project.DefaultTeamId!.Value, CancellationToken.None);
         Assert.NotNull(firstTeam);
         Assert.Equal("Пример проекта", firstTeam.Name);
         Assert.True(firstTeam.IsFirstTeam);
         Assert.Equal(TeamStatus.Active, firstTeam.Status);
         Assert.Equal(project.RootAreaId, firstTeam.DefaultAreaId);
-        Assert.Equal(project.FirstTeamId, Assert.Single(await structure.ListActiveTeamsAsync(projectId, CancellationToken.None)).Id);
+        Assert.Equal(project.DefaultTeamId!.Value, Assert.Single(await structure.ListActiveTeamsAsync(projectId, CancellationToken.None)).Id);
 
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, projectId);
         Assert.Equal(1, tree.Count);
         Assert.Equal(project.RootAreaId, tree.Root.Id);
         Assert.Equal("Пример проекта", tree.Root.Name);
-        Assert.Equal(project.FirstTeamId, tree.Root.OwnerTeamId);
-        Assert.Equal(project.FirstTeamId, tree.Root.DefaultOfTeamId);
-        Assert.Equal(new ResolvedOwner(project.FirstTeamId, false), tree.ResolveOwner(tree.Root.Id));
+        Assert.Equal(project.DefaultTeamId!.Value, tree.Root.OwnerTeamId);
+        Assert.Equal(project.DefaultTeamId!.Value, tree.Root.DefaultOfTeamId);
+        Assert.Equal(new ResolvedOwner(project.DefaultTeamId!.Value, false), tree.ResolveOwner(tree.Root.Id));
 
         var listed = await ListActiveProjectsAsync(organization.Id);
         Assert.Equal(new ProjectRow(projectId, organization.Id, "Пример проекта", "PRM"), Assert.Single(listed));
@@ -558,7 +558,7 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
         using var scope = factory.Services.CreateScope();
         var project = await scope.ServiceProvider.GetRequiredService<IOrganizationStructure>().FindProjectAsync(projectId, CancellationToken.None);
 
-        return project!.FirstTeamId;
+        return project!.DefaultTeamId!.Value;
     }
 
     private async Task<IReadOnlyList<ProjectRow>> ListActiveProjectsAsync(Guid organizationId)

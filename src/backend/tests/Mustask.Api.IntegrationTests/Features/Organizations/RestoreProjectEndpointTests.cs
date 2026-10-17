@@ -216,7 +216,7 @@ public sealed class RestoreProjectEndpointTests(MustaskApiFactory factory)
 
         var lines = new List<string>
         {
-            $"project {project.Id}|{project.OrganizationId}|{project.Name}|{project.Key}|{project.FirstTeamId}|{project.RootAreaId}|{project.CreatedBy}|{project.CreatedAt:O}",
+            $"project {project.Id}|{project.OrganizationId}|{project.Name}|{project.Key}|{project.DefaultTeamId}|{project.RootAreaId}|{project.CreatedBy}|{project.CreatedAt:O}",
         };
         lines.AddRange(teams.Select(team => $"team {team.Id}|{team.Name}|{team.Status}|{team.IsFirstTeam}|{team.DefaultAreaId}"));
         lines.AddRange(tree.PreOrder().Select(node => $"area {node.Id}|{node.ParentId}|{node.Name}|{node.OwnerTeamId}|{node.DefaultOfTeamId}"));
