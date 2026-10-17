@@ -66,7 +66,7 @@ internal static class OwningTeamTestData
         var otherProject = await OrganizationsTestData.CreateProjectAsync(factory, other.Id, "Чужой", "OTH");
         var saturn = await AddTeamAsync(factory, otherProject.Project.Id, "SATURN");
 
-        return new OwningTeamWorld(items, alpha.FirstTeam.Id, mars, venus, beta.Project.Id, jupiter, sleepingTeam, deleted, other.Id, saturn);
+        return new OwningTeamWorld(items, alpha.Team.Id, mars, venus, beta.Project.Id, jupiter, sleepingTeam, deleted, other.Id, saturn);
     }
 
     /// <summary>
@@ -89,9 +89,17 @@ internal static class OwningTeamTestData
             return team.Id;
         });
 
-    /// <summary>The item's owning team set with SQL, for a test that needs the item placed without a save or a creation.</summary>
-    public static Task SetOwningTeamAsync(MustaskApiFactory factory, Guid workItemId, Guid? teamId) =>
-        WorkItemsTestData.ExecuteAsync(factory, $"UPDATE work_items SET owning_team_id = {teamId} WHERE id = {workItemId}");
+    /// <summary>
+    /// The item's owning team set with SQL, for a test that needs the item placed without a save or a creation. As a save does
+    /// (ADR-0028 rule 5), a change of the team drops the item's team place first — the place key refuses a change under a place
+    /// — and a place that names the team being set stays.
+    /// </summary>
+    public static async Task SetOwningTeamAsync(MustaskApiFactory factory, Guid workItemId, Guid? teamId)
+    {
+        await WorkItemsTestData.ExecuteAsync(
+            factory, $"DELETE FROM backlog_places WHERE work_item_id = {workItemId} AND team_id IS DISTINCT FROM {teamId}");
+        await WorkItemsTestData.ExecuteAsync(factory, $"UPDATE work_items SET owning_team_id = {teamId} WHERE id = {workItemId}");
+    }
 
     /// <summary>The owning team and «Изменён» of an item as stored, by its number.</summary>
     public static async Task<StoredTeam> StoredAsync(MustaskApiFactory factory, Guid projectId, string identifier)

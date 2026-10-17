@@ -7,8 +7,8 @@ using Mustask.Shared.Exceptions;
 namespace Mustask.Application.Tests.Features.Organizations.AddTeam;
 
 /// <summary>
-/// AddTeam on fakes (plan-backend § 13, lane L-17): what it creates, the order of
-/// its answers (§ 5.3, api-contract § 0.4) and its lock (§ 8.2).
+/// AddTeam on fakes (plan-backend § 13, lane L-17; mod-017 BR-OT-10, BR-OT-11): what it creates (an ordinary team, no area),
+/// the order of its answers (§ 5.3, api-contract § 0.4) and that it locks nothing (§ 7).
 /// </summary>
 public sealed class AddTeamHandlerTests
 {
@@ -22,7 +22,6 @@ public sealed class AddTeamHandlerTests
             Handler = new AddTeamHandler(
                 new FakeProjectRepository(Store),
                 new FakeTeamRepository(Store),
-                new FakeAreaRepository(Store),
                 new FakeUnitOfWork());
         }
 
@@ -32,7 +31,7 @@ public sealed class AddTeamHandlerTests
 
         public NewProject Project { get; }
 
-        public NewTeam Platform { get; }
+        public Team Platform { get; }
 
         public AddTeamHandler Handler { get; }
 
@@ -45,45 +44,38 @@ public sealed class AddTeamHandlerTests
         public Task<AddTeamResult> HandleAsync(AddTeamCommand command) => Handler.Handle(command, CancellationToken.None);
     }
 
-    // US-4 · "A second team comes with its own area": the root gains a child «Аналитика», owned by the team and its default.
+    // mod-017 US-4 · "A team added later is an ordinary one": a name, a status and no mark; it comes with no area (BR-OT-10,
+    // BR-OT-11). Replaces Handle_AddsTheTeamWithRootChildOwnedByItAndItsDefault (retired, BR-OT-11).
     [Fact]
-    public async Task Handle_AddsTheTeamWithRootChildOwnedByItAndItsDefault()
+    public async Task Handle_AddsAnOrdinaryTeam_WithNoArea()
     {
         var f = new Fixture();
+        var areasBefore = f.Store.Areas.Count;
 
         var result = await f.HandleAsync(f.Command(name: " Аналитика "));
 
         var team = f.Store.Teams.Single(candidate => candidate.Id == result.Response.Id);
-        var area = f.Store.Areas.Single(candidate => candidate.Id == result.Response.DefaultArea.Id);
         Assert.Equal("Аналитика", team.Name);
-        Assert.False(team.IsFirstTeam);
         Assert.True(team.IsActive);
         Assert.Equal(f.Project.Project.Id, team.ProjectId);
-        Assert.Equal("Аналитика", area.Name);
-        Assert.Equal(f.Project.Root.Id, area.ParentId);
-        Assert.Equal(team.Id, area.OwnerTeamId);
-        Assert.Equal(team.Id, area.DefaultOfTeamId);
-        Assert.Equal(
-            new TeamResponse(team.Id, f.Project.Project.Id, "Аналитика", false, new TeamDefaultAreaResponse(area.Id, "Аналитика")),
-            result.Response);
+        Assert.Equal(areasBefore, f.Store.Areas.Count);
+        Assert.Equal(new TeamResponse(team.Id, f.Project.Project.Id, "Аналитика", DefaultMark: null), result.Response);
     }
 
-    // US-4 · "A second team comes with its own area": the project has «Пример проекта», «Платформа» and now «Аналитика»;
-    // the first team and the existing team are untouched.
+    // mod-017 US-4: the project has «Пример проекта», «Платформа» and now «Аналитика»; the existing teams are untouched.
+    // Renamed (D-16, BR-OT-10): Handle_LeavesTheOtherTeamsAndTheirAreasUnchanged -> Handle_LeavesTheOtherTeamsUnchanged.
     [Fact]
-    public async Task Handle_LeavesTheOtherTeamsAndTheirAreasUnchanged()
+    public async Task Handle_LeavesTheOtherTeamsUnchanged()
     {
         var f = new Fixture();
 
-        var result = await f.HandleAsync(f.Command());
+        await f.HandleAsync(f.Command());
 
         Assert.Equal(
             ["Пример проекта", "Платформа", "Аналитика"],
             f.Store.Teams.Where(team => team.ProjectId == f.Project.Project.Id).Select(team => team.Name));
-        Assert.Equal(f.Project.FirstTeam.Id, f.Store.Teams.Single(team => team.IsFirstTeam).Id);
-        Assert.Equal(f.Platform.Team.Id, f.Platform.Area.DefaultOfTeamId);
-        Assert.Equal(f.Project.FirstTeam.Id, f.Project.Root.DefaultOfTeamId);
-        Assert.Equal(1, f.Store.Areas.Count(area => area.DefaultOfTeamId == result.Response.Id));
+        Assert.All(f.Store.Teams, team => Assert.True(team.IsActive));
+        Assert.Null(f.Project.Project.DefaultTeamId);
     }
 
     // BR-M1-20: behind the filter the organization id is well formed; if it were not, the outermost level answers.
@@ -128,14 +120,12 @@ public sealed class AddTeamHandlerTests
         }
 
         var teamsBefore = f.Store.Teams.Count;
-        var areasBefore = f.Store.Areas.Count;
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(projectId: projectId, name: "")));
 
         Assert.Equal(OrganizationErrorCodes.ProjectNotFound, refusal.Code);
         Assert.Empty(f.Store.Calls);
         Assert.Equal(teamsBefore, f.Store.Teams.Count);
-        Assert.Equal(areasBefore, f.Store.Areas.Count);
     }
 
     // US-4 · "An empty name, or one longer than 100 characters, is refused with «Название должно содержать от 1 до 100
@@ -159,8 +149,7 @@ public sealed class AddTeamHandlerTests
         Assert.Equal(2, f.Store.Teams.Count(team => team.ProjectId == f.Project.Project.Id));
     }
 
-    // US-4 · "A team's name is unique among the project's active teams", compared ignoring case and spaces. The new name's
-    // area name is taken too (the existing team's own area), and the team's refusal answers first (api-contract § 3.3).
+    // US-4 · "A team's name is unique among the project's active teams", compared ignoring case and spaces.
     [Theory]
     [InlineData("платформа ")]
     [InlineData(" ПЛАТФОРМА")]
@@ -174,7 +163,6 @@ public sealed class AddTeamHandlerTests
 
         Assert.Equal(OrganizationErrorCodes.TeamNameTaken, refusal.Code);
         Assert.Equal(2, f.Store.Teams.Count(team => team.ProjectId == f.Project.Project.Id));
-        Assert.Single(f.Store.Areas, area => area.ProjectId == f.Project.Project.Id && !area.IsRoot);
         Assert.Equal(0, f.Store.SaveCount);
     }
 
@@ -189,74 +177,50 @@ public sealed class AddTeamHandlerTests
 
         Assert.Equal(other.Project.Id, result.Response.ProjectId);
         Assert.Equal(2, f.Store.Teams.Count(team => team.Name == "Платформа"));
-        Assert.Equal(other.Root.Id, f.Store.Areas.Single(area => area.Id == result.Response.DefaultArea.Id).ParentId);
     }
 
-    // US-4 · "A new team's area name must be free under the root": «Аналитика» is a child of the root with no team of that
-    // name; no team and no area is created.
+    // mod-017 US-4 · "a team's name is no area's name" (BR-OT-10): an area of the root that holds the name is no obstacle, and
+    // no area is created. Replaces Handle_RootHasChildOfThatName_IsAreaNameTaken_CreatesNothing and
+    // Handle_AreaOfThatNameBelowAChild_DoesNotBlock (retired, BR-OT-10).
     [Fact]
-    public async Task Handle_RootHasChildOfThatName_IsAreaNameTaken_CreatesNothing()
+    public async Task Handle_NameOfAnExistingArea_Succeeds_NoAreaCreated()
     {
         var f = new Fixture();
         f.Store.AddArea(f.Project.Root, "Аналитика");
-        var teamsBefore = f.Store.Teams.Count;
         var areasBefore = f.Store.Areas.Count;
 
-        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(name: " аналитика ")));
+        var result = await f.HandleAsync(f.Command(name: " аналитика "));
 
-        Assert.Equal(OrganizationErrorCodes.AreaNameTaken, refusal.Code);
-        Assert.Equal(teamsBefore, f.Store.Teams.Count);
+        Assert.Equal("аналитика", result.Response.Name);
         Assert.Equal(areasBefore, f.Store.Areas.Count);
-        Assert.Equal(0, f.Store.SaveCount);
     }
 
-    // US-4 · "A new team's area name must be free under the root": a child of another parent with that name does not count.
+    // US-7 · "The deleted team's name is free": with no area in the way, the name of a deleted team is taken again at once.
+    // Replaces Handle_NameOfDeletedTeam_WhileItsAreaRemains_IsAreaNameTaken_AfterAreaRenamed_Succeeds (retired, BR-OT-10).
     [Fact]
-    public async Task Handle_AreaOfThatNameBelowAChild_DoesNotBlock()
+    public async Task Handle_NameOfDeletedTeam_IsFree()
     {
         var f = new Fixture();
-        f.Store.AddArea(f.Platform.Area, "Аналитика");
+        f.Platform.Delete(3);
 
-        var result = await f.HandleAsync(f.Command(name: "Аналитика"));
-
-        Assert.Equal("Аналитика", result.Response.DefaultArea.Path);
-    }
-
-    // US-7 · "The deleted team's name is free, but its area's name is not": the team's name is free, the root still has the
-    // child «Платформа», so the answer is the area's; renamed away, the team is created with a new area.
-    [Fact]
-    public async Task Handle_NameOfDeletedTeam_WhileItsAreaRemains_IsAreaNameTaken_AfterAreaRenamed_Succeeds()
-    {
-        var f = new Fixture();
-        f.Platform.Team.Delete();
-
-        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(name: "Платформа")));
-
-        Assert.Equal(OrganizationErrorCodes.AreaNameTaken, refusal.Code);
-        Assert.Single(f.Store.Teams, team => team.Name == "Платформа");
-
-        f.Platform.Area.Rename(InMemoryOrganizations.Name("Платформа (архив)"));
         var created = await f.HandleAsync(f.Command(name: "Платформа"));
 
         var team = f.Store.Teams.Single(candidate => candidate.Id == created.Response.Id);
-        var area = f.Store.Areas.Single(candidate => candidate.Id == created.Response.DefaultArea.Id);
         Assert.True(team.IsActive);
-        Assert.NotEqual(f.Platform.Team.Id, team.Id);
-        Assert.NotEqual(f.Platform.Area.Id, area.Id);
-        Assert.Equal(f.Project.Root.Id, area.ParentId);
-        Assert.Equal(team.Id, area.DefaultOfTeamId);
-        Assert.Equal("Платформа", created.Response.DefaultArea.Path);
+        Assert.NotEqual(f.Platform.Id, team.Id);
+        Assert.Single(f.Store.Teams, candidate => candidate.Name == "Платформа" && candidate.IsActive);
     }
 
-    // plan-backend § 8.2: the root FOR SHARE, nothing else, then one save.
+    // plan-backend § 7: no lock at all (the address is read, the name is checked, the insert is closed by the index), then one
+    // save. Replaces Handle_LocksTheRootShare_ThenSavesOnce (retired, BR-OT-10: there is no root lock).
     [Fact]
-    public async Task Handle_LocksTheRootShare_ThenSavesOnce()
+    public async Task Handle_LocksNothing_SavesOnce()
     {
         var f = new Fixture();
 
         await f.HandleAsync(f.Command());
 
-        Assert.Equal([$"lock root share {f.Project.Project.Id}", "save"], f.Store.Calls);
+        Assert.Equal(["save"], f.Store.Calls);
     }
 
     // US-4 · "Two teams of one name at the same moment": the loser's save fails on the team index, and the repository's
@@ -267,12 +231,10 @@ public sealed class AddTeamHandlerTests
         var f = new Fixture();
         f.Store.FailNextSave(new ConflictException(OrganizationErrorCodes.TeamNameTaken));
         var teamsBefore = f.Store.Teams.Count;
-        var areasBefore = f.Store.Areas.Count;
 
         var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command()));
 
         Assert.Equal(OrganizationErrorCodes.TeamNameTaken, refusal.Code);
         Assert.Equal(teamsBefore, f.Store.Teams.Count);
-        Assert.Equal(areasBefore, f.Store.Areas.Count);
     }
 }

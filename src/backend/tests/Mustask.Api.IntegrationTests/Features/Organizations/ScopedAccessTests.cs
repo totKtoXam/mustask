@@ -188,7 +188,7 @@ public sealed class ScopedAccessTests(MustaskApiFactory factory)
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var caller = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, role);
         var org = OrganizationsApi.Organization(structure.OrganizationId);
-        var team = $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{structure.Platform.Team.Id}";
+        var team = $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{structure.Platform.Id}";
 
         foreach (var path in new[] { $"{org}/access", $"{org}/members", $"{team}/members" })
         {
@@ -229,7 +229,7 @@ public sealed class ScopedAccessTests(MustaskApiFactory factory)
         var path = template
             .Replace("{organizationId}", organizationId, StringComparison.Ordinal)
             .Replace("{projectId}", structure.ProjectId.ToString(), StringComparison.Ordinal)
-            .Replace("{teamId}", structure.Platform.Team.Id.ToString(), StringComparison.Ordinal)
+            .Replace("{teamId}", structure.Platform.Id.ToString(), StringComparison.Ordinal)
             .Replace("{userId}", admin.Id, StringComparison.Ordinal);
 
         async Task<HttpStatusCode> StatusAsync(string token)

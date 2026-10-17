@@ -33,15 +33,16 @@ namespace Mustask.Application.Features.Organizations.CreateProject;
 /// pre-check's code (plan-backend § 6.3).
 /// </para>
 /// <para>
-/// <b>The creator joins the first team</b> (mod-016 BR-M1-25; US-3 "The project's creator is its first team's first
-/// member"): in the same flush, the creating administrator becomes the only member of the project's first team, whatever
-/// the user projection says of them — always, with no look at their membership first (plan-backend § 3.6 row 12). Team
+/// <b>The creator joins the project's team</b> (mod-016 BR-M1-25; US-3 "The project's creator is its first team's first
+/// member"): in the same flush, the creating administrator becomes the only member of the team the project is created with,
+/// whatever the user projection says of them — always, with no look at their membership first (plan-backend § 3.6 row 12). Team
 /// members are a subset of the organization's members (BR-M1-10) and the scoped check admits only an administrator here, so
 /// the creator is a member when the request starts. If their membership ends at any moment before the flush — between the
 /// check and this handler, or later — the database refuses the team membership through the composite key, the whole
 /// creation rolls back, and the answer is the organization's not-found: exactly what the creator's next request would say.
 /// There is no window in which the project is created for a user who is no longer a member (review round 1a BE-CON-5). The
-/// rule lapses with the first team when feat-028 moves teams to the organization.
+/// rule lapses when feat-028 moves teams to the organization. The team is no longer «first» (mod-017 BR-OT-11): it is the
+/// project's only team until another is added, and as ordinary as any later one.
 /// </para>
 /// </remarks>
 public sealed class CreateProjectHandler(
@@ -110,15 +111,16 @@ public sealed class CreateProjectHandler(
                         new ErrorParams { ["key"] = ErrorParam.Text(key) });
                 }
 
-                // The project, its first team and its root, all named after the project, the root owned by the first team
-                // and its default (BR-M1-9, BR-M1-11, BR-M1-14). The creator is the token's subject (BR-M1-21).
+                // The project, its one team and its root, both named after the project; the team an ordinary one, the root
+                // owned by nobody, and the settings name no default team — the only team is the default by itself (mod-017
+                // BR-OT-4, BR-OT-10, BR-OT-11). The creator is the token's subject (BR-M1-21).
                 var creatorId = currentUser.SubjectId;
                 var created = Project.Create(organizationId, name, key, clock.UtcNow, creatorId);
                 projects.Add(created);
 
-                // The creator joins the first team (BR-M1-25, BR-M1-10). No look at their membership first: the composite key
+                // The creator joins the project's team (BR-M1-25, BR-M1-10). No look at their membership first: the composite key
                 // of team_memberships is the one place that judges it, at the flush, and it cannot be raced.
-                teamMemberships.Add(TeamMembership.Add(created.FirstTeam.Id, organizationId, creatorId));
+                teamMemberships.Add(TeamMembership.Add(created.Team.Id, organizationId, creatorId));
 
                 // 6. Save. A concurrent creation of the same name or key that committed first fails this insert on its unique
                 // index, and the repository answers with the pre-check's code.

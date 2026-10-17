@@ -36,9 +36,9 @@ public sealed class GetBacklogEndpointTests(MustaskApiFactory factory)
         Assert.Equal([story.Identifier, bug.Identifier], await BoardsTestData.RowsAsync(factory, world, world.PlatformId));
         Assert.Equal([epic.Identifier], await BoardsTestData.RowsAsync(factory, world, world.PlatformId, "epics"));
         Assert.Equal([feature.Identifier], await BoardsTestData.RowsAsync(factory, world, world.PlatformId, "features"));
-        Assert.Equal([rootStory.Identifier], await BoardsTestData.RowsAsync(factory, world, world.FirstTeamId));
+        Assert.Equal([rootStory.Identifier], await BoardsTestData.RowsAsync(factory, world, world.ProjectTeamId));
 
-        foreach (var team in new[] { world.PlatformId, world.FirstTeamId })
+        foreach (var team in new[] { world.PlatformId, world.ProjectTeamId })
         {
             foreach (var level in new[] { "epics", "features", "stories" })
             {
@@ -125,7 +125,7 @@ public sealed class GetBacklogEndpointTests(MustaskApiFactory factory)
         var world = await BoardsTestData.CreateWorldAsync(factory);
 
         var stories = (await BoardsTestData.GetBacklogAsync(factory, world, world.PlatformId)).Body;
-        var epics = (await BoardsTestData.GetBacklogAsync(factory, world, world.FirstTeamId, "epics")).Body;
+        var epics = (await BoardsTestData.GetBacklogAsync(factory, world, world.ProjectTeamId, "epics")).Body;
 
         Assert.Equal((world.PlatformId, "Платформа"), (stories.GetProperty("team").GetProperty("id").GetGuid(), stories.GetProperty("team").GetProperty("name").GetString()));
         Assert.Equal(["id", "name"], stories.GetProperty("team").EnumerateObject().Select(member => member.Name));
@@ -136,7 +136,7 @@ public sealed class GetBacklogEndpointTests(MustaskApiFactory factory)
                 $"{type.GetProperty("key").GetString()} {type.GetProperty("name").GetString()} {type.GetProperty("appearance").GetString()} "
                 + type.GetProperty("initialState").GetProperty("name").GetString()));
 
-        Assert.Equal((world.FirstTeamId, "Мастаск"), (epics.GetProperty("team").GetProperty("id").GetGuid(), epics.GetProperty("team").GetProperty("name").GetString()));
+        Assert.Equal((world.ProjectTeamId, "Мастаск"), (epics.GetProperty("team").GetProperty("id").GetGuid(), epics.GetProperty("team").GetProperty("name").GetString()));
         Assert.Equal(["EPIC"], epics.GetProperty("level").GetProperty("types").EnumerateArray().Select(type => type.GetProperty("key").GetString()));
     }
 
@@ -191,7 +191,7 @@ public sealed class GetBacklogEndpointTests(MustaskApiFactory factory)
             case "team-of-another-project":
                 var other = await WorkItemsTestData.AddProjectAsync(factory, world.Items, "OTH", "Другой проект");
                 var foreign = await OrganizationsTestData.AddTeamAsync(factory, other.ProjectId, "Чужая");
-                return Address(world.OrganizationId, world.ProjectId, foreign.Team.Id, "stories");
+                return Address(world.OrganizationId, world.ProjectId, foreign.Id, "stories");
             case "project-deactivated":
                 await OrganizationsTestData.SetProjectStatusAsync(factory, world.OrganizationId, world.ProjectId, ProjectStatus.Deactivated);
                 return Address(world.OrganizationId, world.ProjectId, world.PlatformId, "stories");
@@ -214,7 +214,7 @@ public sealed class GetBacklogEndpointTests(MustaskApiFactory factory)
         var world = await BoardsTestData.CreateWorldAsync(factory);
         var us5 = await BoardsTestData.CreateAsync(factory, world, "US", "Пятая");
         var us7 = await BoardsTestData.CreateAsync(factory, world, "US", "Седьмая", world.ReportsAreaId);
-        await BoardsTestData.ReorderToAsync(factory, world, world.FirstTeamId, us5, us7);
+        await BoardsTestData.ReorderToAsync(factory, world, world.ProjectTeamId, us5, us7);
 
         return (world, us5, us7);
     }
@@ -232,7 +232,7 @@ public sealed class GetBacklogEndpointTests(MustaskApiFactory factory)
         await BoardsTestData.ReorderToAsync(factory, world, world.PlatformId, us9, us3, us11);
 
         await BoardsTestData.MoveToAreaAsync(factory, world, us9, world.ReportsAreaId);
-        await BoardsTestData.MoveAsync(factory, world, world.FirstTeamId, BoardsTestData.Top(rootStory));
+        await BoardsTestData.MoveAsync(factory, world, world.ProjectTeamId, BoardsTestData.Top(rootStory));
         await BoardsTestData.MoveToAreaAsync(factory, world, us9, world.PlatformAreaId);
 
         Assert.Equal([us3.Identifier, us11.Identifier, us9.Identifier], await BoardsTestData.RowsAsync(factory, world, world.PlatformId));
@@ -250,6 +250,6 @@ public sealed class GetBacklogEndpointTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, answer.Status);
         var bug = new Item(answer.Body.GetProperty("id").GetGuid(), answer.Body.GetProperty("identifier").GetString()!);
         Assert.Equal("Мастаск", answer.Body.GetProperty("area").GetProperty("path").GetString());
-        Assert.Equal([us5.Identifier, us7.Identifier, bug.Identifier], await BoardsTestData.RowsAsync(factory, world, world.FirstTeamId));
+        Assert.Equal([us5.Identifier, us7.Identifier, bug.Identifier], await BoardsTestData.RowsAsync(factory, world, world.ProjectTeamId));
     }
 }

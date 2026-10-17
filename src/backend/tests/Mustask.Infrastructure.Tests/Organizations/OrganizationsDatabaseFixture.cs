@@ -149,7 +149,7 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
 
     /// <summary>
     /// An active organization with its seeded process, and one project with its
-    /// first team, its root, a second team «Платформа» and that team's area,
+    /// team, its root and a second team «Платформа»,
     /// written through the domain in one unit of work.
     /// </summary>
     public async Task<SeededStructure> CreateStructureAsync(string? organizationName = null, string projectName = "Пример проекта", string key = "PRM")
@@ -168,12 +168,12 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
                 var organization = Organization.Create(
                     organizationId, Name(organizationName ?? UniqueName("Организация")), processId, Now, Creator);
                 var project = Project.Create(organizationId, Name(projectName), key, Now, Creator);
-                var second = Team.CreateWithArea(project.Project.Id, Name("Платформа"), project.Root);
+                var second = Team.Create(project.Project.Id, Name("Платформа"));
 
                 context.Organizations.Add(organization);
                 context.Projects.Add(project.Project);
-                context.Teams.AddRange(project.FirstTeam, second.Team);
-                context.Areas.AddRange(project.Root, second.Area);
+                context.Teams.AddRange(project.Team, second);
+                context.Areas.Add(project.Root);
                 await context.SaveChangesAsync(ct);
 
                 return new SeededStructure(organization, project, second);
@@ -181,14 +181,14 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
             CancellationToken.None);
     }
 
-    /// <summary>Adds a project with its first team and root to an existing organization.</summary>
+    /// <summary>Adds a project with its team and root to an existing organization.</summary>
     public async Task<NewProject> AddProjectAsync(Guid organizationId, string name, string key)
     {
         await using var context = NewContext();
         var project = Project.Create(organizationId, Name(name), key, Now, Creator);
 
         context.Projects.Add(project.Project);
-        context.Teams.Add(project.FirstTeam);
+        context.Teams.Add(project.Team);
         context.Areas.Add(project.Root);
         await context.SaveChangesAsync();
 
@@ -299,7 +299,7 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
 }
 
 /// <summary>What <see cref="OrganizationsDatabaseFixture.CreateStructureAsync"/> wrote.</summary>
-public sealed record SeededStructure(Organization Organization, NewProject Project, NewTeam SecondTeam);
+public sealed record SeededStructure(Organization Organization, NewProject Project, Team SecondTeam);
 
 /// <summary>What <see cref="OrganizationsDatabaseFixture.CreateLegacyStructureAsync"/> wrote: ids only, the model cannot read that shape.</summary>
 public sealed record LegacyStructure(Guid OrganizationId, Guid ProjectId, Guid FirstTeamId, Guid RootAreaId, Guid SecondTeamId, Guid SecondAreaId);

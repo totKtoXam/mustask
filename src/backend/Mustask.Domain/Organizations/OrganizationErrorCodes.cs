@@ -76,23 +76,16 @@ public static class OrganizationErrorCodes
     /// <summary>mod-017 BR-OT-11: the project's last active team cannot be deleted (interim guard, lifted by feat-028).</summary>
     public const string TeamLastTeamCannotBeDeleted = "organizations.team.last_team_cannot_be_deleted";
 
-    /// <summary>The proposed default area's owner is inherited or another team (BR-M1-14).</summary>
-    public const string TeamDefaultAreaNotOwned = "organizations.team.default_area_not_owned";
-
-    /// <summary>The first team's default area is the root for good (BR-M1-9).</summary>
-    public const string TeamFirstTeamDefaultFixed = "organizations.team.first_team_default_fixed";
-
-    /// <summary>The first team owns the root and cannot be deleted (BR-M1-18).</summary>
-    public const string TeamFirstTeamCannotBeDeleted = "organizations.team.first_team_cannot_be_deleted";
+    // mod-017 retired four codes with BR-M1-14 and BR-M1-18 (an area owner, a team's default area, the first team):
+    // organizations.team.default_area_not_owned, organizations.team.first_team_default_fixed,
+    // organizations.team.first_team_cannot_be_deleted and organizations.area.is_team_default. Their constants are gone; their
+    // catalog entries stay, marked "deprecated", and the ids stay taken (ADR-0005 rule 3, contracts/README.md).
 
     /// <summary>A sibling holds the name (BR-M1-12).</summary>
     public const string AreaNameTaken = "organizations.area.name_taken";
 
     /// <summary>The destination is the moved node itself or one of its descendants (BR-M1-12).</summary>
     public const string AreaMoveIntoOwnSubtree = "organizations.area.move_into_own_subtree";
-
-    /// <summary>The area is a team's default area (<c>params.team</c>: that team's name, BR-M1-14).</summary>
-    public const string AreaIsTeamDefault = "organizations.area.is_team_default";
 
     /// <summary>The area has children (and, from mod-003, work items, BR-M1-13).</summary>
     public const string AreaNotEmpty = "organizations.area.not_empty";

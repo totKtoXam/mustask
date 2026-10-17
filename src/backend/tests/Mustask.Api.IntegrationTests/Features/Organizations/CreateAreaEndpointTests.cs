@@ -46,11 +46,10 @@ public sealed class CreateAreaEndpointTests(MustaskApiFactory factory)
         Assert.Equal(
             $"/api/organizations/{structure.OrganizationId}/projects/{structure.ProjectId}/areas/{reportsId}",
             reports.Location?.OriginalString);
-        Assert.Equal(["id", "name", "ownerTeamId", "parentId", "projectId"], PropertyNames(reports.Body));
+        Assert.Equal(["id", "name", "parentId", "projectId"], PropertyNames(reports.Body));
         Assert.Equal(structure.ProjectId, reports.Body.GetProperty("projectId").GetGuid());
         Assert.Equal(structure.RootId, reports.Body.GetProperty("parentId").GetGuid());
         Assert.Equal("Отчёты", reports.Body.GetProperty("name").GetString());
-        Assert.Equal(JsonValueKind.Null, reports.Body.GetProperty("ownerTeamId").ValueKind);
 
         Assert.Equal(HttpStatusCode.Created, quarterly.Status);
         Assert.Equal(reportsId, quarterly.Body.GetProperty("parentId").GetGuid());
@@ -61,23 +60,55 @@ public sealed class CreateAreaEndpointTests(MustaskApiFactory factory)
         Assert.Equal(2, tree.DepthOf(quarterlyId));
     }
 
-    // US-6 · "A child area is created with or without an owner": the chosen team, or none and the area inherits.
-    [Fact]
-    public async Task Create_WithOwnerOrInheriting_StoresTheExplicitOwnerOrNone()
+    // mod-017 US-5 · "An area has no owner" (BR-OT-10): an `ownerTeamId` that an old client still sends is an unknown field and is
+    // ignored — a malformed or a deleted team in it is no reason to refuse, because no team is looked at — and the area is
+    // created as any other. Replaces Create_WithOwnerOrInheriting_StoresTheExplicitOwnerOrNone,
+    // Create_OwnerNotAnActiveTeamOfTheProject_Returns404TeamNotFound_CreatesNothing and
+    // Create_WithAnOwnerTeamBeingDeleted_NoAreaOwnedByADeletedTeam_BothOrders (retired, BR-OT-10).
+    [Theory]
+    [InlineData("a team")]
+    [InlineData("malformed")]
+    [InlineData("null")]
+    public async Task Create_AnOwnerTeamIdInTheBody_IsIgnored(string how)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        var ownerTeamId = how switch
+        {
+            "a team" => structure.Platform.Id.ToString(),
+            "malformed" => "not-a-team",
+            _ => null,
+        };
 
-        var owned = await CreateAsync(structure, new { parentId = structure.RootId.ToString(), name = "Отчёты", ownerTeamId = structure.Platform.Team.Id.ToString() });
-        var inheriting = await CreateAsync(structure, new { parentId = structure.RootId.ToString(), name = "Архив", ownerTeamId = (string?)null });
+        var answer = await CreateAsync(structure, new { parentId = structure.RootId.ToString(), name = "Отчёты", ownerTeamId });
 
-        Assert.Equal(HttpStatusCode.Created, owned.Status);
-        Assert.Equal(structure.Platform.Team.Id, owned.Body.GetProperty("ownerTeamId").GetGuid());
-        Assert.Equal(HttpStatusCode.Created, inheriting.Status);
-        Assert.Equal(JsonValueKind.Null, inheriting.Body.GetProperty("ownerTeamId").ValueKind);
-
+        Assert.Equal(HttpStatusCode.Created, answer.Status);
+        Assert.Equal(["id", "name", "parentId", "projectId"], PropertyNames(answer.Body));
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
-        Assert.Equal(new ResolvedOwner(structure.Platform.Team.Id, false), tree.ResolveOwner(owned.Body.GetProperty("id").GetGuid()));
-        Assert.Equal(new ResolvedOwner(structure.FirstTeamId, true), tree.ResolveOwner(inheriting.Body.GetProperty("id").GetGuid()));
+        Assert.Equal("Отчёты", tree[answer.Body.GetProperty("id").GetGuid()].Name);
+    }
+
+    // mod-017 BR-OT-10 · creating an area takes no team lock, so it neither waits for a team deletion nor blocks one: the
+    // deletion commits while the creation is held at its own commit.
+    [Fact]
+    public async Task Create_AndDeleteATeamAtTheSameMoment_BothSucceed_NeitherWaitsForTheOther()
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        using var gate = factory.CommitGates.Open();
+
+        var creation = CreateAsync(structure, new { parentId = structure.RootId.ToString(), name = "Отчёты" }, gate);
+        await Task.WhenAny(gate.Reached, creation);
+        Assert.False(creation.IsCompleted, "The creation finished before reaching its commit gate.");
+
+        var deletion = await OrganizationsApi.SendAsync(
+            factory,
+            HttpMethod.Delete,
+            $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{structure.Platform.Id}",
+            token: OrganizationsTokens.SignedIn());
+        gate.Release();
+        var created = await creation;
+
+        Assert.Equal(HttpStatusCode.NoContent, deletion.Status);
+        Assert.Equal(HttpStatusCode.Created, created.Status);
     }
 
     // US-1 · "A visitor who is not signed in sees nothing".
@@ -93,7 +124,7 @@ public sealed class CreateAreaEndpointTests(MustaskApiFactory factory)
             new { parentId = structure.RootId.ToString(), name = "Отчёты" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, answer.Status);
-        Assert.Equal(2, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
+        Assert.Equal(1, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
     }
 
     // US-3 · "A project id names no project of the organization" (BR-M1-20, BR-M1-22): malformed, unknown, or of another
@@ -118,7 +149,7 @@ public sealed class CreateAreaEndpointTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.NotFound, answer.Status);
         Assert.Equal("organizations.project.not_found", answer.ErrorCode);
         Assert.Equal("Проект не найден.", answer.Detail);
-        Assert.Equal(2, (await OrganizationsTestData.ReadTreeAsync(factory, other.ProjectId)).Count);
+        Assert.Equal(1, (await OrganizationsTestData.ReadTreeAsync(factory, other.ProjectId)).Count);
     }
 
     // US-3 · "A project is deactivated": a write under it answers project.not_found and changes nothing (ADR-0026 rule 5).
@@ -132,7 +163,7 @@ public sealed class CreateAreaEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(HttpStatusCode.NotFound, answer.Status);
         Assert.Equal("organizations.project.not_found", answer.ErrorCode);
-        Assert.Equal(2, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
+        Assert.Equal(1, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
     }
 
     // US-5 · "Sibling names are unique ... an empty name, or one longer than 100 characters, is refused with «Название
@@ -150,7 +181,6 @@ public sealed class CreateAreaEndpointTests(MustaskApiFactory factory)
         {
             parentId = Guid.CreateVersion7().ToString(),
             name = name == "101" ? new string('я', 101) : name,
-            ownerTeamId = "not-a-team",
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, answer.Status);
@@ -158,41 +188,7 @@ public sealed class CreateAreaEndpointTests(MustaskApiFactory factory)
         var reason = Assert.Single(answer.Body.GetProperty("errors").GetProperty("name").EnumerateArray());
         Assert.Equal("organizations.name_length", reason.GetProperty("code").GetString());
         Assert.Equal("Название должно содержать от 1 до 100 символов", reason.GetProperty("detail").GetString());
-        Assert.Equal(2, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
-    }
-
-    // US-6 · "An area's owner is a team of the area's own project" (BR-M1-22) and US-7 · "A deleted team answers not found":
-    // malformed, unknown, deleted, or of another project or organization. The owner answers before the parent (§ 4.2).
-    [Theory]
-    [InlineData("malformed")]
-    [InlineData("unknown")]
-    [InlineData("deleted")]
-    [InlineData("of another project")]
-    [InlineData("of another organization")]
-    public async Task Create_OwnerNotAnActiveTeamOfTheProject_Returns404TeamNotFound_CreatesNothing(string how)
-    {
-        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var secondProject = await OrganizationsTestData.CreateProjectAsync(factory, structure.OrganizationId, "Второй проект", "SEC");
-        var other = await OrganizationsTestData.CreateStructureAsync(factory);
-        var deleted = await OrganizationsTestData.AddTeamAsync(factory, structure.ProjectId, "Ядро");
-        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, deleted.Team.Id);
-        var ownerTeamId = how switch
-        {
-            "malformed" => structure.Platform.Team.Id.ToString("N"),
-            "unknown" => Guid.CreateVersion7().ToString(),
-            "deleted" => deleted.Team.Id.ToString(),
-            "of another project" => secondProject.FirstTeam.Id.ToString(),
-            _ => other.Platform.Team.Id.ToString(),
-        };
-
-        var answer = await CreateAsync(structure, new { parentId = "not-an-area", name = "Отчёты", ownerTeamId });
-
-        Assert.Equal(HttpStatusCode.NotFound, answer.Status);
-        Assert.Equal("organizations.team.not_found", answer.ErrorCode);
-        Assert.Equal("Команда не найдена.", answer.Detail);
-        Assert.DoesNotContain(
-            (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).PreOrder(),
-            node => node.Name == "Отчёты");
+        Assert.Equal(1, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
     }
 
     // US-5 · "A node never leaves its project" (BR-M1-22): a parent that is null, malformed, unknown, or an area of another
@@ -219,7 +215,7 @@ public sealed class CreateAreaEndpointTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.NotFound, answer.Status);
         Assert.Equal("organizations.area.not_found", answer.ErrorCode);
         Assert.Equal("Область не найдена.", answer.Detail);
-        Assert.Equal(2, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
+        Assert.Equal(1, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
         Assert.Equal(1, (await OrganizationsTestData.ReadTreeAsync(factory, secondProject.Project.Id)).Count);
     }
 
@@ -286,68 +282,6 @@ public sealed class CreateAreaEndpointTests(MustaskApiFactory factory)
 
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
         Assert.Single(tree.ChildrenOf(structure.RootId), node => node.Name == "Квартальные");
-    }
-
-    // NFR Concurrency, BR-M1-18 "an area created with ... a team that is being deleted" (QA pass 1, A-15). «Отчёты» is
-    // created owned by «Платформа» at the same moment «Платформа» is deleted, in both orders. The deletion first: the
-    // creation waits on the team's lock, then finds the team deleted and answers team.not_found. The creation first: the
-    // deletion waits on the team, then its re-own passes the new area to the first team. In neither order is an area left
-    // owned by a deleted team (ADR-0026 rule 8).
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task Create_WithAnOwnerTeamBeingDeleted_NoAreaOwnedByADeletedTeam_BothOrders(bool deletionFirst)
-    {
-        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var teamId = structure.Platform.Team.Id;
-        var body = new { parentId = structure.RootId.ToString(), name = "Отчёты", ownerTeamId = teamId.ToString() };
-        using var gate = factory.CommitGates.Open();
-
-        Task<Answer> creation;
-        Task<Answer> deletion;
-
-        if (deletionFirst)
-        {
-            deletion = DeleteTeamAsync(structure, teamId, gate);
-            await Task.WhenAny(gate.Reached, deletion);
-            Assert.False(deletion.IsCompleted, "The deletion finished before reaching its commit gate.");
-
-            creation = CreateAsync(structure, body);
-            await PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, creation);
-            Assert.False(creation.IsCompleted, "The creation did not wait for the deletion's lock on the team.");
-        }
-        else
-        {
-            creation = CreateAsync(structure, body, gate);
-            await Task.WhenAny(gate.Reached, creation);
-            Assert.False(creation.IsCompleted, "The creation finished before reaching its commit gate.");
-
-            deletion = DeleteTeamAsync(structure, teamId);
-            await PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, deletion);
-            Assert.False(deletion.IsCompleted, "The deletion did not wait for the creation's lock on the team.");
-        }
-
-        gate.Release();
-        var (created, deleted) = (await creation, await deletion);
-
-        Assert.Equal(HttpStatusCode.NoContent, deleted.Status);
-
-        var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
-
-        if (deletionFirst)
-        {
-            Assert.Equal(HttpStatusCode.NotFound, created.Status);
-            Assert.Equal("organizations.team.not_found", created.ErrorCode);
-            Assert.DoesNotContain(tree.ChildrenOf(structure.RootId), node => node.Name == "Отчёты");
-        }
-        else
-        {
-            Assert.Equal(HttpStatusCode.Created, created.Status);
-            Assert.Equal(teamId, created.Body.GetProperty("ownerTeamId").GetGuid());
-            Assert.Equal(structure.FirstTeamId, tree[created.Body.GetProperty("id").GetGuid()].OwnerTeamId);
-        }
-
-        Assert.DoesNotContain(tree.PreOrder(), node => node.OwnerTeamId == teamId || node.DefaultOfTeamId == teamId);
     }
 
     private Task<Answer> DeleteTeamAsync(OrganizationStructure structure, Guid teamId, CommitGate? gate = null) =>

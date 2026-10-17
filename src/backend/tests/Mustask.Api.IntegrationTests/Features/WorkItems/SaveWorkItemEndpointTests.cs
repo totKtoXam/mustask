@@ -326,14 +326,15 @@ public sealed class SaveWorkItemEndpointTests(MustaskApiFactory factory)
     }
 
     // US-4 · "The item follows its area's changes": «API» renamed to «Шлюз» and moved under «Отчёты» reads «Отчёты / Шлюз»;
-    // deleting the team that owns it leaves the item's area as it is.
+    // deleting the team that owns the item (mod-017: area edits and a team deletion are apart) leaves the item's area as it is.
+    // Renamed (D-16, BR-OT-10): Save_AreaRenamedMovedAndItsTeamDeleted_ItemFollowsTheArea -> Save_AreaRenamedMoved_ThenTheItemsTeamDeleted_ItemKeepsItsArea.
     [Fact]
-    public async Task Save_AreaRenamedMovedAndItsTeamDeleted_ItemFollowsTheArea()
+    public async Task Save_AreaRenamedMoved_ThenTheItemsTeamDeleted_ItemKeepsItsArea()
     {
         var world = await WorkItemsTestData.CreateWorldAsync(factory);
         var bug = await WorkItemsTestData.CreateItemAsync(factory, world, "BUG", "Падение при входе");
         var team = await OrganizationsTestData.AddTeamAsync(factory, world.ProjectId, "Платформа");
-        var api = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, team.Area.Id, "API", team.Team.Id);
+        var api = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, world.RootAreaId, "API");
         var reports = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, world.RootAreaId, "Отчёты");
         await WorkItemsTestData.SaveAsync(factory, world, bug, new { areaId = api.Id.ToString() });
         var areaRoute = $"{OrganizationsApi.Areas(world.OrganizationId, world.ProjectId)}/{api.Id}";
@@ -344,7 +345,8 @@ public sealed class SaveWorkItemEndpointTests(MustaskApiFactory factory)
         Assert.Equal("Отчёты / Шлюз", Text(await WorkItemsTestData.ReadAsync(factory, world, bug), "area", "path"));
         Assert.Equal("Отчёты / Шлюз", Text((await WorkItemsTestData.ListAsync(factory, world)).Body.GetProperty("data")[0], "area", "path"));
 
-        await OrganizationsTestData.DeleteTeamAsync(factory, world.ProjectId, team.Team.Id);
+        await WorkItemsTestData.ExecuteAsync(factory, $"UPDATE work_items SET owning_team_id = {team.Id} WHERE project_id = {world.ProjectId}");
+        await OrganizationsTestData.DeleteTeamAsync(factory, world.ProjectId, team.Id);
 
         var after = await WorkItemsTestData.ReadAsync(factory, world, bug);
         Assert.Equal((api.Id.ToString(), "Отчёты / Шлюз"), (Text(after, "area", "id"), Text(after, "area", "path")));

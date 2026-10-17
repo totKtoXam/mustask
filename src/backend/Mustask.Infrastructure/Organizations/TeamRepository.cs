@@ -6,20 +6,10 @@ namespace Mustask.Infrastructure.Organizations;
 
 /// <inheritdoc cref="OrganizationRepository"/>
 /// <remarks>
-/// The three lock modes are three fixed statements, not one with a mode spliced
-/// in: interpolation is for values only (backend.md, "Raw SQL").
+/// The lock modes are fixed statements, not one with a mode spliced in: interpolation is for values only (backend.md, "Raw SQL").
 /// </remarks>
 internal sealed class TeamRepository(MustaskDbContext context) : ITeamRepository
 {
-    public async Task<Team?> LockForUpdateAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken)
-    {
-        await context.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT 1 FROM teams WHERE id = {teamId} AND project_id = {projectId} FOR UPDATE",
-            cancellationToken);
-
-        return await LoadAsync(projectId, teamId, cancellationToken);
-    }
-
     public async Task<Team?> LockForNoKeyUpdateAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken)
     {
         await context.Database.ExecuteSqlInterpolatedAsync(
@@ -38,8 +28,38 @@ internal sealed class TeamRepository(MustaskDbContext context) : ITeamRepository
         return await LoadAsync(projectId, teamId, cancellationToken);
     }
 
-    public Task<Team> GetFirstTeamAsync(Guid projectId, CancellationToken cancellationToken) =>
-        context.Teams.SingleAsync(team => team.ProjectId == projectId && team.IsFirstTeam, cancellationToken);
+    public async Task<IReadOnlyList<Team>> LockProjectTeamsAsync(Guid projectId, CancellationToken cancellationToken)
+    {
+        // ORDER BY before the lock: the rows are locked in ascending id order, one fixed order for every caller.
+        await context.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT 1 FROM teams WHERE project_id = {projectId} AND status = 'Active' ORDER BY id FOR NO KEY UPDATE",
+            cancellationToken);
+
+        // A new statement under READ COMMITTED: the teams as the previous lock holder left them.
+        var teams = await context.Teams
+            .Where(team => team.ProjectId == projectId && team.Status == TeamStatus.Active)
+            .ToListAsync(cancellationToken);
+
+        return teams.OrderBy(team => team.Id).ToList();
+    }
+
+    public async Task<DefaultTeamMark> GetMarkAsync(Team team, CancellationToken cancellationToken)
+    {
+        var projectId = team.ProjectId;
+        var teamId = team.Id;
+
+        var stored = await context.Projects
+            .AsNoTracking()
+            .Where(project => project.Id == projectId)
+            .Select(project => new
+            {
+                IsNamed = project.DefaultTeamId == teamId,
+                ActiveTeams = context.Teams.Count(other => other.ProjectId == projectId && other.Status == TeamStatus.Active),
+            })
+            .SingleAsync(cancellationToken);
+
+        return ProjectDefaultTeam.MarkOf(stored.IsNamed, stored.ActiveTeams);
+    }
 
     public Task<bool> IsActiveNameTakenAsync(Guid projectId, string normalizedName, Guid? exceptId, CancellationToken cancellationToken) =>
         context.Teams.AnyAsync(
@@ -55,19 +75,6 @@ internal sealed class TeamRepository(MustaskDbContext context) : ITeamRepository
             .Where(team => team.Id == teamId)
             .Select(team => team.Name)
             .FirstOrDefaultAsync(cancellationToken);
-
-    // The composite key keeps every area a team owns in the team's project (qa.md D-1), so naming the project changes no
-    // row and lets ix_areas_project_id_owner_team_id, the key's index, find them.
-    public Task ReassignExplicitAreasAsync(Guid fromTeamId, Guid toTeamId, CancellationToken cancellationToken) =>
-        context.Database.ExecuteSqlInterpolatedAsync(
-            $"UPDATE areas SET owner_team_id = {toTeamId}, default_of_team_id = NULL WHERE project_id = (SELECT project_id FROM teams WHERE id = {fromTeamId}) AND owner_team_id = {fromTeamId}",
-            cancellationToken);
-
-    public void Add(NewTeam team)
-    {
-        context.Teams.Add(team.Team);
-        context.Areas.Add(team.Area);
-    }
 
     public void Add(Team team) => context.Teams.Add(team);
 

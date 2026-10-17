@@ -38,16 +38,16 @@ public sealed class RemoveTeamMemberEndpointTests(MustaskApiFactory factory)
         var (structure, token) = await WorldAsync();
         var member = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, OrganizationRole.Member);
         var staying = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, OrganizationRole.Member);
-        var teamId = structure.Platform.Team.Id;
+        var teamId = structure.Platform.Id;
         await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, teamId, member.Id);
         await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, teamId, staying.Id);
-        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.FirstTeamId, member.Id);
+        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.ProjectTeamId, member.Id);
 
         var answer = await RemoveAsync(structure, teamId, member.Id, token);
 
         Assert.Equal(HttpStatusCode.NoContent, answer.Status);
         Assert.Equal([staying.Id], await MembershipTestData.TeamMemberIdsAsync(factory, teamId));
-        Assert.Equal([member.Id], await MembershipTestData.TeamMemberIdsAsync(factory, structure.FirstTeamId));
+        Assert.Equal([member.Id], await MembershipTestData.TeamMemberIdsAsync(factory, structure.ProjectTeamId));
         Assert.Equal(OrganizationRole.Member, (await MembershipTestData.FindMembershipAsync(factory, structure.OrganizationId, member.Id))!.Role);
     }
 
@@ -58,7 +58,7 @@ public sealed class RemoveTeamMemberEndpointTests(MustaskApiFactory factory)
     {
         var (structure, token) = await WorldAsync();
         var member = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, OrganizationRole.Member);
-        var teamId = structure.Platform.Team.Id;
+        var teamId = structure.Platform.Id;
         await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, teamId, member.Id);
 
         await RemoveAsync(structure, teamId, member.Id, token);
@@ -79,9 +79,9 @@ public sealed class RemoveTeamMemberEndpointTests(MustaskApiFactory factory)
         var (structure, token) = await WorldAsync();
         var member = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, OrganizationRole.Member);
         var elsewhere = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, OrganizationRole.Member);
-        var teamId = structure.Platform.Team.Id;
+        var teamId = structure.Platform.Id;
         await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, teamId, member.Id);
-        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.FirstTeamId, elsewhere.Id);
+        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.ProjectTeamId, elsewhere.Id);
 
         var first = await RemoveAsync(structure, teamId, member.Id, token);
         var second = await RemoveAsync(structure, teamId, member.Id, token);
@@ -96,7 +96,7 @@ public sealed class RemoveTeamMemberEndpointTests(MustaskApiFactory factory)
             Assert.Equal("Участник команды не найден.", answer.Detail);
         }
 
-        Assert.Equal([elsewhere.Id], await MembershipTestData.TeamMemberIdsAsync(factory, structure.FirstTeamId));
+        Assert.Equal([elsewhere.Id], await MembershipTestData.TeamMemberIdsAsync(factory, structure.ProjectTeamId));
     }
 
     // api-contract § 2 · the team must be reachable: a deleted, unknown, malformed or another project's team answers `team.not_found`,
@@ -106,7 +106,7 @@ public sealed class RemoveTeamMemberEndpointTests(MustaskApiFactory factory)
     {
         var (structure, token) = await WorldAsync();
         var member = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, OrganizationRole.Member);
-        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.Platform.Team.Id, member.Id);
+        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, structure.Platform.Id, member.Id);
         var otherProject = await OrganizationsTestData.CreateProjectAsync(factory, structure.OrganizationId, "Другой проект", "OTH");
         var organization = OrganizationsApi.Organization(structure.OrganizationId);
 
@@ -114,7 +114,7 @@ public sealed class RemoveTeamMemberEndpointTests(MustaskApiFactory factory)
         {
             $"{organization}/projects/{structure.ProjectId}/teams/{Guid.CreateVersion7()}/members/{member.Id}",
             $"{organization}/projects/{structure.ProjectId}/teams/abc/members/{member.Id}",
-            $"{organization}/projects/{otherProject.Project.Id}/teams/{structure.Platform.Team.Id}/members/{member.Id}",
+            $"{organization}/projects/{otherProject.Project.Id}/teams/{structure.Platform.Id}/members/{member.Id}",
         };
 
         foreach (var path in wrongTeams)
@@ -127,11 +127,11 @@ public sealed class RemoveTeamMemberEndpointTests(MustaskApiFactory factory)
         var wrongProject = await OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Delete,
-            $"{organization}/projects/{Guid.CreateVersion7()}/teams/{structure.Platform.Team.Id}/members/{member.Id}",
+            $"{organization}/projects/{Guid.CreateVersion7()}/teams/{structure.Platform.Id}/members/{member.Id}",
             token: token);
 
         Assert.Equal((HttpStatusCode.NotFound, "organizations.project.not_found"), (wrongProject.Status, wrongProject.ErrorCode));
-        Assert.Equal([member.Id], await MembershipTestData.TeamMemberIdsAsync(factory, structure.Platform.Team.Id));
+        Assert.Equal([member.Id], await MembershipTestData.TeamMemberIdsAsync(factory, structure.Platform.Id));
     }
 
     // US-2 · "A member whose role lacks the code is refused": a member and a viewer get 403; nothing is removed.
@@ -142,7 +142,7 @@ public sealed class RemoveTeamMemberEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var caller = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, role);
-        var teamId = structure.Platform.Team.Id;
+        var teamId = structure.Platform.Id;
         await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, teamId, caller.Id);
 
         var self = await RemoveAsync(structure, teamId, caller.Id, caller.Token);
@@ -157,7 +157,7 @@ public sealed class RemoveTeamMemberEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var member = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, OrganizationRole.Member);
-        var teamId = structure.Platform.Team.Id;
+        var teamId = structure.Platform.Id;
         await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, teamId, member.Id);
 
         var nonMember = await RemoveAsync(structure, teamId, member.Id, MembershipTestData.Outsider());

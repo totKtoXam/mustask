@@ -75,7 +75,7 @@ public sealed class CreateFromTeamEndpointTests(MustaskApiFactory factory)
                 break;
             default:
                 var other = await WorkItemsTestData.AddProjectAsync(factory, world.Items, "OTH", "Другой проект");
-                teamId = (await OrganizationsTestData.AddTeamAsync(factory, other.ProjectId, "Чужая")).Team.Id.ToString();
+                teamId = (await OrganizationsTestData.AddTeamAsync(factory, other.ProjectId, "Чужая")).Id.ToString();
                 break;
         }
 
@@ -150,7 +150,7 @@ public sealed class CreateFromTeamEndpointTests(MustaskApiFactory factory)
         Created(flat);
         Created(none);
         Assert.Equal(("Мастаск", "Мастаск"), (AreaPath(flat), AreaPath(none)));
-        Assert.Equal(world.FirstTeamId, flat.Body.GetProperty("team").GetProperty("id").GetGuid());
+        Assert.Equal(world.ProjectTeamId, flat.Body.GetProperty("team").GetProperty("id").GetGuid());
         Assert.Equal(System.Text.Json.JsonValueKind.Null, none.Body.GetProperty("team").ValueKind);
     }
 

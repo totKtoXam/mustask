@@ -30,22 +30,6 @@ internal sealed class AreaRepository(MustaskDbContext context) : IAreaRepository
         return await LoadAsync(projectId, areaId, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Area>> LockManyForUpdateAsync(Guid projectId, IReadOnlyCollection<Guid> areaIds, CancellationToken cancellationToken)
-    {
-        var ids = areaIds.Distinct().ToArray();
-
-        // ORDER BY before FOR UPDATE: the rows are locked in ascending id order, one fixed order for every caller.
-        await context.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT 1 FROM areas WHERE project_id = {projectId} AND id = ANY({ids}) ORDER BY id FOR UPDATE",
-            cancellationToken);
-
-        var areas = await context.Areas
-            .Where(area => area.ProjectId == projectId && ids.Contains(area.Id))
-            .ToListAsync(cancellationToken);
-
-        return areas.OrderBy(area => area.Id).ToList();
-    }
-
     public async Task<Area> LockRootAsync(Guid projectId, bool forUpdate, CancellationToken cancellationToken)
     {
         if (forUpdate)
@@ -64,15 +48,6 @@ internal sealed class AreaRepository(MustaskDbContext context) : IAreaRepository
         return await context.Areas.SingleAsync(area => area.ProjectId == projectId && area.ParentId == null, cancellationToken);
     }
 
-    public async Task<Area?> LockDefaultOfAsync(Guid teamId, CancellationToken cancellationToken)
-    {
-        await context.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT 1 FROM areas WHERE default_of_team_id = {teamId} FOR UPDATE",
-            cancellationToken);
-
-        return await context.Areas.SingleOrDefaultAsync(area => area.DefaultOfTeamId == teamId, cancellationToken);
-    }
-
     public Task<bool> HasChildrenAsync(Guid areaId, CancellationToken cancellationToken) =>
         context.Areas.AnyAsync(area => area.ParentId == areaId, cancellationToken);
 
@@ -87,7 +62,7 @@ internal sealed class AreaRepository(MustaskDbContext context) : IAreaRepository
             .Where(area => area.ProjectId == projectId)
             .OrderBy(area => EF.Functions.Collate(area.Name, OrganizationsCollation.Russian))
             .ThenBy(area => area.Id)
-            .Select(area => new AreaNode(area.Id, area.ParentId, area.Name, area.OwnerTeamId, area.DefaultOfTeamId))
+            .Select(area => new AreaNode(area.Id, area.ParentId, area.Name))
             .ToListAsync(cancellationToken);
 
     public void Add(Area area) => context.Areas.Add(area);

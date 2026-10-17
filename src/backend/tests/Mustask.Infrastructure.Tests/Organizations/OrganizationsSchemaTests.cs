@@ -7,7 +7,10 @@ namespace Mustask.Infrastructure.Tests.Organizations;
 /// plan-backend § 3: the storage-level backstops of M1's rules. Each case
 /// builds exactly one violation with raw SQL, so exactly one guard can fire,
 /// and the test names it. The domain offers no way to build them; that is the
-/// point of a backstop.
+/// point of a backstop. mod-017: a team is not the first and an area owns nothing, so the first-team, owner and default-area
+/// guards are gone (retired by name in the commit: BR-M1-9 «a second first team», BR-M1-11 «a root with no owner», BR-M1-14 «a
+/// second default area of one team» and «a default area owned by another team», «a deleted first team», «a team that owns
+/// areas», and the owner cases of the cross-project theory — BR-OT-10, BR-OT-11); the default-team setting has its own.
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]
@@ -16,8 +19,7 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
 {
     private const string UniqueViolation = PostgresErrorCodes.UniqueViolation;
     private const string CheckViolation = PostgresErrorCodes.CheckViolation;
-    private const string OwnerKey = "fk_areas_teams_project_id_owner_team_id";
-    private const string DefaultKey = "fk_areas_teams_project_id_default_of_team_id";
+    private const string DefaultTeamKey = "fk_projects_teams_id_default_team_id";
     private const string ParentKey = "fk_areas_areas_project_id_parent_id";
 
     // @org, @project, @first, @second, @root, @secondArea, @process are bound from a fresh structure.
@@ -49,33 +51,21 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
         },
         {
             "BR-M1-1: an active team name in the project",
-            "INSERT INTO teams (id, project_id, name, normalized_name, status, is_first_team) "
-            + "SELECT gen_random_uuid(), project_id, name, normalized_name, 'Active', false FROM teams WHERE id = @second",
+            "INSERT INTO teams (id, project_id, name, normalized_name, status) "
+            + "SELECT gen_random_uuid(), project_id, name, normalized_name, 'Active' FROM teams WHERE id = @second",
             "ix_teams_project_id_normalized_name"
         },
         {
-            "BR-M1-9: a second first team",
-            "INSERT INTO teams (id, project_id, name, normalized_name, status, is_first_team) "
-            + "VALUES (gen_random_uuid(), @project, 'Иная', 'ИНАЯ', 'Active', true)",
-            "ix_teams_project_id_first_team"
-        },
-        {
             "BR-M1-12: a sibling name",
-            "INSERT INTO areas (id, project_id, parent_id, name, normalized_name, owner_team_id, default_of_team_id) "
-            + "SELECT gen_random_uuid(), project_id, parent_id, name, normalized_name, NULL, NULL FROM areas WHERE id = @secondArea",
+            "INSERT INTO areas (id, project_id, parent_id, name, normalized_name) "
+            + "SELECT gen_random_uuid(), project_id, parent_id, name, normalized_name FROM areas WHERE id = @secondArea",
             "ix_areas_parent_id_normalized_name"
         },
         {
             "BR-M1-11: a second root",
-            "INSERT INTO areas (id, project_id, parent_id, name, normalized_name, owner_team_id, default_of_team_id) "
-            + "VALUES (gen_random_uuid(), @project, NULL, 'Второй корень', 'ВТОРОЙ КОРЕНЬ', @first, NULL)",
+            "INSERT INTO areas (id, project_id, parent_id, name, normalized_name) "
+            + "VALUES (gen_random_uuid(), @project, NULL, 'Второй корень', 'ВТОРОЙ КОРЕНЬ')",
             "ix_areas_project_id_root"
-        },
-        {
-            "BR-M1-14: a second default area of one team",
-            "INSERT INTO areas (id, project_id, parent_id, name, normalized_name, owner_team_id, default_of_team_id) "
-            + "VALUES (gen_random_uuid(), @project, @root, 'Второе', 'ВТОРОЕ', @second, @second)",
-            "ix_areas_default_of_team_id"
         },
     };
 
@@ -89,10 +79,7 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
         { "a one-character key", "UPDATE projects SET key = 'P' WHERE id = @project", "ck_projects_key_format" },
         { "an unknown team status", "UPDATE teams SET status = 'Deactivated' WHERE id = @second", "ck_teams_status" },
         { "an empty team name", "UPDATE teams SET name = '' WHERE id = @second", "ck_teams_name_length" },
-        { "a deleted first team", "UPDATE teams SET status = 'Deleted' WHERE id = @first", "ck_teams_first_team_active" },
         { "an empty area name", "UPDATE areas SET name = '' WHERE id = @secondArea", "ck_areas_name_length" },
-        { "a default area owned by another team", "UPDATE areas SET owner_team_id = @first WHERE id = @secondArea", "ck_areas_default_owned" },
-        { "a root with no owner", "UPDATE areas SET owner_team_id = NULL, default_of_team_id = NULL WHERE id = @root", "ck_areas_root_owned" },
     };
 
     // The expected key, or either of two when the row is referenced from two tables.
@@ -108,28 +95,31 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
         },
         { "an organization with projects", "DELETE FROM organizations WHERE id = @org", "fk_projects_organizations_organization_id" },
         { "a project with teams and areas", "DELETE FROM projects WHERE id = @project", "fk_teams_projects_project_id|fk_areas_projects_project_id" },
-        { "a team that owns areas", "DELETE FROM teams WHERE id = @second", $"{OwnerKey}|{DefaultKey}" },
+        {
+            "a team the project names as its default",
+            "UPDATE projects SET default_team_id = @second WHERE id = @project; DELETE FROM teams WHERE id = @second",
+            "fk_teams_projects_project_id|" + DefaultTeamKey
+        },
         { "an area with children", "DELETE FROM areas WHERE id = @root", ParentKey },
     };
 
-    // qa.md D-1 (BR-M1-22): an area's owner and parent belong to the area's own project. @leaf is a child of A's root with
-    // no owner; @otherTeam and @otherRoot are of another organization's project, @siblingTeam and @siblingRoot of another
-    // project in A's organization. The default key needs no case of its own: ck_areas_default_owned makes it the owner.
+    // qa.md D-1 (BR-M1-22): an area's parent belongs to the area's own project, and a project's default team is a team of that
+    // project (mod-017 BR-OT-4). @otherRoot and @otherTeam are of another organization's project, @siblingRoot and @siblingTeam
+    // of another project in A's organization.
     public static TheoryData<string, string, string> CrossProjectReferences() => new()
     {
-        { "an area owned by another organization's team", InsertAreaUnder("@root", "@otherTeam"), OwnerKey },
-        { "an area under another organization's area", InsertAreaUnder("@otherRoot", "NULL"), ParentKey },
-        { "an area re-owned to another organization's team", ReownLeafTo("@otherTeam"), OwnerKey },
-        { "an area owned by another project's team in the organization", InsertAreaUnder("@root", "@siblingTeam"), OwnerKey },
-        { "an area under another project's area in the organization", InsertAreaUnder("@siblingRoot", "NULL"), ParentKey },
+        { "an area under another organization's area", InsertAreaUnder("@otherRoot"), ParentKey },
+        { "an area under another project's area in the organization", InsertAreaUnder("@siblingRoot"), ParentKey },
+        { "a project naming another organization's team as its default", NameDefault("@otherTeam"), DefaultTeamKey },
+        { "a project naming another project's team of the organization as its default", NameDefault("@siblingTeam"), DefaultTeamKey },
     };
 
-    // The controls of the cases above: the same statements with the team or the parent of the area's own project.
+    // The controls of the cases above: the same statements with the parent or the team of the row's own project.
     public static TheoryData<string, string> SameProjectReferences() => new()
     {
-        { "an area owned by its project's team", InsertAreaUnder("@root", "@second") },
-        { "an area under its project's area", InsertAreaUnder("@secondArea", "NULL") },
-        { "an area re-owned to its project's team", ReownLeafTo("@second") },
+        { "an area under its project's area", InsertAreaUnder("@secondArea") },
+        { "a project naming its own team as its default", NameDefault("@second") },
+        { "a project naming no default", NameDefault("NULL") },
     };
 
     [Theory]
@@ -177,11 +167,10 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
     {
         var parameters = await ParametersAsync();
 
-        await database.ExecuteAsync("UPDATE areas SET owner_team_id = @first, default_of_team_id = NULL WHERE owner_team_id = @second", parameters);
         await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @second", parameters);
         await database.ExecuteAsync(
-            "INSERT INTO teams (id, project_id, name, normalized_name, status, is_first_team) "
-            + "SELECT gen_random_uuid(), project_id, name, normalized_name, 'Active', false FROM teams WHERE id = @second",
+            "INSERT INTO teams (id, project_id, name, normalized_name, status) "
+            + "SELECT gen_random_uuid(), project_id, name, normalized_name, 'Active' FROM teams WHERE id = @second",
             parameters);
     }
 
@@ -192,21 +181,43 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
         var parameters = await ParametersAsync();
 
         await database.ExecuteAsync(
-            "INSERT INTO areas (id, project_id, parent_id, name, normalized_name, owner_team_id, default_of_team_id) "
-            + "SELECT gen_random_uuid(), project_id, @secondArea, name, normalized_name, NULL, NULL FROM areas WHERE id = @root",
+            "INSERT INTO areas (id, project_id, parent_id, name, normalized_name) "
+            + "SELECT gen_random_uuid(), project_id, @secondArea, name, normalized_name FROM areas WHERE id = @root",
             parameters);
         await database.ExecuteAsync(
-            "INSERT INTO areas (id, project_id, parent_id, name, normalized_name, owner_team_id, default_of_team_id) "
-            + "SELECT gen_random_uuid(), project_id, @root, name, normalized_name, NULL, NULL FROM areas WHERE id = @root",
+            "INSERT INTO areas (id, project_id, parent_id, name, normalized_name) "
+            + "SELECT gen_random_uuid(), project_id, @root, name, normalized_name FROM areas WHERE id = @root",
             parameters);
     }
 
+    // mod-017 BR-OT-11: no team is the first, so a project's team goes like any other — the database holds no marker that
+    // forbids it (the first-team check and index are gone).
+    [Fact]
+    public async Task Update_AnyTeamDeleted_IsAllowed_TheProjectsOwnTeamIncluded()
+    {
+        var parameters = await ParametersAsync();
+
+        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @first", parameters);
+    }
+
+    // mod-017 BR-OT-10: the owner and default columns of an area, and the first-team marker of a team, are gone.
+    [Fact]
+    public async Task Schema_HasNoAreaOwnerNoDefaultOfTeamAndNoFirstTeamMarker()
+    {
+        var columns = await database.QueryAsync(
+            "SELECT table_name || '.' || column_name FROM information_schema.columns "
+            + "WHERE (table_name = 'areas' AND column_name IN ('owner_team_id', 'default_of_team_id')) "
+            + "OR (table_name = 'teams' AND column_name = 'is_first_team')");
+
+        Assert.Empty(columns);
+    }
+
     // qa.md D-1 (BR-M1-22, ADR-0011): nothing in one project refers to a team or an area of another, so the database refuses
-    // it on its own. The keys of areas to teams and to the parent area are composite, (project_id, …) onto (project_id, id);
-    // keys on id alone accepted each of these rows. Rolled back, so the row outlives the test neither way.
+    // it on its own. The keys of areas to the parent area and of projects to their default team are composite, (project_id, …)
+    // onto (project_id, id); keys on id alone accepted each of these rows. Rolled back, so the row outlives the test neither way.
     [Theory]
     [MemberData(nameof(CrossProjectReferences))]
-    public async Task Write_AreaReferringToAnotherProject_IsRefusedByItsCompositeKey(string what, string sql, string key)
+    public async Task Write_RowReferringToAnotherProject_IsRefusedByItsCompositeKey(string what, string sql, string key)
     {
         var parameters = await CrossProjectParametersAsync();
 
@@ -220,7 +231,7 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
 
     [Theory]
     [MemberData(nameof(SameProjectReferences))]
-    public async Task Write_AreaReferringToItsOwnProject_IsAllowed(string what, string sql)
+    public async Task Write_RowReferringToItsOwnProject_IsAllowed(string what, string sql)
     {
         var parameters = await CrossProjectParametersAsync();
 
@@ -229,34 +240,33 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
         Assert.True(rows == 1, $"{what}: expected one row written, got {rows}");
     }
 
-    private static string InsertAreaUnder(string parent, string owner) =>
-        "INSERT INTO areas (id, project_id, parent_id, name, normalized_name, owner_team_id, default_of_team_id) "
-        + $"VALUES (gen_random_uuid(), @project, {parent}, 'Чужая', 'ЧУЖАЯ', {owner}, NULL)";
+    private static string InsertAreaUnder(string parent) =>
+        "INSERT INTO areas (id, project_id, parent_id, name, normalized_name) "
+        + $"VALUES (gen_random_uuid(), @project, {parent}, 'Чужая', 'ЧУЖАЯ')";
 
-    private static string ReownLeafTo(string owner) => $"UPDATE areas SET owner_team_id = {owner} WHERE id = @leaf";
+    private static string NameDefault(string team) => $"UPDATE projects SET default_team_id = {team} WHERE id = @project";
 
     /// <summary>
-    /// Structure A (the area's), a leaf of A's root, structure B of another organization, and a second project in A's
-    /// organization, as qa.md D-1's steps build them.
+    /// Structure A (the row's), a plain area «Платформа» under its root, structure B of another organization, and a second
+    /// project in A's organization, as qa.md D-1's steps build them.
     /// </summary>
     private async Task<(string Name, object Value)[]> CrossProjectParametersAsync()
     {
         var structure = await database.CreateStructureAsync();
         var other = await database.CreateStructureAsync();
         var sibling = await database.AddProjectAsync(structure.Organization.Id, "Соседний проект", "SIB");
-        var leaf = Area.CreateChild(structure.Project.Root, OrganizationsDatabaseFixture.Name("Лист"), ownerTeam: null);
-        await database.AddAreasAsync(leaf);
+        var secondArea = Area.CreateChild(structure.Project.Root, OrganizationsDatabaseFixture.Name("Платформа"));
+        await database.AddAreasAsync(secondArea);
 
         return
         [
             ("project", structure.Project.Project.Id),
-            ("second", structure.SecondTeam.Team.Id),
+            ("second", structure.SecondTeam.Id),
             ("root", structure.Project.Root.Id),
-            ("secondArea", structure.SecondTeam.Area.Id),
-            ("leaf", leaf.Id),
-            ("otherTeam", other.SecondTeam.Team.Id),
+            ("secondArea", secondArea.Id),
+            ("otherTeam", other.SecondTeam.Id),
             ("otherRoot", other.Project.Root.Id),
-            ("siblingTeam", sibling.FirstTeam.Id),
+            ("siblingTeam", sibling.Team.Id),
             ("siblingRoot", sibling.Root.Id),
         ];
     }
@@ -284,6 +294,8 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
     {
         var structure = await database.CreateStructureAsync();
         var otherOrganization = Guid.CreateVersion7();
+        var secondArea = Area.CreateChild(structure.Project.Root, OrganizationsDatabaseFixture.Name("Платформа"));
+        await database.AddAreasAsync(secondArea);
 
         // A process of its own for the organization-name duplicate, so only the name index can fire.
         await using var provider = database.BuildServices();
@@ -296,10 +308,10 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
             ("otherProcess", otherProcess.Value),
             ("bareProcess", Guid.CreateVersion7()),
             ("project", structure.Project.Project.Id),
-            ("first", structure.Project.FirstTeam.Id),
-            ("second", structure.SecondTeam.Team.Id),
+            ("first", structure.Project.Team.Id),
+            ("second", structure.SecondTeam.Id),
             ("root", structure.Project.Root.Id),
-            ("secondArea", structure.SecondTeam.Area.Id),
+            ("secondArea", secondArea.Id),
         ];
     }
 }

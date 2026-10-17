@@ -32,7 +32,7 @@ public sealed class MoveAreaHandlerTests
 
         public NewProject Project { get; }
 
-        public NewTeam Platform { get; }
+        public Team Platform { get; }
 
         public MoveAreaHandler Handler { get; }
 
@@ -48,7 +48,7 @@ public sealed class MoveAreaHandlerTests
         public AreaTree Tree() =>
             new(Store.Areas
                 .Where(area => area.ProjectId == Project.Project.Id)
-                .Select(area => new AreaNode(area.Id, area.ParentId, area.Name, area.OwnerTeamId, area.DefaultOfTeamId)));
+                .Select(area => new AreaNode(area.Id, area.ParentId, area.Name)));
     }
 
     // US-5 · "A node moves with its whole subtree": «Отчёты» with «Квартальные» and «Годовые» is moved under «Архив».
@@ -63,7 +63,7 @@ public sealed class MoveAreaHandlerTests
 
         var moved = await f.HandleAsync(f.Command(reports, archive));
 
-        Assert.Equal(new AreaResponse(reports.Id, f.Project.Project.Id, archive.Id, "Отчёты", null), moved.Response);
+        Assert.Equal(new AreaResponse(reports.Id, f.Project.Project.Id, archive.Id, "Отчёты"), moved.Response);
         var tree = f.Tree();
         Assert.Equal("Архив / Отчёты / Квартальные", tree.PathOf(quarterly.Id));
         Assert.Equal("Архив / Отчёты / Годовые", tree.PathOf(yearly.Id));
@@ -282,28 +282,28 @@ public sealed class MoveAreaHandlerTests
 
         var moved = await f.HandleAsync(f.Command(quarterly, reports));
 
-        Assert.Equal(new AreaResponse(quarterly.Id, f.Project.Project.Id, reports.Id, "Квартальные", null), moved.Response);
+        Assert.Equal(new AreaResponse(quarterly.Id, f.Project.Project.Id, reports.Id, "Квартальные"), moved.Response);
         Assert.Equal(reports.Id, quarterly.ParentId);
         Assert.Equal(0, f.Store.SaveCount);
     }
 
-    // US-6 · "A move re-resolves inherited owners and keeps explicit ones": «Отчёты» has no explicit owner, its child
-    // «Квартальные» is owned explicitly by the first team; «Отчёты» moves under «Платформа», the team's area.
+    // mod-017 US-5 · "moving an area moves no item and decides no team" (BR-OT-10): a move changes the parent and the paths
+    // beneath it, and that is all — it locks no team and the project's teams are as they were. Replaces
+    // Handle_ReResolvesInheritedOwners_KeepsExplicitOnes (retired, BR-OT-10).
     [Fact]
-    public async Task Handle_ReResolvesInheritedOwners_KeepsExplicitOnes()
+    public async Task Handle_MovesTheSubtree_TouchesNoTeam()
     {
         var f = new Fixture();
         var reports = f.Store.AddArea(f.Root, "Отчёты");
-        var quarterly = f.Store.AddArea(reports, "Квартальные", f.Project.FirstTeam);
-        Assert.Equal(new ResolvedOwner(f.Project.FirstTeam.Id, true), f.Tree().ResolveOwner(reports.Id));
+        var quarterly = f.Store.AddArea(reports, "Квартальные");
+        var archive = f.Store.AddArea(f.Root, "Архив");
+        var teams = f.Store.Teams.Select(team => (team.Id, team.Name, team.Status)).ToList();
 
-        await f.HandleAsync(f.Command(reports, f.Platform.Area));
+        await f.HandleAsync(f.Command(reports, archive));
 
-        var tree = f.Tree();
-        Assert.Equal(new ResolvedOwner(f.Platform.Team.Id, true), tree.ResolveOwner(reports.Id));
-        Assert.Equal(new ResolvedOwner(f.Project.FirstTeam.Id, false), tree.ResolveOwner(quarterly.Id));
-        Assert.Null(reports.OwnerTeamId);
-        Assert.Equal(f.Project.FirstTeam.Id, quarterly.OwnerTeamId);
+        Assert.Equal("Архив / Отчёты / Квартальные", f.Tree().PathOf(quarterly.Id));
+        Assert.Equal(teams, f.Store.Teams.Select(team => (team.Id, team.Name, team.Status)).ToList());
+        Assert.DoesNotContain(f.Store.Calls, call => call.StartsWith("lock team", StringComparison.Ordinal));
     }
 
     // plan-backend § 8.2: the project row, then the area FOR UPDATE and the parent FOR SHARE in ascending id order, then

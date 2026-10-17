@@ -44,12 +44,12 @@ public sealed class MembershipRepositoriesTests(OrganizationsDatabaseFixture dat
     {
         var structure = await database.CreateStructureAsync();
         await database.AddMemberAsync(structure.Organization.Id, "u-repo");
-        await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Team.Id, "u-repo");
+        await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Id, "u-repo");
 
         var refusal = await Assert.ThrowsAsync<ConflictException>(() => InUnitOfWorkAsync(async (scope, ct) =>
         {
             var teamMemberships = scope.ServiceProvider.GetRequiredService<ITeamMembershipRepository>();
-            teamMemberships.Add(TeamMembership.Add(structure.SecondTeam.Team.Id, structure.Organization.Id, "u-repo"));
+            teamMemberships.Add(TeamMembership.Add(structure.SecondTeam.Id, structure.Organization.Id, "u-repo"));
             await teamMemberships.SaveAsync(ct);
 
             return true;
@@ -67,7 +67,7 @@ public sealed class MembershipRepositoriesTests(OrganizationsDatabaseFixture dat
         var refusal = await Assert.ThrowsAsync<ConflictException>(() => InUnitOfWorkAsync(async (scope, ct) =>
         {
             var teamMemberships = scope.ServiceProvider.GetRequiredService<ITeamMembershipRepository>();
-            teamMemberships.Add(TeamMembership.Add(structure.SecondTeam.Team.Id, structure.Organization.Id, "u-removed"));
+            teamMemberships.Add(TeamMembership.Add(structure.SecondTeam.Id, structure.Organization.Id, "u-removed"));
             await teamMemberships.SaveAsync(ct);
 
             return true;
@@ -82,7 +82,7 @@ public sealed class MembershipRepositoriesTests(OrganizationsDatabaseFixture dat
     {
         var structure = await database.CreateStructureAsync();
         await database.AddMemberAsync(structure.Organization.Id, "u-repo");
-        await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Team.Id, "u-repo");
+        await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Id, "u-repo");
 
         var first = await InUnitOfWorkAsync((scope, ct) =>
             scope.ServiceProvider.GetRequiredService<IMembershipRepository>().DeleteAsync(structure.Organization.Id, "u-repo", ct));
@@ -127,7 +127,7 @@ public sealed class MembershipRepositoriesTests(OrganizationsDatabaseFixture dat
         var other = await database.CreateStructureAsync();
         await database.AddMemberAsync(structure.Organization.Id, "u-repo");
         await database.AddMemberAsync(other.Organization.Id, "u-other");
-        await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Team.Id, "u-repo");
+        await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Id, "u-repo");
 
         var result = await InUnitOfWorkAsync(async (scope, ct) =>
         {
@@ -139,8 +139,8 @@ public sealed class MembershipRepositoriesTests(OrganizationsDatabaseFixture dat
                 await memberships.ExistsAsync(structure.Organization.Id, "u-repo", ct),
                 await memberships.ExistsAsync(structure.Organization.Id, "u-other", ct),
                 await memberships.ExistsAsync(other.Organization.Id, "u-repo", ct),
-                await teamMemberships.ExistsAsync(structure.SecondTeam.Team.Id, "u-repo", ct),
-                await teamMemberships.ExistsAsync(structure.Project.FirstTeam.Id, "u-repo", ct),
+                await teamMemberships.ExistsAsync(structure.SecondTeam.Id, "u-repo", ct),
+                await teamMemberships.ExistsAsync(structure.Project.Team.Id, "u-repo", ct),
             };
         });
 
@@ -185,20 +185,20 @@ public sealed class MembershipRepositoriesTests(OrganizationsDatabaseFixture dat
         var structure = await database.CreateStructureAsync();
         await database.AddMemberAsync(structure.Organization.Id, "u-1");
         await database.AddMemberAsync(structure.Organization.Id, "u-2");
-        await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Team.Id, "u-1");
-        await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Team.Id, "u-2");
-        await database.AddTeamMemberAsync(structure.Organization.Id, structure.Project.FirstTeam.Id, "u-1");
+        await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Id, "u-1");
+        await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Id, "u-2");
+        await database.AddTeamMemberAsync(structure.Organization.Id, structure.Project.Team.Id, "u-1");
 
         await InUnitOfWorkAsync(async (scope, ct) =>
         {
-            await scope.ServiceProvider.GetRequiredService<ITeamMembershipRepository>().EndAllAsync(structure.SecondTeam.Team.Id, ct);
+            await scope.ServiceProvider.GetRequiredService<ITeamMembershipRepository>().EndAllAsync(structure.SecondTeam.Id, ct);
 
             return true;
         });
 
         var remaining = await database.QueryAsync(
             "SELECT team_id::text || '/' || user_id FROM team_memberships WHERE organization_id = @org", ("org", structure.Organization.Id));
-        Assert.Equal([$"{structure.Project.FirstTeam.Id}/u-1"], remaining);
+        Assert.Equal([$"{structure.Project.Team.Id}/u-1"], remaining);
     }
 
     [Fact]
@@ -206,7 +206,7 @@ public sealed class MembershipRepositoriesTests(OrganizationsDatabaseFixture dat
     {
         var structure = await database.CreateStructureAsync();
         await database.AddMemberAsync(structure.Organization.Id, "u-1");
-        await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Team.Id, "u-1");
+        await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Id, "u-1");
 
         var result = await InUnitOfWorkAsync(async (scope, ct) =>
         {
@@ -214,9 +214,9 @@ public sealed class MembershipRepositoriesTests(OrganizationsDatabaseFixture dat
 
             return new[]
             {
-                await teamMemberships.DeleteAsync(structure.Project.FirstTeam.Id, "u-1", ct),
-                await teamMemberships.DeleteAsync(structure.SecondTeam.Team.Id, "u-1", ct),
-                await teamMemberships.DeleteAsync(structure.SecondTeam.Team.Id, "u-1", ct),
+                await teamMemberships.DeleteAsync(structure.Project.Team.Id, "u-1", ct),
+                await teamMemberships.DeleteAsync(structure.SecondTeam.Id, "u-1", ct),
+                await teamMemberships.DeleteAsync(structure.SecondTeam.Id, "u-1", ct),
             };
         });
 
@@ -230,18 +230,17 @@ public sealed class MembershipRepositoriesTests(OrganizationsDatabaseFixture dat
     {
         var structure = await database.CreateStructureAsync();
         var projectId = structure.Project.Project.Id;
-        var analytics = Team.CreateWithArea(projectId, OrganizationsDatabaseFixture.Name("Аналитика"), structure.Project.Root);
+        var analytics = Team.Create(projectId, OrganizationsDatabaseFixture.Name("Аналитика"));
         await using (var context = database.NewContext())
         {
-            context.Teams.Add(analytics.Team);
-            context.Areas.Add(analytics.Area);
+            context.Teams.Add(analytics);
             await context.SaveChangesAsync();
         }
 
         await database.AddMemberAsync(structure.Organization.Id, "u-me");
         await database.AddMemberAsync(structure.Organization.Id, "u-you");
-        await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Team.Id, "u-me");
-        await database.AddTeamMemberAsync(structure.Organization.Id, analytics.Team.Id, "u-you");
+        await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Id, "u-me");
+        await database.AddTeamMemberAsync(structure.Organization.Id, analytics.Id, "u-you");
 
         var counter = new CommandCountingInterceptor();
         await using var provider = database.BuildServices(counter);
@@ -254,8 +253,8 @@ public sealed class MembershipRepositoriesTests(OrganizationsDatabaseFixture dat
         var nobody = await readModel.ListActiveAsync(structure.Organization.Id, projectId, "u-nobody", CancellationToken.None);
 
         Assert.Equal(1, statements);
-        Assert.Equal([("Пример проекта", false), ("Аналитика", false), ("Платформа", true)], mine.Select(team => (team.Name, team.IsMember)));
-        Assert.Equal([("Пример проекта", false), ("Аналитика", true), ("Платформа", false)], yours.Select(team => (team.Name, team.IsMember)));
+        Assert.Equal([("Аналитика", false), ("Платформа", true), ("Пример проекта", false)], mine.Select(team => (team.Name, team.IsMember)));
+        Assert.Equal([("Аналитика", true), ("Платформа", false), ("Пример проекта", false)], yours.Select(team => (team.Name, team.IsMember)));
         Assert.All(nobody, team => Assert.False(team.IsMember));
     }
 
@@ -265,12 +264,12 @@ public sealed class MembershipRepositoriesTests(OrganizationsDatabaseFixture dat
     {
         var structure = await database.CreateStructureAsync();
         await database.AddMemberAsync(structure.Organization.Id, "u-me");
-        await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Team.Id, "u-me");
+        await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Id, "u-me");
         await using var provider = database.BuildServices();
         await using var scope = provider.CreateAsyncScope();
 
         var row = await scope.ServiceProvider.GetRequiredService<ITeamReadModel>()
-            .FindReachableAsync(structure.Organization.Id, structure.Project.Project.Id, structure.SecondTeam.Team.Id, CancellationToken.None);
+            .FindReachableAsync(structure.Organization.Id, structure.Project.Project.Id, structure.SecondTeam.Id, CancellationToken.None);
 
         Assert.False(row!.IsMember);
     }

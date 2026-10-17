@@ -3,28 +3,25 @@ using Mustask.Domain.Organizations;
 namespace Mustask.Domain.Tests.Organizations;
 
 /// <summary>
-/// The single definition of pre-order, path, depth, resolved owner and "self or
-/// descendant" (US-5, US-6, DC-9). The tree used below:
+/// The single definition of pre-order, path, depth and "self or descendant" (US-5, DC-9). The tree used below:
 /// <code>
-/// Пример проекта            owner: first, default of first
-///   Платформа               owner: platform, default of platform
-///     API                   inherited
-///       Шлюз                inherited
-///   Отчёты                  owner: first
-///     Квартальные           inherited
+/// Пример проекта
+///   Платформа
+///     API
+///       Шлюз
+///   Отчёты
+///     Квартальные
 /// </code>
+/// No node owns anything and no rule resolves a team through the tree (mod-017 BR-OT-10).
 /// </summary>
 public sealed class AreaTreeTests
 {
-    private static readonly Guid First = Guid.CreateVersion7();
-    private static readonly Guid Platform = Guid.CreateVersion7();
-
-    private static readonly AreaNode Root = new(Guid.CreateVersion7(), null, "Пример проекта", First, First);
-    private static readonly AreaNode PlatformArea = new(Guid.CreateVersion7(), Root.Id, "Платформа", Platform, Platform);
-    private static readonly AreaNode Api = new(Guid.CreateVersion7(), PlatformArea.Id, "API", null, null);
-    private static readonly AreaNode Gateway = new(Guid.CreateVersion7(), Api.Id, "Шлюз", null, null);
-    private static readonly AreaNode Reports = new(Guid.CreateVersion7(), Root.Id, "Отчёты", First, null);
-    private static readonly AreaNode Quarterly = new(Guid.CreateVersion7(), Reports.Id, "Квартальные", null, null);
+    private static readonly AreaNode Root = new(Guid.CreateVersion7(), null, "Пример проекта");
+    private static readonly AreaNode PlatformArea = new(Guid.CreateVersion7(), Root.Id, "Платформа");
+    private static readonly AreaNode Api = new(Guid.CreateVersion7(), PlatformArea.Id, "API");
+    private static readonly AreaNode Gateway = new(Guid.CreateVersion7(), Api.Id, "Шлюз");
+    private static readonly AreaNode Reports = new(Guid.CreateVersion7(), Root.Id, "Отчёты");
+    private static readonly AreaNode Quarterly = new(Guid.CreateVersion7(), Reports.Id, "Квартальные");
 
     // Siblings in the order given (display order is the reader's), children after their parent in any input order.
     private static AreaTree Tree() => new([Quarterly, Gateway, Root, PlatformArea, Reports, Api]);
@@ -60,30 +57,6 @@ public sealed class AreaTreeTests
         Assert.Equal(3, tree.DepthOf(Gateway.Id));
     }
 
-    // US-6 · "An area with no explicit owner inherits from its nearest owned ancestor".
-    [Fact]
-    public void ResolveOwner_InheritsFromTheNearestOwnedAncestor()
-    {
-        var tree = Tree();
-
-        Assert.Equal(new ResolvedOwner(Platform, IsInherited: false), tree.ResolveOwner(PlatformArea.Id));
-        Assert.Equal(new ResolvedOwner(Platform, IsInherited: true), tree.ResolveOwner(Api.Id));
-        Assert.Equal(new ResolvedOwner(Platform, IsInherited: true), tree.ResolveOwner(Gateway.Id));
-        Assert.Equal(new ResolvedOwner(First, IsInherited: true), tree.ResolveOwner(Quarterly.Id));
-        Assert.Equal(new ResolvedOwner(First, IsInherited: false), tree.ResolveOwner(Root.Id));
-    }
-
-    // US-6 · "every node shows exactly one owning team; at the latest, a node inherits the root's owner".
-    [Fact]
-    public void ResolveOwner_NodeWithNoOwnedAncestorBelowTheRoot_FallsBackToTheRootsOwner()
-    {
-        var child = new AreaNode(Guid.CreateVersion7(), Root.Id, "Архив", null, null);
-        var grandchild = new AreaNode(Guid.CreateVersion7(), child.Id, "2025", null, null);
-        var tree = new AreaTree([Root, child, grandchild]);
-
-        Assert.Equal(new ResolvedOwner(First, IsInherited: true), tree.ResolveOwner(grandchild.Id));
-    }
-
     // US-5 · "A node is never moved under itself or its descendant" (BR-M1-12).
     [Fact]
     public void IsSelfOrDescendant_IsTrueForTheNodeAndItsSubtreeOnly()
@@ -114,12 +87,12 @@ public sealed class AreaTreeTests
     [Fact]
     public void Construction_RefusesNodesThatAreNotOneTree()
     {
-        var orphan = new AreaNode(Guid.CreateVersion7(), Guid.CreateVersion7(), "Сирота", null, null);
-        var secondRoot = new AreaNode(Guid.CreateVersion7(), null, "Второй", First, First);
+        var orphan = new AreaNode(Guid.CreateVersion7(), Guid.CreateVersion7(), "Сирота");
+        var secondRoot = new AreaNode(Guid.CreateVersion7(), null, "Второй");
         var a = Guid.CreateVersion7();
         var b = Guid.CreateVersion7();
-        var cycleA = new AreaNode(a, b, "А", null, null);
-        var cycleB = new AreaNode(b, a, "Б", null, null);
+        var cycleA = new AreaNode(a, b, "А");
+        var cycleB = new AreaNode(b, a, "Б");
 
         Assert.Throws<ArgumentException>(() => new AreaTree([]));
         Assert.Throws<ArgumentException>(() => new AreaTree([Root, orphan]));
@@ -135,7 +108,6 @@ public sealed class AreaTreeTests
         var unknown = Guid.CreateVersion7();
 
         Assert.Throws<KeyNotFoundException>(() => tree.PathOf(unknown));
-        Assert.Throws<KeyNotFoundException>(() => tree.ResolveOwner(unknown));
         Assert.Throws<KeyNotFoundException>(() => tree.IsSelfOrDescendant(Root.Id, unknown));
     }
 
@@ -147,13 +119,12 @@ public sealed class AreaTreeTests
 
         for (var level = 0; level < 10_000; level++)
         {
-            nodes.Add(new AreaNode(Guid.CreateVersion7(), nodes[^1].Id, $"Уровень {level}", null, null));
+            nodes.Add(new AreaNode(Guid.CreateVersion7(), nodes[^1].Id, $"Уровень {level}"));
         }
 
         var tree = new AreaTree(nodes);
 
         Assert.Equal(nodes.Count, tree.PreOrder().Count);
         Assert.Equal(10_000, tree.DepthOf(nodes[^1].Id));
-        Assert.Equal(new ResolvedOwner(First, IsInherited: true), tree.ResolveOwner(nodes[^1].Id));
     }
 }

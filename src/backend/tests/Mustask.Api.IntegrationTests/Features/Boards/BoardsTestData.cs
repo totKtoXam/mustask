@@ -24,23 +24,25 @@ internal static class BoardsTestData
         var items = new WorkItemsWorld(organization.Id, project.Project.Id, project.Root.Id, "MSK", types);
 
         var platform = await OrganizationsTestData.AddTeamAsync(factory, project.Project.Id, "Платформа");
-        var api = await OrganizationsTestData.AddAreaAsync(factory, project.Project.Id, platform.Area.Id, "API");
+        var platformArea = await OrganizationsTestData.AddAreaAsync(factory, project.Project.Id, project.Root.Id, "Платформа");
+        var api = await OrganizationsTestData.AddAreaAsync(factory, project.Project.Id, platformArea.Id, "API");
         var reports = await OrganizationsTestData.AddAreaAsync(factory, project.Project.Id, project.Root.Id, "Отчёты");
 
         // The world was built when the root belonged to the first team: it is now the project's default team, so an item created
         // with no team (mod-017 BR-OT-3) starts where the root would have put it (the stories keep their meaning).
         await WorkItemsTestData.ExecuteAsync(
-            factory, $"UPDATE projects SET default_team_id = {project.FirstTeam.Id} WHERE id = {project.Project.Id}");
+            factory, $"UPDATE projects SET default_team_id = {project.Team.Id} WHERE id = {project.Project.Id}");
 
-        return new BoardsWorld(items, project.FirstTeam.Id, platform.Team.Id, platform.Area.Id, api.Id, reports.Id);
+        return new BoardsWorld(items, project.Team.Id, platform.Id, platformArea.Id, api.Id, reports.Id);
     }
 
-    /// <summary>A further team with its own default area under the root (US-1 «Аналитика»).</summary>
+    /// <summary>A further team and an area of its name under the root (US-1 «Аналитика»); the team owns no area, the world keeps one for the stories.</summary>
     public static async Task<(Guid TeamId, Guid AreaId)> AddTeamAsync(MustaskApiFactory factory, BoardsWorld world, string name)
     {
         var team = await OrganizationsTestData.AddTeamAsync(factory, world.ProjectId, name);
+        var area = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, world.RootAreaId, name);
 
-        return (team.Team.Id, team.Area.Id);
+        return (team.Id, area.Id);
     }
 
     public static string Team(BoardsWorld world, Guid teamId) =>
@@ -77,7 +79,7 @@ internal static class BoardsTestData
     /// with no owner of its own; «Мастаск», the first team, for the root and for «Отчёты».
     /// </summary>
     public static Guid OwnerOf(BoardsWorld world, Guid? areaId) =>
-        areaId == world.PlatformAreaId || areaId == world.ApiAreaId ? world.PlatformId : world.FirstTeamId;
+        areaId == world.PlatformAreaId || areaId == world.ApiAreaId ? world.PlatformId : world.ProjectTeamId;
 
     /// <summary>Sets an item's owning team with SQL (mod-017): the team views hold what the team owns.</summary>
     public static Task OwnedByAsync(MustaskApiFactory factory, Item item, Guid? teamId) =>
@@ -190,7 +192,7 @@ internal static class BoardsTestData
 /// <summary>US-1's world: the work items' world and the teams and areas of the stories.</summary>
 internal sealed record BoardsWorld(
     WorkItemsWorld Items,
-    Guid FirstTeamId,
+    Guid ProjectTeamId,
     Guid PlatformId,
     Guid PlatformAreaId,
     Guid ApiAreaId,

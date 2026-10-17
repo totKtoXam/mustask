@@ -9,8 +9,8 @@ namespace Mustask.Application.Features.Organizations.MoveArea;
 /// <c>PUT /api/organizations/{organizationId}/projects/{projectId}/areas/{areaId}/parent</c>
 /// (US-5 "A node moves with its whole subtree", "A move needs a free name at its
 /// destination", "A node is never moved under itself or its descendant", "A node
-/// never leaves its project"; US-6 "A move re-resolves inherited owners and keeps
-/// explicit ones"). Follows the reference use case <c>CreateArea</c>.
+/// never leaves its project"; mod-017 BR-OT-10: a move changes no item's team, as an area
+/// owns none). Follows the reference use case <c>CreateArea</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -33,8 +33,8 @@ namespace Mustask.Application.Features.Organizations.MoveArea;
 /// </para>
 /// <para>
 /// <b>What a move changes</b> is one column of one row: the subtree goes with it
-/// because every descendant keeps its own parent, and an inherited owner
-/// re-resolves by itself, because it is never stored (US-6, <see cref="AreaTree"/>).
+/// because every descendant keeps its own parent; no owner is stored or resolved, and
+/// no item changes its team (mod-017 BR-OT-10, <see cref="AreaTree"/>).
 /// </para>
 /// </remarks>
 public sealed class MoveAreaHandler(
@@ -140,5 +140,5 @@ public sealed class MoveAreaHandler(
     }
 
     private static MoveAreaResult Result(Area area, Area parent) =>
-        new(new AreaResponse(area.Id, area.ProjectId, parent.Id, area.Name, area.OwnerTeamId));
+        new(new AreaResponse(area.Id, area.ProjectId, parent.Id, area.Name));
 }

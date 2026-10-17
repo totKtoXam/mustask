@@ -1,17 +1,13 @@
-using Mustask.Shared.Errors;
 using Mustask.Shared.Exceptions;
 
 namespace Mustask.Domain.Organizations;
 
 /// <summary>
-/// A node of a project's area tree (US-5, US-6). The root comes with the
-/// project, is named after it, is owned by the first team for good and is
-/// never moved, re-owned or deleted (BR-M1-11). Every other node has a parent
-/// in the same project, a name unique among its siblings (BR-M1-12), and an
-/// explicit owner or none, in which case it inherits from the nearest owned
-/// ancestor (<see cref="AreaTree.ResolveOwner"/>). A team's default area is
-/// marked on the area itself and is always owned explicitly by that team
-/// (BR-M1-14). Areas have no status: an empty leaf is removed outright.
+/// A node of a project's area tree (US-5, US-6): a classification path of a work item's «Область» until
+/// <c>mod-018-area-workspace</c> (mod-017 BR-OT-10). The root comes with the project, is named after it and is never moved or
+/// deleted (BR-M1-11). Every other node has a parent in the same project and a name unique among its siblings (BR-M1-12). An area
+/// owns nothing and decides no team: it has no owner, a team has no default area, and no rule resolves a team through the tree.
+/// Areas have no status: an empty leaf is removed outright.
 /// </summary>
 public sealed class Area
 {
@@ -20,15 +16,13 @@ public sealed class Area
         // EF materialization.
     }
 
-    private Area(Guid id, Guid projectId, Guid? parentId, EntityName name, Guid? ownerTeamId, Guid? defaultOfTeamId)
+    private Area(Guid id, Guid projectId, Guid? parentId, EntityName name)
     {
         Id = id;
         ProjectId = projectId;
         ParentId = parentId;
         Name = name.Value;
         NormalizedName = name.Normalized;
-        OwnerTeamId = ownerTeamId;
-        DefaultOfTeamId = defaultOfTeamId;
     }
 
     public Guid Id { get; private set; }
@@ -42,40 +36,21 @@ public sealed class Area
 
     public string NormalizedName { get; private set; } = null!;
 
-    /// <summary>The explicit owner; <c>null</c> means the owner is inherited. Never <c>null</c> on the root.</summary>
-    public Guid? OwnerTeamId { get; private set; }
-
-    /// <summary>The team whose default area this is, or <c>null</c>. Equals <see cref="OwnerTeamId"/> when set (BR-M1-14).</summary>
-    public Guid? DefaultOfTeamId { get; private set; }
-
     public bool IsRoot => ParentId is null;
 
     /// <summary>
-    /// A new child of <paramref name="parent"/> (US-5), owned explicitly by
-    /// <paramref name="ownerTeam"/> or by nobody, so that it inherits (US-6).
-    /// The caller has resolved the owner as an active team of the parent's
-    /// project (BR-M1-22) and checked the name is free among the parent's
-    /// children (BR-M1-12).
+    /// A new child of <paramref name="parent"/> (US-5). The caller has checked the name is free among the parent's children
+    /// (BR-M1-12).
     /// </summary>
-    public static Area CreateChild(Area parent, EntityName name, Team? ownerTeam)
-    {
-        if (ownerTeam is not null && (ownerTeam.ProjectId != parent.ProjectId || !ownerTeam.IsActive))
-        {
-            throw new ArgumentException("An area's owner is an active team of the area's own project.", nameof(ownerTeam));
-        }
+    public static Area CreateChild(Area parent, EntityName name) =>
+        new(Guid.CreateVersion7(), parent.ProjectId, parent.Id, name);
 
-        return new Area(Guid.CreateVersion7(), parent.ProjectId, parent.Id, name, ownerTeam?.Id, defaultOfTeamId: null);
-    }
-
-    internal static Area CreateRoot(Guid projectId, EntityName name, Guid firstTeamId) =>
-        new(Guid.CreateVersion7(), projectId, parentId: null, name, firstTeamId, firstTeamId);
-
-    internal static Area CreateDefaultChild(Area root, EntityName name, Guid teamId) =>
-        new(Guid.CreateVersion7(), root.ProjectId, root.Id, name, teamId, teamId);
+    internal static Area CreateRoot(Guid projectId, EntityName name) =>
+        new(Guid.CreateVersion7(), projectId, parentId: null, name);
 
     /// <summary>
     /// The rule about the addressed node alone (api-contract § 0.4 step 2): the
-    /// root is renamed only with its project and is never moved, re-owned or
+    /// root is renamed only with its project and is never moved or
     /// deleted (BR-M1-11).
     /// </summary>
     public void EnsureNotRoot()
@@ -86,7 +61,7 @@ public sealed class Area
         }
     }
 
-    /// <summary>Renames a child node. Its children and its owner do not change (US-5).</summary>
+    /// <summary>Renames a child node. Its children do not change (US-5), and no team does.</summary>
     public void Rename(EntityName name)
     {
         EnsureNotRoot();
@@ -96,10 +71,9 @@ public sealed class Area
 
     /// <summary>
     /// Moves the node, with its whole subtree, under <paramref name="newParent"/>
-    /// (US-5). Explicit owners stay and inherited ones re-resolve by themselves
-    /// (US-6). Refuses the root, and a destination that is the node itself or one
+    /// (US-5). Refuses the root, and a destination that is the node itself or one
     /// of its descendants (BR-M1-12). Returns <c>false</c> when
-    /// <paramref name="newParent"/> is already the parent: nothing changes.
+    /// <paramref name="newParent"/> is already the parent: nothing changes. No item changes its team (BR-OT-10).
     /// </summary>
     public bool MoveUnder(Area newParent, AreaTree tree)
     {
@@ -125,35 +99,11 @@ public sealed class Area
     }
 
     /// <summary>
-    /// Sets the explicit owner, or clears it with <c>null</c> (US-6). Refuses the
-    /// root, and a team's default area when the owner would change
-    /// (<see cref="OrganizationErrorCodes.AreaIsTeamDefault"/>, naming
-    /// <paramref name="defaultTeamName"/>). The caller has resolved the new owner
-    /// as an active team of this project. Returns <c>false</c> when the owner is
-    /// already <paramref name="ownerTeamId"/>: nothing changes.
+    /// Only an empty leaf is deleted (US-5, US-6, BR-M1-13). The root is refused first, then a node with children or one that
+    /// holds work items (mod-003 BR-M3-24, whatever their state). A team's default area is no reason any more: a team has none
+    /// (mod-017 BR-OT-10).
     /// </summary>
-    public bool SetOwner(Guid? ownerTeamId, string? defaultTeamName)
-    {
-        EnsureNotRoot();
-
-        if (OwnerTeamId == ownerTeamId)
-        {
-            return false;
-        }
-
-        EnsureNotDefault(defaultTeamName);
-
-        OwnerTeamId = ownerTeamId;
-        return true;
-    }
-
-    /// <summary>
-    /// Only an empty leaf that is no team's default is deleted (US-5, US-6,
-    /// BR-M1-13, BR-M1-14). The root is refused first, then a node with
-    /// children or one that holds work items (mod-003 BR-M3-24, whatever their
-    /// state), then a default area.
-    /// </summary>
-    public void EnsureDeletable(bool hasChildren, bool holdsWorkItems, string? defaultTeamName)
+    public void EnsureDeletable(bool hasChildren, bool holdsWorkItems)
     {
         EnsureNotRoot();
 
@@ -161,52 +111,11 @@ public sealed class Area
         {
             throw new ConflictException(OrganizationErrorCodes.AreaNotEmpty);
         }
-
-        EnsureNotDefault(defaultTeamName);
     }
-
-    /// <summary>
-    /// Makes this the default area of <paramref name="team"/> (US-4). Refuses an
-    /// area the team does not own explicitly (BR-M1-14).
-    /// </summary>
-    public void MarkDefaultOf(Team team)
-    {
-        if (team.ProjectId != ProjectId)
-        {
-            throw new ArgumentException("A team's default area is an area of its own project.", nameof(team));
-        }
-
-        if (OwnerTeamId != team.Id)
-        {
-            throw new ConflictException(OrganizationErrorCodes.TeamDefaultAreaNotOwned);
-        }
-
-        DefaultOfTeamId = team.Id;
-    }
-
-    /// <summary>Removes the default mark. The owner stays.</summary>
-    public void ClearDefault() => DefaultOfTeamId = null;
 
     internal void RenameAsRoot(EntityName name)
     {
         Name = name.Value;
         NormalizedName = name.Normalized;
-    }
-
-    private void EnsureNotDefault(string? defaultTeamName)
-    {
-        if (DefaultOfTeamId is null)
-        {
-            return;
-        }
-
-        if (string.IsNullOrEmpty(defaultTeamName))
-        {
-            throw new ArgumentException("A default area's refusal names its team.", nameof(defaultTeamName));
-        }
-
-        throw new ConflictException(
-            OrganizationErrorCodes.AreaIsTeamDefault,
-            new ErrorParams { ["team"] = ErrorParam.Text(defaultTeamName) });
     }
 }

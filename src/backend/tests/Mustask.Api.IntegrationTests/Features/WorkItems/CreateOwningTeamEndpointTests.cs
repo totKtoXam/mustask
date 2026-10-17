@@ -69,7 +69,7 @@ public sealed class CreateOwningTeamEndpointTests(MustaskApiFactory factory)
         var answer = await WorkItemsTestData.CreateAsync(factory, items, "US", "Единственная");
 
         Assert.Equal(HttpStatusCode.Created, answer.Status);
-        Assert.Equal(single.FirstTeam.Id, TeamIdOf(answer));
+        Assert.Equal(single.Team.Id, TeamIdOf(answer));
     }
 
     [Fact]

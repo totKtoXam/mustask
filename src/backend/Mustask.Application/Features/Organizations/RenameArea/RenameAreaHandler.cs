@@ -10,7 +10,7 @@ namespace Mustask.Application.Features.Organizations.RenameArea;
 /// <c>PUT /api/organizations/{organizationId}/projects/{projectId}/areas/{areaId}/name</c>
 /// (US-5 "A child area is renamed" and "Sibling names are unique"). The root is
 /// renamed only with its project (BR-M1-11), so it is refused here; a child keeps
-/// its children and its owner.
+/// its children (mod-017: an area has no owner).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -91,7 +91,7 @@ public sealed class RenameAreaHandler(
                 // on the sibling index, and the repository answers it with the pre-check's code (plan-backend § 6.3).
                 await areas.SaveAsync(ct);
 
-                return new RenameAreaResult(new AreaResponse(area.Id, area.ProjectId, parentId, area.Name, area.OwnerTeamId));
+                return new RenameAreaResult(new AreaResponse(area.Id, area.ProjectId, parentId, area.Name));
             },
             cancellationToken);
 }

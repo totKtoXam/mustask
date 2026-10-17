@@ -6,7 +6,7 @@ namespace Mustask.Api.IntegrationTests.Features.Organizations;
 
 /// <summary>
 /// <c>GET /api/organizations/{organizationId}/projects/{projectId}/teams</c>
-/// (api-contract § 3.1) through the real host and a real PostgreSQL (plan-backend
+/// (mod-017 api-contract § 1.3) through the real host and a real PostgreSQL (plan-backend
 /// § 14.3, lane L-15). Every test builds its own organization
 /// (<see cref="OrganizationsTestData"/>): the database is shared and never
 /// emptied. The requests carry a token with no right at all: the read needs
@@ -27,12 +27,12 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
 
     private Task<Answer> GetAsync(Guid organizationId, Guid projectId) => GetAsync(organizationId, projectId.ToString());
 
-    // US-4 · "The project's teams": every active team is listed with its default area; US-8 · "The switcher lists the active
-    // organizations, projects and teams" and "The default team is the project's first team": «Пример проекта» first, then
-    // the rest in display order (Russian, ignoring case, «Ё» with «Е»), although «Платформа» sorts before «Пример проекта».
-    // The teams are created out of order, so neither the order of creation nor the order of ids explains the answer.
+    // mod-017 US-4 · "The project's teams": every active team is listed by name — Russian collation, letter case not deciding,
+    // «Ё» with «Е» — and no team is first (BR-OT-11), although the team the project came with sorts last here; the one the
+    // settings name carries «named» (BR-OT-4). The teams are created out of order, so neither the order of creation nor the order
+    // of ids explains the answer. Replaces Get_ActiveTeams_FirstTeamFirstThenDisplayOrder_WithDefaultAreaPaths (D-16).
     [Fact]
-    public async Task Get_ActiveTeams_FirstTeamFirstThenDisplayOrder_WithDefaultAreaPaths()
+    public async Task Get_ActiveTeams_ByName_NoTeamFirst_NamedTeamMarked()
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
         var project = await OrganizationsTestData.CreateProjectAsync(factory, organization.Id);
@@ -47,9 +47,7 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
         var elsewhere = await OrganizationsTestData.CreateProjectAsync(factory, organization.Id, "Аналитика", "ANL");
         await OrganizationsTestData.AddTeamAsync(factory, elsewhere.Project.Id, "Ядро");
 
-        // US-4 · «Платформа» chooses «Платформа / API», an area it owns explicitly, as its default area.
-        var api = await OrganizationsTestData.AddAreaAsync(factory, projectId, platform.Area.Id, "API", platform.Team.Id);
-        await OrganizationsTestData.SetTeamDefaultAreaAsync(factory, projectId, platform.Team.Id, api.Id);
+        await OrganizationsTestData.SetDefaultTeamAsync(factory, organization.Id, projectId, platform.Id);
 
         var answer = await GetAsync(organization.Id, projectId);
 
@@ -58,20 +56,44 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
         Assert.Equal(JsonValueKind.Array, answer.Body.ValueKind);
         Assert.All(answer.Body.EnumerateArray(), item =>
         {
-            // mod-016 api-contract § 3.3: each team says whether the caller is in it.
-            Assert.Equal(["defaultArea", "id", "isFirstTeam", "isMember", "name", "projectId"], PropertyNames(item));
-            Assert.Equal(["id", "path"], PropertyNames(item.GetProperty("defaultArea")));
+            // mod-016 api-contract § 3.3: each team says whether the caller is in it. mod-017 § 1.3: «defaultMark» replaces
+            // «isFirstTeam» and «defaultArea».
+            Assert.Equal(["defaultMark", "id", "isMember", "name", "projectId"], PropertyNames(item));
         });
         Assert.Equal(
             [
-                new ListedTeam(project.FirstTeam.Id, projectId, "Пример проекта", true, project.Root.Id, "Пример проекта"),
-                new ListedTeam(alpha.Team.Id, projectId, "альфа", false, alpha.Area.Id, "альфа"),
-                new ListedTeam(beta.Team.Id, projectId, "Бета", false, beta.Area.Id, "Бета"),
-                new ListedTeam(fir.Team.Id, projectId, "Ёлка", false, fir.Area.Id, "Ёлка"),
-                new ListedTeam(spruce.Team.Id, projectId, "Ель", false, spruce.Area.Id, "Ель"),
-                new ListedTeam(platform.Team.Id, projectId, "Платформа", false, api.Id, "Платформа / API"),
+                new ListedTeam(alpha.Id, projectId, "альфа", null),
+                new ListedTeam(beta.Id, projectId, "Бета", null),
+                new ListedTeam(fir.Id, projectId, "Ёлка", null),
+                new ListedTeam(spruce.Id, projectId, "Ель", null),
+                new ListedTeam(platform.Id, projectId, "Платформа", "named"),
+                new ListedTeam(project.Team.Id, projectId, "Пример проекта", null),
             ],
             Read(answer.Body));
+    }
+
+    // mod-017 BR-OT-4 · "no team is named": with several teams none carries a mark; the mark is the only difference between
+    // the reads before and after the setting is cleared.
+    [Fact]
+    public async Task Get_DefaultMark_NamedOnlyTeamNone()
+    {
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
+        var project = await OrganizationsTestData.CreateProjectAsync(factory, organization.Id);
+        var projectId = project.Project.Id;
+
+        var only = Read((await GetAsync(organization.Id, projectId)).Body);
+        var platform = await OrganizationsTestData.AddTeamAsync(factory, projectId, "Платформа");
+        var several = Read((await GetAsync(organization.Id, projectId)).Body);
+        await OrganizationsTestData.SetDefaultTeamAsync(factory, organization.Id, projectId, project.Team.Id);
+        var named = Read((await GetAsync(organization.Id, projectId)).Body);
+        await OrganizationsTestData.SetDefaultTeamAsync(factory, organization.Id, projectId, null);
+        await OrganizationsTestData.DeleteTeamAsync(factory, projectId, project.Team.Id);
+        var onlyAgain = Read((await GetAsync(organization.Id, projectId)).Body);
+
+        Assert.Equal([("Пример проекта", "onlyTeam")], only.Select(team => (team.Name, team.DefaultMark)));
+        Assert.Equal([("Платформа", (string?)null), ("Пример проекта", null)], several.Select(team => (team.Name, team.DefaultMark)));
+        Assert.Equal([("Платформа", (string?)null), ("Пример проекта", "named")], named.Select(team => (team.Name, team.DefaultMark)));
+        Assert.Equal([(platform.Id, "onlyTeam")], onlyAgain.Select(team => (team.Id, team.DefaultMark)));
     }
 
     private async Task<Dictionary<string, bool>> IsMemberByNameAsync(Guid organizationId, Guid projectId, string subject)
@@ -105,9 +127,9 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
             await MembershipTestData.AddMemberAsync(factory, organization.Id, user);
         }
 
-        await MembershipTestData.AddTeamMemberAsync(factory, organization.Id, platform.Team.Id, me);
-        await MembershipTestData.AddTeamMemberAsync(factory, organization.Id, analytics.Team.Id, me);
-        await MembershipTestData.AddTeamMemberAsync(factory, organization.Id, project.FirstTeam.Id, you);
+        await MembershipTestData.AddTeamMemberAsync(factory, organization.Id, platform.Id, me);
+        await MembershipTestData.AddTeamMemberAsync(factory, organization.Id, analytics.Id, me);
+        await MembershipTestData.AddTeamMemberAsync(factory, organization.Id, project.Team.Id, you);
 
         var mine = await IsMemberByNameAsync(organization.Id, projectId, me);
         var yours = await IsMemberByNameAsync(organization.Id, projectId, you);
@@ -130,7 +152,7 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
         await MembershipTestData.AddMemberAsync(factory, organization.Id, me);
 
         var before = await IsMemberByNameAsync(organization.Id, project.Project.Id, me);
-        await MembershipTestData.AddTeamMemberAsync(factory, organization.Id, platform.Team.Id, me);
+        await MembershipTestData.AddTeamMemberAsync(factory, organization.Id, platform.Id, me);
         var added = await IsMemberByNameAsync(organization.Id, project.Project.Id, me);
         await MembershipTestData.RemoveMemberAsync(factory, organization.Id, me);
         await MembershipTestData.AddMemberAsync(factory, organization.Id, me);
@@ -141,10 +163,10 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
         Assert.False(afterLeaving["Платформа"]);
     }
 
-    // US-3 · "A project is created ready to use": its first team, named after it, owns the root and has it as its default
-    // area, whose path is the root's own name (DC-9). A new project lists that team alone.
+    // mod-017 US-3 · "A project is created ready to use": its one team, named after it, is the project's only team, so it carries
+    // «onlyTeam» (BR-OT-4); the list has no area to show. Replaces Get_NewProject_ListsTheFirstTeamAlone_DefaultAreaIsTheRoot (D-16).
     [Fact]
-    public async Task Get_NewProject_ListsTheFirstTeamAlone_DefaultAreaIsTheRoot()
+    public async Task Get_NewProject_ListsItsOnlyTeamAlone_MarkedOnlyTeam()
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
         var project = await OrganizationsTestData.CreateProjectAsync(factory, organization.Id, "Аналитика", "ANL");
@@ -153,27 +175,25 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal(
-            [new ListedTeam(project.FirstTeam.Id, project.Project.Id, "Аналитика", true, project.Root.Id, "Аналитика")],
+            [new ListedTeam(project.Team.Id, project.Project.Id, "Аналитика", "onlyTeam")],
             Read(answer.Body));
     }
 
-    // US-8 · "The switcher lists ... «Пример проекта» first, then «Платформа», and not the deleted team" (BR-M1-18): the
-    // deletion hands the team's explicit areas to the first team, and the others' default areas are untouched.
+    // US-8 · "The switcher lists ... «Платформа» and «Пример проекта», and not the deleted team" (BR-M1-18).
     [Fact]
     public async Task Get_DeletedTeamLeftOut()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var core = await OrganizationsTestData.AddTeamAsync(factory, structure.ProjectId, "Ядро");
-        await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, core.Area.Id, "Хранилище", core.Team.Id);
-        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, core.Team.Id);
+        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, core.Id);
 
         var answer = await GetAsync(structure.OrganizationId, structure.ProjectId);
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal(
             [
-                new ListedTeam(structure.FirstTeamId, structure.ProjectId, "Пример проекта", true, structure.RootId, "Пример проекта"),
-                new ListedTeam(structure.Platform.Team.Id, structure.ProjectId, "Платформа", false, structure.Platform.Area.Id, "Платформа"),
+                new ListedTeam(structure.Platform.Id, structure.ProjectId, "Платформа", null),
+                new ListedTeam(structure.ProjectTeamId, structure.ProjectId, "Пример проекта", null),
             ],
             Read(answer.Body));
     }
@@ -229,10 +249,11 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
         Assert.Equal("organizations.project.not_found", answer.ErrorCode);
     }
 
-    // NFR Volumes (QA pass 1, A-18): "tens of teams per project" return within 2 s, each with its default area. Thirty
-    // teams beside the first two; one warm-up request first, so the bound measures the read, not the first call's JIT.
+    // NFR Volumes (QA pass 1, A-18): "tens of teams per project" return within 2 s, each with its default mark. Thirty teams
+    // beside the first two; one warm-up request first, so the bound measures the read, not the first call's JIT. Replaces
+    // Get_ThirtyTwoTeams_ReturnsWithinTwoSeconds_FirstTeamFirst (D-16, BR-OT-11).
     [Fact]
-    public async Task Get_ThirtyTwoTeams_ReturnsWithinTwoSeconds_FirstTeamFirst()
+    public async Task Get_ThirtyTwoTeams_ReturnsWithinTwoSeconds_ByName()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
 
@@ -252,8 +273,10 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
 
         var teams = Read(answer.Body);
         Assert.Equal(32, teams.Count);
-        Assert.Equal(structure.FirstTeamId, teams[0].Id);
-        Assert.All(teams.Skip(1), team => Assert.Equal(team.Name, team.DefaultAreaPath));
+        Assert.Equal(
+            Enumerable.Range(0, 30).Select(index => $"Команда {index:D2}").Append("Платформа").Append("Пример проекта"),
+            teams.Select(team => team.Name));
+        Assert.All(teams, team => Assert.Null(team.DefaultMark));
     }
 
     private static IReadOnlyList<ListedTeam> Read(JsonElement body) =>
@@ -262,14 +285,12 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
                 item.GetProperty("id").GetGuid(),
                 item.GetProperty("projectId").GetGuid(),
                 item.GetProperty("name").GetString()!,
-                item.GetProperty("isFirstTeam").GetBoolean(),
-                item.GetProperty("defaultArea").GetProperty("id").GetGuid(),
-                item.GetProperty("defaultArea").GetProperty("path").GetString()!))
+                item.GetProperty("defaultMark").GetString()))
             .ToList();
 
     private static IEnumerable<string> PropertyNames(JsonElement element) =>
         element.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal);
 
     /// <summary>One element of the list, flattened for comparison.</summary>
-    private sealed record ListedTeam(Guid Id, Guid ProjectId, string Name, bool IsFirstTeam, Guid DefaultAreaId, string DefaultAreaPath);
+    private sealed record ListedTeam(Guid Id, Guid ProjectId, string Name, string? DefaultMark);
 }

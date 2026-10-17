@@ -44,7 +44,7 @@ public sealed class GetProjectBacklogEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(Ids(s1, s2, s3), rows);
         Assert.Equal(rows.Length, rows.Distinct().Count());
-        Assert.Equal(Ids(s1, s2), await BoardsTestData.RowsAsync(factory, world, world.FirstTeamId));
+        Assert.Equal(Ids(s1, s2), await BoardsTestData.RowsAsync(factory, world, world.ProjectTeamId));
         Assert.Equal(Ids(s3), await BoardsTestData.RowsAsync(factory, world, world.PlatformId));
     }
 
@@ -102,7 +102,7 @@ public sealed class GetProjectBacklogEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal($"{s1.Identifier}[{t1.Identifier} {t2.Identifier}] {s2.Identifier} {s3.Identifier}[{b1.Identifier}]", await ProjectBoardsTestData.ShapeAsync(factory, world));
         Assert.Equal(Ids(s1, s2, s3), await ProjectBoardsTestData.RowsAsync(factory, world));
-        Assert.Equal($"{s1.Identifier}[{t1.Identifier}] {s2.Identifier}", await BacklogTreeTestData.ShapeAsync(factory, world, world.FirstTeamId, "stories"));
+        Assert.Equal($"{s1.Identifier}[{t1.Identifier}] {s2.Identifier}", await BacklogTreeTestData.ShapeAsync(factory, world, world.ProjectTeamId, "stories"));
         Assert.Equal($"{s3.Identifier}[{b1.Identifier}]", await BacklogTreeTestData.ShapeAsync(factory, world, world.PlatformId, "stories"));
     }
 

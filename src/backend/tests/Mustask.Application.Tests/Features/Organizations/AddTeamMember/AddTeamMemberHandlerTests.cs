@@ -43,7 +43,7 @@ public sealed class AddTeamMemberHandlerTests
         var result = await f.HandleAsync(f.Command());
 
         var stored = Assert.Single(f.World.Store.TeamMemberships);
-        Assert.Equal((f.World.Platform.Team.Id, f.World.Organization.Id, "u-anna"), (stored.TeamId, stored.OrganizationId, stored.UserId));
+        Assert.Equal((f.World.Platform.Id, f.World.Organization.Id, "u-anna"), (stored.TeamId, stored.OrganizationId, stored.UserId));
         Assert.Equal(OrganizationRole.Member, f.World.RoleOf("u-anna"));
         Assert.Equal(new UserRefView("u-anna", "Анна Смирнова", "anna@example.org", UserRefStates.Active), result.Member);
     }
@@ -56,7 +56,7 @@ public sealed class AddTeamMemberHandlerTests
 
         await f.HandleAsync(f.Command());
 
-        Assert.Equal([$"lock team share {f.World.Platform.Team.Id}", "save"], f.World.Store.Calls);
+        Assert.Equal([$"lock team share {f.World.Platform.Id}", "save"], f.World.Store.Calls);
     }
 
     // US-3 · "Only active organization members are offered and accepted": a user of another organization, a projected user in none, a
@@ -94,7 +94,7 @@ public sealed class AddTeamMemberHandlerTests
     public async Task Handle_AlreadyInTheTeam_IsMemberExists_ListedOnce()
     {
         var f = new Fixture();
-        f.World.Store.AddTeamMember(f.World.Organization, f.World.Platform.Team, "u-anna");
+        f.World.Store.AddTeamMember(f.World.Organization, f.World.Platform, "u-anna");
 
         var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command()));
 
@@ -136,7 +136,7 @@ public sealed class AddTeamMemberHandlerTests
     public async Task TheFakeStore_RefusesATeamMembershipWithoutItsOrganizationMembership()
     {
         var f = new Fixture();
-        f.World.TeamMemberships.Add(TeamMembership.Add(f.World.Platform.Team.Id, f.World.Organization.Id, "u-removed"));
+        f.World.TeamMemberships.Add(TeamMembership.Add(f.World.Platform.Id, f.World.Organization.Id, "u-removed"));
 
         var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.World.TeamMemberships.SaveAsync(CancellationToken.None));
 
@@ -148,13 +148,13 @@ public sealed class AddTeamMemberHandlerTests
     public async Task Handle_TheTeamWasDeleted_IsTeamNotFound_NoMembershipOfADeletedTeamRemains()
     {
         var f = new Fixture();
-        f.World.Platform.Team.Delete();
+        f.World.Platform.Delete(2);
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command()));
 
         Assert.Equal(OrganizationErrorCodes.TeamNotFound, refusal.Code);
         Assert.Empty(f.World.Store.TeamMemberships);
-        Assert.Equal([$"lock team share {f.World.Platform.Team.Id}"], f.World.Store.Calls);
+        Assert.Equal([$"lock team share {f.World.Platform.Id}"], f.World.Store.Calls);
     }
 
     // api-contract § 2.3: the user id is a field of the body — missing, blank or over-long is the user reason; it answers after
@@ -181,7 +181,7 @@ public sealed class AddTeamMemberHandlerTests
     public async Task Handle_DeletedTeamAndABadBody_AnswersTheAddressFirst()
     {
         var f = new Fixture();
-        f.World.Platform.Team.Delete();
+        f.World.Platform.Delete(2);
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(userId: " ")));
 
@@ -201,7 +201,7 @@ public sealed class AddTeamMemberHandlerTests
         {
             "malformed team" => "not-a-team",
             "unknown team" => Guid.CreateVersion7().ToString(),
-            _ => sibling.FirstTeam.Id.ToString(),
+            _ => sibling.Team.Id.ToString(),
         };
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(teamId: teamId)));

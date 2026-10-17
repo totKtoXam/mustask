@@ -125,7 +125,7 @@ public sealed class ProjectBacklogStatementCountTests(OrganizationsDatabaseFixtu
 
     /// <summary>
     /// A project of <paramref name="perLevel"/> items on each of the four levels, item n beneath item n − perLevel of the level
-    /// above, alternately in the areas of the two teams, with three assignees spread over them.
+    /// above, alternately owned by the two teams, with three assignees spread over them.
     /// </summary>
     private async Task<Seeded> SeedAsync(int perLevel)
     {
@@ -158,11 +158,12 @@ public sealed class ProjectBacklogStatementCountTests(OrganizationsDatabaseFixtu
             await database.ExecuteAsync(
                 """
                 INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id,
-                                        created_at, created_by, changed_at, parent_id, assignee_id)
+                                        created_at, created_by, changed_at, parent_id, assignee_id, owning_team_id)
                 SELECT gen_random_uuid(), @project, n, @type, @state,
-                       CASE WHEN n % 2 = 0 THEN @rootArea ELSE @teamArea END,
+                       @rootArea,
                        'Элемент ' || n, '', gen_random_uuid(), now() + n * interval '1 millisecond', 'count-test', now(), parent.id,
-                       CASE WHEN n % 7 < 3 THEN (ARRAY['count-user-1', 'count-user-2', 'count-user-3'])[(n % 7) + 1] END
+                       CASE WHEN n % 7 < 3 THEN (ARRAY['count-user-1', 'count-user-2', 'count-user-3'])[(n % 7) + 1] END,
+                       CASE WHEN n % 2 = 0 THEN @team ELSE @otherTeam END
                 FROM generate_series(@from, @to) AS n
                 LEFT JOIN work_items AS parent ON parent.project_id = @project AND parent.number = n - @perLevel AND @level > 0
                 """,
@@ -170,7 +171,8 @@ public sealed class ProjectBacklogStatementCountTests(OrganizationsDatabaseFixtu
                 ("type", type),
                 ("state", state),
                 ("rootArea", structure.Project.Root.Id),
-                ("teamArea", structure.SecondTeam.Area.Id),
+                ("team", structure.Project.Team.Id),
+                ("otherTeam", structure.SecondTeam.Id),
                 ("from", from),
                 ("to", from + perLevel - 1),
                 ("perLevel", perLevel),

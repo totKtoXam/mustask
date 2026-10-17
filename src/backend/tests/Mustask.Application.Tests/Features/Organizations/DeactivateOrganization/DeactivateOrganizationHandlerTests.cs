@@ -25,7 +25,8 @@ public sealed class DeactivateOrganizationHandlerTests
             Store.AddMember(Organization, Lister, OrganizationRole.Admin);
             Project = Store.AddProject(Organization);
             Platform = Store.AddTeam(Project);
-            Reports = Store.AddArea(Project.Root, "Отчёты", Platform.Team);
+            Project.Project.NameDefaultTeam(Platform.Id);
+            Reports = Store.AddArea(Project.Root, "Отчёты");
             Handler = new DeactivateOrganizationHandler(new FakeOrganizationRepository(Store), new FakeUnitOfWork());
             ReadModel = new FakeOrganizationReadModel(Store);
         }
@@ -36,7 +37,7 @@ public sealed class DeactivateOrganizationHandlerTests
 
         public NewProject Project { get; }
 
-        public NewTeam Platform { get; }
+        public Team Platform { get; }
 
         public Area Reports { get; }
 
@@ -50,9 +51,9 @@ public sealed class DeactivateOrganizationHandlerTests
         /// <summary>Everything beneath the organization as the store holds it: ids and the status each row carries.</summary>
         public string[] Beneath() =>
         [
-            .. Store.Projects.Select(project => $"project {project.Id} {project.Status}"),
-            .. Store.Teams.Select(team => $"team {team.Id} {team.Status} first={team.IsFirstTeam}"),
-            .. Store.Areas.Select(area => $"area {area.Id} parent={area.ParentId} owner={area.OwnerTeamId} default={area.DefaultOfTeamId}"),
+            .. Store.Projects.Select(project => $"project {project.Id} {project.Status} default={project.DefaultTeamId}"),
+            .. Store.Teams.Select(team => $"team {team.Id} {team.Status}"),
+            .. Store.Areas.Select(area => $"area {area.Id} parent={area.ParentId}"),
         ];
     }
 
@@ -73,7 +74,7 @@ public sealed class DeactivateOrganizationHandlerTests
     }
 
     // US-2 · "And nothing under it is deleted" (BR-M1-20, ADR-0026 rule 2): a project deactivated on its own stays deactivated,
-    // every team, area, default and owner is as it was, and nothing beneath gets a status of its own.
+    // every team, area and the default-team setting is as it was, and nothing beneath gets a status of its own.
     [Fact]
     public async Task Handle_ActiveOrganization_DeletesNothing_ChangesNothingBeneath()
     {
@@ -90,8 +91,7 @@ public sealed class DeactivateOrganizationHandlerTests
         Assert.Equal(ProjectStatus.Active, f.Project.Project.Status);
         Assert.Equal(ProjectStatus.Deactivated, old.Project.Status);
         Assert.All(f.Store.Teams, team => Assert.Equal(TeamStatus.Active, team.Status));
-        Assert.Equal(f.Platform.Team.Id, f.Reports.OwnerTeamId);
-        Assert.Equal(f.Platform.Team.Id, f.Platform.Area.DefaultOfTeamId);
+        Assert.Equal(f.Platform.Id, f.Project.Project.DefaultTeamId);
         Assert.Contains(f.Store.Organizations, organization => organization.Id == f.Organization.Id);
     }
 

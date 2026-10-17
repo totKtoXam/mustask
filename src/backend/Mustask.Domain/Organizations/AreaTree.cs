@@ -1,17 +1,14 @@
 namespace Mustask.Domain.Organizations;
 
-/// <summary>One area as the tree sees it: its place, its name, its explicit owner and the team whose default it is.</summary>
-public sealed record AreaNode(Guid Id, Guid? ParentId, string Name, Guid? OwnerTeamId, Guid? DefaultOfTeamId);
-
-/// <summary>The team that owns an area, and whether that ownership is inherited from an ancestor.</summary>
-public readonly record struct ResolvedOwner(Guid TeamId, bool IsInherited);
+/// <summary>One area as the tree sees it: its place and its name. An area owns nothing (mod-017 BR-OT-10).</summary>
+public sealed record AreaNode(Guid Id, Guid? ParentId, string Name);
 
 /// <summary>
 /// A pure view of one project's area tree, built from its nodes. It is the
-/// single definition of an area's path (DC-9), its depth, its resolved owner
-/// (BR-M1-11) and of "the node or one of its descendants" (BR-M1-12): the
-/// tree read, the team reads, the move and the reads for other modules all use
-/// it, so other modules get the same answer as the tree (US-6).
+/// single definition of an area's path (DC-9), its depth and of "the node or one
+/// of its descendants" (BR-M1-12): the tree read, the work item reads, the move
+/// and the reads for other modules all use it. No rule resolves a team through the
+/// tree any more: a work item's owning team is its own (mod-017 BR-OT-5).
 /// </summary>
 public sealed class AreaTree
 {
@@ -136,28 +133,6 @@ public sealed class AreaTree
         }
 
         return depth;
-    }
-
-    /// <summary>
-    /// The nearest explicit owner up the tree, at the latest the root's, which is
-    /// the first team (BR-M1-11). Every node has exactly one.
-    /// </summary>
-    public ResolvedOwner ResolveOwner(Guid id)
-    {
-        var node = Node(id);
-
-        for (var current = node; ; current = _byId[current.ParentId!.Value])
-        {
-            if (current.OwnerTeamId is { } owner)
-            {
-                return new ResolvedOwner(owner, IsInherited: current.Id != node.Id);
-            }
-
-            if (current.ParentId is null)
-            {
-                throw new InvalidOperationException("The root is always owned explicitly (BR-M1-11).");
-            }
-        }
     }
 
     /// <summary>Whether <paramref name="candidateId"/> is <paramref name="nodeId"/> itself or one of its descendants.</summary>

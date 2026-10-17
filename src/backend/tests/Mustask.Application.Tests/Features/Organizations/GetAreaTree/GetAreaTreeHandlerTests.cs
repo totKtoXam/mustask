@@ -6,26 +6,25 @@ using Mustask.Shared.Exceptions;
 namespace Mustask.Application.Tests.Features.Organizations.GetAreaTree;
 
 /// <summary>
-/// The area tree read on fakes (api-contract § 4.1): what the handler assembles
-/// from the read model's rows through <see cref="AreaTree"/>, and the address
-/// answers that come before it (plan-backend § 5.3).
+/// The area tree read on fakes (mod-017 api-contract § 1.6): what the handler assembles from the read model's rows through
+/// <see cref="AreaTree"/> — place, name, path and depth, no team — and the address answers that come before it
+/// (plan-backend § 5.3).
 /// </summary>
 public sealed class GetAreaTreeHandlerTests
 {
-    private const string FirstTeamName = "Пример проекта";
+    private const string RootName = "Пример проекта";
 
     private sealed class Fixture
     {
         /// <summary>
         /// The tree every test but the root-alone one reads, siblings listed here out of display order on purpose:
         /// <code>
-        /// Пример проекта      root, owned by the first team, its default
-        ///   архив             inherits the first team
-        ///   Отчёты            owned by «Платформа»
-        ///     Годовые         owned by the first team
-        ///     Квартальные     inherits «Платформа»
-        ///       Март          inherits «Платформа»
-        ///   Платформа         owned by «Платформа», its default
+        /// Пример проекта      root
+        ///   архив
+        ///   Отчёты
+        ///     Годовые
+        ///     Квартальные
+        ///       Март
         /// </code>
         /// </summary>
         public Fixture()
@@ -33,10 +32,10 @@ public sealed class GetAreaTreeHandlerTests
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization);
             Platform = Store.AddTeam(Project);
-            Reports = Store.AddArea(Project.Root, "Отчёты", Platform.Team);
+            Reports = Store.AddArea(Project.Root, "Отчёты");
             Quarterly = Store.AddArea(Reports, "Квартальные");
             March = Store.AddArea(Quarterly, "Март");
-            Yearly = Store.AddArea(Reports, "Годовые", Project.FirstTeam);
+            Yearly = Store.AddArea(Reports, "Годовые");
             Archive = Store.AddArea(Project.Root, "архив");
             Handler = new GetAreaTreeHandler(new FakeAreaTreeReadModel(Store));
         }
@@ -47,7 +46,7 @@ public sealed class GetAreaTreeHandlerTests
 
         public NewProject Project { get; }
 
-        public NewTeam Platform { get; }
+        public Team Platform { get; }
 
         public Area Reports { get; }
 
@@ -77,13 +76,13 @@ public sealed class GetAreaTreeHandlerTests
         var items = await f.ReadAsync();
 
         Assert.Equal(
-            [FirstTeamName, "архив", "Отчёты", "Годовые", "Квартальные", "Март", "Платформа"],
+            [RootName, "архив", "Отчёты", "Годовые", "Квартальные", "Март"],
             items.Select(item => item.Name));
         Assert.Equal(
-            [f.Project.Root.Id, f.Archive.Id, f.Reports.Id, f.Yearly.Id, f.Quarterly.Id, f.March.Id, f.Platform.Area.Id],
+            [f.Project.Root.Id, f.Archive.Id, f.Reports.Id, f.Yearly.Id, f.Quarterly.Id, f.March.Id],
             items.Select(item => item.Id));
         Assert.Equal(
-            [null, f.Project.Root.Id, f.Project.Root.Id, f.Reports.Id, f.Reports.Id, f.Quarterly.Id, f.Project.Root.Id],
+            [null, f.Project.Root.Id, f.Project.Root.Id, f.Reports.Id, f.Reports.Id, f.Quarterly.Id],
             items.Select(item => item.ParentId));
     }
 
@@ -96,7 +95,7 @@ public sealed class GetAreaTreeHandlerTests
         var items = await f.ReadAsync();
 
         Assert.Equal(
-            [FirstTeamName, "архив", "Отчёты", "Отчёты / Годовые", "Отчёты / Квартальные", "Отчёты / Квартальные / Март", "Платформа"],
+            [RootName, "архив", "Отчёты", "Отчёты / Годовые", "Отчёты / Квартальные", "Отчёты / Квартальные / Март"],
             items.Select(item => item.Path));
     }
 
@@ -108,59 +107,23 @@ public sealed class GetAreaTreeHandlerTests
 
         var items = await f.ReadAsync();
 
-        Assert.Equal([0, 1, 1, 2, 2, 3, 1], items.Select(item => item.Depth));
+        Assert.Equal([0, 1, 1, 2, 2, 3], items.Select(item => item.Depth));
     }
 
-    // US-6 · "An area inherits its owner from the nearest owned ancestor": the explicit owner stays as stored, the resolved
-    // owner is the nearest explicit one, and the inherited mark is set exactly where the explicit owner is null.
+    // mod-017 api-contract § 1.6 (BR-OT-10): a node is its place, its name, its path and its depth, and nothing about a team —
+    // not an owner, not a resolved owner, not a default. Replaces the owner assertions of
+    // Handle_ResolvedOwners_NearestExplicitAncestor_InheritedMarksWhereNoExplicitOwner,
+    // Handle_Root_IsOwnedExplicitlyByTheFirstTeam_NeverInherited and Handle_DefaultOfTeam_NamesTheTeamOnItsDefaultAreaOnly
+    // (retired, BR-OT-10).
     [Fact]
-    public async Task Handle_ResolvedOwners_NearestExplicitAncestor_InheritedMarksWhereNoExplicitOwner()
+    public void AreaNodeResponse_IsExactlyThePlaceTheNameThePathAndTheDepth()
     {
-        var f = new Fixture();
-        var first = f.Project.FirstTeam.Id;
-        var platform = f.Platform.Team.Id;
+        var shape = typeof(AreaNodeResponse).GetProperties().Select(property => property.Name).Order(StringComparer.Ordinal);
 
-        var items = await f.ReadAsync();
-
-        Assert.Equal([first, null, platform, first, null, null, platform], items.Select(item => item.OwnerTeamId));
-        Assert.Equal(
-            [first, first, platform, first, platform, platform, platform],
-            items.Select(item => item.ResolvedOwner.Id));
-        Assert.Equal(
-            [FirstTeamName, FirstTeamName, "Платформа", FirstTeamName, "Платформа", "Платформа", "Платформа"],
-            items.Select(item => item.ResolvedOwner.Name));
-        Assert.Equal([false, true, false, false, true, true, false], items.Select(item => item.OwnerInherited));
-        Assert.All(items, item => Assert.Equal(item.OwnerTeamId is null, item.OwnerInherited));
+        Assert.Equal(["Depth", "Id", "Name", "ParentId", "Path"], shape);
     }
 
-    // US-6 · "An area inherits ...": "at the latest the root's", and the root's own owner is never null (BR-M1-11).
-    [Fact]
-    public async Task Handle_Root_IsOwnedExplicitlyByTheFirstTeam_NeverInherited()
-    {
-        var f = new Fixture();
-
-        var root = (await f.ReadAsync())[0];
-
-        Assert.Null(root.ParentId);
-        Assert.Equal(f.Project.FirstTeam.Id, root.OwnerTeamId);
-        Assert.Equal(new AreaTeamResponse(f.Project.FirstTeam.Id, FirstTeamName), root.ResolvedOwner);
-        Assert.False(root.OwnerInherited);
-    }
-
-    // US-4 · "default among explicitly owned areas": a node names the team whose default it is, and only that node does.
-    [Fact]
-    public async Task Handle_DefaultOfTeam_NamesTheTeamOnItsDefaultAreaOnly()
-    {
-        var f = new Fixture();
-
-        var items = await f.ReadAsync();
-
-        Assert.Equal(
-            [new AreaTeamResponse(f.Project.FirstTeam.Id, FirstTeamName), null, null, null, null, null, new AreaTeamResponse(f.Platform.Team.Id, "Платформа")],
-            items.Select(item => item.DefaultOfTeam));
-    }
-
-    // US-5 · "root only": a new project's tree is its root alone, owned by the first team, the first team's default.
+    // US-5 · "root only": a new project's tree is its root alone.
     [Fact]
     public async Task Handle_NewProject_IsTheRootAlone()
     {
@@ -174,50 +137,41 @@ public sealed class GetAreaTreeHandlerTests
             CancellationToken.None);
 
         var root = Assert.Single(result.Items);
-        var firstTeam = new AreaTeamResponse(project.FirstTeam.Id, FirstTeamName);
-        Assert.Equal(
-            new AreaNodeResponse(project.Root.Id, null, FirstTeamName, FirstTeamName, 0, project.FirstTeam.Id, firstTeam, false, firstTeam),
-            root);
+        Assert.Equal(new AreaNodeResponse(project.Root.Id, null, RootName, RootName, 0), root);
     }
 
-    // US-4 · "team renamed": the tree names the team as it is called now, and the areas keep their names.
+    // mod-017 US-4 · "renaming a team changes no area": the tree is the same before and after.
     [Fact]
-    public async Task Handle_TeamRenamed_TreeNamesTheTeamNow_AreaNamesKept()
+    public async Task Handle_TeamRenamed_TreeIsUnchanged()
     {
         var f = new Fixture();
-        f.Platform.Team.Rename(InMemoryOrganizations.Name("Ядро"));
+        var before = await f.ReadAsync();
+        f.Platform.Rename(InMemoryOrganizations.Name("Ядро"));
 
-        var items = await f.ReadAsync();
+        var after = await f.ReadAsync();
 
-        var reports = items.Single(item => item.Id == f.Reports.Id);
-        Assert.Equal(new AreaTeamResponse(f.Platform.Team.Id, "Ядро"), reports.ResolvedOwner);
-        Assert.Equal(new AreaTeamResponse(f.Platform.Team.Id, "Ядро"), items.Single(item => item.Id == f.March.Id).ResolvedOwner);
-        Assert.Equal(new AreaTeamResponse(f.Platform.Team.Id, "Ядро"), items.Single(item => item.Id == f.Platform.Area.Id).DefaultOfTeam);
-        Assert.Equal("Платформа", items.Single(item => item.Id == f.Platform.Area.Id).Name);
+        Assert.Equal(before, after);
     }
 
-    // US-6 · "other modules get the same answer as the tree": every node's path, depth and resolved owner is what
-    // AreaTree gives for the same nodes, the one definition the seam shares.
+    // DC-9: every node's path and depth is what AreaTree gives for the same nodes, the one definition the work item reads share.
+    // Rewritten without the owner (D-16, BR-OT-10): Handle_EveryNode_EqualsWhatAreaTreeResolves keeps its name.
     [Fact]
     public async Task Handle_EveryNode_EqualsWhatAreaTreeResolves()
     {
         var f = new Fixture();
-        var tree = new AreaTree(f.Store.Areas.Select(area => new AreaNode(area.Id, area.ParentId, area.Name, area.OwnerTeamId, area.DefaultOfTeamId)));
+        var tree = new AreaTree(f.Store.Areas.Select(area => new AreaNode(area.Id, area.ParentId, area.Name)));
 
         var items = await f.ReadAsync();
 
         Assert.Equal(f.Store.Areas.Count, items.Count);
         foreach (var item in items)
         {
-            var owner = tree.ResolveOwner(item.Id);
             Assert.Equal(tree.PathOf(item.Id), item.Path);
             Assert.Equal(tree.DepthOf(item.Id), item.Depth);
-            Assert.Equal(owner.TeamId, item.ResolvedOwner.Id);
-            Assert.Equal(owner.IsInherited, item.OwnerInherited);
         }
     }
 
-    // A read takes no lock and writes nothing (plan-backend § 5.3, § 8.2).
+    // A read takes no lock and writes nothing (plan-backend § 5.3, § 7).
     [Fact]
     public async Task Handle_LocksNothingAndSavesNothing()
     {

@@ -61,7 +61,6 @@ public sealed class FakeTeamReadModel(InMemoryOrganizations store) : ITeamReadMo
 
         return Task.FromResult<IReadOnlyList<TeamRow>>(store
             .InDisplayOrder(teams, team => team.Name, team => team.Id)
-            .OrderByDescending(team => team.IsFirstTeam)
             .Select(team => Row(team) with
             {
                 IsMember = store.TeamMemberships.Any(membership => membership.TeamId == team.Id && membership.UserId == userId),
@@ -76,12 +75,14 @@ public sealed class FakeTeamReadModel(InMemoryOrganizations store) : ITeamReadMo
                 ? Row(team)
                 : null);
 
+    /// <summary>The row with its default mark, decided by the one definition of the default team (mod-017 BR-OT-4).</summary>
     private TeamRow Row(Team team) => new(
         team.Id,
         team.ProjectId,
         team.Name,
-        team.IsFirstTeam,
-        store.Areas.Single(area => area.DefaultOfTeamId == team.Id).Id);
+        ProjectDefaultTeam.MarkOf(
+            store.Projects.Any(project => project.Id == team.ProjectId && project.DefaultTeamId == team.Id),
+            store.Teams.Count(other => other.ProjectId == team.ProjectId && other.IsActive)));
 }
 
 /// <summary>In-memory <see cref="IAreaTreeReadModel"/> over <see cref="InMemoryOrganizations"/>.</summary>
@@ -94,18 +95,9 @@ public sealed class FakeAreaTreeReadModel(InMemoryOrganizations store) : IAreaTr
             return Task.FromResult<IReadOnlyList<AreaTreeRow>?>(null);
         }
 
-        string? NameOf(Guid? teamId) => store.Teams.SingleOrDefault(team => team.Id == teamId)?.Name;
-
         return Task.FromResult<IReadOnlyList<AreaTreeRow>?>(store
             .InDisplayOrder(store.Areas.Where(area => area.ProjectId == projectId), area => area.Name, area => area.Id)
-            .Select(area => new AreaTreeRow(
-                area.Id,
-                area.ParentId,
-                area.Name,
-                area.OwnerTeamId,
-                NameOf(area.OwnerTeamId),
-                area.DefaultOfTeamId,
-                NameOf(area.DefaultOfTeamId)))
+            .Select(area => new AreaTreeRow(area.Id, area.ParentId, area.Name))
             .ToList());
     }
 }

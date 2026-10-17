@@ -46,7 +46,7 @@ guarantees it exists and differs from the Russian, not its quality
 |http.service_unavailable|503|Сервис временно недоступен, повторите позже.|Қызмет уақытша қолжетімсіз, кейінірек қайталаңыз.|assigned by HTTP status|—|needs review|
 |http.unauthorized|401|Требуется аутентификация.|Аутентификация қажет.|assigned by HTTP status|—|needs review|
 |organizations.access.forbidden|403|Недостаточно прав|Құқықтар жеткіліксіз|organizations|—|needs review|
-|organizations.area.is_team_default|409|Область используется как область по умолчанию команды «{team}»|Аймақ «{team}» командасының әдепкі аймағы ретінде пайдаланылады|organizations|—|needs review|
+|organizations.area.is_team_default|409|Область используется как область по умолчанию команды «{team}»|Аймақ «{team}» командасының әдепкі аймағы ретінде пайдаланылады|organizations|yes|needs review|
 |organizations.area.move_into_own_subtree|409|Нельзя переместить область внутрь неё самой или её вложенной области|Аймақты өзінің ішіне немесе оның ішкі аймағына жылжытуға болмайды|organizations|—|needs review|
 |organizations.area.name_taken|409|Область с таким названием уже есть на этом уровне|Бұл деңгейде мұндай атауы бар аймақ бар|organizations|—|needs review|
 |organizations.area.not_empty|409|Нельзя удалить область, в которой есть рабочие элементы (включая удалённые) или вложенные области|Жұмыс элементтері (жойылғандарын қоса) немесе ішкі аймақтары бар аймақты жоюға болмайды|organizations|—|needs review|
@@ -69,9 +69,9 @@ guarantees it exists and differs from the Russian, not its quality
 |organizations.project.name_taken|409|Проект с таким названием уже есть в организации|Ұйымда мұндай атауы бар жоба бар|organizations|—|needs review|
 |organizations.project.name_taken_by_deactivated|409|Проект с таким названием уже есть в организации: он деактивирован|Ұйымда мұндай атауы бар жоба бар: ол сөндірілген|organizations|—|needs review|
 |organizations.project.not_found|404|Проект не найден.|Жоба табылмады.|organizations|—|needs review|
-|organizations.team.default_area_not_owned|409|Область по умолчанию должна принадлежать самой команде|Әдепкі аймақ команданың өзіне тиесілі болуы керек|organizations|—|needs review|
-|organizations.team.first_team_cannot_be_deleted|409|Нельзя удалить команду, которой принадлежит корневая область проекта|Жобаның түбірлік аймағы тиесілі команданы жоюға болмайды|organizations|—|needs review|
-|organizations.team.first_team_default_fixed|409|У первой команды область по умолчанию не меняется|Бірінші команданың әдепкі аймағы өзгермейді|organizations|—|needs review|
+|organizations.team.default_area_not_owned|409|Область по умолчанию должна принадлежать самой команде|Әдепкі аймақ команданың өзіне тиесілі болуы керек|organizations|yes|needs review|
+|organizations.team.first_team_cannot_be_deleted|409|Нельзя удалить команду, которой принадлежит корневая область проекта|Жобаның түбірлік аймағы тиесілі команданы жоюға болмайды|organizations|yes|needs review|
+|organizations.team.first_team_default_fixed|409|У первой команды область по умолчанию не меняется|Бірінші команданың әдепкі аймағы өзгермейді|organizations|yes|needs review|
 |organizations.team.last_team_cannot_be_deleted|409|Нельзя удалить единственную команду проекта.|Жобаның жалғыз командасын жоюға болмайды.|organizations|—|needs review|
 |organizations.team.member_exists|409|Пользователь уже состоит в команде|Пайдаланушы командада бұрыннан бар|organizations|—|needs review|
 |organizations.team.member_not_found|404|Участник команды не найден.|Команда мүшесі табылмады.|organizations|—|needs review|

@@ -5,6 +5,7 @@ using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
 using Mustask.Application.Features.Boards;
 using Mustask.Application.Features.Organizations;
+using Mustask.Application.Features.WorkItems;
 using Mustask.Infrastructure.Boards;
 using Mustask.Infrastructure.Dictionaries;
 using Mustask.Infrastructure.Dictionaries.Seeding;
@@ -97,6 +98,7 @@ public static class DependencyInjection
         services.AddScoped<IWorkItemRepository, WorkItemRepository>();
         services.AddScoped<IWorkItemReadModel, WorkItemReadModel>();
         services.AddScoped<IAreaUsage, WorkItemAreaUsage>();
+        services.AddScoped<IWorkItemTeamOwnership, WorkItemTeamOwnership>();
 
         return services;
     }

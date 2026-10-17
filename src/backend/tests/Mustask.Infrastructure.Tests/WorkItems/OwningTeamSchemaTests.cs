@@ -51,7 +51,7 @@ public sealed class OwningTeamSchemaTests(OrganizationsDatabaseFixture database)
         var world = await SeedAsync();
         var bare = Guid.CreateVersion7();
         await database.ExecuteAsync(
-            "INSERT INTO teams (id, project_id, name, normalized_name, status, is_first_team) VALUES (@team, @project, 'Без области', 'БЕЗ ОБЛАСТИ', 'Active', false)",
+            "INSERT INTO teams (id, project_id, name, normalized_name, status) VALUES (@team, @project, 'Без области', 'БЕЗ ОБЛАСТИ', 'Active')",
             ("team", bare),
             ("project", world.Project));
         await database.ExecuteAsync("UPDATE work_items SET owning_team_id = @team WHERE id = @item", ("team", bare), ("item", world.Item));
@@ -182,6 +182,6 @@ public sealed class OwningTeamSchemaTests(OrganizationsDatabaseFixture database)
             ("state", Guid.Parse(row[1])),
             ("area", structure.Project.Root.Id));
 
-        return new World(project, structure.SecondTeam.Team.Id, other.FirstTeam.Id, item);
+        return new World(project, structure.SecondTeam.Id, other.Team.Id, item);
     }
 }

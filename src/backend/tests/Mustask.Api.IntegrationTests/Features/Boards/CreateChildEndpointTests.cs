@@ -134,7 +134,7 @@ public sealed class CreateChildEndpointTests(MustaskApiFactory factory)
     {
         var (world, items) = await WorldAsync();
 
-        var answer = await CreateChildAsync(world, "US", "История", items["MSK-FEAT-6"].Id.ToString(), teamId: world.FirstTeamId.ToString());
+        var answer = await CreateChildAsync(world, "US", "История", items["MSK-FEAT-6"].Id.ToString(), teamId: world.ProjectTeamId.ToString());
 
         Created(answer);
         Assert.Equal("Платформа / API", AreaPath(answer));
@@ -292,7 +292,7 @@ public sealed class CreateChildEndpointTests(MustaskApiFactory factory)
             factory,
             world.Items,
             "MSK-FEAT-6",
-            new { areaId = world.PlatformAreaId.ToString(), team = new { teamId = world.FirstTeamId.ToString() } },
+            new { areaId = world.PlatformAreaId.ToString(), team = new { teamId = world.ProjectTeamId.ToString() } },
             gate);
         await Task.WhenAny(gate.Reached, save);
         Assert.False(save.IsCompleted, "The save finished before reaching its commit gate.");
@@ -306,7 +306,7 @@ public sealed class CreateChildEndpointTests(MustaskApiFactory factory)
         var answer = await creation;
         Created(answer);
         Assert.Equal("Платформа", AreaPath(answer));
-        Assert.Equal(world.FirstTeamId, answer.Body.GetProperty("team").GetProperty("id").GetGuid());
+        Assert.Equal(world.ProjectTeamId, answer.Body.GetProperty("team").GetProperty("id").GetGuid());
     }
 
     // api-contract § 3, "Concurrency": a parent write that moves MSK-FEAT-6 itself — beneath MSK-EPIC-20 — holds the item

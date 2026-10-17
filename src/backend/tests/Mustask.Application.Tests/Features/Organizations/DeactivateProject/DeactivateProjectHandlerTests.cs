@@ -21,7 +21,8 @@ public sealed class DeactivateProjectHandlerTests
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization);
             Platform = Store.AddTeam(Project);
-            Reports = Store.AddArea(Project.Root, "Отчёты", owner: Platform.Team);
+            Project.Project.NameDefaultTeam(Platform.Id);
+            Reports = Store.AddArea(Project.Root, "Отчёты");
             Quarterly = Store.AddArea(Reports, "Квартальные");
             Handler = new DeactivateProjectHandler(new FakeProjectRepository(Store), new FakeUnitOfWork());
         }
@@ -32,7 +33,7 @@ public sealed class DeactivateProjectHandlerTests
 
         public NewProject Project { get; }
 
-        public NewTeam Platform { get; }
+        public Team Platform { get; }
 
         public Area Reports { get; }
 
@@ -49,12 +50,13 @@ public sealed class DeactivateProjectHandlerTests
         public void LoseTheRaceForTheLock() =>
             Handler = new DeactivateProjectHandler(new DeactivatedBeforeItsLock(new FakeProjectRepository(Store)), new FakeUnitOfWork());
 
-        /// <summary>Everything beneath the project, as a test compares it before and after: ids, names, owners, defaults and statuses.</summary>
+        /// <summary>Everything beneath the project, as a test compares it before and after: ids, names and statuses.</summary>
         public IReadOnlyList<string> Beneath() =>
         [
-            .. Store.Teams.OrderBy(team => team.Id).Select(team => $"team {team.Id} {team.Name} {team.Status} first={team.IsFirstTeam}"),
+            .. Store.Teams.OrderBy(team => team.Id).Select(team => $"team {team.Id} {team.Name} {team.Status}"),
+            $"setting {Project.Project.DefaultTeamId}",
             .. Store.Areas.OrderBy(area => area.Id).Select(area =>
-                $"area {area.Id} {area.ParentId} {area.Name} owner={area.OwnerTeamId} default={area.DefaultOfTeamId}"),
+                $"area {area.Id} {area.ParentId} {area.Name}"),
         ];
     }
 
@@ -80,6 +82,9 @@ public sealed class DeactivateProjectHandlerTests
 
             return project;
         }
+
+        public Task ClearDefaultTeamAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
+            inner.ClearDefaultTeamAsync(projectId, teamId, cancellationToken);
 
         public void Add(NewProject project) => inner.Add(project);
 

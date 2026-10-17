@@ -22,8 +22,8 @@ public sealed class OrganizationMembershipsSchemaTests(OrganizationsDatabaseFixt
         ("org", structure.Organization.Id),
         ("user", user),
         ("role", role),
-        ("team", structure.SecondTeam.Team.Id),
-        ("first", structure.Project.FirstTeam.Id),
+        ("team", structure.SecondTeam.Id),
+        ("first", structure.Project.Team.Id),
     ];
 
     // BR-M1-5: one membership per user per organization — the named primary key.
@@ -180,7 +180,7 @@ public sealed class OrganizationMembershipsSchemaTests(OrganizationsDatabaseFixt
     {
         var structure = await database.CreateStructureAsync();
         await database.AddMemberAsync(structure.Organization.Id, "u-schema");
-        await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Team.Id, "u-schema");
+        await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Id, "u-schema");
 
         var error = await Assert.ThrowsAsync<PostgresException>(() => database.ExecuteAsync(
             "INSERT INTO team_memberships (team_id, organization_id, user_id) VALUES (@team, @org, @user)", Parameters(structure)));
@@ -195,9 +195,7 @@ public sealed class OrganizationMembershipsSchemaTests(OrganizationsDatabaseFixt
     {
         var structure = await database.CreateStructureAsync();
         await database.AddMemberAsync(structure.Organization.Id, "u-schema");
-        await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Team.Id, "u-schema");
-        await database.ExecuteAsync(
-            "UPDATE areas SET owner_team_id = @first, default_of_team_id = NULL WHERE owner_team_id = @team", Parameters(structure));
+        await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Id, "u-schema");
 
         var error = await Assert.ThrowsAsync<PostgresException>(
             () => database.ExecuteAsync("DELETE FROM teams WHERE id = @team", Parameters(structure)));
@@ -220,10 +218,10 @@ public sealed class OrganizationMembershipsSchemaTests(OrganizationsDatabaseFixt
         }
 
         await database.AddMemberAsync(other.Organization.Id, "u-leaving");
-        await database.AddTeamMemberAsync(organizationId, structure.SecondTeam.Team.Id, "u-leaving");
-        await database.AddTeamMemberAsync(organizationId, structure.Project.FirstTeam.Id, "u-leaving");
-        await database.AddTeamMemberAsync(organizationId, structure.SecondTeam.Team.Id, "u-staying");
-        await database.AddTeamMemberAsync(other.Organization.Id, other.SecondTeam.Team.Id, "u-leaving");
+        await database.AddTeamMemberAsync(organizationId, structure.SecondTeam.Id, "u-leaving");
+        await database.AddTeamMemberAsync(organizationId, structure.Project.Team.Id, "u-leaving");
+        await database.AddTeamMemberAsync(organizationId, structure.SecondTeam.Id, "u-staying");
+        await database.AddTeamMemberAsync(other.Organization.Id, other.SecondTeam.Id, "u-leaving");
 
         await database.ExecuteAsync(
             "DELETE FROM organization_memberships WHERE organization_id = @org AND user_id = 'u-leaving'", [("org", organizationId)]);

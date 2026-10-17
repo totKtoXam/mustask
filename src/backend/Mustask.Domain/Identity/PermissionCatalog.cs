@@ -62,7 +62,7 @@ public static class PermissionCatalog
     /// <summary>Reading teams and their members.</summary>
     public const string OrganizationsTeamRead = "organizations.team.read";
 
-    /// <summary>Creating, renaming and deleting a team, its default area, its members and the team candidate search.</summary>
+    /// <summary>Creating, renaming and deleting a team, the project's default team, a team's members and the team candidate search.</summary>
     public const string OrganizationsTeamWrite = "organizations.team.write";
 
     /// <summary>Reading a project's area tree.</summary>

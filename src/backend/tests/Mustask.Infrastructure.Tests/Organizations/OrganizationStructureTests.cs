@@ -72,70 +72,59 @@ public sealed class OrganizationStructureTests(OrganizationsDatabaseFixture data
     {
         var structure = await database.CreateStructureAsync();
         var projectId = structure.Project.Project.Id;
-        var (first, second) = (structure.Project.FirstTeam.Id, structure.SecondTeam.Team.Id);
+        var (first, second) = (structure.Project.Team.Id, structure.SecondTeam.Id);
 
         Assert.Null((await ReadAsync(seam => seam.FindProjectAsync(projectId, CancellationToken.None)))!.DefaultTeamId);
 
         await database.ExecuteAsync("UPDATE projects SET default_team_id = @team WHERE id = @id", ("team", second), ("id", projectId));
         Assert.Equal(second, (await ReadAsync(seam => seam.FindProjectAsync(projectId, CancellationToken.None)))!.DefaultTeamId);
 
-        await database.ExecuteAsync(
-            "UPDATE areas SET owner_team_id = @first, default_of_team_id = NULL WHERE owner_team_id = @second; "
-            + "UPDATE teams SET status = 'Deleted' WHERE id = @second",
-            ("first", first),
-            ("second", second));
+        // The deletion clears the setting in its own operation; this read also guards a stale one: a named team that is not active
+        // is no longer named.
+        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @second", ("second", second));
         Assert.Equal(first, (await ReadAsync(seam => seam.FindProjectAsync(projectId, CancellationToken.None)))!.DefaultTeamId);
 
         await database.ExecuteAsync("UPDATE projects SET default_team_id = NULL WHERE id = @id", ("id", projectId));
         Assert.Equal(first, (await ReadAsync(seam => seam.FindProjectAsync(projectId, CancellationToken.None)))!.DefaultTeamId);
     }
 
-    // US-7 · "Other modules read the deleted status" (doc-010 PR-9): Deleted, never null and never active, with no default.
+    // US-7 · "Other modules read the deleted status" (doc-010 PR-9): Deleted, never null and never active. mod-017: a team is a
+    // name and a status (no first-team flag, no default area), and the list is by name (BR-OT-11).
     [Fact]
     public async Task FindTeam_DeletedTeam_AnswersDeleted_ListActiveTeamsLeavesItOut()
     {
         var structure = await database.CreateStructureAsync();
         var projectId = structure.Project.Project.Id;
-        var secondId = structure.SecondTeam.Team.Id;
+        var secondId = structure.SecondTeam.Id;
 
         var before = await ReadAsync(seam => seam.FindTeamAsync(secondId, CancellationToken.None));
-        await database.ExecuteAsync(
-            "UPDATE areas SET owner_team_id = @first, default_of_team_id = NULL WHERE owner_team_id = @second; "
-            + "UPDATE teams SET status = 'Deleted' WHERE id = @second",
-            ("first", structure.Project.FirstTeam.Id),
-            ("second", secondId));
+        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @second", ("second", secondId));
         var after = await ReadAsync(seam => seam.FindTeamAsync(secondId, CancellationToken.None));
         var active = await ReadAsync(seam => seam.ListActiveTeamsAsync(projectId, CancellationToken.None));
 
-        Assert.Equal(
-            new TeamInfo(secondId, projectId, structure.Organization.Id, "Платформа", TeamStatus.Active, false, structure.SecondTeam.Area.Id, true),
-            before);
-        Assert.Equal(
-            new TeamInfo(secondId, projectId, structure.Organization.Id, "Платформа", TeamStatus.Deleted, false, null, false),
-            after);
-        Assert.Equal([structure.Project.FirstTeam.Id], active.Select(team => team.Id));
-        Assert.True(active[0].IsFirstTeam);
-        Assert.Equal(structure.Project.Root.Id, active[0].DefaultAreaId);
+        Assert.Equal(new TeamInfo(secondId, projectId, structure.Organization.Id, "Платформа", TeamStatus.Active, true), before);
+        Assert.Equal(new TeamInfo(secondId, projectId, structure.Organization.Id, "Платформа", TeamStatus.Deleted, false), after);
+        Assert.Equal([structure.Project.Team.Id], active.Select(team => team.Id));
     }
 
-    // US-6 · "Other modules get the same answer as the tree": «Платформа / API / Шлюз» resolves to «Платформа», inherited.
+    // mod-017 BR-OT-11: the active teams of a project come by name in Russian collation, letter case not deciding, then by id —
+    // no team first.
     [Fact]
-    public async Task FindAreaOwner_ResolvesThroughTheTree()
+    public async Task ListActiveTeams_ByName_NoTeamFirst()
     {
         var structure = await database.CreateStructureAsync();
-        var api = Area.CreateChild(structure.SecondTeam.Area, Name("API"), ownerTeam: null);
-        var gateway = Area.CreateChild(api, Name("Шлюз"), ownerTeam: null);
-        var reports = Area.CreateChild(structure.Project.Root, Name("Отчёты"), ownerTeam: null);
-        await database.AddAreasAsync(api, gateway, reports);
-
-        var gatewayOwner = await ReadAsync(seam => seam.FindAreaOwnerAsync(gateway.Id, CancellationToken.None));
-        var platformOwner = await ReadAsync(seam => seam.FindAreaOwnerAsync(structure.SecondTeam.Area.Id, CancellationToken.None));
-        var reportsOwner = await ReadAsync(seam => seam.FindAreaOwnerAsync(reports.Id, CancellationToken.None));
-
         var projectId = structure.Project.Project.Id;
-        Assert.Equal(new AreaOwnerInfo(gateway.Id, projectId, structure.SecondTeam.Team.Id, true, true), gatewayOwner);
-        Assert.Equal(new AreaOwnerInfo(structure.SecondTeam.Area.Id, projectId, structure.SecondTeam.Team.Id, false, true), platformOwner);
-        Assert.Equal(new AreaOwnerInfo(reports.Id, projectId, structure.Project.FirstTeam.Id, true, true), reportsOwner);
+        var later = Team.Create(projectId, Name("яблоко"));
+        var earlier = Team.Create(projectId, Name("Аналитика"));
+        await using (var context = database.NewContext())
+        {
+            context.Teams.AddRange(later, earlier);
+            await context.SaveChangesAsync();
+        }
+
+        var active = await ReadAsync(seam => seam.ListActiveTeamsAsync(projectId, CancellationToken.None));
+
+        Assert.Equal(["Аналитика", "Платформа", "Пример проекта", "яблоко"], active.Select(team => team.Name));
     }
 
     // api-contract § 7: null means only that no such object ever existed.
@@ -147,7 +136,6 @@ public sealed class OrganizationStructureTests(OrganizationsDatabaseFixture data
         Assert.Null(await ReadAsync(seam => seam.FindOrganizationAsync(unknown, CancellationToken.None)));
         Assert.Null(await ReadAsync(seam => seam.FindProjectAsync(unknown, CancellationToken.None)));
         Assert.Null(await ReadAsync(seam => seam.FindTeamAsync(unknown, CancellationToken.None)));
-        Assert.Null(await ReadAsync(seam => seam.FindAreaOwnerAsync(unknown, CancellationToken.None)));
         Assert.Empty(await ReadAsync(seam => seam.ListActiveTeamsAsync(unknown, CancellationToken.None)));
     }
 

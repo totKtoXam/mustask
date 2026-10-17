@@ -9,26 +9,26 @@ namespace Mustask.Application.Features.Organizations.RenameTeam;
 /// <summary>
 /// <c>PUT /api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}/name</c>
 /// (US-4 "A team is renamed", and "A team's name is unique among the project's
-/// active teams"). Follows the reference use case <c>CreateArea</c>
+/// active teams"; mod-017 api-contract § 2.7). Follows the reference use case <c>CreateArea</c>
 /// (plan-backend § 14.2).
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>The order of answers</b> (plan-backend § 5.3, api-contract § 0.4), one
 /// numbered step each below: the address from the outside in, the team included;
-/// rules about the addressed object alone (none: the first team may be renamed);
+/// rules about the addressed object alone (none: any team may be renamed, BR-OT-11);
 /// the name, every reason at once; references in the body (none); the
 /// uniqueness pre-check; the save.
 /// </para>
 /// <para>
-/// <b>Locks</b> (plan-backend § 8.2): the team <c>FOR NO KEY UPDATE</c>, taken
+/// <b>Locks</b> (plan-backend § 7): the team <c>FOR NO KEY UPDATE</c>, taken
 /// with the address, because the team is the object being written. A deletion of
-/// the same team holds it <c>FOR UPDATE</c>, so the two serialize, and the check
-/// of <c>Active</c> after the lock sees the outcome: a rename that comes second
+/// the same team holds it <c>FOR NO KEY UPDATE</c> too (with every other team of the project), so the two serialize, and
+/// the check of <c>Active</c> after the lock sees the outcome: a rename that comes second
 /// answers <see cref="OrganizationErrorCodes.TeamNotFound"/> (ADR-0026 rule 8,
 /// US-7). The project is not locked: a write beneath only reads its containers'
-/// status. The team's areas are not touched, so none is locked (US-4: they keep
-/// their names, ownership and default).
+/// status. A team has no areas (BR-OT-10), so none is read or locked, and the items it owns show the new name
+/// from their next read without a write (api-contract § 1.1).
 /// </para>
 /// <para>
 /// A rename is last-writer-wins (api-contract § 0.6): two renames of one team to
@@ -40,7 +40,6 @@ namespace Mustask.Application.Features.Organizations.RenameTeam;
 public sealed class RenameTeamHandler(
     IProjectRepository projects,
     ITeamRepository teams,
-    IAreaRepository areas,
     IUnitOfWork unitOfWork)
 {
     public async Task<RenameTeamResult> Handle(RenameTeamCommand command, CancellationToken cancellationToken) =>
@@ -71,7 +70,7 @@ public sealed class RenameTeamHandler(
                     throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
                 }
 
-                // 2. Rules about the addressed object alone: none. The first team is renamed like any other.
+                // 2. Rules about the addressed object alone: none. Any team is renamed, no team is the first (BR-OT-11).
 
                 // 3. Values in the body: one ValidationException with every field reason.
                 if (!EntityName.TryCreate(command.Name, out var name))
@@ -96,28 +95,10 @@ public sealed class RenameTeamHandler(
                 // index, and the repository answers it with the pre-check's code (plan-backend § 6.3).
                 await teams.SaveAsync(ct);
 
-                return new RenameTeamResult(await ToResponseAsync(team, ct));
+                // The team as every team response shows it (api-contract § 1.3): its default mark is read, never changed.
+                var mark = await teams.GetMarkAsync(team, ct);
+
+                return new RenameTeamResult(new TeamResponse(team.Id, team.ProjectId, team.Name, mark.ToWireName()));
             },
             cancellationToken);
-
-    /// <summary>
-    /// The team as every team response shows it, with its default area's path
-    /// resolved through <see cref="AreaTree"/>, the one definition of a path
-    /// (DC-9). The areas are read, never changed: the rename leaves them alone.
-    /// </summary>
-    private async Task<TeamResponse> ToResponseAsync(Team team, CancellationToken cancellationToken)
-    {
-        var tree = new AreaTree(await areas.GetNodesAsync(team.ProjectId, cancellationToken));
-
-        // Every active team has exactly one default area (BR-M1-14); a missing one is a defect, not a client's fault.
-        var defaultArea = tree.PreOrder().FirstOrDefault(node => node.DefaultOfTeamId == team.Id)
-            ?? throw new InvalidOperationException($"The active team {team.Id} has no default area.");
-
-        return new TeamResponse(
-            team.Id,
-            team.ProjectId,
-            team.Name,
-            team.IsFirstTeam,
-            new TeamDefaultAreaResponse(defaultArea.Id, tree.PathOf(defaultArea.Id)));
-    }
 }

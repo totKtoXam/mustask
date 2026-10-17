@@ -55,7 +55,7 @@ public sealed class RenameOrganizationHandlerTests
         var f = new Fixture();
         var project = f.Store.AddProject(f.Organization);
         var platform = f.Store.AddTeam(project);
-        f.Store.AddArea(project.Root, "Отчёты", platform.Team);
+        f.Store.AddArea(project.Root, "Отчёты");
         var processId = f.Organization.ProcessId;
         var before = Snapshot(f.Store);
 
@@ -208,7 +208,7 @@ public sealed class RenameOrganizationHandlerTests
     private static List<string> Snapshot(InMemoryOrganizations store) =>
     [
         .. store.Projects.Select(project => $"project {project.Id} {project.Name} {project.Key} {project.Status}"),
-        .. store.Teams.Select(team => $"team {team.Id} {team.Name} {team.IsFirstTeam} {team.Status}"),
-        .. store.Areas.Select(area => $"area {area.Id} {area.ParentId} {area.Name} {area.OwnerTeamId} {area.DefaultOfTeamId}"),
+        .. store.Teams.Select(team => $"team {team.Id} {team.Name} {team.Status}"),
+        .. store.Areas.Select(area => $"area {area.Id} {area.ParentId} {area.Name}"),
     ];
 }

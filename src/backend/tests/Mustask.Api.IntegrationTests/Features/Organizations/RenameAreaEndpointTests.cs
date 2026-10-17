@@ -31,37 +31,34 @@ public sealed class RenameAreaEndpointTests(MustaskApiFactory factory)
         RenameAsync(structure, areaId.ToString(), body);
 
     // US-5 · "A child area is renamed": «Отчёты / Квартальные» with children of its own becomes «Отчёты / Годовые», with its
-    // children and its owner unchanged, and the children's resolved owners unchanged too.
+    // children unchanged; the area has no owner to keep (mod-017 BR-OT-10). Renamed (D-16): Rename_KeepsChildrenAndOwner ->
+    // Rename_KeepsChildren.
     [Fact]
-    public async Task Rename_KeepsChildrenAndOwner()
+    public async Task Rename_KeepsChildren()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var reports = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Отчёты");
-        var quarterly = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, reports.Id, "Квартальные", structure.Platform.Team.Id);
+        var quarterly = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, reports.Id, "Квартальные");
         var firstQuarter = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, quarterly.Id, "Первый квартал");
-        var secondQuarter = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, quarterly.Id, "Второй квартал", structure.FirstTeamId);
+        await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, quarterly.Id, "Второй квартал");
 
         var answer = await RenameAsync(structure, quarterly.Id, new { name = " Годовые " });
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal("application/json", answer.MediaType);
-        Assert.Equal(["id", "name", "ownerTeamId", "parentId", "projectId"], PropertyNames(answer.Body));
+        Assert.Equal(["id", "name", "parentId", "projectId"], PropertyNames(answer.Body));
         Assert.Equal(quarterly.Id, answer.Body.GetProperty("id").GetGuid());
         Assert.Equal(structure.ProjectId, answer.Body.GetProperty("projectId").GetGuid());
         Assert.Equal(reports.Id, answer.Body.GetProperty("parentId").GetGuid());
         Assert.Equal("Годовые", answer.Body.GetProperty("name").GetString());
-        Assert.Equal(structure.Platform.Team.Id, answer.Body.GetProperty("ownerTeamId").GetGuid());
 
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
         Assert.Equal("Отчёты / Годовые", tree.PathOf(quarterly.Id));
         Assert.Equal("Отчёты / Годовые / Первый квартал", tree.PathOf(firstQuarter.Id));
         Assert.Equal(reports.Id, tree[quarterly.Id].ParentId);
-        Assert.Equal(structure.Platform.Team.Id, tree[quarterly.Id].OwnerTeamId);
         Assert.Equal(
             ["Второй квартал", "Первый квартал"],
             tree.ChildrenOf(quarterly.Id).Select(node => node.Name).Order(StringComparer.Ordinal));
-        Assert.Equal(new ResolvedOwner(structure.Platform.Team.Id, true), tree.ResolveOwner(firstQuarter.Id));
-        Assert.Equal(new ResolvedOwner(structure.FirstTeamId, false), tree.ResolveOwner(secondQuarter.Id));
     }
 
     // US-5 · "Sibling names are unique, compared ignoring case and spaces": the area's own name in another case is not taken by

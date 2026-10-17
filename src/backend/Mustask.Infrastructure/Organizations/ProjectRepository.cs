@@ -34,10 +34,15 @@ internal sealed class ProjectRepository(MustaskDbContext context) : IProjectRepo
             cancellationToken);
     }
 
+    public Task ClearDefaultTeamAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
+        context.Database.ExecuteSqlInterpolatedAsync(
+            $"UPDATE projects SET default_team_id = NULL WHERE id = {projectId} AND default_team_id = {teamId}",
+            cancellationToken);
+
     public void Add(NewProject project)
     {
         context.Projects.Add(project.Project);
-        context.Teams.Add(project.FirstTeam);
+        context.Teams.Add(project.Team);
         context.Areas.Add(project.Root);
     }
 

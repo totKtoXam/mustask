@@ -22,13 +22,13 @@ public sealed class ReachabilityTests(OrganizationsDatabaseFixture database)
         var organizationId = structure.Organization.Id;
         var projectId = structure.Project.Project.Id;
 
-        Assert.Equal((true, 1, 2, 2), await ReachAsync(organizationId, projectId));
+        Assert.Equal((true, 1, 2, 1), await ReachAsync(organizationId, projectId));
 
         await database.ExecuteAsync("UPDATE organizations SET status = 'Deactivated' WHERE id = @id", ("id", organizationId));
         Assert.Equal((false, 0, 0, 0), await ReachAsync(organizationId, projectId));
 
         await database.ExecuteAsync("UPDATE organizations SET status = 'Active' WHERE id = @id", ("id", organizationId));
-        Assert.Equal((true, 1, 2, 2), await ReachAsync(organizationId, projectId));
+        Assert.Equal((true, 1, 2, 1), await ReachAsync(organizationId, projectId));
     }
 
     // US-3 · "deactivated": the project leaves the active list, joins the deactivated one, and hides its teams and areas.
@@ -84,15 +84,11 @@ public sealed class ReachabilityTests(OrganizationsDatabaseFixture database)
         var organizationId = structure.Organization.Id;
         var projectId = structure.Project.Project.Id;
 
-        await database.ExecuteAsync(
-            "UPDATE areas SET owner_team_id = @first, default_of_team_id = NULL WHERE owner_team_id = @second; "
-            + "UPDATE teams SET status = 'Deleted' WHERE id = @second",
-            ("first", structure.Project.FirstTeam.Id),
-            ("second", structure.SecondTeam.Team.Id));
+        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @second", ("second", structure.SecondTeam.Id));
 
         await using var context = database.NewContext();
         Assert.Equal(
-            [structure.Project.FirstTeam.Id],
+            [structure.Project.Team.Id],
             await context.ReachableTeams(organizationId, projectId).Select(team => team.Id).ToListAsync());
         Assert.False(await context.ReachableProjects(other.Organization.Id).AnyAsync(project => project.Id == projectId));
         Assert.Empty(await context.ReachableTeams(other.Organization.Id, projectId).ToListAsync());

@@ -48,7 +48,7 @@ public sealed class DeleteAreaEndpointTests(MustaskApiFactory factory)
             OrganizationsTokens.SignedIn(),
             gate);
 
-    // US-5 · "Only an empty leaf is deleted": «Квартальные» has no children and is no team's default; it disappears, its
+    // US-5 · "Only an empty leaf is deleted": «Квартальные» has no children; it disappears, its
     // sibling and the other areas stay, and no action restores it.
     [Fact]
     public async Task Delete_Leaf_Returns204_Gone_NeighboursStay_NoRestore()
@@ -66,8 +66,7 @@ public sealed class DeleteAreaEndpointTests(MustaskApiFactory factory)
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
         Assert.False(tree.Contains(quarterly.Id));
         Assert.Equal(["Годовые"], tree.ChildrenOf(reports.Id).Select(node => node.Name));
-        Assert.True(tree.Contains(structure.Platform.Area.Id));
-        Assert.Equal(4, tree.Count);
+        Assert.Equal(3, tree.Count);
 
         var again = await DeleteAsync(structure, quarterly.Id);
         Assert.Equal(HttpStatusCode.NotFound, again.Status);
@@ -90,23 +89,24 @@ public sealed class DeleteAreaEndpointTests(MustaskApiFactory factory)
         Assert.Equal(
             "Нельзя удалить область, в которой есть рабочие элементы (включая удалённые) или вложенные области",
             refused.Detail);
-        Assert.Equal(4, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
+        Assert.Equal(3, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
 
         Assert.Equal(HttpStatusCode.NoContent, (await DeleteAsync(structure, quarterly.Id)).Status);
         Assert.Equal(HttpStatusCode.NoContent, (await DeleteAsync(structure, reports.Id)).Status);
 
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
         Assert.False(tree.Contains(reports.Id));
-        Assert.Equal(2, tree.Count);
+        Assert.Equal(1, tree.Count);
     }
 
     // US-5 · "The root comes with the project" and BR-M1-11: a delete requested directly is refused and changes nothing,
-    // although the root has a child and is the first team's default area: the rule about the addressed area answers first
-    // (api-contract § 0.4 step 2), and the root stays owned by the first team.
+    // although the root has a child: the rule about the addressed area answers first (api-contract § 0.4 step 2).
+    // Renamed (D-16, BR-OT-10): Delete_Root_Returns409RootIsFixed_RootStaysOwnedByTheFirstTeam -> Delete_Root_Returns409RootIsFixed.
     [Fact]
-    public async Task Delete_Root_Returns409RootIsFixed_RootStaysOwnedByTheFirstTeam()
+    public async Task Delete_Root_Returns409RootIsFixed()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Отчёты");
 
         var answer = await DeleteAsync(structure, structure.RootId);
 
@@ -116,44 +116,28 @@ public sealed class DeleteAreaEndpointTests(MustaskApiFactory factory)
 
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
         Assert.Equal(2, tree.Count);
-        Assert.Equal(new ResolvedOwner(structure.FirstTeamId, false), tree.ResolveOwner(structure.RootId));
     }
 
-    // US-6 · "A team's default area stays with its team": the leaf «Платформа» is the default area of the team «Платформа»;
-    // the refusal names the team, in the text and in its parameter, and the area stays.
+    // mod-017 US-5 · "an area is deleted like any other, whether or not a team shares its name" (BR-OT-10): the leaf «Платформа» is
+    // an empty leaf, and the team «Платформа» stays. Replaces Delete_DefaultArea_Returns409IsTeamDefault_NamingTheTeam and
+    // Delete_FormerDefaultArea_AfterTheDefaultMoved_Returns204 (retired, BR-OT-10).
     [Fact]
-    public async Task Delete_DefaultArea_Returns409IsTeamDefault_NamingTheTeam()
+    public async Task Delete_LeafNamedLikeATeam_Returns204_TheTeamStays()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        var leaf = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Платформа");
 
-        var answer = await DeleteAsync(structure, structure.Platform.Area.Id);
-
-        Assert.Equal(HttpStatusCode.Conflict, answer.Status);
-        Assert.Equal("organizations.area.is_team_default", answer.ErrorCode);
-        Assert.Equal("Область используется как область по умолчанию команды «Платформа»", answer.Detail);
-        var team = answer.Body.GetProperty("params").GetProperty("team");
-        Assert.Equal("Платформа", team.GetProperty("value").GetString());
-        Assert.Equal("string", team.GetProperty("type").GetString());
-        Assert.True((await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Contains(structure.Platform.Area.Id));
-    }
-
-    // US-6 · "once the team's default is changed to «Отчёты», the same actions are accepted": the former default is deleted,
-    // and the new default stays the team's.
-    [Fact]
-    public async Task Delete_FormerDefaultArea_AfterTheDefaultMoved_Returns204()
-    {
-        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var reports = await OrganizationsTestData.AddAreaAsync(
-            factory, structure.ProjectId, structure.RootId, "Отчёты", structure.Platform.Team.Id);
-        Assert.True(await OrganizationsTestData.SetTeamDefaultAreaAsync(factory, structure.ProjectId, structure.Platform.Team.Id, reports.Id));
-
-        var answer = await DeleteAsync(structure, structure.Platform.Area.Id);
+        var answer = await DeleteAsync(structure, leaf.Id);
 
         Assert.Equal(HttpStatusCode.NoContent, answer.Status);
+        Assert.False((await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Contains(leaf.Id));
 
-        var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
-        Assert.False(tree.Contains(structure.Platform.Area.Id));
-        Assert.Equal(structure.Platform.Team.Id, tree[reports.Id].DefaultOfTeamId);
+        var team = await OrganizationsApi.SendAsync(
+            factory,
+            HttpMethod.Get,
+            $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{structure.Platform.Id}",
+            token: OrganizationsTokens.SignedIn());
+        Assert.Equal(HttpStatusCode.OK, team.Status);
     }
 
     // US-1 · "A visitor who is not signed in sees nothing": the challenge comes before every other answer, and nothing is
@@ -211,7 +195,7 @@ public sealed class DeleteAreaEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(HttpStatusCode.NotFound, answer.Status);
         Assert.Equal("organizations.project.not_found", answer.ErrorCode);
-        Assert.Equal(3, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
+        Assert.Equal(2, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
     }
 
     // US-5 · "A node never leaves its project" (BR-M1-22) read for the addressed area: malformed, unknown, an area of
@@ -242,9 +226,9 @@ public sealed class DeleteAreaEndpointTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.NotFound, answer.Status);
         Assert.Equal("organizations.area.not_found", answer.ErrorCode);
         Assert.Equal("Область не найдена.", answer.Detail);
-        Assert.Equal(3, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
+        Assert.Equal(2, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
         Assert.Equal(2, (await OrganizationsTestData.ReadTreeAsync(factory, secondProject.Project.Id)).Count);
-        Assert.Equal(3, (await OrganizationsTestData.ReadTreeAsync(factory, other.ProjectId)).Count);
+        Assert.Equal(2, (await OrganizationsTestData.ReadTreeAsync(factory, other.ProjectId)).Count);
     }
 
     // US-5 · "A leaf deleted while a child is put under it" (BR-M1-13, NFR Concurrency), both orders. The request that goes

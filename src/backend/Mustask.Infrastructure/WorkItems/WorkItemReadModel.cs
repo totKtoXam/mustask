@@ -298,7 +298,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         var nodes = await context.Areas
             .AsNoTracking()
             .Where(area => area.ProjectId == projectId)
-            .Select(area => new AreaNode(area.Id, area.ParentId, area.Name, area.OwnerTeamId, area.DefaultOfTeamId))
+            .Select(area => new AreaNode(area.Id, area.ParentId, area.Name))
             .ToListAsync(cancellationToken);
 
         return new AreaTree(nodes);

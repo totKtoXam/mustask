@@ -36,71 +36,71 @@ public sealed class RenameTeamEndpointTests(MustaskApiFactory factory)
             (await services.GetRequiredService<ITeamRepository>().LockForShareAsync(projectId, teamId, ct))?.Name
             ?? throw new InvalidOperationException("The team is not a team of the project."));
 
-    // US-4 · "A team is renamed": «Платформа» becomes «Платформа данных», trimmed. The answer is the team of api-contract § 3
-    // with its default area, and the new name is what is stored, so it is shown wherever the team is listed or offered.
+    // mod-017 US-4 · "A team is renamed": «Платформа» becomes «Платформа данных», trimmed. The answer is the `Team` of api-contract
+    // § 1.3 — no first-team flag, no default area — and the new name is what is stored, so it is shown wherever the team is
+    // listed or offered. Replaces Rename_FreeName_Returns200_TeamWithItsDefaultArea_NewNameStored (D-16).
     [Fact]
-    public async Task Rename_FreeName_Returns200_TeamWithItsDefaultArea_NewNameStored()
+    public async Task Rename_FreeName_Returns200_TheTeam_NewNameStored()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var teamId = structure.Platform.Team.Id;
+        var teamId = structure.Platform.Id;
 
         var answer = await RenameAsync(structure, teamId, new { name = "  Платформа данных " });
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal("application/json", answer.MediaType);
-        Assert.Equal(["defaultArea", "id", "isFirstTeam", "name", "projectId"], PropertyNames(answer.Body));
+        Assert.Equal(["defaultMark", "id", "isMember", "name", "projectId"], PropertyNames(answer.Body));
         Assert.Equal(teamId, answer.Body.GetProperty("id").GetGuid());
         Assert.Equal(structure.ProjectId, answer.Body.GetProperty("projectId").GetGuid());
         Assert.Equal("Платформа данных", answer.Body.GetProperty("name").GetString());
-        Assert.False(answer.Body.GetProperty("isFirstTeam").GetBoolean());
-
-        var defaultArea = answer.Body.GetProperty("defaultArea");
-        Assert.Equal(["id", "path"], PropertyNames(defaultArea));
-        Assert.Equal(structure.Platform.Area.Id, defaultArea.GetProperty("id").GetGuid());
-        Assert.Equal("Платформа", defaultArea.GetProperty("path").GetString());
+        Assert.False(answer.Body.GetProperty("isMember").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, answer.Body.GetProperty("defaultMark").ValueKind);
 
         Assert.Equal("Платформа данных", await StoredNameAsync(structure.ProjectId, teamId));
     }
 
-    // US-4 · "A team is renamed": its areas keep their names, and its ownership and default area are unchanged (BR-M1-9).
-    // «Платформа» owns «Платформа» (its default) and «Платформа / API» explicitly, and «Платформа / API / Шлюз» by inheritance.
+    // mod-017 BR-OT-4 · the answer carries the team's default mark, as every team response does.
     [Fact]
-    public async Task Rename_KeepsAreaNamesOwnershipAndDefault()
+    public async Task Rename_NamedTeam_AnswersNamed()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var team = structure.Platform.Team;
-        var api = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.Platform.Area.Id, "API", team.Id);
+        await OrganizationsTestData.SetDefaultTeamAsync(factory, structure.OrganizationId, structure.ProjectId, structure.Platform.Id);
+
+        var answer = await RenameAsync(structure, structure.Platform.Id, new { name = "Платформа данных" });
+
+        Assert.Equal("named", answer.Body.GetProperty("defaultMark").GetString());
+    }
+
+    // mod-017 US-4 · "Adding or renaming a team touches no area" (BR-OT-10): the areas keep their names and places. Replaces
+    // Rename_KeepsAreaNamesOwnershipAndDefault (D-16).
+    [Fact]
+    public async Task Rename_TouchesNoArea()
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        var api = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "API");
         var gateway = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, api.Id, "Шлюз");
         var before = (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).PreOrder().ToList();
 
-        var answer = await RenameAsync(structure, team.Id, new { name = "Платформа данных" });
+        var answer = await RenameAsync(structure, structure.Platform.Id, new { name = "Платформа данных" });
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
 
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
         Assert.Equal(before, tree.PreOrder());
-        Assert.Equal("Платформа / API / Шлюз", tree.PathOf(gateway.Id));
-        Assert.Equal(new ResolvedOwner(team.Id, false), tree.ResolveOwner(api.Id));
-        Assert.Equal(new ResolvedOwner(team.Id, true), tree.ResolveOwner(gateway.Id));
-        Assert.Equal(team.Id, tree[structure.Platform.Area.Id].DefaultOfTeamId);
-        Assert.Equal(structure.Platform.Area.Id, answer.Body.GetProperty("defaultArea").GetProperty("id").GetGuid());
-        Assert.Equal("Платформа", answer.Body.GetProperty("defaultArea").GetProperty("path").GetString());
+        Assert.Equal("API / Шлюз", tree.PathOf(gateway.Id));
     }
 
-    // US-4 · "The first team's default is the root, for good" does not stop a rename: the first team is renamed like any
-    // other, its default area stays the root, and the root keeps its own name (it is renamed with its project, § 2.5).
+    // mod-017 US-4 · "any team renamed" (BR-OT-11): the team the project came with is renamed like any other, and the root keeps
+    // its own name (it is renamed with its project, § 2.5). Replaces Rename_FirstTeam_Returns200_DefaultStaysTheRoot_RootKeepsItsName.
     [Fact]
-    public async Task Rename_FirstTeam_Returns200_DefaultStaysTheRoot_RootKeepsItsName()
+    public async Task Rename_AnyTeam_Returns200_RootKeepsItsName()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
 
-        var answer = await RenameAsync(structure, structure.FirstTeamId, new { name = "Основная команда" });
+        var answer = await RenameAsync(structure, structure.ProjectTeamId, new { name = "Основная команда" });
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
-        Assert.True(answer.Body.GetProperty("isFirstTeam").GetBoolean());
         Assert.Equal("Основная команда", answer.Body.GetProperty("name").GetString());
-        Assert.Equal(structure.RootId, answer.Body.GetProperty("defaultArea").GetProperty("id").GetGuid());
-        Assert.Equal("Пример проекта", answer.Body.GetProperty("defaultArea").GetProperty("path").GetString());
 
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
         Assert.Equal("Пример проекта", tree.Root.Name);
@@ -111,7 +111,7 @@ public sealed class RenameTeamEndpointTests(MustaskApiFactory factory)
     public async Task Rename_OwnNameInAnotherCase_Returns200()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var teamId = structure.Platform.Team.Id;
+        var teamId = structure.Platform.Id;
 
         var answer = await RenameAsync(structure, teamId, new { name = " ПЛАТФОРМА " });
 
@@ -128,13 +128,13 @@ public sealed class RenameTeamEndpointTests(MustaskApiFactory factory)
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var analytics = await OrganizationsTestData.AddTeamAsync(factory, structure.ProjectId, "Аналитика");
 
-        var answer = await RenameAsync(structure, structure.Platform.Team.Id, new { name = " аналитика " });
+        var answer = await RenameAsync(structure, structure.Platform.Id, new { name = " аналитика " });
 
         Assert.Equal(HttpStatusCode.Conflict, answer.Status);
         Assert.Equal("organizations.team.name_taken", answer.ErrorCode);
         Assert.Equal("Команда с таким названием уже есть в проекте", answer.Detail);
-        Assert.Equal("Платформа", await StoredNameAsync(structure.ProjectId, structure.Platform.Team.Id));
-        Assert.Equal("Аналитика", await StoredNameAsync(structure.ProjectId, analytics.Team.Id));
+        Assert.Equal("Платформа", await StoredNameAsync(structure.ProjectId, structure.Platform.Id));
+        Assert.Equal("Аналитика", await StoredNameAsync(structure.ProjectId, analytics.Id));
     }
 
     // US-4 · "«Платформа» is still free as a team name in another project": the rule is per project.
@@ -144,29 +144,25 @@ public sealed class RenameTeamEndpointTests(MustaskApiFactory factory)
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var secondProject = await OrganizationsTestData.CreateProjectAsync(factory, structure.OrganizationId, "Второй проект", "SEC");
 
-        var answer = await RenameAsync(structure, structure.Platform.Team.Id, new { name = "Второй проект" });
+        var answer = await RenameAsync(structure, structure.Platform.Id, new { name = "Второй проект" });
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal("Второй проект", answer.Body.GetProperty("name").GetString());
-        Assert.Equal("Второй проект", await StoredNameAsync(secondProject.Project.Id, secondProject.FirstTeam.Id));
+        Assert.Equal("Второй проект", await StoredNameAsync(secondProject.Project.Id, secondProject.Team.Id));
     }
 
-    // US-7 · "A deleted team's name is free": a deleted team does not hold its name (ADR-0026 rule 6). Its area «Ядро»
-    // keeps its name, and the rename does not touch it.
+    // US-7 · "A deleted team's name is free": a deleted team does not hold its name (ADR-0026 rule 6).
     [Fact]
-    public async Task Rename_ToNameOfDeletedTeam_Returns200_AreasUntouched()
+    public async Task Rename_ToNameOfDeletedTeam_Returns200()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var core = await OrganizationsTestData.AddTeamAsync(factory, structure.ProjectId, "Ядро");
-        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, core.Team.Id);
+        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, core.Id);
 
-        var answer = await RenameAsync(structure, structure.Platform.Team.Id, new { name = "ядро" });
+        var answer = await RenameAsync(structure, structure.Platform.Id, new { name = "ядро" });
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal("ядро", answer.Body.GetProperty("name").GetString());
-
-        var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
-        Assert.Equal("Ядро", tree[core.Area.Id].Name);
     }
 
     // US-1 · "A visitor who is not signed in sees nothing": the challenge comes before every other check.
@@ -174,7 +170,7 @@ public sealed class RenameTeamEndpointTests(MustaskApiFactory factory)
     public async Task Rename_NoToken_Returns401_ChangesNothing()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var teamId = structure.Platform.Team.Id;
+        var teamId = structure.Platform.Id;
 
         var answer = await OrganizationsApi.SendAsync(
             factory,
@@ -203,13 +199,13 @@ public sealed class RenameTeamEndpointTests(MustaskApiFactory factory)
             _ => other.ProjectId.ToString(),
         };
 
-        var answer = await RenameAsync(structure.OrganizationId, projectId, structure.Platform.Team.Id.ToString(), new { name = "" });
+        var answer = await RenameAsync(structure.OrganizationId, projectId, structure.Platform.Id.ToString(), new { name = "" });
 
         Assert.Equal(HttpStatusCode.NotFound, answer.Status);
         Assert.Equal("organizations.project.not_found", answer.ErrorCode);
         Assert.Equal("Проект не найден.", answer.Detail);
-        Assert.Equal("Платформа", await StoredNameAsync(structure.ProjectId, structure.Platform.Team.Id));
-        Assert.Equal("Платформа", await StoredNameAsync(other.ProjectId, other.Platform.Team.Id));
+        Assert.Equal("Платформа", await StoredNameAsync(structure.ProjectId, structure.Platform.Id));
+        Assert.Equal("Платформа", await StoredNameAsync(other.ProjectId, other.Platform.Id));
     }
 
     // US-3 · "A project is deactivated": a write under it answers project.not_found and changes nothing (ADR-0026 rule 5).
@@ -219,11 +215,11 @@ public sealed class RenameTeamEndpointTests(MustaskApiFactory factory)
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         await OrganizationsTestData.SetProjectStatusAsync(factory, structure.OrganizationId, structure.ProjectId, ProjectStatus.Deactivated);
 
-        var answer = await RenameAsync(structure, structure.Platform.Team.Id, new { name = "Платформа данных" });
+        var answer = await RenameAsync(structure, structure.Platform.Id, new { name = "Платформа данных" });
 
         Assert.Equal(HttpStatusCode.NotFound, answer.Status);
         Assert.Equal("organizations.project.not_found", answer.ErrorCode);
-        Assert.Equal("Платформа", await StoredNameAsync(structure.ProjectId, structure.Platform.Team.Id));
+        Assert.Equal("Платформа", await StoredNameAsync(structure.ProjectId, structure.Platform.Id));
     }
 
     // US-4 · "A team identifier that names no team of the project" (BR-M1-20, BR-M1-22) and US-7 · "A deleted team answers
@@ -244,16 +240,16 @@ public sealed class RenameTeamEndpointTests(MustaskApiFactory factory)
 
         if (how == "deleted")
         {
-            await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, core.Team.Id);
+            await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, core.Id);
         }
 
         var teamId = how switch
         {
-            "malformed" => core.Team.Id.ToString("N"),
+            "malformed" => core.Id.ToString("N"),
             "unknown" => Guid.CreateVersion7().ToString(),
-            "of another project" => secondProject.FirstTeam.Id.ToString(),
-            "of another organization" => other.Platform.Team.Id.ToString(),
-            _ => core.Team.Id.ToString(),
+            "of another project" => secondProject.Team.Id.ToString(),
+            "of another organization" => other.Platform.Id.ToString(),
+            _ => core.Id.ToString(),
         };
 
         var answer = await RenameAsync(structure.OrganizationId, structure.ProjectId.ToString(), teamId, new { name = "" });
@@ -261,9 +257,9 @@ public sealed class RenameTeamEndpointTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.NotFound, answer.Status);
         Assert.Equal("organizations.team.not_found", answer.ErrorCode);
         Assert.Equal("Команда не найдена.", answer.Detail);
-        Assert.Equal("Ядро", await StoredNameAsync(structure.ProjectId, core.Team.Id));
-        Assert.Equal("Второй проект", await StoredNameAsync(secondProject.Project.Id, secondProject.FirstTeam.Id));
-        Assert.Equal("Платформа", await StoredNameAsync(other.ProjectId, other.Platform.Team.Id));
+        Assert.Equal("Ядро", await StoredNameAsync(structure.ProjectId, core.Id));
+        Assert.Equal("Второй проект", await StoredNameAsync(secondProject.Project.Id, secondProject.Team.Id));
+        Assert.Equal("Платформа", await StoredNameAsync(other.ProjectId, other.Platform.Id));
     }
 
     // US-4 · "an empty name, or one longer than 100 characters, is refused with «Название должно содержать от 1 до 100
@@ -276,7 +272,7 @@ public sealed class RenameTeamEndpointTests(MustaskApiFactory factory)
     public async Task Rename_InvalidName_Returns400NameLength_NameUnchanged(string? name)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var teamId = structure.Platform.Team.Id;
+        var teamId = structure.Platform.Id;
 
         var answer = await RenameAsync(structure, teamId, new { name = name == "101" ? new string('я', 101) : name });
 
@@ -295,7 +291,7 @@ public sealed class RenameTeamEndpointTests(MustaskApiFactory factory)
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var hundred = new string('я', 100);
 
-        var answer = await RenameAsync(structure, structure.Platform.Team.Id, new { name = $" {hundred} " });
+        var answer = await RenameAsync(structure, structure.Platform.Id, new { name = $" {hundred} " });
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal(hundred, answer.Body.GetProperty("name").GetString());

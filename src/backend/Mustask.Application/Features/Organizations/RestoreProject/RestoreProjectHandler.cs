@@ -21,7 +21,7 @@ namespace Mustask.Application.Features.Organizations.RestoreProject;
 /// </para>
 /// <para>
 /// <b>Exact by construction.</b> The restore writes the one row of the project
-/// (ADR-0026 rule 2): its name, key, teams, default areas and area tree were
+/// (ADR-0026 rule 2): its name, key, teams, default-team setting and area tree were
 /// never touched by the deactivation, so none of them is read or written here.
 /// Restoring an active project changes nothing and answers 200 with the same
 /// shape (a no-op, not a refusal).

@@ -31,7 +31,7 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
 
             for (var level = 1; level <= 10; level++)
             {
-                var child = Area.CreateChild(parent, Name($"Узел {branch}-{level}"), ownerTeam: null);
+                var child = Area.CreateChild(parent, Name($"Узел {branch}-{level}"));
                 areas.Add(child);
                 parent = child;
             }
@@ -45,30 +45,28 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
             readModel => readModel.GetNodesAsync(structure.Organization.Id, structure.Project.Project.Id, CancellationToken.None));
 
         Assert.Equal(2, counter.Commands.Count);
-        Assert.Equal(502, nodes!.Count);
+        Assert.Equal(501, nodes!.Count);
         Assert.Equal(10, new AreaTree(nodes.Select(row => row.ToNode())).DepthOf(areas[^1].Id));
     }
 
-    // US-6 · "An area with no explicit owner inherits": each row carries its explicit owner's and its default team's names.
+    // mod-017 api-contract § 1.6 (BR-OT-10): a row is a node's place and name and nothing about a team — no join to the teams.
+    // Replaces AreaTree_GetNodes_CarriesTheNamesOfTheTeamsEachNodeRefersTo (retired, BR-OT-10).
     [Fact]
-    public async Task AreaTree_GetNodes_CarriesTheNamesOfTheTeamsEachNodeRefersTo()
+    public async Task AreaTree_GetNodes_ReturnsPlaceAndName_JoinsNoTeam()
     {
         var structure = await database.CreateStructureAsync();
-        var inherited = Area.CreateChild(structure.SecondTeam.Area, Name("API"), ownerTeam: null);
-        await database.AddAreasAsync(inherited);
+        var api = Area.CreateChild(structure.Project.Root, Name("API"));
+        await database.AddAreasAsync(api);
 
+        var counter = new CommandCountingInterceptor();
         var nodes = await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>?>(
-            null,
+            counter,
             readModel => readModel.GetNodesAsync(structure.Organization.Id, structure.Project.Project.Id, CancellationToken.None));
 
-        var root = nodes!.Single(row => row.ParentId is null);
-        var platform = nodes!.Single(row => row.Id == structure.SecondTeam.Area.Id);
-        var api = nodes!.Single(row => row.Id == inherited.Id);
-
-        Assert.Equal(("Пример проекта", "Пример проекта"), (root.OwnerTeamName, root.DefaultOfTeamName));
-        Assert.Equal(("Платформа", "Платформа"), (platform.OwnerTeamName, platform.DefaultOfTeamName));
-        Assert.Null(api.OwnerTeamName);
-        Assert.Null(api.DefaultOfTeamName);
+        Assert.Equal(
+            [(api.Id, (Guid?)structure.Project.Root.Id, "API"), (structure.Project.Root.Id, null, "Пример проекта")],
+            nodes!.Select(row => (row.Id, row.ParentId, row.Name)).OrderBy(row => row.Name, StringComparer.Ordinal));
+        Assert.DoesNotContain(counter.Commands, command => command.Contains("teams", StringComparison.OrdinalIgnoreCase));
     }
 
     // BR-M1-20, BR-M1-22: the tree of an unreachable project, or of a project of another organization, is not served.
@@ -90,24 +88,48 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
         Assert.Null(deactivated);
     }
 
-    // US-4 · "The project's teams": the first team first, then the rest in display order, each with its default area.
+    // mod-017 US-4 · "The project's teams": by name in Russian collation, letter case not deciding, no team first (BR-OT-11), each
+    // with its default mark (BR-OT-4), all in one statement. Replaces
+    // Teams_ListActive_FirstTeamFirstThenRussianOrder_WithDefaultAreas (D-16, BR-OT-11).
     [Fact]
-    public async Task Teams_ListActive_FirstTeamFirstThenRussianOrder_WithDefaultAreas()
+    public async Task Teams_ListActive_ByName_WithTheDefaultMark_OneStatement()
     {
         var structure = await database.CreateStructureAsync(projectName: "Ядро");
         var projectId = structure.Project.Project.Id;
-        var alpha = Team.CreateWithArea(projectId, Name("альфа"), structure.Project.Root);
+        var alpha = Team.Create(projectId, Name("альфа"));
         await AddTeamAsync(alpha);
 
-        var teams = await ReadAsync<ITeamReadModel, IReadOnlyList<TeamRow>>(
+        var counter = new CommandCountingInterceptor();
+        var none = await ReadAsync<ITeamReadModel, IReadOnlyList<TeamRow>>(
+            counter,
+            readModel => readModel.ListActiveAsync(structure.Organization.Id, projectId, "nobody", CancellationToken.None));
+        await database.ExecuteAsync("UPDATE projects SET default_team_id = @team WHERE id = @project", ("team", structure.SecondTeam.Id), ("project", projectId));
+        var named = await ReadAsync<ITeamReadModel, IReadOnlyList<TeamRow>>(
             null,
             readModel => readModel.ListActiveAsync(structure.Organization.Id, projectId, "nobody", CancellationToken.None));
 
-        Assert.Equal(["Ядро", "альфа", "Платформа"], teams.Select(team => team.Name));
-        Assert.True(teams[0].IsFirstTeam);
-        Assert.Equal(structure.Project.Root.Id, teams[0].DefaultAreaId);
-        Assert.Equal(alpha.Area.Id, teams[1].DefaultAreaId);
-        Assert.Equal(structure.SecondTeam.Area.Id, teams[2].DefaultAreaId);
+        Assert.Single(counter.Commands);
+        Assert.Equal(["альфа", "Платформа", "Ядро"], none.Select(team => team.Name));
+        Assert.All(none, team => Assert.Equal(DefaultTeamMark.None, team.Mark));
+        Assert.Equal(
+            [DefaultTeamMark.None, DefaultTeamMark.Named, DefaultTeamMark.None],
+            named.Select(team => team.Mark));
+    }
+
+    // mod-017 BR-OT-4 · a project's only active team carries «onlyTeam» when the settings name none.
+    [Fact]
+    public async Task Teams_TheOnlyActiveTeam_IsMarkedOnlyTeam_UnlessTheSettingsNameAnother()
+    {
+        var structure = await database.CreateStructureAsync();
+        var projectId = structure.Project.Project.Id;
+        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @second", ("second", structure.SecondTeam.Id));
+
+        var only = await ReadAsync<ITeamReadModel, TeamRow?>(
+            null,
+            readModel => readModel.FindReachableAsync(structure.Organization.Id, projectId, structure.Project.Team.Id, CancellationToken.None));
+
+        Assert.Equal(DefaultTeamMark.OnlyTeam, only!.Mark);
+        Assert.False(only.IsMember);
     }
 
     // US-7 · "A deleted team answers not found": it leaves the list and the by-id read.
@@ -116,20 +138,16 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
     {
         var structure = await database.CreateStructureAsync();
         var projectId = structure.Project.Project.Id;
-        await database.ExecuteAsync(
-            "UPDATE areas SET owner_team_id = @first, default_of_team_id = NULL WHERE owner_team_id = @second; "
-            + "UPDATE teams SET status = 'Deleted' WHERE id = @second",
-            ("first", structure.Project.FirstTeam.Id),
-            ("second", structure.SecondTeam.Team.Id));
+        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @second", ("second", structure.SecondTeam.Id));
 
         var teams = await ReadAsync<ITeamReadModel, IReadOnlyList<TeamRow>>(
             null,
             readModel => readModel.ListActiveAsync(structure.Organization.Id, projectId, "nobody", CancellationToken.None));
         var deleted = await ReadAsync<ITeamReadModel, TeamRow?>(
             null,
-            readModel => readModel.FindReachableAsync(structure.Organization.Id, projectId, structure.SecondTeam.Team.Id, CancellationToken.None));
+            readModel => readModel.FindReachableAsync(structure.Organization.Id, projectId, structure.SecondTeam.Id, CancellationToken.None));
 
-        Assert.Equal([structure.Project.FirstTeam.Id], teams.Select(team => team.Id));
+        Assert.Equal([structure.Project.Team.Id], teams.Select(team => team.Id));
         Assert.Null(deleted);
     }
 
@@ -201,11 +219,10 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
         Assert.Null(foreign);
     }
 
-    private async Task AddTeamAsync(NewTeam team)
+    private async Task AddTeamAsync(Team team)
     {
         await using var context = database.NewContext();
-        context.Teams.Add(team.Team);
-        context.Areas.Add(team.Area);
+        context.Teams.Add(team);
         await context.SaveChangesAsync();
     }
 

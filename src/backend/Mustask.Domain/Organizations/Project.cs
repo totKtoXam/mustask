@@ -3,8 +3,9 @@ namespace Mustask.Domain.Organizations;
 /// <summary>
 /// A project of an organization (US-3). Its name is unique in the organization
 /// among projects of any status, and so is its key, which never changes
-/// (BR-M1-1). It is created ready to use: with its first team and its root
-/// area (BR-M1-9, BR-M1-11, BR-M1-14). Removed softly, like the organization
+/// (BR-M1-1). It is created ready to use: with one team named after it and its root
+/// area (mod-017 BR-OT-11, until feat-028 and mod-018 remove them): the team an ordinary one, the
+/// root owned by nobody. Removed softly, like the organization
 /// (ADR-0026).
 /// </summary>
 public sealed class Project
@@ -71,10 +72,10 @@ public sealed class Project
     }
 
     /// <summary>
-    /// A new, active project with its first team and its root (US-3 "created
-    /// ready to use"). The first team and the root are both named after the
-    /// project; the root is owned by the first team for good and is its default
-    /// area. The caller has checked the key already (<see cref="ProjectKey"/>).
+    /// A new, active project with its team and its root (US-3 "created
+    /// ready to use"). The team and the root are both named after the
+    /// project; the team is an ordinary one and the root belongs to nobody
+    /// (mod-017 BR-OT-10, BR-OT-11). The caller has checked the key already (<see cref="ProjectKey"/>).
     /// </summary>
     public static NewProject Create(Guid organizationId, EntityName name, string key, DateTimeOffset createdAt, string createdBy)
     {
@@ -91,10 +92,10 @@ public sealed class Project
         Organization.EnsureCreator(createdBy);
 
         var project = new Project(Guid.CreateVersion7(), organizationId, name, key, createdAt, createdBy);
-        var firstTeam = Team.CreateFirst(project.Id, name);
-        var root = Area.CreateRoot(project.Id, name, firstTeam.Id);
+        var team = Team.Create(project.Id, name);
+        var root = Area.CreateRoot(project.Id, name);
 
-        return new NewProject(project, firstTeam, root);
+        return new NewProject(project, team, root);
     }
 
     /// <summary>Renames the project and its root with it (BR-M1-11). The key, the teams and the rest of the tree do not change.</summary>
@@ -117,5 +118,5 @@ public sealed class Project
     public void Restore() => Status = ProjectStatus.Active;
 }
 
-/// <summary>What <see cref="Project.Create"/> builds: the project, its first team and its root, to be stored together.</summary>
-public sealed record NewProject(Project Project, Team FirstTeam, Area Root);
+/// <summary>What <see cref="Project.Create"/> builds: the project, its one team and its root, to be stored together (plan-backend D-13).</summary>
+public sealed record NewProject(Project Project, Team Team, Area Root);

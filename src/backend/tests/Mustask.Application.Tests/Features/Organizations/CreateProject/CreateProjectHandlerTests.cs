@@ -59,8 +59,8 @@ public sealed class CreateProjectHandlerTests
 
         public Task<CreateProjectResult> HandleAsync(CreateProjectCommand command) => Handler.Handle(command, CancellationToken.None);
 
-        /// <summary>The project's first team and root as stored, found by the project's id.</summary>
-        public (Project Project, Team FirstTeam, Area Root) StoredParts(Guid projectId) =>
+        /// <summary>The project, its team and its root as stored, found by the project's id.</summary>
+        public (Project Project, Team Team, Area Root) StoredParts(Guid projectId) =>
             (
                 Store.Projects.Single(project => project.Id == projectId),
                 Store.Teams.Single(team => team.ProjectId == projectId),
@@ -68,29 +68,27 @@ public sealed class CreateProjectHandlerTests
     }
 
     // US-3 · "A project is created ready to use": active, with its name and key; one team and a root area, both named after
-    // the project; the root owned by that team for good and its default; the creator and the time kept (BR-M1-21).
+    // the project; the team an ordinary one and the root owned by nobody (mod-017 BR-OT-10, BR-OT-11); the creator and the time kept (BR-M1-21).
     [Fact]
-    public async Task Handle_ValidNameAndKey_CreatesProjectWithFirstTeamAndRoot_RecordsCreator()
+    public async Task Handle_ValidNameAndKey_CreatesProjectWithOneOrdinaryTeamAndRoot_RecordsCreator()
     {
         var f = new Fixture();
 
         var result = await f.HandleAsync(f.Command(name: " Пример проекта "));
 
-        var (project, firstTeam, root) = f.StoredParts(result.Response.Id);
+        var (project, team, root) = f.StoredParts(result.Response.Id);
         Assert.Equal(new ProjectResponse(project.Id, f.Organization.Id, "Пример проекта", "PRM"), result.Response);
         Assert.Equal(ProjectStatus.Active, project.Status);
         Assert.Equal(f.Organization.Id, project.OrganizationId);
         Assert.Equal(Subject, project.CreatedBy);
         Assert.Equal(f.Clock.UtcNow, project.CreatedAt);
 
-        Assert.Equal("Пример проекта", firstTeam.Name);
-        Assert.True(firstTeam.IsFirstTeam);
-        Assert.True(firstTeam.IsActive);
+        Assert.Equal("Пример проекта", team.Name);
+        Assert.True(team.IsActive);
+        Assert.Null(project.DefaultTeamId);
 
         Assert.Equal("Пример проекта", root.Name);
         Assert.True(root.IsRoot);
-        Assert.Equal(firstTeam.Id, root.OwnerTeamId);
-        Assert.Equal(firstTeam.Id, root.DefaultOfTeamId);
     }
 
     // US-3 · "A project is created ready to use": nothing but the project, one team and one root is written, in one save, and
@@ -375,13 +373,13 @@ public sealed class CreateProjectHandlerTests
     // mod-016 US-3 · "The project's creator is its first team's first member" (BR-M1-25, doc-006 BR-M1-9): the creating
     // administrator is the only member of the first team, whatever the user projection says of them (the handler holds none).
     [Fact]
-    public async Task Handle_CreatorIsAMember_TheyAreTheOnlyMemberOfTheFirstTeam()
+    public async Task Handle_CreatorIsAMember_TheyAreTheOnlyMemberOfTheProjectsTeam()
     {
         var f = new Fixture();
 
         var result = await f.HandleAsync(f.Command());
 
-        var firstTeam = f.StoredParts(result.Response.Id).FirstTeam;
+        var firstTeam = f.StoredParts(result.Response.Id).Team;
         var membership = Assert.Single(f.Store.TeamMemberships);
         Assert.Equal((firstTeam.Id, f.Organization.Id, Subject), (membership.TeamId, membership.OrganizationId, membership.UserId));
         Assert.Equal(1, f.Store.SaveCount);
@@ -404,9 +402,9 @@ public sealed class CreateProjectHandlerTests
         Assert.Empty(f.Store.TeamMemberships);
     }
 
-    // mod-016 US-3 · only the first team gains the creator; a later team of the project starts empty.
+    // mod-016 US-3 · only the new project's team gains the creator; a later team of the project starts empty.
     [Fact]
-    public async Task Handle_OnlyTheFirstTeamOfTheNewProjectGainsTheCreator()
+    public async Task Handle_OnlyTheNewProjectsTeamGainsTheCreator()
     {
         var f = new Fixture();
         var other = f.Store.AddProject(f.Organization, "Другой проект", "OTH");
@@ -414,8 +412,8 @@ public sealed class CreateProjectHandlerTests
         var result = await f.HandleAsync(f.Command());
 
         var membership = Assert.Single(f.Store.TeamMemberships);
-        Assert.Equal(f.StoredParts(result.Response.Id).FirstTeam.Id, membership.TeamId);
-        Assert.NotEqual(other.FirstTeam.Id, membership.TeamId);
+        Assert.Equal(f.StoredParts(result.Response.Id).Team.Id, membership.TeamId);
+        Assert.NotEqual(other.Team.Id, membership.TeamId);
     }
 
     // mod-016 plan-backend § 3.6 row 12 · the creator's membership ended mid-request: the database refuses the team membership

@@ -22,7 +22,6 @@ public sealed class CreateAreaHandlerTests
             Platform = Store.AddTeam(Project);
             Handler = new CreateAreaHandler(
                 new FakeProjectRepository(Store),
-                new FakeTeamRepository(Store),
                 new FakeAreaRepository(Store),
                 new FakeUnitOfWork());
         }
@@ -33,17 +32,16 @@ public sealed class CreateAreaHandlerTests
 
         public NewProject Project { get; }
 
-        public NewTeam Platform { get; }
+        public Team Platform { get; }
 
         public CreateAreaHandler Handler { get; }
 
-        public CreateAreaCommand Command(string? parentId = null, string? name = "Отчёты", string? ownerTeamId = null, string? projectId = null, string? organizationId = null) =>
+        public CreateAreaCommand Command(string? parentId = null, string? name = "Отчёты", string? projectId = null, string? organizationId = null) =>
             new(
                 organizationId ?? Organization.Id.ToString(),
                 projectId ?? Project.Project.Id.ToString(),
                 parentId ?? Project.Root.Id.ToString(),
-                name,
-                ownerTeamId);
+                name);
 
         public Task<CreateAreaResult> HandleAsync(CreateAreaCommand command) => Handler.Handle(command, CancellationToken.None);
     }
@@ -57,26 +55,12 @@ public sealed class CreateAreaHandlerTests
         var reports = await f.HandleAsync(f.Command(name: " Отчёты "));
         var quarterly = await f.HandleAsync(f.Command(parentId: reports.Response.Id.ToString(), name: "Квартальные"));
 
-        Assert.Equal(new AreaResponse(reports.Response.Id, f.Project.Project.Id, f.Project.Root.Id, "Отчёты", null), reports.Response);
+        Assert.Equal(new AreaResponse(reports.Response.Id, f.Project.Project.Id, f.Project.Root.Id, "Отчёты"), reports.Response);
         Assert.Equal(reports.Response.Id, quarterly.Response.ParentId);
         Assert.Equal("Квартальные", quarterly.Response.Name);
 
-        var tree = new AreaTree(f.Store.Areas.Select(area => new AreaNode(area.Id, area.ParentId, area.Name, area.OwnerTeamId, area.DefaultOfTeamId)));
+        var tree = new AreaTree(f.Store.Areas.Select(area => new AreaNode(area.Id, area.ParentId, area.Name)));
         Assert.Equal("Отчёты / Квартальные", tree.PathOf(quarterly.Response.Id));
-    }
-
-    // US-6 · "A child area is created with or without an owner".
-    [Fact]
-    public async Task Handle_WithOwnerOrInheriting_StoresTheExplicitOwnerOrNone()
-    {
-        var f = new Fixture();
-
-        var owned = await f.HandleAsync(f.Command(name: "Отчёты", ownerTeamId: f.Platform.Team.Id.ToString()));
-        var inheriting = await f.HandleAsync(f.Command(name: "Архив"));
-
-        Assert.Equal(f.Platform.Team.Id, owned.Response.OwnerTeamId);
-        Assert.Null(inheriting.Response.OwnerTeamId);
-        Assert.Null(f.Store.Areas.Single(area => area.Id == owned.Response.Id).DefaultOfTeamId);
     }
 
     // BR-M1-20: behind the filter the organization id is well formed; if it were not, the outermost level answers.
@@ -137,48 +121,14 @@ public sealed class CreateAreaHandlerTests
         var f = new Fixture();
         var submitted = name == "101" ? new string('я', 101) : name;
 
-        // The owner and the parent are wrong too: the body's values answer first (api-contract § 0.4 step 3 before 4).
+        // The parent is wrong too: the body's values answer first (api-contract § 0.4 step 3 before 4).
         var refusal = await Assert.ThrowsAsync<ValidationException>(() => f.HandleAsync(
-            f.Command(name: submitted, parentId: "x", ownerTeamId: "y")));
+            f.Command(name: submitted, parentId: "x")));
 
         Assert.Equal(OrganizationErrorCodes.ValidationFailed, refusal.Code);
         Assert.Equal(["name"], refusal.Errors.Keys);
         Assert.Equal(OrganizationErrorCodes.NameLength, Assert.Single(refusal.Errors["name"]).Code);
         Assert.Empty(f.Store.Calls);
-    }
-
-    // US-6 · "An area's owner is a team of the area's own project" (BR-M1-22) and US-7 · "A deleted team answers not found":
-    // the owner answers before the parent (api-contract § 4.2).
-    [Theory]
-    [InlineData("malformed")]
-    [InlineData("empty")]
-    [InlineData("unknown")]
-    [InlineData("of another project")]
-    [InlineData("deleted")]
-    public async Task Handle_OwnerNotAnActiveTeamOfTheProject_IsTeamNotFound_BeforeTheParent(string how)
-    {
-        var f = new Fixture();
-        var other = f.Store.AddProject(f.Organization, "Второй проект", "SEC");
-        var ownerTeamId = how switch
-        {
-            "malformed" => "{" + f.Platform.Team.Id + "}",
-            "empty" => "",
-            "unknown" => Guid.CreateVersion7().ToString(),
-            "of another project" => other.FirstTeam.Id.ToString(),
-            _ => f.Platform.Team.Id.ToString(),
-        };
-
-        if (how == "deleted")
-        {
-            f.Platform.Team.Delete();
-        }
-
-        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(
-            f.Command(ownerTeamId: ownerTeamId, parentId: Guid.CreateVersion7().ToString())));
-
-        Assert.Equal(OrganizationErrorCodes.TeamNotFound, refusal.Code);
-        Assert.DoesNotContain(f.Store.Calls, call => call.StartsWith("lock area", StringComparison.Ordinal));
-        Assert.Equal(0, f.Store.SaveCount);
     }
 
     // US-5 · "A node never leaves its project" (BR-M1-22): a parent that is null, malformed, unknown or of another project.
@@ -227,19 +177,16 @@ public sealed class CreateAreaHandlerTests
         Assert.Equal(archive.Id, elsewhere.Response.ParentId);
     }
 
-    // plan-backend § 8.2: the owner team FOR SHARE, then the parent FOR SHARE, then one save; with no owner, no team lock.
+    // plan-backend § 7: the parent FOR SHARE and no team lock at all (an area has no team, mod-017 BR-OT-10), then one save.
+    // Renamed (D-16, BR-OT-10): Handle_LocksTheOwnerThenTheParent_ThenSavesOnce -> Handle_LocksTheParentShare_NoTeam_ThenSavesOnce.
     [Fact]
-    public async Task Handle_LocksTheOwnerThenTheParent_ThenSavesOnce()
+    public async Task Handle_LocksTheParentShare_NoTeam_ThenSavesOnce()
     {
         var f = new Fixture();
-        var teamId = f.Platform.Team.Id;
         var rootId = f.Project.Root.Id;
 
-        await f.HandleAsync(f.Command(ownerTeamId: teamId.ToString()));
-        Assert.Equal([$"lock team share {teamId}", $"lock area share {rootId}", "save"], f.Store.Calls);
-
-        f.Store.Calls.Clear();
         await f.HandleAsync(f.Command(name: "Архив"));
+
         Assert.Equal([$"lock area share {rootId}", "save"], f.Store.Calls);
     }
 

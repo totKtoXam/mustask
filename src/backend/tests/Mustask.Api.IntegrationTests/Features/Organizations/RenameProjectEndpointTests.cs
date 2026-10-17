@@ -42,13 +42,13 @@ public sealed class RenameProjectEndpointTests(MustaskApiFactory factory)
             (services, ct) => services.GetRequiredService<ITeamRepository>().FindNameAsync(teamId, ct));
 
     // US-3 · "Renaming a project renames its root area and keeps its key": «Пример проекта» (PRM) becomes «Платформа данных».
-    // The root takes the name and stays the first team's, the key and the teams (the first keeps «Пример проекта») do not
+    // The root takes the name, the key and the teams (the project's own team keeps «Пример проекта») do not
     // change, and neither does the rest of the tree.
     [Fact]
     public async Task Rename_RenamesRoot_KeepsKeyTeamsAndTree()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var reports = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Отчёты", structure.Platform.Team.Id);
+        var reports = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Отчёты");
         var quarterly = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, reports.Id, "Квартальные");
         var before = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
 
@@ -70,17 +70,14 @@ public sealed class RenameProjectEndpointTests(MustaskApiFactory factory)
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
         Assert.Equal("Платформа данных", tree.Root.Name);
         Assert.Equal(structure.RootId, tree.Root.Id);
-        Assert.Equal(new ResolvedOwner(structure.FirstTeamId, false), tree.ResolveOwner(structure.RootId));
-        Assert.Equal(structure.FirstTeamId, tree.Root.DefaultOfTeamId);
         Assert.Equal(before.Count, tree.Count);
         Assert.Equal("Отчёты / Квартальные", tree.PathOf(quarterly.Id));
-        Assert.Equal(new ResolvedOwner(structure.Platform.Team.Id, false), tree.ResolveOwner(reports.Id));
         Assert.Equal(
             before.PreOrder().Where(node => node.Id != structure.RootId),
             tree.PreOrder().Where(node => node.Id != structure.RootId));
 
-        Assert.Equal("Пример проекта", await TeamNameAsync(structure.FirstTeamId));
-        Assert.Equal("Платформа", await TeamNameAsync(structure.Platform.Team.Id));
+        Assert.Equal("Пример проекта", await TeamNameAsync(structure.ProjectTeamId));
+        Assert.Equal("Платформа", await TeamNameAsync(structure.Platform.Id));
     }
 
     // US-3 · "The name is unique in the organization" and api-contract § 0.6: a name never conflicts with the object's own

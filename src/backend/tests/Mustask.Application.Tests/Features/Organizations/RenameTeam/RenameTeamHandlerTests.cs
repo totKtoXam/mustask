@@ -23,7 +23,6 @@ public sealed class RenameTeamHandlerTests
             Handler = new RenameTeamHandler(
                 new FakeProjectRepository(Store),
                 new FakeTeamRepository(Store),
-                new FakeAreaRepository(Store),
                 new FakeUnitOfWork());
         }
 
@@ -33,7 +32,7 @@ public sealed class RenameTeamHandlerTests
 
         public NewProject Project { get; }
 
-        public NewTeam Platform { get; }
+        public Team Platform { get; }
 
         public RenameTeamHandler Handler { get; }
 
@@ -41,73 +40,81 @@ public sealed class RenameTeamHandlerTests
             new(
                 organizationId ?? Organization.Id.ToString(),
                 projectId ?? Project.Project.Id.ToString(),
-                teamId ?? Platform.Team.Id.ToString(),
+                teamId ?? Platform.Id.ToString(),
                 name);
 
         public Task<RenameTeamResult> HandleAsync(RenameTeamCommand command) => Handler.Handle(command, CancellationToken.None);
 
-        /// <summary>Every area of the store as it is now: place, name, explicit owner and default mark.</summary>
-        public List<(Guid Id, Guid? ParentId, string Name, Guid? OwnerTeamId, Guid? DefaultOfTeamId)> AreaSnapshot() =>
+        /// <summary>Every area of the store as it is now: place and name.</summary>
+        public List<(Guid Id, Guid? ParentId, string Name)> AreaSnapshot() =>
             Store.Areas
-                .Select(area => (area.Id, area.ParentId, area.Name, area.OwnerTeamId, area.DefaultOfTeamId))
+                .Select(area => (area.Id, area.ParentId, area.Name))
                 .OrderBy(area => area.Id)
                 .ToList();
     }
 
     // US-4 · "A team is renamed": «Платформа» becomes «Платформа данных», trimmed, and the answer is the team as every team
-    // response shows it, with its default area and that area's path (api-contract § 3).
+    // response shows it, with its default mark (mod-017 api-contract § 1.3): two teams and none named, so none carries a mark.
+    // Renamed (D-16, BR-OT-11): Handle_FreeName_RenamesTheTeam_AnswersTheTeamWithItsDefaultArea -> ..._AnswersTheTeam.
     [Fact]
-    public async Task Handle_FreeName_RenamesTheTeam_AnswersTheTeamWithItsDefaultArea()
+    public async Task Handle_FreeName_RenamesTheTeam_AnswersTheTeam()
     {
         var f = new Fixture();
 
         var result = await f.HandleAsync(f.Command(name: "  Платформа данных "));
 
-        Assert.Equal(
-            new TeamResponse(
-                f.Platform.Team.Id,
-                f.Project.Project.Id,
-                "Платформа данных",
-                IsFirstTeam: false,
-                new TeamDefaultAreaResponse(f.Platform.Area.Id, "Платформа")),
-            result.Response);
-        Assert.Equal("Платформа данных", f.Platform.Team.Name);
-        Assert.Equal("ПЛАТФОРМА ДАННЫХ", f.Platform.Team.NormalizedName);
+        Assert.Equal(new TeamResponse(f.Platform.Id, f.Project.Project.Id, "Платформа данных", DefaultMark: null), result.Response);
+        Assert.Equal("Платформа данных", f.Platform.Name);
+        Assert.Equal("ПЛАТФОРМА ДАННЫХ", f.Platform.NormalizedName);
     }
 
-    // US-4 · "A team is renamed": its areas keep their names, and its ownership and default area are unchanged (BR-M1-9).
-    // «Платформа» owns «Платформа» (its default) and «Платформа / API» explicitly, and «Платформа / API / Шлюз» by inheritance.
+    // mod-017 US-4 · "renaming a team touches no area" (BR-OT-10): the areas keep their names and places.
+    // Renamed (D-16, BR-OT-10): Handle_KeepsAreaNamesOwnershipAndDefault -> Handle_TouchesNoArea.
     [Fact]
-    public async Task Handle_KeepsAreaNamesOwnershipAndDefault()
+    public async Task Handle_TouchesNoArea()
     {
         var f = new Fixture();
-        var api = f.Store.AddArea(f.Platform.Area, "API", f.Platform.Team);
+        var api = f.Store.AddArea(f.Project.Root, "API");
         f.Store.AddArea(api, "Шлюз");
         var before = f.AreaSnapshot();
 
-        var result = await f.HandleAsync(f.Command(name: "Платформа данных"));
+        await f.HandleAsync(f.Command(name: "Платформа данных"));
 
         Assert.Equal(before, f.AreaSnapshot());
-        Assert.Equal(f.Platform.Area.Id, result.Response.DefaultArea.Id);
-        Assert.Equal("Платформа", result.Response.DefaultArea.Path);
-        Assert.Equal(f.Platform.Team.Id, f.Platform.Area.DefaultOfTeamId);
-        Assert.Equal(f.Platform.Team.Id, f.Platform.Area.OwnerTeamId);
     }
 
-    // US-4 · "The first team's default is the root, for good" is not a reason to refuse a rename: the first team is renamed
-    // like any other, its default area stays the root, and the root keeps its own name (it is renamed with its project, § 2.5).
+    // mod-017 US-4 · "any team renamed" (BR-OT-11): the team the project came with is renamed like any other; the project's
+    // root keeps its own name (it is renamed with its project, § 2.5).
+    // Replaces Handle_FirstTeam_IsRenamed_DefaultStaysTheRoot_RootKeepsItsName (D-16, BR-OT-11).
     [Fact]
-    public async Task Handle_FirstTeam_IsRenamed_DefaultStaysTheRoot_RootKeepsItsName()
+    public async Task Handle_AnyTeam_IsRenamed_RootKeepsItsName()
     {
         var f = new Fixture();
 
-        var result = await f.HandleAsync(f.Command(name: "Основная команда", teamId: f.Project.FirstTeam.Id.ToString()));
+        var result = await f.HandleAsync(f.Command(name: "Основная команда", teamId: f.Project.Team.Id.ToString()));
 
-        Assert.True(result.Response.IsFirstTeam);
         Assert.Equal("Основная команда", result.Response.Name);
-        Assert.Equal(f.Project.Root.Id, result.Response.DefaultArea.Id);
-        Assert.Equal("Пример проекта", result.Response.DefaultArea.Path);
         Assert.Equal("Пример проекта", f.Project.Root.Name);
+    }
+
+    // mod-017 BR-OT-4: the answer carries the team's default mark — «named» when the project's settings name it, «onlyTeam» when
+    // it is the project's only active team, else none.
+    [Fact]
+    public async Task Handle_AnswersTheDefaultMark_NamedOnlyTeamOrNone()
+    {
+        var f = new Fixture();
+        f.Project.Project.NameDefaultTeam(f.Platform.Id);
+
+        var named = await f.HandleAsync(f.Command(name: "Платформа данных"));
+        var other = await f.HandleAsync(f.Command(name: "Основная", teamId: f.Project.Team.Id.ToString()));
+
+        f.Project.Project.NameDefaultTeam(null);
+        f.Project.Team.Delete(2);
+        var only = await f.HandleAsync(f.Command(name: "Платформа"));
+
+        Assert.Equal("named", named.Response.DefaultMark);
+        Assert.Null(other.Response.DefaultMark);
+        Assert.Equal("onlyTeam", only.Response.DefaultMark);
     }
 
     // BR-M1-1 · "a name never conflicts with the object's own current name": «ПЛАТФОРМА» renames «Платформа».
@@ -119,7 +126,7 @@ public sealed class RenameTeamHandlerTests
         var result = await f.HandleAsync(f.Command(name: " ПЛАТФОРМА "));
 
         Assert.Equal("ПЛАТФОРМА", result.Response.Name);
-        Assert.Equal("ПЛАТФОРМА", f.Platform.Team.Name);
+        Assert.Equal("ПЛАТФОРМА", f.Platform.Name);
         Assert.Equal(1, f.Store.SaveCount);
     }
 
@@ -132,11 +139,11 @@ public sealed class RenameTeamHandlerTests
         var analytics = f.Store.AddTeam(f.Project, "Аналитика");
 
         var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(
-            f.Command(name: " аналитика ", teamId: f.Platform.Team.Id.ToString())));
+            f.Command(name: " аналитика ", teamId: f.Platform.Id.ToString())));
 
         Assert.Equal(OrganizationErrorCodes.TeamNameTaken, refusal.Code);
-        Assert.Equal("Платформа", f.Platform.Team.Name);
-        Assert.Equal("Аналитика", analytics.Team.Name);
+        Assert.Equal("Платформа", f.Platform.Name);
+        Assert.Equal("Аналитика", analytics.Name);
         Assert.Equal(0, f.Store.SaveCount);
     }
 
@@ -159,12 +166,11 @@ public sealed class RenameTeamHandlerTests
     {
         var f = new Fixture();
         var core = f.Store.AddTeam(f.Project, "Ядро");
-        core.Team.Delete();
+        core.Delete(3);
 
         var result = await f.HandleAsync(f.Command(name: "ядро"));
 
         Assert.Equal("ядро", result.Response.Name);
-        Assert.Equal("Ядро", core.Area.Name);
     }
 
     // US-4 · "an empty name, or one longer than 100 characters, is refused with «Название должно содержать от 1 до 100
@@ -184,7 +190,7 @@ public sealed class RenameTeamHandlerTests
         Assert.Equal(OrganizationErrorCodes.ValidationFailed, refusal.Code);
         Assert.Equal(["name"], refusal.Errors.Keys);
         Assert.Equal(OrganizationErrorCodes.NameLength, Assert.Single(refusal.Errors["name"]).Code);
-        Assert.Equal("Платформа", f.Platform.Team.Name);
+        Assert.Equal("Платформа", f.Platform.Name);
         Assert.Equal(0, f.Store.SaveCount);
     }
 
@@ -246,7 +252,7 @@ public sealed class RenameTeamHandlerTests
 
         Assert.Equal(OrganizationErrorCodes.ProjectNotFound, refusal.Code);
         Assert.Empty(f.Store.Calls);
-        Assert.Equal("Платформа", f.Platform.Team.Name);
+        Assert.Equal("Платформа", f.Platform.Name);
     }
 
     // US-4 · "A team identifier that names no team of the project" (BR-M1-20, BR-M1-22) and US-7 · "A deleted team answers
@@ -265,24 +271,24 @@ public sealed class RenameTeamHandlerTests
         var core = f.Store.AddTeam(f.Project, "Ядро");
         var teamId = how switch
         {
-            "malformed" => "{" + core.Team.Id + "}",
+            "malformed" => "{" + core.Id + "}",
             "empty" => "",
             "unknown" => Guid.CreateVersion7().ToString(),
-            "of another project" => secondProject.FirstTeam.Id.ToString(),
-            _ => core.Team.Id.ToString(),
+            "of another project" => secondProject.Team.Id.ToString(),
+            _ => core.Id.ToString(),
         };
 
         if (how == "deleted")
         {
-            core.Team.Delete();
+            core.Delete(3);
         }
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(teamId: teamId, name: "")));
 
         Assert.Equal(OrganizationErrorCodes.TeamNotFound, refusal.Code);
         Assert.Equal(0, f.Store.SaveCount);
-        Assert.Equal("Ядро", core.Team.Name);
-        Assert.Equal("Второй проект", secondProject.FirstTeam.Name);
+        Assert.Equal("Ядро", core.Name);
+        Assert.Equal("Второй проект", secondProject.Team.Name);
     }
 
     // plan-backend § 8.2 "Rename team": the team FOR NO KEY UPDATE and nothing else, then one save. No area is locked, and
@@ -294,7 +300,7 @@ public sealed class RenameTeamHandlerTests
 
         await f.HandleAsync(f.Command());
 
-        Assert.Equal([$"lock team no-key-update {f.Platform.Team.Id}", "save"], f.Store.Calls);
+        Assert.Equal([$"lock team no-key-update {f.Platform.Id}", "save"], f.Store.Calls);
     }
 
     // US-4 · "Two teams of one name at the same moment", the rename side: the loser's save fails on the team index, and the
