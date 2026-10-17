@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { AREAS_URL, AREA_URL, ids, problem } from '../testFixtures';
+import { AREA_URL, ids, problem } from '../testFixtures';
 import { serveOrganizations, serveProblem } from '../testApi';
 import { renderPage } from '../testRender';
 
@@ -32,44 +32,39 @@ async function choose(dialog: HTMLElement, label: string, option: string) {
   await userEvent.click(await screen.findByRole('option', { name: option }));
 }
 
-describe('mod-002 US-6 Scenario: Created with or without an owner', () => {
-  it('preselects «Наследовать от родительской области», lists the active teams after it, and sends the chosen team', async () => {
+// mod-017 BR-OT-10, US-6: an area owns nothing, so «Новая область» asks «Название» alone and the
+// menu has no owner command. Retired by name (doc-012 P-1): «Created with or without an owner»
+// — «preselects «Наследовать от родительской области», lists the active teams after it, and
+// sends the chosen team», «The owner is a team of the area’s own project» — «a team refused as
+// not found shows «Команда не найдена.» in the dialog’s alert», «Re-owned; owner cleared» (three
+// cases) and «A team’s default area stays with its team» (two cases).
+describe('mod-017 US-6 Scenario: An area asks for its name alone', () => {
+  it('«Новая область» has «Название» and no «Владелец», and sends the parent and the name only', async () => {
     const api = serveOrganizations();
     renderPage({ path: PRM_AREAS });
     const dialog = await open('Отчёты', 'Новая дочерняя область', 'Новая область');
 
-    const owner = await within(dialog).findByRole('combobox', { name: 'Владелец' });
-    expect(owner).toHaveTextContent('Наследовать от родительской области');
-    await userEvent.click(owner);
-    expect(
-      within(await screen.findByRole('listbox'))
-        .getAllByRole('option')
-        .map((option) => option.textContent),
-    ).toEqual(['Наследовать от родительской области', 'Пример проекта', 'Платформа']);
-    await userEvent.click(screen.getByRole('option', { name: 'Платформа' }));
+    expect(within(dialog).queryByRole('combobox', { name: 'Владелец' })).not.toBeInTheDocument();
     await userEvent.type(within(dialog).getByRole('textbox', { name: 'Название' }), 'Сводные');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
 
     await screen.findByText('Область «Сводные» создана.');
-    expect(api.writes()[0]?.body).toEqual({
-      parentId: ids.reportsArea,
-      name: 'Сводные',
-      ownerTeamId: ids.platformTeam,
-    });
+    expect(api.writes()[0]?.body).toEqual({ parentId: ids.reportsArea, name: 'Сводные' });
   });
-});
 
-describe('mod-002 US-6 Scenario: The owner is a team of the area’s own project', () => {
-  it('a team refused as not found shows «Команда не найдена.» in the dialog’s alert', async () => {
+  it('the menu of a node holds «Новая дочерняя область», «Переименовать», «Переместить» and «Удалить» — no owner', async () => {
     serveOrganizations();
-    serveProblem('post', AREAS_URL, problem('organizations.team.not_found'));
     renderPage({ path: PRM_AREAS });
-    const dialog = await open('Отчёты', 'Новая дочерняя область', 'Новая область');
+    await screen.findByRole('treegrid', { name: 'Области' });
 
-    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Название' }), 'Сводные');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
+    await userEvent.click(within(row('Отчёты')).getByRole('button', { name: 'Действия: Отчёты' }));
 
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Команда не найдена.');
+    expect((await screen.findAllByRole('menuitem')).map((item) => item.textContent)).toEqual([
+      'Новая дочерняя область',
+      'Переименовать',
+      'Переместить',
+      'Удалить',
+    ]);
   });
 });
 
@@ -159,84 +154,6 @@ describe('mod-002 US-5 Scenario: A free name at the destination; never under its
     expect(root).toHaveTextContent('Пример проектаКорневая область');
     await userEvent.type(input, 'нет такой');
     expect(await screen.findByText('Ничего не найдено')).toBeInTheDocument();
-  });
-});
-
-describe('mod-002 US-6 Scenario: Re-owned; owner cleared', () => {
-  it('preselects the explicit owner with «Сейчас: Платформа»; «Сохранить» disabled until changed; «Наследовать…» sends null', async () => {
-    const api = serveOrganizations();
-    renderPage({ path: PRM_AREAS });
-    const dialog = await open('Платформа', 'Изменить владельца', 'Владелец области');
-
-    const owner = await within(dialog).findByRole('combobox', { name: 'Владелец' });
-    expect(owner).toHaveTextContent('Платформа');
-    expect(within(dialog).getByText('Сейчас: Платформа')).toBeInTheDocument();
-    expect(within(dialog).getByRole('button', { name: 'Сохранить' })).toBeDisabled();
-
-    await choose(dialog, 'Владелец', 'Пример проекта');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
-
-    expect(await screen.findByText('Владелец области «Платформа» изменён.')).toBeInTheDocument();
-    await waitFor(() => expect(row('Платформа')).toHaveFocus());
-    expect(api.writes()[0]?.body).toEqual({ ownerTeamId: ids.prmTeam });
-  });
-
-  it('an inherited owner reads «Сейчас: Пример проекта, унаследовано», and «Наследовать…» is sent as null', async () => {
-    const api = serveOrganizations();
-    renderPage({ path: PRM_AREAS });
-    const dialog = await open('Мобильное приложение', 'Изменить владельца', 'Владелец области');
-    expect(await within(dialog).findByText('Сейчас: Пример проекта')).toBeInTheDocument();
-
-    await choose(dialog, 'Владелец', 'Наследовать от родительской области');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
-
-    await screen.findByText('Владелец области «Мобильное приложение» изменён.');
-    expect(api.writes()[0]?.body).toEqual({ ownerTeamId: null });
-  });
-
-  it('reads an inherited owner’s helper with «, унаследовано»', async () => {
-    serveOrganizations();
-    renderPage({ path: PRM_AREAS });
-    const dialog = await open('Отчёты', 'Изменить владельца', 'Владелец области');
-
-    expect(
-      await within(dialog).findByText('Сейчас: Пример проекта, унаследовано'),
-    ).toBeInTheDocument();
-    expect(within(dialog).getByRole('combobox', { name: 'Владелец' })).toHaveTextContent(
-      'Наследовать от родительской области',
-    );
-  });
-});
-
-describe('mod-002 US-6 Scenario: A team’s default area stays with its team', () => {
-  it('a re-own of «API» shows «Область используется как область по умолчанию команды «Платформа»» in the alert', async () => {
-    serveOrganizations();
-    renderPage({ path: PRM_AREAS });
-    const dialog = await open('API', 'Изменить владельца', 'Владелец области');
-
-    await choose(dialog, 'Владелец', 'Наследовать от родительской области');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
-
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-      'Область используется как область по умолчанию команды «Платформа»',
-    );
-  });
-
-  it('a deletion of «API» shows the same refusal in the confirmation', async () => {
-    serveOrganizations();
-    serveProblem(
-      'delete',
-      AREA_URL,
-      problem('organizations.area.is_team_default', { team: 'Платформа' }),
-    );
-    renderPage({ path: PRM_AREAS });
-    const dialog = await open('API', 'Удалить', 'Удаление области');
-
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Удалить область' }));
-
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-      'Область используется как область по умолчанию команды «Платформа»',
-    );
   });
 });
 

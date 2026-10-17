@@ -33,20 +33,19 @@ export interface Project {
   key: string;
 }
 
-/** § 3: an area a team answer points at; `path` is DC-9's. */
-export interface AreaReference {
-  id: string;
-  path: string;
-}
+/**
+ * mod-017 api-contract § 1.3: how a team stands for the project's default
+ * (BR-OT-4). `named`: the settings name it; `onlyTeam`: nothing is named and it
+ * is the project's only active team; `null`: neither.
+ */
+export type DefaultMark = 'named' | 'onlyTeam';
 
-/** § 3: the one shape every team answer uses. */
+/** mod-017 api-contract § 1.3: the one shape every team answer uses. */
 export interface Team {
   id: string;
   projectId: string;
   name: string;
-  /** Owns the root: never deleted, its default area is the root for good. */
-  isFirstTeam: boolean;
-  defaultArea: AreaReference;
+  defaultMark: DefaultMark | null;
 }
 
 /**
@@ -57,13 +56,7 @@ export interface TeamInList extends Team {
   isMember: boolean;
 }
 
-/** § 4.1: a team an area node names. */
-export interface TeamReference {
-  id: string;
-  name: string;
-}
-
-/** § 4.1: one node of the area tree, which comes in pre-order. */
+/** mod-017 api-contract § 1.6: one node of the area tree, which comes in pre-order. */
 export interface AreaNode {
   id: string;
   /** `null` for the root only. */
@@ -72,20 +65,14 @@ export interface AreaNode {
   path: string;
   /** 0 for the root. */
   depth: number;
-  /** The explicit owner; `null`: inherited. The root's is never `null`. */
-  ownerTeamId: string | null;
-  resolvedOwner: TeamReference;
-  ownerInherited: boolean;
-  defaultOfTeam: TeamReference | null;
 }
 
-/** § 4.1: what every area write returns. */
+/** mod-017 api-contract § 1.6: what every area write returns. */
 export interface Area {
   id: string;
   projectId: string;
   parentId: string;
   name: string;
-  ownerTeamId: string | null;
 }
 
 /** A list's status tab (§ 1.1/§ 1.2, § 2.1/§ 2.2). */
@@ -210,16 +197,25 @@ export function renameTeam(
   });
 }
 
-export function setTeamDefaultArea(
+/** mod-017 api-contract § 2.8: 204; `teamId: null` is «Не выбрана». The panel reads the teams again. */
+export function setDefaultTeam(
+  organizationId: string,
+  projectId: string,
+  teamId: string | null,
+): Promise<void> {
+  return apiFetch(`${projectApiPath(organizationId, projectId)}/default-team`, {
+    method: 'PUT',
+    body: { teamId },
+  });
+}
+
+/** mod-017 api-contract § 2.9: what a deletion would reassign, in any state; read when the dialog opens. */
+export function getOwnedItemsCount(
   organizationId: string,
   projectId: string,
   teamId: string,
-  areaId: string,
-): Promise<Team> {
-  return apiFetch(`${teamApiPath(organizationId, projectId, teamId)}/default-area`, {
-    method: 'PUT',
-    body: { areaId },
-  });
+): Promise<{ count: number }> {
+  return apiFetch(`${teamApiPath(organizationId, projectId, teamId)}/owned-items/count`);
 }
 
 export function deleteTeam(
@@ -239,7 +235,7 @@ export function getAreaTree(organizationId: string, projectId: string): Promise<
 export function createArea(
   organizationId: string,
   projectId: string,
-  body: { parentId: string; name: string; ownerTeamId: string | null },
+  body: { parentId: string; name: string },
 ): Promise<Area> {
   return apiFetch(`${projectApiPath(organizationId, projectId)}/areas`, { method: 'POST', body });
 }
@@ -265,18 +261,6 @@ export function moveArea(
   return apiFetch(`${areaApiPath(organizationId, projectId, areaId)}/parent`, {
     method: 'PUT',
     body: { parentId },
-  });
-}
-
-export function setAreaOwner(
-  organizationId: string,
-  projectId: string,
-  areaId: string,
-  ownerTeamId: string | null,
-): Promise<Area> {
-  return apiFetch(`${areaApiPath(organizationId, projectId, areaId)}/owner`, {
-    method: 'PUT',
-    body: { ownerTeamId },
   });
 }
 

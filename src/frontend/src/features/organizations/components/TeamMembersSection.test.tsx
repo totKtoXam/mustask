@@ -43,7 +43,7 @@ describe('mod-016 US-3 Scenario: the members of a team', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Участники команды' })).toBeVisible();
     expect(section()).toContainElement(table);
     // The facts come first, the members after.
-    const facts = screen.getByText('Область по умолчанию');
+    const facts = screen.getByText('Название');
     expect(facts.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(
       within(table)
@@ -79,7 +79,7 @@ describe('mod-016 US-3 Scenario: the members of a team', () => {
       }),
     );
 
-    expect(await screen.findByText('Область по умолчанию')).toBeVisible();
+    expect(await screen.findByText('Название')).toBeVisible();
     const skeleton = await screen.findByRole('status', { name: 'Загрузка данных' });
     expect(within(skeleton).getByText('Имя')).toBeVisible();
     expect(within(skeleton).getByText('Почта')).toBeVisible();
@@ -108,7 +108,7 @@ describe('mod-016 US-3 Scenario: the members of a team', () => {
 
     const alert = await screen.findByRole('alert');
 
-    expect(screen.getByText('Область по умолчанию')).toBeVisible();
+    expect(screen.getByText('Название')).toBeVisible();
     expect(screen.getByRole('heading', { level: 2, name: 'Участники команды' })).toBeVisible();
     await userEvent.click(within(alert).getByRole('button', { name: 'Повторить' }));
     expect(await teamTable()).toBeVisible();
@@ -186,11 +186,12 @@ describe('mod-016 design § 4.3: the empty team', () => {
 });
 
 describe('mod-016 design § 6.2: the role views of the team page', () => {
-  it('shows an administrator the page’s commands, «Изменить», the section’s command and a «Действия» button per member', async () => {
+  it('shows an administrator the page’s commands, the section’s command and a «Действия» button per member', async () => {
     openPage({ path: PLATFORM_TEAM_PATH });
     await teamTable();
 
-    for (const name of ['Переименовать', 'Удалить команду', 'Изменить область по умолчанию']) {
+    expect(await screen.findByRole('button', { name: 'Удалить команду' })).toBeVisible();
+    for (const name of ['Переименовать', 'Удалить команду']) {
       expect(screen.getByRole('button', { name })).toBeVisible();
     }
     expect(within(section()).getByRole('button', { name: 'Добавить в команду' })).toBeVisible();
@@ -198,22 +199,17 @@ describe('mod-016 design § 6.2: the role views of the team page', () => {
   });
 
   it.each(['member', 'viewer'] as const)(
-    'shows a %s the facts and the members read-only: no commands, no «Изменить», no «Добавить в команду», no actions column',
+    'shows a %s the facts and the members read-only: no commands, no «Добавить в команду», no actions column',
     async (role) => {
       openPage({ path: PLATFORM_TEAM_PATH, role });
       const table = await teamTable();
 
-      for (const name of [
-        'Переименовать',
-        'Удалить команду',
-        'Изменить область по умолчанию',
-        'Добавить в команду',
-      ]) {
+      for (const name of ['Переименовать', 'Удалить команду', 'Добавить в команду']) {
         expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
       }
       expect(within(table).queryAllByRole('button')).toHaveLength(0);
       expect(within(table).getAllByRole('columnheader')).toHaveLength(2);
-      expect(screen.getByText('Платформа / API')).toBeVisible();
+      expect(screen.getByText('Название')).toBeVisible();
       expect(rowsOf(table)).toHaveLength(2);
     },
   );

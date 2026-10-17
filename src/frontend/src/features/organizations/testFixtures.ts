@@ -59,16 +59,15 @@ export interface ProjectRecord {
   name: string;
   key: string;
   active: boolean;
+  /** The team the project's settings name (mod-017 BR-OT-4); absent or `null`: none named. */
+  defaultTeamId?: string | null;
 }
 
 export interface TeamRecord {
   id: string;
   projectId: string;
   name: string;
-  isFirstTeam: boolean;
   deleted: boolean;
-  /** `null` once deleted (api-contract § 7). */
-  defaultAreaId: string | null;
 }
 
 export interface AreaRecord {
@@ -76,7 +75,6 @@ export interface AreaRecord {
   projectId: string;
   parentId: string | null;
   name: string;
-  ownerTeamId: string | null;
 }
 
 /** A user in a team (mod-016 api-contract § 2): the team list's `isMember` reads it. */
@@ -120,6 +118,8 @@ export interface Dataset {
   memberships?: MembershipRecord[];
   /** Who is in which team; empty by default, so no team is the acting user's own. */
   teamMembers?: TeamMemberRecord[];
+  /** How many items a team owns, in any state (mod-017 api-contract § 2.9); absent: none. */
+  ownedItemCounts?: Record<string, number>;
   /** The caller the handlers answer as (the token's `sub`); needed with `teamMembers` and `memberships`. */
   actingUserId?: string;
 }
@@ -127,10 +127,10 @@ export interface Dataset {
 /**
  * The stories' example (design § 17): «Альфа» with «Пример проекта» (`PRM`),
  * «Аналитика» and the deactivated «Старый проект»; «Бета» with
- * «Отчётность»; the deactivated «Гамма». In «Пример проекта» the team
- * «Платформа» owns «Платформа» and «Платформа / API» explicitly (its
- * default) and «Платформа / API / Шлюз» by inheritance (US-4); «Мобильное
- * приложение» was left to the first team by a deleted team.
+ * «Отчётность»; the deactivated «Гамма». «Пример проекта» has two teams,
+ * «Платформа» and «Пример проекта», and no named default (so neither carries a
+ * mark); every other project has one team, which is its default as the only one
+ * (mod-017 BR-OT-4). The area tree has no owners (BR-OT-10).
  */
 export function exampleDataset(): Dataset {
   return {
@@ -147,24 +147,24 @@ export function exampleDataset(): Dataset {
       { id: ids.arc, organizationId: ids.gamma, name: 'Архив', key: 'ARC', active: true },
     ],
     teams: [
-      team(ids.prmTeam, ids.prm, 'Пример проекта', true, ids.prmRoot),
-      team(ids.platformTeam, ids.prm, 'Платформа', false, ids.apiArea),
-      team(ids.anlTeam, ids.anl, 'Аналитика', true, ids.anlRoot),
-      team(ids.repTeam, ids.rep, 'Отчётность', true, ids.repRoot),
-      team(ids.oldTeam, ids.old, 'Старый проект', true, ids.oldRoot),
-      team(ids.arcTeam, ids.arc, 'Архив', true, ids.arcRoot),
+      team(ids.prmTeam, ids.prm, 'Пример проекта'),
+      team(ids.platformTeam, ids.prm, 'Платформа'),
+      team(ids.anlTeam, ids.anl, 'Аналитика'),
+      team(ids.repTeam, ids.rep, 'Отчётность'),
+      team(ids.oldTeam, ids.old, 'Старый проект'),
+      team(ids.arcTeam, ids.arc, 'Архив'),
     ],
     areas: [
-      area(ids.prmRoot, ids.prm, null, 'Пример проекта', ids.prmTeam),
-      area(ids.platformArea, ids.prm, ids.prmRoot, 'Платформа', ids.platformTeam),
-      area(ids.apiArea, ids.prm, ids.platformArea, 'API', ids.platformTeam),
-      area(ids.gatewayArea, ids.prm, ids.apiArea, 'Шлюз', null),
-      area(ids.mobileArea, ids.prm, ids.prmRoot, 'Мобильное приложение', ids.prmTeam),
-      area(ids.reportsArea, ids.prm, ids.prmRoot, 'Отчёты', null),
-      area(ids.anlRoot, ids.anl, null, 'Аналитика', ids.anlTeam),
-      area(ids.repRoot, ids.rep, null, 'Отчётность', ids.repTeam),
-      area(ids.oldRoot, ids.old, null, 'Старый проект', ids.oldTeam),
-      area(ids.arcRoot, ids.arc, null, 'Архив', ids.arcTeam),
+      area(ids.prmRoot, ids.prm, null, 'Пример проекта'),
+      area(ids.platformArea, ids.prm, ids.prmRoot, 'Платформа'),
+      area(ids.apiArea, ids.prm, ids.platformArea, 'API'),
+      area(ids.gatewayArea, ids.prm, ids.apiArea, 'Шлюз'),
+      area(ids.mobileArea, ids.prm, ids.prmRoot, 'Мобильное приложение'),
+      area(ids.reportsArea, ids.prm, ids.prmRoot, 'Отчёты'),
+      area(ids.anlRoot, ids.anl, null, 'Аналитика'),
+      area(ids.repRoot, ids.rep, null, 'Отчётность'),
+      area(ids.oldRoot, ids.old, null, 'Старый проект'),
+      area(ids.arcRoot, ids.arc, null, 'Архив'),
     ],
   };
 }
@@ -174,24 +174,12 @@ export function emptyDataset(): Dataset {
   return { organizations: [], projects: [], teams: [], areas: [] };
 }
 
-function team(
-  id: string,
-  projectId: string,
-  name: string,
-  isFirstTeam: boolean,
-  defaultAreaId: string,
-): TeamRecord {
-  return { id, projectId, name, isFirstTeam, deleted: false, defaultAreaId };
+function team(id: string, projectId: string, name: string): TeamRecord {
+  return { id, projectId, name, deleted: false };
 }
 
-function area(
-  id: string,
-  projectId: string,
-  parentId: string | null,
-  name: string,
-  ownerTeamId: string | null,
-): AreaRecord {
-  return { id, projectId, parentId, name, ownerTeamId };
+function area(id: string, projectId: string, parentId: string | null, name: string): AreaRecord {
+  return { id, projectId, parentId, name };
 }
 
 /** The organizations module's error catalog (ADR-0006), read once. */

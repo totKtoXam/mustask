@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
-import Chip from '@mui/material/Chip';
-import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import DriveFileMoveOutlinedIcon from '@mui/icons-material/DriveFileMoveOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import { useAccessCheck } from '../../../shared/lib/access';
 import { PageHeader } from '../../../shared/ui/PageHeader';
@@ -19,41 +16,30 @@ import {
   type TreeRegistryHandle,
 } from '../../../shared/ui/TreeRegistry';
 import type { AreaNode } from '../api/organizationsApi';
-import {
-  AreaOwnerDialog,
-  CreateAreaDialog,
-  DeleteAreaDialog,
-  MoveAreaDialog,
-} from '../components/AreaDialogs';
+import { CreateAreaDialog, DeleteAreaDialog, MoveAreaDialog } from '../components/AreaDialogs';
 import { NameDialog } from '../components/NameDialog';
 import { useNotify } from '../components/notice';
-import {
-  useCreateArea,
-  useDeleteArea,
-  useMoveArea,
-  useRenameArea,
-  useSetAreaOwner,
-} from '../hooks/mutations';
-import { useAreaTree, useTeams } from '../hooks/queries';
+import { useCreateArea, useDeleteArea, useMoveArea, useRenameArea } from '../hooks/mutations';
+import { useAreaTree } from '../hooks/queries';
 import { rootOf } from '../lib/areaTree';
 import { notFoundLevel } from '../lib/notFoundLevel';
 import { organizationsPermissions } from '../permissions';
 
 type AreaDialog =
   | { kind: 'create'; parent: AreaNode }
-  | { kind: 'rename' | 'move' | 'owner' | 'delete'; area: AreaNode }
+  | { kind: 'rename' | 'move' | 'delete'; area: AreaNode }
   | null;
 
 /** An area as the tree registry shows it: its name is the label. */
 type AreaRow = AreaNode & { label: string };
 
 /**
- * «Области» (US-5, US-6; design § 11): the project's area tree on the shared
- * tree registry. Each node shows its one owner — «унаследовано» after an
- * inherited one — and «По умолчанию» on a team's default area. The root
- * offers «Новая дочерняя область» only (BR-M1-11); any other node every
- * action, and the server refuses what it must (DC-8). The tree is read again
- * after every write, never patched.
+ * «Области» (US-5, US-6; design § 11; mod-017 design § 8): the project's area tree
+ * on the shared tree registry, one column «Область»: an area owns nothing
+ * (BR-OT-10), so there is no owner, no inheritance and no default mark. The root
+ * offers «Новая дочерняя область» only (BR-M1-11); any other node every action,
+ * and the server refuses what it must (DC-8). The tree is read again after
+ * every write, never patched.
  */
 export function AreasPage() {
   const { organizationId = '', projectId = '' } = useParams<{
@@ -61,11 +47,9 @@ export function AreasPage() {
     projectId: string;
   }>();
   const query = useAreaTree(organizationId, projectId);
-  const teams = useTeams(organizationId, projectId, { enabled: query.isSuccess });
   const createArea = useCreateArea(organizationId, projectId);
   const renameArea = useRenameArea(organizationId, projectId);
   const moveArea = useMoveArea(organizationId, projectId);
-  const setAreaOwner = useSetAreaOwner(organizationId, projectId);
   const deleteArea = useDeleteArea(organizationId, projectId);
   const notify = useNotify();
   const access = useAccessCheck();
@@ -78,7 +62,7 @@ export function AreasPage() {
   const [focusRequest, setFocusRequest] = useState<{ id: string } | null>(null);
 
   // Focus after a change (design § 11.7), once the dialog has handed focus
-  // back: the new, renamed, re-owned or moved row, or a deleted row's parent.
+  // back: the new, renamed or moved row, or a deleted row's parent.
   useEffect(() => {
     if (focusRequest && dialog === null) {
       treeRef.current?.focusRow(focusRequest.id);
@@ -143,11 +127,6 @@ export function AreasPage() {
         onClick: () => setDialog({ kind: 'move', area }),
       },
       {
-        label: 'Изменить владельца',
-        icon: <GroupOutlinedIcon fontSize="small" />,
-        onClick: () => setDialog({ kind: 'owner', area }),
-      },
-      {
         label: 'Удалить',
         icon: <DeleteOutlineOutlinedIcon fontSize="small" />,
         onClick: () => setDialog({ kind: 'delete', area }),
@@ -181,28 +160,8 @@ export function AreasPage() {
         ref={treeRef}
         aria-label="Области"
         firstColumn="Область"
-        columns={[
-          {
-            header: 'Владелец',
-            render: (area) => (
-              <>
-                {area.resolvedOwner.name}
-                {area.ownerInherited && (
-                  <>
-                    {' '}
-                    <Typography component="span" variant="caption" color="text.secondary">
-                      унаследовано
-                    </Typography>
-                  </>
-                )}
-              </>
-            ),
-          },
-        ]}
+        columns={[]}
         nodes={rows}
-        adornment={(area) =>
-          area.defaultOfTeam ? <Chip size="small" label="По умолчанию" /> : null
-        }
         actions={actions}
         showActions={canWrite ? undefined : false}
         selectedId={selectedId}
@@ -245,7 +204,6 @@ export function AreasPage() {
         {dialog?.kind === 'create' && (
           <CreateAreaDialog
             parent={dialog.parent}
-            teams={teams}
             submit={(body) => createArea.mutateAsync(body)}
             onSucceeded={(area) => {
               expand(dialog.parent.id);
@@ -273,19 +231,6 @@ export function AreasPage() {
               expand(parentId);
               settle(dialog.area.id, `Область «${dialog.area.name}» перемещена.`);
             }}
-            onClose={closeDialog}
-          />
-        )}
-        {dialog?.kind === 'owner' && (
-          <AreaOwnerDialog
-            area={dialog.area}
-            teams={teams}
-            submit={(ownerTeamId) =>
-              setAreaOwner.mutateAsync({ areaId: dialog.area.id, ownerTeamId })
-            }
-            onSucceeded={() =>
-              settle(dialog.area.id, `Владелец области «${dialog.area.name}» изменён.`, false)
-            }
             onClose={closeDialog}
           />
         )}

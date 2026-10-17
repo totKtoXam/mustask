@@ -5,10 +5,10 @@ import { notFoundLevel } from './notFoundLevel';
 
 /**
  * A dialog's fields a refusal can land on (design § 4.4): «Название»,
- * «Ключ», «Область» (the default-area dialog) and «Новая родительская
+ * «Ключ», «Команда» (the default-team dialog, mod-017) and «Новая родительская
  * область» (the move dialog).
  */
-export type RefusalField = 'name' | 'key' | 'area' | 'parent';
+export type RefusalField = 'name' | 'key' | 'team' | 'parent';
 
 /** Where a write's refusal shows in its dialog. */
 export interface PlacedRefusal {
@@ -38,7 +38,9 @@ const FIELDS_OF_CODE: Readonly<Record<string, readonly RefusalField[]>> = {
   [codes.teamNameTaken]: ['name'],
   [codes.areaNameTaken]: ['name', 'parent'],
   [codes.areaMoveIntoOwnSubtree]: ['parent'],
-  [codes.teamDefaultAreaNotOwned]: ['area'],
+  // mod-017 api-contract § 0.2: a team named in the default-team write is refused under «Команда».
+  [codes.teamNotFound]: ['team'],
+  [codes.teamNotInProject]: ['team'],
 };
 
 /** `validation_failed`'s field names (api-contract § 0.5). */

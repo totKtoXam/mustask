@@ -1,9 +1,11 @@
-import type { AreaNode, Team } from '../api/organizationsApi';
+import type { AreaNode } from '../api/organizationsApi';
 
 /**
  * The area tree as the pickers and the tree registry read it. The read gives
  * it in pre-order, each node before its children and siblings in display
- * order (api-contract § 4.1); nothing here sorts it again.
+ * order (mod-017 api-contract § 2.10); nothing here sorts it again. An area
+ * owns nothing (BR-OT-10): the owner pickers and the default-area picker of
+ * mod-002 are gone with it.
  */
 
 /** The node and every node beneath it. */
@@ -40,44 +42,6 @@ export function moveOptions(areas: readonly AreaNode[], areaId: string): MoveOpt
   return areas
     .filter((area) => !excluded.has(area.id))
     .map((area) => ({ id: area.id, path: area.path, isRoot: area.parentId === null }));
-}
-
-/**
- * The default-area picker's choices (US-4, BR-M1-14): the areas the team
- * owns explicitly, by path, in tree order. An area it owns by inheritance is
- * not offered.
- */
-export function defaultAreaOptions(areas: readonly AreaNode[], teamId: string): AreaNode[] {
-  return areas.filter((area) => area.ownerTeamId === teamId);
-}
-
-/** The owner pickers' «Наследовать от родительской области», the first choice (US-6). */
-export const INHERIT_OWNER_LABEL = 'Наследовать от родительской области';
-
-/** The value the owner pickers give «Наследовать…»; sent as `null`. */
-export const INHERIT_OWNER_VALUE = '';
-
-/** One choice of an owner picker. */
-export interface OwnerOption {
-  value: string;
-  label: string;
-}
-
-/**
- * The owner pickers' choices: «Наследовать…» first, then the project's
- * active teams in the order the list gives (design § 4.6). A deleted team is
- * never offered: the list leaves it out (US-7).
- */
-export function ownerOptions(teams: readonly Team[]): OwnerOption[] {
-  return [
-    { value: INHERIT_OWNER_VALUE, label: INHERIT_OWNER_LABEL },
-    ...teams.map((team) => ({ value: team.id, label: team.name })),
-  ];
-}
-
-/** The owner a picker value sends: `null` for «Наследовать…» (api-contract § 4.2, § 4.5). */
-export function ownerTeamIdOf(value: string): string | null {
-  return value === INHERIT_OWNER_VALUE ? null : value;
 }
 
 /** The root, the one node without a parent. */

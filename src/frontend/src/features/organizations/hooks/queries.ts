@@ -3,6 +3,7 @@ import {
   getAreaTree,
   getOrganization,
   getOrganizations,
+  getOwnedItemsCount,
   getProject,
   getProjects,
   getTeam,
@@ -65,6 +66,20 @@ export function useTeam(organizationId: string, projectId: string, teamId: strin
   return useQuery({
     queryKey: organizationsKeys.team(organizationId, projectId, teamId),
     queryFn: () => getTeam(organizationId, projectId, teamId),
+  });
+}
+
+/**
+ * mod-017 api-contract § 2.9: the items a deletion would reassign, read when the
+ * confirmation opens and kept for no longer (`gcTime: 0`): the next opening counts
+ * afresh. Never retried: a failure is the dialog's «Повторить».
+ */
+export function useOwnedItemsCount(organizationId: string, projectId: string, teamId: string) {
+  return useQuery({
+    queryKey: organizationsKeys.ownedItemsCount(organizationId, projectId, teamId),
+    queryFn: () => getOwnedItemsCount(organizationId, projectId, teamId),
+    gcTime: 0,
+    retry: false,
   });
 }
 

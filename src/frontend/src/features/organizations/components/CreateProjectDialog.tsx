@@ -65,7 +65,7 @@ export function CreateProjectDialog({
         error={Boolean(errors.name)}
         helperText={
           errors.name ??
-          'От 1 до 100 символов. Так же будут названы первая команда проекта и его корневая область.'
+          'От 1 до 100 символов. Так же будут названы команда проекта и его корневая область.'
         }
         onChange={(event) => {
           setName(event.target.value);

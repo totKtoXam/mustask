@@ -25,16 +25,14 @@ import {
   renameTeam,
   restoreOrganization,
   restoreProject,
-  setAreaOwner,
-  setTeamDefaultArea,
+  setDefaultTeam,
 } from '../api/organizationsApi';
 import { organizationsKeys as keys } from '../api/queryKeys';
 
 // One mutation hook per write group, each doing the invalidations of design
 // § 3.7 (plan-frontend § 3.4). The switcher reads the same keys, so its
 // levels follow every write without a reload. The tree is always read again
-// after an area write, never patched: a write can move a subtree's resolved
-// owners (api-contract § 4.1).
+// after an area write, never patched.
 
 function invalidate(client: QueryClient, ...queryKeys: (readonly unknown[])[]): Promise<unknown> {
   return Promise.all(queryKeys.map((queryKey) => client.invalidateQueries({ queryKey })));
@@ -137,12 +135,8 @@ export function useAddTeam(organizationId: string, projectId: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (name: string) => addTeam(organizationId, projectId, name),
-    onSuccess: () =>
-      invalidate(
-        client,
-        keys.teams(organizationId, projectId),
-        keys.areas(organizationId, projectId),
-      ),
+    // mod-017 BR-OT-11: adding a team creates no area; the marks follow the count of teams.
+    onSuccess: () => invalidate(client, keys.teams(organizationId, projectId)),
   });
 }
 
@@ -156,23 +150,20 @@ export function useRenameTeam(organizationId: string, projectId: string) {
         client,
         keys.teams(organizationId, projectId),
         keys.teamPages(organizationId, projectId),
-        // Owner and default names in the tree.
-        keys.areas(organizationId, projectId),
       ),
   });
 }
 
-export function useSetTeamDefaultArea(organizationId: string, projectId: string) {
+/** mod-017 api-contract § 2.8: names the default team, or none; the marks come from the teams read. */
+export function useSetDefaultTeam(organizationId: string, projectId: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ teamId, areaId }: { teamId: string; areaId: string }) =>
-      setTeamDefaultArea(organizationId, projectId, teamId, areaId),
+    mutationFn: (teamId: string | null) => setDefaultTeam(organizationId, projectId, teamId),
     onSuccess: () =>
       invalidate(
         client,
         keys.teams(organizationId, projectId),
         keys.teamPages(organizationId, projectId),
-        keys.areas(organizationId, projectId),
       ),
   });
 }
@@ -186,11 +177,8 @@ export function useDeleteTeam(organizationId: string, projectId: string) {
         queryKey: keys.team(organizationId, projectId, teamId),
         refetchType: 'none',
       });
-      return invalidate(
-        client,
-        keys.teams(organizationId, projectId),
-        keys.areas(organizationId, projectId),
-      );
+      // The team's items now have none and a default that named it is cleared (BR-OT-12).
+      return invalidate(client, keys.teams(organizationId, projectId));
     },
   });
 }
@@ -201,31 +189,17 @@ function useAreaWrite<T, R>(
   organizationId: string,
   projectId: string,
   write: (variables: T) => Promise<R>,
-  alsoTeams: boolean,
 ) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: write,
-    onSuccess: () =>
-      alsoTeams
-        ? invalidate(
-            client,
-            keys.areas(organizationId, projectId),
-            // A default area's path can change.
-            keys.teams(organizationId, projectId),
-            keys.teamPages(organizationId, projectId),
-          )
-        : invalidate(client, keys.areas(organizationId, projectId)),
+    onSuccess: () => invalidate(client, keys.areas(organizationId, projectId)),
   });
 }
 
 export function useCreateArea(organizationId: string, projectId: string) {
-  return useAreaWrite(
-    organizationId,
-    projectId,
-    (body: { parentId: string; name: string; ownerTeamId: string | null }) =>
-      createArea(organizationId, projectId, body),
-    true,
+  return useAreaWrite(organizationId, projectId, (body: { parentId: string; name: string }) =>
+    createArea(organizationId, projectId, body),
   );
 }
 
@@ -235,7 +209,6 @@ export function useRenameArea(organizationId: string, projectId: string) {
     projectId,
     ({ areaId, name }: { areaId: string; name: string }) =>
       renameArea(organizationId, projectId, areaId, name),
-    true,
   );
 }
 
@@ -245,26 +218,12 @@ export function useMoveArea(organizationId: string, projectId: string) {
     projectId,
     ({ areaId, parentId }: { areaId: string; parentId: string }) =>
       moveArea(organizationId, projectId, areaId, parentId),
-    true,
-  );
-}
-
-export function useSetAreaOwner(organizationId: string, projectId: string) {
-  return useAreaWrite(
-    organizationId,
-    projectId,
-    ({ areaId, ownerTeamId }: { areaId: string; ownerTeamId: string | null }) =>
-      setAreaOwner(organizationId, projectId, areaId, ownerTeamId),
-    false,
   );
 }
 
 export function useDeleteArea(organizationId: string, projectId: string) {
-  return useAreaWrite(
-    organizationId,
-    projectId,
-    (areaId: string) => deleteArea(organizationId, projectId, areaId),
-    false,
+  return useAreaWrite(organizationId, projectId, (areaId: string) =>
+    deleteArea(organizationId, projectId, areaId),
   );
 }
 

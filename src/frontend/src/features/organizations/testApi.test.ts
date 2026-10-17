@@ -6,11 +6,13 @@ import {
   deleteTeam,
   getAreaTree,
   getOrganizations,
+  getOwnedItemsCount,
   getProjects,
   getTeam,
   getTeams,
+  setDefaultTeam,
 } from './api/organizationsApi';
-import { emptyDataset, ids } from './testFixtures';
+import { emptyDataset, exampleDataset, ids } from './testFixtures';
 import { serveOrganizations } from './testApi';
 
 async function codeOf(promise: Promise<unknown>): Promise<string | undefined> {
@@ -28,9 +30,10 @@ describe('the slice’s test API answers per api-contract (a check of the test d
       'Аналитика',
       'Пример проекта',
     ]);
+    // mod-017 BR-OT-11: by name, no team first.
     expect((await getTeams(ids.alfa, ids.prm)).map((t) => t.name)).toEqual([
-      'Пример проекта',
       'Платформа',
+      'Пример проекта',
     ]);
   });
 
@@ -54,28 +57,58 @@ describe('the slice’s test API answers per api-contract (a check of the test d
     );
   });
 
-  it('creates a project with its first team and root, and a team with its own default area', async () => {
+  it('creates a project with its one team (the default as the only one) and root, and a team with no area (BR-OT-11)', async () => {
     const api = serveOrganizations();
 
     const project = await createProject(ids.beta, { name: 'Ядро', key: 'CORE' });
     const [first] = await getTeams(ids.beta, project.id);
-    expect(first).toMatchObject({ name: 'Ядро', isFirstTeam: true, defaultArea: { path: 'Ядро' } });
+    expect(first).toMatchObject({ name: 'Ядро', defaultMark: 'onlyTeam' });
+    const treeBefore = await getAreaTree(ids.beta, project.id);
 
     const team = await addTeam(ids.beta, project.id, 'Сервис');
-    expect(team.defaultArea.path).toBe('Сервис');
+    expect(team).toMatchObject({ name: 'Сервис', defaultMark: null });
+    expect(await getAreaTree(ids.beta, project.id)).toEqual(treeBefore);
+    // Two teams and no setting: nobody carries the mark.
+    expect((await getTeams(ids.beta, project.id)).map((t) => t.defaultMark)).toEqual([null, null]);
     expect(api.writes()).toHaveLength(2);
   });
 
-  it('passes a deleted team’s areas to the first team (US-7)', async () => {
+  it('names the default team, refuses the other project’s as 409 and an unknown as 404 (mod-017 § 0.2)', async () => {
     serveOrganizations();
 
+    await setDefaultTeam(ids.alfa, ids.prm, ids.platformTeam);
+    expect((await getTeams(ids.alfa, ids.prm)).map((t) => [t.name, t.defaultMark])).toEqual([
+      ['Платформа', 'named'],
+      ['Пример проекта', null],
+    ]);
+    expect(await codeOf(setDefaultTeam(ids.alfa, ids.prm, ids.anlTeam))).toBe(
+      'organizations.team.not_in_project',
+    );
+    expect(await codeOf(setDefaultTeam(ids.alfa, ids.prm, ids.repTeam))).toBe(
+      'organizations.team.not_found',
+    );
+    await setDefaultTeam(ids.alfa, ids.prm, null);
+    expect((await getTeams(ids.alfa, ids.prm)).map((t) => t.defaultMark)).toEqual([null, null]);
+  });
+
+  it('deletes any team but the last, clears a default naming it, and counts what it owns (US-7)', async () => {
+    const data = exampleDataset();
+    data.ownedItemCounts = { [ids.platformTeam]: 5 };
+    serveOrganizations(data);
+    await setDefaultTeam(ids.alfa, ids.prm, ids.platformTeam);
+
+    expect(await getOwnedItemsCount(ids.alfa, ids.prm, ids.platformTeam)).toEqual({ count: 5 });
     await deleteTeam(ids.alfa, ids.prm, ids.platformTeam);
 
-    const tree = await getAreaTree(ids.alfa, ids.prm);
-    expect(tree.find((node) => node.id === ids.apiArea)?.ownerTeamId).toBe(ids.prmTeam);
-    expect(tree.every((node) => node.resolvedOwner.id === ids.prmTeam)).toBe(true);
     expect(await codeOf(getTeam(ids.alfa, ids.prm, ids.platformTeam))).toBe(
       'organizations.team.not_found',
+    );
+    // The setting went with the team, and the one left is the default as the only team.
+    expect((await getTeams(ids.alfa, ids.prm)).map((t) => [t.name, t.defaultMark])).toEqual([
+      ['Пример проекта', 'onlyTeam'],
+    ]);
+    expect(await codeOf(deleteTeam(ids.alfa, ids.prm, ids.prmTeam))).toBe(
+      'organizations.team.last_team_cannot_be_deleted',
     );
   });
 });

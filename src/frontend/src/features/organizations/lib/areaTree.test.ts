@@ -1,16 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { getAreaTree, type AreaNode, type Team } from '../api/organizationsApi';
+import { getAreaTree, type AreaNode } from '../api/organizationsApi';
 import { ids } from '../testFixtures';
 import { serveOrganizations } from '../testApi';
-import {
-  INHERIT_OWNER_LABEL,
-  defaultAreaOptions,
-  moveOptions,
-  ownerOptions,
-  ownerTeamIdOf,
-  rootOf,
-  subtreeIds,
-} from './areaTree';
+import { moveOptions, rootOf, subtreeIds } from './areaTree';
 
 /** The example tree of «Пример проекта», as the read answers it (pre-order). */
 async function exampleTree(): Promise<AreaNode[]> {
@@ -70,37 +62,5 @@ describe('mod-002 US-5 Scenario: Never leaves its project', () => {
       moveOptions(tree, ids.mobileArea).every((option) => tree.some((n) => n.id === option.id)),
     ).toBe(true);
     expect(moveOptions(tree, ids.mobileArea).map((option) => option.id)).not.toContain(ids.anlRoot);
-  });
-});
-
-describe('mod-002 US-4 Scenario: Default area chosen among the team’s explicit areas', () => {
-  it('offers «Платформа» and «Платформа / API» only, never «Платформа / API / Шлюз» it inherits', async () => {
-    const tree = await exampleTree();
-
-    expect(defaultAreaOptions(tree, ids.platformTeam).map((node) => node.path)).toEqual([
-      'Платформа',
-      'Платформа / API',
-    ]);
-  });
-});
-
-describe('mod-002 US-6 Scenario: Created with or without an owner (the picker)', () => {
-  it('puts «Наследовать от родительской области» first, then the active teams in list order', () => {
-    const teams = [
-      { id: 't1', name: 'Пример проекта' },
-      { id: 't2', name: 'Платформа' },
-    ] as Team[];
-
-    expect(ownerOptions(teams)).toEqual([
-      { value: '', label: 'Наследовать от родительской области' },
-      { value: 't1', label: 'Пример проекта' },
-      { value: 't2', label: 'Платформа' },
-    ]);
-    expect(INHERIT_OWNER_LABEL).toBe('Наследовать от родительской области');
-  });
-
-  it('sends «Наследовать…» as null and a team as its id', () => {
-    expect(ownerTeamIdOf('')).toBeNull();
-    expect(ownerTeamIdOf('t2')).toBe('t2');
   });
 });
