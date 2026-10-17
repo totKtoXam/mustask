@@ -10,7 +10,9 @@
 // ones included, and to every card. feat-027's api-contract § 1–§ 2 makes that
 // tree the whole one — every level below the page's, at full depth, in the one
 // answer — numbers only the top-level rows, and adds `effort`, `businessValue`
-// and `valueArea` to every row.
+// and `valueArea` to every row. feat-039's api-contract § 3 adds the project's
+// own backlog, reorder and board: the same rows, cards and columns over every
+// item of the project, answered with `project` where the team's answer has `team`.
 import { apiFetch } from '../../../shared/api/httpClient';
 import type {
   WorkItemAssignee,
@@ -25,6 +27,12 @@ export interface BoardTeam {
   id: string;
   name: string;
   defaultArea: { id: string; path: string };
+}
+
+/** feat-039 api-contract § 2.1: the project as it stands now, the project views' `h1`. */
+export interface BoardProject {
+  id: string;
+  name: string;
 }
 
 /** § 2.2: one type of the level, with the state a new item of it starts in. */
@@ -125,13 +133,22 @@ export interface BacklogRow extends BacklogTreeItem {
 }
 
 /**
- * § 3.1's answer: the page's top-level rows in their order, each with the whole
- * tree beneath it (feat-027 § 2); `[]` when empty.
+ * What a backlog's answer holds under either scope: the page's top-level rows in
+ * their order, each with the whole tree beneath it (feat-027 § 2); `[]` when empty.
  */
-export interface Backlog {
-  team: BoardTeam;
+export interface BacklogSurface {
   level: BoardLevel;
   items: BacklogRow[];
+}
+
+/** § 3.1's answer: a team's backlog. */
+export interface Backlog extends BacklogSurface {
+  team: BoardTeam;
+}
+
+/** feat-039 api-contract § 3.1's answer: the project's backlog. */
+export interface ProjectBacklog extends BacklogSurface {
+  project: BoardProject;
 }
 
 /** § 3.2's three positions (BR-M4-25). */
@@ -162,11 +179,20 @@ export interface BoardColumn {
   items: BoardCardItem[];
 }
 
-/** § 3.3's answer: every column, an empty one with `[]`. */
-export interface Board {
-  team: BoardTeam;
+/** What a board's answer holds under either scope: every column, an empty one with `[]`. */
+export interface BoardSurface {
   level: BoardLevel;
   columns: BoardColumn[];
+}
+
+/** § 3.3's answer: a team's board. */
+export interface Board extends BoardSurface {
+  team: BoardTeam;
+}
+
+/** feat-039 api-contract § 3.3's answer: the project's board. */
+export interface ProjectBoard extends BoardSurface {
+  project: BoardProject;
 }
 
 const segment = encodeURIComponent;
@@ -216,4 +242,47 @@ export function getBoard(
   level: BoardLevelCode,
 ): Promise<Board> {
   return apiFetch(`${teamApiPath(organizationId, projectId, teamId)}/boards/${level}`);
+}
+
+function projectApiPath(organizationId: string, projectId: string): string {
+  return `/api/organizations/${segment(organizationId)}/projects/${segment(projectId)}`;
+}
+
+function projectBacklogApiPath(
+  organizationId: string,
+  projectId: string,
+  level: BoardLevelCode,
+): string {
+  return `${projectApiPath(organizationId, projectId)}/backlogs/${level}`;
+}
+
+/** feat-039 § 3.1: the project's backlog of one level. */
+export function getProjectBacklog(
+  organizationId: string,
+  projectId: string,
+  level: BoardLevelCode,
+): Promise<ProjectBacklog> {
+  return apiFetch(projectBacklogApiPath(organizationId, projectId, level));
+}
+
+/** feat-039 § 3.2: 204 with no body; the panel reads § 3.1 again. */
+export function reorderProjectBacklog(
+  organizationId: string,
+  projectId: string,
+  level: BoardLevelCode,
+  body: ReorderBody,
+): Promise<void> {
+  return apiFetch(`${projectBacklogApiPath(organizationId, projectId, level)}/reorder`, {
+    method: 'POST',
+    body,
+  });
+}
+
+/** feat-039 § 3.3: the project's board of one level. */
+export function getProjectBoard(
+  organizationId: string,
+  projectId: string,
+  level: BoardLevelCode,
+): Promise<ProjectBoard> {
+  return apiFetch(`${projectApiPath(organizationId, projectId)}/boards/${level}`);
 }

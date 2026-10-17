@@ -134,6 +134,11 @@ export function entryMarker(
     return null;
   }
   const path = pagePath(currentPage);
+  // feat-039 BR-PB-9: a project's own page of the entry is the entry's page as its landing
+  // is — and only the selection's project's: a page of another is none of this selection's.
+  if (entry.projectViews?.matches(path) && entry.projectViews.retarget(path, selection) === path) {
+    return 'page';
+  }
   const pages = [landing, ...(entry.views?.(selection) ?? [])];
   if (pages.includes(path)) {
     return 'page';

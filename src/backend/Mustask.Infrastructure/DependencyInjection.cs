@@ -109,6 +109,7 @@ public static class DependencyInjection
     {
         services.AddScoped<IBacklogReadModel, BacklogReadModel>();
         services.AddScoped<IBacklogRepository, BacklogRepository>();
+        services.AddScoped<IProjectBacklogRepository, ProjectBacklogRepository>();
 
         return services;
     }

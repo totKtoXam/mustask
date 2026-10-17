@@ -8,6 +8,10 @@ import {
   boardLevelPaths,
   boardsLandingPath,
   boardsPermissions,
+  projectBacklogLevelOf,
+  projectBacklogPath,
+  projectBoardLevelOf,
+  projectBoardPath,
 } from '../../features/boards';
 import { dictionariesPermissions, LANGUAGES_PATH } from '../../features/dictionaries';
 import {
@@ -23,10 +27,29 @@ import { processDefinitionPath, processPermissions } from '../../features/proces
 import { UI_KIT_PATH, uiKitPermissions } from '../../features/uikit';
 import { workItemsPath, workItemsPermissions } from '../../features/workitems';
 import { HOME_PATH } from '../../shared/config/paths';
-import type { NavigationModel } from './types';
+import type { NavigationModel, ProjectViews } from './types';
 
 /** The label of the derived «Настройки» entry and of the settings navigation's title (BR-19). */
 export const SETTINGS_LABEL = 'Настройки';
+
+/**
+ * A project's page of an entry (feat-039 BR-PB-9): the address `levelOf` reads a level
+ * from, and the same page at that level in the selection's project, which `pathOf` builds.
+ */
+function projectViews<Level extends string>(
+  levelOf: (pathname: string) => Level | null,
+  pathOf: (organizationId: string, projectId: string, level: Level) => string,
+): ProjectViews {
+  return {
+    matches: (pathname) => levelOf(pathname) !== null,
+    retarget: (pathname, selection) => {
+      const level = levelOf(pathname);
+      return level !== null && selection.organizationId && selection.projectId
+        ? pathOf(selection.organizationId, selection.projectId, level)
+        : null;
+    },
+  };
+}
 
 /**
  * The navigation registry (mod-015 design § 4.1, BR-7). Only pages that
@@ -54,6 +77,10 @@ export const SETTINGS_LABEL = 'Настройки';
  * its page too (`views`), so the switcher moves any of them to the landing.
  * feat-001 renames «Доски» to «Канбан» (BR-H-16; the id and the address
  * segment `boards` stay) and puts the levels in a drop-down (BR-H-15).
+ * feat-039 adds the project's own backlog and board, project-level pages of the
+ * same two entries (`projectViews`, BR-PB-9): current there like the entry's team
+ * pages, and kept, with their level, by a switch of project or organization. All
+ * of it is interim, retired by feat-040 and feat-043 with the switcher it follows.
  */
 export const navigationModel: NavigationModel = {
   top: [
@@ -91,6 +118,7 @@ export const navigationModel: NavigationModel = {
         selection.organizationId && selection.projectId && selection.teamId
           ? boardLevelPaths(selection.organizationId, selection.projectId, selection.teamId)
           : [],
+      projectViews: projectViews(projectBoardLevelOf, projectBoardPath),
     },
     {
       id: 'backlogs',
@@ -106,6 +134,7 @@ export const navigationModel: NavigationModel = {
         selection.organizationId && selection.projectId && selection.teamId
           ? backlogLevelPaths(selection.organizationId, selection.projectId, selection.teamId)
           : [],
+      projectViews: projectViews(projectBacklogLevelOf, projectBacklogPath),
     },
   ],
   settings: [

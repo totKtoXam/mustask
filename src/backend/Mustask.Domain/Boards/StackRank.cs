@@ -3,11 +3,15 @@ using Mustask.Shared.Exceptions;
 namespace Mustask.Domain.Boards;
 
 /// <summary>
-/// An item on one backlog (team, level), as the order needs it: its id, its
-/// number, and its place on this backlog, or <c>null</c> when it holds none
-/// here (spec § The stack rank).
+/// An item on one backlog (team or project, level), as the order needs it: its
+/// id, its number, and its place on this backlog, or <c>null</c> when it holds
+/// none here (spec § The stack rank). <paramref name="CreatedAt"/> is given by a
+/// project's backlog only (feat-039 BR-PB-4): its unplaced items follow by
+/// creation time before the number. A team's entries leave it <c>null</c> and
+/// keep the number tie-break (BR-M4-13) until
+/// <c>feat-040-team-surfaces-across-projects</c>.
 /// </summary>
-public sealed record StackRankEntry(Guid ItemId, int Number, int? Place);
+public sealed record StackRankEntry(Guid ItemId, int Number, int? Place, DateTimeOffset? CreatedAt = null);
 
 /// <summary>Where a reorder puts its item (BR-M4-25): the top, the bottom, or directly after one named item.</summary>
 public abstract record StackRankPosition
@@ -64,12 +68,17 @@ public static class StackRank
     /// The backlog's order: the items placed here by their places (a tie, which
     /// one reorder never writes, by number), then the unplaced ones by number,
     /// ascending (BR-M4-13, OQ-5). Numbers are one sequence per project, so the
-    /// unplaced ones stand in creation order and a new item is last.
+    /// unplaced ones stand in creation order and a new item is last. A project's
+    /// backlog (feat-039 BR-PB-4) gives <see cref="StackRankEntry.CreatedAt"/>, and
+    /// then the unplaced ones stand by creation time first, the number breaking a
+    /// tie; an entry without it (a team's, a task's) sorts on its number alone,
+    /// as before.
     /// </summary>
     public static IReadOnlyList<Guid> Order(IEnumerable<StackRankEntry> entries) =>
         entries
             .OrderBy(entry => entry.Place is null)
             .ThenBy(entry => entry.Place)
+            .ThenBy(entry => entry.CreatedAt)
             .ThenBy(entry => entry.Number)
             .Select(entry => entry.ItemId)
             .ToList();
