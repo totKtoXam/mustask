@@ -161,7 +161,7 @@ public sealed class CreateWorkItemHandler(
                 var item = parent is null
                     ? WorkItem.Create(projectId, number, type, areaId, title, requestId, clock.UtcNow, currentUser.SubjectId)
                     : WorkItemHierarchy.CreateChild(
-                        parent, parentAncestry, ProcessHierarchy.Of(process), number, type, title, requestId, clock.UtcNow, currentUser.SubjectId);
+                        parent, parentAncestry, ProcessHierarchy.Of(process), number, type, title, requestId, clock.UtcNow, currentUser.SubjectId, owningTeamId: null);
 
                 workItems.Add(item);
                 await workItems.SaveAsync(ct);

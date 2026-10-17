@@ -542,7 +542,7 @@ public sealed class WorkItemHierarchyTests
     // --- feat-027: a child created from a row (BR-T-10) ------------------------------------------------------------
 
     private WorkItem Child(WorkItem parent, WorkItemTypeStates type, int number) =>
-        WorkItemHierarchy.CreateChild(parent, AncestryOf(parent), Types, number, type, "Повторная отправка письма", Guid.CreateVersion7(), Later, "creator-sub");
+        WorkItemHierarchy.CreateChild(parent, AncestryOf(parent), Types, number, type, "Повторная отправка письма", Guid.CreateVersion7(), Later, "creator-sub", null);
 
     // feat-027 US-4 · "The child takes the parent's area, state and defaults": a story created beneath MSK-FEAT-6 of
     // «Платформа / API» is in that area, in its initial state, unassigned, with feat-022's defaults, MSK-FEAT-6 its
@@ -561,6 +561,25 @@ public sealed class WorkItemHierarchyTests
         Assert.Equal(feature.Id, story.ParentId);
         Assert.Equal((Later, Later, Later), (story.CreatedAt, story.ChangedAt, feature.ChangedAt));
         Assert.Equal((apiArea, Feature.InitialStateId, (Guid?)null), (feature.AreaId, feature.StateId, feature.ParentId));
+    }
+
+    // mod-017 US-2 · "a child starts with its parent's team" · "a child may have another team" (BR-OT-1): the child gets the
+    // team the caller decided; the parent keeps its own, and no child follows its parent's team afterwards.
+    [Fact]
+    public void CreateChild_TakesTheTeamTheCallerDecided_AndTheParentKeepsItsOwn()
+    {
+        var parentTeam = Guid.CreateVersion7();
+        var childTeam = Guid.CreateVersion7();
+        var feature = WorkItem.Create(ProjectId, 6, Feature, Guid.CreateVersion7(), "Вход по ссылке", Guid.CreateVersion7(), Created, "creator-sub", parentTeam);
+
+        var story = WorkItemHierarchy.CreateChild(
+            feature, AncestryOf(feature), Types, 24, Story, "Повторная отправка письма", Guid.CreateVersion7(), Later, "creator-sub", childTeam);
+        var teamless = WorkItemHierarchy.CreateChild(
+            feature, AncestryOf(feature), Types, 25, Story, "Без команды", Guid.CreateVersion7(), Later, "creator-sub", null);
+
+        Assert.Equal(childTeam, story.OwningTeamId);
+        Assert.Null(teamless.OwningTeamId);
+        Assert.Equal(parentTeam, feature.OwningTeamId);
     }
 
     // feat-027 US-4 · each row's entries (BR-T-9) are pairs BR-H-2 allows — a feature beneath an epic, a story or a bug
@@ -628,7 +647,7 @@ public sealed class WorkItemHierarchyTests
 
         Assert.False(WorkItemHierarchy.AllowsParent(types.Of(Feature.TypeId).LevelRank, types.Of(deleted.TypeId).LevelRank));
         var refused = Assert.Throws<ConflictException>(() =>
-            WorkItemHierarchy.CreateChild(deleted, AncestryOf(deleted), types, 2, Feature, "Фича", Guid.CreateVersion7(), Later, "creator-sub"));
+            WorkItemHierarchy.CreateChild(deleted, AncestryOf(deleted), types, 2, Feature, "Фича", Guid.CreateVersion7(), Later, "creator-sub", null));
 
         Assert.Equal(WorkItemErrorCodes.ItemDeleted, refused.Code);
         Assert.Equal(Created, deleted.ChangedAt);
@@ -638,7 +657,7 @@ public sealed class WorkItemHierarchyTests
         Assert.Equal(
             WorkItemErrorCodes.ParentLevelNotAllowed,
             Assert.Throws<ConflictException>(() =>
-                WorkItemHierarchy.CreateChild(liveLowerLevel, AncestryOf(liveLowerLevel), levelOnly, 3, Feature, "Фича", Guid.CreateVersion7(), Later, "creator-sub")).Code);
+                WorkItemHierarchy.CreateChild(liveLowerLevel, AncestryOf(liveLowerLevel), levelOnly, 3, Feature, "Фича", Guid.CreateVersion7(), Later, "creator-sub", null)).Code);
     }
 
     // feat-027 D-9 · a child is the next item of its parent's chain: beneath the 63rd item of a chain it makes 64 and is
@@ -675,12 +694,12 @@ public sealed class WorkItemHierarchyTests
         Assert.Equal(
             WorkItemErrorCodes.ItemDeleted,
             Assert.Throws<ConflictException>(() =>
-                WorkItemHierarchy.CreateChild(deletedTail, AncestryOf(deletedTail), types, 802, Task, "Задача", Guid.CreateVersion7(), Later, "creator-sub")).Code);
+                WorkItemHierarchy.CreateChild(deletedTail, AncestryOf(deletedTail), types, 802, Task, "Задача", Guid.CreateVersion7(), Later, "creator-sub", null)).Code);
         // A story beneath the 64th item, a task: the level is not allowed, although it would be the 65th too.
         Assert.Equal(
             WorkItemErrorCodes.ParentLevelNotAllowed,
             Assert.Throws<ConflictException>(() =>
-                WorkItemHierarchy.CreateChild(liveTail, AncestryOf(liveTail), types, 803, Story, "История", Guid.CreateVersion7(), Later, "creator-sub")).Code);
+                WorkItemHierarchy.CreateChild(liveTail, AncestryOf(liveTail), types, 803, Story, "История", Guid.CreateVersion7(), Later, "creator-sub", null)).Code);
     }
 
     private static WorkItemTypeStates TypeOf(string key) =>

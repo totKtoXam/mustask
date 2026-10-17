@@ -44,7 +44,31 @@ public sealed class Project
     /// <summary>The creator's Keycloak subject (<c>sub</c>, BR-M1-21).</summary>
     public string CreatedBy { get; private set; } = null!;
 
+    /// <summary>
+    /// mod-017 (BR-OT-4): the team the project's settings name as its default, a team of this project, or <c>null</c> when
+    /// none is named. The default team in force is <see cref="ProjectDefaultTeam.Resolve"/>: this, else the project's only
+    /// active team, else none. It decides a creation's starting value and nothing else.
+    /// </summary>
+    public Guid? DefaultTeamId { get; private set; }
+
     public bool IsActive => Status == ProjectStatus.Active;
+
+    /// <summary>
+    /// Names the project's default team, or clears the setting with <c>null</c> (BR-OT-4). The caller has judged the team with
+    /// <see cref="ProjectTeams.EnsureBindable"/> under its lock. Returns <c>false</c> when the setting already holds
+    /// <paramref name="teamId"/>: nothing changes.
+    /// </summary>
+    public bool NameDefaultTeam(Guid? teamId)
+    {
+        if (DefaultTeamId == teamId)
+        {
+            return false;
+        }
+
+        DefaultTeamId = teamId;
+
+        return true;
+    }
 
     /// <summary>
     /// A new, active project with its first team and its root (US-3 "created

@@ -21,7 +21,8 @@ namespace Mustask.Infrastructure.WorkItems.Configurations;
 /// item has one at most (BR-H-1), and its key is composite too,
 /// <c>(project_id, parent_id)</c> onto the item's own alternate key
 /// <c>(project_id, id)</c>: the database refuses a parent of another project, and
-/// a check refuses the item as its own parent.
+/// a check refuses the item as its own parent. mod-017 adds the owning team: a column, with a composite key onto the
+/// project's teams (<c>(project_id, owning_team_id)</c>) in the same way.
 /// </summary>
 internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
 {
@@ -86,6 +87,16 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
             .HasPrincipalKey(area => new { area.ProjectId, area.Id })
             .OnDelete(DeleteBehavior.Restrict);
 
+        // mod-017 (BR-OT-1): the owning team is a team of the item's own project. The key is composite,
+        // (project_id, owning_team_id) onto mod-002's alternate key (project_id, id) of teams, so the database refuses a
+        // team of another project; Restrict, so a team that owns an item is never removed from under it (a deletion releases
+        // its items first, ADR-0028 rule 7). A null team leaves the key unchecked (MATCH SIMPLE): «Без команды».
+        builder.HasOne<Team>()
+            .WithMany()
+            .HasForeignKey(item => new { item.ProjectId, item.OwningTeamId })
+            .HasPrincipalKey(team => new { team.ProjectId, team.Id })
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasOne<WorkItemType>()
             .WithMany()
             .HasForeignKey(item => item.TypeId)
@@ -113,6 +124,12 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         builder.HasIndex(item => new { item.ProjectId, item.TypeId, item.AreaId }, WorkItemsConstraints.ProjectTypeArea);
         // feat-001: the parent's key, and the form's children read (BR-H-7).
         builder.HasIndex(item => new { item.ProjectId, item.ParentId }, WorkItemsConstraints.ProjectParent);
+        // mod-017: a team's views are an equality on the project, the team and a short list of types, so every (team, type)
+        // pair is one range of this index; it also serves the owner key above, so EF adds no second index for it.
+        builder.HasIndex(item => new { item.ProjectId, item.OwningTeamId, item.TypeId }, WorkItemsConstraints.ProjectOwningTeamType);
+        // mod-017 (ADR-0028 rule 5): the target of the team place's key (work_item_id, team_id) -> (id, owning_team_id),
+        // which the second migration adds in SQL: EF cannot declare an alternate key over a nullable column.
+        builder.HasIndex(item => new { item.Id, item.OwningTeamId }, WorkItemsConstraints.IdOwningTeam).IsUnique();
 
         builder.ToTable(table =>
         {

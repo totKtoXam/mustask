@@ -67,6 +67,29 @@ public sealed class ProjectTests
         Assert.Throws<ArgumentException>(() => created.Project.Rename(Name("Новый"), other.Root));
     }
 
+    // mod-017 US-3 · "the administrator chooses the default": a new project names none; naming one, the same one again, and
+    // clearing it (BR-OT-4). The setting survives a deactivation and a restore.
+    [Fact]
+    public void NameDefaultTeam_NamesClearsAndIsANoOpForTheSameValue_SurvivesDeactivation()
+    {
+        var created = AProject();
+        var team = Guid.CreateVersion7();
+
+        Assert.Null(created.Project.DefaultTeamId);
+        Assert.False(created.Project.NameDefaultTeam(null));
+
+        Assert.True(created.Project.NameDefaultTeam(team));
+        Assert.Equal(team, created.Project.DefaultTeamId);
+        Assert.False(created.Project.NameDefaultTeam(team));
+
+        created.Project.Deactivate();
+        created.Project.Restore();
+        Assert.Equal(team, created.Project.DefaultTeamId);
+
+        Assert.True(created.Project.NameDefaultTeam(null));
+        Assert.Null(created.Project.DefaultTeamId);
+    }
+
     // US-3 · "deactivated" and "restored exactly as it was".
     [Fact]
     public void DeactivateThenRestore_TogglesTheStatusOnly()

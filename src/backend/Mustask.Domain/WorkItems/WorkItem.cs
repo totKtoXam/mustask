@@ -32,7 +32,8 @@ public sealed class WorkItem
         string title,
         Guid creationRequestId,
         DateTimeOffset createdAt,
-        string createdBy)
+        string createdBy,
+        Guid? owningTeamId)
     {
         Id = id;
         ProjectId = projectId;
@@ -40,6 +41,7 @@ public sealed class WorkItem
         TypeId = typeId;
         StateId = stateId;
         AreaId = areaId;
+        OwningTeamId = owningTeamId;
         Title = title;
         Description = string.Empty;
         CreationRequestId = creationRequestId;
@@ -63,6 +65,13 @@ public sealed class WorkItem
     public string? AssigneeId { get; private set; }
 
     public Guid AreaId { get; private set; }
+
+    /// <summary>
+    /// mod-017 (BR-OT-1): the item's one owning team, a team of its project, or <c>null</c> for «Без команды». Changing it
+    /// changes nothing else on the item; the project, the area and the parent are not decided by it, and it is not decided by
+    /// them.
+    /// </summary>
+    public Guid? OwningTeamId { get; private set; }
 
     public string Title { get; private set; } = null!;
 
@@ -146,7 +155,8 @@ public sealed class WorkItem
     /// empty (BR-M3-37). The caller has validated
     /// the title (<see cref="WorkItemText.ValidateTitle"/>), resolved the type in
     /// the organization's process and taken <paramref name="number"/> from the
-    /// project's sequence.
+    /// project's sequence. mod-017 (BR-OT-3): <paramref name="owningTeamId"/> is the team the caller decided under its locks
+    /// (an explicit one, the project default or the parent's), a team of the project, or <c>null</c> for «Без команды».
     /// </summary>
     public static WorkItem Create(
         Guid projectId,
@@ -156,7 +166,8 @@ public sealed class WorkItem
         string title,
         Guid creationRequestId,
         DateTimeOffset createdAt,
-        string createdBy)
+        string createdBy,
+        Guid? owningTeamId = null)
     {
         ArgumentNullException.ThrowIfNull(type);
         ArgumentOutOfRangeException.ThrowIfLessThan(number, 1);
@@ -182,7 +193,8 @@ public sealed class WorkItem
             title,
             creationRequestId,
             createdAt,
-            createdBy);
+            createdBy,
+            owningTeamId);
 
         item.TakeDefaults(type.Appearance);
 
@@ -303,6 +315,13 @@ public sealed class WorkItem
         if (edit.AreaId is { } areaId && areaId != AreaId)
         {
             AreaId = areaId;
+            changed = true;
+        }
+
+        // mod-017 (BR-OT-1): the team changes nothing else on the item; «Изменён» moves only when the value differs.
+        if (edit.Team is { } team && team.TeamId != OwningTeamId)
+        {
+            OwningTeamId = team.TeamId;
             changed = true;
         }
 
@@ -563,7 +582,8 @@ public sealed class WorkItem
 /// The fields one save sends (BR-M3-25); <c>null</c> means "not sent, keep the
 /// stored value". The caller has validated the texts, has resolved the area as
 /// an area of the item's project (BR-M3-23), and has checked
-/// <paramref name="Fields"/> with <see cref="WorkItem.CheckFields"/> (feat-022).
+/// <paramref name="Fields"/> with <see cref="WorkItem.CheckFields"/> (feat-022). mod-017: the caller has judged
+/// <paramref name="Team"/> with <c>ProjectTeams.EnsureBindable</c> under the team's lock.
 /// </summary>
 public sealed record WorkItemEdit(
     string? Title = null,
@@ -571,7 +591,14 @@ public sealed record WorkItemEdit(
     Guid? StateId = null,
     AssigneeEdit? Assignee = null,
     Guid? AreaId = null,
-    WorkItemFieldsEdit? Fields = null);
+    WorkItemFieldsEdit? Fields = null,
+    TeamEdit? Team = null);
+
+/// <summary>
+/// The sent owning team (mod-017 BR-OT-2): a team of the item's project, or <c>null</c> for «Без команды». A save that sends
+/// no team has no <see cref="TeamEdit"/> at all and keeps the stored value (BR-M3-25).
+/// </summary>
+public sealed record TeamEdit(Guid? TeamId);
 
 /// <summary>
 /// The sent assignee: a user id, or <c>null</c> for «Не назначен» (BR-M3-22).

@@ -24,6 +24,15 @@ internal static class WorkItemsConstraints
     /// <summary>feat-001 BR-H-1, BR-H-7: the parent's composite key, and a parent's children.</summary>
     public const string ProjectParent = "ix_work_items_project_id_parent_id";
 
+    /// <summary>mod-017 BR-OT-5: a team's views read the project's items of a team and a level's types.</summary>
+    public const string ProjectOwningTeamType = "ix_work_items_project_id_owning_team_id_type_id";
+
+    /// <summary>mod-017 ADR-0028 rule 5: the target of the team place's key onto the item's current owning team.</summary>
+    public const string IdOwningTeam = "ix_work_items_id_owning_team_id";
+
+    /// <summary>mod-017 BR-OT-13: the owner key of an item, whose violation is a team that is no longer there.</summary>
+    public const string OwningTeamKey = "fk_work_items_teams_project_id_owning_team_id";
+
     public const string NumberPositive = "ck_work_items_number_positive";
 
     /// <summary>feat-001 BR-H-2: an item is never its own parent.</summary>
