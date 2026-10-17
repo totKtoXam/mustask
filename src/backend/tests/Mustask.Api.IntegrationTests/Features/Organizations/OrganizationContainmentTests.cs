@@ -83,6 +83,11 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
         var item = await WorkItemsTestData.CreateAsync(factory, world, "US", "Чужая история");
         Assert.Equal(HttpStatusCode.Created, item.Status);
 
+        // mod-017: the item has an owning team and the project a named default team, so a refused request that changed either
+        // shows in the snapshot of the state (an unowned item and an unnamed setting would hide a write of none).
+        await OwningTeamTestData.SetOwningTeamAsync(factory, item.Body.GetProperty("id").GetGuid(), team.Id);
+        await WorkItemsTestData.ExecuteAsync(factory, $"UPDATE projects SET default_team_id = {team.Id} WHERE id = {world.ProjectId}");
+
         return new Side(world, team.Id, area.Id, item.Body.GetProperty("identifier").GetString()!, item.Body.GetProperty("id").GetGuid());
     }
 
@@ -125,7 +130,8 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
             $"{method} {template} with the {kind} of another organization answered {(int)answer.Status} {answer.ErrorCode}, not {NotFoundOf[kind]}.");
     }
 
-    // The refused requests change nothing of the other organization: its project, teams, areas, items and name are as they were.
+    // The refused requests change nothing of the other organization: its project, teams, areas, items, the items' owning teams, the
+    // project's default team and its name are as they were.
     [Fact]
     public async Task TheRefusedRequests_ChangeNothingOfTheOtherOrganization()
     {
@@ -158,6 +164,7 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
         var team = await structure.FindTeamAsync(side.TeamId, CancellationToken.None);
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, side.World.ProjectId);
         var items = await WorkItemsTestData.StoredAsync(factory, side.World.ProjectId);
+        var teams = await OwningTeamTestData.TeamStateAsync(factory, side.World.ProjectId);
 
         return string.Join(
             " | ",
@@ -168,7 +175,8 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
             team!.Name,
             team.Status,
             string.Join("; ", tree.PreOrder()),
-            string.Join("; ", items.Select(item => $"{item.Number} {item.Title} {item.AreaId} {item.StateId} {item.ChangedAt:O}")));
+            string.Join("; ", items.Select(item => $"{item.Number} {item.Title} {item.AreaId} {item.StateId} {item.ChangedAt:O}")),
+            teams);
     }
 
     // US-2 · "An area's or a team's body id outside the address is refused" (mod-002 BR-M1-22, mod-017 BR-OT-16): an administrator
@@ -182,6 +190,7 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
         var a = world.A;
         var project = $"/api/organizations/{a.OrganizationId}/projects/{a.ProjectId}";
         var treeBefore = (await OrganizationsTestData.ReadTreeAsync(factory, a.World.ProjectId)).PreOrder().ToList();
+        var teamsBefore = await OwningTeamTestData.TeamStateAsync(factory, a.World.ProjectId);
 
         var parent = await OrganizationsApi.SendAsync(
             factory, HttpMethod.Put, $"{project}/areas/{a.AreaId}/parent", new { parentId = world.B.AreaId.ToString() }, world.Token);
@@ -202,6 +211,7 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
         // mod-017 BR-OT-16: B's team answers exactly as an id that names nothing, status and body alike.
         Assert.Equal((unknownDefaultTeam.Status, unknownDefaultTeam.ErrorCode, unknownDefaultTeam.Detail), (defaultTeam.Status, defaultTeam.ErrorCode, defaultTeam.Detail));
         Assert.Equal(treeBefore, (await OrganizationsTestData.ReadTreeAsync(factory, a.World.ProjectId)).PreOrder().ToList());
+        Assert.Equal(teamsBefore, await OwningTeamTestData.TeamStateAsync(factory, a.World.ProjectId));
     }
 
     // US-2 · "A work item's body id outside the address is refused" (mod-003 BR-M3-23, feat-001 BR-H-1, mod-017 BR-OT-16): a member
@@ -214,6 +224,7 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
         var a = world.A;
         var own = await WorkItemsTestData.CreateItemAsync(factory, a.World, "TASK", "Своя задача");
         var storedBefore = await WorkItemsTestData.StoredAsync(factory, a.World.ProjectId);
+        var teamsBefore = await OwningTeamTestData.TeamStateAsync(factory, a.World.ProjectId);
         var typeId = a.World.Types["TASK"].Id.ToString();
 
         var saveArea = await OrganizationsApi.SendAsync(
@@ -248,5 +259,6 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
         Assert.Equal((unknownTeam.Status, unknownTeam.ErrorCode, unknownTeam.Detail), (saveTeam.Status, saveTeam.ErrorCode, saveTeam.Detail));
         Assert.Equal((HttpStatusCode.NotFound, WorkItemErrorCodes.ParentNotFound), (createBeneath.Status, createBeneath.ErrorCode));
         Assert.Equal(storedBefore, await WorkItemsTestData.StoredAsync(factory, a.World.ProjectId));
+        Assert.Equal(teamsBefore, await OwningTeamTestData.TeamStateAsync(factory, a.World.ProjectId));
     }
 }

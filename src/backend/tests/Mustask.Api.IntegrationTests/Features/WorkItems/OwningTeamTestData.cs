@@ -124,6 +124,25 @@ internal static class OwningTeamTestData
         return project!.DefaultTeamId;
     }
 
+    /// <summary>
+    /// The owning team of every item of a project, by number, and the project's default-team setting, both as stored (the setting
+    /// as named, not as resolved), in one comparable line — for a test that asserts a refused request changed neither.
+    /// </summary>
+    public static async Task<string> TeamStateAsync(MustaskApiFactory factory, Guid projectId)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<MustaskDbContext>();
+        var setting = await context.Projects.AsNoTracking().Where(project => project.Id == projectId).Select(project => project.DefaultTeamId).SingleAsync();
+        var owners = await context.WorkItems
+            .AsNoTracking()
+            .Where(item => item.ProjectId == projectId)
+            .OrderBy(item => item.Number)
+            .Select(item => new { item.Number, item.OwningTeamId })
+            .ToListAsync();
+
+        return $"default {setting?.ToString() ?? "none"} | {string.Join("; ", owners.Select(owner => $"{owner.Number} {owner.OwningTeamId?.ToString() ?? "none"}"))}";
+    }
+
     /// <summary>A team place written with SQL: the backlog's order row, then the place (the item must be owned by the team).</summary>
     public static async Task PlaceAsync(MustaskApiFactory factory, Guid workItemId, Guid teamId, Guid levelId, int position)
     {

@@ -239,6 +239,45 @@ public sealed class CreateOwningTeamEndpointTests(MustaskApiFactory factory)
         Assert.Equal(first.Body.GetProperty("id").GetGuid(), replay.Body.GetProperty("id").GetGuid());
     }
 
+    // US-2 · "a team gone while the dialog was open": the creation is refused under the team, nothing is created and no number is
+    // consumed; the same submission with another team creates exactly one item; and the repeat of an item created before the
+    // deletion answers 200 with that item as it is now — its team went with the deletion, so it is owned by none.
+    [Fact]
+    public async Task Create_TeamDeletedBeforeSubmit_Refused_ThenOtherTeamCreates_ReplayAnswers200OwnedByNone()
+    {
+        var world = await CreateWorldAsync(factory);
+        var gone = await AddTeamAsync(factory, world.ProjectId, "CERES");
+        var earlierRequest = Guid.NewGuid();
+        var earlier = await CreateAsync(world, Story(world, "Создана раньше", Team(gone), earlierRequest));
+        Assert.Equal(HttpStatusCode.Created, earlier.Status);
+        Assert.Equal((gone, "CERES"), TeamOf(earlier.Body));
+
+        // The dialog reads CERES; CERES is deleted before «Создать».
+        await OrganizationsTestData.DeleteTeamAsync(factory, world.ProjectId, gone);
+        var dialogRequest = Guid.NewGuid();
+
+        var refused = await CreateAsync(world, Story(world, "Из диалога", Team(gone), dialogRequest));
+
+        Assert.Equal((HttpStatusCode.NotFound, TeamNotFound), (refused.Status, refused.ErrorCode));
+        Assert.Equal([1], (await WorkItemsTestData.StoredAsync(factory, world.ProjectId)).Select(item => item.Number));
+
+        // U changes «Команда» to VENUS and submits again: one item, with VENUS, the next number.
+        var again = await CreateAsync(world, Story(world, "Из диалога", Team(world.Venus), dialogRequest));
+
+        Assert.Equal(HttpStatusCode.Created, again.Status);
+        Assert.Equal((world.Venus, "VENUS"), TeamOf(again.Body));
+        Assert.Equal("ALP-US-2", again.Body.GetProperty("identifier").GetString());
+        Assert.Equal([1, 2], (await WorkItemsTestData.StoredAsync(factory, world.ProjectId)).Select(item => item.Number));
+
+        // A repeat of the item created before the deletion, sent after it, answers that item as it is now.
+        var replay = await CreateAsync(world, Story(world, "Создана раньше", Team(gone), earlierRequest));
+
+        Assert.Equal(HttpStatusCode.OK, replay.Status);
+        Assert.Equal(earlier.Body.GetProperty("id").GetGuid(), replay.Body.GetProperty("id").GetGuid());
+        Assert.Null(TeamOf(replay.Body));
+        Assert.Equal([1, 2], (await WorkItemsTestData.StoredAsync(factory, world.ProjectId)).Select(item => item.Number));
+    }
+
     // US-2 · "who creates": «Читатель» holds no workitems.workitem.write.
     [Fact]
     public async Task Create_Reader_Returns403_CreatesNothing()

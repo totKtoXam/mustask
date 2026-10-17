@@ -322,14 +322,25 @@ public sealed class SaveOwningTeamEndpointTests(MustaskApiFactory factory)
     }
 
     // US-1 · "the team survives every other write": a state set by the form and by a card move (both are a save of the state)
-    // leave the team.
+    // leave the team, and so does a tick of the card's checklist (feat-039: the tick is the same save of the child's state), which
+    // also leaves the child's team its own.
     [Fact]
-    public async Task Save_StateByFormAndCardMove_KeepTheTeam()
+    public async Task Save_StateByFormAndCardMoveAndChecklistTick_KeepTheTeams()
     {
         var world = await CreateWorldAsync(factory);
         var story = await StoryAsync(world);
         await SetOwningTeamAsync(factory, story.Id, world.Mars);
         var type = world.Items.Types["US"];
+
+        var childAnswer = await OrganizationsApi.SendAsync(
+            factory,
+            HttpMethod.Post,
+            WorkItemsTestData.List(world.Items),
+            new { requestId = Guid.NewGuid().ToString(), typeId = world.Items.Types["TASK"].Id.ToString(), title = "Письмо", parentId = story.Id.ToString() },
+            OrganizationsTokens.SignedIn());
+        Assert.Equal(HttpStatusCode.Created, childAnswer.Status);
+        var child = (Id: childAnswer.Body.GetProperty("id").GetGuid(), Identifier: childAnswer.Body.GetProperty("identifier").GetString()!);
+        await SetOwningTeamAsync(factory, child.Id, world.Venus);
 
         var active = await SaveAsync(world, story.Identifier, new { stateId = type.StateId(StateCategory.InProgress).ToString() });
         Assert.Equal(HttpStatusCode.OK, active.Status);
@@ -337,6 +348,12 @@ public sealed class SaveOwningTeamEndpointTests(MustaskApiFactory factory)
 
         var done = await SaveAsync(world, story.Identifier, new { stateId = type.StateId(StateCategory.Completed).ToString() });
         Assert.Equal(HttpStatusCode.OK, done.Status);
+        Assert.Equal(world.Mars, (await StoredAsync(factory, world.ProjectId, story.Identifier)).TeamId);
+
+        var tick = await SaveAsync(world, child.Identifier, new { stateId = world.Items.Types["TASK"].StateId(StateCategory.Completed).ToString() });
+        Assert.Equal(HttpStatusCode.OK, tick.Status);
+        Assert.Equal((world.Venus, "VENUS"), TeamOf(tick.Body));
+        Assert.Equal(world.Venus, (await StoredAsync(factory, world.ProjectId, child.Identifier)).TeamId);
         Assert.Equal(world.Mars, (await StoredAsync(factory, world.ProjectId, story.Identifier)).TeamId);
     }
 
