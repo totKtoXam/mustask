@@ -8,6 +8,20 @@ namespace Mustask.Application.Abstractions.Boards;
 /// <summary>The team of a backlog or a board, with its default area as it stands (api-contract § 2.1).</summary>
 public sealed record BoardTeamView(Guid Id, string Name, WorkItemAreaView DefaultArea);
 
+/// <summary>The project of a project backlog or board, as it stands now (feat-039 api-contract § 2.1).</summary>
+public sealed record BoardProjectView(Guid Id, string Name);
+
+/// <summary>A board column: its key, header and category, what a drop writes per type, and its cards in the view's order, each with its checklist (feat-032).</summary>
+public sealed record BoardColumnView(
+    string Key,
+    string Header,
+    WorkItemStateCategoryView Category,
+    IReadOnlyList<BoardColumnTargetView> Targets,
+    IReadOnlyList<BoardCardView> Items);
+
+/// <summary>The state a drop of a card of <see cref="TypeId"/> writes; <c>null</c>: no drop target (BR-M4-18).</summary>
+public sealed record BoardColumnTargetView(Guid TypeId, Guid? StateId);
+
 /// <summary>The level of a backlog or a board and its types in display order (api-contract § 2.2).</summary>
 public sealed record BoardLevelView(string Code, string Name, IReadOnlyList<BoardTypeView> Types)
 {
@@ -53,7 +67,7 @@ public sealed record BacklogItemView(
     {
         var byId = rows.ToDictionary(row => row.Id);
 
-        return StackRank.Order(rows.Select(row => new StackRankEntry(row.Id, row.Number, row.Place)))
+        return StackRank.Order(rows.Select(row => new StackRankEntry(row.Id, row.Number, row.Place, row.CreatedAt)))
             .Select((id, index) =>
             {
                 var row = byId[id];
@@ -133,7 +147,7 @@ public sealed record BacklogRowView(
         var byId = rows.ToDictionary(row => row.Id);
         var parents = new ParentCells(byId, liveParentsOutside);
 
-        return BacklogTree.Nest(levelRank, rows.Select(row => new BacklogTreeEntry(row.Id, row.Number, row.Place, row.ParentId, row.LevelRank)).ToList())
+        return BacklogTree.Nest(levelRank, rows.Select(row => new BacklogTreeEntry(row.Id, row.Number, row.Place, row.ParentId, row.LevelRank, row.CreatedAt)).ToList())
             .Select((node, index) =>
             {
                 var row = byId[node.ItemId];

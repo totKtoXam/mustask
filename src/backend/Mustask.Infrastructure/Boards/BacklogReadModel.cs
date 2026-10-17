@@ -20,7 +20,8 @@ namespace Mustask.Infrastructure.Boards;
 /// assignees (the directory's per-read limit). The whole backlog is read: there is
 /// no paging (spec § Screens), and the order is put on it by the handler. A
 /// page's tree set (feat-027) is read the same way, its levels in the one
-/// statement; the parents outside it are one more statement.
+/// statement; the parents outside it are one more statement. A project's read
+/// (feat-039) reads no area tree: the members statement and the assignees' lookups.
 /// </summary>
 internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory directory) : IBacklogReadModel
 {
@@ -29,7 +30,7 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
         var tree = await BacklogMembership.AreaTreeAsync(context, scope.ProjectId, cancellationToken);
         var members = BacklogMembership.Members(context, scope, BacklogMembership.TeamAreas(tree, scope.TeamId));
 
-        return new BacklogRead(DefaultArea(tree, scope.TeamId), await ItemsAsync(members, scope.ProjectId, cancellationToken));
+        return new BacklogRead(DefaultArea(tree, scope.TeamId), await ItemsAsync(members, scope.ProjectId, ordersByCreation: false, cancellationToken));
     }
 
     public async Task<BacklogRead> ReadTreeAsync(BacklogTreeScope scope, CancellationToken cancellationToken)
@@ -37,8 +38,14 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
         var tree = await BacklogMembership.AreaTreeAsync(context, scope.ProjectId, cancellationToken);
         var members = BacklogMembership.TreeMembers(context, scope, BacklogMembership.TeamAreas(tree, scope.TeamId));
 
-        return new BacklogRead(DefaultArea(tree, scope.TeamId), await ItemsAsync(members, scope.ProjectId, cancellationToken));
+        return new BacklogRead(DefaultArea(tree, scope.TeamId), await ItemsAsync(members, scope.ProjectId, ordersByCreation: false, cancellationToken));
     }
+
+    public Task<IReadOnlyList<BacklogItemRow>> ReadProjectAsync(ProjectBacklogScope scope, CancellationToken cancellationToken) =>
+        ItemsAsync(ProjectBacklogMembership.Members(context, scope), scope.ProjectId, ordersByCreation: true, cancellationToken);
+
+    public Task<IReadOnlyList<BacklogItemRow>> ReadProjectTreeAsync(ProjectBacklogTreeScope scope, CancellationToken cancellationToken) =>
+        ItemsAsync(ProjectBacklogMembership.TreeMembers(context, scope), scope.ProjectId, ordersByCreation: true, cancellationToken);
 
     /// <summary>
     /// feat-032: the checklists of a board's cards, one statement and then the assignees' lookups, whatever the cards'
@@ -134,9 +141,14 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
         return new WorkItemAreaView(defaultArea.Id, tree.PathOf(defaultArea.Id));
     }
 
-    /// <summary><paramref name="members"/> as rows and cards: one statement, then one lookup of their assignees.</summary>
+    /// <summary>
+    /// <paramref name="members"/> as rows and cards: one statement, then one lookup of their assignees.
+    /// <paramref name="ordersByCreation"/> is a project's read (feat-039 BR-PB-4): each row then carries its creation time,
+    /// which orders its unplaced items before their number — except a row of the «Задачи» level, which has no project
+    /// order and stands by number (feat-027 BR-T-6). A team's read leaves it out and keeps the number alone.
+    /// </summary>
     private async Task<IReadOnlyList<BacklogItemRow>> ItemsAsync(
-        IQueryable<BacklogMember> members, Guid projectId, CancellationToken cancellationToken)
+        IQueryable<BacklogMember> members, Guid projectId, bool ordersByCreation, CancellationToken cancellationToken)
     {
         var rows = await (
                 from member in members
@@ -163,7 +175,9 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
                     member.Item.ParentId,
                     member.Item.Effort,
                     member.Item.BusinessValue,
-                    member.Item.ValueArea))
+                    member.Item.ValueArea,
+                    member.Item.CreatedAt,
+                    level.Kind))
             .ToListAsync(cancellationToken);
 
         var assignees = await AssigneesAsync(rows.Select(row => row.AssigneeId), projectId, cancellationToken);
@@ -186,7 +200,8 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
                 row.LevelRank,
                 WorkItemReadModel.Shortest(row.Effort),
                 row.BusinessValue,
-                row.ValueArea?.ToString()))
+                row.ValueArea?.ToString(),
+                ordersByCreation && row.LevelKind != BacklogLevelKind.Task ? row.CreatedAt : null))
             .ToList();
     }
 
@@ -261,5 +276,7 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
         Guid? ParentId,
         decimal? Effort,
         int? BusinessValue,
-        WorkItemValueArea? ValueArea);
+        WorkItemValueArea? ValueArea,
+        DateTimeOffset CreatedAt,
+        BacklogLevelKind LevelKind);
 }
