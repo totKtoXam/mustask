@@ -597,3 +597,36 @@ Lanes that need something shared escalate, they do not negotiate.
   reveals only the number to a holder of `organizations.team.write`.
 - **Open questions, decided under the night delegation** (for the human): D-1 two migrations, D-2 the wrapper, D-3 the
   lock mode and the ADR clarification, D-5 deprecate rather than delete the four codes.
+
+## 12. As built — deviations from this plan (backend pass)
+
+What differs from the text above, and why. Each is a decision of the implementation; none changes the API contract.
+
+1. **One more repository member.** `ITeamRepository.GetMarkAsync(Team)` (one statement: the named setting and the count of active
+   teams, through `ProjectDefaultTeam.MarkOf`) — `RenameTeam` answers the team with its mark (api-contract § 1.3) and holds only
+   that team's lock. § 6 did not list it.
+2. **Members removed with their only callers** (beyond § 6's list): `ITeamRepository.LockForUpdateAsync`,
+   `IAreaRepository.LockManyForUpdateAsync` and `LockDefaultOfAsync`, `IOrganizationStructure.FindAreaOwnerAsync` with
+   `AreaOwnerInfo`, `TeamInfo.IsFirstTeam` and `DefaultAreaId`, `Team.CreateWithArea` / `NewTeam`, `Area.SetOwner` /
+   `MarkDefaultOf` / `ClearDefault`, `TeamDefaultArea`, `AreaTree.ResolveOwner` / `ResolvedOwner`, and the four
+   `OrganizationErrorCodes` constants (the catalog entries stay, `deprecated`).
+3. **`AreaTreeRow` keeps `ToNode()`** and shrinks to `(Id, ParentId, Name)`; `AreaNode` is `(Id, ParentId, Name)` too.
+4. **The place key has no `ON DELETE` clause** (plain `NO ACTION`, as § 4.3 wrote it): a work item's removal still takes its
+   place through the older cascade key on `work_item_id`, and a change of the owner under a place is refused with `23503` — the
+   reason `DropForItemAsync` / `DropForTeamAsync` run before the write.
+5. **Migration 2's log lines** are two `RAISE NOTICE`s: `mod-017: N stale team places deleted; M team places kept` and
+   `mod-017: A area owners, B default areas and C first-team markers dropped`. `Down` restores the markers and the checks and
+   drops the place key; it recreates no explicit owner and no other team's default area (OQ-4 A).
+6. **The failure test is stronger than § 9.3 said.** `DeleteTeamAtomicityTests.Delete_FailureAtEachStatement_RollsEverythingBack`
+   makes every statement of the deletion fail in turn (an interceptor, not a decorator at six steps), so the six steps and the
+   statements between them are all covered; the assertion is the same: nothing changed.
+7. **Statement counts pinned on the first green run** (`OwningTeamStatementCountTests`; small = 50 items per level and 2 teams,
+   large = 1 250 per level and 50 teams): list 7, team backlog 11, team board 13, team reorder 15, teams list 1, owned count 3,
+   deletion 9; the filtered project backlog and board take the statements of the unfiltered. A statement of the assignees' reads
+   is skipped when a result has no assignee, so the seed gives every slice one and the numbers do not depend on the data.
+8. **Test helpers.** `OwningTeamTestData.SetOwningTeamAsync` drops the item's team place when the team changes (as a save
+   does), because the place key refuses the change under a place; `OrganizationsTestData` loses `SetTeamDefaultAreaAsync` and
+   the owner parameter of `AddAreaAsync`, and gains `SetDefaultTeamAsync`; `OrganizationStructure.FirstTeamId` became
+   `ProjectTeamId` (the helpers' parameter name `creatorJoinsFirstTeam` is kept: a name, not a rule).
+9. **Renames (D-16) are listed in the commit messages** of the contraction (old → new), and so are the retired tests with their
+   rule.
