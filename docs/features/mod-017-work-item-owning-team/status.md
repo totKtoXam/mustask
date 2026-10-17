@@ -10,9 +10,9 @@
 
 ## Gates
 
-gate-1: pending
-gate-2: pending
-gate-3: pending
+gate-1: approved (2026-10-17, human in chat: OQ-1..OQ-7 kept; OQ-8 and OQ-9 changed to B, delivered by mod-020)
+gate-2: approved (2026-10-17, human in chat: design D-1..D-7 and plan D-1, D-2, D-5 kept)
+gate-3: approved (2026-10-17, the human merged PR #11, https://github.com/totKtoXam/mustask/pull/11)
 
 ## Plan
 
@@ -111,6 +111,7 @@ whatever is left goes to the human.
 - 2026-10-17 [backend-developer] fix round 990a49ea: a creation that may default locks every active team FOR SHARE in id order when no default resolves; closes D-1, CR-1, S-1; CR-2 prose fixed.
 - 2026-10-17 [orchestrator] `BASE=0cf422c2 bash scripts/verify.sh` at 9e38a90d: RESULT green, exit 0 (.NET 4376 passed, 17 skipped; Vitest 3954 passed). stage: complete; gates left pending for the human.
 - 2026-10-17 [orchestrator] #9 merged feat-039 into main: the branch is rebased onto main (3e4f5638) and its PR targets main directly; no stacked base left.
+- 2026-10-17 [orchestrator] the human merged PR #11 and answered the open decisions in chat. OQ-1..OQ-7, design D-1..D-7 and plan D-1, D-2, D-5 stay. OQ-8 → B (the switcher falls back to the project's default team) and OQ-9 → B (the team filter in the page address) are queued as mod-020. CR-7 (with CR-8) is queued as bug-005, a separate S task. S-2 joins feat-028's scope. ADR-0028 rule 8's clarification (CR-6, plan D-3) joins mod-018's amendment.
 
 ## Notes
 

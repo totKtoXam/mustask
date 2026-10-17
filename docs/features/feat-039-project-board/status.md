@@ -10,9 +10,9 @@
 
 ## Gates
 
-gate-1: pending
-gate-2: pending
-gate-3: pending
+gate-1: approved (2026-10-17, human in chat: spec OQ-1..OQ-6 «⭐ Оставить всё»)
+gate-2: approved (2026-10-17, human in chat: design D-1..D-5 «⭐ Оставить всё»)
+gate-3: approved (2026-10-17, the human merged PR #9, https://github.com/totKtoXam/mustask/pull/9)
 
 ## Plan
 
@@ -65,6 +65,7 @@ one code-review round → gate-3 → PR.
 - 2026-10-17 [qa-engineer] one pass over both layers (f396ad39) + re-check (c34ecc10): 0 feature blocker/major; D-1 NU1902 (environment) fixed by f8ea04ed; D-2..D-4 minor.
 - 2026-10-17 [code-reviewer] round 1 (cebe31b3): CR-1 major (spec not committed), m-1..m-3; fixes 27d3843a, 2261f41b; delta read (37bb3008): approve, m-2..m-4 minor left (m-4 = this status.md, now done).
 - 2026-10-17 [orchestrator] `bash scripts/verify.sh` green (fixer's run, exit 0). stage: complete; gates left pending for the human; branch pushed, PR to doc/012-matrix-organization-model.
+- 2026-10-17 [orchestrator] PR #8 merged into its stacked base doc/012, not main, so the same tree reached main as PR #9 (branch feat/039-project-board-to-main), merged by the human. The human then kept every decision of the gate-1 + gate-2 package in chat (spec OQ-1..OQ-6, design D-1..D-5).
 
 ## Notes
 
