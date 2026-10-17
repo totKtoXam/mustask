@@ -157,18 +157,10 @@ public sealed class DeleteOwnedItemsEndpointTests(MustaskApiFactory factory)
 
     private Task<Domain.Organizations.Team> StoredTeamAsync(Guid teamId) => TeamTestData.StoredTeamAsync(factory, teamId);
 
-    // US-7 · "any team renamed or deleted": the team the project was created with goes like any other while another remains.
-    [Fact]
-    public async Task Delete_TheTeamCreatedWithTheProject_IsAllowedWhenAnotherRemains()
-    {
-        var world = await CreateWorldAsync(factory);
-
-        var answer = await DeleteAsync(world, world.OwnTeam);
-
-        Assert.Equal(HttpStatusCode.NoContent, answer.Status);
-        Assert.Equal(TeamStatus.Deleted, (await StoredTeamAsync(world.OwnTeam)).Status);
-        Assert.Equal(TeamStatus.Active, (await StoredTeamAsync(world.Mars)).Status);
-    }
+    // feat-028 BR-OL-10 · "any team may be deleted": no team is "the one the project was created with", because a project is created
+    // with none (BR-OL-2). Retires Delete_TheTeamCreatedWithTheProject_IsAllowedWhenAnotherRemains (mod-017 BR-OT-11; doc-012 P-1).
+    // Deleting a team while another stays linked is pinned by Delete_NamedTeam_ClearsTheSetting_AnotherTeamKeepsIt, and deleting a
+    // project's last team by Delete_TheProjectsLastTeam_IsAllowed_ProjectWorksOn.
 
     // US-3 · "losing the named team": deleting the named team clears the setting; deleting another keeps it.
     [Fact]
@@ -505,9 +497,9 @@ public sealed class DeleteOwnedItemsEndpointTests(MustaskApiFactory factory)
 
     // --- Races in a project that names no default (BR-OT-4, BR-OT-13 (2); QA D-1, code review CR-1, security S-1) ---------
     //
-    // A project of two teams and no default named has no default until one of the teams goes. A creation that may take the
-    // default (no team sent, or a child) must still queue against the deletion — which holds every active team — and read the
-    // default, and its parent, as they stand after it; with no lock the child kept the default it read before the wait.
+    // A project of two linked teams and no default named has no default until one of the teams goes. A creation that may take the
+    // default (no team sent, or a child) must still queue against the deletion — which holds the team's row and its links — and
+    // read the default, and its parent, as they stand after it; with no lock the child kept the default it read before the wait.
 
     /// <summary>
     /// A project of its own team and DOOMED (<see cref="OwningTeamWorld.Mars"/> here) and no default named, in a new organization:

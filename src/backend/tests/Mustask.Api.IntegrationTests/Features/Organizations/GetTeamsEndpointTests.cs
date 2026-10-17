@@ -237,21 +237,10 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
         Assert.False(afterLeaving["Платформа"]);
     }
 
-    // mod-017 US-3 · "A project is created ready to use": its one team, named after it, is the project's only team, so it carries
-    // «onlyTeam» (BR-OT-4); the list has no area to show. Replaces Get_NewProject_ListsTheFirstTeamAlone_DefaultAreaIsTheRoot (D-16).
-    [Fact]
-    public async Task Get_NewProject_ListsItsOnlyTeamAlone_MarkedOnlyTeam()
-    {
-        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
-        var project = await OrganizationsTestData.CreateProjectAsync(factory, organization.Id, "Аналитика", "ANL");
-
-        var answer = await GetAsync(organization.Id, project.Project.Id);
-
-        Assert.Equal(HttpStatusCode.OK, answer.Status);
-        Assert.Equal(
-            [new ListedTeam(project.Team.Id, "Аналитика", "onlyTeam")],
-            Read(answer.Body));
-    }
+    // feat-028 BR-OL-2 · "A project is created with no team": nothing about a new project names a team, so there is no "its one team,
+    // named after it" to list. Retires Get_NewProject_ListsItsOnlyTeamAlone_MarkedOnlyTeam (mod-002 BR-M1-9; doc-012 P-1). The mark of a
+    // project's only linked team is pinned by Get_DefaultMark_NamedOnlyTeamNone and Get_DefaultMark_FollowsTheLinks_NamedOnlyTeamNone;
+    // that a new project has no team at all, by CreateProjectEndpointTests.
 
     // US-8 · "The switcher lists ... «Платформа» and «Пример проекта», and not the deleted team" (BR-M1-18).
     [Fact]
