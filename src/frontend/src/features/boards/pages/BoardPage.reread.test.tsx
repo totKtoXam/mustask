@@ -9,7 +9,8 @@ import { cardsIn, findBoard } from '../testBoard';
 import { BOARD_URL, boardsDataset, platformItem } from '../testFixtures';
 import { boardAddress, renderBoards } from '../testRender';
 
-// feat-039 design § 7, state 9, which the project's board and a team's share: a re-read that
+// feat-032 design § 7.1 ("a failed re-read keeps the board and its open lists, with the banner
+// above"), which the project's board and a team's share (feat-039 BR-PB-8): a re-read that
 // fails while the columns are shown leaves them as they were, with the error above them (the
 // backlog's rule since feat-027 D-6); a retry that succeeds takes the error away.
 

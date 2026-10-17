@@ -41,8 +41,9 @@ import { creationSurface, readName, teamScope, type BoardScope } from '../lib/sc
  *
  * A re-read that fails while the columns are shown leaves them as they were —
  * their cards, the open checklists, the scroll — with the error above them; a
- * retry that succeeds takes the error away (feat-039 design § 7, state 9; the
- * backlog's rule, feat-027 D-6, for both pages).
+ * retry that succeeds takes the error away (feat-032 design § 7.1, "a failed
+ * re-read keeps the board and its open lists, with the banner above"; the
+ * backlog's rule, feat-027 D-6; feat-039 BR-PB-8 for both pages).
  */
 export function BoardPage() {
   const {
