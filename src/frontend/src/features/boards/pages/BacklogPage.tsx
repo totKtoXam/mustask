@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import AddIcon from '@mui/icons-material/Add';
@@ -12,10 +12,11 @@ import { BacklogTable } from '../components/BacklogTable';
 import { useNotice } from '../components/Notice';
 import { StatusRegion } from '../components/StatusRegion';
 import { TeamHead } from '../components/TeamHead';
-import { useBacklog, useReadTeamAgain } from '../hooks/queries';
+import { useBacklog, useReadAgain } from '../hooks/queries';
 import { useNewWorkItem } from '../hooks/useNewWorkItem';
 import { isBoardLevel, type BoardLevelCode } from '../lib/levels';
 import { notFoundLevel } from '../lib/refusals';
+import { creationSurface, readName, teamScope, type BoardScope } from '../lib/scope';
 
 /**
  * «Бэклоги» (feat-027 US-1..US-6; spec § Page «Бэклоги»; mod-015 § 10.5 without
@@ -33,6 +34,10 @@ import { notFoundLevel } from '../lib/refusals';
  * its rows, what is expanded, the selection, the scroll — with the error above
  * it; a retry that succeeds takes the error away (tech-012 m2, folded in by
  * feat-027 D-6).
+ *
+ * The body is `ScopedBacklog`, which the project's own backlog shares
+ * (`ProjectBacklogPage`, feat-039): a team's page, a team's read and the
+ * creation of an item in the team; the project's, the project's read and none.
  */
 export function BacklogPage() {
   const {
@@ -41,33 +46,40 @@ export function BacklogPage() {
     teamId = '',
     level,
   } = useParams<{ organizationId: string; projectId: string; teamId: string; level: string }>();
+  // One scope per team: the table's and the board's callbacks depend on it.
+  const scope = useMemo(() => teamScope(teamId), [teamId]);
   if (!isBoardLevel(level)) {
     return <NotFound level="page" />;
   }
   return (
-    <TeamBacklog
+    <ScopedBacklog
       key={`${organizationId}/${projectId}/${teamId}`}
       organizationId={organizationId}
       projectId={projectId}
-      teamId={teamId}
+      scope={scope}
       level={level}
     />
   );
 }
 
-function TeamBacklog({
+/**
+ * The backlog under a head, whatever it is the backlog of (`scope`): the read's
+ * states, the table or the empty frame, the card's dialog over them, the notice
+ * and the announcement region.
+ */
+export function ScopedBacklog({
   organizationId,
   projectId,
-  teamId,
+  scope,
   level,
 }: {
   organizationId: string;
   projectId: string;
-  teamId: string;
+  scope: BoardScope;
   level: BoardLevelCode;
 }) {
-  const query = useBacklog(organizationId, projectId, teamId, level);
-  const readAgain = useReadTeamAgain(organizationId, projectId, teamId);
+  const query = useBacklog(organizationId, projectId, scope, level);
+  const readAgain = useReadAgain(organizationId, projectId, scope);
   // The card's dialog changed an item behind the table (BR-C-21): the backlog reads again.
   const readAfterCard = useCallback(() => void readAgain(), [readAgain]);
   const { notice, showSuccess, showSuccessAlert, showError } = useNotice();
@@ -77,10 +89,12 @@ function TeamBacklog({
     (text: string) => setAnnouncement(({ serial }) => ({ text, serial: serial + 1 })),
     [],
   );
+  // The project's answer names no team, so the project's page has no surface to create
+  // in: no primary command and no action on an empty backlog (feat-039 BR-PB-6).
   const newItem = useNewWorkItem({
     organizationId,
     projectId,
-    surface: query.data,
+    surface: creationSurface(query.data),
     onCreated: (item) => {
       showSuccess(`Рабочий элемент ${item.identifier} создан.`);
       void readAgain();
@@ -105,9 +119,9 @@ function TeamBacklog({
         page="backlog"
         organizationId={organizationId}
         projectId={projectId}
-        teamId={teamId}
+        scope={scope}
         level={level}
-        teamName={data?.team.name}
+        name={readName(data)}
         primaryAction={primaryAction}
       />
       {loading ? (
@@ -122,26 +136,34 @@ function TeamBacklog({
             </Box>
           )}
           {data.items.length === 0 ? (
-            <StateFrame
-              icon={InboxOutlinedIcon}
-              heading="Бэклог пуст"
-              hint={
-                newItem.canWrite
-                  ? 'Добавьте рабочий элемент — он встанет в конец бэклога.'
-                  : 'Рабочие элементы создают участники организации с ролью «Участник» или «Администратор».'
-              }
-              action={
-                newItem.canWrite
-                  ? { label: NEW_WORK_ITEM_LABEL, icon: <AddIcon />, onClick: newItem.open }
-                  : undefined
-              }
-            />
+            scope.kind === 'project' ? (
+              <StateFrame
+                icon={InboxOutlinedIcon}
+                heading="Бэклог пуст"
+                hint="В проекте нет рабочих элементов этого уровня."
+              />
+            ) : (
+              <StateFrame
+                icon={InboxOutlinedIcon}
+                heading="Бэклог пуст"
+                hint={
+                  newItem.canWrite
+                    ? 'Добавьте рабочий элемент — он встанет в конец бэклога.'
+                    : 'Рабочие элементы создают участники организации с ролью «Участник» или «Администратор».'
+                }
+                action={
+                  newItem.canWrite
+                    ? { label: NEW_WORK_ITEM_LABEL, icon: <AddIcon />, onClick: newItem.open }
+                    : undefined
+                }
+              />
+            )
           ) : (
             <BacklogTable
               key={level}
               organizationId={organizationId}
               projectId={projectId}
-              teamId={teamId}
+              scope={scope}
               level={level}
               items={data.items}
               announce={announce}

@@ -47,7 +47,7 @@ export const MOVE_FAILED_TEXT = 'Не удалось сохранить пере
  * text: `boards.backlog.reorder_stale` and any other code show the server's
  * `detail` (the stale code's is the catalog's text the spec quotes); no
  * answer, or one without a code, `MOVE_FAILED_TEXT`. Every write is followed
- * by a read (`useReadTeamAgain`), which has answered before this is shown —
+ * by a read (`useReadAgain`), which has answered before this is shown —
  * so on the stale refusal the backlog is read again first.
  */
 export function moveRefusalNotice(error: unknown): string | null {

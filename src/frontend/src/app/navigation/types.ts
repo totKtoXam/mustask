@@ -6,6 +6,24 @@ import type { WorkContextSelection } from '../../shared/lib/workContext';
 export type NavigationScope = PermissionScope;
 
 /**
+ * The pages of an entry that live at the project level and name no team
+ * (feat-039 BR-PB-9): a project's backlog and board, which are pages of the
+ * team-scoped entries «Бэклоги» and «Канбан» their names say.
+ */
+export interface ProjectViews {
+  /** Whether the address is one of the entry's project pages. */
+  matches(pathname: string): boolean;
+  /**
+   * The same page, at the same level, of the selection's project: the address a
+   * switch of project or organization opens, and what a marker compares the
+   * address with so that a page of another project is not the selection's page.
+   * `null` when the selection has no project, which a switch to an organization
+   * with none leaves to «Главная».
+   */
+  retarget(pathname: string, selection: WorkContextSelection): string | null;
+}
+
+/**
  * One navigation entry (design § 4.1). Being in the model is what "its page
  * exists in the build" means (BR-7, plan § 9 D-19): a line adds its entry
  * when it builds the page. A settings entry is exactly this: it carries no
@@ -30,6 +48,13 @@ export interface NavigationEntry {
    * moves it to the landing in the new context. Absent: the landing alone.
    */
   views?(selection: WorkContextSelection): readonly string[];
+  /**
+   * The entry's pages at the project level, which carry no team in the address
+   * (feat-039 BR-PB-9). Each is the entry's page as the landing is — marked `page`,
+   * no trail — and a switch of project or organization keeps the page and its level
+   * instead of moving it to the landing. Absent: the entry has none.
+   */
+  projectViews?: ProjectViews;
 }
 
 /**

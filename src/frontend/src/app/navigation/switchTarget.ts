@@ -33,6 +33,15 @@ function everyEntry(model: NavigationModel): NavigationEntry[] {
  * entry's code being a read code all three roles hold, so a switch from
  * «Участники» of A opens «Участники» of B whatever B's codes. The page then
  * runs the gate's state order.
+ *
+ * One branch before them (feat-039 BR-PB-9): a project's own backlog or board
+ * (an entry's `projectViews`) is opened again in the new project at the same
+ * level, not moved to the entry's landing, so a switch of project or
+ * organization does not leave the whole-project view. It needs the new
+ * context's project and nothing below it — a project page names no team, and
+ * the switcher's team is not asked — and «Главная» is the answer when there is
+ * none. A switch of the team never reaches here: the address carries no team,
+ * so the page stays (mod-015 BR-18).
  */
 export function switchTarget(
   model: NavigationModel,
@@ -40,6 +49,16 @@ export function switchTarget(
   { pathname, carried, next }: SwitchRequest,
   isCodesRead: (organizationId: string | undefined) => boolean = () => true,
 ): string {
+  const projectEntry = everyEntry(model).find((candidate) =>
+    candidate.projectViews?.matches(pathname),
+  );
+  if (projectEntry?.projectViews) {
+    const allowed =
+      projectEntry.permission === undefined ||
+      !isCodesRead(next.organizationId) ||
+      access(projectEntry.permission, projectEntry.scope, next.organizationId);
+    return (allowed && projectEntry.projectViews.retarget(pathname, next)) || HOME_PATH;
+  }
   const entry = everyEntry(model).find(
     (candidate) =>
       candidate.scope !== 'instance' && entryMarker(pathname, candidate, carried) !== null,
