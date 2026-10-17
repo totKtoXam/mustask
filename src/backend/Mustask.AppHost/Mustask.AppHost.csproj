@@ -14,6 +14,11 @@
     <PackageReference Include="Aspire.Hosting.JavaScript" />
     <!-- mod-014: the stand reset drops and recreates the external database (Stand/StandReset.cs). -->
     <PackageReference Include="Npgsql" />
+    <!-- GHSA-qhrr-8q5h-9q3h (NU1902, an error under TreatWarningsAsErrors): the
+         MessagePack 2.5.302 that Aspire.Hosting pulls in through StreamJsonRpc
+         is fixed in 2.5.303. Same release line, so StreamJsonRpc keeps working.
+         Drop this line when Aspire's own graph resolves a fixed version. -->
+    <PackageReference Include="MessagePack" VersionOverride="2.5.303" />
   </ItemGroup>
 
   <ItemGroup>

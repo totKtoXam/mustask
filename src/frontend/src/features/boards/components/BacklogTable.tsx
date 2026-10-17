@@ -45,14 +45,14 @@ import { focusMainRegion } from '../../../shared/lib/mainRegion';
 import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
 import { TypeMark } from '../../../shared/ui/WorkTrackingMarks';
 import type {
-  Backlog,
+  BacklogSurface,
   BacklogRow as BacklogRowData,
   BacklogTreeItem,
   ReorderBody,
 } from '../api/boardsApi';
-import { boardsKeys } from '../api/queryKeys';
+import { backlogKey } from '../api/queryKeys';
 import { useReorderBacklog } from '../hooks/mutations';
-import { useReadTeamAgain } from '../hooks/queries';
+import { useReadAgain } from '../hooks/queries';
 import { useMoveView } from '../hooks/useMoveView';
 import { addEntriesOf, addEntryLabel, type AddEntry } from '../lib/addChild';
 import {
@@ -69,6 +69,7 @@ import {
   parentRefusal,
   type ParentRefusal,
 } from '../lib/refusals';
+import type { BoardScope } from '../lib/scope';
 import {
   MOVE_ENTRIES,
   MOVE_ENTRY_LABELS,
@@ -190,7 +191,9 @@ interface AddingState {
  * screen draws it. The first state is expanded as deep as 2 000 drawn rows
  * allow (BR-T-7); what the user expands or collapses afterwards is kept here,
  * by item, so it survives the page's re-reads, and the page keys the table by
- * its level and team, so another of either — or a reload — starts again. The
+ * its level and team (or, on the project's backlog, its project), so another of
+ * either — or a reload — starts again. The `scope` says whose backlog it is, a
+ * team's or the whole project's (feat-039); everything else is the same. The
  * hierarchy header's two buttons open or close one level of the whole table
  * (BR-T-8), a row's «+» adds a child inline (BR-T-9, BR-T-10), a click selects
  * a row.
@@ -236,7 +239,7 @@ interface AddingState {
 export function BacklogTable({
   organizationId,
   projectId,
-  teamId,
+  scope,
   level,
   items,
   announce,
@@ -246,7 +249,7 @@ export function BacklogTable({
 }: {
   organizationId: string;
   projectId: string;
-  teamId: string;
+  scope: BoardScope;
   level: BoardLevelCode;
   /** The backlog as last read: the top-level rows, `order` 1..n, each with its whole tree. */
   items: readonly BacklogRowData[];
@@ -260,10 +263,10 @@ export function BacklogTable({
   const theme = useTheme();
   const table = theme.layout.backlogTable;
   const client = useQueryClient();
-  const reorder = useReorderBacklog(organizationId, projectId, teamId, level);
+  const reorder = useReorderBacklog(organizationId, projectId, scope, level);
   const setParent = useSetWorkItemParent(organizationId, projectId);
   const createItem = useCreateWorkItem(organizationId, projectId);
-  const readAgain = useReadTeamAgain(organizationId, projectId, teamId);
+  const readAgain = useReadAgain(organizationId, projectId, scope);
   // A title's plain click opens the card as a dialog over the backlog (feat-029 BR-C-1);
   // `open` keeps its identity, so the memoised rows are not redrawn by the navigation.
   const { open: openItem } = useWorkItemDialog();
@@ -472,9 +475,8 @@ export function BacklogTable({
   );
 
   function backlogRead(): BacklogRowData[] | undefined {
-    return client.getQueryData<Backlog>(
-      boardsKeys.backlog(organizationId, projectId, teamId, level),
-    )?.items;
+    return client.getQueryData<BacklogSurface>(backlogKey(organizationId, projectId, scope, level))
+      ?.items;
   }
 
   async function move(body: ReorderBody) {

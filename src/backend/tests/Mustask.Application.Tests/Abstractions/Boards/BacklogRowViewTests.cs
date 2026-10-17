@@ -103,4 +103,43 @@ public sealed class BacklogRowViewTests
         Assert.Equal("MSK-US-3", top.Children[1].Children[0].Parent!.Identifier);
         Assert.Equal("MSK-US-4", top.Children[0].Children[0].Children[0].Parent!.Identifier);
     }
+
+    // feat-039 BR-PB-4: the rows of a project's read carry their creation time, and the page's rows, numbered «Порядок» 1..n,
+    // follow the unplaced ones by it before the number; a team's rows carry none and keep the number.
+    [Fact]
+    public void Tree_RowsWithACreationTime_StandByCreationTimeThenNumber_RowsWithoutKeepTheNumber()
+    {
+        var (first, second, third) = (Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7());
+        var ten = new DateTimeOffset(2026, 10, 10, 10, 0, 0, TimeSpan.Zero);
+        var project = new List<BacklogItemRow>
+        {
+            Row(1, first, null) with { CreatedAt = ten.AddMinutes(2) },
+            Row(2, second, null) with { CreatedAt = ten.AddMinutes(1) },
+            Row(3, third, null) with { CreatedAt = ten },
+        };
+        var team = project.Select(row => row with { CreatedAt = null }).ToList();
+
+        Assert.Equal(["MSK-US-3", "MSK-US-2", "MSK-US-1"], Map(project).Select(row => row.Identifier));
+        Assert.Equal([1, 2, 3], Map(project).Select(row => row.Order));
+        Assert.Equal(["MSK-US-1", "MSK-US-2", "MSK-US-3"], Map(team).Select(row => row.Identifier));
+    }
+
+    // feat-039 BR-PB-4 on the board: the cards of a project's read stand in the same order, «Порядок» their position.
+    [Fact]
+    public void InOrder_RowsWithACreationTime_StandByCreationTimeThenNumber()
+    {
+        var ten = new DateTimeOffset(2026, 10, 10, 10, 0, 0, TimeSpan.Zero);
+        var placed = Row(9, Guid.CreateVersion7(), null) with { Place = 1, CreatedAt = ten.AddDays(1) };
+        var rows = new List<BacklogItemRow>
+        {
+            Row(1, Guid.CreateVersion7(), null) with { CreatedAt = ten.AddMinutes(5) },
+            Row(2, Guid.CreateVersion7(), null) with { CreatedAt = ten },
+            placed,
+        };
+
+        var cards = BacklogItemView.InOrder(rows);
+
+        Assert.Equal(["MSK-US-9", "MSK-US-2", "MSK-US-1"], cards.Select(card => card.Identifier));
+        Assert.Equal([1, 2, 3], cards.Select(card => card.Order));
+    }
 }

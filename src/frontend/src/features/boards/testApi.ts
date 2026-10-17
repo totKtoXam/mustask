@@ -33,6 +33,9 @@ import {
   BACKLOG_URL,
   BOARD_URL,
   PROBLEM_HEADERS,
+  PROJECT_BACKLOG_URL,
+  PROJECT_BOARD_URL,
+  PROJECT_REORDER_URL,
   REORDER_URL,
   boardsDataset,
   problem,
@@ -59,6 +62,19 @@ class Refusal {
 
 function refuse(code: string): never {
   throw new Refusal(problem(code));
+}
+
+/**
+ * What a backlog or a board is of: a team's (`team`), or the whole project's
+ * (feat-039, `team: null`) — the same reads over another membership and order.
+ */
+interface Scope {
+  projectId: string;
+  team: TeamRecord | null;
+}
+
+function teamOf(team: TeamRecord): Scope {
+  return { projectId: team.projectId, team };
 }
 
 /** § 0.2: the level segment → the process level's name, which the seeded types point at. */
@@ -189,27 +205,44 @@ export class BoardsTestApi {
     return undefined;
   }
 
-  /** § 1: the backlog's items in its order — placed by place, then unplaced by number. */
-  members(team: TeamRecord, level: string): WorkItemRecord[] {
+  /**
+   * § 1: the backlog's items in its order — placed by place, then unplaced by number. The
+   * project's (feat-039 api-contract § 1): every item of the project at the level outside
+   * Removed, whatever its area or team; placed by the project's places, then unplaced by
+   * creation time, then number.
+   */
+  members(scope: Scope, level: string): WorkItemRecord[] {
+    const { team } = scope;
     const typeIds = new Set(this.levelTypes(level).map((type) => type.id));
     const members = this.data.items.filter((record) => {
-      if (record.projectId !== team.projectId || !typeIds.has(record.typeId)) return false;
+      if (record.projectId !== scope.projectId || !typeIds.has(record.typeId)) return false;
       const state = this.type(record.typeId).states.find((s) => s.id === record.stateId);
-      return state?.category.code !== 'Removed' && this.resolvedOwner(record.areaId) === team.id;
+      return (
+        state?.category.code !== 'Removed' &&
+        (team === null || this.resolvedOwner(record.areaId) === team.id)
+      );
     });
     const place = (record: WorkItemRecord) =>
-      this.data.places.find(
-        (candidate) =>
-          candidate.itemId === record.id &&
-          candidate.teamId === team.id &&
-          candidate.level === level,
-      )?.position;
+      team === null
+        ? this.data.projectPlaces.find(
+            (candidate) => candidate.itemId === record.id && candidate.level === level,
+          )?.position
+        : this.data.places.find(
+            (candidate) =>
+              candidate.itemId === record.id &&
+              candidate.teamId === team.id &&
+              candidate.level === level,
+          )?.position;
     const placed = members
       .filter((record) => place(record) !== undefined)
       .sort((first, second) => (place(first) ?? 0) - (place(second) ?? 0));
     const unplaced = members
       .filter((record) => place(record) === undefined)
-      .sort((first, second) => first.number - second.number);
+      .sort(
+        (first, second) =>
+          (team === null ? Date.parse(first.createdAt) - Date.parse(second.createdAt) : 0) ||
+          first.number - second.number,
+      );
     return [...placed, ...unplaced];
   }
 
@@ -271,14 +304,21 @@ export class BoardsTestApi {
     return { ...this.workItem(record), parent: parent ? this.ref(parent) : null, children: [] };
   }
 
-  private surface(team: TeamRecord, level: string) {
+  /** The answer's subject — `team`, or on the project's views (feat-039 § 2.1) `project` — and its level. */
+  private surface(scope: Scope, level: string) {
     const types = this.levelTypes(level);
+    const { team } = scope;
+    const project = this.data.projects.find((candidate) => candidate.id === scope.projectId);
     return {
-      team: {
-        id: team.id,
-        name: team.name,
-        defaultArea: { id: team.defaultAreaId, path: this.areaPath(team.defaultAreaId) },
-      },
+      ...(team === null
+        ? { project: { id: scope.projectId, name: project?.name ?? '' } }
+        : {
+            team: {
+              id: team.id,
+              name: team.name,
+              defaultArea: { id: team.defaultAreaId, path: this.areaPath(team.defaultAreaId) },
+            },
+          }),
       level: {
         code: level,
         name: LEVEL_NAMES[level] ?? '',
@@ -301,13 +341,13 @@ export class BoardsTestApi {
   }
 
   /** feat-027 § 2: the top-level rows, «Порядок» 1..n over them, the whole tree beneath each. */
-  backlog(team: TeamRecord, level: string) {
+  backlog(scope: Scope, level: string) {
     const pageRank = this.rankOfLevel(level);
-    const tree = this.treeSet(team, pageRank);
-    const nested = this.nestedUnder(team, tree);
-    const topLevel = this.members(team, level).filter((record) => !nested.parentOf.has(record.id));
+    const tree = this.treeSet(scope, pageRank);
+    const nested = this.nestedUnder(scope, tree);
+    const topLevel = this.members(scope, level).filter((record) => !nested.parentOf.has(record.id));
     return {
-      ...this.surface(team, level),
+      ...this.surface(scope, level),
       items: topLevel.map((record, index) => ({
         order: index + 1,
         ...this.treeItem(nested.childrenOf, record, new Set()),
@@ -326,15 +366,17 @@ export class BoardsTestApi {
   /**
    * § 1's tree set: the project's live items of the page's level or any level
    * ranked below it whose area resolves to the team — the «Задачи» level
-   * included, which has no route of its own.
+   * included, which has no route of its own. The project's has no area condition
+   * (feat-039 api-contract § 1).
    */
-  private treeSet(team: TeamRecord, pageRank: number): WorkItemRecord[] {
+  private treeSet(scope: Scope, pageRank: number): WorkItemRecord[] {
+    const { team } = scope;
     return this.data.items.filter(
       (record) =>
-        record.projectId === team.projectId &&
+        record.projectId === scope.projectId &&
         this.rank(record) <= pageRank &&
         !this.removed(record) &&
-        this.resolvedOwner(record.areaId) === team.id,
+        (team === null || this.resolvedOwner(record.areaId) === team.id),
     );
   }
 
@@ -342,13 +384,13 @@ export class BoardsTestApi {
    * One level's backlog order on the team (§ 1): the three levels with a route
    * as `members` gives it; «Задачи», which has no places before feat-023, by number.
    */
-  private levelOrder(team: TeamRecord, rank: number): WorkItemRecord[] {
+  private levelOrder(scope: Scope, rank: number): WorkItemRecord[] {
     const name = process.backlogLevels.find((candidate) => candidate.rank === rank)?.name;
     const code = Object.keys(LEVEL_NAMES).find((candidate) => LEVEL_NAMES[candidate] === name);
     if (code) {
-      return this.members(team, code);
+      return this.members(scope, code);
     }
-    return this.treeSet(team, rank)
+    return this.treeSet(scope, rank)
       .filter((record) => this.rank(record) === rank)
       .sort((first, second) => first.number - second.number);
   }
@@ -359,11 +401,11 @@ export class BoardsTestApi {
    * (BR-H-2). The children of a row stand by level rank, highest first, then
    * in their level's backlog order (BR-T-6).
    */
-  private nestedUnder(team: TeamRecord, set: readonly WorkItemRecord[]) {
+  private nestedUnder(scope: Scope, set: readonly WorkItemRecord[]) {
     const inSet = new Set(set.map((record) => record.id));
     const position = new Map<string, number>();
     for (const rank of new Set(set.map((record) => this.rank(record)))) {
-      this.levelOrder(team, rank).forEach((record, index) => position.set(record.id, index));
+      this.levelOrder(scope, rank).forEach((record, index) => position.set(record.id, index));
     }
     const parentOf = new Map<string, WorkItemRecord>();
     const childrenOf = new Map<string, WorkItemRecord[]>();
@@ -452,9 +494,9 @@ export class BoardsTestApi {
    * name of the state it maps for the first type, in display order, that maps one (bug-004 D-3) — the
    * category's label is no header, it stays in the column's `category`.
    */
-  board(team: TeamRecord, level: string) {
+  board(scope: Scope, level: string) {
     const types = this.levelTypes(level);
-    const items = this.members(team, level).map((record, index) => ({
+    const items = this.members(scope, level).map((record, index) => ({
       ...this.backlogItem(record, index + 1),
       checklist: this.checklist(record),
     }));
@@ -484,11 +526,11 @@ export class BoardsTestApi {
         });
       }
     }
-    return { ...this.surface(team, level), columns };
+    return { ...this.surface(scope, level), columns };
   }
 
-  /** § 3.2 steps 3–4. */
-  private reorder(team: TeamRecord, level: string, body: Record<string, unknown>) {
+  /** § 3.2 steps 3–4; the project's (feat-039 § 3.2) writes the project's places only. */
+  private reorder(scope: Scope, level: string, body: Record<string, unknown>) {
     const position = body.position;
     if (position !== 'top' && position !== 'bottom' && position !== 'after') {
       throw new Refusal({
@@ -503,7 +545,7 @@ export class BoardsTestApi {
         },
       });
     }
-    const order = this.members(team, level);
+    const order = this.members(scope, level);
     const moved = order.find((record) => record.id === body.itemId);
     const anchor =
       position === 'after' ? order.find((record) => record.id === body.afterItemId) : undefined;
@@ -514,6 +556,19 @@ export class BoardsTestApi {
     const at = anchor ? rest.indexOf(anchor) + 1 : position === 'top' ? 0 : rest.length;
     rest.splice(at, 0, moved);
     const memberIds = new Set(rest.map((record) => record.id));
+    const { team } = scope;
+    if (team === null) {
+      // The project's places: an item has one, and a team's are neither read nor written.
+      const inProject = (itemId: string) => this.byId(itemId)?.projectId === scope.projectId;
+      this.data.projectPlaces = this.data.projectPlaces.filter(
+        (place) =>
+          !memberIds.has(place.itemId) && !(place.level === level && inProject(place.itemId)),
+      );
+      rest.forEach((record, index) =>
+        this.data.projectPlaces.push({ itemId: record.id, level, position: index + 1 }),
+      );
+      return;
+    }
     this.data.places = this.data.places.filter(
       (place) =>
         !memberIds.has(place.itemId) && !(place.teamId === team.id && place.level === level),
@@ -774,9 +829,14 @@ export class BoardsTestApi {
           throw error;
         }
       };
-    const team = (p: Params) => {
+    const team = (p: Params): Scope => {
       const project = this.project(one(p, 'organizationId'), one(p, 'projectId'));
-      return this.team(project.id, one(p, 'teamId'));
+      return teamOf(this.team(project.id, one(p, 'teamId')));
+    };
+    /** feat-039 § 0.4: the organization, then the project; there is no team level. */
+    const wholeProject = (p: Params): Scope => {
+      const project = this.project(one(p, 'organizationId'), one(p, 'projectId'));
+      return { projectId: project.id, team: null };
     };
     const level = (p: Params) => {
       const segment = one(p, 'level') ?? '';
@@ -811,6 +871,29 @@ export class BoardsTestApi {
         BOARD_URL,
         answer((p) => {
           const found = team(p);
+          return this.board(found, level(p));
+        }),
+      ),
+      // feat-039 api-contract § 3: the project's own backlog, reorder and board.
+      http.get(
+        PROJECT_BACKLOG_URL,
+        answer((p) => {
+          const found = wholeProject(p);
+          return this.backlog(found, level(p));
+        }),
+      ),
+      http.post(
+        PROJECT_REORDER_URL,
+        answer((p, body) => {
+          const found = wholeProject(p);
+          this.reorder(found, level(p), body);
+          return undefined;
+        }),
+      ),
+      http.get(
+        PROJECT_BOARD_URL,
+        answer((p) => {
+          const found = wholeProject(p);
           return this.board(found, level(p));
         }),
       ),
@@ -890,7 +973,17 @@ export class BoardsTestApi {
   order(teamId: string, levelCode = 'stories'): string[] {
     const found = this.data.teams.find((candidate) => candidate.id === teamId);
     if (!found) throw new Error(`No team ${teamId}.`);
-    return this.members(found, levelCode).map((record) => this.identifierOf(record));
+    return this.members(teamOf(found), levelCode).map((record) => this.identifierOf(record));
+  }
+
+  /**
+   * The identifiers of a project's backlog of one level, in the project's order (feat-039
+   * api-contract § 1), nested items included, as `order` gives a team's.
+   */
+  projectOrder(projectId: string, levelCode = 'stories'): string[] {
+    return this.members({ projectId, team: null }, levelCode).map((record) =>
+      this.identifierOf(record),
+    );
   }
 
   /** The stored record of a number in a project. */
@@ -906,7 +999,16 @@ export class BoardsTestApi {
   reorderAsAnotherUser(teamId: string, levelCode: string, body: Record<string, unknown>): void {
     const found = this.data.teams.find((candidate) => candidate.id === teamId);
     if (!found) throw new Error(`No team ${teamId}.`);
-    this.reorder(found, levelCode, body);
+    this.reorder(teamOf(found), levelCode, body);
+  }
+
+  /** Another user's reorder of the project's backlog (feat-039 US-2 "Two users"), taken as the server would. */
+  reorderProjectAsAnotherUser(
+    projectId: string,
+    levelCode: string,
+    body: Record<string, unknown>,
+  ): void {
+    this.reorder({ projectId, team: null }, levelCode, body);
   }
 }
 

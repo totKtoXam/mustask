@@ -6,9 +6,10 @@ using Mustask.Domain.Process;
 namespace Mustask.Application.Abstractions.Boards;
 
 /// <summary>
-/// The read side of a team's backlog and board (mod-006). Both surfaces read the
-/// same items through the one membership query (spec § Model, conditions 1–4),
-/// so a board never holds what the backlog does not.
+/// The read side of a team's (mod-006) and a project's (feat-039) backlog and
+/// board. Both surfaces of a view read the same items through the one membership
+/// query (spec § Model, conditions 1–4), so a board never holds what the backlog
+/// does not.
 /// </summary>
 public interface IBacklogReadModel
 {
@@ -29,6 +30,23 @@ public interface IBacklogReadModel
     /// <see cref="ReadAsync"/>, whatever the levels and the depth.
     /// </summary>
     Task<BacklogRead> ReadTreeAsync(BacklogTreeScope scope, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// feat-039 (api-contract § 1): a project's backlog or board of one level — every item of the project of the
+    /// level's types in a state outside the Removed category, whatever its area or team, each with its place on the
+    /// project's backlog of the level, in no particular order (the order is the domain's <see cref="StackRank"/>,
+    /// from the rows' <see cref="BacklogItemRow.CreatedAt"/>). No area tree is read: one statement for the items,
+    /// then the assignees' lookups, whatever the size.
+    /// </summary>
+    Task<IReadOnlyList<BacklogItemRow>> ReadProjectAsync(ProjectBacklogScope scope, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// feat-039 (api-contract § 1): the tree set of a project's backlog page — the project's items of every level of
+    /// <paramref name="scope"/>, the «Задачи» level included, each with its place on the project's backlog of its own
+    /// type's level (none on the «Задачи» level), in no particular order (the tree is the domain's
+    /// <see cref="BacklogTree"/>). The same fixed number of statements as <see cref="ReadProjectAsync"/>.
+    /// </summary>
+    Task<IReadOnlyList<BacklogItemRow>> ReadProjectTreeAsync(ProjectBacklogTreeScope scope, CancellationToken cancellationToken);
 
     /// <summary>
     /// feat-032 (api-contract § 1): the checklists of the cards of a board — for each of
@@ -97,6 +115,43 @@ public sealed record BacklogTreeScope(
     }
 }
 
+/// <summary>
+/// feat-039: one project's backlog of a level (api-contract § 1) — the level's types (condition 2) and their states
+/// outside the Removed category (condition 3) of the project (condition 1). There is no team and no area condition.
+/// </summary>
+public sealed record ProjectBacklogScope(
+    Guid ProjectId,
+    Guid LevelId,
+    IReadOnlyCollection<Guid> TypeIds,
+    IReadOnlyCollection<Guid> ShownStateIds)
+{
+    /// <summary>The scope of <paramref name="levelId"/>'s backlog of the project, from the organization's process.</summary>
+    public static ProjectBacklogScope Of(Guid projectId, Guid levelId, IEnumerable<WorkItemTypeRow> levelTypes)
+    {
+        var types = levelTypes.ToList();
+
+        return new ProjectBacklogScope(projectId, levelId, types.Select(type => type.Id).ToList(), BacklogScope.ShownStates(types));
+    }
+}
+
+/// <summary>
+/// feat-039: the project's backlogs one page's tree is read from — the page's level and every level ranked below it,
+/// the «Задачи» level included — as one membership (api-contract § 1).
+/// </summary>
+public sealed record ProjectBacklogTreeScope(
+    Guid ProjectId,
+    IReadOnlyCollection<Guid> TypeIds,
+    IReadOnlyCollection<Guid> ShownStateIds)
+{
+    /// <summary>The tree set of the project's page whose level and the levels below it have <paramref name="treeTypes"/>.</summary>
+    public static ProjectBacklogTreeScope Of(Guid projectId, IEnumerable<WorkItemTypeRow> treeTypes)
+    {
+        var types = treeTypes.ToList();
+
+        return new ProjectBacklogTreeScope(projectId, types.Select(type => type.Id).ToList(), BacklogScope.ShownStates(types));
+    }
+}
+
 /// <summary>What <see cref="IBacklogReadModel.ReadAsync"/> and <see cref="IBacklogReadModel.ReadTreeAsync"/> answer.</summary>
 public sealed record BacklogRead(WorkItemAreaView DefaultArea, IReadOnlyList<BacklogItemRow> Items);
 
@@ -108,6 +163,9 @@ public sealed record BacklogRead(WorkItemAreaView DefaultArea, IReadOnlyList<Bac
 /// backlog row shows beside the priority — «Трудоёмкость» in its shortest form,
 /// «Бизнес-ценность», «Вид ценности» as its list key — each <c>null</c> when empty
 /// or when the type has no such field. A board card shows none of the three.
+/// feat-039: <paramref name="CreatedAt"/> is the item's creation time on a project's read, for the levels that have a
+/// project order (BR-PB-4), and <c>null</c> on a team's read and on the «Задачи» level, whose rows stand by number;
+/// <paramref name="Place"/> is then its place on the project's backlog.
 /// </summary>
 public sealed record BacklogItemRow(
     Guid Id,
@@ -123,4 +181,5 @@ public sealed record BacklogItemRow(
     int LevelRank,
     decimal? Effort,
     int? BusinessValue,
-    string? ValueArea);
+    string? ValueArea,
+    DateTimeOffset? CreatedAt = null);

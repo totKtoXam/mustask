@@ -34,9 +34,9 @@ import {
   type WorkItemStateReference,
 } from '../../workitems';
 import { CategoryMarker, TypeMark } from '../../../shared/ui/WorkTrackingMarks';
-import type { BacklogItem, Board, BoardCardItem, BoardColumn } from '../api/boardsApi';
-import { boardsKeys } from '../api/queryKeys';
-import { useReadTeamAgain } from '../hooks/queries';
+import type { BacklogItem, BoardCardItem, BoardColumn, BoardSurface } from '../api/boardsApi';
+import { boardKey } from '../api/queryKeys';
+import { useReadAgain } from '../hooks/queries';
 import { useChecklists, type AddField, type ChecklistEnv } from '../hooks/useChecklists';
 import { useMoveView } from '../hooks/useMoveView';
 import type { NewWorkItem } from '../hooks/useNewWorkItem';
@@ -44,6 +44,7 @@ import { applyCardMove, columnOf, columnTarget, moveTargets } from '../lib/board
 import type { BoardLevelCode } from '../lib/levels';
 import type { ChecklistKind } from '../lib/checklist';
 import { isAccessRefusal, moveRefusalNotice } from '../lib/refusals';
+import type { BoardScope } from '../lib/scope';
 import { CardChecklists } from './CardChecklists';
 
 /** spec § Page «Доски»: the button at the top of the first column. */
@@ -88,9 +89,10 @@ function dropAreaSx(over: boolean) {
 export function BoardColumns({
   organizationId,
   projectId,
-  teamId,
+  scope,
   level,
   board,
+  canWrite,
   newItem,
   stateOf,
   announce,
@@ -99,10 +101,20 @@ export function BoardColumns({
 }: {
   organizationId: string;
   projectId: string;
-  teamId: string;
+  scope: BoardScope;
   level: BoardLevelCode;
-  board: Board;
-  newItem: Pick<NewWorkItem, 'canWrite' | 'open' | 'opensMenu' | 'menuOpen'>;
+  board: BoardSurface;
+  /**
+   * `workitems.workitem.write` (mod-016 design § 6.2): without it (the reader) a card has no
+   * «Ещё действия», no dragging, and the first column no «Новый элемент».
+   */
+  canWrite: boolean;
+  /**
+   * What the first column's «Новый элемент» opens. A team's board has it; the project's has
+   * none (feat-039 BR-PB-6: a creation from a project view starts with a default team, which
+   * `mod-017-work-item-owning-team` brings), and so draws no button.
+   */
+  newItem?: Pick<NewWorkItem, 'open' | 'opensMenu' | 'menuOpen'>;
   /** A state's name and category from the process, once it is read. */
   stateOf(typeId: string, stateId: string): WorkItemStateReference | undefined;
   announce(text: string): void;
@@ -112,7 +124,7 @@ export function BoardColumns({
 }) {
   const client = useQueryClient();
   const setState = useSetWorkItemState(organizationId, projectId);
-  const readAgain = useReadTeamAgain(organizationId, projectId, teamId);
+  const readAgain = useReadAgain(organizationId, projectId, scope);
   // A title's plain click opens the card as a dialog over the board (feat-029 BR-C-1);
   // `open` keeps its identity, so the memoised cards are not redrawn by the navigation.
   const { open: openItem } = useWorkItemDialog();
@@ -135,7 +147,7 @@ export function BoardColumns({
   const checklists = useChecklists({
     organizationId,
     projectId,
-    teamId,
+    scope,
     level,
     board,
     view,
@@ -146,9 +158,6 @@ export function BoardColumns({
     showError,
     showCreated,
   });
-  // mod-016 design § 6.2: without `workitems.workitem.write` (the reader) a card
-  // has no «Ещё действия», no dragging, and the first column no «Новый элемент».
-  const { canWrite } = newItem;
 
   // The moved card is drawn anew in its new column: focus goes to its
   // «Ещё действия» there, and back to it if a later redraw drops it. A passive
@@ -196,7 +205,7 @@ export function BoardColumns({
     await readAgain();
     inFlight.current = false;
     view.end(
-      client.getQueryData<Board>(boardsKeys.board(organizationId, projectId, teamId, level)),
+      client.getQueryData<BoardSurface>(boardKey(organizationId, projectId, scope, level)),
       board,
     );
     if (notice !== null) {
@@ -328,7 +337,7 @@ export function BoardColumns({
                 {column.items.length}
               </Typography>
             </Box>
-            {columnIndex === 0 && canWrite && (
+            {columnIndex === 0 && canWrite && newItem && (
               <Button
                 variant="text"
                 startIcon={<AddIcon />}
