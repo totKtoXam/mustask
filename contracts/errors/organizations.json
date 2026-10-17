@@ -44,6 +44,20 @@
       "kk": "Атауы 1-ден 100 таңбаға дейін болуы керек",
       "kkNeedsReview": true
     },
+    "organizations.description_length": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Описание должно содержать не более 2000 символов",
+      "kk": "Сипаттама 2000 таңбадан аспауы керек",
+      "kkNeedsReview": true
+    },
+    "organizations.team.destination_required": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Выберите команду или «Без команды»",
+      "kk": "Команданы немесе «Командасыз» таңдаңыз",
+      "kkNeedsReview": true
+    },
     "organizations.organization.create_forbidden": {
       "statuses": [403],
       "params": {},
@@ -103,8 +117,8 @@
     "organizations.team.name_taken": {
       "statuses": [409],
       "params": {},
-      "ru": "Команда с таким названием уже есть в проекте",
-      "kk": "Жобада мұндай атауы бар команда бар",
+      "ru": "Команда с таким названием уже есть в организации",
+      "kk": "Ұйымда мұндай атауы бар команда бар",
       "kkNeedsReview": true
     },
     "organizations.team.not_in_project": {

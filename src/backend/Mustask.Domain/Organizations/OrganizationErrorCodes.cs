@@ -40,6 +40,12 @@ public static class OrganizationErrorCodes
     /// <summary>Field reason of <c>name</c>: empty, spaces only, or over 100 characters after trimming (BR-M1-1).</summary>
     public const string NameLength = "organizations.name_length";
 
+    /// <summary>Field reason of <c>description</c>: over 2 000 characters (feat-028 BR-OL-3).</summary>
+    public const string DescriptionLength = "organizations.description_length";
+
+    /// <summary>Field reason of <c>destination</c>: an unlink that names neither a team nor «Без команды» (feat-028 BR-OL-8).</summary>
+    public const string TeamDestinationRequired = "organizations.team.destination_required";
+
     /// <summary>The token lacks <c>organizations.organization.create</c> (BR-M1-2). Never <c>http.forbidden</c> (D-p).</summary>
     public const string OrganizationCreateForbidden = "organizations.organization.create_forbidden";
 
