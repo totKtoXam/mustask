@@ -537,7 +537,18 @@ if [ "$need_shell" = 1 ]; then
         case "$file" in
             .githooks/*|*.sh)
                 sh -n "$file" 2>/dev/null || bad="$bad $file(syntax)"
-                [ -x "$file" ] || bad="$bad $file(not executable)"
+                # The executable bit is the mode git holds, which is what the
+                # Linux CI checkout and every clone get (tech-039). `[ -x ]`
+                # reads the working tree, and on Windows it answers yes for any
+                # *.sh or shebang file whatever the index says: a script
+                # committed as 100644 passed here and failed in CI. A file that
+                # is not in the index yet has only the working tree to ask.
+                mode=$(git ls-files -s -- "$file" 2>/dev/null | head -n 1 | cut -d' ' -f1)
+                if [ -n "$mode" ]; then
+                    [ "$mode" = 100755 ] || bad="$bad $file(mode $mode, not executable: git update-index --chmod=+x)"
+                else
+                    [ -x "$file" ] || bad="$bad $file(not executable)"
+                fi
                 ;;
             *.py)
                 if [ -n "$PYTHON_COMMAND" ]; then
