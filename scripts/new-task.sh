@@ -136,7 +136,7 @@ if [ "$prefix" = 'hot' ]; then
                 # withdrawn numbers are taken and never reused (the section
                 # lives in its own file)
                 git -C "$repo" show "$ref:docs/backlog/withdrawn.md" 2>/dev/null \
-                    grep -oE "${prefix}-[0-9]{3}" || true
+                    | grep -oE "${prefix}-[0-9]{3}" || true
             done
             ls "$repo/docs/features" 2>/dev/null | grep -oE "^${prefix}-[0-9]{3}" || true
         } | grep -oE '[0-9]{3}$' | sort -n

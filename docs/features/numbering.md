@@ -54,9 +54,20 @@ PowerShell); everything below is what they enforce.
   2. `docs/features/<id>/` directories — across all branches, not just the
      current one:
      `git for-each-ref --format='%(refname)' refs/heads refs/remotes | xargs -I{} git ls-tree --name-only {}:docs/features`;
-  3. `docs/backlog.md` — also across all branches, including the `Done`
-     section:
-     `git for-each-ref --format='%(refname)' refs/heads refs/remotes | xargs -I{} git show {}:docs/backlog.md`.
+  3. the queue files — `docs/backlog.md` and `docs/backlog/withdrawn.md` —
+     also across all branches, including the `Done` section:
+     `scripts/backlog.sh --ids` (one pass over both files:
+     `git for-each-ref --format='%(objectname):docs/backlog.md%0a%(objectname):docs/backlog/withdrawn.md' refs/heads refs/remotes | sort -u | git cat-file --batch`).
+     "All branches" includes local `main` ahead of `origin/main`:
+     `queue.sh add` and `withdraw` commit to local `main`, and the push comes
+     later, so the number of an unpushed queue commit is on no remote branch
+     and a count that reads `origin/main` alone issues it a second time
+     (`feat-039` and `mod-017` were issued twice that way). `scripts/new-task.sh
+     hot` reads the same files ref by ref, local `main` included; both are
+     covered by `scripts/tests/queue-numbering-cases.sh`. A read that fails is
+     an error, never an empty list: `backlog.sh --ids` exits non-zero and
+     `queue.sh` refuses to issue a number, because a number issued from a
+     partial list is a number issued twice.
 
   The walk is deliberately limited to `refs/heads refs/remotes` — otherwise
   `refs/stash` would end up in the set.
