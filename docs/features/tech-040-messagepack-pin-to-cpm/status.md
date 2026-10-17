@@ -47,6 +47,7 @@ gate-3: pending
 - 2026-10-18 [backend-developer] proof: restore --force exit 0; build exit 0 with 0 NU1902; `dotnet list package` (flag include transitive) on the AppHost resolves MessagePack 2.5.303; no vulnerable packages. The build's 2 warnings: the EnableGitHooks git-config lock race with a parallel worktree.
 - 2026-10-18 [backend-developer] `bash scripts/verify.sh` RESULT: green, exit 0 (backend build and tests incl. integration: Api.IntegrationTests 2304 passed, 17 skipped, 0 failed). E2E not asked: standing answer no (paused 2026-10-12). stage: 07-qa.
 - 2026-10-18 [qa-engineer] QA light, S: pass; 0 blocker, 0 major, 1 minor (D-1: nothing queues the pin's removal), review.md. verify.sh exit 0, resolved graph equal to base's, E2E = NO. stage: 06-code-review (07-qa was not a stage value).
+- 2026-10-18 [code-reviewer] code review round 1: changes-requested; open 0 blocker, 1 major (F1, prose: the drop check in Directory.Packages.props), 1 minor (m-1), review.md.
 
 ## Notes
 

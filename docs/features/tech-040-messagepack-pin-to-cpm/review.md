@@ -98,3 +98,70 @@ No stamp was written: this was the plain run, not `VERIFY_FULL=1`; `finish-task.
 
 `status.md` carried `stage: 07-qa`, which is not a value of the `stage:` list in
 `docs/features/README.md`; QA set it to `06-code-review` with this pass.
+
+## Code review, round 1
+
+Verdict: **changes-requested**. Open: 0 blocker, 1 major (F1), 1 minor (m-1); QA D-1
+(minor) stays as QA left it. Scope: `git diff origin/main...tech/040-messagepack-pin-to-cpm`
+at `3365037b` — `Directory.Packages.props`, `Mustask.AppHost.csproj`, this folder. Nothing
+built or run here (QA did).
+
+Clean: the pin under CPM — the plain `PackageReference` (csproj:21) takes 2.5.303 from
+props:24 and, as a direct reference, wins over StreamJsonRpc's `>= 2.5.302`; no other
+version moved (one `PackageVersion` added, no other entry touched; with transitive pinning
+off it is inert where unreferenced); no test project references an Aspire package or the
+AppHost project (`Compile Include` of sources only); no other `VersionOverride`, no lock
+file; commits English, subjects ≤72, no attribution; `stage:` value valid (README:103-105).
+
+### F1: the drop check cannot observe its own condition (major, prose only)
+
+- `Directory.Packages.props:17-20`: "Drop ... once Aspire's own graph resolves MessagePack
+  2.5.303 or newer (`dotnet list package`, flag include transitive, on the AppHost)". While
+  csproj:21 stands, that command lists MessagePack as a **top-level** package, requested and
+  resolved 2.5.303 — today, and in every state where the restore still passes (a floor above
+  2.5.303 fails the restore with a downgrade error instead). It never shows "Aspire's own
+  graph". `status.md:47` already reports today's output in the condition's own words
+  ("resolves MessagePack 2.5.303"): an agent taking the check at face value drops both lines
+  and the restore fails NU1902.
+- Fix: name the removal in the check, e.g. "(check: with the AppHost reference removed, the
+  restore raises no NU1902 and `dotnet list package`, flag include transitive, lists
+  MessagePack 2.5.303+ as transitive)". csproj:19-20 may keep its short form. Prose only →
+  a delta read, no QA re-run.
+
+### m-1: the double-hyphen break is attributed to an unanchored component (minor, debt)
+
+- `status.md:39`: "it broke the Aspire SDK's package check at restore". `--` inside an XML
+  comment is a well-formedness error (XML 1.0 §2.5), so any MSBuild load of the file fails;
+  the rule is right, the named component was not reproduced, nothing an agent does differs.
+  Fix: "it makes the file malformed XML and the restore fails" (or drop the attribution).
+
+### Behavioural claims (item 6)
+
+- props:13-14 "NU1902, an error under TreatWarningsAsErrors" → `Directory.Build.props:7`.
+- props:14-15 "Aspire.Hosting 13.5.1 reaches MessagePack 2.5.302 through StreamJsonRpc" →
+  local NuGet cache: `aspire.hosting/13.5.1` nuspec:30 (StreamJsonRpc 2.25.29, no direct
+  MessagePack), `streamjsonrpc/2.25.29` nuspec:19 (MessagePack 2.5.302).
+- props:15-16 "same release line, so StreamJsonRpc keeps working" → range `>= 2.5.302`;
+  resolved graph equal to main's, where 2.5.303 already loads (QA). Not run here.
+- props:16-17 "the explicit reference makes this version win" → csproj:21 + props:24,
+  nearest-wins; QA reproduced exit 1 without / exit 0 with it.
+- props:17-20 drop condition and its check → **F1**.
+- props:20-23 "transitive pinning ... NU1109 on Npgsql and Logging.Abstractions" →
+  props:42 (Npgsql 8.0.3) and props:68 (10.0.0) sit below what Npgsql.EFCore 10.0.3 / EF
+  Core 10.0.11 need; QA reproduced the restore. "deliberately off" → no
+  `CentralPackageTransitivePinningEnabled` in the repository (grep).
+- csproj:17-20 "raised to the version in Directory.Packages.props" → props:24.
+- status.md:38 Decision (reference + version; a version alone stays 2.5.302) → CPM
+  semantics, a `PackageVersion` with no consumer is inert; QA scratch reproduction.
+- status.md:39 Decision (double hyphen) → **m-1**.
+- status.md:47 "2 warnings: the EnableGitHooks git-config lock race" →
+  `Directory.Build.props:16-21` (`Exec`, `ContinueOnError`).
+- QA "no other VersionOverride / transitive pinning; test projects take no Aspire package" →
+  grep over `*.csproj`/`*.props`/`*.targets`: only the AppHost names `Aspire.Hosting.*`.
+- Direction 2: changed behaviour = where the MessagePack version is set (VersionOverride →
+  central `PackageVersion`); grepped `VersionOverride`, `MessagePack`, `GHSA-qhrr`, `NU1902`,
+  `TransitivePinning` over the repository (docs/, .claude/, AGENTS.md files, src). Hits:
+  `docs/backlog.md:39` (this task's own line — the pre-change state as the task; leaves the
+  queue at completion), feat-039 `qa.md:70,151-177`, `review.md:156-158`, `status.md:49-50`,
+  mod-017 `status.md:101` (merged history of their time). No hit in `docs/conventions/`,
+  `.claude/`, `src/backend/AGENTS.md` or ADRs. None stale; nothing left unswept.
