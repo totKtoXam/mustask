@@ -49,6 +49,12 @@ internal static class OrganizationsConstraints
     /// <summary>The index of that composite key; it also serves "the teams I am in".</summary>
     public const string TeamMembershipOrganizationUser = "ix_team_memberships_organization_id_user_id";
 
+    /// <summary>
+    /// mod-017 BR-OT-4 (ADR-0028 rule 9): the key of the project's default-team setting onto one of the project's own teams.
+    /// EF names it by convention; a violation is a team that is no longer there (plan-backend D-15).
+    /// </summary>
+    public const string ProjectDefaultTeamKey = "fk_projects_teams_id_default_team_id";
+
     /// <summary>BR-M1-1: 1 to 100 characters, on every table with a name.</summary>
     public static readonly string NameLengthCheck = $"char_length(name) BETWEEN 1 AND {OrganizationLimits.NameMaxLength}";
 }

@@ -11,7 +11,9 @@ namespace Mustask.Infrastructure.Organizations;
 /// handler's uniqueness pre-check and its insert are two round-trips; a
 /// concurrent write in between hits the unique index at save time (SQLSTATE
 /// 23505, ADR-0011 echelon 1). The business indexes map to the same 409 code
-/// as their pre-check, so a client sees one outcome either way. Every other
+/// as their pre-check, so a client sees one outcome either way. The foreign
+/// keys of the team membership (mod-016) and of the project's default team
+/// (mod-017) are the backstops of locks and answer as the absence they mean. Every other
 /// failure, the other unique indexes and every check included, is rethrown:
 /// no handler can reach them, so a violation is a defect and stays a 500.
 /// </summary>
@@ -68,6 +70,12 @@ internal static class OrganizationsSaveChanges
         {
             // mod-016 BR-M1-10: the organization membership ended while a team membership was being added.
             throw new ConflictException(OrganizationErrorCodes.TeamMemberNotInOrganization, ErrorParams.None, exception);
+        }
+        catch (DbUpdateException exception) when (PostgresConflictDetection.IsForeignKeyViolationOnConstraint(exception, OrganizationsConstraints.ProjectDefaultTeamKey))
+        {
+            // mod-017 ADR-0028 § 4, plan-backend D-15: the default key refused a team that is not there. The team lock of
+            // SetDefaultTeam makes this unreachable; if a race ever reaches it, it answers as the team's absence does, never as a 500.
+            throw new NotFoundException(OrganizationErrorCodes.TeamNotFound, ErrorParams.None, exception);
         }
     }
 
