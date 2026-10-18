@@ -3,15 +3,15 @@
 - type: feature
 - size: M
 - branch: feat/003-work-item-search
-- stage: gate-1+gate-2
+- stage: 04-backend
 - epic: core/work-items
 - deps: mod-005
 - gates: gate-1, gate-2, gate-3
 
 ## Gates
 
-gate-1: pending
-gate-2: pending
+gate-1: approved (2026-10-18, human in chat, one question per open question: OQ-1..OQ-3 A)
+gate-2: approved (2026-10-18, human in chat, one question per design decision: D-1..D-6 A)
 gate-3: pending
 
 ## Plan
@@ -22,9 +22,16 @@ M with UI: analysis → requirements review → UX design → gate-1 + gate-2 to
 
 - E2E = NO: the standing answer since 2026-10-12; not asked, not run.
 - Started under the human's standing approval of 2026-10-18 evening («Ты работай, я спать буду. Пр-ы сам мерджи»): the route confirmation was not asked; gate-1 + gate-2 go to the human as one package, one question per open question and per design decision.
+- Gate answers, the human in chat, 2026-10-18: every OQ and D-n as recommended. The queue amendments OQ-1 A and OQ-2 A owe (spec § Decomposition) are the orchestrator's next queue sync:
+  - feat-016 gains the list's tag filter;
+  - feat-017 drops the list column's assignee marks;
+  - feat-043's BR-NE-8 clause carries no tag filter.
+
+  Development merges main first (mod-020 is in main, PR #25). Whichever of feat-003 and feat-040 merges second reconciles the shared files and notes it here.
 
 ## Log
 
+- 2026-10-18 [orchestrator] gate-1 (OQ-1..OQ-3 A) and gate-2 (D-1..D-6 A) approved by the human in chat, one question each; boxes ticked in spec.md and design.md; stage 04-backend.
 - 2026-10-18 [orchestrator] the gate-1 + gate-2 package goes to the human, one question per open question and per design decision; no code before the answers.
 - 2026-10-18 [ux-designer] design.md (30 KB), no prototype; D-1..D-6 open, each with a recommended A. Package for the human: OQ-1..OQ-3, D-1..D-6; stage gate-1+gate-2. No gate set; no code under src/.
 - 2026-10-18 [business-analyst] R-1 resolved (review.md): a purge returns to the filtered list the card came from (BR-WS-5, amends mod-005 design § 6); the trail opens the list unfiltered (BR-WS-11); US-1 +3 scenarios. No new OQ. No code under src/.
