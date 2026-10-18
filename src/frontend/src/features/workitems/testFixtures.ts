@@ -22,6 +22,8 @@ export const AREAS_URL = `${PROJECT_URL}/areas`;
 export const TEAMS_URL = `${PROJECT_URL}/teams`;
 export const WORK_ITEMS_URL = `${PROJECT_URL}/workitems`;
 export const WORK_ITEM_URL = `${WORK_ITEMS_URL}/:identifier`;
+/** feat-003 api-contract § 2.2: the options of the list's «Исполнитель» filter. */
+export const ASSIGNEE_OPTIONS_URL = `${WORK_ITEMS_URL}/assignee-options`;
 export const CANDIDATES_URL = `${ORGANIZATION_URL}/workitems/assignee-candidates`;
 /** feat-001 api-contract § 3.4: «Родитель»'s search. */
 export const PARENT_CANDIDATES_URL = `${WORK_ITEM_URL}/parent-candidates`;
@@ -179,6 +181,11 @@ export interface Dataset {
   areas: AreaRecord[];
   users: UserRecord[];
   items: WorkItemRecord[];
+  /**
+   * feat-003 api-contract § 1.1: ids the user directory does not know whose membership has ended.
+   * An unknown id is otherwise still a member (`isMember` is the membership alone).
+   */
+  formerMemberIds?: string[];
 }
 
 /** «05.10.2026 14:30» in whatever zone the test runs: the panel shows local time. */
