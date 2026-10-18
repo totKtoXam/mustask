@@ -1,5 +1,5 @@
 // The member and team-member routes of the in-memory API (mod-016 plan-frontend
-// § 2.8, lane B1; api-contract § 1.2–§ 1.6 and § 2.1–§ 2.4): lists in the
+// § 2.8, lane B1; api-contract § 1.2–§ 1.6 and § 2.1–§ 2.4, feat-028's § 2.3a too): lists in the
 // contract's order, the candidate searches cut at 20, the add, role change
 // and removal with their 400 and 409 answers in the contract's order, and the
 // last-administrator rule; and the organization lists narrowed to the
@@ -329,6 +329,20 @@ export function memberRoutes(
         ),
       );
     }),
+    // § 2.3a: a team that does not exist yet — the organization's active members, as § 2.2 offers them.
+    http.get(
+      `${ORGANIZATIONS_URL}/:organizationId/teams/member-candidates`,
+      async ({ request, params }) => {
+        await record(request);
+        const organizationId = idOf(params.organizationId);
+        const text = new URL(request.url).searchParams.get('text') ?? '';
+        return HttpResponse.json(
+          candidatesFor(data, text, (id) =>
+            inOrganization(organizationId).some((membership) => membership.userId === id),
+          ),
+        );
+      },
+    ),
     // § 2.3
     http.post(`${TEAM_URL}/members`, async ({ request, params }) => {
       await record(request);

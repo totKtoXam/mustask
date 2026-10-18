@@ -113,6 +113,19 @@ export function searchTeamMemberCandidates(
   return apiFetch(`${teamApiPath(organizationId, teamId)}/member-candidates?${query}`);
 }
 
+/**
+ * feat-028 api-contract § 2.3a: the same search for a team that does not exist yet, at the
+ * organization's address (`…/teams/member-candidates`, a literal beside `…/teams/{teamId}`).
+ * The creation form's «Участники» asks it; the answer is § 2.2's.
+ */
+export function searchNewTeamMemberCandidates(
+  organizationId: string,
+  text: string,
+): Promise<UserCandidates> {
+  const query = new URLSearchParams({ text });
+  return apiFetch(`${organizationApiPath(organizationId)}/teams/member-candidates?${query}`);
+}
+
 export function addTeamMember(
   organizationId: string,
   teamId: string,

@@ -62,4 +62,7 @@ export const organizationsKeys = {
   /** The add-to-team search (§ 2.2). */
   teamMemberCandidates: (organizationId: string, teamId: string, text: string) =>
     [ROOT, 'team-member-candidates', organizationId, teamId, text] as const,
+  /** The creation form's member search (feat-028 § 2.3a): a team that does not exist yet. */
+  newTeamMemberCandidates: (organizationId: string, text: string) =>
+    [ROOT, 'new-team-member-candidates', organizationId, text] as const,
 };

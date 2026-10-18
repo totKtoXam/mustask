@@ -10,8 +10,8 @@ import {
 import type { CreateTeamBody, ProjectListItem, Team } from '../api/organizationsApi';
 import { useFocusInvalid } from '../hooks/useFocusInvalid';
 import { useFocusOnMount } from '../hooks/useFocusOnMount';
-import { useMemberSearch } from '../hooks/useMemberSearch';
 import { useProjects } from '../hooks/queries';
+import { useUserSearch } from '../hooks/useUserSearch';
 import { placeRefusal, type RefusalField } from '../lib/refusals';
 import { createTeamDialog, linkDialog } from '../lib/teamTexts';
 import {
@@ -34,10 +34,11 @@ function sameProject(first: ProjectListItem, second: ProjectListItem): boolean {
  * «Новая команда» (feat-028 US-1; design § 5.1): the team, its optional description, members and
  * projects in one request. «Название» is checked on «Создать» (1–100 after trimming) and so is
  * «Описание» (at most 2 000, as typed); nothing is sent while either is refused. «Участники» is
- * a searchable multiselect over the organization's active members, «Проекты» one over its active
- * projects, drawn only for a user who holds both link codes (`canLink`). A refusal lands on its
- * field with the input kept; the lists are read again after a project is refused, and a choice no
- * longer offered drops. Mounted per opening.
+ * a searchable multiselect over the server's search of the organization's active members
+ * (api-contract § 2.3a: two trimmed characters, at most 20, the same lines as the team page's
+ * search), «Проекты» one over its active projects, drawn only for a user who holds both link codes
+ * (`canLink`). A refusal lands on its field with the input kept; the lists are read again after a
+ * project is refused, and a choice no longer offered drops. Mounted per opening.
  */
 export function CreateTeamDialog({
   organizationId,
@@ -67,7 +68,7 @@ export function CreateTeamDialog({
   const focusFirst = useFocusOnMount<HTMLInputElement>();
   const focusInvalid = useFocusInvalid();
 
-  const { search, retry } = useMemberSearch(organizationId, typed);
+  const { search, retry } = useUserSearch({ kind: 'newTeam', organizationId }, typed);
   const projectsQuery = useProjects(organizationId, 'active', { enabled: canLink, fresh: true });
 
   const shown = userOptions(search);

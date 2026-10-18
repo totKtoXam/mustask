@@ -17,6 +17,7 @@ import {
   getMembers,
   getTeamMembers,
   searchMemberCandidates,
+  searchNewTeamMemberCandidates,
   searchTeamMemberCandidates,
 } from '../api/membershipApi';
 import { organizationsKeys } from '../api/queryKeys';
@@ -183,6 +184,15 @@ export function useTeamMemberCandidates(
   return useQuery({
     queryKey: organizationsKeys.teamMemberCandidates(organizationId, teamId, text),
     queryFn: () => searchTeamMemberCandidates(organizationId, teamId, text),
+    enabled,
+  });
+}
+
+/** The creation form's search (feat-028 § 2.3a), asked only from 2 characters on (`enabled`). */
+export function useNewTeamMemberCandidates(organizationId: string, text: string, enabled: boolean) {
+  return useQuery({
+    queryKey: organizationsKeys.newTeamMemberCandidates(organizationId, text),
+    queryFn: () => searchNewTeamMemberCandidates(organizationId, text),
     enabled,
   });
 }

@@ -43,9 +43,9 @@ the team's projects, the project's teams and the projects (design § 13).
 
 ## 4. State and codes
 Server state in TanStack Query only; dialogs hold their drafts in `useState`. The picker's options: the
-organization's teams/projects lists (client filter), members from `GET …/members` (design says "server's user
-search": no organization-scoped search of active members exists at creation, so the list is filtered locally —
-for the human, § 6). Gates: `useAccessCheck()`; link controls need both link codes.
+organization's teams/projects lists (client filter), members from the server's search `GET …/teams/member-candidates`
+(api-contract § 2.3a, added at gate-3; § 6) through `useUserSearch` with the scope `newTeam`. Gates:
+`useAccessCheck()`; link controls need both link codes.
 
 ## 5. Tests (Vitest, Testing Library, MSW double `OrganizationsTestApi`)
 The double and `testFixtures` move to the organization-owned team plus a link list, keeping the example
@@ -53,8 +53,15 @@ dataset's names; new tests per state of §§ 3-8 and per role of § 10; retired 
 in a comment at the place (doc-012 P-1). Kit: field and `Tag` tests, showcase registry, `kitGuard` counts.
 
 ## 6. For the human, and as built
-- The create-team form has no server search of the organization's active members (the contract's search is at
-  a team's address): `GET …/members` filtered locally (`useMemberSearch`); recommended. The alternative, the
-  organization's `member-candidates`, offers non-members and leans on the 409 `member_not_in_organization`.
+- The create-team form's «Участники» asks the server's search of the organization's active members, `GET
+  …/teams/member-candidates?text=` (api-contract § 2.3a), at the human's gate-3 choice «⛔ Серверный поиск
+  сейчас» (2026-10-18). It replaces the deviation this plan first recorded — `GET …/members` filtered locally in
+  `useMemberSearch`, the recommended option, because no organization-scoped search existed at creation. Built as
+  `useUserSearch` with a third scope, `newTeam`: the same states, texts and cut-off as the team page's search (two
+  trimmed characters and no request below them, «Поиск…», «Не удалось выполнить поиск. Попробуйте ещё раз.» with
+  a retry on opening the list again, at most 20 and «Показаны первые 20. Уточните запрос.»). `useMemberSearch`
+  is deleted; the creation still sends the chosen in `memberIds` and the server judges each one (409
+  `member_not_in_organization`, on «Участники»). The route needs `team.create` and `team.write` (D-7), both held by
+  the administrator alone, as the creation itself.
 - «Отключить» is natively disabled until a destination is chosen (`ConfirmDialog.confirmDisabled`), where
   design § 6.2 says aria-disabled and focusable; the legacy dialog has no such state.

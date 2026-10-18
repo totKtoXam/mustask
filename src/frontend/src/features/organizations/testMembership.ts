@@ -57,6 +57,8 @@ const ROUTE_RULES: readonly RouteRule[] = [
   // feat-028 api-contract § 4: the organization's teams, the project's links and the default.
   rule('GET', '/teams', 'organizations.team.read'),
   rule('POST', '/teams', 'organizations.team.create'),
+  // § 2.3a (+ `team.write`, which the same administrator holds): a literal, so before `/teams/{id}`.
+  rule('GET', '/teams/member-candidates', 'organizations.team.create'),
   rule('GET', `/teams/${ID}`, 'organizations.team.read'),
   rule('PUT', `/teams/${ID}/name`, 'organizations.team.write'),
   rule('PUT', `/teams/${ID}/description`, 'organizations.team.write'),
