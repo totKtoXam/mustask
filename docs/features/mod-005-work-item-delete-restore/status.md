@@ -28,6 +28,8 @@ The light route (the human's choice of 2026-10-18): analysis → one requirement
 
 ## Log
 
+- 2026-10-18 [code-reviewer] delta read 1 (review-code.md): approve; CR-1 resolved; 0 blocker, 0 major open; one new minor (CR-6, docs debt); H-1, S-1, H-2, BR-DR-9 for the human
+
 - 2026-10-18 [backend-developer] fix round (review CR-1..CR-5, security S-1, QA D-1): contract notes in plan-backend.md § 13 — api-contract § 0.4/§ 0.2/§ 2.2 (Restore's body binds first), § 2.3 + BR-DR-15 (purge log names deleter and time); left for the human: H-1/D-2, S-1 taken as A
 
 - 2026-10-18 [frontend-developer] stage 6 done (plan-frontend.md): «Удалить»/«Удалить навсегда» in «⋮», three dialogs, the deleted card, D-5; contract unchanged. Breaks e2e 27-work-item-card 27.5 and 27-organization-members 27.9 (not edited). For the human: an unknown deleter shows no «(неактивен)»

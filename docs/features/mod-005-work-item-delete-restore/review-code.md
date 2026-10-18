@@ -213,3 +213,75 @@ Direction 2, the behaviour the diff changes and the prose outside the diff that 
   notes cover it, and there is no wire change.
 - **The «Удалена» premise in E2E comments.** Grepped `mod-005` in `e2e/`: 22-27 → H-2.
 - **Not swept:** doc-001..doc-012 analyses (they are older reasoning, not behaviour prose) and `docs/backlog.md`.
+
+## Delta read 1
+
+A clean session read the fix-round diff `8067f009..267ab14a` on `mod/005-work-item-delete-restore`, HEAD `267ab14a`. Its
+scope was CR-1 and the prose and rules next to it. The CR-1 fix is `37cb9e80`, prose only, in `docs/conventions/backend.md`.
+Tests run on the anchors, all green:
+- `WorkItemAccessRules`: 3 of 3 (Architecture.Tests).
+- `DeletedStateParityTests` + `WorkItemReferenceInventoryTests`: 12 of 12 (Infrastructure.Tests, Docker).
+- `WorkItemWriteInventoryTests`: 4 of 4 (Api.IntegrationTests, Docker).
+
+**Verdict: approve.** CR-1 is resolved. The only new finding is CR-6, a minor, so it is a debt and gets no round.
+
+### CR-1 — resolved
+
+- **Who names the set.** `backend.md:277-281` now names `WorkItemSets` and the two memberships as the only sources outside
+  it that name the set. That is true: a grep of `context.WorkItems` / `Set<WorkItem>(` outside the tests and migrations finds
+  exactly `WorkItemSets.cs`, `BacklogMembership.cs`, `ProjectBacklogMembership.cs` and the `DbSet` in `MustaskDbContext.cs:58`.
+- **The memberships are pinned.** "each pinned by `DeletedStateParityTests`" → `DeletedStateParityTests.cs:155,189`, which
+  covers both memberships.
+- **The text rule.** "a text rule and not a proof" → `WorkItemAccessRules.cs:20-22`. The false guarantee "no read that skips
+  the choice" is gone. A repo grep finds that wording nowhere else, except in this file's own record of CR-1.
+- **The write inventory.** The sentence now ends "or that test fails; it is an integration test (`RequiresDocker`)…". Anchors:
+  - `WorkItemWriteInventoryTests.cs:19` carries the trait;
+  - when Docker is down, `verify.sh:682-697` drops the `*IntegrationTests` projects (`:685`) and runs the rest with
+    `Category!=RequiresDocker`.
+- **The reference inventory.** "`WorkItemReferenceInventoryTests` fails the build" stands. The test has no trait and uses the
+  design-time `MustaskDbContextFactory` (`:231`).
+- **Nothing nearby broke.**
+  - CR-4 widened `WritePatterns` with the bulk-write and tracked-remove shapes. No real source trips them (the run above).
+  - CR-5's shared `InRemovedCategory` predicate leaves the parity tests green.
+  - ADR-0030:76-79 agrees with the new sentence.
+
+### Finding
+
+**CR-6 · minor · docs** — two overstatements are left next to CR-1.
+- **(a) The raw-read sentence.** `docs/conventions/backend.md:280-282` says a raw-SQL read of `work_items` "filters by the
+  shown states or by id itself". Four raw reads do neither, by design: they read in any state, by a reference key.
+  - `WorkItemRepository.cs:219` (the purge lock, `parent_id = {id}`);
+  - `:291-296` (`SubtreeHeightAsync`, joined by `parent_id`);
+  - `WorkItemTeamOwnership.cs:19` (the release lock, `owning_team_id`).
+
+  `plan-backend.md:191` says the same of the subtree read. Nothing misleads a reviewer, because the same sentence orders a
+  check by hand. **Fix:** "…it filters by the shown states, or reads in any state by id or by a reference (parent, owning
+  team) as the locks and clean-ups do".
+- **(b) The repository comment.** `WorkItemRepository.cs:239` says "The context's set is named in WorkItemSets alone".
+  `backend.md:277` now names the memberships too. **Fix:** "…in WorkItemSets and the two backlog memberships alone".
+
+### Still open, for the human (none blocks)
+
+- **H-1 / QA D-2.** An unknown deleter shows no «(неактивен)». Option A (keep) is taken.
+- **S-1.** The purge log names the deleter and the deletion's time. Option A is taken; the human confirms it.
+- **H-2: E2E, standing NO; nothing was run or edited.** Two specs break:
+  - `27-work-item-card.spec.ts` 27.5;
+  - `27-organization-members.spec.ts` 27.9 (`MEMBER_CODES` and `ADMIN_CODES`).
+
+  The premise comments in 22-27 are stale.
+- **BR-DR-9.** `Unlink_ReassignsADeletedItemToo_StillDeleted` is owed by whichever of mod-005 and feat-028 merges second.
+- **CR-6** is a minor debt. It fits a docs-only line, or a fold-in when either file is next touched.
+
+### Behavioural claims pass (delta)
+
+- **Direction 1, the prose the CR-1 fix adds.** Every claim is anchored above, except the one CR-6 (a) records:
+  - backend.md:277-279 → grep + `DeletedStateParityTests.cs:155,189`;
+  - :279-280 → `WorkItemAccessRules.cs:20-22`;
+  - :280-282 → **CR-6 (a)**;
+  - :289-293 → `WorkItemWriteInventoryTests.cs:19` and `verify.sh:682-697`.
+- **Direction 2.** The fix changes no behaviour. The rule CR-4 widened was grepped as `ExecuteUpdate`, `Remove` and "writers
+  of": the hits are ADR-0030:79 (now anchored by `WorkItemAccessRules.cs` `WritePatterns`) and `WorkItemAccessRules.cs:12-15`
+  (consistent). The grep for "named in WorkItemSets" found **CR-6 (b)**.
+- **Not swept (outside this read's charge).** The prose of the other fixes: CR-2, CR-3, CR-5, QA D-1 (api-contract
+  § 0.2, § 0.4, § 2.2) and S-1 (BR-DR-15, US-6, api-contract § 2.3). Their tests were not run here. The S-1
+  handler diff was glanced at: it logs subject ids and a time, with no title, content or name.
