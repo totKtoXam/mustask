@@ -11,7 +11,8 @@ namespace Mustask.Infrastructure.WorkItems;
 /// counts a set of items starts from one of them, so it states its intent by name:
 /// <list type="bullet">
 /// <item><see cref="Live"/> is the default: lists, pickers, children, checklists, counts, queries.</item>
-/// <item><see cref="Deleted"/> is for a filter that names «Удалена» (feat-003); this line has no caller.</item>
+/// <item><see cref="Deleted"/> is for a filter that names «Удалена» (feat-003): the list reaches it through
+/// <see cref="Listing"/>, the «Исполнитель» options through its own read.</item>
 /// <item><see cref="InAnyState"/> is for the card by address, a live child's stored parent, a team's owned count, Restore,
 /// Purge, the clean-ups and the locks.</item>
 /// </list>
@@ -50,5 +51,18 @@ internal static class WorkItemSets
         var removed = RemovedStateIds(context);
 
         return context.WorkItems.Where(item => removed.Contains(item.StateId));
+    }
+
+    /// <summary>
+    /// The project's items a filtered list can reach (feat-003 BR-WS-4): the <see cref="Live"/> ones, and — when the filter names
+    /// states (<paramref name="statesChosen"/>) — the <see cref="Deleted"/> ones beside them, each restricted to the project, in one
+    /// <c>UNION ALL</c>. The predicate then narrows by the state's name, so a deleted item is listed only when a chosen name is its
+    /// own state's; "deleted" is spelled here and nowhere else. No filter on states: the live items alone, as mod-005 BR-DR-6 has it.
+    /// </summary>
+    public static IQueryable<WorkItem> Listing(MustaskDbContext context, Guid projectId, bool statesChosen)
+    {
+        var live = Live(context).Where(item => item.ProjectId == projectId);
+
+        return statesChosen ? live.Concat(Deleted(context).Where(item => item.ProjectId == projectId)) : live;
     }
 }

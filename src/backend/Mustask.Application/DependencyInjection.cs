@@ -62,6 +62,7 @@ using Mustask.Application.Features.UserDirectory.CompleteSnapshot;
 using Mustask.Application.Features.WorkItems.CreateWorkItem;
 using Mustask.Application.Features.WorkItems.DeleteWorkItem;
 using Mustask.Application.Features.WorkItems.GetAssigneeCandidates;
+using Mustask.Application.Features.WorkItems.GetAssigneeOptions;
 using Mustask.Application.Features.WorkItems.GetParentCandidates;
 using Mustask.Application.Features.WorkItems.GetWorkItem;
 using Mustask.Application.Features.WorkItems.GetWorkItems;
@@ -153,6 +154,7 @@ public static class DependencyInjection
         services.AddScoped<GetWorkItemHandler>();
         services.AddScoped<SaveWorkItemHandler>();
         services.AddScoped<GetAssigneeCandidatesHandler>();
+        services.AddScoped<GetAssigneeOptionsHandler>();
 
         // Work item links (feat-001): the parent write and the «Родитель» picker, routes of WorkItemEndpoints.cs too.
         services.AddScoped<SetWorkItemParentHandler>();

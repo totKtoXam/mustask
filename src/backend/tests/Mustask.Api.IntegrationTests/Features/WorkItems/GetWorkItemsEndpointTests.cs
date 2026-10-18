@@ -60,6 +60,12 @@ public sealed class GetWorkItemsEndpointTests(MustaskApiFactory factory)
 
         // mod-016 BR-M1-26 (api-contract § 3.3): the assignee is a member of the item's organization.
         Assert.True(row.GetProperty("assignee").GetProperty("isMember").GetBoolean());
+
+        // feat-003 OQ-2 A (api-contract § 1.1): the row's assignee carries the directory's active flag beside the membership's.
+        Assert.True(row.GetProperty("assignee").GetProperty("isActive").GetBoolean());
+        Assert.Equal(
+            ["displayName", "email", "id", "isActive", "isMember"],
+            row.GetProperty("assignee").EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal));
         Assert.Equal(("Активна", "InProgress"), (
             row.GetProperty("state").GetProperty("name").GetString(),
             row.GetProperty("state").GetProperty("category").GetProperty("code").GetString()));
@@ -197,6 +203,9 @@ public sealed class GetWorkItemsEndpointTests(MustaskApiFactory factory)
 
         // mod-016: the flag reads the membership alone — a member the projection does not know is still a member.
         Assert.True(row.GetProperty("assignee").GetProperty("isMember").GetBoolean());
+
+        // feat-003 OQ-2 A: an id the directory does not know is not active (the panel adds «(неактивен)» to a named user only).
+        Assert.False(row.GetProperty("assignee").GetProperty("isActive").GetBoolean());
     }
 
     // US-2 · "A large project stays usable" (NFR Volumes): with 5 000 items the first page and a later one each answer

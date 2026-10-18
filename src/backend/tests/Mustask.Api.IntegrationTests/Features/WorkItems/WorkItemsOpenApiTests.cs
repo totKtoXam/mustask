@@ -22,6 +22,7 @@ public sealed class WorkItemsOpenApiTests(MustaskApiFactory factory)
         "GET /api/organizations/{organizationId}/projects/{projectId}/workitems/{identifier}",
         "PATCH /api/organizations/{organizationId}/projects/{projectId}/workitems/{identifier}",
         "GET /api/organizations/{organizationId}/workitems/assignee-candidates",
+        "GET /api/organizations/{organizationId}/projects/{projectId}/workitems/assignee-options",
         "PUT /api/organizations/{organizationId}/projects/{projectId}/workitems/{identifier}/parent",
         "GET /api/organizations/{organizationId}/projects/{projectId}/workitems/{identifier}/parent-candidates",
         "POST /api/organizations/{organizationId}/projects/{projectId}/workitems/{identifier}/delete",
