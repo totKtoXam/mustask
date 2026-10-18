@@ -3,15 +3,15 @@
 - type: feature
 - size: L
 - branch: feat/040-team-surfaces-across-projects
-- stage: gate-1+gate-2
+- stage: 04-backend
 - epic: core/backlogs-boards
 - deps: feat-028
 - gates: gate-1, gate-2, gate-3
 
 ## Gates
 
-gate-1: pending
-gate-2: pending
+gate-1: approved (2026-10-18, human in chat, one question per open question: OQ-1..OQ-3 A; OQ-3 A queues the 2 000 drawing bound as its own M line)
+gate-2: approved (2026-10-18, human in chat, one question per design decision: D-1..D-7 A)
 gate-3: pending
 
 ## Plan
@@ -58,10 +58,14 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
   reads doc-013 OQ-3 A as dropping it.
 - mod-017 OQ-3 A: «Проект» on rows and cards comes with this line, on every
   team and project view, as doc-012 US-7 reads (BR-TS-3).
-- Design (2026-10-18): D-1..D-7 of `design.md` § 15 are open for the package,
+- Design (2026-10-18): D-1..D-7 of `design.md` § 15 went to the package,
   each with a recommended option A; the design stands on A. The prototype
-  follows the stage file's rule for an L. No code before the human's answers
-  to OQ-1..OQ-3 and D-1..D-7.
+  follows the stage file's rule for an L.
+- Gate-1 + gate-2 (the human in chat, 2026-10-18, one question each): OQ-1..OQ-3
+  A and D-1..D-7 A; spec and design stand as written. OQ-3 A: the 2 000
+  rows-or-cards drawing bound leaves this line for its own M queue line
+  (`feat-NNN-large-view-drawing-bound`), added by the orchestrator's queue PR;
+  this line keeps the 2 s read.
 
 ## Log
 
@@ -71,6 +75,7 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-18 [requirements-reviewer] the one round of the light route: approved-by-ai, R-1, R-2 major and R-3..R-12 minor, all fixed in place in spec.md and US-1, -2, -3, -5, -6 (review.md); OQ-1..OQ-3 go to the human with the gate package.
 - 2026-10-18 [business-analyst] fix round: R-1..R-12 all stand; R-1, R-3, R-7 worded tighter; A-1 major (tests and clauses R-2 missed) and A-2 minor (today's fallback notice kept) fixed in spec.md and US-6 (review.md). OQ-1..OQ-3 unchanged, none added.
 - 2026-10-18 [ux-designer] design.md (32.3 KB) + prototype/index.html; D-1..D-7 open, each with a recommended A. Package for the human: OQ-1..OQ-3, D-1..D-7; stage gate-1+gate-2. No gate set.
+- 2026-10-18 [orchestrator] the human answered in chat, one question per open question and per design decision: OQ-1..OQ-3 A, D-1..D-7 A. gate-1 and gate-2 approved; stage → 04-backend. OQ-3 A's line is queued by the orchestrator's queue PR.
 
 ## Notes
 
