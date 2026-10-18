@@ -2,14 +2,14 @@
 
 - story: US-10
 - depends-on: US-1, US-2, US-3, US-4, US-5, US-6, US-7, US-8, US-9, US-12
-- shippable: no — an analysis story; `feat-043-area-project-team-navigation`, the last line, delivers it over the links, views, grants, visibility and sprints of US-3 to US-9 and US-12
+- shippable: no — an analysis story; `feat-043-area-project-team-navigation` delivers it right after `mod-018-area-workspace` (doc-013), over the links and views of US-1 to US-4 and US-7; its grant, visibility, area-view and sprint clauses are owed by `mod-019-scoped-access`, `feat-041-project-visibility`, `feat-042-area-board-and-overview` and `mod-007-iterations`
 - status: pending
 
 As an **organization member**, I want **to reach each area, project and team of my organization from the main navigation and the context switcher, each on a page of its own**, so that **I find work by the object it belongs to, am never led through a hierarchy the model does not have, and keep my place as I move**.
 
 ## Acceptance criteria
 
-The filters of the views and how they are remembered are US-11's.
+The filters of the views and how they are remembered are US-11's. A section whose content a later line brings is absent until that line adds it to the page, and a clause that needs a grant, a visibility other than «Организация», an area view or a sprint is owed by that line, which re-runs it (doc-013).
 
 ```gherkin
 Background:
@@ -17,22 +17,23 @@ Background:
   And MARS is linked to A, B and C, and VENUS to A; «Логистика» is linked to A, B, MARS and VENUS, and «Склад» to A and C; D and JUPITER have no link
   And Olga is an organization «Участник» who belongs to VENUS and holds no grant
   And Pavel is an organization «Участник» who holds «Управление» on project B and on team VENUS only
-  And Irina is an organization «Участник» who holds «Чтение» on «Логистика» only
+  And Irina is an organization «Участник» who holds «Чтение» on «Логистика» only; Pavel's and Irina's grants come with `mod-019-scoped-access`, and each clause that reads them is marked owed by it, while the rest of its scenario runs from `feat-043-area-project-team-navigation` on (doc-013)
 
 Scenario: The main navigation names areas, projects and teams as separate entries (BR-MX-27; brief § 11.1)
   When Olga opens «Ромашка»
   Then the main navigation shows «Обзор», «Рабочие элементы», «Области», «Проекты», «Команды», «Участники» and «Настройки», in this order, none of them waiting for an object to be chosen in the switcher
-  And «Канбан» and «Бэклоги» are no longer entries: a board and a backlog are sections of an area's, a project's or a team's page
+  And «Канбан» and «Бэклоги» are no longer entries: a board and a backlog are sections of an area's (from `feat-042-area-board-and-overview` on), a project's or a team's page
 
 Scenario: An entry or a section whose page the user may not open is not shown (BR-MX-23, BR-MX-24; ADR-0024 § 1)
   Given the effective permissions served for Olga lack the code the «Участники» page needs
   When she looks at the main navigation
   Then «Участники» is absent, nothing is shown disabled, and the other entries keep their order
-  And opening the «Участники» page by its address shows «Доступ ограничен»; the same holds for every section of an object's page
+  And opening the «Участники» page by its address shows «Доступ ограничен»; the same holds for every section of an object's page, by the object's own codes from `mod-019-scoped-access` on
 
 Scenario: Each object appears once in its list, whatever its links (BR-MX-2, BR-MX-16, BR-MX-21; SC-03, SC-06, SC-07, SC-08; brief § 11.6.2)
   When Olga opens «Обзор», «Проекты», «Области» and «Команды» in turn
-  Then «Обзор» shows her team VENUS first, then the numbers of areas, projects and teams she may see (3, 4 and 3), each opening its list
+  Then «Обзор», the organization's home page, lists her active organizations by name beside its content (feat-045, folded in by doc-013), shows her team VENUS first, then the numbers of areas, projects and teams she may see (3, 4 and 3), each opening its list, and then the top-level areas, the projects and the teams, each list by name and each row opening its object's page
+  And in an organization of 1 000 areas, 200 projects and 200 teams, each of those three lists on «Обзор» shows only its first rows, as many as `feat-043-area-project-team-navigation`'s design sets, and ends with a link to its full list («Области», «Проекты» or «Команды»); child areas are on «Области» and on each area's page
   And «Проекты» lists A, B, C and D once each, D with no link included, and «Команды» lists MARS, VENUS and JUPITER once each
   And «Области» shows «Логистика» with «Склад» and «Транспорт» beneath it, each area once
   And no list puts a project inside an area or a team inside a project, and every row opens its object's page
@@ -44,16 +45,16 @@ Scenario: The organization's settings hold only what is the organization's (repl
 
 Scenario: An area's page (brief § 11.2; SC-03, SC-08)
   When Olga opens «Логистика»
-  Then its sections are «Обзор», «Канбан», «Бэклог», «Проекты», «Команды» and «Участники»; «Настройки» is added only for a holder of «Управление» on the area
+  Then its sections are «Обзор», «Проекты» and «Команды»; «Канбан» and «Бэклог» are added by `feat-042-area-board-and-overview` and «Участники» by `mod-019-scoped-access` (owed), each in its place in the order «Обзор», «Канбан», «Бэклог», «Проекты», «Команды», «Участники»; «Настройки» is added only for a holder of «Управление» on the area
   And until `feat-044-area-analytics` there is no analytics section: the area's figures are those of its «Обзор» (US-8)
-  And «Обзор» shows the child areas «Склад» and «Транспорт» and counts 3 projects (A, B and C, as «Включая дочерние области» is on), 2 teams and 1 participant (US-8)
-  And «Проекты» lists A and B, its own links, and not C, which «Склад»'s «Проекты» lists and «Логистика»'s «Обзор» counts; «Команды» lists MARS and VENUS; «Участники» lists Irina, direct, and «Склад»'s lists her, inherited (US-5)
+  And «Обзор» shows the child areas «Склад» and «Транспорт» and (owed by `feat-042-area-board-and-overview`) counts 3 projects (A, B and C, as «Включая дочерние области» is on), 2 teams and 1 participant (US-8)
+  And «Проекты» lists A and B, its own links, and not C, which «Склад»'s «Проекты» lists and (owed by `feat-042-area-board-and-overview`) «Логистика»'s «Обзор» counts; «Команды» lists MARS and VENUS; and (owed by `mod-019-scoped-access`) «Участники» lists Irina, direct, and «Склад»'s lists her, inherited (US-5)
   And «Склад»'s «Обзор» shows «Логистика» as its parent, and every area, project and team shown opens its own page
 
 Scenario: A project's page (brief § 11.3; SC-02, SC-06; BR-MX-11)
   When Olga opens project A
-  Then its sections are «Общие», «Рабочие элементы», «Канбан», «Бэклог», «Команды», «Спринты» and «Участники и доступ»; «Настройки» is added only for a holder of «Управление» on A
-  And there is no releases or milestones section (spec § Out of scope), and «Спринты» is the read-only list of the Closed sprints that recorded A's items (US-12)
+  Then its sections are «Общие», «Рабочие элементы», «Канбан», «Бэклог» and «Команды»; «Спринты» is added by `mod-007-iterations` and «Участники и доступ» by `mod-019-scoped-access` (owed), each in its place in the order «Общие», «Рабочие элементы», «Канбан», «Бэклог», «Команды», «Спринты», «Участники и доступ»; «Настройки» is added only for a holder of «Управление» on A
+  And there is no releases or milestones section (spec § Out of scope), and (owed by `mod-007-iterations`) «Спринты» is the read-only list of the Closed sprints that recorded A's items (US-12)
   And «Общие» shows A's areas «Логистика» and «Логистика / Склад», and «Команды» shows every team linked to A, MARS and VENUS, each opening its own page
   And B's «Команды» shows MARS marked «По умолчанию: единственная команда», as B's only linked team, and a team that a project's settings name is marked «По умолчанию»
 
@@ -71,11 +72,11 @@ Scenario: A project with no team or area has its whole page (BR-MX-2; SC-07; bri
 
 Scenario: A team's page spans its projects (brief § 11.4; SC-01, SC-05)
   When Olga opens MARS
-  Then its sections are «Обзор», «Канбан», «Бэклог», «Спринты», «Проекты» and «Участники и доступ»; «Настройки» is added only for a holder of «Управление» on MARS
+  Then its sections are «Обзор», «Канбан», «Бэклог», «Проекты» and «Участники и доступ»; «Спринты» is added by `mod-007-iterations` (owed), in its place in the order «Обзор», «Канбан», «Бэклог», «Спринты», «Проекты», «Участники и доступ»; «Настройки» is added only for a holder of «Управление» on MARS
   And there is no capacity or analytics section (spec § Out of scope)
-  And «Проекты» lists A, B and C, «Обзор» shows its area «Логистика», each opening its own page, and «Спринты» is the team's sprint list and sprint board (US-9, US-12)
+  And «Проекты» lists A, B and C, «Обзор» shows its area «Логистика», each opening its own page, and (owed by `mod-007-iterations`) «Спринты» is the team's sprint list and sprint board (US-9, US-12)
   And MARS is one page, the same whether it is reached from A, B, C or «Логистика»
-  And VENUS's «Участники и доступ» lists Olga as a member, who gets no role from it, apart from the grants on VENUS: Pavel's «Управление»
+  And VENUS's «Участники и доступ» lists Olga as a member, who gets no role from it, and (owed by `mod-019-scoped-access`) lists the grants on VENUS apart from the members: Pavel's «Управление»
 
 Scenario: A project linked to a team shows up on the team's surfaces (BR-MX-5, BR-MX-17; brief § 11.4)
   When an organization admin links D to VENUS from VENUS's «Проекты»
@@ -83,13 +84,18 @@ Scenario: A project linked to a team shows up on the team's surfaces (BR-MX-5, B
   And VENUS's «Канбан» and «Бэклог» offer D in their project filter, and an item of D that VENUS comes to own shows on them
 
 Scenario: Links are added through a searchable multiselect (BR-MX-5, BR-MX-6, BR-MX-27; brief §§ 11.6.5-6)
+  When an organization admin opens the command to add teams on B's «Команды»
+  Then the multiselect offers VENUS and JUPITER, and not MARS, which is linked already
+  And typing «ven» narrows it to VENUS; the admin confirms, and without a page reload VENUS is listed in B's «Команды», opening VENUS's page
+  And B's areas on «Общие», an area's projects and teams, and a team's projects and areas are added the same way, each multiselect leaving out what is linked already
+  And every linked row carries the unlink command (US-3) for the admin; Olga sees the rows and no command
+
+Scenario: The multiselect offers only what the user may link (BR-MX-5, BR-MX-6, BR-MX-23; owed by `mod-019-scoped-access`)
   When Pavel opens the command to add teams on B's «Команды»
   Then the multiselect offers VENUS only: not MARS, which is linked already, nor JUPITER, on which he holds no «Управление»
-  And typing «ven» narrows it to VENUS; he confirms, and without a page reload VENUS is listed in B's «Команды», opening VENUS's page
-  And B's areas on «Общие», an area's projects and teams, and a team's projects and areas are added the same way
-  And a linked row carries the unlink command (US-3) for a holder of «Управление» on both ends of a project–team link, or on either end of an area link; Olga sees the rows and no command
+  And a linked row carries the unlink command (US-3) for a holder of «Управление» on both ends of a project–team link, or on either end of an area link, and for no one else
 
-Scenario: A project the user may not see is absent from every list (BR-MX-7, BR-MX-21; SC-05)
+Scenario: A project the user may not see is absent from every list (BR-MX-7, BR-MX-21; SC-05; owed by `feat-041-project-visibility`)
   Given C is «Ограниченный» and Olga holds no grant on C
   When Olga opens MARS's «Проекты», «Проекты», «Обзор», «Рабочие элементы» and the context switcher
   Then C appears in none of them, and each of them, rows, counts and pages, equals what Olga sees in a twin of «Ромашка» seeded without C
@@ -132,7 +138,7 @@ Scenario: The context is remembered per user in the browser, and an address sets
 
 Scenario: A remembered object that is gone or hidden falls back, with a notice (BR-MX-21, BR-MX-28)
   Given Olga's remembered context is «Ромашка» / C
-  When C is deactivated, or becomes «Ограниченный» with no grant of hers, and she reloads the panel
+  When C is deactivated, or (owed by `feat-041-project-visibility`) becomes «Ограниченный» with no grant of hers, and she reloads the panel
   Then the context becomes «Ромашка» alone and she sees «Ранее выбранный контекст недоступен. Выбрано: Ромашка.», the same notice in both cases
   And when she is no longer a member of «Ромашка», the context falls back to her first organization, with the same notice
 

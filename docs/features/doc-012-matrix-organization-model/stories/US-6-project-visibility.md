@@ -75,8 +75,8 @@ Scenario: The organization's project list (BR-MX-21)
   Then X is not listed, and the rows, the total and the pages match the twin
 
 Scenario: The context switcher (BR-MX-28)
-  When U opens the switcher at each of its levels
-  Then X is not offered, and every level matches the twin
+  When U opens the switcher, `feat-043-area-project-team-navigation`'s, which merges before this line (doc-013), and each of its groups
+  Then X is not offered, and every group matches the twin
   And when U's remembered context is Y and Y turns «Ограниченный», U's next load falls back as for a project that no longer exists, with the same notice
 
 Scenario: A team's and an area's project lists (BR-MX-7)
@@ -94,7 +94,7 @@ Scenario: Area views and their counts (owed by `feat-042-area-board-and-overview
   Then the first page holds Y's 50 stories, once each, there is no second page, and the totals match the twin (BR-MX-16)
 
 Scenario: The work item list and its total
-  When U opens «Рабочие элементы» for Y and (owed by `feat-043-area-project-team-navigation`) in the organization's «Рабочие элементы»
+  When U opens «Рабочие элементы» for Y and in the organization's «Рабочие элементы», which `feat-043-area-project-team-navigation` builds before this line (doc-013)
   Then no item of X is listed, and the rows, the total and the pages match the twin
 
 Scenario: Parent candidates and their «ещё» flag
