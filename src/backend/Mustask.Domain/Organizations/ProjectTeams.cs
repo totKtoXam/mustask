@@ -5,7 +5,9 @@ namespace Mustask.Domain.Organizations;
 /// <summary>
 /// A team as the rule about naming it reads it (feat-028 api-contract § 0.3): the facts of
 /// <c>IOrganizationStructure.FindProjectTeamAsync</c> — the team, and whether it is <b>linked to the project of the request</b>.
-/// A team of another organization never reaches this record: the structure answers <c>null</c> for it.
+/// A team of another organization never reaches this record: the structure answers <c>null</c> for it. A write that locks the link
+/// takes <see cref="IsLinked"/> from the statement that locked it, which returns the row it held, and not from the structure's read:
+/// a link committed after the lock reads linked there and is held by nobody (review-security S-1).
 /// </summary>
 public sealed record TeamFacts(Guid Id, Guid OrganizationId, TeamStatus Status, bool IsLinked);
 
@@ -51,9 +53,10 @@ public static class ProjectTeams
     }
 
     /// <summary>
-    /// The destination of an unlink (BR-OL-8), judged under the links' locks on a fresh read: an unknown, foreign or deleted
-    /// team is <see cref="OrganizationErrorCodes.TeamNotFound"/>; the unlinked team itself, or an active team that is not
-    /// linked to the project, is <see cref="OrganizationErrorCodes.TeamNotInProject"/>.
+    /// The destination of an unlink (BR-OL-8), judged under the links' locks: the team on a fresh read, its link by what the lock
+    /// statement returned (<see cref="TeamFacts.IsLinked"/>). An unknown, foreign or deleted team is
+    /// <see cref="OrganizationErrorCodes.TeamNotFound"/>; the unlinked team itself, or an active team that is not linked to the
+    /// project, is <see cref="OrganizationErrorCodes.TeamNotInProject"/>.
     /// </summary>
     public static void EnsureDestination(TeamFacts? destination, Guid unlinkedTeamId)
     {

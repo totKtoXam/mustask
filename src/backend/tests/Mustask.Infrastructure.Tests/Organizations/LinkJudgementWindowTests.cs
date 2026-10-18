@@ -35,6 +35,9 @@ namespace Mustask.Infrastructure.Tests.Organizations;
 /// <c>DELETE</c> waits for any transaction that bound an item or a setting to the link (a key share) and then fails with
 /// <c>23001</c> (RESTRICT) when the binder commits — an unmapped error, a 500. The unlink case below opens such a binder in the gap
 /// and commits it a second later; before the fix the unlink waited for it and failed, after it the unlink ends before the binder does.
+/// (Checked once by hand, when this class was written: the unlink's pre-fix body — the lock's answer ignored, "linked" read from the
+/// structure afterwards — written out against the same gap and binder fails with <c>23001</c> on
+/// <c>fk_work_items_project_teams_project_id_owning_team_id</c>, the error the race test's 500s carried.)
 /// </remarks>
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]

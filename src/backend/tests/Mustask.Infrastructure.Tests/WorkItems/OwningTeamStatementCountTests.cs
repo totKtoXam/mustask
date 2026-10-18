@@ -241,8 +241,8 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
     }
 
     // A child beneath a story: the links' lock — here the project names no default, so every link of the project is locked
-    // FOR SHARE in one statement (2 teams or 50: one) and the default is read once under that lock (feat-028 plan-backend § 7.4) —
-    // the number, the parent and its ancestry, the insert and the answer.
+    // FOR SHARE in one statement (2 teams or 50: one, returning the teams it holds) and the default is read once over those links
+    // (feat-028 plan-backend § 7.4, A-9) — the number, the parent and its ancestry, the insert and the answer.
     [Fact]
     public async Task ChildCreation_TheSameNumberOfStatements_For50AsFor5000Items()
     {
