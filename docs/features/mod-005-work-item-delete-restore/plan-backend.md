@@ -835,6 +835,9 @@ passed as written: the merge changed no path's statements, and moving the settin
 deletion 11 → 13 in `OwningTeamStatementCountTests` (the deletion of 2 projects and 50 items, equal to the deletion of 50 projects and 5 000 — the lock is
 set-based). The purge stays 13 (`LockHierarchyAsync` is the same two statements through the shared helper), the rest as before.
 
+Runs after QD-1: the race classes (49 of this line, 17 of the merge QA) 10 times, 66 of 66 each; `BASE=03d6c4b6 bash scripts/verify.sh` (the change set of the fix) **RESULT green**: Shared 53, Architecture 86,
+Contracts 248, Application 779, Domain 733, Infrastructure 414, Api integration 2 858 passed and 17 skipped (the live-Keycloak switches), docs checks pass.
+
 ### 14.5 Tests added or changed by the merge
 
 - `DeletedItemViewsEndpointTests.Unlink_ReassignsADeletedItemToo_StillDeleted` (BR-DR-9, the name this plan reserved), a theory over a destination team and
