@@ -29,6 +29,7 @@ The light route (the human's choice of 2026-10-18): analysis → one requirement
 
 ## Log
 
+- 2026-10-18 [task-executor] `BASE=origin/main bash scripts/verify.sh` at e6b04126: RESULT green (backend 2858 integration + 2313 other passed, 17 skipped by live-Keycloak switches; frontend 2269 affected in 165 files + 590 guards; docs checks pass)
 - 2026-10-18 [task-executor] left open, none blocks: DR2-1 (no pin tells InAnyState from Live), DR2-2 (a)(c), DR2-4, DR2-5 (docs and contract prose), CR-6, H-1/D-2, S-1; for gate-3: ADR-0028 rule 8 amendment (project row, hierarchy tier); E2E 27.5, 27.9, :135 and feat-028's list break, not run (NO)
 - 2026-10-18 [code-reviewer] fix re-check of 07a6d87f (reader commit ddfeb512): approve; QD-1 closed, no new lock cycle; DR2-2 (b), DR2-3 closed; new minors DR2-4 (stale plan prose), DR2-5 (LockHierarchiesAsync missing from contract § 7); the "Carried" deadlock is QD-1, no bug line owed
 - 2026-10-18 [backend-developer] QD-1 fixed (merge QA, major): unlink and team deletion take the project hierarchy lock before the owned items; race theory pins 4 variants; statements 11 -> 13; no contract change; verify.sh green; plan-backend § 14.3
