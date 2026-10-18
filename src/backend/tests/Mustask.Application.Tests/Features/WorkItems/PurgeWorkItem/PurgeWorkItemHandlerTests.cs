@@ -254,6 +254,25 @@ public sealed class PurgeWorkItemHandlerTests
         Assert.True(_world.Calls.IndexOf("commit") < _world.Calls.FindIndex(call => call.StartsWith("log:", StringComparison.Ordinal)));
     }
 
+    // Security review S-1 · BR-DR-15: the purge takes the deletion's marks with the row, so the one log line carries the deleter's
+    // subject and the deletion's time (the item's marks read under the lock), next to the purging administrator's.
+    [Fact]
+    public async Task Handle_TheLogLineNamesTheDeleterAndTheDeletionTime_NotOnlyThePurger()
+    {
+        var item = _world.DeletedStory();
+        var (handler, repository, readModel, logger) = Build();
+        repository.Locked = item;
+        readModel.Head = new WorkItemHead(item.Id, item.TypeId, item.StateId);
+
+        await handler.Handle(Command(), CancellationToken.None);
+
+        var line = Assert.Single(logger.Messages);
+        Assert.Contains("purged by admin-sub", line, StringComparison.Ordinal);
+        Assert.Contains("deleted by deleter-sub", line, StringComparison.Ordinal);
+        Assert.Contains(item.DeletedAt!.Value.ToString("O"), line, StringComparison.Ordinal);
+        Assert.DoesNotContain(item.Title, line, StringComparison.Ordinal);
+    }
+
     // Common: the address is resolved from the outside in before anything is read of the item.
     [Fact]
     public async Task Handle_UnknownProjectMalformedIdentifierOrAnotherProjectsKey_Is404_BeforeTheItemIsRead()

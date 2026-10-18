@@ -319,6 +319,48 @@ public sealed class PurgeWorkItemEndpointTests(MustaskApiFactory factory)
         Assert.Equal(0, await RowsAsync(story.Id));
     }
 
+    // Security review S-1 · BR-DR-15: a purge removes the only record of who deleted the item, so the one line names the deleter (here
+    // a member, not the purging administrator) and the deletion's time as the card showed them before the purge.
+    [Fact]
+    public async Task Purge_TheLogLineNamesWhoDeletedTheItemAndWhen_NotOnlyWhoPurged()
+    {
+        var world = await BoardsTestData.CreateWorldAsync(factory);
+        var story = await BoardsTestData.CreateAsync(factory, world, "US", "На удаление", world.PlatformAreaId);
+        var deleter = await MembershipTestData.NewMemberAsync(factory, world.OrganizationId, OrganizationRole.Member);
+        var deleted = await OrganizationsApi.SendAsync(factory, HttpMethod.Post, $"{WorkItemsTestData.Item(world.Items, story.Identifier)}/delete", token: deleter.Token);
+        Assert.Equal(HttpStatusCode.OK, deleted.Status);
+        var deletedAt = deleted.Body.GetProperty("deletion").GetProperty("at").GetDateTimeOffset();
+        var logs = new CapturingLoggerProvider();
+        await using var host = HostWith(logs);
+
+        var answer = await PurgeAsync(world.Items, story.Identifier, host: host);
+
+        Assert.Equal(HttpStatusCode.NoContent, answer.Status);
+        var line = Assert.Single(logs.Entries, entry => entry.Category == typeof(Mustask.Application.Features.WorkItems.PurgeWorkItem.PurgeWorkItemHandler).FullName);
+        Assert.Contains(OrganizationsTestData.Creator, line.Message, StringComparison.Ordinal);
+        Assert.Contains(deleter.Id, line.Message, StringComparison.Ordinal);
+        Assert.Contains($"{deletedAt.ToUniversalTime():O}", line.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("На удаление", line.Message, StringComparison.Ordinal);
+    }
+
+    // The same line for an item in «Удалена» with no marks (BR-DR-10): there is nobody to name, the purge goes through and logs once.
+    [Fact]
+    public async Task Purge_AnItemWithNoMarks_Is204_AndLogsOneLine()
+    {
+        var world = await BoardsTestData.CreateWorldAsync(factory);
+        var story = await BoardsTestData.CreateAsync(factory, world, "US", "Без отметок", world.PlatformAreaId);
+        await LinksTestData.PutInRemovedWithNoMarksAsync(factory, world.Items, story);
+        var logs = new CapturingLoggerProvider();
+        await using var host = HostWith(logs);
+
+        var answer = await PurgeAsync(world.Items, story.Identifier, host: host);
+
+        Assert.Equal(HttpStatusCode.NoContent, answer.Status);
+        var line = Assert.Single(logs.Entries, entry => entry.Category == typeof(Mustask.Application.Features.WorkItems.PurgeWorkItem.PurgeWorkItemHandler).FullName);
+        Assert.Contains(story.Identifier, line.Message, StringComparison.Ordinal);
+        Assert.Equal(0, await RowsAsync(story.Id));
+    }
+
     /// <summary>The recorder every <see cref="RecordingStep"/> of a test writes to, shared by the host's scopes.</summary>
     public sealed class StepRecorder
     {

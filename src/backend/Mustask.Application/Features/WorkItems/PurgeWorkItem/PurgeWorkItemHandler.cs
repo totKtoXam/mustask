@@ -35,8 +35,8 @@ namespace Mustask.Application.Features.WorkItems.PurgeWorkItem;
 /// (before the delete: the place's SQL-only owner key onto the item is checked at the end of a statement, as for a change of
 /// owner); then one set-based <c>UPDATE</c> clears the children's link; then the item itself, and its project place with it by the
 /// cascading key. Nothing of the item is kept: no tombstone, no copy; the project's number counter is never decremented, so the
-/// number is not issued again. After the commit — never inside — one structured log line says who purged what (no title, no
-/// content): a rolled-back purge logs nothing.
+/// number is not issued again. After the commit — never inside — one structured log line says who purged what, and who deleted
+/// it and when (the marks go with the row; no title, no content): a rolled-back purge logs nothing.
 /// </para>
 /// </remarks>
 public sealed class PurgeWorkItemHandler(
@@ -84,7 +84,7 @@ public sealed class PurgeWorkItemHandler(
         }
 
         // 4. The purge, in one transaction.
-        _ = await unitOfWork.ExecuteInTransactionAsync(
+        var deletion = await unitOfWork.ExecuteInTransactionAsync(
             async ct =>
             {
                 // 4a. The hierarchy, as every link-changing write takes it (ADR-0028 rule 8 step 5).
@@ -112,19 +112,28 @@ public sealed class PurgeWorkItemHandler(
                 await teamPlaces.DropForItemAsync(item.Id, ct);
                 await workItems.ReleaseChildrenAsync(address.ProjectId, item.Id, now, ct);
 
+                // The deletion's marks, read under the lock before the row goes: the purge removes the only record of them.
+                var marks = new DeletionMarks(item.DeletedBy, item.DeletedAt);
+
                 workItems.Remove(item);
                 await workItems.SaveAsync(ct);
 
-                return true;
+                return marks;
             },
             cancellationToken);
 
-        // 5. The whole trace (BR-DR-15): after the commit, and never the title or any content.
+        // 5. The whole trace (BR-DR-15, security review S-1): after the commit, and never the title or any content. It names the
+        // deleter and the deletion's time as well, because the purge takes the marks with the row.
         logger.LogInformation(
-            "Work item {Identifier} purged by {UserId} in project {ProjectId} of organization {OrganizationId}.",
+            "Work item {Identifier} purged by {UserId} in project {ProjectId} of organization {OrganizationId}, deleted by {DeletedBy} at {DeletedAt:O}.",
             identifier,
             currentUser.SubjectId,
             address.ProjectId,
-            address.OrganizationId);
+            address.OrganizationId,
+            deletion.By,
+            deletion.At);
     }
+
+    /// <summary>Who deleted the item and when, as the row held them under the purge's lock; both are <c>null</c> for an item with no marks.</summary>
+    private sealed record DeletionMarks(string? By, DateTimeOffset? At);
 }

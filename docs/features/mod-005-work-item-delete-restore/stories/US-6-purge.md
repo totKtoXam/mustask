@@ -83,7 +83,7 @@ Scenario: Other users' open views meet the purge as an unknown item
 Scenario: A purge leaves no trace of the item
   When Ann purges MSK-BUG-7
   Then nothing in the product names it or its title: no tombstone, no copy
-  And one log line records the user, the organization, the project and the identifier MSK-BUG-7, and not its title or content
+  And one log line records the user, the organization, the project and the identifier MSK-BUG-7, and who deleted it and when, and not its title or content
   And the purge is not attributed in the product (no audit log before release 2)
 
 Scenario: A big purge is quick
