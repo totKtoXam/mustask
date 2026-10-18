@@ -6,6 +6,7 @@ using Mustask.Application.Features.WorkItems.GetAssigneeCandidates;
 using Mustask.Application.Features.WorkItems.GetParentCandidates;
 using Mustask.Application.Features.WorkItems.GetWorkItem;
 using Mustask.Application.Features.WorkItems.GetWorkItems;
+using Mustask.Application.Features.WorkItems.PurgeWorkItem;
 using Mustask.Application.Features.WorkItems.RestoreWorkItem;
 using Mustask.Application.Features.WorkItems.SaveWorkItem;
 using Mustask.Application.Features.WorkItems.SetWorkItemParent;
@@ -100,6 +101,16 @@ public static class WorkItemEndpoints
         workItems.MapPost("/{identifier}/restore", RestoreWorkItemAsync)
             .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemDelete)
             .Produces<WorkItemView>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        // mod-005 § 2.3. Purge: removes a deleted item for good, in one transaction. The organization administrator's code
+        // alone; 204, and nothing of the item is kept. No body.
+        workItems.MapPost("/{identifier}/purge", PurgeWorkItemAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemPurge)
+            .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -236,6 +247,14 @@ public static class WorkItemEndpoints
     private static async Task<IResult> DeleteWorkItemAsync(
         string organizationId, string projectId, string identifier, DeleteWorkItemHandler handler, CancellationToken cancellationToken) =>
         Results.Ok((await handler.Handle(new DeleteWorkItemCommand(organizationId, projectId, identifier), cancellationToken)).Item);
+
+    private static async Task<IResult> PurgeWorkItemAsync(
+        string organizationId, string projectId, string identifier, PurgeWorkItemHandler handler, CancellationToken cancellationToken)
+    {
+        await handler.Handle(new PurgeWorkItemCommand(organizationId, projectId, identifier), cancellationToken);
+
+        return Results.NoContent();
+    }
 
     // A missing body, `{}` and `"stateId": null` are one request: the held state (api-contract § 2.2).
     private static async Task<IResult> RestoreWorkItemAsync(

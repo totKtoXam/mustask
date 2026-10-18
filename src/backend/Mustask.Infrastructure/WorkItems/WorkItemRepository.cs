@@ -207,8 +207,39 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
             .Select(item => new HierarchyLink(item.Id, item.ParentId, item.TypeId, item.Number))
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<Guid>?> LockForPurgeAsync(Guid projectId, Guid workItemId, CancellationToken cancellationToken)
+    {
+        // The item and its direct children by id, in ONE statement: ORDER BY is applied before the locks are taken, so every
+        // caller that locks several items takes them in ascending id (ADR-0028 rule 8) and a purge and a team's deletion or unlink
+        // never deadlock. FOR NO KEY UPDATE is a parent write's link-end mode: a reorder's FOR KEY SHARE is never waited on.
+        var ids = await context.Database
+            .SqlQuery<Guid>(
+                $"""
+                 SELECT id AS "Value"
+                 FROM work_items
+                 WHERE project_id = {projectId} AND (id = {workItemId} OR parent_id = {workItemId})
+                 ORDER BY id
+                 FOR NO KEY UPDATE
+                 """)
+            .ToListAsync(cancellationToken);
+
+        return ids.Contains(workItemId) ? ids.Where(id => id != workItemId).ToList() : null;
+    }
+
+    public Task<WorkItem?> FindLockedAsync(Guid projectId, Guid workItemId, CancellationToken cancellationToken) =>
+        WorkItemSets.InAnyState(context).SingleOrDefaultAsync(item => item.Id == workItemId && item.ProjectId == projectId, cancellationToken);
+
+    public Task ReleaseChildrenAsync(Guid projectId, Guid workItemId, DateTimeOffset now, CancellationToken cancellationToken) =>
+        // One set-based statement for any number of children, in the caller's transaction. It writes a reference and "changed_at"
+        // alone — never the state or a mark of a deletion, which only the aggregate writes (WorkItemAccessRules).
+        context.Database.ExecuteSqlInterpolatedAsync(
+            $"UPDATE work_items SET parent_id = NULL, changed_at = {now} WHERE project_id = {projectId} AND parent_id = {workItemId}",
+            cancellationToken);
+
     // The context's set is named in WorkItemSets alone (the text rule of WorkItemAccessRules): a write goes through the context.
     public void Add(WorkItem item) => context.Add(item);
+
+    public void Remove(WorkItem item) => context.Remove(item);
 
     public async Task SaveAsync(CancellationToken cancellationToken)
     {

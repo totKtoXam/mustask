@@ -81,6 +81,7 @@ public static class OrganizationAddressedRoutes
         // `Memberships` takes the last ten rows of this list.
         new("POST", Item + "/delete", PermissionCatalog.WorkItemsWorkItemDelete),
         new("POST", Item + "/restore", PermissionCatalog.WorkItemsWorkItemDelete),
+        new("POST", Item + "/purge", PermissionCatalog.WorkItemsWorkItemPurge),
 
         // mod-006 api-contract § 5: a team's backlog, its reorder and its board (rows 35-37).
         new("GET", Team + "/backlogs/{level}", PermissionCatalog.WorkItemsWorkItemRead),

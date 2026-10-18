@@ -57,6 +57,7 @@ using Mustask.Application.Features.WorkItems.GetAssigneeCandidates;
 using Mustask.Application.Features.WorkItems.GetParentCandidates;
 using Mustask.Application.Features.WorkItems.GetWorkItem;
 using Mustask.Application.Features.WorkItems.GetWorkItems;
+using Mustask.Application.Features.WorkItems.PurgeWorkItem;
 using Mustask.Application.Features.WorkItems.RestoreWorkItem;
 using Mustask.Application.Features.WorkItems.SaveWorkItem;
 using Mustask.Application.Features.WorkItems.SetWorkItemParent;
@@ -143,6 +144,10 @@ public static class DependencyInjection
         // Delete and restore a work item (mod-005): routes of WorkItemEndpoints.cs too.
         services.AddScoped<DeleteWorkItemHandler>();
         services.AddScoped<RestoreWorkItemHandler>();
+
+        // The purge (mod-005 US-6): its handler collects the IWorkItemPurgeStep of every line that keeps data of its own
+        // (ADR-0030 rule 7); none is registered in this line, so the collection is empty.
+        services.AddScoped<PurgeWorkItemHandler>();
 
         // Boards and backlogs (mod-006): one handler per route of BoardEndpoints.cs.
         services.AddScoped<GetBacklogHandler>();

@@ -19,7 +19,7 @@ public static class OrganizationsApi
     public static string Teams(Guid organizationId, Guid projectId) => $"{Project(organizationId, projectId)}/teams";
 
     public static async Task<Answer> SendAsync(
-        MustaskApiFactory factory,
+        Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program> factory,
         HttpMethod method,
         string path,
         object? body = null,

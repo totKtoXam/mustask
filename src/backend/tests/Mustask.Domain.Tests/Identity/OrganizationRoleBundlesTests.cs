@@ -3,7 +3,7 @@ using Mustask.Domain.Identity;
 namespace Mustask.Domain.Tests.Identity;
 
 /// <summary>
-/// mod-016 US-2/US-4 · the bundles are the spec's permission matrix, as data (BR-M1-30, status.md D-8): for each of the 18
+/// mod-016 US-2/US-4 · the bundles are the spec's permission matrix, as data (BR-M1-30, status.md D-8): for each of the 19
 /// organization codes and each of the three roles, the expected yes or no. A new organization code with no row here
 /// fails <see cref="EveryOrganizationCode_HasARowInTheMatrix"/>: it must get its decision for every role.
 /// </summary>
@@ -29,6 +29,7 @@ public sealed class OrganizationRoleBundlesTests
         (PermissionCatalog.WorkItemsWorkItemWrite, true, true, false),
         (PermissionCatalog.WorkItemsLinkWrite, true, true, false),
         (PermissionCatalog.WorkItemsWorkItemDelete, true, true, false),
+        (PermissionCatalog.WorkItemsWorkItemPurge, true, false, false),
         (PermissionCatalog.BoardsBacklogReorder, true, true, false),
     ];
 

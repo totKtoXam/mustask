@@ -1,3 +1,5 @@
+using System.Reflection;
+using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Domain.WorkItems;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -8,15 +10,18 @@ namespace Mustask.Infrastructure.Tests.Conventions;
 /// mod-005 (ADR-0030 rule 7, BR-DR-16): data added later that is keyed to a work item must leave with its purge, and a line
 /// that adds it must meet a failing build instead of a convention. A model test over the real <see cref="MustaskDbContext"/>
 /// in the family of <see cref="CodeUniqueIndexModelTests"/> — it needs no database (every table is an EF entity, ADR-0009,
-/// so a new table cannot hide from the model). It enumerates every foreign key whose principal is <see cref="WorkItem"/> and
-/// every property named <c>WorkItemId</c>, or ending in it, that has no such key. Each must be exactly one of:
+/// so a new table cannot hide from the model). It enumerates every foreign key whose principal is <see cref="WorkItem"/>, every
+/// property named <c>WorkItemId</c>, or ending in it, that has no such key, and every entity an
+/// <see cref="IWorkItemPurgeStep"/> of Infrastructure declares it covers with <see cref="PurgeStepCoversAttribute"/>. Each
+/// reference must be exactly one of:
 /// <list type="bullet">
 /// <item><b>Cascade</b> — the key deletes with the item (the default, ADR-0030 rule 7 (3));</item>
 /// <item><b>ClearedByPurge</b> — the purge statement clears it (today <c>WorkItem.ParentId</c> alone, whose key is
 /// <c>Restrict</c>, so a forgotten clear breaks the delete);</item>
+/// <item><b>CoveredByStep</b> — a purge step declares the entity (rows on survivors, an effect outside the database);</item>
 /// <item><b>Kept</b> — the data stays by design, listed here with its reason (none today).</item>
 /// </list>
-/// A reference to a line's step (<c>[PurgeStepCovers]</c>) is the fourth, added with the step contract.
+/// It fails on an unlisted reference, on a stale entry, and on a <c>Restrict</c> key that is neither cleared nor covered.
 /// </summary>
 /// <remarks>
 /// The limit is stated: the model does not see <c>fk_backlog_places_work_items_owner</c> (SQL-only, <c>NO ACTION</c>; EF
@@ -26,6 +31,8 @@ namespace Mustask.Infrastructure.Tests.Conventions;
 public sealed class WorkItemReferenceInventoryTests
 {
     private const string ConnectionStringEnvVar = "ConnectionStrings__mustask";
+
+    private static readonly IReadOnlySet<string> NoSteps = new HashSet<string>();
 
     /// <summary>The references the purge statement clears itself, by <c>Entity.Property</c>. Today: a child's link to its parent.</summary>
     private static readonly HashSet<string> ClearedByPurge = ["WorkItem.ParentId"];
@@ -37,26 +44,32 @@ public sealed class WorkItemReferenceInventoryTests
     [Fact]
     public void EveryReferenceToAWorkItem_IsClassified_AndNoListedEntryIsStale()
     {
-        var references = ReferencesOfTheModel();
-
-        var failures = Evaluate(references, ClearedByPurge, Kept);
+        var failures = Evaluate(ReferencesOfTheModel(), ClearedByPurge, Kept, EntitiesCoveredByTheRegisteredSteps());
 
         Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
 
-    // The guard against passing vacuously: today's three references must be found.
+    // The guard against passing vacuously: today's three references must be found, with the keys they have.
     [Fact]
     public void TheInventory_FindsTodaysThreeReferences()
     {
-        var found = ReferencesOfTheModel().Select(reference => reference.Name).Order().ToList();
+        var references = ReferencesOfTheModel();
 
-        Assert.Equal(["BacklogPlace.WorkItemId", "ProjectBacklogPlace.WorkItemId", "WorkItem.ParentId"], found);
-        Assert.Equal(
-            DeleteBehavior.Cascade,
-            ReferencesOfTheModel().Single(reference => reference.Name == "BacklogPlace.WorkItemId").Behavior);
-        Assert.Equal(
-            DeleteBehavior.Restrict,
-            ReferencesOfTheModel().Single(reference => reference.Name == "WorkItem.ParentId").Behavior);
+        Assert.Equal(["BacklogPlace.WorkItemId", "ProjectBacklogPlace.WorkItemId", "WorkItem.ParentId"], references.Select(reference => reference.Name).Order());
+        Assert.Equal(DeleteBehavior.Cascade, references.Single(reference => reference.Name == "BacklogPlace.WorkItemId").Behavior);
+        Assert.Equal(DeleteBehavior.Cascade, references.Single(reference => reference.Name == "ProjectBacklogPlace.WorkItemId").Behavior);
+        Assert.Equal(DeleteBehavior.Restrict, references.Single(reference => reference.Name == "WorkItem.ParentId").Behavior);
+        Assert.Empty(EntitiesCoveredByTheRegisteredSteps());
+    }
+
+    // The step scan reads the Infrastructure assembly without a container: a class that implements the contract and declares what
+    // it covers is found, and a class that declares it without implementing the contract is not a step.
+    [Fact]
+    public void TheScan_FindsOnlyStepsThatImplementTheContract_AndReadsWhatTheyDeclare()
+    {
+        var found = CoveredEntities([typeof(CommentStep), typeof(NotAStep), typeof(CommentAndFileStep)]);
+
+        Assert.Equal(["Attachment", "Comment"], found.Order());
     }
 
     // The check itself, on planted data: an entity with a WorkItemId and no key, and one with a Restrict key, are failures.
@@ -67,31 +80,46 @@ public sealed class WorkItemReferenceInventoryTests
 
         // A new table that carries a WorkItemId and no key at all: not listed anywhere.
         var withoutKey = today.Append(new Reference("Comment", "WorkItemId", HasKey: false, Behavior: null)).ToList();
-        Assert.Contains(Evaluate(withoutKey, ClearedByPurge, Kept), failure => failure.Contains("Comment.WorkItemId", StringComparison.Ordinal));
+        Assert.Contains(Evaluate(withoutKey, ClearedByPurge, Kept, NoSteps), failure => failure.Contains("Comment.WorkItemId", StringComparison.Ordinal));
 
         // A new table with a key left at Restrict: the purge would fail loudly, so the check fails first.
         var restrict = today.Append(new Reference("Attachment", "WorkItemId", HasKey: true, Behavior: DeleteBehavior.Restrict)).ToList();
-        Assert.Contains(Evaluate(restrict, ClearedByPurge, Kept), failure => failure.Contains("Attachment.WorkItemId", StringComparison.Ordinal));
+        Assert.Contains(Evaluate(restrict, ClearedByPurge, Kept, NoSteps), failure => failure.Contains("Attachment.WorkItemId", StringComparison.Ordinal));
 
         // A new table with a cascading key passes.
         var cascading = today.Append(new Reference("Comment", "WorkItemId", HasKey: true, Behavior: DeleteBehavior.Cascade)).ToList();
-        Assert.Empty(Evaluate(cascading, ClearedByPurge, Kept));
+        Assert.Empty(Evaluate(cascading, ClearedByPurge, Kept, NoSteps));
+
+        // An entity a step declares passes, whatever its key — and so does a reference with no key at all (a JSON column, a store
+        // outside the database): the step is where such data is seen.
+        Assert.Empty(Evaluate(restrict, ClearedByPurge, Kept, new HashSet<string> { "Attachment" }));
+        Assert.Empty(Evaluate(withoutKey, ClearedByPurge, Kept, new HashSet<string> { "Comment" }));
+
+        // A cascading key that a step also claims is two classes, not one.
+        Assert.Contains(
+            Evaluate(cascading, ClearedByPurge, Kept, new HashSet<string> { "Comment" }),
+            failure => failure.Contains("Comment.WorkItemId", StringComparison.Ordinal));
+
+        // A step that declares an entity the model does not reference a work item from is stale.
+        Assert.Contains(
+            Evaluate(today, ClearedByPurge, Kept, new HashSet<string> { "Tag" }),
+            failure => failure.Contains("Tag", StringComparison.Ordinal));
 
         // A listed entry that names nothing in the model is stale, whether it claims to be cleared or kept.
         var staleCleared = new HashSet<string>(ClearedByPurge) { "Comment.WorkItemId" };
         var staleKept = new Dictionary<string, string>(Kept) { ["Tag.WorkItemId"] = "a reason" };
-        Assert.Contains(Evaluate(today, staleCleared, Kept), failure => failure.Contains("Comment.WorkItemId", StringComparison.Ordinal));
-        Assert.Contains(Evaluate(today, ClearedByPurge, staleKept), failure => failure.Contains("Tag.WorkItemId", StringComparison.Ordinal));
+        Assert.Contains(Evaluate(today, staleCleared, Kept, NoSteps), failure => failure.Contains("Comment.WorkItemId", StringComparison.Ordinal));
+        Assert.Contains(Evaluate(today, ClearedByPurge, staleKept, NoSteps), failure => failure.Contains("Tag.WorkItemId", StringComparison.Ordinal));
 
         // A reference that is both cleared and kept is not "exactly one".
         var both = new Dictionary<string, string>(Kept) { ["WorkItem.ParentId"] = "a reason" };
-        Assert.Contains(Evaluate(today, ClearedByPurge, both), failure => failure.Contains("WorkItem.ParentId", StringComparison.Ordinal));
+        Assert.Contains(Evaluate(today, ClearedByPurge, both, NoSteps), failure => failure.Contains("WorkItem.ParentId", StringComparison.Ordinal));
 
         // A kept reference passes when it has a reason, and fails without one.
         var keptReference = today.Append(new Reference("History", "WorkItemId", HasKey: false, Behavior: null)).ToList();
-        Assert.Empty(Evaluate(keptReference, ClearedByPurge, new Dictionary<string, string>(Kept) { ["History.WorkItemId"] = "an audit record" }));
+        Assert.Empty(Evaluate(keptReference, ClearedByPurge, new Dictionary<string, string>(Kept) { ["History.WorkItemId"] = "an audit record" }, NoSteps));
         Assert.Contains(
-            Evaluate(keptReference, ClearedByPurge, new Dictionary<string, string>(Kept) { ["History.WorkItemId"] = " " }),
+            Evaluate(keptReference, ClearedByPurge, new Dictionary<string, string>(Kept) { ["History.WorkItemId"] = " " }, NoSteps),
             failure => failure.Contains("History.WorkItemId", StringComparison.Ordinal));
     }
 
@@ -107,14 +135,23 @@ public sealed class WorkItemReferenceInventoryTests
     }
 
     private static List<string> Evaluate(
-        IReadOnlyCollection<Reference> references, IReadOnlySet<string> clearedByPurge, IReadOnlyDictionary<string, string> kept)
+        IReadOnlyCollection<Reference> references,
+        IReadOnlySet<string> clearedByPurge,
+        IReadOnlyDictionary<string, string> kept,
+        IReadOnlySet<string> coveredEntities)
     {
         var failures = new List<string>();
         var names = references.Select(reference => reference.Name).ToHashSet(StringComparer.Ordinal);
+        var entities = references.Select(reference => reference.Entity).ToHashSet(StringComparer.Ordinal);
 
         foreach (var entry in clearedByPurge.Concat(kept.Keys).Where(entry => !names.Contains(entry)).Distinct())
         {
             failures.Add($"{entry}: listed as cleared by the purge or kept, but the model has no such reference — remove the stale entry.");
+        }
+
+        foreach (var entity in coveredEntities.Where(entity => !entities.Contains(entity)))
+        {
+            failures.Add($"{entity}: a purge step declares it, but the model has no reference to a work item from it — remove the stale declaration.");
         }
 
         foreach (var entry in kept.Where(entry => string.IsNullOrWhiteSpace(entry.Value)))
@@ -126,8 +163,9 @@ public sealed class WorkItemReferenceInventoryTests
         {
             var cascades = reference.HasKey && reference.Behavior == DeleteBehavior.Cascade;
             var cleared = clearedByPurge.Contains(reference.Name);
+            var covered = coveredEntities.Contains(reference.Entity);
             var isKept = kept.ContainsKey(reference.Name);
-            var classes = new[] { cascades, cleared, isKept }.Count(flag => flag);
+            var classes = new[] { cascades, cleared, covered, isKept }.Count(flag => flag);
 
             if (classes == 0)
             {
@@ -140,12 +178,47 @@ public sealed class WorkItemReferenceInventoryTests
             }
             else if (classes > 1)
             {
-                failures.Add($"{reference.Name}: classified more than once — it is exactly one of cascade, cleared by the purge, kept.");
+                failures.Add($"{reference.Name}: classified more than once — it is exactly one of cascade, cleared by the purge, covered by a step, kept.");
             }
         }
 
         return failures;
     }
+
+    // --- The steps --------------------------------------------------------------------------------------------------
+
+    /// <summary>The entities the steps of Infrastructure declare: read from the assembly's types, no container needed.</summary>
+    private static HashSet<string> EntitiesCoveredByTheRegisteredSteps() =>
+        CoveredEntities(typeof(MustaskDbContext).Assembly.GetTypes());
+
+    private static HashSet<string> CoveredEntities(IEnumerable<Type> types) =>
+        types
+            .Where(type => type is { IsClass: true, IsAbstract: false } && typeof(IWorkItemPurgeStep).IsAssignableFrom(type))
+            .SelectMany(type => type.GetCustomAttributes<PurgeStepCoversAttribute>(inherit: false))
+            .Select(attribute => attribute.Entity.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+    [PurgeStepCovers(typeof(Comment))]
+    private sealed class CommentStep : IWorkItemPurgeStep
+    {
+        public Task PurgeAsync(WorkItemPurge purge, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    [PurgeStepCovers(typeof(Attachment))]
+    private sealed class CommentAndFileStep : IWorkItemPurgeStep
+    {
+        public Task PurgeAsync(WorkItemPurge purge, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    /// <summary>Declares an entity but implements no contract: not a step, so not read.</summary>
+    [PurgeStepCovers(typeof(NotCovered))]
+    private sealed class NotAStep;
+
+    private sealed class Comment;
+
+    private sealed class Attachment;
+
+    private sealed class NotCovered;
 
     // --- The model --------------------------------------------------------------------------------------------------
 
