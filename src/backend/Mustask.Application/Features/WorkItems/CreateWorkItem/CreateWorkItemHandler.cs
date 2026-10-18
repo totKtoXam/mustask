@@ -238,14 +238,6 @@ public sealed class CreateWorkItemHandler(
             return null;
         }
 
-        var type = process.WorkItemTypes.SingleOrDefault(candidate => candidate.Id == typeId);
-
-        return type is null
-            ? null
-            : new WorkItemTypeStates(
-                type.Id,
-                type.Key,
-                type.Appearance,
-                type.States.Select(state => new WorkItemTypeState(state.Id, state.Position, state.Category)).ToList());
+        return ProcessWorkItemTypes.Find(process, typeId);
     }
 }

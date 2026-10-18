@@ -10,8 +10,9 @@ namespace Mustask.Infrastructure.WorkItems;
 /// </summary>
 internal sealed class WorkItemTeamOwnership(MustaskDbContext context) : IWorkItemTeamOwnership
 {
+    // Every state: a deleted item still belongs to its team until the team's deletion releases it (BR-OT-12, mod-005 BR-DR-9).
     public Task<int> CountOwnedAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
-        context.WorkItems.CountAsync(item => item.ProjectId == projectId && item.OwningTeamId == teamId, cancellationToken);
+        WorkItemSets.InAnyState(context).CountAsync(item => item.ProjectId == projectId && item.OwningTeamId == teamId, cancellationToken);
 
     public Task LockOwnedAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
         context.Database.ExecuteSqlInterpolatedAsync(

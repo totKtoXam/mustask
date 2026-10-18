@@ -12,7 +12,10 @@ namespace Mustask.Application.Abstractions.WorkItems;
 /// </summary>
 public interface IWorkItemReadModel
 {
-    /// <summary>The project's item with that number, or <c>null</c>.</summary>
+    /// <summary>
+    /// The project's item with that number, or <c>null</c> — in every state, a deleted item too: it is found by its address
+    /// and read in full (mod-005 BR-DR-6, BR-DR-7).
+    /// </summary>
     Task<WorkItemView?> FindAsync(Guid projectId, int number, CancellationToken cancellationToken);
 
     /// <summary>The project's item with that number as an address needs it (its id and type), or <c>null</c>.</summary>
@@ -33,10 +36,11 @@ public interface IWorkItemReadModel
     Task<WorkItemView> GetAsync(Guid workItemId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// One page of the project's items in every state, most recently changed
-    /// first, then by number descending (BR-M3-29), and the count of the items
+    /// One page of the project's items <b>outside «Удалена»</b> (mod-005 BR-DR-6, which replaces BR-M3-29's "every state";
+    /// there is no way to list deleted items in this line), most recently changed
+    /// first, then by number descending, and the count of the items
     /// that match <paramref name="filter"/> (mod-017 BR-OT-8): the count and the page follow the filter, in the same
-    /// statements — a filter adds none.
+    /// statements — a filter adds none. The count counts the same set as the page, whatever page it is.
     /// </summary>
     Task<WorkItemPage> GetPageAsync(Guid projectId, int page, int pageSize, WorkItemFilter filter, CancellationToken cancellationToken);
 }
@@ -108,13 +112,38 @@ public sealed record WorkItemView(
     public required string? ReproSteps { get; init; }
 
     public required string? SystemInfo { get; init; }
+
+    /// <summary>
+    /// mod-005 (api-contract § 1.1): the record of the item's latest deletion — the state it held, who deleted it and when.
+    /// <c>null</c> for a live item, and for an item in «Удалена» that has no marks (one put there outside Delete,
+    /// BR-DR-10). Whether the item is deleted is its <see cref="State"/>'s category, never this.
+    /// </summary>
+    public required WorkItemDeletionView? Deletion { get; init; }
 }
+
+/// <summary>
+/// mod-005 (api-contract § 1.1) <c>deletion</c>: <paramref name="FromState"/> is the state held when the item was
+/// deleted, shaped as <c>state</c> is; <paramref name="At"/> is the deletion's own time, not <c>changedAt</c>.
+/// </summary>
+public sealed record WorkItemDeletionView(WorkItemStateView FromState, WorkItemUserView By, DateTimeOffset At);
+
+/// <summary>
+/// mod-005 (api-contract § 1.1) <c>deletion.by</c>, a user reference with the marks of BR-13: <paramref name="Id"/> is the
+/// Keycloak subject; <paramref name="DisplayName"/> is <c>null</c> when the user directory does not know the id;
+/// <paramref name="IsActive"/> is the directory's flag (<c>false</c> for an unknown, disabled or deleted user);
+/// <paramref name="IsMember"/> is whether the user is <b>now</b> a member of the item's organization, in any role, from the
+/// membership alone. No e-mail is served.
+/// </summary>
+public sealed record WorkItemUserView(string Id, string? DisplayName, bool IsActive, bool IsMember);
 
 /// <summary>A single scenario of a user story's acceptance criteria (R1).</summary>
 public sealed record AcceptanceCriterionView(string Given, string When, string Then);
 
-/// <summary>An item as an address resolves it: its id and its type.</summary>
-public sealed record WorkItemHead(Guid Id, Guid TypeId);
+/// <summary>
+/// An item as an address resolves it: its id, its type and — mod-005 — its state, which the purge's early read decides
+/// "not deleted" on, before its pre-flights run.
+/// </summary>
+public sealed record WorkItemHead(Guid Id, Guid TypeId, Guid StateId);
 
 /// <summary><c>WorkItemRef</c> of feat-001 api-contract § 2.1: a parent, a child, a picker option.</summary>
 public sealed record WorkItemRefView(Guid Id, string Identifier, WorkItemTypeView Type, string Title, WorkItemStateView State);

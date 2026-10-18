@@ -118,7 +118,7 @@ public sealed class SaveWorkItemHandler(
                 var item = await workItems.LockAsync(projectId, identifier.Number, ct)
                     ?? throw new NotFoundException(WorkItemErrorCodes.WorkItemNotFound);
 
-                var type = ItemType(process, item.TypeId);
+                var type = ProcessWorkItemTypes.OfItem(process, item.TypeId);
 
                 if (!string.Equals(type.TypeKey, identifier.TypeKey, StringComparison.Ordinal))
                 {
@@ -339,16 +339,4 @@ public sealed class SaveWorkItemHandler(
         _ => throw new ArgumentOutOfRangeException(nameof(field), field, "Unknown work item field."),
     };
 
-    /// <summary>The item's own type in the organization's process. It is always there: the type never changes (BR-M3-1).</summary>
-    private static WorkItemTypeStates ItemType(ProcessDefinitionRow process, Guid typeId)
-    {
-        var type = process.WorkItemTypes.SingleOrDefault(candidate => candidate.Id == typeId)
-            ?? throw new InvalidOperationException($"The type {typeId} of a work item is not in its organization's process.");
-
-        return new WorkItemTypeStates(
-            type.Id,
-            type.Key,
-            type.Appearance,
-            type.States.Select(state => new WorkItemTypeState(state.Id, state.Position, state.Category)).ToList());
-    }
 }
