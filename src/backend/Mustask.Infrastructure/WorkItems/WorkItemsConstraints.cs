@@ -43,7 +43,9 @@ internal static class WorkItemsConstraints
     /// </summary>
     public const string DeletionMarksCheck = "ck_work_items_deletion_marks";
 
-    public const string DeletionMarksSql =
+    // Not a const: OrganizationLevelTeamsSchemaTests.EveryConstraintNameTheCodeMaps_ExistsInTheDatabase reads every const string
+    // of this class as the name of a constraint or an index, and this is the check's expression, like TitleLengthCheck below.
+    public static readonly string DeletionMarksSql =
         "(deleted_from_state_id IS NULL AND deleted_by IS NULL AND deleted_at IS NULL) "
         + "OR (deleted_from_state_id IS NOT NULL AND deleted_by IS NOT NULL AND deleted_at IS NOT NULL)";
 
