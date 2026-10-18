@@ -140,6 +140,7 @@ public static class DependencyInjection
         services.AddScoped<RemoveMemberHandler>();
         services.AddScoped<GetTeamMembersHandler>();
         services.AddScoped<SearchTeamMemberCandidatesHandler>();
+        services.AddScoped<SearchNewTeamMemberCandidatesHandler>();
         services.AddScoped<AddTeamMemberHandler>();
         services.AddScoped<RemoveTeamMemberHandler>();
 

@@ -20,7 +20,8 @@ namespace Mustask.Application.Features.Organizations.SearchTeamMemberCandidates;
 /// with mod-014's <c>AmongIds</c>, split above 500 ids into batches and merged (<see cref="UserDirectoryBatches"/>,
 /// BR-UP-17), so it finds a member among 501 and never refuses. A user of another organization, a projected user in none,
 /// and a member whose account is disabled are not offered. A user already in the team is offered and refused on add. It
-/// reads the projection only and works with Keycloak stopped (BR-UP-9).
+/// reads the projection only and works with Keycloak stopped (BR-UP-9). The search itself is
+/// <see cref="TeamMemberCandidateSearch"/>, which <see cref="SearchNewTeamMemberCandidatesHandler"/> runs for a team not yet created.
 /// </para>
 /// </remarks>
 public sealed class SearchTeamMemberCandidatesHandler(
@@ -42,12 +43,7 @@ public sealed class SearchTeamMemberCandidatesHandler(
             throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
         }
 
-        // 2. The search, restricted to the organization's members.
-        var memberIds = await members.ListMemberIdsAsync(organizationId, cancellationToken);
-        var result = await UserDirectoryBatches.SearchAmongAsync(directory, query.Text ?? string.Empty, memberIds, cancellationToken);
-
-        return new TeamMemberCandidatesResponse(
-            result.Users.Select(user => new TeamMemberCandidateResponse(user.Id, user.DisplayName, user.Email)).ToList(),
-            result.MoreMatched);
+        // 2. The search, restricted to the organization's members (the one definition, shared with the creation form's search).
+        return await TeamMemberCandidateSearch.SearchAsync(members, directory, organizationId, query.Text, cancellationToken);
     }
 }

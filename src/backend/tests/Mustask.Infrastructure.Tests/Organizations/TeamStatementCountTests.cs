@@ -12,6 +12,7 @@ using Mustask.Application.Features.Organizations.GetTeamProjects;
 using Mustask.Application.Features.Organizations.GetTeams;
 using Mustask.Application.Features.Organizations.LinkProjectsToTeam;
 using Mustask.Application.Features.Organizations.LinkTeamsToProject;
+using Mustask.Application.Features.Organizations.SearchTeamMemberCandidates;
 using Mustask.Application.Features.Organizations.UnlinkTeam;
 using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
@@ -46,6 +47,7 @@ public sealed class TeamStatementCountTests(OrganizationsDatabaseFixture databas
     private const int LinkTeamsStatements = 4;
     private const int LinkProjectsStatements = 4;
     private const int AddTeamStatements = 5;
+    private const int NewTeamMemberCandidatesStatements = 2;
     private const int CreateProjectStatements = 6;
     private const int UnlinkStatements = 11;
     private const int DeletionStatements = 11;
@@ -154,6 +156,26 @@ public sealed class TeamStatementCountTests(OrganizationsDatabaseFixture databas
 
         Assert.Equal(smallCount, largeCount);
         Assert.Equal(AddTeamStatements, largeCount);
+    }
+
+    // The creation form's «Участники» search (api-contract § 2.3a): the organization's member ids in one statement and one search of
+    // the projection restricted to them — the same for 2 members and for 200, whatever the matches (all 2 or 200 match the text; the
+    // answer is cut at 20). Above 500 members the restriction goes in batches of 500 (mod-014 BR-UP-17), as the team's own search does.
+    [Fact]
+    public async Task NewTeamMemberCandidates_TheSameNumberOfStatements_For2MembersAs200()
+    {
+        var small = await SeedAsync(projects: 1, teams: 0);
+        var large = await SeedAsync(projects: 1, teams: 0);
+        await SeedMembersAsync(small.OrganizationId, 2);
+        await SeedMembersAsync(large.OrganizationId, 200);
+
+        var smallCount = await CountAsync((p, ct) => p.GetRequiredService<SearchNewTeamMemberCandidatesHandler>()
+            .Handle(new SearchNewTeamMemberCandidatesQuery(Id(small.OrganizationId), "Фамилия"), ct));
+        var largeCount = await CountAsync((p, ct) => p.GetRequiredService<SearchNewTeamMemberCandidatesHandler>()
+            .Handle(new SearchNewTeamMemberCandidatesQuery(Id(large.OrganizationId), "Фамилия"), ct));
+
+        Assert.Equal(smallCount, largeCount);
+        Assert.Equal(NewTeamMemberCandidatesStatements, largeCount);
     }
 
     // A project created naming 1 team and 50: the teams locked in one statement, the pre-checks, one flush.

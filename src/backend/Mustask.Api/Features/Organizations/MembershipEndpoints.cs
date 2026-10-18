@@ -59,6 +59,17 @@ public static class MembershipEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // feat-028 api-contract § 2.3a: the creation form's «Участники», where the team does not exist yet. The literal segment
+        // outranks `{teamId}` in routing, so `member-candidates` is never read as a team's id. It declares the code of a creation
+        // and its handler asks the second one a creation with members asks (D-7).
+        organization.MapGet("/teams/member-candidates", SearchNewTeamMemberCandidatesAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamCreate)
+            .Produces<TeamMemberCandidatesResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         organization.MapPost("/members", AddMemberAsync)
             .RequiresOrganizationPermission(PermissionCatalog.OrganizationsMembershipWrite)
             .Produces<MemberView>(StatusCodes.Status201Created)
@@ -141,6 +152,10 @@ public static class MembershipEndpoints
     private static async Task<IResult> SearchMemberCandidatesAsync(
         string organizationId, string? text, SearchMemberCandidatesHandler handler, CancellationToken cancellationToken) =>
         Results.Ok(await handler.Handle(new SearchMemberCandidatesQuery(organizationId, text), cancellationToken));
+
+    private static async Task<IResult> SearchNewTeamMemberCandidatesAsync(
+        string organizationId, string? text, SearchNewTeamMemberCandidatesHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok(await handler.Handle(new SearchNewTeamMemberCandidatesQuery(organizationId, text), cancellationToken));
 
     private static async Task<IResult> AddMemberAsync(
         string organizationId, AddMemberRequest? request, AddMemberHandler handler, CancellationToken cancellationToken)

@@ -24,7 +24,8 @@ public sealed record OrganizationRoute(string Method, string Template, string Co
 /// Every organization-addressed route that exists, with the organization code each declares (mod-016 api-contract § 4.1–§ 4.2 and
 /// § 1–§ 2): the 23 of mod-002, mod-001's process read, the seven of mod-003 and feat-001 (their api-contract § 5 and § 6, rows 28–34),
 /// mod-006's three (rows 35–37), feat-039's three project routes beside them and the ten of mod-016's own access and memberships;
-/// feat-028 (api-contract § 4) moved the team routes to the organization's address: 55 routes in all. A later module that adds one adds it here with
+/// feat-028 (api-contract § 4) moved the team routes to the organization's address and, at gate-3, added the creation form's member search
+/// (§ 2.3a): 56 routes in all. A later module that adds one adds it here with
 /// its code, and the inventory test (<c>OrganizationAccessInventoryTests</c>) makes sure it cannot forget: a route under
 /// <c>{organizationId}</c> that is not in this list, or is in it with another code than the one it declares, turns the build red.
 /// </summary>
@@ -66,6 +67,9 @@ public static class OrganizationAddressedRoutes
         // feat-028 api-contract § 2.1, § 2.2: the organization's teams, at the organization's address.
         new("GET", Org + "/teams", PermissionCatalog.OrganizationsTeamRead),
         new("POST", Org + "/teams", PermissionCatalog.OrganizationsTeamCreate),
+        // § 2.3a (added at gate-3): the creation form's «Участники» searches the organization's active members before the team exists;
+        // its handler asks `team.write`, the second code of a creation with members. A literal segment: never read as a `{teamId}`.
+        new("GET", Org + "/teams/member-candidates", PermissionCatalog.OrganizationsTeamCreate),
         new("GET", OrgTeam, PermissionCatalog.OrganizationsTeamRead),
         new("PUT", OrgTeam + "/name", PermissionCatalog.OrganizationsTeamWrite),
         new("PUT", OrgTeam + "/description", PermissionCatalog.OrganizationsTeamWrite),
