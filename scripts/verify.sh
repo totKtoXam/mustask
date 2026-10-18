@@ -21,23 +21,26 @@
 # by itself. Tests that read sources off disk (the kit guard, the colour scan,
 # the e2e guards, the error-code readers) are found by grep and always run next
 # to the affected ones: no import ever reaches them. VERIFY_FULL=1 forces the
-# whole suite; scripts/finish-task.sh and .githooks/pre-push set it, so a merge
-# or a push is always gated by a full run. A full run holds a lock in the
-# shared git directory (<git-common-dir>/vitest-full.lock): one full run at a
-# time across all worktrees, the rest wait. A lock older than 60 minutes or
-# held by a dead process is taken over. Affected-only runs take no lock.
+# whole suite; scripts/finish-task.sh and the CI workflow (.github/workflows/
+# ci.yml, the required check on main) set it, so a merge is always gated by a
+# full run. .githooks/pre-push runs the quick default and only passes
+# VERIFY_FULL through (tech-041): `VERIFY_FULL=1 git push` for a full one. A
+# full run holds a lock in the shared git directory
+# (<git-common-dir>/vitest-full.lock): one full run at a time across all
+# worktrees, the rest wait. A lock older than 60 minutes or held by a dead
+# process is taken over. Affected-only runs take no lock.
 #
 # Green stamp (tech-030): a green VERIFY_FULL=1 run on a clean tree (and the
 # tree still the same when the checks end), with no check skipped, writes
 # <git-common-dir>/verify-stamps/<tree>-<merge-base>. The next VERIFY_FULL=1
 # run of the same tree and merge-base — the same code, a clean working tree —
-# returns green at once, so QA, review, finish-task.sh and pre-push do not
-# repeat a suite that already passed. It is a statement about the code on this
-# machine: the stamp lives in the git directory every worktree shares, but
-# node_modules, ignored local files and Docker are each worktree's own, so
-# after changing the environment run with VERIFY_FORCE=1. A run that goes on
-# (forced, or a miss) deletes the old stamp first: a red or partial run never
-# leaves a green one behind.
+# returns green at once, so QA, review, finish-task.sh and a `VERIFY_FULL=1 git
+# push` do not repeat a suite that already passed. It is a statement about the
+# code on this machine: the stamp lives in the git directory every worktree
+# shares, but node_modules, ignored local files and Docker are each worktree's
+# own, so after changing the environment run with VERIFY_FORCE=1. A run that
+# goes on (forced, or a miss) deletes the old stamp first: a red or partial run
+# never leaves a green one behind.
 
 set -eu
 
@@ -289,7 +292,7 @@ fi
 # --- The green stamp (tech-030) ---------------------------------------------------
 # A green VERIFY_FULL=1 run on a clean tree leaves a stamp keyed by the tree
 # hash and the merge-base (the second decides which buckets ran). The same
-# code, tested once: finish-task.sh and pre-push, both VERIFY_FULL=1, find it
+# code, tested once: finish-task.sh and a pre-push with VERIFY_FULL=1 find it
 # and do not repeat the run. VERIFY_FORCE=1 ignores it. Never written from a
 # dirty tree or from a run that skipped a check.
 # Is the working tree exactly HEAD? By the exit code of `git status`, not by its

@@ -7,6 +7,18 @@ name: CI
 # previous version of this file kept its own matrix and had already drifted
 # from verify.sh).
 #
+# CI is the full run (tech-041): the Verify step sets VERIFY_FULL=1, so a
+# change that touches the frontend runs the whole Vitest suite here, not only
+# the tests that reach the diff. The pre-push hook runs the quick default (and
+# `VERIFY_FULL=1 git push` asks it for the full one), so the whole suite is paid
+# for once, on the runner, and this check is the one required on main.
+#
+# The job name below is the status-check context main's branch protection
+# requires. It reads "change-proportionate" because the classification still
+# is (a docs-only PR finishes in seconds); the full run only widens the
+# frontend tests. Rename the job and the protection rule together or every PR
+# hangs waiting for a check that never reports.
+#
 # The job runs on every PR with no paths filters ON PURPOSE: a required
 # check skipped via paths-ignore doesn't run at all — and the PR hangs
 # waiting. Instead, verify.sh itself finishes a docs-only run in seconds.
@@ -49,6 +61,8 @@ jobs:
       - name: Verify
         env:
           BASE: origin/main
+          # The whole frontend suite, not only the tests the diff reaches.
+          VERIFY_FULL: "1"
           VITE_API_BASE_URL: http://ci.invalid
         # Docker is preinstalled on ubuntu-latest — Testcontainers work.
         run: sh scripts/verify.sh
