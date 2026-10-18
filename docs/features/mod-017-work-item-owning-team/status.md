@@ -115,6 +115,7 @@ whatever is left goes to the human.
 - 2026-10-17 [orchestrator] `BASE=0cf422c2 bash scripts/verify.sh` at 9e38a90d: RESULT green, exit 0 (.NET 4376 passed, 17 skipped; Vitest 3954 passed). stage: complete; gates left pending for the human.
 - 2026-10-17 [orchestrator] #9 merged feat-039 into main: the branch is rebased onto main (3e4f5638) and its PR targets main directly; no stacked base left.
 - 2026-10-17 [orchestrator] the human merged PR #11 and answered the open decisions in chat. OQ-1..OQ-7, design D-1..D-7 and plan D-1, D-2, D-5 stay. OQ-8 → B (the switcher falls back to the project's default team) and OQ-9 → B (the team filter in the page address) are queued as mod-020. CR-7 (with CR-8) is queued as bug-005, a separate S task. S-2 joins feat-028's scope. ADR-0028 rule 8's clarification (CR-6, plan D-3) joins mod-018's amendment.
+- 2026-10-18 [dev] P-10 note from feat-040-team-surfaces-across-projects: BR-OT-7's «Проект» arrives on every row and card of every team and project view (`project`, feat-040 BR-TS-3); § 3's team views are read at the team's address across the team's projects and take a repeated `projectId` filter beside `teamId` (BR-TS-8, the shared specification's second dimension); BR-OT-5's membership joins the project under the caller's organization (BR-TS-13); BR-OT-11's team order is the switcher's interim organization level, the user's own teams first (BR-TS-10). This api-contract is not edited.
 
 ## Notes
 

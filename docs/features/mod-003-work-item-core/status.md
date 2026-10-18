@@ -61,6 +61,7 @@ Frontend (stage 6):
 - 2026-10-05 [analyst] spec.md (343 lines, short route per D-1, «Screens and copy» per D-4) + stories US-1..US-6, all shippable: no; BR-M3-1/2/3/5 restated from doc-002, new BR-M3-19..29; 9 new error codes (module workitems), mod-002's area codes reused; follow-up lines for gate-3 in § Decomposition (history, tags, assignee marks, rich text, priority, preview pane); open questions OQ-1 form address (org-level, D-8 literally), OQ-2 Приоритет (D-2 silent), OQ-3 interim assignee candidates, OQ-4 after create, OQ-5 nav label «Рабочие элементы» vs «Задачи»; stage: line left to the orchestrator
 - 2026-10-05 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/mod-003-work-item-core
 - 2026-10-05 [new-task] size mismatch: queue has size:L, human confirmed M
+- 2026-10-18 [dev] P-10 note from feat-040-team-surfaces-across-projects: § 1.1 `WorkItem` gains `project: { id, name }` beside `projectId` (additive), the project's current name, on every answer that returns a work item (read, create, save, parent write, restore). This api-contract is not edited.
 
 ## Notes
 

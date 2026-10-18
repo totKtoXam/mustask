@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/040-team-surfaces-across-projects
-- stage: 04-backend
+- stage: 05-frontend
 - epic: core/backlogs-boards
 - deps: feat-028
 - gates: gate-1, gate-2, gate-3
@@ -77,6 +77,7 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-18 [ux-designer] design.md (32.3 KB) + prototype/index.html; D-1..D-7 open, each with a recommended A. Package for the human: OQ-1..OQ-3, D-1..D-7; stage gate-1+gate-2. No gate set.
 - 2026-10-18 [orchestrator] the human answered in chat, one question per open question and per design decision: OQ-1..OQ-3 A, D-1..D-7 A. gate-1 and gate-2 approved; stage → 04-backend. OQ-3 A's line is queued by the orchestrator's queue PR.
 - 2026-10-18 [backend-developer] main merged in; plan pass (L): `plan-backend.md` + `api-contract.md` fixed, no code, no lanes, no ADR, nothing for the human. Additive beyond the spec: `WorkItem.project`, `TeamListItem.isMember` (api-contract § 4).
+- 2026-10-18 [backend-developer] code stage done, api-contract unchanged; main (mod-020) merged in, no backend overlap. Deviations: plan-backend § 14. P-10 notes added to mod-003, -006, -016, -017, feat-027, -028, -032, -039. E2E not run (NO); the specs it breaks: plan § 14. stage → 05-frontend.
 
 ## Notes
 

@@ -291,3 +291,37 @@ and «Весь проект»), `27-work-item-card`, `28-team-members`, `29-role
 - **Question "for the human": none.** Decisions that could look like one are settled by the spec: the task level's order on a team view (BR-TS-6's fate row), `project` on the detail
   and `isMember` (additive, design § 14), no redirects, E2E NO. If the orchestrator would rather not edit other features' `status.md` for the P-10 notes, the alternative
   (one list in this feature's `status.md`) changes no code.
+
+## 14. As built (2026-10-18)
+
+The code stage matches §§ 1-9 and `api-contract.md`, which is **unchanged**. Deviations and what the first runs fixed:
+
+- **Order of work.** §§ 11.4 and 11.5 became one commit (the cut-over): the team read model, repository and scopes were replaced, not kept beside the old, since the old
+  ones had no other caller. The Infrastructure tests of § 10 moved with it.
+- **`IBacklogRepository`**: `ReadEntriesAsync(organizationId, scope)` and `SaveOrderAsync(organizationId, scope, order)` take the organization too (the plan named it
+  for `LockAsync` only): the membership SQL and the departed drop both state the tenant predicate. `LockAsync` refuses a scope carrying a **team** filter as well as a project one.
+- **`BacklogScope.ShownStates`** (the shown-state ids of a level's types) became `BacklogStates.ShownOf`, an internal helper in `IBacklogReadModel.cs`, which the four scopes
+  share. `BacklogItemRow.ProjectKey` is a public property of the (public) row, never on the wire; `WorkItemView.Project` is a `required` init member.
+- **PD-12**: the organization overload is `ProjectMembers.MemberIdsOfOrganizationAsync`; the read model picks it by a private `Tenant` value. A project's own read still asks by
+  project; the project handlers pass `project.OrganizationId` to `ReadChecklistsAsync` and `FindLiveParentsAsync` only.
+- **PD-9**: the departed drop's predicate reads `NOT (COALESCE(item.owning_team_id = @team, false) AND type ∈ L AND state ∈ shown)`; an item that left by owner never reaches it
+  (the place's owner key drops the place first), so the `COALESCE` is the null-safe form, not a case.
+- **Statement counts pinned** (`TeamViewStatementCountTests`; equal for 1 project / 10 items per level and 50 projects / 5 000 items / 10 filter values): backlog «Истории» 10,
+  «Эпики» 9 (no parent outside the set), board 12, reorder 12. The process read is three statements, so §9's "fixed number" is these four.
+- **Timings, first run** (`TeamBacklogVolumeTests`, 50 projects, 5 000 stories, 4 000 placed): backlog 241 ms, board 367 ms, filtered to 10 projects 77 / 110 ms, move to the top 379 ms,
+  move after 473 ms. No tweak to the statement shape was needed (§ 13 risks closed).
+- **Tests, as planned in § 10.1** (by class): `TeamBacklogAcrossProjectsEndpointTests`, `RetiredTeamViewRoutesEndpointTests`, `TeamProjectFilterEndpointTests`,
+  `TeamOrderAcrossProjectsEndpointTests` (with the races of § 6, gated), `TeamCardAndMovesEndpointTests`, `CreateFromTeamAcrossProjectsEndpointTests`, `TeamViewContainmentTests`,
+  `TeamBacklogVolumeTests` (Api); `TeamViewStatementCountTests`, `TeamBacklogMemberLockTests`, `TeamViewDeletionRaceTests`, `AddTeamLedWorkItemIndexMigrationTests`, and a team-across-projects
+  case in `DeletedStateParityTests` (Infrastructure); `StackRankTests`, `BacklogTreeTests`, `WorkItemFilterTests`, `BacklogRowViewTests`, `GetOrganizationTeamsHandlerTests`; the surface
+  matrix gained a team view across two projects. Shared arrangements: `TeamAcrossProjectsTestData` (Api) and `TeamViewWorld` (Infrastructure).
+- **Retired, as § 10.3**: the four `TeamAcrossProjectsEndpointTests` tests named there, the three team tests of `OwningTeamStatementCountTests` and their constants, and the
+  `project-deactivated` case of the three `…_ContextNotFound_…` theories. Rewritten by name: the three theories (`team-of-another-project` → `team-of-another-organization`),
+  `Unlink_TeamBecomes404AtTheProjectsAddress_ButIsStillReadAtItsOwn`, `Unlink_RemovesTheLink_ViewsCountAndNamingAnswerAsNotLinked`, the retired-routes list test, the route
+  inventory rows (count 59), the write inventory's reorder key and the surface matrix's read routes.
+- **Two facts the tests met**: a child created beneath a parent takes the parent's team whatever `team` the body names (mod-017 BR-OT-3), so a test gives a child to another team by a
+  change of owner; a team can own an item only in a project it is linked to (the owner key), so "another team's item" in a project needs a team linked to that project.
+- **E2E (standing NO, not edited, not run)** breaks: `support/membersUi.ts` (`backlogAddress`, `boardAddress`), and the specs `19-shell-in-a-browser`, `23-backlogs-boards` (also its
+  direct API read of `/api…/teams/…/boards/stories`), `24-work-item-hierarchy`, `25-work-item-fields`, `26-backlog-tree-editing`, `27-work-item-card`, `28-team-members`,
+  `29-role-views` (the project-nested team addresses, the head menu and the switcher's team level); `21-organizations` is touched by the switcher alone (frontend stage).
+- **P-10 notes** are added to the eight owners' `status.md` (all `stage: complete`, so the size budget skips them): mod-003, mod-006, mod-016, mod-017, feat-027, feat-028, feat-032, feat-039.
