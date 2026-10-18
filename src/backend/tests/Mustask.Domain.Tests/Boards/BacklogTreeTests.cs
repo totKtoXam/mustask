@@ -198,6 +198,40 @@ public sealed class BacklogTreeTests
         Assert.Equal([Feature23, Feature8, Feature6, Task3, task9], epic.Children.Select(row => row.ItemId));
     }
 
+    // feat-040 US-3 · BR-TS-6: on a team's page every entry gives its creation time and project key. Two top-level rows created at the
+    // same moment in two projects (each number 1) stand by project key, whatever the order they were read in.
+    [Fact]
+    public void Nest_TeamEntries_AcrossProjects_TopLevelRowsByTimeThenKey()
+    {
+        var (alpEpic, betEpic) = (Guid.CreateVersion7(), Guid.CreateVersion7());
+        var ten = new DateTimeOffset(2026, 10, 10, 10, 0, 0, TimeSpan.Zero);
+        BacklogTreeEntry[] epics = [new(betEpic, 1, null, null, EpicRank, ten, "BET"), new(alpEpic, 1, null, null, EpicRank, ten, "ALP")];
+
+        var rows = Nest(EpicRank, epics);
+
+        Assert.Equal([alpEpic, betEpic], rows.Select(row => row.ItemId));
+    }
+
+    // feat-040 BR-TS-6 · the «Задачи» level included — a team's tasks of two projects would tie on number: the children of a row
+    // stand by level, then the team's order of that level (time, key, number), BET-TASK-1 (10:00) before ALP-TASK-2 and ALP-TASK-3.
+    [Fact]
+    public void Nest_TeamEntries_ChildrenOfARow_StandByTheTeamsTieBreak_TasksToo()
+    {
+        var (betTask1, alpTask2, alpTask3) = (Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7());
+        var ten = new DateTimeOffset(2026, 10, 10, 10, 0, 0, TimeSpan.Zero);
+        BacklogTreeEntry[] stories = [new(Story2, 2, null, null, StoryRank, ten, "ALP")];
+        BacklogTreeEntry[] tasks =
+        [
+            new(alpTask3, 3, null, Story2, TaskRank, ten.AddMinutes(5), "ALP"),
+            new(alpTask2, 2, null, Story2, TaskRank, ten.AddMinutes(5), "ALP"),
+            new(betTask1, 1, null, Story2, TaskRank, ten, "BET"),
+        ];
+
+        var story = Nest(StoryRank, stories, tasks)[0];
+
+        Assert.Equal([betTask1, alpTask2, alpTask3], story.Children.Select(row => row.ItemId));
+    }
+
     // An empty set, and a set with nothing of the page's level, have no rows.
     [Fact]
     public void Nest_NothingOfThePagesLevel_NoRows()

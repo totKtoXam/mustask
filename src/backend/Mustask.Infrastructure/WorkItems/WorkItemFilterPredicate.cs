@@ -5,21 +5,23 @@ using Microsoft.EntityFrameworkCore;
 namespace Mustask.Infrastructure.WorkItems;
 
 /// <summary>
-/// The one predicate of the shared filter specification (mod-017 BR-OT-8, feat-003 BR-WS-16, api-contract § 3): the project's list,
-/// backlog and board all narrow their items through it, so the surfaces cannot disagree for any combination. It is composed on
-/// <see cref="IQueryable"/> and goes into the same statement as the rest of the query — a filter adds none. Boards' memberships use
-/// it too: Boards' infrastructure already uses WorkItems' (<see cref="WorkItemRefs"/>). The dimensions combine with AND; the values
-/// of one dimension with OR (BR-WS-2). The predicate decides <b>which of the given items</b> match; which items it is given — live
-/// ones, or the deleted ones as well — is the entry point's (<see cref="WorkItemSets"/>).
+/// The one predicate of the shared filter specification (mod-017 BR-OT-8, feat-040 BR-TS-8, feat-003 BR-WS-16, api-contract § 3):
+/// the project's list, backlog and board narrow their items by the team dimension through it, a team's backlog and board by the
+/// project dimension, and the project's list by the state, the assignee and the keyword, so the surfaces cannot disagree for any
+/// combination. It is composed on <see cref="IQueryable"/> and goes into the same statement as the rest of the query — a filter
+/// adds none. Boards' memberships use it too: Boards' infrastructure already uses WorkItems' (<see cref="WorkItemRefs"/>). The
+/// dimensions combine with AND; the values of one dimension with OR (BR-WS-2). The predicate decides <b>which of the given items</b>
+/// match; which items it is given — live ones, or the deleted ones as well — is the entry point's (<see cref="WorkItemSets"/>).
 /// </summary>
 internal static class WorkItemFilterPredicate
 {
     /// <summary>
     /// <paramref name="items"/> narrowed by <paramref name="filter"/>: an item matches when it is owned by any chosen team (or by
-    /// none when <c>none</c> is chosen), its state bears any chosen name, its assignee is any chosen user (or it has none when
-    /// <c>none</c> is chosen) and the keyword is in its title, or is its identifier or its number. No filter leaves the items as
-    /// they are; a dimension that is set but names nothing the item can have selects nothing (a malformed value, an unknown,
-    /// deleted, other-project or foreign id, a name no state bears).
+    /// none when <c>none</c> is chosen), when (a team's views) its project is any chosen project, its state bears any chosen
+    /// name, its assignee is any chosen user (or it has none when <c>none</c> is chosen) and the keyword is in its title, or is
+    /// its identifier or its number. No filter leaves the items as they are; a dimension that is set but names nothing the item
+    /// can have selects nothing (a malformed value, an unknown, deleted, unlinked, other-project or foreign id, a name no state
+    /// bears).
     /// </summary>
     public static IQueryable<WorkItem> Apply(MustaskDbContext context, IQueryable<WorkItem> items, WorkItemFilter filter)
     {
@@ -34,6 +36,13 @@ internal static class WorkItemFilterPredicate
             items = items.Where(item =>
                 (item.OwningTeamId != null && teamIds.Contains(item.OwningTeamId.Value))
                 || (noTeam && item.OwningTeamId == null));
+        }
+
+        if (filter.ProjectsSet)
+        {
+            var projectIds = filter.ProjectIds.ToList();
+
+            items = items.Where(item => projectIds.Contains(item.ProjectId));
         }
 
         if (filter.StatesSet)

@@ -96,7 +96,7 @@ describe('getProjectBacklog: every item of the project at the level (api-contrac
   it('a team’s backlog is still its own: «Платформа» reads MSK-US-3 and the answer names the team', async () => {
     serveBoards(projectDataset());
 
-    const backlog = await getBacklog(ORG, MSK, ids.platformTeam, 'stories');
+    const backlog = await getBacklog(ORG, ids.platformTeam, 'stories');
 
     expect(backlog.items.map((row) => row.identifier)).toEqual(['MSK-US-3']);
     expect(backlog.team.name).toBe('Платформа');
@@ -123,7 +123,7 @@ describe('getProjectBoard: the same items in the process’s columns (api-contra
   it('a team’s board still holds its team’s cards only', async () => {
     serveBoards(projectDataset());
 
-    const board = await getBoard(ORG, MSK, ids.platformTeam, 'stories');
+    const board = await getBoard(ORG, ids.platformTeam, 'stories');
 
     expect(board.columns.flatMap((column) => column.items.map((card) => card.identifier))).toEqual([
       'MSK-US-3',

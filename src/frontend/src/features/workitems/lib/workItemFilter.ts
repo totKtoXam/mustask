@@ -8,7 +8,7 @@ import {
   type WorkItemListFilter,
 } from '../api/workItemsApi';
 import { TEAM_FILTER_PARAM, teamFilterOf } from '../hooks/useTeamFilter';
-import { inFilter } from './teams';
+import { NOT_IN_FILTER_REASON, inFilter } from './teams';
 
 /** The address parameters of the other three dimensions, named as the list's read names them (api-contract § 2.1). */
 export const STATE_FILTER_PARAM = 'state';
@@ -44,7 +44,7 @@ export const filterTexts = {
   /** What the page announces after a change of a filter settles (design § 9). */
   found: (count: number): string => `Найдено: ${count}`,
   /** The creation notice's reason (design § 6; the same words as mod-017 § 6.5). */
-  notInFilter: 'Он не подходит под текущий фильтр.',
+  notInFilter: NOT_IN_FILTER_REASON,
 } as const;
 
 /** The values of an address parameter, in its order, each once; a blank value names nothing and is left out (BR-WS-11). */

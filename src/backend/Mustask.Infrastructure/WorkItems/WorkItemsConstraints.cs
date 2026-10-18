@@ -27,6 +27,9 @@ internal static class WorkItemsConstraints
     /// <summary>mod-017 BR-OT-5: a team's views read the project's items of a team and a level's types.</summary>
     public const string ProjectOwningTeamType = "ix_work_items_project_id_owning_team_id_type_id";
 
+    /// <summary>feat-040 BR-TS-2, ADR-0028 rule 13: a team's views across all its projects read the team's items of a level's types.</summary>
+    public const string OwningTeamType = "ix_work_items_owning_team_id_type_id";
+
     /// <summary>mod-017 ADR-0028 rule 5: the target of the team place's key onto the item's current owning team.</summary>
     public const string IdOwningTeam = "ix_work_items_id_owning_team_id";
 

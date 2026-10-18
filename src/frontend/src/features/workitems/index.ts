@@ -10,18 +10,23 @@ export { workItemsPermissions } from './permissions';
 // picker and create, moves a card with this slice's save of the state (its
 // spec § Dialog; api-contract § 6, § 7), and draws a row's or a card's type,
 // state and assignee as this slice's list does.
-export { CreateWorkItemDialog } from './components/CreateWorkItemDialog';
+export { CreateWorkItemDialog, type CreatePlace } from './components/CreateWorkItemDialog';
 export { AssigneeAvatar, AssigneeName, StateName, TypeName } from './components/Marks';
 // feat-032: a board card's checklist row shows the assignee as an avatar alone, named by the
 // same words as the list's «Исполнитель».
 export { UNKNOWN_USER_LABEL, assigneeLabel } from './lib/assignee';
 export { NEW_WORK_ITEM_LABEL, TypePickerMenu } from './components/TypePickerMenu';
-export { useCreateWorkItem, useSetWorkItemState } from './hooks/mutations';
+// feat-040: the backlog's and the board's writes name the item's own project per call (a team's views
+// hold the items of several projects): a create beneath a parent, a state, a parent.
+export {
+  useCreateWorkItemIn,
+  useSetWorkItemParentIn,
+  useSetWorkItemStateIn,
+} from './hooks/mutations';
 // feat-001 frontend pass B: mod-006's backlog maps a row's parent one level up
 // with this slice's parent write and its «Родитель» picker (BR-H-14), and
 // links a row's «Родитель» to the parent's form.
 export { ParentPicker } from './components/ParentPicker';
-export { useSetWorkItemParent } from './hooks/mutations';
 export type { CreatableType } from './lib/process';
 export type {
   ParentChange,
@@ -41,7 +46,8 @@ export type {
 export { TeamFilter } from './components/TeamFilter';
 export { teamFilterSearch, useTeamFilter } from './hooks/useTeamFilter';
 export { NO_TEAM_FILTER_VALUE, teamFilterQuery } from './api/workItemsApi';
-export { createdNotice, teamTexts } from './lib/teams';
+// feat-040: a created item the team's view will not show says why (D-6).
+export { createdNotice, createdNoticeOnTeamView, teamTexts } from './lib/teams';
 // feat-003: the list's other three dimensions — «Поиск», «Статус», «Исполнитель» — as fields that
 // take values and `onChange`, not the page, so feat-013 draws them on the views with the one
 // meaning (BR-WS-16), and the one writer of the four dimensions in the page address.

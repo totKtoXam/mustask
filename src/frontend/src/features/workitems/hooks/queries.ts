@@ -49,11 +49,20 @@ export function useAssigneeFilterOptions(
   });
 }
 
-/** § 2.3: the form's item; its first answer validates the whole address. */
-export function useWorkItem(organizationId: string, projectId: string, identifier: string) {
+/**
+ * § 2.3: the form's item; its first answer validates the whole address. `enabled: false` reads
+ * nothing: the card of a team's view waits for the project its identifier names (feat-040 BR-TS-4).
+ */
+export function useWorkItem(
+  organizationId: string,
+  projectId: string,
+  identifier: string,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: workItemsKeys.item(organizationId, projectId, identifier),
     queryFn: () => getWorkItem(organizationId, projectId, identifier),
+    enabled: options.enabled ?? true,
   });
 }
 

@@ -30,9 +30,10 @@ export function projectContext(selection: WorkContextSelection = {}): WorkContex
         id: ids.example,
         name: 'Пример организации',
         projects: [
-          { id: ids.msk, name: 'Мастаск', teams: [] },
-          { id: ids.ops, name: 'Операции', teams: [] },
+          { id: ids.msk, name: 'Мастаск' },
+          { id: ids.ops, name: 'Операции' },
         ],
+        teams: [],
       },
     ],
     selection: { organizationId: ids.example, projectId: ids.msk, ...selection },

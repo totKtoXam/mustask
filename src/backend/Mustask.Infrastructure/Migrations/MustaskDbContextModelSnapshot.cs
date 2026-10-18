@@ -1319,6 +1319,9 @@ namespace Mustask.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_work_items_id_owning_team_id");
 
+                    b.HasIndex(new[] { "OwningTeamId", "TypeId" }, "ix_work_items_owning_team_id_type_id")
+                        .HasDatabaseName("ix_work_items_owning_team_id_type_id");
+
                     b.HasIndex(new[] { "ProjectId", "AreaId" }, "ix_work_items_project_id_area_id")
                         .HasDatabaseName("ix_work_items_project_id_area_id");
 

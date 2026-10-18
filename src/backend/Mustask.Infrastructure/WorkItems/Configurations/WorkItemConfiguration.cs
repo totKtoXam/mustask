@@ -143,6 +143,9 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         // mod-017: a team's views are an equality on the project, the team and a short list of types, so every (team, type)
         // pair is one range of this index; it also serves the owner key above, so EF adds no second index for it.
         builder.HasIndex(item => new { item.ProjectId, item.OwningTeamId, item.TypeId }, WorkItemsConstraints.ProjectOwningTeamType);
+        // feat-040 (ADR-0028 rule 13): a team's views across its projects are an equality on the team and a short list of types, so
+        // every (team, type) pair is one range of this index; the project-led one above cannot serve them without a skip scan.
+        builder.HasIndex(item => new { item.OwningTeamId, item.TypeId }, WorkItemsConstraints.OwningTeamType);
         // mod-017 (ADR-0028 rule 5): the target of the team place's key (work_item_id, team_id) -> (id, owning_team_id),
         // which the second migration adds in SQL: EF cannot declare an alternate key over a nullable column.
         builder.HasIndex(item => new { item.Id, item.OwningTeamId }, WorkItemsConstraints.IdOwningTeam).IsUnique();

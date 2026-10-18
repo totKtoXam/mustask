@@ -43,9 +43,9 @@ public sealed class OwningTeamQaEndpointTests(MustaskApiFactory factory)
 
     private string Project(OwningTeamWorld world) => OrganizationsApi.Project(world.OrganizationId, world.ProjectId);
 
-    private string TeamBacklog(OwningTeamWorld world, Guid teamId) => $"{OrganizationsApi.Teams(world.OrganizationId, world.ProjectId)}/{teamId}/backlogs/stories";
+    private string TeamBacklog(OwningTeamWorld world, Guid teamId) => $"{OrganizationsApi.OrgTeams(world.OrganizationId)}/{teamId}/backlogs/stories";
 
-    private string TeamBoard(OwningTeamWorld world, Guid teamId) => $"{OrganizationsApi.Teams(world.OrganizationId, world.ProjectId)}/{teamId}/boards/stories";
+    private string TeamBoard(OwningTeamWorld world, Guid teamId) => $"{OrganizationsApi.OrgTeams(world.OrganizationId)}/{teamId}/boards/stories";
 
     private static string[] Rows(Answer answer) =>
         answer.Body.GetProperty("items").EnumerateArray().Select(row => row.GetProperty("identifier").GetString()!).ToArray();

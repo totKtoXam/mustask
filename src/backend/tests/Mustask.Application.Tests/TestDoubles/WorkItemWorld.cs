@@ -252,6 +252,7 @@ public sealed class FakeWorkItemReadModel(WorkItemWorld world) : IWorkItemReadMo
                 ReproSteps = null,
                 SystemInfo = null,
                 Deletion = null,
+                Project = new WorkItemProjectView(world.ProjectId, "Мастаск"),
             });
 
     public Task<WorkItemPage> GetPageAsync(Guid projectId, int page, int pageSize, WorkItemFilter filter, CancellationToken cancellationToken) =>

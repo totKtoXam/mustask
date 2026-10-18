@@ -74,7 +74,7 @@ describe('US-6 Scenario: Every row has the menu, on every level', () => {
       (header) => header.getAttribute('aria-label') ?? header.textContent,
     );
     expect(headers).not.toContain('Действия');
-    expect(headers).toHaveLength(9);
+    expect(headers).toHaveLength(10);
   });
 
   it('every menu holds «Изменить родителя…» and «Убрать родителя»; the second is disabled on MSK-EPIC-1 and MSK-EPIC-20, which have no parent, and on no nested row', async () => {

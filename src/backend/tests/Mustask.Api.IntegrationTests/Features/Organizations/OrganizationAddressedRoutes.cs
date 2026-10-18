@@ -25,7 +25,9 @@ public sealed record OrganizationRoute(string Method, string Template, string Co
 /// § 1–§ 2): the 23 of mod-002, mod-001's process read, the seven of mod-003 and feat-001 (their api-contract § 5 and § 6, rows 28–34),
 /// mod-006's three (rows 35–37), feat-039's three project routes beside them and the ten of mod-016's own access and memberships;
 /// feat-028 (api-contract § 4) moved the team routes to the organization's address and, at gate-3, added the creation form's member search
-/// (§ 2.3a), and mod-005 (api-contract § 4) added the delete, restore and purge of a work item, and feat-003 (api-contract § 5) the options of the list's «Исполнитель» filter: 60 routes in all. A later module that
+/// (§ 2.3a), mod-005 (api-contract § 4) added the delete, restore and purge of a work item, feat-040 (api-contract § 6) moved
+/// mod-006's three from the project's address to the team's, and feat-003 (api-contract § 5) added the options of the list's
+/// «Исполнитель» filter: 60 routes in all. A later module that
 /// adds one adds it here with its code, and the inventory test (<c>OrganizationAccessInventoryTests</c>) makes sure it cannot forget: a route under
 /// <c>{organizationId}</c> that is not in this list, or is in it with another code than the one it declares, turns the build red.
 /// </summary>
@@ -105,10 +107,11 @@ public static class OrganizationAddressedRoutes
         new("POST", Item + "/restore", PermissionCatalog.WorkItemsWorkItemDelete),
         new("POST", Item + "/purge", PermissionCatalog.WorkItemsWorkItemPurge),
 
-        // mod-006 api-contract § 5: a team's backlog, its reorder and its board (rows 35-37).
-        new("GET", Team + "/backlogs/{level}", PermissionCatalog.WorkItemsWorkItemRead),
-        new("POST", Team + "/backlogs/{level}/reorder", PermissionCatalog.BoardsBacklogReorder),
-        new("GET", Team + "/boards/{level}", PermissionCatalog.WorkItemsWorkItemRead),
+        // mod-006 api-contract § 5: a team's backlog, its reorder and its board (rows 35-37); feat-040 api-contract § 6 moved them
+        // from the project's address to the team's, whose address names no project. The three project-nested routes are not served.
+        new("GET", OrgTeam + "/backlogs/{level}", PermissionCatalog.WorkItemsWorkItemRead),
+        new("POST", OrgTeam + "/backlogs/{level}/reorder", PermissionCatalog.BoardsBacklogReorder),
+        new("GET", OrgTeam + "/boards/{level}", PermissionCatalog.WorkItemsWorkItemRead),
 
         // feat-039 api-contract § 5: the project's own backlog, its reorder and its board (no team in the address).
         new("GET", Project + "/backlogs/{level}", PermissionCatalog.WorkItemsWorkItemRead),

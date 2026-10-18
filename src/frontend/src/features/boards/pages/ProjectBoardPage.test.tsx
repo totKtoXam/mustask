@@ -48,10 +48,6 @@ function activeDataset() {
   return data;
 }
 
-function teamButton(): HTMLElement {
-  return screen.getByRole('button', { name: 'Сменить команду' });
-}
-
 function patches(api: BoardsTestApi) {
   return api.writes().filter((request) => request.method === 'PATCH');
 }
@@ -446,7 +442,8 @@ describe('US-3 Scenario: The read’s states (design § 7)', () => {
 
     expect(await screen.findByRole('status', { name: 'Загрузка данных' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: 'Мастаск' })).toBeInTheDocument();
-    expect(teamButton()).toBeInTheDocument();
+    // feat-040 BR-TS-11: the project's head has no team drop-down.
+    expect(screen.queryByRole('button', { name: 'Сменить команду' })).toBeNull();
     expect(screen.getByRole('tab', { name: 'Канбан' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Показать бэклог' })).toBeInTheDocument();
 
@@ -546,26 +543,7 @@ describe('US-3 Scenario: The read’s states (design § 7)', () => {
   });
 });
 
-describe('US-3 Scenario: The head’s drop-down on the project’s board (BR-PB-7)', () => {
-  it('lists the teams and «Весь проект», selected; choosing «Платформа» opens that team’s board at the same level', async () => {
-    serveBoards(activeDataset());
-    renderBoards(projectBoardAddress('stories'));
-    await findBoard();
-
-    await userEvent.click(teamButton());
-    const menu = await screen.findByRole('menu', { name: 'Команды проекта' });
-    const entries = within(menu).getAllByRole('menuitem');
-    expect(entries.map((entry) => entry.textContent)).toEqual([
-      'Мастаск',
-      'Платформа',
-      'Аналитика',
-      'Весь проект',
-    ]);
-    expect(entries[3]).toHaveAttribute('aria-current', 'page');
-    expect(entries[3]).toHaveAttribute('href', projectBoardAddress('stories'));
-    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Платформа' }));
-
-    expect(screen.getByTestId('location')).toHaveTextContent(boardAddress('stories'));
-    await waitFor(() => expect(teamButton()).toHaveFocus());
-  });
-});
+// feat-040 BR-TS-11 retires feat-039 BR-PB-7: the project's head has no team drop-down, so the test
+// «lists the teams and «Весь проект», selected; choosing «Платформа» opens that team’s board at the
+// same level» is retired by name; the head's absence is held beside the project backlog's
+// (`ProjectBacklogPage.test.tsx`, "The project’s head has no team drop-down").

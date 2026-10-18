@@ -56,3 +56,8 @@ export type { AreaNode } from './api/organizationsApi';
 // dialog of the project's views, read the project's teams on this slice's key.
 export { useTeams } from './hooks/queries';
 export type { DefaultMark, ProjectTeam } from './api/organizationsApi';
+// feat-040: a team's creation dialog offers its linked projects as «Проект» (read afresh at every
+// opening), and the card dialog of a team's view finds an identifier's project among the
+// organization's active projects by key (BR-TS-4, api-contract § 7).
+export { useProjects, useTeamProjects } from './hooks/queries';
+export type { ProjectListItem, TeamProject } from './api/organizationsApi';

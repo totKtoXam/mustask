@@ -165,15 +165,17 @@ describe('mod-020 Scenario: the project board’s team filter lives in the addre
   });
 });
 
-describe('mod-020 Scenario: a team’s own views have no filter, whatever their address carries', () => {
-  it('a team’s backlog ignores a teamId in its address: its rows, no filter row, nothing sent', async () => {
+// feat-040 BR-TS-8 gives a team's views a filter of their own, the project's (US-2); the team is
+// still no filter on them, whatever their address carries.
+describe('mod-020 Scenario: a team’s own views have no team filter, whatever their address carries', () => {
+  it('a team’s backlog ignores a teamId in its address: its rows, no «Команда» filter, nothing sent', async () => {
     const api = serveBoards(projectDataset());
     renderBoards(`${backlogAddress()}?teamId=${ids.mskTeam}`);
 
     const table = await findBacklogTable();
 
     expect(identifiers(table)).toEqual(['MSK-US-3']);
-    expect(screen.queryByRole('group', { name: 'Фильтры' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Команда' })).toBeNull();
     for (const read of api.reads('/backlogs/stories')) {
       expect(read.path).not.toContain('teamId=');
     }
@@ -186,7 +188,7 @@ describe('mod-020 Scenario: a team’s own views have no filter, whatever their 
     const board = await findBoard();
 
     expect(cardsIn(board, 'Новая')).toEqual(['MSK-US-3']);
-    expect(screen.queryByRole('group', { name: 'Фильтры' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Команда' })).toBeNull();
     for (const read of api.reads('/boards/stories')) {
       expect(read.path).not.toContain('teamId=');
     }
@@ -198,7 +200,10 @@ describe('mod-020 Scenario: a team’s own views have no filter, whatever their 
 // CR-2 (code review, mod-020): a link to the project page's own address keeps its filter, as a click on
 // it did before the filter moved to the address. The page's own tab is the selected one, and «Весь
 // проект» is the selected entry of the team menu; the nav entry is the only such link that drops it.
-describe('mod-020 Scenario: the project page’s own tab and «Весь проект» keep the filter', () => {
+// feat-040 BR-TS-11 retires, by name, ««Весь проект», the selected entry on the project page, keeps the filter»
+// and «a team’s own tab and its «Весь проект» carry no filter, whatever its address holds»: the head has
+// no «Весь проект» any more, and a team's own tab carries nothing of a team filter (the scenario above).
+describe('mod-020 Scenario: the project page’s own tab keeps the filter', () => {
   it('the backlog’s tab is selected, links to the page with its filter, and a click keeps it', async () => {
     serveBoards(projectDataset());
     renderBoards(`${projectBacklogAddress()}${WITH_PLATFORM}`);
@@ -236,34 +241,6 @@ describe('mod-020 Scenario: the project page’s own tab and «Весь прое
     await findBacklogTable();
 
     expect(screen.getByRole('tab', { name: 'Бэклог' })).toHaveAttribute(
-      'href',
-      projectBacklogAddress(),
-    );
-  });
-
-  it('«Весь проект», the selected entry on the project page, keeps the filter', async () => {
-    serveBoards(projectDataset());
-    renderBoards(`${projectBacklogAddress()}${WITH_PLATFORM}`);
-    const table = await findBacklogTable();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Сменить команду' }));
-    const entry = await screen.findByRole('menuitem', { name: 'Весь проект' });
-    expect(entry).toHaveAttribute('aria-current', 'page');
-    expect(entry).toHaveAttribute('href', `${projectBacklogAddress()}${WITH_PLATFORM}`);
-    await userEvent.click(entry);
-
-    expect(here()).toEqual({ pathname: projectBacklogAddress(), search: WITH_PLATFORM });
-    expect(identifiers(table)).toEqual(['MSK-US-3']);
-  });
-
-  it('a team’s own tab and its «Весь проект» carry no filter, whatever its address holds', async () => {
-    serveBoards(projectDataset());
-    renderBoards(`${backlogAddress()}?teamId=${ids.mskTeam}`);
-    await findBacklogTable();
-
-    expect(screen.getByRole('tab', { name: 'Бэклог' })).toHaveAttribute('href', backlogAddress());
-    await userEvent.click(screen.getByRole('button', { name: 'Сменить команду' }));
-    expect(await screen.findByRole('menuitem', { name: 'Весь проект' })).toHaveAttribute(
       'href',
       projectBacklogAddress(),
     );

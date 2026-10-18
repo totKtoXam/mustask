@@ -45,8 +45,12 @@ internal static class BoardsTestData
         return (team.Id, area.Id);
     }
 
+    /// <summary>
+    /// The team's address (feat-040 api-contract § 3): the organization and the team, no project. The team's views hold what the
+    /// team owns in every active project of the organization.
+    /// </summary>
     public static string Team(BoardsWorld world, Guid teamId) =>
-        $"/api/organizations/{world.OrganizationId}/projects/{world.ProjectId}/teams/{teamId}";
+        $"/api/organizations/{world.OrganizationId}/teams/{teamId}";
 
     public static string Backlog(BoardsWorld world, Guid teamId, string level) => $"{Team(world, teamId)}/backlogs/{level}";
 

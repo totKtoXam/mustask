@@ -281,7 +281,21 @@ export class OrganizationsTestApi {
       .sort(byName);
   }
 
-  /** The organization's list (feat-028 § 2.1): active teams by name, each with its active projects. */
+  /** Whether the acting user is in the team (mod-016 § 3.3); a dataset without team members makes nobody a member. */
+  private isMember(team: TeamRecord): boolean {
+    const actingUserId = this.data.actingUserId;
+    return (
+      actingUserId !== undefined &&
+      (this.data.teamMembers ?? []).some(
+        (member) => member.teamId === team.id && member.userId === actingUserId,
+      )
+    );
+  }
+
+  /**
+   * The organization's list (feat-028 § 2.1): active teams by name, each with its active projects and,
+   * since feat-040 (api-contract § 4.1), whether the caller is in it.
+   */
   private teamList(organization: OrganizationRecord): TeamListItem[] {
     return this.data.teams
       .filter((team) => team.organizationId === organization.id && !team.deleted)
@@ -289,6 +303,7 @@ export class OrganizationsTestApi {
       .map((team) => ({
         ...this.teamAnswer(team),
         projects: this.activeProjectsOf(team).map(({ id, name }) => ({ id, name })),
+        isMember: this.isMember(team),
       }));
   }
 
@@ -313,7 +328,6 @@ export class OrganizationsTestApi {
   private projectTeamList(project: ProjectRecord): ProjectTeam[] {
     const linked = this.linkedTeams(project);
     const named = linked.find((candidate) => candidate.id === project.defaultTeamId);
-    const actingUserId = this.data.actingUserId;
     return linked.map((team) => ({
       id: team.id,
       name: team.name,
@@ -324,11 +338,7 @@ export class OrganizationsTestApi {
         : linked.length === 1
           ? ('onlyTeam' as const)
           : null,
-      isMember:
-        actingUserId !== undefined &&
-        (this.data.teamMembers ?? []).some(
-          (member) => member.teamId === team.id && member.userId === actingUserId,
-        ),
+      isMember: this.isMember(team),
     }));
   }
 

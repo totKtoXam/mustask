@@ -31,6 +31,7 @@ M with UI: analysis → requirements review → UX design → gate-1 + gate-2 to
 
 ## Log
 
+- 2026-10-19 [dev] merged second after feat-040 (#31): reconciled WorkItemFilter, FilterPredicate (+context in BacklogMembership), route inventory (60), workitems index.ts, notInFilter reason; affected tests green.
 - 2026-10-19 [task-executor] verify.sh (BASE=116beeea, once, at b5b53bf3): RESULT: green. Backend 53/248/86/779/801/421 and 2 998 integration (18 skipped) passed; lint and build ok; frontend 141 files, 2 047 tests; 13 guard files, 590 tests
 - 2026-10-19 [task-executor] merged origin/main (c7baff5f): only docs/backlog.md changed; feat-040 is not in main, so nothing to reconcile here; whichever of feat-003 and feat-040 merges second reconciles. stage: complete; gate-3 pending
 - 2026-10-19 [task-executor] open, for the human at gate-3 (minors, no round owed): CR-2..CR-8, DR-1; D-B1, D-F2, D-F4, D-D1; S-1, S-2. Picker with 2 000 people opens in 0.35-0.39 s (qa.md F-8): D-1 A stands. E2E not run (NO); no spec breaks

@@ -330,8 +330,8 @@ public sealed class TeamQaEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(0, await OwnedItemCountAsync(factory, world.Mars));
         Assert.Equal(0, await PlacesNamingAnotherTeamAsync(factory, world.ProjectId));
-        var venusStories = Rows(await SendAsync(HttpMethod.Get, $"{ProjectTeam(world.OrganizationId, world.ProjectId, world.Venus)}/backlogs/stories"));
-        var venusFeatures = Rows(await SendAsync(HttpMethod.Get, $"{ProjectTeam(world.OrganizationId, world.ProjectId, world.Venus)}/backlogs/features"));
+        var venusStories = Rows(await SendAsync(HttpMethod.Get, $"{Team(world.OrganizationId, world.Venus)}/backlogs/stories"));
+        var venusFeatures = Rows(await SendAsync(HttpMethod.Get, $"{Team(world.OrganizationId, world.Venus)}/backlogs/features"));
         Assert.Equal([venusStory.Identifier, story.Identifier], venusStories);
         Assert.Equal([venusFeature.Identifier, feature.Identifier], venusFeatures);
         Assert.DoesNotContain(removed.Identifier, venusStories);

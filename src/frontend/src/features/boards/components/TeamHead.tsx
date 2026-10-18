@@ -1,6 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
-import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -12,8 +11,9 @@ import { useWorkContext } from '../../../shared/lib/workContext';
 import { teamFilterSearch } from '../../workitems';
 import { BacklogIcon, ThinChevronDownIcon } from '../../../shared/ui';
 import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
+import { projectFilterSearch } from '../hooks/useViewFilter';
 import type { BoardLevelCode } from '../lib/levels';
-import { PROJECT_SCOPE, scopeTeamId, teamScope, type BoardScope } from '../lib/scope';
+import { scopeProjectId, scopeTeamId, type BoardScope } from '../lib/scope';
 import { backlogPath, boardPath, projectBacklogPath, projectBoardPath } from '../paths';
 import { LevelMenu } from './LevelMenu';
 
@@ -40,10 +40,9 @@ const PAGES = {
 } as const satisfies Record<TeamPage, { name: string; tab: string; toOther: string }>;
 
 const CHANGE_TEAM_LABEL = 'Сменить команду';
-const PROJECT_TEAMS_LABEL = 'Команды проекта';
+/** feat-040 design § 3.2: the menu lists the organization's teams, no longer the project's. */
+const TEAMS_LABEL = 'Команды';
 const VIEWS_LABEL = 'Вид страницы';
-/** feat-039 design § 3.4: the menu's last entry, which opens the project's own page. */
-const WHOLE_PROJECT_LABEL = 'Весь проект';
 
 /**
  * The navigation state a team chosen in «Сменить команду» carries (F-9): the page
@@ -65,44 +64,44 @@ function isTeamChosen(state: unknown): boolean {
 function pagePath(
   page: TeamPage,
   organizationId: string,
-  projectId: string,
   scope: BoardScope,
   level: BoardLevelCode,
 ): string {
   if (scope.kind === 'project') {
     return page === 'backlog'
-      ? projectBacklogPath(organizationId, projectId, level)
-      : projectBoardPath(organizationId, projectId, level);
+      ? projectBacklogPath(organizationId, scope.projectId, level)
+      : projectBoardPath(organizationId, scope.projectId, level);
   }
   return page === 'backlog'
-    ? backlogPath(organizationId, projectId, scope.teamId, level)
-    : boardPath(organizationId, projectId, scope.teamId, level);
+    ? backlogPath(organizationId, scope.teamId, level)
+    : boardPath(organizationId, scope.teamId, level);
 }
 
 /**
  * The head of «Бэклоги» and «Канбан» (feat-027 BR-T-16, design § 3): the team's
- * name as the `h1` with a drop-down to another team of the project, one tab
- * under it — «Бэклог» / «Канбан» — with the level drop-down at its right end,
- * and at the top right the other page's grey button, on «Бэклоги» after the
- * primary «Новый рабочий элемент». It is `PageHeader`'s team variant.
+ * name as the `h1` with a drop-down to another team, one tab under it — «Бэклог» /
+ * «Канбан» — with the level drop-down at its right end, and at the top right the
+ * other page's grey button, on «Бэклоги» after the primary «Новый рабочий элемент».
+ * It is `PageHeader`'s team variant.
  *
- * feat-039 gives the project's own pages the same head (design § 3): the `h1` is
- * the project's name, the drop-down gains «Весь проект» after the teams — the
- * selected entry on a project page, where no team is — and the tab, the level
- * drop-down and the grey button lead to the project's addresses; there is no
- * primary command (BR-PB-6).
+ * feat-040 (BR-TS-11): a team's page is at the team's address, so the drop-down lists the
+ * organization's teams — the switcher's team level, in its order — with this one selected,
+ * and no longer «Весь проект». The project's own pages (feat-039) have the same head with the
+ * project's name as the `h1` and **no drop-down button**, so no menu puts a team under a project;
+ * their tab, level drop-down and grey button lead to the project's addresses.
  *
- * The name is the page's own read once it is there, else the shell's list of the
- * project's teams for the address's `teamId` (a project page: the list's name for
- * the project), else the page's own name, so the `h1` is never empty. The
- * drop-down is built from that list — no request of its own — and is there
- * whenever it is read, a project with one team included; while it loads or has
- * failed there is no button.
+ * The name is the page's own read once it is there, else the shell's list for the address's team
+ * (a project page: the shell's name for the project), else the page's own name, so the `h1` is
+ * never empty. The drop-down is built from the shell's list — no request of its own — and is there
+ * whenever the organization's teams are read; while they load or have failed there is no button.
+ *
+ * The project filter of a team's views (BR-TS-8) is kept by the level menu, the tab and the grey
+ * command; the team filter of the project's (mod-020) by the level menu and the tab. A team chosen
+ * in the drop-down starts unfiltered.
  */
 export function TeamHead({
   page,
   organizationId,
-  projectId,
   scope,
   level,
   name,
@@ -110,7 +109,6 @@ export function TeamHead({
 }: {
   page: TeamPage;
   organizationId: string;
-  projectId: string;
   scope: BoardScope;
   level: BoardLevelCode;
   /** The team's name, or the project's on a project page, from the page's own read, once there is one. */
@@ -120,26 +118,26 @@ export function TeamHead({
 }) {
   const own = PAGES[page];
   const teamId = scopeTeamId(scope);
+  const projectId = scopeProjectId(scope);
   const context = useWorkContext();
-  // mod-020: the project's views keep their team filter in the address. A link to the same page of
-  // the project carries it: another level, the page's own tab and «Весь проект» (the selected entry
-  // there), as a click on each kept it before the filter moved to the address (BR-OT-8). A team's
-  // views have none; the other page and another team are other views and start unfiltered, and so
-  // does «Весь проект» from a team.
+  // A link to the same view carries its filter: another level and the page's own tab, on both kinds
+  // of view; on a team's also the grey command to the other page, since the project filter is the
+  // view's of that team (BR-TS-8). The other kinds of link — another team, the switcher — start
+  // unfiltered. The project's grey command carries no filter: mod-020 starts the other page unfiltered.
   const { search } = useLocation();
-  const filterSearch = scope.kind === 'project' ? teamFilterSearch(search) : '';
-  const project = context.organizations
-    .find((organization) => organization.id === organizationId)
-    ?.projects.find((candidate) => candidate.id === projectId);
+  const filterSearch =
+    scope.kind === 'project' ? teamFilterSearch(search) : projectFilterSearch(search);
+  const otherPageSearch = scope.kind === 'team' ? filterSearch : '';
+  const organization = context.organizations.find((candidate) => candidate.id === organizationId);
   const known =
-    teamId === null ? project : project?.teams.find((candidate) => candidate.id === teamId);
+    teamId !== null
+      ? organization?.teams.find((candidate) => candidate.id === teamId)
+      : organization?.projects.find((candidate) => candidate.id === projectId);
   const teamsReady =
     context.status === 'ready' &&
-    context.levelStatus?.project !== 'loading' &&
-    context.levelStatus?.project !== 'failed' &&
     context.levelStatus?.team !== 'loading' &&
     context.levelStatus?.team !== 'failed';
-  const teams = teamsReady && project ? project.teams : [];
+  const teams = teamsReady && organization ? organization.teams : [];
 
   const otherPage = page === 'backlog' ? 'board' : 'backlog';
   return (
@@ -155,12 +153,11 @@ export function TeamHead({
         )
       }
       titleControl={
-        teams.length > 0 ? (
+        teamId !== null && teams.length > 0 ? (
           <TeamMenu
             teams={teams}
             currentId={teamId}
-            pathOf={(id) => pagePath(page, organizationId, projectId, teamScope(id), level)}
-            wholeProjectPath={`${pagePath(page, organizationId, projectId, PROJECT_SCOPE, level)}${filterSearch}`}
+            pathOf={(id) => pagePath(page, organizationId, { kind: 'team', teamId: id }, level)}
           />
         ) : undefined
       }
@@ -170,23 +167,21 @@ export function TeamHead({
           label: own.toOther,
           icon:
             page === 'backlog' ? <ArrowCircleRightOutlinedIcon /> : <ArrowCircleLeftOutlinedIcon />,
-          to: pagePath(otherPage, organizationId, projectId, scope, level),
+          to: `${pagePath(otherPage, organizationId, scope, level)}${otherPageSearch}`,
           tone: 'neutral',
         },
       ]}
       views={[
         {
           label: own.tab,
-          to: `${pagePath(page, organizationId, projectId, scope, level)}${filterSearch}`,
+          to: `${pagePath(page, organizationId, scope, level)}${filterSearch}`,
         },
       ]}
       viewsLabel={VIEWS_LABEL}
       viewsEnd={
         <LevelMenu
           level={level}
-          pathOf={(next) =>
-            `${pagePath(page, organizationId, projectId, scope, next)}${filterSearch}`
-          }
+          pathOf={(next) => `${pagePath(page, organizationId, scope, next)}${filterSearch}`}
         />
       }
     />
@@ -195,27 +190,19 @@ export function TeamHead({
 
 /**
  * «Сменить команду» (feat-027 design § 3.3): the chevron after the team's name
- * and its menu of the project's teams, the current one selected and
+ * and its menu «Команды» of the organization's teams, the current one selected and
  * `aria-current="page"`; each is a link to the same page of that team at the
- * same level. Keyboard per mod-015 § 12.4.
- *
- * feat-039 design § 3.4: «Весь проект» closes the list, after a divider — the
- * teams keep their order, their positions and the keyboard path among them. It
- * links to the project's page of the same entry and level, and is the selected
- * entry on a project page, where `currentId` is `null` and no team is, and where
- * its link keeps the page's team filter (mod-020).
+ * same level (feat-040 design § 3.2). Keyboard per mod-015 § 12.4.
  */
 function TeamMenu({
   teams,
   currentId,
   pathOf,
-  wholeProjectPath,
 }: {
   teams: readonly { id: string; name: string }[];
-  /** The team whose page this is, or `null` on the project's own page. */
-  currentId: string | null;
+  /** The team whose page this is. */
+  currentId: string;
   pathOf(teamId: string): string;
-  wholeProjectPath: string;
 }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const buttonId = useId();
@@ -242,23 +229,6 @@ function TeamMenu({
 
   function openMenu(event: MouseEvent<HTMLElement> | KeyboardEvent<HTMLElement>) {
     setAnchor(event.currentTarget);
-  }
-
-  /** One entry of «Команды проекта» — a team, or the project as a whole — as a link to a page. */
-  function renderEntry(key: string, label: string, to: string, selected: boolean) {
-    return (
-      <MenuItem
-        key={key}
-        component={RouterLink}
-        to={to}
-        state={TEAM_CHOSEN_STATE}
-        selected={selected}
-        aria-current={selected ? 'page' : undefined}
-        onClick={() => setAnchor(null)}
-      >
-        {label}
-      </MenuItem>
-    );
   }
 
   return (
@@ -301,16 +271,24 @@ function TeamMenu({
         open={open}
         onClose={() => setAnchor(null)}
         variant="selectedMenu"
-        slotProps={{ list: { 'aria-label': PROJECT_TEAMS_LABEL } }}
+        slotProps={{ list: { 'aria-label': TEAMS_LABEL } }}
       >
-        {/* The entries and the divider are direct children of the menu: a Fragment is not
-            supported by `MenuList`'s focus handling, and the divider, with no `tabindex`,
-            is skipped by the arrows. */}
-        {teams.map((team) =>
-          renderEntry(team.id, team.name, pathOf(team.id), team.id === currentId),
-        )}
-        <Divider />
-        {renderEntry('project', WHOLE_PROJECT_LABEL, wholeProjectPath, currentId === null)}
+        {teams.map((team) => {
+          const selected = team.id === currentId;
+          return (
+            <MenuItem
+              key={team.id}
+              component={RouterLink}
+              to={pathOf(team.id)}
+              state={TEAM_CHOSEN_STATE}
+              selected={selected}
+              aria-current={selected ? 'page' : undefined}
+              onClick={() => setAnchor(null)}
+            >
+              {team.name}
+            </MenuItem>
+          );
+        })}
       </Menu>
     </>
   );

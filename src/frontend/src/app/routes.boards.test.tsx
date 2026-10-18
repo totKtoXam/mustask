@@ -4,7 +4,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { HttpResponse, http } from 'msw';
+import { http } from 'msw';
 import { AuthContext } from '../features/auth/AuthContext';
 import { serveBoards } from '../features/boards/testApi';
 import { identifiers } from '../features/boards/testBacklog';
@@ -34,7 +34,7 @@ const SUBJECT = 'user-1';
 const PRM = `/organizations/${organizationIds.alfa}/projects/${organizationIds.prm}`;
 
 function teamAddress(teamId: string, surface: string, level: string): string {
-  return `${PRM}/teams/${teamId}/${surface}/${level}`;
+  return `/organizations/${organizationIds.alfa}/teams/${teamId}/${surface}/${level}`;
 }
 
 /** The boards dataset on mod-002's ids: «Платформа» owns «Платформа», the first team the root. */
@@ -198,17 +198,18 @@ async function backlogRows(): Promise<string[]> {
 describe('mod-006 the backlog route in the shell', () => {
   it('opens «Бэклоги» as the one h1 — the team’s name — and tab, its entry current, no trail, and the switcher follows the team in the address', async () => {
     serveOrganizations();
-    serveBoards(alfaDataset());
+    serveBoards(alfaDataset(), { projectList: false });
     renderRoutes(teamAddress(organizationIds.platformTeam, 'backlogs', 'features'));
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Платформа' })).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     await waitFor(() => expect(document.title).toBe('Бэклоги — Mustask'));
-    // Not the project's first team, which a project-level address would leave chosen.
+    // feat-040 BR-TS-10: a team address sets the organization and the team; the project level shows
+    // its current selection, the level's first entry when nothing is remembered.
     await waitFor(() =>
       expect(switcherLevels()).toEqual([
         'Организация: Альфа',
-        'Проект: Пример проекта',
+        'Проект: Аналитика',
         'Команда: Платформа',
       ]),
     );
@@ -223,7 +224,7 @@ describe('mod-006 the backlog route in the shell', () => {
 
   it('opens «Канбан» (mod-006’s «Доски», feat-001 BR-H-16) as the one h1 — the team’s name — and tab, its entry current, «Бэклоги» not, no trail', async () => {
     serveOrganizations();
-    serveBoards(alfaDataset());
+    serveBoards(alfaDataset(), { projectList: false });
     renderRoutes(teamAddress(organizationIds.platformTeam, 'boards', 'epics'));
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Платформа' })).toBeInTheDocument();
@@ -244,7 +245,16 @@ describe('mod-006 the backlog route in the shell', () => {
 
   it('lists «Канбан» and «Бэклоги» after «Рабочие элементы» in the work group once a team is chosen', async () => {
     serveOrganizations();
-    serveBoards(alfaDataset());
+    serveBoards(alfaDataset(), { projectList: false });
+    // The user's last choice: «Платформа» (a chosen team stays, whatever project the address names).
+    localStorage.setItem(
+      `mustask.context.${SUBJECT}`,
+      JSON.stringify({
+        organizationId: organizationIds.alfa,
+        projectId: organizationIds.prm,
+        teamId: organizationIds.platformTeam,
+      }),
+    );
     renderRoutes(`${PRM}/settings/general`);
 
     const backlogs = await within(mainNavigation()).findByRole('link', { name: 'Бэклоги' });
@@ -255,7 +265,7 @@ describe('mod-006 the backlog route in the shell', () => {
     expect(links.indexOf(backlogs)).toBe(links.indexOf(workItems) + 2);
     await userEvent.click(backlogs);
 
-    // mod-017 BR-OT-11: the entry lands on the list's first team by name, «Платформа».
+    // The entry lands on the team chosen, at the team's address (feat-040 BR-TS-1, BR-TS-10).
     expect(screen.getByTestId('location')).toHaveTextContent(
       teamAddress(organizationIds.platformTeam, 'backlogs', 'stories'),
     );
@@ -272,7 +282,7 @@ describe('mod-006 the backlog route in the shell', () => {
 describe('mod-006 US-1 Scenario: Switching the team keeps the entry, not the level', () => {
   it('on «Платформа»’s «Фичи», choosing «Пример проекта» at the team level opens its «Истории» backlog', async () => {
     serveOrganizations();
-    serveBoards(alfaDataset());
+    serveBoards(alfaDataset(), { projectList: false });
     renderRoutes(teamAddress(organizationIds.platformTeam, 'backlogs', 'features'));
     await waitFor(() => expect(switcherLevels()[2]).toBe('Команда: Платформа'));
 
@@ -290,7 +300,7 @@ describe('mod-006 US-1 Scenario: Switching the team keeps the entry, not the lev
 
   it('the same on a board: «Платформа»’s «Эпики» board, «Пример проекта» chosen, opens its «Истории» board', async () => {
     serveOrganizations();
-    serveBoards(alfaDataset());
+    serveBoards(alfaDataset(), { projectList: false });
     renderRoutes(teamAddress(organizationIds.platformTeam, 'boards', 'epics'));
     await waitFor(() => expect(switcherLevels()[2]).toBe('Команда: Платформа'));
 
@@ -306,10 +316,14 @@ describe('mod-006 US-1 Scenario: Switching the team keeps the entry, not the lev
   });
 });
 
+// feat-040 BR-TS-10: a team's page is at the team's address and names no project, so a project choice
+// moves nothing there. Retired by name, with the rule: «on «%s», choosing «Аналитика» at the project
+// level opens the «Истории» landing of its first team» and «a project whose teams list comes back
+// empty opens «Главная»: the entry is not visible there (BR-18)»; the rest of the block is rewritten
+// over an organization choice, whose landing is the new organization's team level's default entry.
 describe('mod-015 BR-18 on a team-level page: a project or organization choice keeps the entry (review F1)', () => {
-  const ANL = `/organizations/${organizationIds.alfa}/projects/${organizationIds.anl}`;
-  const REP = `/organizations/${organizationIds.beta}/projects/${organizationIds.rep}`;
-  const ANL_TEAMS_URL = `${ORGANIZATIONS_URL}/${organizationIds.alfa}/projects/${organizationIds.anl}/teams`;
+  const REP = `/organizations/${organizationIds.beta}`;
+  const BETA_TEAMS_URL = `${ORGANIZATIONS_URL}/${organizationIds.beta}/teams`;
 
   /** The landing a surface opens, as the page's own content shows it. */
   async function expectLanding(surface: string, identifier: string) {
@@ -338,38 +352,32 @@ describe('mod-015 BR-18 on a team-level page: a project or organization choice k
   }
 
   it.each([['backlogs'], ['boards']])(
-    'on «%s», choosing «Аналитика» at the project level opens the «Истории» landing of its first team',
+    'on «%s», choosing «Аналитика» at the project level moves nothing: the page stays, and the chosen team stays (feat-040 BR-TS-10)',
     async (surface) => {
-      // mod-017 BR-OT-11: no team is first; the switcher's team is the list's first by name, and
-      // «Аналитика» has one team. (Retired: the second team 'Агенты' that sorted before the
-      // project's first team - there is no first team now.)
-      const organizations = organizationsDataset();
-      serveOrganizations(organizations);
-      serveBoards(twoContextsDataset());
+      serveOrganizations();
+      serveBoards(twoContextsDataset(), { projectList: false });
       const visited: string[] = [];
       const address = await onPlatform(surface, visited);
 
       await choose('Проект', 'Аналитика');
 
-      const landing = `${ANL}/teams/${organizationIds.anlTeam}/${surface}/stories`;
-      await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(landing));
-      await expectLanding(surface, 'ANL-US-1');
       await waitFor(() =>
         expect(switcherLevels()).toEqual([
           'Организация: Альфа',
           'Проект: Аналитика',
-          'Команда: Аналитика',
+          'Команда: Платформа',
         ]),
       );
-      expect(visited).toEqual([address, landing]);
+      expect(screen.getByTestId('location')).toHaveTextContent(address);
+      expect(visited).toEqual([address]);
     },
   );
 
   it.each([['backlogs'], ['boards']])(
-    'on «%s», choosing «Бета» at the organization level opens the «Истории» landing of its first project’s first team',
+    'on «%s», choosing «Бета» at the organization level opens the «Истории» landing of its team level’s first entry',
     async (surface) => {
       serveOrganizations();
-      serveBoards(twoContextsDataset());
+      serveBoards(twoContextsDataset(), { projectList: false });
       const visited: string[] = [];
       const address = await onPlatform(surface, visited);
 
@@ -389,44 +397,52 @@ describe('mod-015 BR-18 on a team-level page: a project or organization choice k
     },
   );
 
-  it('an organization with no project opens «Главная» (mod-002 design § 2.2), the switcher saying «Нет проектов»', async () => {
+  it('an organization with no team opens «Главная» (mod-002 design § 2.2), the switcher saying «Нет команд»', async () => {
     const organizations = organizationsDataset();
-    organizations.projects = organizations.projects.map((project) =>
-      project.id === organizationIds.rep ? { ...project, active: false } : project,
+    organizations.teams = organizations.teams.map((team) =>
+      team.id === organizationIds.repTeam ? { ...team, deleted: true } : team,
     );
     serveOrganizations(organizations);
-    serveBoards(twoContextsDataset());
+    serveBoards(twoContextsDataset(), { projectList: false });
     await onPlatform('backlogs');
 
     await choose('Организация', 'Бета');
 
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/home'));
     expect(await screen.findByRole('heading', { level: 1, name: 'Главная' })).toBeInTheDocument();
-    expect(await within(switcher()).findByText('Нет проектов')).toBeInTheDocument();
+    expect(await within(switcher()).findByText('Нет команд')).toBeInTheDocument();
+    // The project level is drawn, whatever the team level holds (BR-TS-10).
+    expect(within(switcher()).getByRole('button', { name: 'Проект: Отчётность' })).toBeVisible();
   });
 
-  it('a project whose teams list comes back empty opens «Главная»: the entry is not visible there (BR-18)', async () => {
-    serveOrganizations();
-    serveBoards(twoContextsDataset());
+  it('an organization with no project but a team opens that team’s landing (feat-040 BR-TS-10)', async () => {
+    const organizations = organizationsDataset();
+    organizations.projects = organizations.projects.map((project) =>
+      project.id === organizationIds.rep ? { ...project, active: false } : project,
+    );
+    serveOrganizations(organizations);
+    serveBoards(twoContextsDataset(), { projectList: false });
     await onPlatform('backlogs');
-    server.use(http.get(ANL_TEAMS_URL, () => HttpResponse.json([])));
 
-    await choose('Проект', 'Аналитика');
+    await choose('Организация', 'Бета');
 
-    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/home'));
+    const landing = `${REP}/teams/${organizationIds.repTeam}/backlogs/stories`;
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(landing));
+    expect(await within(switcher()).findByText('Нет проектов')).toBeInTheDocument();
+    expect(within(switcher()).getByRole('button', { name: 'Команда: Отчётность' })).toBeVisible();
   });
 
   it('a teams read that fails opens «Главная», the switcher showing «Не удалось загрузить команды» (plan-frontend § 4.5)', async () => {
     serveOrganizations();
-    serveBoards(twoContextsDataset());
+    serveBoards(twoContextsDataset(), { projectList: false });
     await onPlatform('backlogs');
     serveOrganizationsProblem(
       'get',
-      ANL_TEAMS_URL,
+      BETA_TEAMS_URL,
       organizationsProblem('organizations.validation_failed'),
     );
 
-    await choose('Проект', 'Аналитика');
+    await choose('Организация', 'Бета');
 
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/home'));
     expect(await within(switcher()).findByText('Не удалось загрузить команды')).toBeInTheDocument();
@@ -434,14 +450,14 @@ describe('mod-015 BR-18 on a team-level page: a project or organization choice k
 
   it('a slow teams read keeps the backlog on screen, with no «Главная» and no other address in between', async () => {
     serveOrganizations();
-    serveBoards(twoContextsDataset());
+    serveBoards(twoContextsDataset(), { projectList: false });
     let release: () => void = () => {};
     let arrived = false;
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });
     server.use(
-      http.get(ANL_TEAMS_URL, async () => {
+      http.get(BETA_TEAMS_URL, async () => {
         arrived = true;
         await held;
         return undefined;
@@ -450,7 +466,7 @@ describe('mod-015 BR-18 on a team-level page: a project or organization choice k
     const visited: string[] = [];
     const address = await onPlatform('backlogs', visited);
 
-    await choose('Проект', 'Аналитика');
+    await choose('Организация', 'Бета');
     await waitFor(() => expect(arrived).toBe(true));
     await new Promise((resolve) => setTimeout(resolve, 50));
 
@@ -459,9 +475,9 @@ describe('mod-015 BR-18 on a team-level page: a project or organization choice k
     expect(screen.getByRole('button', { name: 'Уровень: Фичи' })).toBeInTheDocument();
 
     release();
-    const landing = `${ANL}/teams/${organizationIds.anlTeam}/backlogs/stories`;
+    const landing = `${REP}/teams/${organizationIds.repTeam}/backlogs/stories`;
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(landing));
-    await expectLanding('backlogs', 'ANL-US-1');
+    await expectLanding('backlogs', 'REP-US-1');
     expect(visited).toEqual([address, landing]);
   });
 });
@@ -471,7 +487,7 @@ describe('mod-006 the not-found frames on a team-level address', () => {
     'an unknown level of «%s» answers «Страница не найдена», no entry current',
     async (surface) => {
       serveOrganizations();
-      serveBoards(alfaDataset());
+      serveBoards(alfaDataset(), { projectList: false });
       renderRoutes(teamAddress(organizationIds.platformTeam, surface, 'tasks'));
 
       expect(
@@ -486,6 +502,57 @@ describe('mod-006 the not-found frames on a team-level address', () => {
     },
   );
 
+  // feat-040 BR-TS-1: the project-nested team address is no route; the page is not found whether or
+  // not its project and team exist, with no redirect, and nothing of it is read.
+  it.each([
+    ['backlogs', organizationIds.platformTeam],
+    ['boards', organizationIds.platformTeam],
+    ['backlogs', 'not-a-uuid'],
+  ])(
+    'the retired address of «%s» of team %s answers «Страница не найдена», no redirect, no read',
+    async (surface, teamId) => {
+      serveOrganizations();
+      const api = serveBoards(alfaDataset(), { projectList: false });
+      const retired = `${PRM}/teams/${teamId}/${surface}/stories`;
+      renderRoutes(retired);
+
+      expect(
+        await screen.findByRole('heading', { level: 1, name: 'Страница не найдена' }),
+      ).toBeInTheDocument();
+      await within(mainNavigation()).findByRole('link', { name: 'Бэклоги' });
+      expect(screen.getByTestId('location')).toHaveTextContent(retired);
+      expect(api.reads(`/${surface}/`)).toEqual([]);
+      for (const name of ['Канбан', 'Бэклоги']) {
+        expect(within(mainNavigation()).getByRole('link', { name })).not.toHaveAttribute(
+          'aria-current',
+        );
+      }
+    },
+  );
+
+  it.each([['backlogs'], ['boards']])(
+    'with no team chosen, «%s» lands on the team level’s first entry at its address (feat-040 BR-TS-10)',
+    async (surface) => {
+      serveOrganizations();
+      serveBoards(twoContextsDataset(), { projectList: false });
+      renderRoutes(`${PRM}/settings/general`);
+
+      const entry = await within(mainNavigation()).findByRole('link', {
+        name: surface === 'backlogs' ? 'Бэклоги' : 'Канбан',
+      });
+      expect(entry).toHaveAttribute(
+        'href',
+        teamAddress(organizationIds.anlTeam, surface, 'stories'),
+      );
+      await userEvent.click(entry);
+      await waitFor(() =>
+        expect(screen.getByTestId('location')).toHaveTextContent(
+          teamAddress(organizationIds.anlTeam, surface, 'stories'),
+        ),
+      );
+    },
+  );
+
   it('a deleted team’s backlog answers «Команда не найдена», and the switcher no longer lists it (US-7)', async () => {
     const organizations = organizationsDataset();
     organizations.teams = organizations.teams.map((team) =>
@@ -496,7 +563,7 @@ describe('mod-006 the not-found frames on a team-level address', () => {
     boards.teams = boards.teams.map((team) =>
       team.id === organizationIds.platformTeam ? { ...team, active: false } : team,
     );
-    serveBoards(boards);
+    serveBoards(boards, { projectList: false });
     // The user was last in «Пример проекта»; an address whose team is not found sets nothing.
     localStorage.setItem(
       `mustask.context.${SUBJECT}`,
@@ -519,8 +586,9 @@ describe('mod-006 the not-found frames on a team-level address', () => {
       ]),
     );
     await userEvent.click(within(switcher()).getByRole('button', { name: /^Команда:/ }));
+    // feat-040 BR-TS-10: the organization's teams, by name (none is the user's own), the deleted one gone.
     expect(
       (await screen.findAllByRole('menuitemradio')).map((option) => option.textContent),
-    ).toEqual(['Пример проекта']);
+    ).toEqual(['Аналитика', 'Пример проекта', 'Старый проект']);
   });
 });

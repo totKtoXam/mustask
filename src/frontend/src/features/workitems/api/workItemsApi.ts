@@ -89,6 +89,15 @@ export interface WorkItemTeam {
 }
 
 /**
+ * feat-040 api-contract § 2.1: the item's project as it stands now (a rename shows at once). Every
+ * item has one; the card's «Проект» reads it (BR-TS-3).
+ */
+export interface WorkItemProject {
+  id: string;
+  name: string;
+}
+
+/**
  * mod-017 api-contract § 0.2: a team is sent in a wrapper, never flat, because a flat `null`
  * would read as «not changed». `{ teamId: null }` is «Без команды»; the member left out of
  * the body leaves the field alone.
@@ -158,6 +167,8 @@ export interface WorkItem extends WorkItemFields {
   identifier: string;
   number: number;
   projectId: string;
+  /** feat-040 api-contract § 4.2: the project with its name, beside `projectId`, which stays. */
+  project: WorkItemProject;
   type: WorkItemTypeReference;
   title: string;
   /** `""` when empty, never `null` (§ 0.6). */
@@ -206,6 +217,7 @@ export interface WorkItemListAssignee {
 export type WorkItemListItem = Omit<
   WorkItem,
   | 'projectId'
+  | 'project'
   | 'description'
   | 'createdBy'
   | 'createdAt'

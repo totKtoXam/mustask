@@ -17,8 +17,10 @@ public sealed class BacklogRowViewTests
     private static readonly WorkItemStateView NewState =
         new(Guid.CreateVersion7(), "Новая", new WorkItemStateCategoryView("Proposed", "Новые"));
 
+    private static readonly WorkItemProjectView Msk = new(Guid.CreateVersion7(), "Мастаск");
+
     private static BacklogItemRow Row(int number, Guid id, Guid? parentId) =>
-        new(id, $"MSK-US-{number}", number, null, StoryType, $"Элемент {number}", null, NewState, 2, parentId, StoryRank, null, null, "Business", null);
+        new(id, $"MSK-US-{number}", number, null, StoryType, $"Элемент {number}", null, NewState, 2, parentId, StoryRank, null, null, "Business", null, Msk, "MSK");
 
     private static IReadOnlyList<BacklogRowView> Map(IReadOnlyList<BacklogItemRow> rows) =>
         BacklogRowView.Tree(StoryRank, rows, new Dictionary<Guid, WorkItemRefView>());
@@ -122,6 +124,50 @@ public sealed class BacklogRowViewTests
         Assert.Equal(["MSK-US-3", "MSK-US-2", "MSK-US-1"], Map(project).Select(row => row.Identifier));
         Assert.Equal([1, 2, 3], Map(project).Select(row => row.Order));
         Assert.Equal(["MSK-US-1", "MSK-US-2", "MSK-US-3"], Map(team).Select(row => row.Identifier));
+    }
+
+    // feat-040 US-1 / BR-TS-3 · "«Проект» on every row and card": a top-level row, a nested child at any depth, a board card and a
+    // backlog item each carry the project of their own item (a team's tree set holds items of several projects), by its current name.
+    [Fact]
+    public void Tree_AndInOrder_EveryRowChildAndCardCarriesItsOwnProject()
+    {
+        var (root, child, grandchild) = (Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7());
+        var beta = new WorkItemProjectView(Guid.CreateVersion7(), "Бета");
+        var rows = new List<BacklogItemRow>
+        {
+            Row(1, root, null),
+            Row(2, child, root) with { Project = beta, ProjectKey = "BET" },
+            Row(3, grandchild, child),
+        };
+
+        var top = Assert.Single(Map(rows));
+
+        Assert.Equal(Msk, top.Project);
+        Assert.Equal(beta, top.Children[0].Project);
+        Assert.Equal(Msk, top.Children[0].Children[0].Project);
+
+        var cards = BacklogItemView.InOrder(rows).Select(card => BoardCardView.Of(card, new Dictionary<Guid, IReadOnlyList<ChecklistChildView>>())).ToList();
+
+        // With no creation time the project key (BET before MSK) comes before the number.
+        Assert.Equal([beta, Msk, Msk], cards.Select(card => card.Project));
+    }
+
+    // feat-040 US-3 / BR-TS-6 · a team's rows give their creation time and project key: the rows of two projects created at the
+    // same moment stand by key, then number — whatever order they were read in. The key is never a field of a view.
+    [Fact]
+    public void Tree_AndInOrder_RowsOfTwoProjects_StandByCreationTimeThenProjectKeyThenNumber()
+    {
+        var (bet, alp, alpLater) = (Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7());
+        var ten = new DateTimeOffset(2026, 10, 10, 10, 0, 0, TimeSpan.Zero);
+        var rows = new List<BacklogItemRow>
+        {
+            Row(3, bet, null) with { CreatedAt = ten, ProjectKey = "BET" },
+            Row(7, alp, null) with { CreatedAt = ten, ProjectKey = "ALP" },
+            Row(2, alpLater, null) with { CreatedAt = ten.AddMinutes(15), ProjectKey = "ALP" },
+        };
+
+        Assert.Equal([alp, bet, alpLater], Map(rows).Select(row => row.Id));
+        Assert.Equal([alp, bet, alpLater], BacklogItemView.InOrder(rows).Select(card => card.Id));
     }
 
     // feat-039 BR-PB-4 on the board: the cards of a project's read stand in the same order, «Порядок» their position.

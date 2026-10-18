@@ -9,8 +9,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Mustask.Api.IntegrationTests.Features.Boards;
 
 /// <summary>
-/// <c>POST /api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}/backlogs/{level}/reorder</c>
-/// (mod-006 api-contract § 3.2): US-2 — one item to the top, to the bottom or
+/// <c>POST /api/organizations/{organizationId}/teams/{teamId}/backlogs/{level}/reorder</c>
+/// (mod-006 api-contract § 3.2, moved to the team's address by feat-040 § 3.2): US-2 — one item to the top, to the bottom or
 /// directly after another; reorders of one backlog one at a time, last write
 /// wins with no token (BR-M4-25); a move next to an item that has left refused
 /// (BR-M4-26).
@@ -286,8 +286,7 @@ public sealed class ReorderBacklogEndpointTests(MustaskApiFactory factory)
     // US-1's not-found outline, for the reorder: the address answers before the body.
     [Theory]
     [InlineData("team-deleted", "organizations.team.not_found")]
-    [InlineData("team-of-another-project", "organizations.team.not_found")]
-    [InlineData("project-deactivated", "organizations.project.not_found")]
+    [InlineData("team-of-another-organization", "organizations.team.not_found")]
     [InlineData("level-tasks", "boards.level.not_found")]
     public async Task Reorder_ContextNotFound_AnswersItsLevelsCode(string part, string code)
     {

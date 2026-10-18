@@ -231,6 +231,7 @@ describe('US-1 The panel speaks one visual language — the theme', () => {
       table.typeColumn +
       table.stateColumn +
       table.teamColumn +
+      table.projectColumn +
       table.effortColumn +
       table.businessValueColumn +
       table.valueAreaColumn;
@@ -240,14 +241,16 @@ describe('US-1 The panel speaks one visual language — the theme', () => {
     /** The content beside the expanded navigation: 1 440 and 1 280 px windows, less the navigation, less the page's side padding. */
     const contentAt = (window: number) => window - theme.layout.navigationWidth - 48;
 
-    it('sums the eight fixed columns to 780 px and the table’s minimum width to 1 180 px (mod-017 design § 6.4: «Команда» is 120)', () => {
+    it('sums the nine fixed columns to 900 px and the table’s minimum width to 1 300 px (mod-017 design § 6.4: «Команда» is 120; feat-040 design § 5.1: «Проект» is 120 again)', () => {
       expect(table.teamColumn).toBe(120);
-      expect(fixedColumns).toBe(780);
-      expect(minWidth).toBe(1180);
+      expect(table.projectColumn).toBe(120);
+      expect(fixedColumns).toBe(900);
+      expect(minWidth).toBe(1300);
     });
 
     // feat-027 § 2.6's "fits a 1 440 px window" is superseded by mod-017 design § 6.4: with
-    // «Команда» the least width is 1 180 px and the table scrolls in its card, as at 1 280 px.
+    // «Команда» the least width is 1 180 px and the table scrolls in its card, as at 1 280 px;
+    // feat-040 design § 5.1 grows it to 1 300 px with «Проект».
     it('scrolls sideways inside its card at 1 440 px too, since «Команда» (mod-017 design § 6.4)', () => {
       expect(minWidth).toBeGreaterThan(contentAt(1440) - SCROLLBAR);
     });
@@ -293,6 +296,7 @@ describe('US-1 The panel speaks one visual language — the theme', () => {
           'titleColumnMin',
           'stateColumn',
           'teamColumn',
+          'projectColumn',
           'effortColumn',
           'businessValueColumn',
           'valueAreaColumn',

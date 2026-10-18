@@ -12,12 +12,21 @@ namespace Mustask.Domain.WorkItems;
 /// and leave this one's meaning.
 /// </summary>
 /// <remarks>
+/// <para>
+/// feat-040 (BR-TS-8) adds the second dimension, the project: <see cref="ProjectsSet"/> and <see cref="ProjectIds"/>, set
+/// by <see cref="OfProjects"/> from the repeated <c>projectId</c> values. An item matches when its project is any chosen
+/// project; a filter that is set but names no project the team's items are in selects nothing, as the team dimension's
+/// does. Only a team's backlog and board set it; the list and a project's views never do. The two dimensions are
+/// <c>init</c> members, not constructor arguments, so a surface that sets only one reads as it did.
+/// </para>
+/// <para>
 /// feat-003 (BR-WS-16) adds three dimensions: the state (<see cref="StatesSet"/>, <see cref="StateNames"/>), the assignee
 /// (<see cref="AssigneesSet"/>, <see cref="AssigneeIds"/>, <see cref="NoAssignee"/>) and the keyword (<see cref="Keyword"/>),
 /// built by <see cref="Of"/> from the request's repeated <c>state</c> and <c>assigneeId</c> and its <c>search</c>. They are
 /// <c>init</c> members, not constructor arguments, so a surface that sets only the team reads as it did. A dimension whose values
 /// are all blank is not set; one that is set but names nothing the item can have selects nothing, alike for every kind of value
-/// and never an error (api-contract § 2.1). Only the project's list takes them in feat-003.
+/// and never an error (api-contract § 2.1). Only the project's list takes them in feat-003; it never sets the project dimension.
+/// </para>
 /// </remarks>
 /// <param name="TeamsSet">Whether the request carried the filter at all; a set filter with no usable value selects nothing.</param>
 /// <param name="TeamIds">The well-formed team ids among the values.</param>
@@ -47,6 +56,12 @@ public sealed record WorkItemFilter(bool TeamsSet, IReadOnlyCollection<Guid> Tea
 
     /// <summary>The keyword, or <c>null</c> when the request carried none (a blank one sets no filter).</summary>
     public WorkItemKeyword? Keyword { get; init; }
+
+    /// <summary>Whether the request carried the project filter at all; a set filter with no usable value selects nothing (feat-040 BR-TS-8).</summary>
+    public bool ProjectsSet { get; init; }
+
+    /// <summary>The well-formed project ids among the project values (feat-040 BR-TS-8).</summary>
+    public IReadOnlyCollection<Guid> ProjectIds { get; init; } = [];
 
     /// <summary>No filter: the surface is as it was.</summary>
     public static WorkItemFilter None { get; } = new(false, [], false);
@@ -111,6 +126,38 @@ public sealed record WorkItemFilter(bool TeamsSet, IReadOnlyCollection<Guid> Tea
         }
 
         return values.Where(value => value.Length <= maxLength && !value.Contains('\0', StringComparison.Ordinal)).ToList();
+    }
+
+    /// <summary>
+    /// The project filter of the repeated <c>projectId</c> values as they arrived (feat-040 api-contract § 3.1). Absent or
+    /// empty is no filter; otherwise it is set, and each value is a canonical project id (either letter case, not all
+    /// zeros) or ignored, so a filter whose every value is ignored is set and selects nothing.
+    /// </summary>
+    public static WorkItemFilter OfProjects(IEnumerable<string?>? raw)
+    {
+        if (raw is null)
+        {
+            return None;
+        }
+
+        var values = raw.ToList();
+
+        if (values.Count == 0)
+        {
+            return None;
+        }
+
+        var ids = new HashSet<Guid>();
+
+        foreach (var value in values)
+        {
+            if (AddressedId.TryParse(value, out var id))
+            {
+                ids.Add(id);
+            }
+        }
+
+        return None with { ProjectsSet = true, ProjectIds = ids.ToList() };
     }
 
     /// <summary>

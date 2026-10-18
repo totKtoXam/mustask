@@ -205,7 +205,7 @@ describe('mod-016 US-1 Scenario: removing oneself', () => {
   it('opens the organization list, forgets the organization’s access and notices «Вы больше не состоите…» when nothing replaces it', async () => {
     const { data, queryClient, members } = openPage({
       context: contextSource({
-        organizations: [{ id: ids.alfa, name: 'Альфа', projects: [] }],
+        organizations: [{ id: ids.alfa, name: 'Альфа', projects: [], teams: [] }],
         selection: { organizationId: ids.alfa },
       }),
     });

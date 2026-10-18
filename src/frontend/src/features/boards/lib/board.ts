@@ -67,6 +67,12 @@ export function applyCardMove<T extends Pick<Board, 'columns'>>(
   };
 }
 
+/**
+ * The hint of the empty frame of a team that works on no active project (feat-040 design § 10,
+ * state 10 (a)): the same for every role, saying nothing of why a project is gone.
+ */
+export const NO_PROJECT_HINT = 'Команда не участвует ни в одном проекте.';
+
 /** Whether no column holds a card: the board shows its empty frame (spec § Page «Доски»). */
 export function isBoardEmpty(board: Pick<Board, 'columns'>): boolean {
   return board.columns.every((column) => column.items.length === 0);

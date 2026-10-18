@@ -327,10 +327,10 @@ function WorkItemsList({
         <RequiresOrganizationCode code={workItemsPermissions.workItemWrite}>
           <CreateWorkItemDialog
             organizationId={organizationId}
-            projectId={projectId}
+            place={{ kind: 'project', projectId }}
             types={types}
             initialTypeId={creatingTypeId}
-            submit={(body) => create.mutateAsync(body)}
+            submit={(_projectId, body) => create.mutateAsync(body)}
             onCreated={(item) => {
               setCreatingTypeId(null);
               // OQ-4: the user stays on the list, on its first page, the new row on top.

@@ -188,67 +188,70 @@ describe('mod-006 US-1 Scenario: Switching the team keeps the entry, not the lev
   const backlogs = navigationModel.work.find((entry) => entry.id === 'backlogs');
   const withBacklogs: NavigationModel = { ...model, work: backlogs ? [backlogs] : [] };
   const alfaPrmOtherTeam = { organizationId: 'o1', projectId: 'p1', teamId: 't9' };
+  // feat-040 BR-TS-1: a team's address names the organization and the team, no project.
+  const teamCarried = { organizationId: 'o1', teamId: 't1' };
 
   it.each([['epics'], ['features'], ['stories']])(
     'a team chosen on the «%s» backlog opens the new team’s «Истории» backlog',
     (level) => {
       expect(
         switchTarget(withBacklogs, signedIn, {
-          pathname: `/organizations/o1/projects/p1/teams/t1/backlogs/${level}`,
-          carried: alfaPrm,
+          pathname: `/organizations/o1/teams/t1/backlogs/${level}`,
+          carried: teamCarried,
           next: alfaPrmOtherTeam,
         }),
-      ).toBe('/organizations/o1/projects/p1/teams/t9/backlogs/stories');
+      ).toBe('/organizations/o1/teams/t9/backlogs/stories');
     },
   );
 });
 
-describe('mod-015 BR-18 on a team-level page: a project or organization choice keeps the entry — the resolver', () => {
+// feat-040 BR-TS-10: a project choice moves nothing on a team page, so the retired tests «on «%s», a
+// project chosen, with its first team read, opens that team’s «Истории» landing» (mod-015 BR-18)
+// have no twin; the organization choice keeps the entry and takes the new organization’s team.
+describe('mod-015 BR-18 on a team-level page: an organization choice keeps the entry — the resolver', () => {
   // What the source's `select` hands the resolver on a team-level address
   // (`useOrganizationsContextSource.teamLevel.test.tsx` pins it): the choice
-  // with the first entries of the levels below it, read first — a project's
-  // first team, an organization's first project and its first team (mod-002
-  // design § 2.2, § 3.5). A level with no entry stays unset.
+  // with the first entries of the levels below it, read first — an organization's
+  // first project and the team its team level falls back to (BR-TS-10). A level with
+  // no entry stays unset.
   const backlogs = navigationModel.work.find((entry) => entry.id === 'backlogs');
   const boards = navigationModel.work.find((entry) => entry.id === 'boards');
   const withTeamEntries: NavigationModel = {
     ...model,
     work: [backlogs, boards].filter((entry) => entry !== undefined),
   };
-  const anlChosen = { organizationId: 'o1', projectId: 'p2', teamId: 't2' };
   const betaChosen = { organizationId: 'o2', projectId: 'p3', teamId: 't3' };
+  const teamCarried = { organizationId: 'o1', teamId: 't1' };
 
   function from(pathname: string, next: WorkContextSelection) {
-    return switchTarget(withTeamEntries, signedIn, { pathname, carried: alfaPrm, next });
+    return switchTarget(withTeamEntries, signedIn, { pathname, carried: teamCarried, next });
   }
 
   it.each([['backlogs'], ['boards']])(
-    'on «%s», a project chosen, with its first team read, opens that team’s «Истории» landing',
+    'on «%s», an organization chosen, with its team read, opens that team’s «Истории» landing',
     (surface) => {
-      expect(from(`/organizations/o1/projects/p1/teams/t1/${surface}/features`, anlChosen)).toBe(
-        `/organizations/o1/projects/p2/teams/t2/${surface}/stories`,
+      expect(from(`/organizations/o1/teams/t1/${surface}/epics`, betaChosen)).toBe(
+        `/organizations/o2/teams/t3/${surface}/stories`,
       );
     },
   );
 
-  it.each([['backlogs'], ['boards']])(
-    'on «%s», an organization chosen, with its first project and team read, opens that team’s «Истории» landing',
-    (surface) => {
-      expect(from(`/organizations/o1/projects/p1/teams/t1/${surface}/epics`, betaChosen)).toBe(
-        `/organizations/o2/projects/p3/teams/t3/${surface}/stories`,
-      );
-    },
-  );
+  it('opens the landing of the new organization’s team also when it has no project (BR-TS-10)', () => {
+    expect(
+      from('/organizations/o1/teams/t1/backlogs/features', {
+        organizationId: 'o2',
+        projectId: undefined,
+        teamId: 't3',
+      }),
+    ).toBe('/organizations/o2/teams/t3/backlogs/stories');
+  });
 
   it('opens «Главная» when the choice names no team: the entry is not visible there', () => {
-    const backlog = '/organizations/o1/projects/p1/teams/t1/backlogs/features';
-    // A project whose teams list came back empty, and a bare project choice
-    // with no team read — why the source reads the first team first (review F1).
-    expect(from(backlog, { organizationId: 'o1', projectId: 'p2', teamId: undefined })).toBe(
+    const backlog = '/organizations/o1/teams/t1/backlogs/features';
+    // An organization with no team, whatever its projects.
+    expect(from(backlog, { organizationId: 'o2', projectId: 'p3', teamId: undefined })).toBe(
       '/home',
     );
-    expect(from(backlog, { organizationId: 'o1', projectId: 'p2' })).toBe('/home');
-    // An organization with no project.
     expect(from(backlog, { organizationId: 'o2', projectId: undefined })).toBe('/home');
   });
 });

@@ -7,42 +7,38 @@ import {
   type WorkContextOrganization,
 } from './workContext';
 
+// feat-040 BR-TS-10: the team level is the organization's, whatever its projects.
 const organizations: WorkContextOrganization[] = [
   {
     id: 'org-1',
     name: 'Пример организации 1',
     projects: [
-      {
-        id: 'prj-1',
-        name: 'Пример проекта 1',
-        teams: [
-          { id: 'team-1', name: 'Пример команды 1' },
-          { id: 'team-2', name: 'Пример команды 2' },
-        ],
-      },
-      {
-        id: 'prj-2',
-        name: 'Пример проекта 2',
-        teams: [{ id: 'team-3', name: 'Пример команды 3' }],
-      },
+      { id: 'prj-1', name: 'Пример проекта 1' },
+      { id: 'prj-2', name: 'Пример проекта 2' },
+    ],
+    teams: [
+      { id: 'team-1', name: 'Пример команды 1' },
+      { id: 'team-2', name: 'Пример команды 2' },
+      { id: 'team-3', name: 'Пример команды 3' },
     ],
   },
   {
     id: 'org-2',
     name: 'Пример организации 2',
-    projects: [
-      {
-        id: 'prj-3',
-        name: 'Пример проекта 3',
-        teams: [{ id: 'team-4', name: 'Пример команды 4' }],
-      },
-    ],
+    projects: [{ id: 'prj-3', name: 'Пример проекта 3' }],
+    teams: [{ id: 'team-4', name: 'Пример команды 4' }],
   },
-  { id: 'org-3', name: 'Без проектов', projects: [] },
+  { id: 'org-3', name: 'Без проектов', projects: [], teams: [] },
+  {
+    id: 'org-4',
+    name: 'Только команды',
+    projects: [],
+    teams: [{ id: 'team-5', name: 'Пример команды 5' }],
+  },
 ];
 
 describe('US-5 Scenario: Initial context (BR-11, D-11)', () => {
-  it('starts on the first organization, its first project and that project’s first team', () => {
+  it('starts on the first organization, its first project and its first team', () => {
     expect(firstSelection(organizations)).toEqual({
       organizationId: 'org-1',
       projectId: 'prj-1',
@@ -59,10 +55,10 @@ describe('US-5 Scenario: Initial context (BR-11, D-11)', () => {
   });
 });
 
-describe('US-5 Scenario: Changing a level resets the levels below it', () => {
+describe('US-5 Scenario: Changing a level resets the levels below it — and feat-040 BR-TS-10', () => {
   const initial = firstSelection(organizations);
 
-  it('an organization brings its first project and team', () => {
+  it('an organization brings its first project and its default team', () => {
     expect(selectInWorkContext(organizations, initial, 'organization', 'org-2')).toEqual({
       organizationId: 'org-2',
       projectId: 'prj-3',
@@ -70,12 +66,19 @@ describe('US-5 Scenario: Changing a level resets the levels below it', () => {
     });
   });
 
-  it('a project brings its first team and keeps the organization', () => {
-    expect(selectInWorkContext(organizations, initial, 'project', 'prj-2')).toEqual({
+  it('a project keeps a chosen team and the organization: the team level is the organization’s', () => {
+    const chosen = { ...initial, teamId: 'team-3' };
+    expect(selectInWorkContext(organizations, chosen, 'project', 'prj-2')).toEqual({
       organizationId: 'org-1',
       projectId: 'prj-2',
       teamId: 'team-3',
     });
+  });
+
+  it('a project change with no team chosen takes the level’s default entry', () => {
+    expect(
+      selectInWorkContext(organizations, { organizationId: 'org-1' }, 'project', 'prj-2'),
+    ).toEqual({ organizationId: 'org-1', projectId: 'prj-2', teamId: 'team-1' });
   });
 
   it('a team changes only the team', () => {
@@ -86,11 +89,19 @@ describe('US-5 Scenario: Changing a level resets the levels below it', () => {
     });
   });
 
-  it('an organization without projects leaves the lower levels empty', () => {
+  it('an organization without projects or teams leaves the lower levels empty', () => {
     expect(selectInWorkContext(organizations, initial, 'organization', 'org-3')).toEqual({
       organizationId: 'org-3',
       projectId: undefined,
       teamId: undefined,
+    });
+  });
+
+  it('an organization without projects still holds its teams (BR-TS-10)', () => {
+    expect(selectInWorkContext(organizations, initial, 'organization', 'org-4')).toEqual({
+      organizationId: 'org-4',
+      projectId: undefined,
+      teamId: 'team-5',
     });
   });
 });
@@ -129,15 +140,10 @@ describe('defaultEntry (mod-016 D-5, US-7)', () => {
       {
         id: 'org-1',
         name: 'Организация',
-        projects: [
-          {
-            id: 'prj-1',
-            name: 'Проект',
-            teams: [
-              { id: 't-1', name: 'Первая', isMember: false },
-              { id: 't-2', name: 'Вторая', isMember: true },
-            ],
-          },
+        projects: [{ id: 'prj-1', name: 'Проект' }],
+        teams: [
+          { id: 't-1', name: 'Первая', isMember: false },
+          { id: 't-2', name: 'Вторая', isMember: true },
         ],
       },
     ];
@@ -184,15 +190,10 @@ describe('defaultEntry (mod-020: the project’s default team first)', () => {
       {
         id: 'org-1',
         name: 'Организация',
-        projects: [
-          {
-            id: 'prj-1',
-            name: 'Проект',
-            teams: [
-              { id: 't-1', name: 'Первая', isMember: true },
-              { id: 't-2', name: 'Вторая', isMember: false, isDefault: true },
-            ],
-          },
+        projects: [{ id: 'prj-1', name: 'Проект' }],
+        teams: [
+          { id: 't-1', name: 'Первая', isMember: true },
+          { id: 't-2', name: 'Вторая', isMember: false, isDefault: true },
         ],
       },
     ];

@@ -10,23 +10,19 @@ import {
 } from '../../shared/lib/workContext';
 import { ContextSwitcher } from './ContextSwitcher';
 
-/** «Альфа» with «Пример проекта» and its teams, as the real source gives them once read. */
+/** «Альфа» with «Пример проекта» and its teams, as the real source gives them once read (feat-040 BR-TS-10: the teams are the organization's). */
 const organizations: WorkContextOrganization[] = [
   {
     id: 'o1',
     name: 'Альфа',
-    projects: [
-      {
-        id: 'p1',
-        name: 'Пример проекта',
-        teams: [
-          { id: 't1', name: 'Пример проекта' },
-          { id: 't2', name: 'Платформа' },
-        ],
-      },
+    projects: [{ id: 'p1', name: 'Пример проекта' }],
+    teams: [
+      { id: 't1', name: 'Пример проекта' },
+      { id: 't2', name: 'Платформа' },
     ],
   },
-  { id: 'o2', name: 'Бета', projects: [] },
+  { id: 'o2', name: 'Бета', projects: [], teams: [{ id: 't3', name: 'Гамма' }] },
+  { id: 'o3', name: 'Дельта', projects: [], teams: [] },
 ];
 
 function source(overrides: Partial<WorkContextSource> = {}): WorkContextSource {
@@ -96,6 +92,13 @@ describe('mod-002 US-8 Scenario: The lists fail to load — a level failing on i
     await userEvent.click(within(group()).getByRole('button', { name: 'Повторить' }));
 
     expect(value.retry).toHaveBeenCalledWith('project');
+  });
+
+  it('projects failed leaves the team level, which is the organization’s, as it is (feat-040 BR-TS-10)', () => {
+    renderSwitcher(source({ levelStatus: { project: 'failed' } }));
+
+    expect(within(group()).getByRole('button', { name: 'Команда: Пример проекта' })).toBeVisible();
+    expect(within(group()).queryByText('Не удалось загрузить команды')).not.toBeInTheDocument();
   });
 
   it('teams failed: «Не удалось загрузить команды» and «Повторить» retrying the team level', async () => {

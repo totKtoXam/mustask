@@ -210,6 +210,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             item.Id,
             item.ProjectId,
             project.Key,
+            project.Name,
             item.Number,
             item.ParentId,
             type.Id,
@@ -312,6 +313,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             parent,
             children)
         {
+            Project = new WorkItemProjectView(row.ProjectId, row.ProjectName),
             Deletion = DeletionOf(row.Deletion, assignees),
             Priority = fields.Priority,
             Risk = fields.Risk,
@@ -445,6 +447,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         Guid Id,
         Guid ProjectId,
         string ProjectKey,
+        string ProjectName,
         int Number,
         Guid? ParentId,
         Guid TypeId,

@@ -393,7 +393,8 @@ describe('mod-006 spec § Navigation: «Доски» (feat-001 BR-H-16: «Кан
   const entry = (id: string) =>
     navigationModel.work.find((candidate) => candidate.id === id) as NavigationEntry;
   const team = { organizationId: 'org-1', projectId: 'prj-1', teamId: 'team-1' };
-  const prefix = '/organizations/org-1/projects/prj-1/teams/team-1';
+  // feat-040 BR-TS-1: a team's pages are at the team's address, no project in it.
+  const prefix = '/organizations/org-1/teams/team-1';
 
   it('stand after «Рабочие элементы», «Канбан» first; team-scoped; declare workitems.workitem.read', () => {
     expect(navigationModel.work.map((candidate) => candidate.label)).toEqual([
@@ -421,6 +422,17 @@ describe('mod-006 spec § Navigation: «Доски» (feat-001 BR-H-16: «Кан
           selection: { organizationId: 'org-1', projectId: 'prj-1' },
         }),
       ).toBe(false);
+    }
+  });
+
+  it('need the organization and a team, whatever project is chosen — also none (feat-040 BR-TS-10)', () => {
+    for (const id of ['boards', 'backlogs']) {
+      expect(
+        isEntryVisible(entry(id), allowEverything, {
+          isReal: true,
+          selection: { organizationId: 'org-1', teamId: 'team-1' },
+        }),
+      ).toBe(true);
     }
   });
 

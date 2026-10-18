@@ -228,9 +228,10 @@ describe('mod-002 US-3 Scenario: A project is deactivated', () => {
             id: ids.alfa,
             name: 'Альфа',
             projects: [
-              { id: ids.anl, name: 'Аналитика', teams: [] },
-              { id: ids.prm, name: 'Пример проекта', teams: [] },
+              { id: ids.anl, name: 'Аналитика' },
+              { id: ids.prm, name: 'Пример проекта' },
             ],
+            teams: [],
           },
         ],
         selection: { organizationId: ids.alfa, projectId: ids.prm },
