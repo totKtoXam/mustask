@@ -30,6 +30,7 @@ import { TeamFilter } from '../components/TeamFilter';
 import { NEW_WORK_ITEM_LABEL, TypePickerMenu } from '../components/TypePickerMenu';
 import { useCreateWorkItem } from '../hooks/mutations';
 import { useWorkItems } from '../hooks/queries';
+import { useTeamFilter } from '../hooks/useTeamFilter';
 import { notFoundLevel } from '../lib/notFoundLevel';
 import { creatableTypes } from '../lib/process';
 import { createdNotice, teamTexts } from '../lib/teams';
@@ -55,8 +56,8 @@ const COLUMNS = [
  * «Рабочие элементы» (US-1, US-2; spec § Page «Рабочие элементы»; mod-015
  * § 10.1 without secondary commands and pane): every item of the project, the
  * latest change first, 50 a page, under the band «Фильтры» with the team filter
- * (mod-017 US-5, BR-OT-9; design § 5): the chosen teams live in this page's state. The list's first read
- * validates the address. Keyed by its project, so another project starts on
+ * (mod-017 US-5, BR-OT-9; design § 5): the chosen teams live in this page's address
+ * (`?teamId=`, mod-020). The list's first read validates the address. Keyed by its project, so another project starts on
  * its own first page.
  */
 export function WorkItemsPage() {
@@ -85,10 +86,18 @@ function WorkItemsList({
   organizationId: string;
   projectId: string;
 }) {
-  /** 0-based, as `TablePagination` counts; the route's `page` is 1-based. */
-  const [page, setPage] = useState(0);
-  /** The chosen team ids and `none` (BR-OT-8); a change shows page 1. */
-  const [teamIds, setTeamIds] = useState<string[]>([]);
+  /**
+   * The chosen team ids and `none` (BR-OT-8), kept in the address (mod-020, mod-017 OQ-9 B): a link
+   * carries them. A change of them, whoever makes it, shows page 1.
+   */
+  const [teamIds, setTeamIds] = useTeamFilter();
+  /**
+   * 0-based, as `TablePagination` counts; the route's `page` is 1-based. It belongs to the filter
+   * it was chosen under: another filter, set here or by the address, reads from the first page.
+   */
+  const [paging, setPaging] = useState({ teamIds, page: 0 });
+  const page = paging.teamIds === teamIds ? paging.page : 0;
+  const setPage = (next: number) => setPaging({ teamIds, page: next });
   const query = useWorkItems(organizationId, projectId, page + 1, teamIds);
   const process = useProcessDefinition(organizationId);
   const create = useCreateWorkItem(organizationId, projectId);
@@ -121,10 +130,7 @@ function WorkItemsList({
   const loading = query.isPending || (query.isError && query.isFetching);
   const types = creatableTypes(process.data?.workItemTypes ?? [], process.data?.backlogLevels);
   const filtered = teamIds.length > 0;
-  const changeFilter = (next: string[]) => {
-    setTeamIds(next);
-    setPage(0);
-  };
+  const changeFilter = (next: string[]) => setTeamIds(next);
 
   return (
     <>

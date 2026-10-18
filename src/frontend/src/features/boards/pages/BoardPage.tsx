@@ -9,6 +9,7 @@ import {
   NEW_WORK_ITEM_LABEL,
   WorkItemCardDialog,
   createdNotice,
+  useTeamFilter,
   type WorkItemStateReference,
 } from '../../workitems';
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
@@ -24,7 +25,14 @@ import { useNewWorkItem } from '../hooks/useNewWorkItem';
 import { emptyBoardHint, isBoardEmpty } from '../lib/board';
 import { isBoardLevel, type BoardLevelCode } from '../lib/levels';
 import { notFoundLevel } from '../lib/refusals';
-import { creationSurface, readName, startTeamOf, teamScope, type BoardScope } from '../lib/scope';
+import {
+  creationSurface,
+  filterTeamIds,
+  readName,
+  startTeamOf,
+  teamScope,
+  type BoardScope,
+} from '../lib/scope';
 
 /**
  * «Канбан» (US-4, US-5, US-6, US-7's board scenario; spec § Page «Доски»,
@@ -41,7 +49,7 @@ import { creationSurface, readName, startTeamOf, teamScope, type BoardScope } fr
  * The body is `ScopedBoard`, which the project's own board shares
  * (`ProjectBoardPage`, feat-039): a team's page reads the team's board; the
  * project's reads the project's, under the team filter (mod-017 US-5), which lives
- * here, above the level. Both create items (mod-017 US-2).
+ * here, above the level, and in the page address (mod-020). Both create items (mod-017 US-2).
  *
  * A re-read that fails while the columns are shown leaves them as they were —
  * their cards, the open checklists, the scroll — with the error above them; a
@@ -88,8 +96,10 @@ export function ScopedBoard({
   scope: BoardScope;
   level: BoardLevelCode;
 }) {
-  // mod-017 BR-OT-8: the project's views alone are filtered; the chosen values belong to the page.
-  const [teamIds, setTeamIds] = useState<string[]>([]);
+  // mod-017 BR-OT-8: the project's views alone are filtered; the chosen values belong to the page,
+  // above the level, and live in its address (mod-020, mod-017 OQ-9 B).
+  const [addressTeamIds, setTeamIds] = useTeamFilter();
+  const teamIds = filterTeamIds(scope, addressTeamIds);
   const query = useBoard(organizationId, projectId, scope, level, teamIds);
   // The process names the state a moved card takes while the move is saved;
   // a failed read only leaves the card's old state shown until the board's.

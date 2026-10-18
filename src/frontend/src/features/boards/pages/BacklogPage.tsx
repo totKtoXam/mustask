@@ -4,7 +4,12 @@ import Box from '@mui/material/Box';
 import AddIcon from '@mui/icons-material/Add';
 import FilterListOffIcon from '@mui/icons-material/FilterListOff';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
-import { NEW_WORK_ITEM_LABEL, WorkItemCardDialog, createdNotice } from '../../workitems';
+import {
+  NEW_WORK_ITEM_LABEL,
+  WorkItemCardDialog,
+  createdNotice,
+  useTeamFilter,
+} from '../../workitems';
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
 import { RegistrySkeleton } from '../../../shared/ui/RegistrySkeleton';
 import { NotFound, StateFrame } from '../../../shared/ui/StateFrame';
@@ -18,7 +23,14 @@ import { useBacklog, useReadAgain } from '../hooks/queries';
 import { useNewWorkItem } from '../hooks/useNewWorkItem';
 import { isBoardLevel, type BoardLevelCode } from '../lib/levels';
 import { notFoundLevel } from '../lib/refusals';
-import { creationSurface, readName, startTeamOf, teamScope, type BoardScope } from '../lib/scope';
+import {
+  creationSurface,
+  filterTeamIds,
+  readName,
+  startTeamOf,
+  teamScope,
+  type BoardScope,
+} from '../lib/scope';
 
 /**
  * «Бэклоги» (feat-027 US-1..US-6; spec § Page «Бэклоги»; mod-015 § 10.5 without
@@ -40,7 +52,7 @@ import { creationSurface, readName, startTeamOf, teamScope, type BoardScope } fr
  * The body is `ScopedBacklog`, which the project's own backlog shares
  * (`ProjectBacklogPage`, feat-039): a team's page reads the team's backlog; the
  * project's reads the project's, under the team filter (mod-017 US-5), which lives
- * here, above the level. Both create items (mod-017 US-2): the dialog starts with the
+ * here, above the level, and in the page address (mod-020). Both create items (mod-017 US-2): the dialog starts with the
  * team's team, or the project's default.
  */
 export function BacklogPage() {
@@ -82,8 +94,10 @@ export function ScopedBacklog({
   scope: BoardScope;
   level: BoardLevelCode;
 }) {
-  // mod-017 BR-OT-8: the project's views alone are filtered; the chosen values belong to the page.
-  const [teamIds, setTeamIds] = useState<string[]>([]);
+  // mod-017 BR-OT-8: the project's views alone are filtered; the chosen values belong to the page,
+  // above the level, and live in its address (mod-020, mod-017 OQ-9 B).
+  const [addressTeamIds, setTeamIds] = useTeamFilter();
+  const teamIds = filterTeamIds(scope, addressTeamIds);
   const query = useBacklog(organizationId, projectId, scope, level, teamIds);
   const readAgain = useReadAgain(organizationId, projectId, scope);
   // The card's dialog changed an item behind the table (BR-C-21): the backlog reads again.

@@ -9,6 +9,7 @@ import ArrowCircleLeftOutlinedIcon from '@mui/icons-material/ArrowCircleLeftOutl
 import ArrowCircleRightOutlinedIcon from '@mui/icons-material/ArrowCircleRightOutlined';
 import ViewWeekOutlinedIcon from '@mui/icons-material/ViewWeekOutlined';
 import { useWorkContext } from '../../../shared/lib/workContext';
+import { teamFilterSearch } from '../../workitems';
 import { BacklogIcon, ThinChevronDownIcon } from '../../../shared/ui';
 import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
 import type { BoardLevelCode } from '../lib/levels';
@@ -120,6 +121,11 @@ export function TeamHead({
   const own = PAGES[page];
   const teamId = scopeTeamId(scope);
   const context = useWorkContext();
+  // mod-020: the project's views keep their team filter in the address, and another level of the
+  // same view carries it (BR-OT-8: a level change keeps it). A team's views have none, and the
+  // other page, another team and the whole project are other views: they start unfiltered.
+  const { search } = useLocation();
+  const levelSearch = scope.kind === 'project' ? teamFilterSearch(search) : '';
   const project = context.organizations
     .find((organization) => organization.id === organizationId)
     ?.projects.find((candidate) => candidate.id === projectId);
@@ -171,7 +177,9 @@ export function TeamHead({
       viewsEnd={
         <LevelMenu
           level={level}
-          pathOf={(next) => pagePath(page, organizationId, projectId, scope, next)}
+          pathOf={(next) =>
+            `${pagePath(page, organizationId, projectId, scope, next)}${levelSearch}`
+          }
         />
       }
     />

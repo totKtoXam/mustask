@@ -202,7 +202,12 @@ head is not changed. **Team views have no filter row** (the team is the filter).
 
 - State is the page's, **above the level**: it survives a re-read, a move, a
   regained focus and a level change; leaving the page drops it (BR-OT-8, OQ-9 A),
-  so «Показать канбан» opens the other page unfiltered.
+  so «Показать канбан» opens the other page unfiltered. Amended by mod-020
+  (OQ-9 B, 2026-10-18): the state is kept in the page address as the repeated
+  `teamId`, so a link carries it and the level drop-down's links keep it; the
+  other page, another team and «Весь проект» are other addresses and start
+  unfiltered. The list's page number is not in the address and returns to 1 when
+  the filter changes, by the address too.
 - Feat-039 § 7's states 1-10 stand. The row shows in 6, 8, 9 and 10 (the head's
   states), not under a full-page frame (1-5, 7).
 - **Backlog:** the tree is built over matching items; a child whose parent is

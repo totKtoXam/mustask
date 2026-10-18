@@ -24,6 +24,20 @@ export function scopeTeamId(scope: BoardScope): string | null {
   return scope.kind === 'team' ? scope.teamId : null;
 }
 
+const NO_TEAM_IDS: readonly string[] = [];
+
+/**
+ * The team ids a view is filtered by (mod-017 BR-OT-8): those the page address carries on the
+ * project's views (mod-020), none on a team's — the team is the filter there, and a `teamId`
+ * left in its address by hand or by a link narrows nothing and is not sent.
+ */
+export function filterTeamIds(
+  scope: BoardScope,
+  fromAddress: readonly string[],
+): readonly string[] {
+  return scope.kind === 'project' ? fromAddress : NO_TEAM_IDS;
+}
+
 /** A backlog's or a board's answer under either scope: `team` on a team's, `project` on the project's. */
 export type SurfaceRead = Backlog | ProjectBacklog | Board | ProjectBoard;
 
