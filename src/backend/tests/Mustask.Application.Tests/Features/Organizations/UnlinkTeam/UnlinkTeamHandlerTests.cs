@@ -27,7 +27,7 @@ public sealed class UnlinkTeamHandlerTests
             Handler = new UnlinkTeamHandler(
                 new FakeOrganizationStructure(Store),
                 new FakeProjectRepository(Store),
-                new FakeProjectTeamRepository(Store),
+                Links,
                 Ownership,
                 new FakeTeamBacklogPlaces(Store),
                 new FakeOrganizationAccess(role),
@@ -36,6 +36,10 @@ public sealed class UnlinkTeamHandlerTests
         }
 
         public InMemoryOrganizations Store { get; } = new();
+
+        public FakeProjectTeamRepository Links => _links ??= new FakeProjectTeamRepository(Store);
+
+        private FakeProjectTeamRepository? _links;
 
         public FakeWorkItemTeamOwnership Ownership => _ownership ??= new FakeWorkItemTeamOwnership(Store);
 
@@ -145,6 +149,43 @@ public sealed class UnlinkTeamHandlerTests
         Assert.Equal(4, f.Ownership.Owned[(f.Alpha.Project.Id, f.Mars.Id)]);
         Assert.DoesNotContain(f.Store.Calls, call => call.StartsWith("reassign", StringComparison.Ordinal));
         Assert.True(f.Store.IsLinked(f.Alpha.Project.Id, f.Jupiter.Id));
+    }
+
+    // feat-028 review-security S-1 · "linked" is what the lock statement returned. A team whose link was committed after that statement
+    // is held by nobody — an item or a setting may bind to it meanwhile, and the unlink's final DELETE would fail on the key — so the
+    // unlink of such a pair is the unlink of an unlinked pair: 204, and nothing moves, although a later read finds the link.
+    [Fact]
+    public async Task Unlink_OfATeamWhoseLinkWasCommittedAfterTheLock_IsANoOp_ChangesNothing()
+    {
+        var f = new Fixture();
+        f.Ownership.Owned[(f.Alpha.Project.Id, f.Mars.Id)] = 4;
+        f.Links.CommittedAfterTheLock.Add(f.Mars.Id);
+        f.Store.Calls.Clear();
+
+        await f.HandleAsync(f.Command(f.Jupiter.Id));
+
+        Assert.True(f.Store.IsLinked(f.Alpha.Project.Id, f.Mars.Id));
+        Assert.Equal(4, f.Ownership.Owned[(f.Alpha.Project.Id, f.Mars.Id)]);
+        Assert.DoesNotContain(f.Store.Calls, call => call.StartsWith("reassign", StringComparison.Ordinal));
+        Assert.DoesNotContain(f.Store.Calls, call => call.StartsWith("lock owned", StringComparison.Ordinal));
+    }
+
+    // feat-028 review-security S-1 · the same for the destination: a destination whose link the lock statement did not return is not
+    // linked as far as the request goes — 409 team.not_in_project, nothing moves — although a later read finds the link.
+    [Fact]
+    public async Task Unlink_ToADestinationWhoseLinkWasCommittedAfterTheLock_IsTeamNotInProject_ChangesNothing()
+    {
+        var f = new Fixture();
+        f.Ownership.Owned[(f.Alpha.Project.Id, f.Mars.Id)] = 6;
+        f.Links.CommittedAfterTheLock.Add(f.Jupiter.Id);
+        f.Store.Calls.Clear();
+
+        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(f.Jupiter.Id)));
+
+        Assert.Equal(OrganizationErrorCodes.TeamNotInProject, refusal.Code);
+        Assert.True(f.Store.IsLinked(f.Alpha.Project.Id, f.Mars.Id));
+        Assert.Equal(6, f.Ownership.Owned[(f.Alpha.Project.Id, f.Mars.Id)]);
+        Assert.DoesNotContain(f.Store.Calls, call => call.StartsWith("reassign", StringComparison.Ordinal));
     }
 
     // US-4 · "a bad destination": itself and an unlinked team are team.not_in_project; a deleted, an unknown and a foreign one are

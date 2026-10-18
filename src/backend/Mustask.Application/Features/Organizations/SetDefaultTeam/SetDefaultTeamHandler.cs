@@ -23,7 +23,9 @@ namespace Mustask.Application.Features.Organizations.SetDefaultTeam;
 /// <para>
 /// <b>Locks</b> (plan-backend § 7, ADR-0028 rule 8): the <b>link</b> <c>FOR SHARE</c> — an item binder — then the project row
 /// <c>FOR NO KEY UPDATE</c> to write the setting, never the other way round, and the project's status is read again under that
-/// lock (a deactivation holds it too). An unlink or a deletion of the team either committed before the lock (the team reads not
+/// lock (a deactivation holds it too). "Linked" is the answer of the statement that locked the link, not of a second read (review-security
+/// S-1): a link committed after the lock is held by nobody, and naming it would let an unlink or a deletion of it fail at its final
+/// <c>DELETE</c> on the setting's key. An unlink or a deletion of the team either committed before the lock (the team reads not
 /// linked, 409, or deleted, 404) or waits for this naming and clears the setting it wrote with the rest. Naming the current default
 /// again changes nothing.
 /// </para>
@@ -52,7 +54,8 @@ public sealed class SetDefaultTeamHandler(
                     throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
                 }
 
-                // 2. The team, if one is named: its link locked as a binder, then judged on a fresh read.
+                // 2. The team, if one is named: its link locked as a binder, the team judged on a fresh read and its link by what
+                // the lock statement returned (a link committed after the lock is held by nobody: S-1).
                 Guid? teamId = null;
 
                 if (command.TeamId is not null)
@@ -62,12 +65,12 @@ public sealed class SetDefaultTeamHandler(
                         throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
                     }
 
-                    _ = await links.LockLinkForShareAsync(organizationId, projectId, parsed, ct);
+                    var linkHeld = await links.LockLinkForShareAsync(organizationId, projectId, parsed, ct);
 
                     var found = await structure.FindProjectTeamAsync(organizationId, projectId, parsed, ct);
 
                     ProjectTeams.EnsureBindable(
-                        found is null ? null : new TeamFacts(found.Team.Id, found.Team.OrganizationId, found.Team.Status, found.IsLinked),
+                        found is null ? null : new TeamFacts(found.Team.Id, found.Team.OrganizationId, found.Team.Status, linkHeld),
                         organizationId);
 
                     teamId = parsed;

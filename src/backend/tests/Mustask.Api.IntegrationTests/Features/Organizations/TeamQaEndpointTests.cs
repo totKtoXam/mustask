@@ -97,9 +97,15 @@ public sealed class TeamQaEndpointTests(MustaskApiFactory factory)
         Assert.Equal(" \n ", await ProjectDescriptionAsync(factory, project));
     }
 
-    // review-code CR-4 / review-security S-1, tried as a hypothesis (no commit gate can reach the window between a binder's link lock and
-    // its fresh read): the first team of a team-less project is linked, unlinked and linked again while items are created for it, for
-    // nobody (the default is resolved) and as children; no request may answer with a server error.
+    // review-code CR-4 / review-security S-1, the race that pins the fix: the first team of a team-less project is linked, unlinked and
+    // linked again while items are created for it, for nobody (the default is resolved) and for the team by name; no request may answer
+    // with a server error. It is a race and not a script because the window it covers lies between two statements of ONE request, which
+    // no commit gate can reach (a gate holds a request at its commit): QA ran it as a hypothesis and found nothing in 80 rounds, CI
+    // caught it once, and 150 rounds on a developer machine failed in about one run of two before the fix, every time the same way —
+    // the unlink answered 500 when its final DELETE of the link met an item bound to it (SQLSTATE 23001, the owner key's RESTRICT).
+    // The window is now reached deterministically, without a gate, in Mustask.Infrastructure.Tests
+    // Organizations/LinkJudgementWindowTests (an interceptor commits the link between the lock statement and the next one); this
+    // test stays as the end-to-end guard that the request pairs the window used to break stay free of server errors.
     [Fact]
     public async Task TheFirstTeamOfATeamlessProject_LinkedAndUnlinkedWhileItemsAreCreated_NeverAServerError()
     {

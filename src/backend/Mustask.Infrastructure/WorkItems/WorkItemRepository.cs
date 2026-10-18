@@ -42,37 +42,25 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
             .SingleAsync(cancellationToken);
     }
 
-    public Task LockTeamLinkAsync(Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
+    public Task<bool> LockTeamLinkAsync(Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
         // The link is named with the organization of the address, so a team or a project of another organization locks nothing
-        // (ADR-0028 § 4): the later read finds the team unknown, exactly as it finds an id that never existed. Only the link row
-        // is locked (step 3 of rule 8); a deletion also holds the team row, which a binder of the link does not need.
-        context.Database.ExecuteSqlInterpolatedAsync(
-            $"""
-             SELECT 1
-             FROM project_teams
-             WHERE organization_id = {organizationId} AND project_id = {projectId} AND team_id = {teamId}
-             FOR SHARE
-             """,
-            cancellationToken);
+        // (ADR-0028 § 4) and answers false, exactly as an id that never existed does. Only the link row is locked (step 3 of rule
+        // 8); a deletion also holds the team row, which a binder of the link does not need. The statement returns the row it locked,
+        // and that answer — not a second read — is what the handler judges "linked" by (feat-028 review-security S-1).
+        ProjectTeamLocks.ShareAsync(context, organizationId, projectId, teamId, cancellationToken);
 
     public async Task<Guid?> LockProjectLinksAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken)
     {
         // Every link of the project FOR SHARE, in one statement ordered by team id — the order an unlink (the pair, by team id)
         // and a deletion (the team's links, by project id) take them in, so a creation never waits for a link while holding another
-        // out of order (plan-backend D-4, § 7.4). Shares do not wait for each other or for a binder's share.
-        await context.Database.ExecuteSqlInterpolatedAsync(
-            $"""
-             SELECT 1
-             FROM project_teams
-             WHERE organization_id = {organizationId} AND project_id = {projectId}
-             ORDER BY team_id
-             FOR SHARE
-             """,
-            cancellationToken);
+        // out of order (plan-backend D-4, § 7.4). Shares do not wait for each other or for a binder's share. The statement returns
+        // the teams whose links it holds.
+        var held = await ProjectTeamLocks.ShareAllOfProjectAsync(context, organizationId, projectId, cancellationToken);
 
-        // A new statement under READ COMMITTED: the default as the unlinks and deletions that committed before the lock left it.
-        // Under the lock no unlink or deletion of this project's links can commit before this creation does.
-        return await DefaultTeams.ResolveAsync(context, projectId, cancellationToken);
+        // A new statement under READ COMMITTED, but over the held links alone: the default as the unlinks and deletions that committed
+        // before the lock left it, never a team whose link committed after the lock and is held by nobody (review-code CR-4). Every
+        // team that can come out of it is a team no unlink or deletion can remove before this creation commits.
+        return await DefaultTeams.ResolveAsync(context, projectId, held, cancellationToken);
     }
 
     public Task<Guid?> FindCreatedByRequestAsync(Guid projectId, Guid requestId, CancellationToken cancellationToken) =>

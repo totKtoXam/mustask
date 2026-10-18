@@ -126,23 +126,32 @@ public sealed class FakeTeamRepository(InMemoryOrganizations store) : ITeamRepos
 /// <summary>
 /// In-memory <see cref="IProjectTeamRepository"/> over <see cref="InMemoryOrganizations"/>: every lock recorded in the store's calls
 /// (<c>lock links {projectId} {teamIds}</c>, <c>lock link share {projectId} {teamId}</c>, <c>lock team links {teamId}</c>) so a
-/// test can pin ADR-0028 rule 8's order.
+/// test can pin ADR-0028 rule 8's order. The lock statements answer, as the real ones do, the links they <b>locked</b>:
+/// <see cref="CommittedAfterTheLock"/> names teams whose link the store holds but a lock statement does not see — a link committed
+/// between that statement and the handler's next read (review-security S-1).
 /// </summary>
 public sealed class FakeProjectTeamRepository(InMemoryOrganizations store) : IProjectTeamRepository
 {
-    public Task LockLinksAsync(Guid organizationId, Guid projectId, IReadOnlyCollection<Guid> teamIds, CancellationToken cancellationToken)
+    /// <summary>The teams whose link exists in the store but was committed after every lock statement of the test: the lock does not hold it.</summary>
+    public HashSet<Guid> CommittedAfterTheLock { get; } = [];
+
+    public Task<IReadOnlySet<Guid>> LockLinksAsync(
+        Guid organizationId, Guid projectId, IReadOnlyCollection<Guid> teamIds, CancellationToken cancellationToken)
     {
         store.Record($"lock links {projectId} {string.Join(",", teamIds.Distinct().Order())}");
 
-        return Task.CompletedTask;
+        // As the statement does: the rows it locked, which are the links that exist among the named teams.
+        return Task.FromResult<IReadOnlySet<Guid>>(teamIds.Where(teamId => IsHeldByALock(projectId, teamId)).ToHashSet());
     }
 
     public Task<bool> LockLinkForShareAsync(Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken)
     {
         store.Record($"lock link share {projectId} {teamId}");
 
-        return Task.FromResult(store.IsLinked(projectId, teamId));
+        return Task.FromResult(IsHeldByALock(projectId, teamId));
     }
+
+    private bool IsHeldByALock(Guid projectId, Guid teamId) => store.IsLinked(projectId, teamId) && !CommittedAfterTheLock.Contains(teamId);
 
     public Task<IReadOnlyList<Guid>> LockTeamLinksAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken)
     {

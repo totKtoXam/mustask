@@ -37,8 +37,9 @@ namespace Mustask.Application.Features.WorkItems.SaveWorkItem;
 /// <b>The owning team</b> (mod-017 BR-OT-1, BR-OT-2, BR-OT-6, BR-OT-13): a save that names a team locks it
 /// <c>FOR SHARE</c> <i>first</i> of everything it locks (the binder's lock, ADR-0028 rule 8; plan-backend § 7.2), so a deletion
 /// of that team either commits before this save reads it — the team then reads deleted and the save answers
-/// <c>team.not_found</c> — or waits for this save and takes the item with the rest. The team is judged after the area, on a
-/// fresh read. A team that changes the item's owner drops the item's team place <i>before</i> the item is written, in the same
+/// <c>team.not_found</c> — or waits for this save and takes the item with the rest. The team is judged after the area: the team
+/// itself on a fresh read, its <b>link by what the lock statement returned</b> (review-security S-1; a link committed after the lock
+/// is not held, so the save is 409 <c>team.not_in_project</c> as if it had run before the link). A team that changes the item's owner drops the item's team place <i>before</i> the item is written, in the same
 /// transaction: the place's key onto the item's current owner is checked at the end of the item's <c>UPDATE</c>, and the
 /// item lands unplaced below every placed item on the new team's backlog, with no memory of a former place.
 /// </para>
@@ -103,10 +104,13 @@ public sealed class SaveWorkItemHandler(
                 var process = await processes.FindByOrganizationAsync(organizationId, ct)
                     ?? throw new InvalidOperationException($"The organization {organizationId} has no process.");
 
-                // The binder's lock first of all (mod-017 plan-backend § 7.1): only a team that is named as an id is locked.
+                // The binder's lock first of all (mod-017 plan-backend § 7.1): only a team that is named as an id is locked. The
+                // statement returns the link it held, and that answer — not a second read — says "linked" (review-security S-1).
+                var teamLinkHeld = false;
+
                 if (TeamIdOf(command.Team) is { } namedTeamId)
                 {
-                    await workItems.LockTeamLinkAsync(organizationId, projectId, namedTeamId, ct);
+                    teamLinkHeld = await workItems.LockTeamLinkAsync(organizationId, projectId, namedTeamId, ct);
                 }
 
                 if (command.Parent is not null)
@@ -130,9 +134,9 @@ public sealed class SaveWorkItemHandler(
                 // 3. The area: one of the item's own project, still there under the lock (BR-M3-23, BR-M3-24).
                 var areaId = await LockAreaAsync(projectId, item.AreaId, command.AreaId, ct);
 
-                // 3a. The team: a team of this project, or none, judged on a fresh read under the team's lock (mod-017
-                // api-contract § 0.2). Not sent: the stored team stays.
-                var team = await DecideTeamAsync(command.Team, organizationId, projectId, ct);
+                // 3a. The team: a team of this project, or none, judged under the link's lock — the team on a fresh read, its link
+                // by what the lock held (mod-017 api-contract § 0.2). Not sent: the stored team stays.
+                var team = await DecideTeamAsync(command.Team, organizationId, projectId, teamLinkHeld, ct);
 
                 // 3b. The new parent, an item of this project, and the rest of the parent write (feat-001 BR-H-1).
                 var parentWrite = command.Parent is { } change
@@ -247,9 +251,12 @@ public sealed class SaveWorkItemHandler(
     /// <c>null</c> when no team was sent; «Без команды» for a sent <c>null</c>; otherwise the team, which must be an active
     /// team linked to this project (feat-028 api-contract § 0.3, BR-OL-6): a string that is no id, or an unknown, foreign or
     /// deleted team, answers 404 <c>team.not_found</c> alike, and an active team of the organization that is not linked to the
-    /// project 409 <c>team.not_in_project</c>.
+    /// project 409 <c>team.not_in_project</c>. The team is read afresh; "linked" is <paramref name="linkHeld"/>, the answer of the
+    /// statement that locked the link — the fresh read's own <c>IsLinked</c> is not used, because a link committed after the lock
+    /// reads linked there and is held by nobody (review-security S-1).
     /// </summary>
-    private async Task<TeamEdit?> DecideTeamAsync(TeamChange? change, Guid organizationId, Guid projectId, CancellationToken cancellationToken)
+    private async Task<TeamEdit?> DecideTeamAsync(
+        TeamChange? change, Guid organizationId, Guid projectId, bool linkHeld, CancellationToken cancellationToken)
     {
         if (change is null)
         {
@@ -269,7 +276,7 @@ public sealed class SaveWorkItemHandler(
         var found = await structure.FindProjectTeamAsync(organizationId, projectId, teamId, cancellationToken);
 
         ProjectTeams.EnsureBindable(
-            found is null ? null : new TeamFacts(found.Team.Id, found.Team.OrganizationId, found.Team.Status, found.IsLinked),
+            found is null ? null : new TeamFacts(found.Team.Id, found.Team.OrganizationId, found.Team.Status, linkHeld),
             organizationId);
 
         return new TeamEdit(teamId);

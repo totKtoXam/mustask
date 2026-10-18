@@ -31,9 +31,14 @@ namespace Mustask.Application.Features.Organizations.UnlinkTeam;
 /// <b>Locks</b> (plan-backend § 7.2, D-3, D-5; ADR-0028 rule 8): the links of the project to the unlinked team and to the destination
 /// <c>FOR NO KEY UPDATE</c> in <b>one statement ordered by team id</b> — step 3, so two unlinks that name each other take the pair in
 /// one order — and <b>no team row</b>: the status of both teams is judged on a fresh read <i>after</i> the links are held, which gives
-/// the right answer whichever of an unlink and a deletion came first. Then the owned items <c>FOR UPDATE</c> (step 5), then the
-/// project row for the setting (after). A save, a creation or a default naming that names the team holds the link <c>FOR SHARE</c>,
-/// so it commits before the unlink reads the items it owns (and is reassigned with the rest) or reads the link gone (409).
+/// the right answer whichever of an unlink and a deletion came first. Whether a team is <b>linked</b> is the answer of the lock
+/// statement itself, which returns the rows it locked, and of nothing read later (review-security S-1): a link committed after that
+/// statement is held by nobody, and an item or a setting that binds to it meanwhile takes a key share this unlink's
+/// <c>NO KEY UPDATE</c> admits and its final <c>DELETE</c> then fails on. Such a pair is unlinked as far as this request goes — the
+/// unlinked team makes the request a no-op (204), a destination makes it 409 <c>team.not_in_project</c> — as if the request had
+/// run before that link. Then the owned items <c>FOR UPDATE</c> (step 5), then the project row for the setting (after). A save, a
+/// creation or a default naming that names the team holds the link <c>FOR SHARE</c> — and judges it linked by the same kind of
+/// answer — so it commits before the unlink reads the items it owns (and is reassigned with the rest) or finds the link gone (409).
 /// </para>
 /// <para>
 /// <b>The operation</b>, in this order because of the keys: the places of the team on this project's items are dropped <i>before</i>
@@ -112,10 +117,13 @@ public sealed class UnlinkTeamHandler(
                     destinationId = parsed;
                 }
 
-                // 4. The links of the pair, FOR NO KEY UPDATE, in one statement ordered by team id.
-                await links.LockLinksAsync(organizationId, projectId, destinationId is { } id ? [teamId, id] : [teamId], ct);
+                // 4. The links of the pair, FOR NO KEY UPDATE, in one statement ordered by team id. The statement returns the links
+                // it holds, and a team is "linked" for this unlink if and only if its link is among them (S-1): a link committed
+                // after the statement is held by nobody, and an item or a setting that binds to it meanwhile would fail this unlink's
+                // final DELETE on the owner key.
+                var held = await links.LockLinksAsync(organizationId, projectId, destinationId is { } id ? [teamId, id] : [teamId], ct);
 
-                // 5. Fresh reads after the locks (D-5): the unlinked team's status and link, then the destination's.
+                // 5. Fresh reads after the locks (D-5): the unlinked team's status, then the destination's.
                 var unlinked = await structure.FindProjectTeamAsync(organizationId, projectId, teamId, ct);
 
                 if (unlinked is not { Team.Status: TeamStatus.Active })
@@ -136,12 +144,13 @@ public sealed class UnlinkTeamHandler(
                         throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
                     }
 
-                    destinationFacts = new TeamFacts(found.Team.Id, found.Team.OrganizationId, found.Team.Status, found.IsLinked);
+                    destinationFacts = new TeamFacts(found.Team.Id, found.Team.OrganizationId, found.Team.Status, held.Contains(found.Team.Id));
                 }
 
-                if (!unlinked.IsLinked)
+                if (!held.Contains(teamId))
                 {
-                    // Unlinking an unlinked pair succeeds and changes nothing, whatever team the destination names (BR-OL-4).
+                    // Unlinking an unlinked pair succeeds and changes nothing, whatever team the destination names (BR-OL-4). A pair
+                    // linked only after the lock statement is unlinked as far as this request goes: it ran before that link.
                     return false;
                 }
 

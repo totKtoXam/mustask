@@ -34,8 +34,12 @@ public sealed class SetDefaultTeamHandlerTests
 
         public SetDefaultTeamHandler Handler { get; }
 
+        public FakeProjectTeamRepository Links => _links ??= new FakeProjectTeamRepository(Store);
+
+        private FakeProjectTeamRepository? _links;
+
         public SetDefaultTeamHandler Build(IProjectRepository projects) =>
-            new(new FakeOrganizationStructure(Store), projects, new FakeProjectTeamRepository(Store), new FakeUnitOfWork());
+            new(new FakeOrganizationStructure(Store), projects, Links, new FakeUnitOfWork());
 
         public SetDefaultTeamCommand Command(string? teamId, string? projectId = null, string? organizationId = null) =>
             new(organizationId ?? Organization.Id.ToString(), projectId ?? Project.Project.Id.ToString(), teamId);
@@ -127,6 +131,23 @@ public sealed class SetDefaultTeamHandlerTests
         Assert.Equal(OrganizationErrorCodes.TeamNotInProject, refusal.Code);
         Assert.Null(f.Project.Project.DefaultTeamId);
         Assert.Equal(0, f.Store.SaveCount);
+    }
+
+    // feat-028 review-security S-1 · "linked" is what the lock statement returned: a team whose link was committed after that statement
+    // is held by nobody, so naming it is 409 team.not_in_project although a later read finds the link — an unlink or a deletion of it
+    // would otherwise fail at its final DELETE on the setting's key. The setting stays, and the project row is not locked.
+    [Fact]
+    public async Task Handle_TeamLinkedAfterTheLock_IsTeamNotInProject_SettingUnchanged()
+    {
+        var f = new Fixture();
+        f.Links.CommittedAfterTheLock.Add(f.Platform.Id);
+
+        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(f.Platform.Id.ToString())));
+
+        Assert.Equal(OrganizationErrorCodes.TeamNotInProject, refusal.Code);
+        Assert.Null(f.Project.Project.DefaultTeamId);
+        Assert.Equal(0, f.Store.SaveCount);
+        Assert.Equal([$"lock link share {f.Project.Project.Id} {f.Platform.Id}"], f.Store.Calls);
     }
 
     // api-contract § 0.5 · the address answers before the team: malformed and unknown organizations and projects, a deactivated

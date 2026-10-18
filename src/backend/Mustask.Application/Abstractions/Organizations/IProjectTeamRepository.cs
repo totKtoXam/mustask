@@ -14,13 +14,19 @@ public interface IProjectTeamRepository
     /// Locks the links of <paramref name="projectId"/> to <paramref name="teamIds"/> <c>FOR NO KEY UPDATE</c> in one statement
     /// ordered by team id — the unlink's lock (plan-backend D-3). <c>NO KEY UPDATE</c> conflicts with every binder's
     /// <c>FOR SHARE</c> and with another unlink or deletion, and not with a <c>FOR KEY SHARE</c>. An absent link locks nothing.
+    /// Answers <b>the teams whose links the statement locked</b> — it returns the rows it holds — and the caller judges a team
+    /// "linked" by this answer alone, never by a later read (review-security S-1): a link committed after the statement is held by
+    /// nobody, and an item or a setting that bound to it meanwhile would fail the unlink's final <c>DELETE</c> on the owner key.
     /// </summary>
-    Task LockLinksAsync(Guid organizationId, Guid projectId, IReadOnlyCollection<Guid> teamIds, CancellationToken cancellationToken);
+    Task<IReadOnlySet<Guid>> LockLinksAsync(
+        Guid organizationId, Guid projectId, IReadOnlyCollection<Guid> teamIds, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Locks one link <c>FOR SHARE</c> — an item binder's lock (a save or a create naming the team, a default naming, a team
-    /// reorder). Answers whether the link exists once the lock is granted: a new statement under READ COMMITTED, so an unlink or a
-    /// deletion that committed first is seen.
+    /// Locks one link <c>FOR SHARE</c> — an item binder's lock (a default naming; an item write has the same lock in
+    /// <c>IWorkItemRepository</c>). Answers whether <b>the locking statement itself</b> found the link (it returns the row it
+    /// locked): <c>true</c> means this transaction holds the link until it ends. An unlink or a deletion that committed first
+    /// removed the row before the statement, and a link committed after the statement is not found — so the caller judges the
+    /// team "linked" by this answer, never by a second read (review-security S-1).
     /// </summary>
     Task<bool> LockLinkForShareAsync(Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken);
 

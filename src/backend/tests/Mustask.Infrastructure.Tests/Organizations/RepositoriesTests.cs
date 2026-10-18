@@ -132,6 +132,36 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
         Assert.All(statements, sql => Assert.Contains("FOR NO KEY UPDATE", sql, StringComparison.Ordinal));
     }
 
+    // feat-028 review-security S-1 · a link lock returns the rows it locked, and the caller judges "linked" by them alone: the pair's
+    // lock answers the teams whose links it holds (an unlinked team is not among them), and the binder's lock is ONE statement per link
+    // — no second read of the same rows, which under READ COMMITTED could see a link committed after the lock and never held.
+    [Fact]
+    public async Task LinkLocks_AnswerWhatTheirOwnStatementLocked_InOneStatementEach()
+    {
+        var structure = await database.CreateStructureAsync();
+        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Project.Id);
+        var unlinked = await database.AddTeamAsync(organizationId, UniqueName("Не связана"));
+        var log = new SqlLogInterceptor();
+
+        var answers = await InUnitOfWorkAsync(async (scope, ct) =>
+        {
+            var links = scope.ServiceProvider.GetRequiredService<IProjectTeamRepository>();
+            var pair = await links.LockLinksAsync(organizationId, projectId, [unlinked.Id, structure.SecondTeam.Id], ct);
+            var held = await links.LockLinkForShareAsync(organizationId, projectId, structure.FirstTeam.Id, ct);
+            var notHeld = await links.LockLinkForShareAsync(organizationId, projectId, unlinked.Id, ct);
+
+            return (pair, held, notHeld);
+        }, log);
+
+        Assert.Equal([structure.SecondTeam.Id], answers.pair);
+        Assert.True(answers.held);
+        Assert.False(answers.notHeld);
+        var statements = log.Commands.Where(sql => sql.Contains("FROM project_teams", StringComparison.Ordinal)).ToList();
+        Assert.Equal(3, statements.Count);
+        Assert.Equal(1, statements.Count(sql => sql.Contains("FOR NO KEY UPDATE", StringComparison.Ordinal)));
+        Assert.Equal(2, statements.Count(sql => sql.Contains("FOR SHARE", StringComparison.Ordinal)));
+    }
+
     // feat-028 plan-backend § 7.3 C-12 · the deletion's lock: ALL of one team's links, by project id, and the project ids they name;
     // another team's links are not read.
     [Fact]

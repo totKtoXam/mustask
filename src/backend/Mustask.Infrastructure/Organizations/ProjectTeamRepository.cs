@@ -13,44 +13,26 @@ namespace Mustask.Infrastructure.Organizations;
 /// </remarks>
 internal sealed class ProjectTeamRepository(MustaskDbContext context) : IProjectTeamRepository
 {
-    public async Task LockLinksAsync(Guid organizationId, Guid projectId, IReadOnlyCollection<Guid> teamIds, CancellationToken cancellationToken)
+    public async Task<IReadOnlySet<Guid>> LockLinksAsync(
+        Guid organizationId, Guid projectId, IReadOnlyCollection<Guid> teamIds, CancellationToken cancellationToken)
     {
         if (teamIds.Count == 0)
         {
-            return;
+            return new HashSet<Guid>();
         }
 
         var ids = teamIds.Distinct().ToArray();
 
         // One statement ordered by team id: the pair of an unlink (the unlinked team and its destination) is taken in one order
-        // whichever side an unlink names first (plan-backend § 7.3 C-6).
-        await context.Database.ExecuteSqlInterpolatedAsync(
-            $"""
-             SELECT 1
-             FROM project_teams
-             WHERE organization_id = {organizationId} AND project_id = {projectId} AND team_id = ANY({ids})
-             ORDER BY team_id
-             FOR NO KEY UPDATE
-             """,
-            cancellationToken);
+        // whichever side an unlink names first (plan-backend § 7.3 C-6). It returns the rows it locked, and only those are linked as
+        // far as the unlink goes: a link committed after the statement is held by nobody (review-security S-1).
+        return await ProjectTeamLocks.NoKeyUpdateAsync(context, organizationId, projectId, ids, cancellationToken);
     }
 
-    public async Task<bool> LockLinkForShareAsync(Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken)
-    {
-        await context.Database.ExecuteSqlInterpolatedAsync(
-            $"""
-             SELECT 1
-             FROM project_teams
-             WHERE organization_id = {organizationId} AND project_id = {projectId} AND team_id = {teamId}
-             FOR SHARE
-             """,
-            cancellationToken);
-
-        // A new statement under READ COMMITTED: a link an unlink or a deletion removed while the lock waited is gone.
-        return await context.ProjectTeams.AnyAsync(
-            link => link.OrganizationId == organizationId && link.ProjectId == projectId && link.TeamId == teamId,
-            cancellationToken);
-    }
+    public Task<bool> LockLinkForShareAsync(Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
+        // One statement that locks and returns the row: no second read, which under READ COMMITTED could see a link the lock never
+        // held, and which an unlink or a deletion that committed while the lock waited has already removed from the answer.
+        ProjectTeamLocks.ShareAsync(context, organizationId, projectId, teamId, cancellationToken);
 
     public async Task<IReadOnlyList<Guid>> LockTeamLinksAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken)
     {
