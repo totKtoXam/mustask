@@ -83,7 +83,9 @@ session.
    merge —
    [07-mr-complete.md, § "The gate-3 verdict and the MR link"](../ai-workflow/stages/07-mr-complete.md).
    `gate-3: rejected` blocks the MR in both modes.
-2. Before opening: rebase onto `main`, a full run of tests and linters.
+2. Before opening: rebase onto `main`; the push runs the quick `pre-push`
+   check, and the full run of tests and linters is CI's, on the MR itself
+   (`VERIFY_FULL=1 git push` asks for it before the push).
    If `main` brought its own EF migrations — the task's migrations are
    regenerated on top of the fresh `main`.
 3. Title: `feat|fix|tech|chore(<scope>): <gist> (<short id>)` —
@@ -192,12 +194,20 @@ Anyone who doesn't build the backend sets the same command by hand, once.
 |-----|---------------|
 | `pre-commit` | the commit is not on `main`; branch name matches the format; secrets and dumps in the index; conflict markers |
 | `commit-msg` | subject ≤ 72 characters, English, no trailing period |
-| `pre-push` | `scripts/verify.sh` — checks per the class of changed files; the same input is named in the stages' Definition of Done, so the hook and the DoD don't diverge |
+| `pre-push` | `scripts/verify.sh`, the quick run — checks per the class of changed files (build, lint, the frontend tests that reach what the branch changed); the same input is named in the stages' Definition of Done, so the hook and the DoD don't diverge. `VERIFY_FULL=1 git push` asks for the whole frontend suite |
 
 > Hooks are **feedback, not a barrier**: `git commit --no-verify` removes
-> them entirely. Anything critical must be duplicated in CI. Until there
-> is CI, the only real architecture check is `Mustask.Architecture.Tests`,
-> because it fails in a plain `dotnet test`.
+> them entirely. Anything critical must be duplicated in CI — and it is: the
+> `CI` workflow (`.github/workflows/ci.yml`) runs the same `scripts/verify.sh`
+> with `VERIFY_FULL=1` on every pull request, so the whole frontend suite is
+> CI's check, required on `main`, and the push pays only for the quick run.
+> The check's name, `verify.sh (change-proportionate)`, is the context
+> `main`'s protection requires: rename the job and the protection together.
+> A full run before the push is one variable away (`VERIFY_FULL=1 git push`;
+> in PowerShell `$env:VERIFY_FULL = 1; git push`) and is instant when a green
+> full run of this tree already left its stamp (`scripts/verify.sh`, header).
+> Without a CI run the only real architecture check is
+> `Mustask.Architecture.Tests`, because it fails in a plain `dotnet test`.
 
 ## Architecture tests
 
