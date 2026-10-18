@@ -319,6 +319,9 @@ The code stage matches §§ 1-9 and `api-contract.md`, which is **unchanged**. D
   `project-deactivated` case of the three `…_ContextNotFound_…` theories. Rewritten by name: the three theories (`team-of-another-project` → `team-of-another-organization`),
   `Unlink_TeamBecomes404AtTheProjectsAddress_ButIsStillReadAtItsOwn`, `Unlink_RemovesTheLink_ViewsCountAndNamingAnswerAsNotLinked`, the retired-routes list test, the route
   inventory rows (count 59), the write inventory's reorder key and the surface matrix's read routes.
+- **One test the plan missed, found by `verify.sh`**: `UnlinkRacesEndpointTests.Unlink_VersusSaveCreateNameReorder_BothOrders_…(binder: "reorder", binderFirst: false)` expected
+  404 `organizations.team.not_found` (the reorder under the project found the link gone). The team's reorder takes no link (PD-8), so the unlink first leaves the moved story reassigned and the
+  answer is 409 `boards.backlog.reorder_stale`, as api-contract § 8.1 says; the test now reads so.
 - **Two facts the tests met**: a child created beneath a parent takes the parent's team whatever `team` the body names (mod-017 BR-OT-3), so a test gives a child to another team by a
   change of owner; a team can own an item only in a project it is linked to (the owner key), so "another team's item" in a project needs a team linked to that project.
 - **E2E (standing NO, not edited, not run)** breaks: `support/membersUi.ts` (`backlogAddress`, `boardAddress`), and the specs `19-shell-in-a-browser`, `23-backlogs-boards` (also its

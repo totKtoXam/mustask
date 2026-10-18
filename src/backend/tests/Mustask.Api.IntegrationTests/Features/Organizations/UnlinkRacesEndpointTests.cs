@@ -102,7 +102,9 @@ public sealed class UnlinkRacesEndpointTests(MustaskApiFactory factory)
     // C-1, C-2, C-4, C-5 · an unlink of MARS against a save that sets MARS, a create that names MARS, a naming of MARS as the default and
     // a reorder of MARS's backlog. Binder first: the binder commits, the unlink re-reads and takes what the binder wrote with the rest
     // (the saved story, the created one, the naming cleared, the places dropped). Unlink first: the binder finds the link gone — 409
-    // not_in_project for a save, a create and a naming, 404 team.not_found for the team's view — and stores nothing.
+    // not_in_project for a save, a create and a naming — and stores nothing. A reorder of the team's backlog takes no link (feat-040
+    // PD-8, api-contract § 8.1: the team's address names no project): the unlink first has reassigned the story it moves, so it is no
+    // member of MARS's backlog now — 409 reorder_stale (was: 404 team.not_found, when the view sat under the project) — and writes nothing.
     [Theory]
     [InlineData("save", true)]
     [InlineData("save", false)]
@@ -160,7 +162,7 @@ public sealed class UnlinkRacesEndpointTests(MustaskApiFactory factory)
         }
         else
         {
-            var refusal = binder == "reorder" ? (HttpStatusCode.NotFound, TeamNotFound) : (HttpStatusCode.Conflict, TeamNotInProject);
+            var refusal = binder == "reorder" ? (HttpStatusCode.Conflict, "boards.backlog.reorder_stale") : (HttpStatusCode.Conflict, TeamNotInProject);
             Assert.Equal(refusal, (binderAnswer.Status, binderAnswer.ErrorCode));
         }
 
