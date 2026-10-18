@@ -174,15 +174,20 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
         await LinkAsync(organizationId, second.Project.Id, structure.SecondTeam.Id);
         await LinkAsync(organizationId, old.Project.Id, structure.SecondTeam.Id);
         await database.CreateStructureAsync();
+        await database.AddMemberAsync(organizationId, "u-max");
+        await database.AddTeamMemberAsync(organizationId, structure.FirstTeam.Id, "u-max");
 
         var counter = new CommandCountingInterceptor();
         var teams = await ReadAsync<ITeamReadModel, IReadOnlyList<OrganizationTeamRow>>(
-            counter, readModel => readModel.ListOrganizationTeamsAsync(organizationId, CancellationToken.None));
+            counter, readModel => readModel.ListOrganizationTeamsAsync(organizationId, "u-max", CancellationToken.None));
 
         Assert.Equal(2, counter.Commands.Count);
         Assert.Equal(["Платформа", "Пример проекта"], teams.Select(team => team.Name));
         Assert.Equal(["Аналитика", "Пример проекта"], teams[0].Projects.Select(project => project.Name));
         Assert.Equal(["Пример проекта"], teams[1].Projects.Select(project => project.Name));
+
+        // feat-040 api-contract § 4.1: the caller's own team is told in the same statement (the two stay two); nobody else's is.
+        Assert.Equal([false, true], teams.Select(team => team.IsMember));
     }
 
     // feat-028 US-5 · the deletion's links: every project the team is linked to, any status, by name, in one statement.

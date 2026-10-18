@@ -46,6 +46,31 @@ public sealed class GetWorkItemEndpointTests(MustaskApiFactory factory)
         Assert.Equal(world.ProjectId, answer.Body.GetProperty("projectId").GetGuid());
     }
 
+    // feat-040 US-4 / api-contract § 4.2 · "the card dialog shows «Проект»": the item carries its project beside projectId — {id,
+    // name}, the name as it stands now (a rename shows at once), also on a write's answer.
+    [Fact]
+    public async Task Get_CarriesTheItemsProject_ByItsCurrentName_AlsoOnAWritesAnswer()
+    {
+        var world = await WorldWithBug4Async();
+
+        var before = await WorkItemsTestData.GetAsync(factory, world, "MSK-BUG-4");
+        var renamed = await OrganizationsApi.SendAsync(
+            factory,
+            HttpMethod.Put,
+            $"{OrganizationsApi.Project(world.OrganizationId, world.ProjectId)}/name",
+            new { name = "Переименованный" },
+            OrganizationsTokens.SignedIn());
+        var after = await WorkItemsTestData.GetAsync(factory, world, "MSK-BUG-4");
+        var saved = await WorkItemsTestData.SaveAsync(factory, world, "MSK-BUG-4", new { title = "Падение при входе, 2" });
+
+        var project = before.Body.GetProperty("project");
+        Assert.Equal(["id", "name"], project.EnumerateObject().Select(member => member.Name).Order(StringComparer.Ordinal));
+        Assert.Equal(world.ProjectId, project.GetProperty("id").GetGuid());
+        Assert.Equal(HttpStatusCode.OK, renamed.Status);
+        Assert.Equal("Переименованный", after.Body.GetProperty("project").GetProperty("name").GetString());
+        Assert.Equal(world.ProjectId, saved.Body.GetProperty("project").GetProperty("id").GetGuid());
+    }
+
     // US-3 · "The identifier is resolved inside the address's organization": two organizations, each with a project MSK
     // and an item MSK-BUG-4; each address answers its own, and «Орг А» with «Орг Б»'s project is «Проект не найден».
     [Fact]

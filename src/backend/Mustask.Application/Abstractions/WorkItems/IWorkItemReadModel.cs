@@ -119,6 +119,12 @@ public sealed record WorkItemView(
     /// BR-DR-10). Whether the item is deleted is its <see cref="State"/>'s category, never this.
     /// </summary>
     public required WorkItemDeletionView? Deletion { get; init; }
+
+    /// <summary>
+    /// feat-040 (api-contract § 4.2, BR-TS-3): the item's project <b>as it stands now</b>, beside <see cref="ProjectId"/>,
+    /// which stays. The card dialog's «Проект» reads it, so a card opened over a team view shows the item's own project.
+    /// </summary>
+    public required WorkItemProjectView Project { get; init; }
 }
 
 /// <summary>
@@ -207,3 +213,9 @@ public sealed record WorkItemAreaView(Guid Id, string Path);
 /// item's <c>team</c> is <c>null</c> for «Без команды»; a deleted team never appears, its items have none (BR-OT-12).
 /// </summary>
 public sealed record WorkItemTeamView(Guid Id, string Name);
+
+/// <summary>
+/// feat-040 api-contract § 2.1 <c>WorkItemProject</c>: the item's project <b>as it stands now</b> (a rename shows at once).
+/// Every item has one; a row, a child and a card of every backlog and board carry it (BR-TS-3).
+/// </summary>
+public sealed record WorkItemProjectView(Guid Id, string Name);

@@ -53,7 +53,7 @@ public sealed class FakeProjectReadModel(InMemoryOrganizations store) : IProject
 /// <summary>In-memory <see cref="ITeamReadModel"/> over <see cref="InMemoryOrganizations"/> (feat-028): teams of the organization and their links.</summary>
 public sealed class FakeTeamReadModel(InMemoryOrganizations store) : ITeamReadModel
 {
-    public Task<IReadOnlyList<OrganizationTeamRow>> ListOrganizationTeamsAsync(Guid organizationId, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<OrganizationTeamRow>> ListOrganizationTeamsAsync(Guid organizationId, string userId, CancellationToken cancellationToken)
     {
         var teams = ActiveTeams(organizationId);
 
@@ -65,7 +65,8 @@ public sealed class FakeTeamReadModel(InMemoryOrganizations store) : ITeamReadMo
                 team.Description,
                 store.InDisplayOrder(ActiveProjectsOf(organizationId, team.Id), project => project.Name, project => project.Id)
                     .Select(project => new ProjectRef(project.Id, project.Name))
-                    .ToList()))
+                    .ToList(),
+                store.TeamMemberships.Any(membership => membership.TeamId == team.Id && membership.UserId == userId)))
             .ToList());
     }
 

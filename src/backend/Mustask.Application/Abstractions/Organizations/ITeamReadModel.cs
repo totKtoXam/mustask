@@ -8,9 +8,11 @@ public interface ITeamReadModel
     /// <summary>
     /// The organization's <b>active</b> teams, by name in Russian collation (letter case not deciding), then by id, each with the
     /// <b>active</b> projects it is linked to, by name then id (feat-028 api-contract § 1.2). Two statements whatever the number
-    /// of teams or projects. Empty when the organization is not active.
+    /// of teams or projects. Empty when the organization is not active. feat-040 (api-contract § 4.1): each row says whether
+    /// <paramref name="userId"/> is in that team (mod-016 BR-M1-27), read with the list in the same statement, so the switcher's
+    /// team level can put the user's own teams first.
     /// </summary>
-    Task<IReadOnlyList<OrganizationTeamRow>> ListOrganizationTeamsAsync(Guid organizationId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<OrganizationTeamRow>> ListOrganizationTeamsAsync(Guid organizationId, string userId, CancellationToken cancellationToken);
 
     /// <summary>The team when it is an active team of an active organization; otherwise <c>null</c> (a deleted team included).</summary>
     Task<TeamRow?> FindAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken);
@@ -45,8 +47,11 @@ public interface ITeamReadModel
 /// <summary>One active team (feat-028 api-contract § 1.1): a name and a description, no project.</summary>
 public sealed record TeamRow(Guid Id, string Name, string? Description);
 
-/// <summary>One team of the organization's list with its active projects (api-contract § 1.2).</summary>
-public sealed record OrganizationTeamRow(Guid Id, string Name, string? Description, IReadOnlyList<ProjectRef> Projects);
+/// <summary>
+/// One team of the organization's list with its active projects (api-contract § 1.2); <paramref name="IsMember"/> is the
+/// acting user's membership of the team (feat-040 api-contract § 4.1).
+/// </summary>
+public sealed record OrganizationTeamRow(Guid Id, string Name, string? Description, IReadOnlyList<ProjectRef> Projects, bool IsMember = false);
 
 /// <summary>A project named in a team's row: its id and name.</summary>
 public sealed record ProjectRef(Guid Id, string Name);

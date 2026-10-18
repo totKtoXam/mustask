@@ -140,6 +140,8 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
                 from team in owning.DefaultIfEmpty()
                 select new Row(
                     member.Item.Id,
+                    project.Id,
+                    project.Name,
                     project.Key,
                     member.Item.Number,
                     member.Place,
@@ -186,6 +188,8 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
                 row.BusinessValue,
                 row.ValueArea?.ToString(),
                 row.TeamId is { } teamId ? new WorkItemTeamView(teamId, row.TeamName!) : null,
+                new WorkItemProjectView(row.ProjectId, row.ProjectName),
+                row.ProjectKey,
                 ordersByCreation && row.LevelKind != BacklogLevelKind.Task ? row.CreatedAt : null))
             .ToList();
     }
@@ -244,6 +248,8 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
 
     private sealed record Row(
         Guid Id,
+        Guid ProjectId,
+        string ProjectName,
         string ProjectKey,
         int Number,
         int? Place,

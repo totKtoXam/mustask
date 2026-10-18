@@ -176,8 +176,11 @@ public sealed record ProjectBacklogTreeScope(
 /// «Бизнес-ценность», «Вид ценности» as its list key — each <c>null</c> when empty
 /// or when the type has no such field. A board card shows none of the three.
 /// feat-039: <paramref name="CreatedAt"/> is the item's creation time on a project's read, for the levels that have a
-/// project order (BR-PB-4), and <c>null</c> on a team's read and on the «Задачи» level, whose rows stand by number;
-/// <paramref name="Place"/> is then its place on the project's backlog.
+/// project order (BR-PB-4), and <c>null</c> on the «Задачи» level of a project's page, whose rows stand by number;
+/// <paramref name="Place"/> is then its place on the project's backlog. feat-040 (BR-TS-3, BR-TS-6):
+/// <paramref name="Project"/> is the item's project by its current name, on every read; <paramref name="ProjectKey"/> is
+/// that project's key, the tie-break between two projects' items on a team's order (<see cref="StackRank.Order"/>) and
+/// never on the wire; a team's read gives <paramref name="CreatedAt"/> on every row, the «Задачи» level included.
 /// </summary>
 public sealed record BacklogItemRow(
     Guid Id,
@@ -195,4 +198,6 @@ public sealed record BacklogItemRow(
     int? BusinessValue,
     string? ValueArea,
     WorkItemTeamView? Team,
+    WorkItemProjectView Project,
+    string ProjectKey,
     DateTimeOffset? CreatedAt = null);

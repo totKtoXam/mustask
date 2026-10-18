@@ -7,14 +7,22 @@ namespace Mustask.Infrastructure.Organizations;
 /// <inheritdoc cref="OrganizationReadModel"/>
 internal sealed class TeamReadModel(MustaskDbContext context) : ITeamReadModel
 {
-    public async Task<IReadOnlyList<OrganizationTeamRow>> ListOrganizationTeamsAsync(Guid organizationId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<OrganizationTeamRow>> ListOrganizationTeamsAsync(
+        Guid organizationId, string userId, CancellationToken cancellationToken)
     {
-        // Statement 1: the organization's active teams in name order (Russian collation, letter case not deciding, then id).
+        // Statement 1: the organization's active teams in name order (Russian collation, letter case not deciding, then id),
+        // each with whether the acting user is in it (feat-040: one EXISTS per row in the same statement, as ListLinkedAsync does).
         var teams = await context.ActiveTeamsOf(organizationId)
             .AsNoTracking()
             .OrderBy(team => EF.Functions.Collate(team.Name, OrganizationsCollation.Russian))
             .ThenBy(team => team.Id)
-            .Select(team => new { team.Id, team.Name, team.Description })
+            .Select(team => new
+            {
+                team.Id,
+                team.Name,
+                team.Description,
+                IsMember = context.TeamMemberships.Any(membership => membership.TeamId == team.Id && membership.UserId == userId),
+            })
             .ToListAsync(cancellationToken);
 
         if (teams.Count == 0)
@@ -36,7 +44,7 @@ internal sealed class TeamReadModel(MustaskDbContext context) : ITeamReadModel
         var byTeam = links.ToLookup(link => link.TeamId, link => link.Project);
 
         return teams
-            .Select(team => new OrganizationTeamRow(team.Id, team.Name, team.Description, byTeam[team.Id].ToList()))
+            .Select(team => new OrganizationTeamRow(team.Id, team.Name, team.Description, byTeam[team.Id].ToList(), team.IsMember))
             .ToList();
     }
 
