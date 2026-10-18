@@ -3,6 +3,7 @@ import { sampleProcessDefinition } from '../../process/testFixtures';
 import type { BacklogTreeItem } from '../api/boardsApi';
 import {
   LEVEL_REFUSAL_TEXT,
+  PROJECT_REFUSAL_TEXT,
   cycleRefusalText,
   descendantIds,
   dropVerdict,
@@ -140,5 +141,40 @@ describe('dropVerdict and refusalNotice', () => {
     const none = { ranks: new Map<string, number>(), descendants: descendantIds(feat8) };
     expect(dropVerdict(epic20, feat8, none)).toEqual({ kind: 'allowed' });
     expect(dropVerdict(feat8, feat23, none)).toEqual({ kind: 'refused', reason: 'descendant' });
+  });
+});
+
+// feat-040 BR-TS-5: a team's backlog holds rows of several projects, and a parent is always of the
+// item's own project; the server cannot find another project's parent at all (`workitems.link.
+// parent_not_found`), before any type check, so the panel judges the project first.
+describe('dropVerdict across projects (feat-040 BR-TS-5)', () => {
+  const beta = { id: 'prj-2', name: 'Бета' };
+  const otherEpic: BacklogTreeItem = { ...node('EPIC-2', 'EPIC'), project: beta };
+  const otherTask: BacklogTreeItem = { ...node('TASK-9', 'TASK'), project: beta };
+
+  it('refuses a row of another project, whatever its type', () => {
+    expect(verdictOf(feat8, otherEpic)).toEqual({ kind: 'refused', reason: 'project' });
+    expect(verdictOf(epic20, otherEpic)).toEqual({ kind: 'refused', reason: 'project' });
+  });
+
+  it('judges the project before the type: a row of another project below the item’s level is a project refusal', () => {
+    expect(verdictOf(feat8, otherTask)).toEqual({ kind: 'refused', reason: 'project' });
+  });
+
+  it('judges the project before the process is read, since it needs none', () => {
+    const none = { ranks: new Map<string, number>(), descendants: descendantIds(feat8) };
+    expect(dropVerdict(feat8, otherEpic, none)).toEqual({ kind: 'refused', reason: 'project' });
+  });
+
+  it('still takes the item itself and its current parent for no target, before any refusal', () => {
+    expect(verdictOf(feat8, feat8)).toEqual({ kind: 'none' });
+    expect(verdictOf(feat8, epic1)).toEqual({ kind: 'none' });
+  });
+
+  it('says why in the words of the type refusal, and in a text of its own', () => {
+    expect(PROJECT_REFUSAL_TEXT).toBe(
+      'Родителем может быть только рабочий элемент того же проекта.',
+    );
+    expect(refusalNotice('project', feat8, otherEpic)).toBe(PROJECT_REFUSAL_TEXT);
   });
 });
