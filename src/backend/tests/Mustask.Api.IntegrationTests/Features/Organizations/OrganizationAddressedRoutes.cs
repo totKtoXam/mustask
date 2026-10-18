@@ -77,6 +77,11 @@ public static class OrganizationAddressedRoutes
         new("GET", Item + "/parent-candidates", PermissionCatalog.WorkItemsWorkItemRead),
         new("GET", Org + "/workitems/assignee-candidates", PermissionCatalog.WorkItemsWorkItemWrite),
 
+        // mod-005 api-contract § 2 and § 5: delete, restore and purge a work item. After the item routes, not at the end:
+        // `Memberships` takes the last ten rows of this list.
+        new("POST", Item + "/delete", PermissionCatalog.WorkItemsWorkItemDelete),
+        new("POST", Item + "/restore", PermissionCatalog.WorkItemsWorkItemDelete),
+
         // mod-006 api-contract § 5: a team's backlog, its reorder and its board (rows 35-37).
         new("GET", Team + "/backlogs/{level}", PermissionCatalog.WorkItemsWorkItemRead),
         new("POST", Team + "/backlogs/{level}/reorder", PermissionCatalog.BoardsBacklogReorder),

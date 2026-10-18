@@ -1,10 +1,12 @@
 using Mustask.Api.Authorization;
 using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Application.Features.WorkItems.CreateWorkItem;
+using Mustask.Application.Features.WorkItems.DeleteWorkItem;
 using Mustask.Application.Features.WorkItems.GetAssigneeCandidates;
 using Mustask.Application.Features.WorkItems.GetParentCandidates;
 using Mustask.Application.Features.WorkItems.GetWorkItem;
 using Mustask.Application.Features.WorkItems.GetWorkItems;
+using Mustask.Application.Features.WorkItems.RestoreWorkItem;
 using Mustask.Application.Features.WorkItems.SaveWorkItem;
 using Mustask.Application.Features.WorkItems.SetWorkItemParent;
 using Mustask.Domain.Identity;
@@ -78,6 +80,26 @@ public static class WorkItemEndpoints
         workItems.MapPut("/{identifier}/parent", SetWorkItemParentAsync)
             .RequiresOrganizationPermission(PermissionCatalog.WorkItemsLinkWrite)
             .Produces<SetWorkItemParentResponse>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        // mod-005 § 2.1. Delete: moves the item into «Удалена» and records the way back on its row. A sub-command, not
+        // `DELETE …/{identifier}` (plan-backend D-P1): the item stays, read-only, until a purge removes it. No body.
+        workItems.MapPost("/{identifier}/delete", DeleteWorkItemAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemDelete)
+            .Produces<WorkItemView>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        // mod-005 § 2.2. Restore: takes the item out of «Удалена» into the chosen state, else the held one, else the type's
+        // first. The body is optional (`stateId` only); the route holds the same code as Delete.
+        workItems.MapPost("/{identifier}/restore", RestoreWorkItemAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemDelete)
+            .Produces<WorkItemView>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -211,6 +233,20 @@ public static class WorkItemEndpoints
         return Results.Ok(await handler.Handle(new SetWorkItemParentCommand(organizationId, projectId, identifier, change), cancellationToken));
     }
 
+    private static async Task<IResult> DeleteWorkItemAsync(
+        string organizationId, string projectId, string identifier, DeleteWorkItemHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new DeleteWorkItemCommand(organizationId, projectId, identifier), cancellationToken)).Item);
+
+    // A missing body, `{}` and `"stateId": null` are one request: the held state (api-contract § 2.2).
+    private static async Task<IResult> RestoreWorkItemAsync(
+        string organizationId,
+        string projectId,
+        string identifier,
+        RestoreWorkItemRequest? request,
+        RestoreWorkItemHandler handler,
+        CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new RestoreWorkItemCommand(organizationId, projectId, identifier, request?.StateId), cancellationToken)).Item);
+
     private static async Task<IResult> GetParentCandidatesAsync(
         string organizationId,
         string projectId,
@@ -269,6 +305,9 @@ public static class WorkItemEndpoints
         IReadOnlyList<AcceptanceCriterionRequest>? AcceptanceCriteria,
         string? ReproSteps,
         string? SystemInfo);
+
+    /// <summary>mod-005 api-contract § 2.2: optional; <c>stateId</c> absent or <c>null</c> restores the held state, else the first.</summary>
+    private sealed record RestoreWorkItemRequest(string? StateId);
 
     private sealed record AcceptanceCriterionRequest(string? Given, string? When, string? Then);
 

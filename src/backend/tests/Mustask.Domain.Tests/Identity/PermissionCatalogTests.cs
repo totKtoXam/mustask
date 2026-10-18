@@ -74,9 +74,9 @@ public sealed class PermissionCatalogTests
     }
 
     [Fact]
-    public void OrganizationCodes_AreTheSeventeenOfTheMatrix_AndNoCodeIsInBothScopes()
+    public void OrganizationCodes_AreTheEighteenOfTheMatrix_AndNoCodeIsInBothScopes()
     {
-        Assert.Equal(17, PermissionCatalog.OrganizationCodes.Count);
+        Assert.Equal(18, PermissionCatalog.OrganizationCodes.Count);
         Assert.Empty(PermissionCatalog.OrganizationCodes.Intersect(PermissionCatalog.InstanceCodes));
         Assert.Equal(
             PermissionCatalog.AllCodes.Order(StringComparer.Ordinal),
@@ -91,6 +91,7 @@ public sealed class PermissionCatalogTests
     [InlineData("workitems.workitem.write", nameof(PermissionCatalog.WorkItemsWorkItemWrite))]
     [InlineData("boards.backlog.reorder", nameof(PermissionCatalog.BoardsBacklogReorder))]
     [InlineData("workitems.link.write", nameof(PermissionCatalog.WorkItemsLinkWrite))]
+    [InlineData("workitems.workitem.delete", nameof(PermissionCatalog.WorkItemsWorkItemDelete))]
     public void FoldedCodes_AreRegisteredUnderTheirExactNames_AsOrganizationCodes(string code, string constantName)
     {
         var constant = (string)typeof(PermissionCatalog).GetField(constantName)!.GetRawConstantValue()!;

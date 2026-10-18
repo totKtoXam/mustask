@@ -86,6 +86,12 @@ public static class PermissionCatalog
     /// <summary>Setting, replacing and clearing a work item's parent (feat-001 BR-H-18).</summary>
     public const string WorkItemsLinkWrite = "workitems.link.write";
 
+    /// <summary>
+    /// Deleting a work item into «Удалена» and restoring it (mod-005 BR-DR-17, ADR-0030 rule 9). Checked on the organization
+    /// role alone until mod-019; belonging to a team grants nothing.
+    /// </summary>
+    public const string WorkItemsWorkItemDelete = "workitems.workitem.delete";
+
     /// <summary>Every code of the catalog, in a stable order: instance codes first, then organization codes.</summary>
     public static IReadOnlyList<PermissionDefinition> All { get; } =
     [
@@ -108,6 +114,7 @@ public static class PermissionCatalog
         new(WorkItemsWorkItemRead, PermissionScope.Organization, "Просмотр рабочих элементов проекта"),
         new(WorkItemsWorkItemWrite, PermissionScope.Organization, "Создание и изменение рабочих элементов проекта"),
         new(WorkItemsLinkWrite, PermissionScope.Organization, "Изменение связей рабочих элементов проекта"),
+        new(WorkItemsWorkItemDelete, PermissionScope.Organization, "Удаление и восстановление рабочих элементов проекта"),
         new(BoardsBacklogReorder, PermissionScope.Organization, "Изменение порядка бэклога команды"),
     ];
 

@@ -232,7 +232,7 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
 
         Assert.Equal(expected.Keys.Order(StringComparer.Ordinal), actual.Keys.Order(StringComparer.Ordinal));
         Assert.All(expected, pair => Assert.Equal(pair.Value, actual[pair.Key]));
-        Assert.Equal(47, expected.Count);
+        Assert.Equal(49, expected.Count);
     }
 
     // Every organization code of the catalog is declared by at least one route — a code with no route is a decision nobody enforces

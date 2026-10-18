@@ -9,8 +9,9 @@ namespace Mustask.Api.IntegrationTests.Features.WorkItems;
 /// <summary>
 /// mod-005 US-3 · "A deleted item takes no write" (BR-DR-8, ADR-0030 rule 3): <c>PATCH …/workitems/{identifier}</c> on an item
 /// in «Удалена» answers 409 <c>workitems.workitem.deleted</c> whatever the body carries, decided on the stored state under the
-/// item's lock before any value is looked at, and changes nothing. The item is put in «Удалена» straight in the table (the
-/// helper writes no marks): the refusal is the category's, not the marks'. Closes tech-012 m1.
+/// item's lock before any value is looked at, and changes nothing. The item is deleted through the real route; one case puts
+/// it in «Удалена» straight in the table with no marks, because the refusal is the category's, not the marks'. Closes
+/// tech-012 m1.
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]
@@ -41,6 +42,20 @@ public sealed class DeletedItemIsReadOnlyEndpointTests(MustaskApiFactory factory
             "|",
             items.Select(stored => $"{stored.Number}:{stored.Title}:{stored.Description}:{stored.StateId}:{stored.AssigneeId}:{stored.AreaId}:{stored.ChangedAt:O}")
                 .Append($"{link.ParentId}:{link.StateId}:{link.ChangedAt:O}:{team.TeamId}"));
+    }
+
+    // US-3 / BR-DR-18 · "deleted" is the state's category, never the marks: an item put in «Удалена» outside Delete (no marks)
+    // takes no save either.
+    [Fact]
+    public async Task Patch_AnItemInRemovedWithNoMarks_Is409Deleted()
+    {
+        var world = await BoardsTestData.CreateWorldAsync(factory);
+        var task = await BoardsTestData.CreateAsync(factory, world, "TASK", "Без отметок", world.PlatformAreaId);
+        await LinksTestData.PutInRemovedWithNoMarksAsync(factory, world.Items, task);
+
+        var answer = await WorkItemsTestData.SaveAsync(factory, world.Items, task.Identifier, new { title = "Другая" });
+
+        LinksTestData.AssertRefused(answer, HttpStatusCode.Conflict, DeletedCode);
     }
 
     // US-3 · "A save of any field is refused": a title, an assignee, a team and a field of the type; the item and its
