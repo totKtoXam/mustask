@@ -48,11 +48,12 @@ public sealed record WorkItemTypeStates
 
     /// <summary>
     /// mod-005 (ADR-0030 rule 2): the type's states of the <see cref="StateCategory.Removed"/> category, built from
-    /// <see cref="States"/> — the one in-memory list of "deleted" that <see cref="IsRemoved"/>, <see cref="Allows"/> and
-    /// the hierarchy's <see cref="HierarchyTypes.IsDeleted"/> all read.
+    /// <see cref="States"/> by the one predicate (<see cref="InRemovedCategory"/>) that <see cref="IsRemoved"/> uses too, and
+    /// <see cref="Allows"/> reads through <see cref="IsRemoved"/>. The hierarchy's <see cref="HierarchyTypes.IsDeleted"/> reads
+    /// this list itself (<c>HierarchyType.RemovedStateIds</c>), so a test pins the two in-memory answers equal.
     /// </summary>
     public IReadOnlyCollection<Guid> RemovedStateIds =>
-        States.Where(state => state.Category == StateCategory.Removed).Select(state => state.Id).ToList();
+        States.Where(InRemovedCategory).Select(state => state.Id).ToList();
 
     /// <summary>
     /// mod-005 (ADR-0030 rule 1): the type's one «Удалена», the state a Delete moves an item to. The constructor does not
@@ -74,7 +75,10 @@ public sealed record WorkItemTypeStates
 
     /// <summary>Whether <paramref name="stateId"/> is one of this type's states of the Removed category (BR-DR-1).</summary>
     public bool IsRemoved(Guid stateId) =>
-        States.Any(state => state.Id == stateId && state.Category == StateCategory.Removed);
+        States.Any(state => state.Id == stateId && InRemovedCategory(state));
+
+    /// <summary>The one definition of "a state of the Removed category" that <see cref="RemovedStateIds"/> and <see cref="IsRemoved"/> share.</summary>
+    private static bool InRemovedCategory(WorkItemTypeState state) => state.Category == StateCategory.Removed;
 
     /// <summary>
     /// Whether an item of this type may be put in <paramref name="stateId"/>: any

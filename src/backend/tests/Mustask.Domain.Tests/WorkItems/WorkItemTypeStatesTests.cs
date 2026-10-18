@@ -52,6 +52,28 @@ public sealed class WorkItemTypeStatesTests
         Assert.False(type.Allows(Guid.Empty));
     }
 
+    // mod-005 code review CR-5: the list and the question are one definition. A type with none, one or two Removed states: for every
+    // state of the type and for a stranger, "is in RemovedStateIds" is "IsRemoved", and "Allows" is "a state of the type, not removed".
+    [Theory]
+    [InlineData(new[] { StateCategory.Proposed, StateCategory.Completed })]
+    [InlineData(new[] { StateCategory.Proposed, StateCategory.InProgress, StateCategory.Completed, StateCategory.Removed })]
+    [InlineData(new[] { StateCategory.Proposed, StateCategory.Removed, StateCategory.Resolved, StateCategory.Removed })]
+    public void RemovedStateIds_AndIsRemoved_AreOneDefinition_ForEveryState(StateCategory[] categories)
+    {
+        var type = Of(categories);
+        var removed = type.RemovedStateIds;
+
+        foreach (var state in type.States)
+        {
+            Assert.Equal(removed.Contains(state.Id), type.IsRemoved(state.Id));
+            Assert.Equal(!removed.Contains(state.Id), type.Allows(state.Id));
+        }
+
+        Assert.Equal(type.States.Count(state => state.Category == StateCategory.Removed), removed.Count);
+        Assert.DoesNotContain(Guid.CreateVersion7(), removed);
+        Assert.False(type.IsRemoved(Guid.CreateVersion7()));
+    }
+
     [Fact]
     public void FirstStateId_IsTheInitialState()
     {
