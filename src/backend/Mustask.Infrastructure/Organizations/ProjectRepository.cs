@@ -23,6 +23,18 @@ internal sealed class ProjectRepository(MustaskDbContext context) : IProjectRepo
     public Task<bool> IsReachableAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken) =>
         context.ReachableProjects(organizationId).AnyAsync(project => project.Id == projectId, cancellationToken);
 
+    public async Task<int> CountReachableAsync(Guid organizationId, IReadOnlyCollection<Guid> projectIds, CancellationToken cancellationToken)
+    {
+        if (projectIds.Count == 0)
+        {
+            return 0;
+        }
+
+        var ids = projectIds.Distinct().ToArray();
+
+        return await context.ReachableProjects(organizationId).CountAsync(project => ids.Contains(project.Id), cancellationToken);
+    }
+
     public async Task<Project?> LockAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken)
     {
         await context.Database.ExecuteSqlInterpolatedAsync(
@@ -34,15 +46,22 @@ internal sealed class ProjectRepository(MustaskDbContext context) : IProjectRepo
             cancellationToken);
     }
 
-    public Task ClearDefaultTeamAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
+    public Task ClearDefaultTeamAsync(Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
         context.Database.ExecuteSqlInterpolatedAsync(
-            $"UPDATE projects SET default_team_id = NULL WHERE id = {projectId} AND default_team_id = {teamId}",
+            $"""
+             UPDATE projects SET default_team_id = NULL
+             WHERE organization_id = {organizationId} AND id = {projectId} AND default_team_id = {teamId}
+             """,
+            cancellationToken);
+
+    public Task ClearDefaultTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
+        context.Database.ExecuteSqlInterpolatedAsync(
+            $"UPDATE projects SET default_team_id = NULL WHERE organization_id = {organizationId} AND default_team_id = {teamId}",
             cancellationToken);
 
     public void Add(NewProject project)
     {
         context.Projects.Add(project.Project);
-        context.Teams.Add(project.Team);
         context.Areas.Add(project.Root);
     }
 

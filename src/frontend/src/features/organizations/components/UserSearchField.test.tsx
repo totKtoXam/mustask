@@ -78,7 +78,6 @@ describe('mod-016 design § 3.5, § 4.4: UserSearchField', () => {
       scope: {
         kind: 'team',
         organizationId: ids.alfa,
-        projectId: ids.prm,
         teamId: ids.platformTeam,
       },
     });
@@ -88,7 +87,23 @@ describe('mod-016 design § 3.5, § 4.4: UserSearchField', () => {
     // Иван Петров is a member and active; Мария Орлова, who is in no organization, is not matched by «Ива» anyway.
     expect(await screen.findByRole('option', { name: /Иван Петров/ })).toBeVisible();
     expect(api.requests.map((request) => request.path)).toEqual([
-      `/api/organizations/${ids.alfa}/projects/${ids.prm}/teams/${ids.platformTeam}/member-candidates?text=${encodeURIComponent('Ива')}`,
+      `/api/organizations/${ids.alfa}/teams/${ids.platformTeam}/member-candidates?text=${encodeURIComponent('Ива')}`,
+    ]);
+
+    const field = screen.getByRole('combobox', { name: 'Пользователь' });
+    await userEvent.clear(field);
+    await userEvent.type(field, 'Мар');
+    expect(await screen.findByRole('option', { name: 'Пользователи не найдены' })).toBeVisible();
+  });
+
+  it('searches the active members of the organization at the creation address in the new-team scope (feat-028 § 2.3a)', async () => {
+    const api = renderField({ scope: { kind: 'newTeam', organizationId: ids.alfa } });
+
+    await type('Ива');
+
+    expect(await screen.findByRole('option', { name: /Иван Петров/ })).toBeVisible();
+    expect(api.requests.map((request) => request.path)).toEqual([
+      `/api/organizations/${ids.alfa}/teams/member-candidates?text=${encodeURIComponent('Ива')}`,
     ]);
 
     const field = screen.getByRole('combobox', { name: 'Пользователь' });

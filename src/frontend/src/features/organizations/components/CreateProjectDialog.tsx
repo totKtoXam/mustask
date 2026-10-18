@@ -1,49 +1,100 @@
 import { useState } from 'react';
 import TextField from '@mui/material/TextField';
-import { FormDialog } from '../../../shared/ui/FormDialog';
-import type { Project } from '../api/organizationsApi';
-import { placeRefusal } from '../lib/refusals';
-import { keyError, nameError } from '../lib/validation';
+import { FormDialog, InlineMultiPickerField, InlineTextArea } from '../../../shared/ui';
+import type { CreateProjectBody, Project, TeamListItem } from '../api/organizationsApi';
+import { useFocusInvalid } from '../hooks/useFocusInvalid';
+import { useOrganizationTeams } from '../hooks/queries';
+import { placeRefusal, type RefusalField } from '../lib/refusals';
+import { linkDialog, projectTexts } from '../lib/teamTexts';
+import { descriptionError, keyError, nameError } from '../lib/validation';
 import { requiredField } from './requiredField';
 
+type Errors = Partial<Record<'name' | 'key' | 'description' | 'teams', string | null>>;
+
 /**
- * «Новый проект» (US-3; design § 7.4): «Название» and «Ключ», both checked
- * on submit — the key as typed, never trimmed or upper-cased — and nothing
- * sent while either is refused. A refusal lands on its field or in the
- * dialog's `Alert` by its code; the input is kept.
+ * «Новый проект» (US-3; design § 7.4; feat-028 design § 8): «Название» and «Ключ», both checked
+ * on submit — the key as typed, never trimmed or upper-cased — and nothing sent while either is
+ * refused; then an optional «Описание» (at most 2 000 characters, as typed) and «Команды», a
+ * searchable multiselect over the organization's active teams, drawn only for a user who holds both
+ * link codes. **A project is created with no team** (BR-OL-2): left empty, it has none, the normal case.
+ * A refusal lands on its field or in the dialog's `Alert` by its code; the input is kept.
  */
 export function CreateProjectDialog({
+  organizationId,
+  canLink,
   submit,
   onSucceeded,
   onClose,
 }: {
-  submit(body: { name: string; key: string }): Promise<Project>;
+  organizationId: string;
+  /** The user holds `team.link` and `project.link`: «Команды» is drawn. */
+  canLink: boolean;
+  submit(body: CreateProjectBody): Promise<Project>;
   onSucceeded(project: Project): void;
   onClose(contextGone: boolean): void;
 }) {
   const [name, setName] = useState('');
   const [key, setKey] = useState('');
-  const [errors, setErrors] = useState<{ name?: string | null; key?: string | null }>({});
+  const [description, setDescription] = useState('');
+  const [teams, setTeams] = useState<TeamListItem[]>([]);
+  const [errors, setErrors] = useState<Errors>({});
   const [alert, setAlert] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [contextGone, setContextGone] = useState(false);
+  const focusInvalid = useFocusInvalid();
+  const teamsQuery = useOrganizationTeams(organizationId, { enabled: canLink, fresh: true });
+  const teamOptions = teamsQuery.data ?? [];
 
   async function handleSubmit() {
-    const refused = { name: nameError(name), key: keyError(key) };
-    if (refused.name || refused.key) {
+    const refused: Errors = {
+      name: nameError(name),
+      key: keyError(key),
+      description: descriptionError(description),
+    };
+    if (refused.name || refused.key || refused.description) {
       setErrors(refused);
+      focusInvalid();
       return;
+    }
+    const body: CreateProjectBody = { name, key };
+    if (description !== '') {
+      body.description = description;
+    }
+    if (canLink && teams.length > 0) {
+      body.teamIds = teams.map((team) => team.id);
     }
     setBusy(true);
     setAlert(null);
+    setErrors({});
     try {
-      onSucceeded(await submit({ name, key }));
+      onSucceeded(await submit(body));
     } catch (error) {
-      const placed = placeRefusal(error, ['name', 'key']);
-      setErrors({ name: placed.fields.name ?? null, key: placed.fields.key ?? null });
+      const fields: RefusalField[] = ['name', 'key', 'description'];
+      if (canLink) {
+        fields.push('teams');
+      }
+      const placed = placeRefusal(error, fields);
+      setErrors({
+        name: placed.fields.name ?? null,
+        key: placed.fields.key ?? null,
+        description: placed.fields.description ?? null,
+        teams: placed.fields.teams ?? null,
+      });
       setAlert(placed.alert);
       setContextGone((gone) => gone || placed.contextGone);
       setBusy(false);
+      focusInvalid();
+      if (placed.fields.teams !== undefined) {
+        // The list is read again, and a choice no longer offered drops (design § 8).
+        void teamsQuery.refetch().then((result) => {
+          const offered = result.data;
+          if (offered) {
+            setTeams((current) =>
+              current.filter((team) => offered.some((candidate) => candidate.id === team.id)),
+            );
+          }
+        });
+      }
     }
   }
 
@@ -63,10 +114,7 @@ export function CreateProjectDialog({
         value={name}
         disabled={busy}
         error={Boolean(errors.name)}
-        helperText={
-          errors.name ??
-          'От 1 до 100 символов. Так же будут названы команда проекта и его корневая область.'
-        }
+        helperText={errors.name ?? projectTexts.create.nameHint}
         onChange={(event) => {
           setName(event.target.value);
           setErrors((current) => ({ ...current, name: null }));
@@ -97,6 +145,44 @@ export function CreateProjectDialog({
           },
         }}
       />
+      <InlineTextArea
+        label={projectTexts.create.description.label}
+        frame="always"
+        hint={projectTexts.create.description.hint}
+        value={description}
+        busy={busy}
+        error={errors.description ?? undefined}
+        onChange={(next) => {
+          setDescription(next);
+          setErrors((current) => ({ ...current, description: null }));
+        }}
+      />
+      {canLink && (
+        <InlineMultiPickerField<TeamListItem>
+          label={projectTexts.create.teams.label}
+          frame="always"
+          hint={projectTexts.create.teams.hint}
+          busy={busy}
+          error={errors.teams ?? undefined}
+          value={teams}
+          options={teamOptions}
+          loading={teamsQuery.isPending}
+          noOptionsText={
+            teamsQuery.isError
+              ? linkDialog.project.loadFailed
+              : teamOptions.length === 0
+                ? projectTexts.create.teams.none
+                : undefined
+          }
+          onChange={(next) => {
+            setTeams(next);
+            setErrors((current) => ({ ...current, teams: null }));
+          }}
+          getOptionLabel={(team) => team.name}
+          getOptionKey={(team) => team.id}
+          isOptionEqualToValue={(first, second) => first.id === second.id}
+        />
+      )}
     </FormDialog>
   );
 }

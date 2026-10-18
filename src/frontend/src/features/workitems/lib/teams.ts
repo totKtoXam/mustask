@@ -1,6 +1,6 @@
 // The owning team's words and options (mod-017 design §§ 3-5): the picker of the card and of
 // the creation dialog, the filter of the list and of the project's views.
-import type { Team } from '../../organizations';
+import type { ProjectTeam } from '../../organizations';
 import { NO_TEAM_FILTER_VALUE } from '../api/workItemsApi';
 
 /** The texts of the team controls, final in mod-017 design §§ 3-5 and nowhere else. */
@@ -28,7 +28,7 @@ export const NO_TEAM_OPTION: TeamOption = { id: null, name: teamTexts.noTeam };
  * The picker's options: «Без команды», then the project's teams as the read gives them — by
  * name, ignoring case (api-contract § 1.3), which the panel renders as received.
  */
-export function teamOptions(teams: readonly Pick<Team, 'id' | 'name'>[]): TeamOption[] {
+export function teamOptions(teams: readonly Pick<ProjectTeam, 'id' | 'name'>[]): TeamOption[] {
   return [NO_TEAM_OPTION, ...teams.map(({ id, name }) => ({ id, name }))];
 }
 
@@ -37,7 +37,9 @@ export function teamOptions(teams: readonly Pick<Team, 'id' | 'name'>[]): TeamOp
  * list marks exactly that one — else none. A dialog opened away from a team's surface starts
  * with it.
  */
-export function defaultTeamId(teams: readonly Pick<Team, 'id' | 'defaultMark'>[]): string | null {
+export function defaultTeamId(
+  teams: readonly Pick<ProjectTeam, 'id' | 'defaultMark'>[],
+): string | null {
   return teams.find((team) => team.defaultMark !== null)?.id ?? null;
 }
 
@@ -46,7 +48,7 @@ export function defaultTeamId(teams: readonly Pick<Team, 'id' | 'defaultMark'>[]
  * value is the contract's `none`. No counts.
  */
 export function filterOptions(
-  teams: readonly Pick<Team, 'id' | 'name'>[],
+  teams: readonly Pick<ProjectTeam, 'id' | 'name'>[],
 ): { value: string; label: string }[] {
   return [
     ...teams.map((team) => ({ value: team.id, label: team.name })),

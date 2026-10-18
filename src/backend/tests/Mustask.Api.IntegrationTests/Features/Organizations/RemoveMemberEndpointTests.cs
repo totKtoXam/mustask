@@ -340,7 +340,7 @@ public sealed class RemoveMemberEndpointTests(MustaskApiFactory factory)
         var add = OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Post,
-            $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{structure.Platform.Id}/members",
+            $"{TeamTestData.Team(structure.OrganizationId, structure.Platform.Id)}/members",
             new { userId = user.Id },
             admin.Token);
         await PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, add);
@@ -369,7 +369,7 @@ public sealed class RemoveMemberEndpointTests(MustaskApiFactory factory)
         var add = OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Post,
-            $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{structure.Platform.Id}/members",
+            $"{TeamTestData.Team(structure.OrganizationId, structure.Platform.Id)}/members",
             new { userId = user.Id },
             admin.Token,
             gate);

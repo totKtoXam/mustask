@@ -89,24 +89,27 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
     }
 
     // mod-017 US-4 · "The project's teams": by name in Russian collation, letter case not deciding, no team first (BR-OT-11), each
-    // with its default mark (BR-OT-4), all in one statement. Replaces
-    // Teams_ListActive_FirstTeamFirstThenRussianOrder_WithDefaultAreas (D-16, BR-OT-11).
+    // with its default mark (BR-OT-4), all in one statement; feat-028: over the project's LINKS. Renamed (D-16, BR-OL-6):
+    // Teams_ListActive_ByName_WithTheDefaultMark_OneStatement -> Teams_ListLinked_ByName_WithTheDefaultMark_OneStatement.
     [Fact]
-    public async Task Teams_ListActive_ByName_WithTheDefaultMark_OneStatement()
+    public async Task Teams_ListLinked_ByName_WithTheDefaultMark_OneStatement()
     {
         var structure = await database.CreateStructureAsync(projectName: "Ядро");
-        var projectId = structure.Project.Project.Id;
-        var alpha = Team.Create(projectId, Name("альфа"));
+        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Project.Id);
+        var alpha = Team.Create(organizationId, Name("альфа"));
+        var unlinked = Team.Create(organizationId, Name("Не связана"));
         await AddTeamAsync(alpha);
+        await AddTeamAsync(unlinked);
+        await LinkAsync(organizationId, projectId, alpha.Id);
 
         var counter = new CommandCountingInterceptor();
-        var none = await ReadAsync<ITeamReadModel, IReadOnlyList<TeamRow>>(
+        var none = await ReadAsync<ITeamReadModel, IReadOnlyList<LinkedTeamRow>>(
             counter,
-            readModel => readModel.ListActiveAsync(structure.Organization.Id, projectId, "nobody", CancellationToken.None));
+            readModel => readModel.ListLinkedAsync(organizationId, projectId, "nobody", CancellationToken.None));
         await database.ExecuteAsync("UPDATE projects SET default_team_id = @team WHERE id = @project", ("team", structure.SecondTeam.Id), ("project", projectId));
-        var named = await ReadAsync<ITeamReadModel, IReadOnlyList<TeamRow>>(
+        var named = await ReadAsync<ITeamReadModel, IReadOnlyList<LinkedTeamRow>>(
             null,
-            readModel => readModel.ListActiveAsync(structure.Organization.Id, projectId, "nobody", CancellationToken.None));
+            readModel => readModel.ListLinkedAsync(organizationId, projectId, "nobody", CancellationToken.None));
 
         Assert.Single(counter.Commands);
         Assert.Equal(["альфа", "Платформа", "Ядро"], none.Select(team => team.Name));
@@ -116,39 +119,104 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
             named.Select(team => team.Mark));
     }
 
-    // mod-017 BR-OT-4 · a project's only active team carries «onlyTeam» when the settings name none.
+    // mod-017 BR-OT-4, feat-028 BR-OL-7 · a project's only linked active team carries «onlyTeam» when the settings name none.
     [Fact]
-    public async Task Teams_TheOnlyActiveTeam_IsMarkedOnlyTeam_UnlessTheSettingsNameAnother()
+    public async Task Teams_TheOnlyLinkedTeam_IsMarkedOnlyTeam_UnlessTheSettingsNameAnother()
     {
         var structure = await database.CreateStructureAsync();
         var projectId = structure.Project.Project.Id;
         await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @second", ("second", structure.SecondTeam.Id));
 
-        var only = await ReadAsync<ITeamReadModel, TeamRow?>(
+        var only = await ReadAsync<ITeamReadModel, LinkedTeamRow?>(
             null,
-            readModel => readModel.FindReachableAsync(structure.Organization.Id, projectId, structure.Project.Team.Id, CancellationToken.None));
+            readModel => readModel.FindLinkedAsync(structure.Organization.Id, projectId, structure.FirstTeam.Id, CancellationToken.None));
 
         Assert.Equal(DefaultTeamMark.OnlyTeam, only!.Mark);
         Assert.False(only.IsMember);
     }
 
-    // US-7 · "A deleted team answers not found": it leaves the list and the by-id read.
+    // US-7 · "A deleted team answers not found": it leaves the list and the by-id read; a team that is not linked is not found at
+    // the project's address either (BR-OL-11).
     [Fact]
-    public async Task Teams_DeletedTeam_IsLeftOut()
+    public async Task Teams_DeletedTeam_AndAnUnlinkedOne_AreLeftOut()
     {
         var structure = await database.CreateStructureAsync();
-        var projectId = structure.Project.Project.Id;
+        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Project.Id);
+        var unlinked = Team.Create(organizationId, Name("Не связана"));
+        await AddTeamAsync(unlinked);
         await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @second", ("second", structure.SecondTeam.Id));
 
-        var teams = await ReadAsync<ITeamReadModel, IReadOnlyList<TeamRow>>(
+        var teams = await ReadAsync<ITeamReadModel, IReadOnlyList<LinkedTeamRow>>(
             null,
-            readModel => readModel.ListActiveAsync(structure.Organization.Id, projectId, "nobody", CancellationToken.None));
-        var deleted = await ReadAsync<ITeamReadModel, TeamRow?>(
+            readModel => readModel.ListLinkedAsync(organizationId, projectId, "nobody", CancellationToken.None));
+        var deleted = await ReadAsync<ITeamReadModel, LinkedTeamRow?>(
             null,
-            readModel => readModel.FindReachableAsync(structure.Organization.Id, projectId, structure.SecondTeam.Id, CancellationToken.None));
+            readModel => readModel.FindLinkedAsync(organizationId, projectId, structure.SecondTeam.Id, CancellationToken.None));
+        var notLinked = await ReadAsync<ITeamReadModel, LinkedTeamRow?>(
+            null,
+            readModel => readModel.FindLinkedAsync(organizationId, projectId, unlinked.Id, CancellationToken.None));
 
-        Assert.Equal([structure.Project.Team.Id], teams.Select(team => team.Id));
+        Assert.Equal([structure.FirstTeam.Id], teams.Select(team => team.Id));
         Assert.Null(deleted);
+        Assert.Null(notLinked);
+    }
+
+    // feat-028 US-1 · the organization's list: active teams by name, each with its ACTIVE projects by name, in TWO statements whatever
+    // the number of teams or projects; a deleted team, a deactivated project and another organization's team are left out.
+    [Fact]
+    public async Task OrganizationTeams_ByName_WithActiveProjects_TwoStatements()
+    {
+        var structure = await database.CreateStructureAsync();
+        var organizationId = structure.Organization.Id;
+        var second = await database.AddProjectAsync(organizationId, "Аналитика", "ANL");
+        var old = await database.AddProjectAsync(organizationId, "Старый", "OLD");
+        await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @id", ("id", old.Project.Id));
+        await LinkAsync(organizationId, second.Project.Id, structure.SecondTeam.Id);
+        await LinkAsync(organizationId, old.Project.Id, structure.SecondTeam.Id);
+        await database.CreateStructureAsync();
+
+        var counter = new CommandCountingInterceptor();
+        var teams = await ReadAsync<ITeamReadModel, IReadOnlyList<OrganizationTeamRow>>(
+            counter, readModel => readModel.ListOrganizationTeamsAsync(organizationId, CancellationToken.None));
+
+        Assert.Equal(2, counter.Commands.Count);
+        Assert.Equal(["Платформа", "Пример проекта"], teams.Select(team => team.Name));
+        Assert.Equal(["Аналитика", "Пример проекта"], teams[0].Projects.Select(project => project.Name));
+        Assert.Equal(["Пример проекта"], teams[1].Projects.Select(project => project.Name));
+    }
+
+    // feat-028 US-5 · the deletion's links: every project the team is linked to, any status, by name, in one statement.
+    [Fact]
+    public async Task LinksWithProjects_AnyStatus_ByName_OneStatement()
+    {
+        var structure = await database.CreateStructureAsync();
+        var organizationId = structure.Organization.Id;
+        var old = await database.AddProjectAsync(organizationId, "Архив", "ARC");
+        await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @id", ("id", old.Project.Id));
+        await LinkAsync(organizationId, old.Project.Id, structure.FirstTeam.Id);
+
+        var counter = new CommandCountingInterceptor();
+        var links = await ReadAsync<ITeamReadModel, IReadOnlyList<TeamLinkRow>>(
+            counter, readModel => readModel.ListLinksWithProjectsAsync(organizationId, structure.FirstTeam.Id, CancellationToken.None));
+
+        Assert.Single(counter.Commands);
+        Assert.Equal([("Архив", false), ("Пример проекта", true)], links.Select(link => (link.Name, link.IsActive)));
+    }
+
+    // feat-028 BR-OL-1 · a team read of another organization finds nothing.
+    [Fact]
+    public async Task TeamReads_OfAnotherOrganization_FindNothing()
+    {
+        var structure = await database.CreateStructureAsync();
+        var other = await database.CreateStructureAsync();
+
+        var found = await ReadAsync<ITeamReadModel, TeamRow?>(
+            null, readModel => readModel.FindAsync(other.Organization.Id, structure.FirstTeam.Id, CancellationToken.None));
+        var projects = await ReadAsync<ITeamReadModel, IReadOnlyList<TeamProjectRow>>(
+            null, readModel => readModel.ListProjectsOfTeamAsync(other.Organization.Id, structure.FirstTeam.Id, CancellationToken.None));
+
+        Assert.Null(found);
+        Assert.Empty(projects);
     }
 
     // US-2 · "listed separately": one status per list; the active one by id only while active. mod-016 BR-M1-7: the lists hold
@@ -223,6 +291,13 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
     {
         await using var context = database.NewContext();
         context.Teams.Add(team);
+        await context.SaveChangesAsync();
+    }
+
+    private async Task LinkAsync(Guid organizationId, Guid projectId, Guid teamId)
+    {
+        await using var context = database.NewContext();
+        context.ProjectTeams.Add(ProjectTeam.Link(organizationId, projectId, teamId, OrganizationsDatabaseFixture.Creator, OrganizationsDatabaseFixture.Now));
         await context.SaveChangesAsync();
     }
 

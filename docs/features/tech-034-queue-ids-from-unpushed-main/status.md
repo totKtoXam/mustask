@@ -10,7 +10,7 @@
 
 ## Gates
 
-gate-3: pending
+gate-3: approved (2026-10-17, the human merged PR #7, https://github.com/totKtoXam/mustask/pull/7)
 
 ## Plan
 

@@ -167,15 +167,18 @@ describe('mod-002 US-8 Scenario: The address sets the switcher', () => {
     await waitFor(() => expect(result.current.selection.organizationId).toBe(ids.alfa));
   });
 
-  it('a team’s page sets its organization and project, never its team', async () => {
+  // feat-028 BR-OL-12 (doc-012 P-1): «a team’s page sets its organization and project, never its team»
+  // is retired by name — the team's page is the organization's and carries no project.
+  it('the organization’s team page sets its organization and nothing below it', async () => {
     serveOrganizations();
+    remember({ organizationId: ids.beta });
     const { result } = mount({
-      path: `/organizations/${ids.alfa}/projects/${ids.prm}/settings/teams/${ids.platformTeam}`,
+      path: `/organizations/${ids.alfa}/settings/teams/${ids.platformTeam}`,
     });
 
-    await waitFor(() => expect(result.current.selection.projectId).toBe(ids.prm));
+    await waitFor(() => expect(result.current.selection.organizationId).toBe(ids.alfa));
     await settled(result);
-    expect(result.current.selection.teamId).toBe(ids.platformTeam);
+    expect(result.current.selection.teamId).not.toBe(ids.platformTeam);
   });
 });
 

@@ -19,7 +19,7 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
 {
     private const string UniqueViolation = PostgresErrorCodes.UniqueViolation;
     private const string CheckViolation = PostgresErrorCodes.CheckViolation;
-    private const string DefaultTeamKey = "fk_projects_teams_id_default_team_id";
+    private const string DefaultTeamKey = "fk_projects_project_teams_id_default_team_id";
     private const string ParentKey = "fk_areas_areas_project_id_parent_id";
 
     // @org, @project, @first, @second, @root, @secondArea, @process are bound from a fresh structure.
@@ -50,10 +50,10 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
             "ix_projects_organization_id_key"
         },
         {
-            "BR-M1-1: an active team name in the project",
-            "INSERT INTO teams (id, project_id, name, normalized_name, status) "
-            + "SELECT gen_random_uuid(), project_id, name, normalized_name, 'Active' FROM teams WHERE id = @second",
-            "ix_teams_project_id_normalized_name"
+            "feat-028 BR-OL-3: an active team name in the organization",
+            "INSERT INTO teams (id, organization_id, name, normalized_name, status) "
+            + "SELECT gen_random_uuid(), organization_id, name, normalized_name, 'Active' FROM teams WHERE id = @second",
+            "ix_teams_organization_id_normalized_name"
         },
         {
             "BR-M1-12: a sibling name",
@@ -79,6 +79,9 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
         { "a one-character key", "UPDATE projects SET key = 'P' WHERE id = @project", "ck_projects_key_format" },
         { "an unknown team status", "UPDATE teams SET status = 'Deactivated' WHERE id = @second", "ck_teams_status" },
         { "an empty team name", "UPDATE teams SET name = '' WHERE id = @second", "ck_teams_name_length" },
+        { "an empty team description (the empty string is stored as NULL)", "UPDATE teams SET description = '' WHERE id = @second", "ck_teams_description_length" },
+        { "a team description over 2 000 characters", "UPDATE teams SET description = repeat('я', 2001) WHERE id = @second", "ck_teams_description_length" },
+        { "a project description over 2 000 characters", "UPDATE projects SET description = repeat('я', 2001) WHERE id = @project", "ck_projects_description_length" },
         { "an empty area name", "UPDATE areas SET name = '' WHERE id = @secondArea", "ck_areas_name_length" },
     };
 
@@ -94,24 +97,25 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
             "fk_organizations_processes_process_id"
         },
         { "an organization with projects", "DELETE FROM organizations WHERE id = @org", "fk_projects_organizations_organization_id" },
-        { "a project with teams and areas", "DELETE FROM projects WHERE id = @project", "fk_teams_projects_project_id|fk_areas_projects_project_id" },
+        { "a project with links and areas", "DELETE FROM projects WHERE id = @project", "fk_project_teams_projects_organization_id_project_id|fk_areas_projects_project_id" },
+        { "a team a project is linked to", "DELETE FROM teams WHERE id = @second", "fk_project_teams_teams_organization_id_team_id" },
         {
-            "a team the project names as its default",
-            "UPDATE projects SET default_team_id = @second WHERE id = @project; DELETE FROM teams WHERE id = @second",
-            "fk_teams_projects_project_id|" + DefaultTeamKey
+            "a link the project names as its default",
+            "UPDATE projects SET default_team_id = @second WHERE id = @project; DELETE FROM project_teams WHERE project_id = @project AND team_id = @second",
+            DefaultTeamKey
         },
         { "an area with children", "DELETE FROM areas WHERE id = @root", ParentKey },
     };
 
     // qa.md D-1 (BR-M1-22): an area's parent belongs to the area's own project, and a project's default team is a team of that
-    // project (mod-017 BR-OT-4). @otherRoot and @otherTeam are of another organization's project, @siblingRoot and @siblingTeam
-    // of another project in A's organization.
+    // project (mod-017 BR-OT-4). @otherRoot and @otherTeam are of another organization, @siblingRoot is of another project in A's organization
+    // and @siblingTeam is a team of A's organization that is NOT linked to the project (feat-028 BR-OL-6).
     public static TheoryData<string, string, string> CrossProjectReferences() => new()
     {
         { "an area under another organization's area", InsertAreaUnder("@otherRoot"), ParentKey },
         { "an area under another project's area in the organization", InsertAreaUnder("@siblingRoot"), ParentKey },
         { "a project naming another organization's team as its default", NameDefault("@otherTeam"), DefaultTeamKey },
-        { "a project naming another project's team of the organization as its default", NameDefault("@siblingTeam"), DefaultTeamKey },
+        { "a project naming a team of the organization that is not linked to it as its default", NameDefault("@siblingTeam"), DefaultTeamKey },
     };
 
     // The controls of the cases above: the same statements with the parent or the team of the row's own project.
@@ -169,8 +173,8 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
 
         await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @second", parameters);
         await database.ExecuteAsync(
-            "INSERT INTO teams (id, project_id, name, normalized_name, status) "
-            + "SELECT gen_random_uuid(), project_id, name, normalized_name, 'Active' FROM teams WHERE id = @second",
+            "INSERT INTO teams (id, organization_id, name, normalized_name, status) "
+            + "SELECT gen_random_uuid(), organization_id, name, normalized_name, 'Active' FROM teams WHERE id = @second",
             parameters);
     }
 
@@ -193,7 +197,7 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
     // mod-017 BR-OT-11: no team is the first, so a project's team goes like any other — the database holds no marker that
     // forbids it (the first-team check and index are gone).
     [Fact]
-    public async Task Update_AnyTeamDeleted_IsAllowed_TheProjectsOwnTeamIncluded()
+    public async Task Update_AnyTeamDeleted_IsAllowed()
     {
         var parameters = await ParametersAsync();
 
@@ -255,6 +259,13 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
         var structure = await database.CreateStructureAsync();
         var other = await database.CreateStructureAsync();
         var sibling = await database.AddProjectAsync(structure.Organization.Id, "Соседний проект", "SIB");
+        var unlinkedTeam = Team.Create(structure.Organization.Id, OrganizationsDatabaseFixture.Name("Не связана"));
+        await using (var context = database.NewContext())
+        {
+            context.Teams.Add(unlinkedTeam);
+            await context.SaveChangesAsync();
+        }
+
         var secondArea = Area.CreateChild(structure.Project.Root, OrganizationsDatabaseFixture.Name("Платформа"));
         await database.AddAreasAsync(secondArea);
 
@@ -266,7 +277,7 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
             ("secondArea", secondArea.Id),
             ("otherTeam", other.SecondTeam.Id),
             ("otherRoot", other.Project.Root.Id),
-            ("siblingTeam", sibling.Team.Id),
+            ("siblingTeam", unlinkedTeam.Id),
             ("siblingRoot", sibling.Root.Id),
         ];
     }
@@ -308,7 +319,7 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
             ("otherProcess", otherProcess.Value),
             ("bareProcess", Guid.CreateVersion7()),
             ("project", structure.Project.Project.Id),
-            ("first", structure.Project.Team.Id),
+            ("first", structure.FirstTeam.Id),
             ("second", structure.SecondTeam.Id),
             ("root", structure.Project.Root.Id),
             ("secondArea", secondArea.Id),

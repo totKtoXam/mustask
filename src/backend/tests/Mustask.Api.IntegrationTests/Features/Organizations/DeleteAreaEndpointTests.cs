@@ -135,7 +135,7 @@ public sealed class DeleteAreaEndpointTests(MustaskApiFactory factory)
         var team = await OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Get,
-            $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{structure.Platform.Id}",
+            TeamTestData.Team(structure.OrganizationId, structure.Platform.Id),
             token: OrganizationsTokens.SignedIn());
         Assert.Equal(HttpStatusCode.OK, team.Status);
     }

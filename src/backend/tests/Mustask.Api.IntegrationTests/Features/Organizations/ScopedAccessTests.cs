@@ -188,7 +188,7 @@ public sealed class ScopedAccessTests(MustaskApiFactory factory)
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var caller = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, role);
         var org = OrganizationsApi.Organization(structure.OrganizationId);
-        var team = $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{structure.Platform.Id}";
+        var team = TeamTestData.Team(structure.OrganizationId, structure.Platform.Id);
 
         foreach (var path in new[] { $"{org}/access", $"{org}/members", $"{team}/members" })
         {
@@ -219,7 +219,7 @@ public sealed class ScopedAccessTests(MustaskApiFactory factory)
     [Theory]
     [InlineData("POST", "/api/organizations/{organizationId}/members")]
     [InlineData("PUT", "/api/organizations/{organizationId}/members/{userId}/role")]
-    [InlineData("POST", "/api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}/members")]
+    [InlineData("POST", "/api/organizations/{organizationId}/teams/{teamId}/members")]
     public async Task MalformedBody_NonMemberGets404_ViewerGets403_BeforeTheBodyIsRead(string method, string template)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);

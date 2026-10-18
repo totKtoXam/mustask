@@ -6,7 +6,7 @@
 // received (§ 0.5): no paging, no sorting, no filter.
 import { apiFetch } from '../../../shared/api/httpClient';
 import type { OrganizationRole } from '../lib/roles';
-import { organizationApiPath, projectApiPath } from './organizationsApi';
+import { organizationApiPath, teamApiPath } from './organizationsApi';
 
 /** § 0.4: how the projection knows a user. */
 export type UserState = 'active' | 'inactive' | 'unknown';
@@ -52,20 +52,12 @@ export function membersApiPath(organizationId: string): string {
   return `${organizationApiPath(organizationId)}/members`;
 }
 
-function teamApiPath(organizationId: string, projectId: string, teamId: string): string {
-  return `${projectApiPath(organizationId, projectId)}/teams/${segment(teamId)}`;
-}
-
 /**
- * `…/teams/{t}/members`: the one place a team's address is built (plan-frontend
- * § 3.2), so the section follows the team wherever feat-028 puts it.
+ * `…/teams/{t}/members`: the one place a team's members address is built. Since feat-028 a
+ * team's address is the organization's (api-contract § 2.3): the project left the path.
  */
-export function teamMembersApiPath(
-  organizationId: string,
-  projectId: string,
-  teamId: string,
-): string {
-  return `${teamApiPath(organizationId, projectId, teamId)}/members`;
+export function teamMembersApiPath(organizationId: string, teamId: string): string {
+  return `${teamApiPath(organizationId, teamId)}/members`;
 }
 
 // § 1 Organization members
@@ -107,32 +99,39 @@ export function removeMember(organizationId: string, userId: string): Promise<vo
 
 // § 2 Team members
 
-export function getTeamMembers(
-  organizationId: string,
-  projectId: string,
-  teamId: string,
-): Promise<UserRef[]> {
-  return apiFetch(teamMembersApiPath(organizationId, projectId, teamId));
+export function getTeamMembers(organizationId: string, teamId: string): Promise<UserRef[]> {
+  return apiFetch(teamMembersApiPath(organizationId, teamId));
 }
 
 /** § 2.2: active members of the organization only. */
 export function searchTeamMemberCandidates(
   organizationId: string,
-  projectId: string,
   teamId: string,
   text: string,
 ): Promise<UserCandidates> {
   const query = new URLSearchParams({ text });
-  return apiFetch(`${teamApiPath(organizationId, projectId, teamId)}/member-candidates?${query}`);
+  return apiFetch(`${teamApiPath(organizationId, teamId)}/member-candidates?${query}`);
+}
+
+/**
+ * feat-028 api-contract § 2.3a: the same search for a team that does not exist yet, at the
+ * organization's address (`…/teams/member-candidates`, a literal beside `…/teams/{teamId}`).
+ * The creation form's «Участники» asks it; the answer is § 2.2's.
+ */
+export function searchNewTeamMemberCandidates(
+  organizationId: string,
+  text: string,
+): Promise<UserCandidates> {
+  const query = new URLSearchParams({ text });
+  return apiFetch(`${organizationApiPath(organizationId)}/teams/member-candidates?${query}`);
 }
 
 export function addTeamMember(
   organizationId: string,
-  projectId: string,
   teamId: string,
   userId: string,
 ): Promise<UserRef> {
-  return apiFetch(teamMembersApiPath(organizationId, projectId, teamId), {
+  return apiFetch(teamMembersApiPath(organizationId, teamId), {
     method: 'POST',
     body: { userId },
   });
@@ -140,11 +139,10 @@ export function addTeamMember(
 
 export function removeTeamMember(
   organizationId: string,
-  projectId: string,
   teamId: string,
   userId: string,
 ): Promise<void> {
-  return apiFetch(`${teamMembersApiPath(organizationId, projectId, teamId)}/${segment(userId)}`, {
+  return apiFetch(`${teamMembersApiPath(organizationId, teamId)}/${segment(userId)}`, {
     method: 'DELETE',
   });
 }

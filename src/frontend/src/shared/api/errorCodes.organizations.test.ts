@@ -59,6 +59,10 @@ const CONTRACT_TABLE: readonly (readonly [string, number, readonly string[]])[] 
   ['organizations.team.member_exists', 409, []],
   ['organizations.team.member_not_in_organization', 409, []],
   ['organizations.team.member_not_found', 404, []],
+  // feat-028 api-contract § 3: the two field reasons the descriptions and the unlink add. The deprecated guard
+  // code above stays held, one to one with the catalog.
+  ['organizations.description_length', 400, []],
+  ['organizations.team.destination_required', 400, []],
 ];
 
 describe('mod-002 api-contract § 6: the panel holds the organizations codes one to one with the catalog', () => {
@@ -71,7 +75,7 @@ describe('mod-002 api-contract § 6: the panel holds the organizations codes one
     expect(new Set(constants).size).toBe(constants.length);
   });
 
-  it('matches api-contract § 6 row by row: the 35 codes (mod-002’s 23, mod-016’s 10 and mod-017’s 2), their statuses and parameters', () => {
+  it('matches api-contract § 6 row by row: the 37 codes (mod-002’s 23, mod-016’s 10, mod-017’s 2 and feat-028’s 2), their statuses and parameters', () => {
     const catalog = readCatalog();
 
     expect(Object.values(organizationErrorCodes)).toHaveLength(CONTRACT_TABLE.length);

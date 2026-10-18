@@ -1,95 +1,84 @@
 import { useWorkContext } from '../../../shared/lib/workContext';
 import type { Team } from '../api/organizationsApi';
-import { useDeleteTeam, useRenameTeam, useSetDefaultTeam } from '../hooks/mutations';
-import { DefaultTeamDialog } from './DefaultTeamDialog';
+import { useDeleteTeam, useDescribeTeam, useRenameTeam } from '../hooks/mutations';
+import { deleteTeamDialog, descriptionDialog, renameTeamDialog } from '../lib/teamTexts';
 import { DeleteTeamDialog } from './DeleteTeamDialog';
+import { DescriptionDialog } from './DescriptionDialog';
 import { NameDialog } from './NameDialog';
 import { useNotify } from './notice';
 
 /**
- * A team dialog to show: a team's rename or deletion, or the project's default
- * team (mod-017 design § 7.1), which belongs to no one team.
+ * A dialog of one team to show: its rename, its description or its deletion (feat-028 design § 5).
+ * All three are the organization's: a team's address no longer names a project.
  */
-export type TeamDialog = { kind: 'rename' | 'delete'; team: Team } | { kind: 'defaultTeam' } | null;
+export type TeamDialog = { kind: 'rename' | 'describe' | 'delete'; team: Team } | null;
 
 /**
- * The team dialogs of design § 7, shared by «Команды» and a team's page. Their
- * notices follow DC-7: deleting the team the switcher holds makes the switcher
- * fall back, and its notice is the only one (a team's page never chooses its
- * team, design § 3.4).
+ * The team dialogs of design § 5, shared by the organization's «Команды» and a team's page. Their
+ * notices follow DC-7: deleting the team the switcher holds makes the switcher fall back, and its
+ * notice is the only one (a team's page never chooses its team, mod-002 design § 3.4).
  */
 export function TeamDialogs({
   organizationId,
-  projectId,
   dialog,
-  teams,
   onClose,
   onDeleted,
-  onTeamsStale,
 }: {
   organizationId: string;
-  projectId: string;
   dialog: TeamDialog;
-  /** The project's teams as the page read them; «Команда по умолчанию» offers them. */
-  teams?: readonly Team[];
   /** `contextGone`: a not-found answer; the page reads itself again. */
   onClose(contextGone: boolean): void;
   onDeleted?(): void;
-  /** A choice was refused as not found or not in the project: the teams are read again. */
-  onTeamsStale?(): void;
 }) {
-  const rename = useRenameTeam(organizationId, projectId);
-  const setDefaultTeam = useSetDefaultTeam(organizationId, projectId);
-  const deleteTeam = useDeleteTeam(organizationId, projectId);
+  const rename = useRenameTeam(organizationId);
+  const describe = useDescribeTeam(organizationId);
+  const deleteTeam = useDeleteTeam(organizationId);
   const notify = useNotify();
   const context = useWorkContext();
 
   if (!dialog) {
     return null;
   }
+  const { team } = dialog;
 
   switch (dialog.kind) {
     case 'rename':
       return (
         <NameDialog
-          title="Переименование команды"
-          initialName={dialog.team.name}
-          submitLabel="Сохранить"
-          submit={(name) => rename.mutateAsync({ teamId: dialog.team.id, name })}
+          title={renameTeamDialog.title}
+          initialName={team.name}
+          submitLabel={renameTeamDialog.submit}
+          submit={(name) => rename.mutateAsync({ teamId: team.id, name })}
           onSucceeded={() => {
             onClose(false);
-            notify('Команда переименована.');
+            notify(renameTeamDialog.renamed);
           }}
           onClose={onClose}
         />
       );
-    case 'defaultTeam':
+    case 'describe':
       return (
-        <DefaultTeamDialog
-          teams={teams ?? []}
-          submit={(teamId) => setDefaultTeam.mutateAsync(teamId)}
+        <DescriptionDialog
+          title={descriptionDialog.team.title}
+          initial={team.description}
+          submit={(description) => describe.mutateAsync({ teamId: team.id, description })}
           onSucceeded={() => {
             onClose(false);
-            notify('Команда по умолчанию изменена.');
+            notify(descriptionDialog.team.saved);
           }}
-          onRefused={() => onTeamsStale?.()}
           onClose={onClose}
         />
       );
-    case 'delete': {
-      const { team } = dialog;
+    case 'delete':
       return (
         <DeleteTeamDialog
           organizationId={organizationId}
-          projectId={projectId}
           teamId={team.id}
           teamName={team.name}
           action={async () => {
             const { selection } = context;
             const fallsBack =
-              selection.organizationId === organizationId &&
-              selection.projectId === projectId &&
-              selection.teamId === team.id;
+              selection.organizationId === organizationId && selection.teamId === team.id;
             await deleteTeam.mutateAsync(team.id);
             return fallsBack;
           }}
@@ -97,12 +86,11 @@ export function TeamDialogs({
             onClose(false);
             onDeleted?.();
             if (!fallsBack) {
-              notify(`Команда «${team.name}» удалена.`);
+              notify(deleteTeamDialog.deleted(team.name));
             }
           }}
           onClose={onClose}
         />
       );
-    }
   }
 }

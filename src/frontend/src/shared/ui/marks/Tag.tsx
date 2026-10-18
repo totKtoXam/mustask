@@ -19,6 +19,11 @@ export interface TagProps {
    * read-only host passes none.
    */
   onRemove?: () => void;
+  /**
+   * The remove button's name from the tag's label; default «Удалить тег «<label>»». A host
+   * whose tags are not "tags" says its own (the multiple picker: «Убрать «Alpha»»).
+   */
+  removeLabel?: (label: string) => string;
 }
 
 /** The kit’s text of a tag’s remove button. */
@@ -31,7 +36,13 @@ function removeTagLabel(label: string): string {
  * the label at the table-cell type. It never carries a state — a state is a dot
  * and a name (`StateLabel`).
  */
-export function Tag({ label, tone = 'neutral', variant = 'filled', onRemove }: TagProps) {
+export function Tag({
+  label,
+  tone = 'neutral',
+  variant = 'filled',
+  onRemove,
+  removeLabel = removeTagLabel,
+}: TagProps) {
   const outlined = variant === 'outlined';
   return (
     <Chip
@@ -47,7 +58,7 @@ export function Tag({ label, tone = 'neutral', variant = 'filled', onRemove }: T
           <>
             {label}
             <IconAction
-              label={removeTagLabel(label)}
+              label={removeLabel(label)}
               icon={<ThinCloseIcon />}
               size="row"
               tooltip={false}

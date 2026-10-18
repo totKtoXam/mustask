@@ -311,7 +311,7 @@ public sealed class ReorderBacklogEndpointTests(MustaskApiFactory factory)
 
         using var gate = factory.CommitGates.Open();
         var deletion = OrganizationsApi.SendAsync(
-            factory, HttpMethod.Delete, BoardsTestData.Team(world, analytics), token: OrganizationsTokens.SignedIn(), gate: gate);
+            factory, HttpMethod.Delete, TeamTestData.Team(world.OrganizationId, analytics), token: OrganizationsTokens.SignedIn(), gate: gate);
         await Task.WhenAny(gate.Reached, deletion);
         Assert.False(deletion.IsCompleted, "The deletion finished before reaching its commit gate.");
 

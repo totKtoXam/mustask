@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Tag, TagList, type TagTone } from '../../../../shared/ui';
 import { DEMO_TAGS } from '../data';
+import { noop } from '../noop';
 import { DemoGrid, DemoGroup, DemoRow } from '../parts';
 
 // Section 8, «Теги» (tech-015 design § 10.3): the four tones filled and outlined, a list
@@ -34,6 +35,9 @@ export function TagsDemo() {
           onRemove={(id) => setTags((current) => current.filter((tag) => tag !== id))}
           onAdd={addable ? () => setTags((current) => [...current, addable]) : undefined}
         />
+      </DemoGroup>
+      <DemoGroup caption="Своё имя кнопки удаления: «Убрать «…»» (поле выбора нескольких)">
+        <Tag label="Alpha" removeLabel={(label) => `Убрать «${label}»`} onRemove={noop} />
       </DemoGroup>
       <DemoGroup caption="Список только для чтения">
         <TagList tags={DEMO_TAGS.slice(0, 3).map((label) => ({ id: label, label }))} />

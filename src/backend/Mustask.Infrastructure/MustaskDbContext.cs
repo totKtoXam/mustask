@@ -47,6 +47,9 @@ public sealed class MustaskDbContext(DbContextOptions<MustaskDbContext> options)
 
     public DbSet<Team> Teams => Set<Team>();
 
+    /// <summary>feat-028: the links between projects and the organization's teams (<c>project_teams</c>).</summary>
+    public DbSet<ProjectTeam> ProjectTeams => Set<ProjectTeam>();
+
     public DbSet<Area> Areas => Set<Area>();
 
     /// <summary>Organization access (mod-016): who belongs to which organization with which role, and who is in which team.</summary>

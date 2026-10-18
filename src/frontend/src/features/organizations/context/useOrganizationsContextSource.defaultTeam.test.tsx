@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { SwitchTargetResolver, WorkContextSource } from '../../../shared/lib/workContext';
-import { ids, exampleDataset, type Dataset } from '../testFixtures';
+import { ids, exampleDataset, team, type Dataset } from '../testFixtures';
 import { serveOrganizations } from '../testApi';
 import { storageKey } from './storage';
 import { useOrganizationsContextSource } from './useOrganizationsContextSource';
@@ -16,27 +16,21 @@ import { useOrganizationsContextSource } from './useOrganizationsContextSource';
 
 const SUBJECT = 'user-1';
 
-/** «Пример проекта» also has «Аналитика», which sorts before «Платформа» after the first team. */
-const ANALYTICS_TEAM = 'c0000000-0000-4000-8000-0000000000a1';
+/**
+ * «Пример проекта» also works with «Аналитика», which sorts before «Платформа» after the first team.
+ * Since feat-028 it is the one organization team of that name, linked to two projects (BR-OL-11).
+ */
+const ANALYTICS_TEAM = ids.anlTeam;
 /** «Аналитика» (the project) has a second team, so the first project of «Альфа» can hold the user's own. */
 const ANL_SECOND_TEAM = 'c0000000-0000-4000-8000-0000000000a2';
 
-/** The example dataset with two more teams, the acting user being in `own`. */
+/** The example dataset with a second team of «Аналитика» and «Аналитика» on «Пример проекта», the acting user being in `own`. */
 function datasetWith(own: readonly string[]): Dataset {
   const data = exampleDataset();
-  data.teams.push(
-    {
-      id: ANALYTICS_TEAM,
-      projectId: ids.prm,
-      name: 'Аналитика',
-      deleted: false,
-    },
-    {
-      id: ANL_SECOND_TEAM,
-      projectId: ids.anl,
-      name: 'Вторая команда',
-      deleted: false,
-    },
+  data.teams.push(team(ANL_SECOND_TEAM, ids.alfa, 'Вторая команда'));
+  data.links.push(
+    { projectId: ids.prm, teamId: ANALYTICS_TEAM },
+    { projectId: ids.anl, teamId: ANL_SECOND_TEAM },
   );
   data.actingUserId = SUBJECT;
   data.teamMembers = own.map((teamId) => ({ teamId, userId: SUBJECT }));

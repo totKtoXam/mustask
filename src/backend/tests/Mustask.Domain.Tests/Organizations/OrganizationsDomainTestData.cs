@@ -19,8 +19,8 @@ internal static class OrganizationsDomainTestData
     public static NewProject AProject(string name = "Пример проекта", string key = "PRM") =>
         Project.Create(Guid.CreateVersion7(), Name(name), key, Now, Creator);
 
-    public static Team ASecondTeam(NewProject project, string name = "Платформа") =>
-        Team.Create(project.Project.Id, Name(name));
+    public static Team ATeam(Guid organizationId, string name = "Платформа") =>
+        Team.Create(organizationId, Name(name));
 
     public static AreaNode Node(Area area) => new(area.Id, area.ParentId, area.Name);
 

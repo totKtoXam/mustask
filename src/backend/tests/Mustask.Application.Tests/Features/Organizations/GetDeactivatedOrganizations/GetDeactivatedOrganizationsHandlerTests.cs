@@ -49,7 +49,7 @@ public sealed class GetDeactivatedOrganizationsHandlerTests
         var store = new InMemoryOrganizations();
         var organization = store.AddOrganizationOf(User.SubjectId);
         var project = store.AddProject(organization);
-        store.AddTeam(project);
+        store.AddLinkedTeam(organization, project);
         organization.Deactivate();
 
         var result = await HandleAsync(HandlerOver(store));

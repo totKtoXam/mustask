@@ -40,6 +40,12 @@ public static class OrganizationErrorCodes
     /// <summary>Field reason of <c>name</c>: empty, spaces only, or over 100 characters after trimming (BR-M1-1).</summary>
     public const string NameLength = "organizations.name_length";
 
+    /// <summary>Field reason of <c>description</c>: over 2 000 characters (feat-028 BR-OL-3).</summary>
+    public const string DescriptionLength = "organizations.description_length";
+
+    /// <summary>Field reason of <c>destination</c>: an unlink that names neither a team nor «Без команды» (feat-028 BR-OL-8).</summary>
+    public const string TeamDestinationRequired = "organizations.team.destination_required";
+
     /// <summary>The token lacks <c>organizations.organization.create</c> (BR-M1-2). Never <c>http.forbidden</c> (D-p).</summary>
     public const string OrganizationCreateForbidden = "organizations.organization.create_forbidden";
 
@@ -64,17 +70,17 @@ public static class OrganizationErrorCodes
     /// <summary>A project of any status in the organization holds the key (<c>params.key</c>).</summary>
     public const string ProjectKeyTaken = "organizations.project.key_taken";
 
-    /// <summary>An active team of the project holds the name.</summary>
+    /// <summary>An active team of the organization holds the name (feat-028 BR-OL-3).</summary>
     public const string TeamNameTaken = "organizations.team.name_taken";
 
     /// <summary>
-    /// mod-017 BR-OT-2: the team named in a work item's create or save, or as the project's default, is an active team of
-    /// another active project of the organization.
+    /// mod-017 BR-OT-2, feat-028 BR-OL-6: the team named in a work item's create or save, as the project's default or as an
+    /// unlink's destination is an active team of the organization that is not linked to the project.
     /// </summary>
     public const string TeamNotInProject = "organizations.team.not_in_project";
 
-    /// <summary>mod-017 BR-OT-11: the project's last active team cannot be deleted (interim guard, lifted by feat-028).</summary>
-    public const string TeamLastTeamCannotBeDeleted = "organizations.team.last_team_cannot_be_deleted";
+    // feat-028 retired organizations.team.last_team_cannot_be_deleted with BR-OL-10 (a project's last team may be deleted):
+    // its constant is gone and its catalog entry stays, marked "deprecated", like the four below.
 
     // mod-017 retired four codes with BR-M1-14 and BR-M1-18 (an area owner, a team's default area, the first team):
     // organizations.team.default_area_not_owned, organizations.team.first_team_default_fixed,

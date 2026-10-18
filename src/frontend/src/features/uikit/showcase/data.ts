@@ -30,6 +30,8 @@ export const DEMO_AREAS = ['Платформа', 'Платформа / Вход'
 
 export const DEMO_PRIORITIES = ['1', '2', '3', '4'] as const;
 
+export const DEMO_PROJECTS = ['Alpha', 'Beta', 'Gamma', 'Delta'] as const;
+
 export const DEMO_DESCRIPTION = 'Пользователь получает письмо со ссылкой для входа.';
 
 export const DEMO_LONG_TITLE =

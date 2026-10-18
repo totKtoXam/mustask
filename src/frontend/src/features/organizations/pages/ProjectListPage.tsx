@@ -152,6 +152,11 @@ export function ProjectListPage({ view }: { view: ListView }) {
       {creating && (
         <RequiresOrganizationCode code={organizationsPermissions.projectWrite}>
           <CreateProjectDialog
+            organizationId={organizationId}
+            canLink={
+              access(organizationsPermissions.teamLink, 'organization') &&
+              access(organizationsPermissions.projectLink, 'organization')
+            }
             submit={(body) => createProject.mutateAsync(body)}
             onSucceeded={(project) => {
               setCreating(false);

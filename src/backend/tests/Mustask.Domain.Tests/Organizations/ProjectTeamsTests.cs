@@ -3,73 +3,116 @@ using Mustask.Shared.Exceptions;
 
 namespace Mustask.Domain.Tests.Organizations;
 
-/// <summary>The rule for a team named in a write (mod-017 api-contract § 0.2), every row of its table.</summary>
+/// <summary>The rule for a team named in a write (feat-028 api-contract § 0.3, § 2.4), every row of its table.</summary>
 public sealed class ProjectTeamsTests
 {
     private static readonly Guid OrganizationId = Guid.CreateVersion7();
-    private static readonly Guid ProjectId = Guid.CreateVersion7();
 
-    private static TeamFacts Team(Guid? organizationId = null, Guid? projectId = null, TeamStatus status = TeamStatus.Active, bool reachable = true) =>
-        new(Guid.CreateVersion7(), organizationId ?? OrganizationId, projectId ?? ProjectId, status, reachable);
+    private static TeamFacts Team(Guid? organizationId = null, TeamStatus status = TeamStatus.Active, bool linked = true) =>
+        new(Guid.CreateVersion7(), organizationId ?? OrganizationId, status, linked);
 
-    // US-1 · "a team the project does not have": an active team of the project is accepted.
+    // US-3 · "an owning team must be linked": an active team linked to the project is accepted.
     [Fact]
-    public void EnsureBindable_ActiveTeamOfTheProject_IsAccepted()
+    public void EnsureBindable_ActiveTeamLinkedToTheProject_IsAccepted()
     {
-        ProjectTeams.EnsureBindable(Team(), OrganizationId, ProjectId);
+        ProjectTeams.EnsureBindable(Team(), OrganizationId);
     }
 
-    // US-1 · "a team the project does not have", row 1: no such team.
+    // US-3 · "an owning team must be linked", row 1: no such team.
     [Fact]
     public void EnsureBindable_NoSuchTeam_IsNotFound()
     {
-        var refusal = Assert.Throws<NotFoundException>(() => ProjectTeams.EnsureBindable(null, OrganizationId, ProjectId));
+        var refusal = Assert.Throws<NotFoundException>(() => ProjectTeams.EnsureBindable(null, OrganizationId));
 
         Assert.Equal(OrganizationErrorCodes.TeamNotFound, refusal.Code);
     }
 
-    // BR-OT-16 · another organization's team answers as an id that names nothing.
+    // US-8 · a team of another organization answers as an id that names nothing.
     [Fact]
-    public void EnsureBindable_TeamOfAnotherOrganization_IsNotFound_EvenOfTheSameProjectId()
+    public void EnsureBindable_TeamOfAnotherOrganization_IsNotFound()
     {
         var refusal = Assert.Throws<NotFoundException>(() =>
-            ProjectTeams.EnsureBindable(Team(organizationId: Guid.CreateVersion7()), OrganizationId, ProjectId));
+            ProjectTeams.EnsureBindable(Team(organizationId: Guid.CreateVersion7()), OrganizationId));
 
         Assert.Equal(OrganizationErrorCodes.TeamNotFound, refusal.Code);
     }
 
-    // US-1 · "a team the project does not have", row 2: a deleted team.
+    // US-3 · "an owning team must be linked", row 2: a deleted team, linked or not (a deletion removes the links, so this only
+    // guards a stale read).
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public void EnsureBindable_DeletedTeam_IsNotFound_WhateverTheProject(bool ofTheProject)
+    public void EnsureBindable_DeletedTeam_IsNotFound_LinkedOrNot(bool linked)
     {
-        var team = Team(projectId: ofTheProject ? ProjectId : Guid.CreateVersion7(), status: TeamStatus.Deleted, reachable: false);
-
-        var refusal = Assert.Throws<NotFoundException>(() => ProjectTeams.EnsureBindable(team, OrganizationId, ProjectId));
+        var refusal = Assert.Throws<NotFoundException>(() =>
+            ProjectTeams.EnsureBindable(Team(status: TeamStatus.Deleted, linked: linked), OrganizationId));
 
         Assert.Equal(OrganizationErrorCodes.TeamNotFound, refusal.Code);
     }
 
-    // ADR-0026 rule 5 · a team of a deactivated project is not found, never revealed as such.
+    // US-3 · "an owning team must be linked", row 3: an active team of the organization that is not linked to the project
+    // (renamed from ...ActiveTeamOfAnotherActiveProject_IsNotInProject, D-16).
     [Fact]
-    public void EnsureBindable_ActiveTeamOfADeactivatedProject_IsNotFound()
+    public void EnsureBindable_ActiveTeamNotLinkedToTheProject_IsNotInProject()
     {
-        var team = Team(projectId: Guid.CreateVersion7(), reachable: false);
-
-        var refusal = Assert.Throws<NotFoundException>(() => ProjectTeams.EnsureBindable(team, OrganizationId, ProjectId));
-
-        Assert.Equal(OrganizationErrorCodes.TeamNotFound, refusal.Code);
-    }
-
-    // US-1 · "a team the project does not have", row 3: an active team of another active project.
-    [Fact]
-    public void EnsureBindable_ActiveTeamOfAnotherActiveProject_IsNotInProject()
-    {
-        var refusal = Assert.Throws<ConflictException>(() =>
-            ProjectTeams.EnsureBindable(Team(projectId: Guid.CreateVersion7()), OrganizationId, ProjectId));
+        var refusal = Assert.Throws<ConflictException>(() => ProjectTeams.EnsureBindable(Team(linked: false), OrganizationId));
 
         Assert.Equal(OrganizationErrorCodes.TeamNotInProject, refusal.Code);
+    }
+
+    // US-3 · "only active ends are linked": a team to link is an active team of the organization, linked or not.
+    [Fact]
+    public void EnsureLinkable_ActiveTeamOfTheOrganization_IsAccepted_LinkedOrNot()
+    {
+        ProjectTeams.EnsureLinkable(Team(linked: true), OrganizationId);
+        ProjectTeams.EnsureLinkable(Team(linked: false), OrganizationId);
+    }
+
+    [Fact]
+    public void EnsureLinkable_NoSuchTeam_ForeignTeam_DeletedTeam_AreNotFound()
+    {
+        Assert.All(
+            new TeamFacts?[] { null, Team(organizationId: Guid.CreateVersion7()), Team(status: TeamStatus.Deleted) },
+            team =>
+            {
+                var refusal = Assert.Throws<NotFoundException>(() => ProjectTeams.EnsureLinkable(team, OrganizationId));
+
+                Assert.Equal(OrganizationErrorCodes.TeamNotFound, refusal.Code);
+            });
+    }
+
+    // US-4 · "a bad destination": another team linked to the project is accepted.
+    [Fact]
+    public void EnsureDestination_AnotherLinkedActiveTeam_IsAccepted()
+    {
+        ProjectTeams.EnsureDestination(Team(), Guid.CreateVersion7());
+    }
+
+    // US-4 · "a bad destination": unknown (null covers a foreign team too) and deleted answer not found.
+    [Fact]
+    public void EnsureDestination_UnknownOrDeleted_IsNotFound()
+    {
+        Assert.All(
+            new TeamFacts?[] { null, Team(status: TeamStatus.Deleted) },
+            destination =>
+            {
+                var refusal = Assert.Throws<NotFoundException>(() => ProjectTeams.EnsureDestination(destination, Guid.CreateVersion7()));
+
+                Assert.Equal(OrganizationErrorCodes.TeamNotFound, refusal.Code);
+            });
+    }
+
+    // US-4 · "a bad destination": the unlinked team itself, or a team not linked to the project, is not in the project.
+    [Fact]
+    public void EnsureDestination_TheUnlinkedTeamItself_OrATeamNotLinked_IsNotInProject()
+    {
+        var unlinked = Team();
+
+        var itself = Assert.Throws<ConflictException>(() => ProjectTeams.EnsureDestination(unlinked, unlinked.Id));
+        var notLinked = Assert.Throws<ConflictException>(() => ProjectTeams.EnsureDestination(Team(linked: false), unlinked.Id));
+
+        Assert.Equal(OrganizationErrorCodes.TeamNotInProject, itself.Code);
+        Assert.Equal(OrganizationErrorCodes.TeamNotInProject, notLinked.Code);
     }
 
     // BR-OT-3 · a child takes its parent's team, else the project default, else none.

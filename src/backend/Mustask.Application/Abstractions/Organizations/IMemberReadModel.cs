@@ -31,6 +31,12 @@ public interface IMemberReadModel
     Task<bool> IsMemberAsync(Guid organizationId, string userId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Which of <paramref name="userIds"/> hold a membership in the organization (any role) — one statement, whatever the number
+    /// of ids (feat-028: a team created with members checks them all at once). Tracks nothing.
+    /// </summary>
+    Task<IReadOnlySet<string>> FilterMembersAsync(Guid organizationId, IReadOnlyCollection<string> userIds, CancellationToken cancellationToken);
+
+    /// <summary>
     /// How many administrators other than <paramref name="exceptUserId"/> are <b>known and active</b> in the user projection
     /// (BR-M1-4, BR-M1-32): one that is inactive or unknown does not count. The one definition of that count.
     /// </summary>

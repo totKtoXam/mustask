@@ -69,7 +69,7 @@ public sealed class RestoreOrganizationEndpointTests(MustaskApiFactory factory)
         ProjectInfo? Old,
         string? OldTree);
 
-    private async Task<Stored> ReadAsync(OrganizationStructure structure, NewProject? old = null)
+    private async Task<Stored> ReadAsync(OrganizationStructure structure, ProjectWithTeam? old = null)
     {
         using var scope = factory.Services.CreateScope();
         var seam = scope.ServiceProvider.GetRequiredService<IOrganizationStructure>();
@@ -77,11 +77,11 @@ public sealed class RestoreOrganizationEndpointTests(MustaskApiFactory factory)
 
         return new Stored(
             (await seam.FindOrganizationAsync(structure.OrganizationId, ct))!,
-            (await seam.FindProjectAsync(structure.ProjectId, ct))!,
-            (await seam.FindTeamAsync(structure.ProjectTeamId, ct))!,
-            (await seam.FindTeamAsync(structure.Platform.Id, ct))!,
+            (await seam.FindProjectAsync(structure.OrganizationId, structure.ProjectId, ct))!,
+            (await seam.FindTeamAsync(structure.OrganizationId, structure.ProjectTeamId, ct))!,
+            (await seam.FindTeamAsync(structure.OrganizationId, structure.Platform.Id, ct))!,
             await DescribeTreeAsync(structure.ProjectId),
-            old is null ? null : await seam.FindProjectAsync(old.Project.Id, ct),
+            old is null ? null : await seam.FindProjectAsync(structure.OrganizationId, old.Project.Id, ct),
             old is null ? null : await DescribeTreeAsync(old.Project.Id));
     }
 

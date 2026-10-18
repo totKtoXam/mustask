@@ -76,7 +76,7 @@ public sealed class OrganizationsSaveChangesTests(OrganizationsDatabaseFixture d
         Assert.Equal("PRM", refusal.Params["key"].Value);
     }
 
-    // US-4 · "Two teams of one name at the same moment": the team index answers; there is no area beside the team any more
+    // feat-028 US-1 · "two creations of one name": the team index, per organization, answers (BR-OL-3); there is no area beside the team
     // (mod-017 BR-OT-10).
     [Fact]
     public async Task SaveAsync_TeamNameRace_IsTeamNameTaken()
@@ -87,7 +87,7 @@ public sealed class OrganizationsSaveChangesTests(OrganizationsDatabaseFixture d
         {
             var repository = scope.ServiceProvider.GetRequiredService<ITeamRepository>();
 
-            repository.Add(Team.Create(structure.Project.Project.Id, Name("ПЛАТФОРМА")));
+            repository.Add(Team.Create(structure.Organization.Id, Name("ПЛАТФОРМА")));
             await repository.SaveAsync(ct);
         });
 

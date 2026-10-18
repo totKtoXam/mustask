@@ -52,6 +52,7 @@ guarantees it exists and differs from the Russian, not its quality
 |organizations.area.not_empty|409|Нельзя удалить область, в которой есть рабочие элементы (включая удалённые) или вложенные области|Жұмыс элементтері (жойылғандарын қоса) немесе ішкі аймақтары бар аймақты жоюға болмайды|organizations|—|needs review|
 |organizations.area.not_found|404|Область не найдена.|Аймақ табылмады.|organizations|—|needs review|
 |organizations.area.root_is_fixed|409|Корневая область меняется только вместе с проектом|Түбірлік аймақ тек жобамен бірге өзгереді|organizations|—|needs review|
+|organizations.description_length|400|Описание должно содержать не более 2000 символов|Сипаттама 2000 таңбадан аспауы керек|organizations|—|needs review|
 |organizations.membership.already_member|409|Пользователь уже состоит в организации|Пайдаланушы ұйымның құрамында бұрыннан бар|organizations|—|needs review|
 |organizations.membership.last_admin|409|В организации должен остаться хотя бы один администратор|Ұйымда кемінде бір әкімші қалуы керек|organizations|—|needs review|
 |organizations.membership.not_found|404|Участник не найден.|Мүше табылмады.|organizations|—|needs review|
@@ -70,13 +71,14 @@ guarantees it exists and differs from the Russian, not its quality
 |organizations.project.name_taken_by_deactivated|409|Проект с таким названием уже есть в организации: он деактивирован|Ұйымда мұндай атауы бар жоба бар: ол сөндірілген|organizations|—|needs review|
 |organizations.project.not_found|404|Проект не найден.|Жоба табылмады.|organizations|—|needs review|
 |organizations.team.default_area_not_owned|409|Область по умолчанию должна принадлежать самой команде|Әдепкі аймақ команданың өзіне тиесілі болуы керек|organizations|yes|needs review|
+|organizations.team.destination_required|400|Выберите команду или «Без команды»|Команданы немесе «Командасыз» таңдаңыз|organizations|—|needs review|
 |organizations.team.first_team_cannot_be_deleted|409|Нельзя удалить команду, которой принадлежит корневая область проекта|Жобаның түбірлік аймағы тиесілі команданы жоюға болмайды|organizations|yes|needs review|
 |organizations.team.first_team_default_fixed|409|У первой команды область по умолчанию не меняется|Бірінші команданың әдепкі аймағы өзгермейді|organizations|yes|needs review|
-|organizations.team.last_team_cannot_be_deleted|409|Нельзя удалить единственную команду проекта.|Жобаның жалғыз командасын жоюға болмайды.|organizations|—|needs review|
+|organizations.team.last_team_cannot_be_deleted|409|Нельзя удалить единственную команду проекта.|Жобаның жалғыз командасын жоюға болмайды.|organizations|yes|needs review|
 |organizations.team.member_exists|409|Пользователь уже состоит в команде|Пайдаланушы командада бұрыннан бар|organizations|—|needs review|
 |organizations.team.member_not_found|404|Участник команды не найден.|Команда мүшесі табылмады.|organizations|—|needs review|
 |organizations.team.member_not_in_organization|409|Добавить в команду можно только активного участника организации|Командаға ұйымның тек белсенді мүшесін ғана қосуға болады|organizations|—|needs review|
-|organizations.team.name_taken|409|Команда с таким названием уже есть в проекте|Жобада мұндай атауы бар команда бар|organizations|—|needs review|
+|organizations.team.name_taken|409|Команда с таким названием уже есть в организации|Ұйымда мұндай атауы бар команда бар|organizations|—|needs review|
 |organizations.team.not_found|404|Команда не найдена.|Команда табылмады.|organizations|—|needs review|
 |organizations.team.not_in_project|409|Команда не участвует в проекте.|Команда жобаға қатыспайды.|organizations|—|needs review|
 |organizations.validation_failed|400|Проверьте правильность заполнения полей.|Өрістердің дұрыс толтырылғанын тексеріңіз.|organizations|—|needs review|

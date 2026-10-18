@@ -253,7 +253,7 @@ public sealed class RenameOrganizationEndpointTests(MustaskApiFactory factory)
         var project = await scope.ServiceProvider.GetRequiredService<IProjectReadModel>()
             .FindReachableAsync(structure.OrganizationId, structure.ProjectId, CancellationToken.None);
         var teams = await scope.ServiceProvider.GetRequiredService<ITeamReadModel>()
-            .ListActiveAsync(structure.OrganizationId, structure.ProjectId, "nobody", CancellationToken.None);
+            .ListLinkedAsync(structure.OrganizationId, structure.ProjectId, "nobody", CancellationToken.None);
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
 
         return

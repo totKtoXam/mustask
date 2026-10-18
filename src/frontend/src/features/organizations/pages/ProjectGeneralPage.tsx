@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
+import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
 import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import NotesOutlinedIcon from '@mui/icons-material/NotesOutlined';
 import { useAccessCheck } from '../../../shared/lib/access';
 import { useWorkContext } from '../../../shared/lib/workContext';
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
@@ -12,22 +14,26 @@ import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizatio
 import { NotFound } from '../../../shared/ui/StateFrame';
 import { processDefinitionPath } from '../../process';
 import { ConfirmAction } from '../components/ConfirmAction';
+import { DescriptionDialog } from '../components/DescriptionDialog';
 import { FactsPanel } from '../components/FactsPanel';
 import { NameDialog } from '../components/NameDialog';
 import { useNotify } from '../components/notice';
-import { useDeactivateProject, useRenameProject } from '../hooks/mutations';
+import { useDeactivateProject, useDescribeProject, useRenameProject } from '../hooks/mutations';
 import { useProject } from '../hooks/queries';
 import { notFoundLevel } from '../lib/notFoundLevel';
+import { descriptionDialog, projectTexts } from '../lib/teamTexts';
 import { deactivatedProjectsPath } from '../paths';
 import { organizationsPermissions } from '../permissions';
 
-type Dialog = 'rename' | 'deactivate' | null;
+type Dialog = 'rename' | 'describe' | 'deactivate' | null;
 
 /**
- * Project «Общие» (US-3; design § 8): the project's name, its key — set at
- * creation and never changed, so no field or action edits it (BR-M1-1) —
- * and the read-only «Процесс» link to mod-001's screen (D-c). Renamed
- * through «Переименование проекта», deactivated after a confirmation.
+ * Project «Общие» (US-3; design § 8; feat-028 design § 8): the project's name, its «Описание»
+ * (kept as typed, with its line breaks; «Описание не задано» when none), its key — set at
+ * creation and never changed, so no field or action edits it (BR-M1-1) — and the read-only «Процесс»
+ * link to mod-001's screen (D-c). Renamed through «Переименование проекта», described through
+ * «Описание проекта» (both `project.write`'s), deactivated after a confirmation. A deactivated project
+ * keeps its description and its links to teams.
  */
 export function ProjectGeneralPage() {
   const { organizationId = '', projectId = '' } = useParams<{
@@ -36,6 +42,7 @@ export function ProjectGeneralPage() {
   }>();
   const query = useProject(organizationId, projectId);
   const rename = useRenameProject(organizationId, projectId);
+  const describe = useDescribeProject(organizationId, projectId);
   const deactivate = useDeactivateProject(organizationId, projectId);
   const notify = useNotify();
   const navigate = useNavigate();
@@ -68,6 +75,11 @@ export function ProjectGeneralPage() {
         icon: <EditOutlinedIcon />,
         onClick: () => setDialog('rename'),
       });
+      commands.push({
+        label: projectTexts.describe,
+        icon: <NotesOutlinedIcon />,
+        onClick: () => setDialog('describe'),
+      });
     }
     if (access(organizationsPermissions.projectDeactivate, 'organization')) {
       commands.push({
@@ -82,13 +94,25 @@ export function ProjectGeneralPage() {
     <>
       <PageHeader title="Общие" commands={commands} />
       {loading ? (
-        <FormSkeleton fields={3} />
+        <FormSkeleton fields={4} />
       ) : query.isError ? (
         <ErrorBanner error={query.error} onRetry={() => void query.refetch()} />
       ) : (
         <FactsPanel
           facts={[
             { label: 'Название', value: query.data.name },
+            {
+              label: projectTexts.factDescription,
+              value: query.data.description ? (
+                <Box component="span" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                  {query.data.description}
+                </Box>
+              ) : (
+                <Box component="span" sx={{ color: 'text.secondary' }}>
+                  {projectTexts.noDescription}
+                </Box>
+              ),
+            },
             { label: 'Ключ', value: query.data.key, note: 'Задан при создании и не меняется' },
             {
               label: 'Типы рабочих элементов',
@@ -108,7 +132,7 @@ export function ProjectGeneralPage() {
         <RequiresOrganizationCode code={organizationsPermissions.projectWrite}>
           <NameDialog
             title="Переименование проекта"
-            text="Корневая область проекта получит то же название. Ключ и названия команд не изменятся."
+            text={projectTexts.rename.text}
             helper="От 1 до 100 символов"
             initialName={project.name}
             submitLabel="Сохранить"
@@ -121,11 +145,25 @@ export function ProjectGeneralPage() {
           />
         </RequiresOrganizationCode>
       )}
+      {dialog === 'describe' && project && (
+        <RequiresOrganizationCode code={organizationsPermissions.projectWrite}>
+          <DescriptionDialog
+            title={descriptionDialog.project.title}
+            initial={project.description}
+            submit={(description) => describe.mutateAsync(description)}
+            onSucceeded={() => {
+              setDialog(null);
+              notify(descriptionDialog.project.saved);
+            }}
+            onClose={closeDialog}
+          />
+        </RequiresOrganizationCode>
+      )}
       {dialog === 'deactivate' && project && (
         <RequiresOrganizationCode code={organizationsPermissions.projectDeactivate}>
           <ConfirmAction
             title="Деактивировать проект?"
-            text={`Проект «${project.name}» (${project.key}) пропадёт из списков и переключателя, а его страницы, команды и области перестанут открываться. Ничего не будет удалено: проект можно восстановить в списке деактивированных проектов организации.`}
+            text={projectTexts.deactivate.text(project.name, project.key)}
             confirmLabel="Деактивировать"
             action={async () => {
               // DC-7, judged before the switcher sees the change: deactivating

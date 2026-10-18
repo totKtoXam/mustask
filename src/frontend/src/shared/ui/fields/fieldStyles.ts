@@ -146,3 +146,56 @@ export function selectRules(theme: Theme, frame: FieldFrameKind): CSSObject {
     '&& .MuiSelect-select.Mui-disabled': { WebkitTextFillColor: theme.palette.text.disabled },
   };
 }
+
+/**
+ * A picker's popup arrow and clear button are small, in the flow, and shown with the frame.
+ * Each state's key repeats the state before *each* indicator and names the root once (`&`):
+ * a second `&`, or an indicator left without its state, is a rule that never matches or
+ * always does. `wrap` lets the chosen tags of a multiple picker wrap onto rows; a single
+ * picker's input stays on one line.
+ */
+export function pickerRules(
+  theme: Theme,
+  frame: FieldFrameKind,
+  { wrap = false }: { wrap?: boolean } = {},
+): CSSObject {
+  const popup = '.MuiAutocomplete-popupIndicator';
+  const clear = '.MuiAutocomplete-clearIndicator';
+  const indicators = `&& ${popup}, && ${clear}`;
+  const when = (state: string) => `&${state} ${popup}, &${state} ${clear}`;
+  const shown = { opacity: 1 };
+  return {
+    '&&& .MuiAutocomplete-inputRoot': wrap
+      ? { padding: 0, flexWrap: 'wrap', gap: theme.spacing(0.5) }
+      : { padding: 0, flexWrap: 'nowrap' },
+    '&&& .MuiAutocomplete-input': wrap
+      ? { padding: 0, minWidth: theme.spacing(8), width: 0, flexGrow: 1 }
+      : { padding: 0, minWidth: 0, width: 0, flexGrow: 1 },
+    '&&& .MuiAutocomplete-endAdornment': {
+      position: 'static',
+      transform: 'none',
+      display: 'inline-flex',
+      alignItems: 'center',
+      flexShrink: 0,
+      gap: '2px',
+      // The arrow stays at the end of the last row.
+      ...(wrap ? { marginLeft: 'auto' } : {}),
+    },
+    [indicators]: {
+      width: theme.layout.iconAction.row.box,
+      height: theme.layout.iconAction.row.box,
+      padding: 0,
+      margin: 0,
+      fontSize: theme.layout.iconAction.chevron.glyph,
+      color: theme.palette.text.primary,
+      opacity: frame === 'always' ? 1 : 0,
+    },
+    '&& .MuiAutocomplete-popupIndicator, && .MuiAutocomplete-popupIndicatorOpen': {
+      transform: 'none',
+    },
+    [when(':hover')]: shown,
+    [when(':focus-within')]: shown,
+    [when(OPEN)]: shown,
+    '@media (hover: none)': { [indicators]: shown },
+  };
+}

@@ -39,15 +39,20 @@ namespace Mustask.Application.Features.WorkItems.CreateWorkItem;
 /// reads no team: it is never refused for one (BR-OT-3, BR-OT-13).
 /// </para>
 /// <para>
-/// <b>The team's locks</b> (mod-017 plan-backend § 7, D-14; ADR-0028 rule 8). Before the number's lock, an explicit team of a
-/// creation with no parent is locked <c>FOR SHARE</c> as a binder; every other creation that may default — no team sent, or a
-/// child, whether or not its parent has a team — locks the project default team <c>FOR SHARE</c>, read as it stands, or, when
-/// the project has no default (two or more active teams, none named), every active team <c>FOR SHARE</c> in id order and
-/// reads the default again under that lock. A deletion of a team holds all the project's active teams, so it commits before
-/// the creation (the creation then reads the team deleted, its parent released and the default as it stands after the
-/// deletion) or waits for it and takes the new item with the rest; a child beneath an item of a team being deleted is never
-/// refused (the parent's team needs no lock of its own: the creation holds a team the deletion needs, and the child's owner key
-/// takes only a key share of the team).
+/// <b>The link locks</b> (feat-028 plan-backend § 7, D-3, D-4; mod-017 D-14; ADR-0028 rule 8). Before the number's lock, an explicit
+/// team of a creation with no parent has its <b>link to the project</b> locked <c>FOR SHARE</c> as a binder; every other creation
+/// that may default — no team sent, or a child, whether or not its parent has a team — locks <b>every link of the project</b>
+/// <c>FOR SHARE</c> in one statement ordered by team id and reads the default once, over the links that statement held. An unlink of
+/// a team and a deletion of a team hold the link <c>FOR NO KEY UPDATE</c>, so they commit before the creation (it then reads the team
+/// not linked — 409 — or deleted — 404 —, its parent reassigned and the default as it stands after them) or wait for it and take the
+/// new item with the rest; a child beneath an item of a team being unlinked or deleted is never refused (the parent's team needs no
+/// lock of its own: the creation holds the links the unlink needs, and the child's owner key takes only a key share of the link).
+/// Every link lock a creation takes is in the unlink's and the deletion's order, so the cycle of mod-017 CR-7 cannot form.
+/// <b>"Linked" is what the lock statement returned</b>, never a second read of the links (feat-028 review-security S-1, review-code
+/// CR-4): under READ COMMITTED a link committed between the two statements would read linked and be the owner without being held,
+/// and an unlink or a deletion of it would then wait on the creation's key share and fail at its final <c>DELETE</c>. A link
+/// committed after the lock is therefore not linked as far as this creation goes — an explicit team on it is 409, and it is never the
+/// default — as if the creation had run a moment before the link.
 /// </para>
 /// <para>
 /// <b>The number and the replay</b> (BR-M3-5, BR-M3-26). The project's counter
@@ -98,8 +103,7 @@ public sealed class CreateWorkItemHandler(
                 }
 
                 if (!AddressedId.TryParse(command.ProjectId, out var projectId)
-                    || await structure.FindProjectAsync(projectId, ct) is not { IsReachable: true } project
-                    || project.OrganizationId != organizationId)
+                    || await structure.FindProjectAsync(organizationId, projectId, ct) is not { IsReachable: true } project)
                 {
                     throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
                 }
@@ -129,23 +133,26 @@ public sealed class CreateWorkItemHandler(
                     throw new NotFoundException(WorkItemErrorCodes.TypeNotFound);
                 }
 
-                // 4. The team lock, before the number's (mod-017 plan-backend § 7.2, ADR-0028 rule 8), then the number and the
-                // replay after its lock. An explicit team with no parent is locked as a binder; every other creation that may
-                // take the default — no team sent, or a child, whatever team the parent has — locks the default as it
-                // stands, or every active team when the project has none, so a deletion of a team commits before it or
-                // waits for it, never in between (D-14). A creation that sends «Без команды» owns nothing: it locks nothing.
+                // 4. The link lock, before the number's (feat-028 plan-backend § 7, ADR-0028 rule 8), then the number and the
+                // replay after its lock. An explicit team with no parent has its link to the project locked as a binder; every
+                // other creation that may take the default — no team sent, or a child, whatever team the parent has — locks
+                // every link of the project and reads the default once under that lock, so an unlink or a deletion of a team
+                // commits before it or waits for it, never in between (mod-017 D-14). A creation that sends «Без команды» owns
+                // nothing: it locks nothing.
                 Guid? lockedDefaultTeamId = null;
+                var namedLinkHeld = false;
 
                 if (command.ParentId is null && command.Team is { } named)
                 {
                     if (named.TeamId is not null && AddressedId.TryParse(named.TeamId, out var namedTeamId))
                     {
-                        await workItems.LockTeamAsync(organizationId, namedTeamId, ct);
+                        // The lock statement returns the link it held: that answer, not a second read, says "linked" (S-1).
+                        namedLinkHeld = await workItems.LockTeamLinkAsync(organizationId, projectId, namedTeamId, ct);
                     }
                 }
                 else
                 {
-                    lockedDefaultTeamId = await workItems.LockDefaultTeamAsync(projectId, ct);
+                    lockedDefaultTeamId = await workItems.LockProjectLinksAsync(organizationId, projectId, ct);
                 }
 
                 await workItems.LockNumberSequenceAsync(projectId, ct);
@@ -155,16 +162,17 @@ public sealed class CreateWorkItemHandler(
                     return new CreateWorkItemResult(await readModel.GetAsync(existingId, ct), Created: false);
                 }
 
-                // 5. The team (mod-017 api-contract § 0.2, BR-OT-2): an explicit team of a creation with no parent is judged
-                // now, on a fresh read under the lock taken before the number's — a malformed, unknown, foreign or deleted
-                // team, or one of a deactivated project, answers 404, another active project's team 409. «Без команды» sent
-                // explicitly is none. No team sent takes the project default, locked above. A creation that names a parent
-                // reads no team at all (BR-OT-3): it is never refused for one.
+                // 5. The team (feat-028 api-contract § 0.3, BR-OL-6): an explicit team of a creation with no parent is judged
+                // now — the team itself on a fresh read under the lock taken before the number's, "linked" by what that lock
+                // held — a malformed, unknown, foreign or deleted team answers 404, an active team of the organization that is
+                // not linked to the project 409. «Без команды» sent explicitly is none. No team sent takes the project default,
+                // resolved over the links' lock above. A creation that names a parent reads no team at all (mod-017 BR-OT-3): it
+                // is never refused for one.
                 Guid? owningTeamId = lockedDefaultTeamId;
 
                 if (command.ParentId is null && command.Team is { } sentTeam)
                 {
-                    owningTeamId = await DecideTeamAsync(sentTeam, organizationId, projectId, ct);
+                    owningTeamId = await DecideTeamAsync(sentTeam, organizationId, projectId, namedLinkHeld, ct);
                 }
 
                 // 6. feat-027: the parent, under the parent write's order — the hierarchy, then the parent itself. One
@@ -206,9 +214,12 @@ public sealed class CreateWorkItemHandler(
 
     /// <summary>
     /// The explicit team of a creation with no parent: «Без команды» is <c>null</c>; otherwise the team, which must be an
-    /// active team of this project (api-contract § 0.2) — judged by <see cref="ProjectTeams.EnsureBindable"/> on a fresh read.
+    /// active team of this project (api-contract § 0.2) — judged by <see cref="ProjectTeams.EnsureBindable"/>: the team on a
+    /// fresh read, its link by <paramref name="linkHeld"/>, the answer of the statement that locked it. The fresh read's own
+    /// <c>IsLinked</c> is not used: a link committed after the lock reads linked there and is held by nobody.
     /// </summary>
-    private async Task<Guid?> DecideTeamAsync(TeamChange change, Guid organizationId, Guid projectId, CancellationToken cancellationToken)
+    private async Task<Guid?> DecideTeamAsync(
+        TeamChange change, Guid organizationId, Guid projectId, bool linkHeld, CancellationToken cancellationToken)
     {
         if (change.TeamId is null)
         {
@@ -220,12 +231,11 @@ public sealed class CreateWorkItemHandler(
             throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
         }
 
-        var found = await structure.FindTeamAsync(teamId, cancellationToken);
+        var found = await structure.FindProjectTeamAsync(organizationId, projectId, teamId, cancellationToken);
 
         ProjectTeams.EnsureBindable(
-            found is null ? null : new TeamFacts(found.Id, found.OrganizationId, found.ProjectId, found.Status, found.IsReachable),
-            organizationId,
-            projectId);
+            found is null ? null : new TeamFacts(found.Team.Id, found.Team.OrganizationId, found.Team.Status, linkHeld),
+            organizationId);
 
         return teamId;
     }

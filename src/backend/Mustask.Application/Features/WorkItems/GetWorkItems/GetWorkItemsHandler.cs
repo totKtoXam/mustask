@@ -30,8 +30,7 @@ public sealed class GetWorkItemsHandler(IOrganizationStructure structure, IWorkI
         }
 
         if (!AddressedId.TryParse(query.ProjectId, out var projectId)
-            || await structure.FindProjectAsync(projectId, cancellationToken) is not { IsReachable: true } project
-            || project.OrganizationId != organizationId)
+            || await structure.FindProjectAsync(organizationId, projectId, cancellationToken) is not { IsReachable: true } project)
         {
             throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
         }

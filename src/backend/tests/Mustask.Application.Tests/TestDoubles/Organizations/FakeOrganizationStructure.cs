@@ -4,9 +4,10 @@ using Mustask.Domain.Organizations;
 namespace Mustask.Application.Tests.TestDoubles.Organizations;
 
 /// <summary>
-/// In-memory <see cref="IOrganizationStructure"/> over <see cref="InMemoryOrganizations"/> (mod-017): the reads the work items and
-/// the project default naming take of M1 — a team with its status and reachability, a project with its resolved default team.
-/// Reachability is the specification of ADR-0026 rule 3, the same as <see cref="InMemoryOrganizations.IsReachable"/>.
+/// In-memory <see cref="IOrganizationStructure"/> over <see cref="InMemoryOrganizations"/> (mod-017, feat-028): the reads the work
+/// items, the boards and the project default naming take of M1 — a team with its status, reachability and link, a project with its
+/// resolved default team. Every by-id read takes the organization and answers <c>null</c> for an object of another one, as the real
+/// one does (BR-OL-1). Reachability is the specification of ADR-0026 rule 3, the same as <see cref="InMemoryOrganizations.IsReachable"/>.
 /// </summary>
 public sealed class FakeOrganizationStructure(InMemoryOrganizations store) : IOrganizationStructure
 {
@@ -15,16 +16,21 @@ public sealed class FakeOrganizationStructure(InMemoryOrganizations store) : IOr
             ? new OrganizationInfo(organization.Id, organization.Name, organization.Status, organization.ProcessId, organization.CreatedBy, organization.CreatedAt)
             : null);
 
-    public Task<ProjectInfo?> FindProjectAsync(Guid projectId, CancellationToken cancellationToken)
+    public Task<ProjectInfo?> FindProjectAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken)
     {
-        var project = store.Projects.SingleOrDefault(candidate => candidate.Id == projectId);
+        var project = store.Projects.SingleOrDefault(candidate => candidate.Id == projectId && candidate.OrganizationId == organizationId);
 
         if (project is null)
         {
             return Task.FromResult<ProjectInfo?>(null);
         }
 
-        var active = store.Teams.Where(team => team.ProjectId == project.Id && team.IsActive).Select(team => team.Id).ToList();
+        var active = store.Links
+            .Where(link => link.ProjectId == project.Id)
+            .Select(link => store.Teams.Single(team => team.Id == link.TeamId))
+            .Where(team => team.IsActive)
+            .Select(team => team.Id)
+            .ToList();
         var root = store.Areas.Single(area => area.ProjectId == project.Id && area.IsRoot);
 
         return Task.FromResult<ProjectInfo?>(new ProjectInfo(
@@ -40,35 +46,45 @@ public sealed class FakeOrganizationStructure(InMemoryOrganizations store) : IOr
             project.CreatedAt));
     }
 
-    public Task<TeamInfo?> FindTeamAsync(Guid teamId, CancellationToken cancellationToken)
+    public Task<TeamInfo?> FindTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken)
     {
-        var team = store.Teams.SingleOrDefault(candidate => candidate.Id == teamId);
+        var team = store.Teams.SingleOrDefault(candidate => candidate.Id == teamId && candidate.OrganizationId == organizationId);
 
-        if (team is null)
-        {
-            return Task.FromResult<TeamInfo?>(null);
-        }
-
-        var project = store.Projects.Single(candidate => candidate.Id == team.ProjectId);
-
-        return Task.FromResult<TeamInfo?>(new TeamInfo(
-            team.Id,
-            team.ProjectId,
-            project.OrganizationId,
-            team.Name,
-            team.Status,
-            team.IsActive && store.IsReachable(project.OrganizationId, project.Id)));
+        return Task.FromResult(team is null ? null : Info(team));
     }
 
-    public async Task<IReadOnlyList<TeamInfo>> ListActiveTeamsAsync(Guid projectId, CancellationToken cancellationToken)
+    public async Task<ProjectTeamInfo?> FindProjectTeamAsync(Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
+        await FindTeamAsync(organizationId, teamId, cancellationToken) is { } team
+            ? new ProjectTeamInfo(team, store.Links.Any(link => link.OrganizationId == organizationId && link.ProjectId == projectId && link.TeamId == teamId))
+            : null;
+
+    public Task<IReadOnlyList<TeamInfo>> ListLinkedTeamsAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken)
     {
-        var teams = new List<TeamInfo>();
+        var teams = store.Links
+            .Where(link => link.OrganizationId == organizationId && link.ProjectId == projectId)
+            .Select(link => store.Teams.Single(team => team.Id == link.TeamId))
+            .Where(team => team.IsActive);
 
-        foreach (var team in store.InDisplayOrder(store.Teams.Where(candidate => candidate.ProjectId == projectId && candidate.IsActive), team => team.Name, team => team.Id))
-        {
-            teams.Add((await FindTeamAsync(team.Id, cancellationToken))!);
-        }
-
-        return teams;
+        return Task.FromResult<IReadOnlyList<TeamInfo>>(store.InDisplayOrder(teams, team => team.Name, team => team.Id).Select(Info).ToList());
     }
+
+    public Task<IReadOnlyList<LinkedProjectInfo>> ListLinkedProjectsAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken)
+    {
+        var projects = store.Links
+            .Where(link => link.OrganizationId == organizationId && link.TeamId == teamId)
+            .Select(link => store.Projects.Single(project => project.Id == link.ProjectId))
+            .Where(project => store.IsReachable(organizationId, project.Id));
+
+        return Task.FromResult<IReadOnlyList<LinkedProjectInfo>>(store
+            .InDisplayOrder(projects, project => project.Name, project => project.Id)
+            .Select(project => new LinkedProjectInfo(project.Id, project.Name, project.Key, true))
+            .ToList());
+    }
+
+    private TeamInfo Info(Team team) => new(
+        team.Id,
+        team.OrganizationId,
+        team.Name,
+        team.Status,
+        team.IsActive && store.FindOrganization(team.OrganizationId) is { IsActive: true });
 }

@@ -1,35 +1,35 @@
 using System.Net;
 using System.Text.Json;
 using Mustask.Domain.Organizations;
+using static Mustask.Api.IntegrationTests.Features.Organizations.TeamTestData;
 
 namespace Mustask.Api.IntegrationTests.Features.Organizations;
 
 /// <summary>
-/// <c>GET /api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}</c>
-/// (api-contract § 3.2) through the real host and a real PostgreSQL. Every test
-/// builds its own organization (<see cref="OrganizationsTestData"/>): the
-/// database is shared and never emptied.
+/// <c>GET /api/organizations/{organizationId}/teams/{teamId}</c> (feat-028 api-contract § 2.1; the route moved out of the project,
+/// mod-017 § 3.2 before) through the real host and a real PostgreSQL. Every test builds its own organization
+/// (<see cref="OrganizationsTestData"/>): the database is shared and never emptied.
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]
 [Collection(MustaskApiCollection.Name)]
 public sealed class GetTeamEndpointTests(MustaskApiFactory factory)
 {
-    private Task<Answer> GetAsync(string organizationId, string projectId, string teamId, string? token = null) =>
+    private Task<Answer> GetAsync(string organizationId, string teamId, string? token = null) =>
         OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Get,
-            $"/api/organizations/{Uri.EscapeDataString(organizationId)}/projects/{Uri.EscapeDataString(projectId)}/teams/{Uri.EscapeDataString(teamId)}",
+            $"/api/organizations/{Uri.EscapeDataString(organizationId)}/teams/{Uri.EscapeDataString(teamId)}",
             token: token ?? OrganizationsTokens.SignedIn());
 
     private Task<Answer> GetAsync(OrganizationStructure structure, Guid teamId) =>
-        GetAsync(structure.OrganizationId.ToString(), structure.ProjectId.ToString(), teamId.ToString());
+        GetAsync(structure.OrganizationId.ToString(), teamId.ToString());
 
-    // mod-017 US-4 · "No team is the first" (BR-OT-11): the team the project came with is read like any other — the shape is the
-    // one `Team` of api-contract § 1.3, with no first-team flag and no default area, and `isMember` is false on a single read.
-    // Replaces Get_FirstTeam_Returns200_DefaultAreaIsTheRoot (D-16).
+    // feat-028 US-1 · "A team is read": the shape is the `Team` of api-contract § 1.1 — id, name, description. A project's view of the
+    // team (a mark, a member flag) is the project's list's, not the team's own. Replaces Get_TheProjectsOwnTeam_Returns200_TheTeamShape
+    // (the mark and the flag left the shape, D-16).
     [Fact]
-    public async Task Get_TheProjectsOwnTeam_Returns200_TheTeamShape()
+    public async Task Get_Returns200_TheTeamShape_NoProjectViewOfIt()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
 
@@ -37,40 +37,44 @@ public sealed class GetTeamEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal("application/json", answer.MediaType);
-        Assert.Equal(["defaultMark", "id", "isMember", "name", "projectId"], PropertyNames(answer.Body));
+        Assert.Equal(["description", "id", "name"], PropertyNames(answer.Body));
         Assert.Equal(structure.ProjectTeamId, answer.Body.GetProperty("id").GetGuid());
-        Assert.Equal(structure.ProjectId, answer.Body.GetProperty("projectId").GetGuid());
         Assert.Equal("Пример проекта", answer.Body.GetProperty("name").GetString());
-        Assert.False(answer.Body.GetProperty("isMember").GetBoolean());
-        Assert.Equal(JsonValueKind.Null, answer.Body.GetProperty("defaultMark").ValueKind);
+        Assert.Equal(JsonValueKind.Null, answer.Body.GetProperty("description").ValueKind);
     }
 
-    // mod-017 BR-OT-4 · the single read carries the same mark as the list: «named» for the team the settings name.
-    // Replaces Get_SecondTeam_Returns200_DefaultAreaIsItsOwnAreaUnderTheRoot (D-16).
+    // feat-028 US-1 · the description is read as typed.
     [Fact]
-    public async Task Get_NamedTeam_CarriesNamed_TheOtherCarriesNone()
+    public async Task Get_CarriesTheDescriptionAsTyped()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        await OrganizationsTestData.SetDefaultTeamAsync(factory, structure.OrganizationId, structure.ProjectId, structure.Platform.Id);
+        var described = await CreateTeamAsync(factory, structure.OrganizationId, new { name = "Описанная", description = " Платформа\nи инструменты " });
 
-        var named = await GetAsync(structure, structure.Platform.Id);
-        var other = await GetAsync(structure, structure.ProjectTeamId);
+        var answer = await GetAsync(structure, described.Body.GetProperty("id").GetGuid());
 
-        Assert.Equal("named", named.Body.GetProperty("defaultMark").GetString());
-        Assert.Equal("Платформа", named.Body.GetProperty("name").GetString());
-        Assert.Equal(JsonValueKind.Null, other.Body.GetProperty("defaultMark").ValueKind);
+        Assert.Equal(" Платформа\nи инструменты ", answer.Body.GetProperty("description").GetString());
     }
 
-    // mod-017 BR-OT-4 · when the other teams are deleted, the one left is the only team.
-    [Fact]
-    public async Task Get_LastTeam_CarriesOnlyTeam()
+    // feat-028 BR-OL-1 · a team linked to no project is read like any other; so is one linked to a deactivated project.
+    [Theory]
+    [InlineData("linked to no project")]
+    [InlineData("linked to a deactivated project")]
+    public async Task Get_TeamOfNoActiveProject_Returns200(string how)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, structure.Platform.Id);
+        var team = how == "linked to no project"
+            ? await OrganizationsTestData.AddUnlinkedTeamAsync(factory, structure.OrganizationId, "Ничья")
+            : structure.Platform;
 
-        var answer = await GetAsync(structure, structure.ProjectTeamId);
+        if (how != "linked to no project")
+        {
+            await OrganizationsTestData.SetProjectStatusAsync(factory, structure.OrganizationId, structure.ProjectId, ProjectStatus.Deactivated);
+        }
 
-        Assert.Equal("onlyTeam", answer.Body.GetProperty("defaultMark").GetString());
+        var answer = await GetAsync(structure, team.Id);
+
+        Assert.Equal(HttpStatusCode.OK, answer.Status);
+        Assert.Equal(team.Name, answer.Body.GetProperty("name").GetString());
     }
 
     // api-contract § 0.2: the canonical form is accepted in either letter case, in every level of the address.
@@ -81,7 +85,6 @@ public sealed class GetTeamEndpointTests(MustaskApiFactory factory)
 
         var answer = await GetAsync(
             structure.OrganizationId.ToString().ToUpperInvariant(),
-            structure.ProjectId.ToString().ToUpperInvariant(),
             structure.Platform.Id.ToString().ToUpperInvariant());
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
@@ -94,21 +97,15 @@ public sealed class GetTeamEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
 
-        var known = await OrganizationsApi.SendAsync(
-            factory,
-            HttpMethod.Get,
-            $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{structure.Platform.Id}");
-        var unknown = await OrganizationsApi.SendAsync(
-            factory,
-            HttpMethod.Get,
-            "/api/organizations/not-an-id/projects/not-a-project/teams/not-a-team");
+        var known = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, Team(structure.OrganizationId, structure.Platform.Id));
+        var unknown = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, "/api/organizations/not-an-id/teams/not-a-team");
 
         Assert.Equal(HttpStatusCode.Unauthorized, known.Status);
         Assert.Equal(HttpStatusCode.Unauthorized, unknown.Status);
     }
 
-    // US-2 · "Everything beneath a deactivated organization answers not found" (BR-M1-20): the organization level answers
-    // first, whatever the project and the team are.
+    // US-2 · "Everything beneath a deactivated organization answers not found" (BR-M1-20): the organization level answers first,
+    // whatever the team is.
     [Theory]
     [InlineData("malformed")]
     [InlineData("unknown")]
@@ -128,59 +125,23 @@ public sealed class GetTeamEndpointTests(MustaskApiFactory factory)
             await OrganizationsTestData.SetOrganizationStatusAsync(factory, structure.OrganizationId, OrganizationStatus.Deactivated);
         }
 
-        var answer = await GetAsync(organizationId, structure.ProjectId.ToString(), structure.Platform.Id.ToString());
+        var answer = await GetAsync(organizationId, structure.Platform.Id.ToString());
 
         Assert.Equal(HttpStatusCode.NotFound, answer.Status);
         Assert.Equal("organizations.organization.not_found", answer.ErrorCode);
         Assert.Equal("Организация не найдена.", answer.Detail);
     }
 
-    // US-3 · "A project id names no project of the organization" and "a project is deactivated" (BR-M1-20, BR-M1-22,
-    // ADR-0026 rule 5): malformed, unknown, of another organization, or deactivated; the project level answers before the team
-    // is looked at, so a team that is wrong too changes nothing.
+    // US-1 · "A team identifier that names no team of the organization" (BR-M1-20, BR-M1-22) and US-5 · "A deleted team answers not
+    // found": malformed, unknown, the team of another organization, and a deleted one — identical status and body.
     [Theory]
     [InlineData("malformed")]
     [InlineData("unknown")]
-    [InlineData("of another organization")]
-    [InlineData("deactivated")]
-    public async Task Get_ProjectNotReachable_Returns404ProjectNotFound_EvenWithAWrongTeam(string how)
-    {
-        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var other = await OrganizationsTestData.CreateStructureAsync(factory);
-        var projectId = how switch
-        {
-            "malformed" => "PRM",
-            "unknown" => Guid.CreateVersion7().ToString(),
-            "of another organization" => other.ProjectId.ToString(),
-            _ => structure.ProjectId.ToString(),
-        };
-
-        if (how == "deactivated")
-        {
-            await OrganizationsTestData.SetProjectStatusAsync(factory, structure.OrganizationId, structure.ProjectId, ProjectStatus.Deactivated);
-        }
-
-        var teamId = how == "deactivated" ? structure.Platform.Id.ToString() : "not-a-team";
-
-        var answer = await GetAsync(structure.OrganizationId.ToString(), projectId, teamId);
-
-        Assert.Equal(HttpStatusCode.NotFound, answer.Status);
-        Assert.Equal("organizations.project.not_found", answer.ErrorCode);
-        Assert.Equal("Проект не найден.", answer.Detail);
-    }
-
-    // US-4 · "A team identifier that names no team of the project" (BR-M1-20, BR-M1-22) and US-7 · "A deleted team answers not
-    // found": malformed, unknown, the team of another project or another organization, and a deleted one.
-    [Theory]
-    [InlineData("malformed")]
-    [InlineData("unknown")]
-    [InlineData("of another project")]
     [InlineData("of another organization")]
     [InlineData("deleted")]
-    public async Task Get_TeamNotAnActiveTeamOfTheProject_Returns404TeamNotFound(string how)
+    public async Task Get_TeamNotAnActiveTeamOfTheOrganization_Returns404TeamNotFound(string how)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var secondProject = await OrganizationsTestData.CreateProjectAsync(factory, structure.OrganizationId, "Второй проект", "SEC");
         var other = await OrganizationsTestData.CreateStructureAsync(factory);
         var deleted = await OrganizationsTestData.AddTeamAsync(factory, structure.ProjectId, "Ядро");
         await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, deleted.Id);
@@ -188,19 +149,18 @@ public sealed class GetTeamEndpointTests(MustaskApiFactory factory)
         {
             "malformed" => structure.Platform.Id.ToString("N"),
             "unknown" => Guid.CreateVersion7().ToString(),
-            "of another project" => secondProject.Team.Id.ToString(),
             "of another organization" => other.Platform.Id.ToString(),
             _ => deleted.Id.ToString(),
         };
 
-        var answer = await GetAsync(structure.OrganizationId.ToString(), structure.ProjectId.ToString(), teamId);
+        var answer = await GetAsync(structure.OrganizationId.ToString(), teamId);
 
         Assert.Equal(HttpStatusCode.NotFound, answer.Status);
         Assert.Equal("organizations.team.not_found", answer.ErrorCode);
         Assert.Equal("Команда не найдена.", answer.Detail);
     }
 
-    // US-7 · "A deleted team answers not found" does not touch the others: after «Ядро» is deleted, «Платформа» and the first
+    // US-5 · "A deleted team answers not found" does not touch the others: after «Ядро» is deleted, «Платформа» and the project's own
     // team are still read.
     [Fact]
     public async Task Get_AfterASiblingTeamIsDeleted_OtherTeamsAreStillReturned()
@@ -210,13 +170,10 @@ public sealed class GetTeamEndpointTests(MustaskApiFactory factory)
         await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, deleted.Id);
 
         var platform = await GetAsync(structure, structure.Platform.Id);
-        var first = await GetAsync(structure, structure.ProjectTeamId);
+        var own = await GetAsync(structure, structure.ProjectTeamId);
 
         Assert.Equal(HttpStatusCode.OK, platform.Status);
-        Assert.Equal(HttpStatusCode.OK, first.Status);
-        Assert.Equal(structure.ProjectTeamId, first.Body.GetProperty("id").GetGuid());
+        Assert.Equal(HttpStatusCode.OK, own.Status);
+        Assert.Equal(structure.ProjectTeamId, own.Body.GetProperty("id").GetGuid());
     }
-
-    private static IEnumerable<string> PropertyNames(JsonElement element) =>
-        element.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal);
 }

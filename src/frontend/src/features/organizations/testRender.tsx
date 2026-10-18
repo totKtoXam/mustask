@@ -16,6 +16,7 @@ import { MembersPage } from './pages/MembersPage';
 import { ProjectGeneralPage } from './pages/ProjectGeneralPage';
 import { ProjectListPage } from './pages/ProjectListPage';
 import { AreasPage } from './pages/AreasPage';
+import { OrganizationTeamsPage } from './pages/OrganizationTeamsPage';
 import { TeamPage } from './pages/TeamPage';
 import { TeamsPage } from './pages/TeamsPage';
 import {
@@ -26,9 +27,10 @@ import {
   ORGANIZATIONS_ROUTE,
   ORGANIZATION_GENERAL_ROUTE,
   PROJECTS_ROUTE,
+  ORG_TEAMS_ROUTE,
+  ORG_TEAM_ROUTE,
   PROJECT_GENERAL_ROUTE,
   TEAMS_ROUTE,
-  TEAM_ROUTE,
 } from './paths';
 import { organizationsPermissions } from './permissions';
 
@@ -150,7 +152,8 @@ export function renderPage({
                     <Route path={MEMBERS_ROUTE} element={<MembersPage />} />
                     <Route path={PROJECT_GENERAL_ROUTE} element={<ProjectGeneralPage />} />
                     <Route path={TEAMS_ROUTE} element={<TeamsPage />} />
-                    <Route path={TEAM_ROUTE} element={<TeamPage />} />
+                    <Route path={ORG_TEAMS_ROUTE} element={<OrganizationTeamsPage />} />
+                    <Route path={ORG_TEAM_ROUTE} element={<TeamPage />} />
                     <Route path={AREAS_ROUTE} element={<AreasPage />} />
                     <Route path="*" element={<p>Другая страница</p>} />
                   </Route>

@@ -69,13 +69,16 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
     /// unit of work, mod-001's seed, and this module's repositories, read models
     /// and seam.
     /// </summary>
-    public ServiceProvider BuildServices(params IInterceptor[] interceptors)
+    public ServiceProvider BuildServices(params IInterceptor[] interceptors) => BuildServices(ConnectionString, interceptors);
+
+    /// <summary>The same wiring over another database of the same server (a migration test that gives each test a database of its own).</summary>
+    public ServiceProvider BuildServices(string connectionString, params IInterceptor[] interceptors)
     {
         var services = new ServiceCollection();
 
         services.AddDbContext<MustaskDbContext>(options =>
         {
-            options.UseNpgsql(ConnectionString);
+            options.UseNpgsql(connectionString);
 
             if (interceptors.Length > 0)
             {
@@ -148,9 +151,9 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
     }
 
     /// <summary>
-    /// An active organization with its seeded process, and one project with its
-    /// team, its root and a second team «Платформа»,
-    /// written through the domain in one unit of work.
+    /// An active organization with its seeded process, one project with its root and two teams of the organization — «Пример проекта»
+    /// (<see cref="SeededStructure.FirstTeam"/>) and «Платформа» — <b>both linked to the project</b> (feat-028: a team is the
+    /// organization's and a link joins it to the project), written through the domain in one unit of work.
     /// </summary>
     public async Task<SeededStructure> CreateStructureAsync(string? organizationName = null, string projectName = "Пример проекта", string key = "PRM")
     {
@@ -168,27 +171,52 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
                 var organization = Organization.Create(
                     organizationId, Name(organizationName ?? UniqueName("Организация")), processId, Now, Creator);
                 var project = Project.Create(organizationId, Name(projectName), key, Now, Creator);
-                var second = Team.Create(project.Project.Id, Name("Платформа"));
+                var first = Team.Create(organizationId, Name(projectName));
+                var second = Team.Create(organizationId, Name("Платформа"));
 
                 context.Organizations.Add(organization);
                 context.Projects.Add(project.Project);
-                context.Teams.AddRange(project.Team, second);
+                context.Teams.AddRange(first, second);
                 context.Areas.Add(project.Root);
+                context.ProjectTeams.AddRange(
+                    ProjectTeam.Link(organizationId, project.Project.Id, first.Id, Creator, Now),
+                    ProjectTeam.Link(organizationId, project.Project.Id, second.Id, Creator, Now));
                 await context.SaveChangesAsync(ct);
 
-                return new SeededStructure(organization, project, second);
+                return new SeededStructure(organization, project, first, second);
             },
             CancellationToken.None);
     }
 
-    /// <summary>Adds a project with its team and root to an existing organization.</summary>
+    /// <summary>Adds a team of the organization and links it to each of <paramref name="linkedProjects"/> (feat-028 BR-OL-1, BR-OL-4).</summary>
+    public async Task<Team> AddTeamAsync(Guid organizationId, string name, params Guid[] linkedProjects)
+    {
+        await using var context = NewContext();
+        var team = Team.Create(organizationId, Name(name));
+
+        context.Teams.Add(team);
+        context.ProjectTeams.AddRange(linkedProjects.Select(projectId => ProjectTeam.Link(organizationId, projectId, team.Id, Creator, Now)));
+        await context.SaveChangesAsync();
+
+        return team;
+    }
+
+    /// <summary>Links an existing team to a project, recording <see cref="Creator"/> and <see cref="Now"/>.</summary>
+    public async Task LinkAsync(Guid organizationId, Guid projectId, Guid teamId)
+    {
+        await using var context = NewContext();
+
+        context.ProjectTeams.Add(ProjectTeam.Link(organizationId, projectId, teamId, Creator, Now));
+        await context.SaveChangesAsync();
+    }
+
+    /// <summary>Adds a project with its root (no team, feat-028 BR-OL-2) to an existing organization.</summary>
     public async Task<NewProject> AddProjectAsync(Guid organizationId, string name, string key)
     {
         await using var context = NewContext();
         var project = Project.Create(organizationId, Name(name), key, Now, Creator);
 
         context.Projects.Add(project.Project);
-        context.Teams.Add(project.Team);
         context.Areas.Add(project.Root);
         await context.SaveChangesAsync();
 
@@ -299,7 +327,7 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
 }
 
 /// <summary>What <see cref="OrganizationsDatabaseFixture.CreateStructureAsync"/> wrote.</summary>
-public sealed record SeededStructure(Organization Organization, NewProject Project, Team SecondTeam);
+public sealed record SeededStructure(Organization Organization, NewProject Project, Team FirstTeam, Team SecondTeam);
 
 /// <summary>What <see cref="OrganizationsDatabaseFixture.CreateLegacyStructureAsync"/> wrote: ids only, the model cannot read that shape.</summary>
 public sealed record LegacyStructure(Guid OrganizationId, Guid ProjectId, Guid FirstTeamId, Guid RootAreaId, Guid SecondTeamId, Guid SecondAreaId);

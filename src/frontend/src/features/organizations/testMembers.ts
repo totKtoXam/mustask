@@ -1,5 +1,5 @@
 // The member and team-member routes of the in-memory API (mod-016 plan-frontend
-// § 2.8, lane B1; api-contract § 1.2–§ 1.6 and § 2.1–§ 2.4): lists in the
+// § 2.8, lane B1; api-contract § 1.2–§ 1.6 and § 2.1–§ 2.4, feat-028's § 2.3a too): lists in the
 // contract's order, the candidate searches cut at 20, the add, role change
 // and removal with their 400 and 409 answers in the contract's order, and the
 // last-administrator rule; and the organization lists narrowed to the
@@ -35,7 +35,8 @@ export interface MembersOptions {
   now?(): string;
 }
 
-const TEAM_URL = `${ORGANIZATIONS_URL}/:organizationId/projects/:projectId/teams/:teamId`;
+/** The team's address is the organization's since feat-028 (api-contract § 2.3). */
+const TEAM_URL = `${ORGANIZATIONS_URL}/:organizationId/teams/:teamId`;
 
 function answer(code: string): Response {
   const body = problem(code);
@@ -156,22 +157,13 @@ export function memberRoutes(
     members().filter((membership) => membership.organizationId === organizationId);
   const idOf = (value: unknown) => String(value).toLowerCase();
 
-  /** The team of the address, or the not-found answer of its outermost missing level. */
+  /** The team of the organization's address, or the not-found answer (a deleted or foreign one alike). */
   function teamOf(params: Record<string, unknown>): TeamRecord | Response {
-    const project = data.projects.find(
-      (candidate) =>
-        candidate.id === idOf(params.projectId) &&
-        candidate.organizationId === idOf(params.organizationId) &&
-        candidate.active,
-    );
-    if (!project) {
-      return answer('organizations.project.not_found');
-    }
     return (
       data.teams.find(
         (candidate) =>
           candidate.id === idOf(params.teamId) &&
-          candidate.projectId === project.id &&
+          candidate.organizationId === idOf(params.organizationId) &&
           !candidate.deleted,
       ) ?? answer('organizations.team.not_found')
     );
@@ -301,12 +293,7 @@ export function memberRoutes(
         // BR-M1-36: the user leaves every team of the organization.
         const teamIds = new Set(
           data.teams
-            .filter((team) =>
-              data.projects.some(
-                (project) =>
-                  project.id === team.projectId && project.organizationId === organizationId,
-              ),
-            )
+            .filter((team) => team.organizationId === organizationId)
             .map((team) => team.id),
         );
         data.teamMembers = teamMembers().filter(
@@ -342,6 +329,20 @@ export function memberRoutes(
         ),
       );
     }),
+    // § 2.3a: a team that does not exist yet — the organization's active members, as § 2.2 offers them.
+    http.get(
+      `${ORGANIZATIONS_URL}/:organizationId/teams/member-candidates`,
+      async ({ request, params }) => {
+        await record(request);
+        const organizationId = idOf(params.organizationId);
+        const text = new URL(request.url).searchParams.get('text') ?? '';
+        return HttpResponse.json(
+          candidatesFor(data, text, (id) =>
+            inOrganization(organizationId).some((membership) => membership.userId === id),
+          ),
+        );
+      },
+    ),
     // § 2.3
     http.post(`${TEAM_URL}/members`, async ({ request, params }) => {
       await record(request);

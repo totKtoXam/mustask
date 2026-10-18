@@ -40,10 +40,20 @@ export const organizationErrorCodes = {
   teamFirstTeamDefaultFixed: 'organizations.team.first_team_default_fixed',
   teamFirstTeamCannotBeDeleted: 'organizations.team.first_team_cannot_be_deleted',
   areaIsTeamDefault: 'organizations.area.is_team_default',
-  /** 409 (mod-017 api-contract § 0.2): an active team of another project of the organization, named in a write that binds to a team. */
+  /**
+   * 409 (feat-028 api-contract § 0.3): an active team of the organization that is not linked to the project,
+   * named as an owner, a default or an unlink destination.
+   */
   teamNotInProject: 'organizations.team.not_in_project',
-  /** 409 (mod-017 BR-OT-11): the project's last active team is not deleted. */
+  /**
+   * Deprecated in the catalog by feat-028 (BR-OL-10): a project may have no team, so the server no longer
+   * answers it and no screen uses it; it stays taken, one to one with the catalog (the drift test).
+   */
   teamLastTeamCannotBeDeleted: 'organizations.team.last_team_cannot_be_deleted',
+  /** A field reason of `validationFailed` under `description` (feat-028 api-contract § 0.2): over 2 000 characters. */
+  descriptionLength: 'organizations.description_length',
+  /** A field reason of `validationFailed` under `destination` (feat-028 api-contract § 2.4): an unlink without one. */
+  teamDestinationRequired: 'organizations.team.destination_required',
   areaNameTaken: 'organizations.area.name_taken',
   areaMoveIntoOwnSubtree: 'organizations.area.move_into_own_subtree',
   areaNotEmpty: 'organizations.area.not_empty',

@@ -12,5 +12,5 @@ public interface IProjectReadModel
     Task<ProjectRow?> FindReachableAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken);
 }
 
-/// <summary>One project as the panel sees it.</summary>
-public sealed record ProjectRow(Guid Id, Guid OrganizationId, string Name, string Key);
+/// <summary>One project as the panel sees it. <paramref name="Description"/> is read with it (feat-028 BR-OL-3) and shown by the single-project reads only.</summary>
+public sealed record ProjectRow(Guid Id, Guid OrganizationId, string Name, string Key, string? Description = null);

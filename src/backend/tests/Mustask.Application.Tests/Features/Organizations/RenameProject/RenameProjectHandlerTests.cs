@@ -20,7 +20,7 @@ public sealed class RenameProjectHandlerTests
         {
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization);
-            Platform = Store.AddTeam(Project);
+            Platform = Store.AddLinkedTeam(Organization, Project);
             Reports = Store.AddArea(Project.Root, "Отчёты");
             Quarterly = Store.AddArea(Reports, "Квартальные");
             Handler = new RenameProjectHandler(
@@ -85,8 +85,14 @@ public sealed class RenameProjectHandlerTests
             return project;
         }
 
-        public Task ClearDefaultTeamAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
-            inner.ClearDefaultTeamAsync(projectId, teamId, cancellationToken);
+        public Task ClearDefaultTeamAsync(Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
+            inner.ClearDefaultTeamAsync(organizationId, projectId, teamId, cancellationToken);
+
+        public Task ClearDefaultTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
+            inner.ClearDefaultTeamAsync(organizationId, teamId, cancellationToken);
+
+        public Task<int> CountReachableAsync(Guid organizationId, IReadOnlyCollection<Guid> projectIds, CancellationToken cancellationToken) =>
+            inner.CountReachableAsync(organizationId, projectIds, cancellationToken);
 
         public void Add(NewProject project) => inner.Add(project);
 
@@ -104,7 +110,7 @@ public sealed class RenameProjectHandlerTests
 
         var result = await f.HandleAsync(f.Command(" Платформа данных "));
 
-        Assert.Equal(new ProjectResponse(f.Project.Project.Id, f.Organization.Id, "Платформа данных", "PRM"), result.Response);
+        Assert.Equal(new ProjectResponse(f.Project.Project.Id, f.Organization.Id, "Платформа данных", "PRM", null), result.Response);
         Assert.Equal("Платформа данных", f.Project.Project.Name);
         Assert.Equal("ПЛАТФОРМА ДАННЫХ", f.Project.Project.NormalizedName);
         Assert.Equal("PRM", f.Project.Project.Key);
@@ -114,7 +120,6 @@ public sealed class RenameProjectHandlerTests
         Assert.Equal("ПЛАТФОРМА ДАННЫХ", f.Project.Root.NormalizedName);
         Assert.True(f.Project.Root.IsRoot);
 
-        Assert.Equal("Пример проекта", f.Project.Team.Name);
         var (teamsAfter, areasAfter) = f.Rest();
         Assert.Equal(teamsBefore, teamsAfter);
         Assert.Equal(areasBefore, areasAfter);

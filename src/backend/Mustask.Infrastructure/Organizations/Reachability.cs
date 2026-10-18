@@ -10,6 +10,11 @@ namespace Mustask.Infrastructure.Organizations;
 /// translates to a join or an <c>EXISTS</c>, so it filters before
 /// materialization. There is no global query filter (rule 4).
 /// </summary>
+/// <remarks>
+/// feat-028: a team belongs to its organization and to no project, so a team is reachable by its own status and its
+/// organization's alone; a <i>link</i> is read through a project that is reachable (for a project's list) or through a team
+/// that is (for a team's list), and a deactivated project hides its links from a team's list without removing them.
+/// </remarks>
 internal static class Reachability
 {
     public static IQueryable<Organization> ActiveOrganizations(this MustaskDbContext context) =>
@@ -34,16 +39,33 @@ internal static class Reachability
     public static IQueryable<Project> DeactivatedProjectsOf(this MustaskDbContext context, Guid organizationId) =>
         context.ProjectsOfActiveOrganization(organizationId, ProjectStatus.Deactivated);
 
-    /// <summary>Active teams of a reachable project.</summary>
-    public static IQueryable<Team> ReachableTeams(this MustaskDbContext context, Guid organizationId, Guid projectId)
+    /// <summary>Active teams of an active organization (feat-028 BR-OL-1): the organization's list and a team's own pages.</summary>
+    public static IQueryable<Team> ActiveTeamsOf(this MustaskDbContext context, Guid organizationId)
+    {
+        var organization = context.ActiveOrganizations().Where(candidate => candidate.Id == organizationId);
+
+        return context.Teams.Where(team =>
+            team.OrganizationId == organizationId
+            && team.Status == TeamStatus.Active
+            && organization.Any());
+    }
+
+    /// <summary>Active teams <b>linked</b> to a reachable project: a project's list and a team's views at the project's address (BR-OL-11).</summary>
+    public static IQueryable<Team> LinkedTeams(this MustaskDbContext context, Guid organizationId, Guid projectId)
     {
         var project = context.ReachableProjects(organizationId).Where(candidate => candidate.Id == projectId);
 
         return context.Teams.Where(team =>
-            team.ProjectId == projectId
+            team.OrganizationId == organizationId
             && team.Status == TeamStatus.Active
-            && project.Any());
+            && project.Any()
+            && context.ProjectTeams.Any(link => link.ProjectId == projectId && link.TeamId == team.Id));
     }
+
+    /// <summary>Reachable (active) projects a team is linked to, of an active organization: a team's projects.</summary>
+    public static IQueryable<Project> LinkedProjects(this MustaskDbContext context, Guid organizationId, Guid teamId) =>
+        context.ReachableProjects(organizationId).Where(project =>
+            context.ProjectTeams.Any(link => link.TeamId == teamId && link.ProjectId == project.Id));
 
     /// <summary>Every area of a reachable project. Areas have no status of their own.</summary>
     public static IQueryable<Area> AreasOfReachableProject(this MustaskDbContext context, Guid organizationId, Guid projectId)

@@ -102,7 +102,7 @@ public sealed class CreateAreaEndpointTests(MustaskApiFactory factory)
         var deletion = await OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Delete,
-            $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{structure.Platform.Id}",
+            TeamTestData.Team(structure.OrganizationId, structure.Platform.Id),
             token: OrganizationsTokens.SignedIn());
         gate.Release();
         var created = await creation;
@@ -288,7 +288,7 @@ public sealed class CreateAreaEndpointTests(MustaskApiFactory factory)
         OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Delete,
-            $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{teamId}",
+            TeamTestData.Team(structure.OrganizationId, teamId),
             token: OrganizationsTokens.SignedIn(),
             gate: gate);
 

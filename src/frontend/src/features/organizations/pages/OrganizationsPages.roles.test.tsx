@@ -6,6 +6,7 @@ import { organizationsKeys } from '../api/queryKeys';
 import {
   AREAS_URL,
   ORGANIZATION_URL,
+  ORG_TEAMS_URL,
   PROJECTS_URL,
   PROJECT_URL,
   TEAMS_URL,
@@ -26,6 +27,8 @@ const ALFA_GENERAL = `/organizations/${ids.alfa}/settings/general`;
 const ALFA_PROJECTS = `/organizations/${ids.alfa}/settings/projects`;
 const PRM_GENERAL = `/organizations/${ids.alfa}/projects/${ids.prm}/settings/general`;
 const PRM_TEAMS = `/organizations/${ids.alfa}/projects/${ids.prm}/settings/teams`;
+const ALFA_TEAMS = `/organizations/${ids.alfa}/settings/teams`;
+const PLATFORM_PAGE = `/organizations/${ids.alfa}/settings/teams/${ids.platformTeam}`;
 const PRM_AREAS = `/organizations/${ids.alfa}/projects/${ids.prm}/settings/areas`;
 const ANL_AREAS = `/organizations/${ids.alfa}/projects/${ids.anl}/settings/areas`;
 const NEW_ORGANIZATION = 'a0000000-0000-4000-8000-0000000000aa';
@@ -98,6 +101,39 @@ describe.each(ROLES)(
       expect(button('Переименовать')).toHaveLength(held(holds));
       expect(button('Деактивировать')).toHaveLength(held(holds));
       expect(screen.getByRole('link', { name: /Процесс/ })).toBeVisible();
+    });
+
+    it('«Команды» of the organization: «Новая команда» and the row menus only with their codes; the team links and the projects stay for everyone (feat-028 design § 10)', async () => {
+      serveOrganizations();
+      renderPage({ path: ALFA_TEAMS, role });
+
+      const table = await screen.findByRole('table', { name: 'Команды организации' });
+
+      expect(button('Новая команда')).toHaveLength(held(holds));
+      expect(within(table).queryAllByRole('button', { name: /^Ещё действия: / })).toHaveLength(
+        holds ? within(table).getAllByRole('row').length - 1 : 0,
+      );
+      expect(within(table).getAllByRole('columnheader')).toHaveLength(holds ? 4 : 3);
+      expect(within(table).getByRole('link', { name: 'Платформа' })).toBeVisible();
+      expect(within(table).getAllByText('Пример проекта', { selector: 'span' })).toHaveLength(2);
+    });
+
+    it('a team’s page: its three commands, «Добавить проект», the unlink menus and the members’ controls only with their codes', async () => {
+      serveOrganizations();
+      renderPage({ path: PLATFORM_PAGE, role });
+
+      await screen.findByRole('heading', { level: 1, name: 'Команда: Платформа' });
+      const projects = await screen.findByRole('table', { name: 'Проекты команды' });
+
+      expect(button('Переименовать')).toHaveLength(held(holds));
+      expect(button('Изменить описание')).toHaveLength(held(holds));
+      expect(button('Удалить команду')).toHaveLength(held(holds));
+      expect(button('Добавить проект')).toHaveLength(held(holds));
+      expect(within(projects).queryAllByRole('button', { name: /^Ещё действия: / })).toHaveLength(
+        held(holds),
+      );
+      expect(button('Добавить в команду')).toHaveLength(held(holds));
+      expect(within(projects).getByRole('link', { name: 'Пример проекта' })).toBeVisible();
     });
 
     it('«Команды»: «Добавить команду» and the actions column only with the code; the team links stay', async () => {
@@ -226,22 +262,50 @@ describe('mod-016 design § 2.3 Scenario: a refused write, then the codes are re
     expect(button('Деактивировать')).toHaveLength(0);
   });
 
-  it('adds a team', async () => {
+  // feat-028 BR-OL-5 (doc-012 P-1): «adds a team» at the project's «Команды» is retired by name — a
+  // team is created in the organization's «Команды», and the project's page links existing ones.
+  it('creates a team', async () => {
+    serveOrganizations();
+    const page = renderPage({ path: ALFA_TEAMS });
+    await screen.findByRole('table', { name: 'Команды организации' });
+    await userEvent.click(screen.getByRole('button', { name: 'Новая команда' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Новая команда' });
+    const field = within(dialog).getByRole('textbox', { name: 'Название' });
+    await userEvent.type(field, 'Омега');
+    serveProblem('post', ORG_TEAMS_URL, problem('organizations.access.forbidden'), { once: true });
+
+    await lockedAfterRefusal(dialog, 'Создать', field, 'Омега', page);
+
+    expect(button('Новая команда')).toHaveLength(0);
+    expect(
+      within(screen.getByRole('table', { name: 'Команды организации' })).queryAllByRole('button'),
+    ).toHaveLength(0);
+  });
+
+  it('links teams to a project', async () => {
     serveOrganizations();
     const page = renderPage({ path: PRM_TEAMS });
     await screen.findByRole('table', { name: 'Команды' });
     await userEvent.click(screen.getByRole('button', { name: 'Добавить команду' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Новая команда' });
-    const field = within(dialog).getByRole('textbox', { name: 'Название' });
-    await userEvent.type(field, 'Омега');
+    const dialog = await screen.findByRole('dialog', { name: 'Добавление команд в проект' });
+    const field = within(dialog).getByRole('combobox', { name: 'Команды' });
+    await userEvent.click(field);
+    await userEvent.click(await screen.findByRole('option', { name: 'Аналитика' }));
     serveProblem('post', TEAMS_URL, problem('organizations.access.forbidden'), { once: true });
 
-    await lockedAfterRefusal(dialog, 'Добавить', field, 'Омега', page);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Добавить' }));
+    expect(await within(dialog).findByText(REFUSED)).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'Убрать «Аналитика»' })).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'Добавить' })).toBeEnabled();
 
+    page.update({ role: 'member' });
+
+    await waitFor(() =>
+      expect(within(dialog).getByRole('button', { name: 'Добавить' })).toBeDisabled(),
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(button('Добавить команду')).toHaveLength(0);
-    expect(
-      within(screen.getByRole('table', { name: 'Команды' })).queryAllByRole('button'),
-    ).toHaveLength(0);
   });
 
   it('creates an area', async () => {

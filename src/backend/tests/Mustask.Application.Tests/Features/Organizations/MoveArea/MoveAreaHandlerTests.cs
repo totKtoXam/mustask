@@ -19,7 +19,7 @@ public sealed class MoveAreaHandlerTests
         {
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization);
-            Platform = Store.AddTeam(Project);
+            Platform = Store.AddLinkedTeam(Organization, Project);
             Handler = new MoveAreaHandler(
                 new FakeProjectRepository(Store),
                 new FakeAreaRepository(Store),

@@ -24,7 +24,7 @@ public sealed class CreateProjectHandlerTests
         /// The organization with <see cref="Subject"/> as its administrator — who the scoped check lets reach this route — unless
         /// the test says the creator holds no membership (the window of a removal between the check and the flush).
         /// </summary>
-        public Fixture(bool creatorIsAMember = true)
+        public Fixture(bool creatorIsAMember = true, OrganizationRole role = OrganizationRole.Admin)
         {
             Organization = Store.AddOrganization();
             Clock.UtcNow = new DateTimeOffset(2026, 10, 2, 9, 30, 0, TimeSpan.Zero);
@@ -37,8 +37,10 @@ public sealed class CreateProjectHandlerTests
 
             Handler = new CreateProjectHandler(
                 new FakeOrganizationReadModel(Store),
-                new FakeTeamMembershipRepository(Store),
+                new FakeTeamRepository(Store),
+                new FakeProjectTeamRepository(Store),
                 new FakeProjectRepository(Store),
+                new FakeOrganizationAccess(role),
                 Clock,
                 CurrentUser,
                 new FakeUnitOfWork());
@@ -54,37 +56,39 @@ public sealed class CreateProjectHandlerTests
 
         public CreateProjectHandler Handler { get; }
 
-        public CreateProjectCommand Command(string? name = "Пример проекта", string? key = "PRM", string? organizationId = null) =>
-            new(organizationId ?? Organization.Id.ToString(), name, key);
+        public CreateProjectCommand Command(
+            string? name = "Пример проекта",
+            string? key = "PRM",
+            string? organizationId = null,
+            string? description = null,
+            IReadOnlyList<string?>? teamIds = null) =>
+            new(organizationId ?? Organization.Id.ToString(), name, key, description, teamIds);
 
         public Task<CreateProjectResult> HandleAsync(CreateProjectCommand command) => Handler.Handle(command, CancellationToken.None);
 
-        /// <summary>The project, its team and its root as stored, found by the project's id.</summary>
-        public (Project Project, Team Team, Area Root) StoredParts(Guid projectId) =>
+        /// <summary>The project and its root as stored, found by the project's id.</summary>
+        public (Project Project, Area Root) StoredParts(Guid projectId) =>
             (
                 Store.Projects.Single(project => project.Id == projectId),
-                Store.Teams.Single(team => team.ProjectId == projectId),
                 Store.Areas.Single(area => area.ProjectId == projectId));
     }
 
     // US-3 · "A project is created ready to use": active, with its name and key; one team and a root area, both named after
     // the project; the team an ordinary one and the root owned by nobody (mod-017 BR-OT-10, BR-OT-11); the creator and the time kept (BR-M1-21).
     [Fact]
-    public async Task Handle_ValidNameAndKey_CreatesProjectWithOneOrdinaryTeamAndRoot_RecordsCreator()
+    public async Task Handle_ValidNameAndKey_CreatesProjectWithTheRoot_RecordsCreator()
     {
         var f = new Fixture();
 
         var result = await f.HandleAsync(f.Command(name: " Пример проекта "));
 
-        var (project, team, root) = f.StoredParts(result.Response.Id);
-        Assert.Equal(new ProjectResponse(project.Id, f.Organization.Id, "Пример проекта", "PRM"), result.Response);
+        var (project, root) = f.StoredParts(result.Response.Id);
+        Assert.Equal(new ProjectResponse(project.Id, f.Organization.Id, "Пример проекта", "PRM", null), result.Response);
         Assert.Equal(ProjectStatus.Active, project.Status);
         Assert.Equal(f.Organization.Id, project.OrganizationId);
         Assert.Equal(Subject, project.CreatedBy);
         Assert.Equal(f.Clock.UtcNow, project.CreatedAt);
 
-        Assert.Equal("Пример проекта", team.Name);
-        Assert.True(team.IsActive);
         Assert.Null(project.DefaultTeamId);
 
         Assert.Equal("Пример проекта", root.Name);
@@ -94,14 +98,14 @@ public sealed class CreateProjectHandlerTests
     // US-3 · "A project is created ready to use": nothing but the project, one team and one root is written, in one save, and
     // no lock is taken (plan-backend § 8.2: inserts only, closed by the unique indexes).
     [Fact]
-    public async Task Handle_Creates_OneProjectOneTeamOneArea_OneSave_NoLock()
+    public async Task Handle_Creates_OneProjectOneArea_OneSave_NoLock()
     {
         var f = new Fixture();
 
         await f.HandleAsync(f.Command());
 
         Assert.Single(f.Store.Projects);
-        Assert.Single(f.Store.Teams);
+        Assert.Empty(f.Store.Teams);
         Assert.Single(f.Store.Areas);
         Assert.Equal(["save"], f.Store.Calls);
     }
@@ -370,65 +374,105 @@ public sealed class CreateProjectHandlerTests
         Assert.Empty(f.Store.Projects);
     }
 
-    // mod-016 US-3 · "The project's creator is its first team's first member" (BR-M1-25, doc-006 BR-M1-9): the creating
-    // administrator is the only member of the first team, whatever the user projection says of them (the handler holds none).
+    // feat-028 US-2 · "a project with a name and a key only" (BR-OL-2): creating a project creates no team and no team membership,
+    // the creator's included — the former BR-M1-25 rule lapses (retires Handle_CreatorIsAMember_TheyAreTheOnlyMemberOfTheProjectsTeam,
+    // Handle_CreatorIsNotAMemberAnyMore_IsOrganizationNotFound_StoresNothing, Handle_OnlyTheNewProjectsTeamGainsTheCreator and
+    // Handle_CreatorsMembershipEndedMidRequest_IsOrganizationNotFound_StoresNothing).
     [Fact]
-    public async Task Handle_CreatorIsAMember_TheyAreTheOnlyMemberOfTheProjectsTeam()
+    public async Task Handle_CreatesNoTeamAndNoMembership_TheCreatorJoinsNothing()
     {
         var f = new Fixture();
 
-        var result = await f.HandleAsync(f.Command());
+        await f.HandleAsync(f.Command());
 
-        var firstTeam = f.StoredParts(result.Response.Id).Team;
-        var membership = Assert.Single(f.Store.TeamMemberships);
-        Assert.Equal((firstTeam.Id, f.Organization.Id, Subject), (membership.TeamId, membership.OrganizationId, membership.UserId));
-        Assert.Equal(1, f.Store.SaveCount);
+        Assert.Empty(f.Store.Teams);
+        Assert.Empty(f.Store.TeamMemberships);
+        Assert.Empty(f.Store.Links);
     }
 
-    // BE-CON-5 / plan-backend § 3.6 row 12 · the creator's membership ended between the scoped check and the flush: the route's
-    // scoped check admits only an administrator, so a creator with no membership here is exactly that window. The handler adds the
-    // first team's membership without looking, the composite key refuses it, and the whole creation rolls back with the
-    // organization's not-found — no project is created for a user who is no longer a member.
+    // The creator needs no membership for the handler to create: nothing depends on it any more.
     [Fact]
-    public async Task Handle_CreatorIsNotAMemberAnyMore_IsOrganizationNotFound_StoresNothing()
+    public async Task Handle_CreatorWithNoMembership_StillCreates()
     {
         var f = new Fixture(creatorIsAMember: false);
 
-        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command()));
-
-        Assert.Equal(OrganizationErrorCodes.OrganizationNotFound, refusal.Code);
-        Assert.Empty(f.Store.Projects);
-        Assert.Empty(f.Store.Teams);
-        Assert.Empty(f.Store.TeamMemberships);
-    }
-
-    // mod-016 US-3 · only the new project's team gains the creator; a later team of the project starts empty.
-    [Fact]
-    public async Task Handle_OnlyTheNewProjectsTeamGainsTheCreator()
-    {
-        var f = new Fixture();
-        var other = f.Store.AddProject(f.Organization, "Другой проект", "OTH");
-
         var result = await f.HandleAsync(f.Command());
 
-        var membership = Assert.Single(f.Store.TeamMemberships);
-        Assert.Equal(f.StoredParts(result.Response.Id).Team.Id, membership.TeamId);
-        Assert.NotEqual(other.Team.Id, membership.TeamId);
+        Assert.Equal(result.Response.Id, f.Store.Projects.Single().Id);
     }
 
-    // mod-016 plan-backend § 3.6 row 12 · the creator's membership ended mid-request: the database refuses the team membership
-    // through the composite key, the whole creation rolls back, and the answer is the organization's not-found.
+    // feat-028 US-2 · "description and teams in one operation": the description as typed, exactly the chosen teams linked (each
+    // recording the creator and the time), and no default named.
     [Fact]
-    public async Task Handle_CreatorsMembershipEndedMidRequest_IsOrganizationNotFound_StoresNothing()
+    public async Task Handle_WithDescriptionAndTeams_LinksExactlyThose_NoDefaultNamed()
     {
         var f = new Fixture();
-        f.Store.FailNextSave(new ConflictException(OrganizationErrorCodes.TeamMemberNotInOrganization));
+        var chosen = f.Store.AddTeam(f.Organization, "MARS");
+        var second = f.Store.AddTeam(f.Organization, "VENUS");
+        f.Store.AddTeam(f.Organization, "Не выбрана");
 
-        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command()));
+        var result = await f.HandleAsync(f.Command(description: " Описание\n", teamIds: [chosen.Id.ToString(), second.Id.ToString(), chosen.Id.ToString()]));
 
-        Assert.Equal(OrganizationErrorCodes.OrganizationNotFound, refusal.Code);
+        var project = f.StoredParts(result.Response.Id).Project;
+        Assert.Equal(" Описание\n", result.Response.Description);
+        Assert.Equal(new[] { chosen.Id, second.Id }.Order(), f.Store.Links.Where(link => link.ProjectId == project.Id).Select(link => link.TeamId).Order());
+        Assert.All(f.Store.Links, link => Assert.Equal((Subject, f.Clock.UtcNow), (link.LinkedBy, link.LinkedAt)));
+        Assert.Null(project.DefaultTeamId);
+        Assert.Equal(["lock teams share " + string.Join(",", new[] { chosen.Id, second.Id }.Order()), "save"], f.Store.Calls);
+    }
+
+    // feat-028 US-2 · "a choice that cannot be made": a team that is unknown, malformed, of another organization or deleted is
+    // team.not_found; nothing is created.
+    [Theory]
+    [InlineData("malformed")]
+    [InlineData("unknown")]
+    [InlineData("foreign")]
+    [InlineData("deleted")]
+    public async Task Handle_TeamNotAnActiveTeamOfTheOrganization_IsTeamNotFound_CreatesNothing(string how)
+    {
+        var f = new Fixture();
+        var foreign = f.Store.AddTeam(f.Store.AddOrganization("Другая"), "Чужая");
+        var gone = f.Store.AddTeam(f.Organization, "Удалена");
+        gone.Delete();
+        var id = how switch
+        {
+            "malformed" => "not-an-id",
+            "unknown" => Guid.CreateVersion7().ToString(),
+            "foreign" => foreign.Id.ToString(),
+            _ => gone.Id.ToString(),
+        };
+
+        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(teamIds: [id])));
+
+        Assert.Equal(OrganizationErrorCodes.TeamNotFound, refusal.Code);
         Assert.Empty(f.Store.Projects);
-        Assert.Empty(f.Store.TeamMemberships);
+        Assert.Empty(f.Store.Links);
+    }
+
+    // feat-028 US-2 · a description over 2 000 characters is a 400 beside the other field reasons.
+    [Fact]
+    public async Task Handle_DescriptionOver2000Characters_IsValidationFailed_WithEveryReason()
+    {
+        var f = new Fixture();
+
+        var refusal = await Assert.ThrowsAsync<ValidationException>(
+            () => f.HandleAsync(f.Command(name: " ", description: new string('я', 2001))));
+
+        Assert.Equal(OrganizationErrorCodes.NameLength, Assert.Single(refusal.Errors["name"]).Code);
+        Assert.Equal(OrganizationErrorCodes.DescriptionLength, Assert.Single(refusal.Errors["description"]).Code);
+        Assert.Empty(f.Store.Projects);
+    }
+
+    // D-7 · a project that links needs team.link and project.link, asked before any id is looked at.
+    [Fact]
+    public async Task Handle_TeamIdsWithoutTheLinkCodes_Is403_BeforeAnyIdIsLooked_At()
+    {
+        var f = new Fixture(role: OrganizationRole.Member);
+
+        var refusal = await Assert.ThrowsAsync<ForbiddenException>(() => f.HandleAsync(f.Command(teamIds: ["not-an-id"])));
+
+        Assert.Equal(OrganizationErrorCodes.AccessForbidden, refusal.Code);
+        Assert.Empty(f.Store.Projects);
     }
 
     // BR-M1-21: the creator is whoever the current user is at the time; two creations by two users keep two creators.
