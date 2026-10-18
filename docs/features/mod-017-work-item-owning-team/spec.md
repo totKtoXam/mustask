@@ -54,7 +54,7 @@ flowchart TD
     W --> V["Team views hold what the team owns, project views every item; the team filter narrows a project view or the list"]
     N(["An administrator names the default team"]) --> N1{"A team of the project?"}
     N1 -->|no| N2["Refused as T1 or T2; the setting is as before"]
-    N1 -->|yes| N3["Setting stored; it only starts new items (C2, C5)"]
+    N1 -->|yes| N3["Setting stored; it starts new items (C2, C5) and, when no team is chosen, is the team the team views' switcher opens (BR-OT-11). Amended by mod-020, 2026-10-18, OQ-8 B: it was «it only starts new items»"]
     D(["An administrator deletes a team"]) --> D1{"Another team left in the project?"}
     D1 -->|no| D1x["«Нельзя удалить единственную команду проекта.»"]
     D1 -->|yes| D2{"Confirmed after the count?"}
