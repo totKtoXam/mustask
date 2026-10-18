@@ -3,7 +3,7 @@
 - type: docs
 - size: M
 - branch: doc/013-navigation-earlier
-- stage: 01-business-analysis
+- stage: 02-requirements-review
 - epic: product/analysis
 - deps: -
 - gates: gate-1, gate-3
@@ -38,6 +38,8 @@ orchestrator rewords the queue lines in a separate queue commit to main.
 
 - 2026-10-18 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/doc-013-navigation-earlier
 - 2026-10-18 [orchestrator] route M docs (queue size), light route, confirmed by the human in chat («⭐ M, после mod-018»); queue line taken in its own sync PR (Sync main: take doc-013).
+- 2026-10-18 [business-analyst] bound to the checkout C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/feat-028-org-level-teams on branch doc/013-navigation-earlier (git branch --show-current, git rev-parse --show-toplevel), not the worktree named above.
+- 2026-10-18 [business-analyst] spec.md + the doc-012 / stories / ADR edits (5535923c); OQ-1..OQ-6 left for the human at gate-1, each going on with the recommendation.
 
 ## Notes
 
