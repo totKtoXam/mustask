@@ -6,10 +6,8 @@ import {
   projectScope,
   readName,
   readProjects,
-  scopeOwnerId,
   scopeProjectId,
   scopeTeamId,
-  startTeamOf,
   teamScope,
   type SurfaceRead,
 } from './scope';
@@ -31,8 +29,6 @@ describe('the scope', () => {
     expect(scopeProjectId(teamScope('t1'))).toBeNull();
     expect(scopeTeamId(projectScope('p1'))).toBeNull();
     expect(scopeProjectId(projectScope('p1'))).toBe('p1');
-    expect(scopeOwnerId(teamScope('t1'))).toBe('t1');
-    expect(scopeOwnerId(projectScope('p1'))).toBe('p1');
     expect(projectScope('p1')).toEqual({ kind: 'project', projectId: 'p1' });
   });
 });
@@ -142,12 +138,5 @@ describe('creationSurface', () => {
     expect(creationSurface(projectBacklog)).toEqual({ level });
     expect(creationSurface(projectBoard)).toEqual({ level });
     expect(creationSurface(undefined)).toBeUndefined();
-  });
-});
-
-describe('startTeamOf', () => {
-  it('is the team of a team’s scope, and none for the project’s: the dialog takes its default team (BR-OT-3)', () => {
-    expect(startTeamOf(teamScope('t1'))).toBe('t1');
-    expect(startTeamOf(projectScope('p1'))).toBeUndefined();
   });
 });

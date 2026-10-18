@@ -28,47 +28,11 @@ export function useCreateWorkItem(organizationId: string, projectId: string) {
   });
 }
 
-/**
- * § 2.4 with `{ stateId }` alone, for any item of the project: mod-006's card
- * move (its api-contract § 6) — the same write as choosing the state on the
- * form, with the same cache updates.
- */
-export function useSetWorkItemState(organizationId: string, projectId: string) {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: ({ identifier, stateId }: { identifier: string; stateId: string }) =>
-      saveWorkItem(organizationId, projectId, identifier, { stateId }),
-    onSuccess: (item) => {
-      client.setQueryData(keys.item(organizationId, projectId, item.identifier), item);
-      return client.invalidateQueries({ queryKey: keys.lists(organizationId, projectId) });
-    },
-  });
-}
-
-/**
- * feat-001 § 3.2 for any item of the project: mod-006's backlog maps a row's
- * parent with it (BR-H-14). A write touches the child and its old and new
- * parents — their «Изменён», their `parent` and `children` — so every item
- * the form has read in the project, and every page of the list, is read
- * again when next shown. A refusal changes nothing.
- */
-export function useSetWorkItemParent(organizationId: string, projectId: string) {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: ({ identifier, change }: { identifier: string; change: ParentChange }) =>
-      setWorkItemParent(organizationId, projectId, identifier, change),
-    onSuccess: () =>
-      Promise.all([
-        client.invalidateQueries({ queryKey: keys.items(organizationId, projectId) }),
-        client.invalidateQueries({ queryKey: keys.lists(organizationId, projectId) }),
-      ]),
-  });
-}
-
 // feat-040 BR-TS-5: a team's backlog and board hold items of several projects, and every write of
-// an item goes to the item's own project, never the page's. These are the three writes above with
-// the project named per call; the project's own pages pass the same value as the row's, so one
-// mechanism serves both.
+// an item goes to the item's own project, never the page's. The backlog's and the board's writes
+// below name the project per call; the project's own pages pass the same value as the row's, so one
+// mechanism serves both. They replace the per-project `useSetWorkItemState` and
+// `useSetWorkItemParent`, which no page uses any more.
 
 /** `useCreateWorkItem`, the project named per call: a row's «+» and a card's «Добавить задачу» create in the parent's. */
 export function useCreateWorkItemIn(organizationId: string) {
@@ -83,7 +47,11 @@ export function useCreateWorkItemIn(organizationId: string) {
   });
 }
 
-/** `useSetWorkItemState`, the project named per call: a card move writes the state in the item's project. */
+/**
+ * § 2.4 with `{ stateId }` alone, for any item, in the item's own project: mod-006's card move (its
+ * api-contract § 6) and a checklist tick — the same write as choosing the state on the form, with
+ * the same cache updates.
+ */
 export function useSetWorkItemStateIn(organizationId: string) {
   const client = useQueryClient();
   return useMutation({
@@ -103,7 +71,13 @@ export function useSetWorkItemStateIn(organizationId: string) {
   });
 }
 
-/** `useSetWorkItemParent`, the project named per call: a parent of another project is never offered or sent. */
+/**
+ * feat-001 § 3.2 for any item, in the item's own project (a parent of another project is never offered
+ * or sent): mod-006's backlog maps a row's parent with it (BR-H-14). A write touches the child and
+ * its old and new parents — their «Изменён», their `parent` and `children` — so every item the form
+ * has read in the project, and every page of the list, is read again when next shown. A refusal
+ * changes nothing.
+ */
 export function useSetWorkItemParentIn(organizationId: string) {
   const client = useQueryClient();
   return useMutation({

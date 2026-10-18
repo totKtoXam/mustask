@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { TeamFilter } from '../../workitems';
+import type { BoardProject } from '../api/boardsApi';
 import { readProjects, type BoardScope, type SurfaceRead } from '../lib/scope';
 import { FilterRow } from './FilterRow';
 import { ProjectFilter } from './ProjectFilter';
@@ -33,6 +35,14 @@ export function ViewFilterRow({
   };
   onChange(values: string[]): void;
 }) {
+  // The team's projects do not depend on the filter, so the last ones read stay the options while a
+  // re-read of the view fails or is pending: the open list keeps its choices (design § 4.2 speaks of the
+  // first read only). A render-phase update, as the rest of this slice's pages keep what they last read.
+  const fresh = readProjects(read.data);
+  const [kept, setKept] = useState<readonly BoardProject[] | undefined>(fresh);
+  if (fresh !== undefined && fresh !== kept) {
+    setKept(fresh);
+  }
   const active = filterIds.length > 0;
   if (scope.kind === 'project') {
     return (
@@ -46,7 +56,7 @@ export function ViewFilterRow({
       </FilterRow>
     );
   }
-  const projects = readProjects(read.data);
+  const projects = fresh ?? kept;
   if (!active && projects !== undefined && projects.length === 0) {
     return null;
   }
@@ -54,7 +64,7 @@ export function ViewFilterRow({
     <FilterRow active={active} onClear={() => onChange([])}>
       <ProjectFilter
         projects={projects}
-        failed={read.failed}
+        failed={read.failed && projects === undefined}
         value={filterIds}
         onOpen={() => {
           if (read.failed) {

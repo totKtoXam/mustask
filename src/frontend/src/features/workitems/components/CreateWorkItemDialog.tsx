@@ -266,13 +266,16 @@ export function CreateWorkItemDialog({
       : (teamDropped ?? (team !== undefined ? backlogCaption(team?.name ?? null) : null));
   const captionShown = chosenType?.onBacklog === true && caption !== null;
   // The options of «Команда»: the project’s teams; the view’s team alone while no project is
-  // chosen or its teams are not read yet (it is the team shown, and is read-only or busy then).
+  // chosen or its teams are not read yet (it is the team shown, and is read-only or busy then). A
+  // failed read has none, so the list says so (design § 6.4) and opening it reads them again.
   const teamChoices: readonly { id: string; name: string }[] | undefined =
     teamPlace === null
       ? teams.data
       : noProjectChosen
         ? [teamPlace.team]
-        : (teams.data ?? [teamPlace.team]);
+        : teamsFailed
+          ? undefined
+          : (teams.data ?? [teamPlace.team]);
 
   return (
     <FormDialog
@@ -289,9 +292,8 @@ export function CreateWorkItemDialog({
         <Typography variant="body2" color="text.secondary">
           {noProjectAreaLine(stateName)}
         </Typography>
-      ) : projectId === undefined ? (
-        <Skeleton variant="text" aria-hidden="true" />
-      ) : treeLoading ? (
+      ) : projectId === undefined || treeLoading ? (
+        // No project yet (the projects are being read), or the chosen project's tree is.
         <Skeleton variant="text" aria-hidden="true" />
       ) : tree.isError ? (
         <Alert

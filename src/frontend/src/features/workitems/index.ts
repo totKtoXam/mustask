@@ -16,9 +16,8 @@ export { AssigneeAvatar, AssigneeName, StateName, TypeName } from './components/
 // same words as the list's «Исполнитель».
 export { UNKNOWN_USER_LABEL, assigneeLabel } from './lib/assignee';
 export { NEW_WORK_ITEM_LABEL, TypePickerMenu } from './components/TypePickerMenu';
-export { useCreateWorkItem, useSetWorkItemState } from './hooks/mutations';
-// feat-040: the same writes with the item's own project named per call, for a team's views, which hold
-// the items of several projects.
+// feat-040: the backlog's and the board's writes name the item's own project per call (a team's views
+// hold the items of several projects): a create beneath a parent, a state, a parent.
 export {
   useCreateWorkItemIn,
   useSetWorkItemParentIn,
@@ -28,7 +27,6 @@ export {
 // with this slice's parent write and its «Родитель» picker (BR-H-14), and
 // links a row's «Родитель» to the parent's form.
 export { ParentPicker } from './components/ParentPicker';
-export { useSetWorkItemParent } from './hooks/mutations';
 export type { CreatableType } from './lib/process';
 export type {
   ParentChange,

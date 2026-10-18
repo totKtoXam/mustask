@@ -33,11 +33,6 @@ export function scopeProjectId(scope: BoardScope): string | null {
   return scope.kind === 'project' ? scope.projectId : null;
 }
 
-/** The scope's owner: the team's id or the project's, whichever the page is of — what keys a page. */
-export function scopeOwnerId(scope: BoardScope): string {
-  return scope.kind === 'team' ? scope.teamId : scope.projectId;
-}
-
 /** The two filters a page's address can carry, each as the values it holds. */
 export interface AddressFilters {
   teamIds: readonly string[];
@@ -56,14 +51,6 @@ export function filterIdsOf(scope: BoardScope, fromAddress: AddressFilters): rea
 
 /** A backlog's or a board's answer under either scope: `team` on a team's, `project` on the project's. */
 export type SurfaceRead = Backlog | ProjectBacklog | Board | ProjectBoard;
-
-/**
- * What a creation starts with (mod-017 BR-OT-3): on a team's backlog or board, that team; on
- * the project's, nothing — the dialog takes the project's default team.
- */
-export function startTeamOf(scope: BoardScope): string | undefined {
-  return scope.kind === 'team' ? scope.teamId : undefined;
-}
 
 /** The name the head's `h1` reads from the answer: the team's, or the project's (design § 3.3). */
 export function readName(read: SurfaceRead | undefined): string | undefined {
