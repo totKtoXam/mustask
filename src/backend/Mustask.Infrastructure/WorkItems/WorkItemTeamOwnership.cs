@@ -26,7 +26,9 @@ internal sealed class WorkItemTeamOwnership(MustaskDbContext context) : IWorkIte
 
         var ids = projectIds.Distinct().ToArray();
 
-        return await context.WorkItems
+        // Every state, as the unlink's count is (feat-028 SC-09, doc-012 BR-MX-12): a deleted item is owned until a release moves
+        // it, so the deletion's counts say what the deletion would release, deleted items included (mod-005 BR-DR-9).
+        return await WorkItemSets.InAnyState(context)
             .AsNoTracking()
             .Where(item => item.OwningTeamId == teamId && ids.Contains(item.ProjectId))
             .GroupBy(item => item.ProjectId)
