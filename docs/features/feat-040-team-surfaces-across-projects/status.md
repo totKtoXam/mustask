@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/040-team-surfaces-across-projects
-- stage: 02-requirements-review
+- stage: gate-1+gate-2
 - epic: core/backlogs-boards
 - deps: feat-028
 - gates: gate-1, gate-2, gate-3
@@ -58,6 +58,10 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
   reads doc-013 OQ-3 A as dropping it.
 - mod-017 OQ-3 A: «Проект» on rows and cards comes with this line, on every
   team and project view, as doc-012 US-7 reads (BR-TS-3).
+- Design (2026-10-18): D-1..D-7 of `design.md` § 15 are open for the package,
+  each with a recommended option A; the design stands on A. The prototype
+  follows the stage file's rule for an L. No code before the human's answers
+  to OQ-1..OQ-3 and D-1..D-7.
 
 ## Log
 
@@ -66,6 +70,7 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-18 [business-analyst] spec.md + US-1..US-7; OQ-1..OQ-3 left for the human at gate-1, each going on with A (OQ-3 A spins the 2 000 drawing bound out into its own line). No split of this L; stage → 02-requirements-review.
 - 2026-10-18 [requirements-reviewer] the one round of the light route: approved-by-ai, R-1, R-2 major and R-3..R-12 minor, all fixed in place in spec.md and US-1, -2, -3, -5, -6 (review.md); OQ-1..OQ-3 go to the human with the gate package.
 - 2026-10-18 [business-analyst] fix round: R-1..R-12 all stand; R-1, R-3, R-7 worded tighter; A-1 major (tests and clauses R-2 missed) and A-2 minor (today's fallback notice kept) fixed in spec.md and US-6 (review.md). OQ-1..OQ-3 unchanged, none added.
+- 2026-10-18 [ux-designer] design.md (32.3 KB) + prototype/index.html; D-1..D-7 open, each with a recommended A. Package for the human: OQ-1..OQ-3, D-1..D-7; stage gate-1+gate-2. No gate set.
 
 ## Notes
 
