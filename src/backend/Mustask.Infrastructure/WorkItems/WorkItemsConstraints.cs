@@ -33,6 +33,29 @@ internal static class WorkItemsConstraints
     /// <summary>mod-017 BR-OT-13: the owner key of an item, whose violation is a team that is no longer there.</summary>
     public const string OwningTeamKey = "fk_work_items_teams_project_id_owning_team_id";
 
+    /// <summary>
+    /// mod-005 (ADR-0030 rule 1): the deletion's three marks are all-or-none. A row in «Удалена» may still carry none (put
+    /// there outside Delete); a live row never carries any, which the aggregate keeps and this check cannot see (the state's
+    /// category is another table's).
+    /// </summary>
+    public const string DeletionMarksCheck = "ck_work_items_deletion_marks";
+
+    public const string DeletionMarksSql =
+        "(deleted_from_state_id IS NULL AND deleted_by IS NULL AND deleted_at IS NULL) "
+        + "OR (deleted_from_state_id IS NOT NULL AND deleted_by IS NOT NULL AND deleted_at IS NOT NULL)";
+
+    /// <summary>
+    /// mod-005: the state a deleted item remembers. <c>Restrict</c>, so a release-3 removal of a state is refused while an
+    /// item remembers it, as while one is in it (doc-001 BR-14 (b)).
+    /// </summary>
+    public const string DeletedFromStateKey = "fk_work_items_state_definitions_deleted_from_state_id";
+
+    /// <summary>
+    /// mod-005 (plan-backend D-P6): partial — only the few deleted rows are in it. It serves the key's own restrict check
+    /// and release 3's "does a deleted item remember this state"; a full index would carry a null per live row.
+    /// </summary>
+    public const string DeletedFromStateIndex = "ix_work_items_deleted_from_state_id";
+
     public const string NumberPositive = "ck_work_items_number_positive";
 
     /// <summary>feat-001 BR-H-2: an item is never its own parent.</summary>
