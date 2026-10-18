@@ -28,9 +28,10 @@ public static class WorkItemAddress
             throw new NotFoundException(OrganizationErrorCodes.OrganizationNotFound);
         }
 
+        // feat-028 D-11: the contract takes the organization and answers null for another organization's project, so the address
+        // check is the lookup itself and no caller compares the organization afterwards.
         if (!AddressedId.TryParse(projectId, out var project)
-            || await structure.FindProjectAsync(project, cancellationToken) is not { IsReachable: true } found
-            || found.OrganizationId != organization)
+            || await structure.FindProjectAsync(organization, project, cancellationToken) is not { IsReachable: true } found)
         {
             throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
         }

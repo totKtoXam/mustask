@@ -80,16 +80,24 @@ public sealed class WorldStructure(WorkItemWorld world) : IOrganizationStructure
     public Task<OrganizationInfo?> FindOrganizationAsync(Guid organizationId, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
 
-    public Task<ProjectInfo?> FindProjectAsync(Guid projectId, CancellationToken cancellationToken) =>
+    // feat-028 D-11: the read takes the organization and answers null for another organization's project.
+    public Task<ProjectInfo?> FindProjectAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken) =>
         Task.FromResult<ProjectInfo?>(
-            projectId == world.ProjectId
+            organizationId == world.OrganizationId && projectId == world.ProjectId
                 ? new ProjectInfo(
                     world.ProjectId, world.OrganizationId, "Мастаск", WorkItemWorld.ProjectKey, ProjectStatus.Active, true, null, world.RootAreaId, "creator-sub", DateTimeOffset.UnixEpoch)
                 : null);
 
-    public Task<TeamInfo?> FindTeamAsync(Guid teamId, CancellationToken cancellationToken) => throw new NotSupportedException();
+    public Task<TeamInfo?> FindTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
-    public Task<IReadOnlyList<TeamInfo>> ListActiveTeamsAsync(Guid projectId, CancellationToken cancellationToken) => throw new NotSupportedException();
+    public Task<ProjectTeamInfo?> FindProjectTeamAsync(Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+
+    public Task<IReadOnlyList<TeamInfo>> ListLinkedTeamsAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+
+    public Task<IReadOnlyList<LinkedProjectInfo>> ListLinkedProjectsAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
 }
 
 public sealed class FakeProcessReadModel(ProcessDefinitionRow process) : IProcessDefinitionReadModel
@@ -113,9 +121,11 @@ public sealed class FakeWorkItemRepository(WorkItemWorld world) : IWorkItemRepos
 
     public bool Removed { get; private set; }
 
-    public Task LockTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) => throw new NotSupportedException();
+    public Task<bool> LockTeamLinkAsync(Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
 
-    public Task<Guid?> LockDefaultTeamAsync(Guid projectId, CancellationToken cancellationToken) => throw new NotSupportedException();
+    public Task<Guid?> LockProjectLinksAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
 
     public Task LockNumberSequenceAsync(Guid projectId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
@@ -258,6 +268,8 @@ public sealed class WorldTeamPlaces(WorkItemWorld world) : ITeamBacklogPlaces
     }
 
     public Task DropForTeamAsync(Guid teamId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+    public Task DropForTeamInProjectAsync(Guid teamId, Guid projectId, CancellationToken cancellationToken) => throw new NotSupportedException();
 }
 
 /// <summary>A purge step that writes its calls into the world's log and can be made to refuse or to fail.</summary>

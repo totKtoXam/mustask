@@ -207,7 +207,7 @@ public sealed class ProjectBacklogMemberLockTests(OrganizationsDatabaseFixture d
                 ("type", type.Id),
                 ("state", state),
                 ("area", structure.Project.Root.Id),
-                ("team", structure.Project.Team.Id));
+                ("team", structure.FirstTeam.Id));
         }
 
         var scope = ProjectBacklogScope.Of(project, story.BacklogLevelId, process.WorkItemTypes.Where(type => type.BacklogLevelId == story.BacklogLevelId));

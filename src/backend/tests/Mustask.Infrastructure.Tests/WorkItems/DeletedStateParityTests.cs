@@ -298,7 +298,7 @@ public sealed class DeletedStateParityTests(OrganizationsDatabaseFixture databas
             """,
             ("project", project),
             ("area", structure.Project.Root.Id),
-            ("team", structure.Project.Team.Id),
+            ("team", structure.FirstTeam.Id),
             ("organization", organization));
 
         var process = await ReadProcessAsync(organization);
@@ -331,7 +331,7 @@ public sealed class DeletedStateParityTests(OrganizationsDatabaseFixture databas
             ("project", project),
             ("children", children.ToArray()));
 
-        return new World(project, structure.Project.Team.Id, parent, process, all, live, deleted, children, typeOf);
+        return new World(project, structure.FirstTeam.Id, parent, process, all, live, deleted, children, typeOf);
     }
 
     private async Task<ProcessDefinitionRow> ReadProcessAsync(Guid organizationId)

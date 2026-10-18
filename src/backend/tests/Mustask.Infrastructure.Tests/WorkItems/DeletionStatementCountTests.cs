@@ -163,7 +163,7 @@ public sealed class DeletionStatementCountTests(OrganizationsDatabaseFixture dat
             ("taskType", Guid.Parse(row["TASK"][1])),
             ("taskState", Guid.Parse(row["TASK"][2])),
             ("root", structure.Project.Root.Id),
-            ("team", structure.Project.Team.Id),
+            ("team", structure.FirstTeam.Id),
             ("items", items));
         await database.ExecuteAsync(
             """
@@ -176,7 +176,7 @@ public sealed class DeletionStatementCountTests(OrganizationsDatabaseFixture dat
             ("type", Guid.Parse(row[targetKey][1])),
             ("state", Guid.Parse(row[targetKey][2])),
             ("root", structure.Project.Root.Id),
-            ("team", structure.Project.Team.Id));
+            ("team", structure.FirstTeam.Id));
 
         if (children > 0)
         {
@@ -193,7 +193,7 @@ public sealed class DeletionStatementCountTests(OrganizationsDatabaseFixture dat
                 ("taskType", Guid.Parse(row["TASK"][1])),
                 ("taskState", Guid.Parse(row["TASK"][2])),
                 ("root", structure.Project.Root.Id),
-                ("team", structure.Project.Team.Id),
+                ("team", structure.FirstTeam.Id),
                 ("children", children));
         }
 
