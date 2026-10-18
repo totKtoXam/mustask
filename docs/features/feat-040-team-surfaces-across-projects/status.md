@@ -76,7 +76,7 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-18 [business-analyst] fix round: R-1..R-12 all stand; R-1, R-3, R-7 worded tighter; A-1 major (tests and clauses R-2 missed) and A-2 minor (today's fallback notice kept) fixed in spec.md and US-6 (review.md). OQ-1..OQ-3 unchanged, none added.
 - 2026-10-18 [ux-designer] design.md (32.3 KB) + prototype/index.html; D-1..D-7 open, each with a recommended A. Package for the human: OQ-1..OQ-3, D-1..D-7; stage gate-1+gate-2. No gate set.
 - 2026-10-18 [orchestrator] the human answered in chat, one question per open question and per design decision: OQ-1..OQ-3 A, D-1..D-7 A. gate-1 and gate-2 approved; stage → 04-backend. OQ-3 A's line is queued by the orchestrator's queue PR.
-- 2026-10-18 [backend-developer] origin/main merged in (mod-005, feat-028; no conflict). Plan pass (deep, L): `plan-backend.md` + `api-contract.md` fixed, no code. The team's three routes move to `/api/organizations/{o}/teams/{t}/…` (project-nested ones retired, 404 `http.not_found`, no alias); `projectId` repeated filter; `projects` on both reads; `project` on every row/card of team and project views and on the `WorkItem` detail; `isMember` on `GET /teams`; one index migration; reorder locks team → members → order row (no link or project lock); no lanes, no ADR, no new code or permission; nothing for the human. Additive fields beyond the spec's list: `WorkItem.project`, `TeamListItem.isMember` (api-contract § 4).
+- 2026-10-18 [backend-developer] main merged in; plan pass (L): `plan-backend.md` + `api-contract.md` fixed, no code, no lanes, no ADR, nothing for the human. Additive beyond the spec: `WorkItem.project`, `TeamListItem.isMember` (api-contract § 4).
 
 ## Notes
 
