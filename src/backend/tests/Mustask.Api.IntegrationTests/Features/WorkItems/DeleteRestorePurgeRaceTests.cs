@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using Mustask.Api.IntegrationTests.Features.Boards;
 using Mustask.Api.IntegrationTests.Features.Organizations;
+using Npgsql;
 
 namespace Mustask.Api.IntegrationTests.Features.WorkItems;
 
@@ -31,9 +32,13 @@ public sealed class DeleteRestorePurgeRaceTests(MustaskApiFactory factory)
     private Task<Answer> PurgeAsync(WorkItemsWorld world, Item item, CommitGate? gate = null) =>
         OrganizationsApi.SendAsync(factory, HttpMethod.Post, $"{WorkItemsTestData.Item(world, item.Identifier)}/purge", null, OrganizationsTokens.SignedIn(), gate);
 
+    // feat-028: a team belongs to the organization, and its deletion is at the organization's address.
     private Task<Answer> DeleteTeamAsync(BoardsWorld world, Guid teamId, CommitGate? gate = null) =>
-        OrganizationsApi.SendAsync(
-            factory, HttpMethod.Delete, $"{OrganizationsApi.Teams(world.OrganizationId, world.ProjectId)}/{teamId}", null, OrganizationsTokens.SignedIn(), gate);
+        TeamTestData.DeleteTeamAsync(factory, world.OrganizationId, teamId, gate: gate);
+
+    // feat-028: an unlink takes a team off one project and names where its items go (a team, or «Без команды»).
+    private Task<Answer> UnlinkAsync(BoardsWorld world, Guid teamId, Guid? destination, CommitGate? gate = null) =>
+        TeamTestData.UnlinkAsync(factory, world.OrganizationId, world.ProjectId, teamId, TeamTestData.To(destination), gate: gate);
 
     private Task<Answer> ReleaseLinkAsync(WorkItemsWorld world, Item child, Item seenParent, CommitGate? gate = null) =>
         WorkItemsTestData.SaveAsync(
@@ -636,5 +641,237 @@ public sealed class DeleteRestorePurgeRaceTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, deleted2.Status);
         LinksTestData.AssertRefused(mapped, HttpStatusCode.Conflict, "workitems.link.item_deleted");
         Assert.Null(await LinksTestData.StoredParentAsync(factory, story));
+    }
+
+    // --- A team's unlink and deletion against Delete, Restore and Purge (feat-028 merge; BR-DR-9, BR-DR-10, BR-DR-11) --------
+    //
+    // The clean-ups lock the items a team owns FOR UPDATE by id, in any state, so every pair is ordered by the item's row: the request
+    // that comes second waits, then decides on what it finds. «Платформа» is the team that is unlinked or deleted; «Мастаск» is the
+    // unlink's destination. A deleted item stays deleted whichever came first; its owner is whatever the clean-up left.
+
+    /// <summary>A story «Платформа» owns, in «Удалена» when asked, and a live story it owns too (so the clean-up has more than one row).</summary>
+    private async Task<(BoardsWorld World, Item Story, Item Live)> TeamStoryAsync(bool deleted, string state = "Новая")
+    {
+        var (world, story) = await StoryAsync(deleted, state);
+        var live = await BoardsTestData.CreateAsync(factory, world, "US", "Живая", world.PlatformAreaId);
+
+        return (world, story, live);
+    }
+
+    private async Task<Guid?> OwnerAsync(BoardsWorld world, Item item) =>
+        (await OwningTeamTestData.StoredAsync(factory, world.ProjectId, item.Identifier)).TeamId;
+
+    private async Task AssertConsistentAsync(BoardsWorld world) =>
+        Assert.Equal(0, await OwningTeamTestData.PlacesNamingAnotherTeamAsync(factory, world.ProjectId));
+
+    // Unlink ∥ Delete, the unlink first: the delete waits on the item's row, then deletes an item the destination owns.
+    [Fact]
+    public async Task Unlink_Versus_Delete_UnlinkFirst_TheDeleteWaits_ThenDeletesAnItemTheDestinationOwns()
+    {
+        var (world, story, live) = await TeamStoryAsync(deleted: false, state: "Активна");
+
+        var (unlinked, deleted) = await RaceAsync(gate => UnlinkAsync(world, world.PlatformId, world.ProjectTeamId, gate), () => DeleteAsync(world.Items, story));
+
+        Assert.Equal(HttpStatusCode.NoContent, unlinked.Status);
+        Assert.Equal(HttpStatusCode.OK, deleted.Status);
+        Assert.Equal(world.ProjectTeamId, OwningTeamTestData.TeamOf(deleted.Body)?.Id);
+        Assert.Equal("Активна", deleted.Body.GetProperty("deletion").GetProperty("fromState").GetProperty("name").GetString());
+        Assert.Equal((world.ProjectTeamId, world.ProjectTeamId), (await OwnerAsync(world, story), await OwnerAsync(world, live)));
+        await AssertConsistentAsync(world);
+    }
+
+    // The delete first: the unlink waits, then reassigns the item that is now in «Удалена»; its marks and state are the delete's.
+    [Fact]
+    public async Task Unlink_Versus_Delete_DeleteFirst_TheUnlinkWaits_ThenReassignsTheDeletedItem_MarksUntouched()
+    {
+        var (world, story, live) = await TeamStoryAsync(deleted: false, state: "Активна");
+
+        var (deleted, unlinked) = await RaceAsync(gate => DeleteAsync(world.Items, story, gate: gate), () => UnlinkAsync(world, world.PlatformId, world.ProjectTeamId));
+
+        Assert.Equal(HttpStatusCode.OK, deleted.Status);
+        Assert.Equal(HttpStatusCode.NoContent, unlinked.Status);
+        var item = await WorkItemsTestData.ReadAsync(factory, world.Items, story.Identifier);
+        Assert.Equal(("Removed", world.ProjectTeamId), (CategoryOf(item), OwningTeamTestData.TeamOf(item)?.Id));
+        Assert.Equal(deleted.Body.GetProperty("deletion").GetRawText(), item.GetProperty("deletion").GetRawText());
+        Assert.Equal(world.ProjectTeamId, await OwnerAsync(world, live));
+        await AssertConsistentAsync(world);
+    }
+
+    // Unlink ∥ Restore, the unlink first: the restore waits, then brings the item back owned by the destination (BR-DR-10).
+    [Fact]
+    public async Task Unlink_Versus_Restore_UnlinkFirst_TheRestoreWaits_ThenBringsTheItemBackOwnedByTheDestination()
+    {
+        var (world, story, _) = await TeamStoryAsync(deleted: true, state: "Активна");
+
+        var (unlinked, restored) = await RaceAsync(gate => UnlinkAsync(world, world.PlatformId, world.ProjectTeamId, gate), () => RestoreAsync(world.Items, story));
+
+        Assert.Equal(HttpStatusCode.NoContent, unlinked.Status);
+        Assert.Equal(HttpStatusCode.OK, restored.Status);
+        Assert.Equal((world.ProjectTeamId, "InProgress"), (OwningTeamTestData.TeamOf(restored.Body)?.Id, CategoryOf(restored.Body)));
+        await AssertConsistentAsync(world);
+    }
+
+    // The restore first: the unlink waits, then reassigns the live item with the rest.
+    [Fact]
+    public async Task Unlink_Versus_Restore_RestoreFirst_TheUnlinkWaits_ThenReassignsTheRestoredItem()
+    {
+        var (world, story, live) = await TeamStoryAsync(deleted: true, state: "Активна");
+
+        var (restored, unlinked) = await RaceAsync(gate => RestoreAsync(world.Items, story, gate), () => UnlinkAsync(world, world.PlatformId, world.ProjectTeamId));
+
+        Assert.Equal(HttpStatusCode.OK, restored.Status);
+        Assert.Equal(HttpStatusCode.NoContent, unlinked.Status);
+        var item = await WorkItemsTestData.ReadAsync(factory, world.Items, story.Identifier);
+        Assert.Equal(("InProgress", world.ProjectTeamId), (CategoryOf(item), OwningTeamTestData.TeamOf(item)?.Id));
+        Assert.Equal(world.ProjectTeamId, await OwnerAsync(world, live));
+        await AssertConsistentAsync(world);
+    }
+
+    // Unlink ∥ Purge, the unlink first: the purge (its early read saw the item deleted) waits on the row, then removes the item the
+    // destination now owns; the live item went with the unlink.
+    [Fact]
+    public async Task Unlink_Versus_Purge_UnlinkFirst_ThePurgeWaits_ThenRemovesTheReassignedItem()
+    {
+        var (world, story, live) = await TeamStoryAsync(deleted: true);
+
+        var (unlinked, purged) = await RaceAsync(gate => UnlinkAsync(world, world.PlatformId, world.ProjectTeamId, gate), () => PurgeAsync(world.Items, story));
+
+        Assert.Equal(HttpStatusCode.NoContent, unlinked.Status);
+        Assert.Equal(HttpStatusCode.NoContent, purged.Status);
+        LinksTestData.AssertRefused(await WorkItemsTestData.GetAsync(factory, world.Items, story.Identifier), HttpStatusCode.NotFound, "workitems.workitem.not_found");
+        Assert.Equal(world.ProjectTeamId, await OwnerAsync(world, live));
+        await AssertConsistentAsync(world);
+    }
+
+    // The purge first: the unlink waits on the item's row, then finds it gone and reassigns what is left.
+    [Fact]
+    public async Task Unlink_Versus_Purge_PurgeFirst_TheUnlinkWaits_ThenReassignsWhatIsLeft()
+    {
+        var (world, story, live) = await TeamStoryAsync(deleted: true);
+
+        var (purged, unlinked) = await RaceAsync(gate => PurgeAsync(world.Items, story, gate), () => UnlinkAsync(world, world.PlatformId, world.ProjectTeamId));
+
+        Assert.Equal(HttpStatusCode.NoContent, purged.Status);
+        Assert.Equal(HttpStatusCode.NoContent, unlinked.Status);
+        LinksTestData.AssertRefused(await WorkItemsTestData.GetAsync(factory, world.Items, story.Identifier), HttpStatusCode.NotFound, "workitems.workitem.not_found");
+        Assert.Equal(world.ProjectTeamId, await OwnerAsync(world, live));
+        await AssertConsistentAsync(world);
+    }
+
+    // A team's deletion ∥ Restore, the deletion first: the restore waits, then brings back an item that no team owns (BR-DR-10).
+    [Fact]
+    public async Task TeamDeletion_Versus_Restore_DeletionFirst_TheRestoreWaits_ThenBringsTheItemBackOwnedByNobody()
+    {
+        var (world, story, live) = await TeamStoryAsync(deleted: true, state: "Активна");
+
+        var (teamDeleted, restored) = await RaceAsync(gate => DeleteTeamAsync(world, world.PlatformId, gate), () => RestoreAsync(world.Items, story));
+
+        Assert.Equal(HttpStatusCode.NoContent, teamDeleted.Status);
+        Assert.Equal(HttpStatusCode.OK, restored.Status);
+        Assert.Equal((JsonValueKind.Null, "InProgress"), (restored.Body.GetProperty("team").ValueKind, CategoryOf(restored.Body)));
+        Assert.Null(await OwnerAsync(world, live));
+        await AssertConsistentAsync(world);
+    }
+
+    // The restore first: the deletion waits, then releases the restored (live) item with the rest.
+    [Fact]
+    public async Task TeamDeletion_Versus_Restore_RestoreFirst_TheDeletionWaits_ThenReleasesTheRestoredItem()
+    {
+        var (world, story, live) = await TeamStoryAsync(deleted: true, state: "Активна");
+
+        var (restored, teamDeleted) = await RaceAsync(gate => RestoreAsync(world.Items, story, gate), () => DeleteTeamAsync(world, world.PlatformId));
+
+        Assert.Equal(HttpStatusCode.OK, restored.Status);
+        Assert.Equal(HttpStatusCode.NoContent, teamDeleted.Status);
+        var item = await WorkItemsTestData.ReadAsync(factory, world.Items, story.Identifier);
+        Assert.Equal((JsonValueKind.Null, "InProgress"), (item.GetProperty("team").ValueKind, CategoryOf(item)));
+        Assert.Null(await OwnerAsync(world, live));
+        await AssertConsistentAsync(world);
+    }
+
+    // --- The project row against the items (the one lock-order cycle the merge made) --------------------------------------------
+    //
+    // A project backlog's reorder takes the project row FOR SHARE first and then its members FOR KEY SHARE (mod-005 plan-backend
+    // § 7.5); an unlink or a deletion of the project's named default team takes the team's items FOR UPDATE and clears the setting
+    // on the project row (feat-028 plan-backend § 7.2). In that order each holds what the other wants. The cycle is built here
+    // without a race: a session of the test holds the project row FOR SHARE as the reorder would, the clean-up runs until it blocks
+    // on that row, the reorder starts and, in the order that has the cycle, blocks on the clean-up's items — and only then the
+    // project row is released. The two ends must both finish; the project row comes before the items, whatever the order of
+    // arrival (plan-backend § 14).
+
+    private async Task<(Answer CleanUp, Answer Reorder)> CleanUpVersusProjectReorderAsync(BoardsWorld world, Func<Task<Answer>> cleanUp, Func<Task<Answer>> reorder)
+    {
+        await using var holder = new NpgsqlConnection(factory.ConnectionString);
+        await holder.OpenAsync();
+        await using var transaction = await holder.BeginTransactionAsync();
+
+        await using (var command = new NpgsqlCommand("SELECT 1 FROM projects WHERE id = @project FOR SHARE", holder, transaction))
+        {
+            command.Parameters.AddWithValue("project", world.ProjectId);
+            await command.ExecuteScalarAsync();
+        }
+
+        var cleanUpTask = cleanUp();
+        await PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, cleanUpTask);
+        Assert.False(cleanUpTask.IsCompleted, "The clean-up did not wait for the project row.");
+
+        var reorderTask = reorder();
+
+        // Two sessions blocked together is the cycle's hold-and-wait; in the order without a cycle the reorder is not blocked at all.
+        await Task.WhenAny(reorderTask, PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, 2));
+
+        await transaction.CommitAsync();
+
+        return (await cleanUpTask, await reorderTask);
+    }
+
+    /// <summary>Two stories «Мастаск» — the project's named default team, which owns them — ordered in the project backlog.</summary>
+    private async Task<(BoardsWorld World, Item First, Item Second)> DefaultTeamStoriesAsync()
+    {
+        var world = await BoardsTestData.CreateWorldAsync(factory);
+        var first = await BoardsTestData.CreateAsync(factory, world, "US", "Первая");
+        var second = await BoardsTestData.CreateAsync(factory, world, "US", "Вторая");
+        await ProjectBoardsTestData.ReorderToAsync(factory, world, first, second);
+        Assert.Equal(world.ProjectTeamId, await TeamTestData.SettingAsync(factory, world.ProjectId));
+        Assert.Equal((world.ProjectTeamId, world.ProjectTeamId), (await OwnerAsync(world, first), await OwnerAsync(world, second)));
+
+        return (world, first, second);
+    }
+
+    // The unlink of the named default team against a project reorder: both finish, the setting is cleared, the order is the reorder's.
+    [Fact]
+    public async Task Unlink_OfTheNamedDefault_Versus_ProjectReorder_NoCycle_BothFinish()
+    {
+        var (world, first, second) = await DefaultTeamStoriesAsync();
+
+        var (unlinked, reordered) = await CleanUpVersusProjectReorderAsync(
+            world,
+            () => UnlinkAsync(world, world.ProjectTeamId, world.PlatformId),
+            () => ProjectBoardsTestData.ReorderAsync(factory, world, BoardsTestData.Top(second)));
+
+        Assert.Equal(HttpStatusCode.NoContent, unlinked.Status);
+        Assert.Equal(HttpStatusCode.NoContent, reordered.Status);
+        Assert.Null(await TeamTestData.SettingAsync(factory, world.ProjectId));
+        Assert.Equal([second.Identifier, first.Identifier], await ProjectBoardsTestData.RowsAsync(factory, world));
+        Assert.Equal((world.PlatformId, world.PlatformId), (await OwnerAsync(world, first), await OwnerAsync(world, second)));
+    }
+
+    // The same for a deletion of the named default team, which clears the setting of every project that names it.
+    [Fact]
+    public async Task TeamDeletion_OfTheNamedDefault_Versus_ProjectReorder_NoCycle_BothFinish()
+    {
+        var (world, first, second) = await DefaultTeamStoriesAsync();
+
+        var (teamDeleted, reordered) = await CleanUpVersusProjectReorderAsync(
+            world,
+            () => DeleteTeamAsync(world, world.ProjectTeamId),
+            () => ProjectBoardsTestData.ReorderAsync(factory, world, BoardsTestData.Top(second)));
+
+        Assert.Equal(HttpStatusCode.NoContent, teamDeleted.Status);
+        Assert.Equal(HttpStatusCode.NoContent, reordered.Status);
+        Assert.Null(await TeamTestData.SettingAsync(factory, world.ProjectId));
+        Assert.Equal([second.Identifier, first.Identifier], await ProjectBoardsTestData.RowsAsync(factory, world));
+        Assert.Null(await OwnerAsync(world, first));
+        Assert.Null(await OwnerAsync(world, second));
     }
 }

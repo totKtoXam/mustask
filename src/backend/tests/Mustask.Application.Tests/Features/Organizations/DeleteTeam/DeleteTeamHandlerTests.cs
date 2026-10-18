@@ -161,10 +161,11 @@ public sealed class DeleteTeamHandlerTests
         Assert.Equal(2, f.Store.Links.Count);
     }
 
-    // plan-backend § 7.2 · the order of ADR-0028 rule 8: the team row, then ITS links, then the owned items, the places, the
-    // reassignment, the settings, the links, the memberships; one flush.
+    // plan-backend § 7.2 · the order of ADR-0028 rule 8: the team row, then ITS links, then the settings (the project rows — before any
+    // item, mod-005 plan-backend § 14: a project backlog's reorder holds the project row and then its members), then the owned items,
+    // the places, the reassignment, the links, the memberships; one flush.
     [Fact]
-    public async Task Handle_LocksTheTeam_ThenItsLinks_ThenTheOwnedItems_ThenReassigns_ThenEndsTheMemberships_ThenSavesOnce()
+    public async Task Handle_LocksTheTeam_ThenItsLinks_ThenClearsTheSettings_ThenTheOwnedItems_ThenReassigns_ThenEndsTheMemberships_ThenSavesOnce()
     {
         var f = new Fixture();
 
@@ -175,10 +176,10 @@ public sealed class DeleteTeamHandlerTests
             [
                 $"lock team no-key-update {team}",
                 $"lock team links {team}",
+                $"clear default team {team}",
                 $"lock owned {team}",
                 $"drop team places {team}",
                 $"reassign owned {team} to none",
-                $"clear default team {team}",
                 $"remove team links {team}",
                 $"end team memberships {team}",
                 "save",

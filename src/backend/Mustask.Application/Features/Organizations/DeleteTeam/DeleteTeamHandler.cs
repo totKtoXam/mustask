@@ -25,8 +25,9 @@ namespace Mustask.Application.Features.Organizations.DeleteTeam;
 /// first, the deletion waits and takes what it wrote; the deletion first, the writer reads the team deleted and is refused
 /// <c>team.not_found</c>. <c>NO KEY UPDATE</c> and not <c>UPDATE</c> because a child created beneath an item of this team inserts with
 /// the owner key — a key share of the link, which <c>NO KEY UPDATE</c> does not wait for — while the deletion waits for that child's
-/// parent (D-3). Then the owned items <c>FOR UPDATE</c> by id (step 5), the places, the reassignment, the settings, the links, the
-/// memberships and the status. The project rows are written after every team and link row, never before.
+/// parent (D-3). Then the settings that name the team (the project rows, before any item: mod-005 merge, plan-backend § 14), the owned
+/// items <c>FOR UPDATE</c> by id (step 5), the places, the reassignment, the links, the memberships and the status. The project rows
+/// are written after every team and link row, never before, and before the items.
 /// </para>
 /// <para>
 /// <b>The operation</b> (api-contract § 2.1): the team's items get no owning team and show the operation's time as «Изменён»; the
@@ -81,10 +82,13 @@ public sealed class DeleteTeamHandler(
                 // nobody, the settings cleared, the links removed, the memberships ended.
                 var linkedProjectIds = await links.LockTeamLinksAsync(organizationId, team.Id, ct);
 
+                // The settings first, before any item is locked: a project backlog's reorder holds the project row FOR SHARE and then
+                // its members (mod-005, ADR-0030 rule 6), so a project row asked for after the items would close a cycle with it
+                // (mod-005 plan-backend § 14, the merge). Nothing can name the team as a default meanwhile: its links are held.
+                await projects.ClearDefaultTeamAsync(organizationId, team.Id, ct);
                 await ownership.LockOwnedAsync(linkedProjectIds, team.Id, ct);
                 await places.DropForTeamAsync(team.Id, ct);
                 await ownership.ReassignOwnedAsync(linkedProjectIds, team.Id, destinationTeamId: null, clock.UtcNow, ct);
-                await projects.ClearDefaultTeamAsync(organizationId, team.Id, ct);
                 await links.RemoveTeamLinksAsync(organizationId, team.Id, ct);
                 await teamMemberships.EndAllAsync(team.Id, ct);
 
