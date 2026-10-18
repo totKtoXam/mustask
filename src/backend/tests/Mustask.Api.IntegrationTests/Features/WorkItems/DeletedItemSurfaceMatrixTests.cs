@@ -121,13 +121,20 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
         // Row 6 · a board card's checklist and its counter: S's checklist lists L alone.
         Assert.Equal([m.L.Identifier], ChecklistOf(teamBoard.Body, m.S));
 
-        // Row 7 · a team's owned-items count (every state) and an area's deletion guard.
+        // Row 7 · a team's owned-items count (every state), in the two forms feat-028 gave it — the unlink's count in this project
+        // and the deletion's counts over the team's projects (api-contract § 1.5, SC-09) — and an area's deletion guard.
         var count = await OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Get,
-            $"{OrganizationsApi.Teams(world.OrganizationId, world.ProjectId)}/{world.PlatformId}/owned-items/count",
+            $"{TeamTestData.ProjectTeam(world.OrganizationId, world.ProjectId, world.PlatformId)}/unlink-count",
             token: OrganizationsTokens.SignedIn());
         Assert.Equal(7, count.Body.GetProperty("count").GetInt32());
+        var deletionCounts = await OrganizationsApi.SendAsync(
+            factory,
+            HttpMethod.Get,
+            $"{TeamTestData.Team(world.OrganizationId, world.PlatformId)}/deletion-counts",
+            token: OrganizationsTokens.SignedIn());
+        Assert.Equal([7], deletionCounts.Body.GetProperty("projects").EnumerateArray().Select(project => project.GetProperty("count").GetInt32()));
         var area = await OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Delete,
@@ -213,8 +220,87 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
         Assert.Equal(
             HttpStatusCode.NoContent,
             (await OrganizationsApi.SendAsync(factory, HttpMethod.Post, $"{WorkItemsTestData.Item(world.Items, m.DC.Identifier)}/purge", token: OrganizationsTokens.SignedIn())).Status);
-        var teamDeletion = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Delete, $"{OrganizationsApi.Teams(world.OrganizationId, world.ProjectId)}/{world.PlatformId}", token: OrganizationsTokens.SignedIn());
+        // feat-028: an unlink moves the items the team owns in the project to its destination, and a team's deletion releases what
+        // it owns to none — both in any state (BR-DR-9), the still-deleted FD included; here the unlink hands «Платформа»'s items to
+        // «Мастаск» and the deletion of «Мастаск» then releases them. Each one's own test is DeletedItemViewsEndpointTests'.
+        var unlink = await TeamTestData.UnlinkAsync(factory, world.OrganizationId, world.ProjectId, world.PlatformId, TeamTestData.To(world.ProjectTeamId));
+        Assert.Equal(HttpStatusCode.NoContent, unlink.Status);
+        var teamDeletion = await TeamTestData.DeleteTeamAsync(factory, world.OrganizationId, world.ProjectTeamId);
         Assert.Equal(HttpStatusCode.NoContent, teamDeletion.Status);
+        var fd = await WorkItemsTestData.ReadAsync(factory, world.Items, m.FD.Identifier);
+        Assert.Equal((JsonValueKind.Null, "Removed"), (fd.GetProperty("team").ValueKind, fd.GetProperty("state").GetProperty("category").GetProperty("code").GetString()));
+    }
+
+    // --- The reads of the organization-addressed set, classified ------------------------------------------------------------
+
+    private enum Reads
+    {
+        /// <summary>Reads no work item: a container, a team, its people, the process, a list of candidates.</summary>
+        NoWorkItem,
+
+        /// <summary>Reads the items outside «Удалена» only (the list, the pickers, the backlogs and boards): the rows above.</summary>
+        LiveOnly,
+
+        /// <summary>Reads an item whatever its state (the card by address).</summary>
+        AnyState,
+
+        /// <summary>Counts the items a team owns, in any state: row 7.</summary>
+        CountsOwnedInAnyState,
+    }
+
+    private const string Org = "/api/organizations/{organizationId}";
+    private const string Project = Org + "/projects/{projectId}";
+    private const string OrgTeam = Org + "/teams/{teamId}";
+    private const string ProjectTeam = Project + "/teams/{teamId}";
+
+    private static readonly IReadOnlyDictionary<string, Reads> ReadRoutes = new Dictionary<string, Reads>(StringComparer.Ordinal)
+    {
+        // The reads that touch work items: each is asserted in the block of the same name above.
+        ["GET " + Project + "/workitems"] = Reads.LiveOnly,
+        ["GET " + Project + "/workitems/{identifier}"] = Reads.AnyState,
+        ["GET " + Project + "/workitems/{identifier}/parent-candidates"] = Reads.LiveOnly,
+        ["GET " + ProjectTeam + "/backlogs/{level}"] = Reads.LiveOnly,
+        ["GET " + ProjectTeam + "/boards/{level}"] = Reads.LiveOnly,
+        ["GET " + Project + "/backlogs/{level}"] = Reads.LiveOnly,
+        ["GET " + Project + "/boards/{level}"] = Reads.LiveOnly,
+        ["GET " + ProjectTeam + "/unlink-count"] = Reads.CountsOwnedInAnyState,
+        ["GET " + OrgTeam + "/deletion-counts"] = Reads.CountsOwnedInAnyState,
+
+        // The reads that touch none (feat-028 added the organization's teams, a team's page, its projects, its people and the
+        // project's linked teams; none of them counts or lists an item).
+        ["GET " + Org] = Reads.NoWorkItem,
+        ["GET " + Org + "/access"] = Reads.NoWorkItem,
+        ["GET " + Org + "/process"] = Reads.NoWorkItem,
+        ["GET " + Org + "/projects"] = Reads.NoWorkItem,
+        ["GET " + Org + "/projects/deactivated"] = Reads.NoWorkItem,
+        ["GET " + Org + "/members"] = Reads.NoWorkItem,
+        ["GET " + Org + "/member-candidates"] = Reads.NoWorkItem,
+        ["GET " + Org + "/teams"] = Reads.NoWorkItem,
+        ["GET " + Org + "/teams/member-candidates"] = Reads.NoWorkItem,
+        ["GET " + Org + "/workitems/assignee-candidates"] = Reads.NoWorkItem,
+        ["GET " + OrgTeam] = Reads.NoWorkItem,
+        ["GET " + OrgTeam + "/projects"] = Reads.NoWorkItem,
+        ["GET " + OrgTeam + "/members"] = Reads.NoWorkItem,
+        ["GET " + OrgTeam + "/member-candidates"] = Reads.NoWorkItem,
+        ["GET " + Project] = Reads.NoWorkItem,
+        ["GET " + Project + "/teams"] = Reads.NoWorkItem,
+        ["GET " + Project + "/areas"] = Reads.NoWorkItem,
+    };
+
+    // ADR-0030 rule 2 · a read of the organization-addressed set says whether it reads work items, and in which states: a GET route
+    // with no row fails here, as a write route with no row fails WorkItemWriteInventoryTests, so the line that adds the next read
+    // has to look at this matrix (and add its block above when it does read an item).
+    [Fact]
+    public void EveryReadRoute_SaysWhetherItReadsWorkItems_AndInWhichStates()
+    {
+        var reads = OrganizationAddressedRoutes.All.Where(route => !route.IsWrite).Select(route => route.Key).Order(StringComparer.Ordinal);
+
+        Assert.Equal(reads, ReadRoutes.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal(
+            ["GET " + Project + "/workitems/{identifier}"],
+            ReadRoutes.Where(read => read.Value == Reads.AnyState).Select(read => read.Key));
+        Assert.Equal(
+            ["GET " + OrgTeam + "/deletion-counts", "GET " + ProjectTeam + "/unlink-count"],
+            ReadRoutes.Where(read => read.Value == Reads.CountsOwnedInAnyState).Select(read => read.Key).Order(StringComparer.Ordinal));
     }
 }

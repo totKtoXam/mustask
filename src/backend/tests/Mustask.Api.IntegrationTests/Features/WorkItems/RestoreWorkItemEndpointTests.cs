@@ -205,8 +205,7 @@ public sealed class RestoreWorkItemEndpointTests(MustaskApiFactory factory)
     public async Task Restore_AfterItsTeamWasDeleted_IsOnNoTeamsViews_OnTheProjects()
     {
         var (world, story) = await DeletedStoryAsync();
-        var removal = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Delete, $"{OrganizationsApi.Teams(world.OrganizationId, world.ProjectId)}/{world.PlatformId}", token: OrganizationsTokens.SignedIn());
+        var removal = await TeamTestData.DeleteTeamAsync(factory, world.OrganizationId, world.PlatformId);
         Assert.Equal(HttpStatusCode.NoContent, removal.Status);
 
         var answer = await RestoreAsync(world.Items, story.Identifier);

@@ -155,7 +155,8 @@ public sealed class DeletedItemViewsEndpointTests(MustaskApiFactory factory)
         LinksTestData.AssertRefused(removeArea, HttpStatusCode.Conflict, "organizations.area.not_empty");
     }
 
-    // US-2 · "A deleted item is still counted among a team's items; the team deletion releases it".
+    // US-2 · "A deleted item is still counted among a team's items; the team deletion releases it" (BR-DR-9, feat-028 SC-09, doc-012
+    // BR-MX-12 "in any state"): the unlink's count in the project and the deletion's counts over the projects both include it.
     [Fact]
     public async Task OwnedItemCount_CountsADeletedItem()
     {
@@ -164,13 +165,19 @@ public sealed class DeletedItemViewsEndpointTests(MustaskApiFactory factory)
         var gone = await BoardsTestData.CreateAsync(factory, world, "US", "Удалённая", world.PlatformAreaId);
         await DeleteAsync(world, gone);
 
-        var count = await OrganizationsApi.SendAsync(
+        var unlinkCount = await OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Get,
-            $"{OrganizationsApi.Teams(world.OrganizationId, world.ProjectId)}/{world.PlatformId}/owned-items/count",
+            $"{TeamTestData.ProjectTeam(world.OrganizationId, world.ProjectId, world.PlatformId)}/unlink-count",
+            token: OrganizationsTokens.SignedIn());
+        var deletionCounts = await OrganizationsApi.SendAsync(
+            factory,
+            HttpMethod.Get,
+            $"{TeamTestData.Team(world.OrganizationId, world.PlatformId)}/deletion-counts",
             token: OrganizationsTokens.SignedIn());
 
-        Assert.Equal(2, count.Body.GetProperty("count").GetInt32());
+        Assert.Equal(2, unlinkCount.Body.GetProperty("count").GetInt32());
+        Assert.Equal([2], deletionCounts.Body.GetProperty("projects").EnumerateArray().Select(project => project.GetProperty("count").GetInt32()));
         Assert.NotNull(live);
     }
 
@@ -182,8 +189,7 @@ public sealed class DeletedItemViewsEndpointTests(MustaskApiFactory factory)
         await DeleteAsync(world, gone);
         var before = await WorkItemsTestData.ReadAsync(factory, world.Items, gone.Identifier);
 
-        var removal = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Delete, $"{OrganizationsApi.Teams(world.OrganizationId, world.ProjectId)}/{world.PlatformId}", token: OrganizationsTokens.SignedIn());
+        var removal = await TeamTestData.DeleteTeamAsync(factory, world.OrganizationId, world.PlatformId);
         Assert.Equal(HttpStatusCode.NoContent, removal.Status);
 
         var after = await WorkItemsTestData.ReadAsync(factory, world.Items, gone.Identifier);
@@ -191,6 +197,69 @@ public sealed class DeletedItemViewsEndpointTests(MustaskApiFactory factory)
         Assert.Equal("Removed", after.GetProperty("state").GetProperty("category").GetProperty("code").GetString());
         Assert.True(after.GetProperty("changedAt").GetDateTimeOffset() > before.GetProperty("changedAt").GetDateTimeOffset());
         Assert.Equal(before.GetProperty("deletion").GetRawText(), after.GetProperty("deletion").GetRawText());
+    }
+
+    // BR-DR-9 (owed to the second of mod-005 and feat-028, spec BR-DR-9 and plan-backend § 8.2): an unlink is a clean-up of the same
+    // kind as a team's deletion — it reassigns the items the team owns in the project in any state, so an item in «Удалена» goes
+    // to the destination too (a team, or «Без команды») and STAYS deleted: its state and its three marks are untouched, only the
+    // owner and «Изменён» move, and its place on the unlinked team's backlog goes with the rest. BR-DR-10: a Restore afterwards brings
+    // it back owned by the destination — the owner as stored — and on that team's backlog, unplaced below every placed item.
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Unlink_ReassignsADeletedItemToo_StillDeleted(bool toATeam)
+    {
+        var world = await BoardsTestData.CreateWorldAsync(factory);
+        var gone = await BoardsTestData.CreateAsync(factory, world, "US", "Удалённая", world.PlatformAreaId);
+        var stays = await BoardsTestData.CreateAsync(factory, world, "US", "Живая", world.PlatformAreaId);
+        await BoardsTestData.ReorderToAsync(factory, world, world.PlatformId, gone, stays);
+        await DeleteAsync(world, gone);
+        var before = await WorkItemsTestData.ReadAsync(factory, world.Items, gone.Identifier);
+        Guid? destination = toATeam ? world.ProjectTeamId : null;
+
+        Assert.Equal(1, await OwningTeamTestData.TeamPlacesOfAsync(factory, gone.Id));
+
+        var unlink = await TeamTestData.UnlinkAsync(factory, world.OrganizationId, world.ProjectId, world.PlatformId, TeamTestData.To(destination));
+        Assert.Equal(HttpStatusCode.NoContent, unlink.Status);
+
+        // Still deleted: the state and the three marks are as they were; the owner and «Изменён» moved.
+        var after = await WorkItemsTestData.ReadAsync(factory, world.Items, gone.Identifier);
+        Assert.Equal(destination, OwningTeamTestData.TeamOf(after)?.Id);
+        Assert.Equal("Removed", after.GetProperty("state").GetProperty("category").GetProperty("code").GetString());
+        Assert.Equal(before.GetProperty("state").GetRawText(), after.GetProperty("state").GetRawText());
+        Assert.Equal(before.GetProperty("deletion").GetRawText(), after.GetProperty("deletion").GetRawText());
+        Assert.True(after.GetProperty("changedAt").GetDateTimeOffset() > before.GetProperty("changedAt").GetDateTimeOffset());
+        Assert.Equal(0, await OwningTeamTestData.TeamPlacesOfAsync(factory, gone.Id));
+        Assert.Equal(destination, (await OwningTeamTestData.StoredAsync(factory, world.ProjectId, gone.Identifier)).TeamId);
+
+        // It is on no list, and the live item went to the same destination (the two are one operation).
+        Assert.Equal(destination, (await OwningTeamTestData.StoredAsync(factory, world.ProjectId, stays.Identifier)).TeamId);
+        Assert.DoesNotContain(gone.Identifier, Identifiers((await WorkItemsTestData.ListAsync(factory, world.Items)).Body));
+
+        if (toATeam)
+        {
+            // The live item is placed on the destination's backlog now, so the restore has a placed item to land below.
+            await BoardsTestData.MoveAsync(factory, world, world.ProjectTeamId, BoardsTestData.Bottom(stays));
+        }
+
+        // BR-DR-10: the restore keeps the owner as the unlink stored it, and places the item below the placed ones of its backlog.
+        var restored = await OrganizationsApi.SendAsync(
+            factory, HttpMethod.Post, $"{WorkItemsTestData.Item(world.Items, gone.Identifier)}/restore", token: OrganizationsTokens.SignedIn());
+
+        Assert.Equal(HttpStatusCode.OK, restored.Status);
+        Assert.Equal(destination, OwningTeamTestData.TeamOf(restored.Body)?.Id);
+        Assert.Equal("Proposed", restored.Body.GetProperty("state").GetProperty("category").GetProperty("code").GetString());
+        Assert.Equal(JsonValueKind.Null, restored.Body.GetProperty("deletion").ValueKind);
+
+        if (toATeam)
+        {
+            Assert.Equal([stays.Identifier, gone.Identifier], await BoardsTestData.RowsAsync(factory, world, world.ProjectTeamId));
+        }
+        else
+        {
+            Assert.DoesNotContain(gone.Identifier, await BoardsTestData.RowsAsync(factory, world, world.ProjectTeamId));
+            Assert.Contains(gone.Identifier, await ProjectBoardsTestData.RowsAsync(factory, world));
+        }
     }
 
     // US-2 · "Found by its address (a reader too; a foreign identifier is an unknown one)".

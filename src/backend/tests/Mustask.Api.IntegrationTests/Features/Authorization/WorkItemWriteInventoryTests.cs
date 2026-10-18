@@ -35,6 +35,10 @@ public sealed class WorkItemWriteInventoryTests(MustaskApiFactory factory)
 
     private const string Org = "/api/organizations/{organizationId}";
     private const string Project = Org + "/projects/{projectId}";
+
+    // feat-028: a team is the organization's (OrgTeam, with its name, description, members, links and deletion); the project-nested
+    // address (Team) is the team seen from a project — its backlog, its board and the unlink of its link.
+    private const string OrgTeam = Org + "/teams/{teamId}";
     private const string Team = Project + "/teams/{teamId}";
     private const string Area = Project + "/areas/{areaId}";
     private const string Item = Project + "/workitems/{identifier}";
@@ -60,8 +64,11 @@ public sealed class WorkItemWriteInventoryTests(MustaskApiFactory factory)
         ["POST " + Team + "/backlogs/{level}/reorder"] = new(Kind.RefusesADeletedItem, "boards.backlog.reorder_stale", "DeletedItemIsReadOnlyEndpointTests.Reorder_TeamAndProject_NamingADeletedItemAsMovedOrAnchor_Is409ReorderStale_OrderUnchanged"),
         ["POST " + Project + "/backlogs/{level}/reorder"] = new(Kind.RefusesADeletedItem, "boards.backlog.reorder_stale", "DeletedItemIsReadOnlyEndpointTests.Reorder_TeamAndProject_NamingADeletedItemAsMovedOrAnchor_Is409ReorderStale_OrderUnchanged"),
 
-        // mod-017: the system clean-up of the third kind — it reaches an item in any state and takes no EnsureLive.
-        ["DELETE " + Team] = new(Kind.CleanUp, "releases the items the team owns in any state; a deleted one stays deleted", "DeletedItemViewsEndpointTests.DeleteTeam_ReleasesADeletedItemToo_StillDeleted_ChangedAtMoves"),
+        // mod-017 and feat-028: the system clean-ups of the third kind — they reach an item in any state and take no EnsureLive. A
+        // team's deletion releases what it owns to «Без команды»; an unlink (BR-DR-9, owed to the second of the two lines) reassigns
+        // what the team owns in that project to the destination named; neither moves a deleted item out of «Удалена».
+        ["DELETE " + OrgTeam] = new(Kind.CleanUp, "releases the items the team owns in any state; a deleted one stays deleted", "DeletedItemViewsEndpointTests.DeleteTeam_ReleasesADeletedItemToo_StillDeleted_ChangedAtMoves"),
+        ["POST " + Team + "/unlink"] = new(Kind.CleanUp, "reassigns the items the team owns in the project, in any state, to the destination; a deleted one stays deleted", "DeletedItemViewsEndpointTests.Unlink_ReassignsADeletedItemToo_StillDeleted"),
 
         // mod-002: containers and structure.
         ["PUT " + Org + "/name"] = new(Kind.NamesNoWorkItem, ReasonContainer),
@@ -72,8 +79,15 @@ public sealed class WorkItemWriteInventoryTests(MustaskApiFactory factory)
         ["POST " + Project + "/deactivate"] = new(Kind.NamesNoWorkItem, ReasonContainer),
         ["POST " + Project + "/restore"] = new(Kind.NamesNoWorkItem, ReasonContainer),
         ["PUT " + Project + "/default-team"] = new(Kind.NamesNoWorkItem, ReasonStructure),
-        ["POST " + Project + "/teams"] = new(Kind.NamesNoWorkItem, ReasonStructure),
-        ["PUT " + Team + "/name"] = new(Kind.NamesNoWorkItem, ReasonStructure),
+
+        // feat-028: the organization's teams and their links to projects name no work item (a link moves none; only an unlink or a
+        // deletion does, above).
+        ["PUT " + Project + "/description"] = new(Kind.NamesNoWorkItem, ReasonContainer),
+        ["POST " + Project + "/teams"] = new(Kind.NamesNoWorkItem, "links teams to the project and moves no item (feat-028 BR-OL-4)"),
+        ["POST " + Org + "/teams"] = new(Kind.NamesNoWorkItem, ReasonStructure),
+        ["PUT " + OrgTeam + "/name"] = new(Kind.NamesNoWorkItem, ReasonStructure),
+        ["PUT " + OrgTeam + "/description"] = new(Kind.NamesNoWorkItem, ReasonStructure),
+        ["POST " + OrgTeam + "/projects"] = new(Kind.NamesNoWorkItem, "links projects to the team and moves no item (feat-028 BR-OL-4)"),
         ["POST " + Project + "/areas"] = new(Kind.NamesNoWorkItem, ReasonStructure),
         ["PUT " + Area + "/name"] = new(Kind.NamesNoWorkItem, ReasonStructure),
         ["PUT " + Area + "/parent"] = new(Kind.NamesNoWorkItem, ReasonStructure),
@@ -83,8 +97,8 @@ public sealed class WorkItemWriteInventoryTests(MustaskApiFactory factory)
         ["POST " + Org + "/members"] = new(Kind.NamesNoWorkItem, ReasonMembership),
         ["PUT " + Org + "/members/{userId}/role"] = new(Kind.NamesNoWorkItem, ReasonMembership),
         ["DELETE " + Org + "/members/{userId}"] = new(Kind.NamesNoWorkItem, ReasonMembership),
-        ["POST " + Team + "/members"] = new(Kind.NamesNoWorkItem, ReasonMembership),
-        ["DELETE " + Team + "/members/{userId}"] = new(Kind.NamesNoWorkItem, ReasonMembership),
+        ["POST " + OrgTeam + "/members"] = new(Kind.NamesNoWorkItem, ReasonMembership),
+        ["DELETE " + OrgTeam + "/members/{userId}"] = new(Kind.NamesNoWorkItem, ReasonMembership),
     };
 
     private static bool IsWrite(string method) => method is "POST" or "PUT" or "PATCH" or "DELETE";
