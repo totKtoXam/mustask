@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/028-org-level-teams
-- stage: 04-backend
+- stage: complete
 - epic: core/org-access
 - deps: mod-017
 - gates: gate-1, gate-2, gate-3
@@ -42,6 +42,13 @@ to main. Plans: `plan-backend.md`, `plan-frontend.md`.
   default teams, and the owned items go to «Без команды»; OQ-2 A, and the
   organization home page the human asked for besides is feat-045 (after
   mod-018); OQ-3, OQ-4, OQ-5 and D-1..D-5 A.
+- For the human at gate-3, each built as the plan recommended (plan-backend
+  § 12.3, plan-frontend § 6): D-3, the links are locked `FOR NO KEY UPDATE`
+  where ADR-0028 rule 8 reads `FOR UPDATE` (the clarification goes to mod-018's
+  amendment); D-4, a defaulting creation locks every link of the project, so
+  bug-005 is superseded; D-7, a creation with members also needs `team.write`;
+  the create-team form filters members locally; «Отключить» is natively
+  disabled (aria-disabled is a kit task); the upgrade leaves «Изменён» alone.
 
 ## Log
 
@@ -53,6 +60,15 @@ to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-17 [ux-designer] design.md (abb9dcab), no prototype (D-4); D-1..D-5 left for the human at gate-2, each going on with A.
 - 2026-10-17 [orchestrator] the gate-1 + gate-2 package goes to the human; no code before the answer.
 - 2026-10-17 [orchestrator] the human answered: gate-1 and gate-2 approved with OQ-1 → C (see Decisions); feat-045 queued (PR #13). The spec and design take OQ-1 C before the backend plan.
+- 2026-10-17 [business-analyst] [ux-designer] the gate answers applied: OQ-1 C into US-7, the spec and the design's empty states; OQ and D-n boxes checked (9a2b2141).
+- 2026-10-17 [backend-developer] plan-backend.md + api-contract.md (f2ef1758): one migration `OrganizationLevelTeams`, 47 → 55 routes, races C-1..C-18; D-3 and D-4 for the human.
+- 2026-10-18 [backend-developer] backend built (53874646..d41b3896): domain, links, the migration, handler, endpoint, race, volume and statement tests; P-10 notes in mod-002, mod-016, mod-017, mod-006, feat-039; verify green.
+- 2026-10-18 [frontend-developer] frontend built (c31be958..324178e9): kit multi-picker and `Tag.removeLabel`, organization «Команды», team page, link and unlink dialogs, project «Команды» and description; verify green.
+- 2026-10-18 [qa-engineer] the one QA pass (b99c665f): defects, FD-1 and BD-2 major, BD-1, BD-3, FD-2 minor; 18 backend and 2 frontend tests added; verify green; E2E not run (standing NO).
+- 2026-10-18 [code-reviewer] round 1 (f038da61): changes-requested, CR-1..CR-3 major, CR-4..CR-6 minor. Security pass (925e0517): approve, S-1..S-4 minor.
+- 2026-10-18 [dev] the fix round: CR-1/BD-2 two retired tests deleted (e7a94ed7), CR-3 comments reworded to links (2862745d), CR-2/FD-1 the unlink alert when the team owns nothing (d2bca8c3).
+- 2026-10-18 [code-reviewer] delta read 1 (fa0a216b): approve; DR-1 minor added. Every open finding is a minor, carried to gate-3 as debt (review-code.md, review-security.md, qa.md).
+- 2026-10-18 [orchestrator] rebased onto main 7c29b857; `BASE=origin/main bash scripts/verify.sh` green (backend build and tests incl. integration, frontend lint and build, Vitest 2739 affected + 590 guards). Stage complete; gate-3 goes to the human with the PR.
 
 ## Notes
 
