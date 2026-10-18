@@ -76,7 +76,12 @@ public interface IWorkItemRepository
     /// it locks its item, so from here to the commit no other parent write of the
     /// project proceeds: the stored parent and the ancestry a write decides on
     /// stay as it read them (BR-H-4, spec § NFR "two writes that would together
-    /// close a cycle never both succeed").
+    /// close a cycle never both succeed"). The purge takes it too (mod-005), and a
+    /// team's unlink and deletion take it through <c>IWorkItemTeamOwnership</c>
+    /// before they lock the items a team owns (mod-005 QD-1): the writes that lock
+    /// several items — a parent write, child then parents, a clean-up, by id —
+    /// all queue at this lock first, so none of them holds an item another wants
+    /// while it wants one of the other's.
     /// </summary>
     Task LockHierarchyAsync(Guid projectId, CancellationToken cancellationToken);
 

@@ -90,17 +90,11 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
         return await context.Areas.AnyAsync(area => area.Id == areaId && area.ProjectId == projectId, cancellationToken);
     }
 
-    public async Task LockHierarchyAsync(Guid projectId, CancellationToken cancellationToken)
-    {
-        // A concurrent first parent write of the project waits here on the other's uncommitted key, then does nothing.
-        await context.Database.ExecuteSqlInterpolatedAsync(
-            $"INSERT INTO work_item_hierarchy_locks (project_id) VALUES ({projectId}) ON CONFLICT (project_id) DO NOTHING",
-            cancellationToken);
-
-        await context.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT 1 FROM work_item_hierarchy_locks WHERE project_id = {projectId} FOR UPDATE",
-            cancellationToken);
-    }
+    // The one statement pair every taker of the hierarchy lock shares (WorkItemHierarchyLocks): a concurrent first parent write of the
+    // project waits at the insert on the other's uncommitted key, then does nothing. A team's unlink and deletion take it too, through
+    // IWorkItemTeamOwnership, for the projects they reach (mod-005 QD-1).
+    public Task LockHierarchyAsync(Guid projectId, CancellationToken cancellationToken) =>
+        WorkItemHierarchyLocks.AcquireAsync(context, [projectId], cancellationToken);
 
     public async Task<ParentWrite?> LockParentWriteAsync(WorkItem child, Guid? newParentId, Guid? seenParentId, CancellationToken cancellationToken)
     {

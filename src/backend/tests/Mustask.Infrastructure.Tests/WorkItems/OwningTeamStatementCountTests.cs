@@ -52,7 +52,7 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
     private const int TeamBoardStatements = 12;
     private const int TeamsListStatements = 2;
     private const int OwnedCountStatements = 3;
-    private const int DeletionStatements = 11;
+    private const int DeletionStatements = 13;   // 11 + the hierarchy lock's two statements (mod-005 QD-1)
     private const int ReorderStatements = 16;
     private const int ItemGetStatements = 7;
     private const int TeamGetStatements = 1;

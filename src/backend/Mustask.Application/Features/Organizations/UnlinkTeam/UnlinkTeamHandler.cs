@@ -37,14 +37,19 @@ namespace Mustask.Application.Features.Organizations.UnlinkTeam;
 /// <c>NO KEY UPDATE</c> admits and its final <c>DELETE</c> then fails on. Such a pair is unlinked as far as this request goes — the
 /// unlinked team makes the request a no-op (204), a destination makes it 409 <c>team.not_in_project</c> — as if the request had
 /// run before that link. Then the project row for the setting (after the links, <b>before the items</b>: mod-005 merge, below), then
-/// the owned items <c>FOR UPDATE</c> (step 5). A save, a
+/// the project's <b>hierarchy lock</b> — the queue of parent writes, <b>before the items</b> (mod-005 QD-1, below) — then the owned
+/// items <c>FOR UPDATE</c> (step 5). A save, a
 /// creation or a default naming that names the team holds the link <c>FOR SHARE</c> — and judges it linked by the same kind of
 /// answer — so it commits before the unlink reads the items it owns (and is reassigned with the rest) or finds the link gone (409).
 /// </para>
 /// <para>
 /// <b>The operation</b>, in this order because of the keys and the locks: the setting is cleared first, before any item is locked —
 /// a project backlog's reorder holds the project row <c>FOR SHARE</c> and then its members (mod-005, ADR-0030 rule 6), and a project
-/// row asked for <i>after</i> the items would close a cycle with it (mod-005 plan-backend § 14); the places of the team on this
+/// row asked for <i>after</i> the items would close a cycle with it (mod-005 plan-backend § 14); the hierarchy lock comes next, and
+/// before the items too — a parent write locks the hierarchy, then its child, then its parents, <i>not by id</i>, while the items
+/// below are locked by id, so a parent and a child this team owns would be held crosswise by the two (<c>40P01</c>, a 500 for the
+/// unlink; mod-005 QD-1, plan-backend § 14.3); with it the unlink and a parent write of the project are ordered, one wholly before
+/// the other, as the purge is; the places of the team on this
 /// project's items are dropped <i>before</i>
 /// the reassignment (the place key onto the item's owner is checked at the end of the <c>UPDATE</c>); the items change owner in one
 /// <c>UPDATE</c> and show the operation's time as «Изменён»; the setting is cleared before the link goes (the setting's key onto the
@@ -168,7 +173,10 @@ public sealed class UnlinkTeamHandler(
                 // items are locked: a project backlog's reorder holds the project row FOR SHARE and then its members, so a request
                 // that took the items FOR UPDATE and then asked for the project row would meet it in a cycle (mod-005 merge,
                 // plan-backend § 14 "Merge with feat-028"). Nothing can name the team as the default meanwhile: the link is held.
+                // Then the project's hierarchy lock, before the items for the same kind of reason (mod-005 QD-1): a parent write holds it
+                // while it locks its child and its parents, in no order of ids, and the items below are locked by id.
                 await projects.ClearDefaultTeamAsync(organizationId, projectId, teamId, ct);
+                await ownership.LockHierarchiesAsync([projectId], ct);
                 await ownership.LockOwnedAsync([projectId], teamId, ct);
                 await places.DropForTeamInProjectAsync(teamId, projectId, ct);
                 await ownership.ReassignOwnedAsync([projectId], teamId, destinationId, clock.UtcNow, ct);

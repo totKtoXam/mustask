@@ -36,6 +36,10 @@ internal sealed class WorkItemTeamOwnership(MustaskDbContext context) : IWorkIte
             .ToListAsync(cancellationToken);
     }
 
+    // Two statements for any number of projects, in the database's own order of project ids (WorkItemHierarchyLocks).
+    public Task LockHierarchiesAsync(IReadOnlyCollection<Guid> projectIds, CancellationToken cancellationToken) =>
+        WorkItemHierarchyLocks.AcquireAsync(context, projectIds, cancellationToken);
+
     public Task LockOwnedAsync(IReadOnlyCollection<Guid> projectIds, Guid teamId, CancellationToken cancellationToken)
     {
         if (projectIds.Count == 0)

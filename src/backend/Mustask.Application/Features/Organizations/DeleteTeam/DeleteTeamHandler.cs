@@ -25,9 +25,12 @@ namespace Mustask.Application.Features.Organizations.DeleteTeam;
 /// first, the deletion waits and takes what it wrote; the deletion first, the writer reads the team deleted and is refused
 /// <c>team.not_found</c>. <c>NO KEY UPDATE</c> and not <c>UPDATE</c> because a child created beneath an item of this team inserts with
 /// the owner key — a key share of the link, which <c>NO KEY UPDATE</c> does not wait for — while the deletion waits for that child's
-/// parent (D-3). Then the settings that name the team (the project rows, before any item: mod-005 merge, plan-backend § 14), the owned
-/// items <c>FOR UPDATE</c> by id (step 5), the places, the reassignment, the links, the memberships and the status. The project rows
-/// are written after every team and link row, never before, and before the items.
+/// parent (D-3). Then the settings that name the team (the project rows, before any item: mod-005 merge, plan-backend § 14), the
+/// <b>hierarchy lock of every project the team is linked to</b>, in project-id order and before any item (mod-005 QD-1: a parent write
+/// holds it while it locks its child and its parents, in no order of ids, and the items are locked by id — a parent and a child the
+/// team owns would be held crosswise, <c>40P01</c>, a 500 here), the owned items <c>FOR UPDATE</c> by id (step 5), the places, the
+/// reassignment, the links, the memberships and the status. The project rows are written after every team and link row, never
+/// before, and before the hierarchy locks and the items.
 /// </para>
 /// <para>
 /// <b>The operation</b> (api-contract § 2.1): the team's items get no owning team and show the operation's time as «Изменён»; the
@@ -78,14 +81,19 @@ public sealed class DeleteTeamHandler(
                 // 3. and 4. Values and references in the body: there is no body.
 
                 // 5. The operation (BR-OL-9), in rule 8's order: the team's links locked (their project ids are the projects the
-                // operation reaches, deactivated ones included), the owned items locked, the places dropped, the items reassigned to
-                // nobody, the settings cleared, the links removed, the memberships ended.
+                // operation reaches, deactivated ones included), the settings cleared (the project rows), the projects' hierarchy locks
+                // taken, the owned items locked, the places dropped, the items reassigned to nobody, the links removed, the memberships
+                // ended.
                 var linkedProjectIds = await links.LockTeamLinksAsync(organizationId, team.Id, ct);
 
                 // The settings first, before any item is locked: a project backlog's reorder holds the project row FOR SHARE and then
                 // its members (mod-005, ADR-0030 rule 6), so a project row asked for after the items would close a cycle with it
                 // (mod-005 plan-backend § 14, the merge). Nothing can name the team as a default meanwhile: its links are held.
+                // The hierarchy locks next, also before any item (mod-005 QD-1): a parent write holds the hierarchy of its project while
+                // it locks its child and its parents, in no order of ids, and the items below are locked by id, so a parent and a child
+                // this team owns would be held crosswise by the two — 40P01. In project-id order, in two statements for any number.
                 await projects.ClearDefaultTeamAsync(organizationId, team.Id, ct);
+                await ownership.LockHierarchiesAsync(linkedProjectIds, ct);
                 await ownership.LockOwnedAsync(linkedProjectIds, team.Id, ct);
                 await places.DropForTeamAsync(team.Id, ct);
                 await ownership.ReassignOwnedAsync(linkedProjectIds, team.Id, destinationTeamId: null, clock.UtcNow, ct);

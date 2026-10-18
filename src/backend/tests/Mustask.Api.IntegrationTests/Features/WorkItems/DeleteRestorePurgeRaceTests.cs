@@ -874,4 +874,197 @@ public sealed class DeleteRestorePurgeRaceTests(MustaskApiFactory factory)
         Assert.Null(await OwnerAsync(world, first));
         Assert.Null(await OwnerAsync(world, second));
     }
+
+    // --- A parent write against a team's clean-up (QD-1, BR-DR-11, NFR Concurrency) --------------------------------------------
+    //
+    // A parent write — a save that carries a parent, or the parent route — takes the project's hierarchy lock, then the child, then
+    // the new parent and the stored one, in that order and not by id. The clean-ups took the items a team owns FOR UPDATE by id and
+    // no hierarchy lock, so a parent of a lower id and a child of a higher one, both owned by the team, were held crosswise: the
+    // clean-up held the parent and waited for the child, the write held the child and waited for the parent — 40P01, and a 500 for
+    // the clean-up. Both clean-ups now take the hierarchy lock of every project they reach before the items, as the purge does
+    // (plan-backend § 14.3), so one of the two queues behind the other at its first lock and the cycle cannot be closed.
+
+    /// <summary>A session of the test that holds one row <c>FOR UPDATE</c> until it commits, as a request in flight would.</summary>
+    private sealed class HeldRow : IAsyncDisposable
+    {
+        private readonly NpgsqlConnection connection;
+        private readonly NpgsqlTransaction transaction;
+
+        private HeldRow(NpgsqlConnection connection, NpgsqlTransaction transaction)
+        {
+            this.connection = connection;
+            this.transaction = transaction;
+        }
+
+        public static async Task<HeldRow> TakeAsync(string connectionString, string select, Guid id, string? ensure = null)
+        {
+            var connection = new NpgsqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            if (ensure is not null)
+            {
+                // Committed on its own, so the row is there to be locked and the held transaction carries no uncommitted key.
+                await using var insert = new NpgsqlCommand(ensure, connection);
+                insert.Parameters.AddWithValue("id", id);
+                await insert.ExecuteNonQueryAsync();
+            }
+
+            var transaction = await connection.BeginTransactionAsync();
+
+            await using (var command = new NpgsqlCommand(select, connection, transaction))
+            {
+                command.Parameters.AddWithValue("id", id);
+                await command.ExecuteScalarAsync();
+            }
+
+            return new HeldRow(connection, transaction);
+        }
+
+        public Task CommitAsync() => transaction.CommitAsync();
+
+        public async ValueTask DisposeAsync()
+        {
+            await transaction.DisposeAsync();
+            await connection.DisposeAsync();
+        }
+    }
+
+    private Task<HeldRow> HoldHierarchyAsync(Guid projectId) =>
+        HeldRow.TakeAsync(
+            factory.ConnectionString,
+            "SELECT 1 FROM work_item_hierarchy_locks WHERE project_id = @id FOR UPDATE",
+            projectId,
+            "INSERT INTO work_item_hierarchy_locks (project_id) VALUES (@id) ON CONFLICT (project_id) DO NOTHING");
+
+    private Task<HeldRow> HoldAreaAsync(Guid areaId) =>
+        HeldRow.TakeAsync(factory.ConnectionString, "SELECT 1 FROM areas WHERE id = @id FOR UPDATE", areaId);
+
+    /// <summary>Whether <paramref name="item"/> has the lower id of the two in the database's own order, the order row locks are taken in.</summary>
+    private async Task<bool> HasLowerIdAsync(Item item, Item other)
+    {
+        await using var connection = new NpgsqlConnection(factory.ConnectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(
+            "SELECT (SELECT id FROM work_items WHERE id = ANY(@ids) ORDER BY id LIMIT 1) = @item", connection);
+        command.Parameters.AddWithValue("ids", new[] { item.Id, other.Id });
+        command.Parameters.AddWithValue("item", item.Id);
+
+        return (bool)(await command.ExecuteScalarAsync())!;
+    }
+
+    // QD-1 · the team «Платформа» owns a story P, created first (so with the lower id: the clean-up reaches it first), and a task C.
+    // A session holds the area «Платформа / API» FOR UPDATE; the save of C that sets that area and names P as its parent takes the
+    // hierarchy and C and blocks on the area; the clean-up of the team starts and blocks (on the hierarchy, since the fix; on C before
+    // it, holding P); the session commits and the save goes on to P. Expected: the write decides first and the clean-up goes through
+    // after it — 204, no deadlock — whether P is live (the save is 200) or deleted (the save is 409 item_deleted, BR-DR-4/-8), and
+    // the unlink gives both to the destination while the team's deletion gives both to nobody (BR-DR-9).
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task AParentWrite_Versus_ACleanUp_OfTheTeamThatOwnsTheParentAndTheChild_NoDeadlock_TheWriteDecidesFirst(bool parentDeleted, bool teamDeletion)
+    {
+        var world = await BoardsTestData.CreateWorldAsync(factory);
+        var parent = await BoardsTestData.CreateAsync(factory, world, "US", "Родитель", world.PlatformAreaId);
+        var child = await BoardsTestData.CreateAsync(factory, world, "TASK", "Задача", world.PlatformAreaId);
+
+        if (parentDeleted)
+        {
+            await LinksTestData.DeleteAsync(factory, world.Items, parent);
+        }
+
+        // The cycle needs the parent first in the clean-up's order of ids: the database's own order is asserted, not assumed.
+        Assert.True(await HasLowerIdAsync(parent, child));
+
+        Task<Answer> save;
+        Task<Answer> cleanUp;
+
+        await using (var area = await HoldAreaAsync(world.ApiAreaId))
+        {
+            save = WorkItemsTestData.SaveAsync(
+                factory,
+                world.Items,
+                child.Identifier,
+                new { areaId = world.ApiAreaId.ToString(), parent = new { parentId = parent.Id.ToString(), seenParentId = (string?)null } });
+            await PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, save);
+            Assert.False(save.IsCompleted, "The save did not wait for the area.");
+
+            cleanUp = teamDeletion ? DeleteTeamAsync(world, world.PlatformId) : UnlinkAsync(world, world.PlatformId, world.ProjectTeamId);
+            await Task.WhenAny(cleanUp, PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, 2));
+            Assert.False(cleanUp.IsCompleted, "The clean-up did not wait for the save.");
+
+            await area.CommitAsync();
+        }
+
+        var (saved, cleaned) = (await save, await cleanUp);
+
+        Assert.True(cleaned.Status == HttpStatusCode.NoContent, $"The clean-up answered {(int)cleaned.Status} {cleaned.ErrorCode}.");
+
+        if (parentDeleted)
+        {
+            LinksTestData.AssertRefused(saved, HttpStatusCode.Conflict, "workitems.link.item_deleted");
+            Assert.Null(await LinksTestData.StoredParentAsync(factory, child));
+        }
+        else
+        {
+            Assert.True(saved.Status == HttpStatusCode.OK, $"The save answered {(int)saved.Status} {saved.ErrorCode}.");
+            Assert.Equal(parent.Id, await LinksTestData.StoredParentAsync(factory, child));
+        }
+
+        Guid? owner = teamDeletion ? null : world.ProjectTeamId;
+        Assert.Equal((owner, owner), (await OwnerAsync(world, parent), await OwnerAsync(world, child)));
+        await AssertConsistentAsync(world);
+    }
+
+    // QD-1 · the property the race above rests on, without a race: a parent write in flight holds the hierarchy row of its project,
+    // and an unlink or a team's deletion of a team that owns items there waits for it before it locks a single item — whatever the
+    // write is (a save, the parent route, a creation beneath an item) — and then goes through.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ACleanUp_WaitsForTheHierarchyLockOfTheProject_ThatAParentWriteHolds(bool teamDeletion)
+    {
+        var (world, story, live) = await TeamStoryAsync(deleted: false);
+        Task<Answer> cleanUp;
+
+        await using (var hierarchy = await HoldHierarchyAsync(world.ProjectId))
+        {
+            cleanUp = teamDeletion ? DeleteTeamAsync(world, world.PlatformId) : UnlinkAsync(world, world.PlatformId, world.ProjectTeamId);
+            await PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, cleanUp);
+            Assert.False(cleanUp.IsCompleted, "The clean-up did not wait for the hierarchy lock of the project.");
+
+            await hierarchy.CommitAsync();
+        }
+
+        Assert.Equal(HttpStatusCode.NoContent, (await cleanUp).Status);
+        Guid? owner = teamDeletion ? null : world.ProjectTeamId;
+        Assert.Equal((owner, owner), (await OwnerAsync(world, story), await OwnerAsync(world, live)));
+    }
+
+    // QD-1 · a team's deletion reaches every project the team is linked to (BR-OL-9), so it takes the hierarchy lock of each of
+    // them — the second project's too — in one order (the project id's), and a parent write there queues it as well.
+    [Fact]
+    public async Task TeamDeletion_WaitsForTheHierarchyLockOfEveryProjectItReaches_TheSecondProjectToo()
+    {
+        var (world, story, live) = await TeamStoryAsync(deleted: false);
+        var second = await WorkItemsTestData.AddProjectAsync(factory, world.Items, "SEC", "Второй");
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            (await TeamTestData.LinkTeamsAsync(factory, world.OrganizationId, second.ProjectId, new { teamIds = new[] { world.PlatformId.ToString() } })).Status);
+        Task<Answer> teamDeleted;
+
+        await using (var hierarchy = await HoldHierarchyAsync(second.ProjectId))
+        {
+            teamDeleted = DeleteTeamAsync(world, world.PlatformId);
+            await PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, teamDeleted);
+            Assert.False(teamDeleted.IsCompleted, "The deletion did not wait for the hierarchy lock of the second project.");
+
+            await hierarchy.CommitAsync();
+        }
+
+        Assert.Equal(HttpStatusCode.NoContent, (await teamDeleted).Status);
+        Assert.Null(await OwnerAsync(world, story));
+        Assert.Null(await OwnerAsync(world, live));
+    }
 }

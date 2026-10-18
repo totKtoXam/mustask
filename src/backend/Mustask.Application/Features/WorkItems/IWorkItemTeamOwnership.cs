@@ -26,9 +26,19 @@ public interface IWorkItemTeamOwnership
     Task<IReadOnlyList<ProjectCount>> CountOwnedByProjectAsync(Guid teamId, IReadOnlyCollection<Guid> projectIds, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Takes the hierarchy lock — the queue of parent writes — of each of <paramref name="projectIds"/>, in project-id order, in two
+    /// statements whatever their number. <b>Before <see cref="LockOwnedAsync"/>, always</b>: a parent write locks its child and then its
+    /// parents, not by id, and the owned items are locked by id, so without this lock a parent and a child the team owns are held
+    /// crosswise by the two and the database ends one with <c>40P01</c> (mod-005 QD-1, ADR-0028 rule 8 step 5, as the purge does). Taken
+    /// after the team's, the links' and the project rows' locks, and it names no team: it queues behind every parent write in flight in
+    /// those projects and holds the next ones back until the caller's transaction ends.
+    /// </summary>
+    Task LockHierarchiesAsync(IReadOnlyCollection<Guid> projectIds, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Locks the items of the projects the team owns <c>FOR UPDATE</c>, in id order. A save of an item locks it first, so the two
     /// serialize; a creation of a child beneath one of them holds it <c>FOR NO KEY UPDATE</c> and is waited for. Taken after the
-    /// team's and the links' locks.
+    /// team's and the links' locks and after <see cref="LockHierarchiesAsync"/>.
     /// </summary>
     Task LockOwnedAsync(IReadOnlyCollection<Guid> projectIds, Guid teamId, CancellationToken cancellationToken);
 
