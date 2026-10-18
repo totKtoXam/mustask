@@ -60,6 +60,7 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-18 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/feat-040-team-surfaces-across-projects
 - 2026-10-18 [orchestrator] route L, breaking (queue size), light route (the human's choice of 2026-10-17 for the lines after mod-017); started under the human's standing approval of 2026-10-18 evening («Ты работай, я спать буду. Пр-ы сам мерджи»), the route confirmation not asked; gate-1 + gate-2 go to the human as one package, one question per open question. E2E: no.
 - 2026-10-18 [business-analyst] spec.md + US-1..US-7; OQ-1..OQ-3 left for the human at gate-1, each going on with A (OQ-3 A spins the 2 000 drawing bound out into its own line). No split of this L; stage → 02-requirements-review.
+- 2026-10-18 [requirements-reviewer] the one round of the light route: approved-by-ai, R-1, R-2 major and R-3..R-12 minor, all fixed in place in spec.md and US-1, -2, -3, -5, -6 (review.md); OQ-1..OQ-3 go to the human with the gate package.
 
 ## Notes
 

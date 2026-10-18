@@ -20,15 +20,22 @@ Scenario: The team level lists the organization's teams, the user's own first (B
   When Ann, a member of no team, opens it
   Then it lists «JUPITER», «MARS», «VENUS»
 
-Scenario: A project change keeps the team (BR-TS-10)
-  Given Max's switcher holds «Ромашка», Alpha and MARS
+Scenario: The team level is the organization's, whatever its projects (BR-TS-10)
+  Given an organization with team T1 and no project, Max a member of it
+  When Max chooses it in the switcher
+  Then the team level lists «T1», and «Бэклоги» and «Канбан» land on T1's «Истории» pages
+  When the organization's teams fail to read
+  Then the team level holds no team, «Бэклоги» and «Канбан» are hidden, and every other page works
+
+Scenario: A project change keeps a chosen team (BR-TS-10)
+  Given Max chose MARS in the switcher, which holds «Ромашка», Alpha and MARS
   When Max chooses Delta at the project level on Alpha's «Рабочие элементы»
   Then the switcher holds Delta and MARS, and «Бэклоги» still lands on MARS's «Истории» backlog
 
 Scenario: A team address sets the organization and the team (BR-TS-10)
   Given Max's switcher holds «Другая», Zeta and Orion, Max being a member of both organizations
   When Max follows a link to MARS's board of «Фичи»
-  Then the switcher holds «Ромашка» and MARS, and its project level shows its current selection for «Ромашка»
+  Then the switcher holds «Ромашка» and MARS, and its project level shows Alpha, the level's first entry after the organization change (mod-002 BR-M1-24)
   When Max then chooses Beta at the project level
   Then the page stays MARS's board of «Фичи», and the switcher holds Beta and MARS
 
@@ -40,7 +47,7 @@ Scenario: Another team on a team page (BR-TS-10, -11; mod-015 BR-18; mod-006 US-
   Then VENUS's board of «Фичи» opens, the same level
 
 Scenario: Another organization on a team page (BR-TS-10; mod-015 BR-18)
-  Given Max, a member of «Другая» too with no team chosen there, is on MARS's backlog of «Эпики»
+  Given Max, a member of «Другая» too, is on MARS's backlog of «Эпики»
   When Max chooses «Другая» in the switcher
   Then the backlog entry's landing in «Другая» opens: the «Истории» backlog of the team its switcher falls back to, Orion
   And with no team in «Другая», «Главная» opens
@@ -66,11 +73,13 @@ Scenario: With no team chosen, the level's first entry stands (BR-TS-10; mod-016
   When MARS, which Max had chosen, is deleted
   Then Max's switcher holds VENUS at the next read, with no notice
 
-Scenario: The fallback once both this line and mod-020 are merged (BR-TS-10; doc-013)
+Scenario: The fallback once both this line and mod-020 are merged (BR-TS-10; doc-013; verified by whichever of the two merges second)
   Given Alpha names VENUS as its default team, and Ann has chosen no team, with Alpha chosen
   Then Ann's switcher holds VENUS
   When Ann chooses Delta, which names no default and has no linked team
-  Then the switcher holds the level's first entry, JUPITER
+  Then the switcher holds the level's first entry, JUPITER: a team held by the fallback is not chosen, so the project change applies the fallback again
+  When Ann then chooses MARS, and then Alpha at the project level
+  Then the switcher holds Alpha and MARS: a chosen team stays
 
 Scenario: A team page's head lists the organization's teams (BR-TS-11)
   When Max opens MARS's backlog of «Фичи»

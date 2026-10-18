@@ -48,13 +48,17 @@ Scenario: A filtered backlog reorders against the full list (BR-TS-7, -8)
 
 Scenario: A value that names no linked active project selects nothing (BR-TS-8)
   When the filter's value in the page's address is an unknown id, "not-a-guid", Zeta's id, Delta's id (linked to no team), or Alpha's id after Ann unlinked Alpha from MARS
-  Then the view shows no item and a total of 0, every case alike
-  And nothing in the page says which of these it was
+  Then the view shows no item and a total of 0, every case alike, in the filtered-empty frame with «Сбросить фильтр», not the empty state of a team that owns nothing
+  And the filter shows that it is on and offers to clear it, and nothing in the page says which of these it was or names a project
+  When Max clears it
+  Then the view shows all 22, and the address carries no filter
+  When the address names Beta's id and an unknown id
+  Then the view shows the 10 of Beta
 
 Scenario: A deactivated project leaves the options and its value selects nothing (BR-TS-2, -8)
   Given Max's MARS backlog is filtered to «Gamma»
   When Ann deactivates Gamma and Max's view is read again
-  Then «Gamma» is no longer offered, and the view shows no item
+  Then «Gamma» is no longer offered, the view shows no item in the filtered-empty frame, and the filter still shows that it is on
   And when Ann restores Gamma, the same address shows Gamma's 7 again
 
 Scenario: The filter lives in the page's address (BR-TS-8; OQ-2 A)
@@ -63,8 +67,12 @@ Scenario: The filter lives in the page's address (BR-TS-8; OQ-2 A)
   Then the backlog shows the 10 of Beta with «Beta» chosen
   When Max changes the level to «Фичи»
   Then the filter still names «Beta» and the view shows MARS's features of Beta
+  When Max presses «Показать канбан»
+  Then MARS's board of «Фичи» opens with «Beta» still chosen
   When Max opens VENUS's backlog from the head's drop-down, or chooses VENUS in the switcher
   Then VENUS's view starts with no filter
+  When Max, back on MARS's board filtered to «Beta», presses «Бэклоги»
+  Then the entry's landing, MARS's «Истории» backlog, opens with no filter
 
 Scenario: The filter works by keyboard and on a narrow screen (spec NFR accessibility)
   When Max reaches the filter by Tab, opens it, chooses and clears a value by keyboard

@@ -45,11 +45,11 @@ Scenario: «Команда» offers the chosen project's teams and «Без ко
 Scenario: The team is unlinked, or the project deactivated, before the save (BR-TS-9; BR-MX-9, BR-MX-12)
   Given Max's dialog on MARS's backlog has «Beta» and «MARS» chosen
   When Ann unlinks Beta from MARS, and Max then presses «Создать»
-  Then the save is refused with «Команда не участвует в проекте.», no item is created, and the dialog keeps its values
+  Then the save is refused with «Команда не участвует в проекте.» under «Команда», no item is created, and the dialog keeps its values
   When instead Ann deactivates Beta first
-  Then the save is refused with «Проект не найден.» and no item is created
+  Then the save is refused with «Проект не найден.» under «Проект», no item is created, the dialog stays open with its values, and «Проект» read again no longer offers «Beta»
   When instead Ann deletes MARS first
-  Then the save is refused with «Команда не найдена.» and no item is created
+  Then the save is refused with «Команда не найдена.» under «Команда», and no item is created
 
 Scenario: A save that commits before the unlink is reassigned with the rest (BR-TS-9; feat-028 BR-OL-8)
   Given Max's dialog on MARS's backlog has «Beta» and «MARS» chosen

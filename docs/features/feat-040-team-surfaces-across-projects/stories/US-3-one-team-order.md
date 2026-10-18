@@ -44,7 +44,8 @@ Scenario: A deactivated project's places are kept by a reorder (BR-TS-7; ADR-002
   When Max moves BET-US-1 to the top
   Then MARS's backlog lists BET-US-1, ALP-US-1
   When Ann restores Gamma
-  Then GAM-US-1 is back on MARS's backlog at its kept place, and items of equal position sort by BR-TS-6
+  Then GAM-US-1 is back on MARS's backlog with the stored position it had before the deactivation, unchanged by Max's move
+  And it stands by that position among the positions Max's move wrote, a tie sorting by BR-TS-6, so every read gives the same order of the three
   And Gamma's own backlog has its former order
 
 Scenario: Who may reorder a team's backlog (BR-TS-13; feat-039 BR-PB-5)
@@ -60,6 +61,8 @@ Scenario: A reorder against an unlink, a deletion or a team change ends in one o
   Then either the reorder commits first and the deletion removes every place, or it is refused with «Команда не найдена.»
   When at the same moment a save changes ALP-US-2's team to VENUS instead
   Then the reorder's place for ALP-US-2 does not survive, and ALP-US-2 is unplaced on VENUS's backlog
+  When at the same moment Ann deactivates Gamma instead, and later restores it
+  Then the reorder completes on the items it reads, or is refused as stale if the item it moves or the one it is placed after is Gamma's, and Gamma's items keep a place on MARS's backlog either way
   And in every case no request ends in a server error and no team place names a team that does not own its item
 
 Scenario: A read that meets the team's deletion is never a server error (BR-TS-7; tech-011 m2)

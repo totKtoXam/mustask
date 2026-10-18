@@ -65,6 +65,8 @@ Scenario: A missing, foreign or empty team (BR-TS-2)
   Then each shows no item and offers no create command, with an empty state saying the team works on no project (proposed: «Команда не участвует ни в одном проекте»)
   When VENUS owns nothing
   Then VENUS's views show no item and still offer the create command (US-5)
+  When Ann deactivates Alpha, VENUS's only project
+  Then VENUS's views show what JUPITER's show: JUPITER's empty state, no project to filter by and no create command, and nothing names Alpha or the deactivation
 
 Scenario: The project-nested team addresses are retired (BR-TS-1; ADR-0028 § 7)
   When Max opens /organizations/<Ромашка>/projects/<Alpha>/teams/<MARS>/backlogs/stories
