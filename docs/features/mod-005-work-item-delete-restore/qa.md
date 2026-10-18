@@ -153,3 +153,49 @@ A second, narrower pass: `origin/main` at `175aa1db` (feat-028, teams of the org
 | F2 | a deleted card x owning team | the read-only card shows «Команда» as stored (a name, or «Без команды»); the team control is a value; Restore sends no team and shows no team control; after Restore the card shows the stored owner |
 | F3 | the served codes in the panel | the panel's role fixtures hold the 23 codes; «Участник» shows «Удалить» and no team-management control; the administrator both |
 | F4 | E2E | standing NO: list the specs the merge breaks by reading `src/frontend/e2e/specs` for the served codes and the card's menu |
+
+### Checked against the developers' tests
+
+✔ a developer test covers it · ➕ a test this pass added (`DeleteRestorePurgeFeat028QaTests`, 17 cases) · ◐ partly · ✖ not covered. Classes are `Api.IntegrationTests/Features/WorkItems` unless named.
+
+| # | Covered by | St. |
+|---|---|---|
+| M1, M2 | `DeletedItemViewsEndpointTests.Unlink_ReassignsADeletedItemToo_StillDeleted` (theory: a team / «Без команды») — the reserved name is there: owner, state and the three marks, `changedAt` moves, the team place goes, Restore after | ✔ |
+| M3 | `DeleteTeam_ReleasesADeletedItemToo_StillDeleted_ChangedAtMoves` (a live project) · ➕ `M3_…`: a deleted item of a **deactivated** project released and restorable with no owner; a deleted parent released while its child of another team and another team's deleted item stay equal to the byte | ✔➕ |
+| M4 | `OwnedItemCount_CountsADeletedItem`, `SurfaceMatrix` row 7 (one project, one deleted) · ➕ `M4_…`: Delete +0, Restore +0, Purge -1; a second project, the deactivated one listed with its deleted item; the number is what the destination receives | ◐➕ |
+| M5, M6 | the unlink theory (Restore lands below the destination's placed items; «Без команды» on the project's lists only), `Restore_AfterItsTeamWasDeleted…`, `SurfaceMatrix` (unlink, then deletion, over one deleted item), the two Unlink x Restore races | ✔ |
+| M7 | `Patch_ADeletedItem_…("team")` with a linked and with an unknown team · ➕ `M7_…`: a team linked to no project (would be 409 `not_in_project`), a deleted and a foreign team (404) on a deleted item all answer 409 `…deleted`; the same bodies on a live item get the team's own refusals | ◐➕ |
+| M8 | `SurfaceMatrix` (team board and backlog), `Reorder_…NamingADeletedItem…` · ➕ the destination's backlog after the unlink in M4 | ✔➕ |
+| M9 | eight races, both orders: Unlink x Delete / Restore / Purge, TeamDeletion x Restore · ➕ TeamDeletion x Delete and x Purge (4), Unlink x a save of a deleted item naming the team (1). **A parent write against the clean-up is in neither line's suite, and it fails: QD-1** | ◐➕ ✖ |
+| M10 | none · ➕ `M10_…` (8 cases): Purge of a deleted parent with three owned children (one deleted) x unlink / deletion, both orders, the parent's id below and above its children's | ➕ |
+| M11 | mod-005's storm has no clean-up · ➕ `M11_Storm…`: 3 rounds x 50 writes and one clean-up each, 9 stories, 3 teams | ➕ |
+| M12 | `PermissionCatalogTests`, `OrganizationRoleBundlesTests` (23 codes x 3 roles; the six cells: administrator 6, «Участник» `…delete` alone, «Читатель» none), `GetOrganizationAccessHandlerTests` (23 / 11 / 7), `OrganizationAccessInventoryTests` (59 routes), frontend `organizationRoles.test.ts` (reads the three contracts) | ✔ |
+| M13 | read: ADR-0029 § 4 holds feat-028's four rows, ADR-0030 rule 9 the two others | ✔ |
+| M14 | `AddWorkItemDeletionMarksMigrationTests` (clean database, back to `OrganizationLevelTeams`, again, no pending model change), `OrganizationLevelTeamsMigrationTests`; read: the upgrade's `UPDATE work_items SET owning_team_id = NULL` has no state filter, and nothing is in «Удалена» before the second migration | ✔ |
+| M15 | read: the registries differ from main by two additive entries per file; both catalog test classes green | ✔ |
+| F1, F2 | `TeamsPage` / `OrganizationTeamsPage` tests (the server's number as given, no work item read), `WorkItemCard.deleted` / `.restore` (the owner as stored: a destination, «Без команды»; the request names no team) | ✔ |
+| F3 | `organizationRoles.test.ts`, `testMembership.test.ts` (the three item routes' codes) | ✔ |
+
+### Runs
+
+| What | Result |
+|---|---|
+| `dotnet test Api.IntegrationTests --filter DeleteRestorePurgeFeat028QaTests`, first run | 17 / 17 (green at first run) |
+| a scratch probe of QD-1, three variants (deleted parent x unlink, deleted parent x team deletion, live parent x unlink); not kept | 3 / 3 reproduce |
+| `BASE=origin/main bash scripts/verify.sh` at `e0076300`, once | **RESULT green.** dotnet: Shared 53, Contracts 248, Architecture 86, Application 779, Domain 733, Infrastructure 412, Api.IntegrationTests 2851 passed, 17 skipped (live-Keycloak switches). Frontend: lint, build, vitest affected 2269 in 165 files, source-reading guards 590 in 13 (1 skipped). Docs checks pass |
+| the developers' ten new race tests + the 17 of this pass, 10 times (a hypothesis about rare orders, not a ritual) | 10 / 10 runs, 27 / 27 each, 17-20 s a run |
+
+E2E: **not asked, not run** (standing NO since 2026-10-12). **Specs the merge breaks, not edited:** nothing the meeting adds to the union of the two lines. `27-organization-members` 27.9 (the served bundles lack six codes: feat-028's four, mod-005's two); `27-work-item-card` 27.5 (the card's «Ещё действия» now holds «Удалить» for a member and an administrator) and `:135` (the project's team); and feat-028's own list (`feat-028…/plan-backend.md` § 11: `19-shell-in-a-browser`, `21-organizations`, `23-backlogs-boards`, `24`, `25`, `26`, `27-organization-members:401`, `28-team-members`, `29-role-views` and the support files).
+
+### Defects
+
+#### QD-1: a parent write meets an unlink or a team deletion in a lock-order cycle, and the clean-up answers 500
+- Severity: **major** · Layer: backend · BR-DR-11, NFR Concurrency ("each write of another item that BR-DR-11 names"); also found, not fixed, by the developer (`plan-backend.md` § 14.3 "Carried")
+- Steps (all three variants reproduce every time): in one project the team «Платформа» owns a story P (created first, so the lower id) and a task C. Variant A: P is deleted. 1) A side session holds `SELECT 1 FROM areas WHERE id = <the API area> FOR UPDATE`. 2) `PATCH …/workitems/C` with `{ areaId: <that area>, parent: { parentId: P, seenParentId: null } }` takes the hierarchy lock and C's row and blocks on the area. 3) `POST …/teams/{platform}/unlink` (destination «Мастаск»), or `DELETE …/teams/{platform}`, locks P by id and blocks on C. 4) The side session commits.
+- Expected / Actual: the save is refused 409 `workitems.link.item_deleted` (P live: it saves, 200) and the clean-up succeeds, 204 (BR-DR-11: one order, no 5xx, no deadlock). Actual: the save answers as expected and the unlink / the team's deletion answers **500 `http.internal_error`** (`40P01`), all three variants. Cause: the clean-ups lock the owned items `ORDER BY id` and take no hierarchy lock; a parent write takes the hierarchy lock, then the child, then the parents, not by id. The deleted-parent variant needs this line's data, but the live one is main's alone (feat-028 x feat-001); neither suite has the pair. A purge is safe (it takes the hierarchy lock first), and Delete / Restore hold one row.
+- Fix (either): `UnlinkTeamHandler` and `DeleteTeamHandler` take `LockHierarchyAsync` for each affected project before `LockOwnedAsync` (the tier between the project row and the items in `plan-backend.md` § 14.3, as the purge does; two statements more each, `UnlinkStatements` / `DeletionStatements` 11 -> 13), pinned by a race test of the steps above; or the parent write locks child and parents in one statement by id. A human may instead accept it as a debt with a bug line and BR-DR-11 worded for the pair: that is a decision, not a QA call.
+- Status: open
+
+### Verdict (merge pass)
+
+blockers: 0 · majors: 1 (QD-1) · minors: 0 · result: **defects**. Everything else in the plan is covered and green: the unlink and the team's deletion reach a deleted item in any state, the counts agree, the access inventory holds all six codes, the migrations chain and the registries merged without loss.
