@@ -3,7 +3,7 @@
 - type: module
 - size: L
 - branch: mod/018-area-workspace
-- stage: 02-requirements-review
+- stage: gate-1+gate-2
 - epic: core/org-access
 - deps: feat-028
 - gates: gate-1, gate-2, gate-3
@@ -37,6 +37,9 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - Interim surfaces for one line (doc-013): the area pages in the organization
   settings and the project's area links in the project's settings;
   `feat-043-area-project-team-navigation` moves them.
+- Design (2026-10-18): D-1..D-7 of `design.md` § 14 are open for the package, each with a
+  recommended option A; the prototype follows the stage file's rule for an L. No code before the
+  human's answer.
 
 ## Log
 
@@ -45,6 +48,7 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-18 [business-analyst] spec.md + US-1..US-6; stage → 02-requirements-review. For gate-1: OQ-1 (per-project areas in the upgrade; goes on with A, drop all), OQ-2 («Наследовать доступ» before grants; goes on with B, shown from mod-019).
 - 2026-10-18 [requirements-reviewer] one round (light route): needs-human-decision, OQ-1 and OQ-2 to the package. R-1 major, R-2..R-10 minor; R-1..R-4, R-6, R-7, R-10 fixed in place; R-5's offer, R-8 and R-9's band go to stage 3 (review.md).
 - 2026-10-18 [business-analyst] fix round: R-1 residual closed (tree routes retired by meaning, US-4, US-6, NFR); BR-AW-3 states R-5's move; the pickers and the tree hold under any design choice; US-4 names the band; R-8 stays for stage 3; OQ-1, OQ-2 unchanged.
+- 2026-10-18 [ux-designer] design.md (32.5 KB) + prototype/index.html; D-1..D-7 take R-5, R-8's four, R-9 and the tree component. Package for the human: OQ-1, OQ-2, D-1..D-7; stage gate-1+gate-2. No gate set.
 
 ## Notes
 
