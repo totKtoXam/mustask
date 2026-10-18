@@ -135,7 +135,8 @@ Each frontend defect below has a test in `WorkItemsPage.qa.test.tsx` written as 
 - Steps: 120 live items. Open the list, go to page 2 (`51–100 из 120`). Choose «Статус» «Новая»: page 1 of 120, as it should be. Untick «Новая» (or press «Очистить фильтры»).
 - Expected / Actual: the unfiltered list on page 1 (`1–50 из 120`). Actual: `51–100 из 120`; the read is `?page=2`. `WorkItemsPage` keeps `paging = { content, page }` and shows `page` when `paging.content === content`; choosing «Новая» does not overwrite it, so the old pair matches again when the content returns to what it was.
 - Fix: when the content differs from `paging.content`, store the new content with page 0 (derive it in render, or a `setPaging` on change).
-- Status: open · test `D-F1` in PQ.
+- Status: fixed (fix round, frontend developer) · test `D-F1` in PQ, no longer `it.fails`.
+- Resolution: `WorkItemsList` now stores the new content with page 0 the moment the content differs from `paging.content` (a render-phase `setPaging({ content, page: 0 })`, the pattern `KeywordFilter` already uses), so the old pair can no longer match again. The page chosen under a filter still survives while that filter is unchanged. PQ has three D-F1 tests, all plain: untick the state (the QA test), «Очистить фильтры», and a page kept under an unchanged filter; the first two fail on the old code.
 
 #### D-F2: «Сбросить фильтр» and «Очистить фильтры» flash «Рабочих элементов пока нет»
 
@@ -151,7 +152,8 @@ Each frontend defect below has a test in `WorkItemsPage.qa.test.tsx` written as 
 - Expected / Actual: address without `search`, field empty, list unfiltered. Actual: the address loses the keyword for a moment, the field keeps «оплат», and 250 ms later the pause writes it back: the list is filtered again, `state` and `teamId` stay cleared. A keyword that arrived in a link clears fine, which is why the developer's clear tests pass. Reproduced in Vitest (`userEvent`) and in headless Chrome 155 on a production build with the real `KeywordFilter` and `useWorkItemFilter` beside a router link (address sampled every 10 ms: `?search=оплат` → `` → `?search=оплат`; with focus left in the field the same click clears).
 - Cause: the wrapper's `onBlur` calls `setText(keyword)` with the text the field already has; that update is replayed over the render-phase reset (`setText(value)`) the field makes when the address changes (my reading of React's queue; the next fact is measured). Changing the handler to `if (keyword !== text) setText(keyword)` made both clears work in Vitest (tried in the tree, then put back).
 - Fix: that guard, then re-run PQ's D-F3 and D-F4 (the second may go too).
-- Status: open · tests `D-F3` (two) in PQ.
+- Status: fixed (fix round, frontend developer) · tests `D-F3` (two) in PQ, no longer `it.fails`.
+- Resolution: the guard QA verified, in `KeywordFilter`'s wrapper `onBlur`: `setText(keyword)` only when `keyword !== text`, so leaving a field whose text is already trimmed queues no update, and nothing is left to be replayed over the render-phase reset. A text with spaces around it still takes the trimmed text on leaving. Added to PQ, beside the two QA tests, the cases the report names: a keyword applied by the pause alone then «Очистить фильтры», «Сбросить фильтр» from the empty frame, and a keyword typed with spaces (the last one guards the other branch of the guard). Without the fix the first four fail, as the QA tests did. D-F4 still stands (its `it.fails` still passes): the one-tick blur-and-clear is a different cause, left as a minor debt for gate-3.
 
 #### D-F4: Text typed and not applied survives «Очистить фильтры» pressed in the same tick
 
