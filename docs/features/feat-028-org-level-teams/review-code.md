@@ -87,6 +87,7 @@ Each sentence below is disproved by code or prose in this diff. Stage 06 makes t
 - **Fix:** after resolving, lock the resolved team's link with `FOR SHARE` (`LockTeamLinkAsync`), and re-resolve
   if it is gone. Otherwise narrow the comment to "the links present at the lock". Optionally map that `23503` to
   a retryable 409.
+- **Status: closed in delta read 3** (6c9720eb, by another fix than this one: plan-backend A-9).
 
 ### CR-5 · minor · backend — the reorder's link lock carries no organization
 
@@ -449,3 +450,181 @@ Direction 2:
   - CR-4..CR-6 (round 1), DR-1 (delta read 1), DR2-1 and DR2-2 (this read);
   - QA's BD-1, BD-3 and FD-2;
   - security S-1..S-4.
+
+## Delta read 3 — the CI race fix
+
+Ordered by the orchestrator after PR #17's CI went red on the CR-4 / S-1 race, so it is past the L cap of two delta reads.
+Clean context; checkout confirmed: branch `feat/028-org-level-teams`, HEAD `d2b0a3e1`, toplevel the feat-028 worktree. It
+covers `git diff 5abfeef0..HEAD` only: 6c9720eb (code and tests), b814b5f0 (plan A-9) and d2b0a3e1 (status Log), 20 files,
++771/−143. It is read against CR-4, review-security S-1, ADR-0028 rule 8, and plan-backend § 6, § 7.2, § 7.4, § 12.1 and § 12.2.
+
+**Verdict: approve.** CR-4 and S-1 are closed. The four new findings, DR3-1..DR3-4, are all minor. They are gate-3 debt and
+are owed no round.
+
+### Resolution
+
+- **CR-4: closed** (6c9720eb).
+  - `LockProjectLinksAsync` takes the held teams back from its own lock (`WorkItemRepository.cs:58`, `ProjectTeamLocks.cs:47-62`).
+  - It resolves the default over those teams only (`:63`; `DefaultTeams.cs:23`, `:38`, `:45`, `:51`).
+  - So a resolved owner's link is held `FOR SHARE`, and an unlink or a deletion of it waits for the creation. Both of
+    CR-4's cases, the insert's `23503` and the final `DELETE`'s failure, are gone.
+  - CR-4's own fix was not built, and rightly so (A-9). It would lock one more link after the others, out of team-id order,
+    and that forms a cycle with an unlink of the pair.
+- **S-1: closed** (6c9720eb). Every row of its table now judges "linked" by the rows its own lock statement returned:
+  - item create: `CreateWorkItemHandler.cs:150` → `:237`;
+  - item save: `SaveWorkItemHandler.cs:113` → `:279`;
+  - default naming: `SetDefaultTeamHandler.cs:68` → `:73`, now one statement (`ProjectTeamRepository.cs:32-35`);
+  - the creation that may default: as in CR-4.
+  - The unlink's own pair is outside the table, and it is the path CI hit: `UnlinkTeamHandler.cs:124`, `:147`, `:150`.
+  - No writer reads `ProjectTeamInfo.IsLinked` any more. Only `GetBacklog`, `GetBoard` and the reorder's address check read
+    it, and none of them writes a key onto a link.
+- review-security.md S-1 and qa.md A-5 still read as open. They are their authors' records, left to the orchestrator.
+
+### What holds (lock reasoning, READ COMMITTED)
+
+- **A lock statement returns exactly the rows it holds.**
+  - It takes the rows of its own snapshot, waits behind an incompatible holder, and then re-checks the committed version
+    (EvalPlanQual): it locks the row if it still matches and skips it if it was deleted.
+  - A row inserted after its snapshot is neither returned nor locked. So "held" equals "returned".
+  - The command log shows each lock sent as one bare statement (DR3-1).
+- **Modes.**
+  - A binder's `FOR SHARE` conflicts with the unlink's and the deletion's `NO KEY UPDATE`. The owner and default keys take
+    `FOR KEY SHARE`, which `NO KEY UPDATE` admits and the final `DELETE` does not.
+  - So the `DELETE` can fail only on a key share taken with no `FOR SHARE` held. After A-9 there are three such takers,
+    and none of them can make it fail:
+    1. **A binder** holds its link `FOR SHARE`. The unlink waits for it, and its `Reassign` and `ClearDefault` are new
+       statements that see what the binder wrote (`WorkItemTeamOwnership.cs:63-69`, `ProjectRepository.cs:52-53`).
+    2. **The unlink's destination** is held `NO KEY UPDATE` by the unlink itself.
+    3. **A child takes its parent's team** (`CreateWorkItemHandler.cs:194-197`) and may hold no link at all. Its parent is
+       held `NO KEY UPDATE` (`WorkItemRepository.cs:185-191`), so the unlink's or the deletion's `LockOwned … FOR UPDATE`
+       (`WorkItemTeamOwnership.cs:46-48`) waits for the creation, and the `Reassign` after it sees the child. If the
+       unlink took the parent first, the child reads the parent's new team instead.
+  - A link that the unlink's own lock did not return gives 204 or 409, and no `DELETE` runs.
+- **The deletion.**
+  - Every creator of a link holds the team row `FOR SHARE`: `LinkProjectsToTeamHandler.cs:56`,
+    `LinkTeamsToProjectHandler.cs:86` and `CreateProjectHandler.cs:111`. AddTeam's team is new.
+  - The deletion takes the team row `NO KEY UPDATE` first (`DeleteTeamHandler.cs:67`). So its lock-then-read of the links
+    (`ProjectTeamRepository.cs:37-56`) cannot see a link it does not hold.
+- **No new cycle.** No lock is added and none moves. The three statements take the same rows, in the same modes and the
+  same order (`ProjectTeamLocks.cs:56`, `:77`). The naming loses a read, not a lock, and `ResolveAsync` takes no lock.
+- **Organization.** All three statements carry it (`ProjectTeamLocks.cs:34`, `:55`, `:76`). `ResolveAsync` is LINQ, run
+  over ids that came from a statement scoped to the organization.
+- **Pins.** No constant moved: unlink and deletion 11 (`TeamStatementCountTests.cs:52-53`), child creation 21
+  (`OwningTeamStatementCountTests.cs:60`). § 12.2's "one statement fewer" is `DefaultTeams.cs:23`.
+- **Contract and tests.**
+  - `api-contract.md` is unchanged.
+  - The race test's assertions and its 6 rounds are untouched. Its comment now matches the body ("for the team by name",
+    not "as children").
+  - Each `LinkJudgementWindowTests` case fails if its handler goes back to the fresh read's `IsLinked`.
+  - On the pre-fix lock, which was a non-query, the interceptor would never fire, so these tests cannot replay the old
+    defect. The hand check at :38-40 is the only evidence from before the fix. It is disclosed, so it is not a finding.
+
+### Runs
+
+- `dotnet build Mustask.sln`: 0 errors.
+- `Mustask.Architecture.Tests`: 83 passed.
+- `Mustask.Infrastructure.Tests`, filtered to `StatementCount`, `LinkJudgementWindowTests`, `RepositoriesTests` and the two
+  `…AtomicityTests`: 58 passed.
+- `TeamQaEndpointTests.TheFirstTeamOfATeamlessProject_…`: **25 consecutive runs, 25 passed, 0 failures** (6 rounds of 12 requests each).
+- `Mustask.Api.IntegrationTests` `Features.Organizations.` + `Features.WorkItems.`: 1494 passed, 0 failed (4 m 19 s). This includes bug-005's
+  `UnlinkRacesEndpointTests.Create_VersusTheDeletionOfTheNamedDefault_AndASecondDeletionOrAnUnlink_NoDeadlock` and the
+  C-1..C-18 races (`UnlinkRaces`, `LinkRaces`, `DeleteOwnedItems`).
+- `OwningTeamQaEndpointTests` once with EF command logging on (`Serilog__MinimumLevel__Override__Microsoft.EntityFrameworkCore`),
+  to read the lock SQL: passed.
+- Not run: `verify.sh` (the orchestrator's) and E2E (the standing NO).
+
+### New
+
+- **DR3-1 · minor · backend (prose)** — `ProjectTeamLocks.cs:15-17`.
+  - The remark says EF composes the statement as `SELECT … FROM (<statement>) AS t`, "the same shape `ReadEntriesAsync`
+    uses".
+  - The command log shows it sent exactly as written, with no wrapper, and the developer's report says the same. EF wraps
+    raw SQL only when a LINQ operator is composed on it.
+  - The conclusion still holds: `ORDER BY` comes before the locks, and every row is locked.
+  - **Fix:** say it is sent as written, and that composing a LINQ operator on it would wrap it in a subquery.
+- **DR3-2 · minor · backend (prose)** — "as if the creation had run a moment before the link": `CreateWorkItemHandler.cs:51-55`,
+  `DefaultTeams.cs:15-18` and `IWorkItemRepository.cs:37-38`. Plan § 7.4:321 says the same ("each holds the row `SHARE` …
+  That is the whole claim"). Two cases break the sentence:
+  - (i) A child takes its parent's team, whether or not its link is held. It is safe through the parent's lock, which § 7.4
+    itself says one bullet later (:330).
+  - (ii) `ResolveAsync` reads the setting afresh (`DefaultTeams.cs:38`). So a default naming of a team whose link committed
+    after the lock, if it commits before the resolve, is seen while that link is not held.
+    - The creation then falls back to the only held active team, or to none. Neither order of the requests gives that
+      owner: run before the link, the creation would have taken the old setting.
+    - There is no error and the owner is valid; it takes three concurrent requests.
+  - `DefaultTeams.cs:9-10`, "cannot disagree", is the same kind of overstatement: the creation and the structure seam
+    apply one rule to different sets of links.
+  - **Fix:**
+    - narrow the sentences to "an explicit team and the default's team", and name the child case and the setting case;
+    - in § 7.4, say "under a held `SHARE` or under its parent's lock";
+    - for `DefaultTeams.cs:9-10`, say "apply one rule".
+- **DR3-3 · minor · backend** — the reorder still uses the S-1 pattern.
+  - `BacklogRepository.cs:61-66` locks the link and then judges it by `AnyAsync`. Its comment at :58-60 ("either commits
+    before the unlink … or reads the link gone") holds only for a link that existed at the lock.
+  - This is harmless, as § 7.4:335-337 argues: a place keys the item, not the link, and the members' `FOR KEY SHARE`
+    (:75-81) against `LockOwned`'s `FOR UPDATE` orders the reorder and the unlink either way. § 7.4 describes only one of
+    those two orders.
+  - **Fix:** fold this into CR-5, which is the same line. `ProjectTeamLocks.ShareAsync` returns the row and carries the
+    organization, so it can replace the lock, and `AnyAsync` goes.
+- **DR3-4 · minor · docs (direction 2)** — ADR-0028:144, rule 8.
+  - Three phrases there can be read as a second statement: "re-reads what it checks after locking", the unlink case's
+    "re-checking that the destination is still linked", and "re-reading under its lock". Read that way, they describe the
+    pattern A-9 retires. For a row that can be inserted after the lock, that pattern reproduces S-1 whatever the lock mode.
+  - The code and § 7.4 are right. The ADR is accepted, and the human's gate-3 answer already sends rule 8's clarification
+    (D-3) to mod-018's amendment.
+  - **Fix:** carry A-9's corollary into that amendment: "a locked row's presence is judged by the lock statement's own
+    answer". A note on mod-018's queue line, or one in status.md Decisions, would do it.
+
+### Behavioural claims (delta)
+
+Direction 1:
+- `IProjectTeamRepository.cs:14-29` → `ProjectTeamLocks.cs:26-83`, `ProjectTeamRepository.cs:16-35`. ✓
+- `IWorkItemRepository.cs:20-31` (a foreign team answers false) → `ProjectTeamLocks.cs:34`. ✓
+- `IWorkItemRepository.cs:33-43` → `WorkItemRepository.cs:58-63`, `DefaultTeams.cs:23-51`. ✓ "Ordered before it" → DR3-2.
+- `UnlinkTeamHandler.cs:34-41` (204 or 409 for a pair it does not hold) → :124, :147, :150-161; window tests :150, :186. ✓
+- `SetDefaultTeamHandler.cs:26-28`, :57-58 → :68-73; window test :129; handler test `Handle_TeamLinkedAfterTheLock_…`. ✓
+- `CreateWorkItemHandler.cs:45-55` → :150, :155, :237; window tests :54, :79. ✓ "As if … before the link" → DR3-2.
+- `SaveWorkItemHandler.cs:40-42`, :251-256 → :113, :279; window test :105. ✓
+- `ProjectTeams.cs:8-10`, :56-59, and the comments in `WorkItemRepository.cs:46-49`, :54-62 and `ProjectTeamRepository.cs:26-34`
+  → the anchors above. ✓
+- `ProjectTeamLocks.cs:5-11`: "returns exactly what it locked", "carries the organization" → :34, :55, :76 ✓; the `23001`
+  is the developer's trace (history). Remarks :15-17 → DR3-1.
+- plan § 6 and § 7.2 (Unlink, SetDefaultTeam, Save/Create) → the handler anchors. ✓
+- plan § 7.4, :317-340:
+  - the `DELETE` bullet → DR3-2;
+  - the child → the CR-4 chain above ✓;
+  - the deletion → the four anchors in "What holds" ✓;
+  - the reorder → DR3-3;
+  - "no race reaches `23001`" → "What holds" and the 25 runs ✓.
+- plan § 12.1, the A-3 note and A-9 → the code ✓. A-9's run counts are the developer's and were not re-run.
+- plan § 12.2, the A-9 paragraph → the pins above, and `RepositoriesTests.LinkLocks_…` (3 statements). ✓
+- `TeamQaEndpointTests.cs:100-108` → its body ✓. The run figures there are history.
+- `LinkJudgementWindowTests.cs:24-41` → `AfterLock` :366-383 and the cases. ✓
+- status.md, the fix's Log line → the commits and the runs. ✓ It is over the 300-character limit, which verify.sh notes.
+
+Direction 2:
+- **Behaviour changed:**
+  - "linked" is judged by the lock's answer, by the binders and by the unlink;
+  - the default is resolved over the held links;
+  - a pair linked after the unlink's lock gives 204, and such a destination gives 409.
+- **Grepped:** `LockLinksAsync`, `LockLinkForShareAsync`, `LockTeamLinkAsync`, `LockProjectLinksAsync`, `ResolveAsync`, `IsLinked`,
+  "fresh read", "re-read", `23001`, `23503`. Searched under `docs/` (the ADRs, the conventions, error-codes.md, this feature's
+  folder and mod-017's), under `.claude/`, in the `AGENTS.md` files, and in backend code outside the diff.
+- **Hits:**
+  - ADR-0028:144 → DR3-4. ADR-0028:108 (`23503` maps to not-found) covers the insert side and still holds.
+  - `BacklogRepository.cs:58-66` → DR3-3.
+  - The Boards handlers' `IsLinked` checks are address checks and write nothing.
+  - api-contract.md:572 (`ProjectTeamInfo.IsLinked`) is still true: the structure still answers it.
+  - CR-4, the S-1 table and qa.md A-5 are records of their own sessions, closed here. mod-017's reviews are history.
+  - The `.claude/`, conventions and other-ADR hits concern files and caches, not locks.
+- Nothing was left unswept.
+
+### Still open, for the human (no further round)
+
+- **Gate-3 debt:**
+  - CR-5 and CR-6;
+  - DR-1, DR2-1 and DR2-2;
+  - DR3-1..DR3-4, where DR3-3 folds into CR-5;
+  - QA's BD-1, BD-3 and FD-2;
+  - security S-2..S-4.
+- **DR3-4 is for mod-018's amendment**, together with D-3.
