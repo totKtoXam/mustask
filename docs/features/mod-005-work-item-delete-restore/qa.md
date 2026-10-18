@@ -125,3 +125,31 @@ None is a blocker or a major. Both are minor and go to gate-3 as debts.
 ## Verdict
 
 blockers: 0 · majors: 0 · minors: 2 (D-1, D-2) · result: **pass**
+
+## QA — merging main (feat-028)
+
+A second, narrower pass: `origin/main` at `175aa1db` (feat-028, teams of the organization) merged into `mod/005-work-item-delete-restore`, tip `16ac90d3`. Clean context. **The plan below is written from mod-005's spec and api-contract and feat-028's spec, stories and api-contract (BR-OL-8/-9, SC-09, doc-012 BR-MX-12) before any resolution code, merge diff or new test was read.** It covers only where the two lines meet; the rest of mod-005 was passed above and the rest of feat-028 in its own `qa.md`.
+
+### Plan (where the lines meet)
+
+| # | Meeting point | Check (expected) |
+|---|---|---|
+| M1 | BR-DR-9 x BR-OL-8: unlink, naming a team | a deleted item owned by MARS is owned by the destination afterwards and **stays** «Удалена»: state, `deletion` {fromState, by, at} untouched, no place on any backlog; `changedAt` = the unlink's time (BR-OL-8 (4)); live twins reassigned alike; the pair is unlinked. The reserved name is `Unlink_ReassignsADeletedItemToo_StillDeleted` |
+| M2 | same, destination «Без команды» | the deleted item owns no team, stays deleted; on no team backlog; the project backlog holds neither |
+| M3 | BR-DR-9 x BR-OL-9: team deletion | deleted items the team owns, in every linked project, **deactivated ones too**, become «Без команды», stay deleted, marks kept; items of other teams, their parents and children untouched |
+| M4 | the any-state row: counts | `unlink-count` and `deletion-counts` count live and deleted alike (e.g. 3 live + 2 deleted = 5), per project, zeros kept, deactivated project listed; Delete of a live owned item, Restore, Purge move the count by 0 / 0 / -1; the count equals what the operation then reassigns; other projects' items never counted |
+| M5 | BR-DR-10: Restore after a reassignment | after an unlink, Restore gives state = held (or chosen), `deletion` null, `changedAt` = restore, owner = the unlink's destination, back on the **destination's** backlog unplaced below every placed item (none with «Без команды»), on the project backlog as mod-006 says; after a team deletion: owner none |
+| M6 | a deleted item and a later unlink/deletion | Delete after an unlink, then unlink the destination: the deleted item moves again; a deleted item never needs the destination to still be linked at Restore (it is always linked or none) |
+| M7 | BR-DR-8 x BR-OL-6: the order of answers on a deleted item | form save naming an unlinked, deleted, foreign, malformed or unknown team: 409 `workitems.workitem.deleted`, not `team.not_found` / `team.not_in_project`; the address's 404s come before; a create beneath a deleted parent: `link.item_deleted`; a live item naming a deleted parent likewise |
+| M8 | BR-OL-11 x BR-DR-6: team views at a project's address | team backlog and board show no deleted item, count none, even though the team owns it; an unlinked team: `team.not_found`; a reorder naming a deleted item: `boards.backlog.reorder_stale`; the project views as before |
+| M9 | BR-DR-11 x BR-OL-8/-9: pairs, each in both orders | {Delete, Restore, Purge, Save} x {unlink, team deletion} on one item and on a parent with owned children: one order wins, 0 5xx, 0 deadlock (40P01), the final state is consistent: no item owned by an unlinked or deleted team, live => no marks, deleted => all three marks, a purged item gone with its count reduced |
+| M10 | the purge of children x a release | Purge of a deleted parent whose children a team owns, against that team's deletion or unlink: both lock work items by id (ADR-0028 § 6 rule 8); children unparented and reassigned, no deadlock |
+| M11 | storm | a mixed round of Delete / Restore / Purge / Save / unlink / team deletion / reorder over a few items: no 5xx, every refusal a named code, invariants of M9 |
+| M12 | access: all six codes | `GET …/access`: administrator holds the four feat-028 codes (`team.create`, `team.delete`, `team.link`, `project.link`) and `workitems.workitem.delete`, `…purge`; «Участник» holds `…delete` only of the six; «Читатель» none; the organization codes count 23 (17 + 4 + 2), none twice; the route inventory holds every route of both lines with its declared code; a team's deletion and an unlink need no code of the items they reach |
+| M13 | ADR-0029 § 4 matrix and catalogs | the two ADR-0030 rows are placed beside feat-028's four; the permission catalog, role bundles, the served `GET …/access` and the panel's fixtures agree (one list) |
+| M14 | migrations | `OrganizationLevelTeams` (20261017) before `AddWorkItemDeletionMarks` (20261018): a clean database migrates to the head, no pending model change in the snapshot, the second rolls back and re-applies; the upgrade's drop of owning teams reaches items in the Removed category and moves no `changedAt` |
+| M15 | error catalogs | `docs/error-codes.md`, `contracts/errors/*.json`, the panel's `errorCodes.ts` hold the codes of both lines (`workitem.deleted`, `not_deleted`, `team.not_in_project`, `destination_required`, …), none lost in the merge |
+| F1 | the unlink and deletion dialogs | the sentence states the server's number as given (any state, deleted included); no client-side "live only" filter; per-project counts incl. deactivated; unchanged copy |
+| F2 | a deleted card x owning team | the read-only card shows «Команда» as stored (a name, or «Без команды»); the team control is a value; Restore sends no team and shows no team control; after Restore the card shows the stored owner |
+| F3 | the served codes in the panel | the panel's role fixtures hold the 23 codes; «Участник» shows «Удалить» and no team-management control; the administrator both |
+| F4 | E2E | standing NO: list the specs the merge breaks by reading `src/frontend/e2e/specs` for the served codes and the card's menu |
