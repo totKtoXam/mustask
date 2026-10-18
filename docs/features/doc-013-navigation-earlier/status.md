@@ -45,6 +45,7 @@ orchestrator rewords the queue lines in a separate queue commit to main.
 - 2026-10-18 [business-analyst] the review's findings fixed in place (c837a563).
 - 2026-10-18 [orchestrator] stage complete; gate-1 goes to the human (the new order and OQ-1..OQ-7).
 - 2026-10-18 [orchestrator] gate-1: approved by the human in chat (every open question A, the ADR edits not substantive); OQ boxes checked; PR to main opened (squash, branch kept). The queue lines are reworded from spec § Queue changes in a separate sync PR; gate-3 is the human's merge.
+- 2026-10-18 [orchestrator] standing approval, the human in chat: «Ты работай, я спать буду. Пр-ы сам мерджи» — the orchestrator merges the PRs of this series itself (squash, branch kept) until the human revokes it; this task is the first of the series. It does not cover the gates that carry a decision (AGENTS.md). Under it, this PR is merged once CI is green.
 
 ## Notes
 
