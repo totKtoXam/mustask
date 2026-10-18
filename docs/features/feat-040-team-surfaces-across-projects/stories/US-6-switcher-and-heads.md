@@ -31,6 +31,8 @@ Scenario: A project change keeps a chosen team (BR-TS-10)
   Given Max chose MARS in the switcher, which holds «Ромашка», Alpha and MARS
   When Max chooses Delta at the project level on Alpha's «Рабочие элементы»
   Then the switcher holds Delta and MARS, and «Бэклоги» still lands on MARS's «Истории» backlog
+  When Ann deactivates Delta
+  Then at the next read of the projects Max's switcher falls back to Alpha, the level's first entry, and still holds MARS (mod-002 design § 3.6's notice as today)
 
 Scenario: A team address sets the organization and the team (BR-TS-10)
   Given Max's switcher holds «Другая», Zeta and Orion, Max being a member of both organizations
@@ -71,15 +73,18 @@ Scenario: With no team chosen, the level's first entry stands (BR-TS-10; mod-016
   Then the switcher holds VENUS, and «Бэклоги» lands on VENUS's «Истории» backlog
   And for Ann, under the same conditions, it holds JUPITER
   When MARS, which Max had chosen, is deleted
-  Then Max's switcher holds VENUS at the next read, with no notice
+  Then at the next read of the organization's teams Max's switcher holds VENUS, with mod-002's notice «Ранее выбранный контекст недоступен. Выбрано: Ромашка / <the project it holds> / VENUS.», as today
 
 Scenario: The fallback once both this line and mod-020 are merged (BR-TS-10; doc-013; verified by whichever of the two merges second)
   Given Alpha names VENUS as its default team, and Ann has chosen no team, with Alpha chosen
   Then Ann's switcher holds VENUS
   When Ann chooses Delta, which names no default and has no linked team
   Then the switcher holds the level's first entry, JUPITER: a team held by the fallback is not chosen, so the project change applies the fallback again
+  When Ann chooses Alpha again, reloads the panel and then chooses Delta
+  Then the switcher holds VENUS before the choice and JUPITER after it: a reload does not make a fallback team chosen
   When Ann then chooses MARS, and then Alpha at the project level
   Then the switcher holds Alpha and MARS: a chosen team stays
+  And after a reload and a choice of Delta it still holds MARS
 
 Scenario: A team page's head lists the organization's teams (BR-TS-11)
   When Max opens MARS's backlog of «Фичи»

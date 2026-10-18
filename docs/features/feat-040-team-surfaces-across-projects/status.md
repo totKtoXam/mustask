@@ -52,6 +52,10 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
   BR-MX-28). Whichever of this line and mod-020 merges second keeps mod-020's
   fallback team on that level (BR-TS-10); feat-043 retires both (doc-013
   BR-NE-9).
+- The vanish notice above is feat-043's fallback to the organization alone
+  (ADR-0028 § 7). Today's mod-002 notice for a gone team stays (BR-TS-10;
+  review.md A-2, the fix round). It becomes a question only if the human
+  reads doc-013 OQ-3 A as dropping it.
 - mod-017 OQ-3 A: «Проект» on rows and cards comes with this line, on every
   team and project view, as doc-012 US-7 reads (BR-TS-3).
 
@@ -61,6 +65,7 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-18 [orchestrator] route L, breaking (queue size), light route (the human's choice of 2026-10-17 for the lines after mod-017); started under the human's standing approval of 2026-10-18 evening («Ты работай, я спать буду. Пр-ы сам мерджи»), the route confirmation not asked; gate-1 + gate-2 go to the human as one package, one question per open question. E2E: no.
 - 2026-10-18 [business-analyst] spec.md + US-1..US-7; OQ-1..OQ-3 left for the human at gate-1, each going on with A (OQ-3 A spins the 2 000 drawing bound out into its own line). No split of this L; stage → 02-requirements-review.
 - 2026-10-18 [requirements-reviewer] the one round of the light route: approved-by-ai, R-1, R-2 major and R-3..R-12 minor, all fixed in place in spec.md and US-1, -2, -3, -5, -6 (review.md); OQ-1..OQ-3 go to the human with the gate package.
+- 2026-10-18 [business-analyst] fix round: R-1..R-12 all stand; R-1, R-3, R-7 worded tighter; A-1 major (tests and clauses R-2 missed) and A-2 minor (today's fallback notice kept) fixed in spec.md and US-6 (review.md). OQ-1..OQ-3 unchanged, none added.
 
 ## Notes
 

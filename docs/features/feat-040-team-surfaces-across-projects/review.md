@@ -389,3 +389,92 @@ should show it. It becomes a question only if the human reads OQ-8 B otherwise.
 
 `approved-by-ai`: R-1 and R-2 (major) and R-3..R-12 (minor) are fixed in place in `spec.md` and in US-1, US-2, US-3,
 US-5 and US-6. None is left for the analyst. OQ-1..OQ-3 go to the human with the gate package.
+
+## Round 1 — fix round (business analyst)
+
+Business analyst, 2026-10-18, the light route's one fix round. The reviewer fixed every finding in place. I checked each
+resolution against its sources and today's code, and every one stands: none is wrong, so none is reverted. Three of them
+needed a tighter wording, and two gaps that the resolutions left are fixed below as A-1 and A-2.
+
+**Sources re-read for the check:** mod-002 BR-M1-24 and design § 3.6; mod-015 BR-11 and BR-18; mod-016 BR-M1-27;
+mod-017 BR-OT-11 and design §§ 4, 5.2, 6.3; feat-039 BR-PB-9; feat-028 BR-OL-10; ADR-0026 rule 5; ADR-0028 §§ 6, 7, 9
+and rule 13; ADR-0029 § 7; doc-013 OQ-3; doc-012 BR-MX-28 and US-10.
+
+**Code read:** the frontend tests of the switcher, its context source and the team and project routes
+(`routes.boards.test.tsx`, `routes.projectBoards.test.tsx`, `routes.organizations.test.tsx`, `ContextSwitcher.test.tsx`,
+`projectViews.test.ts`, `workContext.test.ts`, `resolveSelection.test.ts` and the three
+`useOrganizationsContextSource*.test.tsx`).
+
+### The resolutions, checked
+
+| Finding | Check | Changed in this round |
+|---|---|---|
+| R-1 | Stands. "Chosen" holds only if a reload keeps it. The selection is remembered across a reload (mod-002 BR-M1-24), and without the flag a reload would make a fallback team the stored one, and so the kept one. That reopens R-1 once mod-020's fallback depends on the project. A project's own fallback (mod-002 design § 3.6: "the levels below take their first entries") is a project change too. | BR-TS-10: whether the held team was chosen is remembered with it, and a project change includes the project's own fallback. US-6: the mod-020 scenario gains a reload both ways; «A project change keeps a chosen team» gains Delta's deactivation. |
+| R-2 | Stands, but its test list was short and three clauses were unnamed. | A-1. |
+| R-3 | Stands. "Naming no project and no reason" read as covering a valid value too, against US-2's «Beta» chosen. | BR-TS-8: the clause is for a value that selects nothing. |
+| R-4 | Stands. | - |
+| R-5 | Stands. ADR-0028 § 6 rule 3 and ADR-0026 rule 5, with ADR-0028's amendment, say what it cites. | - |
+| R-6 | Stands. mod-017 design § 4's refusal row puts both team answers under «Команда» and reads the teams again. | - |
+| R-7 | Stands, with one wording fix. "Keep their places" read as untouched. But a reorder that read the project's items before the deactivation committed rewrites their places, as BR-TS-7's first sentence says. US-3 already read "keep a place". | BR-TS-7: they keep a place, the one they had or the one the reorder wrote. |
+| R-8 | Stands. ADR-0028 § 9 keeps both kinds of place on a deactivation. | - |
+| R-9 | Stands. mod-015 BR-11's reset gives Alpha, the first of Alpha, Beta, Delta, Gamma. | - |
+| R-10 | Stands. ADR-0028 rule 13 sizes 200 projects and 200 teams. | - |
+| R-11 | Stands. ADR-0029 § 7 says it of every read that returns rows of several projects. | - |
+| R-12 | Stands. | - |
+
+### A-1
+Severity: major
+Affects: § Existing rules (the BR-TS-10 row and the project-nested routes row), § Decomposition (Breaks)
+Problem:
+- R-2's list missed tests that encode a replaced rule. They would fail with no rule retiring them by name (P-1):
+  - `routes.boards.test.tsx`, block «mod-015 BR-18 on a team-level page: a project or organization choice keeps the
+    entry»:
+    - its project-choice tests open a landing, where BR-TS-10 now says a project choice on a team page moves nothing;
+    - its organization-choice tests land on "its first project's first team", where they now land on the level's first
+      entry.
+  - `routes.projectBoards.test.tsx` «a project whose teams list comes back empty: … «Бэклоги» and «Канбан» are not
+    shown». This is exactly BR-PB-9's no-team clause, which R-2 replaced.
+  - `workContext.test.ts` «a project brings its first team…» and «an organization without projects leaves the lower
+    levels empty».
+  - `useOrganizationsContextSource.test.tsx` «a project choice selects the list's first team, «Платформа»».
+- BR-TS-10 also replaces three clauses that no fate row named:
+  - mod-015 BR-11's "choosing a level resets the levels below it" and "… hides the levels below it", for the team
+    level;
+  - mod-002 design § 3.6's "the levels below take their first entries", for the team;
+  - mod-015 BR-18's team-level page under its project's prefix (D-17), which BR-TS-1 retires.
+Required resolution: name the clauses and the tests, and add the clauses to the Breaks list.
+Status: resolved
+Resolution: fixed in place.
+- The BR-TS-10 row names the clauses and the tests above. Each rewrite gives its new intent. The two project-choice
+  tests that lose their rule are retired.
+- The project-nested routes row names BR-18's D-17 prefix.
+- The Breaks list gains mod-015 BR-11 and BR-18.
+
+### A-2
+Severity: minor
+Affects: BR-TS-10, § Existing rules (the kept row), § Out of scope, § Owed by, US-6 «With no team chosen, the level's
+first entry stands»
+Problem:
+- The scenario said a deleted chosen team falls back "with no notice", and BR-TS-10 said "no vanish notice".
+- Today's switcher announces a gone team: mod-002 design § 3.6's «Ранее выбранный контекст недоступен. Выбрано: …», held by
+  `resolveSelection.test.ts` and `routes.organizations.test.tsx` «on «Главная», a remembered deleted team falls back
+  with the notice».
+- No fate row retired that notice, and the final switcher keeps one (ADR-0028 § 7, doc-012 US-10). The line would
+  silently drop a notice that feat-043 then brings back.
+- doc-013 OQ-3 A says the interim level has "no grouping, memory or fallback notice; those are feat-043's". BR-TS-10
+  already reads its "memory" as "none of feat-043's" and keeps mod-002's remembered selection. The notice reads the same
+  way.
+Required resolution: keep today's notice and say so.
+Status: resolved
+Resolution: fixed in place.
+- BR-TS-10: a gone team falls back with mod-002's notice, as today. What does not come with this line is feat-043's
+  fallback to the organization alone.
+- The kept row names the notice.
+- § Out of scope and § Owed by give feat-043 its fallback to the organization alone, with its notice.
+- US-6 expects the notice.
+- This becomes a question only if the human reads doc-013 OQ-3 A as dropping today's notice.
+
+### Open questions after the fix round
+
+OQ-1..OQ-3 are unchanged, each with its options and a recommendation. They go to the human in the gate-1 + gate-2
+package, and the design continues on A. This round adds no question.
