@@ -67,15 +67,16 @@ Scenario: A refusal changes nothing, and today's order of answers holds (BR-AW-1
     is answered «Область не найдена.» or «Проект не найден.» after «Финансы» was found
   And a member whose organization membership was removed is answered «Организация не найдена.» on the next request
 
-Scenario: Every route declares its code, and the project-nested routes are gone (BR-AW-12; mod-016 BR-M1-33)
+Scenario: Every route declares its code, and the project-nested tree routes are gone (BR-AW-12; mod-016 BR-M1-33)
   Then the route inventory lists each area route of this line at the organization's address with its code:
     `organizations.area.read` for the reads; `area.create` for a top-level area; `area.write` for a child area, a rename, a description,
     a move (with `area.create` to or from the top level) and a deletion; for a link, the code of the end whose route it is
     (`area.link`, `project.link` or `team.link`) with the other end's checked second; for an unlink, the code of the end whose route it is, alone (BR-AW-7)
   And a creation of a project or a team with areas declares its own creation code and the link codes of the ends it names
   And the inventory test fails for a route under `/api/organizations/{organizationId}` that declares no code
-  And no route names a project in its address to read the tree or to create, rename, move or delete an area: mod-002's tree routes
-    under `…/projects/{projectId}/areas` are gone, and the project's and the team's ends of the area links are routes of the project and of the team (BR-AW-12)
+  And no route names a project in its address to read the tree or to create, rename, move or delete an area: mod-002 § 4's tree routes are gone
+  And the project's and the team's ends of the area links are routes of the project and of the team, with the codes above (BR-AW-12);
+    a path under `…/projects/{projectId}/areas` that the project's end keeps serves only that end
   And `GET …/access` lists `area.read` for every role, and `area.create`, `area.write` and `area.link` for «Администратор» and for no one else
   And the panel shows each command only to a user who holds its code or codes
 ```

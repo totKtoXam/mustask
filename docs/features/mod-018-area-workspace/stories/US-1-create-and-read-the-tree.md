@@ -7,7 +7,7 @@
 
 As an **organization administrator**, I want **to create the organization's areas as one tree, at the top level or under a parent, each with an optional description**, so that **the organization's departments, programs and working groups get workspaces that projects and teams can be linked to, with nothing stored inside them (BR-AW-2, BR-AW-3)**.
 
-The tree belongs to the organization, not to a project. Its pages are «Области» in the organization's settings (`…/settings/areas`) and an area's page (`…/settings/areas/:a`) until `feat-043-area-project-team-navigation` (BR-AW-12). Until `mod-019-scoped-access` only «Администратор» creates (spec § Roles). Links chosen on the create form are US-3's; renaming, moving and deleting are US-2's. Cast and conventions: spec § Stories.
+The tree belongs to the organization, not to a project. Its pages are «Области» in the organization's settings (`…/settings/areas`) and an area's page (`…/settings/areas/:a`) until `feat-043-area-project-team-navigation` (BR-AW-12). Until `mod-019-scoped-access` only «Администратор» creates (spec § Roles). Links chosen on the create form are US-3's; renaming, moving and deleting are US-2's. Cast and conventions: spec § Stories. Which parents the form's «Родительская область» offers beyond what a scenario states, and whether the tree draws a parent expanded or collapsed at first, are the design's; a creation "by Ann" under a parent the form does not offer is made by a direct request, and the server answers it as stated.
 
 ## Acceptance criteria
 
@@ -17,7 +17,7 @@ Scenario: The administrator builds the example tree (brief § 3.2; BR-AW-3)
   When she creates «Логистика», «Финансы» and «Инфраструктура» with no parent,
     then «Складские системы» and «Транспортные системы» with the parent «Логистика»
   Then «Области» shows «Инфраструктура», «Логистика» and «Финансы» at the top level, in that order,
-    and «Складские системы» and «Транспортные системы» beneath «Логистика», each area once
+    and «Складские системы» and «Транспортные системы» beneath «Логистика», at once or on expanding it, each area once
   And each area has no description, and its row opens its page
   And the page of «Складские системы» names its parent «Логистика», opening that page, and the page of «Логистика» lists its two child areas, each opening its own page
   And every place outside the tree names the area by its path, «Логистика / Складские системы» (BR-AW-13)
@@ -32,7 +32,8 @@ Scenario: Creating an area creates nothing else (BR-AW-2, BR-MX-2)
 Scenario: Only the name is required on the create form (brief § 11.5)
   When Ann opens «Новая область» on «Области»
   Then only «Название» is required; «Родительская область» and «Описание» are optional, and so are «Проекты» and «Команды» (US-3)
-  And «Родительская область» offers the top level and every area of the tree by its path, narrowed by typed text
+  And «Родительская область» offers the top level and the areas of the tree by their paths, narrowed by typed text,
+    every area of the example tree among them
   When she opens it from the row of «Логистика» as «Новая дочерняя область»
   Then «Родительская область» is «Логистика» already, and she may change it before saving
   When she creates «Транспортные системы» under «Логистика» with a description

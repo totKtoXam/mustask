@@ -63,6 +63,15 @@ Resolution: fixed in place by the reviewer.
   left to the api-contract.
 - US-4's API clause, US-6's route clause and NFR Tenant isolation follow.
 
+Fix round (business-analyst): verified, with one residual closed. US-4 answered every one of mod-002's tree routes "as a
+route that does not exist", and US-6 said they "are gone" under `…/projects/{projectId}/areas`. BR-AW-12, though, leaves
+to the api-contract whether the project's end keeps that path with the link meaning, as feat-028 kept `GET` and `POST
+…/projects/{projectId}/teams` with a changed meaning (its api-contract § 4). A kept `GET` or `POST` would have failed
+both clauses. They now retire the routes by meaning:
+- no request addressed under a project reads the tree or creates, renames, moves or deletes an area;
+- a route of mod-002 § 4 whose path the project's end does not keep is a route that does not exist;
+- a path it keeps serves only that project's area links (US-4, US-6, NFR Tenant isolation).
+
 ### R-2
 Severity: minor
 Affects: US-6 (the inventory scenario), spec § Roles, BR-AW-7
@@ -75,6 +84,10 @@ Resolution: fixed in place by the reviewer.
 - For a link, the route declares its own end's code and checks the other end's second.
 - For an unlink, the route declares only the code of the end it is sent to.
 - § Roles says the same.
+
+Fix round (business-analyst): verified, no further change. The link half matches feat-028 api-contract § 0.1 (the route
+declares its own end's code and the handler asks the other's first). The unlink half differs from feat-028's project–team
+unlink on purpose: BR-MX-6 makes that one need both ends, since it reassigns items, and an area unlink either end.
 
 ### R-3
 Severity: minor
@@ -91,6 +104,10 @@ Resolution: fixed in place by the reviewer. US-6's first scenario now has «Ло
 - for «Логистика» with its descendants, Alpha once;
 - in one statement, with Gamma left out.
 
+Fix round (business-analyst): verified against ADR-0028 rule 8 ("the distinct reachable projects"), no further change.
+"In one statement" stays: it is stricter than NFR Query shape, it is what the statement-count test pins, and nothing in
+the ADRs needs more than one.
+
 ### R-4
 Severity: minor
 Affects: US-2 (the depth-after-a-move scenario)
@@ -101,6 +118,9 @@ exist.
 Required resolution: start that clause from the Given.
 Status: resolved
 Resolution: fixed in place by the reviewer ("And, from the Given again, when …").
+
+Fix round (business-analyst): verified, no further change. From the Given, the move alone puts «Складские системы» on
+level 10 and Ivan's child alone lands on level 3, so each is allowed alone and together they reach level 11.
 
 ### R-5
 Severity: minor
@@ -113,10 +133,21 @@ Problem: two gaps.
   «Ф9» for a subtree of height 2). US-2's title, "offers what a move may reach", claims more than the criteria check.
 Required resolution: state the server answer. The design settles the offer: leave out the current place and the
 destinations that would be refused, or offer them and refuse on save with the quoted texts. The scenario then follows.
-Status: open: the server part is resolved, and the offer goes to the design
+Status: resolved in the spec; the offer is a stage-3 decision for the package
 Resolution: the server part is fixed in place by the reviewer. US-2's subtree scenario gains "a move of an area to the
 parent it already has, the top level included, succeeds and changes nothing", as a link of a linked pair does
 (BR-AW-6). The pickers' offer is stage 3's to fix, and the design records it as a decision.
+
+Fix round (business-analyst): the criteria now hold under either offer, so the design can choose without editing a story.
+- BR-AW-3 states the move to the current parent too. The rule → story map sends BR-AW-3 to US-2, and the rule did not say it.
+- US-2's dialog scenario is retitled "never offers the area or its subtree". It states only destinations that every option
+  offers: «Финансы» and «Инфраструктура» for «Логистика», and the top level as well for «Логистика / Складские системы».
+  Whether the dialog also offers the current place, or destinations the depth or name rule refuses, is the design's. A
+  destination it offers that the server refuses is refused on saving with that rule's text.
+- US-1's «Родительская область» offers the top level and the areas by path, every area of the example tree among them.
+  The example tree is two levels deep, so every option offers all of it.
+- US-1's and US-2's preambles say that a creation or a move to a place the form does not offer is made by a direct
+  request. The depth and name scenarios («Ф10», «Ф9», «складские СИСТЕМЫ») therefore run under either option.
 
 ### R-6
 Severity: minor
@@ -131,6 +162,9 @@ Resolution: fixed in place by the reviewer. NFR Existing data says:
 - the upgrade leaves an index led by (project, type) in place of the dropped ones (ADR-0028 rule 13);
 - the project backlog's 5 000-item budget holds after the upgrade.
 
+Fix round (business-analyst): verified, no further change. The index is `WorkItemsConstraints.ProjectTypeArea` in
+`WorkItemConfiguration.cs`, ADR-0028 rule 13 sizes the indexes, and doc-012 NFR Volumes holds the 5 000-item budget.
+
 ### R-7
 Severity: minor
 Affects: NFR Volumes, US-1 (the reading scenario)
@@ -142,6 +176,9 @@ Status: resolved
 Resolution: fixed in place by the reviewer. NFR Volumes measures "shown within 2 s" as the read behind the page returning
 within 2 s in a volume test at the organization's address, as mod-002's tree test did at 500 nodes. Which rows the panel
 draws first is the design's (see R-8).
+
+Fix round (business-analyst): US-1's first scenario showed the children "beneath «Логистика»", which presumed an expanded
+tree. It now shows them there "at once or on expanding it". US-1's preamble leaves the initial expansion to the design.
 
 ### R-8
 Severity: minor
@@ -159,6 +196,15 @@ Required resolution: the design fixes each and puts each one with alternatives t
 package (status.md § Plan: one question per design decision). The criteria hold either way.
 Status: open: goes to stage 3 and the package
 
+Fix round (business-analyst): no spec change; the four decisions stay stage 3's. The analyst checked that the criteria
+hold under each alternative, as the finding says, and closed the one place where they did not:
+- *Multiselects and pickers.* "Narrowed by typed text" and NFR Query shape hold for a client filter and for a server
+  search alike.
+- *The deletion confirmation.* BR-AW-9 names every link, as BR-MX-8 requires. The design lays the 200 + 200 out. It may
+  not leave a name out.
+- *The tree's initial expansion.* US-1's first scenario presumed an expanded tree; fixed under R-7.
+- *"A way to open its page".* US-3 holds for whichever page the design opens.
+
 ### R-9
 Severity: minor
 Affects: US-4, § Decomposition Breaks
@@ -170,6 +216,10 @@ Required resolution: name both designs in Breaks, and make the band's new layout
 Status: resolved in the spec; the layout goes to stage 3
 Resolution: fixed in place by the reviewer. The Breaks cell names feat-029's band and mod-017 design § 3, "whose band and
 the list's columns the design re-lays without «Область»".
+
+Fix round (business-analyst): US-4's card scenario now shows the other fields "in the band the design re-lays without
+«Область» (feat-029's band, mod-017 design § 3)". The story names the redesign, so the frontend does not improvise it.
+The layout itself stays stage 3's.
 
 ### R-10
 Severity: minor
@@ -183,6 +233,9 @@ Resolution: fixed in place by the reviewer. The OQ-2 B paragraph now says that B
 was written for sections. Under B, the switch's control, its rules and doc-012 US-1's switch clauses go to mod-019, whose
 queue line gains them. ADR-0029's delivery bullet for this line is still met by the stored switch. The repeated
 sentence about doc-012 US-1's switch clauses was removed.
+
+Fix round (business-analyst): verified, no further change. OQ-2 B and the Decomposition's last sentence agree on what
+mod-019's queue line gains.
 
 ### Checked and found sound
 
@@ -237,3 +290,17 @@ sentence about doc-012 US-1's switch clauses was removed.
 - R-5's offer, R-8 and R-9's layout go to stage 3.
 - OQ-1 and OQ-2 are the human's.
 - No finding goes back to the analyst. The design continues on OQ-1 A and OQ-2 B.
+
+### Fix round (business-analyst, 2026-10-18)
+
+The light route's one fix round. Each finding's Resolution above ends with what this round did.
+- R-1's residual is closed. US-4, US-6 and NFR Tenant isolation retire the tree routes by meaning, so a path the
+  project's end keeps no longer contradicts BR-AW-12.
+- R-5's server half is now also in BR-AW-3. The criteria of US-1 and US-2 hold under either picker offer.
+- R-7: the tree's initial expansion is the design's.
+- R-9: US-4 names the band's redesign.
+- R-2, R-3, R-4, R-6 and R-10 are verified with no change.
+- R-8 stays open for stage 3. Its four decisions go to the package, one question each, beside R-5's offer and R-9's layout.
+
+No finding was declined. OQ-1 and OQ-2 are unchanged and stay the human's. The verdict stays `needs-human-decision`, and
+the design continues on OQ-1 A and OQ-2 B.

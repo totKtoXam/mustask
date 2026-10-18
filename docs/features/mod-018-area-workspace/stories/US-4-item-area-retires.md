@@ -14,7 +14,8 @@ The human chose at doc-012 gate-1 (OQ-1 A, 2026-10-17) to retire the item's poin
 ```gherkin
 Scenario: The card has no «Область» (BR-AW-11; feat-022's band, feat-029's card)
   When Max opens ALP-US-12's card, in the project's list or over a team's or the project's board
-  Then it has no «Область» field and names no area, and its «Команда», «Исполнитель», «Статус» and every other field are shown and saved as before
+  Then it has no «Область» field and names no area, and its «Команда», «Исполнитель», «Статус» and every other field are shown,
+    in the band the design re-lays without «Область» (feat-029's band, mod-017 design § 3), and saved as before
   And a save of any field succeeds with no area in it, and Vera's read-only card shows no «Область» either
 
 Scenario: The list has no «Область» column (BR-AW-11)
@@ -48,7 +49,9 @@ Scenario: The project's settings hold no «Области», and its old address
   Then their navigation has no «Области», and its areas are a section of «Общие» (US-3)
   When anyone opens `…/projects/<Alpha>/settings/areas`, a bookmark included
   Then the page reads «Страница не найдена», whether or not the user may see Alpha, and nothing redirects
-  And the API answers a request to one of mod-002's project-nested tree routes (the tree's read, an area's creation, rename, move or deletion under a project) as a route that does not exist (BR-AW-12)
+  And no request addressed under a project reads the tree or creates, renames, moves or deletes an area (BR-AW-12):
+    a route of mod-002 § 4 whose path the project's end of the links does not keep is answered as a route that does not exist,
+    and a path it keeps reads or changes only Alpha's area links
 
 Scenario: An area's deletion no longer looks at items (BR-AW-9; mod-003 BR-M3-24 retired)
   Given «Финансы / Аналитика» is a leaf linked to Alpha, whose items include some in «Удалена»

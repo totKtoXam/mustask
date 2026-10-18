@@ -7,7 +7,7 @@
 
 As an **organization administrator**, I want **to rename and describe an area, move it with everything below it, and delete a leaf**, so that **the tree follows the organization as it changes, without touching a project, a team or a work item (BR-AW-2, BR-AW-3, BR-AW-9)**.
 
-The commands are on the area's row in «Области» and on its page (BR-AW-12). Until `mod-019-scoped-access` only «Администратор» runs them (spec § Roles). Links are US-3's; deleting an area ends them here. Cast and conventions: spec § Stories; the example tree of US-1 is the Given of every scenario.
+The commands are on the area's row in «Области» and on its page (BR-AW-12). Until `mod-019-scoped-access` only «Администратор» runs them (spec § Roles). Links are US-3's; deleting an area ends them here. Cast and conventions: spec § Stories; the example tree of US-1 is the Given of every scenario. A move "by Ann" is made from «Переместить» where the dialog offers its destination, and by a direct request where it does not; the server answers it as stated either way.
 
 ## Acceptance criteria
 
@@ -30,11 +30,14 @@ Scenario: An area moves with its whole subtree (BR-AW-3, BR-AW-2)
   Then the tree is as it was in the Given
   And a move of an area to the parent it already has, the top level included, by a direct request, succeeds and changes nothing
 
-Scenario: The move dialog offers what a move may reach (BR-AW-3)
+Scenario: The move dialog never offers the area or its subtree (BR-AW-3)
   When Ann opens «Переместить» on «Логистика»
-  Then it names what moves, «Логистика» with its two child areas, and offers the top level and the other areas by path
+  Then it names what moves, «Логистика» with its two child areas, and offers «Финансы» and «Инфраструктура» by path
   And it offers neither «Логистика» nor «Логистика / Складские системы» nor «Логистика / Транспортные системы»
+  And on «Логистика / Складские системы» it offers the top level, «Финансы» and «Инфраструктура», and not «Логистика / Складские системы» itself
   And typing part of a path narrows the offer, in an organization of 1 000 areas too
+  And whether it also offers the area's current place, or a destination that the depth or the name rule refuses, is the design's:
+    a destination it offers and the server refuses is refused on saving with that rule's text, and the tree is unchanged
 
 Scenario: A move needs a free name at its destination (BR-AW-4)
   Given «Инфраструктура» has a child «складские СИСТЕМЫ»
