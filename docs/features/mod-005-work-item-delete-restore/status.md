@@ -28,6 +28,8 @@ The light route (the human's choice of 2026-10-18): analysis → one requirement
 
 ## Log
 
+- 2026-10-18 [frontend-developer] stage 6 done (plan-frontend.md): «Удалить»/«Удалить навсегда» in «⋮», three dialogs, the deleted card, D-5; contract unchanged. Breaks e2e 27-work-item-card 27.5 and 27-organization-members 27.9 (not edited). For the human: an unknown deleter shows no «(неактивен)»
+
 - 2026-10-18 [backend-developer] stage 4 done (commits on the branch; plan-backend.md § 12 "As built" lists the deviations): migration `AddWorkItemDeletionMarks`, three POST routes, `deletion` on `WorkItem`, `WorkItemSets` entry points, project reorder member lock, purge step contract; api-contract.md is unchanged; the `stage:` line is the orchestrator's
 
 - 2026-10-18 [backend-developer] plan-backend.md + api-contract.md (stage 4a, deep): three POST sub-routes, `deletion` on WorkItem, entry points + parity/matrix/inventory tests, project-reorder member lock; no code yet; contract fixed from here (a change needs a note here)
