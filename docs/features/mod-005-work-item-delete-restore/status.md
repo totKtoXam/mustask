@@ -27,6 +27,7 @@ The light route (the human's choice of 2026-10-18): analysis → one requirement
 
 ## Log
 
+- 2026-10-18 [backend-developer] plan-backend.md + api-contract.md (stage 4a, deep): three POST sub-routes, `deletion` on WorkItem, entry points + parity/matrix/inventory tests, project-reorder member lock; no code yet; contract fixed from here (a change needs a note here)
 - 2026-10-18 [orchestrator] the human answered gate-1 and gate-2 in chat: every OQ and D-n A, ADR-0030 accepted; backend starts
 - 2026-10-18 [orchestrator] route L, light — confirmed by the human in chat («⭐ L, облегчённо»); gate-1 and gate-2 go to the human as one package after the design; E2E: no.
 - 2026-10-18 [new-task] task started (scripts/new-task.sh; its worktree was removed so a worktree-isolated agent could take the branch)
