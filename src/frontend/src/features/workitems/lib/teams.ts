@@ -63,6 +63,54 @@ export function backlogCaption(teamName: string | null): string {
     : `Встанет в конец бэклога команды «${teamName}».`;
 }
 
+/**
+ * The line under «Команда» in a team view's creation dialog before a project is chosen (feat-040
+ * design § 6.2, D-4): the field holds the view's team and is read-only, and the line says why.
+ */
+export function holdingCaption(teamName: string): string {
+  return `Встанет в конец бэклога команды «${teamName}». Другую команду можно выбрать после выбора проекта.`;
+}
+
+/**
+ * The line that takes the caption's place after a choice of project dropped the team shown (feat-040
+ * design § 6.2, D-5): the team shown is not linked to the chosen project, and the view's team stands
+ * again. It is also announced, politely, and stays until the next pick.
+ */
+export function teamDroppedLine(droppedTeam: string, project: string, keptTeam: string): string {
+  return `Команда «${droppedTeam}» не участвует в проекте «${project}». Выбрана «${keptTeam}».`;
+}
+
+/** The area line of a team view's creation dialog before a project is chosen (feat-040 design § 6.2). */
+export function noProjectAreaLine(stateName: string): string {
+  return `Рабочий элемент будет создан в статусе «${stateName}». Остальные поля заполняются в его форме.`;
+}
+
+/** The reasons a created item is not in the rows of the view it was created on (feat-040 D-6). */
+export const NOT_THIS_TEAM_REASON = 'Он не принадлежит этой команде.';
+export const NOT_IN_FILTER_REASON = 'Он не подходит под текущий фильтр.';
+
+/**
+ * The notice after a creation on a team's view (feat-040 design § 6.4, D-6): today's, or the same
+ * with the reason the item is not in the rows — it does not belong to this team (another team, or
+ * none), else the project filter hides its project. The ids of the address are compared as the
+ * server reads them: either letter case.
+ */
+export function createdNoticeOnTeamView(
+  identifier: string,
+  team: { id: string } | null,
+  project: { id: string },
+  view: { teamId: string; projectIds: readonly string[] },
+): string {
+  const created = `Рабочий элемент ${identifier} создан.`;
+  if (team === null || team.id !== view.teamId) {
+    return `${created} ${NOT_THIS_TEAM_REASON}`;
+  }
+  const hidden =
+    view.projectIds.length > 0 &&
+    !view.projectIds.some((candidate) => candidate.toLowerCase() === project.id.toLowerCase());
+  return hidden ? `${created} ${NOT_IN_FILTER_REASON}` : created;
+}
+
 /** Whether an item of this owning team is in the filter (BR-OT-8): any chosen value matches. */
 export function inFilter(team: { id: string } | null, teamIds: readonly string[]): boolean {
   return team === null ? teamIds.includes(NO_TEAM_FILTER_VALUE) : teamIds.includes(team.id);
@@ -79,6 +127,6 @@ export function createdNotice(
 ): string {
   const created = `Рабочий элемент ${identifier} создан.`;
   return teamIds.length > 0 && !inFilter(team, teamIds)
-    ? `${created} Он не подходит под текущий фильтр.`
+    ? `${created} ${NOT_IN_FILTER_REASON}`
     : created;
 }

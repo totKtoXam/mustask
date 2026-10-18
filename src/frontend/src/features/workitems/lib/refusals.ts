@@ -10,7 +10,15 @@ import { notFoundLevel, type WorkItemsNotFoundLevel } from './notFoundLevel';
  * form mod-003's six and the fields its type has (feat-022), by their JSON names.
  */
 export type RefusalField =
-  'title' | 'description' | 'state' | 'assignee' | 'area' | 'team' | 'parent' | WorkItemFieldName;
+  | 'title'
+  | 'description'
+  | 'state'
+  | 'assignee'
+  | 'area'
+  | 'team'
+  | 'project'
+  | 'parent'
+  | WorkItemFieldName;
 
 /** Where a write's refusal shows (spec § Error codes; api-contract § 0.5). */
 export interface PlacedRefusal {
@@ -75,6 +83,19 @@ function isTeamOfTheBody(error: unknown, fields: readonly RefusalField[]): boole
 }
 
 /**
+ * `organizations.project.not_found` on a write whose form has «Проект» (feat-040 BR-TS-9): a team's
+ * view creates in a project the user chose, so the path's project is the dialog's field, never a
+ * lost page context.
+ */
+function isProjectOfTheForm(error: unknown, fields: readonly RefusalField[]): boolean {
+  return (
+    error instanceof ApiError &&
+    error.errorCode === organizationErrorCodes.projectNotFound &&
+    fields.includes('project')
+  );
+}
+
+/**
  * Places a write's refusal by its `errorCode` alone, never by its text
  * (frontend.md "Named values"). The text is always the server's: the answer's
  * `detail`, or a field reason's own `detail`. A field reason about `requestId`
@@ -84,7 +105,11 @@ function isTeamOfTheBody(error: unknown, fields: readonly RefusalField[]): boole
  */
 export function placeRefusal(error: unknown, fields: readonly RefusalField[]): PlacedRefusal {
   // A team named in the body is the field «Команда», never a frame (mod-017 design § 12); only a
-  // form that has the field takes it, any other falls to the frame as before.
+  // form that has the field takes it, any other falls to the frame as before. So is the project of
+  // a form that has «Проект» (feat-040 design § 6.4).
+  if (isProjectOfTheForm(error, fields)) {
+    return { fields: { project: apiErrorText(error) }, alert: null, frame: null };
+  }
   const frame = isTeamOfTheBody(error, fields) ? null : notFoundLevel(error);
   if (frame !== null) {
     return { fields: {}, alert: apiErrorText(error), frame };

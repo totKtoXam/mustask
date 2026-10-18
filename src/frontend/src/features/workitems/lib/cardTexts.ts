@@ -8,6 +8,8 @@ export const cardTexts = {
   description: { label: 'Описание', placeholder: 'Добавьте описание' },
   assignee: { label: 'Исполнитель' },
   state: { label: 'Статус' },
+  /** feat-040 design § 7: the item's project, read-only, block A row 2 under «Статус» (D-2). */
+  project: { label: 'Проект' },
   area: { label: 'Область' },
   parent: { label: 'Родитель' },
   /** The Save group: its name, the main button, the arrow and the one variant. */

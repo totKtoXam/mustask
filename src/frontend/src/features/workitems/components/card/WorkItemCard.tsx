@@ -42,6 +42,7 @@ import { AreaField } from './AreaField';
 import { AssigneeField } from './AssigneeField';
 import { CardActions } from './CardActions';
 import { CardTeamField } from './CardTeamField';
+import { ProjectField } from './ProjectField';
 import type { CardColumnItem, CardFrameProps, CardNotice } from './cardFrame';
 import { ChildItems } from './ChildItems';
 import { DeleteWorkItemDialog } from './DeleteWorkItemDialog';
@@ -488,6 +489,8 @@ export function WorkItemCard({
           inputRef={fields.ref('state')}
           {...common}
         />
+        {/* feat-040 design § 7, D-2: row 2 of block A, under «Статус»; «Причина» follows. */}
+        <ProjectField name={item.project.name} />
         {slots.reason}
       </>,
       <>

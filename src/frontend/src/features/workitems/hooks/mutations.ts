@@ -65,6 +65,65 @@ export function useSetWorkItemParent(organizationId: string, projectId: string) 
   });
 }
 
+// feat-040 BR-TS-5: a team's backlog and board hold items of several projects, and every write of
+// an item goes to the item's own project, never the page's. These are the three writes above with
+// the project named per call; the project's own pages pass the same value as the row's, so one
+// mechanism serves both.
+
+/** `useCreateWorkItem`, the project named per call: a row's «+» and a card's «Добавить задачу» create in the parent's. */
+export function useCreateWorkItemIn(organizationId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, body }: { projectId: string; body: CreateWorkItemBody }) =>
+      createWorkItem(organizationId, projectId, body),
+    onSuccess: (item, { projectId }) => {
+      client.setQueryData(keys.item(organizationId, projectId, item.identifier), item);
+      return client.invalidateQueries({ queryKey: keys.lists(organizationId, projectId) });
+    },
+  });
+}
+
+/** `useSetWorkItemState`, the project named per call: a card move writes the state in the item's project. */
+export function useSetWorkItemStateIn(organizationId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      projectId,
+      identifier,
+      stateId,
+    }: {
+      projectId: string;
+      identifier: string;
+      stateId: string;
+    }) => saveWorkItem(organizationId, projectId, identifier, { stateId }),
+    onSuccess: (item, { projectId }) => {
+      client.setQueryData(keys.item(organizationId, projectId, item.identifier), item);
+      return client.invalidateQueries({ queryKey: keys.lists(organizationId, projectId) });
+    },
+  });
+}
+
+/** `useSetWorkItemParent`, the project named per call: a parent of another project is never offered or sent. */
+export function useSetWorkItemParentIn(organizationId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      projectId,
+      identifier,
+      change,
+    }: {
+      projectId: string;
+      identifier: string;
+      change: ParentChange;
+    }) => setWorkItemParent(organizationId, projectId, identifier, change),
+    onSuccess: (_result, { projectId }) =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: keys.items(organizationId, projectId) }),
+        client.invalidateQueries({ queryKey: keys.lists(organizationId, projectId) }),
+      ]),
+  });
+}
+
 /** § 2.4: the answer is the item as stored, so the form shows it without another read. */
 export function useSaveWorkItem(organizationId: string, projectId: string, identifier: string) {
   const client = useQueryClient();

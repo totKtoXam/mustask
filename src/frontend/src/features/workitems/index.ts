@@ -10,13 +10,20 @@ export { workItemsPermissions } from './permissions';
 // picker and create, moves a card with this slice's save of the state (its
 // spec § Dialog; api-contract § 6, § 7), and draws a row's or a card's type,
 // state and assignee as this slice's list does.
-export { CreateWorkItemDialog } from './components/CreateWorkItemDialog';
+export { CreateWorkItemDialog, type CreatePlace } from './components/CreateWorkItemDialog';
 export { AssigneeAvatar, AssigneeName, StateName, TypeName } from './components/Marks';
 // feat-032: a board card's checklist row shows the assignee as an avatar alone, named by the
 // same words as the list's «Исполнитель».
 export { UNKNOWN_USER_LABEL, assigneeLabel } from './lib/assignee';
 export { NEW_WORK_ITEM_LABEL, TypePickerMenu } from './components/TypePickerMenu';
 export { useCreateWorkItem, useSetWorkItemState } from './hooks/mutations';
+// feat-040: the same writes with the item's own project named per call, for a team's views, which hold
+// the items of several projects.
+export {
+  useCreateWorkItemIn,
+  useSetWorkItemParentIn,
+  useSetWorkItemStateIn,
+} from './hooks/mutations';
 // feat-001 frontend pass B: mod-006's backlog maps a row's parent one level up
 // with this slice's parent write and its «Родитель» picker (BR-H-14), and
 // links a row's «Родитель» to the parent's form.
@@ -41,7 +48,8 @@ export type {
 export { TeamFilter } from './components/TeamFilter';
 export { teamFilterSearch, useTeamFilter } from './hooks/useTeamFilter';
 export { NO_TEAM_FILTER_VALUE, teamFilterQuery } from './api/workItemsApi';
-export { createdNotice, teamTexts } from './lib/teams';
+// feat-040: a created item the team's view will not show says why (D-6).
+export { createdNotice, createdNoticeOnTeamView, teamTexts } from './lib/teams';
 // feat-027: the backlog's inline add row makes mod-003's create itself — with
 // the same one `requestId` per submission, the same title check and the same
 // placing of a refusal — so the dialog's own helpers are shared through the barrel.
