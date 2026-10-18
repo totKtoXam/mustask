@@ -3,7 +3,7 @@
 - type: docs
 - size: M
 - branch: doc/013-navigation-earlier
-- stage: 02-requirements-review
+- stage: gate-1
 - epic: product/analysis
 - deps: -
 - gates: gate-1, gate-3
@@ -41,6 +41,8 @@ orchestrator rewords the queue lines in a separate queue commit to main.
 - 2026-10-18 [business-analyst] bound to the checkout C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/feat-028-org-level-teams on branch doc/013-navigation-earlier (git branch --show-current, git rev-parse --show-toplevel), not the worktree named above.
 - 2026-10-18 [business-analyst] spec.md + the doc-012 / stories / ADR edits (5535923c); OQ-1..OQ-6 left for the human at gate-1, each going on with the recommendation.
 - 2026-10-18 [requirements-reviewer] the one round of the light route: changes-requested, 3 major and 7 minor, no critical (83d024f4).
+- 2026-10-18 [business-analyst] the review's findings fixed in place (c837a563).
+- 2026-10-18 [orchestrator] stage complete; gate-1 goes to the human (the new order and OQ-1..OQ-7).
 
 ## Notes
 
