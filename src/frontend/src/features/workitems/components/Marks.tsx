@@ -8,10 +8,12 @@ import { initials } from '../../../shared/lib/initials';
 import { CategoryMarker, TypeMark } from '../../../shared/ui/WorkTrackingMarks';
 import type {
   WorkItemAssignee,
+  WorkItemListAssignee,
   WorkItemStateReference,
   WorkItemTypeReference,
 } from '../api/workItemsApi';
 import { UNASSIGNED_LABEL, assigneeLabel } from '../lib/assignee';
+import { userNameWithMarks } from '../lib/deletion';
 
 // How a type, a state and an assignee read in the list, the dialog and the
 // form (spec § Screens and copy; mod-015 § 2.3): the mark is decoration, the
@@ -83,7 +85,29 @@ export function AssigneeAvatar({ assignee }: { assignee: WorkItemAssignee | null
   );
 }
 
-/** «Исполнитель» in the list: the avatar and the name, or «Не назначен». */
+/**
+ * «Исполнитель» in the project's list (feat-003 OQ-2 A, BR-WS-7): the avatar and the name with the
+ * marks of mod-005's one helper — «Иван Котов (не в организации)», «Пётр Ли (неактивен)»,
+ * «Неизвестный пользователь» — the same words the filter's options carry; «Не назначен» for nobody.
+ * One text node, so the cell and the option read alike.
+ */
+export function MarkedAssigneeName({ assignee }: { assignee: WorkItemListAssignee | null }) {
+  if (assignee === null) {
+    return (
+      <Typography component="span" variant="body2" color="text.secondary">
+        {UNASSIGNED_LABEL}
+      </Typography>
+    );
+  }
+  return (
+    <Box component="span" sx={inline}>
+      <UserAvatar name={assignee.displayName} />
+      {userNameWithMarks(assignee)}
+    </Box>
+  );
+}
+
+/** «Исполнитель» on a board card: the avatar and the name, or «Не назначен». */
 export function AssigneeName({ assignee }: { assignee: WorkItemAssignee | null }) {
   if (assignee === null) {
     return (

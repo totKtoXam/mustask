@@ -42,6 +42,16 @@ export { TeamFilter } from './components/TeamFilter';
 export { teamFilterSearch, useTeamFilter } from './hooks/useTeamFilter';
 export { NO_TEAM_FILTER_VALUE, teamFilterQuery } from './api/workItemsApi';
 export { createdNotice, teamTexts } from './lib/teams';
+// feat-003: the list's other three dimensions — «Поиск», «Статус», «Исполнитель» — as fields that
+// take values and `onChange`, not the page, so feat-013 draws them on the views with the one
+// meaning (BR-WS-16), and the one writer of the four dimensions in the page address.
+export { AssigneeFilter } from './components/AssigneeFilter';
+export { KeywordFilter } from './components/KeywordFilter';
+export { StateFilter } from './components/StateFilter';
+export { useWorkItemFilter } from './hooks/useWorkItemFilter';
+export { NO_ASSIGNEE_FILTER_VALUE, stateFilterQuery } from './api/workItemsApi';
+export type { WorkItemListFilter } from './api/workItemsApi';
+export { filterTexts } from './lib/workItemFilter';
 // feat-027: the backlog's inline add row makes mod-003's create itself — with
 // the same one `requestId` per submission, the same title check and the same
 // placing of a refusal — so the dialog's own helpers are shared through the barrel.
