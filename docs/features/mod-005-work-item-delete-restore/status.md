@@ -29,6 +29,7 @@ The light route (the human's choice of 2026-10-18): analysis → one requirement
 
 ## Log
 
+- 2026-10-18 [dev] note from feat-003-work-item-search (BR-WS-5, review R-1): design § 6's purge landing is amended (a card opened from a list row returns to that list, filters kept, page 1; the trail opens it unfiltered), and api-contract § 3.2's "no parameter lists deleted items" gives way to `state`. Gate-3 not reopened
 - 2026-10-18 [orchestrator] the human merged PR #19 (7e190050) and answered the gate-3 items in chat, one question each: H-1/D-2 A (as built); S-1 B (a purge journal in the database instead of the log line alone: its own queue line); ADR-0028 rule 8's one lock order (project row, hierarchy tier; DR2-2 (c)) A, into mod-018's ADR-0028 amendment; the minors DR2-1, DR2-2 (a), DR2-4, DR2-5, CR-6 A, one S queue line. Recorded on feat-003's branch (main is protected).
 - 2026-10-18 [task-executor] `BASE=origin/main bash scripts/verify.sh` at e6b04126: RESULT green (backend 2858 integration + 2313 other passed, 17 skipped by live-Keycloak switches; frontend 2269 affected in 165 files + 590 guards; docs checks pass)
 - 2026-10-18 [task-executor] left open, none blocks: DR2-1 (no pin tells InAnyState from Live), DR2-2 (a)(c), DR2-4, DR2-5 (docs and contract prose), CR-6, H-1/D-2, S-1; for gate-3: ADR-0028 rule 8 amendment (project row, hierarchy tier); E2E 27.5, 27.9, :135 and feat-028's list break, not run (NO)

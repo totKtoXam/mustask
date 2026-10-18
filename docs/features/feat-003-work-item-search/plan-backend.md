@@ -61,4 +61,13 @@ It adds `ProjectsSet/ProjectIds` (init members), `OfProjects` and a project bran
 
 ## As built
 
-(deviations are recorded here)
+Built in the plan's order (domain d4dbf178; code and endpoint tests; parity, statement-count, volume and non-disclosure tests). No contract change; deviations:
+
+- **Statements.** The project check is two statements (the project, its reachability), not one: the list is 7 (as mod-017's, unfiltered or with any dimension, 50 or 5 000 items) and the options 4 + ⌈people/500⌉ (project 2, ids 1, memberships 1, lookups). A page whose items have no assignee has no lookup and no membership statement (5), as before. Pinned by `FilterStatementCountTests`.
+- **The ids of the options** are a `DISTINCT` when no chosen name can reach the bin, a `UNION` of the live and deleted sets otherwise; the first cut had the `UNION` only and listed a person once per item (caught by `Options_ThePeopleAssignedToLiveItems…`).
+- **Slice shape.** `GetAssigneeOptionsHandler` returns `GetAssigneeOptionsResult(Options)`; the wire is the bare array. The handler keeps the chosen names through `WorkItemFilter.OfStates`, so the options and the list read a `state` value alike.
+- **SQL as planned**, checked on the generated statement: `strpos(replace(lower(title COLLATE "ru-x-icu"), 'ё', 'е'), replace(lower(@text COLLATE "ru-x-icu"), 'ё', 'е')) > 0`; the identifier arm is `number = @n AND EXISTS (work_item_types …)`, the number arm `number = @n`; EF drops the arms the keyword does not have. No raw SQL.
+- **Volume.** `WorkItemFilterVolumeTests` (100 000 items in the organization, 5 000 in the project, 500 deleted, 2 000 people): every read 13 to 31 ms, the options ~100 ms, against the 2 s budget.
+- **Matrix.** `DeletedItemSurfaceMatrixTests` gains the class `LiveOrChosenDeleted` for the list and the options; the seed assigns the deleted DC to a member so the options row is meaningful.
+- **Docs.** Log notes: mod-003 status.md (the row's `isActive`, § 2.1), mod-005 status.md and design § 6 (the purge landing, R-1). mod-016's route inventory row is restated in api-contract § 2.2, not edited there.
+- **Merge with feat-040** is the second merger's: its `Apply` call sites get `context,` (§ 9).

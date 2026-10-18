@@ -177,6 +177,13 @@ primary is in the error colour.
   the page `navigate` goes to «Рабочие элементы» with `replace`, so Back never meets the
   purged address. Focus goes to the row or card that opened the dialog, else `main`
   (`restoreFocus`). The host re-reads its views.
+- **Amended by feat-003 (BR-WS-5, review R-1, 2026-10-18): where the page lands.** When the
+  card was opened from a row of the project's list, so that list is the page before it, the
+  purge returns to that list's address — its filters included, page 1 — with the notice above;
+  a card reached any other way (its address, a link, another card's «Родитель») lands on
+  «Рабочие элементы» unfiltered, as written here. Either way the navigation is a `replace` and
+  Back never meets the purged address. The card's trail «Рабочие элементы» opens the list
+  unfiltered (feat-003 BR-WS-11).
 - The text names only what exists. When feat-015, feat-002 and mod-004 ship, each
   extends this sentence with its data (mod-015 § 9.4's «…вместе с историей, обсуждением и
   вложениями»), as BR-DR-16 owes.
