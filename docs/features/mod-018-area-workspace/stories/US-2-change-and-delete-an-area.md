@@ -28,6 +28,7 @@ Scenario: An area moves with its whole subtree (BR-AW-3, BR-AW-2)
   And its links and description, and its children's, are unchanged, and no project, team, link or work item changed
   When she moves «Финансы / Логистика» to the top level
   Then the tree is as it was in the Given
+  And a move of an area to the parent it already has, the top level included, by a direct request, succeeds and changes nothing
 
 Scenario: The move dialog offers what a move may reach (BR-AW-3)
   When Ann opens «Переместить» on «Логистика»
@@ -56,7 +57,7 @@ Scenario: The tree is at most 10 levels deep after a move (BR-AW-3)
   When Ann moves «Логистика», with its children, under «Ф9»
   Then it is refused with «Дерево областей не может быть глубже 10 уровней»
   But «Логистика» moved under «Ф8» is applied: its children land on level 10
-  And when «Логистика» is moved under «Ф8» while Ivan creates a child of «Логистика / Складские системы», each allowed alone,
+  And, from the Given again, when «Логистика» is moved under «Ф8» while Ivan creates a child of «Логистика / Складские системы», each allowed alone,
     exactly one of them is applied, the other refused with «Дерево областей не может быть глубже 10 уровней», and no area stands on level 11
 
 Scenario: Deleting a leaf ends its links and nothing else (BR-AW-9, BR-AW-2, BR-AW-10)

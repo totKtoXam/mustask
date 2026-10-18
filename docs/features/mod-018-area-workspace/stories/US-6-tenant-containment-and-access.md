@@ -16,6 +16,9 @@ Scenario: The structure contract reads areas inside the organization (BR-AW-1; A
   When a module asks the structure contract, in «Ромашка», for «Другая»'s «Логистика», for its linked projects and for Zeta's areas
   Then each reads as nothing: no area, an empty list
   And asked in «Ромашка» for its own «Логистика», for Alpha's areas and for MARS's, each reads as before
+  And, with «Логистика» linked to Alpha, and «Логистика / Складские системы» to Alpha and to Gamma, Gamma deactivated,
+    the area-to-projects resolution (ADR-0028 rule 8) answers Alpha for «Логистика» alone, and Alpha once for «Логистика» with its descendants:
+    each project once however many of the areas link it, a deactivated project left out, in one statement
   And the contract's own test fails if a by-id read returns an area of another organization: no caller carries the check for it
 
 Scenario Outline: A foreign id gets the answer of an id that names nothing (BR-AW-1, BR-AW-15)
@@ -67,10 +70,12 @@ Scenario: A refusal changes nothing, and today's order of answers holds (BR-AW-1
 Scenario: Every route declares its code, and the project-nested routes are gone (BR-AW-12; mod-016 BR-M1-33)
   Then the route inventory lists each area route of this line at the organization's address with its code:
     `organizations.area.read` for the reads; `area.create` for a top-level area; `area.write` for a child area, a rename, a description,
-    a move (with `area.create` to or from the top level) and a deletion; `area.link` with `project.link` or `team.link` for a link and an unlink
+    a move (with `area.create` to or from the top level) and a deletion; for a link, the code of the end whose route it is
+    (`area.link`, `project.link` or `team.link`) with the other end's checked second; for an unlink, the code of the end whose route it is, alone (BR-AW-7)
   And a creation of a project or a team with areas declares its own creation code and the link codes of the ends it names
   And the inventory test fails for a route under `/api/organizations/{organizationId}` that declares no code
-  And no route names a project in its address to read, create, rename, move or delete an area: `…/projects/{projectId}/areas` is gone
+  And no route names a project in its address to read the tree or to create, rename, move or delete an area: mod-002's tree routes
+    under `…/projects/{projectId}/areas` are gone, and the project's and the team's ends of the area links are routes of the project and of the team (BR-AW-12)
   And `GET …/access` lists `area.read` for every role, and `area.create`, `area.write` and `area.link` for «Администратор» and for no one else
   And the panel shows each command only to a user who holds its code or codes
 ```

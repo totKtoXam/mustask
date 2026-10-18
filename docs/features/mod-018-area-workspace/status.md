@@ -43,6 +43,7 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-18 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/mod-018-area-workspace
 - 2026-10-18 [orchestrator] route L (queue size), light route (the human's choice of 2026-10-17 for the lines after mod-017); started under the human's standing approval of 2026-10-18 evening («Ты работай, я спать буду. Пр-ы сам мерджи»), the route confirmation not asked; gate-1 + gate-2 go to the human as one package, one question per open question. E2E: no.
 - 2026-10-18 [business-analyst] spec.md + US-1..US-6; stage → 02-requirements-review. For gate-1: OQ-1 (per-project areas in the upgrade; goes on with A, drop all), OQ-2 («Наследовать доступ» before grants; goes on with B, shown from mod-019).
+- 2026-10-18 [requirements-reviewer] one round (light route): needs-human-decision, OQ-1 and OQ-2 to the package. R-1 major, R-2..R-10 minor; R-1..R-4, R-6, R-7, R-10 fixed in place; R-5's offer, R-8 and R-9's band go to stage 3 (review.md).
 
 ## Notes
 

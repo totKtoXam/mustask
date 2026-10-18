@@ -48,7 +48,7 @@ Scenario: The project's settings hold no «Области», and its old address
   Then their navigation has no «Области», and its areas are a section of «Общие» (US-3)
   When anyone opens `…/projects/<Alpha>/settings/areas`, a bookmark included
   Then the page reads «Страница не найдена», whether or not the user may see Alpha, and nothing redirects
-  And the API answers a request to a project-nested area route as a route that does not exist
+  And the API answers a request to one of mod-002's project-nested tree routes (the tree's read, an area's creation, rename, move or deletion under a project) as a route that does not exist (BR-AW-12)
 
 Scenario: An area's deletion no longer looks at items (BR-AW-9; mod-003 BR-M3-24 retired)
   Given «Финансы / Аналитика» is a leaf linked to Alpha, whose items include some in «Удалена»
