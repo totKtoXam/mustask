@@ -812,9 +812,13 @@ holding one item, and a purge takes the hierarchy lock before its items). The fi
 the owned items, as the purge does — two statements more each (one per project is one set-based pair), so `UnlinkStatements` and `DeletionStatements`
 would go 11 → 13 — or for the parent write to lock its child and its parents in one statement by id.
 
-### 14.4 Pins
+### 14.4 Pins and runs
 
-None moved. `TeamStatementCountTests` (unlink 11, deletion 11, the counts), `OwningTeamStatementCountTests` (child creation 21, the list 7), the link-lock
+Runs at the end of the merge pass (`dotnet build Mustask.sln` clean; `verify.sh` is QA's): Architecture 86, Domain 733, Application 779, Contracts 248,
+Shared 53, Infrastructure 412 (both migrations apply, roll back and re-apply; the model has no pending changes), Api integration filtered to WorkItems,
+Organizations, Boards and Authorization 2 153 — all green; the ten new race tests ten times over, green; the two role-bundle Vitest files 17.
+
+No pin moved. `TeamStatementCountTests` (unlink 11, deletion 11, the counts), `OwningTeamStatementCountTests` (child creation 21, the list 7), the link-lock
 statements of `RepositoriesTests`, `DeletionStatementCountTests` (Delete 13, Restore 11, Purge 13) and `ProjectBacklogStatementCountTests` (reorder 13)
 pass as written: the merge changed no path's statements, and moving the setting before the items reorders two statements without adding one.
 
