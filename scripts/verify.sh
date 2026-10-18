@@ -10,9 +10,20 @@
 #   scripts/verify.sh --list             only show the classification
 #   VERIFY_FULL=1 scripts/verify.sh      the whole frontend suite
 #
-# Comparison base is main, overridden by the BASE variable.
+# Comparison base (tech-044): the BASE variable if set, else origin/main when
+# that ref exists, else main. A worktree's local `main` is the hub's and is
+# rarely fast-forwarded, so against it the diff is everything merged since: the
+# checks run (or the push waits) for code the task never touched. origin/main
+# moves with every `git fetch`; the run prints the base it used. CI sets BASE
+# itself: origin/main on a PR, the commit main pointed at before the push on a
+# push to main (.github/workflows/ci.yml).
 # An unknown path is treated as code: missing a breakage costs more than an
 # extra build.
+#
+# A test step passes on its exit code AND on what the run printed (tech-044):
+# an aborted run ("The active test run was aborted", "Test host process
+# crashed", a Vitest run that ends without its summary) fails the step even if
+# the exit code got lost on the way. See run_tests below.
 #
 # Frontend tests (tech-028): by default Vitest runs only the tests that reach
 # a file changed since the merge-base with $BASE (`vitest run --changed`), and
@@ -44,7 +55,14 @@
 
 set -eu
 
-BASE=${BASE:-main}
+# An explicit BASE wins (an empty one counts as unset).
+if [ -z "${BASE:-}" ]; then
+    if git rev-parse --verify -q origin/main >/dev/null 2>&1; then
+        BASE=origin/main
+    else
+        BASE=main
+    fi
+fi
 VERIFY_FULL=${VERIFY_FULL:-0}
 # The fast tier (npm run test:fast, tech-029) is a development aid: whatever
 # the caller exported, a verification never runs with it.
@@ -97,7 +115,69 @@ fail() { failed="$failed  - $1
 pass() { passed="$passed  - $1
 "; printf "  ok: %s\n" "$1"; }
 
+# --- A test run's verdict (tech-044) --------------------------------------------------
+# run_tests KIND COMMAND [ARG...]   (KIND: dotnet | vitest)
+# Streams the output as it comes and returns 0 only if the command exited 0 AND
+# the output shows a run that reached its end. A run that aborts must not pass:
+#   dotnet  "The active test run was aborted" / "Test host process crashed" /
+#           "Test Run Aborted" in the output, whatever the exit code says. The
+#           CLI and VSTest print in the host's language (Russian on the
+#           maintainer's machine), where those English words would never
+#           match, so the run is made English: DOTNET_CLI_UI_LANGUAGE and
+#           VSLANG are set for the command only.
+#   vitest  no "Test Files ... passed|failed|skipped" summary and no "No test
+#           files found" (--passWithNoTests): the runner died mid-run. Vitest
+#           colours its output even into a pipe, hence the loose pattern.
+# The exit code travels through a file: `cmd | tee` would report tee's. A
+# function called from `if` runs without errexit, so the codes are explicit.
+run_tests() {
+    rt_kind=$1
+    shift
+    rt_log=$(mktemp)
+    rt_code_file=$(mktemp)
+    {
+        if [ "$rt_kind" = dotnet ]; then
+            DOTNET_CLI_UI_LANGUAGE=en
+            VSLANG=1033
+            export DOTNET_CLI_UI_LANGUAGE VSLANG
+        fi
+        rt_code=0
+        "$@" || rt_code=$?
+        printf '%s\n' "$rt_code" > "$rt_code_file"
+    } 2>&1 | tee "$rt_log"
+    rt_code=$(head -n 1 "$rt_code_file" 2>/dev/null | tr -d '\r\n')
+    rt_ok=0
+    if [ -z "$rt_code" ]; then
+        printf "  test run: no exit code was recorded, counting it as failed\n" >&2
+        rt_ok=1
+    elif [ "$rt_code" != 0 ]; then
+        rt_ok=1
+    else
+        case "$rt_kind" in
+            dotnet)
+                if grep -Eq "The active test run was aborted|Test host process crashed|Test Run Aborted" "$rt_log"; then
+                    printf "  test run: aborted (the output says so, exit code %s), counting it as failed\n" "$rt_code" >&2
+                    rt_ok=1
+                fi
+                ;;
+            vitest)
+                if ! grep -Eq "Test Files.*[0-9]+ (passed|failed|skipped)|No test files found" "$rt_log"; then
+                    printf "  test run: no Vitest summary (exit code %s), the run did not finish, counting it as failed\n" "$rt_code" >&2
+                    rt_ok=1
+                fi
+                ;;
+        esac
+    fi
+    rm -f "$rt_log" "$rt_code_file"
+    return "$rt_ok"
+}
+
 merge_base=$(git merge-base HEAD "$BASE" 2>/dev/null || echo "")
+if [ -n "$merge_base" ]; then
+    note "Comparing with $BASE (merge-base $(printf '%.9s' "$merge_base"))"
+else
+    note "Comparing with $BASE (no merge-base: only uncommitted and untracked files count)"
+fi
 
 # --- One full Vitest run at a time ---------------------------------------------------
 # Several agents in several worktrees each running the whole jsdom suite
@@ -658,6 +738,21 @@ if [ "$need_shell" = 1 ]; then
         fi
     fi
 
+    # The comparison base and an aborted test run (tech-044): the cases run a
+    # nested verify.sh in a throwaway repository with stubs for dotnet, docker
+    # and npm.
+    touches_base=0
+    for file in $changed; do
+        case "$file" in scripts/verify.sh|scripts/tests/verify-base-and-abort-cases.sh) touches_base=1 ;; esac
+    done
+    if [ "$touches_base" = 1 ]; then
+        if sh scripts/tests/verify-base-and-abort-cases.sh; then
+            pass "verify.sh: comparison base and aborted test run cases"
+        else
+            fail "verify.sh: comparison base and aborted test run cases"
+        fi
+    fi
+
     # The green stamp of this very script (tech-030): the cases run a nested
     # verify.sh in a throwaway repository, so they are cheap and never touch the
     # real stamps.
@@ -701,7 +796,7 @@ if [ "$need_dotnet" = 1 ]; then
     elif dotnet build Mustask.sln --nologo -v q; then
         pass "backend build"
         if docker info >/dev/null 2>&1; then
-            if dotnet test Mustask.sln --no-build --nologo -v q; then
+            if run_tests dotnet dotnet test Mustask.sln --no-build --nologo -v q; then
                 pass "backend tests, including integration"
             else
                 fail "backend tests"
@@ -715,7 +810,7 @@ if [ "$need_dotnet" = 1 ]; then
                 # The RequiresDocker trait also shows up outside
                 # *IntegrationTests (e.g. MigrationsTests in
                 # Mustask.Infrastructure.Tests).
-                if dotnet test "$project" --no-build --nologo -v q --filter "Category!=RequiresDocker"; then
+                if run_tests dotnet dotnet test "$project" --no-build --nologo -v q --filter "Category!=RequiresDocker"; then
                     pass "tests ${project%/}"
                 else
                     fail "tests ${project%/}"
@@ -755,7 +850,7 @@ if [ "$need_provider" = 1 ]; then
         if [ "$provider_built" = 1 ]; then
             provider_tests_ok=1
             for project in src/backend/tests/Mustask.Contracts.Tests src/backend/tests/Mustask.Api.IntegrationTests; do
-                MUSTASK_KEYCLOAK_PROVIDER_TESTS=1 dotnet test "$project" --no-build --nologo -v q \
+                run_tests dotnet env MUSTASK_KEYCLOAK_PROVIDER_TESTS=1 dotnet test "$project" --no-build --nologo -v q \
                     --filter "Category=KeycloakProvider" || provider_tests_ok=0
             done
             if [ "$provider_tests_ok" = 1 ]; then
@@ -788,6 +883,8 @@ if [ "$need_frontend" = 1 ]; then
         else
             fail "build $app"
         fi
+        # Every Vitest run goes through run_tests: its summary is part of the verdict.
+        frontend_tests() { (cd "$app" && npm test --if-present -- --run "$@"); }
         if [ "$VERIFY_FULL" = 1 ] || [ -z "$merge_base" ]; then
             if [ "$VERIFY_FULL" = 1 ]; then
                 note "  tests $app: the whole suite (VERIFY_FULL=1)"
@@ -795,7 +892,7 @@ if [ "$need_frontend" = 1 ]; then
                 note "  tests $app: the whole suite (no merge-base with $BASE)"
             fi
             vitest_lock_acquire
-            if (cd "$app" && npm test --if-present -- --run); then
+            if run_tests vitest frontend_tests; then
                 vitest_lock_release
                 pass "tests $app"
             else
@@ -805,7 +902,7 @@ if [ "$need_frontend" = 1 ]; then
         else
             # --passWithNoTests: a change that no test reaches is not a failure.
             note "  tests $app: only those reaching changes since $(printf '%.9s' "$merge_base") (VERIFY_FULL=1 for the whole suite)"
-            if (cd "$app" && npm test --if-present -- --run --changed "$merge_base" --passWithNoTests); then
+            if run_tests vitest frontend_tests --changed "$merge_base" --passWithNoTests; then
                 pass "tests $app (affected)"
             else
                 fail "tests $app (affected)"
@@ -817,7 +914,7 @@ if [ "$need_frontend" = 1 ]; then
             guards=$(cd "$app" && grep -rlE "node:fs|from 'fs'|readFileSync|readdirSync" src --include='*.test.ts' --include='*.test.tsx' 2>/dev/null | sort || true)
             if [ -n "$guards" ]; then
                 # shellcheck disable=SC2086 -- file names have no spaces
-                if (cd "$app" && npm test --if-present -- --run $guards); then
+                if run_tests vitest frontend_tests $guards; then
                     pass "tests $app (source-reading guards, always run)"
                 else
                     fail "tests $app (source-reading guards)"
