@@ -3,15 +3,15 @@
 - type: module
 - size: L
 - branch: mod/018-area-workspace
-- stage: gate-1+gate-2
+- stage: 04-backend
 - epic: core/org-access
 - deps: feat-028
 - gates: gate-1, gate-2, gate-3
 
 ## Gates
 
-gate-1: pending
-gate-2: pending
+gate-1: approved (2026-10-18, human in chat, one question per open question: OQ-1 A, the upgrade drops every per-project area; OQ-2 B, «Наследовать доступ» stored now, shown and governed from mod-019)
+gate-2: approved (2026-10-18, human in chat, one question per design decision: D-1..D-7 A)
 gate-3: pending
 
 ## Plan
@@ -37,9 +37,22 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - Interim surfaces for one line (doc-013): the area pages in the organization
   settings and the project's area links in the project's settings;
   `feat-043-area-project-team-navigation` moves them.
-- Design (2026-10-18): D-1..D-7 of `design.md` § 14 are open for the package, each with a
-  recommended option A; the prototype follows the stage file's rule for an L. No code before the
-  human's answer.
+- Design (2026-10-18): D-1..D-7 of `design.md` § 14 went to the package, each with a
+  recommended option A; the prototype follows the stage file's rule for an L.
+- Gate-1 + gate-2 (the human in chat, 2026-10-18, one question each): OQ-1 A,
+  OQ-2 B, D-1..D-7 A; spec and design stand as written (both already went on
+  with these). OQ-2 B: `mod-019-scoped-access`'s queue line gains «Наследовать
+  доступ»'s control, its rules and doc-012 US-1's switch clauses (spec
+  § Decomposition), amended by the orchestrator's queue PR.
+- Also in the ADR-0028 amendment, by the human's answer at mod-005 gate-3
+  (2026-10-18, «⭐ A: В поправку mod-018»): rule 8 states the one lock order
+  with the project row and the hierarchy tier in it (mod-005 review-code
+  DR2-2 (c)), written today only in mod-005 `plan-backend.md` § 14.3 and
+  feat-028 `plan-backend.md` § 7.1: unlink and team deletion take the project
+  hierarchy lock before the owned rows (mod-005 QD-1).
+- Development waits for feat-040 to merge: both re-lay the card's band
+  (feat-040 D-2 puts «Проект» in block A row 2; this design's D-6 moves
+  «Команда» up in block B), and both touch the item's read models.
 
 ## Log
 
@@ -49,6 +62,7 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-18 [requirements-reviewer] one round (light route): needs-human-decision, OQ-1 and OQ-2 to the package. R-1 major, R-2..R-10 minor; R-1..R-4, R-6, R-7, R-10 fixed in place; R-5's offer, R-8 and R-9's band go to stage 3 (review.md).
 - 2026-10-18 [business-analyst] fix round: R-1 residual closed (tree routes retired by meaning, US-4, US-6, NFR); BR-AW-3 states R-5's move; the pickers and the tree hold under any design choice; US-4 names the band; R-8 stays for stage 3; OQ-1, OQ-2 unchanged.
 - 2026-10-18 [ux-designer] design.md (32.5 KB) + prototype/index.html; D-1..D-7 take R-5, R-8's four, R-9 and the tree component. Package for the human: OQ-1, OQ-2, D-1..D-7; stage gate-1+gate-2. No gate set.
+- 2026-10-18 [orchestrator] the human answered in chat, one question per open question and per design decision: OQ-1 A, OQ-2 B, D-1..D-7 A. gate-1 and gate-2 approved; stage → 04-backend. The mod-005 gate-3 answer adds the one lock order to the ADR-0028 amendment (Decisions); mod-019's queue line is amended by the orchestrator's queue PR; development starts after feat-040 merges.
 
 ## Notes
 

@@ -336,37 +336,37 @@ picker's list first, then the dialog.
 
 ## 14. Decisions
 
-- [ ] **D-1 The searchable pickers (R-8).** (A, recommended) A local filter: the areas come from
+- [x] **D-1 The searchable pickers (R-8).** (A, recommended) A local filter: the areas come from
   the tree's one read, the projects and teams from the active lists a dialog reads when it opens;
   typing narrows by path (areas) or by name and key; the list draws at most 50 matches and ends with
   «Показаны первые 50 из 312. Уточните запрос.» ◆. No new route, no wait per keystroke; it holds the
   stated 1 000 / 200 / 200. (B) Server search per field, as the human chose for the team form's
   «Участники» at feat-028 gate-3: unbounded, but three search routes with a statement-count test
-  each, a debounce and a «Поиск…» state; users are in no list another page reads, these are.
-- [ ] **D-2 The deletion's links at 200 + 200 (R-8).** (A, recommended) Every link named in the
+  each, a debounce and a «Поиск…» state; users are in no list another page reads, these are. Answered A by the human at gate-2, 2026-10-18.
+- [x] **D-2 The deletion's links at 200 + 200 (R-8).** (A, recommended) Every link named in the
   dialog, two scrolling lists as feat-028 § 5.3 does for projects: BR-AW-9 is met on sight and one
   pattern serves both deletions. (B) Counts and the names behind «Показать все»: shorter, but
-  the actor can confirm unseen.
-- [ ] **D-3 The tree's initial expansion (R-8).** (A, recommended) Everything expanded while the
+  the actor can confirm unseen. Answered A by the human at gate-2, 2026-10-18.
+- [x] **D-3 The tree's initial expansion (R-8).** (A, recommended) Everything expanded while the
   tree has at most 100 areas, the top level only above that, with «Развернуть всё» / «Свернуть всё»
   in the header. (B) The top level only, always: one rule, but the example tree hides its children
-  at first. (C) Always everything: up to 1 000 rows drawn at once.
-- [ ] **D-4 Where a project's row on an area's page leads (R-8).** (A, recommended) The project's
+  at first. (C) Always everything: up to 1 000 rows drawn at once. Answered A by the human at gate-2, 2026-10-18.
+- [x] **D-4 Where a project's row on an area's page leads (R-8).** (A, recommended) The project's
   «Общие», the link's other end, where «Области» lists the area back (feat-028 D-3's choice). (B) Its
-  «Рабочие элементы»: the work, but the link's other end is not shown.
-- [ ] **D-5 The pickers' offer (R-5).** (A, recommended) Every place except the structurally
+  «Рабочие элементы»: the work, but the link's other end is not shown. Answered A by the human at gate-2, 2026-10-18.
+- [x] **D-5 The pickers' offer (R-5).** (A, recommended) Every place except the structurally
   impossible ones (the area, its descendants, its current parent); the depth and name rules are
   refused on saving with the server's text, so the client keeps no copy of rules that concurrent
   edits change anyway. (B) Also grey out the places the client sees would be refused (level 10, a
-  sibling name, a subtree too tall): guidance, but two rules copied into the panel.
-- [ ] **D-6 The card's band without «Область» (R-9).** (A, recommended) «Команда» moves up to row 1
+  sibling name, a subtree too tall): guidance, but two rules copied into the panel. Answered A by the human at gate-2, 2026-10-18.
+- [x] **D-6 The card's band without «Область» (R-9).** (A, recommended) «Команда» moves up to row 1
   of block B and the place of «Итерация» takes row 2, as feat-029 drew it before mod-017. (B)
   «Команда» stays in row 2 and row 1 stands empty: nothing moves for a user, but the band keeps a
-  gap above the team.
-- [ ] **D-7 The tree component.** (A, recommended) The legacy `TreeRegistry` with one optional prop
+  gap above the team. Answered A by the human at gate-2, 2026-10-18.
+- [x] **D-7 The tree component.** (A, recommended) The legacy `TreeRegistry` with one optional prop
   (§ 2): small, its keyboard model is kept, tech-017 restyles it. (B) A kit-grade tree table from
   `TableCard`, `BodyRow` and `TreeCell`: the kit look at once, but a new shared part with showcase,
-  tests and guide, work tech-017 owns, inside a breaking L.
+  tests and guide, work tech-017 owns, inside a breaking L. Answered A by the human at gate-2, 2026-10-18.
 
 ## 15. Stories to screens
 
