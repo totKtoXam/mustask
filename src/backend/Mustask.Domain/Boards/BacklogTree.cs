@@ -7,10 +7,11 @@ namespace Mustask.Domain.Boards;
 /// stored parent, and the rank of its level (mod-001 BR-M2-4, a higher rank is
 /// a higher level). <paramref name="CreatedAt"/> is given by a project's page
 /// (feat-039 BR-PB-4) for the levels that have a project order, and left <c>null</c>
-/// by a team's page and for the «Задачи» level, whose rows stand by number
-/// (<see cref="StackRankEntry"/>).
+/// for the «Задачи» level of a project's page, whose rows stand by number; a team's page (feat-040 BR-TS-6) gives
+/// <paramref name="CreatedAt"/> and <paramref name="ProjectKey"/> on every row (<see cref="StackRankEntry"/>).
 /// </summary>
-public sealed record BacklogTreeEntry(Guid ItemId, int Number, int? Place, Guid? ParentId, int LevelRank, DateTimeOffset? CreatedAt = null);
+public sealed record BacklogTreeEntry(
+    Guid ItemId, int Number, int? Place, Guid? ParentId, int LevelRank, DateTimeOffset? CreatedAt = null, string? ProjectKey = null);
 
 /// <summary>A row of the tree: the item and the rows nested beneath it, in display order.</summary>
 public sealed record BacklogTreeNode(Guid ItemId, IReadOnlyList<BacklogTreeNode> Children);
@@ -48,7 +49,7 @@ public static class BacklogTree
         var ordered = entries
             .GroupBy(entry => entry.LevelRank)
             .OrderByDescending(level => level.Key)
-            .SelectMany(level => StackRank.Order(level.Select(entry => new StackRankEntry(entry.ItemId, entry.Number, entry.Place, entry.CreatedAt))));
+            .SelectMany(level => StackRank.Order(level.Select(entry => new StackRankEntry(entry.ItemId, entry.Number, entry.Place, entry.CreatedAt, entry.ProjectKey))));
 
         var beneath = new Dictionary<Guid, List<Guid>>();
         var top = new List<Guid>();

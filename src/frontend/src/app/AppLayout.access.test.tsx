@@ -44,7 +44,8 @@ function source(overrides: Partial<WorkContextSource> = {}): WorkContextSource {
       {
         id: ORG,
         name: 'Альфа',
-        projects: [{ id: 'p1', name: 'Проект', teams: [{ id: 't1', name: 'Команда' }] }],
+        projects: [{ id: 'p1', name: 'Проект' }],
+        teams: [{ id: 't1', name: 'Команда' }],
       },
     ],
     selection: { organizationId: ORG, projectId: 'p1', teamId: 't1' },

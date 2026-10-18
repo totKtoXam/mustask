@@ -54,7 +54,7 @@ function afterRules(element: Element): CSSStyleRule[] {
 }
 
 describe('V-1 Scenario: The header separators are thin lines, not a band', () => {
-  it('draws each of the six separators 1 px wide and 20 px tall — a length, because `sx` reads a bare `width: 1` as 100 % and drew one grey bar across the headers', async () => {
+  it('draws each of the seven separators 1 px wide and 20 px tall — a length, because `sx` reads a bare `width: 1` as 100 % and drew one grey bar across the headers', async () => {
     serveBoards(fullTreeDataset());
     renderBoards(backlogAddress('epics'));
     const table = await findBacklogTable();
@@ -68,6 +68,7 @@ describe('V-1 Scenario: The header separators are thin lines, not a band', () =>
       'Заголовок',
       'Статус',
       'Команда',
+      'Проект',
       'Трудоёмкость',
       'Бизнес-ценность',
     ]);

@@ -26,7 +26,7 @@ function outline(rows: readonly BacklogTreeItem[], depth = 0): string[] {
 }
 
 async function read(level: 'epics' | 'features' | 'stories', team: string = PLATFORM) {
-  return getBacklog(ORG, MSK, team, level);
+  return getBacklog(ORG, team, level);
 }
 
 describe('getBacklog: the whole tree in the one answer (feat-027 api-contract § 1, § 2)', () => {
@@ -188,7 +188,7 @@ describe('getBacklog: the whole tree in the one answer (feat-027 api-contract §
   it('the board is unchanged: cards in one level, no tree, `order` the position in the whole backlog', async () => {
     serveBoards(fullTreeDataset());
 
-    const board = await getBoard(ORG, MSK, PLATFORM, 'stories');
+    const board = await getBoard(ORG, PLATFORM, 'stories');
 
     const cards = board.columns.flatMap((column) => column.items);
     expect(cards.map((card) => [card.identifier, card.order])).toEqual([

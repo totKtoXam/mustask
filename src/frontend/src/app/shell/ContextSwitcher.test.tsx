@@ -71,7 +71,7 @@ describe('US-5 Scenario: Initial context (BR-11, D-11)', () => {
 });
 
 describe('US-5 Scenario: Levels list only what belongs to the level above', () => {
-  it('lists the organization’s two projects, the first current, and the project’s two teams only', async () => {
+  it('lists the organization’s two projects, the first current, and the organization’s three teams (feat-040 BR-TS-10)', async () => {
     renderSwitcher();
 
     const projects = await openLevel(/^Проект:/);
@@ -87,12 +87,13 @@ describe('US-5 Scenario: Levels list only what belongs to the level above', () =
     expect(entries(teams).map((entry) => entry.name)).toEqual([
       'Пример команды 1',
       'Пример команды 2',
+      'Пример команды 3',
     ]);
   });
 });
 
 describe('US-5 Scenario: Changing a level resets the levels below it', () => {
-  it('resets project and team to the new organization’s first, and the team to the new project’s first', async () => {
+  it('resets project and team to the new organization’s first; a project change keeps the team (feat-040 BR-TS-10)', async () => {
     renderSwitcher();
 
     await userEvent.click(
@@ -111,10 +112,16 @@ describe('US-5 Scenario: Changing a level resets the levels below it', () => {
       }),
     );
     await userEvent.click(
+      within(await openLevel(/^Команда:/)).getByRole('menuitemradio', {
+        name: 'Пример команды 2',
+      }),
+    );
+    await userEvent.click(
       within(await openLevel(/^Проект:/)).getByRole('menuitemradio', { name: 'Пример проекта 2' }),
     );
 
-    expect(level('Команда: Пример команды 3')).toBeInTheDocument();
+    expect(level('Проект: Пример проекта 2')).toBeInTheDocument();
+    expect(level('Команда: Пример команды 2')).toBeInTheDocument();
   });
 });
 
@@ -145,7 +152,8 @@ describe('US-5 Scenario: No request, no persistence', () => {
         within(await openLevel(levelName)).getByRole('menuitemradio', { name: choice }),
       );
     }
-    expect(level('Команда: Пример команды 3')).toBeInTheDocument();
+    // Organization 1 brought its first team back; the project change kept it.
+    expect(level('Команда: Пример команды 1')).toBeInTheDocument();
     expect(requests).toEqual([]);
 
     unmount();
@@ -200,7 +208,8 @@ describe('US-5 Scenario: A long name is truncated, not lost (BR-11, D-22)', () =
       {
         id: 'org-long',
         name: longName,
-        projects: [{ id: 'prj-1', name: 'Пример проекта 1', teams: [] }],
+        projects: [{ id: 'prj-1', name: 'Пример проекта 1' }],
+        teams: [],
       },
     ]);
 
@@ -242,22 +251,39 @@ describe('US-5 Scenario: No organizations', () => {
   });
 });
 
-describe('US-5 Scenario: An organization with no projects', () => {
-  it('shows «Нет проектов» at the project level and no team level', () => {
-    renderSwitcher([{ id: 'org-empty', name: 'Пустая организация', projects: [] }]);
+describe('US-5 Scenario: An organization with no projects — and feat-040 BR-TS-10: the team level is the organization’s', () => {
+  it('shows «Нет проектов» at the project level and «Нет команд» at the team level when the organization has neither', () => {
+    renderSwitcher([{ id: 'org-empty', name: 'Пустая организация', projects: [], teams: [] }]);
 
     expect(level('Организация: Пустая организация')).toBeInTheDocument();
     expect(screen.getByText('Нет проектов')).toBeInTheDocument();
+    expect(screen.getByText('Нет команд')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Проект:/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Команда:/ })).not.toBeInTheDocument();
   });
 
-  it('a project with no teams shows «Нет команд»', () => {
+  it('draws the team level when the organization has teams and no project: «Нет проектов» then the team', () => {
+    renderSwitcher([
+      {
+        id: 'org-teams',
+        name: 'Организация с командами',
+        projects: [],
+        teams: [{ id: 'team-1', name: 'Пример команды 1' }],
+      },
+    ]);
+
+    expect(screen.getByText('Нет проектов')).toBeInTheDocument();
+    expect(level('Команда: Пример команды 1')).toBeInTheDocument();
+    expect(screen.queryByText('Нет команд')).not.toBeInTheDocument();
+  });
+
+  it('an organization with no team shows «Нет команд», whatever its projects', () => {
     renderSwitcher([
       {
         id: 'org-1',
         name: 'Пример организации 1',
-        projects: [{ id: 'prj-1', name: 'Пример проекта 1', teams: [] }],
+        projects: [{ id: 'prj-1', name: 'Пример проекта 1' }],
+        teams: [],
       },
     ]);
 

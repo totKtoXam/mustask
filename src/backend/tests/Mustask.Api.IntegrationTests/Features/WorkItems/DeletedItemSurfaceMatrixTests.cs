@@ -93,6 +93,26 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
         Assert.DoesNotContain(m.D.Identifier, CardsAndChecklists(projectBoard.Body));
         Assert.DoesNotContain(m.DC.Identifier, CardsAndChecklists(projectBoard.Body));
 
+        // Row 3, feat-040 · the team's view spans projects (BR-TS-2): a team view across two projects with a deleted item in the second
+        // shows the second project's live item and neither its deleted one — the backlog, the board and the project's own views alike.
+        var second = await OrganizationsTestData.CreateBareProjectAsync(factory, world.OrganizationId, "Вторая", "SEC");
+        await OrganizationsTestData.LinkAsync(factory, second.Project.Id, world.PlatformId);
+        var secondView = new BoardsWorld(
+            world.Items with { ProjectId = second.Project.Id, Key = "SEC", RootAreaId = second.Root.Id }, Guid.Empty, world.PlatformId, Guid.Empty, Guid.Empty, Guid.Empty);
+        var secondLive = await TeamAcrossProjectsTestData.CreateAsync(factory, secondView, "Живая второго", world.PlatformId);
+        var secondGone = await TeamAcrossProjectsTestData.CreateAsync(factory, secondView, "Удалённая второго", world.PlatformId);
+        await LinksTestData.DeleteAsync(factory, secondView.Items, secondGone);
+
+        var acrossBacklog = await BoardsTestData.GetBacklogAsync(factory, world, world.PlatformId);
+        var acrossBoard = await BoardsTestData.GetBoardAsync(factory, world, world.PlatformId);
+        var secondProjectBacklog = await ProjectBoardsTestData.GetBacklogAsync(factory, secondView);
+        var acrossRows = AllIdentifiers(acrossBacklog.Body.GetProperty("items").EnumerateArray().ToArray());
+        Assert.Contains(secondLive.Identifier, acrossRows);
+        Assert.DoesNotContain(secondGone.Identifier, acrossRows);
+        Assert.Contains(secondLive.Identifier, CardsAndChecklists(acrossBoard.Body));
+        Assert.DoesNotContain(secondGone.Identifier, CardsAndChecklists(acrossBoard.Body));
+        Assert.DoesNotContain(secondGone.Identifier, AllIdentifiers(secondProjectBacklog.Body.GetProperty("items").EnumerateArray().ToArray()));
+
         // Row 4 · the backlog tree: a deleted parent stands in no row and its children are top-level rows, their «Родитель» cell
         // «Нет» — SC, a story whose feature FD is deleted, is a top-level row of the stories backlog; D stands in no row and L
         // nests beneath S as before, D's live child C hanging from no row at all.
@@ -134,7 +154,8 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
             HttpMethod.Get,
             $"{TeamTestData.Team(world.OrganizationId, world.PlatformId)}/deletion-counts",
             token: OrganizationsTokens.SignedIn());
-        Assert.Equal([7], deletionCounts.Body.GetProperty("projects").EnumerateArray().Select(project => project.GetProperty("count").GetInt32()));
+        // feat-040: the team now also owns the two items of the second project, "Вторая" before "Мастаск" by name.
+        Assert.Equal([2, 7], deletionCounts.Body.GetProperty("projects").EnumerateArray().Select(project => project.GetProperty("count").GetInt32()));
         var area = await OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Delete,
@@ -259,8 +280,8 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
         ["GET " + Project + "/workitems"] = Reads.LiveOnly,
         ["GET " + Project + "/workitems/{identifier}"] = Reads.AnyState,
         ["GET " + Project + "/workitems/{identifier}/parent-candidates"] = Reads.LiveOnly,
-        ["GET " + ProjectTeam + "/backlogs/{level}"] = Reads.LiveOnly,
-        ["GET " + ProjectTeam + "/boards/{level}"] = Reads.LiveOnly,
+        ["GET " + OrgTeam + "/backlogs/{level}"] = Reads.LiveOnly,
+        ["GET " + OrgTeam + "/boards/{level}"] = Reads.LiveOnly,
         ["GET " + Project + "/backlogs/{level}"] = Reads.LiveOnly,
         ["GET " + Project + "/boards/{level}"] = Reads.LiveOnly,
         ["GET " + ProjectTeam + "/unlink-count"] = Reads.CountsOwnedInAnyState,

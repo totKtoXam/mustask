@@ -6,12 +6,12 @@ namespace Mustask.Domain.Boards;
 /// An item on one backlog (team or project, level), as the order needs it: its
 /// id, its number, and its place on this backlog, or <c>null</c> when it holds
 /// none here (spec § The stack rank). <paramref name="CreatedAt"/> is given by a
-/// project's backlog only (feat-039 BR-PB-4): its unplaced items follow by
-/// creation time before the number. A team's entries leave it <c>null</c> and
-/// keep the number tie-break (BR-M4-13) until
-/// <c>feat-040-team-surfaces-across-projects</c>.
+/// project's backlog (feat-039 BR-PB-4): its unplaced items follow by creation time before the number. A team's
+/// backlog spans projects (feat-040 BR-TS-6), so its entries give <paramref name="CreatedAt"/> and
+/// <paramref name="ProjectKey"/> both: creation time, then the project key by character code, then the number. An
+/// entry that gives neither (a task row of a project's page) sorts on its number alone.
 /// </summary>
-public sealed record StackRankEntry(Guid ItemId, int Number, int? Place, DateTimeOffset? CreatedAt = null);
+public sealed record StackRankEntry(Guid ItemId, int Number, int? Place, DateTimeOffset? CreatedAt = null, string? ProjectKey = null);
 
 /// <summary>Where a reorder puts its item (BR-M4-25): the top, the bottom, or directly after one named item.</summary>
 public abstract record StackRankPosition
@@ -65,20 +65,20 @@ public abstract record StackRankPosition
 public static class StackRank
 {
     /// <summary>
-    /// The backlog's order: the items placed here by their places (a tie, which
-    /// one reorder never writes, by number), then the unplaced ones by number,
-    /// ascending (BR-M4-13, OQ-5). Numbers are one sequence per project, so the
-    /// unplaced ones stand in creation order and a new item is last. A project's
-    /// backlog (feat-039 BR-PB-4) gives <see cref="StackRankEntry.CreatedAt"/>, and
-    /// then the unplaced ones stand by creation time first, the number breaking a
-    /// tie; an entry without it (a team's, a task's) sorts on its number alone,
-    /// as before.
+    /// The backlog's order (feat-040 BR-TS-6): the items placed here first, by their places; then, for the unplaced
+    /// ones and for placed ones of an equal place (which one reorder never writes, but feat-028's per-project reorders
+    /// and a deactivated project's kept places leave), by creation time, then the project key by character code
+    /// (ordinal, never culture), then the number as a number. Numbers are one sequence per project, so within one
+    /// project the unplaced ones stand in creation order and a new item is last; across projects the key breaks a tie
+    /// of the time. An entry without a creation time or a key (a task row of a project's page, which has no project
+    /// order) sorts on its number alone.
     /// </summary>
     public static IReadOnlyList<Guid> Order(IEnumerable<StackRankEntry> entries) =>
         entries
             .OrderBy(entry => entry.Place is null)
             .ThenBy(entry => entry.Place)
             .ThenBy(entry => entry.CreatedAt)
+            .ThenBy(entry => entry.ProjectKey, StringComparer.Ordinal)
             .ThenBy(entry => entry.Number)
             .Select(entry => entry.ItemId)
             .ToList();

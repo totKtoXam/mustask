@@ -314,6 +314,13 @@ export const BacklogRow = memo(function BacklogRow({
           </Box>
         )}
       </BacklogCell>
+      {/* feat-040 design § 5.1, D-1: the item's project after «Команда»; every item has one,
+          so there is no «без проекта» state. */}
+      <BacklogCell>
+        <Box component="span" title={item.project.name} sx={clipped}>
+          {item.project.name}
+        </Box>
+      </BacklogCell>
       <BacklogCell>{planningNumber(item.effort)}</BacklogCell>
       <BacklogCell>{planningNumber(item.businessValue)}</BacklogCell>
       <BacklogCell>

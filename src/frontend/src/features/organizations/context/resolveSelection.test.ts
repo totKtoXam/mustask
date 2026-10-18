@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { WorkContextSelection } from '../../../shared/lib/workContext';
-import { LOADING_LIST, addressSync, resolveSelection, type LevelList } from './resolveSelection';
+import {
+  LOADING_LIST,
+  addressSync,
+  organizationTeamLevel,
+  resolveSelection,
+  type LevelList,
+} from './resolveSelection';
 
 function ready(...names: string[]): LevelList {
   return { status: 'ready', items: names.map((name) => ({ id: name, name })) };
@@ -8,15 +14,14 @@ function ready(...names: string[]): LevelList {
 
 const FAILED: LevelList = { status: 'failed', items: [] };
 
-/** «Альфа» (Аналитика, Пример проекта), «Бета» (Отчётность); teams per project, the first team first. */
+/** «Альфа» (Аналитика, Пример проекта), «Бета» (Отчётность); the organization's teams, the first first. */
 const PROJECTS: Record<string, LevelList> = {
   Альфа: ready('Аналитика', 'Пример проекта'),
   Бета: ready('Отчётность'),
 };
 const TEAMS: Record<string, LevelList> = {
-  Аналитика: ready('Аналитика'),
-  'Пример проекта': ready('Пример проекта', 'Платформа'),
-  Отчётность: ready('Отчётность'),
+  Альфа: ready('Аналитика', 'Платформа', 'Пример проекта'),
+  Бета: ready('Отчётность'),
 };
 
 function resolve(
@@ -33,7 +38,7 @@ function resolve(
     chosen,
     organizations: overrides.organizations ?? ready('Альфа', 'Бета'),
     projectsOf: (id) => projects[id] ?? ready(),
-    teamsOf: (_organization, id) => teams[id] ?? ready(),
+    teamsOf: (id) => teams[id] ?? ready(),
   });
 }
 
@@ -48,9 +53,10 @@ describe('mod-002 US-8: the selection without an address (design § 3.4)', () =>
     });
     expect(resolution.settled).toBe(true);
     expect(resolution.replacement).toBeNull();
+    expect(resolution.chosenTeamId).toBeUndefined();
   });
 
-  it('a remembered selection the lists hold is kept', () => {
+  it('a remembered selection the lists hold is kept, its team being a chosen one', () => {
     const remembered = {
       organizationId: 'Альфа',
       projectId: 'Пример проекта',
@@ -59,66 +65,130 @@ describe('mod-002 US-8: the selection without an address (design § 3.4)', () =>
 
     expect(resolve(remembered).selection).toEqual(remembered);
     expect(resolve(remembered).replacement).toBeNull();
+    expect(resolve(remembered).chosenTeamId).toBe('Платформа');
   });
 });
 
-describe('mod-002 US-8 Scenario: The default team is the first team', () => {
-  it('a project chosen without a team selects its first team', () => {
-    expect(resolve({ organizationId: 'Альфа', projectId: 'Пример проекта' }).selection.teamId).toBe(
-      'Пример проекта',
+describe('feat-040 BR-TS-10: the team level is the organization’s, whatever its projects', () => {
+  it('a project choice leaves the team level as it is: a chosen team stays', () => {
+    const chosen = { organizationId: 'Альфа', projectId: 'Пример проекта', teamId: 'Платформа' };
+
+    expect(resolve(chosen).selection.teamId).toBe('Платформа');
+    expect(resolve({ ...chosen, projectId: 'Аналитика' }).selection.teamId).toBe('Платформа');
+  });
+
+  it('an organization with no project still has its team level', () => {
+    const resolution = resolve(
+      { organizationId: 'Бета' },
+      { projects: { Бета: ready() }, teams: { Бета: ready('Отчётность') } },
     );
-  });
-});
 
-/** A team list in the project's order, the named teams being the user's own (api-contract § 3.3). */
-function teamsOf(names: string[], own: string[]): LevelList {
-  return {
-    status: 'ready',
-    items: names.map((name) => ({ id: name, name, isMember: own.includes(name) })),
-  };
-}
-
-describe('mod-016 US-7: the default team is the first team the user is in (D-5)', () => {
-  const project = { organizationId: 'Альфа', projectId: 'Пример проекта' } as const;
-  const resolveTeam = (chosen: WorkContextSelection, teams: LevelList) =>
-    resolve(chosen, { teams: { 'Пример проекта': teams } });
-
-  it('a user in one team gets it, not the project’s first', () => {
-    const teams = teamsOf(['Пример проекта', 'Платформа', 'Мобильная'], ['Платформа']);
-
-    expect(resolveTeam(project, teams).selection.teamId).toBe('Платформа');
+    expect(resolution.selection).toEqual({ organizationId: 'Бета', teamId: 'Отчётность' });
+    expect(resolution.levelStatus).toEqual({ project: 'ready', team: 'ready' });
   });
 
-  it('a user in several gets the first of them in the project’s order', () => {
-    const teams = teamsOf(['Пример проекта', 'Платформа', 'Мобильная'], ['Мобильная', 'Платформа']);
+  it('an organization with no team has none, whatever its projects', () => {
+    const resolution = resolve({ organizationId: 'Бета' }, { teams: { Бета: ready() } });
 
-    expect(resolveTeam(project, teams).selection.teamId).toBe('Платформа');
-  });
-
-  it('a user in none gets the project’s first team, as before', () => {
-    const teams = teamsOf(['Пример проекта', 'Платформа'], []);
-
-    expect(resolveTeam(project, teams).selection.teamId).toBe('Пример проекта');
-  });
-
-  it('a list that says nothing of membership gives its first entry', () => {
-    expect(resolve(project).selection.teamId).toBe('Пример проекта');
-  });
-
-  it('a remembered team that still exists is kept whoever is in it', () => {
-    const teams = teamsOf(['Пример проекта', 'Платформа'], ['Платформа']);
-    const resolution = resolveTeam({ ...project, teamId: 'Пример проекта' }, teams);
-
-    expect(resolution.selection.teamId).toBe('Пример проекта');
+    expect(resolution.selection).toEqual({ organizationId: 'Бета', projectId: 'Отчётность' });
+    expect(resolution.settled).toBe(true);
     expect(resolution.replacement).toBeNull();
   });
 
-  it('a remembered team that is gone falls back to the user’s own, named in the notice', () => {
+  it('the team level is read apart from the project level: one failing does not hold the other back', () => {
+    const projectsFailed = resolve({ organizationId: 'Альфа' }, { projects: { Альфа: FAILED } });
+    expect(projectsFailed.selection).toEqual({ organizationId: 'Альфа', teamId: 'Аналитика' });
+    expect(projectsFailed.levelStatus).toEqual({ project: 'failed', team: 'ready' });
+
+    const teamsFailed = resolve({ organizationId: 'Альфа' }, { teams: { Альфа: FAILED } });
+    expect(teamsFailed.selection).toEqual({ organizationId: 'Альфа', projectId: 'Аналитика' });
+    expect(teamsFailed.levelStatus).toEqual({ project: 'ready', team: 'failed' });
+  });
+});
+
+/** A team list in the organization's order, the named teams being the user's own (api-contract § 4.1). */
+function teamsOf(names: string[], own: string[], defaultTeam?: string): LevelList {
+  return {
+    status: 'ready',
+    items: organizationTeamLevel(
+      names.map((name) => ({ id: name, name, isMember: own.includes(name) })),
+      defaultTeam,
+    ),
+  };
+}
+
+describe('feat-040 BR-TS-10: the level’s order and the fallback (mod-020, mod-016 D-5)', () => {
+  const organization = { organizationId: 'Альфа', projectId: 'Пример проекта' } as const;
+  const resolveTeam = (chosen: WorkContextSelection, teams: LevelList) =>
+    resolve(chosen, { teams: { Альфа: teams } });
+
+  it('lists the user’s own teams first, each group in the server’s order', () => {
+    const level = organizationTeamLevel(
+      [
+        { id: 'a', name: 'JUPITER', isMember: false },
+        { id: 'b', name: 'MARS', isMember: false },
+        { id: 'c', name: 'VENUS', isMember: true },
+        { id: 'd', name: 'URANUS', isMember: true },
+      ],
+      undefined,
+    );
+
+    expect(level.map((team) => team.name)).toEqual(['VENUS', 'URANUS', 'JUPITER', 'MARS']);
+  });
+
+  it('marks the project’s default team only', () => {
+    const level = organizationTeamLevel(
+      [
+        { id: 'a', name: 'JUPITER', isMember: false },
+        { id: 'b', name: 'MARS', isMember: false },
+      ],
+      'b',
+    );
+
+    expect(level.map((team) => team.isDefault)).toEqual([false, true]);
+  });
+
+  it('a user in one team gets it, not the level’s first', () => {
+    expect(
+      resolveTeam(organization, teamsOf(['Мобильная', 'Платформа', 'Тест'], ['Платформа']))
+        .selection.teamId,
+    ).toBe('Платформа');
+  });
+
+  it('a user in several gets the first of them', () => {
+    expect(resolveTeam(organization, teamsOf(['А', 'Б', 'В'], ['Б', 'В'])).selection.teamId).toBe(
+      'Б',
+    );
+  });
+
+  it('a user in none gets the level’s first team', () => {
+    expect(resolveTeam(organization, teamsOf(['Б', 'А'], [])).selection.teamId).toBe('Б');
+  });
+
+  it('the project’s default team comes before the user’s own, and is a fallback, not a choice', () => {
+    const resolution = resolveTeam(organization, teamsOf(['А', 'Б', 'В'], ['В'], 'Б'));
+
+    expect(resolution.selection.teamId).toBe('Б');
+    expect(resolution.chosenTeamId).toBeUndefined();
+  });
+
+  it('a chosen team beats the default and stays chosen', () => {
+    const resolution = resolveTeam(
+      { ...organization, teamId: 'В' },
+      teamsOf(['А', 'Б', 'В'], [], 'Б'),
+    );
+
+    expect(resolution.selection.teamId).toBe('В');
+    expect(resolution.chosenTeamId).toBe('В');
+    expect(resolution.replacement).toBeNull();
+  });
+
+  it('a chosen team that is gone falls back and is named in the notice; the fallback is not remembered', () => {
     const teams = teamsOf(['Пример проекта', 'Платформа'], ['Платформа']);
-    const resolution = resolveTeam({ ...project, teamId: 'Удалённая' }, teams);
+    const resolution = resolveTeam({ ...organization, teamId: 'Удалённая' }, teams);
 
     expect(resolution.replacement).toEqual({
-      selection: { ...project, teamId: 'Платформа' },
+      selection: { ...organization, teamId: undefined },
       names: ['Альфа', 'Пример проекта', 'Платформа'],
     });
   });
@@ -132,7 +202,7 @@ describe('mod-016 US-7: the default team is the first team the user is in (D-5)'
 });
 
 describe('mod-002 US-8 Scenario: A remembered selection that is gone falls back', () => {
-  it('a deleted team: the project’s first team, announced with every level', () => {
+  it('a deleted team: the level’s default, announced with every level; it is no choice', () => {
     const resolution = resolve({
       organizationId: 'Альфа',
       projectId: 'Пример проекта',
@@ -140,15 +210,24 @@ describe('mod-002 US-8 Scenario: A remembered selection that is gone falls back'
     });
 
     expect(resolution.replacement).toEqual({
-      selection: { organizationId: 'Альфа', projectId: 'Пример проекта', teamId: 'Пример проекта' },
-      names: ['Альфа', 'Пример проекта', 'Пример проекта'],
+      selection: { organizationId: 'Альфа', projectId: 'Пример проекта', teamId: undefined },
+      names: ['Альфа', 'Пример проекта', 'Аналитика'],
     });
   });
 
-  it('a deactivated project: «Аналитика» and its first team', () => {
-    const resolution = resolve({ organizationId: 'Альфа', projectId: 'Старый', teamId: 'Старый' });
+  it('a deactivated project: «Аналитика», the team a chosen one stays', () => {
+    const resolution = resolve({
+      organizationId: 'Альфа',
+      projectId: 'Старый',
+      teamId: 'Платформа',
+    });
 
-    expect(resolution.replacement?.names).toEqual(['Альфа', 'Аналитика', 'Аналитика']);
+    expect(resolution.replacement?.names).toEqual(['Альфа', 'Аналитика', 'Платформа']);
+    expect(resolution.replacement?.selection).toEqual({
+      organizationId: 'Альфа',
+      projectId: 'Аналитика',
+      teamId: 'Платформа',
+    });
   });
 
   it('a deactivated organization: «Бета», its first project and its first team', () => {
@@ -163,7 +242,7 @@ describe('mod-002 US-8 Scenario: A remembered selection that is gone falls back'
   it('leaves out a level with nothing in it: «Выбрано: Бета.»', () => {
     const resolution = resolve(
       { organizationId: 'Альфа', projectId: 'Пример проекта' },
-      { organizations: ready('Бета'), projects: { Бета: ready() } },
+      { organizations: ready('Бета'), projects: { Бета: ready() }, teams: { Бета: ready() } },
     );
 
     expect(resolution.replacement?.names).toEqual(['Бета']);
@@ -178,13 +257,16 @@ describe('mod-002 US-8 Scenario: A remembered selection that is gone falls back'
     expect(
       resolve({ organizationId: 'Бета', projectId: 'Отчётность' }, { projects: { Бета: ready() } })
         .replacement,
-    ).toEqual({ selection: { organizationId: 'Бета' }, names: null });
+    ).toEqual({
+      selection: { organizationId: 'Бета', projectId: undefined, teamId: undefined },
+      names: null,
+    });
   });
 
-  it('waits for every level below to settle before announcing', () => {
+  it('waits for every level to settle before announcing', () => {
     const resolution = resolve(
       { organizationId: 'Альфа', projectId: 'Старый' },
-      { teams: { Аналитика: LOADING_LIST } },
+      { teams: { Альфа: LOADING_LIST } },
     );
 
     expect(resolution.settled).toBe(false);
@@ -195,11 +277,11 @@ describe('mod-002 US-8 Scenario: A remembered selection that is gone falls back'
   it('a failed level keeps its remembered id and never falls back: a failure is not a deletion', () => {
     const resolution = resolve(
       { organizationId: 'Альфа', projectId: 'Пример проекта', teamId: 'Платформа' },
-      { projects: { Альфа: FAILED } },
+      { projects: { Альфа: FAILED }, teams: { Альфа: FAILED } },
     );
 
     expect(resolution.selection).toEqual({ organizationId: 'Альфа' });
-    expect(resolution.levelStatus.project).toBe('failed');
+    expect(resolution.levelStatus).toEqual({ project: 'failed', team: 'failed' });
     expect(resolution.replacement).toBeNull();
   });
 
@@ -241,7 +323,7 @@ describe('mod-002 US-8 Scenario: The address sets the switcher — the decision'
     ).toEqual({ kind: 'wait' });
   });
 
-  it('sets «Альфа» and «Пример проекта» from the settings of «Пример проекта», its first team below', () => {
+  it('sets «Альфа» and «Пример проекта» from the settings of «Пример проекта»; another organization’s chosen team does not travel', () => {
     expect(
       addressSync({
         address: { organizationId: 'Альфа', projectId: 'Пример проекта' },
@@ -252,6 +334,20 @@ describe('mod-002 US-8 Scenario: The address sets the switcher — the decision'
     ).toEqual({
       kind: 'set',
       selection: { organizationId: 'Альфа', projectId: 'Пример проекта', teamId: undefined },
+    });
+  });
+
+  it('a project address keeps a team chosen in the same organization (feat-040 BR-TS-10)', () => {
+    expect(
+      addressSync({
+        address: { organizationId: 'Бета', projectId: 'Отчётность' },
+        chosen,
+        organizations,
+        addressProjects: PROJECTS.Бета!,
+      }),
+    ).toEqual({
+      kind: 'set',
+      selection: { organizationId: 'Бета', projectId: 'Отчётность', teamId: 'Отчётность' },
     });
   });
 
@@ -286,18 +382,18 @@ describe('mod-002 US-8 Scenario: The address sets the switcher — the decision'
   });
 });
 
-describe('mod-006 spec § Screens and copy: a team-level address sets the team too — the decision', () => {
+describe('feat-040 BR-TS-1, BR-TS-10: a team address sets the organization and the team — the decision', () => {
   const organizations = ready('Альфа', 'Бета');
   const chosen = { organizationId: 'Бета', projectId: 'Отчётность', teamId: 'Отчётность' };
-  const address = { organizationId: 'Альфа', projectId: 'Пример проекта', teamId: 'Платформа' };
+  const address = { organizationId: 'Альфа', teamId: 'Платформа' };
 
-  it('waits for the project’s teams, then sets all three levels from the address', () => {
+  it('waits for the organization’s teams, then sets the organization and the team', () => {
     expect(
       addressSync({
         address,
         chosen,
         organizations,
-        addressProjects: PROJECTS.Альфа!,
+        addressProjects: LOADING_LIST,
         addressTeams: LOADING_LIST,
       }),
     ).toEqual({ kind: 'wait' });
@@ -306,20 +402,38 @@ describe('mod-006 spec § Screens and copy: a team-level address sets the team t
         address,
         chosen,
         organizations,
-        addressProjects: PROJECTS.Альфа!,
-        addressTeams: TEAMS['Пример проекта']!,
+        addressProjects: LOADING_LIST,
+        addressTeams: TEAMS.Альфа!,
       }),
-    ).toEqual({ kind: 'set', selection: address });
+    ).toEqual({
+      kind: 'set',
+      selection: { organizationId: 'Альфа', projectId: undefined, teamId: 'Платформа' },
+    });
   });
 
-  it('sets nothing for a team the project’s active teams do not hold (deleted, another project’s)', () => {
+  it('leaves the project level at its selection within the same organization', () => {
     expect(
       addressSync({
-        address: { ...address, teamId: 'Аналитика' },
+        address: { organizationId: 'Бета', teamId: 'Отчётность' },
+        chosen: { organizationId: 'Бета', projectId: 'Отчётность' },
+        organizations,
+        addressProjects: LOADING_LIST,
+        addressTeams: TEAMS.Бета!,
+      }),
+    ).toEqual({
+      kind: 'set',
+      selection: { organizationId: 'Бета', projectId: 'Отчётность', teamId: 'Отчётность' },
+    });
+  });
+
+  it('sets nothing for a team the organization’s active teams do not hold (deleted, another organization’s)', () => {
+    expect(
+      addressSync({
+        address: { ...address, teamId: 'Отчётность' },
         chosen,
         organizations,
-        addressProjects: PROJECTS.Альфа!,
-        addressTeams: TEAMS['Пример проекта']!,
+        addressProjects: LOADING_LIST,
+        addressTeams: TEAMS.Альфа!,
       }),
     ).toEqual({ kind: 'none' });
   });

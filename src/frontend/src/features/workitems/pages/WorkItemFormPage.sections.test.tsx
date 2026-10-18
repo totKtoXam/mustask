@@ -450,8 +450,16 @@ describe('feat-022 US-5 Scenario Outline: A new item takes its type’s defaults
     for (const [name, value] of Object.entries(lists)) {
       expect(list(name)).toHaveTextContent(value);
     }
+    // «Проект» (feat-040 D-2) is the band's one read-only text: it names the item's project, so it is
+    // not a field left empty.
+    const project = textbox('Проект');
+    expect(project).toHaveAttribute('readonly');
     for (const input of screen.getAllByRole('textbox')) {
-      if (input !== textbox('Заголовок') && !input.closest('[role="combobox"]')) {
+      if (
+        input !== textbox('Заголовок') &&
+        input !== project &&
+        !input.closest('[role="combobox"]')
+      ) {
         expect(input).toHaveValue('');
       }
     }

@@ -67,13 +67,9 @@ describe('feat-039 BR-PB-9 (a): a project’s page is the entry’s page', () =>
     },
   );
 
-  it('keeps the entry’s landing: pressing it opens the switcher’s team’s «Истории» page', () => {
-    expect(entry('backlogs').landing(alfaPrm)).toBe(
-      '/organizations/o1/projects/p1/teams/t7/backlogs/stories',
-    );
-    expect(entry('boards').landing(alfaPrm)).toBe(
-      '/organizations/o1/projects/p1/teams/t7/boards/stories',
-    );
+  it('keeps the entry’s landing: pressing it opens the switcher’s team’s «Истории» page, at the team’s address (feat-040 BR-TS-1)', () => {
+    expect(entry('backlogs').landing(alfaPrm)).toBe('/organizations/o1/teams/t7/backlogs/stories');
+    expect(entry('boards').landing(alfaPrm)).toBe('/organizations/o1/teams/t7/boards/stories');
   });
 
   it('marks a trailing slash as the same page', () => {
@@ -104,7 +100,7 @@ describe('feat-039 BR-PB-9 (a): a project’s page is the entry’s page', () =>
     expect(entryMarker(null, entry('backlogs'), alfaPrm)).toBeNull();
   });
 
-  it('is hidden with no team at the switcher: the entries are not shown and none is marked', () => {
+  it('is hidden with no team at the switcher (the organization has none, or its teams are unread): the entries are not shown and none is marked', () => {
     const noTeam = { organizationId: 'o1', projectId: 'p1' };
     for (const id of ['boards', 'backlogs']) {
       expect(isEntryVisible(entry(id), allowEverything, { isReal: true, selection: noTeam })).toBe(
@@ -116,8 +112,8 @@ describe('feat-039 BR-PB-9 (a): a project’s page is the entry’s page', () =>
     }
   });
 
-  it('leaves the team pages’ marks as they were', () => {
-    const team = '/organizations/o1/projects/p1/teams/t7';
+  it('leaves the team pages’ marks as they were, at the team’s address', () => {
+    const team = '/organizations/o1/teams/t7';
     for (const level of ['epics', 'features', 'stories']) {
       expect(entryMarker(`${team}/backlogs/${level}`, entry('backlogs'), alfaPrm)).toBe('page');
       expect(entryMarker(`${team}/boards/${level}`, entry('boards'), alfaPrm)).toBe('page');
@@ -190,14 +186,14 @@ describe('feat-039 BR-PB-9 (c): a switch of project or organization keeps the pr
     ).toBe('/organizations/o2/projects/p3/boards/stories');
   });
 
-  it('leaves a team page to BR-18: the entry kept, the level back to «Истории»', () => {
+  it('leaves a team page to BR-18: the entry kept, the level back to «Истории» (a project choice never reaches the resolver there, BR-TS-10)', () => {
     expect(
       switchTarget(model, allowEverything, {
-        pathname: '/organizations/o1/projects/p1/teams/t7/backlogs/features',
-        carried: alfaPrm,
+        pathname: '/organizations/o1/teams/t7/backlogs/features',
+        carried: { organizationId: 'o1', teamId: 't7' },
         next: alfaAnl,
       }),
-    ).toBe('/organizations/o1/projects/p2/teams/t2/backlogs/stories');
+    ).toBe('/organizations/o1/teams/t2/backlogs/stories');
   });
 
   it('does not take a level the page does not serve for a project page', () => {

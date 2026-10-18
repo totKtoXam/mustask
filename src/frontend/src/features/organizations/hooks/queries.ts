@@ -101,12 +101,21 @@ export function useTeam(organizationId: string, teamId: string) {
   });
 }
 
-/** A team's active projects, by name (feat-028 § 2.2). */
-export function useTeamProjects(organizationId: string, teamId: string, enabled = true) {
+/**
+ * A team's active projects, by name (feat-028 § 2.2). `fresh`: read again on every mount even when
+ * the cache holds an answer — the creation dialog of a team's view offers them as «Проект» as they
+ * stand when it opens (feat-040 design § 6.2).
+ */
+export function useTeamProjects(
+  organizationId: string,
+  teamId: string,
+  options: { enabled?: boolean; fresh?: boolean } = {},
+) {
   return useQuery({
     queryKey: organizationsKeys.teamProjects(organizationId, teamId),
     queryFn: () => getTeamProjects(organizationId, teamId),
-    enabled,
+    enabled: options.enabled ?? true,
+    refetchOnMount: options.fresh ? 'always' : true,
   });
 }
 

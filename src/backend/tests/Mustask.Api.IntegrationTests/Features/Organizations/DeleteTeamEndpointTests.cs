@@ -167,8 +167,8 @@ public sealed class DeleteTeamEndpointTests(MustaskApiFactory factory)
             "deletion-counts" => await GetAsync($"{teamPath}/deletion-counts"),
             "unlink-count" => await GetAsync($"{projectTeamPath}/unlink-count"),
             "projects" => await GetAsync($"{teamPath}/projects"),
-            "backlog" => await GetAsync($"{projectTeamPath}/backlogs/stories"),
-            "board" => await GetAsync($"{projectTeamPath}/boards/stories"),
+            "backlog" => await GetAsync($"{teamPath}/backlogs/stories"),
+            "board" => await GetAsync($"{teamPath}/boards/stories"),
             "save" => await OrganizationsApi.SendAsync(
                 factory,
                 HttpMethod.Patch,

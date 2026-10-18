@@ -11,9 +11,9 @@ import { ProjectBoardPage } from './pages/ProjectBoardPage';
 import { BACKLOG_ROUTE, BOARD_ROUTE, PROJECT_BACKLOG_ROUTE, PROJECT_BOARD_ROUTE } from './paths';
 import { ids } from './testFixtures';
 
-/** A team's address prefix in «Мастаск», «Платформа» by default. */
+/** A team's address prefix in «Пример организации» (feat-040 BR-TS-1: no project in it), «Платформа» by default. */
 export function teamPrefix(teamId: string = ids.platformTeam): string {
-  return `/organizations/${ids.example}/projects/${ids.msk}/teams/${teamId}`;
+  return `/organizations/${ids.example}/teams/${teamId}`;
 }
 
 /** A team's backlog of one level, «Истории» of «Платформа» by default. */
@@ -57,16 +57,12 @@ export function teamContext(selection: WorkContextSelection = {}): WorkContextSo
       {
         id: ids.example,
         name: 'Пример организации',
-        projects: [
-          {
-            id: ids.msk,
-            name: 'Мастаск',
-            teams: [
-              { id: ids.mskTeam, name: 'Мастаск' },
-              { id: ids.platformTeam, name: 'Платформа' },
-              { id: ids.analyticsTeam, name: 'Аналитика' },
-            ],
-          },
+        projects: [{ id: ids.msk, name: 'Мастаск' }],
+        // feat-040 BR-TS-10: the team level is the organization's.
+        teams: [
+          { id: ids.mskTeam, name: 'Мастаск' },
+          { id: ids.platformTeam, name: 'Платформа' },
+          { id: ids.analyticsTeam, name: 'Аналитика' },
         ],
       },
     ],

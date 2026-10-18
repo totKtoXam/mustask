@@ -17,7 +17,9 @@ import {
 
 // mod-020 QA: the cases the developer's file leaves out — the none value and several values on the
 // backlog, a card opened over a filtered board, a value that names nothing on the board, the team
-// menu and «Весь проект» leaving the filter behind.
+// menu leaving the filter behind (feat-040 retires, by name, «another team, and «Весь проект» from a team,
+// are other views and start unfiltered»: the project's head has no menu; a team's own menu starts the
+// other team unfiltered, held by the project filter's tests).
 
 vi.setConfig({ testTimeout: 60_000 });
 
@@ -68,26 +70,6 @@ describe('mod-020 QA: the project backlog’s filter in the address', () => {
           ),
       ).toBe(true),
     );
-  });
-
-  it('another team, and «Весь проект» from a team, are other views and start unfiltered', async () => {
-    serveBoards(projectDataset());
-    renderBoards(`${projectBacklogAddress()}${WITH_PLATFORM}`);
-    await findBacklogTable();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Сменить команду' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Аналитика' }));
-
-    await waitFor(() => expect(here().pathname).toBe(backlogAddress('stories', ids.analyticsTeam)));
-    expect(here().search).toBe('');
-    expect(screen.queryByRole('group', { name: 'Фильтры' })).toBeNull();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Сменить команду' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Весь проект' }));
-
-    await waitFor(() => expect(here().pathname).toBe(projectBacklogAddress()));
-    expect(here().search).toBe('');
-    expect(screen.getByText('Все команды')).toBeInTheDocument();
   });
 });
 

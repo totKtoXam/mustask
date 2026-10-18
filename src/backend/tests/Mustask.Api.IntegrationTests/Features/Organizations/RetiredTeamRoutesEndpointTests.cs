@@ -70,9 +70,10 @@ public sealed class RetiredTeamRoutesEndpointTests(MustaskApiFactory factory)
     }
 
     // feat-028 § 4 · "POST …/projects/{projectId}/teams remains with another meaning", and so do the reads of the project's end: the linked
-    // list, the team views and the unlink pair still answer at the project's address.
+    // list and the unlink pair still answer at the project's address. feat-040 BR-TS-1 (api-contract § 3.4): the team views do not — they
+    // are at the team's address, and the project-nested ones answer as a path that does not exist (RetiredTeamViewRoutesEndpointTests).
     [Fact]
-    public async Task ProjectsTeamsList_StillAnswers_AndTheTeamViewsAndTheUnlinkPairToo()
+    public async Task ProjectsTeamsList_StillAnswers_AndTheUnlinkPairToo_TheTeamViewsAreAtTheTeamsAddress()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var team = ProjectTeam(structure.OrganizationId, structure.ProjectId, structure.Platform.Id);
@@ -81,12 +82,14 @@ public sealed class RetiredTeamRoutesEndpointTests(MustaskApiFactory factory)
         var count = await GetAsync(factory, $"{team}/unlink-count");
         var backlog = await GetAsync(factory, $"{team}/backlogs/stories");
         var board = await GetAsync(factory, $"{team}/boards/stories");
+        var ownBacklog = await GetAsync(factory, $"{Team(structure.OrganizationId, structure.Platform.Id)}/backlogs/stories");
 
         Assert.Equal(HttpStatusCode.OK, list.Status);
         Assert.Equal(2, list.Body.GetArrayLength());
         Assert.Equal(HttpStatusCode.OK, count.Status);
-        Assert.Equal(HttpStatusCode.OK, backlog.Status);
-        Assert.Equal(HttpStatusCode.OK, board.Status);
+        Assert.Equal((HttpStatusCode.NotFound, "http.not_found"), (backlog.Status, backlog.ErrorCode));
+        Assert.Equal((HttpStatusCode.NotFound, "http.not_found"), (board.Status, board.ErrorCode));
+        Assert.Equal(HttpStatusCode.OK, ownBacklog.Status);
     }
 
     // feat-028 US-1 · and the moved routes answer at the organization's address, for the same team.

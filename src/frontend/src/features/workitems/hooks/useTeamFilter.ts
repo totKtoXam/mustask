@@ -1,11 +1,15 @@
-import { useCallback, useMemo } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  filterSearchOf,
+  filterValuesOf,
+  useAddressFilter,
+} from '../../../shared/lib/addressFilter';
 
 /**
  * The address parameter the team filter lives in (mod-020, the human's answer to mod-017
  * OQ-9 B): repeated, one per chosen value, and named as api-contract § 3 names the read's, so
  * the filter has one vocabulary in the address and on the wire. A value is a team's id or
- * `none` (`NO_TEAM_FILTER_VALUE`).
+ * `none` (`NO_TEAM_FILTER_VALUE`). The project filter of a team's views follows the same form
+ * (feat-040 BR-TS-8) with the parameter `projectId`.
  */
 export const TEAM_FILTER_PARAM = 'teamId';
 
@@ -16,8 +20,7 @@ export const TEAM_FILTER_PARAM = 'teamId';
  * the project as a filter that selects nothing, and the field's «Очистить фильтры» removes it.
  */
 export function teamFilterOf(search: string): string[] {
-  const values = new URLSearchParams(search).getAll(TEAM_FILTER_PARAM);
-  return [...new Set(values.filter((value) => value !== ''))];
+  return filterValuesOf(search, TEAM_FILTER_PARAM);
 }
 
 /**
@@ -26,45 +29,15 @@ export function teamFilterOf(search: string): string[] {
  * the address holds — the card's `?workitem=` stays with the page.
  */
 export function teamFilterSearch(search: string): string {
-  const params = new URLSearchParams();
-  for (const value of teamFilterOf(search)) {
-    params.append(TEAM_FILTER_PARAM, value);
-  }
-  const text = params.toString();
-  return text === '' ? '' : `?${text}`;
+  return filterSearchOf(search, TEAM_FILTER_PARAM);
 }
 
 /**
  * The team filter of «Рабочие элементы» and of the project's backlog and board, kept in the page
  * address (mod-020; mod-017 BR-OT-8, OQ-9 B) — so a link carries it, a re-read and a level change
  * keep it, and leaving the page, or following a link without it, drops it. Returns the chosen team
- * ids and `none`, and the setter.
- *
- * The array is memoised on its content, so it is not made anew when the address changes with the
- * card's `?workitem=` alone. That is an optimisation, not a promise (React may drop a memo's
- * cache): a caller that needs to know whether the filter changed compares the content, as the
- * list does for its page. A change replaces the address's entry rather than adding one, so Back
- * leaves the page instead of stepping through filters; every other parameter, the hash and the
- * router state (the card's history marks) are kept.
+ * ids and `none`, and the setter. See `useAddressFilter` for the address rules.
  */
 export function useTeamFilter(): readonly [string[], (teamIds: readonly string[]) => void] {
-  const { pathname, search, hash, state } = useLocation();
-  const navigate = useNavigate();
-  const content = JSON.stringify(teamFilterOf(search));
-  const teamIds = useMemo(() => JSON.parse(content) as string[], [content]);
-
-  const setTeamIds = useCallback(
-    (next: readonly string[]) => {
-      const params = new URLSearchParams(search);
-      params.delete(TEAM_FILTER_PARAM);
-      for (const value of next) {
-        params.append(TEAM_FILTER_PARAM, value);
-      }
-      const rest = params.toString();
-      navigate({ pathname, search: rest === '' ? '' : `?${rest}`, hash }, { replace: true, state });
-    },
-    [navigate, pathname, search, hash, state],
-  );
-
-  return [teamIds, setTeamIds];
+  return useAddressFilter(TEAM_FILTER_PARAM);
 }

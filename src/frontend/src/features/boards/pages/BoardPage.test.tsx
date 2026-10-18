@@ -308,25 +308,20 @@ describe('US-4 Scenario: Failure and not found are the backlog’s', () => {
   it.each([
     ['team id is malformed', 'Команда не найдена', teamPrefix('not-a-uuid')],
     ['team has been deleted', 'Команда не найдена', teamPrefix(ids.analyticsTeam)],
-    ['team belongs to another project', 'Команда не найдена', teamPrefix(ids.opsTeam)],
-    [
-      'project has been deactivated',
-      'Проект не найден',
-      `/organizations/${ids.example}/projects/${ids.ops}/teams/${ids.opsTeam}`,
-    ],
+    // feat-040 BR-TS-13: see the backlog's twin. The retired «project has been deactivated» case has
+    // no twin: a team's address has no project level (BR-TS-1).
+    ['team belongs to another organization', 'Команда не найдена', teamPrefix(ids.saturnTeam)],
     [
       'organization id names no organization',
       'Организация не найдена',
-      `/organizations/e0000000-0000-4000-8000-0000000000ff/projects/${ids.msk}/teams/${ids.platformTeam}`,
+      `/organizations/e0000000-0000-4000-8000-0000000000ff/teams/${ids.platformTeam}`,
     ],
   ])('a board address whose %s shows «%s»', async (_part, frame, prefix) => {
     const data = storiesDataset();
     data.teams = data.teams.map((team) =>
       team.id === ids.analyticsTeam ? { ...team, active: false } : team,
     );
-    data.projects = data.projects.map((project) =>
-      project.id === ids.ops ? { ...project, active: false } : project,
-    );
+    data.teams.push({ id: ids.saturnTeam, projectId: ids.otherMsk, name: 'SATURN', active: true });
     serveBoards(data);
     renderBoards(`${prefix}/boards/stories`);
 

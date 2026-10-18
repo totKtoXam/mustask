@@ -42,6 +42,7 @@ import {
   defaultFields,
   exampleDataset,
   ids,
+  linkedProjectIds,
   problem,
   removedStateId,
   problemWithParams,
@@ -242,7 +243,7 @@ export class WorkItemsTestApi {
     ) {
       refuse('organizations.team.not_found');
     }
-    if (found.projectId !== project.id) {
+    if (!linkedProjectIds(found).includes(project.id)) {
       refuse('organizations.team.not_in_project');
     }
     return found;
@@ -250,7 +251,7 @@ export class WorkItemsTestApi {
 
   private activeTeams(project: ProjectRecord): TeamRecord[] {
     return this.data.teams
-      .filter((team) => team.projectId === project.id && team.active)
+      .filter((team) => linkedProjectIds(team).includes(project.id) && team.active)
       .sort(
         (first, second) =>
           first.name.localeCompare(second.name, 'ru', { sensitivity: 'base' }) ||
@@ -327,9 +328,12 @@ export class WorkItemsTestApi {
       .sort(
         (first, second) => this.rank(second) - this.rank(first) || first.number - second.number,
       );
+    const project = this.data.projects.find((candidate) => candidate.id === record.projectId);
     return {
       ...this.listItem(record),
       projectId: record.projectId,
+      // feat-040 api-contract § 4.2: the project with its name, beside `projectId`.
+      project: { id: record.projectId, name: project?.name ?? '' },
       description: record.description,
       createdBy: 'e2e-test-user',
       createdAt: record.createdAt,

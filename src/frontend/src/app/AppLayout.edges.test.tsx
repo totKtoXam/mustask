@@ -85,6 +85,10 @@ describe('QA A10: choosing the entry that is already current', () => {
 
     await user.click(levels().getByRole('button', { name: 'Проект: Пример проекта 1' }));
     await user.click(screen.getByRole('menuitemradio', { name: 'Пример проекта 2' }));
+    // feat-040 BR-TS-10: the team level is the organization's, so a project choice keeps the team.
+    expect(levels().getByRole('button', { name: 'Команда: Пример команды 1' })).toBeInTheDocument();
+    await user.click(levels().getByRole('button', { name: 'Команда: Пример команды 1' }));
+    await user.click(screen.getByRole('menuitemradio', { name: 'Пример команды 3' }));
     expect(levels().getByRole('button', { name: 'Команда: Пример команды 3' })).toBeInTheDocument();
 
     await user.click(levels().getByRole('button', { name: 'Организация: Пример организации 1' }));

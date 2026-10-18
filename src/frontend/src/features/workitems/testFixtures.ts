@@ -92,12 +92,24 @@ export interface ProjectRecord {
   defaultTeamId?: string | null;
 }
 
-/** A team of a project (mod-017); `active: false` is a deleted team. */
+/**
+ * A team of a project (mod-017); `active: false` is a deleted team. Since feat-028 a team is the
+ * organization's and may be linked to several projects: `projectId` is the first one, `moreProjectIds`
+ * (absent: none) the others — feat-040's team views read a team's items across all of them.
+ */
 export interface TeamRecord {
   id: string;
   projectId: string;
   name: string;
   active: boolean;
+  moreProjectIds?: string[];
+  /** The acting user is in the team (feat-040 api-contract § 4.1); absent: not. */
+  member?: boolean;
+}
+
+/** Every project a team is linked to, the first one first. */
+export function linkedProjectIds(team: TeamRecord): string[] {
+  return [team.projectId, ...(team.moreProjectIds ?? [])];
 }
 
 export interface AreaRecord {

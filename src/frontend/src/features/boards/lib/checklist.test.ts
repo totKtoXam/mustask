@@ -51,6 +51,7 @@ function card(appearance: string, checklist: ChecklistChild[]): BoardCardItem {
     title: 'Повторная отправка',
     assignee: null,
     team: null,
+    project: { id: 'prj-1', name: 'Мастаск' },
     state: state('Активна', 'InProgress'),
     priority: 2,
     checklist,
@@ -212,6 +213,7 @@ describe('US-2 Scenario: A tick shows at once (design § 7.2)', () => {
     const other = { ...card('story', []), id: 'id-other', identifier: 'MSK-US-9' };
     return {
       team: { id: 't', name: 'Платформа' },
+      projects: [{ id: 'prj-1', name: 'Мастаск' }],
       level: { code: 'stories', name: 'Истории', types: [] },
       columns: [
         {

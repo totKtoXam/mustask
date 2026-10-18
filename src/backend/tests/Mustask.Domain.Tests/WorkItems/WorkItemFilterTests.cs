@@ -78,4 +78,60 @@ public sealed class WorkItemFilterTests
         Assert.Empty(filter.TeamIds);
         Assert.False(filter.NoTeam);
     }
+
+    // feat-040 US-2 · "no value is no filter": absent or empty, the project dimension is off and the team one is untouched.
+    [Fact]
+    public void OfProjects_AbsentOrEmpty_IsNoFilter()
+    {
+        Assert.Equal(WorkItemFilter.None, WorkItemFilter.OfProjects(null));
+        Assert.Equal(WorkItemFilter.None, WorkItemFilter.OfProjects([]));
+        Assert.False(WorkItemFilter.None.ProjectsSet);
+        Assert.Empty(WorkItemFilter.None.ProjectIds);
+    }
+
+    // feat-040 US-2 · "one, several values": each a canonical project id in either letter case; a repeat counts once.
+    [Fact]
+    public void OfProjects_Ids_AreTheValues_AnyCase_RepeatsCountOnce()
+    {
+        var first = Guid.CreateVersion7();
+        var second = Guid.CreateVersion7();
+
+        var filter = WorkItemFilter.OfProjects([first.ToString(), second.ToString().ToUpperInvariant(), first.ToString()]);
+
+        Assert.True(filter.ProjectsSet);
+        Assert.Equal(2, filter.ProjectIds.Count);
+        Assert.Contains(first, filter.ProjectIds);
+        Assert.Contains(second, filter.ProjectIds);
+        Assert.False(filter.TeamsSet);
+    }
+
+    // feat-040 BR-TS-8 · "a value that names no such project selects nothing": a malformed value is ignored but the filter is
+    // set, so an item can match none of its (zero) values. «none» is the team dimension's literal, not a project.
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("abc")]
+    [InlineData("none")]
+    [InlineData("00000000-0000-0000-0000-000000000000")]
+    [InlineData("0199b0a2")]
+    [InlineData("{0199b0a2-0000-7000-8000-000000000001}")]
+    public void OfProjects_MalformedValue_IsIgnored_ButTheFilterIsSet(string value)
+    {
+        var filter = WorkItemFilter.OfProjects([value]);
+
+        Assert.True(filter.ProjectsSet);
+        Assert.Empty(filter.ProjectIds);
+    }
+
+    // feat-040 BR-TS-8 · "beside a valid value an invalid one adds nothing": Beta and an unknown id show Beta's items.
+    [Fact]
+    public void OfProjects_AValidValueBesideAnInvalidOne_KeepsOnlyTheValid()
+    {
+        var beta = Guid.CreateVersion7();
+
+        var filter = WorkItemFilter.OfProjects(["not-an-id", beta.ToString(), null]);
+
+        Assert.True(filter.ProjectsSet);
+        Assert.Equal([beta], filter.ProjectIds);
+    }
 }

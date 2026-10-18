@@ -61,7 +61,7 @@ public sealed class WorkItemWriteInventoryTests(MustaskApiFactory factory)
         ["POST " + Project + "/workitems"] = new(Kind.RefusesADeletedItem, "workitems.link.item_deleted (a creation beneath a deleted parent)", "CreateChildEndpointTests.Create_ADeletedParent_Returns409ItemDeleted_NothingCreated"),
 
         // mod-006 and feat-039: a reorder naming a deleted item is stale.
-        ["POST " + Team + "/backlogs/{level}/reorder"] = new(Kind.RefusesADeletedItem, "boards.backlog.reorder_stale", "DeletedItemIsReadOnlyEndpointTests.Reorder_TeamAndProject_NamingADeletedItemAsMovedOrAnchor_Is409ReorderStale_OrderUnchanged"),
+        ["POST " + OrgTeam + "/backlogs/{level}/reorder"] = new(Kind.RefusesADeletedItem, "boards.backlog.reorder_stale", "DeletedItemIsReadOnlyEndpointTests.Reorder_TeamAndProject_NamingADeletedItemAsMovedOrAnchor_Is409ReorderStale_OrderUnchanged"),
         ["POST " + Project + "/backlogs/{level}/reorder"] = new(Kind.RefusesADeletedItem, "boards.backlog.reorder_stale", "DeletedItemIsReadOnlyEndpointTests.Reorder_TeamAndProject_NamingADeletedItemAsMovedOrAnchor_Is409ReorderStale_OrderUnchanged"),
 
         // mod-017 and feat-028: the system clean-ups of the third kind — they reach an item in any state and take no EnsureLive. A

@@ -61,7 +61,7 @@ public sealed class GetProjectBacklogHandler(
         // A parent inside the set is live and is its own row; only those outside it are read (feat-001 BR-H-13).
         var inSet = rows.Select(row => row.Id).ToHashSet();
         var parentsOutside = rows.Select(row => row.ParentId).OfType<Guid>().Where(id => !inSet.Contains(id)).Distinct().ToList();
-        var liveParentsOutside = await backlogs.FindLiveParentsAsync(projectId, parentsOutside, cancellationToken);
+        var liveParentsOutside = await backlogs.FindLiveParentsAsync(project.OrganizationId, parentsOutside, cancellationToken);
 
         return new ProjectBacklogResponse(
             new BoardProjectView(project.Id, project.Name),

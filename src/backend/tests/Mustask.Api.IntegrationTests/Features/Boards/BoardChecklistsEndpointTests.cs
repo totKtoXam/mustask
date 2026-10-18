@@ -334,7 +334,7 @@ public sealed class BoardChecklistsEndpointTests(MustaskApiFactory factory)
             ["Новая: " + data.EmptyStory.Identifier, "Активна: " + data.Story.Identifier, "Разрешена: " + data.BugDuplicate.Identifier, "Закрыта: " + data.BugCounter.Identifier],
             BoardsTestData.Columns(board));
         Assert.Equal(
-            ["order", "id", "identifier", "number", "type", "title", "assignee", "state", "priority", "team", "checklist"],
+            ["order", "id", "identifier", "number", "type", "title", "assignee", "state", "priority", "team", "project", "checklist"],
             Card(board, data.Story.Identifier).EnumerateObject().Select(property => property.Name));
     }
 

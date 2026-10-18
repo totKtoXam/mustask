@@ -36,7 +36,9 @@ export function readRemembered(subject: string | undefined): WorkContextSelectio
       return {};
     }
     const projectId = text(record.projectId);
-    const teamId = projectId ? text(record.teamId) : undefined;
+    // The team is the organization's, whatever its projects (feat-040 BR-TS-10); only a
+    // chosen team is written (see the hook).
+    const teamId = text(record.teamId);
     return { organizationId, projectId, teamId };
   } catch {
     return {};

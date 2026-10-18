@@ -81,7 +81,7 @@ describe('mod-017 BR-OT-7 Scenario: the team on the backlog row and the board ca
     expect(getComputedStyle(none).color).not.toBe(getComputedStyle(rowOf(table, 'MSK-US-3')).color);
   });
 
-  it('a team’s backlog shows its team on every row too, and has no filter row', async () => {
+  it('a team’s backlog shows its team and its project on every row too, and has the project filter row, not the team one (feat-040 BR-TS-3, BR-TS-8)', async () => {
     serveBoards(projectDataset());
     renderBoards(backlogAddress());
 
@@ -89,7 +89,11 @@ describe('mod-017 BR-OT-7 Scenario: the team on the backlog row and the board ca
 
     expect(identifiers(table)).toEqual(['MSK-US-3']);
     expect(cellText(rowOf(table, 'MSK-US-3'), CELL.team)).toBe('Платформа');
-    expect(screen.queryByRole('group', { name: 'Фильтры' })).toBeNull();
+    expect(cellText(rowOf(table, 'MSK-US-3'), CELL.project)).toBe('Мастаск');
+    // The team is the filter on its own views; the project is the one a team's views have.
+    const filters = screen.getByRole('group', { name: 'Фильтры' });
+    expect(within(filters).getByRole('combobox', { name: 'Проект' })).toBeVisible();
+    expect(within(filters).queryByRole('combobox', { name: 'Команда' })).toBeNull();
   });
 
   it('a board card names its team at the right of its state, with «Команда: » for assistive technology; a team’s board has no filter row', async () => {
@@ -108,14 +112,17 @@ describe('mod-017 BR-OT-7 Scenario: the team on the backlog row and the board ca
     ).toBeVisible();
   });
 
-  it('a team’s board shows the team line and no filter row', async () => {
+  it('a team’s board shows the team line and the project at the right end of the assignee row, and the project filter row, not the team one (feat-040)', async () => {
     serveBoards(projectDataset());
     renderBoards(boardAddress());
 
     const board = await findBoard();
 
     expect(cardOf(board, 'MSK-US-3')).toHaveTextContent('Команда: Платформа');
-    expect(screen.queryByRole('group', { name: 'Фильтры' })).toBeNull();
+    expect(cardOf(board, 'MSK-US-3')).toHaveTextContent('Проект: Мастаск');
+    const filters = screen.getByRole('group', { name: 'Фильтры' });
+    expect(within(filters).getByRole('combobox', { name: 'Проект' })).toBeVisible();
+    expect(within(filters).queryByRole('combobox', { name: 'Команда' })).toBeNull();
   });
 });
 

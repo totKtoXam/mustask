@@ -11,6 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   API,
+  ORGANIZATION_URL,
   PROJECT_URL,
   emptyDataset,
   process,
@@ -27,8 +28,11 @@ import {
 export { stateId };
 export type { TeamRecord };
 
-/** The routes as MSW path patterns (api-contract § 3, § 5). */
-export const TEAM_URL = `${PROJECT_URL}/teams/:teamId`;
+/**
+ * The routes as MSW path patterns (api-contract § 3, § 5). Since feat-040 (api-contract § 3) a team's
+ * views are under the team alone, with no project in the address.
+ */
+export const TEAM_URL = `${ORGANIZATION_URL}/teams/:teamId`;
 export const BACKLOG_URL = `${TEAM_URL}/backlogs/:level`;
 export const REORDER_URL = `${BACKLOG_URL}/reorder`;
 export const BOARD_URL = `${TEAM_URL}/boards/:level`;
@@ -36,6 +40,10 @@ export const BOARD_URL = `${TEAM_URL}/boards/:level`;
 export const PROJECT_BACKLOG_URL = `${PROJECT_URL}/backlogs/:level`;
 export const PROJECT_REORDER_URL = `${PROJECT_BACKLOG_URL}/reorder`;
 export const PROJECT_BOARD_URL = `${PROJECT_URL}/boards/:level`;
+/** feat-028 § 2.2: a team's linked active projects, which the creation dialog's «Проект» offers. */
+export const TEAM_PROJECTS_URL = `${TEAM_URL}/projects`;
+/** mod-002 § 2.1: the organization's active projects with their keys, which a card opened by address reads. */
+export const ORG_PROJECTS_URL = `${ORGANIZATION_URL}/projects`;
 export { API };
 
 /** Stable ids: mod-003's, and this slice's teams. */
@@ -254,6 +262,34 @@ export function projectDataset(): BoardsDataset {
     platformItem(3, 'US', 'Выход'),
     item(ids.msk, 9, 'US', 'Отчёт', { areaId: ids.analyticsArea }),
     item(ids.ops, 1, 'US', 'Приход товара'),
+  );
+  return data;
+}
+
+/** A creation time `minute` past 09:00 on 2026-10-05: the team order's first key (feat-040 BR-TS-6). */
+export function createdAt(minute: number): string {
+  return new Date(Date.UTC(2026, 9, 5, 9, minute)).toISOString();
+}
+
+/**
+ * feat-040 US-1's «Data»: the team «Платформа» works on two projects, «Мастаск» (`MSK`) and
+ * «Операции» (`OPS`), and owns MSK-US-3 «Выход», OPS-US-1 «Приход товара» and OPS-US-2 «Отгрузка»,
+ * created in that order; the team «Аналитика» owns MSK-US-9 «Отчёт», the team «Операции» OPS-US-3
+ * «Инвентаризация» (in «Операции» alone), and OPS-US-4 «Ничья» has no team — none of them is on
+ * «Платформа»'s views. Nothing is reordered, so the team order is creation time, project key, number.
+ */
+export function acrossProjectsDataset(): BoardsDataset {
+  const data = boardsDataset();
+  const platform = data.teams.find((team) => team.id === ids.platformTeam);
+  if (!platform) throw new Error('No team «Платформа».');
+  platform.moreProjectIds = [ids.ops];
+  data.items.push(
+    platformItem(3, 'US', 'Выход', { createdAt: createdAt(1) }),
+    item(ids.ops, 1, 'US', 'Приход товара', { teamId: ids.platformTeam, createdAt: createdAt(2) }),
+    item(ids.ops, 2, 'US', 'Отгрузка', { teamId: ids.platformTeam, createdAt: createdAt(3) }),
+    item(ids.msk, 9, 'US', 'Отчёт', { areaId: ids.analyticsArea, createdAt: createdAt(4) }),
+    item(ids.ops, 3, 'US', 'Инвентаризация', { teamId: ids.opsTeam, createdAt: createdAt(5) }),
+    item(ids.ops, 4, 'US', 'Ничья', { teamId: null, createdAt: createdAt(6) }),
   );
   return data;
 }

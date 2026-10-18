@@ -48,7 +48,8 @@ function scopeSelected(scope: NavigationScope, selection: WorkContextSelection):
     case 'project':
       return Boolean(selection.organizationId && selection.projectId);
     case 'team':
-      return Boolean(selection.organizationId && selection.projectId && selection.teamId);
+      // The team level is the organization's, whatever its projects (feat-040 BR-TS-10).
+      return Boolean(selection.organizationId && selection.teamId);
   }
 }
 

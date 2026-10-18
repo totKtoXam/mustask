@@ -29,7 +29,7 @@ import {
   StateName,
   isPlainClick,
   teamTexts,
-  useSetWorkItemState,
+  useSetWorkItemStateIn,
   useWorkItemDialog,
   workItemPath,
   type WorkItemStateReference,
@@ -88,16 +88,15 @@ function dropAreaSx(over: boolean) {
  * card menu is off (`aria-disabled`) and no card is draggable; then the board
  * is read again. A refusal puts the card back and shows its notice.
  */
-/** No team filter: a team's board, or the project's unfiltered. */
-const NO_TEAM_IDS: readonly string[] = [];
+/** No filter: the board is read unfiltered. */
+const NO_FILTER: readonly string[] = [];
 
 export function BoardColumns({
   organizationId,
-  projectId,
   scope,
   level,
   board,
-  teamIds = NO_TEAM_IDS,
+  filterIds = NO_FILTER,
   busy = false,
   canWrite,
   newItem,
@@ -107,12 +106,14 @@ export function BoardColumns({
   showCreated,
 }: {
   organizationId: string;
-  projectId: string;
   scope: BoardScope;
   level: BoardLevelCode;
   board: BoardSurface;
-  /** The project's team filter the board was read under (mod-017 § 3): part of the cache key. */
-  teamIds?: readonly string[];
+  /**
+   * The filter the board was read under — the team's project filter (feat-040 BR-TS-8) or the
+   * project's team filter (mod-017 § 3): part of the cache key.
+   */
+  filterIds?: readonly string[];
   /** Another filter is being read: the columns shown are the previous ones (`aria-busy`). */
   busy?: boolean;
   /**
@@ -133,8 +134,10 @@ export function BoardColumns({
   showCreated(text: string): void;
 }) {
   const client = useQueryClient();
-  const setState = useSetWorkItemState(organizationId, projectId);
-  const readAgain = useReadAgain(organizationId, projectId, scope);
+  // A card move writes the item's state in the item's own project (feat-040 BR-TS-5): a team's
+  // board holds the cards of several, and the project's page is the case where they all agree.
+  const setState = useSetWorkItemStateIn(organizationId);
+  const readAgain = useReadAgain(organizationId, scope);
   // A title's plain click opens the card as a dialog over the board (feat-029 BR-C-1);
   // `open` keeps its identity, so the memoised cards are not redrawn by the navigation.
   const { open: openItem } = useWorkItemDialog();
@@ -156,10 +159,9 @@ export function BoardColumns({
   const saving = moving || creating;
   const checklists = useChecklists({
     organizationId,
-    projectId,
     scope,
     level,
-    teamIds,
+    filterIds,
     board,
     view,
     inFlightRef: inFlight,
@@ -202,7 +204,11 @@ export function BoardColumns({
     announce(`${card.identifier} перемещён в колонку «${column.header}».`);
     let notice: string | null = null;
     try {
-      await setState.mutateAsync({ identifier: card.identifier, stateId });
+      await setState.mutateAsync({
+        projectId: card.project.id,
+        identifier: card.identifier,
+        stateId,
+      });
     } catch (error) {
       notice = moveRefusalNotice(error);
       if (isAccessRefusal(error) && notice !== null) {
@@ -216,7 +222,7 @@ export function BoardColumns({
     await readAgain();
     inFlight.current = false;
     view.end(
-      client.getQueryData<BoardSurface>(boardKey(organizationId, projectId, scope, level, teamIds)),
+      client.getQueryData<BoardSurface>(boardKey(organizationId, scope, level, filterIds)),
       board,
     );
     if (notice !== null) {
@@ -384,7 +390,7 @@ export function BoardColumns({
                   checklistEnv={checklists.env}
                   openKinds={checklists.openKinds(card.id)}
                   adding={checklists.addFieldOf(card.id)}
-                  formPath={workItemPath(organizationId, projectId, card.identifier)}
+                  formPath={workItemPath(organizationId, card.project.id, card.identifier)}
                   onOpenItem={openItem}
                   onOpenMenu={openMenu}
                   onDragStart={startDrag}
@@ -431,7 +437,8 @@ export function BoardColumns({
  * One card (spec § Page «Доски», BR-M4-14): a 4 px stripe in the type's
  * colour; the type icon, ID and «Заголовок» as a link to the form; the
  * category dot and the state with the owning team at the right (mod-017); «Исполнитель»,
- * then «Приоритет: <n>» as a caption (feat-022 BR-M3-39); and «Ещё действия: <ID>». The
+ * then «Приоритет: <n>» as a caption (feat-022 BR-M3-39) and the item's project at the right end
+ * (feat-040 D-1); and «Ещё действия: <ID>». The
  * card itself is the drag source. Memoized, so a drag over one column redraws
  * no card.
  */
@@ -561,6 +568,17 @@ const BoardCard = memo(function BoardCard({
         </Typography>
         <Typography component="div" variant="caption" color="text.secondary">
           {priorityText(card.priority)}
+        </Typography>
+        {/* feat-040 design § 5.2, D-1: the item's project at the right end of this row, under the
+            team of the row above, so the card does not grow. */}
+        <Typography
+          component="div"
+          variant="caption"
+          color="text.secondary"
+          sx={{ maxWidth: '50%', minWidth: 0, flex: '0 1 auto', ml: 'auto' }}
+        >
+          <VisuallyHidden>Проект: </VisuallyHidden>
+          <TruncatedText>{card.project.name}</TruncatedText>
         </Typography>
       </Box>
       <CardChecklists

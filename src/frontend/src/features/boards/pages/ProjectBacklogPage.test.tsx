@@ -27,7 +27,6 @@ import {
 import { chooseLevel, levelButton } from '../testLevels';
 import {
   backlogAddress,
-  boardAddress,
   projectBacklogAddress,
   projectBoardAddress,
   projectPrefix,
@@ -48,11 +47,6 @@ const ALL_STORIES = ['MSK-US-2', 'MSK-US-3', 'MSK-US-9'];
 
 function teamButton(): HTMLElement {
   return screen.getByRole('button', { name: 'Сменить команду' });
-}
-
-async function openTeamMenu(): Promise<HTMLElement> {
-  await userEvent.click(teamButton());
-  return screen.findByRole('menu', { name: 'Команды проекта' });
 }
 
 describe('US-1 Scenario: A project’s backlog holds every item of the project, from every team (BR-MX-17, BR-PB-2)', () => {
@@ -145,6 +139,7 @@ describe('US-1 Scenario: A project’s backlog holds every item of the project, 
       'Заголовок',
       'Статус',
       'Команда',
+      'Проект',
       'Трудоёмкость',
       'Бизнес-ценность',
       'Вид ценности',
@@ -264,141 +259,51 @@ describe('US-1 Scenario: The head and the empty states carry the create command 
   });
 });
 
-describe('US-1 Scenario: The team drop-down reaches the project’s views (BR-PB-7)', () => {
-  it('from a team’s page «Весь проект» closes «Команды проекта» and opens the project’s page at the same level, focus on «Сменить команду»', async () => {
+// feat-040 BR-TS-11 retires feat-039 BR-PB-7: the project's head has no drop-down, so no menu puts a
+// team under a project, and «Весь проект» is gone from every team menu. Retired by name, with the
+// rule: «from a team’s page «Весь проект» closes «Команды проекта» and opens the project’s page at the
+// same level, focus on «Сменить команду»», «on the project’s page the menu lists the teams in their
+// order and «Весь проект» last after a divider, selected with `aria-current="page"`; no team is»,
+// «choosing the selected «Весь проект» moves nothing and leaves focus on «Сменить команду»», «choosing
+// a team opens that team’s page at the same level, focus on the new «Сменить команду»» (there is no
+// menu on the project's page to choose from), «works by keyboard: ArrowDown opens it on «Весь проект»,
+// ArrowUp reaches the last team, Escape closes it with focus back on the button», «on a team’s page
+// ArrowDown from the last team reaches «Весь проект», and End goes to it» and «on «Канбан» «Весь
+// проект» opens the project’s board at the same level».
+describe('US-1 Scenario: The project’s head has no team drop-down (feat-040 BR-TS-11)', () => {
+  it('shows the project’s name and no «Сменить команду», though the shell’s teams are read', async () => {
+    serveBoards(projectDataset());
+    renderBoards(projectBacklogAddress('epics'));
+    await screen.findByRole('heading', { level: 2, name: 'Бэклог пуст' });
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Мастаск' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Сменить команду' })).toBeNull();
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('shows none on the project’s board either, nor «Весь проект» anywhere', async () => {
+    serveBoards(projectDataset());
+    renderBoards(projectBoardAddress('epics'));
+    await screen.findByRole('heading', { level: 2, name: 'Канбан пуст' });
+
+    expect(screen.queryByRole('button', { name: 'Сменить команду' })).toBeNull();
+    expect(screen.queryByText('Весь проект')).toBeNull();
+  });
+
+  it('a team’s page lists the organization’s teams and no «Весь проект»: no menu leads to the project’s page', async () => {
     serveBoards(projectDataset());
     renderBoards(backlogAddress('epics'));
     await screen.findByRole('heading', { level: 2, name: 'Бэклог пуст' });
 
-    const menu = await openTeamMenu();
-    const entry = within(menu).getByRole('menuitem', { name: 'Весь проект' });
-    expect(entry).toHaveAttribute('href', projectBacklogAddress('epics'));
-    await userEvent.click(entry);
+    await userEvent.click(teamButton());
+    const menu = await screen.findByRole('menu', { name: 'Команды' });
 
-    expect(screen.getByTestId('location')).toHaveTextContent(projectBacklogAddress('epics'));
-    expect(await screen.findByRole('heading', { level: 2, name: 'Бэклог пуст' })).toBeVisible();
-    await waitFor(() => expect(teamButton()).toHaveFocus());
-  });
-
-  it('on the project’s page the menu lists the teams in their order and «Весь проект» last after a divider, selected with `aria-current="page"`; no team is', async () => {
-    serveBoards(projectDataset());
-    renderBoards(projectBacklogAddress('epics'));
-    await screen.findByRole('heading', { level: 2, name: 'Бэклог пуст' });
-
-    const menu = await openTeamMenu();
-
-    const entries = within(menu).getAllByRole('menuitem');
-    expect(entries.map((entry) => entry.textContent)).toEqual([
-      'Мастаск',
-      'Платформа',
-      'Аналитика',
-      'Весь проект',
-    ]);
-    expect(entries.map((entry) => entry.getAttribute('aria-current'))).toEqual([
-      null,
-      null,
-      null,
-      'page',
-    ]);
-    expect(entries.map((entry) => entry.classList.contains('Mui-selected'))).toEqual([
-      false,
-      false,
-      false,
-      true,
-    ]);
-    expect(entries.map((entry) => entry.getAttribute('href'))).toEqual([
-      backlogAddress('epics', ids.mskTeam),
-      backlogAddress('epics', ids.platformTeam),
-      backlogAddress('epics', ids.analyticsTeam),
-      projectBacklogAddress('epics'),
-    ]);
-    // The divider stands between the last team and the entry, as a separator no arrow reaches.
-    const separator = within(menu).getByRole('separator');
-    expect(entries[2]?.nextElementSibling).toBe(separator);
-    expect(separator.nextElementSibling).toBe(entries[3]);
-  });
-
-  it('choosing the selected «Весь проект» moves nothing and leaves focus on «Сменить команду»', async () => {
-    serveBoards(projectDataset());
-    renderBoards(projectBacklogAddress('epics'));
-    await screen.findByRole('heading', { level: 2, name: 'Бэклог пуст' });
-
-    await userEvent.click(
-      within(await openTeamMenu()).getByRole('menuitem', { name: 'Весь проект' }),
-    );
-
-    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
-    expect(screen.getByTestId('location')).toHaveTextContent(projectBacklogAddress('epics'));
-    await waitFor(() => expect(teamButton()).toHaveFocus());
-    expect(screen.getByRole('heading', { level: 2, name: 'Бэклог пуст' })).toBeVisible();
-  });
-
-  it('choosing a team opens that team’s page at the same level, focus on the new «Сменить команду»', async () => {
-    serveBoards(projectDataset());
-    renderBoards(projectBacklogAddress('epics'));
-    await screen.findByRole('heading', { level: 2, name: 'Бэклог пуст' });
-
-    await userEvent.click(
-      within(await openTeamMenu()).getByRole('menuitem', { name: 'Платформа' }),
-    );
-
-    expect(screen.getByTestId('location')).toHaveTextContent(
-      backlogAddress('epics', ids.platformTeam),
-    );
-    expect(await screen.findByRole('heading', { level: 1, name: 'Платформа' })).toBeInTheDocument();
-    await waitFor(() => expect(teamButton()).toHaveFocus());
-  });
-
-  it('works by keyboard: ArrowDown opens it on «Весь проект», ArrowUp reaches the last team, Escape closes it with focus back on the button', async () => {
-    serveBoards(projectDataset());
-    renderBoards(projectBacklogAddress('epics'));
-    await screen.findByRole('heading', { level: 2, name: 'Бэклог пуст' });
-
-    teamButton().focus();
-    await userEvent.keyboard('{ArrowDown}');
-    const menu = await screen.findByRole('menu', { name: 'Команды проекта' });
-    await waitFor(() =>
-      expect(within(menu).getByRole('menuitem', { name: 'Весь проект' })).toHaveFocus(),
-    );
-    // The divider has no `tabindex`: the arrow skips it.
-    await userEvent.keyboard('{ArrowUp}');
-    expect(within(menu).getByRole('menuitem', { name: 'Аналитика' })).toHaveFocus();
-    await userEvent.keyboard('{Escape}');
-
-    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
-    expect(teamButton()).toHaveFocus();
-  });
-
-  it('on a team’s page ArrowDown from the last team reaches «Весь проект», and End goes to it', async () => {
-    serveBoards(projectDataset());
-    renderBoards(backlogAddress('epics', ids.analyticsTeam));
-    await screen.findByRole('heading', { level: 2, name: 'Бэклог пуст' });
-
-    teamButton().focus();
-    await userEvent.keyboard('{ArrowDown}');
-    const menu = await screen.findByRole('menu', { name: 'Команды проекта' });
-    await waitFor(() =>
-      expect(within(menu).getByRole('menuitem', { name: 'Аналитика' })).toHaveFocus(),
-    );
-    await userEvent.keyboard('{ArrowDown}');
-    expect(within(menu).getByRole('menuitem', { name: 'Весь проект' })).toHaveFocus();
-    await userEvent.keyboard('{Home}');
-    expect(within(menu).getByRole('menuitem', { name: 'Мастаск' })).toHaveFocus();
-    await userEvent.keyboard('{End}');
-    expect(within(menu).getByRole('menuitem', { name: 'Весь проект' })).toHaveFocus();
-  });
-
-  it('on «Канбан» «Весь проект» opens the project’s board at the same level', async () => {
-    serveBoards(projectDataset());
-    renderBoards(boardAddress('features'));
-    await screen.findByRole('heading', { level: 2, name: 'Канбан пуст' });
-
-    await userEvent.click(
-      within(await openTeamMenu()).getByRole('menuitem', { name: 'Весь проект' }),
-    );
-
-    expect(screen.getByTestId('location')).toHaveTextContent(projectBoardAddress('features'));
-    await waitFor(() => expect(teamButton()).toHaveFocus());
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((entry) => entry.textContent),
+    ).toEqual(['Мастаск', 'Платформа', 'Аналитика']);
+    expect(within(menu).queryByRole('menuitem', { name: 'Весь проект' })).toBeNull();
   });
 
   it('shows no button while the shell’s teams are not read: the page works', async () => {
@@ -552,12 +457,14 @@ describe('US-1 Scenario: The read’s states (design § 7)', () => {
       'Заголовок',
       'Статус',
       'Команда',
+      'Проект',
       'Трудоёмкость',
       'Бизнес-ценность',
       'Вид ценности',
     ]);
     expect(screen.getByRole('heading', { level: 1, name: 'Мастаск' })).toBeInTheDocument();
-    expect(teamButton()).toBeInTheDocument();
+    // feat-040 BR-TS-11: no drop-down on the project's head, though the head is complete.
+    expect(screen.queryByRole('button', { name: 'Сменить команду' })).toBeNull();
     expect(screen.getByRole('tab', { name: 'Бэклог' })).toBeInTheDocument();
     expect(levelButton()).toHaveAccessibleName('Уровень: Истории');
     expect(screen.getByRole('link', { name: 'Показать канбан' })).toBeInTheDocument();

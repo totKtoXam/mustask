@@ -25,8 +25,8 @@ function source(overrides: Partial<WorkContextSource> = {}): WorkContextSource {
   return {
     status: 'ready',
     organizations: [
-      { id: ORG, name: 'Альфа', projects: [] },
-      { id: OTHER, name: 'Бета', projects: [] },
+      { id: ORG, name: 'Альфа', projects: [], teams: [] },
+      { id: OTHER, name: 'Бета', projects: [], teams: [] },
     ],
     selection: { organizationId: ORG },
     isReal: true,

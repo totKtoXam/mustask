@@ -29,6 +29,7 @@ import {
   WORK_ITEM_PARENT_URL,
   WORK_ITEM_URL,
   defaultFields,
+  linkedProjectIds,
   problemWithParams,
   process,
 } from '../workitems/testFixtures';
@@ -38,9 +39,11 @@ import {
   BOARD_URL,
   PROBLEM_HEADERS,
   PROJECT_BACKLOG_URL,
+  ORG_PROJECTS_URL,
   PROJECT_BOARD_URL,
   PROJECT_REORDER_URL,
   REORDER_URL,
+  TEAM_PROJECTS_URL,
   boardsDataset,
   problem,
   type BoardsDataset,
@@ -69,18 +72,22 @@ function refuse(code: string): never {
 }
 
 /**
- * What a backlog or a board is of: a team's (`team`), or the whole project's
- * (feat-039, `team: null`) — the same reads over another membership and order.
+ * What a backlog or a board is of: a team's (`team`, over every project it works on since feat-040;
+ * `projectId: null`), or the whole project's (feat-039, `team: null`) — the same reads over another
+ * membership and order.
  */
 interface Scope {
-  projectId: string;
+  /** The project's views: the project. A team's views have none (feat-040 BR-TS-1). */
+  projectId: string | null;
   team: TeamRecord | null;
   /** The project's views only (mod-017 § 3): the chosen team ids and `none`; absent or empty is no filter. */
   teamIds?: readonly string[];
+  /** A team's views only (feat-040 BR-TS-8): the chosen project ids; absent or empty is no filter. */
+  projectIds?: readonly string[];
 }
 
 function teamOf(team: TeamRecord): Scope {
-  return { projectId: team.projectId, team };
+  return { projectId: null, team };
 }
 
 /** § 0.2: the level segment → the process level's name, which the seeded types point at. */
@@ -159,15 +166,30 @@ export class BoardsTestApi {
     return project;
   }
 
-  private team(projectId: string, teamId: string | undefined): TeamRecord {
+  /** feat-040 § 0.3: a team of the organization, found by (organization, id); a deleted or foreign one is not. */
+  private team(organizationId: string | undefined, teamId: string | undefined): TeamRecord {
+    const organization = this.organization(organizationId);
     const team = this.data.teams.find(
       (candidate) =>
         candidate.active &&
-        candidate.projectId === projectId &&
-        candidate.id === teamId?.toLowerCase(),
+        candidate.id === teamId?.toLowerCase() &&
+        this.data.projects.find((project) => project.id === candidate.projectId)?.organizationId ===
+          organization.id,
     );
     if (!team) refuse('organizations.team.not_found');
     return team;
+  }
+
+  /** The projects a team is linked to that are active (feat-040 api-contract § 2.2), by name. */
+  private activeProjectsOf(team: TeamRecord) {
+    return linkedProjectIds(team)
+      .flatMap((id) => {
+        const project = this.data.projects.find((candidate) => candidate.id === id);
+        return project?.active ? [project] : [];
+      })
+      .sort((first, second) =>
+        first.name.localeCompare(second.name, 'ru', { sensitivity: 'base' }),
+      );
   }
 
   private levelTypes(level: string | undefined): WorkItemType[] {
@@ -198,12 +220,40 @@ export class BoardsTestApi {
     const chosen = scope.teamIds ?? [];
     if (chosen.length === 0) return true;
     const known = new Set(
-      this.data.teams.filter((t) => t.projectId === scope.projectId && t.active).map((t) => t.id),
+      this.data.teams
+        .filter((t) => t.active && linkedProjectIds(t).includes(scope.projectId ?? ''))
+        .map((t) => t.id),
     );
     return chosen.some((value) =>
       value === 'none'
         ? !record.teamId || !known.has(record.teamId)
         : known.has(value.toLowerCase()) && record.teamId === value.toLowerCase(),
+    );
+  }
+
+  /**
+   * feat-040 api-contract § 3.1: any chosen project matches; a value naming no project the team
+   * works on (unknown, malformed, another organization's, unlinked or deactivated) selects nothing,
+   * and beside a valid value adds nothing.
+   */
+  private inProjectFilter(record: WorkItemRecord, scope: Scope): boolean {
+    const chosen = scope.projectIds ?? [];
+    if (chosen.length === 0 || scope.team === null) return true;
+    const known = new Set(this.activeProjectsOf(scope.team).map((project) => project.id));
+    return chosen.some(
+      (value) => known.has(value.toLowerCase()) && record.projectId === value.toLowerCase(),
+    );
+  }
+
+  /** The items a scope can hold at all: the project's, or — a team's — those of the team's active projects. */
+  private inScope(record: WorkItemRecord, scope: Scope): boolean {
+    if (scope.team === null) {
+      return record.projectId === scope.projectId;
+    }
+    return (
+      record.teamId === scope.team.id &&
+      this.activeProjectsOf(scope.team).some((project) => project.id === record.projectId) &&
+      this.inProjectFilter(record, scope)
     );
   }
 
@@ -224,12 +274,9 @@ export class BoardsTestApi {
     const { team } = scope;
     const typeIds = new Set(this.levelTypes(level).map((type) => type.id));
     const members = this.data.items.filter((record) => {
-      if (record.projectId !== scope.projectId || !typeIds.has(record.typeId)) return false;
+      if (!this.inScope(record, scope) || !typeIds.has(record.typeId)) return false;
       const state = this.type(record.typeId).states.find((s) => s.id === record.stateId);
-      return (
-        state?.category.code !== 'Removed' &&
-        (team === null ? this.inFilter(record, scope) : record.teamId === team.id)
-      );
+      return state?.category.code !== 'Removed' && (team !== null || this.inFilter(record, scope));
     });
     const place = (record: WorkItemRecord) =>
       team === null
@@ -242,16 +289,19 @@ export class BoardsTestApi {
               candidate.teamId === team.id &&
               candidate.level === level,
           )?.position;
+    // feat-040 BR-TS-6: creation time, then the project's key by character code, then the number
+    // as a number — the tie of unplaced items and of placed items of equal position, on both kinds
+    // of view (a project's items share a key, so it decides nothing there).
+    const key = (record: WorkItemRecord) =>
+      this.data.projects.find((project) => project.id === record.projectId)?.key ?? '';
+    const tie = (first: WorkItemRecord, second: WorkItemRecord) =>
+      Date.parse(first.createdAt) - Date.parse(second.createdAt) ||
+      (key(first) < key(second) ? -1 : key(first) > key(second) ? 1 : 0) ||
+      first.number - second.number;
     const placed = members
       .filter((record) => place(record) !== undefined)
-      .sort((first, second) => (place(first) ?? 0) - (place(second) ?? 0));
-    const unplaced = members
-      .filter((record) => place(record) === undefined)
-      .sort(
-        (first, second) =>
-          (team === null ? Date.parse(first.createdAt) - Date.parse(second.createdAt) : 0) ||
-          first.number - second.number,
-      );
+      .sort((first, second) => (place(first) ?? 0) - (place(second) ?? 0) || tie(first, second));
+    const unplaced = members.filter((record) => place(record) === undefined).sort(tie);
     return [...placed, ...unplaced];
   }
 
@@ -320,6 +370,8 @@ export class BoardsTestApi {
       priority: record.fields.priority,
       // mod-017 § 1.5: the owning team as it stands now, `null` for «Без команды».
       team: this.teamRef(record),
+      // feat-040 api-contract § 2.1: the item's project as it stands now.
+      project: { id: record.projectId, name: project?.name ?? '' },
     };
   }
 
@@ -356,8 +408,12 @@ export class BoardsTestApi {
     const project = this.data.projects.find((candidate) => candidate.id === scope.projectId);
     return {
       ...(team === null
-        ? { project: { id: scope.projectId, name: project?.name ?? '' } }
-        : { team: { id: team.id, name: team.name } }),
+        ? { project: { id: scope.projectId ?? '', name: project?.name ?? '' } }
+        : {
+            team: { id: team.id, name: team.name },
+            // feat-040 api-contract § 2.2: the team's linked active projects by name, whatever the filter.
+            projects: this.activeProjectsOf(team).map(({ id, name }) => ({ id, name })),
+          }),
       level: {
         code: level,
         name: LEVEL_NAMES[level] ?? '',
@@ -412,10 +468,10 @@ export class BoardsTestApi {
     const { team } = scope;
     return this.data.items.filter(
       (record) =>
-        record.projectId === scope.projectId &&
+        this.inScope(record, scope) &&
         this.rank(record) <= pageRank &&
         !this.removed(record) &&
-        (team === null ? this.inFilter(record, scope) : record.teamId === team.id),
+        (team !== null || this.inFilter(record, scope)),
     );
   }
 
@@ -608,9 +664,15 @@ export class BoardsTestApi {
       );
       return;
     }
+    // feat-040 BR-TS-7: every item of the backlog gets a place; the places of a deactivated
+    // project's items (not members now) are left as they are.
+    const inActiveProject = (itemId: string) =>
+      this.data.projects.find((project) => project.id === this.byId(itemId)?.projectId)?.active ===
+      true;
     this.data.places = this.data.places.filter(
       (place) =>
-        !memberIds.has(place.itemId) && !(place.teamId === team.id && place.level === level),
+        !memberIds.has(place.itemId) &&
+        !(place.teamId === team.id && place.level === level && inActiveProject(place.itemId)),
     );
     rest.forEach((record, index) =>
       this.data.places.push({ itemId: record.id, teamId: team.id, level, position: index + 1 }),
@@ -690,13 +752,15 @@ export class BoardsTestApi {
         ? this.data.teams.find((candidate) => candidate.id === teamId.toLowerCase())
         : undefined;
     if (!found || !found.active) refuse('organizations.team.not_found');
-    if (found.projectId !== projectId) refuse('organizations.team.not_in_project');
+    if (!linkedProjectIds(found).includes(projectId)) refuse('organizations.team.not_in_project');
     return found;
   }
 
   /** BR-OT-4: the team the project's settings name, else its only active team, else none. */
   private defaultTeamId(projectId: string): string | null {
-    const active = this.data.teams.filter((team) => team.projectId === projectId && team.active);
+    const active = this.data.teams.filter(
+      (team) => linkedProjectIds(team).includes(projectId) && team.active,
+    );
     const named = this.data.projects.find((p) => p.id === projectId)?.defaultTeamId;
     return (
       active.find((team) => team.id === named)?.id ??
@@ -866,7 +930,7 @@ export class BoardsTestApi {
 
   // ---- MSW
 
-  handlers(): HttpHandler[] {
+  handlers(options: { projectList?: boolean } = {}): HttpHandler[] {
     const answer =
       (run: (params: Params, body: Record<string, unknown>, url: URL) => unknown) =>
       async ({ request, params }: { request: Request; params: Params }) => {
@@ -905,10 +969,11 @@ export class BoardsTestApi {
           throw error;
         }
       };
-    const team = (p: Params): Scope => {
-      const project = this.project(one(p, 'organizationId'), one(p, 'projectId'));
-      return teamOf(this.team(project.id, one(p, 'teamId')));
-    };
+    /** feat-040 api-contract § 0.3: the organization, then the team; there is no project level, and the filter is `projectId`. */
+    const team = (p: Params, url?: URL): Scope => ({
+      ...teamOf(this.team(one(p, 'organizationId'), one(p, 'teamId'))),
+      projectIds: url?.searchParams.getAll('projectId'),
+    });
     /** feat-039 § 0.4: the organization, then the project; there is no team level. */
     const wholeProject = (p: Params, url?: URL): Scope => {
       const project = this.project(one(p, 'organizationId'), one(p, 'projectId'));
@@ -930,14 +995,15 @@ export class BoardsTestApi {
       ),
       http.get(
         BACKLOG_URL,
-        answer((p) => {
-          const found = team(p);
+        answer((p, _body, url) => {
+          const found = team(p, url);
           return this.backlog(found, level(p));
         }),
       ),
       http.post(
         REORDER_URL,
         answer((p, body) => {
+          // A reorder runs against the full list: the filter is never sent (api-contract § 3.2).
           const found = team(p);
           this.reorder(found, level(p), body);
           return undefined;
@@ -945,11 +1011,36 @@ export class BoardsTestApi {
       ),
       http.get(
         BOARD_URL,
-        answer((p) => {
-          const found = team(p);
+        answer((p, _body, url) => {
+          const found = team(p, url);
           return this.board(found, level(p));
         }),
       ),
+      // feat-028 api-contract § 2.2: a team's linked active projects, by name, which the dialog's «Проект» reads.
+      http.get(
+        TEAM_PROJECTS_URL,
+        answer((p) => {
+          const found = this.team(one(p, 'organizationId'), one(p, 'teamId'));
+          return this.activeProjectsOf(found).map(({ id, name, key }) => ({ id, name, key }));
+        }),
+      ),
+      // mod-002 api-contract § 2.1: the organization's active projects with their keys, by name —
+      // the list a card opened by address on a team's view finds its project in (feat-040 BR-TS-4).
+      // A test that serves the organizations API as well leaves it to that one (`projectList: false`).
+      ...(options.projectList === false
+        ? []
+        : [
+            http.get(
+              ORG_PROJECTS_URL,
+              answer((p) => {
+                const organization = this.organization(one(p, 'organizationId'));
+                return this.data.projects
+                  .filter((project) => project.active && project.organizationId === organization.id)
+                  .sort((a, b) => a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' }))
+                  .map(({ id, name, key }) => ({ id, name, key }));
+              }),
+            ),
+          ]),
       // feat-039 api-contract § 3: the project's own backlog, reorder and board.
       http.get(
         PROJECT_BACKLOG_URL,
@@ -986,7 +1077,7 @@ export class BoardsTestApi {
         answer((p) => {
           const project = this.project(one(p, 'organizationId'), one(p, 'projectId'));
           const active = this.data.teams
-            .filter((team) => team.projectId === project.id && team.active)
+            .filter((team) => linkedProjectIds(team).includes(project.id) && team.active)
             .sort((a, b) => a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' }));
           const named = active.find((team) => team.id === project.defaultTeamId);
           return active.map((team) => ({
@@ -1000,7 +1091,7 @@ export class BoardsTestApi {
               : active.length === 1
                 ? 'onlyTeam'
                 : null,
-            isMember: false,
+            isMember: team.member === true,
           }));
         }),
       ),
@@ -1151,9 +1242,12 @@ export class BoardsTestApi {
 }
 
 /** Serves the dataset (US-1's by default) for the rest of the test. */
-export function serveBoards(data?: BoardsDataset): BoardsTestApi {
+export function serveBoards(
+  data?: BoardsDataset,
+  options: { projectList?: boolean } = {},
+): BoardsTestApi {
   const api = new BoardsTestApi(data);
-  server.use(...api.handlers());
+  server.use(...api.handlers(options));
   return api;
 }
 

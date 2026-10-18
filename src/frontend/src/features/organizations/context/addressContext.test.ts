@@ -19,9 +19,14 @@ describe('mod-002 US-8 Scenario: The address sets the switcher — what an addre
       '/organizations/o-1/projects/p-1/settings/teams/t-1',
       { organizationId: 'o-1', projectId: 'p-1' },
     ],
+    // feat-040 BR-TS-1: a team's views are at the team's address, which carries no project.
+    ['/organizations/o-1/teams/t-1/backlogs/stories', { organizationId: 'o-1', teamId: 't-1' }],
+    ['/organizations/o-1/teams/t-1/boards/epics', { organizationId: 'o-1', teamId: 't-1' }],
+    ['/organizations/o-1/teams/t-1', { organizationId: 'o-1' }],
+    // The retired project-nested address names the project only: its page is «Страница не найдена».
     [
-      '/organizations/o-1/projects/p-1/teams/t-1/board',
-      { organizationId: 'o-1', projectId: 'p-1', teamId: 't-1' },
+      '/organizations/o-1/projects/p-1/teams/t-1/backlogs/stories',
+      { organizationId: 'o-1', projectId: 'p-1' },
     ],
   ])('%s carries %j', (pathname, expected) => {
     expect(addressContext(pathname)).toEqual(expected);
