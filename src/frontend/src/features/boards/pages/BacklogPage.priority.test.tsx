@@ -53,6 +53,7 @@ describe('feat-027 D-7 Scenario: «Приоритет» is not on the backlog ro
       'Заголовок',
       'Статус',
       'Команда',
+      'Проект',
       'Трудоёмкость',
       'Бизнес-ценность',
       'Вид ценности',
@@ -65,13 +66,13 @@ describe('feat-027 D-7 Scenario: «Приоритет» is not on the backlog ro
 });
 
 describe('feat-022 US-6 Scenario: A card shows the priority', () => {
-  it('MSK-US-12’s card reads «Приоритет: 1» as a caption on its third line, after the assignee', async () => {
+  it('MSK-US-12’s card reads «Приоритет: 1» as a caption on its third line, after the assignee, the project at its right end (feat-040 D-1)', async () => {
     serveBoards(priorityDataset());
     renderBacklog(boardAddress('stories'));
 
     const card = cardOf(await findBoard(), 'MSK-US-12');
     const third = card.children[2] as HTMLElement;
-    expect(third).toHaveTextContent(/^Не назначенПриоритет: 1$/);
+    expect(third).toHaveTextContent(/^Не назначенПриоритет: 1Проект: Мастаск$/);
     expect(within(third).getByText('Приоритет: 1')).toHaveClass('MuiTypography-caption');
     expect(within(cardOf(await findBoard(), 'MSK-BUG-4')).getByText('Приоритет: 3')).toBeVisible();
   });

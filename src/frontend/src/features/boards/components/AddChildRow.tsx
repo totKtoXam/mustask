@@ -228,6 +228,9 @@ export function AddChildRow({
           />
         </Box>
       </BacklogCell>
+      {/* «Статус», «Команда», «Проект» (feat-040 D-1), «Трудоёмкость», «Бизнес-ценность», «Вид ценности»: nothing yet. */}
+      <BacklogCell />
+      <BacklogCell />
       <BacklogCell />
       <BacklogCell />
       <BacklogCell />

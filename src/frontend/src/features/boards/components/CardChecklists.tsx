@@ -148,7 +148,7 @@ export const CardChecklists = memo(function CardChecklists({
                   kind={counter.kind}
                   tickable={env.tickable.has(child.type.id)}
                   off={off}
-                  path={actions.pathOf(child.identifier)}
+                  path={actions.pathOf(child.identifier, card.project.id)}
                   onTick={actions.tick}
                 />
               ))}

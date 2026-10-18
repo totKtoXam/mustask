@@ -12,8 +12,8 @@ import type { WorkItemType } from '../../process';
 import {
   newRequestId,
   placeRefusal,
-  useCreateWorkItem,
-  useSetWorkItemState,
+  useCreateWorkItemIn,
+  useSetWorkItemStateIn,
   workItemPath,
   type WorkItem,
 } from '../../workitems';
@@ -25,6 +25,7 @@ import {
   CHECKLIST_KINDS,
   applyChildState,
   isChecklistKind,
+  projectOfChild,
   stateAnnouncement,
   tickTarget,
   type ChecklistKind,
@@ -48,6 +49,8 @@ export interface AddField {
   cardId: string;
   /** The card's identifier, which the field's name carries. */
   cardIdentifier: string;
+  /** The card's project: the task is created there, with its next number (feat-040 BR-TS-5). */
+  projectId: string;
   /** The task type the field creates: its id for the create, its name for the field's name. */
   typeId: string;
   typeName: string;
@@ -75,8 +78,8 @@ export interface ChecklistActions {
   /** The field has taken the focus it was asked for. */
   addFocused(): void;
   registerAddButton(cardId: string, element: HTMLElement | null): void;
-  /** A child's form (BR-C-5: the title opens the item as the card's own title does). */
-  pathOf(identifier: string): string;
+  /** A child's form (BR-C-5: the title opens the item as the card's own title does), in the card's project. */
+  pathOf(identifier: string, projectId: string): string;
 }
 
 /** What every card shares: stable while the process is. */
@@ -104,15 +107,14 @@ type MoveView = ReturnType<typeof useMoveView<BoardSurface>>;
  * the board again, as a card move does (BR-C-8): `inFlightRef` is the board's own, and
  * `setCreating` switches the controls off for a create, which `view` cannot see.
  */
-/** No team filter: a team's board, or the project's unfiltered. */
-const NO_TEAM_IDS: readonly string[] = [];
+/** No filter: the board is read unfiltered. */
+const NO_FILTER: readonly string[] = [];
 
 export function useChecklists({
   organizationId,
-  projectId,
   scope,
   level,
-  teamIds = NO_TEAM_IDS,
+  filterIds = NO_FILTER,
   board,
   view,
   inFlightRef,
@@ -123,11 +125,10 @@ export function useChecklists({
   showCreated,
 }: {
   organizationId: string;
-  projectId: string;
   scope: BoardScope;
   level: BoardLevelCode;
-  /** The project's team filter the board was read under (mod-017 § 3): part of the cache key. */
-  teamIds?: readonly string[];
+  /** The filter the board was read under (the team's project filter, the project's team filter): part of the cache key. */
+  filterIds?: readonly string[];
   /** The last read. */
   board: BoardSurface;
   view: MoveView;
@@ -142,9 +143,9 @@ export function useChecklists({
   const client = useQueryClient();
   // Only `mutateAsync` is kept: query-core binds it once, while the `useMutation` result is a
   // new object each render, which would make `actions` and `env` new and redraw every card.
-  const { mutateAsync: setStateAsync } = useSetWorkItemState(organizationId, projectId);
-  const { mutateAsync: createItemAsync } = useCreateWorkItem(organizationId, projectId);
-  const readAgain = useReadAgain(organizationId, projectId, scope);
+  const { mutateAsync: setStateAsync } = useSetWorkItemStateIn(organizationId);
+  const { mutateAsync: createItemAsync } = useCreateWorkItemIn(organizationId);
+  const readAgain = useReadAgain(organizationId, scope);
   const { shown } = view;
 
   const [open, setOpen] = useState<ReadonlyMap<string, readonly ChecklistKind[]>>(new Map());
@@ -272,6 +273,7 @@ export function useChecklists({
       setAdding({
         cardId: card.id,
         cardIdentifier: card.identifier,
+        projectId: card.project.id,
         typeId: entry.typeId,
         typeName: entry.name,
         title: '',
@@ -327,10 +329,13 @@ export function useChecklists({
       let contextGone = false;
       try {
         created = await createItemAsync({
-          requestId: requestId.current,
-          typeId: current.typeId,
-          title,
-          parentId: current.cardId,
+          projectId: current.projectId,
+          body: {
+            requestId: requestId.current,
+            typeId: current.typeId,
+            title,
+            parentId: current.cardId,
+          },
         });
       } catch (caught) {
         const placed = placeRefusal(caught, ['title', 'parent']);
@@ -367,8 +372,10 @@ export function useChecklists({
     async (child: ChecklistChild, done: boolean) => {
       const { shown: current, board: read, types: known, view: moveView } = latest.current;
       const target = tickTarget(known, child.type.id, done);
+      // The child is written in its card's project (feat-040 BR-TS-5).
+      const childProject = projectOfChild(read, child.id);
       // BR-C-8: the checkbox is off while a write is saved; its change is ignored.
-      if (inFlightRef.current || target === undefined) {
+      if (inFlightRef.current || target === undefined || childProject === undefined) {
         return;
       }
       inFlightRef.current = true;
@@ -377,7 +384,11 @@ export function useChecklists({
       announce(stateAnnouncement(child.identifier, target.name));
       let notice: string | null = null;
       try {
-        await setStateAsync({ identifier: child.identifier, stateId: target.id });
+        await setStateAsync({
+          projectId: childProject,
+          identifier: child.identifier,
+          stateId: target.id,
+        });
       } catch (error) {
         notice = stateRefusalNotice(error);
       }
@@ -385,9 +396,7 @@ export function useChecklists({
       await readAgain();
       inFlightRef.current = false;
       moveView.end(
-        client.getQueryData<BoardSurface>(
-          boardKey(organizationId, projectId, scope, level, teamIds),
-        ),
+        client.getQueryData<BoardSurface>(boardKey(organizationId, scope, level, filterIds)),
         read,
       );
       if (notice !== null) {
@@ -400,12 +409,11 @@ export function useChecklists({
       inFlightRef,
       level,
       organizationId,
-      projectId,
       readAgain,
       setStateAsync,
       showError,
       scope,
-      teamIds,
+      filterIds,
     ],
   );
 
@@ -418,8 +426,8 @@ export function useChecklists({
   }, []);
 
   const pathOf = useCallback(
-    (identifier: string) => workItemPath(organizationId, projectId, identifier),
-    [organizationId, projectId],
+    (identifier: string, projectId: string) => workItemPath(organizationId, projectId, identifier),
+    [organizationId],
   );
 
   const actions = useMemo<ChecklistActions>(

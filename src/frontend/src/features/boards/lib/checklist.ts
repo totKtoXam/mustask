@@ -143,6 +143,22 @@ export function tickTarget(
   return found && reference(found);
 }
 
+/**
+ * The project of a checklist child: the project of the card it is listed on, since a checklist is
+ * the card's own live children and a child is always in its parent's project (feat-040 BR-TS-5).
+ * A tick writes the state there; the child itself carries no project.
+ */
+export function projectOfChild(board: Pick<Board, 'columns'>, childId: string): string | undefined {
+  for (const column of board.columns) {
+    for (const card of column.items) {
+      if (card.checklist.some((child) => child.id === childId)) {
+        return card.project.id;
+      }
+    }
+  }
+  return undefined;
+}
+
 /** The board with the child shown in `state` in every checklist it is in, at once (design § 7.2). */
 export function applyChildState<T extends Pick<Board, 'columns'>>(
   board: T,

@@ -31,8 +31,8 @@ import {
   newRequestId,
   parentHelperText,
   placeRefusal,
-  useCreateWorkItem,
-  useSetWorkItemParent,
+  useCreateWorkItemIn,
+  useSetWorkItemParentIn,
   useWorkItemDialog,
   workItemPath,
   workItemsPermissions,
@@ -113,6 +113,8 @@ const APPEARANCES = ['epic', 'feature', 'story', 'bug', 'task'] as const;
 interface DragState {
   id: string;
   identifier: string;
+  /** The dragged row's own project: its parent write goes there (feat-040 BR-TS-5). */
+  projectId: string;
   /** The parent the page showed when the drag began: the parent write's seen parent (BR-H-4). */
   seenParentId: string | null;
   /** Every descendant of the dragged row in the read, collapsed ones included (BR-T-12). */
@@ -172,6 +174,8 @@ interface AddingState {
   serial: number;
   parentId: string;
   parentIdentifier: string;
+  /** The parent's project: the child is created there, with its next number (feat-040 BR-TS-5). */
+  parentProjectId: string;
   entry: AddEntry;
   /** The create is being saved. */
   busy: boolean;
@@ -237,15 +241,14 @@ interface AddingState {
  * three and so reads only.
  */
 /** No team filter: a team's backlog, or the project's unfiltered. */
-const NO_TEAM_IDS: readonly string[] = [];
+const NO_FILTER: readonly string[] = [];
 
 export function BacklogTable({
   organizationId,
-  projectId,
   scope,
   level,
   items,
-  teamIds = NO_TEAM_IDS,
+  filterIds = NO_FILTER,
   busy = false,
   announce,
   showSuccess,
@@ -253,13 +256,15 @@ export function BacklogTable({
   showError,
 }: {
   organizationId: string;
-  projectId: string;
   scope: BoardScope;
   level: BoardLevelCode;
   /** The backlog as last read: the top-level rows, `order` 1..n, each with its whole tree. */
   items: readonly BacklogRowData[];
-  /** The project's team filter the rows were read under (mod-017 § 3): part of the cache key. */
-  teamIds?: readonly string[];
+  /**
+   * The filter the rows were read under — the team's project filter (feat-040 BR-TS-8) or the
+   * project's team filter (mod-017 § 3): part of the cache key.
+   */
+  filterIds?: readonly string[];
   /** Another filter is being read: the rows shown are the previous ones (`aria-busy`). */
   busy?: boolean;
   announce(text: string): void;
@@ -272,10 +277,12 @@ export function BacklogTable({
   const theme = useTheme();
   const table = theme.layout.backlogTable;
   const client = useQueryClient();
-  const reorder = useReorderBacklog(organizationId, projectId, scope, level);
-  const setParent = useSetWorkItemParent(organizationId, projectId);
-  const createItem = useCreateWorkItem(organizationId, projectId);
-  const readAgain = useReadAgain(organizationId, projectId, scope);
+  const reorder = useReorderBacklog(organizationId, scope, level);
+  // Every write of a row goes to the row's own project (feat-040 BR-TS-5): a team's backlog holds
+  // the rows of several, and the project's page is the one case where they all agree.
+  const setParent = useSetWorkItemParentIn(organizationId);
+  const createItem = useCreateWorkItemIn(organizationId);
+  const readAgain = useReadAgain(organizationId, scope);
   // A title's plain click opens the card as a dialog over the backlog (feat-029 BR-C-1);
   // `open` keeps its identity, so the memoised rows are not redrawn by the navigation.
   const { open: openItem } = useWorkItemDialog();
@@ -484,9 +491,8 @@ export function BacklogTable({
   );
 
   function backlogRead(): BacklogRowData[] | undefined {
-    return client.getQueryData<BacklogSurface>(
-      backlogKey(organizationId, projectId, scope, level, teamIds),
-    )?.items;
+    return client.getQueryData<BacklogSurface>(backlogKey(organizationId, scope, level, filterIds))
+      ?.items;
   }
 
   async function move(body: ReorderBody) {
@@ -529,6 +535,7 @@ export function BacklogTable({
     let noticed = false;
     try {
       await setParent.mutateAsync({
+        projectId: row.project.id,
         identifier: row.identifier,
         change: { parentId: null, seenParentId: seen.id },
       });
@@ -569,6 +576,7 @@ export function BacklogTable({
     let refusal: ParentRefusal | null = null;
     try {
       written = await setParent.mutateAsync({
+        projectId: row.project.id,
         identifier: row.identifier,
         change: { parentId: chosen.id, seenParentId: row.parent?.id ?? null },
       });
@@ -665,6 +673,7 @@ export function BacklogTable({
         serial: addSerial.current,
         parentId: row.id,
         parentIdentifier: row.identifier,
+        parentProjectId: row.project.id,
         entry,
         busy: false,
         error: null,
@@ -706,10 +715,13 @@ export function BacklogTable({
     let contextGone = false;
     try {
       created = await createItem.mutateAsync({
-        requestId,
-        typeId: current.entry.typeId,
-        title,
-        parentId: current.parentId,
+        projectId: current.parentProjectId,
+        body: {
+          requestId,
+          typeId: current.entry.typeId,
+          title,
+          parentId: current.parentId,
+        },
       });
     } catch (caught) {
       const placed = placeRefusal(caught, ['title', 'parent']);
@@ -837,6 +849,7 @@ export function BacklogTable({
       setDrag({
         id,
         identifier,
+        projectId: dragged.project.id,
         seenParentId: dragged.parent?.id ?? null,
         descendants: descendantIds(dragged),
         gap: null,
@@ -964,6 +977,7 @@ export function BacklogTable({
     let noticed = false;
     try {
       written = await setParent.mutateAsync({
+        projectId: dragged.projectId,
         identifier: dragged.identifier,
         change: { parentId: target.id, seenParentId: dragged.seenParentId },
       });
@@ -1041,6 +1055,7 @@ export function BacklogTable({
     table.typeColumn +
     table.stateColumn +
     table.teamColumn +
+    table.projectColumn +
     table.effortColumn +
     table.businessValueColumn +
     table.valueAreaColumn;
@@ -1083,6 +1098,7 @@ export function BacklogTable({
           <col />
           <col style={{ width: table.stateColumn }} />
           <col style={{ width: table.teamColumn }} />
+          <col style={{ width: table.projectColumn }} />
           <col style={{ width: table.effortColumn }} />
           <col style={{ width: table.businessValueColumn }} />
           <col style={{ width: table.valueAreaColumn }} />
@@ -1129,7 +1145,7 @@ export function BacklogTable({
                   }
                   addMenuId={addMenu?.row.id === item.id ? addMenuId : null}
                   actionsId={actions?.row.id === item.id ? actionsMenuId : null}
-                  formPath={workItemPath(organizationId, projectId, item.identifier)}
+                  formPath={workItemPath(organizationId, item.project.id, item.identifier)}
                   onOpenItem={openItem}
                   onSelect={select}
                   onToggle={toggle}
@@ -1236,7 +1252,7 @@ export function BacklogTable({
         <RequiresOrganizationCode code={workItemsPermissions.linkWrite}>
           <ChangeParentDialog
             organizationId={organizationId}
-            projectId={projectId}
+            projectId={dialog.row.project.id}
             row={dialog.row}
             helperText={dialogHelper}
             value={dialog.chosen}

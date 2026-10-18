@@ -1,7 +1,8 @@
+import { useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { NotFound } from '../../../shared/ui/StateFrame';
 import { isBoardLevel } from '../lib/levels';
-import { PROJECT_SCOPE } from '../lib/scope';
+import { projectScope } from '../lib/scope';
 import { ScopedBacklog } from './BacklogPage';
 
 /**
@@ -11,8 +12,9 @@ import { ScopedBacklog } from './BacklogPage';
  * read's own answers validate the rest of the address — the organization, the
  * project (a team frame cannot occur) and a level the process lacks. Keyed by its
  * project, so another project starts afresh, while the level drop-down keeps the
- * head. The head, the table, the row actions and the card over the page are the
- * team backlog's; mod-017 lifts BR-PB-6 (the page creates too) and adds the team filter.
+ * head. The head (without a team menu since feat-040 BR-TS-11), the table, the row actions and
+ * the card over the page are the team backlog's; mod-017 lifts BR-PB-6 (the page creates too) and
+ * adds the team filter.
  */
 export function ProjectBacklogPage() {
   const {
@@ -20,6 +22,8 @@ export function ProjectBacklogPage() {
     projectId = '',
     level,
   } = useParams<{ organizationId: string; projectId: string; level: string }>();
+  // One scope per project: the table's callbacks depend on it.
+  const scope = useMemo(() => projectScope(projectId), [projectId]);
   if (!isBoardLevel(level)) {
     return <NotFound level="page" />;
   }
@@ -27,8 +31,7 @@ export function ProjectBacklogPage() {
     <ScopedBacklog
       key={`${organizationId}/${projectId}`}
       organizationId={organizationId}
-      projectId={projectId}
-      scope={PROJECT_SCOPE}
+      scope={scope}
       level={level}
     />
   );

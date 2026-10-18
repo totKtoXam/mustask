@@ -35,6 +35,7 @@ function node(
     title: identifier,
     assignee: null,
     team: null,
+    project: { id: 'prj-1', name: 'Мастаск' },
     state,
     priority: 2,
     effort: null,
