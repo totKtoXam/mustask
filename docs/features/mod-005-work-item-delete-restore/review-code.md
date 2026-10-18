@@ -388,3 +388,50 @@ theirs: 8 cases, `e0076300`), which was written after this read; no test added h
   - The owed test: grepped "merges second". ADR-0030:187, BR-DR-9 and plan :30/:386/:675 are obligations, now met.
     `qa.md:118` ("B17 is half") is QA's to refresh.
   - **Not swept:** feat-028's E2E prose and the doc-012 analyses.
+
+### Fix re-check
+
+A clean session read a detached `07a6d87f`: the fix `559bf10c` and the prose `fe02c444`, `07a6d87f`. Nothing was built or run.
+**Verdict: approve.** QD-1 is closed. Two new minors (DR2-4, DR2-5) are debts.
+
+- **QD-1 (major): closed.** `UnlinkTeamHandler.cs:178-180` and `DeleteTeamHandler.cs:95-97` take the hierarchy after the
+  project rows and before `LockOwnedAsync`. `WorkItemHierarchyLocks.cs:30-40` is one insert and one `FOR UPDATE`, both ordered by
+  project id, and every taker uses it (`WorkItemRepository.cs:96-97`). Checked for a new cycle: no hierarchy holder asks, after the
+  hierarchy, for a row a clean-up holds before it. The save takes its link first (`SaveWorkItemHandler.cs:115`, then `:120`); the
+  creation its links and number (`CreateWorkItemHandler.cs:150-158`, then `:192`). The parent route (`SetWorkItemParentHandler.cs:68`)
+  and the purge (`PurgeWorkItemHandler.cs:91`) lock only items after it, and no `IWorkItemPurgeStep` is registered. Their later FK
+  checks onto links and project rows are `KEY SHARE`, which the clean-ups' `NO KEY UPDATE` admits (`ProjectTeamRepository.cs:29,37-48`,
+  `ProjectRepository.cs:57-60`). Pinned by `DeleteRestorePurgeRaceTests.cs:961` (QA's steps, four variants), `:1023`, `:1047`,
+  `TeamStatementCountTests.cs:258,273,291` and the call order (`DeleteTeamHandlerTests.cs:183`, `UnlinkTeamHandlerTests.cs:304`).
+  Not racing the parent route alone is sound: it takes the hierarchy before the item, and `:1023` shows both clean-ups wait for
+  that row. The "Carried" item under "Still open" is this one: no bug line is owed.
+- **DR2-2: (b) closed** (`DeleteTeamHandler.cs:83-86` follows `:87-100`). (a) and (c) stay open for the human, and both now also miss
+  the hierarchy tier: feat-028 `plan-backend.md:247` (5a: "create, a parent write"), `:276` ("the rest … as written above"),
+  and ADR-0028 `:144` (the unlink and deletion bullets).
+- **DR2-3: closed.** `DeleteRestorePurgeFeat028QaTests.cs:378` (M10) races the children shape against the unlink and the deletion,
+  in both orders and both id orders, through a commit gate.
+- **DR2-1:** untouched, still a debt.
+
+**DR2-4 · minor · docs** — prose the fix made stale.
+- (a) `plan-backend.md:787` says "The purge's hierarchy lock is not the clean-up's", and its meeting point is "the item rows". Both
+  now meet at the hierarchy row first.
+- (b) `:835` credits "2 projects … equal to 50 projects" to `OwningTeamStatementCountTests`, which seeds one project. The pin is
+  `TeamStatementCountTests.cs:221-233`.
+- (c) The remark at `OwningTeamStatementCountTests.cs:162-163` lists the settings after the reassignment and has no hierarchy step.
+
+**Fix:** reword all three.
+
+**DR2-5 · minor · contract** — `IWorkItemTeamOwnership.LockHierarchiesAsync` (`IWorkItemTeamOwnership.cs:36`) is a new in-process
+method, but mod-005 `api-contract.md` § 7 (`:293-300`) does not list it. feat-028 `api-contract.md:584-589` and `plan-backend.md:224`
+list the old four methods. qa.md's resolution and the Log say "no contract change", which is true for the wire only. It is minor
+because the interface's own doc ("Before `LockOwnedAsync`, always") and the handler tests carry the rule to anyone who extends it.
+**Fix:** add a § 7 bullet with a status.md note, and say "no wire change".
+
+**Claims.**
+- **Direction 1.** Each claim was traced to the code or tests above: the remarks of `IWorkItemRepository.cs:79-84`,
+  `IWorkItemTeamOwnership.cs:28-36`, `WorkItemHierarchyLocks.cs:5-18` and both handlers; § 14.3 rows `:788-789` and "the order
+  closes both"; § 14.4 pins; § 14.5; qa.md QD-1; the DR2-2 and DR2-3 resolutions. The exceptions are DR2-4 (b) and DR2-5. The
+  runs in § 14.4 were not re-run.
+- **Direction 2.** Grepped "hierarchy lock", `LockHierarchy`, `work_item_hierarchy_locks` and `LockOwnedAsync` in `docs/adr`,
+  `docs/conventions`, feat-028, mod-005 spec, contract and design, and `src/backend/AGENTS.md`. ADR-0030 `:99-101` and `:121` still
+  hold. The other hits are DR2-2 and DR2-5. **Not swept:** feat-001 and mod-017 docs.
