@@ -157,11 +157,13 @@ Scope: the fix diff `b5ee424c..6f626770` (one commit) and the findings open afte
 
 Verdict: **changes-requested**. Open: 0 blocker, 1 major (CR-5, new, prose only), 3 minor debts (CR-2 rest, CR-3 rest, CR-6 new). CR-1 and CR-4 closed. The cap is spent, so the open list goes to the human, not to another read. Q-1 stays for gate-3.
 
+Status after the merge (2026-10-18, PR #25 merged by the human at `0bc5311a` before this read landed): CR-5 resolved by `tech-045-mod020-default-team-prose`; CR-2's rest, CR-3's rest and CR-6 moved to `feat-043` (the human, 2026-10-18); Q-1 answered A (the user's own team stays before the first team by name), recorded in `status.md`.
+
 ### Previously open
 
 - **CR-1 — closed** for its four places: mod-017 `api-contract.md:341-345` (§ 2.8), `US-3:59-61`, `design.md:326-329` (§ 8), `spec.md:100`; BR-OT-4 reworded (`spec.md:73`); the api-contract note line is in mod-017 `status.md`. Each agrees with `workContext.ts:140-146` and `resolveSelection.ts:61`. Two places round 1's sweep missed say the same as before → CR-5.
-- **CR-2 — closed in part, as reported.** The project page's own tab and «Весь проект» carry the filter, a team page's carry none (`TeamHead.tsx:130, 163, 180`). `PageViews` selects by path (`PageHeader.tsx:77-79, 450-454`) while `Tabs`' `value` stays the full `to`, so the two agree. The other `views` callers (`OrganizationListPage`, `ProjectListPage`, `PageHeadDemo`) select as before. Rest: the nav entry «Рабочие элементы» (`app/navigation/model.ts:103-106`), now written into BR-OT-8 and design § 6.3. Minor, a debt.
-- **CR-3 — closed in part, as reported.** Notes at mod-017 `spec.md:132`, `US-5:72-76`, `api-contract.md:401`; mod-016 `spec.md:145`, `US-7:18-20`, `api-contract.md:349, 494-496`, `status.md`. Rest: `TeamResponse.cs:8-9`. Minor, a debt.
+- **CR-2 — closed in part, as reported.** The project page's own tab and «Весь проект» carry the filter, a team page's carry none (`TeamHead.tsx:130, 163, 180`). `PageViews` selects by path (`PageHeader.tsx:77-79, 450-454`) while `Tabs`' `value` stays the full `to`, so the two agree. The other `views` callers (`OrganizationListPage`, `ProjectListPage`, `PageHeadDemo`) select as before. Rest: the nav entry «Рабочие элементы» (`app/navigation/model.ts:103-106`), now written into BR-OT-8 and design § 6.3. Minor, a debt. **Moved to feat-043 (the human, 2026-10-18).**
+- **CR-3 — closed in part, as reported.** Notes at mod-017 `spec.md:132`, `US-5:72-76`, `api-contract.md:401`; mod-016 `spec.md:145`, `US-7:18-20`, `api-contract.md:349, 494-496`, `status.md`. Rest: `TeamResponse.cs:8-9`. Minor, a debt. **Moved to feat-043 (the human, 2026-10-18).**
 - **CR-4 — closed.** The page is keyed by the filter's content (`WorkItemsPage.tsx:99-102`), and the docblock no longer promises identity (`useTeamFilter.ts:43-49`). No test is owed: `WorkItemsPage.test.tsx:420, 618` pin the behaviour.
 
 ### New findings
@@ -172,11 +174,15 @@ Verdict: **changes-requested**. Open: 0 blocker, 1 major (CR-5, new, prose only)
 
 Fix, prose: N3 → "…it starts new items (C2, C5) and, since mod-020, is the team the switcher opens when none is chosen (BR-OT-11)". BR-OL-7 gets the "(Amended by mod-020, 2026-10-18, OQ-8 B: …)" note BR-OT-4 has, and feat-028 `status.md` a note line, as mod-016 and mod-017 got.
 
+**CR-5 — resolved by `tech-045-mod020-default-team-prose` (2026-10-18).** Node N3 is amended in place (mod-017 `spec.md:57`, «Amended by mod-020, 2026-10-18»). BR-OL-7 keeps its sentence and gains an «Amended by mod-020 (2026-10-18)» note (feat-028 `spec.md:73`). Each of mod-017 and feat-028 has a note line in its `status.md`. Prose only; `BASE=origin/main bash scripts/verify.sh` is the check (light cycle).
+
 **CR-6 — minor — two more pre-amendment texts; nobody would act differently on them.**
 - `mod-016/design.md:772-776` (§ 8): "The team level of the switcher shows the user's own team after…". It is already a record: it still says "the project's first team, then the rest alphabetically", which mod-017 retired. BR-M1-27 carries the note.
 - `SetDefaultTeamEndpointTests.cs:171`: the comment quotes US-3's old title, "the default affects the creation only". The test's own claim still holds: no item, view, filter or order moves.
 
 Fix: a pointer to BR-M1-27's note in § 8. The comment goes with `TeamResponse.cs`, at the next backend change.
+
+**CR-6 — moved to feat-043 (the human, 2026-10-18).**
 
 ### Runtime changes
 
