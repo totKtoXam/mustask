@@ -139,8 +139,8 @@ describe('mod-002 US-2 Scenario: Deactivated', () => {
     const { dialog } = await openDeactivate(
       contextSource({
         organizations: [
-          { id: ids.alfa, name: 'Альфа', projects: [] },
-          { id: ids.beta, name: 'Бета', projects: [] },
+          { id: ids.alfa, name: 'Альфа', projects: [], teams: [] },
+          { id: ids.beta, name: 'Бета', projects: [], teams: [] },
         ],
         selection: { organizationId: ids.alfa },
       }),
@@ -160,7 +160,7 @@ describe('mod-002 US-2 Scenario: Deactivated', () => {
   it('DC-7: shows its own notice when the switcher’s organization was the last active one', async () => {
     const { dialog } = await openDeactivate(
       contextSource({
-        organizations: [{ id: ids.alfa, name: 'Альфа', projects: [] }],
+        organizations: [{ id: ids.alfa, name: 'Альфа', projects: [], teams: [] }],
         selection: { organizationId: ids.alfa },
       }),
     );

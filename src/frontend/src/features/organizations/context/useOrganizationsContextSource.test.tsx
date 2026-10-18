@@ -58,7 +58,7 @@ function shown(source: WorkContextSource) {
     (entry) => entry.id === source.selection.organizationId,
   );
   const project = organization?.projects.find((entry) => entry.id === source.selection.projectId);
-  const team = project?.teams.find((entry) => entry.id === source.selection.teamId);
+  const team = organization?.teams.find((entry) => entry.id === source.selection.teamId);
   return [organization?.name, project?.name, team?.name];
 }
 
@@ -83,6 +83,15 @@ describe('mod-002 US-8 Scenario: The switcher lists active organizations, projec
       'Пример проекта',
     ]);
     expect(result.current.organizations[1]!.projects).toEqual([]);
+    // feat-040 BR-TS-10: the team level is the organization's, by name; only the effective
+    // organization carries its lists.
+    expect(result.current.organizations[0]!.teams.map((entry) => entry.name)).toEqual([
+      'Аналитика',
+      'Платформа',
+      'Пример проекта',
+      'Старый проект',
+    ]);
+    expect(result.current.organizations[1]!.teams).toEqual([]);
     expect(shown(result.current)).toEqual(['Альфа', 'Аналитика', 'Аналитика']);
     expect(result.current.isReal).toBe(true);
     expect(result.current.organizationListPath).toBe('/organizations');
@@ -98,8 +107,8 @@ describe('mod-002 US-8 Scenario: The switcher lists active organizations, projec
   });
 });
 
-describe('mod-002 US-8 Scenario: The default team is the list’s first team (mod-017 BR-OT-11: by name)', () => {
-  it('a project choice selects the list’s first team, «Платформа»', async () => {
+describe('mod-002 US-8 Scenario: With no team chosen the level’s first team stands (mod-017 BR-OT-11: by name)', () => {
+  it('a project choice keeps the level: the project names no default, so the level’s first team, «Аналитика»', async () => {
     serveOrganizations();
     const { result } = mount();
     await settled(result);
@@ -107,12 +116,12 @@ describe('mod-002 US-8 Scenario: The default team is the list’s first team (mo
     act(() => result.current.select('project', ids.prm));
     await settled(result);
 
-    expect(shown(result.current)).toEqual(['Альфа', 'Пример проекта', 'Платформа']);
+    expect(shown(result.current)).toEqual(['Альфа', 'Пример проекта', 'Аналитика']);
   });
 });
 
 describe('mod-002 US-8 Scenario: The address sets the switcher', () => {
-  it('«Бета» chosen, the settings of «Пример проекта» in «Альфа» opened: «Альфа», «Пример проекта», the list’s first team, remembered', async () => {
+  it('«Бета» chosen, the settings of «Пример проекта» in «Альфа» opened: «Альфа», «Пример проекта», the level’s first team, remembered without it', async () => {
     serveOrganizations();
     remember({ organizationId: ids.beta, projectId: ids.rep, teamId: ids.repTeam });
     const { result } = mount({
@@ -122,15 +131,25 @@ describe('mod-002 US-8 Scenario: The address sets the switcher', () => {
     await waitFor(() => expect(result.current.selection.projectId).toBe(ids.prm));
     await settled(result);
 
-    expect(shown(result.current)).toEqual(['Альфа', 'Пример проекта', 'Платформа']);
+    expect(shown(result.current)).toEqual(['Альфа', 'Пример проекта', 'Аналитика']);
     expect(result.current.fallback ?? null).toBeNull();
+    // The team of another organization does not travel, and the fallback is not a choice.
     await waitFor(() =>
-      expect(remembered()).toEqual({
-        organizationId: ids.alfa,
-        projectId: ids.prm,
-        teamId: ids.platformTeam,
-      }),
+      expect(remembered()).toEqual({ organizationId: ids.alfa, projectId: ids.prm }),
     );
+  });
+
+  it('a project’s address in the organization keeps a team chosen there', async () => {
+    serveOrganizations();
+    remember({ organizationId: ids.alfa, projectId: ids.anl, teamId: ids.platformTeam });
+    const { result } = mount({
+      path: `/organizations/${ids.alfa}/projects/${ids.prm}/settings/general`,
+    });
+
+    await waitFor(() => expect(result.current.selection.projectId).toBe(ids.prm));
+    await settled(result);
+
+    expect(shown(result.current)).toEqual(['Альфа', 'Пример проекта', 'Платформа']);
   });
 
   it('a deactivated organization’s address sets nothing and writes nothing', async () => {
@@ -205,12 +224,9 @@ describe('mod-002 US-8 Scenario: Remembered across a reload', () => {
     act(() => result.current.select('organization', ids.beta));
     await settled(result);
 
+    // The team «Отчётность» is the level's fallback here, not a choice, so it is not written.
     await waitFor(() =>
-      expect(remembered()).toEqual({
-        organizationId: ids.beta,
-        projectId: ids.rep,
-        teamId: ids.repTeam,
-      }),
+      expect(remembered()).toEqual({ organizationId: ids.beta, projectId: ids.rep }),
     );
   });
 
@@ -242,33 +258,31 @@ describe('mod-002 US-8 Scenario: Remembered across a reload', () => {
 });
 
 describe('mod-002 US-8 Scenario: A remembered selection that is gone falls back', () => {
-  it('team deleted → the first team, with the notice naming every level', async () => {
+  it('team deleted → the fallback team, with the notice naming every level; the fallback is not remembered', async () => {
     const api = serveOrganizations();
     api.data.teams.find((team) => team.id === ids.platformTeam)!.deleted = true;
     remember({ organizationId: ids.alfa, projectId: ids.prm, teamId: ids.platformTeam });
     const { result } = mount();
 
+    // «Пример проекта» is linked to «Пример проекта» alone now, which makes it the default.
     await waitFor(() =>
       expect(result.current.fallback?.names).toEqual(['Альфа', 'Пример проекта', 'Пример проекта']),
     );
     expect(shown(result.current)).toEqual(['Альфа', 'Пример проекта', 'Пример проекта']);
     await waitFor(() =>
-      expect(remembered()).toEqual({
-        organizationId: ids.alfa,
-        projectId: ids.prm,
-        teamId: ids.prmTeam,
-      }),
+      expect(remembered()).toEqual({ organizationId: ids.alfa, projectId: ids.prm }),
     );
   });
 
-  it('project deactivated → «Аналитика» and its first team', async () => {
+  it('project deactivated → «Аналитика»; a team chosen before stays', async () => {
     serveOrganizations();
     remember({ organizationId: ids.alfa, projectId: ids.old, teamId: ids.oldTeam });
     const { result } = mount();
 
     await waitFor(() =>
-      expect(result.current.fallback?.names).toEqual(['Альфа', 'Аналитика', 'Аналитика']),
+      expect(result.current.fallback?.names).toEqual(['Альфа', 'Аналитика', 'Старый проект']),
     );
+    expect(shown(result.current)).toEqual(['Альфа', 'Аналитика', 'Старый проект']);
   });
 
   it('organization deactivated → «Бета», its first project, its first team', async () => {

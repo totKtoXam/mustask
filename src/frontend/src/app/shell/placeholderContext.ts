@@ -20,31 +20,21 @@ export const PLACEHOLDER_ORGANIZATIONS: readonly WorkContextOrganization[] = [
     id: 'org-1',
     name: 'Пример организации 1',
     projects: [
-      {
-        id: 'prj-1',
-        name: 'Пример проекта 1',
-        teams: [
-          { id: 'team-1', name: 'Пример команды 1' },
-          { id: 'team-2', name: 'Пример команды 2' },
-        ],
-      },
-      {
-        id: 'prj-2',
-        name: 'Пример проекта 2',
-        teams: [{ id: 'team-3', name: 'Пример команды 3' }],
-      },
+      { id: 'prj-1', name: 'Пример проекта 1' },
+      { id: 'prj-2', name: 'Пример проекта 2' },
+    ],
+    // The team level is the organization's (feat-040 BR-TS-10).
+    teams: [
+      { id: 'team-1', name: 'Пример команды 1' },
+      { id: 'team-2', name: 'Пример команды 2' },
+      { id: 'team-3', name: 'Пример команды 3' },
     ],
   },
   {
     id: 'org-2',
     name: 'Пример организации 2',
-    projects: [
-      {
-        id: 'prj-3',
-        name: 'Пример проекта 3',
-        teams: [{ id: 'team-4', name: 'Пример команды 4' }],
-      },
-    ],
+    projects: [{ id: 'prj-3', name: 'Пример проекта 3' }],
+    teams: [{ id: 'team-4', name: 'Пример команды 4' }],
   },
 ];
 

@@ -134,7 +134,9 @@ describe('mod-002 US-3 Scenario: The «Процесс» link', () => {
 });
 
 describe('mod-002 US-8 Scenario: The address sets the switcher', () => {
-  it('«Бета» chosen; the settings of «Пример проекта» in «Альфа» opened: «Альфа», «Пример проекта», its first team, remembered', async () => {
+  // feat-040 BR-TS-10: the team level is the organization's; with no team chosen it stands on the
+  // level's first entry, a fallback that is derived again and not remembered.
+  it('«Бета» chosen; the settings of «Пример проекта» in «Альфа» opened: «Альфа», «Пример проекта», the team level’s first entry, remembered without the team', async () => {
     serveOrganizations();
     localStorage.setItem(
       STORAGE_KEY,
@@ -146,14 +148,13 @@ describe('mod-002 US-8 Scenario: The address sets the switcher', () => {
       expect(switcherLevels()).toEqual([
         'Организация: Альфа',
         'Проект: Пример проекта',
-        'Команда: Платформа',
+        'Команда: Аналитика',
       ]),
     );
     await waitFor(() =>
       expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')).toEqual({
         organizationId: ids.alfa,
         projectId: ids.prm,
-        teamId: ids.platformTeam,
       }),
     );
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
