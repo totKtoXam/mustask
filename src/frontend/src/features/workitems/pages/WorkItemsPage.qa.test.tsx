@@ -206,6 +206,25 @@ describe('QA BR-WS-9, BR-WS-11 the keyword’s characters survive the address', 
   });
 });
 
+describe('QA design § 9 the keyboard', () => {
+  it('Tab visits «Поиск», «Статус», «Исполнитель», «Команда» and «Очистить фильтры», in that order', async () => {
+    serveWorkItems(listFilterDataset());
+    renderWorkItems(`${MSK_LIST}?state=${enc('Новая')}`);
+    await table();
+
+    keyword().focus();
+    for (const [role, name] of [
+      ['combobox', 'Статус'],
+      ['combobox', 'Исполнитель'],
+      ['combobox', 'Команда'],
+      ['button', 'Очистить фильтры'],
+    ] as const) {
+      await userEvent.tab();
+      expect(within(band()).getByRole(role, { name })).toHaveFocus();
+    }
+  });
+});
+
 function BackButton() {
   const navigate = useNavigate();
   return (
