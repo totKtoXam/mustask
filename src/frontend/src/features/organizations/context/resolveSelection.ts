@@ -3,6 +3,7 @@ import {
   type WorkContextSelection,
   type WorkContextStatus,
 } from '../../../shared/lib/workContext';
+import type { ProjectTeam } from '../api/organizationsApi';
 import type { AddressContext } from './addressContext';
 
 /**
@@ -16,13 +17,30 @@ import type { AddressContext } from './addressContext';
 export interface LevelList {
   status: WorkContextStatus;
   /**
-   * `isMember` rides the team level only (mod-016 api-contract § 3.3): the
-   * user is in the team. The levels above carry none.
+   * `isMember` and `isDefault` ride the team level only: the user is in the
+   * team (mod-016 api-contract § 3.3), and the project's settings name it, or
+   * it is the project's only team (the list's mark; mod-020). The levels above
+   * carry none.
    */
-  items: readonly { id: string; name: string; isMember?: boolean }[];
+  items: readonly { id: string; name: string; isMember?: boolean; isDefault?: boolean }[];
 }
 
 export const LOADING_LIST: LevelList = { status: 'loading', items: [] };
+
+/**
+ * A project's teams as the team level reads them: the list's default mark
+ * (`named` or `onlyTeam`, feat-028 api-contract § 1.3) becomes `isDefault`, so
+ * the resolution below stays free of the mark's two words (mod-020).
+ */
+export function teamLevelItems(teams: readonly ProjectTeam[]): LevelList['items'] {
+  return teams.map((team) => ({
+    id: team.id,
+    name: team.name,
+    isMember: team.isMember,
+    // A double that leaves the mark out is a team with none.
+    isDefault: Boolean(team.defaultMark),
+  }));
+}
 
 function holds(list: LevelList, id: string | undefined): boolean {
   return id !== undefined && list.items.some((item) => item.id === id);
@@ -30,8 +48,9 @@ function holds(list: LevelList, id: string | undefined): boolean {
 
 /**
  * A level's effective id: the chosen one while its ready list holds it, else
- * the list's default entry — the first entry, and for a project's teams the
- * first one the user is a member of (`defaultEntry`; mod-016 D-5, design § 8).
+ * the list's default entry — the first entry, and for a project's teams its
+ * default team, else the first one the user is a member of (`defaultEntry`;
+ * mod-020, mod-016 D-5, design § 8).
  * A level that is loading or failed has none: a failure is not a deletion, and
  * the remembered id is kept (design § 3.2).
  */
@@ -158,8 +177,8 @@ function nameOf(list: LevelList, id: string | undefined): string | undefined {
  * The effective selection, top-down (plan-frontend § 4.2):
  *
  * - each level keeps its chosen id while its ready list holds it, else takes
- *   its default entry (the first; for a project's teams the user's own first,
- *   `defaultEntry`), and the levels below take theirs;
+ *   its default entry (the first; for a project's teams its default team, else
+ *   the user's own first, `defaultEntry`), and the levels below take theirs;
  * - a level falls back when it had a chosen id, its parent is the one that id
  *   was chosen under, and its ready list no longer holds it. The
  *   replacement is reported once every level below has settled, naming the

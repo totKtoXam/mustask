@@ -15,6 +15,10 @@ BR-M1-24)**.
 The project's team order stays mod-002 BR-M1-24's: the first team first, the
 rest alphabetically. feat-028 carries the rule to organization-level teams.
 
+Amended by mod-020, 2026-10-18 (OQ-8 B): a project that has a default team
+(mod-017 BR-OT-4) opens on it, before the user's own team. The scenarios below
+are for a project with none: three teams, and no default named.
+
 ```gherkin
 Scenario: Choosing a project selects the user's own team
   Given the project «Пример проекта» with the teams «Пример проекта» (first),

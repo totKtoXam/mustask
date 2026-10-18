@@ -35,8 +35,11 @@ export type {
 } from './api/workItemsApi';
 // mod-017: the team filter is one dimension on three surfaces — the list (this slice) and the
 // project's backlog and board (boards) — with one meaning (BR-OT-8): the field, the query
-// parameter and the words the boards' column and card line share.
+// parameter and the words the boards' column and card line share. mod-020 keeps its chosen
+// values in the page address, one hook for the three (`useTeamFilter`), and lets a link to
+// another level of the same view carry them (`teamFilterSearch`).
 export { TeamFilter } from './components/TeamFilter';
+export { teamFilterSearch, useTeamFilter } from './hooks/useTeamFilter';
 export { NO_TEAM_FILTER_VALUE, teamFilterQuery } from './api/workItemsApi';
 export { createdNotice, teamTexts } from './lib/teams';
 // feat-027: the backlog's inline add row makes mod-003's create itself — with

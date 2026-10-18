@@ -63,10 +63,19 @@ export interface Command {
   tone?: 'neutral';
 }
 
-/** One view of a page: a tab that is its own address (design § 6.1). */
+/**
+ * One view of a page: a tab that is its own address (design § 6.1). The address may carry a query
+ * (a page that keeps its filter in the address gives its own tab that filter, mod-020): the link
+ * keeps it, and the current view is found by the path alone.
+ */
 export interface PageView {
   label: string;
   to: string;
+}
+
+/** A view's path: its address without the query or the hash, which decide no current view. */
+function pathOfView(to: string): string {
+  return to.split(/[?#]/, 1)[0] ?? to;
 }
 
 export interface PageHeaderProps {
@@ -439,10 +448,10 @@ function PageViews({
 }) {
   const { pathname } = useLocation();
   const selected =
-    views.find((view) => view.to === pathname) ??
+    views.find((view) => pathOfView(view.to) === pathname) ??
     [...views]
-      .sort((first, second) => second.to.length - first.to.length)
-      .find((view) => pathname.startsWith(`${view.to}/`));
+      .sort((first, second) => pathOfView(second.to).length - pathOfView(first.to).length)
+      .find((view) => pathname.startsWith(`${pathOfView(view.to)}/`));
 
   const team = variant === 'team';
   const tabs = (

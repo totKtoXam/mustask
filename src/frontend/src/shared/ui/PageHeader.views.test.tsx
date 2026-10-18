@@ -69,3 +69,44 @@ describe('mod-016 DC-2 Scenario: a one-view tab strip is not drawn', () => {
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
   });
 });
+
+// mod-020 CR-2: a page that keeps its filter in the address gives its own tab that filter; the
+// tab links to it, and the current view is found by the path alone.
+describe('mod-020 Scenario: a view’s address may carry a query', () => {
+  const filtered = { label: 'Активные', to: `${active.to}?teamId=a&teamId=none` };
+
+  it('selects the view whose path is the current one and keeps its query in the link', () => {
+    renderHeader({ title: 'Проекты', views: [filtered, deactivated] });
+
+    const tab = screen.getByRole('tab', { name: 'Активные' });
+    expect(tab).toHaveAttribute('aria-selected', 'true');
+    expect(tab).toHaveAttribute('href', filtered.to);
+    expect(screen.getByRole('tab', { name: 'Деактивированные' })).toHaveAttribute(
+      'aria-selected',
+      'false',
+    );
+  });
+
+  it('selects a view for an address below its path, whatever query it carries', () => {
+    render(
+      <MemoryRouter initialEntries={['/organizations/o/settings/projects/x/members']}>
+        <PageHeader title="Проекты" views={[filtered, deactivated]} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('tab', { name: 'Деактивированные' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByRole('tab', { name: 'Активные' })).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('takes the exact path before a view below it, the query ignored', () => {
+    renderHeader({
+      title: 'Проекты',
+      views: [{ label: 'Активные', to: `${active.to}?x=1` }, deactivated],
+    });
+
+    expect(screen.getByRole('tab', { name: 'Активные' })).toHaveAttribute('aria-selected', 'true');
+  });
+});

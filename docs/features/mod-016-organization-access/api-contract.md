@@ -346,7 +346,7 @@ same transaction (BR-M1-36); the team's page and member list then answer
 
 | Where | Field | Meaning |
 |---|---|---|
-| `Team` of `GET …/projects/{projectId}/teams` (mod-002 § 3.1) | `isMember: boolean` | the **caller** is in this team. The panel opens the project on the first team, in the list's order, with `isMember` true, else on the first team (BR-M1-27, D-5). The single-team read § 3.2 and the write responses do not carry it. |
+| `Team` of `GET …/projects/{projectId}/teams` (mod-002 § 3.1) | `isMember: boolean` | the **caller** is in this team. The panel opens the project on the first team, in the list's order, with `isMember` true, else on the first team (BR-M1-27, D-5); a project with a default team opens on it first (mod-020, OQ-8 B). The single-team read § 3.2 and the write responses do not carry it. |
 | `assignee` of a work item in `GET …/workitems` and `GET …/workitems/{identifier}` (mod-003 § 1), in the team's backlog and board (mod-006 § 2.3) and in the save and create answers | `isMember: boolean` | the assignee is currently a member of the item's organization (any role, BR-M1-26). The flag reads the membership alone (BR-M1-32): `false` for an ex-member and for an id that never was a member; `true` for a member the projection does not know yet (`displayName` and `email` are then `null`, § 0.4). The «неактивен» and «не в организации» marks are feat-017's (D-4). `assignee` is still `null` for «Не назначен». |
 
 ### 3.4 The assignee rule
@@ -491,7 +491,8 @@ platform's answer for an instance code the token lacks.
   `GET Org` (BR-M1-31). The navigation and the controls hold the same check
   (mod-015 BR-8, BR-9).
 - The default team of a project: the first `Team` with `isMember`, else the
-  first (§ 3.3, BR-M1-27). feat-028 carries the rule to organization-level
-  teams.
+  first (§ 3.3, BR-M1-27); the project's own default team, where it has one,
+  comes before both (mod-020, OQ-8 B). feat-028 carries the rule to
+  organization-level teams.
 - A refused write shows «Недостаточно прав» where the dialog shows its refusals,
   keeping what was typed (mod-002 design § 4.4).
