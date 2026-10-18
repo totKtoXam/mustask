@@ -21,3 +21,4 @@ starts** is not written here — its number is held by the branch and the
 - [x] feat-004-backlog-hierarchy — withdrawn: folded into feat-001-work-item-links: the human's order of 2026-10-05 makes the hierarchy one cut (feat-001 D-2), 2026-10-06
 - [x] tech-022-stage-reading-diet — withdrawn: re-scoped: process docs are already read per stage (feature.md step 1); the reading weight is in feature artifacts, now tech-023, 2026-10-12
 - [x] feat-010-move-unfinished-work — withdrawn: Absorbed by closing a team sprint (doc-012; mod-007 reworded), 2026-10-17
+- [x] bug-005-creation-default-team-deadlock — withdrawn: superseded by feat-028 (plan D-4: a creation that may default locks every link of the project FOR SHARE in one statement ordered by team id, pinned by a no-deadlock regression test), the human at feat-028 gate-3, 2026-10-18
