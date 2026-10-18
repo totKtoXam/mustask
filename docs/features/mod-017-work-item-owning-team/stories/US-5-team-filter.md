@@ -69,8 +69,11 @@ Scenario: The choice lives with the page's visit and narrows only the viewer's v
   Given U filtered A's board by «MARS»
   When U moves a card, the tab regains focus, or U changes the level to «Фичи»
   Then the board is read again and still filtered by «MARS»
-  When U leaves the page and opens it again
+  When U leaves the page and opens it again by the navigation, or by a link without `teamId`
   Then no filter is set (remembering a choice per view and user is `feat-013-board-backlog-filter`'s)
+  # Amended by mod-020, 2026-10-18 (OQ-9 B): the choice is in the page's address, the repeated `teamId` of the read (api-contract § 3).
+  When U follows Back to the filtered address, or a link that carries `teamId` for «MARS»
+  Then the board is filtered by «MARS» again, and the field shows it
   And another user's views of A, and MARS's own, were never narrowed, and no item, team or place changed
 
 Scenario: Everyone who reads may filter (BR-OT-15)

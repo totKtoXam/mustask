@@ -70,7 +70,7 @@ describe('mod-020 QA: the project backlog’s filter in the address', () => {
     );
   });
 
-  it('the team menu and «Весь проект» are other views and start unfiltered', async () => {
+  it('another team, and «Весь проект» from a team, are other views and start unfiltered', async () => {
     serveBoards(projectDataset());
     renderBoards(`${projectBacklogAddress()}${WITH_PLATFORM}`);
     await findBacklogTable();

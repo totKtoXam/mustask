@@ -194,3 +194,78 @@ describe('mod-020 Scenario: a team’s own views have no filter, whatever their 
     await waitFor(() => expect(here()).toEqual({ pathname: boardAddress('features'), search: '' }));
   });
 });
+
+// CR-2 (code review, mod-020): a link to the project page's own address keeps its filter, as a click on
+// it did before the filter moved to the address. The page's own tab is the selected one, and «Весь
+// проект» is the selected entry of the team menu; the nav entry is the only such link that drops it.
+describe('mod-020 Scenario: the project page’s own tab and «Весь проект» keep the filter', () => {
+  it('the backlog’s tab is selected, links to the page with its filter, and a click keeps it', async () => {
+    serveBoards(projectDataset());
+    renderBoards(`${projectBacklogAddress()}${WITH_PLATFORM}`);
+    const table = await findBacklogTable();
+    const tab = screen.getByRole('tab', { name: 'Бэклог' });
+
+    expect(tab).toHaveAttribute('aria-selected', 'true');
+    expect(tab).toHaveAttribute('href', `${projectBacklogAddress()}${WITH_PLATFORM}`);
+
+    await userEvent.click(tab);
+
+    expect(here()).toEqual({ pathname: projectBacklogAddress(), search: WITH_PLATFORM });
+    expect(identifiers(table)).toEqual(['MSK-US-3']);
+    expect(filterField()).toHaveTextContent('Платформа');
+  });
+
+  it('the board’s tab keeps several values, `none` among them, in the address’s order', async () => {
+    serveBoards(projectDataset());
+    const filter = `?teamId=none&teamId=${ids.platformTeam}`;
+    renderBoards(`${projectBoardAddress()}${filter}`);
+    await findBoard();
+    const tab = screen.getByRole('tab', { name: 'Канбан' });
+
+    expect(tab).toHaveAttribute('aria-selected', 'true');
+    expect(tab).toHaveAttribute('href', `${projectBoardAddress()}${filter}`);
+
+    await userEvent.click(tab);
+
+    expect(here()).toEqual({ pathname: projectBoardAddress(), search: filter });
+  });
+
+  it('a page without a filter has a tab without one', async () => {
+    serveBoards(projectDataset());
+    renderBoards(projectBacklogAddress());
+    await findBacklogTable();
+
+    expect(screen.getByRole('tab', { name: 'Бэклог' })).toHaveAttribute(
+      'href',
+      projectBacklogAddress(),
+    );
+  });
+
+  it('«Весь проект», the selected entry on the project page, keeps the filter', async () => {
+    serveBoards(projectDataset());
+    renderBoards(`${projectBacklogAddress()}${WITH_PLATFORM}`);
+    const table = await findBacklogTable();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Сменить команду' }));
+    const entry = await screen.findByRole('menuitem', { name: 'Весь проект' });
+    expect(entry).toHaveAttribute('aria-current', 'page');
+    expect(entry).toHaveAttribute('href', `${projectBacklogAddress()}${WITH_PLATFORM}`);
+    await userEvent.click(entry);
+
+    expect(here()).toEqual({ pathname: projectBacklogAddress(), search: WITH_PLATFORM });
+    expect(identifiers(table)).toEqual(['MSK-US-3']);
+  });
+
+  it('a team’s own tab and its «Весь проект» carry no filter, whatever its address holds', async () => {
+    serveBoards(projectDataset());
+    renderBoards(`${backlogAddress()}?teamId=${ids.mskTeam}`);
+    await findBacklogTable();
+
+    expect(screen.getByRole('tab', { name: 'Бэклог' })).toHaveAttribute('href', backlogAddress());
+    await userEvent.click(screen.getByRole('button', { name: 'Сменить команду' }));
+    expect(await screen.findByRole('menuitem', { name: 'Весь проект' })).toHaveAttribute(
+      'href',
+      projectBacklogAddress(),
+    );
+  });
+});

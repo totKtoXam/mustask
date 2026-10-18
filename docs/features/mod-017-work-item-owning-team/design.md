@@ -204,10 +204,13 @@ head is not changed. **Team views have no filter row** (the team is the filter).
   regained focus and a level change; leaving the page drops it (BR-OT-8, OQ-9 A),
   so «Показать канбан» opens the other page unfiltered. Amended by mod-020
   (OQ-9 B, 2026-10-18): the state is kept in the page address as the repeated
-  `teamId`, so a link carries it and the level drop-down's links keep it; the
-  other page, another team and «Весь проект» are other addresses and start
-  unfiltered. The list's page number is not in the address and returns to 1 when
-  the filter changes, by the address too.
+  `teamId`, so a link carries it. The links to the same page of the project keep
+  it: the level drop-down's, the page's own tab and «Весь проект» on the project
+  page (its selected entry). Any link without `teamId` opens the page unfiltered:
+  the other page, another team, «Весь проект» from a team, and the navigation
+  entry «Рабочие элементы», a static link that knows no page's address. The
+  list's page number is not in the address and returns to 1 when the filter
+  changes, by the address too.
 - Feat-039 § 7's states 1-10 stand. The row shows in 6, 8, 9 and 10 (the head's
   states), not under a full-page frame (1-5, 7).
 - **Backlog:** the tree is built over matching items; a child whose parent is
@@ -321,7 +324,9 @@ team a note under the name reads ◆ «Единственную команду �
   изменятся.»
 - **Order by name** in the head's drop-down, the switcher and the pickers; no
   entry is first. The switcher's fallback is the first team in that order, own
-  teams first (BR-OT-11); its notices are today's.
+  teams first (BR-OT-11); its notices are today's. (Amended by mod-020,
+  2026-10-18, OQ-8 B: the project's default team comes before both, and a
+  remembered team that still exists is kept.)
 - **Gone:** `DefaultAreaDialog`, `FIRST_TEAM_CHIP`, the first-team branches of
   `TeamsPage`, `TeamPage` and `TeamDialogs`, `firstTeamName`.
 

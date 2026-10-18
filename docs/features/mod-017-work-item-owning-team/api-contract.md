@@ -339,8 +339,10 @@ New. Requires `organizations.team.write`.
 
 The team is judged as § 0.2 (a team of the project, else 404 / 409). Naming the
 current default again changes nothing. It decides the starting value of a
-creation and nothing else: no item moves, and the switcher, the views, the
-filters and the orders do not read it (BR-OT-4). The setting survives a
+creation: no item moves, and the views, the filters and the orders do not read
+it (BR-OT-4). (Amended by mod-020, 2026-10-18, OQ-8 B: the switcher reads it too,
+as the team it opens on when no team is chosen, BR-OT-11; the endpoint is
+unchanged, and the panel reads the mark from `GET …/teams`.) The setting survives a
 deactivated project (the project answers 404 meanwhile) and is cleared by the
 deletion of the team it names.
 
@@ -396,7 +398,7 @@ project's backlog and board (§ 2.6).
 | Present but nothing in it names a team of the project | **selects nothing**: a malformed value, an unknown id, a **deleted** team's, a team of **another project** and a team of **another organization** answer alike — status and body identical, no item, total 0 (BR-MX-1, BR-OT-16). Nothing is validated and nothing is disclosed. |
 | Options | the panel's, from `GET …/teams` (by name) and `none` last; no counts |
 | What it narrows | the view only; no item, team or place changes; the tree is built over matching items; totals follow it; a card's checklist and a reorder are not narrowed |
-| Life | for the visit; the server stores nothing (`feat-013-board-backlog-filter` remembers) |
+| Life | for the visit, and in the page's address as this parameter (mod-020, OQ-9 B: a link carries it); the server stores nothing (`feat-013-board-backlog-filter` remembers) |
 
 The request line bounds the number of values (Kestrel's 8 KB line); no cap is
 added. `feat-003-work-item-search` and `feat-013-board-backlog-filter` add other

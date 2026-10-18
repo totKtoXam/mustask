@@ -93,11 +93,13 @@ function WorkItemsList({
   const [teamIds, setTeamIds] = useTeamFilter();
   /**
    * 0-based, as `TablePagination` counts; the route's `page` is 1-based. It belongs to the filter
-   * it was chosen under: another filter, set here or by the address, reads from the first page.
+   * it was chosen under, compared by content: another filter, set here or by the address, reads
+   * from the first page, and the same one, however its array was made, keeps the page.
    */
-  const [paging, setPaging] = useState({ teamIds, page: 0 });
-  const page = paging.teamIds === teamIds ? paging.page : 0;
-  const setPage = (next: number) => setPaging({ teamIds, page: next });
+  const filterKey = JSON.stringify(teamIds);
+  const [paging, setPaging] = useState({ filterKey, page: 0 });
+  const page = paging.filterKey === filterKey ? paging.page : 0;
+  const setPage = (next: number) => setPaging({ filterKey, page: next });
   const query = useWorkItems(organizationId, projectId, page + 1, teamIds);
   const process = useProcessDefinition(organizationId);
   const create = useCreateWorkItem(organizationId, projectId);

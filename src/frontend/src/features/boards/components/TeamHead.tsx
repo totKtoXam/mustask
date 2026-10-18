@@ -121,11 +121,13 @@ export function TeamHead({
   const own = PAGES[page];
   const teamId = scopeTeamId(scope);
   const context = useWorkContext();
-  // mod-020: the project's views keep their team filter in the address, and another level of the
-  // same view carries it (BR-OT-8: a level change keeps it). A team's views have none, and the
-  // other page, another team and the whole project are other views: they start unfiltered.
+  // mod-020: the project's views keep their team filter in the address. A link to the same page of
+  // the project carries it: another level, the page's own tab and «Весь проект» (the selected entry
+  // there), as a click on each kept it before the filter moved to the address (BR-OT-8). A team's
+  // views have none; the other page and another team are other views and start unfiltered, and so
+  // does «Весь проект» from a team.
   const { search } = useLocation();
-  const levelSearch = scope.kind === 'project' ? teamFilterSearch(search) : '';
+  const filterSearch = scope.kind === 'project' ? teamFilterSearch(search) : '';
   const project = context.organizations
     .find((organization) => organization.id === organizationId)
     ?.projects.find((candidate) => candidate.id === projectId);
@@ -158,7 +160,7 @@ export function TeamHead({
             teams={teams}
             currentId={teamId}
             pathOf={(id) => pagePath(page, organizationId, projectId, teamScope(id), level)}
-            wholeProjectPath={pagePath(page, organizationId, projectId, PROJECT_SCOPE, level)}
+            wholeProjectPath={`${pagePath(page, organizationId, projectId, PROJECT_SCOPE, level)}${filterSearch}`}
           />
         ) : undefined
       }
@@ -172,13 +174,18 @@ export function TeamHead({
           tone: 'neutral',
         },
       ]}
-      views={[{ label: own.tab, to: pagePath(page, organizationId, projectId, scope, level) }]}
+      views={[
+        {
+          label: own.tab,
+          to: `${pagePath(page, organizationId, projectId, scope, level)}${filterSearch}`,
+        },
+      ]}
       viewsLabel={VIEWS_LABEL}
       viewsEnd={
         <LevelMenu
           level={level}
           pathOf={(next) =>
-            `${pagePath(page, organizationId, projectId, scope, next)}${levelSearch}`
+            `${pagePath(page, organizationId, projectId, scope, next)}${filterSearch}`
           }
         />
       }
@@ -195,7 +202,8 @@ export function TeamHead({
  * feat-039 design § 3.4: «Весь проект» closes the list, after a divider — the
  * teams keep their order, their positions and the keyboard path among them. It
  * links to the project's page of the same entry and level, and is the selected
- * entry on a project page, where `currentId` is `null` and no team is.
+ * entry on a project page, where `currentId` is `null` and no team is, and where
+ * its link keeps the page's team filter (mod-020).
  */
 function TeamMenu({
   teams,

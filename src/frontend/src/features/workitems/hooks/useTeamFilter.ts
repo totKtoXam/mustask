@@ -40,9 +40,10 @@ export function teamFilterSearch(search: string): string {
  * keep it, and leaving the page, or following a link without it, drops it. Returns the chosen team
  * ids and `none`, and the setter.
  *
- * The array is the same object while its content is: the address changes with the card's
- * `?workitem=` too, and a page that holds the array in a query key or a memoised row must not
- * see a new one for it. A change replaces the address's entry rather than adding one, so Back
+ * The array is memoised on its content, so it is not made anew when the address changes with the
+ * card's `?workitem=` alone. That is an optimisation, not a promise (React may drop a memo's
+ * cache): a caller that needs to know whether the filter changed compares the content, as the
+ * list does for its page. A change replaces the address's entry rather than adding one, so Back
  * leaves the page instead of stepping through filters; every other parameter, the hash and the
  * router state (the card's history marks) are kept.
  */
