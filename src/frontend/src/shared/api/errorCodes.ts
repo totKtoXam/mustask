@@ -145,6 +145,12 @@ export const workItemErrorCodes = {
   textTooLong: 'workitems.workitem.text_too_long',
   /** A field the item's type does not have: a panel defect, the error `Alert` above the band. */
   fieldNotOnType: 'workitems.workitem.field_not_on_type',
+  // mod-005 api-contract § 4: the recycle bin. Where each shows is its design § 8 — the dialog closes, an
+  // error notice says the server's text and the card is read again.
+  /** 409: a write on an item in «Удалена» (a save, a second Delete), decided on the stored state. */
+  deleted: 'workitems.workitem.deleted',
+  /** 409: a Restore or a Purge of an item outside «Удалена». */
+  notDeleted: 'workitems.workitem.not_deleted',
 } as const;
 
 export type WorkItemErrorCode = (typeof workItemErrorCodes)[keyof typeof workItemErrorCodes];

@@ -79,6 +79,10 @@ const ROUTE_RULES: readonly RouteRule[] = [
   rule('POST', `/projects/${ID}/workitems`, 'workitems.workitem.write'),
   rule('GET', `/projects/${ID}/workitems/${ID}`, 'workitems.workitem.read'),
   rule('PATCH', `/projects/${ID}/workitems/${ID}`, 'workitems.workitem.write'),
+  // mod-005 api-contract § 5: Delete and Restore hold one code, Purge the administrator's.
+  rule('POST', `/projects/${ID}/workitems/${ID}/delete`, 'workitems.workitem.delete'),
+  rule('POST', `/projects/${ID}/workitems/${ID}/restore`, 'workitems.workitem.delete'),
+  rule('POST', `/projects/${ID}/workitems/${ID}/purge`, 'workitems.workitem.purge'),
   rule('PUT', `/projects/${ID}/workitems/${ID}/parent`, 'workitems.link.write'),
   rule('GET', `/projects/${ID}/workitems/${ID}/parent-candidates`, 'workitems.workitem.read'),
   rule('GET', '/workitems/assignee-candidates', 'workitems.workitem.write'),

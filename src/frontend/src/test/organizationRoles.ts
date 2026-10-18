@@ -3,7 +3,8 @@ import type { AccessCheck } from '../shared/lib/access';
 /**
  * The three organization roles and the codes each bundle holds, hand-copied
  * from mod-016 api-contract § 0.2 — the one duplication of the contract in
- * the panel (plan-frontend § 2.8, OP-7). Every bundle lists every code it
+ * the panel (plan-frontend § 2.8, OP-7); mod-005 added two work item codes to
+ * them, from its own api-contract § 0.1. Every bundle lists every code it
  * holds, so a missing code is a code left out of the list and never one
  * implied (design § 12). E2E 27.9 reads the served bundles against this
  * file; it is the only check that they agree.
@@ -39,15 +40,27 @@ const WORK_WRITE_CODES = [
   'boards.backlog.reorder',
 ] as const;
 
-/** Every code the administrator holds: all seventeen of § 0.2. */
+/** mod-005 api-contract § 0.1: Delete and Restore — the administrator and the member. */
+const WORK_DELETE_CODES = ['workitems.workitem.delete'] as const;
+
+/** mod-005 api-contract § 0.1: Purge — the administrator alone. */
+const WORK_PURGE_CODES = ['workitems.workitem.purge'] as const;
+
+/** Every code the administrator holds: the seventeen of § 0.2 and mod-005's two. */
 export const ADMIN_CODES: readonly string[] = [
   ...READ_CODES,
   ...ADMIN_ONLY_CODES,
   ...WORK_WRITE_CODES,
+  ...WORK_DELETE_CODES,
+  ...WORK_PURGE_CODES,
 ];
 
-/** The member: the reads and the work-item writes, none of the administrator's. */
-export const MEMBER_CODES: readonly string[] = [...READ_CODES, ...WORK_WRITE_CODES];
+/** The member: the reads, the work-item writes and the delete, none of the administrator's. */
+export const MEMBER_CODES: readonly string[] = [
+  ...READ_CODES,
+  ...WORK_WRITE_CODES,
+  ...WORK_DELETE_CODES,
+];
 
 /** The reader: the reads. */
 export const VIEWER_CODES: readonly string[] = [...READ_CODES];
