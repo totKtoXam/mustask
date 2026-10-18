@@ -15,6 +15,13 @@
 # VERIFY_FULL=1 and its check is required on main (tech-041). Until tech-041
 # this hook forced VERIFY_FULL=1 and every push paid for the whole suite.
 #
+# The comparison base is verify.sh's own (tech-044): BASE if exported, else
+# origin/main when that ref exists, else main. The hook sets none, so a push
+# from a worktree is checked against what the branch changed, not against the
+# hub's stale local main. The hook runs the verify.sh of the tree being pushed
+# from (git rev-parse --show-toplevel), whichever checkout's copy of this hook
+# core.hooksPath points at.
+#
 # A full run before the push stays one variable away, and the green stamp
 # (scripts/verify.sh header) makes it instant when this tree already passed:
 #
