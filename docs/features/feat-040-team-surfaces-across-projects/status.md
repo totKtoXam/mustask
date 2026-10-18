@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/040-team-surfaces-across-projects
-- stage: 06-code-review
+- stage: complete
 - epic: core/backlogs-boards
 - deps: feat-028
 - gates: gate-1, gate-2, gate-3
@@ -80,6 +80,14 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-18 [backend-developer] code stage done, api-contract unchanged; main (mod-020) merged in, no backend overlap. Deviations: plan-backend § 14. P-10 notes added to mod-003, -006, -016, -017, feat-027, -028, -032, -039. E2E not run (NO); the specs it breaks: plan § 14. stage → 05-frontend.
 - 2026-10-18 [frontend-developer] resumed stage (the human stopped the first run): the 40 uncommitted files saved from its worktree (salvage-feat-040, MANIFEST.txt) restored over the tip 3a111531, read against the plan and the design, kept where sound, completed. No contract discrepancy.
 - 2026-10-18 [frontend-developer] frontend done (plan-frontend § 5), api-contract unchanged. E2E not run (NO); the specs it breaks: `support/membersUi.ts` and specs 23-29 (the team addresses, 26 also the menu «Команды проекта»); 19 and 21 by the switcher alone. stage → 06-code-review.
+- 2026-10-19 [backend-developer] commits: backend plan `9ce0acb2`; code `309246e9`, `94e49bca`, `cb949a0a`, `202f9a6e`; tests `a543844e`..`798a870b`, `92f39bd3`; as built `239f1796` (plan-backend § 14). Verdict: done, api-contract unchanged.
+- 2026-10-19 [frontend-developer] commits: frontend plan `3a111531`; code `b0316255`, `e826761f`, `377b6ff0`, `0d6d1efa`, `a28be013`; tests `39dbca54`; as built `8c931a4c` (plan-frontend § 5). Verdict: done, api-contract unchanged, E2E not run (NO).
+- 2026-10-19 [qa-engineer] one pass over both layers (`56706191` plan, `04fc5280` and `2a5bb9df` tests, `8724b86e` qa.md): pass, 0 blocker, 0 major, 5 minors (D-B1 doc, D-F1..D-F4); its verify.sh run was green. E2E not run (standing NO); the broken specs are listed in qa.md.
+- 2026-10-19 [code-reviewer] round 1 (`99eeee2e`, review-code.md, diff at `8b3d083f`): approve, 4 minors CR-1..CR-4 (reorder-vs-restore window, the departed drop outside the parity test, «Команды» with T unlisted, mod-015 P-10 note missing). None blocks gate-3.
+- 2026-10-19 [security-reviewer] pass (`2afbd4b9`, review-security.md): approve, 2 minors: S-1 (testMembership.ts still lists the retired routes, same as QA D-F2), S-2 (BR-TS-13 'takes the caller' covers 2 of 4 cross-project reads). Nothing for the human.
+- 2026-10-19 [orchestrator] fixes: none made, the three reads found no blocker and no major. Delta read: none, there are no fix commits.
+- 2026-10-19 [task-executor] main merged in (`3eb053e9`, queue file only). mod-020 (#25) was already in main and on the branch since `d4c0564f`: its fallback team and its team filter in the address run on this line's team level (BR-TS-10); 13 test files, 215 tests green.
+- 2026-10-19 [task-executor] left open, none for the human: minors D-B1, D-F1, D-F3, D-F4, D-F2 = S-1, CR-1..CR-4, S-2 (review-code.md, review-security.md, qa.md), debts for gate-3; feat-046 takes the drawing bound, feat-043 retires the interim team level. stage → complete; gate-3 pending.
 
 ## Notes
 
