@@ -1,5 +1,5 @@
-import { useState, type MouseEvent, type ReactNode } from 'react';
-import { Link as RouterLink, useParams } from 'react-router-dom';
+import { useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { Link as RouterLink, useLocation, useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
 import Paper from '@mui/material/Paper';
@@ -22,18 +22,23 @@ import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
 import { RegistrySkeleton } from '../../../shared/ui/RegistrySkeleton';
 import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
 import { NotFound, StateFrame } from '../../../shared/ui/StateFrame';
-import { useNotice } from '../../../shared/ui';
+import { LiveRegion, useNotice } from '../../../shared/ui';
 import { WORK_ITEMS_PAGE_SIZE } from '../api/workItemsApi';
+import { AssigneeFilter } from '../components/AssigneeFilter';
 import { CreateWorkItemDialog } from '../components/CreateWorkItemDialog';
-import { AssigneeName, StateName, TypeName } from '../components/Marks';
+import { KeywordFilter } from '../components/KeywordFilter';
+import { MarkedAssigneeName, StateName, TypeName } from '../components/Marks';
+import { StateFilter } from '../components/StateFilter';
 import { TeamFilter } from '../components/TeamFilter';
 import { NEW_WORK_ITEM_LABEL, TypePickerMenu } from '../components/TypePickerMenu';
 import { useCreateWorkItem } from '../hooks/mutations';
 import { useWorkItems } from '../hooks/queries';
-import { useTeamFilter } from '../hooks/useTeamFilter';
+import { useWorkItemFilter } from '../hooks/useWorkItemFilter';
+import { listOriginState } from '../lib/listOrigin';
 import { notFoundLevel } from '../lib/notFoundLevel';
 import { creatableTypes } from '../lib/process';
-import { createdNotice, teamTexts } from '../lib/teams';
+import { teamTexts } from '../lib/teams';
+import { createdInListNotice, filterContent, filterTexts, isFiltered } from '../lib/workItemFilter';
 import { workItemPath } from '../paths';
 import { workItemsPermissions } from '../permissions';
 
@@ -54,11 +59,12 @@ const COLUMNS = [
 
 /**
  * «Рабочие элементы» (US-1, US-2; spec § Page «Рабочие элементы»; mod-015
- * § 10.1 without secondary commands and pane): every item of the project, the
- * latest change first, 50 a page, under the band «Фильтры» with the team filter
- * (mod-017 US-5, BR-OT-9; design § 5): the chosen teams live in this page's address
- * (`?teamId=`, mod-020). The list's first read validates the address. Keyed by its project, so another project starts on
- * its own first page.
+ * § 10.1 without secondary commands and pane): every live item of the project, the
+ * latest change first, 50 a page, under the band «Фильтры» with «Поиск», «Статус»,
+ * «Исполнитель» (feat-003 BR-WS-1; «Удалена» is the way into the recycle bin) and the team filter
+ * (mod-017 US-5, BR-OT-9; design § 5). All four live in this page's address (`?search=`, `?state=`,
+ * `?assigneeId=`, `?teamId=`; BR-WS-11, mod-020). The list's first read validates the address.
+ * Keyed by its project, so another project starts on its own first page.
  */
 export function WorkItemsPage() {
   const { organizationId = '', projectId = '' } = useParams<{
@@ -79,6 +85,14 @@ function WrapCell({ children }: { children: ReactNode }) {
   return <TableCell sx={{ overflowWrap: 'anywhere' }}>{children}</TableCell>;
 }
 
+/**
+ * One field of the band (design § 2): it stands at the top of the band, so a taller «Исполнитель»
+ * box (tags in rows) does not move its neighbours, and is never wider than the band's row.
+ */
+function BandField({ children }: { children: ReactNode }) {
+  return <Box sx={{ alignSelf: 'flex-start', maxWidth: '100%' }}>{children}</Box>;
+}
+
 function WorkItemsList({
   organizationId,
   projectId,
@@ -87,20 +101,21 @@ function WorkItemsList({
   projectId: string;
 }) {
   /**
-   * The chosen team ids and `none` (BR-OT-8), kept in the address (mod-020, mod-017 OQ-9 B): a link
-   * carries them. A change of them, whoever makes it, shows page 1.
+   * The four filters — keyword, states, assignees, teams — kept in the address (feat-003 BR-WS-11,
+   * mod-020, mod-017 OQ-9 B): a link carries them, one writer sets them in one replace. A change of
+   * their content, whoever makes it, shows page 1.
    */
-  const [teamIds, setTeamIds] = useTeamFilter();
+  const [filter, setFilter] = useWorkItemFilter();
   /**
    * 0-based, as `TablePagination` counts; the route's `page` is 1-based. It belongs to the filter
    * it was chosen under, compared by content: another filter, set here or by the address, reads
-   * from the first page, and the same one, however its array was made, keeps the page.
+   * from the first page, and the same one, however its arrays were made, keeps the page.
    */
-  const filterKey = JSON.stringify(teamIds);
-  const [paging, setPaging] = useState({ filterKey, page: 0 });
-  const page = paging.filterKey === filterKey ? paging.page : 0;
-  const setPage = (next: number) => setPaging({ filterKey, page: next });
-  const query = useWorkItems(organizationId, projectId, page + 1, teamIds);
+  const content = filterContent(filter);
+  const [paging, setPaging] = useState({ content, page: 0 });
+  const page = paging.content === content ? paging.page : 0;
+  const setPage = (next: number) => setPaging({ content, page: next });
+  const query = useWorkItems(organizationId, projectId, page + 1, filter);
   const process = useProcessDefinition(organizationId);
   const create = useCreateWorkItem(organizationId, projectId);
   const { show } = useNotice();
@@ -108,6 +123,27 @@ function WorkItemsList({
   const canWrite = access(workItemsPermissions.workItemWrite, 'organization');
   const [pickerAnchor, setPickerAnchor] = useState<HTMLElement | null>(null);
   const [creatingTypeId, setCreatingTypeId] = useState<string | null>(null);
+  const keywordRef = useRef<HTMLInputElement>(null);
+  const { pathname, search } = useLocation();
+  // The title links carry the list's address, so a purge on the card returns here (BR-WS-5).
+  const origin = listOriginState(pathname, search);
+
+  // The result of a change of a filter is announced once it has settled (design § 9), not on the
+  // first read: the content a result was last announced for starts as the page's own.
+  const [announcedFor, setAnnouncedFor] = useState(content);
+  const [announcement, setAnnouncement] = useState({ text: '', serial: 0 });
+  if (
+    query.isSuccess &&
+    !query.isFetching &&
+    !query.isPlaceholderData &&
+    announcedFor !== content
+  ) {
+    setAnnouncedFor(content);
+    setAnnouncement(({ serial }) => ({
+      text: query.data.count === 0 ? filterTexts.noMatch : filterTexts.found(query.data.count),
+      serial: serial + 1,
+    }));
+  }
 
   const level = query.isError ? notFoundLevel(query.error) : null;
   if (level) {
@@ -131,19 +167,52 @@ function WorkItemsList({
       : undefined;
   const loading = query.isPending || (query.isError && query.isFetching);
   const types = creatableTypes(process.data?.workItemTypes ?? [], process.data?.backlogLevels);
-  const filtered = teamIds.length > 0;
-  const changeFilter = (next: string[]) => setTeamIds(next);
+  // A value no field can name is a filter that is on (design § 5): it empties the list and
+  // «Очистить фильтры» removes it.
+  const filtered = isFiltered(filter);
+  // Both clears remove all four filters, the team's included (BR-WS-13), and send focus to «Поиск»:
+  // the button that was pressed is gone once the filters are.
+  const clearFilters = () => {
+    setFilter({ state: [], assigneeId: [], search: '', teamId: [] });
+    keywordRef.current?.focus();
+  };
 
   return (
     <>
       <PageHeader title="Рабочие элементы" primaryAction={createAction} />
-      <FilterBar active={filtered} onClear={() => changeFilter([])}>
-        <TeamFilter
-          organizationId={organizationId}
-          projectId={projectId}
-          value={teamIds}
-          onChange={changeFilter}
-        />
+      <LiveRegion text={announcement.text} serial={announcement.serial} />
+      <FilterBar active={filtered} onClear={clearFilters}>
+        <BandField>
+          <KeywordFilter
+            ref={keywordRef}
+            value={filter.search}
+            onChange={(keyword) => setFilter({ search: keyword })}
+          />
+        </BandField>
+        <BandField>
+          <StateFilter
+            organizationId={organizationId}
+            value={filter.state}
+            onChange={(state) => setFilter({ state })}
+          />
+        </BandField>
+        <BandField>
+          <AssigneeFilter
+            organizationId={organizationId}
+            projectId={projectId}
+            value={filter.assigneeId}
+            states={filter.state}
+            onChange={(assigneeId) => setFilter({ assigneeId })}
+          />
+        </BandField>
+        <BandField>
+          <TeamFilter
+            organizationId={organizationId}
+            projectId={projectId}
+            value={filter.teamId}
+            onChange={(teamId) => setFilter({ teamId })}
+          />
+        </BandField>
       </FilterBar>
       {process.isError && notFoundLevel(process.error) === null && (
         <ErrorBanner error={process.error} onRetry={() => void process.refetch()} />
@@ -160,7 +229,7 @@ function WorkItemsList({
           action={{
             label: 'Сбросить фильтр',
             icon: <FilterListOffIcon />,
-            onClick: () => changeFilter([]),
+            onClick: clearFilters,
           }}
         />
       ) : query.data.count === 0 ? (
@@ -201,12 +270,13 @@ function WorkItemsList({
                     <Link
                       component={RouterLink}
                       to={workItemPath(organizationId, projectId, item.identifier)}
+                      state={origin}
                     >
                       {item.title}
                     </Link>
                   </WrapCell>
                   <TableCell>
-                    <AssigneeName assignee={item.assignee} />
+                    <MarkedAssigneeName assignee={item.assignee} />
                   </TableCell>
                   <TableCell>
                     <StateName state={item.state} />
@@ -260,7 +330,7 @@ function WorkItemsList({
               setCreatingTypeId(null);
               // OQ-4: the user stays on the list, on its first page, the new row on top.
               setPage(0);
-              show(createdNotice(item.identifier, item.team, teamIds));
+              show(createdInListNotice(item, filter));
             }}
             onClose={(contextGone) => {
               setCreatingTypeId(null);

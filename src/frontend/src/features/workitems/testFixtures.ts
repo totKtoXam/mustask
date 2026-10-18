@@ -57,6 +57,10 @@ export const ids = {
   annaK: 'u0000000-anna-kuznetsova',
   petr: 'u0000000-petr-ivanov',
   ghost: 'u0000000-not-in-directory',
+  /** feat-003's stories: «Мия Петрова», «Иван Котов» (no longer a member), «Зоя Ким». */
+  mia: 'u0000000-mia-petrova',
+  ivan: 'u0000000-ivan-kotov',
+  zoya: 'u0000000-zoya-kim',
 } as const;
 
 /** The seeded process every organization of the dataset has (mod-001 api-contract § 1.4). */
@@ -295,6 +299,74 @@ export function exampleDataset(): Dataset {
     item(ids.ops, 1, 'BUG', 'Склад не отвечает', {
       changedAt: new Date(2026, 9, 6, 9, 0).toISOString(),
     }),
+  );
+  return data;
+}
+
+/**
+ * feat-003's stories' data (spec § Common data) in «Мастаск»: live, latest change first, MSK-BUG-42
+ * «Падение при входе» («Новая», Мия, VENUS), MSK-US-3 «Отчёт склада: 100%» («Разрешена», nobody, no
+ * team), MSK-TASK-4 «Проверить 42 сценария» («Закрыта», Пётр Иванов — a disabled account — MARS),
+ * MSK-BUG-2 «Ошибка оплаты» («Разрешена», Иван Котов — no longer a member — VENUS) and MSK-US-1
+ * «Оплата картой» («Активна», Мия, MARS); deleted, both changed after every live item, MSK-FEAT-6
+ * «Импорт склада» (Зоя, VENUS; Анна deleted it on 18.10.2026 09:00, it held «Новая») and MSK-US-5
+ * «Возврат оплаты» (Иван, MARS; Мия deleted it on 17.10.2026 10:00, it held «Активна»).
+ */
+export function listFilterDataset(): Dataset {
+  const data = emptyDataset();
+  data.users.push(
+    { id: ids.mia, displayName: 'Мия Петрова', email: 'mia@alfa.test', active: true },
+    {
+      id: ids.ivan,
+      displayName: 'Иван Котов',
+      email: 'ivan@alfa.test',
+      active: true,
+      member: false,
+    },
+    { id: ids.zoya, displayName: 'Зоя Ким', email: 'zoya@alfa.test', active: true },
+  );
+  const at = (day: number, hour: number) => new Date(2026, 9, day, hour, 0).toISOString();
+  data.items.push(
+    item(ids.msk, 42, 'BUG', 'Падение при входе', {
+      assigneeId: ids.mia,
+      teamId: ids.venusTeam,
+      changedAt: at(16, 15),
+    }),
+    item(ids.msk, 3, 'US', 'Отчёт склада: 100%', {
+      stateId: stateId('US', 'Разрешена'),
+      changedAt: at(16, 14),
+    }),
+    item(ids.msk, 4, 'TASK', 'Проверить 42 сценария', {
+      stateId: stateId('TASK', 'Закрыта'),
+      assigneeId: ids.petr,
+      teamId: ids.marsTeam,
+      changedAt: at(16, 13),
+    }),
+    item(ids.msk, 2, 'BUG', 'Ошибка оплаты', {
+      stateId: stateId('BUG', 'Разрешена'),
+      assigneeId: ids.ivan,
+      teamId: ids.venusTeam,
+      changedAt: at(16, 12),
+    }),
+    item(ids.msk, 1, 'US', 'Оплата картой', {
+      stateId: stateId('US', 'Активна'),
+      assigneeId: ids.mia,
+      teamId: ids.marsTeam,
+      description: 'Через Stripe',
+      changedAt: at(16, 11),
+    }),
+    deleteRecord(
+      item(ids.msk, 6, 'FEAT', 'Импорт склада', { assigneeId: ids.zoya, teamId: ids.venusTeam }),
+      { by: ids.anna, at: at(18, 9) },
+    ),
+    deleteRecord(
+      item(ids.msk, 5, 'US', 'Возврат оплаты', {
+        stateId: stateId('US', 'Активна'),
+        assigneeId: ids.ivan,
+        teamId: ids.marsTeam,
+      }),
+      { by: ids.mia, at: at(17, 10) },
+    ),
   );
   return data;
 }
