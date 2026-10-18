@@ -55,8 +55,9 @@ type Dialog =
  * alone — renaming and deleting a team are not done through a project (BR-OL-5). «Добавить команду» links
  * existing teams and needs both link codes; «Команда по умолчанию» is `project.write`'s and shown while a team
  * is linked. **A project with no team is the normal first state** (every project is in it right after the
- * upgrade, US-7), not a fault: the page says so, and offers «Бэклог проекта» and «Доска проекта» (OQ-2 A,
- * retired by feat-043) to every role.
+ * upgrade, US-7), not a fault: the page says so. «Бэклог проекта» and «Доска проекта» (feat-028 OQ-2 A,
+ * extended by feat-040 OQ-1 A, retired by feat-043) are offered to every role, always: the team pages
+ * left the project's address, so this is the way into the project's own views.
  */
 export function TeamsPage() {
   const { organizationId = '', projectId = '' } = useParams<{
@@ -94,22 +95,21 @@ export function TeamsPage() {
   const noTeam = query.isSuccess && teams.length === 0;
   const showActions = canLink;
 
-  const commands: Command[] = [];
-  if (noTeam) {
-    // OQ-2 A: the interim way into a team-less project's own views, to every role.
-    commands.push(
-      {
-        label: projectTeamsPage.projectBacklog,
-        icon: <FormatListNumberedIcon />,
-        to: projectBacklogPath(organizationId, projectId, PROJECT_VIEWS_LEVEL),
-      },
-      {
-        label: projectTeamsPage.projectBoard,
-        icon: <ViewWeekOutlinedIcon />,
-        to: projectBoardPath(organizationId, projectId, PROJECT_VIEWS_LEVEL),
-      },
-    );
-  }
+  // feat-040 BR-TS-12 (OQ-1 A, design § 9): the interim way into the project's own views, always, to
+  // every role and from the first paint — they need no read. Team pages left the project's address,
+  // so no menu leads here any more (feat-043 retires it).
+  const commands: Command[] = [
+    {
+      label: projectTeamsPage.projectBacklog,
+      icon: <FormatListNumberedIcon />,
+      to: projectBacklogPath(organizationId, projectId, PROJECT_VIEWS_LEVEL),
+    },
+    {
+      label: projectTeamsPage.projectBoard,
+      icon: <ViewWeekOutlinedIcon />,
+      to: projectBoardPath(organizationId, projectId, PROJECT_VIEWS_LEVEL),
+    },
+  ];
   if (canNameDefault && query.isSuccess && teams.length > 0) {
     commands.push({
       label: projectTeamsPage.defaultTeam,
