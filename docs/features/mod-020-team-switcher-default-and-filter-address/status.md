@@ -31,6 +31,7 @@ Frontend only; S route. The human's answers of 2026-10-17 to mod-017 OQ-8 B and 
 
 ## Log
 
+- 2026-10-18 [code-reviewer] round 1 (whole diff at c1f30c40), findings in `review.md`: changes-requested; open 0 blocker, 1 major (CR-1, prose only: delta read, no QA), 3 minor (CR-2..CR-4, debts). Q-1 stays for gate-3; gate-3 pending.
 - 2026-10-18 [qa-engineer] light QA (S route), findings in `review.md`: 0 blocker, 0 major, 2 minor (QA-1 the project views' tab drops the filter, QA-2 pre-amendment text in mod-017 spec/stories) and Q-1 for the human (the fallback below the default). Plan 1-4 covered; six mutations of the new code, one survived and was closed by 2 added tests (`ProjectViews.teamFilterAddress.qa.test.tsx`, 7 tests). `BASE=origin/main bash scripts/verify.sh`: exit 0, RESULT green (lint, build, Vitest affected 1969 passed, source-reading guards 590 passed). E2E not asked (standing NO, see Decisions). stage → 06-code-review; gate-3 pending.
 - 2026-10-18 [frontend-developer] `BASE=origin/main bash scripts/verify.sh`: exit 0, RESULT green (lint, build, Vitest affected 1962 passed, source-reading guards 590 passed). Ready for QA; gate-3 pending. E2E not asked (standing NO).
 - 2026-10-18 [frontend-developer] built: OQ-8 in `defaultEntry` and the switcher's team read; OQ-9 `useTeamFilter` on the list, project backlog and board, the level drop-down carries it. Frontend only: no backend, no api-contract change. Specs amended, see Decisions.

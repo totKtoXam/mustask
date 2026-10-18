@@ -71,3 +71,71 @@ Steps: open `/organizations/<o>/projects/<p>/backlogs/stories?teamId=<team>` (or
 
 - Vitest on the new QA file: 7 passed. Six mutation runs (above) plus a re-run of the survivor against the new tests, each followed by a restore; `git status` clean.
 - `BASE=origin/main bash scripts/verify.sh` (with this file and the QA test in the tree): exit 0, RESULT green — docs checks, lint, build, Vitest affected 144 files / 1969 passed, source-reading guards 13 files / 590 passed (1 skipped, as before).
+
+## Round 1
+
+Scope: `git diff origin/main...mod/020-team-switcher-default-and-filter-address` at `c1f30c40` (merge base `7567d49e`). Frontend and docs, S: one round over the whole diff. Measured against the queue line, mod-017 OQ-8 B / OQ-9 B, BR-OT-8, doc-012 BR-MX-11 and doc-013 BR-NE-9.
+
+Verdict: **changes-requested**. Open: 0 blocker, 1 major (CR-1), 3 minor (CR-2..CR-4). CR-1 is prose only, so it gets a delta read and no QA. CR-1 takes QA-2's US-3 bullet and raises it to major. The stage's rule makes a sentence that the diff's own amendments contradict a major. CR-2 is QA-1 with a wider scope. CR-3 is the rest of QA-2, with a correction. Q-1 stays for gate-3.
+
+The code does what the line asks:
+- OQ-8. `defaultEntry` checks `isDefault`, then `isMember`, then takes the first (`shared/lib/workContext.ts:140-146`). The mark comes from the list's `defaultMark` (`resolveSelection.ts:35-43`) at the switcher's team level (`useOrganizationsContextSource.ts:196`) and in a move's first entries (`:112`). A chosen or remembered team the list still holds is kept (`resolveSelection.ts:61`). Naming a default invalidates the key the switcher reads (`organizations/hooks/mutations.ts:198`).
+- OQ-9. The filter is the repeated `teamId`, with blanks dropped and other values kept (`useTeamFilter.ts:18-22`). A change is a replace that keeps the rest of the address, the hash and the state (`:55-66`). The list and both project views read it, and a team's views ignore it (`BacklogPage.tsx:99-100`, `BoardPage.tsx:101-102`, `scope.ts:34-39`). The level links carry it (`TeamHead.tsx:128, 181`). The wire is unchanged (mod-017 api-contract § 3; a malformed value selects nothing, `:396`).
+- Tests. They check what they say, and the fixtures make each choice discriminating: the default team is neither the user's own nor the first by name. QA's mutation table and its two added tests close the one gap.
+- Conventions. Boards imports only workitems' `index.ts`. `shared/` imports nothing from `features/`. The commits are within 72 characters, and no ADR-worthy decision was made silently.
+
+### Findings
+
+**CR-1 — major — prose the diff's own amendments contradict, left unamended.** The diff amends BR-OT-4, BR-OT-11 (`mod-017/spec.md:73, 80`) and BR-MX-11: the project's default team is now the team the switcher opens on. These four sentences still say the opposite:
+- `mod-017/api-contract.md:341-343` (§ 2.8): "It decides the starting value of a creation and nothing else: … the switcher, the views, the filters and the orders do not read it (BR-OT-4)". QA-2 does not list it.
+- `mod-017/stories/US-3-project-default-team.md:59`: «The default affects the starting value of a creation, and nothing else». This is QA-2's bullet; the scenario's body still holds, because MARS is chosen there.
+- `mod-017/design.md:322-324` (§ 8): "The switcher's fallback is the first team in that order, own teams first (BR-OT-11)". This is the file the diff edits at § 6.3.
+- `mod-017/spec.md:100` (fate row for mod-016 BR-M1-27, US-7): "the switcher's fallback is the user's first team in that order, else the list's first". This is the file the diff edits.
+
+How it fails: an agent writing a contract or story test from § 2.8 or US-3 asserts that naming a default leaves the switcher alone, and the test fails for a user who has no chosen team. feat-040 must carry this fallback onto its team level (doc-013 BR-NE-9). Its developer reading § 2.8 or design § 8 drops the default.
+
+Fix, in prose: add a "(Amended by mod-020, 2026-10-18, OQ-8 B: …)" note to each place, as BR-OT-4 and BR-OT-11 have, and give US-3's title the same narrowing ("…and moves no chosen team"). Because of § 2.8, add a note line in mod-017 `status.md` (AGENTS.md: an api-contract changes only with a status note). Optionally reword BR-OT-4's own "nothing else: not the switcher", which now sits right before its amendment.
+
+**CR-2 — minor — QA-1, with a wider scope: every link to the page's own pathname clears the filter.** There are three such links. The selected tab (`TeamHead.tsx:175`). «Весь проект» on the project page, where it is the selected entry (`TeamHead.tsx:161`). The nav entry «Рабочие элементы» on the list (`app/navigation/model.ts:102-106`). Each links to the pathname without `?teamId=`. Before mod-020 the same click kept the filter, because each page is keyed by project and stays mounted (`WorkItemsPage.tsx:70`, `ProjectBacklogPage.tsx:28`, `ProjectBoardPage.tsx:27`). Two pieces of prose name only the case seen from a team page. design § 6.3 (`mod-017/design.md:206-209`) says «Весь проект» is an "other address". The status Decisions call the tab and «Весь проект» "other views". Neither is true on the project page.
+
+Fix: either carry `teamFilterSearch` on the links that resolve to the current pathname, or write the rule into BR-OT-8 and design § 6.3: any link to the page without `teamId` clears the filter, the selected tab and the nav entry included. For the tab, `PageHeader`'s `view.to === pathname` match (`shared/ui/PageHeader.tsx:440-442`) would have to ignore the search.
+
+**CR-3 — minor — the rest of the pre-amendment prose (QA-2), and one correction.** Nobody acting on BR-MX-11 or BR-OT-8 would do anything differently because of these:
+- `mod-017/spec.md:132` «Read: the page's state».
+- `mod-017/stories/US-5-team-filter.md:68`. "Leaves the page and opens it again → no filter" holds for the nav entry, but Back, or a link to a filtered address, brings the filter back.
+- `mod-017/api-contract.md:399` "Life: for the visit". The server half holds.
+- `mod-016/spec.md:145` (BR-M1-27), `mod-016/stories/US-7-default-team-by-membership.md:8-11`, `mod-016/api-contract.md:349, 492-494` and `src/backend/…/GetTeams/TeamResponse.cs:8-9`. All still describe the member's team as the team the panel opens on.
+
+Fix: amendment notes, and for mod-016 one Log note in its `status.md`, like mod-017's P-10 note (`mod-016/status.md:59`). Correction to QA-2: `feat-028/api-contract.md:168` (`isMember`) says nothing about where the panel opens. Nothing needs fixing there.
+
+**CR-4 — minor — the list's page reset rests on `useMemo` identity.** `WorkItemsPage.tsx:98-99` compares the filter array by identity. That identity comes from `useTeamFilter.ts:53`, and the docblock at `:43-45` promises it. React documents `useMemo` as a performance hint whose cache it may drop: today on a dev hot reload, and possibly more in future versions. A dropped cache would send the user to page 1 with no change of filter. Fix: compare the filter's content (expose `content`, or compare `teamIds.join('\n')`) and soften the docblock's sentence.
+
+### Q-1 (QA's question for the human)
+
+I agree it is a question, not a defect. The code, the amended BR-MX-11 and BR-OT-11 follow the developer's reading. "One line in `defaultEntry`" understates the literal reading's cost, though. Dropping the membership step also retires mod-016 US-7 and its tests (`workContext.test.ts:107-159`, the mod-016 US-7 blocks of `useOrganizationsContextSource.defaultTeam.test.tsx`), and rewrites both amendments.
+
+### Behavioural claims in prose
+
+Direction 1 (prose the diff adds or changes):
+- doc-012 BR-MX-11 amendment: default, then own first, then first by name; a remembered team is kept → `workContext.ts:140-146`, `resolveSelection.ts:61`; hook tests in the "mod-020 Scenario" block. Its feat-043 clause is marked future (doc-013 BR-NE-9).
+- BR-OT-4 and BR-OT-11 amendments → the same anchors; BR-OT-4's leftover clause → CR-1 (optional).
+- BR-OT-8 amendment: in the address, a link carries it, a level change keeps it, a team's views have none → `useTeamFilter.ts:18-22, 49-69`; `TeamHead.tsx:128, 181`; `scope.ts:34-39`; tests in `ProjectViews.teamFilterAddress*.test.tsx`.
+- design § 6.3 amendment: the level links keep it → `TeamHead.tsx:181`; «Весь проект» and the other page are other addresses → true only from a team page → CR-2; the page returns to 1 "by the address too" → `WorkItemsPage.tsx:98-99` → CR-4.
+- `useTeamFilter` docblock: a replace that keeps the parameters, the hash and the state → `:63` and its tests; "the same object while its content is" → `:53` → CR-4.
+- `teamFilterOf`: a blank is no value, other values are kept → `:18-22` and its tests. `teamFilterSearch` gives only its own part → `:28-35` and its test.
+- `scope.ts:29-33`: a team view's `teamId` is not sent → `:34-39`; the dev tests check the read paths, and QA's empty-state tests kill the survivor.
+- `resolveSelection.ts` (`LevelList`, `teamLevelItems`), `workContext.ts` (`isDefault`, `WorkContextProject.teams`), the `withFirstEntries` comment → `:35-43`, `:140-146`, `useOrganizationsContextSource.ts:112` and the test "on a team-level page, moving to another project…".
+- `useOrganizationsContextSource.ts:195`: the pages read the same key → `api/queryKeys.ts:19-24`; `select` applies per observer.
+- Docblocks of `WorkItemsPage`, `ProjectFilterRow`, `BacklogPage`, `BoardPage` and `workitems/index.ts` → `WorkItemsPage.tsx:93`, `BacklogPage.tsx:99`, `BoardPage.tsx:101`, `index.ts:42`.
+- status Decisions: the tab, «Показать канбан», the team menu and «Весь проект» start unfiltered → `TeamHead.tsx:161, 166-170, 175`, as built; "other views" → CR-2.
+- status [dev] and the commit body, "frontend only, no api-contract change" → the diff stat: nothing under `src/backend`, no `api-contract.md`.
+- QA claims: a default naming refreshes the switcher → `mutations.ts:198`; no redirect drops the query → `app/routes.tsx:68` is the only `Navigate` (index → «Главная»); feat-028 § 1.3's `isMember` → overstated → CR-3.
+
+Direction 2 (behaviour the diff changes, prose outside it), over `docs/`, `.claude/`, the AGENTS.md files and the comments in `src/backend` and `src/frontend`:
+- Which team the switcher opens on. Grepped `BR-M1-27`, "first team the user", "own first", "switcher's fallback", "nothing else", "creation only", "affects BR-MX-10", "do not read it" and `isMember`. Unamended hits → CR-1 (mod-017 api-contract § 2.8, design § 8, spec fate row, US-3:59) and CR-3 (mod-016 spec, US-7, api-contract; `TeamResponse.cs`). Hits that hold: mod-017 US-7:25 (its data names no default), US-2:33 (the switcher's team is chosen), feat-028 US-6:55 (points to mod-020), and the `DefaultTeamDialog` copy (it describes creation and claims no "only").
+- Where the filter lives. Grepped "page's state", "for the visit", `OQ-9`, "filter … address" and `teamId` in the docs. Hits → CR-3 (mod-017 spec:132, US-5:68, api-contract:399). Hits that hold: feat-028 spec:166 and US-6:77 (owed-by markers naming mod-020), mod-015 plan-frontend:519 (another surface's filter), doc-013 BR-NE-6/-9 (agree).
+- Not swept: `doc-012/audit/*.md` (dated audit snapshots); the plan, qa and review files of earlier features (records of past runs, mod-017 `plan-backend.md:424` among them); the E2E specs (standing NO; QA reports that none names a default).
+
+### Commands run
+
+`git diff`, `git log` and greps only. I ran no tests, because this checkout has no `node_modules`. The developer's and QA's `BASE=origin/main bash scripts/verify.sh` runs were green on this tree (status Log).
