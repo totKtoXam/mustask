@@ -106,3 +106,61 @@ None is expected to break.
 ### For the human
 
 - **D-1 A, the 2 000-person picker.** The kit is not virtualised. In jsdom it takes about 25 s to open with 2 001 options, which is no browser number. QA owes the stand timing. Recommended: keep D-1 A unless the stand shows the open over about 1 s; then D-1 B (the plain multi-select) is the fallback the design names. Not a code finding.
+
+## Delta read 1
+
+Stage 06, the one delta read (M cap), clean context. Read `ee77b2a4..84a3e873` (`a0fd8a14`, `94bc4ea5`, `84a3e873`; 8 files) against D-F1 and D-F3 (qa.md) and CR-1, plus what those lines touch. Checkout `wf_604530c7-e3a-7`, branch `feat/003-work-item-search` at `84a3e873`.
+
+**Verdict: approve.** D-F1, D-F3 and CR-1 are resolved, and nothing nearby broke. One new minor, DR-1 (docs). No round is owed.
+
+### The three ids
+
+- **CR-1: resolved.** `design.md:131` now agrees with BR-WS-9, BR-WS-11 and US-3:50. The code is untouched, as round 1 said. Two tests pin the sentence, both green:
+  - `workItemFilter.test.ts:102`: blank only is false, and blank beside a value that names nothing is true;
+  - `WorkItemsPage.keyword.test.tsx:122`: the whole list, no «Очистить фильтры».
+- **D-F1: resolved.** `WorkItemsPage.tsx:117-120` stores a new content with page 0 by a render-phase `setPaging`. `filterContent` returns a string (`workItemFilter.ts:120`), so the comparison is by content and the extra render settles at once. Pinned by `WorkItemsPage.qa.test.tsx:59,76,92`. On the pre-fix page, `:59` and `:76` fail and `:92` (page kept under an unchanged filter) passes: the tests pin both the fix and its limit.
+- **D-F3: resolved.** `KeywordFilter.tsx:86-90` sets the text on leaving only when trimming changes it. A real trim is a state change, which renders before the next event, so it leaves nothing queued. Pinned by `WorkItemsPage.qa.test.tsx:150,165,181,196,213`. On the pre-fix field the first four fail and `:213` (spaces around the keyword) passes, as qa.md says. D-F4's `it.fails` (`:236`) still passes: D-F4 stands, a minor.
+
+### Nearby
+
+- Nothing outside `features/workitems` imports `KeywordFilter`.
+- The fallback `paging.content === content ? … : 0` (`WorkItemsPage.tsx:121`) is now redundant. Harmless.
+- ESLint and Prettier are clean on the two changed sources and the three changed tests.
+
+### Runs (2026-10-19, this checkout)
+
+| What | Result |
+|---|---|
+| `npx vitest run` on PQ, `WorkItemsPage.{keyword,filters}`, `KeywordFilter`, `lib/workItemFilter` | 5 files, 116 passed |
+| PQ alone, with `KeywordFilter.tsx` and `WorkItemsPage.tsx` taken from `ee77b2a4` (restored afterwards, `git status` clean) | 6 failed (D-F1 ×2, D-F3 ×4), 8 passed |
+
+### New finding
+
+**DR-1: minor (docs).** Outside the two defect entries, qa.md still reads as it did before the fix:
+- `:83`, `:84`, `:105` and `:107` mark D-F1 and D-F3 ✘;
+- `:130` says every frontend defect's test is `it.fails`;
+- `:175` reads "majors: 2 … result: fail until the two majors are fixed".
+
+A gate-3 reader of the verdict line sees a QA that fails. Fix: a line under the frontend verdict, "After the fix round (`a0fd8a14`): majors 0, result pass; the D-F1 and D-F3 tests are plain". Then flip the four ✘ to ✔ (fixed).
+
+### Behavioural claims checked (item 6)
+
+- Direction 1:
+  - `design.md:131` → `filterOf`/`isFiltered`, the two CR-1 tests.
+  - qa.md D-F1 Resolution, "the first two fail on the old code" → the pre-fix run.
+  - qa.md D-F3 Resolution, "without the fix the first four fail" and "D-F4 still stands" → the pre-fix run, `:236` green.
+  - The comment at `WorkItemsPage.tsx:112-114` → `:118-120`.
+  - The comment at `KeywordFilter.tsx:82-85` → `:87-89`.
+  - The CR-1 Resolution, "two tests pin the sentence" → both exist and pass.
+- Direction 2, the page on a return to an earlier content. Grepped "page 1", "first page" and "keeps the page" in mod-017, mod-020 and this line's docs. The hits all say any change shows page 1, which the fix makes true: mod-017 api-contract:188, US-5:34 and design:151; this line's design:103 and plan-frontend:22.
+- Direction 2, the blur handler. Grepped "blur" and "leaving" in design.md and plan-frontend.md. design:55 and plan-frontend:35 still hold.
+- Not swept: feat-040's branch (in flight, not in main).
+
+### Still open, for the human at gate-3
+
+All minors, debts, no round owed:
+- Code review: CR-2..CR-8 (round 1) and DR-1.
+- QA: D-B1, D-F2, D-F4, D-D1 (the same gap as CR-4).
+- Security: S-1, S-2.
+
+D-1 A: QA timed the 2 000-person picker at 0.35–0.39 s to open on a quiet machine and 0.77 s under load (qa.md F-8). That is under round 1's 1 s threshold, so D-1 A stands.
