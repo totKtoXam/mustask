@@ -73,8 +73,13 @@ Required resolution: The analyst decides, in BR-WS-5 and in US-1:
 - Whether the trail keeps the filters.
 
 If mod-005's landing changes, say so: it is a change to mod-005 design § 6, noted in mod-005's status.md. Add `WorkItemFormPage.tsx` to § Lines in flight. If the answer is "keep mod-005's landing", reword US-1 to name how Ann gets back to «Удалена».
-Status: open
-Resolution: -
+Status: resolved
+Resolution: The analyst decided both; no open question.
+- **The purge landing changes.** BR-WS-5 now reads: when the card was opened from a row of the list, a purge returns to that list's address, filters included, on page 1, with mod-005's notice. A card reached any other way (its address, a link, another card's «Родитель») lands on the list unfiltered, as mod-005 has it. Either way Back never meets the purged address. BR-WS-5 names this as an amendment of mod-005 design § 6. § Lines in flight says the frontend stage adds the amendment note there and a note line in mod-005's status.md, as mod-020 did for mod-017. It also adds `pages/WorkItemFormPage.tsx`, which neither mod-020 nor feat-040 touches.
+- **The trail does not keep the filters.** It is the navigation's link, derived by the shell from the navigation model, and opens the list unfiltered. BR-WS-11 adds it to the links that do so, as BR-OT-8's mod-020 amendment reads for the navigation entry. BR-WS-5 names Back as the way back under the filters.
+- **US-1.** "Each role reaches the bin" now stops at the actions. Three scenarios are added: "A purge on a card opened from the bin returns to the bin" (Ann lands on «Удалена», page 1, MSK-US-5 alone, count 1, the notice, Back does not show the purged address); "A purge on a card not opened from the list lands on the list unfiltered"; and "The card's trail opens the list unfiltered, and Back keeps the filter".
+- BPMN node O3 now names the landing.
+- In passing: mod-020 merged into main on 2026-10-18 (PR #25, 0bc5311a). § Context and § Lines in flight now say so, and R-11's conditional order becomes "development takes main in first".
 
 ### R-2
 Severity: minor

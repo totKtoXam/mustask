@@ -9,7 +9,7 @@ As a **member of the organization**, I want **to narrow the project's «Рабо
 
 ## Acceptance criteria
 
-Data: spec § Common data; Mia is signed in unless a scenario says otherwise. Rules: spec BR-WS-1..-5, -10..-14, -17; mod-005 BR-DR-6, -7. The address's parameter names are the contract's: below, "the address carries «Новая»" means the state parameter with that value.
+Data: spec § Common data; Mia is signed in unless a scenario says otherwise. Rules: spec BR-WS-1..-5, -10..-14, -17; mod-005 BR-DR-6, -7, design § 6 (its page landing, amended by BR-WS-5). The address's parameter names are the contract's: below, "the address carries «Новая»" means the state parameter with that value.
 
 ```gherkin
 Scenario: The state field offers the process's states, each once
@@ -57,10 +57,29 @@ Scenario: A deleted row opens its read-only card, and a restore takes it out of 
 
 Scenario: Each role reaches the bin with the actions its codes allow
   Given the address of the list with «Удалена» chosen
-  When Ann, then Rita, opens it and then the card of MSK-FEAT-6
+  When Ann, then Rita, opens it and then the card of MSK-FEAT-6 by its title
   Then both see MSK-FEAT-6 and MSK-US-5
   And Ann's card offers «Восстановить» and, in «⋮», «Удалить навсегда»; Rita's card offers neither
-  And after Ann purges MSK-FEAT-6, the list under «Удалена» reads MSK-US-5 alone at its next read
+
+Scenario: A purge on a card opened from the bin returns to the bin
+  Given Ann's list shows «Удалена» alone, and she opens MSK-FEAT-6 by its title
+  When she purges it with «Удалить навсегда»
+  Then the page shows the list under «Удалена» alone, on its first page, reading MSK-US-5 alone, count 1
+  And the notice reads «Рабочий элемент MSK-FEAT-6 удалён навсегда.»
+  And going Back does not show MSK-FEAT-6's address
+
+Scenario: A purge on a card not opened from the list lands on the list unfiltered
+  Given Ann opens MSK-US-5's card by its address, not from a row of the list
+  When she purges it with «Удалить навсегда»
+  Then the page shows the project's list unfiltered, the five live rows, count 5 (mod-005 design § 6)
+  And going Back does not show MSK-US-5's address
+
+Scenario: The card's trail opens the list unfiltered, and Back keeps the filter
+  Given Mia's list shows «Удалена» alone, and she opens MSK-US-5 by its title
+  When she goes Back
+  Then the list shows «Удалена» alone, on its first page, with MSK-FEAT-6 and MSK-US-5
+  When she opens MSK-US-5 by its title again and follows «Рабочие элементы» in the page's trail
+  Then the list shows the five live rows and no filter is set
 
 Scenario: The filter lives in the address
   Given Mia has chosen «Новая» and «Разрешена»
