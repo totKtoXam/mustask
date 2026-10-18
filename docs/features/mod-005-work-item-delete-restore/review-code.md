@@ -32,6 +32,15 @@ skips it when Docker is down. **Fix:** "Outside `WorkItemSets`, only the two bac
 pinned by `DeletedStateParityTests`); raw-SQL reads are not seen by the text rule and filter by the shown states or by
 id themselves", and "… or `WorkItemWriteInventoryTests` (an integration test) fails".
 
+**Resolution (fixed, prose only).** `docs/conventions/backend.md`, "Reads choose an entry point": the sentence now says that
+outside `WorkItemSets` only the two backlog memberships name the set (each pinned by `DeletedStateParityTests`), that
+`WorkItemAccessRules` checks this by the set's name (a text rule, not a proof), that there is no global filter, and that a
+raw-SQL read of `work_items` is not seen by the rule: it filters by the shown states or by id itself and the reviewer checks
+it by hand. The write-inventory sentence now ends "… or that test fails; it is an integration test (`RequiresDocker`), so it
+runs where Docker runs and `scripts/verify.sh` skips it when Docker is down". `WorkItemReferenceInventoryTests` ("fails the
+build") was checked: it is model-only, without Docker, so that sentence stands. No code, no test (nothing to run). Needs a
+delta read, no QA.
+
 **CR-2 · minor · backend** — the spec NFR at `spec.md:139` asks for "each pair of Delete, Restore, Purge and a save, in
 both orders". `DeleteRestorePurgeRaceTests.cs` has no test for:
 - Delete ∥ Restore (either order);
@@ -43,6 +52,15 @@ The plan's table (`plan-backend.md:358-375`) narrowed the set without saying so.
 the reviewer. **Fix:** add the four tests in the CommitGate pattern of `:110`/`:126`, or narrow the NFR with the
 reason.
 
+**Resolution (fixed, with one reason recorded).** Five tests in `DeleteRestorePurgeRaceTests`, green:
+`Delete_Versus_Restore_DeleteFirst_…` and `…_RestoreFirst_…` (the second request decides on what it finds under its own lock:
+restored to the held state; deleted again holding the state the restore set), `Purge_Versus_Save_PurgeFirst_TheSaveAnswers404`,
+`Restore_Versus_Save_SaveFirst_…` and `Purge_Versus_Save_SaveFirst_…`. The CommitGate cannot hold a request that is refused:
+a save of a deleted item is refused under the lock before it writes, so it never reaches the gate. Those two "save first"
+orders are therefore pinned in sequence (the save answers 409 `…deleted`; the restore or the purge that follows finds the item
+untouched), which is all that pair can do; the reason is in the test comments and in `plan-backend.md` § 13. The NFR stands as
+written.
+
 **CR-3 · minor · frontend** — the claim of the feat-029 test at `WorkItemCard.actions.test.tsx:180`, "holds «Копировать
 ссылку» and nothing else", is one that mod-005 changes: design § 2, D-4, and `CardActions.tsx:90-97` add «Удалить» and
 «Удалить навсегда». The test still passes only because `openCard()` renders without `canDelete`. The test was neither
@@ -51,6 +69,12 @@ else — no «Удалить»") is the same stale claim, and E2E 27.5 encodes i
 without `workitems.workitem.delete`" with a `// mod-005 D-4` note, and add a P-10 note to feat-029's `status.md`
 like the five notes this diff left in other features (feat-029 got none).
 
+**Resolution (fixed).** The test is renamed "holds «Копировать ссылку» and nothing else for a reader without
+workitems.workitem.delete, and …" with a `// mod-005 D-4` comment (`WorkItemCard.actions.test.tsx`; the body is unchanged,
+`openCard()` renders without `canDelete`). `docs/features/feat-029-work-item-card-reference/status.md` has a P-10 note at the
+top of its Log: US-5's scenario and BR-C-11 now hold for a reader only. The story file and E2E 27.5 are not edited (a merged
+story is amended by the note; E2E has the standing NO and is listed in H-2). Vitest of the file was run (see the report).
+
 **CR-4 · minor · backend** — ADR-0030:79 says that outside `Infrastructure/WorkItems/` nothing writes `work_items` by
 raw SQL, "`ExecuteUpdate`/`ExecuteDelete` or `Remove`". The write rule's patterns
 (`WorkItemAccessRules.cs:53-58`) cover only raw `UPDATE`/`DELETE`/`INSERT` text. So
@@ -58,10 +82,25 @@ raw SQL, "`ExecuteUpdate`/`ExecuteDelete` or `Remove`". The write rule's pattern
 today: the only `ExecuteDelete` is `UserDirectory/DirectorySnapshotStore.cs:43`. **Fix:** add the two shapes to
 `WritePatterns` with a `RulesAreNotVacuous` sample each. The ADR is accepted and stays as it is.
 
+**Resolution (fixed).** `WorkItemAccessRules.WritePatterns` gains "bulk update or delete of work items" (an
+`ExecuteUpdate`/`ExecuteDelete` in the same statement as a `WorkItemSets.Live|Deleted|InAnyState(` call, the context's
+`WorkItems` set or `Set<WorkItem>()`) and "tracked remove through the context" (`…context.Remove(` / `RemoveRange(`; the
+entity cannot be told by text, so it is flagged for any entity outside `Infrastructure/WorkItems/`, and the other slices
+remove through their own set, `context.Areas.Remove`). `Work_item_access_rules_are_not_vacuous` has a flagged sample of each
+shape and of each variant, and samples that must not be flagged (another entity's bulk write, `context.Areas.Remove`, a read
+followed by another statement's bulk write, the sub-slice itself). The real sources have no violation. Ran
+`Mustask.Architecture.Tests` (`WorkItemAccessRules`, 3 of 3). The ADR stays as it is.
+
 **CR-5 · minor · backend** — the doc comment at `Mustask.Domain/WorkItems/WorkItemTypeStates.cs:50-52` says
 `RemovedStateIds` is the list "that `IsRemoved`, `Allows` and `HierarchyTypes.IsDeleted` all read". But `IsRemoved`
 (`:76-77`) re-filters `States` itself, and `Allows` goes through `IsRemoved`. The two are equal today, and the parity
 test would catch a divergence. **Fix:** `IsRemoved(id) => RemovedStateIds.Contains(id)`, or reword the comment.
+
+**Resolution (fixed).** `RemovedStateIds` and `IsRemoved` now share one private predicate, `InRemovedCategory`, so they
+cannot disagree (not `RemovedStateIds.Contains`, which would build a list on every call of a method the hot paths use). The
+doc comment says what each reads: `Allows` through `IsRemoved`; `HierarchyTypes.IsDeleted` the list. The new theory
+`WorkItemTypeStatesTests.RemovedStateIds_AndIsRemoved_AreOneDefinition_ForEveryState` pins them equal for a type with none,
+one and two Removed states, and for a stranger id. Ran `WorkItemTypeStatesTests` (8 of 8).
 
 ### Checked, no finding
 
@@ -116,6 +155,14 @@ test would catch a divergence. **Fix:** `IsRemoved(id) => RemovedStateIds.Contai
   - Recommendation: queue one E2E line for both specs when E2E resumes.
 - **Owed:** the project–team unlink test on a deleted item (BR-DR-9, `Unlink_ReassignsADeletedItemToo_StillDeleted`).
   It belongs to whichever of mod-005 and feat-028 merges second.
+
+**Resolution of the "For the human" items.** All three are unchanged on purpose.
+- **H-1: left, option A (keep), for the human.** The orchestrator's rule is to go on with the recommended option; nothing
+  was built for B. If the human picks B, the change is one mark in `lib/deletion.ts` and its test.
+- **H-2: left.** E2E has the standing NO (2026-10-12): nothing was run or edited. The two specs that break are 27.5 and 27.9
+  (and the stale comments of 22-27); the feat-029 note of CR-3 records 27.5's premise. One E2E queue line for both is the
+  orchestrator's call when E2E resumes.
+- **Owed (BR-DR-9): left.** feat-028 is not in main; the unlink test belongs to whichever merges second.
 
 ### Behavioural claims pass
 

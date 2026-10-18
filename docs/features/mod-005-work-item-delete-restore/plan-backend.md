@@ -249,7 +249,7 @@ back where it stood unless a reorder dropped its place (BR-DR-10, ADR-0030 rule 
     e  teamPlaces.DropForItemAsync(item.Id)                              -- before the delete: the place's SQL-only owner key
     f  ReleaseChildrenAsync(projectId, item.Id, now)                     -- UPDATE parent_id = NULL, changed_at = now WHERE parent_id = :id
     g  RemoveAsync(item) + SaveChanges                                   -- the project place goes by its cascading key
- 6  after the commit, never inside: one log line (user, organization, project, identifier; no title)
+ 6  after the commit, never inside: one log line (user, organization, project, identifier; no title; and, since § 13, the deleter and the deletion's time)
  -> 204
 ```
 
@@ -692,3 +692,33 @@ The decisions D-P1..D-P9 and the contract stand as written; `api-contract.md` is
 - **Tests**: `WorkItemWorld`/fakes for the Application tests of the three handlers (`PurgeWorkItemHandlerTests` as planned, plus short `DeleteWorkItemHandlerTests` and `RestoreWorkItemHandlerTests`); `OrganizationsApi.SendAsync` takes the base `WebApplicationFactory<Program>` so the tests that register a purge step or a movable clock through `WithWebHostBuilder` use the same helper; `DeletedItemSurfaceMatrixTests` seeds one more pair (a deleted feature FD with a live story SC) because the stories backlog lists no task as a top-level row — the "children are top-level rows" row is read on a story; `WorkItemWriteInventoryTests` adds a test that its table is the route inventory's write routes; the hosted-service list of `RetentionTests` has `TelemetryHostedService` (Aspire service defaults). `CreateChildEndpointTests.Create_Replayed_…_EvenAfterTheParentWasDeleted` was re-pointed (the real Delete moves the parent's «Изменён», plan § 11); no other existing test needed a change but the helper `LinksTestData.DeleteAsync`, which is now the real route (`PutInRemovedWithNoMarksAsync` keeps the direct write).
 - **Not built here, as planned**: no recycle-bin page, no list filter (OQ-2); the E2E specs of § 9.7 are untouched.
 - **Owed**: BR-DR-9's project–team unlink test (`Unlink_ReassignsADeletedItemToo_StillDeleted`) to whichever of this line and feat-028 merges second; the `docs/backlog.md` amendments of § 11 to the orchestrator; the frontend stage (`plan-frontend.md`) with the wire shape of the contract's § 1.1.
+
+## 13. Fix round — code review round 1, QA and the security pass
+
+Each id is resolved in the file that raised it (`review-code.md`, `qa.md`, `review-security.md`, under "Resolution"). What
+changed in the backend, and the two **contract notes** this round owes (the frontend stage is done; neither touches a
+shape or a code the panel sends or reads):
+
+- **`api-contract.md` § 0.4, § 0.2, § 2.2 — Restore's body (QA D-1).** The old sentence "None of the three reads a body
+  before step 6" was false for Restore: the optional JSON body is bound by the framework before the handler, as every JSON
+  body of the platform is (mod-017 § 0.2). The contract now says so: after the scoped check, before the address's
+  not-founds, a body that is not JSON of `{ "stateId": <string or null> }` answers 400 `http.bad_request` (415
+  `http.request_failed` for a non-JSON body) and changes nothing; a well-formed body that names nothing still reaches
+  step 6 as 409 `state_not_allowed`. § 2.2 gains the 400 line. No code changed; the panel always sends a string or no body.
+  Pinned by `DeleteRestorePurgeQaTests.Restore_AMalformedBody_IsAnsweredAfterTheScopedCheck_BeforeTheAddress_AndChangesNothing`.
+- **`api-contract.md` § 2.3, `spec.md` BR-DR-15, US-6 — the purge's log line (security S-1, option A).** The one line also
+  names the deleter's Keycloak subject and the deletion's time, read from the marks under the purge's lock before the row
+  goes (both `null` for an item with no marks). Not a wire change. Pinned by `PurgeWorkItemHandlerTests` and
+  `PurgeWorkItemEndpointTests.Purge_TheLogLineNamesWhoDeletedTheItemAndWhen_NotOnlyWhoPurged`.
+- **Races (CR-2).** § 8.2's table is now fully tested for the four named pairs: Delete ∥ Restore in both orders; Purge ∥
+  Save of the item itself (the purge first: the save answers 404); Restore ∥ Save and Purge ∥ Save with the save first.
+  A save of a deleted item is refused under the item's lock before it writes, so it never reaches a commit gate and cannot
+  be held there: those two orders are pinned in sequence (the save answers 409 `…deleted`, the restore or the purge that
+  follows finds the item as it was), and that is the whole of what the pair can do.
+- **Writers rule (CR-4).** `WorkItemAccessRules` also flags `ExecuteUpdate`/`ExecuteDelete` over a work-item query and a
+  `Remove`/`RemoveRange` straight on the context, outside `Infrastructure/WorkItems/`; `RulesAreNotVacuous` has a sample of
+  each shape and of what must not be flagged.
+- **`WorkItemTypeStates` (CR-5).** `RemovedStateIds` and `IsRemoved` share one private predicate; the doc comment says what
+  each reads; `RemovedStateIds_AndIsRemoved_AreOneDefinition_ForEveryState` pins them equal.
+- **Prose (CR-1).** `docs/conventions/backend.md` no longer says that no source but `WorkItemSets` names the set or that a
+  missing inventory row fails "the build"; it says what the rule sees and that the inventory is an integration test.

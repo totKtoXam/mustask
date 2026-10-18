@@ -36,6 +36,8 @@ Where: `PurgeWorkItemHandler.cs:123`, BR-DR-15, api-contract § 2.3.
 Problem: until feat-015, the deletion marks (`deleted_by`, `deleted_at`) are the product's only attribution of a deletion (OQ-3 A). The purge removes them with the row, and the log line names only the administrator who purged. So for a purged item no trace says who deleted it. This is within what the human accepted, but it costs nothing to keep. The value is a Keycloak subject and a time, which is not content.
 Fix (recommended, A): add `{DeletedBy}` and `{DeletedAt}` of the item read under the lock to the same log line, and add "the deleter and the deletion's time" to BR-DR-15's field list and to § 2.3's sentence. (B) Keep it as it is until release 2's audit log. I proceed with A as the recommendation. It is a debt for the orchestrator to queue or fold into a major's fix, not a round.
 
+**Resolution (fixed, option A taken; for the human to confirm).** `PurgeWorkItemHandler` reads `DeletedBy` and `DeletedAt` of the tracked item under the purge's locks, before `Remove`, and the one log line (after the commit) now reads "Work item {Identifier} purged by {UserId} in project {ProjectId} of organization {OrganizationId}, deleted by {DeletedBy} at {DeletedAt:O}." Both are `null` for an item put in «Удалена» with no marks; the line is still written once. BR-DR-15 (`spec.md`), US-6's scenario and `api-contract.md` § 2.3 name the two fields; `plan-backend.md` § 13 carries the contract note. The values are a Keycloak subject and a time, never the title or content. Pinned by `PurgeWorkItemHandlerTests.Handle_TheLogLineNamesTheDeleterAndTheDeletionTime_NotOnlyThePurger`, `PurgeWorkItemEndpointTests.Purge_TheLogLineNamesWhoDeletedTheItemAndWhen_NotOnlyWhoPurged` (a member deletes, the administrator purges) and `Purge_AnItemWithNoMarks_Is204_AndLogsOneLine`. If the human prefers B, revert the handler's last statement and those three lines of prose.
+
 ### Accepted residual risk (decided by the human, not findings)
 
 - **Restore leaves no attribution.** A delete followed by a restore leaves no trace (OQ-3 A, accepted in so many words in spec OQ-3).
@@ -54,3 +56,8 @@ Fix (recommended, A): add `{DeletedBy}` and `{DeletedAt}` of the item read under
 ### Outside this lens (for the general round; not counted here)
 
 - `RestoreWorkItemRequest?` is bound by the framework. A holder of the code who sends malformed JSON therefore gets the framework's 400 before the path's 404s, while api-contract § 0.4 says "None of the three reads a body before step 6". This is not a disclosure: the caller is already a member with the code, and the answer is the same whatever the path. It is a conformance question.
+
+**Resolution (fixed in the contract; same as QA D-1).** `api-contract.md` § 0.4, § 0.2 and § 2.2 now say that Restore's optional
+body is bound by the framework after the scoped check and before the address's not-founds, and what each malformed shape
+answers. No code changed. `DeleteRestorePurgeQaTests.Restore_AMalformedBody_IsAnsweredAfterTheScopedCheck_BeforeTheAddress_AndChangesNothing`
+pins it, including that a reader gets 403 and a non-member 404 before the body is read.

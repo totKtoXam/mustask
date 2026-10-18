@@ -102,13 +102,15 @@ None is a blocker or a major. Both are minor and go to gate-3 as debts.
 - Severity: minor · Layer: docs (the contract wording), or backend if the contract stands
 - Steps: `POST …/workitems/MSK-TASK-999/restore` with the body `{ not json` or `{"stateId":5}`; the same on a live item.
 - Expected / Actual: api-contract § 0.4 says "None of the three reads a body before step 6" and § 0.2 says a value in another form names nothing (409 `state_not_allowed` for a bad `stateId`). Actual: 400 `http.bad_request` (415 `http.request_failed` for a non-JSON body) for an unknown item as well as a live one, before any not-found. No data changes. It is the platform's uniform malformed-request answer; the cheapest fix is to say so in § 0.4 and § 2.2.
-- Status: open
+- Status: fixed (contract wording)
+- Resolution: `api-contract.md` § 0.4, § 0.2 and § 2.2 now say that Restore's optional body is bound by the framework after the scoped check and before the address's not-founds (400 `http.bad_request`; 415 `http.request_failed` for a non-JSON body; a well-formed body naming nothing still reaches 409 `state_not_allowed`); Delete and Purge never read a body. No code changed (the panel sends a string or nothing); note in `plan-backend.md` § 13. Pinned by `DeleteRestorePurgeQaTests.Restore_AMalformedBody_IsAnsweredAfterTheScopedCheck_BeforeTheAddress_AndChangesNothing` (viewer 403 and non-member 404 before the body; unknown, live and deleted item 400/415; the 404 and 409s of a well-formed body; the item stays deleted).
 
 #### D-2: an unknown deleter reads «Неизвестный пользователь» with no «(неактивен)»
 - Severity: minor · Layer: design · **for the human**; recommended: keep (A)
 - Steps: delete as a member the directory never knew, open the deleted card.
 - Expected / Actual: the contract flags the user `isActive: false`; design § 4 says "a user who is inactive … gets the mark" but also takes the name from the «Исполнитель» rule, which has no mark for an inactive or unknown user (`assigneeLabel`: "No mark for an inactive user"). The code follows the assignee rule (`userNameWithMarks`; the developer flagged it in the Log). Options: (A) keep, the name already says what is known; (B) add «(неактивен)» for the unknown too.
-- Status: open (decision)
+- Status: left, option A (keep), for the human
+- Resolution: nothing built; the orchestrator's rule is to go on with the recommended option. If the human picks B, the change is one mark in `lib/deletion.ts` (`userNameWithMarks`) and its test.
 
 ## Carried, not defects
 
