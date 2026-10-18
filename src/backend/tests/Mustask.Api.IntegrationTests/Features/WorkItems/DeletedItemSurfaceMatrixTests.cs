@@ -18,11 +18,12 @@ namespace Mustask.Api.IntegrationTests.Features.WorkItems;
 [Collection(MustaskApiCollection.Name)]
 public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
 {
-    private sealed record Matrix(BoardsWorld World, Item S, Item D, Item C, Item DC, Item L, Item FD, Item SC);
+    private sealed record Matrix(BoardsWorld World, Item S, Item D, Item C, Item DC, Item L, Item FD, Item SC, string DeletedAssignee);
 
     /// <summary>
     /// S (story) with L and D (tasks) beneath it, D with C and DC beneath it; D and DC deleted. A deleted feature FD with a live
-    /// story SC beneath it, for the tree's top-level rows. All in «Платформа».
+    /// story SC beneath it, for the tree's top-level rows. All in «Платформа». DC was assigned to a member before it was deleted,
+    /// who holds no live item: the «Исполнитель» options (feat-003) offer him only while a chosen state reaches the bin.
     /// </summary>
     private async Task<Matrix> SeedAsync()
     {
@@ -39,11 +40,17 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
         await LinksTestData.LinkAsync(factory, world.Items, d, s);
         await LinksTestData.LinkAsync(factory, world.Items, c, d);
         await LinksTestData.LinkAsync(factory, world.Items, dc, d);
+
+        var assignee = await WorkItemsTestData.AddMemberAsync(factory, world.Items, "Дарья", "Удалённая", "daria@matrix.test");
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await WorkItemsTestData.SaveAsync(factory, world.Items, dc.Identifier, new { assignee = new { userId = assignee } })).Status);
+
         await LinksTestData.DeleteAsync(factory, world.Items, dc);
         await LinksTestData.DeleteAsync(factory, world.Items, d);
         await LinksTestData.DeleteAsync(factory, world.Items, fd);
 
-        return new Matrix(world, s, d, c, dc, l, fd, sc);
+        return new Matrix(world, s, d, c, dc, l, fd, sc, assignee);
     }
 
     private static string[] Identifiers(IEnumerable<JsonElement> rows) =>
@@ -63,6 +70,23 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
         var listed = list.Body.GetProperty("data").EnumerateArray().Select(row => row.GetProperty("identifier").GetString()!).ToArray();
         Assert.Equal(new[] { m.S, m.L, m.C, m.SC }.Select(item => item.Identifier).Order(StringComparer.Ordinal), listed.Order(StringComparer.Ordinal));
         Assert.Equal(4, list.Body.GetProperty("count").GetInt32());
+
+        // Row 1 (feat-003 BR-WS-4, ADR-0030 rule 2) · only a state filter reaches the deleted items, and only by the chosen name:
+        // «Удалена» lists the three of them, not the live ones; a live state's name lists none of them; a name no state bears lists nothing.
+        var bin = await WorkItemsTestData.ListAsync(factory, world.Items, "?state=" + Uri.EscapeDataString("Удалена"));
+        Assert.Equal(new[] { m.D, m.DC, m.FD }.Select(item => item.Identifier).Order(StringComparer.Ordinal), Identifiers(bin.Body.GetProperty("data").EnumerateArray()).Order(StringComparer.Ordinal));
+        Assert.Equal(3, bin.Body.GetProperty("count").GetInt32());
+        var live = await WorkItemsTestData.ListAsync(factory, world.Items, "?state=" + Uri.EscapeDataString("Новая"));
+        Assert.Equal(new[] { m.S, m.L, m.C, m.SC }.Select(item => item.Identifier).Order(StringComparer.Ordinal), Identifiers(live.Body.GetProperty("data").EnumerateArray()).Order(StringComparer.Ordinal));
+        Assert.Equal(0, (await WorkItemsTestData.ListAsync(factory, world.Items, "?state=" + Uri.EscapeDataString("удалена"))).Body.GetProperty("count").GetInt32());
+
+        // Row 1 (feat-003 BR-WS-6) · the «Исполнитель» options read the same sets: the person of the deleted DC is offered while a chosen
+        // state reaches the bin, and not otherwise.
+        var optionsPath = WorkItemsTestData.List(world.Items) + "/assignee-options";
+        var withoutBin = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, optionsPath, token: OrganizationsTokens.SignedIn());
+        var withBin = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, optionsPath + "?state=" + Uri.EscapeDataString("Удалена"), token: OrganizationsTokens.SignedIn());
+        Assert.Equal(0, withoutBin.Body.GetArrayLength());
+        Assert.Equal([m.DeletedAssignee], withBin.Body.EnumerateArray().Select(option => option.GetProperty("id").GetString()));
 
         // Row 2 · the card by address: read in full, with its deletion, whoever asks to read.
         foreach (var gone in new[] { m.D, m.DC, m.FD })
@@ -238,8 +262,14 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
         /// <summary>Reads no work item: a container, a team, its people, the process, a list of candidates.</summary>
         NoWorkItem,
 
-        /// <summary>Reads the items outside «Удалена» only (the list, the pickers, the backlogs and boards): the rows above.</summary>
+        /// <summary>Reads the items outside «Удалена» only (the pickers, the backlogs and boards): the rows above.</summary>
         LiveOnly,
+
+        /// <summary>
+        /// Reads the items outside «Удалена», and the deleted ones whose state's name a <c>state</c> parameter chooses (feat-003 BR-WS-4,
+        /// BR-WS-6): the project's list and the «Исполнитель» options. Without a <c>state</c> it is <see cref="LiveOnly"/>.
+        /// </summary>
+        LiveOrChosenDeleted,
 
         /// <summary>Reads an item whatever its state (the card by address).</summary>
         AnyState,
@@ -256,7 +286,8 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
     private static readonly IReadOnlyDictionary<string, Reads> ReadRoutes = new Dictionary<string, Reads>(StringComparer.Ordinal)
     {
         // The reads that touch work items: each is asserted in the block of the same name above.
-        ["GET " + Project + "/workitems"] = Reads.LiveOnly,
+        ["GET " + Project + "/workitems"] = Reads.LiveOrChosenDeleted,
+        ["GET " + Project + "/workitems/assignee-options"] = Reads.LiveOrChosenDeleted,
         ["GET " + Project + "/workitems/{identifier}"] = Reads.AnyState,
         ["GET " + Project + "/workitems/{identifier}/parent-candidates"] = Reads.LiveOnly,
         ["GET " + ProjectTeam + "/backlogs/{level}"] = Reads.LiveOnly,
@@ -302,5 +333,10 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
         Assert.Equal(
             ["GET " + ProjectTeam + "/unlink-count", "GET " + OrgTeam + "/deletion-counts"],
             ReadRoutes.Where(read => read.Value == Reads.CountsOwnedInAnyState).Select(read => read.Key).Order(StringComparer.Ordinal));
+
+        // feat-003: the two reads that can reach the bin by a chosen state are exactly these, and each has a block in the matrix.
+        Assert.Equal(
+            ["GET " + Project + "/workitems", "GET " + Project + "/workitems/assignee-options"],
+            ReadRoutes.Where(read => read.Value == Reads.LiveOrChosenDeleted).Select(read => read.Key).Order(StringComparer.Ordinal));
     }
 }

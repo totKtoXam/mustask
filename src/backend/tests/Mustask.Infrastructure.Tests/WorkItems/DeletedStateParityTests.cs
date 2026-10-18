@@ -112,6 +112,58 @@ public sealed class DeletedStateParityTests(OrganizationsDatabaseFixture databas
         Assert.Equal(world.Live.ToHashSet(), seen.ToHashSet());
     }
 
+    // feat-003 BR-WS-4 (ADR-0030 rule 2): the list under a state filter reaches the deleted items by the chosen name, over the item in
+    // every state of every type — «Удалена» lists exactly the in-memory definition's deleted items, the other states' names exactly
+    // the live ones, every name together all of them; every page holds an item once.
+    [Fact]
+    public async Task List_UnderAStateFilter_IsTheItemsOfTheChosenNames_DeletedOnesIncluded_OnEveryPage()
+    {
+        var world = await SeedAsync();
+        var states = world.Process.WorkItemTypes.SelectMany(type => type.States).ToList();
+        var removedNames = states.Where(state => state.Category == StateCategory.Removed).Select(state => state.Name).Distinct().ToList();
+        var liveNames = states.Where(state => state.Category != StateCategory.Removed).Select(state => state.Name).Distinct().ToList();
+
+        Assert.NotEmpty(removedNames);
+        Assert.NotEmpty(liveNames);
+        Assert.Empty(removedNames.Intersect(liveNames));
+
+        Assert.Equal(world.Deleted.ToHashSet(), await ListedAsync(world, removedNames));
+        Assert.Equal(world.Live.ToHashSet(), await ListedAsync(world, liveNames));
+        Assert.Equal(world.All.ToHashSet(), await ListedAsync(world, removedNames.Concat(liveNames).ToList()));
+        Assert.Empty(await ListedAsync(world, ["no such state"]));
+    }
+
+    // feat-003 BR-WS-6: the «Исполнитель» options read the same sets — the people of the live items, and those of the deleted items
+    // only while a chosen name is a Removed state's.
+    [Fact]
+    public async Task AssigneeOptions_AreThePeopleOfTheLiveItems_AndOfTheDeletedOnesWhenTheirStateIsChosen()
+    {
+        var world = await SeedAsync();
+        var removedName = world.Process.WorkItemTypes.SelectMany(type => type.States).First(state => state.Category == StateCategory.Removed).Name;
+        var liveName = world.Process.WorkItemTypes.SelectMany(type => type.States).First(state => state.Category != StateCategory.Removed).Name;
+
+        await database.ExecuteAsync(
+            "UPDATE work_items SET assignee_id = 'parity-live' WHERE project_id = @project AND id = ANY(@ids)",
+            ("project", world.ProjectId),
+            ("ids", world.Live.ToArray()));
+        await database.ExecuteAsync(
+            "UPDATE work_items SET assignee_id = 'parity-deleted' WHERE project_id = @project AND id = ANY(@ids)",
+            ("project", world.ProjectId),
+            ("ids", world.Deleted.ToArray()));
+
+        await using var scope = Services().CreateAsyncScope();
+        var readModel = scope.ServiceProvider.GetRequiredService<IWorkItemReadModel>();
+
+        async Task<string[]> Offered(params string[] names) =>
+            (await readModel.GetAssigneeOptionsAsync(world.ProjectId, names, CancellationToken.None)).Select(option => option.Id).Order(StringComparer.Ordinal).ToArray();
+
+        Assert.Equal(["parity-live"], await Offered());
+        Assert.Equal(["parity-live"], await Offered(liveName));
+        Assert.Equal(["parity-deleted", "parity-live"], await Offered(removedName));
+        Assert.Equal(["parity-deleted", "parity-live"], await Offered(liveName, removedName));
+        Assert.Equal(["parity-live"], await Offered("no such state"));
+    }
+
     [Fact]
     public async Task ParentCandidates_AreTheLiveItems()
     {
@@ -226,6 +278,34 @@ public sealed class DeletedStateParityTests(OrganizationsDatabaseFixture databas
         services.AddBoardsInfrastructure();
 
         return services.BuildServiceProvider();
+    }
+
+    /// <summary>The ids the list answers for a state filter of <paramref name="names"/>, page by page; fails when an item repeats or the count lies.</summary>
+    private async Task<HashSet<Guid>> ListedAsync(World world, IReadOnlyCollection<string> names)
+    {
+        await using var scope = Services().CreateAsyncScope();
+        var readModel = scope.ServiceProvider.GetRequiredService<IWorkItemReadModel>();
+        var filter = WorkItemFilter.Of("PRM", null, names, null, null);
+        var seen = new List<Guid>();
+        var count = 0;
+
+        for (var page = 1; page <= 30; page++)
+        {
+            var answer = await readModel.GetPageAsync(world.ProjectId, page, 7, filter, CancellationToken.None);
+
+            count = answer.Count;
+            seen.AddRange(answer.Items.Select(item => item.Id));
+
+            if (answer.Items.Count == 0)
+            {
+                break;
+            }
+        }
+
+        Assert.Equal(count, seen.Count);
+        Assert.Equal(seen.Count, seen.Distinct().Count());
+
+        return seen.ToHashSet();
     }
 
     private static async Task<HashSet<Guid>> Ids(IQueryable<WorkItem> items, Guid projectId)
