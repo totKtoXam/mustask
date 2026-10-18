@@ -273,7 +273,8 @@ from it for every code that reads or writes work items:
 - **Reads choose an entry point.** `Mustask.Infrastructure/WorkItems/WorkItemSets`
   offers `Live` (the default: lists, pickers, children, checklists, counts),
   `Deleted` (a filter that names «Удалена») and `InAnyState` (the card by
-  address, a team's owned count, Restore, Purge, the clean-ups, the locks).
+  address, a team's owned counts — the unlink's and the deletion's —, Restore,
+  Purge, the clean-ups, the locks).
   Outside `WorkItemSets`, only the two backlog memberships name the context's
   `WorkItems` set (each pinned by `DeletedStateParityTests`), and
   `WorkItemAccessRules` checks that by the set's name, which is a text rule

@@ -300,7 +300,7 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
             ["GET " + Project + "/workitems/{identifier}"],
             ReadRoutes.Where(read => read.Value == Reads.AnyState).Select(read => read.Key));
         Assert.Equal(
-            ["GET " + OrgTeam + "/deletion-counts", "GET " + ProjectTeam + "/unlink-count"],
+            ["GET " + ProjectTeam + "/unlink-count", "GET " + OrgTeam + "/deletion-counts"],
             ReadRoutes.Where(read => read.Value == Reads.CountsOwnedInAnyState).Select(read => read.Key).Order(StringComparer.Ordinal));
     }
 }

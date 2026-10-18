@@ -251,7 +251,10 @@ locked in **one statement ordered by id** (the `ORDER BY` is applied before the 
 
 Step 4 (sprints) is `mod-007-iterations`'s and sits between 3 and 5. The project row is **never taken before a team or a link
 row**: a default naming holds a link and then the project row, an unlink and a deletion hold links and items and then the project
-row (to clear a setting), a deactivation holds the project row alone.
+row (to clear a setting), a deactivation holds the project row alone. **Amended at the mod-005 merge (its `plan-backend.md` § 14):** the project row
+sits between the links and the items, not after the items — an unlink and a deletion clear the setting before they lock the owned items, because a
+project backlog's reorder holds the project row `FOR SHARE` and then its members, and a project row asked for after the items closed a cycle with it
+(`40P01`). The statements are the same; only the order of two moved.
 
 ### 7.2 Sequences
 
@@ -269,6 +272,9 @@ row (to clear a setting), a deactivation holds the project row alone.
 | `SaveWorkItem`, `CreateWorkItem` | as mod-017 § 7.2 with the team lock replaced: an explicit non-null team takes **`LockTeamLinkAsync(org, P, T)`** before the item and the number; a creation that may default takes **`LockProjectLinksAsync`** (D-4) before the number; «Без команды» takes nothing. The decision is a fresh `FindProjectTeamAsync` (the team's status and organization) and `EnsureBindable`, with *linked* = **what the lock statement returned** (A-9): a link committed after the lock is held by nobody and is 409 `not_in_project`, and for a creation that defaults it is never the default. |
 | Team reorder | address (the team must be **linked** and reachable: `FindProjectTeamAsync`, else 404) → team `FOR SHARE`, Active → **link `(P, T)` `FOR SHARE`, present** → members `FOR KEY SHARE` → order row `FOR UPDATE` → the locking read → stale check → drop the departed places of this project and upsert. |
 | Reads, project reorder | unchanged. |
+
+*Amended at the mod-005 merge (§ 7.1): in `UnlinkTeam` and `DeleteTeam` the `ClearDefaultTeamAsync` step comes right after the links are held and before
+`LockOwned…`; the rest of each sequence is as written above.*
 
 ### 7.3 The races, and why each ends in one order
 

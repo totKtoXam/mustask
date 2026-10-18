@@ -195,7 +195,8 @@ Replaces "every item of the project in every state (BR-M3-29)": `GET …/workite
 rows a page are unchanged. There is no parameter that lists deleted items in this line (spec OQ-2): feat-003's «Удалена»
 filter is the way in. The same set — live items only — is what the team and project backlogs and boards, the backlog tree,
 the parent picker, «Дочерние элементы» and a board card's checklist already return (mod-006, feat-001, feat-027, feat-032,
-feat-039); a team's owned-items count (mod-017 § 2.9) and the area deletion guard (mod-003 § 6) count **every** state.
+feat-039); a team's owned-items counts — the unlink's count and the deletion's counts (feat-028 § 1.5, which replaced mod-017
+§ 2.9) — and the area deletion guard (mod-003 § 6) count **every** state.
 
 ### 3.3 mod-003 § 2.3 / feat-001 § 3.1 — the read gains `deletion`
 
@@ -238,7 +239,9 @@ does (plan § 7.5): it cannot fail with a server error when a member is deleted 
 
 A team's deletion releases the items it owns **in any state** (BR-OT-12): a deleted item becomes «Без команды» and stays
 deleted, `changedAt` takes the deletion of the team, `deletion` is untouched (BR-DR-9). The same holds for feat-028's
-project–team unlink, whose test is owed by the later-merging of the two lines.
+project–team unlink (`POST …/projects/{projectId}/teams/{teamId}/unlink`), tested at the merge
+(`Unlink_ReassignsADeletedItemToo_StillDeleted`): the item goes to the destination (a team, or «Без команды»), stays deleted with
+its state and its three marks as they were, and a Restore afterwards brings it back owned by that destination (BR-DR-10).
 
 ### 3.8 mod-016 § 4.2 and ADR-0029 § 4 — the codes and the inventory
 
@@ -276,7 +279,8 @@ Reused, unchanged: `workitems.workitem.not_found`, `workitems.workitem.state_not
 | POST | `/api/organizations/{organizationId}/projects/{projectId}/workitems/{identifier}/purge` | `workitems.workitem.purge` | US-6 |
 
 Changed routes (§ 3): `GET …/workitems` (US-2), `GET …/workitems/{identifier}` (US-2, US-3), `PATCH …/workitems/{identifier}`
-(US-3). The route inventory (`OrganizationAddressedRoutes`) goes from 47 to 50 rows, the three after the item routes.
+(US-3). The route inventory (`OrganizationAddressedRoutes`) gains three rows, after the item routes: 47 → 50 on the base of this
+line, 56 → 59 with feat-028 merged (plan-backend § 14).
 
 ## 6. Storage and migration (ADR-0030 rule 1)
 

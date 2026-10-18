@@ -23,12 +23,14 @@ The light route (the human's choice of 2026-10-18): analysis → one requirement
 - E2E = NO: the standing answer since 2026-10-12; not asked, not run.
 - Light route: the human's choice of 2026-10-18.
 - 2026-10-18, the human in chat: spec OQ-1 A (Участник and Администратор delete and restore, only the administrator purges), OQ-2 A (no recycle-bin page and no list filter; feat-003 brings the «Удалена» filter), OQ-3 A (the item keeps who, when and the held state; history entries come with feat-015), OQ-4 A (a plain destructive dialog, no typing); design D-1..D-6 A; ADR-0030 accepted with D-1..D-3 A.
-- feat-028 (teams of the organization) is in flight and not in main: this line builds on main as it is; BR-DR-9's project–team unlink test is owed by whichever of the two merges second.
+- feat-028 (teams of the organization) was in flight and not in main when this line was built; BR-DR-9's project–team unlink test was owed by whichever of the two merges second. feat-028 merged first (PR #17); this branch took it on 2026-10-18 and wrote the test (plan-backend § 14).
 - 2026-10-18 tech-012 m1 is closed by this line (the stored state is judged by `WorkItem.EnsureLive` before any value is applied, `DeletedItemIsReadOnlyEndpointTests.Patch_ADeletedItem_LiveStateAndAParent_Is409Deleted_NoLinkNoChangedAtMoves`); its queue line keeps m4 only — the orchestrator amends `docs/backlog.md`.
 - 2026-10-18 taken as the recommended option A, for the human to confirm at gate-3: H-1/QA D-2 (an unknown deleter shows no «(неактивен)») and S-1 (the purge log line names the deleter and the deletion's time).
 
 ## Log
 
+- 2026-10-18 [backend-developer] found, not fixed, main's own: a save that moves a link × an unlink or a team deletion can deadlock (40P01), reproduced; plan-backend § 14.3 "Carried"; a bug line is for the orchestrator
+- 2026-10-18 [backend-developer] merge of origin/main (feat-028): 23 codes, 59 routes; unlink/deletion clear the default before the items (40P01 against the project reorder); unlink test written; contract wording only (§ 3.2, 3.7, 5), no wire change; plan-backend § 14
 - 2026-10-18 [task-executor] wrap: `BASE=ce7f055b bash scripts/verify.sh` RESULT green (backend 2491 passed, frontend 2149 + 590 guards). The earlier red was ProjectBacklogVolumeTests under load: green 4 of 4 alone, reorders ~245 ms of 1000.
 - 2026-10-18 [task-executor] left open, none blocks: H-1/D-2 and S-1 (taken as A, for the human); H-2 E2E 27.5 and 27.9 break, not run or edited (standing NO); BR-DR-9 unlink test owed to the second of mod-005 / feat-028; minor CR-6 (docs wording)
 - 2026-10-18 [code-reviewer] delta read 1 (b5d50744): approve; CR-1 resolved; 0 blocker, 0 major open; one new minor CR-6 (backend.md raw-read wording, a repository comment), a debt

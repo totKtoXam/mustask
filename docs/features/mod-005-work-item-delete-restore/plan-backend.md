@@ -151,7 +151,8 @@ All three are organization-addressed, behind `RequiresOrganizationPermission`, t
 
 - `OrganizationAddressedRoutes.All` gets three rows **right after the item routes** (the mod-003 block), not at the end:
   `Memberships => All.Skip(All.Count - 10)` takes the last ten rows. The count in
-  `TheScopedRoutes_AreExactlyTheListedOnes…` goes 47 → 50 (49 at the commit of Restore, 48 at Delete).
+  `TheScopedRoutes_AreExactlyTheListedOnes…` goes 47 → 50 (49 at the commit of Restore, 48 at Delete); with feat-028 merged
+  it is 56 → 59 (§ 14.1).
 - Each code arrives **with its first route in the same commit**: `EveryOrganizationCode_IsDeclaredByAtLeastOneRoute`
   fails for a code with no route.
 - `WorkItemsOpenApiTests.ContractOperations` gets the three operations.
@@ -623,7 +624,7 @@ dropped. What changes:
 |---|---|---|
 | `LinksTestData.DeleteAsync` (24 call sites in 14 files: `BacklogTreeEndpointTests`, `BoardChecklistsEndpointTests`, `CreateChildEndpointTests`, `GetProjectBacklogEndpointTests`, `OwnedViewsEndpointTests`, `ProjectBoardsQaTests`, `ReorderProjectBacklogEndpointTests`, `GetTeamOwnedItemCountEndpointTests`, `GetParentCandidatesEndpointTests`, `GetWorkItemLinksEndpointTests`, `HierarchyDepthEndpointTests`, `SaveWorkItemParentEndpointTests`, `SetWorkItemParentEndpointTests`, and `DeleteOwnedItemsEndpointTests`) | **re-pointed** from `UPDATE work_items SET state_id` to the real `POST …/delete` as the organization's administrator; no call site's text changes | BR-DR-18, feat-001 D-8 OQ-1 |
 | new `LinksTestData.PutInRemovedWithNoMarksAsync` | the old direct write, kept for the tests of an item with no marks (the restore of an unmarked item; `BoardChecklistsQaTests.Get_ARemovedTestCase_IsNotInTheChecklist`, which changes the type in the same statement) | BR-DR-10, BR-DR-18 |
-| `OrganizationAccessInventoryTests.TheScopedRoutes_AreExactlyTheListedOnes_EachWithItsListedCode` | `Assert.Equal(47, …)` → 50 | mod-016 BR-M1-33 |
+| `OrganizationAccessInventoryTests.TheScopedRoutes_AreExactlyTheListedOnes_EachWithItsListedCode` | `Assert.Equal(47, …)` → 50 (59 with feat-028, § 14.1) | mod-016 BR-M1-33 |
 | `WorkItemsOpenApiTests.OpenApiDocument_WorkItemsOperations_AreExactlyTheContracts` | three operations added | the contract |
 | `PermissionCatalogTests`, `OrganizationRoleBundlesTests`, `GetOrganizationAccessEndpointTests`, `GetOrganizationAccessHandlerTests`, `WorkItemsAccessEndpointTests` | the two codes and the member's and admin's lists | ADR-0030 rule 9 |
 | `ProjectBacklogStatementCountTests.ReorderStatements` | 12 → 13 | § 7.5 |
@@ -691,7 +692,7 @@ The decisions D-P1..D-P9 and the contract stand as written; `api-contract.md` is
 - **Project reorder**: `IProjectBacklogRepository.LockAsync(organizationId, scope)` refuses a scope with a team filter (`InvalidOperationException`: the reorder is of the whole backlog, the locking SQL has no filter), and the backstop is `PostgresConflictDetection.IsForeignKeyViolationOnConstraint(PostgresException, …)`, a new overload.
 - **Tests**: `WorkItemWorld`/fakes for the Application tests of the three handlers (`PurgeWorkItemHandlerTests` as planned, plus short `DeleteWorkItemHandlerTests` and `RestoreWorkItemHandlerTests`); `OrganizationsApi.SendAsync` takes the base `WebApplicationFactory<Program>` so the tests that register a purge step or a movable clock through `WithWebHostBuilder` use the same helper; `DeletedItemSurfaceMatrixTests` seeds one more pair (a deleted feature FD with a live story SC) because the stories backlog lists no task as a top-level row — the "children are top-level rows" row is read on a story; `WorkItemWriteInventoryTests` adds a test that its table is the route inventory's write routes; the hosted-service list of `RetentionTests` has `TelemetryHostedService` (Aspire service defaults). `CreateChildEndpointTests.Create_Replayed_…_EvenAfterTheParentWasDeleted` was re-pointed (the real Delete moves the parent's «Изменён», plan § 11); no other existing test needed a change but the helper `LinksTestData.DeleteAsync`, which is now the real route (`PutInRemovedWithNoMarksAsync` keeps the direct write).
 - **Not built here, as planned**: no recycle-bin page, no list filter (OQ-2); the E2E specs of § 9.7 are untouched.
-- **Owed**: BR-DR-9's project–team unlink test (`Unlink_ReassignsADeletedItemToo_StillDeleted`) to whichever of this line and feat-028 merges second; the `docs/backlog.md` amendments of § 11 to the orchestrator; the frontend stage (`plan-frontend.md`) with the wire shape of the contract's § 1.1.
+- **Owed**: BR-DR-9's project–team unlink test (`Unlink_ReassignsADeletedItemToo_StillDeleted`) to whichever of this line and feat-028 merges second — written at the merge, § 14; the `docs/backlog.md` amendments of § 11 to the orchestrator; the frontend stage (`plan-frontend.md`) with the wire shape of the contract's § 1.1.
 
 ## 13. Fix round — code review round 1, QA and the security pass
 
@@ -722,3 +723,118 @@ shape or a code the panel sends or reads):
   each reads; `RemovedStateIds_AndIsRemoved_AreOneDefinition_ForEveryState` pins them equal.
 - **Prose (CR-1).** `docs/conventions/backend.md` no longer says that no source but `WorkItemSets` names the set or that a
   missing inventory row fails "the build"; it says what the rule sees and that the inventory is an integration test.
+
+## 14. Merge with feat-028 (2026-10-18)
+
+`origin/main` (175aa1db) brought feat-028 (teams of the organization, project–team links, PR #17), tech-039 and tech-040 into this
+branch by a merge commit (no rebase). The contract of this line is unchanged in shape; three sentences of its wording moved (§ 3.2, § 3.7, § 5
+of `api-contract.md`, noted in `status.md`). This section is what the merge decided, what it broke, the lock order of the two lines
+together, and the tests it owed. The pins in §§ 9.3 and 12 did not move (14.4).
+
+### 14.1 Decided by the textual merge
+
+- **Permissions.** The catalog has **23** organization codes: mod-016's 17, feat-028's four (`organizations.team.create`, `.delete`, `.link`
+  and `organizations.project.link` — «Администратор» only until mod-019) and this line's two. «Администратор» holds 23, «Участник» 11, «Читатель» 7.
+  The matrices (`PermissionCatalogTests`, `OrganizationRoleBundlesTests`, `GetOrganizationAccessHandlerTests`) and the frontend mirror
+  (`src/test/organizationRoles.ts`; its test reads the three contracts) carry the union.
+- **Route inventory.** `OrganizationAddressedRoutes.All` has **59** rows: feat-028's 56 and the three of § 5, kept after the item routes so
+  that `Memberships` still takes the last ten. `OrganizationAccessInventoryTests` asserts 59.
+- **Notes.** The two P-10 notes this line wrote into feat-039 and mod-006 stand beside feat-028's, newest first.
+
+### 14.2 What the merge broke, and the fix
+
+| Where | What | Fix |
+|---|---|---|
+| `WorkItemAddress` | `IOrganizationStructure.FindProjectAsync` takes the organization now (feat-028 D-11) and answers null for a foreign project | the lookup is the organization check; the comparison afterwards is gone |
+| `WorkItemWorld` (Application fakes) | new members on three interfaces | implemented (`NotSupported`: Delete, Restore and Purge never reach them) |
+| three Infrastructure seeds | `NewProject.Team` is gone (a project has no team) | `SeededStructure.FirstTeam` |
+| `WorkItemTeamOwnership.CountOwnedByProjectAsync` (the deletion's counts) | read the context's set; `WorkItemAccessRules` failed | `WorkItemSets.InAnyState`: counted in any state, deleted included (the spec's row, feat-028 SC-09, doc-012 BR-MX-12) |
+| `BacklogRepository.SaveOrderAsync` (feat-028 D-13, the per-project "departed" places) | named the context's set | `InAnyState`: a deleted item's place is still a place of the backlog and a reorder drops it, as before D-13 (BR-DR-10: a restore then lands below the placed items) |
+| `WorkItemsConstraints.DeletionMarksSql` | a `const string`; `OrganizationLevelTeamsSchemaTests` reads every const of the class as a constraint or index name | `static readonly`, as the length checks are |
+| `AddWorkItemDeletionMarks.Designer.cs` | targeted the model before feat-028 | the merged snapshot (it differs from `OrganizationLevelTeams`'s model by the three columns, the key, the index and the check); `Up` and `Down` untouched |
+| `UnlinkTeamHandler`, `DeleteTeamHandler` | a lock-order cycle with the project reorder's member lock (14.3) | the setting is cleared before the items are locked |
+| tests that called `owned-items/count` and `DELETE …/projects/{p}/teams/{t}` | both routes are retired | `…/unlink-count`, `…/deletion-counts`, `DELETE …/teams/{t}` |
+
+The WorkItemSets rule (`docs/conventions/backend.md`) holds for everything feat-028 added: the unlink's count and `LockOwned`/`Reassign` run
+over any state (`InAnyState`/raw SQL that filters by project and owner alone), `DropForTeamInProject` joins `work_items` in any state,
+`DefaultTeams` reads no work item, and `WorkItemAccessRules` (reads and writes) passes. **A-9** is intact: `SaveWorkItemHandler` and
+`CreateWorkItemHandler` judge "linked" by the rows their lock statement returned (`LockTeamLinkAsync`, `LockProjectLinksAsync`); this line's
+`EnsureLive` sits after the item's lock and before `ValidateValues`, the area, the team's decision (404/409) and the parents, so BR-DR-8's order
+is address → `workitems.workitem.deleted` → body checks, and the team's link lock a save takes first of all is only a share lock (harmless on a
+refused save). A creation beneath a deleted parent keeps `workitems.link.item_deleted` from `WorkItemHierarchy.CreateChild`.
+
+### 14.3 Lock order of the two lines together (READ COMMITTED)
+
+One order, every writer taking only what it needs: **teams → links (by project id, team id) → the project row → the project's number and
+hierarchy rows → work items by id → order rows (team or project)**. The project row was the one that had no fixed place (feat-028 § 7.1 put
+it "after", the project reorder of feat-039 holds it first); the merge fixes it between the links and the items.
+
+| Writer | Locks, in order |
+|---|---|
+| Delete, Restore | the item `FOR UPDATE`; nothing else, before or after |
+| Purge | hierarchy `FOR UPDATE` → the item and its direct children, one statement `ORDER BY id FOR NO KEY UPDATE` → the item's team place → the children's `parent_id` → the item (cascading its project place) |
+| Save | the named team's link `FOR SHARE` → hierarchy (a parent) → the item `FOR UPDATE` → `EnsureLive` → the new area `FOR SHARE` → the parents `FOR NO KEY UPDATE` |
+| Unlink | the pair's links `FOR NO KEY UPDATE`, one statement by team id → the project row (only if it names the team) → the team's items in the project `FOR UPDATE` by id → their team places → the items → the link |
+| Team deletion | the team `FOR NO KEY UPDATE` → its links by project id → the project rows that name it → its items in every linked project `FOR UPDATE` by id → their places → the items → the links, memberships, status |
+| Project reorder | the project `FOR SHARE` → its members `FOR KEY SHARE` by id → the order row → the members again |
+| Team reorder | the team `FOR SHARE` → the link `FOR SHARE` → its members `FOR KEY SHARE` by id → the order row → the members again |
+
+**The pairs.** "Waits" is the second request queuing on a lock of the first; no row holds a lock that the other, in turn, waits for.
+
+| Pair | Waits on | Why it ends, in each order |
+|---|---|---|
+| Delete or Restore × Unlink or team deletion | the item's row, whoever is second | Delete and Restore hold the item's row and ask for no other row that a clean-up holds, so they cannot close a cycle. Clean-up second: it reassigns the item as the first left it (the marks and the state are the Delete's; a restored item is live). Clean-up first: the Delete/Restore finds the item owned by the destination or by nobody. Neither changes `owning_team_id`, so neither takes a key share of the link: no `23001` on the link's `DELETE`, and the place key (`23503`) is the clean-up's own, with its places dropped first |
+| Purge × Unlink or team deletion | the item rows, by id | both take their items in ascending id in **one** statement, so the lowest id they share is taken by one of them and the other waits holding only lower ids that the first does not want. The purge's hierarchy lock is not the clean-up's, and the clean-up's links and project row are not the purge's. Purge second finds the item owned by the destination or none, and removes it; purge first, the clean-up skips the row that is gone |
+| Save × Unlink or team deletion | the link (a save that names a team), else the item row | a save holds its link `FOR SHARE` before it takes the item, so the clean-up (link `NO KEY UPDATE`) waits for it holding nothing a save wants, or the save waits holding nothing. A save of a deleted item stops at `EnsureLive` right after the item's lock, before the area and the parents: it holds one item, and so cannot be in a cycle either. **Carried, not made by this merge:** a save or a parent write that moves a link (hierarchy → child → parents, the child before a parent of a lower id) can meet a clean-up that holds the parent and waits for the child; see "Carried" below |
+| Project reorder × Unlink or team deletion of the project's named default team | the project row, then the items | **the cycle this merge made, and fixed.** In the old order the clean-up held the items `FOR UPDATE` and asked for the project row (to clear the setting) while the reorder held the project row `FOR SHARE` and asked for the items `FOR KEY SHARE` — `40P01`, a 500. The setting is now cleared before the items, so the project row comes before the items in both, and the second request waits at its first lock holding nothing the first wants. No statement is added |
+| Team reorder × Unlink or team deletion | the link, the team row | the reorder takes the team `FOR SHARE`, then the link `FOR SHARE`; the unlink takes no team row and holds the link `NO KEY UPDATE`, the deletion takes the team row `NO KEY UPDATE` first. Every request holds the earlier lock of the order when it asks for the later one |
+| Delete, Restore or Purge × the reorders | the members' `KEY SHARE`, the place rows | § 8.2, unchanged by feat-028 |
+
+Why none ends in `23001`, `23503`, `40P01` or a 5xx: the link's `DELETE` (`23001`) needs no other holder of its row, and the only transactions
+that take a key share of a link are those that write an item's owner or a project's setting through a key — a save, a creation, a default
+naming and an unlink's destination, each of which holds the link or judges "linked" by the rows its lock statement returned (feat-028 A-9). Delete,
+Restore and Purge write none of the owner's keys. The place key onto the item's owner (`23503`) is checked at the end of the statement that moves the
+owner, and every writer of the owner drops the place first (a save, an unlink, a deletion, a purge). `40P01` is the cycle above and the one carried below.
+
+**Tests.** Each new pair has a test in both orders in `DeleteRestorePurgeRaceTests` (§ 9.5); the project-row cycle is built without a race (a
+session of the test holds the project row `FOR SHARE`, the clean-up runs until it blocks on it, the reorder starts and blocks on the clean-up's items, the
+session releases) and it failed on the old order with `40P01` before the fix.
+
+**Carried (found by this pass, not fixed here; for the queue).** A parent write — `SetWorkItemParent`, or a save that carries a parent — locks the hierarchy,
+then its child, then the new and the stored parent, in that order and not by id; an unlink or a team deletion locks the owned items by id and takes no
+hierarchy lock. A child of a higher id and a parent of a lower id, both owned by the team being cleaned up, are then held crosswise: the clean-up holds the
+parent and waits for the child, the write holds the child and waits for the parent — `40P01`, a 500 for the one the database picks. **Reproduced
+deterministically** (a scratch test, not kept): a session holds the area `FOR UPDATE`; a save of the child that sets that area and names the parent
+blocks on it holding the hierarchy and the child; the unlink of the team that owns both starts and blocks on the child holding the parent; the session
+commits — the save answers 200, the unlink 500 `40P01`. The code is main's (feat-028's unlink and mod-017's deletion lock the owned items by id, feat-001's
+parent write locks child-then-parent) and each line passes its own tests; nothing here makes it likelier (a save of a deleted item stops at `EnsureLive`
+holding one item, and a purge takes the hierarchy lock before its items). The fix is for the unlink and the deletion to take the hierarchy lock before
+the owned items, as the purge does — two statements more each (one per project is one set-based pair), so `UnlinkStatements` and `DeletionStatements`
+would go 11 → 13 — or for the parent write to lock its child and its parents in one statement by id.
+
+### 14.4 Pins
+
+None moved. `TeamStatementCountTests` (unlink 11, deletion 11, the counts), `OwningTeamStatementCountTests` (child creation 21, the list 7), the link-lock
+statements of `RepositoriesTests`, `DeletionStatementCountTests` (Delete 13, Restore 11, Purge 13) and `ProjectBacklogStatementCountTests` (reorder 13)
+pass as written: the merge changed no path's statements, and moving the setting before the items reorders two statements without adding one.
+
+### 14.5 Tests added or changed by the merge
+
+- `DeletedItemViewsEndpointTests.Unlink_ReassignsADeletedItemToo_StillDeleted` (BR-DR-9, the name this plan reserved), a theory over a destination team and
+  «Без команды»: the owner becomes the destination, the state and the three marks stay, «Изменён» moves, the team place on the unlinked team's backlog goes,
+  and a Restore afterwards brings the item back owned by the destination and unplaced below the placed items (BR-DR-10). Its counterpart for a team's
+  deletion (`DeleteTeam_ReleasesADeletedItemToo_StillDeleted_ChangedAtMoves`, `Restore_AfterItsTeamWasDeleted_…`) was already there and is pointed at the new routes.
+  `OwnedItemCount_CountsADeletedItem` reads the unlink's count and the deletion's counts.
+- `DeleteRestorePurgeRaceTests`: Unlink × Delete, Restore, Purge and team deletion × Restore, each in both orders (eight), and the two project-row cycles.
+- `WorkItemWriteInventoryTests` classifies the routes feat-028 added (`POST …/teams`, `PUT …/teams/{t}/name` and `/description`, `DELETE …/teams/{t}`
+  and `POST …/teams/{t}/projects` at the organization's address, `PUT …/projects/{p}/description`, the unlink and the links); the unlink and the team's
+  deletion are clean-ups with their proving tests. `DeletedItemSurfaceMatrixTests` reads the unlink's count and the deletion's counts in any state, runs an
+  unlink and a deletion over a still-deleted item, and classifies every read route of the set (`EveryReadRoute_SaysWhetherItReadsWorkItems_AndInWhichStates`).
+- `WorkItemReferenceInventoryTests` is unchanged and green: feat-028 added no key onto `work_items` (its owner key goes from the item to the link, and the place
+  key onto the owner is the SQL-only key the purge already clears first).
+
+### 14.6 E2E specs (paused; none run or edited)
+
+The merge adds nothing to the union of the two lists (feat-028 `plan-backend.md` § 11; § 9.7 above and `qa.md`). The spec both lines break is
+`27-organization-members.spec.ts` 27.9, whose copy of the served bundles lacks six codes (feat-028's four, this line's two); `27-work-item-card.spec.ts`
+27.5 (the card's menu) and `:135` (the project's team) are each line's own.
