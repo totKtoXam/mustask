@@ -38,7 +38,9 @@ Scenario Outline: A part of an identifier, or one that is not the item's, matche
     | «BUG-42»      | the identifier without its project key                  |
     | «MSK-US-42»   | number 42 is a «Баг», MSK-BUG-42                        |
     | «OTH-US-1»    | an item of «Другая», whose title «Оплата картой» is not searched here |
+    | «WRH-US-1»    | an item of «Склад», another project of «Альфа»          |
     | «042»         | not the number as the identifier writes it              |
+    | «99999999999» | a number past every item's: no error                    |
 
 Scenario: Every character of the keyword is literal
   When Mia types «%»
@@ -54,7 +56,7 @@ Scenario: Spaces around the keyword do not count, and a blank keyword is no filt
 Scenario: The field takes at most 255 characters
   When Mia types or pastes 300 characters into «Поиск»
   Then the field holds the first 255
-  And an address carrying a longer keyword lists nothing and is no error
+  And an address carrying a keyword longer than 255 characters after trimming lists nothing and is no error
 
 Scenario: Only the title and the identifier are searched
   When Mia types «Stripe», which stands in MSK-US-1's «Описание» alone
@@ -73,7 +75,7 @@ Scenario: All four filters combine, and each clear widens the list
   Then the list reads MSK-BUG-43 and MSK-US-1, count 2
   And clearing «Команда» adds nothing, since MSK-BUG-42's title has no «оплат»
   And clearing «Исполнитель» and «Статус» as well adds MSK-BUG-2, count 3
-  And «Очистить фильтры» clears all four at once: the six live rows are back and the address carries no filter
+  And with all four set again, «Очистить фильтры» clears them at once: the six live rows are back and the address carries no filter
 
 Scenario: The keyword lives in the address
   Given Mia has typed «оплат» and chosen «Разрешена»

@@ -90,7 +90,7 @@ Scenario: A filter that matches nothing says so
   Then both filters are cleared, the address carries neither, and the five live rows are back
 
 Scenario: A project whose items are all deleted keeps the way into the bin
-  Given a project «Пустой» (key PST) whose only item, PST-US-1, is deleted
+  Given a project «Пустой» (key PST) of «Альфа» whose only item, PST-US-1, is deleted
   When Mia opens its «Рабочие элементы» with no filter
   Then it shows «Рабочих элементов пока нет», under the band «Фильтры»
   And choosing «Удалена» lists PST-US-1

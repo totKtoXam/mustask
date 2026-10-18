@@ -42,13 +42,19 @@ Scenario: With «Удалена» chosen, the people of deleted items are offere
   Then the list reads MSK-US-5 alone
   And with «Активна» added to «Статус» it still reads MSK-US-5 alone, since MSK-BUG-2 is «Разрешена»
 
+Scenario: A person offered only under «Удалена» names nobody once «Удалена» is cleared
+  Given Mia has chosen «Удалена» in «Статус» and «Зоя Ким» in «Исполнитель», and the list reads MSK-FEAT-6
+  When she clears «Статус»
+  Then the list shows «Ничего не найдено», the address still carries Zoya's id, and «Исполнитель» offers no «Зоя Ким» and names nobody
+  And the band offers «Очистить фильтры»
+
 Scenario: The assignee filter combines with the state and team filters
   When Mia chooses «Мия Петрова», «Новая» in «Статус» and VENUS in «Команда»
   Then the list reads MSK-BUG-42 alone
   And clearing «Команда» still gives MSK-BUG-42, and clearing «Статус» as well gives MSK-BUG-42 and MSK-US-1
 
 Scenario: A person the directory does not know reads without «(неактивен)»
-  Given the directory no longer knows Petr, who is still a member of «Альфа»
+  Given the directory does not know Petr's id (mod-014 BR-UP-17), and Petr is still a member of «Альфа»
   When Mia opens «Исполнитель»
   Then Petr's option reads «Неизвестный пользователь», with no mark, after every named person and before «Не назначен»
   And MSK-TASK-4's «Исполнитель» cell reads «Неизвестный пользователь»
@@ -56,7 +62,7 @@ Scenario: A person the directory does not know reads without «(неактиве
 
 Scenario: The marks follow the membership at each read
   Given Mia's list is filtered by «Иван Котов (не в организации)»
-  When Ann adds Ivan back to «Альфа» as «Участник» and Mia's list reads again
+  When Ann adds Ivan back to «Альфа» as «Участник» and Mia's list and its options read again
   Then the option and the MSK-BUG-2 cell read «Иван Котов», and the filter still lists MSK-BUG-2
 
 Scenario: The filter lives in the address, and a person the address names may have no item
@@ -84,4 +90,9 @@ Scenario: A reader filters by assignee
   Given Rita, a «Читатель», who may not assign anyone
   When she opens «Исполнитель»
   Then she is offered the same people as Mia, and filtering works for her as above
+
+Scenario: The options' read is contained like the list's
+  When Oleg, no member of «Альфа», requests the «Исполнитель» options of «Платформа»
+  Then the answer is «Организация не найдена.», as for the list
+  And Mia's request for them at the address of «Чужой» under «Альфа», or of a deactivated project of «Альфа», answers «Проект не найден.»
 ```
