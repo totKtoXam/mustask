@@ -31,7 +31,7 @@ M with UI: analysis → requirements review → UX design → gate-1 + gate-2 to
 
 ## Log
 
-- 2026-10-18 [backend-developer] stage 4 done: filters `state`, `assigneeId`, `search` and `GET …/workitems/assignee-options` per api-contract.md (unchanged since 6ae3bed3); the row's `assignee.isActive`; tests in plan-backend.md § 8, deviations in its § As built. mod-003 and mod-005 notes written. E2E: no spec breaks (additive)
+- 2026-10-18 [backend-developer] stage 4 done: `state`, `assigneeId`, `search`, `…/workitems/assignee-options` and the row's `assignee.isActive` per api-contract.md (unchanged since 6ae3bed3); deviations in plan-backend.md § As built; mod-003 and mod-005 noted. No E2E spec breaks
 - 2026-10-18 [backend-developer] resumed after a stop: restored the 7 salvaged, untested test files (route inventory, OpenAPI, SearchTestData, state, assignee and keyword endpoint tests) over d4dbf178; read against the plan, all sound, kept and passing
 - 2026-10-18 [orchestrator] gate-1 (OQ-1..OQ-3 A) and gate-2 (D-1..D-6 A) approved by the human in chat, one question each; boxes ticked in spec.md and design.md; stage 04-backend.
 - 2026-10-18 [orchestrator] the gate-1 + gate-2 package goes to the human, one question per open question and per design decision; no code before the answers.
