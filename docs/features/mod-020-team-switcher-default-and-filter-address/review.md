@@ -150,3 +150,64 @@ Open after the fixes: 0 blocker, 0 major, 2 minor (CR-2 in part, CR-3 in part: d
 - **CR-4 (minor) — fixed.** The list's page is tied to the filter's content (`JSON.stringify(teamIds)`), not to the array's identity (`WorkItemsPage.tsx`); the `useTeamFilter` docblock no longer promises the identity. No new test: React keeps the memo today, so no test can make identity differ while the content holds; the behaviour (a change returns to page 1, the same filter keeps the page) stays covered by "a change returns to page 1" and "the next page keeps the filter in the address".
 - **QA-2 — fixed**, by CR-1 and CR-3 above, except the backend comment.
 - **Q-1** is unchanged: the human's call at gate-3.
+
+## Round 2 (delta)
+
+Scope: the fix diff `b5ee424c..6f626770` (one commit) and the findings open after round 1. S: the one delta read the cap allows (routing.md, "Ceremony caps by size").
+
+Verdict: **changes-requested**. Open: 0 blocker, 1 major (CR-5, new, prose only), 3 minor debts (CR-2 rest, CR-3 rest, CR-6 new). CR-1 and CR-4 closed. The cap is spent, so the open list goes to the human, not to another read. Q-1 stays for gate-3.
+
+### Previously open
+
+- **CR-1 — closed** for its four places: mod-017 `api-contract.md:341-345` (§ 2.8), `US-3:59-61`, `design.md:326-329` (§ 8), `spec.md:100`; BR-OT-4 reworded (`spec.md:73`); the api-contract note line is in mod-017 `status.md`. Each agrees with `workContext.ts:140-146` and `resolveSelection.ts:61`. Two places round 1's sweep missed say the same as before → CR-5.
+- **CR-2 — closed in part, as reported.** The project page's own tab and «Весь проект» carry the filter, a team page's carry none (`TeamHead.tsx:130, 163, 180`). `PageViews` selects by path (`PageHeader.tsx:77-79, 450-454`) while `Tabs`' `value` stays the full `to`, so the two agree. The other `views` callers (`OrganizationListPage`, `ProjectListPage`, `PageHeadDemo`) select as before. Rest: the nav entry «Рабочие элементы» (`app/navigation/model.ts:103-106`), now written into BR-OT-8 and design § 6.3. Minor, a debt.
+- **CR-3 — closed in part, as reported.** Notes at mod-017 `spec.md:132`, `US-5:72-76`, `api-contract.md:401`; mod-016 `spec.md:145`, `US-7:18-20`, `api-contract.md:349, 494-496`, `status.md`. Rest: `TeamResponse.cs:8-9`. Minor, a debt.
+- **CR-4 — closed.** The page is keyed by the filter's content (`WorkItemsPage.tsx:99-102`), and the docblock no longer promises identity (`useTeamFilter.ts:43-49`). No test is owed: `WorkItemsPage.test.tsx:420, 618` pin the behaviour.
+
+### New findings
+
+**CR-5 — major — the "creation only" claim, in two more places.**
+- `mod-017/spec.md:57`, the spec's own flowchart, node N3: «Setting stored; it only starts new items (C2, C5)». BR-OT-4 in the same file (`:73`) now says the default also opens the switcher, so the diff carries its own disproof.
+- `feat-028/spec.md:73` (BR-OL-7, merged): "The default starts new items and nothing else (mod-017 BR-OT-4)". This is the default-team rule in force for linked teams, the one feat-040 reads when it carries the fallback onto its team level (doc-013 BR-NE-9). Acting on it drops the default, as CR-1's places would have.
+
+Fix, prose: N3 → "…it starts new items (C2, C5) and, since mod-020, is the team the switcher opens when none is chosen (BR-OT-11)". BR-OL-7 gets the "(Amended by mod-020, 2026-10-18, OQ-8 B: …)" note BR-OT-4 has, and feat-028 `status.md` a note line, as mod-016 and mod-017 got.
+
+**CR-6 — minor — two more pre-amendment texts; nobody would act differently on them.**
+- `mod-016/design.md:772-776` (§ 8): "The team level of the switcher shows the user's own team after…". It is already a record: it still says "the project's first team, then the rest alphabetically", which mod-017 retired. BR-M1-27 carries the note.
+- `SetDefaultTeamEndpointTests.cs:171`: the comment quotes US-3's old title, "the default affects the creation only". The test's own claim still holds: no item, view, filter or order moves.
+
+Fix: a pointer to BR-M1-27's note in § 8. The comment goes with `TeamResponse.cs`, at the next backend change.
+
+### Runtime changes
+
+- Against BR-OT-8 as amended: these keep the filter: the level links (`TeamHead.tsx:188`), the own tab (`:180`) and «Весь проект» on the project page (`:163`). These drop it: the other page (`:173`), another team (`:162`), «Весь проект» from a team (`:130`) and the nav entry. All match.
+- «Весь проект» on a project page now links to the current address with `TEAM_CHOSEN_STATE`. The arrival effect re-navigates with `location.search` (`TeamHead.tsx:237-240`), so the filter survives the focus hand-off. The tab and the entry drop a card's `?workitem=`, as they did before.
+- The tests check what they claim. The tab and entry tests assert `href` and the address after the click. `PageHeader.views` test 3 needs `pathOfView`. Test 2 passes on the pre-fix code: it pins the sort by path length, a mutation guard. "Five of eight fail when reverted" is consistent by reading; I did not re-run it.
+
+### Behavioural claims in prose
+
+Direction 1 (prose the fix adds or changes):
+- Default first, then own team, then first by name; a remembered team is kept. Stated in mod-017 BR-OT-4, § 2.8, design § 8, the fate row and US-3, and in mod-016 BR-M1-27, the US-7 note and api-contract §§ 3.3, 6 → `workContext.ts:140-146`, `resolveSelection.ts:61`.
+- US-7 note, "the scenarios below are for a project with none: three teams" → `US-7:23-80`: every scenario chooses «Пример проекта», three teams, none named.
+- BR-OT-8 amendment and design § 6.3, the links that keep the filter and the links that drop it → `TeamHead.tsx:130, 162-163, 173, 180, 188`; `model.ts:103-106`.
+- US-5: a link without `teamId` opens unfiltered; Back, or a link with it, filters again → `useTeamFilter.ts:51-54` reads the address alone; `ProjectViews.teamFilterAddress.test.tsx:71`.
+- api-contract § 3 "Life" and the access table (`:132`) → `useTeamFilter.ts:10, 18-22`.
+- The `PageView` docblock and `pathOfView` → `PageHeader.tsx:66-79, 450-454` and the mod-020 block of `PageHeader.views.test.tsx`.
+- The `TeamHead` comment and the `TeamMenu` docblock → `TeamHead.tsx:130, 163`.
+- The `useTeamFilter` and paging docblocks → `useTeamFilter.ts:53-54`, `WorkItemsPage.tsx:99-102`.
+- The mod-016 and mod-017 status notes say "no shape or endpoint change" → the diff stat shows nothing under `src/backend`.
+- The status Decisions line → the same anchors as BR-OT-8.
+- The retitled QA test → its body, `…qa.test.tsx:73-91`.
+
+Direction 2 (behaviour the fix changes; prose outside it, over `docs/`, `.claude/`, the AGENTS.md files and the comments in `src/`):
+- The switcher's default, swept again because CR-1 covers every place. Grepped "nothing else", "only starts", "starts new items", "creation only", "affects BR-MX-10", `BR-M1-27`, `BR-OL-7`, "own first team" and "panel opens".
+  - Unamended: CR-5, CR-6, and the CR-3 rest (`TeamResponse.cs`).
+  - Hold: doc-012 BR-MX-11 (amended in its own row) and mod-017 `spec.md:189` (OQ-8, a record). Also feat-028 US-6:55 (points to mod-020), its US-3:111 and US-6:35 (marks and creation, no "only"), and the `isMember` comments in `ITeamReadModel.cs:21`, `GetTeamsHandler.cs:29` and `TeamReadModel.cs:53`.
+- The tab and «Весь проект» keep the filter. Grepped "unfiltered", "other views" and «Весь проект». The hits hold: feat-039 US-1:61-73 and design § 3.4 (seen from a team page), mod-017 `design.md:205` (followed by its amendment).
+- `PageHeader` selects by path. Grepped `PageView`, "current view" and "selected tab" in ui-kit.md, frontend.md and the mod-015 design. The hits hold: mod-015 design:711.
+- The list's page is keyed by content. The "returns to 1" hits (design § 6.3) hold.
+- Not swept: the audit snapshots, the plan, qa and review files of earlier features, and the E2E specs (standing NO). Pre-existing and not this task's: flowchart nodes D1 and D1x in mod-017 `spec.md:58-59` still show the last-team guard that feat-028 retired.
+
+### Commands run
+
+`git diff` and greps; `sh scripts/warm-worktree.sh`; `npx vitest run` on 14 files: `PageHeader.views`, `PageHeader`, `.team`, `.kit`, `.menu`, `patternProps.mod002`, `ProjectViews.teamFilterAddress` and `.qa`, `ProjectViews.team`, `BacklogPage.head`, `ProjectBacklogPage`, `ProjectBoardPage`, `WorkItemsPage`, `useTeamFilter`. 201 passed. No `verify.sh` and no full suite.
