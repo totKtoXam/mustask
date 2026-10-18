@@ -285,3 +285,98 @@ Tests run on the anchors, all green:
 - **Not swept (outside this read's charge).** The prose of the other fixes: CR-2, CR-3, CR-5, QA D-1 (api-contract
   § 0.2, § 0.4, § 2.2) and S-1 (BR-DR-15, US-6, api-contract § 2.3). Their tests were not run here. The S-1
   handler diff was glanced at: it logs subject ids and a time, with no title, content or name.
+
+## Delta read 2 — merging main (feat-028)
+
+A clean session read a detached `16ac90d3`: the merge `2aaed5b6` (parents `301b0011`, `175aa1db`) by `--remerge-diff`, the
+integration commits `2aaed5b6..16ac90d3`, and every auto-merged shared file against both parents. Nothing was built or run (QA
+runs at the same time). Input: spec BR-DR-8..11, plan-backend § 14, api-contract § 3.2, § 3.7, § 5, feat-028 plan § 7, ADR-0028
+rule 8, ADR-0030 rules 4–6.
+
+**Verdict: approve.** Three new minors (DR2-1..DR2-3), debts; 0 blocker, 0 major. CR-6 stays a debt.
+
+### Checked and sound
+
+- **Conflicts.** Both intents kept: 23 codes, «Администратор» 23 / «Участник» 11 / «Читатель» 7, in the three matrices and
+  `organizationRoles.ts`; 59 routes, mod-005's three after the item routes, so `Memberships` (`OrganizationAddressedRoutes.cs:129`)
+  is still the last ten; both P-10 notes.
+- **Auto-merged files.** Each is main's text plus mod-005's lines. `SaveWorkItemHandler` keeps A-9 (`:115`, `:287` "linked" =
+  the lock's answer) and BR-DR-8 (`EnsureLive` `:137`, after the item's lock, before values, area, team, parents).
+- **BR-DR-9, "counted in any state".** The counts `WorkItemTeamOwnership.cs:16-17,31` read `InAnyState`. The release (`:50`,
+  `:66-71`, `TeamBacklogPlaces.cs:25-31`) filters by project and owner and leaves state and marks. Both swaps keep main's behaviour,
+  since main read `context.WorkItems`. BR-DR-10: Restore writes no owner.
+- **Concurrency.** Main's only items-then-project-row path was the clean-ups' `ClearDefaultTeamAsync`. It now runs before
+  `LockOwnedAsync` (`UnlinkTeamHandler.cs:171`, `DeleteTeamHandler.cs:88`).
+  - No writer now holds items and then asks the project row for more than `KEY SHARE`, which `NO KEY UPDATE` admits.
+  - The project reorder takes the row first (`ProjectBacklogRepository.cs:38`).
+  - The cycle tests (`DeleteRestorePurgeRaceTests.cs:802-877`) are not vacuous: PostgreSQL grants `FOR SHARE` past a queued
+    `NO KEY UPDATE`, so the old order reaches `40P01`.
+  - Every pair of § 14.3 was traced to the SQL. No other path to `23001`, `23503` or `40P01` beyond the carried one.
+  - The new races in which the item is still deleted when the clean-up runs fail if a clean-up skipped deleted items: the
+    link's `DELETE` meets the owner key.
+- **Migrations.** The Designer's model equals the snapshot (the method header aside). The snapshot is `OrganizationLevelTeams`
+  plus the three columns, the index, the check and the key. `Up`/`Down` untouched, ordered after `20261017200252`: in effect the
+  regeneration `backend.md:179-183` asks for.
+- **Pins.** No statement-count constant moved against main but mod-005's own `ReorderStatements` 12 → 13. The three Infrastructure
+  edits are seeds (`FirstTeam`).
+- **Inventories.** The write table equals the inventory's writes, with proofs checked by reflection.
+  `EveryReadRoute_SaysWhetherItReadsWorkItems_AndInWhichStates` covers every GET. feat-028 adds no key onto `work_items`.
+- **Main moved since.** `git merge-tree` of `16ac90d3` with today's `origin/main` (`12c26469`, queue files only) is clean.
+
+### Findings
+
+**DR2-1 · minor · tests** — No pin tells `InAnyState` from `Live` at `BacklogRepository.cs:141`, the merge's choice (§ 14.2,
+BR-DR-10). `RestoreWorkItemEndpointTests.cs:240` deletes `middle`. Under `Live` its stale place 2 survives and ties with `first`'s
+new 2, `first` wins on `CreatedAt` (`StackRank.cs:79-82`), and the expected rows come out either way. **Fix:** delete `first`
+(its stale 1 then beats `last`'s new 1), or assert `TeamPlacesOfAsync(middle) == 0` after the reorder.
+
+**DR2-2 · minor · docs** — The project row moved before the items, and three places still describe the old order:
+- (a) feat-028 `plan-backend.md:322` says "Project rows. Taken last, one at a time by every writer". That is false now for the
+  unlink and the deletion, and the project reorder never took it last.
+- (b) `DeleteTeamHandler.cs:80-82` lists "the settings cleared" after the reassignment, against the lines below it.
+- (c) ADR-0028 rule 8 (`0028-matrix-organization-model.md:144`) has no project row in its one order. The place the merge fixed
+  lives only in plans (mod-005 § 14.3, feat-028 § 7.1). `UnlinkTeamHandler.cs:52` puts mod-007's step "between the link locks and
+  the owned-item lock" — the gap the project row now shares.
+
+It is minor because the bold § 7.1 amendment and both handlers' remarks give the right order to anyone extending these writers.
+**Fix:** reword (a) and (b). For (c), a line for the human at gate-3: amend ADR-0028 rule 8, which is accepted and not edited in
+place.
+
+**DR2-3 · minor · tests** — BR-DR-11 names a clean-up "releasing it or its children". The child shape is raced against a team's
+deletion only (`DeleteRestorePurgeRaceTests.cs:424,438`); the unlink is raced on the purged item itself (`:733,748`). The two share
+`LockOwnedAsync`/`ReassignOwnedAsync`, so the risk is low. **Fix:** an unlink twin of `:424`/`:438`, with a destination team.
+
+### Still open, for the human (none blocks)
+
+- **Carried, main's own.** § 14.3 records a deadlock: a parent write locks the child (`WorkItemRepository.cs:76`) and then the
+  parent (`:217-220`), while a clean-up locks owned items by id. The result can be `40P01`, a 500. Read here, not re-run;
+  mod-005 adds no instance. A bug line for the orchestrator.
+- **E2E, standing NO; nothing was run or edited.**
+  - `27-organization-members.spec.ts` 27.9: `MEMBER_CODES`/`ADMIN_CODES` (`:131-133`) lack six codes.
+  - `27-work-item-card.spec.ts` 27.5.
+  - feat-028's project-nested helpers leave 19, 21.2, 23–26, 27-work-item-card `:135`, 28 and 29 stale, as main already does.
+- **As before:** H-1/D-2 and S-1 (taken as A); CR-6. CR-6 (a) now also covers `TeamBacklogPlaces.cs:25-31`.
+
+### Behavioural claims pass (delta)
+
+- **Direction 1, anchored:**
+  - backend.md:274-276 → `WorkItemTeamOwnership.cs:16-17,31`;
+  - api-contract :198-199 → the same plus `DeletedItemViewsEndpointTests.cs:161`;
+  - api-contract :242-244 → `UnlinkTeamHandler.cs:171-175`, `WorkItemTeamOwnership.cs:50,66-71`, `DeletedItemViewsEndpointTests.cs:210`;
+  - api-contract :283 → `OrganizationAccessInventoryTests.cs:237`;
+  - § 14.1 → the four matrix tests;
+  - § 14.2 rows → the cited code; the `BacklogRepository` row's pin → **DR2-1**; "A-9 intact" → `SaveWorkItemHandler.cs:115,137,287`,
+    `CreateWorkItemHandler.cs:150,155`;
+  - § 14.3 → the repositories' SQL; the cycle → `DeleteRestorePurgeRaceTests.cs:843,861`; "Carried" → the code's shape only;
+  - § 14.4 → the diff against main; § 14.5 → the tests exist; § 14.6 → `27-organization-members.spec.ts:131-133`;
+  - feat-028 plan :254-257 and :276 → the handlers;
+  - the handlers' remarks → the code, except **DR2-2 (b)**;
+  - `WorkItemsConstraints.cs:46-47` → `OrganizationLevelTeamsSchemaTests.cs:143`.
+- **Direction 2.**
+  - The clean-ups' order: grepped `ClearDefaultTeam`, "project row" and "setting is cleared" in docs/ and the handlers.
+    feat-028 plan :252-257 and :263-264 are amended by :276; :322 → **DR2-2 (a)**. feat-028 api-contract :393, BR-OL-7/-8 and
+    BR-MX-11/-12 list effects, not an order. ADR-0028 :123 and :144-149 → **DR2-2 (c)**.
+  - The counts' state: grepped "owned count" and "owned-items". backend.md, `WorkItemSets.cs:15` and ADR-0030 are consistent.
+  - The owed test: grepped "merges second". ADR-0030:187, BR-DR-9 and plan :30/:386/:675 are obligations, now met.
+    `qa.md:118` ("B17 is half") is QA's to refresh.
+  - **Not swept:** feat-028's E2E prose and the doc-012 analyses.
