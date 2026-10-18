@@ -3,7 +3,7 @@
 - type: feature
 - size: M
 - branch: feat/003-work-item-search
-- stage: 01-business-analysis
+- stage: 02-requirements-review
 - epic: core/work-items
 - deps: mod-005
 - gates: gate-1, gate-2, gate-3
@@ -25,6 +25,7 @@ M with UI: analysis → requirements review → UX design → gate-1 + gate-2 to
 
 ## Log
 
+- 2026-10-18 [business-analyst] spec.md + US-1..US-3 (40b16959): BR-WS-1..17; tag filter to feat-016, assignee marks in the list's column; OQ-1..OQ-3 open, A recommended, for the human at gate-1. No code under src/.
 - 2026-10-18 [orchestrator] route M with UI (queue size), gate-1 + gate-2 as one package after the design; started under the human's standing approval of 2026-10-18 evening, the route confirmation not asked. E2E: no.
 - 2026-10-18 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/feat-003-work-item-search
 
