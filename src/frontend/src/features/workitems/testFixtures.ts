@@ -27,6 +27,10 @@ export const CANDIDATES_URL = `${ORGANIZATION_URL}/workitems/assignee-candidates
 export const PARENT_CANDIDATES_URL = `${WORK_ITEM_URL}/parent-candidates`;
 /** feat-001 api-contract § 3.2: the parent write on its own. */
 export const WORK_ITEM_PARENT_URL = `${WORK_ITEM_URL}/parent`;
+/** mod-005 api-contract § 2: the three writes of the recycle bin. */
+export const WORK_ITEM_DELETE_URL = `${WORK_ITEM_URL}/delete`;
+export const WORK_ITEM_RESTORE_URL = `${WORK_ITEM_URL}/restore`;
+export const WORK_ITEM_PURGE_URL = `${WORK_ITEM_URL}/purge`;
 
 /** Stable ids: canonical lowercase uuids, never shown on screen. */
 export const ids = {
@@ -135,6 +139,11 @@ export interface WorkItemRecord {
   parentId?: string | null;
   /** feat-022: all 17 fields, `null` where the type lacks one (api-contract § 2). */
   fields: WorkItemFields;
+  /**
+   * mod-005 BR-DR-2: what a Delete remembered — the state held, who and when. Absent: no marks
+   * (a live item, or one put in «Удалена» outside Delete, BR-DR-10).
+   */
+  deletion?: { fromStateId: string; byId: string; at: string } | null;
 }
 
 /** A record's overrides: any field, and the fields per type one by one. */
@@ -324,6 +333,39 @@ export function hierarchyDataset(): Dataset {
     item(ids.ops, 2, 'EPIC', 'Склад', { changedAt: at(30) }),
   );
   return data;
+}
+
+/** The state of `record`'s type that is in the Removed category, «Удалена». */
+export function removedStateId(record: WorkItemRecord): string {
+  const type = process.workItemTypes.find((candidate) => candidate.id === record.typeId);
+  const removed = type?.states.find((state) => state.category.code === 'Removed');
+  if (!removed) {
+    throw new Error(`No Removed state for type ${record.typeId}.`);
+  }
+  return removed.id;
+}
+
+/** When the stories' deletion happened: the dataset's clock, a minute before `SAVED_AT`. */
+export const DELETED_AT = new Date(2026, 9, 18, 9, 14).toISOString();
+export const DELETED_AT_TEXT = '18.10.2026 09:14';
+
+/**
+ * Puts `record` in «Удалена» the way Delete does (mod-005 BR-DR-2): the state it held is
+ * remembered with `by` (a user of the dataset, «Анна Смирнова» by default) and the time, and
+ * «Изменён» is the deletion's. `marks: false` is an item put there outside Delete (BR-DR-10).
+ */
+export function deleteRecord(
+  record: WorkItemRecord,
+  options: { by?: string; at?: string; marks?: boolean } = {},
+): WorkItemRecord {
+  const at = options.at ?? DELETED_AT;
+  record.deletion =
+    options.marks === false
+      ? null
+      : { fromStateId: record.stateId, byId: options.by ?? ids.anna, at };
+  record.stateId = removedStateId(record);
+  record.changedAt = at;
+  return record;
 }
 
 /** The record of «Мастаск»'s item `number` in `data`. */

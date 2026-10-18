@@ -35,10 +35,6 @@ internal static class WorkItemRefs
             state.Category,
             item.ChangedAt);
 
-    /// <summary>The ids of every state of the Removed category («Удалена»), as a subquery.</summary>
-    public static IQueryable<Guid> RemovedStateIds(MustaskDbContext context) =>
-        context.StateDefinitions.Where(state => state.Category == StateCategory.Removed).Select(state => state.Id);
-
     public static WorkItemRefView View(WorkItemRefRow row) =>
         new(
             row.Id,

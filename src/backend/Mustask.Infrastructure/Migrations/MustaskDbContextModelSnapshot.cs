@@ -1209,6 +1209,16 @@ namespace Mustask.Infrastructure.Migrations
                     b.Property<Guid>("CreationRequestId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<Guid?>("DeletedFromStateId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1301,6 +1311,10 @@ namespace Mustask.Infrastructure.Migrations
                     b.HasIndex("TypeId")
                         .HasDatabaseName("ix_work_items_type_id");
 
+                    b.HasIndex(new[] { "DeletedFromStateId" }, "ix_work_items_deleted_from_state_id")
+                        .HasDatabaseName("ix_work_items_deleted_from_state_id")
+                        .HasFilter("deleted_from_state_id IS NOT NULL");
+
                     b.HasIndex(new[] { "Id", "OwningTeamId" }, "ix_work_items_id_owning_team_id")
                         .IsUnique()
                         .HasDatabaseName("ix_work_items_id_owning_team_id");
@@ -1338,6 +1352,8 @@ namespace Mustask.Infrastructure.Migrations
                             t.HasCheckConstraint("ck_work_items_business_value", "business_value BETWEEN 0 AND 9999");
 
                             t.HasCheckConstraint("ck_work_items_completed_work", "completed_work BETWEEN 0 AND 9999");
+
+                            t.HasCheckConstraint("ck_work_items_deletion_marks", "(deleted_from_state_id IS NULL AND deleted_by IS NULL AND deleted_at IS NULL) OR (deleted_from_state_id IS NOT NULL AND deleted_by IS NOT NULL AND deleted_at IS NOT NULL)");
 
                             t.HasCheckConstraint("ck_work_items_description_length", "char_length(description) <= 100000");
 
@@ -1407,6 +1423,15 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.Property("CreationRequestId")
                                 .HasColumnName("creation_request_id");
+
+                            t.Property("DeletedAt")
+                                .HasColumnName("deleted_at");
+
+                            t.Property("DeletedBy")
+                                .HasColumnName("deleted_by");
+
+                            t.Property("DeletedFromStateId")
+                                .HasColumnName("deleted_from_state_id");
 
                             t.Property("Description")
                                 .HasColumnName("description");
@@ -1842,6 +1867,12 @@ namespace Mustask.Infrastructure.Migrations
 
             modelBuilder.Entity("Mustask.Domain.WorkItems.WorkItem", b =>
                 {
+                    b.HasOne("Mustask.Domain.Process.StateDefinition", null)
+                        .WithMany()
+                        .HasForeignKey("DeletedFromStateId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_work_items_state_definitions_deleted_from_state_id");
+
                     b.HasOne("Mustask.Domain.Organizations.Project", null)
                         .WithMany()
                         .HasForeignKey("ProjectId")

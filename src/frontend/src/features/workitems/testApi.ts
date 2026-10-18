@@ -11,6 +11,9 @@
 // (§ 3.2). mod-017's api-contract adds the owning team: `team` on every item and row, the
 // team in the create and the save (§ 2.2, § 2.4) with its two refusals (§ 0.2), the list's
 // `teamId` filter (§ 3) and the project's teams read the picker and the filter use.
+// mod-005's api-contract adds the item's `deletion` (§ 1.1), the three writes (§ 2: delete,
+// restore, purge), the list without deleted items (§ 3.2) and the save that refuses a deleted
+// item first (§ 3.4).
 // It keeps the contract's answers, not every rule of the backend.
 import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
@@ -31,11 +34,16 @@ import {
   PROCESS_URL,
   TEAMS_URL,
   WORK_ITEMS_URL,
+  WORK_ITEM_DELETE_URL,
   WORK_ITEM_PARENT_URL,
+  WORK_ITEM_PURGE_URL,
+  WORK_ITEM_RESTORE_URL,
   WORK_ITEM_URL,
   defaultFields,
   exampleDataset,
+  ids,
   problem,
+  removedStateId,
   problemWithParams,
   process,
   validationProblem,
@@ -142,6 +150,8 @@ function titleReason(title: unknown): string | null {
 export class WorkItemsTestApi {
   readonly data: Dataset;
   readonly requests: RecordedRequest[] = [];
+  /** The signed-in user a Delete records as its deleter (mod-005 BR-DR-2): a user of the dataset. */
+  actorId: string = ids.anna;
   /** Each accepted change is one minute after the latest time the dataset holds. */
   private clock: number;
 
@@ -325,8 +335,81 @@ export class WorkItemsTestApi {
       createdAt: record.createdAt,
       parent: parent ? this.ref(parent) : null,
       children: children.map((child) => this.ref(child)),
+      deletion: this.deletionOf(record),
       ...record.fields,
     };
+  }
+
+  /** mod-005 § 1.1: the marks of the latest deletion, `null` for a live item or one with none. */
+  private deletionOf(record: WorkItemRecord): WorkItem['deletion'] {
+    const marks = record.deletion;
+    if (!marks || !this.removed(record)) {
+      return null;
+    }
+    const type = this.type(record.typeId);
+    const held = type.states.find((candidate) => candidate.id === marks.fromStateId);
+    const user = this.data.users.find((candidate) => candidate.id === marks.byId);
+    return {
+      fromState: {
+        id: marks.fromStateId,
+        name: held?.name ?? '',
+        category: held?.category ?? { code: 'Proposed', label: '' },
+      },
+      by: {
+        id: marks.byId,
+        displayName: user?.displayName ?? null,
+        isActive: user?.active ?? false,
+        isMember: user !== undefined && user.member !== false,
+      },
+      at: marks.at,
+    };
+  }
+
+  /** mod-005 § 2.1: the item moves to its type's «Удалена» and remembers the state, the actor and the time. */
+  private deleteItem(record: WorkItemRecord): WorkItemRecord {
+    if (this.removed(record)) refuse('workitems.workitem.deleted');
+    const now = this.now();
+    record.deletion = { fromStateId: record.stateId, byId: this.actorId, at: now };
+    record.stateId = removedStateId(record);
+    record.changedAt = now;
+    return record;
+  }
+
+  /**
+   * mod-005 § 2.2, in the order of the contract: not deleted, then the state (a state of the
+   * type other than «Удалена»); absent, the state held, else the type's first.
+   */
+  private restoreItem(record: WorkItemRecord, body: Record<string, unknown>): WorkItemRecord {
+    if (!this.removed(record)) refuse('workitems.workitem.not_deleted');
+    const type = this.type(record.typeId);
+    const chosen = typeof body.stateId === 'string' ? body.stateId : undefined;
+    if (body.stateId !== undefined && body.stateId !== null) {
+      const state = type.states.find((candidate) => candidate.id === chosen);
+      if (!state || state.category.code === 'Removed')
+        refuse('workitems.workitem.state_not_allowed');
+    }
+    const held = record.deletion?.fromStateId;
+    record.stateId =
+      chosen ??
+      (held && type.states.some((candidate) => candidate.id === held)
+        ? held
+        : ((type.states.find((state) => state.isInitial) ?? type.states[0])?.id ?? record.stateId));
+    record.deletion = null;
+    record.changedAt = this.now();
+    return record;
+  }
+
+  /** mod-005 § 2.3: the item is gone; its children survive, unparented, «Изменён» the purge's. */
+  private purgeItem(record: WorkItemRecord): void {
+    if (!this.removed(record)) refuse('workitems.workitem.not_deleted');
+    const now = this.now();
+    for (const child of this.data.items) {
+      if (child.parentId === record.id) {
+        child.parentId = null;
+        child.changedAt = now;
+      }
+    }
+    this.data.items.splice(this.data.items.indexOf(record), 1);
   }
 
   // ---- the hierarchy (feat-001 § 1, § 2.1)
@@ -521,9 +604,13 @@ export class WorkItemsTestApi {
     if (page < 1) {
       throw new Refusal(validationProblem({ page: 'workitems.invalid_page' }));
     }
+    // mod-005 § 3.2: the list and its count are the items outside «Удалена».
     const items = this.data.items
       .filter(
-        (record) => record.projectId === project.id && this.matchesFilter(record, project, teamIds),
+        (record) =>
+          record.projectId === project.id &&
+          !this.removed(record) &&
+          this.matchesFilter(record, project, teamIds),
       )
       .sort(
         (first, second) =>
@@ -646,6 +733,8 @@ export class WorkItemsTestApi {
   }
 
   private save(project: ProjectRecord, record: WorkItemRecord, body: Record<string, unknown>) {
+    // mod-005 § 3.4: the stored state is judged first — before the values, the references, the state.
+    if (this.removed(record)) refuse('workitems.workitem.deleted');
     const reasons: Record<string, string> = {};
     if (body.title !== undefined && body.title !== null) {
       const title = titleReason(body.title);
@@ -829,6 +918,28 @@ export class WorkItemsTestApi {
         answer((p, _url, body) => {
           const project = pr(p);
           return this.answer(this.save(project, this.item(project, one(p, 'identifier')), body));
+        }),
+      ),
+      http.post(
+        WORK_ITEM_DELETE_URL,
+        answer((p) => {
+          const project = pr(p);
+          return this.answer(this.deleteItem(this.item(project, one(p, 'identifier'))));
+        }),
+      ),
+      http.post(
+        WORK_ITEM_RESTORE_URL,
+        answer((p, _url, body) => {
+          const project = pr(p);
+          return this.answer(this.restoreItem(this.item(project, one(p, 'identifier')), body));
+        }),
+      ),
+      http.post(
+        WORK_ITEM_PURGE_URL,
+        answer((p) => {
+          const project = pr(p);
+          this.purgeItem(this.item(project, one(p, 'identifier')));
+          return new HttpResponse(null, { status: 204 });
         }),
       ),
       http.get(

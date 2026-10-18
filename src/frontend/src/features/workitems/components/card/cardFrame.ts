@@ -33,6 +33,8 @@ export type CardColumnItem = CardSection | { key: string; node: ReactNode };
 export interface CardNotice {
   severity: 'error' | 'info';
   text: string;
+  /** A second line under the text: a deleted card says who deleted the item and when (mod-005 BR-DR-7). */
+  detail?: string;
 }
 
 export interface CardFrameProps {

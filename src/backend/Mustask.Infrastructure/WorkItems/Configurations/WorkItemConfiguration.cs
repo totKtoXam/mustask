@@ -44,6 +44,12 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         builder.Property(item => item.CreatedBy).HasMaxLength(WorkItemLimits.UserIdMaxLength).IsRequired();
         builder.Property(item => item.ChangedAt).IsRequired();
 
+        // mod-005 (ADR-0030 rule 1): the marks of a deletion — three nullable columns, all-or-none by the check below. Only
+        // Delete and Restore write them (private setters). The deleter is a user id with no key, as the creator is.
+        builder.Property(item => item.DeletedFromStateId);
+        builder.Property(item => item.DeletedBy).HasMaxLength(WorkItemLimits.UserIdMaxLength);
+        builder.Property(item => item.DeletedAt);
+
         // feat-022: the fields per type. Priority defaults to 2 in the database too, so a row written outside the domain
         // (the migration's existing rows, a bulk insert) takes BR-M3-37's value; the others are null where the type lacks
         // them, and the domain decides which a type has. Numbers keep two decimals in at most four integer digits.
@@ -109,7 +115,15 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
             .HasForeignKey(item => item.StateId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // feat-001: Restrict, so a parent is never removed from under its children (BR-H-8; nothing purges in this cut).
+        // mod-005: a second key to the same principal as StateId. Restrict: a state an item remembers cannot be removed from
+        // under it — the database's half of doc-001 BR-14 (b). A null mark leaves the key unchecked.
+        builder.HasOne<StateDefinition>()
+            .WithMany()
+            .HasForeignKey(item => item.DeletedFromStateId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // feat-001: Restrict, so a parent is never removed from under its children (BR-H-8). mod-005's purge clears the
+        // children's link first, in the same transaction (ADR-0030 rule 5), so a forgotten clear fails the delete loudly.
         builder.HasOne<WorkItem>()
             .WithMany()
             .HasForeignKey(item => new { item.ProjectId, item.ParentId })
@@ -132,11 +146,16 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         // mod-017 (ADR-0028 rule 5): the target of the team place's key (work_item_id, team_id) -> (id, owning_team_id),
         // which the second migration adds in SQL: EF cannot declare an alternate key over a nullable column.
         builder.HasIndex(item => new { item.Id, item.OwningTeamId }, WorkItemsConstraints.IdOwningTeam).IsUnique();
+        // mod-005 (plan-backend D-P6): a partial index over the few deleted rows, declared so EF adds no conventional full
+        // index for the new key.
+        builder.HasIndex(item => item.DeletedFromStateId, WorkItemsConstraints.DeletedFromStateIndex)
+            .HasFilter("deleted_from_state_id IS NOT NULL");
 
         builder.ToTable(table =>
         {
             table.HasCheckConstraint(WorkItemsConstraints.NumberPositive, "number >= 1");
             table.HasCheckConstraint(WorkItemsConstraints.ParentNotSelf, "parent_id IS NULL OR parent_id <> id");
+            table.HasCheckConstraint(WorkItemsConstraints.DeletionMarksCheck, WorkItemsConstraints.DeletionMarksSql);
             table.HasCheckConstraint("ck_work_items_title_length", WorkItemsConstraints.TitleLengthCheck);
             table.HasCheckConstraint("ck_work_items_description_length", WorkItemsConstraints.DescriptionLengthCheck);
 

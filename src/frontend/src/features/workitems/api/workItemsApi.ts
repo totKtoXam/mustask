@@ -9,7 +9,8 @@
 // `children`, the save's `parent`, the «Родитель» picker's search, and the
 // parent write on its own that a team's backlog maps a row with (§ 3.2).
 // feat-022's api-contract § 1–§ 3 adds the 17 fields per type to the item and
-// to the save.
+// to the save. mod-005's api-contract § 1.1 adds the item's `deletion` and § 2 its
+// three writes — delete, restore and purge.
 import { apiFetch } from '../../../shared/api/httpClient';
 
 /** § 1.1 `type`: as mod-001's process read gives it. */
@@ -44,6 +45,30 @@ export interface WorkItemAssignee {
   displayName: string | null;
   email: string | null;
   isMember?: boolean;
+}
+
+/**
+ * mod-005 api-contract § 1.1 `deletion.by`: a user reference. `displayName` is `null` when
+ * the directory does not know the id (and `isActive` is then `false` too); `isMember` is
+ * whether the user is now a member of the item's organization, in any role.
+ */
+export interface WorkItemUserReference {
+  id: string;
+  displayName: string | null;
+  isActive: boolean;
+  isMember: boolean;
+}
+
+/**
+ * mod-005 api-contract § 1.1 `deletion`: the record of the latest deletion (BR-DR-2) — the
+ * state the item held (the restore's preset), who deleted it and when. The item is deleted
+ * exactly when its `state.category.code` is `Removed`, never when this is set: an item put
+ * there outside Delete has none (BR-DR-10).
+ */
+export interface WorkItemDeletion {
+  fromState: WorkItemStateReference;
+  by: WorkItemUserReference;
+  at: string;
 }
 
 /** § 1.1 `area`: its current path (mod-002 DC-9), the root by its own name. */
@@ -154,6 +179,8 @@ export interface WorkItem extends WorkItemFields {
    * rank descending, then by number — shown as received; `[]` for none.
    */
   children: WorkItemRef[];
+  /** mod-005 § 1.1: `null` for a live item and for one in «Удалена» that has no marks. */
+  deletion: WorkItemDeletion | null;
 }
 
 /**
@@ -168,6 +195,7 @@ export type WorkItemListItem = Omit<
   | 'createdAt'
   | 'parent'
   | 'children'
+  | 'deletion'
   | WorkItemFieldName
 >;
 
@@ -347,6 +375,47 @@ export function saveWorkItem(
   return apiFetch(workItemApiPath(organizationId, projectId, identifier), {
     method: 'PATCH',
     body,
+  });
+}
+
+/**
+ * mod-005 api-contract § 2.1: moves the item into its type's «Удалена» and records the state
+ * it held, who and when (no body). 409 `workitems.workitem.deleted` when it already is.
+ */
+export function deleteWorkItem(
+  organizationId: string,
+  projectId: string,
+  identifier: string,
+): Promise<WorkItem> {
+  return apiFetch(`${workItemApiPath(organizationId, projectId, identifier)}/delete`, {
+    method: 'POST',
+  });
+}
+
+/**
+ * mod-005 api-contract § 2.2: a deleted item back to `stateId`, a state of its type other than
+ * «Удалена»; without one, the state it held. 409 `not_deleted` comes before 409 `state_not_allowed`.
+ */
+export function restoreWorkItem(
+  organizationId: string,
+  projectId: string,
+  identifier: string,
+  stateId?: string,
+): Promise<WorkItem> {
+  return apiFetch(`${workItemApiPath(organizationId, projectId, identifier)}/restore`, {
+    method: 'POST',
+    body: stateId === undefined ? undefined : { stateId },
+  });
+}
+
+/** mod-005 api-contract § 2.3: removes a deleted item for good (administrator); 204, no body. */
+export function purgeWorkItem(
+  organizationId: string,
+  projectId: string,
+  identifier: string,
+): Promise<void> {
+  return apiFetch(`${workItemApiPath(organizationId, projectId, identifier)}/purge`, {
+    method: 'POST',
   });
 }
 

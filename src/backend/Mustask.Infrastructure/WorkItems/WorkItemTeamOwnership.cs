@@ -12,8 +12,9 @@ namespace Mustask.Infrastructure.WorkItems;
 /// </summary>
 internal sealed class WorkItemTeamOwnership(MustaskDbContext context) : IWorkItemTeamOwnership
 {
+    // Every state: a deleted item still belongs to its team until the team's deletion releases it (BR-OT-12, mod-005 BR-DR-9).
     public Task<int> CountOwnedAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
-        context.WorkItems.CountAsync(item => item.ProjectId == projectId && item.OwningTeamId == teamId, cancellationToken);
+        WorkItemSets.InAnyState(context).CountAsync(item => item.ProjectId == projectId && item.OwningTeamId == teamId, cancellationToken);
 
     public async Task<IReadOnlyList<ProjectCount>> CountOwnedByProjectAsync(
         Guid teamId, IReadOnlyCollection<Guid> projectIds, CancellationToken cancellationToken)
@@ -25,13 +26,19 @@ internal sealed class WorkItemTeamOwnership(MustaskDbContext context) : IWorkIte
 
         var ids = projectIds.Distinct().ToArray();
 
-        return await context.WorkItems
+        // Every state, as the unlink's count is (feat-028 SC-09, doc-012 BR-MX-12): a deleted item is owned until a release moves
+        // it, so the deletion's counts say what the deletion would release, deleted items included (mod-005 BR-DR-9).
+        return await WorkItemSets.InAnyState(context)
             .AsNoTracking()
             .Where(item => item.OwningTeamId == teamId && ids.Contains(item.ProjectId))
             .GroupBy(item => item.ProjectId)
             .Select(group => new ProjectCount(group.Key, group.Count()))
             .ToListAsync(cancellationToken);
     }
+
+    // Two statements for any number of projects, in the database's own order of project ids (WorkItemHierarchyLocks).
+    public Task LockHierarchiesAsync(IReadOnlyCollection<Guid> projectIds, CancellationToken cancellationToken) =>
+        WorkItemHierarchyLocks.AcquireAsync(context, projectIds, cancellationToken);
 
     public Task LockOwnedAsync(IReadOnlyCollection<Guid> projectIds, Guid teamId, CancellationToken cancellationToken)
     {

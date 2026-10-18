@@ -45,6 +45,7 @@ const STORY: WorkItem = {
   changedAt: '2026-10-05T14:30:00+00:00',
   parent: FEAT_6,
   children: [],
+  deletion: null,
   ...defaultFields('story'),
   storyPoints: 5,
 };

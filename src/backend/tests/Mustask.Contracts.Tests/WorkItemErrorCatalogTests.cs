@@ -15,7 +15,8 @@ public sealed class WorkItemErrorCatalogTests
 {
     /// <summary>
     /// api-contract.md § 4 (mod-003), feat-001's api-contract § 5 (the six <c>workitems.link.*</c> codes) and
-    /// feat-027's § 5 (the depth bound), row by row: code, status, params and the Russian text.
+    /// feat-027's § 5 (the depth bound) and mod-005's § 4 (the two deletion refusals), row by row: code, status, params and
+    /// the Russian text.
     /// </summary>
     public static TheoryData<string, int, string, string> ContractTable() => new()
     {
@@ -36,6 +37,10 @@ public sealed class WorkItemErrorCatalogTests
         { WorkItemErrorCodes.Cycle, 409, "item,parent,path", "Нельзя выбрать родителем {parent}: он вложен в {item} ({path})." },
         { WorkItemErrorCodes.ParentChanged, 409, "", "Родитель уже изменён другим участником. Данные обновлены — проверьте и повторите." },
         { WorkItemErrorCodes.ItemDeleted, 409, "", "Удалённый рабочий элемент нельзя связывать." },
+
+        // mod-005 api-contract § 4: the deleted item's read-only refusal and the refusal of Restore or Purge on a live one.
+        { WorkItemErrorCodes.WorkItemDeleted, 409, "", "Рабочий элемент удалён и доступен только для чтения." },
+        { WorkItemErrorCodes.WorkItemNotDeleted, 409, "", "Рабочий элемент не удалён." },
 
         // feat-027 api-contract § 5 (its D-9): the depth bound; the limit goes out as the one parameter.
         { WorkItemErrorCodes.DepthExceeded, 409, "limit", "Слишком глубокая вложенность: в цепочке родителей может быть не больше {limit} элементов." },

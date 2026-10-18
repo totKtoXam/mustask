@@ -110,7 +110,7 @@ function PageCard({
   const { show } = useNotice();
   // The role views (mod-016 design § 6.5): the card is read-only without the write
   // code, and «Родитель» alone is without the link code.
-  const { readOnly, parentReadOnly } = useWorkItemAccess();
+  const { readOnly, parentReadOnly, canDelete, canPurge } = useWorkItemAccess();
   const navigate = useNavigate();
   const location = useLocation();
   const { trail } = usePageHead({ title: `${item.type.name} ${item.identifier}` });
@@ -133,9 +133,13 @@ function PageCard({
       mode="page"
       readOnly={readOnly}
       parentReadOnly={parentReadOnly}
+      canDelete={canDelete}
+      canPurge={canPurge}
       notify={show}
       onGone={onGone}
       onClose={goBack}
+      // The purged address must not be one Back returns to (mod-005 design § 6).
+      onPurged={() => navigate(workItemsPath(organizationId, projectId), { replace: true })}
       renderFrame={(frame) => <PageFrame frame={frame} trail={trail} />}
     />
   );

@@ -101,7 +101,7 @@ function CardDialog({
   const query = useWorkItem(organizationId, projectId, identifier);
   const { show } = useNotice();
   // The role views (mod-016 design § 6.5), as the page's: the host asks, the card shows.
-  const { readOnly, parentReadOnly } = useWorkItemAccess();
+  const { readOnly, parentReadOnly, canDelete, canPurge } = useWorkItemAccess();
   // The level a save found gone, or the read's own answer.
   const [gone, setGone] = useState<WorkItemsNotFoundLevel | null>(null);
   // The card hands its frame to the shell below; the host draws no shell of its own.
@@ -144,12 +144,18 @@ function CardDialog({
         mode="dialog"
         readOnly={readOnly}
         parentReadOnly={parentReadOnly}
+        canDelete={canDelete}
+        canPurge={canPurge}
         notify={show}
         onGone={setGone}
         onClose={close}
         onOpenItem={dialog.switchTo}
         onSaved={onChanged}
         onRefreshed={onChanged}
+        // A Delete, a Restore and a Purge change what the page behind shows (design § 7); a
+        // Purge also leaves nothing to look at, so the card closes (design § 6).
+        onChanged={onChanged}
+        onPurged={close}
         renderFrame={(content) => <PublishFrame store={frames} frame={content} />}
       />
     );

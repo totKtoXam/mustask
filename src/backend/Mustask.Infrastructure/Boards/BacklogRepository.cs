@@ -1,6 +1,7 @@
 using Mustask.Application.Abstractions.Boards;
 using Mustask.Domain.Boards;
 using Mustask.Domain.Organizations;
+using Mustask.Infrastructure.WorkItems;
 using Microsoft.EntityFrameworkCore;
 
 namespace Mustask.Infrastructure.Boards;
@@ -133,9 +134,11 @@ internal sealed class BacklogRepository(MustaskDbContext context) : IBacklogRepo
         // may take a row meanwhile, which the delete's own condition then skips.
         // feat-028 D-13 (OQ-3 A): only the places on THIS project's items are read — a team is linked to several projects and its
         // order is one per level, so another project's places are that project's view and are never "departed" from this one.
+        // mod-005 (BR-DR-10): in any state — a deleted item's place is a place this backlog still holds, and the reorder drops it as
+        // it dropped it before the project filter (a restore then returns the item below every placed item, not to a stale place).
         var held = await (
                 from place in context.Set<BacklogPlace>().AsNoTracking()
-                join item in context.WorkItems on place.WorkItemId equals item.Id
+                join item in WorkItemSets.InAnyState(context) on place.WorkItemId equals item.Id
                 where place.TeamId == scope.TeamId && place.BacklogLevelId == scope.LevelId && item.ProjectId == scope.ProjectId
                 select place.WorkItemId)
             .ToListAsync(cancellationToken);

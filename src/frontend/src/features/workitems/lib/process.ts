@@ -1,12 +1,5 @@
-import type {
-  CategoryCode,
-  ProcessDefinitionResponse,
-  StateDefinition,
-  WorkItemType,
-} from '../../process';
-
-/** «Удалена»'s category: only mod-005's Delete reaches it, so no control offers it (BR-M3-21). */
-const REMOVED: CategoryCode = 'Removed';
+import type { ProcessDefinitionResponse, StateDefinition, WorkItemType } from '../../process';
+import { REMOVED_CATEGORY } from './deletion';
 
 /** The type of the organization's process with this id, or none. */
 export function typeById(types: readonly WorkItemType[], typeId: string): WorkItemType | undefined {
@@ -15,10 +8,12 @@ export function typeById(types: readonly WorkItemType[], typeId: string): WorkIt
 
 /**
  * The states «Статус» offers (spec § Pickers; api-contract § 3): the type's
- * own, in the seeded order the process read gives, without its `Removed` one.
+ * own, in the seeded order the process read gives, without its `Removed` one —
+ * only Delete reaches «Удалена» (BR-M3-21, mod-005 BR-DR-1), and the restore
+ * dialog offers the same list (design § 5).
  */
 export function editableStates(type: WorkItemType): StateDefinition[] {
-  return type.states.filter((state) => state.category.code !== REMOVED);
+  return type.states.filter((state) => state.category.code !== REMOVED_CATEGORY);
 }
 
 /**

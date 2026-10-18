@@ -85,10 +85,11 @@ public sealed class ProjectBacklogStatementCountTests(OrganizationsDatabaseFixtu
     }
 
     // Pinned: a change to one of these is a change to the query shape and is made on purpose (the numbers are the first run's).
+    // ReorderStatements went 12 -> 13 with mod-005 (ADR-0030 rule 6): the one statement that locks the members FOR KEY SHARE.
     private const int StoriesBacklogStatements = 9;
     private const int EpicsBacklogStatements = 8;
     private const int BoardStatements = 11;
-    private const int ReorderStatements = 12;
+    private const int ReorderStatements = 13;
 
     private async Task<int> CountAsync(Func<IServiceProvider, CancellationToken, Task> run)
     {

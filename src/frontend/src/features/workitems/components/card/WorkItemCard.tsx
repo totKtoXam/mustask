@@ -3,25 +3,32 @@ import {
   useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
 } from 'react';
+import { useIsMutating } from '@tanstack/react-query';
 import Box from '@mui/material/Box';
 import { useProcessDefinition } from '../../../process';
-import { ConfirmDialog, InlineTextField } from '../../../../shared/ui';
+import { ConfirmDialog, InlineTextField, type NoticeSeverity } from '../../../../shared/ui';
+import { RequiresOrganizationCode } from '../../../../shared/ui/RequiresOrganizationCode';
 import { formatDateTime } from '../../../../shared/lib/format';
 import type { WorkItem } from '../../api/workItemsApi';
+import { deletionMutationKey } from '../../hooks/mutations';
 import { useGuardedLeave } from '../../hooks/useGuardedLeave';
 import { useWorkItemEdits } from '../../hooks/useWorkItemEdits';
 import {
   cardTexts,
   changedAtText,
+  deletionTexts,
   switchGuardTexts,
   undoGuardTexts,
   type GuardTexts,
 } from '../../lib/cardTexts';
+import { deletionLine, isDeleted } from '../../lib/deletion';
+import type { DeletionRefusal } from '../../lib/deletionRefusals';
 import { editHandlers } from '../../lib/editHandlers';
 import { createFieldRegistry } from '../../lib/fieldRegistry';
 import { TEXT_FIELDS, layoutOf } from '../../lib/fields';
@@ -29,6 +36,7 @@ import type { WorkItemsNotFoundLevel } from '../../lib/notFoundLevel';
 import { allowedParentTypes, editableStates, parentHelperText, typeById } from '../../lib/process';
 import type { RefusalField } from '../../lib/refusals';
 import { workItemPath } from '../../paths';
+import { workItemsPermissions } from '../../permissions';
 import { AcceptanceCriteriaSection } from '../AcceptanceCriteriaSection';
 import { AreaField } from './AreaField';
 import { AssigneeField } from './AssigneeField';
@@ -36,11 +44,17 @@ import { CardActions } from './CardActions';
 import { CardTeamField } from './CardTeamField';
 import type { CardColumnItem, CardFrameProps, CardNotice } from './cardFrame';
 import { ChildItems } from './ChildItems';
+import { DeleteWorkItemDialog } from './DeleteWorkItemDialog';
 import { oneColumnCap } from './oneColumn';
 import { ParentField } from './ParentField';
 import { PropertyField, TextBlock } from './PropertyField';
+import { PurgeWorkItemDialog } from './PurgeWorkItemDialog';
+import { RestoreWorkItemDialog } from './RestoreWorkItemDialog';
 import { StateField } from './StateField';
 import type { WorkItemCardSlots } from './cardSlots';
+
+/** Which of mod-005's three dialogs is open over the card, if any. */
+type DeletionDialog = 'delete' | 'restore' | 'purge';
 
 export interface WorkItemCardProps {
   organizationId: string;
@@ -48,8 +62,11 @@ export interface WorkItemCardProps {
   /** The item as the page or the dialog read it. */
   item: WorkItem;
   mode: 'dialog' | 'page';
-  /** Tells the user a short result (the kit's `useNotice().show`). */
-  notify: (text: string) => void;
+  /**
+   * Tells the user a short result (the kit's `useNotice().show`); a refusal says it is an
+   * error (mod-005 design § 8).
+   */
+  notify: (text: string, severity?: NoticeSeverity) => void;
   /** The path's own level is gone: the host replaces the card with that level's frame. */
   onGone: (level: WorkItemsNotFoundLevel) => void;
   /**
@@ -83,6 +100,20 @@ export interface WorkItemCardProps {
   onSaved?: (saved: WorkItem) => void;
   /** An accepted «Обновить»: the same host reads the page behind it again (BR-C-21). */
   onRefreshed?: (fresh: WorkItem) => void;
+  /**
+   * `workitems.workitem.delete` (mod-005 design § 9): «Удалить» on a live card, «Восстановить»
+   * on a deleted one, and the sentence that says how to get the item back.
+   */
+  canDelete?: boolean;
+  /** `workitems.workitem.purge`: «Удалить навсегда» on a deleted card — the administrator alone. */
+  canPurge?: boolean;
+  /** A Delete, a Restore or a Purge was accepted: the host reads its own views again (design § 7). */
+  onChanged?: () => void;
+  /**
+   * A Purge was accepted (design § 6): the item is gone, so the dialog's host closes the card
+   * and the page's goes to the list.
+   */
+  onPurged?: () => void;
   /** The places kept (BR-C-18). */
   slots?: WorkItemCardSlots;
 }
@@ -110,13 +141,17 @@ export function WorkItemCard({
   notify,
   onGone,
   renderFrame,
-  readOnly = false,
+  readOnly: hostReadOnly = false,
   readOnlyText = cardTexts.readOnly,
   parentReadOnly = false,
   onClose,
   onOpenItem,
   onSaved,
   onRefreshed,
+  canDelete = false,
+  canPurge = false,
+  onChanged,
+  onPurged,
   slots = {},
 }: WorkItemCardProps) {
   const headingId = useId();
@@ -135,6 +170,16 @@ export function WorkItemCard({
   });
   const [confirmingUndo, setConfirmingUndo] = useState(false);
   const leave = useGuardedLeave(state.isDirty);
+  // The mode follows the read (mod-005 design § 4): a state in the Removed category makes the
+  // card read-only, whatever the role holds; the role decides only what it may do about it.
+  const deleted = isDeleted(item);
+  const readOnly = hostReadOnly || deleted;
+  const [dialog, setDialog] = useState<DeletionDialog | null>(null);
+  const restoring =
+    useIsMutating({ mutationKey: deletionMutationKey('restore', item.identifier) }) > 0;
+  // Where focus goes once a dialog has closed over a card that changed under it (design § 3, § 5).
+  const [refocus, setRefocus] = useState<{ target: 'more' | 'title'; serial: number } | null>(null);
+  const moreRef = useRef<HTMLSpanElement>(null);
 
   const { focus } = state;
   useEffect(() => {
@@ -142,6 +187,32 @@ export function WorkItemCard({
       fields.focus(focus.field);
     }
   }, [focus, fields]);
+  // After the dialog has gone: MUI gives focus back to what it remembered when it opened — for a
+  // dialog chosen from «⋮» a menu entry that is gone — so the card names the place itself.
+  useEffect(() => {
+    if (refocus?.target === 'title') {
+      fields.focus('title');
+    } else if (refocus?.target === 'more') {
+      moreRef.current?.querySelector('button')?.focus();
+    }
+  }, [refocus, fields]);
+
+  /** The dialog is closed; focus goes to «Ещё действия», where it was chosen from. */
+  function closeDialogToMenu() {
+    setDialog(null);
+    setRefocus((current) => ({ target: 'more', serial: (current?.serial ?? 0) + 1 }));
+  }
+
+  /** A refusal that leaves the card stale or gone (design § 8): the dialog closes, the card does the rest. */
+  function refusedByTheServer(refusal: Exclude<DeletionRefusal, { kind: 'stays' }>) {
+    setDialog(null);
+    if (refusal.kind === 'gone') {
+      onGone(refusal.level);
+      return;
+    }
+    notify(refusal.text, 'error');
+    void state.refresh({ notice: false });
+  }
 
   const { draft, errors, saving, refreshing, change } = state;
   const on = useMemo(() => editHandlers(change), [change]);
@@ -206,11 +277,22 @@ export function WorkItemCard({
     [ask, onOpenItem],
   );
 
+  // A card error (a failed read) takes the area before the deleted card's note (design § 4); a
+  // deleted card says why it is read-only and, for a holder of the delete code, how to get the
+  // item back, then who deleted it and when (BR-DR-7).
   const notice: CardNotice | null = state.alert
     ? { severity: 'error', text: state.alert }
-    : readOnly
-      ? { severity: 'info', text: readOnlyText }
-      : null;
+    : deleted
+      ? {
+          severity: 'info',
+          text: canDelete
+            ? `${deletionTexts.notice.readOnly} ${deletionTexts.notice.restoreHint}`
+            : deletionTexts.notice.readOnly,
+          detail: deletionLine(item.deletion) ?? undefined,
+        }
+      : readOnly
+        ? { severity: 'info', text: readOnlyText }
+        : null;
 
   const isStory =
     layout.isStory ||
@@ -376,15 +458,24 @@ export function WorkItemCard({
     headerActions: (
       <CardActions
         readOnly={readOnly}
+        deleted={deleted}
+        canRestore={canDelete}
+        canDelete={canDelete}
+        canPurge={canPurge}
+        restoring={restoring}
         dirty={state.isDirty}
         saving={saving}
         refreshing={refreshing}
         follow={slots.follow}
+        moreRef={moreRef}
         onSave={(event) => void saveByButton(event)}
         onSaveAndClose={() => void state.saveAndClose(() => onClose?.())}
         onRefresh={() => void state.refresh()}
         onUndo={() => setConfirmingUndo(true)}
         onCopyLink={() => void copyLink()}
+        onRestore={() => setDialog('restore')}
+        onDelete={() => setDialog('delete')}
+        onPurge={() => setDialog('purge')}
       />
     ),
     bandBlocks: [
@@ -455,6 +546,60 @@ export function WorkItemCard({
         onConfirm={leave.confirm}
         onClose={leave.cancel}
       />
+      {/* mod-005 design § 8: a lost code disables the primary and leaves «Отмена». */}
+      <RequiresOrganizationCode code={workItemsPermissions.workItemDelete}>
+        {dialog === 'delete' && (
+          <DeleteWorkItemDialog
+            organizationId={organizationId}
+            projectId={projectId}
+            identifier={item.identifier}
+            liveChildren={item.children.length}
+            hasDraft={state.isDirty}
+            onDeleted={() => {
+              setDialog(null);
+              setRefocus((current) => ({ target: 'more', serial: (current?.serial ?? 0) + 1 }));
+              notify(deletionTexts.delete.done(item.identifier));
+              onChanged?.();
+            }}
+            onRefused={refusedByTheServer}
+            onClose={closeDialogToMenu}
+          />
+        )}
+        {dialog === 'restore' && (
+          <RestoreWorkItemDialog
+            organizationId={organizationId}
+            projectId={projectId}
+            item={item}
+            onRestored={() => {
+              setDialog(null);
+              setRefocus((current) => ({ target: 'title', serial: (current?.serial ?? 0) + 1 }));
+              notify(deletionTexts.restoreDialog.done(item.identifier));
+              onChanged?.();
+            }}
+            onRefused={refusedByTheServer}
+            onClose={() => setDialog(null)}
+          />
+        )}
+      </RequiresOrganizationCode>
+      <RequiresOrganizationCode code={workItemsPermissions.workItemPurge}>
+        {dialog === 'purge' && (
+          <PurgeWorkItemDialog
+            organizationId={organizationId}
+            projectId={projectId}
+            identifier={item.identifier}
+            title={item.title}
+            liveChildren={item.children.length}
+            onPurged={() => {
+              setDialog(null);
+              notify(deletionTexts.purgeDialog.done(item.identifier));
+              onChanged?.();
+              onPurged?.();
+            }}
+            onRefused={refusedByTheServer}
+            onClose={closeDialogToMenu}
+          />
+        )}
+      </RequiresOrganizationCode>
     </>
   );
 }

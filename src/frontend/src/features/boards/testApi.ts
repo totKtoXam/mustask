@@ -340,7 +340,13 @@ export class BoardsTestApi {
   /** The item with its parent and children, as a read or a save of the card answers (feat-029). */
   private fullItem(record: WorkItemRecord) {
     const parent = this.byId(record.parentId);
-    return { ...this.workItem(record), parent: parent ? this.ref(parent) : null, children: [] };
+    // mod-005 § 1.1: every answer of a `WorkItem` carries `deletion`, `null` for a live item.
+    return {
+      ...this.workItem(record),
+      parent: parent ? this.ref(parent) : null,
+      children: [],
+      deletion: null,
+    };
   }
 
   /** The answer's subject — `team`, or on the project's views (feat-039 § 2.1) `project` — and its level. */

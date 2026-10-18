@@ -52,6 +52,17 @@ public static class WorkItemErrorCodes
     /// <summary>The newly set assignee is unknown to the directory or inactive (BR-M3-22).</summary>
     public const string AssigneeUnavailable = "workitems.workitem.assignee_unavailable";
 
+    // --- mod-005: delete, restore, purge (its api-contract § 4) ----------------------------------------------------
+
+    /// <summary>
+    /// «Рабочий элемент удалён и доступен только для чтения.»: the item is in its type's «Удалена» (BR-DR-8). Answered by a
+    /// save and by a second Delete, decided on the stored state under the item's lock.
+    /// </summary>
+    public const string WorkItemDeleted = "workitems.workitem.deleted";
+
+    /// <summary>«Рабочий элемент не удалён.»: Restore or Purge of an item that is not in «Удалена» (BR-DR-10, BR-DR-12).</summary>
+    public const string WorkItemNotDeleted = "workitems.workitem.not_deleted";
+
     // --- feat-001: the Parent/Child link (its api-contract § 5) ---------------------------------------------------
 
     /// <summary>
