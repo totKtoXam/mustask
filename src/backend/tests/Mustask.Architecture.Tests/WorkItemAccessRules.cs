@@ -11,7 +11,8 @@ namespace Mustask.Architecture.Tests;
 /// memberships, which keep their own single place and are pinned by the parity test. Any other read starts from an entry
 /// point, so it states its intent by name.</item>
 /// <item><b>Writes.</b> Outside <c>Mustask.Infrastructure/WorkItems/</c> and the migrations, nothing writes <c>work_items</c> by
-/// raw SQL. Inside it, a raw <c>UPDATE work_items</c> names neither <c>state_id</c> nor <c>deleted_</c>: only the aggregate
+/// raw SQL, by <c>ExecuteUpdate</c> or <c>ExecuteDelete</c> over a work-item query, or by a <c>Remove</c> straight on the
+/// context. Inside it, a raw <c>UPDATE work_items</c> names neither <c>state_id</c> nor <c>deleted_</c>: only the aggregate
 /// writes the state and the marks of a deletion. Today's raw writers are the team release and the purge's
 /// <c>parent_id = NULL</c>.</item>
 /// </list>
@@ -51,11 +52,21 @@ public sealed class WorkItemAccessRules
         ("Set<WorkItem>()", new Regex(@"\bSet<WorkItem>\s*\(", RegexOptions.CultureInvariant)),
     ];
 
+    /// <summary>A query over work items: an entry point of <c>WorkItemSets</c>, the context's set, or <c>Set&lt;WorkItem&gt;()</c>.</summary>
+    private const string TheItems =
+        @"(?:\bWorkItemSets\s*\.\s*(?:Live|Deleted|InAnyState)\s*\(|\b\w*[cC]ontext\s*\.\s*WorkItems\b|\bSet<WorkItem>\s*\(\s*\))";
+
     private static readonly (string Name, Regex Pattern)[] WritePatterns =
     [
         ("UPDATE work_items", new Regex(@"\bUPDATE\s+work_items\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)),
         ("DELETE FROM work_items", new Regex(@"\bDELETE\s+FROM\s+work_items\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)),
         ("INSERT INTO work_items", new Regex(@"\bINSERT\s+INTO\s+work_items\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)),
+
+        // ADR-0030 rule 2 names these two shapes as well (mod-005 code review CR-4). The first stays inside one statement.
+        // The second cannot tell by text which entity is removed: a Remove straight on the context passes the entity as an
+        // argument, so it is flagged for every entity, and the other slices remove through their own set (`context.Areas.Remove`).
+        ("bulk update or delete of work items", new Regex(TheItems + @"[^;]*?\.\s*Execute(?:Update|Delete)\w*\s*\(", RegexOptions.CultureInvariant)),
+        ("tracked remove through the context", new Regex(@"\b\w*[cC]ontext\s*\.\s*Remove(?:Range)?\s*\(", RegexOptions.CultureInvariant)),
     ];
 
     /// <summary>A raw <c>UPDATE work_items</c> statement, up to the quote that closes it.</summary>
@@ -83,8 +94,10 @@ public sealed class WorkItemAccessRules
 
         Assert.True(
             violations.Count == 0,
-            "Code outside Mustask.Infrastructure/WorkItems/ writes `work_items` by raw SQL, or a raw UPDATE of `work_items` names "
-            + "`state_id` or a `deleted_` mark — only the aggregate writes them, through Delete and Restore (mod-005, ADR-0030 rule 2):"
+            "Code outside Mustask.Infrastructure/WorkItems/ writes `work_items` by raw SQL, by ExecuteUpdate/ExecuteDelete over a "
+            + "work-item query, or by a Remove straight on the context (it cannot be told which entity that removes; remove through the "
+            + "entity's own set), or a raw UPDATE of `work_items` names `state_id` or a `deleted_` mark — only the aggregate writes them, "
+            + "through Delete and Restore (mod-005, ADR-0030 rule 2):"
             + Environment.NewLine + string.Join(Environment.NewLine, violations));
     }
 
@@ -143,6 +156,20 @@ public sealed class WorkItemAccessRules
             ("Mustask.Infrastructure/WorkItems/Multi.cs", "$\"\"\"\n    UPDATE work_items\n    SET state_id = {s}\n    WHERE id = {id}\n    \"\"\""),
             ("Mustask.Infrastructure/Migrations/20261018_Move.cs", "\"UPDATE work_items SET state_id = x\""),
             ("Mustask.Infrastructure/Organizations/Comment.cs", CodeOf(["// UPDATE work_items SET x", "/// DELETE FROM work_items"])),
+
+            // CR-4: the shapes the raw-SQL patterns do not see.
+            ("Mustask.Infrastructure/Boards/Bulk.cs", "await WorkItemSets.Live(context)\n    .Where(item => item.ProjectId == projectId)\n    .ExecuteUpdateAsync(item => item.SetProperty(i => i.Title, \"x\"));"),
+            ("Mustask.Infrastructure/Organizations/BulkDelete.cs", "await WorkItemSets.InAnyState(dbContext).Where(item => item.AreaId == areaId).ExecuteDeleteAsync(cancellationToken);"),
+            ("Mustask.Infrastructure/Organizations/BulkSet.cs", "await context.WorkItems.ExecuteDeleteAsync(ct);"),
+            ("Mustask.Infrastructure/Boards/BulkGeneric.cs", "_context.Set<WorkItem>().Where(item => true).ExecuteUpdate(item => item);"),
+            ("Mustask.Infrastructure/Boards/Gone.cs", "context.Remove(item);"),
+            ("Mustask.Infrastructure/Boards/GoneMany.cs", "dbContext.RemoveRange(items);"),
+
+            // Not flagged: another entity's bulk write and its own set's Remove, a read followed by another statement's bulk write,
+            // and the sub-slice that owns the writes.
+            ("Mustask.Infrastructure/Organizations/Teams.cs", "await context.Teams.Where(team => true).ExecuteDeleteAsync(ct);\ncontext.Areas.Remove(area);\ncache.Remove(key);"),
+            ("Mustask.Infrastructure/Organizations/ReadThenWrite.cs", "var rows = await WorkItemSets.Live(context).ToListAsync(ct);\nawait context.Teams.ExecuteDeleteAsync(ct);"),
+            ("Mustask.Infrastructure/WorkItems/WorkItemRepository.cs", "context.Remove(item);\nawait WorkItemSets.Live(context).Where(item => true).ExecuteDeleteAsync(ct);"),
         ]);
 
         Assert.Equal(
@@ -153,6 +180,12 @@ public sealed class WorkItemAccessRules
                 "Mustask.Infrastructure/WorkItems/State.cs: UPDATE work_items names state_id or a deleted_ mark",
                 "Mustask.Infrastructure/WorkItems/Mark.cs: UPDATE work_items names state_id or a deleted_ mark",
                 "Mustask.Infrastructure/WorkItems/Multi.cs: UPDATE work_items names state_id or a deleted_ mark",
+                "Mustask.Infrastructure/Boards/Bulk.cs: bulk update or delete of work items",
+                "Mustask.Infrastructure/Organizations/BulkDelete.cs: bulk update or delete of work items",
+                "Mustask.Infrastructure/Organizations/BulkSet.cs: bulk update or delete of work items",
+                "Mustask.Infrastructure/Boards/BulkGeneric.cs: bulk update or delete of work items",
+                "Mustask.Infrastructure/Boards/Gone.cs: tracked remove through the context",
+                "Mustask.Infrastructure/Boards/GoneMany.cs: tracked remove through the context",
             ],
             flaggedWrites);
     }
