@@ -31,7 +31,7 @@ M with UI: analysis → requirements review → UX design → gate-1 + gate-2 to
 
 ## Log
 
-- 2026-10-18 [frontend-developer] stage 5 done: the band, the one address writer, «Удалена» rows, the marks and the purge landing built per D-1..D-6 A; mod-003 and mod-005 noted. Findings in plan-frontend.md § Findings: the 2 000-person picker (25 s in jsdom), the kit's text field drops `onBlur`, the merge with feat-040. No E2E spec breaks
+- 2026-10-18 [frontend-developer] stage 5 done: band, address writer, «Удалена» rows, marks, purge landing per D-1..D-6 A; mod-003, mod-005 noted. Findings (2 000-person picker, kit `onBlur`, feat-040 merge): plan-frontend.md. No E2E spec breaks
 - 2026-10-18 [backend-developer] stage 4 done: `state`, `assigneeId`, `search`, `…/workitems/assignee-options` and the row's `assignee.isActive` per api-contract.md (unchanged since 6ae3bed3); deviations in plan-backend.md § As built; mod-003 and mod-005 noted. No E2E spec breaks
 - 2026-10-18 [backend-developer] resumed after a stop: restored the 7 salvaged, untested test files (route inventory, OpenAPI, SearchTestData, state, assignee and keyword endpoint tests) over d4dbf178; read against the plan, all sound, kept and passing
 - 2026-10-18 [orchestrator] gate-1 (OQ-1..OQ-3 A) and gate-2 (D-1..D-6 A) approved by the human in chat, one question each; boxes ticked in spec.md and design.md; stage 04-backend.
