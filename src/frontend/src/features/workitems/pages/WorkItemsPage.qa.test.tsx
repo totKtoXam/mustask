@@ -14,9 +14,9 @@ import { MSK_LIST, projectContext, renderWorkItems } from '../testRender';
 import { WorkItemsPage } from './WorkItemsPage';
 
 // feat-003 QA pass (qa.md, Frontend): what the developer's suites leave open, written from the
-// spec before the code was read. Each `it.fails` is an open defect (qa.md D-F1..D-F4): it states
-// the behaviour the spec asks for and passes while the defect stands. When a defect is fixed its
-// test starts failing; drop `.fails` then.
+// spec before the code was read. Each `it.fails` is a defect still open (qa.md D-F2, D-F4): it
+// states the behaviour the spec asks for and passes while the defect stands. When one is fixed its
+// test starts failing; drop `.fails` then. D-F1 and D-F3 are fixed: their tests are plain.
 
 vi.setConfig({ testTimeout: 120_000 });
 
@@ -53,9 +53,10 @@ function manyTasks() {
 }
 
 describe('QA BR-WS-11 the page returns to 1 whenever any filter’s content changes', () => {
-  // The page number is kept per filter content, so coming back to an earlier content (clearing the
-  // filter just set) brings that content's old page back.
-  it.fails('D-F1: clearing a filter set from page 2 shows the wider list on page 1', async () => {
+  // The page number belongs to one filter content. A change of content stores the new content with
+  // page 0, so coming back to an earlier content (clearing the filter just set) does not bring that
+  // content's old page back.
+  it('D-F1: clearing a filter set from page 2 shows the wider list on page 1', async () => {
     const api = serveWorkItems(manyTasks());
     renderWorkItems(MSK_LIST);
     await table();
@@ -70,6 +71,35 @@ describe('QA BR-WS-11 the page returns to 1 whenever any filter’s content chan
 
     await screen.findByText('1–50 из 120', {}, { timeout: 3_000 });
     expect(api.reads('/workitems?').at(-1)?.path).toContain('page=1');
+  });
+
+  it('D-F1: «Очистить фильтры» shows the wider list on page 1, not the page it was on', async () => {
+    const api = serveWorkItems(manyTasks());
+    renderWorkItems(MSK_LIST);
+    await table();
+    await userEvent.click(screen.getByRole('button', { name: 'Перейти на следующую страницу' }));
+    await screen.findByText('51–100 из 120');
+
+    await pickState('Новая');
+    await screen.findByText('1–50 из 120');
+    await userEvent.click(within(band()).getByRole('button', { name: 'Очистить фильтры' }));
+    await waitFor(() => expect(addressSearch()).toBe(''));
+
+    await screen.findByText('1–50 из 120', {}, { timeout: 3_000 });
+    expect(api.reads('/workitems?').at(-1)?.path).toContain('page=1');
+  });
+
+  it('D-F1: a page chosen under a filter is kept while the filter is unchanged', async () => {
+    const api = serveWorkItems(manyTasks());
+    renderWorkItems(MSK_LIST);
+    await table();
+
+    await pickState('Новая');
+    await userEvent.click(screen.getByRole('button', { name: 'Перейти на следующую страницу' }));
+    await screen.findByText('51–100 из 120');
+
+    expect(addressSearch()).toContain('state=');
+    expect(api.reads('/workitems?').at(-1)?.path).toContain('page=2');
   });
 });
 
@@ -110,13 +140,14 @@ describe('QA design § 5 states 3 and 7: a change being read', () => {
 });
 
 describe('QA D-3 a typed keyword and what clears it', () => {
-  // The field's blur handler calls `setText` with the text it already has. When the address then
-  // drops the keyword (a clear, a link to the unfiltered list), the reset the field makes in its
-  // render is replayed over by that update: the text comes back, the pause (250 ms) re-applies it,
-  // and the address carries the keyword again. Only a keyword that was typed here and left the
-  // field is affected; one that came from a link clears. Also seen in headless Chrome 155 on a
-  // production build (the field beside a router link): the control without the blur clears.
-  it.fails('D-F3: «Очистить фильтры» clears a keyword that was typed and applied', async () => {
+  // The field's blur handler used to call `setText` with the text it already has. When the address
+  // then dropped the keyword (a clear, a link to the unfiltered list), the reset the field makes in
+  // its render was replayed over by that update: the text came back, the pause (250 ms) re-applied
+  // it, and the address carried the keyword again. Only a keyword that was typed here and left the
+  // field was affected; one that came from a link cleared. Also seen in headless Chrome 155 on a
+  // production build (the field beside a router link). The handler now sets the text only when
+  // trimming changes it.
+  it('D-F3: «Очистить фильтры» clears a keyword that was typed and applied', async () => {
     serveWorkItems(listFilterDataset());
     renderWorkItems(`${MSK_LIST}?state=${enc('Новая')}`);
     await table();
@@ -131,7 +162,7 @@ describe('QA D-3 a typed keyword and what clears it', () => {
     expect(keyword()).toHaveValue('');
   });
 
-  it.fails('D-F3: the main navigation’s «Рабочие элементы» opens the list unfiltered', async () => {
+  it('D-F3: the main navigation’s «Рабочие элементы» opens the list unfiltered', async () => {
     serveWorkItems(listFilterDataset());
     renderWorkItems(MSK_LIST);
     await table();
@@ -141,6 +172,56 @@ describe('QA D-3 a typed keyword and what clears it', () => {
     await new Promise((resolve) => setTimeout(resolve, 400));
     const navigation = screen.getByRole('navigation', { name: 'Основное меню' });
     await userEvent.click(within(navigation).getByRole('link', { name: 'Рабочие элементы' }));
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    expect(addressSearch()).toBe('');
+    expect(keyword()).toHaveValue('');
+  });
+
+  it('D-F3: a keyword applied by the pause alone is cleared by «Очистить фильтры» too', async () => {
+    serveWorkItems(listFilterDataset());
+    renderWorkItems(`${MSK_LIST}?state=${enc('Новая')}`);
+    await table();
+
+    await userEvent.type(keyword(), 'оплат');
+    await waitFor(() => expect(addressSearch()).toContain('search='));
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    await userEvent.click(within(band()).getByRole('button', { name: 'Очистить фильтры' }));
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    expect(addressSearch()).toBe('');
+    expect(keyword()).toHaveValue('');
+  });
+
+  it('D-F3: «Сбросить фильтр» clears a keyword that was typed and found nothing', async () => {
+    serveWorkItems(listFilterDataset());
+    renderWorkItems(MSK_LIST);
+    await table();
+
+    await userEvent.type(keyword(), 'ничего подобного{Enter}');
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Ничего не найдено' }),
+    ).toBeVisible();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    await userEvent.click(screen.getByRole('button', { name: 'Сбросить фильтр' }));
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    expect(addressSearch()).toBe('');
+    expect(keyword()).toHaveValue('');
+  });
+
+  it('D-F3: a keyword typed with spaces around it is shown trimmed and cleared as well', async () => {
+    serveWorkItems(listFilterDataset());
+    renderWorkItems(MSK_LIST);
+    await table();
+
+    await userEvent.type(keyword(), '  оплат  ');
+    await waitFor(() => expect(addressSearch()).toContain('search='));
+    await userEvent.click(within(band()).getByRole('combobox', { name: 'Статус' }));
+    await userEvent.keyboard('{Escape}');
+    expect(keyword()).toHaveValue('оплат');
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    await userEvent.click(screen.getByRole('button', { name: 'Очистить фильтры' }));
     await new Promise((resolve) => setTimeout(resolve, 800));
 
     expect(addressSearch()).toBe('');

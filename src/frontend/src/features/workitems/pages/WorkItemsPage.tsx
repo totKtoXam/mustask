@@ -109,10 +109,15 @@ function WorkItemsList({
   /**
    * 0-based, as `TablePagination` counts; the route's `page` is 1-based. It belongs to the filter
    * it was chosen under, compared by content: another filter, set here or by the address, reads
-   * from the first page, and the same one, however its arrays were made, keeps the page.
+   * from the first page, and the same one, however its arrays were made, keeps the page. A change
+   * of content replaces the pair at once (page 0), so coming back to an earlier content — the
+   * filter just set is cleared — does not bring that content's old page back (BR-WS-11, qa D-F1).
    */
   const content = filterContent(filter);
   const [paging, setPaging] = useState({ content, page: 0 });
+  if (paging.content !== content) {
+    setPaging({ content, page: 0 });
+  }
   const page = paging.content === content ? paging.page : 0;
   const setPage = (next: number) => setPaging({ content, page: next });
   const query = useWorkItems(organizationId, projectId, page + 1, filter);

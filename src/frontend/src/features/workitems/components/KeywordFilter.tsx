@@ -79,9 +79,14 @@ export function KeywordFilter({
       // The field's own `onBlur` is not wired by the kit's text field (it reaches the input only
       // through the legacy `inputProps`), but a blur bubbles: leaving the input is seen here.
       onBlur={() => {
-        // Leaving shows the trimmed text; a text of spaces reads blank again.
+        // Leaving shows the trimmed text; a text of spaces reads blank again. Text that is already
+        // trimmed is not set again: a no-op update queued here would be replayed over the field's
+        // own reset when the address drops the keyword (a clear, a link), and the keyword would
+        // come back 250 ms later (qa D-F3).
         const keyword = text.trim();
-        setText(keyword);
+        if (keyword !== text) {
+          setText(keyword);
+        }
         apply(keyword);
       }}
     >
