@@ -210,6 +210,85 @@ public sealed class DeletedStateParityTests(OrganizationsDatabaseFixture databas
         }
     }
 
+    // feat-040 (ADR-0030 rule 2, plan-backend § 10.2): the team's membership across projects. The team's items stand in two active
+    // projects and in a deactivated one, an item in every state of every type in each: the membership and the locking read of a
+    // level are the live items of that level's types of the two active projects — the in-memory definition on each — and nothing of the
+    // deactivated project or of another organization's tenant (a read under another organization's id finds none).
+    [Fact]
+    public async Task TeamMembership_AndLockingRead_AcrossProjects_AreTheLiveItemsOfTheActiveProjects_NotADeactivatedOnesNorAnotherTenants()
+    {
+        var world = await SeedAsync();
+        var second = await database.AddProjectAsync(world.OrganizationId, "Второй", "SEC");
+        var sleeping = await database.AddProjectAsync(world.OrganizationId, "Спящий", "DEA");
+        await database.LinkAsync(world.OrganizationId, second.Project.Id, world.TeamId);
+        await database.LinkAsync(world.OrganizationId, sleeping.Project.Id, world.TeamId);
+
+        foreach (var (project, root) in new[] { (second.Project.Id, second.Root.Id), (sleeping.Project.Id, sleeping.Root.Id) })
+        {
+            await database.ExecuteAsync(
+                """
+                INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, owning_team_id, title, description,
+                                        creation_request_id, created_at, created_by, changed_at)
+                SELECT gen_random_uuid(), @project, number, type_id, state_id, @root, @team, title, '', gen_random_uuid(), now(), 'parity-test', now()
+                FROM work_items WHERE project_id = @source
+                """,
+                ("project", project),
+                ("root", root),
+                ("team", world.TeamId),
+                ("source", world.ProjectId));
+        }
+
+        await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @project", ("project", sleeping.Project.Id));
+
+        var inMemory = world.Process.WorkItemTypes.ToDictionary(type => type.Id, ProcessWorkItemTypes.StatesOf);
+        var copies = new Dictionary<Guid, (Guid Type, Guid State)>();
+
+        foreach (var row in await database.QueryAsync(
+            "SELECT concat_ws('|', id::text, type_id::text, state_id::text) FROM work_items WHERE project_id = @project",
+            ("project", second.Project.Id)))
+        {
+            var parts = row.Split('|');
+            copies[Guid.Parse(parts[0])] = (Guid.Parse(parts[1]), Guid.Parse(parts[2]));
+        }
+
+        var sleepingIds = (await database.QueryAsync("SELECT id::text FROM work_items WHERE project_id = @project", ("project", sleeping.Project.Id)))
+            .Select(Guid.Parse)
+            .ToHashSet();
+        Assert.NotEmpty(sleepingIds);
+
+        await using var context = database.NewContext();
+        var repository = new BacklogRepository(context);
+
+        foreach (var level in world.Process.BacklogLevels)
+        {
+            var types = world.Process.WorkItemTypes.Where(type => type.BacklogLevelId == level.Id).ToList();
+            var typeIds = types.Select(type => type.Id).ToHashSet();
+            var expected = world.LiveOfTypes(types)
+                .Concat(copies.Where(copy => typeIds.Contains(copy.Value.Type) && !inMemory[copy.Value.Type].IsRemoved(copy.Value.State)).Select(copy => copy.Key))
+                .ToHashSet();
+            var scope = TeamBacklogScope.Of(world.TeamId, level.Id, types);
+
+            var members = await BacklogMembership.Members(context, scope, world.OrganizationId).Select(member => member.Item.Id).ToListAsync();
+            var entries = await repository.ReadEntriesAsync(world.OrganizationId, scope, CancellationToken.None);
+
+            Assert.NotEmpty(expected);
+            Assert.Equal(expected, members.ToHashSet());
+            Assert.Equal(expected.Count, members.Count);
+            Assert.Equal(expected, entries.Select(entry => entry.ItemId).ToHashSet());
+            Assert.Empty(members.Intersect(sleepingIds));
+            Assert.Empty(await BacklogMembership.Members(context, scope, Guid.CreateVersion7()).Select(member => member.Item.Id).ToListAsync());
+            Assert.Empty(await repository.ReadEntriesAsync(Guid.CreateVersion7(), scope, CancellationToken.None));
+        }
+
+        var every = world.Process.WorkItemTypes;
+        var tree = await BacklogMembership.TreeMembers(context, TeamBacklogTreeScope.Of(world.TeamId, every), world.OrganizationId)
+            .Select(member => member.Item.Id)
+            .ToListAsync();
+
+        Assert.Equal(world.Live.Concat(copies.Where(copy => !inMemory[copy.Value.Type].IsRemoved(copy.Value.State)).Select(copy => copy.Key)).ToHashSet(), tree.ToHashSet());
+        Assert.Empty(tree.Intersect(sleepingIds));
+    }
+
     // --- Arrangement -------------------------------------------------------------------------------------------------
 
     private ServiceProvider Services()
