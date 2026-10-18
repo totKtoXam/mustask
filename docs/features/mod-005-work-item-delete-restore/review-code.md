@@ -341,10 +341,18 @@ new 2, `first` wins on `CreatedAt` (`StackRank.cs:79-82`), and the expected rows
 It is minor because the bold § 7.1 amendment and both handlers' remarks give the right order to anyone extending these writers.
 **Fix:** reword (a) and (b). For (c), a line for the human at gate-3: amend ADR-0028 rule 8, which is accepted and not edited in
 place.
+**Resolution (backend-developer, with the QD-1 fix):** (b) fixed — the remark in `DeleteTeamHandler` step 5 now lists the order the code
+runs in (links, settings, hierarchy locks, owned items, places, reassignment, links, memberships). (a) and (c) left: (a) is
+feat-028's own plan, and (c) is the line for the human. QD-1 settles one more place in that order: ADR-0028 rule 8 step 5 puts the
+project's number and hierarchy lock rows "beside" the work items by id, and the clean-ups now take the hierarchy row before the items,
+as the purge does (plan-backend § 14.3). For the human, with (c): the rule's text should say so, and where the project row sits.
 
 **DR2-3 · minor · tests** — BR-DR-11 names a clean-up "releasing it or its children". The child shape is raced against a team's
 deletion only (`DeleteRestorePurgeRaceTests.cs:424,438`); the unlink is raced on the purged item itself (`:733,748`). The two share
 `LockOwnedAsync`/`ReassignOwnedAsync`, so the risk is low. **Fix:** an unlink twin of `:424`/`:438`, with a destination team.
+**Resolution (backend-developer):** already covered, by the merge QA's `DeleteRestorePurgeFeat028QaTests.M10_…` (the purge of a deleted
+parent whose three children the team owns, against the unlink and against the deletion, both orders, the parent's id below and above
+theirs: 8 cases, `e0076300`), which was written after this read; no test added here.
 
 ### Still open, for the human (none blocks)
 

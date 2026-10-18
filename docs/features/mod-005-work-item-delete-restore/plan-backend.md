@@ -346,7 +346,7 @@ hierarchy rows, then work items **by id** → (6) order rows.
 | **Purge** | hierarchy `FOR UPDATE` → the item and its children by id, one statement, `FOR NO KEY UPDATE` → (rows it changes: the item's team place, the children's `parent_id`, the item) |
 | Parent write | hierarchy → item → new and stored parent |
 | Creation (with a parent) | team → number → hierarchy → parent `FOR NO KEY UPDATE` |
-| Team deletion | team `FOR NO KEY UPDATE` → the owned items by id `FOR UPDATE` → place rows |
+| Team deletion | team `FOR NO KEY UPDATE` → (its links, the project rows: § 14.3) → the hierarchy of its projects (QD-1) → the owned items by id `FOR UPDATE` → place rows |
 | Team reorder | team `FOR SHARE` → members `FOR KEY SHARE` by id → order row → members again |
 | **Project reorder** | project `FOR SHARE` → members `FOR KEY SHARE` by id → order row → members again |
 
@@ -774,8 +774,8 @@ it "after", the project reorder of feat-039 holds it first); the merge fixes it 
 | Delete, Restore | the item `FOR UPDATE`; nothing else, before or after |
 | Purge | hierarchy `FOR UPDATE` → the item and its direct children, one statement `ORDER BY id FOR NO KEY UPDATE` → the item's team place → the children's `parent_id` → the item (cascading its project place) |
 | Save | the named team's link `FOR SHARE` → hierarchy (a parent) → the item `FOR UPDATE` → `EnsureLive` → the new area `FOR SHARE` → the parents `FOR NO KEY UPDATE` |
-| Unlink | the pair's links `FOR NO KEY UPDATE`, one statement by team id → the project row (only if it names the team) → the team's items in the project `FOR UPDATE` by id → their team places → the items → the link |
-| Team deletion | the team `FOR NO KEY UPDATE` → its links by project id → the project rows that name it → its items in every linked project `FOR UPDATE` by id → their places → the items → the links, memberships, status |
+| Unlink | the pair's links `FOR NO KEY UPDATE`, one statement by team id → the project row (only if it names the team) → **the project's hierarchy `FOR UPDATE` (QD-1)** → the team's items in the project `FOR UPDATE` by id → their team places → the items → the link |
+| Team deletion | the team `FOR NO KEY UPDATE` → its links by project id → the project rows that name it → **the hierarchy of every linked project `FOR UPDATE`, one statement by project id (QD-1)** → its items in every linked project `FOR UPDATE` by id → their places → the items → the links, memberships, status |
 | Project reorder | the project `FOR SHARE` → its members `FOR KEY SHARE` by id → the order row → the members again |
 | Team reorder | the team `FOR SHARE` → the link `FOR SHARE` → its members `FOR KEY SHARE` by id → the order row → the members again |
 
@@ -785,7 +785,8 @@ it "after", the project reorder of feat-039 holds it first); the merge fixes it 
 |---|---|---|
 | Delete or Restore × Unlink or team deletion | the item's row, whoever is second | Delete and Restore hold the item's row and ask for no other row that a clean-up holds, so they cannot close a cycle. Clean-up second: it reassigns the item as the first left it (the marks and the state are the Delete's; a restored item is live). Clean-up first: the Delete/Restore finds the item owned by the destination or by nobody. Neither changes `owning_team_id`, so neither takes a key share of the link: no `23001` on the link's `DELETE`, and the place key (`23503`) is the clean-up's own, with its places dropped first |
 | Purge × Unlink or team deletion | the item rows, by id | both take their items in ascending id in **one** statement, so the lowest id they share is taken by one of them and the other waits holding only lower ids that the first does not want. The purge's hierarchy lock is not the clean-up's, and the clean-up's links and project row are not the purge's. Purge second finds the item owned by the destination or none, and removes it; purge first, the clean-up skips the row that is gone |
-| Save × Unlink or team deletion | the link (a save that names a team), else the item row | a save holds its link `FOR SHARE` before it takes the item, so the clean-up (link `NO KEY UPDATE`) waits for it holding nothing a save wants, or the save waits holding nothing. A save of a deleted item stops at `EnsureLive` right after the item's lock, before the area and the parents: it holds one item, and so cannot be in a cycle either. **Carried, not made by this merge:** a save or a parent write that moves a link (hierarchy → child → parents, the child before a parent of a lower id) can meet a clean-up that holds the parent and waits for the child; see "Carried" below |
+| Save × Unlink or team deletion | the link (a save that names a team), else the item row | a save holds its link `FOR SHARE` before it takes the item, so the clean-up (link `NO KEY UPDATE`) waits for it holding nothing a save wants, or the save waits holding nothing. A save of a deleted item stops at `EnsureLive` right after the item's lock, before the area and the parents: it holds one item, and so cannot be in a cycle either. A save that carries a parent (hierarchy → child → parents, the child before a parent of a lower id) meets the clean-up at the hierarchy lock, not at the items: the row below |
+| A parent write (a save that carries a parent, the parent route, a creation beneath an item) × Unlink or team deletion | the project's hierarchy, then no item at all | **the cycle QD-1 found, and fixed.** A parent write holds the hierarchy, then locks its child and its new and stored parents, in that order and not by id; the clean-ups locked the owned items by id and took no hierarchy lock. A parent of a lower id and a child of a higher one that one team owns were held crosswise — the clean-up held the parent and waited for the child, the write held the child and waited for the parent — `40P01`, a 500 `http.internal_error` for the clean-up (all four of `{live, deleted parent} × {unlink, deletion}`, every time). Both clean-ups now take the hierarchy lock of every project they reach before the first item (`IWorkItemTeamOwnership.LockHierarchiesAsync`, two statements for any number of projects, the purge's lock), so the second of the two queues at its first lock holding nothing the first wants: the write first, the clean-up then reassigns what the write left (a live parent is linked, 200; a deleted one is refused, 409 `item_deleted`), the clean-up first, the write then runs on what it left. One lock covers every parent write, the save, the parent route and a creation alike. The links come before the hierarchy for both, so no cycle runs through them: a save that names a team takes its link `FOR SHARE` first, and the clean-up its links `FOR NO KEY UPDATE`, which serializes the two before either reaches the hierarchy |
 | Project reorder × Unlink or team deletion of the project's named default team | the project row, then the items | **the cycle this merge made, and fixed.** In the old order the clean-up held the items `FOR UPDATE` and asked for the project row (to clear the setting) while the reorder held the project row `FOR SHARE` and asked for the items `FOR KEY SHARE` — `40P01`, a 500. The setting is now cleared before the items, so the project row comes before the items in both, and the second request waits at its first lock holding nothing the first wants. No statement is added |
 | Team reorder × Unlink or team deletion | the link, the team row | the reorder takes the team `FOR SHARE`, then the link `FOR SHARE`; the unlink takes no team row and holds the link `NO KEY UPDATE`, the deletion takes the team row `NO KEY UPDATE` first. Every request holds the earlier lock of the order when it asks for the later one |
 | Delete, Restore or Purge × the reorders | the members' `KEY SHARE`, the place rows | § 8.2, unchanged by feat-028 |
@@ -794,23 +795,31 @@ Why none ends in `23001`, `23503`, `40P01` or a 5xx: the link's `DELETE` (`23001
 that take a key share of a link are those that write an item's owner or a project's setting through a key — a save, a creation, a default
 naming and an unlink's destination, each of which holds the link or judges "linked" by the rows its lock statement returned (feat-028 A-9). Delete,
 Restore and Purge write none of the owner's keys. The place key onto the item's owner (`23503`) is checked at the end of the statement that moves the
-owner, and every writer of the owner drops the place first (a save, an unlink, a deletion, a purge). `40P01` is the cycle above and the one carried below.
+owner, and every writer of the owner drops the place first (a save, an unlink, a deletion, a purge). `40P01` was the two cycles above, the project row's and the parent write's (QD-1); the order closes both.
 
 **Tests.** Each new pair has a test in both orders in `DeleteRestorePurgeRaceTests` (§ 9.5); the project-row cycle is built without a race (a
 session of the test holds the project row `FOR SHARE`, the clean-up runs until it blocks on it, the reorder starts and blocks on the clean-up's items, the
 session releases) and it failed on the old order with `40P01` before the fix.
 
-**Carried (found by this pass, not fixed here; for the queue).** A parent write — `SetWorkItemParent`, or a save that carries a parent — locks the hierarchy,
-then its child, then the new and the stored parent, in that order and not by id; an unlink or a team deletion locks the owned items by id and takes no
-hierarchy lock. A child of a higher id and a parent of a lower id, both owned by the team being cleaned up, are then held crosswise: the clean-up holds the
-parent and waits for the child, the write holds the child and waits for the parent — `40P01`, a 500 for the one the database picks. **Reproduced
-deterministically** (a scratch test, not kept): a session holds the area `FOR UPDATE`; a save of the child that sets that area and names the parent
-blocks on it holding the hierarchy and the child; the unlink of the team that owns both starts and blocks on the child holding the parent; the session
-commits — the save answers 200, the unlink 500 `40P01`. The code is main's (feat-028's unlink and mod-017's deletion lock the owned items by id, feat-001's
-parent write locks child-then-parent) and each line passes its own tests; nothing here makes it likelier (a save of a deleted item stops at `EnsureLive`
-holding one item, and a purge takes the hierarchy lock before its items). The fix is for the unlink and the deletion to take the hierarchy lock before
-the owned items, as the purge does — two statements more each (one per project is one set-based pair), so `UnlinkStatements` and `DeletionStatements`
-would go 11 → 13 — or for the parent write to lock its child and its parents in one statement by id.
+**Carried, then fixed: QD-1 (found by this pass and by the merge QA; fixed 2026-10-18).** A parent write — `SetWorkItemParent`, or a save that carries a
+parent — locks the hierarchy, then its child, then the new and the stored parent, in that order and not by id; an unlink or a team deletion locked the owned
+items by id and took no hierarchy lock. A child of a higher id and a parent of a lower id, both owned by the team being cleaned up, were then held crosswise:
+the clean-up held the parent and waited for the child, the write held the child and waited for the parent — `40P01`, a 500 for the one the database picked.
+Reproduced deterministically: a session holds the area `FOR UPDATE`; a save of the child that sets that area and names the parent blocks on it holding the
+hierarchy and the child; the clean-up of the team that owns both starts and blocks on the child holding the parent; the session commits — the save answers as
+it should, the clean-up 500 `40P01`; QA found the same in all three variants it tried, and the race test below reproduced all four of `{live, deleted parent} ×
+{unlink, team deletion}` before the fix. The code was main's (feat-028's unlink and mod-017's deletion lock the owned items by id, feat-001's parent write
+locks child-then-parent) and each line passed its own tests; this line adds the deleted-parent variant, not the cycle.
+
+**The fix** is the first of the two the finding named: `UnlinkTeamHandler` and `DeleteTeamHandler` take the hierarchy lock before the owned items, as the
+purge does — `IWorkItemTeamOwnership.LockHierarchiesAsync(projectIds)`, a method of the contract both already use, between the setting's clearing and
+`LockOwnedAsync`. It is the repository's one lock (`WorkItemHierarchyLocks.AcquireAsync`, which `LockHierarchyAsync` now calls too): the rows a project has not
+got yet inserted in project-id order, then every row `FOR UPDATE` in one statement ordered by project id — two statements whatever the number of projects, so
+a team's deletion keeps its statement count independent of them, and `UnlinkStatements` and `DeletionStatements` go 11 → 13 (14.4). The other way, a parent
+write that locks its child and its parents in one statement by id, would have changed the hot path of every save, the parent route and the creation, and
+would still have left the clean-up and a parent write unordered against each other; it was not taken. What the fix costs: an unlink or a deletion now waits
+for a parent write in flight in each project it reaches (and the reverse), and a team's deletion inserts the lock row of a linked project that never had a
+parent write — rows that hold no data.
 
 ### 14.4 Pins and runs
 
@@ -818,9 +827,13 @@ Runs at the end of the merge pass (`dotnet build Mustask.sln` clean; `verify.sh`
 Shared 53, Infrastructure 412 (both migrations apply, roll back and re-apply; the model has no pending changes), Api integration filtered to WorkItems,
 Organizations, Boards and Authorization 2 153 — all green; the ten new race tests ten times over, green; the two role-bundle Vitest files 17.
 
-No pin moved. `TeamStatementCountTests` (unlink 11, deletion 11, the counts), `OwningTeamStatementCountTests` (child creation 21, the list 7), the link-lock
-statements of `RepositoriesTests`, `DeletionStatementCountTests` (Delete 13, Restore 11, Purge 13) and `ProjectBacklogStatementCountTests` (reorder 13)
-pass as written: the merge changed no path's statements, and moving the setting before the items reorders two statements without adding one.
+At the merge no pin moved: `TeamStatementCountTests` (unlink 11, deletion 11, the counts), `OwningTeamStatementCountTests` (child creation 21, the list 7), the
+link-lock statements of `RepositoriesTests`, `DeletionStatementCountTests` (Delete 13, Restore 11, Purge 13) and `ProjectBacklogStatementCountTests` (reorder 13)
+passed as written: the merge changed no path's statements, and moving the setting before the items reorders two statements without adding one.
+
+**After QD-1 three pins moved, on purpose, by the same two statements:** the unlink 11 → 13 and the team's deletion 11 → 13 in `TeamStatementCountTests`, and the
+deletion 11 → 13 in `OwningTeamStatementCountTests` (the deletion of 2 projects and 50 items, equal to the deletion of 50 projects and 5 000 — the lock is
+set-based). The purge stays 13 (`LockHierarchyAsync` is the same two statements through the shared helper), the rest as before.
 
 ### 14.5 Tests added or changed by the merge
 
@@ -836,6 +849,13 @@ pass as written: the merge changed no path's statements, and moving the setting 
   unlink and a deletion over a still-deleted item, and classifies every read route of the set (`EveryReadRoute_SaysWhetherItReadsWorkItems_AndInWhichStates`).
 - `WorkItemReferenceInventoryTests` is unchanged and green: feat-028 added no key onto `work_items` (its owner key goes from the item to the link, and the place
   key onto the owner is the SQL-only key the purge already clears first).
+- QD-1 (after the merge QA): `DeleteRestorePurgeRaceTests.AParentWrite_Versus_ACleanUp_OfTheTeamThatOwnsTheParentAndTheChild_NoDeadlock_TheWriteDecidesFirst`, a
+  theory over `{live, deleted parent} × {unlink, team deletion}` (the deadlock built with a session that holds the child's area; red 4 of 4 before the fix with
+  the clean-up's 500), `ACleanUp_WaitsForTheHierarchyLockOfTheProject_ThatAParentWriteHolds` (a held hierarchy row; both clean-ups wait for it) and
+  `TeamDeletion_WaitsForTheHierarchyLockOfEveryProjectItReaches_TheSecondProjectToo`; `TeamStatementCountTests.Unlink_TakesTheProjectsHierarchyLock_BeforeLockingTheOwnedItems`
+  and `.Deletion_TakesTheHierarchyLocksOfAllTheLinkedProjectsInTwoStatements_BeforeLockingTheOwnedItems` (the SQL order, one ordered insert and one ordered lock for 1 and
+  for 3 projects); the call order in `UnlinkTeamHandlerTests` and `DeleteTeamHandlerTests` (`lock hierarchies` between the setting and `lock owned`; an unlinked pair takes none).
+  The parent route is not raced on its own: it has no lock to pause on between the child and the parent, and the held-row test covers every parent write by the lock they all take.
 
 ### 14.6 E2E specs (paused; none run or edited)
 
