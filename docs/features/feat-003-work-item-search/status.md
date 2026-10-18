@@ -3,7 +3,7 @@
 - type: feature
 - size: M
 - branch: feat/003-work-item-search
-- stage: 02-requirements-review
+- stage: gate-1+gate-2
 - epic: core/work-items
 - deps: mod-005
 - gates: gate-1, gate-2, gate-3
@@ -25,6 +25,7 @@ M with UI: analysis → requirements review → UX design → gate-1 + gate-2 to
 
 ## Log
 
+- 2026-10-18 [ux-designer] design.md (30 KB), no prototype; D-1..D-6 open, each with a recommended A. Package for the human: OQ-1..OQ-3, D-1..D-6; stage gate-1+gate-2. No gate set; no code under src/.
 - 2026-10-18 [business-analyst] R-1 resolved (review.md): a purge returns to the filtered list the card came from (BR-WS-5, amends mod-005 design § 6); the trail opens the list unfiltered (BR-WS-11); US-1 +3 scenarios. No new OQ. No code under src/.
 - 2026-10-18 [requirements-reviewer] round 1: changes-requested. R-1 major is open for the analyst (where the card page lands after a purge, and its trail, under «Удалена»). R-2..R-15 minor are fixed in place in spec.md and US-1..US-3 (review.md). OQ-1..OQ-3 unchanged, for the human at gate-1. No gate set; no code under src/.
 - 2026-10-18 [business-analyst] spec.md + US-1..US-3 (40b16959): BR-WS-1..17; tag filter to feat-016, assignee marks in the list's column; OQ-1..OQ-3 open, A recommended, for the human at gate-1. No code under src/.
