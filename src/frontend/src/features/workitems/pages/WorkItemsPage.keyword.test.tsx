@@ -117,6 +117,18 @@ describe('feat-003 US-3 Scenario: the keyword finds by title, identifier and num
     expect(within(band()).queryByRole('button', { name: 'Очистить фильтры' })).toBeNull();
   });
 
+  // design § 5 "Filtered": a value that names nothing is a filter that is on, a blank value is left
+  // out and sets none (BR-WS-9, BR-WS-11; review-code CR-1).
+  it('a link whose only keyword is blank is no filter: the whole list, nothing to clear', async () => {
+    serveWorkItems(listFilterDataset());
+    renderWorkItems(`${MSK_LIST}?search=%20%20`);
+    await table();
+
+    expect(await listed()).toHaveLength(5);
+    expect(keyword()).toHaveValue('');
+    expect(within(band()).queryByRole('button', { name: 'Очистить фильтры' })).toBeNull();
+  });
+
   it('Enter applies the text at once', async () => {
     const api = serveWorkItems(listFilterDataset());
     renderWorkItems(MSK_LIST);

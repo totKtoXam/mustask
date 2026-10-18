@@ -128,7 +128,7 @@ The table is today's: `ID`, `Тип`, `Заголовок`, `Исполните�
 | 9 | The address carries a value no field can name | the band shows «Очистить фильтры»; the field reads «Фильтр задан» (D-4); the list is state 7 (or the rows of the known values beside it) |
 | 10 | Permissions | § 7 |
 
-Filtered means any of the four has a value in the address, a blank keyword and a value that names nothing included: a value that selects nothing is a filter that is on.
+Filtered means any of the four has a value in the address, a value that names nothing included: a value that selects nothing is a filter that is on. A blank value is left out and sets no filter (BR-WS-9, BR-WS-11): an address whose only keyword is blank is not filtered, and «Очистить фильтры» is not offered.
 
 ## 6. While filtered: creating, restoring, purging
 

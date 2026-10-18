@@ -99,6 +99,15 @@ describe('feat-003 design § 5 filtered and the page’s key', () => {
     expect(isFiltered({ ...NONE, teamId: ['t'] })).toBe(true);
   });
 
+  it('judges an address: a value that names nothing is filtered, a blank value is left out and is not', () => {
+    // CR-1: design § 5 once counted a blank keyword as filtered; BR-WS-9 and BR-WS-11 say it sets none.
+    expect(isFiltered(filterOf('?search=%20%20'))).toBe(false);
+    expect(isFiltered(filterOf('?search=&state=%20&assigneeId=&teamId='))).toBe(false);
+    expect(isFiltered(filterOf('?search=%20&state=готово'))).toBe(true);
+    expect(isFiltered(filterOf('?assigneeId=not-a-user'))).toBe(true);
+    expect(isFiltered(filterOf('?search=%D0%B5%D0%BB%D0%BA%D0%B0'))).toBe(true);
+  });
+
   it('compares by content: the order values were chosen in does not count, a value does', () => {
     const first = { ...NONE, state: ['b', 'a'], assigneeId: ['2', '1'] };
     const same = { ...NONE, state: ['a', 'b'], assigneeId: ['1', '2'] };
