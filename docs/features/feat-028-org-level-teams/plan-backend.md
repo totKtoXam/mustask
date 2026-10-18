@@ -654,8 +654,8 @@ something shared escalates, it does not negotiate. Cross-cutting rows that no la
 
 ## 12. As built
 
-Written at the end of stage 4b, against the code of the branch. **`api-contract.md` is unchanged**: no deviation below reached an interface.
-Where the plan said "for the human", the option it went on with is what was built.
+Written at the end of stage 4b, against the code of the branch. **`api-contract.md` was unchanged** by every deviation A-1..A-7; it changed once afterwards,
+at gate-3, by the human's choice (A-8: § 2.3a, one route added). Where the plan said "for the human", the option it went on with is what was built.
 
 ### 12.1 Deviations from the plan
 
@@ -668,12 +668,13 @@ Where the plan said "for the human", the option it went on with is what was buil
 | A-5 | § 9.3: one `TeamMembersAtTheTeamEndpointTests` class for the four member routes. | The four existing classes (`AddTeamMemberEndpointTests`, `GetTeamMembersEndpointTests`, `RemoveTeamMemberEndpointTests`, `SearchTeamMemberCandidatesEndpointTests`) are rewritten at the team's address; "one list serves every project" is `TeamAcrossProjectsEndpointTests.Members_AreMarkedInEveryProject`. | A new class would have copied four existing ones; the rewrite keeps their history and their names (P-1). |
 | A-6 | § 9.4: `LockOrder_UnlinkAndLink_AreAscendingByTeamId` reads the lock statements of the unlink and the link from the SQL log. | `TeamStatementCountTests.Unlink_LocksThePairOfLinksInOneOrderedStatement_AndNoTeamRow` (the unlink: one `FOR NO KEY UPDATE … ORDER BY` statement on `project_teams`, no team row, D-5); the creation's ordered lock is proved by `UnlinkRacesEndpointTests.Create_VersusTheDeletionOfTheNamedDefault_AndASecondDeletionOrAnUnlink_NoDeadlock` (four cases, both orders of the team ids). | The behaviour is what matters: the three requests of CR-7 finish. `SqlLogInterceptor` is the helper that pins a statement's shape. |
 | A-7 | § 9.3: scenario test names. | Several names differ from § 9.3's (the intent and the `// US-n · scenario` comments are kept). | Names were chosen against the test files as written; every scenario of § 9.3 has a test, and the commit messages carry old → new for the renamed ones. |
+| A-8 | § 5 and plan-frontend § 6: the creation form has no server search of the organization's active members; the panel filters `GET …/members` locally (`useMemberSearch`). | **`GET …/teams/member-candidates?text=`** (api-contract § 2.3a; 55 → 56 routes, OpenAPI 44 → 45): the team's own search over the organization, declared `organizations.team.create`, the handler asks `organizations.team.write` first of all (D-7). It is `SearchNewTeamMemberCandidatesHandler` in the `SearchTeamMemberCandidates` slice, both handlers running one `TeamMemberCandidateSearch` (a slice may not use another slice, so the second route lives beside the first and shares its search, its response record and its tests' world). The query parameter is `text`, as on the two sibling searches. | The human's gate-3 choice «⛔ Серверный поиск сейчас» (2026-10-18), over the recommended local filter. Routing: a literal `member-candidates` outranks `{teamId}`, and the binding is proved in `SearchNewTeamMemberCandidatesEndpointTests.Route_MemberCandidates_NeverBindsAsATeamId_…` (the team read by id, in either letter case, still answers; the sub-routes and a `DELETE` read it as an unknown id). The second code is `team.write` as D-7 has it — a creation with `memberIds` needs the same pair, so the people offered are the people it accepts; no better fit found. Statement count pinned at 2 (`TeamStatementCountTests.NewTeamMemberCandidates_…`, 2 members and 200). **Frontend:** `useMemberSearch` can give way to `useUserSearch` with a new scope; plan-frontend § 6's first bullet is the frontend stage's to rewrite. |
 
 ### 12.2 Pinned numbers
 
 Statement counts (`TeamStatementCountTests`, small = large, pinned on the first green run): the organization's list **2** (2 teams over 2 projects and 200 over 50);
 the project's linked list **2**; a team's projects **2**; the deletion's counts **3** (2 and 50 projects); a link **4** (1 pair and 50, from the project's end and from the
-team's); the creation of a team **5** (1 project and 1 member, 50 and 200); the creation of a project **6** (1 team and 50); the unlink **11** (50 items and 5 000);
+team's); the creation of a team **5** (1 project and 1 member, 50 and 200); the creation of a project **6** (1 team and 50); the creation form's member search **2** (2 members and 200; A-8); the unlink **11** (50 items and 5 000);
 the deletion **11** (2 projects and 50 items, 50 projects and 5 000). `OwningTeamStatementCountTests` and `ProjectBacklogStatementCountTests` are re-pinned.
 
 The migration's notice reads `feat-028: N teams, M team memberships, P team places, Q team order rows and R default-team settings dropped; S work items made without a team`;
@@ -690,9 +691,11 @@ Volumes: `UnlinkTeamVolumeTests` (5 000 items within 5 s, the team's 200 items i
   the regression test `Create_VersusTheDeletionOfTheNamedDefault_AndASecondDeletionOrAnUnlink_NoDeadlock`; the orchestrator may withdraw it from the queue.
 - **D-7 / D-8** — the second codes are asked first of all (a creation with `memberIds` also needs `team.write`); `destination` requires its `teamId` key.
 - **A-1** — the `Down` writes one team per project.
+- **A-8** — the human chose the server-side search of the creation form's «Участники» at gate-3 (the plan had recommended the local filter); built, api-contract § 2.3a.
 
 ### 12.4 Owed to the other stages
 
-- **Frontend (stage 6):** `src/frontend/src/test/organizationRoles.ts` gains the four codes; "For the frontend plan" in § 11 stands.
+- **Frontend (stage 6):** `src/frontend/src/test/organizationRoles.ts` gains the four codes; "For the frontend plan" in § 11 stands. **A-8:** the creation form's
+  «Участники» reads `GET …/teams/member-candidates?text=` (api-contract § 2.3a) in place of the local filter of `GET …/members`.
 - **E2E:** the standing answer is NO; the specs § 11 lists are broken and not edited.
 - **P-10 notes** for mod-002, mod-016, mod-017, mod-006 and feat-039 (§ 11) are one Log line each in their `status.md`; the amendments of their contracts are the orchestrator's.

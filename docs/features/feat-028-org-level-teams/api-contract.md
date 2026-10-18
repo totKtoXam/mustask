@@ -6,9 +6,13 @@ started, a change goes to the orchestrator (04-backend.md § 4a.4). The plan is
 [plan-backend.md](plan-backend.md); the rules are [spec.md](spec.md) (BR-OL-n;
 BR-MX-n are doc-012's) and the decisions marked D-n are the plan's § 1.
 
-This task is **breaking** (doc-012 § Decomposition). It adds 16 organization-addressed
-routes, removes 8, and changes the code or the meaning of the two team routes that keep
-their path (§ 4); it registers **four permission codes** and narrows a fifth (§ 0.1);
+**Changed once since: at gate-3 (2026-10-18), by the human's choice «⛔ Серверный поиск сейчас»,
+§ 2.3a is added** — the creation form's member search; the Log of [status.md](status.md) has the
+line. Nothing else moved: the route count is 56 where stage 4a fixed 55.
+
+This task is **breaking** (doc-012 § Decomposition). It adds 17 organization-addressed
+routes (16 fixed at stage 4a, the member search of § 2.3a at gate-3), removes 8, and changes the
+code or the meaning of the two team routes that keep their path (§ 4); it registers **four permission codes** and narrows a fifth (§ 0.1);
 it adds **two error codes**, retires one and changes one text (§ 3); it adds **one
 migration** that drops every team (§ 5). Earlier contracts it supersedes are named in
 § 7; everything not named there stands.
@@ -54,6 +58,7 @@ is asked on a save with a parent), so a role without it learns nothing and nothi
 | `POST …/teams/{teamId}/projects` (link projects) | `organizations.team.link` | `organizations.project.link` |
 | `POST …/teams` **with a non-empty `projectIds`** | `organizations.team.create` | `team.link` and `project.link` |
 | `POST …/teams` **with a non-empty `memberIds`** | `organizations.team.create` | `organizations.team.write` |
+| `GET …/teams/member-candidates` (the creation form's member search, § 2.3a) | `organizations.team.create` | `organizations.team.write` |
 | `POST …/projects` **with a non-empty `teamIds`** | `organizations.project.write` | `team.link` and `project.link` |
 
 A team's deletion needs no code of the projects it reaches (ADR-0029 § 6, consequence
@@ -295,6 +300,49 @@ removal; 409 `team.member_not_in_organization`, `team.member_exists`. A person r
 from the organization leaves every team of that organization and no other (mod-016
 BR-M1-36); a team deleted while an add ran leaves no membership behind.
 
+### 2.3a The creation form's member search (added at gate-3; design § 5.1)
+
+**`GET …/teams/member-candidates?text=` — people to name in a team being created** · `organizations.team.create`
+(+ `organizations.team.write`)
+
+The search of «Новая команда» → «Участники», where the team does not exist yet and there is no
+`{teamId}` to address. It is the team's own search of § 2.3 (`…/teams/{teamId}/member-candidates`) run
+over the organization, and it answers what that search answers:
+
+- **Query and body.** `text` as mod-016 § 0.5 (absent is `""`; the parameter is `text`, as on the
+  two sibling searches). 200 `{ "users": [ { "id", "displayName", "email" } ], "moreMatched": false }`
+  (`email` is `""` when the user has none) — the shape of § 2.3's search and of mod-016 § 1.3.
+- **Rules** (mod-016 § 1.3, mod-014 owns the search itself). The text is trimmed; **under two
+  characters, or no match, is a 200 with no one** and `moreMatched: false`; **at most 20 users**, in
+  the directory's order, and `moreMatched` says there were more; matched on display name and on
+  e-mail, **letter case not deciding**; a text over 100 characters is mod-014's own 400
+  `user_directory.validation_failed`, passed through unchanged. The projection only — it works with
+  Keycloak stopped.
+- **Who is offered: the active members of this organization**, any role. A person removed from the
+  organization, an account disabled in Keycloak, a projected user who is a member of nothing and a
+  member of another organization only are not. The creation still judges every `memberIds` entry
+  itself (§ 2.1, 409 `member_not_in_organization`): the search is a convenience, not the check.
+- **Statements.** Two whatever the number of members and of matches — the organization's member ids,
+  then one search of the projection restricted to them; above 500 members one more per further 500 (the
+  directory takes 500 ids at a time, mod-014 BR-UP-17), exactly as the team's own search does.
+  Pinned by `TeamStatementCountTests.NewTeamMemberCandidates_…` (2 members and 200).
+- **Codes.** It declares `organizations.team.create`, the code of the creation it serves, and its
+  handler asks `organizations.team.write` **first of all** (§ 0.1) — the code a creation with
+  `memberIds` asks (D-7), so the people offered are exactly the people the creation can accept. Under
+  today's bundles only «Администратор» holds both. A role without either learns nothing.
+- **Containment.** The organization of the address only. A non-member (an instance administrator
+  included), a member of another organization only and an unknown, malformed or deactivated
+  organization all answer 404 `organizations.organization.not_found` «Организация не найдена.», the
+  same bytes; a person of another organization is never offered.
+- **Routing.** `member-candidates` is a literal segment beside `…/teams/{teamId}`, and a literal
+  outranks a parameter, so it is **never read as a team's id** (an id is a UUID; this is not one).
+  `GET …/teams/{teamId}` and every other team route answer as before; `…/teams/member-candidates/members`
+  and the other sub-routes read `member-candidates` as an id that names nothing (404 `team.not_found`);
+  the search is `GET` only, so a `DELETE …/teams/member-candidates` still falls to the team route
+  (404 `team.not_found`, not 405).
+- **Errors, in order** (§ 0.5): 401; 404 organization; 403 `organizations.access.forbidden` (the route's
+  code, then the second); 400 `user_directory.validation_failed`.
+
 ### 2.4 The project's end (US-2, US-3, US-4; BR-OL-4..-8, -10)
 
 **`GET …/projects/{projectId}/teams` — the project's linked teams** · `organizations.team.read`
@@ -429,8 +477,8 @@ Unchanged and reused: `organizations.organization.not_found`, `workitems.*`, `bo
 
 ## 4. Summary of routes
 
-Organization-addressed routes: **47 → 55** (eight removed, sixteen added, two kept with another
-meaning). `Code` is the declared code; "+" is a second code the handler asks (§ 0.1).
+Organization-addressed routes: **47 → 56** (eight removed, seventeen added, two kept with another
+meaning; the seventeenth, the creation form's member search of § 2.3a, was added at gate-3). `Code` is the declared code; "+" is a second code the handler asks (§ 0.1).
 
 | Method | Route | Code | Story | Change |
 |---|---|---|---|---|
@@ -444,6 +492,7 @@ meaning). `Code` is the declared code; "+" is a second code the handler asks (§
 | **GET** | **`…/teams/{teamId}/projects`** | `team.read` | US-1, US-3 | **new** |
 | **POST** | **`…/teams/{teamId}/projects`** | `team.link` (+ `project.link`) | US-3 | **new** |
 | GET, POST, DELETE | `…/teams/{teamId}/members`, `…/member-candidates`, `…/members/{userId}` | as before | US-1 | **moved** (4 routes) |
+| **GET** | **`…/teams/member-candidates`** | `team.create` (+ `team.write`) | US-1 | **new** at gate-3 (§ 2.3a): the creation form's «Участники» |
 | GET | `…/projects/{projectId}/teams` | `team.read` | US-2, US-3 | **changed**: linked teams, `ProjectTeam` |
 | **POST** | `…/projects/{projectId}/teams` | `project.link` (+ `team.link`) | US-3 | **changed meaning**: link teams (was: add a team) |
 | **POST** | **`…/projects/{projectId}/teams/{teamId}/unlink`** | `project.link` (+ `team.link`) | US-4 | **new** |
@@ -461,11 +510,14 @@ meaning). `Code` is the declared code; "+" is a second code the handler asks (§
 
 The count, as keys of the inventory (`METHOD template`): **8 out** — `GET`, `PUT …/name` and
 `DELETE` of the project-nested team, its `GET …/owned-items/count`, and its four member routes;
-**16 in** — nine at `…/teams` and `…/teams/{teamId}` (the list, the create, the read, the rename,
+**17 in** — nine at `…/teams` and `…/teams/{teamId}` (the list, the create, the read, the rename,
 the description, the deletion, the deletion's counts, the team's projects read and link), the four
-member routes at the team's address, and the project's `unlink`, `unlink-count` and
-`PUT …/description`; **2 kept** at their path with another code — `GET` and `POST …/projects/{projectId}/teams`.
-47 − 8 + 16 = 55, pinned by `OrganizationAddressedRoutes.All` and `OrganizationAccessInventoryTests`.
+member routes at the team's address, the project's `unlink`, `unlink-count` and
+`PUT …/description`, and (gate-3) `GET …/teams/member-candidates`; **2 kept** at their path with
+another code — `GET` and `POST …/projects/{projectId}/teams`.
+47 − 8 + 17 = 56, pinned by `OrganizationAddressedRoutes.All` and `OrganizationAccessInventoryTests`
+(stage 4a fixed 47 − 8 + 16 = 55); the module's OpenAPI operations are 45
+(`OrganizationsOpenApiTests`).
 
 OpenAPI tags are unchanged (`Organizations`, `WorkItems`, `Boards`).
 

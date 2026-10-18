@@ -69,6 +69,7 @@ to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-18 [dev] the fix round: CR-1/BD-2 two retired tests deleted (e7a94ed7), CR-3 comments reworded to links (2862745d), CR-2/FD-1 the unlink alert when the team owns nothing (d2bca8c3).
 - 2026-10-18 [code-reviewer] delta read 1 (fa0a216b): approve; DR-1 minor added. Every open finding is a minor, carried to gate-3 as debt (review-code.md, review-security.md, qa.md).
 - 2026-10-18 [orchestrator] rebased onto main 7c29b857; `BASE=origin/main bash scripts/verify.sh` green (backend build and tests incl. integration, frontend lint and build, Vitest 2739 affected + 590 guards). Stage complete; gate-3 goes to the human with the PR.
+- 2026-10-18 [backend-developer] api-contract.md changed at gate-3 by the human's choice («⛔ Серверный поиск сейчас»): GET …/teams/member-candidates?text= for the creation form's «Участники» (ad241e04); § 2.3a, routes 55 → 56, plan-backend § 12 A-8. The frontend still reads the local filter (`useMemberSearch`) until its stage switches it.
 
 ## Notes
 
