@@ -3,7 +3,7 @@
 - type: tech
 - size: S
 - branch: tech/041-prepush-quick-ci-full
-- stage: 04-backend
+- stage: complete
 - epic: workflow
 - deps: -
 - gates: gate-3
@@ -26,6 +26,9 @@ gate-3: pending
 
 ## Log
 
+- 2026-10-18 [task-executor] stage complete, gate-3 pending: the auto-merge by the orchestrator once CI is green is the merge. Light cycle: no QA or review session, no E2E (no runtime change)
+- 2026-10-18 [task-executor] `BASE=origin/main bash scripts/verify.sh` exit 0, RESULT: green (shell, ci, prose, agents buckets; 24 stamp cases). ci.yml parsed by js-yaml (no PyYAML here): job name intact, env VERIFY_FULL "1". Hook run both ways: quick and `VERIFY_FULL=1`, exit 0
+- 2026-10-18 [task-executor] dev ad15b9b6: pre-push no longer forces VERIFY_FULL; ci.yml sets it; git.md, 07-mr-complete.md, README, frontend AGENTS.md, verify.sh header follow; modes of pre-push and verify.sh stay 100755
 - 2026-10-18 [orchestrator] route S, light cycle (docs/scripts/hooks/.github only; the human extended it to .github/ when queueing); standing approval of 2026-10-18 evening (work alone, PRs auto-merged by the orchestrator once CI is green), no route confirmation asked
 - 2026-10-18 [new-task] task started, worktree .claude/worktrees/tech-041-prepush-quick-ci-full
 
