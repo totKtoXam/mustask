@@ -47,8 +47,15 @@ to main. Plans: `plan-backend.md`, `plan-frontend.md`.
   where ADR-0028 rule 8 reads `FOR UPDATE` (the clarification goes to mod-018's
   amendment); D-4, a defaulting creation locks every link of the project, so
   bug-005 is superseded; D-7, a creation with members also needs `team.write`;
-  the create-team form filters members locally; «Отключить» is natively
-  disabled (aria-disabled is a kit task); the upgrade leaves «Изменён» alone.
+  «Отключить» is natively disabled (aria-disabled is a kit task); the upgrade
+  leaves «Изменён» alone.
+- The human's answers to the gate-3 package (2026-10-18, before the PR): D-3
+  accepted, the ADR-0028 rule 8 clarification goes to mod-018's amendment;
+  bug-005 is withdrawn from the queue after the merge; the open minors become
+  one S line in the queue; the create-team form's «Участники» searches the
+  server now («⛔ Серверный поиск сейчас», not the local filter the plan
+  recommended), built as `GET …/teams/member-candidates` (api-contract § 2.3a);
+  D-7 and «Изменён» stay as built. Gate-3 itself is the merge.
 
 ## Log
 
