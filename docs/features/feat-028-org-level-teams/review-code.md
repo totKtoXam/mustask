@@ -180,3 +180,95 @@ None of these blocks the round. Each one is already recorded in the plans.
   - The closed feature records of mod-002, mod-016 and mod-017 under `docs/features/`. They are history.
   - `src/frontend/e2e/**` specs and support. They are known to be broken by the move and are listed in
     plan-backend § 11. E2E is paused, and they were not read for edits.
+
+## Delta read 1
+
+The one delta read of the light route, in a clean context. Checkout confirmed (`feat/028-org-level-teams`, HEAD `52083b2b`). It
+covers `git diff a5d76c0e..52083b2b`: commits 5f896fb7, cbc4d92b and 52083b2b, 11 files, +80/−54. It is read against the
+majors still open from round 1 (CR-1..CR-3) and from QA (BD-2 = CR-1, FD-1 = CR-2), and nothing else.
+
+**Verdict: approve.** CR-1, CR-2 and CR-3 (with BD-2 and FD-1) are resolved, and nothing nearby broke. Only minors remain,
+and they are gate-3 debt. There is no further round.
+
+### Resolution
+
+- **CR-1 / BD-2: resolved** (5f896fb7).
+  - Both tests are deleted. Each leaves a retire-by-name comment that cites the rule and P-1:
+    `GetTeamsEndpointTests.cs:240-243` (BR-M1-9 → BR-OL-2) and `DeleteOwnedItemsEndpointTests.cs:160-163`
+    (BR-OT-11 → BR-OL-10). This matches spec.md:89 and :91.
+  - The tests those comments cite exist and assert what they are cited for:
+    - `Get_DefaultMark_NamedOnlyTeamNone` (:79) and `Get_DefaultMark_FollowsTheLinks_NamedOnlyTeamNone` (:152);
+    - `CreateProjectEndpointTests.Create_Returns201_WithTheRootAndNoTeam` (:46, with no links at :74-75);
+    - `Delete_NamedTeam_ClearsTheSetting_AnotherTeamKeepsIt` (:167) and `Delete_TheProjectsLastTeam_IsAllowed_ProjectWorksOn` (:182).
+  - Outside this feature's own records, nothing else refers to the two names.
+  - The optional rename of `CreateProjectAsync` was not taken. It is not owed.
+- **CR-2 / FD-1: resolved** (52083b2b).
+  - `UnlinkDialog.tsx:92` now passes `owned > 0 ? ['destination'] : []`. With no field, `placeRefusal` falls through to
+    `alertOnly` (`refusals.ts:104-110`, :66-68). The alert shows, and `contextGone` follows from the not-found level.
+  - `TeamsPage.test.tsx:538` checks the project's end:
+    - the alert appears, no combobox is drawn and the dialog stays open;
+    - after «Отмена» the list is read again without the team. That assertion pins `contextGone` (`TeamsPage.tsx:85-90`).
+  - `TeamPage.test.tsx:387` checks the team's end. The test double answers a deleted team with 404 (`testApi.ts:169-179`).
+  - Both tests fail on the old line, because with `['destination']` no `alert` role appears.
+  - The `owned > 0` path is unchanged, and its two refusal tests pass.
+- **CR-3: resolved** (cbc4d92b). All eight rows are reworded to the link model. Each new sentence is anchored below
+  (direction 1).
+
+### Runs
+
+- `npx vitest run` on `TeamsPage.test.tsx` and `TeamPage.test.tsx`: 67 passed. `eslint` and `prettier --check` on the three
+  changed files: clean.
+- `dotnet test Mustask.Api.IntegrationTests --filter "…Organizations.GetTeamsEndpointTests|…Organizations.DeleteOwnedItemsEndpointTests"`:
+  40 passed, 0 failed.
+- `dotnet build Mustask.Infrastructure.Tests`: 0 warnings, 0 errors. Warnings are errors here, so the reworded XML doc
+  comments compile.
+- There was no full verify, and no stamp exists for tree `5fdabb5d`. Against QA's green tree (`a5d76c0e`), this tree differs
+  only in these 11 files.
+
+### New
+
+- **DR-1 · minor · design (direction 2).** design.md:260, the § 6.2 row "409, 404 team → under the field", is wrong for a
+  dialog where the team owns nothing. That dialog has no field. The code puts the 404 in the alert and reads the page again
+  on close (`UnlinkDialog.tsx:90-92`). Nothing an agent would do differs, because the code comment and the two tests pin the
+  behaviour. **Fix:** add to the row "owns none: no field, so the alert, and on close the page reads itself again".
+
+### Behavioural claims (delta)
+
+Direction 1, the prose the delta adds:
+- `UnlinkDialog.tsx:90-91`, "with none, every refusal is the alert's" → `placeRefusal(…, [])`, `refusals.ts:98-100` and :104-110. ✓
+- `CreateWorkItemHandler.cs:131-136` → :139-149 and `WorkItemRepository.cs:45-77`. ✓ Its "never in between" now names
+  the unlink as well. That is the same window as CR-4 (minor, open).
+- `CreateWorkItemHandler.cs:158-162` and `SaveWorkItemHandler.cs:247-250` → the api-contract § 0.3 table (:88-92) and
+  `DecideTeamAsync` (:252). ✓
+- `GetTeamOwnedItemCountQuery.cs:4-7` → `OrganizationEndpoints.cs:230` (`/{teamId}/unlink-count`), api-contract § 2.4 (:360)
+  and `RetiredTeamRoutesEndpointTests.cs:23`. ✓
+- `RepositoriesTests.cs:11-13` → `ProjectTeamRepository.cs:32-33` (a pair, `ORDER BY team_id`), :63-64 (a team's links,
+  `ORDER BY project_id`) and plan-backend D-3. ✓
+- `OwningTeamStatementCountTests.cs:243-245` → `ChildCreationStatements = 21` (:60), and `LockProjectLinksAsync` takes its
+  lock in one statement. ✓
+- `DeleteOwnedItemsEndpointTests.cs:500-502` → `DeleteTeamHandler.cs:66-67` (the team row, `FOR NO KEY UPDATE`) and :82
+  (`LockTeamLinksAsync`). ✓
+- `OwningTeamQaEndpointTests.cs:205-208` → `LockProjectLinksAsync` and spec.md:73 (BR-OL-7). ✓
+- The two retire comments' "pinned by" clauses → the five tests under CR-1. ✓
+
+Direction 2:
+- **Behaviour changed:** the unlink dialog's refusal placement when the team owns nothing.
+- **Grepped** in design.md, US-4 and `refusals.ts`: `placeRefusal`, «Команда не найдена», "under the field", "owns none".
+- **Hits:**
+  - design.md:260 → DR-1.
+  - design.md:181 (the deletion dialog's 404 alert) is consistent.
+  - US-4:80 (the destination table) is consistent.
+  - The class doc at `UnlinkDialog.tsx:22-30` is consistent.
+- The CR-1 and CR-3 commits change no runtime behaviour, so there was nothing more to sweep. The only identifiers were the
+  two retired names, grepped above. Nothing was left unswept.
+
+### Still open, for the human (no further round)
+
+- **Minors, gate-3 debt:**
+  - CR-4, CR-5 and CR-6 (round 1);
+  - DR-1 (this read);
+  - QA's BD-1, BD-3 and FD-2;
+  - security S-1..S-4.
+- **Carried from round 1's "For the human":**
+  - plan-backend D-3, `FOR NO KEY UPDATE` where ADR-0028 rule 8 reads `FOR UPDATE`. **Recommended: accept.**
+  - plan-frontend § 6's two deviations. **Recommended: accept**, and make the `ConfirmDialog` aria-disabled state a kit task.
