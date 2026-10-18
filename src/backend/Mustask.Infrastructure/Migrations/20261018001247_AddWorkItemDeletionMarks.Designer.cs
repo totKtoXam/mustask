@@ -352,6 +352,9 @@ namespace Mustask.Infrastructure.Migrations
                     b.Property<Guid?>("DefaultTeamId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
                     b.Property<string>("Key")
                         .IsRequired()
                         .HasMaxLength(10)
@@ -384,6 +387,9 @@ namespace Mustask.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_projects");
 
+                    b.HasAlternateKey("OrganizationId", "Id")
+                        .HasName("ak_projects_organization_id_id");
+
                     b.HasIndex("Id", "DefaultTeamId")
                         .HasDatabaseName("ix_projects_id_default_team_id");
 
@@ -397,6 +403,8 @@ namespace Mustask.Infrastructure.Migrations
 
                     b.ToTable("projects", t =>
                         {
+                            t.HasCheckConstraint("ck_projects_description_length", "description IS NULL OR char_length(description) BETWEEN 1 AND 2000");
+
                             t.HasCheckConstraint("ck_projects_key_format", "key ~ '^[A-Z][A-Z0-9]{1,9}$'");
 
                             t.HasCheckConstraint("ck_projects_name_length", "char_length(name) BETWEEN 1 AND 100");
@@ -414,6 +422,9 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.Property("DefaultTeamId")
                                 .HasColumnName("default_team_id");
+
+                            t.Property("Description")
+                                .HasColumnName("description");
 
                             t.Property("Key")
                                 .HasColumnName("key");
@@ -435,10 +446,72 @@ namespace Mustask.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Mustask.Domain.Organizations.ProjectTeam", b =>
+                {
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TeamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("LinkedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LinkedBy")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("ProjectId", "TeamId")
+                        .HasName("pk_project_teams");
+
+                    b.HasIndex("OrganizationId", "ProjectId")
+                        .HasDatabaseName("ix_project_teams_organization_id_project_id");
+
+                    b.HasIndex("OrganizationId", "TeamId")
+                        .HasDatabaseName("ix_project_teams_organization_id_team_id");
+
+                    b.HasIndex(new[] { "TeamId", "ProjectId" }, "ix_project_teams_team_id_project_id")
+                        .HasDatabaseName("ix_project_teams_team_id_project_id");
+
+                    b.ToTable("project_teams", null, t =>
+                        {
+                            t.Property("ProjectId")
+                                .HasColumnName("project_id");
+
+                            t.Property("TeamId")
+                                .HasColumnName("team_id");
+
+                            t.Property("LinkedAt")
+                                .HasColumnName("linked_at");
+
+                            t.Property("LinkedBy")
+                                .HasColumnName("linked_by");
+
+                            t.Property("OrganizationId")
+                                .HasColumnName("organization_id");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
             modelBuilder.Entity("Mustask.Domain.Organizations.Team", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -450,7 +523,7 @@ namespace Mustask.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<Guid>("ProjectId")
+                    b.Property<Guid>("OrganizationId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Status")
@@ -467,19 +540,18 @@ namespace Mustask.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_teams");
 
-                    b.HasAlternateKey("ProjectId", "Id")
-                        .HasName("ak_teams_project_id_id");
+                    b.HasAlternateKey("OrganizationId", "Id")
+                        .HasName("ak_teams_organization_id_id");
 
-                    b.HasIndex(new[] { "ProjectId" }, "ix_teams_project_id")
-                        .HasDatabaseName("ix_teams_project_id");
-
-                    b.HasIndex(new[] { "ProjectId", "NormalizedName" }, "ix_teams_project_id_normalized_name")
+                    b.HasIndex(new[] { "OrganizationId", "NormalizedName" }, "ix_teams_organization_id_normalized_name")
                         .IsUnique()
-                        .HasDatabaseName("ix_teams_project_id_normalized_name")
+                        .HasDatabaseName("ix_teams_organization_id_normalized_name")
                         .HasFilter("status = 'Active'");
 
                     b.ToTable("teams", t =>
                         {
+                            t.HasCheckConstraint("ck_teams_description_length", "description IS NULL OR char_length(description) BETWEEN 1 AND 2000");
+
                             t.HasCheckConstraint("ck_teams_name_length", "char_length(name) BETWEEN 1 AND 100");
 
                             t.HasCheckConstraint("ck_teams_status", "status IN ('Active', 'Deleted')");
@@ -487,14 +559,17 @@ namespace Mustask.Infrastructure.Migrations
                             t.Property("Id")
                                 .HasColumnName("id");
 
+                            t.Property("Description")
+                                .HasColumnName("description");
+
                             t.Property("Name")
                                 .HasColumnName("name");
 
                             t.Property("NormalizedName")
                                 .HasColumnName("normalized_name");
 
-                            t.Property("ProjectId")
-                                .HasColumnName("project_id");
+                            t.Property("OrganizationId")
+                                .HasColumnName("organization_id");
 
                             t.Property("Status")
                                 .HasColumnName("status");
@@ -524,6 +599,9 @@ namespace Mustask.Infrastructure.Migrations
 
                     b.HasKey("TeamId", "UserId")
                         .HasName("pk_team_memberships");
+
+                    b.HasIndex("OrganizationId", "TeamId")
+                        .HasDatabaseName("ix_team_memberships_organization_id_team_id");
 
                     b.HasIndex(new[] { "OrganizationId", "UserId" }, "ix_team_memberships_organization_id_user_id")
                         .HasDatabaseName("ix_team_memberships_organization_id_user_id");
@@ -1688,32 +1766,51 @@ namespace Mustask.Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_projects_organizations_organization_id");
 
-                    b.HasOne("Mustask.Domain.Organizations.Team", null)
+                    b.HasOne("Mustask.Domain.Organizations.ProjectTeam", null)
                         .WithMany()
                         .HasForeignKey("Id", "DefaultTeamId")
-                        .HasPrincipalKey("ProjectId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_projects_teams_id_default_team_id");
+                        .HasConstraintName("fk_projects_project_teams_id_default_team_id");
+                });
+
+            modelBuilder.Entity("Mustask.Domain.Organizations.ProjectTeam", b =>
+                {
+                    b.HasOne("Mustask.Domain.Organizations.Project", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId", "ProjectId")
+                        .HasPrincipalKey("OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_project_teams_projects_organization_id_project_id");
+
+                    b.HasOne("Mustask.Domain.Organizations.Team", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId", "TeamId")
+                        .HasPrincipalKey("OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_project_teams_teams_organization_id_team_id");
                 });
 
             modelBuilder.Entity("Mustask.Domain.Organizations.Team", b =>
                 {
-                    b.HasOne("Mustask.Domain.Organizations.Project", null)
+                    b.HasOne("Mustask.Domain.Organizations.Organization", null)
                         .WithMany()
-                        .HasForeignKey("ProjectId")
+                        .HasForeignKey("OrganizationId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("fk_teams_projects_project_id");
+                        .HasConstraintName("fk_teams_organizations_organization_id");
                 });
 
             modelBuilder.Entity("Mustask.Domain.Organizations.TeamMembership", b =>
                 {
                     b.HasOne("Mustask.Domain.Organizations.Team", null)
                         .WithMany()
-                        .HasForeignKey("TeamId")
+                        .HasForeignKey("OrganizationId", "TeamId")
+                        .HasPrincipalKey("OrganizationId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("fk_team_memberships_teams_team_id");
+                        .HasConstraintName("fk_team_memberships_teams_organization_id_team_id");
 
                     b.HasOne("Mustask.Domain.Organizations.OrganizationMembership", null)
                         .WithMany()
@@ -1808,12 +1905,11 @@ namespace Mustask.Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_work_items_areas_project_id_area_id");
 
-                    b.HasOne("Mustask.Domain.Organizations.Team", null)
+                    b.HasOne("Mustask.Domain.Organizations.ProjectTeam", null)
                         .WithMany()
                         .HasForeignKey("ProjectId", "OwningTeamId")
-                        .HasPrincipalKey("ProjectId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_work_items_teams_project_id_owning_team_id");
+                        .HasConstraintName("fk_work_items_project_teams_project_id_owning_team_id");
 
                     b.HasOne("Mustask.Domain.WorkItems.WorkItem", null)
                         .WithMany()
