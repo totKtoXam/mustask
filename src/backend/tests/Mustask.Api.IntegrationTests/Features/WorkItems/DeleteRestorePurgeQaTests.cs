@@ -180,12 +180,13 @@ public sealed class DeleteRestorePurgeQaTests(MustaskApiFactory factory)
         Assert.Equal((null, false, true), await ByAsync(byGhost));
     }
 
-    // --- The body of the three routes (api-contract § 0.4: "None of the three reads a body before step 6") ----------------------
+    // --- The body of the three routes (api-contract § 0.4: Delete and Purge never read one; Restore's is bound after the scoped check) ----
 
-    private async Task<(HttpStatusCode Status, string? Code)> RawAsync(WorkItemsWorld world, string identifier, string action, string? body, string contentType)
+    private async Task<(HttpStatusCode Status, string? Code)> RawAsync(
+        WorkItemsWorld world, string identifier, string action, string? body, string contentType, string? token = null)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, $"{WorkItemsTestData.Item(world, identifier)}/{action}");
-        request.WithBearer(OrganizationsTokens.SignedIn());
+        request.WithBearer(token ?? OrganizationsTokens.SignedIn());
 
         if (body is not null)
         {
@@ -234,6 +235,51 @@ public sealed class DeleteRestorePurgeQaTests(MustaskApiFactory factory)
         }
 
         Assert.Equal((HttpStatusCode.OK, null), await RawAsync(world, item.Identifier, "restore", "{\"unknown\":1}", "application/json"));
+    }
+
+    // QA D-1 · api-contract § 0.4: Restore's body is bound by the framework, so the order is the scoped check (403 for a reader, 404
+    // for a non-member), then the body (400 / 415, for any address), then the address's not-founds, then the operation's 409s. A body
+    // that is well-formed and names nothing is not a binding failure: it takes its place at step 5 and 6.
+    [Fact]
+    public async Task Restore_AMalformedBody_IsAnsweredAfterTheScopedCheck_BeforeTheAddress_AndChangesNothing()
+    {
+        var world = await WorkItemsTestData.CreateWorldAsync(factory);
+        var item = await TaskAsync(world, "Задача");
+        await LinksTestData.DeleteAsync(factory, world, item);
+        var live = await TaskAsync(world, "Живая");
+        var viewer = await MembershipTestData.NewMemberAsync(factory, world.OrganizationId, OrganizationRole.Viewer);
+        var unknown = $"{world.Key}-TASK-999";
+
+        // Step 3 first: the body is not read for a caller the route refuses.
+        Assert.Equal(
+            (HttpStatusCode.Forbidden, "organizations.access.forbidden"),
+            await RawAsync(world, item.Identifier, "restore", "{ not json", "application/json", viewer.Token));
+        Assert.Equal(
+            (HttpStatusCode.NotFound, "organizations.organization.not_found"),
+            await RawAsync(world, item.Identifier, "restore", "{ not json", "application/json", MembershipTestData.Outsider()));
+
+        // Then the body, whatever the address names: an unknown item and a live one answer the binding's 400, a non-JSON body 415.
+        foreach (var identifier in new[] { unknown, live.Identifier, item.Identifier })
+        {
+            Assert.Equal((HttpStatusCode.BadRequest, "http.bad_request"), await RawAsync(world, identifier, "restore", "{ not json", "application/json"));
+            Assert.Equal((HttpStatusCode.BadRequest, "http.bad_request"), await RawAsync(world, identifier, "restore", "{\"stateId\":5}", "application/json"));
+            Assert.Equal((HttpStatusCode.UnsupportedMediaType, "http.request_failed"), await RawAsync(world, identifier, "restore", "plain", "text/plain"));
+        }
+
+        // A well-formed body that names nothing is not a binding failure: the address and the state decide, as § 0.4 and § 2.2 say.
+        Assert.Equal(
+            (HttpStatusCode.NotFound, "workitems.workitem.not_found"),
+            await RawAsync(world, unknown, "restore", "{\"stateId\":\"nope\"}", "application/json"));
+        Assert.Equal(
+            (HttpStatusCode.Conflict, "workitems.workitem.not_deleted"),
+            await RawAsync(world, live.Identifier, "restore", "{\"stateId\":\"nope\"}", "application/json"));
+        Assert.Equal(
+            (HttpStatusCode.Conflict, "workitems.workitem.state_not_allowed"),
+            await RawAsync(world, item.Identifier, "restore", "{\"stateId\":\"nope\"}", "application/json"));
+
+        Assert.Equal(
+            "Removed",
+            (await WorkItemsTestData.ReadAsync(factory, world, item.Identifier)).GetProperty("state").GetProperty("category").GetProperty("code").GetString());
     }
 
     // --- BR-DR-11 · the pairs in bulk ------------------------------------------------------------------------------------------

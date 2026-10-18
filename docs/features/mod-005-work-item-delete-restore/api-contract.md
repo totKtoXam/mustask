@@ -39,8 +39,8 @@ Exactly the earlier contracts' ([mod-003](../mod-003-work-item-core/api-contract
 ### 0.2 Identifiers
 
 As mod-003 § 0.2: the item is addressed by its identifier (`MSK-US-12`) under the project's id; a state id in a body is an
-untrusted string accepted only in the canonical 8-4-4-4-12 form in either letter case and not all zeros. A value in any
-other form names nothing.
+untrusted string accepted only in the canonical 8-4-4-4-12 form in either letter case and not all zeros. A string in any
+other form names nothing; a `stateId` that is not a JSON string is a malformed body (§ 0.4).
 
 ### 0.3 Not found, from the outside in
 
@@ -59,7 +59,12 @@ For Delete, Restore and Purge, the first of:
 5. 404 `workitems.workitem.not_found`;
 6. the operation's own 409s, in the order its section gives.
 
-None of the three reads a body before step 6. For the save, § 3.4 gives the order.
+Delete and Purge take no body and never read one: a body of any type or shape is ignored. Restore's optional body is
+bound by the framework, as every JSON body of the platform is (mod-017 § 0.2): after step 3, which the scoped check
+decides before any body is read, and **before** steps 4 and 5. A body that is not JSON of the documented shape
+(`{ "stateId": <string or null> }`) therefore answers 400 `http.bad_request` — 415 `http.request_failed` when the body is
+not JSON at all — for any address, an unknown item included, and changes nothing. A well-formed body whose `stateId`
+names nothing is not that: it reaches step 6 as 409 `state_not_allowed`. For the save, § 3.4 gives the order.
 
 ### 0.5 Error body
 
@@ -137,6 +142,9 @@ check**: a restore is never refused for a cycle or a depth. Restoring a child re
 brings back the links its children kept (BR-DR-4).
 
 - **200** `WorkItem` — the item as stored, live, `deletion: null`.
+- **400** `http.bad_request` (**415** `http.request_failed` for a body that is not JSON) — the body is not JSON of the
+  shape above, e.g. `{ not json` or `{"stateId":5}`. It comes from the framework's binding, after the scoped check and
+  before the not-founds of the address (§ 0.4); nothing changes.
 - **401**, **403** `organizations.access.forbidden` (code `workitems.workitem.delete`).
 - **404** organization, project, work item (§ 0.3).
 - **409**, in this order: `workitems.workitem.not_deleted` — the item is not in «Удалена», **whatever `stateId` names**;
@@ -149,8 +157,9 @@ No body. Only of an item in «Удалена». In one transaction the item and 
 go: its team backlog place, its project backlog place and the item itself. Its **children survive**, deleted ones
 included: each loses its parent link and its «Изменён» takes the purge's time; a deleted child stays deleted (BR-DR-13).
 The purged item's own parent is not touched. **The number is never issued again** under any type key (BR-DR-14). Nothing
-of the item is kept: no tombstone, no copy; one operational log line (user, organization, project, identifier; never the
-title) is written after the commit (BR-DR-15). Data that later lines key to a work item leaves in the same transaction,
+of the item is kept: no tombstone, no copy; one operational log line (user, organization, project, identifier, and the
+deleter's Keycloak subject and the deletion's time, which go with the row; never the title) is written after the commit
+(BR-DR-15). Data that later lines key to a work item leaves in the same transaction,
 by a cascading key or a purge step (ADR-0030 rule 7; BR-DR-16).
 
 - **204** — removed. Idempotent in effect, not in answer: a repeat finds no row.
