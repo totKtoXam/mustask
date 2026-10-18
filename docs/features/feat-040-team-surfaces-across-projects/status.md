@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/040-team-surfaces-across-projects
-- stage: 05-frontend
+- stage: 06-code-review
 - epic: core/backlogs-boards
 - deps: feat-028
 - gates: gate-1, gate-2, gate-3
@@ -78,6 +78,9 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-18 [orchestrator] the human answered in chat, one question per open question and per design decision: OQ-1..OQ-3 A, D-1..D-7 A. gate-1 and gate-2 approved; stage → 04-backend. OQ-3 A's line is queued by the orchestrator's queue PR.
 - 2026-10-18 [backend-developer] main merged in; plan pass (L): `plan-backend.md` + `api-contract.md` fixed, no code, no lanes, no ADR, nothing for the human. Additive beyond the spec: `WorkItem.project`, `TeamListItem.isMember` (api-contract § 4).
 - 2026-10-18 [backend-developer] code stage done, api-contract unchanged; main (mod-020) merged in, no backend overlap. Deviations: plan-backend § 14. P-10 notes added to mod-003, -006, -016, -017, feat-027, -028, -032, -039. E2E not run (NO); the specs it breaks: plan § 14. stage → 05-frontend.
+
+- 2026-10-18 [frontend-developer] resumed stage (the human stopped the first run midway): its 40 uncommitted files were restored over the branch tip 3a111531 from the saved folder (`scratchpad/salvage-feat-040`, MANIFEST.txt), read against `plan-frontend.md` and the design, kept where sound, and completed. No discrepancy with `api-contract.md`, nothing escalated.
+- 2026-10-18 [frontend-developer] frontend done, api-contract unchanged: the team views at `/organizations/:o/teams/:t/…` (the project-nested address is no route), the project filter in the address (`projectId` repeated), «Проект» on rows and cards, the head's «Команды» menu, none on a project page, the refused drop, the creation with «Проект» first (D-4, D-5, D-6), the card by address and its read-only «Проект», the switcher's organization-level team level, the project's «Команды» always offering both views. E2E not run (NO); the specs it breaks: `support/membersUi.ts` (`backlogAddress`, `boardAddress`) and `23-backlogs-boards`, `24-work-item-hierarchy`, `25-work-item-fields`, `26-backlog-tree-editing` (also the menu «Команды проекта»), `27-work-item-card`, `28-team-members`, `29-role-views`; `19-shell-in-a-browser` and `21-organizations` are touched by the switcher alone. stage → 06-code-review.
 
 ## Notes
 

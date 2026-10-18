@@ -56,3 +56,17 @@ Test fixtures (`boards/testApi.ts`, `testFixtures.ts`, `testRender.tsx`, `organi
 rows/cards «Проект», drop verdict, creation dialog (project, D-4, D-5), created notice, card by address, head menu, switcher level, project
 «Команды», the retired address. Rewritten/retired by name with the rule id as spec § "Existing rules" lists them. E2E: NO, not run;
 the specs the change breaks are named in `plan-backend.md` § 14.
+
+## 5. As built (2026-10-18)
+
+The code matches §§ 1-4 and `api-contract.md`, unchanged. What the plan left to the code:
+
+- **Filter wiring.** `useViewFilter(scope)` picks the view's one dimension (project on a team, team on a project) from the two address hooks; `ViewFilterRow`
+  draws the row (`FilterRow` over `ProjectFilter` or mod-017's `TeamFilter`) and keeps the team's projects it last read, since they do not depend on the filter.
+- **Creation.** `CreateWorkItemDialog` takes a `place` (the page's project, or a team view's team with the filter); a changed «Проект» starts a new `requestId`
+  (BR-M3-26: another project is another request); `useNewWorkItem` offers the command only with a project to create in (`canCreate`).
+- **Card by address.** The dialog finds the project by the identifier's key (`projectKeyOf`) among the active projects; an unknown key or a gone project shows the
+  work item's not-found frame, never a project frame, and sends no request for the item.
+- **Removed.** `useSetWorkItemState`/`useSetWorkItemParent` (replaced by the `…In` hooks), `startTeamOf`, `scopeOwnerId`, `ProjectFilterRow`.
+- **Test infra.** `TeamRecord.moreProjectIds` links a fixture team to several projects; `serveBoards(data, { projectList: false })` leaves `GET /projects` to the
+  organizations API in the router tests; `acrossProjectsDataset()` is the two-project team.
