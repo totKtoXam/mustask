@@ -106,9 +106,11 @@ guarantees it exists and differs from the Russian, not its quality
 |workitems.validation_failed|400|Проверьте правильность заполнения полей.|Өрістердің дұрыс толтырылғанын тексеріңіз.|workitems|—|needs review|
 |workitems.workitem.assignee_unavailable|409|Этого пользователя нельзя назначить исполнителем.|Бұл пайдаланушыны орындаушы етіп тағайындауға болмайды.|workitems|—|needs review|
 |workitems.workitem.date_out_of_range|400|Укажите дату с 2000 по 2099 год.|2000 жылдан 2099 жылға дейінгі күнді көрсетіңіз.|workitems|—|needs review|
+|workitems.workitem.deleted|409|Рабочий элемент удалён и доступен только для чтения.|Жұмыс элементі жойылған және тек оқуға арналған.|workitems|—|needs review|
 |workitems.workitem.description_too_long|400|Не более 100 000 символов.|100 000 таңбадан аспауы керек.|workitems|—|needs review|
 |workitems.workitem.field_not_on_type|400|Это поле недоступно для рабочего элемента этого типа.|Бұл өріс осы түрдегі жұмыс элементі үшін қолжетімсіз.|workitems|—|needs review|
 |workitems.workitem.integer_required|400|Введите целое число.|Бүтін сан енгізіңіз.|workitems|—|needs review|
+|workitems.workitem.not_deleted|409|Рабочий элемент не удалён.|Жұмыс элементі жойылмаған.|workitems|—|needs review|
 |workitems.workitem.not_found|404|Рабочий элемент не найден.|Жұмыс элементі табылмады.|workitems|—|needs review|
 |workitems.workitem.number_out_of_range|400|Допустимо значение от 0 до 9 999.|0-ден 9 999-ға дейінгі мән енгізуге болады.|workitems|—|needs review|
 |workitems.workitem.number_too_precise|400|Не более двух знаков после запятой.|Үтірден кейін екі таңбадан аспауы керек.|workitems|—|needs review|

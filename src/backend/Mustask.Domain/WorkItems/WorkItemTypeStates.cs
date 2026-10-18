@@ -41,13 +41,49 @@ public sealed record WorkItemTypeStates
     public Guid InitialStateId => States.Single(state => state.Position == StateDefinition.InitialPosition).Id;
 
     /// <summary>
+    /// mod-005 (BR-DR-10): the state a restore falls back to when the item remembers none, or one the type no longer
+    /// allows: the type's first, which is <see cref="InitialStateId"/>.
+    /// </summary>
+    public Guid FirstStateId => InitialStateId;
+
+    /// <summary>
+    /// mod-005 (ADR-0030 rule 2): the type's states of the <see cref="StateCategory.Removed"/> category, built from
+    /// <see cref="States"/> — the one in-memory list of "deleted" that <see cref="IsRemoved"/>, <see cref="Allows"/> and
+    /// the hierarchy's <see cref="HierarchyTypes.IsDeleted"/> all read.
+    /// </summary>
+    public IReadOnlyCollection<Guid> RemovedStateIds =>
+        States.Where(state => state.Category == StateCategory.Removed).Select(state => state.Id).ToList();
+
+    /// <summary>
+    /// mod-005 (ADR-0030 rule 1): the type's one «Удалена», the state a Delete moves an item to. The constructor does not
+    /// enforce one Removed state per type (many tests build types without one), so a type with none or with several
+    /// refuses here, where Delete relies on it.
+    /// </summary>
+    public Guid RemovedStateId
+    {
+        get
+        {
+            var removed = RemovedStateIds;
+
+            return removed.Count == 1
+                ? removed.Single()
+                : throw new InvalidOperationException(
+                    $"Delete relies on one Removed state per type; the type {TypeKey} has {removed.Count}.");
+        }
+    }
+
+    /// <summary>Whether <paramref name="stateId"/> is one of this type's states of the Removed category (BR-DR-1).</summary>
+    public bool IsRemoved(Guid stateId) =>
+        States.Any(state => state.Id == stateId && state.Category == StateCategory.Removed);
+
+    /// <summary>
     /// Whether an item of this type may be put in <paramref name="stateId"/>: any
     /// state of this type other than its «Удалена», whose category is
-    /// <see cref="StateCategory.Removed"/> and which only mod-005's deletion
+    /// <see cref="StateCategory.Removed"/> and which only mod-005's Delete
     /// reaches (BR-M3-21). A state of another type is never allowed.
     /// </summary>
     public bool Allows(Guid stateId) =>
-        States.Any(state => state.Id == stateId && state.Category != StateCategory.Removed);
+        States.Any(state => state.Id == stateId) && !IsRemoved(stateId);
 }
 
 /// <summary>A state of a type: its identity, its 1-based position and its category.</summary>
