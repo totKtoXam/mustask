@@ -29,6 +29,13 @@ Server state: TanStack Query only. Client state: the keyword's typed text (`Keyw
 
 `WorkItemsPage.tsx`, `lib/teams.ts` (not edited: the notice is composed in `lib/workItemFilter.ts`), `api/workItemsApi.ts`, `api/queryKeys.ts`, `hooks/queries.ts`, `TeamFilter.tsx`, `index.ts` (additions only). Whichever merges second reconciles and notes it in `status.md`.
 
+## Findings (stage 5)
+
+- **2 000 people in the picker (D-1, design § 11).** Measured in jsdom under load (`WorkItemsPage.assignee.test.tsx`): opening the list of 2 001 options about 25 s, narrowing by typing «1999» 2.7 s. jsdom is no browser, so these are a floor for regressions, not the screen's speed; QA times the open and the first keystroke on the stand. If the open is slow there, D-1 B (the plain multi-select) is the fallback. The kit is not virtualised.
+- **Kit.** `InlineTextField` (`InputField`) drops `inputProps.onBlur` and `onFocus`: MUI's `InputBase` calls only the legacy `inputProps` for them, and the kit passes `slotProps.input`. «Поиск» therefore takes the blur from its wrapper. A kit fix is a separate task (a change to `shared/ui` runs the whole suite).
+- **Merge with feat-040.** The second to merge reconciles the shared files of § 4 and notes it in `status.md`; `lib/teams.ts` is untouched, so feat-040's team reason in `createdNotice` stays a one-line reconcile: this line's notice is `createdInListNotice` in `lib/workItemFilter.ts`.
+- **Router transitions.** react-router 7 applies a change of the address as a transition, so the address answers a write a moment late: `useWorkItemFilter` builds on its own pending writes, and `KeywordFilter` remembers the keywords it wrote, or the text typed meanwhile would be overwritten.
+
 ## 5. Not done, by decision
 
 No tag filter (OQ-1), no row action or column for a deleted row (OQ-3), no line about restoring (D-6), `FilterBar` not changed (D-5), no E2E (standing NO; specs that may meet the band: `22-work-items.spec.ts`, `27-work-item-card.spec.ts`, both use exact or card-scoped locators).
