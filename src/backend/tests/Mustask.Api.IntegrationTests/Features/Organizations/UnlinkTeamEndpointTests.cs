@@ -30,7 +30,7 @@ public sealed class UnlinkTeamEndpointTests(MustaskApiFactory factory)
         OrganizationsApi.SendAsync(factory, HttpMethod.Get, path, token: OrganizationsTokens.SignedIn());
 
     private string TeamBacklog(OwningTeamWorld world, Guid teamId) =>
-        $"{ProjectTeam(world.OrganizationId, world.ProjectId, teamId)}/backlogs/stories";
+        $"{TeamTestData.Team(world.OrganizationId, teamId)}/backlogs/stories";
 
     private async Task<Item> StoryAsync(OwningTeamWorld world, string title, Guid? team, Guid? projectId = null, string? key = null)
     {
@@ -164,14 +164,20 @@ public sealed class UnlinkTeamEndpointTests(MustaskApiFactory factory)
         Assert.Equal(nobodyBefore, await StoredAsync(factory, world.ProjectId, nobody.Identifier));
     }
 
-    // feat-028 US-4 · "…_RemovesTheLink_ViewsAnswer404": after the unlink the team is not in the project's list, its views at the project's
-    // address answer team.not_found, the count answers team.not_found, and it can be neither named the default nor given to an item.
+    // feat-028 US-4 · "…_RemovesTheLink_ViewsAnswer404": after the unlink the team is not in the project's list, the count answers
+    // team.not_found, and it can be neither named the default nor given to an item. feat-040 (BR-TS-1, BR-TS-2) rewrites the views' half:
+    // the team's views are at the team's own address and the team is still a team — it answers 200 and, linked to no project now, holds
+    // nothing (its one item went to «Без команды»); the address of the project's old team views is no route at all.
     [Fact]
     public async Task Unlink_RemovesTheLink_ViewsCountAndNamingAnswerAsNotLinked()
     {
         var world = await CreateWorldAsync(factory);
         var story = await StoryAsync(world, "Марсова", world.Mars);
-        Assert.Equal(HttpStatusCode.OK, (await GetAsync(TeamBacklog(world, world.Mars))).Status);
+        var before = await GetAsync(TeamBacklog(world, world.Mars));
+        Assert.Equal(HttpStatusCode.OK, before.Status);
+        Assert.Equal(
+            [story.Identifier],
+            before.Body.GetProperty("items").EnumerateArray().Select(row => row.GetProperty("identifier").GetString()));
 
         var answer = await UnlinkAsync(world, world.Mars, To(null));
         var backlog = await GetAsync(TeamBacklog(world, world.Mars));
@@ -186,7 +192,9 @@ public sealed class UnlinkTeamEndpointTests(MustaskApiFactory factory)
         var save = await WorkItemsTestData.SaveAsync(factory, world.Items, story.Identifier, new { team = new { teamId = world.Mars.ToString() } });
 
         Assert.Equal(HttpStatusCode.NoContent, answer.Status);
-        Assert.Equal((HttpStatusCode.NotFound, TeamNotFound), (backlog.Status, backlog.ErrorCode));
+        Assert.Equal(HttpStatusCode.OK, backlog.Status);
+        Assert.Empty(backlog.Body.GetProperty("items").EnumerateArray());
+        Assert.Empty(backlog.Body.GetProperty("projects").EnumerateArray());
         Assert.Equal((HttpStatusCode.NotFound, TeamNotFound), (count.Status, count.ErrorCode));
         Assert.DoesNotContain(world.Mars, Ids(list.Body));
         Assert.Equal((HttpStatusCode.Conflict, TeamNotInProject), (naming.Status, naming.ErrorCode));

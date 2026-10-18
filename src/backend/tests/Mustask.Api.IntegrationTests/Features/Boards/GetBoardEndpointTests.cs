@@ -7,8 +7,8 @@ using Mustask.Application.Abstractions.Process;
 namespace Mustask.Api.IntegrationTests.Features.Boards;
 
 /// <summary>
-/// <c>GET /api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}/boards/{level}</c>
-/// (mod-006 api-contract § 3.3): US-4 — the backlog's items as cards in columns
+/// <c>GET /api/organizations/{organizationId}/teams/{teamId}/boards/{level}</c>
+/// (mod-006 api-contract § 3.3, moved to the team's address by feat-040 § 3.3): US-4 — the backlog's items as cards in columns
 /// derived per (type, state) — and US-5, the card move, which is mod-003's PATCH
 /// with the column's target state (api-contract § 6), seen through the board;
 /// US-7's board scenario.
@@ -189,8 +189,7 @@ public sealed class GetBoardEndpointTests(MustaskApiFactory factory)
     [Theory]
     [InlineData("team-malformed", "organizations.team.not_found")]
     [InlineData("team-deleted", "organizations.team.not_found")]
-    [InlineData("team-of-another-project", "organizations.team.not_found")]
-    [InlineData("project-deactivated", "organizations.project.not_found")]
+    [InlineData("team-of-another-organization", "organizations.team.not_found")]
     [InlineData("organization-unknown", "organizations.organization.not_found")]
     [InlineData("level-tasks", "boards.level.not_found")]
     public async Task Get_ContextNotFound_AnswersItsLevelsCode(string part, string code)

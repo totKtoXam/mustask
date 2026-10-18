@@ -138,11 +138,11 @@ public sealed class DeletedStateParityTests(OrganizationsDatabaseFixture databas
         await using var scope = Services().CreateAsyncScope();
         var backlogs = scope.ServiceProvider.GetRequiredService<IBacklogReadModel>();
 
-        var parents = await backlogs.FindLiveParentsAsync(world.ProjectId, world.All, CancellationToken.None);
+        var parents = await backlogs.FindLiveParentsAsync(world.OrganizationId, world.All, CancellationToken.None);
         Assert.Equal(world.Live.ToHashSet(), parents.Keys.ToHashSet());
 
         // Every task, bug and test case stands beneath the one story: its checklist holds the live ones, whatever the kind.
-        var checklists = await backlogs.ReadChecklistsAsync(world.ProjectId, [world.Parent], CancellationToken.None);
+        var checklists = await backlogs.ReadChecklistsAsync(world.OrganizationId, [world.Parent], CancellationToken.None);
         var expected = world.ChecklistKinds.Where(world.Live.Contains).ToHashSet();
 
         Assert.NotEmpty(expected);
@@ -163,7 +163,7 @@ public sealed class DeletedStateParityTests(OrganizationsDatabaseFixture databas
             var types = world.Process.WorkItemTypes.Where(type => type.BacklogLevelId == level.Id).ToList();
             var expected = world.LiveOfTypes(types).ToHashSet();
 
-            var team = await BacklogMembership.Members(context, BacklogScope.Of(world.ProjectId, world.TeamId, level.Id, types))
+            var team = await BacklogMembership.Members(context, TeamBacklogScope.Of(world.TeamId, level.Id, types), world.OrganizationId)
                 .Select(member => member.Item.Id).ToListAsync();
             var project = await ProjectBacklogMembership.Members(context, ProjectBacklogScope.Of(world.ProjectId, level.Id, types))
                 .Select(member => member.Item.Id).ToListAsync();
@@ -175,7 +175,7 @@ public sealed class DeletedStateParityTests(OrganizationsDatabaseFixture databas
         }
 
         var every = world.Process.WorkItemTypes;
-        var teamTree = await BacklogMembership.TreeMembers(context, BacklogTreeScope.Of(world.ProjectId, world.TeamId, every))
+        var teamTree = await BacklogMembership.TreeMembers(context, TeamBacklogTreeScope.Of(world.TeamId, every), world.OrganizationId)
             .Select(member => member.Item.Id).ToListAsync();
         var projectTree = await ProjectBacklogMembership.TreeMembers(context, ProjectBacklogTreeScope.Of(world.ProjectId, every))
             .Select(member => member.Item.Id).ToListAsync();
@@ -199,7 +199,7 @@ public sealed class DeletedStateParityTests(OrganizationsDatabaseFixture databas
             var types = world.Process.WorkItemTypes.Where(type => type.BacklogLevelId == level.Id).ToList();
             var expected = world.LiveOfTypes(types).ToHashSet();
 
-            var teamEntries = await team.ReadEntriesAsync(BacklogScope.Of(world.ProjectId, world.TeamId, level.Id, types), CancellationToken.None);
+            var teamEntries = await team.ReadEntriesAsync(world.OrganizationId, TeamBacklogScope.Of(world.TeamId, level.Id, types), CancellationToken.None);
             var projectScope = ProjectBacklogScope.Of(world.ProjectId, level.Id, types);
             var projectEntries = await project.ReadEntriesAsync(projectScope, CancellationToken.None);
             var membership = await ProjectBacklogMembership.Members(context, projectScope).Select(member => member.Item.Id).ToListAsync();
@@ -242,7 +242,8 @@ public sealed class DeletedStateParityTests(OrganizationsDatabaseFixture databas
         IReadOnlyList<Guid> Live,
         IReadOnlyList<Guid> Deleted,
         IReadOnlyList<Guid> ChecklistKinds,
-        IReadOnlyDictionary<Guid, Guid> TypeOf)
+        IReadOnlyDictionary<Guid, Guid> TypeOf,
+        Guid OrganizationId)
     {
         public IEnumerable<Guid> LiveOfTypes(IEnumerable<WorkItemTypeRow> types)
         {
@@ -331,7 +332,7 @@ public sealed class DeletedStateParityTests(OrganizationsDatabaseFixture databas
             ("project", project),
             ("children", children.ToArray()));
 
-        return new World(project, structure.FirstTeam.Id, parent, process, all, live, deleted, children, typeOf);
+        return new World(project, structure.FirstTeam.Id, parent, process, all, live, deleted, children, typeOf, organization);
     }
 
     private async Task<ProcessDefinitionRow> ReadProcessAsync(Guid organizationId)

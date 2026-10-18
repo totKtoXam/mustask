@@ -63,7 +63,7 @@ public sealed class GetProjectBoardHandler(
         var items = BacklogItemView.InOrder(rows);
 
         // feat-032 BR-C-10: every card's checklist comes with the board, in one more read for all the cards at once.
-        var checklists = await backlogs.ReadChecklistsAsync(projectId, items.Select(item => item.Id).ToList(), cancellationToken);
+        var checklists = await backlogs.ReadChecklistsAsync(project.OrganizationId, items.Select(item => item.Id).ToList(), cancellationToken);
         var cards = items
             .Select(item => BoardCardView.Of(item, checklists))
             .ToLookup(card => layout.ColumnOf(card.Type.Id, card.State.Id));
