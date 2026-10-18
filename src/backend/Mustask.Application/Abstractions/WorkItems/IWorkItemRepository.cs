@@ -76,7 +76,12 @@ public interface IWorkItemRepository
     /// it locks its item, so from here to the commit no other parent write of the
     /// project proceeds: the stored parent and the ancestry a write decides on
     /// stay as it read them (BR-H-4, spec § NFR "two writes that would together
-    /// close a cycle never both succeed").
+    /// close a cycle never both succeed"). The purge takes it too (mod-005), and a
+    /// team's unlink and deletion take it through <c>IWorkItemTeamOwnership</c>
+    /// before they lock the items a team owns (mod-005 QD-1): the writes that lock
+    /// several items — a parent write, child then parents, a clean-up, by id —
+    /// all queue at this lock first, so none of them holds an item another wants
+    /// while it wants one of the other's.
     /// </summary>
     Task LockHierarchyAsync(Guid projectId, CancellationToken cancellationToken);
 
@@ -106,7 +111,33 @@ public interface IWorkItemRepository
     /// </summary>
     Task<IReadOnlyCollection<HierarchyLink>> AncestryAsync(Guid projectId, Guid workItemId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// mod-005 (ADR-0030 rule 5 step 2): locks the item and its direct children — deleted children too — in <b>one statement</b>,
+    /// <c>ORDER BY id FOR NO KEY UPDATE</c>, the order every other locker of several items keeps
+    /// (<c>IWorkItemTeamOwnership.LockOwnedAsync</c> is the model) and a parent write's link-end mode, so a reorder's
+    /// <c>FOR KEY SHARE</c> is never waited on. Needs <see cref="LockHierarchyAsync"/> first, which makes the children a stable
+    /// set. Answers the children's ids, or <c>null</c> when the project has no such item (a purge or a restore got there first).
+    /// </summary>
+    Task<IReadOnlyList<Guid>?> LockForPurgeAsync(Guid projectId, Guid workItemId, CancellationToken cancellationToken);
+
+    /// <summary>mod-005: the item of that id, in any state, loaded tracked after <see cref="LockForPurgeAsync"/> has locked it.</summary>
+    Task<WorkItem?> FindLockedAsync(Guid projectId, Guid workItemId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// mod-005 (ADR-0030 rule 5 step 4, BR-DR-13): one set-based statement that clears the link of every child of the item and
+    /// moves their «Изменён» to <paramref name="now"/> — 5 000 children in one statement. Their state, owner and places stay;
+    /// a deleted child stays deleted.
+    /// </summary>
+    Task ReleaseChildrenAsync(Guid projectId, Guid workItemId, DateTimeOffset now, CancellationToken cancellationToken);
+
     void Add(WorkItem item);
+
+    /// <summary>
+    /// mod-005: marks the tracked item removed; <see cref="SaveAsync"/> issues the <c>DELETE</c>. The project backlog place goes
+    /// with the row by its cascading key. A forgotten <see cref="ReleaseChildrenAsync"/> fails the delete on the parent key
+    /// (<c>Restrict</c>) instead of leaving a dangling parent.
+    /// </summary>
+    void Remove(WorkItem item);
 
     /// <summary>Flushes the tracked changes inside the caller's transaction.</summary>
     Task SaveAsync(CancellationToken cancellationToken);

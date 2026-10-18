@@ -60,10 +60,13 @@ using Mustask.Application.Features.UserDirectory.ApplyUserChanges;
 using Mustask.Application.Features.UserDirectory.BeginSnapshot;
 using Mustask.Application.Features.UserDirectory.CompleteSnapshot;
 using Mustask.Application.Features.WorkItems.CreateWorkItem;
+using Mustask.Application.Features.WorkItems.DeleteWorkItem;
 using Mustask.Application.Features.WorkItems.GetAssigneeCandidates;
 using Mustask.Application.Features.WorkItems.GetParentCandidates;
 using Mustask.Application.Features.WorkItems.GetWorkItem;
 using Mustask.Application.Features.WorkItems.GetWorkItems;
+using Mustask.Application.Features.WorkItems.PurgeWorkItem;
+using Mustask.Application.Features.WorkItems.RestoreWorkItem;
 using Mustask.Application.Features.WorkItems.SaveWorkItem;
 using Mustask.Application.Features.WorkItems.SetWorkItemParent;
 using Microsoft.Extensions.DependencyInjection;
@@ -154,6 +157,14 @@ public static class DependencyInjection
         // Work item links (feat-001): the parent write and the «Родитель» picker, routes of WorkItemEndpoints.cs too.
         services.AddScoped<SetWorkItemParentHandler>();
         services.AddScoped<GetParentCandidatesHandler>();
+
+        // Delete and restore a work item (mod-005): routes of WorkItemEndpoints.cs too.
+        services.AddScoped<DeleteWorkItemHandler>();
+        services.AddScoped<RestoreWorkItemHandler>();
+
+        // The purge (mod-005 US-6): its handler collects the IWorkItemPurgeStep of every line that keeps data of its own
+        // (ADR-0030 rule 7); none is registered in this line, so the collection is empty.
+        services.AddScoped<PurgeWorkItemHandler>();
 
         // Boards and backlogs (mod-006): one handler per route of BoardEndpoints.cs.
         services.AddScoped<GetBacklogHandler>();

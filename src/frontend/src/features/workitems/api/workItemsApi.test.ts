@@ -1,11 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '../../../shared/api/httpClient';
 import { serveWorkItems } from '../testApi';
-import { hierarchyDataset, ids, recordOf } from '../testFixtures';
-import { getParentCandidates, getWorkItem, saveWorkItem, setWorkItemParent } from './workItemsApi';
+import { deleteRecord, hierarchyDataset, ids, recordOf, stateId } from '../testFixtures';
+import {
+  deleteWorkItem,
+  getParentCandidates,
+  getWorkItem,
+  getWorkItems,
+  purgeWorkItem,
+  restoreWorkItem,
+  saveWorkItem,
+  setWorkItemParent,
+} from './workItemsApi';
 
 // feat-001 api-contract § 2.2, § 3.3, § 3.4 through the slice's own functions,
-// against the in-memory API the component tests use.
+// against the in-memory API the component tests use; mod-005 api-contract § 2 below.
 
 const ORG = ids.example;
 const MSK = ids.msk;
@@ -190,5 +199,129 @@ describe('the fields per type (feat-022 api-contract § 2, § 3.2)', () => {
       'workitems.workitem.number_out_of_range',
     );
     expect(recordOf(data, 6).fields.risk).toBeNull();
+  });
+});
+
+describe('the recycle bin (mod-005 api-contract § 2)', () => {
+  const ITEM_URL = `/api/organizations/${ORG}/projects/${MSK}/workitems/MSK-US-2`;
+
+  it('POSTs `…/delete` with no body and answers the deleted item with the marks of the deletion', async () => {
+    const data = hierarchyDataset();
+    const api = serveWorkItems(data);
+    recordOf(data, 2).stateId = stateId('US', 'Активна');
+
+    const answer = await deleteWorkItem(ORG, MSK, 'MSK-US-2');
+
+    expect(api.writes()).toEqual([{ method: 'POST', path: `${ITEM_URL}/delete`, body: undefined }]);
+    expect(answer.state).toMatchObject({ name: 'Удалена', category: { code: 'Removed' } });
+    expect(answer.deletion).toMatchObject({
+      fromState: { name: 'Активна' },
+      by: { id: ids.anna, displayName: 'Анна Смирнова', isActive: true, isMember: true },
+    });
+    expect(answer.deletion?.at).toBe(answer.changedAt);
+  });
+
+  it('a second delete is refused with `workitems.workitem.deleted`, the first one’s marks kept', async () => {
+    const data = hierarchyDataset();
+    serveWorkItems(data);
+    recordOf(data, 2).stateId = stateId('US', 'Активна');
+    await deleteWorkItem(ORG, MSK, 'MSK-US-2');
+
+    const refusal = await deleteWorkItem(ORG, MSK, 'MSK-US-2').catch((error: unknown) => error);
+
+    expect((refusal as ApiError).errorCode).toBe('workitems.workitem.deleted');
+    expect((await getWorkItem(ORG, MSK, 'MSK-US-2')).deletion?.fromState.name).toBe('Активна');
+  });
+
+  it('POSTs `{ stateId }` to `…/restore` and answers the live item with `deletion: null`', async () => {
+    const data = hierarchyDataset();
+    const api = serveWorkItems(data);
+    deleteRecord(recordOf(data, 2));
+    const chosen = stateId('US', 'Активна');
+
+    const answer = await restoreWorkItem(ORG, MSK, 'MSK-US-2', chosen);
+
+    expect(api.writes()).toEqual([
+      { method: 'POST', path: `${ITEM_URL}/restore`, body: { stateId: chosen } },
+    ]);
+    expect(answer.state.id).toBe(chosen);
+    expect(answer.deletion).toBeNull();
+  });
+
+  it('restores to the state held when none is sent, and to the first state for an item with no marks', async () => {
+    const data = hierarchyDataset();
+    serveWorkItems(data);
+    recordOf(data, 2).stateId = stateId('US', 'Разрешена');
+    deleteRecord(recordOf(data, 2));
+    deleteRecord(recordOf(data, 3), { marks: false });
+
+    const held = await restoreWorkItem(ORG, MSK, 'MSK-US-2');
+    const first = await restoreWorkItem(ORG, MSK, 'MSK-TASK-3');
+
+    expect(held.state.name).toBe('Разрешена');
+    expect(first.state.name).toBe('Новая');
+  });
+
+  it('refuses `not_deleted` before `state_not_allowed`, and a state of another type or «Удалена»', async () => {
+    const data = hierarchyDataset();
+    serveWorkItems(data);
+    const taskState = stateId('TASK', 'Активна');
+
+    const live = await restoreWorkItem(ORG, MSK, 'MSK-US-2', taskState).catch(
+      (error: unknown) => error,
+    );
+    deleteRecord(recordOf(data, 2));
+    const foreign = await restoreWorkItem(ORG, MSK, 'MSK-US-2', taskState).catch(
+      (error: unknown) => error,
+    );
+    const removed = await restoreWorkItem(ORG, MSK, 'MSK-US-2', stateId('US', 'Удалена')).catch(
+      (error: unknown) => error,
+    );
+
+    expect((live as ApiError).errorCode).toBe('workitems.workitem.not_deleted');
+    expect((foreign as ApiError).errorCode).toBe('workitems.workitem.state_not_allowed');
+    expect((removed as ApiError).errorCode).toBe('workitems.workitem.state_not_allowed');
+    expect((await getWorkItem(ORG, MSK, 'MSK-US-2')).state.name).toBe('Удалена');
+  });
+
+  it('POSTs `…/purge` and answers 204; the address then answers not found and the children lose the link', async () => {
+    const data = hierarchyDataset();
+    const api = serveWorkItems(data);
+    recordOf(data, 2).parentId = recordOf(data, 6).id;
+    recordOf(data, 3).parentId = recordOf(data, 2).id;
+    deleteRecord(recordOf(data, 2));
+
+    const answer = await purgeWorkItem(ORG, MSK, 'MSK-US-2');
+
+    expect(answer).toBeUndefined();
+    expect(api.writes()).toEqual([{ method: 'POST', path: `${ITEM_URL}/purge`, body: undefined }]);
+    const gone = await getWorkItem(ORG, MSK, 'MSK-US-2').catch((error: unknown) => error);
+    expect((gone as ApiError).errorCode).toBe('workitems.workitem.not_found');
+    expect((await getWorkItem(ORG, MSK, 'MSK-TASK-3')).parent).toBeNull();
+  });
+
+  it('a purge of a live item is refused with `not_deleted`', async () => {
+    serveWorkItems(hierarchyDataset());
+
+    const refusal = await purgeWorkItem(ORG, MSK, 'MSK-US-2').catch((error: unknown) => error);
+
+    expect((refusal as ApiError).errorCode).toBe('workitems.workitem.not_deleted');
+  });
+
+  it('the list stops returning a deleted item and does not count it (§ 3.2); a save of it is refused first (§ 3.4)', async () => {
+    const data = hierarchyDataset();
+    serveWorkItems(data);
+    const before = await getWorkItems(ORG, MSK, 1);
+    deleteRecord(recordOf(data, 2));
+
+    const after = await getWorkItems(ORG, MSK, 1);
+    // The title is 300 characters: the 409 comes before the 400 (§ 3.1).
+    const refused = await saveWorkItem(ORG, MSK, 'MSK-US-2', { title: 'я'.repeat(300) }).catch(
+      (error: unknown) => error,
+    );
+
+    expect(after.count).toBe(before.count - 1);
+    expect(after.data.map((item) => item.identifier)).not.toContain('MSK-US-2');
+    expect((refused as ApiError).errorCode).toBe('workitems.workitem.deleted');
   });
 });

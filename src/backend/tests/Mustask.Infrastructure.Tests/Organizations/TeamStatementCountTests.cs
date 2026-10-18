@@ -49,8 +49,8 @@ public sealed class TeamStatementCountTests(OrganizationsDatabaseFixture databas
     private const int AddTeamStatements = 5;
     private const int NewTeamMemberCandidatesStatements = 2;
     private const int CreateProjectStatements = 6;
-    private const int UnlinkStatements = 11;
-    private const int DeletionStatements = 11;
+    private const int UnlinkStatements = 13;     // 11 + the hierarchy lock's two (mod-005 QD-1)
+    private const int DeletionStatements = 13;   // 11 + the same two, for every linked project at once
 
     /// <summary>An organization of <c>Projects</c> projects, <c>Teams</c> teams each linked to two of them, and the first project's ids.</summary>
     private sealed record Seeded(Guid OrganizationId, IReadOnlyList<Guid> ProjectIds, IReadOnlyList<Guid> TeamIds, Guid RootAreaId)
@@ -249,6 +249,60 @@ public sealed class TeamStatementCountTests(OrganizationsDatabaseFixture databas
         Assert.Single(linkLocks);
         Assert.Contains("ORDER BY", linkLocks[0], StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(log.Commands, sql => sql.Contains("FROM teams", StringComparison.Ordinal) && sql.Contains("FOR ", StringComparison.Ordinal) && sql.Contains("UPDATE", StringComparison.Ordinal));
+    }
+
+    // mod-005 QD-1 · a parent write locks the hierarchy, then its child and its parents (not by id); the clean-ups lock the owned items by
+    // id. They take the hierarchy lock of the projects they reach BEFORE the first statement that locks an item — in two statements (the
+    // missing rows inserted in project-id order, then every row locked FOR UPDATE ordered by project id), whatever the number of projects.
+    [Fact]
+    public async Task Unlink_TakesTheProjectsHierarchyLock_BeforeLockingTheOwnedItems()
+    {
+        var seeded = await SeedAsync(projects: 1, teams: 2, linksPerTeam: 1);
+        await SeedItemsAsync(seeded, seeded.Team, 3);
+        var log = new SqlLogInterceptor();
+        await using var provider = BuildServices(log);
+        await using var scope = provider.CreateAsyncScope();
+
+        await scope.ServiceProvider.GetRequiredService<UnlinkTeamHandler>().Handle(
+            new UnlinkTeamCommand(Id(seeded.OrganizationId), Id(seeded.Project), Id(seeded.Team), new UnlinkDestination(Id(seeded.TeamIds[1]))), CancellationToken.None);
+
+        AssertHierarchyBeforeItems(log.Commands, projects: 1);
+    }
+
+    [Fact]
+    public async Task Deletion_TakesTheHierarchyLocksOfAllTheLinkedProjectsInTwoStatements_BeforeLockingTheOwnedItems()
+    {
+        var seeded = await SeedAsync(projects: 3, teams: 1, linksPerTeam: 3);
+        await SeedItemsAsync(seeded, seeded.Team, 6);
+        var log = new SqlLogInterceptor();
+        await using var provider = BuildServices(log);
+        await using var scope = provider.CreateAsyncScope();
+
+        await scope.ServiceProvider.GetRequiredService<DeleteTeamHandler>().Handle(new DeleteTeamCommand(Id(seeded.OrganizationId), Id(seeded.Team)), CancellationToken.None);
+
+        AssertHierarchyBeforeItems(log.Commands, projects: 3);
+
+        // Every linked project has its row now, the ones that had never had a parent write included.
+        Assert.Equal(
+            ["3"],
+            await database.QueryAsync("SELECT count(*)::text FROM work_item_hierarchy_locks WHERE project_id = ANY(@projects)", ("projects", seeded.ProjectIds.ToArray())));
+    }
+
+    private static void AssertHierarchyBeforeItems(List<string> commands, int projects)
+    {
+        var inserts = commands.Where(sql => sql.Contains("INSERT INTO work_item_hierarchy_locks", StringComparison.Ordinal)).ToList();
+        var locks = commands.Where(sql => sql.Contains("FROM work_item_hierarchy_locks", StringComparison.Ordinal) && sql.Contains("FOR UPDATE", StringComparison.Ordinal)).ToList();
+        var items = commands.Where(sql => sql.Contains("FROM work_items", StringComparison.Ordinal) && sql.Contains("FOR UPDATE", StringComparison.Ordinal)).ToList();
+
+        // One insert and one lock, each ordered by project id, for any number of projects (the pins above count the same two).
+        Assert.True(inserts.Count == 1 && locks.Count == 1, $"The hierarchy lock of {projects} project(s) took {inserts.Count} insert(s) and {locks.Count} lock(s), not 1 and 1.");
+        Assert.Contains("ORDER BY project_id", inserts[0], StringComparison.Ordinal);
+        Assert.Contains("ORDER BY project_id", locks[0], StringComparison.Ordinal);
+
+        var item = Assert.Single(items);
+        Assert.True(
+            commands.IndexOf(inserts[0]) < commands.IndexOf(locks[0]) && commands.IndexOf(locks[0]) < commands.IndexOf(item),
+            "The hierarchy lock must be taken, inserts first, before the statement that locks the owned items.");
     }
 
     // --- Arrangement -------------------------------------------------------------------------------------------------

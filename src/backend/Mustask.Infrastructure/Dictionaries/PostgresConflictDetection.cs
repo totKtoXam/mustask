@@ -36,6 +36,14 @@ internal static class PostgresConflictDetection
     /// went while the insert ran. mod-016's team membership onto the organization membership is the first (BR-M1-10).
     /// </summary>
     public static bool IsForeignKeyViolationOnConstraint(DbUpdateException ex, string constraintName) =>
-        ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.ForeignKeyViolation } pg
+        IsForeignKeyViolationOnConstraint(ex.InnerException as PostgresException, constraintName);
+
+    /// <summary>
+    /// The same check on the provider's own exception: a raw statement (<c>ExecuteSqlInterpolatedAsync</c>) throws the
+    /// <see cref="PostgresException"/> itself, not a <see cref="DbUpdateException"/> around it (mod-005: the project reorder's
+    /// place write).
+    /// </summary>
+    public static bool IsForeignKeyViolationOnConstraint(PostgresException? ex, string constraintName) =>
+        ex is { SqlState: PostgresErrorCodes.ForeignKeyViolation } pg
         && string.Equals(pg.ConstraintName, constraintName, StringComparison.Ordinal);
 }

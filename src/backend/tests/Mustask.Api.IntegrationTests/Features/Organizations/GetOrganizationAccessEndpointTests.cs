@@ -41,7 +41,7 @@ public sealed class GetOrganizationAccessEndpointTests(MustaskApiFactory factory
 
     // US-4 · the spec's matrix, spelled out in the test too, so a change of a bundle fails here and in the domain's matrix test.
     [Fact]
-    public async Task Get_TheMemberBundle_IsTheSevenReadsAndTheThreeNonAdminWrites()
+    public async Task Get_TheMemberBundle_IsTheSevenReadsAndTheFourNonAdminWrites()
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
         var caller = await MembershipTestData.NewMemberAsync(factory, organization.Id, OrganizationRole.Member);
@@ -58,6 +58,7 @@ public sealed class GetOrganizationAccessEndpointTests(MustaskApiFactory factory
                 "organizations.team.read",
                 "process.definition.read",
                 "workitems.link.write",
+                "workitems.workitem.delete",
                 "workitems.workitem.read",
                 "workitems.workitem.write",
             ],

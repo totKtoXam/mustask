@@ -155,6 +155,15 @@ describe('the route table', () => {
     expect(codeOfRoute('GET', '/teams/t')).toBe('organizations.team.read');
     expect(codeOfRoute('PUT', '/workitems/x')).toBeUndefined();
     expect(codeOfRoute('GET', '/workitems/assignee-candidates')).toBe('workitems.workitem.write');
+    expect(codeOfRoute('POST', '/projects/p/workitems/MSK-US-1/delete')).toBe(
+      'workitems.workitem.delete',
+    );
+    expect(codeOfRoute('POST', '/projects/p/workitems/MSK-US-1/restore')).toBe(
+      'workitems.workitem.delete',
+    );
+    expect(codeOfRoute('POST', '/projects/p/workitems/MSK-US-1/purge')).toBe(
+      'workitems.workitem.purge',
+    );
     expect(codeOfRoute('POST', '/projects/p/teams/t/backlogs/stories/reorder')).toBe(
       'boards.backlog.reorder',
     );

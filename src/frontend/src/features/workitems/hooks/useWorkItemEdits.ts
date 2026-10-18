@@ -1,7 +1,10 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { apiErrorText } from '../../../shared/lib/apiErrorText';
+import type { NoticeSeverity } from '../../../shared/ui';
 import type { SaveWorkItemBody, WorkItem } from '../api/workItemsApi';
 import { cardTexts } from '../lib/cardTexts';
+import { isDeleted } from '../lib/deletion';
+import { isDeletedRefusal } from '../lib/deletionRefusals';
 import { draftErrors, type WorkItemDraft } from '../lib/draft';
 import {
   NO_EDITS,
@@ -56,8 +59,11 @@ export interface WorkItemEditsOptions {
   identifier: string;
   /** The item as stored now: the cache entry, which a save and a read replace. */
   item: WorkItem;
-  /** Tells the user a short result («Изменения сохранены.») — the kit's `useNotice().show`. */
-  notify: (text: string) => void;
+  /**
+   * Tells the user a short result («Изменения сохранены.») — the kit's `useNotice().show`; an
+   * error says so (a save that lost to a deletion, mod-005 D-5).
+   */
+  notify: (text: string, severity?: NoticeSeverity) => void;
   /** The path's own level is gone (BR-C-17): the host shows that level's frame. */
   onGone: (level: WorkItemsNotFoundLevel) => void;
   /** An accepted save: the dialog's host reads the page behind it again (BR-C-21). */
@@ -87,8 +93,11 @@ export interface WorkItemEditsState {
   save: () => Promise<SaveOutcome>;
   /** The same save, then `close` — only when it was accepted (BR-C-8). */
   saveAndClose: (close: () => void) => Promise<SaveOutcome>;
-  /** Reads the item again; the touched fields keep the user's values (BR-C-9). */
-  refresh: () => Promise<void>;
+  /**
+   * Reads the item again; the touched fields keep the user's values (BR-C-9). `notice: false`
+   * reads silently — the caller has told the user why (a write that lost a race, mod-005 § 8).
+   */
+  refresh: (options?: { notice?: boolean }) => Promise<void>;
   /** Drops every edit and every error (BR-C-10); the host has already asked. */
   undo: () => void;
 }
@@ -133,6 +142,18 @@ export function useWorkItemEdits({
   const [refreshing, setRefreshing] = useState(false);
   const [focus, setFocus] = useState<FocusRequest | null>(null);
   const working = useRef<'save' | 'read' | null>(null);
+
+  // The mode follows the read (mod-005 design § 4): an item whose state is in the Removed category is
+  // read-only and shows the stored values; one that turns deleted or live again — a read, a refusal's
+  // re-read, a Delete, a Restore — starts afresh, so a draft never outlives the mode it was typed in.
+  const deleted = isDeleted(item);
+  const [wasDeleted, setWasDeleted] = useState(deleted);
+  if (deleted !== wasDeleted) {
+    setWasDeleted(deleted);
+    setEdits(NO_EDITS);
+    setErrors({});
+    setAlert(null);
+  }
   // The draft as last drawn, for a read that ends after the user kept typing.
   const latestEdits = useRef(edits);
   useLayoutEffect(() => {
@@ -173,6 +194,28 @@ export function useWorkItemEdits({
         onGone(placed.frame);
         return 'gone';
       }
+      if (isDeletedRefusal(error)) {
+        // mod-005 D-5: the item was deleted while the card showed it live. The server's text is
+        // told as an error notice, the card reads the item and turns read-only with the draft
+        // dropped — it never keeps a form that cannot be saved. If the read fails the text stays
+        // in the card's error area and «Обновить» tries again.
+        const text = apiErrorText(error);
+        notify(text, 'error');
+        try {
+          const fresh = await readItem();
+          setEdits((current) => (isDeleted(fresh) ? NO_EDITS : rebaseEdits(fresh, current)));
+          setErrors({});
+          onRefreshed?.(fresh);
+        } catch (readError) {
+          const level = notFoundLevel(readError);
+          if (level) {
+            onGone(level);
+            return 'gone';
+          }
+          setAlert(text);
+        }
+        return 'refused';
+      }
       if (isParentChanged(error)) {
         // feat-001 BR-H-4: read the item again first, so «Родитель» shows the
         // stored parent; the user's other edits stay where they are.
@@ -196,7 +239,7 @@ export function useWorkItemEdits({
       focusFirst(placed.fields);
       return 'refused';
     },
-    [formFields, onGone, readItem, focusFirst],
+    [formFields, onGone, onRefreshed, readItem, focusFirst, notify],
   );
 
   const save = useCallback(async (): Promise<SaveOutcome> => {
@@ -242,37 +285,43 @@ export function useWorkItemEdits({
     [save],
   );
 
-  const refresh = useCallback(async (): Promise<void> => {
-    if (working.current) {
-      return;
-    }
-    working.current = 'read';
-    setRefreshing(true);
-    setAlert(null);
-    try {
-      const fresh = await readItem();
-      // The fields stay editable while the read runs: lay the edits as they are
-      // now over the fresh item, not as they were when the read began.
-      setEdits((current) => rebaseEdits(fresh, current));
-      // The notice says what the draft is now, not what it was when the read began.
-      notify(
-        hasUnsavedEdits(fresh, rebaseEdits(fresh, latestEdits.current))
-          ? cardTexts.notices.refreshedKept
-          : cardTexts.notices.refreshed,
-      );
-      onRefreshed?.(fresh);
-    } catch (error) {
-      const level = notFoundLevel(error);
-      if (level) {
-        onGone(level);
-      } else {
-        setAlert(apiErrorText(error));
+  const refresh = useCallback(
+    async ({ notice = true }: { notice?: boolean } = {}): Promise<void> => {
+      if (working.current) {
+        return;
       }
-    } finally {
-      working.current = null;
-      setRefreshing(false);
-    }
-  }, [readItem, notify, onGone, onRefreshed]);
+      working.current = 'read';
+      setRefreshing(true);
+      setAlert(null);
+      try {
+        const fresh = await readItem();
+        // The fields stay editable while the read runs: lay the edits as they are
+        // now over the fresh item, not as they were when the read began. A deleted item
+        // shows the stored values and keeps no draft (design § 4).
+        setEdits((current) => (isDeleted(fresh) ? NO_EDITS : rebaseEdits(fresh, current)));
+        // The notice says what the draft is now, not what it was when the read began.
+        if (notice) {
+          notify(
+            !isDeleted(fresh) && hasUnsavedEdits(fresh, rebaseEdits(fresh, latestEdits.current))
+              ? cardTexts.notices.refreshedKept
+              : cardTexts.notices.refreshed,
+          );
+        }
+        onRefreshed?.(fresh);
+      } catch (error) {
+        const level = notFoundLevel(error);
+        if (level) {
+          onGone(level);
+        } else {
+          setAlert(apiErrorText(error));
+        }
+      } finally {
+        working.current = null;
+        setRefreshing(false);
+      }
+    },
+    [readItem, notify, onGone, onRefreshed],
+  );
 
   const undo = useCallback(() => {
     // A save sends the draft as it stands; a read only rebases it, whatever it is by then.
@@ -285,11 +334,14 @@ export function useWorkItemEdits({
     notify(cardTexts.notices.undone);
   }, [notify]);
 
+  // A deleted item has no draft: the flip above empties `edits`, and this keeps the render that
+  // sees the flip from drawing the old draft over the stored values.
+  const shown = deleted ? NO_EDITS : edits;
   return {
-    edits,
-    draft: editedDraft(item, edits),
-    isDirty: hasUnsavedEdits(item, edits),
-    changes: touchedChanges(item, edits),
+    edits: shown,
+    draft: editedDraft(item, shown),
+    isDirty: hasUnsavedEdits(item, shown),
+    changes: touchedChanges(item, shown),
     errors,
     alert,
     saving,

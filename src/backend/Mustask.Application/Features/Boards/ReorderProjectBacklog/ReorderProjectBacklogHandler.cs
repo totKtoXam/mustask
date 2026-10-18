@@ -20,11 +20,14 @@ namespace Mustask.Application.Features.Boards.ReorderProjectBacklog;
 /// the position (400); then, under the locks, the project again and the stale check (409).
 /// </para>
 /// <para>
-/// <b>Locks</b> (ADR-0011, ADR-0028 rule 9): the project <c>FOR SHARE</c> — a write that binds to a project locks it and
-/// re-checks it is reachable, so a project deactivated meanwhile answers not found and a deactivation waits for the
-/// reorder — then the project backlog's order row <c>FOR UPDATE</c>. Reorders of one project backlog therefore run one
-/// after another in arrival order, each reading the order as the previous one committed it; the team backlogs' lock
-/// rows and places are other rows of other tables, so none of them waits for or fails a project reorder.
+/// <b>Locks</b> (ADR-0011, ADR-0028 rules 8 and 9, mod-005 ADR-0030 rule 6): the project <c>FOR SHARE</c> — a write that
+/// binds to a project locks it and re-checks it is reachable, so a project deactivated meanwhile answers not found and a
+/// deactivation waits for the reorder — then the backlog's <b>members</b> <c>FOR KEY SHARE</c> in id order, as the team
+/// reorder takes them, then the project backlog's order row <c>FOR UPDATE</c>, and the members read again in a locking
+/// statement. Reorders of one project backlog therefore run one after another in arrival order, each reading the order as
+/// the previous one committed it; a Delete or a purge of a member either commits first (the reorder's locking read no longer
+/// finds the item) or waits for the reorder, so the place's key onto the item cannot fail. The team backlogs' lock rows and
+/// places are other rows of other tables, so none of them waits for or fails a project reorder.
 /// </para>
 /// </remarks>
 public sealed class ReorderProjectBacklogHandler(
@@ -73,7 +76,7 @@ public sealed class ReorderProjectBacklogHandler(
             async ct =>
             {
                 // 3. The locks, then the order as the previous reorder committed it.
-                if (!await backlogs.LockAsync(organizationId, projectId, resolved.Id, ct))
+                if (!await backlogs.LockAsync(organizationId, scope, ct))
                 {
                     throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
                 }

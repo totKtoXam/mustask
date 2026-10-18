@@ -40,7 +40,8 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
     /// <summary>
     /// feat-032: the checklists of a board's cards, one statement and then the assignees' lookups, whatever the cards'
     /// number. The children are narrowed in SQL — the project, the stored parent among the cards, a state outside the
-    /// Removed category, a type of a <see cref="CardChecklist.Kinds"/> kind — and not by Область: a child of another
+    /// Removed category (the <see cref="WorkItemSets.Live"/> entry point, mod-005 ADR-0030 rule 2), a type of a
+    /// <see cref="CardChecklist.Kinds"/> kind — and not by Область: a child of another
     /// team is in its parent's checklist (BR-C-1). Read by number, so each list keeps creation order (BR-C-5).
     /// </summary>
     public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<ChecklistChildView>>> ReadChecklistsAsync(
@@ -56,14 +57,13 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
         var kinds = CardChecklist.Kinds.ToList();
 
         var rows = await (
-                from item in context.WorkItems.AsNoTracking()
+                from item in WorkItemSets.Live(context).AsNoTracking()
                 join project in context.Projects on item.ProjectId equals project.Id
                 join type in context.WorkItemTypes on item.TypeId equals type.Id
                 join state in context.StateDefinitions on item.StateId equals state.Id
                 where item.ProjectId == projectId
                     && item.ParentId != null
                     && parents.Contains(item.ParentId.Value)
-                    && state.Category != StateCategory.Removed
                     && kinds.Contains(type.Appearance)
                 orderby item.Number
                 select new ChecklistRow(
@@ -113,11 +113,9 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
             return new Dictionary<Guid, WorkItemRefView>();
         }
 
-        var removedStates = WorkItemRefs.RemovedStateIds(context);
-
         var rows = await WorkItemRefs.Rows(
                 context,
-                context.WorkItems.AsNoTracking().Where(item => item.ProjectId == projectId && ids.Contains(item.Id) && !removedStates.Contains(item.StateId)))
+                WorkItemSets.Live(context).AsNoTracking().Where(item => item.ProjectId == projectId && ids.Contains(item.Id)))
             .ToListAsync(cancellationToken);
 
         return rows.ToDictionary(row => row.Id, WorkItemRefs.View);

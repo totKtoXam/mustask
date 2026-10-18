@@ -20,7 +20,8 @@ internal sealed class BacklogMember
 /// <item>its type is one of the level's;</item>
 /// <item>the team <b>owns</b> it — its owning team is the team; its area, the area's owner and the area's moves decide
 /// nothing, and no area tree is read;</item>
-/// <item>its state is outside the Removed category.</item>
+/// <item>its state is outside the Removed category — the one definition of "deleted" (mod-005, ADR-0030 rule 2), taken from
+/// the scope's shown-state ids; <c>DeletedStateParityTests</c> pins it equal to <c>WorkItemSets.Live</c>.</item>
 /// </list>
 /// All four go into one <c>work_items</c> statement, served by <c>ix_work_items_project_id_owning_team_id_type_id</c>, which
 /// left-joins the item's place on this backlog by the place's key. The reorder's locking read

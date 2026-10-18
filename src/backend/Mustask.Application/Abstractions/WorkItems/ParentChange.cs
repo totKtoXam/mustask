@@ -1,6 +1,5 @@
 using Mustask.Application.Abstractions.Process;
 using Mustask.Domain.Organizations;
-using Mustask.Domain.Process;
 using Mustask.Domain.WorkItems;
 using Mustask.Shared.Exceptions;
 
@@ -54,10 +53,12 @@ public static class ProcessHierarchy
 
         var ranks = process.BacklogLevels.ToDictionary(level => level.Id, level => level.Rank);
 
+        // mod-005 (ADR-0030 rule 2): the removed ids are the ones WorkItemTypeStates.IsRemoved reads, so the hierarchy's
+        // "deleted" and the aggregate's are one list.
         return new HierarchyTypes(process.WorkItemTypes.Select(type => new HierarchyType(
             type.Id,
             type.Key,
             ranks[type.BacklogLevelId],
-            type.States.Where(state => state.Category == StateCategory.Removed).Select(state => state.Id).ToList())));
+            ProcessWorkItemTypes.StatesOf(type).RemovedStateIds)));
     }
 }

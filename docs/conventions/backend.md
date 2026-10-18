@@ -263,6 +263,43 @@ purged ([ADR-0026](../adr/0026-soft-deactivation-by-status.md)).
   interface, at read time, and apply it to their own data. They never
   copy it and never subscribe to it.
 
+A work item is removed differently, because its lifecycle is a state of
+the organization's process and not a status of its own: it is **deleted by
+moving it into its type's Removed state**, with the state it held, who and
+when on the same row, and it is **purged** for good by an administrator
+([ADR-0030](../adr/0030-work-item-recycle-bin.md)). Three rules follow
+from it for every code that reads or writes work items:
+
+- **Reads choose an entry point.** `Mustask.Infrastructure/WorkItems/WorkItemSets`
+  offers `Live` (the default: lists, pickers, children, checklists, counts),
+  `Deleted` (a filter that names «Удалена») and `InAnyState` (the card by
+  address, a team's owned counts — the unlink's and the deletion's —, Restore,
+  Purge, the clean-ups, the locks).
+  Outside `WorkItemSets`, only the two backlog memberships name the context's
+  `WorkItems` set (each pinned by `DeletedStateParityTests`), and
+  `WorkItemAccessRules` checks that by the set's name, which is a text rule
+  and not a proof. There is no global filter, and a raw-SQL read of
+  `work_items` is not seen by that rule: it filters by the shown states or by
+  id itself, and the reviewer checks it by hand. "Deleted" is the state's
+  category and nothing else; `DeletedStateParityTests` pins its three
+  expressions (in memory, in LINQ, in the backlogs' SQL) equal and
+  `DeletedItemSurfaceMatrixTests` reads every surface once.
+- **The aggregate refuses, the handler places the refusal, an inventory
+  classifies every write.** `WorkItem.EnsureLive` throws
+  `workitems.workitem.deleted` on the stored state, under the item's lock,
+  before any value is applied. A new write route has a row in
+  `WorkItemWriteInventoryTests` (refuses a deleted item, acts on one,
+  clean-up, or names no work item), or that test fails; it is an
+  integration test (`RequiresDocker`), so it runs where Docker runs and
+  `scripts/verify.sh` skips it when Docker is down.
+- **Data keyed to a work item leaves with its purge.** A new table that
+  references an item has a foreign key with `ON DELETE CASCADE` by default;
+  what a cascade cannot do (a row written on survivors, a file outside the
+  database) is an `IWorkItemPurgeStep` of its own line, marked
+  `[PurgeStepCovers]`. `WorkItemReferenceInventoryTests` fails the build
+  for a reference to `work_items` that is neither, nor cleared by the
+  purge, nor listed as kept with a reason.
+
 ## Named values
 
 A literal in code is acceptable only if it carries no domain meaning (a

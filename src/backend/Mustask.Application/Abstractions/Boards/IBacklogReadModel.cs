@@ -89,9 +89,19 @@ public sealed record BacklogScope(
         return new BacklogScope(projectId, teamId, levelId, types.Select(type => type.Id).ToList(), ShownStates(types));
     }
 
-    /// <summary>The types' states outside the Removed category (condition 4).</summary>
+    /// <summary>
+    /// The types' states outside the Removed category (condition 4) — decided by <c>WorkItemTypeStates.IsRemoved</c>, the one
+    /// in-memory definition of "deleted" (mod-005, ADR-0030 rule 2), whose ids the memberships and the locking reads take.
+    /// </summary>
     internal static IReadOnlyCollection<Guid> ShownStates(IEnumerable<WorkItemTypeRow> types) =>
-        types.SelectMany(type => type.States).Where(state => state.Category != StateCategory.Removed).Select(state => state.Id).ToList();
+        types
+            .SelectMany(type =>
+            {
+                var states = ProcessWorkItemTypes.StatesOf(type);
+
+                return type.States.Where(state => !states.IsRemoved(state.Id)).Select(state => state.Id);
+            })
+            .ToList();
 }
 
 /// <summary>

@@ -28,19 +28,21 @@ public sealed class GetOrganizationAccessHandlerTests
     }
 
     [Fact]
-    public async Task Handle_Admin_HoldsEveryOrganizationCode()
+    public async Task Handle_Admin_HoldsEveryOneOfTheTwentyThreeOrganizationCodes()
     {
         var response = await HandleAsync(OrganizationRole.Admin);
 
-        Assert.Equal(21, response.Permissions.Count);
+        Assert.Equal(23, response.Permissions.Count);
     }
 
     [Fact]
-    public async Task Handle_Member_HoldsTheSevenReadsAndTheThreeNonAdminWrites()
+    public async Task Handle_Member_HoldsTheSevenReadsAndTheFourNonAdminWrites()
     {
         var response = await HandleAsync(OrganizationRole.Member);
 
-        Assert.Equal(10, response.Permissions.Count);
+        Assert.Equal(11, response.Permissions.Count);
+        Assert.Contains("workitems.workitem.delete", response.Permissions);
+        Assert.DoesNotContain("workitems.workitem.purge", response.Permissions);
         Assert.Contains("workitems.workitem.write", response.Permissions);
         Assert.DoesNotContain("organizations.membership.write", response.Permissions);
     }

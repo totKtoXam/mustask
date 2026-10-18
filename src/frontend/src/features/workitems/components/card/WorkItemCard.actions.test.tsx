@@ -177,7 +177,10 @@ describe('feat-029 US-5: «Отменить все изменения»', () => 
 });
 
 describe('feat-029 US-5: «Ещё действия»', () => {
-  it('holds «Копировать ссылку» and nothing else, and puts the page’s address on the clipboard', async () => {
+  // mod-005 D-4 (design § 2): feat-029's "nothing else" is superseded for a holder of `workitems.workitem.delete` ("Удалить",
+  // "Удалить навсегда" follow, WorkItemCard.delete.test.tsx). A card opened without `canDelete` (the default) is the reader's:
+  // its menu holds the copy and nothing else.
+  it('holds «Копировать ссылку» and nothing else for a reader without workitems.workitem.delete, and puts the page’s address on the clipboard', async () => {
     const user = userEvent.setup();
     const { notify } = await openCard();
 

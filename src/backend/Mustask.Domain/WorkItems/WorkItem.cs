@@ -94,6 +94,22 @@ public sealed class WorkItem
     /// </summary>
     public Guid? ParentId { get; private set; }
 
+    // --- mod-005: the marks of a deletion (ADR-0030 rule 1) ----------------------------------------------------------
+    // All three are set together by Delete and cleared together by Restore, so they are all-or-none (the CHECK keeps them so
+    // in the table). They are memory, not truth: an item is deleted when its state is in the Removed category, marks or not.
+
+    /// <summary>The state the item held when it was deleted, the restore's preset (BR-DR-2); <c>null</c> on a live item.</summary>
+    public Guid? DeletedFromStateId { get; private set; }
+
+    /// <summary>The Keycloak subject that deleted the item, no key (as <see cref="CreatedBy"/>); <c>null</c> on a live item.</summary>
+    public string? DeletedBy { get; private set; }
+
+    /// <summary>
+    /// When the item was deleted. Not <see cref="ChangedAt"/>: a system clean-up (a team's deletion) moves
+    /// <see cref="ChangedAt"/> of a deleted item and leaves this (BR-DR-9).
+    /// </summary>
+    public DateTimeOffset? DeletedAt { get; private set; }
+
     // --- feat-022: the fields per type (its spec § The field table) -------------------------------------------------
 
     /// <summary>«Приоритет», 1 the highest to 4, on every type; never empty (BR-M3-31).</summary>
@@ -255,11 +271,123 @@ public sealed class WorkItem
     }
 
     /// <summary>
+    /// mod-005 (ADR-0030 rule 2): whether the item is in its type's «Удалена» — the state's category decides, never the
+    /// name and never the marks (BR-DR-18).
+    /// </summary>
+    /// <param name="type">The item's own type, as the organization's process holds it.</param>
+    public bool IsDeleted(WorkItemTypeStates type)
+    {
+        RequireOwnType(type);
+
+        return type.IsRemoved(StateId);
+    }
+
+    /// <summary>
+    /// mod-005 (ADR-0030 rule 3, BR-DR-8): the refusal of every write to a deleted item, decided on the <b>stored</b> state
+    /// — the caller holds the item's lock, so no value of the write has been applied yet. Only Restore, Purge and the
+    /// system clean-up act on a deleted item.
+    /// </summary>
+    /// <exception cref="ConflictException"><see cref="WorkItemErrorCodes.WorkItemDeleted"/>.</exception>
+    public void EnsureLive(WorkItemTypeStates type)
+    {
+        if (IsDeleted(type))
+        {
+            throw new ConflictException(WorkItemErrorCodes.WorkItemDeleted);
+        }
+    }
+
+    /// <summary>mod-005: the refusal of Restore and Purge on an item that is not in «Удалена» (BR-DR-10, BR-DR-12).</summary>
+    /// <exception cref="ConflictException"><see cref="WorkItemErrorCodes.WorkItemNotDeleted"/>.</exception>
+    public void EnsureDeleted(WorkItemTypeStates type)
+    {
+        if (!IsDeleted(type))
+        {
+            throw new ConflictException(WorkItemErrorCodes.WorkItemNotDeleted);
+        }
+    }
+
+    /// <summary>
+    /// mod-005 (BR-DR-1..-3, ADR-0030 rule 1): moves the item into its type's «Удалена» and records, on the same row, the
+    /// state it held, who deleted it and when. «Изменён» takes the deletion's time. <b>Nothing else is assigned</b> — not
+    /// the title, fields, assignee, area, owning team, parent or anything of a child. A deletion is never refused for a
+    /// stale form: it is a separate write (BR-DR-11).
+    /// </summary>
+    /// <param name="type">The item's own type, as the organization's process holds it.</param>
+    /// <param name="deletedBy">The deleting user's Keycloak subject (<c>sub</c>) — the token's, never user input.</param>
+    /// <exception cref="ConflictException"><see cref="WorkItemErrorCodes.WorkItemDeleted"/>: already in «Удалена».</exception>
+    public void Delete(WorkItemTypeStates type, string deletedBy, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentException.ThrowIfNullOrWhiteSpace(deletedBy);
+
+        if (deletedBy.Length > WorkItemLimits.UserIdMaxLength)
+        {
+            throw new ArgumentException("A user id is at most the width of its column.", nameof(deletedBy));
+        }
+
+        EnsureLive(type);
+
+        var removedStateId = type.RemovedStateId;
+
+        DeletedFromStateId = StateId;
+        StateId = removedStateId;
+        DeletedBy = deletedBy;
+        DeletedAt = now;
+        ChangedAt = now;
+    }
+
+    /// <summary>
+    /// mod-005 (BR-DR-10): the state a restore without a choice goes to — the state held at deletion if the type still
+    /// allows it, else the type's first state (an item put in «Удалена» outside Delete has no marks; a held state the type
+    /// no longer allows never happens in the MVP, and falls back rather than failing, plan D-P8).
+    /// </summary>
+    public Guid RestoreTarget(WorkItemTypeStates type)
+    {
+        RequireOwnType(type);
+
+        return DeletedFromStateId is { } held && type.Allows(held) ? held : type.FirstStateId;
+    }
+
+    /// <summary>
+    /// mod-005 (BR-DR-10, ADR-0030 rule 1): takes the item out of «Удалена» into the chosen state, else the held one, else
+    /// the type's first, clears the three marks and moves «Изменён». The checks run in this order and a refusal throws
+    /// before anything is assigned: not deleted (whatever the chosen state), then a chosen state the type does not allow.
+    /// No hierarchy is read: a restore is never refused for a cycle or a depth.
+    /// </summary>
+    /// <param name="type">The item's own type, as the organization's process holds it.</param>
+    /// <param name="chosenStateId">
+    /// The state the user chose, or <c>null</c> for the preset. <see cref="Guid.Empty"/> stands for a sent value that named
+    /// nothing (as <c>ParentChange.SeenId</c> does) and is never allowed.
+    /// </param>
+    /// <exception cref="ConflictException">
+    /// <see cref="WorkItemErrorCodes.WorkItemNotDeleted"/>, then <see cref="WorkItemErrorCodes.StateNotAllowed"/>.
+    /// </exception>
+    public void Restore(WorkItemTypeStates type, Guid? chosenStateId, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+
+        EnsureDeleted(type);
+
+        if (chosenStateId is { } chosen && !type.Allows(chosen))
+        {
+            throw new ConflictException(WorkItemErrorCodes.StateNotAllowed);
+        }
+
+        StateId = chosenStateId ?? RestoreTarget(type);
+        DeletedFromStateId = null;
+        DeletedBy = null;
+        DeletedAt = null;
+        ChangedAt = now;
+    }
+
+    /// <summary>
     /// One save of the form (US-3, US-4, US-5): exactly the fields of
     /// <paramref name="edit"/> that are set, all of them or none (BR-M3-25). The
     /// state is checked before the assignee, and a refusal throws before anything
     /// changes. A value equal to the stored one changes nothing; when nothing
     /// changes, <see cref="ChangedAt"/> stays. Returns whether anything changed.
+    /// mod-005: an item in «Удалена» takes no save at all (<see cref="EnsureLive"/>, BR-DR-8), judged on the stored
+    /// state before any value, state or assignee is looked at.
     /// </summary>
     /// <param name="type">The item's own type, as the organization's process holds it.</param>
     public bool Save(WorkItemEdit edit, WorkItemTypeStates type, DateTimeOffset now)
@@ -268,6 +396,7 @@ public sealed class WorkItem
         ArgumentNullException.ThrowIfNull(type);
 
         RequireOwnType(type);
+        EnsureLive(type);
 
         // feat-022's fields are checked by the caller (CheckFields), with the other field reasons, before any 404 or 409.
         if (edit.Fields is { } fields && CheckFields(fields, type).Count > 0)

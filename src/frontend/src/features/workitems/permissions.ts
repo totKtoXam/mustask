@@ -9,6 +9,10 @@ export const workItemsPermissions = {
   workItemWrite: 'workitems.workitem.write',
   /** Setting or clearing a parent (feat-027): a member holds it, a reader does not. */
   linkWrite: 'workitems.link.write',
+  /** mod-005 api-contract § 0.1: Delete and Restore — the member and the administrator. */
+  workItemDelete: 'workitems.workitem.delete',
+  /** mod-005 api-contract § 0.1: Purge — the administrator alone. */
+  workItemPurge: 'workitems.workitem.purge',
 } as const;
 
 export type WorkItemsPermission = (typeof workItemsPermissions)[keyof typeof workItemsPermissions];
