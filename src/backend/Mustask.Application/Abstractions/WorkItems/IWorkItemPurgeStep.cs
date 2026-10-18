@@ -22,7 +22,8 @@ public interface IWorkItemPurgeStep
     /// <summary>
     /// Inside the transaction, after the item and its children are locked and before the item is removed. Touches only its own
     /// tables, locking in ADR-0028 rule 8's order; does no external I/O (an outbox intent instead, ADR-0013); receives the
-    /// item's id and identifier, the children's ids, the actor and the time, and never content.
+    /// item's id and identifier, the children's ids, the actor and the time, and never content. It never writes the purged
+    /// item's own row: the purge holds that row tracked, and its <c>DELETE</c> checks the row's version.
     /// </summary>
     Task PurgeAsync(WorkItemPurge purge, CancellationToken cancellationToken);
 }

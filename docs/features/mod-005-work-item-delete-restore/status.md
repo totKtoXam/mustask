@@ -24,8 +24,11 @@ The light route (the human's choice of 2026-10-18): analysis → one requirement
 - Light route: the human's choice of 2026-10-18.
 - 2026-10-18, the human in chat: spec OQ-1 A (Участник and Администратор delete and restore, only the administrator purges), OQ-2 A (no recycle-bin page and no list filter; feat-003 brings the «Удалена» filter), OQ-3 A (the item keeps who, when and the held state; history entries come with feat-015), OQ-4 A (a plain destructive dialog, no typing); design D-1..D-6 A; ADR-0030 accepted with D-1..D-3 A.
 - feat-028 (teams of the organization) is in flight and not in main: this line builds on main as it is; BR-DR-9's project–team unlink test is owed by whichever of the two merges second.
+- 2026-10-18 tech-012 m1 is closed by this line (the stored state is judged by `WorkItem.EnsureLive` before any value is applied, `DeletedItemIsReadOnlyEndpointTests.Patch_ADeletedItem_LiveStateAndAParent_Is409Deleted_NoLinkNoChangedAtMoves`); its queue line keeps m4 only — the orchestrator amends `docs/backlog.md`.
 
 ## Log
+
+- 2026-10-18 [backend-developer] stage 4 done (commits on the branch; plan-backend.md § 12 "As built" lists the deviations): migration `AddWorkItemDeletionMarks`, three POST routes, `deletion` on `WorkItem`, `WorkItemSets` entry points, project reorder member lock, purge step contract; api-contract.md is unchanged; the `stage:` line is the orchestrator's
 
 - 2026-10-18 [backend-developer] plan-backend.md + api-contract.md (stage 4a, deep): three POST sub-routes, `deletion` on WorkItem, entry points + parity/matrix/inventory tests, project-reorder member lock; no code yet; contract fixed from here (a change needs a note here)
 - 2026-10-18 [orchestrator] the human answered gate-1 and gate-2 in chat: every OQ and D-n A, ADR-0030 accepted; backend starts
