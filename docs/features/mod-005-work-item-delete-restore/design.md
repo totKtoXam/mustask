@@ -183,7 +183,9 @@ primary is in the error colour.
   a card reached any other way (its address, a link, another card's «Родитель») lands on
   «Рабочие элементы» unfiltered, as written here. Either way the navigation is a `replace` and
   Back never meets the purged address. The card's trail «Рабочие элементы» opens the list
-  unfiltered (feat-003 BR-WS-11).
+  unfiltered (feat-003 BR-WS-11). Built so: the row's title link carries the list's address in the
+  router state, and the page replaces to it after a purge (`lib/listOrigin.ts`,
+  `WorkItemFormPage`); a mark that names no address of this project's list is no mark.
 - The text names only what exists. When feat-015, feat-002 and mod-004 ship, each
   extends this sentence with its data (mod-015 § 9.4's «…вместе с историей, обсуждением и
   вложениями»), as BR-DR-16 owes.

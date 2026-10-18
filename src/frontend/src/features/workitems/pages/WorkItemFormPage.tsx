@@ -15,6 +15,7 @@ import { WorkItemCard } from '../components/card/WorkItemCard';
 import { useWorkItem } from '../hooks/queries';
 import { useWorkItemAccess } from '../hooks/useWorkItemAccess';
 import { cardTexts, loadingName } from '../lib/cardTexts';
+import { listOriginOf } from '../lib/listOrigin';
 import { notFoundLevel, type WorkItemsNotFoundLevel } from '../lib/notFoundLevel';
 import { workItemsPath } from '../paths';
 
@@ -138,8 +139,16 @@ function PageCard({
       notify={show}
       onGone={onGone}
       onClose={goBack}
-      // The purged address must not be one Back returns to (mod-005 design § 6).
-      onPurged={() => navigate(workItemsPath(organizationId, projectId), { replace: true })}
+      // The purged address must not be one Back returns to (mod-005 design § 6). A card opened from
+      // a row of the list returns to that list under its filters, page 1; any other lands on the
+      // list unfiltered (feat-003 BR-WS-5, amending mod-005 design § 6).
+      onPurged={() =>
+        navigate(
+          listOriginOf(location.state, organizationId, projectId) ??
+            workItemsPath(organizationId, projectId),
+          { replace: true },
+        )
+      }
       renderFrame={(frame) => <PageFrame frame={frame} trail={trail} />}
     />
   );
