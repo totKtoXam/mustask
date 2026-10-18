@@ -35,7 +35,7 @@ The card's `assignee` (mod-003 § 1.1) is **unchanged**: `{ id, displayName, ema
 { "id": "5d1e8f3a-…", "displayName": "Иван Котов", "email": "ivan@alfa.test", "isActive": true, "isMember": false }
 ```
 
-`displayName` and `email` are `null` and `isActive` is `false` for an id the directory does not know; `email` is `""` for a known user without one; `isMember` is the membership alone (a member the directory does not know is still a member). The panel's text is `userNameWithMarks` (mod-005): the name, then «(неактивен)» for a known inactive user, then «(не в организации)» when `isMember` is false (which prevails: both are shown as mod-005 H-1 A has it).
+`displayName` and `email` are `null` and `isActive` is `false` for an id the directory does not know; `email` is `""` for a known user without one; `isMember` is the membership alone (a member the directory does not know is still a member). The panel's text is `userNameWithMarks` (mod-005, BR-WS-7): the name, then «(не в организации)» when `isMember` is false, else «(неактивен)» for a known inactive user (the membership mark prevails); an unknown user reads «Неизвестный пользователь» with no «(неактивен)», and still «(не в организации)» when the membership ended.
 
 ## 2. Routes
 

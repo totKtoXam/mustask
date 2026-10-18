@@ -37,6 +37,14 @@ public static class WorkItemText
         return title.IndexOfAny(LineBreaks) >= 0 ? WorkItemErrorCodes.TitleMultiline : null;
     }
 
+    /// <summary>Whether <paramref name="text"/> holds a line break: no title can, so no keyword that does can find one (feat-003 BR-WS-9).</summary>
+    public static bool HoldsLineBreak(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        return text.IndexOfAny(LineBreaks) >= 0;
+    }
+
     /// <summary>The field reason of a description, or <c>null</c>: it is stored exactly as sent.</summary>
     public static string? ValidateDescription(string description)
     {
