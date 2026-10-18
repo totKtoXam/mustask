@@ -77,17 +77,9 @@ internal static class OwningTeamTestData
     public static BoardsWorld BoardsViewOf(OwningTeamWorld world) =>
         new(world.Items, world.OwnTeam, world.Mars, Guid.Empty, Guid.Empty, Guid.Empty);
 
-    /// <summary>An ordinary team of the project, with no area (BR-OT-11).</summary>
-    public static Task<Guid> AddTeamAsync(MustaskApiFactory factory, Guid projectId, string name) =>
-        OrganizationsTestData.InUnitOfWorkAsync(factory, async (services, ct) =>
-        {
-            var team = Team.Create(projectId, OrganizationsTestData.Name(name));
-            var teams = services.GetRequiredService<Mustask.Application.Abstractions.Organizations.ITeamRepository>();
-            teams.Add(team);
-            await teams.SaveAsync(ct);
-
-            return team.Id;
-        });
+    /// <summary>An ordinary team of the project's organization, linked to the project, with no area (BR-OT-11, feat-028 BR-OL-4).</summary>
+    public static async Task<Guid> AddTeamAsync(MustaskApiFactory factory, Guid projectId, string name) =>
+        (await OrganizationsTestData.AddTeamAsync(factory, projectId, name)).Id;
 
     /// <summary>
     /// The item's owning team set with SQL, for a test that needs the item placed without a save or a creation. As a save does
@@ -117,9 +109,10 @@ internal static class OwningTeamTestData
     /// <summary>The project default team as the structure seam resolves it now.</summary>
     public static async Task<Guid?> DefaultTeamAsync(MustaskApiFactory factory, Guid projectId)
     {
+        var organizationId = await OrganizationsTestData.OrganizationOfAsync(factory, projectId);
         await using var scope = factory.Services.CreateAsyncScope();
         var project = await scope.ServiceProvider.GetRequiredService<Mustask.Application.Features.Organizations.IOrganizationStructure>()
-            .FindProjectAsync(projectId, CancellationToken.None);
+            .FindProjectAsync(organizationId, projectId, CancellationToken.None);
 
         return project!.DefaultTeamId;
     }

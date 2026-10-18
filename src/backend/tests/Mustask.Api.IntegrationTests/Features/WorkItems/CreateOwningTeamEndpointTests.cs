@@ -178,12 +178,12 @@ public sealed class CreateOwningTeamEndpointTests(MustaskApiFactory factory)
         Assert.Empty(await BoardsTestData.RowsAsync(factory, boards, world.Mars));
     }
 
-    // US-2 · outline "a direct creation naming a team", the four refusals: another project's team is 409, a deleted, a
-    // deactivated project's, an unknown and a malformed one 404; nothing is created and no number is consumed.
+    // US-2 · outline "a direct creation naming a team", the refusals (feat-028 § 0.3): a team not linked to the project — another project's,
+    // a deactivated project's — is 409; a deleted, an unknown and a malformed one 404; nothing is created and no number is consumed.
     [Theory]
     [InlineData("otherProject", HttpStatusCode.Conflict, TeamNotInProject)]
     [InlineData("deleted", HttpStatusCode.NotFound, TeamNotFound)]
-    [InlineData("deactivatedProject", HttpStatusCode.NotFound, TeamNotFound)]
+    [InlineData("deactivatedProject", HttpStatusCode.Conflict, TeamNotInProject)]
     [InlineData("unknown", HttpStatusCode.NotFound, TeamNotFound)]
     [InlineData("malformed", HttpStatusCode.NotFound, TeamNotFound)]
     [InlineData("foreign", HttpStatusCode.NotFound, TeamNotFound)]

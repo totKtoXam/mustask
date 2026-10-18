@@ -30,7 +30,7 @@ public static class MembershipEndpoints
 
     private const string OrganizationPath = "/api/organizations/{organizationId}";
 
-    private const string TeamPath = OrganizationPath + "/projects/{projectId}/teams/{teamId}";
+    private const string TeamPath = OrganizationPath + "/teams/{teamId}";
 
     public static IEndpointRouteBuilder MapMembershipEndpoints(this IEndpointRouteBuilder app)
     {
@@ -54,6 +54,17 @@ public static class MembershipEndpoints
         organization.MapGet("/member-candidates", SearchMemberCandidatesAsync)
             .RequiresOrganizationPermission(PermissionCatalog.OrganizationsMembershipWrite)
             .Produces<MemberCandidatesResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // feat-028 api-contract § 2.3a: the creation form's «Участники», where the team does not exist yet. The literal segment
+        // outranks `{teamId}` in routing, so `member-candidates` is never read as a team's id. It declares the code of a creation
+        // and its handler asks the second one a creation with members asks (D-7).
+        organization.MapGet("/teams/member-candidates", SearchNewTeamMemberCandidatesAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamCreate)
+            .Produces<TeamMemberCandidatesResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -142,6 +153,10 @@ public static class MembershipEndpoints
         string organizationId, string? text, SearchMemberCandidatesHandler handler, CancellationToken cancellationToken) =>
         Results.Ok(await handler.Handle(new SearchMemberCandidatesQuery(organizationId, text), cancellationToken));
 
+    private static async Task<IResult> SearchNewTeamMemberCandidatesAsync(
+        string organizationId, string? text, SearchNewTeamMemberCandidatesHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok(await handler.Handle(new SearchNewTeamMemberCandidatesQuery(organizationId, text), cancellationToken));
+
     private static async Task<IResult> AddMemberAsync(
         string organizationId, AddMemberRequest? request, AddMemberHandler handler, CancellationToken cancellationToken)
     {
@@ -165,37 +180,35 @@ public static class MembershipEndpoints
     // --- § 2. A team's members ---------------------------------------------------------
 
     private static async Task<IResult> GetTeamMembersAsync(
-        string organizationId, string projectId, string teamId, GetTeamMembersHandler handler, CancellationToken cancellationToken) =>
-        Results.Ok((await handler.Handle(new GetTeamMembersQuery(organizationId, projectId, teamId), cancellationToken)).Items);
+        string organizationId, string teamId, GetTeamMembersHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new GetTeamMembersQuery(organizationId, teamId), cancellationToken)).Items);
 
     private static async Task<IResult> SearchTeamMemberCandidatesAsync(
         string organizationId,
-        string projectId,
         string teamId,
         string? text,
         SearchTeamMemberCandidatesHandler handler,
         CancellationToken cancellationToken) =>
-        Results.Ok(await handler.Handle(new SearchTeamMemberCandidatesQuery(organizationId, projectId, teamId, text), cancellationToken));
+        Results.Ok(await handler.Handle(new SearchTeamMemberCandidatesQuery(organizationId, teamId, text), cancellationToken));
 
     private static async Task<IResult> AddTeamMemberAsync(
         string organizationId,
-        string projectId,
         string teamId,
         UserRequest? request,
         AddTeamMemberHandler handler,
         CancellationToken cancellationToken)
     {
-        var result = await handler.Handle(new AddTeamMemberCommand(organizationId, projectId, teamId, request?.UserId), cancellationToken);
+        var result = await handler.Handle(new AddTeamMemberCommand(organizationId, teamId, request?.UserId), cancellationToken);
 
         return Results.Created(
-            $"/api/organizations/{organizationId.ToLowerInvariant()}/projects/{projectId.ToLowerInvariant()}/teams/{teamId.ToLowerInvariant()}/members",
+            $"/api/organizations/{organizationId.ToLowerInvariant()}/teams/{teamId.ToLowerInvariant()}/members",
             result.Member);
     }
 
     private static async Task<IResult> RemoveTeamMemberAsync(
-        string organizationId, string projectId, string teamId, string userId, RemoveTeamMemberHandler handler, CancellationToken cancellationToken)
+        string organizationId, string teamId, string userId, RemoveTeamMemberHandler handler, CancellationToken cancellationToken)
     {
-        await handler.Handle(new RemoveTeamMemberCommand(organizationId, projectId, teamId, userId), cancellationToken);
+        await handler.Handle(new RemoveTeamMemberCommand(organizationId, teamId, userId), cancellationToken);
 
         return Results.NoContent();
     }

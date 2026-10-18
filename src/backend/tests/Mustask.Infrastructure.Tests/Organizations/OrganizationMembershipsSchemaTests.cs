@@ -23,7 +23,7 @@ public sealed class OrganizationMembershipsSchemaTests(OrganizationsDatabaseFixt
         ("user", user),
         ("role", role),
         ("team", structure.SecondTeam.Id),
-        ("first", structure.Project.Team.Id),
+        ("first", structure.FirstTeam.Id),
     ];
 
     // BR-M1-5: one membership per user per organization — the named primary key.
@@ -194,13 +194,15 @@ public sealed class OrganizationMembershipsSchemaTests(OrganizationsDatabaseFixt
     public async Task Delete_ATeamThatHasMembers_IsRestricted()
     {
         var structure = await database.CreateStructureAsync();
+        // A team linked to no project, so that only the membership key stands in the way (the link key would refuse first otherwise).
+        var bare = await database.AddTeamAsync(structure.Organization.Id, "Без проекта");
         await database.AddMemberAsync(structure.Organization.Id, "u-schema");
-        await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Id, "u-schema");
+        await database.AddTeamMemberAsync(structure.Organization.Id, bare.Id, "u-schema");
 
         var error = await Assert.ThrowsAsync<PostgresException>(
-            () => database.ExecuteAsync("DELETE FROM teams WHERE id = @team", Parameters(structure)));
+            () => database.ExecuteAsync("DELETE FROM teams WHERE id = @bare", ("bare", bare.Id)));
 
-        Assert.Equal("fk_team_memberships_teams_team_id", error.ConstraintName);
+        Assert.Equal("fk_team_memberships_teams_organization_id_team_id", error.ConstraintName);
     }
 
     // BR-M1-36: removing an organization membership ends the user's memberships in every team of the organization, in the same
@@ -219,7 +221,7 @@ public sealed class OrganizationMembershipsSchemaTests(OrganizationsDatabaseFixt
 
         await database.AddMemberAsync(other.Organization.Id, "u-leaving");
         await database.AddTeamMemberAsync(organizationId, structure.SecondTeam.Id, "u-leaving");
-        await database.AddTeamMemberAsync(organizationId, structure.Project.Team.Id, "u-leaving");
+        await database.AddTeamMemberAsync(organizationId, structure.FirstTeam.Id, "u-leaving");
         await database.AddTeamMemberAsync(organizationId, structure.SecondTeam.Id, "u-staying");
         await database.AddTeamMemberAsync(other.Organization.Id, other.SecondTeam.Id, "u-leaving");
 

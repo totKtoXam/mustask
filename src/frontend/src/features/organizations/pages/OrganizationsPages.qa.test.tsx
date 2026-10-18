@@ -12,7 +12,7 @@ import { exampleDataset, ids } from '../testFixtures';
 import { serveOrganizations } from '../testApi';
 import { CREATE_RIGHT, renderPage } from '../testRender';
 
-const PRM_TEAMS = `/organizations/${ids.alfa}/projects/${ids.prm}/settings/teams`;
+const ORG_TEAMS = `/organizations/${ids.alfa}/settings/teams`;
 
 describe('(QA) mod-002 F-1: a dialog’s primary activated twice sends one request', () => {
   it('a double click on «Создать» creates one organization', async () => {
@@ -78,40 +78,47 @@ describe('(QA) mod-002 F-2: names holding markup and quotes are text everywhere'
   });
 });
 
+// feat-028 BR-OL-12 (doc-012 P-1): «a team rename in a project deactivated meanwhile shows «Проект
+// не найден.»; closing shows the frame» is retired by name — a team's rename names no project; its
+// twin is the team deleted meanwhile.
 describe('(QA) mod-002 F-6: a dialog answered by an outer level’s not found', () => {
-  it('a team rename in a project deactivated meanwhile shows «Проект не найден.»; closing shows the frame', async () => {
+  it('a team rename of a team deleted meanwhile shows «Команда не найдена.»; closing shows the frame', async () => {
     const api = serveOrganizations();
-    renderPage({ path: PRM_TEAMS });
-    await screen.findByRole('table', { name: 'Команды' });
-    await userEvent.click(screen.getByRole('button', { name: 'Действия: Платформа' }));
+    renderPage({ path: ORG_TEAMS });
+    await screen.findByRole('table', { name: 'Команды организации' });
+    await userEvent.click(screen.getByRole('button', { name: 'Ещё действия: Платформа' }));
     await userEvent.click(
       within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Переименовать' }),
     );
     const dialog = await screen.findByRole('dialog', { name: 'Переименование команды' });
 
-    // Another tab deactivates the project while the dialog is open.
-    api.data.projects.find((project) => project.id === ids.prm)!.active = false;
+    // Another tab deletes the team while the dialog is open.
+    api.data.teams.find((team) => team.id === ids.platformTeam)!.deleted = true;
     const field = within(dialog).getByRole('textbox', { name: 'Название' });
     await userEvent.clear(field);
     await userEvent.type(field, 'Ядро');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
 
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Проект не найден.');
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Команда не найдена.');
     expect(field).toHaveValue('Ядро');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }));
 
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'Проект не найден' }),
-    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole('table', { name: 'Команды организации' })).queryByRole('link', {
+          name: 'Платформа',
+        }),
+      ).not.toBeInTheDocument(),
+    );
   });
 });
 
 describe('(QA) mod-002 design § 4.3: focus returns to the opener of a row menu’s dialog', () => {
-  it('«Отмена» of «Переименование команды» puts focus back on «Действия: Платформа»', async () => {
+  it('«Отмена» of «Переименование команды» puts focus back on «Ещё действия: Платформа»', async () => {
     serveOrganizations();
-    renderPage({ path: PRM_TEAMS });
-    await screen.findByRole('table', { name: 'Команды' });
-    const opener = screen.getByRole('button', { name: 'Действия: Платформа' });
+    renderPage({ path: ORG_TEAMS });
+    await screen.findByRole('table', { name: 'Команды организации' });
+    const opener = screen.getByRole('button', { name: 'Ещё действия: Платформа' });
     await userEvent.click(opener);
     await userEvent.click(
       within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Переименовать' }),

@@ -6,7 +6,7 @@ using Mustask.Domain.Identity;
 namespace Mustask.Api.IntegrationTests.Features.Organizations;
 
 /// <summary>
-/// <c>GET /api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}/members</c> (mod-016 api-contract § 2.1; US-3
+/// <c>GET /api/organizations/{organizationId}/teams/{teamId}/members</c> (mod-016 api-contract § 2.1; US-3
 /// "A team with no members", "An inactive or unknown team member stays listed"): the team's members as people, in the order of
 /// § 0.5, from the user projection and never from Keycloak; a team that is deleted or addressed through another project or
 /// organization is a team that is not found.
@@ -22,11 +22,11 @@ public sealed class GetTeamMembersEndpointTests(MustaskApiFactory factory)
 
     private static string Tag() => Guid.NewGuid().ToString("N")[..8];
 
-    private static string Path(Guid organizationId, string projectId, string teamId) =>
-        $"{OrganizationsApi.Organization(organizationId)}/projects/{Uri.EscapeDataString(projectId)}/teams/{Uri.EscapeDataString(teamId)}/members";
+    private static string Path(Guid organizationId, string teamId) =>
+        $"{OrganizationsApi.Organization(organizationId)}/teams/{Uri.EscapeDataString(teamId)}/members";
 
     private Task<Answer> GetAsync(OrganizationStructure structure, Guid teamId, string token) =>
-        OrganizationsApi.SendAsync(factory, HttpMethod.Get, Path(structure.OrganizationId, structure.ProjectId.ToString(), teamId.ToString()), token: token);
+        OrganizationsApi.SendAsync(factory, HttpMethod.Get, Path(structure.OrganizationId, teamId.ToString()), token: token);
 
     private static List<JsonElement> Items(Answer answer) => answer.Body.EnumerateArray().ToList();
 
@@ -138,44 +138,25 @@ public sealed class GetTeamMembersEndpointTests(MustaskApiFactory factory)
         Assert.Equal((HttpStatusCode.NotFound, TeamNotFound), (answer.Status, answer.ErrorCode));
     }
 
-    // api-contract § 2 / mod-002 § 0.3 · the team must be reachable through the path: a malformed id, an unknown one and a team of
-    // another project of the same organization answer `team.not_found`; a project of another organization or an unknown one
-    // answers `project.not_found`.
+    // feat-028 api-contract § 2.3 · the team must be an active team of THIS organization: a malformed id, an unknown one and a team of another
+    // organization answer `team.not_found`; a team linked to no project of its own organization is read all the same (BR-OL-1).
     [Fact]
-    public async Task Get_AddressedThroughTheWrongContainer_AnswersTheOutermostLevelNotFound()
+    public async Task Get_ATeamOfAnotherOrganizationOrUnknown_AnswersTeamNotFound_AnUnlinkedTeamIsRead()
     {
         var (structure, reader) = await WorldAsync();
-        var otherProject = await OrganizationsTestData.CreateProjectAsync(factory, structure.OrganizationId, "Другой проект", "OTH");
         var elsewhere = await OrganizationsTestData.CreateStructureAsync(factory);
-        var teamId = structure.Platform.Id.ToString();
-        var organizationId = structure.OrganizationId;
+        var unlinked = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, structure.OrganizationId, "Без проекта");
 
-        var cases = new (string Project, string Team, string Code)[]
+        foreach (var team in new[] { "abc", Guid.CreateVersion7().ToString(), Guid.Empty.ToString(), elsewhere.Platform.Id.ToString() })
         {
-            (structure.ProjectId.ToString(), "abc", TeamNotFound),
-            (structure.ProjectId.ToString(), Guid.CreateVersion7().ToString(), TeamNotFound),
-            (structure.ProjectId.ToString(), Guid.Empty.ToString(), TeamNotFound),
-            (structure.ProjectId.ToString(), otherProject.Team.Id.ToString(), TeamNotFound),
-            (otherProject.Project.Id.ToString(), teamId, TeamNotFound),
-            (elsewhere.ProjectId.ToString(), teamId, ProjectNotFound),
-            (Guid.CreateVersion7().ToString(), teamId, ProjectNotFound),
-            ("abc", teamId, ProjectNotFound),
-        };
+            var answer = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, Path(structure.OrganizationId, team), token: reader.Token);
 
-        foreach (var (project, team, code) in cases)
-        {
-            var answer = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, Path(organizationId, project, team), token: reader.Token);
-
-            Assert.True(
-                (answer.Status, answer.ErrorCode) == (HttpStatusCode.NotFound, code),
-                $"Project {project}, team {team} answered {answer.Status} {answer.ErrorCode}, expected {code}.");
+            Assert.Equal((HttpStatusCode.NotFound, TeamNotFound), (answer.Status, answer.ErrorCode));
         }
 
-        // A team of another organization, addressed through this organization's own project.
-        var foreign = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Get, Path(organizationId, structure.ProjectId.ToString(), elsewhere.Platform.Id.ToString()), token: reader.Token);
+        var read = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, Path(structure.OrganizationId, unlinked.Id.ToString()), token: reader.Token);
 
-        Assert.Equal((HttpStatusCode.NotFound, TeamNotFound), (foreign.Status, foreign.ErrorCode));
+        Assert.Equal(HttpStatusCode.OK, read.Status);
     }
 
     // US-1 "Past 500 ids the list … still answers" for the team's list: 501 members, a few of the 501 in the team — all listed,
@@ -206,7 +187,7 @@ public sealed class GetTeamMembersEndpointTests(MustaskApiFactory factory)
     public async Task Get_NonMember_Is404_NoToken_Is401()
     {
         var (structure, _) = await WorldAsync();
-        var path = Path(structure.OrganizationId, structure.ProjectId.ToString(), structure.Platform.Id.ToString());
+        var path = Path(structure.OrganizationId, structure.Platform.Id.ToString());
 
         var nonMember = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, path, token: MembershipTestData.Outsider());
         var anonymous = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, path);

@@ -1,6 +1,8 @@
 #!/bin/sh
-# Cases for the green stamp of scripts/verify.sh (tech-030): when a full run leaves
-# a stamp, when a later full run takes it, and when it must not.
+# Cases for scripts/verify.sh itself. The green stamp (tech-030): when a full run
+# leaves a stamp, when a later full run takes it, and when it must not. The tooling
+# check of the executable bit (tech-039): the mode git holds decides, not the
+# working tree; and of the syntax: the shebang's interpreter decides, not `sh`.
 #
 # The cases build a throwaway repository (main plus a task branch that changes
 # documents only, so verify.sh runs just the cheap prose checks) and run the real
@@ -102,6 +104,38 @@ if [ "$(stamps)" -gt 3 ]; then
 else
     printf '  skipped: no python here, the partial-run case needs one\n'
 fi
+
+# 10. the executable bit is the mode in the index (tech-039). A script committed
+# as 100644 fails the tooling check even where the working tree says "executable"
+# (Windows answers yes to every *.sh), and the same script at 100755 passes even
+# where the working tree is not executable (a checkout that never ran chmod). Each
+# half fails against the `[ -x ]` check on one of the two platforms.
+printf '#!/bin/sh\nexit 0\n' > "$repo/scripts/probe.sh"
+g update-index --add --chmod=-x scripts/probe.sh && g commit -qm 'probe script, 100644'
+out=$(run) && rc=0 || rc=$?
+[ "$rc" != 0 ] && r=0 || r=1
+check 'a script committed as 100644: the run fails' $r
+has "$out" 'scripts/probe.sh(mode 100644' && r=0 || r=1
+check 'and names the file and its mode' $r
+g update-index --chmod=+x scripts/probe.sh && g commit -qm 'probe script, 100755'
+out=$(run) && rc=0 || rc=$?
+[ "$rc" = 0 ] && has "$out" 'RESULT: green' && r=0 || r=1
+check 'the same script at 100755: green' $r
+
+# 11. the syntax is read by the interpreter the shebang names (tech-039). A bash
+# script with bash-only syntax (an array, `[[ ]]`) is green: `sh -n` would reject
+# it where sh is dash (the Linux CI) though Git Bash's sh, which is bash, accepts
+# it. The other half runs anywhere: a bash script that is broken is still red.
+printf '#!/usr/bin/env bash\nf() { local a=(1 2); [[ ${a[0]} = 1 ]] && echo ok; }\nf\n' > "$repo/scripts/probe-bash.sh"
+g update-index --add --chmod=+x scripts/probe-bash.sh && g commit -qm 'probe bash script'
+out=$(run) && rc=0 || rc=$?
+[ "$rc" = 0 ] && has "$out" 'RESULT: green' && r=0 || r=1
+check 'a bash-shebang script with bash-only syntax: green' $r
+printf '#!/usr/bin/env bash\nf() { local a=(1 2\n' > "$repo/scripts/probe-bash.sh"
+g commit -qam 'probe bash script, broken'
+out=$(run) && rc=0 || rc=$?
+[ "$rc" != 0 ] && has "$out" 'scripts/probe-bash.sh(syntax)' && r=0 || r=1
+check 'and a broken one is red, named by file' $r
 
 printf '%s passed\n' "$pass"
 [ "$failed" = 0 ]

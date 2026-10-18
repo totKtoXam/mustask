@@ -14,8 +14,12 @@ export const ORGANIZATIONS_URL = `${API}/api/organizations`;
 export const ORGANIZATION_URL = `${ORGANIZATIONS_URL}/:organizationId`;
 export const PROJECTS_URL = `${ORGANIZATION_URL}/projects`;
 export const PROJECT_URL = `${PROJECTS_URL}/:projectId`;
+/** The project's linked teams, and the link's pair (feat-028 api-contract § 2.4). */
 export const TEAMS_URL = `${PROJECT_URL}/teams`;
-export const TEAM_URL = `${TEAMS_URL}/:teamId`;
+export const PROJECT_TEAM_URL = `${TEAMS_URL}/:teamId`;
+/** The organization's teams (feat-028 api-contract § 2.1): a team's address is the organization's. */
+export const ORG_TEAMS_URL = `${ORGANIZATION_URL}/teams`;
+export const ORG_TEAM_URL = `${ORG_TEAMS_URL}/:teamId`;
 export const AREAS_URL = `${PROJECT_URL}/areas`;
 export const AREA_URL = `${AREAS_URL}/:areaId`;
 
@@ -61,13 +65,23 @@ export interface ProjectRecord {
   active: boolean;
   /** The team the project's settings name (mod-017 BR-OT-4); absent or `null`: none named. */
   defaultTeamId?: string | null;
+  /** feat-028 BR-OL-3: as typed; absent or `null`: none. */
+  description?: string | null;
 }
 
+/** A team is the organization's (feat-028 BR-OL-1); the projects it works on are `Dataset.links`. */
 export interface TeamRecord {
   id: string;
-  projectId: string;
+  organizationId: string;
   name: string;
+  description?: string | null;
   deleted: boolean;
+}
+
+/** One project–team link (feat-028 BR-OL-4): at most one per pair. */
+export interface LinkRecord {
+  projectId: string;
+  teamId: string;
 }
 
 export interface AreaRecord {
@@ -106,6 +120,8 @@ export interface Dataset {
   organizations: OrganizationRecord[];
   projects: ProjectRecord[];
   teams: TeamRecord[];
+  /** The project–team links; a team with none works on no project, a project with none has no team. */
+  links: LinkRecord[];
   areas: AreaRecord[];
   /** The projection's users (mod-016 § 0.4); empty by default. */
   users?: UserRecord[];
@@ -118,19 +134,28 @@ export interface Dataset {
   memberships?: MembershipRecord[];
   /** Who is in which team; empty by default, so no team is the acting user's own. */
   teamMembers?: TeamMemberRecord[];
-  /** How many items a team owns, in any state (mod-017 api-contract § 2.9); absent: none. */
+  /**
+   * How many items a team owns in a project, in any state (feat-028 api-contract § 1.5), keyed by
+   * `ownedKey(projectId, teamId)`; absent: none.
+   */
   ownedItemCounts?: Record<string, number>;
   /** The caller the handlers answer as (the token's `sub`); needed with `teamMembers` and `memberships`. */
   actingUserId?: string;
 }
 
+/** The key of `Dataset.ownedItemCounts`: the items a team owns in one project. */
+export function ownedKey(projectId: string, teamId: string): string {
+  return `${projectId}:${teamId}`;
+}
+
 /**
  * The stories' example (design § 17): «Альфа» with «Пример проекта» (`PRM`),
  * «Аналитика» and the deactivated «Старый проект»; «Бета» with
- * «Отчётность»; the deactivated «Гамма». «Пример проекта» has two teams,
- * «Платформа» and «Пример проекта», and no named default (so neither carries a
- * mark); every other project has one team, which is its default as the only one
- * (mod-017 BR-OT-4). The area tree has no owners (BR-OT-10).
+ * «Отчётность»; the deactivated «Гамма». The teams are the organizations': «Альфа» has
+ * «Платформа», «Пример проекта», «Аналитика» and «Старый проект». «Пример проекта» is linked
+ * to two teams, «Платформа» and «Пример проекта», and has no named default (so neither carries
+ * a mark); every other project is linked to one team, which is its default as the only one
+ * (feat-028 BR-OL-7). The area tree has no owners (BR-OT-10).
  */
 export function exampleDataset(): Dataset {
   return {
@@ -147,12 +172,20 @@ export function exampleDataset(): Dataset {
       { id: ids.arc, organizationId: ids.gamma, name: 'Архив', key: 'ARC', active: true },
     ],
     teams: [
-      team(ids.prmTeam, ids.prm, 'Пример проекта'),
-      team(ids.platformTeam, ids.prm, 'Платформа'),
-      team(ids.anlTeam, ids.anl, 'Аналитика'),
-      team(ids.repTeam, ids.rep, 'Отчётность'),
-      team(ids.oldTeam, ids.old, 'Старый проект'),
-      team(ids.arcTeam, ids.arc, 'Архив'),
+      team(ids.prmTeam, ids.alfa, 'Пример проекта'),
+      team(ids.platformTeam, ids.alfa, 'Платформа'),
+      team(ids.anlTeam, ids.alfa, 'Аналитика'),
+      team(ids.repTeam, ids.beta, 'Отчётность'),
+      team(ids.oldTeam, ids.alfa, 'Старый проект'),
+      team(ids.arcTeam, ids.gamma, 'Архив'),
+    ],
+    links: [
+      { projectId: ids.prm, teamId: ids.prmTeam },
+      { projectId: ids.prm, teamId: ids.platformTeam },
+      { projectId: ids.anl, teamId: ids.anlTeam },
+      { projectId: ids.rep, teamId: ids.repTeam },
+      { projectId: ids.old, teamId: ids.oldTeam },
+      { projectId: ids.arc, teamId: ids.arcTeam },
     ],
     areas: [
       area(ids.prmRoot, ids.prm, null, 'Пример проекта'),
@@ -171,11 +204,25 @@ export function exampleDataset(): Dataset {
 
 /** An instance with no organization at all (US-1 «No organization yet»). */
 export function emptyDataset(): Dataset {
-  return { organizations: [], projects: [], teams: [], areas: [] };
+  return { organizations: [], projects: [], teams: [], links: [], areas: [] };
 }
 
-function team(id: string, projectId: string, name: string): TeamRecord {
-  return { id, projectId, name, deleted: false };
+/**
+ * The right after the upgrade state of feat-028 US-7: the example's organizations and projects,
+ * no team anywhere and no link — every project has none.
+ */
+export function noTeamsDataset(): Dataset {
+  return { ...exampleDataset(), teams: [], links: [] };
+}
+
+/** A team of an organization, active (feat-028: the organization's, with no project). */
+export function team(
+  id: string,
+  organizationId: string,
+  name: string,
+  description: string | null = null,
+): TeamRecord {
+  return { id, organizationId, name, description, deleted: false };
 }
 
 function area(id: string, projectId: string, parentId: string | null, name: string): AreaRecord {

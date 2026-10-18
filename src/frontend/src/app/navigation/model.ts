@@ -18,6 +18,7 @@ import {
   areasPath,
   membersPath,
   organizationGeneralPath,
+  organizationTeamsPath,
   organizationsPermissions,
   projectGeneralPath,
   projectsPath,
@@ -157,6 +158,16 @@ export const navigationModel: NavigationModel = {
           permission: organizationsPermissions.projectRead,
           landing: (selection) =>
             selection.organizationId ? projectsPath(selection.organizationId) : null,
+        },
+        // feat-028 (design § 1): the teams are the organization's. A team's page is beneath this
+        // entry's landing; the project group's own «Команды» lists the teams linked to a project.
+        {
+          id: 'organization-teams',
+          label: 'Команды',
+          scope: 'organization',
+          permission: organizationsPermissions.teamRead,
+          landing: (selection) =>
+            selection.organizationId ? organizationTeamsPath(selection.organizationId) : null,
         },
         {
           id: 'members',

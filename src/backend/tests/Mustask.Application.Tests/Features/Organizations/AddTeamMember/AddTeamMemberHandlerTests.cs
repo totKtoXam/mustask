@@ -21,15 +21,15 @@ public sealed class AddTeamMemberHandlerTests
         {
             World.AddMember("u-anna", "Анна Смирнова", email: "anna@example.org");
             Handler = new AddTeamMemberHandler(
-                World.Projects, World.Teams, World.TeamMemberships, World.Members, World.Directory, new FakeUnitOfWork());
+                World.Teams, World.TeamMemberships, World.Members, World.Directory, new FakeUnitOfWork());
         }
 
         public MembershipWorld World { get; } = new();
 
         public AddTeamMemberHandler Handler { get; }
 
-        public AddTeamMemberCommand Command(string? userId = "u-anna", string? teamId = null, string? projectId = null, string? organizationId = null) =>
-            new(organizationId ?? World.OrganizationId, projectId ?? World.ProjectId, teamId ?? World.PlatformId, userId);
+        public AddTeamMemberCommand Command(string? userId = "u-anna", string? teamId = null, string? organizationId = null) =>
+            new(organizationId ?? World.OrganizationId, teamId ?? World.PlatformId, userId);
 
         public Task<AddTeamMemberResult> HandleAsync(AddTeamMemberCommand command) => Handler.Handle(command, CancellationToken.None);
     }
@@ -148,7 +148,7 @@ public sealed class AddTeamMemberHandlerTests
     public async Task Handle_TheTeamWasDeleted_IsTeamNotFound_NoMembershipOfADeletedTeamRemains()
     {
         var f = new Fixture();
-        f.World.Platform.Delete(2);
+        f.World.Platform.Delete();
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command()));
 
@@ -181,7 +181,7 @@ public sealed class AddTeamMemberHandlerTests
     public async Task Handle_DeletedTeamAndABadBody_AnswersTheAddressFirst()
     {
         var f = new Fixture();
-        f.World.Platform.Delete(2);
+        f.World.Platform.Delete();
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(userId: " ")));
 
@@ -192,16 +192,16 @@ public sealed class AddTeamMemberHandlerTests
     [Theory]
     [InlineData("malformed team")]
     [InlineData("unknown team")]
-    [InlineData("team of another project")]
-    public async Task Handle_TeamNotOfTheProject_IsTeamNotFound_NothingStored(string how)
+    [InlineData("team of another organization")]
+    public async Task Handle_TeamNotOfTheOrganization_IsTeamNotFound_NothingStored(string how)
     {
         var f = new Fixture();
-        var sibling = f.World.Store.AddProject(f.World.Organization, "Второй проект", "SEC");
+        var foreign = f.World.Store.AddTeam(f.World.Store.AddOrganization("Другая организация"), "Чужая");
         var teamId = how switch
         {
             "malformed team" => "not-a-team",
             "unknown team" => Guid.CreateVersion7().ToString(),
-            _ => sibling.Team.Id.ToString(),
+            _ => foreign.Id.ToString(),
         };
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(teamId: teamId)));
@@ -210,31 +210,12 @@ public sealed class AddTeamMemberHandlerTests
         Assert.Empty(f.World.Store.TeamMemberships);
     }
 
-    [Theory]
-    [InlineData("malformed")]
-    [InlineData("deactivated")]
-    public async Task Handle_ProjectNotReachable_IsProjectNotFound_BeforeTheTeam(string how)
-    {
-        var f = new Fixture();
-
-        if (how == "deactivated")
-        {
-            f.World.Project.Project.Deactivate();
-        }
-
-        var refusal = await Assert.ThrowsAsync<NotFoundException>(
-            () => f.HandleAsync(f.Command(projectId: how == "malformed" ? "abc" : null, teamId: "not-a-team")));
-
-        Assert.Equal(OrganizationErrorCodes.ProjectNotFound, refusal.Code);
-        Assert.Empty(f.World.Store.Calls);
-    }
-
     [Fact]
     public async Task Handle_MalformedOrganization_IsOrganizationNotFound_BeforeEverythingElse()
     {
         var f = new Fixture();
 
-        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(organizationId: "abc", projectId: "x", teamId: "y")));
+        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(organizationId: "abc", teamId: "y")));
 
         Assert.Equal(OrganizationErrorCodes.OrganizationNotFound, refusal.Code);
         Assert.Empty(f.World.Store.Calls);

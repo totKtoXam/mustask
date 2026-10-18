@@ -28,4 +28,13 @@ public static class OrganizationLimits
 
     /// <summary>The width of a stored role name (<c>admin</c>, <c>member</c>, <c>viewer</c>).</summary>
     public const int RoleMaxLength = 16;
+
+    /// <summary>The longest description of a project or a team, in UTF-16 code units (feat-028 BR-OL-3).</summary>
+    public const int DescriptionMaxLength = 2000;
+
+    /// <summary>
+    /// The width of the record of who made a project–team link: an opaque Keycloak subject. Its own constant, equal to
+    /// <see cref="CreatedByMaxLength"/> by coincidence of the identifier it holds (docs/conventions/backend.md, "Named values", 5).
+    /// </summary>
+    public const int LinkedByMaxLength = 255;
 }

@@ -36,10 +36,9 @@ import { UserLine } from './UserLine';
 
 export interface TeamMembersSectionProps {
   organizationId: string;
-  projectId: string;
-  team: Team;
+  team: Pick<Team, 'id' | 'name'>;
   /**
-   * A project or team of the address turned out to be gone (mod-002 § 12): the
+   * The team of the address turned out to be gone (mod-002 § 12): the
    * page reads its own entity again and shows the frame of the level.
    */
   onContextGone(): void;
@@ -63,14 +62,13 @@ export interface TeamMembersSectionProps {
  */
 export function TeamMembersSection({
   organizationId,
-  projectId,
   team,
   onContextGone,
 }: TeamMembersSectionProps) {
   const headingId = useId();
-  const query = useTeamMembers(organizationId, projectId, team.id);
-  const add = useAddTeamMember(organizationId, projectId, team.id);
-  const remove = useRemoveTeamMember(organizationId, projectId, team.id);
+  const query = useTeamMembers(organizationId, team.id);
+  const add = useAddTeamMember(organizationId, team.id);
+  const remove = useRemoveTeamMember(organizationId, team.id);
   const access = useAccessCheck();
   const canWrite = access(organizationsPermissions.teamWrite, 'organization');
   const notify = useNotify();
@@ -225,7 +223,6 @@ export function TeamMembersSection({
         {adding && (
           <AddTeamMemberDialog
             organizationId={organizationId}
-            projectId={projectId}
             teamId={team.id}
             submit={(userId) => add.mutateAsync(userId)}
             onSucceeded={(user) => {

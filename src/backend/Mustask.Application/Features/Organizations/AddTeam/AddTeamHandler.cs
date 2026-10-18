@@ -1,5 +1,7 @@
 using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Organizations;
+using Mustask.Application.Abstractions.UserDirectory;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Errors;
 using Mustask.Shared.Exceptions;
@@ -7,77 +9,152 @@ using Mustask.Shared.Exceptions;
 namespace Mustask.Application.Features.Organizations.AddTeam;
 
 /// <summary>
-/// <c>POST /api/organizations/{organizationId}/projects/{projectId}/teams</c>
-/// (mod-017 api-contract § 2.7; US-4 "A team's name is unique among the project's active teams", "Two teams of one name at
-/// the same moment"; US-7 "The deleted team's name is free"). A new team is an ordinary one: a name, a status and no people
-/// (BR-OT-11). It comes with no area and owns nothing (BR-OT-10) — the area of the same name that mod-002 created is gone.
+/// <c>POST /api/organizations/{organizationId}/teams</c> (feat-028 api-contract § 2.1; US-1 "created with a name only", "created with
+/// its optional parts in one operation", "a choice that cannot be made", "names are unique per organization", "two creations of one
+/// name"; US-7 "a deleted team's name is free"). A team is created in the organization, in <b>one operation</b> with its optional
+/// parts: a description, the people in it and the projects it is linked to. <b>Creating a team creates no project, no area and no
+/// membership of the caller's</b> (BR-OL-2): a team created with a name only has no link, no member and owns nothing.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The order of answers</b> (plan-backend § 5.3, api-contract § 0.4), one numbered step each below: the address from the
-/// outside in; rules about the addressed object alone (none: the address ends at the project); the values in the body; the
-/// references in the body (none: the team is new); the uniqueness pre-check; the save.
+/// <b>The order of answers</b> (api-contract § 0.1, § 0.5), one numbered step each below: the second codes <b>first of all</b> —
+/// <c>team.link</c> and <c>project.link</c> when <c>projectIds</c> is not empty, <c>team.write</c> when <c>memberIds</c> is not
+/// empty (D-7; the route declared <c>organizations.team.create</c>); the organization; the values (400, every reason at once);
+/// the projects named (404 <c>project.not_found</c>, one statement); the members named (409 <c>member_not_in_organization</c>); the
+/// name's pre-check (409 <c>name_taken</c>); the save.
 /// </para>
 /// <para>
-/// <b>Locks</b> (plan-backend § 7): none. The new row binds to nothing it must hold: the project's reachability is read, not
-/// locked (ADR-0026 rule 8), and there is no root to hold <c>FOR SHARE</c> any more. Two teams of one name are closed by
-/// <c>ix_teams_project_id_normalized_name</c>, and the loser gets <see cref="OrganizationErrorCodes.TeamNameTaken"/> from the
-/// repository's constraint map (plan-backend § 6.3). A team added while a deletion holds the project's teams is not among
-/// the rows the deletion locked: the deletion's guard counts the teams it locked, so a project that gains a team meanwhile
-/// is refused its deletion of the then last team, never emptied (BR-OT-13).
+/// <b>Locks</b> (plan-backend § 7.2): none. The team is new and nothing binds to it yet. Two creations of one name, and a creation
+/// against a rename to it, are closed by <c>ix_teams_organization_id_normalized_name</c>, and the loser gets
+/// <see cref="OrganizationErrorCodes.TeamNameTaken"/> from the repository's constraint map (plan-backend § 6.3); a membership removed
+/// between the member check and the flush fails the composite key onto the organization membership, which answers
+/// <c>member_not_in_organization</c>. The team, its links and its memberships are one flush: on any refusal nothing is created and
+/// the name stays free. The links record the caller and the time. The projects are only read (ADR-0026 rule 8), so a deactivation
+/// racing the creation is "a link just before the deactivation".
 /// </para>
 /// </remarks>
 public sealed class AddTeamHandler(
     IProjectRepository projects,
     ITeamRepository teams,
+    IProjectTeamRepository links,
+    ITeamMembershipRepository teamMemberships,
+    IMemberReadModel members,
+    IUserDirectory directory,
+    IOrganizationAccess access,
+    ICurrentUser currentUser,
+    IClock clock,
     IUnitOfWork unitOfWork)
 {
-    public async Task<AddTeamResult> Handle(AddTeamCommand command, CancellationToken cancellationToken) =>
-        await unitOfWork.ExecuteInTransactionAsync(
+    public async Task<AddTeamResult> Handle(AddTeamCommand command, CancellationToken cancellationToken)
+    {
+        // 0. The second codes, first of all (D-7): a role without one learns nothing about any id, and nothing changes. Under today's
+        // bundles only «Администратор» holds team.create, so nothing differs.
+        if (command.ProjectIds is { Count: > 0 }
+            && (!access.Holds(PermissionCatalog.OrganizationsTeamLink) || !access.Holds(PermissionCatalog.OrganizationsProjectLink)))
+        {
+            throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
+        }
+
+        if (command.MemberIds is { Count: > 0 } && !access.Holds(PermissionCatalog.OrganizationsTeamWrite))
+        {
+            throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
+        }
+
+        return await unitOfWork.ExecuteInTransactionAsync(
             async ct =>
             {
-                // 1. The address, from the outermost level in. The scoped check has answered for the
-                // organization already; the handler parses it again only to name its container in the next read.
+                // 1. The address. The scoped check has answered for the organization already; the handler parses it again only
+                // to name its container in the reads below.
                 if (!AddressedId.TryParse(command.OrganizationId, out var organizationId))
                 {
                     throw new NotFoundException(OrganizationErrorCodes.OrganizationNotFound);
                 }
 
-                if (!AddressedId.TryParse(command.ProjectId, out var projectId)
-                    || !await projects.IsReachableAsync(organizationId, projectId, ct))
+                // 2. Values in the body: one ValidationException with every field reason at once.
+                var errors = new Dictionary<string, IReadOnlyList<FieldError>>();
+
+                if (!EntityName.TryCreate(command.Name, out var name))
+                {
+                    errors["name"] = [EntityName.LengthReason];
+                }
+
+                if (!EntityDescription.TryCreate(command.Description, out var description))
+                {
+                    errors["description"] = [EntityDescription.LengthReason];
+                }
+
+                if (errors.Count > 0)
+                {
+                    throw new ValidationException(OrganizationErrorCodes.ValidationFailed, errors);
+                }
+
+                // 3. The projects named (404): an active project of this organization each — malformed, unknown, foreign and
+                // deactivated alike — all or nothing. One statement whatever the number.
+                var projectIds = new HashSet<Guid>();
+
+                foreach (var raw in command.ProjectIds ?? [])
+                {
+                    if (!AddressedId.TryParse(raw, out var projectId))
+                    {
+                        throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
+                    }
+
+                    projectIds.Add(projectId);
+                }
+
+                if (projectIds.Count > 0 && await projects.CountReachableAsync(organizationId, projectIds, ct) != projectIds.Count)
                 {
                     throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
                 }
 
-                // 2. Rules about the addressed object alone: none, the address ends at the project.
+                // 4. The members named (409): each an active member of this organization, known to the directory and active there
+                // (the same rule as an add on the team's page). Two statements and the directory's batches, whatever the number.
+                var userIds = (command.MemberIds ?? []).Where(id => id is not null).Select(id => id!).Distinct(StringComparer.Ordinal).ToList();
 
-                // 3. Values in the body: one ValidationException with every field reason.
-                if (!EntityName.TryCreate(command.Name, out var name))
+                if ((command.MemberIds ?? []).Any(id => !OrganizationMembership.IsValidUserId(id)))
                 {
-                    throw new ValidationException(
-                        OrganizationErrorCodes.ValidationFailed,
-                        new Dictionary<string, IReadOnlyList<FieldError>> { ["name"] = [EntityName.LengthReason] });
+                    throw new ConflictException(OrganizationErrorCodes.TeamMemberNotInOrganization);
                 }
 
-                // 4. References in the body: none, the team is new.
+                if (userIds.Count > 0)
+                {
+                    var lookup = await UserDirectoryBatches.LookupAllAsync(directory, userIds, ct);
+                    var organizationMembers = await members.FilterMembersAsync(organizationId, userIds, ct);
 
-                // 5. The uniqueness pre-check. The team's name is unique among the project's active teams, so a deleted
-                // team's name is free (BR-M1-1, ADR-0026 rule 6). A name an area holds is not in the way: a team has no area.
-                if (await teams.IsActiveNameTakenAsync(projectId, name.Normalized, exceptId: null, ct))
+                    if (userIds.Any(id => !lookup.Known.TryGetValue(id, out var user) || !user.IsActive || !organizationMembers.Contains(id)))
+                    {
+                        throw new ConflictException(OrganizationErrorCodes.TeamMemberNotInOrganization);
+                    }
+                }
+
+                // 5. The uniqueness pre-check (BR-OL-3): the name among the organization's active teams, ignoring letter case and
+                // surrounding spaces. A deleted team's name is free (ADR-0026 rule 6), another organization's is no concern.
+                if (await teams.IsActiveNameTakenAsync(organizationId, name.Normalized, exceptId: null, ct))
                 {
                     throw new ConflictException(OrganizationErrorCodes.TeamNameTaken);
                 }
 
-                var created = Team.Create(projectId, name);
+                var created = Team.Create(organizationId, name, description);
                 teams.Add(created);
 
-                // 6. Save. A concurrent addition of the same name that committed first fails the insert on the team index,
-                // and the repository answers it with the pre-check's code (plan-backend § 6.3).
+                var now = clock.UtcNow;
+
+                foreach (var projectId in projectIds)
+                {
+                    links.Add(ProjectTeam.Link(organizationId, projectId, created.Id, currentUser.SubjectId, now));
+                }
+
+                foreach (var userId in userIds)
+                {
+                    teamMemberships.Add(TeamMembership.Add(created.Id, organizationId, userId));
+                }
+
+                // 6. One flush. A concurrent creation of the same name that committed first fails the insert on the team index; a
+                // member removed from the organization meanwhile fails the composite key; each answers with its pre-check's code.
                 await teams.SaveAsync(ct);
 
-                // The project had a team already (BR-OT-11), so a team just added is never its only one, and the settings
-                // cannot name a team that did not exist: it carries no mark (api-contract § 1.3).
-                return new AddTeamResult(new TeamResponse(created.Id, created.ProjectId, created.Name, DefaultMark: null));
+                return new AddTeamResult(new TeamResponse(created.Id, created.Name, created.Description));
             },
             cancellationToken);
+    }
 }

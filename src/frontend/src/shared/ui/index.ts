@@ -54,6 +54,10 @@ export {
   InlineMultiSelectField,
   type InlineMultiSelectFieldProps,
 } from './fields/InlineMultiSelectField';
+export {
+  InlineMultiPickerField,
+  type InlineMultiPickerFieldProps,
+} from './fields/InlineMultiPickerField';
 export { InlineNumberField, type InlineNumberFieldProps } from './fields/InlineNumberField';
 export {
   InlinePickerField,

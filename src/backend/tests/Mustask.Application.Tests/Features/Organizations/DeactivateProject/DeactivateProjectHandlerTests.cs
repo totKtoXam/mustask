@@ -20,7 +20,7 @@ public sealed class DeactivateProjectHandlerTests
         {
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization);
-            Platform = Store.AddTeam(Project);
+            Platform = Store.AddLinkedTeam(Organization, Project);
             Project.Project.NameDefaultTeam(Platform.Id);
             Reports = Store.AddArea(Project.Root, "Отчёты");
             Quarterly = Store.AddArea(Reports, "Квартальные");
@@ -83,8 +83,14 @@ public sealed class DeactivateProjectHandlerTests
             return project;
         }
 
-        public Task ClearDefaultTeamAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
-            inner.ClearDefaultTeamAsync(projectId, teamId, cancellationToken);
+        public Task ClearDefaultTeamAsync(Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
+            inner.ClearDefaultTeamAsync(organizationId, projectId, teamId, cancellationToken);
+
+        public Task ClearDefaultTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
+            inner.ClearDefaultTeamAsync(organizationId, teamId, cancellationToken);
+
+        public Task<int> CountReachableAsync(Guid organizationId, IReadOnlyCollection<Guid> projectIds, CancellationToken cancellationToken) =>
+            inner.CountReachableAsync(organizationId, projectIds, cancellationToken);
 
         public void Add(NewProject project) => inner.Add(project);
 

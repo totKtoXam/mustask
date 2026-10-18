@@ -30,8 +30,11 @@ internal static class WorkItemsConstraints
     /// <summary>mod-017 ADR-0028 rule 5: the target of the team place's key onto the item's current owning team.</summary>
     public const string IdOwningTeam = "ix_work_items_id_owning_team_id";
 
-    /// <summary>mod-017 BR-OT-13: the owner key of an item, whose violation is a team that is no longer there.</summary>
-    public const string OwningTeamKey = "fk_work_items_teams_project_id_owning_team_id";
+    /// <summary>
+    /// mod-017 BR-OT-13, feat-028 BR-OL-6: the owner key of an item onto the project–team link, whose violation is a team that
+    /// is no longer there (plan-backend D-10).
+    /// </summary>
+    public const string OwningTeamKey = "fk_work_items_project_teams_project_id_owning_team_id";
 
     /// <summary>
     /// mod-005 (ADR-0030 rule 1): the deletion's three marks are all-or-none. A row in «Удалена» may still carry none (put

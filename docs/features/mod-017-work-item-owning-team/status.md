@@ -10,9 +10,9 @@
 
 ## Gates
 
-gate-1: pending
-gate-2: pending
-gate-3: pending
+gate-1: approved (2026-10-17, human in chat: OQ-1..OQ-7 kept; OQ-8 and OQ-9 changed to B, delivered by mod-020)
+gate-2: approved (2026-10-17, human in chat: design D-1..D-7 and plan D-1, D-2, D-5 kept)
+gate-3: approved (2026-10-17, the human merged PR #11, https://github.com/totKtoXam/mustask/pull/11)
 
 ## Plan
 
@@ -96,6 +96,7 @@ whatever is left goes to the human.
 
 ## Log
 
+- 2026-10-17 [dev] P-10 note from `feat-028-org-level-teams` (BR-OL-1, -2, -6..-11; its api-contract §§ 0.3, 1, 2.1, 2.4): the project's team (BR-OT-11) and the last-team guard of BR-OT-12 are retired — a team is the organization's; an owning team, a default team or an unlink destination must be LINKED to the project (409 `team.not_in_project` otherwise, a deactivated project's team included), `PUT …/default-team` needs `project.write`, `GET …/owned-items/count` becomes the unlink's `…/unlink-count`, a deletion reassigns in every linked project and the default is resolved over the links; § 1.3 `Team` loses `projectId`, `defaultMark` and `isMember` (they live on `ProjectTeam`); BR-OT-14's merged migration stays.
 - 2026-10-17 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/mod-017-work-item-owning-team
 - 2026-10-17 [orchestrator] route L (queue size; doc-012 § Decomposition: breaking — retires area ownership, team default areas and the first team's role) taken under the human's night standing approval: no confirmation, gates stay pending for the human, work proceeds and is listed for the morning. E2E: no (paused 2026-10-12).
 - 2026-10-17 [orchestrator] stacked on feat/039-project-board (0cf422c2, PR #8 → PR #6), which carries doc-012 and the MessagePack 2.5.303 pin (NU1902 fails main). Stages run as agents through one workflow.
@@ -111,6 +112,7 @@ whatever is left goes to the human.
 - 2026-10-17 [backend-developer] fix round 990a49ea: a creation that may default locks every active team FOR SHARE in id order when no default resolves; closes D-1, CR-1, S-1; CR-2 prose fixed.
 - 2026-10-17 [orchestrator] `BASE=0cf422c2 bash scripts/verify.sh` at 9e38a90d: RESULT green, exit 0 (.NET 4376 passed, 17 skipped; Vitest 3954 passed). stage: complete; gates left pending for the human.
 - 2026-10-17 [orchestrator] #9 merged feat-039 into main: the branch is rebased onto main (3e4f5638) and its PR targets main directly; no stacked base left.
+- 2026-10-17 [orchestrator] the human merged PR #11 and answered the open decisions in chat. OQ-1..OQ-7, design D-1..D-7 and plan D-1, D-2, D-5 stay. OQ-8 → B (the switcher falls back to the project's default team) and OQ-9 → B (the team filter in the page address) are queued as mod-020. CR-7 (with CR-8) is queued as bug-005, a separate S task. S-2 joins feat-028's scope. ADR-0028 rule 8's clarification (CR-6, plan D-3) joins mod-018's amendment.
 
 ## Notes
 

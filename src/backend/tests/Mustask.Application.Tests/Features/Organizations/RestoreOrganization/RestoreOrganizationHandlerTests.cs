@@ -20,7 +20,7 @@ public sealed class RestoreOrganizationHandlerTests
         {
             Organization = Store.AddOrganization(" Пример организации ");
             Project = Store.AddProject(Organization);
-            Platform = Store.AddTeam(Project);
+            Platform = Store.AddLinkedTeam(Organization, Project);
             Project.Project.NameDefaultTeam(Platform.Id);
             Reports = Store.AddArea(Project.Root, "Отчёты");
             Quarterly = Store.AddArea(Reports, "Квартальные");
@@ -58,7 +58,7 @@ public sealed class RestoreOrganizationHandlerTests
         .. store.Projects.Select(project =>
             $"project {project.Id} of {project.OrganizationId}: {project.Name} / {project.NormalizedName} / {project.Key} / {project.Status} / {project.CreatedBy}"),
         .. store.Teams.Select(team =>
-            $"team {team.Id} of {team.ProjectId}: {team.Name} / {team.NormalizedName} / {team.Status}"),
+            $"team {team.Id} of {team.OrganizationId}: {team.Name} / {team.NormalizedName} / {team.Status}"),
         .. store.Areas.Select(area =>
             $"area {area.Id} of {area.ProjectId} under {area.ParentId}: {area.Name}"),
     ];
@@ -120,7 +120,7 @@ public sealed class RestoreOrganizationHandlerTests
         Assert.False(f.Store.IsReachable(f.Organization.Id, old.Project.Id));
         Assert.Equal(ProjectStatus.Active, f.Project.Project.Status);
         Assert.True(f.Store.IsReachable(f.Organization.Id, f.Project.Project.Id));
-        Assert.Equal(TeamStatus.Active, old.Team.Status);
+        Assert.Equal(TeamStatus.Active, f.Platform.Status);
     }
 
     // US-2 · "...restores it": only the addressed organization comes back; another deactivated one stays deactivated.

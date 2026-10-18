@@ -15,13 +15,13 @@ namespace Mustask.Infrastructure.Tests.WorkItems;
 [Collection(OrganizationsDatabaseCollection.Name)]
 public sealed class OwningTeamSchemaTests(OrganizationsDatabaseFixture database)
 {
-    private const string OwnerKey = "fk_work_items_teams_project_id_owning_team_id";
-    private const string DefaultKey = "fk_projects_teams_id_default_team_id";
+    private const string OwnerKey = "fk_work_items_project_teams_project_id_owning_team_id";
+    private const string DefaultKey = "fk_projects_project_teams_id_default_team_id";
 
-    // US-1 · "a team the project does not have": the database refuses an owning team of another project, the organization's own
-    // other project included.
+    // feat-028 US-3 · "an owning team must be linked": the database refuses an owning team that is not linked to the item's project (a team
+    // linked only to another project of the organization). Renamed from Item_OwnedByATeamOfAnotherProject_IsRefusedByTheOwnerKey (D-16).
     [Fact]
-    public async Task Item_OwnedByATeamOfAnotherProject_IsRefusedByTheOwnerKey()
+    public async Task Item_OwnedByATeamNotLinkedToItsProject_IsRefusedByTheOwnerKey()
     {
         var world = await SeedAsync();
 
@@ -44,28 +44,25 @@ public sealed class OwningTeamSchemaTests(OrganizationsDatabaseFixture database)
         Assert.Equal(["NULL"], await database.QueryAsync("SELECT owning_team_id::text FROM work_items WHERE id = @item", ("item", world.Item)));
     }
 
-    // A team row is never removed from under the items it owns; a deletion releases them first (ADR-0028 rule 7).
+    // A link is never removed from under the items its team owns in the project; an unlink and a deletion reassign them first
+    // (ADR-0028 rule 7). Renamed from Team_ThatOwnsAnItem_CannotBeRemoved (D-16: the key is onto the link now).
     [Fact]
-    public async Task Team_ThatOwnsAnItem_CannotBeRemoved()
+    public async Task Link_OfATeamThatOwnsAnItem_CannotBeRemoved()
     {
         var world = await SeedAsync();
-        var bare = Guid.CreateVersion7();
-        await database.ExecuteAsync(
-            "INSERT INTO teams (id, project_id, name, normalized_name, status) VALUES (@team, @project, 'Без области', 'БЕЗ ОБЛАСТИ', 'Active')",
-            ("team", bare),
-            ("project", world.Project));
-        await database.ExecuteAsync("UPDATE work_items SET owning_team_id = @team WHERE id = @item", ("team", bare), ("item", world.Item));
+        await database.ExecuteAsync("UPDATE work_items SET owning_team_id = @team WHERE id = @item", ("team", world.Team), ("item", world.Item));
 
         var refusal = await Assert.ThrowsAsync<PostgresException>(() => database.ExecuteAsync(
-            "DELETE FROM teams WHERE id = @team", ("team", bare)));
+            "DELETE FROM project_teams WHERE project_id = @project AND team_id = @team", ("project", world.Project), ("team", world.Team)));
 
         Assert.Equal(PostgresErrorCodes.RestrictViolation, refusal.SqlState);
         Assert.Equal(OwnerKey, refusal.ConstraintName);
     }
 
-    // US-3 · "a team the project does not have", for the default naming: another project's team is refused by the key.
+    // feat-028 US-3 · "the default must be linked": a team not linked to the project is refused by the key (renamed from
+    // Project_DefaultTeam_OfAnotherProject_IsRefusedByTheDefaultKey, D-16).
     [Fact]
-    public async Task Project_DefaultTeam_OfAnotherProject_IsRefusedByTheDefaultKey()
+    public async Task Project_DefaultTeam_NotLinkedToTheProject_IsRefusedByTheDefaultKey()
     {
         var world = await SeedAsync();
 
@@ -182,6 +179,8 @@ public sealed class OwningTeamSchemaTests(OrganizationsDatabaseFixture database)
             ("state", Guid.Parse(row[1])),
             ("area", structure.Project.Root.Id));
 
-        return new World(project, structure.SecondTeam.Id, other.Team.Id, item);
+        var otherTeam = await database.AddTeamAsync(structure.Organization.Id, "Команда другого проекта", other.Project.Id);
+
+        return new World(project, structure.SecondTeam.Id, otherTeam.Id, item);
     }
 }

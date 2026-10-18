@@ -53,8 +53,11 @@ public static class PermissionCatalog
     /// <summary>Reading an organization's projects.</summary>
     public const string OrganizationsProjectRead = "organizations.project.read";
 
-    /// <summary>Creating and renaming a project.</summary>
+    /// <summary>Creating, renaming and describing a project, and naming its default team.</summary>
     public const string OrganizationsProjectWrite = "organizations.project.write";
+
+    /// <summary>The project's end of a link between a project and a team, and of an unlink (feat-028 BR-OL-5).</summary>
+    public const string OrganizationsProjectLink = "organizations.project.link";
 
     /// <summary>Deactivating and restoring a project, and the deactivated list (BR-M1-35).</summary>
     public const string OrganizationsProjectDeactivate = "organizations.project.deactivate";
@@ -62,8 +65,17 @@ public static class PermissionCatalog
     /// <summary>Reading teams and their members.</summary>
     public const string OrganizationsTeamRead = "organizations.team.read";
 
-    /// <summary>Creating, renaming and deleting a team, the project's default team, a team's members and the team candidate search.</summary>
+    /// <summary>A team's name, description and members, and the team candidate search (feat-028 narrowed it: it no longer creates or deletes).</summary>
     public const string OrganizationsTeamWrite = "organizations.team.write";
+
+    /// <summary>Creating a team (feat-028 BR-OL-5).</summary>
+    public const string OrganizationsTeamCreate = "organizations.team.create";
+
+    /// <summary>Deleting a team and reading what a deletion would reassign (feat-028 BR-OL-5).</summary>
+    public const string OrganizationsTeamDelete = "organizations.team.delete";
+
+    /// <summary>The team's end of a link between a project and a team, and of an unlink (feat-028 BR-OL-5).</summary>
+    public const string OrganizationsTeamLink = "organizations.team.link";
 
     /// <summary>Reading a project's area tree.</summary>
     public const string OrganizationsAreaRead = "organizations.area.read";
@@ -110,10 +122,14 @@ public static class PermissionCatalog
         new(OrganizationsMembershipRead, PermissionScope.Organization, "Просмотр участников организации"),
         new(OrganizationsMembershipWrite, PermissionScope.Organization, "Добавление, смена роли и удаление участников организации"),
         new(OrganizationsProjectRead, PermissionScope.Organization, "Просмотр проектов организации"),
-        new(OrganizationsProjectWrite, PermissionScope.Organization, "Создание и переименование проектов"),
+        new(OrganizationsProjectWrite, PermissionScope.Organization, "Создание, переименование и описание проектов, команда по умолчанию"),
+        new(OrganizationsProjectLink, PermissionScope.Organization, "Связи проекта с командами"),
         new(OrganizationsProjectDeactivate, PermissionScope.Organization, "Деактивация и восстановление проектов"),
         new(OrganizationsTeamRead, PermissionScope.Organization, "Просмотр команд и их участников"),
-        new(OrganizationsTeamWrite, PermissionScope.Organization, "Управление командами и их участниками"),
+        new(OrganizationsTeamWrite, PermissionScope.Organization, "Название, описание и участники команды"),
+        new(OrganizationsTeamCreate, PermissionScope.Organization, "Создание команд"),
+        new(OrganizationsTeamDelete, PermissionScope.Organization, "Удаление команд"),
+        new(OrganizationsTeamLink, PermissionScope.Organization, "Связи команды с проектами"),
         new(OrganizationsAreaRead, PermissionScope.Organization, "Просмотр областей проекта"),
         new(OrganizationsAreaWrite, PermissionScope.Organization, "Управление областями проекта"),
         new(ProcessDefinitionRead, PermissionScope.Organization, "Просмотр определения процесса организации"),

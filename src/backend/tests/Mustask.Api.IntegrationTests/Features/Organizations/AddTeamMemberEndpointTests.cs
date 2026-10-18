@@ -6,7 +6,7 @@ using Mustask.Domain.Identity;
 namespace Mustask.Api.IntegrationTests.Features.Organizations;
 
 /// <summary>
-/// <c>POST /api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}/members</c> (mod-016 api-contract § 2.3; US-3
+/// <c>POST /api/organizations/{organizationId}/teams/{teamId}/members</c> (mod-016 api-contract § 2.3; US-3
 /// "An administrator adds an organization member to a team", "Only active members of the organization are offered and accepted",
 /// "A user is in a team at most once", doc-006 US-5): a team member is an active member of the organization (BR-M1-10) and the
 /// role is unchanged; the add takes the team <c>FOR SHARE</c> and the primary key and the composite key close the races.
@@ -21,7 +21,7 @@ public sealed class AddTeamMemberEndpointTests(MustaskApiFactory factory)
     private static string Tag() => Guid.NewGuid().ToString("N")[..8];
 
     private static string TeamPath(OrganizationStructure structure, Guid teamId) =>
-        $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{teamId}/members";
+        $"{OrganizationsApi.OrgTeams(structure.OrganizationId)}/{teamId}/members";
 
     private Task<Answer> AddAsync(OrganizationStructure structure, Guid teamId, object? body, string? token, CommitGate? gate = null) =>
         OrganizationsApi.SendAsync(factory, HttpMethod.Post, TeamPath(structure, teamId), body, token, gate);
@@ -149,14 +149,14 @@ public sealed class AddTeamMemberEndpointTests(MustaskApiFactory factory)
         }
     }
 
-    // api-contract § 2 · the team must be reachable: deleted, unknown, malformed and another project's team answer `team.not_found`;
-    // another organization's or an unknown project `project.not_found`. Nothing is stored.
+    // api-contract § 2.3 · the team must be an active team of THIS organization: deleted, unknown, malformed and another organization's team answer
+    // `team.not_found` (feat-028: the project left the address, so there is no project level any more). Nothing is stored.
     [Fact]
     public async Task Add_ToTheWrongContainerOrADeletedTeam_AnswersTheLevelNotFound()
     {
         var (structure, token, _) = await WorldAsync();
         var vera = await MemberUserAsync(structure, "Вера", "Адресная");
-        var otherProject = await OrganizationsTestData.CreateProjectAsync(factory, structure.OrganizationId, "Другой проект", "OTH");
+        var elsewhere = await OrganizationsTestData.CreateStructureAsync(factory);
         var deleted = await OrganizationsTestData.AddTeamAsync(factory, structure.ProjectId, "Удалённая");
         await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, deleted.Id);
         var organization = OrganizationsApi.Organization(structure.OrganizationId);
@@ -164,10 +164,10 @@ public sealed class AddTeamMemberEndpointTests(MustaskApiFactory factory)
 
         var wrongTeams = new[]
         {
-            $"{organization}/projects/{structure.ProjectId}/teams/{deleted.Id}/members",
-            $"{organization}/projects/{structure.ProjectId}/teams/{Guid.CreateVersion7()}/members",
-            $"{organization}/projects/{structure.ProjectId}/teams/abc/members",
-            $"{organization}/projects/{structure.ProjectId}/teams/{otherProject.Team.Id}/members",
+            $"{organization}/teams/{deleted.Id}/members",
+            $"{organization}/teams/{Guid.CreateVersion7()}/members",
+            $"{organization}/teams/abc/members",
+            $"{organization}/teams/{elsewhere.Platform.Id}/members",
         };
 
         foreach (var path in wrongTeams)
@@ -177,10 +177,6 @@ public sealed class AddTeamMemberEndpointTests(MustaskApiFactory factory)
             Assert.Equal((HttpStatusCode.NotFound, "organizations.team.not_found"), (answer.Status, answer.ErrorCode));
         }
 
-        var wrongProject = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Post, $"{organization}/projects/{Guid.CreateVersion7()}/teams/{structure.Platform.Id}/members", body, token);
-
-        Assert.Equal((HttpStatusCode.NotFound, "organizations.project.not_found"), (wrongProject.Status, wrongProject.ErrorCode));
         Assert.Empty(await MembershipTestData.TeamMembershipsOfAsync(factory, vera));
     }
 
@@ -231,7 +227,7 @@ public sealed class AddTeamMemberEndpointTests(MustaskApiFactory factory)
         Assert.False(add.IsCompleted, "The add finished before reaching its commit gate.");
 
         var deletion = OrganizationsApi.SendAsync(
-            factory, HttpMethod.Delete, $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{teamId}", token: token);
+            factory, HttpMethod.Delete, $"{OrganizationsApi.OrgTeams(structure.OrganizationId)}/{teamId}", token: token);
         await PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, deletion);
         Assert.False(deletion.IsCompleted, "The deletion did not wait for the add's lock on the team.");
 
@@ -256,7 +252,7 @@ public sealed class AddTeamMemberEndpointTests(MustaskApiFactory factory)
         using var gate = factory.CommitGates.Open();
 
         var deletion = OrganizationsApi.SendAsync(
-            factory, HttpMethod.Delete, $"{OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId)}/{teamId}", token: token, gate: gate);
+            factory, HttpMethod.Delete, $"{OrganizationsApi.OrgTeams(structure.OrganizationId)}/{teamId}", token: token, gate: gate);
         await Task.WhenAny(gate.Reached, deletion);
         Assert.False(deletion.IsCompleted, "The deletion finished before reaching its commit gate.");
 

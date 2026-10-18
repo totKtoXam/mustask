@@ -97,7 +97,7 @@ public sealed class CreateFromTeamEndpointTests(MustaskApiFactory factory)
 
         using var gate = factory.CommitGates.Open();
         var deletion = OrganizationsApi.SendAsync(
-            factory, HttpMethod.Delete, BoardsTestData.Team(world, world.PlatformId), token: OrganizationsTokens.SignedIn(), gate: gate);
+            factory, HttpMethod.Delete, TeamTestData.Team(world.OrganizationId, world.PlatformId), token: OrganizationsTokens.SignedIn(), gate: gate);
         await Task.WhenAny(gate.Reached, deletion);
         Assert.False(deletion.IsCompleted, "The deletion finished before reaching its commit gate.");
 

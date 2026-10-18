@@ -93,14 +93,16 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
             .HasPrincipalKey(area => new { area.ProjectId, area.Id })
             .OnDelete(DeleteBehavior.Restrict);
 
-        // mod-017 (BR-OT-1): the owning team is a team of the item's own project. The key is composite,
-        // (project_id, owning_team_id) onto mod-002's alternate key (project_id, id) of teams, so the database refuses a
-        // team of another project; Restrict, so a team that owns an item is never removed from under it (a deletion releases
-        // its items first, ADR-0028 rule 7). A null team leaves the key unchecked (MATCH SIMPLE): «Без команды».
-        builder.HasOne<Team>()
+        // mod-017 (BR-OT-1), feat-028 (BR-OL-6): the owning team is a team linked to the item's own project. The key is
+        // composite, (project_id, owning_team_id) onto the link's primary key (project_id, team_id), so the database refuses a
+        // team that is not linked to the project; Restrict, so a link that owns an item is never removed from under it (an
+        // unlink and a deletion reassign the items first, ADR-0028 rule 7). A null team leaves the key unchecked
+        // (MATCH SIMPLE): «Без команды».
+        builder.HasOne<ProjectTeam>()
             .WithMany()
             .HasForeignKey(item => new { item.ProjectId, item.OwningTeamId })
-            .HasPrincipalKey(team => new { team.ProjectId, team.Id })
+            .HasPrincipalKey(link => new { link.ProjectId, link.TeamId })
+            .HasConstraintName(WorkItemsConstraints.OwningTeamKey)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne<WorkItemType>()

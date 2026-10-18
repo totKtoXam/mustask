@@ -38,6 +38,13 @@ const model: NavigationModel = {
             s.organizationId ? `/organizations/${s.organizationId}/settings/projects` : null,
         },
         {
+          id: 'organization-teams',
+          label: 'Команды',
+          scope: 'organization',
+          landing: (s) =>
+            s.organizationId ? `/organizations/${s.organizationId}/settings/teams` : null,
+        },
+        {
           id: 'process',
           label: 'Процесс',
           scope: 'organization',
@@ -120,19 +127,23 @@ describe('mod-002 US-8 Scenario: A project switch on a project-level page — th
   );
 });
 
-describe('mod-002 US-8 Scenario: A page addressing one team lands on its entry’s page — the resolver', () => {
-  const teamPage = '/organizations/o1/projects/p1/settings/teams/t9';
+// feat-028 BR-OL-12 (doc-012 P-1): the retired tests «a project choice opens «Команды» of the new
+// project» and «an organization choice opens «Команды» of its first project, or «Главная» without
+// one» described the project-nested team page `…/projects/:p/settings/teams/:t`, which is no page any
+// more; the team's page is the organization's, and these are its twins.
+describe('feat-028 Scenario: A page addressing one team lands on its entry’s page — the resolver', () => {
+  const teamPage = '/organizations/o1/settings/teams/t9';
 
-  it('a project choice opens «Команды» of the new project', () => {
-    expect(target(teamPage, { organizationId: 'o1', projectId: 'p1' }, alfaAnl)).toBe(
-      '/organizations/o1/projects/p2/settings/teams',
+  it('the organization’s team page is beneath «Команды» of the organization, whatever project is chosen', () => {
+    expect(target(teamPage, { organizationId: 'o1' }, alfaAnl)).toBe(
+      '/organizations/o1/settings/teams',
     );
   });
 
-  it('an organization choice opens «Команды» of its first project, or «Главная» without one', () => {
-    const carried = { organizationId: 'o1', projectId: 'p1' };
-    expect(target(teamPage, carried, betaRep)).toBe('/organizations/o2/projects/p3/settings/teams');
-    expect(target(teamPage, carried, betaNone)).toBe('/home');
+  it('an organization choice opens «Команды» of that organization, with a project or without one', () => {
+    const carried = { organizationId: 'o1' };
+    expect(target(teamPage, carried, betaRep)).toBe('/organizations/o2/settings/teams');
+    expect(target(teamPage, carried, betaNone)).toBe('/organizations/o2/settings/teams');
   });
 });
 

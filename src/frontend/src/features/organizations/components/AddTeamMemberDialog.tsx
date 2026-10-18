@@ -7,7 +7,6 @@ import { UserSearchField } from './UserSearchField';
 
 export interface AddTeamMemberDialogProps {
   organizationId: string;
-  projectId: string;
   teamId: string;
   /** Sends the add; resolves with the user as the team now lists them. */
   submit(userId: string): Promise<UserRef>;
@@ -30,7 +29,6 @@ export interface AddTeamMemberDialogProps {
  */
 export function AddTeamMemberDialog({
   organizationId,
-  projectId,
   teamId,
   submit,
   onSucceeded,
@@ -79,7 +77,7 @@ export function AddTeamMemberDialog({
     >
       <UserSearchField
         label={addTeamMemberDialog.userLabel}
-        scope={{ kind: 'team', organizationId, projectId, teamId }}
+        scope={{ kind: 'team', organizationId, teamId }}
         value={user}
         onChange={(next) => {
           setUser(next);

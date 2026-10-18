@@ -141,7 +141,7 @@ public sealed class MemberReadModelTests(OrganizationsDatabaseFixture database)
             await database.AddTeamMemberAsync(structure.Organization.Id, structure.SecondTeam.Id, id);
         }
 
-        await database.AddTeamMemberAsync(structure.Organization.Id, structure.Project.Team.Id, $"x-{tag}");
+        await database.AddTeamMemberAsync(structure.Organization.Id, structure.FirstTeam.Id, $"x-{tag}");
 
         var members = await ReadAsync<IMemberReadModel, IReadOnlyList<UserRefView>>(
             null, readModel => readModel.ListTeamMembersAsync(structure.SecondTeam.Id, CancellationToken.None));

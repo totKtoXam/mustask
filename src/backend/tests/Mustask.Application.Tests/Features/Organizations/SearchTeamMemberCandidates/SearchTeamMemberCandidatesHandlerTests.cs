@@ -16,7 +16,7 @@ public sealed class SearchTeamMemberCandidatesHandlerTests
     {
         public Fixture()
         {
-            Handler = new SearchTeamMemberCandidatesHandler(World.ProjectReads, World.TeamReads, World.Members, World.Directory);
+            Handler = new SearchTeamMemberCandidatesHandler(World.TeamReads, World.Members, World.Directory);
         }
 
         public MembershipWorld World { get; } = new();
@@ -25,7 +25,7 @@ public sealed class SearchTeamMemberCandidatesHandlerTests
 
         public Task<TeamMemberCandidatesResponse> SearchAsync(string? text, string? teamId = null) =>
             Handler.Handle(
-                new SearchTeamMemberCandidatesQuery(World.OrganizationId, World.ProjectId, teamId ?? World.PlatformId, text),
+                new SearchTeamMemberCandidatesQuery(World.OrganizationId, teamId ?? World.PlatformId, text),
                 CancellationToken.None);
     }
 
@@ -116,7 +116,7 @@ public sealed class SearchTeamMemberCandidatesHandlerTests
     public async Task Handle_ADeletedTeam_IsTeamNotFound()
     {
         var f = new Fixture();
-        f.World.Platform.Delete(2);
+        f.World.Platform.Delete();
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.SearchAsync("кузнецов"));
 
@@ -125,16 +125,16 @@ public sealed class SearchTeamMemberCandidatesHandlerTests
 
     [Theory]
     [InlineData("organization")]
-    [InlineData("project")]
+    [InlineData("team")]
     public async Task Handle_MalformedAddress_AnswersItsLevelsNotFound(string level)
     {
         var f = new Fixture();
         var query = level == "organization"
-            ? new SearchTeamMemberCandidatesQuery("abc", f.World.ProjectId, f.World.PlatformId, "кузнецов")
-            : new SearchTeamMemberCandidatesQuery(f.World.OrganizationId, "abc", f.World.PlatformId, "кузнецов");
+            ? new SearchTeamMemberCandidatesQuery("abc", f.World.PlatformId, "кузнецов")
+            : new SearchTeamMemberCandidatesQuery(f.World.OrganizationId, "abc", "кузнецов");
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.Handler.Handle(query, CancellationToken.None));
 
-        Assert.Equal(level == "organization" ? OrganizationErrorCodes.OrganizationNotFound : OrganizationErrorCodes.ProjectNotFound, refusal.Code);
+        Assert.Equal(level == "organization" ? OrganizationErrorCodes.OrganizationNotFound : OrganizationErrorCodes.TeamNotFound, refusal.Code);
     }
 }

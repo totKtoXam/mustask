@@ -97,10 +97,7 @@ describe('mod-016 design § 3.7: the confirmation', () => {
 describe('mod-016 US-1 Scenario: removing someone else', () => {
   it('sends the removal, drops the row, notices without the mark and reads the team members again', async () => {
     const { members, queryClient } = openPage();
-    queryClient.setQueryData(
-      organizationsKeys.teamMembers(ids.alfa, ids.prm, ids.platformTeam),
-      [],
-    );
+    queryClient.setQueryData(organizationsKeys.teamMembers(ids.alfa, ids.platformTeam), []);
     const dialog = await openRemoval('Олег Иванов');
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Удалить' }));
@@ -121,7 +118,7 @@ describe('mod-016 US-1 Scenario: removing someone else', () => {
       ]),
     );
     expect(
-      queryClient.getQueryState(organizationsKeys.teamMembers(ids.alfa, ids.prm, ids.platformTeam))
+      queryClient.getQueryState(organizationsKeys.teamMembers(ids.alfa, ids.platformTeam))
         ?.isInvalidated,
     ).toBe(true);
   });

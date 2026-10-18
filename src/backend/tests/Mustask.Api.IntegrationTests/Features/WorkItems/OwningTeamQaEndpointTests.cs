@@ -184,7 +184,7 @@ public sealed class OwningTeamQaEndpointTests(MustaskApiFactory factory)
         Assert.Equal(second, (await StoredAsync(factory, two.Project.Id, first)).TeamId);
 
         Assert.Equal(HttpStatusCode.NoContent, (await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Delete, $"{teams}/{second}", token: OrganizationsTokens.SignedIn())).Status);
+            factory, HttpMethod.Delete, TeamTestData.Team(organization, second), token: OrganizationsTokens.SignedIn())).Status);
 
         Assert.Null(await DefaultSettingOfAsync(two.Project.Id));
         Assert.Equal([(two.Team.Id, "onlyTeam")], await MarksAsync(teams));
@@ -202,9 +202,10 @@ public sealed class OwningTeamQaEndpointTests(MustaskApiFactory factory)
     // BR-OT-13 (2) · "a parent the deletion reassigned has none, so the child takes the project default as it stands after the
     // deletion". A project of two teams that names no default has none until one of them goes; the deletion of the parent's team
     // is held at its commit and a child created beneath the parent waits on it; once the deletion commits the child must take
-    // the one team that is left (BR-OT-4: the only team is the default). QA reproduction of the security pass's S-1, outcome 2
-    // (QA D-1, review CR-1): `LockDefaultTeamAsync` resolved "none" and locked nothing, so the child kept it across the wait. It now
-    // locks every active team when no default resolves; `DeleteOwnedItemsEndpointTests` holds the same case in both orders.
+    // the one team that is left (BR-OL-7: the only linked team is the default). QA reproduction of the security pass's S-1, outcome 2
+    // (QA D-1, review CR-1): `LockDefaultTeamAsync` resolved "none" and locked nothing, so the child kept it across the wait. A
+    // creation that may default now locks every link of the project FOR SHARE and reads the default once under that lock
+    // (`LockProjectLinksAsync`); `DeleteOwnedItemsEndpointTests` holds the same case in both orders.
     [Fact]
     public async Task Delete_VersusChildCreation_TwoTeamsNoNamedDefault_ChildTakesTheTeamThatRemains()
     {
@@ -219,7 +220,7 @@ public sealed class OwningTeamQaEndpointTests(MustaskApiFactory factory)
         var deletion = OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Delete,
-            $"{OrganizationsApi.Teams(world.OrganizationId, two.Project.Id)}/{doomed}",
+            TeamTestData.Team(world.OrganizationId, doomed),
             token: OrganizationsTokens.SignedIn(),
             gate: gate);
         await Task.WhenAny(gate.Reached, deletion);
@@ -325,7 +326,7 @@ public sealed class OwningTeamQaEndpointTests(MustaskApiFactory factory)
         var venus = await StoryAsync(world, "Венера", world.Venus);
 
         var deleted = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Delete, $"{OrganizationsApi.Teams(world.OrganizationId, world.ProjectId)}/{world.Mars}", token: OrganizationsTokens.SignedIn());
+            factory, HttpMethod.Delete, TeamTestData.Team(world.OrganizationId, world.Mars), token: OrganizationsTokens.SignedIn());
         Assert.Equal(HttpStatusCode.NoContent, deleted.Status);
 
         var none = Query("none");

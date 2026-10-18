@@ -149,6 +149,10 @@ describe('the route table', () => {
     expect(codeOfRoute('GET', '/projects')).toBe('organizations.project.read');
     expect(codeOfRoute('GET', '/projects/deactivated')).toBe('organizations.project.deactivate');
     expect(codeOfRoute('POST', '/members')).toBe('organizations.membership.write');
+    // feat-028 § 2.3a: the creation form's search is a literal beside `/teams/{id}`, not a team's id.
+    expect(codeOfRoute('GET', '/teams/member-candidates')).toBe('organizations.team.create');
+    expect(codeOfRoute('GET', '/teams/t/member-candidates')).toBe('organizations.team.write');
+    expect(codeOfRoute('GET', '/teams/t')).toBe('organizations.team.read');
     expect(codeOfRoute('PUT', '/workitems/x')).toBeUndefined();
     expect(codeOfRoute('GET', '/workitems/assignee-candidates')).toBe('workitems.workitem.write');
     expect(codeOfRoute('POST', '/projects/p/workitems/MSK-US-1/delete')).toBe(

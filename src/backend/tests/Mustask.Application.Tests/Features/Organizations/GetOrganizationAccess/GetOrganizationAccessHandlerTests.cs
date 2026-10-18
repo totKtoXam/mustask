@@ -28,11 +28,11 @@ public sealed class GetOrganizationAccessHandlerTests
     }
 
     [Fact]
-    public async Task Handle_Admin_HoldsEveryOneOfTheNineteenOrganizationCodes()
+    public async Task Handle_Admin_HoldsEveryOneOfTheTwentyThreeOrganizationCodes()
     {
         var response = await HandleAsync(OrganizationRole.Admin);
 
-        Assert.Equal(19, response.Permissions.Count);
+        Assert.Equal(23, response.Permissions.Count);
     }
 
     [Fact]

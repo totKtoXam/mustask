@@ -2,11 +2,11 @@ import { useState, type ReactNode, type Ref } from 'react';
 import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import InputBase from '@mui/material/InputBase';
-import { useTheme, type CSSObject, type Theme } from '@mui/material/styles';
+import { useTheme } from '@mui/material/styles';
 import { ThinChevronDownIcon, ThinCloseIcon } from '../icons/ThinIcons';
 import { FieldFrame } from './FieldFrame';
-import { OPEN } from './fieldStyles';
-import type { FieldFrameKind, FieldInputProps, FieldProps } from './fieldTypes';
+import { pickerRules } from './fieldStyles';
+import type { FieldInputProps, FieldProps } from './fieldTypes';
 import { fieldControlState, useFieldIds } from './useFieldWiring';
 
 /** The kit's default texts of a picker's list; the host overrides them with its own. */
@@ -168,46 +168,4 @@ export function InlinePickerField<O>({
       />
     </FieldFrame>
   );
-}
-
-/**
- * The popup arrow and the clear button are small, in the flow, and shown with the frame.
- * Each state's key repeats the state before *each* indicator and names the root once (`&`):
- * a second `&`, or an indicator left without its state, is a rule that never matches or
- * always does.
- */
-function pickerRules(theme: Theme, frame: FieldFrameKind): CSSObject {
-  const popup = '.MuiAutocomplete-popupIndicator';
-  const clear = '.MuiAutocomplete-clearIndicator';
-  const indicators = `&& ${popup}, && ${clear}`;
-  const when = (state: string) => `&${state} ${popup}, &${state} ${clear}`;
-  const shown = { opacity: 1 };
-  return {
-    '&&& .MuiAutocomplete-inputRoot': { padding: 0, flexWrap: 'nowrap' },
-    '&&& .MuiAutocomplete-input': { padding: 0, minWidth: 0, width: 0, flexGrow: 1 },
-    '&&& .MuiAutocomplete-endAdornment': {
-      position: 'static',
-      transform: 'none',
-      display: 'inline-flex',
-      alignItems: 'center',
-      flexShrink: 0,
-      gap: '2px',
-    },
-    [indicators]: {
-      width: theme.layout.iconAction.row.box,
-      height: theme.layout.iconAction.row.box,
-      padding: 0,
-      margin: 0,
-      fontSize: theme.layout.iconAction.chevron.glyph,
-      color: theme.palette.text.primary,
-      opacity: frame === 'always' ? 1 : 0,
-    },
-    '&& .MuiAutocomplete-popupIndicator, && .MuiAutocomplete-popupIndicatorOpen': {
-      transform: 'none',
-    },
-    [when(':hover')]: shown,
-    [when(':focus-within')]: shown,
-    [when(OPEN)]: shown,
-    '@media (hover: none)': { [indicators]: shown },
-  };
 }

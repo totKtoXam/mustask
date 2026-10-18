@@ -19,7 +19,7 @@ public sealed class RestoreProjectHandlerTests
         {
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization);
-            Platform = Store.AddTeam(Project);
+            Platform = Store.AddLinkedTeam(Organization, Project);
             Reports = Store.AddArea(Project.Root, "Отчёты");
             Quarterly = Store.AddArea(Reports, "Квартальные");
             Handler = new RestoreProjectHandler(
@@ -52,7 +52,7 @@ public sealed class RestoreProjectHandlerTests
             (
                 string.Join(
                     ";",
-                    Store.Teams.OrderBy(team => team.Id).Select(team => $"{team.Id}|{team.ProjectId}|{team.Name}|{team.Status}")),
+                    Store.Teams.OrderBy(team => team.Id).Select(team => $"{team.Id}|{team.OrganizationId}|{team.Name}|{team.Status}")),
                 string.Join(
                     ";",
                     Store.Areas.OrderBy(area => area.Id).Select(area => $"{area.Id}|{area.ProjectId}|{area.ParentId}|{area.Name}")));
@@ -70,7 +70,7 @@ public sealed class RestoreProjectHandlerTests
         var result = await f.HandleAsync(f.Command());
 
         Assert.Equal(
-            new ProjectResponse(f.Project.Project.Id, f.Organization.Id, "Пример проекта", "PRM"),
+            new ProjectResponse(f.Project.Project.Id, f.Organization.Id, "Пример проекта", "PRM", null),
             result.Response);
         Assert.Equal(ProjectStatus.Active, f.Project.Project.Status);
         Assert.Equal(before, f.Beneath());
@@ -84,8 +84,8 @@ public sealed class RestoreProjectHandlerTests
     public async Task Handle_DeactivatedProject_KeepsTeamStatusesAndTheDefaultTeamSetting()
     {
         var f = new Fixture();
-        var core = f.Store.AddTeam(f.Project, "Ядро");
-        core.Delete(3);
+        var core = f.Store.AddLinkedTeam(f.Organization, f.Project, "Ядро");
+        core.Delete();
         f.Project.Project.NameDefaultTeam(f.Platform.Id);
         f.Project.Project.Deactivate();
 
@@ -123,7 +123,7 @@ public sealed class RestoreProjectHandlerTests
         var result = await f.HandleAsync(f.Command());
 
         Assert.Equal(
-            new ProjectResponse(f.Project.Project.Id, f.Organization.Id, "Пример проекта", "PRM"),
+            new ProjectResponse(f.Project.Project.Id, f.Organization.Id, "Пример проекта", "PRM", null),
             result.Response);
         Assert.Equal(ProjectStatus.Active, f.Project.Project.Status);
         Assert.Equal(before, f.Beneath());

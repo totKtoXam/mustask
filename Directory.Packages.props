@@ -10,6 +10,22 @@
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.5.1" />
     <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.5.1" />
     <PackageVersion Include="Aspire.Hosting.Testing" Version="13.5.1" />
+    <!-- tech-040: GHSA-qhrr-8q5h-9q3h (NU1902, an error under
+         TreatWarningsAsErrors). Aspire.Hosting 13.5.1 reaches MessagePack
+         2.5.302 through StreamJsonRpc; 2.5.303 is the fix, same release line,
+         so StreamJsonRpc keeps working. Mustask.AppHost carries the explicit
+         reference that makes this version win. Drop this entry and that
+         reference once Aspire's own graph resolves MessagePack 2.5.303 or
+         newer. Check with the AppHost reference removed: the restore raises
+         no NU1902 and `dotnet list package` (flag include transitive) on the
+         AppHost lists MessagePack 2.5.303+ as a transitive package. With the
+         reference in place that command shows MessagePack as a top-level
+         2.5.303 whatever Aspire resolves, so it proves nothing.
+         CentralPackageTransitivePinningEnabled is deliberately
+         off: it would apply every PackageVersion here to every project, and
+         the restore fails with NU1109 on the Npgsql and
+         Microsoft.Extensions.Logging.Abstractions entries. -->
+    <PackageVersion Include="MessagePack" Version="2.5.303" />
 
     <!-- Aspire ServiceDefaults -->
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.6.0" />

@@ -16,7 +16,11 @@ public static class OrganizationsApi
 
     public static string Areas(Guid organizationId, Guid projectId) => $"{Project(organizationId, projectId)}/areas";
 
+    /// <summary>The project's linked teams (feat-028): the list, the link and the unlink are under it.</summary>
     public static string Teams(Guid organizationId, Guid projectId) => $"{Project(organizationId, projectId)}/teams";
+
+    /// <summary>The organization's teams (feat-028 api-contract § 2.1): the list, the create, and a team at /{teamId}.</summary>
+    public static string OrgTeams(Guid organizationId) => $"{Organization(organizationId)}/teams";
 
     public static async Task<Answer> SendAsync(
         Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program> factory,

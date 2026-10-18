@@ -8,15 +8,15 @@ using Mustask.Shared.Exceptions;
 namespace Mustask.Application.Features.Organizations.AddTeamMember;
 
 /// <summary>
-/// <c>POST /api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}/members</c> (api-contract § 2.3; US-3
-/// "An administrator adds an organization member to a team", "Only active organization members are offered and accepted",
-/// "A user is in a team at most once", "A team member added while the organization membership is removed", "A member
-/// added to a team that is being deleted").
+/// <c>POST /api/organizations/{organizationId}/teams/{teamId}/members</c> (feat-028 api-contract § 2.3, mod-016 api-contract
+/// § 2.3; US-3 "An administrator adds an organization member to a team", "Only active organization members are offered and
+/// accepted", "A user is in a team at most once", "A team member added while the organization membership is removed", "A member
+/// added to a team that is being deleted"). One list serves every project the team is linked to (BR-OL-1).
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The order of answers</b> (api-contract § 0.1, § 2.3), one numbered step each below: the address from the outermost
-/// level in (the organization, the project, then the team under its lock), the value of the body (<c>userId</c>, 400), the
+/// <b>The order of answers</b> (api-contract § 0.5, § 2.3), one numbered step each below: the address from the outermost
+/// level in (the organization, then the team under its lock), the value of the body (<c>userId</c>, 400), the
 /// reference it names (the user must be an active member of this organization: <c>member_not_in_organization</c>), the
 /// uniqueness pre-check (<c>member_exists</c>), and the save.
 /// </para>
@@ -35,7 +35,6 @@ namespace Mustask.Application.Features.Organizations.AddTeamMember;
 /// </para>
 /// </remarks>
 public sealed class AddTeamMemberHandler(
-    IProjectRepository projects,
     ITeamRepository teams,
     ITeamMembershipRepository teamMemberships,
     IMemberReadModel members,
@@ -52,19 +51,13 @@ public sealed class AddTeamMemberHandler(
                     throw new NotFoundException(OrganizationErrorCodes.OrganizationNotFound);
                 }
 
-                if (!AddressedId.TryParse(command.ProjectId, out var projectId)
-                    || !await projects.IsReachableAsync(organizationId, projectId, ct))
-                {
-                    throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
-                }
-
                 if (!AddressedId.TryParse(command.TeamId, out var teamId))
                 {
                     throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
                 }
 
                 // FOR SHARE, and the team is re-checked after the lock: a deletion that committed first answers not found.
-                var team = await teams.LockForShareAsync(projectId, teamId, ct);
+                var team = await teams.LockForShareAsync(organizationId, teamId, ct);
 
                 if (team is not { IsActive: true })
                 {

@@ -82,7 +82,7 @@ public sealed class RestoreProjectHandler(
                     await projects.SaveAsync(ct);
                 }
 
-                return new RestoreProjectResult(new ProjectResponse(project.Id, project.OrganizationId, project.Name, project.Key));
+                return new RestoreProjectResult(new ProjectResponse(project.Id, project.OrganizationId, project.Name, project.Key, project.Description));
             },
             cancellationToken);
 }

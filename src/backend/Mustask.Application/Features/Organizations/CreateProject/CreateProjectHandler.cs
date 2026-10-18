@@ -1,5 +1,6 @@
 using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Errors;
 using Mustask.Shared.Exceptions;
@@ -7,54 +8,54 @@ using Mustask.Shared.Exceptions;
 namespace Mustask.Application.Features.Organizations.CreateProject;
 
 /// <summary>
-/// <c>POST /api/organizations/{organizationId}/projects</c> (US-3 "A project is
-/// created ready to use", "The key is required and well-formed", "The key is
-/// unique in the organization", "The name is unique in the organization", "A
-/// deactivated project's name stays reserved").
+/// <c>POST /api/organizations/{organizationId}/projects</c> (US-3 "A project is created ready to use", "The key is required and
+/// well-formed", "The key is unique in the organization", "The name is unique in the organization", "A deactivated project's name
+/// stays reserved"; feat-028 US-2 "a project with a name and a key only", "description and teams in one operation").
+/// <b>Creating a project creates no team and no team membership — the creator's included</b> (BR-OL-2); only its root area comes
+/// with it. The request may carry a description and the teams to link, linked in the same operation.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The order of answers</b> (plan-backend § 5.3, api-contract § 0.4): the
-/// organization of the address; no rule about the addressed object alone (a
-/// create has none); the values of the body, <c>name</c> and <c>key</c> with
-/// every reason at once; no references in the body; the uniqueness pre-checks,
-/// the name before the key (api-contract § 2.3: "when both the name and the key
-/// are taken, the name's code is answered"); the save.
+/// <b>The order of answers</b> (api-contract § 0.1, § 0.5): the second codes <b>first of all</b> — <c>team.link</c> and
+/// <c>project.link</c> when <c>teamIds</c> is not empty (D-7; the route declared <c>organizations.project.write</c>); the
+/// organization of the address; no rule about the addressed object alone (a create has none); the values of the body, <c>name</c>,
+/// <c>key</c> and <c>description</c> with every reason at once; the teams named (404 <c>team.not_found</c>: an active team of the
+/// organization each, all or nothing); the uniqueness pre-checks, the name before the key (api-contract § 2.3: "when both the name
+/// and the key are taken, the name's code is answered"); the save.
 /// </para>
 /// <para>
-/// <b>Locks</b> (plan-backend § 8.2): none. The write only reads the status of
-/// its container, the organization (ADR-0026 rule 8), and inserts. The insert
-/// takes <c>FOR KEY SHARE</c> on the organization row through the foreign key,
-/// which a deactivation (<c>FOR NO KEY UPDATE</c>) does not conflict with, so a
-/// project created while its organization is deactivated is simply a project
-/// created just before. The unique indexes close the races (ADR-0011 echelon 1):
-/// the name and key pre-checks are two round-trips, and a concurrent creation in
-/// between fails the insert on its index, which the repository answers with the
+/// <b>Locks</b> (plan-backend § 7.2): the teams named <c>FOR SHARE</c> in one statement ordered by id (the binder's mode, step 2),
+/// re-checked as active, so a deletion of one of them either commits first (the whole creation is refused 404, no project) or waits for
+/// this creation and removes the link it wrote with the rest. The write otherwise only reads the status of its container, the
+/// organization (ADR-0026 rule 8), and inserts. The unique indexes close the races (ADR-0011 echelon 1): the name and key pre-checks
+/// are two round-trips, and a concurrent creation in between fails the insert on its index, which the repository answers with the
 /// pre-check's code (plan-backend § 6.3).
 /// </para>
 /// <para>
-/// <b>The creator joins the project's team</b> (mod-016 BR-M1-25; US-3 "The project's creator is its first team's first
-/// member"): in the same flush, the creating administrator becomes the only member of the team the project is created with,
-/// whatever the user projection says of them — always, with no look at their membership first (plan-backend § 3.6 row 12). Team
-/// members are a subset of the organization's members (BR-M1-10) and the scoped check admits only an administrator here, so
-/// the creator is a member when the request starts. If their membership ends at any moment before the flush — between the
-/// check and this handler, or later — the database refuses the team membership through the composite key, the whole
-/// creation rolls back, and the answer is the organization's not-found: exactly what the creator's next request would say.
-/// There is no window in which the project is created for a user who is no longer a member (review round 1a BE-CON-5). The
-/// rule lapses when feat-028 moves teams to the organization. The team is no longer «first» (mod-017 BR-OT-11): it is the
-/// project's only team until another is added, and as ordinary as any later one.
+/// BR-M1-25 ("the creator joins the project's team") lapsed with the project's team: nothing depends on the creator's membership any
+/// more, so the rollback to the organization's not-found that guarded it is gone.
 /// </para>
 /// </remarks>
 public sealed class CreateProjectHandler(
     IOrganizationReadModel organizations,
-    ITeamMembershipRepository teamMemberships,
+    ITeamRepository teams,
+    IProjectTeamRepository links,
     IProjectRepository projects,
+    IOrganizationAccess access,
     IClock clock,
     ICurrentUser currentUser,
     IUnitOfWork unitOfWork)
 {
-    public async Task<CreateProjectResult> Handle(CreateProjectCommand command, CancellationToken cancellationToken) =>
-        await unitOfWork.ExecuteInTransactionAsync(
+    public async Task<CreateProjectResult> Handle(CreateProjectCommand command, CancellationToken cancellationToken)
+    {
+        // 0. The second codes, first of all (D-7): a project that links needs both ends' link codes.
+        if (command.TeamIds is { Count: > 0 }
+            && (!access.Holds(PermissionCatalog.OrganizationsTeamLink) || !access.Holds(PermissionCatalog.OrganizationsProjectLink)))
+        {
+            throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
+        }
+
+        return await unitOfWork.ExecuteInTransactionAsync(
             async ct =>
             {
                 // 1. The address. The scoped check has answered for it already; the handler checks again,
@@ -69,7 +70,7 @@ public sealed class CreateProjectHandler(
                 // 2. Rules about the addressed object alone: none, a create addresses only its container.
 
                 // 3. Values in the body: one ValidationException with every field reason at once. The key is judged exactly
-                // as sent: not trimmed and not upper-cased (BR-M1-1).
+                // as sent: not trimmed and not upper-cased (BR-M1-1). The description is kept as typed (BR-OL-3).
                 var errors = new Dictionary<string, IReadOnlyList<FieldError>>();
 
                 if (!EntityName.TryCreate(command.Name, out var name))
@@ -82,12 +83,38 @@ public sealed class CreateProjectHandler(
                     errors["key"] = [new FieldError(keyReason)];
                 }
 
+                if (!EntityDescription.TryCreate(command.Description, out var description))
+                {
+                    errors["description"] = [EntityDescription.LengthReason];
+                }
+
                 if (errors.Count > 0)
                 {
                     throw new ValidationException(OrganizationErrorCodes.ValidationFailed, errors);
                 }
 
-                // 4. References in the body: none.
+                // 4. References in the body: the teams to link — each an active team of this organization (404), all or nothing.
+                var teamIds = new HashSet<Guid>();
+
+                foreach (var raw in command.TeamIds ?? [])
+                {
+                    if (!AddressedId.TryParse(raw, out var teamId))
+                    {
+                        throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
+                    }
+
+                    teamIds.Add(teamId);
+                }
+
+                if (teamIds.Count > 0)
+                {
+                    var locked = await teams.LockManyForShareAsync(organizationId, teamIds, ct);
+
+                    if (locked.Count != teamIds.Count || locked.Any(team => !team.IsActive))
+                    {
+                        throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
+                    }
+                }
 
                 // 5. The uniqueness pre-checks (BR-M1-1): the name among projects of any status, ignoring case and
                 // surrounding spaces, then the key among projects of any status. The name answers first.
@@ -111,32 +138,28 @@ public sealed class CreateProjectHandler(
                         new ErrorParams { ["key"] = ErrorParam.Text(key) });
                 }
 
-                // The project, its one team and its root, both named after the project; the team an ordinary one, the root
-                // owned by nobody, and the settings name no default team — the only team is the default by itself (mod-017
-                // BR-OT-4, BR-OT-10, BR-OT-11). The creator is the token's subject (BR-M1-21).
+                // The project and its root, both named after the project; the root owned by nobody; no team and no team membership
+                // (BR-OL-2); the settings name no default team — two teams chosen name none, one is the default by itself
+                // (BR-OL-7). The creator is the token's subject (BR-M1-21).
+                var now = clock.UtcNow;
                 var creatorId = currentUser.SubjectId;
-                var created = Project.Create(organizationId, name, key, clock.UtcNow, creatorId);
+                var created = Project.Create(organizationId, name, key, now, creatorId, description);
                 projects.Add(created);
 
-                // The creator joins the project's team (BR-M1-25, BR-M1-10). No look at their membership first: the composite key
-                // of team_memberships is the one place that judges it, at the flush, and it cannot be raced.
-                teamMemberships.Add(TeamMembership.Add(created.Team.Id, organizationId, creatorId));
+                foreach (var teamId in teamIds)
+                {
+                    links.Add(ProjectTeam.Link(organizationId, created.Project.Id, teamId, creatorId, now));
+                }
 
                 // 6. Save. A concurrent creation of the same name or key that committed first fails this insert on its unique
                 // index, and the repository answers with the pre-check's code.
-                try
-                {
-                    await projects.SaveAsync(ct);
-                }
-                catch (ConflictException refusal) when (refusal.Code == OrganizationErrorCodes.TeamMemberNotInOrganization)
-                {
-                    // The creator is not (or no longer) a member: nothing is created, and they are a non-member now.
-                    throw new NotFoundException(OrganizationErrorCodes.OrganizationNotFound, ErrorParams.None, refusal);
-                }
+                await projects.SaveAsync(ct);
 
                 var project = created.Project;
 
-                return new CreateProjectResult(new ProjectResponse(project.Id, project.OrganizationId, project.Name, project.Key));
+                return new CreateProjectResult(
+                    new ProjectResponse(project.Id, project.OrganizationId, project.Name, project.Key, project.Description));
             },
             cancellationToken);
+    }
 }

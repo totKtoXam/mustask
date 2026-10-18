@@ -122,7 +122,7 @@ public sealed class DeleteTeamAtomicityTests(OrganizationsDatabaseFixture databa
         await using var scope = provider.CreateAsyncScope();
 
         await scope.ServiceProvider.GetRequiredService<DeleteTeamHandler>()
-            .Handle(new DeleteTeamCommand(world.OrganizationId.ToString(), world.ProjectId.ToString(), world.Team.ToString()), CancellationToken.None);
+            .Handle(new DeleteTeamCommand(world.OrganizationId.ToString(), world.Team.ToString()), CancellationToken.None);
     }
 
     private async Task<int> CountStatementsAsync()

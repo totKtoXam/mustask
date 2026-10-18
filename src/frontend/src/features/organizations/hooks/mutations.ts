@@ -10,14 +10,18 @@ import {
 } from '../api/membershipApi';
 import type { OrganizationRole } from '../lib/roles';
 import {
-  addTeam,
   createArea,
   createOrganization,
   createProject,
+  createTeam,
   deactivateOrganization,
   deactivateProject,
   deleteArea,
   deleteTeam,
+  describeProject,
+  describeTeam,
+  linkProjectsToTeam,
+  linkTeamsToProject,
   moveArea,
   renameArea,
   renameOrganization,
@@ -26,6 +30,9 @@ import {
   restoreOrganization,
   restoreProject,
   setDefaultTeam,
+  unlinkTeam,
+  type CreateProjectBody,
+  type CreateTeamBody,
 } from '../api/organizationsApi';
 import { organizationsKeys as keys } from '../api/queryKeys';
 
@@ -87,8 +94,19 @@ export function useRestoreOrganization() {
 export function useCreateProject(organizationId: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (body: { name: string; key: string }) => createProject(organizationId, body),
-    onSuccess: () => invalidate(client, keys.projects(organizationId, 'active')),
+    mutationFn: (body: CreateProjectBody) => createProject(organizationId, body),
+    // A project that is created with teams changes what they work on (design § 13).
+    onSuccess: () =>
+      invalidate(client, keys.projects(organizationId, 'active'), ...linkListKeys(organizationId)),
+  });
+}
+
+export function useDescribeProject(organizationId: string, projectId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (description: string | null) =>
+      describeProject(organizationId, projectId, description),
+    onSuccess: () => invalidate(client, keys.project(organizationId, projectId)),
   });
 }
 
@@ -129,57 +147,118 @@ export function useRestoreProject(organizationId: string) {
   });
 }
 
-// § 3 Teams
+// feat-028 Teams, their links and the project's default (design § 13: a link, an unlink or a
+// deletion refreshes the organization's teams, the team's projects, the project's teams — which
+// the shell's team level and the work item pickers read — and the projects).
 
-export function useAddTeam(organizationId: string, projectId: string) {
+/** Every list a link can change, at the level of the organization. */
+function linkListKeys(organizationId: string): (readonly unknown[])[] {
+  return [
+    keys.orgTeams(organizationId),
+    keys.projectTeamLists(organizationId),
+    keys.teamProjectLists(organizationId),
+  ];
+}
+
+export function useCreateTeam(organizationId: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => addTeam(organizationId, projectId, name),
-    // mod-017 BR-OT-11: adding a team creates no area; the marks follow the count of teams.
-    onSuccess: () => invalidate(client, keys.teams(organizationId, projectId)),
+    mutationFn: (body: CreateTeamBody) => createTeam(organizationId, body),
+    // A team created with projects is linked to them at once; its members are read on its page.
+    onSuccess: () => invalidate(client, ...linkListKeys(organizationId)),
   });
 }
 
-export function useRenameTeam(organizationId: string, projectId: string) {
+export function useRenameTeam(organizationId: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: ({ teamId, name }: { teamId: string; name: string }) =>
-      renameTeam(organizationId, projectId, teamId, name),
+      renameTeam(organizationId, teamId, name),
+    // The new name shows wherever the team is listed (US-1).
     onSuccess: () =>
-      invalidate(
-        client,
-        keys.teams(organizationId, projectId),
-        keys.teamPages(organizationId, projectId),
-      ),
+      invalidate(client, keys.teamPages(organizationId), ...linkListKeys(organizationId)),
   });
 }
 
-/** mod-017 api-contract § 2.8: names the default team, or none; the marks come from the teams read. */
+export function useDescribeTeam(organizationId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ teamId, description }: { teamId: string; description: string | null }) =>
+      describeTeam(organizationId, teamId, description),
+    onSuccess: () =>
+      invalidate(client, keys.teamPages(organizationId), keys.orgTeams(organizationId)),
+  });
+}
+
+/** mod-017 api-contract § 2.8 (feat-028: `project.write`'s): names the default team, or none. */
 export function useSetDefaultTeam(organizationId: string, projectId: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (teamId: string | null) => setDefaultTeam(organizationId, projectId, teamId),
-    onSuccess: () =>
-      invalidate(
-        client,
-        keys.teams(organizationId, projectId),
-        keys.teamPages(organizationId, projectId),
-      ),
+    onSuccess: () => invalidate(client, keys.teams(organizationId, projectId)),
   });
 }
 
-export function useDeleteTeam(organizationId: string, projectId: string) {
+export function useDeleteTeam(organizationId: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (teamId: string) => deleteTeam(organizationId, projectId, teamId),
+    mutationFn: (teamId: string) => deleteTeam(organizationId, teamId),
     onSuccess: (_result, teamId) => {
-      void client.invalidateQueries({
-        queryKey: keys.team(organizationId, projectId, teamId),
-        refetchType: 'none',
-      });
-      // The team's items now have none and a default that named it is cleared (BR-OT-12).
-      return invalidate(client, keys.teams(organizationId, projectId));
+      // The team's address answers not found from now on; the page on screen is left at once,
+      // so its reads are only marked stale. The items went to none and the settings naming it were cleared.
+      for (const key of [
+        keys.team(organizationId, teamId),
+        keys.teamProjects(organizationId, teamId),
+        keys.teamMembers(organizationId, teamId),
+      ]) {
+        void client.invalidateQueries({ queryKey: key, refetchType: 'none' });
+      }
+      return invalidate(
+        client,
+        keys.orgTeams(organizationId),
+        keys.projectTeamLists(organizationId),
+      );
     },
+  });
+}
+
+/** Links existing teams to a project, from the project's end (§ 2.4). */
+export function useLinkTeamsToProject(organizationId: string, projectId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (teamIds: readonly string[]) =>
+      linkTeamsToProject(organizationId, projectId, teamIds),
+    onSuccess: () => invalidate(client, ...linkListKeys(organizationId)),
+  });
+}
+
+/** Links existing projects to a team, from the team's end (§ 2.2). */
+export function useLinkProjectsToTeam(organizationId: string, teamId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (projectIds: readonly string[]) =>
+      linkProjectsToTeam(organizationId, teamId, projectIds),
+    onSuccess: () => invalidate(client, ...linkListKeys(organizationId)),
+  });
+}
+
+/**
+ * The unlink (SC-09), from either end: the items the team owned in the project went to the
+ * destination, the setting naming the team was cleared, the link is gone.
+ */
+export function useUnlinkTeam(organizationId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      projectId,
+      teamId,
+      destinationTeamId,
+    }: {
+      projectId: string;
+      teamId: string;
+      destinationTeamId: string | null;
+    }) => unlinkTeam(organizationId, projectId, teamId, destinationTeamId),
+    onSuccess: () => invalidate(client, ...linkListKeys(organizationId)),
   });
 }
 
@@ -290,18 +369,30 @@ export function useRemoveMember(organizationId: string, selfId: string | undefin
   });
 }
 
-export function useAddTeamMember(organizationId: string, projectId: string, teamId: string) {
+export function useAddTeamMember(organizationId: string, teamId: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (userId: string) => addTeamMember(organizationId, projectId, teamId, userId),
-    onSuccess: () => invalidate(client, keys.teamMembers(organizationId, projectId, teamId)),
+    mutationFn: (userId: string) => addTeamMember(organizationId, teamId, userId),
+    // One list of members serves every project the team works on (BR-OL-11): the project lists'
+    // `isMember` marks are read again too.
+    onSuccess: () =>
+      invalidate(
+        client,
+        keys.teamMembers(organizationId, teamId),
+        keys.projectTeamLists(organizationId),
+      ),
   });
 }
 
-export function useRemoveTeamMember(organizationId: string, projectId: string, teamId: string) {
+export function useRemoveTeamMember(organizationId: string, teamId: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (userId: string) => removeTeamMember(organizationId, projectId, teamId, userId),
-    onSuccess: () => invalidate(client, keys.teamMembers(organizationId, projectId, teamId)),
+    mutationFn: (userId: string) => removeTeamMember(organizationId, teamId, userId),
+    onSuccess: () =>
+      invalidate(
+        client,
+        keys.teamMembers(organizationId, teamId),
+        keys.projectTeamLists(organizationId),
+      ),
   });
 }

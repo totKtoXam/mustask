@@ -76,7 +76,8 @@ public sealed class DeactivateOrganizationEndpointTests(MustaskApiFactory factor
             $"{organization}/projects/deactivated",
             project,
             $"{project}/teams",
-            $"{project}/teams/{structure.Platform.Id}",
+            $"{organization}/teams",
+            $"{organization}/teams/{structure.Platform.Id}",
             $"{project}/areas",
         })
         {
@@ -216,7 +217,8 @@ public sealed class DeactivateOrganizationEndpointTests(MustaskApiFactory factor
 
         var projects = await db.Projects.AsNoTracking().Where(project => project.OrganizationId == organizationId).OrderBy(project => project.Id).ToListAsync();
         var projectIds = projects.Select(project => project.Id).ToList();
-        var teams = await db.Teams.AsNoTracking().Where(team => projectIds.Contains(team.ProjectId)).OrderBy(team => team.Id).ToListAsync();
+        var teams = await db.Teams.AsNoTracking().Where(team => team.OrganizationId == organizationId).OrderBy(team => team.Id).ToListAsync();
+        var links = await db.ProjectTeams.AsNoTracking().Where(link => link.OrganizationId == organizationId).OrderBy(link => link.ProjectId).ThenBy(link => link.TeamId).ToListAsync();
         var areas = await db.Areas.AsNoTracking().Where(area => projectIds.Contains(area.ProjectId)).OrderBy(area => area.Id).ToListAsync();
         var processes = await db.Processes
             .AsNoTracking()
@@ -227,7 +229,8 @@ public sealed class DeactivateOrganizationEndpointTests(MustaskApiFactory factor
 
         var rows = new List<string>();
         rows.AddRange(projects.Select(project => $"project {project.Id} {project.Status} {project.Name} {project.Key} default={project.DefaultTeamId}"));
-        rows.AddRange(teams.Select(team => $"team {team.Id} {team.Status} {team.Name}"));
+        rows.AddRange(teams.Select(team => $"team {team.Id} {team.Status} {team.Name} {team.Description}"));
+        rows.AddRange(links.Select(link => $"link {link.ProjectId} {link.TeamId} {link.LinkedBy} {link.LinkedAt:O}"));
         rows.AddRange(areas.Select(area => $"area {area.Id} {area.Name} parent={area.ParentId}"));
 
         rows.AddRange(processes.Select(process =>

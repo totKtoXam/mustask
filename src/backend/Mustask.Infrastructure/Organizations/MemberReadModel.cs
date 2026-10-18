@@ -65,6 +65,25 @@ internal sealed class MemberReadModel(MustaskDbContext context, IUserDirectory d
             .AsNoTracking()
             .AnyAsync(membership => membership.OrganizationId == organizationId && membership.UserId == userId, cancellationToken);
 
+    public async Task<IReadOnlySet<string>> FilterMembersAsync(
+        Guid organizationId, IReadOnlyCollection<string> userIds, CancellationToken cancellationToken)
+    {
+        if (userIds.Count == 0)
+        {
+            return new HashSet<string>(StringComparer.Ordinal);
+        }
+
+        var ids = userIds.ToArray();
+
+        var members = await context.OrganizationMemberships
+            .AsNoTracking()
+            .Where(membership => membership.OrganizationId == organizationId && ids.Contains(membership.UserId))
+            .Select(membership => membership.UserId)
+            .ToListAsync(cancellationToken);
+
+        return members.ToHashSet(StringComparer.Ordinal);
+    }
+
     public async Task<int> CountOtherKnownActiveAdministratorsAsync(Guid organizationId, string exceptUserId, CancellationToken cancellationToken)
     {
         var administrators = await context.OrganizationMemberships

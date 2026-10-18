@@ -2,9 +2,10 @@ import type { AccessCheck } from '../shared/lib/access';
 
 /**
  * The three organization roles and the codes each bundle holds, hand-copied
- * from mod-016 api-contract § 0.2 — the one duplication of the contract in
- * the panel (plan-frontend § 2.8, OP-7); mod-005 added two work item codes to
- * them, from its own api-contract § 0.1. Every bundle lists every code it
+ * from mod-016 api-contract § 0.2, feat-028 api-contract § 0.1 (four codes,
+ * the administrator's alone) and mod-005 api-contract § 0.1 (two work item
+ * codes) — the one duplication of the contract in the panel (plan-frontend
+ * § 2.8, OP-7). Every bundle lists every code it
  * holds, so a missing code is a code left out of the list and never one
  * implied (design § 12). E2E 27.9 reads the served bundles against this
  * file; it is the only check that they agree.
@@ -31,6 +32,11 @@ const ADMIN_ONLY_CODES = [
   'organizations.project.deactivate',
   'organizations.team.write',
   'organizations.area.write',
+  // feat-028 api-contract § 0.1 (ADR-0029): until mod-019 they are checked against the role alone.
+  'organizations.team.create',
+  'organizations.team.delete',
+  'organizations.team.link',
+  'organizations.project.link',
 ] as const;
 
 /** Held by the administrator and the member. */
@@ -46,7 +52,7 @@ const WORK_DELETE_CODES = ['workitems.workitem.delete'] as const;
 /** mod-005 api-contract § 0.1: Purge — the administrator alone. */
 const WORK_PURGE_CODES = ['workitems.workitem.purge'] as const;
 
-/** Every code the administrator holds: the seventeen of § 0.2 and mod-005's two. */
+/** Every code the administrator holds: the seventeen of mod-016 § 0.2, feat-028's four and mod-005's two. */
 export const ADMIN_CODES: readonly string[] = [
   ...READ_CODES,
   ...ADMIN_ONLY_CODES,

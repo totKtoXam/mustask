@@ -13,9 +13,11 @@ import {
 } from './organizationRoles';
 
 // The bundles are hand-copied from mod-016's api-contract § 0.2 (plan-frontend
-// OP-7) and, for the two codes mod-005 added, from its api-contract § 0.1.
-// There is no machine-readable bundle in contracts/, so this test reads the
-// contracts' own tables and fails when the copy drifts from them.
+// OP-7), for the four codes feat-028 added from its api-contract § 0.1 (held by
+// the administrator alone until mod-019) and for the two codes mod-005 added
+// from its api-contract § 0.1. There is no machine-readable bundle in
+// contracts/, so this test reads the contracts' own tables and fails when the
+// copy drifts from them.
 
 const FEATURES = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -23,6 +25,7 @@ const FEATURES = path.resolve(
 );
 const CONTRACT = path.join(FEATURES, 'mod-016-organization-access/api-contract.md');
 const DELETE_CONTRACT = path.join(FEATURES, 'mod-005-work-item-delete-restore/api-contract.md');
+const TEAMS_CONTRACT = path.join(FEATURES, 'feat-028-org-level-teams/api-contract.md');
 
 /** `code -> [admin, member, viewer]` from the table of mod-016 § 0.2. */
 function contractMatrix(): Map<string, [boolean, boolean, boolean]> {
@@ -55,13 +58,39 @@ function withDeleteCodes(
   return matrix;
 }
 
-describe('the hand-copied role bundles (api-contract § 0.2, mod-005 § 0.1)', () => {
+/** The four codes feat-028 registers: the rows marked **new** in § 0.1, each held by `admin`. */
+function newTeamCodes(): string[] {
+  const text = readFileSync(TEAMS_CONTRACT, 'utf8');
+  const start = text.indexOf('### 0.1 ');
+  const end = text.indexOf('**A link joins two ends', start);
+  const codes: string[] = [];
+  for (const line of text.slice(start, end).split('\n')) {
+    const match = /^\| \*\*new\*\* `([a-z.]+)` \| admin \|/.exec(line);
+    if (match) {
+      codes.push(match[1] as string);
+    }
+  }
+  return codes;
+}
+
+describe('the hand-copied role bundles (api-contract § 0.2, feat-028 § 0.1, mod-005 § 0.1)', () => {
   it('agree with the contracts’ tables, role by role', () => {
     const matrix = withDeleteCodes(contractMatrix());
 
     expect(matrix.size).toBe(19);
     expect(matrix.get('workitems.workitem.delete')).toEqual([true, true, false]);
     expect(matrix.get('workitems.workitem.purge')).toEqual([true, false, false]);
+    // feat-028 api-contract § 0.1: four more, the administrator's.
+    expect(newTeamCodes().sort()).toEqual([
+      'organizations.project.link',
+      'organizations.team.create',
+      'organizations.team.delete',
+      'organizations.team.link',
+    ]);
+    for (const code of newTeamCodes()) {
+      matrix.set(code, [true, false, false]);
+    }
+    expect(matrix.size).toBe(23);
     const heldBy = (index: number) =>
       [...matrix].filter(([, held]) => held[index]).map(([code]) => code);
     expect([...ADMIN_CODES].sort()).toEqual(heldBy(0).sort());
@@ -87,7 +116,7 @@ describe('the hand-copied role bundles (api-contract § 0.2, mod-005 § 0.1)', (
     }
     expect(servedFor('viewer').permissions).toHaveLength(7);
     expect(servedFor('member').permissions).toHaveLength(11);
-    expect(servedFor('admin').permissions).toHaveLength(19);
+    expect(servedFor('admin').permissions).toHaveLength(23);
   });
 
   it('leave codes out of a served body, and ask an organization code from the bundle', () => {

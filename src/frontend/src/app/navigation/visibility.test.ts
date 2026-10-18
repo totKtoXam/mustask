@@ -72,7 +72,7 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () =>
     }
   });
 
-  it('registers only built pages: «Главная», «Рабочие элементы», «Канбан», «Бэклоги», «Организация» → «Общие», «Проекты», «Участники», «Процесс», «Проект» → «Общие», «Команды», «Области», «Справочники» → «Языки» and «Интерфейс» → «Витрина компонентов»', () => {
+  it('registers only built pages: «Главная», «Рабочие элементы», «Канбан», «Бэклоги», «Организация» → «Общие», «Проекты», «Команды», «Участники», «Процесс», «Проект» → «Общие», «Команды», «Области», «Справочники» → «Языки» and «Интерфейс» → «Витрина компонентов»', () => {
     const registered = [
       ...navigationModel.top,
       ...navigationModel.work,
@@ -85,6 +85,7 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () =>
       'Бэклоги',
       'Общие',
       'Проекты',
+      'Команды',
       'Участники',
       'Процесс',
       'Общие',
@@ -140,6 +141,7 @@ describe('mod-001 US-2 Scenario: No visible entry or link leads to the screen be
     expect(section?.entries.map((entry) => entry.label)).toEqual([
       'Общие',
       'Проекты',
+      'Команды',
       'Участники',
       'Процесс',
     ]);

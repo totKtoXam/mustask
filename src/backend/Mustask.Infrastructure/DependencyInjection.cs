@@ -129,6 +129,7 @@ public static class DependencyInjection
         services.AddScoped<IOrganizationRepository, OrganizationRepository>();
         services.AddScoped<IProjectRepository, ProjectRepository>();
         services.AddScoped<ITeamRepository, TeamRepository>();
+        services.AddScoped<IProjectTeamRepository, ProjectTeamRepository>();
         services.AddScoped<IAreaRepository, AreaRepository>();
         services.AddScoped<IOrganizationReadModel, OrganizationReadModel>();
         services.AddScoped<IProjectReadModel, ProjectReadModel>();

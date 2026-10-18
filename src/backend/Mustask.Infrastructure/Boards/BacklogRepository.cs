@@ -33,16 +33,40 @@ internal sealed class BacklogRepository(MustaskDbContext context) : IBacklogRepo
         var typeIds = scope.TypeIds.ToArray();
         var stateIds = scope.ShownStateIds.ToArray();
 
+        // Step 2: the team row. A team belongs to the organization (feat-028), so the project's organization is read through the
+        // project, which the handler has resolved under the organization of the address already.
         await context.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT 1 FROM teams WHERE id = {teamId} AND project_id = {projectId} FOR SHARE",
+            $"""
+             SELECT 1
+             FROM teams
+             WHERE id = {teamId}
+               AND organization_id = (SELECT organization_id FROM projects WHERE id = {projectId})
+             FOR SHARE
+             """,
             cancellationToken);
 
         // A new statement under READ COMMITTED: a team deleted by the lock's previous holder reads deleted.
         var active = await context.Teams.AnyAsync(
-            team => team.Id == teamId && team.ProjectId == projectId && team.Status == TeamStatus.Active,
+            team => team.Id == teamId && team.Status == TeamStatus.Active,
             cancellationToken);
 
         if (!active)
+        {
+            return false;
+        }
+
+        // Step 3: the link between the project and the team (feat-028 BR-OL-11): an unlink or a deletion holds it FOR NO KEY UPDATE,
+        // so the reorder either commits before the unlink reassigns the items (the unlink then drops the places it wrote) or reads the
+        // link gone and writes nothing. The team row came first: no request holds a link and waits for a team row (plan-backend § 7.4).
+        await context.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT 1 FROM project_teams WHERE project_id = {projectId} AND team_id = {teamId} FOR SHARE",
+            cancellationToken);
+
+        var linked = await context.ProjectTeams.AnyAsync(
+            link => link.ProjectId == projectId && link.TeamId == teamId,
+            cancellationToken);
+
+        if (!linked)
         {
             return false;
         }
@@ -107,10 +131,13 @@ internal sealed class BacklogRepository(MustaskDbContext context) : IBacklogRepo
         // key instead of testing every place against the whole order. (An item that changed owner left no place: the save
         // dropped it in its own write.) Under the backlog's lock no other reorder of it adds a place; one of another backlog
         // may take a row meanwhile, which the delete's own condition then skips.
-        var held = await context.Set<BacklogPlace>()
-            .AsNoTracking()
-            .Where(place => place.TeamId == scope.TeamId && place.BacklogLevelId == scope.LevelId)
-            .Select(place => place.WorkItemId)
+        // feat-028 D-13 (OQ-3 A): only the places on THIS project's items are read — a team is linked to several projects and its
+        // order is one per level, so another project's places are that project's view and are never "departed" from this one.
+        var held = await (
+                from place in context.Set<BacklogPlace>().AsNoTracking()
+                join item in context.WorkItems on place.WorkItemId equals item.Id
+                where place.TeamId == scope.TeamId && place.BacklogLevelId == scope.LevelId && item.ProjectId == scope.ProjectId
+                select place.WorkItemId)
             .ToListAsync(cancellationToken);
 
         var departed = held.Except(ids).ToArray();

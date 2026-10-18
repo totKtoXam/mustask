@@ -172,7 +172,7 @@ public sealed class ProjectBacklogStatementCountTests(OrganizationsDatabaseFixtu
                 ("type", type),
                 ("state", state),
                 ("rootArea", structure.Project.Root.Id),
-                ("team", structure.Project.Team.Id),
+                ("team", structure.FirstTeam.Id),
                 ("otherTeam", structure.SecondTeam.Id),
                 ("from", from),
                 ("to", from + perLevel - 1),

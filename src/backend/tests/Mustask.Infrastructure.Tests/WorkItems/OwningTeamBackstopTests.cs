@@ -152,7 +152,7 @@ public sealed class OwningTeamBackstopTests(OrganizationsDatabaseFixture databas
             type.Id, type.Key, type.Appearance, type.States.Select(state => new WorkItemTypeState(state.Id, state.Position, state.Category)).ToList());
 
         return new World(
-            structure.Organization.Id, structure.Project.Project.Id, structure.Project.Root.Id, structure.SecondTeam.Id, other.Team.Id, states);
+            structure.Organization.Id, structure.Project.Project.Id, structure.Project.Root.Id, structure.SecondTeam.Id, (await database.AddTeamAsync(structure.Organization.Id, "Команда другого проекта", other.Project.Id)).Id, states);
     }
 
     private async Task AddItemAsync(World world, Guid? owner)
