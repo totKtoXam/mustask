@@ -172,36 +172,43 @@ If the human picks another option at gate-1, the queue rows and the edits alread
 
 The doc-012, US-10 and doc-013 edits already apply each recommendation. The last table of § Queue changes names what a B or C answer reverses, in the queue rows and in those files.
 
-- [ ] **OQ-1 feat-045, the organization's home page.** It was queued after mod-018 as the organization's entry page "until the navigation line", and the navigation line now follows mod-018 directly.
+- [x] **OQ-1 feat-045, the organization's home page.** It was queued after mod-018 as the organization's entry page "until the navigation line", and the navigation line now follows mod-018 directly.
   - (A, recommended) Fold it into feat-043 and withdraw it. The organization's «Обзор» becomes the home page: the user's organizations beside the content, then her teams first, the counts, and the top-level areas, the projects and the teams by name, each row opening its page and each list cut to its first rows at the NFR volumes, with a link to its full list (US-10). The page is built once, from the lists feat-043 builds anyway. feat-045's open question is already answered by BR-MX-27 and US-10. feat-043 grows by one page.
   - (B) Keep it as its own M line right after feat-043 (deps feat-043). It would extend the counts-only «Обзор» of US-10 with the organizations and the object lists. feat-043 stays smaller, but «Обзор» goes through two lines and two gates.
   - (C) Keep it before feat-043, as queued: an interim home page that the next line replaces. A home page, and a way into a project with no team other than the settings' project list, could ship as soon as mod-018 merges, beside feat-040 rather than after it. But the page is built twice: its entry and its tests are thrown away a line later, and an M of work buys a page that lives only between its merge and feat-043's.
   - The analysis goes on with A.
-- [ ] **OQ-2 mod-020 versus the new switcher.** mod-020 is S, frontend and ready (deps mod-017). It carries the human's answers of 2026-10-17 to mod-017's OQ-8 (the fallback team) and OQ-9 (the filter in the address). OQ-8 lives on the old switcher only: in feat-043's model a team's views are always reached from the team. OQ-9 survives on the project's sections.
+  - Answered A by the human at gate-1, 2026-10-18.
+- [x] **OQ-2 mod-020 versus the new switcher.** mod-020 is S, frontend and ready (deps mod-017). It carries the human's answers of 2026-10-17 to mod-017's OQ-8 (the fallback team) and OQ-9 (the filter in the address). OQ-8 lives on the old switcher only: in feat-043's model a team's views are always reached from the team. OQ-9 survives on the project's sections.
   - (A, recommended) Keep it where it is, before or beside feat-040, and before feat-043, which now depends on it (BR-NE-9). Whichever of mod-020 and feat-040 merges second keeps the fallback on feat-040's interim team level. feat-043 retires the fallback with the «Бэклоги» and «Канбан» entries, which restores BR-MX-11, and keeps the filter in the address. The human's answers ship at once for an S, and only the fallback is interim.
   - (B) Fold it into feat-043 and withdraw it. The filter joins feat-043's address model and the fallback is never built. This saves an S, but drops an answer the human chose a day earlier, and the filter waits two lines.
   - (C) Move it after feat-043, restated to the filter in the address alone. As in B, the fallback is never built, BR-MX-11 is never amended, and the filter is built once, on feat-043's address model; unlike B, it keeps its own S line, so feat-043 does not grow. But the human's OQ-9 answer waits until after feat-043, behind two L lines, instead of shipping now, and the OQ-8 answer is dropped, both as in B.
   - The analysis goes on with A.
-- [ ] **OQ-3 feat-040's level of the switcher.** feat-040 addresses team views by the team alone, and ADR-0024 § 2 has the switcher show the address's context, so the old three-level switcher cannot show a team with no project.
+  - Answered A by the human at gate-1, 2026-10-18.
+- [x] **OQ-3 feat-040's level of the switcher.** feat-040 addresses team views by the team alone, and ADR-0024 § 2 has the switcher show the address's context, so the old three-level switcher cannot show a team with no project.
   - (A, recommended) Keep feat-040's interim team level as queued, and no larger: the organization's teams the user may see, own teams first, whatever project is chosen. It has no grouping, memory or fallback notice; those are feat-043's (BR-MX-28).
   - (B) feat-040 builds the final switcher, and feat-043 the rest. BR-MX-28 then splits across two L lines and the switcher breaks twice, while choosing an object still needs feat-043's pages.
   - (C) feat-040 keeps the project-nested team addresses and the old switcher. A project's address would then show a team's items from other projects, against BR-MX-27 and US-7's address clause, and US-7's owed-by would move.
   - The analysis goes on with A.
-- [ ] **OQ-4 How mod-019, feat-041, feat-042, mod-007 and feat-013 put their sections on the object pages.**
+  - Answered A by the human at gate-1, 2026-10-18.
+- [x] **OQ-4 How mod-019, feat-041, feat-042, mod-007 and feat-013 put their sections on the object pages.**
   - (A, recommended) Each line adds its section to the page feat-043 built, at the section's final address. Until then the section is absent (BR-NE-3), and the line re-runs the US-10 clauses it owes. feat-013 adds no section; it filters the views that are sections. Nothing is built twice.
   - (B) feat-043 builds every section up front as a placeholder («Раздел появится позже»). The page looks complete, but each placeholder is an interim screen whose test is later thrown away.
   - (C) feat-043 builds the sections with their real empty states («У команды нет спринтов»), which promise an action no line offers yet.
   - The analysis goes on with A.
-- [ ] **OQ-5 feat-038's landing page.** feat-038 (first-organization onboarding, in stage 1 on its branch since 2026-10-15) lands on the new organization's project list.
+  - Answered A by the human at gate-1, 2026-10-18.
+- [x] **OQ-5 feat-038's landing page.** feat-038 (first-organization onboarding, in stage 1 on its branch since 2026-10-15) lands on the new organization's project list.
   - (A, recommended) Keep doc-012's rule: whichever of feat-038 and feat-043 merges second points the landing at «Проекты» (`…/projects`), noted in feat-038's status.md. Creating the first project is the onboarding's next step, and «Проекты» is where US-10 offers it. feat-038 is now the likelier second.
   - (B) Land on the organization's «Обзор», the home page under OQ-1 A. For an empty organization it shows empty lists and sends the user on to «Проекты» anyway.
   - The analysis goes on with A.
-- [ ] **OQ-6 Splitting feat-043.**
+  - Answered A by the human at gate-1, 2026-10-18.
+- [x] **OQ-6 Splitting feat-043.**
   - (A, recommended) Keep it one L line. It lands on a smaller base than first planned: no grant, visibility, area-view or sprint page to move, and no visibility filter. Its address and context model is one breaking change, and the switcher's "choosing an object opens its page" needs the pages. Its own stage 1 still applies the size rules and may propose a cut.
   - (B) Split off the organization-level surfaces, «Обзор» (with feat-045) and the cross-project «Рабочие элементы» list, into one M line right after it. The pain fix lands sooner, and the one new organization-wide read leaves the breaking line. The cost is a third gate cycle and an interim organization landing on «Проекты».
   - (C) Split the shell and address model from the object pages. That makes two breaking changes of the address model instead of one, and an interim switcher with nothing to open.
   - The analysis goes on with A.
-- [ ] **OQ-7 feat-043 and the lane mod-005 → feat-003.** The old chain put feat-043 after feat-003's list filters and mod-005's deleted-item rule, through feat-013. The new deps do not, and feat-043 builds the cross-project «Рабочие элементы» list that both concern.
+  - Answered A by the human at gate-1, 2026-10-18.
+- [x] **OQ-7 feat-043 and the lane mod-005 → feat-003.** The old chain put feat-043 after feat-003's list filters and mod-005's deleted-item rule, through feat-013. The new deps do not, and feat-043 builds the cross-project «Рабочие элементы» list that both concern.
   - (A, recommended) A merge-order rule (BR-NE-8). Whichever of feat-003 and feat-043 merges second carries feat-003's filters and keyword onto the cross-project list and the project's section. Whichever of mod-005 and feat-043 merges second keeps deleted items off them. feat-043 waits for nothing beyond feat-040, mod-018 and mod-020, and the rule is the kind doc-012 already uses for feat-038. The cost: the second line grows by one list's filters, and its spec must check which line merged first.
   - (B) Add feat-003 to feat-043's deps. The order is fixed, feat-043's spec knows its list from the start, and mod-005 is before it by the graph again. The cost: the navigation line also waits for mod-005 (in flight) and then feat-003 (M, not started), on top of two L lines, against the human's «Давай всё таки 043 раньше».
   - The analysis goes on with A.
+  - Answered A by the human at gate-1, 2026-10-18.

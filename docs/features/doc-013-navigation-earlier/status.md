@@ -3,14 +3,14 @@
 - type: docs
 - size: M
 - branch: doc/013-navigation-earlier
-- stage: gate-1
+- stage: complete
 - epic: product/analysis
 - deps: -
 - gates: gate-1, gate-3
 
 ## Gates
 
-gate-1: pending
+gate-1: approved (by the human in chat, 2026-10-18: one question per open question, OQ-1..OQ-7 A; the edits to the accepted ADR-0028 and ADR-0029 confirmed not substantive)
 gate-2: n/a (docs route: stages 1-2 only, no screens, no design)
 gate-3: pending
 
@@ -33,6 +33,7 @@ orchestrator rewords the queue lines in a separate queue commit to main.
   feat-043 -> mod-019 -> feat-041 -> feat-042 -> mod-007 -> feat-013; the
   parallel lane mod-005 -> feat-003 is untouched.
 - E2E: n/a (docs).
+- The human at gate-1 (2026-10-18), asked one question per open question: OQ-1 A, feat-045 folded into feat-043 and withdrawn; OQ-2 A, mod-020 stays where it is and becomes a dep of feat-043; OQ-3 A; OQ-4 A; OQ-5 A; OQ-6 A, feat-043 stays one L line; OQ-7 A, the merge-order rule BR-NE-8. The edits to ADR-0028 and ADR-0029 are not substantive (BR-NE-7), so no superseding ADR is owed.
 
 ## Log
 
@@ -43,6 +44,7 @@ orchestrator rewords the queue lines in a separate queue commit to main.
 - 2026-10-18 [requirements-reviewer] the one round of the light route: changes-requested, 3 major and 7 minor, no critical (83d024f4).
 - 2026-10-18 [business-analyst] the review's findings fixed in place (c837a563).
 - 2026-10-18 [orchestrator] stage complete; gate-1 goes to the human (the new order and OQ-1..OQ-7).
+- 2026-10-18 [orchestrator] gate-1: approved by the human in chat (every open question A, the ADR edits not substantive); OQ boxes checked; PR to main opened (squash, branch kept). The queue lines are reworded from spec § Queue changes in a separate sync PR; gate-3 is the human's merge.
 
 ## Notes
 
