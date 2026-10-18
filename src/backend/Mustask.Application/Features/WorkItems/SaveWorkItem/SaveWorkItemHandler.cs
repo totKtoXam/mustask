@@ -23,7 +23,9 @@ namespace Mustask.Application.Features.WorkItems.SaveWorkItem;
 /// § 3.3, mod-016 api-contract § 4.2): the scoped check has answered for the
 /// organization and the route's code; a save that carries a parent then answers
 /// 403 when the role lacks <c>workitems.link.write</c>, before anything below;
-/// the address from the outside in, as the read resolves it; the values
+/// the address from the outside in, as the read resolves it; <b>mod-005: the item in «Удалена» (409
+/// <c>workitems.workitem.deleted</c>, step 1a — decided on the stored state under the item's lock, whatever the body carries,
+/// before anything below)</b>; the values
 /// (400, every field reason at once — feat-022's fields included, checked by the
 /// domain against the item's type and its stored dates, under the item's lock,
 /// feat-022 api-contract § 3.2); the area (404); mod-017's team (404, or 409 for a team of
@@ -124,6 +126,12 @@ public sealed class SaveWorkItemHandler(
                 {
                     throw new NotFoundException(WorkItemErrorCodes.WorkItemNotFound);
                 }
+
+                // 1a. mod-005 (BR-DR-8, ADR-0030 rule 3): an item in «Удалена» takes no save. Decided on the stored state, under the
+                // item's lock, before any value is looked at — so a 300-character title on a deleted item answers 409 and not 400, and
+                // a live state sent with a parent cannot slip past (tech-012 m1). The domain's Save asks again; it does not rely on
+                // this call, which only fixes the answer's place in the order.
+                item.EnsureLive(type);
 
                 // 2. The values, every field reason at once.
                 var title = ValidateValues(command, item, type);
