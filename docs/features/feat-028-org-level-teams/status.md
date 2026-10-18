@@ -71,6 +71,7 @@ to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-18 [orchestrator] rebased onto main 7c29b857; `BASE=origin/main bash scripts/verify.sh` green (backend build and tests incl. integration, frontend lint and build, Vitest 2739 affected + 590 guards). Stage complete; gate-3 goes to the human with the PR.
 - 2026-10-18 [backend-developer] api-contract.md changed at gate-3 by the human's choice («⛔ Серверный поиск сейчас»): GET …/teams/member-candidates?text= for the creation form's «Участники» (ad241e04); § 2.3a, routes 55 → 56, plan-backend § 12 A-8. The frontend still reads the local filter (`useMemberSearch`) until its stage switches it.
 - 2026-10-18 [frontend-developer] the creation form's «Участники» switched to the server search (`useUserSearch`, scope `newTeam`); `useMemberSearch` deleted; route in the API layer, the MSW double and its guard; plan-frontend § 4 and § 6 rewritten.
+- 2026-10-18 [code-reviewer] delta read 2 (185c8b49, the gate-3 server member search): approve; DR2-1, DR2-2 minor added. Every open finding is a minor (review-code.md).
 
 ## Notes
 

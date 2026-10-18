@@ -272,3 +272,180 @@ Direction 2:
 - **Carried from round 1's "For the human":**
   - plan-backend D-3, `FOR NO KEY UPDATE` where ADR-0028 rule 8 reads `FOR UPDATE`. **Recommended: accept.**
   - plan-frontend § 6's two deviations. **Recommended: accept**, and make the `ConfirmDialog` aria-disabled state a kit task.
+
+## Delta read 2 (gate-3 change: server member search)
+
+The second and last delta read of the L route, in a clean context. Checkout confirmed: branch `feat/028-org-level-teams`, HEAD
+`185c8b49`, toplevel the feat-028 worktree. It covers `git diff 9b97df16..HEAD` only:
+- ad241e04 (backend), 63c61a68 (contract and plan prose), 185c8b49 (frontend);
+- 27 files, +902/−102.
+
+It is read against:
+- api-contract § 0.1, § 0.5, § 2.3 and § 2.3a;
+- mod-016 § 0.5, § 1.3 and § 2.2;
+- design § 5.1 and plan-frontend § 6.
+
+**Verdict: approve.** The route and the hook do what § 2.3a and design § 5.1 say. The read adds two minors, which are gate-3
+debt. Nothing goes back to the developer.
+
+### Checked
+
+- **Search rules (mod-016 § 0.5, § 1.3, § 2.2).**
+  - There is one definition, `TeamMemberCandidateSearch.cs:27-28`: the member ids, then
+    `UserDirectoryBatches.SearchAmongAsync` in batches of 500 ids (`UserDirectoryBatches.cs:65-70`).
+  - Both handlers run it: `SearchTeamMemberCandidatesHandler.cs:47` and `SearchNewTeamMemberCandidatesHandler.cs:48`.
+  - The text rules come from mod-014 unchanged: trimming, the two-character floor, the cut at 20 with `moreMatched`, matching
+    on name or e-mail with letter case not deciding, and the 400 over 100 characters.
+  - Endpoint tests pin them at :45, :73, :93, :108 and :129. Handler tests pin them at :37–:111, including 501 members with
+    every batch at most 500.
+- **Routing.**
+  - The literal `…/teams/member-candidates` (`MembershipEndpoints.cs:65`) outranks `GET` and `DELETE …/teams/{teamId}`. No
+    other team route has as few segments, so nothing else can collide with it.
+  - `Route_MemberCandidates_NeverBindsAsATeamId_…` (:211) pins every case:
+    - the search, also spelled in upper case;
+    - the team read by an id in either letter case;
+    - `…/member-candidates/members` and `…/member-candidates/member-candidates` answer `team.not_found`;
+    - `DELETE` answers `team.not_found`, not 405.
+- **Codes and containment.**
+  - The route declares `team.create` (:66).
+  - The handler asks `team.write` first of all, before it reads the address (handler :36). Handler test :125 pins this with
+    a malformed id. The order matches § 0.5.
+  - The inventory row (`OrganizationAddressedRoutes.cs:72`) puts the route into the every-route theories:
+    - per role (`OrganizationAccessInventoryTests.cs:270`) and for a non-member (:304);
+    - a deactivated organization (`ScopedAccessTests.cs:332`);
+    - a malformed or never-existing organization (`ScopedAccessTests.cs:112`);
+    - no token.
+  - The endpoint tests add two cases: an administrator of another organization (:162), and an administrator of two
+    organizations, who is offered only the members of the one addressed (:185).
+- **Statement count.**
+  - 2 for 2 members and for 200, all of them matching (`TeamStatementCountTests.cs:165`; `NewTeamMemberCandidatesStatements = 2`
+    at :50).
+  - The test calls the handler directly, so the scoped check is outside the count, as on every other row.
+- **Inventory and OpenAPI.**
+  - Routes 55 → 56 (`OrganizationAccessInventoryTests.cs:237`), OpenAPI operations 44 → 45 (`OrganizationsOpenApiTests.cs:48`).
+  - `ContractOperations` is derived from `OrganizationAddressedRoutes.All`, so the inventory row and the operation cannot drift
+    apart.
+- **Hook, states and texts (design § 5.1).**
+  - The chain: `CreateTeamDialog.tsx:71` → `useUserSearch({ kind: 'newTeam' })` (`useUserSearch.ts:44-50`) →
+    `searchNewTeamMemberCandidates` (`membershipApi.ts:121-127`).
+  - The states and texts are the team page's search's:
+    - under two characters, «Введите не менее 2 символов…» and no request;
+    - «Поиск…»;
+    - «Пользователи не найдены»;
+    - 20 users and then «Показаны первые 20. Уточните запрос.»;
+    - «Не удалось выполнить поиск…», retried on reopening the list (`onOpen={retry}`, :183).
+  - `OrganizationTeamsPage.members.test.tsx` :43–:150 pins each state. It also pins that `GET …/members` is never read (:43),
+    and that members chosen in two searches all go into `memberIds` (:150).
+  - The hint «Среди активных участников организации.» is unchanged (`teamTexts.ts:53`).
+- **Dead code.** `useMemberSearch.ts` is deleted, and a grep finds no reference left under `src/`. `useMembers` stays, because
+  `MembersPage.tsx` uses it.
+- **MSW double.**
+  - The handler is at `testMembers.ts:334`. The guard row is at `testMembership.ts:61`, before `/teams/${ID}`, because `find()`
+    takes the first match.
+  - Both are pinned at `testMembership.test.ts:153-155`.
+
+### Runs
+
+- `dotnet test`:
+  - `Mustask.Application.Tests` `~SearchTeamMemberCandidates`: 19 passed;
+  - `Mustask.Architecture.Tests` `~VerticalSliceRules`: 2 passed;
+  - `Mustask.Infrastructure.Tests` `~TeamStatementCountTests.NewTeamMemberCandidates`: 1 passed;
+  - `Mustask.Api.IntegrationTests`, 506 passed: `SearchNewTeamMemberCandidatesEndpointTests`,
+    `Organizations.SearchTeamMemberCandidatesEndpointTests`, `OrganizationAccessInventoryTests`, `OrganizationsOpenApiTests`
+    and `ScopedAccessTests`;
+  - `EndpointCategoryInventoryTests` and `OrganizationContainmentTests`: 58 passed.
+- `npx vitest run` on `OrganizationTeamsPage.members.test.tsx`, `OrganizationTeamsPage.test.tsx`, `UserSearchField.test.tsx`
+  and `testMembership.test.ts`: 62 passed.
+- On the 10 changed frontend files, `eslint` and `prettier --check` are clean. `tsc -p tsconfig.app.json --noEmit` is clean.
+- No `verify.sh`: that run is the orchestrator's.
+
+### New
+
+- **DR2-1 · minor · backend (architecture, backend.md:50).**
+  - The convention is "one use case = one folder = one endpoint". `Features/Organizations/SearchTeamMemberCandidates/` now
+    holds two handlers for two routes. No other slice folder in Application does.
+  - Plan § 12 A-8 records this, with the reason "a slice may not use another slice". The convention's answer to that problem
+    is Abstractions, not a shared folder; `UserDirectoryBatches` exists for exactly this case.
+  - Nothing breaks. `VerticalSliceRules` passes because it sees the folder as one slice.
+  - **Fix:**
+    - move `SearchNewTeamMemberCandidates{Handler,Query}` to their own folder;
+    - move `TeamMemberCandidateSearch` to `Abstractions/Organizations`, beside `IMemberReadModel`, returning `UserSearchResult`;
+    - give each slice its own response record of the same shape;
+    - update A-8's sentence.
+- **DR2-2 · minor · frontend (tests).**
+  - Two tests duplicate each other: `OrganizationTeamsPage.test.tsx:226` ("offers only active members…: not an inactive one,
+    not a user of no organization") and the new `OrganizationTeamsPage.members.test.tsx:85`. Both type the same «Ол» and «Мар»
+    into the same field and assert the same lines.
+  - Since this delta, neither tests the panel's own filtering, because that filtering is gone. Both test the MSW double's
+    `candidatesFor` (`testMembers.ts:98-121`). The server rule itself is pinned by the endpoint test at :45.
+  - **Fix:** delete the older test and leave a retire comment that points to the new file. Or drop "offers only active
+    members" from both titles.
+
+### Behavioural claims (delta)
+
+Direction 1:
+- api-contract § 2.3a, "Query and body" and "Rules" → `TeamMemberCandidateSearch.cs:27-31`; endpoint tests :45, :73, :93,
+  :108, :129. ✓
+- § 2.3a, "Who is offered" → endpoint test :45 covers all four excluded kinds: removed, disabled, a member of nothing, a member
+  of another organization only. ✓
+  - "The creation still judges every `memberIds` entry" → the create handler is unchanged; round 1 anchored its refusal
+    tests. ✓
+- § 2.3a, "Statements: two … one more per further 500" → `TeamStatementCountTests.cs:165`, `UserDirectoryBatches.cs:65-68`,
+  handler test :87. ✓
+- § 2.3a, "Codes … first of all … a role without either learns nothing" → handler :36; handler test :125; endpoint test
+  :145. ✓
+- § 2.3a, "Containment" → endpoint test :162 covers a non-member, an instance administrator, a member of another organization
+  only and an unknown organization; `ScopedAccessTests.cs:112`, :134 and :332 cover malformed and deactivated, over all
+  routes. ✓
+- § 2.3a, "Routing", every sentence → endpoint test :211. ✓
+- § 2.3a, "Errors, in order" → handler :36, then :42, then :48 (the 400 comes from the directory). ✓
+- The § 0.1 table row, the § 4 row and the count "47 → 56 … 17 in … OpenAPI 45" → `OrganizationAddressedRoutes.cs:72`,
+  inventory test :237, OpenAPI test :48. ✓
+- plan-backend § 12 A-8, § 12.2 ("member search 2"), § 12.3 and § 12.4 → the anchors above and `CreateTeamDialog.tsx:71`. ✓
+  A-8's slice rationale is DR2-1.
+- plan-frontend § 4 and § 6 bullet 1 → `useUserSearch.ts:52-69`, `OrganizationTeamsPage.members.test.tsx` :43–:150, and the
+  `members` field at `CreateTeamDialog.tsx:110`. ✓ The bullet's claims: the states, the texts, the retry, `useMemberSearch`
+  deleted, the 409 on «Участники», both codes held by «Администратор» alone.
+- status.md Log lines 72–73 → the three commits. ✓ Line 72's "still reads the local filter" is history, and line 73 closes it.
+- Code comments, each against the code it sits on: ✓
+  - `MembershipEndpoints.cs:62-64`;
+  - the handler's remarks :16-27 ("only «Администратор» holds both");
+  - the `TeamMemberCandidateSearch` summary;
+  - `useUserSearch.ts:9-24` and `CreateTeamDialog.tsx:33-42`;
+  - `testMembership.ts:60`;
+  - `OrganizationAddressedRoutes.cs:27-28` and :70-71.
+
+Direction 2:
+- **Behaviour changed:**
+  - the new route `…/teams/member-candidates`;
+  - the route count;
+  - the creation form's search, which moved from a local filter of `GET …/members` to the server.
+- **Grepped** across the repository, without `node_modules`, `bin`, `obj` and `dist`: `member-candidates`, `useMemberSearch`,
+  "filtered locally", "local filter", "55", "sixteen", "16 new", "47 → 55".
+- **Hits:**
+  - plan-backend.md :542, :546 and :557 ("55 rows", "16 new routes"). These are the § 9 test plan of stage 4a, which § 12 A-8
+    supersedes. Nothing an agent would do differs, because the tests say 56.
+  - qa.md:37, review-security.md:101 and :126 ("55"). These record their own sessions and are history.
+  - review-code.md:119 is round 1's question, now answered.
+  - design.md:134 is now true. design.md:379 is about the team-address routes and makes no claim about the creation search.
+  - `RetiredTeamRoutesEndpointTests.cs:27` and :101 test the project-nested path and are unaffected.
+  - The e2e files `27-organization-members.spec.ts`, `membersApi.ts` and `membersUi.ts`. E2E is paused (plan-backend § 11),
+    and they were not read for edits.
+  - mod-016's contract needs no change: feat-028 § 2.3a adds a route and supersedes nothing.
+- Nothing was left unswept.
+
+### For the human
+
+- **The security pass (review-security.md, 925e0517) ran before this route existed.** This read covered its checklist for the
+  one new route:
+  - authorization: both codes, and the per-role theory;
+  - IDOR and containment: the theories over all 56 routes, and the two cross-organization tests;
+  - personal data: e-mail goes to «Администратор» only, as in § 2.3's search;
+  - injection: the text goes through mod-014's parameterized search;
+  - secrets: none.
+
+  **Recommended: no separate security delta.**
+- **Gate-3 debt now:**
+  - CR-4..CR-6 (round 1), DR-1 (delta read 1), DR2-1 and DR2-2 (this read);
+  - QA's BD-1, BD-3 and FD-2;
+  - security S-1..S-4.
