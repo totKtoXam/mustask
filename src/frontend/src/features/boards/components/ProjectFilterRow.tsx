@@ -7,7 +7,7 @@ import { ActionButton } from '../../../shared/ui';
  * The project's views’ filter row (mod-017 US-5; design § 6.2): a row of its own, 20 px below
  * the tab row, in a group named «Фильтры» — the field «Команда» and, while a value is chosen,
  * «Очистить фильтры». A team’s views have none: the team is the filter. The chosen values
- * belong to the page, above the level.
+ * belong to the page, above the level, and live in its address (mod-020).
  */
 export function ProjectFilterRow({
   organizationId,

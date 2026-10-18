@@ -553,3 +553,85 @@ describe('mod-017 US-5 Scenario: the «Команда» filter on the list', () 
     ).toBeInTheDocument();
   });
 });
+
+// mod-020 (the human's answer to mod-017 OQ-9 B): the list's team filter lives in the page address
+// as the repeated `teamId`, so a link carries it. The reads and the field behave as above.
+
+/** The router's search, which the shell's location probe keeps. */
+function addressSearch(): string {
+  return screen.getByTestId('location').getAttribute('data-search') ?? '';
+}
+
+describe('mod-020 Scenario: the list’s team filter lives in the address', () => {
+  it('writes a choice into the address, one teamId per value and `none` for «Без команды», and clearing takes it out', async () => {
+    serveWorkItems(teamsDataset());
+    renderWorkItems(MSK_LIST);
+    await table();
+
+    await chooseTeams('MARS', 'Без команды');
+
+    await waitFor(() => expect(addressSearch()).toBe(`?teamId=${ids.marsTeam}&teamId=none`));
+    await userEvent.click(within(band()).getByRole('button', { name: 'Очистить фильтры' }));
+    await waitFor(() => expect(addressSearch()).toBe(''));
+    expect(screen.getByText('Все команды')).toBeInTheDocument();
+  });
+
+  it('a link that carries the filter opens the list already narrowed: every read carries it, the field and «Очистить фильтры» show it', async () => {
+    const api = serveWorkItems(teamsDataset());
+    renderWorkItems(`${MSK_LIST}?teamId=${ids.venusTeam}&teamId=none`);
+
+    await waitFor(async () => expect(await titles()).toEqual(['Венерианская', 'Ничья']));
+
+    expect(api.reads('/workitems?').length).toBeGreaterThan(0);
+    for (const read of api.reads('/workitems?')) {
+      expect(read.path).toContain(`teamId=${ids.venusTeam}`);
+      expect(read.path).toContain('teamId=none');
+    }
+    expect(within(band()).getByRole('combobox', { name: 'Команда' })).toHaveTextContent(
+      'VENUS, Без команды',
+    );
+    expect(within(band()).getByRole('button', { name: 'Очистить фильтры' })).toBeVisible();
+  });
+
+  it('a value that names no team of the project selects nothing, and «Сбросить фильтр» takes it out of the address', async () => {
+    serveWorkItems(teamsDataset());
+    renderWorkItems(`${MSK_LIST}?teamId=c3000000-0000-4000-8000-000000000099`);
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Ничего не найдено' }),
+    ).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Сбросить фильтр' }));
+
+    await waitFor(async () => expect(await titles()).toHaveLength(3));
+    expect(addressSearch()).toBe('');
+  });
+
+  it('a blank teamId in the address is no filter: the whole list, and nothing to clear', async () => {
+    serveWorkItems(teamsDataset());
+    renderWorkItems(`${MSK_LIST}?teamId=`);
+
+    expect(await titles()).toHaveLength(3);
+    expect(screen.getByText('Все команды')).toBeInTheDocument();
+    expect(within(band()).queryByRole('button', { name: 'Очистить фильтры' })).toBeNull();
+  });
+
+  it('the next page keeps the filter in the address and in the read', async () => {
+    const data = emptyDataset();
+    for (let number = 1; number <= 120; number += 1) {
+      data.items.push(
+        item(ids.msk, number, 'TASK', `Задача ${number}`, {
+          teamId: ids.marsTeam,
+          changedAt: new Date(2026, 9, 1, 0, number).toISOString(),
+        }),
+      );
+    }
+    const api = serveWorkItems(data);
+    renderWorkItems(`${MSK_LIST}?teamId=${ids.marsTeam}`);
+    await table();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Перейти на следующую страницу' }));
+
+    await waitFor(() => expect(api.reads(`page=2&teamId=${ids.marsTeam}`)).not.toHaveLength(0));
+    expect(addressSearch()).toBe(`?teamId=${ids.marsTeam}`);
+  });
+});
