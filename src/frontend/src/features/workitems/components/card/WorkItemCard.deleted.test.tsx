@@ -274,6 +274,42 @@ describe('mod-005 design § 8, D-5: a save that loses to a deletion', () => {
   });
 });
 
+describe('mod-005 BR-DR-9, BR-DR-10 x feat-028 Scenario: a deleted card shows its owning team as stored', () => {
+  const team = () => screen.getByRole('combobox', { name: 'Команда' });
+
+  it('shows the team the item holds now (an unlink’s destination) as a read-only value, with no read of the project’s teams', async () => {
+    const { api } = await openAs(STORY, {
+      role: 'member',
+      prepare: (data) => {
+        recordOf(data, 2).teamId = ids.marsTeam;
+        deletedStory(data);
+        // MARS was unlinked from the project: the deleted item went to VENUS and stayed deleted.
+        recordOf(data, 2).teamId = ids.venusTeam;
+      },
+    });
+
+    expect(team()).toHaveValue('VENUS');
+    expect(team()).toHaveAttribute('aria-readonly', 'true');
+    expect(screen.getByRole('combobox', { name: 'Статус' })).toHaveTextContent('Удалена');
+    expect(api.reads('/teams')).toHaveLength(0);
+  });
+
+  it('shows «Без команды» for one whose team was deleted (the deletion released it), still deleted', async () => {
+    await openAs(STORY, {
+      role: 'member',
+      prepare: (data) => {
+        recordOf(data, 2).teamId = ids.marsTeam;
+        deletedStory(data);
+        recordOf(data, 2).teamId = null;
+      },
+    });
+
+    expect(team()).toHaveValue('Без команды');
+    expect(team()).toHaveAttribute('aria-readonly', 'true');
+    expect(restoreButton()).toBeEnabled();
+  });
+});
+
 describe('mod-005 design § 2: a deleted card still copies its link', () => {
   it('puts the page’s address on the clipboard for a reader too', async () => {
     const user = userEvent.setup();

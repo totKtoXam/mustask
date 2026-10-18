@@ -463,6 +463,16 @@ describe('feat-028 US-5 Scenario: Deleted after a confirmation that counts every
     expect(within(dialog).getByRole('button', { name: 'Отмена' })).toHaveFocus();
   });
 
+  it('lists the counts the server gave as they are — in any state, deleted items included (mod-005 BR-DR-9) — and reads no work item to refine them', async () => {
+    const { api, dialog } = await openDelete(contextSource(), acrossProjects());
+
+    await within(dialog).findByRole('list', { name: 'Рабочие элементы по проектам' });
+
+    const paths = api.requests.map((request) => request.path);
+    expect(paths.filter((path) => path.endsWith('/deletion-counts'))).toHaveLength(1);
+    expect(paths.filter((path) => path.includes('/workitems'))).toEqual([]);
+  });
+
   it('deletes: one request at the organization’s address, the notice, and the row leaves', async () => {
     const { api, dialog } = await openDelete(contextSource(), acrossProjects());
     await within(dialog).findByRole('list', { name: 'Рабочие элементы по проектам' });

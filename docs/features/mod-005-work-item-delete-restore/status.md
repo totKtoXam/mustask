@@ -29,6 +29,7 @@ The light route (the human's choice of 2026-10-18): analysis → one requirement
 
 ## Log
 
+- 2026-10-18 [frontend-developer] merge check of 83c68c69: tsc, eslint, all 305 files green, no defect; 6 pins added (deleted card and Restore keep the owning team as stored; unlink/team-deletion counts are the server's, any state); plan-frontend.md § Merge
 - 2026-10-18 [backend-developer] found, not fixed, main's own: a save that moves a link × an unlink or a team deletion can deadlock (40P01), reproduced; plan-backend § 14.3 "Carried"; a bug line is for the orchestrator
 - 2026-10-18 [backend-developer] merge of origin/main (feat-028): 23 codes, 59 routes; unlink/deletion clear the default before the items (40P01 against the project reorder); unlink test written; contract wording only (§ 3.2, 3.7, 5), no wire change; plan-backend § 14
 - 2026-10-18 [task-executor] wrap: `BASE=ce7f055b bash scripts/verify.sh` RESULT green (backend 2491 passed, frontend 2149 + 590 guards). The earlier red was ProjectBacklogVolumeTests under load: green 4 of 4 alone, reorders ~245 ms of 1000.

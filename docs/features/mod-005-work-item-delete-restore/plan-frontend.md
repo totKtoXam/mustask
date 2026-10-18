@@ -54,3 +54,13 @@ server's text and a re-read; the host re-reads after each write. Retired: none (
 - `useAccessCheck()` outside the gate fails closed, so dialog tests mount the gate (`renderWorkItems`); card unit tests that need no dialog do not.
 - Focus after a menu-chosen dialog closes: MUI restores to a node that may be gone, so the card moves focus itself (effect after the write).
 - The unknown deleter: the contract flags an unknown user `isActive: false`; the line shows «(неактивен)» only for a known name (for the human: design leaves it open).
+
+## Merge with feat-028 (2026-10-18, frontend check of 83c68c69)
+
+The backend pass changed no frontend file; this pass read the merged tree for what a textual merge cannot show. Nothing was broken. Six tests pin what the two lines share.
+
+- Types and wire: `WorkItem` carries `deletion` beside `team`, the list row omits `deletion`; `testMembership.ts` holds the three writes beside feat-028's organization-level team routes (the project-nested owned-items and team routes are not in it); `errorCodes.ts` holds both lines' codes.
+- Role mirrors: `src/test/organizationRoles.ts` holds 23 codes (17 + feat-028's four + mod-005's two); its test reads the three contracts.
+- The unlink and team-deletion dialogs show the server's `unlink-count` and `deletion-counts` (any state, BR-DR-9) and read no work item: `TeamsPage.test.tsx`, `OrganizationTeamsPage.test.tsx`.
+- A deleted card shows its owning team as stored (an unlink's destination; «Без команды» after the team's deletion) and Restore names no team (BR-DR-10): `WorkItemCard.deleted.test.tsx`, `WorkItemCard.restore.test.tsx`.
+- Ran: `tsc -b`, ESLint over `src`, all 305 Vitest files (4669 passed, 6 skipped) plus the 6 new tests. E2E: standing NO, not run or edited. Specs broken (found by reading `e2e/`): mod-005's 27-work-item-card 27.5 and 27-organization-members 27.9 (served bundles; now also feat-028's four codes); feat-028's project-nested team helpers (`addTeam`, `deleteTeam`, `isFirstTeam`, `teamPath`, `createContext`) leave 19, 21.2, 23, 24, 25, 26, 27-organization-members, 28-team-members and 29 stale, which feat-028's status does not list.

@@ -463,6 +463,18 @@ describe('feat-028 US-4 Scenario: «Отключить от проекта» rea
     ).toEqual(['Без команды', 'Пример проекта']);
   });
 
+  it('shows the number the server counted as it is — in any state, deleted items included (mod-005 BR-DR-9) — and reads no work item to refine it', async () => {
+    const { api, dialog } = await openUnlink({ data: owning(4) });
+
+    await within(dialog).findByText(
+      'Команда «Платформа» владеет рабочими элементами проекта «Пример проекта»: 4. Выберите, кому их передать.',
+    );
+
+    const paths = api.requests.map((request) => request.path);
+    expect(paths.filter((path) => path.endsWith('/unlink-count'))).toHaveLength(1);
+    expect(paths.filter((path) => path.includes('/workitems'))).toEqual([]);
+  });
+
   it('moves them to another linked team: the line names it, the request names it, the row leaves and the notice reads', async () => {
     const { api, dialog } = await openUnlink({ data: owning(7) });
     await userEvent.click(

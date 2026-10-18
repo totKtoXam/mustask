@@ -378,3 +378,39 @@ describe('mod-005 design § 8: «Восстановить» refused or failed', 
     void ids;
   });
 });
+
+describe('mod-005 BR-DR-10 x feat-028 Scenario: Restore brings the item back with its owner as stored', () => {
+  const team = () => screen.getByRole('combobox', { name: 'Команда' });
+
+  it('names no team in the request, and the card then shows the team the server stored (an unlink’s destination)', async () => {
+    const { api } = await openDialog((data) => {
+      recordOf(data, 2).teamId = ids.marsTeam;
+      deletedFromActive(data);
+      // MARS was unlinked from the project meanwhile: the deleted item went to VENUS and stayed deleted.
+      recordOf(data, 2).teamId = ids.venusTeam;
+    });
+
+    await userEvent.click(primary());
+
+    await noDialog();
+    expect(postsTo(api, 'restore')[0]?.body).toEqual({ stateId: stateId('US', 'Активна') });
+    await waitFor(() => expect(team()).toHaveValue('VENUS'));
+    expect(team()).not.toHaveAttribute('aria-readonly', 'true');
+    expect(recordOf(api.data, 2).teamId).toBe(ids.venusTeam);
+  });
+
+  it('brings back «Без команды» when the team was deleted meanwhile, and asks for no other', async () => {
+    const { api } = await openDialog((data) => {
+      recordOf(data, 2).teamId = ids.marsTeam;
+      deletedFromActive(data);
+      recordOf(data, 2).teamId = null;
+    });
+
+    await userEvent.click(primary());
+
+    await noDialog();
+    expect(postsTo(api, 'restore')[0]?.body).toEqual({ stateId: stateId('US', 'Активна') });
+    await waitFor(() => expect(team()).toHaveValue('Без команды'));
+    expect(recordOf(api.data, 2).teamId).toBeNull();
+  });
+});
