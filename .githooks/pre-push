@@ -1,5 +1,5 @@
 #!/bin/sh
-# Pre-push check — a single entry point, `scripts/verify.sh`.
+# Pre-push check — a single entry point, `scripts/verify.sh`, the quick run.
 #
 # There used to be a fixed list of test projects here. It drifted from what
 # the stages' Definition of Done requires, and couldn't do the main thing: a
@@ -7,6 +7,26 @@
 # could sail through unbuilt if the list wasn't updated. verify.sh picks
 # checks by the class of changed files, so the hook and the DoD now talk
 # about the same thing.
+#
+# The hook is feedback, not the barrier (docs/conventions/git.md, "Local checks"):
+# it runs verify.sh the way a developer runs it while working — the change-
+# proportionate checks (build, lint, the frontend tests that reach what the
+# branch changed). The whole frontend suite is CI's job: the CI workflow sets
+# VERIFY_FULL=1 and its check is required on main (tech-041). Until tech-041
+# this hook forced VERIFY_FULL=1 and every push paid for the whole suite.
+#
+# The comparison base is verify.sh's own (tech-044): BASE if exported, else
+# origin/main when that ref exists, else main. The hook sets none, so a push
+# from a worktree is checked against what the branch changed, not against the
+# hub's stale local main. The hook runs the verify.sh of the tree being pushed
+# from (git rev-parse --show-toplevel), whichever checkout's copy of this hook
+# core.hooksPath points at.
+#
+# A full run before the push stays one variable away, and the green stamp
+# (scripts/verify.sh header) makes it instant when this tree already passed:
+#
+#   VERIFY_FULL=1 git push                       # sh
+#   $env:VERIFY_FULL = 1; git push               # PowerShell
 
 set -eu
 
@@ -18,11 +38,17 @@ if [ ! -f "$verify" ]; then
     exit 0
 fi
 
-printf '[pre-push] scripts/verify.sh\n'
+# Whatever the caller exported; anything but 1 is the quick run.
+VERIFY_FULL=${VERIFY_FULL:-0}
+export VERIFY_FULL
 
-# The push is the last gate before an MR: always the whole frontend suite
-# (verify.sh alone runs only the tests the branch reaches, tech-028).
-if ! (cd "$repo" && VERIFY_FULL=1 sh "$verify"); then
+if [ "$VERIFY_FULL" = 1 ]; then
+    printf '[pre-push] scripts/verify.sh (VERIFY_FULL=1: the whole frontend suite)\n'
+else
+    printf '[pre-push] scripts/verify.sh (quick; VERIFY_FULL=1 git push for the full run, CI runs it on the PR)\n'
+fi
+
+if ! (cd "$repo" && sh "$verify"); then
     printf '\n[pre-push] Check failed — push stopped.\n\n' >&2
     exit 1
 fi

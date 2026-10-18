@@ -30,10 +30,12 @@ After `gate-3: approved` — or, under standing approval (AGENTS.md,
 1. Rebase onto `main`. If main brought its own EF migrations — the feature's
    migrations are regenerated on top of fresh main (a model snapshot conflict
    is the normal scenario for this step, not a surprise). Do not run the full
-   suite by hand here: `pre-push` runs `VERIFY_FULL=1 scripts/verify.sh` on
-   the way out (step 1 of "Opening the MR"), and it is the same run — instant
-   when the green stamp for this tree exists (README, "One full run per
-   tree"), a real full run after a rebase changed the tree. Run something
+   suite by hand here: `pre-push` runs the quick `scripts/verify.sh` on the
+   way out (step 1 of "Opening the MR") and CI runs `VERIFY_FULL=1
+   scripts/verify.sh` on the MR itself — the whole frontend suite is CI's
+   job, not the push's. Want it before the push: `VERIFY_FULL=1 git push` —
+   instant when the green stamp for this tree exists (README, "One full run
+   per tree"), a real full run after a rebase changed the tree. Run something
    targeted only if the rebase actually touched the code — regenerated
    migrations, a resolved conflict — and even then only over what moved.
 2. **Complete goes into the squash itself, it does not catch up with it.**
@@ -83,7 +85,8 @@ configured: see "GitLab CLI" in
 rakes `glab auth login` steps on.
 
 ```sh
-# 1. The branch goes to the server. pre-push runs scripts/verify.sh by itself.
+# 1. The branch goes to the server. pre-push runs the quick scripts/verify.sh by
+#    itself; the full run (VERIFY_FULL=1) is CI's check on the MR.
 git push -u origin <branch>
 
 # 2. MR from the branch. The title is English — it also becomes the squash commit.
@@ -104,7 +107,8 @@ glab mr create     --source-branch <branch>     --target-branch main     --title
   the repository.
 - A red run is a stop. An MR is not opened with failing tests or linters;
   `pre-push` is exactly what checks this, bypassing it with `--no-verify` is
-  not allowed.
+  not allowed. A red CI on the MR (the full run, required on `main`) is a stop
+  as well: fix it in the branch, push again, do not merge around it.
 
 ### What goes in the MR description
 

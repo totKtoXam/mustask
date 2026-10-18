@@ -157,3 +157,58 @@ describe('defaultEntry (mod-016 D-5, US-7)', () => {
     ).toBe('t-1');
   });
 });
+
+describe('defaultEntry (mod-020: the project’s default team first)', () => {
+  it('is the default entry, before the one the user is a member of', () => {
+    const teams = [
+      { id: 't-1', isMember: true, isDefault: false },
+      { id: 't-2', isMember: false, isDefault: true },
+      { id: 't-3', isMember: true, isDefault: false },
+    ];
+
+    expect(defaultEntry(teams)?.id).toBe('t-2');
+  });
+
+  it('is the user’s own first, then the first, when no entry is the default or the list does not say', () => {
+    expect(
+      defaultEntry([
+        { id: 'a', isMember: false, isDefault: false },
+        { id: 'b', isMember: true, isDefault: false },
+      ])?.id,
+    ).toBe('b');
+    expect(defaultEntry([{ id: 'a', isDefault: false }, { id: 'b' }])?.id).toBe('a');
+  });
+
+  it('chooses the team a context opens on, below a chosen project or organization', () => {
+    const withDefault: WorkContextOrganization[] = [
+      {
+        id: 'org-1',
+        name: 'Организация',
+        projects: [
+          {
+            id: 'prj-1',
+            name: 'Проект',
+            teams: [
+              { id: 't-1', name: 'Первая', isMember: true },
+              { id: 't-2', name: 'Вторая', isMember: false, isDefault: true },
+            ],
+          },
+        ],
+      },
+    ];
+
+    expect(firstSelection(withDefault).teamId).toBe('t-2');
+    expect(selectInWorkContext(withDefault, {}, 'organization', 'org-1').teamId).toBe('t-2');
+    expect(
+      selectInWorkContext(withDefault, { organizationId: 'org-1' }, 'project', 'prj-1').teamId,
+    ).toBe('t-2');
+    // A chosen team that is found is never replaced by the default.
+    expect(
+      resolveWorkContext(withDefault, {
+        organizationId: 'org-1',
+        projectId: 'prj-1',
+        teamId: 't-1',
+      }).team?.id,
+    ).toBe('t-1');
+  });
+});

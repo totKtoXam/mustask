@@ -27,6 +27,7 @@ import {
   effectiveId,
   resolveSelection,
   sameSelection,
+  teamLevelItems,
   type LevelList,
 } from './resolveSelection';
 import { readRemembered, writeRemembered } from './storage';
@@ -76,8 +77,9 @@ interface FirstEntriesWanted {
 
 /**
  * The selection a move asks the resolver with: the choice, its first project
- * and that project's default team (the first one the user is in, else the
- * first; mod-016 D-5) where the address carries those levels, each read first
+ * and that project's default team (the one the project names or has alone, else
+ * the first one the user is in, else the first; mod-020, mod-016 D-5) where the
+ * address carries those levels, each read first
  * on the switcher's own keys (design § 2.2, § 3.5; plan-frontend § 4.5, R-8).
  * A level with no entry stays unset, and the resolver answers «Главная» for
  * it (mod-015 BR-18: the entry is not visible there).
@@ -107,7 +109,7 @@ async function withFirstEntries(
     queryKey: organizationsKeys.teams(organizationId, teamsOf),
     queryFn: () => getTeams(organizationId, teamsOf),
   });
-  return { organizationId, projectId, teamId: defaultEntry(teams)?.id };
+  return { organizationId, projectId, teamId: defaultEntry(teamLevelItems(teams))?.id };
 }
 
 /**
@@ -190,6 +192,8 @@ export function useOrganizationsContextSource({
   const teamsQuery = useQuery({
     queryKey: organizationsKeys.teams(organizationId ?? '', projectId ?? ''),
     queryFn: () => getTeams(organizationId ?? '', projectId ?? ''),
+    // The pages read the same key as the list; this level reads it as entries with the default mark.
+    select: teamLevelItems,
     enabled: enabled && organizationId !== undefined && projectId !== undefined,
     ...LEVEL_QUERY_OPTIONS,
   });
@@ -377,6 +381,7 @@ export function useOrganizationsContextSource({
                         id: team.id,
                         name: team.name,
                         isMember: team.isMember,
+                        isDefault: team.isDefault,
                       }))
                     : [],
               }))
