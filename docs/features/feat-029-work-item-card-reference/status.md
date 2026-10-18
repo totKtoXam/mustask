@@ -34,6 +34,7 @@ Frontend only: no backend change and no api-contract change (the backend slice �
 
 ## Log
 
+- 2026-10-18 [dev] P-10 note from `mod-005-work-item-delete-restore` (its design § 2, D-4; code review CR-3): US-5's "«Ещё действия» holds «Копировать ссылку» and nothing else — no «Удалить»" (and BR-C-11's "«Удалить» joins with mod-005") now holds for a reader only; a holder of `workitems.workitem.delete` also sees «Удалить», and on a deleted card the holder of `workitems.workitem.purge` sees «Удалить навсегда». The unit test is renamed to the reader's case; E2E 27.5 is not edited (standing NO) and asserts the old menu.
 - 2026-10-12 [orchestrator] gate-3: approved under the human's standing approval of 2026-10-05 (D-1): review round 1 resolved (4 major, 6 minor; parts of R1-7 and R1-10 declined with reasons), the card was on a preview stand for the human, E2E 27 written and not run (D-5); owed queue notes made in main with the merge; stage complete, local squash via scripts/finish-task.sh.
 - 2026-10-12 [frontend] fix pass after review round 1: all ten findings addressed, one commit each; four majors fixed (R1-1..R1-4, KD-13 recorded), the minors fixed or declined with reasons — review.md § Resolution. Kit asks and the E2E 27 changes (type-checked, listed, not run) are there too.
 - 2026-10-12 [review] round 1 on 8fa4c28: changes requested — 4 major, 6 minor open (review.md).
