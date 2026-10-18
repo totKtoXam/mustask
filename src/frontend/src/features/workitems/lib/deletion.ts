@@ -39,8 +39,8 @@ export function userNameWithMarks(
  * The card's second line of the deleted notice (BR-DR-7): who deleted the item and when;
  * `null` for an item with no marks — it shows no such line and keeps «Восстановить».
  */
-export function deletionLine(deletion: WorkItemDeletion | null): string | null {
-  if (deletion === null) {
+export function deletionLine(deletion: WorkItemDeletion | null | undefined): string | null {
+  if (!deletion) {
     return null;
   }
   return deletionTexts.line(userNameWithMarks(deletion.by), formatDateTime(deletion.at));
