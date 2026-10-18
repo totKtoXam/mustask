@@ -136,6 +136,38 @@ public sealed class DeleteRestorePurgeRaceTests(MustaskApiFactory factory)
         Assert.Equal("История", (await WorkItemsTestData.ReadAsync(factory, world.Items, story.Identifier)).GetProperty("title").GetString());
     }
 
+    // --- Delete ∥ Restore, both orders ------------------------------------------------------------------------------------
+
+    // The delete first: the restore queues on the item's row, finds it deleted under its own lock and brings it back to the held state.
+    [Fact]
+    public async Task Delete_Versus_Restore_DeleteFirst_TheRestoreFindsTheItemDeletedAndBringsItBack()
+    {
+        var (world, story) = await StoryAsync(deleted: false, state: "Активна");
+
+        var (deleted, restored) = await RaceAsync(gate => DeleteAsync(world.Items, story, gate: gate), () => RestoreAsync(world.Items, story));
+
+        Assert.Equal(HttpStatusCode.OK, deleted.Status);
+        Assert.Equal(HttpStatusCode.OK, restored.Status);
+        var item = await WorkItemsTestData.ReadAsync(factory, world.Items, story.Identifier);
+        Assert.Equal(("InProgress", JsonValueKind.Null), (CategoryOf(item), item.GetProperty("deletion").ValueKind));
+    }
+
+    // The restore first: the delete queues on the row, finds the item live under its own lock and deletes it again, holding the state
+    // the restore set.
+    [Fact]
+    public async Task Delete_Versus_Restore_RestoreFirst_TheDeleteFindsTheItemLiveAndDeletesItAgain()
+    {
+        var (world, story) = await StoryAsync(deleted: true, state: "Активна");
+
+        var (restored, deleted) = await RaceAsync(gate => RestoreAsync(world.Items, story, gate), () => DeleteAsync(world.Items, story));
+
+        Assert.Equal(HttpStatusCode.OK, restored.Status);
+        Assert.Equal(HttpStatusCode.OK, deleted.Status);
+        var item = await WorkItemsTestData.ReadAsync(factory, world.Items, story.Identifier);
+        Assert.Equal("Removed", CategoryOf(item));
+        Assert.Equal("Активна", item.GetProperty("deletion").GetProperty("fromState").GetProperty("name").GetString());
+    }
+
     // --- Restore ∥ Restore / Save -----------------------------------------------------------------------------------------
 
     [Fact]
@@ -164,6 +196,23 @@ public sealed class DeleteRestorePurgeRaceTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, saved.Status);
         var item = await WorkItemsTestData.ReadAsync(factory, world.Items, story.Identifier);
         Assert.Equal(("После восстановления", "Proposed"), (item.GetProperty("title").GetString(), CategoryOf(item)));
+    }
+
+    // The save first: a save of a deleted item is refused under the item's lock, before it writes anything, so it never reaches a
+    // commit gate and cannot be held there. The order is by sequence: the save answers 409 deleted, the restore that follows finds
+    // the item exactly as it was deleted (BR-DR-11: one order, no half state).
+    [Fact]
+    public async Task Restore_Versus_Save_SaveFirst_TheSaveIsRefused_TheRestoreFindsTheItemUntouched()
+    {
+        var (world, story) = await StoryAsync(deleted: true);
+
+        var saved = await WorkItemsTestData.SaveAsync(factory, world.Items, story.Identifier, new { title = "Слишком рано" });
+        var restored = await RestoreAsync(world.Items, story);
+
+        LinksTestData.AssertRefused(saved, HttpStatusCode.Conflict, Deleted);
+        Assert.Equal(HttpStatusCode.OK, restored.Status);
+        var item = await WorkItemsTestData.ReadAsync(factory, world.Items, story.Identifier);
+        Assert.Equal(("История", "Proposed"), (item.GetProperty("title").GetString(), CategoryOf(item)));
     }
 
     // --- Restore ∥ Purge, both orders -------------------------------------------------------------------------------------
@@ -204,6 +253,37 @@ public sealed class DeleteRestorePurgeRaceTests(MustaskApiFactory factory)
 
         Assert.Equal(HttpStatusCode.NoContent, a.Status);
         LinksTestData.AssertRefused(b, HttpStatusCode.NotFound, "workitems.workitem.not_found");
+    }
+
+    // --- Purge ∥ Save of the item itself, both orders ---------------------------------------------------------------------
+
+    // The purge first: the save queues on the item's row and, after the commit, finds no row.
+    [Fact]
+    public async Task Purge_Versus_Save_PurgeFirst_TheSaveAnswers404()
+    {
+        var (world, story) = await StoryAsync(deleted: true);
+
+        var (purged, saved) = await RaceAsync(
+            gate => PurgeAsync(world.Items, story, gate),
+            () => WorkItemsTestData.SaveAsync(factory, world.Items, story.Identifier, new { title = "Поздно" }));
+
+        Assert.Equal(HttpStatusCode.NoContent, purged.Status);
+        LinksTestData.AssertRefused(saved, HttpStatusCode.NotFound, "workitems.workitem.not_found");
+    }
+
+    // The save first: refused under the lock, so (as with the restore) there is no commit to hold; the purge that follows finds the
+    // item as it was deleted and removes it.
+    [Fact]
+    public async Task Purge_Versus_Save_SaveFirst_TheSaveIsRefused_ThePurgeThenGoesThrough()
+    {
+        var (world, story) = await StoryAsync(deleted: true);
+
+        var saved = await WorkItemsTestData.SaveAsync(factory, world.Items, story.Identifier, new { title = "Слишком рано" });
+        var purged = await PurgeAsync(world.Items, story);
+
+        LinksTestData.AssertRefused(saved, HttpStatusCode.Conflict, Deleted);
+        Assert.Equal(HttpStatusCode.NoContent, purged.Status);
+        LinksTestData.AssertRefused(await WorkItemsTestData.GetAsync(factory, world.Items, story.Identifier), HttpStatusCode.NotFound, "workitems.workitem.not_found");
     }
 
     // The delete not yet committed: the purge's early read sees a live item and answers 409 without waiting; after the commit it goes through.
