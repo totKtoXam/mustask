@@ -274,18 +274,23 @@ from it for every code that reads or writes work items:
   offers `Live` (the default: lists, pickers, children, checklists, counts),
   `Deleted` (a filter that names «Удалена») and `InAnyState` (the card by
   address, a team's owned count, Restore, Purge, the clean-ups, the locks).
-  No source but `WorkItemSets` names the context's `WorkItems` set
-  (`WorkItemAccessRules` is the text rule), so there is no global filter to
-  forget and no read that skips the choice. "Deleted" is the state's category
-  and nothing else; `DeletedStateParityTests` pins its three expressions
-  (in memory, in LINQ, in the backlogs' SQL) equal and
+  Outside `WorkItemSets`, only the two backlog memberships name the context's
+  `WorkItems` set (each pinned by `DeletedStateParityTests`), and
+  `WorkItemAccessRules` checks that by the set's name, which is a text rule
+  and not a proof. There is no global filter, and a raw-SQL read of
+  `work_items` is not seen by that rule: it filters by the shown states or by
+  id itself, and the reviewer checks it by hand. "Deleted" is the state's
+  category and nothing else; `DeletedStateParityTests` pins its three
+  expressions (in memory, in LINQ, in the backlogs' SQL) equal and
   `DeletedItemSurfaceMatrixTests` reads every surface once.
 - **The aggregate refuses, the handler places the refusal, an inventory
   classifies every write.** `WorkItem.EnsureLive` throws
   `workitems.workitem.deleted` on the stored state, under the item's lock,
   before any value is applied. A new write route has a row in
   `WorkItemWriteInventoryTests` (refuses a deleted item, acts on one,
-  clean-up, or names no work item) or the build fails.
+  clean-up, or names no work item), or that test fails; it is an
+  integration test (`RequiresDocker`), so it runs where Docker runs and
+  `scripts/verify.sh` skips it when Docker is down.
 - **Data keyed to a work item leaves with its purge.** A new table that
   references an item has a foreign key with `ON DELETE CASCADE` by default;
   what a cascade cannot do (a row written on survivors, a file outside the
