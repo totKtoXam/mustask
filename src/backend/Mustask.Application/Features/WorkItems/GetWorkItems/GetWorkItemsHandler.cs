@@ -9,10 +9,10 @@ using Mustask.Shared.Exceptions;
 namespace Mustask.Application.Features.WorkItems.GetWorkItems;
 
 /// <summary>
-/// The project's list (US-2, BR-M3-29): every item of the project in every
-/// state, most recently changed first, then by number descending, 50 a page, each
-/// with its owning team (mod-017 BR-OT-7). The one filter is the team's (BR-OT-8); the
-/// others, search and sort are feat-003's.
+/// The project's list (US-2, BR-M3-29): the items of the project outside «Удалена» (mod-005 BR-DR-6), most recently changed
+/// first, then by number descending, 50 a page, each with its owning team (mod-017 BR-OT-7). The filters are the team's
+/// (mod-017 BR-OT-8) and feat-003's state (which also reaches «Удалена»), assignee and keyword (BR-WS-2); they combine with
+/// AND, and a value is never validated and never an error.
 /// </summary>
 /// <remarks>
 /// The order of answers (api-contract § 0.4): the address from the outside in —
@@ -45,8 +45,10 @@ public sealed class GetWorkItemsHandler(IOrganizationStructure structure, IWorkI
         }
 
         // The team filter (mod-017 BR-OT-8) is the same filter as the project's backlog and board take, with the same
-        // meaning; a value is never validated and never an error. The count and the page both follow it.
-        var filter = WorkItemFilter.OfTeams(query.TeamIds);
+        // meaning; the state, the assignee and the keyword (feat-003) are the shared specification's other dimensions. A value
+        // is never validated and never an error. The count and the page both follow the filter; the project's key lets the
+        // keyword tell the identifier of an item of this project from any other text.
+        var filter = WorkItemFilter.Of(project.Key, query.TeamIds, query.States, query.AssigneeIds, query.Search);
 
         var result = await readModel.GetPageAsync(projectId, page, WorkItemLimits.ListPageSize, filter, cancellationToken);
 

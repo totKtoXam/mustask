@@ -257,6 +257,10 @@ public sealed class FakeWorkItemReadModel(WorkItemWorld world) : IWorkItemReadMo
 
     public Task<WorkItemPage> GetPageAsync(Guid projectId, int page, int pageSize, WorkItemFilter filter, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
+
+    public Task<IReadOnlyList<AssigneeFilterOptionView>> GetAssigneeOptionsAsync(
+        Guid projectId, IReadOnlyCollection<string> stateNames, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
 }
 
 public sealed class WorldTeamPlaces(WorkItemWorld world) : ITeamBacklogPlaces

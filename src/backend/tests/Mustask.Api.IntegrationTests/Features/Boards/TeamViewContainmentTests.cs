@@ -214,7 +214,7 @@ public sealed class TeamViewContainmentTests(MustaskApiFactory factory)
     }
 
     // US-7 · "The route inventory holds the new routes and not the old ones" (BR-TS-1, -13; mod-016 BR-M1-33): the three team-addressed
-    // routes are listed, each with its code, the three project-nested ones are not, and the count is unchanged (59).
+    // routes are listed, each with its code, the three project-nested ones are not, and the move changes no count (59 with feat-040 alone; 60 with feat-003's assignee-options route).
     [Fact]
     public void TheRouteInventory_ListsTheThreeTeamAddressedRoutes_AndNotTheProjectNestedOnes()
     {
@@ -228,6 +228,6 @@ public sealed class TeamViewContainmentTests(MustaskApiFactory factory)
             OrganizationAddressedRoutes.All,
             route => route.Template.Contains("/projects/{projectId}/teams/{teamId}/backlogs", StringComparison.Ordinal)
                 || route.Template.Contains("/projects/{projectId}/teams/{teamId}/boards", StringComparison.Ordinal));
-        Assert.Equal(59, OrganizationAddressedRoutes.All.Count);
+        Assert.Equal(60, OrganizationAddressedRoutes.All.Count);
     }
 }

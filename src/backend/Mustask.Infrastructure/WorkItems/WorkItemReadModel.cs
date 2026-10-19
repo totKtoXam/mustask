@@ -106,9 +106,11 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         ArgumentOutOfRangeException.ThrowIfLessThan(pageSize, 1);
 
         // The list hides a deleted item and does not count it (mod-005 BR-DR-6): it starts from the Live entry point, so the
-        // count and every page follow the same set. The team filter (mod-017 BR-OT-8) is one predicate for the list, the
-        // backlog and the board; the count and the page are composed on it, so a filter adds no statement.
-        var matching = WorkItemFilterPredicate.Apply(WorkItemSets.Live(context).Where(item => item.ProjectId == projectId), filter);
+        // count and every page follow the same set — unless the filter names states (feat-003 BR-WS-4), when the deleted items are
+        // reachable beside them and the predicate keeps those whose state's name is chosen. The filters (mod-017 BR-OT-8,
+        // feat-003 BR-WS-16) are one predicate for the list, the backlog and the board; the count and the page are composed on
+        // it, so a filter adds no statement.
+        var matching = WorkItemFilterPredicate.Apply(context, WorkItemSets.Listing(context, projectId, filter.StatesSet), filter);
 
         var count = await matching.CountAsync(cancellationToken);
 
@@ -142,7 +144,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
                 row.Number,
                 Type(row),
                 row.Title,
-                Assignee(row, assignees),
+                ListAssignee(row, assignees),
                 State(row),
                 new WorkItemAreaView(row.AreaId, paths.PathOf(row.AreaId)),
                 Team(row),
@@ -150,6 +152,42 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             .ToList();
 
         return new WorkItemPage(count, items);
+    }
+
+    public async Task<IReadOnlyList<AssigneeFilterOptionView>> GetAssigneeOptionsAsync(
+        Guid projectId, IReadOnlyCollection<string> stateNames, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(stateNames);
+
+        var names = stateNames.ToList();
+
+        // The people of the live items, and — only while a chosen name reaches «Удалена» — of the deleted items whose state bears a
+        // chosen name: the same rule as the list's, judged here by data and category (feat-003 BR-WS-6). One statement that holds
+        // each id once however many items the person has: a DISTINCT, or the UNION of the two sets.
+        var assigned = WorkItemSets.Live(context)
+            .Where(item => item.ProjectId == projectId && item.AssigneeId != null)
+            .Select(item => item.AssigneeId!);
+
+        assigned = names.Count == 0
+            ? assigned.Distinct()
+            : assigned.Union(
+                WorkItemSets.Deleted(context)
+                    .Where(item => item.ProjectId == projectId
+                        && item.AssigneeId != null
+                        && context.StateDefinitions.Any(state => state.Id == item.StateId && names.Contains(state.Name)))
+                    .Select(item => item.AssigneeId!));
+
+        var ids = await assigned.ToListAsync(cancellationToken);
+
+        // mod-014 BR-UP-17: one lookup per 500 distinct ids; then one statement for the memberships (mod-016 BR-M1-26).
+        var lookup = await UserDirectoryBatches.LookupAllAsync(directory, ids, cancellationToken);
+        var members = await ProjectMembers.MemberIdsAsync(context, projectId, ids, cancellationToken);
+
+        var options = ids.Select(id => lookup.Known.TryGetValue(id, out var user)
+            ? new AssigneeFilterOptionView(id, user.DisplayName, user.Email, user.IsActive, members.Contains(id))
+            : new AssigneeFilterOptionView(id, null, null, false, members.Contains(id)));
+
+        return UserRefOrder.Order(options, option => option.Id, lookup.Known);
     }
 
     /// <summary>
@@ -363,6 +401,19 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             { } id when assignees.Known.TryGetValue(id, out var user) =>
                 new WorkItemAssigneeView(id, user.DisplayName, user.Email, assignees.Members.Contains(id)),
             { } id => new WorkItemAssigneeView(id, null, null, assignees.Members.Contains(id)),
+        };
+
+    /// <summary>
+    /// feat-003 (OQ-2 A): the list row's assignee, with the directory's active flag — <c>false</c> for an id the directory does not
+    /// know, as the deleter's is (<see cref="DeletionOf"/>). The card keeps <see cref="Assignee"/> until feat-017.
+    /// </summary>
+    private static WorkItemListAssigneeView? ListAssignee(ItemRow row, Assignees assignees) =>
+        row.AssigneeId switch
+        {
+            null => null,
+            { } id when assignees.Known.TryGetValue(id, out var user) =>
+                new WorkItemListAssigneeView(id, user.DisplayName, user.Email, user.IsActive, assignees.Members.Contains(id)),
+            { } id => new WorkItemListAssigneeView(id, null, null, false, assignees.Members.Contains(id)),
         };
 
     /// <summary>

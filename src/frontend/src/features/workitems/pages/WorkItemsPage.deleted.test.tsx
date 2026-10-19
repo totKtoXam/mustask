@@ -6,7 +6,9 @@ import { MSK_LIST, renderWorkItems } from '../testRender';
 
 // mod-005 US-2 and design § 7: «Рабочие элементы» shows no row for a deleted item, the pager
 // counts the items that are shown, and the page offers no control and no hint about deleted
-// items — feat-003's filter is the way in, and this line builds none (OQ-2 A).
+// items of its own — feat-003's «Статус» is the way in (its option «Удалена» shows only when the
+// field is opened, `WorkItemsPage.filters.test.tsx`), and this line built none (OQ-2 A). Nothing
+// is retired: with no state chosen the page still draws nothing that names the deleted.
 
 async function table() {
   return screen.findByRole('table', { name: 'Рабочие элементы' });

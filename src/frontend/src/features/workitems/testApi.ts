@@ -13,7 +13,9 @@
 // `teamId` filter (§ 3) and the project's teams read the picker and the filter use.
 // mod-005's api-contract adds the item's `deletion` (§ 1.1), the three writes (§ 2: delete,
 // restore, purge), the list without deleted items (§ 3.2) and the save that refuses a deleted
-// item first (§ 3.4).
+// item first (§ 3.4). feat-003's api-contract adds the list's `state` (deleted items included),
+// `assigneeId` and `search` (§ 2.1), the row's `assignee.isActive` (§ 1.1) and the
+// «Исполнитель» filter's options (§ 2.2).
 // It keeps the contract's answers, not every rule of the backend.
 import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
@@ -28,6 +30,7 @@ import type {
 import { LIST_FIELDS, WORK_ITEM_FIELD_NAMES, fieldsOf, kindOf } from './lib/fields';
 import {
   AREAS_URL,
+  ASSIGNEE_OPTIONS_URL,
   CANDIDATES_URL,
   PARENT_CANDIDATES_URL,
   PROBLEM_HEADERS,
@@ -306,6 +309,8 @@ export class WorkItemsTestApi {
         name: state?.name ?? '',
         category: state?.category ?? { code: 'Proposed', label: '' },
       },
+      // feat-003 api-contract § 1.1: a row's assignee carries the directory's flag and the
+      // membership alone, so an id the directory does not know is still a member.
       assignee:
         record.assigneeId === null
           ? null
@@ -313,12 +318,28 @@ export class WorkItemsTestApi {
               id: record.assigneeId,
               displayName: user?.displayName ?? null,
               email: user ? user.email : null,
-              isMember: user !== undefined && user.member !== false,
+              isActive: user?.active ?? false,
+              isMember: user
+                ? user.member !== false
+                : !(this.data.formerMemberIds ?? []).includes(record.assigneeId),
             },
       area: { id: record.areaId, path: this.areaPath(record.areaId) },
       team: this.teamOf(record),
       changedAt: record.changedAt,
     };
+  }
+
+  /** The card's assignee keeps its shape until feat-017: no `isActive` (feat-003 api-contract § 1.1). */
+  private cardAssignee(record: WorkItemRecord): WorkItem['assignee'] {
+    const user = this.data.users.find((candidate) => candidate.id === record.assigneeId);
+    return record.assigneeId === null
+      ? null
+      : {
+          id: record.assigneeId,
+          displayName: user?.displayName ?? null,
+          email: user ? user.email : null,
+          isMember: user !== undefined && user.member !== false,
+        };
   }
 
   answer(record: WorkItemRecord): WorkItem {
@@ -331,6 +352,7 @@ export class WorkItemsTestApi {
     const project = this.data.projects.find((candidate) => candidate.id === record.projectId);
     return {
       ...this.listItem(record),
+      assignee: this.cardAssignee(record),
       projectId: record.projectId,
       // feat-040 api-contract § 4.2: the project with its name, beside `projectId`.
       project: { id: record.projectId, name: project?.name ?? '' },
@@ -603,18 +625,76 @@ export class WorkItemsTestApi {
     );
   }
 
-  private list(project: ProjectRecord, pageParameter: string | null, teamIds: string[]) {
+  /** feat-003 § 2.1: the state's name is among the chosen, whether the item is live or deleted. */
+  private matchesState(record: WorkItemRecord, states: string[]): boolean {
+    if (states.length === 0) {
+      return true;
+    }
+    const state = this.type(record.typeId).states.find(
+      (candidate) => candidate.id === record.stateId,
+    );
+    return state !== undefined && states.includes(state.name);
+  }
+
+  /** feat-003 § 3.2: a chosen id, or `none` for an item with no assignee; ids as stored. */
+  private matchesAssignee(record: WorkItemRecord, assigneeIds: string[]): boolean {
+    if (assigneeIds.length === 0) {
+      return true;
+    }
+    return record.assigneeId === null
+      ? assigneeIds.includes('none')
+      : assigneeIds.includes(record.assigneeId);
+  }
+
+  /**
+   * feat-003 § 3.3: the keyword in the title (case and «ё» ignored), or the identifier in any
+   * letter case, or the number in digits. A longer text or one with a line break matches nothing.
+   */
+  private matchesKeyword(record: WorkItemRecord, keyword: string): boolean {
+    const text = keyword.trim();
+    if (text === '') {
+      return true;
+    }
+    if (text.length > 255 || LINE_BREAK.test(text)) {
+      return false;
+    }
+    const fold = (value: string) => value.toLocaleLowerCase('ru').replace(/ё/g, 'е');
+    return (
+      fold(record.title).includes(fold(text)) ||
+      this.identifierOf(record) === text.toUpperCase() ||
+      (/^[1-9][0-9]{0,9}$/.test(text) && Number(text) === record.number)
+    );
+  }
+
+  private list(
+    project: ProjectRecord,
+    pageParameter: string | null,
+    filter: {
+      teamIds: string[];
+      states?: string[];
+      assigneeIds?: string[];
+      keywords?: string[];
+    },
+  ) {
     const page = pageParameter === null ? 1 : Number(pageParameter);
     if (page < 1) {
       throw new Refusal(validationProblem({ page: 'workitems.invalid_page' }));
     }
-    // mod-005 § 3.2: the list and its count are the items outside «Удалена».
+    // Blank values are left out (feat-003 § 2.1); the first non-blank keyword counts.
+    const states = (filter.states ?? []).filter((value) => value.trim() !== '');
+    const assigneeIds = (filter.assigneeIds ?? []).filter((value) => value.trim() !== '');
+    const keyword = (filter.keywords ?? []).find((value) => value.trim() !== '') ?? '';
+    // mod-005 § 3.2: the list and its count are the items outside «Удалена»; feat-003 § 2.1: with a
+    // `state` the deleted items are reachable, and a chosen name decides which are listed.
     const items = this.data.items
       .filter(
         (record) =>
           record.projectId === project.id &&
-          !this.removed(record) &&
-          this.matchesFilter(record, project, teamIds),
+          (states.length > 0 || !this.removed(record)) &&
+          this.matchesState(record, states) &&
+          this.matchesAssignee(record, assigneeIds) &&
+          this.matchesKeyword(record, keyword) &&
+          this.matchesFilter(record, project, filter.teamIds),
       )
       .sort(
         (first, second) =>
@@ -627,6 +707,49 @@ export class WorkItemsTestApi {
         .slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
         .map((record) => this.listItem(record)),
     };
+  }
+
+  /**
+   * feat-003 § 2.2: the distinct assignees of the project's live items, and of its deleted items
+   * whose state's name is among `states`; known people by display name, then the unknown by id.
+   */
+  private assigneeOptions(project: ProjectRecord, states: string[]) {
+    const chosen = states.filter((value) => value.trim() !== '');
+    const assigned = new Set<string>();
+    for (const record of this.data.items) {
+      if (
+        record.projectId === project.id &&
+        record.assigneeId !== null &&
+        (!this.removed(record) || (chosen.length > 0 && this.matchesState(record, chosen)))
+      ) {
+        assigned.add(record.assigneeId);
+      }
+    }
+    const known = this.data.users
+      .filter((user) => assigned.has(user.id))
+      .sort(
+        (first, second) =>
+          first.displayName.localeCompare(second.displayName, 'ru', { sensitivity: 'base' }) ||
+          first.id.localeCompare(second.id),
+      )
+      .map((user) => ({
+        id: user.id,
+        displayName: user.displayName,
+        email: user.email,
+        isActive: user.active,
+        isMember: user.member !== false,
+      }));
+    const unknown = [...assigned]
+      .filter((id) => !this.data.users.some((user) => user.id === id))
+      .sort()
+      .map((id) => ({
+        id,
+        displayName: null,
+        email: null,
+        isActive: false,
+        isMember: !(this.data.formerMemberIds ?? []).includes(id),
+      }));
+    return [...known, ...unknown];
   }
 
   private create(project: ProjectRecord, body: Record<string, unknown>) {
@@ -903,8 +1026,18 @@ export class WorkItemsTestApi {
       http.get(
         WORK_ITEMS_URL,
         answer((p, url) =>
-          this.list(pr(p), url.searchParams.get('page'), url.searchParams.getAll('teamId')),
+          this.list(pr(p), url.searchParams.get('page'), {
+            teamIds: url.searchParams.getAll('teamId'),
+            states: url.searchParams.getAll('state'),
+            assigneeIds: url.searchParams.getAll('assigneeId'),
+            keywords: url.searchParams.getAll('search'),
+          }),
         ),
+      ),
+      // Before the item's route: `assignee-options` is no identifier.
+      http.get(
+        ASSIGNEE_OPTIONS_URL,
+        answer((p, url) => this.assigneeOptions(pr(p), url.searchParams.getAll('state'))),
       ),
       http.post(
         WORK_ITEMS_URL,

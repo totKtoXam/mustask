@@ -52,7 +52,7 @@ internal static class BacklogMembership
         var teamId = scope.TeamId;
         var levelId = scope.LevelId;
 
-        return from item in WorkItemFilterPredicate.Apply(context.WorkItems.AsNoTracking(), scope.Filter)
+        return from item in WorkItemFilterPredicate.Apply(context, context.WorkItems.AsNoTracking(), scope.Filter)
                where item.OwningTeamId == teamId
                    && typeIds.Contains(item.TypeId)
                    && stateIds.Contains(item.StateId)
@@ -78,7 +78,7 @@ internal static class BacklogMembership
         var stateIds = scope.ShownStateIds.ToList();
         var teamId = scope.TeamId;
 
-        return from item in WorkItemFilterPredicate.Apply(context.WorkItems.AsNoTracking(), scope.Filter)
+        return from item in WorkItemFilterPredicate.Apply(context, context.WorkItems.AsNoTracking(), scope.Filter)
                where item.OwningTeamId == teamId
                    && typeIds.Contains(item.TypeId)
                    && stateIds.Contains(item.StateId)

@@ -25,8 +25,9 @@ public sealed record OrganizationRoute(string Method, string Template, string Co
 /// § 1–§ 2): the 23 of mod-002, mod-001's process read, the seven of mod-003 and feat-001 (their api-contract § 5 and § 6, rows 28–34),
 /// mod-006's three (rows 35–37), feat-039's three project routes beside them and the ten of mod-016's own access and memberships;
 /// feat-028 (api-contract § 4) moved the team routes to the organization's address and, at gate-3, added the creation form's member search
-/// (§ 2.3a), mod-005 (api-contract § 4) added the delete, restore and purge of a work item, and feat-040 (api-contract § 6) moved
-/// mod-006's three from the project's address to the team's: 59 routes in all. A later module that
+/// (§ 2.3a), mod-005 (api-contract § 4) added the delete, restore and purge of a work item, feat-040 (api-contract § 6) moved
+/// mod-006's three from the project's address to the team's, and feat-003 (api-contract § 5) added the options of the list's
+/// «Исполнитель» filter: 60 routes in all. A later module that
 /// adds one adds it here with its code, and the inventory test (<c>OrganizationAccessInventoryTests</c>) makes sure it cannot forget: a route under
 /// <c>{organizationId}</c> that is not in this list, or is in it with another code than the one it declares, turns the build red.
 /// </summary>
@@ -96,6 +97,9 @@ public static class OrganizationAddressedRoutes
         new("PUT", Item + "/parent", PermissionCatalog.WorkItemsLinkWrite),
         new("GET", Item + "/parent-candidates", PermissionCatalog.WorkItemsWorkItemRead),
         new("GET", Org + "/workitems/assignee-candidates", PermissionCatalog.WorkItemsWorkItemWrite),
+
+        // feat-003 api-contract § 2.2: the options of the list's «Исполнитель» filter, a read inside one project (ADR-0029 § 7).
+        new("GET", Project + "/workitems/assignee-options", PermissionCatalog.WorkItemsWorkItemRead),
 
         // mod-005 api-contract § 2 and § 5: delete, restore and purge a work item. After the item routes, not at the end:
         // `Memberships` takes the last ten rows of this list.

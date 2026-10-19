@@ -38,6 +38,29 @@ public sealed class WorkItemSetsTests(OrganizationsDatabaseFixture database)
         Assert.Equal(all.Order(), live.Concat(deleted).Order());
     }
 
+    // feat-003 BR-WS-4, BR-WS-15: the list's entry point. Without a state filter it is the project's live items; with one, the live
+    // and the deleted items of the project beside each other, every item once — by category, never by name, and never another project's.
+    [Fact]
+    public async Task Listing_IsTheProjectsLiveItems_AndWithStatesChosen_TheDeletedOnesBesideThem_OfThatProjectAlone()
+    {
+        var first = await SeedAsync(trap: false);
+        var second = await SeedAsync(trap: true);
+
+        await using var context = database.NewContext();
+
+        async Task<List<Guid>> Ids(Guid project, bool statesChosen) =>
+            await WorkItemSets.Listing(context, project, statesChosen).AsNoTracking().Select(item => item.Id).ToListAsync();
+
+        Assert.Equal([first.InProposed], await Ids(first.Project, false));
+        Assert.Equal(new[] { first.InProposed, first.InRemoved }.Order(), (await Ids(first.Project, true)).Order());
+
+        // The state that is only named «Удалена» is live; the one in the Removed category is deleted, whatever it is named.
+        Assert.Equal(new[] { second.InProposed, second.InProposedNamedRemoved }.Order(), (await Ids(second.Project, false)).Order());
+        Assert.Equal(
+            new[] { second.InProposed, second.InRemoved, second.InProposedNamedRemoved, second.InRemovedByCategoryOnly }.Order(),
+            (await Ids(second.Project, true)).Order());
+    }
+
     private sealed record Seeded(Guid Project, Guid InProposed, Guid InRemoved, Guid InProposedNamedRemoved, Guid InRemovedByCategoryOnly);
 
     /// <summary>

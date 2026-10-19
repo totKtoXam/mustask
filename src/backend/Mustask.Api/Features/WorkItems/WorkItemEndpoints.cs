@@ -3,6 +3,7 @@ using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Application.Features.WorkItems.CreateWorkItem;
 using Mustask.Application.Features.WorkItems.DeleteWorkItem;
 using Mustask.Application.Features.WorkItems.GetAssigneeCandidates;
+using Mustask.Application.Features.WorkItems.GetAssigneeOptions;
 using Mustask.Application.Features.WorkItems.GetParentCandidates;
 using Mustask.Application.Features.WorkItems.GetWorkItem;
 using Mustask.Application.Features.WorkItems.GetWorkItems;
@@ -40,6 +41,15 @@ public static class WorkItemEndpoints
             .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead)
             .Produces<Paging<WorkItemListItemView>>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // feat-003 § 2.2. The options of the list's «Исполнитель» filter: the people assigned to the project's items. A read
+        // inside one project, so the read code alone (ADR-0029 § 7); not the card's picker (`assignee-candidates`, below).
+        workItems.MapGet("/assignee-options", GetAssigneeOptionsAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead)
+            .Produces<IReadOnlyList<AssigneeFilterOptionView>>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -140,16 +150,30 @@ public static class WorkItemEndpoints
         return app;
     }
 
-    // mod-017 api-contract § 3: the team filter is the repeated `teamId` — a team's id or `none`. Nothing is validated here: a
-    // value that names no team of the project selects nothing, and answers alike for each such value.
+    // mod-017 api-contract § 3: the team filter is the repeated `teamId` — a team's id or `none`. feat-003 api-contract § 3 adds the
+    // repeated `state` (names as stored) and `assigneeId` (a user id or `none`) and the one `search` (a keyword). Nothing is
+    // validated here: a value that names nothing selects nothing, and answers alike for each such value.
     private static async Task<IResult> GetWorkItemsAsync(
         string organizationId,
         string projectId,
         int? page,
         [Microsoft.AspNetCore.Mvc.FromQuery(Name = "teamId")] string[]? teamId,
+        [Microsoft.AspNetCore.Mvc.FromQuery(Name = "state")] string[]? state,
+        [Microsoft.AspNetCore.Mvc.FromQuery(Name = "assigneeId")] string[]? assigneeId,
+        [Microsoft.AspNetCore.Mvc.FromQuery(Name = "search")] string[]? search,
         GetWorkItemsHandler handler,
         CancellationToken cancellationToken) =>
-        Results.Ok((await handler.Handle(new GetWorkItemsQuery(organizationId, projectId, page, teamId), cancellationToken)).Page);
+        Results.Ok(
+            (await handler.Handle(new GetWorkItemsQuery(organizationId, projectId, page, teamId, state, assigneeId, search), cancellationToken)).Page);
+
+    // feat-003 api-contract § 2.2: the chosen `state` names decide whether the people of deleted items are offered.
+    private static async Task<IResult> GetAssigneeOptionsAsync(
+        string organizationId,
+        string projectId,
+        [Microsoft.AspNetCore.Mvc.FromQuery(Name = "state")] string[]? state,
+        GetAssigneeOptionsHandler handler,
+        CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new GetAssigneeOptionsQuery(organizationId, projectId, state), cancellationToken)).Options);
 
     private static async Task<IResult> CreateWorkItemAsync(
         string organizationId, string projectId, CreateWorkItemRequest? request, CreateWorkItemHandler handler, CancellationToken cancellationToken)

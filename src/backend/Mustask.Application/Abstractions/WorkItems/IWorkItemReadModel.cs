@@ -36,13 +36,21 @@ public interface IWorkItemReadModel
     Task<WorkItemView> GetAsync(Guid workItemId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// One page of the project's items <b>outside «Удалена»</b> (mod-005 BR-DR-6, which replaces BR-M3-29's "every state";
-    /// there is no way to list deleted items in this line), most recently changed
-    /// first, then by number descending, and the count of the items
-    /// that match <paramref name="filter"/> (mod-017 BR-OT-8): the count and the page follow the filter, in the same
-    /// statements — a filter adds none. The count counts the same set as the page, whatever page it is.
+    /// One page of the project's items, most recently changed first, then by number descending, and the count of the items
+    /// that match <paramref name="filter"/> (mod-017 BR-OT-8, feat-003 BR-WS-2): the count and the page follow the filter, in
+    /// the same statements — a filter adds none. The count counts the same set as the page, whatever page it is. The items are
+    /// the ones <b>outside «Удалена»</b> (mod-005 BR-DR-6) unless the filter sets <see cref="WorkItemFilter.StatesSet"/>; then
+    /// the deleted ones are reachable too, and an item is listed when its state's name is among the chosen (feat-003 BR-WS-4).
     /// </summary>
     Task<WorkItemPage> GetPageAsync(Guid projectId, int page, int pageSize, WorkItemFilter filter, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The options of the list's «Исполнитель» filter (feat-003 api-contract § 2.2): the distinct assignees of the project's items
+    /// outside «Удалена», and of its deleted items whose state's name is among <paramref name="stateNames"/>; each as the directory
+    /// and the membership know them now, known users by display name, then the users the directory does not know, by id.
+    /// </summary>
+    Task<IReadOnlyList<AssigneeFilterOptionView>> GetAssigneeOptionsAsync(
+        Guid projectId, IReadOnlyCollection<string> stateNames, CancellationToken cancellationToken);
 }
 
 /// <summary>A page of the list: <paramref name="Count"/> is the number of the project's items that match the filter, not the page's.</summary>
@@ -170,14 +178,14 @@ public sealed record ParentCandidateSearch(
 /// <summary>At most the search's limit of candidates, and whether more matched.</summary>
 public sealed record ParentCandidates(IReadOnlyList<WorkItemRefView> Items, bool MoreMatched);
 
-/// <summary><c>WorkItemListItem</c> of api-contract § 1.2.</summary>
+/// <summary><c>WorkItemListItem</c> of api-contract § 1.2, with feat-003's <c>assignee.isActive</c> (its api-contract § 1.1).</summary>
 public sealed record WorkItemListItemView(
     Guid Id,
     string Identifier,
     int Number,
     WorkItemTypeView Type,
     string Title,
-    WorkItemAssigneeView? Assignee,
+    WorkItemListAssigneeView? Assignee,
     WorkItemStateView State,
     WorkItemAreaView Area,
     WorkItemTeamView? Team,
@@ -204,6 +212,20 @@ public sealed record WorkItemStateCategoryView(string Code, string Label);
 /// «не в организации» marks are feat-017's.
 /// </summary>
 public sealed record WorkItemAssigneeView(string Id, string? DisplayName, string? Email, bool IsMember);
+
+/// <summary>
+/// feat-003 (OQ-2 A, api-contract § 1.1): the list row's assignee — the card's <see cref="WorkItemAssigneeView"/> plus
+/// <paramref name="IsActive"/>, the user directory's flag (mod-014 BR-UP-11): <c>false</c> for a disabled or deleted account and
+/// for an id the directory does not know, the way <see cref="WorkItemUserView"/> reads it. The card keeps its shape until feat-017.
+/// </summary>
+public sealed record WorkItemListAssigneeView(string Id, string? DisplayName, string? Email, bool IsActive, bool IsMember);
+
+/// <summary>
+/// feat-003 (api-contract § 1.2): one option of the «Исполнитель» filter, with the same five fields as the list row's assignee.
+/// <paramref name="DisplayName"/> and <paramref name="Email"/> are <c>null</c> and <paramref name="IsActive"/> is <c>false</c> for an
+/// id the directory does not know; <paramref name="IsMember"/> is the membership alone.
+/// </summary>
+public sealed record AssigneeFilterOptionView(string Id, string? DisplayName, string? Email, bool IsActive, bool IsMember);
 
 /// <param name="Path">mod-002 DC-9: «Платформа / API», the root by its own name.</param>
 public sealed record WorkItemAreaView(Guid Id, string Path);
