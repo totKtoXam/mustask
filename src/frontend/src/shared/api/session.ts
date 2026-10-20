@@ -135,11 +135,16 @@ async function requestToken(): Promise<string> {
     throw new AuthUnavailableError();
   }
 
-  if (response.status === 401) {
-    cached = null;
+  if (response.status === 401 || response.status === 403) {
     const body = (await response.json().catch(() => null)) as { errorCode?: string } | null;
+    // tech-024 (ADR-0031): 403 session.no_access — в обновлённом токене нет роли `user`, сессия закончена, как при истечении;
+    // любой другой 403 здесь — не наш ответ, это сбой сервиса.
+    if (response.status === 403 && body?.errorCode !== 'session.no_access') {
+      throw new AuthUnavailableError();
+    }
+    cached = null;
     throw new SessionLostError(
-      body?.errorCode === 'session.expired' ? 'session.expired' : 'session.anonymous',
+      body?.errorCode === 'session.expired' || body?.errorCode === 'session.no_access' ? 'session.expired' : 'session.anonymous',
     );
   }
   if (!response.ok) {
