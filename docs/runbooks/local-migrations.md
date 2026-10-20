@@ -208,13 +208,11 @@ Nobody else is seeded: everyone else gets «Организация не найд
 administrator adds them on «Участники». `Down` drops the two membership tables
 (the organizations, projects and teams stay).
 
-For a stand that holds data you want to keep, this is the order (the full text,
-with what each step does to Keycloak, is in `src/backend/AGENTS.md`, "A stand
-that predates mod-016"): back up if you want to; apply the migrations as above
-(the migration seeds the creators); start the stand — the `keycloak` resource
-stays unhealthy, because the drift check reports the old realm roles; run
-`bash scripts/migrate-live-realm.sh` (PowerShell
-`scripts/migrate-live-realm.ps1`) with `KEYCLOAK_ADMIN_PASSWORD` in the
-environment; the next probe passes. **Do not run `scripts/stand-reset.sh`** for
-these findings, although the check's text names it: it would delete the data
-this order keeps.
+A stand whose Keycloak store was made from an older realm import (before
+`tech-024`, ADR-0031: realm roles, groups, permission codes as client roles)
+stays unhealthy: the drift check names every difference and the remedy, which is
+the stand reset, `bash scripts/stand-reset.sh` (`src/backend/AGENTS.md`, "Keycloak
+on the stand"). The reset wipes that stand's database and Keycloak store together,
+so back up first if you want the data; the live-realm command that once converted
+such a store in place is retired. After the reset: apply the migrations as above,
+start the stand, and run `bash scripts/keycloak-seed.sh` to add the people.
