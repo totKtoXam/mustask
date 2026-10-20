@@ -299,7 +299,9 @@ var keycloak = builder.AddDockerfile("keycloak", "../../../deploy/keycloak")
         endpoint.IsProxied = false;
         endpoint.TargetHost = AnyInterface;
     })
-    .WithBindMount("../../../deploy/keycloak/realms", "/opt/keycloak/data/import", isReadOnly: true)
+    // Keycloak refuses an import file whose name is not <realm>-realm.json, so the one realm file is mounted under the
+    // configured realm's name (tech-024): a realm called something else than `mustask` still imports from the same file.
+    .WithBindMount("../../../deploy/keycloak/realms/mustask-realm.json", $"/opt/keycloak/data/import/{keycloakRealm}-realm.json", isReadOnly: true)
     .WithBindMount("../../../deploy/keycloak/themes", "/opt/keycloak/themes", isReadOnly: true)
     .WithArgs("start-dev", "--import-realm")
     .WithEnvironment("KC_BOOTSTRAP_ADMIN_USERNAME", "admin")

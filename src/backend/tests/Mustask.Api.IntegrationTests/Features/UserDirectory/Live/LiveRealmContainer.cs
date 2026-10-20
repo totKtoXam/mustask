@@ -51,7 +51,7 @@ internal sealed class LiveRealmContainer : IAsyncDisposable
         var adminPassword = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(12));
         var container = new ContainerBuilder(LiveKeycloakFixture.ImageTag)
             .WithCommand("start-dev", "--import-realm")
-            .WithResourceMapping(Encoding.UTF8.GetBytes(realmJson), "/opt/keycloak/data/import/mustask-realm.json")
+            .WithResourceMapping(Encoding.UTF8.GetBytes(realmJson), $"/opt/keycloak/data/import/{realm}-realm.json")
             .WithEnvironment("KC_BOOTSTRAP_ADMIN_USERNAME", "admin")
             .WithEnvironment("KC_BOOTSTRAP_ADMIN_PASSWORD", adminPassword)
             .WithEnvironment("MUSTASK_PANEL_CLIENT_SECRET", PanelSecret)

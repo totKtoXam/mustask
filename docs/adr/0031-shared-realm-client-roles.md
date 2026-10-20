@@ -77,7 +77,8 @@ Option 3.
    authenticates and holds no right (403 where a right is required, as before).
 4. **The realm's name is configuration.** `Mustask.Api` already takes it only as the
    tail of `Keycloak__Authority`. The stand takes it from `Keycloak:Realm` (default
-   `mustask`): the import file reads `${MUSTASK_REALM:mustask}`, and the health check,
+   `mustask`): the import file reads `${MUSTASK_REALM:mustask}` and is mounted as
+   `<realm>-realm.json` (Keycloak rejects any other file name), and the health check,
    the drift check, the provisioning and the seed script use the same value; nothing
    derived from the name (`default-roles-mustask`) is spelled out.
 5. **The live-realm migration is retired.** `--migrate-live-realm`, its scripts and

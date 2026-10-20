@@ -152,7 +152,7 @@ run from there, not from this directory.
   organization of the address gets 404 «Организация не найдена», never a 403.
 - The realm's name is configuration: the stand reads `Keycloak:Realm` (default
   `mustask`; environment `Keycloak__Realm`), and passes it to the realm import
-  (`${MUSTASK_REALM:mustask}`), the health and drift checks, the provisioning and
+  (`${MUSTASK_REALM:mustask}`, mounted as `<realm>-realm.json`), the health and drift checks, the provisioning and
   `Keycloak__Authority`; `scripts/keycloak-seed.sh` takes `KEYCLOAK_REALM`. A name
   other than `mustask` needs a store made with it (stand reset).
 - An organization on the stand: sign in to the panel as the administrator
