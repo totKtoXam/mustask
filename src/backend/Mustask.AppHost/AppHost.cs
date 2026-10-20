@@ -8,15 +8,6 @@ using Mustask.AppHost.Stand;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-// mod-016 (BR-M1-28, D-6, D-16): `--migrate-live-realm` (scripts/migrate-live-realm.sh and .ps1) moves the realm of a stand whose
-// Keycloak store was created from the pre-mod-016 import to the realm the new import declares, in place, with no reset. It is handled
-// before anything is declared — no resource starts, Aspire never sees the flag — and it is stand-only code like the reset (ADR-0023).
-// The administrator's password is read from KEYCLOAK_ADMIN_PASSWORD, never from an argument.
-if (KeycloakLiveRealmCommand.IsRequested(args))
-{
-    return await KeycloakLiveRealmCommand.RunAsync(args, Environment.GetEnvironmentVariable, Console.Out, handler: null, CancellationToken.None);
-}
-
 // mod-014 (ADR-0025 § 7): `--stand-reset` (scripts/stand-reset.sh) declares
 // the stand exactly as a start would — so the mode, the volume names and the
 // database come from this same code — and then wipes that pair instead of
@@ -244,6 +235,11 @@ var keycloakPanelClientSecret = builder.AddParameter("keycloak-panel-client-secr
 var keycloakImage = builder.Configuration["Keycloak:Image"] ?? "quay.io/keycloak/keycloak";
 var keycloakTag = builder.Configuration["Keycloak:Tag"] ?? "26.4";
 
+// tech-024 (ADR-0031): the stand's realm name is one configuration value, `Keycloak:Realm` (environment `Keycloak__Realm`), default
+// `mustask`. The realm import takes it as the placeholder MUSTASK_REALM, the api as the tail of Keycloak__Authority, and the
+// health check, the drift check and the provisioning as the realm they talk to; nothing else in the stand spells it.
+var keycloakRealm = KeycloakStandIdentifiers.RealmName(builder.Configuration["Keycloak:Realm"]);
+
 // Адреса клиентов realm-импорт получает переменными окружения, а не хранит
 // литералами: порты стенда конфигурируемые, и прибитый в JSON
 // `localhost:3000` при `Ports__Frontend=3001` дал бы у панели
@@ -308,6 +304,7 @@ var keycloak = builder.AddDockerfile("keycloak", "../../../deploy/keycloak")
     .WithArgs("start-dev", "--import-realm")
     .WithEnvironment("KC_BOOTSTRAP_ADMIN_USERNAME", "admin")
     .WithEnvironment("KC_BOOTSTRAP_ADMIN_PASSWORD", keycloakAdminPassword)
+    .WithEnvironment("MUSTASK_REALM", keycloakRealm)
     .WithEnvironment("MUSTASK_PANEL_URL", panelUrl)
     .WithEnvironment("MUSTASK_API_URL", apiUrl)
     // Секрет, который realm-импорт присваивает клиенту mustask-panel, и
@@ -315,11 +312,11 @@ var keycloak = builder.AddDockerfile("keycloak", "../../../deploy/keycloak")
     // (Keycloak__ClientSecret ниже), обязаны быть одним и тем же значением —
     // без этого вход не проходит дальше "unauthorized_client".
     .WithEnvironment("MUSTASK_PANEL_CLIENT_SECRET", keycloakPanelClientSecret)
-    // Проверяем не корень, а конкретный realm: 200 на `/realms/mustask` доказывает
+    // Проверяем не корень, а конкретный realm: 200 на `/realms/<realm>` доказывает
     // не только то, что сервер поднялся, но и что импорт realm'а состоялся.
     // Штатный health-эндпоинт Keycloak с версии 25 живёт на отдельном
     // management-порту 9000, то есть на 8080 его нет вовсе.
-    .WithHttpHealthCheck("/realms/mustask");
+    .WithHttpHealthCheck($"/realms/{keycloakRealm}");
 
 // The store (ADR-0025 § 7): named by the database switch above.
 var keycloakStore = keycloakStoreVolume(keycloak);
@@ -377,8 +374,9 @@ KeycloakDriftHealthCheck.Register(
 
             return new KeycloakDriftCheckOptions
             {
-                Import = KeycloakRealmImport.Load(realmsDirectory, "mustask", new Dictionary<string, string>(StringComparer.Ordinal)
+                Import = KeycloakRealmImport.Load(realmsDirectory, keycloakRealm, new Dictionary<string, string>(StringComparer.Ordinal)
                 {
+                    ["MUSTASK_REALM"] = keycloakRealm,
                     ["MUSTASK_PANEL_URL"] = panelUrl,
                     ["MUSTASK_API_URL"] = apiUrl,
                     ["MUSTASK_PANEL_CLIENT_SECRET"] = panelSecret,
@@ -427,7 +425,8 @@ builder.Eventing.Subscribe<ResourceReadyEvent>(keycloak.Resource, async (@event,
             ClientSecret = mustaskE2eClientSecret.Value,
             FixtureUsername = KeycloakStandIdentifiers.FixtureUsername,
             KeycloakContainerName = keycloakContainerName,
-            Issuer = FormattableString.Invariant($"http://localhost:{keycloakPort}/realms/mustask"),
+            Realm = keycloakRealm,
+            Issuer = FormattableString.Invariant($"http://localhost:{keycloakPort}/realms/{keycloakRealm}"),
             // Тот же файл и тот же путь, что удалён в самом начале этого
             // файла — один литерал, не два.
             StandFilePath = standFilePath,
@@ -471,7 +470,7 @@ builder.Eventing.Subscribe<ResourceReadyEvent>(keycloak.Resource, async (@event,
 // `Host` при входе через `localhost` (KC_HOSTNAME не задан). `WaitFor(keycloak)`
 // у `api` намеренно НЕ ставится: API стартует независимо от Keycloak и сам
 // доходит до готовности через RealmReadinessMonitor.
-api.WithEnvironment("Keycloak__Authority", ReferenceExpression.Create($"{keycloak.GetEndpoint("http")}/realms/mustask"))
+api.WithEnvironment("Keycloak__Authority", ReferenceExpression.Create($"{keycloak.GetEndpoint("http")}/realms/{keycloakRealm}"))
    .WithEnvironment("Keycloak__Audience", "mustask-api")
    // ADR-0022 Decision 4: секрет клиента виден только бэкенду, который один
    // обменивает код — никогда браузеру.

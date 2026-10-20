@@ -1,15 +1,16 @@
 using System.Text.Json.Nodes;
+using Mustask.Domain.Identity;
 
 namespace Mustask.Api.IntegrationTests.Features.UserDirectory.Live;
 
 /// <summary>
-/// mod-016 plan-backend § 4.3 (the spike that stays): Keycloak imports the repository's <b>real</b> realm file and the realm is what
-/// the contract tests and the stand's drift check read from it — the default role is <c>default-roles-mustask</c> with exactly the
-/// declared composites, a user in no group carries <c>dictionaries.languages.read</c> and no other code in a token, the three
-/// groups map their roles, and the stand's own drift check reports nothing. A file test cannot promise any of this: Keycloak
-/// rejects or reshapes an import silently (the first form tried stopped at "Unable to find composite realm role: uma_authorization"
-/// until the two built-in roles were declared). Opt-in (<see cref="LiveProviderFactAttribute"/>): <c>scripts/verify.sh</c>'s
-/// <c>provider</c> bucket runs it whenever a realm file changes (D-16 OP-10).
+/// mod-016 plan-backend § 4.3 (the spike that stays), reshaped by tech-024 (ADR-0031): Keycloak imports the repository's <b>real</b>
+/// realm file and the realm is what the contract tests and the stand's drift check read from it - no realm role of ours, no group,
+/// the four client roles of <c>mustask-api</c> with their descriptions, a token that carries the role names a user holds directly,
+/// and the stand's own drift check reporting nothing. A file test cannot promise any of this: Keycloak rejects or reshapes an import
+/// silently (the default role, for one, must be created by Keycloak when the import declares none). Opt-in
+/// (<see cref="LiveProviderFactAttribute"/>): <c>scripts/verify.sh</c>'s <c>provider</c> bucket runs it whenever a realm file changes
+/// (D-16 OP-10).
 /// </summary>
 [Trait("Category", "KeycloakProvider")]
 public sealed class LiveRealmImportTests
@@ -35,14 +36,15 @@ public sealed class LiveRealmImportTests
     {
         await using var keycloak = await LiveRealmContainer.StartAsync(File.ReadAllText(RealmFile));
 
-        // The realm roles Keycloak holds are the import's: the business roles, the default role and the two built-ins.
+        // The realm roles Keycloak holds are the ones it creates itself: no business role, no group (ADR-0031).
         var (_, roles, _) = await keycloak.AdminAsync(HttpMethod.Get, "/roles?briefRepresentation=false");
         var names = ((JsonArray)roles!).Select(role => (string)role!["name"]!).Order(StringComparer.Ordinal).ToArray();
-        Assert.Equal(
-            ["default-roles-mustask", "dictionaries-admin", "instance-admin", "offline_access", "organization-creator", "uma_authorization"],
-            names);
+        Assert.Equal(["default-roles-mustask", "offline_access", "uma_authorization"], names);
 
-        // The default role: the one Keycloak uses, with exactly the declared composites.
+        var (_, groups, _) = await keycloak.AdminAsync(HttpMethod.Get, "/groups");
+        Assert.Empty((JsonArray)groups!);
+
+        // The default role is Keycloak's own and carries no code of mustask-api.
         var (_, realm, _) = await keycloak.AdminAsync(HttpMethod.Get, string.Empty);
         Assert.Equal("default-roles-mustask", (string)realm!["defaultRole"]!["name"]!);
         var (_, composites, _) = await keycloak.AdminAsync(HttpMethod.Get, "/roles/default-roles-mustask/composites");
@@ -52,39 +54,46 @@ public sealed class LiveRealmImportTests
             .Select(role => ((bool)role!["clientRole"]! ? clientIds[(string)role["containerId"]!] : "realm") + "/" + (string)role["name"]!)
             .Order(StringComparer.Ordinal)
             .ToArray();
+        Assert.Equal(["account/manage-account", "account/view-profile", "realm/offline_access", "realm/uma_authorization"], held);
+
+        // The four client roles of mustask-api, with the descriptions of the table.
+        var apiId = clientIds.Single(pair => pair.Value == "mustask-api").Key;
+        var (_, apiRoles, _) = await keycloak.AdminAsync(HttpMethod.Get, $"/clients/{apiId}/roles");
         Assert.Equal(
-            ["account/manage-account", "account/view-profile", "mustask-api/dictionaries.languages.read", "realm/offline_access", "realm/uma_authorization"],
-            held);
+            InstanceRoles.All.Select(role => (role.Name, role.Description)).Order(),
+            ((JsonArray)apiRoles!).Select(role => ((string)role!["name"]!, (string)role["description"]!)).Order());
 
-        // The groups and their mappings.
-        var (_, groups, _) = await keycloak.AdminAsync(HttpMethod.Get, "/groups?briefRepresentation=false");
-        var mapping = new Dictionary<string, string>(StringComparer.Ordinal);
+        // Tokens: what a user holds directly arrives as resource_access.mustask-api.roles, the names and nothing else; a user with no
+        // role has no mustask-api entry at all.
+        var nobody = await keycloak.CreateUserAsync("live.nobody");
+        var plain = await keycloak.CreateUserAsync("live.user", "user");
+        var administrator = await keycloak.CreateUserAsync("live.admin", "user", "system-admin");
+        var creator = await keycloak.CreateUserAsync("live.creator", "user", "organization-creator");
 
-        foreach (var group in (JsonArray)groups!)
-        {
-            var (_, mappings, _) = await keycloak.AdminAsync(HttpMethod.Get, $"/groups/{group!["id"]}/role-mappings/realm");
-            mapping[(string)group["name"]!] = string.Join(",", ((JsonArray)mappings!).Select(role => (string)role!["name"]!).Order(StringComparer.Ordinal));
-        }
+        Assert.Empty(await keycloak.ApiRolesOfAsync(nobody));
+        Assert.Equal(["user"], await keycloak.ApiRolesOfAsync(plain));
+        Assert.Equal(["system-admin", "user"], await keycloak.ApiRolesOfAsync(administrator));
+        Assert.Equal(["organization-creator", "user"], await keycloak.ApiRolesOfAsync(creator));
 
-        Assert.Equal("instance-admin", mapping["Администраторы"]);
-        Assert.Equal("dictionaries-admin", mapping["Администраторы справочников"]);
-        Assert.Equal("organization-creator", mapping["Создатели организаций"]);
-        Assert.Equal(3, mapping.Count);
+        // The panel client keeps the audience, and the token carries no groups claim.
+        var token = await keycloak.ExampleAccessTokenAsync(administrator);
+        Assert.Null(token["groups"]);
 
-        // US-8 · tokens: a user in no group reads the dictionaries and nothing more; the groups add their codes.
-        var noGroup = await keycloak.CreateUserAsync("live.nogroup");
-        var administrator = await keycloak.CreateUserAsync("live.admin", "/Администраторы");
-        var creator = await keycloak.CreateUserAsync("live.creator", "/Создатели организаций");
-        var dictionaries = await keycloak.CreateUserAsync("live.dictionaries", "/Администраторы справочников");
+        // The stand's own drift check, against the live realm made from this very file: nothing.
+        Assert.Empty(await keycloak.DriftFindingsAsync(RealmsDirectory));
+    }
 
-        Assert.Equal(["dictionaries.languages.read"], await keycloak.ApiRolesOfAsync(noGroup));
-        Assert.Equal(
-            ["dictionaries.languages.read", "dictionaries.languages.write", "organizations.organization.create"],
-            await keycloak.ApiRolesOfAsync(administrator));
-        Assert.Equal(["dictionaries.languages.read", "organizations.organization.create"], await keycloak.ApiRolesOfAsync(creator));
-        Assert.Equal(["dictionaries.languages.read", "dictionaries.languages.write"], await keycloak.ApiRolesOfAsync(dictionaries));
+    // tech-024: the realm's name is configuration - the same file imported with MUSTASK_REALM set becomes that realm.
+    [LiveProviderFact]
+    public async Task TheRealmNameComesFromTheEnvironment()
+    {
+        await using var keycloak = await LiveRealmContainer.StartAsync(File.ReadAllText(RealmFile), realm: "company");
 
-        // BR-M1-37 · the stand's own drift check, against the live realm made from this very file: nothing.
+        var (status, realm, _) = await keycloak.AdminAsync(HttpMethod.Get, string.Empty);
+
+        Assert.Equal(200, status);
+        Assert.Equal("company", (string)realm!["realm"]!);
+        Assert.Equal("default-roles-company", (string)realm["defaultRole"]!["name"]!);
         Assert.Empty(await keycloak.DriftFindingsAsync(RealmsDirectory));
     }
 }

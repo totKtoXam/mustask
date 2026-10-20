@@ -33,7 +33,7 @@ public sealed class SessionLogoutEndpointTests
         var sid = Guid.CreateVersion7().ToString();
 
         _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
-            accessToken: KeycloakTestRealm.CreateToken(),
+            accessToken: KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]),
             idToken: KeycloakTokenEndpointResponder.BuildIdToken(sid, challenge.Nonce),
             refreshToken: "logout-test-refresh-token",
             expiresIn: 300,

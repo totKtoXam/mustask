@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Security.Claims;
 using Mustask.Api.Authentication.Readiness;
+using Mustask.Api.Authentication;
 using Mustask.Api.Authorization;
 using Mustask.Shared.Exceptions;
 using Microsoft.AspNetCore.Authentication;
@@ -96,6 +97,7 @@ public static class SessionEndpoints
         SessionRenewalLock renewalLock,
         RefreshGrantClient refreshGrantClient,
         RenewedIdTokenValidator idTokenValidator,
+        KeycloakOptions keycloak,
         ILogger<Program> logger,
         TimeProvider clock,
         CancellationToken cancellationToken)
@@ -195,6 +197,16 @@ public static class SessionEndpoints
             httpContext.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
             httpContext.Response.Headers.RetryAfter = "30";
             return Results.Empty;
+        }
+
+        // tech-024 (ADR-0031): a user whose `user` client role was taken away keeps no session. Same shape as a dead refresh
+        // token: cache evicted, cookie cleared (deferred, see above), and the answer names the reason.
+        if (!SessionAccessGate.HoldsUserRole(refreshed.AccessToken, keycloak.Audience))
+        {
+            cache.Remove(sessionKey);
+            httpContext.Response.OnStarting(static state =>
+                ((HttpContext)state).SignOutAsync(SessionSchemes.Session), httpContext);
+            throw new ForbiddenException(SessionErrorCodes.NoAccess);
         }
 
         var expiresAtUtc = clock.GetUtcNow() + refreshed.ExpiresIn;

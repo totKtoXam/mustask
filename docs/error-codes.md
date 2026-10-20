@@ -85,6 +85,7 @@ guarantees it exists and differs from the Russian, not its quality
 |session.anonymous|401|Вы не вошли в систему.|Сіз жүйеге кірмегенсіз.|session|—|needs review|
 |session.expired|401|Сессия истекла. Войдите заново.|Сессия мерзімі аяқталды. Қайта кіріңіз.|session|—|needs review|
 |session.invalid_return_url|400|Недопустимый адрес возврата после входа.|Кіргеннен кейінгі қайту мекенжайы жарамсыз.|session|—|needs review|
+|session.no_access|403|У вашей учётной записи нет доступа к MUSTASK. Обратитесь к администратору.|Сіздің тіркелгіңізде MUSTASK-қа қолжетімділік жоқ. Әкімшіге хабарласыңыз.|session|—|needs review|
 |user_directory.push_malformed|400|Запрос канала пользователей не разобран: тело повреждено или слишком велико.|Пайдаланушылар арнасының сұранысы талданбады: денесі бүлінген немесе тым үлкен.|user_directory|—|needs review|
 |user_directory.push_unauthorized|401|Запрос канала пользователей отклонён: подпись отсутствует, неверна или устарела.|Пайдаланушылар арнасының сұранысы қабылданбады: қолтаңба жоқ, қате немесе ескірген.|user_directory|—|needs review|
 |user_directory.snapshot_conflict|409|Сверка с этим идентификатором уже начата с другим моментом или устарела.|Осы идентификатормен салыстыру басқа сәтпен басталған немесе ескірген.|user_directory|—|needs review|

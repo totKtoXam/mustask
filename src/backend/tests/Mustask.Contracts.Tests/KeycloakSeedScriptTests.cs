@@ -7,8 +7,8 @@ namespace Mustask.Contracts.Tests;
 /// mod-016 US-8 · "The realm scripts keep the administrator's secrets out of sight" and "The stand seed follows the inventory"
 /// (BR-M1-28, BR-M1-29, SEC-4): <c>scripts/keycloak-seed.sh</c> reads the Keycloak administrator's password from the environment,
 /// keeps neither the password nor the access token on any command line (the process list shows every argument to anyone on the
-/// machine), and seeds the administrator into the instance administrators' group and the optional <c>member</c> user into no group
-/// at all. A static check of the script's text — no Keycloak, no Docker, no shell: a regression that puts the token back on a
+/// machine), and gives the administrator the client roles <c>user</c> and <c>system-admin</c> and the optional <c>member</c> user <c>user</c> only
+/// (ADR-0031). A static check of the script's text — no Keycloak, no Docker, no shell: a regression that puts the token back on a
 /// <c>curl</c> line is a line of text, and a line of text is what this finds.
 /// </summary>
 public sealed class KeycloakSeedScriptTests
@@ -104,28 +104,34 @@ public sealed class KeycloakSeedScriptTests
         Assert.Contains("--data-binary @-", tokenRequest, StringComparison.Ordinal);
     }
 
-    // US-8 · "The stand seed follows the inventory": the administrator goes to the group that maps instance-admin, the optional
-    // member user to no group at all, and the removed group is named nowhere.
+    // tech-024 (ADR-0031) · the stand seed gives client roles directly: the administrator `user` and `system-admin`, the optional
+    // member user `user` only; no group is named anywhere and the realm is the configured one, not a literal.
     [Fact]
-    public void TheSeed_PutsTheAdministratorInTheInstanceAdminGroup_AndTheMemberUserInNoGroup()
+    public void TheSeed_GivesTheAdministratorUserAndSystemAdmin_AndTheMemberUserOnlyUser_NoGroupAnywhere()
     {
         var lines = LogicalLines();
 
-        Assert.Contains(lines, line => line.StartsWith("seed_user mustask \"$MUSTASK_USER\"", StringComparison.Ordinal) && line.Contains("\"/Администраторы\"", StringComparison.Ordinal));
-        Assert.Contains(lines, line => line.StartsWith("seed_user mustask member \"$MEMBER_PASSWORD\"", StringComparison.Ordinal) && line.Contains("\"Mustask\" \"\"", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.StartsWith("seed_user \"$KEYCLOAK_REALM\" \"$MUSTASK_USER\"", StringComparison.Ordinal) && line.Contains("\"user,system-admin\"", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.StartsWith("seed_user \"$KEYCLOAK_REALM\" member \"$MEMBER_PASSWORD\"", StringComparison.Ordinal) && line.EndsWith("\"user\" || failed=1", StringComparison.Ordinal));
         Assert.DoesNotContain("Сотрудники", Script, StringComparison.Ordinal);
+        Assert.DoesNotContain("Администраторы", Script, StringComparison.Ordinal);
+        Assert.DoesNotContain("/groups", Script, StringComparison.Ordinal);
+        Assert.DoesNotContain("realms/mustask", Script, StringComparison.Ordinal);
+        Assert.Contains("KEYCLOAK_REALM=\"${KEYCLOAK_REALM:-mustask}\"", Script, StringComparison.Ordinal);
     }
 
-    // The group the seed names exists in the realm import and maps the instance administrator (a typo here is a silent "no group").
+    // The roles the seed names exist in the realm import (a typo here is a silent "cannot sign in").
     [Fact]
-    public void TheGroupTheSeedUses_IsInTheRealmImport_AndMapsTheInstanceAdministrator()
+    public void TheRolesTheSeedUses_AreClientRolesOfTheRealmImport()
     {
         using var document = JsonDocument.Parse(File.ReadAllText(
             Path.Combine(RepositoryLayout.Root.FullName, "deploy", "keycloak", "realms", "mustask-realm.json")));
 
-        var group = document.RootElement.GetProperty("groups").EnumerateArray()
-            .Single(candidate => candidate.GetProperty("name").GetString() == "Администраторы");
+        var declared = document.RootElement.GetProperty("roles").GetProperty("client").GetProperty("mustask-api").EnumerateArray()
+            .Select(role => role.GetProperty("name").GetString()!)
+            .ToList();
 
-        Assert.Equal(["instance-admin"], group.GetProperty("realmRoles").EnumerateArray().Select(role => role.GetString()));
+        Assert.Contains("user", declared);
+        Assert.Contains("system-admin", declared);
     }
 }

@@ -109,7 +109,7 @@ public sealed class SessionTokenEndpointTests
     public async Task Token_FreshCache_ResponseIncludesExpiresInSeconds()
     {
         var client = _factory.CreateNoRedirectClient();
-        var (cookie, _, _, _) = await SignInAsync(client, KeycloakTestRealm.CreateToken());
+        var (cookie, _, _, _) = await SignInAsync(client, KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]));
 
         var response = await client.SendAsync(TokenRequest(cookie));
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -124,7 +124,7 @@ public sealed class SessionTokenEndpointTests
     public async Task Token_CacheExpired_RenewsOnce_ReturnsNewTokenAndRewritesCookie()
     {
         var client = _factory.CreateNoRedirectClient();
-        var (cookie, sid, sessionKey, _) = await SignInAsync(client, KeycloakTestRealm.CreateToken());
+        var (cookie, sid, sessionKey, _) = await SignInAsync(client, KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]));
 
         // Force the cached entry stale — the sign-in already cached a fresh
         // one with a 300 s expiry, well past the 60 s freshness threshold.
@@ -134,7 +134,7 @@ public sealed class SessionTokenEndpointTests
             cache.Set(sessionKey, "stale-access-token", DateTimeOffset.UtcNow);
         }
 
-        var renewedAccessToken = KeycloakTestRealm.CreateToken(["dictionaries.languages.write"]);
+        var renewedAccessToken = KeycloakTestRealm.CreateToken(["dictionaries.languages.read", "dictionaries.languages.write"]);
         _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
             accessToken: renewedAccessToken,
             idToken: KeycloakTokenEndpointResponder.BuildIdToken(sid, nonce: null),
@@ -163,7 +163,7 @@ public sealed class SessionTokenEndpointTests
     public async Task Token_InvalidGrant_Returns401Expired_AndClearsCookie()
     {
         var client = _factory.CreateNoRedirectClient();
-        var (cookie, _, sessionKey, _) = await SignInAsync(client, KeycloakTestRealm.CreateToken());
+        var (cookie, _, sessionKey, _) = await SignInAsync(client, KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]));
 
         using (var scope = _factory.Services.CreateScope())
         {
@@ -204,7 +204,7 @@ public sealed class SessionTokenEndpointTests
     public async Task Token_TokenEndpointUnavailable_Returns503WithRetryAfter_CookieUntouched()
     {
         var client = _factory.CreateNoRedirectClient();
-        var (cookie, _, sessionKey, _) = await SignInAsync(client, KeycloakTestRealm.CreateToken());
+        var (cookie, _, sessionKey, _) = await SignInAsync(client, KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]));
 
         using (var scope = _factory.Services.CreateScope())
         {
@@ -234,14 +234,14 @@ public sealed class SessionTokenEndpointTests
     public async Task Token_ConcurrentRequestsWithStaleCache_CallsTokenEndpointExactlyOnce()
     {
         var client = _factory.CreateNoRedirectClient();
-        var (cookie, sid, sessionKey, _) = await SignInAsync(client, KeycloakTestRealm.CreateToken());
+        var (cookie, sid, sessionKey, _) = await SignInAsync(client, KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]));
 
         using (var scope = _factory.Services.CreateScope())
         {
             scope.ServiceProvider.GetRequiredService<SessionAccessTokenCache>().Set(sessionKey, "stale", DateTimeOffset.UtcNow);
         }
 
-        var renewedAccessToken = KeycloakTestRealm.CreateToken();
+        var renewedAccessToken = KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]);
         _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
             accessToken: renewedAccessToken,
             idToken: KeycloakTokenEndpointResponder.BuildIdToken(sid, nonce: null),
@@ -278,14 +278,14 @@ public sealed class SessionTokenEndpointTests
     {
         var client = _factory.CreateNoRedirectClient();
         var challenge = await SessionTestSupport.ChallengeAsync(client);
-        var accessToken = KeycloakTestRealm.CreateToken();
+        var accessToken = KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]);
 
         _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
             accessToken: accessToken,
             idToken: KeycloakTestRealm.CreateToken(configure: t =>
             {
                 t.Audience = SessionOidcOptions.ClientId;
-                t.Permissions = null;
+                t.Roles = null;
                 t.Nonce = challenge.Nonce;
                 // t.Sid deliberately left null.
             }),
@@ -309,12 +309,15 @@ public sealed class SessionTokenEndpointTests
         Assert.Equal(accessToken, body.GetProperty("accessToken").GetString());
     }
 
-    /// <summary>A renewed id token whose "sub" does not match the ticket's is treated exactly like invalid_grant.</summary>
+    /// <summary>
+    /// tech-024 (ADR-0031): a renewal whose access token no longer carries the `user` client role ends the session — 403
+    /// <c>session.no_access</c>, the cookie cleared, the cache evicted.
+    /// </summary>
     [Fact]
-    public async Task Token_RenewedIdTokenHasDifferentSub_Returns401Expired_AndClearsCookieAndCache()
+    public async Task Token_RenewedAccessTokenWithoutUserRole_Returns403NoAccess_AndClearsCookieAndCache()
     {
         var client = _factory.CreateNoRedirectClient();
-        var (cookie, sid, sessionKey, _) = await SignInAsync(client, KeycloakTestRealm.CreateToken());
+        var (cookie, sid, sessionKey, _) = await SignInAsync(client, KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]));
 
         using (var scope = _factory.Services.CreateScope())
         {
@@ -322,7 +325,48 @@ public sealed class SessionTokenEndpointTests
         }
 
         _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
-            accessToken: KeycloakTestRealm.CreateToken(),
+            accessToken: KeycloakTestRealm.CreateToken(configure: t => t.Roles = ["organization-creator", "system-admin"]),
+            idToken: KeycloakTokenEndpointResponder.BuildIdToken(sid, nonce: null),
+            refreshToken: "rotated-refresh-token-no-user",
+            expiresIn: 300,
+            refreshExpiresIn: 1800);
+
+        try
+        {
+            var response = await client.SendAsync(TokenRequest(cookie));
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.Equal(SessionErrorCodes.NoAccess, body.GetProperty("errorCode").GetString());
+
+            var clearedCookie = SessionTestSupport.SessionCookie(response);
+            Assert.NotNull(clearedCookie);
+            Assert.Contains("1970", clearedCookie, StringComparison.OrdinalIgnoreCase);
+
+            using var scope = _factory.Services.CreateScope();
+            Assert.False(scope.ServiceProvider.GetRequiredService<SessionAccessTokenCache>()
+                .TryGetFresh(sessionKey, TimeSpan.Zero, out _));
+        }
+        finally
+        {
+            _factory.TokenResponder.Reset();
+        }
+    }
+
+    /// <summary>A renewed id token whose "sub" does not match the ticket's is treated exactly like invalid_grant.</summary>
+    [Fact]
+    public async Task Token_RenewedIdTokenHasDifferentSub_Returns401Expired_AndClearsCookieAndCache()
+    {
+        var client = _factory.CreateNoRedirectClient();
+        var (cookie, sid, sessionKey, _) = await SignInAsync(client, KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]));
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<SessionAccessTokenCache>().Set(sessionKey, "stale", DateTimeOffset.UtcNow);
+        }
+
+        _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
+            accessToken: KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]),
             idToken: KeycloakTokenEndpointResponder.BuildIdToken(sid, nonce: null, sub: "a-completely-different-subject"),
             refreshToken: "rotated-refresh-token-different-sub",
             expiresIn: 300,
@@ -355,7 +399,7 @@ public sealed class SessionTokenEndpointTests
     public async Task Token_RenewedIdTokenHasDifferentSid_Returns401Expired()
     {
         var client = _factory.CreateNoRedirectClient();
-        var (cookie, _, sessionKey, _) = await SignInAsync(client, KeycloakTestRealm.CreateToken());
+        var (cookie, _, sessionKey, _) = await SignInAsync(client, KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]));
 
         using (var scope = _factory.Services.CreateScope())
         {
@@ -363,7 +407,7 @@ public sealed class SessionTokenEndpointTests
         }
 
         _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
-            accessToken: KeycloakTestRealm.CreateToken(),
+            accessToken: KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]),
             idToken: KeycloakTokenEndpointResponder.BuildIdToken(Guid.CreateVersion7().ToString(), nonce: null),
             refreshToken: "rotated-refresh-token-different-sid",
             expiresIn: 300,
@@ -388,7 +432,7 @@ public sealed class SessionTokenEndpointTests
     public async Task Token_RenewedIdTokenSignedWithUnknownKey_Returns401Expired()
     {
         var client = _factory.CreateNoRedirectClient();
-        var (cookie, sid, sessionKey, _) = await SignInAsync(client, KeycloakTestRealm.CreateToken());
+        var (cookie, sid, sessionKey, _) = await SignInAsync(client, KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]));
 
         using (var scope = _factory.Services.CreateScope())
         {
@@ -396,11 +440,11 @@ public sealed class SessionTokenEndpointTests
         }
 
         _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
-            accessToken: KeycloakTestRealm.CreateToken(),
+            accessToken: KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]),
             idToken: KeycloakTestRealm.CreateToken(configure: t =>
             {
                 t.Audience = SessionOidcOptions.ClientId;
-                t.Permissions = null;
+                t.Roles = null;
                 t.Sid = sid;
                 t.Kid = Guid.NewGuid().ToString("N");
             }),
@@ -451,7 +495,7 @@ public sealed class SessionTokenEndpointTests
             services => services.AddSingleton<IConfigurationManager<OpenIdConnectConfiguration>>(fake)));
         var client = factory.CreateNoRedirectClient();
 
-        var (cookie, sid, sessionKey, _) = await SignInAsync(client, KeycloakTestRealm.CreateToken(), factory: factory);
+        var (cookie, sid, sessionKey, _) = await SignInAsync(client, KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]), factory: factory);
 
         using (var scope = factory.Services.CreateScope())
         {
@@ -462,11 +506,11 @@ public sealed class SessionTokenEndpointTests
         fake.OkConfigurationAfterRefresh = KeycloakTestRealm.ConfigurationWithAdditionalKid(newKid);
 
         _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
-            accessToken: KeycloakTestRealm.CreateToken(),
+            accessToken: KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]),
             idToken: KeycloakTestRealm.CreateToken(configure: t =>
             {
                 t.Audience = SessionOidcOptions.ClientId;
-                t.Permissions = null;
+                t.Roles = null;
                 t.Sid = sid;
                 t.Subject = KeycloakTokenEndpointResponder.DefaultSubject;
                 t.Kid = newKid;
@@ -512,7 +556,7 @@ public sealed class SessionTokenEndpointTests
             services => services.AddSingleton<IConfigurationManager<OpenIdConnectConfiguration>>(fake)));
         var client = factory.CreateNoRedirectClient();
 
-        var (cookie, sid, sessionKey, _) = await SignInAsync(client, KeycloakTestRealm.CreateToken(), factory: factory);
+        var (cookie, sid, sessionKey, _) = await SignInAsync(client, KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]), factory: factory);
 
         using (var scope = factory.Services.CreateScope())
         {
@@ -524,11 +568,11 @@ public sealed class SessionTokenEndpointTests
         fake.CompleteBackgroundRefresh();
 
         _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
-            accessToken: KeycloakTestRealm.CreateToken(),
+            accessToken: KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]),
             idToken: KeycloakTestRealm.CreateToken(configure: t =>
             {
                 t.Audience = SessionOidcOptions.ClientId;
-                t.Permissions = null;
+                t.Roles = null;
                 t.Sid = sid;
                 t.Subject = KeycloakTokenEndpointResponder.DefaultSubject;
                 t.Kid = newKid;

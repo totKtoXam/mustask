@@ -1,5 +1,5 @@
 {
-  "realm": "mustask",
+  "realm": "${MUSTASK_REALM:mustask}",
   "displayName": "Mustask",
   "displayNameHtml": "<strong>Mustask</strong>",
   "enabled": true,
@@ -36,97 +36,24 @@
     "client": {
       "mustask-api": [
         {
-          "name": "dictionaries.languages.read",
-          "description": "Право: просмотр справочника языков"
+          "name": "user",
+          "description": "Роль: пользователь — вход в систему и просмотр справочников"
         },
         {
-          "name": "dictionaries.languages.write",
-          "description": "Право: изменение справочника языков"
+          "name": "organization-creator",
+          "description": "Роль: создатель организаций — только право создавать организации"
         },
         {
-          "name": "organizations.organization.create",
-          "description": "Право: создание организаций"
+          "name": "dictionaries-admin",
+          "description": "Роль: администратор справочников — полное управление языками"
+        },
+        {
+          "name": "system-admin",
+          "description": "Роль: администратор системы — все права уровня экземпляра"
         }
       ]
-    },
-    "realm": [
-      {
-        "name": "instance-admin",
-        "description": "Роль: администратор экземпляра — справочники и создание организаций (ADR-0027). Прав внутри организаций не даёт: они выводятся из членства в организации",
-        "composite": true,
-        "composites": {
-          "client": {
-            "mustask-api": [
-              "dictionaries.languages.read",
-              "dictionaries.languages.write",
-              "organizations.organization.create"
-            ]
-          }
-        }
-      },
-      {
-        "name": "offline_access",
-        "description": "${role_offline-access}"
-      },
-      {
-        "name": "uma_authorization",
-        "description": "${role_uma_authorization}"
-      },
-      {
-        "name": "default-roles-mustask",
-        "description": "${role_default-roles}",
-        "composite": true,
-        "composites": {
-          "realm": ["offline_access", "uma_authorization"],
-          "client": {
-            "account": ["view-profile", "manage-account"],
-            "mustask-api": ["dictionaries.languages.read"]
-          }
-        }
-      },
-      {
-        "name": "dictionaries-admin",
-        "description": "Роль: администратор справочников — полное управление языками",
-        "composite": true,
-        "composites": {
-          "client": {
-            "mustask-api": [
-              "dictionaries.languages.read",
-              "dictionaries.languages.write"
-            ]
-          }
-        }
-      },
-      {
-        "name": "organization-creator",
-        "description": "Роль: создатель организаций — только право создавать организации",
-        "composite": true,
-        "composites": {
-          "client": {
-            "mustask-api": ["organizations.organization.create"]
-          }
-        }
-      }
-    ]
-  },
-  "defaultRole": {
-    "name": "default-roles-mustask",
-    "description": "${role_default-roles}"
-  },
-  "groups": [
-    {
-      "name": "Администраторы",
-      "realmRoles": ["instance-admin"]
-    },
-    {
-      "name": "Администраторы справочников",
-      "realmRoles": ["dictionaries-admin"]
-    },
-    {
-      "name": "Создатели организаций",
-      "realmRoles": ["organization-creator"]
     }
-  ],
+  },
   "clients": [
     {
       "clientId": "mustask-panel",
@@ -159,19 +86,6 @@
             "included.client.audience": "mustask-api",
             "access.token.claim": "true",
             "id.token.claim": "false"
-          }
-        },
-        {
-          "name": "groups",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-group-membership-mapper",
-          "consentRequired": false,
-          "config": {
-            "claim.name": "groups",
-            "full.path": "true",
-            "access.token.claim": "false",
-            "id.token.claim": "true",
-            "userinfo.token.claim": "true"
           }
         }
       ]

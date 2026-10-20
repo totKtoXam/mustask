@@ -92,7 +92,7 @@ public sealed class TokenLeakTests
         const string authorizationCode = "leak-probe-authorization-code";
 
         _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
-            accessToken: KeycloakTestRealm.CreateToken(),
+            accessToken: KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]),
             idToken: KeycloakTokenEndpointResponder.BuildIdToken(sid, challenge.Nonce),
             refreshToken: refreshToken,
             expiresIn: 300,
@@ -144,7 +144,7 @@ public sealed class TokenLeakTests
         const string refreshToken = "leak-probe-refresh-token-2";
 
         _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
-            accessToken: KeycloakTestRealm.CreateToken(),
+            accessToken: KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]),
             idToken: KeycloakTokenEndpointResponder.BuildIdToken(sid, challenge.Nonce),
             refreshToken: refreshToken,
             expiresIn: 300,
@@ -213,7 +213,7 @@ public sealed class TokenLeakTests
         const string initialRefreshToken = "leak-probe-renewal-initial-refresh-token";
 
         _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
-            accessToken: KeycloakTestRealm.CreateToken(),
+            accessToken: KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]),
             idToken: KeycloakTokenEndpointResponder.BuildIdToken(sid, challenge.Nonce),
             refreshToken: initialRefreshToken,
             expiresIn: 300,
@@ -237,7 +237,7 @@ public sealed class TokenLeakTests
         const string renewedRefreshToken = "leak-probe-renewal-rotated-refresh-token";
         var renewedIdToken = KeycloakTokenEndpointResponder.BuildIdToken(sid, nonce: null);
         _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
-            accessToken: KeycloakTestRealm.CreateToken(),
+            accessToken: KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]),
             idToken: renewedIdToken,
             refreshToken: renewedRefreshToken,
             expiresIn: 300,
@@ -299,7 +299,7 @@ public sealed class TokenLeakTests
         const string refreshToken = "leak-probe-logout-success-refresh-token";
 
         _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
-            accessToken: KeycloakTestRealm.CreateToken(),
+            accessToken: KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]),
             idToken: KeycloakTokenEndpointResponder.BuildIdToken(sid, challenge.Nonce),
             refreshToken: refreshToken,
             expiresIn: 300,
@@ -352,7 +352,7 @@ public sealed class TokenLeakTests
         const string refreshToken = "leak-probe-logout-503-refresh-token";
 
         _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
-            accessToken: KeycloakTestRealm.CreateToken(),
+            accessToken: KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]),
             idToken: KeycloakTokenEndpointResponder.BuildIdToken(sid, challenge.Nonce),
             refreshToken: refreshToken,
             expiresIn: 300,

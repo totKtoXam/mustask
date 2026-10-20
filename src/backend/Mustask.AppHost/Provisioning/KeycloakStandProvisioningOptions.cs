@@ -10,8 +10,8 @@ namespace Mustask.AppHost.Provisioning;
 /// </summary>
 public sealed record KeycloakStandProvisioningOptions
 {
-    /// <summary>The only realm the stand provisioning touches.</summary>
-    public string Realm { get; init; } = "mustask";
+    /// <summary>The only realm the stand provisioning touches (`Keycloak:Realm`, tech-024).</summary>
+    public string Realm { get; init; } = KeycloakStandIdentifiers.DefaultRealm;
 
     /// <summary>Master-realm admin username — always `admin` on this stand (`AppHost.cs`).</summary>
     public required string AdminUsername { get; init; }
@@ -29,17 +29,13 @@ public sealed record KeycloakStandProvisioningOptions
     public required string FixtureUsername { get; init; }
 
     /// <summary>
-    /// Group the fixture user is put in — the same group realm `mustask`'s own
-    /// human administrator (`mustask`) uses, so the fixture identity carries the
-    /// rights it needs with no new role/group of its own. Since mod-016 (ADR-0027,
-    /// BR-M1-29) the group maps the realm role `instance-admin`: the fixture is
-    /// the <b>instance</b> administrator — it reads and writes the dictionaries
-    /// and creates organizations, and becomes the administrator of each
-    /// organization it creates, as any creator does. It holds no organization
-    /// right of its own: a user it did not add to an organization sees nothing
-    /// of it, and the specs that need a second user add one on «Участники».
+    /// The client roles of `mustask-api` the fixture user is given directly (tech-024, ADR-0031: the company realm allows
+    /// no groups or realm roles of ours). `user` signs in; `system-admin` holds every instance right, so the fixture is the
+    /// <b>instance</b> administrator as the group «Администраторы» made it before: it reads and writes the dictionaries and
+    /// creates organizations, and becomes the administrator of each organization it creates. It holds no organization right of
+    /// its own: a user it did not add to an organization sees nothing of it.
     /// </summary>
-    public string GroupPath { get; init; } = "/Администраторы";
+    public IReadOnlyList<string> FixtureRoles { get; init; } = KeycloakStandIdentifiers.FixtureRoles;
 
     /// <summary>
     /// The Docker name AppHost assigned the `keycloak` container

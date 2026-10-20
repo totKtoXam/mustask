@@ -62,7 +62,8 @@ public static class KeycloakStandProvisioner
             await GrantImpersonationRolesAsync(http, token, options.Realm, serviceAccountUserId, cancellationToken);
 
             var fixtureUserId = await CreateOrUpdateFixtureUserAsync(http, token, options, cancellationToken);
-            await AddUserToGroupAsync(http, token, options.Realm, fixtureUserId, options.GroupPath, cancellationToken);
+            await GrantApiClientRolesAsync(http, token, options.Realm, fixtureUserId, options.FixtureRoles, cancellationToken);
+            await AddUserRoleToDefaultRolesAsync(http, token, options.Realm, cancellationToken);
 
             await WriteStandFileAsync(options, cancellationToken);
         }
@@ -264,26 +265,73 @@ public static class KeycloakStandProvisioner
         return existingId;
     }
 
-    private static async Task AddUserToGroupAsync(
-        HttpClient http, string token, string realm, string userId, string groupPath, CancellationToken cancellationToken)
+    /// <summary>
+    /// Gives the user the named client roles of `mustask-api` directly (tech-024, ADR-0031) — no group, no realm role.
+    /// Idempotent: Keycloak ignores a role the user already holds. A role the realm import did not declare is an error
+    /// naming it, not a silent skip: the stand would sign the fixture in without the right it is meant to have.
+    /// </summary>
+    private static async Task GrantApiClientRolesAsync(
+        HttpClient http, string token, string realm, string userId, IReadOnlyList<string> roleNames, CancellationToken cancellationToken)
     {
-        var encodedPath = string.Join('/', groupPath
-            .Split('/', StringSplitOptions.RemoveEmptyEntries)
-            .Select(Uri.EscapeDataString));
+        var (apiClientId, grant) = await ResolveApiClientRolesAsync(http, token, realm, roleNames, cancellationToken);
 
-        using var groupRequest = Authorized(HttpMethod.Get, $"/admin/realms/{realm}/group-by-path/{encodedPath}", token);
-        using var groupResponse = await http.SendAsync(groupRequest, cancellationToken);
-        groupResponse.EnsureSuccessStatusCode();
+        using var grantRequest = Authorized(
+            HttpMethod.Post, $"/admin/realms/{realm}/users/{userId}/role-mappings/clients/{apiClientId}", token, grant);
+        using var grantResponse = await http.SendAsync(grantRequest, cancellationToken);
+        grantResponse.EnsureSuccessStatusCode();
+    }
 
-        var group = await groupResponse.Content.ReadFromJsonAsync<JsonObject>(cancellationToken)
-            ?? throw new InvalidOperationException($"Group `{groupPath}` was not found in realm `{realm}` — did the realm import not happen?");
+    /// <summary>
+    /// Stand only: the realm's default role (`default-roles-&lt;realm&gt;`, Keycloak's own, never declared by the import) gets
+    /// `user` as a composite, so every account made on the stand (the E2E suite's throwaway users, the people the seed script
+    /// adds) can sign in without a role mapping of its own. The company-wide realm has no such default role of ours — there an
+    /// administrator gives `user` to each user (ADR-0031). Idempotent; the drift check never compares the default role.
+    /// </summary>
+    private static async Task AddUserRoleToDefaultRolesAsync(
+        HttpClient http, string token, string realm, CancellationToken cancellationToken)
+    {
+        var (_, grant) = await ResolveApiClientRolesAsync(http, token, realm, ["user"], cancellationToken);
 
-        var groupId = group["id"]?.GetValue<string>()
-            ?? throw new InvalidOperationException($"Group `{groupPath}` has no id.");
+        using var request = Authorized(
+            HttpMethod.Post, $"/admin/realms/{realm}/roles/default-roles-{Uri.EscapeDataString(realm)}/composites", token, grant);
+        using var response = await http.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
 
-        using var membershipRequest = Authorized(HttpMethod.Put, $"/admin/realms/{realm}/users/{userId}/groups/{groupId}", token);
-        using var membershipResponse = await http.SendAsync(membershipRequest, cancellationToken);
-        membershipResponse.EnsureSuccessStatusCode();
+    /// <summary>The internal id of the `mustask-api` client and the role representations (id, name) of the named roles.</summary>
+    private static async Task<(string ApiClientId, JsonArray Roles)> ResolveApiClientRolesAsync(
+        HttpClient http, string token, string realm, IReadOnlyList<string> roleNames, CancellationToken cancellationToken)
+    {
+        var apiClientId = await FindByExactMatchAsync(
+            http, token, $"/admin/realms/{realm}/clients?clientId={Uri.EscapeDataString(KeycloakStandIdentifiers.ApiClientId)}", cancellationToken)
+            ?? throw new InvalidOperationException(
+                $"Client `{KeycloakStandIdentifiers.ApiClientId}` was not found in realm `{realm}` — did the realm import not happen?");
+
+        using var rolesRequest = Authorized(HttpMethod.Get, $"/admin/realms/{realm}/clients/{apiClientId}/roles", token);
+        using var rolesResponse = await http.SendAsync(rolesRequest, cancellationToken);
+        rolesResponse.EnsureSuccessStatusCode();
+
+        var allRoles = await rolesResponse.Content.ReadFromJsonAsync<JsonArray>(cancellationToken)
+            ?? throw new InvalidOperationException($"`{KeycloakStandIdentifiers.ApiClientId}`'s role list came back empty.");
+
+        var roles = new JsonArray();
+
+        foreach (var roleName in roleNames)
+        {
+            var role = allRoles
+                .Select(r => r!.AsObject())
+                .FirstOrDefault(r => string.Equals(r["name"]?.GetValue<string>(), roleName, StringComparison.Ordinal))
+                ?? throw new InvalidOperationException(
+                    $"Client `{KeycloakStandIdentifiers.ApiClientId}` of realm `{realm}` has no role `{roleName}` — the realm import is not the one this code expects.");
+
+            roles.Add(new JsonObject
+            {
+                ["id"] = role["id"]!.GetValue<string>(),
+                ["name"] = roleName,
+            });
+        }
+
+        return (apiClientId, roles);
     }
 
     // --- The stand file -----------------------------------------------------------

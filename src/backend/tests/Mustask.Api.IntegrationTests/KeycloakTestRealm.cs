@@ -64,8 +64,8 @@ public static class KeycloakTestRealm
         /// <summary><c>null</c> — claim <c>name</c> отсутствует вовсе (для сценария «name → preferred_username»).</summary>
         public string? Name { get; set; } = "Test User";
 
-        /// <summary><c>resource_access.&lt;Audience&gt;.roles</c> — права запроса. <c>null</c> — ключ <c>mustask-api</c> из <c>resource_access</c> не пишется вовсе.</summary>
-        public IReadOnlyCollection<string>? Permissions { get; set; } = [];
+        /// <summary><c>resource_access.&lt;Audience&gt;.roles</c> — имена клиентских ролей mustask-api (tech-024, ADR-0031), не коды прав. <c>null</c> — ключ <c>mustask-api</c> из <c>resource_access</c> не пишется вовсе.</summary>
+        public IReadOnlyCollection<string>? Roles { get; set; } = [];
 
         /// <summary><c>realm_access.roles</c> — для негативного сценария («роли realm'а прав не дают»), не читается <see cref="Mustask.Api.Authentication.KeycloakPermissionClaims"/>.</summary>
         public IReadOnlyCollection<string>? RealmAccessRoles { get; set; }
@@ -119,7 +119,7 @@ public static class KeycloakTestRealm
 
     /// <summary>
     /// Выпускает JWT RS256, подписанный тестовым ключом. <paramref name="permissions"/> —
-    /// сокращённая форма для типичного случая (эквивалент <c>configure: t =&gt; t.Permissions = permissions</c>);
+    /// сокращённая форма для типичного случая (эквивалент <c>configure: t =&gt; t.Roles = RolesFor(permissions)</c>);
     /// <paramref name="configure"/> позволяет подменить любое из полей <see cref="TokenOptions"/>
     /// (иss/aud/kid/срок/realm_access/чужой клиент) для негативных сценариев.
     /// </summary>
@@ -129,7 +129,7 @@ public static class KeycloakTestRealm
 
         if (permissions is not null)
         {
-            options.Permissions = permissions;
+            options.Roles = RolesFor(permissions);
         }
 
         configure?.Invoke(options);
@@ -147,9 +147,9 @@ public static class KeycloakTestRealm
 
         var resourceAccess = new Dictionary<string, object>();
 
-        if (options.Permissions is not null)
+        if (options.Roles is not null)
         {
-            resourceAccess[options.Audience] = new Dictionary<string, object> { ["roles"] = options.Permissions.ToArray() };
+            resourceAccess[options.Audience] = new Dictionary<string, object> { ["roles"] = options.Roles.ToArray() };
         }
 
         if (options.ForeignClientPermissions is not null)
@@ -235,6 +235,37 @@ public static class KeycloakTestRealm
     {
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         return request;
+    }
+
+    /// <summary>
+    /// The role names whose union covers the instance part of <paramref name="permissionCodes"/> (organization codes are not in
+    /// the token and are ignored): the shorthand <see cref="CreateToken"/> keeps for the many tests that think in codes. No
+    /// instance code → no role at all (a principal without <c>user</c> holds nothing). Otherwise <c>user</c> is always there,
+    /// so the result also holds the dictionaries' read even when the codes did not name it; a test that needs a token WITHOUT
+    /// it (or any other exact set of roles) names the roles itself through <see cref="TokenOptions.Roles"/>.
+    /// </summary>
+    public static IReadOnlyCollection<string> RolesFor(IReadOnlyCollection<string> permissionCodes)
+    {
+        var wanted = permissionCodes.Where(code => Mustask.Domain.Identity.PermissionCatalog.InstanceCodes.Contains(code)).ToHashSet(StringComparer.Ordinal);
+
+        if (wanted.Count == 0)
+        {
+            return [];
+        }
+
+        var roles = Mustask.Domain.Identity.InstanceRoles.All
+            .Where(role => role.Name == Mustask.Domain.Identity.InstanceRoles.User || role.Codes.IsSubsetOf(wanted.Append(Mustask.Domain.Identity.PermissionCatalog.DictionariesLanguagesRead)))
+            .Select(role => role.Name)
+            .ToList();
+
+        if (!wanted.IsSubsetOf(Mustask.Domain.Identity.InstanceRoles.CodesOf(roles)))
+        {
+            throw new ArgumentException(
+                $"No role covers [{string.Join(", ", wanted.Order(StringComparer.Ordinal))}]; name the roles through TokenOptions.Roles.",
+                nameof(permissionCodes));
+        }
+
+        return roles;
     }
 
     private static OpenIdConnectConfiguration BuildConfiguration(string issuer, bool includeKeys)

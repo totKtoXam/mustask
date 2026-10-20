@@ -7,7 +7,7 @@ namespace Mustask.AppHost.Stand;
 
 /// <summary>
 /// The <c>keycloak</c> resource's drift health check (mod-014 D-10 (a);
-/// ADR-0025 § 7): unhealthy until realm <c>mustask</c> answers, then the
+/// ADR-0025 § 7): unhealthy until the stand's realm (<c>Keycloak:Realm</c>, default <c>mustask</c>) answers, then the
 /// result of <see cref="KeycloakStandDriftCheck"/>. Aspire raises
 /// <c>ResourceReadyEvent</c> only on a healthy resource, so on any finding
 /// ADR-0023's provisioning does not run and the E2E stand file is not
@@ -71,15 +71,17 @@ public sealed class KeycloakDriftHealthCheck(
                 ? new HttpClient { BaseAddress = keycloakAddress, Timeout = RequestTimeout }
                 : new HttpClient(handler, disposeHandler: false) { BaseAddress = keycloakAddress, Timeout = RequestTimeout };
 
-            using (var realm = await http.GetAsync("/realms/mustask", cancellationToken))
+            var driftOptions = await options(cancellationToken);
+
+            using (var realm = await http.GetAsync("/realms/" + Uri.EscapeDataString(driftOptions.Import.Realm), cancellationToken))
             {
                 if (!realm.IsSuccessStatusCode)
                 {
-                    return HealthCheckResult.Unhealthy("Realm mustask is not answering yet.");
+                    return HealthCheckResult.Unhealthy($"Realm {driftOptions.Import.Realm} is not answering yet.");
                 }
             }
 
-            var findings = await KeycloakStandDriftCheck.RunAsync(http, await options(cancellationToken), cancellationToken);
+            var findings = await KeycloakStandDriftCheck.RunAsync(http, driftOptions, cancellationToken);
 
             if (findings.Count == 0)
             {

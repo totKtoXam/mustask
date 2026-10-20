@@ -205,7 +205,7 @@ public sealed class GetProcessDefinitionEndpointTests(MustaskApiFactory factory)
             [PermissionCatalog.ProcessDefinitionRead], options => options.Subject = OrganizationsTestData.Creator);
         var bare = KeycloakTestRealm.CreateToken(configure: options =>
         {
-            options.Permissions = null;
+            options.Roles = null;
             options.Subject = OrganizationsTestData.Creator;
         });
 

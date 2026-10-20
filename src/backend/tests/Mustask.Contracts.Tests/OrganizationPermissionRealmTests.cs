@@ -36,22 +36,28 @@ public sealed class OrganizationPermissionRealmTests
     }
 
     /// <summary>
-    /// The walk is not vacuous: it reaches the strings it must look at. A scan
-    /// that quietly stopped reading would pass exactly like a clean realm.
+    /// tech-024 (ADR-0031): the token carries the four role names and the code table lives in code, so the realm import
+    /// mentions no permission code at all — instance codes included. A raw code as a client role would be a right nobody
+    /// checks (<see cref="Mustask.Api.Authentication.KeycloakPermissionClaims"/> ignores unknown names).
     /// </summary>
     [Fact]
-    public void RealmScan_ReachesTheDictionaryCodesTheRealmDoesDeclare()
+    public void RealmImports_MentionNoInstanceCodeEither()
     {
         foreach (var file in RealmFiles())
         {
             using var document = JsonDocument.Parse(File.ReadAllText(file.FullName));
 
-            var found = FindMentions(document.RootElement, PermissionCatalog.InstanceCodes);
-
-            Assert.Equal(
-                PermissionCatalog.InstanceCodes.Order(StringComparer.Ordinal),
-                found.Distinct().Order(StringComparer.Ordinal));
+            Assert.Empty(FindMentions(document.RootElement, PermissionCatalog.InstanceCodes));
         }
+    }
+
+    /// <summary>The walk is not vacuous: an instance code in a client role of an import is found, so a clean result means a clean file.</summary>
+    [Fact]
+    public void FindMentions_InstanceCodeInAClientRole_IsFound()
+    {
+        using var document = JsonDocument.Parse("""{ "roles": { "client": { "mustask-api": [ { "name": "dictionaries.languages.read" } ] } } }""");
+
+        Assert.Equal([PermissionCatalog.DictionariesLanguagesRead], FindMentions(document.RootElement, PermissionCatalog.InstanceCodes));
     }
 
     [Theory]

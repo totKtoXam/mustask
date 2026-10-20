@@ -92,14 +92,14 @@ public sealed class KeycloakTokenEndpointResponder
         KeycloakTestRealm.CreateToken(configure: t =>
         {
             t.Audience = SessionOidcOptions.ClientId;
-            t.Permissions = null;
+            t.Roles = null;
             t.Sid = sid;
             t.Nonce = nonce;
             t.Subject = sub;
         });
 
     public static string DefaultOkBody() => BuildBody(
-        accessToken: KeycloakTestRealm.CreateToken(),
+        accessToken: KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]),
         idToken: BuildIdToken(sid: Guid.CreateVersion7().ToString(), nonce: null),
         refreshToken: "test-refresh-token",
         expiresIn: 300,

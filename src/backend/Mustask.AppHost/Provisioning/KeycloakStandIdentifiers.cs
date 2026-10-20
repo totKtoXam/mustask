@@ -1,7 +1,9 @@
+using System.Text.RegularExpressions;
+
 namespace Mustask.AppHost.Provisioning;
 
 /// <summary>
-/// The two literals `AppHost.cs` passes into
+/// The literals `AppHost.cs` passes into
 /// <see cref="KeycloakStandProvisioningOptions"/>, promoted to one named
 /// place instead of being typed twice — once here, once (until now) as an
 /// inline string in `AppHost.cs`'s event subscriber. The reason this exists
@@ -10,12 +12,50 @@ namespace Mustask.AppHost.Provisioning;
 /// against, not a copy re-typed by hand that could silently drift from what
 /// `AppHost.cs` actually uses.
 /// </summary>
-public static class KeycloakStandIdentifiers
+public static partial class KeycloakStandIdentifiers
 {
+    /// <summary>
+    /// The stand's realm when `Keycloak:Realm` is not set (tech-024, ADR-0031: the realm name is configuration, because the
+    /// company-wide realm MUSTASK runs in on a server is not called `mustask`).
+    /// </summary>
+    public const string DefaultRealm = "mustask";
+
+    /// <summary>Environment variable the realm-import file reads its name from (`${MUSTASK_REALM:mustask}`).</summary>
+    public const string RealmPlaceholder = "MUSTASK_REALM";
+
+    /// <summary>
+    /// The realm name the stand uses: the configured `Keycloak:Realm`, or <see cref="DefaultRealm"/> when it is unset or blank.
+    /// The name ends up in URLs and in the import file, so only letters, digits, `-`, `_` and `.` are accepted.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The configured name has other characters.</exception>
+    public static string RealmName(string? configured)
+    {
+        if (string.IsNullOrWhiteSpace(configured))
+        {
+            return DefaultRealm;
+        }
+
+        var name = configured.Trim();
+
+        return RealmNamePattern().IsMatch(name)
+            ? name
+            : throw new InvalidOperationException($"Keycloak:Realm `{name}` is not a realm name: use letters, digits, '-', '_' and '.' only.");
+    }
+
+    /// <summary>The API's client: the holder of the four client roles (`Mustask.Domain.Identity.InstanceRoles`).</summary>
+    public const string ApiClientId = "mustask-api";
+
+    /// <summary>
+    /// The client roles of <see cref="ApiClientId"/> the fixture user is given directly (no group, no realm role). The names are literals
+    /// because the AppHost does not reference the domain; `KeycloakStandProvisioningTests` compares them with `InstanceRoles`:
+    /// `user` to sign in, `system-admin` for every instance right — what the group «Администраторы» gave before ADR-0031.
+    /// </summary>
+    public static readonly IReadOnlyList<string> FixtureRoles = ["user", "system-admin"];
+
     /// <summary>Realm `mustask`, confidential, service account.</summary>
     public const string ClientId = "mustask-e2e";
 
-    /// <summary>Realm `mustask`, group `/Администраторы`, no password.</summary>
+    /// <summary>The stand's realm, client roles `user` and `system-admin`, no password.</summary>
     public const string FixtureUsername = "e2e-fixture";
 
     /// <summary>
@@ -32,4 +72,7 @@ public static class KeycloakStandIdentifiers
     /// change with the E2E suite, not a free tuning knob.
     /// </summary>
     public const int AccessTokenLifespanSeconds = 120;
+
+    [GeneratedRegex(@"^[A-Za-z0-9._-]+$")]
+    private static partial Regex RealmNamePattern();
 }

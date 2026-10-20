@@ -2,8 +2,8 @@ namespace Mustask.Domain.Identity;
 
 /// <summary>
 /// Where a permission code comes from (ADR-0027, status.md D-8). An
-/// <see cref="Instance"/> code is held in the token (Keycloak realm roles bundle
-/// it, ADR-0018); an <see cref="Organization"/> code is never in the token: it
+/// <see cref="Instance"/> code is held in the token (the client roles of <c>mustask-api</c> bundle
+/// it through <see cref="InstanceRoles"/>, ADR-0031); an <see cref="Organization"/> code is never in the token: it
 /// is derived on every request from the caller's membership in the
 /// organization of the address.
 /// </summary>

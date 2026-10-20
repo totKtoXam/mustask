@@ -58,8 +58,20 @@ public sealed class KeycloakStandProvisioningTests
             Assert.False(string.IsNullOrEmpty(userCreateBody.GetProperty("firstName").GetString()));
             Assert.False(string.IsNullOrEmpty(userCreateBody.GetProperty("lastName").GetString()));
 
-            // The fixture user is put in the same group `mustask` uses today.
-            Assert.Contains(handler.Requests, r => r.Method == HttpMethod.Put && r.Path == "/admin/realms/mustask/users/existing-user-id/groups/group-admins-id");
+            // tech-024 (ADR-0031): the fixture user gets the client roles `user` and `system-admin` directly - no group, no realm role.
+            var grant = Assert.Single(handler.Requests, r => r.Method == HttpMethod.Post && r.Path == "/admin/realms/mustask/users/existing-user-id/role-mappings/clients/mustask-api-id");
+            Assert.Equal(
+                ["system-admin", "user"],
+                JsonDocument.Parse(grant.Body!).RootElement.EnumerateArray().Select(role => role.GetProperty("name").GetString()!).Order(StringComparer.Ordinal));
+            Assert.Equal(
+                ["role-system-id", "role-user-id"],
+                JsonDocument.Parse(grant.Body!).RootElement.EnumerateArray().Select(role => role.GetProperty("id").GetString()!).Order(StringComparer.Ordinal));
+            Assert.DoesNotContain(handler.Requests, r => r.Path.Contains("/groups", StringComparison.Ordinal) && !r.Path.EndsWith("/realms/mustask", StringComparison.Ordinal));
+            Assert.Equal(KeycloakStandIdentifiers.FixtureRoles, options.FixtureRoles);
+
+            // Stand only: `user` is also a composite of the realm's default role, so the E2E suite's throwaway users can sign in.
+            var defaultRole = Assert.Single(handler.Requests, r => r.Method == HttpMethod.Post && r.Path == "/admin/realms/mustask/roles/default-roles-mustask/composites");
+            Assert.Equal(["user"], JsonDocument.Parse(defaultRole.Body!).RootElement.EnumerateArray().Select(role => role.GetProperty("name").GetString()!));
         }
         finally
         {
@@ -132,7 +144,7 @@ public sealed class KeycloakStandProvisioningTests
             Assert.Equal(options.ClientSecret, createBody.GetProperty("secret").GetString());
             Assert.Equal(options.ClientSecret, updateBody.GetProperty("secret").GetString());
 
-            // The role grant, group membership and realm-lifespan write are
+            // The role grants and the realm-lifespan write are
             // each attempted a second time too (Aspire re-fires the whole
             // event, not just the client step) — none of them threw, which
             // is the fake's stand-in for "Keycloak tolerates a repeat
@@ -141,13 +153,70 @@ public sealed class KeycloakStandProvisioningTests
             Assert.Equal(2, handler.Requests.Count(r =>
                 r.Method == HttpMethod.Post && r.Path == "/admin/realms/mustask/users/service-account-user-id/role-mappings/clients/realm-management-id"));
             Assert.Equal(2, handler.Requests.Count(r =>
-                r.Method == HttpMethod.Put && r.Path == "/admin/realms/mustask/users/existing-user-id/groups/group-admins-id"));
+                r.Method == HttpMethod.Post && r.Path == "/admin/realms/mustask/users/existing-user-id/role-mappings/clients/mustask-api-id"));
             Assert.Equal(2, handler.Requests.Count(r => r.Method == HttpMethod.Put && r.Path == "/admin/realms/mustask"));
         }
         finally
         {
             File.Delete(standFilePath);
         }
+    }
+
+    // tech-024: the realm the provisioning touches is the configured one (Keycloak:Realm) - every admin request is under it.
+    [Fact]
+    public async Task ProvisionAsync_ConfiguredRealm_EveryAdminRequestIsUnderIt()
+    {
+        var handler = new RecordingKeycloakHandler { Realm = "company" };
+        using var http = new HttpClient(handler) { BaseAddress = new Uri("http://keycloak.invalid") };
+        var standFilePath = TempFilePath();
+
+        try
+        {
+            await KeycloakStandProvisioner.ProvisionAsync(http, Options(standFilePath, "company"), CancellationToken.None);
+
+            var admin = handler.RawPaths.Where(path => path.StartsWith("/admin/", StringComparison.Ordinal)).ToList();
+
+            Assert.NotEmpty(admin);
+            Assert.All(admin, path => Assert.StartsWith("/admin/realms/company", path, StringComparison.Ordinal));
+            Assert.Contains("/admin/realms/company/users/existing-user-id/role-mappings/clients/mustask-api-id", handler.RawPaths);
+            Assert.Contains("/realms/company", JsonDocument.Parse(File.ReadAllText(standFilePath)).RootElement.GetProperty("issuer").GetString());
+        }
+        finally
+        {
+            File.Delete(standFilePath);
+        }
+    }
+
+    // The literals the AppHost cannot take from the domain are the domain's names.
+    [Fact]
+    public void FixtureRoles_AreRolesOfTheDomainTable_AndTheApiClientIsTheAudience()
+    {
+        Assert.All(KeycloakStandIdentifiers.FixtureRoles, role => Assert.True(Mustask.Domain.Identity.InstanceRoles.IsKnown(role)));
+        Assert.Equal(
+            [Mustask.Domain.Identity.InstanceRoles.User, Mustask.Domain.Identity.InstanceRoles.SystemAdmin],
+            KeycloakStandIdentifiers.FixtureRoles);
+        Assert.Equal("mustask-api", KeycloakStandIdentifiers.ApiClientId);
+    }
+
+    [Theory]
+    [InlineData(null, "mustask")]
+    [InlineData("", "mustask")]
+    [InlineData("  ", "mustask")]
+    [InlineData("company", "company")]
+    [InlineData(" company-realm_2.x ", "company-realm_2.x")]
+    public void RealmName_DefaultsToMustask_AndTakesAValidConfiguredName(string? configured, string expected)
+    {
+        Assert.Equal(expected, KeycloakStandIdentifiers.RealmName(configured));
+    }
+
+    [Theory]
+    [InlineData("a/b")]
+    [InlineData("a b")]
+    [InlineData("../master")]
+    [InlineData("реалм")]
+    public void RealmName_RejectsACharacterThatWouldBreakAUrl(string configured)
+    {
+        Assert.Throws<InvalidOperationException>(() => KeycloakStandIdentifiers.RealmName(configured));
     }
 
     [Fact]
@@ -343,7 +412,7 @@ public sealed class KeycloakStandProvisioningTests
             // here, not a race artifact.
             Assert.Equal(1, handler.Requests.Count(r => r.Method == HttpMethod.Post && r.Path == "/admin/realms/mustask/users"));
             Assert.Equal(2, handler.Requests.Count(r =>
-                r.Method == HttpMethod.Put && r.Path == "/admin/realms/mustask/users/existing-user-id" && !r.Path.Contains("/groups/", StringComparison.Ordinal)));
+                r.Method == HttpMethod.Put && r.Path == "/admin/realms/mustask/users/existing-user-id"));
         }
         finally
         {
@@ -351,7 +420,7 @@ public sealed class KeycloakStandProvisioningTests
         }
     }
 
-    private static KeycloakStandProvisioningOptions Options(string standFilePath) => new()
+    private static KeycloakStandProvisioningOptions Options(string standFilePath, string realm = "mustask") => new()
     {
         AdminUsername = "admin",
         AdminPassword = "admin-password",
@@ -359,7 +428,8 @@ public sealed class KeycloakStandProvisioningTests
         ClientSecret = "generated-secret-value",
         FixtureUsername = "e2e-fixture",
         KeycloakContainerName = "mustask-e2e-keycloak-5010",
-        Issuer = "http://localhost:5010/realms/mustask",
+        Realm = realm,
+        Issuer = $"http://localhost:5010/realms/{realm}",
         StandFilePath = standFilePath,
         AccessTokenLifespanSeconds = 120,
     };
@@ -379,6 +449,11 @@ public sealed class KeycloakStandProvisioningTests
 
         public List<(HttpMethod Method, string Path, string? Body)> Requests { get; } = [];
 
+        /// <summary>The realm the code under test is told to use; the fake answers as if it were `mustask` and records the raw paths in <see cref="RawPaths"/>.</summary>
+        public string Realm { get; init; } = "mustask";
+
+        public List<string> RawPaths { get; } = [];
+
         public bool ClientExists { get; set; }
 
         public bool UserExists { get; set; }
@@ -394,12 +469,14 @@ public sealed class KeycloakStandProvisioningTests
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            var path = request.RequestUri!.PathAndQuery;
+            var rawPath = request.RequestUri!.PathAndQuery;
+            var path = rawPath.Replace($"/admin/realms/{Realm}", "/admin/realms/mustask", StringComparison.Ordinal).Replace($"default-roles-{Realm}", "default-roles-mustask", StringComparison.Ordinal);
             var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
 
             lock (_requestsLock)
             {
                 Requests.Add((request.Method, path, body));
+                RawPaths.Add(rawPath);
             }
 
             if (DelayBeforeClientExistsCheck is { } delay
@@ -481,15 +558,22 @@ public sealed class KeycloakStandProvisioningTests
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
             }
 
-            if (request.Method == HttpMethod.Get && path.StartsWith("/admin/realms/mustask/group-by-path/", StringComparison.Ordinal))
+            if (request.Method == HttpMethod.Get && path == "/admin/realms/mustask/clients?clientId=mustask-api")
             {
-                return Json("""{"id":"group-admins-id"}""");
+                return Json("""[{"id":"mustask-api-id"}]""");
             }
 
-            if (request.Method == HttpMethod.Put && path == "/admin/realms/mustask/users/existing-user-id/groups/group-admins-id")
+            if (request.Method == HttpMethod.Get && path == "/admin/realms/mustask/clients/mustask-api-id/roles")
+            {
+                return Json("""[{"id":"role-user-id","name":"user"},{"id":"role-creator-id","name":"organization-creator"},{"id":"role-dictionaries-id","name":"dictionaries-admin"},{"id":"role-system-id","name":"system-admin"}]""");
+            }
+if (request.Method == HttpMethod.Post && path == "/admin/realms/mustask/roles/default-roles-mustask/composites")            {                return new HttpResponseMessage(HttpStatusCode.NoContent);            }
+
+            if (request.Method == HttpMethod.Post && path == "/admin/realms/mustask/users/existing-user-id/role-mappings/clients/mustask-api-id")
             {
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
             }
+
 
             throw new InvalidOperationException($"Unexpected request in KeycloakStandProvisioningTests: {request.Method} {path}");
         }
