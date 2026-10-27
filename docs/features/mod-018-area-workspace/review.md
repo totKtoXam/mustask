@@ -421,3 +421,38 @@ still describe «Область» in the band. `CreateWorkItemHandler.cs:17` has
 `request-changes`. 3 majors (M-1 code, with a test and a QA re-check over that handler; M-2 and M-3 prose only, delta read, no
 QA), 4 minors left as debt (m-1..m-4). For the human at gate-3: confirm the ADR-0028 amendment as not substantive (spec § ADR-0028
 amendment), on its M-2 text.
+
+## Round 2 — delta
+
+Code reviewer, clean context, 2026-10-27, diff `c18792ae..HEAD` (round-1 fixes M-1, M-2, M-3, m-1, m-4). Verdict: **approve**.
+
+Tests run: `Mustask.Api.IntegrationTests` filtered to `AreaLinkEndpointTests` (13 passed, 0 failed) and
+`Mustask.Application.Tests` filtered to `AreaLink` (30 passed, 0 failed). The full suite was not re-run.
+
+- **M-1 · closed.** `UnlinkProjectFromAreaHandler` takes `IProjectRepository` and refuses on `!IsReachableAsync` with
+  `project.not_found`; its summary is corrected. `UnlinkTeamFromAreaHandler` requires `is { IsReachable: true }`. The new API tests
+  assert 404 `organizations.project.not_found` with the link surviving a deactivate/restore (the restore is done before the read),
+  and 404 `organizations.team.not_found` for a deleted team. The inverted handler test now expects `NotFoundException` and
+  `Assert.Single(AreaProjects)`; it is the fix of the contract's rule, and no other assertion in the diff is weakened.
+- **M-2 · closed.** The ADR-0028 rule 8 order is renumbered in place: (1) tree lock then areas by id, (2) teams, (3) links,
+  (4) project row, (5) number and hierarchy rows, (6) sprints, (7) items, (8) order rows. The Unlink bullet says
+  `FOR NO KEY UPDATE`; amendment (c) cites steps 4 and 5. `UnlinkTeamHandler` (links `:133`, project row `:178`, hierarchy `:179`,
+  owned items `:180`, places, reassign, link removal) and `DeleteTeamHandler` (team links, `ClearDefaultTeamAsync`, hierarchies,
+  owned items, places, reassign, links) follow it. The sprint step (6) sits between hierarchy and items. No sprint code exists
+  yet (mod-007 is unbuilt; `UnlinkTeamHandler:56` says the pointers are owed), so the Unlink bullet ("open sprints, then items")
+  and the Close bullet (team, sprint and destination, then items) are consistent with the order; neither takes a project row, which
+  is allowed by "takes only what it needs".
+- **M-3 · closed.** All eight Log lines were checked against the owners' specs and BR-AW-11 / BR-AW-14: the quoted rule ids
+  (BR-OL-2, BR-M1-11, BR-M3-23 with BR-M3-2 and -20, BR-OT-10, BR-C-9) exist and say what each note retires. The mod-002 § 4/§ 6/§ 7
+  references match the retired routes, the `root_is_fixed` code and `RootAreaId`. Accurate.
+- **m-1, m-4 · closed.** "1 statement"; the three stale «Область» comments and the two typos are reworded. Code unchanged
+  in behaviour.
+
+### New findings
+
+**m-5 · minor (prose, for mod-007) · the *Item save* bullet and the new order.** ADR-0028 rule 8 *Item save* says "the link and
+the sprint its body names are locked before the item row" without the hierarchy tier. A save that takes the project hierarchy
+(step 5) after a sprint (step 6) would invert the numbered order. Nothing runs today (no sprint code), so nothing is broken.
+mod-007 must state where the hierarchy lock stands in that save before it takes a sprint. Open, carried to mod-007.
+
+m-2 and m-3 of round 1 stay open by decision (mod-019). Blocker and major open: 0. Minor open: 3 (m-2, m-3, m-5).

@@ -74,3 +74,4 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 ## Notes
 
 Summary (from the queue line or an argument): The organization's area tree replaces the per-project tree: optional parents, a description, «Наследовать доступ», area–project and area–team links; the item's «Область» retires (OQ-1 A); area pages in the organization settings until the navigation line (doc-012 BR-MX-3..-8; US-1, US-3)
+- 2026-10-27 [code-reviewer] review round 2 (delta c18792ae..HEAD): approve; M-1, M-2, M-3, m-1, m-4 closed, AreaLink tests green (13 API + 30 handler); open: 3 minor (m-2, m-3 to mod-019, m-5 to mod-007).
