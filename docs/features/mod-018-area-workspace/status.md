@@ -63,6 +63,7 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-18 [business-analyst] fix round: R-1 residual closed (tree routes retired by meaning, US-4, US-6, NFR); BR-AW-3 states R-5's move; the pickers and the tree hold under any design choice; US-4 names the band; R-8 stays for stage 3; OQ-1, OQ-2 unchanged.
 - 2026-10-18 [ux-designer] design.md (32.5 KB) + prototype/index.html; D-1..D-7 take R-5, R-8's four, R-9 and the tree component. Package for the human: OQ-1, OQ-2, D-1..D-7; stage gate-1+gate-2. No gate set.
 - 2026-10-18 [orchestrator] the human answered in chat, one question per open question and per design decision: OQ-1 A, OQ-2 B, D-1..D-7 A. gate-1 and gate-2 approved; stage → 04-backend. The mod-005 gate-3 answer adds the one lock order to the ADR-0028 amendment (Decisions); mod-019's queue line is amended by the orchestrator's queue PR; development starts after feat-040 merges.
+- 2026-10-27 [orchestrator] build session started in economy mode (one agent per stage, one Opus review incl. security); main (e4d8f124: feat-040 #31, feat-003 #32) merged in; usage at start: weekly 0%, 5-hour 2%.
 
 ## Notes
 
