@@ -18,74 +18,55 @@ namespace Mustask.Infrastructure.Tests.Organizations;
 [Collection(OrganizationsDatabaseCollection.Name)]
 public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
 {
-    // NFR Volumes: hundreds of areas, ten levels deep, in two queries: the project check and the nodes.
+    // NFR Volumes: hundreds of areas, ten levels deep, in one statement for the whole tree.
     [Fact]
-    public async Task AreaTree_GetNodes_FiveHundredNodesTenLevels_TwoQueries()
+    public async Task AreaTree_GetRows_FiveHundredNodesTenLevels_OneQuery()
     {
         var structure = await database.CreateStructureAsync();
+        var organization = structure.Organization.Id;
         var areas = new List<Area>();
 
         for (var branch = 0; branch < 50; branch++)
         {
-            var parent = structure.Project.Root;
+            Guid? parent = null;
 
             for (var level = 1; level <= 10; level++)
             {
-                var child = Area.CreateChild(parent, Name($"Узел {branch}-{level}"));
+                var child = OrganizationsDatabaseFixture.NewArea(organization, parent, $"Узел {branch}-{level}");
                 areas.Add(child);
-                parent = child;
+                parent = child.Id;
             }
         }
 
         await database.AddAreasAsync([.. areas]);
 
         var counter = new CommandCountingInterceptor();
-        var nodes = await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>?>(
+        var rows = await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>>(
             counter,
-            readModel => readModel.GetNodesAsync(structure.Organization.Id, structure.Project.Project.Id, CancellationToken.None));
+            readModel => readModel.GetRowsAsync(organization, CancellationToken.None));
 
-        Assert.Equal(2, counter.Commands.Count);
-        Assert.Equal(501, nodes!.Count);
-        Assert.Equal(10, new AreaTree(nodes.Select(row => row.ToNode())).DepthOf(areas[^1].Id));
+        Assert.Single(counter.Commands);
+        Assert.Equal(500, rows.Count);
     }
 
-    // mod-017 api-contract § 1.6 (BR-OT-10): a row is a node's place and name and nothing about a team — no join to the teams.
-    // Replaces AreaTree_GetNodes_CarriesTheNamesOfTheTeamsEachNodeRefersTo (retired, BR-OT-10).
+    // mod-018 api-contract § 1.1: a row is a node's place, name and description; the tree is the organization's, never a project's.
     [Fact]
-    public async Task AreaTree_GetNodes_ReturnsPlaceAndName_JoinsNoTeam()
-    {
-        var structure = await database.CreateStructureAsync();
-        var api = Area.CreateChild(structure.Project.Root, Name("API"));
-        await database.AddAreasAsync(api);
-
-        var counter = new CommandCountingInterceptor();
-        var nodes = await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>?>(
-            counter,
-            readModel => readModel.GetNodesAsync(structure.Organization.Id, structure.Project.Project.Id, CancellationToken.None));
-
-        Assert.Equal(
-            [(api.Id, (Guid?)structure.Project.Root.Id, "API"), (structure.Project.Root.Id, null, "Пример проекта")],
-            nodes!.Select(row => (row.Id, row.ParentId, row.Name)).OrderBy(row => row.Name, StringComparer.Ordinal));
-        Assert.DoesNotContain(counter.Commands, command => command.Contains("teams", StringComparison.OrdinalIgnoreCase));
-    }
-
-    // BR-M1-20, BR-M1-22: the tree of an unreachable project, or of a project of another organization, is not served.
-    [Fact]
-    public async Task AreaTree_GetNodes_UnreachableOrForeignProject_IsNull()
+    public async Task AreaTree_GetRows_ReturnsPlaceNameAndDescription_OfTheOrganizationOnly()
     {
         var structure = await database.CreateStructureAsync();
         var other = await database.CreateStructureAsync();
+        var top = OrganizationsDatabaseFixture.NewArea(structure.Organization.Id, null, "Отчёты");
+        var api = OrganizationsDatabaseFixture.NewArea(structure.Organization.Id, top.Id, "API");
+        var foreign = OrganizationsDatabaseFixture.NewArea(other.Organization.Id, null, "Чужая");
+        await database.AddAreasAsync(top, api, foreign);
 
-        var foreign = await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>?>(
+        var rows = await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>>(
             null,
-            readModel => readModel.GetNodesAsync(other.Organization.Id, structure.Project.Project.Id, CancellationToken.None));
-        await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @id", ("id", structure.Project.Project.Id));
-        var deactivated = await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>?>(
-            null,
-            readModel => readModel.GetNodesAsync(structure.Organization.Id, structure.Project.Project.Id, CancellationToken.None));
+            readModel => readModel.GetRowsAsync(structure.Organization.Id, CancellationToken.None));
 
-        Assert.Null(foreign);
-        Assert.Null(deactivated);
+        Assert.Equal(
+            [(api.Id, (Guid?)top.Id, "API"), (top.Id, null, "Отчёты")],
+            rows.Select(row => (row.Id, row.ParentId, row.Name)).OrderBy(row => row.Name, StringComparer.Ordinal));
     }
 
     // mod-017 US-4 · "The project's teams": by name in Russian collation, letter case not deciding, no team first (BR-OT-11), each
@@ -95,7 +76,7 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
     public async Task Teams_ListLinked_ByName_WithTheDefaultMark_OneStatement()
     {
         var structure = await database.CreateStructureAsync(projectName: "Ядро");
-        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Project.Id);
+        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Id);
         var alpha = Team.Create(organizationId, Name("альфа"));
         var unlinked = Team.Create(organizationId, Name("Не связана"));
         await AddTeamAsync(alpha);
@@ -124,7 +105,7 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
     public async Task Teams_TheOnlyLinkedTeam_IsMarkedOnlyTeam_UnlessTheSettingsNameAnother()
     {
         var structure = await database.CreateStructureAsync();
-        var projectId = structure.Project.Project.Id;
+        var projectId = structure.Project.Id;
         await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @second", ("second", structure.SecondTeam.Id));
 
         var only = await ReadAsync<ITeamReadModel, LinkedTeamRow?>(
@@ -141,7 +122,7 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
     public async Task Teams_DeletedTeam_AndAnUnlinkedOne_AreLeftOut()
     {
         var structure = await database.CreateStructureAsync();
-        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Project.Id);
+        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Id);
         var unlinked = Team.Create(organizationId, Name("Не связана"));
         await AddTeamAsync(unlinked);
         await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @second", ("second", structure.SecondTeam.Id));
@@ -170,9 +151,9 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
         var organizationId = structure.Organization.Id;
         var second = await database.AddProjectAsync(organizationId, "Аналитика", "ANL");
         var old = await database.AddProjectAsync(organizationId, "Старый", "OLD");
-        await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @id", ("id", old.Project.Id));
-        await LinkAsync(organizationId, second.Project.Id, structure.SecondTeam.Id);
-        await LinkAsync(organizationId, old.Project.Id, structure.SecondTeam.Id);
+        await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @id", ("id", old.Id));
+        await LinkAsync(organizationId, second.Id, structure.SecondTeam.Id);
+        await LinkAsync(organizationId, old.Id, structure.SecondTeam.Id);
         await database.CreateStructureAsync();
         await database.AddMemberAsync(organizationId, "u-max");
         await database.AddTeamMemberAsync(organizationId, structure.FirstTeam.Id, "u-max");
@@ -197,8 +178,8 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
         var structure = await database.CreateStructureAsync();
         var organizationId = structure.Organization.Id;
         var old = await database.AddProjectAsync(organizationId, "Архив", "ARC");
-        await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @id", ("id", old.Project.Id));
-        await LinkAsync(organizationId, old.Project.Id, structure.FirstTeam.Id);
+        await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @id", ("id", old.Id));
+        await LinkAsync(organizationId, old.Id, structure.FirstTeam.Id);
 
         var counter = new CommandCountingInterceptor();
         var links = await ReadAsync<ITeamReadModel, IReadOnlyList<TeamLinkRow>>(
@@ -281,7 +262,7 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
     {
         var structure = await database.CreateStructureAsync();
         var other = await database.CreateStructureAsync();
-        var projectId = structure.Project.Project.Id;
+        var projectId = structure.Project.Id;
 
         var found = await ReadAsync<IProjectReadModel, ProjectRow?>(
             null, readModel => readModel.FindReachableAsync(structure.Organization.Id, projectId, CancellationToken.None));

@@ -175,7 +175,7 @@ public sealed class ProjectBacklogMemberLockTests(OrganizationsDatabaseFixture d
     {
         var structure = await database.CreateStructureAsync();
         var organization = structure.Organization.Id;
-        var project = structure.Project.Project.Id;
+        var project = structure.Project.Id;
 
         await using var context = database.NewContext();
         var process = await new ProcessDefinitionReadModel(context).FindByOrganizationAsync(organization, CancellationToken.None)
@@ -198,15 +198,14 @@ public sealed class ProjectBacklogMemberLockTests(OrganizationsDatabaseFixture d
         {
             await database.ExecuteAsync(
                 """
-                INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, owning_team_id, title, description, creation_request_id, created_at, created_by, changed_at)
-                VALUES (@id, @project, @number, @type, @state, @area, @team, 'Элемент', '', gen_random_uuid(), now() + @number * interval '1 second', 'lock-test', now())
+                INSERT INTO work_items (id, project_id, number, type_id, state_id, owning_team_id, title, description, creation_request_id, created_at, created_by, changed_at)
+                VALUES (@id, @project, @number, @type, @state, @team, 'Элемент', '', gen_random_uuid(), now() + @number * interval '1 second', 'lock-test', now())
                 """,
                 ("id", id),
                 ("project", project),
                 ("number", number),
                 ("type", type.Id),
                 ("state", state),
-                ("area", structure.Project.Root.Id),
                 ("team", structure.FirstTeam.Id));
         }
 

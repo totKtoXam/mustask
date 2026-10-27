@@ -21,11 +21,10 @@ public sealed class RenameProjectHandlerTests
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization);
             Platform = Store.AddLinkedTeam(Organization, Project);
-            Reports = Store.AddArea(Project.Root, "Отчёты");
-            Quarterly = Store.AddArea(Reports, "Квартальные");
+            Reports = Store.AddArea(Organization, "Отчёты");
+            Quarterly = Store.AddArea(Organization, "Квартальные", Reports);
             Handler = new RenameProjectHandler(
                 new FakeProjectRepository(Store),
-                new FakeAreaRepository(Store),
                 new FakeUnitOfWork());
         }
 
@@ -33,7 +32,7 @@ public sealed class RenameProjectHandlerTests
 
         public Organization Organization { get; }
 
-        public NewProject Project { get; }
+        public Project Project { get; }
 
         public Team Platform { get; }
 
@@ -46,17 +45,16 @@ public sealed class RenameProjectHandlerTests
         public RenameProjectCommand Command(string? name, string? projectId = null, string? organizationId = null) =>
             new(
                 organizationId ?? Organization.Id.ToString(),
-                projectId ?? Project.Project.Id.ToString(),
+                projectId ?? Project.Id.ToString(),
                 name);
 
         public Task<RenameProjectResult> HandleAsync(RenameProjectCommand command) => Handler.Handle(command, CancellationToken.None);
 
-        /// <summary>Everything a rename must leave alone: every team, and every area but the root.</summary>
+        /// <summary>Everything a rename must leave alone: every team, and every area.</summary>
         public (string[] Teams, string[] Areas) Rest() =>
         (
             Store.Teams.Select(team => $"{team.Id} {team.Name} {team.Status}").Order(StringComparer.Ordinal).ToArray(),
             Store.Areas
-                .Where(area => !area.IsRoot)
                 .Select(area => $"{area.Id} {area.ParentId} {area.Name}")
                 .Order(StringComparer.Ordinal)
                 .ToArray());
@@ -94,7 +92,7 @@ public sealed class RenameProjectHandlerTests
         public Task<int> CountReachableAsync(Guid organizationId, IReadOnlyCollection<Guid> projectIds, CancellationToken cancellationToken) =>
             inner.CountReachableAsync(organizationId, projectIds, cancellationToken);
 
-        public void Add(NewProject project) => inner.Add(project);
+        public void Add(Project project) => inner.Add(project);
 
         public Task SaveAsync(CancellationToken cancellationToken) => inner.SaveAsync(cancellationToken);
     }
@@ -103,44 +101,36 @@ public sealed class RenameProjectHandlerTests
     // The root takes the name; the key, every team (the project's own team keeps «Пример проекта») and the rest
     // of the tree are unchanged.
     [Fact]
-    public async Task Handle_FreeName_RenamesTheProjectAndItsRoot_KeepsTheKeyTheTeamsAndTheTree()
+    public async Task Handle_FreeName_RenamesTheProject_KeepsTheKeyTheTeamsAndTheTree()
     {
         var f = new Fixture();
         var (teamsBefore, areasBefore) = f.Rest();
 
         var result = await f.HandleAsync(f.Command(" Платформа данных "));
 
-        Assert.Equal(new ProjectResponse(f.Project.Project.Id, f.Organization.Id, "Платформа данных", "PRM", null), result.Response);
-        Assert.Equal("Платформа данных", f.Project.Project.Name);
-        Assert.Equal("ПЛАТФОРМА ДАННЫХ", f.Project.Project.NormalizedName);
-        Assert.Equal("PRM", f.Project.Project.Key);
-        Assert.Equal(ProjectStatus.Active, f.Project.Project.Status);
-
-        Assert.Equal("Платформа данных", f.Project.Root.Name);
-        Assert.Equal("ПЛАТФОРМА ДАННЫХ", f.Project.Root.NormalizedName);
-        Assert.True(f.Project.Root.IsRoot);
+        Assert.Equal(new ProjectResponse(f.Project.Id, f.Organization.Id, "Платформа данных", "PRM", null), result.Response);
+        Assert.Equal("Платформа данных", f.Project.Name);
+        Assert.Equal("ПЛАТФОРМА ДАННЫХ", f.Project.NormalizedName);
+        Assert.Equal("PRM", f.Project.Key);
+        Assert.Equal(ProjectStatus.Active, f.Project.Status);
 
         var (teamsAfter, areasAfter) = f.Rest();
         Assert.Equal(teamsBefore, teamsAfter);
         Assert.Equal(areasBefore, areasAfter);
-
-        var tree = new AreaTree(f.Store.Areas.Select(area => new AreaNode(area.Id, area.ParentId, area.Name)));
-        Assert.Equal("Платформа данных", tree.Root.Name);
-        Assert.Equal("Отчёты / Квартальные", tree.PathOf(f.Quarterly.Id));
+        Assert.Equal("Отчёты", f.Store.Areas.Single(area => area.ParentId is null).Name);
     }
 
     // US-3 · "The name is unique in the organization" and api-contract § 0.6: a name never conflicts with the object's own
     // current name, so «ПРИМЕР ПРОЕКТА» renames «Пример проекта» to another case of itself.
     [Fact]
-    public async Task Handle_OwnNameInAnotherCase_RenamesWithoutConflict_RootFollows()
+    public async Task Handle_OwnNameInAnotherCase_RenamesWithoutConflict()
     {
         var f = new Fixture();
 
         var result = await f.HandleAsync(f.Command("  ПРИМЕР ПРОЕКТА"));
 
         Assert.Equal("ПРИМЕР ПРОЕКТА", result.Response.Name);
-        Assert.Equal("ПРИМЕР ПРОЕКТА", f.Project.Project.Name);
-        Assert.Equal("ПРИМЕР ПРОЕКТА", f.Project.Root.Name);
+        Assert.Equal("ПРИМЕР ПРОЕКТА", f.Project.Name);
         Assert.Equal(1, f.Store.SaveCount);
     }
 
@@ -156,16 +146,14 @@ public sealed class RenameProjectHandlerTests
         var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(" альфа ")));
 
         Assert.Equal(OrganizationErrorCodes.ProjectNameTaken, refusal.Code);
-        Assert.Equal("Пример проекта", f.Project.Project.Name);
-        Assert.Equal("Пример проекта", f.Project.Root.Name);
-        Assert.Equal("Альфа", alpha.Project.Name);
+        Assert.Equal("Пример проекта", f.Project.Name);
+        Assert.Equal("Альфа", alpha.Name);
         Assert.Equal(0, f.Store.SaveCount);
 
         // The same name is free in «Бета»: renaming its project to «Альфа» succeeds there.
-        var elsewhere = await f.HandleAsync(f.Command("Альфа", beta.Project.Id.ToString(), beta.Project.OrganizationId.ToString()));
+        var elsewhere = await f.HandleAsync(f.Command("Альфа", beta.Id.ToString(), beta.OrganizationId.ToString()));
 
         Assert.Equal("Альфа", elsewhere.Response.Name);
-        Assert.Equal("Альфа", beta.Root.Name);
     }
 
     // US-3 · "A deactivated project's name stays reserved": the holder is deactivated, so the answer has its own code.
@@ -174,13 +162,12 @@ public sealed class RenameProjectHandlerTests
     {
         var f = new Fixture();
         var archive = f.Store.AddProject(f.Organization, "Архив", "ARC");
-        archive.Project.Deactivate();
+        archive.Deactivate();
 
         var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command("архив")));
 
         Assert.Equal(OrganizationErrorCodes.ProjectNameTakenByDeactivated, refusal.Code);
-        Assert.Equal("Пример проекта", f.Project.Project.Name);
-        Assert.Equal("Пример проекта", f.Project.Root.Name);
+        Assert.Equal("Пример проекта", f.Project.Name);
         Assert.Equal(0, f.Store.SaveCount);
     }
 
@@ -212,13 +199,13 @@ public sealed class RenameProjectHandlerTests
         {
             "malformed" => "not-an-id",
             "unknown" => Guid.CreateVersion7().ToString(),
-            "of another organization" => other.Project.Id.ToString(),
-            _ => f.Project.Project.Id.ToString(),
+            "of another organization" => other.Id.ToString(),
+            _ => f.Project.Id.ToString(),
         };
 
         if (how == "deactivated")
         {
-            f.Project.Project.Deactivate();
+            f.Project.Deactivate();
         }
 
         if (how == "under a deactivated organization")
@@ -230,7 +217,7 @@ public sealed class RenameProjectHandlerTests
 
         Assert.Equal(OrganizationErrorCodes.ProjectNotFound, refusal.Code);
         Assert.Empty(f.Store.Calls);
-        Assert.Equal("Чужой", other.Project.Name);
+        Assert.Equal("Чужой", other.Name);
     }
 
     // US-3 · "The name is unique ... an empty name, or one longer than 100 characters, is refused with «Название должно
@@ -251,7 +238,7 @@ public sealed class RenameProjectHandlerTests
         Assert.Equal(["name"], refusal.Errors.Keys);
         Assert.Equal(OrganizationErrorCodes.NameLength, Assert.Single(refusal.Errors["name"]).Code);
         Assert.Empty(f.Store.Calls);
-        Assert.Equal("Пример проекта", f.Project.Project.Name);
+        Assert.Equal("Пример проекта", f.Project.Name);
     }
 
     // A project that was deactivated between the reachability check and the lock (the deactivation holds the same lock, so
@@ -262,28 +249,25 @@ public sealed class RenameProjectHandlerTests
         var f = new Fixture();
         var handler = new RenameProjectHandler(
             new DeactivatesAsTheLockIsGranted(new FakeProjectRepository(f.Store)),
-            new FakeAreaRepository(f.Store),
             new FakeUnitOfWork());
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => handler.Handle(f.Command("Платформа данных"), CancellationToken.None));
 
         Assert.Equal(OrganizationErrorCodes.ProjectNotFound, refusal.Code);
-        Assert.Equal([$"lock project {f.Project.Project.Id}"], f.Store.Calls);
-        Assert.Equal("Пример проекта", f.Project.Project.Name);
-        Assert.Equal("Пример проекта", f.Project.Root.Name);
+        Assert.Equal([$"lock project {f.Project.Id}"], f.Store.Calls);
+        Assert.Equal("Пример проекта", f.Project.Name);
     }
 
-    // plan-backend § 8.2: the project FOR NO KEY UPDATE, then the root FOR UPDATE, then one save. A refused name locks the
-    // project only: the root is locked once the name is known to be free.
+    // plan-backend § 8.2: the project FOR NO KEY UPDATE, then one save (an area is no longer the project root, mod-018).
     [Fact]
-    public async Task Handle_LocksTheProjectThenTheRoot_ThenSavesOnce()
+    public async Task Handle_LocksTheProjectOnly_ThenSavesOnce()
     {
         var f = new Fixture();
-        var projectId = f.Project.Project.Id;
+        var projectId = f.Project.Id;
         f.Store.AddProject(f.Organization, "Альфа", "ALF");
 
         await f.HandleAsync(f.Command("Платформа данных"));
-        Assert.Equal([$"lock project {projectId}", $"lock root update {projectId}", "save"], f.Store.Calls);
+        Assert.Equal([$"lock project {projectId}", "save"], f.Store.Calls);
 
         f.Store.Calls.Clear();
         await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command("Альфа")));

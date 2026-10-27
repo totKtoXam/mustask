@@ -46,9 +46,7 @@ public sealed class CreateWorkItemEndpointTests(MustaskApiFactory factory)
             body.GetProperty("state").GetProperty("category").GetProperty("code").GetString(),
             body.GetProperty("state").GetProperty("category").GetProperty("label").GetString()));
         Assert.Equal(System.Text.Json.JsonValueKind.Null, body.GetProperty("assignee").ValueKind);
-        Assert.Equal((world.RootAreaId, "Мастаск"), (
-            body.GetProperty("area").GetProperty("id").GetGuid(),
-            body.GetProperty("area").GetProperty("path").GetString()));
+        Assert.False(body.TryGetProperty("area", out _));
         Assert.Equal(subject, body.GetProperty("createdBy").GetString());
         Assert.Equal(body.GetProperty("createdAt").GetDateTimeOffset(), body.GetProperty("changedAt").GetDateTimeOffset());
 

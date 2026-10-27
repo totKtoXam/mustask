@@ -73,7 +73,7 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
     {
         var world = await WorkItemsTestData.CreateWorldAsync(factory);
         var team = await OrganizationsTestData.AddTeamAsync(factory, world.ProjectId, "Платформа");
-        var area = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, world.RootAreaId, "Платформа");
+        var area = await OrganizationsTestData.AddAreaAsync(factory, world.OrganizationId, null, "Платформа");
 
         for (var filler = 0; filler < fillers; filler++)
         {
@@ -162,7 +162,7 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
         var organization = await structure.FindOrganizationAsync(side.World.OrganizationId, CancellationToken.None);
         var project = await structure.FindProjectAsync(side.World.OrganizationId, side.World.ProjectId, CancellationToken.None);
         var team = await structure.FindTeamAsync(side.World.OrganizationId, side.TeamId, CancellationToken.None);
-        var tree = await OrganizationsTestData.ReadTreeAsync(factory, side.World.ProjectId);
+        var tree = await OrganizationsTestData.ReadTreeAsync(factory, side.World.OrganizationId);
         var items = await WorkItemsTestData.StoredAsync(factory, side.World.ProjectId);
         var teams = await OwningTeamTestData.TeamStateAsync(factory, side.World.ProjectId);
 
@@ -183,7 +183,7 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
             team!.Name,
             team.Status,
             string.Join("; ", tree.PreOrder()),
-            string.Join("; ", items.Select(item => $"{item.Number} {item.Title} {item.AreaId} {item.StateId} {item.ChangedAt:O}")),
+            string.Join("; ", items.Select(item => $"{item.Number} {item.Title} {item.StateId} {item.ChangedAt:O}")),
             teams,
             string.Join("; ", projectLinks),
             string.Join("; ", teamLinks),
@@ -260,15 +260,15 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
         var world = await TwoAsync();
         var a = world.A;
         var project = $"/api/organizations/{a.OrganizationId}/projects/{a.ProjectId}";
-        var treeBefore = (await OrganizationsTestData.ReadTreeAsync(factory, a.World.ProjectId)).PreOrder().ToList();
+        var treeBefore = (await OrganizationsTestData.ReadTreeAsync(factory, a.World.OrganizationId)).PreOrder().ToList();
         var teamsBefore = await OwningTeamTestData.TeamStateAsync(factory, a.World.ProjectId);
 
         var parent = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Put, $"{project}/areas/{a.AreaId}/parent", new { parentId = world.B.AreaId.ToString() }, world.Token);
+            factory, HttpMethod.Put, $"/api/organizations/{a.OrganizationId}/areas/{a.AreaId}/parent", new { parentId = world.B.AreaId.ToString() }, world.Token);
         var created = await OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Post,
-            $"{project}/areas",
+            $"/api/organizations/{a.OrganizationId}/areas",
             new { parentId = world.B.AreaId.ToString(), name = OrganizationsTestData.UniqueName("Область") },
             world.Token);
         var defaultTeam = await OrganizationsApi.SendAsync(
@@ -281,12 +281,12 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
         Assert.Equal((HttpStatusCode.NotFound, OrganizationErrorCodes.TeamNotFound), (defaultTeam.Status, defaultTeam.ErrorCode));
         // mod-017 BR-OT-16: B's team answers exactly as an id that names nothing, status and body alike.
         Assert.Equal((unknownDefaultTeam.Status, unknownDefaultTeam.ErrorCode, unknownDefaultTeam.Detail), (defaultTeam.Status, defaultTeam.ErrorCode, defaultTeam.Detail));
-        Assert.Equal(treeBefore, (await OrganizationsTestData.ReadTreeAsync(factory, a.World.ProjectId)).PreOrder().ToList());
+        Assert.Equal(treeBefore, (await OrganizationsTestData.ReadTreeAsync(factory, a.World.OrganizationId)).PreOrder().ToList());
         Assert.Equal(teamsBefore, await OwningTeamTestData.TeamStateAsync(factory, a.World.ProjectId));
     }
 
     // US-2 · "A work item's body id outside the address is refused" (mod-003 BR-M3-23, feat-001 BR-H-1, mod-017 BR-OT-16): a member
-    // of A and of B saves a work item of A with an area, a team or a parent of B, or creates one in A for a team of B or beneath a
+    // of A and of B saves a work item of A with a team or a parent of B (the item has no area since mod-018: an areaId is ignored), or creates one in A for a team of B or beneath a
     // parent of B — refused as for an id that does not exist, and nothing changes.
     [Fact]
     public async Task AWorkItemBodyIdOfAnotherOrganization_IsRefusedAsNotFound_NothingChanges()
@@ -298,8 +298,6 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
         var teamsBefore = await OwningTeamTestData.TeamStateAsync(factory, a.World.ProjectId);
         var typeId = a.World.Types["TASK"].Id.ToString();
 
-        var saveArea = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Patch, WorkItemsTestData.Item(a.World, own), new { areaId = world.B.AreaId.ToString() }, world.Token);
         var saveParent = await OrganizationsApi.SendAsync(
             factory, HttpMethod.Patch, WorkItemsTestData.Item(a.World, own), new { parent = new { parentId = world.B.ItemId.ToString() } }, world.Token);
         var setParent = await OrganizationsApi.SendAsync(
@@ -321,7 +319,6 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
             new { requestId = Guid.NewGuid().ToString(), typeId, title = "Под чужим родителем", parentId = world.B.ItemId.ToString() },
             world.Token);
 
-        Assert.Equal((HttpStatusCode.NotFound, OrganizationErrorCodes.AreaNotFound), (saveArea.Status, saveArea.ErrorCode));
         Assert.Equal((HttpStatusCode.NotFound, WorkItemErrorCodes.ParentNotFound), (saveParent.Status, saveParent.ErrorCode));
         Assert.Equal((HttpStatusCode.NotFound, WorkItemErrorCodes.ParentNotFound), (setParent.Status, setParent.ErrorCode));
         Assert.Equal((HttpStatusCode.NotFound, OrganizationErrorCodes.TeamNotFound), (createFromTeam.Status, createFromTeam.ErrorCode));

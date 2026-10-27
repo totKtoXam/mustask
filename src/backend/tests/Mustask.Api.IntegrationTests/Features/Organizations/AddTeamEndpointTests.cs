@@ -95,7 +95,7 @@ public sealed class AddTeamEndpointTests(MustaskApiFactory factory)
                 name = "MARS",
                 description = "  Платформа\nи инструменты ",
                 memberIds = new[] { ivan.Id, maria.Id, ivan.Id },
-                projectIds = new[] { structure.ProjectId.ToString(), second.Project.Id.ToString() },
+                projectIds = new[] { structure.ProjectId.ToString(), second.Id.ToString() },
             });
         var teamId = answer.Body.GetProperty("id").GetGuid();
 
@@ -103,7 +103,7 @@ public sealed class AddTeamEndpointTests(MustaskApiFactory factory)
         Assert.Equal("  Платформа\nи инструменты ", answer.Body.GetProperty("description").GetString());
         Assert.Equal(new[] { ivan.Id, maria.Id }.Order(), await TeamMemberIdsAsync(factory, teamId));
         var links = await LinksOfTeamAsync(factory, teamId);
-        Assert.Equal(new[] { structure.ProjectId, second.Project.Id }.Order(), links.Select(link => link.ProjectId));
+        Assert.Equal(new[] { structure.ProjectId, second.Id }.Order(), links.Select(link => link.ProjectId));
         Assert.All(links, link =>
         {
             Assert.Equal(OrganizationsTestData.Creator, link.LinkedBy);
@@ -118,13 +118,13 @@ public sealed class AddTeamEndpointTests(MustaskApiFactory factory)
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
         var project = await OrganizationsTestData.CreateBareProjectAsync(factory, organization.Id);
 
-        var created = await CreateTeamAsync(factory, organization.Id, new { name = "MARS", projectIds = new[] { project.Project.Id.ToString() } });
-        var listed = await GetAsync(factory, OrganizationsApi.Teams(organization.Id, project.Project.Id));
+        var created = await CreateTeamAsync(factory, organization.Id, new { name = "MARS", projectIds = new[] { project.Id.ToString() } });
+        var listed = await GetAsync(factory, OrganizationsApi.Teams(organization.Id, project.Id));
 
         Assert.Equal(HttpStatusCode.Created, created.Status);
         var team = Assert.Single(listed.Body.EnumerateArray());
         Assert.Equal("onlyTeam", team.GetProperty("defaultMark").GetString());
-        Assert.Null(await SettingAsync(factory, project.Project.Id));
+        Assert.Null(await SettingAsync(factory, project.Id));
     }
 
     // US-1 · "a choice that cannot be made" (4 rows): a person of another organization 409, a project of another organization or a
@@ -149,7 +149,7 @@ public sealed class AddTeamEndpointTests(MustaskApiFactory factory)
             "other-organization user" => ((object)new { name = "ORION", memberIds = new[] { outsider.Id } }, HttpStatusCode.Conflict, "organizations.team.member_not_in_organization"),
             "unknown user" => (new { name = "ORION", memberIds = new[] { "never-projected" } }, HttpStatusCode.Conflict, "organizations.team.member_not_in_organization"),
             "foreign project" => (new { name = "ORION", projectIds = new[] { other.ProjectId.ToString() } }, HttpStatusCode.NotFound, "organizations.project.not_found"),
-            "deactivated project" => (new { name = "ORION", projectIds = new[] { deactivated.Project.Id.ToString() } }, HttpStatusCode.NotFound, "organizations.project.not_found"),
+            "deactivated project" => (new { name = "ORION", projectIds = new[] { deactivated.Id.ToString() } }, HttpStatusCode.NotFound, "organizations.project.not_found"),
             "malformed project" => (new { name = "ORION", projectIds = new[] { "not-an-id" } }, HttpStatusCode.NotFound, "organizations.project.not_found"),
             _ => (new { name = "ORION", description = new string('я', 2001) }, HttpStatusCode.BadRequest, "organizations.validation_failed"),
         };
@@ -278,11 +278,11 @@ public sealed class AddTeamEndpointTests(MustaskApiFactory factory)
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
         var project = await OrganizationsTestData.CreateBareProjectAsync(factory, organization.Id);
 
-        var answer = await CreateTeamAsync(factory, organization.Id, new { name = "Platform", projectIds = new[] { project.Project.Id.ToString() } });
+        var answer = await CreateTeamAsync(factory, organization.Id, new { name = "Platform", projectIds = new[] { project.Id.ToString() } });
         var teamId = answer.Body.GetProperty("id").GetGuid();
 
         Assert.Equal(HttpStatusCode.Created, answer.Status);
-        Assert.Equal([project.Project.Id], (await LinksOfTeamAsync(factory, teamId)).Select(link => link.ProjectId));
+        Assert.Equal([project.Id], (await LinksOfTeamAsync(factory, teamId)).Select(link => link.ProjectId));
         Assert.Equal(0, await OwnedItemCountAsync(factory, teamId));
     }
 }

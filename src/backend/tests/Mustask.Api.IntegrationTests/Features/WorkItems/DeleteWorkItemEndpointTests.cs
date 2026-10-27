@@ -173,9 +173,9 @@ public sealed class DeleteWorkItemEndpointTests(MustaskApiFactory factory)
         {
             rows.AddRange((await WorkItemsTestData.StoredAsync(factory, project))
                 .Where(item => item.Number != except)
-                .Select(item => $"{item.Number}:{item.Title}:{item.StateId}:{item.AssigneeId}:{item.AreaId}:{item.ChangedAt:O}"));
+                .Select(item => $"{item.Number}:{item.Title}:{item.StateId}:{item.AssigneeId}:{item.ChangedAt:O}"));
 
-            foreach (var path in new[] { OrganizationsApi.Teams(organization, project), OrganizationsApi.Areas(organization, project), OrganizationsApi.Organization(organization) + "/members" })
+            foreach (var path in new[] { OrganizationsApi.Teams(organization, project), OrganizationsApi.Areas(organization), OrganizationsApi.Organization(organization) + "/members" })
             {
                 var answer = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, path, token: OrganizationsTokens.SignedIn());
                 Assert.Equal(HttpStatusCode.OK, answer.Status);

@@ -27,7 +27,7 @@ internal static class WorkItemsTestData
         var project = await OrganizationsTestData.CreateProjectAsync(factory, organization.Id, projectName, key);
         var types = await TypesAsync(factory, organization.Id);
 
-        return new WorkItemsWorld(organization.Id, project.Project.Id, project.Root.Id, key, types);
+        return new WorkItemsWorld(organization.Id, project.Project.Id, key, types);
     }
 
     /// <summary>Another project of the same organization, with its own root.</summary>
@@ -35,7 +35,7 @@ internal static class WorkItemsTestData
     {
         var project = await OrganizationsTestData.CreateProjectAsync(factory, world.OrganizationId, name, key);
 
-        return world with { ProjectId = project.Project.Id, RootAreaId = project.Root.Id, Key = key };
+        return world with { ProjectId = project.Project.Id, Key = key };
     }
 
     /// <summary>The organization's five types by key, each with its states by name, as mod-001 seeded them.</summary>
@@ -149,7 +149,7 @@ internal static class WorkItemsTestData
             .AsNoTracking()
             .Where(item => item.ProjectId == projectId)
             .OrderBy(item => item.Number)
-            .Select(item => new StoredItem(item.Number, item.Title, item.Description, item.StateId, item.AssigneeId, item.AreaId, item.ChangedAt))
+            .Select(item => new StoredItem(item.Number, item.Title, item.Description, item.StateId, item.AssigneeId, item.ChangedAt))
             .ToListAsync();
     }
 
@@ -162,9 +162,8 @@ internal static class WorkItemsTestData
 internal sealed record WorkItemsWorld(
     Guid OrganizationId,
     Guid ProjectId,
-    Guid RootAreaId,
     string Key,
     IReadOnlyDictionary<string, WorkItemTypeRow> Types);
 
 /// <summary>An item as the table holds it.</summary>
-internal sealed record StoredItem(int Number, string Title, string Description, Guid StateId, string? AssigneeId, Guid AreaId, DateTimeOffset ChangedAt);
+internal sealed record StoredItem(int Number, string Title, string Description, Guid StateId, string? AssigneeId, DateTimeOffset ChangedAt);

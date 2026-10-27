@@ -40,7 +40,7 @@ public sealed class MembershipWorld
 
     public Organization Organization { get; }
 
-    public NewProject Project { get; }
+    public Project Project { get; }
 
     public Team Platform { get; }
 
@@ -62,7 +62,7 @@ public sealed class MembershipWorld
 
     public string OrganizationId => Organization.Id.ToString();
 
-    public string ProjectId => Project.Project.Id.ToString();
+    public string ProjectId => Project.Id.ToString();
 
     public string PlatformId => Platform.Id.ToString();
 

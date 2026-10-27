@@ -6,107 +6,125 @@ namespace Mustask.Domain.Tests.Organizations;
 
 public sealed class AreaTests
 {
-    // US-5 · "A child area is created under any node". mod-017 BR-OT-10: it is created with no owner (the owner choice is gone).
-    // Retired with it (rule BR-OT-10): CreateChild_WithOrWithoutOwner_IsAChildOfItsParent (renamed), CreateChild_OwnerOfAnotherProjectOrDeleted_IsADefect.
+    private static Area AnArea(Guid organizationId, Guid? parentId, string name = "Платформа") =>
+        Area.Create(organizationId, parentId, Name(name), description: null, Creator, Now);
+
+    // US-1 · "The administrator builds the example tree" (BR-AW-3): a top-level area has no parent, a child has one.
     [Fact]
-    public void CreateChild_IsAChildOfItsParent_OwningNothing()
+    public void Create_TopLevelHasNoParent_ChildHasItsParent_NameIsTrimmed()
     {
-        var project = AProject();
+        var organizationId = Guid.CreateVersion7();
 
-        var reports = Area.CreateChild(project.Root, Name(" Отчёты "));
-        var quarterly = Area.CreateChild(reports, Name("Квартальные"));
+        var top = AnArea(organizationId, null, " Платформа ");
+        var child = AnArea(organizationId, top.Id, "API");
 
-        Assert.Equal(project.Root.Id, reports.ParentId);
-        Assert.Equal(project.Project.Id, reports.ProjectId);
-        Assert.Equal("Отчёты", reports.Name);
-        Assert.False(reports.IsRoot);
-        Assert.Equal(reports.Id, quarterly.ParentId);
-        Assert.True(project.Root.IsRoot);
+        Assert.Null(top.ParentId);
+        Assert.True(top.IsTopLevel);
+        Assert.Equal("Платформа", top.Name);
+        Assert.Equal(organizationId, top.OrganizationId);
+        Assert.Equal(top.Id, child.ParentId);
+        Assert.False(child.IsTopLevel);
+        Assert.Equal(Creator, top.CreatedBy);
+        Assert.Equal(Now, top.CreatedAt);
     }
 
-    // US-5 · "The root comes with the project": renamed only with its project, never moved or deleted.
+    // US-1 · "Only the name is required on the create form" / "a description holds at most 2 000": kept as typed, none is null.
+    // BR-AW-5, OQ-2 B: «Наследовать доступ» is stored on.
     [Fact]
-    public void RootChanges_AreRefusedWithRootIsFixed()
+    public void Create_DescriptionIsKeptAsTyped_NoneIsNull_InheritsAccessIsOn()
     {
-        var project = AProject();
-        var child = Area.CreateChild(project.Root, Name("Отчёты"));
-        var tree = Tree(project.Root, child);
+        Assert.True(EntityDescription.TryCreate(" Всё про платформу\n", out var description));
+        var organizationId = Guid.CreateVersion7();
 
-        Assert.Equal(OrganizationErrorCodes.AreaRootIsFixed, Assert.Throws<ConflictException>(() => project.Root.Rename(Name("Иное"))).Code);
-        Assert.Equal(OrganizationErrorCodes.AreaRootIsFixed, Assert.Throws<ConflictException>(() => project.Root.MoveUnder(child, tree)).Code);
-        Assert.Equal(OrganizationErrorCodes.AreaRootIsFixed, Assert.Throws<ConflictException>(() => project.Root.EnsureDeletable(true, true)).Code);
-        Assert.Equal(OrganizationErrorCodes.AreaRootIsFixed, Assert.Throws<ConflictException>(project.Root.EnsureNotRoot).Code);
-        Assert.Equal("Пример проекта", project.Root.Name);
+        var described = Area.Create(organizationId, null, Name("Платформа"), description, Creator, Now);
+        var plain = AnArea(organizationId, null, "Отчёты");
+
+        Assert.Equal(" Всё про платформу\n", described.Description);
+        Assert.Null(plain.Description);
+        Assert.True(described.InheritsAccess);
+        Assert.True(plain.InheritsAccess);
     }
 
-    // US-5 · "A child area is renamed": children unchanged.
+    // US-1 · an area belongs to an organization: an empty organization or creator is a defect, never a user answer.
     [Fact]
-    public void Rename_Child_ChangesItsNameOnly()
+    public void Create_WithoutOrganizationOrCreator_IsADefect()
     {
-        var project = AProject();
-        var child = Area.CreateChild(project.Root, Name("Квартальные"));
+        Assert.Throws<ArgumentException>(() => AnArea(Guid.Empty, null));
+        Assert.Throws<ArgumentException>(() => Area.Create(Guid.CreateVersion7(), null, Name("Платформа"), null, "", Now));
+    }
+
+    // US-2 · "A rename and a description show everywhere at once": only the name (and its normalized form) changes.
+    [Fact]
+    public void Rename_ChangesNameOnly_KeepsPlaceAndDescription()
+    {
+        var organizationId = Guid.CreateVersion7();
+        var top = AnArea(organizationId, null);
+        var child = AnArea(organizationId, top.Id, "Квартальные");
 
         child.Rename(Name("Годовые"));
 
         Assert.Equal("Годовые", child.Name);
         Assert.Equal("ГОДОВЫЕ", child.NormalizedName);
-        Assert.Equal(project.Root.Id, child.ParentId);
+        Assert.Equal(top.Id, child.ParentId);
     }
 
-    // US-5 · "A node moves with its whole subtree" and "never under itself or its descendant".
     [Fact]
-    public void MoveUnder_SiblingIsAllowed_SelfAndDescendantRefused_CurrentParentIsANoOp()
+    public void Describe_SetsAndClears_KeepsTheName()
     {
-        var project = AProject();
-        var reports = Area.CreateChild(project.Root, Name("Отчёты"));
-        var archive = Area.CreateChild(project.Root, Name("Архив"));
-        var quarterly = Area.CreateChild(reports, Name("Квартальные"));
-        var tree = Tree(project.Root, reports, archive, quarterly);
+        var area = AnArea(Guid.CreateVersion7(), null);
+        Assert.True(EntityDescription.TryCreate("Описание", out var description));
 
-        Assert.Equal(OrganizationErrorCodes.AreaMoveIntoOwnSubtree, Assert.Throws<ConflictException>(() => reports.MoveUnder(quarterly, tree)).Code);
-        Assert.Equal(OrganizationErrorCodes.AreaMoveIntoOwnSubtree, Assert.Throws<ConflictException>(() => reports.MoveUnder(reports, tree)).Code);
-        Assert.False(reports.MoveUnder(project.Root, tree));
-        Assert.Equal(project.Root.Id, reports.ParentId);
+        area.Describe(description);
+        Assert.Equal("Описание", area.Description);
 
-        Assert.True(reports.MoveUnder(archive, tree));
+        area.Describe(null);
+        Assert.Null(area.Description);
+        Assert.Equal("Платформа", area.Name);
+    }
+
+    // US-2 · "An area moves with its whole subtree", "never under itself or a descendant, even by a direct request" (BR-AW-3; SC-08),
+    // and "a move to the parent it has changes nothing" (api-contract § 2).
+    [Fact]
+    public void MoveUnder_SiblingAndTopLevelAreAllowed_SelfAndDescendantRefused_CurrentParentIsANoOp()
+    {
+        var organizationId = Guid.CreateVersion7();
+        var reports = AnArea(organizationId, null, "Отчёты");
+        var archive = AnArea(organizationId, null, "Архив");
+        var quarterly = AnArea(organizationId, reports.Id, "Квартальные");
+        var tree = Tree(reports, archive, quarterly);
+
+        Assert.Equal(OrganizationErrorCodes.AreaMoveIntoOwnSubtree, Assert.Throws<ConflictException>(() => reports.MoveUnder(quarterly.Id, tree)).Code);
+        Assert.Equal(OrganizationErrorCodes.AreaMoveIntoOwnSubtree, Assert.Throws<ConflictException>(() => reports.MoveUnder(reports.Id, tree)).Code);
+        Assert.False(reports.MoveUnder(null, tree));
+        Assert.Null(reports.ParentId);
+
+        Assert.True(reports.MoveUnder(archive.Id, tree));
         Assert.Equal(archive.Id, reports.ParentId);
         Assert.Equal(reports.Id, quarterly.ParentId);
+
+        Assert.True(quarterly.MoveUnder(null, tree));
+        Assert.True(quarterly.IsTopLevel);
     }
 
-    // US-5 · "A node never leaves its project" (BR-M1-22).
+    // US-2 · "The tree is at most 10 levels deep after a move" (BR-AW-3): the moved subtree's height counts, not just the node.
     [Fact]
-    public void MoveUnder_AreaOfAnotherProject_IsADefect()
+    public void MoveUnder_ASubtreeThatWouldPassLevelTen_IsRefusedWithDepthExceeded()
     {
-        var project = AProject();
-        var other = AProject("Другой", "OTH");
-        var reports = Area.CreateChild(project.Root, Name("Отчёты"));
+        var organizationId = Guid.CreateVersion7();
+        var chain = new List<Area> { AnArea(organizationId, null, "Уровень 1") };
 
-        Assert.Throws<ArgumentException>(() => reports.MoveUnder(other.Root, Tree(project.Root, reports)));
-    }
+        for (var level = 2; level <= 9; level++)
+        {
+            chain.Add(AnArea(organizationId, chain[^1].Id, $"Уровень {level}"));
+        }
 
-    // US-5 · "Only an empty leaf is deleted"; mod-017 BR-OT-10: a team's default area is no reason any more (a team has none),
-    // so the refusal is children, then work items — one code, AreaNotEmpty.
-    // Renamed (D-16, BR-OT-10): EnsureDeletable_RefusesChildrenThenDefault_AllowsAnEmptyLeaf -> EnsureDeletable_RefusesChildren_AllowsAnEmptyLeaf.
-    [Fact]
-    public void EnsureDeletable_RefusesChildren_AllowsAnEmptyLeaf()
-    {
-        var project = AProject();
-        var reports = Area.CreateChild(project.Root, Name("Отчёты"));
+        var movedTop = AnArea(organizationId, null, "Переезжающая");
+        var movedChild = AnArea(organizationId, movedTop.Id, "Дочерняя");
+        var tree = Tree([.. chain, movedTop, movedChild]);
 
-        Assert.Equal(OrganizationErrorCodes.AreaNotEmpty, Assert.Throws<ConflictException>(() => reports.EnsureDeletable(true, false)).Code);
+        Assert.Equal(OrganizationErrorCodes.AreaDepthExceeded, Assert.Throws<ConflictException>(() => movedTop.MoveUnder(chain[^1].Id, tree)).Code);
+        Assert.Null(movedTop.ParentId);
 
-        reports.EnsureDeletable(false, false);
-    }
-
-    // mod-003 US-6 · "An area holding a work item is not deleted" and "Every item counts, whatever its state" (BR-M3-24):
-    // work items answer as children do, with the same code.
-    // Renamed (D-16, BR-OT-10): EnsureDeletable_HoldsWorkItems_RefusedAsNotEmpty_BeforeTheDefault -> EnsureDeletable_HoldsWorkItems_RefusedAsNotEmpty.
-    [Fact]
-    public void EnsureDeletable_HoldsWorkItems_RefusedAsNotEmpty()
-    {
-        var project = AProject();
-        var reports = Area.CreateChild(project.Root, Name("Отчёты"));
-
-        Assert.Equal(OrganizationErrorCodes.AreaNotEmpty, Assert.Throws<ConflictException>(() => reports.EnsureDeletable(false, true)).Code);
+        Assert.True(movedChild.MoveUnder(chain[^1].Id, tree));
     }
 }

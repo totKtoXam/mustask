@@ -132,7 +132,7 @@ public sealed class ProjectBacklogStatementCountTests(OrganizationsDatabaseFixtu
     {
         var structure = await database.CreateStructureAsync();
         var organization = structure.Organization.Id;
-        var project = structure.Project.Project.Id;
+        var project = structure.Project.Id;
         var types = new Dictionary<string, (Guid Type, Guid State)>();
 
         foreach (var row in await database.QueryAsync(
@@ -158,10 +158,9 @@ public sealed class ProjectBacklogStatementCountTests(OrganizationsDatabaseFixtu
 
             await database.ExecuteAsync(
                 """
-                INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id,
+                INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id,
                                         created_at, created_by, changed_at, parent_id, assignee_id, owning_team_id)
                 SELECT gen_random_uuid(), @project, n, @type, @state,
-                       @rootArea,
                        'Элемент ' || n, '', gen_random_uuid(), now() + n * interval '1 millisecond', 'count-test', now(), parent.id,
                        CASE WHEN n % 7 < 3 THEN (ARRAY['count-user-1', 'count-user-2', 'count-user-3'])[(n % 7) + 1] END,
                        CASE WHEN n % 2 = 0 THEN @team ELSE @otherTeam END
@@ -171,7 +170,6 @@ public sealed class ProjectBacklogStatementCountTests(OrganizationsDatabaseFixtu
                 ("project", project),
                 ("type", type),
                 ("state", state),
-                ("rootArea", structure.Project.Root.Id),
                 ("team", structure.FirstTeam.Id),
                 ("otherTeam", structure.SecondTeam.Id),
                 ("from", from),

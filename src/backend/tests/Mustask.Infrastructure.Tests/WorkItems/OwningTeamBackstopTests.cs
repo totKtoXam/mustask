@@ -40,7 +40,7 @@ public sealed class OwningTeamBackstopTests(OrganizationsDatabaseFixture databas
         var repository = scope.ServiceProvider.GetRequiredService<IWorkItemRepository>();
 
         repository.Add(WorkItem.Create(
-            world.ProjectId, 1, world.Type, world.RootAreaId, "Элемент", Guid.CreateVersion7(), Created, "backstop-test", owner));
+            world.ProjectId, 1, world.Type, "Элемент", Guid.CreateVersion7(), Created, "backstop-test", owner));
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => repository.SaveAsync(CancellationToken.None));
 
@@ -134,7 +134,7 @@ public sealed class OwningTeamBackstopTests(OrganizationsDatabaseFixture databas
     }
 
     private sealed record World(
-        Guid OrganizationId, Guid ProjectId, Guid RootAreaId, Guid OwnTeam, Guid OtherProjectTeam, WorkItemTypeStates Type)
+        Guid OrganizationId, Guid ProjectId, Guid OwnTeam, Guid OtherProjectTeam, WorkItemTypeStates Type)
     {
         public Guid Team(Foreign kind) => kind == Foreign.UnknownTeam ? Guid.CreateVersion7() : OtherProjectTeam;
     }
@@ -152,7 +152,7 @@ public sealed class OwningTeamBackstopTests(OrganizationsDatabaseFixture databas
             type.Id, type.Key, type.Appearance, type.States.Select(state => new WorkItemTypeState(state.Id, state.Position, state.Category)).ToList());
 
         return new World(
-            structure.Organization.Id, structure.Project.Project.Id, structure.Project.Root.Id, structure.SecondTeam.Id, (await database.AddTeamAsync(structure.Organization.Id, "Команда другого проекта", other.Project.Id)).Id, states);
+            structure.Organization.Id, structure.Project.Id, structure.SecondTeam.Id, (await database.AddTeamAsync(structure.Organization.Id, "Команда другого проекта", other.Id)).Id, states);
     }
 
     private async Task AddItemAsync(World world, Guid? owner)
@@ -160,7 +160,7 @@ public sealed class OwningTeamBackstopTests(OrganizationsDatabaseFixture databas
         await using var context = database.NewContext();
 
         context.WorkItems.Add(WorkItem.Create(
-            world.ProjectId, 1, world.Type, world.RootAreaId, "Элемент", Guid.CreateVersion7(), Created, "backstop-test", owner));
+            world.ProjectId, 1, world.Type, "Элемент", Guid.CreateVersion7(), Created, "backstop-test", owner));
         await context.SaveChangesAsync();
     }
 

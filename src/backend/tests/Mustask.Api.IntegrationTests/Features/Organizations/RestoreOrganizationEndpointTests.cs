@@ -49,8 +49,8 @@ public sealed class RestoreOrganizationEndpointTests(MustaskApiFactory factory)
     private async Task<(OrganizationStructure Structure, Area Reports, Area Quarterly)> CreateRichStructureAsync()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory, OrganizationsTestData.UniqueName("Пример организации"));
-        var reports = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Отчёты");
-        var quarterly = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, reports.Id, "Квартальные");
+        var reports = await OrganizationsTestData.AddAreaAsync(factory, structure.OrganizationId, null, "Отчёты");
+        var quarterly = await OrganizationsTestData.AddAreaAsync(factory, structure.OrganizationId, reports.Id, "Квартальные");
         await OrganizationsTestData.SetDefaultTeamAsync(factory, structure.OrganizationId, structure.ProjectId, structure.Platform.Id);
 
         return (structure, reports, quarterly);
@@ -80,13 +80,13 @@ public sealed class RestoreOrganizationEndpointTests(MustaskApiFactory factory)
             (await seam.FindProjectAsync(structure.OrganizationId, structure.ProjectId, ct))!,
             (await seam.FindTeamAsync(structure.OrganizationId, structure.ProjectTeamId, ct))!,
             (await seam.FindTeamAsync(structure.OrganizationId, structure.Platform.Id, ct))!,
-            await DescribeTreeAsync(structure.ProjectId),
+            await DescribeTreeAsync(structure.OrganizationId),
             old is null ? null : await seam.FindProjectAsync(structure.OrganizationId, old.Project.Id, ct),
-            old is null ? null : await DescribeTreeAsync(old.Project.Id));
+            old is null ? null : await DescribeTreeAsync(structure.OrganizationId));
     }
 
-    private async Task<string> DescribeTreeAsync(Guid projectId) =>
-        string.Join("; ", (await OrganizationsTestData.ReadTreeAsync(factory, projectId)).PreOrder());
+    private async Task<string> DescribeTreeAsync(Guid organizationId) =>
+        string.Join("; ", (await OrganizationsTestData.ReadTreeAsync(factory, organizationId)).PreOrder());
 
     private async Task<IReadOnlyList<Guid>> ListedOrganizationsAsync(OrganizationStatus status)
     {
@@ -142,7 +142,7 @@ public sealed class RestoreOrganizationEndpointTests(MustaskApiFactory factory)
         Assert.Equal(structure.Platform.Id, after.Project.DefaultTeamId);
 
         // The tree: «Квартальные» is under «Отчёты», as before.
-        var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
+        var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.OrganizationId);
         Assert.Equal("Отчёты / Квартальные", tree.PathOf(quarterly.Id));
         Assert.Equal(reports.Id, tree[quarterly.Id].ParentId);
 

@@ -31,7 +31,7 @@ public sealed class AcceptanceCriteriaAdversarialTests
             ]);
 
     private static WorkItem New(WorkItemTypeStates type) =>
-        WorkItem.Create(Guid.CreateVersion7(), 1, type, Guid.CreateVersion7(), "Adversarial Item", Guid.CreateVersion7(), Created, "challenger-sub");
+        WorkItem.Create(Guid.CreateVersion7(), 1, type, "Adversarial Item", Guid.CreateVersion7(), Created, "challenger-sub");
 
     // 1. Empty criteria list [] on User Story vs null
     [Fact]

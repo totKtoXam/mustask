@@ -252,7 +252,7 @@ public sealed class GetBacklogEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(HttpStatusCode.Created, answer.Status);
         var bug = new Item(answer.Body.GetProperty("id").GetGuid(), answer.Body.GetProperty("identifier").GetString()!);
-        Assert.Equal("Мастаск", answer.Body.GetProperty("area").GetProperty("path").GetString());
+        Assert.False(answer.Body.TryGetProperty("area", out _));
         Assert.Equal([us5.Identifier, us7.Identifier, bug.Identifier], await BoardsTestData.RowsAsync(factory, world, world.ProjectTeamId));
     }
 }

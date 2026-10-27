@@ -282,7 +282,6 @@ public sealed class BoardChecklistsEndpointTests(MustaskApiFactory factory)
     public async Task Get_ChildOfAnotherTeam_IsInTheChecklist_NotInTheBacklogsTree()
     {
         var data = await CreateDataAsync();
-        Assert.Equal(data.World.RootAreaId, (await WorkItemsTestData.ReadAsync(factory, data.World.Items, data.TaskFe.Identifier)).GetProperty("area").GetProperty("id").GetGuid());
 
         var checklist = Identifiers(ChildrenOf(await BoardAsync(data.World), data.Story));
         var tree = await BacklogTreeTestData.TopRowsAsync(factory, data.World, data.World.PlatformId, "stories");
@@ -363,7 +362,7 @@ public sealed class BoardChecklistsEndpointTests(MustaskApiFactory factory)
         await UserDirectoryTestData.SeedAsync(
             factory, ids.Select((id, index) => UserDirectoryTestData.Push(id, $"Имя{index + 1}", $"Фамилия{index + 1}", $"user{index + 1}-{id}@example.test")));
         var unknown = $"unknown-user-{Guid.NewGuid()}";
-        await BulkItemsTestData.InsertAssignedAsync(factory, world.Items, world.PlatformAreaId, [.. ids, unknown], firstNumber: 2, beneath: story.Id);
+        await BulkItemsTestData.InsertAssignedAsync(factory, world.Items, [.. ids, unknown], firstNumber: 2, beneath: story.Id);
 
         var children = ChildrenOf(await BoardAsync(world), story);
 
@@ -393,8 +392,8 @@ public sealed class BoardChecklistsEndpointTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.True(answer.Body.GetProperty("changedAt").GetDateTimeOffset() > before.GetProperty("changedAt").GetDateTimeOffset());
         Assert.Equal(
-            (before.GetProperty("title").GetString(), before.GetProperty("assignee").GetProperty("id").GetString(), before.GetProperty("area").GetProperty("id").GetGuid()),
-            (answer.Body.GetProperty("title").GetString(), answer.Body.GetProperty("assignee").GetProperty("id").GetString(), answer.Body.GetProperty("area").GetProperty("id").GetGuid()));
+            (before.GetProperty("title").GetString(), before.GetProperty("assignee").GetProperty("id").GetString()),
+            (answer.Body.GetProperty("title").GetString(), answer.Body.GetProperty("assignee").GetProperty("id").GetString()));
         var qa = ChildrenOf(await BoardAsync(data.World), data.Story).Single(child => child.GetProperty("identifier").GetString() == data.TaskQa.Identifier);
         Assert.Equal(("Закрыта", "Completed"), (StateName(qa), CategoryOf(qa)));
     }
@@ -478,8 +477,8 @@ public sealed class BoardChecklistsEndpointTests(MustaskApiFactory factory)
         Assert.Equal(6, children.Length);
         var stored = await WorkItemsTestData.ReadAsync(factory, data.World.Items, last.GetProperty("identifier").GetString()!);
         Assert.Equal(
-            (data.World.PlatformAreaId, data.Story.Id),
-            (stored.GetProperty("area").GetProperty("id").GetGuid(), stored.GetProperty("parent").GetProperty("id").GetGuid()));
+            data.Story.Id,
+            stored.GetProperty("parent").GetProperty("id").GetGuid());
         Assert.True((await WorkItemsTestData.ReadAsync(factory, data.World.Items, data.Story.Identifier)).GetProperty("changedAt").GetDateTimeOffset() > parentBefore.GetProperty("changedAt").GetDateTimeOffset());
     }
 

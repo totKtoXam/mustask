@@ -55,7 +55,7 @@ public sealed class GetDeactivatedOrganizationsHandlerTests
         var result = await HandleAsync(HandlerOver(store));
 
         Assert.Equal(organization.Id, Assert.Single(result.Items).Id);
-        Assert.True(project.Project.IsActive);
+        Assert.True(project.IsActive);
         Assert.Single(store.Projects);
         Assert.Empty(store.Calls);
     }
@@ -67,7 +67,7 @@ public sealed class GetDeactivatedOrganizationsHandlerTests
     {
         var store = new InMemoryOrganizations();
         var organization = store.AddOrganizationOf(User.SubjectId);
-        store.AddProject(organization).Project.Deactivate();
+        store.AddProject(organization).Deactivate();
 
         var result = await HandleAsync(HandlerOver(store));
 

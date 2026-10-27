@@ -27,13 +27,13 @@ public sealed class GetDeactivatedProjectsHandlerTests
         public GetDeactivatedProjectsHandler Handler { get; }
 
         /// <summary>A project of <see cref="Organization"/> (or of the given one), deactivated when asked.</summary>
-        public NewProject AddProject(string name, string key, bool deactivated, Organization? organization = null)
+        public Project AddProject(string name, string key, bool deactivated, Organization? organization = null)
         {
             var project = Store.AddProject(organization ?? Organization, name, key);
 
             if (deactivated)
             {
-                project.Project.Deactivate();
+                project.Deactivate();
             }
 
             return project;
@@ -54,7 +54,7 @@ public sealed class GetDeactivatedProjectsHandlerTests
 
         var result = await f.HandleAsync();
 
-        Assert.Equal([new ProjectListItemResponse(archived.Project.Id, "Архивный", "ARC")], result.Items);
+        Assert.Equal([new ProjectListItemResponse(archived.Id, "Архивный", "ARC")], result.Items);
     }
 
     // US-3 · same scenario, nothing deactivated yet: the answer is an empty list, not a refusal.
@@ -77,7 +77,7 @@ public sealed class GetDeactivatedProjectsHandlerTests
         var project = f.AddProject("Архивный", "ARC", deactivated: true);
         Assert.Single((await f.HandleAsync()).Items);
 
-        project.Project.Restore();
+        project.Restore();
 
         Assert.Empty((await f.HandleAsync()).Items);
     }
@@ -94,8 +94,8 @@ public sealed class GetDeactivatedProjectsHandlerTests
         var result = await f.HandleAsync();
         var theirResult = await f.HandleAsync(other.Id.ToString());
 
-        Assert.Equal([mine.Project.Id], result.Items.Select(item => item.Id));
-        Assert.Equal([theirs.Project.Id], theirResult.Items.Select(item => item.Id));
+        Assert.Equal([mine.Id], result.Items.Select(item => item.Id));
+        Assert.Equal([theirs.Id], theirResult.Items.Select(item => item.Id));
     }
 
     // api-contract § 0.6: the server orders the list and the handler keeps that order, whatever the order of creation.
@@ -166,8 +166,8 @@ public sealed class GetDeactivatedProjectsHandlerTests
         await f.HandleAsync();
 
         Assert.Empty(f.Store.Calls);
-        Assert.Equal(ProjectStatus.Active, active.Project.Status);
-        Assert.Equal(ProjectStatus.Deactivated, archived.Project.Status);
+        Assert.Equal(ProjectStatus.Active, active.Status);
+        Assert.Equal(ProjectStatus.Deactivated, archived.Status);
         Assert.Equal(OrganizationStatus.Active, f.Organization.Status);
     }
 }

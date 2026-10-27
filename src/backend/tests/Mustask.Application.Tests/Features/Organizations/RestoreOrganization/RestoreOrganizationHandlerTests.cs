@@ -21,9 +21,9 @@ public sealed class RestoreOrganizationHandlerTests
             Organization = Store.AddOrganization(" Пример организации ");
             Project = Store.AddProject(Organization);
             Platform = Store.AddLinkedTeam(Organization, Project);
-            Project.Project.NameDefaultTeam(Platform.Id);
-            Reports = Store.AddArea(Project.Root, "Отчёты");
-            Quarterly = Store.AddArea(Reports, "Квартальные");
+            Project.NameDefaultTeam(Platform.Id);
+            Reports = Store.AddArea(Organization, "Отчёты");
+            Quarterly = Store.AddArea(Organization, "Квартальные", Reports);
             Handler = new RestoreOrganizationHandler(new FakeOrganizationRepository(Store), new FakeUnitOfWork());
         }
 
@@ -31,7 +31,7 @@ public sealed class RestoreOrganizationHandlerTests
 
         public Organization Organization { get; }
 
-        public NewProject Project { get; }
+        public Project Project { get; }
 
         public Team Platform { get; }
 
@@ -60,7 +60,7 @@ public sealed class RestoreOrganizationHandlerTests
         .. store.Teams.Select(team =>
             $"team {team.Id} of {team.OrganizationId}: {team.Name} / {team.NormalizedName} / {team.Status}"),
         .. store.Areas.Select(area =>
-            $"area {area.Id} of {area.ProjectId} under {area.ParentId}: {area.Name}"),
+            $"area {area.Id} under {area.ParentId}: {area.Name}"),
     ];
 
     // US-2 · "The organization is restored exactly as it was": it is back, under its stored name, with the answer the
@@ -95,11 +95,11 @@ public sealed class RestoreOrganizationHandlerTests
         Assert.Equal(beneathBefore, Beneath(f.Store));
 
         // The default-team setting: the project names «Платформа», and the restore leaves it so.
-        Assert.Equal(f.Platform.Id, f.Project.Project.DefaultTeamId);
+        Assert.Equal(f.Platform.Id, f.Project.DefaultTeamId);
         Assert.Equal(TeamStatus.Active, f.Platform.Status);
 
         // The tree answers as before, through reachability alone.
-        Assert.True(f.Store.IsReachable(f.Organization.Id, f.Project.Project.Id));
+        Assert.True(f.Store.IsReachable(f.Organization.Id, f.Project.Id));
         var tree = new AreaTree(f.Store.Areas.Select(area => new AreaNode(area.Id, area.ParentId, area.Name)));
         Assert.Equal("Отчёты / Квартальные", tree.PathOf(f.Quarterly.Id));
     }
@@ -111,15 +111,15 @@ public sealed class RestoreOrganizationHandlerTests
     {
         var f = new Fixture();
         var old = f.Store.AddProject(f.Organization, "Старый проект", "OLD");
-        old.Project.Deactivate();
+        old.Deactivate();
         f.Organization.Deactivate();
 
         await f.HandleAsync(f.Command());
 
-        Assert.Equal(ProjectStatus.Deactivated, old.Project.Status);
-        Assert.False(f.Store.IsReachable(f.Organization.Id, old.Project.Id));
-        Assert.Equal(ProjectStatus.Active, f.Project.Project.Status);
-        Assert.True(f.Store.IsReachable(f.Organization.Id, f.Project.Project.Id));
+        Assert.Equal(ProjectStatus.Deactivated, old.Status);
+        Assert.False(f.Store.IsReachable(f.Organization.Id, old.Id));
+        Assert.Equal(ProjectStatus.Active, f.Project.Status);
+        Assert.True(f.Store.IsReachable(f.Organization.Id, f.Project.Id));
         Assert.Equal(TeamStatus.Active, f.Platform.Status);
     }
 

@@ -53,7 +53,7 @@ public sealed class TeamStatementCountTests(OrganizationsDatabaseFixture databas
     private const int DeletionStatements = 13;   // 11 + the same two, for every linked project at once
 
     /// <summary>An organization of <c>Projects</c> projects, <c>Teams</c> teams each linked to two of them, and the first project's ids.</summary>
-    private sealed record Seeded(Guid OrganizationId, IReadOnlyList<Guid> ProjectIds, IReadOnlyList<Guid> TeamIds, Guid RootAreaId)
+    private sealed record Seeded(Guid OrganizationId, IReadOnlyList<Guid> ProjectIds, IReadOnlyList<Guid> TeamIds)
     {
         public Guid Project => ProjectIds[0];
 
@@ -369,8 +369,7 @@ public sealed class TeamStatementCountTests(OrganizationsDatabaseFixture databas
     {
         var first = await database.CreateStructureAsync();
         var organization = first.Organization.Id;
-        var projectIds = new List<Guid> { first.Project.Project.Id };
-        var rootId = first.Project.Root.Id;
+        var projectIds = new List<Guid> { first.Project.Id };
 
         // CreateStructureAsync brings two teams linked to its project; the counts here are the test's own, so they go.
         await database.ExecuteAsync("DELETE FROM project_teams WHERE organization_id = @organization; DELETE FROM teams WHERE organization_id = @organization", ("organization", organization));
@@ -380,9 +379,8 @@ public sealed class TeamStatementCountTests(OrganizationsDatabaseFixture databas
         for (var index = 1; index < projects; index++)
         {
             var project = Project.Create(organization, OrganizationsDatabaseFixture.Name($"Проект {index:D3}"), $"P{index:D3}", OrganizationsDatabaseFixture.Now, OrganizationsDatabaseFixture.Creator);
-            context.Projects.Add(project.Project);
-            context.Areas.Add(project.Root);
-            projectIds.Add(project.Project.Id);
+            context.Projects.Add(project);
+            projectIds.Add(project.Id);
         }
 
         var teamIds = new List<Guid>();
@@ -402,7 +400,7 @@ public sealed class TeamStatementCountTests(OrganizationsDatabaseFixture databas
 
         await context.SaveChangesAsync();
 
-        return new Seeded(organization, projectIds, teamIds, rootId);
+        return new Seeded(organization, projectIds, teamIds);
     }
 
     /// <summary><paramref name="count"/> stories owned by <paramref name="team"/>, spread over the projects it is linked to.</summary>
@@ -421,19 +419,16 @@ public sealed class TeamStatementCountTests(OrganizationsDatabaseFixture databas
 
         foreach (var project in linked)
         {
-            var root = (await database.QueryAsync("SELECT id::text FROM areas WHERE project_id = @project AND parent_id IS NULL", ("project", project))).Single();
-
             await database.ExecuteAsync(
                 """
-                INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, owning_team_id)
-                SELECT gen_random_uuid(), @project, n, @type, @state, @root, 'Элемент ' || n, '', gen_random_uuid(), now(), 'count-test', now(), @team
+                INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id, created_at, created_by, changed_at, owning_team_id)
+                SELECT gen_random_uuid(), @project, n, @type, @state, 'Элемент ' || n, '', gen_random_uuid(), now(), 'count-test', now(), @team
                 FROM generate_series(1, @count) AS n;
                 INSERT INTO work_item_counters (project_id, last_number) VALUES (@project, @count)
                 """,
                 ("project", project),
                 ("type", Guid.Parse(row[0])),
                 ("state", Guid.Parse(row[1])),
-                ("root", Guid.Parse(root)),
                 ("team", team),
                 ("count", Math.Max(1, count / linked.Count)));
         }

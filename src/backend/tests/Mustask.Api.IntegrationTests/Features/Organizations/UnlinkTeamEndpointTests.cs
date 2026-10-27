@@ -94,7 +94,7 @@ public sealed class UnlinkTeamEndpointTests(MustaskApiFactory factory)
         }
 
         var firstAfter = await StoredAsync(factory, world.ProjectId, first.Identifier);
-        Assert.Equal((firstBefore.AreaId, firstBefore.AssigneeId, firstBefore.StateId), (firstAfter.AreaId, firstAfter.AssigneeId, firstAfter.StateId));
+        Assert.Equal((firstBefore.AssigneeId, firstBefore.StateId), (firstAfter.AssigneeId, firstAfter.StateId));
         Assert.Equal((projectPlaces.Item1, projectPlaces.Item2), (await ProjectPlacesOfAsync(factory, first.Id), await ProjectPlacesOfAsync(factory, second.Id)));
         Assert.Equal(venusBefore, await StoredAsync(factory, world.ProjectId, venus.Identifier));
         Assert.Equal(1, await TeamPlacesOfAsync(factory, venus.Id));
@@ -253,19 +253,19 @@ public sealed class UnlinkTeamEndpointTests(MustaskApiFactory factory)
     {
         var world = await CreateWorldAsync(factory);
         var single = await OrganizationsTestData.CreateBareProjectAsync(factory, world.OrganizationId, "Одна", "ONE");
-        await OrganizationsTestData.LinkAsync(factory, single.Project.Id, world.Mars);
-        var story = await StoryAsync(world, "Марсова", world.Mars, single.Project.Id, "ONE");
-        Assert.Equal(world.Mars, await DefaultTeamAsync(factory, single.Project.Id));
+        await OrganizationsTestData.LinkAsync(factory, single.Id, world.Mars);
+        var story = await StoryAsync(world, "Марсова", world.Mars, single.Id, "ONE");
+        Assert.Equal(world.Mars, await DefaultTeamAsync(factory, single.Id));
 
-        var answer = await TeamTestData.UnlinkAsync(factory, world.OrganizationId, single.Project.Id, world.Mars, To(null));
-        var list = await GetAsync(OrganizationsApi.Teams(world.OrganizationId, single.Project.Id));
-        var created = await StoryAsync(world, "Новая", null, single.Project.Id, "ONE");
+        var answer = await TeamTestData.UnlinkAsync(factory, world.OrganizationId, single.Id, world.Mars, To(null));
+        var list = await GetAsync(OrganizationsApi.Teams(world.OrganizationId, single.Id));
+        var created = await StoryAsync(world, "Новая", null, single.Id, "ONE");
 
         Assert.Equal(HttpStatusCode.NoContent, answer.Status);
         Assert.Empty(list.Body.EnumerateArray());
-        Assert.Null(await DefaultTeamAsync(factory, single.Project.Id));
-        Assert.Null((await StoredAsync(factory, single.Project.Id, story.Identifier)).TeamId);
-        Assert.Null((await StoredAsync(factory, single.Project.Id, created.Identifier)).TeamId);
+        Assert.Null(await DefaultTeamAsync(factory, single.Id));
+        Assert.Null((await StoredAsync(factory, single.Id, story.Identifier)).TeamId);
+        Assert.Null((await StoredAsync(factory, single.Id, created.Identifier)).TeamId);
     }
 
     // feat-028 US-4 · "Unlink_OwningNothing_RemovesLink_ClearsDefault": a team that owns nothing here is unlinked all the same: the link

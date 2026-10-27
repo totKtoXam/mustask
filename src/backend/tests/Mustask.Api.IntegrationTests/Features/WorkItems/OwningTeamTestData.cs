@@ -48,7 +48,7 @@ internal static class OwningTeamTestData
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
         var alpha = await OrganizationsTestData.CreateProjectAsync(factory, organization.Id, "Альфа", "ALP");
         var types = await WorkItemsTestData.TypesAsync(factory, organization.Id);
-        var items = new WorkItemsWorld(organization.Id, alpha.Project.Id, alpha.Root.Id, "ALP", types);
+        var items = new WorkItemsWorld(organization.Id, alpha.Project.Id, "ALP", types);
 
         var mars = await AddTeamAsync(factory, alpha.Project.Id, "MARS");
         var venus = await AddTeamAsync(factory, alpha.Project.Id, "VENUS");
@@ -102,7 +102,7 @@ internal static class OwningTeamTestData
         return await scope.ServiceProvider.GetRequiredService<MustaskDbContext>().WorkItems
             .AsNoTracking()
             .Where(item => item.ProjectId == projectId && item.Number == number)
-            .Select(item => new StoredTeam(item.Id, item.OwningTeamId, item.ChangedAt, item.AreaId, item.AssigneeId, item.StateId))
+            .Select(item => new StoredTeam(item.Id, item.OwningTeamId, item.ChangedAt, item.AssigneeId, item.StateId))
             .SingleAsync();
     }
 
@@ -208,4 +208,4 @@ internal static class OwningTeamTestData
 }
 
 /// <summary>An item's owning team and the fields a team change must leave alone, as stored.</summary>
-internal sealed record StoredTeam(Guid Id, Guid? TeamId, DateTimeOffset ChangedAt, Guid AreaId, string? AssigneeId, Guid StateId);
+internal sealed record StoredTeam(Guid Id, Guid? TeamId, DateTimeOffset ChangedAt, string? AssigneeId, Guid StateId);

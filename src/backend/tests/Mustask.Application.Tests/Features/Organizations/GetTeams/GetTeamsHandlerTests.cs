@@ -29,12 +29,12 @@ public sealed class GetTeamsHandlerTests
 
         public Organization Organization { get; }
 
-        public NewProject Project { get; }
+        public Project Project { get; }
 
         public GetTeamsHandler Handler { get; }
 
         public GetTeamsQuery Query(string? projectId = null, string? organizationId = null) =>
-            new(organizationId ?? Organization.Id.ToString(), projectId ?? Project.Project.Id.ToString());
+            new(organizationId ?? Organization.Id.ToString(), projectId ?? Project.Id.ToString());
 
         public async Task<IReadOnlyList<TeamResponse>> ListAsync(GetTeamsQuery? query = null) =>
             (await Handler.Handle(query ?? Query(), CancellationToken.None)).Items;
@@ -77,7 +77,7 @@ public sealed class GetTeamsHandlerTests
         var beta = f.Store.AddLinkedTeam(f.Organization, f.Project, "Бета");
         Assert.All(await f.ListAsync(), team => Assert.Null(team.DefaultMark));
 
-        f.Project.Project.NameDefaultTeam(beta.Id);
+        f.Project.NameDefaultTeam(beta.Id);
         var named = await f.ListAsync();
         Assert.Equal("named", named.Single(team => team.Id == beta.Id).DefaultMark);
         Assert.Null(named.Single(team => team.Id == alpha.Id).DefaultMark);
@@ -129,7 +129,7 @@ public sealed class GetTeamsHandlerTests
 
         if (how == "deactivated project")
         {
-            f.Project.Project.Deactivate();
+            f.Project.Deactivate();
         }
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.ListAsync(query));

@@ -37,7 +37,7 @@ public sealed class ProjectBoardsQaTests(MustaskApiFactory factory)
         var feature = await BoardsTestData.CreateAsync(factory, world, "FEAT", "Фича", world.PlatformAreaId);
         await LinksTestData.LinkAsync(factory, world.Items, feature, epic);
         await LinksTestData.LinkAsync(factory, world.Items, s1, feature);
-        var chain = await BulkItemsTestData.InsertChainAsync(factory, world.Items, world.PlatformAreaId, length: 60, firstNumber: 100, beneath: s1.Id);
+        var chain = await BulkItemsTestData.InsertChainAsync(factory, world.Items, length: 60, firstNumber: 100, beneath: s1.Id);
 
         using var epics = await ReadDeepAsync(world, "epics");
         using var stories = await ReadDeepAsync(world, "stories");

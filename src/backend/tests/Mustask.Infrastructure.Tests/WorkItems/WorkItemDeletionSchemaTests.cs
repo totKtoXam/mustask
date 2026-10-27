@@ -200,7 +200,7 @@ public sealed class WorkItemDeletionSchemaTests(OrganizationsDatabaseFixture dat
     private async Task<World> SeedAsync()
     {
         var structure = await database.CreateStructureAsync();
-        var project = structure.Project.Project.Id;
+        var project = structure.Project.Id;
 
         var row = (await database.QueryAsync(
             """
@@ -216,14 +216,13 @@ public sealed class WorkItemDeletionSchemaTests(OrganizationsDatabaseFixture dat
 
         await database.ExecuteAsync(
             """
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at)
-            VALUES (@item, @project, 1, @type, @state, @area, 'История', '', gen_random_uuid(), now(), 'schema-test', now())
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id, created_at, created_by, changed_at)
+            VALUES (@item, @project, 1, @type, @state, 'История', '', gen_random_uuid(), now(), 'schema-test', now())
             """,
             ("item", item),
             ("project", project),
             ("type", Guid.Parse(row[0])),
-            ("state", Guid.Parse(row[1])),
-            ("area", structure.Project.Root.Id));
+            ("state", Guid.Parse(row[1])));
 
         return new World(item, Guid.Parse(row[1]), Guid.Parse(row[2]));
     }

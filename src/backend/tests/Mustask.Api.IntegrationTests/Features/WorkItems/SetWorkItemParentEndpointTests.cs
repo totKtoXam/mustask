@@ -128,7 +128,7 @@ public sealed class SetWorkItemParentEndpointTests(MustaskApiFactory factory)
         await LinksTestData.LinkAsync(factory, world, story, items["MSK-FEAT-6"]);
 
         var after = await WorkItemsTestData.ReadAsync(factory, world, story.Identifier);
-        foreach (var field in new[] { "title", "description", "state", "assignee", "area", "createdAt" })
+        foreach (var field in new[] { "title", "description", "state", "assignee", "createdAt" })
         {
             Assert.Equal(before.GetProperty(field).GetRawText(), after.GetProperty(field).GetRawText());
         }

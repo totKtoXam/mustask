@@ -227,8 +227,8 @@ public sealed class GetBoardEndpointTests(MustaskApiFactory factory)
             ("Resolved", "Resolved"),
             (story.Body.GetProperty("state").GetProperty("category").GetProperty("code").GetString(), bug.Body.GetProperty("state").GetProperty("category").GetProperty("code").GetString()));
         Assert.Equal(
-            (before.GetProperty("title").GetString(), before.GetProperty("assignee").ValueKind, before.GetProperty("area").GetProperty("id").GetGuid()),
-            (story.Body.GetProperty("title").GetString(), story.Body.GetProperty("assignee").ValueKind, story.Body.GetProperty("area").GetProperty("id").GetGuid()));
+            (before.GetProperty("title").GetString(), before.GetProperty("assignee").ValueKind),
+            (story.Body.GetProperty("title").GetString(), story.Body.GetProperty("assignee").ValueKind));
         Assert.True(story.Body.GetProperty("changedAt").GetDateTimeOffset() > before.GetProperty("changedAt").GetDateTimeOffset());
 
         var board = await BoardAsync(world, world.PlatformId);

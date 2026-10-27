@@ -55,7 +55,7 @@ public sealed class RenameOrganizationHandlerTests
         var f = new Fixture();
         var project = f.Store.AddProject(f.Organization);
         var platform = f.Store.AddLinkedTeam(f.Organization, project);
-        f.Store.AddArea(project.Root, "Отчёты");
+        f.Store.AddArea(f.Organization, "Отчёты");
         var processId = f.Organization.ProcessId;
         var before = Snapshot(f.Store);
 

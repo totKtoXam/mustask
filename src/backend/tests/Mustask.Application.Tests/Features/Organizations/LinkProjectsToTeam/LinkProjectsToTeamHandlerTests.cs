@@ -41,9 +41,9 @@ public sealed class LinkProjectsToTeamHandlerTests
 
         public Organization Organization { get; }
 
-        public NewProject Alpha { get; }
+        public Project Alpha { get; }
 
-        public NewProject Beta { get; }
+        public Project Beta { get; }
 
         public Team Mars { get; }
 
@@ -61,7 +61,7 @@ public sealed class LinkProjectsToTeamHandlerTests
     {
         var f = new Fixture();
 
-        await f.HandleAsync(f.Command([f.Alpha.Project.Id.ToString(), f.Beta.Project.Id.ToString(), f.Alpha.Project.Id.ToString()]));
+        await f.HandleAsync(f.Command([f.Alpha.Id.ToString(), f.Beta.Id.ToString(), f.Alpha.Id.ToString()]));
 
         Assert.Equal(2, f.Store.Links.Count);
         Assert.All(f.Store.Links, link => Assert.Equal((f.Mars.Id, "admin-anna", f.Clock.UtcNow), (link.TeamId, link.LinkedBy, link.LinkedAt)));
@@ -76,7 +76,7 @@ public sealed class LinkProjectsToTeamHandlerTests
         f.Store.Link(f.Alpha, f.Mars);
         var first = f.Store.Links.Single();
 
-        await f.HandleAsync(f.Command([f.Alpha.Project.Id.ToString()]));
+        await f.HandleAsync(f.Command([f.Alpha.Id.ToString()]));
 
         Assert.Same(first, f.Store.Links.Single());
     }
@@ -103,16 +103,16 @@ public sealed class LinkProjectsToTeamHandlerTests
     {
         var f = new Fixture();
         var foreign = f.Store.AddProject(f.Store.AddOrganization("Другая"), "Чужой", "OTH");
-        f.Beta.Project.Deactivate();
+        f.Beta.Deactivate();
         var id = how switch
         {
             "malformed" => "not-an-id",
             "unknown" => Guid.CreateVersion7().ToString(),
-            "foreign" => foreign.Project.Id.ToString(),
-            _ => f.Beta.Project.Id.ToString(),
+            "foreign" => foreign.Id.ToString(),
+            _ => f.Beta.Id.ToString(),
         };
 
-        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command([f.Alpha.Project.Id.ToString(), id])));
+        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command([f.Alpha.Id.ToString(), id])));
 
         Assert.Equal(OrganizationErrorCodes.ProjectNotFound, refusal.Code);
         Assert.Empty(f.Store.Links);
@@ -164,7 +164,7 @@ public sealed class LinkProjectsToTeamHandlerTests
     {
         var f = new Fixture();
 
-        await f.HandleAsync(f.Command([f.Alpha.Project.Id.ToString(), f.Beta.Project.Id.ToString()]));
+        await f.HandleAsync(f.Command([f.Alpha.Id.ToString(), f.Beta.Id.ToString()]));
 
         Assert.Equal([$"lock team share {f.Mars.Id}", "link 2"], f.Store.Calls);
     }

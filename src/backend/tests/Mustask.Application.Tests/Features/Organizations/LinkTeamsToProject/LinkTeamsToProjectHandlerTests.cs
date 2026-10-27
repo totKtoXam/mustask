@@ -41,7 +41,7 @@ public sealed class LinkTeamsToProjectHandlerTests
 
         public Organization Organization { get; }
 
-        public NewProject Project { get; }
+        public Project Project { get; }
 
         public Team Mars { get; }
 
@@ -50,7 +50,7 @@ public sealed class LinkTeamsToProjectHandlerTests
         public LinkTeamsToProjectHandler Handler { get; }
 
         public LinkTeamsToProjectCommand Command(IReadOnlyList<string?>? teamIds, string? projectId = null, string? organizationId = null) =>
-            new(organizationId ?? Organization.Id.ToString(), projectId ?? Project.Project.Id.ToString(), teamIds);
+            new(organizationId ?? Organization.Id.ToString(), projectId ?? Project.Id.ToString(), teamIds);
 
         public Task HandleAsync(LinkTeamsToProjectCommand command) => Handler.Handle(command, CancellationToken.None);
     }
@@ -65,7 +65,7 @@ public sealed class LinkTeamsToProjectHandlerTests
         await f.HandleAsync(f.Command([f.Mars.Id.ToString(), f.Venus.Id.ToString(), f.Mars.Id.ToString()]));
 
         Assert.Equal(2, f.Store.Links.Count);
-        Assert.All(f.Store.Links, link => Assert.Equal((f.Project.Project.Id, "admin-anna", f.Clock.UtcNow), (link.ProjectId, link.LinkedBy, link.LinkedAt)));
+        Assert.All(f.Store.Links, link => Assert.Equal((f.Project.Id, "admin-anna", f.Clock.UtcNow), (link.ProjectId, link.LinkedBy, link.LinkedAt)));
     }
 
     // US-3 · "linking a linked pair": nothing changes, the link keeps who made it and when.
@@ -134,7 +134,7 @@ public sealed class LinkTeamsToProjectHandlerTests
 
         if (how == "deactivated")
         {
-            f.Project.Project.Deactivate();
+            f.Project.Deactivate();
         }
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(

@@ -174,7 +174,7 @@ public sealed class OwningTeamQaEndpointTests(MustaskApiFactory factory)
         var world = await CreateWorldAsync(factory);
         var organization = world.OrganizationId;
         var two = await OrganizationsTestData.CreateProjectAsync(factory, organization, "Две", "TWO");
-        var items = world.Items with { ProjectId = two.Project.Id, RootAreaId = two.Root.Id, Key = "TWO" };
+        var items = world.Items with { ProjectId = two.Project.Id, Key = "TWO" };
         var second = await AddTeamAsync(factory, two.Project.Id, "SECOND");
         var teams = OrganizationsApi.Teams(organization, two.Project.Id);
 
@@ -211,7 +211,7 @@ public sealed class OwningTeamQaEndpointTests(MustaskApiFactory factory)
     {
         var world = await CreateWorldAsync(factory);
         var two = await OrganizationsTestData.CreateProjectAsync(factory, world.OrganizationId, "Две команды", "TWT");
-        var items = world.Items with { ProjectId = two.Project.Id, RootAreaId = two.Root.Id, Key = "TWT" };
+        var items = world.Items with { ProjectId = two.Project.Id, Key = "TWT" };
         var doomed = await AddTeamAsync(factory, two.Project.Id, "DOOMED");
         var parent = await ItemOfAsync(items, "FEAT", "Родитель", doomed);
         Assert.Equal(doomed, (await StoredAsync(factory, two.Project.Id, parent.Identifier)).TeamId);

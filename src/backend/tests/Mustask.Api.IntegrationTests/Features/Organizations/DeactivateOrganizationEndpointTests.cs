@@ -97,9 +97,9 @@ public sealed class DeactivateOrganizationEndpointTests(MustaskApiFactory factor
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var old = await OrganizationsTestData.CreateProjectAsync(
             factory, structure.OrganizationId, "Старый проект", "OLD", ProjectStatus.Deactivated);
-        await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Отчёты");
+        await OrganizationsTestData.AddAreaAsync(factory, structure.OrganizationId, null, "Отчёты");
         await OrganizationsTestData.SetDefaultTeamAsync(factory, structure.OrganizationId, structure.ProjectId, structure.Platform.Id);
-        await OrganizationsTestData.AddAreaAsync(factory, old.Project.Id, old.Root.Id, "Архив");
+        await OrganizationsTestData.AddAreaAsync(factory, structure.OrganizationId, null, "Архив");
         var before = await BeneathAsync(structure.OrganizationId);
 
         var answer = await DeactivateAsync(structure.OrganizationId);
@@ -219,7 +219,7 @@ public sealed class DeactivateOrganizationEndpointTests(MustaskApiFactory factor
         var projectIds = projects.Select(project => project.Id).ToList();
         var teams = await db.Teams.AsNoTracking().Where(team => team.OrganizationId == organizationId).OrderBy(team => team.Id).ToListAsync();
         var links = await db.ProjectTeams.AsNoTracking().Where(link => link.OrganizationId == organizationId).OrderBy(link => link.ProjectId).ThenBy(link => link.TeamId).ToListAsync();
-        var areas = await db.Areas.AsNoTracking().Where(area => projectIds.Contains(area.ProjectId)).OrderBy(area => area.Id).ToListAsync();
+        var areas = await db.Areas.AsNoTracking().Where(area => area.OrganizationId == organizationId).OrderBy(area => area.Id).ToListAsync();
         var processes = await db.Processes
             .AsNoTracking()
             .Include(process => process.BacklogLevels)

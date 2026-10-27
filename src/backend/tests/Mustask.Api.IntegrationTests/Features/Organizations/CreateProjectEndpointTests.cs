@@ -75,13 +75,11 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
         Assert.Empty(await TeamTestData.LinksOfProjectAsync(factory, projectId));
 
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, projectId);
-        Assert.Equal(1, tree.Count);
-        Assert.Equal(project.RootAreaId, tree.Root.Id);
-        Assert.Equal("Пример проекта", tree.Root.Name);
+        Assert.Equal(0, tree.Count);
 
         var listed = await ListActiveProjectsAsync(organization.Id);
         Assert.Equal(new ProjectRow(projectId, organization.Id, "Пример проекта", "PRM"), Assert.Single(listed));
-        Assert.Equal((1, 0, 1), await CountAsync(organization.Id));
+        Assert.Equal((1, 0, 0), await CountAsync(organization.Id));
     }
 
     // feat-028 US-2 · "description in the same operation": the description is kept as typed — spaces and line breaks inside it stay,
@@ -124,7 +122,7 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
         Assert.Equal("organizations.description_length", reason.GetProperty("code").GetString());
         Assert.Equal("Описание должно содержать не более 2000 символов", reason.GetProperty("detail").GetString());
         Assert.Equal(HttpStatusCode.Created, longest.Status);
-        Assert.Equal((1, 0, 1), await CountAsync(organization.Id));
+        Assert.Equal((1, 0, 0), await CountAsync(organization.Id));
     }
 
     // feat-028 US-2 · "teams in the same operation" (BR-OL-4, BR-OL-7): each chosen team is linked, recording the caller and the time;
@@ -161,7 +159,7 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
             .FindProjectAsync(structure.OrganizationId, projectId, CancellationToken.None);
         Assert.Equal(count == 1 ? structure.Platform.Id : null, project!.DefaultTeamId);
         Assert.Contains(structure.ProjectId, (await TeamTestData.LinksOfTeamAsync(factory, structure.Platform.Id)).Select(link => link.ProjectId));
-        Assert.Equal((2, count + 1, 2), await CountAsync(structure.OrganizationId));
+        Assert.Equal((2, count + 1, 0), await CountAsync(structure.OrganizationId));
     }
 
     // feat-028 US-2 · "a team that is not an active team of this organization" (§ 2.4): malformed, unknown, of another organization or
@@ -385,7 +383,7 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.Conflict, answer.Status);
         Assert.Equal(NameTaken, answer.ErrorCode);
         Assert.Equal("Проект с таким названием уже есть в организации", answer.Detail);
-        Assert.Equal((1, 1, 1), await CountAsync(organization.Id));
+        Assert.Equal((1, 1, 0), await CountAsync(organization.Id));
     }
 
     // US-3 · "A deactivated project's name stays reserved": the same name against a deactivated project is refused with
@@ -401,7 +399,7 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.Conflict, answer.Status);
         Assert.Equal(NameTakenByDeactivated, answer.ErrorCode);
         Assert.Equal("Проект с таким названием уже есть в организации: он деактивирован", answer.Detail);
-        Assert.Equal((1, 1, 1), await CountAsync(organization.Id));
+        Assert.Equal((1, 1, 0), await CountAsync(organization.Id));
     }
 
     // US-3 · "The name is unique in the organization ... the name is still free in «Бета»" (BR-M1-1): the same name, active or
@@ -419,7 +417,7 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(HttpStatusCode.Created, active.Status);
         Assert.Equal(HttpStatusCode.Created, deactivated.Status);
-        Assert.Equal((2, 0, 2), await CountAsync(beta.Id));
+        Assert.Equal((2, 0, 0), await CountAsync(beta.Id));
     }
 
     // US-3 · "The key is unique in the organization, deactivated projects included": `PRM` held by an active or a deactivated
@@ -439,7 +437,7 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
         Assert.Equal(KeyTaken, answer.ErrorCode);
         Assert.Equal("Ключ «PRM» уже используется в организации", answer.Detail);
         Assert.Equal("PRM", answer.Body.GetProperty("params").GetProperty("key").GetProperty("value").GetString());
-        Assert.Equal((1, 1, 1), await CountAsync(organization.Id));
+        Assert.Equal((1, 1, 0), await CountAsync(organization.Id));
     }
 
     // US-3 · "The key is unique in the organization ... the key `PRM` is still free in the organization «Бета»" (BR-M1-1).
@@ -454,8 +452,8 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(HttpStatusCode.Created, answer.Status);
         Assert.Equal("PRM", answer.Body.GetProperty("key").GetString());
-        Assert.Equal((1, 1, 1), await CountAsync(alpha.Id));
-        Assert.Equal((1, 0, 1), await CountAsync(beta.Id));
+        Assert.Equal((1, 1, 0), await CountAsync(alpha.Id));
+        Assert.Equal((1, 0, 0), await CountAsync(beta.Id));
     }
 
     // api-contract § 2.3: "When both the name and the key are taken, the name's code is answered."
@@ -500,7 +498,7 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
 
         var project = Assert.Single(await ListActiveProjectsAsync(organization.Id));
         Assert.Equal(a.Body.GetProperty("id").GetGuid(), project.Id);
-        Assert.Equal((1, 0, 1), await CountAsync(organization.Id));
+        Assert.Equal((1, 0, 0), await CountAsync(organization.Id));
     }
 
     // US-3 · "The name is unique in the organization" under the same moment: the loser blocks on the name index, then answers
@@ -525,7 +523,7 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, a.Status);
         Assert.Equal(HttpStatusCode.Conflict, b.Status);
         Assert.Equal(NameTaken, b.ErrorCode);
-        Assert.Equal((1, 0, 1), await CountAsync(organization.Id));
+        Assert.Equal((1, 0, 0), await CountAsync(organization.Id));
     }
 
     // feat-028 BR-OL-2 · "Creating a project creates no team membership — the creator's included": the administrator who creates a
@@ -645,7 +643,7 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
             .ListAsync(organizationId, ProjectStatus.Active, CancellationToken.None);
     }
 
-    /// <summary>What is stored for the organization whatever its status: its projects, its teams (the organization's, not a project's) and the areas of its projects.</summary>
+    /// <summary>What is stored for the organization whatever its status: its projects, its teams (the organization's, not a project's) and its areas (mod-018: a project brings none).</summary>
     private async Task<(int Projects, int Teams, int Areas)> CountAsync(Guid organizationId)
     {
         using var scope = factory.Services.CreateScope();
@@ -655,7 +653,7 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
         return (
             await projectIds.CountAsync(),
             await db.Teams.AsNoTracking().CountAsync(team => team.OrganizationId == organizationId),
-            await db.Areas.AsNoTracking().CountAsync(area => projectIds.Contains(area.ProjectId)));
+            await db.Areas.AsNoTracking().CountAsync(area => area.OrganizationId == organizationId));
     }
 
     private static IEnumerable<string> PropertyNames(JsonElement element) =>

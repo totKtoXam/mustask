@@ -38,9 +38,9 @@ public sealed class RestoreProjectEndpointTests(MustaskApiFactory factory)
     public async Task Restore_BringsBackKeyTeamsTheDefaultTeamAndTree()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var reports = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Отчёты");
-        await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, reports.Id, "Квартальные");
-        await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Архив");
+        var reports = await OrganizationsTestData.AddAreaAsync(factory, structure.OrganizationId, null, "Отчёты");
+        await OrganizationsTestData.AddAreaAsync(factory, structure.OrganizationId, reports.Id, "Квартальные");
+        await OrganizationsTestData.AddAreaAsync(factory, structure.OrganizationId, null, "Архив");
         var core = await OrganizationsTestData.AddTeamAsync(factory, structure.ProjectId, "Ядро");
         await OrganizationsTestData.SetDefaultTeamAsync(factory, structure.OrganizationId, structure.ProjectId, structure.Platform.Id);
         await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, core.Id);
@@ -213,11 +213,11 @@ public sealed class RestoreProjectEndpointTests(MustaskApiFactory factory)
         var project = await seam.FindProjectAsync(structure.OrganizationId, structure.ProjectId, CancellationToken.None)
             ?? throw new InvalidOperationException("The project is gone.");
         var teams = await seam.ListLinkedTeamsAsync(structure.OrganizationId, structure.ProjectId, CancellationToken.None);
-        var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
+        var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.OrganizationId);
 
         var lines = new List<string>
         {
-            $"project {project.Id}|{project.OrganizationId}|{project.Name}|{project.Key}|{project.DefaultTeamId}|{project.RootAreaId}|{project.CreatedBy}|{project.CreatedAt:O}",
+            $"project {project.Id}|{project.OrganizationId}|{project.Name}|{project.Key}|{project.DefaultTeamId}|{project.CreatedBy}|{project.CreatedAt:O}",
         };
         lines.AddRange(teams.Select(team => $"team {team.Id}|{team.Name}|{team.Status}"));
         lines.AddRange(tree.PreOrder().Select(node => $"area {node.Id}|{node.ParentId}|{node.Name}"));

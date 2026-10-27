@@ -39,7 +39,7 @@ public static class OrganizationAddressedRoutes
     private const string Project = Org + "/projects/{projectId}";
     private const string Team = Project + "/teams/{teamId}";
     private const string OrgTeam = Org + "/teams/{teamId}";
-    private const string Area = Project + "/areas/{areaId}";
+    private const string Area = Org + "/areas/{areaId}";
     private const string Item = Project + "/workitems/{identifier}";
 
     public static readonly IReadOnlyList<OrganizationRoute> All =
@@ -79,11 +79,26 @@ public static class OrganizationAddressedRoutes
         new("GET", OrgTeam + "/deletion-counts", PermissionCatalog.OrganizationsTeamDelete),
         new("GET", OrgTeam + "/projects", PermissionCatalog.OrganizationsTeamRead),
         new("POST", OrgTeam + "/projects", PermissionCatalog.OrganizationsTeamLink),
-        new("GET", Project + "/areas", PermissionCatalog.OrganizationsAreaRead),
-        new("POST", Project + "/areas", PermissionCatalog.OrganizationsAreaWrite),
+        new("GET", Org + "/areas", PermissionCatalog.OrganizationsAreaRead),
+        new("POST", Org + "/areas", PermissionCatalog.OrganizationsAreaWrite),
+        new("GET", Area, PermissionCatalog.OrganizationsAreaRead),
         new("PUT", Area + "/name", PermissionCatalog.OrganizationsAreaWrite),
+        new("PUT", Area + "/description", PermissionCatalog.OrganizationsAreaWrite),
         new("PUT", Area + "/parent", PermissionCatalog.OrganizationsAreaWrite),
         new("DELETE", Area, PermissionCatalog.OrganizationsAreaWrite),
+        new("GET", Area + "/deletion", PermissionCatalog.OrganizationsAreaWrite),
+        new("GET", Area + "/projects", PermissionCatalog.OrganizationsAreaRead),
+        new("POST", Area + "/projects", PermissionCatalog.OrganizationsAreaLink),
+        new("DELETE", Area + "/projects/{projectId}", PermissionCatalog.OrganizationsAreaLink),
+        new("GET", Area + "/teams", PermissionCatalog.OrganizationsAreaRead),
+        new("POST", Area + "/teams", PermissionCatalog.OrganizationsAreaLink),
+        new("DELETE", Area + "/teams/{teamId}", PermissionCatalog.OrganizationsAreaLink),
+        new("GET", Project + "/areas", PermissionCatalog.OrganizationsAreaRead),
+        new("POST", Project + "/areas", PermissionCatalog.OrganizationsProjectLink),
+        new("DELETE", Project + "/areas/{areaId}", PermissionCatalog.OrganizationsProjectLink),
+        new("GET", OrgTeam + "/areas", PermissionCatalog.OrganizationsAreaRead),
+        new("POST", OrgTeam + "/areas", PermissionCatalog.OrganizationsTeamLink),
+        new("DELETE", OrgTeam + "/areas/{areaId}", PermissionCatalog.OrganizationsTeamLink),
 
         // mod-001: the process read (row 27).
         new("GET", Org + "/process", PermissionCatalog.ProcessDefinitionRead),
@@ -165,6 +180,7 @@ public static class OrganizationAddressedRoutes
                 description = "Описание",
                 teamIds = Array.Empty<string>(),
                 projectIds = Array.Empty<string>(),
+                areaIds = Array.Empty<string>(),
                 memberIds = Array.Empty<string>(),
                 destination = new { teamId = (string?)null },
             }

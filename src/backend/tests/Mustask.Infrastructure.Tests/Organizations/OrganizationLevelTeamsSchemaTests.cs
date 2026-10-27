@@ -29,7 +29,7 @@ public sealed class OrganizationLevelTeamsSchemaTests(OrganizationsDatabaseFixtu
 
         var error = await Assert.ThrowsAsync<PostgresException>(() => database.ExecuteAsync(
             "INSERT INTO project_teams (project_id, team_id, organization_id, linked_by, linked_at) VALUES (@project, @team, @organization, 'test', now())",
-            ("project", structure.Project.Project.Id),
+            ("project", structure.Project.Id),
             ("team", other.SecondTeam.Id),
             ("organization", organization)));
 
@@ -49,7 +49,7 @@ public sealed class OrganizationLevelTeamsSchemaTests(OrganizationsDatabaseFixtu
         var structure = await database.CreateStructureAsync();
         var parameters = new (string Name, object Value)[]
         {
-            ("project", structure.Project.Project.Id),
+            ("project", structure.Project.Id),
             ("team", structure.SecondTeam.Id),
             ("organization", structure.Organization.Id),
         };

@@ -97,7 +97,7 @@ public sealed class RenameTeamEndpointTests(MustaskApiFactory factory)
         var analytics = where switch
         {
             "linked to this team's project" => await OrganizationsTestData.AddTeamAsync(factory, structure.ProjectId, "Аналитика"),
-            "linked to another project" => await OrganizationsTestData.AddTeamAsync(factory, secondProject.Project.Id, "Аналитика"),
+            "linked to another project" => await OrganizationsTestData.AddTeamAsync(factory, secondProject.Id, "Аналитика"),
             _ => await OrganizationsTestData.AddUnlinkedTeamAsync(factory, structure.OrganizationId, "Аналитика"),
         };
 

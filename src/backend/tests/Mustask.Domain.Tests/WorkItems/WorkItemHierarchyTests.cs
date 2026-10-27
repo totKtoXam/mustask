@@ -20,7 +20,6 @@ public sealed class WorkItemHierarchyTests
     private static readonly DateTimeOffset Linked = Created.AddHours(1);
     private static readonly DateTimeOffset Later = Created.AddHours(2);
     private static readonly Guid ProjectId = Guid.CreateVersion7();
-    private static readonly Guid RootAreaId = Guid.CreateVersion7();
 
     private static readonly WorkItemTypeStates Epic = Type("EPIC", AppearanceToken.Epic);
     private static readonly WorkItemTypeStates Feature = Type("FEAT", AppearanceToken.Feature);
@@ -53,7 +52,7 @@ public sealed class WorkItemHierarchyTests
 
     private WorkItem New(WorkItemTypeStates type, int number)
     {
-        var item = WorkItem.Create(ProjectId, number, type, RootAreaId, $"Элемент {number}", Guid.CreateVersion7(), Created, "creator-sub");
+        var item = WorkItem.Create(ProjectId, number, type, $"Элемент {number}", Guid.CreateVersion7(), Created, "creator-sub");
         _items[item.Id] = item;
 
         return item;
@@ -200,11 +199,11 @@ public sealed class WorkItemHierarchyTests
     public void Write_ChangesNoOtherField()
     {
         var story = New(Story, 2);
-        var before = (story.StateId, story.AssigneeId, story.AreaId, story.Title, story.Description);
+        var before = (story.StateId, story.AssigneeId, story.Title, story.Description);
 
         Write(story, New(Feature, 6), seen: null);
 
-        Assert.Equal(before, (story.StateId, story.AssigneeId, story.AreaId, story.Title, story.Description));
+        Assert.Equal(before, (story.StateId, story.AssigneeId, story.Title, story.Description));
     }
 
     // US-1 · "Each type is offered the parents its level allows" (BR-H-2): rank the child's own or higher.
@@ -426,7 +425,7 @@ public sealed class WorkItemHierarchyTests
     {
         var story = New(Story, 2);
         var feature = New(Feature, 6);
-        var elsewhere = WorkItem.Create(Guid.CreateVersion7(), 1, Feature, RootAreaId, "Чужая", Guid.CreateVersion7(), Created, "sub");
+        var elsewhere = WorkItem.Create(Guid.CreateVersion7(), 1, Feature, "Чужая", Guid.CreateVersion7(), Created, "sub");
         _items[elsewhere.Id] = elsewhere;
 
         Assert.Throws<ArgumentException>(() => WorkItemHierarchy.Write(new ParentWrite(story, feature, null, null, [], 1), Types, Key, Later));
@@ -550,17 +549,16 @@ public sealed class WorkItemHierarchyTests
     [Fact]
     public void CreateChild_TakesTheParentsArea_LinksIt_AndMovesTheParentsChanged()
     {
-        var apiArea = Guid.CreateVersion7();
-        var feature = WorkItem.Create(ProjectId, 6, Feature, apiArea, "Вход по ссылке", Guid.CreateVersion7(), Created, "creator-sub");
+        var feature = WorkItem.Create(ProjectId, 6, Feature, "Вход по ссылке", Guid.CreateVersion7(), Created, "creator-sub");
 
         var story = Child(feature, Story, 24);
 
-        Assert.Equal((ProjectId, 24, Story.TypeId, apiArea), (story.ProjectId, story.Number, story.TypeId, story.AreaId));
+        Assert.Equal((ProjectId, 24, Story.TypeId), (story.ProjectId, story.Number, story.TypeId));
         Assert.Equal((Story.InitialStateId, (string?)null, 2), (story.StateId, story.AssigneeId, story.Priority));
         Assert.Equal(WorkItemValueArea.Business, story.ValueArea);
         Assert.Equal(feature.Id, story.ParentId);
         Assert.Equal((Later, Later, Later), (story.CreatedAt, story.ChangedAt, feature.ChangedAt));
-        Assert.Equal((apiArea, Feature.InitialStateId, (Guid?)null), (feature.AreaId, feature.StateId, feature.ParentId));
+        Assert.Equal((Feature.InitialStateId, (Guid?)null), (feature.StateId, feature.ParentId));
     }
 
     // mod-017 US-2 · "a child starts with its parent's team" · "a child may have another team" (BR-OT-1): the child gets the
@@ -570,7 +568,7 @@ public sealed class WorkItemHierarchyTests
     {
         var parentTeam = Guid.CreateVersion7();
         var childTeam = Guid.CreateVersion7();
-        var feature = WorkItem.Create(ProjectId, 6, Feature, Guid.CreateVersion7(), "Вход по ссылке", Guid.CreateVersion7(), Created, "creator-sub", parentTeam);
+        var feature = WorkItem.Create(ProjectId, 6, Feature, "Вход по ссылке", Guid.CreateVersion7(), Created, "creator-sub", parentTeam);
 
         var story = WorkItemHierarchy.CreateChild(
             feature, AncestryOf(feature), Types, 24, Story, "Повторная отправка письма", Guid.CreateVersion7(), Later, "creator-sub", childTeam);

@@ -14,7 +14,14 @@ public static class OrganizationsApi
 
     public static string Project(Guid organizationId, Guid projectId) => $"/api/organizations/{organizationId}/projects/{projectId}";
 
-    public static string Areas(Guid organizationId, Guid projectId) => $"{Project(organizationId, projectId)}/areas";
+    /// <summary>The organization's area tree (mod-018 api-contract § 1): the list, the create, and an area at /{areaId}.</summary>
+    public static string Areas(Guid organizationId) => $"{Organization(organizationId)}/areas";
+
+    /// <summary>The project's area links (mod-018 api-contract § 4): the list, the link and the unlink are under it.</summary>
+    public static string ProjectAreas(Guid organizationId, Guid projectId) => $"{Project(organizationId, projectId)}/areas";
+
+    /// <summary>The team's area links (mod-018 api-contract § 5).</summary>
+    public static string TeamAreas(Guid organizationId, Guid teamId) => $"{OrgTeams(organizationId)}/{teamId}/areas";
 
     /// <summary>The project's linked teams (feat-028): the list, the link and the unlink are under it.</summary>
     public static string Teams(Guid organizationId, Guid projectId) => $"{Project(organizationId, projectId)}/teams";

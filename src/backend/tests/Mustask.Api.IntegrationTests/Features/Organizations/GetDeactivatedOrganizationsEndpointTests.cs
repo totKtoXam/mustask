@@ -91,12 +91,12 @@ public sealed class GetDeactivatedOrganizationsEndpointTests(MustaskApiFactory f
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         await OrganizationsTestData.SetOrganizationStatusAsync(factory, structure.OrganizationId, OrganizationStatus.Deactivated);
-        var treeBefore = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
+        var treeBefore = await OrganizationsTestData.ReadTreeAsync(factory, structure.OrganizationId);
 
         var answer = await GetAsync();
 
         Assert.True(Contains(answer, structure.OrganizationId));
-        Assert.Equal(treeBefore.Count, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
+        Assert.Equal(treeBefore.Count, (await OrganizationsTestData.ReadTreeAsync(factory, structure.OrganizationId)).Count);
     }
 
     // US-1 · the list is open to any signed-in user (BR-M1-19, C-2) — and since mod-016 it holds the deactivated organizations

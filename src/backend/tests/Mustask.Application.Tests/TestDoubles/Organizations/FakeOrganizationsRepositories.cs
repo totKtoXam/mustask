@@ -73,11 +73,7 @@ public sealed class FakeProjectRepository(InMemoryOrganizations store) : IProjec
         return Task.CompletedTask;
     }
 
-    public void Add(NewProject project)
-    {
-        store.Stage(project.Project);
-        store.Stage(project.Root);
-    }
+    public void Add(Project project) => store.Stage(project);
 
     public Task SaveAsync(CancellationToken cancellationToken) => store.SaveAsync();
 }
@@ -205,53 +201,4 @@ public sealed class FakeProjectTeamRepository(InMemoryOrganizations store) : IPr
     public void Add(ProjectTeam link) => store.Stage(link);
 
     public Task SaveAsync(CancellationToken cancellationToken) => store.SaveAsync();
-}
-
-/// <summary>In-memory <see cref="IAreaRepository"/> over <see cref="InMemoryOrganizations"/>.</summary>
-public sealed class FakeAreaRepository(InMemoryOrganizations store) : IAreaRepository
-{
-    public Task<Area?> FindAsync(Guid projectId, Guid areaId, CancellationToken cancellationToken) =>
-        Task.FromResult(Find(projectId, areaId));
-
-    public Task<Area?> LockForUpdateAsync(Guid projectId, Guid areaId, CancellationToken cancellationToken)
-    {
-        store.Record($"lock area update {areaId}");
-
-        return Task.FromResult(Find(projectId, areaId));
-    }
-
-    public Task<Area?> LockForShareAsync(Guid projectId, Guid areaId, CancellationToken cancellationToken)
-    {
-        store.Record($"lock area share {areaId}");
-
-        return Task.FromResult(Find(projectId, areaId));
-    }
-
-    public Task<Area> LockRootAsync(Guid projectId, bool forUpdate, CancellationToken cancellationToken)
-    {
-        store.Record($"lock root {(forUpdate ? "update" : "share")} {projectId}");
-
-        return Task.FromResult(store.Areas.Single(area => area.ProjectId == projectId && area.IsRoot));
-    }
-
-    public Task<bool> HasChildrenAsync(Guid areaId, CancellationToken cancellationToken) =>
-        Task.FromResult(store.Areas.Any(area => area.ParentId == areaId));
-
-    public Task<bool> IsSiblingNameTakenAsync(Guid parentId, string normalizedName, Guid? exceptId, CancellationToken cancellationToken) =>
-        Task.FromResult(store.Areas.Any(area => area.ParentId == parentId && area.NormalizedName == normalizedName && area.Id != exceptId));
-
-    public Task<IReadOnlyList<AreaNode>> GetNodesAsync(Guid projectId, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<AreaNode>>(store
-            .InDisplayOrder(store.Areas.Where(area => area.ProjectId == projectId), area => area.Name, area => area.Id)
-            .Select(area => new AreaNode(area.Id, area.ParentId, area.Name))
-            .ToList());
-
-    public void Add(Area area) => store.Stage(area);
-
-    public void Remove(Area area) => store.Unstore(area);
-
-    public Task SaveAsync(CancellationToken cancellationToken) => store.SaveAsync();
-
-    private Area? Find(Guid projectId, Guid areaId) =>
-        store.Areas.SingleOrDefault(area => area.Id == areaId && area.ProjectId == projectId);
 }

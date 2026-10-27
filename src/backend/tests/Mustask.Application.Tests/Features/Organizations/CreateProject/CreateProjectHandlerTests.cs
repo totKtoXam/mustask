@@ -26,6 +26,7 @@ public sealed class CreateProjectHandlerTests
         /// </summary>
         public Fixture(bool creatorIsAMember = true, OrganizationRole role = OrganizationRole.Admin)
         {
+            AreaRepository = new FakeAreaRepository(Store);
             Organization = Store.AddOrganization();
             Clock.UtcNow = new DateTimeOffset(2026, 10, 2, 9, 30, 0, TimeSpan.Zero);
             CurrentUser.SubjectId = Subject;
@@ -40,6 +41,8 @@ public sealed class CreateProjectHandlerTests
                 new FakeTeamRepository(Store),
                 new FakeProjectTeamRepository(Store),
                 new FakeProjectRepository(Store),
+                AreaRepository,
+                new FakeAreaLinkRepository(Store),
                 new FakeOrganizationAccess(role),
                 Clock,
                 CurrentUser,
@@ -47,6 +50,8 @@ public sealed class CreateProjectHandlerTests
         }
 
         public InMemoryOrganizations Store { get; } = new();
+
+        public FakeAreaRepository AreaRepository { get; }
 
         public FakeClock Clock { get; } = new();
 
@@ -61,28 +66,27 @@ public sealed class CreateProjectHandlerTests
             string? key = "PRM",
             string? organizationId = null,
             string? description = null,
-            IReadOnlyList<string?>? teamIds = null) =>
-            new(organizationId ?? Organization.Id.ToString(), name, key, description, teamIds);
+            IReadOnlyList<string?>? teamIds = null,
+            IReadOnlyList<string?>? areaIds = null) =>
+            new(organizationId ?? Organization.Id.ToString(), name, key, description, teamIds, areaIds);
 
         public Task<CreateProjectResult> HandleAsync(CreateProjectCommand command) => Handler.Handle(command, CancellationToken.None);
 
-        /// <summary>The project and its root as stored, found by the project's id.</summary>
-        public (Project Project, Area Root) StoredParts(Guid projectId) =>
-            (
-                Store.Projects.Single(project => project.Id == projectId),
-                Store.Areas.Single(area => area.ProjectId == projectId));
+        /// <summary>The project as stored, found by the project id.</summary>
+        public (Project Project, int Areas) StoredParts(Guid projectId) =>
+            (Store.Projects.Single(project => project.Id == projectId), Store.Areas.Count);
     }
 
-    // US-3 · "A project is created ready to use": active, with its name and key; one team and a root area, both named after
-    // the project; the team an ordinary one and the root owned by nobody (mod-017 BR-OT-10, BR-OT-11); the creator and the time kept (BR-M1-21).
+    // US-3 · "A project is created ready to use": active, with its name and key; no area and no team comes with it (feat-028 BR-OL-2, mod-018 BR-AW-1);
+    // the creator and the time kept (BR-M1-21).
     [Fact]
-    public async Task Handle_ValidNameAndKey_CreatesProjectWithTheRoot_RecordsCreator()
+    public async Task Handle_ValidNameAndKey_CreatesTheProjectAlone_RecordsCreator()
     {
         var f = new Fixture();
 
         var result = await f.HandleAsync(f.Command(name: " Пример проекта "));
 
-        var (project, root) = f.StoredParts(result.Response.Id);
+        var (project, areas) = f.StoredParts(result.Response.Id);
         Assert.Equal(new ProjectResponse(project.Id, f.Organization.Id, "Пример проекта", "PRM", null), result.Response);
         Assert.Equal(ProjectStatus.Active, project.Status);
         Assert.Equal(f.Organization.Id, project.OrganizationId);
@@ -90,15 +94,13 @@ public sealed class CreateProjectHandlerTests
         Assert.Equal(f.Clock.UtcNow, project.CreatedAt);
 
         Assert.Null(project.DefaultTeamId);
-
-        Assert.Equal("Пример проекта", root.Name);
-        Assert.True(root.IsRoot);
+        Assert.Equal(0, areas);
     }
 
-    // US-3 · "A project is created ready to use": nothing but the project, one team and one root is written, in one save, and
+    // US-3 · "A project is created ready to use": nothing but the project is written, in one save, and
     // no lock is taken (plan-backend § 8.2: inserts only, closed by the unique indexes).
     [Fact]
-    public async Task Handle_Creates_OneProjectOneArea_OneSave_NoLock()
+    public async Task Handle_Creates_OneProject_OneSave_NoLock()
     {
         var f = new Fixture();
 
@@ -106,7 +108,7 @@ public sealed class CreateProjectHandlerTests
 
         Assert.Single(f.Store.Projects);
         Assert.Empty(f.Store.Teams);
-        Assert.Single(f.Store.Areas);
+        Assert.Empty(f.Store.Areas);
         Assert.Equal(["save"], f.Store.Calls);
     }
 
@@ -280,7 +282,7 @@ public sealed class CreateProjectHandlerTests
     public async Task Handle_NameOfADeactivatedProject_IsProjectNameTakenByDeactivated_StoresNothing()
     {
         var f = new Fixture();
-        f.Store.AddProject(f.Organization, "Пример проекта", "PRM").Project.Deactivate();
+        f.Store.AddProject(f.Organization, "Пример проекта", "PRM").Deactivate();
 
         var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(name: "ПРИМЕР ПРОЕКТА", key: "OTH")));
 
@@ -297,7 +299,7 @@ public sealed class CreateProjectHandlerTests
         var f = new Fixture();
         var other = f.Store.AddOrganization("Другая организация");
         f.Store.AddProject(other, "Пример проекта", "PRM");
-        f.Store.AddProject(other, "Архивный", "OLD").Project.Deactivate();
+        f.Store.AddProject(other, "Архивный", "OLD").Deactivate();
 
         var created = await f.HandleAsync(f.Command(name: "Пример проекта", key: "PRM"));
         var second = await f.HandleAsync(f.Command(name: "Архивный", key: "OLD"));
@@ -319,7 +321,7 @@ public sealed class CreateProjectHandlerTests
 
         if (deactivated)
         {
-            holder.Project.Deactivate();
+            holder.Deactivate();
         }
 
         var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(name: "Другой проект", key: "PRM")));
@@ -488,5 +490,70 @@ public sealed class CreateProjectHandlerTests
 
         Assert.Equal(Subject, f.StoredParts(first.Response.Id).Project.CreatedBy);
         Assert.Equal("c3a1b2d4-0000-4000-8000-0000000000aa", f.StoredParts(second.Response.Id).Project.CreatedBy);
+    }
+
+    // mod-018 US-3 · "A project is created with its areas at once": the links are stored with the project, the areas locked
+    // FOR SHARE before the teams (ADR-0028 rule 8), and then one save.
+    [Fact]
+    public async Task Handle_WithAreas_StoresTheLinks_LocksTheAreasBeforeTheTeams()
+    {
+        var f = new Fixture();
+        var reports = f.Store.AddArea(f.Organization, "Отчёты");
+        var team = f.Store.AddTeam(f.Organization, "MARS");
+
+        var result = await f.HandleAsync(f.Command(teamIds: [team.Id.ToString()], areaIds: [reports.Id.ToString()]));
+
+        var link = Assert.Single(f.Store.AreaProjects);
+        Assert.Equal((reports.Id, result.Response.Id, Subject), (link.AreaId, link.ProjectId, link.LinkedBy));
+        Assert.Equal([$"lock areas share {reports.Id}", $"lock teams share {team.Id}", "save"], f.Store.Calls);
+    }
+
+    // mod-018 US-3 · an area that is unknown or of another organization is «Область не найдена», and nothing is created.
+    [Theory]
+    [InlineData("malformed")]
+    [InlineData("unknown")]
+    [InlineData("of another organization")]
+    public async Task Handle_AreaNotOfTheOrganization_IsAreaNotFound_StoresNothing(string how)
+    {
+        var f = new Fixture();
+        var foreign = f.Store.AddArea(f.Store.AddOrganization("Другая"), "Чужая");
+        var id = how switch
+        {
+            "malformed" => "not-an-id",
+            "unknown" => Guid.CreateVersion7().ToString(),
+            _ => foreign.Id.ToString(),
+        };
+
+        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(areaIds: [id])));
+
+        Assert.Equal(OrganizationErrorCodes.AreaNotFound, refusal.Code);
+        Assert.Empty(f.Store.Projects);
+        Assert.Empty(f.Store.AreaProjects);
+    }
+
+    // mod-018 US-6 · naming areas needs area.link and project.link, asked before any id is looked at.
+    [Fact]
+    public async Task Handle_AreaIdsWithoutTheLinkCodes_Is403_BeforeAnyIdIsLookedAt()
+    {
+        var f = new Fixture(role: OrganizationRole.Member);
+
+        var refusal = await Assert.ThrowsAsync<ForbiddenException>(() => f.HandleAsync(f.Command(areaIds: ["not-an-id"])));
+
+        Assert.Equal(OrganizationErrorCodes.AccessForbidden, refusal.Code);
+        Assert.Empty(f.Store.Projects);
+    }
+
+    // ADR-0028 A-9: an area that vanishes between the read and the lock statement is judged by the statement's answer.
+    [Fact]
+    public async Task Handle_AreaDeletedBeforeItsLock_IsAreaNotFound()
+    {
+        var f = new Fixture();
+        var reports = f.Store.AddArea(f.Organization, "Отчёты");
+        f.AreaRepository.VanishedAfterTheLock.Add(reports.Id);
+
+        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(areaIds: [reports.Id.ToString()])));
+
+        Assert.Equal(OrganizationErrorCodes.AreaNotFound, refusal.Code);
+        Assert.Empty(f.Store.Projects);
     }
 }

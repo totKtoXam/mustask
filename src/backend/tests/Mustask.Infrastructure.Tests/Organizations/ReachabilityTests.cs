@@ -16,19 +16,19 @@ public sealed class ReachabilityTests(OrganizationsDatabaseFixture database)
 {
     // US-2 · "deactivated": everything beneath becomes unreachable; "restored": it comes back as it was.
     [Fact]
-    public async Task DeactivatedOrganization_HidesItsProjectsTeamsAndAreas_RestoreBringsThemBack()
+    public async Task DeactivatedOrganization_HidesItsProjectsAndTeams_RestoreBringsThemBack()
     {
         var structure = await database.CreateStructureAsync();
         var organizationId = structure.Organization.Id;
-        var projectId = structure.Project.Project.Id;
+        var projectId = structure.Project.Id;
 
-        Assert.Equal((true, 1, 2, 1), await ReachAsync(organizationId, projectId));
+        Assert.Equal((true, 1, 2), await ReachAsync(organizationId, projectId));
 
         await database.ExecuteAsync("UPDATE organizations SET status = 'Deactivated' WHERE id = @id", ("id", organizationId));
-        Assert.Equal((false, 0, 0, 0), await ReachAsync(organizationId, projectId));
+        Assert.Equal((false, 0, 0), await ReachAsync(organizationId, projectId));
 
         await database.ExecuteAsync("UPDATE organizations SET status = 'Active' WHERE id = @id", ("id", organizationId));
-        Assert.Equal((true, 1, 2, 1), await ReachAsync(organizationId, projectId));
+        Assert.Equal((true, 1, 2), await ReachAsync(organizationId, projectId));
     }
 
     // US-3 · "deactivated": the project leaves the active list, joins the deactivated one, and hides its teams and areas.
@@ -37,7 +37,7 @@ public sealed class ReachabilityTests(OrganizationsDatabaseFixture database)
     {
         var structure = await database.CreateStructureAsync();
         var organizationId = structure.Organization.Id;
-        var projectId = structure.Project.Project.Id;
+        var projectId = structure.Project.Id;
 
         await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @id", ("id", projectId));
 
@@ -45,7 +45,6 @@ public sealed class ReachabilityTests(OrganizationsDatabaseFixture database)
         Assert.False(await context.ReachableProjects(organizationId).AnyAsync(project => project.Id == projectId));
         Assert.True(await context.DeactivatedProjectsOf(organizationId).AnyAsync(project => project.Id == projectId));
         Assert.Empty(await context.LinkedTeams(organizationId, projectId).ToListAsync());
-        Assert.Empty(await context.AreasOfReachableProject(organizationId, projectId).ToListAsync());
     }
 
     // US-2 · "restored exactly as it was": a project deactivated on its own stays deactivated, and stays off both lists
@@ -55,7 +54,7 @@ public sealed class ReachabilityTests(OrganizationsDatabaseFixture database)
     {
         var structure = await database.CreateStructureAsync();
         var organizationId = structure.Organization.Id;
-        var projectId = structure.Project.Project.Id;
+        var projectId = structure.Project.Id;
 
         await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @id", ("id", projectId));
         await database.ExecuteAsync("UPDATE organizations SET status = 'Deactivated' WHERE id = @id", ("id", organizationId));
@@ -82,7 +81,7 @@ public sealed class ReachabilityTests(OrganizationsDatabaseFixture database)
         var structure = await database.CreateStructureAsync();
         var other = await database.CreateStructureAsync();
         var organizationId = structure.Organization.Id;
-        var projectId = structure.Project.Project.Id;
+        var projectId = structure.Project.Id;
 
         await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @second", ("second", structure.SecondTeam.Id));
 
@@ -92,7 +91,6 @@ public sealed class ReachabilityTests(OrganizationsDatabaseFixture database)
             await context.LinkedTeams(organizationId, projectId).Select(team => team.Id).ToListAsync());
         Assert.False(await context.ReachableProjects(other.Organization.Id).AnyAsync(project => project.Id == projectId));
         Assert.Empty(await context.LinkedTeams(other.Organization.Id, projectId).ToListAsync());
-        Assert.Empty(await context.AreasOfReachableProject(other.Organization.Id, projectId).ToListAsync());
     }
 
     // feat-028 BR-OL-1, BR-OL-4 · a team is the organization's: it is hidden by its OWN status and its organization's, never by a
@@ -102,7 +100,7 @@ public sealed class ReachabilityTests(OrganizationsDatabaseFixture database)
     {
         var structure = await database.CreateStructureAsync();
         var organizationId = structure.Organization.Id;
-        var projectId = structure.Project.Project.Id;
+        var projectId = structure.Project.Id;
         var teamId = structure.FirstTeam.Id;
 
         await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @id", ("id", projectId));
@@ -122,14 +120,13 @@ public sealed class ReachabilityTests(OrganizationsDatabaseFixture database)
         }
     }
 
-    private async Task<(bool Organization, int Projects, int Teams, int Areas)> ReachAsync(Guid organizationId, Guid projectId)
+    private async Task<(bool Organization, int Projects, int Teams)> ReachAsync(Guid organizationId, Guid projectId)
     {
         await using var context = database.NewContext();
 
         return (
             await context.ActiveOrganizations().AnyAsync(organization => organization.Id == organizationId),
             await context.ReachableProjects(organizationId).CountAsync(),
-            await context.LinkedTeams(organizationId, projectId).CountAsync(),
-            await context.AreasOfReachableProject(organizationId, projectId).CountAsync());
+            await context.LinkedTeams(organizationId, projectId).CountAsync());
     }
 }

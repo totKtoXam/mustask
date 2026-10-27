@@ -297,7 +297,7 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
     {
         var structure = await database.CreateStructureAsync();
         var organization = structure.Organization.Id;
-        var project = structure.Project.Project.Id;
+        var project = structure.Project.Id;
         var teamIds = new List<Guid> { structure.FirstTeam.Id, structure.SecondTeam.Id };
 
         await using (var context = database.NewContext())
@@ -338,10 +338,9 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
 
             await database.ExecuteAsync(
                 """
-                INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id,
+                INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id,
                                         created_at, created_by, changed_at, parent_id, assignee_id, owning_team_id)
-                SELECT gen_random_uuid(), @project, n, @type, @state, @rootArea,
-                       'Элемент ' || n, '', gen_random_uuid(), now() + n * interval '1 millisecond', 'count-test', now(), parent.id,
+                SELECT gen_random_uuid(), @project, n, @type, @state, 'Элемент ' || n, '', gen_random_uuid(), now() + n * interval '1 millisecond', 'count-test', now(), parent.id,
                        CASE WHEN n % 5 < 3 THEN (ARRAY['count-user-1', 'count-user-2', 'count-user-3'])[(n % 5) + 1] END,
                        CASE WHEN n % 7 = 6 THEN NULL ELSE (@teams)[((n - @from) % @teamCount) + 1] END
                 FROM generate_series(@from, @to) AS n
@@ -350,7 +349,6 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
                 ("project", project),
                 ("type", type),
                 ("state", state),
-                ("rootArea", structure.Project.Root.Id),
                 ("teams", teamIds.ToArray()),
                 ("teamCount", teamIds.Count),
                 ("from", from),

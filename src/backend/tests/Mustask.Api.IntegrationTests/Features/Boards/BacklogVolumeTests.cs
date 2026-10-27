@@ -35,11 +35,11 @@ public sealed class BacklogVolumeTests(MustaskApiFactory factory, ITestOutputHel
         var task = world.Items.Types["TASK"];
 
         await WorkItemsTestData.ExecuteAsync(factory, $"""
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, owning_team_id)
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id, created_at, created_by, changed_at, owning_team_id)
             SELECT gen_random_uuid(), {world.ProjectId}, n,
                    CASE WHEN n <= {Stories} THEN {us.Id} ELSE {task.Id} END,
                    CASE WHEN n <= {Stories} THEN {us.StateId("Новая")} ELSE {task.StateId("Новая")} END,
-                   {world.PlatformAreaId}, 'Элемент ' || n, '', gen_random_uuid(), now(), 'volume-test', now(), {world.PlatformId}
+                   'Элемент ' || n, '', gen_random_uuid(), now(), 'volume-test', now(), {world.PlatformId}
             FROM generate_series(1, {Stories + Tasks}) AS n
             """);
         await WorkItemsTestData.ExecuteAsync(factory, $"""

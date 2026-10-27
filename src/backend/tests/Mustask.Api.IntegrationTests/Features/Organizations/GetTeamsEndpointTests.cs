@@ -118,7 +118,7 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
         var project = await OrganizationsTestData.CreateBareProjectAsync(factory, organization.Id);
 
-        var answer = await GetAsync(organization.Id, project.Project.Id);
+        var answer = await GetAsync(organization.Id, project.Id);
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal(JsonValueKind.Array, answer.Body.ValueKind);
@@ -133,13 +133,13 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
         var project = await OrganizationsTestData.CreateBareProjectAsync(factory, organization.Id);
         var other = await OrganizationsTestData.CreateBareProjectAsync(factory, organization.Id, "Другой", "OTH");
-        var linked = await OrganizationsTestData.AddTeamAsync(factory, project.Project.Id, "Связанная");
-        var elsewhere = await OrganizationsTestData.AddTeamAsync(factory, other.Project.Id, "Чужого проекта");
+        var linked = await OrganizationsTestData.AddTeamAsync(factory, project.Id, "Связанная");
+        var elsewhere = await OrganizationsTestData.AddTeamAsync(factory, other.Id, "Чужого проекта");
         var unlinked = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, organization.Id, "Ничья");
 
-        var before = Read((await GetAsync(organization.Id, project.Project.Id)).Body);
-        await OrganizationsTestData.LinkAsync(factory, project.Project.Id, unlinked.Id);
-        var afterLink = Read((await GetAsync(organization.Id, project.Project.Id)).Body);
+        var before = Read((await GetAsync(organization.Id, project.Id)).Body);
+        await OrganizationsTestData.LinkAsync(factory, project.Id, unlinked.Id);
+        var afterLink = Read((await GetAsync(organization.Id, project.Id)).Body);
 
         Assert.Equal([linked.Id], before.Select(team => team.Id));
         Assert.Equal(new[] { linked.Id, unlinked.Id }.Order(), afterLink.Select(team => team.Id).Order());
@@ -154,13 +154,13 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
         var project = await OrganizationsTestData.CreateBareProjectAsync(factory, organization.Id);
         await OrganizationsTestData.AddUnlinkedTeamAsync(factory, organization.Id, "Ничья");
-        var first = await OrganizationsTestData.AddTeamAsync(factory, project.Project.Id, "Первая");
+        var first = await OrganizationsTestData.AddTeamAsync(factory, project.Id, "Первая");
 
-        var only = Read((await GetAsync(organization.Id, project.Project.Id)).Body);
-        var second = await OrganizationsTestData.AddTeamAsync(factory, project.Project.Id, "Вторая");
-        var several = Read((await GetAsync(organization.Id, project.Project.Id)).Body);
-        await OrganizationsTestData.SetDefaultTeamAsync(factory, organization.Id, project.Project.Id, second.Id);
-        var named = Read((await GetAsync(organization.Id, project.Project.Id)).Body);
+        var only = Read((await GetAsync(organization.Id, project.Id)).Body);
+        var second = await OrganizationsTestData.AddTeamAsync(factory, project.Id, "Вторая");
+        var several = Read((await GetAsync(organization.Id, project.Id)).Body);
+        await OrganizationsTestData.SetDefaultTeamAsync(factory, organization.Id, project.Id, second.Id);
+        var named = Read((await GetAsync(organization.Id, project.Id)).Body);
 
         Assert.Equal([(first.Id, "onlyTeam")], only.Select(team => (team.Id, team.DefaultMark)));
         Assert.All(several, team => Assert.Null(team.DefaultMark));

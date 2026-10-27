@@ -38,8 +38,8 @@ public sealed class OrganizationErrorCatalogTests
         { OrganizationErrorCodes.TeamNotInProject, 409, "", "Команда не участвует в проекте." },
         { OrganizationErrorCodes.AreaNameTaken, 409, "", "Область с таким названием уже есть на этом уровне" },
         { OrganizationErrorCodes.AreaMoveIntoOwnSubtree, 409, "", "Нельзя переместить область внутрь неё самой или её вложенной области" },
-        { OrganizationErrorCodes.AreaNotEmpty, 409, "", "Нельзя удалить область, в которой есть рабочие элементы (включая удалённые) или вложенные области" },
-        { OrganizationErrorCodes.AreaRootIsFixed, 409, "", "Корневая область меняется только вместе с проектом" },
+        { OrganizationErrorCodes.AreaNotEmpty, 409, "", "Нельзя удалить область, в которой есть вложенные области" },
+        { OrganizationErrorCodes.AreaDepthExceeded, 409, "", "Дерево областей не может быть глубже 10 уровней" },
 
         // mod-016 api-contract.md § 5 (the spec's list plus the two field reasons of P-9, status.md D-16 OP-5).
         { OrganizationErrorCodes.AccessForbidden, 403, "", "Недостаточно прав" },

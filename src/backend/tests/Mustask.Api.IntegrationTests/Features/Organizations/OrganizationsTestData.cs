@@ -82,13 +82,13 @@ public static class OrganizationsTestData
 
             if (status == ProjectStatus.Deactivated)
             {
-                project.Project.Deactivate();
+                project.Deactivate();
             }
 
             var projects = services.GetRequiredService<IProjectRepository>();
             projects.Add(project);
             services.GetRequiredService<ITeamRepository>().Add(team);
-            services.GetRequiredService<IProjectTeamRepository>().Add(ProjectTeam.Link(organizationId, project.Project.Id, team.Id, Creator, Now));
+            services.GetRequiredService<IProjectTeamRepository>().Add(ProjectTeam.Link(organizationId, project.Id, team.Id, Creator, Now));
 
             if (creatorJoinsFirstTeam && await services.GetRequiredService<IMembershipRepository>().ExistsAsync(organizationId, Creator, ct))
             {
@@ -97,11 +97,11 @@ public static class OrganizationsTestData
 
             await projects.SaveAsync(ct);
 
-            return new ProjectWithTeam(project.Project, project.Root, team);
+            return new ProjectWithTeam(project, team);
         });
 
     /// <summary>A project with its root and <b>no team</b> (feat-028 BR-OL-2), active or deactivated.</summary>
-    public static Task<NewProject> CreateBareProjectAsync(
+    public static Task<Project> CreateBareProjectAsync(
         MustaskApiFactory factory,
         Guid organizationId,
         string name = "Пример проекта",
@@ -113,7 +113,7 @@ public static class OrganizationsTestData
 
             if (status == ProjectStatus.Deactivated)
             {
-                project.Project.Deactivate();
+                project.Deactivate();
             }
 
             var projects = services.GetRequiredService<IProjectRepository>();
@@ -190,18 +190,37 @@ public static class OrganizationsTestData
             .Select(project => project.OrganizationId)
             .SingleAsync(cancellationToken);
 
-    /// <summary>A child area (US-5): it owns nothing and has no team (mod-017 BR-OT-10).</summary>
-    public static Task<Area> AddAreaAsync(MustaskApiFactory factory, Guid projectId, Guid parentId, string name) =>
+    /// <summary>An area of the organization under <paramref name="parentId"/> (null: the top level), written the way the use case writes it.</summary>
+    public static Task<Area> AddAreaAsync(MustaskApiFactory factory, Guid organizationId, Guid? parentId, string name) =>
         InUnitOfWorkAsync(factory, async (services, ct) =>
         {
             var areas = services.GetRequiredService<IAreaRepository>();
-            var parent = await areas.LockForShareAsync(projectId, parentId, ct)
-                ?? throw new ArgumentException("The parent is not an area of the project.", nameof(parentId));
-            var area = Area.CreateChild(parent, Name(name));
+            await areas.LockTreeAsync(organizationId, ct);
+            var area = Area.Create(organizationId, parentId, Name(name), null, Creator, Now);
             areas.Add(area);
             await areas.SaveAsync(ct);
 
             return area;
+        });
+
+    /// <summary>Links an area to a project, as the link writes it (mod-018 BR-AW-8); a second link of the pair is a no-op.</summary>
+    public static Task LinkAreaToProjectAsync(MustaskApiFactory factory, Guid organizationId, Guid areaId, Guid projectId) =>
+        InUnitOfWorkAsync(factory, async (services, ct) =>
+        {
+            var links = services.GetRequiredService<IAreaLinkRepository>();
+            await links.LinkProjectsAsync(organizationId, [(areaId, projectId)], Creator, Now, ct);
+
+            return true;
+        });
+
+    /// <summary>Links an area to a team, as the link writes it (mod-018 BR-AW-8).</summary>
+    public static Task LinkAreaToTeamAsync(MustaskApiFactory factory, Guid organizationId, Guid areaId, Guid teamId) =>
+        InUnitOfWorkAsync(factory, async (services, ct) =>
+        {
+            var links = services.GetRequiredService<IAreaLinkRepository>();
+            await links.LinkTeamsAsync(organizationId, [(areaId, teamId)], Creator, Now, ct);
+
+            return true;
         });
 
     /// <summary>
@@ -287,11 +306,11 @@ public static class OrganizationsTestData
             return true;
         });
 
-    /// <summary>The project's areas as stored now, whatever the project's status.</summary>
-    public static async Task<AreaTree> ReadTreeAsync(MustaskApiFactory factory, Guid projectId)
+    /// <summary>The organization's areas as stored now.</summary>
+    public static async Task<AreaTree> ReadTreeAsync(MustaskApiFactory factory, Guid organizationId)
     {
         using var scope = factory.Services.CreateScope();
-        var nodes = await scope.ServiceProvider.GetRequiredService<IAreaRepository>().GetNodesAsync(projectId, CancellationToken.None);
+        var nodes = await scope.ServiceProvider.GetRequiredService<IAreaRepository>().GetNodesAsync(organizationId, CancellationToken.None);
 
         return new AreaTree(nodes);
     }
@@ -313,11 +332,10 @@ public sealed record OrganizationStructure(Organization Organization, ProjectWit
 
     public Guid ProjectId => Project.Project.Id;
 
-    public Guid RootId => Project.Root.Id;
 
     /// <summary>The team the project was created with: an ordinary team (mod-017 BR-OT-11).</summary>
     public Guid ProjectTeamId => Project.Team.Id;
 }
 
 /// <summary>A project, its root and the team of the organization built with it and linked to it (<see cref="OrganizationsTestData.CreateProjectAsync"/>).</summary>
-public sealed record ProjectWithTeam(Project Project, Area Root, Team Team);
+public sealed record ProjectWithTeam(Project Project, Team Team);

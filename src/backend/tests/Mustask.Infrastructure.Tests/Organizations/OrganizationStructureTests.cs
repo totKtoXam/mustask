@@ -39,10 +39,10 @@ public sealed class OrganizationStructureTests(OrganizationsDatabaseFixture data
     // US-6 · "Other modules get the same answer": the project, its root and its reachability. mod-017 BR-OT-4: a project with two
     // linked teams and none named has no default team.
     [Fact]
-    public async Task FindProject_ReturnsTheDefaultTeamRootAndReachability()
+    public async Task FindProject_ReturnsTheDefaultTeamAndReachability()
     {
         var structure = await database.CreateStructureAsync();
-        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Project.Id);
+        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Id);
 
         var reachable = await ReadAsync(seam => seam.FindProjectAsync(organizationId, projectId, CancellationToken.None));
         await database.ExecuteAsync("UPDATE organizations SET status = 'Deactivated' WHERE id = @id", ("id", organizationId));
@@ -57,7 +57,6 @@ public sealed class OrganizationStructureTests(OrganizationsDatabaseFixture data
                 ProjectStatus.Active,
                 IsReachable: true,
                 DefaultTeamId: null,
-                structure.Project.Root.Id,
                 Creator,
                 Now),
             reachable);
@@ -72,7 +71,7 @@ public sealed class OrganizationStructureTests(OrganizationsDatabaseFixture data
     public async Task FindProject_DefaultTeam_NamedOnlyTeamNone_AndANamedTeamThatWasDeleted()
     {
         var structure = await database.CreateStructureAsync();
-        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Project.Id);
+        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Id);
         var (first, second) = (structure.FirstTeam.Id, structure.SecondTeam.Id);
 
         Assert.Null((await ReadAsync(seam => seam.FindProjectAsync(organizationId, projectId, CancellationToken.None)))!.DefaultTeamId);
@@ -96,7 +95,7 @@ public sealed class OrganizationStructureTests(OrganizationsDatabaseFixture data
         var structure = await database.CreateStructureAsync();
         var bare = await database.AddProjectAsync(structure.Organization.Id, "Без команды", "BRE");
 
-        var found = await ReadAsync(seam => seam.FindProjectAsync(structure.Organization.Id, bare.Project.Id, CancellationToken.None));
+        var found = await ReadAsync(seam => seam.FindProjectAsync(structure.Organization.Id, bare.Id, CancellationToken.None));
 
         Assert.Null(found!.DefaultTeamId);
     }
@@ -107,7 +106,7 @@ public sealed class OrganizationStructureTests(OrganizationsDatabaseFixture data
     public async Task FindTeam_DeletedTeam_AnswersDeleted_ListLinkedTeamsLeavesItOut()
     {
         var structure = await database.CreateStructureAsync();
-        var (organizationId, projectId, secondId) = (structure.Organization.Id, structure.Project.Project.Id, structure.SecondTeam.Id);
+        var (organizationId, projectId, secondId) = (structure.Organization.Id, structure.Project.Id, structure.SecondTeam.Id);
 
         var before = await ReadAsync(seam => seam.FindTeamAsync(organizationId, secondId, CancellationToken.None));
         await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @second", ("second", secondId));
@@ -124,7 +123,7 @@ public sealed class OrganizationStructureTests(OrganizationsDatabaseFixture data
     public async Task ListLinkedTeams_ByName_NoTeamFirst_OnlyTheLinkedOnes()
     {
         var structure = await database.CreateStructureAsync();
-        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Project.Id);
+        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Id);
         var later = Team.Create(organizationId, Name("яблоко"));
         var earlier = Team.Create(organizationId, Name("Аналитика"));
         var unlinked = Team.Create(organizationId, Name("Не связана"));
@@ -147,7 +146,7 @@ public sealed class OrganizationStructureTests(OrganizationsDatabaseFixture data
     public async Task FindProjectTeam_SaysWhetherTheTeamIsLinkedToTheProject()
     {
         var structure = await database.CreateStructureAsync();
-        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Project.Id);
+        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Id);
         var unlinked = Team.Create(organizationId, Name("Не связана"));
         await using (var context = database.NewContext())
         {
@@ -171,12 +170,12 @@ public sealed class OrganizationStructureTests(OrganizationsDatabaseFixture data
         var organizationId = structure.Organization.Id;
         var second = await database.AddProjectAsync(organizationId, "Аналитика", "ANL");
         var old = await database.AddProjectAsync(organizationId, "Старый", "OLD");
-        await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @id", ("id", old.Project.Id));
+        await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @id", ("id", old.Id));
         await using (var context = database.NewContext())
         {
             context.ProjectTeams.AddRange(
-                ProjectTeam.Link(organizationId, second.Project.Id, structure.FirstTeam.Id, Creator, Now),
-                ProjectTeam.Link(organizationId, old.Project.Id, structure.FirstTeam.Id, Creator, Now));
+                ProjectTeam.Link(organizationId, second.Id, structure.FirstTeam.Id, Creator, Now),
+                ProjectTeam.Link(organizationId, old.Id, structure.FirstTeam.Id, Creator, Now));
             await context.SaveChangesAsync();
         }
 
@@ -193,7 +192,7 @@ public sealed class OrganizationStructureTests(OrganizationsDatabaseFixture data
     {
         var structure = await database.CreateStructureAsync();
         var other = await database.CreateStructureAsync();
-        var (organizationId, projectId, teamId) = (structure.Organization.Id, structure.Project.Project.Id, structure.FirstTeam.Id);
+        var (organizationId, projectId, teamId) = (structure.Organization.Id, structure.Project.Id, structure.FirstTeam.Id);
 
         Assert.Null(await ReadAsync(seam => seam.FindProjectAsync(other.Organization.Id, projectId, CancellationToken.None)));
         Assert.Null(await ReadAsync(seam => seam.FindTeamAsync(other.Organization.Id, teamId, CancellationToken.None)));

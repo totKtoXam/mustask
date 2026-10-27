@@ -28,7 +28,7 @@ public sealed class SetDefaultTeamHandlerTests
 
         public Organization Organization { get; }
 
-        public NewProject Project { get; }
+        public Project Project { get; }
 
         public Team Platform { get; }
 
@@ -42,7 +42,7 @@ public sealed class SetDefaultTeamHandlerTests
             new(new FakeOrganizationStructure(Store), projects, Links, new FakeUnitOfWork());
 
         public SetDefaultTeamCommand Command(string? teamId, string? projectId = null, string? organizationId = null) =>
-            new(organizationId ?? Organization.Id.ToString(), projectId ?? Project.Project.Id.ToString(), teamId);
+            new(organizationId ?? Organization.Id.ToString(), projectId ?? Project.Id.ToString(), teamId);
 
         public Task HandleAsync(SetDefaultTeamCommand command) => Handler.Handle(command, CancellationToken.None);
     }
@@ -55,9 +55,9 @@ public sealed class SetDefaultTeamHandlerTests
 
         await f.HandleAsync(f.Command(f.Platform.Id.ToString()));
 
-        Assert.Equal(f.Platform.Id, f.Project.Project.DefaultTeamId);
+        Assert.Equal(f.Platform.Id, f.Project.DefaultTeamId);
         Assert.Equal(
-            [$"lock link share {f.Project.Project.Id} {f.Platform.Id}", $"lock project {f.Project.Project.Id}", "save"],
+            [$"lock link share {f.Project.Id} {f.Platform.Id}", $"lock project {f.Project.Id}", "save"],
             f.Store.Calls);
     }
 
@@ -66,12 +66,12 @@ public sealed class SetDefaultTeamHandlerTests
     public async Task Handle_NoTeam_ClearsTheSetting_LocksNoLink()
     {
         var f = new Fixture();
-        f.Project.Project.NameDefaultTeam(f.Platform.Id);
+        f.Project.NameDefaultTeam(f.Platform.Id);
 
         await f.HandleAsync(f.Command(teamId: null));
 
-        Assert.Null(f.Project.Project.DefaultTeamId);
-        Assert.Equal([$"lock project {f.Project.Project.Id}", "save"], f.Store.Calls);
+        Assert.Null(f.Project.DefaultTeamId);
+        Assert.Equal([$"lock project {f.Project.Id}", "save"], f.Store.Calls);
     }
 
     // BR-OT-4 · naming the team the setting already names changes nothing and saves nothing.
@@ -79,11 +79,11 @@ public sealed class SetDefaultTeamHandlerTests
     public async Task Handle_TheSameTeamAgain_ChangesNothing_SavesNothing()
     {
         var f = new Fixture();
-        f.Project.Project.NameDefaultTeam(f.Platform.Id);
+        f.Project.NameDefaultTeam(f.Platform.Id);
 
         await f.HandleAsync(f.Command(f.Platform.Id.ToString()));
 
-        Assert.Equal(f.Platform.Id, f.Project.Project.DefaultTeamId);
+        Assert.Equal(f.Platform.Id, f.Project.DefaultTeamId);
         Assert.Equal(0, f.Store.SaveCount);
     }
 
@@ -114,7 +114,7 @@ public sealed class SetDefaultTeamHandlerTests
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(teamId)));
 
         Assert.Equal(OrganizationErrorCodes.TeamNotFound, refusal.Code);
-        Assert.Null(f.Project.Project.DefaultTeamId);
+        Assert.Null(f.Project.DefaultTeamId);
         Assert.Equal(0, f.Store.SaveCount);
     }
 
@@ -129,7 +129,7 @@ public sealed class SetDefaultTeamHandlerTests
         var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(unlinked.Id.ToString())));
 
         Assert.Equal(OrganizationErrorCodes.TeamNotInProject, refusal.Code);
-        Assert.Null(f.Project.Project.DefaultTeamId);
+        Assert.Null(f.Project.DefaultTeamId);
         Assert.Equal(0, f.Store.SaveCount);
     }
 
@@ -145,9 +145,9 @@ public sealed class SetDefaultTeamHandlerTests
         var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(f.Platform.Id.ToString())));
 
         Assert.Equal(OrganizationErrorCodes.TeamNotInProject, refusal.Code);
-        Assert.Null(f.Project.Project.DefaultTeamId);
+        Assert.Null(f.Project.DefaultTeamId);
         Assert.Equal(0, f.Store.SaveCount);
-        Assert.Equal([$"lock link share {f.Project.Project.Id} {f.Platform.Id}"], f.Store.Calls);
+        Assert.Equal([$"lock link share {f.Project.Id} {f.Platform.Id}"], f.Store.Calls);
     }
 
     // api-contract § 0.5 · the address answers before the team: malformed and unknown organizations and projects, a deactivated
@@ -167,13 +167,13 @@ public sealed class SetDefaultTeamHandlerTests
             "malformed organization" => f.Command(f.Platform.Id.ToString(), organizationId: "abc"),
             "malformed project" => f.Command(f.Platform.Id.ToString(), projectId: "abc"),
             "unknown project" => f.Command(f.Platform.Id.ToString(), projectId: Guid.CreateVersion7().ToString()),
-            "project of another organization" => f.Command(f.Platform.Id.ToString(), projectId: other.Project.Id.ToString()),
+            "project of another organization" => f.Command(f.Platform.Id.ToString(), projectId: other.Id.ToString()),
             _ => f.Command(f.Platform.Id.ToString()),
         };
 
         if (how == "deactivated project")
         {
-            f.Project.Project.Deactivate();
+            f.Project.Deactivate();
         }
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(command));
@@ -225,7 +225,7 @@ public sealed class SetDefaultTeamHandlerTests
         public Task ClearDefaultTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
             inner.ClearDefaultTeamAsync(organizationId, teamId, cancellationToken);
 
-        public void Add(NewProject project) => inner.Add(project);
+        public void Add(Project project) => inner.Add(project);
 
         public Task SaveAsync(CancellationToken cancellationToken) => inner.SaveAsync(cancellationToken);
     }

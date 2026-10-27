@@ -25,13 +25,13 @@ public sealed class SetProjectDescriptionHandlerTests
 
         public Organization Organization { get; }
 
-        public NewProject Project { get; }
+        public Project Project { get; }
 
         public SetProjectDescriptionHandler Handler { get; }
 
         public Task<SetProjectDescriptionResult> HandleAsync(string? description, string? projectId = null, string? organizationId = null) =>
             Handler.Handle(
-                new SetProjectDescriptionCommand(organizationId ?? Organization.Id.ToString(), projectId ?? Project.Project.Id.ToString(), description),
+                new SetProjectDescriptionCommand(organizationId ?? Organization.Id.ToString(), projectId ?? Project.Id.ToString(), description),
                 CancellationToken.None);
     }
 
@@ -42,8 +42,8 @@ public sealed class SetProjectDescriptionHandlerTests
 
         var result = await f.HandleAsync(" О проекте\n");
 
-        Assert.Equal(new ProjectResponse(f.Project.Project.Id, f.Organization.Id, "Пример проекта", "PRM", " О проекте\n"), result.Response);
-        Assert.Equal(" О проекте\n", f.Project.Project.Description);
+        Assert.Equal(new ProjectResponse(f.Project.Id, f.Organization.Id, "Пример проекта", "PRM", " О проекте\n"), result.Response);
+        Assert.Equal(" О проекте\n", f.Project.Description);
     }
 
     [Theory]
@@ -68,7 +68,7 @@ public sealed class SetProjectDescriptionHandlerTests
         var refusal = await Assert.ThrowsAsync<ValidationException>(() => f.HandleAsync(new string('я', 2001)));
 
         Assert.Equal(OrganizationErrorCodes.DescriptionLength, Assert.Single(refusal.Errors["description"]).Code);
-        Assert.Equal("прежнее", f.Project.Project.Description);
+        Assert.Equal("прежнее", f.Project.Description);
     }
 
     // The address first: a deactivated project (also a foreign or malformed one) is project.not_found, before the body.
@@ -83,10 +83,10 @@ public sealed class SetProjectDescriptionHandlerTests
 
         if (how == "deactivated")
         {
-            f.Project.Project.Deactivate();
+            f.Project.Deactivate();
         }
 
-        var id = how switch { "foreign" => foreign.Project.Id.ToString(), "malformed" => "abc", _ => f.Project.Project.Id.ToString() };
+        var id = how switch { "foreign" => foreign.Id.ToString(), "malformed" => "abc", _ => f.Project.Id.ToString() };
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(new string('я', 2001), id));
 
@@ -100,6 +100,6 @@ public sealed class SetProjectDescriptionHandlerTests
 
         await f.HandleAsync("текст");
 
-        Assert.Equal([$"lock project {f.Project.Project.Id}", "save"], f.Store.Calls);
+        Assert.Equal([$"lock project {f.Project.Id}", "save"], f.Store.Calls);
     }
 }

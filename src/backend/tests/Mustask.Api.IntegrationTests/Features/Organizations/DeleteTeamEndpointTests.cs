@@ -143,7 +143,6 @@ public sealed class DeleteTeamEndpointTests(MustaskApiFactory factory)
         var items = new WorkItemsWorld(
             structure.OrganizationId,
             structure.ProjectId,
-            structure.RootId,
             "PRM",
             await WorkItemsTestData.TypesAsync(factory, structure.OrganizationId));
         var item = await WorkItemsTestData.CreateItemAsync(factory, items, "TASK", "Задача");

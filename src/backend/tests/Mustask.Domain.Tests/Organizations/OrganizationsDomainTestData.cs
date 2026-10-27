@@ -3,7 +3,7 @@ using Mustask.Domain.Process;
 
 namespace Mustask.Domain.Tests.Organizations;
 
-/// <summary>Builders for the organizations domain tests: names, a project with its team and root, a second team.</summary>
+/// <summary>Builders for the organizations domain tests: names, a project, a team.</summary>
 internal static class OrganizationsDomainTestData
 {
     public static readonly DateTimeOffset Now = new(2026, 10, 2, 12, 0, 0, TimeSpan.Zero);
@@ -16,7 +16,7 @@ internal static class OrganizationsDomainTestData
     public static Organization AnOrganization(string name = "Пример организации") =>
         Organization.Create(Guid.CreateVersion7(), Name(name), ProcessId.New(), Now, Creator);
 
-    public static NewProject AProject(string name = "Пример проекта", string key = "PRM") =>
+    public static Project AProject(string name = "Пример проекта", string key = "PRM") =>
         Project.Create(Guid.CreateVersion7(), Name(name), key, Now, Creator);
 
     public static Team ATeam(Guid organizationId, string name = "Платформа") =>

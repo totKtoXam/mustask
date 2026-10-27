@@ -29,9 +29,9 @@ public sealed class DeleteRestorePurgeVolumeTests(MustaskApiFactory factory, ITe
         var start = new DateTimeOffset(2026, 10, 1, 9, 0, 0, TimeSpan.Zero);
 
         await WorkItemsTestData.ExecuteAsync(factory, $"""
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description,
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description,
                                     creation_request_id, created_at, created_by, changed_at)
-            SELECT gen_random_uuid(), {world.ProjectId}, n, {type.Id}, {type.StateId("Новая")}, {world.RootAreaId}, 'Задача ' || n, '',
+            SELECT gen_random_uuid(), {world.ProjectId}, n, {type.Id}, {type.StateId("Новая")}, 'Задача ' || n, '',
                    gen_random_uuid(), {start}, 'seed', {start} + n * interval '1 second'
             FROM generate_series(1, {count}) AS n
             """);
@@ -86,9 +86,9 @@ public sealed class DeleteRestorePurgeVolumeTests(MustaskApiFactory factory, ITe
         var start = new DateTimeOffset(2026, 10, 1, 9, 0, 0, TimeSpan.Zero);
 
         await WorkItemsTestData.ExecuteAsync(factory, $"""
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description,
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description,
                                     creation_request_id, created_at, created_by, changed_at, parent_id)
-            SELECT gen_random_uuid(), {world.ProjectId}, 100 + n, {type.Id}, {type.StateId("Новая")}, {world.RootAreaId}, 'Дочерняя ' || n, '',
+            SELECT gen_random_uuid(), {world.ProjectId}, 100 + n, {type.Id}, {type.StateId("Новая")}, 'Дочерняя ' || n, '',
                    gen_random_uuid(), {start}, 'seed', {start}, {epicId}
             FROM generate_series(1, {Items}) AS n
             """);

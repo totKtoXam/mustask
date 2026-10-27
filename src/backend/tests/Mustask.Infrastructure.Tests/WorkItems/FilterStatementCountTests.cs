@@ -167,7 +167,7 @@ public sealed class FilterStatementCountTests(OrganizationsDatabaseFixture datab
     {
         var structure = await database.CreateStructureAsync();
         var organization = structure.Organization.Id;
-        var project = structure.Project.Project.Id;
+        var project = structure.Project.Id;
 
         var task = (await database.QueryAsync(
             """
@@ -184,10 +184,9 @@ public sealed class FilterStatementCountTests(OrganizationsDatabaseFixture datab
         {
             await database.ExecuteAsync(
                 """
-                INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id,
+                INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id,
                                         created_at, created_by, changed_at, assignee_id, deleted_from_state_id, deleted_by, deleted_at)
-                SELECT gen_random_uuid(), @project, n, @type, CASE WHEN n % 20 = 7 THEN @removed ELSE @first END, @rootArea,
-                       'Элемент ' || n, '', gen_random_uuid(), now(), 'count-test', now() - n * interval '1 second',
+                SELECT gen_random_uuid(), @project, n, @type, CASE WHEN n % 20 = 7 THEN @removed ELSE @first END, 'Элемент ' || n, '', gen_random_uuid(), now(), 'count-test', now() - n * interval '1 second',
                        CASE WHEN n % 10 = 0 THEN NULL ELSE 'filter-user-' || (n % @people) END,
                        CASE WHEN n % 20 = 7 THEN @first END,
                        CASE WHEN n % 20 = 7 THEN 'count-test' END,
@@ -198,7 +197,6 @@ public sealed class FilterStatementCountTests(OrganizationsDatabaseFixture datab
                 ("type", Guid.Parse(task[0])),
                 ("first", Guid.Parse(task[1])),
                 ("removed", Guid.Parse(task[2])),
-                ("rootArea", structure.Project.Root.Id),
                 ("people", people),
                 ("items", items));
 

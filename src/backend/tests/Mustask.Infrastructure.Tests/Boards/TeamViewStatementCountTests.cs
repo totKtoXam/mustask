@@ -168,7 +168,7 @@ public sealed class TeamViewStatementCountTests(OrganizationsDatabaseFixture dat
         var structure = await database.CreateStructureAsync();
         var organization = structure.Organization.Id;
         var team = structure.FirstTeam.Id;
-        var projectIds = new List<Guid> { structure.Project.Project.Id };
+        var projectIds = new List<Guid> { structure.Project.Id };
 
         // The further projects, their roots and their links to the team, in one save.
         await using (var context = database.NewContext())
@@ -177,11 +177,10 @@ public sealed class TeamViewStatementCountTests(OrganizationsDatabaseFixture dat
             {
                 var project = Project.Create(
                     organization, OrganizationsDatabaseFixture.Name($"Проект {index:D2}"), $"CT{index:D2}", OrganizationsDatabaseFixture.Now, OrganizationsDatabaseFixture.Creator);
-                context.Projects.Add(project.Project);
-                context.Areas.Add(project.Root);
+                context.Projects.Add(project);
                 context.ProjectTeams.Add(
-                    ProjectTeam.Link(organization, project.Project.Id, team, OrganizationsDatabaseFixture.Creator, OrganizationsDatabaseFixture.Now));
-                projectIds.Add(project.Project.Id);
+                    ProjectTeam.Link(organization, project.Id, team, OrganizationsDatabaseFixture.Creator, OrganizationsDatabaseFixture.Now));
+                projectIds.Add(project.Id);
             }
 
             await context.SaveChangesAsync();
@@ -212,10 +211,9 @@ public sealed class TeamViewStatementCountTests(OrganizationsDatabaseFixture dat
 
             await database.ExecuteAsync(
                 """
-                INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id,
+                INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id,
                                         created_at, created_by, changed_at, parent_id, assignee_id, owning_team_id)
-                SELECT gen_random_uuid(), project.id, n, @type, @state, root.id,
-                       'Элемент ' || n, '', gen_random_uuid(), now() + n * interval '1 millisecond', 'count-test', now(), parent.id,
+                SELECT gen_random_uuid(), project.id, n, @type, @state, 'Элемент ' || n, '', gen_random_uuid(), now() + n * interval '1 millisecond', 'count-test', now(), parent.id,
                        CASE WHEN n % 7 < 3 THEN (ARRAY['count-user-1', 'count-user-2', 'count-user-3'])[(n % 7) + 1] END,
                        @team
                 FROM unnest(@projects) AS project(id)

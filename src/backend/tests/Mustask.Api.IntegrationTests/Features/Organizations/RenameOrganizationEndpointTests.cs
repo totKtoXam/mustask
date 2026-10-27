@@ -65,8 +65,7 @@ public sealed class RenameOrganizationEndpointTests(MustaskApiFactory factory)
     public async Task Rename_LeavesProjectsTeamsAreasUnchanged()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        await OrganizationsTestData.AddAreaAsync(
-            factory, structure.ProjectId, structure.RootId, "Отчёты");
+        await OrganizationsTestData.AddAreaAsync(factory, structure.OrganizationId, null, "Отчёты");
         var before = await SnapshotAsync(structure);
 
         var answer = await RenameAsync(structure.OrganizationId, OrganizationsTestData.UniqueName("Пример организации 2"));
@@ -254,7 +253,7 @@ public sealed class RenameOrganizationEndpointTests(MustaskApiFactory factory)
             .FindReachableAsync(structure.OrganizationId, structure.ProjectId, CancellationToken.None);
         var teams = await scope.ServiceProvider.GetRequiredService<ITeamReadModel>()
             .ListLinkedAsync(structure.OrganizationId, structure.ProjectId, "nobody", CancellationToken.None);
-        var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
+        var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.OrganizationId);
 
         return
         [

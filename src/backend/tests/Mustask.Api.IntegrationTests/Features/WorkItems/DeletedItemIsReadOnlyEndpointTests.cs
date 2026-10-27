@@ -40,7 +40,7 @@ public sealed class DeletedItemIsReadOnlyEndpointTests(MustaskApiFactory factory
 
         return string.Join(
             "|",
-            items.Select(stored => $"{stored.Number}:{stored.Title}:{stored.Description}:{stored.StateId}:{stored.AssigneeId}:{stored.AreaId}:{stored.ChangedAt:O}")
+            items.Select(stored => $"{stored.Number}:{stored.Title}:{stored.Description}:{stored.StateId}:{stored.AssigneeId}:{stored.ChangedAt:O}")
                 .Append($"{link.ParentId}:{link.StateId}:{link.ChangedAt:O}:{team.TeamId}"));
     }
 
@@ -107,20 +107,18 @@ public sealed class DeletedItemIsReadOnlyEndpointTests(MustaskApiFactory factory
         LinksTestData.AssertRefused(answer, HttpStatusCode.NotFound, "workitems.workitem.not_found");
     }
 
-    // US-3 · the refusal comes before the body's references are looked up: an unknown area, team, parent or state is 409, not 404.
+    // US-3 · the refusal comes before the body's references are looked up: an unknown team, parent or state is 409, not 404.
     [Theory]
-    [InlineData("area")]
     [InlineData("team")]
     [InlineData("parent")]
     [InlineData("state")]
-    public async Task Patch_ADeletedItem_NamingAnUnknownAreaTeamParentOrState_Is409Deleted(string reference)
+    public async Task Patch_ADeletedItem_NamingAnUnknownTeamParentOrState_Is409Deleted(string reference)
     {
         var (world, _, task) = await WorldAsync();
         var unknown = Guid.NewGuid().ToString();
 
         object body = reference switch
         {
-            "area" => new { areaId = unknown },
             "team" => new { team = new { teamId = unknown } },
             "parent" => new { parent = new { parentId = unknown, seenParentId = (string?)null } },
             _ => new { stateId = unknown },

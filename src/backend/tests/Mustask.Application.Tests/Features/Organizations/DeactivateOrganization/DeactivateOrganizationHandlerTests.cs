@@ -25,8 +25,8 @@ public sealed class DeactivateOrganizationHandlerTests
             Store.AddMember(Organization, Lister, OrganizationRole.Admin);
             Project = Store.AddProject(Organization);
             Platform = Store.AddLinkedTeam(Organization, Project);
-            Project.Project.NameDefaultTeam(Platform.Id);
-            Reports = Store.AddArea(Project.Root, "Отчёты");
+            Project.NameDefaultTeam(Platform.Id);
+            Reports = Store.AddArea(Organization, "Отчёты");
             Handler = new DeactivateOrganizationHandler(new FakeOrganizationRepository(Store), new FakeUnitOfWork());
             ReadModel = new FakeOrganizationReadModel(Store);
         }
@@ -35,7 +35,7 @@ public sealed class DeactivateOrganizationHandlerTests
 
         public Organization Organization { get; }
 
-        public NewProject Project { get; }
+        public Project Project { get; }
 
         public Team Platform { get; }
 
@@ -80,18 +80,18 @@ public sealed class DeactivateOrganizationHandlerTests
     {
         var f = new Fixture();
         var old = f.Store.AddProject(f.Organization, "Старый проект", "OLD");
-        old.Project.Deactivate();
-        f.Store.AddArea(old.Root, "Архив");
+        old.Deactivate();
+        f.Store.AddArea(f.Organization, "Архив");
         var before = f.Beneath();
 
         await f.HandleAsync();
 
         Assert.Equal(before, f.Beneath());
         Assert.Equal(2, f.Store.Projects.Count);
-        Assert.Equal(ProjectStatus.Active, f.Project.Project.Status);
-        Assert.Equal(ProjectStatus.Deactivated, old.Project.Status);
+        Assert.Equal(ProjectStatus.Active, f.Project.Status);
+        Assert.Equal(ProjectStatus.Deactivated, old.Status);
         Assert.All(f.Store.Teams, team => Assert.Equal(TeamStatus.Active, team.Status));
-        Assert.Equal(f.Platform.Id, f.Project.Project.DefaultTeamId);
+        Assert.Equal(f.Platform.Id, f.Project.DefaultTeamId);
         Assert.Contains(f.Store.Organizations, organization => organization.Id == f.Organization.Id);
     }
 

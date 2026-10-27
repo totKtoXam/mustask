@@ -107,9 +107,9 @@ public sealed class AddProjectBacklogOrderMigrationTests(OrganizationsDatabaseFi
     private async Task<World> SeedAtHeadAsync()
     {
         var structure = await database.CreateStructureAsync();
-        var (levelId, item) = await InsertStoryAsync(structure.Organization.Id, structure.Project.Project.Id, structure.Project.Root.Id, null);
+        var (levelId, item) = await InsertStoryAsync(structure.Organization.Id, structure.Project.Id, null, null);
 
-        return new World(structure.Project.Project.Id, levelId, item);
+        return new World(structure.Project.Id, levelId, item);
     }
 
     /// <summary>
@@ -124,7 +124,7 @@ public sealed class AddProjectBacklogOrderMigrationTests(OrganizationsDatabaseFi
         return new World(structure.ProjectId, levelId, item);
     }
 
-    private async Task<(Guid LevelId, Guid Item)> InsertStoryAsync(Guid organizationId, Guid projectId, Guid rootAreaId, Guid? placeTeam)
+    private async Task<(Guid LevelId, Guid Item)> InsertStoryAsync(Guid organizationId, Guid projectId, Guid? rootAreaId, Guid? placeTeam)
     {
         var row = (await database.QueryAsync(
             """
@@ -138,16 +138,18 @@ public sealed class AddProjectBacklogOrderMigrationTests(OrganizationsDatabaseFi
         var item = Guid.CreateVersion7();
         var level = Guid.Parse(row[2]);
 
+        // The legacy shape (rolled back past mod-018) still has the item's area column; the current one does not.
+        var areaColumn = rootAreaId is null ? string.Empty : "area_id, ";
+        var areaValue = rootAreaId is null ? string.Empty : "@area, ";
+
         await database.ExecuteAsync(
-            """
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at)
-            VALUES (@item, @project, 1, @type, @state, @area, 'История', '', gen_random_uuid(), now(), 'migration-test', now())
-            """,
+            $"INSERT INTO work_items (id, project_id, number, type_id, state_id, {areaColumn}title, description, creation_request_id, created_at, created_by, changed_at) "
+            + $"VALUES (@item, @project, 1, @type, @state, {areaValue}'История', '', gen_random_uuid(), now(), 'migration-test', now())",
             ("item", item),
             ("project", projectId),
             ("type", Guid.Parse(row[0])),
             ("state", Guid.Parse(row[1])),
-            ("area", rootAreaId));
+            ("area", rootAreaId ?? Guid.Empty));
 
         if (placeTeam is { } team)
         {

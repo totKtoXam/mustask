@@ -34,7 +34,8 @@ public sealed class CreateChildEndpointTests(MustaskApiFactory factory)
 
     private Task<(Guid? ParentId, Guid StateId, DateTimeOffset ChangedAt)> StoredAsync(Item item) => LinksTestData.StoredAsync(factory, item);
 
-    private static string AreaPath(Answer answer) => answer.Body.GetProperty("area").GetProperty("path").GetString()!;
+    // mod-018 US-4: the item has no «Область»; an answer carries none.
+    private static void AssertNoArea(Answer answer) => Assert.False(answer.Body.TryGetProperty("area", out _));
 
     private static Item Created(Answer answer)
     {
@@ -61,7 +62,7 @@ public sealed class CreateChildEndpointTests(MustaskApiFactory factory)
         Assert.Equal("MSK-US-24", created.Identifier);
         Assert.EndsWith($"/workitems/{created.Identifier}", answer.Location!.ToString(), StringComparison.Ordinal);
         Assert.Equal("MSK-FEAT-6", LinksTestData.IdentifierOf(answer.Body.GetProperty("parent")));
-        Assert.Equal(("Платформа / API", world.ApiAreaId), (AreaPath(answer), answer.Body.GetProperty("area").GetProperty("id").GetGuid()));
+        AssertNoArea(answer);
         Assert.Equal("Новая", answer.Body.GetProperty("state").GetProperty("name").GetString());
         Assert.Equal(JsonValueKind.Null, answer.Body.GetProperty("assignee").ValueKind);
         Assert.Equal((2, "Business"), (answer.Body.GetProperty("priority").GetInt32(), answer.Body.GetProperty("valueArea").GetString()));
@@ -85,7 +86,8 @@ public sealed class CreateChildEndpointTests(MustaskApiFactory factory)
         var answer = await CreateChildAsync(world, "TASK", "Проверить ссылку", items["MSK-US-2"].Id.ToString());
 
         var created = Created(answer);
-        Assert.Equal(("MSK-TASK-24", "Платформа"), (created.Identifier, AreaPath(answer)));
+        Assert.Equal("MSK-TASK-24", created.Identifier);
+        AssertNoArea(answer);
         Assert.Contains("MSK-US-2[MSK-BUG-5 MSK-TASK-3 MSK-TASK-24]", await ShapeAsync(world, "epics"));
     }
 
@@ -121,7 +123,8 @@ public sealed class CreateChildEndpointTests(MustaskApiFactory factory)
         var answer = await BoardsTestData.CreateFromTeamAsync(factory, world, "FEAT", "Вход по токену", world.PlatformId.ToString());
 
         var created = Created(answer);
-        Assert.Equal((JsonValueKind.Null, "Мастаск"), (answer.Body.GetProperty("parent").ValueKind, AreaPath(answer)));
+        Assert.Equal(JsonValueKind.Null, answer.Body.GetProperty("parent").ValueKind);
+        AssertNoArea(answer);
         Assert.Equal(world.PlatformId, answer.Body.GetProperty("team").GetProperty("id").GetGuid());
         Assert.Equal(["MSK-FEAT-8", "MSK-FEAT-6", created.Identifier], await BoardsTestData.RowsAsync(factory, world, world.PlatformId, "features"));
     }
@@ -137,7 +140,7 @@ public sealed class CreateChildEndpointTests(MustaskApiFactory factory)
         var answer = await CreateChildAsync(world, "US", "История", items["MSK-FEAT-6"].Id.ToString(), teamId: world.ProjectTeamId.ToString());
 
         Created(answer);
-        Assert.Equal("Платформа / API", AreaPath(answer));
+        AssertNoArea(answer);
         Assert.Equal(world.PlatformId, answer.Body.GetProperty("team").GetProperty("id").GetGuid());
     }
 
@@ -311,7 +314,7 @@ public sealed class CreateChildEndpointTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, (await save).Status);
         var answer = await creation;
         Created(answer);
-        Assert.Equal("Платформа", AreaPath(answer));
+        AssertNoArea(answer);
         Assert.Equal(world.ProjectTeamId, answer.Body.GetProperty("team").GetProperty("id").GetGuid());
     }
 

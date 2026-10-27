@@ -80,7 +80,6 @@ public sealed class SaveWorkItemEndpointTests(MustaskApiFactory factory)
             description = "",
             stateId = Text(before, "state", "id"),
             assignee = new { userId = (string?)null },
-            areaId = Text(before, "area", "id"),
         });
 
         Assert.Equal((HttpStatusCode.OK, HttpStatusCode.OK), (empty.Status, same.Status));
@@ -290,67 +289,8 @@ public sealed class SaveWorkItemEndpointTests(MustaskApiFactory factory)
         Assert.True(resent.Body.GetProperty("assignee").GetProperty("isMember").GetBoolean());
     }
 
-    // US-4 · "An area is chosen and saved": the form and the list show its path.
-    [Fact]
-    public async Task Save_Area_Returns200_WithItsPath()
-    {
-        var (world, bug) = await BugAsync();
-        var platform = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, world.RootAreaId, "Платформа");
-        var api = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, platform.Id, "API");
 
-        var answer = await WorkItemsTestData.SaveAsync(factory, world, bug, new { areaId = api.Id.ToString() });
 
-        Assert.Equal((api.Id.ToString(), "Платформа / API"), (Text(answer.Body, "area", "id"), Text(answer.Body, "area", "path")));
-        var row = (await WorkItemsTestData.ListAsync(factory, world)).Body.GetProperty("data")[0];
-        Assert.Equal("Платформа / API", Text(row, "area", "path"));
-    }
-
-    // US-4 · "An area of another project is refused": «Склад» of «Операции» sent for MSK-BUG-1 is «Область не найдена.»
-    // and the area is unchanged; a malformed or unknown area answers the same.
-    [Fact]
-    public async Task Save_AreaOfAnotherProjectMalformedOrUnknown_Returns404AreaNotFound_Unchanged()
-    {
-        var (world, bug) = await BugAsync();
-        var operations = await WorkItemsTestData.AddProjectAsync(factory, world, "OPS", "Операции");
-        var store = await OrganizationsTestData.AddAreaAsync(factory, operations.ProjectId, operations.RootAreaId, "Склад");
-
-        foreach (var areaId in new[] { store.Id.ToString(), "abc", Guid.CreateVersion7().ToString() })
-        {
-            var answer = await WorkItemsTestData.SaveAsync(factory, world, bug, new { areaId });
-
-            AssertRefused(answer, HttpStatusCode.NotFound, "organizations.area.not_found");
-            Assert.Equal("Область не найдена.", answer.Detail);
-        }
-
-        Assert.Equal(world.RootAreaId, (await WorkItemsTestData.StoredAsync(factory, world.ProjectId))[0].AreaId);
-    }
-
-    // US-4 · "The item follows its area's changes": «API» renamed to «Шлюз» and moved under «Отчёты» reads «Отчёты / Шлюз»;
-    // deleting the team that owns the item (mod-017: area edits and a team deletion are apart) leaves the item's area as it is.
-    // Renamed (D-16, BR-OT-10): Save_AreaRenamedMovedAndItsTeamDeleted_ItemFollowsTheArea -> Save_AreaRenamedMoved_ThenTheItemsTeamDeleted_ItemKeepsItsArea.
-    [Fact]
-    public async Task Save_AreaRenamedMoved_ThenTheItemsTeamDeleted_ItemKeepsItsArea()
-    {
-        var world = await WorkItemsTestData.CreateWorldAsync(factory);
-        var bug = await WorkItemsTestData.CreateItemAsync(factory, world, "BUG", "Падение при входе");
-        var team = await OrganizationsTestData.AddTeamAsync(factory, world.ProjectId, "Платформа");
-        var api = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, world.RootAreaId, "API");
-        var reports = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, world.RootAreaId, "Отчёты");
-        await WorkItemsTestData.SaveAsync(factory, world, bug, new { areaId = api.Id.ToString() });
-        var areaRoute = $"{OrganizationsApi.Areas(world.OrganizationId, world.ProjectId)}/{api.Id}";
-
-        Assert.Equal(HttpStatusCode.OK, (await OrganizationsApi.SendAsync(factory, HttpMethod.Put, $"{areaRoute}/name", new { name = "Шлюз" }, OrganizationsTokens.SignedIn())).Status);
-        Assert.Equal(HttpStatusCode.OK, (await OrganizationsApi.SendAsync(factory, HttpMethod.Put, $"{areaRoute}/parent", new { parentId = reports.Id.ToString() }, OrganizationsTokens.SignedIn())).Status);
-
-        Assert.Equal("Отчёты / Шлюз", Text(await WorkItemsTestData.ReadAsync(factory, world, bug), "area", "path"));
-        Assert.Equal("Отчёты / Шлюз", Text((await WorkItemsTestData.ListAsync(factory, world)).Body.GetProperty("data")[0], "area", "path"));
-
-        await WorkItemsTestData.ExecuteAsync(factory, $"UPDATE work_items SET owning_team_id = {team.Id} WHERE project_id = {world.ProjectId}");
-        await OrganizationsTestData.DeleteTeamAsync(factory, world.ProjectId, team.Id);
-
-        var after = await WorkItemsTestData.ReadAsync(factory, world, bug);
-        Assert.Equal((api.Id.ToString(), "Отчёты / Шлюз"), (Text(after, "area", "id"), Text(after, "area", "path")));
-    }
 
     // --- US-5 ------------------------------------------------------------------------------------------------------
 
@@ -377,22 +317,20 @@ public sealed class SaveWorkItemEndpointTests(MustaskApiFactory factory)
 
     // US-5 · "A state change touches no other field".
     [Fact]
-    public async Task Save_StateOnly_LeavesAssigneeAndAreaAsTheyAre()
+    public async Task Save_StateOnly_LeavesTheAssigneeAsItIs()
     {
         var (world, bug) = await BugAsync();
         var anna = await WorkItemsTestData.AddMemberAsync(factory, world, "Анна", "Смирнова");
-        var platform = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, world.RootAreaId, "Платформа");
         await WorkItemsTestData.SaveAsync(factory, world, bug, new
         {
             stateId = world.Types["BUG"].StateId("Активна").ToString(),
             assignee = new { userId = anna },
-            areaId = platform.Id.ToString(),
         });
 
         var answer = await WorkItemsTestData.SaveAsync(factory, world, bug, new { stateId = world.Types["BUG"].StateId("Закрыта").ToString() });
 
-        Assert.Equal(("Закрыта", anna, platform.Id.ToString(), "Падение при входе"), (
-            Text(answer.Body, "state", "name"), Text(answer.Body, "assignee", "id"), Text(answer.Body, "area", "id"), Text(answer.Body, "title")));
+        Assert.Equal(("Закрыта", anna, "Падение при входе"), (
+            Text(answer.Body, "state", "name"), Text(answer.Body, "assignee", "id"), Text(answer.Body, "title")));
     }
 
     // US-5 · "A state outside the type's own is refused": «Задача»'s «Удалена», «Баг»'s «Разрешена», another

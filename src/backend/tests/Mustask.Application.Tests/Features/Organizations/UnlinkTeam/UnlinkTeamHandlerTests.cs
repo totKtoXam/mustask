@@ -49,9 +49,9 @@ public sealed class UnlinkTeamHandlerTests
 
         public Organization Organization { get; }
 
-        public NewProject Alpha { get; }
+        public Project Alpha { get; }
 
-        public NewProject Beta { get; }
+        public Project Beta { get; }
 
         /// <summary>«MARS», linked to both projects.</summary>
         public Team Mars { get; }
@@ -64,7 +64,7 @@ public sealed class UnlinkTeamHandlerTests
         public UnlinkTeamCommand Command(Guid? destination, string? teamId = null, string? projectId = null, string? organizationId = null) =>
             new(
                 organizationId ?? Organization.Id.ToString(),
-                projectId ?? Alpha.Project.Id.ToString(),
+                projectId ?? Alpha.Id.ToString(),
                 teamId ?? Mars.Id.ToString(),
                 new UnlinkDestination(destination?.ToString()));
 
@@ -77,15 +77,15 @@ public sealed class UnlinkTeamHandlerTests
     public async Task Unlink_ToATeam_ReassignsOnce_RemovesTheLink_TouchesNoOtherProject()
     {
         var f = new Fixture();
-        f.Ownership.Owned[(f.Alpha.Project.Id, f.Mars.Id)] = 8;
-        f.Ownership.Owned[(f.Beta.Project.Id, f.Mars.Id)] = 5;
+        f.Ownership.Owned[(f.Alpha.Id, f.Mars.Id)] = 8;
+        f.Ownership.Owned[(f.Beta.Id, f.Mars.Id)] = 5;
 
         await f.HandleAsync(f.Command(f.Jupiter.Id));
 
-        Assert.False(f.Store.IsLinked(f.Alpha.Project.Id, f.Mars.Id));
-        Assert.True(f.Store.IsLinked(f.Beta.Project.Id, f.Mars.Id));
-        Assert.Equal(8, f.Ownership.Owned[(f.Alpha.Project.Id, f.Jupiter.Id)]);
-        Assert.Equal(5, f.Ownership.Owned[(f.Beta.Project.Id, f.Mars.Id)]);
+        Assert.False(f.Store.IsLinked(f.Alpha.Id, f.Mars.Id));
+        Assert.True(f.Store.IsLinked(f.Beta.Id, f.Mars.Id));
+        Assert.Equal(8, f.Ownership.Owned[(f.Alpha.Id, f.Jupiter.Id)]);
+        Assert.Equal(5, f.Ownership.Owned[(f.Beta.Id, f.Mars.Id)]);
         Assert.Equal(f.Clock.UtcNow, f.Ownership.ReassignedAt);
         Assert.Equal(f.Jupiter.Id, f.Ownership.LastDestination);
     }
@@ -95,13 +95,13 @@ public sealed class UnlinkTeamHandlerTests
     public async Task Unlink_ToNone_LeavesTheItemsWithoutATeam()
     {
         var f = new Fixture();
-        f.Ownership.Owned[(f.Alpha.Project.Id, f.Mars.Id)] = 3;
+        f.Ownership.Owned[(f.Alpha.Id, f.Mars.Id)] = 3;
 
         await f.HandleAsync(f.Command(destination: null));
 
         Assert.Equal(3, f.Ownership.Unowned);
         Assert.Null(f.Ownership.LastDestination);
-        Assert.False(f.Store.IsLinked(f.Alpha.Project.Id, f.Mars.Id));
+        Assert.False(f.Store.IsLinked(f.Alpha.Id, f.Mars.Id));
     }
 
     // US-4 · "the only team": the project is left teamless and works.
@@ -109,12 +109,12 @@ public sealed class UnlinkTeamHandlerTests
     public async Task Unlink_TheOnlyTeam_ToNone_LeavesTheProjectTeamless()
     {
         var f = new Fixture();
-        f.Store.Links.RemoveAll(link => link.ProjectId == f.Alpha.Project.Id && link.TeamId == f.Jupiter.Id);
+        f.Store.Links.RemoveAll(link => link.ProjectId == f.Alpha.Id && link.TeamId == f.Jupiter.Id);
 
         await f.HandleAsync(f.Command(destination: null));
 
-        Assert.DoesNotContain(f.Store.Links, link => link.ProjectId == f.Alpha.Project.Id);
-        Assert.True(f.Alpha.Project.IsActive);
+        Assert.DoesNotContain(f.Store.Links, link => link.ProjectId == f.Alpha.Id);
+        Assert.True(f.Alpha.IsActive);
     }
 
     // US-4 · the setting that named the team is cleared; one that names another team stays.
@@ -122,15 +122,15 @@ public sealed class UnlinkTeamHandlerTests
     public async Task Unlink_ClearsTheNamedDefault_KeepsAnotherTeamsSetting()
     {
         var named = new Fixture();
-        named.Alpha.Project.NameDefaultTeam(named.Mars.Id);
+        named.Alpha.NameDefaultTeam(named.Mars.Id);
         var other = new Fixture();
-        other.Alpha.Project.NameDefaultTeam(other.Jupiter.Id);
+        other.Alpha.NameDefaultTeam(other.Jupiter.Id);
 
         await named.HandleAsync(named.Command(named.Jupiter.Id));
         await other.HandleAsync(other.Command(other.Jupiter.Id));
 
-        Assert.Null(named.Alpha.Project.DefaultTeamId);
-        Assert.Equal(other.Jupiter.Id, other.Alpha.Project.DefaultTeamId);
+        Assert.Null(named.Alpha.DefaultTeamId);
+        Assert.Equal(other.Jupiter.Id, other.Alpha.DefaultTeamId);
     }
 
     // US-3 · "linking a linked pair, unlinking an unlinked one": the pair is not linked, so 204 and nothing moves, whatever the
@@ -139,16 +139,16 @@ public sealed class UnlinkTeamHandlerTests
     public async Task Unlink_NotLinked_Succeeds_NamingAnyDestination_ChangesNothing()
     {
         var f = new Fixture();
-        f.Ownership.Owned[(f.Alpha.Project.Id, f.Mars.Id)] = 4;
+        f.Ownership.Owned[(f.Alpha.Id, f.Mars.Id)] = 4;
         var unlinked = f.Store.AddTeam(f.Organization, "Не связана");
         f.Store.Calls.Clear();
 
         await f.HandleAsync(f.Command(f.Jupiter.Id, teamId: unlinked.Id.ToString()));
         await f.HandleAsync(f.Command(unlinked.Id, teamId: unlinked.Id.ToString()));
 
-        Assert.Equal(4, f.Ownership.Owned[(f.Alpha.Project.Id, f.Mars.Id)]);
+        Assert.Equal(4, f.Ownership.Owned[(f.Alpha.Id, f.Mars.Id)]);
         Assert.DoesNotContain(f.Store.Calls, call => call.StartsWith("reassign", StringComparison.Ordinal));
-        Assert.True(f.Store.IsLinked(f.Alpha.Project.Id, f.Jupiter.Id));
+        Assert.True(f.Store.IsLinked(f.Alpha.Id, f.Jupiter.Id));
     }
 
     // feat-028 review-security S-1 · "linked" is what the lock statement returned. A team whose link was committed after that statement
@@ -158,14 +158,14 @@ public sealed class UnlinkTeamHandlerTests
     public async Task Unlink_OfATeamWhoseLinkWasCommittedAfterTheLock_IsANoOp_ChangesNothing()
     {
         var f = new Fixture();
-        f.Ownership.Owned[(f.Alpha.Project.Id, f.Mars.Id)] = 4;
+        f.Ownership.Owned[(f.Alpha.Id, f.Mars.Id)] = 4;
         f.Links.CommittedAfterTheLock.Add(f.Mars.Id);
         f.Store.Calls.Clear();
 
         await f.HandleAsync(f.Command(f.Jupiter.Id));
 
-        Assert.True(f.Store.IsLinked(f.Alpha.Project.Id, f.Mars.Id));
-        Assert.Equal(4, f.Ownership.Owned[(f.Alpha.Project.Id, f.Mars.Id)]);
+        Assert.True(f.Store.IsLinked(f.Alpha.Id, f.Mars.Id));
+        Assert.Equal(4, f.Ownership.Owned[(f.Alpha.Id, f.Mars.Id)]);
         Assert.DoesNotContain(f.Store.Calls, call => call.StartsWith("reassign", StringComparison.Ordinal));
         Assert.DoesNotContain(f.Store.Calls, call => call.StartsWith("lock owned", StringComparison.Ordinal));
         Assert.DoesNotContain(f.Store.Calls, call => call.StartsWith("lock hierarchies", StringComparison.Ordinal));
@@ -177,15 +177,15 @@ public sealed class UnlinkTeamHandlerTests
     public async Task Unlink_ToADestinationWhoseLinkWasCommittedAfterTheLock_IsTeamNotInProject_ChangesNothing()
     {
         var f = new Fixture();
-        f.Ownership.Owned[(f.Alpha.Project.Id, f.Mars.Id)] = 6;
+        f.Ownership.Owned[(f.Alpha.Id, f.Mars.Id)] = 6;
         f.Links.CommittedAfterTheLock.Add(f.Jupiter.Id);
         f.Store.Calls.Clear();
 
         var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(f.Jupiter.Id)));
 
         Assert.Equal(OrganizationErrorCodes.TeamNotInProject, refusal.Code);
-        Assert.True(f.Store.IsLinked(f.Alpha.Project.Id, f.Mars.Id));
-        Assert.Equal(6, f.Ownership.Owned[(f.Alpha.Project.Id, f.Mars.Id)]);
+        Assert.True(f.Store.IsLinked(f.Alpha.Id, f.Mars.Id));
+        Assert.Equal(6, f.Ownership.Owned[(f.Alpha.Id, f.Mars.Id)]);
         Assert.DoesNotContain(f.Store.Calls, call => call.StartsWith("reassign", StringComparison.Ordinal));
     }
 
@@ -201,7 +201,7 @@ public sealed class UnlinkTeamHandlerTests
     public async Task Unlink_DestinationRefusals_ChangeNothing(string how, string code)
     {
         var f = new Fixture();
-        f.Ownership.Owned[(f.Alpha.Project.Id, f.Mars.Id)] = 6;
+        f.Ownership.Owned[(f.Alpha.Id, f.Mars.Id)] = 6;
         var unlinked = f.Store.AddTeam(f.Organization, "Не связана");
         var gone = f.Store.AddLinkedTeam(f.Organization, f.Alpha, "Ушла");
         gone.Delete();
@@ -213,14 +213,14 @@ public sealed class UnlinkTeamHandlerTests
             "deleted" => f.Command(gone.Id),
             "unknown" => f.Command(Guid.CreateVersion7()),
             "foreign" => f.Command(foreign.Id),
-            _ => new UnlinkTeamCommand(f.Organization.Id.ToString(), f.Alpha.Project.Id.ToString(), f.Mars.Id.ToString(), new UnlinkDestination("not-an-id")),
+            _ => new UnlinkTeamCommand(f.Organization.Id.ToString(), f.Alpha.Id.ToString(), f.Mars.Id.ToString(), new UnlinkDestination("not-an-id")),
         };
 
         var refusal = await Assert.ThrowsAnyAsync<MustaskException>(() => f.HandleAsync(command));
 
         Assert.Equal(code, refusal.Code);
-        Assert.True(f.Store.IsLinked(f.Alpha.Project.Id, f.Mars.Id));
-        Assert.Equal(6, f.Ownership.Owned[(f.Alpha.Project.Id, f.Mars.Id)]);
+        Assert.True(f.Store.IsLinked(f.Alpha.Id, f.Mars.Id));
+        Assert.Equal(6, f.Ownership.Owned[(f.Alpha.Id, f.Mars.Id)]);
     }
 
     // D-8 · the destination wrapper's teamId key must be present: absent is 400 destination_required, never «Без команды».
@@ -228,14 +228,14 @@ public sealed class UnlinkTeamHandlerTests
     public async Task Unlink_NoDestination_IsValidationFailed_DestinationRequired_ChangesNothing()
     {
         var f = new Fixture();
-        f.Ownership.Owned[(f.Alpha.Project.Id, f.Mars.Id)] = 6;
+        f.Ownership.Owned[(f.Alpha.Id, f.Mars.Id)] = 6;
 
         var refusal = await Assert.ThrowsAsync<ValidationException>(() => f.HandleAsync(
-            new UnlinkTeamCommand(f.Organization.Id.ToString(), f.Alpha.Project.Id.ToString(), f.Mars.Id.ToString(), Destination: null)));
+            new UnlinkTeamCommand(f.Organization.Id.ToString(), f.Alpha.Id.ToString(), f.Mars.Id.ToString(), Destination: null)));
 
         Assert.Equal(OrganizationErrorCodes.TeamDestinationRequired, Assert.Single(refusal.Errors["destination"]).Code);
-        Assert.Equal(6, f.Ownership.Owned[(f.Alpha.Project.Id, f.Mars.Id)]);
-        Assert.True(f.Store.IsLinked(f.Alpha.Project.Id, f.Mars.Id));
+        Assert.Equal(6, f.Ownership.Owned[(f.Alpha.Id, f.Mars.Id)]);
+        Assert.True(f.Store.IsLinked(f.Alpha.Id, f.Mars.Id));
     }
 
     // api-contract § 0.5 · the address from the outside in: organization, project (deactivated too), then the team of the address.
@@ -252,14 +252,14 @@ public sealed class UnlinkTeamHandlerTests
         var command = how switch
         {
             "malformed organization" => f.Command(null, organizationId: "abc"),
-            "foreign project" => f.Command(null, projectId: foreign.Project.Id.ToString()),
+            "foreign project" => f.Command(null, projectId: foreign.Id.ToString()),
             "unknown team" => f.Command(null, teamId: Guid.CreateVersion7().ToString()),
             _ => f.Command(null),
         };
 
         if (how == "deactivated project")
         {
-            f.Alpha.Project.Deactivate();
+            f.Alpha.Deactivate();
         }
 
         if (how == "deleted team")
@@ -299,13 +299,13 @@ public sealed class UnlinkTeamHandlerTests
         var pair = string.Join(",", new[] { f.Mars.Id, f.Jupiter.Id }.Order());
         Assert.Equal(
             [
-                $"lock links {f.Alpha.Project.Id} {pair}",
-                $"clear default team {f.Mars.Id} in {f.Alpha.Project.Id}",
-                $"lock hierarchies {f.Alpha.Project.Id}",
+                $"lock links {f.Alpha.Id} {pair}",
+                $"clear default team {f.Mars.Id} in {f.Alpha.Id}",
+                $"lock hierarchies {f.Alpha.Id}",
                 $"lock owned {f.Mars.Id}",
-                $"drop team places in {f.Alpha.Project.Id} {f.Mars.Id}",
+                $"drop team places in {f.Alpha.Id} {f.Mars.Id}",
                 $"reassign owned {f.Mars.Id} to {f.Jupiter.Id}",
-                $"remove link {f.Alpha.Project.Id} {f.Mars.Id}",
+                $"remove link {f.Alpha.Id} {f.Mars.Id}",
             ],
             f.Store.Calls);
     }

@@ -101,7 +101,7 @@ public sealed class GetOrganizationTeamsEndpointTests(MustaskApiFactory factory)
         await OrganizationsTestData.AddUnlinkedTeamAsync(factory, organization.Id, "Ничьих проектов");
         foreach (var project in new[] { zeta, alpha, beta })
         {
-            await OrganizationsTestData.LinkAsync(factory, project.Project.Id, team.Id);
+            await OrganizationsTestData.LinkAsync(factory, project.Id, team.Id);
         }
 
         var answer = await ListAsync(organization.Id);
@@ -119,13 +119,13 @@ public sealed class GetOrganizationTeamsEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var second = await OrganizationsTestData.CreateBareProjectAsync(factory, structure.OrganizationId, "Второй проект", "SEC");
-        await OrganizationsTestData.LinkAsync(factory, second.Project.Id, structure.Platform.Id);
+        await OrganizationsTestData.LinkAsync(factory, second.Id, structure.Platform.Id);
 
-        await OrganizationsTestData.SetProjectStatusAsync(factory, structure.OrganizationId, second.Project.Id, ProjectStatus.Deactivated);
+        await OrganizationsTestData.SetProjectStatusAsync(factory, structure.OrganizationId, second.Id, ProjectStatus.Deactivated);
         var whileDeactivated = Read((await ListAsync(structure.OrganizationId)).Body).Single(team => team.Name == "Платформа");
         await OrganizationsTestData.SetProjectStatusAsync(factory, structure.OrganizationId, structure.ProjectId, ProjectStatus.Deactivated);
         var bothDeactivated = Read((await ListAsync(structure.OrganizationId)).Body).Single(team => team.Name == "Платформа");
-        await OrganizationsTestData.SetProjectStatusAsync(factory, structure.OrganizationId, second.Project.Id, ProjectStatus.Active);
+        await OrganizationsTestData.SetProjectStatusAsync(factory, structure.OrganizationId, second.Id, ProjectStatus.Active);
         await OrganizationsTestData.SetProjectStatusAsync(factory, structure.OrganizationId, structure.ProjectId, ProjectStatus.Active);
         var restored = Read((await ListAsync(structure.OrganizationId)).Body).Single(team => team.Name == "Платформа");
 

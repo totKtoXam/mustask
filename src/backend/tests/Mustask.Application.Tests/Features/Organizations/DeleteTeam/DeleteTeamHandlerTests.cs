@@ -30,6 +30,7 @@ public sealed class DeleteTeamHandlerTests
                 new FakeProjectRepository(Store),
                 new FakeTeamRepository(Store),
                 new FakeProjectTeamRepository(Store),
+                new FakeAreaLinkRepository(Store),
                 new FakeTeamMembershipRepository(Store),
                 Ownership,
                 new FakeTeamBacklogPlaces(Store),
@@ -41,9 +42,9 @@ public sealed class DeleteTeamHandlerTests
 
         public Organization Organization { get; }
 
-        public NewProject Alpha { get; }
+        public Project Alpha { get; }
 
-        public NewProject Beta { get; }
+        public Project Beta { get; }
 
         /// <summary>«MARS», linked to both projects.</summary>
         public Team Mars { get; }
@@ -66,8 +67,8 @@ public sealed class DeleteTeamHandlerTests
     public async Task Handle_DeletesTheTeam_ReassignsWhatItOwnsInEveryProject_RemovesTheLinks()
     {
         var f = new Fixture();
-        f.Ownership.Owned[(f.Alpha.Project.Id, f.Mars.Id)] = 5;
-        f.Ownership.Owned[(f.Beta.Project.Id, f.Mars.Id)] = 3;
+        f.Ownership.Owned[(f.Alpha.Id, f.Mars.Id)] = 5;
+        f.Ownership.Owned[(f.Beta.Id, f.Mars.Id)] = 3;
         var areasBefore = f.Store.Areas.Select(area => (area.Id, area.ParentId, area.Name)).ToList();
         f.Clock.UtcNow = new DateTimeOffset(2026, 10, 17, 3, 0, 0, TimeSpan.Zero);
 
@@ -89,12 +90,12 @@ public sealed class DeleteTeamHandlerTests
     public async Task Handle_TheProjectsLastTeam_IsDeleted_NoGuardCode()
     {
         var f = new Fixture();
-        f.Store.Links.RemoveAll(link => link.ProjectId == f.Beta.Project.Id);
+        f.Store.Links.RemoveAll(link => link.ProjectId == f.Beta.Id);
 
         await f.HandleAsync(f.Command());
 
         Assert.Equal(TeamStatus.Deleted, f.Mars.Status);
-        Assert.True(f.Alpha.Project.IsActive);
+        Assert.True(f.Alpha.IsActive);
     }
 
     // US-3 · "losing the named team": a setting that named the deleted team is cleared in every project; one that names another
@@ -104,13 +105,13 @@ public sealed class DeleteTeamHandlerTests
     {
         var f = new Fixture();
         var other = f.Store.AddLinkedTeam(f.Organization, f.Beta, "VENUS");
-        f.Alpha.Project.NameDefaultTeam(f.Mars.Id);
-        f.Beta.Project.NameDefaultTeam(other.Id);
+        f.Alpha.NameDefaultTeam(f.Mars.Id);
+        f.Beta.NameDefaultTeam(other.Id);
 
         await f.HandleAsync(f.Command());
 
-        Assert.Null(f.Alpha.Project.DefaultTeamId);
-        Assert.Equal(other.Id, f.Beta.Project.DefaultTeamId);
+        Assert.Null(f.Alpha.DefaultTeamId);
+        Assert.Equal(other.Id, f.Beta.DefaultTeamId);
     }
 
     // US-5 · "a team deleted again answers not found": the second deletion of the same team changes nothing.
@@ -174,7 +175,7 @@ public sealed class DeleteTeamHandlerTests
         await f.HandleAsync(f.Command());
 
         var team = f.Mars.Id;
-        var projects = string.Join(",", new[] { f.Alpha.Project.Id, f.Beta.Project.Id }.Order());
+        var projects = string.Join(",", new[] { f.Alpha.Id, f.Beta.Id }.Order());
         Assert.Equal(
             [
                 $"lock team no-key-update {team}",
@@ -185,6 +186,7 @@ public sealed class DeleteTeamHandlerTests
                 $"drop team places {team}",
                 $"reassign owned {team} to none",
                 $"remove team links {team}",
+                $"remove area team links {team}",
                 $"end team memberships {team}",
                 "save",
             ],

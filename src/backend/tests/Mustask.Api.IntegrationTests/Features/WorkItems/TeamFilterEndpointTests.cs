@@ -140,8 +140,8 @@ public sealed class TeamFilterEndpointTests(MustaskApiFactory factory)
         var world = await CreateWorldAsync(factory);
         var task = world.Items.Types["TASK"];
         await WorkItemsTestData.ExecuteAsync(factory, $"""
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, owning_team_id)
-            SELECT gen_random_uuid(), {world.ProjectId}, n, {task.Id}, {task.StateId("Новая")}, {world.Items.RootAreaId},
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id, created_at, created_by, changed_at, owning_team_id)
+            SELECT gen_random_uuid(), {world.ProjectId}, n, {task.Id}, {task.StateId("Новая")},
                    'Задача ' || n, '', gen_random_uuid(), now(), 'filter-test', now() + n * interval '1 second',
                    CASE WHEN n <= 52 THEN {world.Mars} ELSE {world.Venus} END
             FROM generate_series(1, 55) AS n

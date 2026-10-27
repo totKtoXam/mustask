@@ -144,7 +144,7 @@ public sealed class DeactivateProjectEndpointTests(MustaskApiFactory factory)
         {
             "project" => OrganizationsApi.Project(structure.OrganizationId, structure.ProjectId),
             "teams" => OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId),
-            _ => OrganizationsApi.Areas(structure.OrganizationId, structure.ProjectId),
+            _ => OrganizationsApi.ProjectAreas(structure.OrganizationId, structure.ProjectId),
         };
 
         var before = await GetAsync(address);
@@ -166,8 +166,10 @@ public sealed class DeactivateProjectEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var sibling = await OrganizationsTestData.CreateProjectAsync(factory, structure.OrganizationId, "Второй проект", "SEC");
-        var reports = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Отчёты");
-        await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, reports.Id, "Квартальные");
+        var reports = await OrganizationsTestData.AddAreaAsync(factory, structure.OrganizationId, null, "Отчёты");
+        var quarterly = await OrganizationsTestData.AddAreaAsync(factory, structure.OrganizationId, reports.Id, "Квартальные");
+        await OrganizationsTestData.LinkAreaToProjectAsync(factory, structure.OrganizationId, reports.Id, structure.ProjectId);
+        await OrganizationsTestData.LinkAreaToProjectAsync(factory, structure.OrganizationId, quarterly.Id, structure.ProjectId);
         await OrganizationsTestData.SetDefaultTeamAsync(factory, structure.OrganizationId, structure.ProjectId, structure.Platform.Id);
         var before = await ReadBeneathAsync(structure.ProjectId);
 
@@ -178,7 +180,7 @@ public sealed class DeactivateProjectEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(HttpStatusCode.NoContent, answer.Status);
         Assert.Equal(3, after.Teams.Count);
-        Assert.Equal(3, after.Areas.Count);
+        Assert.Equal(2, after.Areas.Count);
         Assert.Equal(before.Teams, after.Teams);
         Assert.Equal(before.Areas, after.Areas);
         Assert.Equal(new ProjectState("Пример проекта", "PRM", ProjectStatus.Deactivated), project);
@@ -213,7 +215,7 @@ public sealed class DeactivateProjectEndpointTests(MustaskApiFactory factory)
         var db = scope.ServiceProvider.GetRequiredService<MustaskDbContext>();
         var project = await db.Projects.AsNoTracking().SingleAsync(row => row.Id == projectId);
         var teams = await db.Teams.AsNoTracking().Where(team => db.ProjectTeams.Any(link => link.ProjectId == projectId && link.TeamId == team.Id)).OrderBy(team => team.Id).ToListAsync();
-        var areas = await db.Areas.AsNoTracking().Where(area => area.ProjectId == projectId).OrderBy(area => area.Id).ToListAsync();
+        var areas = await db.Areas.AsNoTracking().Where(area => db.AreaProjects.Any(link => link.ProjectId == projectId && link.AreaId == area.Id)).OrderBy(area => area.Id).ToListAsync();
 
         return new Beneath(
             [.. teams.Select(team => $"{team.Id} {team.Name} {team.Status}"), $"setting {project.DefaultTeamId}"],

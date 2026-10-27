@@ -136,7 +136,7 @@ public sealed class DeletionStatementCountTests(OrganizationsDatabaseFixture dat
     private async Task<Seeded> SeedAsync(int items, int children)
     {
         var structure = await database.CreateStructureAsync();
-        var project = structure.Project.Project.Id;
+        var project = structure.Project.Id;
         var row = (await database.QueryAsync(
             """
             SELECT concat_ws('|', type.key, type.id::text, state.id::text)
@@ -154,37 +154,35 @@ public sealed class DeletionStatementCountTests(OrganizationsDatabaseFixture dat
 
         await database.ExecuteAsync(
             """
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, owning_team_id, title, description,
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, owning_team_id, title, description,
                                     creation_request_id, created_at, created_by, changed_at)
-            SELECT gen_random_uuid(), @project, n, @taskType, @taskState, @root, @team, 'Задача ' || n, '', gen_random_uuid(), now(), 'count-test', now()
+            SELECT gen_random_uuid(), @project, n, @taskType, @taskState, @team, 'Задача ' || n, '', gen_random_uuid(), now(), 'count-test', now()
             FROM generate_series(1, @items) AS n
             """,
             ("project", project),
             ("taskType", Guid.Parse(row["TASK"][1])),
             ("taskState", Guid.Parse(row["TASK"][2])),
-            ("root", structure.Project.Root.Id),
             ("team", structure.FirstTeam.Id),
             ("items", items));
         await database.ExecuteAsync(
             """
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, owning_team_id, title, description,
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, owning_team_id, title, description,
                                     creation_request_id, created_at, created_by, changed_at)
-            VALUES (gen_random_uuid(), @project, @target, @type, @state, @root, @team, 'Цель', '', gen_random_uuid(), now(), 'count-test', now())
+            VALUES (gen_random_uuid(), @project, @target, @type, @state, @team, 'Цель', '', gen_random_uuid(), now(), 'count-test', now())
             """,
             ("project", project),
             ("target", target),
             ("type", Guid.Parse(row[targetKey][1])),
             ("state", Guid.Parse(row[targetKey][2])),
-            ("root", structure.Project.Root.Id),
             ("team", structure.FirstTeam.Id));
 
         if (children > 0)
         {
             await database.ExecuteAsync(
                 """
-                INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, owning_team_id, title, description,
+                INSERT INTO work_items (id, project_id, number, type_id, state_id, owning_team_id, title, description,
                                         creation_request_id, created_at, created_by, changed_at, parent_id)
-                SELECT gen_random_uuid(), @project, @target + n, @taskType, @taskState, @root, @team, 'Дочерняя ' || n, '', gen_random_uuid(), now(), 'count-test', now(),
+                SELECT gen_random_uuid(), @project, @target + n, @taskType, @taskState, @team, 'Дочерняя ' || n, '', gen_random_uuid(), now(), 'count-test', now(),
                        (SELECT id FROM work_items WHERE project_id = @project AND number = @target)
                 FROM generate_series(1, @children) AS n
                 """,
@@ -192,7 +190,6 @@ public sealed class DeletionStatementCountTests(OrganizationsDatabaseFixture dat
                 ("target", target),
                 ("taskType", Guid.Parse(row["TASK"][1])),
                 ("taskState", Guid.Parse(row["TASK"][2])),
-                ("root", structure.Project.Root.Id),
                 ("team", structure.FirstTeam.Id),
                 ("children", children));
         }

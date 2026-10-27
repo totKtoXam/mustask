@@ -21,9 +21,9 @@ public sealed class DeactivateProjectHandlerTests
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization);
             Platform = Store.AddLinkedTeam(Organization, Project);
-            Project.Project.NameDefaultTeam(Platform.Id);
-            Reports = Store.AddArea(Project.Root, "Отчёты");
-            Quarterly = Store.AddArea(Reports, "Квартальные");
+            Project.NameDefaultTeam(Platform.Id);
+            Reports = Store.AddArea(Organization, "Отчёты");
+            Quarterly = Store.AddArea(Organization, "Квартальные", Reports);
             Handler = new DeactivateProjectHandler(new FakeProjectRepository(Store), new FakeUnitOfWork());
         }
 
@@ -31,7 +31,7 @@ public sealed class DeactivateProjectHandlerTests
 
         public Organization Organization { get; }
 
-        public NewProject Project { get; }
+        public Project Project { get; }
 
         public Team Platform { get; }
 
@@ -42,7 +42,7 @@ public sealed class DeactivateProjectHandlerTests
         public DeactivateProjectHandler Handler { get; private set; }
 
         public DeactivateProjectCommand Command(string? projectId = null, string? organizationId = null) =>
-            new(organizationId ?? Organization.Id.ToString(), projectId ?? Project.Project.Id.ToString());
+            new(organizationId ?? Organization.Id.ToString(), projectId ?? Project.Id.ToString());
 
         public Task HandleAsync(DeactivateProjectCommand command) => Handler.Handle(command, CancellationToken.None);
 
@@ -54,7 +54,7 @@ public sealed class DeactivateProjectHandlerTests
         public IReadOnlyList<string> Beneath() =>
         [
             .. Store.Teams.OrderBy(team => team.Id).Select(team => $"team {team.Id} {team.Name} {team.Status}"),
-            $"setting {Project.Project.DefaultTeamId}",
+            $"setting {Project.DefaultTeamId}",
             .. Store.Areas.OrderBy(area => area.Id).Select(area =>
                 $"area {area.Id} {area.ParentId} {area.Name}"),
         ];
@@ -92,7 +92,7 @@ public sealed class DeactivateProjectHandlerTests
         public Task<int> CountReachableAsync(Guid organizationId, IReadOnlyCollection<Guid> projectIds, CancellationToken cancellationToken) =>
             inner.CountReachableAsync(organizationId, projectIds, cancellationToken);
 
-        public void Add(NewProject project) => inner.Add(project);
+        public void Add(Project project) => inner.Add(project);
 
         public Task SaveAsync(CancellationToken cancellationToken) => inner.SaveAsync(cancellationToken);
     }
@@ -105,8 +105,8 @@ public sealed class DeactivateProjectHandlerTests
 
         await f.HandleAsync(f.Command());
 
-        Assert.Equal(ProjectStatus.Deactivated, f.Project.Project.Status);
-        Assert.False(f.Store.IsReachable(f.Organization.Id, f.Project.Project.Id));
+        Assert.Equal(ProjectStatus.Deactivated, f.Project.Status);
+        Assert.False(f.Store.IsReachable(f.Organization.Id, f.Project.Id));
         Assert.True(f.Organization.IsActive);
     }
 
@@ -125,9 +125,9 @@ public sealed class DeactivateProjectHandlerTests
         Assert.Equal(beneath, f.Beneath());
         Assert.All(f.Store.Teams, team => Assert.True(team.IsActive));
         Assert.Equal(projects, f.Store.Projects.Count);
-        Assert.Equal(ProjectStatus.Active, sibling.Project.Status);
-        Assert.Equal("Пример проекта", f.Project.Project.Name);
-        Assert.Equal("PRM", f.Project.Project.Key);
+        Assert.Equal(ProjectStatus.Active, sibling.Status);
+        Assert.Equal("Пример проекта", f.Project.Name);
+        Assert.Equal("PRM", f.Project.Key);
     }
 
     // plan-backend § 8.2: the project FOR NO KEY UPDATE, then one save; no other lock, because nothing beneath is read.
@@ -138,7 +138,7 @@ public sealed class DeactivateProjectHandlerTests
 
         await f.HandleAsync(f.Command());
 
-        Assert.Equal([$"lock project {f.Project.Project.Id}", "save"], f.Store.Calls);
+        Assert.Equal([$"lock project {f.Project.Id}", "save"], f.Store.Calls);
     }
 
     // BR-M1-20: behind the filter the organization id is well formed; if it were not, the outermost level answers.
@@ -150,7 +150,7 @@ public sealed class DeactivateProjectHandlerTests
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(organizationId: "abc")));
 
         Assert.Equal(OrganizationErrorCodes.OrganizationNotFound, refusal.Code);
-        Assert.True(f.Project.Project.IsActive);
+        Assert.True(f.Project.IsActive);
         Assert.Empty(f.Store.Calls);
     }
 
@@ -170,10 +170,10 @@ public sealed class DeactivateProjectHandlerTests
         var other = f.Store.AddProject(f.Store.AddOrganization("Другая организация"), "Чужой", "OTH");
         var command = f.Command(projectId: how switch
         {
-            "malformed" => "{" + f.Project.Project.Id + "}",
+            "malformed" => "{" + f.Project.Id + "}",
             "unknown" => Guid.CreateVersion7().ToString(),
-            "of another organization" => other.Project.Id.ToString(),
-            _ => f.Project.Project.Id.ToString(),
+            "of another organization" => other.Id.ToString(),
+            _ => f.Project.Id.ToString(),
         });
 
         if (how == "null")
@@ -183,7 +183,7 @@ public sealed class DeactivateProjectHandlerTests
 
         if (how == "deactivated already")
         {
-            f.Project.Project.Deactivate();
+            f.Project.Deactivate();
         }
 
         if (how == "under a deactivated organization")
@@ -198,8 +198,8 @@ public sealed class DeactivateProjectHandlerTests
         Assert.Equal(OrganizationErrorCodes.ProjectNotFound, refusal.Code);
         Assert.Empty(f.Store.Calls);
         Assert.Equal(beneath, f.Beneath());
-        Assert.Equal(ProjectStatus.Active, other.Project.Status);
-        Assert.Equal(how != "deactivated already", f.Project.Project.IsActive);
+        Assert.Equal(ProjectStatus.Active, other.Status);
+        Assert.Equal(how != "deactivated already", f.Project.IsActive);
     }
 
     // api-contract § 2.6: "404 ... project (already deactivated included)". Two deactivations at the same moment: the one that
@@ -214,6 +214,6 @@ public sealed class DeactivateProjectHandlerTests
 
         Assert.Equal(OrganizationErrorCodes.ProjectNotFound, refusal.Code);
         Assert.Equal(0, f.Store.SaveCount);
-        Assert.Equal(ProjectStatus.Deactivated, f.Project.Project.Status);
+        Assert.Equal(ProjectStatus.Deactivated, f.Project.Status);
     }
 }

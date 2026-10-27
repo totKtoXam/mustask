@@ -137,20 +137,3 @@ public sealed class FakeTeamReadModel(InMemoryOrganizations store) : ITeamReadMo
             store.Projects.Any(project => project.Id == projectId && project.DefaultTeamId == team.Id),
             LinkedActiveTeams(team.OrganizationId, projectId).Count()));
 }
-
-/// <summary>In-memory <see cref="IAreaTreeReadModel"/> over <see cref="InMemoryOrganizations"/>.</summary>
-public sealed class FakeAreaTreeReadModel(InMemoryOrganizations store) : IAreaTreeReadModel
-{
-    public Task<IReadOnlyList<AreaTreeRow>?> GetNodesAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken)
-    {
-        if (!store.IsReachable(organizationId, projectId))
-        {
-            return Task.FromResult<IReadOnlyList<AreaTreeRow>?>(null);
-        }
-
-        return Task.FromResult<IReadOnlyList<AreaTreeRow>?>(store
-            .InDisplayOrder(store.Areas.Where(area => area.ProjectId == projectId), area => area.Name, area => area.Id)
-            .Select(area => new AreaTreeRow(area.Id, area.ParentId, area.Name))
-            .ToList());
-    }
-}

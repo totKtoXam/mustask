@@ -26,9 +26,9 @@ public sealed class GetTeamDeletionCountsEndpointTests(MustaskApiFactory factory
             $"{OrganizationsApi.OrgTeams(organizationId)}/{Uri.EscapeDataString(teamId)}/deletion-counts",
             token: token ?? OrganizationsTokens.SignedIn());
 
-    private async Task<Item> StoryAsync(OwningTeamWorld world, Guid projectId, string key, Guid rootAreaId, string title, Guid? team)
+    private async Task<Item> StoryAsync(OwningTeamWorld world, Guid projectId, string key, string title, Guid? team)
     {
-        var items = world.Items with { ProjectId = projectId, RootAreaId = rootAreaId, Key = key };
+        var items = world.Items with { ProjectId = projectId, Key = key };
         var answer = await OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Post,
@@ -63,20 +63,20 @@ public sealed class GetTeamDeletionCountsEndpointTests(MustaskApiFactory factory
         var gamma = await OrganizationsTestData.CreateBareProjectAsync(factory, world.OrganizationId, "Гамма", "GAM");
         var delta = await OrganizationsTestData.CreateBareProjectAsync(factory, world.OrganizationId, "Дельта", "DEL");
         await OrganizationsTestData.LinkAsync(factory, world.OtherProjectId, world.Mars);
-        await OrganizationsTestData.LinkAsync(factory, gamma.Project.Id, world.Mars);
-        await OrganizationsTestData.LinkAsync(factory, delta.Project.Id, world.Mars);
-        await StoryAsync(world, world.ProjectId, "ALP", world.Items.RootAreaId, "Открытая", world.Mars);
-        var closed = await StoryAsync(world, world.ProjectId, "ALP", world.Items.RootAreaId, "Закрытая", world.Mars);
-        var removed = await StoryAsync(world, world.ProjectId, "ALP", world.Items.RootAreaId, "Удалённая", world.Mars);
-        await StoryAsync(world, world.ProjectId, "ALP", world.Items.RootAreaId, "Венера", world.Venus);
-        await StoryAsync(world, world.ProjectId, "ALP", world.Items.RootAreaId, "Ничья", null);
-        await StoryAsync(world, gamma.Project.Id, "GAM", gamma.Root.Id, "Гамма один", world.Mars);
-        await StoryAsync(world, delta.Project.Id, "DEL", delta.Root.Id, "Дельта один", world.Mars);
-        await StoryAsync(world, delta.Project.Id, "DEL", delta.Root.Id, "Дельта два", world.Mars);
+        await OrganizationsTestData.LinkAsync(factory, gamma.Id, world.Mars);
+        await OrganizationsTestData.LinkAsync(factory, delta.Id, world.Mars);
+        await StoryAsync(world, world.ProjectId, "ALP", "Открытая", world.Mars);
+        var closed = await StoryAsync(world, world.ProjectId, "ALP", "Закрытая", world.Mars);
+        var removed = await StoryAsync(world, world.ProjectId, "ALP", "Удалённая", world.Mars);
+        await StoryAsync(world, world.ProjectId, "ALP", "Венера", world.Venus);
+        await StoryAsync(world, world.ProjectId, "ALP", "Ничья", null);
+        await StoryAsync(world, gamma.Id, "GAM", "Гамма один", world.Mars);
+        await StoryAsync(world, delta.Id, "DEL", "Дельта один", world.Mars);
+        await StoryAsync(world, delta.Id, "DEL", "Дельта два", world.Mars);
         await WorkItemsTestData.SaveAsync(
             factory, world.Items, closed.Identifier, new { stateId = world.Items.Types["US"].StateId(StateCategory.Completed).ToString() });
         await LinksTestData.DeleteAsync(factory, world.Items, removed);
-        await OrganizationsTestData.SetProjectStatusAsync(factory, world.OrganizationId, delta.Project.Id, ProjectStatus.Deactivated);
+        await OrganizationsTestData.SetProjectStatusAsync(factory, world.OrganizationId, delta.Id, ProjectStatus.Deactivated);
 
         var answer = await CountsAsync(world.OrganizationId, world.Mars.ToString());
 
@@ -107,10 +107,10 @@ public sealed class GetTeamDeletionCountsEndpointTests(MustaskApiFactory factory
     public async Task Counts_AreOfTheMomentOfTheRead()
     {
         var world = await CreateWorldAsync(factory);
-        await StoryAsync(world, world.ProjectId, "ALP", world.Items.RootAreaId, "Раньше", world.Mars);
+        await StoryAsync(world, world.ProjectId, "ALP", "Раньше", world.Mars);
 
         var read = await CountsAsync(world.OrganizationId, world.Mars.ToString());
-        await StoryAsync(world, world.ProjectId, "ALP", world.Items.RootAreaId, "Позже", world.Mars);
+        await StoryAsync(world, world.ProjectId, "ALP", "Позже", world.Mars);
         var later = await CountsAsync(world.OrganizationId, world.Mars.ToString());
 
         Assert.Equal([("Альфа", true, 1)], Read(read));
