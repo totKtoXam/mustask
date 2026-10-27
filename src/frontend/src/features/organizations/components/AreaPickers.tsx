@@ -1,4 +1,4 @@
-import { useState, type ReactNode, type Ref } from 'react';
+import { useMemo, useState, type ReactNode, type Ref } from 'react';
 import { InlineMultiPickerField, InlinePickerField } from '../../../shared/ui';
 import { narrow } from '../lib/areaTree';
 import { PICKER_OPTION_LIMIT, areaLinkDialog, areasField } from '../lib/areaTexts';
@@ -58,7 +58,9 @@ export function LocalMultiPicker<O>({
 }: CommonProps<O> & { value: readonly O[]; onChange(next: O[]): void }) {
   const [typed, setTyped] = useState('');
   const entries = entriesOf(props.options, typed, props.getLabel, props.matchTexts);
-  const chosen: Entry<O>[] = value.map((item) => ({ kind: 'item', item }));
+  // Stable between renders: a new array each time reads as a changed value to the autocomplete, which
+  // then resets the typed text on every keystroke.
+  const chosen = useMemo<Entry<O>[]>(() => value.map((item) => ({ kind: 'item', item })), [value]);
   const known = [
     ...entries,
     ...chosen.filter(
@@ -122,7 +124,10 @@ export function LocalPicker<O>({
 }) {
   const [typed, setTyped] = useState('');
   const entries = entriesOf(props.options, typed, props.getLabel, props.matchTexts);
-  const chosen: Entry<O> | null = value ? { kind: 'item', item: value } : null;
+  const chosen = useMemo<Entry<O> | null>(
+    () => (value ? { kind: 'item', item: value } : null),
+    [value],
+  );
 
   return (
     <InlinePickerField<Entry<O>>
