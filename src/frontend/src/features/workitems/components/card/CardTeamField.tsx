@@ -4,8 +4,8 @@ import type { WorkItemTeam } from '../../api/workItemsApi';
 import { TeamField } from '../TeamField';
 
 /**
- * «Команда» of the band (mod-017 US-1; design § 3): block B, row 2, under «Область». The
- * project's teams are read when the list first opens, as «Область»'s tree is: until they
+ * «Команда» of the band (mod-017 US-1; design § 3): block B, row 2. The
+ * project's teams are read when the list first opens: until they
  * arrive the list says «Загрузка…»; a failed read says so in the list, and opening it again
  * reads again (so does a refusal of the save — «Команда не найдена.» — at the next opening).
  */

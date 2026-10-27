@@ -14,7 +14,7 @@ namespace Mustask.Application.Features.WorkItems.CreateWorkItem;
 /// <summary>
 /// The create dialog's submission (US-1): a new item of the chosen type with
 /// only a title, in its type's initial state, unassigned, with an empty
-/// description,, owned by the team the
+/// description, owned by the team the
 /// dialog shows (mod-017 BR-OT-3) — a team of the project, «Без команды», or, when
 /// the request sends none, the project default team as stored when the item is saved;
 /// or, created from a backlog row, beneath that row's item, owned by the row's team as stored then,
@@ -67,7 +67,7 @@ namespace Mustask.Application.Features.WorkItems.CreateWorkItem;
 /// <b>The parent</b> (feat-027 api-contract § 3, "Concurrency"): after the
 /// number's and the team's locks, the parent write's own order — the project's
 /// hierarchy, then the parent as a link end — so the parent is read as the last
-/// parent write, save or deletion of it committed.  A refusal rolls the transaction back, the
+/// parent write, save or deletion of it committed. A refusal rolls the transaction back, the
 /// number's increment with it.
 /// </para>
 /// </remarks>

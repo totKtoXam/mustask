@@ -42,7 +42,7 @@ AreaDeletion  { projects: [{ id, name, key, active }], teams: [{ id, name }] }  
 
 | Route | Code (declared) | Body → Answer |
 |---|---|---|
-| `GET /areas` | `area.read` | → 200 `AreaNode[]` (the whole tree, pre-order; 2 statements) |
+| `GET /areas` | `area.read` | → 200 `AreaNode[]` (the whole tree, pre-order; 1 statement) |
 | `POST /areas` | `area.write` (+ `area.create` top level; + `area.link` and `project.link` / `team.link` when `projectIds` / `teamIds` are not empty) | `{ name, parentId?, description?, projectIds?, teamIds? }` → 201 `Area`, `Location` `/areas/{id}` |
 | `GET /areas/{areaId}` | `area.read` | → 200 `AreaPage` |
 | `PUT /areas/{areaId}/name` | `area.write` | `{ name }` → 200 `Area` |

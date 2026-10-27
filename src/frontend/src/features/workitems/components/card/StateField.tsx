@@ -9,7 +9,7 @@ import { cardTexts } from '../../lib/cardTexts';
  * seeded order without «Удалена», each with its category dot in the list. The
  * chosen state's dot stands in the label column (the kit's default for a field
  * with its label at the left) and the value is the state's name alone, so the
- * text starts where «Область»'s does. Any state is reachable from any other
+ * text starts right after the dot. Any state is reachable from any other
  * (BR-M3-21); the choice is saved with «Сохранить», like every field.
  */
 function StateFieldView({
