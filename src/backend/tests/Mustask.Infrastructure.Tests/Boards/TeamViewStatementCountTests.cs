@@ -217,7 +217,6 @@ public sealed class TeamViewStatementCountTests(OrganizationsDatabaseFixture dat
                        CASE WHEN n % 7 < 3 THEN (ARRAY['count-user-1', 'count-user-2', 'count-user-3'])[(n % 7) + 1] END,
                        @team
                 FROM unnest(@projects) AS project(id)
-                JOIN areas AS root ON root.project_id = project.id AND root.parent_id IS NULL
                 CROSS JOIN generate_series(@from, @to) AS n
                 LEFT JOIN work_items AS parent ON parent.project_id = project.id AND parent.number = n - @perLevel AND @level > 0
                 """,

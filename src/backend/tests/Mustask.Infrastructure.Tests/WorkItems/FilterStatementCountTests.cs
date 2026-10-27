@@ -35,7 +35,7 @@ public sealed class FilterStatementCountTests(OrganizationsDatabaseFixture datab
 
     // Pinned (the first run's, equal to mod-017's unfiltered list): the project, the count, the page, the area nodes, the directory
     // lookup, the memberships — and the one the project's reachability check adds.
-    private const int ListStatements = 7;
+    private const int ListStatements = 6;   // 7 before mod-018: the area path read is gone
 
     // The options: the project and its reachability (as the list's two), the ids, the memberships — and one lookup per 500 people.
     private const int OptionsStatementsWithoutLookups = 4;

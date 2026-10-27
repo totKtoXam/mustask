@@ -936,8 +936,8 @@ public sealed class DeleteRestorePurgeRaceTests(MustaskApiFactory factory)
             projectId,
             "INSERT INTO work_item_hierarchy_locks (project_id) VALUES (@id) ON CONFLICT (project_id) DO NOTHING");
 
-    private Task<HeldRow> HoldAreaAsync(Guid areaId) =>
-        HeldRow.TakeAsync(factory.ConnectionString, "SELECT 1 FROM areas WHERE id = @id FOR UPDATE", areaId);
+    private Task<HeldRow> HoldItemAsync(Guid itemId) =>
+        HeldRow.TakeAsync(factory.ConnectionString, "SELECT 1 FROM work_items WHERE id = @id FOR UPDATE", itemId);
 
     /// <summary>Whether <paramref name="item"/> has the lower id of the two in the database's own order, the order row locks are taken in.</summary>
     private async Task<bool> HasLowerIdAsync(Item item, Item other)
@@ -953,8 +953,8 @@ public sealed class DeleteRestorePurgeRaceTests(MustaskApiFactory factory)
     }
 
     // QD-1 · the team «Платформа» owns a story P, created first (so with the lower id: the clean-up reaches it first), and a task C.
-    // A session holds the area «Платформа / API» FOR UPDATE; the save of C that sets that area and names P as its parent takes the
-    // hierarchy and C and blocks on the area; the clean-up of the team starts and blocks (on the hierarchy, since the fix; on C before
+    // A session holds the child C FOR UPDATE (mod-018 retired the area row this test used to hold: the save that names P as its parent takes the
+    // hierarchy and blocks on C; the clean-up of the team starts and blocks (on the hierarchy, since the fix; on C before
     // it, holding P); the session commits and the save goes on to P. Expected: the write decides first and the clean-up goes through
     // after it — 204, no deadlock — whether P is live (the save is 200) or deleted (the save is 409 item_deleted, BR-DR-4/-8), and
     // the unlink gives both to the destination while the team's deletion gives both to nobody (BR-DR-9).
@@ -980,21 +980,21 @@ public sealed class DeleteRestorePurgeRaceTests(MustaskApiFactory factory)
         Task<Answer> save;
         Task<Answer> cleanUp;
 
-        await using (var area = await HoldAreaAsync(world.ApiAreaId))
+        await using (var held = await HoldItemAsync(child.Id))
         {
             save = WorkItemsTestData.SaveAsync(
                 factory,
                 world.Items,
                 child.Identifier,
-                new { areaId = world.ApiAreaId.ToString(), parent = new { parentId = parent.Id.ToString(), seenParentId = (string?)null } });
+                new { parent = new { parentId = parent.Id.ToString(), seenParentId = (string?)null } });
             await PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, save);
-            Assert.False(save.IsCompleted, "The save did not wait for the area.");
+            Assert.False(save.IsCompleted, "The save did not wait for the child row.");
 
             cleanUp = teamDeletion ? DeleteTeamAsync(world, world.PlatformId) : UnlinkAsync(world, world.PlatformId, world.ProjectTeamId);
             await Task.WhenAny(cleanUp, PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, 2));
             Assert.False(cleanUp.IsCompleted, "The clean-up did not wait for the save.");
 
-            await area.CommitAsync();
+            await held.CommitAsync();
         }
 
         var (saved, cleaned) = (await save, await cleanUp);

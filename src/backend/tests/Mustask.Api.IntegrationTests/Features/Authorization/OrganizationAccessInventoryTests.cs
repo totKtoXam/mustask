@@ -234,7 +234,8 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
         Assert.All(expected, pair => Assert.Equal(pair.Value, actual[pair.Key]));
         // feat-028 api-contract § 4: eight project-nested team routes out, sixteen organization-level ones in — 47 + 8 = 55 — and, at
         // gate-3, the creation form's member search (§ 2.3a) — 56; mod-005 api-contract § 4 adds delete, restore and purge — 59 (feat-040 api-contract § 6 moves three, no change); feat-003 api-contract § 5 adds the «Исполнитель» filter's options — 60.
-        Assert.Equal(60, expected.Count);
+        // mod-018 api-contract § 2-3: eight organization-area routes and twelve link routes in, the five project-nested tree routes out (GET .../projects/{p}/areas stays with the new meaning) - 75.
+        Assert.Equal(75, expected.Count);
     }
 
     // Every organization code of the catalog is declared by at least one route — a code with no route is a decision nobody enforces
@@ -242,7 +243,9 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
     [Fact]
     public void EveryOrganizationCode_IsDeclaredByAtLeastOneRoute()
     {
-        var declared = OrganizationAddressedRoutes.All.Select(route => route.Code).ToHashSet(StringComparer.Ordinal);
+        // mod-018: `organizations.area.create` is the second code of a top-level creation and of a move to or from the top level; a handler
+        // checks it (api-contract § 0, "Declared codes"), so no route declares it — QA added it here by name, and OrganizationRoleBundles pins who holds it.
+        var declared = OrganizationAddressedRoutes.All.Select(route => route.Code).Append(PermissionCatalog.OrganizationsAreaCreate).ToHashSet(StringComparer.Ordinal);
 
         Assert.Equal(PermissionCatalog.OrganizationCodes.Order(StringComparer.Ordinal), declared.Order(StringComparer.Ordinal));
     }

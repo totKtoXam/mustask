@@ -448,7 +448,7 @@ public sealed class DeletedStateParityTests(OrganizationsDatabaseFixture databas
                                     creation_request_id, created_at, created_by, changed_at)
             SELECT gen_random_uuid(), @project,
                    row_number() OVER (ORDER BY type.key, state.position)::integer,
-                   type.id, state.id, @area, @team,
+                   type.id, state.id, @team,
                    'Элемент ' || type.key || ' ' || state.name, '', gen_random_uuid(), now(), 'parity-test', now()
             FROM work_item_types AS type
             JOIN processes AS process ON process.id = type.process_id

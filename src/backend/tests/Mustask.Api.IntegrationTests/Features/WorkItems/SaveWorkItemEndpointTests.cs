@@ -362,7 +362,7 @@ public sealed class SaveWorkItemEndpointTests(MustaskApiFactory factory)
         Assert.Equal((active, "Задача"), (stored.StateId, stored.Title));
     }
 
-    // api-contract § 0.4: values (400) before the area (404) before the state (409) before the assignee (409).
+    // api-contract § 0.4: values (400) before the state (409) before the assignee (409); mod-018 retired the area step (404), `areaId` is ignored.
     [Fact]
     public async Task Save_SeveralFaults_AnsweredInTheContractsOrder()
     {
@@ -373,10 +373,8 @@ public sealed class SaveWorkItemEndpointTests(MustaskApiFactory factory)
 
         var all = await WorkItemsTestData.SaveAsync(factory, world, bug, new { title = "", areaId = unknownArea, stateId = removed, assignee = new { userId = petr } });
         var noValue = await WorkItemsTestData.SaveAsync(factory, world, bug, new { areaId = unknownArea, stateId = removed, assignee = new { userId = petr } });
-        var noArea = await WorkItemsTestData.SaveAsync(factory, world, bug, new { stateId = removed, assignee = new { userId = petr } });
 
         AssertRefused(all, HttpStatusCode.BadRequest, "workitems.validation_failed");
-        AssertRefused(noValue, HttpStatusCode.NotFound, "organizations.area.not_found");
-        AssertRefused(noArea, HttpStatusCode.Conflict, "workitems.workitem.state_not_allowed");
+        AssertRefused(noValue, HttpStatusCode.Conflict, "workitems.workitem.state_not_allowed");
     }
 }

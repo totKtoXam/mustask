@@ -99,9 +99,10 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, free.Status);
     }
 
-    // US-1 · "A name of 1 to 100 characters, a description of at most 2 000": every reason at once, before the parent is looked at.
+    // US-1 · "A name of 1 to 100 characters, a description of at most 2 000": every reason at once. BR-AW-15: a new child's parent is its address, so a missing
+    // parent is answered 404 first (QA fixed the stale expectation: the test used to expect the 400 before the parent).
     [Fact]
-    public async Task Create_InvalidValues_Returns400WithEveryReason_BeforeTheParent()
+    public async Task Create_InvalidValues_Returns400WithEveryReason_AMissingParentIsAnsweredFirst()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
 
@@ -109,8 +110,11 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
         {
             name = "   ",
             description = new string('я', 2001),
-            parentId = Guid.CreateVersion7().ToString(),
+            parentId = (string?)null,
         });
+
+        var parentFirst = await CreateAsync(structure.OrganizationId, new { name = "   ", parentId = Guid.CreateVersion7().ToString() });
+        LinksTestData.AssertRefused(parentFirst, HttpStatusCode.NotFound, "organizations.area.not_found");
 
         LinksTestData.AssertRefused(answer, HttpStatusCode.BadRequest, "organizations.validation_failed");
         var errors = answer.Body.GetProperty("errors");

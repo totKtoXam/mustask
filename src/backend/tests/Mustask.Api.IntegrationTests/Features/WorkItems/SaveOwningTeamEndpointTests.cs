@@ -232,9 +232,9 @@ public sealed class SaveOwningTeamEndpointTests(MustaskApiFactory factory)
     }
 
     // US-1 · "the address is answered before the team", api-contract § 0.4: the item's 404 and the role's 403 come before the
-    // team's, and the values' 400 and the area's 404 before the team's 409.
+    // team's, and the values' 400 before the team's 409.
     [Fact]
-    public async Task Save_AnswerOrder_ItemNotFound_Then403_Then400_ThenArea_Then409()
+    public async Task Save_AnswerOrder_ItemNotFound_Then403_Then400_Then409()
     {
         var world = await CreateWorldAsync(factory);
         var story = await StoryAsync(world);
@@ -250,8 +250,6 @@ public sealed class SaveOwningTeamEndpointTests(MustaskApiFactory factory)
         var badTitle = await SaveAsync(world, story.Identifier, new { title = string.Empty, team = new { teamId = world.OtherProjectTeam.ToString() } });
         Assert.Equal((HttpStatusCode.BadRequest, "workitems.validation_failed"), (badTitle.Status, badTitle.ErrorCode));
 
-        var badArea = await SaveAsync(world, story.Identifier, new { areaId = Guid.CreateVersion7().ToString(), team = new { teamId = world.OtherProjectTeam.ToString() } });
-        Assert.Equal((HttpStatusCode.NotFound, "organizations.area.not_found"), (badArea.Status, badArea.ErrorCode));
 
         var badParent = await SaveAsync(
             world,

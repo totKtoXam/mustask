@@ -310,7 +310,7 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
             scope.ServiceProvider.GetRequiredService<IAreaRepository>().GetNodesAsync(structure.Organization.Id, ct));
 
         var tree = new AreaTree(nodes);
-        Assert.Equal(["альфа", "Платформа"], tree.ChildrenOf(top.Id).Select(node => node.Name).Order(StringComparer.Ordinal));
+        Assert.Equal(["Платформа", "альфа"], tree.ChildrenOf(top.Id).Select(node => node.Name).Order(StringComparer.Ordinal));
     }
 
     private async Task<T> InUnitOfWorkAsync<T>(Func<IServiceScope, CancellationToken, Task<T>> work, params Microsoft.EntityFrameworkCore.Diagnostics.IInterceptor[] interceptors)

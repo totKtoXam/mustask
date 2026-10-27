@@ -44,14 +44,14 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
     private const string User = "count-user-1";
 
     // Pinned: a change to one of these is a change to the query shape and is made on purpose (the numbers are the first run's).
-    private const int ListStatements = 7;
+    private const int ListStatements = 6;   // 7 before mod-018: the area path read is gone
     private const int TeamsListStatements = 2;
     private const int OwnedCountStatements = 3;
-    private const int DeletionStatements = 13;   // 11 + the hierarchy lock's two statements (mod-005 QD-1)
-    private const int ItemGetStatements = 7;
+    private const int DeletionStatements = 14;   // 11 + the hierarchy lock's two (mod-005 QD-1) + the team's area links (mod-018)
+    private const int ItemGetStatements = 6;   // 7 before mod-018
     private const int TeamGetStatements = 1;
-    private const int TeamChangeSaveStatements = 16;
-    private const int ChildCreationStatements = 21;
+    private const int TeamChangeSaveStatements = 15;   // 16 before mod-018
+    private const int ChildCreationStatements = 20;   // 21 before mod-018
 
     [Fact]
     public async Task List_Unfiltered_Team_And_None_TheSameNumberOfStatements_For50AsFor5000Items()

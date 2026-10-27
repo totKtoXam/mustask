@@ -3,7 +3,7 @@
 - type: module
 - size: L
 - branch: mod/018-area-workspace
-- stage: 05-backend-qa
+- stage: 06-frontend
 - epic: core/org-access
 - deps: feat-028
 - gates: gate-1, gate-2, gate-3
@@ -66,6 +66,7 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-27 [orchestrator] build session started in economy mode (one agent per stage, one Opus review incl. security); main (e4d8f124: feat-040 #31, feat-003 #32) merged in; usage at start: weekly 0%, 5-hour 2%.
 - 2026-10-27 [backend-developer] backend done, stage → 05-backend-qa. plan-backend.md + api-contract.md (contract unchanged since it was fixed); org-level area tree, 3-end links, creation with links, item area retired; migration OrganizationAreaWorkspace (Down works); ADR-0028 rule 8 amended in place; error catalog (depth_exceeded, not_empty text, root_is_fixed deprecated). Tests: Domain 827, Application 762, Contracts 248, Architecture 86 green; Api.IntegrationTests and Infrastructure.Tests COMPILE but were NOT RUN: Docker Desktop was not running and could not be started in this session, so the whole RequiresDocker set (new AreaWorkspaceEndpointTests, AreaLinkEndpointTests, OrganizationAreaWorkspaceMigrationTests, every edited fixture) is unverified and is the first thing QA runs. Deviations: handler-side second codes on create (area.create / area.link / project.link / team.link read in the handler); BoardsWorld.RootAreaId is a Guid.Empty shim, MoveToAreaAsync now sets the owning team; item-area tests dropped (US-4). Not yet written: concurrency pairs (name, cycle, depth, delete vs create, link vs deletion), 1 000-area volume and statement-count tests for the new reads. feat-028's migration test now targets its own migration, not head.
 - 2026-10-27 [frontend-developer] frontend done (stage unchanged, set by the orchestrator). plan-frontend.md; organization area tree and area pages, area-project/team links from both ends, the item's area retired (OQ-1 A), «Наследовать доступ» not shown (OQ-2 B), D-1..D-7 A. Contract unchanged, no mismatch. Tests: src/app, src/shared, src/features/organizations, src/test green; workitems slice checked on the changed files; tsc, eslint, prettier clean.
+- 2026-10-27 [qa-engineer] backend QA done (qa.md, Backend), stage → 06-frontend. First run on Docker: Infrastructure.Tests 27 and Api.IntegrationTests 16 failures, all stale fixtures, pins and expectations (qa.md D-2), no production defect; fixed. Added: 24 concurrency cases, 1 000-area and 200+200 volume tests, statement-count and structure-contract tests, 401/order/creation probes. Now green: Api 3 155 (0 failed, 18 skipped), Infrastructure 449. Open: D-1 (minor, the contract says the tree read takes 2 statements, it takes 1). blockers 0. E2E: no.
 
 ## Notes
 

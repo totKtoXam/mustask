@@ -152,8 +152,8 @@ public sealed class SaveWorkItemParentEndpointTests(MustaskApiFactory factory)
         LinksTestData.AssertRefused(answer, HttpStatusCode.NotFound, "workitems.link.parent_not_found");
     }
 
-    // api-contract § 3.3, the order of answers: the values' 400 before the parent's not-found; the area's not-found
-    // before the parent's; the parent's not-found before the state's 409; the state's 409 before the parent's.
+    // api-contract § 3.3, the order of answers: the values' 400 before the parent's not-found; the parent's not-found before the state's 409; the
+    // state's 409 before the parent's. (mod-018 retired the area's not-found step: `areaId` is ignored.)
     [Fact]
     public async Task Patch_SeveralFaults_TheSavesOrderOfAnswers()
     {
@@ -163,12 +163,10 @@ public sealed class SaveWorkItemParentEndpointTests(MustaskApiFactory factory)
         var foreignState = world.Types["BUG"].StateId("Активна").ToString();
 
         var values = await WorkItemsTestData.SaveAsync(factory, world, "MSK-US-2", new { title = "", parent = unknownParent });
-        var area = await WorkItemsTestData.SaveAsync(factory, world, "MSK-US-2", new { areaId = Guid.CreateVersion7().ToString(), parent = unknownParent });
         var parent = await WorkItemsTestData.SaveAsync(factory, world, "MSK-US-2", new { stateId = foreignState, parent = unknownParent });
         var state = await WorkItemsTestData.SaveAsync(factory, world, "MSK-US-2", new { stateId = foreignState, parent = taskParent });
 
         LinksTestData.AssertRefused(values, HttpStatusCode.BadRequest, "workitems.validation_failed");
-        LinksTestData.AssertRefused(area, HttpStatusCode.NotFound, "organizations.area.not_found");
         LinksTestData.AssertRefused(parent, HttpStatusCode.NotFound, "workitems.link.parent_not_found");
         LinksTestData.AssertRefused(state, HttpStatusCode.Conflict, "workitems.workitem.state_not_allowed");
     }

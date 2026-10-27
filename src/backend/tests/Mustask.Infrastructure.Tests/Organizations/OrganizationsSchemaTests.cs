@@ -59,13 +59,13 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
             "BR-M1-12: a sibling name",
             "INSERT INTO areas (id, organization_id, parent_id, name, normalized_name, inherits_access, created_by, created_at) "
             + "SELECT gen_random_uuid(), organization_id, parent_id, name, normalized_name, true, 'x', now() FROM areas WHERE id = @secondArea",
-            "ix_areas_parent_id_normalized_name"
+            "ix_areas_organization_id_parent_id_normalized_name"
         },
         {
-            "BR-M1-11: a second root",
-            "INSERT INTO areas (id, project_id, parent_id, name, normalized_name) "
-            + "VALUES (gen_random_uuid(), @project, NULL, 'Второй корень', 'ВТОРОЙ КОРЕНЬ')",
-            "ix_areas_project_id_root"
+            "BR-AW-4: a second top-level area of one name (top-level areas are siblings, nulls are not distinct)",
+            "INSERT INTO areas (id, organization_id, parent_id, name, normalized_name, inherits_access, created_by, created_at) "
+            + "SELECT gen_random_uuid(), organization_id, NULL, name, normalized_name, true, 'x', now() FROM areas WHERE id = @root",
+            "ix_areas_organization_id_parent_id_normalized_name"
         },
     };
 
@@ -114,7 +114,6 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
     public static TheoryData<string, string, string> CrossProjectReferences() => new()
     {
         { "an area under another organization's area", InsertAreaUnder("@otherRoot"), ParentKey },
-        { "an area under another project's area in the organization", InsertAreaUnder("@siblingRoot"), ParentKey },
         { "a project naming another organization's team as its default", NameDefault("@otherTeam"), DefaultTeamKey },
         { "a project naming a team of the organization that is not linked to it as its default", NameDefault("@siblingTeam"), DefaultTeamKey },
     };

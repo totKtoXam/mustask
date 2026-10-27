@@ -36,7 +36,7 @@ public sealed class OrganizationAreaWorkspaceMigrationTests(OrganizationsDatabas
 
         Assert.Equal(["0"], await QueryAsync(legacy, "SELECT count(*) FROM areas"));
         Assert.Equal(["4"], await QueryAsync(legacy, "SELECT count(*) FROM work_items"));
-        Assert.Equal(["3"], await QueryAsync(legacy, "SELECT count(*) FROM projects"));
+        Assert.Equal(["4"], await QueryAsync(legacy, "SELECT count(*) FROM projects"));
         Assert.Equal(before, await ItemsFingerprintAsync(legacy));
         Assert.Equal(
             ["0"],

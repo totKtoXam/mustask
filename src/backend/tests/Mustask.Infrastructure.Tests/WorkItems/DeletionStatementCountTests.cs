@@ -35,8 +35,8 @@ public sealed class DeletionStatementCountTests(OrganizationsDatabaseFixture dat
     private const string User = "deletion-count-user";
 
     // Pinned: a change to one of these is a change to the query shape and is made on purpose (the numbers are the first run's).
-    private const int DeleteStatements = 13;
-    private const int RestoreStatements = 11;
+    private const int DeleteStatements = 12;   // 13 before mod-018: the item's area read is gone
+    private const int RestoreStatements = 10;   // 11 before mod-018
     private const int PurgeStatements = 13;
 
     [Fact]

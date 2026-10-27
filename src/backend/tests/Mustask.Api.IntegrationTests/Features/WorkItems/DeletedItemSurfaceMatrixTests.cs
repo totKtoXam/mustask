@@ -331,6 +331,13 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
         ["GET " + Project] = Reads.NoWorkItem,
         ["GET " + Project + "/teams"] = Reads.NoWorkItem,
         ["GET " + Project + "/areas"] = Reads.NoWorkItem,
+        // mod-018: the area reads read no work item (BR-AW-2, BR-AW-11: an area owns nothing, and the item has no area).
+        ["GET " + Org + "/areas"] = Reads.NoWorkItem,
+        ["GET " + Org + "/areas/{areaId}"] = Reads.NoWorkItem,
+        ["GET " + Org + "/areas/{areaId}/deletion"] = Reads.NoWorkItem,
+        ["GET " + Org + "/areas/{areaId}/projects"] = Reads.NoWorkItem,
+        ["GET " + Org + "/areas/{areaId}/teams"] = Reads.NoWorkItem,
+        ["GET " + OrgTeam + "/areas"] = Reads.NoWorkItem,
     };
 
     // ADR-0030 rule 2 · a read of the organization-addressed set says whether it reads work items, and in which states: a GET route
