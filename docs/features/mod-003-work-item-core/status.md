@@ -64,6 +64,7 @@ Frontend (stage 6):
 - 2026-10-05 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/mod-003-work-item-core
 - 2026-10-05 [new-task] size mismatch: queue has size:L, human confirmed M
 - 2026-10-18 [dev] P-10 note from feat-040-team-surfaces-across-projects: § 1.1 `WorkItem` gains `project: { id, name }` beside `projectId` (additive), the project's current name, on every answer that returns a work item (read, create, save, parent write, restore). This api-contract is not edited.
+- 2026-10-27 [dev] P-10 note from mod-018: the work item no longer has an area: api-contract § 1.1 loses the field, and BR-M3-23 with the area halves of BR-M3-2 and BR-M3-20 are retired (BR-AW-11); the upgrade drops the stored item areas once (BR-AW-14).
 
 ## Notes
 

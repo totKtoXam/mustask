@@ -90,6 +90,7 @@ gate-3: approved · orchestrator under the human's standing approval of 2026-10-
 - 2026-09-28 [orchestrator] deps checked: mod-001 NOT merged (branch mod/001-process-seed at stage 01-business-analysis, no seed command yet); parallel start per C-1; queue line taken (main d435263)
 - 2026-09-28 [orchestrator] route confirmed by the human in chat: module, L, full route (stages 1-8), gates 1-3 separate, ending: local squash via finish-task.sh (no remote configured). Size grounds: block 1 fires on "new slice/module" (M1 founded), "ADR accepted" (the soft-deactivation ADR) and "authorization rules change" (the create-organizations realm role, doc-010 D-10); the migration adds only M1's own tables (3.2 n/a); 3.1 none known; 3.3 yes, C-1..C-4
 - 2026-09-28 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/mod-002-organizations-projects-teams
+- 2026-10-27 [dev] P-10 note from mod-018: the area routes leave the project (api-contract § 4; the areas become an organization-level tree), `organizations.area.root_is_fixed` is retired (§ 6), `area.not_empty` changes its text, and `IOrganizationStructure.RootAreaId` goes while the area reads of ADR-0028 rule 8 arrive (§ 7); BR-M1-11 (the root area renamed with its project) is retired (BR-AW-2, BR-AW-11).
 
 ## Notes
 
