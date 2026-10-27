@@ -204,6 +204,40 @@ public sealed class AreaLinkEndpointTests(MustaskApiFactory factory)
         Assert.Empty((await SendAsync(HttpMethod.Get, $"{Area(organization, area.Id)}/projects")).Body.EnumerateArray());
     }
 
+    // US-3 / BR-AW-10 · unlinking from the area's end names a deactivated project: 404 `project.not_found`, and the stored link
+    // survives, so a restore brings it back.
+    [Fact]
+    public async Task Unlink_ADeactivatedProjectFromTheAreaEnd_Returns404_LinkSurvivesRestore()
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        var organization = structure.OrganizationId;
+        var area = await OrganizationsTestData.AddAreaAsync(factory, organization, null, "Отчёты");
+        var project = await OrganizationsTestData.CreateProjectAsync(factory, organization, "Спящий", "SLP");
+        await OrganizationsTestData.LinkAreaToProjectAsync(factory, organization, area.Id, project.Project.Id);
+        await OrganizationsTestData.SetProjectStatusAsync(factory, organization, project.Project.Id, Mustask.Domain.Organizations.ProjectStatus.Deactivated);
+
+        var answer = await SendAsync(HttpMethod.Delete, $"{Area(organization, area.Id)}/projects/{project.Project.Id}");
+        await OrganizationsTestData.SetProjectStatusAsync(factory, organization, project.Project.Id, Mustask.Domain.Organizations.ProjectStatus.Active);
+
+        LinksTestData.AssertRefused(answer, HttpStatusCode.NotFound, "organizations.project.not_found");
+        Assert.Contains(project.Project.Id, Ids(await SendAsync(HttpMethod.Get, $"{Area(organization, area.Id)}/projects")));
+    }
+
+    // US-3 · unlinking from the area's end names a team that is gone: 404 `team.not_found`.
+    [Fact]
+    public async Task Unlink_AnUnreachableTeamFromTheAreaEnd_Returns404TeamNotFound()
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        var organization = structure.OrganizationId;
+        var area = await OrganizationsTestData.AddAreaAsync(factory, organization, null, "Отчёты");
+        var team = await OrganizationsTestData.AddTeamAsync(factory, structure.ProjectId, "Временная");
+        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, team.Id);
+
+        var answer = await SendAsync(HttpMethod.Delete, $"{Area(organization, area.Id)}/teams/{team.Id}");
+
+        LinksTestData.AssertRefused(answer, HttpStatusCode.NotFound, "organizations.team.not_found");
+    }
+
     // US-6 · "The link routes follow the roles": a viewer and a member read the links of every end and write none of them.
     [Theory]
     [InlineData(OrganizationRole.Member)]

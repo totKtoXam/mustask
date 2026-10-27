@@ -10,7 +10,8 @@ public sealed record UnlinkTeamFromAreaCommand(string? OrganizationId, string? A
 
 /// <summary>
 /// <c>DELETE /api/organizations/{organizationId}/areas/{areaId}/teams/{teamId}</c> (mod-018 api-contract § 3, US-4, BR-AW-6): ends
-/// the link of the area and the team. A pair that is not linked is a success that changes nothing. The code is <c>area.link</c>
+/// the link of the area and the team. A pair that is not linked is a success that changes nothing; a deactivated
+/// team is not reachable (<c>team.not_found</c>), so its link is kept. The code is <c>area.link</c>
 /// alone. <b>Locks</b>: the area <c>FOR SHARE</c>, then one <c>DELETE</c> (no binder keys onto an area link).
 /// </summary>
 public sealed class UnlinkTeamFromAreaHandler(
@@ -40,7 +41,7 @@ public sealed class UnlinkTeamFromAreaHandler(
                 }
 
                 if (!AddressedId.TryParse(command.TeamId, out var teamId)
-                    || await structure.FindTeamAsync(organizationId, teamId, ct) is null)
+                    || await structure.FindTeamAsync(organizationId, teamId, ct) is not { IsReachable: true })
                 {
                     throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
                 }

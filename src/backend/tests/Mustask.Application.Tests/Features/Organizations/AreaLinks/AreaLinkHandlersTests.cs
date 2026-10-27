@@ -73,7 +73,7 @@ public sealed class AreaLinkHandlersTests
             _unitOfWork);
 
         public UnlinkProjectFromAreaHandler UnlinkProjectFromArea() => new(
-            new FakeOrganizationReadModel(Store), new FakeOrganizationStructure(Store), Areas, new FakeAreaLinkRepository(Store), _unitOfWork);
+            new FakeOrganizationReadModel(Store), new FakeProjectRepository(Store), Areas, new FakeAreaLinkRepository(Store), _unitOfWork);
 
         public UnlinkTeamFromAreaHandler UnlinkTeamFromArea() => new(
             new FakeOrganizationReadModel(Store), new FakeOrganizationStructure(Store), Areas, new FakeAreaLinkRepository(Store), _unitOfWork);
@@ -175,17 +175,17 @@ public sealed class AreaLinkHandlersTests
         Assert.Contains(w.Store.Areas, area => area.Id == w.Reports.Id);
     }
 
-    // US-4 / BR-AW-10: a deactivated project's link can still be removed from the area side (the project exists).
+    // US-3 / BR-AW-10: a deactivated project is not reachable, so its link is kept for a restore (404 project.not_found).
     [Fact]
-    public async Task UnlinkProjectFromArea_DeactivatedProject_IsStillUnlinked()
+    public async Task UnlinkProjectFromArea_DeactivatedProject_Returns404_KeepsTheLink()
     {
         var w = new World();
         w.Store.LinkArea(w.Reports, w.Project);
         w.Project.Deactivate();
 
-        await w.UnlinkProjectFromArea().Handle(new UnlinkProjectFromAreaCommand(w.Org, w.Reports.Id.ToString(), w.Project.Id.ToString()), Ct);
+        await Assert.ThrowsAsync<Mustask.Shared.Exceptions.NotFoundException>(() => w.UnlinkProjectFromArea().Handle(new UnlinkProjectFromAreaCommand(w.Org, w.Reports.Id.ToString(), w.Project.Id.ToString()), Ct));
 
-        Assert.Empty(w.Store.AreaProjects);
+        Assert.Single(w.Store.AreaProjects);
     }
 
     [Fact]

@@ -11,12 +11,12 @@ public sealed record UnlinkProjectFromAreaCommand(string? OrganizationId, string
 /// <summary>
 /// <c>DELETE /api/organizations/{organizationId}/areas/{areaId}/projects/{projectId}</c> (mod-018 api-contract § 3, US-4,
 /// BR-AW-6): ends the link of the area and the project. A pair that is not linked is a success that changes nothing; a deactivated
-/// project is still a project, so its stored link can be ended. The code is <c>area.link</c> alone. <b>Locks</b>: the area
+/// project is not reachable (<c>project.not_found</c>, BR-AW-10), so its stored link is kept for a restore. The code is <c>area.link</c> alone. <b>Locks</b>: the area
 /// <c>FOR SHARE</c>, then one <c>DELETE</c> — an area link has no binder, so no link lock is needed.
 /// </summary>
 public sealed class UnlinkProjectFromAreaHandler(
     IOrganizationReadModel organizations,
-    IOrganizationStructure structure,
+    IProjectRepository projects,
     IAreaRepository areas,
     IAreaLinkRepository areaLinks,
     IUnitOfWork unitOfWork)
@@ -41,7 +41,7 @@ public sealed class UnlinkProjectFromAreaHandler(
                 }
 
                 if (!AddressedId.TryParse(command.ProjectId, out var projectId)
-                    || await structure.FindProjectAsync(organizationId, projectId, ct) is null)
+                    || !await projects.IsReachableAsync(organizationId, projectId, ct))
                 {
                     throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
                 }
