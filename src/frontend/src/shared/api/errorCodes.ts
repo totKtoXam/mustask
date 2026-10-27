@@ -57,6 +57,8 @@ export const organizationErrorCodes = {
   areaNameTaken: 'organizations.area.name_taken',
   areaMoveIntoOwnSubtree: 'organizations.area.move_into_own_subtree',
   areaNotEmpty: 'organizations.area.not_empty',
+  /** mod-018 api-contract § 6: the tree is at most 10 levels deep (409). */
+  areaDepthExceeded: 'organizations.area.depth_exceeded',
   areaRootIsFixed: 'organizations.area.root_is_fixed',
   // mod-016 api-contract § 5: the scoped check, the memberships and the team members.
   // Where each shows is design § 9 (the screens of «Участники» and «Участники команды»,

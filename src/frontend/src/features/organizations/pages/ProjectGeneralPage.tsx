@@ -15,6 +15,7 @@ import { NotFound } from '../../../shared/ui/StateFrame';
 import { processDefinitionPath } from '../../process';
 import { ConfirmAction } from '../components/ConfirmAction';
 import { DescriptionDialog } from '../components/DescriptionDialog';
+import { EndAreasSection } from '../components/EndAreasSection';
 import { FactsPanel } from '../components/FactsPanel';
 import { NameDialog } from '../components/NameDialog';
 import { useNotify } from '../components/notice';
@@ -126,6 +127,14 @@ export function ProjectGeneralPage() {
               ),
             },
           ]}
+        />
+      )}
+      {project && (
+        <EndAreasSection
+          end="project"
+          organizationId={organizationId}
+          ownerId={project.id}
+          ownerName={project.name}
         />
       )}
       {dialog === 'rename' && project && (

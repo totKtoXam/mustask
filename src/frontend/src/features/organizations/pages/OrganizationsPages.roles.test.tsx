@@ -11,6 +11,7 @@ import {
   PROJECT_URL,
   TEAMS_URL,
   ids,
+  noAreasDataset,
   problem,
 } from '../testFixtures';
 import { serveOrganizations, serveProblem } from '../testApi';
@@ -29,8 +30,7 @@ const PRM_GENERAL = `/organizations/${ids.alfa}/projects/${ids.prm}/settings/gen
 const PRM_TEAMS = `/organizations/${ids.alfa}/projects/${ids.prm}/settings/teams`;
 const ALFA_TEAMS = `/organizations/${ids.alfa}/settings/teams`;
 const PLATFORM_PAGE = `/organizations/${ids.alfa}/settings/teams/${ids.platformTeam}`;
-const PRM_AREAS = `/organizations/${ids.alfa}/projects/${ids.prm}/settings/areas`;
-const ANL_AREAS = `/organizations/${ids.alfa}/projects/${ids.anl}/settings/areas`;
+const ALFA_AREAS = `/organizations/${ids.alfa}/settings/areas`;
 const NEW_ORGANIZATION = 'a0000000-0000-4000-8000-0000000000aa';
 
 const REFUSED = 'Недостаточно прав';
@@ -151,30 +151,31 @@ describe.each(ROLES)(
       expect(within(table).getByRole('link', { name: 'Платформа' })).toBeVisible();
     });
 
-    it('«Области»: «Новая область», «Новая дочерняя область» and the actions column only with the code; the tree stays a treegrid', async () => {
+    it('«Области»: «Новая область» and the row menus only with the code; the tree stays a treegrid', async () => {
       serveOrganizations();
-      renderPage({ path: PRM_AREAS, role });
+      renderPage({ path: ALFA_AREAS, role });
 
       const tree = await screen.findByRole('treegrid', { name: 'Области' });
 
       expect(button('Новая область')).toHaveLength(held(holds));
-      expect(button('Новая дочерняя область')).toHaveLength(held(holds));
       expect(within(tree).queryAllByRole('button', { name: /^Действия: / }).length > 0).toBe(holds);
       expect(within(tree).getAllByRole('row', { selected: false }).length).toBeGreaterThan(1);
     });
 
-    it('«Области» with no nested area: the heading stays, the hint is the holder’s or says who sets the areas, and the action is the holder’s', async () => {
-      serveOrganizations();
-      renderPage({ path: ANL_AREAS, role });
+    it('«Области» with no area at all: the heading stays, the hint is the holder’s or says who creates the areas, and the action is the holder’s', async () => {
+      serveOrganizations(noAreasDataset());
+      renderPage({ path: ALFA_AREAS, role });
 
       expect(
-        await screen.findByRole('heading', { level: 2, name: 'Вложенных областей пока нет' }),
+        await screen.findByRole('heading', { name: 'В организации пока нет областей' }),
       ).toBeVisible();
 
       expect(
-        screen.queryAllByText('Создайте первую область кнопкой «Новая область» выше.'),
+        screen.queryAllByText(
+          'Область объединяет проекты и команды организации. Создайте первую кнопкой «Новая область».',
+        ),
       ).toHaveLength(held(holds));
-      expect(screen.queryAllByText('Области задаёт администратор организации.')).toHaveLength(
+      expect(screen.queryAllByText('Области создаёт администратор организации.')).toHaveLength(
         held(!holds),
       );
       expect(button('Новая область')).toHaveLength(holds ? 2 : 0);
@@ -310,7 +311,7 @@ describe('mod-016 design § 2.3 Scenario: a refused write, then the codes are re
 
   it('creates an area', async () => {
     serveOrganizations();
-    const page = renderPage({ path: PRM_AREAS });
+    const page = renderPage({ path: ALFA_AREAS });
     await screen.findByRole('treegrid', { name: 'Области' });
     await userEvent.click(screen.getByRole('button', { name: 'Новая область' }));
     const dialog = await screen.findByRole('dialog', { name: 'Новая область' });

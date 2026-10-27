@@ -11,6 +11,15 @@ import {
 import type { OrganizationRole } from '../lib/roles';
 import {
   createArea,
+  describeArea,
+  linkAreasToProject,
+  linkAreasToTeam,
+  linkProjectsToArea,
+  linkTeamsToArea,
+  unlinkAreaFromProject,
+  unlinkAreaFromTeam,
+  unlinkProjectFromArea,
+  unlinkTeamFromArea,
   createOrganization,
   createProject,
   createTeam,
@@ -31,6 +40,7 @@ import {
   restoreProject,
   setDefaultTeam,
   unlinkTeam,
+  type CreateAreaBody,
   type CreateProjectBody,
   type CreateTeamBody,
 } from '../api/organizationsApi';
@@ -97,7 +107,12 @@ export function useCreateProject(organizationId: string) {
     mutationFn: (body: CreateProjectBody) => createProject(organizationId, body),
     // A project that is created with teams changes what they work on (design § 13).
     onSuccess: () =>
-      invalidate(client, keys.projects(organizationId, 'active'), ...linkListKeys(organizationId)),
+      invalidate(
+        client,
+        keys.projects(organizationId, 'active'),
+        ...linkListKeys(organizationId),
+        ...areaLinkKeys(organizationId),
+      ),
   });
 }
 
@@ -119,8 +134,8 @@ export function useRenameProject(organizationId: string, projectId: string) {
         client,
         keys.project(organizationId, projectId),
         keys.projects(organizationId, 'active'),
-        // The root area takes the project's name (BR-M1-11).
-        keys.areas(organizationId, projectId),
+        // The name shows on every area's page that lists the project.
+        keys.areaProjectLists(organizationId),
       ),
   });
 }
@@ -134,7 +149,11 @@ export function useDeactivateProject(organizationId: string, projectId: string) 
         queryKey: keys.project(organizationId, projectId),
         refetchType: 'none',
       });
-      return invalidate(client, keys.projectLists(organizationId));
+      return invalidate(
+        client,
+        keys.projectLists(organizationId),
+        keys.areaProjectLists(organizationId),
+      );
     },
   });
 }
@@ -143,7 +162,8 @@ export function useRestoreProject(organizationId: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (projectId: string) => restoreProject(organizationId, projectId),
-    onSuccess: () => invalidate(client, keys.projectLists(organizationId)),
+    onSuccess: () =>
+      invalidate(client, keys.projectLists(organizationId), keys.areaProjectLists(organizationId)),
   });
 }
 
@@ -165,7 +185,8 @@ export function useCreateTeam(organizationId: string) {
   return useMutation({
     mutationFn: (body: CreateTeamBody) => createTeam(organizationId, body),
     // A team created with projects is linked to them at once; its members are read on its page.
-    onSuccess: () => invalidate(client, ...linkListKeys(organizationId)),
+    onSuccess: () =>
+      invalidate(client, ...linkListKeys(organizationId), ...areaLinkKeys(organizationId)),
   });
 }
 
@@ -176,7 +197,13 @@ export function useRenameTeam(organizationId: string) {
       renameTeam(organizationId, teamId, name),
     // The new name shows wherever the team is listed (US-1).
     onSuccess: () =>
-      invalidate(client, keys.teamPages(organizationId), ...linkListKeys(organizationId)),
+      invalidate(
+        client,
+        keys.teamPages(organizationId),
+        ...linkListKeys(organizationId),
+        keys.areaTeamLists(organizationId),
+        keys.teamAreaLists(organizationId),
+      ),
   });
 }
 
@@ -217,6 +244,8 @@ export function useDeleteTeam(organizationId: string) {
         client,
         keys.orgTeams(organizationId),
         keys.projectTeamLists(organizationId),
+        // Its links to areas end with it (BR-AW-10).
+        keys.areaTeamLists(organizationId),
       );
     },
   });
@@ -262,47 +291,118 @@ export function useUnlinkTeam(organizationId: string) {
   });
 }
 
-// § 4 Areas
+// mod-018 The organization's areas. Any area or link write reads again the tree, the pages, the
+// link lists and the project's and team's areas, never patching them (design § 13).
 
-function useAreaWrite<T, R>(
-  organizationId: string,
-  projectId: string,
-  write: (variables: T) => Promise<R>,
-) {
+/** Every list an area or a link write can change. */
+function areaLinkKeys(organizationId: string): (readonly unknown[])[] {
+  return [
+    keys.areas(organizationId),
+    keys.areaPages(organizationId),
+    keys.areaProjectLists(organizationId),
+    keys.areaTeamLists(organizationId),
+    keys.projectAreaLists(organizationId),
+    keys.teamAreaLists(organizationId),
+  ];
+}
+
+function useAreaWrite<T, R>(organizationId: string, write: (variables: T) => Promise<R>) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: write,
-    onSuccess: () => invalidate(client, keys.areas(organizationId, projectId)),
+    onSuccess: () => invalidate(client, ...areaLinkKeys(organizationId)),
   });
 }
 
-export function useCreateArea(organizationId: string, projectId: string) {
-  return useAreaWrite(organizationId, projectId, (body: { parentId: string; name: string }) =>
-    createArea(organizationId, projectId, body),
+export function useCreateArea(organizationId: string) {
+  return useAreaWrite(organizationId, (body: CreateAreaBody) => createArea(organizationId, body));
+}
+
+export function useRenameArea(organizationId: string) {
+  return useAreaWrite(organizationId, ({ areaId, name }: { areaId: string; name: string }) =>
+    renameArea(organizationId, areaId, name),
   );
 }
 
-export function useRenameArea(organizationId: string, projectId: string) {
+export function useDescribeArea(organizationId: string) {
   return useAreaWrite(
     organizationId,
-    projectId,
-    ({ areaId, name }: { areaId: string; name: string }) =>
-      renameArea(organizationId, projectId, areaId, name),
+    ({ areaId, description }: { areaId: string; description: string | null }) =>
+      describeArea(organizationId, areaId, description),
   );
 }
 
-export function useMoveArea(organizationId: string, projectId: string) {
+export function useMoveArea(organizationId: string) {
   return useAreaWrite(
     organizationId,
-    projectId,
-    ({ areaId, parentId }: { areaId: string; parentId: string }) =>
-      moveArea(organizationId, projectId, areaId, parentId),
+    ({ areaId, parentId }: { areaId: string; parentId: string | null }) =>
+      moveArea(organizationId, areaId, parentId),
   );
 }
 
-export function useDeleteArea(organizationId: string, projectId: string) {
-  return useAreaWrite(organizationId, projectId, (areaId: string) =>
-    deleteArea(organizationId, projectId, areaId),
+export function useDeleteArea(organizationId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (areaId: string) => deleteArea(organizationId, areaId),
+    onSuccess: (_result, areaId) => {
+      // The area's address answers not found from now on; the page on screen is left at once.
+      void client.invalidateQueries({
+        queryKey: keys.area(organizationId, areaId),
+        refetchType: 'none',
+      });
+      return invalidate(client, ...areaLinkKeys(organizationId));
+    },
+  });
+}
+
+/** Links existing projects to an area, from the area's end. */
+export function useLinkProjectsToArea(organizationId: string, areaId: string) {
+  return useAreaWrite(organizationId, (projectIds: readonly string[]) =>
+    linkProjectsToArea(organizationId, areaId, projectIds),
+  );
+}
+
+export function useLinkTeamsToArea(organizationId: string, areaId: string) {
+  return useAreaWrite(organizationId, (teamIds: readonly string[]) =>
+    linkTeamsToArea(organizationId, areaId, teamIds),
+  );
+}
+
+/** Links existing areas to a project, from the project's end. */
+export function useLinkAreasToProject(organizationId: string, projectId: string) {
+  return useAreaWrite(organizationId, (areaIds: readonly string[]) =>
+    linkAreasToProject(organizationId, projectId, areaIds),
+  );
+}
+
+export function useLinkAreasToTeam(organizationId: string, teamId: string) {
+  return useAreaWrite(organizationId, (areaIds: readonly string[]) =>
+    linkAreasToTeam(organizationId, teamId, areaIds),
+  );
+}
+
+/** The four unlinks of design § 6.2, each from the end whose page it is. */
+export function useUnlinkProjectFromArea(organizationId: string, areaId: string) {
+  return useAreaWrite(organizationId, (projectId: string) =>
+    unlinkProjectFromArea(organizationId, areaId, projectId),
+  );
+}
+
+export function useUnlinkTeamFromArea(organizationId: string, areaId: string) {
+  return useAreaWrite(organizationId, (teamId: string) =>
+    unlinkTeamFromArea(organizationId, areaId, teamId),
+  );
+}
+
+export function useUnlinkAreaFromProject(organizationId: string, projectId: string) {
+  return useAreaWrite(organizationId, (areaId: string) =>
+    unlinkAreaFromProject(organizationId, projectId, areaId),
+  );
+}
+
+export function useUnlinkAreaFromTeam(organizationId: string, teamId: string) {
+  return useAreaWrite(organizationId, (areaId: string) =>
+    unlinkAreaFromTeam(organizationId, teamId, areaId),
   );
 }
 

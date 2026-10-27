@@ -20,8 +20,13 @@ export const PROJECT_TEAM_URL = `${TEAMS_URL}/:teamId`;
 /** The organization's teams (feat-028 api-contract § 2.1): a team's address is the organization's. */
 export const ORG_TEAMS_URL = `${ORGANIZATION_URL}/teams`;
 export const ORG_TEAM_URL = `${ORG_TEAMS_URL}/:teamId`;
-export const AREAS_URL = `${PROJECT_URL}/areas`;
+/** mod-018: the organization's area tree, and the links from the project's and the team's ends. */
+export const AREAS_URL = `${ORGANIZATION_URL}/areas`;
 export const AREA_URL = `${AREAS_URL}/:areaId`;
+export const PROJECT_AREAS_URL = `${PROJECT_URL}/areas`;
+export const PROJECT_AREA_URL = `${PROJECT_AREAS_URL}/:areaId`;
+export const TEAM_AREAS_URL = `${ORG_TEAM_URL}/areas`;
+export const TEAM_AREA_URL = `${TEAM_AREAS_URL}/:areaId`;
 
 /** Stable ids of the dataset: canonical lowercase uuids, never shown on screen. */
 export const ids = {
@@ -84,11 +89,20 @@ export interface LinkRecord {
   teamId: string;
 }
 
+/** mod-018 BR-AW-1: an area is the organization's, a tree of names with an optional description. */
 export interface AreaRecord {
   id: string;
-  projectId: string;
+  organizationId: string;
   parentId: string | null;
   name: string;
+  description?: string | null;
+}
+
+/** One area–project or area–team link (BR-AW-4): at most one per pair. */
+export interface AreaLinkRecord {
+  areaId: string;
+  /** The project or the team the area is linked to. */
+  targetId: string;
 }
 
 /** A user in a team (mod-016 api-contract § 2): the team list's `isMember` reads it. */
@@ -123,6 +137,10 @@ export interface Dataset {
   /** The project–team links; a team with none works on no project, a project with none has no team. */
   links: LinkRecord[];
   areas: AreaRecord[];
+  /** The area–project links; absent: none. */
+  areaProjects?: AreaLinkRecord[];
+  /** The area–team links; absent: none. */
+  areaTeams?: AreaLinkRecord[];
   /** The projection's users (mod-016 § 0.4); empty by default. */
   users?: UserRecord[];
   /**
@@ -188,23 +206,26 @@ export function exampleDataset(): Dataset {
       { projectId: ids.arc, teamId: ids.arcTeam },
     ],
     areas: [
-      area(ids.prmRoot, ids.prm, null, 'Пример проекта'),
-      area(ids.platformArea, ids.prm, ids.prmRoot, 'Платформа'),
-      area(ids.apiArea, ids.prm, ids.platformArea, 'API'),
-      area(ids.gatewayArea, ids.prm, ids.apiArea, 'Шлюз'),
-      area(ids.mobileArea, ids.prm, ids.prmRoot, 'Мобильное приложение'),
-      area(ids.reportsArea, ids.prm, ids.prmRoot, 'Отчёты'),
-      area(ids.anlRoot, ids.anl, null, 'Аналитика'),
-      area(ids.repRoot, ids.rep, null, 'Отчётность'),
-      area(ids.oldRoot, ids.old, null, 'Старый проект'),
-      area(ids.arcRoot, ids.arc, null, 'Архив'),
+      area(ids.platformArea, ids.alfa, null, 'Платформа', 'Платформенные сервисы'),
+      area(ids.apiArea, ids.alfa, ids.platformArea, 'API'),
+      area(ids.gatewayArea, ids.alfa, ids.apiArea, 'Шлюз'),
+      area(ids.mobileArea, ids.alfa, null, 'Мобильное приложение'),
+      area(ids.reportsArea, ids.alfa, null, 'Отчёты'),
+      area(ids.repRoot, ids.beta, null, 'Отчётность'),
     ],
+    areaProjects: [{ areaId: ids.platformArea, targetId: ids.prm }],
+    areaTeams: [{ areaId: ids.platformArea, targetId: ids.platformTeam }],
   };
 }
 
 /** An instance with no organization at all (US-1 «No organization yet»). */
 export function emptyDataset(): Dataset {
   return { organizations: [], projects: [], teams: [], links: [], areas: [] };
+}
+
+/** The state right after the upgrade (mod-018 US-5): the example with no area anywhere. */
+export function noAreasDataset(): Dataset {
+  return { ...exampleDataset(), areas: [], areaProjects: [], areaTeams: [] };
 }
 
 /**
@@ -225,8 +246,14 @@ export function team(
   return { id, organizationId, name, description, deleted: false };
 }
 
-function area(id: string, projectId: string, parentId: string | null, name: string): AreaRecord {
-  return { id, projectId, parentId, name };
+function area(
+  id: string,
+  organizationId: string,
+  parentId: string | null,
+  name: string,
+  description: string | null = null,
+): AreaRecord {
+  return { id, organizationId, parentId, name, description };
 }
 
 /** The organizations module's error catalog (ADR-0006), read once. */

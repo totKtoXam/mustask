@@ -26,6 +26,7 @@ const FEATURES = path.resolve(
 const CONTRACT = path.join(FEATURES, 'mod-016-organization-access/api-contract.md');
 const DELETE_CONTRACT = path.join(FEATURES, 'mod-005-work-item-delete-restore/api-contract.md');
 const TEAMS_CONTRACT = path.join(FEATURES, 'feat-028-org-level-teams/api-contract.md');
+const AREAS_CONTRACT = path.join(FEATURES, 'mod-018-area-workspace/api-contract.md');
 
 /** `code -> [admin, member, viewer]` from the table of mod-016 § 0.2. */
 function contractMatrix(): Map<string, [boolean, boolean, boolean]> {
@@ -90,7 +91,14 @@ describe('the hand-copied role bundles (api-contract § 0.2, feat-028 § 0.1, mo
     for (const code of newTeamCodes()) {
       matrix.set(code, [true, false, false]);
     }
-    expect(matrix.size).toBe(23);
+    // mod-018 api-contract § 0: two more, the administrator's until mod-019 (the contract names them in its
+    // declared-codes line; the backend's role-bundle test holds the table).
+    const areaContract = readFileSync(AREAS_CONTRACT, 'utf8');
+    for (const code of ['organizations.area.create', 'organizations.area.link']) {
+      expect(areaContract).toContain('`' + code.replace('organizations.', '') + '`');
+      matrix.set(code, [true, false, false]);
+    }
+    expect(matrix.size).toBe(25);
     const heldBy = (index: number) =>
       [...matrix].filter(([, held]) => held[index]).map(([code]) => code);
     expect([...ADMIN_CODES].sort()).toEqual(heldBy(0).sort());
@@ -116,7 +124,7 @@ describe('the hand-copied role bundles (api-contract § 0.2, feat-028 § 0.1, mo
     }
     expect(servedFor('viewer').permissions).toHaveLength(7);
     expect(servedFor('member').permissions).toHaveLength(11);
-    expect(servedFor('admin').permissions).toHaveLength(23);
+    expect(servedFor('admin').permissions).toHaveLength(25);
   });
 
   it('leave codes out of a served body, and ask an organization code from the bundle', () => {

@@ -40,8 +40,30 @@ export const organizationsKeys = {
   /** What one unlink would reassign (§ 2.4). */
   unlinkCount: (organizationId: string, projectId: string, teamId: string) =>
     [ROOT, 'unlink-count', organizationId, projectId, teamId] as const,
-  areas: (organizationId: string, projectId: string) =>
-    [ROOT, 'areas', organizationId, projectId] as const,
+  /** The organization's area tree (mod-018 § 2). */
+  areas: (organizationId: string) => [ROOT, 'areas', organizationId] as const,
+  /** An area's page. */
+  area: (organizationId: string, areaId: string) => [ROOT, 'area', organizationId, areaId] as const,
+  /** Every area page of an organization. */
+  areaPages: (organizationId: string) => [ROOT, 'area', organizationId] as const,
+  /** An area's linked projects and teams (§ 3). */
+  areaProjects: (organizationId: string, areaId: string) =>
+    [ROOT, 'area-projects', organizationId, areaId] as const,
+  areaTeams: (organizationId: string, areaId: string) =>
+    [ROOT, 'area-teams', organizationId, areaId] as const,
+  /** Every area's project list of an organization: a link or an unlink refreshes the ones on screen. */
+  areaProjectLists: (organizationId: string) => [ROOT, 'area-projects', organizationId] as const,
+  areaTeamLists: (organizationId: string) => [ROOT, 'area-teams', organizationId] as const,
+  /** What one area's deletion would end (§ 2). */
+  areaDeletion: (organizationId: string, areaId: string) =>
+    [ROOT, 'area-deletion', organizationId, areaId] as const,
+  /** A project's and a team's linked areas (§ 3). */
+  projectAreas: (organizationId: string, projectId: string) =>
+    [ROOT, 'project-areas', organizationId, projectId] as const,
+  teamAreas: (organizationId: string, teamId: string) =>
+    [ROOT, 'team-areas', organizationId, teamId] as const,
+  projectAreaLists: (organizationId: string) => [ROOT, 'project-areas', organizationId] as const,
+  teamAreaLists: (organizationId: string) => [ROOT, 'team-areas', organizationId] as const,
   /**
    * The caller's served access to an organization (mod-016 api-contract
    * § 1.1): its data is an `AccessAnswer` — codes, or the 404 as an answer.

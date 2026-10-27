@@ -3,13 +3,15 @@ import TextField from '@mui/material/TextField';
 import { FormDialog, InlineMultiPickerField, InlineTextArea } from '../../../shared/ui';
 import type { CreateProjectBody, Project, TeamListItem } from '../api/organizationsApi';
 import { useFocusInvalid } from '../hooks/useFocusInvalid';
-import { useOrganizationTeams } from '../hooks/queries';
+import { useAreaTree, useOrganizationTeams } from '../hooks/queries';
+import { areasField } from '../lib/areaTexts';
+import { AreasField, type AreaOption } from './AreaPickers';
 import { placeRefusal, type RefusalField } from '../lib/refusals';
 import { linkDialog, projectTexts } from '../lib/teamTexts';
 import { descriptionError, keyError, nameError } from '../lib/validation';
 import { requiredField } from './requiredField';
 
-type Errors = Partial<Record<'name' | 'key' | 'description' | 'teams', string | null>>;
+type Errors = Partial<Record<'name' | 'key' | 'description' | 'teams' | 'areas', string | null>>;
 
 /**
  * «Новый проект» (US-3; design § 7.4; feat-028 design § 8): «Название» and «Ключ», both checked
@@ -22,6 +24,7 @@ type Errors = Partial<Record<'name' | 'key' | 'description' | 'teams', string | 
 export function CreateProjectDialog({
   organizationId,
   canLink,
+  canLinkAreas = false,
   submit,
   onSucceeded,
   onClose,
@@ -29,6 +32,8 @@ export function CreateProjectDialog({
   organizationId: string;
   /** The user holds `team.link` and `project.link`: «Команды» is drawn. */
   canLink: boolean;
+  /** The user holds `area.link` and `project.link`: «Области» is drawn. */
+  canLinkAreas?: boolean;
   submit(body: CreateProjectBody): Promise<Project>;
   onSucceeded(project: Project): void;
   onClose(contextGone: boolean): void;
@@ -37,6 +42,7 @@ export function CreateProjectDialog({
   const [key, setKey] = useState('');
   const [description, setDescription] = useState('');
   const [teams, setTeams] = useState<TeamListItem[]>([]);
+  const [areas, setAreas] = useState<AreaOption[]>([]);
   const [errors, setErrors] = useState<Errors>({});
   const [alert, setAlert] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -44,6 +50,7 @@ export function CreateProjectDialog({
   const focusInvalid = useFocusInvalid();
   const teamsQuery = useOrganizationTeams(organizationId, { enabled: canLink, fresh: true });
   const teamOptions = teamsQuery.data ?? [];
+  const areasQuery = useAreaTree(organizationId, { enabled: canLinkAreas, fresh: true });
 
   async function handleSubmit() {
     const refused: Errors = {
@@ -63,6 +70,9 @@ export function CreateProjectDialog({
     if (canLink && teams.length > 0) {
       body.teamIds = teams.map((team) => team.id);
     }
+    if (canLinkAreas && areas.length > 0) {
+      body.areaIds = areas.map((area) => area.id);
+    }
     setBusy(true);
     setAlert(null);
     setErrors({});
@@ -73,12 +83,16 @@ export function CreateProjectDialog({
       if (canLink) {
         fields.push('teams');
       }
+      if (canLinkAreas) {
+        fields.push('areas');
+      }
       const placed = placeRefusal(error, fields);
       setErrors({
         name: placed.fields.name ?? null,
         key: placed.fields.key ?? null,
         description: placed.fields.description ?? null,
         teams: placed.fields.teams ?? null,
+        areas: placed.fields.areas ?? null,
       });
       setAlert(placed.alert);
       setContextGone((gone) => gone || placed.contextGone);
@@ -91,6 +105,17 @@ export function CreateProjectDialog({
           if (offered) {
             setTeams((current) =>
               current.filter((team) => offered.some((candidate) => candidate.id === team.id)),
+            );
+          }
+        });
+      }
+      if (placed.fields.areas !== undefined) {
+        // The areas are read again, and a choice no longer offered drops (design § 5.3).
+        void areasQuery.refetch().then((result) => {
+          const offered = result.data;
+          if (offered) {
+            setAreas((current) =>
+              current.filter((area) => offered.some((candidate) => candidate.id === area.id)),
             );
           }
         });
@@ -181,6 +206,21 @@ export function CreateProjectDialog({
           getOptionLabel={(team) => team.name}
           getOptionKey={(team) => team.id}
           isOptionEqualToValue={(first, second) => first.id === second.id}
+        />
+      )}
+      {canLinkAreas && (
+        <AreasField
+          hint={areasField.projectHint}
+          busy={busy}
+          error={errors.areas ?? undefined}
+          value={areas}
+          options={areasQuery.data ?? []}
+          loading={areasQuery.isPending}
+          failed={areasQuery.isError}
+          onChange={(next) => {
+            setAreas(next);
+            setErrors((current) => ({ ...current, areas: null }));
+          }}
         />
       )}
     </FormDialog>

@@ -16,6 +16,7 @@ export { useOrganizationAccess } from './access/useOrganizationAccess';
 export { useServedAccessCheck } from './access/servedAccess';
 export { OrganizationsSection } from './components/OrganizationsSection';
 export { useOrganizationsContextSource } from './context/useOrganizationsContextSource';
+export { AreaPage } from './pages/AreaPage';
 export { AreasPage } from './pages/AreasPage';
 export { MembersPage } from './pages/MembersPage';
 export { OrganizationGeneralPage } from './pages/OrganizationGeneralPage';
@@ -26,20 +27,22 @@ export { ProjectListPage } from './pages/ProjectListPage';
 export { TeamPage } from './pages/TeamPage';
 export { TeamsPage } from './pages/TeamsPage';
 export {
-  AREAS_ROUTE,
   DEACTIVATED_ORGANIZATIONS_ROUTE,
   DEACTIVATED_PROJECTS_ROUTE,
   MEMBERS_ROUTE,
   ORGANIZATIONS_PATH,
   ORGANIZATIONS_ROUTE,
   ORGANIZATION_GENERAL_ROUTE,
+  ORG_AREAS_ROUTE,
+  ORG_AREA_ROUTE,
   ORG_TEAMS_ROUTE,
   ORG_TEAM_ROUTE,
   PROJECTS_ROUTE,
   PROJECT_GENERAL_ROUTE,
   TEAMS_ROUTE,
-  areasPath,
   membersPath,
+  organizationAreaPath,
+  organizationAreasPath,
   organizationGeneralPath,
   organizationTeamPath,
   organizationTeamsPath,
@@ -48,10 +51,6 @@ export {
   teamsPath,
 } from './paths';
 export { organizationsPermissions } from './permissions';
-// mod-003's «Область» picker and its create dialog's root path read the area
-// tree unchanged (its api-contract § 3), on this slice's key.
-export { useAreaTree } from './hooks/queries';
-export type { AreaNode } from './api/organizationsApi';
 // mod-017: the work item's «Команда» picker and the team filter (workitems), and the creation
 // dialog of the project's views, read the project's teams on this slice's key.
 export { useTeams } from './hooks/queries';

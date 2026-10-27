@@ -157,6 +157,10 @@ export function ProjectListPage({ view }: { view: ListView }) {
               access(organizationsPermissions.teamLink, 'organization') &&
               access(organizationsPermissions.projectLink, 'organization')
             }
+            canLinkAreas={
+              access(organizationsPermissions.areaLink, 'organization') &&
+              access(organizationsPermissions.projectLink, 'organization')
+            }
             submit={(body) => createProject.mutateAsync(body)}
             onSucceeded={(project) => {
               setCreating(false);

@@ -19,6 +19,7 @@ export type RefusalField =
   | 'destination'
   | 'teams'
   | 'projects'
+  | 'areas'
   | 'members';
 
 /** Where a write's refusal shows in its dialog. */
@@ -53,6 +54,9 @@ const FIELDS_OF_CODE: Readonly<Record<string, readonly RefusalField[]>> = {
   [codes.teamNameTaken]: ['name'],
   [codes.areaNameTaken]: ['name', 'parent'],
   [codes.areaMoveIntoOwnSubtree]: ['parent'],
+  // mod-018 design §§ 5.1, 5.3: the parent field of a create and of a move.
+  [codes.areaDepthExceeded]: ['parent'],
+  [codes.areaNotFound]: ['parent', 'areas'],
   // mod-017 api-contract § 0.2: a team named in the default-team write is refused under «Команда».
   [codes.teamNotFound]: ['team', 'destination', 'teams'],
   [codes.teamNotInProject]: ['team', 'destination'],

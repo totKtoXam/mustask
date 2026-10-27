@@ -9,7 +9,11 @@ import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
 import { servedFor } from '../../test/organizationRoles';
 import type {
+  Area,
+  AreaDeletion,
   AreaNode,
+  AreaPage,
+  AreaRef,
   DeletionCounts,
   Organization,
   OrganizationListItem,
@@ -18,6 +22,8 @@ import type {
   ProjectTeam,
   Team,
   TeamListItem,
+  LinkedProject,
+  LinkedTeam,
   TeamProject,
 } from './api/organizationsApi';
 import {
@@ -28,10 +34,14 @@ import {
   ORG_TEAMS_URL,
   ORG_TEAM_URL,
   PROBLEM_HEADERS,
+  PROJECT_AREAS_URL,
+  PROJECT_AREA_URL,
   PROJECTS_URL,
   PROJECT_TEAM_URL,
   PROJECT_URL,
   TEAMS_URL,
+  TEAM_AREAS_URL,
+  TEAM_AREA_URL,
   exampleDataset,
   ownedKey,
   problem,
@@ -76,6 +86,9 @@ function byName<T extends { name: string; id: string }>(first: T, second: T): nu
 function sameName(first: string, second: string): boolean {
   return first.trim().localeCompare(second.trim(), 'ru', { sensitivity: 'accent' }) === 0;
 }
+
+/** api-contract § 0: the tree is at most 10 levels deep. */
+const MAX_DEPTH = 10;
 
 const KEY_PATTERN = /^[A-Z][A-Z0-9]{1,9}$/;
 
@@ -204,12 +217,13 @@ export class OrganizationsTestApi {
     }
   }
 
-  private area(project: ProjectRecord, id: string | undefined | null): AreaRecord {
+  /** An area of the organization, or `area.not_found` (an unknown, a foreign or a malformed id alike). */
+  private area(organization: OrganizationRecord, id: string | undefined | null): AreaRecord {
     const found = this.data.areas.find(
       (candidate) =>
         typeof id === 'string' &&
         candidate.id === id.toLowerCase() &&
-        candidate.projectId === project.id,
+        candidate.organizationId === organization.id,
     );
     if (!found) {
       refuse('organizations.area.not_found');
@@ -217,22 +231,51 @@ export class OrganizationsTestApi {
     return found;
   }
 
-  private children(parentId: string): AreaRecord[] {
-    return this.data.areas.filter((candidate) => candidate.parentId === parentId);
+  private children(organizationId: string, parentId: string | null): AreaRecord[] {
+    return this.data.areas.filter(
+      (candidate) => candidate.organizationId === organizationId && candidate.parentId === parentId,
+    );
   }
 
   private pathOf(area: AreaRecord): string {
-    if (area.parentId === null) {
-      return area.name;
-    }
     const names: string[] = [];
     let current: AreaRecord | undefined = area;
-    while (current && current.parentId !== null) {
+    while (current) {
       names.unshift(current.name);
-      const parentId: string = current.parentId;
-      current = this.data.areas.find((candidate) => candidate.id === parentId);
+      const parentId: string | null = current.parentId;
+      current = parentId === null ? undefined : this.data.areas.find((c) => c.id === parentId);
     }
     return names.join(' / ');
+  }
+
+  private depthOf(area: AreaRecord): number {
+    return this.pathOf(area).split(' / ').length - 1;
+  }
+
+  private subtreeIds(area: AreaRecord): Set<string> {
+    const subtree = new Set([area.id]);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const candidate of this.data.areas) {
+        if (candidate.parentId && subtree.has(candidate.parentId) && !subtree.has(candidate.id)) {
+          subtree.add(candidate.id);
+          grew = true;
+        }
+      }
+    }
+    return subtree;
+  }
+
+  /** The height of the subtree under `area`, the area itself counting as 1. */
+  private heightOf(area: AreaRecord): number {
+    return (
+      1 +
+      Math.max(
+        0,
+        ...this.children(area.organizationId, area.id).map((child) => this.heightOf(child)),
+      )
+    );
   }
 
   // ---- answers
@@ -346,36 +389,108 @@ export class OrganizationsTestApi {
     return this.data.ownedItemCounts?.[ownedKey(projectId, teamId)] ?? 0;
   }
 
-  private areaAnswer(area: AreaRecord) {
+  private areaAnswer(area: AreaRecord): Area {
     return {
       id: area.id,
-      projectId: area.projectId,
       parentId: area.parentId,
       name: area.name,
+      description: area.description ?? null,
+      path: this.pathOf(area),
     };
   }
 
-  private tree(project: ProjectRecord): AreaNode[] {
+  private areaRef(area: AreaRecord): AreaRef {
+    return { id: area.id, name: area.name, path: this.pathOf(area) };
+  }
+
+  private tree(organization: OrganizationRecord): AreaNode[] {
     const nodes: AreaNode[] = [];
     const visit = (area: AreaRecord, depth: number) => {
       nodes.push({
         id: area.id,
         parentId: area.parentId,
         name: area.name,
+        description: area.description ?? null,
         path: this.pathOf(area),
         depth,
       });
-      for (const child of this.children(area.id).sort(byName)) {
+      for (const child of this.children(organization.id, area.id).sort(byName)) {
         visit(child, depth + 1);
       }
     };
-    const root = this.data.areas.find(
-      (area) => area.projectId === project.id && area.parentId === null,
-    );
-    if (root) {
-      visit(root, 0);
+    for (const top of this.children(organization.id, null).sort(byName)) {
+      visit(top, 0);
     }
     return nodes;
+  }
+
+  private areaPage(area: AreaRecord): AreaPage {
+    const parent = area.parentId ? this.data.areas.find((c) => c.id === area.parentId) : undefined;
+    return {
+      ...this.areaAnswer(area),
+      parent: parent ? this.areaRef(parent) : null,
+      children: this.children(area.organizationId, area.id)
+        .sort(byName)
+        .map(({ id, name, description }) => ({ id, name, description: description ?? null })),
+    };
+  }
+
+  private linkedProjects(area: AreaRecord): LinkedProject[] {
+    return (this.data.areaProjects ?? [])
+      .filter((link) => link.areaId === area.id)
+      .map((link) => this.data.projects.find((project) => project.id === link.targetId))
+      .filter((project): project is ProjectRecord => project !== undefined && project.active)
+      .sort(byName)
+      .map(({ id, name, key }) => ({ id, name, key }));
+  }
+
+  private linkedTeamsOfArea(area: AreaRecord): LinkedTeam[] {
+    return (this.data.areaTeams ?? [])
+      .filter((link) => link.areaId === area.id)
+      .map((link) => this.data.teams.find((team) => team.id === link.targetId))
+      .filter((team): team is TeamRecord => team !== undefined && !team.deleted)
+      .sort(byName)
+      .map(({ id, name }) => ({ id, name }));
+  }
+
+  private areasOf(
+    links: { areaId: string; targetId: string }[] | undefined,
+    targetId: string,
+  ): AreaRef[] {
+    return (links ?? [])
+      .filter((link) => link.targetId === targetId)
+      .map((link) => this.data.areas.find((area) => area.id === link.areaId))
+      .filter((area): area is AreaRecord => area !== undefined)
+      .map((area) => this.areaRef(area))
+      .sort((first, second) =>
+        first.path.localeCompare(second.path, 'ru', { sensitivity: 'base' }),
+      );
+  }
+
+  /** api-contract § 2: every link the deletion ends, deactivated projects included. */
+  private areaDeletion(area: AreaRecord): AreaDeletion {
+    return {
+      projects: (this.data.areaProjects ?? [])
+        .filter((link) => link.areaId === area.id)
+        .map((link) => this.data.projects.find((project) => project.id === link.targetId))
+        .filter((project): project is ProjectRecord => project !== undefined)
+        .sort(byName)
+        .map(({ id, name, key, active }) => ({ id, name, key, active })),
+      teams: this.linkedTeamsOfArea(area),
+    };
+  }
+
+  private linkArea(list: 'areaProjects' | 'areaTeams', areaId: string, targetId: string): void {
+    const links = (this.data[list] ??= []);
+    if (!links.some((link) => link.areaId === areaId && link.targetId === targetId)) {
+      links.push({ areaId, targetId });
+    }
+  }
+
+  private unlinkArea(list: 'areaProjects' | 'areaTeams', areaId: string, targetId: string): void {
+    this.data[list] = (this.data[list] ?? []).filter(
+      (link) => !(link.areaId === areaId && link.targetId === targetId),
+    );
   }
 
   // ---- writes
@@ -439,6 +554,7 @@ export class OrganizationsTestApi {
     });
     const teamIds = idList(body.teamIds);
     const teams = teamIds.map((teamId) => this.team(organization, teamId));
+    const areas = idList(body.areaIds).map((areaId) => this.area(organization, areaId));
     this.projectNameConflict(organization.id, name);
     if (this.data.projects.some((p) => p.organizationId === organization.id && p.key === key)) {
       refuse('organizations.project.key_taken', { key });
@@ -451,16 +567,12 @@ export class OrganizationsTestApi {
       active: true,
       description: descriptionOf(body.description),
     };
-    const root: AreaRecord = {
-      id: newId('8'),
-      projectId: project.id,
-      parentId: null,
-      name: project.name,
-    };
     this.data.projects.push(project);
-    this.data.areas.push(root);
     for (const team of teams) {
       this.link(project.id, team.id);
+    }
+    for (const area of areas) {
+      this.linkArea('areaProjects', area.id, project.id);
     }
     return this.projectAnswer(project);
   }
@@ -475,12 +587,6 @@ export class OrganizationsTestApi {
     validate({ name: nameReasons(body.name) });
     this.projectNameConflict(project.organizationId, name, project.id);
     project.name = name.trim();
-    const root = this.data.areas.find(
-      (area) => area.projectId === project.id && area.parentId === null,
-    );
-    if (root) {
-      root.name = project.name;
-    }
     return this.projectAnswer(project);
   }
 
@@ -499,6 +605,7 @@ export class OrganizationsTestApi {
     const name = text(body.name);
     validate({ name: nameReasons(body.name), description: descriptionReasons(body.description) });
     const projects = idList(body.projectIds).map((id) => this.activeProject(organization, id));
+    const areas = idList(body.areaIds).map((areaId) => this.area(organization, areaId));
     const memberIds = idList(body.memberIds);
     const members = this.data.memberships;
     for (const userId of memberIds) {
@@ -527,6 +634,9 @@ export class OrganizationsTestApi {
     }
     for (const project of projects) {
       this.link(project.id, team.id);
+    }
+    for (const area of areas) {
+      this.linkArea('areaTeams', area.id, team.id);
     }
     return this.teamAnswer(team);
   }
@@ -613,6 +723,7 @@ export class OrganizationsTestApi {
       }
     }
     this.data.links = this.data.links.filter((link) => link.teamId !== team.id);
+    this.data.areaTeams = (this.data.areaTeams ?? []).filter((link) => link.targetId !== team.id);
     this.data.teamMembers = (this.data.teamMembers ?? []).filter(
       (member) => member.teamId !== team.id,
     );
@@ -684,31 +795,47 @@ export class OrganizationsTestApi {
     );
   }
 
-  private createArea(project: ProjectRecord, body: Record<string, unknown>) {
-    validate({ name: nameReasons(body.name) });
-    const parent = this.area(project, body.parentId as string | null | undefined);
+  /** api-contract § 2: the parent must exist; the tree is at most 10 levels deep. */
+  private createArea(organization: OrganizationRecord, body: Record<string, unknown>) {
+    validate({
+      name: nameReasons(body.name),
+      description: descriptionReasons(body.description),
+    });
+    const parent =
+      body.parentId === null || body.parentId === undefined
+        ? null
+        : this.area(organization, body.parentId as string);
+    const projects = idList(body.projectIds).map((id) => this.activeProject(organization, id));
+    const teams = idList(body.teamIds).map((id) => this.team(organization, id));
     const name = text(body.name).trim();
-    if (this.children(parent.id).some((child) => sameName(child.name, name))) {
+    if (parent && this.depthOf(parent) + 1 >= MAX_DEPTH) {
+      refuse('organizations.area.depth_exceeded');
+    }
+    if (this.children(organization.id, parent?.id ?? null).some((c) => sameName(c.name, name))) {
       refuse('organizations.area.name_taken');
     }
     const area: AreaRecord = {
       id: newId('5'),
-      projectId: project.id,
-      parentId: parent.id,
+      organizationId: organization.id,
+      parentId: parent?.id ?? null,
       name,
+      description: descriptionOf(body.description),
     };
     this.data.areas.push(area);
+    for (const project of projects) {
+      this.linkArea('areaProjects', area.id, project.id);
+    }
+    for (const team of teams) {
+      this.linkArea('areaTeams', area.id, team.id);
+    }
     return this.areaAnswer(area);
   }
 
   private renameArea(area: AreaRecord, body: Record<string, unknown>) {
-    if (area.parentId === null) {
-      refuse('organizations.area.root_is_fixed');
-    }
     validate({ name: nameReasons(body.name) });
     const name = text(body.name).trim();
     if (
-      this.children(area.parentId).some(
+      this.children(area.organizationId, area.parentId).some(
         (child) => child.id !== area.id && sameName(child.name, name),
       )
     ) {
@@ -718,43 +845,46 @@ export class OrganizationsTestApi {
     return this.areaAnswer(area);
   }
 
-  private moveArea(area: AreaRecord, project: ProjectRecord, body: Record<string, unknown>) {
-    if (area.parentId === null) {
-      refuse('organizations.area.root_is_fixed');
-    }
-    const parent = this.area(project, body.parentId as string | null | undefined);
-    const subtree = new Set([area.id]);
-    let grew = true;
-    while (grew) {
-      grew = false;
-      for (const candidate of this.data.areas) {
-        if (candidate.parentId && subtree.has(candidate.parentId) && !subtree.has(candidate.id)) {
-          subtree.add(candidate.id);
-          grew = true;
-        }
-      }
-    }
-    if (subtree.has(parent.id)) {
-      refuse('organizations.area.move_into_own_subtree');
-    }
-    if (
-      parent.id !== area.parentId &&
-      this.children(parent.id).some((child) => sameName(child.name, area.name))
-    ) {
-      refuse('organizations.area.name_taken');
-    }
-    area.parentId = parent.id;
+  private describeArea(area: AreaRecord, body: Record<string, unknown>) {
+    validate({ description: descriptionReasons(body.description) });
+    area.description = descriptionOf(body.description);
     return this.areaAnswer(area);
   }
 
-  private deleteArea(area: AreaRecord): void {
-    if (area.parentId === null) {
-      refuse('organizations.area.root_is_fixed');
+  private moveArea(
+    organization: OrganizationRecord,
+    area: AreaRecord,
+    body: Record<string, unknown>,
+  ) {
+    const parent =
+      body.parentId === null || body.parentId === undefined
+        ? null
+        : this.area(organization, body.parentId as string);
+    if (parent && this.subtreeIds(area).has(parent.id)) {
+      refuse('organizations.area.move_into_own_subtree');
     }
-    if (this.children(area.id).length > 0) {
+    const base = parent ? this.depthOf(parent) + 1 : 0;
+    if (base + this.heightOf(area) > MAX_DEPTH) {
+      refuse('organizations.area.depth_exceeded');
+    }
+    if (
+      (parent?.id ?? null) !== area.parentId &&
+      this.children(organization.id, parent?.id ?? null).some((c) => sameName(c.name, area.name))
+    ) {
+      refuse('organizations.area.name_taken');
+    }
+    area.parentId = parent?.id ?? null;
+    return this.areaAnswer(area);
+  }
+
+  /** api-contract § 2: an area with sub-areas is refused; its links end with it. */
+  private deleteArea(area: AreaRecord): void {
+    if (this.children(area.organizationId, area.id).length > 0) {
       refuse('organizations.area.not_empty');
     }
     this.data.areas.splice(this.data.areas.indexOf(area), 1);
+    this.data.areaProjects = (this.data.areaProjects ?? []).filter((l) => l.areaId !== area.id);
+    this.data.areaTeams = (this.data.areaTeams ?? []).filter((l) => l.areaId !== area.id);
   }
 
   // ---- MSW
@@ -812,9 +942,16 @@ export class OrganizationsTestApi {
       return found;
     };
     const ar = (p: Params) => {
-      const project = pr(p);
-      return { project, area: this.area(project, one(p, 'areaId')) };
+      const organization = this.organization(o(p));
+      return { organization, area: this.area(organization, one(p, 'areaId')) };
     };
+    /** The organization's projects and teams a link names: all or none. */
+    const projectsOf = (organization: OrganizationRecord, body: Record<string, unknown>) =>
+      idList(body.projectIds).map((id) => this.activeProject(organization, id));
+    const teamsOf = (organization: OrganizationRecord, body: Record<string, unknown>) =>
+      idList(body.teamIds).map((id) => this.team(organization, id));
+    const areasOf = (organization: OrganizationRecord, body: Record<string, unknown>) =>
+      idList(body.areaIds).map((id) => this.area(organization, id));
 
     return [
       http.get(
@@ -977,29 +1114,123 @@ export class OrganizationsTestApi {
           this.linkProjectsToTeam(organization, team, b);
         }),
       ),
+      // mod-018 api-contract §§ 2-3: the organization's area tree.
       http.get(
         AREAS_URL,
-        answer(200, (p) => this.tree(pr(p))),
+        answer(200, (p) => this.tree(this.organization(o(p)))),
       ),
       http.post(
         AREAS_URL,
-        answer(201, (p, b) => this.createArea(pr(p), b)),
+        answer(201, (p, b) => this.createArea(this.organization(o(p)), b)),
+      ),
+      http.get(
+        AREA_URL,
+        answer(200, (p) => this.areaPage(ar(p).area)),
       ),
       http.put(
         `${AREA_URL}/name`,
         answer(200, (p, b) => this.renameArea(ar(p).area, b)),
       ),
       http.put(
+        `${AREA_URL}/description`,
+        answer(200, (p, b) => this.describeArea(ar(p).area, b)),
+      ),
+      http.put(
         `${AREA_URL}/parent`,
         answer(200, (p, b) => {
-          const { project, area } = ar(p);
-          return this.moveArea(area, project, b);
+          const { organization, area } = ar(p);
+          return this.moveArea(organization, area, b);
         }),
+      ),
+      http.get(
+        `${AREA_URL}/deletion`,
+        answer(200, (p) => this.areaDeletion(ar(p).area)),
       ),
       http.delete(
         AREA_URL,
         answer(204, (p) => {
           this.deleteArea(ar(p).area);
+        }),
+      ),
+      http.get(
+        `${AREA_URL}/projects`,
+        answer(200, (p) => this.linkedProjects(ar(p).area)),
+      ),
+      http.post(
+        `${AREA_URL}/projects`,
+        answer(204, (p, b) => {
+          const { organization, area } = ar(p);
+          for (const project of projectsOf(organization, b)) {
+            this.linkArea('areaProjects', area.id, project.id);
+          }
+        }),
+      ),
+      http.delete(
+        `${AREA_URL}/projects/:projectId`,
+        answer(204, (p) => {
+          const { area } = ar(p);
+          this.unlinkArea('areaProjects', area.id, one(p, 'projectId')?.toLowerCase() ?? '');
+        }),
+      ),
+      http.get(
+        `${AREA_URL}/teams`,
+        answer(200, (p) => this.linkedTeamsOfArea(ar(p).area)),
+      ),
+      http.post(
+        `${AREA_URL}/teams`,
+        answer(204, (p, b) => {
+          const { organization, area } = ar(p);
+          for (const team of teamsOf(organization, b)) {
+            this.linkArea('areaTeams', area.id, team.id);
+          }
+        }),
+      ),
+      http.delete(
+        `${AREA_URL}/teams/:teamId`,
+        answer(204, (p) => {
+          const { area } = ar(p);
+          this.unlinkArea('areaTeams', area.id, one(p, 'teamId')?.toLowerCase() ?? '');
+        }),
+      ),
+      // The project's and the team's ends of the same links.
+      http.get(
+        PROJECT_AREAS_URL,
+        answer(200, (p) => this.areasOf(this.data.areaProjects, pr(p).id)),
+      ),
+      http.post(
+        PROJECT_AREAS_URL,
+        answer(204, (p, b) => {
+          const project = pr(p);
+          for (const area of areasOf(this.organization(o(p)), b)) {
+            this.linkArea('areaProjects', area.id, project.id);
+          }
+        }),
+      ),
+      http.delete(
+        PROJECT_AREA_URL,
+        answer(204, (p) => {
+          const project = pr(p);
+          this.unlinkArea('areaProjects', one(p, 'areaId')?.toLowerCase() ?? '', project.id);
+        }),
+      ),
+      http.get(
+        TEAM_AREAS_URL,
+        answer(200, (p) => this.areasOf(this.data.areaTeams, tm(p).team.id)),
+      ),
+      http.post(
+        TEAM_AREAS_URL,
+        answer(204, (p, b) => {
+          const { organization, team } = tm(p);
+          for (const area of areasOf(organization, b)) {
+            this.linkArea('areaTeams', area.id, team.id);
+          }
+        }),
+      ),
+      http.delete(
+        TEAM_AREA_URL,
+        answer(204, (p) => {
+          const { team } = tm(p);
+          this.unlinkArea('areaTeams', one(p, 'areaId')?.toLowerCase() ?? '', team.id);
         }),
       ),
     ];

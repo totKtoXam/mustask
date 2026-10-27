@@ -26,11 +26,7 @@ describe('mod-002 US-3 Scenario: Created ready to use', () => {
   it('shows both helpers; sends name and key; the row appears, the page stays, the notice', async () => {
     const { api, dialog, name, key, submit } = await openCreate();
     expect(name).toHaveFocus();
-    expect(
-      within(dialog).getByText(
-        'От 1 до 100 символов. Так же будет названа корневая область проекта.',
-      ),
-    ).toBeInTheDocument();
+    expect(within(dialog).getByText('От 1 до 100 символов.')).toBeInTheDocument();
     expect(
       within(dialog).getByText(
         'От 2 до 10 латинских заглавных букв и цифр, начиная с буквы. С ключа начинаются номера рабочих элементов, после создания он не меняется.',

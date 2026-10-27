@@ -506,13 +506,6 @@ export const ALLOWED: readonly AllowedEntry[] = [
     reason: 'a MUI menu; forms and dialogs move to the kit in tech-018',
   },
   {
-    file: 'features/organizations/components/AreaDialogs.tsx',
-    rule: 'KIT-1',
-    count: 5,
-    until: 'tech-018',
-    reason: 'a MUI field; forms and dialogs move to the kit in tech-018',
-  },
-  {
     file: 'features/organizations/components/ChangeRoleDialog.tsx',
     rule: 'KIT-1',
     count: 2,
@@ -766,31 +759,10 @@ export const ALLOWED: readonly AllowedEntry[] = [
   },
   {
     file: 'features/workitems/components/CreateWorkItemDialog.tsx',
-    rule: 'KIT-2',
-    count: 2,
-    until: 'tech-018',
-    reason: 'a MUI button; forms and dialogs move to the kit in tech-018',
-  },
-  {
-    file: 'features/workitems/components/CreateWorkItemDialog.tsx',
     rule: 'KIT-3',
     count: 2,
     until: 'tech-018',
     reason: 'a MUI menu; forms and dialogs move to the kit in tech-018',
-  },
-  {
-    file: 'features/workitems/components/CreateWorkItemDialog.tsx',
-    rule: 'KIT-5',
-    count: 2,
-    until: 'tech-018',
-    reason: 'a MUI alert; forms and dialogs move to the kit in tech-018',
-  },
-  {
-    file: 'features/workitems/components/CreateWorkItemDialog.tsx',
-    rule: 'KIT-10',
-    count: 2,
-    until: 'tech-018',
-    reason: 'a MUI skeleton or spinner; forms and dialogs move to the kit in tech-018',
   },
   {
     file: 'features/workitems/components/Marks.tsx',

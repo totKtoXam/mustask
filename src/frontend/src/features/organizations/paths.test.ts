@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   MEMBERS_ROUTE,
   ORGANIZATIONS_ROUTES,
-  areasPath,
+  organizationAreaPath,
+  organizationAreasPath,
   deactivatedProjectsPath,
   membersPath,
   organizationGeneralPath,
@@ -15,7 +16,7 @@ import {
 import { organizationsPermissions } from './permissions';
 
 describe('mod-002 design § 1, mod-016 design § 1 and feat-028 design § 1: the slice’s routes', () => {
-  it('are exactly the eleven, under mod-015 D-17’s prefixes', () => {
+  it('are exactly the twelve, under mod-015 D-17’s prefixes', () => {
     expect(ORGANIZATIONS_ROUTES).toEqual([
       '/organizations',
       '/organizations/deactivated',
@@ -25,9 +26,10 @@ describe('mod-002 design § 1, mod-016 design § 1 and feat-028 design § 1: the
       '/organizations/:organizationId/settings/members',
       '/organizations/:organizationId/settings/teams',
       '/organizations/:organizationId/settings/teams/:teamId',
+      '/organizations/:organizationId/settings/areas',
+      '/organizations/:organizationId/settings/areas/:areaId',
       '/organizations/:organizationId/projects/:projectId/settings/general',
       '/organizations/:organizationId/projects/:projectId/settings/teams',
-      '/organizations/:organizationId/projects/:projectId/settings/areas',
     ]);
   });
 
@@ -46,7 +48,8 @@ describe('mod-002 design § 1, mod-016 design § 1 and feat-028 design § 1: the
     expect(teamsPath('o', 'p')).toBe('/organizations/o/projects/p/settings/teams');
     expect(organizationTeamsPath('o 1')).toBe('/organizations/o%201/settings/teams');
     expect(organizationTeamPath('o', 't?')).toBe('/organizations/o/settings/teams/t%3F');
-    expect(areasPath('o', 'p')).toBe('/organizations/o/projects/p/settings/areas');
+    expect(organizationAreasPath('o')).toBe('/organizations/o/settings/areas');
+    expect(organizationAreaPath('o', 'a b')).toBe('/organizations/o/settings/areas/a%20b');
   });
 });
 
@@ -78,6 +81,8 @@ describe('mod-002 US-1 Scenario: No screen grants the right to create organizati
       'organizations.project.link',
       'organizations.area.read',
       'organizations.area.write',
+      'organizations.area.create',
+      'organizations.area.link',
       'organizations.organization.create',
     ]);
   });

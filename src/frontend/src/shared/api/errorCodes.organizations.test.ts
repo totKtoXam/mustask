@@ -47,6 +47,7 @@ const CONTRACT_TABLE: readonly (readonly [string, number, readonly string[]])[] 
   ['organizations.area.move_into_own_subtree', 409, []],
   ['organizations.area.is_team_default', 409, ['team']],
   ['organizations.area.not_empty', 409, []],
+  ['organizations.area.depth_exceeded', 409, []],
   ['organizations.area.root_is_fixed', 409, []],
   // mod-016 api-contract § 5: the scoped check, the memberships and the team members.
   ['organizations.access.forbidden', 403, []],

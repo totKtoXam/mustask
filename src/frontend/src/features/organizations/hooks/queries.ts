@@ -1,6 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import {
+  getArea,
+  getAreaDeletion,
+  getAreaProjects,
+  getAreaTeams,
   getAreaTree,
+  getProjectAreas,
+  getTeamAreas,
   getDeletionCounts,
   getOrganization,
   getOrganizationTeams,
@@ -143,15 +149,79 @@ export function useUnlinkCount(organizationId: string, projectId: string, teamId
   });
 }
 
+/**
+ * The organization's area tree (mod-018 § 2). `fresh`: a dialog that offers the areas reads them
+ * again when it opens (design § 6.1).
+ */
 export function useAreaTree(
   organizationId: string,
-  projectId: string,
+  options: { enabled?: boolean; fresh?: boolean } = {},
+) {
+  return useQuery({
+    queryKey: organizationsKeys.areas(organizationId),
+    queryFn: () => getAreaTree(organizationId),
+    enabled: options.enabled ?? true,
+    refetchOnMount: options.fresh ? 'always' : true,
+  });
+}
+
+/** An area's page: its parent and its direct children (§ 2). */
+export function useArea(organizationId: string, areaId: string) {
+  return useQuery({
+    queryKey: organizationsKeys.area(organizationId, areaId),
+    queryFn: () => getArea(organizationId, areaId),
+  });
+}
+
+/** An area's active projects, its own links only (§ 3). `fresh`: as a dialog opens. */
+export function useAreaProjects(organizationId: string, areaId: string) {
+  return useQuery({
+    queryKey: organizationsKeys.areaProjects(organizationId, areaId),
+    queryFn: () => getAreaProjects(organizationId, areaId),
+  });
+}
+
+export function useAreaTeams(organizationId: string, areaId: string) {
+  return useQuery({
+    queryKey: organizationsKeys.areaTeams(organizationId, areaId),
+    queryFn: () => getAreaTeams(organizationId, areaId),
+  });
+}
+
+/**
+ * mod-018 § 2: what an area's deletion would end, read when the confirmation opens and kept for no
+ * longer (`gcTime: 0`). Never retried: a failure is the dialog's «Повторить». `enabled` is off while
+ * the tree already says the area has children (design § 5.4).
+ */
+export function useAreaDeletion(
+  organizationId: string,
+  areaId: string,
   options: { enabled?: boolean } = {},
 ) {
   return useQuery({
-    queryKey: organizationsKeys.areas(organizationId, projectId),
-    queryFn: () => getAreaTree(organizationId, projectId),
+    queryKey: organizationsKeys.areaDeletion(organizationId, areaId),
+    queryFn: () => getAreaDeletion(organizationId, areaId),
     enabled: options.enabled ?? true,
+    gcTime: 0,
+    retry: false,
+  });
+}
+
+/** A project's linked areas, by path (§ 3). */
+export function useProjectAreas(organizationId: string, projectId: string, enabled = true) {
+  return useQuery({
+    enabled,
+    queryKey: organizationsKeys.projectAreas(organizationId, projectId),
+    queryFn: () => getProjectAreas(organizationId, projectId),
+  });
+}
+
+/** A team's linked areas, by path (§ 3). */
+export function useTeamAreas(organizationId: string, teamId: string, enabled = true) {
+  return useQuery({
+    enabled,
+    queryKey: organizationsKeys.teamAreas(organizationId, teamId),
+    queryFn: () => getTeamAreas(organizationId, teamId),
   });
 }
 

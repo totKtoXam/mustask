@@ -13,6 +13,7 @@ const NAME: readonly RefusalField[] = ['name'];
 const PROJECT: readonly RefusalField[] = ['name', 'key'];
 const MOVE: readonly RefusalField[] = ['parent'];
 const DEFAULT_TEAM: readonly RefusalField[] = ['team'];
+const AREAS: readonly RefusalField[] = ['areas'];
 const CONFIRM: readonly RefusalField[] = [];
 
 describe('mod-002 design § 4.4: every refusal lands where the table says, by its code', () => {
@@ -74,6 +75,16 @@ describe('mod-002 design § 4.4: every refusal lands where the table says, by it
       'Нельзя переместить область внутрь неё самой или её вложенной области',
       {},
     ],
+    [
+      'organizations.area.depth_exceeded',
+      MOVE,
+      'parent',
+      'Дерево областей не может быть глубже 10 уровней',
+      {},
+    ],
+    // mod-018 design §§ 5.1, 5.3: a vanished chosen parent or area lands on its field.
+    ['organizations.area.not_found', MOVE, 'parent', 'Область не найдена.', {}],
+    ['organizations.area.not_found', AREAS, 'areas', 'Область не найдена.', {}],
     ['organizations.team.not_found', DEFAULT_TEAM, 'team', 'Команда не найдена.', {}],
     [
       'organizations.team.not_in_project',
@@ -99,15 +110,14 @@ describe('mod-002 design § 4.4: every refusal lands where the table says, by it
     ['organizations.organization.create_forbidden', 'Недостаточно прав', {}],
     [
       'organizations.area.not_empty',
-      'Нельзя удалить область, в которой есть рабочие элементы (включая удалённые) или вложенные области',
+      'Нельзя удалить область, в которой есть вложенные области',
       {},
     ],
     // The row of `organizations.team.last_team_cannot_be_deleted` is retired by name with the guard
     // (doc-012 P-1, feat-028 BR-OL-10): a project may have no team and the server no longer answers it.
     ['organizations.area.root_is_fixed', 'Корневая область меняется только вместе с проектом', {}],
-    ['organizations.area.not_found', 'Область не найдена.', {}],
   ])('%s → the dialog’s Alert with the server’s text', (code, text, params) => {
-    const placed = placeRefusal(refusal(code, params), ['name', 'key', 'parent']);
+    const placed = placeRefusal(refusal(code, params), ['name', 'key']);
 
     expect(placed.fields).toEqual({});
     expect(placed.alert).toBe(text);
@@ -118,6 +128,8 @@ describe('mod-002 design § 4.4: every refusal lands where the table says, by it
     ['organizations.organization.not_found', 'Организация не найдена.'],
     ['organizations.project.not_found', 'Проект не найден.'],
     ['organizations.team.not_found', 'Команда не найдена.'],
+    // The page’s own area, or one the form names with no field to show it.
+    ['organizations.area.not_found', 'Область не найдена.'],
   ])('%s → the Alert, and the page’s context is gone', (code, text) => {
     const placed = placeRefusal(refusal(code), NAME);
 
@@ -231,11 +243,11 @@ describe('mod-002 design § 4.4: every refusal lands where the table says, by it
 });
 
 describe('mod-002 design § 12: the not-found code picks the frame', () => {
-  it('maps the three page levels and nothing else', () => {
+  it('maps the four page levels and nothing else', () => {
     expect(notFoundLevel(refusal('organizations.organization.not_found'))).toBe('organization');
     expect(notFoundLevel(refusal('organizations.project.not_found'))).toBe('project');
     expect(notFoundLevel(refusal('organizations.team.not_found'))).toBe('team');
-    expect(notFoundLevel(refusal('organizations.area.not_found'))).toBeNull();
+    expect(notFoundLevel(refusal('organizations.area.not_found'))).toBe('area');
     expect(notFoundLevel(refusal('organizations.team.name_taken'))).toBeNull();
     expect(notFoundLevel(new ApiError(404, null))).toBeNull();
     expect(notFoundLevel(new Error('x'))).toBeNull();

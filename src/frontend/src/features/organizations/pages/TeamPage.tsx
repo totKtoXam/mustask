@@ -24,6 +24,7 @@ import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
 import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
 import { NotFound } from '../../../shared/ui/StateFrame';
 import type { TeamProject } from '../api/organizationsApi';
+import { EndAreasSection } from '../components/EndAreasSection';
 import { FactsPanel } from '../components/FactsPanel';
 import { LinkDialog, type LinkOption } from '../components/LinkDialog';
 import { useNotify } from '../components/notice';
@@ -221,6 +222,14 @@ export function TeamPage() {
           )}
         </Section>
       </Box>
+      {team && (
+        <EndAreasSection
+          end="team"
+          organizationId={organizationId}
+          ownerId={team.id}
+          ownerName={team.name}
+        />
+      )}
       {team && (
         <TeamMembersSection
           organizationId={organizationId}

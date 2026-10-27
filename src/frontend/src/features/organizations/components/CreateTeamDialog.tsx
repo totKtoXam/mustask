@@ -10,7 +10,9 @@ import {
 import type { CreateTeamBody, ProjectListItem, Team } from '../api/organizationsApi';
 import { useFocusInvalid } from '../hooks/useFocusInvalid';
 import { useFocusOnMount } from '../hooks/useFocusOnMount';
-import { useProjects } from '../hooks/queries';
+import { useAreaTree, useProjects } from '../hooks/queries';
+import { areasField } from '../lib/areaTexts';
+import { AreasField, type AreaOption } from './AreaPickers';
 import { useUserSearch } from '../hooks/useUserSearch';
 import { placeRefusal, type RefusalField } from '../lib/refusals';
 import { createTeamDialog, linkDialog } from '../lib/teamTexts';
@@ -43,6 +45,7 @@ function sameProject(first: ProjectListItem, second: ProjectListItem): boolean {
 export function CreateTeamDialog({
   organizationId,
   canLink,
+  canLinkAreas = false,
   submit,
   onSucceeded,
   onClose,
@@ -50,6 +53,8 @@ export function CreateTeamDialog({
   organizationId: string;
   /** The user holds `team.link` and `project.link`: «Проекты» is drawn. */
   canLink: boolean;
+  /** The user holds `area.link` and `team.link`: «Области» is drawn. */
+  canLinkAreas?: boolean;
   submit(body: CreateTeamBody): Promise<Team>;
   onSucceeded(team: Team): void;
   /** `contextGone`: the organization answered not found; the page reads itself again. */
@@ -61,6 +66,7 @@ export function CreateTeamDialog({
   const [memberText, setMemberText] = useState('');
   const [typed, setTyped] = useState('');
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
+  const [areas, setAreas] = useState<AreaOption[]>([]);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [alert, setAlert] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -78,6 +84,7 @@ export function CreateTeamDialog({
     ...members.filter((chosen) => !shown.some((option) => sameOption(option, chosen))),
   ];
   const projectOptions = projectsQuery.data ?? [];
+  const areasQuery = useAreaTree(organizationId, { enabled: canLinkAreas, fresh: true });
 
   async function handleSubmit() {
     const refused: FieldErrors = {};
@@ -101,6 +108,9 @@ export function CreateTeamDialog({
     if (canLink && projects.length > 0) {
       body.projectIds = projects.map((project) => project.id);
     }
+    if (canLinkAreas && areas.length > 0) {
+      body.areaIds = areas.map((area) => area.id);
+    }
     setBusy(true);
     setAlert(null);
     setErrors({});
@@ -110,6 +120,9 @@ export function CreateTeamDialog({
       const fields: RefusalField[] = ['name', 'description', 'members'];
       if (canLink) {
         fields.push('projects');
+      }
+      if (canLinkAreas) {
+        fields.push('areas');
       }
       const placed = placeRefusal(error, fields);
       setErrors(placed.fields);
@@ -124,6 +137,17 @@ export function CreateTeamDialog({
           if (offered) {
             setProjects((current) =>
               current.filter((project) => offered.some((candidate) => candidate.id === project.id)),
+            );
+          }
+        });
+      }
+      if (placed.fields.areas !== undefined) {
+        // The areas are read again, and a choice no longer offered drops (design § 5.3).
+        void areasQuery.refetch().then((result) => {
+          const offered = result.data;
+          if (offered) {
+            setAreas((current) =>
+              current.filter((area) => offered.some((candidate) => candidate.id === area.id)),
             );
           }
         });
@@ -239,6 +263,21 @@ export function CreateTeamDialog({
               </Typography>
             </Box>
           )}
+        />
+      )}
+      {canLinkAreas && (
+        <AreasField
+          hint={areasField.teamHint}
+          busy={busy}
+          error={errors.areas}
+          value={areas}
+          options={areasQuery.data ?? []}
+          loading={areasQuery.isPending}
+          failed={areasQuery.isError}
+          onChange={(next) => {
+            setAreas(next);
+            setErrors((current) => ({ ...current, areas: undefined }));
+          }}
         />
       )}
     </FormDialog>
