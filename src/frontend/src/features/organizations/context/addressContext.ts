@@ -1,12 +1,14 @@
 /**
  * The context an address carries under mod-015 D-17's prefixes:
- * `/organizations/:organizationId/…` and
- * `/organizations/:organizationId/projects/:projectId/…`. An id is carried
+ * `/organizations/:organizationId/…`,
+ * `/organizations/:organizationId/projects/:projectId/…` and, since feat-040 (BR-TS-1), a
+ * team's views at `/organizations/:organizationId/teams/:teamId/…`. An id is carried
  * only when a segment follows it — `/organizations/deactivated` and
- * `/organizations/:o` alone are not pages (design § 1) and carry nothing. A
- * team's page carries the organization and the project only: its team is the
- * page's entity, not a context level (design § 3.4). The team-level prefix
- * `…/teams/:t/…` carries the team too; no page of mod-002 lives there.
+ * `/organizations/:o` alone are not pages (design § 1) and carry nothing. A team
+ * address carries the organization and the team and no project: the project level shows its
+ * current selection, and choosing a project there moves nothing (ADR-0024 § 2). The retired
+ * project-nested `…/projects/:p/teams/:t/…` carries the project only: its page answers
+ * «Страница не найдена» and names no team.
  *
  * Ids are returned decoded, as the lists hold them, and never validated.
  */
@@ -32,9 +34,8 @@ export function addressContext(pathname: string): AddressContext {
   const context: AddressContext = { organizationId: decoded(segments[1]) };
   if (segments[2] === 'projects' && segments[3] !== undefined && segments.length > 4) {
     context.projectId = decoded(segments[3]);
-    if (segments[4] === 'teams' && segments[5] !== undefined && segments.length > 6) {
-      context.teamId = decoded(segments[5]);
-    }
+  } else if (segments[2] === 'teams' && segments[3] !== undefined && segments.length > 4) {
+    context.teamId = decoded(segments[3]);
   }
   return context;
 }

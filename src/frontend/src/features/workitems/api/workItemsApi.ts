@@ -9,7 +9,10 @@
 // `children`, the save's `parent`, the «Родитель» picker's search, and the
 // parent write on its own that a team's backlog maps a row with (§ 3.2).
 // feat-022's api-contract § 1–§ 3 adds the 17 fields per type to the item and
-// to the save.
+// to the save. mod-005's api-contract § 1.1 adds the item's `deletion` and § 2 its
+// three writes — delete, restore and purge. feat-003's api-contract adds the list's
+// `state`, `assigneeId` and `search` (§ 2.1), the row's assignee flags (§ 1.1) and the
+// «Исполнитель» filter's options (§ 2.2).
 import { apiFetch } from '../../../shared/api/httpClient';
 
 /** § 1.1 `type`: as mod-001's process read gives it. */
@@ -46,6 +49,30 @@ export interface WorkItemAssignee {
   isMember?: boolean;
 }
 
+/**
+ * mod-005 api-contract § 1.1 `deletion.by`: a user reference. `displayName` is `null` when
+ * the directory does not know the id (and `isActive` is then `false` too); `isMember` is
+ * whether the user is now a member of the item's organization, in any role.
+ */
+export interface WorkItemUserReference {
+  id: string;
+  displayName: string | null;
+  isActive: boolean;
+  isMember: boolean;
+}
+
+/**
+ * mod-005 api-contract § 1.1 `deletion`: the record of the latest deletion (BR-DR-2) — the
+ * state the item held (the restore's preset), who deleted it and when. The item is deleted
+ * exactly when its `state.category.code` is `Removed`, never when this is set: an item put
+ * there outside Delete has none (BR-DR-10).
+ */
+export interface WorkItemDeletion {
+  fromState: WorkItemStateReference;
+  by: WorkItemUserReference;
+  at: string;
+}
+
 /** § 1.1 `area`: its current path (mod-002 DC-9), the root by its own name. */
 export interface WorkItemArea {
   id: string;
@@ -57,6 +84,15 @@ export interface WorkItemArea {
  * `null` on the item is «Без команды». A deleted team never appears.
  */
 export interface WorkItemTeam {
+  id: string;
+  name: string;
+}
+
+/**
+ * feat-040 api-contract § 2.1: the item's project as it stands now (a rename shows at once). Every
+ * item has one; the card's «Проект» reads it (BR-TS-3).
+ */
+export interface WorkItemProject {
   id: string;
   name: string;
 }
@@ -131,6 +167,8 @@ export interface WorkItem extends WorkItemFields {
   identifier: string;
   number: number;
   projectId: string;
+  /** feat-040 api-contract § 4.2: the project with its name, beside `projectId`, which stays. */
+  project: WorkItemProject;
   type: WorkItemTypeReference;
   title: string;
   /** `""` when empty, never `null` (§ 0.6). */
@@ -154,22 +192,44 @@ export interface WorkItem extends WorkItemFields {
    * rank descending, then by number — shown as received; `[]` for none.
    */
   children: WorkItemRef[];
+  /** mod-005 § 1.1: `null` for a live item and for one in «Удалена» that has no marks. */
+  deletion: WorkItemDeletion | null;
+}
+
+/**
+ * feat-003 api-contract § 1.1: a row's assignee. It gains `isActive` (the directory's flag, `false`
+ * for an id the directory does not know) beside `isMember`, so the list's column reads the marks
+ * the card's field does not carry until feat-017 (OQ-2 A).
+ */
+export interface WorkItemListAssignee {
+  id: string;
+  displayName: string | null;
+  email: string | null;
+  isActive: boolean;
+  isMember: boolean;
 }
 
 /**
  * § 1.2: a row of the list; feat-001 § 2.2 leaves it without the hierarchy,
- * feat-022 § 2 without the fields per type (BR-M3-40).
+ * feat-022 § 2 without the fields per type (BR-M3-40). feat-003 § 1.1: its assignee carries the
+ * marks. A row in «Удалена» reads like any row: its state is the Removed one.
  */
 export type WorkItemListItem = Omit<
   WorkItem,
   | 'projectId'
+  | 'project'
   | 'description'
   | 'createdBy'
   | 'createdAt'
   | 'parent'
   | 'children'
+  | 'deletion'
+  | 'assignee'
   | WorkItemFieldName
->;
+> & {
+  /** `null`: «Не назначен». */
+  assignee: WorkItemListAssignee | null;
+};
 
 /** § 2.1: ADR-0015's `Paging<T>`; `count` is the number of items that match the filter (mod-017 § 2.1). */
 export interface WorkItemPage {
@@ -177,8 +237,22 @@ export interface WorkItemPage {
   data: WorkItemListItem[];
 }
 
-/** § 2.1: the list's fixed page size; the route takes `page` only. */
+/** § 2.1: the list's fixed page size; the route takes `page` and the filter. */
 export const WORK_ITEMS_PAGE_SIZE = 50;
+
+/**
+ * feat-003 api-contract § 1.2: an option of the «Исполнитель» filter — a person assigned to the
+ * project's items. `displayName` and `email` are `null` (and `isActive` `false`) for an id the user
+ * directory does not know; `email` is `""` for a known user without one; `isMember` is the
+ * membership alone.
+ */
+export interface AssigneeFilterOption {
+  id: string;
+  displayName: string | null;
+  email: string | null;
+  isActive: boolean;
+  isMember: boolean;
+}
 
 /** § 2.2's body; feat-022 § 3.1: none of the fields per type (BR-M3-40). */
 export interface CreateWorkItemBody {
@@ -307,16 +381,67 @@ export function teamFilterQuery(teamIds: readonly string[]): string {
   return teamIds.map((teamId) => `&teamId=${encodeURIComponent(teamId)}`).join('');
 }
 
-/** § 2.1: one page of the project's list, 1-based, narrowed by the team filter when it is set. */
+/**
+ * feat-003 api-contract § 2.1, § 3: the list's four filter dimensions as the address and the read
+ * carry them. Each of `teamId`, `state` and `assigneeId` is one value per chosen option (any of them
+ * matches); `search` is the trimmed keyword, `""` for none.
+ */
+export interface WorkItemListFilter {
+  /** Team ids and `none` (`NO_TEAM_FILTER_VALUE`). */
+  teamId: string[];
+  /** State names as stored. */
+  state: string[];
+  /** User ids and `none` (`NO_ASSIGNEE_FILTER_VALUE`). */
+  assigneeId: string[];
+  search: string;
+}
+
+/** The filter with nothing set: the whole list. */
+export const NO_LIST_FILTER: WorkItemListFilter = {
+  teamId: [],
+  state: [],
+  assigneeId: [],
+  search: '',
+};
+
+/** feat-003 api-contract § 2.1: the filter's value for «Не назначен» (`assigneeId=none`). */
+export const NO_ASSIGNEE_FILTER_VALUE = 'none';
+
+/** The `state=…` members of a read, one per chosen name (api-contract § 2.1). */
+export function stateFilterQuery(states: readonly string[]): string {
+  return states.map((name) => `&state=${encodeURIComponent(name)}`).join('');
+}
+
+/** The members the list's read adds to `?page=`: team, state, assignee, keyword — blank left out. */
+function listFilterQuery(filter: WorkItemListFilter): string {
+  const assignees = filter.assigneeId.map((id) => `&assigneeId=${encodeURIComponent(id)}`).join('');
+  const keyword = filter.search === '' ? '' : `&search=${encodeURIComponent(filter.search)}`;
+  return `${teamFilterQuery(filter.teamId)}${stateFilterQuery(filter.state)}${assignees}${keyword}`;
+}
+
+/** § 2.1: one page of the project's list, 1-based, narrowed by the filter when it is set. */
 export function getWorkItems(
   organizationId: string,
   projectId: string,
   page: number,
-  teamIds: readonly string[] = [],
+  filter: WorkItemListFilter = NO_LIST_FILTER,
 ): Promise<WorkItemPage> {
   return apiFetch(
-    `${workItemsApiPath(organizationId, projectId)}?page=${page}${teamFilterQuery(teamIds)}`,
+    `${workItemsApiPath(organizationId, projectId)}?page=${page}${listFilterQuery(filter)}`,
   );
+}
+
+/**
+ * feat-003 api-contract § 2.2: the options of «Исполнитель» — the people assigned to the project's
+ * items, those of its deleted items too while a chosen state names one (the server judges). Unpaged.
+ */
+export function getAssigneeFilterOptions(
+  organizationId: string,
+  projectId: string,
+  states: readonly string[],
+): Promise<AssigneeFilterOption[]> {
+  const query = stateFilterQuery(states).replace(/^&/, '?');
+  return apiFetch(`${workItemsApiPath(organizationId, projectId)}/assignee-options${query}`);
 }
 
 /** § 2.2: 201 creates; 200 is a replay of the same `requestId` — the same item either way. */
@@ -347,6 +472,47 @@ export function saveWorkItem(
   return apiFetch(workItemApiPath(organizationId, projectId, identifier), {
     method: 'PATCH',
     body,
+  });
+}
+
+/**
+ * mod-005 api-contract § 2.1: moves the item into its type's «Удалена» and records the state
+ * it held, who and when (no body). 409 `workitems.workitem.deleted` when it already is.
+ */
+export function deleteWorkItem(
+  organizationId: string,
+  projectId: string,
+  identifier: string,
+): Promise<WorkItem> {
+  return apiFetch(`${workItemApiPath(organizationId, projectId, identifier)}/delete`, {
+    method: 'POST',
+  });
+}
+
+/**
+ * mod-005 api-contract § 2.2: a deleted item back to `stateId`, a state of its type other than
+ * «Удалена»; without one, the state it held. 409 `not_deleted` comes before 409 `state_not_allowed`.
+ */
+export function restoreWorkItem(
+  organizationId: string,
+  projectId: string,
+  identifier: string,
+  stateId?: string,
+): Promise<WorkItem> {
+  return apiFetch(`${workItemApiPath(organizationId, projectId, identifier)}/restore`, {
+    method: 'POST',
+    body: stateId === undefined ? undefined : { stateId },
+  });
+}
+
+/** mod-005 api-contract § 2.3: removes a deleted item for good (administrator); 204, no body. */
+export function purgeWorkItem(
+  organizationId: string,
+  projectId: string,
+  identifier: string,
+): Promise<void> {
+  return apiFetch(`${workItemApiPath(organizationId, projectId, identifier)}/purge`, {
+    method: 'POST',
   });
 }
 

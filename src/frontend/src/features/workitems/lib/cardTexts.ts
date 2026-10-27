@@ -8,6 +8,8 @@ export const cardTexts = {
   description: { label: 'Описание', placeholder: 'Добавьте описание' },
   assignee: { label: 'Исполнитель' },
   state: { label: 'Статус' },
+  /** feat-040 design § 7: the item's project, read-only, block A row 2 under «Статус» (D-2). */
+  project: { label: 'Проект' },
   area: { label: 'Область' },
   parent: { label: 'Родитель' },
   /** The Save group: its name, the main button, the arrow and the one variant. */
@@ -36,6 +38,71 @@ export const cardTexts = {
   },
   /** The title of the error banner and of the loading card's page heading. */
   frame: { errorTitle: 'Рабочий элемент', notFoundHint: 'Проверьте адрес или закройте окно.' },
+} as const;
+
+/**
+ * mod-005 design § 2-§ 6 and § 8: the card's delete, restore and purge, word for word. A
+ * string the spec does not quote is marked ◆ in the design and is the design's all the same.
+ */
+export const deletionTexts = {
+  /** «⋮»'s entries (§ 2). */
+  menu: { delete: 'Удалить', purge: 'Удалить навсегда' },
+  /** The header's one filled button on a deleted card (§ 4). */
+  restore: 'Восстановить',
+  /** The deleted card's information notice (§ 4): the first sentence, and the second for a holder of the delete code. */
+  notice: {
+    readOnly: 'Рабочий элемент удалён и доступен только для чтения.',
+    restoreHint: 'Восстановите его, чтобы вносить изменения.',
+  },
+  /** The marks after a deleter's name (BR-13). */
+  inactiveMark: 'неактивен',
+  notMemberMark: 'не в организации',
+  /** ◆ The notice's second line: who deleted the item and when. */
+  line: (name: string, when: string): string => `Удалил(а): ${name}, ${when}`,
+  /** «Удалить» (§ 3). */
+  delete: {
+    title: 'Удалить рабочий элемент?',
+    confirm: 'Удалить',
+    /** The three parts of one paragraph: always the first, the second with live children, the third with a draft. */
+    text: (identifier: string, children: number, draft: boolean): string =>
+      [
+        `Рабочий элемент ${identifier} получит статус «Удалена». Его можно будет восстановить.`,
+        children > 0
+          ? `Дочерние элементы (${children}) не удаляются: пока он удалён, в бэклогах они показываются без родителя.`
+          : null,
+        draft ? 'Несохранённые изменения будут потеряны.' : null,
+      ]
+        .filter((part) => part !== null)
+        .join(' '),
+    done: (identifier: string): string => `Рабочий элемент ${identifier} удалён.`,
+  },
+  /** «Восстановить» (§ 5). */
+  restoreDialog: {
+    title: 'Восстановить рабочий элемент?',
+    confirm: 'Восстановить',
+    text: (identifier: string): string =>
+      `Рабочий элемент ${identifier} вернётся в списки, на доски и в бэклоги.`,
+    field: 'Статус после восстановления',
+    /** ◆ While the preset is the state held at deletion. */
+    hint: 'Выбран статус, в котором рабочий элемент был перед удалением.',
+    /** ◆ When the stored parent is itself deleted. */
+    deletedParent: (parent: string): string =>
+      `Родитель ${parent} удалён: пока он не восстановлен, в бэклогах рабочий элемент показывается без родителя.`,
+    done: (identifier: string): string => `Рабочий элемент ${identifier} восстановлен.`,
+  },
+  /** «Удалить навсегда» (§ 6). */
+  purgeDialog: {
+    title: 'Удалить рабочий элемент навсегда?',
+    confirm: 'Удалить навсегда',
+    text: (identifier: string, title: string, children: number): string =>
+      [
+        `Рабочий элемент ${identifier} «${title}» будет удалён без возможности восстановления.`,
+        children > 0 ? `Дочерние элементы (${children}) останутся без родителя.` : null,
+      ]
+        .filter((part) => part !== null)
+        .join(' '),
+    done: (identifier: string): string => `Рабочий элемент ${identifier} удалён навсегда.`,
+  },
 } as const;
 
 /** «Изменён: <дата>» — the band's stamp; the date is `formatDateTime`'s. */

@@ -79,6 +79,20 @@
       "kk": "Бұл пайдаланушыны орындаушы етіп тағайындауға болмайды.",
       "kkNeedsReview": true
     },
+    "workitems.workitem.deleted": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Рабочий элемент удалён и доступен только для чтения.",
+      "kk": "Жұмыс элементі жойылған және тек оқуға арналған.",
+      "kkNeedsReview": true
+    },
+    "workitems.workitem.not_deleted": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Рабочий элемент не удалён.",
+      "kk": "Жұмыс элементі жойылмаған.",
+      "kkNeedsReview": true
+    },
     "workitems.link.parent_not_found": {
       "statuses": [404],
       "params": {},

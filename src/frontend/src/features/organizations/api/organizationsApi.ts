@@ -57,9 +57,13 @@ export interface TeamListProject {
   name: string;
 }
 
-/** feat-028 api-contract § 1.2: a row of the organization's list of teams. */
+/**
+ * feat-028 api-contract § 1.2: a row of the organization's list of teams; feat-040 api-contract
+ * § 4.1 adds whether the caller is in the team, which orders the switcher's team level (BR-TS-10).
+ */
 export interface TeamListItem extends Team {
   projects: TeamListProject[];
+  isMember: boolean;
 }
 
 /** feat-028 api-contract § 1.2: a project on a team's page (active projects only). */

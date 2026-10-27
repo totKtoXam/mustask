@@ -5,11 +5,8 @@ using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
 using Mustask.Application.Abstractions.UserDirectory;
 using Mustask.Application.Abstractions.WorkItems;
-using Mustask.Application.Features.Boards.GetBacklog;
-using Mustask.Application.Features.Boards.GetBoard;
 using Mustask.Application.Features.Boards.GetProjectBacklog;
 using Mustask.Application.Features.Boards.GetProjectBoard;
-using Mustask.Application.Features.Boards.ReorderBacklog;
 using Mustask.Application.Features.Organizations.DeleteTeam;
 using Mustask.Application.Features.Organizations.GetTeamOwnedItemCount;
 using Mustask.Application.Features.Organizations.GetTeam;
@@ -48,12 +45,9 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
 
     // Pinned: a change to one of these is a change to the query shape and is made on purpose (the numbers are the first run's).
     private const int ListStatements = 7;
-    private const int TeamBacklogStatements = 10;
-    private const int TeamBoardStatements = 12;
     private const int TeamsListStatements = 2;
     private const int OwnedCountStatements = 3;
-    private const int DeletionStatements = 11;
-    private const int ReorderStatements = 16;
+    private const int DeletionStatements = 13;   // 11 + the hierarchy lock's two statements (mod-005 QD-1)
     private const int ItemGetStatements = 7;
     private const int TeamGetStatements = 1;
     private const int TeamChangeSaveStatements = 16;
@@ -76,38 +70,9 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
         }
     }
 
-    [Fact]
-    public async Task TeamBacklog_StoriesAndEpics_TheSameNumberOfStatements_For50AsFor5000Items()
-    {
-        var (small, large) = await SeedBothAsync();
-
-        var smallStories = await CountAsync((provider, ct) => provider.GetRequiredService<GetBacklogHandler>()
-            .Handle(new GetBacklogQuery(small.OrganizationId.ToString(), small.ProjectId.ToString(), Id(small.OwnTeam), "stories"), ct));
-        var largeStories = await CountAsync((provider, ct) => provider.GetRequiredService<GetBacklogHandler>()
-            .Handle(new GetBacklogQuery(large.OrganizationId.ToString(), large.ProjectId.ToString(), Id(large.OwnTeam), "stories"), ct));
-        var smallEpics = await CountAsync((provider, ct) => provider.GetRequiredService<GetBacklogHandler>()
-            .Handle(new GetBacklogQuery(small.OrganizationId.ToString(), small.ProjectId.ToString(), Id(small.OwnTeam), "epics"), ct));
-        var largeEpics = await CountAsync((provider, ct) => provider.GetRequiredService<GetBacklogHandler>()
-            .Handle(new GetBacklogQuery(large.OrganizationId.ToString(), large.ProjectId.ToString(), Id(large.OwnTeam), "epics"), ct));
-
-        Assert.Equal(smallStories, largeStories);
-        Assert.Equal(smallEpics, largeEpics);
-        Assert.Equal(TeamBacklogStatements, largeStories);
-    }
-
-    [Fact]
-    public async Task TeamBoard_TheSameNumberOfStatements_For50AsFor5000Items()
-    {
-        var (small, large) = await SeedBothAsync();
-
-        var smallBoard = await CountAsync((provider, ct) => provider.GetRequiredService<GetBoardHandler>()
-            .Handle(new GetBoardQuery(small.OrganizationId.ToString(), small.ProjectId.ToString(), Id(small.OwnTeam), "stories"), ct));
-        var largeBoard = await CountAsync((provider, ct) => provider.GetRequiredService<GetBoardHandler>()
-            .Handle(new GetBoardQuery(large.OrganizationId.ToString(), large.ProjectId.ToString(), Id(large.OwnTeam), "stories"), ct));
-
-        Assert.Equal(smallBoard, largeBoard);
-        Assert.Equal(TeamBoardStatements, largeBoard);
-    }
+    // feat-040 BR-TS-13 (P-1): the team backlog's and board's statement counts of mod-017 (one project, `TeamBacklog_StoriesAndEpics_…`,
+    // `TeamBoard_…`, `TeamReorder_…`) are retired with their constants: the team's views read across projects at the team's address, and
+    // `TeamViewStatementCountTests` pins the count of the new shape.
 
     // A filter adds no statement: the project's backlog and board, filtered by a team, by none and by both, take the statements of
     // the unfiltered ones (mod-017 BR-OT-8).
@@ -174,20 +139,6 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
 
         Assert.Equal(smallCount, largeCount);
         Assert.Equal(DeletionStatements, largeCount);
-    }
-
-    [Fact]
-    public async Task TeamReorder_TheSameNumberOfStatements_For50AsFor5000Items()
-    {
-        var (small, large) = await SeedBothAsync();
-
-        var smallReorder = await CountAsync((provider, ct) => provider.GetRequiredService<ReorderBacklogHandler>()
-            .Handle(new ReorderBacklogCommand(small.OrganizationId.ToString(), small.ProjectId.ToString(), Id(small.OwnTeam), "stories", small.FirstOwnStory.ToString(), "bottom", null), ct));
-        var largeReorder = await CountAsync((provider, ct) => provider.GetRequiredService<ReorderBacklogHandler>()
-            .Handle(new ReorderBacklogCommand(large.OrganizationId.ToString(), large.ProjectId.ToString(), Id(large.OwnTeam), "stories", large.FirstOwnStory.ToString(), "bottom", null), ct));
-
-        Assert.Equal(smallReorder, largeReorder);
-        Assert.Equal(ReorderStatements, largeReorder);
     }
 
     // One item by its identifier: the team it carries comes with the item's own statements, not with a statement of its own per team.

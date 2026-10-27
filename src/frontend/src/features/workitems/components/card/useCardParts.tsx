@@ -1,4 +1,5 @@
 import { Fragment, useId, useState, type ReactNode } from 'react';
+import Box from '@mui/material/Box';
 import {
   BoxedTabPanel,
   BoxedTabs,
@@ -115,7 +116,20 @@ function partsOf(
     />
   );
   const alert = frame.notice ? (
-    <InlineNotice severity={frame.notice.severity}>{frame.notice.text}</InlineNotice>
+    <InlineNotice severity={frame.notice.severity}>
+      {frame.notice.detail === undefined ? (
+        frame.notice.text
+      ) : (
+        <>
+          <Box component="span" sx={{ display: 'block' }}>
+            {frame.notice.text}
+          </Box>
+          <Box component="span" sx={{ display: 'block' }}>
+            {frame.notice.detail}
+          </Box>
+        </>
+      )}
+    </InlineNotice>
   ) : undefined;
   const body = (
     <>

@@ -64,7 +64,7 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
     }
 
     public Task<Guid?> FindCreatedByRequestAsync(Guid projectId, Guid requestId, CancellationToken cancellationToken) =>
-        context.WorkItems
+        WorkItemSets.InAnyState(context)
             .AsNoTracking()
             .Where(item => item.ProjectId == projectId && item.CreationRequestId == requestId)
             .Select(item => (Guid?)item.Id)
@@ -76,7 +76,8 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
             $"SELECT 1 FROM work_items WHERE project_id = {projectId} AND number = {number} FOR UPDATE",
             cancellationToken);
 
-        return await context.WorkItems.SingleOrDefaultAsync(item => item.ProjectId == projectId && item.Number == number, cancellationToken);
+        // Any state: Delete, Restore and Purge lock a deleted item, and a save reads it to refuse it (ADR-0030 rule 3).
+        return await WorkItemSets.InAnyState(context).SingleOrDefaultAsync(item => item.ProjectId == projectId && item.Number == number, cancellationToken);
     }
 
     public async Task<bool> LockAreaAsync(Guid projectId, Guid areaId, CancellationToken cancellationToken)
@@ -89,17 +90,11 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
         return await context.Areas.AnyAsync(area => area.Id == areaId && area.ProjectId == projectId, cancellationToken);
     }
 
-    public async Task LockHierarchyAsync(Guid projectId, CancellationToken cancellationToken)
-    {
-        // A concurrent first parent write of the project waits here on the other's uncommitted key, then does nothing.
-        await context.Database.ExecuteSqlInterpolatedAsync(
-            $"INSERT INTO work_item_hierarchy_locks (project_id) VALUES ({projectId}) ON CONFLICT (project_id) DO NOTHING",
-            cancellationToken);
-
-        await context.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT 1 FROM work_item_hierarchy_locks WHERE project_id = {projectId} FOR UPDATE",
-            cancellationToken);
-    }
+    // The one statement pair every taker of the hierarchy lock shares (WorkItemHierarchyLocks): a concurrent first parent write of the
+    // project waits at the insert on the other's uncommitted key, then does nothing. A team's unlink and deletion take it too, through
+    // IWorkItemTeamOwnership, for the projects they reach (mod-005 QD-1).
+    public Task LockHierarchyAsync(Guid projectId, CancellationToken cancellationToken) =>
+        WorkItemHierarchyLocks.AcquireAsync(context, [projectId], cancellationToken);
 
     public async Task<ParentWrite?> LockParentWriteAsync(WorkItem child, Guid? newParentId, Guid? seenParentId, CancellationToken cancellationToken)
     {
@@ -142,8 +137,7 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
     /// columns, not those of a SQL source EF composes over.
     /// </summary>
     public async Task<IReadOnlyCollection<HierarchyLink>> AncestryAsync(Guid projectId, Guid workItemId, CancellationToken cancellationToken) =>
-        await context.WorkItems
-            .FromSqlInterpolated($"""
+        await WorkItemSets.InAnyStateFromSql(context, $"""
                 WITH RECURSIVE ancestry (id, project_id, parent_id, type_id, number) AS (
                     SELECT item.id, item.project_id, item.parent_id, item.type_id, item.number
                     FROM work_items AS item
@@ -160,7 +154,39 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
             .Select(item => new HierarchyLink(item.Id, item.ParentId, item.TypeId, item.Number))
             .ToListAsync(cancellationToken);
 
-    public void Add(WorkItem item) => context.WorkItems.Add(item);
+    public async Task<IReadOnlyList<Guid>?> LockForPurgeAsync(Guid projectId, Guid workItemId, CancellationToken cancellationToken)
+    {
+        // The item and its direct children by id, in ONE statement: ORDER BY is applied before the locks are taken, so every
+        // caller that locks several items takes them in ascending id (ADR-0028 rule 8) and a purge and a team's deletion or unlink
+        // never deadlock. FOR NO KEY UPDATE is a parent write's link-end mode: a reorder's FOR KEY SHARE is never waited on.
+        var ids = await context.Database
+            .SqlQuery<Guid>(
+                $"""
+                 SELECT id AS "Value"
+                 FROM work_items
+                 WHERE project_id = {projectId} AND (id = {workItemId} OR parent_id = {workItemId})
+                 ORDER BY id
+                 FOR NO KEY UPDATE
+                 """)
+            .ToListAsync(cancellationToken);
+
+        return ids.Contains(workItemId) ? ids.Where(id => id != workItemId).ToList() : null;
+    }
+
+    public Task<WorkItem?> FindLockedAsync(Guid projectId, Guid workItemId, CancellationToken cancellationToken) =>
+        WorkItemSets.InAnyState(context).SingleOrDefaultAsync(item => item.Id == workItemId && item.ProjectId == projectId, cancellationToken);
+
+    public Task ReleaseChildrenAsync(Guid projectId, Guid workItemId, DateTimeOffset now, CancellationToken cancellationToken) =>
+        // One set-based statement for any number of children, in the caller's transaction. It writes a reference and "changed_at"
+        // alone — never the state or a mark of a deletion, which only the aggregate writes (WorkItemAccessRules).
+        context.Database.ExecuteSqlInterpolatedAsync(
+            $"UPDATE work_items SET parent_id = NULL, changed_at = {now} WHERE project_id = {projectId} AND parent_id = {workItemId}",
+            cancellationToken);
+
+    // The context's set is named in WorkItemSets alone (the text rule of WorkItemAccessRules): a write goes through the context.
+    public void Add(WorkItem item) => context.Add(item);
+
+    public void Remove(WorkItem item) => context.Remove(item);
 
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
@@ -188,7 +214,7 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
             $"SELECT 1 FROM work_items WHERE id = {workItemId} AND project_id = {projectId} FOR NO KEY UPDATE",
             cancellationToken);
 
-        return await context.WorkItems.SingleOrDefaultAsync(item => item.Id == workItemId && item.ProjectId == projectId, cancellationToken);
+        return await WorkItemSets.InAnyState(context).SingleOrDefaultAsync(item => item.Id == workItemId && item.ProjectId == projectId, cancellationToken);
     }
 
     /// <summary>

@@ -6,8 +6,8 @@ using Mustask.Domain.Organizations;
 namespace Mustask.Api.IntegrationTests.Features.Boards;
 
 /// <summary>
-/// <c>GET /api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}/backlogs/{level}</c>
-/// (mod-006 api-contract § 3.1): a team's backlog of one level — US-1, and
+/// <c>GET /api/organizations/{organizationId}/teams/{teamId}/backlogs/{level}</c>
+/// (mod-006 api-contract § 3.1, moved to the team's address by feat-040 § 3.1): a team's backlog of one level — US-1, and
 /// US-7's backlog scenarios, where a change made elsewhere moves items on and
 /// off it at the next read.
 /// </summary>
@@ -60,7 +60,10 @@ public sealed class GetBacklogEndpointTests(MustaskApiFactory factory)
         Assert.Equal([story.Identifier, bug.Identifier], await BoardsTestData.RowsAsync(factory, world, world.PlatformId));
     }
 
-    // US-1 · "Items nobody has ordered yet are listed by number" (BR-M4-13): «Порядок» 1, 2, 3 by identifier number.
+    // US-1 · "Items nobody has ordered yet are listed by number" (BR-M4-13): «Порядок» 1, 2, 3 by identifier number — rewritten by
+    // feat-040 (BR-TS-6): a team's unplaced items stand by creation time, then project key, then number; within one project the
+    // number grows with the creation time, so the order a user sees is the order they were made in. The cross-project tie-break is
+    // TeamOrderAcrossProjectsEndpointTests'.
     [Fact]
     public async Task Get_NeverReordered_ListsByNumber()
     {
@@ -158,8 +161,7 @@ public sealed class GetBacklogEndpointTests(MustaskApiFactory factory)
     [Theory]
     [InlineData("team-malformed", "organizations.team.not_found", "Команда не найдена.")]
     [InlineData("team-deleted", "organizations.team.not_found", "Команда не найдена.")]
-    [InlineData("team-of-another-project", "organizations.team.not_found", "Команда не найдена.")]
-    [InlineData("project-deactivated", "organizations.project.not_found", "Проект не найден.")]
+    [InlineData("team-of-another-organization", "organizations.team.not_found", "Команда не найдена.")]
     [InlineData("organization-unknown", "organizations.organization.not_found", "Организация не найдена.")]
     [InlineData("level-tasks", "boards.level.not_found", "Уровень бэклога не найден.")]
     [InlineData("level-capitalized", "boards.level.not_found", "Уровень бэклога не найден.")]
@@ -174,33 +176,34 @@ public sealed class GetBacklogEndpointTests(MustaskApiFactory factory)
         Assert.Equal(detail, answer.Detail);
     }
 
-    /// <summary>The address of US-1's not-found outline, for <c>backlogs</c> or <c>boards</c>.</summary>
+    /// <summary>
+    /// The address of US-1's not-found outline, for <c>backlogs</c> or <c>boards</c>: the team's own, with no project in it
+    /// (feat-040 BR-TS-1). A deactivated project is no case of the team's address (it has no project level, BR-TS-1); a team of
+    /// <b>another organization</b> is the case that replaces mod-006's "team of another project" (BR-TS-13).
+    /// </summary>
     internal static async Task<string> NotFoundAddressAsync(MustaskApiFactory factory, BoardsWorld world, string part, string surface)
     {
-        string Address(object organization, object project, object team, string level) =>
-            $"/api/organizations/{organization}/projects/{project}/teams/{team}/{surface}/{level}";
+        string Address(object organization, object team, string level) =>
+            $"/api/organizations/{organization}/teams/{team}/{surface}/{level}";
 
         switch (part)
         {
             case "team-malformed":
-                return Address(world.OrganizationId, world.ProjectId, "not-a-team", "stories");
+                return Address(world.OrganizationId, "not-a-team", "stories");
             case "team-deleted":
                 var (deleted, _) = await BoardsTestData.AddTeamAsync(factory, world, "Удаляемая");
                 await OrganizationsTestData.DeleteTeamAsync(factory, world.ProjectId, deleted);
-                return Address(world.OrganizationId, world.ProjectId, deleted, "stories");
-            case "team-of-another-project":
-                var other = await WorkItemsTestData.AddProjectAsync(factory, world.Items, "OTH", "Другой проект");
-                var foreign = await OrganizationsTestData.AddTeamAsync(factory, other.ProjectId, "Чужая");
-                return Address(world.OrganizationId, world.ProjectId, foreign.Id, "stories");
-            case "project-deactivated":
-                await OrganizationsTestData.SetProjectStatusAsync(factory, world.OrganizationId, world.ProjectId, ProjectStatus.Deactivated);
-                return Address(world.OrganizationId, world.ProjectId, world.PlatformId, "stories");
+                return Address(world.OrganizationId, deleted, "stories");
+            case "team-of-another-organization":
+                var other = await OrganizationsTestData.CreateOrganizationAsync(factory);
+                var foreign = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, other.Id, "Другая команда");
+                return Address(world.OrganizationId, foreign.Id, "stories");
             case "organization-unknown":
-                return Address(Guid.CreateVersion7(), world.ProjectId, world.PlatformId, "stories");
+                return Address(Guid.CreateVersion7(), world.PlatformId, "stories");
             case "level-tasks":
-                return Address(world.OrganizationId, world.ProjectId, world.PlatformId, "tasks");
+                return Address(world.OrganizationId, world.PlatformId, "tasks");
             case "level-capitalized":
-                return Address(world.OrganizationId, world.ProjectId, world.PlatformId, "Stories");
+                return Address(world.OrganizationId, world.PlatformId, "Stories");
             default:
                 throw new ArgumentOutOfRangeException(nameof(part), part, "Unknown part.");
         }

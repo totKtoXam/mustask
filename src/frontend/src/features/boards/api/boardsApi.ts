@@ -13,6 +13,10 @@
 // and `valueArea` to every row. feat-039's api-contract § 3 adds the project's
 // own backlog, reorder and board: the same rows, cards and columns over every
 // item of the project, answered with `project` where the team's answer has `team`.
+// feat-040's api-contract moves a team's views to the team's address (§ 3, no project in
+// it), adds the repeated `projectId` filter and `projects` (the team's linked active
+// projects) to both reads, and `project` to every row, child and card of every backlog
+// and board (§ 2).
 import { apiFetch } from '../../../shared/api/httpClient';
 import {
   teamFilterQuery,
@@ -67,6 +71,8 @@ export interface BacklogItem {
   priority: number;
   /** mod-017 api-contract § 1.5: the owning team, `null` for «Без команды». */
   team: WorkItemTeam | null;
+  /** feat-040 api-contract § 2.3: the item's project as it stands now; every item has one. */
+  project: BoardProject;
 }
 
 /**
@@ -144,9 +150,14 @@ export interface BacklogSurface {
   items: BacklogRow[];
 }
 
-/** § 3.1's answer: a team's backlog. */
+/**
+ * feat-040 api-contract § 3.1's answer: a team's backlog over every project it works on.
+ * `projects` are the team's linked active projects by name — the filter's options, the empty
+ * state's and the create command's source — and are not narrowed by the filter.
+ */
 export interface Backlog extends BacklogSurface {
   team: BoardTeam;
+  projects: BoardProject[];
 }
 
 /** feat-039 api-contract § 3.1's answer: the project's backlog. */
@@ -188,9 +199,10 @@ export interface BoardSurface {
   columns: BoardColumn[];
 }
 
-/** § 3.3's answer: a team's board. */
+/** feat-040 api-contract § 3.3's answer: a team's board over every project it works on. */
 export interface Board extends BoardSurface {
   team: BoardTeam;
+  projects: BoardProject[];
 }
 
 /** feat-039 api-contract § 3.3's answer: the project's board. */
@@ -200,51 +212,60 @@ export interface ProjectBoard extends BoardSurface {
 
 const segment = encodeURIComponent;
 
-function teamApiPath(organizationId: string, projectId: string, teamId: string): string {
-  return `/api/organizations/${segment(organizationId)}/projects/${segment(projectId)}/teams/${segment(teamId)}`;
+/** feat-040 api-contract § 3: a team's views are under the team alone, `/api/organizations/{o}/teams/{t}`. */
+function teamApiPath(organizationId: string, teamId: string): string {
+  return `/api/organizations/${segment(organizationId)}/teams/${segment(teamId)}`;
 }
 
-function backlogApiPath(
-  organizationId: string,
-  projectId: string,
-  teamId: string,
-  level: BoardLevelCode,
-): string {
-  return `${teamApiPath(organizationId, projectId, teamId)}/backlogs/${level}`;
+function backlogApiPath(organizationId: string, teamId: string, level: BoardLevelCode): string {
+  return `${teamApiPath(organizationId, teamId)}/backlogs/${level}`;
 }
 
-/** § 3.1: a team's backlog of one level. */
+/**
+ * `?projectId=…&projectId=…` for a team view's project filter (feat-040 api-contract § 3.1, BR-TS-8),
+ * nothing without one: one parameter per chosen value, as sent from the address.
+ */
+export function projectFilterQuery(projectIds: readonly string[]): string {
+  return projectIds.length === 0
+    ? ''
+    : `?${projectIds.map((projectId) => `projectId=${encodeURIComponent(projectId)}`).join('&')}`;
+}
+
+/** § 3.1: a team's backlog of one level, over every project, narrowed by the project filter when it is set. */
 export function getBacklog(
   organizationId: string,
-  projectId: string,
   teamId: string,
   level: BoardLevelCode,
+  projectIds: readonly string[] = [],
 ): Promise<Backlog> {
-  return apiFetch(backlogApiPath(organizationId, projectId, teamId, level));
+  return apiFetch(
+    `${backlogApiPath(organizationId, teamId, level)}${projectFilterQuery(projectIds)}`,
+  );
 }
 
-/** § 3.2: 204 with no body; the panel reads § 3.1 again. */
+/** § 3.2: 204 with no body; the panel reads § 3.1 again. The filter is not sent: a reorder runs against the full list. */
 export function reorderBacklog(
   organizationId: string,
-  projectId: string,
   teamId: string,
   level: BoardLevelCode,
   body: ReorderBody,
 ): Promise<void> {
-  return apiFetch(`${backlogApiPath(organizationId, projectId, teamId, level)}/reorder`, {
+  return apiFetch(`${backlogApiPath(organizationId, teamId, level)}/reorder`, {
     method: 'POST',
     body,
   });
 }
 
-/** § 3.3: a team's board of one level. */
+/** § 3.3: a team's board of one level, over every project, narrowed by the project filter when it is set. */
 export function getBoard(
   organizationId: string,
-  projectId: string,
   teamId: string,
   level: BoardLevelCode,
+  projectIds: readonly string[] = [],
 ): Promise<Board> {
-  return apiFetch(`${teamApiPath(organizationId, projectId, teamId)}/boards/${level}`);
+  return apiFetch(
+    `${teamApiPath(organizationId, teamId)}/boards/${level}${projectFilterQuery(projectIds)}`,
+  );
 }
 
 function projectApiPath(organizationId: string, projectId: string): string {

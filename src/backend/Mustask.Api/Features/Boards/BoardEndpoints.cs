@@ -16,10 +16,11 @@ using Microsoft.Extensions.Options;
 namespace Mustask.Api.Features.Boards;
 
 /// <summary>
-/// M4's routes (mod-006 api-contract § 3), each wired to its own slice. They sit
-/// under a team of a project of <c>/api/organizations/{organizationId}/…</c>, each
-/// behind the scoped check of its organization code (mod-016 api-contract § 4.2,
-/// rows 35–37); beside them, the project's own backlog, reorder and board
+/// M4's routes (mod-006 api-contract § 3), each wired to its own slice. A team's backlog, reorder and board sit under the
+/// team of <c>/api/organizations/{organizationId}/teams/{teamId}</c> — the team's address names no project (feat-040
+/// api-contract § 3, BR-TS-1); the three routes of the project-nested address are not served and have no alias — each
+/// behind the scoped check of its organization code (mod-016 api-contract § 4.2, rows 35–37, which feat-040 § 6 replaces);
+/// beside them, the project's own backlog, reorder and board
 /// (feat-039 api-contract § 3), under the project with no team. Route parameters are plain strings with no constraint, so a
 /// malformed id or an unknown level reaches the handler and gets its level's
 /// not-found code instead of a routing 404. A card move and a creation are
@@ -31,9 +32,10 @@ public static class BoardEndpoints
 
     public static IEndpointRouteBuilder MapBoardEndpoints(this IEndpointRouteBuilder app)
     {
-        var team = app.MapGroup("/api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}").WithTags(Tag);
+        var team = app.MapGroup("/api/organizations/{organizationId}/teams/{teamId}").WithTags(Tag);
 
-        // § 3.1. The team's backlog of a level. Written with BacklogJson (feat-027): the answer is a tree.
+        // § 3.1. The team's backlog of a level, over every active project of the organization the team owns items in.
+        // Written with BacklogJson (feat-027): the answer is a tree.
         team.MapGet("/backlogs/{level}", GetBacklogAsync)
             .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead)
             .Produces<BacklogResponse>()
@@ -92,21 +94,23 @@ public static class BoardEndpoints
         return app;
     }
 
+    // feat-040 api-contract § 3.1: the project filter is the repeated `projectId` — a project's id. Nothing is validated here: a
+    // value that names no project the team's items are in selects nothing, and the handler's filter says so alike for every such
+    // value.
     private static async Task<IResult> GetBacklogAsync(
         string organizationId,
-        string projectId,
         string teamId,
         string level,
+        [Microsoft.AspNetCore.Mvc.FromQuery(Name = "projectId")] string[]? projectId,
         GetBacklogHandler handler,
         IOptions<JsonOptions> json,
         CancellationToken cancellationToken) =>
         TypedResults.Json(
-            await handler.Handle(new GetBacklogQuery(organizationId, projectId, teamId, level), cancellationToken),
+            await handler.Handle(new GetBacklogQuery(organizationId, teamId, level, projectId), cancellationToken),
             BacklogJson.For(json.Value.SerializerOptions));
 
     private static async Task<IResult> ReorderBacklogAsync(
         string organizationId,
-        string projectId,
         string teamId,
         string level,
         ReorderBacklogRequest? request,
@@ -114,15 +118,20 @@ public static class BoardEndpoints
         CancellationToken cancellationToken)
     {
         await handler.Handle(
-            new ReorderBacklogCommand(organizationId, projectId, teamId, level, request?.ItemId, request?.Position, request?.AfterItemId),
+            new ReorderBacklogCommand(organizationId, teamId, level, request?.ItemId, request?.Position, request?.AfterItemId),
             cancellationToken);
 
         return Results.NoContent();
     }
 
     private static async Task<IResult> GetBoardAsync(
-        string organizationId, string projectId, string teamId, string level, GetBoardHandler handler, CancellationToken cancellationToken) =>
-        Results.Ok(await handler.Handle(new GetBoardQuery(organizationId, projectId, teamId, level), cancellationToken));
+        string organizationId,
+        string teamId,
+        string level,
+        [Microsoft.AspNetCore.Mvc.FromQuery(Name = "projectId")] string[]? projectId,
+        GetBoardHandler handler,
+        CancellationToken cancellationToken) =>
+        Results.Ok(await handler.Handle(new GetBoardQuery(organizationId, teamId, level, projectId), cancellationToken));
 
     // mod-017 api-contract § 3: the team filter is the repeated `teamId` — a team's id or `none`. Nothing is validated here: a
     // value that names no team of the project selects nothing, and the handler's filter says so alike for every such value.

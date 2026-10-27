@@ -233,8 +233,8 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
         Assert.Equal(expected.Keys.Order(StringComparer.Ordinal), actual.Keys.Order(StringComparer.Ordinal));
         Assert.All(expected, pair => Assert.Equal(pair.Value, actual[pair.Key]));
         // feat-028 api-contract § 4: eight project-nested team routes out, sixteen organization-level ones in — 47 + 8 = 55 — and, at
-        // gate-3, the creation form's member search (§ 2.3a) — 56.
-        Assert.Equal(56, expected.Count);
+        // gate-3, the creation form's member search (§ 2.3a) — 56; mod-005 api-contract § 4 adds delete, restore and purge — 59 (feat-040 api-contract § 6 moves three, no change); feat-003 api-contract § 5 adds the «Исполнитель» filter's options — 60.
+        Assert.Equal(60, expected.Count);
     }
 
     // Every organization code of the catalog is declared by at least one route — a code with no route is a decision nobody enforces

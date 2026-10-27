@@ -17,7 +17,14 @@ import {
   type WorkContextSource,
   type WorkContextStatus,
 } from '../../../shared/lib/workContext';
-import { getOrganizations, getProjects, getTeams } from '../api/organizationsApi';
+import {
+  getOrganizationTeams,
+  getOrganizations,
+  getProjects,
+  getTeams,
+  type ProjectTeam,
+  type TeamListItem,
+} from '../api/organizationsApi';
 import { organizationsKeys } from '../api/queryKeys';
 import { ORGANIZATIONS_PATH } from '../paths';
 import { addressContext } from './addressContext';
@@ -25,6 +32,7 @@ import {
   LOADING_LIST,
   addressSync,
   effectiveId,
+  organizationTeamLevel,
   resolveSelection,
   sameSelection,
   type LevelList,
@@ -60,6 +68,45 @@ function listOf(query: UseQueryResult<LevelList['items']>): LevelList {
   return { status, items: status === 'ready' ? (query.data ?? NOTHING) : NOTHING };
 }
 
+/** The organization's teams as the address sync reads them: the team level without the default hint. */
+function teamsListOf(query: UseQueryResult<readonly TeamListItem[]>): LevelList {
+  const status = statusOf(query);
+  return {
+    status,
+    items: status === 'ready' ? organizationTeamLevel(query.data ?? []) : NOTHING,
+  };
+}
+
+/** The effective project's default team: the linked team its settings name, else its only one (mod-020). */
+function defaultTeamIdOf(linked: readonly ProjectTeam[] | undefined): string | undefined {
+  return linked?.find((team) => Boolean(team.defaultMark))?.id;
+}
+
+/**
+ * The team level (feat-040 BR-TS-10): the organization's teams, the user's own first, with the
+ * effective project's default team marked once its linked teams are read. A team the user chose
+ * and the list holds needs no default, so the level is ready with the teams alone; with none
+ * chosen, the default is read before the level is: showing the first entry and then swapping it
+ * for the default would move «Бэклоги» under the user's cursor. A linked-teams read that fails
+ * names no default — the hint is best-effort, the level falls back to its first entry.
+ */
+function teamLevelOf(
+  teams: UseQueryResult<readonly TeamListItem[]>,
+  linked: UseQueryResult<readonly ProjectTeam[]>,
+  chosenTeamId: string | undefined,
+): LevelList {
+  const status = statusOf(teams);
+  if (status !== 'ready') {
+    return { status, items: NOTHING };
+  }
+  const data = teams.data ?? [];
+  const held = chosenTeamId !== undefined && data.some((team) => team.id === chosenTeamId);
+  if (!held && linked.isFetching && !linked.isSuccess) {
+    return { status: 'loading', items: NOTHING };
+  }
+  return { status: 'ready', items: organizationTeamLevel(data, defaultTeamIdOf(linked.data)) };
+}
+
 /** The address sync of the page on screen: decided once per pathname. */
 interface SyncState {
   path: string;
@@ -68,19 +115,20 @@ interface SyncState {
 
 /** The levels below a choice that the address carries, whose first entries the move needs. */
 interface FirstEntriesWanted {
-  /** An organization chosen on a project- or team-level page: its first project. */
+  /** An organization chosen on a project-level page: its first project. */
   project: boolean;
-  /** A project or organization chosen on a team-level page: that project's first team. */
+  /** An organization chosen on a team-level page: the team its switcher falls back to. */
   team: boolean;
 }
 
 /**
  * The selection a move asks the resolver with: the choice, its first project
- * and that project's default team (the first one the user is in, else the
- * first; mod-016 D-5) where the address carries those levels, each read first
- * on the switcher's own keys (design § 2.2, § 3.5; plan-frontend § 4.5, R-8).
- * A level with no entry stays unset, and the resolver answers «Главная» for
- * it (mod-015 BR-18: the entry is not visible there).
+ * where the address carries a project, and the team the new organization's switcher falls back
+ * to — the first project's default team (the one the project names or has alone), else the
+ * level's first entry, the user's own first (mod-020, mod-016 D-5; feat-040 BR-TS-10) — where
+ * the address carries a team, each read first on the switcher's own keys (design § 2.2, § 3.5;
+ * plan-frontend § 4.5, R-8). A level with no entry stays unset, and the resolver answers
+ * «Главная» for it (mod-015 BR-18: the entry is not visible there).
  */
 async function withFirstEntries(
   queryClient: QueryClient,
@@ -92,28 +140,49 @@ async function withFirstEntries(
     return next;
   }
   let { projectId } = next;
-  if (wanted.project) {
-    const projects = await queryClient.fetchQuery({
-      queryKey: organizationsKeys.projects(organizationId, 'active'),
-      queryFn: () => getProjects(organizationId, 'active'),
-    });
-    projectId = projects[0]?.id;
+  if (wanted.project || wanted.team) {
+    const projectsOf = () =>
+      queryClient.fetchQuery({
+        queryKey: organizationsKeys.projects(organizationId, 'active'),
+        queryFn: () => getProjects(organizationId, 'active'),
+      });
+    if (wanted.project) {
+      projectId = (await projectsOf())[0]?.id;
+    } else {
+      // A team page names no project: the project only decides the default team, which is best-effort.
+      projectId = await projectsOf().then(
+        (projects) => projects[0]?.id,
+        () => undefined,
+      );
+    }
   }
-  if (!wanted.team || projectId === undefined) {
+  if (!wanted.team) {
     return { organizationId, projectId };
   }
-  const teamsOf = projectId;
   const teams = await queryClient.fetchQuery({
-    queryKey: organizationsKeys.teams(organizationId, teamsOf),
-    queryFn: () => getTeams(organizationId, teamsOf),
+    queryKey: organizationsKeys.orgTeams(organizationId),
+    queryFn: () => getOrganizationTeams(organizationId),
   });
-  return { organizationId, projectId, teamId: defaultEntry(teams)?.id };
+  const hintOf = projectId;
+  const linked =
+    hintOf === undefined
+      ? undefined
+      : await queryClient
+          .fetchQuery({
+            queryKey: organizationsKeys.teams(organizationId, hintOf),
+            queryFn: () => getTeams(organizationId, hintOf),
+          })
+          .catch(() => undefined);
+  const level = organizationTeamLevel(teams, defaultTeamIdOf(linked));
+  return { organizationId, projectId, teamId: defaultEntry(level)?.id };
 }
 
 /**
  * The switcher's data source on real lists (US-8; D-b, D-n, D-o; design § 3).
  * It reads one level at a time — the active organizations, the effective
- * organization's active projects, the effective project's active teams —
+ * organization's active projects and its active teams (feat-040 BR-TS-10: the
+ * interim team level is the organization's, whatever its projects; the effective
+ * project's linked teams are read for their default only) —
  * on the same query keys as the pages, so a page's write refreshes the
  * switcher through its invalidation (design § 3.7). It resolves the
  * selection from the address, then the remembered or chosen selection, then
@@ -169,13 +238,12 @@ export function useOrganizationsContextSource({
   const projects = organizationId ? listOf(projectsQuery) : LOADING_LIST;
   const projectId = effectiveId(projects, chosen.projectId);
 
-  // The address's organization's projects, while it is not yet the
-  // effective one: a project the address carries is found before anything
+  // The address's organization's lists, while it is not yet the effective
+  // one: a project or a team the address carries is found before anything
   // is set (plan-frontend § 4.4).
   const address = addressContext(pathname);
   const addressOrganizationId =
     !syncDone &&
-    address.projectId !== undefined &&
     address.organizationId !== organizationId &&
     organizations.items.some((item) => item.id === address.organizationId)
       ? address.organizationId
@@ -183,34 +251,41 @@ export function useOrganizationsContextSource({
   const addressProjectsQuery = useQuery({
     queryKey: organizationsKeys.projects(addressOrganizationId ?? '', 'active'),
     queryFn: () => getProjects(addressOrganizationId ?? '', 'active'),
-    enabled: enabled && addressOrganizationId !== undefined,
+    enabled: enabled && addressOrganizationId !== undefined && address.projectId !== undefined,
+    ...LEVEL_QUERY_OPTIONS,
+  });
+  const addressTeamsQuery = useQuery({
+    queryKey: organizationsKeys.orgTeams(addressOrganizationId ?? ''),
+    queryFn: () => getOrganizationTeams(addressOrganizationId ?? ''),
+    enabled: enabled && addressOrganizationId !== undefined && address.teamId !== undefined,
     ...LEVEL_QUERY_OPTIONS,
   });
 
-  const teamsQuery = useQuery({
+  // The team level (feat-040 BR-TS-10): the organization's teams, whatever its projects. The
+  // effective project's linked teams — the pages read the same key — name its default team, the
+  // fallback of a level with no team chosen (mod-020).
+  const orgTeamsQuery = useQuery({
+    queryKey: organizationsKeys.orgTeams(organizationId ?? ''),
+    queryFn: () => getOrganizationTeams(organizationId ?? ''),
+    enabled: enabled && organizationId !== undefined,
+    ...LEVEL_QUERY_OPTIONS,
+  });
+  const linkedTeamsQuery = useQuery({
     queryKey: organizationsKeys.teams(organizationId ?? '', projectId ?? ''),
     queryFn: () => getTeams(organizationId ?? '', projectId ?? ''),
     enabled: enabled && organizationId !== undefined && projectId !== undefined,
     ...LEVEL_QUERY_OPTIONS,
   });
-  const teams = organizationId && projectId ? listOf(teamsQuery) : LOADING_LIST;
+  const teams = organizationId
+    ? teamLevelOf(orgTeamsQuery, linkedTeamsQuery, chosen.teamId)
+    : LOADING_LIST;
 
-  // A team-level address (mod-006): its project's teams, once that project is
-  // found, so the team it carries is found before anything is set. On the
-  // effective project this is the same key, so the same request.
   const addressProjects =
     address.organizationId === organizationId ? projects : listOf(addressProjectsQuery);
-  const addressTeamsWanted =
-    !syncDone &&
-    address.teamId !== undefined &&
-    addressProjects.status === 'ready' &&
-    addressProjects.items.some((item) => item.id === address.projectId);
-  const addressTeamsQuery = useQuery({
-    queryKey: organizationsKeys.teams(address.organizationId ?? '', address.projectId ?? ''),
-    queryFn: () => getTeams(address.organizationId ?? '', address.projectId ?? ''),
-    enabled: enabled && addressTeamsWanted,
-    ...LEVEL_QUERY_OPTIONS,
-  });
+  const addressTeams =
+    address.organizationId === organizationId
+      ? teamsListOf(orgTeamsQuery)
+      : teamsListOf(addressTeamsQuery);
 
   // 1. The address, once per pathname, once its lists are read.
   if (enabled && !syncDone) {
@@ -219,7 +294,7 @@ export function useOrganizationsContextSource({
       chosen,
       organizations,
       addressProjects,
-      addressTeams: addressTeamsWanted ? listOf(addressTeamsQuery) : LOADING_LIST,
+      addressTeams,
     });
     if (decision.kind !== 'wait') {
       setSync({ path: pathname, done: true });
@@ -235,7 +310,7 @@ export function useOrganizationsContextSource({
     chosen,
     organizations,
     projectsOf: (id) => (id === organizationId ? projects : LOADING_LIST),
-    teamsOf: (orgId, id) => (orgId === organizationId && id === projectId ? teams : LOADING_LIST),
+    teamsOf: (id) => (id === organizationId ? teams : LOADING_LIST),
   });
 
   // 3. A gone entry is replaced, remembered and announced once — never while
@@ -264,13 +339,23 @@ export function useOrganizationsContextSource({
   );
 
   // Written on a choice, an address sync and a fallback, once every level is
-  // read, so a reload shows the same context (design § 3.4).
-  const { settled } = resolution;
+  // read, so a reload shows the same context (design § 3.4). The team is remembered only when it
+  // was chosen: a fallback team is derived again from the project, so a reload neither makes it
+  // chosen nor a chosen one a fallback (feat-040 BR-TS-10).
+  const { settled, chosenTeamId } = resolution;
+  const remembered = useMemo<WorkContextSelection>(
+    () => ({
+      organizationId: effectiveOrganizationId,
+      projectId: effectiveProjectId,
+      teamId: chosenTeamId,
+    }),
+    [effectiveOrganizationId, effectiveProjectId, chosenTeamId],
+  );
   useEffect(() => {
     if (enabled && writes > 0 && settled) {
-      writeRemembered(subject, effective);
+      writeRemembered(subject, remembered);
     }
-  }, [enabled, subject, writes, settled, effective]);
+  }, [enabled, subject, writes, settled, remembered]);
 
   // The move of a choice that waits for a read. Only the latest choice moves
   // the page, and only from the page it was made on (design § 3.6: only a
@@ -282,12 +367,19 @@ export function useOrganizationsContextSource({
 
   const select = useCallback(
     (level: WorkContextLevel, id: string) => {
+      // An organization choice drops the team (one remembered selection, mod-002 BR-M1-24); a
+      // project choice keeps a chosen team and applies the fallback again otherwise (feat-040
+      // BR-TS-10); a team choice is a choice.
       const next: WorkContextSelection =
         level === 'organization'
           ? { organizationId: id }
           : level === 'project'
-            ? { organizationId: effective.organizationId, projectId: id }
-            : { ...effective, teamId: id };
+            ? { organizationId: effective.organizationId, projectId: id, teamId: chosenTeamId }
+            : {
+                organizationId: effective.organizationId,
+                projectId: effective.projectId,
+                teamId: id,
+              };
       setChosen(next);
       setWrites((count) => count + 1);
       // The choice is not undone by the address it leaves (plan-frontend § 4.5).
@@ -310,13 +402,14 @@ export function useOrganizationsContextSource({
       // The levels the address carries below the choice take their first
       // entries, read before the page moves: a project-level page goes to the
       // new organization's first project (design § 2.2, plan R-8), a
-      // team-level page to the project's first team, its default (design
-      // § 3.5; mod-015 BR-18 for mod-006's «Бэклоги» and «Доски»). The page
+      // team-level page to the team its switcher falls back to (design
+      // § 3.5; mod-015 BR-18 for «Бэклоги» and «Канбан»). A project choice on a team page
+      // carries no level and moves nothing (feat-040 BR-TS-10). The page
       // stays while the read is pending; a failed read opens «Главная»
       // (plan-frontend § 4.5).
       const wanted: FirstEntriesWanted = {
         project: level === 'organization' && carried.projectId !== undefined,
-        team: level !== 'team' && carried.teamId !== undefined,
+        team: level === 'organization' && carried.teamId !== undefined,
       };
       if (!wanted.project && !wanted.team) {
         moveTo(next);
@@ -337,12 +430,12 @@ export function useOrganizationsContextSource({
         },
       );
     },
-    [effective, pathname, navigate, queryClient, resolveSwitchTarget],
+    [effective, chosenTeamId, pathname, navigate, queryClient, resolveSwitchTarget],
   );
 
   const refetchOrganizations = organizationsQuery.refetch;
   const refetchProjects = projectsQuery.refetch;
-  const refetchTeams = teamsQuery.refetch;
+  const refetchTeams = orgTeamsQuery.refetch;
   const retry = useCallback(
     (level?: WorkContextLevel) => {
       const refetch =
@@ -368,21 +461,20 @@ export function useOrganizationsContextSource({
         name: organization.name,
         projects:
           organization.id === effectiveOrganizationId
-            ? projectItems.map((project) => ({
-                id: project.id,
-                name: project.name,
-                teams:
-                  project.id === effectiveProjectId
-                    ? teamItems.map((team) => ({
-                        id: team.id,
-                        name: team.name,
-                        isMember: team.isMember,
-                      }))
-                    : [],
+            ? projectItems.map((project) => ({ id: project.id, name: project.name }))
+            : [],
+        // The team level is the organization's (feat-040 BR-TS-10).
+        teams:
+          organization.id === effectiveOrganizationId
+            ? teamItems.map((team) => ({
+                id: team.id,
+                name: team.name,
+                isMember: team.isMember,
+                isDefault: team.isDefault,
               }))
             : [],
       })),
-    [organizationItems, projectItems, teamItems, effectiveOrganizationId, effectiveProjectId],
+    [organizationItems, projectItems, teamItems, effectiveOrganizationId],
   );
 
   const { status } = resolution;

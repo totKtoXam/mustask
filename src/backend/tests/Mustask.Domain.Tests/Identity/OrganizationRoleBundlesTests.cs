@@ -3,7 +3,7 @@ using Mustask.Domain.Identity;
 namespace Mustask.Domain.Tests.Identity;
 
 /// <summary>
-/// mod-016 US-2/US-4 · the bundles are the spec's permission matrix, as data (BR-M1-30, status.md D-8): for each of the 21
+/// mod-016 US-2/US-4 · the bundles are the spec's permission matrix, as data (BR-M1-30, status.md D-8): for each of the 23
 /// organization codes and each of the three roles, the expected yes or no. A new organization code with no row here
 /// fails <see cref="EveryOrganizationCode_HasARowInTheMatrix"/>: it must get its decision for every role.
 /// </summary>
@@ -32,6 +32,8 @@ public sealed class OrganizationRoleBundlesTests
         (PermissionCatalog.WorkItemsWorkItemRead, true, true, true),
         (PermissionCatalog.WorkItemsWorkItemWrite, true, true, false),
         (PermissionCatalog.WorkItemsLinkWrite, true, true, false),
+        (PermissionCatalog.WorkItemsWorkItemDelete, true, true, false),
+        (PermissionCatalog.WorkItemsWorkItemPurge, true, false, false),
         (PermissionCatalog.BoardsBacklogReorder, true, true, false),
     ];
 
@@ -83,14 +85,14 @@ public sealed class OrganizationRoleBundlesTests
     }
 
     [Fact]
-    public void Member_IsTheViewerPlusTheThreeNonAdminWrites()
+    public void Member_IsTheViewerPlusTheFourNonAdminWrites()
     {
         var viewer = OrganizationRoleBundles.CodesOf(OrganizationRole.Viewer);
         var member = OrganizationRoleBundles.CodesOf(OrganizationRole.Member);
 
         Assert.True(viewer.IsSubsetOf(member));
         Assert.Equal(
-            new[] { "boards.backlog.reorder", "workitems.link.write", "workitems.workitem.write" },
+            new[] { "boards.backlog.reorder", "workitems.link.write", "workitems.workitem.delete", "workitems.workitem.write" },
             member.Except(viewer).Order(StringComparer.Ordinal));
     }
 

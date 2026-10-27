@@ -12,9 +12,10 @@ export const CELL = {
   title: 3,
   state: 4,
   team: 5,
-  effort: 6,
-  businessValue: 7,
-  valueArea: 8,
+  project: 6,
+  effort: 7,
+  businessValue: 8,
+  valueArea: 9,
 } as const;
 
 export function findBacklogTable(): Promise<HTMLElement> {

@@ -38,8 +38,8 @@ export function openPage({
   strict,
   context = contextSource({
     organizations: [
-      { id: ids.alfa, name: 'Альфа', projects: [] },
-      { id: ids.beta, name: 'Бета', projects: [] },
+      { id: ids.alfa, name: 'Альфа', projects: [], teams: [] },
+      { id: ids.beta, name: 'Бета', projects: [], teams: [] },
     ],
     selection: { organizationId: ids.alfa },
   }),

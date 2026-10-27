@@ -11,10 +11,12 @@ using static Mustask.Api.IntegrationTests.Features.WorkItems.OwningTeamTestData;
 namespace Mustask.Api.IntegrationTests.Features.Organizations;
 
 /// <summary>
-/// feat-028 US-6, "one team, many projects" (BR-OL-5, BR-OL-11; D-13): MARS is linked to «Альфа» and «Бета» at once. It is one team —
-/// one name, one list of people — and in each project it has that project's items, that project's default and that project's places:
-/// a reorder in one project writes that project's places only; an unlink from one project leaves the other's items and setting; a
-/// project it is not linked to answers <c>team.not_found</c> at its address. Every test builds its own world.
+/// feat-028 US-6, "one team, many projects" (BR-OL-5; D-13): MARS is linked to «Альфа» and «Бета» at once. It is one team —
+/// one name, one list of people — and in each project it has that project's default and that project's items: an unlink from one
+/// project leaves the other's items and setting. Its backlog and board are one view over both (feat-040 BR-TS-1, BR-TS-2: they are
+/// at the team's address; the tests of BR-OL-11, the views at a project's address holding that project's items, and of D-13, a reorder
+/// writing one project's places, are retired with the rule and live on as <c>TeamBacklogAcrossProjectsEndpointTests</c> and
+/// <c>TeamOrderAcrossProjectsEndpointTests</c>). Every test builds its own world.
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]
@@ -105,77 +107,6 @@ public sealed class TeamAcrossProjectsEndpointTests(MustaskApiFactory factory)
         }
     }
 
-    // feat-028 US-6 · "TeamViews_AtEachProjectsAddress_HoldThatProjectsItemsOnly": MARS's backlog and board at «Альфа»'s address hold its
-    // «Альфа» items; at «Бета»'s, its «Бета» items — the same team, two views.
-    [Fact]
-    public async Task TeamViews_AtEachProjectsAddress_HoldThatProjectsItemsOnly()
-    {
-        var both = await BothAsync();
-        var alpha = await StoryAsync(both.Alpha, "Альфа-история", both.World.Mars);
-        var beta = await StoryAsync(both.Beta, "Бета-история", both.World.Mars);
-        await StoryAsync(both.Alpha, "Чужая альфа", both.World.Venus);
-
-        var alphaRows = await BoardsTestData.RowsAsync(factory, both.Alpha, both.World.Mars);
-        var betaRows = await BoardsTestData.RowsAsync(factory, both.Beta, both.World.Mars);
-        var alphaBoard = await BoardsTestData.GetBoardAsync(factory, both.Alpha, both.World.Mars);
-        var betaBoard = await BoardsTestData.GetBoardAsync(factory, both.Beta, both.World.Mars);
-
-        Assert.Equal([alpha.Identifier], alphaRows);
-        Assert.Equal([beta.Identifier], betaRows);
-        Assert.Equal([alpha.Identifier], ProjectBoardsTestData.AllCards(alphaBoard.Body));
-        Assert.Equal([beta.Identifier], ProjectBoardsTestData.AllCards(betaBoard.Body));
-    }
-
-    // feat-028 D-13, US-6 · "Reorder_InOneProject_LeavesTheOthersPlacesAndProjectOrdersAlone": the team's order is one per level, but a
-    // reorder in one project's view writes the places of that view's items only: the other project's places and its relative order never
-    // move, and neither does either project's own backlog order.
-    [Fact]
-    public async Task Reorder_InOneProject_LeavesTheOthersPlacesAndProjectOrdersAlone()
-    {
-        var both = await BothAsync();
-        var a1 = await StoryAsync(both.Alpha, "Альфа 1", both.World.Mars);
-        var a2 = await StoryAsync(both.Alpha, "Альфа 2", both.World.Mars);
-        var b1 = await StoryAsync(both.Beta, "Бета 1", both.World.Mars);
-        var b2 = await StoryAsync(both.Beta, "Бета 2", both.World.Mars);
-        await BoardsTestData.ReorderToAsync(factory, both.Alpha, both.World.Mars, a1, a2);
-        await BoardsTestData.ReorderToAsync(factory, both.Beta, both.World.Mars, b1, b2);
-        var betaTeamOrder = await BoardsTestData.RowsAsync(factory, both.Beta, both.World.Mars);
-        var betaProjectOrder = await ProjectBoardsTestData.RowsAsync(factory, both.Beta);
-        var alphaProjectOrder = await ProjectBoardsTestData.RowsAsync(factory, both.Alpha);
-        var betaPlaces = await PlacesOfAsync(both.World.OtherProjectId);
-
-        var answer = await BoardsTestData.ReorderAsync(factory, both.Alpha, both.World.Mars, BoardsTestData.Top(a2));
-
-        Assert.Equal(HttpStatusCode.NoContent, answer.Status);
-        Assert.Equal([a2.Identifier, a1.Identifier], await BoardsTestData.RowsAsync(factory, both.Alpha, both.World.Mars));
-        Assert.Equal(betaTeamOrder, await BoardsTestData.RowsAsync(factory, both.Beta, both.World.Mars));
-        Assert.Equal(betaPlaces, await PlacesOfAsync(both.World.OtherProjectId));
-        Assert.Equal(betaProjectOrder, await ProjectBoardsTestData.RowsAsync(factory, both.Beta));
-        Assert.Equal(alphaProjectOrder, await ProjectBoardsTestData.RowsAsync(factory, both.Alpha));
-        Assert.Equal(0, await PlacesNamingAnotherTeamAsync(factory, both.World.ProjectId) + await PlacesNamingAnotherTeamAsync(factory, both.World.OtherProjectId));
-    }
-
-    // feat-028 D-13 · the places a reorder drops for items that left the view are those of THIS project: an item MARS no longer owns in
-    // «Альфа» loses its place there, and «Бета»'s places stay.
-    [Fact]
-    public async Task Reorder_DropsTheDepartedPlacesOfThisProjectOnly()
-    {
-        var both = await BothAsync();
-        var a1 = await StoryAsync(both.Alpha, "Альфа 1", both.World.Mars);
-        var a2 = await StoryAsync(both.Alpha, "Альфа 2", both.World.Mars);
-        var b1 = await StoryAsync(both.Beta, "Бета 1", both.World.Mars);
-        await BoardsTestData.ReorderToAsync(factory, both.Alpha, both.World.Mars, a1, a2);
-        await BoardsTestData.ReorderToAsync(factory, both.Beta, both.World.Mars, b1);
-        await SetOwningTeamAsync(factory, a1.Id, both.World.Venus);
-
-        var answer = await BoardsTestData.ReorderAsync(factory, both.Alpha, both.World.Mars, BoardsTestData.Top(a2));
-
-        Assert.Equal(HttpStatusCode.NoContent, answer.Status);
-        Assert.Equal(0, await TeamPlacesOfAsync(factory, a1.Id));
-        Assert.Equal(1, await TeamPlacesOfAsync(factory, b1.Id));
-        Assert.Equal([b1.Identifier], await BoardsTestData.RowsAsync(factory, both.Beta, both.World.Mars));
-    }
-
     // feat-028 US-6 · "Default_IsPerProject": naming MARS the default of «Альфа» names nothing in «Бета», which has JUPITER too (so no
     // inference either); naming it in «Бета» as well gives each project its own setting.
     [Fact]
@@ -229,51 +160,30 @@ public sealed class TeamAcrossProjectsEndpointTests(MustaskApiFactory factory)
         Assert.Equal([beta.Identifier], await BoardsTestData.RowsAsync(factory, both.Beta, world.Mars));
     }
 
-    // feat-028 US-6 · "TeamViews_UnderAnUnlinkedProject_Return404Team", "Reorder_…_MemberIs404_ViewerIs403": at the address of a project
-    // MARS is not linked to, its backlog, board and reorder answer team.not_found — also for a team that is nobody's — and a reorder by a
-    // viewer is 403 first (BR-OL-11).
-    [Fact]
-    public async Task TeamViews_UnderAnUnlinkedProject_Return404Team_ReorderByViewerIs403First()
-    {
-        var world = await CreateWorldAsync(factory);
-        var story = await StoryAsync(BoardsViewOf(world), "Марс", world.Mars);
-        var betaView = new BoardsWorld(world.Items with { ProjectId = world.OtherProjectId, Key = "BET" }, Guid.Empty, world.Mars, Guid.Empty, Guid.Empty, Guid.Empty);
-        var viewer = await MembershipTestData.NewMemberAsync(factory, world.OrganizationId, OrganizationRole.Viewer);
-        var member = await MembershipTestData.NewMemberAsync(factory, world.OrganizationId, OrganizationRole.Member);
-
-        var backlog = await BoardsTestData.GetBacklogAsync(factory, betaView, world.Mars);
-        var board = await BoardsTestData.GetBoardAsync(factory, betaView, world.Mars);
-        var asAdmin = await BoardsTestData.ReorderAsync(factory, betaView, world.Mars, BoardsTestData.Top(story));
-        var asMember = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Post, $"{BoardsTestData.Backlog(betaView, world.Mars, "stories")}/reorder", BoardsTestData.Top(story), member.Token);
-        var asViewer = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Post, $"{BoardsTestData.Backlog(betaView, world.Mars, "stories")}/reorder", BoardsTestData.Top(story), viewer.Token);
-
-        foreach (var answer in new[] { backlog, board, asAdmin, asMember })
-        {
-            Assert.Equal((HttpStatusCode.NotFound, "organizations.team.not_found"), (answer.Status, answer.ErrorCode));
-        }
-
-        Assert.Equal((HttpStatusCode.Forbidden, "organizations.access.forbidden"), (asViewer.Status, asViewer.ErrorCode));
-        Assert.Equal(0, await TeamPlacesOfAsync(factory, story.Id));
-    }
-
-    // feat-028 US-6 · "Unlink_TeamBecomes404AtTheProjectsAddress", the switcher's fallback: after the unlink the team's views at the
-    // project's address answer team.not_found, while the team itself is read as before at its own address.
+    // feat-028 US-6 · "Unlink_TeamBecomes404AtTheProjectsAddress", rewritten by feat-040 (BR-TS-1, BR-TS-2): the team's views are at its own
+    // address and hold what it owns in the projects it is still linked to. After the unlink from «Альфа» the team's backlog and board
+    // answer 200 and hold «Бета»'s item only («Альфа»'s went to «Без команды»); its own page still reads; and the views of the team at the
+    // project's old address are not served (404 http.not_found, RetiredTeamViewRoutesEndpointTests).
     [Fact]
     public async Task Unlink_TeamBecomes404AtTheProjectsAddress_ButIsStillReadAtItsOwn()
     {
         var both = await BothAsync();
+        var world = both.World;
+        await StoryAsync(both.Alpha, "Альфа", world.Mars);
+        var beta = await StoryAsync(both.Beta, "Бета", world.Mars);
 
-        await TeamTestData.UnlinkAsync(factory, both.World.OrganizationId, both.World.ProjectId, both.World.Mars, To(null));
+        await TeamTestData.UnlinkAsync(factory, world.OrganizationId, world.ProjectId, world.Mars, To(null));
 
-        var view = await BoardsTestData.GetBacklogAsync(factory, both.Alpha, both.World.Mars);
-        var own = await GetAsync(factory, Team(both.World.OrganizationId, both.World.Mars));
-        var betaView = await BoardsTestData.GetBacklogAsync(factory, both.Beta, both.World.Mars);
+        var backlog = await BoardsTestData.GetBacklogAsync(factory, both.Alpha, world.Mars);
+        var board = await BoardsTestData.GetBoardAsync(factory, both.Alpha, world.Mars);
+        var own = await GetAsync(factory, Team(world.OrganizationId, world.Mars));
+        var oldAddress = await GetAsync(factory, $"{ProjectTeam(world.OrganizationId, world.ProjectId, world.Mars)}/backlogs/stories");
 
-        Assert.Equal((HttpStatusCode.NotFound, "organizations.team.not_found"), (view.Status, view.ErrorCode));
+        Assert.Equal(HttpStatusCode.OK, backlog.Status);
+        Assert.Equal([beta.Identifier], await BoardsTestData.RowsAsync(factory, both.Alpha, world.Mars));
+        Assert.Equal([beta.Identifier], ProjectBoardsTestData.AllCards(board.Body));
         Assert.Equal(HttpStatusCode.OK, own.Status);
-        Assert.Equal(HttpStatusCode.OK, betaView.Status);
+        Assert.Equal((HttpStatusCode.NotFound, "http.not_found"), (oldAddress.Status, oldAddress.ErrorCode));
     }
 
     private async Task<string?> MarkOfMarsAsync(OwningTeamWorld world, Guid projectId)

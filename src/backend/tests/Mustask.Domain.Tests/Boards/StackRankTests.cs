@@ -163,6 +163,81 @@ public sealed class StackRankTests
         Assert.Equal([middle, early, late], StackRank.Move(order, middle, StackRankPosition.Top));
     }
 
+    // feat-040 US-3 · "Unplaced items of several projects follow by creation time, then project key, then number" (BR-TS-6): the
+    // spec's example — BET-US-3 and ALP-US-7 both created at 10:00 stand ALP before BET by key; ALP-US-2 at 10:15 follows both;
+    // a placed item leads whatever its time.
+    [Fact]
+    public void Order_TeamEntries_PlacedFirst_ThenCreationTime_ThenProjectKey_ThenNumber()
+    {
+        var (alp2, alp7, bet3, placed) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var ten = new DateTimeOffset(2026, 10, 10, 10, 0, 0, TimeSpan.Zero);
+
+        var order = StackRank.Order(
+        [
+            new(alp2, 2, null, ten.AddMinutes(15), "ALP"),
+            new(bet3, 3, null, ten, "BET"),
+            new(alp7, 7, null, ten, "ALP"),
+            new(placed, 99, 1, ten.AddDays(1), "BET"),
+        ]);
+
+        Assert.Equal([placed, alp7, bet3, alp2], order);
+    }
+
+    // feat-040 US-3 · BR-TS-6: placed items of an equal position (feat-028's per-project reorders left them) sort by the same
+    // rule, so two projects' "position 1" items stand by time, key, number — and the first reorder writes a dense 1..n.
+    [Fact]
+    public void Order_TeamEntries_EqualPositions_SortByTheTieBreak()
+    {
+        var (alp, bet, betLater) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var ten = new DateTimeOffset(2026, 10, 10, 10, 0, 0, TimeSpan.Zero);
+
+        var order = StackRank.Order(
+        [
+            new(betLater, 1, 1, ten.AddMinutes(1), "ALP"),
+            new(bet, 5, 1, ten, "BET"),
+            new(alp, 9, 1, ten, "ALP"),
+        ]);
+
+        Assert.Equal([alp, bet, betLater], order);
+    }
+
+    // feat-040 BR-TS-6 · "project key by character code": ordinal, never culture — «ALP» < «BET» < «alp», and «BET» < «bet».
+    [Fact]
+    public void Order_TeamEntries_ProjectKeyIsByCharacterCode()
+    {
+        var (upperA, upperB, lowerA) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var ten = new DateTimeOffset(2026, 10, 10, 10, 0, 0, TimeSpan.Zero);
+
+        var order = StackRank.Order([new(lowerA, 1, null, ten, "alp"), new(upperB, 1, null, ten, "BET"), new(upperA, 1, null, ten, "ALP")]);
+
+        Assert.Equal([upperA, upperB, lowerA], order);
+    }
+
+    // feat-040 BR-TS-6 · "identifier number as a number": 10 follows 9, not 1.
+    [Fact]
+    public void Order_TeamEntries_NumberIsANumber()
+    {
+        var (nine, ten, two) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var time = new DateTimeOffset(2026, 10, 10, 10, 0, 0, TimeSpan.Zero);
+
+        var order = StackRank.Order([new(ten, 10, null, time, "ALP"), new(nine, 9, null, time, "ALP"), new(two, 2, null, time, "ALP")]);
+
+        Assert.Equal([two, nine, ten], order);
+    }
+
+    // feat-040 US-3 · a reorder moves one item in the cross-project order and the result is the order every item is placed at.
+    [Fact]
+    public void Move_OnTeamEntries_MovesInTheCrossProjectOrder()
+    {
+        var (alp, bet, gam) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var ten = new DateTimeOffset(2026, 10, 10, 10, 0, 0, TimeSpan.Zero);
+        var order = StackRank.Order([new(gam, 1, null, ten, "GAM"), new(bet, 1, null, ten, "BET"), new(alp, 1, null, ten, "ALP")]);
+
+        Assert.Equal([alp, bet, gam], order);
+        Assert.Equal([gam, alp, bet], StackRank.Move(order, gam, StackRankPosition.Top));
+        Assert.Equal([alp, gam, bet], StackRank.Move(order, gam, StackRankPosition.After(alp)));
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

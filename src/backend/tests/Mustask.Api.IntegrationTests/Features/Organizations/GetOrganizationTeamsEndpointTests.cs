@@ -47,9 +47,10 @@ public sealed class GetOrganizationTeamsEndpointTests(MustaskApiFactory factory)
         Assert.Equal(["альфа", "Бета", "вега"], Read(answer.Body).Select(team => team.Name));
     }
 
-    // feat-028 api-contract § 1.2 · the item is exactly {id, name, description, projects}; a project in it is {id, name}.
+    // feat-028 api-contract § 1.2, feat-040 api-contract § 4.1 · the item is exactly {id, name, description, projects, isMember}; a
+    // project in it is {id, name}.
     [Fact]
-    public async Task Get_ItemShape_IsIdNameDescriptionProjects()
+    public async Task Get_ItemShape_IsIdNameDescriptionProjectsIsMember()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         await CreateTeamAsync(factory, structure.OrganizationId, new { name = "Описанная", description = " как набрано ", projectIds = new[] { structure.ProjectId.ToString() } });
@@ -57,12 +58,34 @@ public sealed class GetOrganizationTeamsEndpointTests(MustaskApiFactory factory)
         var answer = await ListAsync(structure.OrganizationId);
 
         var described = answer.Body.EnumerateArray().Single(team => team.GetProperty("name").GetString() == "Описанная");
-        Assert.Equal(["description", "id", "name", "projects"], PropertyNames(described));
+        Assert.Equal(["description", "id", "isMember", "name", "projects"], PropertyNames(described));
         Assert.Equal(" как набрано ", described.GetProperty("description").GetString());
         var project = Assert.Single(described.GetProperty("projects").EnumerateArray());
         Assert.Equal(["id", "name"], PropertyNames(project));
         Assert.Equal(structure.ProjectId, project.GetProperty("id").GetGuid());
         Assert.Equal(JsonValueKind.Null, answer.Body.EnumerateArray().First(team => team.GetProperty("name").GetString() == "Платформа").GetProperty("description").ValueKind);
+    }
+
+    // feat-040 api-contract § 4.1 (BR-TS-10) · `isMember` is the CALLER's: a member of one team sees it true on that team only, a
+    // member of none (an «Администратор» who belongs to no team, doc-013) sees every team false, and the list's order (by name)
+    // is the same for both — the panel groups the user's own teams first, the server does not.
+    [Fact]
+    public async Task Get_IsMember_IsTheCallers_ForMemberOfOneTeam_AndForAnAdministratorOfNone()
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        var venus = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, structure.OrganizationId, "Венера");
+        var max = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, OrganizationRole.Member);
+        var ann = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, OrganizationRole.Admin);
+        await MembershipTestData.AddTeamMemberAsync(factory, structure.OrganizationId, venus.Id, max.Id);
+
+        var forMax = await ListAsync(structure.OrganizationId, max.Token);
+        var forAnn = await ListAsync(structure.OrganizationId, ann.Token);
+
+        Assert.Equal(
+            [("Венера", true), ("Платформа", false), ("Пример проекта", false)],
+            forMax.Body.EnumerateArray().Select(team => (team.GetProperty("name").GetString()!, team.GetProperty("isMember").GetBoolean())));
+        Assert.All(forAnn.Body.EnumerateArray(), team => Assert.False(team.GetProperty("isMember").GetBoolean()));
+        Assert.Equal(Ids(forMax.Body), Ids(forAnn.Body));
     }
 
     // feat-028 BR-OL-1 · a team linked to no project is listed with an empty `projects`; a team linked to several lists them all, by

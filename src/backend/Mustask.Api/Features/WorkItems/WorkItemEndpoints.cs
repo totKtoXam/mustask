@@ -1,10 +1,14 @@
 using Mustask.Api.Authorization;
 using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Application.Features.WorkItems.CreateWorkItem;
+using Mustask.Application.Features.WorkItems.DeleteWorkItem;
 using Mustask.Application.Features.WorkItems.GetAssigneeCandidates;
+using Mustask.Application.Features.WorkItems.GetAssigneeOptions;
 using Mustask.Application.Features.WorkItems.GetParentCandidates;
 using Mustask.Application.Features.WorkItems.GetWorkItem;
 using Mustask.Application.Features.WorkItems.GetWorkItems;
+using Mustask.Application.Features.WorkItems.PurgeWorkItem;
+using Mustask.Application.Features.WorkItems.RestoreWorkItem;
 using Mustask.Application.Features.WorkItems.SaveWorkItem;
 using Mustask.Application.Features.WorkItems.SetWorkItemParent;
 using Mustask.Domain.Identity;
@@ -37,6 +41,15 @@ public static class WorkItemEndpoints
             .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead)
             .Produces<Paging<WorkItemListItemView>>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // feat-003 § 2.2. The options of the list's «Исполнитель» filter: the people assigned to the project's items. A read
+        // inside one project, so the read code alone (ADR-0029 § 7); not the card's picker (`assignee-candidates`, below).
+        workItems.MapGet("/assignee-options", GetAssigneeOptionsAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead)
+            .Produces<IReadOnlyList<AssigneeFilterOptionView>>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -83,6 +96,36 @@ public static class WorkItemEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
+        // mod-005 § 2.1. Delete: moves the item into «Удалена» and records the way back on its row. A sub-command, not
+        // `DELETE …/{identifier}` (plan-backend D-P1): the item stays, read-only, until a purge removes it. No body.
+        workItems.MapPost("/{identifier}/delete", DeleteWorkItemAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemDelete)
+            .Produces<WorkItemView>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        // mod-005 § 2.2. Restore: takes the item out of «Удалена» into the chosen state, else the held one, else the type's
+        // first. The body is optional (`stateId` only); the route holds the same code as Delete.
+        workItems.MapPost("/{identifier}/restore", RestoreWorkItemAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemDelete)
+            .Produces<WorkItemView>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        // mod-005 § 2.3. Purge: removes a deleted item for good, in one transaction. The organization administrator's code
+        // alone; 204, and nothing of the item is kept. No body.
+        workItems.MapPost("/{identifier}/purge", PurgeWorkItemAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemPurge)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
         // feat-001 § 3.4. The «Родитель» picker: this item's possible parents.
         workItems.MapGet("/{identifier}/parent-candidates", GetParentCandidatesAsync)
             .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead)
@@ -107,16 +150,30 @@ public static class WorkItemEndpoints
         return app;
     }
 
-    // mod-017 api-contract § 3: the team filter is the repeated `teamId` — a team's id or `none`. Nothing is validated here: a
-    // value that names no team of the project selects nothing, and answers alike for each such value.
+    // mod-017 api-contract § 3: the team filter is the repeated `teamId` — a team's id or `none`. feat-003 api-contract § 3 adds the
+    // repeated `state` (names as stored) and `assigneeId` (a user id or `none`) and the one `search` (a keyword). Nothing is
+    // validated here: a value that names nothing selects nothing, and answers alike for each such value.
     private static async Task<IResult> GetWorkItemsAsync(
         string organizationId,
         string projectId,
         int? page,
         [Microsoft.AspNetCore.Mvc.FromQuery(Name = "teamId")] string[]? teamId,
+        [Microsoft.AspNetCore.Mvc.FromQuery(Name = "state")] string[]? state,
+        [Microsoft.AspNetCore.Mvc.FromQuery(Name = "assigneeId")] string[]? assigneeId,
+        [Microsoft.AspNetCore.Mvc.FromQuery(Name = "search")] string[]? search,
         GetWorkItemsHandler handler,
         CancellationToken cancellationToken) =>
-        Results.Ok((await handler.Handle(new GetWorkItemsQuery(organizationId, projectId, page, teamId), cancellationToken)).Page);
+        Results.Ok(
+            (await handler.Handle(new GetWorkItemsQuery(organizationId, projectId, page, teamId, state, assigneeId, search), cancellationToken)).Page);
+
+    // feat-003 api-contract § 2.2: the chosen `state` names decide whether the people of deleted items are offered.
+    private static async Task<IResult> GetAssigneeOptionsAsync(
+        string organizationId,
+        string projectId,
+        [Microsoft.AspNetCore.Mvc.FromQuery(Name = "state")] string[]? state,
+        GetAssigneeOptionsHandler handler,
+        CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new GetAssigneeOptionsQuery(organizationId, projectId, state), cancellationToken)).Options);
 
     private static async Task<IResult> CreateWorkItemAsync(
         string organizationId, string projectId, CreateWorkItemRequest? request, CreateWorkItemHandler handler, CancellationToken cancellationToken)
@@ -211,6 +268,28 @@ public static class WorkItemEndpoints
         return Results.Ok(await handler.Handle(new SetWorkItemParentCommand(organizationId, projectId, identifier, change), cancellationToken));
     }
 
+    private static async Task<IResult> DeleteWorkItemAsync(
+        string organizationId, string projectId, string identifier, DeleteWorkItemHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new DeleteWorkItemCommand(organizationId, projectId, identifier), cancellationToken)).Item);
+
+    private static async Task<IResult> PurgeWorkItemAsync(
+        string organizationId, string projectId, string identifier, PurgeWorkItemHandler handler, CancellationToken cancellationToken)
+    {
+        await handler.Handle(new PurgeWorkItemCommand(organizationId, projectId, identifier), cancellationToken);
+
+        return Results.NoContent();
+    }
+
+    // A missing body, `{}` and `"stateId": null` are one request: the held state (api-contract § 2.2).
+    private static async Task<IResult> RestoreWorkItemAsync(
+        string organizationId,
+        string projectId,
+        string identifier,
+        RestoreWorkItemRequest? request,
+        RestoreWorkItemHandler handler,
+        CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new RestoreWorkItemCommand(organizationId, projectId, identifier, request?.StateId), cancellationToken)).Item);
+
     private static async Task<IResult> GetParentCandidatesAsync(
         string organizationId,
         string projectId,
@@ -269,6 +348,9 @@ public static class WorkItemEndpoints
         IReadOnlyList<AcceptanceCriterionRequest>? AcceptanceCriteria,
         string? ReproSteps,
         string? SystemInfo);
+
+    /// <summary>mod-005 api-contract § 2.2: optional; <c>stateId</c> absent or <c>null</c> restores the held state, else the first.</summary>
+    private sealed record RestoreWorkItemRequest(string? StateId);
 
     private sealed record AcceptanceCriterionRequest(string? Given, string? When, string? Then);
 

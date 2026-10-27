@@ -55,6 +55,7 @@ gate-3: approved · orchestrator under the human's standing approval of 2026-10-
 
 ## Log
 
+- 2026-10-18 [dev] note from `mod-020-team-switcher-default-and-filter-address` (the human's answer to mod-017 OQ-8 B): BR-M1-27, US-7 and api-contract §§ 3.3 (`isMember`) and 6 carry an amendment note — a project with a default team (mod-017 BR-OT-4) opens on it before the user's own first team. No shape change: `isMember` and the endpoints are as they were.
 - 2026-10-17 [dev] P-10 note from `feat-028-org-level-teams` (BR-OL-1, BR-OL-5; its api-contract §§ 0.1, 2.3, 4): the team-member routes of §§ 2.1–2.4 and the inventory rows 15–18 and 20 move from `…/projects/{p}/teams/{t}/…` to `…/teams/{t}/…`; four codes join the catalog and the administrator's bundle (`organizations.team.create`, `.team.delete`, `.team.link`, `organizations.project.link`; 17 → 21) and `team.write` narrows to a team's name, description and members; BR-M1-25 (the creator joins the project's first team) lapses with the project's team; the team membership key carries the organization.
 - 2026-10-17 [dev] P-10 note from `mod-017-work-item-owning-team` (BR-OT-10, -11; its api-contract § 9): `Team` in §§ 3.1, 3.3 loses `isFirstTeam` and the list is ordered by name; BR-M1-27 and US-7's default team read "the user's first team in that order, else the list's first"; in § 4.1 the routes of rows 19 (`PUT …/teams/{t}/default-area`) and 25 (`PUT …/areas/{a}/owner`) are gone and `PUT …/projects/{p}/default-team` and `GET …/teams/{t}/owned-items/count` join (both `organizations.team.write`), so the route inventory keeps its count.
 - 2026-10-12 [orchestrator] frontend review round 1b (two lenses + skeptics, wf_16243d94-0ff) on e67c587 + f20a640: 12 findings, 10 confirmed, 2 refuted; E2E run skipped by the human (D-22).
@@ -65,6 +66,7 @@ gate-3: approved · orchestrator under the human's standing approval of 2026-10-
 - 2026-10-13 [frontend-developer] rebased onto main 971f875 (bug-004, tech-021/023), e2e merge kept; 3 conflicts, both sides kept (BoardPage, levels test, spec 20). Roles test and spec 29 follow bug-004's column names. Snapshot clean. Build, lint, boards/process/workitems/organizations tests green.
 - 2026-10-13 [orchestrator] gate-3 approved (D-23); Plan as-built bullets moved to history.md for the size budget; tech-026 queued (a5cb2b1); stage complete.
 - 2026-10-13 [orchestrator] rebased onto main 969a70a (kit + card 5da6bea): card role views a4c0470..8920fb1, guard re-cut 75fd5c7; card re-check RC-K-1..5 → D-24, fixes in this commit; gate-3 re-stated.
+- 2026-10-18 [dev] P-10 note from feat-040-team-surfaces-across-projects: inventory rows 35-37 now read `GET /api/organizations/{organizationId}/teams/{teamId}/backlogs/{level}`, `POST …/backlogs/{level}/reorder` and `GET …/boards/{level}`, with the same three codes; the three project-nested team-view routes are not served and not listed; the count stays 59 (`OrganizationAddressedRoutes`). This api-contract is not edited.
 
 ## Notes
 

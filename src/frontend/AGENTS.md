@@ -31,11 +31,12 @@ Node 23. The dev server is pinned to port 3000 — that port is in the
   `src/app/theme/**` or `src/shared/ui/**` runs everything on its own, and the
   tests that read sources off disk (kit guard, colour scan, e2e guards) always
   run next to the affected ones. Force the whole suite with `VERIFY_FULL=1 bash
-  scripts/verify.sh` — `finish-task.sh` and the pre-push hook do, so a merge or
-  a push is always gated by a full run — instant when a green full run of the
-  same tree and merge-base, on a clean working tree, already left its stamp in
-  the git directory (`VERIFY_FORCE=1` repeats it; use it after changing
-  `node_modules` or the environment). A full run holds a lock
+  scripts/verify.sh` — `finish-task.sh` and CI (the required check on every
+  pull request) do, so a merge is always gated by a full run; the pre-push hook
+  runs the quick one, and `VERIFY_FULL=1 git push` makes it full — instant
+  when a green full run of the same tree and merge-base, on a clean working
+  tree, already left its stamp in the git directory (`VERIFY_FORCE=1` repeats
+  it; use it after changing `node_modules` or the environment). A full run holds a lock
   in the shared git directory (`vitest-full.lock`): only one runs at a time
   across worktrees, the next one waits (a lock older than 60 min or with a dead
   owner is taken over).

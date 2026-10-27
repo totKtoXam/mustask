@@ -1,39 +1,68 @@
 import { useCallback } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  NO_LIST_FILTER,
   getAssigneeCandidates,
+  getAssigneeFilterOptions,
   getParentCandidates,
   getWorkItem,
   getWorkItems,
   type WorkItem,
+  type WorkItemListFilter,
 } from '../api/workItemsApi';
 import { workItemsKeys } from '../api/queryKeys';
 
 // One query hook per read of api-contract § 2, and feat-001's § 3.4.
 
 /**
- * § 2.1: one page of the project's list, 1-based, under the team filter (mod-017 § 3). Choosing
- * another page or another filter keeps the rows on screen until the next answer arrives; the page that hosts it is
- * keyed by its project, so another project never shows this one's rows.
+ * § 2.1: one page of the project's list, 1-based, under the filter (mod-017 § 3, feat-003 § 3).
+ * Choosing another page or another filter keeps the rows on screen until the next answer arrives;
+ * the page that hosts it is keyed by its project, so another project never shows this one's rows.
  */
 export function useWorkItems(
   organizationId: string,
   projectId: string,
   page: number,
-  teamIds: readonly string[] = [],
+  filter: WorkItemListFilter = NO_LIST_FILTER,
 ) {
   return useQuery({
-    queryKey: workItemsKeys.list(organizationId, projectId, page, teamIds),
-    queryFn: () => getWorkItems(organizationId, projectId, page, teamIds),
+    queryKey: workItemsKeys.list(organizationId, projectId, page, filter),
+    queryFn: () => getWorkItems(organizationId, projectId, page, filter),
     placeholderData: keepPreviousData,
   });
 }
 
-/** § 2.3: the form's item; its first answer validates the whole address. */
-export function useWorkItem(organizationId: string, projectId: string, identifier: string) {
+/**
+ * feat-003 § 2.2: the people the «Исполнитель» filter offers under the chosen states. The server
+ * decides whether a chosen state brings in the people of deleted items; a change of the states
+ * reads again and the previous options stay on screen until the answer arrives (design § 2.3).
+ */
+export function useAssigneeFilterOptions(
+  organizationId: string,
+  projectId: string,
+  states: readonly string[],
+) {
+  return useQuery({
+    queryKey: workItemsKeys.assigneeOptions(organizationId, projectId, states),
+    queryFn: () => getAssigneeFilterOptions(organizationId, projectId, states),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * § 2.3: the form's item; its first answer validates the whole address. `enabled: false` reads
+ * nothing: the card of a team's view waits for the project its identifier names (feat-040 BR-TS-4).
+ */
+export function useWorkItem(
+  organizationId: string,
+  projectId: string,
+  identifier: string,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: workItemsKeys.item(organizationId, projectId, identifier),
     queryFn: () => getWorkItem(organizationId, projectId, identifier),
+    enabled: options.enabled ?? true,
   });
 }
 

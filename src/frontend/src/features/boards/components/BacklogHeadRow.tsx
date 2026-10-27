@@ -15,6 +15,7 @@ import {
   EXPAND_ONE_LEVEL_LABEL,
   HIERARCHY_HEADER,
   ORDER_HEADER,
+  PROJECT_HEADER,
   STATE_HEADER,
   TEAM_HEADER,
   TITLE_HEADER,
@@ -135,6 +136,7 @@ export function BacklogHeadRow({
         <HeadLabel label={TITLE_HEADER} separated inset={TITLE_LABEL_INSET} />
         <HeadLabel label={STATE_HEADER} separated />
         <HeadLabel label={TEAM_HEADER} separated />
+        <HeadLabel label={PROJECT_HEADER} separated />
         <HeadLabel label={EFFORT_HEADER} separated title={EFFORT_HEADER} />
         <HeadLabel label={BUSINESS_VALUE_HEADER} separated title={BUSINESS_VALUE_HEADER} />
         <HeadLabel label={VALUE_AREA_HEADER} />

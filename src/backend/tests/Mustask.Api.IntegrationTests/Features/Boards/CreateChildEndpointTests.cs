@@ -155,13 +155,19 @@ public sealed class CreateChildEndpointTests(MustaskApiFactory factory)
         var first = Created(await CreateChildAsync(world, "US", "Повторная отправка письма", items["MSK-FEAT-6"].Id.ToString(), requestId));
         var parentAfterFirst = await StoredAsync(items["MSK-FEAT-6"]);
         var replay = await CreateChildAsync(world, "US", "Повторная отправка письма", items["MSK-FEAT-6"].Id.ToString(), requestId);
+        var parentAfterReplay = await StoredAsync(items["MSK-FEAT-6"]);
+
+        // mod-005: the deletion is the real one now, and moves the parent's «Изменён» to its own time (BR-DR-2); the late replay
+        // moves it no further.
         await LinksTestData.DeleteAsync(factory, world.Items, items["MSK-FEAT-6"]);
+        var parentAfterDelete = await StoredAsync(items["MSK-FEAT-6"]);
         var lateReplay = await CreateChildAsync(world, "US", "Другое", items["MSK-EPIC-1"].Id.ToString(), requestId);
 
         Assert.Equal((HttpStatusCode.OK, HttpStatusCode.OK), (replay.Status, lateReplay.Status));
         Assert.Equal((first.Id, first.Id), (replay.Body.GetProperty("id").GetGuid(), lateReplay.Body.GetProperty("id").GetGuid()));
         Assert.Equal("MSK-FEAT-6", LinksTestData.IdentifierOf(lateReplay.Body.GetProperty("parent")));
-        Assert.Equal(parentAfterFirst.ChangedAt, (await StoredAsync(items["MSK-FEAT-6"])).ChangedAt);
+        Assert.Equal(parentAfterFirst.ChangedAt, parentAfterReplay.ChangedAt);
+        Assert.Equal(parentAfterDelete.ChangedAt, (await StoredAsync(items["MSK-FEAT-6"])).ChangedAt);
         Assert.Equal(24, (await WorkItemsTestData.StoredAsync(factory, world.ProjectId)).Count);
     }
 

@@ -77,8 +77,8 @@ const ORGANIZATION_PAGES: [string, string][] = [
   ['«Области»', `/organizations/${ORG}/projects/${PROJECT}/settings/areas`],
   ['«Рабочие элементы»', `/organizations/${ORG}/projects/${PROJECT}/workitems`],
   ['рабочий элемент', `/organizations/${ORG}/projects/${PROJECT}/workitems/PRM-1`],
-  ['«Канбан»', `/organizations/${ORG}/projects/${PROJECT}/teams/${TEAM}/boards/stories`],
-  ['«Бэклоги»', `/organizations/${ORG}/projects/${PROJECT}/teams/${TEAM}/backlogs/stories`],
+  ['«Канбан»', `/organizations/${ORG}/teams/${TEAM}/boards/stories`],
+  ['«Бэклоги»', `/organizations/${ORG}/teams/${TEAM}/backlogs/stories`],
 ];
 
 describe('mod-016 US-2 Scenario: a non-member meets «Организация не найдена» at every depth', () => {

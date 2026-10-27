@@ -33,6 +33,7 @@ const STORY: WorkItem = {
   identifier: 'MSK-US-2',
   number: 2,
   projectId: 'project-1',
+  project: { id: 'project-1', name: 'Мастаск' },
   type: { id: 'type-us', key: 'US', name: 'Пользовательская история', appearance: 'story' },
   title: 'Письмо со ссылкой',
   description: 'Пользователь получает письмо.',
@@ -45,6 +46,7 @@ const STORY: WorkItem = {
   changedAt: '2026-10-05T14:30:00+00:00',
   parent: FEAT_6,
   children: [],
+  deletion: null,
   ...defaultFields('story'),
   storyPoints: 5,
 };

@@ -95,7 +95,7 @@ describe('isAccessRefusal (mod-016 design § 2.4)', () => {
 });
 
 describe('the skeleton’s headers (feat-027 BR-T-1)', () => {
-  it('are the table’s own, the hierarchy header blank, with no «ID», «Родитель», «Исполнитель», «Приоритет» or «Действия»', () => {
+  it('are the table’s own (feat-040 D-1: «Проект» after «Команда»), the hierarchy header blank, with no «ID», «Родитель», «Исполнитель», «Приоритет» or «Действия»', () => {
     expect(backlogSkeletonColumns()).toEqual([
       '',
       'Порядок',
@@ -103,6 +103,7 @@ describe('the skeleton’s headers (feat-027 BR-T-1)', () => {
       'Заголовок',
       'Статус',
       'Команда',
+      'Проект',
       'Трудоёмкость',
       'Бизнес-ценность',
       'Вид ценности',

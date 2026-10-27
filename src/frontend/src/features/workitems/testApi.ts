@@ -11,6 +11,11 @@
 // (§ 3.2). mod-017's api-contract adds the owning team: `team` on every item and row, the
 // team in the create and the save (§ 2.2, § 2.4) with its two refusals (§ 0.2), the list's
 // `teamId` filter (§ 3) and the project's teams read the picker and the filter use.
+// mod-005's api-contract adds the item's `deletion` (§ 1.1), the three writes (§ 2: delete,
+// restore, purge), the list without deleted items (§ 3.2) and the save that refuses a deleted
+// item first (§ 3.4). feat-003's api-contract adds the list's `state` (deleted items included),
+// `assigneeId` and `search` (§ 2.1), the row's `assignee.isActive` (§ 1.1) and the
+// «Исполнитель» filter's options (§ 2.2).
 // It keeps the contract's answers, not every rule of the backend.
 import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
@@ -25,17 +30,24 @@ import type {
 import { LIST_FIELDS, WORK_ITEM_FIELD_NAMES, fieldsOf, kindOf } from './lib/fields';
 import {
   AREAS_URL,
+  ASSIGNEE_OPTIONS_URL,
   CANDIDATES_URL,
   PARENT_CANDIDATES_URL,
   PROBLEM_HEADERS,
   PROCESS_URL,
   TEAMS_URL,
   WORK_ITEMS_URL,
+  WORK_ITEM_DELETE_URL,
   WORK_ITEM_PARENT_URL,
+  WORK_ITEM_PURGE_URL,
+  WORK_ITEM_RESTORE_URL,
   WORK_ITEM_URL,
   defaultFields,
   exampleDataset,
+  ids,
+  linkedProjectIds,
   problem,
+  removedStateId,
   problemWithParams,
   process,
   validationProblem,
@@ -142,6 +154,8 @@ function titleReason(title: unknown): string | null {
 export class WorkItemsTestApi {
   readonly data: Dataset;
   readonly requests: RecordedRequest[] = [];
+  /** The signed-in user a Delete records as its deleter (mod-005 BR-DR-2): a user of the dataset. */
+  actorId: string = ids.anna;
   /** Each accepted change is one minute after the latest time the dataset holds. */
   private clock: number;
 
@@ -232,7 +246,7 @@ export class WorkItemsTestApi {
     ) {
       refuse('organizations.team.not_found');
     }
-    if (found.projectId !== project.id) {
+    if (!linkedProjectIds(found).includes(project.id)) {
       refuse('organizations.team.not_in_project');
     }
     return found;
@@ -240,7 +254,7 @@ export class WorkItemsTestApi {
 
   private activeTeams(project: ProjectRecord): TeamRecord[] {
     return this.data.teams
-      .filter((team) => team.projectId === project.id && team.active)
+      .filter((team) => linkedProjectIds(team).includes(project.id) && team.active)
       .sort(
         (first, second) =>
           first.name.localeCompare(second.name, 'ru', { sensitivity: 'base' }) ||
@@ -295,6 +309,8 @@ export class WorkItemsTestApi {
         name: state?.name ?? '',
         category: state?.category ?? { code: 'Proposed', label: '' },
       },
+      // feat-003 api-contract § 1.1: a row's assignee carries the directory's flag and the
+      // membership alone, so an id the directory does not know is still a member.
       assignee:
         record.assigneeId === null
           ? null
@@ -302,12 +318,28 @@ export class WorkItemsTestApi {
               id: record.assigneeId,
               displayName: user?.displayName ?? null,
               email: user ? user.email : null,
-              isMember: user !== undefined && user.member !== false,
+              isActive: user?.active ?? false,
+              isMember: user
+                ? user.member !== false
+                : !(this.data.formerMemberIds ?? []).includes(record.assigneeId),
             },
       area: { id: record.areaId, path: this.areaPath(record.areaId) },
       team: this.teamOf(record),
       changedAt: record.changedAt,
     };
+  }
+
+  /** The card's assignee keeps its shape until feat-017: no `isActive` (feat-003 api-contract § 1.1). */
+  private cardAssignee(record: WorkItemRecord): WorkItem['assignee'] {
+    const user = this.data.users.find((candidate) => candidate.id === record.assigneeId);
+    return record.assigneeId === null
+      ? null
+      : {
+          id: record.assigneeId,
+          displayName: user?.displayName ?? null,
+          email: user ? user.email : null,
+          isMember: user !== undefined && user.member !== false,
+        };
   }
 
   answer(record: WorkItemRecord): WorkItem {
@@ -317,16 +349,93 @@ export class WorkItemsTestApi {
       .sort(
         (first, second) => this.rank(second) - this.rank(first) || first.number - second.number,
       );
+    const project = this.data.projects.find((candidate) => candidate.id === record.projectId);
     return {
       ...this.listItem(record),
+      assignee: this.cardAssignee(record),
       projectId: record.projectId,
+      // feat-040 api-contract § 4.2: the project with its name, beside `projectId`.
+      project: { id: record.projectId, name: project?.name ?? '' },
       description: record.description,
       createdBy: 'e2e-test-user',
       createdAt: record.createdAt,
       parent: parent ? this.ref(parent) : null,
       children: children.map((child) => this.ref(child)),
+      deletion: this.deletionOf(record),
       ...record.fields,
     };
+  }
+
+  /** mod-005 § 1.1: the marks of the latest deletion, `null` for a live item or one with none. */
+  private deletionOf(record: WorkItemRecord): WorkItem['deletion'] {
+    const marks = record.deletion;
+    if (!marks || !this.removed(record)) {
+      return null;
+    }
+    const type = this.type(record.typeId);
+    const held = type.states.find((candidate) => candidate.id === marks.fromStateId);
+    const user = this.data.users.find((candidate) => candidate.id === marks.byId);
+    return {
+      fromState: {
+        id: marks.fromStateId,
+        name: held?.name ?? '',
+        category: held?.category ?? { code: 'Proposed', label: '' },
+      },
+      by: {
+        id: marks.byId,
+        displayName: user?.displayName ?? null,
+        isActive: user?.active ?? false,
+        isMember: user !== undefined && user.member !== false,
+      },
+      at: marks.at,
+    };
+  }
+
+  /** mod-005 § 2.1: the item moves to its type's «Удалена» and remembers the state, the actor and the time. */
+  private deleteItem(record: WorkItemRecord): WorkItemRecord {
+    if (this.removed(record)) refuse('workitems.workitem.deleted');
+    const now = this.now();
+    record.deletion = { fromStateId: record.stateId, byId: this.actorId, at: now };
+    record.stateId = removedStateId(record);
+    record.changedAt = now;
+    return record;
+  }
+
+  /**
+   * mod-005 § 2.2, in the order of the contract: not deleted, then the state (a state of the
+   * type other than «Удалена»); absent, the state held, else the type's first.
+   */
+  private restoreItem(record: WorkItemRecord, body: Record<string, unknown>): WorkItemRecord {
+    if (!this.removed(record)) refuse('workitems.workitem.not_deleted');
+    const type = this.type(record.typeId);
+    const chosen = typeof body.stateId === 'string' ? body.stateId : undefined;
+    if (body.stateId !== undefined && body.stateId !== null) {
+      const state = type.states.find((candidate) => candidate.id === chosen);
+      if (!state || state.category.code === 'Removed')
+        refuse('workitems.workitem.state_not_allowed');
+    }
+    const held = record.deletion?.fromStateId;
+    record.stateId =
+      chosen ??
+      (held && type.states.some((candidate) => candidate.id === held)
+        ? held
+        : ((type.states.find((state) => state.isInitial) ?? type.states[0])?.id ?? record.stateId));
+    record.deletion = null;
+    record.changedAt = this.now();
+    return record;
+  }
+
+  /** mod-005 § 2.3: the item is gone; its children survive, unparented, «Изменён» the purge's. */
+  private purgeItem(record: WorkItemRecord): void {
+    if (!this.removed(record)) refuse('workitems.workitem.not_deleted');
+    const now = this.now();
+    for (const child of this.data.items) {
+      if (child.parentId === record.id) {
+        child.parentId = null;
+        child.changedAt = now;
+      }
+    }
+    this.data.items.splice(this.data.items.indexOf(record), 1);
   }
 
   // ---- the hierarchy (feat-001 § 1, § 2.1)
@@ -516,14 +625,76 @@ export class WorkItemsTestApi {
     );
   }
 
-  private list(project: ProjectRecord, pageParameter: string | null, teamIds: string[]) {
+  /** feat-003 § 2.1: the state's name is among the chosen, whether the item is live or deleted. */
+  private matchesState(record: WorkItemRecord, states: string[]): boolean {
+    if (states.length === 0) {
+      return true;
+    }
+    const state = this.type(record.typeId).states.find(
+      (candidate) => candidate.id === record.stateId,
+    );
+    return state !== undefined && states.includes(state.name);
+  }
+
+  /** feat-003 § 3.2: a chosen id, or `none` for an item with no assignee; ids as stored. */
+  private matchesAssignee(record: WorkItemRecord, assigneeIds: string[]): boolean {
+    if (assigneeIds.length === 0) {
+      return true;
+    }
+    return record.assigneeId === null
+      ? assigneeIds.includes('none')
+      : assigneeIds.includes(record.assigneeId);
+  }
+
+  /**
+   * feat-003 § 3.3: the keyword in the title (case and «ё» ignored), or the identifier in any
+   * letter case, or the number in digits. A longer text or one with a line break matches nothing.
+   */
+  private matchesKeyword(record: WorkItemRecord, keyword: string): boolean {
+    const text = keyword.trim();
+    if (text === '') {
+      return true;
+    }
+    if (text.length > 255 || LINE_BREAK.test(text)) {
+      return false;
+    }
+    const fold = (value: string) => value.toLocaleLowerCase('ru').replace(/ё/g, 'е');
+    return (
+      fold(record.title).includes(fold(text)) ||
+      this.identifierOf(record) === text.toUpperCase() ||
+      (/^[1-9][0-9]{0,9}$/.test(text) && Number(text) === record.number)
+    );
+  }
+
+  private list(
+    project: ProjectRecord,
+    pageParameter: string | null,
+    filter: {
+      teamIds: string[];
+      states?: string[];
+      assigneeIds?: string[];
+      keywords?: string[];
+    },
+  ) {
     const page = pageParameter === null ? 1 : Number(pageParameter);
     if (page < 1) {
       throw new Refusal(validationProblem({ page: 'workitems.invalid_page' }));
     }
+    // Blank values are left out (feat-003 § 2.1); the first non-blank keyword counts.
+    const states = (filter.states ?? []).filter((value) => value.trim() !== '');
+    const assigneeIds = (filter.assigneeIds ?? []).filter((value) => value.trim() !== '');
+    const keyword = (filter.keywords ?? []).find((value) => value.trim() !== '') ?? '';
+    // mod-005 § 3.2: the list and its count are the items outside «Удалена»; feat-003 § 2.1: with a
+    // `state` the deleted items are reachable, and a chosen name decides which are listed.
     const items = this.data.items
       .filter(
-        (record) => record.projectId === project.id && this.matchesFilter(record, project, teamIds),
+        (record) =>
+          record.projectId === project.id &&
+          (states.length > 0 || !this.removed(record)) &&
+          this.matchesState(record, states) &&
+          this.matchesAssignee(record, assigneeIds) &&
+          this.matchesKeyword(record, keyword) &&
+          this.matchesFilter(record, project, filter.teamIds),
       )
       .sort(
         (first, second) =>
@@ -536,6 +707,49 @@ export class WorkItemsTestApi {
         .slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
         .map((record) => this.listItem(record)),
     };
+  }
+
+  /**
+   * feat-003 § 2.2: the distinct assignees of the project's live items, and of its deleted items
+   * whose state's name is among `states`; known people by display name, then the unknown by id.
+   */
+  private assigneeOptions(project: ProjectRecord, states: string[]) {
+    const chosen = states.filter((value) => value.trim() !== '');
+    const assigned = new Set<string>();
+    for (const record of this.data.items) {
+      if (
+        record.projectId === project.id &&
+        record.assigneeId !== null &&
+        (!this.removed(record) || (chosen.length > 0 && this.matchesState(record, chosen)))
+      ) {
+        assigned.add(record.assigneeId);
+      }
+    }
+    const known = this.data.users
+      .filter((user) => assigned.has(user.id))
+      .sort(
+        (first, second) =>
+          first.displayName.localeCompare(second.displayName, 'ru', { sensitivity: 'base' }) ||
+          first.id.localeCompare(second.id),
+      )
+      .map((user) => ({
+        id: user.id,
+        displayName: user.displayName,
+        email: user.email,
+        isActive: user.active,
+        isMember: user.member !== false,
+      }));
+    const unknown = [...assigned]
+      .filter((id) => !this.data.users.some((user) => user.id === id))
+      .sort()
+      .map((id) => ({
+        id,
+        displayName: null,
+        email: null,
+        isActive: false,
+        isMember: !(this.data.formerMemberIds ?? []).includes(id),
+      }));
+    return [...known, ...unknown];
   }
 
   private create(project: ProjectRecord, body: Record<string, unknown>) {
@@ -646,6 +860,8 @@ export class WorkItemsTestApi {
   }
 
   private save(project: ProjectRecord, record: WorkItemRecord, body: Record<string, unknown>) {
+    // mod-005 § 3.4: the stored state is judged first — before the values, the references, the state.
+    if (this.removed(record)) refuse('workitems.workitem.deleted');
     const reasons: Record<string, string> = {};
     if (body.title !== undefined && body.title !== null) {
       const title = titleReason(body.title);
@@ -810,8 +1026,18 @@ export class WorkItemsTestApi {
       http.get(
         WORK_ITEMS_URL,
         answer((p, url) =>
-          this.list(pr(p), url.searchParams.get('page'), url.searchParams.getAll('teamId')),
+          this.list(pr(p), url.searchParams.get('page'), {
+            teamIds: url.searchParams.getAll('teamId'),
+            states: url.searchParams.getAll('state'),
+            assigneeIds: url.searchParams.getAll('assigneeId'),
+            keywords: url.searchParams.getAll('search'),
+          }),
         ),
+      ),
+      // Before the item's route: `assignee-options` is no identifier.
+      http.get(
+        ASSIGNEE_OPTIONS_URL,
+        answer((p, url) => this.assigneeOptions(pr(p), url.searchParams.getAll('state'))),
       ),
       http.post(
         WORK_ITEMS_URL,
@@ -829,6 +1055,28 @@ export class WorkItemsTestApi {
         answer((p, _url, body) => {
           const project = pr(p);
           return this.answer(this.save(project, this.item(project, one(p, 'identifier')), body));
+        }),
+      ),
+      http.post(
+        WORK_ITEM_DELETE_URL,
+        answer((p) => {
+          const project = pr(p);
+          return this.answer(this.deleteItem(this.item(project, one(p, 'identifier'))));
+        }),
+      ),
+      http.post(
+        WORK_ITEM_RESTORE_URL,
+        answer((p, _url, body) => {
+          const project = pr(p);
+          return this.answer(this.restoreItem(this.item(project, one(p, 'identifier')), body));
+        }),
+      ),
+      http.post(
+        WORK_ITEM_PURGE_URL,
+        answer((p) => {
+          const project = pr(p);
+          this.purgeItem(this.item(project, one(p, 'identifier')));
+          return new HttpResponse(null, { status: 204 });
         }),
       ),
       http.get(

@@ -27,6 +27,7 @@ public static class OrganizationRoleBundles
     {
         PermissionCatalog.WorkItemsWorkItemWrite,
         PermissionCatalog.WorkItemsLinkWrite,
+        PermissionCatalog.WorkItemsWorkItemDelete,
         PermissionCatalog.BoardsBacklogReorder,
     };
 

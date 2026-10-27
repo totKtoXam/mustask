@@ -12,7 +12,10 @@ namespace Mustask.Application.Abstractions.WorkItems;
 /// </summary>
 public interface IWorkItemReadModel
 {
-    /// <summary>The project's item with that number, or <c>null</c>.</summary>
+    /// <summary>
+    /// The project's item with that number, or <c>null</c> — in every state, a deleted item too: it is found by its address
+    /// and read in full (mod-005 BR-DR-6, BR-DR-7).
+    /// </summary>
     Task<WorkItemView?> FindAsync(Guid projectId, int number, CancellationToken cancellationToken);
 
     /// <summary>The project's item with that number as an address needs it (its id and type), or <c>null</c>.</summary>
@@ -33,12 +36,21 @@ public interface IWorkItemReadModel
     Task<WorkItemView> GetAsync(Guid workItemId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// One page of the project's items in every state, most recently changed
-    /// first, then by number descending (BR-M3-29), and the count of the items
-    /// that match <paramref name="filter"/> (mod-017 BR-OT-8): the count and the page follow the filter, in the same
-    /// statements — a filter adds none.
+    /// One page of the project's items, most recently changed first, then by number descending, and the count of the items
+    /// that match <paramref name="filter"/> (mod-017 BR-OT-8, feat-003 BR-WS-2): the count and the page follow the filter, in
+    /// the same statements — a filter adds none. The count counts the same set as the page, whatever page it is. The items are
+    /// the ones <b>outside «Удалена»</b> (mod-005 BR-DR-6) unless the filter sets <see cref="WorkItemFilter.StatesSet"/>; then
+    /// the deleted ones are reachable too, and an item is listed when its state's name is among the chosen (feat-003 BR-WS-4).
     /// </summary>
     Task<WorkItemPage> GetPageAsync(Guid projectId, int page, int pageSize, WorkItemFilter filter, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The options of the list's «Исполнитель» filter (feat-003 api-contract § 2.2): the distinct assignees of the project's items
+    /// outside «Удалена», and of its deleted items whose state's name is among <paramref name="stateNames"/>; each as the directory
+    /// and the membership know them now, known users by display name, then the users the directory does not know, by id.
+    /// </summary>
+    Task<IReadOnlyList<AssigneeFilterOptionView>> GetAssigneeOptionsAsync(
+        Guid projectId, IReadOnlyCollection<string> stateNames, CancellationToken cancellationToken);
 }
 
 /// <summary>A page of the list: <paramref name="Count"/> is the number of the project's items that match the filter, not the page's.</summary>
@@ -108,13 +120,44 @@ public sealed record WorkItemView(
     public required string? ReproSteps { get; init; }
 
     public required string? SystemInfo { get; init; }
+
+    /// <summary>
+    /// mod-005 (api-contract § 1.1): the record of the item's latest deletion — the state it held, who deleted it and when.
+    /// <c>null</c> for a live item, and for an item in «Удалена» that has no marks (one put there outside Delete,
+    /// BR-DR-10). Whether the item is deleted is its <see cref="State"/>'s category, never this.
+    /// </summary>
+    public required WorkItemDeletionView? Deletion { get; init; }
+
+    /// <summary>
+    /// feat-040 (api-contract § 4.2, BR-TS-3): the item's project <b>as it stands now</b>, beside <see cref="ProjectId"/>,
+    /// which stays. The card dialog's «Проект» reads it, so a card opened over a team view shows the item's own project.
+    /// </summary>
+    public required WorkItemProjectView Project { get; init; }
 }
+
+/// <summary>
+/// mod-005 (api-contract § 1.1) <c>deletion</c>: <paramref name="FromState"/> is the state held when the item was
+/// deleted, shaped as <c>state</c> is; <paramref name="At"/> is the deletion's own time, not <c>changedAt</c>.
+/// </summary>
+public sealed record WorkItemDeletionView(WorkItemStateView FromState, WorkItemUserView By, DateTimeOffset At);
+
+/// <summary>
+/// mod-005 (api-contract § 1.1) <c>deletion.by</c>, a user reference with the marks of BR-13: <paramref name="Id"/> is the
+/// Keycloak subject; <paramref name="DisplayName"/> is <c>null</c> when the user directory does not know the id;
+/// <paramref name="IsActive"/> is the directory's flag (<c>false</c> for an unknown, disabled or deleted user);
+/// <paramref name="IsMember"/> is whether the user is <b>now</b> a member of the item's organization, in any role, from the
+/// membership alone. No e-mail is served.
+/// </summary>
+public sealed record WorkItemUserView(string Id, string? DisplayName, bool IsActive, bool IsMember);
 
 /// <summary>A single scenario of a user story's acceptance criteria (R1).</summary>
 public sealed record AcceptanceCriterionView(string Given, string When, string Then);
 
-/// <summary>An item as an address resolves it: its id and its type.</summary>
-public sealed record WorkItemHead(Guid Id, Guid TypeId);
+/// <summary>
+/// An item as an address resolves it: its id, its type and — mod-005 — its state, which the purge's early read decides
+/// "not deleted" on, before its pre-flights run.
+/// </summary>
+public sealed record WorkItemHead(Guid Id, Guid TypeId, Guid StateId);
 
 /// <summary><c>WorkItemRef</c> of feat-001 api-contract § 2.1: a parent, a child, a picker option.</summary>
 public sealed record WorkItemRefView(Guid Id, string Identifier, WorkItemTypeView Type, string Title, WorkItemStateView State);
@@ -135,14 +178,14 @@ public sealed record ParentCandidateSearch(
 /// <summary>At most the search's limit of candidates, and whether more matched.</summary>
 public sealed record ParentCandidates(IReadOnlyList<WorkItemRefView> Items, bool MoreMatched);
 
-/// <summary><c>WorkItemListItem</c> of api-contract § 1.2.</summary>
+/// <summary><c>WorkItemListItem</c> of api-contract § 1.2, with feat-003's <c>assignee.isActive</c> (its api-contract § 1.1).</summary>
 public sealed record WorkItemListItemView(
     Guid Id,
     string Identifier,
     int Number,
     WorkItemTypeView Type,
     string Title,
-    WorkItemAssigneeView? Assignee,
+    WorkItemListAssigneeView? Assignee,
     WorkItemStateView State,
     WorkItemAreaView Area,
     WorkItemTeamView? Team,
@@ -170,6 +213,20 @@ public sealed record WorkItemStateCategoryView(string Code, string Label);
 /// </summary>
 public sealed record WorkItemAssigneeView(string Id, string? DisplayName, string? Email, bool IsMember);
 
+/// <summary>
+/// feat-003 (OQ-2 A, api-contract § 1.1): the list row's assignee — the card's <see cref="WorkItemAssigneeView"/> plus
+/// <paramref name="IsActive"/>, the user directory's flag (mod-014 BR-UP-11): <c>false</c> for a disabled or deleted account and
+/// for an id the directory does not know, the way <see cref="WorkItemUserView"/> reads it. The card keeps its shape until feat-017.
+/// </summary>
+public sealed record WorkItemListAssigneeView(string Id, string? DisplayName, string? Email, bool IsActive, bool IsMember);
+
+/// <summary>
+/// feat-003 (api-contract § 1.2): one option of the «Исполнитель» filter, with the same five fields as the list row's assignee.
+/// <paramref name="DisplayName"/> and <paramref name="Email"/> are <c>null</c> and <paramref name="IsActive"/> is <c>false</c> for an
+/// id the directory does not know; <paramref name="IsMember"/> is the membership alone.
+/// </summary>
+public sealed record AssigneeFilterOptionView(string Id, string? DisplayName, string? Email, bool IsActive, bool IsMember);
+
 /// <param name="Path">mod-002 DC-9: «Платформа / API», the root by its own name.</param>
 public sealed record WorkItemAreaView(Guid Id, string Path);
 
@@ -178,3 +235,9 @@ public sealed record WorkItemAreaView(Guid Id, string Path);
 /// item's <c>team</c> is <c>null</c> for «Без команды»; a deleted team never appears, its items have none (BR-OT-12).
 /// </summary>
 public sealed record WorkItemTeamView(Guid Id, string Name);
+
+/// <summary>
+/// feat-040 api-contract § 2.1 <c>WorkItemProject</c>: the item's project <b>as it stands now</b> (a rename shows at once).
+/// Every item has one; a row, a child and a card of every backlog and board carry it (BR-TS-3).
+/// </summary>
+public sealed record WorkItemProjectView(Guid Id, string Name);

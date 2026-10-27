@@ -194,13 +194,38 @@ describe('feat-028 US-7, BR-OL-10 Scenario: A project with no team is the normal
     },
   );
 
-  it('shows neither view once a team is linked', async () => {
+  // feat-040 BR-TS-12 (OQ-1 A) extends feat-028 OQ-2 A: team pages left the project's address, so the
+  // project's own views are reached from here whatever teams are linked. Rewritten from «shows neither
+  // view once a team is linked».
+  it('shows both views once a team is linked too, ahead of «Команда по умолчанию»', async () => {
     serveOrganizations();
     renderPage({ path: PRM_TEAMS });
     await teamsTable();
 
-    expect(screen.queryByRole('link', { name: 'Бэклог проекта' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Доска проекта' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Бэклог проекта' })).toHaveAttribute(
+      'href',
+      `/organizations/${ids.alfa}/projects/${ids.prm}/backlogs/stories`,
+    );
+    expect(screen.getByRole('link', { name: 'Доска проекта' })).toHaveAttribute(
+      'href',
+      `/organizations/${ids.alfa}/projects/${ids.prm}/boards/stories`,
+    );
+    const backlog = screen.getByRole('link', { name: 'Бэклог проекта' });
+    const board = screen.getByRole('link', { name: 'Доска проекта' });
+    const defaultTeam = screen.getByRole('button', { name: 'Команда по умолчанию' });
+    expect(backlog.compareDocumentPosition(board) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      board.compareDocumentPosition(defaultTeam) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('draws them from the first paint, for a reader too, before the teams are read', async () => {
+    serveOrganizations();
+    renderPage({ path: PRM_TEAMS, role: 'viewer' });
+
+    expect(screen.getByRole('link', { name: 'Бэклог проекта' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Доска проекта' })).toBeVisible();
+    await teamsTable();
   });
 
   it('shows the error with «Повторить» when the read fails, and the table after it', async () => {
@@ -461,6 +486,18 @@ describe('feat-028 US-4 Scenario: «Отключить от проекта» rea
         .getAllByRole('option')
         .map((option) => option.textContent),
     ).toEqual(['Без команды', 'Пример проекта']);
+  });
+
+  it('shows the number the server counted as it is — in any state, deleted items included (mod-005 BR-DR-9) — and reads no work item to refine it', async () => {
+    const { api, dialog } = await openUnlink({ data: owning(4) });
+
+    await within(dialog).findByText(
+      'Команда «Платформа» владеет рабочими элементами проекта «Пример проекта»: 4. Выберите, кому их передать.',
+    );
+
+    const paths = api.requests.map((request) => request.path);
+    expect(paths.filter((path) => path.endsWith('/unlink-count'))).toHaveLength(1);
+    expect(paths.filter((path) => path.includes('/workitems'))).toEqual([]);
   });
 
   it('moves them to another linked team: the line names it, the request names it, the row leaves and the notice reads', async () => {

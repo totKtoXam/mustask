@@ -108,14 +108,18 @@ directory, see the header of `scripts/verify.sh`).
 
 **One full run per tree.** A green `VERIFY_FULL=1` run on a clean tree leaves a
 stamp in the git directory, keyed by the tree hash and the merge-base. Every
-later gate that needs the full guarantee — QA, code review, `finish-task.sh`,
-`pre-push` — runs `VERIFY_FULL=1 bash scripts/verify.sh` and gets "already
+later gate that needs the full guarantee — QA, code review, `finish-task.sh`
+— runs `VERIFY_FULL=1 bash scripts/verify.sh` and gets "already
 verified" instantly while the tree and the merge-base are the same and the
 working tree is clean; a commit changes the tree and a rebase changes the
-merge-base, and the next run is real. A QA or review session therefore never
-re-runs the suite by hand: it runs `VERIFY_FULL=1 bash scripts/verify.sh`,
-which is instant when the stamp exists, and adds targeted tests where its own
-judgement says. The stamp is a statement about the code on this machine, not
+merge-base, and the next run is real. `pre-push` is not one of those gates:
+it runs the quick, change-proportionate `scripts/verify.sh` (`VERIFY_FULL=1
+git push` makes it a full one, and finds the stamp the same way), and CI runs
+`VERIFY_FULL=1 sh scripts/verify.sh` on every pull request — the required check
+on `main` — on its own machine, where no stamp exists. A QA or review session
+therefore never re-runs the suite by hand: it runs
+`VERIFY_FULL=1 bash scripts/verify.sh`, which is instant when the stamp exists,
+and adds targeted tests where its own judgement says. The stamp is a statement about the code on this machine, not
 about a worktree's `node_modules` or Docker: after changing the environment
 use `VERIFY_FORCE=1`, which ignores the stamp.
 

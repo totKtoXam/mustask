@@ -168,6 +168,7 @@ public sealed class UnlinkTeamHandlerTests
         Assert.Equal(4, f.Ownership.Owned[(f.Alpha.Project.Id, f.Mars.Id)]);
         Assert.DoesNotContain(f.Store.Calls, call => call.StartsWith("reassign", StringComparison.Ordinal));
         Assert.DoesNotContain(f.Store.Calls, call => call.StartsWith("lock owned", StringComparison.Ordinal));
+        Assert.DoesNotContain(f.Store.Calls, call => call.StartsWith("lock hierarchies", StringComparison.Ordinal));
     }
 
     // feat-028 review-security S-1 · the same for the destination: a destination whose link the lock statement did not return is not
@@ -284,10 +285,12 @@ public sealed class UnlinkTeamHandlerTests
         Assert.Empty(f.Store.Calls);
     }
 
-    // plan-backend § 7.2 · the links of the pair in ONE statement ordered by team id, no team row, then the owned items, the places of
-    // this project, the reassignment, the setting, the link — in this order.
+    // plan-backend § 7.2 · the links of the pair in ONE statement ordered by team id, no team row, then the setting (the project row —
+    // before any item, mod-005 plan-backend § 14: a project backlog's reorder holds the project row and then its members), the
+    // project's hierarchy lock (before any item, mod-005 QD-1: a parent write locks the hierarchy, then its child and its parents,
+    // and the items are locked by id), the owned items, the places of this project, the reassignment, the link — in this order.
     [Fact]
-    public async Task Unlink_LocksThePairOfLinks_ThenTheOwnedItems_ThenDropsPlaces_ThenReassigns_ThenRemovesTheLink()
+    public async Task Unlink_LocksThePairOfLinks_ThenClearsTheSetting_ThenTheHierarchy_ThenTheOwnedItems_ThenDropsPlaces_ThenReassigns_ThenRemovesTheLink()
     {
         var f = new Fixture();
 
@@ -297,10 +300,11 @@ public sealed class UnlinkTeamHandlerTests
         Assert.Equal(
             [
                 $"lock links {f.Alpha.Project.Id} {pair}",
+                $"clear default team {f.Mars.Id} in {f.Alpha.Project.Id}",
+                $"lock hierarchies {f.Alpha.Project.Id}",
                 $"lock owned {f.Mars.Id}",
                 $"drop team places in {f.Alpha.Project.Id} {f.Mars.Id}",
                 $"reassign owned {f.Mars.Id} to {f.Jupiter.Id}",
-                $"clear default team {f.Mars.Id} in {f.Alpha.Project.Id}",
                 $"remove link {f.Alpha.Project.Id} {f.Mars.Id}",
             ],
             f.Store.Calls);

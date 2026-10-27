@@ -32,4 +32,28 @@ internal static class ProjectMembers
 
         return members.ToHashSet(StringComparer.Ordinal);
     }
+
+    /// <summary>
+    /// The ids among <paramref name="userIds"/> that hold a membership in the organization <paramref name="organizationId"/>
+    /// itself (feat-040 plan-backend PD-12): a team's view holds the rows of several projects, so it asks of the organization
+    /// they all share, not of one project. One statement; no statement when there is nothing to ask.
+    /// </summary>
+    public static async Task<HashSet<string>> MemberIdsOfOrganizationAsync(
+        MustaskDbContext context, Guid organizationId, IReadOnlyCollection<string> userIds, CancellationToken cancellationToken)
+    {
+        if (userIds.Count == 0)
+        {
+            return new HashSet<string>(StringComparer.Ordinal);
+        }
+
+        var ids = userIds.ToArray();
+
+        var members = await context.OrganizationMemberships
+            .AsNoTracking()
+            .Where(membership => membership.OrganizationId == organizationId && ids.Contains(membership.UserId))
+            .Select(membership => membership.UserId)
+            .ToListAsync(cancellationToken);
+
+        return members.ToHashSet(StringComparer.Ordinal);
+    }
 }

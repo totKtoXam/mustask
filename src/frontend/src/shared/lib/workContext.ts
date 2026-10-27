@@ -14,24 +14,32 @@ export type WorkContextLevel = 'organization' | 'project' | 'team';
 export interface WorkContextTeam {
   id: string;
   name: string;
-  /** The user is in this team (mod-016 api-contract § 3.3); absent: not known. */
+  /** The user is in this team (feat-040 api-contract § 4.1, mod-016 § 3.3); absent: not known. */
   isMember?: boolean;
+  /**
+   * The effective project's default team: the one its settings name, else its only team
+   * (mod-017 BR-OT-4; mod-020 for the switcher). Absent: not known, or not it.
+   */
+  isDefault?: boolean;
 }
 
 export interface WorkContextProject {
   id: string;
   name: string;
-  /**
-   * In the source's order; the project's default team is the first one the
-   * user is a member of, else the first (`defaultEntry`; mod-016 D-5).
-   */
-  teams: readonly WorkContextTeam[];
 }
 
 export interface WorkContextOrganization {
   id: string;
   name: string;
   projects: readonly WorkContextProject[];
+  /**
+   * The organization's active teams, the user's own first, each group by name (feat-040 BR-TS-10:
+   * the interim team level, whatever project is chosen). The team the switcher opens on, with
+   * none chosen, is the effective project's default team, else the first one the user is a
+   * member of, else the first (`defaultEntry`; mod-020, mod-016 D-5). Only the effective
+   * organization carries them.
+   */
+  teams: readonly WorkContextTeam[];
 }
 
 export interface WorkContextSelection {
@@ -114,20 +122,32 @@ export interface WorkContext {
   team?: WorkContextTeam;
 }
 
-/**
- * The entry a level opens on when nothing, or nothing found, is chosen
- * (BR-11): the first entry the user is a member of, else the first. Only the
- * team level carries `isMember` (mod-016 D-5, BR-M1-27: the project's default
- * team is the first team of the user's own, in the project's order); the
- * levels above carry none and give their first entry as before.
- */
-export function defaultEntry<T extends { id: string; isMember?: boolean }>(
-  entries: readonly T[],
-): T | undefined {
-  return entries.find((entry) => entry.isMember === true) ?? entries[0];
+/** What `defaultEntry` reads of an entry; only the team level carries the two marks. */
+interface DefaultCandidate {
+  id: string;
+  isMember?: boolean;
+  isDefault?: boolean;
 }
 
-function pick<T extends { id: string; isMember?: boolean }>(
+/**
+ * The entry a level opens on when nothing, or nothing found, is chosen
+ * (BR-11): the project's default team, else the first entry the user is a
+ * member of, else the first. Only the team level carries the marks —
+ * `isDefault` (mod-020: the human's answer to mod-017 OQ-8, the team its
+ * settings name, else its only team; it amends doc-012 BR-MX-11 until feat-043
+ * retires the fallback) and `isMember` (mod-016 D-5, BR-M1-27: the first team of
+ * the user's own, in the project's order); the levels above carry none and give
+ * their first entry as before.
+ */
+export function defaultEntry<T extends DefaultCandidate>(entries: readonly T[]): T | undefined {
+  return (
+    entries.find((entry) => entry.isDefault === true) ??
+    entries.find((entry) => entry.isMember === true) ??
+    entries[0]
+  );
+}
+
+function pick<T extends DefaultCandidate>(
   entries: readonly T[],
   id: string | undefined,
 ): T | undefined {
@@ -146,7 +166,8 @@ export function resolveWorkContext(
 ): WorkContext {
   const organization = pick(organizations, selection.organizationId);
   const project = organization ? pick(organization.projects, selection.projectId) : undefined;
-  const team = project ? pick(project.teams, selection.teamId) : undefined;
+  // The team level is the organization's, whatever its projects (feat-040 BR-TS-10).
+  const team = organization ? pick(organization.teams, selection.teamId) : undefined;
   return { organization, project, team };
 }
 
@@ -166,9 +187,9 @@ export function firstSelection(
 }
 
 /**
- * Chooses `id` at `level` and resets every level below it to its default entry
- * (BR-11): the first of a project's teams the user is a member of, else its
- * first (`defaultEntry`; mod-016 D-5).
+ * Chooses `id` at `level`. An organization choice resets the levels below it to their default
+ * entries (BR-11); a project choice keeps the team and a team choice keeps the project
+ * (feat-040 BR-TS-10: the team level is the organization's, and a chosen team stays).
  */
 export function selectInWorkContext(
   organizations: readonly WorkContextOrganization[],
@@ -184,6 +205,7 @@ export function selectInWorkContext(
         resolveWorkContext(organizations, {
           organizationId: selection.organizationId,
           projectId: id,
+          teamId: selection.teamId,
         }),
       );
     case 'team':

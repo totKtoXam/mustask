@@ -80,8 +80,10 @@ function projectViews<Level extends string>(
  * segment `boards` stay) and puts the levels in a drop-down (BR-H-15).
  * feat-039 adds the project's own backlog and board, project-level pages of the
  * same two entries (`projectViews`, BR-PB-9): current there like the entry's team
- * pages, and kept, with their level, by a switch of project or organization. All
- * of it is interim, retired by feat-040 and feat-043 with the switcher it follows.
+ * pages, and kept, with their level, by a switch of project or organization.
+ * feat-040 moves a team's pages to the team's address (BR-TS-1): the two entries need
+ * the organization and a team (BR-TS-10), whatever project is chosen. All of it is
+ * interim, retired by feat-043 with the switcher it follows.
  */
 export const navigationModel: NavigationModel = {
   top: [
@@ -112,12 +114,12 @@ export const navigationModel: NavigationModel = {
       scope: 'team',
       permission: boardsPermissions.workItemRead,
       landing: (selection) =>
-        selection.organizationId && selection.projectId && selection.teamId
-          ? boardsLandingPath(selection.organizationId, selection.projectId, selection.teamId)
+        selection.organizationId && selection.teamId
+          ? boardsLandingPath(selection.organizationId, selection.teamId)
           : null,
       views: (selection) =>
-        selection.organizationId && selection.projectId && selection.teamId
-          ? boardLevelPaths(selection.organizationId, selection.projectId, selection.teamId)
+        selection.organizationId && selection.teamId
+          ? boardLevelPaths(selection.organizationId, selection.teamId)
           : [],
       projectViews: projectViews(projectBoardLevelOf, projectBoardPath),
     },
@@ -128,12 +130,12 @@ export const navigationModel: NavigationModel = {
       scope: 'team',
       permission: boardsPermissions.workItemRead,
       landing: (selection) =>
-        selection.organizationId && selection.projectId && selection.teamId
-          ? backlogsLandingPath(selection.organizationId, selection.projectId, selection.teamId)
+        selection.organizationId && selection.teamId
+          ? backlogsLandingPath(selection.organizationId, selection.teamId)
           : null,
       views: (selection) =>
-        selection.organizationId && selection.projectId && selection.teamId
-          ? backlogLevelPaths(selection.organizationId, selection.projectId, selection.teamId)
+        selection.organizationId && selection.teamId
+          ? backlogLevelPaths(selection.organizationId, selection.teamId)
           : [],
       projectViews: projectViews(projectBacklogLevelOf, projectBacklogPath),
     },

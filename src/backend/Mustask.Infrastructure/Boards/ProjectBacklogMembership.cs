@@ -6,7 +6,10 @@ namespace Mustask.Infrastructure.Boards;
 
 /// <summary>
 /// The one definition of what a project's backlog and board hold (feat-039 api-contract § 1, BR-PB-2), used by the
-/// backlog read, the board read and the reorder alike. Three conditions, all in one <c>work_items</c> statement
+/// backlog read and the board read; the reorder's locking read (<see cref="ProjectBacklogRepository"/>, mod-005) states the
+/// same three conditions in SQL, and <c>DeletedStateParityTests</c> pins the two equal. Their third condition is the one
+/// definition of "deleted" (ADR-0030 rule 2): the state is outside the Removed category, as the scope's shown-state ids
+/// carry it. Three conditions, all in one <c>work_items</c> statement
 /// served by <c>ix_work_items_project_id_type_id_area_id</c> on its (project, type) prefix:
 /// <list type="number">
 /// <item>the item belongs to the project (the caller has checked the project is reachable and of the organization);</item>
@@ -33,7 +36,7 @@ internal static class ProjectBacklogMembership
         var projectId = scope.ProjectId;
         var levelId = scope.LevelId;
 
-        return from item in WorkItemFilterPredicate.Apply(context.WorkItems.AsNoTracking(), scope.Filter)
+        return from item in WorkItemFilterPredicate.Apply(context, context.WorkItems.AsNoTracking(), scope.Filter)
                where item.ProjectId == projectId
                    && typeIds.Contains(item.TypeId)
                    && stateIds.Contains(item.StateId)
@@ -56,7 +59,7 @@ internal static class ProjectBacklogMembership
         var stateIds = scope.ShownStateIds.ToList();
         var projectId = scope.ProjectId;
 
-        return from item in WorkItemFilterPredicate.Apply(context.WorkItems.AsNoTracking(), scope.Filter)
+        return from item in WorkItemFilterPredicate.Apply(context, context.WorkItems.AsNoTracking(), scope.Filter)
                where item.ProjectId == projectId
                    && typeIds.Contains(item.TypeId)
                    && stateIds.Contains(item.StateId)

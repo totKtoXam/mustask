@@ -30,6 +30,7 @@ const ITEM: WorkItem = {
   identifier: 'MSK-BUG-4',
   number: 4,
   projectId: 'project-1',
+  project: { id: 'project-1', name: 'Мастаск' },
   type: { id: 'type-bug', key: 'BUG', name: 'Баг', appearance: 'bug' },
   title: 'Падение при входе',
   description: '',
@@ -46,6 +47,7 @@ const ITEM: WorkItem = {
   changedAt: '2026-10-05T14:30:00+00:00',
   parent: null,
   children: [],
+  deletion: null,
   ...defaultFields('bug'),
 };
 

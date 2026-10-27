@@ -83,7 +83,9 @@ session.
    merge —
    [07-mr-complete.md, § "The gate-3 verdict and the MR link"](../ai-workflow/stages/07-mr-complete.md).
    `gate-3: rejected` blocks the MR in both modes.
-2. Before opening: rebase onto `main`, a full run of tests and linters.
+2. Before opening: rebase onto `main`; the push runs the quick `pre-push`
+   check, and the full run of tests and linters is CI's, on the MR itself
+   (`VERIFY_FULL=1 git push` asks for it before the push).
    If `main` brought its own EF migrations — the task's migrations are
    regenerated on top of the fresh `main`.
 3. Title: `feat|fix|tech|chore(<scope>): <gist> (<short id>)` —
@@ -188,16 +190,38 @@ git config core.hooksPath .githooks
 
 Anyone who doesn't build the backend sets the same command by hand, once.
 
+The value is **relative**, and git takes a relative `core.hooksPath` from the
+root of the working tree the hook runs in. The setting is stored in the shared
+`.git/config`, so every worktree of the clone gets it and **each worktree runs
+its own checkout's copy** of the hooks: a hook edited on a task branch is the
+one that runs for that worktree's commits and pushes. A machine can hold an
+**absolute** path instead (set by hand or by a script): then every worktree
+runs the copy in that one checkout, usually the hub, on whatever branch it is,
+and a hook edited on a task branch does not run in its worktree until it
+reaches that checkout. What is live here: `git config --show-origin
+core.hooksPath`; the next build rewrites it to the relative form, and the same
+command by hand restores it. The hooks that call `scripts/verify.sh` run the
+one of the tree being pushed from (`git rev-parse --show-toplevel`) either
+way, so an edit to `verify.sh` is live at once.
+
 | Hook | What it checks |
 |-----|---------------|
 | `pre-commit` | the commit is not on `main`; branch name matches the format; secrets and dumps in the index; conflict markers |
 | `commit-msg` | subject ≤ 72 characters, English, no trailing period |
-| `pre-push` | `scripts/verify.sh` — checks per the class of changed files; the same input is named in the stages' Definition of Done, so the hook and the DoD don't diverge |
+| `pre-push` | `scripts/verify.sh`, the quick run — checks per the class of changed files (build, lint, the frontend tests that reach what the branch changed); the same input is named in the stages' Definition of Done, so the hook and the DoD don't diverge. The changed files are counted against `origin/main` (against `main` when there is no such ref; an exported `BASE` wins) — run `git fetch` first, a stale `origin/main` widens the diff. A test run that aborts (a crashed test host, a Vitest run with no summary) fails the push even when its exit code was lost. `VERIFY_FULL=1 git push` asks for the whole frontend suite |
 
 > Hooks are **feedback, not a barrier**: `git commit --no-verify` removes
-> them entirely. Anything critical must be duplicated in CI. Until there
-> is CI, the only real architecture check is `Mustask.Architecture.Tests`,
-> because it fails in a plain `dotnet test`.
+> them entirely. Anything critical must be duplicated in CI — and it is: the
+> `CI` workflow (`.github/workflows/ci.yml`) runs the same `scripts/verify.sh`
+> with `VERIFY_FULL=1` on every pull request, so the whole frontend suite is
+> CI's check, required on `main`, and the push pays only for the quick run.
+> The check's name, `verify.sh (change-proportionate)`, is the context
+> `main`'s protection requires: rename the job and the protection together.
+> A full run before the push is one variable away (`VERIFY_FULL=1 git push`;
+> in PowerShell `$env:VERIFY_FULL = 1; git push`) and is instant when a green
+> full run of this tree already left its stamp (`scripts/verify.sh`, header).
+> Without a CI run the only real architecture check is
+> `Mustask.Architecture.Tests`, because it fails in a plain `dotnet test`.
 
 ## Architecture tests
 
@@ -335,17 +359,40 @@ not against the backend's code.
 
 ## Protecting main
 
-The rule "don't commit to `main`" must be held by configuration, not by
-agent discipline. For `main` on GitHub the following are enabled:
+The rule "don't commit to `main`" is held by configuration on top of agent
+discipline. What is live on GitHub, as read on 2026-10-18 with `gh api
+repos/totKtoXam/mustask/branches/main/protection` (read-only: the settings
+are changed by the human, never by an agent):
 
-- direct push and force-push are forbidden;
-- a PR is required, at least one approve;
-- a green CI status is required (`ci.yml`);
-- branches auto-delete after merge.
+- **A required status check:** `verify.sh (change-proportionate)` — the job of
+  `.github/workflows/ci.yml`, reported by GitHub Actions. The branch does not
+  have to be up to date with `main` first (`strict` is off).
+- **No required reviews, no required approve.** The API shows no
+  pull-request rule at all: the merge is the human's Merge button (or the
+  auto-merge a standing approval allows), and the check is what must be green
+  first.
+- **`enforce_admins` is off:** the rules do not bind a repository admin.
+- Force-push and deletion of `main` are forbidden.
+- Not required: signed commits, linear history, resolved conversations. No
+  push restrictions and no rulesets.
 
-> **Status: not configured.** For now the rule is held only by
-> instructions to agents — consider this a temporary state, not the
-> norm.
+The repository's merge settings: squash, merge-commit and rebase-merge are
+all allowed, auto-merge is allowed, and "delete head branches on merge" is
+**off**. "Squash only" and "the branch is not deleted" are therefore this
+document's rules, held by the MR step and by agents — not by the server.
+
+What follows for the work:
+
+- The required check is the full gate: `ci.yml` runs `scripts/verify.sh` with
+  `VERIFY_FULL=1` on every pull request, against `origin/main`. It also runs
+  on every push to `main` — after a merge — and there compares the merged
+  commit with the commit `main` pointed at before the push, so the run shows
+  what the merge brought rather than "No changes".
+- The job's name is the context the protection requires. Rename the job and the
+  rule together, or every PR waits for a check that never reports.
+- When the human changes the protection, this section is updated in the same
+  sitting: a description that lags the settings is how it once said "not
+  configured" while the check was already required.
 
 ## Releases and versions
 

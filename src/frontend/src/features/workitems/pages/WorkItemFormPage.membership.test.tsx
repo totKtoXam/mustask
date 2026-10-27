@@ -100,8 +100,13 @@ describe('mod-016 US-5 Scenario: an assignee who left the organization stays', (
   });
 });
 
-describe('mod-016 design § 7 Scenario: elsewhere an ex-member assignee reads like any other', () => {
-  it('the list’s «Исполнитель» column shows their name and no mark', async () => {
+// Retired by name: "mod-016 design § 7 Scenario: elsewhere an ex-member assignee reads like any
+// other > the list’s «Исполнитель» column shows their name and no mark" — superseded by feat-003
+// OQ-2 A and BR-WS-7 (the human's answer at gate-1, 2026-10-18): the list's column reads the
+// marks, through mod-005's one helper, the same words as the filter's options. The card's field
+// keeps its reading (the test above) until feat-017.
+describe('feat-003 OQ-2 A, BR-WS-7 Scenario: in the list an ex-member assignee reads with the mark', () => {
+  it('the list’s «Исполнитель» column shows their name and «(не в организации)»', async () => {
     serveWorkItems(exMemberDataset());
     renderWorkItems(MSK_LIST);
 
@@ -110,8 +115,8 @@ describe('mod-016 design § 7 Scenario: elsewhere an ex-member assignee reads li
     const row = within(table)
       .getAllByRole('row')
       .find((candidate) => candidate.textContent?.includes('MSK-BUG-4'));
-    expect(row).toHaveTextContent('АСАнна Смирнова');
-    expect(row).not.toHaveTextContent(/неактивен|не в организации/);
+    expect(row).toHaveTextContent('АСАнна Смирнова (не в организации)');
+    expect(row).not.toHaveTextContent('неактивен');
   });
 });
 

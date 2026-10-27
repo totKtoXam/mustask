@@ -1,0 +1,80 @@
+# Security review: feat-003-work-item-search
+
+## Security pass, round 1 (stage 06)
+
+Reviewer: code-reviewer, security lens only. Clean context, not an author of the code. 2026-10-19, detached at `48a68f80` over `git diff 5de279f7..48a68f80` (the merge base with `origin/main`). Read-only: nothing was built or run, because the QA pass runs the suites at the same time. Read: status.md, spec.md, api-contract.md, plan-backend.md, ADR-0029 § 7, ADR-0030, mod-005 spec and design § 6, mod-016 and mod-003 api-contracts (the assignee rows). Code: both routes and handlers, the domain filter and keyword, `WorkItemFilterPredicate`, `WorkItemSets`, `WorkItemReadModel`, `ProjectMembers`, logging and tracing setup; on the panel the API client, the address reader and writer, `listOrigin`, the two pages, the filter components. Tests: the new endpoint files, the deleted-item matrix, `WorkItemSetsTests`, and the suites that iterate `OrganizationAddressedRoutes`.
+
+**Verdict: approve.** 0 blocker, 0 major, 2 minor (S-1, S-2). Under the loop rules a minor is a debt, not a round. Nothing here is for the human.
+
+### Checklist
+
+| Item | Result | Anchor |
+|---|---|---|
+| Authorization on each route | Both routes declare `workitems.workitem.read` at the route, so the scoped check runs in the middleware before the handler. No code is added and no bundle changes: the diff does not touch `PermissionCatalog` or `OrganizationRoleBundles`. The options route is a read of the code every role holds, not the card's picker (`assignee-candidates`, `…write`). | `WorkItemEndpoints.cs:40-41`, `:50-51`; `OrganizationAddressedRoutes.cs:100`; `OrganizationAccessInventoryTests` (60 rows, each route for each role) |
+| Non-member, instance administrator | 404 `organizations.organization.not_found`, the same shape for every cause. The new row gets this automatically, because the suites iterate `OrganizationAddressedRoutes.All`. | `ScopedAccessTests.cs:112`, `:256` (a token carrying every code but no membership); `Options_ANonMember_GetsTheOrganizationsNotFound_AMalformedOneToo` |
+| Tenant containment, path ids | Both handlers resolve the project under the route's organization and require it reachable before any read. Another organization's, an unknown, a malformed or a deactivated project answers 404 `project.not_found`. | `GetWorkItemsHandler.cs:33`; `GetAssigneeOptionsHandler.cs:29`; `Options_AForeignDeactivatedUnknownOrMalformedProject_GetsTheProjectsNotFound`; `OrganizationContainmentTests` over `All` |
+| Tenant containment, the list's rows | Both arms of the entry point are restricted to the project id (`Live` and `Deleted`). The state subquery reads only the item's own state, and the identifier subquery reads only the item's own type. The keyword's identifier must carry the addressed project's key. | `WorkItemSets.cs:62-66`; `WorkItemReadModel.cs:113`; `WorkItemFilterPredicate.cs:44`, `:83-87`; `WorkItemKeyword.cs:75-76`; `Search_NeverFindsAnotherOrganizationsItem`; non-disclosure `Search_…` (sibling project, foreign identifier and title) |
+| Tenant containment, the options | The ids come from this project's `Live` items, and from its `Deleted` items whose state bears a chosen name. Membership is judged in the project's organization alone, so no other organization's membership leaks. | `WorkItemReadModel.cs:167-178`, `:184`; `ProjectMembers.cs:28-29`; `Options_AreOnlyThisProjectsAssignees` |
+| Ids in the address (query) | `teamId` and `assigneeId` are compared as stored. Nothing is looked up, so a foreign, unknown, malformed or unassigned id gives byte-for-byte the same 200 as any value that names nothing, and adds nothing beside a valid one. On the panel an id that no option names is never shown («Фильтр задан», D-4), and nothing is looked up for it. | `WorkItemFilterNonDisclosureTests.cs:56` (Oleg of «Другая», Rita, Zoya, `NONE`, 5 000 chars, NUL), `:109`; `AssigneeFilter.tsx` (`tags` only from options) |
+| Who sees «Удалена»; nothing widened | Every reader lists the bin. This is BR-DR-7 ("whoever may read items reads a deleted one"), the same reach as the card by address, and only the read code is needed. The bin is reached only with a `state` value naming a Removed-category state, and "deleted" is the category, never a name. Only the list and the options take that class. Every other read stays `LiveOnly`, and the matrix pins exactly these two routes. The backlog memberships pass a team-only filter, which reads as before. | `WorkItemSets.cs:62-66`; `DeletedItemSurfaceMatrixTests` (row 1 additions, `LiveOrChosenDeleted` = exactly two routes); `WorkItemSetsTests.Listing_…` (a live state named «Удалена», a Removed one named otherwise); `Search_ADeletedItem_IsFoundOnlyWhileUdalenaIsChosen`; `ProjectBacklogMembership.cs:39,62` |
+| What the marks disclose | `isMember` reports membership in this organization only, as the card has served it since mod-016. `isActive` is the directory's flag. It is also sent for a former member, whose cell shows «(не в организации)» instead. That is the same pair mod-005's `deletion.by` already serves, and the human accepted it at mod-005 gate-3 (H-1 A). The options name only people that the list's rows already name to the same readers, with the same `email` the row has carried since mod-003 § 1.2. The list row carries no `deletion`, and the deleter ids in the page lookup are never written out. | `WorkItemReadModel.cs:408-415`, `:183-188`, `:364-380`; `IWorkItemReadModel.cs:176-186` (no deletion on the row) |
+| The keyword: LIKE injection, wildcards | No `LIKE` is involved: the title arm is `strpos` over `lower(… COLLATE "ru-x-icu")` with «ё»→«е», and the keyword is a bound parameter. `%`, `_` and `\` are literal, which is proven against real PostgreSQL. Not one statement is raw SQL. | `WorkItemFilterPredicate.cs:83-84`; plan-backend § As built (the generated statement); `WorkItemKeywordEndpointTests.cs:135`, `:149`; diff grep: no `FromSql`/`SqlQuery`/`ExecuteSql` |
+| The keyword: length, control characters | Trimmed. Longer than 255 UTF-16 units, or holding a line break or U+0000, makes `MatchesNothing`, and such a keyword is never sent (`Where(_ => false)`). Other control characters are bound text that a title may hold too. The identifier parse is ASCII-only, against an anchored, bounded regex, so it carries no ReDoS. A number is ≤ 10 digits and `TryParse` handles overflow. On the panel: `maxLength` 255, and every value goes through `encodeURIComponent`. | `WorkItemKeyword.cs:50-52`, `:59-66`; `WorkItemIdentifier.cs:20`; `WorkItemFilterPredicate.cs:72`; `WorkItemKeywordEndpointTests.cs:219`, `:239`; `workItemsApi.ts` `listFilterQuery` |
+| State and assignee values: NUL, length | A value holding U+0000, or longer than the compared column (state name 64, user id 255), is dropped before SQL. It still counts as set, so it selects nothing rather than raising an error. Repeats are de-duplicated. | `WorkItemFilter.cs:104-114`, `:67-68`, `:94`; `WorkItemFilterNonDisclosureTests.cs:33` (`%00`, `%D0%9D%00`, 5 000 chars, SQL text), `:56` |
+| Request line limits | Nothing in `src/backend` overrides Kestrel's limits, so a request line past the default 8 192 bytes gets Kestrel's 414 before the app. The band stays drawn above the read's error, so «Очистить фильтры» recovers. This is the accepted risk of spec § Option sizes. No test pins it, and the anchor is the framework default. | grep `MaxRequestLineSize`/`Limits`: none; `WorkItemsPage.tsx:184` (band) before `:223` (`ErrorBanner`) |
+| Personal data in logs and traces | The diff adds no log line. Request logging writes the path without the query (Serilog.AspNetCore's default), and the ASP.NET Core tracing redacts query values by default, so neither a keyword nor a user id reaches logs. No override was found. The anchor is the package defaults. | `Program.cs:234-253`; `ServiceDefaults/Extensions.cs:69-74`; grep `QUERY_REDACTION`, `IncludeQueryInRequestPath`: none |
+| The purge landing (open redirect) | The origin travels in the router state, which only same-origin script can write. It is accepted only when it equals this project's list path or starts with `<path>?`, which is always a same-app path, so no external or `//host` target is possible. | `listOrigin.ts:18-31`; `paths.ts:13`; `listOrigin.test.ts` (seven non-marks) |
+| Output encoding on the panel | Names, e-mails, marks and keywords are rendered as React text. The diff has no `innerHTML`/`dangerouslySetInnerHTML`, and no value is built into a pattern. | diff grep |
+| Secrets | None. The tests use the Testcontainers fixtures' connection strings. | `FilterStatementCountTests.cs:150` |
+
+### S-1 — The keyword's identifier arm is contained only by its caller
+
+Severity: minor · layer: backend + spec.
+Where: `WorkItemFilterPredicate.cs:65`, `:85-87`; `WorkItemKeyword.cs:75-76`; spec § Owed by later lines (rows feat-043, feat-013).
+Problem: arm (b) matches `number = n AND type key = k`. The project key is checked once, in the domain, against the single addressed project. The comment says it holds because "the caller has narrowed the items to the project". That holds for this line's one caller (`WorkItemReadModel.cs:113`), but nothing in the type holds it. The specification is shared on purpose (BR-WS-16). feat-013 brings the keyword to team and area views, which span projects (ADR-0028 rule 13, feat-040), and feat-043 brings it to a cross-project list. Over several projects, `MSK-BUG-42` would match every project's BUG-42. The Owed table names only (c), "the number alone is no longer unique", for feat-043, and nothing for feat-013. This discloses nothing today: only the project's list takes the keyword, and the multi-project views filter rows by the caller's project read (ADR-0029 § 7). It is a precondition that the next line can miss.
+Fix (recommended, A): name both arms in the two Owed rows: "(b) and (c) assume one project; a multi-project surface matches the identifier's project key per item and settles (c)". Add a `<remarks>` on `WorkItemFilter.Keyword` saying the keyword is valid only over one project's items. (B) Make the arm self-contained now: carry the project key in `KeywordIdentifier`, and add `&& context.Projects.Any(p => p.Id == item.ProjectId && p.Key == key)` to arm (b). That is a subquery in the same statement, so the count stays unchanged. A costs a sentence. B costs a statement-shape check.
+
+### S-2 — "A filter value never answers an error" is not pinned for an invalid UTF-8 escape
+
+Severity: minor · layer: backend tests.
+Where: `WorkItemFilterNonDisclosureTests.cs:33`, `:56`, `:83`; api-contract § 2.1 ("A filter value never answers an error"), BR-WS-10.
+Problem: the claim covers every value. The tests pin NUL, line breaks, 5 000 characters, SQL text, LIKE characters and int overflow. They do not pin a percent-escape that is not valid UTF-8 (`%ED%A0%80`, a lone surrogate; `%C0%AF`, an overlong sequence), the one class that could reach Npgsql's strict UTF-8 encoder. By reading, the framework's query decoding leaves such an escape as literal text, so the answer is today's `{"count":0,"data":[]}`. That anchor is the framework, though, and a change of binder or encoder would turn it into a 500 that no test sees.
+Fix: add `?search=%ED%A0%80`, `?state=%ED%A0%80`, `?assigneeId=%C0%AF` to the three facts, and the first one to the options route, each expecting the same status and body. This adds no production code.
+
+### Accepted residual risk (decided, not findings)
+
+- **Request line.** About 150 assignees fit in one read, and beyond that the read fails with Kestrel's 414 (spec § Option sizes, as mod-017 accepted for `teamId`).
+- **The bin is readable by «Читатель».** BR-DR-7 and the spec's Roles table say so. Listing makes the bin enumerable where before it was reachable only by address. mod-005 OQ-2 A queued exactly that as this line.
+- **`isActive` of a former member on the wire.** The panel does not show it: the membership mark prevails, BR-WS-7. The shape is the same as mod-005's `deletion.by` (H-1 A).
+
+### Behavioural claims (security), both directions
+
+Direction 1, prose the diff adds:
+- spec § Roles: every role lists and filters, «Удалена» included → `WorkItemEndpoints.cs:41,51`; `Options_EveryRole_IsOfferedTheSamePeople`; `Search_EveryRoleOfTheOrganization_CanSearch`.
+- spec § Roles: a non-member, instance administrator included, gets «Организация не найдена.» → `ScopedAccessTests.cs:112,256` over `All` (row `:100`).
+- api-contract § 0: "No permission code is added" → the diff's file list (no catalog or bundle file).
+- BR-WS-10 / § 2.1: the same status, body and `count` for every value that names nothing → `WorkItemFilterNonDisclosureTests.cs:33,56,83,109`. Invalid UTF-8 is not pinned → S-2.
+- BR-WS-15: the options name only this project's people → `WorkItemReadModel.cs:167-178`; `Options_AreOnlyThisProjectsAssignees`.
+- BR-WS-15: a keyword never finds another project's item → `WorkItemSets.cs:62-66`, `WorkItemKeyword.cs:75-76`; `Search_NeverFindsAnotherOrganizationsItem`.
+- § 3.3: `%`, `_`, `\` are literal → `WorkItemFilterPredicate.cs:83-84`; `WorkItemKeywordEndpointTests.cs:135,149`.
+- § 2.1: a value with U+0000 or past 255 names nothing → `WorkItemFilter.cs:104-114` (state is cut at 64, which is stricter with the same outcome), `WorkItemKeyword.cs:50-52`.
+- § 2.1: a request line past 8 KB fails as any read does → Kestrel's default, no override; `WorkItemsPage.tsx:184,223`. This is the weakest anchor (framework, untested).
+- BR-WS-4: while «Удалена» is not chosen, a deleted item is in no row, count, option or keyword result → `WorkItemSets.cs:66`, `WorkItemReadModel.cs:170-178`; `DeletedItemSurfaceMatrixTests` row 1.
+- BR-WS-4: deleted is judged by category, never by name → `WorkItemSets.Deleted`; `WorkItemSetsTests.Listing_…`.
+- mod-005 design § 6 amendment: "a mark that names no address of this project's list is no mark" → `listOrigin.ts:31`; `listOrigin.test.ts`.
+- `WorkItemFilterPredicate.cs:65`: "the caller has narrowed the items to the project" → true for `WorkItemReadModel.cs:113` alone, held by no type → S-1.
+
+Direction 2, behaviour the diff changes, prose outside it:
+- The list now reaches deleted items. Grep `no caller|no way to list|no parameter lists deleted|by address only` over docs/adr, mod-003/-005/-016 and src: mod-005 `plan-backend.md:173` and `review-security.md:18` are dated round records of a merged line, not live claims. mod-005 `api-contract.md:195` is scoped "in this line" and noted in mod-005 status.md. `ADR-0030:77,187` ("`Deleted` is for a filter that names «Удалена»", "feat-003 lists deleted items through `Deleted`") are now true. No stale claim.
+- The new route `assignee-options`. Grep across docs outside feat-003: no hit. mod-016 api-contract § 4.2 is restated in this line's § 2.2, not edited. The executable inventory has the row.
+- The row's `assignee.isActive` and the column's marks: mod-003 `api-contract.md:134` ("No mark for an inactive assignee (D-2)") is superseded by § 7 with a mod-003 status Log note. mod-016 `api-contract.md:350` ("The marks are feat-017's") is superseded by § 7, but mod-016 status.md has no note. That is not a security matter → the general round's.
+- Not swept by this lens: UI copy, layout, and E2E locators other than the marks and the filter-named comboboxes.
+
+### E2E (not run, not edited; standing answer NO)
+
+This lens found no break. `30-assignee-membership.spec.ts:196-197` asserts no mark on the card, which is unchanged until feat-017. `22-work-items.spec.ts:126-127` and `29-role-views.spec.ts:405` query the «Статус»/«Исполнитель» comboboxes on the card's full page, which has no band. The QA pass owns the full list.
+
+### Outside this lens (for the general round; not counted)
+
+- mod-016 BR-M1-26 / `api-contract.md:350` is superseded (§ 7) without a Log note in mod-016's status.md, unlike mod-003 and mod-005.
+- mod-005 `status.md` on this branch also records mod-005's `gate-3: approved` (the orchestrator's record of PR #19's merge). That is a process question.

@@ -20,9 +20,11 @@ namespace Mustask.Infrastructure.WorkItems;
 /// </summary>
 internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory directory) : IWorkItemReadModel
 {
+    // The card by address, a write's answer and a parent's ref read the item in any state (ADR-0030 rule 2, BR-DR-6): a
+    // deleted item is found by its identifier and read in full.
     public async Task<WorkItemView?> FindAsync(Guid projectId, int number, CancellationToken cancellationToken)
     {
-        var row = await Rows(context.WorkItems.Where(item => item.ProjectId == projectId && item.Number == number))
+        var row = await Rows(WorkItemSets.InAnyState(context).Where(item => item.ProjectId == projectId && item.Number == number))
             .SingleOrDefaultAsync(cancellationToken);
 
         return row is null ? null : await ViewAsync(row, cancellationToken);
@@ -30,21 +32,21 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
 
     public async Task<WorkItemView> GetAsync(Guid workItemId, CancellationToken cancellationToken)
     {
-        var row = await Rows(context.WorkItems.Where(item => item.Id == workItemId)).SingleAsync(cancellationToken);
+        var row = await Rows(WorkItemSets.InAnyState(context).Where(item => item.Id == workItemId)).SingleAsync(cancellationToken);
 
         return await ViewAsync(row, cancellationToken);
     }
 
     public Task<WorkItemHead?> FindHeadAsync(Guid projectId, int number, CancellationToken cancellationToken) =>
-        context.WorkItems
+        WorkItemSets.InAnyState(context)
             .AsNoTracking()
             .Where(item => item.ProjectId == projectId && item.Number == number)
-            .Select(item => new WorkItemHead(item.Id, item.TypeId))
+            .Select(item => new WorkItemHead(item.Id, item.TypeId, item.StateId))
             .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<WorkItemRefView> GetRefAsync(Guid workItemId, CancellationToken cancellationToken)
     {
-        var row = await RefRows(context.WorkItems.Where(item => item.Id == workItemId)).SingleAsync(cancellationToken);
+        var row = await RefRows(WorkItemSets.InAnyState(context).Where(item => item.Id == workItemId)).SingleAsync(cancellationToken);
 
         return Ref(row);
     }
@@ -55,16 +57,14 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         ArgumentOutOfRangeException.ThrowIfLessThan(search.Limit, 1);
 
         var typeIds = search.TypeIds.ToList();
-        var removed = StateCategory.Removed;
 
+        // A picker offers live items only (ADR-0030 rule 2): the entry point states it; the Ref rows join the state for the view.
         var candidates =
-            from item in context.WorkItems
+            from item in WorkItemSets.Live(context)
             join type in context.WorkItemTypes on item.TypeId equals type.Id
-            join state in context.StateDefinitions on item.StateId equals state.Id
             where item.ProjectId == search.ProjectId
                 && item.Id != search.ExcludedItemId
                 && typeIds.Contains(item.TypeId)
-                && state.Category != removed
             select new { Item = item, TypeKey = type.Key };
 
         if (search.Text.Length > 0)
@@ -105,9 +105,12 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         ArgumentOutOfRangeException.ThrowIfLessThan(page, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(pageSize, 1);
 
-        // The team filter (mod-017 BR-OT-8) is one predicate for the list, the backlog and the board; the count and the page
-        // are composed on it, so a filter adds no statement.
-        var matching = WorkItemFilterPredicate.Apply(context.WorkItems.Where(item => item.ProjectId == projectId), filter);
+        // The list hides a deleted item and does not count it (mod-005 BR-DR-6): it starts from the Live entry point, so the
+        // count and every page follow the same set — unless the filter names states (feat-003 BR-WS-4), when the deleted items are
+        // reachable beside them and the predicate keeps those whose state's name is chosen. The filters (mod-017 BR-OT-8,
+        // feat-003 BR-WS-16) are one predicate for the list, the backlog and the board; the count and the page are composed on
+        // it, so a filter adds no statement.
+        var matching = WorkItemFilterPredicate.Apply(context, WorkItemSets.Listing(context, projectId, filter.StatesSet), filter);
 
         var count = await matching.CountAsync(cancellationToken);
 
@@ -141,7 +144,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
                 row.Number,
                 Type(row),
                 row.Title,
-                Assignee(row, assignees),
+                ListAssignee(row, assignees),
                 State(row),
                 new WorkItemAreaView(row.AreaId, paths.PathOf(row.AreaId)),
                 Team(row),
@@ -149,6 +152,42 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             .ToList();
 
         return new WorkItemPage(count, items);
+    }
+
+    public async Task<IReadOnlyList<AssigneeFilterOptionView>> GetAssigneeOptionsAsync(
+        Guid projectId, IReadOnlyCollection<string> stateNames, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(stateNames);
+
+        var names = stateNames.ToList();
+
+        // The people of the live items, and — only while a chosen name reaches «Удалена» — of the deleted items whose state bears a
+        // chosen name: the same rule as the list's, judged here by data and category (feat-003 BR-WS-6). One statement that holds
+        // each id once however many items the person has: a DISTINCT, or the UNION of the two sets.
+        var assigned = WorkItemSets.Live(context)
+            .Where(item => item.ProjectId == projectId && item.AssigneeId != null)
+            .Select(item => item.AssigneeId!);
+
+        assigned = names.Count == 0
+            ? assigned.Distinct()
+            : assigned.Union(
+                WorkItemSets.Deleted(context)
+                    .Where(item => item.ProjectId == projectId
+                        && item.AssigneeId != null
+                        && context.StateDefinitions.Any(state => state.Id == item.StateId && names.Contains(state.Name)))
+                    .Select(item => item.AssigneeId!));
+
+        var ids = await assigned.ToListAsync(cancellationToken);
+
+        // mod-014 BR-UP-17: one lookup per 500 distinct ids; then one statement for the memberships (mod-016 BR-M1-26).
+        var lookup = await UserDirectoryBatches.LookupAllAsync(directory, ids, cancellationToken);
+        var members = await ProjectMembers.MemberIdsAsync(context, projectId, ids, cancellationToken);
+
+        var options = ids.Select(id => lookup.Known.TryGetValue(id, out var user)
+            ? new AssigneeFilterOptionView(id, user.DisplayName, user.Email, user.IsActive, members.Contains(id))
+            : new AssigneeFilterOptionView(id, null, null, false, members.Contains(id)));
+
+        return UserRefOrder.Order(options, option => option.Id, lookup.Known);
     }
 
     /// <summary>
@@ -164,10 +203,14 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         join state in context.StateDefinitions on item.StateId equals state.Id
         join team in context.Teams on item.OwningTeamId equals team.Id into owning
         from team in owning.DefaultIfEmpty()
+        // mod-005 (plan-backend D-P3): the state a deleted item held, in the item's own statement; null on every live row.
+        join held in context.StateDefinitions on item.DeletedFromStateId equals held.Id into heldStates
+        from held in heldStates.DefaultIfEmpty()
         select new ItemRow(
             item.Id,
             item.ProjectId,
             project.Key,
+            project.Name,
             item.Number,
             item.ParentId,
             type.Id,
@@ -186,6 +229,12 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             item.CreatedBy,
             item.CreatedAt,
             item.ChangedAt,
+            new DeletionRow(
+                held == null ? null : held.Id,
+                held == null ? null : held.Name,
+                held == null ? null : held.Category,
+                item.DeletedBy,
+                item.DeletedAt),
             new FieldsRow(
                 item.Priority,
                 item.Risk,
@@ -216,23 +265,26 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
     private async Task<(WorkItemRefView? Parent, IReadOnlyList<WorkItemRefView> Children)> LinksAsync(ItemRow row, CancellationToken cancellationToken)
     {
         var parentId = row.ParentId;
-        var removedStates = WorkItemRefs.RemovedStateIds(context);
+        var projectId = row.ProjectId;
+        var itemId = row.Id;
 
-        var links = await RefRows(context.WorkItems.Where(item =>
-                item.Id == parentId
-                || (item.ProjectId == row.ProjectId && item.ParentId == row.Id && !removedStates.Contains(item.StateId))))
-            .ToListAsync(cancellationToken);
+        // The stored parent in any state (a live child leads to its deleted parent), the children among the live ones — each
+        // end from its own entry point (ADR-0030 rule 2), in the one statement the card has always used.
+        var parent = WorkItemSets.InAnyState(context).Where(item => item.Id == parentId);
+        var children = WorkItemSets.Live(context).Where(item => item.ProjectId == projectId && item.ParentId == itemId);
 
-        var parent = parentId is { } id ? links.Single(link => link.Id == id) : null;
+        var links = await RefRows(parent.Concat(children)).ToListAsync(cancellationToken);
 
-        var children = links
+        var parentRow = parentId is { } id ? links.Single(link => link.Id == id) : null;
+
+        var childRows = links
             .Where(link => link.ParentId == row.Id)
             .OrderByDescending(link => link.LevelRank)
             .ThenBy(link => link.Number)
             .Select(Ref)
             .ToList();
 
-        return (parent is null ? null : Ref(parent), children);
+        return (parentRow is null ? null : Ref(parentRow), childRows);
     }
 
     private async Task<WorkItemView> ViewAsync(ItemRow row, CancellationToken cancellationToken)
@@ -261,6 +313,8 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             parent,
             children)
         {
+            Project = new WorkItemProjectView(row.ProjectId, row.ProjectName),
+            Deletion = DeletionOf(row.Deletion, assignees),
             Priority = fields.Priority,
             Risk = fields.Risk,
             StoryPoints = Shortest(fields.StoryPoints),
@@ -305,12 +359,17 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
     }
 
     /// <summary>
-    /// The page's assignees: who the directory knows, by one lookup, and — mod-016 BR-M1-26 — which of them are members of
+    /// The page's assignees — and, on the card, the user that deleted the item (mod-005 plan-backend D-P3), in the same call —
+    /// who the directory knows, by one lookup, and — mod-016 BR-M1-26 — which of them are members of
     /// the project's organization right now, by one more statement (<see cref="ProjectMembers"/>).
     /// </summary>
     private async Task<Assignees> AssigneesAsync(IReadOnlyCollection<ItemRow> rows, Guid projectId, CancellationToken cancellationToken)
     {
-        var ids = rows.Select(row => row.AssigneeId).OfType<string>().Distinct(StringComparer.Ordinal).ToList();
+        var ids = rows
+            .SelectMany(row => new[] { row.AssigneeId, row.Deletion.DeletedBy })
+            .OfType<string>()
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
 
         if (ids.Count == 0)
         {
@@ -344,6 +403,43 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             { } id => new WorkItemAssigneeView(id, null, null, assignees.Members.Contains(id)),
         };
 
+    /// <summary>
+    /// feat-003 (OQ-2 A): the list row's assignee, with the directory's active flag — <c>false</c> for an id the directory does not
+    /// know, as the deleter's is (<see cref="DeletionOf"/>). The card keeps <see cref="Assignee"/> until feat-017.
+    /// </summary>
+    private static WorkItemListAssigneeView? ListAssignee(ItemRow row, Assignees assignees) =>
+        row.AssigneeId switch
+        {
+            null => null,
+            { } id when assignees.Known.TryGetValue(id, out var user) =>
+                new WorkItemListAssigneeView(id, user.DisplayName, user.Email, user.IsActive, assignees.Members.Contains(id)),
+            { } id => new WorkItemListAssigneeView(id, null, null, false, assignees.Members.Contains(id)),
+        };
+
+    /// <summary>
+    /// mod-005 (api-contract § 1.1): the record of the latest deletion, or <c>null</c> for a live item and for an item in
+    /// «Удалена» with no marks (one put there outside Delete). The marks are all-or-none (the table's check), so one is
+    /// enough to say there are three. The deleter is a user reference with the two marks of BR-13: an id the directory does
+    /// not know keeps its id and has no name and is not active.
+    /// </summary>
+    private static WorkItemDeletionView? DeletionOf(DeletionRow marks, Assignees users)
+    {
+        if (marks.HeldStateId is not { } stateId || marks.DeletedBy is not { } by || marks.DeletedAt is not { } at)
+        {
+            return null;
+        }
+
+        var known = users.Known.TryGetValue(by, out var user);
+
+        return new WorkItemDeletionView(
+            new WorkItemStateView(
+                stateId,
+                marks.HeldStateName!,
+                new WorkItemStateCategoryView(marks.HeldStateCategory!.Value.ToString(), StateCategoryLabels.Of(marks.HeldStateCategory.Value))),
+            new WorkItemUserView(by, known ? user!.DisplayName : null, known && user!.IsActive, users.Members.Contains(by)),
+            at);
+    }
+
     /// <summary>The directory's answer for the page's assignees and the ones among them who are members of the organization.</summary>
     private sealed record Assignees(IReadOnlyDictionary<string, DirectoryUser> Known, HashSet<string> Members);
 
@@ -351,6 +447,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         Guid Id,
         Guid ProjectId,
         string ProjectKey,
+        string ProjectName,
         int Number,
         Guid? ParentId,
         Guid TypeId,
@@ -369,7 +466,16 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         string CreatedBy,
         DateTimeOffset CreatedAt,
         DateTimeOffset ChangedAt,
+        DeletionRow Deletion,
         FieldsRow Fields);
+
+    /// <summary>The marks of a deletion as stored (mod-005): all null on a live item, all set after a Delete.</summary>
+    private sealed record DeletionRow(
+        Guid? HeldStateId,
+        string? HeldStateName,
+        StateCategory? HeldStateCategory,
+        string? DeletedBy,
+        DateTimeOffset? DeletedAt);
 
     /// <summary>feat-022's fields as stored; the texts are <c>null</c> in the list's rows, which leave them out.</summary>
     private sealed record FieldsRow(

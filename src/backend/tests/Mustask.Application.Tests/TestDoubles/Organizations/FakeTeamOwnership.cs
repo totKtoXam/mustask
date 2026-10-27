@@ -6,7 +6,7 @@ namespace Mustask.Application.Tests.TestDoubles.Organizations;
 /// <summary>
 /// In-memory <see cref="IWorkItemTeamOwnership"/> (mod-017, feat-028): the number of items each team owns in each project, and every
 /// call recorded in the organizations store's <see cref="InMemoryOrganizations.Calls"/> beside the team's own and the links' locks,
-/// so a test can pin the order of ADR-0028 rule 8 (<c>lock owned</c>, <c>reassign owned</c>). A reassignment moves the counts to the
+/// so a test can pin the order of ADR-0028 rule 8 (<c>lock hierarchies</c>, <c>lock owned</c>, <c>reassign owned</c>). A reassignment moves the counts to the
 /// destination, as the database does.
 /// </summary>
 public sealed class FakeWorkItemTeamOwnership(InMemoryOrganizations store) : IWorkItemTeamOwnership
@@ -32,6 +32,14 @@ public sealed class FakeWorkItemTeamOwnership(InMemoryOrganizations store) : IWo
             projectIds.Where(projectId => Owned.GetValueOrDefault((projectId, teamId)) > 0)
                 .Select(projectId => new ProjectCount(projectId, Owned[(projectId, teamId)]))
                 .ToList());
+
+    public Task LockHierarchiesAsync(IReadOnlyCollection<Guid> projectIds, CancellationToken cancellationToken)
+    {
+        // The projects in one fixed order, so a test pins the set and not the order a caller happened to list them in.
+        store.Record($"lock hierarchies {string.Join(",", projectIds.Order())}");
+
+        return Task.CompletedTask;
+    }
 
     public Task LockOwnedAsync(IReadOnlyCollection<Guid> projectIds, Guid teamId, CancellationToken cancellationToken)
     {

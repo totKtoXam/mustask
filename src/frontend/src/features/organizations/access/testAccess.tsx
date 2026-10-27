@@ -203,6 +203,7 @@ export function sourceOf(
     id,
     name,
     projects: [],
+    teams: [],
   }));
   return {
     status: 'ready',

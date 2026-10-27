@@ -53,6 +53,7 @@ one code-review round → gate-3 → PR.
 
 ## Log
 
+- 2026-10-18 [dev] P-10 note from `mod-005-work-item-delete-restore` (its api-contract § 3.6, plan-backend § 7.5, ADR-0030): no wire change — the project backlog's reorder takes the team reorder's member lock (the level's members `FOR KEY SHARE` in id order, then the order row, then a locking read of the same membership), so a Delete or a purge of a member waits or is read as a non-member; one statement more (`ReorderStatements` 12 → 13); a 23503 on the place's key is the stale reorder `boards.backlog.reorder_stale` as a backstop; BR-PB-2's "outside Removed" is the one definition of "deleted" (`DeletedStateParityTests`).
 - 2026-10-17 [dev] P-10 note from `feat-028-org-level-teams` (BR-OL-2, BR-OL-13; its api-contract § 2.5): a project may have no team at all — the first state of every project after the upgrade — and its items are «Без команды»; the project backlog and board rules are unchanged (the project's order is not the teams'), and the team filter offers the project's linked teams only.
 - 2026-10-17 [dev] P-10 note from `mod-017-work-item-owning-team` (BR-OT-2, -3, -8; its api-contract § 9): BR-PB-6 is lifted — a project view offers the create command to a writer and the item starts with the project default team; §§ 3.1 and 3.3 gain the repeated `teamId` filter (a filter adds no statement) and `team` on rows and cards; BR-PB-1..-5 and -7..-9 stay.
 - 2026-10-17 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/feat-039-project-board
@@ -67,6 +68,7 @@ one code-review round → gate-3 → PR.
 - 2026-10-17 [code-reviewer] round 1 (cebe31b3): CR-1 major (spec not committed), m-1..m-3; fixes 27d3843a, 2261f41b; delta read (37bb3008): approve, m-2..m-4 minor left (m-4 = this status.md, now done).
 - 2026-10-17 [orchestrator] `bash scripts/verify.sh` green (fixer's run, exit 0). stage: complete; gates left pending for the human; branch pushed, PR to doc/012-matrix-organization-model.
 - 2026-10-17 [orchestrator] PR #8 merged into its stacked base doc/012, not main, so the same tree reached main as PR #9 (branch feat/039-project-board-to-main), merged by the human. The human then kept every decision of the gate-1 + gate-2 package in chat (spec OQ-1..OQ-6, design D-1..D-5).
+- 2026-10-18 [dev] P-10 note from feat-040-team-surfaces-across-projects: BR-PB-4's last sentence (team views keep the number tie-break) is replaced by feat-040 BR-TS-6 (creation time, project key, number); BR-PB-7 («Весь проект») retires with the team menu (BR-TS-11); the project views' routes, answers and orders are unchanged, their rows and cards gain `project` (BR-TS-3). This api-contract is not edited.
 
 ## Notes
 

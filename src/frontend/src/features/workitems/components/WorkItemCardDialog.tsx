@@ -1,10 +1,12 @@
 import { useState, type ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import { CardSkeleton, ErrorBanner, NotFound, useNotice } from '../../../shared/ui';
+import { useProjects } from '../../organizations';
 import { useWorkItem } from '../hooks/queries';
 import { useWorkItemAccess } from '../hooks/useWorkItemAccess';
 import { useWorkItemDialog } from '../hooks/useWorkItemDialog';
 import { cardTexts, loadingName } from '../lib/cardTexts';
+import { projectKeyOf } from '../lib/identifier';
 import { notFoundLevel, type WorkItemsNotFoundLevel } from '../lib/notFoundLevel';
 import { createFrameStore } from './card/frameStore';
 import { DialogFrame, PublishFrame } from './card/KitFrames';
@@ -12,7 +14,13 @@ import { WorkItemCard } from './card/WorkItemCard';
 
 export interface WorkItemCardDialogProps {
   organizationId: string;
-  projectId: string;
+  /**
+   * A project's own views: the project of the page, which is every row's. Absent on a team's views,
+   * whose address names no project and whose rows are of several: the card is read and written in
+   * the project of the identifier it opens on — the organization's active project whose key the
+   * identifier carries (feat-040 BR-TS-4, keys are unique in an organization, mod-002 BR-M1-1).
+   */
+  projectId?: string;
   /**
    * The card changed the item — a save, a refresh — so what the host shows behind it is
    * stale: the host reads its own queries again (BR-C-21). The workitems queries are the
@@ -89,7 +97,7 @@ function CardDialog({
   onChanged,
 }: {
   organizationId: string;
-  projectId: string;
+  projectId: string | undefined;
   identifier: string;
   open: boolean;
   expanded: boolean;
@@ -98,10 +106,26 @@ function CardDialog({
   onChanged?: () => void;
 }) {
   const dialog = useWorkItemDialog();
-  const query = useWorkItem(organizationId, projectId, identifier);
+  // A team's view names no project (BR-TS-4): the identifier's key finds it among the organization's
+  // active projects. An unknown or malformed identifier, a key of no active project (a deactivated
+  // one, another organization's) shows the not-found frame, naming nothing and sending no request
+  // for the item.
+  const byAddress = projectId === undefined;
+  const projects = useProjects(organizationId, 'active', { enabled: byAddress });
+  const key = byAddress ? projectKeyOf(identifier) : null;
+  const resolved = byAddress
+    ? key !== null && projects.isSuccess
+      ? projects.data.find((candidate) => candidate.key === key)?.id
+      : undefined
+    : projectId;
+  const unknownProject =
+    byAddress && (key === null || (projects.isSuccess && resolved === undefined));
+  const query = useWorkItem(organizationId, resolved ?? '', identifier, {
+    enabled: resolved !== undefined,
+  });
   const { show } = useNotice();
   // The role views (mod-016 design § 6.5), as the page's: the host asks, the card shows.
-  const { readOnly, parentReadOnly } = useWorkItemAccess();
+  const { readOnly, parentReadOnly, canDelete, canPurge } = useWorkItemAccess();
   // The level a save found gone, or the read's own answer.
   const [gone, setGone] = useState<WorkItemsNotFoundLevel | null>(null);
   // The card hands its frame to the shell below; the host draws no shell of its own.
@@ -113,7 +137,16 @@ function CardDialog({
   // failed read's banner, the not-found frame.
   let fallback: ReactNode = <CardSkeleton />;
   let card: ReactNode = null;
-  const level = gone ?? (query.isError ? notFoundLevel(query.error) : null);
+  let level = gone ?? (query.isError ? notFoundLevel(query.error) : null);
+  if (byAddress) {
+    // A team's view has no project frame: a project that is gone (deactivated meanwhile) is an
+    // item that is not there, and the dialog names neither (BR-TS-4).
+    if (level === 'project' || unknownProject) {
+      level = 'workItem';
+    }
+    level ??= projects.isError ? notFoundLevel(projects.error) : null;
+  }
+  const projectsFailed = byAddress && projects.isError && !projects.isFetching;
   if (level) {
     fallback = (
       <NotFound
@@ -123,8 +156,18 @@ function CardDialog({
         action={{ label: 'Закрыть', onClick: () => close() }}
       />
     );
+  } else if (projectsFailed) {
+    fallback = (
+      <Box sx={{ paddingX: 3 }}>
+        <ErrorBanner
+          error={projects.error}
+          title={cardTexts.frame.errorTitle}
+          onRetry={() => void projects.refetch()}
+        />
+      </Box>
+    );
   } else if (query.isPending || (query.isError && query.isFetching)) {
-    // The skeleton: a read, or the retry of a failed one, is running.
+    // The skeleton: a read, or the retry of a failed one, is running — the project's too.
   } else if (query.isError) {
     fallback = (
       <Box sx={{ paddingX: 3 }}>
@@ -139,17 +182,23 @@ function CardDialog({
     card = (
       <WorkItemCard
         organizationId={organizationId}
-        projectId={projectId}
+        projectId={resolved ?? ''}
         item={query.data}
         mode="dialog"
         readOnly={readOnly}
         parentReadOnly={parentReadOnly}
+        canDelete={canDelete}
+        canPurge={canPurge}
         notify={show}
         onGone={setGone}
         onClose={close}
         onOpenItem={dialog.switchTo}
         onSaved={onChanged}
         onRefreshed={onChanged}
+        // A Delete, a Restore and a Purge change what the page behind shows (design § 7); a
+        // Purge also leaves nothing to look at, so the card closes (design § 6).
+        onChanged={onChanged}
+        onPurged={close}
         renderFrame={(content) => <PublishFrame store={frames} frame={content} />}
       />
     );

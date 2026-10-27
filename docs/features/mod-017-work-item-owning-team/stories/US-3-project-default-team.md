@@ -56,7 +56,9 @@ Scenario Outline: Losing the named team clears the setting, and the inference ap
     | Ann chooses «Не выбрана» and saves   | empty   | none, since A has two teams                       |
     | Ann deletes MARS                     | VENUS   | VENUS, marked «По умолчанию»                      |
 
-Scenario: The default affects the starting value of a creation, and nothing else (BR-MX-11; BR-OT-4)
+# Amended by mod-020, 2026-10-18 (OQ-8 B): the default is also the team the switcher opens on when no team is chosen (BR-MX-11; BR-OT-11).
+#   Here MARS is chosen, so the scenario holds as written.
+Scenario: The default sets the starting value of a creation, and moves no chosen team and no item (BR-MX-11; BR-OT-4)
   Given A has MARS and VENUS, U's team in the switcher is MARS, and A's settings name VENUS
   Then the switcher still names MARS, MARS's and VENUS's backlogs and boards hold the items they held, and the filters offer the same options
   And an item created earlier keeps its team, and an item created from MARS's backlog is MARS's

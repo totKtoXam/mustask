@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import { useTeams } from '../../organizations';
 import { InlineMultiSelectField } from '../../../shared/ui';
 import { filterOptions, teamTexts } from '../lib/teams';
+import { filterTexts } from '../lib/workItemFilter';
 
 /**
  * «Команда» of the filter (mod-017 US-5, BR-OT-8; design § 5.2): the kit’s
@@ -14,7 +15,8 @@ import { filterOptions, teamTexts } from '../lib/teams';
  * «Загрузка…», or, when the read has failed, «Не удалось загрузить команды. Попробуйте ещё
  * раз.», and opening it again reads again. A chosen team that was deleted meanwhile stays in
  * the filter and selects nothing; the field names only the teams it knows, and «Очистить
- * фильтры» removes it.
+ * фильтры» removes it. While the address holds a value and no team of it is named, the field reads
+ * «Фильтр задан» in place of «Все команды» (feat-003 D-4).
  */
 export function TeamFilter({
   organizationId,
@@ -36,7 +38,7 @@ export function TeamFilter({
       <InlineMultiSelectField<string>
         label={teamTexts.label}
         frame="always"
-        emptyText={teamTexts.allTeams}
+        emptyText={value.length > 0 ? filterTexts.set : teamTexts.allTeams}
         value={value}
         options={teams.isSuccess ? filterOptions(teams.data) : []}
         loading={!teams.isSuccess && !failed}

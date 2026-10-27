@@ -24,6 +24,7 @@ gate-3: approved 2026-10-14 (human, in chat, via AskUserQuestion; no remote — 
 - D-5 (human 2026-10-12, at gate-1+gate-2): a counter's accessible name starts with its visible text, e.g. «1/3 — MSK-US-2, Задача: выполнено 1 из 3» (WCAG 2.5.3, the designer's note).
 ## Log
 
+- 2026-10-18 [dev] P-10 note from `mod-005-work-item-delete-restore` (its api-contract § 3.4, ADR-0030): BR-C-3's "outside the Removed category" reads through the `Live` entry point (`WorkItemSets`); a deleted child is neither listed nor counted, and restored it returns in creation order (BR-C-5); a card move or a checklist tick is the save with a `stateId`, so it answers 409 `workitems.workitem.deleted` for a deleted item and 404 for a purged one — the board's notice and re-read follow (mod-005 design § 8).
 - 2026-10-14 [frontend-developer] merge of main 734f316: BoardColumns re-applied on feat-029's structure; thin icons moved to shared/ui; main's kitGuard forced kit parts (ActionButton, IconAction, InlineTextField, UserAvatar) — the add field's metrics and the add glyph now follow the kit, slightly different from design § 4/5; names/aria unchanged; verify.sh green except the known BacklogTreeVolume flake (passes alone)
 - 2026-10-14 [orchestrator] gate-3 approved by the human in chat; repository has no remote, so the ending is scripts/finish-task.sh (local squash). Debts for the queue (NNN): m-2 Firefox draggable fallback, m-3 200-child open time unmeasured, m-4 WorkItemField.Of(Testcase) throws (feat-031), m-8 CardChecklist.Holds unused, d-1/d-2 spec wording
 - 2026-10-13 [orchestrator] full verify.sh on 450abb9 (no E2E): vitest 158 files/2013 tests green, lint and build ok, backend 1599 passed; 2 BacklogVolume timing tests (5000 items, 2 s budget; not feat-032 files) failed under load from other sessions and passed alone (2/2, 24 s) — RESULT failed formally. Flaky budget on shared machine, noted for the human at gate-3. Stage: gate-3
@@ -47,6 +48,7 @@ gate-3: approved 2026-10-14 (human, in chat, via AskUserQuestion; no remote — 
 
 - 2026-10-12 [orchestrator] route confirmed by the human in chat: feature M — an additive field in the board answer and the card in the existing boards slice, ≤ 3 stories; gate-1+gate-2 as one package, one QA pass, gate-3. D-1, D-2
 - 2026-10-12 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/feat-032-board-card-checklists
+- 2026-10-18 [dev] P-10 note from feat-040-team-surfaces-across-projects: a board card (api-contract § 2.1) gains `project` right after `team`; a team's board holds the cards of every active project of the organization, and a card's checklist is read under the organization (a child is always in its parent's project) and is never narrowed by the project filter. This api-contract is not edited.
 
 ## Notes
 

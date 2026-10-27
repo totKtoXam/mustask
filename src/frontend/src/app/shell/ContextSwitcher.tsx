@@ -351,18 +351,25 @@ function SwitcherLevels() {
             }
           />
           <Separator />
-          {projectStatus !== 'ready' ? (
-            lowerLevel('project', projectStatus)
-          ) : !project ? (
-            <NothingToChoose>Нет проектов</NothingToChoose>
+          {projectStatus === 'loading' ? (
+            // The skeletons of the project level and the team level beneath it, as before.
+            lowerLevel('project', 'loading')
           ) : (
             <>
-              <ContextLevel
-                level="project"
-                current={project}
-                options={organization.projects}
-                onSelect={(id) => source.select('project', id)}
-              />
+              {projectStatus === 'failed' ? (
+                lowerLevel('project', 'failed')
+              ) : !project ? (
+                <NothingToChoose>Нет проектов</NothingToChoose>
+              ) : (
+                <ContextLevel
+                  level="project"
+                  current={project}
+                  options={organization.projects}
+                  onSelect={(id) => source.select('project', id)}
+                />
+              )}
+              {/* feat-040 BR-TS-10: the team level is the organization's, so it is drawn whether
+                  or not the organization has a project. */}
               <Separator />
               {teamStatus !== 'ready' ? (
                 lowerLevel('team', teamStatus)
@@ -372,7 +379,7 @@ function SwitcherLevels() {
                 <ContextLevel
                   level="team"
                   current={team}
-                  options={project.teams}
+                  options={organization.teams}
                   onSelect={(id) => source.select('team', id)}
                 />
               )}

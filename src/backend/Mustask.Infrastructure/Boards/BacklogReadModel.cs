@@ -1,4 +1,5 @@
 using Mustask.Application.Abstractions.Boards;
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.UserDirectory;
 using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Domain.Boards;
@@ -21,30 +22,50 @@ namespace Mustask.Infrastructure.Boards;
 /// no paging (spec § Screens), and the order is put on it by the handler. A
 /// page's tree set (feat-027) is read the same way, its levels in the one
 /// statement; the parents outside it are one more statement. A project's read
-/// (feat-039) is the same two, and its team filter (mod-017) is part of the first.
+/// (feat-039) is the same two, and its team filter (mod-017) is part of the first. A team's read (feat-040) is the same two across
+/// the team's projects: its membership joins the projects under the caller's organization (the tenant predicate, BR-TS-13), and
+/// the project filter is part of the first statement too.
 /// </summary>
 internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory directory) : IBacklogReadModel
 {
-    public Task<IReadOnlyList<BacklogItemRow>> ReadAsync(BacklogScope scope, CancellationToken cancellationToken) =>
-        ItemsAsync(BacklogMembership.Members(context, scope), scope.ProjectId, ordersByCreation: false, cancellationToken);
+    public Task<IReadOnlyList<BacklogItemRow>> ReadTeamAsync(TeamBacklogScope scope, CallerAccess caller, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(caller);
 
-    public Task<IReadOnlyList<BacklogItemRow>> ReadTreeAsync(BacklogTreeScope scope, CancellationToken cancellationToken) =>
-        ItemsAsync(BacklogMembership.TreeMembers(context, scope), scope.ProjectId, ordersByCreation: false, cancellationToken);
+        return ItemsAsync(
+            BacklogMembership.Members(context, scope, caller.OrganizationId),
+            Tenant.OfOrganization(caller.OrganizationId),
+            RowTime.OfTeam,
+            cancellationToken);
+    }
+
+    public Task<IReadOnlyList<BacklogItemRow>> ReadTeamTreeAsync(TeamBacklogTreeScope scope, CallerAccess caller, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(caller);
+
+        return ItemsAsync(
+            BacklogMembership.TreeMembers(context, scope, caller.OrganizationId),
+            Tenant.OfOrganization(caller.OrganizationId),
+            RowTime.OfTeam,
+            cancellationToken);
+    }
 
     public Task<IReadOnlyList<BacklogItemRow>> ReadProjectAsync(ProjectBacklogScope scope, CancellationToken cancellationToken) =>
-        ItemsAsync(ProjectBacklogMembership.Members(context, scope), scope.ProjectId, ordersByCreation: true, cancellationToken);
+        ItemsAsync(ProjectBacklogMembership.Members(context, scope), Tenant.OfProject(scope.ProjectId), RowTime.OfProject, cancellationToken);
 
     public Task<IReadOnlyList<BacklogItemRow>> ReadProjectTreeAsync(ProjectBacklogTreeScope scope, CancellationToken cancellationToken) =>
-        ItemsAsync(ProjectBacklogMembership.TreeMembers(context, scope), scope.ProjectId, ordersByCreation: true, cancellationToken);
+        ItemsAsync(ProjectBacklogMembership.TreeMembers(context, scope), Tenant.OfProject(scope.ProjectId), RowTime.OfProject, cancellationToken);
 
     /// <summary>
     /// feat-032: the checklists of a board's cards, one statement and then the assignees' lookups, whatever the cards'
-    /// number. The children are narrowed in SQL — the project, the stored parent among the cards, a state outside the
-    /// Removed category, a type of a <see cref="CardChecklist.Kinds"/> kind — and not by Область: a child of another
+    /// number. The children are narrowed in SQL — the organization (feat-040 BR-TS-13: a team's board holds the cards of several
+    /// projects, and a child is always in its parent's project, so the organization says what the project said), the stored
+    /// parent among the cards, a state outside the Removed category (the <see cref="WorkItemSets.Live"/> entry point, mod-005
+    /// ADR-0030 rule 2), a type of a <see cref="CardChecklist.Kinds"/> kind — and not by Область: a child of another
     /// team is in its parent's checklist (BR-C-1). Read by number, so each list keeps creation order (BR-C-5).
     /// </summary>
     public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<ChecklistChildView>>> ReadChecklistsAsync(
-        Guid projectId, IReadOnlyCollection<Guid> parentIds, CancellationToken cancellationToken)
+        Guid organizationId, IReadOnlyCollection<Guid> parentIds, CancellationToken cancellationToken)
     {
         var parents = parentIds.Distinct().ToList();
 
@@ -56,14 +77,13 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
         var kinds = CardChecklist.Kinds.ToList();
 
         var rows = await (
-                from item in context.WorkItems.AsNoTracking()
+                from item in WorkItemSets.Live(context).AsNoTracking()
                 join project in context.Projects on item.ProjectId equals project.Id
                 join type in context.WorkItemTypes on item.TypeId equals type.Id
                 join state in context.StateDefinitions on item.StateId equals state.Id
-                where item.ProjectId == projectId
+                where project.OrganizationId == organizationId
                     && item.ParentId != null
                     && parents.Contains(item.ParentId.Value)
-                    && state.Category != StateCategory.Removed
                     && kinds.Contains(type.Appearance)
                 orderby item.Number
                 select new ChecklistRow(
@@ -82,7 +102,7 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
                     state.Category))
             .ToListAsync(cancellationToken);
 
-        var assignees = await AssigneesAsync(rows.Select(row => row.AssigneeId), projectId, cancellationToken);
+        var assignees = await AssigneesAsync(rows.Select(row => row.AssigneeId), Tenant.OfOrganization(organizationId), cancellationToken);
 
         return rows
             .GroupBy(row => row.ParentId)
@@ -104,7 +124,7 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
     }
 
     public async Task<IReadOnlyDictionary<Guid, WorkItemRefView>> FindLiveParentsAsync(
-        Guid projectId, IReadOnlyCollection<Guid> workItemIds, CancellationToken cancellationToken)
+        Guid organizationId, IReadOnlyCollection<Guid> workItemIds, CancellationToken cancellationToken)
     {
         var ids = workItemIds.Distinct().ToList();
 
@@ -113,24 +133,26 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
             return new Dictionary<Guid, WorkItemRefView>();
         }
 
-        var removedStates = WorkItemRefs.RemovedStateIds(context);
-
+        // The organization is the tenant predicate (feat-040 BR-TS-13): a parent is always in its child's project, which is in
+        // the caller's organization, so a parent of another organization is never read.
         var rows = await WorkItemRefs.Rows(
                 context,
-                context.WorkItems.AsNoTracking().Where(item => item.ProjectId == projectId && ids.Contains(item.Id) && !removedStates.Contains(item.StateId)))
+                WorkItemSets.Live(context).AsNoTracking().Where(item =>
+                    ids.Contains(item.Id) && context.Projects.Any(project => project.Id == item.ProjectId && project.OrganizationId == organizationId)))
             .ToListAsync(cancellationToken);
 
         return rows.ToDictionary(row => row.Id, WorkItemRefs.View);
     }
 
     /// <summary>
-    /// <paramref name="members"/> as rows and cards: one statement, then one lookup of their assignees.
-    /// <paramref name="ordersByCreation"/> is a project's read (feat-039 BR-PB-4): each row then carries its creation time,
-    /// which orders its unplaced items before their number — except a row of the «Задачи» level, which has no project
-    /// order and stands by number (feat-027 BR-T-6). A team's read leaves it out and keeps the number alone.
+    /// <paramref name="members"/> as rows and cards: one statement, then one lookup of their assignees. <paramref name="time"/>
+    /// says which rows carry their creation time, the first key of the unplaced items' order: a project's read (feat-039
+    /// BR-PB-4) gives it for every level that has a project order, except the «Задачи» level, which has none and stands by number
+    /// (feat-027 BR-T-6); a team's read (feat-040 BR-TS-6) gives it on every row, the «Задачи» level included, because its
+    /// rows are of several projects and a number alone would tie. Every row gives its project and the project's key.
     /// </summary>
     private async Task<IReadOnlyList<BacklogItemRow>> ItemsAsync(
-        IQueryable<BacklogMember> members, Guid projectId, bool ordersByCreation, CancellationToken cancellationToken)
+        IQueryable<BacklogMember> members, Tenant tenant, RowTime time, CancellationToken cancellationToken)
     {
         var rows = await (
                 from member in members
@@ -142,6 +164,8 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
                 from team in owning.DefaultIfEmpty()
                 select new Row(
                     member.Item.Id,
+                    project.Id,
+                    project.Name,
                     project.Key,
                     member.Item.Number,
                     member.Place,
@@ -166,7 +190,7 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
                     level.Kind))
             .ToListAsync(cancellationToken);
 
-        var assignees = await AssigneesAsync(rows.Select(row => row.AssigneeId), projectId, cancellationToken);
+        var assignees = await AssigneesAsync(rows.Select(row => row.AssigneeId), tenant, cancellationToken);
 
         return rows
             .Select(row => new BacklogItemRow(
@@ -188,7 +212,9 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
                 row.BusinessValue,
                 row.ValueArea?.ToString(),
                 row.TeamId is { } teamId ? new WorkItemTeamView(teamId, row.TeamName!) : null,
-                ordersByCreation && row.LevelKind != BacklogLevelKind.Task ? row.CreatedAt : null))
+                new WorkItemProjectView(row.ProjectId, row.ProjectName),
+                row.ProjectKey,
+                time == RowTime.OfTeam || row.LevelKind != BacklogLevelKind.Task ? row.CreatedAt : null))
             .ToList();
     }
 
@@ -199,9 +225,10 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
     /// one lookup of them all would answer the whole page 400 <c>user_directory.too_many_ids</c> (feat-027 review B-3).
     /// One statement per batch (<see cref="UserDirectoryBatches"/>, the one definition of the split), so the count grows
     /// with the people, never with the rows' depth or number. And — mod-016 BR-M1-26 — which of them are members of the
-    /// project's organization right now (one more statement, <see cref="ProjectMembers"/>).
+    /// organization right now (one more statement, <see cref="ProjectMembers"/>): of the project's organization for a project's
+    /// read, of the caller's for a team's, whose rows are of several projects (feat-040 plan-backend PD-12).
     /// </summary>
-    private async Task<Assignees> AssigneesAsync(IEnumerable<string?> assigneeIds, Guid projectId, CancellationToken cancellationToken)
+    private async Task<Assignees> AssigneesAsync(IEnumerable<string?> assigneeIds, Tenant tenant, CancellationToken cancellationToken)
     {
         var ids = assigneeIds.OfType<string>().Distinct(StringComparer.Ordinal).ToList();
 
@@ -211,7 +238,9 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
         }
 
         var known = (await UserDirectoryBatches.LookupAllAsync(directory, ids, cancellationToken)).Known;
-        var members = await ProjectMembers.MemberIdsAsync(context, projectId, ids, cancellationToken);
+        var members = tenant.OrganizationId is { } organizationId
+            ? await ProjectMembers.MemberIdsOfOrganizationAsync(context, organizationId, ids, cancellationToken)
+            : await ProjectMembers.MemberIdsAsync(context, tenant.ProjectId!.Value, ids, cancellationToken);
 
         return new Assignees(known, members);
     }
@@ -225,6 +254,24 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
                 new WorkItemAssigneeView(id, user.DisplayName, user.Email, assignees.Members.Contains(id)),
             { } id => new WorkItemAssigneeView(id, null, null, assignees.Members.Contains(id)),
         };
+
+    /// <summary>Whose members the assignees are asked of: the one organization of a team's read, or the project's of a project's.</summary>
+    private readonly record struct Tenant(Guid? OrganizationId, Guid? ProjectId)
+    {
+        public static Tenant OfOrganization(Guid organizationId) => new(organizationId, null);
+
+        public static Tenant OfProject(Guid projectId) => new(null, projectId);
+    }
+
+    /// <summary>Which rows give their creation time (see <see cref="ItemsAsync"/>).</summary>
+    private enum RowTime
+    {
+        /// <summary>A project's read: every level but «Задачи».</summary>
+        OfProject,
+
+        /// <summary>A team's read: every row.</summary>
+        OfTeam,
+    }
 
     private sealed record ChecklistRow(
         Guid ParentId,
@@ -246,6 +293,8 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
 
     private sealed record Row(
         Guid Id,
+        Guid ProjectId,
+        string ProjectName,
         string ProjectKey,
         int Number,
         int? Place,
