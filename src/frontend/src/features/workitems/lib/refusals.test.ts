@@ -3,13 +3,7 @@ import { ApiError, type ProblemDetails } from '../../../shared/api/httpClient';
 import { notFoundLevel } from './notFoundLevel';
 import { isParentChanged, placeRefusal, type RefusalField } from './refusals';
 
-const FORM: readonly RefusalField[] = [
-  'title',
-  'description',
-  'state',
-  'assignee',
-  'parent',
-];
+const FORM: readonly RefusalField[] = ['title', 'description', 'state', 'assignee', 'parent'];
 const DIALOG: readonly RefusalField[] = ['title'];
 
 function refusal(

@@ -19,15 +19,7 @@ import {
 import { MSK_LIST, OPS_LIST, mskForm, projectContext, renderWorkItems } from '../testRender';
 
 // mod-018 design § 8: seven columns, «Область» retired.
-const COLUMNS = [
-  'ID',
-  'Тип',
-  'Заголовок',
-  'Исполнитель',
-  'Статус',
-  'Команда',
-  'Изменён',
-];
+const COLUMNS = ['ID', 'Тип', 'Заголовок', 'Исполнитель', 'Статус', 'Команда', 'Изменён'];
 
 async function table() {
   return screen.findByRole('table', { name: 'Рабочие элементы' });
