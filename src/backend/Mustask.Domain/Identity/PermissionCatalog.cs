@@ -77,11 +77,20 @@ public static class PermissionCatalog
     /// <summary>The team's end of a link between a project and a team, and of an unlink (feat-028 BR-OL-5).</summary>
     public const string OrganizationsTeamLink = "organizations.team.link";
 
-    /// <summary>Reading a project's area tree.</summary>
+    /// <summary>Reading the organization's area tree, an area's page and its links (mod-018, ADR-0029 § 4: scope O).</summary>
     public const string OrganizationsAreaRead = "organizations.area.read";
 
-    /// <summary>Creating, renaming, moving, re-owning and deleting an area.</summary>
+    /// <summary>
+    /// Renaming, describing, moving and deleting an area, and creating a child area (mod-018: scope A). Checked on the organization
+    /// role alone until <c>mod-019-scoped-access</c>.
+    /// </summary>
     public const string OrganizationsAreaWrite = "organizations.area.write";
+
+    /// <summary>Creating a top-level area, and moving an area to or from the top level (mod-018: scope O).</summary>
+    public const string OrganizationsAreaCreate = "organizations.area.create";
+
+    /// <summary>The area's end of a link with a project or a team, and of creating an area with links (mod-018: scope A).</summary>
+    public const string OrganizationsAreaLink = "organizations.area.link";
 
     /// <summary>Reading an organization's process definition (mod-001 BR-M2-10).</summary>
     public const string ProcessDefinitionRead = "process.definition.read";
@@ -130,8 +139,10 @@ public static class PermissionCatalog
         new(OrganizationsTeamCreate, PermissionScope.Organization, "Создание команд"),
         new(OrganizationsTeamDelete, PermissionScope.Organization, "Удаление команд"),
         new(OrganizationsTeamLink, PermissionScope.Organization, "Связи команды с проектами"),
-        new(OrganizationsAreaRead, PermissionScope.Organization, "Просмотр областей проекта"),
-        new(OrganizationsAreaWrite, PermissionScope.Organization, "Управление областями проекта"),
+        new(OrganizationsAreaRead, PermissionScope.Organization, "Просмотр областей организации"),
+        new(OrganizationsAreaWrite, PermissionScope.Organization, "Изменение, перемещение и удаление областей, дочерние области"),
+        new(OrganizationsAreaCreate, PermissionScope.Organization, "Создание областей верхнего уровня"),
+        new(OrganizationsAreaLink, PermissionScope.Organization, "Связи области с проектами и командами"),
         new(ProcessDefinitionRead, PermissionScope.Organization, "Просмотр определения процесса организации"),
         new(WorkItemsWorkItemRead, PermissionScope.Organization, "Просмотр рабочих элементов проекта"),
         new(WorkItemsWorkItemWrite, PermissionScope.Organization, "Создание и изменение рабочих элементов проекта"),

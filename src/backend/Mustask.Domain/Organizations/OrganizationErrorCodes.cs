@@ -93,11 +93,14 @@ public static class OrganizationErrorCodes
     /// <summary>The destination is the moved node itself or one of its descendants (BR-M1-12).</summary>
     public const string AreaMoveIntoOwnSubtree = "organizations.area.move_into_own_subtree";
 
-    /// <summary>The area has children (and, from mod-003, work items, BR-M1-13).</summary>
+    /// <summary>The area has child areas (BR-AW-9; the work-item condition went with the item's area).</summary>
     public const string AreaNotEmpty = "organizations.area.not_empty";
 
-    /// <summary>The root is renamed only with its project and is never moved, re-owned or deleted (BR-M1-11).</summary>
-    public const string AreaRootIsFixed = "organizations.area.root_is_fixed";
+    /// <summary>A creation or a move would put an area below level 10 (BR-AW-3, mod-018).</summary>
+    public const string AreaDepthExceeded = "organizations.area.depth_exceeded";
+
+    // mod-018 retired organizations.area.root_is_fixed with the per-project root (BR-AW-11): its constant is gone and its catalog
+    // entry stays, marked "deprecated" (ADR-0005 rule 3).
 
     // ----- mod-016: organization access (api-contract § 5) -----
 

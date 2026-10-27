@@ -15,11 +15,8 @@ internal static class WorkItemsConstraints
     /// <summary>BR-M3-29: the list's order, newest change first, then number descending.</summary>
     public const string ProjectChangedAt = "ix_work_items_project_id_changed_at_number";
 
-    /// <summary>BR-M3-24: the area deletion looks for any item of the project in the area.</summary>
-    public const string ProjectArea = "ix_work_items_project_id_area_id";
-
-    /// <summary>mod-006 BR-M4-5: a team's backlog of a level reads the project's items of the level's types in the team's areas.</summary>
-    public const string ProjectTypeArea = "ix_work_items_project_id_type_id_area_id";
+    /// <summary>mod-006 BR-M4-5, ADR-0028 rule 13: a team's backlog of a level reads the project's items of the level's types.</summary>
+    public const string ProjectType = "ix_work_items_project_id_type_id";
 
     /// <summary>feat-001 BR-H-1, BR-H-7: the parent's composite key, and a parent's children.</summary>
     public const string ProjectParent = "ix_work_items_project_id_parent_id";

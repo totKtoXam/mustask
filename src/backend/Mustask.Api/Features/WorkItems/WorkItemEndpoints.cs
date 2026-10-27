@@ -220,7 +220,6 @@ public static class WorkItemEndpoints
             request?.Description,
             request?.StateId,
             request?.Assignee is { } assignee ? new AssigneeChange(assignee.UserId) : null,
-            request?.AreaId,
             request?.Parent is { } parent ? new ParentChange(parent.ParentId, parent.SeenParentId) : null,
             request is null ? null : FieldsOf(request),
             request?.Team is { } team ? new TeamChange(team.TeamId) : null);
@@ -328,7 +327,6 @@ public static class WorkItemEndpoints
         string? Description,
         string? StateId,
         AssigneeRequest? Assignee,
-        string? AreaId,
         ParentChangeRequest? Parent,
         TeamRequest? Team,
         FieldRequest<int?>? Priority,

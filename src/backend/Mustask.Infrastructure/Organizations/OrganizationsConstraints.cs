@@ -38,10 +38,7 @@ internal static class OrganizationsConstraints
     public const string TeamMembershipTeamKey = "fk_team_memberships_teams_organization_id_team_id";
 
     /// <summary>BR-M1-12: a name among siblings.</summary>
-    public const string AreaName = "ix_areas_parent_id_normalized_name";
-
-    /// <summary>BR-M1-11: one root per project.</summary>
-    public const string AreaRoot = "ix_areas_project_id_root";
+    public const string AreaName = "ix_areas_organization_id_parent_id_normalized_name";
 
     /// <summary>BR-M1-5: one membership per user per organization — the primary key <c>(organization_id, user_id)</c> (mod-016).</summary>
     public const string MembershipPrimaryKey = "pk_organization_memberships";

@@ -18,4 +18,5 @@ public sealed record CreateProjectCommand(
     string? Name,
     string? Key,
     string? Description = null,
-    IReadOnlyList<string?>? TeamIds = null);
+    IReadOnlyList<string?>? TeamIds = null,
+    IReadOnlyList<string?>? AreaIds = null);

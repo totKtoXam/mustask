@@ -59,11 +59,7 @@ internal sealed class ProjectRepository(MustaskDbContext context) : IProjectRepo
             $"UPDATE projects SET default_team_id = NULL WHERE organization_id = {organizationId} AND default_team_id = {teamId}",
             cancellationToken);
 
-    public void Add(NewProject project)
-    {
-        context.Projects.Add(project.Project);
-        context.Areas.Add(project.Root);
-    }
+    public void Add(Project project) => context.Projects.Add(project);
 
     public Task SaveAsync(CancellationToken cancellationToken) => OrganizationsSaveChanges.SaveAsync(context, cancellationToken);
 }

@@ -72,7 +72,6 @@ public sealed record WorkItemView(
     string Description,
     WorkItemStateView State,
     WorkItemAssigneeView? Assignee,
-    WorkItemAreaView Area,
     WorkItemTeamView? Team,
     string CreatedBy,
     DateTimeOffset CreatedAt,
@@ -187,7 +186,6 @@ public sealed record WorkItemListItemView(
     string Title,
     WorkItemListAssigneeView? Assignee,
     WorkItemStateView State,
-    WorkItemAreaView Area,
     WorkItemTeamView? Team,
     DateTimeOffset ChangedAt);
 
@@ -226,9 +224,6 @@ public sealed record WorkItemListAssigneeView(string Id, string? DisplayName, st
 /// id the directory does not know; <paramref name="IsMember"/> is the membership alone.
 /// </summary>
 public sealed record AssigneeFilterOptionView(string Id, string? DisplayName, string? Email, bool IsActive, bool IsMember);
-
-/// <param name="Path">mod-002 DC-9: «Платформа / API», the root by its own name.</param>
-public sealed record WorkItemAreaView(Guid Id, string Path);
 
 /// <summary>
 /// mod-017 api-contract § 1.1 <c>WorkItemTeam</c>: the owning team <b>as it stands now</b> (a rename shows at once). The

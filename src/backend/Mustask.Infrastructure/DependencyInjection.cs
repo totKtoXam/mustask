@@ -88,8 +88,7 @@ public static class DependencyInjection
     }
 
     /// <summary>
-    /// The work items module's repository, read model and its implementation of
-    /// M1's <see cref="IAreaUsage"/>, all scoped. Public, like
+    /// The work items module repository and read model, all scoped. Public, like
     /// <see cref="AddOrganizationsInfrastructure"/>, so a test host that builds
     /// its own context wires the same set.
     /// </summary>
@@ -97,7 +96,6 @@ public static class DependencyInjection
     {
         services.AddScoped<IWorkItemRepository, WorkItemRepository>();
         services.AddScoped<IWorkItemReadModel, WorkItemReadModel>();
-        services.AddScoped<IAreaUsage, WorkItemAreaUsage>();
         services.AddScoped<IWorkItemTeamOwnership, WorkItemTeamOwnership>();
 
         return services;
@@ -131,6 +129,7 @@ public static class DependencyInjection
         services.AddScoped<ITeamRepository, TeamRepository>();
         services.AddScoped<IProjectTeamRepository, ProjectTeamRepository>();
         services.AddScoped<IAreaRepository, AreaRepository>();
+        services.AddScoped<IAreaLinkRepository, AreaLinkRepository>();
         services.AddScoped<IOrganizationReadModel, OrganizationReadModel>();
         services.AddScoped<IProjectReadModel, ProjectReadModel>();
         services.AddScoped<ITeamReadModel, TeamReadModel>();

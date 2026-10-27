@@ -12,9 +12,7 @@ namespace Mustask.Infrastructure.WorkItems;
 /// <summary>
 /// <see cref="IWorkItemReadModel"/>. Each read is a fixed set of queries,
 /// <c>AsNoTracking</c> with projections: the items joined to their project,
-/// type and state (one statement; the list adds its count), then the project's
-/// area nodes, whose paths <see cref="AreaTree"/> computes exactly as mod-002's
-/// tree read does (DC-9), then one lookup of the page's assignees through
+/// type and state (one statement; the list adds its count), then one lookup of the page's assignees through
 /// mod-014's <see cref="IUserDirectory"/>, never its tables. One item adds one
 /// statement for its links (feat-001): its parent and its children together.
 /// </summary>
@@ -130,8 +128,6 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             .Take(pageSize);
 
         var rows = await Rows(pageItems, includeDescription: false).ToListAsync(cancellationToken);
-
-        var paths = await AreaPathsAsync(projectId, cancellationToken);
         var assignees = await AssigneesAsync(rows, projectId, cancellationToken);
 
         // The joins do not promise the page's order, so the page, already narrowed in SQL, is put back in it here.
@@ -146,7 +142,6 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
                 row.Title,
                 ListAssignee(row, assignees),
                 State(row),
-                new WorkItemAreaView(row.AreaId, paths.PathOf(row.AreaId)),
                 Team(row),
                 row.ChangedAt))
             .ToList();
@@ -221,7 +216,6 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             state.Name,
             state.Category,
             item.AssigneeId,
-            item.AreaId,
             team == null ? null : team.Id,
             team == null ? null : team.Name,
             item.Title,
@@ -289,7 +283,6 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
 
     private async Task<WorkItemView> ViewAsync(ItemRow row, CancellationToken cancellationToken)
     {
-        var paths = await AreaPathsAsync(row.ProjectId, cancellationToken);
         var assignees = await AssigneesAsync([row], row.ProjectId, cancellationToken);
         var (parent, children) = await LinksAsync(row, cancellationToken);
 
@@ -305,7 +298,6 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             row.Description,
             State(row),
             Assignee(row, assignees),
-            new WorkItemAreaView(row.AreaId, paths.PathOf(row.AreaId)),
             Team(row),
             row.CreatedBy,
             row.CreatedAt,
@@ -346,17 +338,6 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             : null;
 
     private static WorkItemRefView Ref(WorkItemRefRow row) => WorkItemRefs.View(row);
-
-    private async Task<AreaTree> AreaPathsAsync(Guid projectId, CancellationToken cancellationToken)
-    {
-        var nodes = await context.Areas
-            .AsNoTracking()
-            .Where(area => area.ProjectId == projectId)
-            .Select(area => new AreaNode(area.Id, area.ParentId, area.Name))
-            .ToListAsync(cancellationToken);
-
-        return new AreaTree(nodes);
-    }
 
     /// <summary>
     /// The page's assignees — and, on the card, the user that deleted the item (mod-005 plan-backend D-P3), in the same call —
@@ -458,7 +439,6 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         string StateName,
         StateCategory StateCategory,
         string? AssigneeId,
-        Guid AreaId,
         Guid? TeamId,
         string? TeamName,
         string Title,

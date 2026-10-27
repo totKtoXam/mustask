@@ -52,6 +52,10 @@ public sealed class MustaskDbContext(DbContextOptions<MustaskDbContext> options)
 
     public DbSet<Area> Areas => Set<Area>();
 
+    public DbSet<AreaProject> AreaProjects => Set<AreaProject>();
+
+    public DbSet<AreaTeam> AreaTeams => Set<AreaTeam>();
+
     /// <summary>Organization access (mod-016): who belongs to which organization with which role, and who is in which team.</summary>
     public DbSet<OrganizationMembership> OrganizationMemberships => Set<OrganizationMembership>();
 

@@ -24,7 +24,6 @@ public sealed record SaveWorkItemCommand(
     string? Description = null,
     string? StateId = null,
     AssigneeChange? Assignee = null,
-    string? AreaId = null,
     ParentChange? Parent = null,
     WorkItemFieldsEdit? Fields = null,
     TeamChange? Team = null);

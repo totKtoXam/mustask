@@ -3,8 +3,8 @@ namespace Mustask.Domain.Organizations;
 /// <summary>
 /// A project of an organization (US-3). Its name is unique in the organization
 /// among projects of any status, and so is its key, which never changes
-/// (BR-M1-1). It is created with its root area (until mod-018 removes it), owned by nobody,
-/// and <b>no team</b> (feat-028 BR-OL-2): the teams that work in it are its links. It may carry a
+/// (BR-M1-1). It is created with <b>no team</b> (feat-028 BR-OL-2) and <b>no area</b> (mod-018 BR-AW-11): the teams that work in it
+/// and the areas it belongs to are its links. It may carry a
 /// description (BR-OL-3). Removed softly, like the organization (ADR-0026).
 /// </summary>
 public sealed class Project
@@ -82,11 +82,11 @@ public sealed class Project
     }
 
     /// <summary>
-    /// A new, active project with its root (US-3). The root is named after the project and belongs to nobody (mod-017
-    /// BR-OT-10); <b>no team comes with the project</b> and no one joins one (feat-028 BR-OL-2). The caller has checked the key
-    /// already (<see cref="ProjectKey"/>) and links the teams the request names in the same operation.
+    /// A new, active project (US-3). <b>No team and no area comes with it</b> and no one joins a team (feat-028 BR-OL-2, mod-018
+    /// BR-AW-11). The caller has checked the key already (<see cref="ProjectKey"/>) and links the teams and areas the request names in
+    /// the same operation.
     /// </summary>
-    public static NewProject Create(
+    public static Project Create(
         Guid organizationId,
         EntityName name,
         string key,
@@ -106,26 +106,17 @@ public sealed class Project
 
         Organization.EnsureCreator(createdBy);
 
-        var project = new Project(Guid.CreateVersion7(), organizationId, name, key, description, createdAt, createdBy);
-        var root = Area.CreateRoot(project.Id, name);
-
-        return new NewProject(project, root);
+        return new Project(Guid.CreateVersion7(), organizationId, name, key, description, createdAt, createdBy);
     }
 
     /// <summary>Sets or clears the description (BR-OL-3). The key, the name and the links do not change.</summary>
     public void Describe(EntityDescription? description) => Description = description?.Value;
 
-    /// <summary>Renames the project and its root with it (BR-M1-11). The key, the links and the rest of the tree do not change.</summary>
-    public void Rename(EntityName name, Area root)
+    /// <summary>Renames the project (BR-AW-11: no area is renamed with it). The key and the links do not change.</summary>
+    public void Rename(EntityName name)
     {
-        if (!root.IsRoot || root.ProjectId != Id)
-        {
-            throw new ArgumentException("The root renamed with a project is that project's own root.", nameof(root));
-        }
-
         Name = name.Value;
         NormalizedName = name.Normalized;
-        root.RenameAsRoot(name);
     }
 
     /// <summary>Writes this one row: nothing beneath changes status (ADR-0026 rule 2).</summary>
@@ -134,6 +125,3 @@ public sealed class Project
     /// <summary>Back to active, exactly as it was. Restoring an active project changes nothing.</summary>
     public void Restore() => Status = ProjectStatus.Active;
 }
-
-/// <summary>What <see cref="Project.Create"/> builds: the project and its root, to be stored together. No team (feat-028 BR-OL-2).</summary>
-public sealed record NewProject(Project Project, Area Root);

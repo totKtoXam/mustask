@@ -5,13 +5,11 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace Mustask.Infrastructure.Organizations.Configurations;
 
 /// <summary>
-/// <c>areas</c> (plan-backend § 3). A name is unique among its siblings; the
-/// root's null parent means two roots are never compared (BR-M1-12). One root
-/// per project (BR-M1-11). An area owns nothing and is the default of no team (mod-017 BR-OT-10): the owner and
-/// default-of columns, their keys, index and checks are gone. Every key is <c>Restrict</c>: an area is
-/// removed only as a leaf. The key to the parent is composite, <c>(project_id, parent_id)</c> onto the
-/// alternate key <c>(project_id, id)</c> of <c>areas</c>, so the database refuses a parent of another
-/// project (BR-M1-22, qa.md D-1). A null parent leaves its key unchecked (MATCH SIMPLE).
+/// <c>areas</c> (mod-018 plan-backend § 3, ADR-0028 rules 4 and 5): one tree per organization. A name is unique among its siblings,
+/// the top level included, so the sibling index is <c>NULLS NOT DISTINCT</c> (BR-AW-4). The key to the parent is composite,
+/// <c>(organization_id, parent_id)</c> onto the alternate key <c>(organization_id, id)</c>, so the database refuses a parent of
+/// another organization (BR-AW-1). A key is <c>Restrict</c>: an area is removed only as a leaf (BR-AW-9). The area owns nothing:
+/// projects and teams are linked to it (<see cref="AreaProject"/>, <see cref="AreaTeam"/>).
 /// </summary>
 internal sealed class AreaConfiguration : IEntityTypeConfiguration<Area>
 {
@@ -19,32 +17,34 @@ internal sealed class AreaConfiguration : IEntityTypeConfiguration<Area>
     {
         builder.HasKey(area => area.Id);
         builder.Property(area => area.Id).ValueGeneratedNever();
-        builder.HasAlternateKey(area => new { area.ProjectId, area.Id });
+        builder.HasAlternateKey(area => new { area.OrganizationId, area.Id });
 
-        builder.Property(area => area.ProjectId).IsRequired();
+        builder.Property(area => area.OrganizationId).IsRequired();
         builder.Property(area => area.Name).HasMaxLength(OrganizationLimits.NameMaxLength).IsRequired();
         builder.Property(area => area.NormalizedName).HasMaxLength(OrganizationLimits.NameMaxLength).IsRequired();
+        builder.Property(area => area.Description).HasColumnType("text");
+        builder.Property(area => area.InheritsAccess).HasDefaultValue(true).IsRequired();
+        builder.Property(area => area.CreatedBy).HasMaxLength(OrganizationLimits.LinkedByMaxLength).IsRequired();
+        builder.Property(area => area.CreatedAt).IsRequired();
 
-        builder.HasOne<Project>()
+        builder.HasOne<Organization>()
             .WithMany()
-            .HasForeignKey(area => area.ProjectId)
+            .HasForeignKey(area => area.OrganizationId)
             .OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Area>()
             .WithMany()
-            .HasForeignKey(area => new { area.ProjectId, area.ParentId })
-            .HasPrincipalKey(parent => new { parent.ProjectId, parent.Id })
+            .HasForeignKey(area => new { area.OrganizationId, area.ParentId })
+            .HasPrincipalKey(parent => new { parent.OrganizationId, parent.Id })
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasIndex(area => new { area.ParentId, area.NormalizedName }, OrganizationsConstraints.AreaName).IsUnique();
-        builder.HasIndex(area => area.ProjectId, OrganizationsConstraints.AreaRoot)
+        builder.HasIndex(area => new { area.OrganizationId, area.ParentId, area.NormalizedName }, OrganizationsConstraints.AreaName)
             .IsUnique()
-            .HasFilter("parent_id IS NULL");
-        // The tree read and every lock by project look areas up by project: the partial root index does not serve them.
-        builder.HasIndex(area => area.ProjectId, "ix_areas_project_id");
+            .AreNullsDistinct(false);
 
         builder.ToTable(table =>
         {
             table.HasCheckConstraint("ck_areas_name_length", OrganizationsConstraints.NameLengthCheck);
+            table.HasCheckConstraint("ck_areas_description_length", OrganizationsConstraints.DescriptionLengthCheck);
         });
     }
 }

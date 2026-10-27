@@ -66,12 +66,4 @@ internal static class Reachability
     public static IQueryable<Project> LinkedProjects(this MustaskDbContext context, Guid organizationId, Guid teamId) =>
         context.ReachableProjects(organizationId).Where(project =>
             context.ProjectTeams.Any(link => link.TeamId == teamId && link.ProjectId == project.Id));
-
-    /// <summary>Every area of a reachable project. Areas have no status of their own.</summary>
-    public static IQueryable<Area> AreasOfReachableProject(this MustaskDbContext context, Guid organizationId, Guid projectId)
-    {
-        var project = context.ReachableProjects(organizationId).Where(candidate => candidate.Id == projectId);
-
-        return context.Areas.Where(area => area.ProjectId == projectId && project.Any());
-    }
 }

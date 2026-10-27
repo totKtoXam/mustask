@@ -7,7 +7,7 @@ namespace Mustask.Domain.WorkItems;
 /// A work item of one project (spec § Data model): one of the five types of its
 /// organization's process, a number from the project's one sequence, a title, a
 /// plain-text description, a state of its type, an optional assignee from the
-/// user directory and an area of its project. Its type, its project and its
+/// user directory. Its type, its project and its
 /// number never change (BR-M3-1, BR-M3-2, BR-M3-5), so neither does its
 /// identifier. It records who created it and when, and the time of its latest
 /// save that changed a value (BR-M3-28). feat-022 adds the planning,
@@ -28,7 +28,6 @@ public sealed class WorkItem
         int number,
         Guid typeId,
         Guid stateId,
-        Guid areaId,
         string title,
         Guid creationRequestId,
         DateTimeOffset createdAt,
@@ -40,7 +39,6 @@ public sealed class WorkItem
         Number = number;
         TypeId = typeId;
         StateId = stateId;
-        AreaId = areaId;
         OwningTeamId = owningTeamId;
         Title = title;
         Description = string.Empty;
@@ -64,11 +62,9 @@ public sealed class WorkItem
     /// <summary>The assignee's Keycloak user id, or <c>null</c> for «Не назначен» (BR-M3-22).</summary>
     public string? AssigneeId { get; private set; }
 
-    public Guid AreaId { get; private set; }
-
     /// <summary>
     /// mod-017 (BR-OT-1): the item's one owning team, a team of its project, or <c>null</c> for «Без команды». Changing it
-    /// changes nothing else on the item; the project, the area and the parent are not decided by it, and it is not decided by
+    /// changes nothing else on the item; the project and the parent are not decided by it, and it is not decided by
     /// them.
     /// </summary>
     public Guid? OwningTeamId { get; private set; }
@@ -165,7 +161,7 @@ public sealed class WorkItem
 
     /// <summary>
     /// A new item (US-1, BR-M3-20): its type's initial state, no assignee, an
-    /// empty description and the project's root area; of feat-022's fields,
+    /// empty description and no area (mod-018 BR-AW-11); of feat-022's fields,
     /// «Приоритет» 2, on a bug «Серьёзность» 3, on an epic, a feature or a story
     /// «Вид ценности» «Бизнес», the type's texts <c>""</c> and every other field
     /// empty (BR-M3-37). The caller has validated
@@ -178,7 +174,6 @@ public sealed class WorkItem
         Guid projectId,
         int number,
         WorkItemTypeStates type,
-        Guid rootAreaId,
         string title,
         Guid creationRequestId,
         DateTimeOffset createdAt,
@@ -189,9 +184,9 @@ public sealed class WorkItem
         ArgumentOutOfRangeException.ThrowIfLessThan(number, 1);
         ArgumentException.ThrowIfNullOrWhiteSpace(createdBy);
 
-        if (projectId == Guid.Empty || rootAreaId == Guid.Empty || creationRequestId == Guid.Empty)
+        if (projectId == Guid.Empty || creationRequestId == Guid.Empty)
         {
-            throw new ArgumentException("A work item has a project, an area and the key of its creation.");
+            throw new ArgumentException("A work item has a project and the key of its creation.");
         }
 
         if (WorkItemText.ValidateTitle(title, out var trimmed) is not null || trimmed != title)
@@ -205,7 +200,6 @@ public sealed class WorkItem
             number,
             type.TypeId,
             type.InitialStateId,
-            rootAreaId,
             title,
             creationRequestId,
             createdAt,
@@ -309,7 +303,7 @@ public sealed class WorkItem
     /// <summary>
     /// mod-005 (BR-DR-1..-3, ADR-0030 rule 1): moves the item into its type's «Удалена» and records, on the same row, the
     /// state it held, who deleted it and when. «Изменён» takes the deletion's time. <b>Nothing else is assigned</b> — not
-    /// the title, fields, assignee, area, owning team, parent or anything of a child. A deletion is never refused for a
+    /// the title, fields, assignee, owning team, parent or anything of a child. A deletion is never refused for a
     /// stale form: it is a separate write (BR-DR-11).
     /// </summary>
     /// <param name="type">The item's own type, as the organization's process holds it.</param>
@@ -438,12 +432,6 @@ public sealed class WorkItem
         if (edit.Assignee is { } assignee && assignee.UserId != AssigneeId)
         {
             AssigneeId = assignee.UserId;
-            changed = true;
-        }
-
-        if (edit.AreaId is { } areaId && areaId != AreaId)
-        {
-            AreaId = areaId;
             changed = true;
         }
 
@@ -709,8 +697,7 @@ public sealed class WorkItem
 
 /// <summary>
 /// The fields one save sends (BR-M3-25); <c>null</c> means "not sent, keep the
-/// stored value". The caller has validated the texts, has resolved the area as
-/// an area of the item's project (BR-M3-23), and has checked
+/// stored value". The caller has validated the texts, has checked
 /// <paramref name="Fields"/> with <see cref="WorkItem.CheckFields"/> (feat-022). mod-017: the caller has judged
 /// <paramref name="Team"/> with <c>ProjectTeams.EnsureBindable</c> under the team's lock.
 /// </summary>
@@ -719,7 +706,6 @@ public sealed record WorkItemEdit(
     string? Description = null,
     Guid? StateId = null,
     AssigneeEdit? Assignee = null,
-    Guid? AreaId = null,
     WorkItemFieldsEdit? Fields = null,
     TeamEdit? Team = null);
 

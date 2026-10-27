@@ -28,7 +28,7 @@ namespace Mustask.Application.Features.WorkItems.SaveWorkItem;
 /// before anything below)</b>; the values
 /// (400, every field reason at once — feat-022's fields included, checked by the
 /// domain against the item's type and its stored dates, under the item's lock,
-/// feat-022 api-contract § 3.2); the area (404); mod-017's team (404, or 409 for a team of
+/// feat-022 api-contract § 3.2); mod-017's team (404, or 409 for a team of
 /// another project, <see cref="ProjectTeams.EnsureBindable"/>); then the new parent (404); the
 /// state, then the assignee (409, decided by the domain), then the parent's
 /// 409s (<see cref="WorkItemHierarchy.Write"/>). A refusal throws before
@@ -39,7 +39,7 @@ namespace Mustask.Application.Features.WorkItems.SaveWorkItem;
 /// <b>The owning team</b> (mod-017 BR-OT-1, BR-OT-2, BR-OT-6, BR-OT-13): a save that names a team locks it
 /// <c>FOR SHARE</c> <i>first</i> of everything it locks (the binder's lock, ADR-0028 rule 8; plan-backend § 7.2), so a deletion
 /// of that team either commits before this save reads it — the team then reads deleted and the save answers
-/// <c>team.not_found</c> — or waits for this save and takes the item with the rest. The team is judged after the area: the team
+/// <c>team.not_found</c> — or waits for this save and takes the item with the rest. The team
 /// itself on a fresh read, its <b>link by what the lock statement returned</b> (review-security S-1; a link committed after the lock
 /// is not held, so the save is 409 <c>team.not_in_project</c> as if it had run before the link). A team that changes the item's owner drops the item's team place <i>before</i> the item is written, in the same
 /// transaction: the place's key onto the item's current owner is checked at the end of the item's <c>UPDATE</c>, and the
@@ -51,10 +51,7 @@ namespace Mustask.Application.Features.WorkItems.SaveWorkItem;
 /// item <c>FOR UPDATE</c>, before it is loaded: two saves of one item run one
 /// after the other, and the second applies its own fields to what the first
 /// stored, so a field it did not send keeps the first's value and a field both
-/// sent keeps the later one (BR-M3-25). Then, when the area changes, the new
-/// area <c>FOR SHARE</c>: mod-002's deletion locks it <c>FOR UPDATE</c> and asks
-/// for its work items after its lock, so a deletion and a save into that area
-/// never both succeed (BR-M3-24). Then the new and the stored parent
+/// sent keeps the later one (BR-M3-25). An item has no area (mod-018). Then the new and the stored parent
 /// <c>FOR NO KEY UPDATE</c>. The project is not locked: a write beneath only
 /// reads its containers' status (ADR-0026 rule 8).
 /// </para>
@@ -138,10 +135,6 @@ public sealed class SaveWorkItemHandler(
 
                 // 2. The values, every field reason at once.
                 var title = ValidateValues(command, item, type);
-
-                // 3. The area: one of the item's own project, still there under the lock (BR-M3-23, BR-M3-24).
-                var areaId = await LockAreaAsync(projectId, item.AreaId, command.AreaId, ct);
-
                 // 3a. The team: a team of this project, or none, judged under the link's lock — the team on a fresh read, its link
                 // by what the lock held (mod-017 api-contract § 0.2). Not sent: the stored team stays.
                 var team = await DecideTeamAsync(command.Team, organizationId, projectId, teamLinkHeld, ct);
@@ -158,7 +151,6 @@ public sealed class SaveWorkItemHandler(
                     command.Description,
                     StateIdOf(command.StateId),
                     await AssigneeOfAsync(command.Assignee, organizationId, ct),
-                    areaId,
                     command.Fields,
                     team);
 
@@ -225,30 +217,6 @@ public sealed class SaveWorkItemHandler(
         return errors.Count > 0
             ? throw new ValidationException(WorkItemErrorCodes.ValidationFailed, errors)
             : title;
-    }
-
-    /// <summary>
-    /// <c>null</c> when no area was sent; the current area needs no lock; any
-    /// other is locked <c>FOR SHARE</c> and must be an area of the project.
-    /// </summary>
-    private async Task<Guid?> LockAreaAsync(Guid projectId, Guid currentAreaId, string? rawAreaId, CancellationToken cancellationToken)
-    {
-        if (rawAreaId is null)
-        {
-            return null;
-        }
-
-        if (!AddressedId.TryParse(rawAreaId, out var areaId))
-        {
-            throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
-        }
-
-        if (areaId != currentAreaId && !await workItems.LockAreaAsync(projectId, areaId, cancellationToken))
-        {
-            throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
-        }
-
-        return areaId;
     }
 
     /// <summary>The sent team as an id to lock: <c>null</c> for a team not sent, «Без команды» and a string that is no id.</summary>

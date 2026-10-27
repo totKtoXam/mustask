@@ -11,8 +11,7 @@ namespace Mustask.Application.Features.Organizations.CreateProject;
 /// <c>POST /api/organizations/{organizationId}/projects</c> (US-3 "A project is created ready to use", "The key is required and
 /// well-formed", "The key is unique in the organization", "The name is unique in the organization", "A deactivated project's name
 /// stays reserved"; feat-028 US-2 "a project with a name and a key only", "description and teams in one operation").
-/// <b>Creating a project creates no team and no team membership — the creator's included</b> (BR-OL-2); only its root area comes
-/// with it. The request may carry a description and the teams to link, linked in the same operation.
+/// <b>Creating a project creates no team and no team membership — the creator's included</b> (BR-OL-2). The request may carry a description, the teams and (mod-018) the areas to link, linked in the same operation.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -41,6 +40,8 @@ public sealed class CreateProjectHandler(
     ITeamRepository teams,
     IProjectTeamRepository links,
     IProjectRepository projects,
+    IAreaRepository areas,
+    IAreaLinkRepository areaLinks,
     IOrganizationAccess access,
     IClock clock,
     ICurrentUser currentUser,
@@ -51,6 +52,12 @@ public sealed class CreateProjectHandler(
         // 0. The second codes, first of all (D-7): a project that links needs both ends' link codes.
         if (command.TeamIds is { Count: > 0 }
             && (!access.Holds(PermissionCatalog.OrganizationsTeamLink) || !access.Holds(PermissionCatalog.OrganizationsProjectLink)))
+        {
+            throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
+        }
+
+        if (command.AreaIds is { Count: > 0 }
+            && (!access.Holds(PermissionCatalog.OrganizationsAreaLink) || !access.Holds(PermissionCatalog.OrganizationsProjectLink)))
         {
             throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
         }
@@ -106,6 +113,14 @@ public sealed class CreateProjectHandler(
                     teamIds.Add(teamId);
                 }
 
+                // The areas named (404), locked FOR SHARE before the teams (ADR-0028 rule 8), each judged by the lock statement's answer.
+                var areaIds = AreaRequests.ParseIds(command.AreaIds, OrganizationErrorCodes.AreaNotFound);
+
+                if (areaIds.Count > 0 && (await areas.LockManyForShareAsync(organizationId, areaIds, ct)).Count != areaIds.Count)
+                {
+                    throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
+                }
+
                 if (teamIds.Count > 0)
                 {
                     var locked = await teams.LockManyForShareAsync(organizationId, teamIds, ct);
@@ -138,7 +153,7 @@ public sealed class CreateProjectHandler(
                         new ErrorParams { ["key"] = ErrorParam.Text(key) });
                 }
 
-                // The project and its root, both named after the project; the root owned by nobody; no team and no team membership
+                // The project; no area and no team and no team membership
                 // (BR-OL-2); the settings name no default team — two teams chosen name none, one is the default by itself
                 // (BR-OL-7). The creator is the token's subject (BR-M1-21).
                 var now = clock.UtcNow;
@@ -148,14 +163,19 @@ public sealed class CreateProjectHandler(
 
                 foreach (var teamId in teamIds)
                 {
-                    links.Add(ProjectTeam.Link(organizationId, created.Project.Id, teamId, creatorId, now));
+                    links.Add(ProjectTeam.Link(organizationId, created.Id, teamId, creatorId, now));
+                }
+
+                foreach (var areaId in areaIds)
+                {
+                    areaLinks.Add(AreaProject.Link(organizationId, areaId, created.Id, creatorId, now));
                 }
 
                 // 6. Save. A concurrent creation of the same name or key that committed first fails this insert on its unique
                 // index, and the repository answers with the pre-check's code.
                 await projects.SaveAsync(ct);
 
-                var project = created.Project;
+                var project = created;
 
                 return new CreateProjectResult(
                     new ProjectResponse(project.Id, project.OrganizationId, project.Name, project.Key, project.Description));

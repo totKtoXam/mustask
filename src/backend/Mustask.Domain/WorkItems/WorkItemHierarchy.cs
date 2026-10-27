@@ -208,7 +208,7 @@ public static class WorkItemHierarchy
 
     /// <summary>
     /// A new item created beneath <paramref name="parent"/> (feat-027 BR-T-10): mod-003's creation
-    /// (<see cref="WorkItem.Create"/>) in the parent's area as stored (a classification path, mod-017 BR-OT-10), owned by
+    /// (<see cref="WorkItem.Create"/>), owned by
     /// <paramref name="owningTeamId"/> — the team the caller decided under the parent's lock, the parent's as stored else the
     /// project default else none (<c>ProjectTeams.ChildTeam</c>, mod-017 BR-OT-3) — linked
     /// beneath the parent in the same step, its «Изменён» its creation time; the parent's «Изменён» moves to the same
@@ -255,7 +255,7 @@ public static class WorkItemHierarchy
 
         RefuseTooDeep(Chain(parent, parentAncestry).Count + 1);
 
-        var child = WorkItem.Create(parent.ProjectId, number, type, parent.AreaId, title, creationRequestId, now, createdBy, owningTeamId);
+        var child = WorkItem.Create(parent.ProjectId, number, type, title, creationRequestId, now, createdBy, owningTeamId);
         child.LinkTo(parent.Id, now);
         parent.MarkLinkChanged(now);
 

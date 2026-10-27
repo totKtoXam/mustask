@@ -80,16 +80,6 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
         return await WorkItemSets.InAnyState(context).SingleOrDefaultAsync(item => item.ProjectId == projectId && item.Number == number, cancellationToken);
     }
 
-    public async Task<bool> LockAreaAsync(Guid projectId, Guid areaId, CancellationToken cancellationToken)
-    {
-        await context.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT 1 FROM areas WHERE id = {areaId} AND project_id = {projectId} FOR SHARE",
-            cancellationToken);
-
-        // A new statement under READ COMMITTED: an area deleted by the lock's previous holder is gone.
-        return await context.Areas.AnyAsync(area => area.Id == areaId && area.ProjectId == projectId, cancellationToken);
-    }
-
     // The one statement pair every taker of the hierarchy lock shares (WorkItemHierarchyLocks): a concurrent first parent write of the
     // project waits at the insert on the other's uncommitted key, then does nothing. A team's unlink and deletion take it too, through
     // IWorkItemTeamOwnership, for the projects they reach (mod-005 QD-1).
