@@ -304,3 +304,120 @@ The light route's one fix round. Each finding's Resolution above ends with what 
 
 No finding was declined. OQ-1 and OQ-2 are unchanged and stay the human's. The verdict stays `needs-human-decision`, and
 the design continues on OQ-1 A and OQ-2 B.
+
+## Round 1 — code and security
+
+Code reviewer, clean context, 2026-10-27, HEAD 73aca1da, diff `891d17a6..HEAD`. One session for the general review and the L
+security checklist (economy mode). Code read in full: every new or rewritten Organizations handler, the area repositories and
+reads, the configurations, the migration, the endpoints and role bundles, and the item-area retirement. On the frontend: the pages,
+`EndAreasSection`, permissions and routes. Tests were skimmed (`AreaLink…`, `AreaRaces…`, `AreaQa…`): no assertion is weakened.
+The suite was not re-run.
+
+### Findings
+
+**M-1 · major · an unlink from the area's end ends a deactivated project's link.**
+`src/backend/Mustask.Application/Features/Organizations/UnlinkProjectFromArea/UnlinkProjectFromAreaHandler.cs:202-206` accepts any
+stored project (`structure.FindProjectAsync(...) is null`), and its summary (`:172-173`) says so on purpose. US-3 ("Only active ends
+are linked…": unlinking Gamma from «Логистика» is answered «Проект не найден.» and nothing changes), BR-AW-10 ("a link or an unlink
+naming it answers «Проект не найден.», and its restore brings its links back exactly") and api-contract § 3 say the opposite. Today
+`DELETE …/areas/{a}/projects/{deactivated}` returns 204 and deletes the stored link, so the restore loses it. The project end
+(`UnlinkAreaFromProjectHandler.cs:33-37`, `IsReachableAsync`) is right, so the two ends disagree. No test covers this.
+Fix: use `projects.IsReachableAsync` (or `is not { IsReachable: true }`), correct the summary, and add an API test that the
+unlink answers 404 `project.not_found` and the link survives a restore. (`UnlinkTeamFromAreaHandler.cs:250-251` likewise accepts a
+deleted team. That is harmless, because a deletion leaves no link, but it should use `IsReachable: true` to match the contract's
+"a deleted team … is that 404".)
+
+**M-2 · major (prose) · the ADR-0028 amendment does not place the project row in the one lock order.**
+`docs/adr/0028-matrix-organization-model.md:157` (c) says the order "takes the project row and the project hierarchy tier in it"
+without saying where, and the numbered order on `:144` still has no project row. The order that was decided (mod-005 plan-backend
+§ 14.3: teams → links → **project row** → number/hierarchy rows → items → order rows) is written only in a feature plan, which is
+what the human sent this amendment to fix (status.md § Decisions, mod-005 gate-3). A later line that reads the ADR alone can put the
+project row before the links and deadlock against the unlink. Also, the *Unlink* bullet (`:146`) still reads `FOR UPDATE` twice,
+"overridden" only by (a).
+Fix: rewrite the numbered list in place: (1) tree lock, then areas by id; (2) teams; (3) project–team links; (3a) the project row;
+(3b) the project's number and hierarchy rows; (4) sprints; (5) items; (6) order rows. Say `FOR NO KEY UPDATE` in the Unlink bullet.
+
+**M-3 · major (prose) · no P-10 break note in the owners' status.md.**
+spec § Decomposition (`spec.md:161`) requires "a note in each owner's status.md" for mod-002 (§ 4 routes, § 6 codes, § 7
+`RootAreaId`), mod-003 (§ 1.1 the item's area), mod-016 (inventory rows 21-24, 26), mod-017 (BR-OT-10), feat-022, feat-032,
+feat-029 and mod-017 design § 3 (the band), and feat-028 (BR-OL-2). feat-028 wrote its notes at the dev stage (mod-002
+`status.md:56`). This diff adds none. Live prose still describes the old contract, for example mod-002 `api-contract.md:419-504`
+(the project-nested routes and `root_is_fixed`) and `:580-601` (`RootAreaId`), and mod-003 `api-contract.md:290` (the «Область»
+picker). An agent working from those contracts calls routes that no longer exist.
+Fix: one dated `[dev] P-10 note from mod-018` Log line in each owner's status.md, worded like feat-028's.
+
+**m-1 · minor · contract statement count (QA D-1).** `api-contract.md:45` says the tree read takes "2 statements", but it takes 1
+(`AreaTreeReadModel.cs:13-20`, pinned by `AreaReadsTests`). Fix: write "1 statement".
+
+**m-2 · minor · the current-parent code check reads the area unlocked.** `MoveAreaHandler.cs:238` decides `area.create` from
+`addressed.IsTopLevel`, which is read before the tree lock. A move that commits in between changes the current parent. This is
+invisible until mod-019 (one role holds every code), but it goes against amendment (b) ("a fresh read decides only the other fields
+of a row already locked"). The contract's "second codes first of all, before any id is looked at" (`api-contract.md:15`) cannot hold
+for this one code either. Fix: re-check on `area.ParentId is null` after `LockAreaAndDestinationAsync`, and narrow the contract
+sentence ("…except the current parent's, after the area is read").
+
+**m-3 · minor · DEF-4 (QA).** `AreasPage.tsx:238` (and `AreaPage.tsx:407-416`) wraps the create dialog in `areaWrite`, while
+the top-level «Новая область» is offered by `areaCreate` (`AreasPage.tsx:188-199`). This is equal today and diverges under mod-019.
+Fix: gate the create dialog on `areaCreate || areaWrite`, as the server does. Carry to mod-019 if it is not folded in.
+
+**m-4 · minor · stale comments (QA DEF-3 and others).** `CardTeamField.tsx:7-8`, `StateField.tsx:12` and `ProjectField.tsx:12`
+still describe «Область» in the band. `CreateWorkItemHandler.cs:17` has "description,," and `:70` a double space. Fix: reword.
+
+### Security checklist
+
+- **Authorization:** pass. All 20 area routes declare a code (`OrganizationEndpoints.cs:328-430`), and the handlers check the
+  second codes before any read. Member and Viewer hold read codes only (`OrganizationRoleBundles.cs:23-34`).
+- **Tenant / IDOR:** pass, except M-1, which is a rule defect inside one organization, not a cross-organization one.
+  - Every statement carries `organization_id`.
+  - Parent and link keys are composite `(organization_id, id)` (migration `:140-179, :247-253`).
+  - A foreign, malformed or missing id gets one 404 per level.
+  - An unlinked pair answers 204 and a foreign end 404. That is BR-AW-1, not a leak.
+- **Info leaks:** pass. 403 comes before the nested 404, and `inheritsAccess` is in no response.
+- **Injection:** pass. Every raw SQL statement is interpolated and parameterized.
+- **Secrets, personal data, audit:** pass. None added; `linked_by`/`created_by` are recorded.
+- **Migration:** pass. The drop is OQ-1 A, logged per kind; nothing else changes; the (project, type) index replaces the dropped
+  one. Down is lossy by design, as in feat-028.
+- **Concurrency:** pass, with m-2.
+  - Order: tree lock → areas by id → teams `FOR SHARE`. CreateProject takes the areas before the teams.
+  - Presence is taken from the lock statement (`AreaRepository.cs:14-81`).
+  - Rename and describe take the row only, with the NULLS NOT DISTINCT index as backstop.
+  - No pair waits in a cycle: a team deletion never waits on an area, a link never takes the tree lock, and the area
+    deletion's cascade waits only on link rows.
+- **Reference product:** pass. No hit in the added lines.
+
+### Behavioural claims
+
+- api-contract § 2 "tree read, 2 statements" → m-1.
+- api-contract § 0 "second codes … before any id is looked at" → holds for every code but Move's current parent → m-2.
+- api-contract § 3 "a deactivated project … of the address is that 404 too, so … an unlink naming it changes nothing" → project end
+  `UnlinkAreaFromProjectHandler.cs:33-37`; the area end contradicts it → M-1.
+- `UnlinkProjectFromAreaHandler.cs:172-173` "a deactivated project … its stored link can be ended" → contradicts BR-AW-10 → M-1.
+- api-contract § 7 "ListLinkedProjectsOfAreaAsync: each project once, deactivated left out, one statement" →
+  `OrganizationStructure.cs:170-200`.
+- `IAreaLinkRepository.cs:8-11` "a bind takes the area FOR SHARE and the team FOR SHARE first" → `LinkAreasToTeamHandler.cs:140-150`,
+  `LinkTeamsToAreaHandler.cs:178-199`, `CreateAreaHandler.cs:122-137`.
+- ADR-0028 amendment (b) "presence judged by the lock statement's own answer" → `AreaRepository.cs:33-81` (except m-2).
+- ADR-0028 amendment (c) "the one lock order takes the project row" → no position stated → M-2.
+- ADR-0028 rule 8 "a link vs an area deletion: cascades / fails as not found" → `LinkProjectsToAreaHandler.cs:49-56`, migration `:145, :173`.
+- Rename summary "a concurrent creation of the same name … caught by the sibling index" → `AreaConfiguration.cs` (NULLS NOT DISTINCT);
+  `AreaRacesEndpointTests:73`.
+- Migration "logs per kind" / "changed_at not written" → migration `:22-37`; no `UPDATE work_items` in Up.
+- NFR "an index led by (project, type) in place of the dropped ones" → migration `:200-203`.
+- `DeleteAreaHandler` "links end with it (the database cascades)" → migration `:145, :173`.
+- api-contract § 0 "`inheritsAccess` in no response and no request" → the `AreaResponse` records and the request records carry none.
+- spec § Decomposition "Breaks (P-10), a note in each owner's status.md" → none in the diff → M-3.
+- **Direction 2.**
+  - Grepped `RootAreaId|IAreaUsage|root_is_fixed|settings/areas|projects/{projectId}/areas|LockRootAsync` over `docs/`, `src/`,
+    `.claude/`, `scripts/` and AGENTS.md.
+  - Hits:
+    - ADR-0028: it already states the retirement.
+    - `error-codes.md:55`: deprecated, which is correct.
+    - mod-002 contract, design, plans and qa; mod-003 contract `:290`: merged history, which needs the P-10 note → M-3.
+  - AGENTS.md and the conventions: no hit.
+  - Not swept: `src/frontend/e2e/` (E2E paused).
+
+### Verdict
+
+`request-changes`. 3 majors (M-1 code, with a test and a QA re-check over that handler; M-2 and M-3 prose only, delta read, no
+QA), 4 minors left as debt (m-1..m-4). For the human at gate-3: confirm the ADR-0028 amendment as not substantive (spec § ADR-0028
+amendment), on its M-2 text.
