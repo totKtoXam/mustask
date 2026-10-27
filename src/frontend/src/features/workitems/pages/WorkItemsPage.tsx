@@ -43,8 +43,7 @@ import { workItemPath } from '../paths';
 import { workItemsPermissions } from '../permissions';
 
 /**
- * The table's eight columns (spec § Page «Рабочие элементы»; mod-017 BR-OT-9: «Команда» before
- * «Область»), the skeleton's headers too.
+ * The table's seven columns (spec § Page «Рабочие элементы»; mod-018 design § 8: «Область» retires), the skeleton's headers too.
  */
 const COLUMNS = [
   'ID',
@@ -53,7 +52,6 @@ const COLUMNS = [
   'Исполнитель',
   'Статус',
   'Команда',
-  'Область',
   'Изменён',
 ];
 
@@ -295,8 +293,7 @@ function WorkItemsList({
                       </Box>
                     )}
                   </WrapCell>
-                  <WrapCell>{item.area.path}</WrapCell>
-                  <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                                  <TableCell sx={{ whiteSpace: 'nowrap' }}>
                     {formatDateTime(item.changedAt)}
                   </TableCell>
                 </TableRow>

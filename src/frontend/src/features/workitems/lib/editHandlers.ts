@@ -1,5 +1,4 @@
 import type {
-  WorkItemArea,
   WorkItemAssignee,
   WorkItemFieldName,
   WorkItemRef,
@@ -21,7 +20,6 @@ export interface EditHandlers {
   /** The state's id. */
   state: (stateId: string) => void;
   assignee: (assignee: WorkItemAssignee | null) => void;
-  area: (area: WorkItemArea) => void;
   team: (team: WorkItemTeam | null) => void;
   parent: (parent: WorkItemRef | null) => void;
   acceptanceCriteria: (criteria: DraftCriterion[]) => void;
@@ -43,7 +41,6 @@ export function editHandlers(change: (edit: Edit) => void): EditHandlers {
     description: (value) => change({ field: 'description', value }),
     state: (value) => change({ field: 'state', value }),
     assignee: (value) => change({ field: 'assignee', value }),
-    area: (value) => change({ field: 'area', value }),
     team: (value) => change({ field: 'team', value }),
     parent: (value) => change({ field: 'parent', value }),
     acceptanceCriteria: (criteria) => change({ field: 'acceptanceCriteria', value: criteria }),

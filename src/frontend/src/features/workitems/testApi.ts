@@ -19,7 +19,6 @@
 // It keeps the contract's answers, not every rule of the backend.
 import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
-import type { AreaNode } from '../organizations';
 import type {
   WorkItem,
   WorkItemFieldName,
@@ -29,7 +28,6 @@ import type {
 } from './api/workItemsApi';
 import { LIST_FIELDS, WORK_ITEM_FIELD_NAMES, fieldsOf, kindOf } from './lib/fields';
 import {
-  AREAS_URL,
   ASSIGNEE_OPTIONS_URL,
   CANDIDATES_URL,
   PARENT_CANDIDATES_URL,
@@ -215,18 +213,6 @@ export class WorkItemsTestApi {
     return found;
   }
 
-  private areaPath(areaId: string): string {
-    const names: string[] = [];
-    let current = this.data.areas.find((area) => area.id === areaId);
-    while (current) {
-      names.unshift(current.name);
-      const parentId = current.parentId;
-      current = parentId ? this.data.areas.find((area) => area.id === parentId) : undefined;
-    }
-    // The root by its own name; below it, the path from the root's child (DC-9).
-    return names.length <= 1 ? (names[0] ?? '') : names.slice(1).join(' / ');
-  }
-
   /** mod-017 api-contract § 0.2: the team a write names — the first row that applies. */
   private teamNamed(project: ProjectRecord, teamId: unknown): TeamRecord | null {
     if (teamId === null || teamId === undefined) {
@@ -323,7 +309,6 @@ export class WorkItemsTestApi {
                 ? user.member !== false
                 : !(this.data.formerMemberIds ?? []).includes(record.assigneeId),
             },
-      area: { id: record.areaId, path: this.areaPath(record.areaId) },
       team: this.teamOf(record),
       changedAt: record.changedAt,
     };
@@ -585,27 +570,6 @@ export class WorkItemsTestApi {
   }
 
   // ---- routes (§ 2, § 3)
-
-  private tree(project: ProjectRecord): AreaNode[] {
-    const nodes: AreaNode[] = [];
-    const visit = (parentId: string | null, depth: number) => {
-      const children = this.data.areas
-        .filter((area) => area.projectId === project.id && area.parentId === parentId)
-        .sort((first, second) => first.name.localeCompare(second.name, 'ru'));
-      for (const area of children) {
-        nodes.push({
-          id: area.id,
-          parentId: area.parentId,
-          name: area.name,
-          path: this.areaPath(area.id),
-          depth,
-        });
-        visit(area.id, depth + 1);
-      }
-    };
-    visit(null, 0);
-    return nodes;
-  }
 
   /** api-contract § 3: any chosen value matches; a value naming no team of the project selects nothing. */
   private matchesFilter(
@@ -874,12 +838,6 @@ export class WorkItemsTestApi {
     if (Object.keys(reasons).length > 0) {
       throw new Refusal(validationProblem(reasons));
     }
-    if (typeof body.areaId === 'string') {
-      const area = this.data.areas.find(
-        (candidate) => candidate.id === body.areaId && candidate.projectId === project.id,
-      );
-      if (!area) refuse('organizations.area.not_found');
-    }
     // mod-017 § 2.4: the team after the area; absent leaves it, `{ teamId: null }` is «Без команды».
     const teamChange = body.team as { teamId?: unknown } | null | undefined;
     const team = teamChange ? this.teamNamed(project, teamChange.teamId) : undefined;
@@ -912,7 +870,6 @@ export class WorkItemsTestApi {
     if (typeof body.description === 'string') record.description = body.description;
     if (typeof body.stateId === 'string') record.stateId = body.stateId;
     if (assigneeId !== undefined) record.assigneeId = assigneeId;
-    if (typeof body.areaId === 'string') record.areaId = body.areaId;
     if (team !== undefined) record.teamId = team?.id ?? null;
     const parentAfter = parentChange ? (parent?.id ?? null) : parentBefore;
     if (parentAfter !== parentBefore) record.parentId = parentAfter;
@@ -1014,10 +971,6 @@ export class WorkItemsTestApi {
           this.organization(one(p, 'organizationId'));
           return process;
         }),
-      ),
-      http.get(
-        AREAS_URL,
-        answer((p) => this.tree(pr(p))),
       ),
       http.get(
         TEAMS_URL,

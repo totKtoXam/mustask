@@ -94,7 +94,7 @@ describe('feat-003 BR-WS-1 the band', () => {
       within(await table())
         .getAllByRole('columnheader')
         .map((header) => header.textContent),
-    ).toEqual(['ID', 'Тип', 'Заголовок', 'Исполнитель', 'Статус', 'Команда', 'Область', 'Изменён']);
+    ).toEqual(['ID', 'Тип', 'Заголовок', 'Исполнитель', 'Статус', 'Команда', 'Изменён']);
   });
 });
 
@@ -241,11 +241,10 @@ describe('feat-003 US-1 Scenario: «Удалена» is the recycle bin', () => 
       'ЗКЗоя Ким',
       'Удалена',
       'VENUS',
-      'Мастаск',
       '18.10.2026 09:00',
     ]);
     expect(cellsOf(second!)[4]).toBe('Удалена');
-    expect(cellsOf(second!)[7]).toBe('17.10.2026 10:00');
+    expect(cellsOf(second!)[6]).toBe('17.10.2026 10:00');
     expect(
       within(first!).getAllByRole('cell')[4]?.querySelector(`.${CATEGORY_MARKER_CLASS}`),
     ).not.toBeNull();

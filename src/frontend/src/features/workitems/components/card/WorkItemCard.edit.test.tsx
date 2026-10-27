@@ -56,8 +56,6 @@ describe('feat-029 US-4: nothing changed, nothing to save', () => {
 describe('feat-029 US-4: only the touched fields are sent', () => {
   it('sends the title and the priority alone, and shows what is stored afterwards', async () => {
     const { api, notify } = await openCard();
-    // Another user changed «Область» after the card was read.
-    recordOf(api.data, 2).areaId = ids.api;
 
     fill(title(), '');
     typeInto(title(), 'Письмо со ссылкой для входа');
@@ -73,7 +71,6 @@ describe('feat-029 US-4: only the touched fields are sent', () => {
     expect(save()).toBeDisabled();
     expect(undo()).toBeDisabled();
     expect(title()).toHaveValue('Письмо со ссылкой для входа');
-    expect(screen.getByRole('combobox', { name: 'Область' })).toHaveValue('Платформа / API');
     expect(screen.getByText(/^Изменён: /)).toBeInTheDocument();
   });
 
@@ -128,16 +125,6 @@ describe('feat-029 US-4: only the touched fields are sent', () => {
 
     await waitFor(() => expect(patches(api)).toHaveLength(1));
     expect(patches(api)[0]?.body).toEqual({ stateId: stateId('US', 'Активна') });
-  });
-
-  it('chooses the area by its path', async () => {
-    const { api } = await openCard();
-
-    await choose('Область', 'Платформа / API');
-    await userEvent.click(save());
-
-    await waitFor(() => expect(patches(api)).toHaveLength(1));
-    expect(patches(api)[0]?.body).toEqual({ areaId: ids.api });
   });
 
   it('types a number with a comma, and sends it as a number', async () => {

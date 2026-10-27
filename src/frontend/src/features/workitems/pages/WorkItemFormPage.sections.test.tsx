@@ -110,7 +110,7 @@ describe('feat-022 US-1 Scenario: The band, the strip and the other screens do n
     ).toBeInTheDocument();
     expect(textbox('Заголовок')).toHaveValue('Шаблон письма');
     expect(save()).toBeDisabled();
-    for (const name of ['Исполнитель', 'Статус', 'Область']) {
+    for (const name of ['Исполнитель', 'Статус', 'Команда']) {
       expect(list(name)).toBeInTheDocument();
     }
   });

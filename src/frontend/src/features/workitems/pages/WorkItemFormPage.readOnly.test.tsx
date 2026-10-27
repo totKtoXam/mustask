@@ -97,12 +97,11 @@ describe('mod-016 design § 6.5 Scenario: the reader’s card', () => {
     expect(title()).toHaveValue('Письмо со ссылкой');
   });
 
-  it('reads the values: the assignee, the state, the area, the texts and the type’s fields', async () => {
+  it('reads the values: the assignee, the state, the texts and the type’s fields', async () => {
     await openAs('viewer');
 
     expect(assignee()).toHaveValue('Анна Смирнова');
     expect(screen.getByRole('combobox', { name: 'Статус' })).toHaveTextContent('Новая');
-    expect(screen.getByRole('combobox', { name: 'Область' })).toHaveValue('Платформа');
     expect(textbox('Описание')).toHaveValue('Пользователь входит по ссылке.\nБез пароля.');
     // A stored 1.5 reads «1,5», as the card of the administrator shows it.
     expect(textbox('Оценка в пунктах')).toHaveValue('1,5');

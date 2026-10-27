@@ -95,8 +95,8 @@ describe('feat-029 US-4: the touched fields are saved, and only they', () => {
         api.record(ids.msk, 2).fields.risk = 3;
       },
     });
-    // Another user changes «Область» after the card was read.
-    t.api.record(ids.msk, 2).areaId = ids.api;
+    // Another user changes «Исполнитель» after the card was read.
+    t.api.record(ids.msk, 2).assigneeId = ids.anna;
 
     edit(
       t,
@@ -118,7 +118,7 @@ describe('feat-029 US-4: the touched fields are saved, and only they', () => {
     expect(t.onSaved).toHaveBeenCalledWith(
       expect.objectContaining({ identifier: STORY, title: 'Письмо со ссылкой для входа' }),
     );
-    await waitFor(() => expect(t.state().draft.area.path).toBe('Платформа / API'));
+    await waitFor(() => expect(t.state().draft.assignee?.id).toBe(ids.anna));
     expect(t.state().draft.title).toBe('Письмо со ссылкой для входа');
     expect(t.state().draft.fields.risk).toBe('3');
   });

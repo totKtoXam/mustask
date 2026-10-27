@@ -8,7 +8,6 @@
 import type {
   SaveWorkItemBody,
   WorkItem,
-  WorkItemArea,
   WorkItemAssignee,
   WorkItemFieldName,
   WorkItemRef,
@@ -46,7 +45,6 @@ export interface WorkItemEdits {
   description?: string;
   stateId?: string;
   assignee?: WorkItemAssignee | null;
-  area?: WorkItemArea;
   /** mod-017: `team: null` is «Без команды» chosen. */
   team?: WorkItemTeam | null;
   parent?: ParentEdit;
@@ -59,7 +57,6 @@ export type Edit =
   | { field: 'title' | 'description'; value: string }
   | { field: 'state'; value: string }
   | { field: 'assignee'; value: WorkItemAssignee | null }
-  | { field: 'area'; value: WorkItemArea }
   | { field: 'team'; value: WorkItemTeam | null }
   | { field: 'parent'; value: WorkItemRef | null }
   | { field: 'acceptanceCriteria'; value: DraftCriterion[] }
@@ -80,7 +77,6 @@ export function editedDraft(item: WorkItem, edits: WorkItemEdits): WorkItemDraft
     description: edits.description ?? stored.description,
     stateId: edits.stateId ?? stored.stateId,
     assignee: edits.assignee !== undefined ? edits.assignee : stored.assignee,
-    area: edits.area ?? stored.area,
     team: edits.team !== undefined ? edits.team : stored.team,
     parent: edits.parent !== undefined ? edits.parent.value : stored.parent,
     fields: { ...stored.fields, ...edits.fields },
@@ -156,8 +152,6 @@ export function withEdit(item: WorkItem, edits: WorkItemEdits, edit: Edit): Work
         edit.value,
         (edit.value?.id ?? null) !== (stored.assignee?.id ?? null),
       );
-    case 'area':
-      return put(edits, 'area', edit.value, edit.value.id !== stored.area.id);
     case 'team':
       return put(edits, 'team', edit.value, (edit.value?.id ?? null) !== (stored.team?.id ?? null));
     case 'parent': {
@@ -195,7 +189,6 @@ export function normaliseEdits(item: WorkItem, edits: WorkItemEdits): WorkItemEd
   if (edits.description !== undefined) apply({ field: 'description', value: edits.description });
   if (edits.stateId !== undefined) apply({ field: 'state', value: edits.stateId });
   if (edits.assignee !== undefined) apply({ field: 'assignee', value: edits.assignee });
-  if (edits.area !== undefined) apply({ field: 'area', value: edits.area });
   if (edits.team !== undefined) apply({ field: 'team', value: edits.team });
   for (const name of WORK_ITEM_FIELD_NAMES) {
     if (name === 'acceptanceCriteria') {
@@ -242,7 +235,6 @@ export function cardFieldOrder(appearance: string): readonly RefusalField[] {
     'title',
     'assignee',
     'state',
-    'area',
     'team',
     'description',
     ...(layout.isStory ? (['acceptanceCriteria'] as const) : []),

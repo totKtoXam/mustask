@@ -14,7 +14,6 @@ export type RefusalField =
   | 'description'
   | 'state'
   | 'assignee'
-  | 'area'
   | 'team'
   | 'project'
   | 'parent'
@@ -41,7 +40,6 @@ export interface PlacedRefusal {
 const FIELD_OF_CODE: Readonly<Record<string, RefusalField>> = {
   [workItemErrorCodes.stateNotAllowed]: 'state',
   [workItemErrorCodes.assigneeUnavailable]: 'assignee',
-  [organizationErrorCodes.areaNotFound]: 'area',
   // mod-017 api-contract § 0.2: on an item write the team is a body reference, not a path: field errors.
   [organizationErrorCodes.teamNotFound]: 'team',
   [organizationErrorCodes.teamNotInProject]: 'team',

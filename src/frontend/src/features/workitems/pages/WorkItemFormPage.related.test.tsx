@@ -339,10 +339,9 @@ describe('feat-001 US-1 Scenario: A link changes no other field and no backlog p
     await screen.findByText('Изменения сохранены.');
 
     const after = recordOf(data, 2);
-    expect([after.stateId, after.assigneeId, after.areaId, after.title]).toEqual([
+    expect([after.stateId, after.assigneeId, after.title]).toEqual([
       before.stateId,
       before.assigneeId,
-      before.areaId,
       before.title,
     ]);
   });

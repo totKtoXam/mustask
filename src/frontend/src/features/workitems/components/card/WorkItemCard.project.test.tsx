@@ -22,8 +22,8 @@ describe('feat-040 D-2: the card shows the item’s project in the band', () => 
       state.compareDocumentPosition(project()) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(state.closest('[data-band-block]')).toBe(project().closest('[data-band-block]'));
-    // «Область» is of block B, apart from it.
-    expect(screen.getByRole('combobox', { name: 'Область' }).closest('[data-band-block]')).not.toBe(
+    // «Команда» is of block B, apart from it.
+    expect(screen.getByRole('combobox', { name: 'Команда' }).closest('[data-band-block]')).not.toBe(
       project().closest('[data-band-block]'),
     );
   });
