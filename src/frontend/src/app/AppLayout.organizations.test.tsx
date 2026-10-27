@@ -120,7 +120,7 @@ describe('mod-002 US-8 Scenario: «Нет организаций» leads to the 
 });
 
 describe('mod-002 US-8 Scenario: Settings through the shell’s navigation', () => {
-  it('«Меню настроек» holds «Организация» → «Общие», «Проекты», «Процесс» and «Проект» → «Общие», «Команды», «Области»; «Настройки» opens the organization’s «Общие»', async () => {
+  it('«Меню настроек» holds «Организация» → «Общие», «Проекты», «Команды», «Области», «Участники», «Процесс» and «Проект» → «Общие», «Команды»; «Настройки» opens the organization’s «Общие»', async () => {
     serve();
     renderApp('/home');
     await expectLevels(['Организация: Альфа', 'Проект: Аналитика', 'Команда: Аналитика']);
@@ -141,11 +141,11 @@ describe('mod-002 US-8 Scenario: Settings through the shell’s navigation', () 
       'Общие',
       'Проекты',
       'Команды',
+      'Области',
       'Участники',
       'Процесс',
       'Общие',
       'Команды',
-      'Области',
       'Языки',
     ]);
     expect(within(navigation).getByText('Организация')).toBeInTheDocument();
@@ -161,15 +161,15 @@ describe('mod-002 US-8 Scenario: Settings through the shell’s navigation', () 
 });
 
 describe('mod-002 US-8 Scenario: A project switch on a project-level page', () => {
-  it('on «Области» of «Пример проекта», «Аналитика» opens the «Области» of «Аналитика»', async () => {
+  it('on «Команды» of «Пример проекта», «Аналитика» opens the «Команды» of «Аналитика»', async () => {
     serve();
-    renderApp(`/organizations/${ids.alfa}/projects/${ids.prm}/settings/areas`);
+    renderApp(`/organizations/${ids.alfa}/projects/${ids.prm}/settings/teams`);
     await expectLevels(['Организация: Альфа', 'Проект: Пример проекта', 'Команда: Аналитика']);
 
     await choose(/^Проект:/, 'Аналитика');
 
     await waitFor(() =>
-      expect(location()).toBe(`/organizations/${ids.alfa}/projects/${ids.anl}/settings/areas`),
+      expect(location()).toBe(`/organizations/${ids.alfa}/projects/${ids.anl}/settings/teams`),
     );
     await expectLevels(['Организация: Альфа', 'Проект: Аналитика', 'Команда: Аналитика']);
   });

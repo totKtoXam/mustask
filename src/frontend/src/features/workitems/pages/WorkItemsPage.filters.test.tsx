@@ -250,7 +250,7 @@ describe('feat-003 US-1 Scenario: «Удалена» is the recycle bin', () => 
     ).not.toBeNull();
     expect(within(first!).getAllByRole('link')).toHaveLength(1);
     expect(within(first!).queryAllByRole('button')).toHaveLength(0);
-    expect(within(await table()).getAllByRole('columnheader')).toHaveLength(8);
+    expect(within(await table()).getAllByRole('columnheader')).toHaveLength(7);
   });
 
   it('puts the deleted items among the live rows of the other chosen states, in the one order', async () => {

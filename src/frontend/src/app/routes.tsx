@@ -15,7 +15,7 @@ import {
 import { LanguageFormPage, LanguagesRegistryPage } from '../features/dictionaries';
 import { HomePage } from '../features/home/HomePage';
 import {
-  AREAS_ROUTE,
+  AreaPage,
   AreasPage,
   DEACTIVATED_ORGANIZATIONS_ROUTE,
   DEACTIVATED_PROJECTS_ROUTE,
@@ -25,6 +25,8 @@ import {
   MembersPage,
   OrganizationGate,
   OrganizationGeneralPage,
+  ORG_AREAS_ROUTE,
+  ORG_AREA_ROUTE,
   ORG_TEAMS_ROUTE,
   ORG_TEAM_ROUTE,
   OrganizationListPage,
@@ -189,6 +191,33 @@ export function AppRoutes() {
                   </OrganizationPage>
                 }
               />
+              {/* mod-018: the organization's area tree and an area's page; the project-nested
+                  tree is retired and its address answers «Страница не найдена». */}
+              <Route
+                path={ORG_AREAS_ROUTE}
+                element={
+                  <OrganizationPage
+                    code={organizationsPermissions.areaRead}
+                    title="Области"
+                    skeleton="registry"
+                    columns={['Область', 'Описание']}
+                  >
+                    <AreasPage />
+                  </OrganizationPage>
+                }
+              />
+              <Route
+                path={ORG_AREA_ROUTE}
+                element={
+                  <OrganizationPage
+                    code={organizationsPermissions.areaRead}
+                    title="Область"
+                    skeleton="form"
+                  >
+                    <AreaPage />
+                  </OrganizationPage>
+                }
+              />
               <Route
                 path={TEAMS_ROUTE}
                 element={
@@ -199,19 +228,6 @@ export function AppRoutes() {
                     columns={['Команда']}
                   >
                     <TeamsPage />
-                  </OrganizationPage>
-                }
-              />
-              <Route
-                path={AREAS_ROUTE}
-                element={
-                  <OrganizationPage
-                    code={organizationsPermissions.areaRead}
-                    title="Области"
-                    skeleton="registry"
-                    columns={['Область', 'Владелец', '']}
-                  >
-                    <AreasPage />
                   </OrganizationPage>
                 }
               />

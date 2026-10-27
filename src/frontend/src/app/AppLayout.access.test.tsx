@@ -89,17 +89,17 @@ describe('mod-016 US-4 Scenario: the three roles see the same navigation', () =>
       renderShell({ path: GENERAL, auth, contextSource: source(), routes, access: role });
 
       const menu = await screen.findByRole('navigation', { name: 'Меню настроек' });
-      // «Участники» sits between «Проекты» and «Процесс» (design § 6.1): its
+      // «Области» (mod-018) follows «Команды»; «Участники» sits between «Области» and «Процесс» (design § 6.1): its
       // code is a read code every role holds.
       expect(linksOf(menu)).toEqual([
         'Общие',
         'Проекты',
         'Команды',
+        'Области',
         'Участники',
         'Процесс',
         'Общие',
         'Команды',
-        'Области',
         'Языки',
         'Витрина компонентов',
       ]);
