@@ -3,7 +3,7 @@
 - type: module
 - size: L
 - branch: mod/018-area-workspace
-- stage: 06-frontend
+- stage: 07-mr-complete
 - epic: core/org-access
 - deps: feat-028
 - gates: gate-1, gate-2, gate-3
@@ -12,7 +12,7 @@
 
 gate-1: approved (2026-10-18, human in chat, one question per open question: OQ-1 A, the upgrade drops every per-project area; OQ-2 B, «Наследовать доступ» stored now, shown and governed from mod-019)
 gate-2: approved (2026-10-18, human in chat, one question per design decision: D-1..D-7 A)
-gate-3: pending
+gate-3: approved (2026-10-27, human in chat: ADR-0028 amendment editorial, A; review round 2 approve, 0 blocker / 0 major; minors as Debt)
 
 ## Plan
 
@@ -70,8 +70,15 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-27 [qa-engineer] frontend QA done: qa-frontend.md. tsc and eslint clean; vitest src 3269 + workitems 896 green (one load flake, green alone). DEF-1 major fixed (area pickers lost typed text on every render, so the D-1 search did not work; AreaPickerCap test added), DEF-2 prettier fixed; DEF-3, DEF-4 minor open. E2E skipped (standing NO).
 - 2026-10-27 [code-reviewer] round 1, code + security in one pass (review.md § Round 1 — code and security): request-changes; 3 majors open (M-1 area-end unlink ends a deactivated project's link; M-2 ADR-0028 amendment leaves the project row unplaced; M-3 no P-10 notes in owners' status.md), 4 minors as debt (m-1..m-4); security checklist pass.
 - 2026-10-27 [backend-developer] code-review round 1 fixes: M-1 area-end unlink of a project or team now requires reachability (404 project.not_found / team.not_found; the link survives a restore), with API and handler tests; M-2 ADR-0028 amendment lock order now places the project row and hierarchy rows (steps 4-5), Unlink bullet says FOR NO KEY UPDATE, amendment (c) references the steps; M-3 P-10 notes appended to mod-002, mod-003, mod-016, mod-017, feat-022, feat-028, feat-029, feat-032; m-1 api-contract § 3 GET /areas "2 statements" corrected to "1 statement" (note for the api-contract rule: a wording fix, no wire change); m-4 stale «Область» comments and the CreateWorkItemHandler comment typos fixed. m-2 and m-3 left for debt (mod-019). Affected tests green.
+- 2026-10-27 [code-reviewer] review round 2 (delta c18792ae..HEAD): approve; M-1, M-2, M-3, m-1, m-4 closed, AreaLink tests green (13 API + 30 handler); open: 3 minor (m-2, m-3 to mod-019, m-5 to mod-007).
+- 2026-10-27 [orchestrator] gate-3: the one decision the review left went to the human in chat (ask-format): the ADR-0028 amendment is editorial, «⭐ A: Редакционная». Minors m-2, m-3, m-5, QA D-1 (closed as m-1) and DEF-3 (closed as m-4) recorded under Debt; gate-3 approved; stage → 07-mr-complete.
+
+## Debt
+
+- m-2 (→ mod-019): MoveAreaHandler decides `area.create` for the current parent from a read taken before the lock; re-check `area.ParentId is null` after the locks and narrow api-contract § intro's "before any id is looked at". Invisible until mod-019 splits the codes.
+- m-3 / DEF-4 (→ mod-019): AreasPage.tsx and AreaPage.tsx gate the create dialog on `areaWrite`; gate it on `areaCreate || areaWrite` when the codes split.
+- m-5 (→ mod-007): ADR-0028 *Item save* bullet does not place the hierarchy tier; mod-007 must state the hierarchy lock stands before the sprint (rule 8 steps 5 → 6).
 
 ## Notes
 
 Summary (from the queue line or an argument): The organization's area tree replaces the per-project tree: optional parents, a description, «Наследовать доступ», area–project and area–team links; the item's «Область» retires (OQ-1 A); area pages in the organization settings until the navigation line (doc-012 BR-MX-3..-8; US-1, US-3)
-- 2026-10-27 [code-reviewer] review round 2 (delta c18792ae..HEAD): approve; M-1, M-2, M-3, m-1, m-4 closed, AreaLink tests green (13 API + 30 handler); open: 3 minor (m-2, m-3 to mod-019, m-5 to mod-007).
