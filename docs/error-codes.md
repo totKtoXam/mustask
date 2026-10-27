@@ -46,12 +46,13 @@ guarantees it exists and differs from the Russian, not its quality
 |http.service_unavailable|503|Сервис временно недоступен, повторите позже.|Қызмет уақытша қолжетімсіз, кейінірек қайталаңыз.|assigned by HTTP status|—|needs review|
 |http.unauthorized|401|Требуется аутентификация.|Аутентификация қажет.|assigned by HTTP status|—|needs review|
 |organizations.access.forbidden|403|Недостаточно прав|Құқықтар жеткіліксіз|organizations|—|needs review|
+|organizations.area.depth_exceeded|409|Дерево областей не может быть глубже 10 уровней|Аймақ ағашы 10 деңгейден терең болмауы керек|organizations|—|needs review|
 |organizations.area.is_team_default|409|Область используется как область по умолчанию команды «{team}»|Аймақ «{team}» командасының әдепкі аймағы ретінде пайдаланылады|organizations|yes|needs review|
 |organizations.area.move_into_own_subtree|409|Нельзя переместить область внутрь неё самой или её вложенной области|Аймақты өзінің ішіне немесе оның ішкі аймағына жылжытуға болмайды|organizations|—|needs review|
 |organizations.area.name_taken|409|Область с таким названием уже есть на этом уровне|Бұл деңгейде мұндай атауы бар аймақ бар|organizations|—|needs review|
-|organizations.area.not_empty|409|Нельзя удалить область, в которой есть рабочие элементы (включая удалённые) или вложенные области|Жұмыс элементтері (жойылғандарын қоса) немесе ішкі аймақтары бар аймақты жоюға болмайды|organizations|—|needs review|
+|organizations.area.not_empty|409|Нельзя удалить область, в которой есть вложенные области|Ішкі аймақтары бар аймақты жоюға болмайды|organizations|—|needs review|
 |organizations.area.not_found|404|Область не найдена.|Аймақ табылмады.|organizations|—|needs review|
-|organizations.area.root_is_fixed|409|Корневая область меняется только вместе с проектом|Түбірлік аймақ тек жобамен бірге өзгереді|organizations|—|needs review|
+|organizations.area.root_is_fixed|409|Корневая область меняется только вместе с проектом|Түбірлік аймақ тек жобамен бірге өзгереді|organizations|yes|needs review|
 |organizations.description_length|400|Описание должно содержать не более 2000 символов|Сипаттама 2000 таңбадан аспауы керек|organizations|—|needs review|
 |organizations.membership.already_member|409|Пользователь уже состоит в организации|Пайдаланушы ұйымның құрамында бұрыннан бар|organizations|—|needs review|
 |organizations.membership.last_admin|409|В организации должен остаться хотя бы один администратор|Ұйымда кемінде бір әкімші қалуы керек|organizations|—|needs review|

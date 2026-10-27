@@ -182,11 +182,18 @@
       "kkNeedsReview": true,
       "deprecated": true
     },
+    "organizations.area.depth_exceeded": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Дерево областей не может быть глубже 10 уровней",
+      "kk": "Аймақ ағашы 10 деңгейден терең болмауы керек",
+      "kkNeedsReview": true
+    },
     "organizations.area.not_empty": {
       "statuses": [409],
       "params": {},
-      "ru": "Нельзя удалить область, в которой есть рабочие элементы (включая удалённые) или вложенные области",
-      "kk": "Жұмыс элементтері (жойылғандарын қоса) немесе ішкі аймақтары бар аймақты жоюға болмайды",
+      "ru": "Нельзя удалить область, в которой есть вложенные области",
+      "kk": "Ішкі аймақтары бар аймақты жоюға болмайды",
       "kkNeedsReview": true
     },
     "organizations.area.root_is_fixed": {
@@ -194,7 +201,8 @@
       "params": {},
       "ru": "Корневая область меняется только вместе с проектом",
       "kk": "Түбірлік аймақ тек жобамен бірге өзгереді",
-      "kkNeedsReview": true
+      "kkNeedsReview": true,
+      "deprecated": true
     },
     "organizations.access.forbidden": {
       "statuses": [403],
