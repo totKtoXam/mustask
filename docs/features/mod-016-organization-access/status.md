@@ -68,6 +68,7 @@ gate-3: approved · orchestrator under the human's standing approval of 2026-10-
 - 2026-10-13 [orchestrator] rebased onto main 969a70a (kit + card 5da6bea): card role views a4c0470..8920fb1, guard re-cut 75fd5c7; card re-check RC-K-1..5 → D-24, fixes in this commit; gate-3 re-stated.
 - 2026-10-18 [dev] P-10 note from feat-040-team-surfaces-across-projects: inventory rows 35-37 now read `GET /api/organizations/{organizationId}/teams/{teamId}/backlogs/{level}`, `POST …/backlogs/{level}/reorder` and `GET …/boards/{level}`, with the same three codes; the three project-nested team-view routes are not served and not listed; the count stays 59 (`OrganizationAddressedRoutes`). This api-contract is not edited.
 - 2026-10-27 [dev] P-10 note from mod-018: inventory rows 21-24 and 26 (the project-nested area routes) are replaced by the organization-level area routes, and `organizations.area.*` now guard the organization's area tree and its links, not a project's tree.
+- 2026-10-28 [dev] P-10 note from mod-018 (typed tree rework, ADR-0031): REVISES the 2026-10-27 note above. inventory: the organization-level area routes number 11 (tree, create, page, name, description, parent, delete, deletion preview, area teams get/post/delete), plus `GET /projects/{p}/areas` and `GET|POST|DELETE /teams/{t}/areas`; the project-link routes of the first build are NOT in the inventory (area.link no longer covers projects); new code `organizations.area.create` (top-level creation and moves to or from the top level); the inventory count is 70.
 
 ## Notes
 

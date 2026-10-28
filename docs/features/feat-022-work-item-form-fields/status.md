@@ -57,6 +57,7 @@ F4. Tests: unit (fields, values, draft, refusals, API), component per US-1..US-6
 - 2026-10-05 [analyst] spec.md (302 lines) with the field table (16 fields: Эпик/Фича 8, История 5, Задача 5, Баг 8), BR-M3-30..BR-M3-40, «Screens and copy» per D-4, 8 new error reasons; stories US-1..US-6; 4 open questions (OQ-1 Приоритет on backlog row and card, OQ-2 date control, OQ-3 target before start, OQ-4 bug system info), each with a recommended option; stage line left to the orchestrator
 - 2026-10-05 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/feat-022-work-item-form-fields
 - 2026-10-27 [dev] P-10 note from mod-018: the item's area field (the band field «Область») is retired from the create dialog, the form and the card (BR-AW-11); the item has no area.
+- 2026-10-28 [dev] P-10 note from mod-018 (typed tree rework, ADR-0031): REVISES the 2026-10-27 note above. REVERSAL: the band field «Область» is back in the create dialog, the form and the card, offering the project's own subtree (`GET /projects/{p}/areas`), default the project's node.
 
 ## Notes
 

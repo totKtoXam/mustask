@@ -48,6 +48,7 @@ Frontend only: no backend change and no api-contract change (the backend slice �
 - 2026-10-12 [design] spec.md, stories US-1..US-7 and design.md written on the short route, stages 1 and 3 folded (D-1, D-2): the dialog by `?workitem=` and the page, header/band/tab/three columns measured from the reference at pixel ratio 1.25, the places kept as named slots, the draft of touched fields only; the API has `changedAt` but no «changed by» (spec Q-2); open for the human: Q-1 a guard when the dialog closes with edits, Q-2 «Обновил <имя>» now or with feat-015, Q-3 queue lines for the four places with no task
 - 2026-10-11 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/feat-029-work-item-card-reference
 - 2026-10-27 [dev] P-10 note from mod-018: the card's band loses «Область» (design block B, row 1); the band and the list columns are re-laid without it.
+- 2026-10-28 [dev] P-10 note from mod-018 (typed tree rework, ADR-0031): REVISES the 2026-10-27 note above. REVERSAL: the card's band regains «Область» (design block B, row 1); the list column returns.
 
 ## Notes
 
