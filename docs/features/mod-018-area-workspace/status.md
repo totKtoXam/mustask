@@ -80,6 +80,7 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-27 [orchestrator] gate-3: the one decision the review left went to the human in chat (ask-format): the ADR-0028 amendment is editorial, «⭐ A: Редакционная». Minors m-2, m-3, m-5, QA D-1 (closed as m-1) and DEF-3 (closed as m-4) recorded under Debt; gate-3 approved; stage → 07-mr-complete.
 
 - 2026-10-28 [business-analyst] requirements change, typed single tree (Decisions, 2026-10-27): spec.md reworked (BR-AW-0 added, BR-AW-2, -3, -5..-14 rewritten, existing-rules table reverses the first build's retirements, OQ-3..OQ-10 open, OQ-1 superseded); US-3, US-4, US-5 rewritten, US-1, US-2, US-6 carry a re-basing note; gate-1, gate-2, gate-3 reset to pending (earlier verdicts above kept as history: gate-1/gate-2 approved 2026-10-18; gate-3 approved 2026-10-27 for the old spec); stage → 02-requirements-review. Usage at rework start: weekly 4%, 5-hour 30%.
+- 2026-10-28 [requirements-reviewer] typed-tree review, one round (review.md § Requirements review — typed tree (2026-10-28)): needs-human-decision. TR-1 blocker open: the re-basing notes are not enough, US-1, US-2, US-6 scenarios back to the business-analyst for a rewrite. Majors: TR-2 (new ADR partially superseding ADR-0028/0029) fixed in the spec; TR-3, TR-4, TR-5 as questions (new OQ-11, OQ-12, OQ-6 extended); TR-6 depth boundary fixed, fail/keep/cut as new OQ-13. Minors: TR-7, TR-8, TR-10 fixed in place; TR-9 (error texts), TR-11 (stale Summary, orchestrator) open. OQ-9 recommended dropped.
 
 ## Debt
 

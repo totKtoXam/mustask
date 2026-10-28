@@ -456,3 +456,193 @@ the sprint its body names are locked before the item row" without the hierarchy 
 mod-007 must state where the hierarchy lock stands in that save before it takes a sprint. Open, carried to mod-007.
 
 m-2 and m-3 of round 1 stay open by decision (mod-019). Blocker and major open: 0. Minor open: 3 (m-2, m-3, m-5).
+
+## Requirements review — typed tree (2026-10-28)
+
+One round (light route), clean context, over the reworked `spec.md` and US-1..US-6 against the human's typed-tree answer
+(status.md § Decisions, 2026-10-27), doc-012 BR-MX-2..-8, mod-002 BR-M1-1, -11..-14, -20, -22, feat-028, ADR-0028, ADR-0029 and
+`docs/adr/README.md`. Finding ids are TR-n so as not to collide with R-n of round 1 or M-/m- of the code review.
+
+### Rule → story map
+
+| Rule | Stories | Note |
+|---|---|---|
+| BR-AW-0 typed tree | US-1, US-3, US-5 | US-1 scenarios still untyped (TR-1) |
+| BR-AW-1 tenant | US-1, US-6 | US-6 table still names area–project rows (TR-1) |
+| BR-AW-2 existence | US-1, US-2, US-4 | US-1 "creating an area creates nothing else" untyped (TR-1) |
+| BR-AW-3 tree, types, moves | US-1, US-2, US-3 | US-2 move/cycle/depth scenarios contradict OQ-3 A (TR-1); cross-project sub-area move (TR-7, fixed) |
+| BR-AW-4 names | US-1, US-2 | department vs project name space missing (TR-4) |
+| BR-AW-5 inherit switch | US-1 | sound |
+| BR-AW-6 links | US-3 | project node link vs feat-028 project–team link (TR-3) |
+| BR-AW-7 who links | US-3, US-6 | US-6 inventory still names `project.link` (TR-1) |
+| BR-AW-8 nothing disclosed | US-3, US-4 | sound |
+| BR-AW-9 deletion | US-2, US-4 | US-2 deletion scenario still ends area–project links (TR-1) |
+| BR-AW-10 deactivated / deleted | US-3, US-4, US-5 | writes on a deactivated node undefined (TR-5) |
+| BR-AW-11 item area | US-4 | sound |
+| BR-AW-12 pages | US-1, US-4, US-6 | US-1 "no project's settings hold «Области»" contradicts it (TR-1) |
+| BR-AW-13 paths | US-1, US-3, US-4 | card path exception (TR-8, fixed) |
+| BR-AW-14 upgrade | US-5 | depth boundary (TR-6) |
+| BR-AW-15 answers | US-6 | sound once TR-1 is done |
+
+### TR-1
+Severity: blocker
+Affects: US-1, US-2, US-6 (all scenarios); BR-AW-0, -3, -6, -9, -12
+Problem: the "re-basing note" is not enough. It remaps the cast and says "the criteria otherwise stand", but the Gherkin is
+what the developer and QA test, and many scenarios contradict the reworked rules as written, not merely by cast:
+- US-1: «Проекты» on the create form (no area–project link exists); «Родительская область» offering "every area of the example
+  tree" (the type rules forbid most); «Транспортные системы» created under «Логистика» (a sub-area under a department, refused
+  under OQ-7 A); the depth chain hung from the department «Финансы» (sub-areas cannot sit under a department); "the five areas"
+  in the read scenario; "a project ... created afterwards is linked to no area" and the empty organization's "no area asked for
+  anywhere" (a project now takes a parent and has a node); "no project's settings hold «Области» any more (US-4)", which is the
+  direct opposite of BR-AW-12 and US-4's last scenario.
+- US-2: «Логистика» "linked to Alpha"; the subtree move "«Логистика» under «Финансы»" with a Then that it succeeds, which
+  note (2) says is refused; the cycle scenario between two departments (impossible under OQ-3 A, so it tests nothing);
+  «Логистика» moved under «Ф9»/«Ф8» (a department under a sub-area: the type rule answers before the depth rule, so the depth
+  criterion is never reached); the deletion scenario's "projects Alpha and Gamma" in the confirmation and "when Gamma is
+  restored it is linked to no area"; the move dialog's offer (departments offered for a department).
+- US-6: the Outline rows "linking «Финансы» with Zeta", "linking Alpha with «Другая»'s «Логистика»", "unlinking Alpha from …",
+  "creating an area with the project Zeta"; the role table's "link or unlink of an area and a project"; the inventory's
+  `project.link` and "mod-002 § 4's tree routes are gone" (the note says they need not be); the structure contract's
+  "linked projects" and "a deactivated project left out" (the note says "marked").
+A note that overrides scenario text by prose makes every such criterion ambiguous: a test can be written to either.
+Required resolution: the business-analyst rewrites the scenarios of US-1, US-2 and US-6 over the typed tree, as US-3..US-5 were,
+and deletes the re-basing notes. Every cycle and depth scenario uses moves the type rules allow (sub-areas inside one project;
+a project node under a department for depth); each refusal by type names `type_not_allowed`. The move dialog's offer is
+stated per type. Not done here: it is a rewrite of three stories, not a wording fix.
+Status: open (back to the business-analyst)
+Resolution: -
+
+### TR-2
+Severity: major
+Affects: § ADR-0028 amendment; BR-AW-11 ("ADR-0028 rules 2, 3 as reworked"); ADR-0028, ADR-0029
+Problem: the typed tree reverses accepted ADR decisions: ADR-0028 rule 2 retires the per-project root area by name, its
+delivery table lets this line drop "every per-project area and the item's area pointer", rule 8 carries the area–project
+links and the area-to-projects resolution, rule 7 the retired project areas address; ADR-0029 § 6 and its delivery bullet
+name "area–project links" as this line's input. The spec only knew the editorial amendment and cited the reversed rules
+"as reworked" with no owner. `docs/adr/README.md` Process 3: an accepted ADR is not edited substantively; a new ADR is
+written and the old one marked superseded. Gate-3's "editorial" confirmation cannot cover this.
+Required resolution: the spec names the new ADR, what it partially supersedes, and that the human accepts it before merge.
+Status: resolved (in place)
+Resolution: § ADR-0028 amendment gains a paragraph "The typed tree is a substantive ADR change": the reversed rules, the
+new-ADR process, the "as reworked" citation pointed at it, acceptance by the human before merge. The ADR text itself is owed
+by the design or backend plan.
+
+### TR-3
+Severity: major
+Affects: BR-AW-6, BR-AW-7, US-3; feat-028 project–team links
+Problem: a team linked to a project's node (area–team link) and a team linked to the project (feat-028 project–team link,
+which reassigns items on unlink and needs both codes) are two different links between the same pair. The spec never says
+how they relate; Alpha's page would show two team lists, and a team can be "in Alpha's node" but not "in Alpha". This is
+the same dead-weight argument the spec makes against OQ-7 B, and it decides US-3's whole link half.
+Required resolution: a human decision.
+Status: open (new OQ-11, recommended A: a project node's «Команды» is the project–team link; area–team links join departments)
+Resolution: OQ-11 added with three options.
+
+### TR-4
+Severity: major
+Affects: BR-AW-4, BR-AW-11, US-3, US-4; mod-002 BR-M1-1
+Problem: a department and a project node are siblings at the top level, but project names are unique by project rule and node
+names by sibling rule; nothing says whether a project «Финансы» may be created beside a department «Финансы», which error a
+project creation or rename gets from a tree clash, or what the path «Финансы» names. A project rename (OQ-10 A renames the
+node) can collide with a sibling; no concurrency pair covered it.
+Required resolution: a human decision; the concurrency pair added.
+Status: open (new OQ-12, recommended A: one name space per level); NFR Concurrency gained the pair (in place)
+Resolution: OQ-12 added; NFR Concurrency names a project's creation or rename against a sibling's name and a project's
+creation under a department against its deletion.
+
+### TR-5
+Severity: major
+Affects: BR-AW-10, OQ-6, US-2, US-3; mod-002 BR-M1-20; BR-MX-5 (both ends active)
+Problem: OQ-6 A says the deactivated project's node "stays as stored" but not what writes it accepts: moving it between
+departments, renaming or describing it, creating or moving sub-areas below it, linking a new team (BR-MX-5 needs active
+ends), and whether it blocks its department's deletion. Without a move, a department holding a deactivated project can
+never be deleted short of restoring it.
+Required resolution: the answer to OQ-6 states the writes.
+Status: open (decision in OQ-6); OQ-6 now states what A implies (read-only per BR-M1-20, «Проект не найден.», existing links
+end from the team's end, counts as a child, name kept) and a variant that allows the move.
+Resolution: OQ-6 extended in place.
+
+### TR-6
+Severity: major
+Affects: BR-AW-14, US-5, NFR Existing data; OQ-4
+Problem: "deeper than 10 levels below its node" is off by one: with the node at level 1 (OQ-4 A), a tree 10 levels below it
+is 11 deep and passes the check while breaking the limit; under OQ-4 B the stored root is level 1 and the threshold moves
+again. The NFR's migration test "a tree 10 levels deep below its root" sits on the wrong side. The consequence that a tree
+kept at the top level at 10 levels can never move into a department was unstated. And failing the whole upgrade is a
+choice the analyst made, not the human (the old spec's OQ-1 B listed the cut as a cost).
+Required resolution: a correct boundary per OQ-4, the consequence stated, and the fail/keep/cut choice to the human.
+Status: resolved in wording (BR-AW-14, US-5's scenario, NFR); decision open as new OQ-13 (recommended A: fail, naming the
+project)
+Resolution: BR-AW-14 counts levels with the root, per OQ-4; US-5 tests 11 (fails) and 10 (kept, then a move into a
+department refused); NFR's test sits at the limit and one past it.
+
+### TR-7
+Severity: minor
+Affects: BR-AW-3, US-2 note (1); mod-002 BR-M1-22
+Problem: BR-AW-3 let a sub-area's parent be "a project node or another sub-area" of any project, though BR-AW-11 needs an
+item's area to stay below its own project. A move of «Платформа» under Beta's node would carry Alpha's items into Beta.
+Required resolution: the rule states a sub-area stays inside its project's subtree.
+Status: resolved (in place); the refusal's code and text are left to the design.
+Resolution: BR-AW-3 amended.
+
+### TR-8
+Severity: minor
+Affects: BR-AW-13, US-4
+Problem: BR-AW-13 says every place outside the tree names a node by its full path from the top level, but US-4 shows the
+card's «Область» as «Alpha / Платформа / API» or project-relative, as mod-003 has it.
+Required resolution: name the exception.
+Status: resolved (in place)
+Resolution: BR-AW-13 names the item's «Область» as the exception, its form the design's.
+
+### TR-9
+Severity: minor
+Affects: § Error codes; US-2, US-4
+Problem: the registered `area.not_empty` text is «Нельзя удалить область, в которой есть вложенные области»: it says nothing of
+items, yet the spec says "covering child nodes and items" and US-4 refuses a leaf with items by it. `root_is_fixed`
+(«Корневая область меняется только вместе с проектом») is reused for a project's node and, under OQ-4 B, the organization
+root, which it does not describe. `type_not_allowed` has no text at all, and the cross-project sub-area move (TR-7) no code.
+Required resolution: the spec quotes the final text of `not_empty` (or a second code for items, as mod-003 had it) and states
+whether `root_is_fixed` keeps its text; the design fixes `type_not_allowed`'s.
+Status: open (business-analyst / design)
+Resolution: -
+
+### TR-10
+Severity: minor
+Affects: NFR Existing data, US-5
+Problem: the NFR said "the first build's index replacement is reverted by the rework migration", i.e. layered on top of the
+first build's migration, while US-5 let the developer "rework or supersede" it. Layering upgrades from a database that has
+already dropped the trees and the item's area.
+Required resolution: the first build's migration does not ship.
+Status: resolved (in place)
+Resolution: NFR and US-5 say it is reworked in place or rewritten, never layered on; a database that applied it is no upgrade
+source.
+
+### TR-11
+Severity: minor
+Affects: status.md § Notes; story file names
+Problem: status.md's Summary still describes the old spec (area–project links, the item's area retired, OQ-1 A); US-1..US-3's
+and US-4..US-5's slugs are stale (the stories say so).
+Required resolution: the orchestrator rewrites the Summary; slugs may stay.
+Status: open (orchestrator)
+Resolution: -
+
+### Open questions — check
+
+- OQ-3, OQ-4, OQ-5, OQ-7, OQ-8, OQ-10: real decisions, options sound. OQ-5 B and C are weak (B breaks BR-AW-11), but say so.
+- OQ-6: real; was missing the writes on a deactivated node (TR-5), now stated.
+- OQ-9: barely a decision now: under OQ-2 B nothing reads the switch, and B only removes columns mod-019 may want. It can be
+  answered A without a question, or dropped and left to mod-019; the reviewer recommends dropping it from the package.
+- Added: OQ-11 (TR-3), OQ-12 (TR-4), OQ-13 (TR-6).
+
+### Checked and found sound
+
+Roles table and code split per ADR-0029 (`project.create` admin only, so placing at creation is consistent); BR-AW-5 under
+OQ-2 B; BR-AW-8; BR-AW-11 against mod-002 BR-M1-11 and mod-003; US-3's link scenarios once OQ-11 is answered; US-4; US-5's
+counts (4 project nodes, 4 sub-areas, 18/3/1/2 items); operation completeness; NFR volumes and query shape; Out of scope.
+
+### Verdict
+
+`needs-human-decision`: OQ-3..OQ-8, OQ-10..OQ-13 go to the human (OQ-9 recommended dropped). Before the package, TR-1 (blocker)
+goes back to the business-analyst for the US-1, US-2 and US-6 rewrite, and TR-9 to the business-analyst and design.
+Blocker open: 1 (TR-1). Major open: 3 (TR-3, TR-4, TR-5, all as questions); TR-2 and TR-6's wording fixed. Minor open: 2
+(TR-9, TR-11).
