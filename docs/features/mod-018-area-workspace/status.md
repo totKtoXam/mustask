@@ -3,14 +3,14 @@
 - type: module
 - size: L
 - branch: mod/018-area-workspace
-- stage: 02-requirements-review
+- stage: 03-ux-design
 - epic: core/org-access
 - deps: feat-028
 - gates: gate-1, gate-2, gate-3
 
 ## Gates
 
-gate-1: pending (reset 2026-10-28 by the typed-tree rework; history in the Log: approved 2026-10-18, OQ-1 A, OQ-2 B)
+gate-1: approved (2026-10-28, human in chat, one question each: OQ-3..OQ-8, OQ-10..OQ-13 all A; OQ-9 dropped, default A; the typed tree is a new ADR in this PR). History: approved 2026-10-18 for the old spec (OQ-1 A, OQ-2 B), reset 2026-10-28 by the typed-tree rework
 gate-2: pending (reset 2026-10-28; the design must be reworked for the typed tree; history in the Log: approved 2026-10-18, D-1..D-7 A)
 gate-3: pending (reset 2026-10-28; history in the Log: approved 2026-10-27 for the OLD spec, superseded by the rework)
 
@@ -58,6 +58,8 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
   - **Overrides in doc-012:** OQ-1 A (retire the item's «Область») and BR-MX-5's area–project many-to-many link (and BR-MX-6, -7, -8, doc-012 US-3, US-10 where they speak of area–project links or of an area owning no project). This spec's own OQ-1 A (drop every per-project area) is superseded; OQ-2 B stands (spec § BR-AW-5, OQ-9).
   - **Later queue lines it touches** (rewording comes later through a sync PR, not now): `feat-043-area-project-team-navigation` (pages of a typed tree, project placement); `mod-019-scoped-access` (grants reach projects through the tree, not area–project links; «Наследовать доступ» per type); `feat-042-area-board-and-overview` (area views read through the subtree, department → project nodes); `feat-044-area-analytics`. Possibly feat-003, mod-008, feat-013 (the item's area stays, so their «no area filter» wording is to be re-checked).
   - Open for the human, spec OQ-3..OQ-13 (OQ-9 dropped: nothing reads «Наследовать доступ» under OQ-2 B; mod-019 decides): department nesting (3); stored organization root (4); project node created and deleted only with the project (5); deactivation of a project's node and the writes on it (6); sub-areas under a department (7); team links to sub-areas and the root (8); the node's name following the project (10); a team's link to a project node versus feat-028's project–team link (11); one name space per level (12); a legacy tree past the depth limit in the upgrade (13).
+  - **Gate-1 answers (2026-10-28, the human in chat, AskUserQuestion, one question each):** OQ-3 A (no nesting of departments), OQ-4 A (the organization is not a stored node), OQ-5 A (a project node is created and deleted only with its project), OQ-6 A (deactivation changes nothing; the node is read-only and marked «деактивирован»), OQ-7 A (sub-areas only below a project node), OQ-8 A (teams link to departments, and a project node's teams are the project–team links), OQ-10 A (the node is renamed with its project), OQ-11 A (one link: a project node's «Команды» are feat-028's project–team links), OQ-12 A (one name space per level), OQ-13 A (the upgrade fails naming a tree past the depth limit); OQ-9 dropped (nothing reads «Наследовать доступ» under OQ-2 B; default A).
+  - **ADR (2026-10-28, «⭐ Новый ADR в этом PR»):** the typed tree is a NEW ADR in this PR, superseding the affected parts of ADR-0028 rules 2, 3, 7 and 8 and ADR-0029 § 6; written at the backend stage, accepted by the human at gate-3 (spec § ADR-0028 amendment). The two editorial amendments of that section stay editorial.
   - Rework scope for the developer later: the first build implemented the old spec (no per-project tree, item area retired, area–project links, upgrade dropping data); see the spec's § Existing rules and the BA hand-off notes. Plans, api-contract, design and prototype need rework after gates 1+2 are re-approved.
 
 ## Log
@@ -82,6 +84,7 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-28 [business-analyst] requirements change, typed single tree (Decisions, 2026-10-27): spec.md reworked (BR-AW-0 added, BR-AW-2, -3, -5..-14 rewritten, existing-rules table reverses the first build's retirements, OQ-3..OQ-10 open, OQ-1 superseded); US-3, US-4, US-5 rewritten, US-1, US-2, US-6 carry a re-basing note; gate-1, gate-2, gate-3 reset to pending (earlier verdicts above kept as history: gate-1/gate-2 approved 2026-10-18; gate-3 approved 2026-10-27 for the old spec); stage → 02-requirements-review. Usage at rework start: weekly 4%, 5-hour 30%.
 - 2026-10-28 [requirements-reviewer] typed-tree review, one round (review.md § Requirements review — typed tree (2026-10-28)): needs-human-decision. TR-1 blocker open: the re-basing notes are not enough, US-1, US-2, US-6 scenarios back to the business-analyst for a rewrite. Majors: TR-2 (new ADR partially superseding ADR-0028/0029) fixed in the spec; TR-3, TR-4, TR-5 as questions (new OQ-11, OQ-12, OQ-6 extended); TR-6 depth boundary fixed, fail/keep/cut as new OQ-13. Minors: TR-7, TR-8, TR-10 fixed in place; TR-9 (error texts), TR-11 (stale Summary, orchestrator) open. OQ-9 recommended dropped.
 - 2026-10-28 [business-analyst] fix round after the typed-tree review: TR-1 US-1, US-2, US-6 rewritten scenario by scenario over the typed tree on the OQ defaults (re-basing notes deleted; every scenario that depends on an answer names it); TR-9 error texts fixed in the spec (`not_empty` text now covers children and items, `type_not_allowed` and the new `outside_project` quoted, `root_is_fixed` kept for a project's node); TR-11 Summary rewritten; OQ-9 marked dropped (default A), OQ-11, OQ-12, OQ-13 stand with the reviewer's options. US-3 carries a note that its project-node team rows depend on OQ-11. Open for gate-1: OQ-3..OQ-8, OQ-10..OQ-13.
+- 2026-10-28 [business-analyst] gate-1 answers recorded (Decisions): every OQ turned into a resolved decision in spec.md (ids kept), default markers dropped where settled, BR-AW-4, -6, -10, -13, -14 and the error and completeness tables state the answers, the new-ADR decision written into § ADR-0028 amendment; US-3 rewritten for OQ-11 A (project node's «Команды» are feat-028's project–team links, area–team links join departments only), US-5 title and wording for OQ-4 A. review.md TR-1, TR-9, TR-11 closed as fixed by the BA, not re-read (light route, one round). gate-1 approved; stage → 03-ux-design (the design is reworked for the typed tree; gate-2 stays pending).
 
 ## Debt
 

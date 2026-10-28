@@ -509,8 +509,8 @@ Required resolution: the business-analyst rewrites the scenarios of US-1, US-2 a
 and deletes the re-basing notes. Every cycle and depth scenario uses moves the type rules allow (sub-areas inside one project;
 a project node under a department for depth); each refusal by type names `type_not_allowed`. The move dialog's offer is
 stated per type. Not done here: it is a rewrite of three stories, not a wording fix.
-Status: open (back to the business-analyst)
-Resolution: -
+Status: resolved (fixed by BA 2026-10-28; not re-read, light route one round)
+Resolution: US-1, US-2, US-6 rewritten scenario by scenario over the typed tree, re-basing notes deleted; US-3 rewritten after the gate-1 answers.
 
 ### TR-2
 Severity: major
@@ -603,8 +603,8 @@ items, yet the spec says "covering child nodes and items" and US-4 refuses a lea
 root, which it does not describe. `type_not_allowed` has no text at all, and the cross-project sub-area move (TR-7) no code.
 Required resolution: the spec quotes the final text of `not_empty` (or a second code for items, as mod-003 had it) and states
 whether `root_is_fixed` keeps its text; the design fixes `type_not_allowed`'s.
-Status: open (business-analyst / design)
-Resolution: -
+Status: resolved (fixed by BA 2026-10-28; not re-read, light route one round)
+Resolution: spec § Error codes quotes `not_empty`'s new text (children or items, one code), `type_not_allowed`, the new `outside_project`, and keeps `root_is_fixed`'s text for a project's node; the design may refine the wording.
 
 ### TR-10
 Severity: minor
@@ -623,8 +623,8 @@ Affects: status.md § Notes; story file names
 Problem: status.md's Summary still describes the old spec (area–project links, the item's area retired, OQ-1 A); US-1..US-3's
 and US-4..US-5's slugs are stale (the stories say so).
 Required resolution: the orchestrator rewrites the Summary; slugs may stay.
-Status: open (orchestrator)
-Resolution: -
+Status: resolved (fixed by BA 2026-10-28; not re-read, light route one round)
+Resolution: status.md Summary rewritten to the typed tree; slugs were renamed by the orchestrator.
 
 ### Open questions — check
 
