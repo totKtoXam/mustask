@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>mod-018: рабочее пространство областей (прототип)</title>
+<title>mod-018: типизированное дерево областей (прототип)</title>
 <style>
   * { box-sizing: border-box; }
   body { font: 14px/20px "Segoe UI", Arial, sans-serif; background: #f3f2f1; margin: 0; color: #201f1e; }
@@ -66,7 +66,7 @@
   <nav aria-label="Настройки">
     <h4>Организация</h4>
     <a href="#">Общие</a><a href="#">Проекты</a><a href="#">Команды</a><a href="#" id="navAreas" class="cur" data-go="tree">Области</a><a href="#">Участники</a><a href="#">Процесс</a>
-    <h4>Проект</h4><a href="#">Общие</a><a href="#">Команды</a>
+    <h4>Проект</h4><a href="#">Общие</a><a href="#">Команды</a><a href="#" data-go="sub">Области</a>
   </nav>
   <main id="main"></main>
 </div>
@@ -75,179 +75,159 @@
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const TOP = '__top__';
-const EXPAND_ALL_LIMIT = 100, PICKER_LIMIT = 50, MAX_DEPTH = 10;
-
-const areas = {
-  inf: { id: 'inf', name: 'Инфраструктура', parent: null, desc: '' },
-  log: { id: 'log', name: 'Логистика', parent: null, desc: 'Склады и перевозки' },
-  skl: { id: 'skl', name: 'Складские системы', parent: 'log', desc: 'Складское ПО и интеграции' },
-  trn: { id: 'trn', name: 'Транспортные системы', parent: 'log', desc: '' },
-  fin: { id: 'fin', name: 'Финансы', parent: null, desc: '' },
+const TOP = '__top__', MAX_DEPTH = 10, TYPE = { dept: ['▣', 'Департамент'], project: ['▢', 'Проект'], area: ['◇', 'Область'] };
+const nodes = {
+  inf: { id: 'inf', name: 'Инфраструктура', type: 'dept', parent: null, desc: '' },
+  log: { id: 'log', name: 'Логистика', type: 'dept', parent: null, desc: 'Склады и перевозки' },
+  fin: { id: 'fin', name: 'Финансы', type: 'dept', parent: null, desc: '' },
+  alpha: { id: 'alpha', name: 'Alpha', type: 'project', parent: 'log', desc: '', key: 'ALP', active: true },
+  beta: { id: 'beta', name: 'Beta', type: 'project', parent: 'log', desc: '', key: 'BET', active: true },
+  gamma: { id: 'gamma', name: 'Gamma', type: 'project', parent: 'fin', desc: '', key: 'GAM', active: false },
+  plat: { id: 'plat', name: 'Платформа', type: 'area', parent: 'alpha', desc: 'Складское ПО' },
+  api: { id: 'api', name: 'API', type: 'area', parent: 'plat', desc: '' },
+  otch: { id: 'otch', name: 'Отчёты', type: 'area', parent: 'alpha', desc: '' },
 };
-const projects = {
-  alpha: { id: 'alpha', name: 'Alpha', key: 'ALP', active: true },
-  beta: { id: 'beta', name: 'Beta', key: 'BET', active: true },
-  gamma: { id: 'gamma', name: 'Gamma', key: 'GAM', active: false },
-};
-const teams = { mars: { id: 'mars', name: 'MARS' }, venus: { id: 'venus', name: 'VENUS' }, jupiter: { id: 'jupiter', name: 'JUPITER' } };
-const links = { pa: [['skl', 'alpha'], ['skl', 'gamma'], ['log', 'beta']], ta: [['skl', 'mars']] };
+const teams = { mars: 'MARS', venus: 'VENUS', jupiter: 'JUPITER' };
+const deptTeams = { log: ['mars'], fin: ['mars', 'venus'] };       // area-team links: departments only (OQ-8 A)
+const projTeams = { alpha: ['mars'], beta: [], gamma: ['venus'] }; // feat-028 project-team links (OQ-11 A)
 let seq = 0;
-
 const st = { role: 'admin', data: 'ok', width: 'wide', view: { kind: 'tree' }, expanded: null, selected: null, dlg: null, menu: null };
 const admin = () => st.role === 'admin';
 const byName = (a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase(), 'ru');
-const kids = (id) => Object.values(areas).filter((a) => a.parent === id).sort(byName);
-const path = (id) => (id === null ? '' : (areas[id].parent ? path(areas[id].parent) + ' / ' : '') + areas[id].name);
-const descendants = (id) => kids(id).flatMap((k) => [k.id, ...descendants(k.id)]);
-const level = (id) => (areas[id].parent ? 1 + level(areas[id].parent) : 1);
+const kids = (id) => Object.values(nodes).filter((a) => a.parent === id).sort(byName);
+const path = (id) => (nodes[id].parent ? path(nodes[id].parent) + ' / ' : '') + nodes[id].name;
+const desc = (id) => kids(id).flatMap((k) => [k.id, ...desc(k.id)]);
+const level = (id) => (nodes[id].parent ? 1 + level(nodes[id].parent) : 1);
 const height = (id) => 1 + Math.max(0, ...kids(id).map((k) => height(k.id)));
+const projectOf = (id) => (nodes[id].type === 'project' ? id : nodes[id].type === 'area' ? projectOf(nodes[id].parent) : null);
+const frozen = (id) => { const p = projectOf(id); return p !== null && !nodes[p].active; }; // OQ-6 A: read-only
 const notice = (t) => { const n = $('#notice'); n.textContent = t; n.style.display = 'block'; clearTimeout(n.t); n.t = setTimeout(() => (n.style.display = 'none'), 4000); };
-const linkedProjects = (a) => links.pa.filter((l) => l[0] === a).map((l) => projects[l[1]]);
-const linkedTeams = (a) => links.ta.filter((l) => l[0] === a).map((l) => teams[l[1]]);
-const areaLink = (id) => `<a class="l" data-go="area:${id}" href="#">${esc(path(id))}</a>`;
-
-function expandedSet() {
-  if (st.expanded) return st.expanded;
-  const all = Object.keys(areas);
-  return new Set(all.length <= EXPAND_ALL_LIMIT ? all.filter((id) => kids(id).length) : []);
-}
+const link = (id) => `<a class="l" data-go="node:${id}" href="#">${esc(nodes[id].name)}</a>`;
+const typeMark = (t) => `<span class="muted"><span aria-hidden="true">${TYPE[t][0]}</span> ${TYPE[t][1]}</span>`;
+const tagOff = (n) => (n.type === 'project' && !n.active ? '<span class="tag">деактивирован</span>' : '');
 function menuBtn(label, key) { return `<button class="ghost" data-menu="${key}" aria-label="${esc(label)}" aria-haspopup="menu">⋮</button>`; }
 function skeleton(n = 4) { return `<div class="card" role="status" aria-label="Загрузка данных">${'<div class="skel"></div>'.repeat(n)}</div>`; }
+function expandedSet() { return st.expanded || new Set(Object.keys(nodes).length <= 100 ? Object.keys(nodes).filter((id) => kids(id).length) : []); }
+function rowItems(id) { // the per-type row menu of design section 3
+  const n = nodes[id]; if (!admin() || frozen(id)) return [];
+  if (n.type === 'dept') return [['rename', 'Переименовать'], ['describe', 'Изменить описание'], ['delete', 'Удалить департамент', 1]];
+  if (n.type === 'project') return [['sub', 'Новая вложенная область'], ['describe', 'Изменить описание'], ['move', 'Переместить']];
+  return [['sub', 'Новая вложенная область'], ['rename', 'Переименовать'], ['describe', 'Изменить описание'], ['move', 'Переместить'], ['delete', 'Удалить область', 1]];
+}
 
 /* ---------- views ---------- */
 function treeView() {
-  const set = expandedSet();
-  const head = (cmds) => `<div class="head"><h1>Области</h1>${cmds}</div>`;
+  const set = expandedSet(), head = (c) => `<div class="head"><h1>Области</h1>${c}</div>`;
   if (st.data === 'loading') return head('') + skeleton(5);
   if (st.data === 'error') return head('') + `<div class="note err">Не удалось загрузить данные. <button data-act="retry">Повторить</button></div>`;
-  if (st.data === 'empty') {
-    return head(admin() ? `<button class="primary" data-act="create:${TOP}">+ Новая область</button>` : '') +
-      `<div class="card empty"><h2>В организации пока нет областей</h2><p>${admin() ? 'Область объединяет проекты и команды организации. Создайте первую кнопкой «Новая область».' : 'Области создаёт администратор организации.'}</p>${admin() ? `<button class="primary" data-act="create:${TOP}">+ Новая область</button>` : ''}</div>`;
-  }
-  const hasParents = Object.keys(areas).some((id) => kids(id).length);
-  const allOpen = Object.keys(areas).filter((id) => kids(id).length).every((id) => set.has(id));
-  const cmds = (hasParents ? `<button data-act="toggleAll">${allOpen ? 'Свернуть всё' : 'Развернуть всё'}</button>` : '') +
-    (admin() ? `<button class="primary" data-act="create:${TOP}">+ Новая область</button>` : '');
-  const rows = [];
-  const walk = (parent, lvl) => kids(parent).forEach((a) => {
-    const has = kids(a.id).length > 0, open = set.has(a.id);
-    rows.push(`<tr role="row" tabindex="0" data-row="${a.id}" aria-level="${lvl}" ${has ? `aria-expanded="${open}"` : ''} class="${st.selected === a.id ? 'sel' : ''}">
-      <td><div class="nm" style="padding-left:${(lvl - 1) * 24}px">${has ? `<button class="tg" data-toggle="${a.id}" tabindex="-1" aria-label="${open ? 'Свернуть' : 'Развернуть'} «${esc(a.name)}»">${open ? '▾' : '▸'}</button>` : '<span class="tg"></span>'}<a class="l" tabindex="-1" data-go="area:${a.id}" href="#">${esc(a.name)}</a></div></td>
-      <td class="muted">${esc(a.desc)}</td>${admin() ? `<td class="act">${menuBtn('Действия: ' + a.name, 'row:' + a.id)}</td>` : ''}</tr>`);
+  const add = admin() ? `<button class="primary" data-act="createDept">+ Новый департамент</button>` : '';
+  if (st.data === 'empty') return head(add) + `<div class="card empty"><h2>В организации пока нет департаментов и проектов</h2><p>${admin() ? 'Департамент объединяет проекты и команды. Создайте первый кнопкой «Новый департамент»; проекты появляются в разделе «Проекты».' : 'Области создаёт администратор организации.'}</p>${add}</div>`;
+  const withKids = Object.keys(nodes).filter((id) => kids(id).length), allOpen = withKids.every((id) => set.has(id));
+  const rows = [], walk = (parent, lvl) => kids(parent).forEach((a) => {
+    const has = kids(a.id).length > 0, open = set.has(a.id), items = rowItems(a.id);
+    rows.push(`<tr role="row" tabindex="0" data-row="${a.id}" aria-level="${lvl}" ${has ? `aria-expanded="${open}"` : ''} class="${st.selected === a.id ? 'sel' : ''}"><td><div class="nm" style="padding-left:${(lvl - 1) * 24}px">${has ? `<button class="tg" data-toggle="${a.id}" tabindex="-1" aria-label="${open ? 'Свернуть' : 'Развернуть'} «${esc(a.name)}»">${open ? '▾' : '▸'}</button>` : '<span class="tg"></span>'}<a class="l" tabindex="-1" data-go="node:${a.id}" href="#">${esc(a.name)}</a>${tagOff(a)}</div></td><td>${typeMark(a.type)}</td><td class="muted">${esc(a.desc)}</td>${admin() ? `<td class="act">${items.length ? menuBtn('Действия: ' + a.name, 'row:' + a.id) : ''}</td>` : ''}</tr>`);
     if (has && open) walk(a.id, lvl + 1);
   });
   walk(null, 1);
-  return head(cmds) + `<div class="card"><table role="treegrid" aria-label="Области"><thead><tr><th>Область</th><th>Описание</th>${admin() ? '<th></th>' : ''}</tr></thead><tbody>${rows.join('')}</tbody></table></div>
-    <p class="proto">Прототип: клик по названию или Enter на строке открывает страницу области; ←/→ сворачивают и разворачивают; в таблице ниже 100 областей дерево раскрыто целиком (D-3).</p>`;
+  return head((withKids.length ? `<button data-act="toggleAll">${allOpen ? 'Свернуть всё' : 'Развернуть всё'}</button>` : '') + add) +
+    `<div class="card"><table role="treegrid" aria-label="Области"><thead><tr><th>Название</th><th>Тип</th><th>Описание</th>${admin() ? '<th></th>' : ''}</tr></thead><tbody>${rows.join('')}</tbody></table></div>
+    <p class="proto">Организация не строка дерева (D-8 A). У департамента нет «Переместить»; у проекта нет «Переименовать» и «Удалить»; Gamma деактивирован: без меню. Клик по названию или Enter открывает страницу.</p>`;
 }
-
 function section(title, count, addLabel, addAct, body) {
-  return `<section class="sec"><div class="head"><h2>${title}<span class="count">${count === null ? '' : '(' + count + ')'}</span></h2>${admin() && addLabel ? `<button data-act="${addAct}">+ ${addLabel}</button>` : ''}</div>${body}</section>`;
+  return `<section class="sec"><div class="head"><h2>${title}<span class="count">(${count})</span></h2>${admin() && addLabel ? `<button data-act="${addAct}">+ ${addLabel}</button>` : ''}</div>${body}</section>`;
 }
-function areaView(id) {
-  const a = areas[id];
-  if (!a) return `<div class="card empty"><h2>Область не найдена</h2><p>Проверьте адрес или вернитесь на главную.</p></div>`;
-  const cmds = admin() ? ['rename:Переименовать', 'describe:Изменить описание', 'move:Переместить', 'delete:Удалить область'].map((c) => `<button data-act="${c.split(':')[0]}:${id}">${c.split(':')[1]}</button>`).join('') : '';
-  const ch = kids(id), pr = linkedProjects(id).filter((p) => p.active), tm = linkedTeams(id);
-  const tbl = (hdr, rows) => `<div class="card"><table><thead><tr>${hdr.map((h) => `<th>${h}</th>`).join('')}${admin() ? '<th></th>' : ''}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
-  return `<div class="head"><h1>Область: ${esc(a.name)}</h1>${cmds}</div>
-  <dl class="facts card"><dt>Название</dt><dd>${esc(a.name)}</dd><dt>Родительская область</dt><dd>${a.parent ? areaLink(a.parent) : '<span class="muted">Верхний уровень</span>'}</dd>
-    <dt>Описание</dt><dd>${a.desc ? esc(a.desc) : '<span class="muted">Описание не задано</span>'}</dd></dl>
-  ${section('Вложенные области', ch.length, 'Новая дочерняя область', 'create:' + id, ch.length ? tbl(['Область', 'Описание'], ch.map((k) => `<tr><td>${areaLink(k.id)}</td><td class="muted">${esc(k.desc)}</td>${admin() ? '<td></td>' : ''}</tr>`)) : '<div class="card inl">Вложенных областей пока нет.</div>')}
-  ${section('Проекты', pr.length, 'Добавить проект', 'link:p:' + id, pr.length ? tbl(['Проект', 'Ключ'], pr.map((p) => `<tr><td><a class="l" data-go="project:${p.id}" href="#">${esc(p.name)}</a></td><td>${p.key}</td>${admin() ? `<td class="act">${menuBtn('Ещё действия: ' + p.name, 'unl:p:' + id + ':' + p.id)}</td>` : ''}</tr>`)) : '<div class="card inl">К области не привязаны проекты</div>')}
-  ${section('Команды', tm.length, 'Добавить команду', 'link:t:' + id, tm.length ? tbl(['Команда'], tm.map((t) => `<tr><td>${esc(t.name)}</td>${admin() ? `<td class="act">${menuBtn('Ещё действия: ' + t.name, 'unl:t:' + id + ':' + t.id)}</td>` : ''}</tr>`)) : '<div class="card inl">К области не привязаны команды</div>')}
-  <p class="proto">Деактивированный проект (Gamma) связан с областью, но в списке не показан; в подтверждении удаления он назван «деактивирован».</p>`;
+const tbl = (hdr, rows, act) => `<div class="card"><table><thead><tr>${hdr.map((h) => `<th>${h}</th>`).join('')}${act ? '<th></th>' : ''}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+function nodeView(id) {
+  const n = nodes[id];
+  if (!n) return `<div class="card empty"><h2>Область не найдена</h2><p>Проверьте адрес или вернитесь на главную.</p></div>`;
+  const ro = frozen(id), p = projectOf(id), items = rowItems(id), titles = { dept: 'Департамент', project: 'Проект', area: 'Область' };
+  const cmds = items.map((i) => `<button data-act="${i[0]}:${id}">${i[1]}</button>`).join('') + (n.type === 'project' && n.active ? `<button data-go="project:${id}">Открыть проект</button>` : '');
+  const place = n.type === 'dept' ? '<span class="muted">Организация</span>' : n.type === 'project' ? (n.parent ? link(n.parent) : '<span class="muted">Организация</span>') : '';
+  const facts = `<dt>Название</dt><dd>${esc(n.name)}${n.type === 'project' ? '<div class="muted">Название меняется вместе с проектом.</div>' : ''}</dd><dt>Тип</dt><dd>${typeMark(n.type)}</dd>` +
+    (n.type !== 'area' ? `<dt>Расположение</dt><dd>${place}</dd>` : `<dt>Родительская область</dt><dd>${link(n.parent)}</dd>`) +
+    (p ? `<dt>Проект</dt><dd><a class="l" data-go="project:${p}" href="#">${esc(nodes[p].name)} (${nodes[p].key})</a></dd>` : '') +
+    `<dt>Описание</dt><dd>${n.desc ? esc(n.desc) : '<span class="muted">Описание не задано</span>'}</dd>`;
+  const ch = kids(id);
+  const childSec = n.type === 'dept'
+    ? section('Проекты', ch.length, '', '', ch.length ? tbl(['Проект', 'Ключ'], ch.map((k) => `<tr><td>${link(k.id)}${tagOff(k)}</td><td>${k.key}</td></tr>`)) : '<div class="card inl">В департаменте пока нет проектов.</div>')
+    : section('Вложенные области', ch.length, ro ? '' : 'Новая вложенная область', 'sub:' + id, ch.length ? tbl(['Область', 'Описание'], ch.map((k) => `<tr><td>${link(k.id)}</td><td class="muted">${esc(k.desc)}</td></tr>`)) : '<div class="card inl">Вложенных областей пока нет.</div>');
+  let teamSec = '';
+  if (n.type === 'dept') { const t = deptTeams[id] || []; teamSec = section('Команды', t.length, 'Добавить команду', 'link:' + id, t.length ? tbl(['Команда'], t.map((x) => `<tr><td>${esc(teams[x])}</td>${admin() ? `<td class="act">${menuBtn('Ещё действия: ' + teams[x], 'unl:' + id + ':' + x)}</td>` : ''}</tr>`), admin()) : '<div class="card inl">К области не привязаны команды</div>'); }
+  if (n.type === 'project') { const t = projTeams[id] || []; teamSec = `<section class="sec"><div class="head"><h2>Команды<span class="count">(${t.length})</span></h2></div><p class="muted">Это те же связи, что в разделе «Команды» проекта.</p>${t.length ? tbl(['Команда'], t.map((x) => `<tr><td>${esc(teams[x])}</td></tr>`)) : '<div class="card inl">У проекта нет команд</div>'}</section>`; }
+  return `<div class="head"><h1>${titles[n.type]}: ${esc(n.name)}</h1>${cmds}</div>
+  ${ro ? `<div class="note info">Проект «${esc(nodes[p].name)}» деактивирован: область доступна только для чтения. Чтобы изменить её, восстановите проект в списке деактивированных проектов организации.</div>` : ''}
+  <dl class="facts card">${facts}</dl>${childSec}${teamSec}`;
 }
 function projectView(id) {
-  const p = projects[id], mine = links.pa.filter((l) => l[1] === id).map((l) => l[0]);
-  return `<div class="head"><h1>Общие</h1></div>
-  <dl class="facts card"><dt>Название</dt><dd>${esc(p.name)}</dd><dt>Описание</dt><dd class="muted">Описание не задано</dd><dt>Ключ</dt><dd>${p.key}</dd></dl>
-  ${section('Области', mine.length, 'Добавить область', 'link:a:' + id, mine.length ? `<div class="card"><table><thead><tr><th>Область</th>${admin() ? '<th></th>' : ''}</tr></thead><tbody>${mine.map((a) => `<tr><td>${areaLink(a)}</td>${admin() ? `<td class="act">${menuBtn('Ещё действия: ' + path(a), 'unl:a:' + id + ':' + a)}</td>` : ''}</tr>`).join('')}</tbody></table></div>` : '<div class="card inl">Проект не входит ни в одну область</div>')}
-  <p class="proto">Проект ${esc(p.name)}: страница «Общие», куда ведёт строка проекта на странице области (D-4 A). <a class="l" data-go="tree" href="#">← к областям</a></p>`;
+  const n = nodes[id];
+  return `<div class="head"><h1>Общие</h1></div><dl class="facts card"><dt>Название</dt><dd>${esc(n.name)}</dd><dt>Ключ</dt><dd>${n.key}</dd>
+  <dt>Расположение</dt><dd>${n.parent ? link(n.parent) : '<span class="muted">Организация</span>'} ${admin() && n.active ? `<button data-act="move:${id}">Переместить</button>` : ''}</dd></dl>
+  <p class="proto">«Общие» проекта ${esc(n.name)}. <a class="l" data-go="tree" href="#">← к областям</a></p>`;
+}
+function subtreeView() { // the project's own «Области»: its node and below
+  const pid = 'alpha', rows = [], walk = (id, lvl) => { const a = nodes[id], items = rowItems(id); rows.push(`<tr><td><div class="nm" style="padding-left:${(lvl - 1) * 24}px">${link(id)}</div></td><td class="muted">${esc(a.desc)}</td>${admin() ? `<td class="act">${items.length ? menuBtn('Действия: ' + a.name, 'row:' + id) : ''}</td>` : ''}</tr>`); kids(id).forEach((k) => walk(k.id, lvl + 1)); };
+  walk(pid, 1);
+  return `<div class="head"><h1>Области</h1>${admin() ? `<button class="primary" data-act="sub:${pid}">+ Новая вложенная область</button>` : ''}</div>${tbl(['Область', 'Описание'], rows, admin())}<p class="proto">Области проекта Alpha: узел проекта и его вложенные области (маршрут проекта сохраняется).</p>`;
 }
 
 /* ---------- dialogs ---------- */
-function field(name, label, control, hint, err) {
-  return `<div class="fld ${err ? 'bad' : ''}"><label for="f-${name}">${label}</label>${control}${err ? `<div class="e">${err}</div>` : hint ? `<div class="hint">${hint}</div>` : ''}</div>`;
-}
+function field(name, label, control, hint, err) { return `<div class="fld ${err ? 'bad' : ''}"><label for="f-${name}">${label}</label>${control}${err ? `<div class="e">${err}</div>` : hint ? `<div class="hint">${hint}</div>` : ''}</div>`; }
 function multi(name, label, options, hint, d) {
-  const chosen = d.pick[name] || new Set(), q = (d.q[name] || '').toLowerCase();
-  const m = options.filter((o) => (o.label + ' ' + (o.sub || '')).toLowerCase().includes(q));
-  const shown = m.slice(0, PICKER_LIMIT);
-  const li = shown.map((o) => `<li data-pick="${name}:${o.id}" role="option" aria-selected="${chosen.has(o.id)}"><span aria-hidden="true">${chosen.has(o.id) ? '☑' : '☐'}</span>${esc(o.label)}${o.sub ? `<span class="muted">${esc(o.sub)}</span>` : ''}</li>`).join('') +
-    (m.length > shown.length ? `<li class="hintrow">Показаны первые ${PICKER_LIMIT} из ${m.length}. Уточните запрос.</li>` : '') + (m.length ? '' : '<li class="hintrow">Ничего не найдено</li>');
+  const chosen = d.pick[name] || new Set(), q = (d.q[name] || '').toLowerCase(), m = options.filter((o) => o.label.toLowerCase().includes(q));
+  const li = m.slice(0, 50).map((o) => `<li data-pick="${name}:${o.id}" role="option" aria-selected="${chosen.has(o.id)}"><span aria-hidden="true">${chosen.has(o.id) ? '☑' : '☐'}</span>${esc(o.label)}</li>`).join('') + (m.length ? '' : '<li class="hintrow">Ничего не найдено</li>');
   const tags = [...chosen].map((id) => `<span class="tag">${esc(options.find((o) => o.id === id)?.label || id)} <button class="ghost" data-pick="${name}:${id}" aria-label="Убрать «${esc(options.find((o) => o.id === id)?.label || id)}»">×</button></span>`).join('');
-  return `<div class="fld"><label for="f-${name}">${label}</label><div class="chosen" id="ch-${name}">${tags}</div><input type="text" id="f-${name}" data-q="${name}" value="${esc(d.q[name] || '')}" placeholder="Начните вводить название" autocomplete="off"><ul class="opts" id="ul-${name}" role="listbox" aria-multiselectable="true" aria-label="${label}">${li}</ul>${hint ? `<div class="hint">${hint}</div>` : ''}</div>`;
+  return `<div class="fld"><label for="f-${name}">${label}</label><div class="chosen">${tags}</div><input type="text" id="f-${name}" data-q="${name}" value="${esc(d.q[name] || '')}" placeholder="Начните вводить название" autocomplete="off"><ul class="opts" role="listbox" aria-multiselectable="true" aria-label="${label}">${li}</ul>${hint ? `<div class="hint">${hint}</div>` : ''}</div>`;
 }
-const parentOptions = (exclude = new Set(), allowTop = true) =>
-  (allowTop ? [`<option value="${TOP}">Верхний уровень</option>`] : []).concat(Object.keys(areas).filter((id) => !exclude.has(id)).sort((a, b) => path(a).localeCompare(path(b), 'ru')).map((id) => `<option value="${id}">${esc(path(id))}</option>`));
-const projOptions = (skip = []) => Object.values(projects).filter((p) => p.active && !skip.includes(p.id)).map((p) => ({ id: p.id, label: p.name, sub: p.key }));
-const teamOptions = (skip = []) => Object.values(teams).filter((t) => !skip.includes(t.id)).map((t) => ({ id: t.id, label: t.name }));
-const areaOptions = (skip = []) => Object.keys(areas).filter((a) => !skip.includes(a)).map((a) => ({ id: a, label: path(a) }));
-
+const sel = (id, opts, cur, blank) => `<select id="f-${id}">${blank ? `<option value="">${blank}</option>` : ''}${opts.map((o) => `<option value="${o[0]}" ${o[0] === cur ? 'selected' : ''}>${esc(o[1])}</option>`).join('')}</select>`;
+const subtreeOf = (pid) => [pid, ...desc(pid)];
+function moveOffer(id) { // design 5.4, D-5 A: structural impossibilities and the type rule are never offered
+  const n = nodes[id];
+  if (n.type === 'project') return [...(n.parent ? [[TOP, 'Организация']] : []), ...Object.values(nodes).filter((x) => x.type === 'dept' && x.id !== n.parent).sort(byName).map((x) => [x.id, x.name])];
+  const ex = new Set([id, ...desc(id), n.parent]);
+  return subtreeOf(projectOf(id)).filter((x) => !ex.has(x)).sort((a, b) => path(a).localeCompare(path(b), 'ru')).map((x) => [x, path(x)]);
+}
 function dialogHtml() {
   const d = st.dlg; if (!d) return '';
   const btn = (primary, label, act, disabled) => `<button class="${primary || ''}" data-act="${act}" ${disabled ? 'aria-disabled="true"' : ''}>${label}</button>`;
   const wrap = (title, body, foot) => `<div class="dlg" role="dialog" aria-modal="true" aria-label="${title}"><h2>${title}</h2>${d.alert ? `<div class="note err">${d.alert}</div>` : ''}${body}<div class="foot">${foot}</div></div>`;
-  if (d.kind === 'create') {
-    const withLinks = admin();
-    return wrap('Новая область',
-      field('name', 'Название *', `<input type="text" id="f-name" value="${esc(d.name || '')}" autofocus>`, 'От 1 до 100 символов.', d.err.name) +
-      field('parent', 'Родительская область', `<select id="f-parent">${parentOptions().join('').replace(`value="${d.parent}"`, `value="${d.parent}" selected`)}</select>`, 'Необязательно. По умолчанию область создаётся на верхнем уровне.', d.err.parent) +
-      field('desc', 'Описание', `<textarea id="f-desc" rows="2">${esc(d.desc || '')}</textarea>`, 'Необязательно. Не более 2000 символов.', d.err.desc) +
-      (withLinks ? multi('p', 'Проекты', projOptions(), 'Необязательно. Можно добавить позже.', d) + multi('t', 'Команды', teamOptions(), 'Необязательно. Можно добавить позже.', d) : ''),
-      btn('', 'Отмена', 'close') + btn('primary', 'Создать', 'submit'));
+  const cancelSave = (label) => btn('', 'Отмена', 'close') + btn('primary', label, 'submit');
+  const nameField = (v) => field('name', 'Название *', `<input type="text" id="f-name" value="${esc(v || '')}" autofocus>`, 'От 1 до 100 символов.', d.err.name);
+  const descField = (v, rows, hint) => field('desc', 'Описание', `<textarea id="f-desc" rows="${rows}">${esc(v || '')}</textarea>`, hint, d.err.desc);
+  if (d.kind === 'createDept') return wrap('Новый департамент', nameField(d.name) + descField(d.desc, 2, 'Необязательно. Не более 2000 символов.') +
+    (admin() ? multi('t', 'Команды', Object.entries(teams).map(([id, label]) => ({ id, label })), 'Необязательно. Можно добавить позже.', d) : ''), cancelSave('Создать'));
+  if (d.kind === 'sub') {
+    const pid = projectOf(d.id);
+    return wrap('Новая вложенная область', nameField(d.name) + field('parent', 'Родительская область *', sel('parent', subtreeOf(pid).sort((a, b) => path(a).localeCompare(path(b), 'ru')).map((x) => [x, path(x)]), d.parent), `Область создаётся внутри проекта «${esc(nodes[pid].name)}».`, d.err.parent) + descField(d.desc, 2, 'Необязательно. Не более 2000 символов.'), cancelSave('Создать'));
   }
-  if (d.kind === 'rename') return wrap('Переименование области', field('name', 'Название *', `<input type="text" id="f-name" value="${esc(d.name)}" autofocus>`, 'От 1 до 100 символов.', d.err.name), btn('', 'Отмена', 'close') + btn('primary', 'Сохранить', 'submit'));
-  if (d.kind === 'describe') return wrap('Описание области', field('desc', 'Описание', `<textarea id="f-desc" rows="3" autofocus>${esc(d.desc)}</textarea>`, 'Не более 2000 символов.', d.err.desc), btn('', 'Отмена', 'close') + btn('primary', 'Сохранить', 'submit'));
+  if (d.kind === 'rename') return wrap(nodes[d.id].type === 'dept' ? 'Переименование департамента' : 'Переименование области', nameField(d.name), cancelSave('Сохранить'));
+  if (d.kind === 'describe') return wrap('Описание области', descField(d.desc, 3, 'Не более 2000 символов.'), cancelSave('Сохранить'));
   if (d.kind === 'move') {
-    const a = areas[d.id], n = descendants(d.id).length;
-    const ex = new Set([d.id, ...descendants(d.id), ...(a.parent ? [a.parent] : [])]);
-    return wrap('Перемещение области',
-      `<p>${n ? `Область «${esc(a.name)}» переместится вместе со всеми вложенными областями: ${n}.` : `Область «${esc(a.name)}» переместится.`}</p>` +
-      field('parent', 'Новая родительская область *', `<select id="f-parent"><option value="">Выберите область</option>${parentOptions(ex, a.parent !== null).join('').replace(`value="${d.parent}"`, `value="${d.parent}" selected`)}</select>`, '', d.err.parent),
-      btn('', 'Отмена', 'close') + btn('primary', 'Переместить', 'submit', !d.parent));
+    const n = nodes[d.id], c = desc(d.id).length, isP = n.type === 'project';
+    const txt = isP ? `Проект «${esc(n.name)}» переместится${c ? ` вместе со всеми вложенными областями: ${c}` : ''}. Рабочие элементы, команды и связи проекта не изменятся.` : `Область «${esc(n.name)}» переместится${c ? ` вместе со всеми вложенными областями: ${c}.` : '.'}`;
+    return wrap(isP ? 'Перемещение проекта' : 'Перемещение области', `<p>${txt}</p>` + field('parent', isP ? 'Новое расположение *' : 'Новая родительская область *', sel('parent', moveOffer(d.id), d.parent, 'Выберите место'), '', d.err.parent), btn('', 'Отмена', 'close') + btn('primary', 'Переместить', 'submit', !d.parent));
   }
   if (d.kind === 'delete') {
-    const a = areas[d.id], kidsN = kids(d.id).length;
-    const ps = linkedProjects(d.id), ts = linkedTeams(d.id);
+    const n = nodes[d.id], ts = deptTeams[d.id] || [], kidsN = kids(d.id).length;
     let body;
-    if (kidsN) body = `<div class="note warn">Нельзя удалить область, в которой есть вложенные области</div>`;
+    if (kidsN) body = `<div class="note warn">Нельзя удалить область, в которой есть проекты, вложенные области или рабочие элементы</div>`;
+    else if (n.type === 'area') body = `<p>Удалить область «${esc(n.name)}»? Восстановить область будет нельзя.</p>`;
     else if (d.counting) body = skeleton(2);
-    else if (!ps.length && !ts.length) body = `<p>Удалить область «${esc(a.name)}»? Восстановить область будет нельзя.</p>`;
-    else body = `<p>Удалить область «${esc(a.name)}»? Её связи будут удалены, сами проекты и команды не изменятся.</p>
-      ${ts.length ? `<b>Команды (${ts.length})</b><ul class="lst" aria-label="Команды области">${ts.map((t) => `<li>${esc(t.name)}</li>`).join('')}</ul>` : ''}
-      ${ps.length ? `<b>Проекты (${ps.length})</b><ul class="lst" aria-label="Проекты области">${ps.map((p) => `<li>${esc(p.name)}${p.active ? '' : '<span class="tag">деактивирован</span>'}</li>`).join('')}</ul>` : ''}
-      <p>Восстановить область будет нельзя.</p>`;
-    return wrap('Удаление области', body, btn('', 'Отмена', 'close') + btn('danger', 'Удалить область', 'submit', kidsN || d.counting));
+    else if (!ts.length) body = `<p>Удалить департамент «${esc(n.name)}»? Восстановить департамент будет нельзя.</p>`;
+    else body = `<p>Удалить департамент «${esc(n.name)}»? Его связи с командами будут удалены, сами команды не изменятся.</p><b>Команды (${ts.length})</b><ul class="lst" aria-label="Команды департамента">${ts.map((t) => `<li>${esc(teams[t])}</li>`).join('')}</ul><p>Восстановить департамент будет нельзя.</p>`;
+    return wrap(n.type === 'dept' ? 'Удаление департамента' : 'Удаление области', body, btn('', 'Отмена', 'close') + btn('danger', n.type === 'dept' ? 'Удалить департамент' : 'Удалить область', 'submit', kidsN || d.counting));
   }
   if (d.kind === 'link') {
-    const T = { p: ['Добавление проектов в область', 'Проекты', `Выбранные проекты войдут в область «${esc(areas[d.id]?.name)}». Их рабочие элементы и доступ к ним это не меняет.`],
-      t: ['Добавление команд в область', 'Команды', `Выбранные команды войдут в область «${esc(areas[d.id]?.name)}». Работу команд и доступ их участников это не меняет.`],
-      a: ['Добавление областей в проект', 'Области', `Проект «${esc(projects[d.id]?.name)}» войдёт в выбранные области. Его рабочие элементы и доступ к ним это не меняет.`] }[d.end];
-    const opts = d.end === 'p' ? projOptions(links.pa.filter((l) => l[0] === d.id).map((l) => l[1])) : d.end === 't' ? teamOptions(links.ta.filter((l) => l[0] === d.id).map((l) => l[1])) : areaOptions(links.pa.filter((l) => l[1] === d.id).map((l) => l[0])).map((o) => o);
-    const chosen = d.pick.x || new Set();
-    return wrap(T[0], `<p>${T[2]}</p>` + (opts.length ? multi('x', T[1] + ' *', opts, '', d) : `<div class="note info">Все уже подключены.</div>`), btn('', 'Отмена', 'close') + btn('primary', 'Добавить', 'submit', !chosen.size));
+    const have = deptTeams[d.id] || [], opts = Object.entries(teams).filter(([id]) => !have.includes(id)).map(([id, label]) => ({ id, label })), chosen = d.pick.x || new Set();
+    return wrap('Добавление команд в департамент', `<p>Выбранные команды войдут в департамент «${esc(nodes[d.id].name)}». Работу команд и доступ их участников это не меняет.</p>` + (opts.length ? multi('x', 'Команды *', opts, '', d) : `<div class="note info">Все команды уже входят в департамент.</div>`), btn('', 'Отмена', 'close') + btn('primary', 'Добавить', 'submit', !chosen.size));
   }
-  if (d.kind === 'unlink') {
-    const [k, owner, other] = [d.end, d.id, d.other];
-    const txt = k === 'p' ? [`Отключение проекта от области`, `Отключить проект «${esc(projects[other].name)}» от области «${esc(areas[owner].name)}»? Сам проект и его рабочие элементы не изменятся.`]
-      : k === 't' ? [`Отключение команды от области`, `Отключить команду «${esc(teams[other].name)}» от области «${esc(areas[owner].name)}»? Сама команда и её рабочие элементы не изменятся.`]
-      : [`Отключение области от проекта`, `Отключить область «${esc(areas[other].name)}» от проекта «${esc(projects[owner].name)}»? Сама область и проект не изменятся.`];
-    return wrap(txt[0], `<p>${txt[1]}</p>`, btn('', 'Отмена', 'close') + btn('danger', 'Отключить', 'submit'));
-  }
+  if (d.kind === 'unlink') return wrap('Отключение команды от департамента', `<p>Отключить команду «${esc(teams[d.other])}» от департамента «${esc(nodes[d.id].name)}»? Сама команда и её рабочие элементы не изменятся.</p>`, btn('', 'Отмена', 'close') + btn('danger', 'Отключить', 'submit'));
 }
 function draw() {
-  document.querySelectorAll('header.top button').forEach((b) => {
-    const [k, v] = b.dataset.set.split('=');
-    b.setAttribute('aria-pressed', String(st[k] === v));
-  });
+  document.querySelectorAll('header.top button').forEach((b) => { const [k, v] = b.dataset.set.split('='); b.setAttribute('aria-pressed', String(st[k] === v)); });
   $('main').className = st.width === 'narrow' ? 'narrow' : '';
   const v = st.view;
-  $('main').innerHTML = v.kind === 'tree' ? treeView() : v.kind === 'area' ? areaView(v.id) : projectView(v.id);
+  $('main').innerHTML = v.kind === 'tree' ? treeView() : v.kind === 'node' ? nodeView(v.id) : v.kind === 'sub' ? subtreeView() : projectView(v.id);
   $('#layer').innerHTML = st.dlg ? `<div class="layer">${dialogHtml()}</div>` : '';
-  $('#navAreas').className = v.kind === 'project' ? '' : 'cur';
   const f = $('#layer input[type=text]:not([data-q]), #layer textarea');
   if (f && st.dlg && st.dlg.focus !== false) f.focus();
 }
@@ -258,58 +238,46 @@ function openDlg(kind, extra) {
   if (kind === 'delete') { st.dlg.counting = true; setTimeout(() => { if (st.dlg && st.dlg.kind === 'delete') { st.dlg.counting = false; draw(); } }, 600); }
   draw();
 }
-function readForm() {
-  const d = st.dlg, g = (id) => $('#layer #' + id);
-  if (g('f-name')) d.name = g('f-name').value; if (g('f-desc')) d.desc = g('f-desc').value; if (g('f-parent')) d.parent = g('f-parent').value;
-}
-const clash = (parent, name, self) => Object.values(areas).some((a) => a.parent === parent && a.id !== self && a.name.trim().toLowerCase() === name.trim().toLowerCase());
+function readForm() { const d = st.dlg, g = (id) => $('#layer #' + id); if (g('f-name')) d.name = g('f-name').value; if (g('f-desc')) d.desc = g('f-desc').value; if (g('f-parent')) d.parent = g('f-parent').value; }
+const clash = (parent, name, self) => Object.values(nodes).some((a) => a.parent === parent && a.id !== self && a.name.trim().toLowerCase() === name.trim().toLowerCase());
 function submit() {
   const d = st.dlg; readForm(); d.err = {}; d.alert = '';
-  if (d.kind === 'create' || d.kind === 'rename') {
-    const n = d.name.trim(), parent = d.kind === 'create' ? (d.parent === TOP || !d.parent ? null : d.parent) : areas[d.id].parent;
+  if (['createDept', 'sub', 'rename'].includes(d.kind)) {
+    const n = (d.name || '').trim(), parent = d.kind === 'createDept' ? null : d.kind === 'sub' ? d.parent : nodes[d.id].parent;
     if (n.length < 1 || n.length > 100) d.err.name = 'Название должно содержать от 1 до 100 символов';
     else if (clash(parent, n, d.kind === 'rename' ? d.id : null)) d.err.name = 'Область с таким названием уже есть на этом уровне';
-    if (d.kind === 'create' && parent && level(parent) >= MAX_DEPTH) d.err.parent = 'Дерево областей не может быть глубже 10 уровней';
+    if (d.kind === 'sub' && level(parent) >= MAX_DEPTH) d.err.parent = 'Дерево областей не может быть глубже 10 уровней';
     if (d.desc && d.desc.length > 2000) d.err.desc = 'Описание должно содержать не более 2000 символов';
     if (Object.keys(d.err).length) return draw();
-    if (d.kind === 'rename') { areas[d.id].name = n; notice('Область переименована.'); }
+    if (d.kind === 'rename') { nodes[d.id].name = n; notice(nodes[d.id].type === 'dept' ? 'Департамент переименован.' : 'Область переименована.'); }
     else {
-      const id = 'n' + ++seq; areas[id] = { id, name: n, parent, desc: d.desc || '' };
-      [...(d.pick.p || [])].forEach((p) => links.pa.push([id, p])); [...(d.pick.t || [])].forEach((t) => links.ta.push([id, t]));
-      if (parent) { st.expanded = new Set([...expandedSet(), parent]); } st.selected = id; st.data = 'ok';
-      notice(`Область «${n}» создана.`);
+      const id = 'n' + ++seq; nodes[id] = { id, name: n, type: d.kind === 'sub' ? 'area' : 'dept', parent, desc: d.desc || '' };
+      if (d.kind === 'createDept') deptTeams[id] = [...(d.pick.t || [])];
+      if (parent) st.expanded = new Set([...expandedSet(), parent]); st.selected = id; st.data = 'ok';
+      notice(d.kind === 'sub' ? `Область «${n}» создана.` : `Департамент «${n}» создан.`);
     }
   } else if (d.kind === 'describe') {
     if ((d.desc || '').length > 2000) { d.err.desc = 'Описание должно содержать не более 2000 символов'; return draw(); }
-    areas[d.id].desc = d.desc || ''; notice('Описание области сохранено.');
+    nodes[d.id].desc = d.desc || ''; notice('Описание сохранено.');
   } else if (d.kind === 'move') {
-    const np = d.parent === TOP ? null : d.parent, a = areas[d.id];
+    const np = d.parent === TOP ? null : d.parent, a = nodes[d.id];
     if (clash(np, a.name, d.id)) { d.err.parent = 'Область с таким названием уже есть на этом уровне'; return draw(); }
     if ((np ? level(np) : 0) + height(d.id) > MAX_DEPTH) { d.err.parent = 'Дерево областей не может быть глубже 10 уровней'; return draw(); }
-    a.parent = np; if (np) st.expanded = new Set([...expandedSet(), np]); st.selected = d.id; notice(`Область «${a.name}» перемещена.`);
+    a.parent = np; if (np) st.expanded = new Set([...expandedSet(), np]); st.selected = d.id;
+    notice(a.type === 'project' ? `Проект «${a.name}» перемещён.` : `Область «${a.name}» перемещена.`);
   } else if (d.kind === 'delete') {
     if (kids(d.id).length) return;
-    const nm = areas[d.id].name; delete areas[d.id]; links.pa = links.pa.filter((l) => l[0] !== d.id); links.ta = links.ta.filter((l) => l[0] !== d.id);
-    st.view = { kind: 'tree' }; notice(`Область «${nm}» удалена.`);
+    const n = nodes[d.id]; delete nodes[d.id]; delete deptTeams[d.id]; st.view = { kind: 'tree' };
+    notice(n.type === 'dept' ? `Департамент «${n.name}» удалён.` : `Область «${n.name}» удалена.`);
   } else if (d.kind === 'link') {
     const ids = [...(d.pick.x || [])]; if (!ids.length) return;
-    ids.forEach((o) => (d.end === 'p' ? links.pa.push([d.id, o]) : d.end === 't' ? links.ta.push([d.id, o]) : links.pa.push([o, d.id])));
-    notice(d.end === 'a' ? (ids.length === 1 ? `Область «${areas[ids[0]].name}» добавлена.` : `Области добавлены: ${ids.length}.`)
-      : d.end === 'p' ? (ids.length === 1 ? `Проект «${projects[ids[0]].name}» добавлен.` : `Проекты добавлены: ${ids.length}.`)
-      : ids.length === 1 ? `Команда «${teams[ids[0]].name}» добавлена.` : `Команды добавлены: ${ids.length}.`);
-  } else if (d.kind === 'unlink') {
-    if (d.end === 'p') links.pa = links.pa.filter((l) => !(l[0] === d.id && l[1] === d.other));
-    else if (d.end === 't') links.ta = links.ta.filter((l) => !(l[0] === d.id && l[1] === d.other));
-    else links.pa = links.pa.filter((l) => !(l[1] === d.id && l[0] === d.other));
-    notice(d.end === 'p' ? 'Проект отключён от области.' : d.end === 't' ? 'Команда отключена от области.' : 'Область отключена от проекта.');
-  }
+    deptTeams[d.id] = [...(deptTeams[d.id] || []), ...ids]; notice(ids.length === 1 ? `Команда «${teams[ids[0]]}» добавлена.` : `Команды добавлены: ${ids.length}.`);
+  } else if (d.kind === 'unlink') { deptTeams[d.id] = deptTeams[d.id].filter((t) => t !== d.other); notice('Команда отключена от департамента.'); }
   st.dlg = null; draw();
 }
 function openMenu(btn, key) {
   closeMenu();
-  const [kind, a, b, c] = key.split(':'); const items = [];
-  if (kind === 'row') items.push(['create:' + a, 'Новая дочерняя область'], ['rename:' + a, 'Переименовать'], ['describe:' + a, 'Изменить описание'], ['move:' + a, 'Переместить'], ['delete:' + a, 'Удалить область', 1]);
-  else items.push(['unlink:' + [a, b, c].join(':'), kind === 'unl' && a === 'a' ? 'Отключить от проекта' : 'Отключить от области', 1]);
+  const [kind, a, b] = key.split(':'), items = kind === 'row' ? rowItems(a).map((i) => [i[0] + ':' + a, i[1], i[2]]) : [['unlink:' + a + ':' + b, 'Отключить от департамента', 1]];
   const m = document.createElement('div'); m.className = 'menu'; m.setAttribute('role', 'menu');
   m.innerHTML = items.map((i) => `<button role="menuitem" class="${i[2] ? 'd' : ''}" data-act="${i[0]}">${i[1]}</button>`).join('');
   const r = btn.getBoundingClientRect(); m.style.left = Math.max(8, r.right + scrollX - 210) + 'px'; m.style.top = r.bottom + scrollY + 'px';
@@ -324,27 +292,27 @@ document.addEventListener('click', (e) => {
   if (t.dataset.menu) { e.stopPropagation(); return openMenu(t, t.dataset.menu); }
   if (t.dataset.toggle) { const s = new Set(expandedSet()); s.has(t.dataset.toggle) ? s.delete(t.dataset.toggle) : s.add(t.dataset.toggle); st.expanded = s; return draw(); }
   if (t.dataset.pick) { const [n, id] = t.dataset.pick.split(':'); const s = (st.dlg.pick[n] = st.dlg.pick[n] || new Set()); s.has(id) ? s.delete(id) : s.add(id); readForm(); st.dlg.focus = false; draw(); const q = $('#layer [data-q="' + n + '"]'); if (q) q.focus(); return; }
-  if (t.dataset.go) { e.preventDefault(); closeMenu(); const [k, id] = t.dataset.go.split(':'); st.view = k === 'tree' ? { kind: 'tree' } : { kind: k, id }; return draw(); }
+  if (t.dataset.go) { e.preventDefault(); closeMenu(); const [k, id] = t.dataset.go.split(':'); st.view = { kind: k, id }; return draw(); }
   if (t.dataset.row && !e.target.closest('a,button')) { st.selected = t.dataset.row; return draw(); }
   if (t.dataset.act) {
-    closeMenu(); const [act, a, b, c] = t.dataset.act.split(':');
+    closeMenu(); const [act, a, b] = t.dataset.act.split(':');
     if (act === 'retry') { st.data = 'ok'; return draw(); }
-    if (act === 'toggleAll') { const all = Object.keys(areas).filter((id) => kids(id).length); st.expanded = all.every((id) => expandedSet().has(id)) ? new Set() : new Set(all); return draw(); }
+    if (act === 'toggleAll') { const all = Object.keys(nodes).filter((id) => kids(id).length); st.expanded = all.every((id) => expandedSet().has(id)) ? new Set() : new Set(all); return draw(); }
     if (act === 'close') { st.dlg = null; return draw(); }
     if (act === 'submit') { if (t.getAttribute('aria-disabled') === 'true') return; return submit(); }
-    if (act === 'create') return openDlg('create', { parent: a === TOP || !a ? TOP : a });
-    if (act === 'rename') return openDlg('rename', { id: a, name: areas[a].name });
-    if (act === 'describe') return openDlg('describe', { id: a, desc: areas[a].desc });
+    if (act === 'createDept') return openDlg('createDept', {});
+    if (act === 'sub') return openDlg('sub', { id: a, parent: a });
+    if (act === 'rename') return openDlg('rename', { id: a, name: nodes[a].name });
+    if (act === 'describe') return openDlg('describe', { id: a, desc: nodes[a].desc });
     if (act === 'move') return openDlg('move', { id: a, parent: '' });
     if (act === 'delete') return openDlg('delete', { id: a });
-    if (act === 'link') return openDlg('link', { end: a, id: b });
-    if (act === 'unlink') return openDlg('unlink', { end: a, id: b, other: c });
+    if (act === 'link') return openDlg('link', { id: a });
+    if (act === 'unlink') return openDlg('unlink', { id: a, other: b });
   }
 });
 document.addEventListener('input', (e) => {
   const q = e.target.dataset && e.target.dataset.q; if (!q || !st.dlg) return;
-  st.dlg.q[q] = e.target.value;
-  const d = st.dlg; const keep = e.target.selectionStart;
+  st.dlg.q[q] = e.target.value; const keep = e.target.selectionStart;
   readForm(); st.dlg.focus = false; draw(); const n = $('#layer [data-q="' + q + '"]'); if (n) { n.focus(); n.setSelectionRange(keep, keep); }
 });
 document.addEventListener('keydown', (e) => {
@@ -352,13 +320,11 @@ document.addEventListener('keydown', (e) => {
   const row = e.target.closest && e.target.closest('tr[data-row]');
   if (row && e.target === row) {
     const id = row.dataset.row, rows = [...document.querySelectorAll('tr[data-row]')], i = rows.indexOf(row);
-    if (e.key === 'Enter') { st.view = { kind: 'area', id }; draw(); }
+    if (e.key === 'Enter') { st.view = { kind: 'node', id }; draw(); }
     else if (e.key === ' ') { e.preventDefault(); st.selected = id; draw(); document.querySelector(`tr[data-row="${id}"]`).focus(); }
     else if (e.key === 'ArrowDown' && rows[i + 1]) { e.preventDefault(); rows[i + 1].focus(); }
     else if (e.key === 'ArrowUp' && rows[i - 1]) { e.preventDefault(); rows[i - 1].focus(); }
-    else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && kids(id).length) {
-      e.preventDefault(); const s = new Set(expandedSet()); e.key === 'ArrowRight' ? s.add(id) : s.delete(id); st.expanded = s; draw(); document.querySelector(`tr[data-row="${id}"]`).focus();
-    }
+    else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && kids(id).length) { e.preventDefault(); const s = new Set(expandedSet()); e.key === 'ArrowRight' ? s.add(id) : s.delete(id); st.expanded = s; draw(); document.querySelector(`tr[data-row="${id}"]`).focus(); }
   }
 });
 draw();

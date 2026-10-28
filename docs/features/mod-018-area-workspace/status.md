@@ -3,7 +3,7 @@
 - type: module
 - size: L
 - branch: mod/018-area-workspace
-- stage: 03-ux-design
+- stage: gate-2
 - epic: core/org-access
 - deps: feat-028
 - gates: gate-1, gate-2, gate-3
@@ -85,6 +85,7 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-28 [requirements-reviewer] typed-tree review, one round (review.md § Requirements review — typed tree (2026-10-28)): needs-human-decision. TR-1 blocker open: the re-basing notes are not enough, US-1, US-2, US-6 scenarios back to the business-analyst for a rewrite. Majors: TR-2 (new ADR partially superseding ADR-0028/0029) fixed in the spec; TR-3, TR-4, TR-5 as questions (new OQ-11, OQ-12, OQ-6 extended); TR-6 depth boundary fixed, fail/keep/cut as new OQ-13. Minors: TR-7, TR-8, TR-10 fixed in place; TR-9 (error texts), TR-11 (stale Summary, orchestrator) open. OQ-9 recommended dropped.
 - 2026-10-28 [business-analyst] fix round after the typed-tree review: TR-1 US-1, US-2, US-6 rewritten scenario by scenario over the typed tree on the OQ defaults (re-basing notes deleted; every scenario that depends on an answer names it); TR-9 error texts fixed in the spec (`not_empty` text now covers children and items, `type_not_allowed` and the new `outside_project` quoted, `root_is_fixed` kept for a project's node); TR-11 Summary rewritten; OQ-9 marked dropped (default A), OQ-11, OQ-12, OQ-13 stand with the reviewer's options. US-3 carries a note that its project-node team rows depend on OQ-11. Open for gate-1: OQ-3..OQ-8, OQ-10..OQ-13.
 - 2026-10-28 [business-analyst] gate-1 answers recorded (Decisions): every OQ turned into a resolved decision in spec.md (ids kept), default markers dropped where settled, BR-AW-4, -6, -10, -13, -14 and the error and completeness tables state the answers, the new-ADR decision written into § ADR-0028 amendment; US-3 rewritten for OQ-11 A (project node's «Команды» are feat-028's project–team links, area–team links join departments only), US-5 title and wording for OQ-4 A. review.md TR-1, TR-9, TR-11 closed as fixed by the BA, not re-read (light route, one round). gate-1 approved; stage → 03-ux-design (the design is reworked for the typed tree; gate-2 stays pending).
+- 2026-10-28 [ux-designer] design.md reworked in place for the typed tree (31.9 KB, within the 32 KB budget) + prototype/index.html rewritten (minimal). Tree with type marks and per-type row menus, node pages per type, department create, sub-area create (parent only in its own project), per-type move, department-only team links (a project node shows feat-028 project-team links), deactivated node read-only, project «Расположение», item «Область» offer = project subtree (band as merged); copy for type_not_allowed, outside_project, not_empty (changed) and new area.link_type_not_allowed. D-1, D-3, D-7 kept, D-2, D-5 amended, D-4, D-6 retired; new open D-8..D-10 (org row, header command name, team-page section name). Package for the human: D-8..D-10; stage gate-2. No gate set.
 
 ## Debt
 
