@@ -9,6 +9,8 @@ As the **owner of an organization**, I want **every read and write of an area an
 
 Cast (spec § Stories): «Ромашка» has Alpha (ALP), MARS and the example tree of US-1. «Другая» has Zeta (ZET), Orion and its own «Логистика», linked to both. Ann is «Администратор» of both organizations. The codes this line registers and redefines are in spec § Roles; they are checked against the organization role alone until `mod-019-scoped-access`.
 
+**Reworked 2026-10-27 (typed tree).** Cast: «Логистика» is a department of each organization, «Другая» has Zeta's node under it; the rows below that name a project end (`linking «Финансы» with Zeta`, `linking Alpha with «Другая»'s «Логистика»`, `unlinking Alpha from …`, `creating an area with the project Zeta`) are replaced by: placing or moving Alpha's node under «Другая»'s «Логистика» and creating a project with a department of «Другая» (404 «Область не найдена.»); moving a node under another organization's node (404 «Область не найдена.»); setting an item's «Область» to another organization's or another project's node (404 «Область не найдена.»). The team-link rows stand with «node» for «area»; `area.link` pairs with `team.link` only, and `project.link` is not used by area routes. The structure-contract scenario's area-to-projects resolution becomes a descendants read: the project nodes below a department, each project once, a deactivated project marked, in one statement. The route inventory lists the organization's node routes and, per BR-AW-12 and the api-contract, the project's subtree routes with the same tenant rule; the project-nested routes are no longer required to be gone.
+
 ## Acceptance criteria
 
 ```gherkin

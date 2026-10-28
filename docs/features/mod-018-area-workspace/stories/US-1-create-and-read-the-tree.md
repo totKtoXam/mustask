@@ -5,23 +5,26 @@
 - shippable: no — one of the six stories of `mod-018-area-workspace`, an L and one MR (spec § Stories); doc-012 US-1's creation and reading
 - status: pending
 
-As an **organization administrator**, I want **to create the organization's areas as one tree, at the top level or under a parent, each with an optional description**, so that **the organization's departments, programs and working groups get workspaces that projects and teams can be linked to, with nothing stored inside them (BR-AW-2, BR-AW-3)**.
+As an **organization administrator**, I want **to build the organization's one typed tree: departments, the project nodes under them, and the sub-areas below a project, each with an optional description**, so that **the structure «организация → департамент → проект» is one tree that teams can be linked to (BR-AW-0, BR-AW-2, BR-AW-3)**. Reworked 2026-10-27.
 
-The tree belongs to the organization, not to a project. Its pages are «Области» in the organization's settings (`…/settings/areas`) and an area's page (`…/settings/areas/:a`) until `feat-043-area-project-team-navigation` (BR-AW-12). Until `mod-019-scoped-access` only «Администратор» creates (spec § Roles). Links chosen on the create form are US-3's; renaming, moving and deleting are US-2's. Cast and conventions: spec § Stories. Which parents the form's «Родительская область» offers beyond what a scenario states, and whether the tree draws a parent expanded or collapsed at first, are the design's; a creation "by Ann" under a parent the form does not offer is made by a direct request, and the server answers it as stated.
+The tree belongs to the organization. A project's node is made with its project (OQ-5; US-3, US-4), so the administrator creates here departments and sub-areas; the parent rules are BR-AW-3's recommended ones (OQ-3, OQ-4, OQ-7), and a creation under a parent that does not allow the type is refused with `type_not_allowed`'s text. Its pages are «Области» in the organization's settings (`…/settings/areas`) and an area's page (`…/settings/areas/:a`) until `feat-043-area-project-team-navigation` (BR-AW-12). Until `mod-019-scoped-access` only «Администратор» creates (spec § Roles). Links chosen on the create form are US-3's; renaming, moving and deleting are US-2's. Cast and conventions: spec § Stories. Which parents the form's «Родительская область» offers beyond what a scenario states, and whether the tree draws a parent expanded or collapsed at first, are the design's; a creation "by Ann" under a parent the form does not offer is made by a direct request, and the server answers it as stated.
+
+**Re-basing note (2026-10-27).** The scenarios below were written for the untyped tree; the typed tree changes their cast as follows, and the criteria otherwise stand: «Логистика», «Финансы», «Инфраструктура» are departments; «Складские системы» and «Транспортные системы» are sub-areas of Alpha's node (path «Логистика / Alpha / Складские системы»), and «Ф9», «Ф10» sub-areas deeper in a chain below Alpha's node, so that "level" counts from the top level and the 10-level limit is reached below a project; a "top-level area" is a department (or a project node placed at the top, OQ-4 A), "a child of «Логистика»" a project node placed there, and "creates an area with no parent" a department. The name-uniqueness, trimming, length, concurrency, foreign-parent, read-only-member and empty-organization scenarios hold for departments and sub-areas unchanged, with «Новая область» read as «Новый департамент» at the top and «Новая дочерняя область» as available on a project node or a sub-area only. «В организации пока нет областей» reads «В организации пока нет департаментов и проектов», with a project's node always present once a project exists (OQ-5 A).
 
 ## Acceptance criteria
 
 ```gherkin
-Scenario: The administrator builds the example tree (brief § 3.2; BR-AW-3)
-  Given «Ромашка» has no areas, and Ann is its administrator
-  When she creates «Логистика», «Финансы» and «Инфраструктура» with no parent,
-    then «Складские системы» and «Транспортные системы» with the parent «Логистика»
-  Then «Области» shows «Инфраструктура», «Логистика» and «Финансы» at the top level, in that order,
-    and «Складские системы» and «Транспортные системы» beneath «Логистика», at once or on expanding it, each area once
-  And each area has no description, and its row opens its page
-  And the page of «Складские системы» names its parent «Логистика», opening that page, and the page of «Логистика» lists its two child areas, each opening its own page
-  And every place outside the tree names the area by its path, «Логистика / Складские системы» (BR-AW-13)
-  And each area is stored with «Наследовать доступ» on, which no page shows or changes (BR-AW-5, OQ-2 B)
+Scenario: The administrator builds the typed tree (BR-AW-0, BR-AW-3)
+  Given «Ромашка» has the project Alpha (its node «Alpha»), and Ann is its administrator
+  When she creates the departments «Логистика», «Финансы» and «Инфраструктура»,
+    moves Alpha under «Логистика» (US-3), then creates «Платформа» and «Отчёты» under Alpha's node
+  Then «Области» shows «Инфраструктура», «Логистика» and «Финансы» at the top level, in that order, each marked as a department,
+    «Alpha» beneath «Логистика» marked as a project, and «Платформа» and «Отчёты» beneath it, at once or on expanding, each node once
+  And each new node has no description, and its row opens its page, which names its type and its parent
+  And the page of «Логистика» lists its child nodes, each opening its own page
+  And every place outside the tree names the node by its path, «Логистика / Alpha / Платформа» (BR-AW-13)
+  And each node is stored with «Наследовать доступ» on, which no page shows or changes (BR-AW-5, OQ-2 B)
+  And an attempt to create a sub-area directly under «Логистика» (OQ-7 A) or a department under Alpha's node is refused with `type_not_allowed`'s text
 
 Scenario: Creating an area creates nothing else (BR-AW-2, BR-MX-2)
   Given the counts of «Ромашка»'s projects, teams, team memberships, project–team links, default-team settings and work items

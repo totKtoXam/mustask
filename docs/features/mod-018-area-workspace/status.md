@@ -3,16 +3,16 @@
 - type: module
 - size: L
 - branch: mod/018-area-workspace
-- stage: 07-mr-complete
+- stage: 02-requirements-review
 - epic: core/org-access
 - deps: feat-028
 - gates: gate-1, gate-2, gate-3
 
 ## Gates
 
-gate-1: approved (2026-10-18, human in chat, one question per open question: OQ-1 A, the upgrade drops every per-project area; OQ-2 B, «Наследовать доступ» stored now, shown and governed from mod-019)
-gate-2: approved (2026-10-18, human in chat, one question per design decision: D-1..D-7 A)
-gate-3: approved (2026-10-27, human in chat: ADR-0028 amendment editorial, A; review round 2 approve, 0 blocker / 0 major; minors as Debt)
+gate-1: pending (reset 2026-10-28 by the typed-tree rework; history in the Log: approved 2026-10-18, OQ-1 A, OQ-2 B)
+gate-2: pending (reset 2026-10-28; the design must be reworked for the typed tree; history in the Log: approved 2026-10-18, D-1..D-7 A)
+gate-3: pending (reset 2026-10-28; history in the Log: approved 2026-10-27 for the OLD spec, superseded by the rework)
 
 ## Plan
 
@@ -54,6 +54,12 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
   (feat-040 D-2 puts «Проект» in block A row 2; this design's D-6 moves
   «Команда» up in block B), and both touch the item's read models.
 
+- **Typed single tree (2026-10-27, the human in chat via the orchestrator, all four answers the recommended ⭐):** «Организация (корневая область) → Департамент (область) → Проект (область)», all areas of different types, in one tree per organization. (1) A project has exactly ONE parent (a department or the organization root) and can be moved; NOT many-to-many area–project links. (2) Below a project its sub-areas stay, and the work item's «Область» STAYS, pointing at the project's node or one of its sub-areas; the upgrade keeps existing data (each project's tree hangs under the organization root as a project-type node). (3) Teams stay organization-level (feat-028) and link many-to-many to any node (department or project), as mod-018 does now. (4) Reworked before merge, on this branch.
+  - **Overrides in doc-012:** OQ-1 A (retire the item's «Область») and BR-MX-5's area–project many-to-many link (and BR-MX-6, -7, -8, doc-012 US-3, US-10 where they speak of area–project links or of an area owning no project). This spec's own OQ-1 A (drop every per-project area) is superseded; OQ-2 B stands (spec § BR-AW-5, OQ-9).
+  - **Later queue lines it touches** (rewording comes later through a sync PR, not now): `feat-043-area-project-team-navigation` (pages of a typed tree, project placement); `mod-019-scoped-access` (grants reach projects through the tree, not area–project links; «Наследовать доступ» per type); `feat-042-area-board-and-overview` (area views read through the subtree, department → project nodes); `feat-044-area-analytics`. Possibly feat-003, mod-008, feat-013 (the item's area stays, so their «no area filter» wording is to be re-checked).
+  - Open for the human, spec OQ-3..OQ-10: department nesting; stored organization root; project node created and deleted only with the project; deactivation of a project's node; sub-areas under a department; team links to sub-areas and the root; «Наследовать доступ» per type; the node's name following the project.
+  - Rework scope for the developer later: the first build implemented the old spec (no per-project tree, item area retired, area–project links, upgrade dropping data); see the spec's § Existing rules and the BA hand-off notes. Plans, api-contract, design and prototype need rework after gates 1+2 are re-approved.
+
 ## Log
 
 - 2026-10-18 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/mod-018-area-workspace
@@ -73,7 +79,11 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-27 [code-reviewer] review round 2 (delta c18792ae..HEAD): approve; M-1, M-2, M-3, m-1, m-4 closed, AreaLink tests green (13 API + 30 handler); open: 3 minor (m-2, m-3 to mod-019, m-5 to mod-007).
 - 2026-10-27 [orchestrator] gate-3: the one decision the review left went to the human in chat (ask-format): the ADR-0028 amendment is editorial, «⭐ A: Редакционная». Minors m-2, m-3, m-5, QA D-1 (closed as m-1) and DEF-3 (closed as m-4) recorded under Debt; gate-3 approved; stage → 07-mr-complete.
 
+- 2026-10-28 [business-analyst] requirements change, typed single tree (Decisions, 2026-10-27): spec.md reworked (BR-AW-0 added, BR-AW-2, -3, -5..-14 rewritten, existing-rules table reverses the first build's retirements, OQ-3..OQ-10 open, OQ-1 superseded); US-3, US-4, US-5 rewritten, US-1, US-2, US-6 carry a re-basing note; gate-1, gate-2, gate-3 reset to pending (earlier verdicts above kept as history: gate-1/gate-2 approved 2026-10-18; gate-3 approved 2026-10-27 for the old spec); stage → 02-requirements-review. Usage at rework start: weekly 4%, 5-hour 30%.
+
 ## Debt
+
+Superseded by the rework (2026-10-28): the gate-3 of 2026-10-27 and the list below belong to the old spec; the list is kept and will be re-checked when the reworked code is reviewed.
 
 - m-2 (→ mod-019): MoveAreaHandler decides `area.create` for the current parent from a read taken before the lock; re-check `area.ParentId is null` after the locks and narrow api-contract § intro's "before any id is looked at". Invisible until mod-019 splits the codes.
 - m-3 / DEF-4 (→ mod-019): AreasPage.tsx and AreaPage.tsx gate the create dialog on `areaWrite`; gate it on `areaCreate || areaWrite` when the codes split.
