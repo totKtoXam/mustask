@@ -69,27 +69,29 @@ public sealed class OwnedViewsEndpointTests(MustaskApiFactory factory)
     // US-4 · "membership no longer follows areas": renaming and moving an area and saving an item's Область move no item
     // between teams (BR-OT-5, BR-OT-10).
     [Fact]
-    public async Task Views_AreaRenameAndMove_MoveNoItem()
+    public async Task Views_AreaRenameMoveAndItemAreaSave_MoveNoItem()
     {
         var world = await CreateWorldAsync(factory);
         var boards = BoardsViewOf(world);
         var story = await ItemAsync(world, "US", "Марс", world.Mars);
-        var reports = await OrganizationsTestData.AddAreaAsync(factory, world.OrganizationId, null, "Отчёты");
-        var archive = await OrganizationsTestData.AddAreaAsync(factory, world.OrganizationId, null, "Архив");
+        var reports = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, world.Items.RootAreaId, "Отчёты");
+        var archive = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, world.Items.RootAreaId, "Архив");
+
+        var saved = await SaveAsync(world, story, new { areaId = reports.Id.ToString() });
         var renamed = await OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Put,
-            $"{OrganizationsApi.Areas(world.OrganizationId)}/{reports.Id}/name",
+            $"{OrganizationsApi.Areas(world.OrganizationId, world.ProjectId)}/{reports.Id}/name",
             new { name = "Отчёты 2" },
             OrganizationsTokens.SignedIn());
         var moved = await OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Put,
-            $"{OrganizationsApi.Areas(world.OrganizationId)}/{reports.Id}/parent",
+            $"{OrganizationsApi.Areas(world.OrganizationId, world.ProjectId)}/{reports.Id}/parent",
             new { parentId = archive.Id.ToString() },
             OrganizationsTokens.SignedIn());
 
-        Assert.Equal((HttpStatusCode.OK, HttpStatusCode.OK), (renamed.Status, moved.Status));
+        Assert.Equal((HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.OK), (saved.Status, renamed.Status, moved.Status));
         Assert.Equal([story.Identifier], await BoardsTestData.RowsAsync(factory, boards, world.Mars));
         Assert.Empty(await BoardsTestData.RowsAsync(factory, boards, world.Venus));
     }
@@ -249,7 +251,7 @@ public sealed class OwnedViewsEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(HttpStatusCode.OK, moved.Status);
         var after = await StoredAsync(factory, world.ProjectId, story.Identifier);
-        Assert.Equal((before.TeamId, before.AssigneeId), (after.TeamId, after.AssigneeId));
+        Assert.Equal((before.TeamId, before.AreaId, before.AssigneeId), (after.TeamId, after.AreaId, after.AssigneeId));
         Assert.Equal((1, 1), (await TeamPlacesOfAsync(factory, story.Id), await ProjectPlacesOfAsync(factory, story.Id)));
         Assert.Single(ProjectBoardsTestData.AllCards((await BoardsTestData.GetBoardAsync(factory, boards, world.Mars)).Body), story.Identifier);
         Assert.Single(ProjectBoardsTestData.AllCards((await ProjectBoardsTestData.GetBoardAsync(factory, boards)).Body), story.Identifier);

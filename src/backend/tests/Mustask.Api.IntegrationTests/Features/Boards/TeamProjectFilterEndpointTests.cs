@@ -164,9 +164,9 @@ public sealed class TeamProjectFilterEndpointTests(MustaskApiFactory factory)
         var cast = s.Cast;
         var zeta = await OrganizationsTestData.CreateBareProjectAsync(factory, cast.World.OtherOrganizationId, "Зета", "ZET");
         var detached = await OrganizationsTestData.CreateBareProjectAsync(factory, cast.OrganizationId, "Отвязанный", "OFF");
-        await OrganizationsTestData.LinkAsync(factory, detached.Id, cast.Mars);
-        await TeamTestData.UnlinkAsync(factory, cast.OrganizationId, detached.Id, cast.Mars, TeamTestData.To(null));
-        object[] values = [Guid.CreateVersion7(), "not-a-guid", zeta.Id, cast.Delta.ProjectId, detached.Id, "00000000-0000-0000-0000-000000000000"];
+        await OrganizationsTestData.LinkAsync(factory, detached.Project.Id, cast.Mars);
+        await TeamTestData.UnlinkAsync(factory, cast.OrganizationId, detached.Project.Id, cast.Mars, TeamTestData.To(null));
+        object[] values = [Guid.CreateVersion7(), "not-a-guid", zeta.Project.Id, cast.Delta.ProjectId, detached.Project.Id, "00000000-0000-0000-0000-000000000000"];
 
         foreach (var value in values)
         {

@@ -21,12 +21,12 @@ internal static class BoardsTestData
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
         var project = await OrganizationsTestData.CreateProjectAsync(factory, organization.Id, "Мастаск", "MSK");
         var types = await WorkItemsTestData.TypesAsync(factory, organization.Id);
-        var items = new WorkItemsWorld(organization.Id, project.Project.Id, "MSK", types);
+        var items = new WorkItemsWorld(organization.Id, project.Project.Id, project.Root.Id, "MSK", types);
 
         var platform = await OrganizationsTestData.AddTeamAsync(factory, project.Project.Id, "Платформа");
-        var platformArea = await OrganizationsTestData.AddAreaAsync(factory, organization.Id, null, "Платформа");
-        var api = await OrganizationsTestData.AddAreaAsync(factory, organization.Id, platformArea.Id, "API");
-        var reports = await OrganizationsTestData.AddAreaAsync(factory, organization.Id, null, "Отчёты");
+        var platformArea = await OrganizationsTestData.AddAreaAsync(factory, project.Project.Id, project.Root.Id, "Платформа");
+        var api = await OrganizationsTestData.AddAreaAsync(factory, project.Project.Id, platformArea.Id, "API");
+        var reports = await OrganizationsTestData.AddAreaAsync(factory, project.Project.Id, project.Root.Id, "Отчёты");
 
         // The world was built when the root belonged to the first team: it is now the project's default team, so an item created
         // with no team (mod-017 BR-OT-3) starts where the root would have put it (the stories keep their meaning).
@@ -40,7 +40,7 @@ internal static class BoardsTestData
     public static async Task<(Guid TeamId, Guid AreaId)> AddTeamAsync(MustaskApiFactory factory, BoardsWorld world, string name)
     {
         var team = await OrganizationsTestData.AddTeamAsync(factory, world.ProjectId, name);
-        var area = await OrganizationsTestData.AddAreaAsync(factory, world.OrganizationId, null, name);
+        var area = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, world.RootAreaId, name);
 
         return (team.Id, area.Id);
     }
@@ -67,6 +67,11 @@ internal static class BoardsTestData
         var answer = await WorkItemsTestData.CreateAsync(factory, world.Items, typeKey, title);
         Assert.Equal(HttpStatusCode.Created, answer.Status);
         var item = new Item(answer.Body.GetProperty("id").GetGuid(), answer.Body.GetProperty("identifier").GetString()!);
+
+        if (areaId is { } area && area != world.RootAreaId)
+        {
+            await MoveToAreaAsync(factory, world, item, area);
+        }
 
         await OwningTeamTestData.SetOwningTeamAsync(factory, item.Id, OwnerOf(world, areaId));
 
@@ -96,11 +101,15 @@ internal static class BoardsTestData
             gate);
 
     /// <summary>
-    /// Gives the item the team the stories' world meant by that area (<see cref="OwnerOf"/>). mod-018: an item has no Область any more,
-    /// so the area is only the name the stories use for the team.
+    /// Puts the item where the stories' world meant by that area: its Область on its form (mod-003's PATCH; fails the test
+    /// unless it answers 200) and the team the world gave that area (<see cref="OwnerOf"/>). The two are separate since
+    /// mod-017 (BR-OT-10: moving an area or an item's Область changes no team); a test of that sets them apart.
     /// </summary>
     public static async Task MoveToAreaAsync(MustaskApiFactory factory, BoardsWorld world, Item item, Guid areaId)
     {
+        var answer = await WorkItemsTestData.SaveAsync(factory, world.Items, item.Identifier, new { areaId = areaId.ToString() });
+        Assert.Equal(HttpStatusCode.OK, answer.Status);
+
         await OwningTeamTestData.SetOwningTeamAsync(factory, item.Id, OwnerOf(world, areaId));
     }
 
@@ -197,9 +206,7 @@ internal sealed record BoardsWorld(
 
     public Guid ProjectId => Items.ProjectId;
 
-    /// <summary>mod-018: the project has no root area and an item no Область; the stories that put an item "in the root" mean "the project's team".</summary>
-    public Guid RootAreaId => Guid.Empty;
-
+    public Guid RootAreaId => Items.RootAreaId;
 
     public Guid TypeId(string key) => Items.Types[key].Id;
 }

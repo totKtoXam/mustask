@@ -10,11 +10,11 @@ using Npgsql;
 namespace Mustask.Infrastructure.Tests.Organizations;
 
 /// <summary>
-/// mod-018 US-5 (OQ-1 A): <c>OrganizationAreaWorkspace</c> drops <b>every</b> per-project area and the work item's area column with them,
-/// keeps every other row, logs what it dropped, and leaves a database on which an organization's area tree and its links can be built.
-/// The legacy shape is written with SQL: the current model cannot write it. Every test gets a database of its own on the fixture's
-/// server, migrated to the migration before this one, so the counts it logs are exact. These tests need Docker and were written where
-/// Docker was not running: they are the first thing the QA session runs.
+/// mod-018 US-5 (the typed tree): <c>OrganizationAreaWorkspace</c> keeps <b>every</b> project's area tree as that project's node with its
+/// sub-areas, types the nodes, gives them the organization and the author of their project, keeps every work item and its area, builds the
+/// organization-level tables, fails naming the project when a tree is deeper than 10 levels, and rolls back. The legacy shape is written
+/// with SQL: the current model cannot write it. Every test gets a database of its own on the fixture's server, migrated to the migration
+/// before this one.
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]
@@ -23,32 +23,40 @@ public sealed class OrganizationAreaWorkspaceMigrationTests(OrganizationsDatabas
     private const string Migration = "_OrganizationAreaWorkspace";
     private static readonly DateTimeOffset Changed = new(2026, 10, 20, 9, 0, 0, TimeSpan.Zero);
 
-    // US-5 · "every area is dropped": the five areas (a root with two children in one project, a root in another, a root of a
-    // deactivated project) are gone, and the items that pointed at them are still there, one row each, with their other fields.
+    // US-5 · "every project's tree stays": the five areas (a root with two children in one project, a root in another, a root of a
+    // deactivated project) are typed — a root is the project's node (type 2), a child a sub-area (type 3) — take the organization and the
+    // author of their project, and the items still stand on their areas.
     [Fact]
-    public async Task Upgrade_DropsEveryArea_KeepsEveryItemAndEveryProject()
+    public async Task Upgrade_KeepsEveryTree_AsTypedNodes_KeepsEveryItemOnItsArea()
     {
         var legacy = await NewLegacyDatabaseAsync();
-        var seeded = await SeedAsync(legacy);
+        await SeedAsync(legacy);
         var before = await ItemsFingerprintAsync(legacy);
 
-        var notices = await MigrateAsync(legacy, Migration);
+        await MigrateAsync(legacy, Migration);
 
-        Assert.Equal(["0"], await QueryAsync(legacy, "SELECT count(*) FROM areas"));
-        Assert.Equal(["4"], await QueryAsync(legacy, "SELECT count(*) FROM work_items"));
+        Assert.Equal(["5"], await QueryAsync(legacy, "SELECT count(*) FROM areas"));
+        Assert.Equal(
+            ["3|2"],
+            await QueryAsync(legacy, "SELECT concat_ws('|', count(*) FILTER (WHERE type = 2), count(*) FILTER (WHERE type = 3)) FROM areas"));
+        Assert.Equal(["0"], await QueryAsync(legacy, "SELECT count(*) FROM areas WHERE type = 2 AND parent_id IS NOT NULL"));
+        Assert.Equal(
+            ["5"],
+            await QueryAsync(
+                legacy,
+                """
+                SELECT count(*) FROM areas JOIN projects ON projects.id = areas.project_id
+                WHERE areas.organization_id = projects.organization_id AND areas.created_by = projects.created_by AND areas.created_at = projects.created_at
+                """));
+        Assert.Equal(["4"], await QueryAsync(legacy, "SELECT count(*) FROM work_items WHERE area_id IS NOT NULL"));
         Assert.Equal(["4"], await QueryAsync(legacy, "SELECT count(*) FROM projects"));
         Assert.Equal(before, await ItemsFingerprintAsync(legacy));
-        Assert.Equal(
-            ["0"],
-            await QueryAsync(legacy, "SELECT count(*) FROM information_schema.columns WHERE table_name = 'work_items' AND column_name = 'area_id'"));
-        Assert.Equal("mod-018: 5 areas dropped (3 of them project roots) and 4 work items whose area it cleared", Assert.Single(notices));
-        _ = seeded;
     }
 
-    // US-5 · "the tree is built afresh": after the upgrade an organization-level area is created, and linked to a project and a team;
-    // the old names are free again.
+    // US-5 · "the tree is built afresh": after the upgrade a department is created and linked to a team; the shape check holds a
+    // department to no project, and a project has one node.
     [Fact]
-    public async Task Upgrade_ThenAnOrganizationAreaIsCreatedAndLinked_ThroughTheKeysOfTheNewShape()
+    public async Task Upgrade_ThenADepartmentIsCreatedAndLinked_TheShapeChecksHold()
     {
         var legacy = await NewLegacyDatabaseAsync();
         var seeded = await SeedAsync(legacy);
@@ -59,87 +67,145 @@ public sealed class OrganizationAreaWorkspaceMigrationTests(OrganizationsDatabas
         await ExecuteAsync(
             legacy,
             """
-            INSERT INTO areas (id, organization_id, parent_id, name, normalized_name, inherits_access, created_by, created_at)
-            VALUES (@area, @organization, NULL, 'Платформа', 'ПЛАТФОРМА', true, 'test', now());
-            INSERT INTO area_projects (area_id, project_id, organization_id, linked_by, linked_at)
-            VALUES (@area, @project, @organization, 'test', now());
+            INSERT INTO areas (id, organization_id, type, project_id, parent_id, name, normalized_name, created_by, created_at)
+            VALUES (@area, @organization, 1, NULL, NULL, 'Платформа', 'ПЛАТФОРМА', 'test', now());
             INSERT INTO teams (id, organization_id, name, normalized_name, status) VALUES (@team, @organization, 'Команда', 'КОМАНДА', 'Active');
             INSERT INTO area_teams (area_id, team_id, organization_id, linked_by, linked_at)
             VALUES (@area, @team, @organization, 'test', now())
             """,
             ("area", area),
             ("team", team),
-            ("organization", seeded.Organization),
-            ("project", seeded.Main));
+            ("organization", seeded.Organization));
 
-        Assert.Equal(["1|1"], await QueryAsync(legacy, "SELECT concat_ws('|', (SELECT count(*) FROM area_projects), (SELECT count(*) FROM area_teams))"));
+        Assert.Equal(["1"], await QueryAsync(legacy, "SELECT count(*) FROM area_teams"));
+
+        var departmentWithAProject = await Assert.ThrowsAsync<PostgresException>(() => ExecuteAsync(
+            legacy,
+            "INSERT INTO areas (id, organization_id, type, project_id, parent_id, name, normalized_name, created_by, created_at) VALUES (gen_random_uuid(), @organization, 1, @project, NULL, 'Б', 'Б', 'test', now())",
+            ("organization", seeded.Organization),
+            ("project", seeded.Main)));
+        var twoNodesForOneProject = await Assert.ThrowsAsync<PostgresException>(() => ExecuteAsync(
+            legacy,
+            "INSERT INTO areas (id, organization_id, type, project_id, parent_id, name, normalized_name, created_by, created_at) VALUES (gen_random_uuid(), @organization, 2, @project, NULL, 'В', 'В', 'test', now())",
+            ("organization", seeded.Organization),
+            ("project", seeded.Main)));
+
+        Assert.Equal("23514", departmentWithAProject.SqlState);
+        Assert.Equal("23505", twoNodesForOneProject.SqlState);
     }
 
-    // US-5 · "a link never crosses an organization": the composite keys refuse a project of another organization.
+    // US-5 · "a link never crosses an organization": the composite keys refuse a team of another organization.
     [Fact]
-    public async Task Upgrade_ALinkToAProjectOfAnotherOrganization_IsRefusedByTheKey()
+    public async Task Upgrade_ALinkToATeamOfAnotherOrganization_IsRefusedByTheKey()
     {
         var legacy = await NewLegacyDatabaseAsync();
         var seeded = await SeedAsync(legacy);
         await MigrateAsync(legacy, Migration);
         var area = Guid.CreateVersion7();
+        var team = Guid.CreateVersion7();
         await ExecuteAsync(
             legacy,
-            "INSERT INTO areas (id, organization_id, parent_id, name, normalized_name, inherits_access, created_by, created_at) VALUES (@area, @organization, NULL, 'А', 'А', true, 'test', now())",
+            """
+            INSERT INTO areas (id, organization_id, type, name, normalized_name, created_by, created_at) VALUES (@area, @organization, 1, 'А', 'А', 'test', now());
+            INSERT INTO teams (id, organization_id, name, normalized_name, status) VALUES (@team, @other, 'Команда', 'КОМАНДА', 'Active')
+            """,
             ("area", area),
-            ("organization", seeded.Organization));
+            ("team", team),
+            ("organization", seeded.Organization),
+            ("other", seeded.OtherOrganization));
 
         var refused = await Assert.ThrowsAsync<PostgresException>(() => ExecuteAsync(
             legacy,
-            "INSERT INTO area_projects (area_id, project_id, organization_id, linked_by, linked_at) VALUES (@area, @project, @organization, 'test', now())",
+            "INSERT INTO area_teams (area_id, team_id, organization_id, linked_by, linked_at) VALUES (@area, @team, @organization, 'test', now())",
             ("area", area),
-            ("project", seeded.Other),
+            ("team", team),
             ("organization", seeded.Organization)));
 
         Assert.Equal("23503", refused.SqlState);
     }
 
-    // The rollback: the old shape comes back (a project on the area, the item's column), the tables of the new shape are gone, and the
-    // migration applies again.
+    // OQ-13 A · a tree deeper than 10 levels stops the upgrade naming the project; nothing changes, and the shortened tree upgrades.
     [Fact]
-    public async Task Rollback_RestoresTheOldShape_AndAppliesAgain()
+    public async Task Upgrade_ATreeDeeperThanTen_FailsNamingTheProject_AndNothingChanges()
     {
         var legacy = await NewLegacyDatabaseAsync();
-        await SeedAsync(legacy);
+        var seeded = await SeedAsync(legacy);
+        var deepest = seeded.MainRoot;
+
+        for (var level = 2; level <= 10; level++)
+        {
+            deepest = await InsertAreaAsync(legacy, seeded.Main, deepest, $"Глубина {level}");
+        }
+
+        var eleventh = await InsertAreaAsync(legacy, seeded.Main, deepest, "Глубина 11");
+
+        var refused = await Assert.ThrowsAnyAsync<Exception>(() => MigrateAsync(legacy, Migration));
+
+        Assert.Contains("Пример (PRM)", refused.ToString());
+        Assert.DoesNotContain("Второй (SEC)", refused.ToString());
+        Assert.Equal(
+            ["0"],
+            await QueryAsync(legacy, "SELECT count(*) FROM information_schema.columns WHERE table_name = 'areas' AND column_name = 'type'"));
+
+        await ExecuteAsync(legacy, "DELETE FROM areas WHERE id = @id", ("id", eleventh));
         await MigrateAsync(legacy, Migration);
+
+        Assert.Equal(["14"], await QueryAsync(legacy, "SELECT count(*) FROM areas"));
+    }
+
+    // The rollback (Down): the departments and their links go, the project nodes become roots again, the old shape comes back and the
+    // migration applies again.
+    [Fact]
+    public async Task Rollback_RestoresTheOldShape_DropsDepartments_AndAppliesAgain()
+    {
+        var legacy = await NewLegacyDatabaseAsync();
+        var seeded = await SeedAsync(legacy);
+        await MigrateAsync(legacy, Migration);
+        var department = Guid.CreateVersion7();
+        await ExecuteAsync(
+            legacy,
+            "INSERT INTO areas (id, organization_id, type, name, normalized_name, created_by, created_at) VALUES (@id, @organization, 1, 'Отдел', 'ОТДЕЛ', 'test', now())",
+            ("id", department),
+            ("organization", seeded.Organization));
+        await ExecuteAsync(
+            legacy,
+            "UPDATE areas SET parent_id = @department WHERE project_id = @project AND parent_id IS NULL",
+            ("department", department),
+            ("project", seeded.Main));
 
         await MigrateAsync(legacy, "previous");
 
         Assert.Equal(
-            ["true|true|false"],
+            ["5|false|false"],
             await QueryAsync(
                 legacy,
                 """
                 SELECT concat_ws('|',
-                    EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'areas' AND column_name = 'project_id')::text,
-                    EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'work_items' AND column_name = 'area_id')::text,
-                    EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'area_projects')::text)
+                    (SELECT count(*) FROM areas),
+                    EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'areas' AND column_name = 'type')::text,
+                    EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'area_teams')::text)
                 """));
+        Assert.Equal(["3"], await QueryAsync(legacy, "SELECT count(*) FROM areas WHERE parent_id IS NULL"));
 
         await MigrateAsync(legacy, Migration);
 
-        Assert.Equal(["true"], await QueryAsync(legacy, "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'area_projects')::text"));
+        Assert.Equal(["true"], await QueryAsync(legacy, "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'area_teams')::text"));
     }
 
-    // US-5 · "little to drop": a database with no area logs zeros and changes no row.
+    // US-5 · "little to convert": a database with no area upgrades and changes no row.
     [Fact]
-    public async Task Upgrade_EmptyDatabase_LogsZeros()
+    public async Task Upgrade_EmptyDatabase_Succeeds()
     {
         var legacy = await NewLegacyDatabaseAsync();
 
-        var notices = await MigrateAsync(legacy, Migration);
+        await MigrateAsync(legacy, Migration);
 
-        Assert.Equal("mod-018: 0 areas dropped (0 of them project roots) and 0 work items whose area it cleared", Assert.Single(notices));
+        Assert.Equal(["0"], await QueryAsync(legacy, "SELECT count(*) FROM areas"));
     }
 
     // --- Arrangement -------------------------------------------------------------------------------------------------
 
-    private sealed record Seeded(Guid Organization, Guid Main, Guid Other);
+    private sealed record Seeded(Guid Organization, Guid OtherOrganization, Guid Main, Guid MainRoot, Guid Other);
 
     /// <summary>
     /// The legacy data: one organization with two projects (a root with two children in the first, a root in the second), a deactivated
@@ -181,7 +247,7 @@ public sealed class OrganizationAreaWorkspaceMigrationTests(OrganizationsDatabas
             await InsertItemAsync(cs, main, 3, Guid.Parse(parts[0]), Guid.Parse(parts[1]), childOne);
             await InsertItemAsync(cs, second, 1, Guid.Parse(parts[0]), Guid.Parse(parts[1]), rootSecond);
 
-        return new Seeded(organization, main, foreign);
+        return new Seeded(organization, otherOrganization, main, rootMain, foreign);
     }
 
     private async Task<Guid> CreateOrganizationAsync(string connectionString, string name)

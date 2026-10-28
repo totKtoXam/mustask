@@ -1,13 +1,16 @@
 using System.Net;
-using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Mustask.Api.IntegrationTests.Features.WorkItems;
 using Mustask.Domain.Identity;
+using Mustask.Domain.Organizations;
+using Mustask.Infrastructure;
 
 namespace Mustask.Api.IntegrationTests.Features.Organizations;
 
 /// <summary>
-/// mod-018 US-3 (the links between areas, projects and teams, from all three ends, and creation with links) and the link part of
-/// US-6 (containment and roles). Each test builds its own organization.
+/// mod-018 US-4 (the typed tree): the area–team links join departments only (OQ-8 A) — from the department's end and from the
+/// team's end, the changed answers (<c>link_type_not_allowed</c>), idempotence, containment, and a refused creation leaving nothing.
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]
@@ -19,274 +22,156 @@ public sealed class AreaLinkEndpointTests(MustaskApiFactory factory)
 
     private static string Area(Guid organizationId, Guid areaId) => $"{OrganizationsApi.Areas(organizationId)}/{areaId}";
 
-    private static IEnumerable<Guid> Ids(Answer answer) => answer.Body.EnumerateArray().Select(row => row.GetProperty("id").GetGuid());
+    private async Task<List<AreaTeam>> LinksAsync(Guid areaId)
+    {
+        using var scope = factory.Services.CreateScope();
 
-    // US-3 · "A project is linked to an area from the area's end": the link shows from both ends, a repeat is a 204 no-op, and an
-    // empty list is a 204 no-op too.
+        return await scope.ServiceProvider.GetRequiredService<MustaskDbContext>().Set<AreaTeam>().AsNoTracking().Where(l => l.AreaId == areaId).ToListAsync();
+    }
+
+    // US-4 · a department and a team are linked from either end; the page of each shows the other; a second link changes nothing.
     [Fact]
-    public async Task LinkProject_FromTheAreaEnd_ShowsFromBothEnds_IsIdempotent()
+    public async Task Link_FromBothEnds_ShowsFromBoth_IsIdempotent_UnlinkRemovesOnlyTheLink()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
-        var area = await OrganizationsTestData.AddAreaAsync(factory, organization, null, "Отчёты");
-        var body = new { projectIds = new[] { structure.ProjectId.ToString() } };
+        var department = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Разработка");
+        var team = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, organization, "Марс");
+        var ivan = await MembershipTestData.NewMemberAsync(factory, organization, OrganizationRole.Admin);
 
-        var linked = await SendAsync(HttpMethod.Post, $"{Area(organization, area.Id)}/projects", body);
-        var again = await SendAsync(HttpMethod.Post, $"{Area(organization, area.Id)}/projects", body);
-        var empty = await SendAsync(HttpMethod.Post, $"{Area(organization, area.Id)}/projects", new { projectIds = Array.Empty<string>() });
-        var fromArea = await SendAsync(HttpMethod.Get, $"{Area(organization, area.Id)}/projects");
-        var fromProject = await SendAsync(HttpMethod.Get, OrganizationsApi.ProjectAreas(organization, structure.ProjectId));
+        var fromTheArea = await SendAsync(HttpMethod.Post, $"{Area(organization, department.Id)}/teams", new { teamIds = new[] { team.Id.ToString() } }, ivan.Token);
+        var first = Assert.Single(await LinksAsync(department.Id));
+        var fromTheTeam = await SendAsync(HttpMethod.Post, OrganizationsApi.TeamAreas(organization, team.Id), new { areaIds = new[] { department.Id.ToString() } });
+        var areaTeams = await SendAsync(HttpMethod.Get, $"{Area(organization, department.Id)}/teams");
+        var teamAreas = await SendAsync(HttpMethod.Get, OrganizationsApi.TeamAreas(organization, team.Id));
+        var unlinked = await SendAsync(HttpMethod.Delete, $"{OrganizationsApi.TeamAreas(organization, team.Id)}/{department.Id}");
+        var unlinkedAgain = await SendAsync(HttpMethod.Delete, $"{Area(organization, department.Id)}/teams/{team.Id}");
 
-        Assert.Equal(HttpStatusCode.NoContent, linked.Status);
-        Assert.Equal(HttpStatusCode.NoContent, again.Status);
-        Assert.Equal(HttpStatusCode.NoContent, empty.Status);
-        var project = Assert.Single(fromArea.Body.EnumerateArray());
-        Assert.Equal(["id", "key", "name"], project.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal));
-        Assert.Equal(structure.ProjectId, project.GetProperty("id").GetGuid());
-        var reference = Assert.Single(fromProject.Body.EnumerateArray());
-        Assert.Equal(["id", "name", "path"], reference.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal));
-        Assert.Equal(area.Id, reference.GetProperty("id").GetGuid());
+        Assert.Equal((HttpStatusCode.NoContent, HttpStatusCode.NoContent), (fromTheArea.Status, fromTheTeam.Status));
+        Assert.Equal(ivan.Id, first.LinkedBy);
+        Assert.Equal("Марс", Assert.Single(areaTeams.Body.EnumerateArray()).GetProperty("name").GetString());
+        Assert.Equal("Разработка", Assert.Single(teamAreas.Body.EnumerateArray()).GetProperty("path").GetString());
+        Assert.Equal((HttpStatusCode.NoContent, HttpStatusCode.NoContent), (unlinked.Status, unlinkedAgain.Status));
+        Assert.Empty(await LinksAsync(department.Id));
+        Assert.Contains(await TeamTestData.StoredTeamsAsync(factory, organization), stored => stored.Id == team.Id);
     }
 
-    // US-3 · "The same link is made from the project's end and from the team's end": areas are linked from either side.
+    // OQ-8 A, OQ-11 A · a project's node and a sub-area take no team link; from the team's end one such node refuses the whole request.
     [Fact]
-    public async Task Link_FromTheProjectEndAndTheTeamEnd_ShowsFromTheAreaEnd()
+    public async Task Link_ToAProjectNodeOrASubArea_Returns409LinkTypeNotAllowed_LinksNothing()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
-        var reports = await OrganizationsTestData.AddAreaAsync(factory, organization, null, "Отчёты");
-        var store = await OrganizationsTestData.AddAreaAsync(factory, organization, reports.Id, "Склад");
+        var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
+        var sub = await OrganizationsTestData.AddSubAreaAsync(factory, organization, node.Id, "Отчёты");
+        var department = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Разработка");
 
-        var projectLink = await SendAsync(HttpMethod.Post, OrganizationsApi.ProjectAreas(organization, structure.ProjectId), new { areaIds = new[] { reports.Id.ToString() } });
-        var teamLink = await SendAsync(HttpMethod.Post, OrganizationsApi.TeamAreas(organization, structure.Platform.Id), new { areaIds = new[] { reports.Id.ToString(), store.Id.ToString() } });
-        var projects = await SendAsync(HttpMethod.Get, $"{Area(organization, reports.Id)}/projects");
-        var teams = await SendAsync(HttpMethod.Get, $"{Area(organization, reports.Id)}/teams");
-        var teamAreas = await SendAsync(HttpMethod.Get, OrganizationsApi.TeamAreas(organization, structure.Platform.Id));
+        var toNode = await SendAsync(HttpMethod.Post, $"{Area(organization, node.Id)}/teams", new { teamIds = new[] { structure.Platform.Id.ToString() } });
+        var toSub = await SendAsync(HttpMethod.Post, $"{Area(organization, sub.Id)}/teams", new { teamIds = new[] { structure.Platform.Id.ToString() } });
+        var mixed = await SendAsync(
+            HttpMethod.Post,
+            OrganizationsApi.TeamAreas(organization, structure.Platform.Id),
+            new { areaIds = new[] { department.Id.ToString(), node.Id.ToString() } });
+        var creation = await SendAsync(
+            HttpMethod.Post,
+            OrganizationsApi.Areas(organization),
+            new { name = "Под узлом", parentId = node.Id.ToString(), teamIds = new[] { structure.Platform.Id.ToString() } });
 
-        Assert.Equal(HttpStatusCode.NoContent, projectLink.Status);
-        Assert.Equal(HttpStatusCode.NoContent, teamLink.Status);
-        Assert.Equal(structure.ProjectId, Assert.Single(Ids(projects)));
-        Assert.Equal(structure.Platform.Id, Assert.Single(Ids(teams)));
-        Assert.Equal(["Отчёты", "Отчёты / Склад"], teamAreas.Body.EnumerateArray().Select(row => row.GetProperty("path").GetString()));
+        foreach (var answer in new[] { toNode, toSub, mixed, creation })
+        {
+            LinksTestData.AssertRefused(answer, HttpStatusCode.Conflict, "organizations.area.link_type_not_allowed");
+        }
+
+        Assert.Empty(await LinksAsync(department.Id));
+        Assert.Empty(await LinksAsync(node.Id));
+        Assert.Equal(3, (await OrganizationsTestData.ReadOrganizationTreeAsync(factory, organization)).Count);
     }
 
-    // US-3 · "A link is removed from any end": the area, the project and the team stay; only the link goes.
+    // US-4 · a department is created with teams in the same step, all or nothing.
     [Fact]
-    public async Task Unlink_FromEveryEnd_RemovesOnlyTheLink()
-    {
-        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var organization = structure.OrganizationId;
-        var area = await OrganizationsTestData.AddAreaAsync(factory, organization, null, "Отчёты");
-        await OrganizationsTestData.LinkAreaToProjectAsync(factory, organization, area.Id, structure.ProjectId);
-        await OrganizationsTestData.LinkAreaToTeamAsync(factory, organization, area.Id, structure.Platform.Id);
-
-        var fromArea = await SendAsync(HttpMethod.Delete, $"{Area(organization, area.Id)}/projects/{structure.ProjectId}");
-        var fromTeam = await SendAsync(HttpMethod.Delete, $"{OrganizationsApi.TeamAreas(organization, structure.Platform.Id)}/{area.Id}");
-        var repeat = await SendAsync(HttpMethod.Delete, $"{OrganizationsApi.TeamAreas(organization, structure.Platform.Id)}/{area.Id}");
-
-        Assert.Equal(HttpStatusCode.NoContent, fromArea.Status);
-        Assert.Equal(HttpStatusCode.NoContent, fromTeam.Status);
-        Assert.Equal(HttpStatusCode.NoContent, repeat.Status);
-        Assert.Empty((await SendAsync(HttpMethod.Get, $"{Area(organization, area.Id)}/projects")).Body.EnumerateArray());
-        Assert.Empty((await SendAsync(HttpMethod.Get, $"{Area(organization, area.Id)}/teams")).Body.EnumerateArray());
-        Assert.Equal(HttpStatusCode.OK, (await SendAsync(HttpMethod.Get, Area(organization, area.Id))).Status);
-    }
-
-    // US-3 · "Only active projects are listed": a deactivated project stays linked, is left out of the list, and shows in the
-    // deletion dialog with active = false.
-    [Fact]
-    public async Task DeactivatedProject_IsLeftOutOfTheList_ShownInTheDeletionDialog()
-    {
-        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var organization = structure.OrganizationId;
-        var area = await OrganizationsTestData.AddAreaAsync(factory, organization, null, "Отчёты");
-        var dormant = await OrganizationsTestData.CreateProjectAsync(factory, organization, "Спящий", "SLP", Mustask.Domain.Organizations.ProjectStatus.Deactivated);
-        await OrganizationsTestData.LinkAreaToProjectAsync(factory, organization, area.Id, dormant.Project.Id);
-
-        var list = await SendAsync(HttpMethod.Get, $"{Area(organization, area.Id)}/projects");
-        var deletion = await SendAsync(HttpMethod.Get, $"{Area(organization, area.Id)}/deletion");
-
-        Assert.Empty(list.Body.EnumerateArray());
-        var shown = Assert.Single(deletion.Body.GetProperty("projects").EnumerateArray());
-        Assert.Equal(dormant.Project.Id, shown.GetProperty("id").GetGuid());
-        Assert.False(shown.GetProperty("active").GetBoolean());
-    }
-
-    // US-3 · "A project of another organization is the same 404 as an unknown one", from every end; nothing is linked, not even
-    // the ids that were fine (all or nothing).
-    [Fact]
-    public async Task Link_ProjectOrTeamOfAnotherOrganization_Returns404_LinksNothing()
+    public async Task Create_DepartmentWithTeams_LinksInTheSameStep_AllOrNothing()
     {
         var mine = await OrganizationsTestData.CreateStructureAsync(factory);
         var theirs = await OrganizationsTestData.CreateStructureAsync(factory);
-        var area = await OrganizationsTestData.AddAreaAsync(factory, mine.OrganizationId, null, "Отчёты");
-        var organization = mine.OrganizationId;
+        var ownTeam = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, mine.OrganizationId, "Марс");
 
-        var project = await SendAsync(HttpMethod.Post, $"{Area(organization, area.Id)}/projects", new { projectIds = new[] { mine.ProjectId.ToString(), theirs.ProjectId.ToString() } });
-        var team = await SendAsync(HttpMethod.Post, $"{Area(organization, area.Id)}/teams", new { teamIds = new[] { mine.Platform.Id.ToString(), theirs.Platform.Id.ToString() } });
-        var fromProject = await SendAsync(HttpMethod.Post, OrganizationsApi.ProjectAreas(organization, theirs.ProjectId), new { areaIds = new[] { area.Id.ToString() } });
-        var malformed = await SendAsync(HttpMethod.Post, $"{Area(organization, area.Id)}/projects", new { projectIds = new[] { "x" } });
+        var refused = await SendAsync(
+            HttpMethod.Post,
+            OrganizationsApi.Areas(mine.OrganizationId),
+            new { name = "Разработка", teamIds = new[] { ownTeam.Id.ToString(), theirs.Platform.Id.ToString() } });
+        var created = await SendAsync(HttpMethod.Post, OrganizationsApi.Areas(mine.OrganizationId), new { name = "Разработка", teamIds = new[] { ownTeam.Id.ToString() } });
 
-        LinksTestData.AssertRefused(project, HttpStatusCode.NotFound, "organizations.project.not_found");
-        LinksTestData.AssertRefused(team, HttpStatusCode.NotFound, "organizations.team.not_found");
-        LinksTestData.AssertRefused(fromProject, HttpStatusCode.NotFound, "organizations.project.not_found");
-        LinksTestData.AssertRefused(malformed, HttpStatusCode.NotFound, "organizations.project.not_found");
-        Assert.Empty((await SendAsync(HttpMethod.Get, $"{Area(organization, area.Id)}/projects")).Body.EnumerateArray());
-        Assert.Empty((await SendAsync(HttpMethod.Get, $"{Area(organization, area.Id)}/teams")).Body.EnumerateArray());
-    }
-
-    // US-3 · "An area of another organization is refused when linking from a project's or a team's end".
-    [Fact]
-    public async Task Link_AnAreaOfAnotherOrganization_FromAProjectEnd_Returns404AreaNotFound()
-    {
-        var mine = await OrganizationsTestData.CreateStructureAsync(factory);
-        var theirs = await OrganizationsTestData.CreateStructureAsync(factory);
-        var foreign = await OrganizationsTestData.AddAreaAsync(factory, theirs.OrganizationId, null, "Чужая");
-        var body = new { areaIds = new[] { foreign.Id.ToString() } };
-
-        var project = await SendAsync(HttpMethod.Post, OrganizationsApi.ProjectAreas(mine.OrganizationId, mine.ProjectId), body);
-        var team = await SendAsync(HttpMethod.Post, OrganizationsApi.TeamAreas(mine.OrganizationId, mine.Platform.Id), body);
-
-        LinksTestData.AssertRefused(project, HttpStatusCode.NotFound, "organizations.area.not_found");
-        LinksTestData.AssertRefused(team, HttpStatusCode.NotFound, "organizations.area.not_found");
-    }
-
-    // US-3 · "A project is created with its areas, a team too, an area with both": all or nothing.
-    [Fact]
-    public async Task Create_WithLinks_LinksInTheSameStep_AllOrNothing()
-    {
-        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var organization = structure.OrganizationId;
-        var area = await OrganizationsTestData.AddAreaAsync(factory, organization, null, "Отчёты");
-
-        var created = await SendAsync(HttpMethod.Post, $"{OrganizationsApi.Areas(organization)}", new
-        {
-            name = "Склад",
-            projectIds = new[] { structure.ProjectId.ToString() },
-            teamIds = new[] { structure.Platform.Id.ToString() },
-        });
-        var refused = await SendAsync(HttpMethod.Post, $"{OrganizationsApi.Areas(organization)}", new
-        {
-            name = "Цех",
-            projectIds = new[] { Guid.CreateVersion7().ToString() },
-        });
-        var project = await SendAsync(HttpMethod.Post, $"/api/organizations/{organization}/projects", new { name = "Новый", key = "NEW", areaIds = new[] { area.Id.ToString() } });
-        var team = await SendAsync(HttpMethod.Post, OrganizationsApi.OrgTeams(organization), new { name = "Новая", areaIds = new[] { area.Id.ToString() } });
-        var badTeam = await SendAsync(HttpMethod.Post, OrganizationsApi.OrgTeams(organization), new { name = "Лишняя", areaIds = new[] { Guid.CreateVersion7().ToString() } });
-
+        LinksTestData.AssertRefused(refused, HttpStatusCode.NotFound, "organizations.team.not_found");
         Assert.Equal(HttpStatusCode.Created, created.Status);
-        var createdId = created.Body.GetProperty("id").GetGuid();
-        Assert.Equal(structure.ProjectId, Assert.Single(Ids(await SendAsync(HttpMethod.Get, $"{Area(organization, createdId)}/projects"))));
-        Assert.Equal(structure.Platform.Id, Assert.Single(Ids(await SendAsync(HttpMethod.Get, $"{Area(organization, createdId)}/teams"))));
-        LinksTestData.AssertRefused(refused, HttpStatusCode.NotFound, "organizations.project.not_found");
-        Assert.DoesNotContain(
-            (await OrganizationsTestData.ReadTreeAsync(factory, organization)).PreOrder(),
-            node => node.Name == "Цех");
-        Assert.Equal(HttpStatusCode.Created, project.Status);
-        Assert.Equal(project.Body.GetProperty("id").GetGuid(), Assert.Single(Ids(await SendAsync(HttpMethod.Get, $"{Area(organization, area.Id)}/projects"))));
-        Assert.Equal(HttpStatusCode.Created, team.Status);
-        Assert.Equal(team.Body.GetProperty("id").GetGuid(), Assert.Single(Ids(await SendAsync(HttpMethod.Get, $"{Area(organization, area.Id)}/teams"))));
-        LinksTestData.AssertRefused(badTeam, HttpStatusCode.NotFound, "organizations.area.not_found");
+        Assert.Equal(ownTeam.Id, Assert.Single(await LinksAsync(created.Body.GetProperty("id").GetGuid())).TeamId);
     }
 
-    // US-3 / US-6 · "A deactivated project or a deleted team of the address is a 404": a link naming it changes nothing.
+    // US-4 · a team or a department of another organization is the same 404 as an unknown one and links nothing.
     [Fact]
-    public async Task Link_ADeactivatedProjectOfTheAddress_Returns404ProjectNotFound()
+    public async Task Link_AnEndOfAnotherOrganization_Returns404_LinksNothing()
     {
-        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var organization = structure.OrganizationId;
-        var area = await OrganizationsTestData.AddAreaAsync(factory, organization, null, "Отчёты");
-        var dormant = await OrganizationsTestData.CreateProjectAsync(factory, organization, "Спящий", "SLP", Mustask.Domain.Organizations.ProjectStatus.Deactivated);
+        var mine = await OrganizationsTestData.CreateStructureAsync(factory);
+        var theirs = await OrganizationsTestData.CreateStructureAsync(factory);
+        var department = await OrganizationsTestData.AddDepartmentAsync(factory, mine.OrganizationId, "Разработка");
+        var foreignDepartment = await OrganizationsTestData.AddDepartmentAsync(factory, theirs.OrganizationId, "Чужая");
 
-        var answer = await SendAsync(HttpMethod.Post, OrganizationsApi.ProjectAreas(organization, dormant.Project.Id), new { areaIds = new[] { area.Id.ToString() } });
+        var team = await SendAsync(HttpMethod.Post, $"{Area(mine.OrganizationId, department.Id)}/teams", new { teamIds = new[] { theirs.Platform.Id.ToString() } });
+        var area = await SendAsync(HttpMethod.Post, OrganizationsApi.TeamAreas(mine.OrganizationId, mine.Platform.Id), new { areaIds = new[] { foreignDepartment.Id.ToString() } });
 
-        LinksTestData.AssertRefused(answer, HttpStatusCode.NotFound, "organizations.project.not_found");
-        Assert.Empty((await SendAsync(HttpMethod.Get, $"{Area(organization, area.Id)}/projects")).Body.EnumerateArray());
+        LinksTestData.AssertRefused(team, HttpStatusCode.NotFound, "organizations.team.not_found");
+        LinksTestData.AssertRefused(area, HttpStatusCode.NotFound, "organizations.area.not_found");
+        Assert.Empty(await LinksAsync(department.Id));
+        Assert.Empty(await LinksAsync(foreignDepartment.Id));
     }
 
-    // US-3 / BR-AW-10 · unlinking from the area's end names a deactivated project: 404 `project.not_found`, and the stored link
-    // survives, so a restore brings it back.
+    // US-4 · deleting a team ends its department links, and no department goes.
     [Fact]
-    public async Task Unlink_ADeactivatedProjectFromTheAreaEnd_Returns404_LinkSurvivesRestore()
+    public async Task DeletingATeam_EndsEveryAreaLinkOfIt_AndNoAreaGoes()
     {
-        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var organization = structure.OrganizationId;
-        var area = await OrganizationsTestData.AddAreaAsync(factory, organization, null, "Отчёты");
-        var project = await OrganizationsTestData.CreateProjectAsync(factory, organization, "Спящий", "SLP");
-        await OrganizationsTestData.LinkAreaToProjectAsync(factory, organization, area.Id, project.Project.Id);
-        await OrganizationsTestData.SetProjectStatusAsync(factory, organization, project.Project.Id, Mustask.Domain.Organizations.ProjectStatus.Deactivated);
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
+        var team = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, organization.Id, "Марс");
+        var reports = await OrganizationsTestData.AddDepartmentAsync(factory, organization.Id, "Отчёты");
+        var finance = await OrganizationsTestData.AddDepartmentAsync(factory, organization.Id, "Финансы");
+        await OrganizationsTestData.LinkAreaToTeamAsync(factory, organization.Id, reports.Id, team.Id);
+        await OrganizationsTestData.LinkAreaToTeamAsync(factory, organization.Id, finance.Id, team.Id);
 
-        var answer = await SendAsync(HttpMethod.Delete, $"{Area(organization, area.Id)}/projects/{project.Project.Id}");
-        await OrganizationsTestData.SetProjectStatusAsync(factory, organization, project.Project.Id, Mustask.Domain.Organizations.ProjectStatus.Active);
+        var deleted = await TeamTestData.DeleteTeamAsync(factory, organization.Id, team.Id);
 
-        LinksTestData.AssertRefused(answer, HttpStatusCode.NotFound, "organizations.project.not_found");
-        Assert.Contains(project.Project.Id, Ids(await SendAsync(HttpMethod.Get, $"{Area(organization, area.Id)}/projects")));
+        Assert.Equal(HttpStatusCode.NoContent, deleted.Status);
+        Assert.Empty(await LinksAsync(reports.Id));
+        Assert.Empty(await LinksAsync(finance.Id));
+        Assert.Equal(2, (await OrganizationsTestData.ReadOrganizationTreeAsync(factory, organization.Id)).Count);
     }
 
-    // US-3 · unlinking from the area's end names a team that is gone: 404 `team.not_found`.
+    // US-4 · a deleted team is left out of the department's list; an unreachable team cannot be unlinked from the department's end.
     [Fact]
-    public async Task Unlink_AnUnreachableTeamFromTheAreaEnd_Returns404TeamNotFound()
+    public async Task Unlink_AnUnknownTeam_Returns404TeamNotFound()
     {
-        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var organization = structure.OrganizationId;
-        var area = await OrganizationsTestData.AddAreaAsync(factory, organization, null, "Отчёты");
-        var team = await OrganizationsTestData.AddTeamAsync(factory, structure.ProjectId, "Временная");
-        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, team.Id);
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
+        var department = await OrganizationsTestData.AddDepartmentAsync(factory, organization.Id, "Разработка");
 
-        var answer = await SendAsync(HttpMethod.Delete, $"{Area(organization, area.Id)}/teams/{team.Id}");
+        var answer = await SendAsync(HttpMethod.Delete, $"{Area(organization.Id, department.Id)}/teams/{Guid.CreateVersion7()}");
 
         LinksTestData.AssertRefused(answer, HttpStatusCode.NotFound, "organizations.team.not_found");
     }
 
-    // US-6 · "The link routes follow the roles": a viewer and a member read the links of every end and write none of them.
+    // US-6 · the link writes need area.link and team.link: a member is 403 before any id is looked at.
     [Theory]
     [InlineData(OrganizationRole.Member)]
     [InlineData(OrganizationRole.Viewer)]
-    public async Task LinkRoutes_ForAMemberAndAViewer_ReadsOpen_WritesAre403(OrganizationRole role)
+    public async Task LinkWrites_ForAMemberAndAViewer_Return403(OrganizationRole role)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
-        var area = await OrganizationsTestData.AddAreaAsync(factory, organization, null, "Отчёты");
+        var department = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Разработка");
         var user = await MembershipTestData.NewMemberAsync(factory, organization, role);
-        var projectAreas = OrganizationsApi.ProjectAreas(organization, structure.ProjectId);
-        var teamAreas = OrganizationsApi.TeamAreas(organization, structure.Platform.Id);
 
-        foreach (var read in new[] { projectAreas, teamAreas, $"{Area(organization, area.Id)}/projects", $"{Area(organization, area.Id)}/teams" })
-        {
-            Assert.Equal(HttpStatusCode.OK, (await SendAsync(HttpMethod.Get, read, token: user.Token)).Status);
-        }
+        var link = await SendAsync(HttpMethod.Post, $"{Area(organization, department.Id)}/teams", new { teamIds = new[] { structure.Platform.Id.ToString() } }, user.Token);
+        var create = await SendAsync(
+            HttpMethod.Post, OrganizationsApi.Areas(organization), new { name = "Новая", teamIds = new[] { Guid.CreateVersion7().ToString() } }, user.Token);
 
-        var writes = new (HttpMethod, string, object?)[]
-        {
-            (HttpMethod.Post, projectAreas, new { areaIds = new[] { area.Id.ToString() } }),
-            (HttpMethod.Post, teamAreas, new { areaIds = new[] { area.Id.ToString() } }),
-            (HttpMethod.Delete, $"{projectAreas}/{area.Id}", null),
-            (HttpMethod.Delete, $"{teamAreas}/{area.Id}", null),
-        };
-
-        foreach (var (method, path, body) in writes)
-        {
-            LinksTestData.AssertRefused(await SendAsync(method, path, body, user.Token), HttpStatusCode.Forbidden, "organizations.access.forbidden");
-        }
-
-        Assert.Empty((await SendAsync(HttpMethod.Get, $"{Area(organization, area.Id)}/projects")).Body.EnumerateArray());
-    }
-
-    // US-6 · "A non-member sees no link": the organization is not found, from every end.
-    [Fact]
-    public async Task LinkRoutes_ANonMember_Returns404OrganizationNotFound()
-    {
-        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var organization = structure.OrganizationId;
-        var stranger = MembershipTestData.Outsider();
-
-        foreach (var path in new[]
-        {
-            OrganizationsApi.ProjectAreas(organization, structure.ProjectId),
-            OrganizationsApi.TeamAreas(organization, structure.Platform.Id),
-        })
-        {
-            LinksTestData.AssertRefused(await SendAsync(HttpMethod.Get, path, token: stranger), HttpStatusCode.NotFound, "organizations.organization.not_found");
-        }
+        LinksTestData.AssertRefused(link, HttpStatusCode.Forbidden, "organizations.access.forbidden");
+        LinksTestData.AssertRefused(create, HttpStatusCode.Forbidden, "organizations.access.forbidden");
+        Assert.Empty(await LinksAsync(department.Id));
     }
 }

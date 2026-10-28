@@ -34,8 +34,8 @@ public sealed class TeamFilterVolumeTests(MustaskApiFactory factory, ITestOutput
             var from = (level * PerLevel) + 1;
 
             await WorkItemsTestData.ExecuteAsync(factory, $"""
-                INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id, created_at, created_by, changed_at, parent_id, owning_team_id)
-                SELECT gen_random_uuid(), {world.ProjectId}, n, {type.Id}, {type.StateId("Новая")},
+                INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, parent_id, owning_team_id)
+                SELECT gen_random_uuid(), {world.ProjectId}, n, {type.Id}, {type.StateId("Новая")}, {world.Items.RootAreaId},
                        {types[level]} || ' ' || n, '', gen_random_uuid(), now() + n * interval '1 millisecond', 'volume-test', now(), parent.id,
                        CASE n % 3 WHEN 0 THEN {world.Mars} WHEN 1 THEN {world.Venus} END
                 FROM generate_series({from}, {from + PerLevel - 1}) AS n

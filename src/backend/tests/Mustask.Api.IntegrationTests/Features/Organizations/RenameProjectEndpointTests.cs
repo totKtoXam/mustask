@@ -64,16 +64,16 @@ public sealed class RenameProjectEndpointTests(MustaskApiFactory factory)
         Assert.Equal(structure.Platform.Id, await TeamTestData.SettingAsync(factory, structure.ProjectId));
     }
 
-    // US-3 · "Renaming a project keeps its key and touches no area (mod-018: the root is gone)": «Пример проекта» (PRM) becomes «Платформа данных».
+    // US-3 · "Renaming a project renames its root area and keeps its key": «Пример проекта» (PRM) becomes «Платформа данных».
     // The root takes the name, the key and the teams (the project's own team keeps «Пример проекта») do not
     // change, and neither does the rest of the tree.
     [Fact]
-    public async Task Rename_KeepsKeyTeamsAndTheAreaTree()
+    public async Task Rename_RenamesRoot_KeepsKeyTeamsAndTree()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var reports = await OrganizationsTestData.AddAreaAsync(factory, structure.OrganizationId, null, "Отчёты");
-        var quarterly = await OrganizationsTestData.AddAreaAsync(factory, structure.OrganizationId, reports.Id, "Квартальные");
-        var before = await OrganizationsTestData.ReadTreeAsync(factory, structure.OrganizationId);
+        var reports = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Отчёты");
+        var quarterly = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, reports.Id, "Квартальные");
+        var before = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
 
         var answer = await RenameAsync(structure, " Платформа данных ");
 
@@ -90,10 +90,14 @@ public sealed class RenameProjectEndpointTests(MustaskApiFactory factory)
         Assert.Equal("PRM", project.Key);
         Assert.Equal(ProjectStatus.Active, project.Status);
 
-        var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.OrganizationId);
+        var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
+        Assert.Equal("Платформа данных", tree.Root.Name);
+        Assert.Equal(structure.RootId, tree.Root.Id);
         Assert.Equal(before.Count, tree.Count);
-        Assert.Equal("Отчёты / Квартальные", tree.PathOf(quarterly.Id));
-        Assert.Equal(before.PreOrder(), tree.PreOrder());
+        Assert.Equal("Платформа данных / Отчёты / Квартальные", tree.PathOf(quarterly.Id));
+        Assert.Equal(
+            before.PreOrder().Where(node => node.Id != structure.RootId),
+            tree.PreOrder().Where(node => node.Id != structure.RootId));
 
         Assert.Equal("Пример проекта", await TeamNameAsync(structure.ProjectTeamId));
         Assert.Equal("Платформа", await TeamNameAsync(structure.Platform.Id));
@@ -102,7 +106,7 @@ public sealed class RenameProjectEndpointTests(MustaskApiFactory factory)
     // US-3 · "The name is unique in the organization" and api-contract § 0.6: a name never conflicts with the object's own
     // current name, so «ПРИМЕР ПРОЕКТА» renames «Пример проекта» to another case of itself.
     [Fact]
-    public async Task Rename_OwnNameInAnotherCase_Returns200_Returns200()
+    public async Task Rename_OwnNameInAnotherCase_Returns200_RootFollows()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
 
@@ -111,6 +115,7 @@ public sealed class RenameProjectEndpointTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal("ПРИМЕР ПРОЕКТА", answer.Body.GetProperty("name").GetString());
         Assert.Equal("ПРИМЕР ПРОЕКТА", (await ReadProjectAsync(structure.OrganizationId, structure.ProjectId)).Name);
+        Assert.Equal("ПРИМЕР ПРОЕКТА", (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Root.Name);
     }
 
     // US-3 · "Renaming a project ... keeps its key" and "no action anywhere changes the key" (BR-M1-1; QA pass 1): a rename
@@ -144,6 +149,7 @@ public sealed class RenameProjectEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(HttpStatusCode.Unauthorized, answer.Status);
         Assert.Equal("Пример проекта", (await ReadProjectAsync(structure.OrganizationId, structure.ProjectId)).Name);
+        Assert.Equal("Пример проекта", (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Root.Name);
     }
 
     // US-3 · "A project identifier that names no project of the organization" (BR-M1-20, BR-M1-22): malformed, unknown, or of
@@ -169,6 +175,7 @@ public sealed class RenameProjectEndpointTests(MustaskApiFactory factory)
         Assert.Equal("organizations.project.not_found", answer.ErrorCode);
         Assert.Equal("Проект не найден.", answer.Detail);
         Assert.Equal("Пример проекта", (await ReadProjectAsync(other.OrganizationId, other.ProjectId)).Name);
+        Assert.Equal("Пример проекта", (await OrganizationsTestData.ReadTreeAsync(factory, other.ProjectId)).Root.Name);
     }
 
     // US-3 · "A project is deactivated": a write under it answers project.not_found and changes nothing (ADR-0026 rule 5),
@@ -186,6 +193,7 @@ public sealed class RenameProjectEndpointTests(MustaskApiFactory factory)
         var project = await ReadProjectAsync(structure.OrganizationId, structure.ProjectId);
         Assert.Equal("Пример проекта", project.Name);
         Assert.Equal(ProjectStatus.Deactivated, project.Status);
+        Assert.Equal("Пример проекта", (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Root.Name);
     }
 
     // US-3 · "The name is unique ... an empty name, or one longer than 100 characters, is refused with «Название должно
@@ -207,6 +215,7 @@ public sealed class RenameProjectEndpointTests(MustaskApiFactory factory)
         Assert.Equal("organizations.name_length", reason.GetProperty("code").GetString());
         Assert.Equal("Название должно содержать от 1 до 100 символов", reason.GetProperty("detail").GetString());
         Assert.Equal("Пример проекта", (await ReadProjectAsync(structure.OrganizationId, structure.ProjectId)).Name);
+        Assert.Equal("Пример проекта", (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Root.Name);
     }
 
     // US-3 · "The name is unique in the organization": «альфа » is refused for the project whose neighbour is «Альфа», in any
@@ -225,9 +234,11 @@ public sealed class RenameProjectEndpointTests(MustaskApiFactory factory)
         Assert.Equal("organizations.project.name_taken", taken.ErrorCode);
         Assert.Equal("Проект с таким названием уже есть в организации", taken.Detail);
         Assert.Equal("Пример проекта", (await ReadProjectAsync(structure.OrganizationId, structure.ProjectId)).Name);
+        Assert.Equal("Пример проекта", (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Root.Name);
 
         Assert.Equal(HttpStatusCode.OK, elsewhere.Status);
         Assert.Equal("Альфа", (await ReadProjectAsync(other.OrganizationId, other.ProjectId)).Name);
+        Assert.Equal("Альфа", (await OrganizationsTestData.ReadTreeAsync(factory, other.ProjectId)).Root.Name);
     }
 
     // US-3 · "A deactivated project's name stays reserved": the holder is deactivated, so the 409 has its own code and
@@ -244,6 +255,7 @@ public sealed class RenameProjectEndpointTests(MustaskApiFactory factory)
         Assert.Equal("organizations.project.name_taken_by_deactivated", answer.ErrorCode);
         Assert.Equal("Проект с таким названием уже есть в организации: он деактивирован", answer.Detail);
         Assert.Equal("Пример проекта", (await ReadProjectAsync(structure.OrganizationId, structure.ProjectId)).Name);
+        Assert.Equal("Пример проекта", (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Root.Name);
     }
 
     private static IEnumerable<string> PropertyNames(JsonElement element) =>

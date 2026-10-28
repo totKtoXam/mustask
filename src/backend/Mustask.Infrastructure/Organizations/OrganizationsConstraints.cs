@@ -40,6 +40,13 @@ internal static class OrganizationsConstraints
     /// <summary>BR-M1-12: a name among siblings.</summary>
     public const string AreaName = "ix_areas_organization_id_parent_id_normalized_name";
 
+    /// <summary>BR-AW-0: one node per project.</summary>
+    public const string AreaProjectNode = "ix_areas_project_id_node";
+    public const string AreaProjectKey = "ak_areas_project_id_id";
+
+    /// <summary>BR-AW-3: the shape of each type (a department has no project and no parent, a sub-area has both).</summary>
+    public const string AreaTypeShape = "ck_areas_type_shape";
+
     /// <summary>BR-M1-5: one membership per user per organization — the primary key <c>(organization_id, user_id)</c> (mod-016).</summary>
     public const string MembershipPrimaryKey = "pk_organization_memberships";
 

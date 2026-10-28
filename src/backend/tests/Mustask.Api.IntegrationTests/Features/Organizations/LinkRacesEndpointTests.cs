@@ -33,11 +33,11 @@ public sealed class LinkRacesEndpointTests(MustaskApiFactory factory)
 
         var (a, b) = await RaceAsync(
             factory,
-            at => LinkTeamsAsync(factory, organization.Id, project.Id, new { teamIds = new[] { team.Id.ToString() } }, first.Token, at),
-            at => LinkTeamsAsync(factory, organization.Id, project.Id, new { teamIds = new[] { team.Id.ToString() } }, second.Token, at));
+            at => LinkTeamsAsync(factory, organization.Id, project.Project.Id, new { teamIds = new[] { team.Id.ToString() } }, first.Token, at),
+            at => LinkTeamsAsync(factory, organization.Id, project.Project.Id, new { teamIds = new[] { team.Id.ToString() } }, second.Token, at));
 
         Assert.Equal((HttpStatusCode.NoContent, HttpStatusCode.NoContent), (a.Status, b.Status));
-        var link = Assert.Single(await LinksOfProjectAsync(factory, project.Id));
+        var link = Assert.Single(await LinksOfProjectAsync(factory, project.Project.Id));
         Assert.Equal((team.Id, first.Id), (link.TeamId, link.LinkedBy));
     }
 
@@ -52,11 +52,11 @@ public sealed class LinkRacesEndpointTests(MustaskApiFactory factory)
         var team = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, organization.Id, "Общая");
 
         var (a, b) = projectFirst
-            ? await RaceAsync(factory, at => FromTheProjectAsync(organization.Id, project.Id, team.Id, at), at => FromTheTeamAsync(organization.Id, team.Id, project.Id, at))
-            : await RaceAsync(factory, at => FromTheTeamAsync(organization.Id, team.Id, project.Id, at), at => FromTheProjectAsync(organization.Id, project.Id, team.Id, at));
+            ? await RaceAsync(factory, at => FromTheProjectAsync(organization.Id, project.Project.Id, team.Id, at), at => FromTheTeamAsync(organization.Id, team.Id, project.Project.Id, at))
+            : await RaceAsync(factory, at => FromTheTeamAsync(organization.Id, team.Id, project.Project.Id, at), at => FromTheProjectAsync(organization.Id, project.Project.Id, team.Id, at));
 
         Assert.Equal((HttpStatusCode.NoContent, HttpStatusCode.NoContent), (a.Status, b.Status));
-        Assert.Single(await LinksOfProjectAsync(factory, project.Id));
+        Assert.Single(await LinksOfProjectAsync(factory, project.Project.Id));
         Assert.Single(await LinksOfTeamAsync(factory, team.Id));
     }
 
@@ -75,8 +75,8 @@ public sealed class LinkRacesEndpointTests(MustaskApiFactory factory)
         var team = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, organization.Id, "Общая");
 
         Task<Answer> Link(CommitGate? at) => fromTheProject
-            ? FromTheProjectAsync(organization.Id, project.Id, team.Id, at)
-            : FromTheTeamAsync(organization.Id, team.Id, project.Id, at);
+            ? FromTheProjectAsync(organization.Id, project.Project.Id, team.Id, at)
+            : FromTheTeamAsync(organization.Id, team.Id, project.Project.Id, at);
         Task<Answer> Deletion(CommitGate? at) => DeleteTeamAsync(factory, organization.Id, team.Id, gate: at);
 
         var (link, deletion) = linkFirst
@@ -88,7 +88,7 @@ public sealed class LinkRacesEndpointTests(MustaskApiFactory factory)
             linkFirst ? (HttpStatusCode.NoContent, (string?)null) : (HttpStatusCode.NotFound, "organizations.team.not_found"),
             (link.Status, link.ErrorCode));
         Assert.Empty(await LinksOfTeamAsync(factory, team.Id));
-        Assert.Empty(await LinksOfProjectAsync(factory, project.Id));
+        Assert.Empty(await LinksOfProjectAsync(factory, project.Project.Id));
         Assert.Equal(Mustask.Domain.Organizations.TeamStatus.Deleted, (await StoredTeamAsync(factory, team.Id)).Status);
     }
 

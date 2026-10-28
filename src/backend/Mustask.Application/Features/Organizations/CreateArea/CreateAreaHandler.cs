@@ -7,37 +7,39 @@ using Mustask.Shared.Exceptions;
 
 namespace Mustask.Application.Features.Organizations.CreateArea;
 
-/// <summary>The command of <c>POST /api/organizations/{organizationId}/areas</c>. A <c>null</c> parent is the top level.</summary>
+/// <summary>
+/// The command of <c>POST /api/organizations/{organizationId}/areas</c>. A <c>null</c> parent is the top level, where only a
+/// department stands (a project's node is created with its project); a parent is a project's node or a sub-area.
+/// </summary>
 public sealed record CreateAreaCommand(
     string? OrganizationId,
     string? Name,
     string? ParentId = null,
     string? Description = null,
-    IReadOnlyList<string?>? ProjectIds = null,
     IReadOnlyList<string?>? TeamIds = null);
 
-/// <summary>The area as every area write returns it (mod-018 api-contract § 1, <c>Area</c>).</summary>
-public sealed record AreaResponse(Guid Id, Guid? ParentId, string Name, string? Description, string Path);
+/// <summary>The node as every area write returns it (mod-018 api-contract § 1, <c>Area</c>).</summary>
+public sealed record AreaResponse(Guid Id, Guid? ParentId, string Type, Guid? ProjectId, string Name, string? Description, string Path);
 
 /// <summary>The handler's outcome: the body of the answer.</summary>
 public sealed record CreateAreaResult(AreaResponse Response);
 
 /// <summary>
-/// <c>POST /api/organizations/{organizationId}/areas</c> (mod-018 api-contract § 2, US-2): a new area under a parent or at the top
-/// level, optionally linked to projects and teams in the same transaction (all or nothing).
+/// <c>POST /api/organizations/{organizationId}/areas</c> (mod-018 api-contract § 2, US-1): a new department (no parent) or a new
+/// sub-area (a parent in a project), optionally linked to teams in the same transaction (a department only: OQ-8 A, all or nothing).
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The order of answers</b> (BR-AW-15): the second codes first of all (<c>area.create</c> for a top-level area; <c>area.link</c>
-/// with <c>project.link</c> or <c>team.link</c> for an end named); the organization; the parent (404); the values (400, every
-/// reason at once); the projects named (404) and, under the locks, the parent again and the teams (404); then 409 — the depth, then
-/// the sibling name.
+/// <b>The order of answers</b> (BR-AW-15): the second codes first of all (<c>area.create</c> for a department; <c>area.link</c> with
+/// <c>team.link</c> for teams named); the organization; the parent (404); the values (400, every reason at once); a deactivated
+/// project's parent (404 <c>project.not_found</c>); the parent's type (409 <c>type_not_allowed</c>) and teams named under a sub-area
+/// (409 <c>link_type_not_allowed</c>); the teams (404); then 409 — the depth, then the sibling name.
 /// </para>
 /// <para>
-/// <b>Locks</b> (ADR-0028 rule 8; plan-backend § 5): the organization's tree lock, then the parent <c>FOR SHARE</c> (a creation under
-/// a parent being moved or deleted waits and then reads what it left), then the teams <c>FOR SHARE</c>, and the tree is read after
-/// them. A parent judged present by the unlocked read is judged again by the lock statement's own answer. Two creations of one
-/// name serialize on the tree lock; the sibling index is the backstop.
+/// <b>Locks</b> (ADR-0031, ADR-0028 rule 8): the organization's tree lock, then the parent <c>FOR SHARE</c> (a creation under a parent
+/// being moved or deleted waits and then reads what it left), then the teams <c>FOR SHARE</c>, and the tree is read after them. A
+/// parent judged present by the unlocked read is judged again by the lock statement's own answer. Two creations of one name
+/// serialize on the tree lock; the sibling index is the backstop.
 /// </para>
 /// </remarks>
 public sealed class CreateAreaHandler(
@@ -54,14 +56,11 @@ public sealed class CreateAreaHandler(
     public async Task<CreateAreaResult> Handle(CreateAreaCommand command, CancellationToken cancellationToken)
     {
         // 0. The second codes, first of all (D-7): a role lacking one learns nothing about any id, and nothing changes.
-        var projectsNamed = command.ProjectIds is { Count: > 0 };
         var teamsNamed = command.TeamIds is { Count: > 0 };
 
         if ((command.ParentId is null && !access.Holds(PermissionCatalog.OrganizationsAreaCreate))
-            || ((projectsNamed || teamsNamed)
-                && (!access.Holds(PermissionCatalog.OrganizationsAreaLink)
-                    || (projectsNamed && !access.Holds(PermissionCatalog.OrganizationsProjectLink))
-                    || (teamsNamed && !access.Holds(PermissionCatalog.OrganizationsTeamLink)))))
+            || (teamsNamed
+                && (!access.Holds(PermissionCatalog.OrganizationsAreaLink) || !access.Holds(PermissionCatalog.OrganizationsTeamLink))))
         {
             throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
         }
@@ -109,21 +108,32 @@ public sealed class CreateAreaHandler(
                     throw new ValidationException(OrganizationErrorCodes.ValidationFailed, errors);
                 }
 
-                // 4. The other ids of the body: each an active project, then each an active team of this organization, all or nothing.
-                var projectIds = AreaRequests.ParseIds(command.ProjectIds, OrganizationErrorCodes.ProjectNotFound);
                 var teamIds = AreaRequests.ParseIds(command.TeamIds, OrganizationErrorCodes.TeamNotFound);
-
-                if (projectIds.Count > 0 && await projects.CountReachableAsync(organizationId, projectIds, ct) != projectIds.Count)
-                {
-                    throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
-                }
 
                 // The locks, in rule 8's order: the tree, the parent, then the teams.
                 await areas.LockTreeAsync(organizationId, ct);
 
-                if (parentId is { } lockedParentId && await areas.LockForShareAsync(organizationId, lockedParentId, ct) is null)
+                Area? parent = null;
+
+                if (parentId is { } lockedParentId)
                 {
-                    throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
+                    parent = await areas.LockForShareAsync(organizationId, lockedParentId, ct)
+                        ?? throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
+
+                    // A sub-area of a deactivated project is not created (BR-AW-10): the project is not found.
+                    await AreaRequests.EnsureProjectActiveAsync(projects, organizationId, parent, ct);
+                }
+
+                // 4. The type rules (409): a sub-area stands only below a project's node or a sub-area (OQ-7 A); teams link to a
+                // department only (OQ-8 A), and a department is the only node created without a parent.
+                if (parent is not null && parent.Type == AreaType.Department)
+                {
+                    throw new ConflictException(OrganizationErrorCodes.AreaTypeNotAllowed);
+                }
+
+                if (parent is not null && teamIds.Count > 0)
+                {
+                    throw new ConflictException(OrganizationErrorCodes.AreaLinkTypeNotAllowed);
                 }
 
                 if (teamIds.Count > 0)
@@ -147,13 +157,10 @@ public sealed class CreateAreaHandler(
 
                 var now = clock.UtcNow;
                 var creator = currentUser.SubjectId;
-                var area = Area.Create(organizationId, parentId, name, description, creator, now);
+                var area = parent is null
+                    ? Area.CreateDepartment(organizationId, name, description, creator, now)
+                    : Area.CreateSubArea(parent, name, description, creator, now);
                 areas.Add(area);
-
-                foreach (var projectId in projectIds)
-                {
-                    areaLinks.Add(AreaProject.Link(organizationId, area.Id, projectId, creator, now));
-                }
 
                 foreach (var teamId in teamIds)
                 {
@@ -166,7 +173,8 @@ public sealed class CreateAreaHandler(
 
                 var path = parentId is { } above ? $"{tree.PathOf(above)}{AreaTree.PathSeparator}{area.Name}" : area.Name;
 
-                return new CreateAreaResult(new AreaResponse(area.Id, area.ParentId, area.Name, area.Description, path));
+                return new CreateAreaResult(
+                    new AreaResponse(area.Id, area.ParentId, AreaRequests.TypeName(area.Type), area.ProjectId, area.Name, area.Description, path));
             },
             cancellationToken);
     }

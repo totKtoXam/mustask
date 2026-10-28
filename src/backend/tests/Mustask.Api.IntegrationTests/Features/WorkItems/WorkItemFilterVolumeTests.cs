@@ -59,9 +59,9 @@ public sealed class WorkItemFilterVolumeTests(MustaskApiFactory factory, ITestOu
             // Item n is titled «Задача n», assigned to the person n mod 2 000 but every tenth to nobody, and deleted (with the marks a
             // Delete leaves) when n mod 10 is 7: 500 of the project's 5 000.
             await WorkItemsTestData.ExecuteAsync(factory, $"""
-                INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id, created_at, created_by, changed_at,
+                INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at,
                                         assignee_id, deleted_from_state_id, deleted_by, deleted_at)
-                SELECT gen_random_uuid(), {project}, n, {task.Id}, CASE WHEN n % 10 = 7 THEN {removed} ELSE {open} END,
+                SELECT gen_random_uuid(), {project}, n, {task.Id}, CASE WHEN n % 10 = 7 THEN {removed} ELSE {open} END, {(project == world.ProjectId ? world.RootAreaId : other.RootAreaId)},
                        'Задача ' || n, '', gen_random_uuid(), now(), 'volume-test', now() - n * interval '1 second',
                        CASE WHEN n % 10 = 0 THEN NULL ELSE ({people})[(n % {People}) + 1] END,
                        CASE WHEN n % 10 = 7 THEN {open} END, CASE WHEN n % 10 = 7 THEN 'volume-test' END, CASE WHEN n % 10 = 7 THEN now() END

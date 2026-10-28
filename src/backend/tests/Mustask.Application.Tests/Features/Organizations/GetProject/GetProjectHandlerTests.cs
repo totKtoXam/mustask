@@ -25,12 +25,12 @@ public sealed class GetProjectHandlerTests
 
         public Organization Organization { get; }
 
-        public Project Project { get; }
+        public NewProject Project { get; }
 
         public GetProjectHandler Handler { get; }
 
         public GetProjectQuery Query(string? projectId = null, string? organizationId = null) =>
-            new(organizationId ?? Organization.Id.ToString(), projectId ?? Project.Id.ToString());
+            new(organizationId ?? Organization.Id.ToString(), projectId ?? Project.Project.Id.ToString());
 
         public Task<GetProjectResult> HandleAsync(GetProjectQuery query) => Handler.Handle(query, CancellationToken.None);
     }
@@ -43,7 +43,7 @@ public sealed class GetProjectHandlerTests
 
         var result = await f.HandleAsync(f.Query());
 
-        Assert.Equal(new ProjectResponse(f.Project.Id, f.Organization.Id, "Пример проекта", "PRM", null), result.Response);
+        Assert.Equal(new ProjectResponse(f.Project.Project.Id, f.Organization.Id, "Пример проекта", "PRM", null), result.Response);
     }
 
     // US-3 · "The project settings": the project addressed is the one answered, whatever else the organization holds.
@@ -54,9 +54,9 @@ public sealed class GetProjectHandlerTests
         var second = f.Store.AddProject(f.Organization, "Платформа данных", "DATA");
         f.Store.AddProject(f.Organization, "Отчётность", "RPT");
 
-        var result = await f.HandleAsync(f.Query(projectId: second.Id.ToString().ToUpperInvariant()));
+        var result = await f.HandleAsync(f.Query(projectId: second.Project.Id.ToString().ToUpperInvariant()));
 
-        Assert.Equal(new ProjectResponse(second.Id, f.Organization.Id, "Платформа данных", "DATA", null), result.Response);
+        Assert.Equal(new ProjectResponse(second.Project.Id, f.Organization.Id, "Платформа данных", "DATA", null), result.Response);
     }
 
     // BR-M1-20: behind the filter the organization id is well formed; if it were not, the outermost level answers,
@@ -92,13 +92,13 @@ public sealed class GetProjectHandlerTests
             "absent" => null,
             "all zeros" => Guid.Empty.ToString(),
             "unknown" => Guid.CreateVersion7().ToString(),
-            "of another organization" => other.Id.ToString(),
-            _ => f.Project.Id.ToString(),
+            "of another organization" => other.Project.Id.ToString(),
+            _ => f.Project.Project.Id.ToString(),
         };
 
         if (how == "deactivated")
         {
-            f.Project.Deactivate();
+            f.Project.Project.Deactivate();
         }
 
         if (how == "under a deactivated organization")
@@ -136,6 +136,6 @@ public sealed class GetProjectHandlerTests
         var result = await f.HandleAsync(f.Query());
 
         Assert.Equal(OrganizationErrorCodes.ProjectNotFound, refusal.Code);
-        Assert.Equal(f.Project.Id, result.Response.Id);
+        Assert.Equal(f.Project.Project.Id, result.Response.Id);
     }
 }

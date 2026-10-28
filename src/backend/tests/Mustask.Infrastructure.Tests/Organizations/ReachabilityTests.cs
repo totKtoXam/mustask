@@ -16,11 +16,11 @@ public sealed class ReachabilityTests(OrganizationsDatabaseFixture database)
 {
     // US-2 · "deactivated": everything beneath becomes unreachable; "restored": it comes back as it was.
     [Fact]
-    public async Task DeactivatedOrganization_HidesItsProjectsAndTeams_RestoreBringsThemBack()
+    public async Task DeactivatedOrganization_HidesItsProjectsTeamsAndAreas_RestoreBringsThemBack()
     {
         var structure = await database.CreateStructureAsync();
         var organizationId = structure.Organization.Id;
-        var projectId = structure.Project.Id;
+        var projectId = structure.Project.Project.Id;
 
         Assert.Equal((true, 1, 2), await ReachAsync(organizationId, projectId));
 
@@ -37,7 +37,7 @@ public sealed class ReachabilityTests(OrganizationsDatabaseFixture database)
     {
         var structure = await database.CreateStructureAsync();
         var organizationId = structure.Organization.Id;
-        var projectId = structure.Project.Id;
+        var projectId = structure.Project.Project.Id;
 
         await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @id", ("id", projectId));
 
@@ -54,7 +54,7 @@ public sealed class ReachabilityTests(OrganizationsDatabaseFixture database)
     {
         var structure = await database.CreateStructureAsync();
         var organizationId = structure.Organization.Id;
-        var projectId = structure.Project.Id;
+        var projectId = structure.Project.Project.Id;
 
         await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @id", ("id", projectId));
         await database.ExecuteAsync("UPDATE organizations SET status = 'Deactivated' WHERE id = @id", ("id", organizationId));
@@ -81,7 +81,7 @@ public sealed class ReachabilityTests(OrganizationsDatabaseFixture database)
         var structure = await database.CreateStructureAsync();
         var other = await database.CreateStructureAsync();
         var organizationId = structure.Organization.Id;
-        var projectId = structure.Project.Id;
+        var projectId = structure.Project.Project.Id;
 
         await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @second", ("second", structure.SecondTeam.Id));
 
@@ -100,7 +100,7 @@ public sealed class ReachabilityTests(OrganizationsDatabaseFixture database)
     {
         var structure = await database.CreateStructureAsync();
         var organizationId = structure.Organization.Id;
-        var projectId = structure.Project.Id;
+        var projectId = structure.Project.Project.Id;
         var teamId = structure.FirstTeam.Id;
 
         await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @id", ("id", projectId));

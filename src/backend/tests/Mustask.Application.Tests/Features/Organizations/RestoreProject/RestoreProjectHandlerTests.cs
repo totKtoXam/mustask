@@ -20,8 +20,8 @@ public sealed class RestoreProjectHandlerTests
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization);
             Platform = Store.AddLinkedTeam(Organization, Project);
-            Reports = Store.AddArea(Organization, "Отчёты");
-            Quarterly = Store.AddArea(Organization, "Квартальные", Reports);
+            Reports = Store.AddArea(Project.Root, "Отчёты");
+            Quarterly = Store.AddArea(Reports, "Квартальные");
             Handler = new RestoreProjectHandler(
                 new FakeOrganizationReadModel(Store),
                 new FakeProjectRepository(Store),
@@ -32,7 +32,7 @@ public sealed class RestoreProjectHandlerTests
 
         public Organization Organization { get; }
 
-        public Project Project { get; }
+        public NewProject Project { get; }
 
         public Team Platform { get; }
 
@@ -43,7 +43,7 @@ public sealed class RestoreProjectHandlerTests
         public RestoreProjectHandler Handler { get; }
 
         public RestoreProjectCommand Command(string? organizationId = null, string? projectId = null) =>
-            new(organizationId ?? Organization.Id.ToString(), projectId ?? Project.Id.ToString());
+            new(organizationId ?? Organization.Id.ToString(), projectId ?? Project.Project.Id.ToString());
 
         public Task<RestoreProjectResult> HandleAsync(RestoreProjectCommand command) => Handler.Handle(command, CancellationToken.None);
 
@@ -55,7 +55,7 @@ public sealed class RestoreProjectHandlerTests
                     Store.Teams.OrderBy(team => team.Id).Select(team => $"{team.Id}|{team.OrganizationId}|{team.Name}|{team.Status}")),
                 string.Join(
                     ";",
-                    Store.Areas.OrderBy(area => area.Id).Select(area => $"{area.Id}|{area.ParentId}|{area.Name}")));
+                    Store.Areas.OrderBy(area => area.Id).Select(area => $"{area.Id}|{area.ProjectId}|{area.ParentId}|{area.Name}")));
     }
 
     // US-3 · "A deactivated project is restored exactly as it was": back with its name, key, teams, default-team setting and area
@@ -65,16 +65,16 @@ public sealed class RestoreProjectHandlerTests
     {
         var f = new Fixture();
         var before = f.Beneath();
-        f.Project.Deactivate();
+        f.Project.Project.Deactivate();
 
         var result = await f.HandleAsync(f.Command());
 
         Assert.Equal(
-            new ProjectResponse(f.Project.Id, f.Organization.Id, "Пример проекта", "PRM", null),
+            new ProjectResponse(f.Project.Project.Id, f.Organization.Id, "Пример проекта", "PRM", null),
             result.Response);
-        Assert.Equal(ProjectStatus.Active, f.Project.Status);
+        Assert.Equal(ProjectStatus.Active, f.Project.Project.Status);
         Assert.Equal(before, f.Beneath());
-        Assert.Equal([$"lock project {f.Project.Id}", "save"], f.Store.Calls);
+        Assert.Equal([$"lock project {f.Project.Project.Id}", "save"], f.Store.Calls);
     }
 
     // US-3 · "A deactivated project is restored exactly as it was": the team deleted before the deactivation stays deleted,
@@ -86,15 +86,15 @@ public sealed class RestoreProjectHandlerTests
         var f = new Fixture();
         var core = f.Store.AddLinkedTeam(f.Organization, f.Project, "Ядро");
         core.Delete();
-        f.Project.NameDefaultTeam(f.Platform.Id);
-        f.Project.Deactivate();
+        f.Project.Project.NameDefaultTeam(f.Platform.Id);
+        f.Project.Project.Deactivate();
 
         await f.HandleAsync(f.Command());
 
         Assert.Equal(TeamStatus.Deleted, core.Status);
-        Assert.Equal(f.Platform.Id, f.Project.DefaultTeamId);
+        Assert.Equal(f.Platform.Id, f.Project.Project.DefaultTeamId);
         Assert.Equal(TeamStatus.Active, f.Platform.Status);
-        Assert.Null(f.Reports.ParentId);
+        Assert.Equal(f.Project.Root.Id, f.Reports.ParentId);
     }
 
     // US-3 · "A deactivated project is restored exactly as it was": a rename made before the deactivation stands, and the key
@@ -103,13 +103,14 @@ public sealed class RestoreProjectHandlerTests
     public async Task Handle_ProjectRenamedBeforeDeactivation_RestoresWithTheNewNameAndTheSameKey()
     {
         var f = new Fixture();
-        f.Project.Rename(InMemoryOrganizations.Name("Отчётность"));
-        f.Project.Deactivate();
+        f.Project.Project.Rename(InMemoryOrganizations.Name("Отчётность"), f.Project.Root);
+        f.Project.Project.Deactivate();
 
         var result = await f.HandleAsync(f.Command());
 
         Assert.Equal("Отчётность", result.Response.Name);
         Assert.Equal("PRM", result.Response.Key);
+        Assert.Equal("Отчётность", f.Project.Root.Name);
     }
 
     // api-contract § 2.7 · "Restoring an active project changes nothing and answers 200": the same shape, nothing written.
@@ -122,9 +123,9 @@ public sealed class RestoreProjectHandlerTests
         var result = await f.HandleAsync(f.Command());
 
         Assert.Equal(
-            new ProjectResponse(f.Project.Id, f.Organization.Id, "Пример проекта", "PRM", null),
+            new ProjectResponse(f.Project.Project.Id, f.Organization.Id, "Пример проекта", "PRM", null),
             result.Response);
-        Assert.Equal(ProjectStatus.Active, f.Project.Status);
+        Assert.Equal(ProjectStatus.Active, f.Project.Project.Status);
         Assert.Equal(before, f.Beneath());
         Assert.Equal(0, f.Store.SaveCount);
     }
@@ -134,7 +135,7 @@ public sealed class RestoreProjectHandlerTests
     public async Task Handle_RestoredTwice_AnswersTheSameBothTimes_SavesOnce()
     {
         var f = new Fixture();
-        f.Project.Deactivate();
+        f.Project.Project.Deactivate();
 
         var first = await f.HandleAsync(f.Command());
         var second = await f.HandleAsync(f.Command());
@@ -149,13 +150,13 @@ public sealed class RestoreProjectHandlerTests
     public async Task Handle_UnderDeactivatedOrganization_IsOrganizationNotFound_ProjectStaysDeactivated()
     {
         var f = new Fixture();
-        f.Project.Deactivate();
+        f.Project.Project.Deactivate();
         f.Organization.Deactivate();
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command()));
 
         Assert.Equal(OrganizationErrorCodes.OrganizationNotFound, refusal.Code);
-        Assert.Equal(ProjectStatus.Deactivated, f.Project.Status);
+        Assert.Equal(ProjectStatus.Deactivated, f.Project.Project.Status);
         Assert.Empty(f.Store.Calls);
     }
 
@@ -165,16 +166,16 @@ public sealed class RestoreProjectHandlerTests
     public async Task Handle_AfterTheOrganizationIsRestored_RestoresTheProjectDeactivatedOnItsOwn()
     {
         var f = new Fixture();
-        f.Project.Deactivate();
+        f.Project.Project.Deactivate();
         f.Organization.Deactivate();
         await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command()));
 
         f.Organization.Restore();
-        Assert.Equal(ProjectStatus.Deactivated, f.Project.Status);
+        Assert.Equal(ProjectStatus.Deactivated, f.Project.Project.Status);
         var result = await f.HandleAsync(f.Command());
 
-        Assert.Equal(f.Project.Id, result.Response.Id);
-        Assert.Equal(ProjectStatus.Active, f.Project.Status);
+        Assert.Equal(f.Project.Project.Id, result.Response.Id);
+        Assert.Equal(ProjectStatus.Active, f.Project.Project.Status);
     }
 
     // BR-M1-20: behind the filter the organization id is well formed and active; if it were not, the outermost level answers,
@@ -186,7 +187,7 @@ public sealed class RestoreProjectHandlerTests
     public async Task Handle_OrganizationNotFound_IsOrganizationNotFound_BeforeTheProject(string how)
     {
         var f = new Fixture();
-        f.Project.Deactivate();
+        f.Project.Project.Deactivate();
         var organizationId = how switch
         {
             "null" => null,
@@ -198,7 +199,7 @@ public sealed class RestoreProjectHandlerTests
             new RestoreProjectCommand(organizationId, "also-malformed")));
 
         Assert.Equal(OrganizationErrorCodes.OrganizationNotFound, refusal.Code);
-        Assert.Equal(ProjectStatus.Deactivated, f.Project.Status);
+        Assert.Equal(ProjectStatus.Deactivated, f.Project.Project.Status);
         Assert.Empty(f.Store.Calls);
     }
 
@@ -214,20 +215,20 @@ public sealed class RestoreProjectHandlerTests
     {
         var f = new Fixture();
         var other = f.Store.AddProject(f.Store.AddOrganization("Другая организация"), "Чужой", "OTH");
-        other.Deactivate();
+        other.Project.Deactivate();
         var projectId = how switch
         {
             "null" => null,
             "malformed" => "PRM",
             "empty id" => Guid.Empty.ToString(),
             "unknown" => Guid.CreateVersion7().ToString(),
-            _ => other.Id.ToString(),
+            _ => other.Project.Id.ToString(),
         };
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command() with { ProjectId = projectId }));
 
         Assert.Equal(OrganizationErrorCodes.ProjectNotFound, refusal.Code);
-        Assert.Equal(ProjectStatus.Deactivated, other.Status);
+        Assert.Equal(ProjectStatus.Deactivated, other.Project.Status);
         Assert.Equal(0, f.Store.SaveCount);
     }
 
@@ -236,13 +237,13 @@ public sealed class RestoreProjectHandlerTests
     public async Task Handle_IdsInUpperCase_AreAccepted()
     {
         var f = new Fixture();
-        f.Project.Deactivate();
+        f.Project.Project.Deactivate();
 
         var result = await f.HandleAsync(f.Command(
             organizationId: f.Organization.Id.ToString().ToUpperInvariant(),
-            projectId: f.Project.Id.ToString().ToUpperInvariant()));
+            projectId: f.Project.Project.Id.ToString().ToUpperInvariant()));
 
-        Assert.Equal(f.Project.Id, result.Response.Id);
-        Assert.Equal(ProjectStatus.Active, f.Project.Status);
+        Assert.Equal(f.Project.Project.Id, result.Response.Id);
+        Assert.Equal(ProjectStatus.Active, f.Project.Project.Status);
     }
 }

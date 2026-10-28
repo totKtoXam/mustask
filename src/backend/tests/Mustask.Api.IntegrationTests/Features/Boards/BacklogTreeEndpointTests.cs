@@ -206,7 +206,7 @@ public sealed class BacklogTreeEndpointTests(MustaskApiFactory factory)
     public async Task Get_AChainOfTheBoundsLength_IsAnsweredWhole()
     {
         var (world, items) = await BacklogTreeTestData.CreateWorldAsync(factory);
-        await BulkItemsTestData.InsertChainAsync(factory, world.Items, length: 60, firstNumber: 24, beneath: items["MSK-TASK-3"].Id, owningTeamId: world.PlatformId);
+        await BulkItemsTestData.InsertChainAsync(factory, world.Items, world.PlatformAreaId, length: 60, firstNumber: 24, beneath: items["MSK-TASK-3"].Id, owningTeamId: world.PlatformId);
 
         using var epics = await ReadDeepAsync(world, Epics);
         using var stories = await ReadDeepAsync(world, Stories);
@@ -385,7 +385,7 @@ public sealed class BacklogTreeEndpointTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal(order, await BoardsTestData.RowsAsync(factory, world, world.PlatformId, Stories));
         var after = await WorkItemsTestData.ReadAsync(factory, world.Items, "MSK-US-2");
-        foreach (var field in new[] { "state", "assignee", "priority", "valueArea" })
+        foreach (var field in new[] { "state", "assignee", "area", "priority", "valueArea" })
         {
             Assert.Equal(before.GetProperty(field).GetRawText(), after.GetProperty(field).GetRawText());
         }

@@ -16,13 +16,15 @@ internal static class OrganizationsDomainTestData
     public static Organization AnOrganization(string name = "Пример организации") =>
         Organization.Create(Guid.CreateVersion7(), Name(name), ProcessId.New(), Now, Creator);
 
-    public static Project AProject(string name = "Пример проекта", string key = "PRM") =>
-        Project.Create(Guid.CreateVersion7(), Name(name), key, Now, Creator);
+    public static NewProject ANewProject(string name = "Пример проекта", string key = "PRM", Guid? parentAreaId = null) =>
+        Project.Create(Guid.CreateVersion7(), Name(name), key, Now, Creator, parentAreaId: parentAreaId);
+
+    public static Project AProject(string name = "Пример проекта", string key = "PRM") => ANewProject(name, key).Project;
 
     public static Team ATeam(Guid organizationId, string name = "Платформа") =>
         Team.Create(organizationId, Name(name));
 
-    public static AreaNode Node(Area area) => new(area.Id, area.ParentId, area.Name);
+    public static AreaNode Node(Area area) => new(area.Id, area.ParentId, area.Name, area.Type, area.ProjectId);
 
     public static AreaTree Tree(params Area[] areas) => new(areas.Select(Node));
 }

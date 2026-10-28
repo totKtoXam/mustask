@@ -23,6 +23,7 @@ public sealed class WorkItemWorld
 
     public Guid ProjectId { get; } = Guid.CreateVersion7();
 
+    public Guid RootAreaId { get; } = Guid.CreateVersion7();
 
     public Guid LevelId { get; } = Guid.CreateVersion7();
 
@@ -63,7 +64,7 @@ public sealed class WorkItemWorld
     public FakeProcessReadModel Processes => new(Process);
 
     public WorkItem LiveStory(int number = 12) =>
-        WorkItem.Create(ProjectId, number, StoryType, "История", Guid.CreateVersion7(), new DateTimeOffset(2026, 10, 1, 9, 0, 0, TimeSpan.Zero), "creator-sub");
+        WorkItem.Create(ProjectId, number, StoryType, RootAreaId, "История", Guid.CreateVersion7(), new DateTimeOffset(2026, 10, 1, 9, 0, 0, TimeSpan.Zero), "creator-sub");
 
     public WorkItem DeletedStory(int number = 12)
     {
@@ -84,7 +85,7 @@ public sealed class WorldStructure(WorkItemWorld world) : IOrganizationStructure
         Task.FromResult<ProjectInfo?>(
             organizationId == world.OrganizationId && projectId == world.ProjectId
                 ? new ProjectInfo(
-                    world.ProjectId, world.OrganizationId, "Мастаск", WorkItemWorld.ProjectKey, ProjectStatus.Active, true, null, "creator-sub", DateTimeOffset.UnixEpoch)
+                    world.ProjectId, world.OrganizationId, "Мастаск", WorkItemWorld.ProjectKey, ProjectStatus.Active, true, null, world.RootAreaId, "creator-sub", DateTimeOffset.UnixEpoch)
                 : null);
 
     public Task<TeamInfo?> FindTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) => throw new NotSupportedException();
@@ -97,18 +98,12 @@ public sealed class WorldStructure(WorkItemWorld world) : IOrganizationStructure
 
     public Task<IReadOnlyList<LinkedProjectInfo>> ListLinkedProjectsAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
-    public Task<AreaInfo?> FindAreaAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
-    public Task<IReadOnlyList<AreaInfo>> ListAreasOfProjectAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken) =>
+    public Task<AreaInfo?> FindAreaAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
 
     public Task<IReadOnlyList<AreaInfo>> ListAreasOfTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
-
-    public Task<IReadOnlyList<LinkedProjectInfo>> ListLinkedProjectsOfAreaAsync(
-        Guid organizationId, Guid areaId, bool includeDescendants, CancellationToken cancellationToken) =>
-        throw new NotSupportedException();
-
 }
 
 public sealed class FakeProcessReadModel(ProcessDefinitionRow process) : IProcessDefinitionReadModel
@@ -151,6 +146,7 @@ public sealed class FakeWorkItemRepository(WorkItemWorld world) : IWorkItemRepos
         return Task.FromResult(Locked);
     }
 
+    public Task<bool> LockAreaAsync(Guid projectId, Guid areaId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
     public Task LockHierarchyAsync(Guid projectId, CancellationToken cancellationToken)
     {
@@ -236,6 +232,7 @@ public sealed class FakeWorkItemReadModel(WorkItemWorld world) : IWorkItemReadMo
                 string.Empty,
                 new WorkItemStateView(world.NewId, "Новая", new WorkItemStateCategoryView("Proposed", "Предложенные")),
                 null,
+                new WorkItemAreaView(world.RootAreaId, "Мастаск"),
                 null,
                 "creator-sub",
                 DateTimeOffset.UnixEpoch,

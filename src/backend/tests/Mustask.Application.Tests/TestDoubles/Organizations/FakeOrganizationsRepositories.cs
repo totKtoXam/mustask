@@ -73,7 +73,11 @@ public sealed class FakeProjectRepository(InMemoryOrganizations store) : IProjec
         return Task.CompletedTask;
     }
 
-    public void Add(Project project) => store.Stage(project);
+    public void Add(NewProject project)
+    {
+        store.Stage(project.Project);
+        store.Stage(project.Root);
+    }
 
     public Task SaveAsync(CancellationToken cancellationToken) => store.SaveAsync();
 }

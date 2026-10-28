@@ -7,8 +7,17 @@ namespace Mustask.Application.Features.Organizations.GetAreaTree;
 /// <summary>The query of <c>GET /api/organizations/{organizationId}/areas</c>.</summary>
 public sealed record GetAreaTreeQuery(string? OrganizationId);
 
-/// <summary>One area of the tree (mod-018 api-contract § 1): <paramref name="Depth"/> is 1 for a top-level area.</summary>
-public sealed record AreaNodeResponse(Guid Id, Guid? ParentId, string Name, string? Description, string Path, int Depth);
+/// <summary>One node of the tree (mod-018 api-contract § 1): <paramref name="Depth"/> is 1 for a top-level node.</summary>
+public sealed record AreaNodeResponse(
+    Guid Id,
+    Guid? ParentId,
+    string Type,
+    Guid? ProjectId,
+    bool? ProjectActive,
+    string Name,
+    string? Description,
+    string Path,
+    int Depth);
 
 /// <summary>The handler's outcome: the whole tree, pre-order.</summary>
 public sealed record GetAreaTreeResult(IReadOnlyList<AreaNodeResponse> Items);
@@ -33,7 +42,15 @@ public sealed class GetAreaTreeHandler(IAreaTreeReadModel readModel)
 
         var items = tree.PreOrder()
             .Select(node => new AreaNodeResponse(
-                node.Id, node.ParentId, node.Name, byId[node.Id].Description, tree.PathOf(node.Id), tree.LevelOf(node.Id)))
+                node.Id,
+                node.ParentId,
+                AreaRequests.TypeName(node.Type),
+                node.ProjectId,
+                byId[node.Id].ProjectActive,
+                node.Name,
+                byId[node.Id].Description,
+                tree.PathOf(node.Id),
+                tree.LevelOf(node.Id)))
             .ToList();
 
         return new GetAreaTreeResult(items);

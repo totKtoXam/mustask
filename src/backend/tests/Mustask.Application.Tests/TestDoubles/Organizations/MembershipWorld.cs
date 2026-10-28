@@ -15,7 +15,7 @@ public sealed class MembershipWorld
     public MembershipWorld()
     {
         Organization = Store.AddOrganization();
-        Project = Store.AddProject(Organization);
+        Project = Store.AddProject(Organization).Project;
         Platform = Store.AddLinkedTeam(Organization, Project);
         Clock.UtcNow = new DateTimeOffset(2026, 10, 11, 9, 30, 0, TimeSpan.Zero);
         User.SubjectId = AdminId;

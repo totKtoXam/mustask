@@ -80,6 +80,20 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
         return await WorkItemSets.InAnyState(context).SingleOrDefaultAsync(item => item.ProjectId == projectId && item.Number == number, cancellationToken);
     }
 
+    public async Task<bool> LockAreaAsync(Guid projectId, Guid areaId, CancellationToken cancellationToken)
+    {
+        // The area is one of the project's own (its node or a sub-area, BR-AW-11). Presence is the lock statement's own answer
+        // (ADR-0028 rule 8, A-9's corollary): a read after it would judge another snapshot.
+        var held = await context.Database
+            .SqlQuery<Guid>(
+                $"""
+                 SELECT id AS "Value" FROM areas WHERE id = {areaId} AND project_id = {projectId} FOR SHARE
+                 """)
+            .ToListAsync(cancellationToken);
+
+        return held.Count > 0;
+    }
+
     // The one statement pair every taker of the hierarchy lock shares (WorkItemHierarchyLocks): a concurrent first parent write of the
     // project waits at the insert on the other's uncommitted key, then does nothing. A team's unlink and deletion take it too, through
     // IWorkItemTeamOwnership, for the projects they reach (mod-005 QD-1).

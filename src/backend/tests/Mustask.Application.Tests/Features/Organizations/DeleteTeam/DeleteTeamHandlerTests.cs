@@ -19,8 +19,8 @@ public sealed class DeleteTeamHandlerTests
         public Fixture()
         {
             Organization = Store.AddOrganization();
-            Alpha = Store.AddProject(Organization, "Альфа", "ALP");
-            Beta = Store.AddProject(Organization, "Бета", "BET");
+            Alpha = Store.AddProject(Organization, "Альфа", "ALP").Project;
+            Beta = Store.AddProject(Organization, "Бета", "BET").Project;
             Mars = Store.AddTeam(Organization, "MARS");
             Store.Link(Alpha, Mars);
             Store.Link(Beta, Mars);

@@ -37,11 +37,11 @@ internal sealed record TeamViewWorld(
         var organization = structure.Organization.Id;
         var team = structure.FirstTeam.Id;
         var other = structure.SecondTeam.Id;
-        var first = structure.Project.Id;
+        var first = structure.Project.Project.Id;
         var second = await database.AddProjectAsync(organization, "Второй", "SEC");
         var sleeping = await database.AddProjectAsync(organization, "Спящий", "DEA");
-        await database.LinkAsync(organization, second.Id, team);
-        await database.LinkAsync(organization, sleeping.Id, team);
+        await database.LinkAsync(organization, second.Project.Id, team);
+        await database.LinkAsync(organization, sleeping.Project.Id, team);
 
         await using var context = database.NewContext();
         var process = await new ProcessDefinitionReadModel(context).FindByOrganizationAsync(organization, CancellationToken.None)
@@ -54,36 +54,37 @@ internal sealed record TeamViewWorld(
         var removed = story.States.Single(state => state.Category == StateCategory.Removed).Id;
 
         var ids = Enumerable.Range(0, 6).Select(_ => Guid.CreateVersion7()).ToArray();
-        var rows = new (Guid Id, Guid Project, int Number, WorkItemTypeRow Type, Guid State, Guid Owner)[]
+        var rows = new (Guid Id, Guid Project, Guid Root, int Number, WorkItemTypeRow Type, Guid State, Guid Owner)[]
         {
-            (ids[0], first, 1, story, firstState(story), team),
-            (ids[1], second.Id, 1, bug, firstState(bug), team),
-            (ids[2], first, 2, story, removed, team),
-            (ids[3], first, 3, task, firstState(task), team),
-            (ids[4], sleeping.Id, 1, story, firstState(story), team),
-            (ids[5], first, 4, story, firstState(story), other),
+            (ids[0], first, structure.Project.Root.Id, 1, story, firstState(story), team),
+            (ids[1], second.Project.Id, second.Root.Id, 1, bug, firstState(bug), team),
+            (ids[2], first, structure.Project.Root.Id, 2, story, removed, team),
+            (ids[3], first, structure.Project.Root.Id, 3, task, firstState(task), team),
+            (ids[4], sleeping.Project.Id, sleeping.Root.Id, 1, story, firstState(story), team),
+            (ids[5], first, structure.Project.Root.Id, 4, story, firstState(story), other),
         };
 
-        foreach (var (id, project, number, type, state, owner) in rows)
+        foreach (var (id, project, root, number, type, state, owner) in rows)
         {
             await database.ExecuteAsync(
                 """
-                INSERT INTO work_items (id, project_id, number, type_id, state_id, owning_team_id, title, description, creation_request_id, created_at, created_by, changed_at)
-                VALUES (@id, @project, @number, @type, @state, @team, 'Элемент', '', gen_random_uuid(), now() + @n * interval '1 second', 'team-view-test', now())
+                INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, owning_team_id, title, description, creation_request_id, created_at, created_by, changed_at)
+                VALUES (@id, @project, @number, @type, @state, @area, @team, 'Элемент', '', gen_random_uuid(), now() + @n * interval '1 second', 'team-view-test', now())
                 """,
                 ("id", id),
                 ("project", project),
                 ("number", number),
                 ("type", type.Id),
                 ("state", state),
+                ("area", root),
                 ("team", owner),
                 ("n", (double)number));
         }
 
-        await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @project", ("project", sleeping.Id));
+        await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @project", ("project", sleeping.Project.Id));
 
         var scope = TeamBacklogScope.Of(team, story.BacklogLevelId, process.WorkItemTypes.Where(type => type.BacklogLevelId == story.BacklogLevelId));
 
-        return new TeamViewWorld(organization, team, other, first, second.Id, sleeping.Id, scope, process, ids[0], ids[1], ids[2], ids[3], ids[4], ids[5]);
+        return new TeamViewWorld(organization, team, other, first, second.Project.Id, sleeping.Project.Id, scope, process, ids[0], ids[1], ids[2], ids[3], ids[4], ids[5]);
     }
 }

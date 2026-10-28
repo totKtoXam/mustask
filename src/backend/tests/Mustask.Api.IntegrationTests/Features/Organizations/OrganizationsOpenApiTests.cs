@@ -44,8 +44,8 @@ public sealed class OrganizationsOpenApiTests(MustaskApiFactory factory)
             .Order(StringComparer.Ordinal);
 
         // feat-028 api-contract § 4: eight project-nested team routes out and sixteen organization-level ones in, 36 -> 44 of this module;
-        // at gate-3 the creation form's member search (§ 2.3a) makes 45. mod-018 adds fifteen net (8 area + 12 link routes in, 5 tree routes out): 60.
-        Assert.Equal(60, ContractOperations.Length);
+        // at gate-3 the creation form's member search (§ 2.3a) makes 45. mod-018 (typed tree) adds ten net (11 organization-area routes, the project subtree read and 3 team-end routes in, 5 project-nested tree routes out): 55.
+        Assert.Equal(55, ContractOperations.Length);
         Assert.Equal(ContractOperations.Order(StringComparer.Ordinal), ofTheModule);
     }
 

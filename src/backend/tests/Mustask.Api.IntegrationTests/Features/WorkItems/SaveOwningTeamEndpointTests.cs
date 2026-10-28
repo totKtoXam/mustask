@@ -96,7 +96,7 @@ public sealed class SaveOwningTeamEndpointTests(MustaskApiFactory factory)
         var after = await StoredAsync(factory, world.ProjectId, story.Identifier);
         Assert.Equal(world.Mars, after.TeamId);
         Assert.True(after.ChangedAt > before.ChangedAt);
-        Assert.Equal((before.AssigneeId, before.StateId), (after.AssigneeId, after.StateId));
+        Assert.Equal((before.AreaId, before.AssigneeId, before.StateId), (after.AreaId, after.AssigneeId, after.StateId));
         Assert.Equal(0, await TeamPlacesOfAsync(factory, story.Id));
         Assert.Equal(1, await ProjectPlacesOfAsync(factory, story.Id));
     }
@@ -232,9 +232,9 @@ public sealed class SaveOwningTeamEndpointTests(MustaskApiFactory factory)
     }
 
     // US-1 · "the address is answered before the team", api-contract § 0.4: the item's 404 and the role's 403 come before the
-    // team's, and the values' 400 before the team's 409.
+    // team's, and the values' 400 and the area's 404 before the team's 409.
     [Fact]
-    public async Task Save_AnswerOrder_ItemNotFound_Then403_Then400_Then409()
+    public async Task Save_AnswerOrder_ItemNotFound_Then403_Then400_ThenArea_Then409()
     {
         var world = await CreateWorldAsync(factory);
         var story = await StoryAsync(world);
@@ -250,6 +250,8 @@ public sealed class SaveOwningTeamEndpointTests(MustaskApiFactory factory)
         var badTitle = await SaveAsync(world, story.Identifier, new { title = string.Empty, team = new { teamId = world.OtherProjectTeam.ToString() } });
         Assert.Equal((HttpStatusCode.BadRequest, "workitems.validation_failed"), (badTitle.Status, badTitle.ErrorCode));
 
+        var badArea = await SaveAsync(world, story.Identifier, new { areaId = Guid.CreateVersion7().ToString(), team = new { teamId = world.OtherProjectTeam.ToString() } });
+        Assert.Equal((HttpStatusCode.NotFound, "organizations.area.not_found"), (badArea.Status, badArea.ErrorCode));
 
         var badParent = await SaveAsync(
             world,
@@ -304,6 +306,21 @@ public sealed class SaveOwningTeamEndpointTests(MustaskApiFactory factory)
         Assert.Equal(person, (await StoredAsync(factory, world.ProjectId, story.Identifier)).AssigneeId);
     }
 
+    // US-1 · "saving the area changes no team" (BR-OT-10): the area is a classification path now.
+    [Fact]
+    public async Task Save_AreaChange_KeepsTheTeam()
+    {
+        var world = await CreateWorldAsync(factory);
+        var story = await StoryAsync(world);
+        await SetOwningTeamAsync(factory, story.Id, world.Mars);
+        var reports = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, world.Items.RootAreaId, "Отчёты");
+
+        var answer = await SaveAsync(world, story.Identifier, new { areaId = reports.Id.ToString() });
+
+        Assert.Equal(HttpStatusCode.OK, answer.Status);
+        var stored = await StoredAsync(factory, world.ProjectId, story.Identifier);
+        Assert.Equal((world.Mars, reports.Id), (stored.TeamId, stored.AreaId));
+    }
 
     // US-1 · "the team survives every other write": a state set by the form and by a card move (both are a save of the state)
     // leave the team, and so does a tick of the card's checklist (feat-039: the tick is the same save of the child's state), which

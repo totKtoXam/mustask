@@ -1,16 +1,15 @@
 using System.Net;
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Mustask.Api.IntegrationTests.Features.WorkItems;
 using Mustask.Domain.Identity;
+using Mustask.Domain.Organizations;
 
 namespace Mustask.Api.IntegrationTests.Features.Organizations;
 
 /// <summary>
-/// mod-018 US-1, US-2, US-4 (the item's «Область» is gone from the answers) and US-6 (containment, roles, the order of answers):
-/// the organization's area tree through the real host and a real PostgreSQL. Every test builds its own organization
-/// (<see cref="OrganizationsTestData"/>): the database is shared and never emptied.
+/// mod-018 (the typed single tree) through the real host and a real PostgreSQL: departments, project nodes and sub-areas — what each
+/// route does with each type (OQ-3 A, OQ-5 A, OQ-7 A, OQ-10 A), the read-only nodes of a deactivated project (OQ-6 A), the roles and the
+/// order of answers (US-6). Every test builds its own organization: the database is shared and never emptied.
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]
@@ -23,360 +22,394 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
     private Task<Answer> CreateAsync(Guid organizationId, object body, string? token = null) =>
         SendAsync(HttpMethod.Post, OrganizationsApi.Areas(organizationId), body, token);
 
+    private Task<Answer> MoveAsync(Guid organizationId, Guid areaId, Guid? parentId) =>
+        SendAsync(HttpMethod.Put, $"{Area(organizationId, areaId)}/parent", new { parentId = parentId?.ToString() });
+
     private static string Area(Guid organizationId, Guid areaId) => $"{OrganizationsApi.Areas(organizationId)}/{areaId}";
 
-    private static IEnumerable<string> PropertyNames(JsonElement element) =>
-        element.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal);
+    private static IEnumerable<string> PropertyNames(JsonElement element) => element.EnumerateObject().Select(property => property.Name);
 
-    // US-1 · "An administrator creates a top-level area and a child under any area": «Отчёты» at the top, «Квартальные» under it; the
-    // answers are the 201 Area with its path, and the tree lists both in pre-order with their depth.
+    // US-1 · a department at the top, a sub-area below a project's node: the answers carry the type, the project and the path.
     [Fact]
-    public async Task Create_TopLevelAndChild_Returns201_TheTreeShowsThePaths()
+    public async Task Create_DepartmentAndSubArea_Returns201_TheTreeShowsTypesAndPaths()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
+        var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
 
-        var reports = await CreateAsync(organization, new { name = " Отчёты ", description = " Всё про отчёты\n" });
-        var reportsId = reports.Body.GetProperty("id").GetGuid();
-        var quarterly = await CreateAsync(organization, new { name = "Квартальные", parentId = reportsId.ToString() });
-        var quarterlyId = quarterly.Body.GetProperty("id").GetGuid();
+        var department = await CreateAsync(organization, new { name = " Разработка ", description = " Всё про разработку\n" });
+        var departmentId = department.Body.GetProperty("id").GetGuid();
+        var sub = await CreateAsync(organization, new { name = "Отчёты", parentId = node.Id.ToString() });
 
-        Assert.Equal(HttpStatusCode.Created, reports.Status);
-        Assert.Equal("application/json", reports.MediaType);
-        Assert.Equal($"{OrganizationsApi.Areas(organization)}/{reportsId}", reports.Location?.OriginalString);
-        Assert.Equal(["description", "id", "name", "parentId", "path"], PropertyNames(reports.Body));
-        Assert.Equal(("Отчёты", " Всё про отчёты\n", "Отчёты"), (
-            reports.Body.GetProperty("name").GetString(),
-            reports.Body.GetProperty("description").GetString(),
-            reports.Body.GetProperty("path").GetString()));
-        Assert.Equal(JsonValueKind.Null, reports.Body.GetProperty("parentId").ValueKind);
-        Assert.Equal(HttpStatusCode.Created, quarterly.Status);
-        Assert.Equal(("Отчёты / Квартальные", reportsId), (quarterly.Body.GetProperty("path").GetString(), quarterly.Body.GetProperty("parentId").GetGuid()));
+        Assert.Equal(HttpStatusCode.Created, department.Status);
+        Assert.Equal($"{OrganizationsApi.Areas(organization)}/{departmentId}", department.Location?.OriginalString);
+        Assert.Equal(["id", "parentId", "type", "projectId", "name", "description", "path"], PropertyNames(department.Body));
+        Assert.Equal(("department", "Разработка", " Всё про разработку\n"), (
+            department.Body.GetProperty("type").GetString(),
+            department.Body.GetProperty("name").GetString(),
+            department.Body.GetProperty("description").GetString()));
+        Assert.Equal(JsonValueKind.Null, department.Body.GetProperty("projectId").ValueKind);
+        Assert.Equal(HttpStatusCode.Created, sub.Status);
+        Assert.Equal(("area", structure.ProjectId, node.Id, "Пример проекта / Отчёты"), (
+            sub.Body.GetProperty("type").GetString(),
+            sub.Body.GetProperty("projectId").GetGuid(),
+            sub.Body.GetProperty("parentId").GetGuid(),
+            sub.Body.GetProperty("path").GetString()));
 
         var tree = await SendAsync(HttpMethod.Get, OrganizationsApi.Areas(organization));
         Assert.Equal(HttpStatusCode.OK, tree.Status);
-        Assert.Equal(["id", "parentId", "name", "description", "path", "depth"], tree.Body[0].EnumerateObject().Select(property => property.Name));
         Assert.Equal(
-            [("Отчёты", 1), ("Отчёты / Квартальные", 2)],
-            tree.Body.EnumerateArray().Select(node => (node.GetProperty("path").GetString()!, node.GetProperty("depth").GetInt32())));
+            ["id", "parentId", "type", "projectId", "projectActive", "name", "description", "path", "depth"],
+            PropertyNames(tree.Body[0]));
+        Assert.Equal(
+            new[] { ("Пример проекта", "project", 1), ("Пример проекта / Отчёты", "area", 2), ("Разработка", "department", 1) }.Order().ToList(),
+            tree.Body.EnumerateArray()
+                .Select(n => (n.GetProperty("path").GetString()!, n.GetProperty("type").GetString()!, n.GetProperty("depth").GetInt32()))
+                .Order()
+                .ToList());
     }
 
-    // US-1 · "The creation inherits nothing it does not name": «Наследовать доступ» is stored and appears in no answer (OQ-2 B).
+    // OQ-7 A · a sub-area never stands below a department; a missing parent is answered before the values.
     [Fact]
-    public async Task Create_AnswersNoInheritsAccess_AndTheTreeEither()
+    public async Task Create_UnderADepartment_IsTypeNotAllowed_AMissingParentIsAnsweredFirst()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        var department = await OrganizationsTestData.AddDepartmentAsync(factory, structure.OrganizationId, "Разработка");
 
-        var created = await CreateAsync(structure.OrganizationId, new { name = "Отчёты", inheritsAccess = false });
-        var tree = await SendAsync(HttpMethod.Get, OrganizationsApi.Areas(structure.OrganizationId));
+        var underDepartment = await CreateAsync(structure.OrganizationId, new { name = "Отчёты", parentId = department.Id.ToString() });
+        var invalidAndMissing = await CreateAsync(structure.OrganizationId, new { name = "", parentId = Guid.CreateVersion7().ToString() });
 
-        Assert.False(created.Body.TryGetProperty("inheritsAccess", out _));
-        Assert.DoesNotContain("inheritsAccess", tree.Body[0].EnumerateObject().Select(property => property.Name));
-        await using var scope = factory.Services.CreateAsyncScope();
-        var stored = await scope.ServiceProvider.GetRequiredService<Mustask.Infrastructure.MustaskDbContext>().Areas
-            .AsNoTracking()
-            .SingleAsync(area => area.Id == created.Body.GetProperty("id").GetGuid());
-        Assert.True(stored.InheritsAccess);
+        LinksTestData.AssertRefused(underDepartment, HttpStatusCode.Conflict, "organizations.area.type_not_allowed");
+        LinksTestData.AssertRefused(invalidAndMissing, HttpStatusCode.NotFound, "organizations.area.not_found");
     }
 
-    // US-1 · "Sibling names are unique, the top level included": the same name in another case, with spaces, is taken; the same name
-    // under another parent is free.
+    // OQ-12 A · one name space per level: a department and a project node share the top level; a name is free under another parent.
     [Fact]
-    public async Task Create_SiblingName_IsTakenIgnoringCaseAndSpaces_FreeUnderAnotherParent()
+    public async Task Create_SiblingName_IsTakenIgnoringCaseAndSpaces_AcrossTypes()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
-        var reports = await OrganizationsTestData.AddAreaAsync(factory, organization, null, "Отчёты");
-        await OrganizationsTestData.AddAreaAsync(factory, organization, reports.Id, "Квартальные");
+        var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
+        var other = await OrganizationsTestData.CreateProjectAsync(factory, organization, "Другой", "OTH");
+        var otherNode = await OrganizationsTestData.NodeOfAsync(factory, other.Project.Id);
+        await OrganizationsTestData.AddSubAreaAsync(factory, organization, node.Id, "Отчёты");
 
-        var topClash = await CreateAsync(organization, new { name = "  ОТЧЁТЫ " });
-        var childClash = await CreateAsync(organization, new { name = "квартальные", parentId = reports.Id.ToString() });
-        var other = await OrganizationsTestData.AddAreaAsync(factory, organization, null, "Склад");
-        var free = await CreateAsync(organization, new { name = "Квартальные", parentId = other.Id.ToString() });
+        var sameLevel = await CreateAsync(organization, new { name = "отчёты ", parentId = node.Id.ToString() });
+        var otherParent = await CreateAsync(organization, new { name = "Отчёты", parentId = otherNode.Id.ToString() });
+        var clashWithNode = await CreateAsync(organization, new { name = "пример проекта" });
 
-        LinksTestData.AssertRefused(topClash, HttpStatusCode.Conflict, "organizations.area.name_taken");
-        LinksTestData.AssertRefused(childClash, HttpStatusCode.Conflict, "organizations.area.name_taken");
-        Assert.Equal(HttpStatusCode.Created, free.Status);
+        LinksTestData.AssertRefused(sameLevel, HttpStatusCode.Conflict, "organizations.area.name_taken");
+        Assert.Equal(HttpStatusCode.Created, otherParent.Status);
+        LinksTestData.AssertRefused(clashWithNode, HttpStatusCode.Conflict, "organizations.area.name_taken");
     }
 
-    // US-1 · "A name of 1 to 100 characters, a description of at most 2 000": every reason at once. BR-AW-15: a new child's parent is its address, so a missing
-    // parent is answered 404 first (QA fixed the stale expectation: the test used to expect the 400 before the parent).
-    [Fact]
-    public async Task Create_InvalidValues_Returns400WithEveryReason_AMissingParentIsAnsweredFirst()
-    {
-        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-
-        var answer = await CreateAsync(structure.OrganizationId, new
-        {
-            name = "   ",
-            description = new string('я', 2001),
-            parentId = (string?)null,
-        });
-
-        var parentFirst = await CreateAsync(structure.OrganizationId, new { name = "   ", parentId = Guid.CreateVersion7().ToString() });
-        LinksTestData.AssertRefused(parentFirst, HttpStatusCode.NotFound, "organizations.area.not_found");
-
-        LinksTestData.AssertRefused(answer, HttpStatusCode.BadRequest, "organizations.validation_failed");
-        var errors = answer.Body.GetProperty("errors");
-        Assert.Equal(["description", "name"], PropertyNames(errors));
-        Assert.Equal("organizations.name_length", errors.GetProperty("name")[0].GetProperty("code").GetString());
-        Assert.Equal("organizations.description_length", errors.GetProperty("description")[0].GetProperty("code").GetString());
-    }
-
-    // US-1 · "The tree is at most ten levels deep": the eleventh level is refused with its own code and nothing is written.
+    // BR-AW-4 · the tree is at most 10 levels deep: a node on level 10 takes no child.
     [Fact]
     public async Task Create_TheEleventhLevel_Returns409DepthExceeded_WritesNothing()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var organization = structure.OrganizationId;
-        Guid? parent = null;
+        var parent = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
 
-        for (var level = 1; level <= 10; level++)
+        for (var level = 2; level <= 10; level++)
         {
-            parent = (await OrganizationsTestData.AddAreaAsync(factory, organization, parent, $"Уровень {level}")).Id;
+            parent = await OrganizationsTestData.AddSubAreaAsync(factory, structure.OrganizationId, parent.Id, $"Уровень {level}");
         }
 
-        var answer = await CreateAsync(organization, new { name = "Одиннадцатый", parentId = parent!.Value.ToString() });
+        var answer = await CreateAsync(structure.OrganizationId, new { name = "Одиннадцатый", parentId = parent.Id.ToString() });
 
         LinksTestData.AssertRefused(answer, HttpStatusCode.Conflict, "organizations.area.depth_exceeded");
-        Assert.Equal("Дерево областей не может быть глубже 10 уровней", answer.Detail);
-        Assert.Equal(10, (await OrganizationsTestData.ReadTreeAsync(factory, organization)).Count);
+        Assert.Equal(10, (await OrganizationsTestData.ReadOrganizationTreeAsync(factory, structure.OrganizationId)).Count);
     }
 
-    // US-1 · "A parent that is no area of the organization": malformed, unknown, another organization's — the same 404.
-    [Theory]
-    [InlineData("malformed")]
-    [InlineData("unknown")]
-    [InlineData("of another organization")]
-    public async Task Create_ParentNotOfTheOrganization_Returns404AreaNotFound(string how)
-    {
-        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var other = await OrganizationsTestData.CreateStructureAsync(factory);
-        var foreign = await OrganizationsTestData.AddAreaAsync(factory, other.OrganizationId, null, "Чужая");
-        var parent = how switch { "malformed" => "x", "unknown" => Guid.CreateVersion7().ToString(), _ => foreign.Id.ToString() };
-
-        var answer = await CreateAsync(structure.OrganizationId, new { name = "Отчёты", parentId = parent });
-
-        LinksTestData.AssertRefused(answer, HttpStatusCode.NotFound, "organizations.area.not_found");
-        Assert.Equal("Область не найдена.", answer.Detail);
-        Assert.Equal(0, (await OrganizationsTestData.ReadTreeAsync(factory, structure.OrganizationId)).Count);
-    }
-
-    // US-1 · "Every member reads the tree and an area's page": the page carries the parent with its path and the direct children.
+    // US-3 · a node's page: the type, the parent with its path, the direct children with their types.
     [Fact]
-    public async Task GetArea_Page_CarriesTheParentAndTheChildren_ForAViewer()
+    public async Task GetArea_Page_CarriesTheTypeTheParentAndTheChildren_ForAViewer()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
-        var reports = await OrganizationsTestData.AddAreaAsync(factory, organization, null, "Отчёты");
-        var quarterly = await OrganizationsTestData.AddAreaAsync(factory, organization, reports.Id, "Квартальные");
+        var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
+        var sub = await OrganizationsTestData.AddSubAreaAsync(factory, organization, node.Id, "Квартальные");
         var viewer = await MembershipTestData.NewMemberAsync(factory, organization, OrganizationRole.Viewer);
 
-        var tree = await SendAsync(HttpMethod.Get, OrganizationsApi.Areas(organization), token: viewer.Token);
-        var parentPage = await SendAsync(HttpMethod.Get, Area(organization, reports.Id), token: viewer.Token);
-        var childPage = await SendAsync(HttpMethod.Get, Area(organization, quarterly.Id), token: viewer.Token);
+        var page = await SendAsync(HttpMethod.Get, Area(organization, node.Id), token: viewer.Token);
+        var leaf = await SendAsync(HttpMethod.Get, Area(organization, sub.Id), token: viewer.Token);
 
-        Assert.Equal(HttpStatusCode.OK, tree.Status);
-        Assert.Equal(["children", "description", "id", "name", "parent", "parentId", "path"], PropertyNames(childPage.Body));
+        Assert.Equal(HttpStatusCode.OK, page.Status);
+        Assert.Equal(("project", structure.ProjectId), (page.Body.GetProperty("type").GetString(), page.Body.GetProperty("projectId").GetGuid()));
+        Assert.True(page.Body.GetProperty("projectActive").GetBoolean());
+        var child = Assert.Single(page.Body.GetProperty("children").EnumerateArray());
+        Assert.Equal(("area", "Квартальные"), (child.GetProperty("type").GetString(), child.GetProperty("name").GetString()));
         Assert.Equal(
-            (reports.Id, "Отчёты", "Отчёты / Квартальные"),
-            (childPage.Body.GetProperty("parent").GetProperty("id").GetGuid(), childPage.Body.GetProperty("parent").GetProperty("path").GetString(), childPage.Body.GetProperty("path").GetString()));
-        Assert.Equal(JsonValueKind.Null, parentPage.Body.GetProperty("parent").ValueKind);
-        Assert.Equal(quarterly.Id, Assert.Single(parentPage.Body.GetProperty("children").EnumerateArray()).GetProperty("id").GetGuid());
+            ("Пример проекта", node.Id),
+            (leaf.Body.GetProperty("parent").GetProperty("name").GetString(), leaf.Body.GetProperty("parent").GetProperty("id").GetGuid()));
     }
 
-    // US-2 · "An area is renamed": the new name keeps its place, its children's paths follow, and a sibling's name is refused.
+    // OQ-10 A · a sub-area and a department are renamed on their own; a project's node only with its project.
     [Fact]
-    public async Task Rename_ChangesThePaths_RefusesATakenName()
+    public async Task Rename_SubAreaAndDepartment_Work_ProjectNodeIsRootIsFixed_ATakenNameIsRefused()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
-        var reports = await OrganizationsTestData.AddAreaAsync(factory, organization, null, "Отчёты");
-        var quarterly = await OrganizationsTestData.AddAreaAsync(factory, organization, reports.Id, "Квартальные");
-        await OrganizationsTestData.AddAreaAsync(factory, organization, null, "Склад");
+        var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
+        var sub = await OrganizationsTestData.AddSubAreaAsync(factory, organization, node.Id, "Квартальные");
+        await OrganizationsTestData.AddSubAreaAsync(factory, organization, node.Id, "Годовые");
+        var department = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Разработка");
 
-        var renamed = await SendAsync(HttpMethod.Put, $"{Area(organization, reports.Id)}/name", new { name = " Аналитика " });
-        var taken = await SendAsync(HttpMethod.Put, $"{Area(organization, reports.Id)}/name", new { name = "склад" });
-        var invalid = await SendAsync(HttpMethod.Put, $"{Area(organization, reports.Id)}/name", new { name = "" });
+        var renamedSub = await SendAsync(HttpMethod.Put, $"{Area(organization, sub.Id)}/name", new { name = "Месячные" });
+        var renamedDepartment = await SendAsync(HttpMethod.Put, $"{Area(organization, department.Id)}/name", new { name = "Продукт" });
+        var nodeRename = await SendAsync(HttpMethod.Put, $"{Area(organization, node.Id)}/name", new { name = "Иное" });
+        var taken = await SendAsync(HttpMethod.Put, $"{Area(organization, sub.Id)}/name", new { name = "годовые" });
+
+        Assert.Equal(
+            ("Пример проекта / Месячные", "Продукт"),
+            (renamedSub.Body.GetProperty("path").GetString(), renamedDepartment.Body.GetProperty("path").GetString()));
+        LinksTestData.AssertRefused(nodeRename, HttpStatusCode.Conflict, "organizations.area.root_is_fixed");
+        LinksTestData.AssertRefused(taken, HttpStatusCode.Conflict, "organizations.area.name_taken");
+    }
+
+    // OQ-10 A · a project's rename carries its name to its node.
+    [Fact]
+    public async Task RenameProject_RenamesItsNode()
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+
+        var renamed = await SendAsync(
+            HttpMethod.Put, $"{OrganizationsApi.Project(structure.OrganizationId, structure.ProjectId)}/name", new { name = "Новое имя" });
+        var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
 
         Assert.Equal(HttpStatusCode.OK, renamed.Status);
-        Assert.Equal("Аналитика", renamed.Body.GetProperty("name").GetString());
-        LinksTestData.AssertRefused(taken, HttpStatusCode.Conflict, "organizations.area.name_taken");
-        LinksTestData.AssertRefused(invalid, HttpStatusCode.BadRequest, "organizations.validation_failed");
-        Assert.Equal("Аналитика / Квартальные", (await OrganizationsTestData.ReadTreeAsync(factory, organization)).PathOf(quarterly.Id));
+        Assert.Equal("Новое имя", node.Name);
     }
 
-    // US-2 · "A description is set and cleared apart from the name": kept as typed, an empty one clears it, the name stays.
     [Fact]
-    public async Task SetDescription_KeepsItAsTyped_EmptyClears_NameStays()
-    {
-        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var reports = await OrganizationsTestData.AddAreaAsync(factory, structure.OrganizationId, null, "Отчёты");
-        var route = $"{Area(structure.OrganizationId, reports.Id)}/description";
-
-        var set = await SendAsync(HttpMethod.Put, route, new { description = " Всё про отчёты\n" });
-        var cleared = await SendAsync(HttpMethod.Put, route, new { description = "" });
-        var tooLong = await SendAsync(HttpMethod.Put, route, new { description = new string('я', 2001) });
-
-        Assert.Equal(" Всё про отчёты\n", set.Body.GetProperty("description").GetString());
-        Assert.Equal(JsonValueKind.Null, cleared.Body.GetProperty("description").ValueKind);
-        Assert.Equal("Отчёты", cleared.Body.GetProperty("name").GetString());
-        LinksTestData.AssertRefused(tooLong, HttpStatusCode.BadRequest, "organizations.validation_failed");
-    }
-
-    // US-2 · "An area is moved with its subtree": under another area, to the top level; the same parent is a success that
-    // changes nothing; a move under itself or its own descendant, a taken name and a too-deep result are 409s.
-    [Fact]
-    public async Task Move_UnderAnotherAreaAndToTheTop_RefusesTheCycleTheNameAndTheDepth()
+    public async Task SetDescription_KeepsItAsTyped_EmptyClears_NameStays_ProjectNodeIsDescribable()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
-        var reports = await OrganizationsTestData.AddAreaAsync(factory, organization, null, "Отчёты");
-        var quarterly = await OrganizationsTestData.AddAreaAsync(factory, organization, reports.Id, "Квартальные");
-        var deep = await OrganizationsTestData.AddAreaAsync(factory, organization, quarterly.Id, "Глубже");
-        var store = await OrganizationsTestData.AddAreaAsync(factory, organization, null, "Склад");
+        var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
 
-        var moved = await SendAsync(HttpMethod.Put, $"{Area(organization, quarterly.Id)}/parent", new { parentId = store.Id.ToString() });
-        var same = await SendAsync(HttpMethod.Put, $"{Area(organization, quarterly.Id)}/parent", new { parentId = store.Id.ToString() });
-        var cycle = await SendAsync(HttpMethod.Put, $"{Area(organization, store.Id)}/parent", new { parentId = deep.Id.ToString() });
-        var self = await SendAsync(HttpMethod.Put, $"{Area(organization, store.Id)}/parent", new { parentId = store.Id.ToString() });
-        var toTop = await SendAsync(HttpMethod.Put, $"{Area(organization, deep.Id)}/parent", new { parentId = (string?)null });
+        var set = await SendAsync(HttpMethod.Put, $"{Area(organization, node.Id)}/description", new { description = " О проекте\n" });
+        var cleared = await SendAsync(HttpMethod.Put, $"{Area(organization, node.Id)}/description", new { description = "" });
 
-        Assert.Equal(HttpStatusCode.OK, moved.Status);
-        Assert.Equal("Склад / Квартальные", moved.Body.GetProperty("path").GetString());
-        Assert.Equal(HttpStatusCode.OK, same.Status);
-        LinksTestData.AssertRefused(cycle, HttpStatusCode.Conflict, "organizations.area.move_into_own_subtree");
-        LinksTestData.AssertRefused(self, HttpStatusCode.Conflict, "organizations.area.move_into_own_subtree");
-        Assert.Equal(HttpStatusCode.OK, toTop.Status);
-        Assert.Equal("Глубже", toTop.Body.GetProperty("path").GetString());
-
-        var twin = await OrganizationsTestData.AddAreaAsync(factory, organization, reports.Id, "Склад");
-        var nameTaken = await SendAsync(HttpMethod.Put, $"{Area(organization, store.Id)}/parent", new { parentId = reports.Id.ToString() });
-        _ = twin;
-        LinksTestData.AssertRefused(nameTaken, HttpStatusCode.Conflict, "organizations.area.name_taken");
+        Assert.Equal(" О проекте\n", set.Body.GetProperty("description").GetString());
+        Assert.Equal(JsonValueKind.Null, cleared.Body.GetProperty("description").ValueKind);
+        Assert.Equal("Пример проекта", cleared.Body.GetProperty("name").GetString());
     }
 
-    // US-2 · "A move is judged by the depth of the whole subtree": a nine-level chain moved under a level-two area is too deep.
+    // US-3 · a sub-area moves with its subtree; a project's node moves between departments and the top; the rules of the types.
+    [Fact]
+    public async Task Move_SubAreaAndProjectNode_AndTheTypeRules()
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        var organization = structure.OrganizationId;
+        var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
+        var reports = await OrganizationsTestData.AddSubAreaAsync(factory, organization, node.Id, "Отчёты");
+        var quarterly = await OrganizationsTestData.AddSubAreaAsync(factory, organization, reports.Id, "Квартальные");
+        var archive = await OrganizationsTestData.AddSubAreaAsync(factory, organization, node.Id, "Архив");
+        var development = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Разработка");
+        var product = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Продукт");
+        var other = await OrganizationsTestData.CreateProjectAsync(factory, organization, "Другой", "OTH");
+        var otherNode = await OrganizationsTestData.NodeOfAsync(factory, other.Project.Id);
+
+        var subMove = await MoveAsync(organization, reports.Id, archive.Id);
+        var nodeIntoDepartment = await MoveAsync(organization, node.Id, development.Id);
+        var nodeToProduct = await MoveAsync(organization, node.Id, product.Id);
+        var nodeToTop = await MoveAsync(organization, node.Id, null);
+        var departmentMove = await MoveAsync(organization, development.Id, product.Id);
+        var subToTop = await MoveAsync(organization, archive.Id, null);
+        var subUnderDepartment = await MoveAsync(organization, archive.Id, development.Id);
+        var subOutside = await MoveAsync(organization, archive.Id, otherNode.Id);
+        var cycle = await MoveAsync(organization, reports.Id, quarterly.Id);
+        var nodeUnderSub = await MoveAsync(organization, node.Id, archive.Id);
+
+        Assert.Equal("Пример проекта / Архив / Отчёты", subMove.Body.GetProperty("path").GetString());
+        Assert.Equal("Разработка / Пример проекта", nodeIntoDepartment.Body.GetProperty("path").GetString());
+        Assert.Equal("Продукт / Пример проекта", nodeToProduct.Body.GetProperty("path").GetString());
+        Assert.Equal(JsonValueKind.Null, nodeToTop.Body.GetProperty("parentId").ValueKind);
+        LinksTestData.AssertRefused(departmentMove, HttpStatusCode.Conflict, "organizations.area.type_not_allowed");
+        LinksTestData.AssertRefused(subToTop, HttpStatusCode.Conflict, "organizations.area.type_not_allowed");
+        LinksTestData.AssertRefused(subUnderDepartment, HttpStatusCode.Conflict, "organizations.area.type_not_allowed");
+        LinksTestData.AssertRefused(subOutside, HttpStatusCode.Conflict, "organizations.area.outside_project");
+        LinksTestData.AssertRefused(cycle, HttpStatusCode.Conflict, "organizations.area.move_into_own_subtree");
+        LinksTestData.AssertRefused(nodeUnderSub, HttpStatusCode.Conflict, "organizations.area.move_into_own_subtree");
+    }
+
+    // US-3 · "The tree is at most 10 levels deep after a move": a subtree that would pass level 10 is refused.
     [Fact]
     public async Task Move_ASubtreeThatWouldPassTenLevels_Returns409DepthExceeded()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
-        Guid? parent = null;
-        Guid top = default;
+        var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
+        var branch = node;
 
-        for (var level = 1; level <= 9; level++)
+        for (var level = 2; level <= 9; level++)
         {
-            parent = (await OrganizationsTestData.AddAreaAsync(factory, organization, parent, $"Цепь {level}")).Id;
-            top = level == 1 ? parent.Value : top;
+            branch = await OrganizationsTestData.AddSubAreaAsync(factory, organization, branch.Id, $"Уровень {level}");
         }
 
-        var anchor = await OrganizationsTestData.AddAreaAsync(factory, organization, null, "Якорь");
-        var child = await OrganizationsTestData.AddAreaAsync(factory, organization, anchor.Id, "Второй");
+        var moving = await OrganizationsTestData.AddSubAreaAsync(factory, organization, node.Id, "Переезжающая");
+        await OrganizationsTestData.AddSubAreaAsync(factory, organization, moving.Id, "Дочерняя");
 
-        var answer = await SendAsync(HttpMethod.Put, $"{Area(organization, top)}/parent", new { parentId = child.Id.ToString() });
+        var answer = await MoveAsync(organization, moving.Id, branch.Id);
 
         LinksTestData.AssertRefused(answer, HttpStatusCode.Conflict, "organizations.area.depth_exceeded");
     }
 
-    // US-2 · "An area with children is not deleted": 409 not_empty with its text; a leaf is deleted (204) and its links end with it.
+    // US-2 · the rules of deletion by type: a project's node is root_is_fixed, a non-empty node is not_empty, a leaf and an empty department go.
     [Fact]
-    public async Task Delete_WithChildren_Returns409NotEmpty_ALeafGoesWithItsLinks()
+    public async Task Delete_TheRulesOfEachType()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
-        var reports = await OrganizationsTestData.AddAreaAsync(factory, organization, null, "Отчёты");
-        var quarterly = await OrganizationsTestData.AddAreaAsync(factory, organization, reports.Id, "Квартальные");
-        await OrganizationsTestData.LinkAreaToProjectAsync(factory, organization, quarterly.Id, structure.ProjectId);
-        await OrganizationsTestData.LinkAreaToTeamAsync(factory, organization, quarterly.Id, structure.Platform.Id);
+        var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
+        var parent = await OrganizationsTestData.AddSubAreaAsync(factory, organization, node.Id, "Отчёты");
+        var leaf = await OrganizationsTestData.AddSubAreaAsync(factory, organization, parent.Id, "Квартальные");
+        var empty = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Пустой");
+        var team = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, organization, "Марс");
+        await OrganizationsTestData.LinkAreaToTeamAsync(factory, organization, empty.Id, team.Id);
+        var busy = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Занятой");
+        await MoveAsync(organization, node.Id, busy.Id);
 
-        var refused = await SendAsync(HttpMethod.Delete, Area(organization, reports.Id));
-        var deletion = await SendAsync(HttpMethod.Get, $"{Area(organization, quarterly.Id)}/deletion");
-        var deleted = await SendAsync(HttpMethod.Delete, Area(organization, quarterly.Id));
-        var again = await SendAsync(HttpMethod.Delete, Area(organization, quarterly.Id));
+        var withChild = await SendAsync(HttpMethod.Delete, Area(organization, parent.Id));
+        var nodeDelete = await SendAsync(HttpMethod.Delete, Area(organization, node.Id));
+        var busyDelete = await SendAsync(HttpMethod.Delete, Area(organization, busy.Id));
+        var leafDelete = await SendAsync(HttpMethod.Delete, Area(organization, leaf.Id));
+        var preview = await SendAsync(HttpMethod.Get, $"{Area(organization, empty.Id)}/deletion");
+        var emptyDelete = await SendAsync(HttpMethod.Delete, Area(organization, empty.Id));
 
-        LinksTestData.AssertRefused(refused, HttpStatusCode.Conflict, "organizations.area.not_empty");
-        Assert.Equal("Нельзя удалить область, в которой есть вложенные области", refused.Detail);
-        Assert.Equal(["projects", "teams"], PropertyNames(deletion.Body));
-        Assert.Equal(structure.ProjectId, Assert.Single(deletion.Body.GetProperty("projects").EnumerateArray()).GetProperty("id").GetGuid());
-        Assert.Equal(structure.Platform.Id, Assert.Single(deletion.Body.GetProperty("teams").EnumerateArray()).GetProperty("id").GetGuid());
-        Assert.Equal(HttpStatusCode.NoContent, deleted.Status);
-        LinksTestData.AssertRefused(again, HttpStatusCode.NotFound, "organizations.area.not_found");
-        var projectAreas = await SendAsync(HttpMethod.Get, OrganizationsApi.ProjectAreas(organization, structure.ProjectId));
-        Assert.Empty(projectAreas.Body.EnumerateArray());
-        Assert.Equal(1, (await OrganizationsTestData.ReadTreeAsync(factory, organization)).Count);
+        LinksTestData.AssertRefused(withChild, HttpStatusCode.Conflict, "organizations.area.not_empty");
+        LinksTestData.AssertRefused(nodeDelete, HttpStatusCode.Conflict, "organizations.area.root_is_fixed");
+        LinksTestData.AssertRefused(busyDelete, HttpStatusCode.Conflict, "organizations.area.not_empty");
+        Assert.Equal(HttpStatusCode.NoContent, leafDelete.Status);
+        Assert.Equal("Марс", Assert.Single(preview.Body.GetProperty("teams").EnumerateArray()).GetProperty("name").GetString());
+        Assert.Equal(HttpStatusCode.NoContent, emptyDelete.Status);
+        Assert.Equal(3, (await OrganizationsTestData.ReadOrganizationTreeAsync(factory, organization)).Count);
     }
 
-    // US-2 · "An area owns nothing": renaming, moving and deleting areas change no item, no team and no project.
+    // OQ-6 A · a deactivated project's node stays in the tree, marked; its writes answer «Проект не найден».
     [Fact]
-    public async Task AreaEdits_ChangeNoItemNoTeamNoProject()
-    {
-        var world = await WorkItemsTestData.CreateWorldAsync(factory);
-        var item = await WorkItemsTestData.CreateItemAsync(factory, world, "TASK", "Задача");
-        var before = await WorkItemsTestData.ReadAsync(factory, world, item);
-        var reports = await OrganizationsTestData.AddAreaAsync(factory, world.OrganizationId, null, "Отчёты");
-        var store = await OrganizationsTestData.AddAreaAsync(factory, world.OrganizationId, null, "Склад");
-        await OrganizationsTestData.LinkAreaToProjectAsync(factory, world.OrganizationId, reports.Id, world.ProjectId);
-
-        await SendAsync(HttpMethod.Put, $"{Area(world.OrganizationId, reports.Id)}/name", new { name = "Аналитика" });
-        await SendAsync(HttpMethod.Put, $"{Area(world.OrganizationId, reports.Id)}/parent", new { parentId = store.Id.ToString() });
-        await SendAsync(HttpMethod.Delete, Area(world.OrganizationId, reports.Id));
-
-        Assert.Equal(before.GetRawText(), (await WorkItemsTestData.ReadAsync(factory, world, item)).GetRawText());
-    }
-
-    // US-4 · "The item has no «Область»": no answer carries an area; `areaId` in a save is ignored and nothing is stored.
-    [Fact]
-    public async Task WorkItem_CarriesNoArea_AnAreaIdInASaveIsIgnored()
-    {
-        var world = await WorkItemsTestData.CreateWorldAsync(factory);
-        var item = await WorkItemsTestData.CreateItemAsync(factory, world, "BUG", "Баг");
-        var area = await OrganizationsTestData.AddAreaAsync(factory, world.OrganizationId, null, "Отчёты");
-
-        var saved = await WorkItemsTestData.SaveAsync(factory, world, item, new { title = "Баг 2", areaId = area.Id.ToString() });
-        var read = await WorkItemsTestData.ReadAsync(factory, world, item);
-        var list = await WorkItemsTestData.ListAsync(factory, world);
-
-        Assert.Equal(HttpStatusCode.OK, saved.Status);
-        Assert.False(saved.Body.TryGetProperty("area", out _));
-        Assert.False(read.TryGetProperty("area", out _));
-        Assert.False(list.Body.GetProperty("data")[0].TryGetProperty("area", out _));
-        Assert.Equal("Баг 2", read.GetProperty("title").GetString());
-    }
-
-    // US-4 · "The per-project routes are gone": a create, a rename and a move under a project's address are no longer routes.
-    [Fact]
-    public async Task ProjectNestedAreaRoutes_AreGone()
+    public async Task DeactivatedProject_NodeIsMarked_AndReadOnly()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var area = await OrganizationsTestData.AddAreaAsync(factory, structure.OrganizationId, null, "Отчёты");
-        var nested = OrganizationsApi.ProjectAreas(structure.OrganizationId, structure.ProjectId);
+        var organization = structure.OrganizationId;
+        var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
+        var sub = await OrganizationsTestData.AddSubAreaAsync(factory, organization, node.Id, "Отчёты");
+        var archive = await OrganizationsTestData.AddSubAreaAsync(factory, organization, node.Id, "Архив");
+        await OrganizationsTestData.SetProjectStatusAsync(factory, organization, structure.ProjectId, ProjectStatus.Deactivated);
 
-        var rename = await SendAsync(HttpMethod.Put, $"{nested}/{area.Id}/name", new { name = "Иная" });
-        var move = await SendAsync(HttpMethod.Put, $"{nested}/{area.Id}/parent", new { parentId = (string?)null });
+        var tree = await SendAsync(HttpMethod.Get, OrganizationsApi.Areas(organization));
+        var create = await CreateAsync(organization, new { name = "Новая", parentId = node.Id.ToString() });
+        var rename = await SendAsync(HttpMethod.Put, $"{Area(organization, sub.Id)}/name", new { name = "Иная" });
+        var move = await MoveAsync(organization, sub.Id, archive.Id);
+        var delete = await SendAsync(HttpMethod.Delete, Area(organization, sub.Id));
 
-        Assert.All(new[] { rename, move }, answer => Assert.True(answer.Status is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed or HttpStatusCode.BadRequest));
-        Assert.Equal("Отчёты", (await OrganizationsTestData.ReadTreeAsync(factory, structure.OrganizationId))[area.Id].Name);
+        Assert.Equal(3, tree.Body.GetArrayLength());
+        Assert.All(tree.Body.EnumerateArray(), n => Assert.False(n.GetProperty("projectActive").GetBoolean()));
+
+        foreach (var answer in new[] { create, rename, move, delete })
+        {
+            LinksTestData.AssertRefused(answer, HttpStatusCode.NotFound, "organizations.project.not_found");
+        }
     }
 
-    // US-6 · "A non-member sees nothing": the organization is not found, whatever the route.
+    // OQ-5 A · a project is created under a department or at the top with its node; the parent must be a department.
+    [Fact]
+    public async Task CreateProject_WithAParentArea_PutsItsNodeThere()
+    {
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
+        var department = await OrganizationsTestData.AddDepartmentAsync(factory, organization.Id, "Разработка");
+        var projects = $"/api/organizations/{organization.Id}/projects";
+
+        var under = await SendAsync(HttpMethod.Post, projects, new { name = "Мастаск", key = "MST", parentAreaId = department.Id.ToString() });
+        var top = await SendAsync(HttpMethod.Post, projects, new { name = "Верхний", key = "TOP" });
+        var node = await OrganizationsTestData.NodeOfAsync(factory, under.Body.GetProperty("id").GetGuid());
+        var notDepartment = await SendAsync(HttpMethod.Post, projects, new { name = "Третий", key = "THR", parentAreaId = node.Id.ToString() });
+        var clash = await SendAsync(HttpMethod.Post, projects, new { name = "разработка", key = "CLS" });
+        var missing = await SendAsync(HttpMethod.Post, projects, new { name = "Пятый", key = "FIV", parentAreaId = Guid.CreateVersion7().ToString() });
+
+        Assert.Equal((HttpStatusCode.Created, HttpStatusCode.Created), (under.Status, top.Status));
+        Assert.Equal(department.Id, node.ParentId);
+        LinksTestData.AssertRefused(notDepartment, HttpStatusCode.Conflict, "organizations.area.type_not_allowed");
+        LinksTestData.AssertRefused(clash, HttpStatusCode.Conflict, "organizations.area.name_taken");
+        LinksTestData.AssertRefused(missing, HttpStatusCode.NotFound, "organizations.area.not_found");
+    }
+
+    // US-4 · the old project-area link routes are gone.
+    [Fact]
+    public async Task ProjectAreaLinkRoutes_AreGone()
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        var organization = structure.OrganizationId;
+        var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
+        var some = Guid.CreateVersion7().ToString();
+
+        var routes = new (HttpMethod, string, object?)[]
+        {
+            (HttpMethod.Get, $"{Area(organization, node.Id)}/projects", null),
+            (HttpMethod.Post, $"{Area(organization, node.Id)}/projects", new { projectIds = new[] { some } }),
+            (HttpMethod.Delete, $"{Area(organization, node.Id)}/projects/{some}", null),
+            (HttpMethod.Post, OrganizationsApi.ProjectAreas(organization, structure.ProjectId), new { areaIds = new[] { some } }),
+            (HttpMethod.Delete, $"{OrganizationsApi.ProjectAreas(organization, structure.ProjectId)}/{some}", null),
+        };
+
+        foreach (var (method, path, body) in routes)
+        {
+            var answer = await SendAsync(method, path, body);
+
+            Assert.True(answer.Status is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed, $"{method} {path}: {answer.Status}");
+        }
+    }
+
+    // US-3 · a project's subtree: the node first, then its sub-areas; a deactivated project is 404 on its own route.
+    [Fact]
+    public async Task ProjectAreas_ListsTheSubtree_ADeactivatedProjectIsNotFound()
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        var organization = structure.OrganizationId;
+        var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
+        await OrganizationsTestData.AddSubAreaAsync(factory, organization, node.Id, "Отчёты");
+
+        var list = await SendAsync(HttpMethod.Get, OrganizationsApi.ProjectAreas(organization, structure.ProjectId));
+        await OrganizationsTestData.SetProjectStatusAsync(factory, organization, structure.ProjectId, ProjectStatus.Deactivated);
+        var deactivated = await SendAsync(HttpMethod.Get, OrganizationsApi.ProjectAreas(organization, structure.ProjectId));
+
+        Assert.Equal(
+            [("project", 1), ("area", 2)],
+            list.Body.EnumerateArray().Select(n => (n.GetProperty("type").GetString()!, n.GetProperty("depth").GetInt32())));
+        LinksTestData.AssertRefused(deactivated, HttpStatusCode.NotFound, "organizations.project.not_found");
+    }
+
+    // US-6 · no token: 401 on every route before anything else.
+    [Fact]
+    public async Task EveryAreaRoute_WithNoToken_Returns401()
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+
+        foreach (var (method, path, body) in Routes(structure.OrganizationId, Guid.CreateVersion7(), structure.ProjectId, structure.Platform.Id))
+        {
+            var answer = await OrganizationsApi.SendAsync(factory, method, path, body, token: null);
+
+            Assert.True(answer.Status == HttpStatusCode.Unauthorized, $"{method} {path}: {answer.Status}");
+        }
+    }
+
+    // US-6 · a non-member sees nothing: the organization is not found, whatever the route.
     [Fact]
     public async Task EveryAreaRoute_ANonMember_Returns404OrganizationNotFound()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var area = await OrganizationsTestData.AddAreaAsync(factory, structure.OrganizationId, null, "Отчёты");
-        var stranger = MembershipTestData.Outsider();
+        var area = await OrganizationsTestData.AddDepartmentAsync(factory, structure.OrganizationId, "Отчёты");
 
-        foreach (var (method, path, body) in Routes(structure.OrganizationId, area.Id))
+        foreach (var (method, path, body) in Routes(structure.OrganizationId, area.Id, structure.ProjectId, structure.Platform.Id))
         {
-            var answer = await SendAsync(method, path, body, stranger);
+            var answer = await SendAsync(method, path, body, MembershipTestData.Outsider());
 
             LinksTestData.AssertRefused(answer, HttpStatusCode.NotFound, "organizations.organization.not_found");
         }
     }
 
-    // US-6 · "A member and a viewer read and write nothing": reads are open to every role; the writes answer 403 for both, and the
-    // tree is unchanged. Until mod-019 only the administrator holds area.write, area.create and area.link.
+    // US-6 · a member and a viewer read and write nothing: reads stay open, writes answer 403 and nothing changes.
     [Theory]
     [InlineData(OrganizationRole.Member)]
     [InlineData(OrganizationRole.Viewer)]
@@ -384,10 +417,10 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
-        var area = await OrganizationsTestData.AddAreaAsync(factory, organization, null, "Отчёты");
+        var area = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Отчёты");
         var user = await MembershipTestData.NewMemberAsync(factory, organization, role);
 
-        foreach (var (method, path, body) in Routes(organization, area.Id))
+        foreach (var (method, path, body) in Routes(organization, area.Id, structure.ProjectId, structure.Platform.Id))
         {
             var answer = await SendAsync(method, path, body, user.Token);
 
@@ -401,43 +434,65 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
             }
         }
 
-        Assert.Equal(1, (await OrganizationsTestData.ReadTreeAsync(factory, organization)).Count);
+        Assert.Equal(2, (await OrganizationsTestData.ReadOrganizationTreeAsync(factory, organization)).Count);
     }
 
-    // US-6 · "The second codes come first": a top-level creation without area.create is 403 before the body is read.
+    // US-6 · an area of another organization is the same 404 as an unknown one on every route that names an area.
     [Fact]
-    public async Task Create_ForAMember_Returns403_BeforeTheBodyIsRead()
-    {
-        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var member = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, OrganizationRole.Member);
-
-        var answer = await CreateAsync(structure.OrganizationId, new { name = "", parentId = "x" }, member.Token);
-
-        LinksTestData.AssertRefused(answer, HttpStatusCode.Forbidden, "organizations.access.forbidden");
-    }
-
-    // US-6 · "An area of another organization is the same 404 as an unknown one", on every route that names an area, and nothing
-    // of the other organization changes.
-    [Fact]
-    public async Task EveryAreaRoute_AnAreaOfAnotherOrganization_Returns404AreaNotFound_ChangesNothing()
+    public async Task EveryAreaRoute_AnAreaOfAnotherOrganization_Returns404AreaNotFound()
     {
         var mine = await OrganizationsTestData.CreateStructureAsync(factory);
         var theirs = await OrganizationsTestData.CreateStructureAsync(factory);
-        var foreign = await OrganizationsTestData.AddAreaAsync(factory, theirs.OrganizationId, null, "Чужая");
-        var before = (await OrganizationsTestData.ReadTreeAsync(factory, theirs.OrganizationId)).PreOrder().ToList();
+        var foreign = await OrganizationsTestData.AddDepartmentAsync(factory, theirs.OrganizationId, "Чужая");
+        var before = (await OrganizationsTestData.ReadOrganizationTreeAsync(factory, theirs.OrganizationId)).PreOrder().ToList();
 
-        foreach (var (method, path, body) in Routes(mine.OrganizationId, foreign.Id))
+        foreach (var (method, path, body) in AreaRoutes(mine.OrganizationId, foreign.Id))
         {
-            var answer = await SendAsync(method, path, body);
-
-            LinksTestData.AssertRefused(answer, HttpStatusCode.NotFound, "organizations.area.not_found");
+            LinksTestData.AssertRefused(await SendAsync(method, path, body), HttpStatusCode.NotFound, "organizations.area.not_found");
         }
 
-        Assert.Equal(before, (await OrganizationsTestData.ReadTreeAsync(factory, theirs.OrganizationId)).PreOrder().ToList());
+        Assert.Equal(before, (await OrganizationsTestData.ReadOrganizationTreeAsync(factory, theirs.OrganizationId)).PreOrder().ToList());
     }
 
-    /// <summary>Every route that names one area of the organization, with a body that would be valid.</summary>
-    private static IEnumerable<(HttpMethod Method, string Path, object? Body)> Routes(Guid organizationId, Guid areaId)
+    // US-6 · a missing area is 403 for a viewer and 404 for an administrator.
+    [Fact]
+    public async Task AMissingArea_IsA403ForAViewer_A404ForAnAdministrator()
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        var organization = structure.OrganizationId;
+        var viewer = await MembershipTestData.NewMemberAsync(factory, organization, OrganizationRole.Viewer);
+        var missing = Area(organization, Guid.CreateVersion7());
+
+        foreach (var (method, path, body) in new (HttpMethod, string, object?)[]
+        {
+            (HttpMethod.Put, $"{missing}/name", new { name = "Новое" }),
+            (HttpMethod.Put, $"{missing}/parent", new { parentId = (string?)null }),
+            (HttpMethod.Delete, missing, null),
+            (HttpMethod.Post, OrganizationsApi.Areas(organization), new { name = "Дочерняя", parentId = Guid.CreateVersion7().ToString() }),
+        })
+        {
+            LinksTestData.AssertRefused(await SendAsync(method, path, body, viewer.Token), HttpStatusCode.Forbidden, "organizations.access.forbidden");
+        }
+
+        LinksTestData.AssertRefused(await SendAsync(HttpMethod.Delete, missing), HttpStatusCode.NotFound, "organizations.area.not_found");
+    }
+
+    // BR-AW-4 · the description counts UTF-16 units: 1 000 emoji are kept, 1 001 are refused.
+    [Fact]
+    public async Task Description_IsCountedInUtf16Units()
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        var department = await OrganizationsTestData.AddDepartmentAsync(factory, structure.OrganizationId, "Отчёты");
+        var path = $"{Area(structure.OrganizationId, department.Id)}/description";
+
+        var kept = await SendAsync(HttpMethod.Put, path, new { description = string.Concat(Enumerable.Repeat("😀", 1000)) });
+        var refused = await SendAsync(HttpMethod.Put, path, new { description = string.Concat(Enumerable.Repeat("😀", 1001)) });
+
+        Assert.Equal(HttpStatusCode.OK, kept.Status);
+        LinksTestData.AssertRefused(refused, HttpStatusCode.BadRequest, "organizations.validation_failed");
+    }
+
+    private static IEnumerable<(HttpMethod Method, string Path, object? Body)> AreaRoutes(Guid organizationId, Guid areaId)
     {
         var area = Area(organizationId, areaId);
         yield return (HttpMethod.Get, area, null);
@@ -445,12 +500,26 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
         yield return (HttpMethod.Put, $"{area}/description", new { description = "Описание" });
         yield return (HttpMethod.Put, $"{area}/parent", new { parentId = (string?)null });
         yield return (HttpMethod.Get, $"{area}/deletion", null);
-        yield return (HttpMethod.Get, $"{area}/projects", null);
         yield return (HttpMethod.Get, $"{area}/teams", null);
-        yield return (HttpMethod.Post, $"{area}/projects", new { projectIds = new[] { Guid.CreateVersion7().ToString() } });
         yield return (HttpMethod.Post, $"{area}/teams", new { teamIds = new[] { Guid.CreateVersion7().ToString() } });
-        yield return (HttpMethod.Delete, $"{area}/projects/{Guid.CreateVersion7()}", null);
         yield return (HttpMethod.Delete, $"{area}/teams/{Guid.CreateVersion7()}", null);
         yield return (HttpMethod.Delete, area, null);
+    }
+
+    /// <summary>Every route of the typed tree, with a body that would be valid.</summary>
+    private static IEnumerable<(HttpMethod Method, string Path, object? Body)> Routes(Guid organizationId, Guid areaId, Guid projectId, Guid teamId)
+    {
+        yield return (HttpMethod.Get, OrganizationsApi.Areas(organizationId), null);
+        yield return (HttpMethod.Post, OrganizationsApi.Areas(organizationId), new { name = "Новая" });
+
+        foreach (var route in AreaRoutes(organizationId, areaId))
+        {
+            yield return route;
+        }
+
+        yield return (HttpMethod.Get, OrganizationsApi.ProjectAreas(organizationId, projectId), null);
+        yield return (HttpMethod.Get, OrganizationsApi.TeamAreas(organizationId, teamId), null);
+        yield return (HttpMethod.Post, OrganizationsApi.TeamAreas(organizationId, teamId), new { areaIds = new[] { areaId.ToString() } });
+        yield return (HttpMethod.Delete, $"{OrganizationsApi.TeamAreas(organizationId, teamId)}/{areaId}", null);
     }
 }

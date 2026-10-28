@@ -17,6 +17,7 @@ public sealed class WorkItemTests
     private static readonly WorkItemTypeStates Task = Type("TASK", AppearanceToken.Task, StateCategory.Proposed, StateCategory.InProgress, StateCategory.Completed, StateCategory.Removed);
 
     private static readonly Guid ProjectId = Guid.CreateVersion7();
+    private static readonly Guid RootAreaId = Guid.CreateVersion7();
 
     private static WorkItemTypeStates Type(string key, AppearanceToken appearance, params StateCategory[] categories) =>
         new(Guid.CreateVersion7(), key, appearance, categories.Select((category, index) => new WorkItemTypeState(Guid.CreateVersion7(), index + 1, category)).ToList());
@@ -24,7 +25,7 @@ public sealed class WorkItemTests
     private static Guid StateOf(WorkItemTypeStates type, StateCategory category) => type.States.First(state => state.Category == category).Id;
 
     private static WorkItem ABug(int number = 4) =>
-        WorkItem.Create(ProjectId, number, Bug, "Падение при входе", Guid.CreateVersion7(), Created, "creator-sub");
+        WorkItem.Create(ProjectId, number, Bug, RootAreaId, "Падение при входе", Guid.CreateVersion7(), Created, "creator-sub");
 
     // US-1 · "A work item is created with only a title" (BR-M3-20, BR-M3-28): the type's initial state, no assignee, an
     // empty description, the root area; changed when created.
@@ -33,13 +34,14 @@ public sealed class WorkItemTests
     {
         var requestId = Guid.CreateVersion7();
 
-        var item = WorkItem.Create(ProjectId, 4, Bug, "Падение при входе", requestId, Created, "creator-sub");
+        var item = WorkItem.Create(ProjectId, 4, Bug, RootAreaId, "Падение при входе", requestId, Created, "creator-sub");
 
         Assert.Equal((ProjectId, 4, Bug.TypeId), (item.ProjectId, item.Number, item.TypeId));
         Assert.Equal(Bug.States[0].Id, item.StateId);
         Assert.Equal(Bug.InitialStateId, item.StateId);
         Assert.Null(item.AssigneeId);
         Assert.Equal(string.Empty, item.Description);
+        Assert.Equal(RootAreaId, item.AreaId);
         Assert.Equal(requestId, item.CreationRequestId);
         Assert.Equal(("creator-sub", Created, Created), (item.CreatedBy, item.CreatedAt, item.ChangedAt));
         Assert.NotEqual(Guid.Empty, item.Id);
@@ -49,9 +51,9 @@ public sealed class WorkItemTests
     [Fact]
     public void Create_UncheckedTitleOrNumber_IsADefect()
     {
-        Assert.Throws<ArgumentException>(() => WorkItem.Create(ProjectId, 1, Bug, "  untrimmed ", Guid.CreateVersion7(), Created, "sub"));
-        Assert.Throws<ArgumentException>(() => WorkItem.Create(ProjectId, 1, Bug, "", Guid.CreateVersion7(), Created, "sub"));
-        Assert.Throws<ArgumentOutOfRangeException>(() => WorkItem.Create(ProjectId, 0, Bug, "Заголовок", Guid.CreateVersion7(), Created, "sub"));
+        Assert.Throws<ArgumentException>(() => WorkItem.Create(ProjectId, 1, Bug, RootAreaId, "  untrimmed ", Guid.CreateVersion7(), Created, "sub"));
+        Assert.Throws<ArgumentException>(() => WorkItem.Create(ProjectId, 1, Bug, RootAreaId, "", Guid.CreateVersion7(), Created, "sub"));
+        Assert.Throws<ArgumentOutOfRangeException>(() => WorkItem.Create(ProjectId, 0, Bug, RootAreaId, "Заголовок", Guid.CreateVersion7(), Created, "sub"));
     }
 
     // US-3 · "A title and a description are changed in one save" (BR-M3-25, BR-M3-28): both change, ChangedAt moves.
@@ -73,7 +75,7 @@ public sealed class WorkItemTests
         var item = ABug();
 
         Assert.False(item.Save(
-            new WorkItemEdit(item.Title, item.Description, item.StateId, new AssigneeEdit(null, IsAvailable: true)),
+            new WorkItemEdit(item.Title, item.Description, item.StateId, new AssigneeEdit(null, IsAvailable: true), item.AreaId),
             Bug,
             Later));
         Assert.False(item.Save(new WorkItemEdit(), Bug, Later));
@@ -120,11 +122,12 @@ public sealed class WorkItemTests
     public void Save_StateOnly_LeavesAssigneeAndAreaAsTheyAre()
     {
         var item = ABug();
-        item.Save(new WorkItemEdit(Assignee: new AssigneeEdit("anna", IsAvailable: true)), Bug, Later);
+        var area = Guid.CreateVersion7();
+        item.Save(new WorkItemEdit(Assignee: new AssigneeEdit("anna", IsAvailable: true), AreaId: area), Bug, Later);
 
         item.Save(new WorkItemEdit(StateId: StateOf(Bug, StateCategory.Completed)), Bug, Later.AddHours(1));
 
-        Assert.Equal("anna", item.AssigneeId);
+        Assert.Equal(("anna", area), (item.AssigneeId, item.AreaId));
     }
 
     // US-4 · "An assignee is found by name and saved" and "An assignment is cleared" (BR-M3-22).
@@ -178,6 +181,18 @@ public sealed class WorkItemTests
             Later));
 
         Assert.Equal(WorkItemErrorCodes.StateNotAllowed, refusal.Code);
+    }
+
+    // US-4 · "An area is chosen and saved".
+    [Fact]
+    public void Save_Area_Moves()
+    {
+        var item = ABug();
+        var api = Guid.CreateVersion7();
+
+        Assert.True(item.Save(new WorkItemEdit(AreaId: api), Bug, Later));
+
+        Assert.Equal(api, item.AreaId);
     }
 
     // BR-M3-1: the states are always the item's own type's; another type's set is a defect, not a refusal.

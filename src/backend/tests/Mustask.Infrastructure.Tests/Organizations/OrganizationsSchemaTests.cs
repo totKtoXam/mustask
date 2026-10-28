@@ -57,15 +57,15 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
         },
         {
             "BR-M1-12: a sibling name",
-            "INSERT INTO areas (id, organization_id, parent_id, name, normalized_name, inherits_access, created_by, created_at) "
-            + "SELECT gen_random_uuid(), organization_id, parent_id, name, normalized_name, true, 'x', now() FROM areas WHERE id = @secondArea",
+            "INSERT INTO areas (id, organization_id, type, project_id, parent_id, name, normalized_name, created_by, created_at) "
+            + "SELECT gen_random_uuid(), organization_id, type, project_id, parent_id, name, normalized_name, created_by, created_at FROM areas WHERE id = @secondArea",
             "ix_areas_organization_id_parent_id_normalized_name"
         },
         {
-            "BR-AW-4: a second top-level area of one name (top-level areas are siblings, nulls are not distinct)",
-            "INSERT INTO areas (id, organization_id, parent_id, name, normalized_name, inherits_access, created_by, created_at) "
-            + "SELECT gen_random_uuid(), organization_id, NULL, name, normalized_name, true, 'x', now() FROM areas WHERE id = @root",
-            "ix_areas_organization_id_parent_id_normalized_name"
+            "BR-M1-11: a second node for one project",
+            "INSERT INTO areas (id, organization_id, type, project_id, parent_id, name, normalized_name, created_by, created_at) "
+            + "VALUES (gen_random_uuid(), @org, 2, @project, NULL, 'Второй узел', 'ВТОРОЙ УЗЕЛ', 'x', now())",
+            "ix_areas_project_id_node"
         },
     };
 
@@ -97,7 +97,7 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
             "fk_organizations_processes_process_id"
         },
         { "an organization with projects", "DELETE FROM organizations WHERE id = @org", "fk_projects_organizations_organization_id" },
-        { "a project with links and areas", "DELETE FROM projects WHERE id = @project", "fk_project_teams_projects_organization_id_project_id|fk_area_projects_projects_organization_id_project_id" },
+        { "a project with links and areas", "DELETE FROM projects WHERE id = @project", "fk_project_teams_projects_organization_id_project_id|fk_areas_projects_project_id" },
         { "a team a project is linked to", "DELETE FROM teams WHERE id = @second", "fk_project_teams_teams_organization_id_team_id" },
         {
             "a link the project names as its default",
@@ -105,7 +105,6 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
             DefaultTeamKey
         },
         { "an area with children", "DELETE FROM areas WHERE id = @root", ParentKey },
-        { "a project an area is linked to", "INSERT INTO area_projects (area_id, project_id, organization_id, linked_by, linked_at) VALUES (@root, @project, @org, 'x', now()); DELETE FROM project_teams WHERE project_id = @project; DELETE FROM projects WHERE id = @project", "fk_area_projects_projects_organization_id_project_id" },
     };
 
     // qa.md D-1 (BR-M1-22): an area's parent belongs to the area's own project, and a project's default team is a team of that
@@ -121,8 +120,7 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
     // The controls of the cases above: the same statements with the parent or the team of the row's own project.
     public static TheoryData<string, string> SameProjectReferences() => new()
     {
-        { "an area under an area of its organization", InsertAreaUnder("@secondArea") },
-        { "an area linked to a project of its organization", LinkAreaProject("@project") },
+        { "an area under its project's area", InsertAreaUnder("@secondArea") },
         { "a project naming its own team as its default", NameDefault("@second") },
         { "a project naming no default", NameDefault("NULL") },
     };
@@ -179,19 +177,19 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
             parameters);
     }
 
-    // BR-M1-12: a child may carry the root's name, and the same name is free under another parent.
+    // BR-M1-12: a child may carry its project node's name, and the same name is free under another parent.
     [Fact]
     public async Task Insert_SameNameUnderAnotherParent_IsAllowed()
     {
         var parameters = await ParametersAsync();
 
         await database.ExecuteAsync(
-            "INSERT INTO areas (id, organization_id, parent_id, name, normalized_name, inherits_access, created_by, created_at) "
-            + "SELECT gen_random_uuid(), organization_id, @secondArea, name, normalized_name, true, 'x', now() FROM areas WHERE id = @root",
+            "INSERT INTO areas (id, organization_id, type, project_id, parent_id, name, normalized_name, created_by, created_at) "
+            + "SELECT gen_random_uuid(), organization_id, 3, project_id, @secondArea, name, normalized_name, created_by, created_at FROM areas WHERE id = @root",
             parameters);
         await database.ExecuteAsync(
-            "INSERT INTO areas (id, organization_id, parent_id, name, normalized_name, inherits_access, created_by, created_at) "
-            + "SELECT gen_random_uuid(), organization_id, @root, name, normalized_name, true, 'x', now() FROM areas WHERE id = @root",
+            "INSERT INTO areas (id, organization_id, type, project_id, parent_id, name, normalized_name, created_by, created_at) "
+            + "SELECT gen_random_uuid(), organization_id, 3, project_id, @root, name, normalized_name, created_by, created_at FROM areas WHERE id = @root",
             parameters);
     }
 
@@ -246,11 +244,8 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
     }
 
     private static string InsertAreaUnder(string parent) =>
-        "INSERT INTO areas (id, organization_id, parent_id, name, normalized_name, inherits_access, created_by, created_at) "
-        + $"VALUES (gen_random_uuid(), @org, {parent}, 'Чужая', 'ЧУЖАЯ', true, 'x', now())";
-
-    private static string LinkAreaProject(string project, string area = "@root") =>
-        $"INSERT INTO area_projects (area_id, project_id, organization_id, linked_by, linked_at) VALUES ({area}, {project}, @org, 'x', now())";
+        "INSERT INTO areas (id, organization_id, type, project_id, parent_id, name, normalized_name, created_by, created_at) "
+        + $"VALUES (gen_random_uuid(), @org, 3, @project, {parent}, 'Чужая', 'ЧУЖАЯ', 'x', now())";
 
     private static string NameDefault(string team) => $"UPDATE projects SET default_team_id = {team} WHERE id = @project";
 
@@ -262,6 +257,7 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
     {
         var structure = await database.CreateStructureAsync();
         var other = await database.CreateStructureAsync();
+        var sibling = await database.AddProjectAsync(structure.Organization.Id, "Соседний проект", "SIB");
         var unlinkedTeam = Team.Create(structure.Organization.Id, OrganizationsDatabaseFixture.Name("Не связана"));
         await using (var context = database.NewContext())
         {
@@ -269,22 +265,20 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
             await context.SaveChangesAsync();
         }
 
-        var root = OrganizationsDatabaseFixture.NewArea(structure.Organization.Id, null, "Корень");
-        var secondArea = OrganizationsDatabaseFixture.NewArea(structure.Organization.Id, root.Id, "Платформа");
-        var otherRoot = OrganizationsDatabaseFixture.NewArea(other.Organization.Id, null, "Чужой корень");
-        await database.AddAreasAsync(root, secondArea, otherRoot);
+        var secondArea = OrganizationsDatabaseFixture.NewSubArea(structure.Project.Root, "Платформа");
+        await database.AddAreasAsync(secondArea);
 
         return
         [
             ("org", structure.Organization.Id),
-            ("project", structure.Project.Id),
+            ("project", structure.Project.Project.Id),
             ("second", structure.SecondTeam.Id),
-            ("root", root.Id),
+            ("root", structure.Project.Root.Id),
             ("secondArea", secondArea.Id),
             ("otherTeam", other.SecondTeam.Id),
-            ("otherRoot", otherRoot.Id),
-            ("otherProject", other.Project.Id),
+            ("otherRoot", other.Project.Root.Id),
             ("siblingTeam", unlinkedTeam.Id),
+            ("siblingRoot", sibling.Root.Id),
         ];
     }
 
@@ -311,9 +305,8 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
     {
         var structure = await database.CreateStructureAsync();
         var otherOrganization = Guid.CreateVersion7();
-        var root = OrganizationsDatabaseFixture.NewArea(structure.Organization.Id, null, "Корень");
-        var secondArea = OrganizationsDatabaseFixture.NewArea(structure.Organization.Id, root.Id, "Платформа");
-        await database.AddAreasAsync(root, secondArea);
+        var secondArea = OrganizationsDatabaseFixture.NewSubArea(structure.Project.Root, "Платформа");
+        await database.AddAreasAsync(secondArea);
 
         // A process of its own for the organization-name duplicate, so only the name index can fire.
         await using var provider = database.BuildServices();
@@ -325,10 +318,10 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
             ("process", structure.Organization.ProcessId.Value),
             ("otherProcess", otherProcess.Value),
             ("bareProcess", Guid.CreateVersion7()),
-            ("project", structure.Project.Id),
+            ("project", structure.Project.Project.Id),
             ("first", structure.FirstTeam.Id),
             ("second", structure.SecondTeam.Id),
-            ("root", root.Id),
+            ("root", structure.Project.Root.Id),
             ("secondArea", secondArea.Id),
         ];
     }

@@ -124,7 +124,7 @@ public sealed class DeleteOwnedItemsEndpointTests(MustaskApiFactory factory)
         await MembershipTestData.AddTeamMemberAsync(factory, world.OrganizationId, world.Venus, member.Id);
         var before = await StoredAsync(factory, world.ProjectId, open.Identifier);
         var venusBefore = await StoredAsync(factory, world.ProjectId, venus.Identifier);
-        var areasBefore = await OrganizationsTestData.ReadTreeAsync(factory, world.OrganizationId);
+        var areasBefore = await OrganizationsTestData.ReadTreeAsync(factory, world.ProjectId);
         var started = DateTimeOffset.UtcNow;
 
         var answer = await DeleteAsync(world, world.Mars);
@@ -139,13 +139,13 @@ public sealed class DeleteOwnedItemsEndpointTests(MustaskApiFactory factory)
         }
 
         var after = await StoredAsync(factory, world.ProjectId, open.Identifier);
-        Assert.Equal((before.AssigneeId, before.StateId), (after.AssigneeId, after.StateId));
+        Assert.Equal((before.AreaId, before.AssigneeId, before.StateId), (after.AreaId, after.AssigneeId, after.StateId));
         Assert.Equal(1, await ProjectPlacesOfAsync(factory, open.Id));
         Assert.Equal(venusBefore, await StoredAsync(factory, world.ProjectId, venus.Identifier));
         Assert.Null(await DefaultSettingAsync(world));
         Assert.Empty(await MembershipTestData.TeamMemberIdsAsync(factory, world.Mars));
         Assert.Equal([member.Id], await MembershipTestData.TeamMemberIdsAsync(factory, world.Venus));
-        Assert.Equal(areasBefore.PreOrder(), (await OrganizationsTestData.ReadTreeAsync(factory, world.OrganizationId)).PreOrder());
+        Assert.Equal(areasBefore.PreOrder(), (await OrganizationsTestData.ReadTreeAsync(factory, world.ProjectId)).PreOrder());
         Assert.Equal(TeamStatus.Deleted, (await StoredTeamAsync(world.Mars)).Status);
 
         var recreated = await CreateTeamAsync(factory, world.OrganizationId, new { name = "MARS" });
@@ -183,7 +183,7 @@ public sealed class DeleteOwnedItemsEndpointTests(MustaskApiFactory factory)
     {
         var world = await CreateWorldAsync(factory);
         var single = await OrganizationsTestData.CreateProjectAsync(factory, world.OrganizationId, "Одна", "ONE");
-        var items = world.Items with { ProjectId = single.Project.Id, Key = "ONE" };
+        var items = world.Items with { ProjectId = single.Project.Id, RootAreaId = single.Root.Id, Key = "ONE" };
         var story = await WorkItemsTestData.CreateAsync(factory, items, "US", "История");
         Assert.Equal(HttpStatusCode.Created, story.Status);
         var identifier = story.Body.GetProperty("identifier").GetString()!;
@@ -513,7 +513,7 @@ public sealed class DeleteOwnedItemsEndpointTests(MustaskApiFactory factory)
 
         return world with
         {
-            Items = world.Items with { ProjectId = two.Project.Id, Key = "TWO" },
+            Items = world.Items with { ProjectId = two.Project.Id, RootAreaId = two.Root.Id, Key = "TWO" },
             OwnTeam = two.Team.Id,
             Mars = doomed,
         };

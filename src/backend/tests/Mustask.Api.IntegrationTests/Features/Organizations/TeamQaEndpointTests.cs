@@ -111,7 +111,7 @@ public sealed class TeamQaEndpointTests(MustaskApiFactory factory)
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
         var project = await OrganizationsTestData.CreateBareProjectAsync(factory, organization.Id, "Без команд", "NOT");
-        var items = new WorkItemsWorld(organization.Id, project.Id, "NOT", await WorkItemsTestData.TypesAsync(factory, organization.Id));
+        var items = new WorkItemsWorld(organization.Id, project.Project.Id, project.Root.Id, "NOT", await WorkItemsTestData.TypesAsync(factory, organization.Id));
         var team = (await OrganizationsTestData.AddUnlinkedTeamAsync(factory, organization.Id, "Первая")).Id;
         var story = items.Types["US"].Id.ToString();
         var failures = new List<string>();
@@ -122,8 +122,8 @@ public sealed class TeamQaEndpointTests(MustaskApiFactory factory)
 
             for (var index = 0; index < 3; index++)
             {
-                requests.Add(("link", LinkTeamsAsync(factory, organization.Id, project.Id, new { teamIds = new[] { team.ToString() } })));
-                requests.Add(("unlink to nobody", UnlinkAsync(factory, organization.Id, project.Id, team, To(null))));
+                requests.Add(("link", LinkTeamsAsync(factory, organization.Id, project.Project.Id, new { teamIds = new[] { team.ToString() } })));
+                requests.Add(("unlink to nobody", UnlinkAsync(factory, organization.Id, project.Project.Id, team, To(null))));
                 requests.Add((
                     "create with the default",
                     SendAsync(HttpMethod.Post, WorkItemsTestData.List(items), new { requestId = Guid.NewGuid().ToString(), typeId = story, title = $"Умолчание {round}-{index}" })));
@@ -182,7 +182,7 @@ public sealed class TeamQaEndpointTests(MustaskApiFactory factory)
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
         var project = await OrganizationsTestData.CreateBareProjectAsync(factory, organization.Id, "Без команд", "NOT");
-        var items = new WorkItemsWorld(organization.Id, project.Id, "NOT", await WorkItemsTestData.TypesAsync(factory, organization.Id));
+        var items = new WorkItemsWorld(organization.Id, project.Project.Id, project.Root.Id, "NOT", await WorkItemsTestData.TypesAsync(factory, organization.Id));
         var world = new BoardsWorld(items, Guid.Empty, Guid.Empty, Guid.Empty, Guid.Empty, Guid.Empty);
         var max = await MembershipTestData.NewMemberAsync(factory, organization.Id, OrganizationRole.Member);
         var vera = await MembershipTestData.NewMemberAsync(factory, organization.Id, OrganizationRole.Viewer);

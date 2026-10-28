@@ -9,7 +9,7 @@ namespace Mustask.Infrastructure.Organizations;
 /// status, reachable or not (ADR-0026 rule 4), and <b>take the organization</b>: an object of another organization answers
 /// <c>null</c> (BR-OL-1, mod-017 S-2), so no caller compares organizations itself. Reachability is computed through
 /// <see cref="Reachability"/>, and the project default team through <see cref="ProjectDefaultTeam"/> (mod-017 BR-OT-4) over the
-/// project's <b>links</b>. An area is read with its path (mod-018). Each read runs a fixed number of
+/// project's <b>links</b>. An area has no owner any more, so there is no read of one (BR-OT-10). Each read runs a fixed number of
 /// queries.
 /// </summary>
 internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganizationStructure
@@ -62,6 +62,10 @@ internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganiz
                         where link.ProjectId == candidate.Id && team.Status == TeamStatus.Active
                         select (Guid?)team.Id)
                     .FirstOrDefault(),
+                RootAreaId = context.Areas
+                    .Where(area => area.ProjectId == candidate.Id && area.Type == AreaType.Project)
+                    .Select(area => area.Id)
+                    .First(),
             })
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -81,6 +85,7 @@ internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganiz
             project.Status,
             isReachable,
             ProjectDefaultTeam.Resolve(project.NamedActiveTeamId, project.ActiveTeams, project.AnActiveTeamId),
+            project.RootAreaId,
             project.CreatedBy,
             project.CreatedAt);
     }
@@ -147,17 +152,6 @@ internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganiz
         return tree.Rows.TryGetValue(areaId, out var row) ? ToInfo(organizationId, row, tree.Tree) : null;
     }
 
-    public async Task<IReadOnlyList<AreaInfo>> ListAreasOfProjectAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken)
-    {
-        var ids = await context.AreaProjects
-            .AsNoTracking()
-            .Where(link => link.OrganizationId == organizationId && link.ProjectId == projectId)
-            .Select(link => link.AreaId)
-            .ToListAsync(cancellationToken);
-
-        return await InPreOrderAsync(organizationId, ids, cancellationToken);
-    }
-
     public async Task<IReadOnlyList<AreaInfo>> ListAreasOfTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken)
     {
         var ids = await context.AreaTeams
@@ -166,42 +160,6 @@ internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganiz
             .Select(link => link.AreaId)
             .ToListAsync(cancellationToken);
 
-        return await InPreOrderAsync(organizationId, ids, cancellationToken);
-    }
-
-    public async Task<IReadOnlyList<LinkedProjectInfo>> ListLinkedProjectsOfAreaAsync(
-        Guid organizationId, Guid areaId, bool includeDescendants, CancellationToken cancellationToken)
-    {
-        // One statement: the subtree by a recursive CTE (the area alone when descendants are not asked for), then each active project
-        // once through its links to any of them. Every step carries the organization (ADR-0028 rule 4).
-        var subtree = includeDescendants;
-
-        return await context.Database
-            .SqlQuery<LinkedProjectRow>(
-                $"""
-                 WITH RECURSIVE subtree (id) AS (
-                     SELECT a.id FROM areas a WHERE a.organization_id = {organizationId} AND a.id = {areaId}
-                     UNION ALL
-                     SELECT c.id FROM areas c JOIN subtree s ON c.parent_id = s.id
-                     WHERE {subtree} AND c.organization_id = {organizationId}
-                 )
-                 SELECT p.id AS "Id", p.name AS "Name", p.key AS "Key", TRUE AS "IsReachable"
-                 FROM projects p
-                 JOIN organizations o ON o.id = p.organization_id
-                 WHERE p.organization_id = {organizationId}
-                   AND p.status = 'Active'
-                   AND o.status = 'Active'
-                   AND EXISTS (
-                       SELECT 1 FROM area_projects ap
-                       WHERE ap.organization_id = {organizationId} AND ap.project_id = p.id AND ap.area_id IN (SELECT id FROM subtree))
-                 ORDER BY p.name COLLATE "ru-x-icu", p.id
-                 """)
-            .Select(row => new LinkedProjectInfo(row.Id, row.Name, row.Key, true))
-            .ToListAsync(cancellationToken);
-    }
-
-    private async Task<IReadOnlyList<AreaInfo>> InPreOrderAsync(Guid organizationId, List<Guid> ids, CancellationToken cancellationToken)
-    {
         if (ids.Count == 0)
         {
             return [];
@@ -223,27 +181,18 @@ internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganiz
             .Where(area => area.OrganizationId == organizationId)
             .OrderBy(area => EF.Functions.Collate(area.Name, OrganizationsCollation.Russian))
             .ThenBy(area => area.Id)
-            .Select(area => new AreaRow(area.Id, area.ParentId, area.Name, area.Description))
+            .Select(area => new AreaRow(area.Id, area.ParentId, area.Name, area.Description, area.Type, area.ProjectId))
             .ToListAsync(cancellationToken);
 
-        return (rows.ToDictionary(row => row.Id), new AreaTree(rows.Select(row => new AreaNode(row.Id, row.ParentId, row.Name))));
+        return (
+            rows.ToDictionary(row => row.Id),
+            new AreaTree(rows.Select(row => new AreaNode(row.Id, row.ParentId, row.Name, row.Type, row.ProjectId))));
     }
 
     private static AreaInfo ToInfo(Guid organizationId, AreaRow row, AreaTree tree) =>
-        new(row.Id, organizationId, row.ParentId, row.Name, row.Description, tree.PathOf(row.Id));
+        new(row.Id, organizationId, row.ParentId, row.Type, row.ProjectId, row.Name, row.Description, tree.PathOf(row.Id));
 
-    private sealed class LinkedProjectRow
-    {
-        public Guid Id { get; set; }
-
-        public string Name { get; set; } = null!;
-
-        public string Key { get; set; } = null!;
-
-        public bool IsReachable { get; set; }
-    }
-
-    private sealed record AreaRow(Guid Id, Guid? ParentId, string Name, string? Description);
+    private sealed record AreaRow(Guid Id, Guid? ParentId, string Name, string? Description, AreaType Type, Guid? ProjectId);
 
     private IQueryable<StoredTeam> StoredTeams(IQueryable<Team> teams) =>
         teams

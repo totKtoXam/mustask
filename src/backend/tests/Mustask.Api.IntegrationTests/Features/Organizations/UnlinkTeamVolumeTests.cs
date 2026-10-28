@@ -31,8 +31,9 @@ public sealed class UnlinkTeamVolumeTests(MustaskApiFactory factory, ITestOutput
         await OrganizationsTestData.LinkAsync(factory, world.OtherProjectId, world.Mars);
         var story = world.Items.Types["US"];
         var level = story.BacklogLevelId;
-        await SeedAsync(world, world.ProjectId, Owned);
-        await SeedAsync(world, world.OtherProjectId, Elsewhere);
+        var betaRoot = (await QueryAsync($"SELECT id::text AS \"Value\" FROM areas WHERE project_id = {world.OtherProjectId} AND parent_id IS NULL")).Single();
+        await SeedAsync(world, world.ProjectId, world.Items.RootAreaId, Owned);
+        await SeedAsync(world, world.OtherProjectId, Guid.Parse(betaRoot), Elsewhere);
         await WorkItemsTestData.ExecuteAsync(factory, $"""
             INSERT INTO backlog_orders (team_id, backlog_level_id) VALUES ({world.Mars}, {level}) ON CONFLICT DO NOTHING
             """);
@@ -98,12 +99,12 @@ public sealed class UnlinkTeamVolumeTests(MustaskApiFactory factory, ITestOutput
     private static string ProjectTeamRoute(OwningTeamWorld world, Guid teamId) => TeamTestData.ProjectTeam(world.OrganizationId, world.ProjectId, teamId);
 
     /// <summary><paramref name="count"/> stories of one project owned by the world's MARS, all last changed on 2026-10-01 at 09:00.</summary>
-    private async Task SeedAsync(OwningTeamWorld world, Guid projectId, int count)
+    private async Task SeedAsync(OwningTeamWorld world, Guid projectId, Guid rootAreaId, int count)
     {
         var story = world.Items.Types["US"];
         await WorkItemsTestData.ExecuteAsync(factory, $"""
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id, created_at, created_by, changed_at, owning_team_id)
-            SELECT gen_random_uuid(), {projectId}, n, {story.Id}, {story.StateId("Новая")},
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, owning_team_id)
+            SELECT gen_random_uuid(), {projectId}, n, {story.Id}, {story.StateId("Новая")}, {rootAreaId},
                    'Объёмная ' || n, '', gen_random_uuid(), now() + n * interval '1 millisecond', 'volume-test', timestamptz '2026-10-01 09:00:00+00', {world.Mars}
             FROM generate_series(1, {count}) AS n
             """);

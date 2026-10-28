@@ -32,9 +32,9 @@ public sealed class GetTeamOwnedItemCountHandlerTests
 
         public Organization Organization { get; }
 
-        public Project Project { get; }
+        public NewProject Project { get; }
 
-        public Project Other { get; }
+        public NewProject Other { get; }
 
         public Team Platform { get; }
 
@@ -43,7 +43,7 @@ public sealed class GetTeamOwnedItemCountHandlerTests
         public GetTeamOwnedItemCountHandler Handler { get; }
 
         public GetTeamOwnedItemCountQuery Query(string? teamId = null) =>
-            new(Organization.Id.ToString(), Project.Id.ToString(), teamId ?? Platform.Id.ToString());
+            new(Organization.Id.ToString(), Project.Project.Id.ToString(), teamId ?? Platform.Id.ToString());
 
         public Task<GetTeamOwnedItemCountResult> HandleAsync(GetTeamOwnedItemCountQuery query) => Handler.Handle(query, CancellationToken.None);
     }
@@ -53,8 +53,8 @@ public sealed class GetTeamOwnedItemCountHandlerTests
     public async Task Count_IsThisProjectsItemsInAnyState_NotAnotherProjects_LocksNothing()
     {
         var f = new Fixture();
-        f.Ownership.Owned[(f.Project.Id, f.Platform.Id)] = 7;
-        f.Ownership.Owned[(f.Other.Id, f.Platform.Id)] = 100;
+        f.Ownership.Owned[(f.Project.Project.Id, f.Platform.Id)] = 7;
+        f.Ownership.Owned[(f.Other.Project.Id, f.Platform.Id)] = 100;
         var empty = f.Store.AddLinkedTeam(f.Organization, f.Project, "Пустая");
 
         var count = await f.HandleAsync(f.Query());
@@ -99,7 +99,7 @@ public sealed class GetTeamOwnedItemCountHandlerTests
     public async Task Count_ProjectNotReachable_IsProjectNotFound_BeforeTheTeam()
     {
         var f = new Fixture();
-        f.Project.Deactivate();
+        f.Project.Project.Deactivate();
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Query("not-a-team")));
 

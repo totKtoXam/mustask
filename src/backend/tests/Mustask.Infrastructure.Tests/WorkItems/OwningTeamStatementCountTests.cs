@@ -44,14 +44,14 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
     private const string User = "count-user-1";
 
     // Pinned: a change to one of these is a change to the query shape and is made on purpose (the numbers are the first run's).
-    private const int ListStatements = 6;   // 7 before mod-018: the area path read is gone
+    private const int ListStatements = 7;
     private const int TeamsListStatements = 2;
     private const int OwnedCountStatements = 3;
-    private const int DeletionStatements = 14;   // 11 + the hierarchy lock's two (mod-005 QD-1) + the team's area links (mod-018)
-    private const int ItemGetStatements = 6;   // 7 before mod-018
+    private const int DeletionStatements = 14;   // 11 + the hierarchy lock's two statements (mod-005 QD-1) + the area links ended (mod-018 BR-AW-10)
+    private const int ItemGetStatements = 7;
     private const int TeamGetStatements = 1;
-    private const int TeamChangeSaveStatements = 15;   // 16 before mod-018
-    private const int ChildCreationStatements = 20;   // 21 before mod-018
+    private const int TeamChangeSaveStatements = 16;
+    private const int ChildCreationStatements = 21;
 
     [Fact]
     public async Task List_Unfiltered_Team_And_None_TheSameNumberOfStatements_For50AsFor5000Items()
@@ -297,7 +297,7 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
     {
         var structure = await database.CreateStructureAsync();
         var organization = structure.Organization.Id;
-        var project = structure.Project.Id;
+        var project = structure.Project.Project.Id;
         var teamIds = new List<Guid> { structure.FirstTeam.Id, structure.SecondTeam.Id };
 
         await using (var context = database.NewContext())
@@ -338,9 +338,10 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
 
             await database.ExecuteAsync(
                 """
-                INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id,
+                INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id,
                                         created_at, created_by, changed_at, parent_id, assignee_id, owning_team_id)
-                SELECT gen_random_uuid(), @project, n, @type, @state, 'Элемент ' || n, '', gen_random_uuid(), now() + n * interval '1 millisecond', 'count-test', now(), parent.id,
+                SELECT gen_random_uuid(), @project, n, @type, @state, @rootArea,
+                       'Элемент ' || n, '', gen_random_uuid(), now() + n * interval '1 millisecond', 'count-test', now(), parent.id,
                        CASE WHEN n % 5 < 3 THEN (ARRAY['count-user-1', 'count-user-2', 'count-user-3'])[(n % 5) + 1] END,
                        CASE WHEN n % 7 = 6 THEN NULL ELSE (@teams)[((n - @from) % @teamCount) + 1] END
                 FROM generate_series(@from, @to) AS n
@@ -349,6 +350,7 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
                 ("project", project),
                 ("type", type),
                 ("state", state),
+                ("rootArea", structure.Project.Root.Id),
                 ("teams", teamIds.ToArray()),
                 ("teamCount", teamIds.Count),
                 ("from", from),

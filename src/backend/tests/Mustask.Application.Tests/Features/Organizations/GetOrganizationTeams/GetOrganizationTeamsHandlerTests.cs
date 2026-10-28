@@ -22,7 +22,7 @@ public sealed class GetOrganizationTeamsHandlerTests
         var alpha = store.AddProject(organization, "Альфа", "ALP");
         var beta = store.AddProject(organization, "бета", "BET");
         var old = store.AddProject(organization, "Старый", "OLD");
-        old.Deactivate();
+        old.Project.Deactivate();
         var mars = store.AddTeam(organization, "mars");
         var venus = store.AddTeam(organization, "VENUS");
         store.AddTeam(organization, "Удалена").Delete();
@@ -38,7 +38,7 @@ public sealed class GetOrganizationTeamsHandlerTests
         Assert.Equal(["Альфа", "бета"], result.Items[0].Projects.Select(project => project.Name));
         Assert.Empty(result.Items[1].Projects);
         Assert.Equal(venus.Id, result.Items[1].Id);
-        Assert.True(store.IsLinked(old.Id, mars.Id));
+        Assert.True(store.IsLinked(old.Project.Id, mars.Id));
     }
 
     // feat-040 api-contract § 4.1 · "the user's own teams first": each team says whether the CALLER is in it — the caller's team,

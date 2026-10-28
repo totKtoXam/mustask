@@ -97,7 +97,7 @@ public sealed class WorkItemStateFilterEndpointTests(MustaskApiFactory factory)
             Assert.Equal("Removed", state.GetProperty("category").GetProperty("code").GetString());
             Assert.False(row.TryGetProperty("deletion", out _));
             Assert.Equal(
-                ["assignee", "changedAt", "id", "identifier", "number", "state", "team", "title", "type"],
+                ["area", "assignee", "changedAt", "id", "identifier", "number", "state", "team", "title", "type"],
                 row.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal));
         }
     }
@@ -137,15 +137,15 @@ public sealed class WorkItemStateFilterEndpointTests(MustaskApiFactory factory)
         var types = world.Types;
 
         await WorkItemsTestData.ExecuteAsync(factory, $"""
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id, created_at, created_by, changed_at)
-            SELECT gen_random_uuid(), {world.ProjectId}, n, {types["TASK"].Id}, {types["TASK"].StateId("Новая")},
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at)
+            SELECT gen_random_uuid(), {world.ProjectId}, n, {types["TASK"].Id}, {types["TASK"].StateId("Новая")}, {world.RootAreaId},
                    'Живая ' || n, '', gen_random_uuid(), now(), 'paging-test', now() + n * interval '1 second'
             FROM generate_series(100, 169) AS n
             """);
         await WorkItemsTestData.ExecuteAsync(factory, $"""
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id, created_at, created_by, changed_at,
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at,
                                     deleted_from_state_id, deleted_by, deleted_at)
-            SELECT gen_random_uuid(), {world.ProjectId}, n, {types["TASK"].Id}, {types["TASK"].StateId(Mustask.Domain.Process.StateCategory.Removed)},
+            SELECT gen_random_uuid(), {world.ProjectId}, n, {types["TASK"].Id}, {types["TASK"].StateId(Mustask.Domain.Process.StateCategory.Removed)}, {world.RootAreaId},
                    'Удалённая ' || n, '', gen_random_uuid(), now(), 'paging-test', now() + n * interval '1 second',
                    {types["TASK"].StateId("Новая")}, 'paging-test', now()
             FROM generate_series(200, 239) AS n

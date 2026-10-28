@@ -23,14 +23,14 @@ public sealed class GetTeamDeletionCountsHandlerTests
         var alpha = store.AddProject(organization, "Альфа", "ALP");
         var delta = store.AddProject(organization, "Дельта", "DEL");
         var zero = store.AddProject(organization, "Ноль", "ZER");
-        delta.Deactivate();
+        delta.Project.Deactivate();
         var mars = store.AddTeam(organization, "MARS");
         store.Link(alpha, mars);
         store.Link(delta, mars);
         store.Link(zero, mars);
         var ownership = new FakeWorkItemTeamOwnership(store);
-        ownership.Owned[(alpha.Id, mars.Id)] = 5;
-        ownership.Owned[(delta.Id, mars.Id)] = 3;
+        ownership.Owned[(alpha.Project.Id, mars.Id)] = 5;
+        ownership.Owned[(delta.Project.Id, mars.Id)] = 3;
 
         var result = await Handler(store, ownership).Handle(
             new GetTeamDeletionCountsQuery(organization.Id.ToString(), mars.Id.ToString()), CancellationToken.None);

@@ -10,7 +10,7 @@ namespace Mustask.Application.Features.Organizations.LinkTeamsToArea;
 public sealed record LinkTeamsToAreaCommand(string? OrganizationId, string? AreaId, IReadOnlyList<string?>? TeamIds);
 
 /// <summary>
-/// <c>POST /api/organizations/{organizationId}/areas/{areaId}/teams</c> (mod-018 api-contract § 3, US-4, BR-AW-6): links the teams
+/// <c>POST /api/organizations/{organizationId}/areas/{areaId}/teams</c> (mod-018 api-contract § 3, US-3, BR-AW-6): links the teams
 /// to the area. All or none; a pair already linked is left as it is; an absent or empty list changes nothing.
 /// </summary>
 /// <remarks>
@@ -53,6 +53,12 @@ public sealed class LinkTeamsToAreaHandler(
                 if (area is null)
                 {
                     throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
+                }
+
+                // 2. The rule about the addressed node alone: teams link to a department only (OQ-8 A, OQ-11 A).
+                if (area.Type != AreaType.Department)
+                {
+                    throw new ConflictException(OrganizationErrorCodes.AreaLinkTypeNotAllowed);
                 }
 
                 var teamIds = AreaRequests.ParseIds(command.TeamIds, OrganizationErrorCodes.TeamNotFound);

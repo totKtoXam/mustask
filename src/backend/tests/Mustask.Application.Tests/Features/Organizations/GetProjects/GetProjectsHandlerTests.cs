@@ -70,8 +70,8 @@ public sealed class GetProjectsHandlerTests
 
         Assert.Equal(
             [
-                new ProjectListItemResponse(analytics.Id, "Аналитика", "ANL"),
-                new ProjectListItemResponse(example.Id, "Пример проекта", "PRM"),
+                new ProjectListItemResponse(analytics.Project.Id, "Аналитика", "ANL"),
+                new ProjectListItemResponse(example.Project.Id, "Пример проекта", "PRM"),
             ],
             result.Items);
     }
@@ -124,13 +124,13 @@ public sealed class GetProjectsHandlerTests
         var f = new Fixture();
         var active = f.Store.AddProject(f.Organization, "Пример проекта", "PRM");
         var deactivated = f.Store.AddProject(f.Organization, "Архив", "ARC");
-        deactivated.Deactivate();
+        deactivated.Project.Deactivate();
         f.Store.AddProject(f.Store.AddOrganization("Другая организация"), "Чужой проект", "OTH");
 
         var result = await f.HandleAsync();
 
         var item = Assert.Single(result.Items);
-        Assert.Equal(active.Id, item.Id);
+        Assert.Equal(active.Project.Id, item.Id);
         Assert.Equal("Пример проекта", item.Name);
     }
 
@@ -141,10 +141,10 @@ public sealed class GetProjectsHandlerTests
         var f = new Fixture();
         var restored = f.Store.AddProject(f.Organization, "Пример проекта", "PRM");
         f.Store.AddProject(f.Organization, "Аналитика", "ANL");
-        restored.Deactivate();
+        restored.Project.Deactivate();
         Assert.Single((await f.HandleAsync()).Items);
 
-        restored.Restore();
+        restored.Project.Restore();
         var result = await f.HandleAsync();
 
         Assert.Equal(["Аналитика", "Пример проекта"], result.Items.Select(item => item.Name));
@@ -196,7 +196,7 @@ public sealed class GetProjectsHandlerTests
     {
         var f = new Fixture();
         f.Store.AddProject(f.Organization, "Пример проекта", "PRM");
-        f.Store.AddProject(f.Organization, "Архив", "ARC").Deactivate();
+        f.Store.AddProject(f.Organization, "Архив", "ARC").Project.Deactivate();
         f.Organization.Deactivate();
         await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync());
 

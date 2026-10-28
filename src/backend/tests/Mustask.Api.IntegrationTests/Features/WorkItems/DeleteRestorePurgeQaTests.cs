@@ -68,8 +68,8 @@ public sealed class DeleteRestorePurgeQaTests(MustaskApiFactory factory)
     public async Task Depth_OfAMovedSubtree_CountsADeletedMember_Refused409()
     {
         var world = await WorkItemsTestData.CreateWorldAsync(factory);
-        var parentChain = await BulkItemsTestData.InsertChainAsync(factory, world, 40);
-        var tooTall = await BulkItemsTestData.InsertChainAsync(factory, world, 25, firstNumber: 41);
+        var parentChain = await BulkItemsTestData.InsertChainAsync(factory, world, world.RootAreaId, 40);
+        var tooTall = await BulkItemsTestData.InsertChainAsync(factory, world, world.RootAreaId, 25, firstNumber: 41);
         await LinksTestData.DeleteAsync(factory, world, tooTall[10]);
 
         var refused = await LinksTestData.SetParentAsync(factory, world, tooTall[0].Identifier, parentChain[^1].Id, null);
@@ -83,7 +83,7 @@ public sealed class DeleteRestorePurgeQaTests(MustaskApiFactory factory)
     public async Task Depth_OfAParentChain_CountsADeletedAncestor_Refused409()
     {
         var world = await WorkItemsTestData.CreateWorldAsync(factory);
-        var chain = await BulkItemsTestData.InsertChainAsync(factory, world, 64);
+        var chain = await BulkItemsTestData.InsertChainAsync(factory, world, world.RootAreaId, 64);
         var over = await TaskAsync(world, "Шестьдесят пятое");
         await LinksTestData.DeleteAsync(factory, world, chain[30]);
 

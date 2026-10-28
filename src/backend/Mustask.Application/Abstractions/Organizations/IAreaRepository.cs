@@ -27,12 +27,15 @@ public interface IAreaRepository
 
     /// <summary>
     /// Locks every one of <paramref name="areaIds"/> that exists <c>FOR SHARE</c> in one statement ordered by id, and answers the ids
-    /// the statement locked. The caller compares it with the ids it asked for.
+    /// the statement locked with their types (a type never changes). The caller compares the count with the ids it asked for.
     /// </summary>
-    Task<IReadOnlySet<Guid>> LockManyForShareAsync(Guid organizationId, IReadOnlyCollection<Guid> areaIds, CancellationToken cancellationToken);
+    Task<IReadOnlyDictionary<Guid, AreaType>> LockManyForShareAsync(Guid organizationId, IReadOnlyCollection<Guid> areaIds, CancellationToken cancellationToken);
 
-    /// <summary>How many of <paramref name="areaIds"/> are areas of the organization now. One statement; no lock.</summary>
-    Task<int> CountAsync(Guid organizationId, IReadOnlyCollection<Guid> areaIds, CancellationToken cancellationToken);
+    /// <summary>
+    /// The project's node, locked <c>FOR UPDATE</c> and tracked (a project's rename carries its name to it; a project's move locks it);
+    /// <c>null</c> when the locking statement found none.
+    /// </summary>
+    Task<Area?> LockProjectNodeAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken);
 
     Task<bool> HasChildrenAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken);
 
@@ -43,7 +46,7 @@ public interface IAreaRepository
     Task<bool> IsSiblingNameTakenAsync(
         Guid organizationId, Guid? parentId, string normalizedName, Guid? exceptId, CancellationToken cancellationToken);
 
-    /// <summary>Every area of the organization as <see cref="AreaNode"/> rows in display order: the input of <see cref="AreaTree"/>. Committed rows; tracks nothing.</summary>
+    /// <summary>Every node of the organization as <see cref="AreaNode"/> rows (type and project included) in display order: the input of <see cref="AreaTree"/>. Committed rows; tracks nothing.</summary>
     Task<IReadOnlyList<AreaNode>> GetNodesAsync(Guid organizationId, CancellationToken cancellationToken);
 
     void Add(Area area);

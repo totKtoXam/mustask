@@ -11,7 +11,8 @@ public sealed class ProjectTests
     {
         var organizationId = Guid.CreateVersion7();
 
-        var created = Project.Create(organizationId, Name(" Пример проекта "), "PRM", Now, Creator);
+        var made = Project.Create(organizationId, Name(" Пример проекта "), "PRM", Now, Creator);
+        var created = made.Project;
 
         Assert.Equal(organizationId, created.OrganizationId);
         Assert.Equal("Пример проекта", created.Name);
@@ -22,6 +23,12 @@ public sealed class ProjectTests
 
         Assert.Null(created.DefaultTeamId);
         Assert.Null(created.Description);
+
+        // mod-018 OQ-5 A: the project comes with its node, named after it, at the top, owning nothing.
+        Assert.Equal(AreaType.Project, made.Root.Type);
+        Assert.Equal(created.Id, made.Root.ProjectId);
+        Assert.Null(made.Root.ParentId);
+        Assert.Equal("Пример проекта", made.Root.Name);
     }
 
     // feat-028 US-2 · "description and teams in one operation": the description is kept as typed; no description is null.
@@ -30,7 +37,7 @@ public sealed class ProjectTests
     {
         Assert.True(EntityDescription.TryCreate(" О проекте\n", out var description));
 
-        var created = Project.Create(Guid.CreateVersion7(), Name("Проект"), "PRJ", Now, Creator, description);
+        var created = Project.Create(Guid.CreateVersion7(), Name("Проект"), "PRJ", Now, Creator, description).Project;
 
         Assert.Equal(" О проекте\n", created.Description);
     }
@@ -39,11 +46,12 @@ public sealed class ProjectTests
     [Fact]
     public void Describe_SetsAndClears_RenameAndDeactivationKeepIt()
     {
-        var created = AProject();
+        var made = ANewProject();
+        var created = made.Project;
         Assert.True(EntityDescription.TryCreate("Описание", out var description));
 
         created.Describe(description);
-        created.Rename(Name("Новый проект"));
+        created.Rename(Name("Новый проект"), made.Root);
         created.Deactivate();
         created.Restore();
 
@@ -66,9 +74,11 @@ public sealed class ProjectTests
     [Fact]
     public void Rename_ChangesTheNameOnly_KeepsTheKey()
     {
-        var project = AProject();
+        var made = ANewProject();
+        var project = made.Project;
 
-        project.Rename(Name("Новый проект"));
+        project.Rename(Name("Новый проект"), made.Root);
+        Assert.Equal("Новый проект", made.Root.Name);
 
         Assert.Equal("Новый проект", project.Name);
         Assert.Equal("НОВЫЙ ПРОЕКТ", project.NormalizedName);

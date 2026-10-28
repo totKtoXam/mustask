@@ -9,17 +9,23 @@ namespace Mustask.Application.Features.Organizations.DeleteArea;
 public sealed record DeleteAreaCommand(string? OrganizationId, string? AreaId);
 
 /// <summary>
-/// <c>DELETE /api/organizations/{organizationId}/areas/{areaId}</c> (mod-018 api-contract § 2, US-3, BR-AW-9): an area with no child
-/// is deleted outright and its project and team links end with it (the database cascades them). An area with a child answers 409
-/// <c>area.not_empty</c>; nothing else holds it back, since no item belongs to an area any more (BR-AW-2).
+/// <c>DELETE /api/organizations/{organizationId}/areas/{areaId}</c> (mod-018 api-contract § 2, US-2, BR-AW-9): a department with no
+/// project node or a sub-area with no child and no work item (in any state, mod-003 BR-M3-24) is deleted outright and its team links
+/// end with it (the database cascades them). A project's node is deleted only with its project (OQ-5 A): <c>root_is_fixed</c>.
 /// </summary>
 /// <remarks>
-/// <b>The order of answers</b>: the organization; the area (404); 409. <b>Locks</b>: the tree lock, then the area <c>FOR UPDATE</c>
-/// (judged present by the lock statement's own answer), and the children are looked for after it — a creation under the area holds
-/// the tree lock and the area <c>FOR SHARE</c>, so it either committed before this lock or waits for this deletion and finds the
-/// parent gone.
+/// <b>The order of answers</b>: the organization; the node (404); a deactivated project (404 <c>project.not_found</c>); a project's
+/// node (409 <c>root_is_fixed</c>); a child or an item (409 <c>not_empty</c>). <b>Locks</b>: the tree lock, then the node
+/// <c>FOR UPDATE</c> (judged present by the lock statement's own answer), and the children and the items are looked for after it — a
+/// creation under the node holds the tree lock and the node <c>FOR SHARE</c>, and a save that puts an item in a sub-area locks it
+/// <c>FOR SHARE</c>, so each either committed before this lock or waits for this deletion and finds the node gone.
 /// </remarks>
-public sealed class DeleteAreaHandler(IOrganizationReadModel organizations, IAreaRepository areas, IUnitOfWork unitOfWork)
+public sealed class DeleteAreaHandler(
+    IOrganizationReadModel organizations,
+    IProjectRepository projects,
+    IAreaRepository areas,
+    IAreaUsage areaUsage,
+    IUnitOfWork unitOfWork)
 {
     public async Task Handle(DeleteAreaCommand command, CancellationToken cancellationToken) =>
         _ = await unitOfWork.ExecuteInTransactionAsync(
@@ -42,10 +48,18 @@ public sealed class DeleteAreaHandler(IOrganizationReadModel organizations, IAre
                 var area = await areas.LockForUpdateAsync(organizationId, areaId, ct)
                     ?? throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
 
-                if (await areas.HasChildrenAsync(organizationId, area.Id, ct))
-                {
-                    throw new ConflictException(OrganizationErrorCodes.AreaNotEmpty);
-                }
+                // 2. The rules about the addressed node alone: a deactivated project's node and sub-areas are read-only (BR-AW-10),
+                // a project's node goes only with its project (OQ-5 A). Both before the children, although the node has some.
+                await AreaRequests.EnsureProjectActiveAsync(projects, organizationId, area, ct);
+                area.EnsureNotProjectNode();
+
+                // 5. The domain rule, read after the lock: a child node or a work item (any state) holds the node.
+                var hasChildren = await areas.HasChildrenAsync(organizationId, area.Id, ct);
+                var holdsWorkItems = !hasChildren
+                    && area is { Type: AreaType.Area, ProjectId: { } projectId }
+                    && await areaUsage.IsInUseAsync(projectId, area.Id, ct);
+
+                area.EnsureDeletable(hasChildren, holdsWorkItems);
 
                 areas.Remove(area);
                 await areas.SaveAsync(ct);

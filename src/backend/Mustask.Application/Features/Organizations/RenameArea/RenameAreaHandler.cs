@@ -10,7 +10,7 @@ namespace Mustask.Application.Features.Organizations.RenameArea;
 public sealed record RenameAreaCommand(string? OrganizationId, string? AreaId, string? Name);
 
 /// <summary>The area as every area write returns it (mod-018 api-contract § 1, <c>Area</c>).</summary>
-public sealed record AreaResponse(Guid Id, Guid? ParentId, string Name, string? Description, string Path);
+public sealed record AreaResponse(Guid Id, Guid? ParentId, string Type, Guid? ProjectId, string Name, string? Description, string Path);
 
 /// <summary>The handler's outcome: the body of the answer.</summary>
 public sealed record RenameAreaResult(AreaResponse Response);
@@ -21,11 +21,15 @@ public sealed record RenameAreaResult(AreaResponse Response);
 /// the whole subtree change with it; the answer carries the area's own.
 /// </summary>
 /// <remarks>
-/// <b>The order of answers</b>: the organization; the area (404); the name (400); the sibling name (409). <b>Locks</b>: the area
+/// <b>The order of answers</b>: the organization; the area (404); a deactivated project (404 project.not_found); a project's node (409 root_is_fixed); the name (400); the sibling name (409). <b>Locks</b>: the area
 /// <c>FOR UPDATE</c> only — a rename changes no shape, so it does not take the tree lock; a concurrent move of the area waits for it
 /// and a concurrent creation of the same name under the same parent is caught by the sibling index.
 /// </remarks>
-public sealed class RenameAreaHandler(IOrganizationReadModel organizations, IAreaRepository areas, IUnitOfWork unitOfWork)
+public sealed class RenameAreaHandler(
+    IOrganizationReadModel organizations,
+    IProjectRepository projects,
+    IAreaRepository areas,
+    IUnitOfWork unitOfWork)
 {
     public async Task<RenameAreaResult> Handle(RenameAreaCommand command, CancellationToken cancellationToken) =>
         await unitOfWork.ExecuteInTransactionAsync(
@@ -47,6 +51,11 @@ public sealed class RenameAreaHandler(IOrganizationReadModel organizations, IAre
                     throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
                 }
 
+                // 2. Rules about the addressed node alone: a deactivated project's node and sub-areas are read-only (BR-AW-10), and a
+                // project's node is renamed only with its project (OQ-10 A).
+                await AreaRequests.EnsureProjectActiveAsync(projects, organizationId, area, ct);
+                area.EnsureNotProjectNode();
+
                 // 3. The value in the body.
                 if (!EntityName.TryCreate(command.Name, out var name))
                 {
@@ -66,7 +75,7 @@ public sealed class RenameAreaHandler(IOrganizationReadModel organizations, IAre
 
                 var tree = new AreaTree(await areas.GetNodesAsync(organizationId, ct));
 
-                return new RenameAreaResult(new AreaResponse(area.Id, area.ParentId, area.Name, area.Description, tree.PathOf(area.Id)));
+                return new RenameAreaResult(new AreaResponse(area.Id, area.ParentId, AreaRequests.TypeName(area.Type), area.ProjectId, area.Name, area.Description, tree.PathOf(area.Id)));
             },
             cancellationToken);
 }

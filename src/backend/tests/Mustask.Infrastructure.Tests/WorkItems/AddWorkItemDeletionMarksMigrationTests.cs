@@ -74,7 +74,7 @@ public sealed class AddWorkItemDeletionMarksMigrationTests(OrganizationsDatabase
         }
 
         var structure = await database.CreateStructureAsync();
-        var project = structure.Project.Id;
+        var project = structure.Project.Project.Id;
         var row = (await database.QueryAsync(
             """
             SELECT concat_ws('|', type.id::text, state.id::text)
@@ -88,14 +88,15 @@ public sealed class AddWorkItemDeletionMarksMigrationTests(OrganizationsDatabase
 
         await database.ExecuteAsync(
             """
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id, created_at, created_by, changed_at)
-            VALUES (@item, @project, 1, @type, @state, 'История', '', gen_random_uuid(), now(), 'migration-test', now());
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at)
+            VALUES (@item, @project, 1, @type, @state, @area, 'История', '', gen_random_uuid(), now(), 'migration-test', now());
             INSERT INTO work_item_counters (project_id, last_number) VALUES (@project, 7)
             """,
             ("item", item),
             ("project", project),
             ("type", Guid.Parse(row[0])),
-            ("state", Guid.Parse(row[1])));
+            ("state", Guid.Parse(row[1])),
+            ("area", structure.Project.Root.Id));
 
         return new World(project, item);
     }

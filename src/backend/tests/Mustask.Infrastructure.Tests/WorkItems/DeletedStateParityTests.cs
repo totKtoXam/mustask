@@ -272,37 +272,38 @@ public sealed class DeletedStateParityTests(OrganizationsDatabaseFixture databas
         var world = await SeedAsync();
         var second = await database.AddProjectAsync(world.OrganizationId, "Второй", "SEC");
         var sleeping = await database.AddProjectAsync(world.OrganizationId, "Спящий", "DEA");
-        await database.LinkAsync(world.OrganizationId, second.Id, world.TeamId);
-        await database.LinkAsync(world.OrganizationId, sleeping.Id, world.TeamId);
+        await database.LinkAsync(world.OrganizationId, second.Project.Id, world.TeamId);
+        await database.LinkAsync(world.OrganizationId, sleeping.Project.Id, world.TeamId);
 
-        foreach (var project in new[] { second.Id, sleeping.Id })
+        foreach (var (project, root) in new[] { (second.Project.Id, second.Root.Id), (sleeping.Project.Id, sleeping.Root.Id) })
         {
             await database.ExecuteAsync(
                 """
-                INSERT INTO work_items (id, project_id, number, type_id, state_id, owning_team_id, title, description,
+                INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, owning_team_id, title, description,
                                         creation_request_id, created_at, created_by, changed_at)
-                SELECT gen_random_uuid(), @project, number, type_id, state_id, @team, title, '', gen_random_uuid(), now(), 'parity-test', now()
+                SELECT gen_random_uuid(), @project, number, type_id, state_id, @root, @team, title, '', gen_random_uuid(), now(), 'parity-test', now()
                 FROM work_items WHERE project_id = @source
                 """,
                 ("project", project),
+                ("root", root),
                 ("team", world.TeamId),
                 ("source", world.ProjectId));
         }
 
-        await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @project", ("project", sleeping.Id));
+        await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @project", ("project", sleeping.Project.Id));
 
         var inMemory = world.Process.WorkItemTypes.ToDictionary(type => type.Id, ProcessWorkItemTypes.StatesOf);
         var copies = new Dictionary<Guid, (Guid Type, Guid State)>();
 
         foreach (var row in await database.QueryAsync(
             "SELECT concat_ws('|', id::text, type_id::text, state_id::text) FROM work_items WHERE project_id = @project",
-            ("project", second.Id)))
+            ("project", second.Project.Id)))
         {
             var parts = row.Split('|');
             copies[Guid.Parse(parts[0])] = (Guid.Parse(parts[1]), Guid.Parse(parts[2]));
         }
 
-        var sleepingIds = (await database.QueryAsync("SELECT id::text FROM work_items WHERE project_id = @project", ("project", sleeping.Id)))
+        var sleepingIds = (await database.QueryAsync("SELECT id::text FROM work_items WHERE project_id = @project", ("project", sleeping.Project.Id)))
             .Select(Guid.Parse)
             .ToHashSet();
         Assert.NotEmpty(sleepingIds);
@@ -420,7 +421,7 @@ public sealed class DeletedStateParityTests(OrganizationsDatabaseFixture databas
     {
         var structure = await database.CreateStructureAsync();
         var organization = structure.Organization.Id;
-        var project = structure.Project.Id;
+        var project = structure.Project.Project.Id;
 
         var (typeId, ready, closed, removed) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
 
@@ -444,11 +445,11 @@ public sealed class DeletedStateParityTests(OrganizationsDatabaseFixture databas
         // One item in every state of every type of the process; numbers in the order of the types and states.
         await database.ExecuteAsync(
             """
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, owning_team_id, title, description,
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, owning_team_id, title, description,
                                     creation_request_id, created_at, created_by, changed_at)
             SELECT gen_random_uuid(), @project,
                    row_number() OVER (ORDER BY type.key, state.position)::integer,
-                   type.id, state.id, @team,
+                   type.id, state.id, @area, @team,
                    'Элемент ' || type.key || ' ' || state.name, '', gen_random_uuid(), now(), 'parity-test', now()
             FROM work_item_types AS type
             JOIN processes AS process ON process.id = type.process_id
@@ -456,6 +457,7 @@ public sealed class DeletedStateParityTests(OrganizationsDatabaseFixture databas
             WHERE process.organization_id = @organization
             """,
             ("project", project),
+            ("area", structure.Project.Root.Id),
             ("team", structure.FirstTeam.Id),
             ("organization", organization));
 

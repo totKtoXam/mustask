@@ -73,7 +73,7 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
     {
         var world = await WorkItemsTestData.CreateWorldAsync(factory);
         var team = await OrganizationsTestData.AddTeamAsync(factory, world.ProjectId, "Платформа");
-        var area = await OrganizationsTestData.AddAreaAsync(factory, world.OrganizationId, null, "Платформа");
+        var area = await OrganizationsTestData.AddDepartmentAsync(factory, world.OrganizationId, "Платформа");
 
         for (var filler = 0; filler < fillers; filler++)
         {
@@ -162,7 +162,7 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
         var organization = await structure.FindOrganizationAsync(side.World.OrganizationId, CancellationToken.None);
         var project = await structure.FindProjectAsync(side.World.OrganizationId, side.World.ProjectId, CancellationToken.None);
         var team = await structure.FindTeamAsync(side.World.OrganizationId, side.TeamId, CancellationToken.None);
-        var tree = await OrganizationsTestData.ReadTreeAsync(factory, side.World.OrganizationId);
+        var tree = await OrganizationsTestData.ReadOrganizationTreeAsync(factory, side.World.OrganizationId);
         var items = await WorkItemsTestData.StoredAsync(factory, side.World.ProjectId);
         var teams = await OwningTeamTestData.TeamStateAsync(factory, side.World.ProjectId);
 
@@ -260,7 +260,7 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
         var world = await TwoAsync();
         var a = world.A;
         var project = $"/api/organizations/{a.OrganizationId}/projects/{a.ProjectId}";
-        var treeBefore = (await OrganizationsTestData.ReadTreeAsync(factory, a.World.OrganizationId)).PreOrder().ToList();
+        var treeBefore = (await OrganizationsTestData.ReadOrganizationTreeAsync(factory, a.World.OrganizationId)).PreOrder().ToList();
         var teamsBefore = await OwningTeamTestData.TeamStateAsync(factory, a.World.ProjectId);
 
         var parent = await OrganizationsApi.SendAsync(
@@ -281,7 +281,7 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
         Assert.Equal((HttpStatusCode.NotFound, OrganizationErrorCodes.TeamNotFound), (defaultTeam.Status, defaultTeam.ErrorCode));
         // mod-017 BR-OT-16: B's team answers exactly as an id that names nothing, status and body alike.
         Assert.Equal((unknownDefaultTeam.Status, unknownDefaultTeam.ErrorCode, unknownDefaultTeam.Detail), (defaultTeam.Status, defaultTeam.ErrorCode, defaultTeam.Detail));
-        Assert.Equal(treeBefore, (await OrganizationsTestData.ReadTreeAsync(factory, a.World.OrganizationId)).PreOrder().ToList());
+        Assert.Equal(treeBefore, (await OrganizationsTestData.ReadOrganizationTreeAsync(factory, a.World.OrganizationId)).PreOrder().ToList());
         Assert.Equal(teamsBefore, await OwningTeamTestData.TeamStateAsync(factory, a.World.ProjectId));
     }
 

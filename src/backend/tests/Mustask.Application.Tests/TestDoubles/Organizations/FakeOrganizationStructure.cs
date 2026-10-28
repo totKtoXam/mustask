@@ -41,6 +41,7 @@ public sealed class FakeOrganizationStructure(InMemoryOrganizations store) : IOr
             project.Status,
             store.IsReachable(project.OrganizationId, project.Id),
             ProjectDefaultTeam.Resolve(project.DefaultTeamId, active),
+            store.RootOf(project).Id,
             project.CreatedBy,
             project.CreatedAt));
     }
@@ -87,43 +88,14 @@ public sealed class FakeOrganizationStructure(InMemoryOrganizations store) : IOr
         return Task.FromResult(area is null ? null : InfoOf(area));
     }
 
-    public Task<IReadOnlyList<AreaInfo>> ListAreasOfProjectAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<AreaInfo>>(Ordered(store.AreaProjects
-            .Where(link => link.OrganizationId == organizationId && link.ProjectId == projectId)
-            .Select(link => link.AreaId)
-            .ToList()));
-
     public Task<IReadOnlyList<AreaInfo>> ListAreasOfTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<AreaInfo>>(Ordered(store.AreaTeams
             .Where(link => link.OrganizationId == organizationId && link.TeamId == teamId)
             .Select(link => link.AreaId)
             .ToList()));
 
-    public Task<IReadOnlyList<LinkedProjectInfo>> ListLinkedProjectsOfAreaAsync(
-        Guid organizationId, Guid areaId, bool includeDescendants, CancellationToken cancellationToken)
-    {
-        var tree = TreeOf(organizationId);
-
-        if (!tree.Contains(areaId))
-        {
-            return Task.FromResult<IReadOnlyList<LinkedProjectInfo>>([]);
-        }
-
-        var projects = store.AreaProjects
-            .Where(link => link.OrganizationId == organizationId
-                && (link.AreaId == areaId || (includeDescendants && tree.IsSelfOrDescendant(areaId, link.AreaId))))
-            .Select(link => link.ProjectId)
-            .Distinct()
-            .Select(projectId => store.Projects.Single(project => project.Id == projectId));
-
-        return Task.FromResult<IReadOnlyList<LinkedProjectInfo>>(store
-            .InDisplayOrder(projects, project => project.Name, project => project.Id)
-            .Select(project => new LinkedProjectInfo(project.Id, project.Name, project.Key, store.IsReachable(organizationId, project.Id)))
-            .ToList());
-    }
-
     private AreaTree TreeOf(Guid organizationId) =>
-        new(store.Areas.Where(area => area.OrganizationId == organizationId).Select(area => new AreaNode(area.Id, area.ParentId, area.Name)));
+        new(store.Areas.Where(area => area.OrganizationId == organizationId).Select(area => new AreaNode(area.Id, area.ParentId, area.Name, area.Type, area.ProjectId)));
 
     private List<AreaInfo> Ordered(IReadOnlyCollection<Guid> areaIds) =>
         store.InDisplayOrder(store.Areas.Where(area => areaIds.Contains(area.Id)), area => area.Name, area => area.Id)
@@ -131,7 +103,7 @@ public sealed class FakeOrganizationStructure(InMemoryOrganizations store) : IOr
             .ToList();
 
     private AreaInfo InfoOf(Area area) =>
-        new(area.Id, area.OrganizationId, area.ParentId, area.Name, area.Description, TreeOf(area.OrganizationId).PathOf(area.Id));
+        new(area.Id, area.OrganizationId, area.ParentId, area.Type, area.ProjectId, area.Name, area.Description, TreeOf(area.OrganizationId).PathOf(area.Id));
 
     private TeamInfo Info(Team team) => new(
         team.Id,

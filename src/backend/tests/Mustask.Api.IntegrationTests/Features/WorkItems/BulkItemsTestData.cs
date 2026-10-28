@@ -13,11 +13,13 @@ internal static class BulkItemsTestData
 {
     /// <summary>
     /// A chain of <paramref name="length"/> items of <paramref name="typeKey"/>, each beneath the one before, the first
-    /// beneath <paramref name="beneath"/> (or at the top), numbered from <paramref name="firstNumber"/>. Returns the chain from its top item down, with the identifiers the endpoints know.
+    /// beneath <paramref name="beneath"/> (or at the top), numbered from <paramref name="firstNumber"/>, in
+    /// <paramref name="areaId"/>. Returns the chain from its top item down, with the identifiers the endpoints know.
     /// </summary>
     public static async Task<Item[]> InsertChainAsync(
         MustaskApiFactory factory,
         WorkItemsWorld world,
+        Guid areaId,
         int length,
         int firstNumber = 1,
         Guid? beneath = null,
@@ -28,8 +30,8 @@ internal static class BulkItemsTestData
         var ids = Enumerable.Range(0, length).Select(_ => Guid.CreateVersion7()).ToArray();
 
         await WorkItemsTestData.ExecuteAsync(factory, $"""
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id, created_at, created_by, changed_at, parent_id, owning_team_id)
-            SELECT link.id, {world.ProjectId}, CAST({firstNumber} + link.ord - 1 AS integer), {type.Id}, {type.StateId("Новая")},
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, parent_id, owning_team_id)
+            SELECT link.id, {world.ProjectId}, CAST({firstNumber} + link.ord - 1 AS integer), {type.Id}, {type.StateId("Новая")}, {areaId},
                    'Звено ' || link.ord, '', gen_random_uuid(), now(), 'chain-test', now(),
                    CASE WHEN link.ord = 1 THEN CAST({beneath} AS uuid) ELSE (CAST({ids} AS uuid[]))[link.ord - 1] END,
                    CAST({owningTeamId} AS uuid)
@@ -42,11 +44,13 @@ internal static class BulkItemsTestData
 
     /// <summary>
     /// <paramref name="assignees"/>' worth of items of <paramref name="typeKey"/> beneath <paramref name="beneath"/> (or
-    /// at the top), item k assigned to the k-th user id, numbered from <paramref name="firstNumber"/>. Returns the identifiers in the order of the user ids.
+    /// at the top), item k assigned to the k-th user id, numbered from <paramref name="firstNumber"/>, in
+    /// <paramref name="areaId"/>. Returns the identifiers in the order of the user ids.
     /// </summary>
     public static async Task<string[]> InsertAssignedAsync(
         MustaskApiFactory factory,
         WorkItemsWorld world,
+        Guid areaId,
         IReadOnlyList<string> assignees,
         int firstNumber,
         Guid? beneath = null,
@@ -56,8 +60,8 @@ internal static class BulkItemsTestData
         var type = world.Types[typeKey];
 
         await WorkItemsTestData.ExecuteAsync(factory, $"""
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id, created_at, created_by, changed_at, parent_id, assignee_id, owning_team_id)
-            SELECT gen_random_uuid(), {world.ProjectId}, CAST({firstNumber} + assigned.ord - 1 AS integer), {type.Id}, {type.StateId("Новая")},
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, parent_id, assignee_id, owning_team_id)
+            SELECT gen_random_uuid(), {world.ProjectId}, CAST({firstNumber} + assigned.ord - 1 AS integer), {type.Id}, {type.StateId("Новая")}, {areaId},
                    'Исполнитель ' || assigned.ord, '', gen_random_uuid(), now(), 'assignee-test', now(), CAST({beneath} AS uuid), assigned.assignee,
                    CAST({owningTeamId} AS uuid)
             FROM unnest(CAST({assignees.ToArray()} AS text[])) WITH ORDINALITY AS assigned(assignee, ord)

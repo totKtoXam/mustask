@@ -119,9 +119,20 @@ public sealed class AddTeamHandler(
                 // by one statement whose own answer says which exist.
                 var areaIds = AreaRequests.ParseIds(command.AreaIds, OrganizationErrorCodes.AreaNotFound);
 
-                if (areaIds.Count > 0 && (await areas.LockManyForShareAsync(organizationId, areaIds, ct)).Count != areaIds.Count)
+                if (areaIds.Count > 0)
                 {
-                    throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
+                    var lockedAreas = await areas.LockManyForShareAsync(organizationId, areaIds, ct);
+
+                    if (lockedAreas.Count != areaIds.Count)
+                    {
+                        throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
+                    }
+
+                    // A team links to a department only (OQ-8 A).
+                    if (lockedAreas.Values.Any(type => type != AreaType.Department))
+                    {
+                        throw new ConflictException(OrganizationErrorCodes.AreaLinkTypeNotAllowed);
+                    }
                 }
 
                 // 4. The members named (409): each an active member of this organization, known to the directory and active there

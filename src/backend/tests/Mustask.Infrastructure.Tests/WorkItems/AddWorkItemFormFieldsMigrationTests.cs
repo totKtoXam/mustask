@@ -32,7 +32,7 @@ public sealed class AddWorkItemFormFieldsMigrationTests(OrganizationsDatabaseFix
     public async Task Migrator_AddWorkItemFormFields_GivesExistingItemsTheDefaults_KeepsChangedAt_AndRollsBack()
     {
         var structure = await database.CreateStructureAsync();
-        var projectId = structure.Project.Id;
+        var projectId = structure.Project.Project.Id;
 
         // One item of each of the five types, as the API writes them, in the seeded order.
         await using (var context = database.NewContext())
@@ -47,7 +47,7 @@ public sealed class AddWorkItemFormFieldsMigrationTests(OrganizationsDatabaseFix
                     type.Id, type.Key, type.Appearance, type.States.Select(state => new WorkItemTypeState(state.Id, state.Position, state.Category)).ToList());
 
                 context.WorkItems.Add(WorkItem.Create(
-                    projectId, ++number, states, $"Элемент {type.Key}", Guid.CreateVersion7(), Created, "migration-test"));
+                    projectId, ++number, states, structure.Project.Root.Id, $"Элемент {type.Key}", Guid.CreateVersion7(), Created, "migration-test"));
             }
 
             await context.SaveChangesAsync();

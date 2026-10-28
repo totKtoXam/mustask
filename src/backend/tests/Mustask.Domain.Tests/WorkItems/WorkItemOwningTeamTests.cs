@@ -11,6 +11,7 @@ public sealed class WorkItemOwningTeamTests
     private static readonly DateTimeOffset Later = Created.AddHours(3);
 
     private static readonly Guid ProjectId = Guid.CreateVersion7();
+    private static readonly Guid RootAreaId = Guid.CreateVersion7();
 
     private static readonly WorkItemTypeStates Story = new(
         Guid.CreateVersion7(),
@@ -24,7 +25,7 @@ public sealed class WorkItemOwningTeamTests
         ]);
 
     private static WorkItem AStory(Guid? team = null) =>
-        WorkItem.Create(ProjectId, 12, Story, "Вход по ссылке", Guid.CreateVersion7(), Created, "creator-sub", team);
+        WorkItem.Create(ProjectId, 12, Story, RootAreaId, "Вход по ссылке", Guid.CreateVersion7(), Created, "creator-sub", team);
 
     // US-2 · "the dialog creates with the team it shows": a created item has the team it is given, or none.
     [Fact]
@@ -48,7 +49,7 @@ public sealed class WorkItemOwningTeamTests
         Assert.True(changed);
         Assert.Equal(team, item.OwningTeamId);
         Assert.Equal(Later, item.ChangedAt);
-        Assert.Equal((ProjectId, 12, "Вход по ссылке"), (item.ProjectId, item.Number, item.Title));
+        Assert.Equal((ProjectId, 12, RootAreaId, "Вход по ссылке"), (item.ProjectId, item.Number, item.AreaId, item.Title));
         Assert.Equal(Story.InitialStateId, item.StateId);
         Assert.Null(item.AssigneeId);
         Assert.Null(item.ParentId);

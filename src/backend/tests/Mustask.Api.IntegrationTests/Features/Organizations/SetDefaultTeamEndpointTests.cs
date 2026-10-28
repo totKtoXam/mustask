@@ -206,16 +206,16 @@ public sealed class SetDefaultTeamEndpointTests(MustaskApiFactory factory)
     {
         var world = await CreateWorldAsync(factory);
         var single = await OrganizationsTestData.CreateBareProjectAsync(factory, world.OrganizationId, "Одна", "ONE");
-        var singleTeams = $"{OrganizationsApi.Teams(world.OrganizationId, single.Id)}";
+        var singleTeams = $"{OrganizationsApi.Teams(world.OrganizationId, single.Project.Id)}";
 
         var none = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, singleTeams, token: OrganizationsTokens.SignedIn());
         Assert.Empty(none.Body.EnumerateArray());
 
-        await OrganizationsTestData.LinkAsync(factory, single.Id, world.Mars);
+        await OrganizationsTestData.LinkAsync(factory, single.Project.Id, world.Mars);
         var alone = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, singleTeams, token: OrganizationsTokens.SignedIn());
         Assert.Equal("onlyTeam", alone.Body.EnumerateArray().Single().GetProperty("defaultMark").GetString());
 
-        await OrganizationsTestData.LinkAsync(factory, single.Id, world.Venus);
+        await OrganizationsTestData.LinkAsync(factory, single.Project.Id, world.Venus);
         var several = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, singleTeams, token: OrganizationsTokens.SignedIn());
         Assert.Equal(2, several.Body.GetArrayLength());
         Assert.All(several.Body.EnumerateArray(), team => Assert.Equal(System.Text.Json.JsonValueKind.Null, team.GetProperty("defaultMark").ValueKind));

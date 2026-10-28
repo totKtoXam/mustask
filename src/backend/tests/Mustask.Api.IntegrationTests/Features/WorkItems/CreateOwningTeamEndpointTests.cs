@@ -64,7 +64,7 @@ public sealed class CreateOwningTeamEndpointTests(MustaskApiFactory factory)
         var world = await CreateWorldAsync(factory);
         var single = await OrganizationsTestData.CreateProjectAsync(factory, world.OrganizationId, "Одна", "ONE");
         var types = world.Items.Types;
-        var items = world.Items with { ProjectId = single.Project.Id, Key = "ONE", Types = types };
+        var items = world.Items with { ProjectId = single.Project.Id, RootAreaId = single.Root.Id, Key = "ONE", Types = types };
 
         var answer = await WorkItemsTestData.CreateAsync(factory, items, "US", "Единственная");
 
@@ -99,9 +99,9 @@ public sealed class CreateOwningTeamEndpointTests(MustaskApiFactory factory)
         Assert.Null(TeamOf(answer.Body));
     }
 
-    // US-2 · "the dialog says where": the item has no Область any more (mod-018 OQ-1 A), whatever the team.
+    // US-2 · "the dialog says where": the item's area is the project's root, whatever the team (BR-OT-10, OQ-4 A).
     [Fact]
-    public async Task Create_NewItem_CarriesNoArea_WhateverTheTeam()
+    public async Task Create_NewItem_TakesTheRootArea_WhateverTheTeam()
     {
         var world = await CreateWorldAsync(factory);
 
@@ -109,8 +109,10 @@ public sealed class CreateOwningTeamEndpointTests(MustaskApiFactory factory)
         var without = await CreateAsync(world, Story(world, "Без команды", Team(null)));
 
         Assert.Equal((HttpStatusCode.Created, HttpStatusCode.Created), (withTeam.Status, without.Status));
-        Assert.False(withTeam.Body.TryGetProperty("area", out _));
-        Assert.False(without.Body.TryGetProperty("area", out _));
+        Assert.Equal(
+            (world.Items.RootAreaId, world.Items.RootAreaId),
+            (withTeam.Body.GetProperty("area").GetProperty("id").GetGuid(), without.Body.GetProperty("area").GetProperty("id").GetGuid()));
+        Assert.Equal("Альфа", withTeam.Body.GetProperty("area").GetProperty("path").GetString());
     }
 
     // US-2 · "the dialog creates with the team it shows": a default named while the dialog was open does not change the

@@ -38,8 +38,8 @@ public sealed class TeamBacklogVolumeTests(MustaskApiFactory factory, ITestOutpu
         for (var index = 1; index <= Projects; index++)
         {
             var project = await OrganizationsTestData.CreateBareProjectAsync(factory, organization.Id, $"Проект {index:D2}", $"VP{index:D2}");
-            await OrganizationsTestData.LinkAsync(factory, project.Id, mars.Id);
-            projects.Add(project.Id);
+            await OrganizationsTestData.LinkAsync(factory, project.Project.Id, mars.Id);
+            projects.Add(project.Project.Id);
         }
 
         var projectIds = projects.ToArray();
@@ -47,11 +47,12 @@ public sealed class TeamBacklogVolumeTests(MustaskApiFactory factory, ITestOutpu
         // Story n goes to project ((n - 1) mod 50) + 1 as that project's number ((n - 1) div 50) + 1 — a hundred each; every one is
         // owned by MARS, created a millisecond after the one before it, in the project's root area.
         await WorkItemsTestData.ExecuteAsync(factory, $"""
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id, created_at, created_by, changed_at, owning_team_id)
-            SELECT gen_random_uuid(), project.id, ((n - 1) / {Projects}) + 1, {story.Id}, {story.StateId("Новая")},
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, owning_team_id)
+            SELECT gen_random_uuid(), project.id, ((n - 1) / {Projects}) + 1, {story.Id}, {story.StateId("Новая")}, root.id,
                    'Элемент ' || n, '', gen_random_uuid(), now() + n * interval '1 millisecond', 'volume-test', now(), {mars.Id}
             FROM generate_series(1, {Stories}) AS n
             JOIN unnest({projectIds}) WITH ORDINALITY AS project(id, ordinal) ON project.ordinal = ((n - 1) % {Projects}) + 1
+            JOIN areas AS root ON root.project_id = project.id AND root.parent_id IS NULL
             """);
         await WorkItemsTestData.ExecuteAsync(factory, $"""
             INSERT INTO work_item_counters (project_id, last_number)

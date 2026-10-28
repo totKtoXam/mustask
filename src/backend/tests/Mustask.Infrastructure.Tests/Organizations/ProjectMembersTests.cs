@@ -42,7 +42,7 @@ public sealed class ProjectMembersTests(OrganizationsDatabaseFixture database)
         await database.AddMemberAsync(other.Organization.Id, $"elsewhere-{tag}");
 
         var (members, statements) = await AskAsync(
-            structure.Project.Id, [.. roles, $"elsewhere-{tag}", $"nobody-{tag}"]);
+            structure.Project.Project.Id, [.. roles, $"elsewhere-{tag}", $"nobody-{tag}"]);
 
         Assert.Equal(roles.Order(StringComparer.Ordinal), members.Order(StringComparer.Ordinal));
         Assert.Equal(1, statements);
@@ -57,8 +57,8 @@ public sealed class ProjectMembersTests(OrganizationsDatabaseFixture database)
         var other = await database.CreateStructureAsync();
         await database.AddMemberAsync(structure.Organization.Id, $"user-{tag}");
 
-        var here = await AskAsync(structure.Project.Id, $"user-{tag}");
-        var there = await AskAsync(other.Project.Id, $"user-{tag}");
+        var here = await AskAsync(structure.Project.Project.Id, $"user-{tag}");
+        var there = await AskAsync(other.Project.Project.Id, $"user-{tag}");
 
         Assert.Equal([$"user-{tag}"], here.Members);
         Assert.Empty(there.Members);
@@ -70,7 +70,7 @@ public sealed class ProjectMembersTests(OrganizationsDatabaseFixture database)
     {
         var structure = await database.CreateStructureAsync();
 
-        var (members, statements) = await AskAsync(structure.Project.Id);
+        var (members, statements) = await AskAsync(structure.Project.Project.Id);
 
         Assert.Empty(members);
         Assert.Equal(0, statements);

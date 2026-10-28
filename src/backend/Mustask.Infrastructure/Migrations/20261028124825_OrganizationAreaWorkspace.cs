@@ -5,57 +5,18 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Mustask.Infrastructure.Migrations
 {
-    /// <summary>
-    /// mod-018 (BR-AW-1, BR-AW-2, BR-AW-11, BR-AW-14; ADR-0028 rules 1, 4, 5): areas become the organization's, one tree per
-    /// organization, and a project or a team is linked to an area instead of living in one. The human chose to use the existing
-    /// data in full (OQ-1 A): <b>the upgrade drops every per-project area</b> and the work item's «Область» with them. The old shape
-    /// cannot place an area (it is keyed by a project), and an item's area was only a project's root or a classification path, so
-    /// nothing is remapped. Everything else is kept; <c>work_items.changed_at</c> is NOT written: no item's «Изменён» moves.
-    /// </summary>
     /// <inheritdoc />
     public partial class OrganizationAreaWorkspace : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // 1. The log (BR-AW-14), first, over the rows as they stand: what the drop below removes, per kind.
-            migrationBuilder.Sql(
-                """
-                DO $$
-                DECLARE
-                    areas_dropped integer;
-                    roots_dropped integer;
-                    items_cleared integer;
-                BEGIN
-                    SELECT count(*), count(*) FILTER (WHERE parent_id IS NULL) INTO areas_dropped, roots_dropped FROM areas;
-                    SELECT count(*) INTO items_cleared FROM work_items;
-
-                    RAISE NOTICE 'mod-018: % areas dropped (% of them project roots) and % work items whose area it cleared',
-                        areas_dropped, roots_dropped, items_cleared;
-                END
-                $$;
-                """);
-
-            // 2. The keys onto areas go, then the item's column, then the rows: the self key is gone before the delete, so one
-            // statement removes the whole forest.
             migrationBuilder.DropForeignKey(
                 name: "fk_areas_areas_project_id_parent_id",
                 table: "areas");
 
             migrationBuilder.DropForeignKey(
-                name: "fk_areas_projects_project_id",
-                table: "areas");
-
-            migrationBuilder.DropForeignKey(
                 name: "fk_work_items_areas_project_id_area_id",
-                table: "work_items");
-
-            migrationBuilder.DropIndex(
-                name: "ix_work_items_project_id_area_id",
-                table: "work_items");
-
-            migrationBuilder.DropIndex(
-                name: "ix_work_items_project_id_type_id_area_id",
                 table: "work_items");
 
             migrationBuilder.DropUniqueConstraint(
@@ -78,17 +39,13 @@ namespace Mustask.Infrastructure.Migrations
                 name: "ix_areas_project_id_root",
                 table: "areas");
 
-            migrationBuilder.DropColumn(
-                name: "area_id",
-                table: "work_items");
-
-            migrationBuilder.Sql("DELETE FROM areas;");
-
-            // 3. The new shape, over an empty table.
-            migrationBuilder.RenameColumn(
+            migrationBuilder.AlterColumn<Guid>(
                 name: "project_id",
                 table: "areas",
-                newName: "organization_id");
+                type: "uuid",
+                nullable: true,
+                oldClrType: typeof(Guid),
+                oldType: "uuid");
 
             migrationBuilder.AddColumn<DateTimeOffset>(
                 name: "created_at",
@@ -118,38 +75,62 @@ namespace Mustask.Infrastructure.Migrations
                 nullable: false,
                 defaultValue: true);
 
+            migrationBuilder.AddColumn<Guid>(
+                name: "organization_id",
+                table: "areas",
+                type: "uuid",
+                nullable: false,
+                defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
+
+            migrationBuilder.AddColumn<short>(
+                name: "type",
+                table: "areas",
+                type: "smallint",
+                nullable: false,
+                defaultValue: (short)0);
+
+            // The data (mod-018 OQ-13 A). Every project tree is kept: its root becomes the project's node at the top of the
+            // organization's tree (type 2), the areas below it become sub-areas (type 3). A tree deeper than the limit (10 levels,
+            // the root counted as the first) cannot be placed: the upgrade fails, naming the project, and changes nothing (the
+            // migration is one transaction).
+            migrationBuilder.Sql(
+                """
+                DO $$
+                DECLARE
+                    too_deep text;
+                BEGIN
+                    WITH RECURSIVE walk(id, project_id, level) AS (
+                        SELECT id, project_id, 1 FROM areas WHERE parent_id IS NULL
+                        UNION ALL
+                        SELECT child.id, child.project_id, walk.level + 1
+                        FROM areas child JOIN walk ON child.parent_id = walk.id
+                    )
+                    SELECT string_agg(projects.name || ' (' || projects.key || ')', ', ' ORDER BY projects.name) INTO too_deep
+                    FROM projects
+                    WHERE projects.id IN (SELECT project_id FROM walk WHERE level > 10);
+
+                    IF too_deep IS NOT NULL THEN
+                        RAISE EXCEPTION 'mod-018: the area tree of the project(s) % is deeper than 10 levels; shorten it before the upgrade', too_deep;
+                    END IF;
+                END
+                $$;
+                """);
+
+            migrationBuilder.Sql(
+                """
+                UPDATE areas
+                SET organization_id = projects.organization_id,
+                    type = CASE WHEN areas.parent_id IS NULL THEN 2 ELSE 3 END,
+                    created_by = projects.created_by,
+                    created_at = projects.created_at
+                FROM projects
+                WHERE projects.id = areas.project_id;
+                """);
+
             migrationBuilder.AddUniqueConstraint(
                 name: "ak_areas_organization_id_id",
                 table: "areas",
                 columns: new[] { "organization_id", "id" });
-
-            migrationBuilder.CreateTable(
-                name: "area_projects",
-                columns: table => new
-                {
-                    area_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    project_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    organization_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    linked_by = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
-                    linked_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("pk_area_projects", x => new { x.area_id, x.project_id });
-                    table.ForeignKey(
-                        name: "fk_area_projects_areas_organization_id_area_id",
-                        columns: x => new { x.organization_id, x.area_id },
-                        principalTable: "areas",
-                        principalColumns: new[] { "organization_id", "id" },
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "fk_area_projects_projects_organization_id_project_id",
-                        columns: x => new { x.organization_id, x.project_id },
-                        principalTable: "projects",
-                        principalColumns: new[] { "organization_id", "id" },
-                        onDelete: ReferentialAction.Restrict);
-                });
 
             migrationBuilder.CreateTable(
                 name: "area_teams",
@@ -198,9 +179,10 @@ namespace Mustask.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "ix_work_items_project_id_type_id",
-                table: "work_items",
-                columns: new[] { "project_id", "type_id" });
+                name: "ak_areas_project_id_id",
+                table: "areas",
+                columns: new[] { "project_id", "id" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "ix_areas_organization_id_parent_id_normalized_name",
@@ -209,25 +191,27 @@ namespace Mustask.Infrastructure.Migrations
                 unique: true)
                 .Annotation("Npgsql:NullsDistinct", false);
 
+            migrationBuilder.CreateIndex(
+                name: "ix_areas_organization_id_type",
+                table: "areas",
+                columns: new[] { "organization_id", "type" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_areas_project_id_node",
+                table: "areas",
+                column: "project_id",
+                unique: true,
+                filter: "type = 2");
+
             migrationBuilder.AddCheckConstraint(
                 name: "ck_areas_description_length",
                 table: "areas",
                 sql: "description IS NULL OR char_length(description) BETWEEN 1 AND 2000");
 
-            migrationBuilder.CreateIndex(
-                name: "ix_area_projects_organization_id_area_id",
-                table: "area_projects",
-                columns: new[] { "organization_id", "area_id" });
-
-            migrationBuilder.CreateIndex(
-                name: "ix_area_projects_organization_id_project_id",
-                table: "area_projects",
-                columns: new[] { "organization_id", "project_id" });
-
-            migrationBuilder.CreateIndex(
-                name: "ix_area_projects_project_id_area_id",
-                table: "area_projects",
-                columns: new[] { "project_id", "area_id" });
+            migrationBuilder.AddCheckConstraint(
+                name: "ck_areas_type_shape",
+                table: "areas",
+                sql: "(type = 1 AND project_id IS NULL AND parent_id IS NULL) OR (type = 2 AND project_id IS NOT NULL) OR (type = 3 AND project_id IS NOT NULL AND parent_id IS NOT NULL)");
 
             migrationBuilder.CreateIndex(
                 name: "ix_area_teams_organization_id_area_id",
@@ -259,11 +243,31 @@ namespace Mustask.Infrastructure.Migrations
                 principalTable: "organizations",
                 principalColumn: "id",
                 onDelete: ReferentialAction.Restrict);
+
+            // The item's «Область» is one of its project's nodes (BR-AW-11). The model leaves this key to SQL: an area's project_id is
+            // nullable, which an EF alternate key cannot be. The key targets the unique index above (a plain unique index serves).
+            migrationBuilder.AddForeignKey(
+                name: "fk_work_items_areas_project_id_area_id",
+                table: "work_items",
+                columns: new[] { "project_id", "area_id" },
+                principalTable: "areas",
+                principalColumns: new[] { "project_id", "id" },
+                onDelete: ReferentialAction.Restrict);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropForeignKey(
+                name: "fk_work_items_areas_project_id_area_id",
+                table: "work_items");
+
+            // Back to the per-project trees: a project's node is a root again, a department has no place and goes with its links
+            // (the link table is dropped below).
+            migrationBuilder.Sql("UPDATE areas SET parent_id = NULL WHERE type = 2;");
+            migrationBuilder.Sql("DELETE FROM area_teams;");
+            migrationBuilder.Sql("DELETE FROM areas WHERE type = 1;");
+
             migrationBuilder.DropForeignKey(
                 name: "fk_areas_areas_organization_id_parent_id",
                 table: "areas");
@@ -273,31 +277,37 @@ namespace Mustask.Infrastructure.Migrations
                 table: "areas");
 
             migrationBuilder.DropTable(
-                name: "area_projects");
-
-            migrationBuilder.DropTable(
                 name: "area_teams");
 
             migrationBuilder.DropTable(
                 name: "area_tree_locks");
-
-            // The organization-level areas cannot be keyed by a project: they go, and a root per project is made below (BR-M1-11).
-            migrationBuilder.Sql("DELETE FROM areas;");
-
-            migrationBuilder.DropIndex(
-                name: "ix_work_items_project_id_type_id",
-                table: "work_items");
 
             migrationBuilder.DropUniqueConstraint(
                 name: "ak_areas_organization_id_id",
                 table: "areas");
 
             migrationBuilder.DropIndex(
+                name: "ak_areas_project_id_id",
+                table: "areas");
+
+            migrationBuilder.DropIndex(
                 name: "ix_areas_organization_id_parent_id_normalized_name",
+                table: "areas");
+
+            migrationBuilder.DropIndex(
+                name: "ix_areas_organization_id_type",
+                table: "areas");
+
+            migrationBuilder.DropIndex(
+                name: "ix_areas_project_id_node",
                 table: "areas");
 
             migrationBuilder.DropCheckConstraint(
                 name: "ck_areas_description_length",
+                table: "areas");
+
+            migrationBuilder.DropCheckConstraint(
+                name: "ck_areas_type_shape",
                 table: "areas");
 
             migrationBuilder.DropColumn(
@@ -316,49 +326,28 @@ namespace Mustask.Infrastructure.Migrations
                 name: "inherits_access",
                 table: "areas");
 
-            migrationBuilder.RenameColumn(
+            migrationBuilder.DropColumn(
                 name: "organization_id",
-                table: "areas",
-                newName: "project_id");
+                table: "areas");
 
-            migrationBuilder.AddColumn<Guid>(
-                name: "area_id",
-                table: "work_items",
+            migrationBuilder.DropColumn(
+                name: "type",
+                table: "areas");
+
+            migrationBuilder.AlterColumn<Guid>(
+                name: "project_id",
+                table: "areas",
                 type: "uuid",
-                nullable: true);
+                nullable: false,
+                defaultValue: new Guid("00000000-0000-0000-0000-000000000000"),
+                oldClrType: typeof(Guid),
+                oldType: "uuid",
+                oldNullable: true);
 
             migrationBuilder.AddUniqueConstraint(
                 name: "ak_areas_project_id_id",
                 table: "areas",
                 columns: new[] { "project_id", "id" });
-
-            // The old shape: a root area per project, named after it, and every item in its project's root.
-            migrationBuilder.Sql(
-                """
-                INSERT INTO areas (id, project_id, parent_id, name, normalized_name)
-                SELECT gen_random_uuid(), p.id, NULL, p.name, p.normalized_name FROM projects p;
-
-                UPDATE work_items w SET area_id = a.id FROM areas a WHERE a.project_id = w.project_id AND a.parent_id IS NULL;
-                """);
-
-            migrationBuilder.AlterColumn<Guid>(
-                name: "area_id",
-                table: "work_items",
-                type: "uuid",
-                nullable: false,
-                oldClrType: typeof(Guid),
-                oldType: "uuid",
-                oldNullable: true);
-
-            migrationBuilder.CreateIndex(
-                name: "ix_work_items_project_id_area_id",
-                table: "work_items",
-                columns: new[] { "project_id", "area_id" });
-
-            migrationBuilder.CreateIndex(
-                name: "ix_work_items_project_id_type_id_area_id",
-                table: "work_items",
-                columns: new[] { "project_id", "type_id", "area_id" });
 
             migrationBuilder.CreateIndex(
                 name: "ix_areas_parent_id_normalized_name",
@@ -389,14 +378,6 @@ namespace Mustask.Infrastructure.Migrations
                 columns: new[] { "project_id", "parent_id" },
                 principalTable: "areas",
                 principalColumns: new[] { "project_id", "id" },
-                onDelete: ReferentialAction.Restrict);
-
-            migrationBuilder.AddForeignKey(
-                name: "fk_areas_projects_project_id",
-                table: "areas",
-                column: "project_id",
-                principalTable: "projects",
-                principalColumn: "id",
                 onDelete: ReferentialAction.Restrict);
 
             migrationBuilder.AddForeignKey(

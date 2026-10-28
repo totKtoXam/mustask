@@ -8,8 +8,9 @@ namespace Mustask.Application.Features.Organizations.RenameProject;
 
 /// <summary>
 /// <c>PUT /api/organizations/{organizationId}/projects/{projectId}/name</c>
-/// (US-3 "Renaming a project keeps its key", "The
-/// name is unique in the organization"). A project has no area of its own any more (mod-018 BR-AW-11).
+/// (US-3 "Renaming a project renames its root area and keeps its key", "The
+/// name is unique in the organization"). Written after the reference use case
+/// <c>CreateArea</c> (plan-backend § 14.2).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -21,8 +22,12 @@ namespace Mustask.Application.Features.Organizations.RenameProject;
 /// a deactivated one; the save.
 /// </para>
 /// <para>
-/// <b>Locks</b> (plan-backend § 8.2): the project <c>FOR NO KEY UPDATE</c>. <c>FOR NO KEY UPDATE</c> and not <c>FOR UPDATE</c>, so that a link inserted
-/// beneath it, which takes <c>FOR KEY SHARE</c> on the project row through its foreign key, is not blocked by a rename. The project's
+/// <b>Locks</b> (plan-backend § 8.2): the project <c>FOR NO KEY UPDATE</c>, then
+/// its node <c>FOR UPDATE</c>, because the root takes the new name with the
+/// project (BR-M1-11). <c>FOR NO KEY UPDATE</c> and not <c>FOR UPDATE</c> on the
+/// project, so that a team or an area inserted beneath it, which takes
+/// <c>FOR KEY SHARE</c> on the project row through its foreign key, is not
+/// deadlocked against a rename that waits for the root (§ 8.2). The project's
 /// status is read again after the lock: a deactivation that committed meanwhile
 /// holds the same lock, so this rename then answers the not-found code
 /// (ADR-0026 rule 8).
@@ -36,6 +41,7 @@ namespace Mustask.Application.Features.Organizations.RenameProject;
 /// </remarks>
 public sealed class RenameProjectHandler(
     IProjectRepository projects,
+    IAreaRepository areas,
     IUnitOfWork unitOfWork)
 {
     public async Task<RenameProjectResult> Handle(RenameProjectCommand command, CancellationToken cancellationToken) =>
@@ -67,7 +73,8 @@ public sealed class RenameProjectHandler(
 
                 // 4. References in the body: none.
 
-                // Lock: the project. The status is read again after the project lock.
+                // Locks, in order: the project, then its root. The status is read again after the project lock.
+                await areas.LockTreeAsync(organizationId, ct);
                 var project = await projects.LockAsync(organizationId, projectId, ct);
 
                 if (project is not { IsActive: true })
@@ -88,7 +95,15 @@ public sealed class RenameProjectHandler(
                             : OrganizationErrorCodes.ProjectNameTakenByDeactivated);
                 }
 
-                project.Rename(name);
+                var root = await areas.LockProjectNodeAsync(organizationId, projectId, ct)
+                    ?? throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
+
+                if (await areas.IsSiblingNameTakenAsync(organizationId, root.ParentId, name.Normalized, root.Id, ct))
+                {
+                    throw new ConflictException(OrganizationErrorCodes.AreaNameTaken);
+                }
+
+                project.Rename(name, root);
 
                 // 6. Save. A concurrent creation or rename to the same name that committed first fails this update on
                 // the name index, and the repository answers it with the pre-check's code (plan-backend § 6.3).

@@ -70,7 +70,7 @@ public sealed class WorkItemSetsTests(OrganizationsDatabaseFixture database)
     private async Task<Seeded> SeedAsync(bool trap)
     {
         var structure = await database.CreateStructureAsync();
-        var project = structure.Project.Id;
+        var project = structure.Project.Project.Id;
         var task = (await database.QueryAsync(
             """
             SELECT concat_ws('|', type.id::text, first.id::text, removed.id::text, type.process_id::text, type.backlog_level_id::text)
@@ -83,8 +83,8 @@ public sealed class WorkItemSetsTests(OrganizationsDatabaseFixture database)
             ("organization", structure.Organization.Id))).Single().Split('|');
 
         var (inProposed, inRemoved) = (Guid.CreateVersion7(), Guid.CreateVersion7());
-        await InsertAsync(project, 1, inProposed, Guid.Parse(task[0]), Guid.Parse(task[1]));
-        await InsertAsync(project, 2, inRemoved, Guid.Parse(task[0]), Guid.Parse(task[2]));
+        await InsertAsync(project, structure.Project.Root.Id, 1, inProposed, Guid.Parse(task[0]), Guid.Parse(task[1]));
+        await InsertAsync(project, structure.Project.Root.Id, 2, inRemoved, Guid.Parse(task[0]), Guid.Parse(task[2]));
 
         if (!trap)
         {
@@ -107,21 +107,22 @@ public sealed class WorkItemSetsTests(OrganizationsDatabaseFixture database)
             ("renamed", renamed));
 
         var (byName, byCategory) = (Guid.CreateVersion7(), Guid.CreateVersion7());
-        await InsertAsync(project, 3, byName, type, named);
-        await InsertAsync(project, 4, byCategory, type, renamed);
+        await InsertAsync(project, structure.Project.Root.Id, 3, byName, type, named);
+        await InsertAsync(project, structure.Project.Root.Id, 4, byCategory, type, renamed);
 
         return new Seeded(project, inProposed, inRemoved, byName, byCategory);
     }
 
-    private Task InsertAsync(Guid project, int number, Guid id, Guid type, Guid state) =>
+    private Task InsertAsync(Guid project, Guid area, int number, Guid id, Guid type, Guid state) =>
         database.ExecuteAsync(
             """
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id, created_at, created_by, changed_at)
-            VALUES (@id, @project, @number, @type, @state, 'Элемент', '', gen_random_uuid(), now(), 'sets-test', now())
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at)
+            VALUES (@id, @project, @number, @type, @state, @area, 'Элемент', '', gen_random_uuid(), now(), 'sets-test', now())
             """,
             ("id", id),
             ("project", project),
             ("number", number),
             ("type", type),
-            ("state", state));
+            ("state", state),
+            ("area", area));
 }

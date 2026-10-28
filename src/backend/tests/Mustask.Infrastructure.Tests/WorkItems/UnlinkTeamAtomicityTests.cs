@@ -79,22 +79,23 @@ public sealed class UnlinkTeamAtomicityTests(OrganizationsDatabaseFixture databa
 
         await database.ExecuteAsync(
             """
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id, created_at, created_by, changed_at, owning_team_id)
-            SELECT CASE WHEN n = 1 THEN @item ELSE gen_random_uuid() END, @project, n, @type, @state, 'Элемент ' || n, '', gen_random_uuid(), @changed, 'atomic-test', @changed, @team
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, owning_team_id)
+            SELECT CASE WHEN n = 1 THEN @item ELSE gen_random_uuid() END, @project, n, @type, @state, @area, 'Элемент ' || n, '', gen_random_uuid(), @changed, 'atomic-test', @changed, @team
             FROM generate_series(1, 3) AS n;
             INSERT INTO backlog_orders (team_id, backlog_level_id) VALUES (@team, @level);
             INSERT INTO backlog_places (work_item_id, team_id, backlog_level_id, position) VALUES (@item, @team, @level, 1);
             UPDATE projects SET default_team_id = @team WHERE id = @project
             """,
             ("item", item),
-            ("project", structure.Project.Id),
+            ("project", structure.Project.Project.Id),
             ("type", Guid.Parse(row[0])),
             ("state", Guid.Parse(row[1])),
             ("level", Guid.Parse(row[2])),
+            ("area", structure.Project.Root.Id),
             ("changed", Changed),
             ("team", team));
 
-        return new World(structure.Organization.Id, structure.Project.Id, team, destination, item);
+        return new World(structure.Organization.Id, structure.Project.Project.Id, team, destination, item);
     }
 
     /// <summary>

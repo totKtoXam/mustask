@@ -14,10 +14,11 @@ namespace Mustask.Application.Features.WorkItems.CreateWorkItem;
 /// <summary>
 /// The create dialog's submission (US-1): a new item of the chosen type with
 /// only a title, in its type's initial state, unassigned, with an empty
-/// description, owned by the team the
+/// description, in the project's root area (BR-M3-20), owned by the team the
 /// dialog shows (mod-017 BR-OT-3) — a team of the project, «Без команды», or, when
 /// the request sends none, the project default team as stored when the item is saved;
-/// or, created from a backlog row, beneath that row's item, owned by the row's team as stored then,
+/// or, created from a backlog row, beneath that row's item, in its area as stored
+/// (a classification path, BR-OT-10) and owned by the row's team as stored then,
 /// else the project default (feat-027 BR-T-10) — numbered from the project's
 /// one sequence (BR-M3-5).
 /// </summary>
@@ -61,13 +62,15 @@ namespace Mustask.Application.Features.WorkItems.CreateWorkItem;
 /// statement under READ COMMITTED: a submission that arrives twice at the same
 /// moment waits for the first to commit, then finds its item and answers it,
 /// with no number consumed. The unique index on the submission key is the
-/// backstop.
+/// backstop. The root area needs no lock: it is never deleted (BR-M1-11).
 /// </para>
 /// <para>
 /// <b>The parent</b> (feat-027 api-contract § 3, "Concurrency"): after the
 /// number's and the team's locks, the parent write's own order — the project's
 /// hierarchy, then the parent as a link end — so the parent is read as the last
-/// parent write, save or deletion of it committed. A refusal rolls the transaction back, the
+/// parent write, save or deletion of it committed. Its area needs no lock: an
+/// area that holds an item is never deleted (mod-003 § 6), and the parent's lock
+/// keeps it there until the commit. A refusal rolls the transaction back, the
 /// number's increment with it.
 /// </para>
 /// </remarks>
@@ -173,7 +176,9 @@ public sealed class CreateWorkItemHandler(
                 }
 
                 // 6. feat-027: the parent, under the parent write's order — the hierarchy, then the parent itself. One
-                // malformed, unknown or of another project answers alike (BR-H-1); its team, as stored under the parent's lock, is the child's.
+                // malformed, unknown or of another project answers alike (BR-H-1); its area is the child's area, a
+                // classification path (BR-OT-10), and its team, as stored under the parent's lock, is the child's.
+                var areaId = project.RootAreaId;
                 WorkItem? parent = null;
                 IReadOnlyCollection<HierarchyLink> parentAncestry = [];
 
@@ -195,7 +200,7 @@ public sealed class CreateWorkItemHandler(
                 var number = await workItems.TakeNextNumberAsync(projectId, ct);
 
                 var item = parent is null
-                    ? WorkItem.Create(projectId, number, type, title, requestId, clock.UtcNow, currentUser.SubjectId, owningTeamId)
+                    ? WorkItem.Create(projectId, number, type, areaId, title, requestId, clock.UtcNow, currentUser.SubjectId, owningTeamId)
                     : WorkItemHierarchy.CreateChild(
                         parent, parentAncestry, ProcessHierarchy.Of(process), number, type, title, requestId, clock.UtcNow, currentUser.SubjectId, owningTeamId);
 

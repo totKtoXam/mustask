@@ -94,7 +94,7 @@ public sealed class WorkItemTypeStatesTests
         foreach (var state in type.States)
         {
             var item = WorkItem.Create(
-                projectId, 1, type, "Заголовок", Guid.CreateVersion7(), DateTimeOffset.UnixEpoch, "creator-sub");
+                projectId, 1, type, Guid.CreateVersion7(), "Заголовок", Guid.CreateVersion7(), DateTimeOffset.UnixEpoch, "creator-sub");
 
             if (state.Category == StateCategory.Removed)
             {

@@ -20,7 +20,7 @@ public sealed class GetTeamProjectsHandlerTests
         var beta = store.AddProject(organization, "Бета", "BET");
         var alpha = store.AddProject(organization, "альфа", "ALP");
         var old = store.AddProject(organization, "Старый", "OLD");
-        old.Deactivate();
+        old.Project.Deactivate();
         var mars = store.AddTeam(organization, "MARS");
         var empty = store.AddTeam(organization, "VENUS");
         store.Link(beta, mars);
@@ -33,7 +33,7 @@ public sealed class GetTeamProjectsHandlerTests
 
         Assert.Equal([("альфа", "ALP"), ("Бета", "BET")], projects.Items.Select(project => (project.Name, project.Key)));
         Assert.Empty(none.Items);
-        Assert.True(store.IsLinked(old.Id, mars.Id));
+        Assert.True(store.IsLinked(old.Project.Id, mars.Id));
     }
 
     // US-8 · a deleted team, a team of another organization and a malformed id answer team.not_found; the team is read even when its

@@ -9,19 +9,14 @@ using Mustask.Application.Features.Organizations.DeleteArea;
 using Mustask.Application.Features.Organizations.DeleteTeam;
 using Mustask.Application.Features.Organizations.GetArea;
 using Mustask.Application.Features.Organizations.GetAreaDeletion;
-using Mustask.Application.Features.Organizations.GetAreaProjects;
 using Mustask.Application.Features.Organizations.GetAreaTeams;
 using Mustask.Application.Features.Organizations.GetAreaTree;
 using Mustask.Application.Features.Organizations.GetProjectAreas;
 using Mustask.Application.Features.Organizations.GetTeamAreas;
-using Mustask.Application.Features.Organizations.LinkAreasToProject;
 using Mustask.Application.Features.Organizations.LinkAreasToTeam;
-using Mustask.Application.Features.Organizations.LinkProjectsToArea;
 using Mustask.Application.Features.Organizations.LinkTeamsToArea;
 using Mustask.Application.Features.Organizations.SetAreaDescription;
-using Mustask.Application.Features.Organizations.UnlinkAreaFromProject;
 using Mustask.Application.Features.Organizations.UnlinkAreaFromTeam;
-using Mustask.Application.Features.Organizations.UnlinkProjectFromArea;
 using Mustask.Application.Features.Organizations.UnlinkTeamFromArea;
 using Mustask.Application.Features.Organizations.GetDeactivatedOrganizations;
 using Mustask.Application.Features.Organizations.GetDeactivatedProjects;
@@ -367,21 +362,6 @@ public static class OrganizationEndpoints
             .Produces<GetAreaDeletionResult>()
             .WithReadProblems();
 
-        areas.MapGet("/{areaId}/projects", GetAreaProjectsAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaRead)
-            .Produces<IReadOnlyList<AreaProjectResponse>>()
-            .WithReadProblems();
-
-        areas.MapPost("/{areaId}/projects", LinkProjectsToAreaAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaLink)
-            .Produces(StatusCodes.Status204NoContent)
-            .WithReadProblems();
-
-        areas.MapDelete("/{areaId}/projects/{projectId}", UnlinkProjectFromAreaAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaLink)
-            .Produces(StatusCodes.Status204NoContent)
-            .WithReadProblems();
-
         areas.MapGet("/{areaId}/teams", GetAreaTeamsAsync)
             .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaRead)
             .Produces<IReadOnlyList<AreaTeamResponse>>()
@@ -401,16 +381,6 @@ public static class OrganizationEndpoints
         projects.MapGet("/{projectId}/areas", GetProjectAreasAsync)
             .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaRead)
             .Produces<IReadOnlyList<ProjectAreaResponse>>()
-            .WithReadProblems();
-
-        projects.MapPost("/{projectId}/areas", LinkAreasToProjectAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectLink)
-            .Produces(StatusCodes.Status204NoContent)
-            .WithReadProblems();
-
-        projects.MapDelete("/{projectId}/areas/{areaId}", UnlinkAreaFromProjectAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectLink)
-            .Produces(StatusCodes.Status204NoContent)
             .WithReadProblems();
 
         teams.MapGet("/{teamId}/areas", GetTeamAreasAsync)
@@ -476,7 +446,7 @@ public static class OrganizationEndpoints
         string organizationId, CreateProjectRequest? request, CreateProjectHandler handler, CancellationToken cancellationToken)
     {
         var result = await handler.Handle(
-            new CreateProjectCommand(organizationId, request?.Name, request?.Key, request?.Description, request?.TeamIds, request?.AreaIds),
+            new CreateProjectCommand(organizationId, request?.Name, request?.Key, request?.Description, request?.TeamIds, request?.ParentAreaId),
             cancellationToken);
 
         return Results.Created($"/api/organizations/{result.Response.OrganizationId}/projects/{result.Response.Id}", result.Response);
@@ -652,7 +622,7 @@ public static class OrganizationEndpoints
     {
         var result = await handler.Handle(
             new CreateAreaCommand(
-                organizationId, request?.Name, request?.ParentId, request?.Description, request?.ProjectIds, request?.TeamIds),
+                organizationId, request?.Name, request?.ParentId, request?.Description, request?.TeamIds),
             cancellationToken);
 
         return Results.Created($"/api/organizations/{organizationId.ToLowerInvariant()}/areas/{result.Response.Id}", result.Response);
@@ -682,26 +652,6 @@ public static class OrganizationEndpoints
         string organizationId, string areaId, GetAreaDeletionHandler handler, CancellationToken cancellationToken) =>
         Results.Ok(await handler.Handle(new GetAreaDeletionQuery(organizationId, areaId), cancellationToken));
 
-    private static async Task<IResult> GetAreaProjectsAsync(
-        string organizationId, string areaId, GetAreaProjectsHandler handler, CancellationToken cancellationToken) =>
-        Results.Ok((await handler.Handle(new GetAreaProjectsQuery(organizationId, areaId), cancellationToken)).Items);
-
-    private static async Task<IResult> LinkProjectsToAreaAsync(
-        string organizationId, string areaId, LinkProjectsRequest? request, LinkProjectsToAreaHandler handler, CancellationToken cancellationToken)
-    {
-        await handler.Handle(new LinkProjectsToAreaCommand(organizationId, areaId, request?.ProjectIds), cancellationToken);
-
-        return Results.NoContent();
-    }
-
-    private static async Task<IResult> UnlinkProjectFromAreaAsync(
-        string organizationId, string areaId, string projectId, UnlinkProjectFromAreaHandler handler, CancellationToken cancellationToken)
-    {
-        await handler.Handle(new UnlinkProjectFromAreaCommand(organizationId, areaId, projectId), cancellationToken);
-
-        return Results.NoContent();
-    }
-
     private static async Task<IResult> GetAreaTeamsAsync(
         string organizationId, string areaId, GetAreaTeamsHandler handler, CancellationToken cancellationToken) =>
         Results.Ok((await handler.Handle(new GetAreaTeamsQuery(organizationId, areaId), cancellationToken)).Items);
@@ -725,22 +675,6 @@ public static class OrganizationEndpoints
     private static async Task<IResult> GetProjectAreasAsync(
         string organizationId, string projectId, GetProjectAreasHandler handler, CancellationToken cancellationToken) =>
         Results.Ok((await handler.Handle(new GetProjectAreasQuery(organizationId, projectId), cancellationToken)).Items);
-
-    private static async Task<IResult> LinkAreasToProjectAsync(
-        string organizationId, string projectId, LinkAreasRequest? request, LinkAreasToProjectHandler handler, CancellationToken cancellationToken)
-    {
-        await handler.Handle(new LinkAreasToProjectCommand(organizationId, projectId, request?.AreaIds), cancellationToken);
-
-        return Results.NoContent();
-    }
-
-    private static async Task<IResult> UnlinkAreaFromProjectAsync(
-        string organizationId, string projectId, string areaId, UnlinkAreaFromProjectHandler handler, CancellationToken cancellationToken)
-    {
-        await handler.Handle(new UnlinkAreaFromProjectCommand(organizationId, projectId, areaId), cancellationToken);
-
-        return Results.NoContent();
-    }
 
     private static async Task<IResult> GetTeamAreasAsync(
         string organizationId, string teamId, GetTeamAreasHandler handler, CancellationToken cancellationToken) =>
@@ -775,7 +709,7 @@ public static class OrganizationEndpoints
     private sealed record NameRequest(string? Name);
 
     private sealed record CreateProjectRequest(
-        string? Name, string? Key, string? Description, IReadOnlyList<string?>? TeamIds, IReadOnlyList<string?>? AreaIds = null);
+        string? Name, string? Key, string? Description, IReadOnlyList<string?>? TeamIds, string? ParentAreaId = null);
 
     /// <summary>feat-028 api-contract § 2.1: a team with its optional description, people and projects.</summary>
     private sealed record AddTeamRequest(
@@ -801,12 +735,11 @@ public static class OrganizationEndpoints
     /// <summary>mod-017 api-contract § 2.8: <c>teamId</c> a string, or <c>null</c> (or absent) to clear the setting.</summary>
     private sealed record DefaultTeamRequest(string? TeamId);
 
-    /// <summary>mod-018 api-contract § 2: an area with its optional description and the projects and teams to link.</summary>
+    /// <summary>mod-018 api-contract § 2: a department or a sub-area with its optional description and the teams to link (a department only).</summary>
     private sealed record CreateAreaRequest(
         string? Name,
         string? ParentId,
         string? Description,
-        IReadOnlyList<string?>? ProjectIds,
         IReadOnlyList<string?>? TeamIds);
 
     private sealed record LinkAreasRequest(IReadOnlyList<string?>? AreaIds);

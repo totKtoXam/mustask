@@ -8,26 +8,27 @@ using Xunit.Abstractions;
 namespace Mustask.Api.IntegrationTests.Features.Organizations;
 
 /// <summary>
-/// mod-018 spec § NFR Volumes through the real host and a real PostgreSQL: in an organization of 1 000 areas over 10 levels, 200 projects
-/// and 200 teams the whole tree answers within 2 s, and so do an area's page with 200 linked projects and 200 linked teams, its two link
-/// lists and its deletion preview, a project's areas and a team's areas. The data are written in one transaction through the repositories.
+/// mod-018 spec § NFR Volumes through the real host and a real PostgreSQL: in an organization of about 1 000 nodes over 10 levels,
+/// 200 projects and 200 teams the whole tree answers within 2 s, and so do a department's page with 200 linked teams, its team list
+/// and its deletion preview, a project's subtree and a team's departments. The data are written in one transaction.
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]
 [Collection(MustaskApiCollection.Name)]
 public sealed class AreaVolumeEndpointTests(MustaskApiFactory factory, ITestOutputHelper output)
 {
-    private const int Chains = 100;
+    private const int DeepProjects = 100;
+    private const int ShallowProjects = 100;
     private const int Depth = 10;
-    private const int Ends = 200;
+    private const int Teams = 200;
     private static readonly TimeSpan Budget = TimeSpan.FromSeconds(2);
 
     [Fact]
-    public async Task Reads_1000Areas_200Projects_200Teams_Within2SecondsEach()
+    public async Task Reads_1000Nodes_200Projects_200Teams_Within2SecondsEach()
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
         Area? hub = null;
-        var projectIds = new List<Guid>();
+        Guid firstProject = Guid.Empty;
         var teamIds = new List<Guid>();
 
         await OrganizationsTestData.InUnitOfWorkAsync(factory, async (services, ct) =>
@@ -37,33 +38,34 @@ public sealed class AreaVolumeEndpointTests(MustaskApiFactory factory, ITestOutp
             var teams = services.GetRequiredService<ITeamRepository>();
             var links = services.GetRequiredService<IAreaLinkRepository>();
             await areas.LockTreeAsync(organization.Id, ct);
+            hub = Area.CreateDepartment(organization.Id, OrganizationsTestData.Name("Центр"), null, OrganizationsTestData.Creator, OrganizationsTestData.Now);
+            areas.Add(hub);
 
-            for (var chain = 0; chain < Chains; chain++)
+            for (var index = 0; index < DeepProjects + ShallowProjects; index++)
             {
-                Guid? parent = null;
+                var created = Project.Create(
+                    organization.Id, OrganizationsTestData.Name($"Проект {index:D3}"), $"V{index:D3}", OrganizationsTestData.Now, OrganizationsTestData.Creator);
+                projects.Add(created);
+                firstProject = firstProject == Guid.Empty ? created.Project.Id : firstProject;
+                var parent = created.Root;
 
-                for (var level = 1; level <= Depth; level++)
+                for (var level = 2; level <= Depth && index < DeepProjects; level++)
                 {
-                    var area = Area.Create(organization.Id, parent, OrganizationsTestData.Name($"Ветка {chain:D3} уровень {level:D2}"), null, OrganizationsTestData.Creator, OrganizationsTestData.Now);
-                    areas.Add(area);
-                    parent = area.Id;
-                    hub ??= area;
+                    var sub = Area.CreateSubArea(parent, OrganizationsTestData.Name($"Ветка {level:D2}"), null, OrganizationsTestData.Creator, OrganizationsTestData.Now);
+                    areas.Add(sub);
+                    parent = sub;
                 }
             }
 
-            for (var index = 0; index < Ends; index++)
+            for (var index = 0; index < Teams; index++)
             {
-                var project = Project.Create(organization.Id, OrganizationsTestData.Name($"Проект {index:D3}"), $"V{index:D3}", OrganizationsTestData.Now, OrganizationsTestData.Creator);
-                projects.Add(project);
-                projectIds.Add(project.Id);
                 var team = Team.Create(organization.Id, OrganizationsTestData.Name($"Команда {index:D3}"));
                 teams.Add(team);
                 teamIds.Add(team.Id);
             }
 
             await areas.SaveAsync(ct);
-            await links.LinkProjectsAsync(organization.Id, projectIds.Select(id => (hub!.Id, id)).ToList(), OrganizationsTestData.Creator, OrganizationsTestData.Now, ct);
-            await links.LinkTeamsAsync(organization.Id, teamIds.Select(id => (hub!.Id, id)).ToList(), OrganizationsTestData.Creator, OrganizationsTestData.Now, ct);
+            await links.LinkTeamsAsync(organization.Id, teamIds.Select(id => (hub.Id, id)).ToList(), OrganizationsTestData.Creator, OrganizationsTestData.Now, ct);
             await areas.SaveAsync(ct);
 
             return true;
@@ -72,11 +74,12 @@ public sealed class AreaVolumeEndpointTests(MustaskApiFactory factory, ITestOutp
         var area = $"{OrganizationsApi.Areas(organization.Id)}/{hub!.Id}";
         var reads = new (string Name, string Path, int Expected)[]
         {
-            ("tree", OrganizationsApi.Areas(organization.Id), Chains * Depth),
+            ("tree", OrganizationsApi.Areas(organization.Id), 1 + (DeepProjects * Depth) + ShallowProjects),
             ("page", area, -1),
-            ("projects", $"{area}/projects", Ends),
-            ("teams", $"{area}/teams", Ends),
+            ("teams", $"{area}/teams", Teams),
             ("deletion", $"{area}/deletion", -1),
+            ("project subtree", OrganizationsApi.ProjectAreas(organization.Id, firstProject), Depth),
+            ("team departments", OrganizationsApi.TeamAreas(organization.Id, teamIds[0]), 1),
         };
 
         foreach (var (name, path, expected) in reads)
@@ -97,21 +100,7 @@ public sealed class AreaVolumeEndpointTests(MustaskApiFactory factory, ITestOutp
         }
 
         var deletion = await GetAsync($"{area}/deletion");
-        Assert.Equal((Ends, Ends), (deletion.Body.GetProperty("projects").GetArrayLength(), deletion.Body.GetProperty("teams").GetArrayLength()));
-
-        // A project's and a team's areas, with the project and the team linked to a few areas of the tree.
-        var firstProject = projectIds[0];
-        var firstTeam = teamIds[0];
-        Assert.Equal(1, (await GetAsync(OrganizationsApi.ProjectAreas(organization.Id, firstProject))).Body.GetArrayLength());
-        var projectAreas = Stopwatch.StartNew();
-        var projectAnswer = await GetAsync(OrganizationsApi.ProjectAreas(organization.Id, firstProject));
-        projectAreas.Stop();
-        var teamAreas = Stopwatch.StartNew();
-        var teamAnswer = await GetAsync(OrganizationsApi.TeamAreas(organization.Id, firstTeam));
-        teamAreas.Stop();
-        output.WriteLine($"project areas: {projectAreas.Elapsed.TotalMilliseconds:F0} ms, team areas: {teamAreas.Elapsed.TotalMilliseconds:F0} ms");
-        Assert.True(projectAreas.Elapsed < Budget && teamAreas.Elapsed < Budget);
-        Assert.Equal((HttpStatusCode.OK, HttpStatusCode.OK), (projectAnswer.Status, teamAnswer.Status));
+        Assert.Equal(Teams, deletion.Body.GetProperty("teams").GetArrayLength());
     }
 
     private Task<Answer> GetAsync(string path) =>

@@ -30,10 +30,23 @@ public sealed class TeamAcrossProjectsEndpointTests(MustaskApiFactory factory)
     {
         var world = await CreateWorldAsync(factory);
         await OrganizationsTestData.LinkAsync(factory, world.OtherProjectId, world.Mars);
-        var beta = new BoardsWorld(world.Items with { ProjectId = world.OtherProjectId, Key = "BET" }, Guid.Empty, world.Mars, Guid.Empty, Guid.Empty, Guid.Empty);
+        var betaRoot = await RootOfAsync(world.OtherProjectId);
+        var beta = new BoardsWorld(world.Items with { ProjectId = world.OtherProjectId, RootAreaId = betaRoot, Key = "BET" }, Guid.Empty, world.Mars, Guid.Empty, Guid.Empty, Guid.Empty);
 
         return new Both(world, BoardsViewOf(world), beta);
     }
+
+    private async Task<Guid> RootOfAsync(Guid projectId)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+
+        return await scope.ServiceProvider.GetRequiredService<MustaskDbContext>().Areas
+            .AsNoTracking()
+            .Where(area => area.ProjectId == projectId && area.ParentId == null)
+            .Select(area => area.Id)
+            .SingleAsync();
+    }
+
     private async Task<Item> StoryAsync(BoardsWorld view, string title, Guid? team)
     {
         var answer = await OrganizationsApi.SendAsync(

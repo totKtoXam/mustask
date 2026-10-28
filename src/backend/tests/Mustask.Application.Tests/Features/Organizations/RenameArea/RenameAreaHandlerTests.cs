@@ -14,15 +14,24 @@ public sealed class RenameAreaHandlerTests
         public Fixture()
         {
             Organization = Store.AddOrganization();
-            Reports = Store.AddArea(Organization, "Отчёты");
-            Quarterly = Store.AddArea(Organization, "Квартальные", Reports);
+            Project = Store.AddProject(Organization).Project;
+            Node = Store.RootOf(Project);
+            Reports = Store.AddArea(Node, "Отчёты");
+            Quarterly = Store.AddArea(Reports, "Квартальные");
+            Department = Store.AddDepartment(Organization, "Разработка");
             Areas = new FakeAreaRepository(Store);
-            Handler = new RenameAreaHandler(new FakeOrganizationReadModel(Store), Areas, new FakeUnitOfWork());
+            Handler = new RenameAreaHandler(new FakeOrganizationReadModel(Store), new FakeProjectRepository(Store), Areas, new FakeUnitOfWork());
         }
 
         public InMemoryOrganizations Store { get; } = new();
 
         public Organization Organization { get; }
+
+        public Project Project { get; }
+
+        public Area Node { get; }
+
+        public Area Department { get; }
 
         public Area Reports { get; }
 
@@ -45,8 +54,9 @@ public sealed class RenameAreaHandlerTests
         var renamed = await f.HandleAsync(f.Quarterly, " Годовые ");
 
         Assert.Equal("Годовые", renamed.Response.Name);
-        Assert.Equal("Отчёты / Годовые", renamed.Response.Path);
+        Assert.Equal("Пример проекта / Отчёты / Годовые", renamed.Response.Path);
         Assert.Equal(f.Reports.Id, renamed.Response.ParentId);
+        Assert.Equal(("area", f.Project.Id), (renamed.Response.Type, renamed.Response.ProjectId));
         Assert.Equal(1, f.Store.SaveCount);
     }
 
@@ -61,12 +71,51 @@ public sealed class RenameAreaHandlerTests
         Assert.Equal("ОТЧЁТЫ", renamed.Response.Name);
     }
 
+    // OQ-10 A · a project node is renamed only with its project: root_is_fixed (checked before the name).
+    [Fact]
+    public async Task Handle_ProjectNode_IsRootIsFixed()
+    {
+        var f = new Fixture();
+
+        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Node, "Другое имя"));
+
+        Assert.Equal(OrganizationErrorCodes.AreaRootIsFixed, refusal.Code);
+        Assert.Equal("Пример проекта", f.Node.Name);
+        Assert.Equal(0, f.Store.SaveCount);
+    }
+
+    // OQ-6 A · a deactivated project's sub-area is read-only: «Проект не найден».
+    [Fact]
+    public async Task Handle_UnderADeactivatedProject_IsProjectNotFound()
+    {
+        var f = new Fixture();
+        f.Project.Deactivate();
+
+        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Quarterly, "Годовые"));
+
+        Assert.Equal(OrganizationErrorCodes.ProjectNotFound, refusal.Code);
+        Assert.Equal("Квартальные", f.Quarterly.Name);
+    }
+
+    // OQ-12 A · a department shares the top level's name space with the project nodes.
+    [Fact]
+    public async Task Handle_DepartmentTakingAProjectNodesName_IsAreaNameTaken()
+    {
+        var f = new Fixture();
+
+        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Department, " пример проекта"));
+        var renamed = await f.HandleAsync(f.Department, "Продукт");
+
+        Assert.Equal(OrganizationErrorCodes.AreaNameTaken, refusal.Code);
+        Assert.Equal(("department", "Продукт"), (renamed.Response.Type, renamed.Response.Path));
+    }
+
     // US-2 · sibling names are unique ignoring case and spaces.
     [Fact]
     public async Task Handle_SiblingName_IsAreaNameTaken()
     {
         var f = new Fixture();
-        f.Store.AddArea(f.Organization, "Архив");
+        f.Store.AddArea(f.Node, "Архив");
 
         var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Reports, " архив "));
 
@@ -94,7 +143,7 @@ public sealed class RenameAreaHandlerTests
     public async Task Handle_Address_Answers404OutsideIn_BeforeTheBody()
     {
         var f = new Fixture();
-        var foreign = f.Store.AddArea(f.Store.AddOrganization("Другая"), "Чужая");
+        var foreign = f.Store.AddDepartment(f.Store.AddOrganization("Другая"), "Чужая");
 
         var org = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Reports, "", "abc"));
         var area = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(foreign, ""));

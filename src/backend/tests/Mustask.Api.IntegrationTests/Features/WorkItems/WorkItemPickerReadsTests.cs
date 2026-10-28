@@ -37,4 +37,24 @@ public sealed class WorkItemPickerReadsTests(MustaskApiFactory factory)
         Assert.Equal(expected.Split(','), offered);
     }
 
+    // US-4 · "The area picker offers the project's whole tree": «Мастаск», «Отчёты», «Платформа», «Платформа / API» in
+    // tree order, the root first, and nothing of «Операции».
+    [Fact]
+    public async Task AreaTreeRead_OffersTheProjectsTreeInOrder_RootFirst_NoOtherProject()
+    {
+        var world = await WorkItemsTestData.CreateWorldAsync(factory);
+        var platform = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, world.RootAreaId, "Платформа");
+        await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, platform.Id, "API");
+        await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, world.RootAreaId, "Отчёты");
+        var operations = await WorkItemsTestData.AddProjectAsync(factory, world, "OPS", "Операции");
+        await OrganizationsTestData.AddAreaAsync(factory, operations.ProjectId, operations.RootAreaId, "Склад");
+
+        var answer = await OrganizationsApi.SendAsync(
+            factory, HttpMethod.Get, OrganizationsApi.Areas(world.OrganizationId, world.ProjectId), token: OrganizationsTokens.SignedIn());
+
+        Assert.Equal(HttpStatusCode.OK, answer.Status);
+        Assert.Equal(
+            ["Мастаск", "Отчёты", "Платформа", "Платформа / API"],
+            answer.Body.EnumerateArray().Select(node => node.GetProperty("path").GetString()));
+    }
 }

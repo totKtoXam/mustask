@@ -63,6 +63,14 @@ public interface IWorkItemRepository
     Task<WorkItem?> LockAsync(Guid projectId, int number, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Locks the area of that project <c>FOR SHARE</c> and answers whether it
+    /// exists (BR-M3-23, BR-M3-24). The area deletion locks it <c>FOR UPDATE</c>,
+    /// so the two serialize: an area deleted meanwhile is gone when this lock is
+    /// granted, and one that is still there cannot be deleted until the commit.
+    /// </summary>
+    Task<bool> LockAreaAsync(Guid projectId, Guid areaId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// feat-001: locks the project's hierarchy <c>FOR UPDATE</c>, creating its row
     /// on the project's first parent write. Every parent write takes it before
     /// it locks its item, so from here to the commit no other parent write of the

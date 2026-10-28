@@ -24,7 +24,7 @@ public sealed class HierarchyDepthEndpointTests(MustaskApiFactory factory)
     {
         var world = await WorkItemsTestData.CreateWorldAsync(factory);
 
-        return (world, await BulkItemsTestData.InsertChainAsync(factory, world, length));
+        return (world, await BulkItemsTestData.InsertChainAsync(factory, world, world.RootAreaId, length));
     }
 
     private async Task<Item> NewTaskAsync(WorkItemsWorld world, string title)
@@ -81,8 +81,8 @@ public sealed class HierarchyDepthEndpointTests(MustaskApiFactory factory)
     public async Task Put_AMovedSubtree_CountsItsHeight_24BeneathA40Chain_Accepted_25Refused()
     {
         var (world, parentChain) = await WorldWithChainAsync(40);
-        var fits = await BulkItemsTestData.InsertChainAsync(factory, world, 24, firstNumber: 41);
-        var tooTall = await BulkItemsTestData.InsertChainAsync(factory, world, 25, firstNumber: 65);
+        var fits = await BulkItemsTestData.InsertChainAsync(factory, world, world.RootAreaId, 24, firstNumber: 41);
+        var tooTall = await BulkItemsTestData.InsertChainAsync(factory, world, world.RootAreaId, 25, firstNumber: 65);
 
         var refused = await LinksTestData.SetParentAsync(factory, world, tooTall[0].Identifier, parentChain[^1].Id, null);
         var accepted = await LinksTestData.SetParentAsync(factory, world, fits[0].Identifier, parentChain[^1].Id, null);
@@ -157,7 +157,7 @@ public sealed class HierarchyDepthEndpointTests(MustaskApiFactory factory)
     public async Task Patch_AMovedSubtree_CountsItsHeight()
     {
         var (world, parentChain) = await WorldWithChainAsync(40);
-        var tooTall = await BulkItemsTestData.InsertChainAsync(factory, world, 25, firstNumber: 41);
+        var tooTall = await BulkItemsTestData.InsertChainAsync(factory, world, world.RootAreaId, 25, firstNumber: 41);
 
         var refused = await WorkItemsTestData.SaveAsync(factory, world, tooTall[0].Identifier, new { parent = Parent(parentChain[^1], null) });
 

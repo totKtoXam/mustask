@@ -219,7 +219,7 @@ public sealed class LinkJudgementWindowTests(OrganizationsDatabaseFixture databa
     /// project's first item, owned by <see cref="OwnTeam"/>, when there is one.
     /// </summary>
     private sealed record World(
-        Guid OrganizationId, Guid ProjectId, Guid TypeId, Guid StateId, Guid Team, Guid OwnTeam, string Identifier);
+        Guid OrganizationId, Guid ProjectId, Guid RootAreaId, Guid TypeId, Guid StateId, Guid Team, Guid OwnTeam, string Identifier);
 
     /// <summary>A project with no team at all, and an unlinked team of its organization.</summary>
     private async Task<World> BareProjectAsync()
@@ -230,7 +230,7 @@ public sealed class LinkJudgementWindowTests(OrganizationsDatabaseFixture databa
         var team = await database.AddTeamAsync(organization, OrganizationsDatabaseFixture.UniqueName("Первая"));
         var (type, state) = await StoryTypeAsync(organization);
 
-        return new World(organization, project.Id, type, state, team.Id, Guid.Empty, string.Empty);
+        return new World(organization, project.Project.Id, project.Root.Id, type, state, team.Id, Guid.Empty, string.Empty);
     }
 
     /// <summary>A project with one linked team that owns its first item, and an unlinked team of the organization.</summary>
@@ -240,16 +240,18 @@ public sealed class LinkJudgementWindowTests(OrganizationsDatabaseFixture databa
         var organization = structure.Organization.Id;
         var team = await database.AddTeamAsync(organization, OrganizationsDatabaseFixture.UniqueName("Отдельная"));
         var (type, state) = await StoryTypeAsync(organization);
-        var project = structure.Project.Id;
+        var project = structure.Project.Project.Id;
+        var root = structure.Project.Root.Id;
 
         await database.ExecuteAsync(
             """
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id, created_at, created_by, changed_at, owning_team_id)
-            VALUES (gen_random_uuid(), @project, 1, @type, @state, 'Первый', '', gen_random_uuid(), @created, @user, @created, @own)
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, owning_team_id)
+            VALUES (gen_random_uuid(), @project, 1, @type, @state, @area, 'Первый', '', gen_random_uuid(), @created, @user, @created, @own)
             """,
             ("project", project),
             ("type", type),
             ("state", state),
+            ("area", root),
             ("created", Created),
             ("user", User),
             ("own", structure.FirstTeam.Id));
@@ -257,7 +259,7 @@ public sealed class LinkJudgementWindowTests(OrganizationsDatabaseFixture databa
         var key = (await database.QueryAsync("SELECT key FROM projects WHERE id = @project", ("project", project))).Single();
         var typeKey = (await database.QueryAsync("SELECT key FROM work_item_types WHERE id = @type", ("type", type))).Single();
 
-        return new World(organization, project, type, state, team.Id, structure.FirstTeam.Id, $"{key}-{typeKey}-1");
+        return new World(organization, project, root, type, state, team.Id, structure.FirstTeam.Id, $"{key}-{typeKey}-1");
     }
 
     private async Task<(Guid Type, Guid State)> StoryTypeAsync(Guid organizationId)
@@ -288,8 +290,8 @@ public sealed class LinkJudgementWindowTests(OrganizationsDatabaseFixture databa
 
         await using (var command = new NpgsqlCommand(
             """
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id, created_at, created_by, changed_at, owning_team_id)
-            VALUES (gen_random_uuid(), @project, @number, @type, @state, 'Связанный', '', gen_random_uuid(), @created, @user, @created, @team)
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, owning_team_id)
+            VALUES (gen_random_uuid(), @project, @number, @type, @state, @area, 'Связанный', '', gen_random_uuid(), @created, @user, @created, @team)
             """,
             connection,
             transaction))
@@ -298,6 +300,7 @@ public sealed class LinkJudgementWindowTests(OrganizationsDatabaseFixture databa
             command.Parameters.AddWithValue("number", number);
             command.Parameters.AddWithValue("type", world.TypeId);
             command.Parameters.AddWithValue("state", world.StateId);
+            command.Parameters.AddWithValue("area", world.RootAreaId);
             command.Parameters.AddWithValue("created", Created);
             command.Parameters.AddWithValue("user", User);
             command.Parameters.AddWithValue("team", team);

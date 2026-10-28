@@ -436,7 +436,7 @@ public sealed class OrganizationLevelTeamsMigrationTests(OrganizationsDatabaseFi
     }
 
     /// <summary>
-    /// Migrates to this migration (<c>null</c>; later migrations reshape the tables this test reads) or to the one before this migration (<c>"previous"</c>, found by name, never hard-coded),
+    /// Migrates to the latest migration (<c>null</c>) or to the one before this migration (<c>"previous"</c>, found by name, never hard-coded),
     /// and returns the notices of feat-028 the migration raised.
     /// </summary>
     private static async Task<List<string>> MigrateAsync(string connectionString, string? target)
@@ -454,7 +454,7 @@ public sealed class OrganizationLevelTeamsMigrationTests(OrganizationsDatabaseFi
 
         var migrations = context.Database.GetMigrations().ToList();
         var id = target is null
-            ? migrations.Single(candidate => candidate.EndsWith(Migration, StringComparison.Ordinal))
+            ? null
             : migrations.TakeWhile(candidate => !candidate.EndsWith(Migration, StringComparison.Ordinal)).Last();
 
         await context.GetService<IMigrator>().MigrateAsync(id);

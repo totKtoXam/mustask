@@ -37,13 +37,13 @@ public sealed class LinkProjectsToTeamEndpointTests(MustaskApiFactory factory)
         var team = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, organization.Id, "Общая");
 
         var started = DateTimeOffset.UtcNow;
-        var answer = await LinkAsync(organization.Id, team.Id, alpha.Id, beta.Id);
+        var answer = await LinkAsync(organization.Id, team.Id, alpha.Project.Id, beta.Project.Id);
         var answered = DateTimeOffset.UtcNow;
 
         Assert.Equal(HttpStatusCode.NoContent, answer.Status);
         Assert.Null(answer.MediaType);
         var links = await LinksOfTeamAsync(factory, team.Id);
-        Assert.Equal(new[] { alpha.Id, beta.Id }.Order(), links.Select(link => link.ProjectId).Order());
+        Assert.Equal(new[] { alpha.Project.Id, beta.Project.Id }.Order(), links.Select(link => link.ProjectId).Order());
         Assert.All(links, link =>
         {
             Assert.Equal(OrganizationsTestData.Creator, link.LinkedBy);
@@ -55,7 +55,7 @@ public sealed class LinkProjectsToTeamEndpointTests(MustaskApiFactory factory)
         Assert.Equal(
             ["Альфа", "Бета"],
             Assert.Single(organizationList.Body.EnumerateArray()).GetProperty("projects").EnumerateArray().Select(project => project.GetProperty("name").GetString()));
-        var projectList = await GetAsync(factory, OrganizationsApi.Teams(organization.Id, alpha.Id));
+        var projectList = await GetAsync(factory, OrganizationsApi.Teams(organization.Id, alpha.Project.Id));
         Assert.Equal([team.Id], Ids(projectList.Body));
     }
 
@@ -70,7 +70,7 @@ public sealed class LinkProjectsToTeamEndpointTests(MustaskApiFactory factory)
         var sleeping = await OrganizationsTestData.CreateBareProjectAsync(factory, organization.Id, "Спящий", "SLP", ProjectStatus.Deactivated);
         var team = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, organization.Id, "Общая");
 
-        var answer = await LinkAsync(organization.Id, team.Id, alpha.Id, beta.Id, sleeping.Id);
+        var answer = await LinkAsync(organization.Id, team.Id, alpha.Project.Id, beta.Project.Id, sleeping.Project.Id);
 
         Assert.Equal((HttpStatusCode.NotFound, "organizations.project.not_found"), (answer.Status, answer.ErrorCode));
         Assert.Empty(await LinksOfTeamAsync(factory, team.Id));
@@ -87,13 +87,13 @@ public sealed class LinkProjectsToTeamEndpointTests(MustaskApiFactory factory)
         var teamsBefore = (await StoredTeamsAsync(factory, structure.OrganizationId)).Select(team => team.Id).Order().ToList();
         var membersBefore = await TeamMemberIdsAsync(factory, structure.Platform.Id);
 
-        var answer = await LinkAsync(structure.OrganizationId, structure.Platform.Id, second.Id, third.Id);
+        var answer = await LinkAsync(structure.OrganizationId, structure.Platform.Id, second.Project.Id, third.Project.Id);
 
         Assert.Equal(HttpStatusCode.NoContent, answer.Status);
         Assert.Equal(teamsBefore, (await StoredTeamsAsync(factory, structure.OrganizationId)).Select(team => team.Id).Order());
         Assert.Equal(membersBefore, await TeamMemberIdsAsync(factory, structure.Platform.Id));
         Assert.Equal(3, (await LinksOfTeamAsync(factory, structure.Platform.Id)).Count);
-        foreach (var project in new[] { second.Id, third.Id })
+        foreach (var project in new[] { second.Project.Id, third.Project.Id })
         {
             var teams = await GetAsync(factory, OrganizationsApi.Teams(structure.OrganizationId, project));
             Assert.Equal([structure.Platform.Id], Ids(teams.Body));
@@ -115,7 +115,7 @@ public sealed class LinkProjectsToTeamEndpointTests(MustaskApiFactory factory)
         var answer = await LinkAsync(
             structure.OrganizationId,
             structure.Platform.Id.ToString(),
-            new { projectIds = new[] { structure.ProjectId.ToString(), second.Id.ToString() } },
+            new { projectIds = new[] { structure.ProjectId.ToString(), second.Project.Id.ToString() } },
             other.Token);
 
         Assert.Equal(HttpStatusCode.NoContent, answer.Status);
@@ -123,7 +123,7 @@ public sealed class LinkProjectsToTeamEndpointTests(MustaskApiFactory factory)
         Assert.Equal(2, links.Count);
         var kept = links.Single(link => link.ProjectId == structure.ProjectId);
         Assert.Equal((before.LinkedBy, before.LinkedAt), (kept.LinkedBy, kept.LinkedAt));
-        Assert.Equal(other.Id, links.Single(link => link.ProjectId == second.Id).LinkedBy);
+        Assert.Equal(other.Id, links.Single(link => link.ProjectId == second.Project.Id).LinkedBy);
     }
 
     // feat-028 D-14 · an absent, null or empty list is a no-op 204; the duplicates collapse.
@@ -157,7 +157,7 @@ public sealed class LinkProjectsToTeamEndpointTests(MustaskApiFactory factory)
         var project = await OrganizationsTestData.CreateBareProjectAsync(factory, organization.Id);
         var team = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, organization.Id, "Дубль");
 
-        var answer = await LinkAsync(organization.Id, team.Id, project.Id, project.Id);
+        var answer = await LinkAsync(organization.Id, team.Id, project.Project.Id, project.Project.Id);
 
         Assert.Equal(HttpStatusCode.NoContent, answer.Status);
         Assert.Single(await LinksOfTeamAsync(factory, team.Id));
@@ -181,13 +181,13 @@ public sealed class LinkProjectsToTeamEndpointTests(MustaskApiFactory factory)
             "malformed" => "ALP",
             "unknown" => Guid.CreateVersion7().ToString(),
             "of another organization" => other.ProjectId.ToString(),
-            _ => sleeping.Id.ToString(),
+            _ => sleeping.Project.Id.ToString(),
         };
 
-        var answer = await LinkAsync(structure.OrganizationId, structure.Platform.Id.ToString(), new { projectIds = new[] { good.Id.ToString(), bad } });
+        var answer = await LinkAsync(structure.OrganizationId, structure.Platform.Id.ToString(), new { projectIds = new[] { good.Project.Id.ToString(), bad } });
 
         Assert.Equal((HttpStatusCode.NotFound, "organizations.project.not_found"), (answer.Status, answer.ErrorCode));
-        Assert.DoesNotContain(good.Id, (await LinksOfTeamAsync(factory, structure.Platform.Id)).Select(link => link.ProjectId));
+        Assert.DoesNotContain(good.Project.Id, (await LinksOfTeamAsync(factory, structure.Platform.Id)).Select(link => link.ProjectId));
     }
 
     // feat-028 § 0.5 · the address from the outside in: the team (the address) answers team.not_found before the projects of the body
@@ -227,12 +227,12 @@ public sealed class LinkProjectsToTeamEndpointTests(MustaskApiFactory factory)
         var target = await OrganizationsTestData.CreateBareProjectAsync(factory, structure.OrganizationId, "Цель", "TRG");
         var caller = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, role);
 
-        var real = await LinkAsync(structure.OrganizationId, structure.Platform.Id.ToString(), new { projectIds = new[] { target.Id.ToString() } }, caller.Token);
+        var real = await LinkAsync(structure.OrganizationId, structure.Platform.Id.ToString(), new { projectIds = new[] { target.Project.Id.ToString() } }, caller.Token);
         var missing = await LinkAsync(structure.OrganizationId, Guid.CreateVersion7().ToString(), new { projectIds = new[] { "not-a-project" } }, caller.Token);
 
         Assert.Equal((HttpStatusCode.Forbidden, "organizations.access.forbidden"), (real.Status, real.ErrorCode));
         Assert.Equal((HttpStatusCode.Forbidden, "organizations.access.forbidden"), (missing.Status, missing.ErrorCode));
-        Assert.Empty(await LinksOfProjectAsync(factory, target.Id));
+        Assert.Empty(await LinksOfProjectAsync(factory, target.Project.Id));
     }
 
     [Fact]

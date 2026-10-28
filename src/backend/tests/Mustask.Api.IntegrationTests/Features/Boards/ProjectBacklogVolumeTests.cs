@@ -92,8 +92,9 @@ public sealed class ProjectBacklogVolumeTests(MustaskApiFactory factory, ITestOu
     /// </summary>
     private Task InsertLevelAsync(BoardsWorld world, Guid typeId, Guid stateId, string title, int from, bool linked) =>
         WorkItemsTestData.ExecuteAsync(factory, $"""
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id, created_at, created_by, changed_at, parent_id, owning_team_id)
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, parent_id, owning_team_id)
             SELECT gen_random_uuid(), {world.ProjectId}, n, {typeId}, {stateId},
+                   {world.RootAreaId},
                    {title} || ' ' || n, '', gen_random_uuid(), now() + n * interval '1 millisecond', 'volume-test', now(), parent.id,
                    CASE WHEN n % 2 = 0 THEN {world.ProjectTeamId} ELSE {world.PlatformId} END
             FROM generate_series({from}, {from + PerLevel - 1}) AS n

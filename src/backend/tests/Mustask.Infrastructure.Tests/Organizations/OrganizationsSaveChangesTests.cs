@@ -99,12 +99,14 @@ public sealed class OrganizationsSaveChangesTests(OrganizationsDatabaseFixture d
     public async Task SaveAsync_SiblingNameRace_IsAreaNameTaken()
     {
         var structure = await database.CreateStructureAsync();
-        await database.AddAreasAsync(OrganizationsDatabaseFixture.NewArea(structure.Organization.Id, null, "Платформа"));
+        await database.AddAreasAsync(OrganizationsDatabaseFixture.NewSubArea(structure.Project.Root, "Платформа"));
 
         var refusal = await SaveRacingAsync(async (scope, ct) =>
         {
             var repository = scope.ServiceProvider.GetRequiredService<IAreaRepository>();
-            repository.Add(Area.Create(structure.Organization.Id, null, Name(" платформа "), null, "x", DateTimeOffset.UtcNow));
+            var root = await repository.LockForShareAsync(structure.Organization.Id, structure.Project.Root.Id, ct) ?? throw new InvalidOperationException();
+
+            repository.Add(Area.CreateSubArea(root, OrganizationsDatabaseFixture.Name(" платформа "), null, OrganizationsDatabaseFixture.Creator, OrganizationsDatabaseFixture.Now));
             await repository.SaveAsync(ct);
         });
 

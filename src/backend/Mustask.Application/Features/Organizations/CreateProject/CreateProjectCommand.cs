@@ -1,7 +1,7 @@
 namespace Mustask.Application.Features.Organizations.CreateProject;
 
 /// <summary>
-/// <c>POST /api/organizations/{organizationId}/projects</c> (US-3: create a project with its root; feat-028 BR-OL-2 — no team comes
+/// <c>POST /api/organizations/{organizationId}/projects</c> (US-3: create a project with its node; feat-028 BR-OL-2 — no team comes
 /// with it — and its optional description and teams). Ids are the untrusted strings of the address and the body: the handler parses
 /// them with <c>AddressedId</c>, so a malformed id gets its level's not-found code, never a 400 (BR-M1-20).
 /// </summary>
@@ -9,6 +9,10 @@ namespace Mustask.Application.Features.Organizations.CreateProject;
 /// <param name="Name">The name as sent, untrimmed.</param>
 /// <param name="Key">The key as sent: never trimmed or upper-cased.</param>
 /// <param name="Description">The description as sent, never trimmed; <c>null</c>, absent and the empty string are none (BR-OL-3).</param>
+/// <param name="ParentAreaId">
+/// The department the project's node stands under (mod-018 BR-AW-3); absent or <c>null</c> is the top level. A node that is not a
+/// department is refused <c>type_not_allowed</c>, an unknown one <c>area.not_found</c>.
+/// </param>
 /// <param name="TeamIds">
 /// The teams to link the project to, as sent: each must be an active team of this organization. Absent and <c>null</c> are empty;
 /// duplicates collapse. Two teams chosen name no default (BR-OL-7).
@@ -19,4 +23,4 @@ public sealed record CreateProjectCommand(
     string? Key,
     string? Description = null,
     IReadOnlyList<string?>? TeamIds = null,
-    IReadOnlyList<string?>? AreaIds = null);
+    string? ParentAreaId = null);

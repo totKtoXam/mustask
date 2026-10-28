@@ -20,11 +20,13 @@ public sealed class GetWorkItemsEndpointTests(MustaskApiFactory factory)
         page.GetProperty("data").EnumerateArray().Select(row => row.GetProperty("identifier").GetString()!).ToList();
 
     // US-2 · "A row shows the item's columns": MSK-BUG-4 «Падение при входе», assigned to «Анна Смирнова», in «Активна»,
-    // with its time of change; the row carries no description.
+    // area «Платформа / API», with its time of change; the row carries no description.
     [Fact]
     public async Task List_Row_CarriesEveryColumn()
     {
         var world = await WorkItemsTestData.CreateWorldAsync(factory);
+        var platform = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, world.RootAreaId, "Платформа");
+        var api = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, platform.Id, "API");
         var anna = await WorkItemsTestData.AddMemberAsync(factory, world, "Анна", "Смирнова", "anna.smirnova@example.com");
         foreach (var type in new[] { "EPIC", "FEAT", "US" })
         {
@@ -36,6 +38,7 @@ public sealed class GetWorkItemsEndpointTests(MustaskApiFactory factory)
         {
             stateId = world.Types["BUG"].StateId("Активна").ToString(),
             assignee = new { userId = anna },
+            areaId = api.Id.ToString(),
         });
 
         var answer = await WorkItemsTestData.ListAsync(factory, world);
@@ -66,7 +69,9 @@ public sealed class GetWorkItemsEndpointTests(MustaskApiFactory factory)
         Assert.Equal(("Активна", "InProgress"), (
             row.GetProperty("state").GetProperty("name").GetString(),
             row.GetProperty("state").GetProperty("category").GetProperty("code").GetString()));
-        Assert.False(row.TryGetProperty("area", out _));
+        Assert.Equal((api.Id, "Платформа / API"), (
+            row.GetProperty("area").GetProperty("id").GetGuid(),
+            row.GetProperty("area").GetProperty("path").GetString()));
         Assert.Equal(saved.Body.GetProperty("changedAt").GetDateTimeOffset(), row.GetProperty("changedAt").GetDateTimeOffset());
         Assert.False(row.TryGetProperty("description", out _));
     }
@@ -235,9 +240,9 @@ public sealed class GetWorkItemsEndpointTests(MustaskApiFactory factory)
         var start = new DateTimeOffset(2026, 10, 1, 9, 0, 0, TimeSpan.Zero);
 
         await WorkItemsTestData.ExecuteAsync(factory, $"""
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, assignee_id, title, description,
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, assignee_id, area_id, title, description,
                                     creation_request_id, created_at, created_by, changed_at)
-            SELECT gen_random_uuid(), {world.ProjectId}, n, {type.Id}, {state}, NULL, 'Задача ' || n, '',
+            SELECT gen_random_uuid(), {world.ProjectId}, n, {type.Id}, {state}, NULL, {world.RootAreaId}, 'Задача ' || n, '',
                    gen_random_uuid(), {start}, 'seed', {start} + n * interval '1 second'
             FROM generate_series(1, {count}) AS n
             """);

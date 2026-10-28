@@ -31,7 +31,7 @@ public static class OrganizationErrorCodes
     /// <summary>The team is malformed, unknown, of another project, deleted, or not reachable; also a team named in a body.</summary>
     public const string TeamNotFound = "organizations.team.not_found";
 
-    /// <summary>The area is malformed, unknown or of another project; also an area named in a body.</summary>
+    /// <summary>The area is malformed, unknown or of another organization; also an area named in a body.</summary>
     public const string AreaNotFound = "organizations.area.not_found";
 
     /// <summary>The top-level code of every <see cref="Mustask.Shared.Exceptions.ValidationException"/> of the module.</summary>
@@ -93,14 +93,26 @@ public static class OrganizationErrorCodes
     /// <summary>The destination is the moved node itself or one of its descendants (BR-M1-12).</summary>
     public const string AreaMoveIntoOwnSubtree = "organizations.area.move_into_own_subtree";
 
-    /// <summary>The area has child areas (BR-AW-9; the work-item condition went with the item's area).</summary>
+    /// <summary>The node has child nodes (a department with projects, a node with sub-areas) or a work item points at it (BR-AW-9).</summary>
     public const string AreaNotEmpty = "organizations.area.not_empty";
 
-    /// <summary>A creation or a move would put an area below level 10 (BR-AW-3, mod-018).</summary>
+    /// <summary>A creation or a move would put a node below level 10 (BR-AW-3, mod-018).</summary>
     public const string AreaDepthExceeded = "organizations.area.depth_exceeded";
 
-    // mod-018 retired organizations.area.root_is_fixed with the per-project root (BR-AW-11): its constant is gone and its catalog
-    // entry stays, marked "deprecated" (ADR-0005 rule 3).
+    /// <summary>
+    /// A project's node renamed or deleted on its own (OQ-5 A, OQ-10 A): it follows its project. Un-deprecated by mod-018's typed
+    /// tree (the first build had retired it with the per-project root).
+    /// </summary>
+    public const string AreaRootIsFixed = "organizations.area.root_is_fixed";
+
+    /// <summary>A creation or a move under a parent the type rule of BR-AW-3 does not allow (OQ-3 A, OQ-7 A).</summary>
+    public const string AreaTypeNotAllowed = "organizations.area.type_not_allowed";
+
+    /// <summary>A sub-area moved under another project's node or sub-area (BR-AW-3, BR-AW-11).</summary>
+    public const string AreaOutsideProject = "organizations.area.outside_project";
+
+    /// <summary>A team linked as an area-team link to a node that is not a department (OQ-8 A, OQ-11 A).</summary>
+    public const string AreaLinkTypeNotAllowed = "organizations.area.link_type_not_allowed";
 
     // ----- mod-016: organization access (api-contract § 5) -----
 

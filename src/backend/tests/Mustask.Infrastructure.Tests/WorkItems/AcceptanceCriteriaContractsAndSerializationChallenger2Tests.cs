@@ -44,7 +44,7 @@ public sealed class AcceptanceCriteriaContractsAndSerializationChallenger2Tests
     private static readonly WorkItemTypeStates TaskType = CreateType("TASK", AppearanceToken.Task);
 
     private static WorkItem CreateStory() =>
-        WorkItem.Create(Guid.CreateVersion7(), 1, StoryType, "Story Title", Guid.CreateVersion7(), Created, "author-1");
+        WorkItem.Create(Guid.CreateVersion7(), 1, StoryType, Guid.CreateVersion7(), "Story Title", Guid.CreateVersion7(), Created, "author-1");
 
     // =========================================================================
     // 1. JSON Serialization & Deserialization (camelCase vs PascalCase vs UPPERCASE)
@@ -259,6 +259,7 @@ public sealed class AcceptanceCriteriaContractsAndSerializationChallenger2Tests
         var valueAreaBefore = story.ValueArea;
         var stateBefore = story.StateId;
         var assigneeBefore = story.AssigneeId;
+        var areaBefore = story.AreaId;
         var effortBefore = story.Effort;
         var bvBefore = story.BusinessValue;
         var tcBefore = story.TimeCriticality;
@@ -299,6 +300,7 @@ public sealed class AcceptanceCriteriaContractsAndSerializationChallenger2Tests
         Assert.Equal(valueAreaBefore, story.ValueArea);
         Assert.Equal(stateBefore, story.StateId);
         Assert.Equal(assigneeBefore, story.AssigneeId);
+        Assert.Equal(areaBefore, story.AreaId);
         Assert.Equal(effortBefore, story.Effort);
         Assert.Equal(bvBefore, story.BusinessValue);
         Assert.Equal(tcBefore, story.TimeCriticality);
@@ -423,7 +425,7 @@ public sealed class AcceptanceCriteriaContractsAndSerializationChallenger2Tests
         };
 
         var type = CreateType(typeKey, appearance);
-        var item = WorkItem.Create(Guid.CreateVersion7(), 1, type, "Item", Guid.CreateVersion7(), Created, "author-1");
+        var item = WorkItem.Create(Guid.CreateVersion7(), 1, type, Guid.CreateVersion7(), "Item", Guid.CreateVersion7(), Created, "author-1");
 
         var reasons = item.CheckFields(
             new WorkItemFieldsEdit { AcceptanceCriteria = [new AcceptanceCriterion("G", "W", "T")] },

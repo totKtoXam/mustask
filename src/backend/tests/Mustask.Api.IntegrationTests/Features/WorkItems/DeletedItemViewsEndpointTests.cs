@@ -46,8 +46,8 @@ public sealed class DeletedItemViewsEndpointTests(MustaskApiFactory factory)
         var big = await BoardsTestData.CreateWorldAsync(factory);
         var task = big.Items.Types["TASK"];
         await WorkItemsTestData.ExecuteAsync(factory, $"""
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id, created_at, created_by, changed_at)
-            SELECT gen_random_uuid(), {big.ProjectId}, n, {task.Id}, {task.StateId("Новая")},
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at)
+            SELECT gen_random_uuid(), {big.ProjectId}, n, {task.Id}, {task.StateId("Новая")}, {big.RootAreaId},
                    'Объёмная ' || n, '', gen_random_uuid(), now(), 'views-test', now() - n * interval '1 second'
             FROM generate_series(1, 120) AS n
             """);
@@ -145,10 +145,14 @@ public sealed class DeletedItemViewsEndpointTests(MustaskApiFactory factory)
         await DeleteAsync(world, story);
 
         var deleted = await WorkItemsTestData.ReadAsync(factory, world.Items, story.Identifier);
-        foreach (var property in new[] { "assignee", "team", "parent" })
+        foreach (var property in new[] { "area", "assignee", "team", "parent" })
         {
             Assert.Equal(before.GetProperty(property).GetRawText(), deleted.GetProperty(property).GetRawText());
         }
+
+        var removeArea = await OrganizationsApi.SendAsync(
+            factory, HttpMethod.Delete, $"{OrganizationsApi.Areas(world.OrganizationId, world.ProjectId)}/{world.ReportsAreaId}", token: OrganizationsTokens.SignedIn());
+        LinksTestData.AssertRefused(removeArea, HttpStatusCode.Conflict, "organizations.area.not_empty");
     }
 
     // US-2 · "A deleted item is still counted among a team's items; the team deletion releases it" (BR-DR-9, feat-028 SC-09, doc-012

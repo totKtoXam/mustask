@@ -155,7 +155,7 @@ public sealed class OwningTeamSchemaTests(OrganizationsDatabaseFixture database)
     {
         var structure = await database.CreateStructureAsync();
         var other = await database.AddProjectAsync(structure.Organization.Id, "Другой проект", "OTH");
-        var project = structure.Project.Id;
+        var project = structure.Project.Project.Id;
 
         var row = (await database.QueryAsync(
             """
@@ -170,15 +170,16 @@ public sealed class OwningTeamSchemaTests(OrganizationsDatabaseFixture database)
 
         await database.ExecuteAsync(
             """
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id, created_at, created_by, changed_at)
-            VALUES (@item, @project, 1, @type, @state, 'История', '', gen_random_uuid(), now(), 'schema-test', now())
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at)
+            VALUES (@item, @project, 1, @type, @state, @area, 'История', '', gen_random_uuid(), now(), 'schema-test', now())
             """,
             ("item", item),
             ("project", project),
             ("type", Guid.Parse(row[0])),
-            ("state", Guid.Parse(row[1])));
+            ("state", Guid.Parse(row[1])),
+            ("area", structure.Project.Root.Id));
 
-        var otherTeam = await database.AddTeamAsync(structure.Organization.Id, "Команда другого проекта", other.Id);
+        var otherTeam = await database.AddTeamAsync(structure.Organization.Id, "Команда другого проекта", other.Project.Id);
 
         return new World(project, structure.SecondTeam.Id, otherTeam.Id, item);
     }

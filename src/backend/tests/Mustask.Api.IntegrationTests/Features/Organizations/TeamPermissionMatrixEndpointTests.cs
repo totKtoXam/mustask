@@ -19,7 +19,7 @@ public sealed class TeamPermissionMatrixEndpointTests(MustaskApiFactory factory)
     private const string OrganizationNotFound = "organizations.organization.not_found";
 
     /// <summary>An organization with a project and two teams linked to it, a second project with no team, a team linked to nothing and one to delete.</summary>
-    private sealed record World(OrganizationStructure Structure, Mustask.Domain.Organizations.Project Bare, Mustask.Domain.Organizations.Team Free, Mustask.Domain.Organizations.Team Doomed)
+    private sealed record World(OrganizationStructure Structure, Mustask.Domain.Organizations.NewProject Bare, Mustask.Domain.Organizations.Team Free, Mustask.Domain.Organizations.Team Doomed)
     {
         public Guid OrganizationId => Structure.OrganizationId;
     }
@@ -47,8 +47,8 @@ public sealed class TeamPermissionMatrixEndpointTests(MustaskApiFactory factory)
             "rename team" => (HttpMethod.Put, $"{Team(org, platform)}/name", new { name = "Платформа 2" }, HttpStatusCode.OK),
             "describe team" => (HttpMethod.Put, $"{Team(org, platform)}/description", new { description = "Описание" }, HttpStatusCode.OK),
             "delete team" => (HttpMethod.Delete, Team(org, world.Doomed.Id), null, HttpStatusCode.NoContent),
-            "link projects to team" => (HttpMethod.Post, $"{Team(org, world.Free.Id)}/projects", new { projectIds = new[] { world.Bare.Id.ToString() } }, HttpStatusCode.NoContent),
-            "link teams to project" => (HttpMethod.Post, OrganizationsApi.Teams(org, world.Bare.Id), new { teamIds = new[] { world.Free.Id.ToString() } }, HttpStatusCode.NoContent),
+            "link projects to team" => (HttpMethod.Post, $"{Team(org, world.Free.Id)}/projects", new { projectIds = new[] { world.Bare.Project.Id.ToString() } }, HttpStatusCode.NoContent),
+            "link teams to project" => (HttpMethod.Post, OrganizationsApi.Teams(org, world.Bare.Project.Id), new { teamIds = new[] { world.Free.Id.ToString() } }, HttpStatusCode.NoContent),
             "unlink team" => (HttpMethod.Post, $"{ProjectTeam(org, project, platform)}/unlink", To(null), HttpStatusCode.NoContent),
             "name default team" => (HttpMethod.Put, $"{OrganizationsApi.Project(org, project)}/default-team", new { teamId = platform.ToString() }, HttpStatusCode.NoContent),
             _ => (HttpMethod.Post, $"{OrganizationsApi.Organization(org)}/projects", new { name = "Новый проект", key = "NEWP", teamIds = new[] { world.Free.Id.ToString() } }, HttpStatusCode.Created),
@@ -76,7 +76,7 @@ public sealed class TeamPermissionMatrixEndpointTests(MustaskApiFactory factory)
             .Select(team => $"{team.Id}:{team.Name}:{team.Status}:{team.Description}");
         var links = new List<string>();
 
-        foreach (var project in new[] { world.Structure.ProjectId, world.Bare.Id })
+        foreach (var project in new[] { world.Structure.ProjectId, world.Bare.Project.Id })
         {
             links.AddRange((await LinksOfProjectAsync(factory, project)).Select(link => $"{project}+{link.TeamId}"));
         }
@@ -229,12 +229,12 @@ public sealed class TeamPermissionMatrixEndpointTests(MustaskApiFactory factory)
             factory,
             HttpMethod.Post,
             path,
-            new { name = "С проектом и людьми", projectIds = new[] { world.Bare.Id.ToString() }, memberIds = new[] { admin.Id } },
+            new { name = "С проектом и людьми", projectIds = new[] { world.Bare.Project.Id.ToString() }, memberIds = new[] { admin.Id } },
             admin.Token);
 
         Assert.Equal(HttpStatusCode.Created, answer.Status);
         var teamId = answer.Body.GetProperty("id").GetGuid();
-        Assert.Equal([world.Bare.Id], (await LinksOfTeamAsync(factory, teamId)).Select(link => link.ProjectId));
+        Assert.Equal([world.Bare.Project.Id], (await LinksOfTeamAsync(factory, teamId)).Select(link => link.ProjectId));
         Assert.Equal([admin.Id], await TeamMemberIdsAsync(factory, teamId));
     }
 
@@ -252,7 +252,7 @@ public sealed class TeamPermissionMatrixEndpointTests(MustaskApiFactory factory)
         var linked = await OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Post,
-            OrganizationsApi.Teams(world.OrganizationId, world.Bare.Id),
+            OrganizationsApi.Teams(world.OrganizationId, world.Bare.Project.Id),
             new { teamIds = new[] { world.Free.Id.ToString() } },
             admin.Token);
         var write = await OrganizationsApi.SendAsync(

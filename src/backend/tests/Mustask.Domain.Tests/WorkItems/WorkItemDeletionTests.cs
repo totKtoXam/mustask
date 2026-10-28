@@ -17,6 +17,7 @@ public sealed class WorkItemDeletionTests
     private static readonly DateTimeOffset Redeleted = Created.AddHours(8);
 
     private static readonly Guid ProjectId = Guid.CreateVersion7();
+    private static readonly Guid RootAreaId = Guid.CreateVersion7();
 
     private static readonly Guid NewId = Guid.CreateVersion7();
     private static readonly Guid ActiveId = Guid.CreateVersion7();
@@ -48,7 +49,7 @@ public sealed class WorkItemDeletionTests
         ]);
 
     private static WorkItem AStory(int number = 12) =>
-        WorkItem.Create(ProjectId, number, Story, "Вход по ссылке", Guid.CreateVersion7(), Created, "creator-sub");
+        WorkItem.Create(ProjectId, number, Story, RootAreaId, "Вход по ссылке", Guid.CreateVersion7(), Created, "creator-sub");
 
     /// <summary>The item moved to <paramref name="stateId"/> by a save, as a user would.</summary>
     private static WorkItem InState(Guid stateId)
@@ -115,7 +116,7 @@ public sealed class WorkItemDeletionTests
     public void Delete_ChangesNothingElse()
     {
         var team =Guid.CreateVersion7();
-        var item = WorkItem.Create(ProjectId, 13, Story, "Вход по ссылке", Guid.CreateVersion7(), Created, "creator-sub", team);
+        var item = WorkItem.Create(ProjectId, 13, Story, RootAreaId, "Вход по ссылке", Guid.CreateVersion7(), Created, "creator-sub", team);
         item.Save(
             new WorkItemEdit(
                 Description: "Описание",

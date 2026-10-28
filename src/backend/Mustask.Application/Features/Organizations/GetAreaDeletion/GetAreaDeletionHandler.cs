@@ -7,21 +7,16 @@ namespace Mustask.Application.Features.Organizations.GetAreaDeletion;
 /// <summary>The query of <c>GET /api/organizations/{organizationId}/areas/{areaId}/deletion</c>.</summary>
 public sealed record GetAreaDeletionQuery(string? OrganizationId, string? AreaId);
 
-/// <summary>A project whose link a deletion ends; a deactivated project's link is listed too.</summary>
-public sealed record AreaDeletionProjectResponse(Guid Id, string Name, string Key, bool Active);
-
 /// <summary>A team whose link a deletion ends.</summary>
 public sealed record AreaDeletionTeamResponse(Guid Id, string Name);
 
-/// <summary>What the deletion of the area ends (mod-018 api-contract § 1, <c>AreaDeletion</c>).</summary>
-public sealed record GetAreaDeletionResult(
-    IReadOnlyList<AreaDeletionProjectResponse> Projects,
-    IReadOnlyList<AreaDeletionTeamResponse> Teams);
+/// <summary>What the deletion of the node ends (mod-018 api-contract § 1, <c>AreaDeletion</c>): its team links (a department's).</summary>
+public sealed record GetAreaDeletionResult(IReadOnlyList<AreaDeletionTeamResponse> Teams);
 
 /// <summary>
-/// <c>GET /api/organizations/{organizationId}/areas/{areaId}/deletion</c> (mod-018 api-contract § 2, BR-AW-9): the links a deletion
-/// would end, for the dialog's confirmation. Every project link counts, the deactivated projects' too (their links are stored,
-/// BR-AW-10); a deleted team has no link left. The area must exist: one 404 for a malformed, unknown or foreign id.
+/// <c>GET /api/organizations/{organizationId}/areas/{areaId}/deletion</c> (mod-018 api-contract § 2, BR-AW-9): the team links a
+/// deletion would end, for the dialog's confirmation. A deleted team has no link left. The node must exist: one 404 for a malformed,
+/// unknown or foreign id. Any other type than a department has no link of this kind, so the list is empty.
 /// </summary>
 public sealed class GetAreaDeletionHandler(IAreaRepository areas, IAreaTreeReadModel readModel)
 {
@@ -38,11 +33,8 @@ public sealed class GetAreaDeletionHandler(IAreaRepository areas, IAreaTreeReadM
             throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
         }
 
-        var projects = await readModel.ListAllProjectsAsync(organizationId, areaId, cancellationToken);
         var teams = await readModel.ListTeamsAsync(organizationId, areaId, cancellationToken);
 
-        return new GetAreaDeletionResult(
-            projects.Select(row => new AreaDeletionProjectResponse(row.Id, row.Name, row.Key, row.IsActive)).ToList(),
-            teams.Select(row => new AreaDeletionTeamResponse(row.Id, row.Name)).ToList());
+        return new GetAreaDeletionResult(teams.Select(row => new AreaDeletionTeamResponse(row.Id, row.Name)).ToList());
     }
 }

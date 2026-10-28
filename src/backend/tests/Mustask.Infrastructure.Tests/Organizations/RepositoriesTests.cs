@@ -24,8 +24,10 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
     {
         var structure = await database.CreateStructureAsync();
         var other = await database.CreateStructureAsync();
-        var projectId = structure.Project.Id;
-        var reports = NewArea(structure.Organization.Id, null, "Отчёты");
+        var projectId = structure.Project.Project.Id;
+        var organizationId = structure.Organization.Id;
+        var otherOrganizationId = other.Organization.Id;
+        var reports = NewSubArea(structure.Project.Root, "Отчёты");
         await database.AddAreasAsync(reports);
 
         var result = await InUnitOfWorkAsync(async (scope, ct) =>
@@ -44,10 +46,11 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
                 await teams.LockForNoKeyUpdateAsync(structure.Organization.Id, structure.SecondTeam.Id, ct) is not null,
                 await teams.LockForNoKeyUpdateAsync(other.Organization.Id, structure.SecondTeam.Id, ct) is null,
                 await teams.LockForShareAsync(other.Organization.Id, structure.SecondTeam.Id, ct) is null,
-                await areas.LockForUpdateAsync(structure.Organization.Id, reports.Id, ct) is not null,
-                await areas.LockForShareAsync(other.Organization.Id, reports.Id, ct) is null,
-                await areas.FindAsync(other.Organization.Id, reports.Id, ct) is null,
-                await areas.FindAsync(structure.Organization.Id, reports.Id, ct) is not null,
+                await areas.LockForUpdateAsync(organizationId, reports.Id, ct) is not null,
+                await areas.LockForShareAsync(otherOrganizationId, reports.Id, ct) is null,
+                await areas.FindAsync(otherOrganizationId, reports.Id, ct) is null,
+                (await areas.LockProjectNodeAsync(organizationId, projectId, ct))?.Id == structure.Project.Root.Id,
+                await areas.LockProjectNodeAsync(otherOrganizationId, projectId, ct) is null,
             };
         });
 
@@ -60,10 +63,9 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
     {
         var structure = await database.CreateStructureAsync();
         var organizationId = structure.Organization.Id;
-        var projectId = structure.Project.Id;
-        var topArea = NewArea(organizationId, null, "Корень");
-        var platformArea = NewArea(organizationId, topArea.Id, "Платформа");
-        await database.AddAreasAsync(topArea, platformArea);
+        var projectId = structure.Project.Project.Id;
+        var platformArea = NewSubArea(structure.Project.Root, "Платформа");
+        await database.AddAreasAsync(platformArea);
 
         var result = await InUnitOfWorkAsync(async (scope, ct) =>
         {
@@ -85,9 +87,9 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
                 await teams.IsActiveNameTakenAsync(organizationId, "ПЛАТФОРМА", null, ct),
                 await teams.IsActiveNameTakenAsync(organizationId, "ПЛАТФОРМА", structure.SecondTeam.Id, ct),
                 await teams.FindNameAsync(structure.SecondTeam.Id, ct),
-                await areas.IsSiblingNameTakenAsync(organizationId, topArea.Id, "ПЛАТФОРМА", null, ct),
-                await areas.IsSiblingNameTakenAsync(organizationId, topArea.Id, "ПЛАТФОРМА", platformArea.Id, ct),
-                await areas.HasChildrenAsync(organizationId, topArea.Id, ct),
+                await areas.IsSiblingNameTakenAsync(organizationId, structure.Project.Root.Id, "ПЛАТФОРМА", null, ct),
+                await areas.IsSiblingNameTakenAsync(organizationId, structure.Project.Root.Id, "ПЛАТФОРМА", platformArea.Id, ct),
+                await areas.HasChildrenAsync(organizationId, structure.Project.Root.Id, ct),
                 await areas.HasChildrenAsync(organizationId, platformArea.Id, ct),
             };
         });
@@ -114,7 +116,7 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
     public async Task LockLinks_OfAPair_InAscendingTeamId()
     {
         var structure = await database.CreateStructureAsync();
-        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Id);
+        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Project.Id);
         var log = new SqlLogInterceptor();
 
         await InUnitOfWorkAsync(async (scope, ct) =>
@@ -139,7 +141,7 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
     public async Task LinkLocks_AnswerWhatTheirOwnStatementLocked_InOneStatementEach()
     {
         var structure = await database.CreateStructureAsync();
-        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Id);
+        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Project.Id);
         var unlinked = await database.AddTeamAsync(organizationId, UniqueName("Не связана"));
         var log = new SqlLogInterceptor();
 
@@ -172,7 +174,7 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
         var second = await database.AddProjectAsync(organizationId, "Аналитика", "ANL");
         await using (var context = database.NewContext())
         {
-            context.ProjectTeams.Add(ProjectTeam.Link(organizationId, second.Id, structure.FirstTeam.Id, Creator, Now));
+            context.ProjectTeams.Add(ProjectTeam.Link(organizationId, second.Project.Id, structure.FirstTeam.Id, Creator, Now));
             await context.SaveChangesAsync();
         }
 
@@ -181,8 +183,8 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
         var other = await InUnitOfWorkAsync((scope, ct) =>
             scope.ServiceProvider.GetRequiredService<IProjectTeamRepository>().LockTeamLinksAsync(organizationId, structure.SecondTeam.Id, ct));
 
-        Assert.Equal(new[] { structure.Project.Id, second.Id }.Order(), projects);
-        Assert.Equal([structure.Project.Id], other);
+        Assert.Equal(new[] { structure.Project.Project.Id, second.Project.Id }.Order(), projects);
+        Assert.Equal([structure.Project.Project.Id], other);
     }
 
     // feat-028 BR-OL-4 · the link statement: a pair already linked keeps its row, who linked it and when; a new pair is added with the
@@ -198,7 +200,7 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
         var made = await InUnitOfWorkAsync((scope, ct) =>
             scope.ServiceProvider.GetRequiredService<IProjectTeamRepository>().LinkAsync(
                 organizationId,
-                [(structure.Project.Id, structure.FirstTeam.Id), (second.Id, structure.FirstTeam.Id)],
+                [(structure.Project.Project.Id, structure.FirstTeam.Id), (second.Project.Id, structure.FirstTeam.Id)],
                 "someone-else",
                 later,
                 ct));
@@ -222,16 +224,16 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
         var found = await InUnitOfWorkAsync(async (scope, ct) =>
         {
             var links = scope.ServiceProvider.GetRequiredService<IProjectTeamRepository>();
-            await links.RemoveLinkAsync(other.Organization.Id, structure.Project.Id, structure.FirstTeam.Id, ct);
+            await links.RemoveLinkAsync(other.Organization.Id, structure.Project.Project.Id, structure.FirstTeam.Id, ct);
             await links.RemoveTeamLinksAsync(other.Organization.Id, structure.SecondTeam.Id, ct);
 
             return (
-                await links.FindLinkedAsync(other.Organization.Id, structure.Project.Id, [structure.FirstTeam.Id], ct),
+                await links.FindLinkedAsync(other.Organization.Id, structure.Project.Project.Id, [structure.FirstTeam.Id], ct),
                 await links.LockTeamLinksAsync(other.Organization.Id, structure.FirstTeam.Id, ct),
-                await links.LockLinkForShareAsync(other.Organization.Id, structure.Project.Id, structure.FirstTeam.Id, ct));
+                await links.LockLinkForShareAsync(other.Organization.Id, structure.Project.Project.Id, structure.FirstTeam.Id, ct));
         });
         var remaining = await database.QueryAsync(
-            "SELECT count(*)::text FROM project_teams WHERE project_id = @project", ("project", structure.Project.Id));
+            "SELECT count(*)::text FROM project_teams WHERE project_id = @project", ("project", structure.Project.Project.Id));
 
         Assert.Empty(found.Item1);
         Assert.Empty(found.Item2);
@@ -248,13 +250,13 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
         var second = await database.AddProjectAsync(organizationId, "Аналитика", "ANL");
         await using (var context = database.NewContext())
         {
-            context.ProjectTeams.Add(ProjectTeam.Link(organizationId, second.Id, structure.FirstTeam.Id, Creator, Now));
+            context.ProjectTeams.Add(ProjectTeam.Link(organizationId, second.Project.Id, structure.FirstTeam.Id, Creator, Now));
             await context.SaveChangesAsync();
         }
 
         await database.ExecuteAsync(
             "UPDATE projects SET default_team_id = @team WHERE id IN (@a, @b)",
-            ("team", structure.FirstTeam.Id), ("a", structure.Project.Id), ("b", second.Id));
+            ("team", structure.FirstTeam.Id), ("a", structure.Project.Project.Id), ("b", second.Project.Id));
 
         await InUnitOfWorkAsync(async (scope, ct) =>
         {
@@ -273,7 +275,7 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
     public async Task ClearDefaultTeam_ClearsOnlyASettingThatNamesThatTeam()
     {
         var structure = await database.CreateStructureAsync();
-        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Id);
+        var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Project.Id);
         await database.ExecuteAsync("UPDATE projects SET default_team_id = @team WHERE id = @project", ("team", structure.SecondTeam.Id), ("project", projectId));
 
         await InUnitOfWorkAsync(async (scope, ct) =>
@@ -296,21 +298,20 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
         Assert.Equal(["NULL"], cleared);
     }
 
-    // The input of AreaTree: every node of the organization.
+    // The input of AreaTree: every node of the project, siblings in display order.
     [Fact]
-    public async Task GetNodes_ReturnsEveryAreaOfTheOrganization()
+    public async Task GetNodes_ReturnsEveryAreaOfTheProject_SiblingsInDisplayOrder()
     {
         var structure = await database.CreateStructureAsync();
-        var top = NewArea(structure.Organization.Id, null, "Корень");
-        var alpha = NewArea(structure.Organization.Id, top.Id, "альфа");
-        var platform = NewArea(structure.Organization.Id, top.Id, "Платформа");
-        await database.AddAreasAsync(top, alpha, platform);
+        var alpha = NewSubArea(structure.Project.Root, "альфа");
+        var platform = NewSubArea(structure.Project.Root, "Платформа");
+        await database.AddAreasAsync(alpha, platform);
 
         var nodes = await InUnitOfWorkAsync((scope, ct) =>
             scope.ServiceProvider.GetRequiredService<IAreaRepository>().GetNodesAsync(structure.Organization.Id, ct));
 
         var tree = new AreaTree(nodes);
-        Assert.Equal(["Платформа", "альфа"], tree.ChildrenOf(top.Id).Select(node => node.Name).Order(StringComparer.Ordinal));
+        Assert.Equal(["альфа", "Платформа"], tree.ChildrenOf(structure.Project.Root.Id).Select(node => node.Name));
     }
 
     private async Task<T> InUnitOfWorkAsync<T>(Func<IServiceScope, CancellationToken, Task<T>> work, params Microsoft.EntityFrameworkCore.Diagnostics.IInterceptor[] interceptors)

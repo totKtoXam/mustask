@@ -229,7 +229,7 @@ public sealed class MembershipRepositoriesTests(OrganizationsDatabaseFixture dat
     public async Task TeamList_IsMember_FollowsTheCallersTeamMemberships_InOneStatement()
     {
         var structure = await database.CreateStructureAsync();
-        var projectId = structure.Project.Id;
+        var projectId = structure.Project.Project.Id;
         var analytics = Team.Create(structure.Organization.Id, OrganizationsDatabaseFixture.Name("Аналитика"));
         await using (var context = database.NewContext())
         {
@@ -270,7 +270,7 @@ public sealed class MembershipRepositoriesTests(OrganizationsDatabaseFixture dat
         await using var scope = provider.CreateAsyncScope();
 
         var row = await scope.ServiceProvider.GetRequiredService<ITeamReadModel>()
-            .FindLinkedAsync(structure.Organization.Id, structure.Project.Id, structure.SecondTeam.Id, CancellationToken.None);
+            .FindLinkedAsync(structure.Organization.Id, structure.Project.Project.Id, structure.SecondTeam.Id, CancellationToken.None);
 
         Assert.False(row!.IsMember);
     }

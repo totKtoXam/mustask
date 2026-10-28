@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Mustask.Infrastructure.Migrations
 {
     [DbContext(typeof(MustaskDbContext))]
-    [Migration("20261027112749_OrganizationAreaWorkspace")]
+    [Migration("20261028124825_OrganizationAreaWorkspace")]
     partial class OrganizationAreaWorkspace
     {
         /// <inheritdoc />
@@ -148,6 +148,12 @@ namespace Mustask.Infrastructure.Migrations
                     b.Property<Guid?>("ParentId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<short>("Type")
+                        .HasColumnType("smallint");
+
                     b.Property<uint>("xmin")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
@@ -160,17 +166,31 @@ namespace Mustask.Infrastructure.Migrations
                     b.HasAlternateKey("OrganizationId", "Id")
                         .HasName("ak_areas_organization_id_id");
 
+                    b.HasIndex(new[] { "ProjectId", "Id" }, "ak_areas_project_id_id")
+                        .IsUnique()
+                        .HasDatabaseName("ak_areas_project_id_id");
+
                     b.HasIndex(new[] { "OrganizationId", "ParentId", "NormalizedName" }, "ix_areas_organization_id_parent_id_normalized_name")
                         .IsUnique()
                         .HasDatabaseName("ix_areas_organization_id_parent_id_normalized_name");
 
                     NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex(new[] { "OrganizationId", "ParentId", "NormalizedName" }, "ix_areas_organization_id_parent_id_normalized_name"), false);
 
+                    b.HasIndex(new[] { "OrganizationId", "Type" }, "ix_areas_organization_id_type")
+                        .HasDatabaseName("ix_areas_organization_id_type");
+
+                    b.HasIndex(new[] { "ProjectId" }, "ix_areas_project_id_node")
+                        .IsUnique()
+                        .HasDatabaseName("ix_areas_project_id_node")
+                        .HasFilter("type = 2");
+
                     b.ToTable("areas", t =>
                         {
                             t.HasCheckConstraint("ck_areas_description_length", "description IS NULL OR char_length(description) BETWEEN 1 AND 2000");
 
                             t.HasCheckConstraint("ck_areas_name_length", "char_length(name) BETWEEN 1 AND 100");
+
+                            t.HasCheckConstraint("ck_areas_type_shape", "(type = 1 AND project_id IS NULL AND parent_id IS NULL) OR (type = 2 AND project_id IS NOT NULL) OR (type = 3 AND project_id IS NOT NULL AND parent_id IS NOT NULL)");
 
                             t.Property("Id")
                                 .HasColumnName("id");
@@ -199,64 +219,11 @@ namespace Mustask.Infrastructure.Migrations
                             t.Property("ParentId")
                                 .HasColumnName("parent_id");
 
-                            t.Property("xmin")
-                                .HasColumnName("xmin");
-                        });
-                });
-
-            modelBuilder.Entity("Mustask.Domain.Organizations.AreaProject", b =>
-                {
-                    b.Property<Guid>("AreaId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ProjectId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("LinkedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("LinkedBy")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.Property<Guid>("OrganizationId")
-                        .HasColumnType("uuid");
-
-                    b.Property<uint>("xmin")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("xid")
-                        .HasColumnName("xmin");
-
-                    b.HasKey("AreaId", "ProjectId")
-                        .HasName("pk_area_projects");
-
-                    b.HasIndex("OrganizationId", "AreaId")
-                        .HasDatabaseName("ix_area_projects_organization_id_area_id");
-
-                    b.HasIndex("OrganizationId", "ProjectId")
-                        .HasDatabaseName("ix_area_projects_organization_id_project_id");
-
-                    b.HasIndex(new[] { "ProjectId", "AreaId" }, "ix_area_projects_project_id_area_id")
-                        .HasDatabaseName("ix_area_projects_project_id_area_id");
-
-                    b.ToTable("area_projects", null, t =>
-                        {
-                            t.Property("AreaId")
-                                .HasColumnName("area_id");
-
                             t.Property("ProjectId")
                                 .HasColumnName("project_id");
 
-                            t.Property("LinkedAt")
-                                .HasColumnName("linked_at");
-
-                            t.Property("LinkedBy")
-                                .HasColumnName("linked_by");
-
-                            t.Property("OrganizationId")
-                                .HasColumnName("organization_id");
+                            t.Property("Type")
+                                .HasColumnName("type");
 
                             t.Property("xmin")
                                 .HasColumnName("xmin");
@@ -1323,6 +1290,9 @@ namespace Mustask.Infrastructure.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
+                    b.Property<Guid>("AreaId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("AssigneeId")
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
@@ -1461,6 +1431,9 @@ namespace Mustask.Infrastructure.Migrations
                     b.HasIndex(new[] { "OwningTeamId", "TypeId" }, "ix_work_items_owning_team_id_type_id")
                         .HasDatabaseName("ix_work_items_owning_team_id_type_id");
 
+                    b.HasIndex(new[] { "ProjectId", "AreaId" }, "ix_work_items_project_id_area_id")
+                        .HasDatabaseName("ix_work_items_project_id_area_id");
+
                     b.HasIndex(new[] { "ProjectId", "ChangedAt", "Number" }, "ix_work_items_project_id_changed_at_number")
                         .IsDescending(false, true, true)
                         .HasDatabaseName("ix_work_items_project_id_changed_at_number");
@@ -1479,8 +1452,8 @@ namespace Mustask.Infrastructure.Migrations
                     b.HasIndex(new[] { "ProjectId", "ParentId" }, "ix_work_items_project_id_parent_id")
                         .HasDatabaseName("ix_work_items_project_id_parent_id");
 
-                    b.HasIndex(new[] { "ProjectId", "TypeId" }, "ix_work_items_project_id_type_id")
-                        .HasDatabaseName("ix_work_items_project_id_type_id");
+                    b.HasIndex(new[] { "ProjectId", "TypeId", "AreaId" }, "ix_work_items_project_id_type_id_area_id")
+                        .HasDatabaseName("ix_work_items_project_id_type_id_area_id");
 
                     b.ToTable("work_items", t =>
                         {
@@ -1538,6 +1511,9 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.Property("Activity")
                                 .HasColumnName("activity");
+
+                            t.Property("AreaId")
+                                .HasColumnName("area_id");
 
                             t.Property("AssigneeId")
                                 .HasColumnName("assignee_id");
@@ -1886,31 +1862,18 @@ namespace Mustask.Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_areas_organizations_organization_id");
 
+                    b.HasOne("Mustask.Domain.Organizations.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_areas_projects_project_id");
+
                     b.HasOne("Mustask.Domain.Organizations.Area", null)
                         .WithMany()
                         .HasForeignKey("OrganizationId", "ParentId")
                         .HasPrincipalKey("OrganizationId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_areas_areas_organization_id_parent_id");
-                });
-
-            modelBuilder.Entity("Mustask.Domain.Organizations.AreaProject", b =>
-                {
-                    b.HasOne("Mustask.Domain.Organizations.Area", null)
-                        .WithMany()
-                        .HasForeignKey("OrganizationId", "AreaId")
-                        .HasPrincipalKey("OrganizationId", "Id")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_area_projects_areas_organization_id_area_id");
-
-                    b.HasOne("Mustask.Domain.Organizations.Project", null)
-                        .WithMany()
-                        .HasForeignKey("OrganizationId", "ProjectId")
-                        .HasPrincipalKey("OrganizationId", "Id")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_area_projects_projects_organization_id_project_id");
                 });
 
             modelBuilder.Entity("Mustask.Domain.Organizations.AreaTeam", b =>

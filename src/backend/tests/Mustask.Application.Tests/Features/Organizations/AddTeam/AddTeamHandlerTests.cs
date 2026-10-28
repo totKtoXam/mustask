@@ -19,7 +19,7 @@ public sealed class AddTeamHandlerTests
         public Fixture(OrganizationRole role = OrganizationRole.Admin)
         {
             Organization = Store.AddOrganization();
-            Project = Store.AddProject(Organization);
+            Project = Store.AddProject(Organization).Project;
             Clock.UtcNow = new DateTimeOffset(2026, 10, 17, 3, 0, 0, TimeSpan.Zero);
             User.SubjectId = "admin-anna";
             Directory.Add("u-1", "Иван", "ivan@example.test", true);
@@ -60,8 +60,9 @@ public sealed class AddTeamHandlerTests
             string? description = null,
             IReadOnlyList<string?>? memberIds = null,
             IReadOnlyList<string?>? projectIds = null,
-            string? organizationId = null) =>
-            new(organizationId ?? Organization.Id.ToString(), name, description, memberIds, projectIds);
+            string? organizationId = null,
+            IReadOnlyList<string?>? areaIds = null) =>
+            new(organizationId ?? Organization.Id.ToString(), name, description, memberIds, projectIds, areaIds);
 
         public Task<AddTeamResult> HandleAsync(AddTeamCommand command) => Handler.Handle(command, CancellationToken.None);
     }
@@ -162,8 +163,8 @@ public sealed class AddTeamHandlerTests
     {
         var f = new Fixture();
         var other = f.Store.AddOrganization("Другая");
-        var foreign = f.Store.AddProject(other, "Чужой", "OTH");
-        var deactivated = f.Store.AddProject(f.Organization, "Старый", "OLD");
+        var foreign = f.Store.AddProject(other, "Чужой", "OTH").Project;
+        var deactivated = f.Store.AddProject(f.Organization, "Старый", "OLD").Project;
         deactivated.Deactivate();
         var id = how switch
         {
@@ -258,6 +259,26 @@ public sealed class AddTeamHandlerTests
 
         Assert.Equal(OrganizationErrorCodes.TeamNameTaken, refusal.Code);
         Assert.Empty(f.Store.Teams);
+    }
+
+    // OQ-8 A · a team is created with departments linked in the same save; any other node refuses the whole request.
+    [Fact]
+    public async Task Handle_Departments_AreLinked_AnyOtherNodeIsLinkTypeNotAllowed()
+    {
+        var f = new Fixture();
+        var department = f.Store.AddDepartment(f.Organization, "Разработка");
+        var node = f.Store.RootOf(f.Project);
+
+        var refusal = await Assert.ThrowsAsync<ConflictException>(() =>
+            f.HandleAsync(f.Command(areaIds: [department.Id.ToString(), node.Id.ToString()])));
+        Assert.Equal(OrganizationErrorCodes.AreaLinkTypeNotAllowed, refusal.Code);
+        Assert.Empty(f.Store.Teams);
+        Assert.Empty(f.Store.AreaTeams);
+
+        var result = await f.HandleAsync(f.Command(areaIds: [department.Id.ToString()]));
+
+        Assert.Equal(department.Id, Assert.Single(f.Store.AreaTeams).AreaId);
+        Assert.Equal(result.Response.Id, f.Store.AreaTeams.Single().TeamId);
     }
 
     [Fact]

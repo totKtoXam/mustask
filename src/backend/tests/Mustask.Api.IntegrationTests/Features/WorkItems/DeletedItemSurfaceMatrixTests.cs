@@ -120,9 +120,9 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
         // Row 3, feat-040 · the team's view spans projects (BR-TS-2): a team view across two projects with a deleted item in the second
         // shows the second project's live item and neither its deleted one — the backlog, the board and the project's own views alike.
         var second = await OrganizationsTestData.CreateBareProjectAsync(factory, world.OrganizationId, "Вторая", "SEC");
-        await OrganizationsTestData.LinkAsync(factory, second.Id, world.PlatformId);
+        await OrganizationsTestData.LinkAsync(factory, second.Project.Id, world.PlatformId);
         var secondView = new BoardsWorld(
-            world.Items with { ProjectId = second.Id, Key = "SEC" }, Guid.Empty, world.PlatformId, Guid.Empty, Guid.Empty, Guid.Empty);
+            world.Items with { ProjectId = second.Project.Id, Key = "SEC", RootAreaId = second.Root.Id }, Guid.Empty, world.PlatformId, Guid.Empty, Guid.Empty, Guid.Empty);
         var secondLive = await TeamAcrossProjectsTestData.CreateAsync(factory, secondView, "Живая второго", world.PlatformId);
         var secondGone = await TeamAcrossProjectsTestData.CreateAsync(factory, secondView, "Удалённая второго", world.PlatformId);
         await LinksTestData.DeleteAsync(factory, secondView.Items, secondGone);
@@ -180,6 +180,12 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
             token: OrganizationsTokens.SignedIn());
         // feat-040: the team now also owns the two items of the second project, "Вторая" before "Мастаск" by name.
         Assert.Equal([2, 7], deletionCounts.Body.GetProperty("projects").EnumerateArray().Select(project => project.GetProperty("count").GetInt32()));
+        var area = await OrganizationsApi.SendAsync(
+            factory,
+            HttpMethod.Delete,
+            $"{OrganizationsApi.Areas(world.OrganizationId, world.ProjectId)}/{world.PlatformAreaId}",
+            token: OrganizationsTokens.SignedIn());
+        LinksTestData.AssertRefused(area, HttpStatusCode.Conflict, "organizations.area.not_empty");
 
         // Row 8 · a deactivated project: its items, deleted ones too, are unreachable; restored, they are as they were.
         var before = await WorkItemsTestData.ReadAsync(factory, world.Items, m.D.Identifier);
@@ -331,11 +337,9 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
         ["GET " + Project] = Reads.NoWorkItem,
         ["GET " + Project + "/teams"] = Reads.NoWorkItem,
         ["GET " + Project + "/areas"] = Reads.NoWorkItem,
-        // mod-018: the area reads read no work item (BR-AW-2, BR-AW-11: an area owns nothing, and the item has no area).
         ["GET " + Org + "/areas"] = Reads.NoWorkItem,
         ["GET " + Org + "/areas/{areaId}"] = Reads.NoWorkItem,
         ["GET " + Org + "/areas/{areaId}/deletion"] = Reads.NoWorkItem,
-        ["GET " + Org + "/areas/{areaId}/projects"] = Reads.NoWorkItem,
         ["GET " + Org + "/areas/{areaId}/teams"] = Reads.NoWorkItem,
         ["GET " + OrgTeam + "/areas"] = Reads.NoWorkItem,
     };

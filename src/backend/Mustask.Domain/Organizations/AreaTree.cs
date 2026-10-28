@@ -2,8 +2,8 @@ using Mustask.Shared.Exceptions;
 
 namespace Mustask.Domain.Organizations;
 
-/// <summary>One area as the tree sees it: its place and its name. An area owns nothing (BR-AW-2).</summary>
-public sealed record AreaNode(Guid Id, Guid? ParentId, string Name);
+/// <summary>One node as the tree sees it: its place, name, type and (below and at a project's node) its project. A node owns nothing (BR-AW-2).</summary>
+public sealed record AreaNode(Guid Id, Guid? ParentId, string Name, AreaType Type = AreaType.Area, Guid? ProjectId = null);
 
 /// <summary>
 /// A pure view of one organization's area tree — a forest: every area with no parent is a top-level area (BR-AW-3). It is the single

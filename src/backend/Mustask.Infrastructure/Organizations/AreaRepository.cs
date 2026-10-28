@@ -58,12 +58,12 @@ internal sealed class AreaRepository(MustaskDbContext context) : IAreaRepository
         return held.Count == 0 ? null : await LoadAsync(organizationId, areaId, cancellationToken);
     }
 
-    public async Task<IReadOnlySet<Guid>> LockManyForShareAsync(
+    public async Task<IReadOnlyDictionary<Guid, AreaType>> LockManyForShareAsync(
         Guid organizationId, IReadOnlyCollection<Guid> areaIds, CancellationToken cancellationToken)
     {
         if (areaIds.Count == 0)
         {
-            return new HashSet<Guid>();
+            return new Dictionary<Guid, AreaType>();
         }
 
         var ids = areaIds.Distinct().ToArray();
@@ -77,14 +77,32 @@ internal sealed class AreaRepository(MustaskDbContext context) : IAreaRepository
                  """)
             .ToListAsync(cancellationToken);
 
-        return held.ToHashSet();
+        if (held.Count == 0)
+        {
+            return new Dictionary<Guid, AreaType>();
+        }
+
+        // The types of the rows the statement locked: a node's type never changes, so this read needs no lock of its own.
+        var heldIds = held.ToArray();
+
+        return await context.Areas
+            .AsNoTracking()
+            .Where(area => heldIds.Contains(area.Id))
+            .ToDictionaryAsync(area => area.Id, area => area.Type, cancellationToken);
     }
 
-    public Task<int> CountAsync(Guid organizationId, IReadOnlyCollection<Guid> areaIds, CancellationToken cancellationToken)
+    public async Task<Area?> LockProjectNodeAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken)
     {
-        var ids = areaIds.Distinct().ToArray();
+        var held = await context.Database
+            .SqlQuery<Guid>(
+                $"""
+                 SELECT id AS "Value" FROM areas
+                 WHERE project_id = {projectId} AND organization_id = {organizationId} AND type = 2
+                 FOR UPDATE
+                 """)
+            .ToListAsync(cancellationToken);
 
-        return context.Areas.CountAsync(area => area.OrganizationId == organizationId && ids.Contains(area.Id), cancellationToken);
+        return held.Count == 0 ? null : await LoadAsync(organizationId, held[0], cancellationToken);
     }
 
     public Task<bool> HasChildrenAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken) =>
@@ -105,7 +123,7 @@ internal sealed class AreaRepository(MustaskDbContext context) : IAreaRepository
             .Where(area => area.OrganizationId == organizationId)
             .OrderBy(area => EF.Functions.Collate(area.Name, OrganizationsCollation.Russian))
             .ThenBy(area => area.Id)
-            .Select(area => new AreaNode(area.Id, area.ParentId, area.Name))
+            .Select(area => new AreaNode(area.Id, area.ParentId, area.Name, area.Type, area.ProjectId))
             .ToListAsync(cancellationToken);
 
     public void Add(Area area) => context.Areas.Add(area);

@@ -10,7 +10,7 @@ namespace Mustask.Application.Features.Organizations.MoveArea;
 public sealed record MoveAreaCommand(string? OrganizationId, string? AreaId, string? ParentId);
 
 /// <summary>The area as every area write returns it (mod-018 api-contract § 1, <c>Area</c>).</summary>
-public sealed record AreaResponse(Guid Id, Guid? ParentId, string Name, string? Description, string Path);
+public sealed record AreaResponse(Guid Id, Guid? ParentId, string Type, Guid? ProjectId, string Name, string? Description, string Path);
 
 /// <summary>The handler's outcome: the body of the answer.</summary>
 public sealed record MoveAreaResult(AreaResponse Response);
@@ -34,6 +34,7 @@ public sealed record MoveAreaResult(AreaResponse Response);
 /// </remarks>
 public sealed class MoveAreaHandler(
     IOrganizationReadModel organizations,
+    IProjectRepository projects,
     IAreaRepository areas,
     IOrganizationAccess access,
     IUnitOfWork unitOfWork)
@@ -83,12 +84,16 @@ public sealed class MoveAreaHandler(
 
                 // The locks, in rule 8's order: the tree, then the area rows by id.
                 await areas.LockTreeAsync(organizationId, ct);
-                var area = await LockAreaAndDestinationAsync(organizationId, areaId, parentId, ct);
+                var (area, destination) = await LockAreaAndDestinationAsync(organizationId, areaId, parentId, ct);
 
-                // 5. The domain rules, on the tree the locks hold: into its own subtree, the depth; then the sibling name.
+                // A move of a deactivated project's node or sub-area is refused (BR-AW-10): the project is not found.
+                await AreaRequests.EnsureProjectActiveAsync(projects, organizationId, area, ct);
+
+                // 5. The domain rules, on the tree the locks hold: into its own subtree, the type, the project, the depth; then the
+                // sibling name.
                 var tree = new AreaTree(await areas.GetNodesAsync(organizationId, ct));
 
-                if (area.MoveUnder(parentId, tree))
+                if (area.MoveUnder(destination, tree))
                 {
                     if (await areas.IsSiblingNameTakenAsync(organizationId, parentId, area.NormalizedName, area.Id, ct))
                     {
@@ -102,12 +107,12 @@ public sealed class MoveAreaHandler(
                     tree = new AreaTree(await areas.GetNodesAsync(organizationId, ct));
                 }
 
-                return new MoveAreaResult(new AreaResponse(area.Id, area.ParentId, area.Name, area.Description, tree.PathOf(area.Id)));
+                return new MoveAreaResult(new AreaResponse(area.Id, area.ParentId, AreaRequests.TypeName(area.Type), area.ProjectId, area.Name, area.Description, tree.PathOf(area.Id)));
             },
             cancellationToken);
     }
 
-    private async Task<Area> LockAreaAndDestinationAsync(
+    private async Task<(Area Area, Area? Destination)> LockAreaAndDestinationAsync(
         Guid organizationId, Guid areaId, Guid? destinationId, CancellationToken cancellationToken)
     {
         Area? area;
@@ -116,6 +121,7 @@ public sealed class MoveAreaHandler(
         if (destinationId is not { } destinationGuid || destinationGuid == areaId)
         {
             area = await areas.LockForUpdateAsync(organizationId, areaId, cancellationToken);
+            destination = destinationId is null ? null : area;
         }
         else if (areaId.CompareTo(destinationGuid) < 0)
         {
@@ -138,6 +144,6 @@ public sealed class MoveAreaHandler(
             }
         }
 
-        return area ?? throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
+        return (area ?? throw new NotFoundException(OrganizationErrorCodes.AreaNotFound), destination);
     }
 }

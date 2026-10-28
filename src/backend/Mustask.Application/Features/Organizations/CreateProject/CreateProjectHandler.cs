@@ -11,7 +11,7 @@ namespace Mustask.Application.Features.Organizations.CreateProject;
 /// <c>POST /api/organizations/{organizationId}/projects</c> (US-3 "A project is created ready to use", "The key is required and
 /// well-formed", "The key is unique in the organization", "The name is unique in the organization", "A deactivated project's name
 /// stays reserved"; feat-028 US-2 "a project with a name and a key only", "description and teams in one operation").
-/// <b>Creating a project creates no team and no team membership — the creator's included</b> (BR-OL-2). The request may carry a description, the teams and (mod-018) the areas to link, linked in the same operation.
+/// <b>Creating a project creates no team and no team membership — the creator's included</b> (BR-OL-2); only its node comes with it. The request may carry a description and the teams to link, linked in the same operation.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -41,7 +41,6 @@ public sealed class CreateProjectHandler(
     IProjectTeamRepository links,
     IProjectRepository projects,
     IAreaRepository areas,
-    IAreaLinkRepository areaLinks,
     IOrganizationAccess access,
     IClock clock,
     ICurrentUser currentUser,
@@ -52,12 +51,6 @@ public sealed class CreateProjectHandler(
         // 0. The second codes, first of all (D-7): a project that links needs both ends' link codes.
         if (command.TeamIds is { Count: > 0 }
             && (!access.Holds(PermissionCatalog.OrganizationsTeamLink) || !access.Holds(PermissionCatalog.OrganizationsProjectLink)))
-        {
-            throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
-        }
-
-        if (command.AreaIds is { Count: > 0 }
-            && (!access.Holds(PermissionCatalog.OrganizationsAreaLink) || !access.Holds(PermissionCatalog.OrganizationsProjectLink)))
         {
             throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
         }
@@ -100,7 +93,35 @@ public sealed class CreateProjectHandler(
                     throw new ValidationException(OrganizationErrorCodes.ValidationFailed, errors);
                 }
 
-                // 4. References in the body: the teams to link — each an active team of this organization (404), all or nothing.
+                // 4. References in the body: the department to place the project under (404; 409 when the node is not a department),
+                // then the teams to link — each an active team of this organization (404), all or nothing. The locks follow rule 8's
+                // order: the tree, the department, then the teams.
+                Guid? parentAreaId = null;
+
+                if (command.ParentAreaId is not null)
+                {
+                    if (!AddressedId.TryParse(command.ParentAreaId, out var parsedParentId)
+                        || await areas.FindAsync(organizationId, parsedParentId, ct) is null)
+                    {
+                        throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
+                    }
+
+                    parentAreaId = parsedParentId;
+                }
+
+                await areas.LockTreeAsync(organizationId, ct);
+
+                if (parentAreaId is { } lockedParentId)
+                {
+                    var department = await areas.LockForShareAsync(organizationId, lockedParentId, ct)
+                        ?? throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
+
+                    if (department.Type != AreaType.Department)
+                    {
+                        throw new ConflictException(OrganizationErrorCodes.AreaTypeNotAllowed);
+                    }
+                }
+
                 var teamIds = new HashSet<Guid>();
 
                 foreach (var raw in command.TeamIds ?? [])
@@ -111,14 +132,6 @@ public sealed class CreateProjectHandler(
                     }
 
                     teamIds.Add(teamId);
-                }
-
-                // The areas named (404), locked FOR SHARE before the teams (ADR-0028 rule 8), each judged by the lock statement's answer.
-                var areaIds = AreaRequests.ParseIds(command.AreaIds, OrganizationErrorCodes.AreaNotFound);
-
-                if (areaIds.Count > 0 && (await areas.LockManyForShareAsync(organizationId, areaIds, ct)).Count != areaIds.Count)
-                {
-                    throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
                 }
 
                 if (teamIds.Count > 0)
@@ -143,6 +156,13 @@ public sealed class CreateProjectHandler(
                             : OrganizationErrorCodes.ProjectNameTaken);
                 }
 
+                // The node takes the project's name: a department or another project's node of that name at the level refuses the
+                // project (OQ-12 A), shown on the project's form. The unique index is the backstop.
+                if (await areas.IsSiblingNameTakenAsync(organizationId, parentAreaId, name.Normalized, exceptId: null, ct))
+                {
+                    throw new ConflictException(OrganizationErrorCodes.AreaNameTaken);
+                }
+
                 // Validate has refused a null key, so the key is present and well formed here.
                 var key = command.Key!;
 
@@ -153,29 +173,24 @@ public sealed class CreateProjectHandler(
                         new ErrorParams { ["key"] = ErrorParam.Text(key) });
                 }
 
-                // The project; no area and no team and no team membership
+                // The project and its node, both named after the project; the node owns nothing; no team and no team membership
                 // (BR-OL-2); the settings name no default team — two teams chosen name none, one is the default by itself
                 // (BR-OL-7). The creator is the token's subject (BR-M1-21).
                 var now = clock.UtcNow;
                 var creatorId = currentUser.SubjectId;
-                var created = Project.Create(organizationId, name, key, now, creatorId, description);
+                var created = Project.Create(organizationId, name, key, now, creatorId, description, parentAreaId);
                 projects.Add(created);
 
                 foreach (var teamId in teamIds)
                 {
-                    links.Add(ProjectTeam.Link(organizationId, created.Id, teamId, creatorId, now));
-                }
-
-                foreach (var areaId in areaIds)
-                {
-                    areaLinks.Add(AreaProject.Link(organizationId, areaId, created.Id, creatorId, now));
+                    links.Add(ProjectTeam.Link(organizationId, created.Project.Id, teamId, creatorId, now));
                 }
 
                 // 6. Save. A concurrent creation of the same name or key that committed first fails this insert on its unique
                 // index, and the repository answers with the pre-check's code.
                 await projects.SaveAsync(ct);
 
-                var project = created;
+                var project = created.Project;
 
                 return new CreateProjectResult(
                     new ProjectResponse(project.Id, project.OrganizationId, project.Name, project.Key, project.Description));

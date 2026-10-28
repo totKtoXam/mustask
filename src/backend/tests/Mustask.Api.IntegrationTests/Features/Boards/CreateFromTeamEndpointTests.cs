@@ -16,8 +16,7 @@ namespace Mustask.Api.IntegrationTests.Features.Boards;
 [Collection(MustaskApiCollection.Name)]
 public sealed class CreateFromTeamEndpointTests(MustaskApiFactory factory)
 {
-    // mod-018 US-4: the item has no «Область»; an answer carries none.
-    private static void AssertNoArea(Answer answer) => Assert.False(answer.Body.TryGetProperty("area", out _));
+    private static string AreaPath(Answer answer) => answer.Body.GetProperty("area").GetProperty("path").GetString()!;
 
     private static Item Created(Answer answer)
     {
@@ -150,8 +149,7 @@ public sealed class CreateFromTeamEndpointTests(MustaskApiFactory factory)
 
         Created(flat);
         Created(none);
-        AssertNoArea(flat);
-        AssertNoArea(none);
+        Assert.Equal(("Мастаск", "Мастаск"), (AreaPath(flat), AreaPath(none)));
         Assert.Equal(world.ProjectTeamId, flat.Body.GetProperty("team").GetProperty("id").GetGuid());
         Assert.Equal(System.Text.Json.JsonValueKind.Null, none.Body.GetProperty("team").ValueKind);
     }
@@ -169,7 +167,7 @@ public sealed class CreateFromTeamEndpointTests(MustaskApiFactory factory)
         var answer = await BoardsTestData.CreateFromTeamAsync(factory, world, "FEAT", "Отчёты по командам", world.PlatformId.ToString());
 
         var created = Created(answer);
-        AssertNoArea(answer);
+        Assert.Equal("Мастаск", AreaPath(answer));
         Assert.Equal(world.PlatformId, answer.Body.GetProperty("team").GetProperty("id").GetGuid());
         var board = (await BoardsTestData.GetBoardAsync(factory, world, world.PlatformId, "features")).Body;
         Assert.Equal($"Новая: {feat6.Identifier} {created.Identifier}", BoardsTestData.Columns(board)[0]);

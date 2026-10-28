@@ -32,7 +32,7 @@ public sealed class WorkItemFieldsTests
             ]);
 
     private static WorkItem New(WorkItemTypeStates type) =>
-        WorkItem.Create(Guid.CreateVersion7(), 1, type, "Элемент", Guid.CreateVersion7(), Created, "creator-sub");
+        WorkItem.Create(Guid.CreateVersion7(), 1, type, Guid.CreateVersion7(), "Элемент", Guid.CreateVersion7(), Created, "creator-sub");
 
     private static WorkItemTypeStates TypeOf(AppearanceToken kind) => kind switch
     {

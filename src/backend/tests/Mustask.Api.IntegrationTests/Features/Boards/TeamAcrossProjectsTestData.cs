@@ -36,16 +36,16 @@ internal static class TeamAcrossProjectsTestData
         await OrganizationsTestData.LinkAsync(factory, world.OtherProjectId, world.Mars);
 
         var gamma = await OrganizationsTestData.CreateBareProjectAsync(factory, world.OrganizationId, "Гамма", "GAM");
-        await OrganizationsTestData.LinkAsync(factory, gamma.Id, world.Mars);
+        await OrganizationsTestData.LinkAsync(factory, gamma.Project.Id, world.Mars);
         var delta = await OrganizationsTestData.CreateBareProjectAsync(factory, world.OrganizationId, "Дельта", "DLT");
         var lonely = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, world.OrganizationId, "ЮПИТЕР-ОДИН");
 
         return new Cast(
             world,
             BoardsViewOf(world),
-            ViewOf(world, world.OtherProjectId, "BET"),
-            ViewOf(world, gamma.Id, "GAM"),
-            ViewOf(world, delta.Id, "DLT"),
+            ViewOf(world, world.OtherProjectId, "BET", Guid.Empty),
+            ViewOf(world, gamma.Project.Id, "GAM", gamma.Root.Id),
+            ViewOf(world, delta.Project.Id, "DLT", delta.Root.Id),
             lonely.Id);
     }
 
@@ -53,8 +53,8 @@ internal static class TeamAcrossProjectsTestData
     /// The boards' view of one of the world's projects: the same organization and types, that project's id, key and root (the views
     /// read none, so «Бета»'s is empty).
     /// </summary>
-    private static BoardsWorld ViewOf(OwningTeamWorld world, Guid projectId, string key) =>
-        new(world.Items with { ProjectId = projectId, Key = key }, Guid.Empty, world.Mars, Guid.Empty, Guid.Empty, Guid.Empty);
+    private static BoardsWorld ViewOf(OwningTeamWorld world, Guid projectId, string key, Guid rootId) =>
+        new(world.Items with { ProjectId = projectId, RootAreaId = rootId, Key = key }, Guid.Empty, world.Mars, Guid.Empty, Guid.Empty, Guid.Empty);
 
     /// <summary>An item of <paramref name="typeKey"/> created in the view's project, owned by <paramref name="team"/> (or by none).</summary>
     public static async Task<Item> CreateAsync(

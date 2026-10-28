@@ -33,16 +33,17 @@ public sealed class DeleteTeamVolumeTests(MustaskApiFactory factory, ITestOutput
         var world = await CreateWorldAsync(factory);
         var gamma = await OrganizationsTestData.CreateBareProjectAsync(factory, world.OrganizationId, "Гамма", "GAM");
         await OrganizationsTestData.LinkAsync(factory, world.OtherProjectId, world.Mars);
-        await OrganizationsTestData.LinkAsync(factory, gamma.Id, world.Mars);
+        await OrganizationsTestData.LinkAsync(factory, gamma.Project.Id, world.Mars);
         var story = world.Items.Types["US"];
         var level = story.BacklogLevelId;
         await WorkItemsTestData.ExecuteAsync(factory, $"""
             INSERT INTO backlog_orders (team_id, backlog_level_id) VALUES ({world.Mars}, {level}) ON CONFLICT DO NOTHING
             """);
+        var betaRoot = (await QueryAsync($"SELECT id::text AS \"Value\" FROM areas WHERE project_id = {world.OtherProjectId} AND parent_id IS NULL")).Single();
 
-        await SeedAsync(world, world.ProjectId, InAlpha, placed: 1_000);
-        await SeedAsync(world, world.OtherProjectId, InBeta, placed: 300);
-        await SeedAsync(world, gamma.Id, InGamma, placed: 0);
+        await SeedAsync(world, world.ProjectId, world.Items.RootAreaId, InAlpha, placed: 1_000);
+        await SeedAsync(world, world.OtherProjectId, Guid.Parse(betaRoot), InBeta, placed: 300);
+        await SeedAsync(world, gamma.Project.Id, gamma.Root.Id, InGamma, placed: 0);
         var teamRoute = TeamTestData.Team(world.OrganizationId, world.Mars);
 
         // A warm-up of the deletion's path on another team, not asserted: a process's first call of an operation also pays JIT,
@@ -71,7 +72,7 @@ public sealed class DeleteTeamVolumeTests(MustaskApiFactory factory, ITestOutput
             await QueryAsync($"""
                 SELECT count(*)::text || '|' || (count(*) FILTER (WHERE owning_team_id IS NOT NULL))::text
                        || '|' || (count(*) FILTER (WHERE changed_at = timestamptz '2026-10-01 09:00:00+00'))::text AS "Value"
-                FROM work_items WHERE project_id IN ({world.ProjectId}, {world.OtherProjectId}, {gamma.Id})
+                FROM work_items WHERE project_id IN ({world.ProjectId}, {world.OtherProjectId}, {gamma.Project.Id})
                 """));
         Assert.Equal(["0"], await QueryAsync($"SELECT count(*)::text AS \"Value\" FROM backlog_places WHERE team_id = {world.Mars}"));
         Assert.Equal(["0"], await QueryAsync($"SELECT count(*)::text AS \"Value\" FROM project_teams WHERE team_id = {world.Mars}"));
@@ -81,12 +82,12 @@ public sealed class DeleteTeamVolumeTests(MustaskApiFactory factory, ITestOutput
     }
 
     /// <summary><paramref name="count"/> stories of one project owned by the world's MARS, the first <paramref name="placed"/> of them on its backlog.</summary>
-    private async Task SeedAsync(OwningTeamWorld world, Guid projectId, int count, int placed)
+    private async Task SeedAsync(OwningTeamWorld world, Guid projectId, Guid rootAreaId, int count, int placed)
     {
         var story = world.Items.Types["US"];
         await WorkItemsTestData.ExecuteAsync(factory, $"""
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, title, description, creation_request_id, created_at, created_by, changed_at, owning_team_id)
-            SELECT gen_random_uuid(), {projectId}, n, {story.Id}, {story.StateId("Новая")},
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, owning_team_id)
+            SELECT gen_random_uuid(), {projectId}, n, {story.Id}, {story.StateId("Новая")}, {rootAreaId},
                    'Объёмная ' || n, '', gen_random_uuid(), now() + n * interval '1 millisecond', 'volume-test', timestamptz '2026-10-01 09:00:00+00', {world.Mars}
             FROM generate_series(1, {count}) AS n
             """);

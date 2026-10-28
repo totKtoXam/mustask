@@ -17,6 +17,9 @@ public static class OrganizationsApi
     /// <summary>The organization's area tree (mod-018 api-contract § 1): the list, the create, and an area at /{areaId}.</summary>
     public static string Areas(Guid organizationId) => $"{Organization(organizationId)}/areas";
 
+    /// <summary>The routes of the typed tree address a node by its id alone: the project is not part of the path (mod-018 api-contract § 2); kept for the tests that name the project they work in.</summary>
+    public static string Areas(Guid organizationId, Guid projectId) => Areas(organizationId);
+
     /// <summary>The project's area links (mod-018 api-contract § 4): the list, the link and the unlink are under it.</summary>
     public static string ProjectAreas(Guid organizationId, Guid projectId) => $"{Project(organizationId, projectId)}/areas";
 

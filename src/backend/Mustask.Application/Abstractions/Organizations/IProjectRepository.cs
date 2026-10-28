@@ -45,8 +45,8 @@ public interface IProjectRepository
     /// </summary>
     Task ClearDefaultTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken);
 
-    /// <summary>Adds the project. No area and no team comes with it (feat-028 BR-OL-2).</summary>
-    void Add(Project project);
+    /// <summary>Adds the project with its root. No team comes with it (feat-028 BR-OL-2).</summary>
+    void Add(NewProject project);
 
     /// <inheritdoc cref="IOrganizationRepository.SaveAsync"/>
     Task SaveAsync(CancellationToken cancellationToken);

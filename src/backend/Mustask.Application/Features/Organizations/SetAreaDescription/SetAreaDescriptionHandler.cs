@@ -10,7 +10,7 @@ namespace Mustask.Application.Features.Organizations.SetAreaDescription;
 public sealed record SetAreaDescriptionCommand(string? OrganizationId, string? AreaId, string? Description);
 
 /// <summary>The area as every area write returns it (mod-018 api-contract § 1, <c>Area</c>).</summary>
-public sealed record AreaResponse(Guid Id, Guid? ParentId, string Name, string? Description, string Path);
+public sealed record AreaResponse(Guid Id, Guid? ParentId, string Type, Guid? ProjectId, string Name, string? Description, string Path);
 
 /// <summary>The handler's outcome: the body of the answer.</summary>
 public sealed record SetAreaDescriptionResult(AreaResponse Response);
@@ -20,7 +20,11 @@ public sealed record SetAreaDescriptionResult(AreaResponse Response);
 /// description, kept exactly as sent (at most 2 000 characters); empty or <c>null</c> clears it. <b>Order</b>: the organization; the
 /// area (404); the value (400). <b>Locks</b>: the area <c>FOR UPDATE</c> only.
 /// </summary>
-public sealed class SetAreaDescriptionHandler(IOrganizationReadModel organizations, IAreaRepository areas, IUnitOfWork unitOfWork)
+public sealed class SetAreaDescriptionHandler(
+    IOrganizationReadModel organizations,
+    IProjectRepository projects,
+    IAreaRepository areas,
+    IUnitOfWork unitOfWork)
 {
     public async Task<SetAreaDescriptionResult> Handle(SetAreaDescriptionCommand command, CancellationToken cancellationToken) =>
         await unitOfWork.ExecuteInTransactionAsync(
@@ -41,6 +45,9 @@ public sealed class SetAreaDescriptionHandler(IOrganizationReadModel organizatio
                     throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
                 }
 
+                // A deactivated project's node and sub-areas are read-only (BR-AW-10); a project's node may be described (OQ-10 A).
+                await AreaRequests.EnsureProjectActiveAsync(projects, organizationId, area, ct);
+
                 if (!EntityDescription.TryCreate(command.Description, out var description))
                 {
                     throw new ValidationException(
@@ -54,7 +61,7 @@ public sealed class SetAreaDescriptionHandler(IOrganizationReadModel organizatio
                 var tree = new AreaTree(await areas.GetNodesAsync(organizationId, ct));
 
                 return new SetAreaDescriptionResult(
-                    new AreaResponse(area.Id, area.ParentId, area.Name, area.Description, tree.PathOf(area.Id)));
+                    new AreaResponse(area.Id, area.ParentId, AreaRequests.TypeName(area.Type), area.ProjectId, area.Name, area.Description, tree.PathOf(area.Id)));
             },
             cancellationToken);
 }

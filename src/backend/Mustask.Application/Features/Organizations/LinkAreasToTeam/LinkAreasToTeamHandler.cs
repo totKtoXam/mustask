@@ -67,6 +67,12 @@ public sealed class LinkAreasToTeamHandler(
                     throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
                 }
 
+                // Teams link to a department only (OQ-8 A, OQ-11 A): one node of another type refuses the whole request.
+                if (locked.Values.Any(type => type != AreaType.Department))
+                {
+                    throw new ConflictException(OrganizationErrorCodes.AreaLinkTypeNotAllowed);
+                }
+
                 if (await teams.LockForShareAsync(organizationId, teamId, ct) is not { IsActive: true })
                 {
                     throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);

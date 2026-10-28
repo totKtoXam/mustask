@@ -11,6 +11,9 @@ public sealed record GetAreaQuery(string? OrganizationId, string? AreaId);
 public sealed record AreaPageResponse(
     Guid Id,
     Guid? ParentId,
+    string Type,
+    Guid? ProjectId,
+    bool? ProjectActive,
     string Name,
     string? Description,
     string Path,
@@ -21,7 +24,7 @@ public sealed record AreaPageResponse(
 public sealed record AreaRefResponse(Guid Id, string Name, string Path);
 
 /// <summary>A direct child of the area.</summary>
-public sealed record AreaChildResponse(Guid Id, string Name, string? Description);
+public sealed record AreaChildResponse(Guid Id, string Type, string Name, string? Description);
 
 /// <summary>The handler's outcome: the page.</summary>
 public sealed record GetAreaResult(AreaPageResponse Response);
@@ -53,9 +56,19 @@ public sealed class GetAreaHandler(IAreaTreeReadModel readModel)
             ? new AreaRefResponse(parentId, byId[parentId].Name, tree.PathOf(parentId))
             : null;
         var children = tree.ChildrenOf(areaId)
-            .Select(child => new AreaChildResponse(child.Id, child.Name, byId[child.Id].Description))
+            .Select(child => new AreaChildResponse(child.Id, AreaRequests.TypeName(child.Type), child.Name, byId[child.Id].Description))
             .ToList();
 
-        return new GetAreaResult(new AreaPageResponse(row.Id, row.ParentId, row.Name, row.Description, tree.PathOf(areaId), parent, children));
+        return new GetAreaResult(new AreaPageResponse(
+                row.Id,
+                row.ParentId,
+                AreaRequests.TypeName(row.Type),
+                row.ProjectId,
+                row.ProjectActive,
+                row.Name,
+                row.Description,
+                tree.PathOf(areaId),
+                parent,
+                children));
     }
 }

@@ -15,7 +15,8 @@ namespace Mustask.Application.Features.WorkItems.CreateWorkItem;
 /// as it stands when it is saved. A request that names a parent never reads it.
 /// </param>
 /// <param name="ParentId">
-/// feat-027 (BR-T-10, its api-contract § 3): the item to create the new one beneath; it is then linked beneath it, owned by the parent's team as stored then, else the project default
+/// feat-027 (BR-T-10, its api-contract § 3): the item to create the new one beneath; it then takes that item's area
+/// as a classification path and is linked beneath it, owned by the parent's team as stored then, else the project default
 /// team (mod-017 BR-OT-3). <c>null</c> when the request has none.
 /// </param>
 public sealed record CreateWorkItemCommand(
