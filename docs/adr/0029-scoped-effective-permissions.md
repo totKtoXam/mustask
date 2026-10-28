@@ -126,7 +126,7 @@ Option 5. ADR-0027 stays the model; this ADR adds the scopes below the organizat
 - Team membership grants nothing, and a team grant does not require team membership. Neither one changes any work item (BR-MX-26). Both take effect on the next request.
 - BR-M1-4 counts organization admins only, and no scope has a "last manager" rule. An area, a project or a team may be left with no manager, because the organization admin manages every object (§ 6, step 2).
 
-**6. The effective-permissions algorithm (BR-MX-21..-23).** The algorithm reads only these inputs: the caller's membership and organization role; the caller's grants in the organization; the area tree with each area's inheritance switch; the area–project links; the addressed project's visibility; and the statuses that decide reachability (ADR-0026 rule 3). Project–team and area–team links are not inputs. No grant passes through a team or through a shared project, so no link can widen access (BR-MX-7, BR-MX-22; SC-05).
+**6. The effective-permissions algorithm (BR-MX-21..-23).** *(Superseded in part by [ADR-0031](0031-typed-area-tree.md) rule 7 (mod-018, 2026-10-28): area–project links leave the inputs; project reach comes from the grants that reach the project's node.)* The algorithm reads only these inputs: the caller's membership and organization role; the caller's grants in the organization; the area tree with each area's inheritance switch; the area–project links; the addressed project's visibility; and the statuses that decide reachability (ADR-0026 rule 3). Project–team and area–team links are not inputs. No grant passes through a team or through a shared project, so no link can widen access (BR-MX-7, BR-MX-22; SC-05).
 
 ```mermaid
 erDiagram
