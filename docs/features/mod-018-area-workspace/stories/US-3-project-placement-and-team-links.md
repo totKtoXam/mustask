@@ -9,6 +9,8 @@ As an **administrator** (until `mod-019-scoped-access`, «Администрат
 
 The ends of a team link are a node's page («Команды») and a team's page («Области») (BR-AW-12); outside the tree a node is shown by its path (BR-AW-13). A project's place is set on «Новый проект» and on its «Общие» («Департамент»; «Организация» for no department) and by the move of its node (US-2). Cast and conventions: spec § Stories; the tree is the typed one, Gamma is deactivated where a scenario says so, SATURN is deleted. Parent rules are the recommended ones of BR-AW-3 (OQ-3, OQ-4, OQ-7, OQ-8).
 
+**OQ-11.** The rows below that link a team to a project node («Логистика / Alpha») are the area–team link as OQ-11 B writes it; under the recommended A they are feat-028's project–team link on Alpha («Команды» of its node shows them) and the area–team link joins departments only. The scenarios are rewritten to the answer after gate-1.
+
 ## Acceptance criteria
 
 ```gherkin
