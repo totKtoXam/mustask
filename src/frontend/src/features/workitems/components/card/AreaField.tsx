@@ -2,6 +2,7 @@ import { useState, type Ref, memo } from 'react';
 import { InlinePickerField } from '../../../../shared/ui';
 import { useProjectAreaTree } from '../../../organizations';
 import type { WorkItemArea } from '../../api/workItemsApi';
+import { projectRelativePath } from '../../lib/areaPaths';
 import { cardTexts } from '../../lib/cardTexts';
 
 /** The list's lines other than areas (mod-003 spec § Pickers). */
@@ -40,7 +41,7 @@ function AreaFieldView({
   const tree = useProjectAreaTree(organizationId, projectId, { enabled: opened });
   const failed = tree.isError && !tree.isFetching;
   const options: WorkItemArea[] = tree.isSuccess
-    ? tree.data.map((node) => ({ id: node.id, path: node.path }))
+    ? tree.data.map((node) => ({ id: node.id, path: projectRelativePath(tree.data, node) }))
     : [];
 
   return (

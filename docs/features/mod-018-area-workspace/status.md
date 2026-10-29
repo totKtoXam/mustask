@@ -3,7 +3,7 @@
 - type: module
 - size: L
 - branch: mod/018-area-workspace
-- stage: 06-frontend
+- stage: 08-code-review
 - epic: core/org-access
 - deps: feat-028
 - gates: gate-1, gate-2, gate-3
@@ -103,3 +103,4 @@ Superseded by the rework (2026-10-28): the gate-3 of 2026-10-27 and the list bel
 
 Summary (reworked 2026-10-27 to the human's typed single tree): one tree per organization, «Организация → Департамент → Проект», all areas of different types; a project has one node with one parent (a department or the organization) and can be moved; the project's sub-areas and the work item's «Область» stay, pointing at the project's node or a sub-area; teams (organization-level, feat-028) link to nodes many-to-many; description and «Наследовать доступ» (stored, shown from mod-019) on every node; the upgrade keeps each project's tree as a project node; area pages in the organization settings until the navigation line (doc-012 BR-MX-3..-8 as amended; US-1..US-6)
 - 2026-10-29 [frontend-developer] frontend rework to the typed single tree done (stage unchanged). plan-frontend.md rewritten. Mismatches: api-contract § 6 says 409 outside_project for an item area, the code answers 404 area.not_found (followed). Tests, tsc, eslint, prettier green.
+- 2026-10-29 [qa-engineer] frontend QA of the typed tree done (qa-frontend.md): four lenses verified, 5 frontend defects fixed (team section and «Открыть проект» on a deactivated node, boards fake without `type`, department tag, project-relative area path, «Тип» column), keyword-test timing fixed; full vitest src green after the re-runs, tsc/eslint/prettier clean on changed files. Open for gate-3: minor DEF-7..DEF-10. BLOCKER for the backend developer: `WorkItemReadModel.AreaPathsAsync` throws for a project under a department (work-item list and card 500). E2E: no (standing). stage -> 08-code-review.

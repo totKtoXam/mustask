@@ -15,6 +15,7 @@ import { FieldsSkeleton, InlineNotice, InlinePickerField, LiveRegion } from '../
 import { FormDialog } from '../../../shared/ui/FormDialog';
 import { TypeMark } from '../../../shared/ui/WorkTrackingMarks';
 import type { CreateWorkItemBody, WorkItem, WorkItemTeam } from '../api/workItemsApi';
+import { projectRelativePath } from '../lib/areaPaths';
 import type { CreatableType } from '../lib/process';
 import { projectTexts } from '../lib/projects';
 import { placeRefusal } from '../lib/refusals';
@@ -308,7 +309,7 @@ export function CreateWorkItemDialog({
         </InlineNotice>
       ) : (
         <Typography variant="body2" color="text.secondary">
-          {`Рабочий элемент будет создан в статусе «${stateName}» в области «${root?.path ?? ''}». Остальные поля заполняются в его форме.`}
+          {`Рабочий элемент будет создан в статусе «${stateName}» в области «${root && tree.data ? projectRelativePath(tree.data, root) : ''}». Остальные поля заполняются в его форме.`}
         </Typography>
       )}
       {teamPlace !== null &&

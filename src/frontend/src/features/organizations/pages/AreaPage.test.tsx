@@ -217,6 +217,37 @@ describe('mod-018 OQ-6 A: a deactivated project’s node', () => {
       screen.queryByRole('button', { name: 'Новая вложенная область' }),
     ).not.toBeInTheDocument();
   });
+
+  it('draws no team link, unlink or «Открыть проект» either (QA DEF-1)', async () => {
+    serveOrganizations();
+    renderPage({ path: OLD_NODE });
+    await loaded('Проект: Старый проект');
+    await screen.findByText('Это те же связи, что в разделе «Команды» проекта.');
+
+    expect(screen.queryByRole('button', { name: 'Добавить команду' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Ещё действия:/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Открыть проект' })).not.toBeInTheDocument();
+  });
+});
+
+describe('mod-018 design § 4: a department’s deactivated project (QA DEF-3)', () => {
+  it('is tagged «деактивирован» among the department’s projects', async () => {
+    const data = exampleDataset();
+    const node = data.areas.find((area) => area.id === ids.oldRoot);
+    if (node) {
+      node.parentId = ids.platformArea;
+    }
+    serveOrganizations(data);
+    renderPage({ path: PLATFORM });
+    await loaded('Департамент: Платформа');
+
+    const projects = await screen.findByRole('table', { name: 'Проекты департамента' });
+    const row = within(projects).getByRole('link', { name: 'Старый проект' }).closest('tr');
+    expect(row).toHaveTextContent('деактивирован');
+    expect(
+      within(projects).getByRole('link', { name: 'Пример проекта' }).closest('tr'),
+    ).not.toHaveTextContent('деактивирован');
+  });
 });
 
 describe('mod-018 design § 4: a sub-area’s page', () => {

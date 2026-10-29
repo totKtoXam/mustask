@@ -17,7 +17,7 @@ import {
   type NodeDialog,
   type NodeDialogResult,
 } from '../components/AreaNodeDialogs';
-import { AreaTypeMark, commandIcon } from '../components/AreaTypeMark';
+import { commandIcon } from '../components/AreaTypeMark';
 import { useProjectAreaTree } from '../hooks/queries';
 import { commandKinds, commandLabel } from '../lib/areaCommands';
 import { areaCommands, areasPage, projectAreasPage } from '../lib/areaTexts';
@@ -136,7 +136,6 @@ export function ProjectAreasPage() {
         aria-label={projectAreasPage.title}
         firstColumn={areasPage.columns.name}
         columns={[
-          { header: areasPage.columns.type, render: (row) => <AreaTypeMark type={row.type} /> },
           {
             header: areasPage.columns.description,
             render: (row) => <TruncatedText>{row.description ?? ''}</TruncatedText>,

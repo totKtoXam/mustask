@@ -13,6 +13,7 @@ import {
   InlineNotice,
   MoreActionsMenu,
   Section,
+  Tag,
   ThinAddIcon,
   TruncatedText,
   type DataColumn,
@@ -39,6 +40,7 @@ import { commandKinds, commandLabel } from '../lib/areaCommands';
 import {
   ORGANIZATION_PLACE,
   areaCommands,
+  areasPage,
   areaLinkDialog,
   areaPage,
   areaUnlinkDialog,
@@ -148,7 +150,7 @@ export function AreaPage() {
   const area = query.isSuccess ? query.data : undefined;
   const isDepartment = area?.type === 'department';
   const teams = useAreaTeams(organizationId, areaId, isDepartment);
-  const tree = useAreaTree(organizationId, { enabled: false });
+  const tree = useAreaTree(organizationId, { enabled: isDepartment });
   const linkTeams = useLinkTeamsToArea(organizationId, areaId);
   const unlinkTeam = useUnlinkTeamFromArea(organizationId, areaId);
   const navigate = useNavigate();
@@ -205,7 +207,7 @@ export function AreaPage() {
         },
       });
     }
-    if (area.type === 'project' && area.projectId) {
+    if (area.type === 'project' && area.projectId && area.projectActive !== false) {
       commands.push({
         label: areaCommands.openProject,
         icon: <FolderOpenOutlinedIcon />,
@@ -222,9 +224,14 @@ export function AreaPage() {
           ? areaPage.projects.columns.project
           : areaPage.children.columns.area,
       render: (child) => (
-        <TruncatedText to={organizationAreaPath(organizationId, child.id)} look="link">
-          {child.name}
-        </TruncatedText>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+          <TruncatedText to={organizationAreaPath(organizationId, child.id)} look="link">
+            {child.name}
+          </TruncatedText>
+          {tree.data?.find((node) => node.id === child.id)?.projectActive === false && (
+            <Tag label={areasPage.deactivated} />
+          )}
+        </Box>
       ),
     },
     {
@@ -372,7 +379,11 @@ export function AreaPage() {
             </Box>
           )}
           {area.type === 'project' && area.projectId && (
-            <ProjectNodeTeams organizationId={organizationId} projectId={area.projectId} />
+            <ProjectNodeTeams
+              organizationId={organizationId}
+              projectId={area.projectId}
+              active={area.projectActive !== false}
+            />
           )}
         </>
       )}

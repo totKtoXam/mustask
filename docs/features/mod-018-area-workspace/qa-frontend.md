@@ -1,43 +1,54 @@
-# QA (frontend) — mod-018-area-workspace
+# mod-018 — Frontend QA (typed single area tree)
 
-QA session: clean context, test plan written from spec + design before the implementation was read.
-E2E: skipped by the human's standing decision (NO); nothing under `src/frontend/e2e/` touched.
+Branch `mod/018-area-workspace`, reviewed at `d892e7d2`. Replaces the report of the first (untyped) build.
+QA did not write the code. E2E: not run (standing answer NO).
 
-## Test plan vs coverage
+## Test plan (written from spec.md, US-1..US-6, design.md, before the code)
 
-| # | Design reference / check | Coverage | Result |
-|---|---|---|---|
-| F1 | § 1 nav: «Организация» order Общие, Проекты, Команды, Области, Участники, Процесс; «Проект» loses «Области»; code `area.read` | `model.ts` read; navigation tests in src/app | pass |
-| F2 | § 3 tree: columns, link to page, row menu, expand/collapse all, D-3 rule, empty (admin / non-admin), loading, error | `AreasPage.test.tsx`, `areaTree.test.ts`, `TreeRegistry.labelTo.test.tsx` | pass |
-| F3 | § 4 area page: facts, children, projects, teams, states, NotFound with nav kept | `AreaPage.test.tsx` | pass |
-| F4 | § 5.1-5.3 create / rename / describe / move dialogs, refusals on fields, texts and notices | `AreasPage.test.tsx`, `AreaPage.test.tsx`; texts diffed against design.md by reading `lib/areaTexts.ts` | pass |
-| F5 | § 5.4 deletion preview: counting, links named (deactivated tag), children warning, 409/404/403 | `AreaPage.test.tsx`, `AreasPage.test.tsx` | pass |
-| F6 | § 6 link / unlink from the area, project and team ends; four texts each; refusals | `AreaPage.test.tsx`, `EndAreasSection.test.tsx` | pass |
-| F7 | § 7 «Области» section of project/team; creation forms' «Области»; changed words (rename project, deactivate, team deletion) | `EndAreasSection.test.tsx`, `ProjectGeneralPage.test.tsx`, `teamTexts.ts` read | pass |
-| F8 | § 8-9 item «Область» retired: card (block B, «Команда» row 1), forms, drafts, filters, list column (7 headers), create dialog line, project-nested route gone | workitems slice (59 files); grep of source: no `AreaField`, `draft.area`, `AREAS_ROUTE`, `areasPath` left (`valueArea` is the unrelated business-value field) | pass |
-| F9 | OQ-2 B: «Наследовать доступ» / `inheritsAccess` not shown anywhere | grep over `src/` finds none | pass |
-| F10 | § 10 permissions: only holders see buttons/menus; Admin only until mod-019 | `OrganizationsPages.roles.test.tsx`, `organizationRoles.test.ts` | pass |
-| F11 | D-1 picker: 50-option cap, «Показаны первые 50 из N. Уточните запрос.», narrowing by typing | **new** `AreaPickerCap.test.tsx` (the developer's known gap) | pass after DEF-1 |
-| F12 | § 12 accessible names (treegrid «Области», table names, row menu names) | covered inside the page tests by role/name queries | pass |
+| # | Scenario | Source |
+|---|---|---|
+| P1 | Tree: type marks, per-type row menus, no organization row, department create (name only) | US-1, US-2, D-8, D-9 |
+| P2 | Sub-area create only under project nodes / sub-areas; parent picker = the project's subtree | US-2 |
+| P3 | Move per type (project: organization or department; sub-area: its project's subtree) | US-2 |
+| P4 | Node pages per type; deactivated project's node is read-only (no commands, no team link/unlink, no «Открыть проект») | US-2, US-3, design § 4 |
+| P5 | «Расположение» on «Общие», «Новый проект», «Новая команда»; department-only team links | US-3, D-10 |
+| P6 | Department deletion lists the team links it ends | US-2 |
+| P7 | Refusals by code (name_taken, type_not_allowed, depth_exceeded, outside_project, link_type_not_allowed, not_empty, root_is_fixed, project/team/area not_found, 403) | design § 10 |
+| P8 | Work item «Область»: offer = project subtree, project-relative path; creation dialog line | US-4, design § 8 |
+| P9 | Regression: TreeRegistry kit change, boards/backlog create dialogs, other slices | — |
+| P10 | Contract: routes, bodies, types against api-contract.md and the backend | api-contract |
+
+## Lenses run
+
+Four read-only lenses (spec, contract, states, tests), then verified by the QA engineer against the code.
 
 ## Defects
 
-| ID | Severity | Where | Description | Status |
-|---|---|---|---|---|
-| DEF-1 | major | `components/AreaPickers.tsx` (`LocalMultiPicker`, `LocalPicker`) | The chosen value was rebuilt as a new array/object on every render and handed to the autocomplete. MUI reads a new identity as a changed value and resets the input text, so typed text vanished on each keystroke: the D-1 search ("typing narrows") did not work in any area picker (link dialogs, create/move area, create project/team). No existing test typed into a picker. Repro: project «Общие» → «Добавить область» → focus «Области», type any letters: the field empties and the list stays unfiltered. | **fixed** (`useMemo` on `value`); regression test `AreaPickerCap.test.tsx` |
-| DEF-2 | minor | `pages/WorkItemsPage.tsx` and three workitems test files | Not Prettier-formatted (a mis-indented `<TableCell>` after the area cell was removed). | **fixed** (`prettier --write` on the four files) |
-| DEF-3 | minor | `CardTeamField.tsx`, `StateField.tsx`, `ProjectField.tsx` comments | Comments still mention «Область» of the band (block B "under «Область»"). Comment-only. | open, carried to gate-3 |
-| DEF-4 | minor | `pages/AreasPage.tsx` | The create dialog is wrapped in `RequiresOrganizationCode areaWrite`, while «Новая область» at the top level is offered by `area.create`. Equal today (only Admin holds both); a holder of `create` without `write` (mod-019) would get no dialog. | open, carried to mod-019 |
+| Id | Sev | Finding | Status |
+|---|---|---|---|
+| DEF-1 | major | Deactivated project's node still drew «Добавить команду» and the unlink menu (`ProjectNodeTeams`) and «Открыть проект» | fixed: `active` prop, link hidden; test red without the fix, green with it (`AreaPage.test.tsx`) |
+| DEF-2 | major | Boards MSW fake had no `type` on the area tree: 8 boards tests red (BacklogPage.create x4, createProject x3, BoardPage.create x1) | fixed in `boards/testApi.ts` |
+| DEF-3 | major | Department page «Проекты»: a deactivated project had no «деактивирован» tag | fixed (tree flag, test added). The «Ключ» column stays open, see DEF-9 |
+| DEF-4 | major | Item «Область» picker and the creation line used the organization path («Логистика / Alpha / Платформа»); design § 8 / BR-AW-13 want the project-relative path | fixed: `workitems/lib/areaPaths.ts` + unit test, used in `AreaField` and `CreateWorkItemDialog` |
+| DEF-5 | minor | Project «Области» page showed a «Тип» column (design § 7: none) | fixed |
+| DEF-6 | minor | prettier failed on `WorkItemFormPage.readOnly.test.tsx` | fixed |
+| DEF-7 | minor | eslint warning react-refresh in `AreaTypeMark.tsx:36` (non-component export beside the component) | open, warning only |
+| DEF-8 | minor | Coverage gaps: refusal chains in the UI (move dialog name_taken / depth_exceeded / type_not_allowed, rename name_taken, project create name_taken, project.not_found on a write, 403 on area dialogs, team.not_found on link), typing into move/parent pickers, `QA-FE-T5` item-area-of-another-project test only covers «area vanished» | open, debt; the pure mapping (`refusals.test.ts`) is covered |
+| DEF-9 | minor | Design § 4 facts/columns not met: department page «Проекты» has no «Ключ» column (AreaPage children carry no key — contract); project node «Расположение» and «Общие» «Расположение» are text, not a Link to the department; no «Организация» location fact on a department; «Название меняется вместе с проектом.» never shown; focus after a tree row delete goes to the parent/none, not the next row; loading state has no section skeletons; invented ◆ copy for the team department picker not recorded in design | open, to gate-3 |
+| DEF-10 | minor | Area writes do not invalidate work-item caches (an open card may show an old path until refetch) | open, not verified, low |
+| DEF-11 | major | `WorkItemsPage.keyword.test.tsx` "a word of a title finds the items" failed alone and in the full run; it passes on the base `f106932a`. Cause: the branch added the «Область» column, and the first filter round in jsdom now outruns the default 1 s `waitFor` | fixed: 8 s timeout on that helper (the test, not the code). `WorkItemFormPage.readOnly` failed once under full-run load and passes alone and in the slice run: load flake, not reproduced |
+| DEF-12 | minor | The older `qa-frontend.md` was stale | fixed by this rewrite |
+
+Dropped: none of the lens findings was refuted. `api-contract` § 6 says 409 `outside_project` for a work item's area; the backend answers 404 `area.not_found` and the frontend follows the code (not a frontend defect; backend QA D-1).
+
+## Backend / contract items for the orchestrator
+
+- **BLOCKER (backend)** `WorkItemReadModel.AreaPathsAsync` (`Mustask.Infrastructure/WorkItems/WorkItemReadModel.cs:350`) builds `AreaTree` from `Areas.Where(ProjectId == projectId)`. A project node under a department has `ParentId` = the department, which is not in the set, so `AreaTree`'s constructor throws "parent ... is not in the tree": the work-item list (:134) and card (:292) fail for every project placed under a department. Confirmed by reading; no integration test places a project under a department. Fix: root the tree at the project's node (treat the node as a root) and add a WorkItems integration test.
+- api-contract § 6 / § 4: 409 `outside_project` vs the code's 404 `area.not_found`; the subtree read's `path` is the full organization path (the frontend now strips the part above the project).
+- Contract: department «Проекты» rows need the project key (and `projectActive`) for design § 4's «Ключ» and tag; the tag is taken from the tree meanwhile.
 
 ## Results
 
-- `npx tsc --noEmit -p tsconfig.app.json`: clean.
-- `npx eslint src`: clean.
-- Prettier: changed files clean after the DEF-2 fix.
-- Vitest, `src/features/workitems`: 59 files, 896 tests passed (includes `WorkItemsPage.filters.test.tsx` with the 7 headers).
-- Vitest, rest of `src` (organizations, shared, app, test): see the line below.
-- Vitest, organizations + shared + app + test + WorkItemsPage: 192 files, 3269 passed, 6 skipped, 1 failed (`WorkItemsPage.keyword.test.tsx`, a timing flake under load: it passed in the workitems-slice run and passes alone, 15/15). With the earlier workitems run, no test of `src/` is red. The new `AreaPickerCap.test.tsx` is in that run and green.
-- Process: no background process is left running.
-- E2E: not run (human's standing NO).
-
-Open for gate-3: DEF-3, DEF-4 (minor). No blocker or major is open.
+- `tsc -b` clean; eslint: 0 errors, 1 warning (DEF-7); prettier clean on every changed file (20 other files under `src` already fail `prettier --check`, untouched by this branch).
+- Vitest: full `vitest run src` after the fixes: 5121 passed, 6 skipped, 2 failed (DEF-11, both fixed or flake as above); the re-run of the keyword and readOnly files with `boards` and `organizations`: 109 files, 1555 tests, all passed. Added 5 tests (AreaPage x2, areaPaths x3).
+- E2E: skipped, standing answer NO.

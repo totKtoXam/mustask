@@ -35,9 +35,12 @@ import { UnlinkDialog } from './UnlinkDialog';
 export function ProjectNodeTeams({
   organizationId,
   projectId,
+  active = true,
 }: {
   organizationId: string;
   projectId: string;
+  /** False for a deactivated project: its node is read-only (design § 4), no link or unlink. */
+  active?: boolean;
 }) {
   const query = useTeams(organizationId, projectId);
   const project = useProject(organizationId, projectId);
@@ -47,6 +50,7 @@ export function ProjectNodeTeams({
   const context = useWorkContext();
   const access = useAccessCheck();
   const canLink =
+    active &&
     access(organizationsPermissions.teamLink, 'organization') &&
     access(organizationsPermissions.projectLink, 'organization');
   const [linking, setLinking] = useState(false);
