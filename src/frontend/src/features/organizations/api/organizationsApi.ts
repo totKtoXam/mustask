@@ -171,7 +171,15 @@ export interface AreaPage {
   description: string | null;
   path: string;
   parent: { id: string; name: string; path: string } | null;
-  children: { id: string; type: AreaType; name: string; description: string | null }[];
+  children: {
+    id: string;
+    type: AreaType;
+    name: string;
+    description: string | null;
+    /** Project nodes only (api-contract § 2): the department page's «Ключ» and its tag. */
+    projectKey: string | null;
+    projectActive: boolean | null;
+  }[];
 }
 
 export interface LinkedTeam {

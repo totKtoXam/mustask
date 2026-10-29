@@ -337,10 +337,10 @@ export function useDeleteArea(organizationId: string) {
     mutationFn: (areaId: string) => deleteArea(organizationId, areaId),
     onSuccess: (_result, areaId) => {
       // The area's address answers not found from now on; the page on screen is left at once.
-      void client.invalidateQueries({
-        queryKey: keys.area(organizationId, areaId),
-        refetchType: 'none',
-      });
+      // Dropped, not invalidated: the prefix refetch below would read the deleted node's page and
+      // flash «Область не найдена» before the navigation (mod-018 TC-23).
+      client.removeQueries({ queryKey: keys.area(organizationId, areaId) });
+      client.removeQueries({ queryKey: keys.areaTeams(organizationId, areaId) });
       return invalidate(client, ...areaLinkKeys(organizationId));
     },
   });

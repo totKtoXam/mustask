@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { AREA_URL, exampleDataset, ids, problem } from '../testFixtures';
+import {
+  AREA_URL,
+  PROJECT_URL,
+  TEAMS_URL,
+  exampleDataset,
+  ids,
+  problem,
+  subArea,
+} from '../testFixtures';
 import { serveOrganizations, serveProblem } from '../testApi';
 import { renderPage } from '../testRender';
 
@@ -222,11 +230,45 @@ describe('mod-018 OQ-6 A: a deactivated project’s node', () => {
     serveOrganizations();
     renderPage({ path: OLD_NODE });
     await loaded('Проект: Старый проект');
-    await screen.findByText('Это те же связи, что в разделе «Команды» проекта.');
+    await screen.findByText(/Проект «Старый проект» деактивирован/);
 
     expect(screen.queryByRole('button', { name: 'Добавить команду' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Ещё действия:/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Открыть проект' })).not.toBeInTheDocument();
+  });
+});
+
+describe('mod-018 review TC-4: the lists of a deactivated project stay readable', () => {
+  it('does not read the project’s teams: no error and no «Повторить» under «Команды»', async () => {
+    serveOrganizations();
+    serveProblem('get', TEAMS_URL, problem('organizations.project.not_found'));
+    renderPage({ path: OLD_NODE });
+    await loaded('Проект: Старый проект');
+    await screen.findByText(/Проект «Старый проект» деактивирован/);
+
+    expect(screen.queryByText('Команды проекта')).not.toBeInTheDocument();
+    expect(screen.queryByText('Проект не найден.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Повторить' })).not.toBeInTheDocument();
+  });
+
+  it('a sub-area of a deactivated project names its project from the tree', async () => {
+    const data = exampleDataset();
+    data.areas.push(
+      subArea('d0000000-0000-4000-8000-0000000000a1', ids.alfa, ids.old, ids.oldRoot, 'Архив'),
+    );
+    serveOrganizations(data);
+    serveProblem('get', `${PROJECT_URL}`, problem('organizations.project.not_found'));
+    renderPage({ path: `${AREAS}/d0000000-0000-4000-8000-0000000000a1` });
+    await loaded('Область: Архив');
+
+    const general = `/organizations/${ids.alfa}/projects/${ids.old}/settings/general`;
+    await waitFor(() =>
+      expect(
+        within(facts())
+          .getAllByRole('link', { name: 'Старый проект' })
+          .map((link) => link.getAttribute('href')),
+      ).toContain(general),
+    );
   });
 });
 
@@ -244,6 +286,8 @@ describe('mod-018 design § 4: a department’s deactivated project (QA DEF-3)',
     const projects = await screen.findByRole('table', { name: 'Проекты департамента' });
     const row = within(projects).getByRole('link', { name: 'Старый проект' }).closest('tr');
     expect(row).toHaveTextContent('деактивирован');
+    expect(row).toHaveTextContent('OLD');
+    expect(within(projects).getByRole('columnheader', { name: 'Ключ' })).toBeInTheDocument();
     expect(
       within(projects).getByRole('link', { name: 'Пример проекта' }).closest('tr'),
     ).not.toHaveTextContent('деактивирован');

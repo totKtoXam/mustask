@@ -498,6 +498,8 @@ export class OrganizationsTestApi {
         type: child.type,
         name: this.nodeName(child),
         description: this.nodeDescription(child),
+        projectKey: child.type === 'project' ? (this.projectOf(child)?.key ?? null) : null,
+        projectActive: this.projectActive(child),
       })),
     };
   }

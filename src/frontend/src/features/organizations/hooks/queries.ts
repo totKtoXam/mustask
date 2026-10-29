@@ -58,10 +58,15 @@ export function useProjects(
   });
 }
 
-export function useProject(organizationId: string, projectId: string) {
+export function useProject(
+  organizationId: string,
+  projectId: string,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: organizationsKeys.project(organizationId, projectId),
     queryFn: () => getProject(organizationId, projectId),
+    enabled: options.enabled ?? true,
   });
 }
 

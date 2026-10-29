@@ -35,7 +35,7 @@ import { FactsPanel, type Fact } from '../components/FactsPanel';
 import { useNotify } from '../components/notice';
 import { ProjectNodeTeams } from '../components/ProjectNodeTeams';
 import { useLinkTeamsToArea, useUnlinkTeamFromArea } from '../hooks/mutations';
-import { useArea, useAreaTeams, useAreaTree, useProject } from '../hooks/queries';
+import { useArea, useAreaTeams, useAreaTree } from '../hooks/queries';
 import { commandKinds, commandLabel } from '../lib/areaCommands';
 import {
   ORGANIZATION_PLACE,
@@ -70,10 +70,14 @@ function Muted({ children }: { children: string }) {
 
 /** The «Проект» fact: the project's name, a link to its «Общие». */
 function ProjectFact({ organizationId, projectId }: { organizationId: string; projectId: string }) {
-  const project = useProject(organizationId, projectId);
+  // From the tree node: the project read answers 404 when the project is deactivated (TC-4).
+  const tree = useAreaTree(organizationId);
+  const name = tree.data?.find(
+    (node) => node.type === 'project' && node.projectId === projectId,
+  )?.name;
   return (
     <Link component={RouterLink} to={projectGeneralPath(organizationId, projectId)}>
-      {project.data?.name ?? '…'}
+      {name ?? '…'}
     </Link>
   );
 }
@@ -150,7 +154,6 @@ export function AreaPage() {
   const area = query.isSuccess ? query.data : undefined;
   const isDepartment = area?.type === 'department';
   const teams = useAreaTeams(organizationId, areaId, isDepartment);
-  const tree = useAreaTree(organizationId, { enabled: isDepartment });
   const linkTeams = useLinkTeamsToArea(organizationId, areaId);
   const unlinkTeam = useUnlinkTeamFromArea(organizationId, areaId);
   const navigate = useNavigate();
@@ -174,7 +177,6 @@ export function AreaPage() {
     if (contextGone) {
       void query.refetch();
       void teams.refetch();
-      void tree.refetch();
     }
   }
 
@@ -228,9 +230,7 @@ export function AreaPage() {
           <TruncatedText to={organizationAreaPath(organizationId, child.id)} look="link">
             {child.name}
           </TruncatedText>
-          {tree.data?.find((node) => node.id === child.id)?.projectActive === false && (
-            <Tag label={areasPage.deactivated} />
-          )}
+          {child.projectActive === false && <Tag label={areasPage.deactivated} />}
         </Box>
       ),
     },
@@ -240,6 +240,13 @@ export function AreaPage() {
       render: (child) => <TruncatedText>{child.description ?? ''}</TruncatedText>,
     },
   ];
+  if (area?.type === 'department') {
+    childColumns.splice(1, 0, {
+      key: 'key',
+      header: areaPage.projects.columns.key,
+      render: (child) => <TruncatedText>{child.projectKey ?? ''}</TruncatedText>,
+    });
+  }
 
   const teamRows = teams.data ?? [];
   const teamColumns: DataColumn<LinkedTeam>[] = [
@@ -253,8 +260,8 @@ export function AreaPage() {
       ),
     },
   ];
-  // An unlink of a department's team is the team's own link code with the area's (api-contract § 5).
-  if (canLink && access(organizationsPermissions.teamLink, 'organization')) {
+  // The department-end unlink is `area.link` alone (api-contract § 5, DELETE /areas/{a}/teams/{t}).
+  if (canLink) {
     teamColumns.push({
       key: 'actions',
       header: '',

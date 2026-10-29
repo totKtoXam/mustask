@@ -46,7 +46,7 @@ export function TeamDepartmentsSection({
   const canLink =
     access(organizationsPermissions.areaLink, 'organization') &&
     access(organizationsPermissions.teamLink, 'organization');
-  // An unlink is the team's own link code with the area's (api-contract § 5).
+  // The team-end unlink is `team.link` alone (api-contract § 5, BR-MX-6: no second code).
   const canUnlink = access(organizationsPermissions.teamLink, 'organization');
   const [linking, setLinking] = useState(false);
   const [unlinking, setUnlinking] = useState<TeamArea | null>(null);

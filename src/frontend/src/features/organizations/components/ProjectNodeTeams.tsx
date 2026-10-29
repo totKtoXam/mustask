@@ -42,8 +42,8 @@ export function ProjectNodeTeams({
   /** False for a deactivated project: its node is read-only (design § 4), no link or unlink. */
   active?: boolean;
 }) {
-  const query = useTeams(organizationId, projectId);
-  const project = useProject(organizationId, projectId);
+  const query = useTeams(organizationId, projectId, { enabled: active });
+  const project = useProject(organizationId, projectId, { enabled: active });
   const link = useLinkTeamsToProject(organizationId, projectId);
   const unlink = useUnlinkTeam(organizationId);
   const notify = useNotify();
@@ -98,6 +98,12 @@ export function ProjectNodeTeams({
     if (contextGone) {
       void query.refetch();
     }
+  }
+
+  // A deactivated project answers 404 on its team read (api-contract § 4), so the section is not
+  // drawn rather than shown as a failure (design delta recorded in status.md, mod-018 TC-4).
+  if (!active) {
+    return null;
   }
 
   return (
