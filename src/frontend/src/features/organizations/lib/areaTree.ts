@@ -60,6 +60,19 @@ export function placementOptions(areas: readonly AreaNode[]): PlaceOption[] {
 }
 
 /**
+ * «Расположение» of a new project by the caller's codes (api-contract § 5, POST /projects): a
+ * department parent needs `area.write`, the top level `area.create`.
+ */
+export function placementOptionsFor(
+  areas: readonly AreaNode[],
+  atTop: boolean,
+  inDepartment: boolean,
+): PlaceOption[] {
+  const options = placementOptions(inDepartment ? areas : []);
+  return atTop ? options : options.filter((option) => option.id !== null);
+}
+
+/**
  * A project's move offer (design § 5.4, D-5): «Организация» when it is not the current place, then
  * every department except the current one.
  */

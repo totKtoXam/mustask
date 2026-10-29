@@ -5,7 +5,7 @@ import type { CreateProjectBody, Project, TeamListItem } from '../api/organizati
 import { useFocusInvalid } from '../hooks/useFocusInvalid';
 import { useAreaTree, useOrganizationTeams } from '../hooks/queries';
 import { placementField } from '../lib/areaTexts';
-import { ORGANIZATION_OPTION, placementOptions, type PlaceOption } from '../lib/areaTree';
+import { placementOptionsFor, type PlaceOption } from '../lib/areaTree';
 import { LocalPicker } from './AreaPickers';
 import { placeRefusal, type RefusalField } from '../lib/refusals';
 import { linkDialog, projectTexts } from '../lib/teamTexts';
@@ -25,7 +25,8 @@ type Errors = Partial<Record<'name' | 'key' | 'description' | 'teams' | 'locatio
 export function CreateProjectDialog({
   organizationId,
   canLink,
-  canPlace = false,
+  canPlaceInDepartment = false,
+  canPlaceAtTop = false,
   submit,
   onSucceeded,
   onClose,
@@ -33,8 +34,10 @@ export function CreateProjectDialog({
   organizationId: string;
   /** The user holds `team.link` and `project.link`: «Команды» is drawn. */
   canLink: boolean;
-  /** The user holds `area.write`: «Расположение» is drawn; without it the project stands at the top. */
-  canPlace?: boolean;
+  /** The user holds `area.write`: a department can be the parent (api-contract § 5, POST /projects). */
+  canPlaceInDepartment?: boolean;
+  /** The user holds `area.create`: «Организация», the top level, is offered; without it a department is required. */
+  canPlaceAtTop?: boolean;
   submit(body: CreateProjectBody): Promise<Project>;
   onSucceeded(project: Project): void;
   onClose(contextGone: boolean): void;
@@ -43,7 +46,8 @@ export function CreateProjectDialog({
   const [key, setKey] = useState('');
   const [description, setDescription] = useState('');
   const [teams, setTeams] = useState<TeamListItem[]>([]);
-  const [place, setPlace] = useState<PlaceOption>(ORGANIZATION_OPTION);
+  const canPlace = canPlaceInDepartment || canPlaceAtTop;
+  const [chosenPlace, setPlace] = useState<PlaceOption | null>(null);
   const [errors, setErrors] = useState<Errors>({});
   const [alert, setAlert] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -51,7 +55,14 @@ export function CreateProjectDialog({
   const focusInvalid = useFocusInvalid();
   const teamsQuery = useOrganizationTeams(organizationId, { enabled: canLink, fresh: true });
   const teamOptions = teamsQuery.data ?? [];
-  const areasQuery = useAreaTree(organizationId, { enabled: canPlace, fresh: true });
+  const areasQuery = useAreaTree(organizationId, { enabled: canPlaceInDepartment, fresh: true });
+  const placeOptions = placementOptionsFor(
+    areasQuery.data ?? [],
+    canPlaceAtTop,
+    canPlaceInDepartment,
+  );
+  // The first offered place stands until one is chosen; one no longer offered falls back to it.
+  const place = placeOptions.find((option) => option.id === chosenPlace?.id) ?? placeOptions[0];
 
   async function handleSubmit() {
     const refused: Errors = {
@@ -71,7 +82,7 @@ export function CreateProjectDialog({
     if (canLink && teams.length > 0) {
       body.teamIds = teams.map((team) => team.id);
     }
-    if (canPlace && place.id !== null) {
+    if (canPlace && place && place.id !== null) {
       body.parentAreaId = place.id;
     }
     setBusy(true);
@@ -113,11 +124,13 @@ export function CreateProjectDialog({
       if (placed.fields.location !== undefined) {
         // The departments are read again, and a place no longer offered drops (design § 7).
         void areasQuery.refetch().then((result) => {
-          const offered = placementOptions(result.data ?? []);
+          const offered = placementOptionsFor(
+            result.data ?? [],
+            canPlaceAtTop,
+            canPlaceInDepartment,
+          );
           setPlace((current) =>
-            offered.some((candidate) => candidate.id === current.id)
-              ? current
-              : ORGANIZATION_OPTION,
+            offered.some((candidate) => candidate.id === current?.id) ? current : null,
           );
         });
       }
@@ -215,9 +228,9 @@ export function CreateProjectDialog({
           hint={placementField.hint}
           error={errors.location ?? undefined}
           busy={busy}
-          options={placementOptions(areasQuery.data ?? [])}
+          options={placeOptions}
           loading={areasQuery.isPending}
-          value={place}
+          value={place ?? null}
           onChange={(next) => {
             setPlace(next);
             setErrors((current) => ({ ...current, location: null }));

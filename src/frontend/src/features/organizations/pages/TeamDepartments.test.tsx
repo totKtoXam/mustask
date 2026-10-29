@@ -206,3 +206,92 @@ describe('mod-018 design § 7: «Расположение» in «Новый пр
     expect(await within(dialog).findByText('Область не найдена.')).toBeInTheDocument();
   });
 });
+
+const READS = [
+  'organizations.organization.read',
+  'organizations.project.read',
+  'organizations.team.read',
+  'organizations.area.read',
+];
+
+describe('mod-018 api-contract § 5: the codes each control asks for', () => {
+  it('team page: `team.link` alone unlinks a department; the add stays out without `area.link`', async () => {
+    serveOrganizations();
+    renderPage({ path: PLATFORM_TEAM, orgCodes: [...READS, 'organizations.team.link'] });
+    const table = await screen.findByRole('table', { name: 'Департаменты команды' });
+
+    expect(
+      within(table).getByRole('button', { name: 'Ещё действия: Платформа' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Добавить департамент' })).not.toBeInTheDocument();
+  });
+
+  it('team page: `area.link` without `team.link` draws no unlink', async () => {
+    serveOrganizations();
+    renderPage({ path: PLATFORM_TEAM, orgCodes: [...READS, 'organizations.area.link'] });
+    await screen.findByRole('table', { name: 'Департаменты команды' });
+
+    expect(
+      screen.queryByRole('button', { name: 'Ещё действия: Платформа' }),
+    ).not.toBeInTheDocument();
+  });
+
+  async function openNewProject(codes: readonly string[]) {
+    const api = serveOrganizations();
+    renderPage({
+      path: ALFA_PROJECTS,
+      orgCodes: [...READS, 'organizations.project.write', ...codes],
+    });
+    await screen.findByRole('table', { name: 'Активные проекты' });
+    await userEvent.click(screen.getByRole('button', { name: 'Создать проект' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Новый проект' });
+    return { api, dialog };
+  }
+
+  it('«Новый проект»: `area.write` alone offers the departments only and sends the first', async () => {
+    const { api, dialog } = await openNewProject(['organizations.area.write']);
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Название' }), 'Ядро');
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Ключ' }), 'CORE');
+    await userEvent.click(within(dialog).getByRole('combobox', { name: /Расположение/ }));
+
+    const options = within(await screen.findByRole('listbox'))
+      .getAllByRole('option')
+      .map((option) => option.textContent);
+    expect(options).toEqual(['Отчёты', 'Платформа']);
+    await userEvent.click(screen.getByRole('option', { name: 'Платформа' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
+
+    await screen.findByText('Проект «Ядро» создан.');
+    expect(api.writes()[0]?.body).toEqual({
+      name: 'Ядро',
+      key: 'CORE',
+      parentAreaId: ids.platformArea,
+    });
+  });
+
+  it('«Новый проект»: `area.create` alone offers the top level only and sends no parent', async () => {
+    const { api, dialog } = await openNewProject(['organizations.area.create']);
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Название' }), 'Ядро');
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Ключ' }), 'CORE');
+    await userEvent.click(within(dialog).getByRole('combobox', { name: /Расположение/ }));
+
+    expect(
+      within(await screen.findByRole('listbox'))
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual(['Организация']);
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
+
+    await screen.findByText('Проект «Ядро» создан.');
+    expect(api.writes()[0]?.body).toEqual({ name: 'Ядро', key: 'CORE' });
+  });
+
+  it('«Новый проект»: neither code draws «Расположение»', async () => {
+    const { dialog } = await openNewProject([]);
+
+    expect(
+      within(dialog).queryByRole('combobox', { name: /Расположение/ }),
+    ).not.toBeInTheDocument();
+  });
+});
