@@ -22,14 +22,18 @@ the interface the frontend reads, in parallel with the backend. A change after t
 - **Address.** Every route is under `/api/organizations/{organizationId}`. Areas live under `/areas`; the project's subtree and the
   team's links under their own objects (§ 4, § 5).
 - **Order of answers.** 401; 404 `organizations.organization.not_found` for a non-member; 403 `organizations.access.forbidden` for a
-  role lacking the route's declared code; then the **second codes** (listed per route) — before any id is looked at; then the
-  not-found of the address outside in; 400 (values, every reason at once); the ids a body names, each its own 404; then the
-  deactivated-project 404 (`project.not_found`); then 409 (type rules, then `not_empty`/`root_is_fixed`, then cycle, depth, name).
+  role lacking the route's declared code; then the **second codes** (listed per route), before the organization's own id is looked
+  at; then the not-found of the address outside in; then, on the routes that have one, the **rules about the addressed node**
+  (409 `type_not_allowed`, `link_type_not_allowed`, `root_is_fixed`): `POST /areas`, `POST /projects`, `POST /areas/{id}/teams` and
+  the rename answer them before the ids a body names and before the 400 on values; 400 (values, every reason at once); the ids a
+  body names, each its own 404; then the deactivated-project 404 (`project.not_found`); then the remaining 409 (type rules before
+  the cycle rule, then `not_empty`, cycle, depth, name). A malformed, unknown, foreign or deleted id is the same 404 of its level.
   A malformed, unknown, foreign or deleted id is the same 404 of its level.
 - **Declared codes** (what the role bundle is checked for): `organizations.area.read` on reads; `organizations.area.write` on
   create, rename, describe, move, delete and the deletion preview; `organizations.area.link` on an area's team routes;
   `organizations.team.read` / `organizations.team.link` as listed. **Second codes** (checked by the handler, 403 the same way):
-  `organizations.area.create` for creating a top-level node (a department) and for moving a node **to or from** the top level;
+  `organizations.area.create` for creating a top-level node (a department), for moving a node **to or from** the top level, and for
+  creating a project at the top level; `organizations.area.write` for creating a project under a department (placing a project, US-6);
   `organizations.team.link` with `organizations.area.link` when a request names teams or areas to link. Admin holds all;
   member and viewer hold reads only. Until `mod-019-scoped-access` a code is checked against the organization role alone.
 - **Name.** Trimmed, 1-100 characters, unique among the siblings (same parent; top-level nodes are siblings), ignoring case and
@@ -96,7 +100,7 @@ A project node's description is the project's own description page field in the 
 | `GET /areas/{id}` | 404 `area.not_found` |
 | `PUT …/name` | 404 `area.not_found`; 404 `project.not_found` (deactivated project); 400 (`name_length`); 409 `area.root_is_fixed` (project node), 409 `area.name_taken` |
 | `PUT …/description` | 404 `area.not_found`; 404 `project.not_found` (deactivated project); 400 (`description_length`) |
-| `PUT …/parent` | 404 `area.not_found` (the area, then the destination); 404 `project.not_found` (deactivated project); 409 `area.type_not_allowed` (a department moved under another department - to the top it is a 200 no-op; a sub-area to the top level or under a department; a project node under a sub-area is `area.move_into_own_subtree` or `type_not_allowed` by shape), 409 `area.outside_project` (a sub-area under another project's node or sub-area), 409 `area.move_into_own_subtree`, 409 `area.depth_exceeded`, 409 `area.name_taken` |
+| `PUT …/parent` | 404 `area.not_found` (the area, then the destination); 404 `project.not_found` (deactivated project); 409 `area.type_not_allowed` (a department moved under another department - to the top it is a 200 no-op; a sub-area to the top level or under a department; a project node under a sub-area, even its own, is `type_not_allowed`: the type rules answer before the cycle rule), 409 `area.outside_project` (a sub-area under another project's node or sub-area), 409 `area.move_into_own_subtree`, 409 `area.depth_exceeded`, 409 `area.name_taken` |
 | `DELETE /areas/{id}` | 404 `area.not_found`; 404 `project.not_found` (deactivated project); 409 `area.root_is_fixed` (project node), 409 `area.not_empty` (a child, or a work item in the sub-area in any state) |
 | `GET …/deletion` | 404 `area.not_found` |
 | `POST …/teams` | 404 `area.not_found`, 404 `team.not_found`; 409 `area.link_type_not_allowed` (area is not a department) |
@@ -107,7 +111,7 @@ A project node's description is the project's own description page field in the 
 | Route | Code | Body → Answer |
 |---|---|---|
 | `GET /projects/{projectId}/areas` | `area.read` | → 200 `AreaNode[]`: the project's node and the sub-areas below it, pre-order, with the **same** `path` and `depth` as the organization tree. 404 `project.not_found` for an unknown or deactivated project |
-| `POST /projects` | `organizations.project.write` (+ `team.link` and `project.link` when `teamIds`) | gains **`parentAreaId?`**: the department to place the project's node under; absent = the top level. Creates the project and its node together. 404 `area.not_found`, 409 `area.type_not_allowed` (the id is not a department), 409 `area.name_taken` (a sibling at that level holds the project's name), (depth never applies: a project node is at most level 2) |
+| `POST /projects` | `organizations.project.write` (+ `area.write` when `parentAreaId` is present, `area.create` when absent; + `team.link` and `project.link` when `teamIds`) | gains **`parentAreaId?`**: the department to place the project's node under; absent = the top level. Creates the project and its node together. 404 `area.not_found`, 409 `area.type_not_allowed` (the id is not a department), 409 `area.name_taken` (a sibling at that level holds the project's name), (depth never applies: a project node is at most level 2) |
 
 `PUT /projects/{id}/name` renames the project **and** its node (409 `area.name_taken` if the node's siblings hold the new name).
 Project deactivation and restore keep the node in the tree; `projectActive` shows it. Deleting the project (deactivation is the
@@ -121,8 +125,8 @@ Removed from the first build and from mod-002: `GET|POST|DELETE /areas/{id}/proj
 | Route | Code (+ second) | Body → Answer |
 |---|---|---|
 | `GET /teams/{teamId}/areas` | `area.read` | → 200 `TeamArea[]` (the departments the team is linked to, by path) |
-| `POST /teams/{teamId}/areas` | `team.link` (+ `area.link`) | `{ areaIds }` → 204; 404 `team.not_found`, 404 `area.not_found`; 409 `area.link_type_not_allowed` if any id is not a department (nothing is linked) |
-| `DELETE /teams/{teamId}/areas/{areaId}` | `team.link` (+ `area.link`) | → 204; 404 `team.not_found`, 404 `area.not_found` |
+| `POST /teams/{teamId}/areas` | `team.link` (+ `area.link`, a second code) | `{ areaIds }` → 204; 404 `team.not_found`, 404 `area.not_found`; 409 `area.link_type_not_allowed` if any id is not a department (nothing is linked) |
+| `DELETE /teams/{teamId}/areas/{areaId}` | `team.link` (no second code: BR-MX-6, the unlink has one code per end) | → 204; 404 `team.not_found`, 404 `area.not_found` |
 | `POST /teams` | gains **`areaIds?`** (departments; needs `team.link` and `area.link`) | 404 `area.not_found`, 409 `area.link_type_not_allowed` |
 
 Deleting a team ends its department links.
@@ -130,7 +134,7 @@ Deleting a team ends its department links.
 ## 6. Work items
 
 The work item's **«Область»** is back (mod-003 BR-M3-23/24 as before the first build's retirement): `area` on `WorkItem`, `WorkItemRow`
-(`{id, path}`), `areaId` on create and on save. The area must be the item's own project's node or one of its
+(`{id, path}`), `areaId` on save only (`CreateWorkItemRequest` has no area: a new item takes the project's node, or its parent's area). The area must be the item's own project's node or one of its
 sub-areas: 404 `area.not_found` otherwise (a department, another project's node or sub-area, or an id of another organization); `area.outside_project` is never returned by a work item request, it belongs to the move of a sub-area (§ 3). The path in `area` is **project-relative**: the project's node is its top, whatever stands above it (`Alpha / Платформа`, not `Логистика / Alpha / Платформа`), as the picker shows it (design § 8); `GET /projects/{projectId}/areas` (§ 4) answers the full path and the panel strips the part above the project. The
 offer for the field is `GET /projects/{projectId}/areas` (§ 4). An item on a sub-area blocks the sub-area's deletion
 (`not_empty`). The exact fields and defaults are mod-003's `api-contract.md` as it stood before mod-018, unchanged.
@@ -147,8 +151,8 @@ Permission codes: `organizations.area.read`, `.write`, `.create`, `.link` (area.
 
 ## 8. The structure contract (`IOrganizationStructure`)
 
-By-id reads taking the organization, answering nothing for a foreign id: `FindAreaAsync` (with `Type`, `ProjectId`, `Path`),
-`ListAreasOfProjectAsync`, `ListAreasOfTeamAsync`. `ProjectInfo` has no `RootAreaId`; a project's node is found by its project.
+By-id reads taking the organization, answering nothing for a foreign id: `FindAreaAsync` (with `Type`, `ProjectId`, `Path`; no production caller in this line, it is the read for mod-019 and feat-042),
+`ListAreasOfTeamAsync`. There is no `ListAreasOfProjectAsync`: a project's subtree is `GET /projects/{id}/areas`. `ProjectInfo.RootAreaId` stays and is the project's node (a new item takes it).
 
 ## 9. The upgrade
 

@@ -49,8 +49,7 @@ gate-3: approved 2026-10-14 (human, in chat, via AskUserQuestion; no remote — 
 - 2026-10-12 [orchestrator] route confirmed by the human in chat: feature M — an additive field in the board answer and the card in the existing boards slice, ≤ 3 stories; gate-1+gate-2 as one package, one QA pass, gate-3. D-1, D-2
 - 2026-10-12 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/feat-032-board-card-checklists
 - 2026-10-18 [dev] P-10 note from feat-040-team-surfaces-across-projects: a board card (api-contract § 2.1) gains `project` right after `team`; a team's board holds the cards of every active project of the organization, and a card's checklist is read under the organization (a child is always in its parent's project) and is never narrowed by the project filter. This api-contract is not edited.
-- 2026-10-27 [dev] P-10 note from mod-018: BR-C-9's "the parent's Область as stored" is retired: a child item has no area to inherit (BR-AW-11).
-- 2026-10-28 [dev] P-10 note from mod-018 (typed tree rework, ADR-0031): REVISES the 2026-10-27 note above. REVERSAL: BR-C-9's inheritance of the parent's Область is back: a child item takes its parent's area (always in the same project, a child is in its parent's project).
+- 2026-10-28 [dev] P-10 note from mod-018 (typed tree, ADR-0031): REVERSAL: BR-C-9's inheritance of the parent's Область is back: a child item takes its parent's area (always in the same project, a child is in its parent's project).
 
 ## Notes
 
