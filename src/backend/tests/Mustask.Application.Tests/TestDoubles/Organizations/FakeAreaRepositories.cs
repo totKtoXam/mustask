@@ -142,7 +142,8 @@ public sealed class FakeAreaTreeReadModel(InMemoryOrganizations store) : IAreaTr
                 area.Description,
                 area.Type,
                 area.ProjectId,
-                area.ProjectId is { } projectId ? store.Projects.Single(project => project.Id == projectId).IsActive : null))
+                area.ProjectId is { } projectId ? store.Projects.Single(project => project.Id == projectId).IsActive : null,
+                area.ProjectId is { } keyOf ? store.Projects.Single(project => project.Id == keyOf).Key : null))
             .ToList());
 
     public Task<IReadOnlyList<AreaTeamRow>> ListTeamsAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken)

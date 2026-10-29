@@ -72,8 +72,8 @@ project name is unique in the organization before the node's sibling check (`pro
 
 | id | severity | status | Description and reproduction |
 |---|---|---|---|
-| D-1 | minor | open, carried to gate-3 | api-contract § 6 says an item's «Область» outside its project is 409 `outside_project`. The code, US-4 and the design answer 404 `area.not_found` (`SaveWorkItemHandler.LockAreaAsync`), and `outside_project` exists only for a sub-area's move. Repro: `PUT …/workitems/{id}` with `areaId` of another project's node. The behaviour is the intended one; the contract text is wrong (a wording change needs a `status.md` note by the api-contract rule). |
-| D-2 | minor | open, carried to gate-3 | api-contract § 3 says a department's move is `type_not_allowed`. A department moved "to the top" is 200 and changes nothing (the parent it already has, BR-AW-3); only a move under another department is `type_not_allowed`. Pinned by `MoveDepartment_ToTheTop_IsANoOp_…`. Fix the contract wording or the behaviour; the spec is silent. |
+| D-1 | minor | closed 2026-10-29 (contract wording fixed; see status.md) | api-contract § 6 says an item's «Область» outside its project is 409 `outside_project`. The code, US-4 and the design answer 404 `area.not_found` (`SaveWorkItemHandler.LockAreaAsync`), and `outside_project` exists only for a sub-area's move. Repro: `PUT …/workitems/{id}` with `areaId` of another project's node. The behaviour is the intended one; the contract text is wrong (a wording change needs a `status.md` note by the api-contract rule). |
+| D-2 | minor | closed 2026-10-29 (contract wording fixed; see status.md) | api-contract § 3 says a department's move is `type_not_allowed`. A department moved "to the top" is 200 and changes nothing (the parent it already has, BR-AW-3); only a move under another department is `type_not_allowed`. Pinned by `MoveDepartment_ToTheTop_IsANoOp_…`. Fix the contract wording or the behaviour; the spec is silent. |
 
 No blocker and no major. Nothing is sent back to the backend developer. The old debts of status.md (m-2 fixed by the developer, m-3
 frontend, m-5 narrowed into ADR-0031 rule 6) are not re-checked here.

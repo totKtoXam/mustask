@@ -144,6 +144,26 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
             (leaf.Body.GetProperty("parent").GetProperty("name").GetString(), leaf.Body.GetProperty("parent").GetProperty("id").GetGuid()));
     }
 
+    // US-3 / design § 4 · a department's page lists its project nodes with the project's key and whether the project is active.
+    [Fact]
+    public async Task DepartmentPage_ProjectChildren_CarryTheKeyAndTheActiveFlag()
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        var organization = structure.OrganizationId;
+        var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
+        var department = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Разработка");
+        var moved = await MoveAsync(organization, node.Id, department.Id);
+        var deactivated = await SendAsync(HttpMethod.Post, $"{OrganizationsApi.Project(organization, structure.ProjectId)}/deactivate");
+
+        var page = await SendAsync(HttpMethod.Get, Area(organization, department.Id));
+
+        Assert.Equal(HttpStatusCode.OK, moved.Status);
+        Assert.Equal(HttpStatusCode.NoContent, deactivated.Status);
+        var child = Assert.Single(page.Body.GetProperty("children").EnumerateArray());
+        Assert.Equal(structure.Project.Project.Key, child.GetProperty("projectKey").GetString());
+        Assert.False(child.GetProperty("projectActive").GetBoolean());
+    }
+
     // OQ-10 A · a sub-area and a department are renamed on their own; a project's node only with its project.
     [Fact]
     public async Task Rename_SubAreaAndDepartment_Work_ProjectNodeIsRootIsFixed_ATakenNameIsRefused()

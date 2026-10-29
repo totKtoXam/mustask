@@ -30,7 +30,8 @@ public sealed record AreaTreeRow(
     string? Description,
     AreaType Type = AreaType.Area,
     Guid? ProjectId = null,
-    bool? ProjectActive = null)
+    bool? ProjectActive = null,
+    string? ProjectKey = null)
 {
     /// <summary>The row as <see cref="AreaTree"/> takes it.</summary>
     public AreaNode ToNode() => new(Id, ParentId, Name, Type, ProjectId);

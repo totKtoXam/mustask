@@ -51,7 +51,8 @@ Area         { id, parentId: Guid|null, type, projectId: Guid|null, name, descri
                // returned by create, rename, describe, move
 AreaPage     { id, parentId, type, projectId, projectActive, name, description, path,
                parent: { id, name, path } | null,
-               children: [{ id, type, name, description }] }      // direct children, by name
+               children: [{ id, type, name, description, projectKey: string|null, projectActive: bool|null }] }
+               // direct children, by name; projectKey/projectActive only on a project node (the department page's «Ключ» and «деактивирован»)
 AreaTeam     { id, name }                                          // GET /areas/{id}/teams
 TeamArea     { id, name, path }                                    // GET /teams/{id}/areas (departments)
 AreaDeletion { teams: [{ id, name }] }                             // what deleting the area would end
@@ -66,7 +67,7 @@ AreaDeletion { teams: [{ id, name }] }                             // what delet
 | `GET /areas/{areaId}` | `area.read` | → 200 `AreaPage` |
 | `PUT /areas/{areaId}/name` | `area.write` | `{ name }` → 200 `Area`; the same name changes nothing |
 | `PUT /areas/{areaId}/description` | `area.write` | `{ description }` → 200 `Area` (`null`/`""` clears) |
-| `PUT /areas/{areaId}/parent` | `area.write` (+ `area.create` when the destination or the current parent is the top level) | `{ parentId: Guid\|null }` → 200 `Area` with the new `path`; the parent it already has: 200, nothing changes. `null`/absent = the top level (project nodes only) |
+| `PUT /areas/{areaId}/parent` | `area.write` (+ `area.create` when the destination or the current parent is the top level) | `{ parentId: Guid\|null }` → 200 `Area` with the new `path`; the parent it already has: 200, nothing changes. `null`/absent = the top level (project nodes only). A department moved to the top is the parent it already has: 200, nothing changes; a department moved under another department is `type_not_allowed` |
 | `DELETE /areas/{areaId}` | `area.write` | → 204; the department's team links end with it |
 | `GET /areas/{areaId}/deletion` | `area.write` | → 200 `AreaDeletion` |
 | `GET /areas/{areaId}/teams` | `area.read` | → 200 `AreaTeam[]` (active teams linked to this department, by name; empty for other types) |
@@ -95,7 +96,7 @@ A project node's description is the project's own description page field in the 
 | `GET /areas/{id}` | 404 `area.not_found` |
 | `PUT …/name` | 404 `area.not_found`; 404 `project.not_found` (deactivated project); 400 (`name_length`); 409 `area.root_is_fixed` (project node), 409 `area.name_taken` |
 | `PUT …/description` | 404 `area.not_found`; 404 `project.not_found` (deactivated project); 400 (`description_length`) |
-| `PUT …/parent` | 404 `area.not_found` (the area, then the destination); 404 `project.not_found` (deactivated project); 409 `area.type_not_allowed` (a department moves; a sub-area to the top level or under a department; a project node under a sub-area is `area.move_into_own_subtree` or `type_not_allowed` by shape), 409 `area.outside_project` (a sub-area under another project's node or sub-area), 409 `area.move_into_own_subtree`, 409 `area.depth_exceeded`, 409 `area.name_taken` |
+| `PUT …/parent` | 404 `area.not_found` (the area, then the destination); 404 `project.not_found` (deactivated project); 409 `area.type_not_allowed` (a department moved under another department - to the top it is a 200 no-op; a sub-area to the top level or under a department; a project node under a sub-area is `area.move_into_own_subtree` or `type_not_allowed` by shape), 409 `area.outside_project` (a sub-area under another project's node or sub-area), 409 `area.move_into_own_subtree`, 409 `area.depth_exceeded`, 409 `area.name_taken` |
 | `DELETE /areas/{id}` | 404 `area.not_found`; 404 `project.not_found` (deactivated project); 409 `area.root_is_fixed` (project node), 409 `area.not_empty` (a child, or a work item in the sub-area in any state) |
 | `GET …/deletion` | 404 `area.not_found` |
 | `POST …/teams` | 404 `area.not_found`, 404 `team.not_found`; 409 `area.link_type_not_allowed` (area is not a department) |
@@ -130,7 +131,7 @@ Deleting a team ends its department links.
 
 The work item's **«Область»** is back (mod-003 BR-M3-23/24 as before the first build's retirement): `area` on `WorkItem`, `WorkItemRow`
 (`{id, path}`), `areaId` on create and on save. The area must be the item's own project's node or one of its
-sub-areas: 409 `organizations.area.outside_project` otherwise; 404 `area.not_found` for an id of another organization. The
+sub-areas: 404 `area.not_found` otherwise (a department, another project's node or sub-area, or an id of another organization); `area.outside_project` is never returned by a work item request, it belongs to the move of a sub-area (§ 3). The path in `area` is **project-relative**: the project's node is its top, whatever stands above it (`Alpha / Платформа`, not `Логистика / Alpha / Платформа`), as the picker shows it (design § 8); `GET /projects/{projectId}/areas` (§ 4) answers the full path and the panel strips the part above the project. The
 offer for the field is `GET /projects/{projectId}/areas` (§ 4). An item on a sub-area blocks the sub-area's deletion
 (`not_empty`). The exact fields and defaults are mod-003's `api-contract.md` as it stood before mod-018, unchanged.
 

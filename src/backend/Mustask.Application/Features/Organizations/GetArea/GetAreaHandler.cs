@@ -23,8 +23,8 @@ public sealed record AreaPageResponse(
 /// <summary>The area's parent: its name and its path.</summary>
 public sealed record AreaRefResponse(Guid Id, string Name, string Path);
 
-/// <summary>A direct child of the area.</summary>
-public sealed record AreaChildResponse(Guid Id, string Type, string Name, string? Description);
+/// <summary>A direct child of the area; a project's node carries the project's key and whether it is active (null on the other types).</summary>
+public sealed record AreaChildResponse(Guid Id, string Type, string Name, string? Description, string? ProjectKey, bool? ProjectActive);
 
 /// <summary>The handler's outcome: the page.</summary>
 public sealed record GetAreaResult(AreaPageResponse Response);
@@ -56,7 +56,9 @@ public sealed class GetAreaHandler(IAreaTreeReadModel readModel)
             ? new AreaRefResponse(parentId, byId[parentId].Name, tree.PathOf(parentId))
             : null;
         var children = tree.ChildrenOf(areaId)
-            .Select(child => new AreaChildResponse(child.Id, AreaRequests.TypeName(child.Type), child.Name, byId[child.Id].Description))
+            .Select(child => new AreaChildResponse(child.Id, AreaRequests.TypeName(child.Type), child.Name, byId[child.Id].Description,
+                child.Type == AreaType.Project ? byId[child.Id].ProjectKey : null,
+                child.Type == AreaType.Project ? byId[child.Id].ProjectActive : null))
             .ToList();
 
         return new GetAreaResult(new AreaPageResponse(

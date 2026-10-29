@@ -73,7 +73,9 @@ public sealed class AreaReadHandlersTests
         Assert.Equal("area", node.Children[0].Type);
         Assert.Equal(("department", null, null), (department.Type, department.ProjectId, department.ProjectActive));
         Assert.Null(department.Parent);
-        Assert.Equal("project", Assert.Single(department.Children).Type);
+        var projectChild = Assert.Single(department.Children);
+        Assert.Equal(("project", w.Project.Key, true), (projectChild.Type, projectChild.ProjectKey, projectChild.ProjectActive));
+        Assert.Equal((null, null), (node.Children[0].ProjectKey, node.Children[0].ProjectActive));
     }
 
     // OQ-6 A · a deactivated project's node is shown and marked, not hidden.

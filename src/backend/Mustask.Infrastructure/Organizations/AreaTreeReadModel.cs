@@ -25,7 +25,8 @@ internal sealed class AreaTreeReadModel(MustaskDbContext context) : IAreaTreeRea
                     area.Description,
                     area.Type,
                     area.ProjectId,
-                    project == null ? null : project.Status == ProjectStatus.Active))
+                    project == null ? null : project.Status == ProjectStatus.Active,
+                    project == null ? null : project.Key))
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<AreaTeamRow>> ListTeamsAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken) =>
