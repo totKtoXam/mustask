@@ -106,7 +106,7 @@ public sealed class MoveAreaHandlerTests
         var nodeUnderArea = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Node, f.Archive));
 
         Assert.All([department, toTop, underDepartment], refusal => Assert.Equal(OrganizationErrorCodes.AreaTypeNotAllowed, refusal.Code));
-        Assert.Equal(OrganizationErrorCodes.AreaMoveIntoOwnSubtree, nodeUnderArea.Code);
+        Assert.Equal(OrganizationErrorCodes.AreaTypeNotAllowed, nodeUnderArea.Code); 
         Assert.Equal(0, f.Store.SaveCount);
     }
 

@@ -107,8 +107,8 @@ public sealed class AreaTests
         var other = ProjectNode(name: "Другой");
         var tree = Tree(department, node, sub, other);
 
-        Assert.Equal(OrganizationErrorCodes.AreaMoveIntoOwnSubtree, CodeOf(() => node.MoveUnder(sub, tree)));
-        Assert.Equal(OrganizationErrorCodes.AreaMoveIntoOwnSubtree, CodeOf(() => node.MoveUnder(node, tree)));
+        Assert.Equal(OrganizationErrorCodes.AreaTypeNotAllowed, CodeOf(() => node.MoveUnder(sub, tree)));
+        Assert.Equal(OrganizationErrorCodes.AreaTypeNotAllowed, CodeOf(() => node.MoveUnder(node, tree)));
         Assert.Equal(OrganizationErrorCodes.AreaTypeNotAllowed, CodeOf(() => other.MoveUnder(sub, tree)));
         Assert.False(node.MoveUnder(null, tree));
 

@@ -178,11 +178,6 @@ public sealed class Area
     /// </summary>
     public bool MoveUnder(Area? newParent, AreaTree tree)
     {
-        if (newParent is not null && tree.IsSelfOrDescendant(Id, newParent.Id))
-        {
-            throw new ConflictException(OrganizationErrorCodes.AreaMoveIntoOwnSubtree);
-        }
-
         switch (Type)
         {
             case AreaType.Department:
@@ -211,6 +206,12 @@ public sealed class Area
                 }
 
                 break;
+        }
+
+        // The type rules above come first (US-2): a destination the type forbids is type_not_allowed even when it lies inside the subtree.
+        if (newParent is not null && tree.IsSelfOrDescendant(Id, newParent.Id))
+        {
+            throw new ConflictException(OrganizationErrorCodes.AreaMoveIntoOwnSubtree);
         }
 
         if (ParentId == newParent?.Id)

@@ -251,7 +251,7 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
         LinksTestData.AssertRefused(subUnderDepartment, HttpStatusCode.Conflict, "organizations.area.type_not_allowed");
         LinksTestData.AssertRefused(subOutside, HttpStatusCode.Conflict, "organizations.area.outside_project");
         LinksTestData.AssertRefused(cycle, HttpStatusCode.Conflict, "organizations.area.move_into_own_subtree");
-        LinksTestData.AssertRefused(nodeUnderSub, HttpStatusCode.Conflict, "organizations.area.move_into_own_subtree");
+        LinksTestData.AssertRefused(nodeUnderSub, HttpStatusCode.Conflict, "organizations.area.type_not_allowed");
     }
 
     // US-3 · "The tree is at most 10 levels deep after a move": a subtree that would pass level 10 is refused.
