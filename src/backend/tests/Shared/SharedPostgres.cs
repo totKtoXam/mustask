@@ -19,8 +19,8 @@ internal static class SharedPostgres
     private static readonly Lazy<Task<PostgreSqlContainer>> Server = new(StartAsync);
 
     // CREATE DATABASE ... TEMPLATE refuses while another session is connected
-    // to the template, and two copies of one template at once are one such
-    // session for the other: copies are made one at a time.
+    // to the template. Copies are made one at a time as a precaution; it costs
+    // well under a second per fixture.
     private static readonly SemaphoreSlim TemplateCopy = new(1, 1);
 
     /// <summary>A new, empty database on the shared server; its connection string.</summary>

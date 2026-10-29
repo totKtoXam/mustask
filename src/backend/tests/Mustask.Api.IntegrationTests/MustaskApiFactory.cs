@@ -77,8 +77,8 @@ public sealed class MustaskApiFactory : WebApplicationFactory<Program>, IAsyncLi
     private const string PushSecretEnvVar = "UserDirectory__Push__Secret";
 
     /// <summary>
-    /// ADR-0002: migrations are never applied automatically from src/ (see
-    /// ProgramDoesNotAutoMigrateTests) -- this template is the "explicit step"
+    /// ADR-0002: migrations are never applied automatically from src/ --
+    /// this template is the "explicit step"
     /// for integration tests, the same role Mustask.Infrastructure.Tests'
     /// MigrationsTests play for Mustask.Infrastructure's own tests. Migrated
     /// once per run; every factory gets a copy of it (tech-047). Without it,
@@ -94,6 +94,9 @@ public sealed class MustaskApiFactory : WebApplicationFactory<Program>, IAsyncLi
     private static readonly Lock HostBuildGate = new();
 
     private static int _liveFactories;
+    // Set once this factory is in _liveFactories: a factory whose database
+    // copy failed must not take another shard's count down on dispose.
+    private bool _counted;
 
     private string _connectionString = "";
 
@@ -144,6 +147,7 @@ public sealed class MustaskApiFactory : WebApplicationFactory<Program>, IAsyncLi
         {
             // The first live factory sets what every host of the process reads;
             // the last one to go clears it (several shards are alive at once).
+            _counted = true;
             if (_liveFactories++ == 0)
             {
                 // Значения тестового realm'а — сверяются с
@@ -172,7 +176,7 @@ public sealed class MustaskApiFactory : WebApplicationFactory<Program>, IAsyncLi
 
         lock (HostBuildGate)
         {
-            if (--_liveFactories == 0)
+            if (_counted && --_liveFactories == 0)
             {
                 Environment.SetEnvironmentVariable(ConnectionStringEnvVar, null);
                 Environment.SetEnvironmentVariable(KeycloakAuthorityEnvVar, null);

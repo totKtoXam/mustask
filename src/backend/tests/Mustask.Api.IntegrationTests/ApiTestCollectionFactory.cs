@@ -20,7 +20,7 @@ namespace Mustask.Api.IntegrationTests;
 /// own <see cref="MustaskApiFactory"/> and so its own database (a copy of the
 /// migrated template on the assembly's one server): classes inside a shard run
 /// one after another over one database, exactly as the whole collection did
-/// before, and shards share nothing but the server.
+/// before, and shards share the server and the process — hence the serial collection.
 ///
 /// A class that leans on process-wide state goes to
 /// <see cref="MustaskApiSerialCollection"/> instead, which runs alone after the
@@ -28,7 +28,7 @@ namespace Mustask.Api.IntegrationTests;
 /// collection gets a collection of its own, as xUnit's default does.
 ///
 /// <c>MUSTASK_API_TEST_SHARDS</c> sets the number of shards; 1 runs the
-/// shared collection as one, as before.
+/// shared classes as one collection; the serial classes still run apart.
 /// </summary>
 public sealed class ApiTestCollectionFactory : IXunitTestCollectionFactory
 {
@@ -76,7 +76,6 @@ public sealed class ApiTestCollectionFactory : IXunitTestCollectionFactory
         // log entries of a host the test builds
         typeof(ErrorHandlingTests),
         typeof(PurgeWorkItemEndpointTests),
-        typeof(PushSecretAuditQaTests),
 
         // a host straight from WebApplicationFactory<Program>
         typeof(ProductionCorsTests),

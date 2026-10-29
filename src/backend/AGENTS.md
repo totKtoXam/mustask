@@ -17,8 +17,9 @@ run from there, not from this directory.
   parallel: `Mustask.Api.IntegrationTests` splits `MustaskApiCollection` into
   shards (`ApiTestCollectionFactory`, `MUSTASK_API_TEST_SHARDS` to override
   the count). A new class that captures the console, sets an environment
-  variable, asserts on log entries of a host it builds or holds a timing
-  budget goes into `ApiTestCollectionFactory.SerialClasses` (a `*VolumeTests`
+  variable, asserts on log entries of a host it builds, builds a host
+  straight from `WebApplicationFactory<Program>`, shares a static flag with
+  another class or holds a timing budget goes into `ApiTestCollectionFactory.SerialClasses` (a `*VolumeTests`
   name goes there by itself) — in `Mustask.Infrastructure.Tests`, a class
   that touches `ConnectionStrings__mustask` names
   `ProcessEnvironmentCollection`.

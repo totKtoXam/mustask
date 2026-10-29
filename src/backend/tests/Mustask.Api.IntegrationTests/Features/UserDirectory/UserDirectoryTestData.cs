@@ -7,8 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Mustask.Api.IntegrationTests.Features.UserDirectory;
 
 /// <summary>
-/// The user projection's test data. Every test class of
-/// <see cref="MustaskApiCollection"/> runs sequentially on one database, so a
+/// The user projection's test data. The test classes of a
+/// shard of <see cref="MustaskApiCollection"/> run one after another on one database, so a
 /// test that reads the projection starts from <see cref="ResetAsync"/>: an
 /// empty projection, whatever ran before it.
 /// </summary>
