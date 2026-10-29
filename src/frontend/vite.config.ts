@@ -95,7 +95,9 @@ export default defineConfig(({ command, mode }) => {
       // One jsdom window and one module cache per worker (tech-029); the app's
       // own modules are re-evaluated per file by src/test/setup.ts.
       isolate: false,
-      maxWorkers: Math.max(1, Math.min(4, availableParallelism() - 1)),
+      // At most eight (tech-047): on 22 cores the full run took 1 969 s with
+      // four workers and 986 s with eight. A 4-core CI runner still gets three.
+      maxWorkers: Math.max(1, Math.min(8, availableParallelism() - 1)),
       // Базовый URL API для тестов — совпадает с моками в src/test/mocks/handlers.ts.
       env: {
         VITE_API_BASE_URL: 'http://localhost:5000',

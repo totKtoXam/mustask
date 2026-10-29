@@ -137,8 +137,9 @@ public sealed class ApiTestCollectionFactory : IXunitTestCollectionFactory
     }
 
     // Half the cores: every shard runs a host and its share of the database
-    // work on the same machine. Eight shards already leave the longest class,
-    // not the split, as the bound.
+    // work on the same machine. At most eight: on 22 cores, 12 shards ran the
+    // assembly no faster than 8 (654 s against 649 s) — the CPU, not the
+    // split, is the bound by then.
     private static int ShardCount() =>
         int.TryParse(Environment.GetEnvironmentVariable(ShardsVariable), out var shards) && shards > 0
             ? shards
