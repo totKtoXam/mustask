@@ -2,99 +2,80 @@
 
 ## Backend
 
-QA pass of 2026-10-27 (stage `05-backend-qa`, clean context, deep tier). The test plan below was written from `spec.md`, the
-six stories and `api-contract.md` before any implementation file was read. E2E: standing answer NO, not asked, not run.
-
-### Test plan and coverage matrix
-
-Test names are in `Mustask.Api.IntegrationTests/Features/Organizations` (API) or `Mustask.Infrastructure.Tests/Organizations` (INF) unless
-a project is named. "dev" = written by the developer, "QA" = added in this pass.
-
-| # | Criterion (story) | Check | Where | Status |
-|---|---|---|---|---|
-| P1 | US-1 example tree, order, each once, `inheritsAccess` stored and in no response | Create_TopLevelAndChild…, Create_AnswersNoInheritsAccess… | API AreaWorkspaceEndpointTests (dev) | pass |
-| P2 | US-1/US-2 creation and edits change no item, team, project | AreaEdits_ChangeNoItemNoTeamNoProject (dev) | API | pass |
-| P3 | US-1 name 1-100 trimmed, description 2 000 UTF-16, 400 with every reason | Create_InvalidValues… (dev, order fixed by QA, D-2), Edges_OfADescriptionInUnits… (QA) | API | pass |
-| P4 | US-1/2 sibling uniqueness, case, top level are siblings | Create_SiblingName…, Rename_…, Move_… (dev); schema unique index (dev, fixed by QA) | API, INF OrganizationsSchemaTests | pass |
-| P5 | US-1/2 depth 10 at creation and after a move | Create_TheEleventhLevel…, Move_ASubtree… (dev) | API | pass |
-| P6 | US-1/6 foreign, missing or deleted parent: identical 404 | Create_ParentNotOfTheOrganization…, EveryAreaRoute_AnAreaOfAnotherOrganization… (dev) | API | pass |
-| P7 | US-1 1 000 areas over 10 levels: whole tree within 2 s | AreaVolumeEndpointTests (QA) | API | pass (1 s for all reads) |
-| P8 | US-2 rename, description, clear; own name in another case | Rename_…, SetDescription_… (dev) | API | pass |
-| P9 | US-2 move: subtree, top level, same parent, name clash, own subtree, depth | Move_UnderAnotherAreaAndToTheTop… (dev) | API | pass |
-| P10 | US-2/US-4 delete a leaf: 409 not_empty text, preview, links end, nothing else changes, 404 after | Delete_WithChildren… (dev), DeletingATeam… (QA) | API | pass |
-| P11 | US-3 link/unlink from each end, idempotent, authors kept, all-or-none, active ends, foreign ends | AreaLinkEndpointTests (dev); ARelink_KeepsTheFirstAuthorAndTime, LinkSeveralProjects_OneMissing_LinksNone (QA) | API | pass |
-| P12 | US-3 creation with links; a refused one leaves name and key free | Create_WithLinks… (dev); ARefusedCreationWithAreas_LeavesTheNameAndTheKeyFree (QA) | API | pass |
-| P13 | US-3 deactivated project inert and restored; team deletion ends links | DeactivatedProject_…, Link_ADeactivatedProject… (dev); DeletingATeam_EndsEveryAreaLinkOfIt (QA) | API | pass |
-| P14 | US-4 no area on items, no project-nested tree routes | WorkItem_CarriesNoArea…, ProjectNestedAreaRoutes_AreGone (dev) | API | pass |
-| P15 | US-5 upgrade on populated, clean and empty database; Down; applies again | OrganizationAreaWorkspaceMigrationTests (dev, 1 assertion fixed by QA, D-2) | INF | pass |
-| P16 | US-6 foreign id = nonexistent id on every row of the table | EveryAreaRoute_AnAreaOfAnotherOrganization…, Link_ProjectOrTeamOfAnotherOrganization… (dev); creation rows (QA) | API | pass |
-| P17 | US-6 roles per route; order 401 > 404 org > 403 > 404 area > 400 > 409 | Writes_ForAMemberAndAViewer…, EveryAreaRoute_WithNoToken_Returns401, AMissingArea_IsA403ForAViewer… , CreatingAProjectOrATeamWithAreas_ForAMember… (QA) | API | pass |
-| P18 | US-6 inventory: each route declares its code; `/access` lists the codes | OrganizationAccessInventoryTests, OpenApi, TeamViewContainment (stale counts fixed by QA, D-2) | API | pass |
-| P19 | US-6 structure contract: foreign id reads nothing; each project once; deactivated left out | AreaReadsTests.StructureContract_…, ListLinkedProjectsOfArea_… (QA) | INF | pass |
-| P20 | NFR query shape: tree, page, area's projects and teams, deletion, project's and team's areas do not grow with size | AreaReadsTests.NewReads_TheSameNumberOfStatements_For5AreasAs400 (QA); item reads re-pinned (D-2) | INF | pass |
-| P21 | NFR concurrency: name, rename vs create, rename vs move, cycle, depth, delete vs create/move/rename, link vs deletion of either end, team deletion vs link, two links of a pair | AreaRacesEndpointTests, 24 cases (QA) | API | pass, no 5xx, invariants read from the database |
-| P22 | NFR 200 projects + 200 teams on one area; project's and team's areas | AreaVolumeEndpointTests (QA) | API | pass |
-| P23 | Extras: 401 on all 20 routes, malformed ids, a move with no body, a description of 1 000 emoji | AreaQaEndpointTests (QA) | API | pass |
-| P24 | ADR-0028 amendment text, error catalog (`depth_exceeded` new, `root_is_fixed` deprecated, `not_empty` text) | read in the diff; Contracts.Tests green (dev run) | docs | pass |
-
-Not covered, by decision: per-handler unit tests are the developer's (Application.Tests 762, Domain.Tests 827, green in the
-developer's run and untouched here); the item reads' statement count with no area is pinned by the re-pinned counts of D-2.
-
-### Additional scenarios (beyond the spec)
-
-| # | Scenario | Expectation | Status |
-|---|---|---|---|
-| A1 | Rename of one area into a name that a move brings to the same level at once, both orders | one applied, the other `name_taken`, no 5xx (they meet on the sibling index, not on the tree lock) | pass |
-| A2 | Rename against deletion of the area, both orders | delete first: rename 404; rename first: both done | pass |
-| A3 | Link of an area to a team against the team's deletion, from the area's end and the team's, both orders | link first: both 204, no link remains; deletion first: 404 team_not_found | pass |
-| A4 | A creation naming a foreign area along with an own one | refused, nothing linked, name and key free | pass |
-| A5 | Re-link from the other end keeps the first author and time; unlink twice is 204 twice | as stated | pass |
-| A6 | A move with no body | the top level (200) | pass |
+QA pass of 2026-10-29 (stage `05-backend-qa`, clean context) over the typed single tree at `6fe29b48`. It replaces the pass of
+2026-10-27, which described the first build. The plan below was drawn from `spec.md`, the six stories and the api-contract before
+the implementation was read. E2E: the standing answer is NO; not asked, not run.
 
 ### Runs
 
-| Date | What was run | Result |
-|------|--------------|--------|
-| 2026-10-27 | `dotnet build Mustask.sln` | 0 errors |
-| 2026-10-27 | Infrastructure.Tests, full (first run on Docker, the developer could not run it) | 419 passed, 27 failed of 446: all stale fixtures or pins, D-2 |
-| 2026-10-27 | Api.IntegrationTests, full (first run) | 3 106 passed, 16 failed, 18 skipped of 3 140 (26 min): 13 stale expectations (D-2), 3 timing failures |
-| 2026-10-27 | Infrastructure.Tests, the 9 affected classes after the fixes + `AreaReadsTests` (new) | 107 passed |
-| 2026-10-27 | Api.IntegrationTests, the 11 affected classes + new classes | 397 passed, 0 failed |
-| 2026-10-27 | the 3 timing failures alone (`BacklogVolumeTests`, `ProjectBacklogVolumeTests`, `WorkItemFilterVolumeTests`) + `AreaVolumeEndpointTests` | 5 passed. Hypothesis tested, not a ritual: they had run while a second test project used the same Docker host, and failed on a 1.04 s reorder (1 s budget) and a 30 s stream timeout |
-| 2026-10-27 | `AreaQaEndpointTests`, `AreaRacesEndpointTests` (24) | 8 and 24 passed |
+Built once (`dotnet build Mustask.sln`, 0 errors), then each project run once with `--no-build`:
 
-Totals after the pass: Api.IntegrationTests 3 155 green (3 106 + 16 fixed or re-run + 33 new) (0 failing, 18 skipped as before);
-Infrastructure.Tests 449 (446 + 3 new) green; Application 762, Domain 827, Contracts 248, Architecture 86 green by the developer's run
-and not re-run (no production code changed). Migrations: applied to a clean database, populated one, empty one, rolled back and applied
-again by `OrganizationAreaWorkspaceMigrationTests`; no manual stand was needed.
+| Project | Result |
+|---|---|
+| Domain.Tests | 842 passed |
+| Application.Tests | 767 passed |
+| Contracts.Tests | 252 passed |
+| Architecture.Tests | 86 passed |
+| Shared.Tests | 53 passed |
+| Infrastructure.Tests (Docker) | 447 passed, 6 m 48 s |
+| Api.IntegrationTests (Docker), the whole project | 3 111 passed, 18 skipped, 0 failed, 23 m 4 s |
+| Api.IntegrationTests, the 9 tests added in this pass | 9 passed (3 120 passed, 18 skipped in all) |
+
+The 18 skips are the live-Keycloak and the diacritics cases that were skipped before this line. `ProjectBacklogVolumeTests` (flaky on
+timing earlier) did not fail in this run; no recurrence. The migration was run on clean databases by
+`OrganizationAreaWorkspaceMigrationTests` (see P15).
+
+### Test plan and coverage matrix
+
+"dev" = the developer's test, "QA" = added in this pass (`AreaTypedTreeQaEndpointTests`).
+
+| # | Criterion (story) | Check | Where | Status |
+|---|---|---|---|---|
+| P1 | US-1 department at the top, sub-area under a project node or sub-area; type, project, path in every answer | `Create_DepartmentAndSubArea_…`, `Create_UnderADepartment_IsTypeNotAllowed_…` | API AreaWorkspace (dev) | pass |
+| P2 | US-1 name 1-100 trimmed, description 2 000 UTF-16 units, every 400 reason at once | `Create_InvalidValues…`, `Description_IsCountedInUtf16Units` | API (dev) | pass |
+| P3 | OQ-12 one name space per level, case/space-insensitive, across types | `Create_SiblingName_…AcrossTypes` (dev); `OneNameSpacePerLevel_AcrossCreateRenameAndMove`: project create/rename into a department's name, a node moved to the top onto a department's name, a department onto a project's name (QA) | API | pass |
+| P4 | BR-AW-3 depth 10 at creation and after a move | `Create_TheEleventhLevel…`, `Move_ASubtreeThatWouldPassTenLevels…` (dev); `MoveProjectNode_UnderADepartment_TheNinthLevelFits_TheTenthDoesNot` (QA, the boundary of a node plus its subtree under a department) | API | pass |
+| P5 | Move rules per type: project node between departments and top, sub-area inside its project only, department never nested, cycle | `Move_SubAreaAndProjectNode_AndTheTypeRules` (dev); `MoveDepartment_ToTheTop_IsANoOp_…` (QA) | API | pass (see D-2) |
+| P6 | OQ-5/OQ-10 project node only with its project: rename and delete are `root_is_fixed`; the project's rename renames the node | `Rename_…`, `RenameProject_RenamesItsNode`, `Delete_TheRulesOfEachType` (dev) | API | pass |
+| P7 | OQ-6 deactivated project: node marked, read-only (`project.not_found`), still a child and a taken name | `DeactivatedProject_NodeIsMarked_AndReadOnly` (dev) | API | pass |
+| P8 | US-3 project placement: `parentAreaId` on create; not a department is `type_not_allowed`; missing is 404 | `CreateProject_WithAParentArea_PutsItsNodeThere` (dev) | API | pass |
+| P9 | OQ-8/OQ-11 team links join departments only; `link_type_not_allowed` from either end and from a creation; all or none | `Link_ToAProjectNodeOrASubArea_…`, `Create_DepartmentWithTeams_…` (dev); `CreateTeam_NamingANonDepartment_Returns409_CreatesNoTeam` (QA, the team form) | API | pass |
+| P10 | Links survive a rename and a project moving under the department; team deletion ends links | `DepartmentLinks_SurviveARenameAndAProjectMovingUnderIt` (QA); `DeletingATeam_EndsEveryAreaLinkOfIt_…` (dev) | API | pass |
+| P11 | US-4 item «Область» is the project's node or a sub-area; a department, another project's node or sub-area is «Область не найдена.»; an item blocks deletion in any state | `ItemArea_ADepartmentOrAnotherProjectsNode_IsRefused_…` (QA), `Save_AreaOfAnotherProject…` , `DeleteAreaWithWorkItemsEndpointTests` (dev) | API | pass (see D-1) |
+| P12 | US-5 upgrade: every tree kept as a project node, types set, items keep areas, depth >10 fails naming the project, Down, empty database | `OrganizationAreaWorkspaceMigrationTests` (6 tests, dev) | INF | pass |
+| P13 | US-6 tenant containment, 401, non-member 404, member/viewer 403, order of answers | `EveryAreaRoute_…` (4), `Writes_ForAMemberAndAViewer…`, `AMissingArea_IsA403ForAViewer…`, `OrganizationAccessInventoryTests` (dev) | API | pass |
+| P14 | NFR volumes: 1 000 nodes, 200 projects, 200 teams; reads under 2 s | `Reads_1000Nodes_200Projects_200Teams_Within2SecondsEach` (dev) | API | pass |
+| P15 | NFR query shape (tree 1, page 1, project areas 3, team areas 3, deletion 2), structure contract | `AreaReadsTests`, `OrganizationStructureTests` (dev) | INF | pass |
+| P16 | Concurrency: same name, create vs rename, cycle, depth, delete vs write under the leaf, project-node move vs department deletion, rename vs move, link vs deletion of either end, same pair from both ends | `AreaRacesEndpointTests` (dev, 12 cases) | API | pass |
+| P17 | Concurrency, spec § NFR items the dev set lacks: a project's creation under a department vs that department's deletion (both orders); a deactivation vs a move of its node | `CreateProjectUnderADepartment_VersusItsDeletion_…` (2), `DeactivateProject_VersusTheMoveOfItsNode_…` (QA) | API | pass |
+| P18 | Domain-spec refactor (`ReachabilityRules`, `WorkItemSetRules`, `OwnedItemsRule`): decisions testable without a database; behaviour and statement counts unchanged | `SpecificationTests` (dev, Domain); `DeletedStateParityTests`, `WorkItemSetsTests`, `OwningTeamStatementCountTests`, `UnlinkTeamAtomicityTests`, `DeleteTeamAtomicityTests`, WorkItemAccessRules test, all in the full runs | DOM, INF | pass |
+| P19 | Error catalog and reference (`depth_exceeded`, `type_not_allowed`, `outside_project`, `link_type_not_allowed`, `root_is_fixed` back, `not_empty` text) | `OrganizationErrorCatalogTests` (Contracts) | CON | pass |
+
+### Added tests
+
+`src/backend/tests/Mustask.Api.IntegrationTests/Features/Organizations/AreaTypedTreeQaEndpointTests.cs`, 9 tests (P3, P4, P5, P9,
+P10, P11, P17). While writing them four of my own expectations were wrong and were fixed in the test, none was a product defect: a
+project name is unique in the organization before the node's sibling check (`project.name_taken` answers first), the item type key is
+`BUG`, and the deactivation/move pair cannot be gated because a move reads the project's status without locking it.
+
+### Read of the implementation (after the plan)
+
+- Domain-spec refactor: `DefaultTeams` now filters the joined teams by `ReachabilityRules.ActiveTeam` in the join instead of a
+  `where` clause. The predicate is the same and EF still produces one statement, which the statement-count tests pin; the exact SQL
+  text was not diffed (the pins hold). `OwnedItemsRule` feeds the count, the lock and the `UPDATE` from one value; the raw SQL is
+  character-for-character the old text.
+- A write beneath a project reads its status, as ADR-0026 rule 8 says, and does not lock it: a move that started before a
+  deactivation may commit after it. By design; recorded so nobody reads it as a gap.
+- The migration's depth check counts every root as level 1 and the exception names the project and key.
 
 ### Defects
 
-#### D-1: api-contract § 2 names the tree read as "2 statements"; it takes 1, a page 1
+| id | severity | status | Description and reproduction |
+|---|---|---|---|
+| D-1 | minor | open, carried to gate-3 | api-contract § 6 says an item's «Область» outside its project is 409 `outside_project`. The code, US-4 and the design answer 404 `area.not_found` (`SaveWorkItemHandler.LockAreaAsync`), and `outside_project` exists only for a sub-area's move. Repro: `PUT …/workitems/{id}` with `areaId` of another project's node. The behaviour is the intended one; the contract text is wrong (a wording change needs a `status.md` note by the api-contract rule). |
+| D-2 | minor | open, carried to gate-3 | api-contract § 3 says a department's move is `type_not_allowed`. A department moved "to the top" is 200 and changes nothing (the parent it already has, BR-AW-3); only a move under another department is `type_not_allowed`. Pinned by `MoveDepartment_ToTheTop_IsANoOp_…`. Fix the contract wording or the behaviour; the spec is silent. |
 
-- Severity: minor (documentation)
-- Steps: `AreaReadsTests.NewReads_TheSameNumberOfStatements_For5AreasAs400`, output.
-- Expected / Actual: contract says 2; the handler sends 1 statement for the tree and 1 for the page, independent of size. Pinned at the
-  real numbers (tree 1, page 1, projects 2, teams 2, deletion 3, project's areas 4, team's areas 3).
-- Status: open, carried to gate-3 as a debt (edit the contract's parenthesis when the frontend stage next touches it).
+No blocker and no major. Nothing is sent back to the backend developer. The old debts of status.md (m-2 fixed by the developer, m-3
+frontend, m-5 narrowed into ADR-0031 rule 6) are not re-checked here.
 
-#### D-2: 40 developer tests were stale or built blind (fixtures, pins, expectations)
-
-- Severity: major as a gate (Api and Infrastructure projects were red, 16 + 27 failures), no production defect behind any of them
-- Steps: first full runs, above. Causes: seeds that still joined `areas.project_id` or bound an `@area` (`TeamViewStatementCountTests`,
-  `DeletedStateParityTests`); statement pins not moved by the retired area read and the new `area_teams` delete (`OwningTeam…`,
-  `Filter…`, `Deletion…`, `TeamStatementCountTests`: 7 to 6, 21 to 20, 16 to 15, 13 to 12, 11 to 10, deletion 13 to 14); schema tests
-  naming the old index and a "second root" case (`OrganizationsSchemaTests`); a sort-order expectation (`RepositoriesTests`); the
-  migration test's project count (4, not 3); route counts 60 to 75 and 45 to 60 and `area.create` (checked by handlers, so declared by no
-  route) in the inventory tests; the read-route matrix missing the six new reads; three save-order tests and one lock race that still used
-  the retired area step (the race now holds the child item row, same lock cycle); `Create_InvalidValues…` expected 400 before the
-  parent's 404 against BR-AW-15 (the handler is right).
-- Expected / Actual: each corrected to the spec's behaviour; no assertion weakened.
-- Status: fixed, re-run green.
-
-### Verdict
-
-blockers: 0 · majors open: 0 · minors open: 1 (D-1) · result: pass
-
-The first pass found no production defect: the races, the 1 000-area and 200 + 200 volumes, the containment table and the answer order
-all held. That is a statement about these probes, not readiness; the frontend QA pass and the code review are still to come.
+Blockers: 0.
