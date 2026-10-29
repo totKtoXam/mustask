@@ -646,3 +646,145 @@ counts (4 project nodes, 4 sub-areas, 18/3/1/2 items); operation completeness; N
 goes back to the business-analyst for the US-1, US-2 and US-6 rewrite, and TR-9 to the business-analyst and design.
 Blocker open: 1 (TR-1). Major open: 3 (TR-3, TR-4, TR-5, all as questions); TR-2 and TR-6's wording fixed. Minor open: 2
 (TR-9, TR-11).
+
+## Code review — typed tree (2026-10-29), code + security
+
+**Method.** End state `merge-base(origin/main)..d7f434dc`, not the history. Six dimension reviewers (backend correctness,
+security/tenancy, migration/concurrency, domain specs, frontend, docs/ADR/tests). Two adversarial skeptics checked each
+confirmed blocker/major. The reviewer of record then spot-checked every confirmed finding and the minors against the code and
+merged duplicates. Known items not re-reported: AreaPathsAsync (d7f434dc), contract §§ 2/3/6 wording, DEF-7..DEF-10.
+
+**Verdict: request-changes.** 0 blocker, 13 major, 14 minor. Nothing loses data and no hole is exploitable today. The majors
+are: one story-order bug, one spec access rule not enforced, one unmet observability rule, one design state shown as an error,
+and nine prose, contract or ADR sentences that the same diff contradicts. TC-1..TC-4 and TC-13 touch runtime code or tests, so a
+QA delta is owed. TC-5..TC-12 are prose only and need a delta read only.
+
+### Major
+
+- **TC-1** `Mustask.Domain/Organizations/Area.cs:181`: `MoveUnder` checks for a cycle before it checks the type. «Логистика»
+  moved under Alpha's node or under «Платформа», and Alpha's node moved under «Платформа», answer 409 `move_into_own_subtree`.
+  US-2 «No node moves to a place its type does not allow», US-3, contract § 1 and plan-backend:23 all say `type_not_allowed`.
+  Fix: run the Department/Project type rules first, then cycle, outside_project, depth. Rewrite `AreaTests.cs:110` and
+  `MoveAreaHandlerTests.cs:106-109`.
+- **TC-2** `CreateProject/CreateProjectHandler.cs:60-75`: placing a project checks no area code. spec § Roles and US-6:81
+  require `area.write` on the department (`area.create` at the top level). The panel gates the field (`canPlace`); the server
+  does not. Latent until mod-019, because only «Администратор» holds `project.write`. Fix: add a step-0 check as in
+  CreateArea/MoveArea, add the code to the `POST /projects` row in api-contract § 4, and add a forbidden-role handler test.
+- **TC-3** `Migrations/20261028124825_OrganizationAreaWorkspace.cs:119`: the migration logs no per-kind counts. BR-AW-14, the
+  Observability NFR and US-5 («…counts are logged», «…counts logged are 0») require them. `MigrateAsync` collects `mod-018:`
+  notices that no test asserts, and qa.md P12 passed anyway. Fix: `RAISE NOTICE 'mod-018: typed % project nodes, kept %
+  sub-areas'` after the UPDATE; assert the notices in the populated and empty-database tests.
+- **TC-4** `organizations/components/ProjectNodeTeams.tsx:45`: a deactivated project's node always reads
+  `GET /projects/{id}/teams`, which answers 404 (`GetTeamsHandler.cs:45`). «Команды» then shows «Проект не найден.» with
+  «Повторить», and a sub-area's «Проект» fact (`AreaPage.tsx:72-79`) stays «…». Design § 4 says «the lists stay readable».
+  Fix: do not read teams when the project is inactive. Either show a read-only note and record a design delta in status.md, or
+  add a backend read; that choice is the orchestrator's. Build «Проект» from the tree node, and test the section body
+  (`AreaPage.test.tsx:221`).
+- **TC-5** `api-contract.md:125`: the team-end unlink lists `team.link (+ area.link)`. spec:15 (BR-MX-6, «no second code»), the
+  mirror row in § 3 and the code (`OrganizationEndpoints.cs:396`, UnlinkAreaFromTeamHandler) all say `team.link` alone. Fix:
+  drop `(+ area.link)` and add a status.md note. In the same lines, `AreaPage.tsx:256` also requires `teamLink` for the
+  department-end unlink, citing that row, and the comment at `TeamDepartmentsSection.tsx:240` repeats it. Gate on `areaLink`
+  alone and fix the comment.
+- **TC-6** `docs/adr/0031-typed-area-tree.md:70`, `api-contract.md:150-151` and mod-002 `status.md:94` say `RootAreaId` is
+  removed and that `ListAreasOfProjectAsync` exists. In the code, `IOrganizationStructure.cs:90` keeps `RootAreaId` as the
+  project node (`CreateWorkItemHandler.cs:181`), and there is no `ListAreasOfProjectAsync`. spec:168 says «`RootAreaId` stays».
+  Fix the three texts. `FindAreaAsync` has no production caller: name its consumer or drop it.
+- **TC-7** `api-contract.md:133` says «`areaId` on create and on save». `CreateWorkItemRequest` (`WorkItemEndpoints.cs:318`) has
+  no area, and the same paragraph defers to mod-003, where the field is on save only. Fix: «on save; a new item takes the
+  project's node or its parent's area».
+- **TC-8** `ADR-0031:52`, mod-003 `status.md:68` and `plan-backend.md:17` say an item area outside its project gets
+  `outside_project` (mod-003 says «409»). The code (`SaveWorkItemHandler.cs:243,248`), contract § 6 and US-4 say 404
+  `area.not_found`. Fix the three texts, and drop the stale «§ 6 says 409» in `plan-frontend.md:20`.
+- **TC-9** `ADR-0031:40-41` says a check constraint holds «no sub-area parent» for a project node and «the project of its
+  parent» for a sub-area. `ck_areas_type_shape` (migration ~:212) only checks nullness within one row. The parent key is
+  `(organization_id, parent_id)`, and the old `(project_id, parent_id)` key is dropped with no replacement, yet
+  `fk_work_items_areas_project_id_area_id` relies on `areas.project_id`. Fix: say the domain holds these two rules
+  (CreateSubArea/MoveUnder under the tree lock), or restore a DB key.
+- **TC-10** `ADR-0031:65` and `ADR-0028:144,157(c)` put the project row on opposite sides of teams and links. The code follows
+  ADR-0028 (SetDefaultTeam takes the link, then the project; DeleteTeam takes the team, then links, then project), while
+  RenameProject takes tree, project, node. ADR-0031:69 (the old m-5) says a save that sets an area takes the hierarchy lock
+  first, but `SaveWorkItemHandler.cs:118` takes it only when the parent changes. Fix: one order in ADR-0031 rule 6 that agrees
+  with ADR-0028 (tree, areas, teams, links, project row, the project node on rename under the tree lock, hierarchy…). Make
+  ADR-0028 :144/:157 point to it, and state the hierarchy tier as conditional.
+- **TC-11** `ADR-0028:168`: «Old addresses» still says mod-018 retires `…/projects/:p/settings/areas`. The branch keeps the page
+  (`routes.tsx:222`, BR-AW-12, design § 7), and ADR-0031 rule 5 and the :161 marker cover only the area prefix. Fix: say in
+  ADR-0031 rule 5 and the :161 marker that the page stays as the project's subtree view until feat-043.
+- **TC-12** `ADR-0031:5`, `docs/adr/README.md:46` and the title of ADR-0031 rule 6 give the scope as «ADR-0028 rules 2, 3, 7 and
+  8 … nothing else». That leaves out rule 6 (the lock order, :144), rule 1 (`AREA_PROJECT` in the ERD, :49), the delivery-table
+  row (:239) and ADR-0029's delivery bullet (:243). spec:93 names these, and none carries a marker. Fix the scope line and the
+  title, and add the markers.
+- **TC-13** `OrganizationContainmentTests.cs:289-290`: the cross-organization `areaId` save case was deleted. Its comment says
+  «the item has no area since mod-018: an areaId is ignored», which the same diff disproves (SaveWorkItemHandler:143). Fix:
+  restore the case with B's project node or sub-area, expecting 404 `area.not_found` and nothing changed; delete the comment.
+
+### Minor (debt)
+
+- **TC-14** `Infrastructure/Organizations/OrganizationStructure.cs:47-62,213` decides the default team and reachability inline
+  instead of through `ReachabilityRules`, and `ReachabilityRules.IsReachable` (:29,:33) has no production caller. The opening of
+  ADR-0031 rule 9 reads broader than its four classes. Use the rules, or drop `IsReachable` and narrow the sentence.
+- **TC-15** `CreateAreaHandler.cs:~122`, CreateProject, LinkTeamsToArea and RenameArea answer the address/type 409s before the
+  404s for body ids and before the name's 400. `api-contract.md:25` (§ 1) does not list that step and still says «before any id
+  is looked at» (the old m-2 prose). Add a «rules about the addressed node» step and narrow the sentence.
+- **TC-16** `PermissionCatalog.cs:145`: the label «Связи области с проектами и командами» names a retired link. Use «Связи
+  департаментов с командами».
+- **TC-17** `OrganizationEndpoints.cs:370,391`: the two link POSTs declare `WithReadProblems()` but can answer 409
+  `link_type_not_allowed`. Add the 409.
+- **TC-18** `OrganizationAreaWorkspaceMigrationTests.cs:322`: the fingerprint leaves out `area_id` and `owning_team_id`, and the
+  comment is stale («the area column is the one thing that goes»). US-5's case «a tree exactly 10 deep is kept, and a move of it
+  into a department is refused» is not exercised.
+- **TC-19** `WorkItemConfiguration.cs:90` / `AreaConfiguration`: EF cannot see the raw-SQL FK on `ak_areas_project_id_id`, so a
+  generated DropIndex would fail at upgrade. Comment the index, record the departure in ADR-0031, or add a schema test.
+- **TC-20** `AreaRepository.cs:40,101`: rename, describe, move and the project-node rename lock `FOR UPDATE`, which blocks the
+  `KEY SHARE` checks of foreign keys (every item created on the node waits). Use `FOR NO KEY UPDATE` everywhere except delete.
+- **TC-21** `Mustask.Domain.Tests/Specifications/SpecificationTests.cs:43`: no negative case for ActiveOrganization, and no test
+  of `ProjectOf` or `RemovedState`. `WorkItemSetRules.IsRemoved` is unused and is a fourth copy of «Removed».
+- **TC-22** `Domain/WorkItems/OwnedItemsRule.cs:8`: the doc says the count, the lock and the write «cannot name different sets»,
+  but the SQL in `WorkItemTeamOwnership.cs:57,76` restates the predicate. Reword the doc, or add a test that the count equals
+  the rows affected.
+- **TC-23** `organizations/hooks/mutations.ts:340`: invalidating the `areaPages` prefix refetches the deleted node's page, so
+  «Область не найдена» flashes before navigation. Call `removeQueries` for that id's `area` and `areaTeams` first.
+- **TC-24** `workitems/testApi.ts:598`, `boards/testApi.ts:322`: no fake places a project under a department, so the
+  project-relative path is only unit-tested (`areaPaths.test.ts`). Add a card case and a create-dialog case.
+- **TC-25** `organizationsApi.ts:174`: `AreaPage.children` lacks `projectKey` and `projectActive`, so the department page loads
+  the whole tree for one tag. The «Проект» fact is missing on a project node and lacks «(KEY)» (design § 4). Overlaps DEF-9.
+- **TC-26** Stale prose:
+  - `paths.ts:35` says «every route», but AREAS_ROUTE is missing.
+  - `ProjectAreasPage.tsx:35` describes a deactivated branch that cannot be reached.
+  - The skeleton at `routes.tsx:229` still has the «Тип» column.
+  - `ADR-0031:57,80` describe the first-build schema that was never merged («drops the table», «over the first-build schema»).
+  - Eight owners' 2026-10-27 P-10 notes describe a build that never reaches main (e.g. mod-003 `status.md:67`). Drop them and
+    keep the typed-tree notes.
+- **TC-27** `AreaWorkspaceEndpointTests.cs:312` pins BR-AW-10 only in part. Missing: describe, moving the deactivated node, the
+  holding department's `not_empty`, and the node's name staying taken. Also, `docs/adr/README.md:48-49` and the ADR-0028/0029
+  Status lines lack «partially superseded by ADR-0031». Add it at acceptance; until then, word the in-text markers «proposed».
+
+**Refuted.** The skeptics refuted nothing. Dropped at spot-check: the panel's claim that the team-end unlink should be gated on
+`areaLink && teamLink`. That half of the TeamDepartmentsSection minor follows the wrong contract row (TC-5); gating on `teamLink`
+alone, as the code does, is the spec. Downgraded from the panel's major: OrganizationStructure (TC-14), because the code predates
+this branch and the ADR list names its four classes.
+
+**Security checklist.**
+- Authorization: every area route declares its code. CreateArea, MoveArea (re-decided under lock), LinkTeamsToArea,
+  LinkAreasToTeam and AddTeam check their second codes. Gap: TC-2 (latent).
+- IDOR: every area and team lock filters by `organization_id`. `area_teams` and the area self-key have composite FKs
+  `(organization_id, …)`. The item area is locked by `project_id` and backed by the `(project_id, area_id)` FK. Malformed ids
+  answer 404. OrganizationContainmentTests covers cross-organization move and create; the item-save case was lost (TC-13).
+- Deactivated project: EnsureProjectActive runs on every sub-area write.
+- Injection: all raw SQL uses interpolated parameters; the migration SQL is static.
+- Mass assignment: explicit request records only.
+- Secrets and PII: none added; the migration notices carry project names only.
+
+**Old debt re-checked.**
+- m-2: the code is fixed (`MoveAreaHandler.cs:91` re-decides `area.create` on the locked row), but the contract sentence is
+  still not narrowed → TC-15.
+- m-3: closed (`AreasPage.tsx:48` and `AreaPage.tsx:160` read `areaCreate` separately).
+- m-5: restated in ADR-0031 rule 6, but inaccurately → TC-10.
+
+**Claims pass.**
+- Direction 1: ADR-0031 rules 1-9, api-contract §§ 1-8, plan-backend, plan-frontend, the P-10 notes and test comments. These
+  produced TC-5..TC-13, TC-15, TC-22 and TC-26. The dimension reviewers anchored the rest (error catalog ↔
+  `OrganizationErrorCodes`, statement counts ↔ AreaReadsTests, inventory 70).
+- Direction 2: grepped `settings/areas`, `RootAreaId`, `ListLinkedProjectsOfAreaAsync`, `area_projects`, `outside_project` and
+  `useAreaTree` under docs/, .claude/ and the AGENTS.md files. Hits: ADR-0028:168 (TC-11) and the mod-002/mod-003 notes (TC-6,
+  TC-8). The doc-012 audits and the mod-002/mod-017 records are history.
+- Not swept: `parentAreaId`/`areaIds` outside docs/features/mod-018, and the prototype.
