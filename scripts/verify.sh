@@ -112,6 +112,9 @@ unchecked=0
 skipped() { unchecked=1; note "$1"; }
 fail() { failed="$failed  - $1
 "; printf "  FAIL: %s\n" "$1" >&2; }
+# A temp path native tools understand: on Git for Windows, dotnet and node get
+# C:/... instead of the MSYS /tmp/... (tech-046's coverage folders).
+native_path() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf "%s" "$1"; fi; }
 pass() { passed="$passed  - $1
 "; printf "  ok: %s\n" "$1"; }
 
@@ -796,11 +799,22 @@ if [ "$need_dotnet" = 1 ]; then
     elif dotnet build Mustask.sln --nologo -v q; then
         pass "backend build"
         if docker info >/dev/null 2>&1; then
-            if run_tests dotnet dotnet test Mustask.sln --no-build --nologo -v q; then
+            # Coverage is collected only here, where every test project runs:
+            # without Docker the floors would read a partial run (tech-046).
+            backend_cov=$(native_path "$(mktemp -d)")
+            if run_tests dotnet dotnet test Mustask.sln --no-build --nologo -v q \
+                --collect "XPlat Code Coverage" --settings src/backend/coverage.runsettings \
+                -p:MustaskCoverageDir="$backend_cov"; then
                 pass "backend tests, including integration"
+                if node scripts/coverage-gate.mjs backend "$backend_cov"; then
+                    pass "backend coverage floors"
+                else
+                    fail "backend coverage below a floor (scripts/coverage-floors.json)"
+                fi
             else
                 fail "backend tests"
             fi
+            rm -rf "$backend_cov"
         else
             skipped "  Docker not running: skipping integration tests, running the rest"
             for project in src/backend/tests/*/; do
@@ -891,14 +905,23 @@ if [ "$need_frontend" = 1 ]; then
             else
                 note "  tests $app: the whole suite (no merge-base with $BASE)"
             fi
+            # The whole suite is the only run whose coverage means anything,
+            # so the floor is checked here and nowhere else (tech-046).
+            frontend_cov=$(native_path "$(mktemp -d)")
             vitest_lock_acquire
-            if run_tests vitest frontend_tests; then
+            if run_tests vitest frontend_tests --coverage --coverage.reportsDirectory="$frontend_cov"; then
                 vitest_lock_release
                 pass "tests $app"
+                if node scripts/coverage-gate.mjs frontend "$frontend_cov/coverage-summary.json"; then
+                    pass "frontend coverage floor"
+                else
+                    fail "frontend coverage below its floor (scripts/coverage-floors.json)"
+                fi
             else
                 vitest_lock_release
                 fail "tests $app"
             fi
+            rm -rf "$frontend_cov"
         else
             # --passWithNoTests: a change that no test reaches is not a failure.
             note "  tests $app: only those reaching changes since $(printf '%.9s' "$merge_base") (VERIFY_FULL=1 for the whole suite)"

@@ -1,0 +1,14 @@
+{
+  "_comment": "Line-coverage floors in percent, read by scripts/coverage-gate.mjs (tech-046, set by the human 2026-10-28). backend.unit: per assembly, merged over every test project except *.IntegrationTests. backend.integration: all Mustask.* assemblies together, from *.IntegrationTests alone. frontend: the whole Vitest suite. Raise a floor when coverage has grown past it; lower one only with the human's word.",
+  "backend": {
+    "unit": {
+      "Mustask.Domain": 90,
+      "Mustask.Application": 60,
+      "Mustask.Shared": 70,
+      "Mustask.Infrastructure": 30,
+      "Mustask.Api": 5
+    },
+    "integration": 30
+  },
+  "frontend": 90
+}

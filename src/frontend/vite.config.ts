@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { configDefaults, defineConfig } from 'vitest/config';
+import { configDefaults, coverageConfigDefaults, defineConfig } from 'vitest/config';
 import { loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -66,6 +66,14 @@ export default defineConfig(({ command, mode }) => {
         },
       ],
       css: true,
+      // Off unless asked: scripts/verify.sh passes --coverage on the full run
+      // (CI) and scripts/coverage-gate.mjs holds the line floor (tech-046).
+      coverage: {
+        provider: 'v8',
+        include: ['src/**/*.{ts,tsx}'],
+        exclude: [...coverageConfigDefaults.exclude, 'src/test/**'],
+        reporter: ['text-summary', 'json-summary'],
+      },
       // Playwright owns e2e/**: its specs also end in *.spec.ts, but they
       // need a live stand and real Keycloak (src/frontend/AGENTS.md
       // § E2E test suite) — Vitest must never pick them up.
