@@ -12,13 +12,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
-using Testcontainers.PostgreSql;
+using Mustask.Testing;
 
 namespace Mustask.Infrastructure.Tests.Organizations;
 
 /// <summary>
-/// One disposable PostgreSQL for the organizations tests of this assembly,
-/// migrated once with the real migrations. Like the process fixture, it gives
+/// One database for the organizations tests of this assembly, migrated with
+/// the real migrations — a copy of the migrated template on the assembly's one
+/// server (tech-047); every class fixture gets a copy of its own. Like the process fixture, it gives
 /// every context its connection string explicitly and never touches the
 /// process-wide <c>ConnectionStrings__mustask</c>. The database is shared by
 /// the collection and never emptied, so every test names its organizations
@@ -30,21 +31,13 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
 
     public const string Creator = "8a2f0c1e-0000-4000-8000-00000000c0de";
 
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18-alpine")
-        .WithDatabase("mustask")
-        .Build();
+    public string ConnectionString { get; private set; } = "";
 
-    public string ConnectionString => _postgres.GetConnectionString();
+    // A migrated database of its own on the assembly's one server (tech-047).
+    public async Task InitializeAsync() =>
+        ConnectionString = await SharedPostgres.CreateDatabaseFromTemplateAsync(MigratedDatabase.Template);
 
-    public async Task InitializeAsync()
-    {
-        await _postgres.StartAsync();
-
-        await using var context = NewContext();
-        await context.Database.MigrateAsync();
-    }
-
-    public async Task DisposeAsync() => await _postgres.DisposeAsync();
+    public Task DisposeAsync() => Task.CompletedTask;
 
     public static string UniqueName(string prefix) => $"{prefix} {Guid.CreateVersion7():N}";
 
