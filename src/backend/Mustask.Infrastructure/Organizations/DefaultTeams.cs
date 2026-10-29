@@ -34,21 +34,21 @@ internal static class DefaultTeams
             {
                 NamedActive = (
                         from link in context.ProjectTeams
-                        join team in context.Teams on link.TeamId equals team.Id
+                        join team in context.Teams.Where(ReachabilityRules.ActiveTeam) on link.TeamId equals team.Id
                         where link.ProjectId == project.Id && held.Contains(link.TeamId)
-                            && team.Id == project.DefaultTeamId && team.Status == TeamStatus.Active
+                            && team.Id == project.DefaultTeamId
                         select (Guid?)team.Id)
                     .FirstOrDefault(),
                 ActiveTeams = (
                         from link in context.ProjectTeams
-                        join team in context.Teams on link.TeamId equals team.Id
-                        where link.ProjectId == project.Id && held.Contains(link.TeamId) && team.Status == TeamStatus.Active
+                        join team in context.Teams.Where(ReachabilityRules.ActiveTeam) on link.TeamId equals team.Id
+                        where link.ProjectId == project.Id && held.Contains(link.TeamId)
                         select team.Id)
                     .Count(),
                 AnActive = (
                         from link in context.ProjectTeams
-                        join team in context.Teams on link.TeamId equals team.Id
-                        where link.ProjectId == project.Id && held.Contains(link.TeamId) && team.Status == TeamStatus.Active
+                        join team in context.Teams.Where(ReachabilityRules.ActiveTeam) on link.TeamId equals team.Id
+                        where link.ProjectId == project.Id && held.Contains(link.TeamId)
                         select (Guid?)team.Id)
                     .FirstOrDefault(),
             })

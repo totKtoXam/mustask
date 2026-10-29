@@ -86,6 +86,13 @@ public sealed class MoveAreaHandler(
                 await areas.LockTreeAsync(organizationId, ct);
                 var (area, destination) = await LockAreaAndDestinationAsync(organizationId, areaId, parentId, ct);
 
+                // The current parent was read before the locks: a move that committed meanwhile may have changed it, so the second
+                // code is decided again on the locked row (the code-review minor m-2).
+                if (area.IsTopLevel && !access.Holds(PermissionCatalog.OrganizationsAreaCreate))
+                {
+                    throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
+                }
+
                 // A move of a deactivated project's node or sub-area is refused (BR-AW-10): the project is not found.
                 await AreaRequests.EnsureProjectActiveAsync(projects, organizationId, area, ct);
 

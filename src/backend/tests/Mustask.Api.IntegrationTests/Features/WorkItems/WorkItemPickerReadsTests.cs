@@ -50,11 +50,11 @@ public sealed class WorkItemPickerReadsTests(MustaskApiFactory factory)
         await OrganizationsTestData.AddAreaAsync(factory, operations.ProjectId, operations.RootAreaId, "Склад");
 
         var answer = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Get, OrganizationsApi.Areas(world.OrganizationId, world.ProjectId), token: OrganizationsTokens.SignedIn());
+            factory, HttpMethod.Get, OrganizationsApi.Project(world.OrganizationId, world.ProjectId) + "/areas", token: OrganizationsTokens.SignedIn());
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal(
-            ["Мастаск", "Отчёты", "Платформа", "Платформа / API"],
+            ["Мастаск", "Мастаск / Отчёты", "Мастаск / Платформа", "Мастаск / Платформа / API"],
             answer.Body.EnumerateArray().Select(node => node.GetProperty("path").GetString()));
     }
 }
