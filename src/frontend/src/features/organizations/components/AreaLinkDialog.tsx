@@ -1,42 +1,36 @@
 import { useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
 import { ConfirmDialog, FormDialog, InlineNotice } from '../../../shared/ui';
 import { useFocusInvalid } from '../hooks/useFocusInvalid';
-import { useAreaTree, useOrganizationTeams, useProjects } from '../hooks/queries';
+import { useAreaTree, useOrganizationTeams } from '../hooks/queries';
+import { departmentsOf } from '../lib/areaTree';
 import { areaLinkDialog, areaUnlinkDialog, type AreaLinkEnd } from '../lib/areaTexts';
 import { placeRefusal, type RefusalField } from '../lib/refusals';
 import { organizationAreasPath, organizationTeamsPath } from '../paths';
 import { LocalMultiPicker } from './AreaPickers';
 
-/** One thing the dialog offers: an area (by its path), a team, or a project (with its key). */
+/** One thing the dialog offers: a department (by its name) or a team. */
 export interface AreaLinkOption {
   id: string;
   name: string;
-  /** A project's key, shown beside its name. */
-  key?: string;
 }
 
 /** The field a chosen end's refusal lands on, and the section a «none exist» notice points at. */
 const END = {
-  areaProjects: { field: 'projects', section: null },
-  areaTeams: { field: 'teams', section: 'teams' },
-  projectAreas: { field: 'areas', section: 'areas' },
-  teamAreas: { field: 'areas', section: 'areas' },
-} as const satisfies Record<
-  AreaLinkEnd,
-  { field: RefusalField; section: 'teams' | 'areas' | null }
->;
+  departmentTeams: { field: 'teams', section: 'teams' },
+  teamDepartments: { field: 'areas', section: 'areas' },
+} as const satisfies Record<AreaLinkEnd, { field: RefusalField; section: 'teams' | 'areas' }>;
 
 /**
- * «Добавление … » (mod-018 design § 6.1): four ends, one component. The options are the organization's
- * active projects, active teams or areas (by path), read when the dialog opens, minus the ones the page
- * lists as linked; typed text narrows them locally (D-1). «Добавить» waits for a choice. Every state of
- * the list is named: loading, a failed read («Повторить»), all linked, nothing matches, none exist (an
- * information notice, «Добавить» unavailable). A chosen end that is gone lands under the field, the
- * options are read again and a choice no longer offered drops; the page's own end gone is the alert.
+ * «Добавление … » (mod-018 design § 6.1): two ends, one component. The options are the organization's
+ * active teams or its departments, read when the dialog opens, minus the ones the page lists as
+ * linked; typed text narrows them locally (D-1). Never a project node or a sub-area. «Добавить»
+ * waits for a choice. Every state of the list is named: loading, a failed read («Повторить»), all
+ * linked, nothing matches, none exist (an information notice, «Добавить» unavailable). A chosen end
+ * that is gone lands under the field, the options are read again and a choice no longer offered
+ * drops; the page's own end gone is the alert.
  */
 export function AreaLinkDialog({
   end,
@@ -49,7 +43,7 @@ export function AreaLinkDialog({
 }: {
   end: AreaLinkEnd;
   organizationId: string;
-  /** The page's own end: the area's, the project's or the team's name. */
+  /** The page's own end: the department's or the team's name. */
   ownName: string;
   /** What the page lists as linked already. */
   linkedIds: readonly string[];
@@ -59,16 +53,12 @@ export function AreaLinkDialog({
   onClose(contextGone: boolean): void;
 }) {
   const texts = areaLinkDialog[end];
-  const projects = useProjects(organizationId, 'active', {
-    enabled: end === 'areaProjects',
+  const teams = useOrganizationTeams(organizationId, {
+    enabled: end === 'departmentTeams',
     fresh: true,
   });
-  const teams = useOrganizationTeams(organizationId, { enabled: end === 'areaTeams', fresh: true });
-  const areas = useAreaTree(organizationId, {
-    enabled: end === 'projectAreas' || end === 'teamAreas',
-    fresh: true,
-  });
-  const query = end === 'areaProjects' ? projects : end === 'areaTeams' ? teams : areas;
+  const areas = useAreaTree(organizationId, { enabled: end === 'teamDepartments', fresh: true });
+  const query = end === 'departmentTeams' ? teams : areas;
   const [chosen, setChosen] = useState<AreaLinkOption[]>([]);
   const [fieldError, setFieldError] = useState<string | undefined>(undefined);
   const [alert, setAlert] = useState<string | null>(null);
@@ -77,11 +67,9 @@ export function AreaLinkDialog({
   const focusInvalid = useFocusInvalid();
 
   const everyone: AreaLinkOption[] =
-    end === 'areaProjects'
-      ? (projects.data ?? []).map(({ id, name, key }) => ({ id, name, key }))
-      : end === 'areaTeams'
-        ? (teams.data ?? []).map(({ id, name }) => ({ id, name }))
-        : (areas.data ?? []).map(({ id, path }) => ({ id, name: path }));
+    end === 'departmentTeams'
+      ? (teams.data ?? []).map(({ id, name }) => ({ id, name }))
+      : departmentsOf(areas.data ?? []).map(({ id, name }) => ({ id, name }));
   const options = everyone.filter((option) => !linkedIds.includes(option.id));
   const failed = query.isError && !query.isFetching;
   const noneExist = query.isSuccess && everyone.length === 0;
@@ -138,24 +126,18 @@ export function AreaLinkDialog({
         </InlineNotice>
       ) : noneExist ? (
         <InlineNotice severity="info">
-          {section === null ? (
-            texts.noneExist
-          ) : (
-            <>
-              {texts.noneExist}
-              <Link
-                component={RouterLink}
-                to={
-                  section === 'teams'
-                    ? organizationTeamsPath(organizationId)
-                    : organizationAreasPath(organizationId)
-                }
-              >
-                {'sectionName' in texts ? texts.sectionName : ''}
-              </Link>
-              {'.'}
-            </>
-          )}
+          {texts.noneExist}
+          <Link
+            component={RouterLink}
+            to={
+              section === 'teams'
+                ? organizationTeamsPath(organizationId)
+                : organizationAreasPath(organizationId)
+            }
+          >
+            {texts.sectionName}
+          </Link>
+          {'.'}
         </InlineNotice>
       ) : (
         <LocalMultiPicker<AreaLinkOption>
@@ -173,26 +155,14 @@ export function AreaLinkDialog({
           }}
           getKey={(option) => option.id}
           getLabel={(option) => option.name}
-          matchTexts={(option) => (option.key ? [option.key] : [])}
-          renderOption={(option) => (
-            <Box sx={{ display: 'flex', gap: 1, minWidth: 0, alignItems: 'baseline' }}>
-              <Box component="span">{option.name}</Box>
-              {option.key && (
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  {option.key}
-                </Typography>
-              )}
-            </Box>
-          )}
         />
       )}
     </FormDialog>
   );
 }
 
-/** The four unlinks of design § 6.2, each from the end whose page it is. */
-export type AreaUnlinkKind = 'areaProject' | 'areaTeam' | 'projectArea' | 'teamArea';
-
+/** The two unlinks of design § 6.2, each from the end whose page it is. */
+export type AreaUnlinkKind = 'departmentTeam' | 'teamDepartment';
 /**
  * «Отключение …» (design § 6.2): destructive, focus on «Отмена»; nothing is counted, an unlink changes
  * nothing else. An unlinked pair is a success. A refusal is the alert, and the page reads itself

@@ -85,11 +85,11 @@ describe('mod-003 US-1 Scenario: The type picker offers the organization’s fiv
 });
 
 describe('mod-003 US-1 Scenario: A work item is created with only a title', () => {
-  it('names the initial state, creates, closes, notifies, and the row is on top', async () => {
+  it('names the initial state and the root area, creates, closes, notifies, and the row is on top', async () => {
     const { api, dialog, title, submit } = await openDialog('Задача');
     expect(
       await within(dialog).findByText(
-        'Рабочий элемент будет создан в статусе «Новая». Остальные поля заполняются в его форме.',
+        'Рабочий элемент будет создан в статусе «Новая» в области «Мастаск». Остальные поля заполняются в его форме.',
       ),
     ).toBeInTheDocument();
 
@@ -122,6 +122,7 @@ describe('mod-003 US-1 Scenario: A work item is created with only a title', () =
       'Не назначен',
       'Новая',
       'Без команды',
+      'Мастаск',
       expect.any(String) as unknown as string,
     ]);
     expect(screen.getByTestId('location')).toHaveTextContent(MSK_LIST);
@@ -139,7 +140,7 @@ describe('mod-003 US-1 Scenario: A work item is created with only a title', () =
     await userEvent.click(await screen.findByRole('option', { name: 'Эпик' }));
 
     expect(within(dialog).getByRole('combobox', { name: 'Тип' })).toHaveTextContent('Эпик');
-    expect(dialog).toHaveTextContent('в статусе «Новая».');
+    expect(dialog).toHaveTextContent('в статусе «Новая» в области «Мастаск»');
   });
 });
 

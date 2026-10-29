@@ -1,47 +1,70 @@
-// Every string of the organization's area workspace that docs/features/mod-018-area-workspace/design.md
+// Every string of the organization's typed area tree that docs/features/mod-018-area-workspace/design.md
 // puts in the panel, in one place so no component types one (frontend.md "Forms"). The strings are the
 // design's, final; the section in the comment is where the design says it. The server's refusal texts are
 // the registry's and are shown as they come (`apiErrorText`), not repeated here.
+import type { AreaType } from '../api/organizationsApi';
 
-/** The tree's initial expansion (design D-3): everything while the tree has at most this many areas. */
+/** The tree's initial expansion (design D-3): everything while the tree has at most this many nodes. */
 export const TREE_EXPAND_ALL_LIMIT = 100;
 
 /** The pickers' list draws at most this many matches (design D-1). */
 export const PICKER_OPTION_LIMIT = 50;
 
+/** The type marks (design § 2): the label is the text, the icon is decoration. */
+export const typeLabels: Readonly<Record<AreaType, string>> = {
+  department: 'Департамент',
+  project: 'Проект',
+  area: 'Область',
+};
+
+/** «Организация»: the top level as a place, never a node (design D-8). */
+export const ORGANIZATION_PLACE = 'Организация';
+
 /** «Области» (design § 3). */
 export const areasPage = {
   title: 'Области',
-  create: 'Новая область',
+  create: 'Новый департамент',
   expandAll: 'Развернуть всё',
   collapseAll: 'Свернуть всё',
-  columns: { area: 'Область', description: 'Описание' },
+  columns: { name: 'Название', type: 'Тип', description: 'Описание' },
+  deactivated: 'деактивирован',
   rowMenu: (name: string) => `Действия: ${name}`,
   empty: {
-    heading: 'В организации пока нет областей',
+    heading: 'В организации пока нет департаментов и проектов',
     adminHint:
-      'Область объединяет проекты и команды организации. Создайте первую кнопкой «Новая область».',
+      'Департамент объединяет проекты и команды. Создайте первый кнопкой «Новый департамент»; проекты появляются в разделе «Проекты».',
     otherHint: 'Области создаёт администратор организации.',
   },
 } as const;
 
-/** The commands an area has, on its row and on its page (design §§ 3, 4). */
+/** The commands a node has, on its row and on its page (design §§ 3, 4). */
 export const areaCommands = {
-  createChild: 'Новая дочерняя область',
+  createChild: 'Новая вложенная область',
   rename: 'Переименовать',
   describe: 'Изменить описание',
   move: 'Переместить',
-  delete: 'Удалить область',
+  deleteDepartment: 'Удалить департамент',
+  deleteArea: 'Удалить область',
+  openProject: 'Открыть проект',
 } as const;
 
-/** An area's page (design § 4). */
+/** A node's page (design § 4). */
 export const areaPage = {
-  /** The title while the area loads, and when it fails. */
+  /** The title while the node loads, and when it fails. */
   titleLoading: 'Область',
-  title: (name: string) => `Область: ${name}`,
-  facts: { name: 'Название', parent: 'Родительская область', description: 'Описание' },
-  topLevel: 'Верхний уровень',
+  title: (type: AreaType, name: string) => `${typeLabels[type]}: ${name}`,
+  facts: {
+    name: 'Название',
+    type: 'Тип',
+    location: 'Расположение',
+    parent: 'Родительская область',
+    project: 'Проект',
+    description: 'Описание',
+  },
+  nameFollowsProject: 'Название меняется вместе с проектом.',
   noDescription: 'Описание не задано',
+  deactivatedNotice: (projectName: string) =>
+    `Проект «${projectName}» деактивирован: область доступна только для чтения. Чтобы изменить её, восстановите проект в списке деактивированных проектов организации.`,
   children: {
     title: 'Вложенные области',
     tableLabel: 'Вложенные области',
@@ -50,196 +73,190 @@ export const areaPage = {
   },
   projects: {
     title: 'Проекты',
-    add: 'Добавить проект',
-    tableLabel: 'Проекты области',
+    tableLabel: 'Проекты департамента',
     columns: { project: 'Проект', key: 'Ключ' },
-    empty: 'К области не привязаны проекты',
-    unlink: 'Отключить от области',
+    empty: 'В департаменте пока нет проектов.',
   },
   teams: {
     title: 'Команды',
     add: 'Добавить команду',
-    tableLabel: 'Команды области',
+    tableLabel: 'Команды департамента',
     columns: { team: 'Команда' },
     empty: 'К области не привязаны команды',
-    unlink: 'Отключить от области',
+    unlink: 'Отключить от департамента',
   },
-  rowMenu: (name: string) => `Ещё действия: ${name}`,
-} as const;
-
-/** The section «Области» of a project's «Общие» and of a team's page (design § 7). */
-export const endAreasSection = {
-  title: 'Области',
-  add: 'Добавить область',
-  project: {
-    tableLabel: 'Области проекта',
-    empty: 'Проект не входит ни в одну область',
+  projectTeams: {
+    title: 'Команды',
+    sameLinks: 'Это те же связи, что в разделе «Команды» проекта.',
+    tableLabel: 'Команды проекта',
+    add: 'Добавить команду',
     unlink: 'Отключить от проекта',
   },
-  team: {
-    tableLabel: 'Области команды',
-    empty: 'Команда не входит ни в одну область',
-    unlink: 'Отключить от команды',
-  },
-  column: 'Область',
   rowMenu: (name: string) => `Ещё действия: ${name}`,
 } as const;
 
-/** «Новая область» (design § 5.1). */
-export const createAreaDialog = {
-  title: 'Новая область',
+/** The project's «Области» page (design § 7). */
+export const projectAreasPage = {
+  title: 'Области',
+  emptyChildren:
+    'У проекта пока нет вложенных областей. Создайте первую кнопкой «Новая вложенная область».',
+  emptyChildrenReader: 'У проекта нет вложенных областей.',
+} as const;
+
+/** The section «Департаменты» of a team's page (design § 6, D-10). */
+export const teamDepartmentsSection = {
+  title: 'Департаменты',
+  add: 'Добавить департамент',
+  tableLabel: 'Департаменты команды',
+  column: 'Департамент',
+  empty: 'Команда не входит ни в один департамент',
+  unlink: 'Отключить от команды',
+  rowMenu: (name: string) => `Ещё действия: ${name}`,
+} as const;
+
+/** «Новый департамент» (design § 5.1). */
+export const createDepartmentDialog = {
+  title: 'Новый департамент',
   submit: 'Создать',
   name: { label: 'Название', hint: 'От 1 до 100 символов.' },
-  parent: {
-    label: 'Родительская область',
-    hint: 'Необязательно. По умолчанию область создаётся на верхнем уровне.',
-  },
   description: { label: 'Описание', hint: 'Необязательно. Не более 2000 символов.' },
-  projects: {
-    label: 'Проекты',
-    hint: 'Необязательно. Можно добавить позже.',
-    none: 'В организации нет активных проектов.',
-  },
   teams: {
     label: 'Команды',
     hint: 'Необязательно. Можно добавить позже.',
     none: 'В организации пока нет команд.',
   },
+  created: (name: string) => `Департамент «${name}» создан.`,
+} as const;
+
+/** «Новая вложенная область» (design § 5.2). */
+export const createSubAreaDialog = {
+  title: 'Новая вложенная область',
+  submit: 'Создать',
+  name: { label: 'Название', hint: 'От 1 до 100 символов.' },
+  parent: {
+    label: 'Родительская область',
+    helper: (projectName: string) => `Область создаётся внутри проекта «${projectName}».`,
+  },
+  description: { label: 'Описание', hint: 'Необязательно. Не более 2000 символов.' },
   created: (name: string) => `Область «${name}» создана.`,
 } as const;
 
-/** The rename and the description (design § 5.2). */
+/** The rename and the description (design § 5.3). */
 export const areaEditDialogs = {
   rename: {
-    title: 'Переименование области',
+    areaTitle: 'Переименование области',
+    departmentTitle: 'Переименование департамента',
     submit: 'Сохранить',
     helper: 'От 1 до 100 символов',
-    renamed: 'Область переименована.',
+    areaRenamed: 'Область переименована.',
+    departmentRenamed: 'Департамент переименован.',
   },
-  description: { title: 'Описание области', saved: 'Описание области сохранено.' },
+  description: { title: 'Описание области', saved: 'Описание сохранено.' },
 } as const;
 
-/** «Перемещение области» (design § 5.3). */
+/** The move, per type (design § 5.4). */
 export const moveAreaDialog = {
-  title: 'Перемещение области',
   submit: 'Переместить',
-  field: 'Новая родительская область',
-  withChildren: (name: string, count: number) =>
-    `Область «${name}» переместится вместе со всеми вложенными областями: ${count}.`,
-  leaf: (name: string) => `Область «${name}» переместится.`,
-  moved: (name: string) => `Область «${name}» перемещена.`,
+  project: {
+    title: 'Перемещение проекта',
+    field: 'Новое расположение',
+    withChildren: (name: string, count: number) =>
+      `Проект «${name}» переместится вместе со всеми вложенными областями: ${count}. Рабочие элементы, команды и связи проекта не изменятся.`,
+    leaf: (name: string) =>
+      `Проект «${name}» переместится. Рабочие элементы, команды и связи проекта не изменятся.`,
+    moved: (name: string) => `Проект «${name}» перемещён.`,
+  },
+  area: {
+    title: 'Перемещение области',
+    field: 'Новая родительская область',
+    withChildren: (name: string, count: number) =>
+      `Область «${name}» переместится вместе со всеми вложенными областями: ${count}.`,
+    leaf: (name: string) => `Область «${name}» переместится.`,
+    moved: (name: string) => `Область «${name}» перемещена.`,
+  },
 } as const;
 
-/** «Удаление области» (design § 5.4). */
+/** The deletion (design § 5.5). */
 export const deleteAreaDialog = {
-  title: 'Удаление области',
-  confirm: 'Удалить область',
-  withLinks: (name: string) =>
-    `Удалить область «${name}»? Её связи будут удалены, сами проекты и команды не изменятся.`,
-  noLinks: (name: string) => `Удалить область «${name}»? Восстановить область будет нельзя.`,
-  irreversible: 'Восстановить область будет нельзя.',
-  hasChildren: 'Нельзя удалить область, в которой есть вложенные области',
+  departmentTitle: 'Удаление департамента',
+  areaTitle: 'Удаление области',
+  departmentConfirm: 'Удалить департамент',
+  areaConfirm: 'Удалить область',
+  withTeams: (name: string) =>
+    `Удалить департамент «${name}»? Его связи с командами будут удалены, сами команды не изменятся.`,
+  departmentNoTeams: (name: string) =>
+    `Удалить департамент «${name}»? Восстановить департамент будет нельзя.`,
+  departmentIrreversible: 'Восстановить департамент будет нельзя.',
+  area: (name: string) => `Удалить область «${name}»? Восстановить область будет нельзя.`,
+  hasChildren:
+    'Нельзя удалить область, в которой есть проекты, вложенные области или рабочие элементы',
   teamsList: (count: number) => `Команды (${count})`,
-  projectsList: (count: number) => `Проекты (${count})`,
-  deactivated: 'деактивирован',
   notFound: 'Область не найдена.',
   forbidden: 'Недостаточно прав',
-  deleted: (name: string) => `Область «${name}» удалена.`,
+  departmentDeleted: (name: string) => `Департамент «${name}» удалён.`,
+  areaDeleted: (name: string) => `Область «${name}» удалена.`,
 } as const;
 
-/** The four ends of the link dialog (design § 6.1). */
-export type AreaLinkEnd = 'areaProjects' | 'areaTeams' | 'projectAreas' | 'teamAreas';
+/** The two ends of the link dialog (design § 6.1). */
+export type AreaLinkEnd = 'departmentTeams' | 'teamDepartments';
 
 export const areaLinkDialog = {
   submit: 'Добавить',
   retry: 'Повторить',
   more: (shown: number, total: number) => `Показаны первые ${shown} из ${total}. Уточните запрос.`,
-  areaProjects: {
-    title: 'Добавление проектов в область',
-    label: 'Проекты',
-    text: (own: string) =>
-      `Выбранные проекты войдут в область «${own}». Их рабочие элементы и доступ к ним это не меняет.`,
-    allLinked: 'Все проекты уже входят в область.',
-    noneExist: 'В организации нет активных проектов.',
-    loadFailed: 'Не удалось загрузить проекты. Попробуйте ещё раз.',
-    notFound: 'Проект не найден.',
-    linkedOne: (name: string) => `Проект «${name}» добавлен.`,
-    linkedMany: (count: number) => `Проекты добавлены: ${count}.`,
-  },
-  areaTeams: {
-    title: 'Добавление команд в область',
+  departmentTeams: {
+    title: 'Добавление команд в департамент',
     label: 'Команды',
     text: (own: string) =>
-      `Выбранные команды войдут в область «${own}». Работу команд и доступ их участников это не меняет.`,
-    allLinked: 'Все команды уже входят в область.',
+      `Выбранные команды войдут в департамент «${own}». Работу команд и доступ их участников это не меняет.`,
+    allLinked: 'Все команды уже входят в департамент.',
     noneExist: 'В организации пока нет команд. Создайте первую в разделе «Организация» → ',
     sectionName: '«Команды»',
     loadFailed: 'Не удалось загрузить команды. Попробуйте ещё раз.',
-    notFound: 'Команда не найдена.',
     linkedOne: (name: string) => `Команда «${name}» добавлена.`,
     linkedMany: (count: number) => `Команды добавлены: ${count}.`,
   },
-  projectAreas: {
-    title: 'Добавление областей в проект',
-    label: 'Области',
+  teamDepartments: {
+    title: 'Добавление департаментов в команду',
+    label: 'Департаменты',
     text: (own: string) =>
-      `Проект «${own}» войдёт в выбранные области. Его рабочие элементы и доступ к ним это не меняет.`,
-    allLinked: 'Проект уже входит во все области.',
-    noneExist: 'В организации пока нет областей. Создайте первую в разделе «Организация» → ',
+      `Команда «${own}» войдёт в выбранные департаменты. Её работу и доступ её участников это не меняет.`,
+    allLinked: 'Команда уже входит во все департаменты.',
+    noneExist: 'В организации пока нет департаментов. Создайте первый в разделе «Организация» → ',
     sectionName: '«Области»',
-    loadFailed: 'Не удалось загрузить области. Попробуйте ещё раз.',
-    notFound: 'Область не найдена.',
-    linkedOne: (name: string) => `Область «${name}» добавлена.`,
-    linkedMany: (count: number) => `Области добавлены: ${count}.`,
-  },
-  teamAreas: {
-    title: 'Добавление областей в команду',
-    label: 'Области',
-    text: (own: string) =>
-      `Команда «${own}» войдёт в выбранные области. Её работу и доступ её участников это не меняет.`,
-    allLinked: 'Команда уже входит во все области.',
-    noneExist: 'В организации пока нет областей. Создайте первую в разделе «Организация» → ',
-    sectionName: '«Области»',
-    loadFailed: 'Не удалось загрузить области. Попробуйте ещё раз.',
-    notFound: 'Область не найдена.',
-    linkedOne: (name: string) => `Область «${name}» добавлена.`,
-    linkedMany: (count: number) => `Области добавлены: ${count}.`,
+    loadFailed: 'Не удалось загрузить департаменты. Попробуйте ещё раз.',
+    linkedOne: (name: string) => `Департамент «${name}» добавлен.`,
+    linkedMany: (count: number) => `Департаменты добавлены: ${count}.`,
   },
 } as const;
 
 /** «Отключение …» (design § 6.2). */
 export const areaUnlinkDialog = {
   confirm: 'Отключить',
-  areaProject: {
-    title: 'Отключение проекта от области',
+  departmentTeam: {
+    title: 'Отключение команды от департамента',
     text: (name: string, own: string) =>
-      `Отключить проект «${name}» от области «${own}»? Сам проект и его рабочие элементы не изменятся.`,
-    done: 'Проект отключён от области.',
+      `Отключить команду «${name}» от департамента «${own}»? Сама команда и её рабочие элементы не изменятся.`,
+    done: 'Команда отключена от департамента.',
   },
-  areaTeam: {
-    title: 'Отключение команды от области',
+  teamDepartment: {
+    title: 'Отключение департамента от команды',
     text: (name: string, own: string) =>
-      `Отключить команду «${name}» от области «${own}»? Сама команда и её рабочие элементы не изменятся.`,
-    done: 'Команда отключена от области.',
-  },
-  projectArea: {
-    title: 'Отключение области от проекта',
-    text: (name: string, own: string) =>
-      `Отключить область «${name}» от проекта «${own}»? Сама область и проект не изменятся.`,
-    done: 'Область отключена от проекта.',
-  },
-  teamArea: {
-    title: 'Отключение области от команды',
-    text: (name: string, own: string) =>
-      `Отключить область «${name}» от команды «${own}»? Сама область и команда не изменятся.`,
-    done: 'Область отключена от команды.',
+      `Отключить департамент «${name}» от команды «${own}»? Сам департамент и команда не изменятся.`,
+    done: 'Департамент отключён от команды.',
   },
 } as const;
 
-/** The pickers of «Новый проект» and «Новая команда» (design § 7). */
-export const areasField = {
-  label: 'Области',
-  none: 'В организации пока нет областей.',
-  projectHint: 'Необязательно. Области можно добавить позже на странице проекта.',
-  teamHint: 'Необязательно. Области можно добавить позже на странице команды.',
+/** «Расположение» of «Новый проект» and of the project's «Общие» (design § 7). */
+export const placementField = {
+  label: 'Расположение',
+  hint: 'Необязательно. Без департамента проект появится на верхнем уровне.',
+  move: 'Переместить',
+} as const;
+
+/** The department picker of «Новая команда». */
+export const departmentsField = {
+  label: 'Департаменты',
+  none: 'В организации пока нет департаментов.',
+  teamHint: 'Необязательно. Департаменты можно добавить позже на странице команды.',
 } as const;

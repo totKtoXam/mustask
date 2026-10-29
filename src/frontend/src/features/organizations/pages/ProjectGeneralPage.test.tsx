@@ -52,7 +52,7 @@ describe('mod-002 US-3 Scenario: Rename keeps the key', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Переименовать' }));
     const dialog = await screen.findByRole('dialog', { name: 'Переименование проекта' });
-    expect(dialog).toHaveTextContent('Ключ, описание, команды и области проекта не изменятся.');
+    expect(dialog).toHaveTextContent('Ключ, описание и команды проекта не изменятся.');
     const field = within(dialog).getByRole('textbox', { name: 'Название' });
     await userEvent.clear(field);
     await userEvent.type(field, 'Пример');
@@ -76,8 +76,8 @@ describe('mod-002 US-3 Scenario: Rename keeps the key', () => {
     expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual([
       'Переименовать',
       'Изменить описание',
+      'Переместить',
       'Деактивировать',
-      'Добавить область',
     ]);
   });
 });
@@ -193,7 +193,7 @@ describe('mod-002 US-3 Scenario: A project is deactivated', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Деактивировать' }));
     const dialog = await screen.findByRole('dialog', { name: 'Деактивировать проект?' });
     expect(dialog).toHaveTextContent(
-      'Проект «Пример проекта» (PRM) пропадёт из списков и переключателя, а его страницы перестанут открываться. Ничего не будет удалено, связи с командами и областями сохранятся: проект можно восстановить в списке деактивированных проектов организации.',
+      'Проект «Пример проекта» (PRM) пропадёт из списков и переключателя, а его страницы перестанут открываться. Ничего не будет удалено, связи с командами сохранятся: проект можно восстановить в списке деактивированных проектов организации. Область проекта сохранится и станет доступной только для чтения.',
     );
     expect(within(dialog).getByRole('button', { name: 'Отмена' })).toHaveFocus();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Деактивировать' }));

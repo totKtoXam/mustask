@@ -107,7 +107,7 @@ export interface CreateTeamBody {
   description?: string;
   memberIds?: string[];
   projectIds?: string[];
-  /** mod-018 api-contract § 4. */
+  /** mod-018 api-contract § 5: departments only. */
   areaIds?: string[];
 }
 
@@ -117,54 +117,61 @@ export interface CreateProjectBody {
   key: string;
   description?: string;
   teamIds?: string[];
-  /** mod-018 api-contract § 4. */
-  areaIds?: string[];
+  /** mod-018 api-contract § 4: the department to place the project's node under; absent: the top level. */
+  parentAreaId?: string;
 }
 
-/** mod-018 api-contract § 1: one node of the organization's area tree, which comes in pre-order. */
+/** The wire `type` of an area node (mod-018 api-contract § 2, ADR-0031). */
+export type AreaType = 'department' | 'project' | 'area';
+
+/** mod-018 api-contract § 2: one node of the organization's area tree, which comes in pre-order. */
 export interface AreaNode {
   id: string;
   /** `null` at the top level. */
   parentId: string | null;
+  type: AreaType;
+  /** `null` for a department. */
+  projectId: string | null;
+  /** `null` for a department; `false`: the node's project is deactivated, the node is read-only. */
+  projectActive: boolean | null;
   name: string;
   description: string | null;
   /** Names from the top level joined by « / ». */
   path: string;
-  /** 0 at the top level. */
+  /** 1 at the top level. */
   depth: number;
 }
 
-/** mod-018 api-contract § 1: what every area write returns. */
+/** mod-018 api-contract § 2: what create, rename, describe and move return. */
 export interface Area {
   id: string;
   parentId: string | null;
+  type: AreaType;
+  projectId: string | null;
   name: string;
   description: string | null;
   path: string;
 }
 
-/** mod-018 api-contract § 1: an area as a project's or a team's page lists it. */
-export interface AreaRef {
+/** mod-018 api-contract § 2: a department as a team's page lists it. */
+export interface TeamArea {
   id: string;
   name: string;
   path: string;
 }
 
-/** mod-018 api-contract § 1: an area's own page: its parent and its direct children. */
+/** mod-018 api-contract § 2: a node's own page: its parent and its direct children. */
 export interface AreaPage {
   id: string;
   parentId: string | null;
+  type: AreaType;
+  projectId: string | null;
+  projectActive: boolean | null;
   name: string;
   description: string | null;
   path: string;
-  parent: AreaRef | null;
-  children: { id: string; name: string; description: string | null }[];
-}
-
-export interface LinkedProject {
-  id: string;
-  name: string;
-  key: string;
+  parent: { id: string; name: string; path: string } | null;
+  children: { id: string; type: AreaType; name: string; description: string | null }[];
 }
 
 export interface LinkedTeam {
@@ -172,18 +179,16 @@ export interface LinkedTeam {
   name: string;
 }
 
-/** mod-018 api-contract § 1: what an area's deletion ends — every link, deactivated projects included. */
+/** mod-018 api-contract § 2: what a department's deletion would end. */
 export interface AreaDeletion {
-  projects: { id: string; name: string; key: string; active: boolean }[];
   teams: { id: string; name: string }[];
 }
 
-/** mod-018 api-contract § 2: the creation of an area, with its links in the same operation. */
+/** mod-018 api-contract § 3: no `parentId` creates a department, with one a sub-area. */
 export interface CreateAreaBody {
   name: string;
   parentId?: string;
   description?: string;
-  projectIds?: string[];
   teamIds?: string[];
 }
 
@@ -413,13 +418,19 @@ export function setDefaultTeam(
   });
 }
 
-// mod-018 The organization's areas (api-contract §§ 2-3)
+// mod-018 The organization's areas (api-contract §§ 3-5)
 
-/** § 2: the whole tree in pre-order, siblings by name. */
+/** § 3: the whole tree in pre-order, siblings by name. */
 export function getAreaTree(organizationId: string): Promise<AreaNode[]> {
   return apiFetch(`${organizationApiPath(organizationId)}/areas`);
 }
 
+/** § 4: the project's node and the sub-areas below it, with the organization tree's own paths. */
+export function getProjectAreaTree(organizationId: string, projectId: string): Promise<AreaNode[]> {
+  return apiFetch(`${projectApiPath(organizationId, projectId)}/areas`);
+}
+
+/** § 3: no `parentId`: a department; with one: a sub-area. */
 export function createArea(organizationId: string, body: CreateAreaBody): Promise<Area> {
   return apiFetch(`${organizationApiPath(organizationId)}/areas`, { method: 'POST', body });
 }
@@ -435,7 +446,7 @@ export function renameArea(organizationId: string, areaId: string, name: string)
   });
 }
 
-/** § 2: `null` or an empty text clears it. */
+/** § 3: `null` or an empty text clears it. */
 export function describeArea(
   organizationId: string,
   areaId: string,
@@ -447,7 +458,7 @@ export function describeArea(
   });
 }
 
-/** § 2: `parentId: null` is the top level. */
+/** § 3: `parentId: null` is the top level (a project node only). */
 export function moveArea(
   organizationId: string,
   areaId: string,
@@ -463,38 +474,12 @@ export function deleteArea(organizationId: string, areaId: string): Promise<void
   return apiFetch(areaApiPath(organizationId, areaId), { method: 'DELETE' });
 }
 
-/** § 2: what the deletion ends; read when the confirmation opens. */
+/** § 3: what the deletion ends; read when the confirmation opens. */
 export function getAreaDeletion(organizationId: string, areaId: string): Promise<AreaDeletion> {
   return apiFetch(`${areaApiPath(organizationId, areaId)}/deletion`);
 }
 
-// § 3 The links, from the area's end and from the project's and the team's
-
-export function getAreaProjects(organizationId: string, areaId: string): Promise<LinkedProject[]> {
-  return apiFetch(`${areaApiPath(organizationId, areaId)}/projects`);
-}
-
-export function linkProjectsToArea(
-  organizationId: string,
-  areaId: string,
-  projectIds: readonly string[],
-): Promise<void> {
-  return apiFetch(`${areaApiPath(organizationId, areaId)}/projects`, {
-    method: 'POST',
-    body: { projectIds },
-  });
-}
-
-export function unlinkProjectFromArea(
-  organizationId: string,
-  areaId: string,
-  projectId: string,
-): Promise<void> {
-  return apiFetch(`${areaApiPath(organizationId, areaId)}/projects/${segment(projectId)}`, {
-    method: 'DELETE',
-  });
-}
-
+/** § 3: a department's linked teams (the other types answer an empty list). */
 export function getAreaTeams(organizationId: string, areaId: string): Promise<LinkedTeam[]> {
   return apiFetch(`${areaApiPath(organizationId, areaId)}/teams`);
 }
@@ -520,33 +505,9 @@ export function unlinkTeamFromArea(
   });
 }
 
-/** § 3: the project's linked areas, by path. */
-export function getProjectAreas(organizationId: string, projectId: string): Promise<AreaRef[]> {
-  return apiFetch(`${projectApiPath(organizationId, projectId)}/areas`);
-}
+// § 5 The team's end: the departments it is linked to
 
-export function linkAreasToProject(
-  organizationId: string,
-  projectId: string,
-  areaIds: readonly string[],
-): Promise<void> {
-  return apiFetch(`${projectApiPath(organizationId, projectId)}/areas`, {
-    method: 'POST',
-    body: { areaIds },
-  });
-}
-
-export function unlinkAreaFromProject(
-  organizationId: string,
-  projectId: string,
-  areaId: string,
-): Promise<void> {
-  return apiFetch(`${projectApiPath(organizationId, projectId)}/areas/${segment(areaId)}`, {
-    method: 'DELETE',
-  });
-}
-
-export function getTeamAreas(organizationId: string, teamId: string): Promise<AreaRef[]> {
+export function getTeamAreas(organizationId: string, teamId: string): Promise<TeamArea[]> {
   return apiFetch(`${teamApiPath(organizationId, teamId)}/areas`);
 }
 

@@ -3,6 +3,7 @@ import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
 import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
+import DriveFileMoveOutlinedIcon from '@mui/icons-material/DriveFileMoveOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import NotesOutlinedIcon from '@mui/icons-material/NotesOutlined';
 import { useAccessCheck } from '../../../shared/lib/access';
@@ -15,18 +16,21 @@ import { NotFound } from '../../../shared/ui/StateFrame';
 import { processDefinitionPath } from '../../process';
 import { ConfirmAction } from '../components/ConfirmAction';
 import { DescriptionDialog } from '../components/DescriptionDialog';
-import { EndAreasSection } from '../components/EndAreasSection';
+import { AreaNodeDialogs } from '../components/AreaNodeDialogs';
 import { FactsPanel } from '../components/FactsPanel';
 import { NameDialog } from '../components/NameDialog';
 import { useNotify } from '../components/notice';
 import { useDeactivateProject, useDescribeProject, useRenameProject } from '../hooks/mutations';
-import { useProject } from '../hooks/queries';
+import { useProject, useProjectAreaTree } from '../hooks/queries';
+import { commandKinds } from '../lib/areaCommands';
+import { placementField } from '../lib/areaTexts';
+import { placeOfProjectNode } from '../lib/areaTree';
 import { notFoundLevel } from '../lib/notFoundLevel';
 import { descriptionDialog, projectTexts } from '../lib/teamTexts';
 import { deactivatedProjectsPath } from '../paths';
 import { organizationsPermissions } from '../permissions';
 
-type Dialog = 'rename' | 'describe' | 'deactivate' | null;
+type Dialog = 'rename' | 'describe' | 'deactivate' | 'move' | null;
 
 /**
  * Project «Общие» (US-3; design § 8; feat-028 design § 8): the project's name, its «Описание»
@@ -45,6 +49,8 @@ export function ProjectGeneralPage() {
   const rename = useRenameProject(organizationId, projectId);
   const describe = useDescribeProject(organizationId, projectId);
   const deactivate = useDeactivateProject(organizationId, projectId);
+  const tree = useProjectAreaTree(organizationId, projectId);
+  const node = tree.data?.find((entry) => entry.type === 'project');
   const notify = useNotify();
   const navigate = useNavigate();
   const context = useWorkContext();
@@ -82,6 +88,19 @@ export function ProjectGeneralPage() {
         onClick: () => setDialog('describe'),
       });
     }
+    if (
+      node &&
+      commandKinds(node, {
+        canWrite: access(organizationsPermissions.areaWrite, 'organization'),
+        canCreate: access(organizationsPermissions.areaCreate, 'organization'),
+      }).includes('move')
+    ) {
+      commands.push({
+        label: placementField.move,
+        icon: <DriveFileMoveOutlinedIcon />,
+        onClick: () => setDialog('move'),
+      });
+    }
     if (access(organizationsPermissions.projectDeactivate, 'organization')) {
       commands.push({
         label: 'Деактивировать',
@@ -114,6 +133,9 @@ export function ProjectGeneralPage() {
                 </Box>
               ),
             },
+            ...(node
+              ? [{ label: placementField.label, value: placeOfProjectNode(node).label }]
+              : []),
             { label: 'Ключ', value: query.data.key, note: 'Задан при создании и не меняется' },
             {
               label: 'Типы рабочих элементов',
@@ -129,12 +151,14 @@ export function ProjectGeneralPage() {
           ]}
         />
       )}
-      {project && (
-        <EndAreasSection
-          end="project"
+      {dialog === 'move' && node && (
+        <AreaNodeDialogs
           organizationId={organizationId}
-          ownerId={project.id}
-          ownerName={project.name}
+          dialog={{ kind: 'move', node }}
+          canCreate={access(organizationsPermissions.areaCreate, 'organization')}
+          canLinkTeams={false}
+          onDone={() => setDialog(null)}
+          onClose={closeDialog}
         />
       )}
       {dialog === 'rename' && project && (

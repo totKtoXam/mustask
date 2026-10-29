@@ -11,29 +11,32 @@ import {
   InlineNotice,
   InlineTextArea,
   InlineTextField,
-  Tag,
   TruncatedText,
 } from '../../../shared/ui';
 import { organizationErrorCodes } from '../../../shared/api/errorCodes';
 import { ApiError } from '../../../shared/api/httpClient';
-import type {
-  Area,
-  AreaNode,
-  CreateAreaBody,
-  ProjectListItem,
-  TeamListItem,
-} from '../api/organizationsApi';
+import type { Area, AreaNode, CreateAreaBody, TeamListItem } from '../api/organizationsApi';
 import { useFocusInvalid } from '../hooks/useFocusInvalid';
 import { useFocusOnMount } from '../hooks/useFocusOnMount';
-import { useAreaDeletion, useAreaTree, useOrganizationTeams, useProjects } from '../hooks/queries';
 import {
-  TOP_LEVEL_OPTION,
+  useAreaDeletion,
+  useAreaTree,
+  useOrganizationTeams,
+  useProjectAreaTree,
+} from '../hooks/queries';
+import {
+  areaMoveOptions,
   descendantCount,
-  moveOptions,
-  parentOptions,
+  projectMoveOptions,
+  subAreaParentOptions,
   type PlaceOption,
 } from '../lib/areaTree';
-import { createAreaDialog, deleteAreaDialog, moveAreaDialog } from '../lib/areaTexts';
+import {
+  createDepartmentDialog,
+  createSubAreaDialog,
+  deleteAreaDialog,
+  moveAreaDialog,
+} from '../lib/areaTexts';
 import { placeRefusal, type RefusalField } from '../lib/refusals';
 import { descriptionError, nameError } from '../lib/validation';
 import { LocalMultiPicker, LocalPicker } from './AreaPickers';
@@ -51,47 +54,30 @@ const placeLabel = (place: PlaceOption) => place.label;
 const placeKey = (place: PlaceOption) => place.id ?? '__top__';
 
 /**
- * «Новая область» (mod-018 design § 5.1; US-1): «Название» (1–100 once trimmed), «Родительская область»
- * («Верхний уровень» first, only with `area.create`; every area by its path), «Описание» (at most
- * 2 000, as typed), and «Проекты» / «Команды» as two searchable multiselects, each drawn only with
- * the link codes of both ends. Checked on «Создать»; nothing is sent while a field is refused.
- * Refusals land on their field with the input kept; the lists are read again after a refusal of
- * the parent or of a chosen end, and a choice no longer offered drops.
+ * «Новый департамент» (mod-018 design § 5.1; US-1): «Название» (1–100 once trimmed), «Описание» (at
+ * most 2 000, as typed) and «Команды» as a searchable multiselect, drawn only with the link codes of
+ * both ends. There is no parent field: a department stands at the top (OQ-3 A). Checked on «Создать»;
+ * nothing is sent while a field is refused. Refusals land on their field with the input kept; the team
+ * list is read again after a refusal of a chosen team, and a choice no longer offered drops.
  */
-export function CreateAreaDialog({
+export function CreateDepartmentDialog({
   organizationId,
-  initialParentId,
-  canTopLevel,
-  canLinkProjects,
   canLinkTeams,
   submit,
   onSucceeded,
   onClose,
 }: DialogEnd<Area> & {
   organizationId: string;
-  /** `null`: the top level (from the header); an id: from a row menu or a page section. */
-  initialParentId: string | null;
-  /** The user holds `area.create`: «Верхний уровень» is offered. */
-  canTopLevel: boolean;
-  /** The user holds `area.link` and `project.link`. */
-  canLinkProjects: boolean;
   /** The user holds `area.link` and `team.link`. */
   canLinkTeams: boolean;
   submit(body: CreateAreaBody): Promise<Area>;
 }) {
-  const tree = useAreaTree(organizationId, { fresh: true });
-  const projectsQuery = useProjects(organizationId, 'active', {
-    enabled: canLinkProjects,
-    fresh: true,
-  });
   const teamsQuery = useOrganizationTeams(organizationId, {
     enabled: canLinkTeams,
     fresh: true,
   });
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [parentId, setParentId] = useState<string | null>(initialParentId);
-  const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [teams, setTeams] = useState<TeamListItem[]>([]);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [alert, setAlert] = useState<string | null>(null);
@@ -99,15 +85,6 @@ export function CreateAreaDialog({
   const [contextGone, setContextGone] = useState(false);
   const focusFirst = useFocusOnMount<HTMLInputElement>();
   const focusInvalid = useFocusInvalid();
-
-  const areas = tree.data ?? [];
-  const places = parentOptions(areas, canTopLevel);
-  const parent =
-    parentId === null
-      ? canTopLevel
-        ? TOP_LEVEL_OPTION
-        : null
-      : (places.find((place) => place.id === parentId) ?? null);
 
   async function handleSubmit() {
     const refused: FieldErrors = {};
@@ -121,9 +98,7 @@ export function CreateAreaDialog({
       return;
     }
     const body: CreateAreaBody = { name };
-    if (parent?.id) body.parentId = parent.id;
     if (description !== '') body.description = description;
-    if (canLinkProjects && projects.length > 0) body.projectIds = projects.map((entry) => entry.id);
     if (canLinkTeams && teams.length > 0) body.teamIds = teams.map((entry) => entry.id);
     setBusy(true);
     setAlert(null);
@@ -131,8 +106,7 @@ export function CreateAreaDialog({
     try {
       onSucceeded(await submit(body));
     } catch (error) {
-      const fields: RefusalField[] = ['name', 'parent', 'description'];
-      if (canLinkProjects) fields.push('projects');
+      const fields: RefusalField[] = ['name', 'description'];
       if (canLinkTeams) fields.push('teams');
       const placed = placeRefusal(error, fields);
       setErrors(placed.fields);
@@ -140,22 +114,6 @@ export function CreateAreaDialog({
       setContextGone((gone) => gone || placed.contextGone);
       setBusy(false);
       focusInvalid();
-      // The lists are read again; a choice no longer offered drops (design § 5.1).
-      if (placed.fields.parent !== undefined) {
-        void tree.refetch().then((result) => {
-          if (parentId !== null && !result.data?.some((area) => area.id === parentId)) {
-            setParentId(null);
-          }
-        });
-      }
-      if (placed.fields.projects !== undefined) {
-        void projectsQuery.refetch().then((result) => {
-          const offered = result.data;
-          if (offered) {
-            setProjects((current) => current.filter((p) => offered.some((o) => o.id === p.id)));
-          }
-        });
-      }
       if (placed.fields.teams !== undefined) {
         void teamsQuery.refetch().then((result) => {
           const offered = result.data;
@@ -170,8 +128,8 @@ export function CreateAreaDialog({
   return (
     <FormDialog
       open
-      title={createAreaDialog.title}
-      submitLabel={createAreaDialog.submit}
+      title={createDepartmentDialog.title}
+      submitLabel={createDepartmentDialog.submit}
       busy={busy}
       error={alert}
       onSubmit={() => void handleSubmit()}
@@ -179,10 +137,10 @@ export function CreateAreaDialog({
     >
       <InlineTextField
         ref={focusFirst}
-        label={createAreaDialog.name.label}
+        label={createDepartmentDialog.name.label}
         frame="always"
         required
-        hint={createAreaDialog.name.hint}
+        hint={createDepartmentDialog.name.hint}
         value={name}
         busy={busy}
         error={errors.name}
@@ -191,25 +149,10 @@ export function CreateAreaDialog({
           setErrors((current) => ({ ...current, name: undefined }));
         }}
       />
-      <LocalPicker<PlaceOption>
-        label={createAreaDialog.parent.label}
-        hint={createAreaDialog.parent.hint}
-        error={errors.parent}
-        busy={busy}
-        options={places}
-        loading={tree.isPending}
-        value={parent}
-        onChange={(next) => {
-          setParentId(next.id);
-          setErrors((current) => ({ ...current, parent: undefined }));
-        }}
-        getKey={placeKey}
-        getLabel={placeLabel}
-      />
       <InlineTextArea
-        label={createAreaDialog.description.label}
+        label={createDepartmentDialog.description.label}
         frame="always"
-        hint={createAreaDialog.description.hint}
+        hint={createDepartmentDialog.description.hint}
         value={description}
         busy={busy}
         error={errors.description}
@@ -218,42 +161,15 @@ export function CreateAreaDialog({
           setErrors((current) => ({ ...current, description: undefined }));
         }}
       />
-      {canLinkProjects && (
-        <LocalMultiPicker<ProjectListItem>
-          label={createAreaDialog.projects.label}
-          hint={createAreaDialog.projects.hint}
-          error={errors.projects}
-          busy={busy}
-          options={projectsQuery.data ?? []}
-          loading={projectsQuery.isPending}
-          emptyText={projectsQuery.isError ? undefined : createAreaDialog.projects.none}
-          value={projects}
-          onChange={(next) => {
-            setProjects(next);
-            setErrors((current) => ({ ...current, projects: undefined }));
-          }}
-          getKey={(project) => project.id}
-          getLabel={(project) => project.name}
-          matchTexts={(project) => [project.key]}
-          renderOption={(project) => (
-            <Box sx={{ display: 'flex', gap: 1, minWidth: 0, alignItems: 'baseline' }}>
-              <Box component="span">{project.name}</Box>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                {project.key}
-              </Typography>
-            </Box>
-          )}
-        />
-      )}
       {canLinkTeams && (
         <LocalMultiPicker<TeamListItem>
-          label={createAreaDialog.teams.label}
-          hint={createAreaDialog.teams.hint}
+          label={createDepartmentDialog.teams.label}
+          hint={createDepartmentDialog.teams.hint}
           error={errors.teams}
           busy={busy}
           options={teamsQuery.data ?? []}
           loading={teamsQuery.isPending}
-          emptyText={teamsQuery.isError ? undefined : createAreaDialog.teams.none}
+          emptyText={teamsQuery.isError ? undefined : createDepartmentDialog.teams.none}
           value={teams}
           onChange={(next) => {
             setTeams(next);
@@ -268,26 +184,166 @@ export function CreateAreaDialog({
 }
 
 /**
- * «Перемещение области» (design § 5.3; US-2): names what moves, then «Новая родительская область»
- * with nothing preselected, offering «Верхний уровень» (unless the area is top-level, and only with
- * `area.create`) and every area except the area, its descendants and its current parent (D-5).
- * Refusals sit under the field with the tree unchanged; «Область не найдена» is the destination's
- * when the area is still in the tree, and the alert (the page read again) when it is not.
+ * «Новая вложенная область» (design § 5.2; US-1): «Название», «Родительская область» (not clearable)
+ * over **the project's own subtree only** — its node and its sub-areas by path — and «Описание».
+ * The parent is preselected from a row menu or a page and changeable within that project. A refusal
+ * of the parent re-reads the subtree; a choice no longer offered drops.
+ */
+export function CreateSubAreaDialog({
+  organizationId,
+  projectId,
+  initialParentId,
+  submit,
+  onSucceeded,
+  onClose,
+}: DialogEnd<Area> & {
+  organizationId: string;
+  projectId: string;
+  initialParentId: string | null;
+  submit(body: CreateAreaBody): Promise<Area>;
+}) {
+  const tree = useProjectAreaTree(organizationId, projectId, { fresh: true });
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [parentId, setParentId] = useState<string | null>(initialParentId);
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [alert, setAlert] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [contextGone, setContextGone] = useState(false);
+  const focusFirst = useFocusOnMount<HTMLInputElement>();
+  const focusInvalid = useFocusInvalid();
+
+  const nodes = tree.data ?? [];
+  const places = subAreaParentOptions(nodes);
+  const parent = places.find((place) => place.id === (parentId ?? nodes[0]?.id)) ?? null;
+  const projectName = nodes.find((node) => node.type === 'project')?.name ?? '';
+
+  async function handleSubmit() {
+    const refused: FieldErrors = {};
+    const nameRefusal = nameError(name);
+    const descriptionRefusal = descriptionError(description);
+    if (nameRefusal) refused.name = nameRefusal;
+    if (descriptionRefusal) refused.description = descriptionRefusal;
+    if (Object.keys(refused).length > 0) {
+      setErrors(refused);
+      focusInvalid();
+      return;
+    }
+    if (!parent?.id) {
+      return;
+    }
+    const body: CreateAreaBody = { name, parentId: parent.id };
+    if (description !== '') body.description = description;
+    setBusy(true);
+    setAlert(null);
+    setErrors({});
+    try {
+      onSucceeded(await submit(body));
+    } catch (error) {
+      const placed = placeRefusal(error, ['name', 'parent', 'description']);
+      setErrors(placed.fields);
+      setAlert(placed.alert);
+      setContextGone((gone) => gone || placed.contextGone);
+      setBusy(false);
+      focusInvalid();
+      if (placed.fields.parent !== undefined) {
+        void tree.refetch().then((result) => {
+          if (parentId !== null && !result.data?.some((node) => node.id === parentId)) {
+            setParentId(null);
+          }
+        });
+      }
+    }
+  }
+
+  return (
+    <FormDialog
+      open
+      title={createSubAreaDialog.title}
+      submitLabel={createSubAreaDialog.submit}
+      busy={busy}
+      error={alert}
+      submitDisabled={parent === null}
+      onSubmit={() => void handleSubmit()}
+      onClose={() => onClose(contextGone)}
+    >
+      <InlineTextField
+        ref={focusFirst}
+        label={createSubAreaDialog.name.label}
+        frame="always"
+        required
+        hint={createSubAreaDialog.name.hint}
+        value={name}
+        busy={busy}
+        error={errors.name}
+        onChange={(next) => {
+          setName(next);
+          setErrors((current) => ({ ...current, name: undefined }));
+        }}
+      />
+      <LocalPicker<PlaceOption>
+        label={createSubAreaDialog.parent.label}
+        required
+        hint={projectName ? createSubAreaDialog.parent.helper(projectName) : undefined}
+        error={errors.parent}
+        busy={busy}
+        options={places}
+        loading={tree.isPending}
+        value={parent}
+        onChange={(next) => {
+          setParentId(next.id);
+          setErrors((current) => ({ ...current, parent: undefined }));
+        }}
+        getKey={placeKey}
+        getLabel={placeLabel}
+      />
+      <InlineTextArea
+        label={createSubAreaDialog.description.label}
+        frame="always"
+        hint={createSubAreaDialog.description.hint}
+        value={description}
+        busy={busy}
+        error={errors.description}
+        onChange={(next) => {
+          setDescription(next);
+          setErrors((current) => ({ ...current, description: undefined }));
+        }}
+      />
+    </FormDialog>
+  );
+}
+
+/** The node a move dialog works on. */
+export type MovableNode = Pick<AreaNode, 'id' | 'name' | 'type' | 'parentId' | 'projectId'>;
+
+/**
+ * The move, per type (design § 5.4; BR-AW-3): a project's «Перемещение проекта» offers «Организация»
+ * and the departments; a sub-area's «Перемещение области» offers its own project's nodes. Nothing is
+ * preselected; «Переместить» waits for a place. Refusals sit under the field with the tree unchanged;
+ * «Область не найдена» is the destination's when the node is still in the tree and the alert (the
+ * page read again) when it is not. Moving to or from the top level needs `area.create`.
  */
 export function MoveAreaDialog({
   organizationId,
-  area,
+  node,
   canTopLevel,
   submit,
   onSucceeded,
   onClose,
 }: DialogEnd<{ parentId: string | null }> & {
   organizationId: string;
-  area: AreaNode;
+  node: MovableNode;
   canTopLevel: boolean;
   submit(parentId: string | null): Promise<unknown>;
 }) {
-  const tree = useAreaTree(organizationId, { fresh: true });
+  const isProject = node.type === 'project';
+  const orgTree = useAreaTree(organizationId, { enabled: isProject, fresh: true });
+  const projectTree = useProjectAreaTree(organizationId, node.projectId ?? '', {
+    enabled: !isProject && node.projectId !== null,
+    fresh: true,
+  });
+  const tree = isProject ? orgTree : projectTree;
+  const texts = isProject ? moveAreaDialog.project : moveAreaDialog.area;
   const [parent, setParent] = useState<PlaceOption | null>(null);
   const [fieldError, setFieldError] = useState<string | undefined>(undefined);
   const [alert, setAlert] = useState<string | null>(null);
@@ -295,9 +351,14 @@ export function MoveAreaDialog({
   const [contextGone, setContextGone] = useState(false);
   const focusField = useFocusOnMount<HTMLInputElement>();
   const focusInvalid = useFocusInvalid();
-  const areas = tree.data ?? [];
-  const options = moveOptions(areas, area.id, canTopLevel);
-  const below = descendantCount(areas, area.id);
+  const nodes = tree.data ?? [];
+  const options = (
+    isProject
+      ? projectMoveOptions(nodes, node.parentId)
+      : areaMoveOptions(nodes, node.id, node.parentId)
+  ).filter((place) => place.id !== null || canTopLevel);
+  const below = descendantCount(nodes, node.id);
+  const field: RefusalField = isProject ? 'location' : 'parent';
 
   async function handleSubmit() {
     if (!parent) {
@@ -310,17 +371,17 @@ export function MoveAreaDialog({
       await submit(parent.id);
       onSucceeded({ parentId: parent.id });
     } catch (error) {
-      let placed = placeRefusal(error, ['parent']);
+      let placed = placeRefusal(error, [field]);
       if (error instanceof ApiError && error.errorCode === organizationErrorCodes.areaNotFound) {
-        // The destination or the area itself: the tree says which.
+        // The destination or the node itself: the tree says which.
         const result = await tree.refetch();
-        if (!result.data?.some((candidate) => candidate.id === area.id)) {
+        if (!result.data?.some((candidate) => candidate.id === node.id)) {
           placed = { fields: {}, alert: deleteAreaDialog.notFound, contextGone: true };
         } else if (parent.id !== null && !result.data.some((c) => c.id === parent.id)) {
           setParent(null);
         }
       }
-      setFieldError(placed.fields.parent);
+      setFieldError(placed.fields[field]);
       setAlert(placed.alert);
       setContextGone((gone) => gone || placed.contextGone);
       setBusy(false);
@@ -331,7 +392,7 @@ export function MoveAreaDialog({
   return (
     <FormDialog
       open
-      title={moveAreaDialog.title}
+      title={texts.title}
       submitLabel={moveAreaDialog.submit}
       busy={busy}
       error={alert}
@@ -340,11 +401,12 @@ export function MoveAreaDialog({
       onClose={() => onClose(contextGone)}
     >
       <Typography variant="body2" color="text.secondary">
-        {below > 0 ? moveAreaDialog.withChildren(area.name, below) : moveAreaDialog.leaf(area.name)}
+        {below > 0 ? texts.withChildren(node.name, below) : texts.leaf(node.name)}
       </Typography>
       <LocalPicker<PlaceOption>
         inputRef={focusField}
-        label={moveAreaDialog.field}
+        label={texts.field}
+        required
         error={fieldError}
         busy={busy}
         options={options}
@@ -362,10 +424,10 @@ export function MoveAreaDialog({
 }
 
 /**
- * «Удаление области» (design § 5.4; BR-AW-9): destructive, focus on «Отмена». Every link is named —
- * the projects (a deactivated one tagged) and the teams — read when the dialog opens. An area the tree
- * knows to have children says so in place of the question and its links are not read. A refusal is
- * the alert, and the page reads itself again when the dialog closes.
+ * The deletion (design § 5.5; BR-AW-9): destructive, focus on «Отмена». A department names its team
+ * links, read when the dialog opens; a sub-area has none to count. A node the tree knows to have
+ * children says so in place of the question. A refusal is the alert, and the page reads itself
+ * again when the dialog closes. A project node is never deleted here: it goes with its project.
  */
 export function DeleteAreaDialog({
   organizationId,
@@ -376,12 +438,13 @@ export function DeleteAreaDialog({
   onClose,
 }: DialogEnd<unknown> & {
   organizationId: string;
-  area: { id: string; name: string };
-  /** The tree knows a child of the area. */
+  area: { id: string; name: string; type: 'department' | 'area' };
+  /** The tree knows a child of the node. */
   hasChildren: boolean;
   action(): Promise<unknown>;
 }) {
-  const links = useAreaDeletion(organizationId, area.id, { enabled: !hasChildren });
+  const isDepartment = area.type === 'department';
+  const links = useAreaDeletion(organizationId, area.id, { enabled: isDepartment && !hasChildren });
   const [busy, setBusy] = useState(false);
   const [alert, setAlert] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
@@ -393,88 +456,69 @@ export function DeleteAreaDialog({
       onSucceeded(await action());
     } catch (error) {
       setAlert(placeRefusal(error, []).alert);
-      // The area, its children or the code changed: whatever the page shows is no longer true.
+      // The node, its children or the code changed: whatever the page shows is no longer true.
       setStale(true);
       setBusy(false);
     }
   }
 
-  const counting = !hasChildren && (links.isPending || (links.isError && links.isFetching));
-  const projects = links.data?.projects ?? [];
+  const counting =
+    isDepartment && !hasChildren && (links.isPending || (links.isError && links.isFetching));
   const teams = links.data?.teams ?? [];
-  const hasLinks = projects.length + teams.length > 0;
+  const ready = hasChildren ? false : isDepartment ? links.isSuccess : true;
 
   return (
     <ConfirmDialog
       open
-      title={deleteAreaDialog.title}
-      confirmLabel={deleteAreaDialog.confirm}
+      title={isDepartment ? deleteAreaDialog.departmentTitle : deleteAreaDialog.areaTitle}
+      confirmLabel={
+        isDepartment ? deleteAreaDialog.departmentConfirm : deleteAreaDialog.areaConfirm
+      }
       destructive
       cancelAutoFocus
       busy={busy}
       error={alert}
-      confirmDisabled={hasChildren || !links.isSuccess}
+      confirmDisabled={!ready}
       onConfirm={() => void confirm()}
       onClose={() => onClose(stale)}
     >
       {hasChildren ? (
         <InlineNotice severity="warning">{deleteAreaDialog.hasChildren}</InlineNotice>
       ) : counting ? (
-        <FieldsSkeleton count={2} />
-      ) : links.isError ? (
+        <FieldsSkeleton count={1} />
+      ) : isDepartment && links.isError ? (
         <InlineNotice
           severity="error"
           action={{ label: 'Повторить', onClick: () => void links.refetch() }}
         >
           {apiErrorText(links.error)}
         </InlineNotice>
-      ) : hasLinks ? (
+      ) : !isDepartment ? (
+        <Typography variant="body1">{deleteAreaDialog.area(area.name)}</Typography>
+      ) : teams.length > 0 ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Typography variant="body1">{deleteAreaDialog.withLinks(area.name)}</Typography>
+          <Typography variant="body1">{deleteAreaDialog.withTeams(area.name)}</Typography>
           <Box
             sx={(theme) => ({ maxHeight: theme.spacing(40), overflowY: 'auto' })}
             tabIndex={0}
             role="group"
-            aria-label={deleteAreaDialog.title}
+            aria-label={deleteAreaDialog.departmentTitle}
           >
-            {teams.length > 0 && (
-              <>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  {deleteAreaDialog.teamsList(teams.length)}
-                </Typography>
-                <List dense disablePadding>
-                  {teams.map((team) => (
-                    <ListItem key={team.id} disableGutters>
-                      <TruncatedText>{team.name}</TruncatedText>
-                    </ListItem>
-                  ))}
-                </List>
-              </>
-            )}
-            {projects.length > 0 && (
-              <>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  {deleteAreaDialog.projectsList(projects.length)}
-                </Typography>
-                <List dense disablePadding>
-                  {projects.map((project) => (
-                    <ListItem
-                      key={project.id}
-                      disableGutters
-                      sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-                    >
-                      <TruncatedText>{project.name}</TruncatedText>
-                      {!project.active && <Tag label={deleteAreaDialog.deactivated} />}
-                    </ListItem>
-                  ))}
-                </List>
-              </>
-            )}
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              {deleteAreaDialog.teamsList(teams.length)}
+            </Typography>
+            <List dense disablePadding>
+              {teams.map((team) => (
+                <ListItem key={team.id} disableGutters>
+                  <TruncatedText>{team.name}</TruncatedText>
+                </ListItem>
+              ))}
+            </List>
           </Box>
-          <Typography variant="body1">{deleteAreaDialog.irreversible}</Typography>
+          <Typography variant="body1">{deleteAreaDialog.departmentIrreversible}</Typography>
         </Box>
       ) : (
-        <Typography variant="body1">{deleteAreaDialog.noLinks(area.name)}</Typography>
+        <Typography variant="body1">{deleteAreaDialog.departmentNoTeams(area.name)}</Typography>
       )}
     </ConfirmDialog>
   );

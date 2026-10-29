@@ -38,6 +38,7 @@ import type { RefusalField } from '../../lib/refusals';
 import { workItemPath } from '../../paths';
 import { workItemsPermissions } from '../../permissions';
 import { AcceptanceCriteriaSection } from '../AcceptanceCriteriaSection';
+import { AreaField } from './AreaField';
 import { AssigneeField } from './AssigneeField';
 import { CardActions } from './CardActions';
 import { CardTeamField } from './CardTeamField';
@@ -493,7 +494,16 @@ export function WorkItemCard({
         {slots.reason}
       </>,
       <>
-        {/* mod-018 design § 8, D-6: «Команда» is row 1 of block B, «Итерация» row 2. */}
+        <AreaField
+          organizationId={organizationId}
+          projectId={projectId}
+          value={draft.area}
+          error={errors.area}
+          onChange={on.area}
+          inputRef={fields.ref('area')}
+          {...common}
+        />
+        {/* mod-017 design § 3: row 2 of block B, under «Область»; «Итерация» moves to row 3. */}
         <CardTeamField
           organizationId={organizationId}
           projectId={projectId}

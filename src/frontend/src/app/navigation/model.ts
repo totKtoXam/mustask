@@ -22,6 +22,7 @@ import {
   organizationsPermissions,
   projectGeneralPath,
   projectsPath,
+  areasPath,
   teamsPath,
 } from '../../features/organizations';
 import { processDefinitionPath, processPermissions } from '../../features/process';
@@ -220,6 +221,17 @@ export const navigationModel: NavigationModel = {
           landing: (selection) =>
             selection.organizationId && selection.projectId
               ? teamsPath(selection.organizationId, selection.projectId)
+              : null,
+        },
+        // mod-018 (design § 7): the project's own subtree of the area tree.
+        {
+          id: 'areas',
+          label: 'Области',
+          scope: 'project',
+          permission: organizationsPermissions.areaRead,
+          landing: (selection) =>
+            selection.organizationId && selection.projectId
+              ? areasPath(selection.organizationId, selection.projectId)
               : null,
         },
       ],

@@ -17,10 +17,12 @@ import { ProjectGeneralPage } from './pages/ProjectGeneralPage';
 import { ProjectListPage } from './pages/ProjectListPage';
 import { AreaPage } from './pages/AreaPage';
 import { AreasPage } from './pages/AreasPage';
+import { ProjectAreasPage } from './pages/ProjectAreasPage';
 import { OrganizationTeamsPage } from './pages/OrganizationTeamsPage';
 import { TeamPage } from './pages/TeamPage';
 import { TeamsPage } from './pages/TeamsPage';
 import {
+  AREAS_ROUTE,
   ORG_AREAS_ROUTE,
   ORG_AREA_ROUTE,
   DEACTIVATED_ORGANIZATIONS_ROUTE,
@@ -156,6 +158,7 @@ export function renderPage({
                     <Route path={TEAMS_ROUTE} element={<TeamsPage />} />
                     <Route path={ORG_TEAMS_ROUTE} element={<OrganizationTeamsPage />} />
                     <Route path={ORG_TEAM_ROUTE} element={<TeamPage />} />
+                    <Route path={AREAS_ROUTE} element={<ProjectAreasPage />} />
                     <Route path={ORG_AREAS_ROUTE} element={<AreasPage />} />
                     <Route path={ORG_AREA_ROUTE} element={<AreaPage />} />
                     <Route path="*" element={<p>Другая страница</p>} />

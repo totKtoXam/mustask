@@ -2,10 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import {
   getArea,
   getAreaDeletion,
-  getAreaProjects,
   getAreaTeams,
   getAreaTree,
-  getProjectAreas,
+  getProjectAreaTree,
   getTeamAreas,
   getDeletionCounts,
   getOrganization,
@@ -150,7 +149,7 @@ export function useUnlinkCount(organizationId: string, projectId: string, teamId
 }
 
 /**
- * The organization's area tree (mod-018 § 2). `fresh`: a dialog that offers the areas reads them
+ * The organization's area tree (mod-018 § 3). `fresh`: a dialog that offers the nodes reads them
  * again when it opens (design § 6.1).
  */
 export function useAreaTree(
@@ -165,7 +164,24 @@ export function useAreaTree(
   });
 }
 
-/** An area's page: its parent and its direct children (§ 2). */
+/**
+ * A project's subtree: its node and the sub-areas below it (mod-018 § 4). It is the offer of the
+ * work item's «Область», of the sub-area dialogs and the project's «Области» page.
+ */
+export function useProjectAreaTree(
+  organizationId: string,
+  projectId: string,
+  options: { enabled?: boolean; fresh?: boolean } = {},
+) {
+  return useQuery({
+    queryKey: organizationsKeys.projectAreaTree(organizationId, projectId),
+    queryFn: () => getProjectAreaTree(organizationId, projectId),
+    enabled: options.enabled ?? true,
+    refetchOnMount: options.fresh ? 'always' : true,
+  });
+}
+
+/** A node's page: its parent and its direct children (§ 3). */
 export function useArea(organizationId: string, areaId: string) {
   return useQuery({
     queryKey: organizationsKeys.area(organizationId, areaId),
@@ -173,25 +189,19 @@ export function useArea(organizationId: string, areaId: string) {
   });
 }
 
-/** An area's active projects, its own links only (§ 3). `fresh`: as a dialog opens. */
-export function useAreaProjects(organizationId: string, areaId: string) {
+/** A department's teams, its own links only (§ 3). */
+export function useAreaTeams(organizationId: string, areaId: string, enabled = true) {
   return useQuery({
-    queryKey: organizationsKeys.areaProjects(organizationId, areaId),
-    queryFn: () => getAreaProjects(organizationId, areaId),
-  });
-}
-
-export function useAreaTeams(organizationId: string, areaId: string) {
-  return useQuery({
+    enabled,
     queryKey: organizationsKeys.areaTeams(organizationId, areaId),
     queryFn: () => getAreaTeams(organizationId, areaId),
   });
 }
 
 /**
- * mod-018 § 2: what an area's deletion would end, read when the confirmation opens and kept for no
- * longer (`gcTime: 0`). Never retried: a failure is the dialog's «Повторить». `enabled` is off while
- * the tree already says the area has children (design § 5.4).
+ * mod-018 § 3: what a department's deletion would end, read when the confirmation opens and kept
+ * for no longer (`gcTime: 0`). Never retried: a failure is the dialog's «Повторить». `enabled` is
+ * off while the tree already says the node has children (design § 5.5).
  */
 export function useAreaDeletion(
   organizationId: string,
@@ -207,16 +217,7 @@ export function useAreaDeletion(
   });
 }
 
-/** A project's linked areas, by path (§ 3). */
-export function useProjectAreas(organizationId: string, projectId: string, enabled = true) {
-  return useQuery({
-    enabled,
-    queryKey: organizationsKeys.projectAreas(organizationId, projectId),
-    queryFn: () => getProjectAreas(organizationId, projectId),
-  });
-}
-
-/** A team's linked areas, by path (§ 3). */
+/** A team's linked departments, by path (§ 5). */
 export function useTeamAreas(organizationId: string, teamId: string, enabled = true) {
   return useQuery({
     enabled,

@@ -3,13 +3,18 @@ import { getAreaTree, type AreaNode } from '../api/organizationsApi';
 import { ids } from '../testFixtures';
 import { serveOrganizations } from '../testApi';
 import {
+  areaMoveOptions,
   descendantCount,
+  departmentsOf,
   expandableIds,
   hasChildren,
   initialExpansion,
-  moveOptions,
+  isReadOnly,
   narrow,
-  parentOptions,
+  placeOfProjectNode,
+  placementOptions,
+  projectMoveOptions,
+  subAreaParentOptions,
   subtreeIds,
 } from './areaTree';
 
@@ -23,77 +28,101 @@ function manyAreas(count: number): AreaNode[] {
   return Array.from({ length: count }, (_, index) => ({
     id: `a${index}`,
     parentId: index === 0 ? null : 'a0',
+    type: index === 0 ? ('department' as const) : ('project' as const),
+    projectId: index === 0 ? null : `p${index}`,
+    projectActive: index === 0 ? null : true,
     name: `Область ${index}`,
     description: null,
     path: index === 0 ? 'Область 0' : `Область 0 / Область ${index}`,
-    depth: index === 0 ? 0 : 1,
+    depth: index === 0 ? 1 : 2,
   }));
 }
 
 describe('mod-018 the example tree as the read gives it', () => {
-  it('is in pre-order, siblings alphabetical, paths from the top level', async () => {
+  it('is in pre-order, siblings alphabetical, project nodes named as their projects', async () => {
     const tree = await exampleTree();
 
-    expect(tree.map((node) => [node.path, node.depth])).toEqual([
-      ['Мобильное приложение', 0],
-      ['Отчёты', 0],
-      ['Платформа', 0],
-      ['Платформа / API', 1],
-      ['Платформа / API / Шлюз', 2],
+    expect(tree.map((node) => [node.type, node.path, node.depth])).toEqual([
+      ['project', 'Аналитика', 1],
+      ['department', 'Отчёты', 1],
+      ['department', 'Платформа', 1],
+      ['project', 'Платформа / Пример проекта', 2],
+      ['area', 'Платформа / Пример проекта / Мобильное приложение', 3],
+      ['area', 'Платформа / Пример проекта / API', 3],
+      ['area', 'Платформа / Пример проекта / API / Шлюз', 4],
+      ['project', 'Старый проект', 1],
     ]);
+    expect(isReadOnly(tree[tree.length - 1]!)).toBe(true);
+    expect(isReadOnly(tree[0]!)).toBe(false);
   });
 });
 
-describe('mod-018 design § 5.3 and D-5: the places a new or a moved area can take', () => {
-  it('offers «Верхний уровень» first and only with `area.create`', async () => {
+describe('mod-018 design §§ 5.2, 5.4 and D-5: the places a new or a moved node can take', () => {
+  it('offers «Организация» first, then every department, for a new project', async () => {
     const tree = await exampleTree();
 
-    expect(parentOptions(tree, true)[0]).toEqual({ id: null, label: 'Верхний уровень' });
-    expect(
-      parentOptions(tree, true)
-        .map((option) => option.label)
-        .slice(1),
-    ).toEqual(tree.map((node) => node.path));
-    expect(parentOptions(tree, false).map((option) => option.id)).toEqual(
-      tree.map((node) => node.id),
-    );
+    expect(departmentsOf(tree).map((node) => node.name)).toEqual(['Отчёты', 'Платформа']);
+    expect(placementOptions(tree)).toEqual([
+      { id: null, label: 'Организация' },
+      { id: ids.reportsArea, label: 'Отчёты' },
+      { id: ids.platformArea, label: 'Платформа' },
+    ]);
   });
 
-  it('leaves the node, its subtree and its current parent out of a move, in tree order', async () => {
+  it('offers a project every place but its current one', async () => {
     const tree = await exampleTree();
 
-    expect(moveOptions(tree, ids.apiArea, true).map((option) => option.label)).toEqual([
-      'Верхний уровень',
-      'Мобильное приложение',
+    expect(projectMoveOptions(tree, ids.platformArea).map((option) => option.label)).toEqual([
+      'Организация',
       'Отчёты',
     ]);
-    expect(subtreeIds(tree, ids.platformArea)).toEqual(
-      new Set([ids.platformArea, ids.apiArea, ids.gatewayArea]),
-    );
-    expect(descendantCount(tree, ids.platformArea)).toBe(2);
+    expect(projectMoveOptions(tree, null).map((option) => option.label)).toEqual([
+      'Отчёты',
+      'Платформа',
+    ]);
   });
 
-  it('offers «Верхний уровень» to an area below the top, and to no top-level area (it is there already)', async () => {
+  it('offers a sub-area its project’s subtree, minus itself, its subtree and its parent', async () => {
     const tree = await exampleTree();
+    const subtree = tree.filter((node) => node.projectId === ids.prm);
 
-    expect(moveOptions(tree, ids.reportsArea, true).some((option) => option.id === null)).toBe(
-      false,
-    );
-    expect(moveOptions(tree, ids.apiArea, false).some((option) => option.id === null)).toBe(false);
+    expect(subAreaParentOptions(subtree).map((option) => option.label)).toEqual([
+      'Платформа / Пример проекта',
+      'Платформа / Пример проекта / Мобильное приложение',
+      'Платформа / Пример проекта / API',
+      'Платформа / Пример проекта / API / Шлюз',
+    ]);
+    expect(
+      areaMoveOptions(subtree, ids.apiArea, ids.prmRoot).map((option) => option.label),
+    ).toEqual(['Платформа / Пример проекта / Мобильное приложение']);
+    expect(subtreeIds(tree, ids.apiArea)).toEqual(new Set([ids.apiArea, ids.gatewayArea]));
+    expect(descendantCount(tree, ids.platformArea)).toBe(4);
+  });
+
+  it('reads a project’s place off its node: its department, or «Организация»', async () => {
+    const tree = await exampleTree();
+    const node = (id: string) => tree.find((entry) => entry.id === id)!;
+
+    expect(placeOfProjectNode(node(ids.prmRoot))).toEqual({
+      id: ids.platformArea,
+      label: 'Платформа',
+    });
+    expect(placeOfProjectNode(node(ids.anlRoot))).toEqual({ id: null, label: 'Организация' });
   });
 });
 
 describe('mod-018 D-3: the initial expansion', () => {
-  it('expands every area that has children while there are at most 100 areas', async () => {
+  it('expands every node that has children while there are at most 100 nodes', async () => {
     const tree = await exampleTree();
+    const expandable = new Set([ids.platformArea, ids.prmRoot, ids.apiArea]);
 
-    expect(initialExpansion(tree)).toEqual(new Set([ids.platformArea, ids.apiArea]));
-    expect(expandableIds(tree)).toEqual(new Set([ids.platformArea, ids.apiArea]));
+    expect(initialExpansion(tree)).toEqual(expandable);
+    expect(expandableIds(tree)).toEqual(expandable);
     expect(hasChildren(tree, ids.apiArea)).toBe(true);
     expect(hasChildren(tree, ids.gatewayArea)).toBe(false);
   });
 
-  it('shows the top level alone above 100 areas', () => {
+  it('shows the top level alone above 100 nodes', () => {
     expect(initialExpansion(manyAreas(100))).toEqual(new Set(['a0']));
     expect(initialExpansion(manyAreas(101)).size).toBe(0);
   });

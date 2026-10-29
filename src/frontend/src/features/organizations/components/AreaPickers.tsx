@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode, type Ref } from 'react';
 import { InlineMultiPickerField, InlinePickerField } from '../../../shared/ui';
 import { narrow } from '../lib/areaTree';
-import { PICKER_OPTION_LIMIT, areaLinkDialog, areasField } from '../lib/areaTexts';
+import { PICKER_OPTION_LIMIT, areaLinkDialog, departmentsField } from '../lib/areaTexts';
 
 /**
  * The searchable pickers of the area workspace (mod-018 design D-1): a local filter over a list the
@@ -175,17 +175,17 @@ function sameEntry<O>(first: Entry<O>, second: Entry<O>, getKey: (option: O) => 
   );
 }
 
-/** The area an «Области» field offers: its path is its name. */
-export interface AreaOption {
+/** The department a creation form's «Департаменты» field offers: its path is its name. */
+export interface DepartmentOption {
   id: string;
   path: string;
 }
 
 /**
- * «Области» of the project and team creation forms (mod-018 design § 5.3): the organization's areas by
- * path, chosen several at a time over the list the form read when it opened.
+ * «Департаменты» of the team creation form (mod-018 api-contract § 5): the organization's
+ * departments by name, chosen several at a time over the list the form read when it opened.
  */
-export function AreasField({
+export function DepartmentsField({
   hint,
   error,
   busy,
@@ -198,21 +198,21 @@ export function AreasField({
   hint: string;
   error?: string;
   busy: boolean;
-  value: readonly AreaOption[];
-  options: readonly AreaOption[];
+  value: readonly DepartmentOption[];
+  options: readonly DepartmentOption[];
   loading: boolean;
   failed: boolean;
-  onChange(next: AreaOption[]): void;
+  onChange(next: DepartmentOption[]): void;
 }) {
   return (
-    <LocalMultiPicker<AreaOption>
-      label={areasField.label}
+    <LocalMultiPicker<DepartmentOption>
+      label={departmentsField.label}
       hint={hint}
       busy={busy}
       error={error}
       options={options}
       loading={loading}
-      emptyText={failed ? areaLinkDialog.projectAreas.loadFailed : areasField.none}
+      emptyText={failed ? areaLinkDialog.teamDepartments.loadFailed : departmentsField.none}
       value={value}
       onChange={onChange}
       getKey={(option) => option.id}

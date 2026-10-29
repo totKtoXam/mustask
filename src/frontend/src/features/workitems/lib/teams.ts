@@ -80,8 +80,8 @@ export function teamDroppedLine(droppedTeam: string, project: string, keptTeam: 
   return `Команда «${droppedTeam}» не участвует в проекте «${project}». Выбрана «${keptTeam}».`;
 }
 
-/** The line of the creation dialog on every surface (mod-018 design § 8). */
-export function createdInStateLine(stateName: string): string {
+/** The area line of a team view's creation dialog before a project is chosen (feat-040 design § 6.2). */
+export function noProjectAreaLine(stateName: string): string {
   return `Рабочий элемент будет создан в статусе «${stateName}». Остальные поля заполняются в его форме.`;
 }
 

@@ -20,11 +20,10 @@ export const PROJECT_TEAM_URL = `${TEAMS_URL}/:teamId`;
 /** The organization's teams (feat-028 api-contract § 2.1): a team's address is the organization's. */
 export const ORG_TEAMS_URL = `${ORGANIZATION_URL}/teams`;
 export const ORG_TEAM_URL = `${ORG_TEAMS_URL}/:teamId`;
-/** mod-018: the organization's area tree, and the links from the project's and the team's ends. */
+/** mod-018: the organization's typed area tree, the project's subtree and the team's department links. */
 export const AREAS_URL = `${ORGANIZATION_URL}/areas`;
 export const AREA_URL = `${AREAS_URL}/:areaId`;
 export const PROJECT_AREAS_URL = `${PROJECT_URL}/areas`;
-export const PROJECT_AREA_URL = `${PROJECT_AREAS_URL}/:areaId`;
 export const TEAM_AREAS_URL = `${ORG_TEAM_URL}/areas`;
 export const TEAM_AREA_URL = `${TEAM_AREAS_URL}/:areaId`;
 
@@ -89,19 +88,24 @@ export interface LinkRecord {
   teamId: string;
 }
 
-/** mod-018 BR-AW-1: an area is the organization's, a tree of names with an optional description. */
+/**
+ * mod-018 (ADR-0031): a node of the organization's typed tree. A project node takes its name and
+ * its description from its project.
+ */
 export interface AreaRecord {
   id: string;
   organizationId: string;
+  type: 'department' | 'project' | 'area';
+  /** The project of a project node or a sub-area; `null` for a department. */
+  projectId: string | null;
   parentId: string | null;
   name: string;
   description?: string | null;
 }
 
-/** One area–project or area–team link (BR-AW-4): at most one per pair. */
+/** One department–team link: at most one per pair. */
 export interface AreaLinkRecord {
   areaId: string;
-  /** The project or the team the area is linked to. */
   targetId: string;
 }
 
@@ -137,9 +141,7 @@ export interface Dataset {
   /** The project–team links; a team with none works on no project, a project with none has no team. */
   links: LinkRecord[];
   areas: AreaRecord[];
-  /** The area–project links; absent: none. */
-  areaProjects?: AreaLinkRecord[];
-  /** The area–team links; absent: none. */
+  /** The department–team links; absent: none. */
   areaTeams?: AreaLinkRecord[];
   /** The projection's users (mod-016 § 0.4); empty by default. */
   users?: UserRecord[];
@@ -206,14 +208,17 @@ export function exampleDataset(): Dataset {
       { projectId: ids.arc, teamId: ids.arcTeam },
     ],
     areas: [
-      area(ids.platformArea, ids.alfa, null, 'Платформа', 'Платформенные сервисы'),
-      area(ids.apiArea, ids.alfa, ids.platformArea, 'API'),
-      area(ids.gatewayArea, ids.alfa, ids.apiArea, 'Шлюз'),
-      area(ids.mobileArea, ids.alfa, null, 'Мобильное приложение'),
-      area(ids.reportsArea, ids.alfa, null, 'Отчёты'),
-      area(ids.repRoot, ids.beta, null, 'Отчётность'),
+      department(ids.platformArea, ids.alfa, 'Платформа', 'Платформенные сервисы'),
+      department(ids.reportsArea, ids.alfa, 'Отчёты'),
+      projectNode(ids.prmRoot, ids.alfa, ids.prm, ids.platformArea),
+      projectNode(ids.anlRoot, ids.alfa, ids.anl, null),
+      projectNode(ids.oldRoot, ids.alfa, ids.old, null),
+      projectNode(ids.repRoot, ids.beta, ids.rep, null),
+      projectNode(ids.arcRoot, ids.gamma, ids.arc, null),
+      subArea(ids.apiArea, ids.alfa, ids.prm, ids.prmRoot, 'API'),
+      subArea(ids.gatewayArea, ids.alfa, ids.prm, ids.apiArea, 'Шлюз'),
+      subArea(ids.mobileArea, ids.alfa, ids.prm, ids.prmRoot, 'Мобильное приложение'),
     ],
-    areaProjects: [{ areaId: ids.platformArea, targetId: ids.prm }],
     areaTeams: [{ areaId: ids.platformArea, targetId: ids.platformTeam }],
   };
 }
@@ -225,7 +230,14 @@ export function emptyDataset(): Dataset {
 
 /** The state right after the upgrade (mod-018 US-5): the example with no area anywhere. */
 export function noAreasDataset(): Dataset {
-  return { ...exampleDataset(), areas: [], areaProjects: [], areaTeams: [] };
+  const example = exampleDataset();
+  return {
+    ...example,
+    areas: example.areas
+      .filter((node) => node.type === 'project')
+      .map((node) => ({ ...node, parentId: null })),
+    areaTeams: [],
+  };
 }
 
 /**
@@ -246,14 +258,42 @@ export function team(
   return { id, organizationId, name, description, deleted: false };
 }
 
-function area(
+export function department(
   id: string,
   organizationId: string,
-  parentId: string | null,
   name: string,
   description: string | null = null,
 ): AreaRecord {
-  return { id, organizationId, parentId, name, description };
+  return {
+    id,
+    organizationId,
+    type: 'department',
+    projectId: null,
+    parentId: null,
+    name,
+    description,
+  };
+}
+
+/** A project's node; its name and description are the project's. */
+export function projectNode(
+  id: string,
+  organizationId: string,
+  projectId: string,
+  parentId: string | null,
+): AreaRecord {
+  return { id, organizationId, type: 'project', projectId, parentId, name: '' };
+}
+
+export function subArea(
+  id: string,
+  organizationId: string,
+  projectId: string,
+  parentId: string,
+  name: string,
+  description: string | null = null,
+): AreaRecord {
+  return { id, organizationId, type: 'area', projectId, parentId, name, description };
 }
 
 /** The organizations module's error catalog (ADR-0006), read once. */
@@ -321,3 +361,13 @@ export function validationProblem(reasons: Record<string, readonly string[]>): P
 
 /** The headers of a problem answer. */
 export const PROBLEM_HEADERS = { 'Content-Type': 'application/problem+json' };
+
+/** An organization with no department and no project: the area tree is empty (mod-018 US-5). */
+export function emptyTreeDataset(): Dataset {
+  const data = exampleDataset();
+  return {
+    ...data,
+    projects: data.projects.filter((project) => project.organizationId !== ids.alfa),
+    areas: [],
+  };
+}

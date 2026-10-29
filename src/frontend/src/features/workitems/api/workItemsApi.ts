@@ -73,6 +73,12 @@ export interface WorkItemDeletion {
   at: string;
 }
 
+/** § 1.1 `area`: its current path (mod-002 DC-9), the root by its own name. */
+export interface WorkItemArea {
+  id: string;
+  path: string;
+}
+
 /**
  * mod-017 api-contract § 1.1: the owning team as it stands now (a rename shows at once);
  * `null` on the item is «Без команды». A deleted team never appears.
@@ -170,6 +176,7 @@ export interface WorkItem extends WorkItemFields {
   state: WorkItemStateReference;
   /** `null`: «Не назначен». */
   assignee: WorkItemAssignee | null;
+  area: WorkItemArea;
   /** mod-017 api-contract § 1.2: the owning team, `null` for «Без команды». */
   team: WorkItemTeam | null;
   createdBy: string;
@@ -314,6 +321,7 @@ export interface SaveWorkItemBody extends SaveFieldsBody {
   description?: string;
   stateId?: string;
   assignee?: { userId: string | null };
+  areaId?: string;
   /** mod-017 api-contract § 2.4: absent keeps the stored team, whoever changed it meanwhile. */
   team?: TeamChange;
   parent?: ParentChange;

@@ -37,9 +37,7 @@ function storyDataset() {
   story.parentId = recordOf(data, 6).id;
   story.assigneeId = ids.anna;
   story.fields.storyPoints = 1.5;
-  story.fields.acceptanceCriteria = [
-    { given: 'Ссылка выдана', when: 'Пользователь открывает её', then: 'Он входит без пароля' },
-  ];
+  story.fields.acceptanceCriteria = [{ given: 'Ссылка выдана', when: 'Пользователь открывает её', then: 'Он входит без пароля' }];
   story.description = 'Пользователь входит по ссылке.\nБез пароля.';
   recordOf(data, 3).parentId = story.id;
   return data;
@@ -99,11 +97,12 @@ describe('mod-016 design § 6.5 Scenario: the reader’s card', () => {
     expect(title()).toHaveValue('Письмо со ссылкой');
   });
 
-  it('reads the values: the assignee, the state, the texts and the type’s fields', async () => {
+  it('reads the values: the assignee, the state, the area, the texts and the type’s fields', async () => {
     await openAs('viewer');
 
     expect(assignee()).toHaveValue('Анна Смирнова');
     expect(screen.getByRole('combobox', { name: 'Статус' })).toHaveTextContent('Новая');
+    expect(screen.getByRole('combobox', { name: 'Область' })).toHaveValue('Платформа');
     expect(textbox('Описание')).toHaveValue('Пользователь входит по ссылке.\nБез пароля.');
     // A stored 1.5 reads «1,5», as the card of the administrator shows it.
     expect(textbox('Оценка в пунктах')).toHaveValue('1,5');

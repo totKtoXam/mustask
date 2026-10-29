@@ -39,6 +39,7 @@ const STORY: WorkItem = {
   description: 'Пользователь получает письмо.',
   state: { id: 'state-new', name: 'Новая', category: { code: 'Proposed', label: 'Новые' } },
   assignee: { id: 'anna', displayName: 'Анна Смирнова', email: 'anna@example.com' },
+  area: { id: 'area-platform', path: 'Платформа' },
   team: null,
   createdBy: 'creator',
   createdAt: '2026-10-05T14:30:00+00:00',
@@ -107,7 +108,10 @@ describe('the draft of touched fields (BR-C-16)', () => {
     expect(withEdit(STORY, edits, { field: 'assignee', value: STORY.assignee })).toEqual({});
   });
 
-  it('compares state and assignee by id, not by their text', () => {
+  it('compares state, area and assignee by id, not by their text', () => {
+    expect(
+      withEdit(STORY, NO_EDITS, { field: 'area', value: { id: 'area-platform', path: 'другой' } }),
+    ).toEqual({});
     expect(withEdit(STORY, NO_EDITS, { field: 'state', value: 'state-new' })).toEqual({});
     expect(
       touchedChanges(STORY, withEdit(STORY, NO_EDITS, { field: 'state', value: 'state-active' })),
@@ -232,11 +236,12 @@ describe('the team edit (mod-017 design § 3)', () => {
 });
 
 describe('where the first error is looked for (design § 4.6)', () => {
-  it('runs title, assignee, state, team, then the texts, the sections and «Родитель»', () => {
+  it('runs title, assignee, state, area, team, then the texts, the sections and «Родитель»', () => {
     expect(cardFieldOrder('story')).toEqual([
       'title',
       'assignee',
       'state',
+      'area',
       'team',
       'description',
       'acceptanceCriteria',

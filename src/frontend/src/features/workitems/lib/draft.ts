@@ -2,6 +2,7 @@ import type {
   AcceptanceCriterion,
   SaveWorkItemBody,
   WorkItem,
+  WorkItemArea,
   WorkItemAssignee,
   WorkItemFieldName,
   WorkItemRef,
@@ -65,6 +66,7 @@ export interface WorkItemDraft {
   stateId: string;
   /** `null`: «Не назначен». */
   assignee: WorkItemAssignee | null;
+  area: WorkItemArea;
   /** mod-017: `null` is «Без команды». */
   team: WorkItemTeam | null;
   /** feat-001 BR-H-6: `null` is «Нет родителя». */
@@ -86,6 +88,7 @@ export function draftOf(item: WorkItem): WorkItemDraft {
     description: item.description,
     stateId: item.state.id,
     assignee: item.assignee,
+    area: item.area,
     team: item.team ?? null,
     parent: item.parent,
     fields: {
@@ -104,6 +107,7 @@ function comparable(
     description: draft.description,
     stateId: draft.stateId,
     assignee: draft.assignee?.id ?? null,
+    area: draft.area.id,
     team: draft.team?.id ?? null,
     parent: draft.parent?.id ?? null,
   };
@@ -157,6 +161,9 @@ export function changesOf(item: WorkItem, draft: WorkItemDraft): SaveWorkItemBod
   if (assigneeId !== (item.assignee?.id ?? null)) {
     // `{ userId: null }` clears it; an absent `assignee` would keep it.
     body.assignee = { userId: assigneeId };
+  }
+  if (draft.area.id !== item.area.id) {
+    body.areaId = draft.area.id;
   }
   const teamId = draft.team?.id ?? null;
   if (teamId !== (item.team?.id ?? null)) {
@@ -270,6 +277,7 @@ export function rebaseDraft(
     description: touched('description') ? draft.description : next.description,
     stateId: touched('stateId') ? draft.stateId : next.stateId,
     assignee: touched('assignee') ? draft.assignee : next.assignee,
+    area: touched('area') ? draft.area : next.area,
     team: touched('team') ? draft.team : next.team,
     parent: next.parent,
     fields,

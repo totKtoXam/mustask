@@ -11,7 +11,7 @@ import {
   PROJECT_URL,
   TEAMS_URL,
   ids,
-  noAreasDataset,
+  emptyTreeDataset,
   problem,
 } from '../testFixtures';
 import { serveOrganizations, serveProblem } from '../testApi';
@@ -157,28 +157,30 @@ describe.each(ROLES)(
 
       const tree = await screen.findByRole('treegrid', { name: 'Области' });
 
-      expect(button('Новая область')).toHaveLength(held(holds));
+      expect(button('Новый департамент')).toHaveLength(held(holds));
       expect(within(tree).queryAllByRole('button', { name: /^Действия: / }).length > 0).toBe(holds);
       expect(within(tree).getAllByRole('row', { selected: false }).length).toBeGreaterThan(1);
     });
 
     it('«Области» with no area at all: the heading stays, the hint is the holder’s or says who creates the areas, and the action is the holder’s', async () => {
-      serveOrganizations(noAreasDataset());
+      serveOrganizations(emptyTreeDataset());
       renderPage({ path: ALFA_AREAS, role });
 
       expect(
-        await screen.findByRole('heading', { name: 'В организации пока нет областей' }),
+        await screen.findByRole('heading', {
+          name: 'В организации пока нет департаментов и проектов',
+        }),
       ).toBeVisible();
 
       expect(
         screen.queryAllByText(
-          'Область объединяет проекты и команды организации. Создайте первую кнопкой «Новая область».',
+          'Департамент объединяет проекты и команды. Создайте первый кнопкой «Новый департамент»; проекты появляются в разделе «Проекты».',
         ),
       ).toHaveLength(held(holds));
       expect(screen.queryAllByText('Области создаёт администратор организации.')).toHaveLength(
         held(!holds),
       );
-      expect(button('Новая область')).toHaveLength(holds ? 2 : 0);
+      expect(button('Новый департамент')).toHaveLength(holds ? 2 : 0);
     });
   },
 );
@@ -313,15 +315,15 @@ describe('mod-016 design § 2.3 Scenario: a refused write, then the codes are re
     serveOrganizations();
     const page = renderPage({ path: ALFA_AREAS });
     await screen.findByRole('treegrid', { name: 'Области' });
-    await userEvent.click(screen.getByRole('button', { name: 'Новая область' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Новая область' });
+    await userEvent.click(screen.getByRole('button', { name: 'Новый департамент' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Новый департамент' });
     const field = within(dialog).getByRole('textbox', { name: 'Название' });
     await userEvent.type(field, 'Омега');
     serveProblem('post', AREAS_URL, problem('organizations.access.forbidden'), { once: true });
 
     await lockedAfterRefusal(dialog, 'Создать', field, 'Омега', page);
 
-    expect(button('Новая область')).toHaveLength(0);
+    expect(button('Новый департамент')).toHaveLength(0);
     expect(
       within(screen.getByRole('treegrid', { name: 'Области' })).queryAllByRole('button', {
         name: /^Действия: /,

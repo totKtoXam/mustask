@@ -40,29 +40,29 @@ export const organizationsKeys = {
   /** What one unlink would reassign (§ 2.4). */
   unlinkCount: (organizationId: string, projectId: string, teamId: string) =>
     [ROOT, 'unlink-count', organizationId, projectId, teamId] as const,
-  /** The organization's area tree (mod-018 § 2). */
+  /** The organization's area tree (mod-018 § 3). */
   areas: (organizationId: string) => [ROOT, 'areas', organizationId] as const,
+  /** A project's subtree: its node and the sub-areas (§ 4). */
+  projectAreaTree: (organizationId: string, projectId: string) =>
+    [ROOT, 'project-area-tree', organizationId, projectId] as const,
+  /** Every project subtree of an organization. */
+  projectAreaTrees: (organizationId: string) =>
+    [ROOT, 'project-area-tree', organizationId] as const,
   /** An area's page. */
   area: (organizationId: string, areaId: string) => [ROOT, 'area', organizationId, areaId] as const,
   /** Every area page of an organization. */
   areaPages: (organizationId: string) => [ROOT, 'area', organizationId] as const,
-  /** An area's linked projects and teams (§ 3). */
-  areaProjects: (organizationId: string, areaId: string) =>
-    [ROOT, 'area-projects', organizationId, areaId] as const,
+  /** A department's linked teams (§ 3). */
   areaTeams: (organizationId: string, areaId: string) =>
     [ROOT, 'area-teams', organizationId, areaId] as const,
-  /** Every area's project list of an organization: a link or an unlink refreshes the ones on screen. */
-  areaProjectLists: (organizationId: string) => [ROOT, 'area-projects', organizationId] as const,
+  /** Every department's team list of an organization: a link or an unlink refreshes the ones on screen. */
   areaTeamLists: (organizationId: string) => [ROOT, 'area-teams', organizationId] as const,
-  /** What one area's deletion would end (§ 2). */
+  /** What one department's deletion would end (§ 3). */
   areaDeletion: (organizationId: string, areaId: string) =>
     [ROOT, 'area-deletion', organizationId, areaId] as const,
-  /** A project's and a team's linked areas (§ 3). */
-  projectAreas: (organizationId: string, projectId: string) =>
-    [ROOT, 'project-areas', organizationId, projectId] as const,
+  /** A team's linked departments (§ 5). */
   teamAreas: (organizationId: string, teamId: string) =>
     [ROOT, 'team-areas', organizationId, teamId] as const,
-  projectAreaLists: (organizationId: string) => [ROOT, 'project-areas', organizationId] as const,
   teamAreaLists: (organizationId: string) => [ROOT, 'team-areas', organizationId] as const,
   /**
    * The caller's served access to an organization (mod-016 api-contract

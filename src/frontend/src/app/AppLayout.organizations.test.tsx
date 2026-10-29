@@ -120,7 +120,7 @@ describe('mod-002 US-8 Scenario: «Нет организаций» leads to the 
 });
 
 describe('mod-002 US-8 Scenario: Settings through the shell’s navigation', () => {
-  it('«Меню настроек» holds «Организация» → «Общие», «Проекты», «Команды», «Области», «Участники», «Процесс» and «Проект» → «Общие», «Команды»; «Настройки» opens the organization’s «Общие»', async () => {
+  it('«Меню настроек» holds «Организация» → «Общие», «Проекты», «Команды», «Области», «Участники», «Процесс» and «Проект» → «Общие», «Команды», «Области»; «Настройки» opens the organization’s «Общие»', async () => {
     serve();
     renderApp('/home');
     await expectLevels(['Организация: Альфа', 'Проект: Аналитика', 'Команда: Аналитика']);
@@ -146,6 +146,7 @@ describe('mod-002 US-8 Scenario: Settings through the shell’s navigation', () 
       'Процесс',
       'Общие',
       'Команды',
+      'Области',
       'Языки',
     ]);
     expect(within(navigation).getByText('Организация')).toBeInTheDocument();

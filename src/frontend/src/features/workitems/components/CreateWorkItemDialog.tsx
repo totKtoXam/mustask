@@ -4,7 +4,12 @@ import ListItemText from '@mui/material/ListItemText';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { useTeamProjects, useTeams, type TeamProject } from '../../organizations';
+import {
+  useProjectAreaTree,
+  useTeamProjects,
+  useTeams,
+  type TeamProject,
+} from '../../organizations';
 import { apiErrorText } from '../../../shared/lib/apiErrorText';
 import { FieldsSkeleton, InlineNotice, InlinePickerField, LiveRegion } from '../../../shared/ui';
 import { FormDialog } from '../../../shared/ui/FormDialog';
@@ -19,7 +24,7 @@ import {
   backlogCaption,
   defaultTeamId,
   holdingCaption,
-  createdInStateLine,
+  noProjectAreaLine,
   teamDroppedLine,
 } from '../lib/teams';
 import { TypeName } from './Marks';
@@ -43,7 +48,9 @@ export type CreatePlace =
 /**
  * «Новый рабочий элемент» (mod-003 US-1; mod-017 US-2, design § 4; feat-040 US-5, design § 6): «Тип»
  * preset by the type picker, «Команда» and «Заголовок», checked on submit; nothing is sent while the
- * title is refused. The text names the type’s initial state only (mod-018 design § 8: the dialog reads no area tree).
+ * title is refused. The text names the type’s initial state and the project’s root area, read from
+ * mod-002’s tree (api-contract § 3) — on every surface, since an item’s area is the root now
+ * (BR-OT-10).
  *
  * On a project’s views «Команда» starts with the project’s default team (BR-OT-3), decided when the
  * teams read ends — the dialog reads them afresh at every opening — and never re-set while open:
@@ -94,6 +101,9 @@ export function CreateWorkItemDialog({
   // A team's view: `undefined` — the projects are being read, `null` — none chosen.
   const [project, setProject] = useState<TeamProject | null | undefined>(undefined);
   const projectId = place.kind === 'project' ? place.projectId : project?.id;
+  const tree = useProjectAreaTree(organizationId, projectId ?? '', {
+    enabled: projectId !== undefined,
+  });
   const teams = useTeams(organizationId, projectId ?? '', {
     enabled: projectId !== undefined,
     fresh: true,
@@ -245,6 +255,8 @@ export function CreateWorkItemDialog({
 
   const chosenType = types.find((type) => type.id === typeId);
   const stateName = chosenType?.initialStateName ?? '';
+  const root = tree.data?.find((node) => node.type === 'project');
+  const treeLoading = tree.isPending || (tree.isError && tree.isFetching);
   const teamsFailed = projectId !== undefined && teams.isError && !teams.isFetching;
   const projectsFailed = teamPlace !== null && projects.isError && !projects.isFetching;
   const projectsPending = teamPlace !== null && !projectsReady && !projectsFailed;
@@ -280,9 +292,25 @@ export function CreateWorkItemDialog({
       onSubmit={() => void handleSubmit()}
       onClose={() => onClose(contextGone)}
     >
-      <Typography variant="body2" color="text.secondary">
-        {createdInStateLine(stateName)}
-      </Typography>
+      {teamPlace !== null && project === null ? (
+        <Typography variant="body2" color="text.secondary">
+          {noProjectAreaLine(stateName)}
+        </Typography>
+      ) : projectId === undefined || treeLoading ? (
+        // No project yet (the projects are being read), or the chosen project's tree is.
+        <FieldsSkeleton count={1} />
+      ) : tree.isError ? (
+        <InlineNotice
+          severity="error"
+          action={{ label: 'Повторить', onClick: () => void tree.refetch() }}
+        >
+          {apiErrorText(tree.error)}
+        </InlineNotice>
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          {`Рабочий элемент будет создан в статусе «${stateName}» в области «${root?.path ?? ''}». Остальные поля заполняются в его форме.`}
+        </Typography>
+      )}
       {teamPlace !== null &&
         (projectsFailed ? (
           <InlineNotice

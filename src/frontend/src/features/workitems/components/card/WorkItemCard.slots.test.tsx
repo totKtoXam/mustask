@@ -86,7 +86,7 @@ describe('feat-029 BR-C-18: the places kept', () => {
     const assignee = screen.getByRole('combobox', { name: 'Исполнитель' });
     const saveButton = screen.getByRole('button', { name: 'Сохранить' });
     const state = screen.getByRole('combobox', { name: 'Статус' });
-    const team = screen.getByRole('combobox', { name: 'Команда' });
+    const area = screen.getByRole('combobox', { name: 'Область' });
     const detailsTab = screen.getByRole('tab', { name: cardTexts.tabs.details });
     const historyTab = screen.getByRole('tab', { name: 'История' });
     const related = screen.getByRole('region', { name: cardTexts.relatedWork });
@@ -97,10 +97,10 @@ describe('feat-029 BR-C-18: the places kept', () => {
     expect(follows(probe(PROBES.tags), probe(PROBES.commentsCount))).toBe(true);
     expect(follows(saveButton, probe(PROBES.follow))).toBe(true);
     expect(follows(probe(PROBES.follow), probe(PROBES.tags))).toBe(true);
-    // The band: «Причина» under «Статус», «Команда» then «Итерация»; the stamp replaces «Изменён».
+    // The band: «Причина» under «Статус», «Итерация» under «Область»; the stamp replaces «Изменён».
     expect(follows(probe(PROBES.reason), state)).toBe(true);
-    expect(follows(team, probe(PROBES.reason))).toBe(true);
-    expect(follows(probe(PROBES.iteration), team)).toBe(true);
+    expect(follows(area, probe(PROBES.reason))).toBe(true);
+    expect(follows(probe(PROBES.iteration), area)).toBe(true);
     expect(screen.queryByText(/^Изменён: /)).not.toBeInTheDocument();
     expect(probe(PROBES.updatedBy)).toBeInTheDocument();
     // The body: «Обсуждение» under the texts; the two places above «Связанная работа».

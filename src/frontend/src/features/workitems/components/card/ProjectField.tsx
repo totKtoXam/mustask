@@ -9,7 +9,7 @@ function noop(): void {}
  * «Проект» of the band (feat-040 design § 7, BR-TS-3, D-2): block A, row 2, under «Статус» — the
  * name of the item's project as text, read-only for every role and in every state: an item does not
  * move between projects, so there is no picker. It is the project as it stands now (a rename shows at
- * once, api-contract § 2.1). «Команда» is the item's project's, as before.
+ * once, api-contract § 2.1). «Область» and «Команда» are the item's project's, as before.
  */
 function ProjectFieldView({ name }: { name: string }) {
   return (

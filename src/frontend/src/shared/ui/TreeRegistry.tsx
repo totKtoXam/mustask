@@ -462,28 +462,30 @@ export function TreeRegistry<N extends TreeRegistryNode>({
                       align="right"
                       sx={{ width: (theme) => theme.spacing(6) }}
                     >
-                      <IconButton
-                        size="small"
-                        ref={(element: HTMLButtonElement | null) => {
-                          if (element) {
-                            actionButtons.current.set(node.id, element);
-                          } else {
-                            actionButtons.current.delete(node.id);
-                          }
-                        }}
-                        tabIndex={tabbable ? 0 : -1}
-                        aria-label={`Действия: ${node.label}`}
-                        aria-haspopup="menu"
-                        aria-expanded={menu?.id === node.id ? 'true' : 'false'}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setFocusedId(node.id);
-                          setMenu({ id: node.id, anchor: event.currentTarget });
-                        }}
-                        onKeyDown={(event) => event.stopPropagation()}
-                      >
-                        <MoreHorizIcon fontSize="small" />
-                      </IconButton>
+                      {actions(node).length > 0 && (
+                        <IconButton
+                          size="small"
+                          ref={(element: HTMLButtonElement | null) => {
+                            if (element) {
+                              actionButtons.current.set(node.id, element);
+                            } else {
+                              actionButtons.current.delete(node.id);
+                            }
+                          }}
+                          tabIndex={tabbable ? 0 : -1}
+                          aria-label={`Действия: ${node.label}`}
+                          aria-haspopup="menu"
+                          aria-expanded={menu?.id === node.id ? 'true' : 'false'}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setFocusedId(node.id);
+                            setMenu({ id: node.id, anchor: event.currentTarget });
+                          }}
+                          onKeyDown={(event) => event.stopPropagation()}
+                        >
+                          <MoreHorizIcon fontSize="small" />
+                        </IconButton>
+                      )}
                     </TableCell>
                   )}
                 </TableRow>

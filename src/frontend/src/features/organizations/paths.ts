@@ -29,6 +29,8 @@ export const PROJECT_GENERAL_ROUTE =
  * more — `…/projects/:p/settings/teams/:t` is no route and the catch-all answers «Страница не найдена».
  */
 export const TEAMS_ROUTE = '/organizations/:organizationId/projects/:projectId/settings/teams';
+/** The project's «Области» (mod-018 design § 7): its node and the sub-areas below it. */
+export const AREAS_ROUTE = '/organizations/:organizationId/projects/:projectId/settings/areas';
 
 /** Every route of the slice, in design § 1's order. */
 export const ORGANIZATIONS_ROUTES = [
@@ -86,6 +88,10 @@ export function projectGeneralPath(organizationId: string, projectId: string): s
 
 export function teamsPath(organizationId: string, projectId: string): string {
   return `${projectPrefix(organizationId, projectId)}/settings/teams`;
+}
+
+export function areasPath(organizationId: string, projectId: string): string {
+  return `${projectPrefix(organizationId, projectId)}/settings/areas`;
 }
 
 export function organizationAreasPath(organizationId: string): string {

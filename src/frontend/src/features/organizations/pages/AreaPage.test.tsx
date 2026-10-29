@@ -5,67 +5,57 @@ import { AREA_URL, exampleDataset, ids, problem } from '../testFixtures';
 import { serveOrganizations, serveProblem } from '../testApi';
 import { renderPage } from '../testRender';
 
-const PLATFORM = `/organizations/${ids.alfa}/settings/areas/${ids.platformArea}`;
-const REPORTS = `/organizations/${ids.alfa}/settings/areas/${ids.reportsArea}`;
+const AREAS = `/organizations/${ids.alfa}/settings/areas`;
+const PLATFORM = `${AREAS}/${ids.platformArea}`;
+const PRM_NODE = `${AREAS}/${ids.prmRoot}`;
+const OLD_NODE = `${AREAS}/${ids.oldRoot}`;
+const API = `${AREAS}/${ids.apiArea}`;
 const API_BASE = `/api/organizations/${ids.alfa}/areas`;
 
-async function loaded(name: string) {
-  return screen.findByRole('heading', { level: 1, name: `Область: ${name}` });
+async function loaded(title: string) {
+  return screen.findByRole('heading', { level: 1, name: title });
 }
 
 function facts(): HTMLElement {
-  return screen.getByText('Родительская область').closest('dl') as HTMLElement;
+  return screen.getByText('Тип').closest('dl') as HTMLElement;
 }
 
-describe('mod-018 design § 4: an area’s page', () => {
-  it('shows the facts, the children and the linked projects and teams, each on its own', async () => {
+describe('mod-018 design § 4: a department’s page', () => {
+  it('shows the facts, its projects and its teams, each on its own', async () => {
     serveOrganizations();
     renderPage({ path: PLATFORM });
 
     expect(screen.getByRole('heading', { level: 1, name: 'Область' })).toBeInTheDocument();
-    await loaded('Платформа');
+    await loaded('Департамент: Платформа');
 
     expect(facts()).toHaveTextContent('НазваниеПлатформа');
-    expect(facts()).toHaveTextContent('Родительская областьВерхний уровень');
+    expect(facts()).toHaveTextContent('ТипДепартамент');
     expect(facts()).toHaveTextContent('ОписаниеПлатформенные сервисы');
-    const children = await screen.findByRole('table', { name: 'Вложенные области' });
-    expect(within(children).getByRole('link', { name: 'API' })).toHaveAttribute(
-      'href',
-      `/organizations/${ids.alfa}/settings/areas/${ids.apiArea}`,
-    );
-    const projects = await screen.findByRole('table', { name: 'Проекты области' });
+    const projects = await screen.findByRole('table', { name: 'Проекты департамента' });
     expect(within(projects).getByRole('link', { name: 'Пример проекта' })).toHaveAttribute(
       'href',
-      `/organizations/${ids.alfa}/projects/${ids.prm}/settings/general`,
+      `${AREAS}/${ids.prmRoot}`,
     );
-    expect(within(projects).getByText('PRM')).toBeInTheDocument();
-    const teams = await screen.findByRole('table', { name: 'Команды области' });
+    const teams = await screen.findByRole('table', { name: 'Команды департамента' });
     expect(within(teams).getByRole('link', { name: 'Платформа' })).toHaveAttribute(
       'href',
       `/organizations/${ids.alfa}/settings/teams/${ids.platformTeam}`,
     );
   });
 
-  it('names the parent as a link, and says what is empty', async () => {
+  it('says what is empty', async () => {
     serveOrganizations();
-    renderPage({ path: `/organizations/${ids.alfa}/settings/areas/${ids.apiArea}` });
-    await loaded('API');
+    renderPage({ path: `${AREAS}/${ids.reportsArea}` });
+    await loaded('Департамент: Отчёты');
 
-    expect(within(facts()).getByRole('link', { name: 'Платформа' })).toHaveAttribute(
-      'href',
-      `/organizations/${ids.alfa}/settings/areas/${ids.platformArea}`,
-    );
     expect(facts()).toHaveTextContent('ОписаниеОписание не задано');
-    expect(await screen.findByText('К области не привязаны проекты')).toBeInTheDocument();
+    expect(await screen.findByText('В департаменте пока нет проектов.')).toBeInTheDocument();
     expect(screen.getByText('К области не привязаны команды')).toBeInTheDocument();
   });
 
   it.each([
-    [
-      'an unknown area',
-      `/organizations/${ids.alfa}/settings/areas/d0000000-0000-4000-8000-0000000000ff`,
-    ],
-    ['an area of another organization', `/organizations/${ids.alfa}/settings/areas/${ids.repRoot}`],
+    ['an unknown area', `${AREAS}/d0000000-0000-4000-8000-0000000000ff`],
+    ['an area of another organization', `${AREAS}/${ids.repRoot}`],
   ])('%s answers «Область не найдена» and keeps the settings navigation', async (_case, path) => {
     serveOrganizations();
     renderPage({ path });
@@ -76,230 +66,224 @@ describe('mod-018 design § 4: an area’s page', () => {
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   });
 
-  it('fails the children section of one read alone: the facts stay, the section says why and retries', async () => {
-    serveOrganizations();
-    serveProblem('get', `${AREA_URL}/projects`, problem('organizations.validation_failed'), {
-      once: true,
-    });
-    renderPage({ path: PLATFORM });
-    await loaded('Платформа');
-
-    await userEvent.click(await screen.findByRole('button', { name: 'Повторить' }));
-
-    expect(await screen.findByRole('table', { name: 'Проекты области' })).toBeInTheDocument();
-    expect(facts()).toHaveTextContent('НазваниеПлатформа');
-  });
-});
-
-describe('mod-018 US-2: the commands of the page', () => {
-  it('renames and describes in place', async () => {
+  it('renames, describes in place and deletes an empty department', async () => {
     const api = serveOrganizations();
-    renderPage({ path: REPORTS });
-    await loaded('Отчёты');
+    renderPage({ path: `${AREAS}/${ids.reportsArea}` });
+    await loaded('Департамент: Отчёты');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Переименовать' }));
-    let dialog = await screen.findByRole('dialog', { name: 'Переименование области' });
+    await userEvent.click(await screen.findByRole('button', { name: 'Переименовать' }));
+    let dialog = await screen.findByRole('dialog', { name: 'Переименование департамента' });
     const field = within(dialog).getByRole('textbox', { name: /Название/ });
     await userEvent.clear(field);
-    await userEvent.type(field, 'Метрики');
+    await userEvent.type(field, 'Аналитики');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
-    expect(await screen.findByText('Область переименована.')).toBeInTheDocument();
-    await loaded('Метрики');
+    expect(await screen.findByText('Департамент переименован.')).toBeInTheDocument();
+    await loaded('Департамент: Аналитики');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Изменить описание' }));
-    dialog = await screen.findByRole('dialog', { name: 'Описание области' });
-    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Описание' }), 'Данные');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
-    expect(await screen.findByText('Описание области сохранено.')).toBeInTheDocument();
-    await waitFor(() => expect(facts()).toHaveTextContent('ОписаниеДанные'));
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить департамент' }));
+    dialog = await screen.findByRole('dialog', { name: 'Удаление департамента' });
+    await userEvent.click(
+      await within(dialog).findByRole('button', { name: 'Удалить департамент' }),
+    );
+
+    expect(await screen.findByText('Департамент «Аналитики» удалён.')).toBeInTheDocument();
     expect(api.writes().map((write) => [write.method, write.path])).toEqual([
       ['PUT', `${API_BASE}/${ids.reportsArea}/name`],
-      ['PUT', `${API_BASE}/${ids.reportsArea}/description`],
+      ['DELETE', `${API_BASE}/${ids.reportsArea}`],
     ]);
-  });
-
-  it('creates a child area under this one, and moves this one', async () => {
-    const api = serveOrganizations();
-    renderPage({ path: REPORTS });
-    await loaded('Отчёты');
-
-    await userEvent.click(screen.getByRole('button', { name: 'Новая дочерняя область' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Новая область' });
-    await userEvent.type(within(dialog).getByRole('textbox', { name: /Название/ }), 'Квартальные');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
-    expect(await screen.findByText('Область «Квартальные» создана.')).toBeInTheDocument();
-    expect(api.writes()[0]?.body).toEqual({ name: 'Квартальные', parentId: ids.reportsArea });
-    expect(
-      await within(await screen.findByRole('table', { name: 'Вложенные области' })).findByText(
-        'Квартальные',
-      ),
-    ).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Переместить' }));
-    const move = await screen.findByRole('dialog', { name: 'Перемещение области' });
-    await userEvent.click(
-      within(move).getByRole('combobox', { name: /Новая родительская область/ }),
-    );
-    await userEvent.click(await screen.findByRole('option', { name: 'Платформа' }));
-    await userEvent.click(within(move).getByRole('button', { name: 'Переместить' }));
-    expect(await screen.findByText('Область «Отчёты» перемещена.')).toBeInTheDocument();
-    await waitFor(() => expect(facts()).toHaveTextContent('Родительская областьПлатформа'));
-  });
-
-  it('deletes a leaf and returns to the tree with the notice', async () => {
-    const api = serveOrganizations();
-    renderPage({ path: REPORTS });
-    await loaded('Отчёты');
-
-    await userEvent.click(screen.getByRole('button', { name: 'Удалить область' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Удаление области' });
-    await userEvent.click(await within(dialog).findByRole('button', { name: 'Удалить область' }));
-
-    expect(await screen.findByText('Область «Отчёты» удалена.')).toBeInTheDocument();
-    expect(api.writes()[0]?.method).toBe('DELETE');
-    await waitFor(() =>
-      expect(screen.getByTestId('location')).toHaveTextContent(
-        `/organizations/${ids.alfa}/settings/areas`,
-      ),
-    );
-  });
-
-  it('a member reads the page: no command, no link control', async () => {
-    serveOrganizations();
-    renderPage({ path: PLATFORM, role: 'member' });
-    await loaded('Платформа');
-
-    for (const name of [
-      'Переименовать',
-      'Изменить описание',
-      'Переместить',
-      'Удалить область',
-      'Новая дочерняя область',
-      'Добавить проект',
-      'Добавить команду',
-    ]) {
-      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
-    }
-    expect(screen.queryByRole('button', { name: /^Ещё действия:/ })).not.toBeInTheDocument();
-  });
-});
-
-describe('mod-018 US-3: the links from the area’s end', () => {
-  it('adds projects: the options leave out the linked ones, «Добавить» waits for a choice', async () => {
-    const api = serveOrganizations();
-    renderPage({ path: PLATFORM });
-    await loaded('Платформа');
-    await screen.findByRole('table', { name: 'Проекты области' });
-
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить проект' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Добавление проектов в область' });
-    expect(within(dialog).getByRole('button', { name: 'Добавить' })).toBeDisabled();
-    await userEvent.click(within(dialog).getByRole('combobox', { name: /Проекты/ }));
-    const options = within(await screen.findByRole('listbox')).getAllByRole('option');
-    // «Пример проекта» is linked; «Старый проект» is deactivated.
-    expect(options.map((option) => option.textContent)).toEqual(['АналитикаANL']);
-    await userEvent.click(options[0]!);
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Добавить' }));
-
-    expect(await screen.findByText('Проект «Аналитика» добавлен.')).toBeInTheDocument();
-    expect(api.writes()[0]).toEqual({
-      method: 'POST',
-      path: `${API_BASE}/${ids.platformArea}/projects`,
-      body: { projectIds: [ids.anl] },
-    });
-    const table = await screen.findByRole('table', { name: 'Проекты области' });
-    await waitFor(() => expect(within(table).getByText('ANL')).toBeInTheDocument());
   });
 
   it('adds teams and unlinks one after a confirmation', async () => {
     const api = serveOrganizations();
     renderPage({ path: PLATFORM });
-    await loaded('Платформа');
-    await screen.findByRole('table', { name: 'Команды области' });
+    await screen.findByRole('table', { name: 'Команды департамента' });
 
     await userEvent.click(screen.getByRole('button', { name: 'Добавить команду' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Добавление команд в область' });
+    const dialog = await screen.findByRole('dialog', { name: 'Добавление команд в департамент' });
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Команды/ }));
     await userEvent.click(await screen.findByRole('option', { name: 'Аналитика' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Добавить' }));
     expect(await screen.findByText('Команда «Аналитика» добавлена.')).toBeInTheDocument();
 
-    const teams = await screen.findByRole('table', { name: 'Команды области' });
-    await waitFor(() => expect(within(teams).getByText('Аналитика')).toBeInTheDocument());
-    await userEvent.click(within(teams).getByRole('button', { name: 'Ещё действия: Платформа' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Отключить от области' }));
-    const confirm = await screen.findByRole('dialog', { name: 'Отключение команды от области' });
-    expect(
-      within(confirm).getByText(
-        'Отключить команду «Платформа» от области «Платформа»? Сама команда и её рабочие элементы не изменятся.',
-      ),
-    ).toBeInTheDocument();
-    expect(within(confirm).getByRole('button', { name: 'Отмена' })).toHaveFocus();
+    const table = await screen.findByRole('table', { name: 'Команды департамента' });
+    await waitFor(() => expect(within(table).getByText('Аналитика')).toBeInTheDocument());
+    await userEvent.click(within(table).getByRole('button', { name: 'Ещё действия: Аналитика' }));
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'Отключить от департамента' }),
+    );
+    const confirm = await screen.findByRole('dialog', {
+      name: 'Отключение команды от департамента',
+    });
     await userEvent.click(within(confirm).getByRole('button', { name: 'Отключить' }));
 
-    expect(await screen.findByText('Команда отключена от области.')).toBeInTheDocument();
-    expect(api.writes().map((write) => [write.method, write.path])).toEqual([
-      ['POST', `${API_BASE}/${ids.platformArea}/teams`],
-      ['DELETE', `${API_BASE}/${ids.platformArea}/teams/${ids.platformTeam}`],
+    expect(await screen.findByText('Команда отключена от департамента.')).toBeInTheDocument();
+    expect(api.writes().map((write) => [write.method, write.path, write.body])).toEqual([
+      ['POST', `${API_BASE}/${ids.platformArea}/teams`, { teamIds: [ids.anlTeam] }],
+      ['DELETE', `${API_BASE}/${ids.platformArea}/teams/${ids.anlTeam}`, undefined],
     ]);
   });
 
-  it('says when every project is linked already, and when none exists', async () => {
-    const data = exampleDataset();
-    data.areaProjects = [
-      { areaId: ids.platformArea, targetId: ids.prm },
-      { areaId: ids.platformArea, targetId: ids.anl },
-    ];
-    serveOrganizations(data);
-    renderPage({ path: PLATFORM });
-    await loaded('Платформа');
-    await screen.findByRole('table', { name: 'Проекты области' });
-
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить проект' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Добавление проектов в область' });
-    await userEvent.click(within(dialog).getByRole('combobox', { name: /Проекты/ }));
-
-    expect(await screen.findByText('Все проекты уже входят в область.')).toBeInTheDocument();
-  });
-
-  it('puts a vanished project under the field, reads the options again and drops the choice', async () => {
+  it('shows a refusal of the department itself as the alert and reads the page again on close', async () => {
     serveOrganizations();
-    serveProblem('post', `${AREA_URL}/projects`, problem('organizations.project.not_found'), {
+    renderPage({ path: PLATFORM });
+    await screen.findByRole('table', { name: 'Команды департамента' });
+    serveProblem('post', `${AREA_URL}/teams`, problem('organizations.area.not_found'), {
       once: true,
     });
-    renderPage({ path: PLATFORM });
-    await loaded('Платформа');
-    await screen.findByRole('table', { name: 'Проекты области' });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить проект' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Добавление проектов в область' });
-    await userEvent.click(within(dialog).getByRole('combobox', { name: /Проекты/ }));
-    await userEvent.click(await screen.findByRole('option', { name: /Аналитика/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить команду' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Добавление команд в департамент' });
+    await userEvent.click(within(dialog).getByRole('combobox', { name: /Команды/ }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Аналитика' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Добавить' }));
 
-    expect(await within(dialog).findByText('Проект не найден.')).toBeInTheDocument();
-    expect(dialog).toBeInTheDocument();
+    expect(await within(dialog).findByText('Область не найдена.')).toBeInTheDocument();
   });
 
-  it('shows a refusal of the area itself as the alert and reads the page again on close', async () => {
+  it('a member reads the page: no command, no link control', async () => {
     serveOrganizations();
-    renderPage({ path: PLATFORM });
-    await loaded('Платформа');
-    await screen.findByRole('table', { name: 'Проекты области' });
-    serveProblem(
-      'delete',
-      `${AREA_URL}/projects/:projectId`,
-      problem('organizations.area.not_found'),
-    );
+    renderPage({ path: PLATFORM, role: 'member' });
+    await loaded('Департамент: Платформа');
 
-    const projects = screen.getByRole('table', { name: 'Проекты области' });
+    expect(screen.queryByRole('button', { name: 'Переименовать' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Добавить команду' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Ещё действия:/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('mod-018 design § 4: a project node’s page', () => {
+  it('shows its location, its sub-areas and the project’s teams as the same links', async () => {
+    serveOrganizations();
+    renderPage({ path: PRM_NODE });
+    await loaded('Проект: Пример проекта');
+
+    expect(facts()).toHaveTextContent('ТипПроект');
+    expect(facts()).toHaveTextContent('РасположениеПлатформа');
+    const children = await screen.findByRole('table', { name: 'Вложенные области' });
+    expect(within(children).getByRole('link', { name: 'API' })).toHaveAttribute('href', API);
+    expect(
+      within(children).getByRole('link', { name: 'Мобильное приложение' }),
+    ).toBeInTheDocument();
+    const teams = await screen.findByRole('table', { name: 'Команды проекта' });
+    expect(within(teams).getByRole('link', { name: 'Платформа' })).toBeInTheDocument();
+    expect(within(teams).getByRole('link', { name: 'Пример проекта' })).toBeInTheDocument();
+    expect(
+      screen.getByText('Это те же связи, что в разделе «Команды» проекта.'),
+    ).toBeInTheDocument();
+  });
+
+  it('has neither rename nor delete, and opens the project', async () => {
+    serveOrganizations();
+    renderPage({ path: PRM_NODE });
+    await loaded('Проект: Пример проекта');
+
+    expect(await screen.findByRole('button', { name: 'Переместить' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Переименовать' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Удалить/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Открыть проект' })).toHaveAttribute(
+      'href',
+      `/organizations/${ids.alfa}/projects/${ids.prm}/settings/general`,
+    );
+  });
+
+  it('creates a sub-area under the node', async () => {
+    const api = serveOrganizations();
+    renderPage({ path: PRM_NODE });
+    await loaded('Проект: Пример проекта');
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Новая вложенная область' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Новая вложенная область' });
+    await userEvent.type(within(dialog).getByRole('textbox', { name: /Название/ }), 'iOS');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
+
+    expect(await screen.findByText('Область «iOS» создана.')).toBeInTheDocument();
+    expect(api.writes()[0]?.body).toEqual({ name: 'iOS', parentId: ids.prmRoot });
+  });
+});
+
+describe('mod-018 OQ-6 A: a deactivated project’s node', () => {
+  it('is read-only: the notice names the project and no command is drawn', async () => {
+    serveOrganizations();
+    renderPage({ path: OLD_NODE });
+    await loaded('Проект: Старый проект');
+
+    expect(
+      await screen.findByText(
+        /Проект «Старый проект» деактивирован: область доступна только для чтения/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Переместить' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Новая вложенная область' }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe('mod-018 design § 4: a sub-area’s page', () => {
+  it('names the parent and the project as links', async () => {
+    serveOrganizations();
+    renderPage({ path: API });
+    await loaded('Область: API');
+
+    expect(facts()).toHaveTextContent('ТипОбласть');
+    expect(
+      within(facts()).getByRole('link', { name: 'Платформа / Пример проекта' }),
+    ).toHaveAttribute('href', PRM_NODE);
+    expect(await within(facts()).findByRole('link', { name: 'Пример проекта' })).toHaveAttribute(
+      'href',
+      `/organizations/${ids.alfa}/projects/${ids.prm}/settings/general`,
+    );
+    expect(facts()).toHaveTextContent('ОписаниеОписание не задано');
+    const children = await screen.findByRole('table', { name: 'Вложенные области' });
+    expect(within(children).getByRole('link', { name: 'Шлюз' })).toBeInTheDocument();
+  });
+
+  it('deletes a leaf and returns to the tree with the notice', async () => {
+    const api = serveOrganizations();
+    renderPage({ path: `${AREAS}/${ids.mobileArea}` });
+    await loaded('Область: Мобильное приложение');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить область' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Удаление области' });
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Удалить область' }));
+
+    expect(await screen.findByText('Область «Мобильное приложение» удалена.')).toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent(AREAS);
+    expect(api.writes().map((write) => write.method)).toEqual(['DELETE']);
+  });
+
+  it('keeps the page and shows the alert when the type rules refuse the move', async () => {
+    serveOrganizations();
+    renderPage({ path: API });
+    await loaded('Область: API');
+    serveProblem('put', `${AREA_URL}/parent`, problem('organizations.area.outside_project'), {
+      once: true,
+    });
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Переместить' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Перемещение области' });
     await userEvent.click(
-      within(projects).getByRole('button', { name: 'Ещё действия: Пример проекта' }),
+      within(dialog).getByRole('combobox', { name: /Новая родительская область/ }),
     );
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Отключить от области' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Отключение проекта от области' });
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Отключить' }));
+    await userEvent.click(await screen.findByRole('option'));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Переместить' }));
 
-    expect(await within(dialog).findByText('Область не найдена.')).toBeInTheDocument();
+    expect(
+      await within(dialog).findByText('Вложенную область нельзя переместить за пределы её проекта'),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('mod-018: the page of a department is built from the dataset', () => {
+  it('lists a project moved into the department', async () => {
+    const data = exampleDataset();
+    const node = data.areas.find((entry) => entry.id === ids.anlRoot)!;
+    node.parentId = ids.reportsArea;
+    serveOrganizations(data);
+    renderPage({ path: `${AREAS}/${ids.reportsArea}` });
+    await loaded('Департамент: Отчёты');
+
+    const projects = await screen.findByRole('table', { name: 'Проекты департамента' });
+    expect(within(projects).getByRole('link', { name: 'Аналитика' })).toBeInTheDocument();
   });
 });

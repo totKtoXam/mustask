@@ -17,7 +17,7 @@ import {
 } from '../../testFixtures';
 import { held, openCard } from './testCard';
 
-// mod-017 US-1, design § 3: «Команда» in block B of the band, row 1 (mod-018 D-6).
+// mod-017 US-1, design § 3: «Команда» in block B of the band, under «Область».
 
 vi.setConfig({ testTimeout: 60_000 });
 
@@ -40,13 +40,14 @@ async function pick(option: string) {
 }
 
 describe('mod-017 US-1 Scenario: the card shows and keeps the owning team apart from everything else', () => {
-  it('stands in block B of the band, named «Команда» by its label only, with the stored team as its value', async () => {
+  it('stands in the band under «Область», named «Команда» by its label only, with the stored team as its value', async () => {
     await openCard('MSK-US-2', { data: marsDataset() });
 
     expect(team()).toHaveValue('MARS');
     expect(team()).toHaveAccessibleName('Команда');
-    const state = screen.getByRole('combobox', { name: 'Статус' });
-    expect(state.closest('[data-band-block]')).not.toBe(team().closest('[data-band-block]'));
+    const area = screen.getByRole('combobox', { name: 'Область' });
+    expect(area.compareDocumentPosition(team()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(area.closest('[data-band-block]')).toBe(team().closest('[data-band-block]'));
   });
 
   it('shows «Без команды» as a value for an item that has none, and offers it first in the list', async () => {

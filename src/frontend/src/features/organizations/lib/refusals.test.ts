@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '../../../shared/api/httpClient';
-import { problem, validationProblem } from '../testFixtures';
+import { catalogText, problem, validationProblem } from '../testFixtures';
 import { notFoundLevel } from './notFoundLevel';
 import { placeRefusal, type RefusalField } from './refusals';
 
@@ -82,6 +82,28 @@ describe('mod-002 design § 4.4: every refusal lands where the table says, by it
       'Дерево областей не может быть глубже 10 уровней',
       {},
     ],
+    // mod-018 api-contract § 7 (ADR-0031): the type rules land on the place field.
+    [
+      'organizations.area.type_not_allowed',
+      MOVE,
+      'parent',
+      catalogText('organizations.area.type_not_allowed'),
+      {},
+    ],
+    [
+      'organizations.area.outside_project',
+      MOVE,
+      'parent',
+      'Вложенную область нельзя переместить за пределы её проекта',
+      {},
+    ],
+    [
+      'organizations.area.link_type_not_allowed',
+      AREAS,
+      'areas',
+      catalogText('organizations.area.link_type_not_allowed'),
+      {},
+    ],
     // mod-018 design §§ 5.1, 5.3: a vanished chosen parent or area lands on its field.
     ['organizations.area.not_found', MOVE, 'parent', 'Область не найдена.', {}],
     ['organizations.area.not_found', AREAS, 'areas', 'Область не найдена.', {}],
@@ -110,7 +132,7 @@ describe('mod-002 design § 4.4: every refusal lands where the table says, by it
     ['organizations.organization.create_forbidden', 'Недостаточно прав', {}],
     [
       'organizations.area.not_empty',
-      'Нельзя удалить область, в которой есть вложенные области',
+      'Нельзя удалить область, в которой есть проекты, вложенные области или рабочие элементы',
       {},
     ],
     // The row of `organizations.team.last_team_cannot_be_deleted` is retired by name with the guard

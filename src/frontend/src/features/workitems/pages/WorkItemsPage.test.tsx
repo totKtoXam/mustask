@@ -18,8 +18,17 @@ import {
 } from '../testFixtures';
 import { MSK_LIST, OPS_LIST, mskForm, projectContext, renderWorkItems } from '../testRender';
 
-// mod-018 design § 8: seven columns, «Область» retired.
-const COLUMNS = ['ID', 'Тип', 'Заголовок', 'Исполнитель', 'Статус', 'Команда', 'Изменён'];
+// mod-017 BR-OT-9: «Команда» stands before «Область», eight columns.
+const COLUMNS = [
+  'ID',
+  'Тип',
+  'Заголовок',
+  'Исполнитель',
+  'Статус',
+  'Команда',
+  'Область',
+  'Изменён',
+];
 
 async function table() {
   return screen.findByRole('table', { name: 'Рабочие элементы' });
@@ -36,7 +45,7 @@ function cellsOf(row: HTMLElement): string[] {
 }
 
 describe('mod-003 US-2 Scenario: A row shows the item’s columns', () => {
-  it('reads the identifier, the type with its icon, the title link, the assignee, the state with its dot, the team and the time', async () => {
+  it('reads the identifier, the type with its icon, the title link, the assignee, the state with its dot, the team, the area and the time', async () => {
     serveWorkItems();
     renderWorkItems(MSK_LIST);
 
@@ -55,6 +64,7 @@ describe('mod-003 US-2 Scenario: A row shows the item’s columns', () => {
       'АСАнна Смирнова',
       'Активна',
       'Без команды',
+      'Платформа / API',
       SAVED_AT_TEXT,
     ]);
     const cells = within(row).getAllByRole('cell');
@@ -343,7 +353,7 @@ async function titles() {
 }
 
 describe('mod-017 US-5 Scenario: the team column', () => {
-  it('names the team, or «Без команды» in the secondary colour, before «Изменён»', async () => {
+  it('names the team, or «Без команды» in the secondary colour, before «Область»', async () => {
     serveWorkItems(teamsDataset());
     renderWorkItems(MSK_LIST);
 

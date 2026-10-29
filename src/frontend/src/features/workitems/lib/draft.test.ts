@@ -40,6 +40,7 @@ const ITEM: WorkItem = {
     category: { code: 'InProgress', label: 'В работе' },
   },
   assignee: { id: 'anna', displayName: 'Анна Смирнова', email: 'anna@example.com' },
+  area: { id: 'area-api', path: 'Платформа / API' },
   team: { id: 'team-mars', name: 'MARS' },
   createdBy: 'creator',
   createdAt: '2026-10-05T14:30:00+00:00',
@@ -83,6 +84,15 @@ describe('changesOf', () => {
     });
     expect(
       changesOf(ITEM, { ...draftOf(ITEM), assignee: { ...ITEM.assignee!, displayName: 'x' } }),
+    ).toEqual({});
+  });
+
+  it('carries the area by id; the same area under another path is no change', () => {
+    expect(
+      changesOf(ITEM, { ...draftOf(ITEM), area: { id: 'area-root', path: 'Мастаск' } }),
+    ).toEqual({ areaId: 'area-root' });
+    expect(
+      changesOf(ITEM, { ...draftOf(ITEM), area: { id: 'area-api', path: 'Отчёты / Шлюз' } }),
     ).toEqual({});
   });
 
@@ -173,13 +183,15 @@ describe('rebaseDraft: the fresh read after `parent_changed` (feat-001 spec § S
     expect(changesOf(fresh, rebased)).toEqual({ title: 'Мой заголовок' });
   });
 
-  it('keeps a touched assignee, compared by id', () => {
+  it('keeps a touched assignee and area, compared by id', () => {
     const fresh: WorkItem = { ...ITEM, parent: FEAT_8 };
-    const draft = { ...draftOf(ITEM), assignee: null, parent: null };
+    const area = { id: 'area-root', path: 'Мастаск' };
+    const draft = { ...draftOf(ITEM), assignee: null, area, parent: null };
 
     expect(rebaseDraft(ITEM, fresh, draft)).toEqual({
       ...draftOf(fresh),
       assignee: null,
+      area,
     });
   });
 });

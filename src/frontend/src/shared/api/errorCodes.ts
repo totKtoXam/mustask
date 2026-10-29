@@ -60,6 +60,12 @@ export const organizationErrorCodes = {
   /** mod-018 api-contract § 6: the tree is at most 10 levels deep (409). */
   areaDepthExceeded: 'organizations.area.depth_exceeded',
   areaRootIsFixed: 'organizations.area.root_is_fixed',
+  /** mod-018 api-contract § 7 (ADR-0031): the type does not fit the place (409). */
+  areaTypeNotAllowed: 'organizations.area.type_not_allowed',
+  /** mod-018: a sub-area stays inside its own project (409). */
+  areaOutsideProject: 'organizations.area.outside_project',
+  /** mod-018: only a department takes a team link (409). */
+  areaLinkTypeNotAllowed: 'organizations.area.link_type_not_allowed',
   // mod-016 api-contract § 5: the scoped check, the memberships and the team members.
   // Where each shows is design § 9 (the screens of «Участники» and «Участники команды»,
   // the dialogs and the notices of the existing pages).

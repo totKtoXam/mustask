@@ -11,8 +11,9 @@ import type { CreateTeamBody, ProjectListItem, Team } from '../api/organizations
 import { useFocusInvalid } from '../hooks/useFocusInvalid';
 import { useFocusOnMount } from '../hooks/useFocusOnMount';
 import { useAreaTree, useProjects } from '../hooks/queries';
-import { areasField } from '../lib/areaTexts';
-import { AreasField, type AreaOption } from './AreaPickers';
+import { departmentsField } from '../lib/areaTexts';
+import { departmentsOf } from '../lib/areaTree';
+import { DepartmentsField, type DepartmentOption } from './AreaPickers';
 import { useUserSearch } from '../hooks/useUserSearch';
 import { placeRefusal, type RefusalField } from '../lib/refusals';
 import { createTeamDialog, linkDialog } from '../lib/teamTexts';
@@ -53,7 +54,7 @@ export function CreateTeamDialog({
   organizationId: string;
   /** The user holds `team.link` and `project.link`: «Проекты» is drawn. */
   canLink: boolean;
-  /** The user holds `area.link` and `team.link`: «Области» is drawn. */
+  /** The user holds `area.link` and `team.link`: «Департаменты» is drawn. */
   canLinkAreas?: boolean;
   submit(body: CreateTeamBody): Promise<Team>;
   onSucceeded(team: Team): void;
@@ -66,7 +67,7 @@ export function CreateTeamDialog({
   const [memberText, setMemberText] = useState('');
   const [typed, setTyped] = useState('');
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
-  const [areas, setAreas] = useState<AreaOption[]>([]);
+  const [areas, setAreas] = useState<DepartmentOption[]>([]);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [alert, setAlert] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -85,6 +86,12 @@ export function CreateTeamDialog({
   ];
   const projectOptions = projectsQuery.data ?? [];
   const areasQuery = useAreaTree(organizationId, { enabled: canLinkAreas, fresh: true });
+  const departmentOptions: DepartmentOption[] = departmentsOf(areasQuery.data ?? []).map(
+    (node) => ({
+      id: node.id,
+      path: node.name,
+    }),
+  );
 
   async function handleSubmit() {
     const refused: FieldErrors = {};
@@ -142,7 +149,7 @@ export function CreateTeamDialog({
         });
       }
       if (placed.fields.areas !== undefined) {
-        // The areas are read again, and a choice no longer offered drops (design § 5.3).
+        // The departments are read again, and a choice no longer offered drops.
         void areasQuery.refetch().then((result) => {
           const offered = result.data;
           if (offered) {
@@ -266,12 +273,12 @@ export function CreateTeamDialog({
         />
       )}
       {canLinkAreas && (
-        <AreasField
-          hint={areasField.teamHint}
+        <DepartmentsField
+          hint={departmentsField.teamHint}
           busy={busy}
           error={errors.areas}
           value={areas}
-          options={areasQuery.data ?? []}
+          options={departmentOptions}
           loading={areasQuery.isPending}
           failed={areasQuery.isError}
           onChange={(next) => {

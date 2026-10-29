@@ -1,25 +1,24 @@
-# mod-018-area-workspace - frontend plan
+# mod-018-area-workspace - frontend plan (typed single tree)
 
-Slice: `src/frontend/src/features/organizations` (areas live with the organization, the area tree is no longer per project). Contract: `api-contract.md`, design: `design.md` (D-1..D-7 option A, OQ-1 A, OQ-2 B).
+Slice: `src/frontend/src/features/organizations`; the work item's «Область» in `features/workitems`. Contract: `api-contract.md`, design: `design.md`.
 
 ## Screens and components
 
-- `pages/AreasPage.tsx` - the organization's area tree under settings, «Области»: create (top level or under a parent), expanded while there are at most 100 areas (D-3), loading, empty, error, permission states.
-- `pages/AreaPage.tsx` - one area: facts, rename, description, move (D-5 offers), delete with the preview of nested areas, links; its projects and teams with link and unlink.
-- `components/EndAreasSection.tsx` - the area links from the project and team ends (`ProjectGeneralPage`, `TeamPage`); `components/AreaLinkDialog.tsx`, `components/AreaPickers.tsx` (local-filter pickers, 50-option cap, D-1); `AreasField` in the create-project and create-team dialogs.
-- `components/AreaDialogs.tsx` - create, move, delete dialogs.
-- Retired: the per-project area tree and its routes, `AreaField` of the work item, the area column and filter of the list, the area in drafts and the card (D-6 band).
+- `pages/AreasPage.tsx` - the organization's typed tree (TreeRegistry): Название / Тип / Описание, «деактивирован» mark, row commands from `lib/areaCommands.ts`, primary «Новый департамент», loading, empty, error and permission states.
+- `pages/AreaPage.tsx` - one node for the three types. Department: «Проекты», «Команды» (links to departments only). Project node: «Расположение», «Команды» (the feat-028 project-team links, `components/ProjectNodeTeams.tsx`), «Вложенные области», «Открыть проект». Sub-area: parent and project, sub-areas. A deactivated project's node is read-only.
+- `pages/ProjectAreasPage.tsx` - the project's subtree under its settings, «Новая вложенная область».
+- `pages/ProjectGeneralPage.tsx` - «Расположение» fact and «Переместить»; `pages/TeamPage.tsx` - «Департаменты» section (`components/TeamDepartmentsSection.tsx`).
+- `components/AreaNodeDialogs.tsx` - the shared dialog host (create, rename, move, delete) used by the three pages; `AreaDialogs.tsx`, `AreaLinkDialog.tsx`, `AreaPickers.tsx` (50-option cap, D-1), `AreaTypeMark.tsx`.
+- `CreateProjectDialog` sends `parentAreaId`, `CreateTeamDialog` sends `areaIds`.
+- Removed: area-project links and pickers, `EndAreasSection`.
+- Work item: `AreaField` and `CreateWorkItemDialog` offer only the project's subtree (`useProjectAreaTree`).
 
 ## Data
 
-- `api/organizationsApi.ts`, `api/queryKeys.ts`, `hooks/queries.ts`, `hooks/mutations.ts`: area read/write and link calls; invalidation of the area, project and team keys after each mutation.
-- Permissions: `area.read`, `area.write`, `area.create`, `area.link`; a link needs `area.link` plus the other end's code, an unlink only the end's own code.
-- Errors: `area.depth_exceeded`, `area.name_taken`, `area.not_found`, `area.move_into_own_subtree`, `area.not_empty` land per `lib/refusals.ts`.
-
-## Navigation
-
-Organization settings: Общие, Проекты, Команды, Области, Участники, Процесс. The project section keeps Общие and Команды. `TreeRegistry` gained `labelTo` (D-7).
+- `api/organizationsApi.ts`, `api/queryKeys.ts`, `hooks/queries.ts`, `hooks/mutations.ts`: invalidation of area, project and team keys after each write.
+- Permissions: `area.read`, `area.write`, `area.create`, `area.link`.
+- Errors per `lib/refusals.ts`: type_not_allowed, outside_project, link_type_not_allowed, depth_exceeded, root_is_fixed, plus the earlier codes. An item area outside its project answers 404 `area.not_found` in the code (api-contract § 6 says 409; the code is followed).
 
 ## Tests
 
-Vitest with the MSW fake (`testApi.ts`): tree, area page, end sections, dialogs, refusals, navigation and routes, kit guard (allow-list only lowered), error codes.
+Vitest with the MSW fake (`testApi.ts`) enforcing the typed rules, including the department "to the top" no-op: tree, node pages, project areas, team departments, dialogs, pickers, roles, work item area.

@@ -3,7 +3,14 @@ import { ApiError, type ProblemDetails } from '../../../shared/api/httpClient';
 import { notFoundLevel } from './notFoundLevel';
 import { isParentChanged, placeRefusal, type RefusalField } from './refusals';
 
-const FORM: readonly RefusalField[] = ['title', 'description', 'state', 'assignee', 'parent'];
+const FORM: readonly RefusalField[] = [
+  'title',
+  'description',
+  'state',
+  'assignee',
+  'area',
+  'parent',
+];
 const DIALOG: readonly RefusalField[] = ['title'];
 
 function refusal(
@@ -98,6 +105,7 @@ describe('placeRefusal (spec § Error codes; api-contract § 0.5)', () => {
       'assignee',
       'Этого пользователя нельзя назначить исполнителем.',
     ],
+    ['organizations.area.not_found', 404, 'area', 'Область не найдена.'],
   ])('%s lands under its field (%s → %s)', (code, status, field, text) => {
     expect(placeRefusal(refusal(status, code, text), FORM)).toEqual({
       fields: { [field]: text },

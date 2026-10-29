@@ -6,7 +6,7 @@ import {
   createdNotice,
   createdNoticeOnTeamView,
   holdingCaption,
-  createdInStateLine,
+  noProjectAreaLine,
   teamDroppedLine,
 } from './teams';
 
@@ -83,8 +83,8 @@ describe('feat-040 the dialog’s lines (design § 6.2)', () => {
     );
   });
 
-  it('reads the creation line', () => {
-    expect(createdInStateLine('Новая')).toBe(
+  it('reads the area line without a project', () => {
+    expect(noProjectAreaLine('Новая')).toBe(
       'Рабочий элемент будет создан в статусе «Новая». Остальные поля заполняются в его форме.',
     );
   });

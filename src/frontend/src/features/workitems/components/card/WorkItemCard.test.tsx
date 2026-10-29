@@ -80,6 +80,7 @@ describe('feat-029 US-2: the header and the band keep their names (BR-C-20)', ()
       prepare: (data) => {
         const record = recordOf(data.data, 2);
         record.assigneeId = ids.anna;
+        record.areaId = ids.api;
       },
     });
 
@@ -90,7 +91,7 @@ describe('feat-029 US-2: the header and the band keep their names (BR-C-20)', ()
     );
     expect(screen.getByRole('combobox', { name: 'Исполнитель' })).toHaveValue('Анна Смирнова');
     expect(screen.getByRole('combobox', { name: 'Статус' })).toHaveTextContent('Новая');
-    expect(screen.getByRole('combobox', { name: 'Команда' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Область' })).toHaveValue('Платформа / API');
     expect(screen.getByRole('group', { name: 'Сохранение' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Сохранить' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Ещё варианты сохранения' })).toBeDisabled();

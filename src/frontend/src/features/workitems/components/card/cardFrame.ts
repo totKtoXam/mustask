@@ -54,7 +54,7 @@ export interface CardFrameProps {
   /** Row 3, right: the places kept, the Save group, «Обновить», «Отменить все изменения», «Ещё действия». */
   headerActions: ReactNode;
   // ---- PropertyBand
-  /** Two blocks of fields with `labelPlacement="start"`: «Статус» + a place kept, «Команда» + «Итерация». */
+  /** Two blocks of fields with `labelPlacement="start"`: «Статус» + a place kept, «Область» + a place kept. */
   bandBlocks: [ReactNode, ReactNode];
   /** The stamp at the top right: «Изменён: <дата>» or the place kept for «Обновил <имя>». */
   bandMeta: ReactNode;

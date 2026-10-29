@@ -36,13 +36,15 @@ describe('feat-029 US-5: «Обновить»', () => {
   it('shows what others changed and tells the user', async () => {
     const { api, notify } = await openCard();
     const record = recordOf(api.data, 2);
+    record.areaId = ids.api;
     record.fields.priority = 1;
 
     await userEvent.click(screen.getByRole('button', { name: 'Обновить' }));
 
     await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: 'Приоритет' })).toHaveTextContent('1'),
+      expect(screen.getByRole('combobox', { name: 'Область' })).toHaveValue('Платформа / API'),
     );
+    expect(screen.getByRole('combobox', { name: 'Приоритет' })).toHaveTextContent('1');
     expect(notify).toHaveBeenCalledWith(cardTexts.notices.refreshed);
     expect(patches(api)).toHaveLength(0);
   });

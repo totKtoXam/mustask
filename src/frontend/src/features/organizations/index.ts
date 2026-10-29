@@ -18,6 +18,7 @@ export { OrganizationsSection } from './components/OrganizationsSection';
 export { useOrganizationsContextSource } from './context/useOrganizationsContextSource';
 export { AreaPage } from './pages/AreaPage';
 export { AreasPage } from './pages/AreasPage';
+export { ProjectAreasPage } from './pages/ProjectAreasPage';
 export { MembersPage } from './pages/MembersPage';
 export { OrganizationGeneralPage } from './pages/OrganizationGeneralPage';
 export { OrganizationListPage } from './pages/OrganizationListPage';
@@ -29,6 +30,7 @@ export { TeamsPage } from './pages/TeamsPage';
 export {
   DEACTIVATED_ORGANIZATIONS_ROUTE,
   DEACTIVATED_PROJECTS_ROUTE,
+  AREAS_ROUTE,
   MEMBERS_ROUTE,
   ORGANIZATIONS_PATH,
   ORGANIZATIONS_ROUTE,
@@ -40,6 +42,7 @@ export {
   PROJECTS_ROUTE,
   PROJECT_GENERAL_ROUTE,
   TEAMS_ROUTE,
+  areasPath,
   membersPath,
   organizationAreaPath,
   organizationAreasPath,
@@ -53,6 +56,9 @@ export {
 export { organizationsPermissions } from './permissions';
 // mod-017: the work item's «Команда» picker and the team filter (workitems), and the creation
 // dialog of the project's views, read the project's teams on this slice's key.
+// mod-003: the work item's «Область» offers the project's subtree, on this slice's key.
+export { useProjectAreaTree } from './hooks/queries';
+export type { AreaNode } from './api/organizationsApi';
 export { useTeams } from './hooks/queries';
 export type { DefaultMark, ProjectTeam } from './api/organizationsApi';
 // feat-040: a team's creation dialog offers its linked projects as «Проект» (read afresh at every

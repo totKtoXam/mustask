@@ -17,6 +17,7 @@ import { HomePage } from '../features/home/HomePage';
 import {
   AreaPage,
   AreasPage,
+  ProjectAreasPage,
   DEACTIVATED_ORGANIZATIONS_ROUTE,
   DEACTIVATED_PROJECTS_ROUTE,
   MEMBERS_ROUTE,
@@ -37,6 +38,7 @@ import {
   PROJECT_GENERAL_ROUTE,
   ProjectGeneralPage,
   ProjectListPage,
+  AREAS_ROUTE,
   TEAMS_ROUTE,
   TeamPage,
   TeamsPage,
@@ -191,8 +193,7 @@ export function AppRoutes() {
                   </OrganizationPage>
                 }
               />
-              {/* mod-018: the organization's area tree and an area's page; the project-nested
-                  tree is retired and its address answers «Страница не найдена». */}
+              {/* mod-018: the organization's area tree and an area's page; and the project's own subtree. */}
               <Route
                 path={ORG_AREAS_ROUTE}
                 element={
@@ -200,7 +201,7 @@ export function AppRoutes() {
                     code={organizationsPermissions.areaRead}
                     title="Области"
                     skeleton="registry"
-                    columns={['Область', 'Описание']}
+                    columns={['Название', 'Тип', 'Описание']}
                   >
                     <AreasPage />
                   </OrganizationPage>
@@ -215,6 +216,19 @@ export function AppRoutes() {
                     skeleton="form"
                   >
                     <AreaPage />
+                  </OrganizationPage>
+                }
+              />
+              <Route
+                path={AREAS_ROUTE}
+                element={
+                  <OrganizationPage
+                    code={organizationsPermissions.areaRead}
+                    title="Области"
+                    skeleton="registry"
+                    columns={['Название', 'Тип', 'Описание']}
+                  >
+                    <ProjectAreasPage />
                   </OrganizationPage>
                 }
               />
