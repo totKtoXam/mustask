@@ -477,6 +477,22 @@ public sealed class CreateProjectHandlerTests
         Assert.Empty(f.Store.Projects);
     }
 
+
+    // US-6 / TC-2 · placing a project needs area.write on the department, area.create at the top level (spec § Roles): the
+    // project code alone does not place anything.
+    [Fact]
+    public async Task Handle_PlacementWithoutTheAreaCode_IsForbidden_NothingStored()
+    {
+        var f = new Fixture(role: OrganizationRole.Member);
+        var department = f.Store.AddDepartment(f.Organization, "Разработка");
+
+        var under = await Assert.ThrowsAsync<ForbiddenException>(() => f.HandleAsync(f.Command(parentAreaId: department.Id.ToString())));
+        var top = await Assert.ThrowsAsync<ForbiddenException>(() => f.HandleAsync(f.Command()));
+
+        Assert.Equal(OrganizationErrorCodes.AccessForbidden, under.Code);
+        Assert.Equal(OrganizationErrorCodes.AccessForbidden, top.Code);
+        Assert.Empty(f.Store.Projects);
+    }
     // OQ-5 A · a project may be created under a department: its node stands there, locked in the order tree, department, save.
     [Fact]
     public async Task Handle_UnderADepartment_PlacesTheNodeThere()

@@ -48,7 +48,13 @@ public sealed class CreateProjectHandler(
 {
     public async Task<CreateProjectResult> Handle(CreateProjectCommand command, CancellationToken cancellationToken)
     {
-        // 0. The second codes, first of all (D-7): a project that links needs both ends' link codes.
+        // 0. The second codes, first of all (D-7): a project that links needs both ends' link codes; its node's place needs the area
+        // code of the placement (spec § Roles, US-6): area.write on the department, area.create at the top level (TC-2).
+        if (!access.Holds(command.ParentAreaId is null ? PermissionCatalog.OrganizationsAreaCreate : PermissionCatalog.OrganizationsAreaWrite))
+        {
+            throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
+        }
+
         if (command.TeamIds is { Count: > 0 }
             && (!access.Holds(PermissionCatalog.OrganizationsTeamLink) || !access.Holds(PermissionCatalog.OrganizationsProjectLink)))
         {
