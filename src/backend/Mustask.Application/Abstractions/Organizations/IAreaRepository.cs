@@ -19,8 +19,12 @@ public interface IAreaRepository
     /// <summary>The area of that organization, untracked and unlocked; <c>null</c> when there is none. For a not-found answer before any lock.</summary>
     Task<Area?> FindAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken);
 
-    /// <summary>The area, locked <c>FOR UPDATE</c> and tracked; <c>null</c> when the locking statement found none.</summary>
-    Task<Area?> LockForUpdateAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken);
+    /// <summary>
+    /// The area, locked and tracked; <c>null</c> when the locking statement found none. <c>FOR NO KEY UPDATE</c>, which lets the
+    /// <c>KEY SHARE</c> checks of foreign keys through (an item created on the node does not wait for a rename); <c>FOR UPDATE</c>
+    /// when <paramref name="forDelete"/> (TC-20).
+    /// </summary>
+    Task<Area?> LockForUpdateAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken, bool forDelete = false);
 
     /// <summary>The area, locked <c>FOR SHARE</c> (a binder's lock) and tracked; <c>null</c> when the locking statement found none.</summary>
     Task<Area?> LockForShareAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken);

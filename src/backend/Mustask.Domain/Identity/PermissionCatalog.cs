@@ -142,7 +142,7 @@ public static class PermissionCatalog
         new(OrganizationsAreaRead, PermissionScope.Organization, "Просмотр областей организации"),
         new(OrganizationsAreaWrite, PermissionScope.Organization, "Изменение, перемещение и удаление областей, дочерние области"),
         new(OrganizationsAreaCreate, PermissionScope.Organization, "Создание областей верхнего уровня"),
-        new(OrganizationsAreaLink, PermissionScope.Organization, "Связи области с проектами и командами"),
+        new(OrganizationsAreaLink, PermissionScope.Organization, "Связи департаментов с командами"),
         new(ProcessDefinitionRead, PermissionScope.Organization, "Просмотр определения процесса организации"),
         new(WorkItemsWorkItemRead, PermissionScope.Organization, "Просмотр рабочих элементов проекта"),
         new(WorkItemsWorkItemWrite, PermissionScope.Organization, "Создание и изменение рабочих элементов проекта"),

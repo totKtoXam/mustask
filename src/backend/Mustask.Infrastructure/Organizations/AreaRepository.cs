@@ -30,16 +30,22 @@ internal sealed class AreaRepository(MustaskDbContext context) : IAreaRepository
             .AsNoTracking()
             .SingleOrDefaultAsync(area => area.Id == areaId && area.OrganizationId == organizationId, cancellationToken);
 
-    public async Task<Area?> LockForUpdateAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken)
+    public async Task<Area?> LockForUpdateAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken, bool forDelete = false)
     {
-        var held = await context.Database
-            .SqlQuery<Guid>(
+        var query = forDelete
+            ? context.Database.SqlQuery<Guid>(
                 $"""
                  SELECT id AS "Value" FROM areas
                  WHERE id = {areaId} AND organization_id = {organizationId}
                  FOR UPDATE
                  """)
-            .ToListAsync(cancellationToken);
+            : context.Database.SqlQuery<Guid>(
+                $"""
+                 SELECT id AS "Value" FROM areas
+                 WHERE id = {areaId} AND organization_id = {organizationId}
+                 FOR NO KEY UPDATE
+                 """);
+        var held = await query.ToListAsync(cancellationToken);
 
         return held.Count == 0 ? null : await LoadAsync(organizationId, areaId, cancellationToken);
     }
@@ -98,7 +104,7 @@ internal sealed class AreaRepository(MustaskDbContext context) : IAreaRepository
                 $"""
                  SELECT id AS "Value" FROM areas
                  WHERE project_id = {projectId} AND organization_id = {organizationId} AND type = 2
-                 FOR UPDATE
+                 FOR NO KEY UPDATE
                  """)
             .ToListAsync(cancellationToken);
 

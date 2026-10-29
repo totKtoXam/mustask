@@ -24,7 +24,7 @@ public sealed class FakeAreaRepository(InMemoryOrganizations store) : IAreaRepos
     public Task<Area?> FindAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken) =>
         Task.FromResult(Find(organizationId, areaId));
 
-    public Task<Area?> LockForUpdateAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken)
+    public Task<Area?> LockForUpdateAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken, bool forDelete = false)
     {
         store.Record($"lock area update {areaId}");
 

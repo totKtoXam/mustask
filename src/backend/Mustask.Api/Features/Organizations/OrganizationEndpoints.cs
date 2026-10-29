@@ -370,7 +370,8 @@ public static class OrganizationEndpoints
         areas.MapPost("/{areaId}/teams", LinkTeamsToAreaAsync)
             .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaLink)
             .Produces(StatusCodes.Status204NoContent)
-            .WithReadProblems();
+            .WithReadProblems()
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
         areas.MapDelete("/{areaId}/teams/{teamId}", UnlinkTeamFromAreaAsync)
             .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaLink)
@@ -391,7 +392,8 @@ public static class OrganizationEndpoints
         teams.MapPost("/{teamId}/areas", LinkAreasToTeamAsync)
             .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamLink)
             .Produces(StatusCodes.Status204NoContent)
-            .WithReadProblems();
+            .WithReadProblems()
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
         teams.MapDelete("/{teamId}/areas/{areaId}", UnlinkAreaFromTeamAsync)
             .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamLink)

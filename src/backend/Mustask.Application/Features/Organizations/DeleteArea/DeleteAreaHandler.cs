@@ -45,7 +45,7 @@ public sealed class DeleteAreaHandler(
 
                 await areas.LockTreeAsync(organizationId, ct);
 
-                var area = await areas.LockForUpdateAsync(organizationId, areaId, ct)
+                var area = await areas.LockForUpdateAsync(organizationId, areaId, ct, forDelete: true)
                     ?? throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
 
                 // 2. The rules about the addressed node alone: a deactivated project's node and sub-areas are read-only (BR-AW-10),
