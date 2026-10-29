@@ -3,7 +3,7 @@
 - type: module
 - size: L
 - branch: mod/018-area-workspace
-- stage: 08-code-review
+- stage: gate-3
 - epic: core/org-access
 - deps: feat-028
 - gates: gate-1, gate-2, gate-3
@@ -118,3 +118,4 @@ Summary (reworked 2026-10-27 to the human's typed single tree): one tree per org
 - TC-22: `OwnedItemsRule` doc says count, lock and write «cannot name different sets» while the SQL restates the predicate; no test that the count equals the rows affected.
 - TC-23, TC-24, TC-25 (DEF-9), TC-26 frontend items (`paths.ts` comment, `ProjectAreasPage` stale branch, «Тип» skeleton column): frontend.
 - TC-27: BR-AW-10 is pinned in part (describe, moving the deactivated node, the holding department's `not_empty`, the node's name staying taken are not); the Status lines of ADR-0028/0029 get «partially superseded by ADR-0031» at acceptance.
+- 2026-10-29 [code-reviewer] delta read of the typed-tree fix round (review.md § Round 2): TC-1..TC-13 closed, approve; open 0 major, 4 minor (TC-28..TC-31) as debt; TC-28 needs the orchestrator to ratify the TC-4 design delta. stage -> gate-3.

@@ -788,3 +788,48 @@ this branch and the ADR list names its four classes.
   `useAreaTree` under docs/, .claude/ and the AGENTS.md files. Hits: ADR-0028:168 (TC-11) and the mod-002/mod-003 notes (TC-6,
   TC-8). The doc-012 audits and the mod-002/mod-017 records are history.
 - Not swept: `parentAreaId`/`areaIds` outside docs/features/mod-018, and the prototype.
+
+### Round 2 — delta read (2026-10-29)
+
+Delta `2ba08c96..70fdf571` (8 commits). Targeted runs: Domain `AreaTests`, Application `MoveAreaHandlerTests` and
+`CreateProjectHandlerTests` (75 green); vitest `AreaPage` and `TeamDepartments` (35 green). Integration tests not run (Docker).
+
+**Verdict: approve.** 0 blocker, 0 major open; 4 new minors (debt).
+
+| TC | Verdict | Evidence |
+|---|---|---|
+| 1 | closed | `Area.cs:181-216`: type switch first, cycle after; node under own sub-area is `type_not_allowed`; `AreaTests`, `MoveAreaHandlerTests`, endpoint test flipped |
+| 2 | closed | `CreateProjectHandler.cs:51-56` step 0, `area.write` with parent, `area.create` without, before any lookup; handler test covers both, nothing stored; panel gates by `placementOptionsFor` (tests pass) |
+| 3 | closed | migration `DO $$ ... RAISE NOTICE` after the UPDATE; populated test asserts `typed 3 ... kept 2`, empty test `0 ... 0` |
+| 4 | closed (behaviour), see TC-28 | `ProjectNodeTeams` reads nothing and draws nothing when inactive; «Проект» fact from the tree node |
+| 5 | closed | contract § 5 `team.link` alone; `AreaPage.tsx` gates department-end unlink on `areaLink`, comment fixed |
+| 6, 7, 8 | closed | contract § 8 and ADR-0031 rule 6 say `RootAreaId` stays, no `ListAreasOfProjectAsync`, `FindAreaAsync` consumer named; `areaId` on save only; item-area 404 in ADR, mod-003 note, plan-backend, plan-frontend |
+| 9 | closed | ADR-0031 rule 1 names `ck_areas_type_shape` (nullness) and puts the two cross-row rules on the domain under the tree lock |
+| 10 | closed | one lock order in ADR-0031 rule 6 (tree, areas, teams, links, project, node, conditional hierarchy), ADR-0028 :144/(c) point to it; matches code (`SaveWorkItemHandler` hierarchy only on parent change) |
+| 11, 12 | closed | rule 5 and ADR-0028 rule 7: the settings/areas page stays until feat-043; scope line, markers «proposed» in ADR-0028/0029 and README |
+| 13 | closed | `OrganizationContainmentTests`: PATCH `areaId` of B expects 404 `area.not_found`; stale comment reworded |
+
+Minors TC-14..TC-27: handled or recorded as debt in status.md; TC-16, 17, 20, 23 also fixed. Lock check (TC-16/17/20): FOR NO
+KEY UPDATE still conflicts with the binder's FOR SHARE and with itself, so the tree/area/team/link/project order is unchanged;
+no cycle added. `DeleteArea` keeps FOR UPDATE.
+
+### New findings (minors, debt)
+
+- **TC-28** `ProjectNodeTeams.tsx:103` and status.md:113: the comment says the design delta is «recorded in status.md», but
+  status.md has none and still lists TC-4 as open debt awaiting the orchestrator. The developer took the orchestrator's choice
+  (hide the section; design § 4 «lists stay readable» is unchanged). Fix: the orchestrator ratifies it, records the delta in
+  status.md, updates design § 4, and drops TC-4 from Debt.
+- **TC-29** `AreaRepository.cs:40-47,107` and `IAreaRepository.cs:23`: `ix_areas_organization_id_parent_id_normalized_name` is
+  a plain unique index, so `name` and `parent_id` are key columns and a rename or move UPDATE takes the key-update lock anyway.
+  «An item created on the node does not wait for a rename» holds for describe only. Nothing unsafe (the item waits, no cycle).
+  Fix: narrow the comment, or leave.
+- **TC-30** `CreateProjectDialog.tsx:58-65`: a caller with `area.write` and no `area.create` in an organization with no
+  department sees an empty «Расположение», submits no parent and gets 403; a caller with neither code is offered a form that
+  always answers 403. Latent (only «Администратор» holds `project.write`). Fix with mod-019: disable «Новый проект» without a
+  place to offer.
+- **TC-31** `plan-frontend.md` has an uncommitted edit in the worktree (the TC-8 line); commit it with the docs.
+
+**Claims pass (delta).** Direction 1: contract § 1/3/4/5/6/8 and ADR-0031 rules 1, 3-6, 8 anchored to `Area.cs:181-216`,
+`CreateProjectHandler.cs:51`, `OrganizationEndpoints.cs:396`, `SaveWorkItemHandler.cs:118,243`, `CreateWorkItemHandler.cs:181`.
+Direction 2: grepped `settings/areas`, `RootAreaId`, `ListAreasOfProjectAsync`, `outside_project`, `move_into_own_subtree`
+under docs/ and the ADR README; remaining hits are history. Not swept: the eight dropped P-10 notes (trusted from the log).
