@@ -741,6 +741,19 @@ if [ "$need_shell" = 1 ]; then
         fi
     fi
 
+    # queue.sh lands the queue through a PR, not on the local main (tech-049).
+    touches_queue=0
+    for file in $changed; do
+        case "$file" in scripts/queue.sh|scripts/tests/queue-cases.sh) touches_queue=1 ;; esac
+    done
+    if [ "$touches_queue" = 1 ]; then
+        if sh scripts/tests/queue-cases.sh; then
+            pass "queue.sh: PR landing cases"
+        else
+            fail "queue.sh: PR landing cases"
+        fi
+    fi
+
     # The comparison base and an aborted test run (tech-044): the cases run a
     # nested verify.sh in a throwaway repository with stubs for dotnet, docker
     # and npm.
