@@ -17,7 +17,7 @@ Slice: `src/frontend/src/features/organizations`; the work item's «Област
 
 - `api/organizationsApi.ts`, `api/queryKeys.ts`, `hooks/queries.ts`, `hooks/mutations.ts`: invalidation of area, project and team keys after each write.
 - Permissions: `area.read`, `area.write`, `area.create`, `area.link`.
-- Errors per `lib/refusals.ts`: type_not_allowed, outside_project, link_type_not_allowed, depth_exceeded, root_is_fixed, plus the earlier codes. An item area outside its project answers 404 `area.not_found` in the code (api-contract § 6 says 409; the code is followed).
+- Errors per `lib/refusals.ts`: type_not_allowed, outside_project, link_type_not_allowed, depth_exceeded, root_is_fixed, plus the earlier codes. An item area outside its project answers 404 `area.not_found` (api-contract § 6).
 
 ## Tests
 
