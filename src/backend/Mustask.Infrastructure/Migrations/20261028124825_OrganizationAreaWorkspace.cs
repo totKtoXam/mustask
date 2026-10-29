@@ -125,6 +125,17 @@ namespace Mustask.Infrastructure.Migrations
                     created_at = projects.created_at
                 FROM projects
                 WHERE projects.id = areas.project_id;
+
+                -- BR-AW-14, US-5: the counts of each kind are logged (0 and 0 on an empty database).
+                DO $$
+                DECLARE
+                    nodes bigint;
+                    subs bigint;
+                BEGIN
+                    SELECT count(*) FILTER (WHERE type = 2), count(*) FILTER (WHERE type = 3) INTO nodes, subs FROM areas;
+                    RAISE NOTICE 'mod-018: typed % project nodes, kept % sub-areas', nodes, subs;
+                END
+                $$;
                 """);
 
             migrationBuilder.AddUniqueConstraint(

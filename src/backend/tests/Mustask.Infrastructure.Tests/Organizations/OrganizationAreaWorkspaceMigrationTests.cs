@@ -33,7 +33,10 @@ public sealed class OrganizationAreaWorkspaceMigrationTests(OrganizationsDatabas
         await SeedAsync(legacy);
         var before = await ItemsFingerprintAsync(legacy);
 
-        await MigrateAsync(legacy, Migration);
+        var notices = await MigrateAsync(legacy, Migration);
+
+        // BR-AW-14, US-5: the counts of each kind are logged (TC-3).
+        Assert.Equal(["mod-018: typed 3 project nodes, kept 2 sub-areas"], notices);
 
         Assert.Equal(["5"], await QueryAsync(legacy, "SELECT count(*) FROM areas"));
         Assert.Equal(
@@ -198,7 +201,9 @@ public sealed class OrganizationAreaWorkspaceMigrationTests(OrganizationsDatabas
     {
         var legacy = await NewLegacyDatabaseAsync();
 
-        await MigrateAsync(legacy, Migration);
+        var notices = await MigrateAsync(legacy, Migration);
+
+        Assert.Equal(["mod-018: typed 0 project nodes, kept 0 sub-areas"], notices);
 
         Assert.Equal(["0"], await QueryAsync(legacy, "SELECT count(*) FROM areas"));
     }
@@ -319,11 +324,11 @@ public sealed class OrganizationAreaWorkspaceMigrationTests(OrganizationsDatabas
             ("area", area),
             ("changed", Changed));
 
-    /// <summary>An item's project, number, title, state and «Изменён» as one hash: the area column is the one thing that goes.</summary>
+    /// <summary>An item's project, number, title, state and «Изменён», area and owning team as one hash: an upgrade changes none of them.</summary>
     private static async Task<string> ItemsFingerprintAsync(string cs) =>
         Assert.Single(await QueryAsync(
             cs,
-            "SELECT md5(coalesce(string_agg(concat_ws('|', id, project_id, number, title, state_id, changed_at), ';' ORDER BY id), '')) FROM work_items"));
+            "SELECT md5(coalesce(string_agg(concat_ws('|', id, project_id, number, title, state_id, changed_at, area_id, owning_team_id), ';' ORDER BY id), '')) FROM work_items"));
 
     // --- The databases -----------------------------------------------------------------------------------------------
 
