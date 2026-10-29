@@ -55,6 +55,23 @@ internal static class SharedPostgres
     }
 
     /// <summary>
+    /// Drops a database made here once its fixture is done, so the classes that
+    /// run after it (the timing budgets last of all) share the server with no
+    /// leftover data and no autovacuum on it.
+    /// </summary>
+    public static async Task DropDatabaseAsync(string connectionString)
+    {
+        var server = await Server.Value;
+        await using (var connection = new NpgsqlConnection(connectionString))
+        {
+            NpgsqlConnection.ClearPool(connection);
+        }
+
+        var name = new NpgsqlConnectionStringBuilder(connectionString).Database;
+        await ExecuteAsync(server, $"DROP DATABASE IF EXISTS \"{name}\" WITH (FORCE)");
+    }
+
+    /// <summary>
     /// A database built once per process — migrated, say — and copied for each
     /// fixture that asks for it. <c>build</c> gets the template's connection
     /// string; every connection it opened is cleared from the pool afterwards,
@@ -112,12 +129,21 @@ internal static class SharedPostgres
 
     private static string NewName() => $"test_{Guid.NewGuid():N}";
 
-    private static string ConnectionStringFor(PostgreSqlContainer server, string database) =>
-        new NpgsqlConnectionStringBuilder(server.GetConnectionString()) { Database = database }.ConnectionString;
+    // Longer than Npgsql's 15 s to open and 30 s per command: every fixture of
+    // the assembly shares one server, both assemblies share the machine, and a
+    // full run loads them enough that a migration or a pool open once ran
+    // out of the defaults.
+    private static string ConnectionStringFor(PostgreSqlContainer server, string? database) =>
+        new NpgsqlConnectionStringBuilder(server.GetConnectionString())
+        {
+            Database = database ?? new NpgsqlConnectionStringBuilder(server.GetConnectionString()).Database,
+            Timeout = 60,
+            CommandTimeout = 120,
+        }.ConnectionString;
 
     private static async Task ExecuteAsync(PostgreSqlContainer server, string sql)
     {
-        await using var connection = new NpgsqlConnection(server.GetConnectionString());
+        await using var connection = new NpgsqlConnection(ConnectionStringFor(server, database: null));
         await connection.OpenAsync();
         await using var command = new NpgsqlCommand(sql, connection);
         await command.ExecuteNonQueryAsync();

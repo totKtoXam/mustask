@@ -174,6 +174,11 @@ public sealed class MustaskApiFactory : WebApplicationFactory<Program>, IAsyncLi
     {
         await base.DisposeAsync();
 
+        if (_connectionString.Length > 0)
+        {
+            await SharedPostgres.DropDatabaseAsync(_connectionString);
+        }
+
         lock (HostBuildGate)
         {
             if (_counted && --_liveFactories == 0)
