@@ -82,6 +82,8 @@ becomes its project node at the top level, its descendants become sub-areas, `cr
 items keep their `area_id`. It fails, naming the project, when a tree is deeper than 10 levels; the human shortens it and
 re-runs. Down restores the shape and removes the departments and team links, which have no earlier form.
 
+**9. Business rules out of Infrastructure (the human's addition to the scope, 2026-10-28).** The decisions that were EF predicates in `Mustask.Infrastructure` are domain specifications, unit-tested without a database: reachability (ADR-0026 rule 3) in `ReachabilityRules`, the live and deleted sets (ADR-0030 rule 2) in `WorkItemSetRules`, and "the items a team owns across a set of projects" (mod-017 BR-OT-12, feat-028 BR-OL-8/-9) in `OwnedItemsRule`. `Reachability`, `WorkItemSets`, `WorkItemTeamOwnership` and `DefaultTeams` only apply them to a set or render them as SQL: the owner reassignment stays one set-based `UPDATE` with a row lock, names its rows from the rule's project ids and team id, and the default-team choice stays `ProjectDefaultTeam.Resolve`. The generated SQL is unchanged in shape (set-based, filtered before materialization, no global query filter: ADR-0026 rule 4 and ADR-0030 stand). `WorkItemSets` is still the one place that names the `work_items` set, so the text rule `WorkItemAccessRules` is untouched.
+
 **Departures from `docs/conventions/*`:** none.
 
 ## Consequences

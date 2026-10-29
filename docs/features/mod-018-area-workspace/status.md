@@ -3,7 +3,7 @@
 - type: module
 - size: L
 - branch: mod/018-area-workspace
-- stage: 04-backend
+- stage: 05-backend-qa
 - epic: core/org-access
 - deps: feat-028
 - gates: gate-1, gate-2, gate-3
@@ -89,8 +89,8 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-28 [orchestrator] gate-2 put to the human one question each (AskUserQuestion, ask-format): D-8 A, D-9 A, D-10 A, D-1..D-7 re-check accepted; gate-2 approved; stage → 04-backend (rework of the first build to the typed tree). Usage: weekly 6%, 5-hour 0% (window reset). Orchestrator context past 200k: handed over to a fresh orchestrator per economy mode.
 - 2026-10-28 [orchestrator] fresh orchestrator for the typed-tree build (economy mode; the human's «да» to this run): bound to the worktree mod-018-build-9e3722, branch mod/018-area-workspace at f106932a, up to date with main; Docker running; next free ADR number 0031. Usage at start: weekly 6%, 5-hour 4%.
 - 2026-10-28 [backend-developer] api-contract.md rewritten for the typed single tree (change note, fixed before the frontend starts in parallel): routes `/areas` (tree, create department or sub-area, page, name, description, parent, delete, deletion preview, team links), `GET /projects/{id}/areas` (project subtree), `GET|POST /teams/{id}/areas`, `POST /projects` gains `parentAreaId`, `POST /teams` gains `areaIds`; removed `/areas/{id}/projects*` and `POST|DELETE /projects/{id}/areas*`; new codes `type_not_allowed`, `outside_project`, `link_type_not_allowed`, `depth_exceeded`; `root_is_fixed` back; wire `type` is department|project|area. docs/error-codes.md regenerated.
-
-## Debt
+- 2026-10-28 [orchestrator] the human added to scope: move the Infrastructure business rules (Reachability, WorkItemSets, WorkItemTeamOwnership, DefaultTeams check) into Domain specifications
+- 2026-10-29 [backend-developer] typed-tree rework built (commits 1a8fc3f5..HEAD): api-contract and plan rewritten, ADR-0031 proposed (pointers in ADR-0028 rules 2, 3, 7, 8 and ADR-0029 section 6), eight P-10 notes revised, one regenerated migration (the unmerged first one removed), department and project-node and sub-area types, item area back, area-team links to departments only, project node created and renamed with its project; Infrastructure business rules moved to Domain specifications (ReachabilityRules, WorkItemSetRules, OwnedItemsRule, ADR-0031 rule 9). Tests: Domain 842, Application 767, Contracts 252, Architecture 86, Infrastructure 447 (one Docker flake re-run green), Api.IntegrationTests 3129 run in two passes, all green after fixes. Deviations: the work_items to areas key is raw SQL in the migration and the project-id uniqueness is a unique index (EF cannot put an alternate key on a nullable column); CreateProject takes 9 statements (was 6) and team deletion 14 (was 13); the first build's area tests were replaced rather than adapted line by line. Old debt: m-2 still applied and is fixed (the second code is decided again on the locked row in MoveAreaHandler); m-3 is frontend (mod-019); m-5 still applies in a narrower form and is stated in ADR-0031 rule 6 (item save: hierarchy lock, item, area FOR SHARE; area writes never lock items), the sprint tier is mod-007's. stage -> 05-backend-qa.
 
 Superseded by the rework (2026-10-28): the gate-3 of 2026-10-27 and the list below belong to the old spec; the list is kept and will be re-checked when the reworked code is reviewed.
 
