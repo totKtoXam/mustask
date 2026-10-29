@@ -15,14 +15,16 @@ run from there, not from this directory.
   container per run and gives every fixture a database of its own on it
   (`tests/Shared/SharedPostgres.cs`, tech-047). Their classes run in
   parallel: `Mustask.Api.IntegrationTests` splits `MustaskApiCollection` into
-  shards (`ApiTestCollectionFactory`, `MUSTASK_API_TEST_SHARDS` to override
-  the count). A new class that captures the console, sets an environment
-  variable, asserts on log entries of a host it builds, builds a host
-  straight from `WebApplicationFactory<Program>`, shares a static flag with
-  another class or holds a timing budget goes into `ApiTestCollectionFactory.SerialClasses` (a `*VolumeTests`
-  name goes there by itself) — in `Mustask.Infrastructure.Tests`, a class
-  that touches `ConnectionStrings__mustask` names
-  `ProcessEnvironmentCollection`.
+  shards (`ApiTestCollectionFactory`; half the cores, at most eight, so two
+  on a 4-core runner; `MUSTASK_API_TEST_SHARDS` overrides the count, and 1
+  still runs the serial classes apart, after the shard). A new class that
+  captures the console, sets an environment variable, asserts on log entries
+  of a host it builds, builds a host straight from
+  `WebApplicationFactory<Program>`, shares a static flag with another class
+  or holds a timing budget goes into `ApiTestCollectionFactory.SerialClasses`
+  (a `*VolumeTests` name goes there by itself) — in
+  `Mustask.Infrastructure.Tests`, a class that touches
+  `ConnectionStrings__mustask` names `ProcessEnvironmentCollection`.
 - `dotnet run --project src/backend/Mustask.AppHost` — local startup through
   .NET Aspire: brings up `Mustask.Api`, a PostgreSQL container (or uses an
   external PostgreSQL — see "External database" below), the frontend
