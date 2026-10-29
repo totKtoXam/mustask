@@ -31,11 +31,13 @@ gate-3: pending
 
 Before, on `a653917f`, unit-test projects only, lines (branches): Domain 93.6 (92.1), Application 64.5 (56.0), Shared 78.8 (67.9), Infrastructure 28.6 (37.0), Api 5.9 (5.9); frontend 98.3 (94.0). That run lost hits from part of the Infrastructure suite.
 
-On `e4d8f124` (current main) with `coverage.runsettings`, lines: Domain 95.0, Application 87.2, Shared 77.8, Infrastructure 91.6, Api 8.4 (unit); integration tests 95.3 overall. Frontend: from the final verify run, in the Log.
+On `e4d8f124` (current main) with `coverage.runsettings`, lines: Domain 95.0, Application 87.2, Shared 77.8, Infrastructure 91.6, Api 8.4 (unit); integration tests 95.3 overall. Frontend, from the final verify run on `265e5793`: lines 98.5, branches 94.6.
 
 ## Log
+- 2026-10-29 [orchestrator] weekly usage 10% after the build (0% at the start, 2026-10-27; account-wide, other sessions ran in parallel)
+- 2026-10-29 [orchestrator] `BASE=origin/main VERIFY_FULL=1 bash scripts/verify.sh` on `265e5793`: RESULT green, backend tests including integration, backend coverage floors and frontend coverage floor all ok
+- 2026-10-29 [orchestrator] the first full run failed two verify.sh self-test cases (the sandbox had no stub for the new gate: a `node` stub and a "floor missed: red" case were added) and `WorkItemFilterVolumeTests` once (the 2 s budget, under machine load). Run alone with coverage, its reads took 40–620 ms, and it passed in both other full runs
 
-- 2026-10-29 [orchestrator] weekly usage before 0% (2026-10-27), 9% at the build's end (account-wide, other sessions ran in parallel)
 - 2026-10-28 [orchestrator] route tech S confirmed by the human, together with the floors (option 1, Infrastructure raised to 30)
 - 2026-10-28 [orchestrator] queue line via sync PR #33 (`scripts/queue.sh add`); auto-merge was refused by the permission classifier, so the human merges it
 - 2026-10-27 [orchestrator] task started from the human's «сделай unittests покрытие 60%» (2026-10-27)
