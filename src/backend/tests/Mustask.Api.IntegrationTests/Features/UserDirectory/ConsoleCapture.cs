@@ -2,8 +2,9 @@ namespace Mustask.Api.IntegrationTests.Features.UserDirectory;
 
 /// <summary>
 /// Captures what a host's Serilog console sink writes while an action runs
-/// (the technique of <c>LoggingTests</c>; safe because every class of
-/// <see cref="MustaskApiCollection"/> runs sequentially).
+/// (the technique of <c>LoggingTests</c>). Safe only for a class in
+/// <see cref="ApiTestCollectionFactory.SerialClasses"/>, which runs alone: a
+/// new caller must be listed there, or it captures other shards' lines.
 /// </summary>
 /// <remarks>
 /// The action talks to a host of its own, built inside the capture. Why:

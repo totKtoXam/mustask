@@ -10,34 +10,26 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
-using Testcontainers.PostgreSql;
+using Mustask.Testing;
 
 namespace Mustask.Infrastructure.Tests.Process;
 
 /// <summary>
-/// One disposable PostgreSQL for the process tests of this assembly, migrated
-/// once with the real migrations. It does not touch the process-wide
+/// One database for the process tests of this assembly, migrated with the real
+/// migrations — a copy of the migrated template on the assembly's one server
+/// (tech-047). It does not touch the process-wide
 /// <c>ConnectionStrings__mustask</c> variable the other tests of the assembly
-/// share: every context here gets its connection string explicitly. The assembly
-/// runs serially, so the tests of the collection do not race each other.
+/// share: every context here gets its connection string explicitly. The tests
+/// of one collection run one after another, so they do not race each other.
 /// </summary>
 public sealed class ProcessDatabaseFixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18-alpine")
-        .WithDatabase("mustask")
-        .Build();
+    public string ConnectionString { get; private set; } = "";
 
-    public string ConnectionString => _postgres.GetConnectionString();
+    public async Task InitializeAsync() =>
+        ConnectionString = await SharedPostgres.CreateDatabaseFromTemplateAsync(MigratedDatabase.Template);
 
-    public async Task InitializeAsync()
-    {
-        await _postgres.StartAsync();
-
-        await using var context = NewContext();
-        await context.Database.MigrateAsync();
-    }
-
-    public async Task DisposeAsync() => await _postgres.DisposeAsync();
+    public Task DisposeAsync() => Task.CompletedTask;
 
     /// <summary>A context of its own, for reading back what a test wrote. It is not the one a seed ran on.</summary>
     public MustaskDbContext NewContext(params IInterceptor[] interceptors)

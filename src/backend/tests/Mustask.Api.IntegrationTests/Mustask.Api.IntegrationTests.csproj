@@ -25,6 +25,11 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!-- One PostgreSQL container per test assembly (tech-047). -->
+  <ItemGroup>
+    <Compile Include="..\Shared\SharedPostgres.cs" Link="Shared\SharedPostgres.cs" />
+  </ItemGroup>
+
   <!--
     mod-016: the opt-in live realm tests (Features/UserDirectory/Live) run the stand's drift check and the live-realm command
     against a real Keycloak. That is stand-only code of Mustask.AppHost, compiled in here as Mustask.Contracts.Tests does

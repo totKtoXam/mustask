@@ -15,7 +15,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
-using Testcontainers.PostgreSql;
+using Microsoft.Extensions.Hosting;
+using Mustask.Testing;
 
 namespace Mustask.Api.IntegrationTests;
 
@@ -35,11 +36,10 @@ namespace Mustask.Api.IntegrationTests;
 /// <c>WebApplication.CreateBuilder(args)</c>, is the mechanism that actually
 /// works here.
 ///
-/// Registered once as a shared <c>ICollectionFixture</c> for the whole
-/// <see cref="MustaskApiCollection"/> (one Postgres container, not one per test
-/// class) — see that type for why every test class touching this
-/// process-wide environment variable also has to run in the same
-/// collection.
+/// Registered as the <c>ICollectionFixture</c> of <see cref="MustaskApiCollection"/>:
+/// one instance per shard of it, each over a database of its own on the
+/// assembly's one Postgres container (tech-047) — see that type for how the
+/// process-wide environment variable is kept apart between shards.
 /// </summary>
 public sealed class MustaskApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
@@ -76,9 +76,29 @@ public sealed class MustaskApiFactory : WebApplicationFactory<Program>, IAsyncLi
 
     private const string PushSecretEnvVar = "UserDirectory__Push__Secret";
 
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18-alpine")
-        .WithDatabase("mustask")
-        .Build();
+    /// <summary>
+    /// ADR-0002: migrations are never applied automatically from src/ --
+    /// this template is the "explicit step"
+    /// for integration tests, the same role Mustask.Infrastructure.Tests'
+    /// MigrationsTests play for Mustask.Infrastructure's own tests. Migrated
+    /// once per run; every factory gets a copy of it (tech-047). Without it,
+    /// every endpoint test that touches a real table would hit "relation ...
+    /// does not exist".
+    /// </summary>
+    private static readonly SharedPostgres.Template MigratedTemplate = new("api_migrated_template", async connectionString =>
+    {
+        await using var context = new MustaskDbContext(new DbContextOptionsBuilder<MustaskDbContext>().UseNpgsql(connectionString).Options);
+        await context.Database.MigrateAsync();
+    });
+
+    private static readonly Lock HostBuildGate = new();
+
+    private static int _liveFactories;
+    // Set once this factory is in _liveFactories: a factory whose database
+    // copy failed must not take another shard's count down on dispose.
+    private bool _counted;
+
+    private string _connectionString = "";
 
     /// <summary>
     /// Общий на коллекцию фейк discovery/JWKS realm'а:
@@ -111,7 +131,7 @@ public sealed class MustaskApiFactory : WebApplicationFactory<Program>, IAsyncLi
     public CommitGates CommitGates { get; } = new();
 
     /// <summary>The shared test database, for <see cref="PgLocks"/> and for reading back what a request wrote.</summary>
-    public string ConnectionString => _postgres.GetConnectionString();
+    public string ConnectionString => _connectionString;
 
     /// <summary>
     /// Среда хоста. По умолчанию Development — health-эндпоинты и OpenApi
@@ -121,43 +141,75 @@ public sealed class MustaskApiFactory : WebApplicationFactory<Program>, IAsyncLi
     /// </summary>
     public async Task InitializeAsync()
     {
-        await _postgres.StartAsync();
-        Environment.SetEnvironmentVariable(ConnectionStringEnvVar, _postgres.GetConnectionString());
+        _connectionString = await SharedPostgres.CreateDatabaseFromTemplateAsync(MigratedTemplate);
 
-        // ADR-0002: migrations are never applied automatically from
-        // src/ (see ProgramDoesNotAutoMigrateTests) -- this fixture is the
-        // "explicit step" for integration tests, the same role
-        // Mustask.Infrastructure.Tests' MigrationsTests play for
-        // Mustask.Infrastructure's own tests. Without this, every endpoint test
-        // that touches a real table would hit "relation ... does not exist".
-        await using (var context = new MustaskDbContextFactory().CreateDbContext([]))
+        lock (HostBuildGate)
         {
-            await context.Database.MigrateAsync();
-        }
+            // The first live factory sets what every host of the process reads;
+            // the last one to go clears it (several shards are alive at once).
+            _counted = true;
+            if (_liveFactories++ == 0)
+            {
+                // Значения тестового realm'а — сверяются с
+                // KeycloakOptions.Issuer/Audience при проверке токенов и с
+                // RealmMetadataFake.Configuration.Issuer при проверке готовности.
+                Environment.SetEnvironmentVariable(KeycloakAuthorityEnvVar, KeycloakTestRealm.Issuer);
+                Environment.SetEnvironmentVariable(KeycloakAudienceEnvVar, KeycloakTestRealm.Audience);
+                // ADR-0022: SessionOidcOptions.FromConfiguration требует оба
+                // ключа на старте — значения произвольные (тесты не ходят на реальный
+                // Keycloak и не открывают реальную панель), лишь бы хост поднялся.
+                Environment.SetEnvironmentVariable(KeycloakClientSecretEnvVar, TestKeycloakClientSecret);
+                Environment.SetEnvironmentVariable(SessionPanelUrlEnvVar, "http://panel.invalid");
+                Environment.SetEnvironmentVariable(PushSecretEnvVar, TestPushSecret);
+            }
 
-        // Значения тестового realm'а — сверяются с
-        // KeycloakOptions.Issuer/Audience при проверке токенов и с
-        // RealmMetadataFake.Configuration.Issuer при проверке готовности.
-        Environment.SetEnvironmentVariable(KeycloakAuthorityEnvVar, KeycloakTestRealm.Issuer);
-        Environment.SetEnvironmentVariable(KeycloakAudienceEnvVar, KeycloakTestRealm.Audience);
-        // ADR-0022: SessionOidcOptions.FromConfiguration требует оба
-        // ключа на старте — значения произвольные (тесты не ходят на реальный
-        // Keycloak и не открывают реальную панель), лишь бы хост поднялся.
-        Environment.SetEnvironmentVariable(KeycloakClientSecretEnvVar, TestKeycloakClientSecret);
-        Environment.SetEnvironmentVariable(SessionPanelUrlEnvVar, "http://panel.invalid");
-        Environment.SetEnvironmentVariable(PushSecretEnvVar, TestPushSecret);
+            // For a host a test builds straight from WebApplicationFactory<Program>
+            // (ProductionCorsTests): it reads the variable as it finds it, and
+            // such a class runs alone, after the factory of its collection.
+            Environment.SetEnvironmentVariable(ConnectionStringEnvVar, _connectionString);
+        }
     }
 
     public new async Task DisposeAsync()
     {
         await base.DisposeAsync();
-        await _postgres.DisposeAsync();
-        Environment.SetEnvironmentVariable(ConnectionStringEnvVar, null);
-        Environment.SetEnvironmentVariable(KeycloakAuthorityEnvVar, null);
-        Environment.SetEnvironmentVariable(KeycloakAudienceEnvVar, null);
-        Environment.SetEnvironmentVariable(KeycloakClientSecretEnvVar, null);
-        Environment.SetEnvironmentVariable(SessionPanelUrlEnvVar, null);
-        Environment.SetEnvironmentVariable(PushSecretEnvVar, null);
+
+        if (_connectionString.Length > 0)
+        {
+            await SharedPostgres.DropDatabaseAsync(_connectionString);
+        }
+
+        lock (HostBuildGate)
+        {
+            if (_counted && --_liveFactories == 0)
+            {
+                Environment.SetEnvironmentVariable(ConnectionStringEnvVar, null);
+                Environment.SetEnvironmentVariable(KeycloakAuthorityEnvVar, null);
+                Environment.SetEnvironmentVariable(KeycloakAudienceEnvVar, null);
+                Environment.SetEnvironmentVariable(KeycloakClientSecretEnvVar, null);
+                Environment.SetEnvironmentVariable(SessionPanelUrlEnvVar, null);
+                Environment.SetEnvironmentVariable(PushSecretEnvVar, null);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Every host of this factory — its own and each one a test derives with
+    /// <c>WithWebHostBuilder</c>, which comes back here — is built under one
+    /// process-wide lock with this factory's connection string in
+    /// <c>ConnectionStrings__mustask</c> (tech-047). Program.cs reads the
+    /// variable before <c>Build()</c>, so the lock is what keeps a host of one
+    /// shard from starting on another shard's database; it also keeps two
+    /// builds from swapping Serilog's static <c>Log.Logger</c> under each
+    /// other (Program.cs takes it right after <c>Build()</c>).
+    /// </summary>
+    protected override IHost CreateHost(IHostBuilder builder)
+    {
+        lock (HostBuildGate)
+        {
+            Environment.SetEnvironmentVariable(ConnectionStringEnvVar, _connectionString);
+            return base.CreateHost(builder);
+        }
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)

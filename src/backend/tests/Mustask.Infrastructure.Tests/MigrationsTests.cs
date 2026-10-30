@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Testcontainers.PostgreSql;
+using Mustask.Testing;
 
 namespace Mustask.Infrastructure.Tests;
 
@@ -14,24 +14,19 @@ namespace Mustask.Infrastructure.Tests;
 // clean DB, re-running is idempotent, and rollback works.
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]
+[Collection(ProcessEnvironmentCollection.Name)]
 public sealed class MigrationsTests : IAsyncLifetime
 {
     private const string ConnectionStringEnvVar = "ConnectionStrings__mustask";
 
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18-alpine")
-        .WithDatabase("mustask")
-        .Build();
+    // A clean database of its own per test, on the assembly's one server (tech-047).
+    public async Task InitializeAsync() =>
+        Environment.SetEnvironmentVariable(ConnectionStringEnvVar, await SharedPostgres.CreateDatabaseAsync());
 
-    public async Task InitializeAsync()
+    public Task DisposeAsync()
     {
-        await _postgres.StartAsync();
-        Environment.SetEnvironmentVariable(ConnectionStringEnvVar, _postgres.GetConnectionString());
-    }
-
-    public async Task DisposeAsync()
-    {
-        await _postgres.DisposeAsync();
         Environment.SetEnvironmentVariable(ConnectionStringEnvVar, null);
+        return Task.CompletedTask;
     }
 
     private static MustaskDbContext CreateContext() => new MustaskDbContextFactory().CreateDbContext([]);
