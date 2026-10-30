@@ -336,6 +336,7 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
         ["GET " + OrgTeam + "/member-candidates"] = Reads.NoWorkItem,
         ["GET " + Project] = Reads.NoWorkItem,
         ["GET " + Project + "/teams"] = Reads.NoWorkItem,
+        ["GET " + Project + "/team-links"] = Reads.NoWorkItem,
         ["GET " + Project + "/areas"] = Reads.NoWorkItem,
         ["GET " + Org + "/areas"] = Reads.NoWorkItem,
         ["GET " + Org + "/areas/{areaId}"] = Reads.NoWorkItem,

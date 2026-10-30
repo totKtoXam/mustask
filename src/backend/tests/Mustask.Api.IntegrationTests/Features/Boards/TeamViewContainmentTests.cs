@@ -228,6 +228,6 @@ public sealed class TeamViewContainmentTests(MustaskApiFactory factory)
             OrganizationAddressedRoutes.All,
             route => route.Template.Contains("/projects/{projectId}/teams/{teamId}/backlogs", StringComparison.Ordinal)
                 || route.Template.Contains("/projects/{projectId}/teams/{teamId}/boards", StringComparison.Ordinal));
-        Assert.Equal(70, OrganizationAddressedRoutes.All.Count);
+        Assert.Equal(71, OrganizationAddressedRoutes.All.Count);
     }
 }
