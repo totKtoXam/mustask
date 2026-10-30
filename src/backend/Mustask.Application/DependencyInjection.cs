@@ -44,6 +44,7 @@ using Mustask.Application.Features.Organizations.GetTeamDeletionCounts;
 using Mustask.Application.Features.Organizations.GetTeamMembers;
 using Mustask.Application.Features.Organizations.GetTeamOwnedItemCount;
 using Mustask.Application.Features.Organizations.GetTeamProjects;
+using Mustask.Application.Features.Organizations.GetProjectTeamLinks;
 using Mustask.Application.Features.Organizations.GetTeams;
 using Mustask.Application.Features.Organizations.MoveArea;
 using Mustask.Application.Features.Organizations.RemoveMember;
@@ -125,6 +126,7 @@ public static class DependencyInjection
         services.AddScoped<DeactivateProjectHandler>();
         services.AddScoped<RestoreProjectHandler>();
         services.AddScoped<GetTeamsHandler>();
+        services.AddScoped<GetProjectTeamLinksHandler>();
         services.AddScoped<GetTeamHandler>();
         services.AddScoped<AddTeamHandler>();
         services.AddScoped<RenameTeamHandler>();

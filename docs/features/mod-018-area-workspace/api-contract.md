@@ -58,6 +58,7 @@ AreaPage     { id, parentId, type, projectId, projectActive, name, description, 
                children: [{ id, type, name, description, projectKey: string|null, projectActive: bool|null }] }
                // direct children, by name; projectKey/projectActive only on a project node (the department page's «Ключ» and «деактивирован»)
 AreaTeam     { id, name }                                          // GET /areas/{id}/teams
+ProjectTeamLink { id, name }                                 // GET /projects/{id}/team-links (any project status)
 TeamArea     { id, name, path }                                    // GET /teams/{id}/areas (departments)
 AreaDeletion { teams: [{ id, name }] }                             // what deleting the area would end
 ```
@@ -90,7 +91,7 @@ AreaDeletion { teams: [{ id, name }] }                             // what delet
 | team links | yes | no, `link_type_not_allowed` | no, `link_type_not_allowed` |
 
 A project node's description is the project's own description page field in the tree; its "Команды" are `GET/POST/DELETE …/projects/{id}/teams`
-(feat-028), never `/areas/{id}/teams`.
+(feat-028), never `/areas/{id}/teams`. A deactivated project answers 404 `project.not_found` on those routes (feat-028 ADR-0026 rule 5), so the node's read-only list of the deactivated project comes from `GET …/projects/{id}/team-links` (§ 4).
 
 ### Answers per route (beyond 401, 403 and the organization 404)
 
@@ -110,6 +111,7 @@ A project node's description is the project's own description page field in the 
 
 | Route | Code | Body → Answer |
 |---|---|---|
+| `GET /projects/{projectId}/team-links` | `organizations.team.read` | → 200 `ProjectTeamLink[]` `{ id, name }`: the active teams linked to the project, by name (Russian collation, then id), **whatever the project's status** (OQ-6 A: a deactivated project's node shows its «Команды» read-only). No `defaultMark`, no `isMember`; links and unlinks stay on `…/projects/{id}/teams` (404 for a deactivated project). 404 `project.not_found` for an unknown project or one of another organization |
 | `GET /projects/{projectId}/areas` | `area.read` | → 200 `AreaNode[]`: the project's node and the sub-areas below it, pre-order, with the **same** `path` and `depth` as the organization tree. 404 `project.not_found` for an unknown or deactivated project |
 | `POST /projects` | `organizations.project.write` (+ `area.write` when `parentAreaId` is present, `area.create` when absent; + `team.link` and `project.link` when `teamIds`) | gains **`parentAreaId?`**: the department to place the project's node under; absent = the top level. Creates the project and its node together. 404 `area.not_found`, 409 `area.type_not_allowed` (the id is not a department), 409 `area.name_taken` (a sibling at that level holds the project's name), (depth never applies: a project node is at most level 2) |
 

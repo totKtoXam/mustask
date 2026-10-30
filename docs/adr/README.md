@@ -43,10 +43,10 @@ anything already fixed by the conventions.
 
 Keep the list current (append-only, newest on top):
 
-- ADR-0031 — Make the organization's area tree a typed single tree whose project nodes are the projects' places in it · proposed (supersedes ADR-0028 rules 1, 2, 3, 6, 7, 8, its mod-018 delivery row, and ADR-0029 § 6 and its mod-018 delivery bullet, in part)
+- ADR-0031 — Make the organization's area tree a typed single tree whose project nodes are the projects' places in it · accepted (supersedes ADR-0028 rules 1, 2, 3, 6, 7, 8, its mod-018 delivery row, and ADR-0029 § 6 and its mod-018 delivery bullet, in part)
 - ADR-0030 — Delete a work item into its Removed state with the way back on its row, hide it by named entry points, and purge it in one locked transaction · accepted (amends ADR-0029 § 4)
-- ADR-0029 — Compute effective permissions once, from organization, area, project and team scopes over the membership-derived codes · accepted (amends ADR-0027); amended by ADR-0030; partially superseded by ADR-0031 (proposed)
-- ADR-0028 — Organize an organization as independent areas, projects and teams joined by links, with the organization as the only tenant boundary · accepted (amends ADR-0024, ADR-0026); partially superseded by ADR-0031 (proposed)
+- ADR-0029 — Compute effective permissions once, from organization, area, project and team scopes over the membership-derived codes · accepted (amends ADR-0027); amended by ADR-0030; partially superseded by ADR-0031 (accepted 2026-10-29)
+- ADR-0028 — Organize an organization as independent areas, projects and teams joined by links, with the organization as the only tenant boundary · accepted (amends ADR-0024, ADR-0026); partially superseded by ADR-0031 (accepted 2026-10-29)
 - ADR-0027 — Derive organization access from the membership of the resource's organization, and keep Keycloak to instance roles · accepted (amends ADR-0018)
 - ADR-0024 — Build every panel screen on one shell and one theme, carry the work context in the address, and name type appearance by a closed token set · accepted
 - ADR-0025 — Project Keycloak users through a read-only event-listener provider that pushes signed, ordered state into MUSTASK · proposed

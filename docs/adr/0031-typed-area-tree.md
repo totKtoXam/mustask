@@ -1,6 +1,6 @@
 # ADR-0031: Make the organization's area tree a typed single tree whose project nodes are the projects' places in it
 
-- Status: proposed
+- Status: accepted (2026-10-29, the human in chat at mod-018 gate-3, recorded by the agent per docs/adr/README.md Process 2)
 - Date: 2026-10-28
 - Context: `mod-018-area-workspace`, rework to the human's typed tree (spec Decisions of 2026-10-27, BR-AW-0..15, OQ-3..OQ-13 as resolved at gate-1 on 2026-10-28; review TR-2): [spec](../features/mod-018-area-workspace/spec.md), [design](../features/mod-018-area-workspace/design.md), [api-contract](../features/mod-018-area-workspace/api-contract.md). Supersedes [ADR-0028](0028-matrix-organization-model.md) rules 1 (the `AREA_PROJECT` relation in the ERD), 2, 3, 6 (the lock order), 7 and 8, its delivery-table row for `mod-018-area-workspace`, and [ADR-0029](0029-scoped-effective-permissions.md) § 6 and its delivery bullet for `mod-018-area-workspace`, **in the parts the typed tree changes**, and nothing else in them. The markers in those texts say «proposed» until the human accepts this ADR. It goes to the human at the nearest gate ([README](README.md), Process 2); only the human sets `accepted`.
 

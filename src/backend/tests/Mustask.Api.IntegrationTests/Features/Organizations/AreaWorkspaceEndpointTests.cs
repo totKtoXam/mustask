@@ -400,6 +400,34 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
         LinksTestData.AssertRefused(deactivated, HttpStatusCode.NotFound, "organizations.project.not_found");
     }
 
+    // TC-28 · OQ-6 A: a deactivated project's node shows its «Команды» read-only: the team-links read answers 200 whatever the
+    // project's status (a deleted team is left out), while the feat-028 team read stays 404; an unknown project is 404.
+    [Fact]
+    public async Task ProjectTeamLinks_ListsTheLinkedTeams_ForADeactivatedProjectToo()
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        var organization = structure.OrganizationId;
+        await OrganizationsTestData.AddTeamAsync(factory, structure.ProjectId, "Альфа");
+
+        var active = await SendAsync(HttpMethod.Get, OrganizationsApi.ProjectTeamLinks(organization, structure.ProjectId));
+        await OrganizationsTestData.SetProjectStatusAsync(factory, organization, structure.ProjectId, ProjectStatus.Deactivated);
+        var deactivated = await SendAsync(HttpMethod.Get, OrganizationsApi.ProjectTeamLinks(organization, structure.ProjectId));
+        var teamsRead = await SendAsync(HttpMethod.Get, $"{OrganizationsApi.Project(organization, structure.ProjectId)}/teams");
+        var unknown = await SendAsync(HttpMethod.Get, OrganizationsApi.ProjectTeamLinks(organization, Guid.CreateVersion7()));
+
+        foreach (var answer in new[] { active, deactivated })
+        {
+            Assert.Equal(HttpStatusCode.OK, answer.Status);
+            Assert.Equal(
+                ["Альфа", "Платформа", "Пример проекта"],
+                answer.Body.EnumerateArray().Select(t => t.GetProperty("name").GetString()!));
+            Assert.All(answer.Body.EnumerateArray(), t => Assert.Equal(["id", "name"], t.EnumerateObject().Select(p => p.Name).Order()));
+        }
+
+        LinksTestData.AssertRefused(teamsRead, HttpStatusCode.NotFound, "organizations.project.not_found");
+        LinksTestData.AssertRefused(unknown, HttpStatusCode.NotFound, "organizations.project.not_found");
+    }
+
     // US-6 · no token: 401 on every route before anything else.
     [Fact]
     public async Task EveryAreaRoute_WithNoToken_Returns401()
@@ -538,6 +566,7 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
         }
 
         yield return (HttpMethod.Get, OrganizationsApi.ProjectAreas(organizationId, projectId), null);
+        yield return (HttpMethod.Get, OrganizationsApi.ProjectTeamLinks(organizationId, projectId), null);
         yield return (HttpMethod.Get, OrganizationsApi.TeamAreas(organizationId, teamId), null);
         yield return (HttpMethod.Post, OrganizationsApi.TeamAreas(organizationId, teamId), new { areaIds = new[] { areaId.ToString() } });
         yield return (HttpMethod.Delete, $"{OrganizationsApi.TeamAreas(organizationId, teamId)}/{areaId}", null);

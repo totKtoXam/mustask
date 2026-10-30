@@ -12,7 +12,7 @@
 
 gate-1: approved (2026-10-28, human in chat, one question each: OQ-3..OQ-8, OQ-10..OQ-13 all A; OQ-9 dropped, default A; the typed tree is a new ADR in this PR). History: approved 2026-10-18 for the old spec (OQ-1 A, OQ-2 B), reset 2026-10-28 by the typed-tree rework
 gate-2: approved (2026-10-28, human in chat, one question each: D-8 A no organization row, D-9 A «Новый департамент», D-10 A «Департаменты», the D-1..D-7 re-check accepted as written: D-1/D-3/D-7 kept, D-2/D-5 amended, D-4/D-6 retired; history: approved 2026-10-18, D-1..D-7 A)
-gate-3: pending (reset 2026-10-28; history in the Log: approved 2026-10-27 for the OLD spec, superseded by the rework)
+gate-3: approved (2026-10-29, human in chat, four questions: ADR-0031 accepted, TC-28 read-only teams list, name_taken/404 decisions accepted, minors to Debt). History: approved 2026-10-27 for the OLD spec, reset 2026-10-28 by the typed-tree rework
 
 ## Plan
 
@@ -61,6 +61,7 @@ gate-3 → PR to main. Plans: `plan-backend.md`, `plan-frontend.md`.
   - **Gate-1 answers (2026-10-28, the human in chat, AskUserQuestion, one question each):** OQ-3 A (no nesting of departments), OQ-4 A (the organization is not a stored node), OQ-5 A (a project node is created and deleted only with its project), OQ-6 A (deactivation changes nothing; the node is read-only and marked «деактивирован»), OQ-7 A (sub-areas only below a project node), OQ-8 A (teams link to departments, and a project node's teams are the project–team links), OQ-10 A (the node is renamed with its project), OQ-11 A (one link: a project node's «Команды» are feat-028's project–team links), OQ-12 A (one name space per level), OQ-13 A (the upgrade fails naming a tree past the depth limit); OQ-9 dropped (nothing reads «Наследовать доступ» under OQ-2 B; default A).
   - **ADR (2026-10-28, «⭐ Новый ADR в этом PR»):** the typed tree is a NEW ADR in this PR, superseding the affected parts of ADR-0028 rules 2, 3, 7 and 8 and ADR-0029 § 6; written at the backend stage, accepted by the human at gate-3 (spec § ADR-0028 amendment). The two editorial amendments of that section stay editorial.
   - Rework scope for the developer later: the first build implemented the old spec (no per-project tree, item area retired, area–project links, upgrade dropping data); see the spec's § Existing rules and the BA hand-off notes. Plans, api-contract, design and prototype need rework after gates 1+2 are re-approved.
+- **Gate-3 answers (2026-10-29, the human in chat, AskUserQuestion, ask-format, one question each, all the recommended ⭐):** (1) ADR-0031 accepted (Status, ADR-0028/0029 markers and the ADR index updated). (2) TC-28: a deactivated project's node shows its «Команды» **read-only**, as design § 4 / OQ-6 A say, not hidden; the section reads the new `GET /projects/{id}/team-links` (api-contract § 4), because `…/projects/{id}/teams` stays 404 for a deactivated project (feat-028). The frontend must call `team-links` for a deactivated project and render the list without link or unlink; the hide commit 62bf7a35 is to be undone for the read. design § 4 is unchanged: behaviour now matches it (no design delta). (3) Both accepted: renaming a project into a name taken on its level is 409 `area.name_taken`; `GET /projects/{id}/areas` for a deactivated project is 404. (4) Gate-3 approved, the open minors go to Debt.
 
 ## Log
 
@@ -110,7 +111,7 @@ Summary (reworked 2026-10-27 to the human's typed single tree): one tree per org
 
 ### Debt after the typed-tree code review (2026-10-29)
 
-- TC-4 (frontend, the orchestrator's choice: read-only note or backend read for a deactivated project node's teams).
+- TC-4 and TC-28: closed at gate-3 (2026-10-29): not hidden, read-only list from the new `GET …/projects/{id}/team-links` (Decisions). TC-15, 16, 17, 20, 31 are fixed. Open minors, all accepted as Debt at gate-3: TC-14, TC-18 (second half), TC-19, TC-21, TC-22, TC-23..TC-27 (frontend/test items below), TC-29 (rename lock comment), TC-30 (`CreateProjectDialog` empty place, with mod-019), DEF-7 (eslint react-refresh warning), DEF-8 (UI refusal-chain coverage gaps), DEF-9 (department page «Ключ» column, node «Расположение» as a Link), DEF-10 (area writes do not invalidate work-item caches).
 - TC-14: `OrganizationStructure` decides the default team and reachability inline, and `ReachabilityRules.IsReachable` has no production caller; use the rules or drop it (code predates the branch).
 - TC-18 (second half): the migration test does not exercise a tree exactly 10 deep kept and its move into a department refused.
 - TC-19: EF cannot see the raw-SQL FK on `ak_areas_project_id_id`; recorded in ADR-0031 rule 1 (do not let a generated migration drop the index), no schema test yet.
@@ -119,3 +120,6 @@ Summary (reworked 2026-10-27 to the human's typed single tree): one tree per org
 - TC-23, TC-24, TC-25 (DEF-9), TC-26 frontend items (`paths.ts` comment, `ProjectAreasPage` stale branch, «Тип» skeleton column): frontend.
 - TC-27: BR-AW-10 is pinned in part (describe, moving the deactivated node, the holding department's `not_empty`, the node's name staying taken are not); the Status lines of ADR-0028/0029 get «partially superseded by ADR-0031» at acceptance.
 - 2026-10-29 [code-reviewer] delta read of the typed-tree fix round (review.md § Round 2): TC-1..TC-13 closed, approve; open 0 major, 4 minor (TC-28..TC-31) as debt; TC-28 needs the orchestrator to ratify the TC-4 design delta. stage -> gate-3.
+- 2026-10-29 [orchestrator] Usage at gate-3: weekly 16%, 5-hour 25%.
+- 2026-10-29 [backend-developer] gate-3 recorded (four answers, Decisions) and TC-28 backend: new read `GET /api/organizations/{organizationId}/projects/{projectId}/team-links` (permission `organizations.team.read`) → 200 `[{ id, name }]`, the active teams linked to the project by name, for a project of any status; 404 `organizations.project.not_found` for an unknown or foreign project. Contract note: api-contract § 4 gains the row and § 2/3 the pointer; added after the contract was fixed, additive, the frontend (not yet reading it) must switch `ProjectNodeTeams` to it for `active === false`. Test `ProjectTeamLinks_ListsTheLinkedTeams_ForADeactivatedProjectToo`; Api AreaWorkspace + GetTeams, Application 768, Architecture 86 green.
+- 2026-10-29 [orchestrator] the human (relayed 2026-10-29): no local full verify.sh — CI's required full verify.sh on the PR is the gate; push runs only the quick pre-push verify (tech-041).

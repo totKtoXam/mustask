@@ -22,6 +22,7 @@ public static class OrganizationsApi
 
     /// <summary>The project's area links (mod-018 api-contract § 4): the list, the link and the unlink are under it.</summary>
     public static string ProjectAreas(Guid organizationId, Guid projectId) => $"{Project(organizationId, projectId)}/areas";
+    public static string ProjectTeamLinks(Guid organizationId, Guid projectId) => $"{Project(organizationId, projectId)}/team-links";
 
     /// <summary>The team's area links (mod-018 api-contract § 5).</summary>
     public static string TeamAreas(Guid organizationId, Guid teamId) => $"{OrgTeams(organizationId)}/{teamId}/areas";

@@ -29,6 +29,7 @@ using Mustask.Application.Features.Organizations.GetTeam;
 using Mustask.Application.Features.Organizations.GetTeamDeletionCounts;
 using Mustask.Application.Features.Organizations.GetTeamOwnedItemCount;
 using Mustask.Application.Features.Organizations.GetTeamProjects;
+using Mustask.Application.Features.Organizations.GetProjectTeamLinks;
 using Mustask.Application.Features.Organizations.GetTeams;
 using Mustask.Application.Features.Organizations.LinkProjectsToTeam;
 using Mustask.Application.Features.Organizations.LinkTeamsToProject;
@@ -379,6 +380,12 @@ public static class OrganizationEndpoints
             .WithReadProblems();
 
         // The project's and the team's ends of the same links (mod-018 api-contract § 3).
+        // The project node's read-only «Команды» (design § 4, OQ-6 A): the linked teams of a project of any status.
+        projects.MapGet("/{projectId}/team-links", GetProjectTeamLinksAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamRead)
+            .Produces<IReadOnlyList<ProjectTeamLinkResponse>>()
+            .WithReadProblems();
+
         projects.MapGet("/{projectId}/areas", GetProjectAreasAsync)
             .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaRead)
             .Produces<IReadOnlyList<ProjectAreaResponse>>()
@@ -673,6 +680,10 @@ public static class OrganizationEndpoints
 
         return Results.NoContent();
     }
+
+    private static async Task<IResult> GetProjectTeamLinksAsync(
+        string organizationId, string projectId, GetProjectTeamLinksHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new GetProjectTeamLinksQuery(organizationId, projectId), cancellationToken)).Items);
 
     private static async Task<IResult> GetProjectAreasAsync(
         string organizationId, string projectId, GetProjectAreasHandler handler, CancellationToken cancellationToken) =>
