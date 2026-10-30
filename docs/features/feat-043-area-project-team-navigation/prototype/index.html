@@ -36,7 +36,7 @@ table{width:100%;border-collapse:collapse}th{text-align:left;color:#5f6b7a;font-
 <script>
 const org='Ромашка';
 const depts=[{n:'Логистика',projects:['A','B']},{n:'Финансы',projects:['C','E']}];
-const top=['D'];
+const topLevel=['D'];
 let proj={A:{key:'MSK',place:'Логистика',teams:['MARS','VENUS'],def:'VENUS'},B:{key:'BET',place:'Логистика',teams:['MARS']},C:{key:'FIN',place:'Финансы',teams:['MARS']},D:{key:'DEL',place:null,teams:[]},E:{key:'EEE',place:'Финансы',teams:['MARS'],off:true}};
 const teams={MARS:{own:false},VENUS:{own:true},JUPITER:{own:false}};
 const items=[['MSK-1','Оплата заказа','A','MARS'],['MSK-2','Отчёт по складу','A','VENUS'],['MSK-3','Без владельца','A',null],['BET-1','Оплата поставщика','B','MARS'],['FIN-1','Закрытие периода','C','MARS']];
@@ -80,9 +80,9 @@ function render(){renderBar();renderNav();const m=$('#main');const k=page.k;
   <div class="card"><b>Департаменты</b>${depts.map(d=>`<div>${link(d.n,{k:'dept',n:d.n,tab:'overview'},{kind:'dept',n:d.n})}</div>`).join('')}<div>${link('Все департаменты ('+D+')',{k:'areas'})}</div></div>
   <div class="card"><b>Проекты</b>${activeProjects().map(p=>`<div>${link(p,{k:'project',n:p,tab:'general'},{kind:'project',n:p})}</div>`).join('')}<div>${link('Все проекты ('+P+')',{k:'projects'})}</div></div></div>
   <div style="flex:1"><div class="card"><b>Организации</b><div>● ${org}</div><div>Другая</div><div>${link('Все организации',{k:'overview'})}</div></div></div></div>`}
- else if(k==='areas'){trail(['Области']);const f=filter.toLowerCase();const row=(pad,n,type,p)=>(!f||n.toLowerCase().includes(f))?`<div style="padding-left:${pad*20}px">${p?link(n,p.page,p.ctx):n} <span class="mut">${type}</span>${p&&p.off?'<span class=tag>деактивирован</span>':''}</div>`:'';
+ else if(k==='areas'){trail(['Области']);const f=filter.toLowerCase();const row=(pad,n,type,p)=>(!f||n.toLowerCase().includes(f))?`<div style="padding-left:${pad*20}px">${p&&p.page?link(n,p.page,p.ctx):n} <span class="mut">${type}</span>${p&&p.off?'<span class=tag>деактивирован</span>':''}</div>`:'';
   m.innerHTML=`<h1>Области</h1>${adm()?'<button class=p onclick="notice(\'Создание департамента\')">Создать департамент</button>':''} <input placeholder="Найти область" value="${filter}" oninput="filter=this.value;render();document.querySelector('main input').focus()"><div class="card tree">`+
-  depts.map(d=>row(0,d.n,'Департамент',{page:{k:'dept',n:d.n,tab:'overview'},ctx:{kind:'dept',n:d.n}})+d.projects.map(p=>row(1,p,'Проект',{off:proj[p].off,page:proj[p].off?null:{k:'node',n:p,tab:'overview'},ctx:{kind:'project',n:p}})+(subs[p]&&!proj[p].off?subs[p].map((s,i)=>row(2,s[0],'Область')+(s[1]?row(3,s[1],'Область'):'')).join(''):'')).join('')).join('')+top.map(p=>row(0,p,'Проект',{page:{k:'node',n:p,tab:'overview'},ctx:{kind:'project',n:p}})).join('')+'</div>'}
+  depts.map(d=>row(0,d.n,'Департамент',{page:{k:'dept',n:d.n,tab:'overview'},ctx:{kind:'dept',n:d.n}})+d.projects.map(p=>row(1,p,'Проект',{off:proj[p].off,page:proj[p].off?null:{k:'node',n:p,tab:'overview'},ctx:{kind:'project',n:p}})+(subs[p]&&!proj[p].off?subs[p].map((s,i)=>row(2,s[0],'Область')+(s[1]?row(3,s[1],'Область'):'')).join(''):'')).join('')).join('')+topLevel.map(p=>row(0,p,'Проект',{page:{k:'node',n:p,tab:'overview'},ctx:{kind:'project',n:p}})).join('')+'</div>'}
  else if(k==='projects'){trail(['Проекты']);m.innerHTML=`<h1>Проекты</h1>${adm()?'<button class=p>Создать проект</button>':''}<div class="card">`+table(['Название','Ключ','Расположение'],activeProjects().map(p=>[link(p,{k:'project',n:p,tab:'general'},{kind:'project',n:p}),proj[p].key,proj[p].place||'—']),'Проектов пока нет')+'</div>'}
  else if(k==='teams'){trail(['Команды']);m.innerHTML=`<h1>Команды</h1>${adm()?'<button class=p>Создать команду</button>':''}<div class="card">`+table(['Название'],Object.keys(teams).map(t=>[link(t,{k:'team',n:t,tab:'overview'},{kind:'team',n:t})+(teams[t].own?'<span class=tag>Моя команда</span>':'')]),'Команд пока нет')+'</div>'}
  else if(k==='workitems'){trail(['Рабочие элементы']);const rows=items.filter(i=>(!teamF||(teamF==='-'?!i[3]:i[3]===teamF))&&(!q||(i[0]+i[1]).toLowerCase().includes(q.toLowerCase())));
