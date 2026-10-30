@@ -9,7 +9,7 @@ As an **organization member**, I want **one list of the work items of every proj
 
 ## Acceptance criteria
 
-Cast as US-2. Items of A: MSK-1 owned by MARS, MSK-2 owned by VENUS, MSK-3 with no owning team, MSK-4 deleted (owned by MARS, assigned to Ivan, whose membership ended); B has BET-1 (MARS); C has FIN-1 (MARS); the deactivated E has EEE-1. MSK-1, BET-1 and FIN-1 each have the number 1. Olga «Участник», Ann «Администратор». Every project is visible to every member until `feat-041-project-visibility`, which applies the set form to this read and re-runs the visibility clauses of doc-012 US-10.
+Cast as US-2. Items of A: MSK-1 owned by MARS, MSK-2 owned by VENUS, MSK-3 with no owning team, MSK-4 deleted (owned by MARS, assigned to Ivan, whose membership ended); B has BET-1 (MARS); C has FIN-1 (MARS); the deactivated E has EEE-1. MSK-1, BET-1 and FIN-1 each have the number 1. Olga «Участник», Ann «Администратор». The organization's list scenarios hold with nothing chosen in the selectors. Every project is visible to every member until `feat-041-project-visibility`, which applies the set form to this read and re-runs the visibility clauses of doc-012 US-10.
 
 ```gherkin
 Scenario: The organization's list holds every active project's items once (BR-MX-9, BR-MX-16; BR-NV-12)
@@ -26,13 +26,14 @@ Scenario: One total order on both lists, across a page boundary (BR-NV-12; BR-WS
 
 Scenario: The project's section is the same list fixed to the project (BR-NV-12)
   When Olga opens A's «Рабочие элементы»
-  Then she sees A's live items only, with the same columns, and its «Команда» filter offers exactly MARS, VENUS and «Без команды»
-  And the organization's list offers every team of the organization in «Команда»
+  Then she sees A's live items only, with the same columns, and its filter bar offers «Без команды» as an option; teams are chosen in the team selector, which offers exactly MARS and VENUS under A
+  And the organization's list has no «Команда» in its filter bar (Q-6 A)
 
-Scenario: Filtering by team (BR-MX-9; mod-017 BR-OT-8; mod-020)
-  When Olga chooses MARS in «Команда»
-  Then the list shows only the items MARS owns, MSK-1, BET-1 and FIN-1, the address carries the choice, and a link opens the narrowed list
-  And choosing «Без команды» shows only MSK-3, and clearing the filter shows every item again, with the page back at 1
+Scenario: Filtering by team is the team selector (BR-MX-9; mod-017 BR-OT-8; mod-020; Q-6 A)
+  When Olga, on the organization's list, chooses MARS in the team selector
+  Then MARS's menu opens, and there is no «Рабочие элементы» in it; MARS's «Канбан» and «Бэклог» span its projects
+  And the organization-wide list under a chosen team or department is reached by setting the selectors to «все», which shows every item again, with the page back at 1
+  And with A chosen and MARS in the team selector, A's «Рабочие элементы» lists only MSK-1, the address carries `teamId`, and a link opens the narrowed list; the filter-bar option «Без команды» on A's list shows only MSK-3 and is exclusive with a chosen team
 
 Scenario: Feat-003's filters are on both lists (BR-NE-8; BR-WS-1..-7)
   When Olga types «оплат» in «Поиск» and chooses «Исполнитель» and «Статус» on the organization's list and then on A's section
@@ -63,8 +64,8 @@ Scenario: A foreign project's item is not found (BR-MX-1; BR-NV-7)
 
 Scenario: A card is reached from either list (BR-NV-4, BR-NV-10)
   When Olga opens MSK-1 from the organization's list, and then from A's section
-  Then the card is at `…/projects/<A>/workitems/MSK-1` both times, the context is «Ромашка» / A, and «Рабочие элементы» is marked
-  And the card's trail «Рабочие элементы» opens A's section, unfiltered, and a purge of the item from the card returns to the list it was opened from, filters included, on page 1 (BR-WS-5)
+  Then the card is at `…/projects/<A>/workitems/MSK-1` both times, the project selector reads A (a team selector, if one is chosen, stays), and «Рабочие элементы» is marked in A's menu
+  And the card's back link «Рабочие элементы» opens A's section, unfiltered, and a purge of the item from the card returns to the list it was opened from, filters included, on page 1 (BR-WS-5)
 
 Scenario: An empty organization (BR-MX-2)
   Given «Пустая» has no work item
@@ -72,9 +73,9 @@ Scenario: An empty organization (BR-MX-2)
   Then she sees «Рабочих элементов пока нет», with no filter applied, and a link to «Проекты»; there is no create command on this list
 
 Scenario: The selected entry opens the list unfiltered (H-1 A; BR-WS-11; mod-020 review CR-2)
-  Given Olga is on the organization's list narrowed to MARS
-  When she chooses «Рабочие элементы» in the navigation
-  Then the list opens unfiltered, as does every link without `teamId`, and BR-OT-8 and `design.md` § 6.3 of mod-017 state the rule once
+  Given Olga is on A's «Рабочие элементы» with MARS in the team selector, a keyword and a state filter
+  When she chooses «Рабочие элементы» in the menu
+  Then the page's filters are cleared, the selectors (A and MARS) stay as they are, every link without `teamId` opens the list unfiltered, and BR-OT-8 and `design.md` § 6.3 of mod-017 state the rule once
 
 Scenario: Every read across projects takes the caller (BR-NV-15; ADR-0029)
   When the signature test over the reads of the organization's list, «Обзор» and the lists is run

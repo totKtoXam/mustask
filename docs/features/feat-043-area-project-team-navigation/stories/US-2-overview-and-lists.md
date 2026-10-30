@@ -9,14 +9,14 @@ As an **organization member**, I want **a home page for the organization and a l
 
 ## Acceptance criteria
 
-Cast: organization «Ромашка»: Ann «Администратор», Olga «Участник» in team VENUS, Vera «Читатель». Typed tree (ADR-0031): departments «Логистика» (project nodes A and B) and «Финансы» (C and E); D at the top level; A's sub-areas «Склад» (with «Стеллажи») and «Транспорт». Teams MARS (A, B, C, E), VENUS (A), JUPITER (none); «Логистика» is linked to MARS and VENUS. E is deactivated, has items and a team link to MARS. Olga also belongs to «Другая». Organization «Север» has projects and teams and no department; organization «Пустая» has nothing.
+Cast: organization «Ромашка»: Ann «Администратор», Olga «Участник» in team VENUS, Vera «Читатель». Typed tree (ADR-0031): departments «Логистика» (project nodes A and B) and «Финансы» (C and E); D at the top level; A's sub-areas «Склад» (with «Стеллажи») and «Транспорт». Teams MARS (A, B, C, E), VENUS (A), JUPITER (none); «Логистика» is linked to MARS and VENUS. E is deactivated, has items and a team link to MARS. Olga also belongs to «Другая». Every scenario holds with nothing chosen in the department, team and project selectors; the way back to this menu from a chosen object is to set the selectors to «все» (US-8), and the create, restore and deactivate commands below live in this nothing-chosen menu's lists. Organization «Север» has projects and teams and no department; organization «Пустая» has nothing.
 
 ```gherkin
 Scenario: «Обзор» is the organization's home page (BR-NV-1; feat-045 folded in by doc-013)
   When Olga opens «Обзор»
   Then beside the content she sees her active organizations by name, «Ромашка» marked as current, ending with «Все организации», and choosing «Другая» opens «Другая»'s «Обзор»
   And the content shows her team VENUS first, then the numbers of departments, projects and teams she may see (2, 4 and 3), each number opening its list
-  And then the departments, the projects and the teams, each list by name and each row opening its object's page
+  And then the departments, the projects and the teams, each list by name and each row opening its object's page and setting its selector (BR-NV-19)
 
 Scenario: The team block follows her teams (BR-NV-10)
   When Vera, who belongs to no team, and then a member of VENUS and MARS open «Обзор»
@@ -37,16 +37,16 @@ Scenario: «Обзор» lists are bounded at volume (BR-NV-9)
 Scenario: «Проекты» lists every active project once, whatever its place (BR-NV-4)
   When Olga opens «Проекты»
   Then she sees A, B, C and D once each, by name, each with its place as a path («Логистика», «Финансы», none for D), and no row nests a project under a department
-  And every row opens the project's page
+  And every row opens the project's «Общие», and A becomes the project selector's value (BR-NV-19), so the menu turns to A's; Ann deactivates a project from its row here (BR-NV-14)
 
 Scenario: «Команды» lists every team once (BR-NV-9; BR-MX-16)
   When Olga opens «Команды»
-  Then she sees MARS, VENUS and JUPITER once each, her own team VENUS marked, and every row opens the team's page
+  Then she sees MARS, VENUS and JUPITER once each, her own team VENUS marked, and every row opens the team's «Обзор» and sets the team selector to it (BR-NV-19), so the menu turns to the team's
 
 Scenario: «Области» shows the typed tree (BR-NV-4; ADR-0031; OQ-1 A)
   When Olga opens «Области»
   Then she sees «Логистика» with A and B beneath it, «Финансы» with C and E, D at the top level, and under A «Склад» (with «Стеллажи») and «Транспорт», each node once, the type of each shown («Департамент», «Проект», «Область»)
-  And a department opens its page, a project's node opens the node's page, a sub-area opens its own page
+  And a department row opens the department's «Обзор» and sets the department selector, a project row opens the project's «Общие» and sets the project selector (not the node's page), and a sub-area opens its own page under its project's menu with «Структура» marked
   And E's node and its sub-areas are marked «деактивирован» and are not links (OQ-3 A)
 
 Scenario: An administrator creates from the lists (BR-NV-14)

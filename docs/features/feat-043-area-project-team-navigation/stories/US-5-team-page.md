@@ -48,13 +48,20 @@ Scenario: A team is created from «Команды» (BR-NV-14)
   When Ann creates the team SATURN from «Команды»
   Then SATURN is listed once, its page opens at «Обзор», and no project, department or membership is created by it (BR-MX-2)
 
+Scenario: A team opened from a row shows its own menu (BR-NV-19; design D-3 A)
+  Given the selectors read «Логистика» / «все» / A
+  When Olga opens MARS from A's «Команды»
+  Then the selectors read «Логистика» / MARS / «все», A resets to «все» silently as it is more specific than a team, and the menu is MARS's
+  And opening A from MARS's «Проекты» gives MARS / A, and A's menu opens at «Общие»
+  And opening MARS from «Команды» with nothing else chosen reads «все» / MARS / «все»
+
 Scenario: A team with no project and no department (BR-MX-2; SC-07)
   When Olga opens JUPITER
   Then every section is shown; «Проекты» reads «Команда не привязана ни к одному проекту», and «Обзор» reads «Команда не привязана ни к одному департаменту», each offering the link command only to Ann
 
 Scenario: A deleted team answers not found (BR-NV-7)
   When Olga opens the address of a team Ann deleted, and one of «Другая»
-  Then she sees «Команда не найдена» for each, the switcher's context does not change, and the team is in no list
+  Then she sees «Команда не найдена» for each, the selectors do not change, and the team is in no list
 
 Scenario: A reader sees the team and no command (BR-NV-3)
   When Vera chooses MARS

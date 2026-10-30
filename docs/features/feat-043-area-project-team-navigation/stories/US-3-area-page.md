@@ -21,8 +21,8 @@ Scenario: A department's page (BR-NV-3; BR-AW-0, BR-AW-6)
   And there is no analytics section and no «Участники» section
 
 Scenario: A project's place opens a page that names its project (ADR-0031 rule 5; OQ-1 A)
-  When Olga opens the node of A from «Области» or from «Логистика»'s «Проекты» and opens the node's address
-  Then she sees A's name and type «Проект», its parent «Логистика», the node's own description (not the project's, which is on A's «Общие») and its sub-areas «Склад» and «Транспорт» (with «Стеллажи» under «Склад»), and the link «Открыть проект», which opens A's page
+  When Olga opens A from «Области» or from «Логистика»'s «Проекты» (it opens A's «Общие», BR-NV-19, OQ-1 A) and then «Структура»
+  Then she sees A's name and type «Проект», its parent «Логистика», the node's own description (not the project's, which is on A's «Общие») and its sub-areas «Склад» and «Транспорт» (with «Стеллажи» under «Склад»), and the link «Открыть проект», which opens A's «Общие»
   And the selectors read «Логистика» / «все» / A, the menu is A's (US-4) with «Структура» marked; no «Команды» of the node: the project's teams are in A's menu
   And the page shows no area–team link, because none can join a project's node (BR-AW-6)
 
@@ -31,8 +31,8 @@ Scenario: A sub-area's page (BR-AW-3, BR-AW-13)
   Then she sees its path «Логистика / A / Склад / Стеллажи», its parent «Склад», its description, its child areas, and the project A with a link to it
   And every area and project shown opens its own page
 
-Scenario: The trail of an area shows its ancestors (BR-NV-4)
-  When Olga opens «Склад»
+Scenario: A sub-area shows its ancestors as a path, not a trail (BR-NV-4)
+  When Olga opens «Склад» from «Области»
   Then the page's path reads «Логистика / A / Склад», and every part but the last opens its page, while the selectors read «Ромашка» / «Логистика» / «все» / A
 
 Scenario: Settings are the settings navigation's «Параметры» (BR-NV-5, BR-NV-14, BR-NV-18)
@@ -60,10 +60,10 @@ Scenario: Deleting a department names its links and refuses a holder of projects
 
 Scenario: A deleted or foreign node answers not found (BR-NV-7)
   When Olga opens the page of «Транспорт» after it was deleted, and an area of «Другая» by its address in «Ромашка»
-  Then she sees «Область не найдена» for each, and the switcher's context does not change
+  Then she sees «Область не найдена» for each, and the selectors do not change
 
-Scenario: A project node's page marks «Области» and sets the context to its project (BR-NV-4, BR-NV-10)
-  When Olga opens the node page of A, and then a sub-area's page «Склад»
+Scenario: A node's page sets the project selector and shows the project's menu (BR-NV-4, BR-NV-10)
+  When Olga opens the node page of A (through «Структура»), and then a sub-area's page «Склад»
   Then the selectors read «Ромашка» / «Логистика» / «все» / A on both, and «Структура» is the marked entry
   And a department's menu entries leave the project selector at «все»
 
@@ -71,6 +71,13 @@ Scenario: A deactivated project's node and sub-areas open nothing (BR-NV-13; OQ-
   Given E is deactivated
   When Olga opens the address of E's node or of one of E's sub-areas
   Then she sees «Проект не найден»
+
+Scenario: A row link makes its object the most specific (BR-NV-19; design D-3 A)
+  Given the selectors read «Логистика» / MARS / «все»
+  When Olga opens A from «Логистика»'s «Проекты»
+  Then the selectors read «Логистика» / MARS / A, because A is the most specific object and «Логистика» and MARS both fit it, A's menu opens at «Общие», and no notice appears
+  And opening B from MARS's «Проекты» with the selectors «Финансы» / MARS leaves MARS and B, and the department resets to «все» silently because «Финансы» does not hold B
+  And with the selectors «Финансы» / MARS / C, opening «Логистика» from «Области» resets the team and the project to «все» silently, as they are more specific than a department
 
 Scenario: A department's «Проекты» and «Команды» when empty (BR-NV-11)
   Given Ann created the department «Резерв»

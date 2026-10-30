@@ -21,7 +21,7 @@ Scenario: Teams are added to a project through a multiselect (BR-NV-11; BR-MX-5;
 Scenario: The same link is added from the team's page (BR-NV-11)
   When Ann opens the command to add projects on JUPITER's «Проекты», picks D and confirms
   Then D is listed in JUPITER's «Проекты» and JUPITER in D's «Команды», without a reload
-  And JUPITER's «Канбан» and «Бэклог» offer D in their project filter
+  And the project selector, with JUPITER chosen, offers D (it replaces the project filter of JUPITER's «Канбан» and «Бэклог»)
 
 Scenario: A team is linked to a department from either end (BR-AW-6; ADR-0031 rule 4)
   When Ann adds JUPITER on «Финансы»'s «Команды», and then adds «Финансы» on VENUS's «Обзор»
@@ -64,6 +64,13 @@ Scenario: The same unlink from the team's end (BR-MX-12; BR-NV-11)
 Scenario: Unlinking leaves both ends and the work as they are (BR-AW-8; BR-MX-2)
   When Ann removes VENUS from «Логистика»'s «Команды»
   Then VENUS and «Логистика» both exist, VENUS's project links and items are unchanged, and the link is gone from both pages
+
+Scenario: Link changes refresh the selectors' offers (BR-NV-17)
+  Given Ann has JUPITER chosen in the team selector and the project selector open
+  When she links D to JUPITER, and then unlinks D
+  Then the project selector offers D after the first and no longer after the second, without a reload
+  And when she unlinks A from MARS while A and MARS are both chosen, the project selector resets to «все» with the notice «Выбор сброшен: проект A.»
+  And a department's team link or a project's move changes the team and department offers the same way
 
 Scenario: A reader sees the rows and no command (BR-NV-11)
   When Olga opens B's «Команды», «Логистика»'s «Проекты» and MARS's «Обзор»

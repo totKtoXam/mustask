@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/043-area-project-team-navigation
-- stage: 03-ux-design
+- stage: gate-2
 - epic: platform/ui
 - deps: feat-040,mod-018,mod-020
 - gates: gate-1, gate-2, gate-3
@@ -11,7 +11,7 @@
 ## Gates
 
 gate-1: approved 2026-10-30 (the human, in chat): all recommendations, OQ-1..5, OQ-7..9, H-1..4 A
-gate-2: rejected 2026-10-30 (the human, in chat): navigation structure, see Decisions
+gate-2: pending (rejected once 2026-10-30, reworked, see Decisions)
 gate-3: pending
 
 ## Plan
@@ -37,6 +37,8 @@ gate-3: pending
 - 2026-10-30 [orchestrator] Stage 3 (ux-designer): design.md, prototype/index.html (syntax checked only, not opened in a browser), ADR-0032 proposed. Adds kit parts AppTopBar, NavList, SearchMenu. One additive read family: GET /api/organizations/{o}/workitems and …/workitems/assignees. Owed: tech-020 takes feat-043 as a dep (queue); US-9 marks ADR-0024 §§ 1, 2, 4, ADR-0028 rule 7 and ADR-0031 rule 5 with a pointer to ADR-0032; the plan pins statement counts for «Обзор» and the lists and keeps the retired-address and route inventories as one source a test reads.
 
 - 2026-10-30 [orchestrator] Spec reworked to the human's navigation requirement (business-analyst): BR-NV-1, -10, -17, -18, BPMN, US-1, 3, 4, 5, 8; Q-1..Q-5 open. Unchecked by the analyst after the change: US-2, US-6, US-7 bodies and spec.md Operation completeness, OQ-1 wording. The design, prototype and ADR-0032 §§ 1, 2, 5, 6 are owed a rework.
+
+- 2026-10-30 [orchestrator] Design, prototype and ADR-0032 reworked (ux-designer); spec conflicts closed (business-analyst), Q-6 open. Prototype opened by the orchestrator in a browser: selectors, project menu, settings navigation, 13 links, no console errors. Found: BR-NV-17's offers make US-8's reset unreachable from a selector (D-7).
 
 ## Notes
 
