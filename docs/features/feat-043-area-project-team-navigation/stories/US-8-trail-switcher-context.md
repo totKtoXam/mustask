@@ -1,8 +1,9 @@
 # US-8: The header selectors, the trail and the remembered context
 
 - story: US-8
+- line: this line (`feat-043-area-project-team-navigation`)
 - depends-on: US-1, US-2, US-3, US-4, US-5
-- shippable: no — the selectors drive the menu of US-1 and the content of US-3..US-6, and the selection they hold is read by every page
+- shippable: no — the selectors drive the menu of US-1 and the content of US-3..US-5, and the selection they hold is read by every page
 - status: pending
 
 As an **organization member**, I want **a header of four selectors — organization, department, team, project — each «все» or a chosen one, that rebuild the left menu and narrow the content**, so that **I reach any section of any object without first opening a list, and keep my place**.
@@ -32,11 +33,11 @@ Scenario: Choosing from «Остальные» resets what no longer fits, with 
   And choosing a fitting value resets nothing and shows no notice
   And when two selectors reset, the notice names both, «Выбор сброшен: команда MARS, проект A.»
 
-Scenario: «все» is no narrowing, and a chosen department narrows work-item views (BR-NV-17, BR-NV-20)
+Scenario: «все» is no narrowing (BR-NV-17)
   When Olga has MARS in the team selector and «все» in the project selector, and opens «Канбан»
   Then the board spans MARS's projects, and after she chooses A it shows MARS's items in A only
   And with A chosen and «все» in the team selector, A's «Рабочие элементы» show every item of A
-  And with only «Логистика» chosen, its three sections hold the items of A and B only, and with MARS also chosen they hold MARS's items in A and B
+  And with only «Логистика» chosen, «Проекты» and «Команды» list A and B and MARS and VENUS only; a department narrows no item view in this line (the second line adds that, BR-NV-17)
 
 Scenario: Choosing a value rebuilds the menu and keeps the section where it can (BR-NV-10; Q-4 A)
   Given Olga is on MARS's «Бэклог» at the level «Истории»

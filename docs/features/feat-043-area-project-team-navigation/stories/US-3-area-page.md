@@ -1,6 +1,7 @@
 # US-3: A department chosen: its menu; a project's place and a sub-area
 
 - story: US-3
+- line: this line (`feat-043-area-project-team-navigation`)
 - depends-on: US-1, US-2
 - shippable: no — the page of the tree that US-2's «Области» opens; the interim area pages retire with it (US-9)
 - status: pending
@@ -9,12 +10,12 @@ As an **organization member**, I want **choosing a department to give me its sec
 
 ## Acceptance criteria
 
-Cast as US-2: departments «Логистика» (project nodes A and B, linked to MARS and VENUS) and «Финансы» (C and the deactivated E); D at the top level; A's sub-areas «Склад» (with «Стеллажи») and «Транспорт»; Ann «Администратор», Olga «Участник». Until `mod-019-scoped-access` the commands below are the organization administrator's (spec § Roles). The sections `feat-042-area-board-and-overview` adds (the figures of «Обзор», «Канбан», «Бэклог») and `mod-019-scoped-access` adds («Участники») are absent here, each in its place from the section table of the spec, and those owners re-run the clauses that need them (BR-NE-3, BR-NE-4).
+Cast as US-2: departments «Логистика» (project nodes A and B, linked to MARS and VENUS) and «Финансы» (C and the deactivated E); D at the top level; A's sub-areas «Склад» (with «Стеллажи») and «Транспорт»; Ann «Администратор», Olga «Участник». Until `mod-019-scoped-access` the commands below are the organization administrator's (spec § Roles). The department's «Рабочие элементы», «Канбан» and «Бэклог» are the second line's (OQ-9), the figures of «Обзор» are `feat-042-area-board-and-overview`'s and «Участники» is `mod-019-scoped-access`'s; they are absent here, each in its place from the section table of the spec, and those owners re-run the clauses that need them (BR-NE-3, BR-NE-4).
 
 ```gherkin
 Scenario: A department's page (BR-NV-3; BR-AW-0, BR-AW-6)
   When Olga chooses «Логистика» in the department selector
-  Then the left menu holds «Обзор», «Рабочие элементы», «Канбан», «Бэклог» (US-6, US-10), «Проекты», «Команды» and, last, the derived «Настройки» (BR-NV-18), and the page opens at «Обзор»
+  Then the left menu holds «Обзор», «Проекты», «Команды» and, last, the derived «Настройки» (BR-NV-18), and the page opens at «Обзор»
   And «Обзор» shows its description, that it stands at the top level, and the numbers of its projects (2) and teams (2), each opening its section
   And «Проекты» lists the project nodes A and B once each, by name, each opening the project's page
   And «Команды» lists MARS and VENUS, the area–team links of the department, each opening the team's page

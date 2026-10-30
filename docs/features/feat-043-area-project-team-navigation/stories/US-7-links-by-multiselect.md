@@ -1,6 +1,7 @@
 # US-7: Links and placements
 
 - story: US-7
+- line: this line (`feat-043-area-project-team-navigation`)
 - depends-on: US-3, US-4, US-5
 - shippable: no — the commands of the pages of US-3..US-5; without it the interim link pages cannot retire
 - status: pending

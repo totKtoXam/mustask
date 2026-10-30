@@ -1,8 +1,9 @@
 # US-9: The interim pages retire; the taken-over debts close
 
 - story: US-9
-- depends-on: US-1, US-2, US-3, US-4, US-5, US-6, US-7, US-8
-- shippable: no — the clean-up of the interim work of feat-028, feat-039, feat-040, mod-018 and mod-020, which is retired only once the pages of US-3..US-8 stand
+- line: this line (`feat-043-area-project-team-navigation`)
+- depends-on: US-1, US-2, US-3, US-4, US-5, US-7, US-8 (nothing of the second line's US-6, US-10)
+- shippable: no — the clean-up of the interim work of feat-028, feat-039, feat-040, mod-018 and mod-020, which is retired only once the pages of US-3..US-5, US-7 and US-8 stand
 - status: pending
 
 As the **owner of the panel**, I want **every interim page, entry and fallback of the earlier lines gone, and the debts handed to this line closed**, so that **nothing built "until the navigation line" lives on, and the next lines add sections to one set of pages**.
@@ -44,7 +45,7 @@ Scenario: Route matching is the router's (bug-003)
 
 Scenario: mod-020 review CR-2's rest: the rule is written once (CR-2; H-1 A)
   When mod-017 BR-OT-8 and `design.md` § 6.3 are read
-  Then they state that a link to the page without `teamId` opens it unfiltered, the selected navigation entry «Рабочие элементы» included, as feat-003 BR-WS-11 says, and US-6 tests it
+  Then they state that a link to the page without `teamId` opens it unfiltered, the selected navigation entry «Рабочие элементы» included, as feat-003 BR-WS-11 says, and US-4 tests it at the project level (the second line's US-6 at the others)
 
 Scenario: mod-020 review CR-3's and CR-6's leftovers are fixed (CR-3, CR-6)
   When `TeamResponse.cs`, `SetDefaultTeamEndpointTests.cs` and mod-016's `design.md` § 8 are read
@@ -59,4 +60,5 @@ Scenario: The docs that name the interim pages or contradict the typed tree are 
   When the documents of § Decomposition's Breaks list are read
   Then each is marked "feat-043" with the text that now holds: doc-012 BR-MX-27 and BR-MX-28, the US-10 clauses that hold area–project links («Логистика» counting 3 projects, «Проект не входит ни в одну область», «Логистика / Склад»), doc-013 BR-NE-6, ADR-0024 §§ 1, 2 and 4, ADR-0028 rule 7's sentence on the interim pages, and the fate-table lines that name a board as an entry
   And the e2e specs the address changes break are named in the MR (E2E stays paused)
+  And mod-015 BR-6 (the trail becomes four selectors), BR-11, BR-18 (the switcher) are marked "feat-043", BR-19 kept, and doc-012 BR-MX-17's views and doc-012 US-8 are marked "the second line" with the order rule of Q-7 B, by the second line
 ```

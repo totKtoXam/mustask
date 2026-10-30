@@ -1,8 +1,9 @@
 # US-6: «Рабочие элементы» at every level: organization, department, team, project
 
 - story: US-6
-- depends-on: US-1, US-4
-- shippable: no — the entry «Рабочие элементы» and the project's section are one list; it carries feat-003's filters because feat-003 merged first (doc-013 BR-NE-8)
+- line: the second line (M, right after `feat-043-area-project-team-navigation`; its id is issued when it is queued), not this line (OQ-9)
+- depends-on: US-1, US-4 (both in `feat-043-area-project-team-navigation`, merged first)
+- shippable: no — until the second line lands the organization and department menus have no «Рабочие элементы» and the team menu none either, and the project's list is today's; the entry «Рабочие элементы» and the project's section are one list; it carries feat-003's filters because feat-003 merged first (doc-013 BR-NE-8)
 - status: pending
 
 As an **organization member**, I want **one list of the work items of every project I may see, and the same list fixed to a project, with the filters of the project's list**, so that **I find an item without knowing its project first, and see which team owns it**.

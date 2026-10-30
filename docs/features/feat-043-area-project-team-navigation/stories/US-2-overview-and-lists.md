@@ -1,6 +1,7 @@
 # US-2: The organization's «Обзор», the organizations list and the lists «Области», «Проекты», «Команды»
 
 - story: US-2
+- line: this line (`feat-043-area-project-team-navigation`)
 - depends-on: US-1
 - shippable: no — the lists are the entries' pages and the targets of every row link in US-3..US-5
 - status: pending
@@ -75,6 +76,11 @@ Scenario: The organizations list and its create flow open the new pages (BR-NV-1
   When Olga chooses «Ромашка» in the organizations list, and Ann creates the organization «Новая»
   Then the first opens «Ромашка»'s «Обзор», and the second opens «Новая»'s «Проекты», where the first project is created
   And the same holds for the organization selector, and no feat-038 landing is needed on main
+
+Scenario: Every read across projects takes the caller (BR-NV-15; ADR-0029)
+  When the signature test over the reads of «Обзор», the lists «Проекты», «Команды», «Области» and the selectors' offers is run
+  Then each takes the caller's membership and role as a required argument, so that `feat-041-project-visibility` adds the set form inside it, and a read without it does not compile
+  And the item and view reads of the second line (US-6, US-10) carry their own test
 
 Scenario: No link in the panel targets a retired address (BR-NV-6)
   When a test walks the links of the navigation, the lists, the organizations list, the create flows, the header selectors and the settings navigation

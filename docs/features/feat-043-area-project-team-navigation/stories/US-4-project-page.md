@@ -1,6 +1,7 @@
 # US-4: A project chosen: its menu and settings
 
 - story: US-4
+- line: this line (`feat-043-area-project-team-navigation`)
 - depends-on: US-1, US-2
 - shippable: no — the page that «Проекты» opens and that takes over the project's interim settings pages (US-9)
 - status: pending
@@ -69,6 +70,18 @@ Scenario: The project's sections for a reader (BR-NV-3)
 
 Scenario: The project's board and backlog open from its page (BR-NV-1)
   When Olga opens A's «Канбан» and «Бэклог»
-  Then she sees the project's board and backlog as before, each with the level drop-down and the «Команда» filter in the address (mod-020), and the entries «Бэклог» and «Канбан» are in the menu at every level, and with a team also chosen the project's views hold that team's items only (BR-NV-17)
+  Then she sees the project's board and backlog as before, each with the level drop-down and the «Команда» filter in the address (mod-020), and with a team also chosen the project's views hold that team's items only (BR-NV-17; the `teamId` of mod-020)
   And a card opens in A over the page, as it does today
+
+Scenario: The selected entry clears the page's filters and keeps the selectors (H-1 A; mod-020 review CR-2)
+  Given A and MARS are chosen and Olga typed a keyword and chose a state on A's «Рабочие элементы»
+  When she chooses «Рабочие элементы» in the menu
+  Then the keyword and the state are cleared, A and MARS stay chosen, the address carries `teamId=<MARS>` from the selector, and a link to the page without `teamId` opens it unfiltered
+  And the rule is written once in mod-017 BR-OT-8 (US-9); the second line tests it at the other levels
+
+Scenario: A project's backlog under a chosen team keeps its order and cannot be reordered (BR-NV-17; Q-9 A)
+  Given A's backlog order is MSK-3, MSK-1, MSK-2
+  When Olga chooses MARS in the team selector and opens A's «Бэклог»
+  Then it shows MSK-1 only, in A's rank order, with no drag handle and the hint «Пока выбор сужает список, порядок не меняется. Выберите «все», чтобы менять его.»
+  And with «все» in the team selector the reorder is back, and the page says «сужено: команда MARS» while narrowed
 ```
