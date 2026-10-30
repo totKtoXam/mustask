@@ -3,7 +3,7 @@
 - type: module
 - size: L
 - branch: mod/018-area-workspace
-- stage: gate-3
+- stage: 07-mr-complete
 - epic: core/org-access
 - deps: feat-028
 - gates: gate-1, gate-2, gate-3
@@ -123,3 +123,4 @@ Summary (reworked 2026-10-27 to the human's typed single tree): one tree per org
 - 2026-10-29 [orchestrator] Usage at gate-3: weekly 16%, 5-hour 25%.
 - 2026-10-29 [backend-developer] gate-3 recorded (four answers, Decisions) and TC-28 backend: new read `GET /api/organizations/{organizationId}/projects/{projectId}/team-links` (permission `organizations.team.read`) → 200 `[{ id, name }]`, the active teams linked to the project by name, for a project of any status; 404 `organizations.project.not_found` for an unknown or foreign project. Contract note: api-contract § 4 gains the row and § 2/3 the pointer; added after the contract was fixed, additive, the frontend (not yet reading it) must switch `ProjectNodeTeams` to it for `active === false`. Test `ProjectTeamLinks_ListsTheLinkedTeams_ForADeactivatedProjectToo`; Api AreaWorkspace + GetTeams, Application 768, Architecture 86 green.
 - 2026-10-29 [orchestrator] the human (relayed 2026-10-29): no local full verify.sh — CI's required full verify.sh on the PR is the gate; push runs only the quick pre-push verify (tech-041).
+- 2026-10-30 [orchestrator] TC-28 closed (backend 90722c3c read-only team-links, frontend bf9cee03); main merged; stage → 07-mr-complete; push with the quick pre-push verify, PR with Auto-fix; CI's full verify.sh is the gate. Usage at the end: weekly 0% (the weekly window reset 2026-10-30; 16% of the previous week at gate-3), 5-hour 4%.
