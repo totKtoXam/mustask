@@ -16,9 +16,9 @@ import {
   type DataColumn,
 } from '../../../shared/ui';
 import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
-import type { ProjectTeam } from '../api/organizationsApi';
+import type { TeamLink } from '../api/organizationsApi';
 import { useLinkTeamsToProject, useUnlinkTeam } from '../hooks/mutations';
-import { useProject, useTeams } from '../hooks/queries';
+import { useProject, useTeamLinks, useTeams } from '../hooks/queries';
 import { areaPage } from '../lib/areaTexts';
 import { linkDialog, unlinkDialog } from '../lib/teamTexts';
 import { organizationTeamPath } from '../paths';
@@ -44,6 +44,7 @@ export function ProjectNodeTeams({
 }) {
   const query = useTeams(organizationId, projectId, { enabled: active });
   const project = useProject(organizationId, projectId, { enabled: active });
+  const readOnly = useTeamLinks(organizationId, projectId, { enabled: !active });
   const link = useLinkTeamsToProject(organizationId, projectId);
   const unlink = useUnlinkTeam(organizationId);
   const notify = useNotify();
@@ -54,11 +55,12 @@ export function ProjectNodeTeams({
     access(organizationsPermissions.teamLink, 'organization') &&
     access(organizationsPermissions.projectLink, 'organization');
   const [linking, setLinking] = useState(false);
-  const [unlinking, setUnlinking] = useState<ProjectTeam | null>(null);
-  const rows = query.data ?? [];
+  const [unlinking, setUnlinking] = useState<TeamLink | null>(null);
+  const shown = active ? query : readOnly;
+  const rows: TeamLink[] = shown.data ?? [];
   const projectName = project.data?.name ?? '';
 
-  const columns: DataColumn<ProjectTeam>[] = [
+  const columns: DataColumn<TeamLink>[] = [
     {
       key: 'team',
       header: 'Команда',
@@ -100,18 +102,12 @@ export function ProjectNodeTeams({
     }
   }
 
-  // A deactivated project answers 404 on its team read (api-contract § 4), so the section is not
-  // drawn rather than shown as a failure (design delta recorded in status.md, mod-018 TC-4).
-  if (!active) {
-    return null;
-  }
-
   return (
     <>
       <Box sx={{ mt: 4 }}>
         <Section
           title={areaPage.projectTeams.title}
-          count={query.isSuccess ? rows.length : undefined}
+          count={shown.isSuccess ? rows.length : undefined}
           actions={
             canLink ? (
               <ActionButton
@@ -125,7 +121,7 @@ export function ProjectNodeTeams({
           <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
             {areaPage.projectTeams.sameLinks}
           </Typography>
-          {query.isSuccess && rows.length === 0 ? (
+          {shown.isSuccess && rows.length === 0 ? (
             <InlineEmpty>{areaPage.teams.empty}</InlineEmpty>
           ) : (
             <DataTable
@@ -133,9 +129,9 @@ export function ProjectNodeTeams({
               columns={columns}
               rows={rows}
               rowKey={(team) => team.id}
-              loading={query.isPending || (query.isError && query.isFetching)}
-              error={query.isError && !query.isFetching ? apiErrorText(query.error) : undefined}
-              onRetry={() => void query.refetch()}
+              loading={shown.isPending || (shown.isError && shown.isFetching)}
+              error={shown.isError && !shown.isFetching ? apiErrorText(shown.error) : undefined}
+              onRetry={() => void shown.refetch()}
             />
           )}
         </Section>

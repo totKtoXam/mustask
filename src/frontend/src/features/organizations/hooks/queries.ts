@@ -14,6 +14,7 @@ import {
   getProjects,
   getTeam,
   getTeamProjects,
+  getTeamLinks,
   getTeams,
   getUnlinkCount,
   type ListView,
@@ -85,6 +86,19 @@ export function useTeams(
     queryFn: () => getTeams(organizationId, projectId),
     enabled: options.enabled ?? true,
     refetchOnMount: options.fresh ? 'always' : true,
+  });
+}
+
+/** The project's active linked teams, readable for a deactivated project too (mod-018 § 4). */
+export function useTeamLinks(
+  organizationId: string,
+  projectId: string,
+  options: { enabled?: boolean } = {},
+) {
+  return useQuery({
+    queryKey: organizationsKeys.teamLinks(organizationId, projectId),
+    queryFn: () => getTeamLinks(organizationId, projectId),
+    enabled: options.enabled ?? true,
   });
 }
 

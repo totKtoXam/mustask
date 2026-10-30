@@ -16,6 +16,7 @@ export const PROJECTS_URL = `${ORGANIZATION_URL}/projects`;
 export const PROJECT_URL = `${PROJECTS_URL}/:projectId`;
 /** The project's linked teams, and the link's pair (feat-028 api-contract § 2.4). */
 export const TEAMS_URL = `${PROJECT_URL}/teams`;
+export const TEAM_LINKS_URL = `${PROJECT_URL}/team-links`;
 export const PROJECT_TEAM_URL = `${TEAMS_URL}/:teamId`;
 /** The organization's teams (feat-028 api-contract § 2.1): a team's address is the organization's. */
 export const ORG_TEAMS_URL = `${ORGANIZATION_URL}/teams`;

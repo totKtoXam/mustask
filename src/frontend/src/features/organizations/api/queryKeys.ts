@@ -22,6 +22,9 @@ export const organizationsKeys = {
    */
   teams: (organizationId: string, projectId: string) =>
     [ROOT, 'teams', organizationId, projectId] as const,
+  /** The read-only team list of a project of any status (mod-018). */
+  teamLinks: (organizationId: string, projectId: string) =>
+    [ROOT, 'team-links', organizationId, projectId] as const,
   /** Every project's linked-team list of an organization: a team's rename or deletion refreshes them all. */
   projectTeamLists: (organizationId: string) => [ROOT, 'teams', organizationId] as const,
   /** The organization's own list of teams, with their projects (feat-028 § 2.1). */

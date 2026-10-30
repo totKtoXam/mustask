@@ -84,6 +84,12 @@ export interface ProjectTeam {
   isMember: boolean;
 }
 
+/** mod-018 api-contract: one row of the read-only team list of a project. */
+export interface TeamLink {
+  id: string;
+  name: string;
+}
+
 /** feat-028 api-contract § 1.5: what a team owns in one linked project, deactivated ones included. */
 export interface DeletionCount {
   projectId: string;
@@ -375,6 +381,11 @@ export function linkProjectsToTeam(
 /** § 2.4 (with mod-016 § 3.3): the project's linked teams by name, each with its mark and `isMember`. */
 export function getTeams(organizationId: string, projectId: string): Promise<ProjectTeam[]> {
   return apiFetch(`${projectApiPath(organizationId, projectId)}/teams`);
+}
+
+/** mod-018 § 4: the active linked teams of a project of any status, by name; `organizations.team.read`. */
+export function getTeamLinks(organizationId: string, projectId: string): Promise<TeamLink[]> {
+  return apiFetch(`${projectApiPath(organizationId, projectId)}/team-links`);
 }
 
 /** § 2.4: 204; all or nothing; the path that once added a team now links existing ones. */

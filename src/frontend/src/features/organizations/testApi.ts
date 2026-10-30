@@ -38,6 +38,7 @@ import {
   PROJECT_TEAM_URL,
   PROJECT_URL,
   TEAMS_URL,
+  TEAM_LINKS_URL,
   TEAM_AREAS_URL,
   TEAM_AREA_URL,
   exampleDataset,
@@ -1172,6 +1173,15 @@ export class OrganizationsTestApi {
       http.get(
         TEAMS_URL,
         answer(200, (p) => this.projectTeamList(pr(p))),
+      ),
+      http.get(
+        TEAM_LINKS_URL,
+        answer(200, (p) =>
+          this.linkedTeams(this.project(o(p), one(p, 'projectId'), true)).map((team) => ({
+            id: team.id,
+            name: team.name,
+          })),
+        ),
       ),
       http.post(
         TEAMS_URL,

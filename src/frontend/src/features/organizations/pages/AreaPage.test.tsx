@@ -5,6 +5,7 @@ import {
   AREA_URL,
   PROJECT_URL,
   TEAMS_URL,
+  TEAM_LINKS_URL,
   exampleDataset,
   ids,
   problem,
@@ -360,5 +361,39 @@ describe('mod-018: the page of a department is built from the dataset', () => {
 
     const projects = await screen.findByRole('table', { name: 'Проекты департамента' });
     expect(within(projects).getByRole('link', { name: 'Аналитика' })).toBeInTheDocument();
+  });
+});
+
+describe('mod-018 gate-3: a deactivated project’s «Команды» are read from team-links', () => {
+  it('lists the linked teams read-only, with no controls', async () => {
+    serveOrganizations();
+    renderPage({ path: OLD_NODE });
+    await loaded('Проект: Старый проект');
+
+    const table = await screen.findByRole('table', { name: 'Команды проекта' });
+    expect(within(table).getAllByRole('link').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: 'Добавить команду' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Ещё действия:/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Открыть проект' })).not.toBeInTheDocument();
+  });
+
+  it('says so when no team is linked', async () => {
+    const data = exampleDataset();
+    data.links = data.links.filter((link) => link.projectId !== ids.old);
+    serveOrganizations(data);
+    renderPage({ path: OLD_NODE });
+    await loaded('Проект: Старый проект');
+
+    expect(await screen.findByText('К области не привязаны команды')).toBeInTheDocument();
+  });
+
+  it('shows the error with a retry', async () => {
+    serveOrganizations();
+    serveProblem('get', TEAM_LINKS_URL, problem('organizations.project.not_found'));
+    renderPage({ path: OLD_NODE });
+    await loaded('Проект: Старый проект');
+
+    expect(await screen.findByText('Проект не найден.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Повторить' })).toBeInTheDocument();
   });
 });
