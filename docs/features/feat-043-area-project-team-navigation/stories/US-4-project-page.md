@@ -25,7 +25,8 @@ Scenario: «Общие» shows the project and its place (BR-NV-4; ADR-0031)
 Scenario: A project's place is moved from «Общие» (BR-NV-11; BR-AW-3)
   When Ann chooses «Переместить» on A's «Общие» and picks «Финансы»
   Then A's «Общие» reads «Финансы», A is listed in «Финансы»'s «Проекты» and not in «Логистика»'s, and its sub-areas, items, teams and backlog places are unchanged
-  And picking the top level places A at the top, and a department holding a project node with A's name answers «Область с таким названием уже есть на этом уровне»
+  And picking the top level places A at the top; a destination that holds a sibling with A's name, the top level included, answers «Область с таким названием уже есть на этом уровне», and a destination that would pass 10 levels answers «Дерево областей не может быть глубже 10 уровней»; A stays where it was in both cases
+  And the command is a single-select, one project at a time (BR-NV-11; H-3 A)
   And Olga sees the place and no «Переместить»
 
 Scenario: A project with no team and no department has its whole page (BR-MX-2; SC-07)
@@ -38,7 +39,7 @@ Scenario: «Команды» lists the project's teams and its default (BR-MX-11
   When Olga opens A's «Команды» and then B's
   Then A lists MARS and VENUS, each opening the team's page, and B lists MARS marked «По умолчанию: единственная команда»
   And a team that A's settings name is marked «По умолчанию»
-  And each row of a team that has items offers, to Ann, the unlink with its reassign choice (US-7)
+  And each row offers Ann the unlink; when the team owns items in the project, its confirmation asks where they go (US-7)
 
 Scenario: «Настройки» holds name, description and the default team (BR-NV-14; BR-MX-11)
   When Ann opens A's «Настройки»

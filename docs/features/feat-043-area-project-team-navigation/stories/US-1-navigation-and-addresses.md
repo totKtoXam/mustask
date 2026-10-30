@@ -54,7 +54,14 @@ Scenario: An address that names nothing answers by level (BR-NV-7; BR-MX-24)
   When Olga opens the page of an area, a project or a team that does not exist, was deleted, or belongs to «Другая»
   Then she sees «Область не найдена», «Проект не найден» or «Команда не найдена» and the switcher's context does not change
   And a section the kind does not have, such as MARS's `…/sprints` before mod-007, shows «Страница не найдена»
-  And a project that was deactivated answers «Проект не найден» on every section of its page
+  And a project that was deactivated answers «Проект не найден» on every section of its page, on its node's address and on its items' addresses
+  And the path address of an item of «Другая» in «Ромашка», `…/projects/<Zeta>/workitems/<id>`, answers «Проект не найден»
+
+Scenario: A not-found address that names the remembered object also falls back (BR-NV-7, BR-NV-10)
+  Given Olga's remembered context is «Ромашка» / D and she is on D's page
+  When Ann deactivates D and Olga reloads
+  Then the page answers «Проект не найден» and the context becomes «Ромашка» alone with the notice «Ранее выбранный контекст недоступен. Выбрано: Ромашка.»
+  And when the missing address names another object than the remembered one, the context does not change and no notice appears
 
 Scenario: A section without the user's code answers «Доступ ограничен» (BR-NV-7)
   When Olga opens MARS's «Настройки» by its address
@@ -68,6 +75,15 @@ Scenario: An address in another letter case or percent-encoded opens the same pa
 Scenario: A page that has no context keeps its address (ADR-0024 § 2)
   When Ann opens «Главная» or the instance section «Справочники → Языки»
   Then the page opens at its present address, with no organization in it, in the shell
+
+Scenario: Existing section addresses stand (BR-NV-2)
+  When Olga opens MARS's and A's boards and backlogs
+  Then they open at `…/teams/<MARS>/boards/<level>`, `…/teams/<MARS>/backlogs/<level>`, `…/projects/<A>/boards/<level>` and `…/projects/<A>/backlogs/<level>` as they do today, and a card opens at `…/projects/<A>/workitems/<identifier>`
+
+Scenario: The shell is on the UI kit (OQ-5 A; tech-019)
+  When the shell's top bar, navigation and page header are read
+  Then they are built from the UI kit's components, and no shell file imports the legacy look the kit replaces, checked by the kit's guard test or a source-reading test added here
+  And every scenario of this story holds on the kit
 
 Scenario: Moving between sections and objects does not reload the document (NFR)
   When Olga moves through MARS's sections, opens A from MARS's «Проекты», and chooses «Логистика» in the switcher

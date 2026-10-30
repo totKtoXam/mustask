@@ -23,8 +23,9 @@ Scenario: «Обзор» shows the team and its departments (BR-NV-4)
   And MARS is one page, the same whether reached from A, B, C, «Логистика» or «Команды»
 
 Scenario: «Проекты» lists the team's projects across the organization (BR-MX-17; BR-NV-4)
+  Given MARS is also linked to the deactivated project E
   When Olga opens MARS's «Проекты»
-  Then she sees A, B and C once each, with their places as paths, each opening the project's page
+  Then she sees A, B and C once each, not E and not counted with them (BR-NV-13; the link returns when E is restored), with their places as paths, each opening the project's page
   And the page does not nest a project in a department or a department in a project
 
 Scenario: «Канбан» and «Бэклог» span the team's projects (BR-MX-17; feat-040)

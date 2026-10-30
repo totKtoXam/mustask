@@ -9,7 +9,7 @@ As an **organization member**, I want **each node of the area tree on a page of 
 
 ## Acceptance criteria
 
-Cast as US-2: departments «Логистика» (project nodes A and B, linked to MARS and VENUS) and «Финансы» (C); D at the top level; A's sub-areas «Склад» (with «Стеллажи») and «Транспорт»; Ann «Администратор», Olga «Участник». Until `mod-019-scoped-access` the commands below are the organization administrator's (spec § Roles). The sections `feat-042-area-board-and-overview` adds (the figures of «Обзор», «Канбан», «Бэклог») and `mod-019-scoped-access` adds («Участники») are absent here, each in its place from the section table of the spec, and those owners re-run the clauses that need them (BR-NE-3, BR-NE-4).
+Cast as US-2: departments «Логистика» (project nodes A and B, linked to MARS and VENUS) and «Финансы» (C and the deactivated E); D at the top level; A's sub-areas «Склад» (with «Стеллажи») and «Транспорт»; Ann «Администратор», Olga «Участник». Until `mod-019-scoped-access` the commands below are the organization administrator's (spec § Roles). The sections `feat-042-area-board-and-overview` adds (the figures of «Обзор», «Канбан», «Бэклог») and `mod-019-scoped-access` adds («Участники») are absent here, each in its place from the section table of the spec, and those owners re-run the clauses that need them (BR-NE-3, BR-NE-4).
 
 ```gherkin
 Scenario: A department's page (BR-NV-3; BR-AW-0, BR-AW-6)
@@ -22,7 +22,7 @@ Scenario: A department's page (BR-NV-3; BR-AW-0, BR-AW-6)
 
 Scenario: A project's place opens a page that names its project (ADR-0031 rule 5; OQ-1 A)
   When Olga opens the node of A from «Области» or from «Логистика»'s «Проекты» and opens the node's address
-  Then she sees A's name and type «Проект», its parent «Логистика», its description and its sub-areas «Склад» and «Транспорт» (with «Стеллажи» under «Склад»), and the link «Открыть проект», which opens A's page
+  Then she sees A's name and type «Проект», its parent «Логистика», the node's own description (not the project's, which is on A's «Общие») and its sub-areas «Склад» and «Транспорт» (with «Стеллажи» under «Склад»), and the link «Открыть проект», which opens A's page
   And the sections are «Обзор» and, for Ann, «Настройки»; no «Команды» section: the project's teams are on A's page
   And the page shows no area–team link, because none can join a project's node (BR-AW-6)
 
@@ -48,13 +48,28 @@ Scenario: A sub-area is created under a project's node or a sub-area (BR-AW-3)
 
 Scenario: Deleting a node follows the rules of the tree (BR-AW-9)
   When Ann deletes «Транспорт», which has no child and no work item
-  Then the confirmation names its team links, and after it «Транспорт» is gone from every list and no project, team or item changes
-  And «Склад», which has a child, answers «Нельзя удалить область, в которой есть вложенные области или рабочие элементы»
+  Then after the confirmation «Транспорт» is gone from every list and no project, team or item changes
+  And «Склад», which has a child, answers «Нельзя удалить область, в которой есть проекты, вложенные области или рабочие элементы»
   And a project's node offers no delete command and answers «Корневая область меняется только вместе с проектом» to a request for it
+
+Scenario: Deleting a department names its links and refuses a holder of projects (BR-AW-9; BR-NV-13)
+  When Ann deletes «Резерв», a department with the team link to JUPITER and no project
+  Then the confirmation names the link and says it cannot be undone, and after it «Резерв» is gone, JUPITER and every project unchanged
+  And deleting «Финансы», which holds C and the deactivated E, answers the message above, and its «Проекты» lists E marked «деактивирован», not a link, counted apart, which explains the refusal
 
 Scenario: A deleted or foreign node answers not found (BR-NV-7)
   When Olga opens the page of «Транспорт» after it was deleted, and an area of «Другая» by its address in «Ромашка»
   Then she sees «Область не найдена» for each, and the switcher's context does not change
+
+Scenario: A project node's page marks «Области» and sets the context to its project (BR-NV-4, BR-NV-10)
+  When Olga opens the node page of A, and then a sub-area's page «Склад»
+  Then «Области» is the marked entry on both, and the switcher shows «Ромашка» / A on both
+  And a department's page sets the context to the department
+
+Scenario: A deactivated project's node and sub-areas open nothing (BR-NV-13; OQ-3 A)
+  Given E is deactivated
+  When Olga opens the address of E's node or of one of E's sub-areas
+  Then she sees «Проект не найден»
 
 Scenario: A department's «Проекты» and «Команды» when empty (BR-NV-11)
   Given Ann created the department «Резерв»

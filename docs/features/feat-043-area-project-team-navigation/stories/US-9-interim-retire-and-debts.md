@@ -15,7 +15,7 @@ Each criterion is checked by a test on the panel or by reading the named file; t
 Scenario: The earlier lines' interim pages are gone from the routes (BR-NV-5, BR-NV-6; ADR-0028 rule 7)
   When the route table and the route-inventory test are read
   Then no route serves the team or area pages of the organization's settings (mod-018 BR-AW-12, feat-028), the organization's project list or members page, or a project's `settings/general`, `settings/teams` or `settings/areas`
-  And each of those addresses answers «Страница не найдена» in a test, and the retired kinds are named once in a table the test reads
+  And each of those addresses (the table of retired addresses in the spec) answers «Страница не найдена» in a test, and the retired kinds are named once in a table the test reads
 
 Scenario: The project's interim commands live on its page (feat-028 BR-OL-10; feat-039)
   When Ann opens A's «Команды»
@@ -42,10 +42,9 @@ Scenario: Route matching is the router's (bug-003)
   When the app shell's matching of a route is read
   Then it uses the router's own matching, and a test opens `/Dictionaries/Languages` and `/dictionaries/%6Canguages` and finds the navigation marker, the settings menu and the trail
 
-Scenario: mod-020 review CR-2's rest: the entry keeps the page's filter (CR-2)
-  Given the organization's list is narrowed to MARS
-  When Olga chooses «Рабочие элементы» in the navigation
-  Then the filter stays in the address (US-6), and the rule in mod-017 BR-OT-8 and `design.md` § 6.3 is restated: a link to the page without `teamId` opens it unfiltered, the selected entry keeps it
+Scenario: mod-020 review CR-2's rest: the rule is written once (CR-2; H-1 A)
+  When mod-017 BR-OT-8 and `design.md` § 6.3 are read
+  Then they state that a link to the page without `teamId` opens it unfiltered, the selected navigation entry «Рабочие элементы» included, as feat-003 BR-WS-11 says, and US-6 tests it
 
 Scenario: mod-020 review CR-3's and CR-6's leftovers are fixed (CR-3, CR-6)
   When `TeamResponse.cs`, `SetDefaultTeamEndpointTests.cs` and mod-016's `design.md` § 8 are read
@@ -53,10 +52,11 @@ Scenario: mod-020 review CR-3's and CR-6's leftovers are fixed (CR-3, CR-6)
   And no behaviour, route, shape or test assertion of the backend changes with them
 
 Scenario: tech-011 m4 is recorded obsolete (tech-011)
-  When the queue line of `tech-011-boards-review-debts` is read after this line merges
-  Then it says m4 is closed by this line's replacement of the context model, and no work was done for it
+  When the MR's list of closed debts is read
+  Then it names tech-011 m4 as made obsolete by this line's replacement of the context model, no work was done for it, and the orchestrator edits the queue line after the merge
 
-Scenario: The docs that name the interim pages are brought to date (BR-NE-7)
-  When doc-012's and the earlier lines' documents that name an interim page are read
-  Then each is marked "feat-043" where the page retired, ADR-0028 rule 7's sentence on the interim pages reads as done, and the e2e specs the address changes break are named in the MR (E2E stays paused)
+Scenario: The docs that name the interim pages or contradict the typed tree are brought to date (BR-NE-7; ADR-0031)
+  When the documents of § Decomposition's Breaks list are read
+  Then each is marked "feat-043" with the text that now holds: doc-012 BR-MX-27 and BR-MX-28, the US-10 clauses that hold area–project links («Логистика» counting 3 projects, «Проект не входит ни в одну область», «Логистика / Склад»), doc-013 BR-NE-6, ADR-0024 §§ 1, 2 and 4, ADR-0028 rule 7's sentence on the interim pages, and the fate-table lines that name a board as an entry
+  And the e2e specs the address changes break are named in the MR (E2E stays paused)
 ```
