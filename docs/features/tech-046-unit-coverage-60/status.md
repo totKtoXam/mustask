@@ -34,10 +34,12 @@ Before, on `a653917f`, unit-test projects only, lines (branches): Domain 93.6 (9
 On `e4d8f124` (current main) with `coverage.runsettings`, lines: Domain 95.0, Application 87.2, Shared 77.8, Infrastructure 91.6, Api 8.4 (unit); integration tests 95.3 overall. Frontend, from the final verify run on `265e5793`: lines 98.5, branches 94.6.
 
 ## Log
-- 2026-10-29 [orchestrator] pushed once with `--no-verify`, approved by the human (via the orchestrator, «⭐ Один push с --no-verify»): three pre-push quick runs failed only on time-budget tests (backend volume tests, Vitest timeouts), a different set each time, while other worktrees ran their suites; CI's required full verify.sh is the check
+- 2026-10-30 [orchestrator] CI on #38 red: `Mustask.Api` had no unit coverage data on Linux (coverlet could not resolve the ASP.NET framework, reproduced in the SDK container); `PreserveCompilationContext` on Contracts.Tests restores it (8.4%). Two Log lines over 300 characters shortened
+- 2026-10-30 [orchestrator] merge `03885e32` pushed with `--no-verify` by the human (option a): the hook's quick runs kept failing on load-only Vitest timeouts, a different set each time
+- 2026-10-29 [orchestrator] pushed once with `--no-verify`, approved by the human («⭐ Один push с --no-verify»): three pre-push runs failed only on time-budget tests under other worktrees' load; CI's full verify.sh is the check
 - 2026-10-29 [orchestrator] weekly usage 10% after the build (0% at the start, 2026-10-27; account-wide, other sessions ran in parallel)
 - 2026-10-29 [orchestrator] `BASE=origin/main VERIFY_FULL=1 bash scripts/verify.sh` on `265e5793`: RESULT green, backend tests including integration, backend coverage floors and frontend coverage floor all ok
-- 2026-10-29 [orchestrator] the first full run failed two verify.sh self-test cases (the sandbox had no stub for the new gate: a `node` stub and a "floor missed: red" case were added) and `WorkItemFilterVolumeTests` once (the 2 s budget, under machine load). Run alone with coverage, its reads took 40–620 ms, and it passed in both other full runs
+- 2026-10-29 [orchestrator] the first full run failed two verify.sh self-test cases (no stub for the new gate: a `node` stub and a "floor missed: red" case added) and `WorkItemFilterVolumeTests` once under load; alone with coverage its reads took 40–620 ms
 - 2026-10-28 [orchestrator] route tech S confirmed by the human, together with the floors (option 1, Infrastructure raised to 30)
 - 2026-10-28 [orchestrator] queue line via sync PR #33 (`scripts/queue.sh add`); auto-merge was refused by the permission classifier, so the human merges it
 - 2026-10-27 [orchestrator] task started from the human's «сделай unittests покрытие 60%» (2026-10-27)

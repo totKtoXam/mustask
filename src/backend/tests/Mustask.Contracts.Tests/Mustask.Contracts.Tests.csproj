@@ -2,6 +2,10 @@
 
   <PropertyGroup>
     <IsPackable>false</IsPackable>
+    <!-- Coverage (tech-046): on Linux coverlet cannot resolve the ASP.NET
+         shared framework when it instruments Mustask.Api.dll and drops the
+         assembly from the report; the compilation context lets it resolve. -->
+    <PreserveCompilationContext>true</PreserveCompilationContext>
   </PropertyGroup>
 
   <ItemGroup>
