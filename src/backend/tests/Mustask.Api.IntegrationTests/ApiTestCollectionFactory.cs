@@ -84,7 +84,7 @@ public sealed class ApiTestCollectionFactory : IXunitTestCollectionFactory
         typeof(DenyAllRuntimeTests),
 
         // timing budgets outside the *VolumeTests names
-        typeof(GetAreaTreeEndpointTests),
+        typeof(AreaVolumeEndpointTests),
         typeof(GetTeamsEndpointTests),
         typeof(GetWorkItemsEndpointTests),
         typeof(UserDirectoryQaTests),
