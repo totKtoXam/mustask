@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/043-area-project-team-navigation
-- stage: 03-ux-design
+- stage: gate-2
 - epic: platform/ui
 - deps: feat-040,mod-018,mod-020
 - gates: gate-1, gate-2, gate-3
@@ -29,6 +29,8 @@ gate-3: pending
 - 2026-10-30 [orchestrator] queue: PR #41 reworded the lines after mod-018 (merged by the human), PR #42 takes the line (`queue.sh take`). Stage 1 done (business-analyst): spec.md, US-1..US-9, OQ-1..OQ-9. feat-003 and mod-005 are already merged, so BR-NE-8 makes this line the second to merge and US-6 carries their work; US-6 resolves mod-020 CR-2; tech-011 m4 is recorded obsolete on the queue line after the merge.
 
 - 2026-10-30 [orchestrator] Stage 2 (requirements-reviewer): needs-human-decision, 2 blockers, 14 majors, 9 minors. Fix round (business-analyst) closed them in the spec and stories, except R-16 (feat-038 unmerged at stage 1: no dependency) and part of R-25 (a project moved by someone else while the dialog is open). No delta read. Written for the recommended answers of OQ-1..5, 7..9, H-1..4; the 5 s keyword budget (H-4 A) is the analyst's, from no source. Owed after gate-1 if OQ-5 A: tech-019 withdrawn into this line, tech-020 takes feat-043 as a dep.
+
+- 2026-10-30 [orchestrator] Stage 3 (ux-designer): design.md, prototype/index.html (syntax checked only, not opened in a browser), ADR-0032 proposed. Adds kit parts AppTopBar, NavList, SearchMenu. One additive read family: GET /api/organizations/{o}/workitems and …/workitems/assignees. Owed: tech-020 takes feat-043 as a dep (queue); US-9 marks ADR-0024 §§ 1, 2, 4, ADR-0028 rule 7 and ADR-0031 rule 5 with a pointer to ADR-0032; the plan pins statement counts for «Обзор» and the lists and keeps the retired-address and route inventories as one source a test reads.
 
 ## Notes
 

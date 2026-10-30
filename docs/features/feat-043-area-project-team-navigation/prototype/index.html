@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>feat-043 prototype</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font:14px "Segoe UI",system-ui,sans-serif;color:#1f2933;background:#f4f5f7}
+a{color:#0b5cad;text-decoration:none;cursor:pointer}a:hover{text-decoration:underline}
+#bar{height:48px;background:#fff;border-bottom:1px solid #dde1e6;display:flex;align-items:center;gap:12px;padding:0 12px;position:relative}
+#bar b{letter-spacing:.5px}#trail{color:#5f6b7a;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#role{font-size:12px}button,select,input{font:inherit}
+button{background:#eceff2;border:0;border-radius:4px;padding:5px 10px;cursor:pointer}button.p{background:#0b5cad;color:#fff}
+button.d{color:#b3261e}button:disabled{opacity:.5}
+#sw{background:#fff;border:1px solid #c5ccd3}
+#pop{display:none;position:absolute;top:44px;left:120px;width:320px;background:#fff;border:1px solid #c5ccd3;border-radius:6px;box-shadow:0 6px 20px #0003;z-index:5;max-height:420px;overflow:auto}
+#pop.open{display:block}#pop h6{margin:0;padding:8px 12px 2px;color:#5f6b7a;font-size:11px;text-transform:uppercase}
+#pop div.o{padding:5px 12px;cursor:pointer}#pop div.o:hover,#pop div.o.cur{background:#e8f0fa}#pop input{margin:6px 12px;width:calc(100% - 24px);padding:5px}
+#wrap{display:flex;min-height:calc(100vh - 48px)}
+nav{width:200px;background:#fff;border-right:1px solid #dde1e6;padding:8px 0}
+nav a{display:block;padding:8px 16px;color:#1f2933}nav a.cur{background:#e8f0fa;font-weight:600;border-left:3px solid #0b5cad;padding-left:13px}
+main{flex:1;padding:16px 24px;min-width:0}h1{font-size:20px;margin:0 0 8px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid #dde1e6;margin:8px 0 16px}.tabs a{padding:8px 12px;color:#1f2933}.tabs a.cur{border-bottom:2px solid #0b5cad;font-weight:600}
+.card{background:#fff;border-radius:6px;box-shadow:0 1px 4px #0002;padding:12px 16px;margin-bottom:12px}
+table{width:100%;border-collapse:collapse}th{text-align:left;color:#5f6b7a;font-weight:400;font-size:12px;padding:6px 8px}td{padding:7px 8px}tr:hover td{background:#f7f9fb}
+.tag{background:#eceff2;border-radius:10px;padding:1px 8px;font-size:12px;margin-left:6px}.mut{color:#5f6b7a}
+.grid{display:flex;gap:16px}.grid>*{flex:1}.stat{display:inline-block;padding:8px 16px;margin-right:8px;background:#fff;border-radius:6px;box-shadow:0 1px 4px #0002}.stat b{font-size:20px;display:block}
+#dlg{display:none;position:fixed;inset:0;background:#0005;z-index:9;align-items:center;justify-content:center}#dlg.open{display:flex}
+#dlg .box{background:#fff;border-radius:8px;padding:20px;width:420px;max-width:92vw}#dlg label{display:block;margin:8px 0}
+.opt{padding:4px 0}.notice{position:fixed;left:16px;bottom:16px;background:#1f2933;color:#fff;padding:10px 16px;border-radius:4px;display:none}
+.tree div{padding:5px 0}.hint{background:#fff7e0;padding:8px 12px;border-radius:4px;margin-bottom:12px;font-size:13px}
+@media(max-width:1023px){nav{display:none}}
+</style></head><body>
+<div class="hint">Прототип feat-043 (данные условные). Роль: <select id="role"><option value="a">Администратор</option><option value="m">Участник</option><option value="r">Читатель</option></select>
+ &nbsp; Сценарии: переключатель контекста; «Проект A → Команды → Добавить команды»; «Области» (фильтр); «Рабочие элементы» (фильтр по команде); «Переместить проект».</div>
+<div id="bar"><b>▣ MUSTASK</b><button id="sw"></button><div id="trail"></div><span>АК</span>
+<div id="pop"></div></div>
+<div id="wrap"><nav id="nav"></nav><main id="main"></main></div>
+<div id="dlg"><div class="box" id="box"></div></div><div class="notice" id="notice"></div>
+<script>
+const org='Ромашка';
+const depts=[{n:'Логистика',projects:['A','B']},{n:'Финансы',projects:['C','E']}];
+const top=['D'];
+let proj={A:{key:'MSK',place:'Логистика',teams:['MARS','VENUS'],def:'VENUS'},B:{key:'BET',place:'Логистика',teams:['MARS']},C:{key:'FIN',place:'Финансы',teams:['MARS']},D:{key:'DEL',place:null,teams:[]},E:{key:'EEE',place:'Финансы',teams:['MARS'],off:true}};
+const teams={MARS:{own:false},VENUS:{own:true},JUPITER:{own:false}};
+const items=[['MSK-1','Оплата заказа','A','MARS'],['MSK-2','Отчёт по складу','A','VENUS'],['MSK-3','Без владельца','A',null],['BET-1','Оплата поставщика','B','MARS'],['FIN-1','Закрытие периода','C','MARS']];
+const subs={A:[['Склад','Стеллажи'],['Транспорт']]};
+let ctx={kind:'org'},page={k:'overview'},role='a',filter='',teamF='',tab='',q='';
+const adm=()=>role==='a';const $=s=>document.querySelector(s);
+const activeProjects=()=>Object.keys(proj).filter(p=>!proj[p].off);
+function notice(t){const n=$('#notice');n.textContent=t;n.style.display='block';setTimeout(()=>n.style.display='none',2500)}
+function go(p,c){page=p;if(c)ctx=c;tab=p.tab||'';render()}
+const L=(t,p,c)=>{const a=document.createElement('a');a.textContent=t;a.onclick=()=>go(p,c);return a.outerHTML.replace('<a','<a data-go=\''+JSON.stringify([p,c||null])+'\'')};
+document.addEventListener('click',e=>{const a=e.target.closest('[data-go]');if(a){const[p,c]=JSON.parse(a.dataset.go);go(p,c||undefined)}});
+function link(t,p,c){return `<a data-go='${JSON.stringify([p,c||null])}'>${t}</a>`}
+function ctxLabel(){return ctx.kind==='org'?org:org+' / '+ctx.n}
+function renderBar(){$('#sw').textContent=ctxLabel()+' ▾'}
+function pop(){const o=$('#pop');o.classList.toggle('open');if(!o.classList.contains('open'))return;
+ const f=(o.querySelector('input')||{}).value||'';
+ const grp=(t,list)=>{list=list.filter(x=>x.n.toLowerCase().includes(f.toLowerCase()));return list.length?`<h6>${t}</h6>`+list.map(x=>`<div class="o ${ctx.n===x.n?'cur':''}" data-sw='${JSON.stringify(x)}'>${x.n}</div>`).join(''):''};
+ const own=Object.keys(teams).filter(t=>teams[t].own).map(n=>({k:'team',n}));
+ const oth=Object.keys(teams).filter(t=>!teams[t].own).map(n=>({k:'team',n}));
+ let h=`<h6>Организации</h6><div class="o cur">● ${org}</div><div class="o">Другая</div><div class="o" data-sw='{"k":"orgs"}'>Все организации</div>`+
+ `<input placeholder="Найти объект" value="${f}" id="q" aria-label="Найти объект"><div class="o" data-sw='{"k":"org"}'>${org} (вся организация)</div>`+
+ grp('Мои команды',own)+grp('Департаменты',depts.map(d=>({k:'dept',n:d.n})))+grp('Проекты',activeProjects().map(n=>({k:'project',n})))+grp('Другие команды',oth);
+ if(f&&!/class="o"/.test(h.split('id="q"')[1]||''))h+='<div class="o mut">Ничего не найдено</div>';
+ o.innerHTML=h;const qi=o.querySelector('#q');qi.focus();qi.setSelectionRange(f.length,f.length);qi.oninput=()=>{o.classList.remove('open');o.querySelector('#q').value=qi.value;const v=qi.value;pop();o.querySelector('#q').value=v;}}
+$('#sw').onclick=pop;
+$('#pop').onclick=e=>{const d=e.target.closest('[data-sw]');if(!d)return;const x=JSON.parse(d.dataset.sw);$('#pop').classList.remove('open');
+ if(x.k==='org')return go({k:'overview'},{kind:'org'});if(x.k==='orgs')return notice('Список организаций');
+ const c={kind:x.k,n:x.n};
+ if(x.k==='team'){const same=ctx.kind==='team'&&page.k==='team';go(same?{k:'team',n:x.n,tab:page.tab}:{k:'team',n:x.n,tab:'overview'},c)}
+ else if(x.k==='project')go({k:'project',n:x.n,tab:'general'},c);else go({k:'dept',n:x.n,tab:'overview'},c)};
+const NAV=[['Обзор','overview'],['Рабочие элементы','workitems'],['Области','areas'],['Проекты','projects'],['Команды','teams'],['Участники','members'],['Настройки','settings']];
+function renderNav(){const cur={dept:'areas',node:'areas',project:'projects',team:'teams'}[page.k]||page.k;
+ $('#nav').innerHTML=NAV.filter(n=>n[1]!=='members'||role!=='r').map(n=>`<a class="${cur===n[1]?'cur':''}" data-go='${JSON.stringify([{k:n[1]}])}'>${n[0]}</a>`).join('')}
+function tabs(list,kind,name){return `<div class="tabs">`+list.filter(t=>!t[2]||adm()).map(t=>`<a class="${page.tab===t[0]?'cur':''}" data-go='${JSON.stringify([{k:kind,n:name,tab:t[0]},{kind:kind==='dept'||kind==='node'?'dept':kind,n:name}])}'>${t[1]}</a>`).join('')+`</div>`}
+function table(h,rows,empty){return rows.length?`<table><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table>`:`<p class="mut">${empty}</p>`}
+function trail(a){$('#trail').innerHTML=[org+' ',...a].join(' / ')}
+function render(){renderBar();renderNav();const m=$('#main');const k=page.k;
+ if(k==='overview'){trail(['Обзор']);const D=depts.length,P=activeProjects().length,T=Object.keys(teams).length;
+  m.innerHTML=`<h1>Обзор</h1><div class="grid"><div style="flex:3"><div class="card"><b>Мои команды</b><p>${link('VENUS',{k:'team',n:'VENUS',tab:'overview'},{kind:'team',n:'VENUS'})}</p></div>
+  <div style="margin-bottom:12px">${link(`<span class=stat><b>${D}</b>Департаменты</span>`,{k:'areas'})}${link(`<span class=stat><b>${P}</b>Проекты</span>`,{k:'projects'})}${link(`<span class=stat><b>${T}</b>Команды</span>`,{k:'teams'})}</div>
+  <div class="card"><b>Департаменты</b>${depts.map(d=>`<div>${link(d.n,{k:'dept',n:d.n,tab:'overview'},{kind:'dept',n:d.n})}</div>`).join('')}<div>${link('Все департаменты ('+D+')',{k:'areas'})}</div></div>
+  <div class="card"><b>Проекты</b>${activeProjects().map(p=>`<div>${link(p,{k:'project',n:p,tab:'general'},{kind:'project',n:p})}</div>`).join('')}<div>${link('Все проекты ('+P+')',{k:'projects'})}</div></div></div>
+  <div style="flex:1"><div class="card"><b>Организации</b><div>● ${org}</div><div>Другая</div><div>${link('Все организации',{k:'overview'})}</div></div></div></div>`}
+ else if(k==='areas'){trail(['Области']);const f=filter.toLowerCase();const row=(pad,n,type,p)=>(!f||n.toLowerCase().includes(f))?`<div style="padding-left:${pad*20}px">${p?link(n,p.page,p.ctx):n} <span class="mut">${type}</span>${p&&p.off?'<span class=tag>деактивирован</span>':''}</div>`:'';
+  m.innerHTML=`<h1>Области</h1>${adm()?'<button class=p onclick="notice(\'Создание департамента\')">Создать департамент</button>':''} <input placeholder="Найти область" value="${filter}" oninput="filter=this.value;render();document.querySelector('main input').focus()"><div class="card tree">`+
+  depts.map(d=>row(0,d.n,'Департамент',{page:{k:'dept',n:d.n,tab:'overview'},ctx:{kind:'dept',n:d.n}})+d.projects.map(p=>row(1,p,'Проект',{off:proj[p].off,page:proj[p].off?null:{k:'node',n:p,tab:'overview'},ctx:{kind:'project',n:p}})+(subs[p]&&!proj[p].off?subs[p].map((s,i)=>row(2,s[0],'Область')+(s[1]?row(3,s[1],'Область'):'')).join(''):'')).join('')).join('')+top.map(p=>row(0,p,'Проект',{page:{k:'node',n:p,tab:'overview'},ctx:{kind:'project',n:p}})).join('')+'</div>'}
+ else if(k==='projects'){trail(['Проекты']);m.innerHTML=`<h1>Проекты</h1>${adm()?'<button class=p>Создать проект</button>':''}<div class="card">`+table(['Название','Ключ','Расположение'],activeProjects().map(p=>[link(p,{k:'project',n:p,tab:'general'},{kind:'project',n:p}),proj[p].key,proj[p].place||'—']),'Проектов пока нет')+'</div>'}
+ else if(k==='teams'){trail(['Команды']);m.innerHTML=`<h1>Команды</h1>${adm()?'<button class=p>Создать команду</button>':''}<div class="card">`+table(['Название'],Object.keys(teams).map(t=>[link(t,{k:'team',n:t,tab:'overview'},{kind:'team',n:t})+(teams[t].own?'<span class=tag>Моя команда</span>':'')]),'Команд пока нет')+'</div>'}
+ else if(k==='workitems'){trail(['Рабочие элементы']);const rows=items.filter(i=>(!teamF||(teamF==='-'?!i[3]:i[3]===teamF))&&(!q||(i[0]+i[1]).toLowerCase().includes(q.toLowerCase())));
+  m.innerHTML=`<h1>Рабочие элементы</h1><div class="card"><input placeholder="Поиск" value="${q}" oninput="q=this.value;render();document.querySelector('main input').focus()"> Команда <select onchange="teamF=this.value;render()"><option value="">Все</option><option ${teamF==='MARS'?'selected':''}>MARS</option><option ${teamF==='VENUS'?'selected':''}>VENUS</option><option value="-" ${teamF==='-'?'selected':''}>Без команды</option></select> <a onclick="q='';teamF='';render()">Сбросить фильтр</a></div>
+  <div class="card">`+(rows.length?table(['Номер','Название','Проект','Команда'],rows.map(i=>[i[0],i[1],link(i[2],{k:'project',n:i[2],tab:'general'},{kind:'project',n:i[2]}),i[3]||'Без команды'])):'<p>Ничего не найдено</p>')+'</div>'}
+ else if(k==='members'){trail(['Участники']);m.innerHTML='<h1>Участники</h1><p class=mut>Страница участников (mod-016) без изменений.</p>'}
+ else if(k==='settings'){trail(['Настройки']);m.innerHTML='<h1>Настройки</h1><p class=mut>Организация: Общие, Процесс. Справочники, Интерфейс. Страниц команд, областей и проектов здесь нет.</p>'}
+ else if(k==='dept'){const d=depts.find(x=>x.n===page.n);trail(['Области',d.n,tabName()]);
+  m.innerHTML=`<h1>Департамент: ${d.n}</h1>`+tabs([['overview','Обзор'],['projects','Проекты'],['teams','Команды'],['settings','Настройки',1]],'dept',d.n)+
+  ({overview:`<div class=card><p>Описание не задано</p><p>Расположение: Верхний уровень</p><p>Проекты: ${d.projects.length} · Команды: 2</p></div>`,
+  projects:`<div class=card>${adm()?'<button>Добавить проект</button>':''}`+table(['Проект','Ключ',''],d.projects.map(p=>[proj[p].off?p+'<span class=tag>деактивирован</span>':link(p,{k:'node',n:p,tab:'overview'},{kind:'project',n:p}),proj[p].key,adm()&&!proj[p].off?'<button onclick="notice(\'Проект вынесен на верхний уровень.\')">Вынести на верхний уровень</button>':'']),'В департаменте нет проектов')+(d.projects.some(p=>proj[p].off)?'<p class=mut>1 деактивирован</p>':'')+'</div>',
+  teams:`<div class=card>${adm()?'<button>Добавить команды</button>':''}`+table(['Команда'],['MARS','VENUS'].map(t=>[link(t,{k:'team',n:t,tab:'overview'},{kind:'team',n:t})]),'К департаменту не привязаны команды')+'</div>',
+  settings:'<div class=card><button>Переименовать</button> <button>Изменить описание</button> <button class=d>Удалить департамент</button></div>'})[page.tab]}
+ else if(k==='node'){const p=page.n;trail(['Области',proj[p].place||p,...(proj[p].place?[p]:[]),tabName()]);
+  m.innerHTML=`<h1>Область проекта: ${p}</h1>`+tabs([['overview','Обзор'],['settings','Настройки',1]],'node',p)+(page.tab==='overview'?`<div class=card><p>Тип: Проект · Расположение: ${proj[p].place||'Верхний уровень'}</p>${link('Открыть проект',{k:'project',n:p,tab:'general'},{kind:'project',n:p})}<h4>Вложенные области</h4>${adm()?'<button>Добавить область</button>':''}${table(['Область'],(subs[p]||[]).flatMap(s=>s.map(x=>[x])),'Вложенных областей пока нет')}<p class=mut>Команды проекта на странице проекта.</p></div>`:'<div class=card><button>Изменить описание</button><p class=mut>Название меняется вместе с проектом.</p></div>')}
+ else if(k==='project'){const p=page.n,pr=proj[p];trail(['Проекты',p,tabName()]);
+  m.innerHTML=`<h1>${p} <span class=tag>${pr.key}</span></h1>`+tabs([['general','Общие'],['workitems','Рабочие элементы'],['boards','Канбан'],['backlogs','Бэклог'],['teams','Команды'],['settings','Настройки',1]],'project',p)+projTab(p)}
+ else if(k==='team'){const t=page.n;trail(['Команды',t,tabName()]);
+  const ps=activeProjects().filter(p=>proj[p].teams.includes(t));
+  m.innerHTML=`<h1>${t}</h1>`+tabs([['overview','Обзор'],['boards','Канбан'],['backlogs','Бэклог'],['projects','Проекты'],['members','Участники и доступ'],['settings','Настройки',1]],'team',t)+
+  ({overview:'<div class=card><p>Участников: 2 · Проектов: '+ps.length+'</p><b>Департаменты</b><p>'+link('Логистика',{k:'dept',n:'Логистика',tab:'overview'},{kind:'dept',n:'Логистика'})+'</p></div>',
+  projects:`<div class=card>${adm()?'<button>Добавить проекты</button>':''}`+table(['Проект','Расположение'],ps.map(p=>[link(p,{k:'project',n:p,tab:'general'},{kind:'project',n:p}),proj[p].place||'—']),'Команда не привязана ни к одному проекту')+'</div>',
+  boards:'<div class=card>Канбан команды по всем её проектам (feat-040).</div>',backlogs:'<div class=card>Бэклог команды по всем её проектам (feat-040).</div>',members:'<div class=card>Участники команды'+(adm()?' <button>Добавить участника</button>':'')+'</div>',settings:'<div class=card><button>Переименовать</button> <button class=d>Удалить команду</button></div>'})[page.tab]}
+}
+function tabName(){return{overview:'Обзор',projects:'Проекты',teams:'Команды',settings:'Настройки',general:'Общие',workitems:'Рабочие элементы',boards:'Канбан',backlogs:'Бэклог',members:'Участники и доступ'}[page.tab]||''}
+function projTab(p){const pr=proj[p];
+ if(page.tab==='general')return `<div class=card><b>Основное</b><p>Название: ${p} · Ключ: ${pr.key}</p><b>Расположение</b><p>${pr.place?link(pr.place,{k:'dept',n:pr.place,tab:'overview'},{kind:'dept',n:pr.place}):'Проект не входит ни в один департамент'} ${link('Структура проекта',{k:'node',n:p,tab:'overview'},{kind:'project',n:p})} ${adm()?'<button onclick="moveDlg(\''+p+'\')">Переместить</button>':''}</p></div>`;
+ if(page.tab==='workitems')return `<div class=card>${adm()?'<button class=p>Новый рабочий элемент</button>':''}`+table(['Номер','Название','Команда'],items.filter(i=>i[2]===p).map(i=>[i[0],i[1],i[3]||'Без команды']),'Рабочих элементов пока нет')+'</div>';
+ if(page.tab==='teams')return `<div class=card>${adm()?`<button onclick="linkDlg('${p}')">Добавить команды</button>`:''}`+table(['Команда',''],pr.teams.map(t=>[link(t,{k:'team',n:t,tab:'overview'},{kind:'team',n:t})+(pr.def===t?'<span class=tag>По умолчанию</span>':pr.teams.length===1?'<span class=tag>По умолчанию: единственная команда</span>':''),adm()?`<button onclick="proj['${p}'].teams=proj['${p}'].teams.filter(x=>x!=='${t}');notice('Команда отключена от проекта.');render()">Отключить от проекта</button>`:'']),'К проекту не привязана ни одна команда')+'</div>';
+ if(page.tab==='settings')return `<div class=card><button>Переименовать</button> <button>Изменить описание</button><p>Команда по умолчанию: ${pr.def||'Не выбрана'} <button>Выбрать</button></p><p class=mut>Ключ нельзя изменить.</p></div>`;
+ return `<div class=card>${page.tab==='boards'?'Канбан проекта (как сейчас), фильтр «Команда» в адресе.':'Бэклог проекта (как сейчас).'}</div>`}
+function linkDlg(p){const off=Object.keys(teams).filter(t=>!proj[p].teams.includes(t));$('#box').innerHTML=`<h3>Добавление команд в проект</h3><p>Выбранные команды войдут в проект «${p}». Работу команд это не меняет.</p><input id=dq placeholder="Найти команду" aria-label="Команды"><div id=dl></div><p><button id=ok class=p disabled>Добавить</button> <button onclick="dlg.classList.remove('open')">Отмена</button></p>`;
+ const draw=()=>{const f=$('#dq').value.toLowerCase();const l=off.filter(t=>t.toLowerCase().includes(f));$('#dl').innerHTML=l.length?l.map(t=>`<label class=opt><input type=checkbox value="${t}"> ${t}</label>`).join(''):(off.length?'Ничего не найдено':'Все команды уже подключены к проекту.');$('#dl').onchange=()=>{$('#ok').disabled=!document.querySelectorAll('#dl input:checked').length}};
+ draw();$('#dq').oninput=draw;dlg.classList.add('open');$('#ok').onclick=()=>{const v=[...document.querySelectorAll('#dl input:checked')].map(x=>x.value);proj[p].teams.push(...v);dlg.classList.remove('open');notice(v.length>1?'Команды добавлены: '+v.length+'.':'Команда «'+v[0]+'» добавлена.');render()}}
+function moveDlg(p){const opts=['Верхний уровень',...depts.map(d=>d.n)].filter(x=>x!==(proj[p].place||'Верхний уровень'));$('#box').innerHTML=`<h3>Перемещение проекта</h3><label>Новое расположение<br><select id=mv><option value="">—</option>${opts.map(o=>`<option>${o}</option>`).join('')}</select></label><p>Проект «${p}» переместится вместе со всеми вложенными областями. Рабочие элементы, команды и связи проекта не изменятся.</p><p><button id=ok class=p>Переместить</button> <button onclick="dlg.classList.remove('open')">Отмена</button></p>`;dlg.classList.add('open');
+ $('#ok').onclick=()=>{const v=$('#mv').value;if(!v)return;proj[p].place=v==='Верхний уровень'?null:v;dlg.classList.remove('open');notice('Проект «'+p+'» перемещён.');render()}}
+$('#role').onchange=e=>{role=e.target.value;render()};
+render();
+</script></body></html>
