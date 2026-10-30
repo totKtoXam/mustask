@@ -87,7 +87,7 @@ const PART_RULES: readonly PartRule[] = [
   },
   {
     id: 'KIT-3',
-    use: 'MenuButton or MoreActionsMenu',
+    use: 'MenuButton, MoreActionsMenu or SearchMenu',
     names: ['Menu', 'MenuItem', 'MenuList', 'Popover', 'Popper'],
   },
   { id: 'KIT-4', use: 'useNotice', names: ['Snackbar', 'SnackbarContent'] },

@@ -75,6 +75,7 @@ migration is tracked in § 10.
 | an icon-only button | `IconAction` (`row`, `chevron`, `header`, `bar`) | `IconButton`, a glyph size in `sx` |
 | a hairline glyph | the thin icons in `shared/ui/icons` — chevrons, add, remove, close, expand, more-vertical, refresh, undo, save, person | `createSvgIcon` in a slice |
 | a menu from a button | `MenuButton`; the «⋮» is `MoreActionsMenu` | `Menu` + `MenuItem` |
+| a header selector that searches and groups its choices | `SearchMenu` (a combobox over a grouped listbox; the host passes every text) | a `Popover` of your own |
 | a type, a state, a person | `TypeLabel`, `StateLabel`, `CategoryMarker`, `UserAvatar`, `PersonLabel` | an icon beside a text by hand |
 | a tag | `Tag`, `TagList` | `Chip` |
 | a long text cut to one line | `TruncatedText` | an ellipsis `sx` |
@@ -135,6 +136,15 @@ ones that matter; the type is in the file.
   «Ещё действия» (a row passes «Ещё действия: MSK-EPIC-1»); `size` is `row` or
   `bar`; `revealed={false}` draws the control transparent until hover, focus or an
   open menu (a table row's).
+- `SearchMenu` — a selector: a trigger of a `label` caption over a `value`
+  (`chosen` marks it), opening a search field, an optional `allLabel` row
+  (`onSelect(null)`), `groups` (`heading`, `note`, `options` with `hint`), a
+  `footer` row outside the search and the `status` states (`loading`, `error`
+  with `retryLabel` and `onRetry`, and `emptyText` for a search with no match).
+  The trigger is a combobox over a labelled listbox; Arrows, Home and End move,
+  Enter chooses, Escape closes and returns focus. Search is local, a part of a
+  name or of the `hint`, in every group; it knows no word of its own. Used by the
+  shell's four selectors (feat-043).
 
 **Marks and people** (`marks`) — always followed by a name; colour is never the
 only carrier. `TypeLabel` (`eyebrow` for the card's type line), `StateLabel`
