@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/043-area-project-team-navigation
-- stage: 03-ux-design
+- stage: 01-business-analysis
 - epic: platform/ui
 - deps: feat-040,mod-018,mod-020
 - gates: gate-1, gate-2, gate-3
@@ -11,7 +11,7 @@
 ## Gates
 
 gate-1: approved 2026-10-30 (the human, in chat): all recommendations, OQ-1..5, OQ-7..9, H-1..4 A
-gate-2: rejected 2026-10-30 (the human, in chat): reason being asked
+gate-2: rejected 2026-10-30 (the human, in chat): navigation structure, see Decisions
 gate-3: pending
 
 ## Plan
@@ -21,6 +21,8 @@ gate-3: pending
 ## Decisions
 
 - Gate-1, 2026-10-30: OQ-1, 2, 3, 4, 5, 7, 8, 9 and H-1, 2, 3, 4 are answered A; the spec is the recommended text. tech-019 is absorbed; a new ADR is owed at the design.
+
+- Gate-2 rejection, 2026-10-30, the human on the navigation structure (their words, translated): (1) the header is a trail of four selectors, each showing «все» or my organization / my department / my team / my project, each choosable; (2) having to drop into «Проекты» and pick a project to reach Общие, Рабочие элементы, Канбан, Бэклог, Команды, Настройки is inconvenient: all of these belong in the left menu as before, its content changing with what is chosen (organization, area, department, project or team); (3) «Настройки» stay where they were. Reopens the spec's context and switcher rules and D-1, D-3; gate-1 answers stand otherwise.
 
 ## Log
 
