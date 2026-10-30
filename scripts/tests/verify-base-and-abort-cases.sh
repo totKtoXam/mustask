@@ -147,7 +147,19 @@ case "$1" in
 esac
 exit 0
 STUB
-chmod +x "$sandbox/bin/dotnet" "$sandbox/bin/docker" "$sandbox/bin/npm"
+# node: scripts/coverage-gate.mjs (tech-046) is answered by STUB_GATE; anything
+# else goes to the real node.
+real_node=$(command -v node || echo node)
+cat > "$sandbox/bin/node" <<STUB
+#!/bin/sh
+case "\$1" in
+    scripts/coverage-gate.mjs)
+        if [ "\${STUB_GATE:-ok}" = ok ]; then echo '  ok   stub floor'; exit 0; fi
+        echo '  FAIL stub floor'; exit 1 ;;
+esac
+exec "$real_node" "\$@"
+STUB
+chmod +x "$sandbox/bin/dotnet" "$sandbox/bin/docker" "$sandbox/bin/npm" "$sandbox/bin/node"
 
 # One branch per bucket, each from main. BASE=main: the stubs' repository has no origin.
 export BASE=main
@@ -161,6 +173,9 @@ g add -A && g commit -qm dotnet
 
 r=$(run)
 expect 'dotnet, tests pass: green' 'green "$r" && has "$r" "ok: backend tests, including integration"'
+expect 'and its coverage floors are checked' 'has "$r" "ok: backend coverage floors"'
+r=$(STUB_GATE=fail run)
+expect 'dotnet, a coverage floor missed: red' 'red "$r" && has "$r" "FAIL: backend coverage below a floor"'
 r=$(STUB_DOTNET_TEST=fail1 run)
 expect 'dotnet, a failing test: red' 'red "$r" && has "$r" "RESULT: failed"'
 r=$(STUB_DOTNET_TEST=abort1 run)

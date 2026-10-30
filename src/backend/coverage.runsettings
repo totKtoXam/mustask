@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Coverage for scripts/verify.sh (tech-046): coverlet's collector, Cobertura
+  output, read by scripts/coverage-gate.mjs against scripts/coverage-floors.json.
+  EF migrations and their snapshots are generated code: counted, they would
+  sink Mustask.Infrastructure to a few percent and say nothing about the tests.
+-->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <Include>[Mustask.*]*</Include>
+          <Exclude>[Mustask.*Tests]*,[Mustask.AppHost]*,[Mustask.ServiceDefaults]*</Exclude>
+          <ExcludeByFile>**/Migrations/*.cs</ExcludeByFile>
+          <ExcludeByAttribute>GeneratedCodeAttribute,CompilerGeneratedAttribute,ExcludeFromCodeCoverageAttribute</ExcludeByAttribute>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>
