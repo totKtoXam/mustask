@@ -98,6 +98,12 @@ public sealed class WorldStructure(WorkItemWorld world) : IOrganizationStructure
 
     public Task<IReadOnlyList<LinkedProjectInfo>> ListLinkedProjectsAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
+
+    public Task<AreaInfo?> FindAreaAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+
+    public Task<IReadOnlyList<AreaInfo>> ListAreasOfTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
 }
 
 public sealed class FakeProcessReadModel(ProcessDefinitionRow process) : IProcessDefinitionReadModel

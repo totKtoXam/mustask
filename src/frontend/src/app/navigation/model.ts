@@ -15,13 +15,14 @@ import {
 } from '../../features/boards';
 import { dictionariesPermissions, LANGUAGES_PATH } from '../../features/dictionaries';
 import {
-  areasPath,
+  organizationAreasPath,
   membersPath,
   organizationGeneralPath,
   organizationTeamsPath,
   organizationsPermissions,
   projectGeneralPath,
   projectsPath,
+  areasPath,
   teamsPath,
 } from '../../features/organizations';
 import { processDefinitionPath, processPermissions } from '../../features/process';
@@ -171,6 +172,15 @@ export const navigationModel: NavigationModel = {
           landing: (selection) =>
             selection.organizationId ? organizationTeamsPath(selection.organizationId) : null,
         },
+        // mod-018 (design § 1): the area tree is the organization's; an area's page is beneath this entry.
+        {
+          id: 'organization-areas',
+          label: 'Области',
+          scope: 'organization',
+          permission: organizationsPermissions.areaRead,
+          landing: (selection) =>
+            selection.organizationId ? organizationAreasPath(selection.organizationId) : null,
+        },
         {
           id: 'members',
           label: 'Участники',
@@ -213,6 +223,7 @@ export const navigationModel: NavigationModel = {
               ? teamsPath(selection.organizationId, selection.projectId)
               : null,
         },
+        // mod-018 (design § 7): the project's own subtree of the area tree.
         {
           id: 'areas',
           label: 'Области',

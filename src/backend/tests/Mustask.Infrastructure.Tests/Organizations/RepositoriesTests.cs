@@ -25,8 +25,9 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
         var structure = await database.CreateStructureAsync();
         var other = await database.CreateStructureAsync();
         var projectId = structure.Project.Project.Id;
-        var otherProjectId = other.Project.Project.Id;
-        var reports = Area.CreateChild(structure.Project.Root, Name("Отчёты"));
+        var organizationId = structure.Organization.Id;
+        var otherOrganizationId = other.Organization.Id;
+        var reports = NewSubArea(structure.Project.Root, "Отчёты");
         await database.AddAreasAsync(reports);
 
         var result = await InUnitOfWorkAsync(async (scope, ct) =>
@@ -45,10 +46,11 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
                 await teams.LockForNoKeyUpdateAsync(structure.Organization.Id, structure.SecondTeam.Id, ct) is not null,
                 await teams.LockForNoKeyUpdateAsync(other.Organization.Id, structure.SecondTeam.Id, ct) is null,
                 await teams.LockForShareAsync(other.Organization.Id, structure.SecondTeam.Id, ct) is null,
-                await areas.LockForUpdateAsync(projectId, reports.Id, ct) is not null,
-                await areas.LockForShareAsync(otherProjectId, reports.Id, ct) is null,
-                await areas.FindAsync(otherProjectId, reports.Id, ct) is null,
-                (await areas.LockRootAsync(projectId, forUpdate: true, ct)).Id == structure.Project.Root.Id,
+                await areas.LockForUpdateAsync(organizationId, reports.Id, ct) is not null,
+                await areas.LockForShareAsync(otherOrganizationId, reports.Id, ct) is null,
+                await areas.FindAsync(otherOrganizationId, reports.Id, ct) is null,
+                (await areas.LockProjectNodeAsync(organizationId, projectId, ct))?.Id == structure.Project.Root.Id,
+                await areas.LockProjectNodeAsync(otherOrganizationId, projectId, ct) is null,
             };
         });
 
@@ -62,7 +64,7 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
         var structure = await database.CreateStructureAsync();
         var organizationId = structure.Organization.Id;
         var projectId = structure.Project.Project.Id;
-        var platformArea = Area.CreateChild(structure.Project.Root, Name("Платформа"));
+        var platformArea = NewSubArea(structure.Project.Root, "Платформа");
         await database.AddAreasAsync(platformArea);
 
         var result = await InUnitOfWorkAsync(async (scope, ct) =>
@@ -85,10 +87,10 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
                 await teams.IsActiveNameTakenAsync(organizationId, "ПЛАТФОРМА", null, ct),
                 await teams.IsActiveNameTakenAsync(organizationId, "ПЛАТФОРМА", structure.SecondTeam.Id, ct),
                 await teams.FindNameAsync(structure.SecondTeam.Id, ct),
-                await areas.IsSiblingNameTakenAsync(structure.Project.Root.Id, "ПЛАТФОРМА", null, ct),
-                await areas.IsSiblingNameTakenAsync(structure.Project.Root.Id, "ПЛАТФОРМА", platformArea.Id, ct),
-                await areas.HasChildrenAsync(structure.Project.Root.Id, ct),
-                await areas.HasChildrenAsync(platformArea.Id, ct),
+                await areas.IsSiblingNameTakenAsync(organizationId, structure.Project.Root.Id, "ПЛАТФОРМА", null, ct),
+                await areas.IsSiblingNameTakenAsync(organizationId, structure.Project.Root.Id, "ПЛАТФОРМА", platformArea.Id, ct),
+                await areas.HasChildrenAsync(organizationId, structure.Project.Root.Id, ct),
+                await areas.HasChildrenAsync(organizationId, platformArea.Id, ct),
             };
         });
 
@@ -301,12 +303,12 @@ public sealed class RepositoriesTests(OrganizationsDatabaseFixture database)
     public async Task GetNodes_ReturnsEveryAreaOfTheProject_SiblingsInDisplayOrder()
     {
         var structure = await database.CreateStructureAsync();
-        var alpha = Area.CreateChild(structure.Project.Root, Name("альфа"));
-        var platform = Area.CreateChild(structure.Project.Root, Name("Платформа"));
+        var alpha = NewSubArea(structure.Project.Root, "альфа");
+        var platform = NewSubArea(structure.Project.Root, "Платформа");
         await database.AddAreasAsync(alpha, platform);
 
         var nodes = await InUnitOfWorkAsync((scope, ct) =>
-            scope.ServiceProvider.GetRequiredService<IAreaRepository>().GetNodesAsync(structure.Project.Project.Id, ct));
+            scope.ServiceProvider.GetRequiredService<IAreaRepository>().GetNodesAsync(structure.Organization.Id, ct));
 
         var tree = new AreaTree(nodes);
         Assert.Equal(["альфа", "Платформа"], tree.ChildrenOf(structure.Project.Root.Id).Select(node => node.Name));

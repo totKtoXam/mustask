@@ -114,6 +114,7 @@ export function DeleteTeamDialog<R>({
               </ListItem>
             ))}
           </List>
+          <Typography variant="body1">{deleteTeamDialog.areaLinks}</Typography>
           <Typography variant="body1">{deleteTeamDialog.irreversible}</Typography>
         </Box>
       ) : (

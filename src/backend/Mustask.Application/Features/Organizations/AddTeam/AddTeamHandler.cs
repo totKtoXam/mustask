@@ -37,6 +37,8 @@ public sealed class AddTeamHandler(
     IProjectRepository projects,
     ITeamRepository teams,
     IProjectTeamRepository links,
+    IAreaRepository areas,
+    IAreaLinkRepository areaLinks,
     ITeamMembershipRepository teamMemberships,
     IMemberReadModel members,
     IUserDirectory directory,
@@ -51,6 +53,12 @@ public sealed class AddTeamHandler(
         // bundles only «Администратор» holds team.create, so nothing differs.
         if (command.ProjectIds is { Count: > 0 }
             && (!access.Holds(PermissionCatalog.OrganizationsTeamLink) || !access.Holds(PermissionCatalog.OrganizationsProjectLink)))
+        {
+            throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
+        }
+
+        if (command.AreaIds is { Count: > 0 }
+            && (!access.Holds(PermissionCatalog.OrganizationsTeamLink) || !access.Holds(PermissionCatalog.OrganizationsAreaLink)))
         {
             throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
         }
@@ -107,6 +115,26 @@ public sealed class AddTeamHandler(
                     throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
                 }
 
+                // 3a. The areas named (404): each an area of this organization, all or nothing, locked FOR SHARE (the binder's lock, rule 8)
+                // by one statement whose own answer says which exist.
+                var areaIds = AreaRequests.ParseIds(command.AreaIds, OrganizationErrorCodes.AreaNotFound);
+
+                if (areaIds.Count > 0)
+                {
+                    var lockedAreas = await areas.LockManyForShareAsync(organizationId, areaIds, ct);
+
+                    if (lockedAreas.Count != areaIds.Count)
+                    {
+                        throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
+                    }
+
+                    // A team links to a department only (OQ-8 A).
+                    if (lockedAreas.Values.Any(type => type != AreaType.Department))
+                    {
+                        throw new ConflictException(OrganizationErrorCodes.AreaLinkTypeNotAllowed);
+                    }
+                }
+
                 // 4. The members named (409): each an active member of this organization, known to the directory and active there
                 // (the same rule as an add on the team's page). Two statements and the directory's batches, whatever the number.
                 var userIds = (command.MemberIds ?? []).Where(id => id is not null).Select(id => id!).Distinct(StringComparer.Ordinal).ToList();
@@ -142,6 +170,11 @@ public sealed class AddTeamHandler(
                 foreach (var projectId in projectIds)
                 {
                     links.Add(ProjectTeam.Link(organizationId, projectId, created.Id, currentUser.SubjectId, now));
+                }
+
+                foreach (var areaId in areaIds)
+                {
+                    areaLinks.Add(AreaTeam.Link(organizationId, areaId, created.Id, currentUser.SubjectId, now));
                 }
 
                 foreach (var userId in userIds)

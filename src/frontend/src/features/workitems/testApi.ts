@@ -598,6 +598,10 @@ export class WorkItemsTestApi {
           parentId: area.parentId,
           name: area.name,
           path: this.areaPath(area.id),
+          type: area.parentId === null ? 'project' : 'area',
+          projectId: project.id,
+          projectActive: true,
+          description: null,
           depth,
         });
         visit(area.id, depth + 1);

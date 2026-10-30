@@ -20,7 +20,7 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
     private const string UniqueViolation = PostgresErrorCodes.UniqueViolation;
     private const string CheckViolation = PostgresErrorCodes.CheckViolation;
     private const string DefaultTeamKey = "fk_projects_project_teams_id_default_team_id";
-    private const string ParentKey = "fk_areas_areas_project_id_parent_id";
+    private const string ParentKey = "fk_areas_areas_organization_id_parent_id";
 
     // @org, @project, @first, @second, @root, @secondArea, @process are bound from a fresh structure.
     public static TheoryData<string, string, string> UniqueIndexViolations() => new()
@@ -57,15 +57,15 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
         },
         {
             "BR-M1-12: a sibling name",
-            "INSERT INTO areas (id, project_id, parent_id, name, normalized_name) "
-            + "SELECT gen_random_uuid(), project_id, parent_id, name, normalized_name FROM areas WHERE id = @secondArea",
-            "ix_areas_parent_id_normalized_name"
+            "INSERT INTO areas (id, organization_id, type, project_id, parent_id, name, normalized_name, created_by, created_at) "
+            + "SELECT gen_random_uuid(), organization_id, type, project_id, parent_id, name, normalized_name, created_by, created_at FROM areas WHERE id = @secondArea",
+            "ix_areas_organization_id_parent_id_normalized_name"
         },
         {
-            "BR-M1-11: a second root",
-            "INSERT INTO areas (id, project_id, parent_id, name, normalized_name) "
-            + "VALUES (gen_random_uuid(), @project, NULL, 'Второй корень', 'ВТОРОЙ КОРЕНЬ')",
-            "ix_areas_project_id_root"
+            "BR-M1-11: a second node for one project",
+            "INSERT INTO areas (id, organization_id, type, project_id, parent_id, name, normalized_name, created_by, created_at) "
+            + "VALUES (gen_random_uuid(), @org, 2, @project, NULL, 'Второй узел', 'ВТОРОЙ УЗЕЛ', 'x', now())",
+            "ix_areas_project_id_node"
         },
     };
 
@@ -113,7 +113,6 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
     public static TheoryData<string, string, string> CrossProjectReferences() => new()
     {
         { "an area under another organization's area", InsertAreaUnder("@otherRoot"), ParentKey },
-        { "an area under another project's area in the organization", InsertAreaUnder("@siblingRoot"), ParentKey },
         { "a project naming another organization's team as its default", NameDefault("@otherTeam"), DefaultTeamKey },
         { "a project naming a team of the organization that is not linked to it as its default", NameDefault("@siblingTeam"), DefaultTeamKey },
     };
@@ -178,19 +177,19 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
             parameters);
     }
 
-    // BR-M1-12: a child may carry the root's name, and the same name is free under another parent.
+    // BR-M1-12: a child may carry its project node's name, and the same name is free under another parent.
     [Fact]
     public async Task Insert_SameNameUnderAnotherParent_IsAllowed()
     {
         var parameters = await ParametersAsync();
 
         await database.ExecuteAsync(
-            "INSERT INTO areas (id, project_id, parent_id, name, normalized_name) "
-            + "SELECT gen_random_uuid(), project_id, @secondArea, name, normalized_name FROM areas WHERE id = @root",
+            "INSERT INTO areas (id, organization_id, type, project_id, parent_id, name, normalized_name, created_by, created_at) "
+            + "SELECT gen_random_uuid(), organization_id, 3, project_id, @secondArea, name, normalized_name, created_by, created_at FROM areas WHERE id = @root",
             parameters);
         await database.ExecuteAsync(
-            "INSERT INTO areas (id, project_id, parent_id, name, normalized_name) "
-            + "SELECT gen_random_uuid(), project_id, @root, name, normalized_name FROM areas WHERE id = @root",
+            "INSERT INTO areas (id, organization_id, type, project_id, parent_id, name, normalized_name, created_by, created_at) "
+            + "SELECT gen_random_uuid(), organization_id, 3, project_id, @root, name, normalized_name, created_by, created_at FROM areas WHERE id = @root",
             parameters);
     }
 
@@ -245,8 +244,8 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
     }
 
     private static string InsertAreaUnder(string parent) =>
-        "INSERT INTO areas (id, project_id, parent_id, name, normalized_name) "
-        + $"VALUES (gen_random_uuid(), @project, {parent}, 'Чужая', 'ЧУЖАЯ')";
+        "INSERT INTO areas (id, organization_id, type, project_id, parent_id, name, normalized_name, created_by, created_at) "
+        + $"VALUES (gen_random_uuid(), @org, 3, @project, {parent}, 'Чужая', 'ЧУЖАЯ', 'x', now())";
 
     private static string NameDefault(string team) => $"UPDATE projects SET default_team_id = {team} WHERE id = @project";
 
@@ -266,11 +265,12 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
             await context.SaveChangesAsync();
         }
 
-        var secondArea = Area.CreateChild(structure.Project.Root, OrganizationsDatabaseFixture.Name("Платформа"));
+        var secondArea = OrganizationsDatabaseFixture.NewSubArea(structure.Project.Root, "Платформа");
         await database.AddAreasAsync(secondArea);
 
         return
         [
+            ("org", structure.Organization.Id),
             ("project", structure.Project.Project.Id),
             ("second", structure.SecondTeam.Id),
             ("root", structure.Project.Root.Id),
@@ -305,7 +305,7 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
     {
         var structure = await database.CreateStructureAsync();
         var otherOrganization = Guid.CreateVersion7();
-        var secondArea = Area.CreateChild(structure.Project.Root, OrganizationsDatabaseFixture.Name("Платформа"));
+        var secondArea = OrganizationsDatabaseFixture.NewSubArea(structure.Project.Root, "Платформа");
         await database.AddAreasAsync(secondArea);
 
         // A process of its own for the organization-name duplicate, so only the name index can fire.

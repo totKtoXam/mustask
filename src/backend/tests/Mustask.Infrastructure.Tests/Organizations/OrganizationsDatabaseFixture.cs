@@ -301,6 +301,14 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
         return project;
     }
 
+    /// <summary>A department (top level), not yet stored.</summary>
+    public static Area NewDepartment(Guid organizationId, string name) =>
+        Area.CreateDepartment(organizationId, Name(name), null, Creator, Now);
+
+    /// <summary>A sub-area under a project node or a sub-area, not yet stored.</summary>
+    public static Area NewSubArea(Area parent, string name) =>
+        Area.CreateSubArea(parent, Name(name), null, Creator, Now);
+
     /// <summary>Adds areas as they are; the caller builds them through the domain.</summary>
     public async Task AddAreasAsync(params Area[] areas)
     {

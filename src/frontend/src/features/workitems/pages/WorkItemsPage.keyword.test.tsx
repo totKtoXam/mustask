@@ -27,7 +27,8 @@ async function listed(): Promise<string[]> {
 }
 
 async function expectListed(expected: string[]) {
-  await waitFor(async () => expect(await listed()).toEqual(expected));
+  // Eight columns of jsdom cells per row (mod-018 added «Область»): the first filter round needs more than the default 1 s.
+  await waitFor(async () => expect(await listed()).toEqual(expected), { timeout: 8000 });
 }
 
 const NOTHING = () => screen.findByRole('heading', { level: 2, name: 'Ничего не найдено' });

@@ -100,8 +100,8 @@ public sealed class RestoreOrganizationHandlerTests
 
         // The tree answers as before, through reachability alone.
         Assert.True(f.Store.IsReachable(f.Organization.Id, f.Project.Project.Id));
-        var tree = new AreaTree(f.Store.Areas.Select(area => new AreaNode(area.Id, area.ParentId, area.Name)));
-        Assert.Equal("Отчёты / Квартальные", tree.PathOf(f.Quarterly.Id));
+        var tree = new AreaTree(f.Store.Areas.Select(area => new AreaNode(area.Id, area.ParentId, area.Name, area.Type, area.ProjectId)));
+        Assert.Equal("Пример проекта / Отчёты / Квартальные", tree.PathOf(f.Quarterly.Id));
     }
 
     // US-2 · "...«Старый проект» is still deactivated and is listed among the organization's deactivated projects":

@@ -3,34 +3,55 @@ using Mustask.Domain.Organizations;
 namespace Mustask.Application.Abstractions.Organizations;
 
 /// <summary>
-/// The write side of areas. An area owns nothing and has no team beside it (mod-017 BR-OT-10), so an area write locks area
-/// rows only (plan-backend § 7).
+/// The write side of areas (mod-018). Every statement carries the organization, so an id of another organization locks and finds
+/// nothing (BR-AW-1, ADR-0028 rule 4). The lock order is ADR-0028 rule 8's: the organization's tree lock first, then the area rows,
+/// by id. <b>A locked row's presence is the lock statement's own answer</b> (A-9's corollary): the <c>Lock…</c> methods return what
+/// the statement locked, and load the tracked row only after it said the row is there.
 /// </summary>
 public interface IAreaRepository
 {
     /// <summary>
-    /// The area of that project, untracked and unlocked; <c>null</c> when there is
-    /// none. For a not-found answer before the locks are taken: a later lock
-    /// method loads the row again, as the lock holder left it.
+    /// Takes the organization's area-tree lock <c>FOR UPDATE</c>: every write that changes the tree's shape (a creation, a move, a
+    /// deletion) holds it, then reads the tree it decides on (ADR-0028 rule 5). A rename and a link do not take it.
     /// </summary>
-    Task<Area?> FindAsync(Guid projectId, Guid areaId, CancellationToken cancellationToken);
+    Task LockTreeAsync(Guid organizationId, CancellationToken cancellationToken);
 
-    /// <summary>The area of that project, locked <c>FOR UPDATE</c> and tracked; <c>null</c> when there is none.</summary>
-    Task<Area?> LockForUpdateAsync(Guid projectId, Guid areaId, CancellationToken cancellationToken);
+    /// <summary>The area of that organization, untracked and unlocked; <c>null</c> when there is none. For a not-found answer before any lock.</summary>
+    Task<Area?> FindAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken);
 
-    /// <summary>The area of that project, locked <c>FOR SHARE</c> and tracked; <c>null</c> when there is none.</summary>
-    Task<Area?> LockForShareAsync(Guid projectId, Guid areaId, CancellationToken cancellationToken);
+    /// <summary>
+    /// The area, locked and tracked; <c>null</c> when the locking statement found none. <c>FOR NO KEY UPDATE</c>, which lets the
+    /// <c>KEY SHARE</c> checks of foreign keys through (an item created on the node does not wait for a rename); <c>FOR UPDATE</c>
+    /// when <paramref name="forDelete"/> (TC-20).
+    /// </summary>
+    Task<Area?> LockForUpdateAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken, bool forDelete = false);
 
-    /// <summary>The project's root, locked <c>FOR UPDATE</c> or <c>FOR SHARE</c>, tracked.</summary>
-    Task<Area> LockRootAsync(Guid projectId, bool forUpdate, CancellationToken cancellationToken);
+    /// <summary>The area, locked <c>FOR SHARE</c> (a binder's lock) and tracked; <c>null</c> when the locking statement found none.</summary>
+    Task<Area?> LockForShareAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken);
 
-    Task<bool> HasChildrenAsync(Guid areaId, CancellationToken cancellationToken);
+    /// <summary>
+    /// Locks every one of <paramref name="areaIds"/> that exists <c>FOR SHARE</c> in one statement ordered by id, and answers the ids
+    /// the statement locked with their types (a type never changes). The caller compares the count with the ids it asked for.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, AreaType>> LockManyForShareAsync(Guid organizationId, IReadOnlyCollection<Guid> areaIds, CancellationToken cancellationToken);
 
-    /// <summary>Whether a child of <paramref name="parentId"/>, other than <paramref name="exceptId"/>, holds the normalized name (BR-M1-12).</summary>
-    Task<bool> IsSiblingNameTakenAsync(Guid parentId, string normalizedName, Guid? exceptId, CancellationToken cancellationToken);
+    /// <summary>
+    /// The project's node, locked <c>FOR UPDATE</c> and tracked (a project's rename carries its name to it; a project's move locks it);
+    /// <c>null</c> when the locking statement found none.
+    /// </summary>
+    Task<Area?> LockProjectNodeAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken);
 
-    /// <summary>Every area of the project as <see cref="AreaNode"/> rows, the input of <see cref="AreaTree"/>. Reads the committed rows; tracks nothing.</summary>
-    Task<IReadOnlyList<AreaNode>> GetNodesAsync(Guid projectId, CancellationToken cancellationToken);
+    Task<bool> HasChildrenAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether a child of <paramref name="parentId"/> (<c>null</c>: a top-level area), other than <paramref name="exceptId"/>, holds the
+    /// normalized name (BR-AW-4).
+    /// </summary>
+    Task<bool> IsSiblingNameTakenAsync(
+        Guid organizationId, Guid? parentId, string normalizedName, Guid? exceptId, CancellationToken cancellationToken);
+
+    /// <summary>Every node of the organization as <see cref="AreaNode"/> rows (type and project included) in display order: the input of <see cref="AreaTree"/>. Committed rows; tracks nothing.</summary>
+    Task<IReadOnlyList<AreaNode>> GetNodesAsync(Guid organizationId, CancellationToken cancellationToken);
 
     void Add(Area area);
 

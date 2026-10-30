@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { organizationsKeys } from '../api/queryKeys';
 import { exampleDataset, ids } from '../testFixtures';
 import { serveOrganizations } from '../testApi';
 import { contextSource, renderPage } from '../testRender';
@@ -45,18 +44,15 @@ describe('mod-002 US-3 Scenario: The «Процесс» link', () => {
   });
 });
 
-describe('mod-002 US-3 Scenario: Rename renames the root, keeps the key', () => {
-  it('says what follows, sends the name, notices «Проект переименован.» and reads the tree again', async () => {
+describe('mod-002 US-3 Scenario: Rename keeps the key', () => {
+  it('says what follows, sends the name and notices «Проект переименован.»', async () => {
     const api = serveOrganizations();
-    const { queryClient } = renderPage({ path: PRM_GENERAL });
+    renderPage({ path: PRM_GENERAL });
     await facts();
-    queryClient.setQueryData(organizationsKeys.areas(ids.alfa, ids.prm), []);
 
     await userEvent.click(screen.getByRole('button', { name: 'Переименовать' }));
     const dialog = await screen.findByRole('dialog', { name: 'Переименование проекта' });
-    expect(dialog).toHaveTextContent(
-      'Корневая область проекта получит то же название. Ключ, описание и команды проекта не изменятся.',
-    );
+    expect(dialog).toHaveTextContent('Ключ, описание и команды проекта не изменятся.');
     const field = within(dialog).getByRole('textbox', { name: 'Название' });
     await userEvent.clear(field);
     await userEvent.type(field, 'Пример');
@@ -69,11 +65,6 @@ describe('mod-002 US-3 Scenario: Rename renames the root, keeps the key', () => 
       path: `/api/organizations/${ids.alfa}/projects/${ids.prm}/name`,
       body: { name: 'Пример' },
     });
-    await waitFor(() =>
-      expect(
-        queryClient.getQueryState(organizationsKeys.areas(ids.alfa, ids.prm))?.isInvalidated,
-      ).toBe(true),
-    );
   });
 
   it('offers no field or action that edits «Ключ»', async () => {
@@ -85,6 +76,7 @@ describe('mod-002 US-3 Scenario: Rename renames the root, keeps the key', () => 
     expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual([
       'Переименовать',
       'Изменить описание',
+      'Переместить',
       'Деактивировать',
     ]);
   });
@@ -201,7 +193,7 @@ describe('mod-002 US-3 Scenario: A project is deactivated', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Деактивировать' }));
     const dialog = await screen.findByRole('dialog', { name: 'Деактивировать проект?' });
     expect(dialog).toHaveTextContent(
-      'Проект «Пример проекта» (PRM) пропадёт из списков и переключателя, а его страницы и области перестанут открываться. Ничего не будет удалено, связи с командами сохранятся: проект можно восстановить в списке деактивированных проектов организации.',
+      'Проект «Пример проекта» (PRM) пропадёт из списков и переключателя, а его страницы перестанут открываться. Ничего не будет удалено, связи с командами сохранятся: проект можно восстановить в списке деактивированных проектов организации. Область проекта сохранится и станет доступной только для чтения.',
     );
     expect(within(dialog).getByRole('button', { name: 'Отмена' })).toHaveFocus();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Деактивировать' }));

@@ -1,144 +1,156 @@
 using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Exceptions;
 
 namespace Mustask.Application.Features.Organizations.MoveArea;
 
+/// <summary>The command of <c>PUT /api/organizations/{organizationId}/areas/{areaId}/parent</c>. A <c>null</c> parent is the top level.</summary>
+public sealed record MoveAreaCommand(string? OrganizationId, string? AreaId, string? ParentId);
+
+/// <summary>The area as every area write returns it (mod-018 api-contract § 1, <c>Area</c>).</summary>
+public sealed record AreaResponse(Guid Id, Guid? ParentId, string Type, Guid? ProjectId, string Name, string? Description, string Path);
+
+/// <summary>The handler's outcome: the body of the answer.</summary>
+public sealed record MoveAreaResult(AreaResponse Response);
+
 /// <summary>
-/// <c>PUT /api/organizations/{organizationId}/projects/{projectId}/areas/{areaId}/parent</c>
-/// (US-5 "A node moves with its whole subtree", "A move needs a free name at its
-/// destination", "A node is never moved under itself or its descendant", "A node
-/// never leaves its project"; mod-017 BR-OT-10: a move changes no item's team, as an area
-/// owns none). Follows the reference use case <c>CreateArea</c>.
+/// <c>PUT /api/organizations/{organizationId}/areas/{areaId}/parent</c> (mod-018 api-contract § 2, US-3, BR-AW-3, BR-AW-4): the
+/// area, with all its subtree, goes under another area or to the top level. The parent it already has is a success that changes
+/// nothing.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The order of answers</b> (plan-backend § 5.3, api-contract § 0.4), one
-/// numbered step each below: the address from the outside in, ending at the moved
-/// area; the rule about that area alone (the root is never moved); the values in
-/// the body (none: the body holds a reference only); the reference in the body,
-/// <c>parentId</c>, which is an area of this project; the domain rule and the
-/// uniqueness pre-check, in that order; the save.
+/// <b>The order of answers</b>: the second code (<c>area.create</c>) first when the destination is the top level, and again once
+/// the area is read when its current parent is; the organization; the area (404); the destination (404); then 409 — into its own
+/// subtree, the depth, the sibling name.
 /// </para>
 /// <para>
-/// <b>Locks</b> (plan-backend § 8.2): the project row <c>FOR NO KEY UPDATE</c>
-/// first, so that moves in one project run one at a time and the cycle check
-/// below reads parent links no other move can change. Then the moved area
-/// <c>FOR UPDATE</c> and the new parent <c>FOR SHARE</c>, in ascending id order
-/// (a leaf being deleted holds its row <c>FOR UPDATE</c>, so no area is ever left
-/// under a deleted parent, BR-M1-13). The refusals that need no lock (the address
-/// and the root) are answered before any is taken, from an unlocked read of the
-/// area.
-/// </para>
-/// <para>
-/// <b>What a move changes</b> is one column of one row: the subtree goes with it
-/// because every descendant keeps its own parent; no owner is stored or resolved, and
-/// no item changes its team (mod-017 BR-OT-10, <see cref="AreaTree"/>).
+/// <b>Locks</b> (ADR-0028 rule 8): the tree lock, then the area <c>FOR UPDATE</c> and the destination <c>FOR SHARE</c> in id order,
+/// each judged present by its lock statement's own answer; the tree is read after them, so it holds every move and creation that
+/// committed before this one's locks.
 /// </para>
 /// </remarks>
 public sealed class MoveAreaHandler(
+    IOrganizationReadModel organizations,
     IProjectRepository projects,
     IAreaRepository areas,
+    IOrganizationAccess access,
     IUnitOfWork unitOfWork)
 {
-    public async Task<MoveAreaResult> Handle(MoveAreaCommand command, CancellationToken cancellationToken) =>
-        await unitOfWork.ExecuteInTransactionAsync(
+    public async Task<MoveAreaResult> Handle(MoveAreaCommand command, CancellationToken cancellationToken)
+    {
+        // 0. The second code, first of all, when the destination is the top level.
+        if (command.ParentId is null && !access.Holds(PermissionCatalog.OrganizationsAreaCreate))
+        {
+            throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
+        }
+
+        return await unitOfWork.ExecuteInTransactionAsync(
             async ct =>
             {
-                // 1. The address, from the outermost level in. The scoped check has answered for the
-                // organization already; the handler parses it again only to name its container in the next read.
-                if (!AddressedId.TryParse(command.OrganizationId, out var organizationId))
+                // 1. The address, outside in: the organization, the area (unlocked, for the 404 and the current parent).
+                if (!AddressedId.TryParse(command.OrganizationId, out var organizationId)
+                    || await organizations.FindActiveAsync(organizationId, ct) is null)
                 {
                     throw new NotFoundException(OrganizationErrorCodes.OrganizationNotFound);
                 }
 
-                if (!AddressedId.TryParse(command.ProjectId, out var projectId)
-                    || !await projects.IsReachableAsync(organizationId, projectId, ct))
-                {
-                    throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
-                }
-
-                // The area, unlocked: for the not-found answer and the rule below, before any lock is taken.
                 if (!AddressedId.TryParse(command.AreaId, out var areaId)
-                    || await areas.FindAsync(projectId, areaId, ct) is not { } addressed)
+                    || await areas.FindAsync(organizationId, areaId, ct) is not { } addressed)
                 {
                     throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
                 }
 
-                // 2. The rule about the addressed area alone: the root is never moved (BR-M1-11).
-                addressed.EnsureNotRoot();
-
-                // 3. Values in the body: none, the body holds a reference only.
-
-                // 4. The reference in the body: the new parent, an area of this project (BR-M1-22). A parent that is
-                // null, malformed, unknown or of another project gets area.not_found.
-                if (!AddressedId.TryParse(command.ParentId, out var parentId))
+                if (addressed.IsTopLevel && !access.Holds(PermissionCatalog.OrganizationsAreaCreate))
                 {
-                    throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
+                    throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
                 }
 
-                // Locks, in order (plan-backend § 8.2). Only the lock matters here: the project was reachable a moment
-                // ago, and a deactivation that commits meanwhile is serializable either way (ADR-0026 rule 8).
-                await projects.LockAsync(organizationId, projectId, ct);
-                var (area, parent) = await LockAreaAndParentAsync(projectId, areaId, parentId, ct);
+                // 4. The destination in the body: an area of this organization (404), unlocked here.
+                Guid? parentId = null;
 
-                // 5. The domain rule, then the uniqueness pre-check (BR-M1-12). The tree is read after the locks, so
-                // it holds every move that committed before this one took the project row.
-                var tree = new AreaTree(await areas.GetNodesAsync(projectId, ct));
-
-                if (!area.MoveUnder(parent, tree))
+                if (command.ParentId is not null)
                 {
-                    // Already under that parent: nothing changes (api-contract § 4.4).
-                    return Result(area, parent);
+                    if (!AddressedId.TryParse(command.ParentId, out var destinationId)
+                        || await areas.FindAsync(organizationId, destinationId, ct) is null)
+                    {
+                        throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
+                    }
+
+                    parentId = destinationId;
                 }
 
-                if (await areas.IsSiblingNameTakenAsync(parent.Id, area.NormalizedName, area.Id, ct))
+                // The locks, in rule 8's order: the tree, then the area rows by id.
+                await areas.LockTreeAsync(organizationId, ct);
+                var (area, destination) = await LockAreaAndDestinationAsync(organizationId, areaId, parentId, ct);
+
+                // The current parent was read before the locks: a move that committed meanwhile may have changed it, so the second
+                // code is decided again on the locked row (the code-review minor m-2).
+                if (area.IsTopLevel && !access.Holds(PermissionCatalog.OrganizationsAreaCreate))
                 {
-                    throw new ConflictException(OrganizationErrorCodes.AreaNameTaken);
+                    throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
                 }
 
-                // 6. Save. A sibling of the same name committed under the new parent after the pre-check fails this
-                // update on the sibling index, and the repository answers it with the pre-check's code (plan-backend § 6.3).
-                await areas.SaveAsync(ct);
+                // A move of a deactivated project's node or sub-area is refused (BR-AW-10): the project is not found.
+                await AreaRequests.EnsureProjectActiveAsync(projects, organizationId, area, ct);
 
-                return Result(area, parent);
+                // 5. The domain rules, on the tree the locks hold: into its own subtree, the type, the project, the depth; then the
+                // sibling name.
+                var tree = new AreaTree(await areas.GetNodesAsync(organizationId, ct));
+
+                if (area.MoveUnder(destination, tree))
+                {
+                    if (await areas.IsSiblingNameTakenAsync(organizationId, parentId, area.NormalizedName, area.Id, ct))
+                    {
+                        throw new ConflictException(OrganizationErrorCodes.AreaNameTaken);
+                    }
+
+                    // 6. A sibling of the same name committed under the new parent after the pre-check fails the update on the
+                    // sibling index and answers with the pre-check's code.
+                    await areas.SaveAsync(ct);
+
+                    tree = new AreaTree(await areas.GetNodesAsync(organizationId, ct));
+                }
+
+                return new MoveAreaResult(new AreaResponse(area.Id, area.ParentId, AreaRequests.TypeName(area.Type), area.ProjectId, area.Name, area.Description, tree.PathOf(area.Id)));
             },
             cancellationToken);
+    }
 
-    /// <summary>
-    /// The moved area <c>FOR UPDATE</c> and its new parent <c>FOR SHARE</c>, locked in ascending id order, each loaded
-    /// again as the lock holder left it. Either gone since the unlocked read (a leaf deleted at the same moment) is an
-    /// <see cref="OrganizationErrorCodes.AreaNotFound"/>, as a delete that committed first is (BR-M1-13). The area as
-    /// its own parent is one row: it is locked once, and the domain refuses the move.
-    /// </summary>
-    private async Task<(Area Area, Area Parent)> LockAreaAndParentAsync(
-        Guid projectId, Guid areaId, Guid parentId, CancellationToken cancellationToken)
+    private async Task<(Area Area, Area? Destination)> LockAreaAndDestinationAsync(
+        Guid organizationId, Guid areaId, Guid? destinationId, CancellationToken cancellationToken)
     {
         Area? area;
-        Area? parent;
+        Area? destination = null;
 
-        if (parentId == areaId)
+        if (destinationId is not { } destinationGuid || destinationGuid == areaId)
         {
-            area = await areas.LockForUpdateAsync(projectId, areaId, cancellationToken);
-            parent = area;
+            area = await areas.LockForUpdateAsync(organizationId, areaId, cancellationToken);
+            destination = destinationId is null ? null : area;
         }
-        else if (areaId.CompareTo(parentId) < 0)
+        else if (areaId.CompareTo(destinationGuid) < 0)
         {
-            area = await areas.LockForUpdateAsync(projectId, areaId, cancellationToken);
-            parent = await areas.LockForShareAsync(projectId, parentId, cancellationToken);
+            area = await areas.LockForUpdateAsync(organizationId, areaId, cancellationToken);
+            destination = await areas.LockForShareAsync(organizationId, destinationGuid, cancellationToken);
+
+            if (destination is null)
+            {
+                throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
+            }
         }
         else
         {
-            parent = await areas.LockForShareAsync(projectId, parentId, cancellationToken);
-            area = await areas.LockForUpdateAsync(projectId, areaId, cancellationToken);
+            destination = await areas.LockForShareAsync(organizationId, destinationGuid, cancellationToken);
+            area = await areas.LockForUpdateAsync(organizationId, areaId, cancellationToken);
+
+            if (destination is null)
+            {
+                throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
+            }
         }
 
-        return area is null || parent is null
-            ? throw new NotFoundException(OrganizationErrorCodes.AreaNotFound)
-            : (area, parent);
+        return (area ?? throw new NotFoundException(OrganizationErrorCodes.AreaNotFound), destination);
     }
-
-    private static MoveAreaResult Result(Area area, Area parent) =>
-        new(new AreaResponse(area.Id, area.ProjectId, parent.Id, area.Name));
 }

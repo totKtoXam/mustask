@@ -18,9 +18,9 @@ namespace Mustask.Infrastructure.Tests.Organizations;
 [Collection(OrganizationsDatabaseCollection.Name)]
 public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
 {
-    // NFR Volumes: hundreds of areas, ten levels deep, in two queries: the project check and the nodes.
+    // NFR Volumes: hundreds of nodes, ten levels deep, in one query.
     [Fact]
-    public async Task AreaTree_GetNodes_FiveHundredNodesTenLevels_TwoQueries()
+    public async Task AreaTree_GetRows_FiveHundredNodesTenLevels_OneQuery()
     {
         var structure = await database.CreateStructureAsync();
         var areas = new List<Area>();
@@ -29,9 +29,9 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
         {
             var parent = structure.Project.Root;
 
-            for (var level = 1; level <= 10; level++)
+            for (var level = 2; level <= 10; level++)
             {
-                var child = Area.CreateChild(parent, Name($"Узел {branch}-{level}"));
+                var child = NewSubArea(parent, $"Узел {branch}-{level}");
                 areas.Add(child);
                 parent = child;
             }
@@ -40,52 +40,60 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
         await database.AddAreasAsync([.. areas]);
 
         var counter = new CommandCountingInterceptor();
-        var nodes = await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>?>(
+        var rows = await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>>(
             counter,
-            readModel => readModel.GetNodesAsync(structure.Organization.Id, structure.Project.Project.Id, CancellationToken.None));
+            readModel => readModel.GetRowsAsync(structure.Organization.Id, CancellationToken.None));
 
-        Assert.Equal(2, counter.Commands.Count);
-        Assert.Equal(501, nodes!.Count);
-        Assert.Equal(10, new AreaTree(nodes.Select(row => row.ToNode())).DepthOf(areas[^1].Id));
+        Assert.Single(counter.Commands);
+        Assert.Equal(451, rows.Count);
+        Assert.Equal(10, new AreaTree(rows.Select(row => row.ToNode())).LevelOf(areas[^1].Id));
     }
 
-    // mod-017 api-contract § 1.6 (BR-OT-10): a row is a node's place and name and nothing about a team — no join to the teams.
-    // Replaces AreaTree_GetNodes_CarriesTheNamesOfTheTeamsEachNodeRefersTo (retired, BR-OT-10).
+    // A row is a node's place, name, type and project and nothing about a team: no join to the teams.
     [Fact]
-    public async Task AreaTree_GetNodes_ReturnsPlaceAndName_JoinsNoTeam()
+    public async Task AreaTree_GetRows_ReturnsPlaceNameAndType_JoinsNoTeam()
     {
         var structure = await database.CreateStructureAsync();
-        var api = Area.CreateChild(structure.Project.Root, Name("API"));
-        await database.AddAreasAsync(api);
+        var api = NewSubArea(structure.Project.Root, "API");
+        var department = NewDepartment(structure.Organization.Id, "Разработка");
+        await database.AddAreasAsync(api, department);
 
         var counter = new CommandCountingInterceptor();
-        var nodes = await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>?>(
+        var rows = await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>>(
             counter,
-            readModel => readModel.GetNodesAsync(structure.Organization.Id, structure.Project.Project.Id, CancellationToken.None));
+            readModel => readModel.GetRowsAsync(structure.Organization.Id, CancellationToken.None));
 
         Assert.Equal(
-            [(api.Id, (Guid?)structure.Project.Root.Id, "API"), (structure.Project.Root.Id, null, "Пример проекта")],
-            nodes!.Select(row => (row.Id, row.ParentId, row.Name)).OrderBy(row => row.Name, StringComparer.Ordinal));
+            [
+                (api.Id, (Guid?)structure.Project.Root.Id, "API", AreaType.Area),
+                (structure.Project.Root.Id, null, "Пример проекта", AreaType.Project),
+                (department.Id, null, "Разработка", AreaType.Department),
+            ],
+            rows.Select(row => (row.Id, row.ParentId, row.Name, row.Type)).OrderBy(row => row.Name, StringComparer.Ordinal));
         Assert.DoesNotContain(counter.Commands, command => command.Contains("teams", StringComparison.OrdinalIgnoreCase));
     }
 
-    // BR-M1-20, BR-M1-22: the tree of an unreachable project, or of a project of another organization, is not served.
+    // OQ-6 A · a deactivated project's nodes stay in the rows, marked; another organization reads nothing of them.
     [Fact]
-    public async Task AreaTree_GetNodes_UnreachableOrForeignProject_IsNull()
+    public async Task AreaTree_GetRows_DeactivatedProjectIsMarked_ForeignOrganizationReadsNothing()
     {
         var structure = await database.CreateStructureAsync();
         var other = await database.CreateStructureAsync();
-
-        var foreign = await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>?>(
-            null,
-            readModel => readModel.GetNodesAsync(other.Organization.Id, structure.Project.Project.Id, CancellationToken.None));
         await database.ExecuteAsync("UPDATE projects SET status = 'Deactivated' WHERE id = @id", ("id", structure.Project.Project.Id));
-        var deactivated = await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>?>(
-            null,
-            readModel => readModel.GetNodesAsync(structure.Organization.Id, structure.Project.Project.Id, CancellationToken.None));
 
-        Assert.Null(foreign);
-        Assert.Null(deactivated);
+        var rows = await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>>(
+            null,
+            readModel => readModel.GetRowsAsync(structure.Organization.Id, CancellationToken.None));
+        var foreign = await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>>(
+            null,
+            readModel => readModel.GetRowsAsync(Guid.CreateVersion7(), CancellationToken.None));
+
+        var node = Assert.Single(rows);
+        Assert.Equal((false, AreaType.Project), (node.ProjectActive, node.Type));
+        Assert.Empty(foreign);
+        Assert.Single(await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>>(
+            null,
+            readModel => readModel.GetRowsAsync(other.Organization.Id, CancellationToken.None)));
     }
 
     // mod-017 US-4 · "The project's teams": by name in Russian collation, letter case not deciding, no team first (BR-OT-11), each
