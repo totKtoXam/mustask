@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/043-area-project-team-navigation
-- stage: 04-backend
+- stage: 06-frontend
 - epic: platform/ui
 - deps: feat-040,mod-018,mod-020
 - gates: gate-1, gate-2, gate-3
@@ -51,6 +51,8 @@ gate-3: pending
 - 2026-10-30 [orchestrator] Scope rework: spec (business-analyst) split per OQ-9, feat-048 queued for US-6 and US-10 (PR #44, merged); aggregates are per-project groups, Q-7..Q-13 closed. Design, prototype, ADR-0032 reworked (ux-designer); the human asked for drag and drop in place of move arrows, the mechanism is the native one in src/frontend. Prototype opened by the orchestrator: levels, selectors, «Остальные» reset, row and card drags, a cross-lane drop stays put (the refusal notice itself not seen), no console errors. Design owes feat-048 a server-side read limit: 4 per tab is a browser promise, Npgsql default pool 100, no limiter in the API. design.md has 35 bytes of headroom. Gate-2 approved.
 
 - 2026-10-30 [orchestrator] The doc-012 session relayed the human's two asks after gate-2: reuse first, and the reference tracker's look. Design pass: AppTopBar and NavList dropped for the existing TopBar and MainNavigation, SearchMenu the one new part, shell-local; prototype moved to the tokens' look, no pixel comparison (screenshots are outside the repo). Stage 4 (backend-developer): two additive reads, GET …/overview, …/selector-offers, no migration. Orchestrator's calls: three existing list reads stay without CallerAccess, feat-041 moves them; organizations.organization.read stands until mod-019. Go for local tests from the doc-012 session; the app's sync tool refused (origin not pinned), main merged by hand (8f009670). Queue edits owed: PR #45 open.
+
+- 2026-10-30 [orchestrator] Stage 5 (qa-engineer): backend pass, 0 blockers, 0 majors, 3 minors carried to gate-3 (D-1 unordered id sets, D-2 no timing test at 1 000 areas, D-3 plan text). Affected tests green. No E2E (standing NO).
 
 ## Notes
 
