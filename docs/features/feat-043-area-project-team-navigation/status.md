@@ -32,6 +32,8 @@ gate-3: pending
 
 - The human, 2026-10-30, answering Q-10 and Q-11 in their own words, outside the offered options: «группировать их в аккордионы по проектам» and «можно раздробить запрос на параллельное выполнение». An aggregate backlog is grouped into one accordion per project instead of the interleave, each keeping its project's order; the read may be split into parallel per-project reads. The orchestrator's reading, to confirm at gate-2: a move is allowed inside an accordion, since a group is one project's rank order and the objection to Q-10 B falls away, under the same code as the project's backlog and Q-9 A.
 
+- The human, 2026-10-30: the in-group move is confirmed. Q-12 A: the aggregate board is one collapsible swimlane per project. Q-13 A taken by the orchestrator as technical, following the human's suggestion of a cursor: a cursor for the group reads and board cells only, the page envelope stays everywhere else, a short ADR or amendment note owed by the second line.
+
 ## Log
 
 - 2026-10-30 [orchestrator] task started in the worktree .claude/worktrees/feat-043-area-project-team-navigation-b716b1 (app-made; branch renamed, based on origin/main cc73b2be; new-task.sh not used because the session is already bound here). Route confirmed by the human: feature, L (threshold: breaks ADR-0024 § 2, a new ADR; retired addresses and moved pages), full route, gates 1/2/3 separate; block 3.3: only the queue line. Economy mode; E2E no; no local VERIFY_FULL. Usage at start: weekly 2%, 5-hour 2%.

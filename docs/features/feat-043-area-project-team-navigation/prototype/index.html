@@ -1,34 +1,43 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><title>feat-043 prototype (gate-2 rework)</title>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>feat-043 prototype (gate-2 rework 2)</title>
 <style>
-*{box-sizing:border-box}body{margin:0;font:14px "Segoe UI",system-ui,sans-serif;color:#1f2933;background:#f4f5f7}
+*{box-sizing:border-box}html,body{max-width:100%}body{margin:0;font:14px "Segoe UI",system-ui,sans-serif;color:#1f2933;background:#f4f5f7;overflow-x:hidden}
 a,.lnk{color:#0b5cad;cursor:pointer}.lnk:hover{text-decoration:underline}
 button,select,input{font:inherit}button{background:#eceff2;border:0;border-radius:4px;padding:5px 10px;cursor:pointer}
-button.p{background:#0b5cad;color:#fff}button.d{color:#b3261e}
+button.p{background:#0b5cad;color:#fff}button.d{color:#b3261e}button.sm{padding:1px 7px}
 .hint{background:#fff7e0;padding:8px 12px;font-size:13px}
 #bar{min-height:48px;background:#fff;border-bottom:1px solid #dde1e6;display:flex;align-items:center;gap:6px;padding:4px 12px;position:relative;flex-wrap:wrap}
 #bar .sep{color:#9aa5b1}.sel{background:#fff;border:1px solid #c5ccd3;border-radius:4px;padding:2px 10px;text-align:left;line-height:1.15}
 .sel small{display:block;color:#5f6b7a;font-size:10px;text-transform:uppercase}.sel.on{border-color:#0b5cad;background:#e8f0fa}
-#pop{display:none;position:absolute;top:50px;width:280px;background:#fff;border:1px solid #c5ccd3;border-radius:6px;box-shadow:0 6px 20px #0003;z-index:5;max-height:380px;overflow:auto}
-#pop input{margin:8px;width:calc(100% - 16px);padding:5px}#pop .o{padding:6px 12px;cursor:pointer}#pop .o:hover{background:#e8f0fa}#pop .o.cur{font-weight:600}
+#pop{display:none;position:absolute;top:52px;width:280px;max-width:calc(100% - 16px);background:#fff;border:1px solid #c5ccd3;border-radius:6px;box-shadow:0 6px 20px #0003;z-index:5;max-height:380px;overflow-y:auto;overflow-x:hidden}
+#pop input{margin:8px;width:calc(100% - 16px);padding:5px}#pop .o{padding:6px 12px;cursor:pointer;outline-offset:-2px}#pop .o:hover,#pop .o:focus{background:#e8f0fa}#pop .o.cur{font-weight:600}#pop .o.rest{color:#4a5560}
 #pop h6{margin:0;padding:6px 12px 2px;color:#5f6b7a;font-size:11px;text-transform:uppercase}
+#pop .cap{padding:0 12px 4px;color:#7a5b00;font-size:12px}#pop .grp{border-top:1px solid #dde1e6;margin-top:4px}
 #wrap{display:flex;min-height:calc(100vh - 100px)}
-nav{width:210px;background:#fff;border-right:1px solid #dde1e6;padding:8px 0;flex:none}
+nav{width:220px;background:#fff;border-right:1px solid #dde1e6;padding:8px 0;flex:none}
 nav h5{margin:8px 16px 4px;color:#5f6b7a;font-size:11px;text-transform:uppercase}
 nav a{display:block;padding:8px 16px;color:#1f2933;cursor:pointer}nav a.cur{background:#e8f0fa;font-weight:600;border-left:3px solid #0b5cad;padding-left:13px}
 nav a.set{margin-top:8px;border-top:1px solid #dde1e6}
-main{flex:1;padding:16px 24px;min-width:0}h1{font-size:20px;margin:0 0 4px}.path{color:#5f6b7a;margin-bottom:12px}
-.card{background:#fff;border-radius:6px;box-shadow:0 1px 4px #0002;padding:12px 16px;margin-bottom:12px}
+.b48{display:inline-block;margin-left:6px;padding:0 6px;border-radius:8px;background:#efe3ff;color:#5b2a9c;font-size:10px;font-weight:600;vertical-align:middle}
+.f48{background:#efe3ff;border-left:4px solid #5b2a9c;padding:8px 12px;margin-bottom:12px;font-size:13px}
+main{flex:1;padding:16px 24px;min-width:0}h1{font-size:20px;margin:0 0 4px}h1:focus{outline:none}.path{color:#5f6b7a;margin-bottom:12px}
+.card{background:#fff;border-radius:6px;box-shadow:0 1px 4px #0002;padding:12px 16px;margin-bottom:12px;overflow-x:auto}
 table{width:100%;border-collapse:collapse}th{text-align:left;color:#5f6b7a;font-weight:400;font-size:12px;padding:6px 8px}td{padding:7px 8px}tr:hover td{background:#f7f9fb}
 .tag{background:#eceff2;border-radius:10px;padding:1px 8px;font-size:12px;margin-left:6px}.mut{color:#5f6b7a}
-.grid{display:flex;gap:16px}.grid>*{flex:1}.stat{display:inline-block;padding:8px 16px;margin-right:8px;background:#fff;border-radius:6px;box-shadow:0 1px 4px #0002}.stat b{font-size:20px;display:block}
+.grid{display:flex;gap:16px;flex-wrap:wrap}.grid>*{flex:1;min-width:240px}.stat{display:inline-block;padding:8px 16px;margin-right:8px;background:#fff;border-radius:6px;box-shadow:0 1px 4px #0002}.stat b{font-size:20px;display:block}
+.acc{background:#fff;border-radius:6px;box-shadow:0 1px 4px #0002;margin-bottom:8px;overflow:hidden}
+.acc>.hd{display:flex;align-items:center;gap:8px;padding:10px 16px;cursor:pointer;background:#fafbfc}.acc>.hd:hover{background:#f0f4f8}.acc>.hd .ch{width:14px;color:#5f6b7a}
+.acc>.bd{padding:6px 16px 12px;border-top:1px solid #eceff2}.row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f1f3f5}.row .id{width:70px;color:#5f6b7a}.row .t{flex:1}
+.notice{background:#fff7e0;border-left:4px solid #c98a00;padding:6px 12px;margin-bottom:8px;font-size:13px}
+.lane{display:grid;grid-template-columns:repeat(3,minmax(120px,1fr));gap:8px}.col{background:#f4f5f7;border-radius:4px;padding:6px;min-height:40px}.col h6{margin:0 0 4px;color:#5f6b7a;font-size:11px;text-transform:uppercase}
+.kc{background:#fff;border:1px solid #dde1e6;border-radius:4px;padding:4px 6px;margin-bottom:4px;font-size:13px}
 #dlg{display:none;position:fixed;inset:0;background:#0005;z-index:9;align-items:center;justify-content:center}#dlg.open{display:flex}
-#dlg .box{background:#fff;border-radius:8px;padding:20px;width:420px;max-width:92vw}.opt{display:block;padding:4px 0}
-#note{position:fixed;left:16px;bottom:16px;background:#1f2933;color:#fff;padding:10px 16px;border-radius:4px;display:none;z-index:20}
-@media(max-width:1023px){nav{width:150px}}
+#dlg .box{background:#fff;border-radius:8px;padding:20px;width:420px;max-width:92vw}
+#note{position:fixed;left:16px;bottom:16px;max-width:calc(100vw - 32px);background:#1f2933;color:#fff;padding:10px 16px;border-radius:4px;display:none;z-index:20}
+@media(max-width:1023px){nav{width:160px}}
 </style></head><body>
-<div class="hint">Прототип feat-043 после отклонения gate-2. Роль: <select id="role"><option value="a">Администратор</option><option value="m">Участник</option><option value="r">Читатель</option></select>
- &nbsp; Попробуйте: выберите проект A в последнем селекторе — слева появятся «Общие», «Структура», «Рабочие элементы», «Канбан», «Бэклог», «Команды»; при выбранном A департамент предлагает только «Логистику» (селекторы сужают друг друга); нажмите «Настройки».</div>
+<div class="hint">Прототип feat-043 (вторая переработка gate-2). Роль: <select id="role"><option value="a">Администратор</option><option value="m">Участник</option><option value="r">Читатель</option></select>
+ &nbsp; Попробуйте: выберите «Логистика», затем откройте селектор проекта: A и B подходят, C и D стоят в «Остальные»; выберите «Остальные» → сброс с уведомлением. Пункты с меткой <span class="b48">feat-048</span> появятся только во второй линии: «Бэклог» (аккордеоны), «Канбан» (дорожки) и «Рабочие элементы» на уровнях организации и департамента. Esc закрывает селектор.</div>
 <div id="bar"></div>
 <div id="wrap"><nav id="nav"></nav><main id="main"></main></div>
 <div id="dlg"><div class="box" id="box"></div></div><div id="note"></div>
@@ -39,107 +48,171 @@ var ORG='Ромашка';
 var DEPTS=['Логистика','Финансы'];
 var PROJ={A:{key:'MSK',place:'Логистика',teams:['MARS','VENUS'],def:'VENUS',subs:['Склад','Транспорт']},
  B:{key:'BET',place:'Логистика',teams:['MARS'],subs:[]},C:{key:'FIN',place:'Финансы',teams:['MARS'],subs:[]},
- D:{key:'DEL',place:null,teams:[],subs:[]},E:{key:'EEE',place:'Финансы',teams:['MARS'],subs:[],off:true}};
+ D:{key:'DDD',place:null,teams:[],subs:[]},E:{key:'EEE',place:'Финансы',teams:['MARS'],subs:[],off:true}};
 var TEAMS={MARS:{own:false},VENUS:{own:true},JUPITER:{own:false}};
 var DLINK={'Логистика':['MARS','VENUS'],'Финансы':[]};
-var ITEMS=[['MSK-1','Оплата заказа','A','MARS'],['MSK-2','Отчёт по складу','A','VENUS'],['MSK-3','Без владельца','A',null],['BET-1','Оплата поставщика','B','MARS'],['FIN-1','Закрытие периода','C','MARS']];
-var S={sel:{dept:null,team:null,proj:null},sec:'overview',role:'a',settings:false,openSel:null,q:'',node:null};
+var STATES=['Новая','Активна','Готово'];
+var ITEMS={'MSK-1':['Оплата заказа','A','MARS','Новая'],'MSK-2':['Отчёт по складу','A','VENUS','Активна'],'MSK-3':['Без владельца','A',null,'Новая'],
+ 'BET-1':['Оплата поставщика','B','MARS','Новая'],'BET-2':['Акт сверки','B','MARS','Готово'],'FIN-1':['Закрытие периода','C','MARS','Новая'],'DDD-1':['Склад на дому','D',null,'Новая']};
+var BL={A:['MSK-3','MSK-1','MSK-2'],B:['BET-2','BET-1'],C:['FIN-1'],D:['DDD-1']};
+var HINT_RANK='Пока выбор сужает список, порядок не меняется. Выберите «все», чтобы менять его.';
+var S={sel:{dept:null,team:null,proj:null},sec:'overview',role:'a',settings:false,openSel:null,q:'',fq:'',open:{A:true}};
 var KIND_RU={dept:'департамент',team:'команда',proj:'проект'};
+var RANK={proj:3,team:2,dept:1};
+var ORDER=['dept','team','proj'];
 function $(s){return document.querySelector(s)}
 function adm(){return S.role==='a'}
 function activeP(){return Object.keys(PROJ).filter(function(p){return !PROJ[p].off})}
 function teamsOfDept(d){var r=(DLINK[d]||[]).slice();activeP().forEach(function(p){if(PROJ[p].place===d)PROJ[p].teams.forEach(function(t){if(r.indexOf(t)<0)r.push(t)})});return r}
 function deptsOfTeam(t){return DEPTS.filter(function(d){return teamsOfDept(d).indexOf(t)>=0})}
-function offer(kind){var s=S.sel;
- if(kind==='proj')return activeP().filter(function(p){return (!s.dept||PROJ[p].place===s.dept)&&(!s.team||PROJ[p].teams.indexOf(s.team)>=0)});
- if(kind==='team')return Object.keys(TEAMS).filter(function(t){return (!s.proj||PROJ[s.proj].teams.indexOf(t)>=0)&&(!s.dept||teamsOfDept(s.dept).indexOf(t)>=0)});
- return DEPTS.filter(function(d){return (!s.proj||PROJ[s.proj].place===d)&&(!s.team||deptsOfTeam(s.team).indexOf(d)>=0)})}
-var RANK={proj:3,team:2,dept:1};
-function menu(){var s=S.sel;
+// does value a of kind ka fit value b of kind kb (pairwise, D-7)
+function fit(ka,a,kb,b){if(ka===kb)return true;if(RANK[ka]<RANK[kb])return fit(kb,b,ka,a);
+ if(kb==='team')return PROJ[a].teams.indexOf(b)>=0;
+ if(ka==='proj')return PROJ[a].place===b;
+ return teamsOfDept(b).indexOf(a)>=0}
+function cands(kind){return kind==='proj'?activeP():kind==='team'?Object.keys(TEAMS):DEPTS}
+function fitsAll(kind,v){return ORDER.every(function(k){return k===kind||!S.sel[k]||fit(kind,v,k,S.sel[k])})}
+function ownFirst(kind,l){if(kind!=='team')return l;return l.filter(function(x){return TEAMS[x].own}).concat(l.filter(function(x){return !TEAMS[x].own}))}
+function offer(kind){var all=cands(kind);return {fit:ownFirst(kind,all.filter(function(x){return fitsAll(kind,x)})),rest:ownFirst(kind,all.filter(function(x){return !fitsAll(kind,x)}))}}
+// menu entries: [segment, label, feat-048 flag]
+function menu(){var s=S.sel,w=['workitems','Рабочие элементы',1],k=['boards','Канбан',1],b=['backlogs','Бэклог',1];
  if(s.proj)return [['general','Общие'],['structure','Структура'],['workitems','Рабочие элементы'],['boards','Канбан'],['backlogs','Бэклог'],['teams','Команды']];
- if(s.team)return [['overview','Обзор'],['boards','Канбан'],['backlogs','Бэклог'],['projects','Проекты'],['members','Участники и доступ']];
- if(s.dept)return [['overview','Обзор'],['projects','Проекты'],['teams','Команды']];
- return [['overview','Обзор'],['workitems','Рабочие элементы'],['areas','Области'],['projects','Проекты'],['teams','Команды']].concat(S.role==='r'?[]:[['members','Участники']])}
-function notice(t){var n=$('#note');n.textContent=t;n.style.display='block';clearTimeout(notice.t);notice.t=setTimeout(function(){n.style.display='none'},3500)}
+ if(s.team)return [['overview','Обзор'],w,['boards','Канбан'],['backlogs','Бэклог'],['projects','Проекты'],['members','Участники и доступ']];
+ if(s.dept)return [['overview','Обзор'],w,k,b,['projects','Проекты'],['teams','Команды']];
+ return [['overview','Обзор'],w,k,b,['areas','Области'],['projects','Проекты'],['teams','Команды']].concat(S.role==='r'?[]:[['members','Участники']])}
+function notice(t){var n=$('#note');n.textContent=t;n.style.display='block';clearTimeout(notice.t);notice.t=setTimeout(function(){n.style.display='none'},4000)}
+function focusH1(){var h=$('#main h1');if(h){h.setAttribute('tabindex','-1');h.focus()}}
+function keepSec(){var m=menu().map(function(e){return e[0]});if(m.indexOf(S.sec)<0)S.sec=m[0]}
 // choose a value in a selector (kind: dept/team/proj, v: value or null = «все»)
-function choose(kind,v,silent){S.sel[kind]=v;var lost=[];
- ['proj','team','dept'].forEach(function(k){if(k!==kind&&S.sel[k]&&offer(k).indexOf(S.sel[k])<0){lost.push(KIND_RU[k]+' '+S.sel[k]);S.sel[k]=null}});
- if(lost.length&&!silent)notice('Выбор сброшен: '+lost.join(', ')+'.');
- S.settings=false;S.node=null;var m=menu().map(function(e){return e[0]});
- if(m.indexOf(S.sec)<0)S.sec=m[0];draw()}
-// opening an object from a row: it becomes the most specific one
-function open(kind,v){S.sel[kind]=v;['proj','team','dept'].forEach(function(k){if(k!==kind&&RANK[k]>RANK[kind])S.sel[k]=null});
- ['proj','team','dept'].forEach(function(k){if(k!==kind&&RANK[k]<RANK[kind]&&S.sel[k]&&offer(k).indexOf(S.sel[k])<0)S.sel[k]=null});
- S.settings=false;S.node=null;S.sec=menu()[0][0];draw()}
+function choose(kind,v){S.sel[kind]=v;var lost=[];
+ if(v)ORDER.forEach(function(k){if(k!==kind&&S.sel[k]&&!fit(k,S.sel[k],kind,v)){lost.push(KIND_RU[k]+' '+S.sel[k]);S.sel[k]=null}});
+ if(lost.length)notice('Выбор сброшен: '+lost.join(', ')+'.');
+ S.settings=false;keepSec();S.fq='';draw();focusH1()}
+// opening an object from a row: it becomes the most specific one (D-3 A)
+function openObj(kind,v){S.sel[kind]=v;ORDER.forEach(function(k){if(k!==kind&&RANK[k]>RANK[kind])S.sel[k]=null});
+ ORDER.forEach(function(k){if(k!==kind&&RANK[k]<RANK[kind]&&S.sel[k]&&!fit(k,S.sel[k],kind,v))S.sel[k]=null});
+ S.settings=false;S.sec=menu()[0][0];S.fq='';draw();focusH1()}
 function L(text,act,a,b){return '<span class="lnk" data-act="'+act+'" data-a="'+(a||'')+'" data-b="'+(b||'')+'">'+text+'</span>'}
 function T(h,rows,empty){return rows.length?'<table><tr>'+h.map(function(x){return '<th>'+x+'</th>'}).join('')+'</tr>'+rows.map(function(r){return '<tr>'+r.map(function(c){return '<td>'+c+'</td>'}).join('')+'</tr>'}).join('')+'</table>':'<p class="mut">'+empty+'</p>'}
-function selLabel(k){var v=S.sel[k];return v||'все'}
+function selLabel(k){return S.sel[k]||'все'}
+function triggerBtn(k){return document.querySelector('#bar [data-act="sel"][data-a="'+k+'"]')}
 function drawBar(){var cap={dept:'Департамент',team:'Команда',proj:'Проект'};
- var h='<b>▣ MUSTASK</b> <button class="sel '+(S.openSel==='org'?'on':'')+'" data-act="sel" data-a="org"><small>Организация</small>'+ORG+' ▾</button>';
- ['dept','team','proj'].forEach(function(k){h+=' <span class="sep">›</span> <button class="sel '+(S.sel[k]?'on':'')+'" data-act="sel" data-a="'+k+'"><small>'+cap[k]+'</small>'+selLabel(k)+' ▾</button>'});
- h+='<span style="flex:1"></span><span>АК</span><div id="pop"></div>';$('#bar').innerHTML=h;
+ var h='<b>▣ MUSTASK</b> <button class="sel '+(S.openSel==='org'?'on':'')+'" data-act="sel" data-a="org" aria-haspopup="listbox" aria-expanded="'+(S.openSel==='org')+'"><small>Организация</small>'+ORG+' ▾</button>';
+ ORDER.forEach(function(k){h+=' <span class="sep">›</span> <button class="sel '+(S.sel[k]?'on':'')+'" data-act="sel" data-a="'+k+'" aria-haspopup="listbox" aria-expanded="'+(S.openSel===k)+'"><small>'+cap[k]+'</small>'+selLabel(k)+' ▾</button>'});
+ h+='<span style="flex:1"></span><span>АК</span><div id="pop" role="listbox"></div>';$('#bar').innerHTML=h;
  if(S.openSel)drawPop()}
 function drawPop(){var k=S.openSel,p=$('#pop'),f=(S.q||'').toLowerCase(),h='';p.style.display='block';
- var btn=document.querySelector('#bar [data-a="'+k+'"]');p.style.left=btn.offsetLeft+'px';
- if(k==='org'){h='<h6>Организации</h6><div class="o cur" data-act="pick" data-a="org" data-b="x">● '+ORG+'</div><div class="o" data-act="pick" data-a="org" data-b="x">Другая</div><div class="o" data-act="pick" data-a="org" data-b="all">Все организации</div>'}
- else{h='<input id="q" placeholder="Найти…" value="'+(S.q||'')+'" aria-label="Найти"><div class="o '+(S.sel[k]?'':'cur')+'" data-act="pick" data-a="'+k+'" data-b="">все</div>';
-  var own=offer(k).filter(function(x){return k!=='team'||TEAMS[x].own}),oth=offer(k).filter(function(x){return k==='team'&&!TEAMS[x].own});
-  function g(t,l){l=l.filter(function(x){return x.toLowerCase().indexOf(f)>=0});return l.length?(t?'<h6>'+t+'</h6>':'')+l.map(function(x){return '<div class="o '+(S.sel[k]===x?'cur':'')+'" data-act="pick" data-a="'+k+'" data-b="'+x+'">'+x+'</div>'}).join(''):''}
-  var body=k==='team'?g('Мои команды',own)+g('Другие команды',oth):g('',own);
-  h+=body||'<div class="o mut">Ничего не найдено</div>'}
+ var btn=triggerBtn(k),bw=$('#bar').clientWidth,pw=Math.min(280,bw-16);
+ p.style.width=pw+'px';p.style.left=Math.max(8,Math.min(btn.offsetLeft,bw-pw-8))+'px';
+ function opt(act,a,b,text,cls){return '<div class="o '+(cls||'')+'" role="option" tabindex="0" data-act="'+act+'" data-a="'+a+'" data-b="'+b+'">'+text+'</div>'}
+ if(k==='org'){h='<h6>Организации</h6>'+opt('pick','org','x','● '+ORG,'cur')+opt('pick','org','x','Другая')+opt('pick','org','all','Все организации')}
+ else{h='<input id="q" placeholder="Найти…" value="'+(S.q||'')+'" aria-label="Найти">'+opt('pick',k,'','все',S.sel[k]?'':'cur');
+  var o=offer(k);
+  function g(t,l,cls){l=l.filter(function(x){return x.toLowerCase().indexOf(f)>=0});return l.length?(t?'<h6>'+t+'</h6>':'')+l.map(function(x){return opt('pick',k,x,x,(S.sel[k]===x?'cur ':'')+(cls||''))}).join(''):''}
+  var own=o.fit.filter(function(x){return k==='team'&&TEAMS[x].own}),oth=o.fit.filter(function(x){return k==='team'&&!TEAMS[x].own});
+  var fitHtml=k==='team'?g('Мои команды',own)+g('Другие команды',oth):g('',o.fit);
+  var restHtml=g('',o.rest,'rest');
+  h+=fitHtml;
+  if(restHtml)h+='<div class="grp"><h6>Остальные</h6><div class="cap">Выбор сбросит то, что не подойдёт.</div>'+restHtml+'</div>';
+  if(!fitHtml&&!restHtml)h+='<div class="o mut">Ничего не найдено</div>'}
  p.innerHTML=h;var q=$('#q');if(q){q.focus();q.setSelectionRange(q.value.length,q.value.length)}}
+function closePop(refocus){var k=S.openSel;S.openSel=null;S.q='';drawBar();if(refocus&&k){var b=triggerBtn(k);if(b)b.focus()}}
 function drawNav(){var h='';
  if(S.settings){h='<a data-act="close">‹ Назад к меню</a><h5>Организация</h5><a>Общие</a><a>Процесс</a>';
   if(adm()){if(S.sel.dept)h+='<h5>Департамент</h5><a class="cur">Параметры</a>';if(S.sel.team)h+='<h5>Команда</h5><a class="cur">Параметры</a>';if(S.sel.proj)h+='<h5>Проект</h5><a class="cur">Параметры</a>'}
   h+='<h5>Справочники</h5><a>Языки</a><h5>Интерфейс</h5><a>Витрина компонентов</a>';}
- else{h=menu().map(function(e){return '<a class="'+(S.sec===e[0]?'cur':'')+'" data-act="sec" data-a="'+e[0]+'">'+e[1]+'</a>'}).join('')+'<a class="set" data-act="settings">Настройки</a>'}
+ else{h=menu().map(function(e){return '<a class="'+(S.sec===e[0]?'cur':'')+'" data-act="sec" data-a="'+e[0]+'">'+e[1]+(e[2]?'<span class="b48">feat-048</span>':'')+'</a>'}).join('')+'<a class="set" data-act="settings">Настройки</a>'}
  $('#nav').innerHTML=h}
-function titleOf(){var s=S.sel;return s.proj?'Проект: '+s.proj:s.team?'Команда: '+s.team:s.dept?'Департамент: '+s.dept:ORG}
 function adminBtn(t,cls){return adm()?'<button class="'+(cls||'')+'" data-act="stub" data-a="'+t+'">'+t+'</button> ':''}
-function page(){var s=S.sel,sec=S.sec,m='';
+function F48(t){return '<div class="f48"><span class="b48" style="margin:0 6px 0 0">feat-048</span>'+t+' В этой линии (feat-043) такого пункта нет.</div>'}
+function scopeProjects(){var s=S.sel;return activeP().filter(function(p){return !s.dept||PROJ[p].place===s.dept})}
+function itemRows(){var s=S.sel,ps=scopeProjects(),r=[];ps.forEach(function(p){BL[p].forEach(function(id){var it=ITEMS[id];if(!s.team||it[2]===s.team)r.push(id)})});return r}
+function scopeTitle(){var s=S.sel;return s.team?'команда '+s.team+(s.dept?', департамент '+s.dept:''):s.dept?'департамент '+s.dept:'организация'}
+// backlog rows of a project, optionally filtered by the keyword
+function rowsOf(p,q){return BL[p].filter(function(id){return !q||(id+' '+ITEMS[id][0]).toLowerCase().indexOf(q.toLowerCase())>=0})}
+function rowHtml(p,id,idx,n,canMove){var it=ITEMS[id];
+ return '<div class="row"><span class="id">'+id+'</span><span class="t">'+it[0]+'</span><span class="mut">'+(it[2]||'Без команды')+'</span>'+
+  (canMove?'<button class="sm" data-act="mv" data-a="'+p+'|'+id+'|-1" '+(idx===0?'disabled':'')+' aria-label="Выше: '+id+'">▲</button><button class="sm" data-act="mv" data-a="'+p+'|'+id+'|1" '+(idx===n-1?'disabled':'')+' aria-label="Ниже: '+id+'">▼</button>':'')+'</div>'}
+function accordion(p,count,body){var o=S.open[p];
+ return '<div class="acc"><div class="hd" data-act="tgl" data-a="'+p+'" role="button" tabindex="0" aria-expanded="'+(!!o)+'"><span class="ch">'+(o?'▾':'▸')+'</span><b>'+p+'</b><span class="tag">'+PROJ[p].key+'</span><span class="mut">'+count+'</span></div>'+(o?'<div class="bd">'+body+'</div>':'')+'</div>'}
+function groupsBar(){return '<div class="card"><input id="fq" placeholder="Поиск" value="'+S.fq+'" aria-label="Поиск"> <button data-act="collapse">Свернуть все</button> <span class="mut">Нет «Развернуть все». Откройте группу: строки читаются по одному проекту, до 4 чтений одновременно.</span></div>'}
+function backlogGroups(){var ps=scopeProjects(),narrowed=!!S.fq,h='',any=false;
+ if(!ps.length)return '<p class="mut">В департаменте нет проектов</p>';
+ ps.forEach(function(p){var rows=rowsOf(p,S.fq);if(!rows.length)return;any=true;
+  var can=!narrowed&&S.role!=='r';
+  var body=rows.map(function(id,i){return rowHtml(p,id,i,rows.length,can)}).join('')+(rows.length>=3?'<p><button data-act="stub" data-a="Показать ещё: следующие 50 строк">Показать ещё</button></p>':'');
+  h+=accordion(p,narrowed?rows.length+' из '+BL[p].length:String(BL[p].length),body)});
+ return (narrowed?'<div class="notice">'+HINT_RANK+'</div>':'')+(any?h:'<p class="mut">Ничего не найдено</p>')}
+function boardLanes(){var ps=scopeProjects(),h='',any=false;
+ if(!ps.length)return '<p class="mut">В департаменте нет проектов</p>';
+ ps.forEach(function(p){var rows=rowsOf(p,S.fq);if(!rows.length)return;any=true;
+  var body='<div class="lane">'+STATES.map(function(st,si){return '<div class="col"><h6>'+st+'</h6>'+rows.filter(function(id){return ITEMS[id][3]===st}).map(function(id){return '<div class="kc">'+id+' '+ITEMS[id][0]+(S.role!=='r'&&si<STATES.length-1?' <button class="sm" data-act="adv" data-a="'+id+'" aria-label="Переместить '+id+' в «'+STATES[si+1]+'»">→</button>':'')+'</div>'}).join('')+'</div>'}).join('')+'</div><p class="mut">Карточка двигается только внутри своей дорожки. Ячейка: до 50 карточек, затем «Показать ещё».</p>';
+  h+=accordion(p,String(BL[p].length),body)});
+ return any?h:'<p class="mut">Ничего не найдено</p>'}
+function page(){var s=S.sel,sec=S.sec;
  if(S.settings){var who=s.proj?'проекта '+s.proj:s.team?'команды '+s.team:s.dept?'департамента '+s.dept:'организации';
-  return '<h1>Параметры '+who+'</h1><div class="card">'+(adm()?'<button data-act="stub" data-a="Переименовать">Переименовать</button> <button data-act="stub" data-a="Изменить описание">Изменить описание</button> '+(s.proj?'<p>Команда по умолчанию: '+(PROJ[s.proj].def||'Не выбрана')+' <button>Выбрать</button></p>':'')+''+(s.proj?'':'<button class="d">Удалить</button>')+'':'<p class="mut">Только для администратора.</p>')+'</div>'}
+  return '<h1>Параметры '+who+'</h1><div class="card">'+(adm()?'<button data-act="stub" data-a="Переименовать">Переименовать</button> <button data-act="stub" data-a="Изменить описание">Изменить описание</button> '+(s.proj?'<p>Команда по умолчанию: '+(PROJ[s.proj].def||'Не выбрана')+' <button>Выбрать</button></p>':'')+(s.proj?'':'<button class="d">Удалить</button>'):'<p class="mut">Только для администратора.</p>')+'</div>'}
  var narrow=[];if(s.team&&s.proj)narrow.push('команда '+s.team);if(s.dept&&(s.proj||s.team))narrow.push('департамент '+s.dept);
  var nt=narrow.length?'<span class="tag">сужено: '+narrow.join(', ')+'</span>':'';
  if(s.proj){var p=s.proj,pr=PROJ[p];
   if(sec==='general')return '<h1>'+p+' <span class="tag">'+pr.key+'</span></h1><div class="card"><b>Основное</b><p>Название: '+p+' · Ключ: '+pr.key+'</p><b>Расположение</b><p>'+(pr.place?L(pr.place,'open','dept',pr.place):'Проект не входит ни в один департамент')+' '+adminBtn('Переместить')+'</p></div>';
   if(sec==='structure')return '<h1>Структура: '+p+'</h1><div class="path">'+(pr.place?pr.place+' / ':'')+p+'</div><div class="card"><p>Тип: Проект · Расположение: '+(pr.place||'Верхний уровень')+'</p><h4>Вложенные области</h4>'+adminBtn('Добавить область')+T(['Область'],pr.subs.map(function(x){return [x]}),'Вложенных областей пока нет')+'</div>';
-  if(sec==='workitems'||sec==='boards'||sec==='backlogs'){var rows=ITEMS.filter(function(i){return i[2]===p&&(!s.team||i[3]===s.team)});
-   var t={workitems:'Рабочие элементы',boards:'Канбан',backlogs:'Бэклог'}[sec];
-   return '<h1>'+t+' · '+p+' '+nt+'</h1><div class="card">'+(sec==='workitems'?adminBtn('Новый рабочий элемент','p'):'<span class="mut">Как сегодня: уровни, карточки поверх страницы.</span>')+T(['Номер','Название','Команда'],rows.map(function(i){return [i[0],i[1],i[3]||'Без команды']}),'Ничего не найдено')+'</div>'}
+  if(sec==='backlogs'){var rows=BL[p].filter(function(id){return !s.team||ITEMS[id][2]===s.team}),can=!s.team&&S.role!=='r';
+   return '<h1>Бэклог · '+p+' '+nt+'</h1>'+(s.team?'<div class="notice">'+HINT_RANK+'</div>':'')+'<div class="card"><span class="mut">Как сегодня: уровни, карточки поверх страницы.</span>'+(rows.length?rows.map(function(id,i){return rowHtml(p,id,i,rows.length,can)}).join(''):'<p class="mut">Ничего не найдено</p>')+'</div>'}
+  if(sec==='workitems'||sec==='boards'){var r2=itemRows().filter(function(id){return ITEMS[id][1]===p});
+   var t={workitems:'Рабочие элементы',boards:'Канбан'}[sec];
+   return '<h1>'+t+' · '+p+' '+nt+'</h1><div class="card">'+(sec==='workitems'?adminBtn('Новый рабочий элемент','p'):'<span class="mut">Как сегодня: уровни, карточки поверх страницы.</span>')+T(['Номер','Название','Команда'],r2.map(function(id){return [id,ITEMS[id][0],ITEMS[id][2]||'Без команды']}),'Ничего не найдено')+'</div>'}
   if(sec==='teams')return '<h1>Команды проекта '+p+'</h1><div class="card">'+adminBtn('Добавить команды')+T(['Команда',''],pr.teams.map(function(t){return [L(t,'open','team',t)+(pr.def===t?'<span class="tag">По умолчанию</span>':pr.teams.length===1?'<span class="tag">По умолчанию: единственная команда</span>':''),adm()?'<button data-act="unlink" data-a="'+t+'">Отключить от проекта</button>':'']}),'К проекту не привязана ни одна команда')+'</div>'}
  if(s.team){var tm=s.team,ps=activeP().filter(function(x){return PROJ[x].teams.indexOf(tm)>=0&&(!s.dept||PROJ[x].place===s.dept)});
   if(sec==='overview')return '<h1>'+tm+'</h1><div class="card"><p>Участников: 2 · Проектов: '+ps.length+'</p><b>Департаменты</b><p>'+(deptsOfTeam(tm).map(function(d){return L(d,'open','dept',d)}).join(', ')||'Команда не привязана ни к одному департаменту')+'</p></div>';
   if(sec==='projects')return '<h1>Проекты команды '+tm+' '+nt+'</h1><div class="card">'+adminBtn('Добавить проекты')+T(['Проект','Расположение'],ps.map(function(x){return [L(x,'open','proj',x),PROJ[x].place||'—']}),'Команда не привязана ни к одному проекту')+'</div>';
   if(sec==='members')return '<h1>Участники и доступ · '+tm+'</h1><div class="card">'+adminBtn('Добавить участника')+'<p>Участники команды (без грантов).</p></div>';
-  return '<h1>'+(sec==='boards'?'Канбан':'Бэклог')+' · '+tm+' '+nt+'</h1><div class="card"><span class="mut">Элементы команды по всем её проектам (feat-040).</span>'+T(['Номер','Название','Проект'],ITEMS.filter(function(i){return i[3]===tm&&(!s.dept||PROJ[i[2]].place===s.dept)}).map(function(i){return [i[0],i[1],L(i[2],'open','proj',i[2])]}),'Ничего не найдено')+'</div>'}
+  if(sec==='workitems')return '<h1>Рабочие элементы · '+tm+' '+nt+'</h1>'+F48('Рабочие элементы команды по всем её проектам.')+'<div class="card">'+T(['Номер','Название','Проект','Статус'],itemRows().map(function(id){return [id,ITEMS[id][0],L(ITEMS[id][1],'open','proj',ITEMS[id][1]),ITEMS[id][3]]}),'Ничего не найдено')+'</div>';
+  return '<h1>'+(sec==='boards'?'Канбан':'Бэклог')+' · '+tm+' '+nt+'</h1><div class="card"><span class="mut">Страницы команды из feat-040 (сегодняшние).</span>'+T(['Номер','Название','Проект'],itemRows().map(function(id){return [id,ITEMS[id][0],L(ITEMS[id][1],'open','proj',ITEMS[id][1])]}),'Ничего не найдено')+'</div>'}
  if(s.dept){var d=s.dept,dp=activeP().filter(function(x){return PROJ[x].place===d});
   if(sec==='overview')return '<h1>Департамент: '+d+'</h1><div class="card"><p>Описание не задано · Расположение: Верхний уровень</p><p>Проекты: '+dp.length+' · Команды: '+teamsOfDept(d).length+'</p></div>';
+  if(sec==='workitems')return '<h1>Рабочие элементы · '+d+'</h1>'+F48('Рабочие элементы проектов департамента.')+'<div class="card">'+T(['Номер','Название','Проект','Команда'],itemRows().map(function(id){return [id,ITEMS[id][0],L(ITEMS[id][1],'open','proj',ITEMS[id][1]),ITEMS[id][2]||'Без команды']}),'Рабочих элементов пока нет')+'</div>';
+  if(sec==='backlogs')return '<h1>Бэклог · '+d+'</h1>'+F48('Один аккордеон на проект департамента, строки в порядке самого проекта, перенос внутри группы.')+groupsBar()+backlogGroups();
+  if(sec==='boards')return '<h1>Канбан · '+d+'</h1>'+F48('Одна сворачиваемая дорожка на проект департамента.')+groupsBar()+boardLanes();
   if(sec==='projects')return '<h1>Проекты департамента</h1><div class="card">'+adminBtn('Добавить проект')+T(['Проект','Ключ',''],Object.keys(PROJ).filter(function(x){return PROJ[x].place===d}).map(function(x){return [PROJ[x].off?x+'<span class="tag">деактивирован</span>':L(x,'open','proj',x),PROJ[x].key,adm()&&!PROJ[x].off?'<button data-act="stub" data-a="Вынести на верхний уровень">Вынести на верхний уровень</button>':'']}),'В департаменте нет проектов')+'</div>';
   return '<h1>Команды департамента</h1><div class="card">'+adminBtn('Добавить команды')+T(['Команда'],(DLINK[d]||[]).map(function(t){return [L(t,'open','team',t)]}),'К департаменту не привязаны команды')+'</div>'}
  // nothing chosen
  if(sec==='overview')return '<h1>Обзор</h1><div class="grid"><div style="flex:3"><div class="card"><b>Мои команды</b><p>'+L('VENUS','open','team','VENUS')+'</p></div><div style="margin-bottom:12px"><span class="stat"><b>'+DEPTS.length+'</b>Департаменты</span><span class="stat"><b>'+activeP().length+'</b>Проекты</span><span class="stat"><b>3</b>Команды</span></div><div class="card"><b>Проекты</b>'+activeP().map(function(x){return '<div>'+L(x,'open','proj',x)+'</div>'}).join('')+'<div>'+L('Все проекты ('+activeP().length+')','sec','projects')+'</div></div></div><div style="flex:1"><div class="card"><b>Организации</b><div>● '+ORG+'</div><div>Другая</div></div></div></div>';
- if(sec==='workitems')return '<h1>Рабочие элементы</h1><div class="card"><input placeholder="Поиск" data-act="q2"> <span class="mut">Фильтры «Статус», «Исполнитель»; команда и проект — селекторами.</span></div><div class="card">'+T(['Номер','Название','Проект','Команда'],ITEMS.map(function(i){return [i[0],i[1],L(i[2],'open','proj',i[2]),i[3]||'Без команды']}),'Рабочих элементов пока нет')+'</div>';
+ if(sec==='workitems')return '<h1>Рабочие элементы</h1>'+F48('Список по всем активным проектам, 50 на страницу; команда и департамент — селекторами.')+'<div class="card"><input placeholder="Поиск" aria-label="Поиск"> <span class="mut">Фильтры «Статус», «Исполнитель».</span></div><div class="card">'+T(['Номер','Название','Проект','Команда','Статус'],itemRows().map(function(id){return [id,ITEMS[id][0],L(ITEMS[id][1],'open','proj',ITEMS[id][1]),ITEMS[id][2]||'Без команды',ITEMS[id][3]]}),'Рабочих элементов пока нет')+'</div>';
+ if(sec==='backlogs')return '<h1>Бэклог</h1>'+F48('Один аккордеон на проект организации (название, ключ, число строк); первая группа открыта; строки читаются при открытии группы; перенос — внутри группы, под правом бэклога проекта.')+groupsBar()+backlogGroups();
+ if(sec==='boards')return '<h1>Канбан</h1>'+F48('Столбцы — состояния процесса, одна сворачиваемая дорожка на проект; карточка двигается внутри своей дорожки.')+groupsBar()+boardLanes();
  if(sec==='areas')return '<h1>Области</h1>'+adminBtn('Создать департамент','p')+'<div class="card">'+DEPTS.map(function(d){return '<div>▾ '+L(d,'open','dept',d)+' <span class="mut">Департамент</span></div>'+Object.keys(PROJ).filter(function(x){return PROJ[x].place===d}).map(function(x){return '<div style="padding-left:20px">'+(PROJ[x].off?x+'<span class="tag">деактивирован</span>':L(x,'node',x))+' <span class="mut">Проект</span></div>'}).join('')}).join('')+'<div>'+L('D','node','D')+' <span class="mut">Проект</span></div></div>';
  if(sec==='projects')return '<h1>Проекты</h1>'+adminBtn('Создать проект','p')+'<div class="card">'+T(['Название','Ключ','Расположение'],activeP().map(function(x){return [L(x,'open','proj',x),PROJ[x].key,PROJ[x].place||'—']}),'Проектов пока нет')+'</div>';
  if(sec==='teams')return '<h1>Команды</h1>'+adminBtn('Создать команду','p')+'<div class="card">'+T(['Название'],Object.keys(TEAMS).map(function(t){return [L(t,'open','team',t)+(TEAMS[t].own?'<span class="tag">Моя команда</span>':'')]}),'Команд пока нет')+'</div>';
  return '<h1>Участники</h1><p class="mut">Страница участников (mod-016), без изменений.</p>'}
-function draw(){drawBar();drawNav();$('#main').innerHTML=page()}
+function draw(){var fq=document.activeElement&&document.activeElement.id==='fq';drawBar();drawNav();$('#main').innerHTML=page();
+ if(fq){var f=$('#fq');if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length)}}}
 function dlg(h){$('#box').innerHTML=h;$('#dlg').classList.add('open')}
 document.addEventListener('click',function(e){var t=e.target.closest('[data-act]');
- if(!t){if(S.openSel&&!e.target.closest('#pop')){S.openSel=null;S.q='';draw()}return}
+ if(!t){if(S.openSel&&!e.target.closest('#pop'))closePop(false);return}
  var a=t.dataset.act,x=t.dataset.a,y=t.dataset.b;
- if(a==='sel'){S.openSel=S.openSel===x?null:x;S.q='';draw();e.stopPropagation()}
- else if(a==='pick'){S.openSel=null;S.q='';if(x==='org'){if(y==='all'){S.sel={dept:null,team:null,proj:null};S.sec='overview';notice('Список организаций');draw()}else{S.sel={dept:null,team:null,proj:null};S.sec='overview';draw()}}else choose(x,y||null)}
- else if(a==='sec'){S.sec=x;S.settings=false;S.node=null;draw()}
+ if(a==='sel'){var was=S.openSel===x;S.openSel=was?null:x;S.q='';drawBar();e.stopPropagation()}
+ else if(a==='pick'){S.openSel=null;S.q='';if(x==='org'){S.sel={dept:null,team:null,proj:null};S.sec='overview';S.settings=false;if(y==='all')notice('Список организаций');draw();focusH1()}else choose(x,y||null)}
+ else if(a==='sec'){S.sec=x;S.settings=false;S.fq='';draw();focusH1()}
  else if(a==='settings'){S.settings=true;draw()}else if(a==='close'){S.settings=false;draw()}
- else if(a==='open')open(x,y);
- else if(a==='node'){open('proj',x);S.sec='structure';draw()}
+ else if(a==='open')openObj(x,y);
+ else if(a==='node'){openObj('proj',x);S.sec='structure';draw()}
+ else if(a==='tgl'){S.open[x]=!S.open[x];draw()}
+ else if(a==='collapse'){S.open={};draw()}
+ else if(a==='mv'){var q=x.split('|'),arr=BL[q[0]],i=arr.indexOf(q[1]),j=i+parseInt(q[2],10);if(j>=0&&j<arr.length){arr.splice(j,0,arr.splice(i,1)[0]);notice('Порядок проекта '+q[0]+' изменён: '+q[1]+' перемещён.')}draw()}
+ else if(a==='adv'){var it=ITEMS[x];it[3]=STATES[STATES.indexOf(it[3])+1];notice(x+': состояние «'+it[3]+'» записано в проекте '+it[1]+'.');draw()}
  else if(a==='stub')notice(x+': диалог по design.md');
  else if(a==='unlink')notice('Подтверждение: куда перейдут элементы команды '+x);
 });
-document.addEventListener('input',function(e){if(e.target.id==='q'){S.q=e.target.value;drawPop()}});
-$('#role').addEventListener('change',function(e){S.role=e.target.value;if(S.role==='r'&&!menu().some(function(m){return m[0]===S.sec}))S.sec=menu()[0][0];draw()});
+document.addEventListener('input',function(e){if(e.target.id==='q'){S.q=e.target.value;drawPop()}else if(e.target.id==='fq'){S.fq=e.target.value;draw()}});
+document.addEventListener('keydown',function(e){
+ if(e.key==='Escape'){if(S.openSel){e.preventDefault();closePop(true)}else if($('#dlg').classList.contains('open'))$('#dlg').classList.remove('open');return}
+ var pop=$('#pop');
+ if(S.openSel&&pop&&pop.contains(e.target)){
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();var els=[].slice.call(pop.querySelectorAll('input,.o[tabindex]')),i=els.indexOf(document.activeElement),n=e.key==='ArrowDown'?i+1:i-1;if(n>=0&&n<els.length)els[n].focus()}
+  else if((e.key==='Enter'||e.key===' ')&&e.target.classList.contains('o')){e.preventDefault();e.target.click()}}
+ else if((e.key==='Enter'||e.key===' ')&&e.target.dataset&&e.target.dataset.act==='tgl'){e.preventDefault();e.target.click()}});
+$('#role').addEventListener('change',function(e){S.role=e.target.value;keepSec();draw()});
 $('#dlg').addEventListener('click',function(e){if(e.target.id==='dlg')$('#dlg').classList.remove('open')});
 draw();
 })();
