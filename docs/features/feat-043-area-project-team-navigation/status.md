@@ -3,20 +3,24 @@
 - type: feature
 - size: L
 - branch: feat/043-area-project-team-navigation
-- stage: gate-1
+- stage: 03-ux-design
 - epic: platform/ui
 - deps: feat-040,mod-018,mod-020
 - gates: gate-1, gate-2, gate-3
 
 ## Gates
 
-gate-1: pending
+gate-1: approved 2026-10-30 (the human, in chat): all recommendations, OQ-1..5, OQ-7..9, H-1..4 A
 gate-2: pending
 gate-3: pending
 
 ## Plan
 
 <!-- L: see plan-backend.md / plan-frontend.md -->
+
+## Decisions
+
+- Gate-1, 2026-10-30: OQ-1, 2, 3, 4, 5, 7, 8, 9 and H-1, 2, 3, 4 are answered A; the spec is the recommended text. tech-019 is absorbed; a new ADR is owed at the design.
 
 ## Log
 
