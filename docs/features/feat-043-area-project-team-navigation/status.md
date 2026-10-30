@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/043-area-project-team-navigation
-- stage: 01-business-analysis
+- stage: 02-requirements-review
 - epic: platform/ui
 - deps: feat-040,mod-018,mod-020
 - gates: gate-1, gate-2, gate-3
@@ -21,6 +21,8 @@ gate-3: pending
 ## Log
 
 - 2026-10-30 [orchestrator] task started in the worktree .claude/worktrees/feat-043-area-project-team-navigation-b716b1 (app-made; branch renamed, based on origin/main cc73b2be; new-task.sh not used because the session is already bound here). Route confirmed by the human: feature, L (threshold: breaks ADR-0024 § 2, a new ADR; retired addresses and moved pages), full route, gates 1/2/3 separate; block 3.3: only the queue line. Economy mode; E2E no; no local VERIFY_FULL. Usage at start: weekly 2%, 5-hour 2%.
+
+- 2026-10-30 [orchestrator] queue: PR #41 reworded the lines after mod-018 (merged by the human), PR #42 takes the line (`queue.sh take`). Stage 1 done (business-analyst): spec.md, US-1..US-9, OQ-1..OQ-9. feat-003 and mod-005 are already merged, so BR-NE-8 makes this line the second to merge and US-6 carries their work; US-6 resolves mod-020 CR-2; tech-011 m4 is recorded obsolete on the queue line after the merge.
 
 ## Notes
 
