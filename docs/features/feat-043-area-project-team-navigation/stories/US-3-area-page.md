@@ -1,11 +1,11 @@
-# US-3: An area's page: a department, a project's place, a sub-area
+# US-3: A department chosen: its menu; a project's place and a sub-area
 
 - story: US-3
 - depends-on: US-1, US-2
 - shippable: no — the page of the tree that US-2's «Области» opens; the interim area pages retire with it (US-9)
 - status: pending
 
-As an **organization member**, I want **each node of the area tree on a page of its own with its sections**, so that **I see what a department groups, where a project stands and what a sub-area holds, and an administrator keeps the structure where it is read**.
+As an **organization member**, I want **choosing a department to give me its sections in the left menu, and every node of the area tree a page of its own**, so that **I see what a department groups, where a project stands and what a sub-area holds, and an administrator keeps the structure where it is read**.
 
 ## Acceptance criteria
 
@@ -13,8 +13,8 @@ Cast as US-2: departments «Логистика» (project nodes A and B, linked 
 
 ```gherkin
 Scenario: A department's page (BR-NV-3; BR-AW-0, BR-AW-6)
-  When Olga opens «Логистика»
-  Then its sections are «Обзор», «Проекты» and «Команды»; «Настройки» is added only for Ann
+  When Olga chooses «Логистика» in the department selector
+  Then the left menu holds «Обзор», «Проекты», «Команды» and, last, the derived «Настройки» (BR-NV-18), and the page opens at «Обзор»
   And «Обзор» shows its description, that it stands at the top level, and the numbers of its projects (2) and teams (2), each opening its section
   And «Проекты» lists the project nodes A and B once each, by name, each opening the project's page
   And «Команды» lists MARS and VENUS, the area–team links of the department, each opening the team's page
@@ -23,7 +23,7 @@ Scenario: A department's page (BR-NV-3; BR-AW-0, BR-AW-6)
 Scenario: A project's place opens a page that names its project (ADR-0031 rule 5; OQ-1 A)
   When Olga opens the node of A from «Области» or from «Логистика»'s «Проекты» and opens the node's address
   Then she sees A's name and type «Проект», its parent «Логистика», the node's own description (not the project's, which is on A's «Общие») and its sub-areas «Склад» and «Транспорт» (with «Стеллажи» under «Склад»), and the link «Открыть проект», which opens A's page
-  And the sections are «Обзор» and, for Ann, «Настройки»; no «Команды» section: the project's teams are on A's page
+  And the selectors read «Логистика» / «все» / A, the menu is A's (US-4) with «Структура» marked; no «Команды» of the node: the project's teams are in A's menu
   And the page shows no area–team link, because none can join a project's node (BR-AW-6)
 
 Scenario: A sub-area's page (BR-AW-3, BR-AW-13)
@@ -33,12 +33,13 @@ Scenario: A sub-area's page (BR-AW-3, BR-AW-13)
 
 Scenario: The trail of an area shows its ancestors (BR-NV-4)
   When Olga opens «Склад»
-  Then the trail reads «Ромашка / Области / Логистика / A / Склад / Обзор», and every part but the last opens its page
+  Then the page's path reads «Логистика / A / Склад», and every part but the last opens its page, while the selectors read «Ромашка» / «Логистика» / «все» / A
 
-Scenario: Settings are the page's own (BR-NV-5, BR-NV-14)
-  When Ann opens «Логистика» and then «Настройки»
-  Then she renames it, changes its description, deletes it, and links teams from «Команды»; a department stands at the top and has no move command
-  And on a sub-area's «Настройки» she renames, describes, moves it within its project, and deletes it; on a project node's, only describes it, because the name follows the project (BR-AW-4, OQ-10 A of mod-018)
+Scenario: Settings are the settings navigation's «Параметры» (BR-NV-5, BR-NV-14, BR-NV-18)
+  When Ann has «Логистика» chosen and opens «Настройки», then the group «Департамент» and its entry «Параметры»
+  Then she renames it, changes its description, deletes it, and links teams from «Команды» in the menu; a department stands at the top and has no move command
+  And for a sub-area opened from «Области», «Параметры» lets her rename, describe, move it within its project and delete it; for a project node, only describe it, because the name follows the project (BR-AW-4, OQ-10 A of mod-018)
+  And Olga finds no «Департамент» group in «Настройки», and the address of its «Параметры» shows her «Доступ ограничен»
 
 Scenario: A sub-area is created under a project's node or a sub-area (BR-AW-3)
   When Ann chooses «Добавить область» on A's node page and names it «Шлюз»
@@ -63,8 +64,8 @@ Scenario: A deleted or foreign node answers not found (BR-NV-7)
 
 Scenario: A project node's page marks «Области» and sets the context to its project (BR-NV-4, BR-NV-10)
   When Olga opens the node page of A, and then a sub-area's page «Склад»
-  Then «Области» is the marked entry on both, and the switcher shows «Ромашка» / A on both
-  And a department's page sets the context to the department
+  Then the selectors read «Ромашка» / «Логистика» / «все» / A on both, and «Структура» is the marked entry
+  And a department's menu entries leave the project selector at «все»
 
 Scenario: A deactivated project's node and sub-areas open nothing (BR-NV-13; OQ-3 A)
   Given E is deactivated

@@ -1,27 +1,38 @@
-# US-1: The main navigation and the address model
+# US-1: The left menu by scope, «Настройки», and the address model
 
 - story: US-1
 - depends-on: -
 - shippable: no — one L and one MR; the entries open the pages of US-2..US-5, and the retired addresses are retired only once those pages exist
 - status: pending
 
-As an **organization member**, I want **the main navigation to name «Области», «Проекты» and «Команды» as entries of their own, and every page to have one address that names only its object**, so that **I reach work by the object it belongs to, a link to a page opens that page, and an old address never leads me through a hierarchy the model does not have**.
+As an **organization member**, I want **a left menu whose entries are the sections of what I have chosen, «Настройки» where they always were, and addresses that name the chosen object**, so that **I reach work by the object it belongs to, a link to a page opens that page, and an old address never leads me through a hierarchy the model does not have**.
 
 ## Acceptance criteria
 
 Cast: organization «Ромашка» with Ann «Администратор», Olga «Участник» and Vera «Читатель»; departments «Логистика» (project nodes A and B) and «Финансы» (C); D at the top level; teams MARS, VENUS and JUPITER. Organization «Другая» has project Zeta and Olga is not a member of it.
 
 ```gherkin
-Scenario: The main navigation names the objects as entries (BR-NV-1; BR-MX-27)
-  When Olga opens «Ромашка»
-  Then the main navigation shows «Обзор», «Рабочие элементы», «Области», «Проекты», «Команды», «Участники» and «Настройки», in this order
-  And none of them waits for an object to be chosen in the switcher
-  And «Бэклоги» and «Канбан» are not entries
+Scenario: With nothing chosen the menu holds the organization's entries (BR-NV-1; BR-MX-27)
+  When Olga opens «Ромашка» with «все» in department, team and project
+  Then the left menu shows «Обзор», «Рабочие элементы», «Области», «Проекты», «Команды», «Участники» and, last, «Настройки», in this order
+  And «Канбан» and «Бэклог» are not in it
+
+Scenario: The menu is the sections of what is chosen (BR-NV-1; gate-2)
+  When Olga chooses project A in the project selector, then removes it and chooses MARS in the team selector, then the department «Логистика»
+  Then with A the menu reads «Общие», «Структура», «Рабочие элементы», «Канбан», «Бэклог», «Команды», «Настройки»
+  And with MARS it reads «Обзор», «Канбан», «Бэклог», «Проекты», «Участники и доступ», «Настройки»
+  And with «Логистика» it reads «Обзор», «Проекты», «Команды», «Настройки», and no choice needed a list to be opened first
 
 Scenario: Opening an entry opens its page and marks it (BR-NV-1)
-  When Olga chooses «Команды» in the navigation
+  When Olga chooses «Команды» in the menu
   Then the list of the organization's teams opens at an address that names «Ромашка» and the list
   And «Команды» is marked as the current entry, and so is each entry on its own page
+
+Scenario: «Настройки» is the shell's derived entry, as before (BR-NV-18; mod-015 BR-19)
+  Given Ann has chosen project A and team MARS
+  When she chooses «Настройки» at the end of the menu
+  Then the settings navigation opens, titled «Настройки», with the main menu as a rail, and holds the group «Организация» («Общие», «Процесс») and the groups «Команда» and «Проект», each with «Параметры»
+  And for Olga it holds «Организация» alone, and no object has a «Настройки» tab or menu entry of its own
 
 Scenario: An entry the user may not open is absent (BR-NV-1; ADR-0024 § 1)
   Given the permissions served for Vera lack the code the «Участники» page needs
@@ -29,20 +40,25 @@ Scenario: An entry the user may not open is absent (BR-NV-1; ADR-0024 § 1)
   Then «Участники» is absent and nothing is shown disabled, and the other entries keep their order
   And opening the «Участники» address shows «Доступ ограничен»
 
-Scenario: An object has one address that names only it and its organization (BR-NV-2; BR-MX-27)
-  When Olga opens MARS from «Команды», from A's «Команды» and from the department «Логистика»
-  Then the address is the same each time and names only «Ромашка», the team prefix and MARS
+Scenario: A single object has one approved address (BR-NV-2; BR-MX-27)
+  When Olga chooses MARS in the team selector from «Команды», from project A's menu and from the department «Логистика», with the other selectors at «все» except the department
+  Then the address of MARS's «Канбан» names «Ромашка», the team prefix and MARS, and `departmentId` only where the department is chosen
   And no address of the panel has a team under a project, a project under an area, or an area under a project
+
+Scenario: Several selectors ride on the most specific object's address (BR-NV-2; Q-1 A)
+  When Olga has A in the project selector and MARS in the team selector and opens «Бэклог»
+  Then the address is A's backlog with `teamId=<MARS>`, and a link to it opens the same selection and the same narrowed backlog
+  And with MARS and «Логистика» chosen and no project, the address is MARS's with `departmentId=<Логистика>`
 
 Scenario: A section is part of the address and survives a reload (BR-NV-2, BR-NV-3)
   Given Olga is on MARS's «Бэклог»
   When she reloads the page or sends its address to Ann
-  Then MARS's «Бэклог» opens for each, in the shell, with «Команды» marked
+  Then MARS's «Бэклог» opens for each, in the shell, with MARS in the team selector and «Бэклог» marked in the menu
 
 Scenario: The organization's settings hold only what is the organization's (BR-NV-5)
-  When Ann opens «Настройки»
+  When Ann opens «Настройки» with nothing chosen
   Then it holds the organization's own pages and the instance sections
-  And it holds no page of a team, an area or a project, no project list and no members page
+  And it holds no project list, no team or area list and no members page: those are menu entries
 
 Scenario: A retired address answers «Страница не найдена» and redirects nowhere (BR-NV-6)
   When Ann opens in turn `…/settings/teams`, `…/settings/teams/<id of MARS>`, `…/settings/areas`, `…/settings/areas/<id of «Логистика»>`, `…/settings/projects`, `…/settings/projects/deactivated`, `…/settings/members`, A's `…/settings/general`, `…/settings/teams` and `…/settings/areas`

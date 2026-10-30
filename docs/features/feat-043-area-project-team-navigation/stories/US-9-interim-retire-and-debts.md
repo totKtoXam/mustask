@@ -24,19 +24,19 @@ Scenario: The project's interim commands live on its page (feat-028 BR-OL-10; fe
 
 Scenario: feat-040's interim team level of the switcher is gone (BR-NV-10; feat-040 BR-TS-10)
   When the switcher's source and tests are read
-  Then there is no level that lists the organization's teams whatever project is chosen, the switcher holds the organization and one object (US-8), and no test names the interim level
+  Then there is no level that lists the organization's teams whatever project is chosen, the header holds the four selectors (US-8), and no test names the interim level
 
 Scenario: mod-020's fallback team is retired and its filter stays (BR-NE-9; BR-MX-11)
   Given A's default team is VENUS and Olga has chosen no team
   When she opens any page
-  Then the default team selects nothing in the switcher, and a new item created from A's section still starts with VENUS (BR-MX-10)
+  Then the default team selects nothing in the team selector, and a new item created from A's section still starts with VENUS (BR-MX-10)
   And the team filter in the address of A's «Рабочие элементы», «Бэклог» and «Канбан» works as mod-020 built it
   And doc-012 BR-MX-11 reads "The default affects BR-MX-10 only" without the mod-020 amendment, and mod-017 BR-OT-4 and BR-OT-11, `design.md` § 6.3 and § 8 and `api-contract.md` § 2.8 say the same, each marked "feat-043"
 
 Scenario: The switcher compares ids as the router does (tech-009 F4)
   Given a team's id is written in capitals in the address
   When Olga opens its page
-  Then the switcher shows that team as selected, and a test covers a capitalised and a percent-encoded id
+  Then the team selector shows that team as chosen, and a test covers a capitalised and a percent-encoded id
 
 Scenario: Route matching is the router's (bug-003)
   When the app shell's matching of a route is read

@@ -74,9 +74,9 @@ Scenario: A list is narrowed by typed text (BR-NV-9)
 Scenario: The organizations list and its create flow open the new pages (BR-NV-16; OQ-8 A)
   When Olga chooses «Ромашка» in the organizations list, and Ann creates the organization «Новая»
   Then the first opens «Ромашка»'s «Обзор», and the second opens «Новая»'s «Проекты», where the first project is created
-  And the same holds for the switcher's organization part, and no feat-038 landing is needed on main
+  And the same holds for the organization selector, and no feat-038 landing is needed on main
 
 Scenario: No link in the panel targets a retired address (BR-NV-6)
-  When a test walks the links of the navigation, the lists, the organizations list, the create flows, the trail and the switcher
+  When a test walks the links of the navigation, the lists, the organizations list, the create flows, the header selectors and the settings navigation
   Then none is an address of the table of retired addresses
 ```
