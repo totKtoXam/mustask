@@ -9,6 +9,7 @@ namespace Mustask.Infrastructure.Tests.UserDirectory;
 /// model maps them — names, lengths, the string enums and the xmin token of
 /// ADR-0010 — without a database (building the model opens no connection).
 /// </summary>
+[Collection(ProcessEnvironmentCollection.Name)]
 public sealed class ProjectedUserModelTests : IDisposable
 {
     private const string ConnectionStringEnvVar = "ConnectionStrings__mustask";

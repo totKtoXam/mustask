@@ -7,6 +7,7 @@ namespace Mustask.Infrastructure.Tests.Conventions;
 /// dictionaries added later, without touching a Docker/Postgres connection
 /// (building the model does not open one -- see <see cref="MustaskDbContextFactoryTests"/>).
 /// </summary>
+[Collection(ProcessEnvironmentCollection.Name)]
 public sealed class CodeUniqueIndexModelTests
 {
     private const string ConnectionStringEnvVar = "ConnectionStrings__mustask";

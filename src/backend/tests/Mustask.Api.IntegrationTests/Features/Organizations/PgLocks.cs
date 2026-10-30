@@ -5,8 +5,9 @@ namespace Mustask.Api.IntegrationTests.Features.Organizations;
 /// <summary>
 /// Waits on the database's own view of its sessions, so a race test never
 /// sleeps for a guessed time (mod-002 plan-backend § 8.3; mod-001's race test
-/// does the same). The integration collection runs sequentially, so a blocked
-/// session of the test database belongs to the running test.
+/// does the same). The classes of a shard run one after another on its own
+/// database, and the wait reads only that database, so a blocked session
+/// belongs to the running test.
 /// </summary>
 public static class PgLocks
 {
