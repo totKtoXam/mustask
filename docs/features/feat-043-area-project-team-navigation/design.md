@@ -108,10 +108,6 @@ As mod-018 § 3 with changes: a menu entry, not a settings page; primary «Со�
 
 The members page (mod-016) at `…/members`, unchanged; without the read code the entry is absent and the address says «Доступ ограничен».
 
-### 5.5 «Рабочие элементы», «Канбан», «Бэклог» (not in this line)
-
-The organization, department and team entries are feat-048's (§ 12). Here only the project's three entries exist (§ 7.1), as today.
-
 ## 6. Department, node and sub-area (US-3)
 
 Titles: «Департамент: Логистика», «Структура: A» (a project's node, project menu), «Область: Склад». Facts are read-only kit fields (`labelPlacement="start"`); type marks as mod-018 § 4.
@@ -173,9 +169,9 @@ Down to 640 CSS px (ADR-0024 § 5): the left menu is the overlay below 1024 px; 
 
 ## 10. For the developer
 
-- **API:** nothing is added for work-item lists or views (feat-048). Everything exists (`GET /areas` with project nodes and paths, projects, teams with `isMember`, the link reads, `/areas/{id}/deletion`, `…/unlink-count`). The selectors' offers and the «Остальные» split are computed client-side from these lists; «Обзор» is built from the same lists (≤ 3 reads, one statement each) and cut to 5 rows. No overview read is added unless the plan's statement-count test fails (D-2 C). No batch move. If the team-by-department offer proves too heavy client-side, an additive `GET …/selector-offers` is the plan's call. Reads of «Обзор» and the lists take the caller as a required argument (BR-NV-15).
+- **API:** nothing is added for work-item lists or views (feat-048). Everything exists (`GET /areas` with project nodes and paths, projects, teams with `isMember`, the link reads, `/areas/{id}/deletion`, `…/unlink-count`). The selectors' offers and the «Остальные» split are computed client-side from these lists; «Обзор» is built from the same lists (≤ 3 reads, one statement each) and cut to 5 rows. No overview read is added unless the plan's statement-count test fails (D-2 C). No batch move. If the team-by-department offer proves too heavy client-side, an additive `GET …/selector-offers` is the plan's call. Reads take the caller as an argument (BR-NV-15).
 - **Frontend:** one menu table per ADR-0032 § 2 with a route-inventory test; a retired-address table read by a test; one `useWorkContext` on the router's matching (bug-003, tech-009 F4); the fit/reset algorithm as a pure function (pairwise fit; offers = fitting, then the rest) with a test table (US-8); the remembered selection per ADR-0032 § 6; no link builder targets a retired address; every link carries the selection (`teamId`, `departmentId`).
-- **Error texts owed to `docs/error-codes.md`:** none for existing codes (every error string above exists). The reset notice «Выбор сброшен: …» and the fallback notice are client copy, not catalogue entries. The Q-9 hint is client copy too.
+- **Error texts owed to `docs/error-codes.md`:** none for existing codes (every error string above exists). The reset notice «Выбор сброшен: …» and the fallback notice are client copy, not catalogue entries.
 
 ## 11. Decisions for gate 2
 
@@ -187,14 +183,14 @@ Down to 640 CSS px (ADR-0024 § 5): the left menu is the overlay below 1024 px; 
 | D-4 | A bare object address | **(A, recommended)** opens the first menu entry, replacing the entry. (B) «Страница не найдена» |
 | D-5 | Deactivated projects | **(A, recommended)** the «Показывать» select (`?status=`). (B) a path `…/projects/deactivated`: an id clash |
 | D-6 | The settings group for a node or sub-area | **(A, recommended)** group «Область» while its page is open. (B) its commands live on the page («Структура») for the administrator: a second place for settings, against BR-NV-18 |
-| D-7 (human, gate-2; recorded) | Reaching a reset from a selector | A selector lists the fitting values, then «Остальные»; choosing from it resets what no longer fits, with the notice (§ 3). Nothing is hidden |
+| D-7 (human, gate-2; recorded) | Reaching a reset from a selector | Fitting values, then «Остальные»; a choice from it resets what no longer fits, with the notice (§ 3) |
 
 ## 12. Coming with feat-048 (layout and entries only)
 
-`feat-048-aggregate-level-views` (M, right after this line; US-6, US-10, BR-NV-12, BR-NV-20) adds, after «Обзор»: organization and department «Рабочие элементы», «Канбан», «Бэклог»; team «Рабочие элементы». Its own design fixes the details; the prototype shows them, labelled «feat-048».
+`feat-048-aggregate-level-views` (M, right after this line; US-6, US-10, BR-NV-12, BR-NV-20) adds, after «Обзор»: organization and department «Рабочие элементы», «Канбан», «Бэклог»; team «Рабочие элементы». Its design fixes the details; the prototype labels them «feat-048».
 
-- **«Бэклог» (organization, department):** one MUI `Accordion` per project, ordered by name then key. `AccordionSummary`: name, `Tag` key, row count («40»; narrowed «3 из 40»). The first group is open on first visit; `AccordionDetails` holds that project's backlog rows (nesting, rank order, no sorting) and «Показать ещё» for the next 50. «Свернуть все» in the bar (no «Развернуть все»). A move stays inside its group. A narrowed group has no drag handles and shows the Q-9 hint (§ 7.1).
-- **«Канбан»:** columns = the process's states; one collapsible swimlane per project (`Accordion`, same summary); a cell shows 50 cards, then «Показать ещё»; a card moves inside its lane only.
+- **«Бэклог» (organization, department):** one MUI `Accordion` per project, ordered by name then key. `AccordionSummary`: name, `Tag` key, row count («40»; narrowed «3 из 40»). The first group is open on first visit; `AccordionDetails` holds that project's backlog rows (nesting, rank order, no sorting) and «Показать ещё» for the next 50. «Свернуть все» in the bar (no «Развернуть все»). **Moves are the existing mechanism** (`BacklogRow`, `BoardColumns`): native HTML5 drag and drop, the whole row or card the source, a grip as an `aria-hidden` hint, a drop line on the target; keyboard: the row's «Ещё действия» menu, «Переместить» (no arrows beside rows). A drop in another group is refused (not-allowed cursor, row stays). A narrowed group has no grip and shows the Q-9 hint (§ 7.1).
+- **«Канбан»:** columns = the process's states; one collapsible swimlane per project (`Accordion`, same summary); a cell shows 50 cards, then «Показать ещё»; a card is dragged between columns inside its lane only (keyboard: «Ещё действия», «Переместить в колонку»).
 - **«Рабочие элементы»:** the cross-project list with «Проект» and «Команда» columns, 50 a page.
-- **Reads, an input for feat-048:** one grouped read for the counts, then one bounded read per opened group, at most 4 in flight per tab. Pool check: `AddNpgsqlDbContext` sets only `DisableRetry`, so Npgsql's default `Maximum Pool Size` of 100 applies per API process, and no limiter bounds requests in flight. 4 per tab is small for one user, but the cap is a browser promise: it multiplies by tabs and users (25 busy tabs fill the pool) and a script ignores it. **A server-side limit is needed:** a concurrency limiter on the group and cell read family, per user (4 to 6) plus one global limit well under the pool (about 40, a short queue), 429 when full; the numbers are feat-048's.
+- **Reads, an input for feat-048:** one grouped read for the counts, then one bounded read per opened group, at most 4 in flight per tab. Pool check: `AddNpgsqlDbContext` sets only `DisableRetry`, so Npgsql's default `Maximum Pool Size` of 100 applies per API process, and no limiter bounds requests in flight. 4 per tab is small for one user, but the cap is a browser promise: it multiplies by tabs and users; a script ignores it. **A server-side limit is needed:** a concurrency limiter on the group and cell read family, per user (4 to 6) plus one global limit well under the pool (about 40, a short queue), 429 when full; numbers are feat-048's.
 - **Owed to feat-048:** the cursor (opaque `nextCursor`, forward only) deviates from ADR-0014; its short ADR or amendment is feat-048's, not ADR-0032's.
