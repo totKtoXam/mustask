@@ -1,4 +1,4 @@
-# US-6: Work items across projects, and in the project's section
+# US-6: «Рабочие элементы» at every level: organization, department, team, project
 
 - story: US-6
 - depends-on: US-1, US-4
@@ -31,9 +31,16 @@ Scenario: The project's section is the same list fixed to the project (BR-NV-12)
 
 Scenario: Filtering by team is the team selector (BR-MX-9; mod-017 BR-OT-8; mod-020; Q-6 A)
   When Olga, on the organization's list, chooses MARS in the team selector
-  Then MARS's menu opens, and there is no «Рабочие элементы» in it; MARS's «Канбан» and «Бэклог» span its projects
+  Then MARS's menu opens at the same entry, «Рабочие элементы», listing MARS's items across its projects (MSK-1, BET-1, FIN-1); MARS's «Канбан» and «Бэклог» span its projects
   And the organization-wide list under a chosen team or department is reached by setting the selectors to «все», which shows every item again, with the page back at 1
   And with A chosen and MARS in the team selector, A's «Рабочие элементы» lists only MSK-1, the address carries `teamId`, and a link opens the narrowed list; the filter-bar option «Без команды» on A's list shows only MSK-3 and is exclusive with a chosen team
+
+Scenario: The same list at department and team level (BR-NV-12, BR-NV-17; human, gate-2)
+  When Olga chooses «Логистика» in the department selector and opens «Рабочие элементы», then chooses MARS in the team selector
+  Then the first shows the items of A and B only (MSK-1, MSK-2, MSK-3, BET-1), each with its project and owning team, 50 to a page, in the order of the organization's list
+  And the second shows MARS's items in A and B (MSK-1, BET-1): the team is the most specific object, the department narrows it to the projects placed in it, and the list says «сужено: команда MARS, департамент Логистика»
+  And with «все» in the department, MARS's list holds MSK-1, BET-1 and FIN-1, and a card opens in its own project
+  And the filter bar has no «Команда» at any of these levels, only «Без команды» on a project's list
 
 Scenario: Feat-003's filters are on both lists (BR-NE-8; BR-WS-1..-7)
   When Olga types «оплат» in «Поиск» and chooses «Исполнитель» and «Статус» on the organization's list and then on A's section

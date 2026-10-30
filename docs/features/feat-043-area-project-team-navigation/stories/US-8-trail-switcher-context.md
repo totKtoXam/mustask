@@ -17,22 +17,26 @@ Scenario: The trail is four selectors (BR-NV-10; gate-2)
   Then the header trail reads «Ромашка» / «все» / «все» / «все» as four selectors in the order organization, department, team, project, each choosable
   And choosing a value in one sets it, shows it, and rebuilds the left menu to the sections of the most specific chosen object (US-1)
 
-Scenario: Each selector offers the objects the user may see, narrowed by the others (BR-NV-17; Q-2 A)
+Scenario: A selector lists the fitting values first, then «Остальные» (BR-NV-17; Q-2 A; D-7)
   When Olga opens the project selector with «Логистика» chosen in the department selector
-  Then it offers «все», A and B, and not C or D
-  And with MARS also chosen it still offers A and B, and with VENUS in place of MARS it offers A only
-  And the team selector with A chosen offers «все», MARS and VENUS, the user's own team first, then the others by name; with «Финансы» chosen it offers «все» and MARS
-  And the department selector with A chosen offers «все» and «Логистика», and none offers project nodes, sub-areas, deactivated or deleted objects, or an object of «Другая»
+  Then it lists «все», then A and B, then a group «Остальные» with C and D
+  And with VENUS also chosen the fitting group is A, and B moves to «Остальные»
+  And the team selector with A chosen lists «все», then MARS and VENUS (the user's own team first, then by name), then «Остальные» with JUPITER; with «Финансы» chosen the fitting group is MARS
+  And the department selector with A chosen lists «все», «Логистика», then «Остальные» with «Финансы»
+  And no selector offers a project node, a sub-area, a deactivated or deleted object, or an object of «Другая», fitting or not
 
-Scenario: A chosen value the others no longer fit resets to «все» with a notice (BR-NV-17)
+Scenario: Choosing from «Остальные» resets what no longer fits, with a notice (BR-NV-17; D-7)
   Given the selection is «Логистика» / MARS / A
-  When Olga chooses «Финансы» in the department selector
-  Then the project selector resets to «все» because A is not in «Финансы», MARS stays, and she sees «Выбор сброшен: проект A.»
+  When Olga chooses «Финансы» in the department selector (it is in «Остальные»)
+  Then the project selector resets to «все» because A is not in «Финансы», the team MARS stays because it is linked to «Финансы» through C, and she sees «Выбор сброшен: проект A.»
+  And choosing a fitting value resets nothing and shows no notice
+  And when two selectors reset, the notice names both, «Выбор сброшен: команда MARS, проект A.»
 
-Scenario: «все» is no narrowing (BR-NV-17; Q-3 A)
+Scenario: «все» is no narrowing, and a chosen department narrows work-item views (BR-NV-17, BR-NV-20)
   When Olga has MARS in the team selector and «все» in the project selector, and opens «Канбан»
   Then the board spans MARS's projects, and after she chooses A it shows MARS's items in A only
-  And with A chosen and «все» in the team selector, A's «Рабочие элементы» show every item of A, and with only a department chosen no work-item view is narrowed by it
+  And with A chosen and «все» in the team selector, A's «Рабочие элементы» show every item of A
+  And with only «Логистика» chosen, its three sections hold the items of A and B only, and with MARS also chosen they hold MARS's items in A and B
 
 Scenario: Choosing a value rebuilds the menu and keeps the section where it can (BR-NV-10; Q-4 A)
   Given Olga is on MARS's «Бэклог» at the level «Истории»
@@ -51,9 +55,9 @@ Scenario: The organization selector (BR-NV-16; Q-5 A)
   Then it lists her active organizations by name and ends with «Все организации»
   And choosing «Другая» opens its «Обзор» with «все» in the other three, and «Все организации» clears all four
 
-Scenario: The trail names the selection, the entry and the section (BR-NV-4)
-  When Olga opens the node page of «Склад» from «Области»
-  Then the selectors read «Ромашка» / «Логистика» / «все» / A, the menu marks «Структура», and the page title trail reads «Структура / Склад»
+Scenario: The selectors name the selection, the menu the entry (BR-NV-4)
+  When Olga opens «Склад» from «Области»
+  Then the selectors read «Ромашка» / «Логистика» / «все» / A, the menu marks «Структура», and the page path reads «Логистика / A / Склад»
   And no trail or menu puts a team under a project or a project under a department in «Проекты» or «Команды»
 
 Scenario: Typing narrows a selector at volume (BR-NV-9)

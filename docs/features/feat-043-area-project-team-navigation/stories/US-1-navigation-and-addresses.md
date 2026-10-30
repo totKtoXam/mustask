@@ -14,14 +14,15 @@ Cast: organization «Ромашка» with Ann «Администратор», O
 ```gherkin
 Scenario: With nothing chosen the menu holds the organization's entries (BR-NV-1; BR-MX-27)
   When Olga opens «Ромашка» with «все» in department, team and project
-  Then the left menu shows «Обзор», «Рабочие элементы», «Области», «Проекты», «Команды», «Участники» and, last, «Настройки», in this order
-  And «Канбан» and «Бэклог» are not in it
+  Then the left menu shows «Обзор», «Рабочие элементы», «Канбан», «Бэклог», «Области», «Проекты», «Команды», «Участники» and, last, «Настройки», in this order
+  And «Канбан» and «Бэклог» open the aggregate views of every active project (US-10)
 
 Scenario: The menu is the sections of what is chosen (BR-NV-1; gate-2)
   When Olga chooses project A in the project selector, then removes it and chooses MARS in the team selector, then the department «Логистика»
   Then with A the menu reads «Общие», «Структура», «Рабочие элементы», «Канбан», «Бэклог», «Команды», «Настройки»
-  And with MARS it reads «Обзор», «Канбан», «Бэклог», «Проекты», «Участники и доступ», «Настройки»
-  And with «Логистика» it reads «Обзор», «Проекты», «Команды», «Настройки», and no choice needed a list to be opened first
+  And with MARS it reads «Обзор», «Рабочие элементы», «Канбан», «Бэклог», «Проекты», «Участники и доступ», «Настройки»
+  And with «Логистика» it reads «Обзор», «Рабочие элементы», «Канбан», «Бэклог», «Проекты», «Команды», «Настройки», and no choice needed a list to be opened first
+  And «Рабочие элементы», «Канбан» and «Бэклог» are in the menu at every level
 
 Scenario: Opening an entry opens its page and marks it (BR-NV-1)
   When Olga chooses «Команды» in the menu
@@ -93,8 +94,8 @@ Scenario: A page that has no context keeps its address (ADR-0024 § 2)
   Then the page opens at its present address, with no organization in it, in the shell
 
 Scenario: Existing section addresses stand (BR-NV-2)
-  When Olga opens MARS's and A's boards and backlogs
-  Then they open at `…/teams/<MARS>/boards/<level>`, `…/teams/<MARS>/backlogs/<level>`, `…/projects/<A>/boards/<level>` and `…/projects/<A>/backlogs/<level>` as they do today, and a card opens at `…/projects/<A>/workitems/<identifier>`
+  When Olga opens MARS's and A's boards and backlogs, «Логистика»'s and the organization's
+  Then the department's open at `…/areas/<Логистика>/boards/<level>` and `…/areas/<Логистика>/backlogs/<level>`, the organization's at `…/boards/<level>` and `…/backlogs/<level>`, and the team's and the project's open at `…/teams/<MARS>/boards/<level>`, `…/teams/<MARS>/backlogs/<level>`, `…/projects/<A>/boards/<level>` and `…/projects/<A>/backlogs/<level>` as they do today, and a card opens at `…/projects/<A>/workitems/<identifier>`
 
 Scenario: The shell is on the UI kit (OQ-5 A; tech-019)
   When the shell's top bar, navigation and page header are read

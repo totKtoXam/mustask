@@ -50,7 +50,7 @@ Scenario: «Параметры» of the project hold name, description and the d
 Scenario: The default team affects creation only again (BR-NE-9; BR-MX-11)
   Given A's default team is VENUS and Olga has «все» in the team selector
   When Olga chooses A and opens the team selector
-  Then it offers A's teams with Olga's own team first, and VENUS's mark in A's «Команды» does not move the selector, which stays «все»
+  Then it lists A's teams first, with Olga's own team first among them, then «Остальные», and VENUS's mark in A's «Команды» does not move the selector, which stays «все»
   And a new item created from A's «Рабочие элементы» starts with the owning team VENUS (BR-MX-10)
 
 Scenario: A project is deactivated from «Проекты» and has no page then (BR-NV-13; BR-NV-14)
@@ -69,6 +69,6 @@ Scenario: The project's sections for a reader (BR-NV-3)
 
 Scenario: The project's board and backlog open from its page (BR-NV-1)
   When Olga opens A's «Канбан» and «Бэклог»
-  Then she sees the project's board and backlog as before, each with the level drop-down and the «Команда» filter in the address (mod-020), and the entries «Бэклог» and «Канбан» are in the menu only once a project or a team is chosen
+  Then she sees the project's board and backlog as before, each with the level drop-down and the «Команда» filter in the address (mod-020), and the entries «Бэклог» and «Канбан» are in the menu at every level, and with a team also chosen the project's views hold that team's items only (BR-NV-17)
   And a card opens in A over the page, as it does today
 ```

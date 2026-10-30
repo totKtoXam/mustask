@@ -14,7 +14,7 @@ Cast as US-2: departments «Логистика» (project nodes A and B, linked 
 ```gherkin
 Scenario: A department's page (BR-NV-3; BR-AW-0, BR-AW-6)
   When Olga chooses «Логистика» in the department selector
-  Then the left menu holds «Обзор», «Проекты», «Команды» and, last, the derived «Настройки» (BR-NV-18), and the page opens at «Обзор»
+  Then the left menu holds «Обзор», «Рабочие элементы», «Канбан», «Бэклог» (US-6, US-10), «Проекты», «Команды» and, last, the derived «Настройки» (BR-NV-18), and the page opens at «Обзор»
   And «Обзор» shows its description, that it stands at the top level, and the numbers of its projects (2) and teams (2), each opening its section
   And «Проекты» lists the project nodes A and B once each, by name, each opening the project's page
   And «Команды» lists MARS and VENUS, the area–team links of the department, each opening the team's page

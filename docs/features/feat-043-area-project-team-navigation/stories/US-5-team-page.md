@@ -14,7 +14,7 @@ Cast as US-2: MARS is linked to projects A, B and C, VENUS to A, JUPITER to none
 ```gherkin
 Scenario: A team's sections (BR-NV-3; US-10 of doc-012)
   When Olga chooses MARS in the team selector
-  Then the left menu holds «Обзор», «Канбан», «Бэклог», «Проекты», «Участники и доступ» and, last, the derived «Настройки», in this order, and MARS's «Обзор» opens
+  Then the left menu holds «Обзор», «Рабочие элементы», «Канбан», «Бэклог», «Проекты», «Участники и доступ» and, last, the derived «Настройки», in this order, and MARS's «Обзор» opens
   And there is no capacity, analytics or «Спринты» section
 
 Scenario: «Обзор» shows the team and its departments (BR-NV-4)
@@ -65,5 +65,5 @@ Scenario: A deleted team answers not found (BR-NV-7)
 
 Scenario: A reader sees the team and no command (BR-NV-3)
   When Vera chooses MARS
-  Then her menu holds «Обзор», «Канбан», «Бэклог», «Проекты» and «Участники и доступ» with no command, her «Настройки» holds no «Команда» group, and the address of MARS's «Параметры» shows «Доступ ограничен»
+  Then her menu holds «Обзор», «Рабочие элементы», «Канбан», «Бэклог», «Проекты» and «Участники и доступ» with no command, her «Настройки» holds no «Команда» group, and the address of MARS's «Параметры» shows «Доступ ограничен»
 ```
