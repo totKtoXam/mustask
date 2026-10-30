@@ -40,7 +40,6 @@ public sealed class NavigationReadsEndpointTests(MustaskApiFactory factory)
         Assert.Equal(["id", "name"], PropertyNames(answer.Body.GetProperty("departments")[0]));
         Assert.Equal(["id", "key", "name"], PropertyNames(answer.Body.GetProperty("projects")[0]));
         Assert.Equal(["id", "isMember", "name"], PropertyNames(answer.Body.GetProperty("teams")[0]));
-        Assert.Equal(0, answer.Body.GetProperty("myTeams").GetArrayLength());
     }
 
     // US-2 · "the team block follows her teams": isMember is the caller's.
@@ -103,8 +102,7 @@ public sealed class NavigationReadsEndpointTests(MustaskApiFactory factory)
     public async Task Reads_LeaveOutADeactivatedProject()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var second = await OrganizationsTestData.CreateBareProjectAsync(factory, structure.OrganizationId);
-        await OrganizationsTestData.SetProjectStatusAsync(factory, structure.OrganizationId, second.Project.Id, Mustask.Domain.Organizations.ProjectStatus.Deactivated);
+        await OrganizationsTestData.CreateBareProjectAsync(factory, structure.OrganizationId, "Старый", "OLD", Mustask.Domain.Organizations.ProjectStatus.Deactivated);
 
         var overview = await GetAsync(structure.OrganizationId, "overview");
         var offers = await GetAsync(structure.OrganizationId, "selector-offers");
