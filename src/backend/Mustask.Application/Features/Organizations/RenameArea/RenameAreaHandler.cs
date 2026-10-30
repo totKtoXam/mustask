@@ -6,31 +6,27 @@ using Mustask.Shared.Exceptions;
 
 namespace Mustask.Application.Features.Organizations.RenameArea;
 
+/// <summary>The command of <c>PUT /api/organizations/{organizationId}/areas/{areaId}/name</c>.</summary>
+public sealed record RenameAreaCommand(string? OrganizationId, string? AreaId, string? Name);
+
+/// <summary>The area as every area write returns it (mod-018 api-contract § 1, <c>Area</c>).</summary>
+public sealed record AreaResponse(Guid Id, Guid? ParentId, string Type, Guid? ProjectId, string Name, string? Description, string Path);
+
+/// <summary>The handler's outcome: the body of the answer.</summary>
+public sealed record RenameAreaResult(AreaResponse Response);
+
 /// <summary>
-/// <c>PUT /api/organizations/{organizationId}/projects/{projectId}/areas/{areaId}/name</c>
-/// (US-5 "A child area is renamed" and "Sibling names are unique"). The root is
-/// renamed only with its project (BR-M1-11), so it is refused here; a child keeps
-/// its children (mod-017: an area has no owner).
+/// <c>PUT /api/organizations/{organizationId}/areas/{areaId}/name</c> (mod-018 api-contract § 2, US-3): the area's name, unique among
+/// its siblings ignoring case and surrounding spaces. A new name equal to the area's own is fine (the case may change). The paths of
+/// the whole subtree change with it; the answer carries the area's own.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>The order of answers</b> (plan-backend § 5.3, api-contract § 4.3), one
-/// numbered step each below: the address from the outside in, down to the area;
-/// the rule about the addressed area alone (the root is fixed); the values in the
-/// body; the references in the body (none here); the sibling-name pre-check; the
-/// save. So a request for the root with an empty name answers
-/// <c>area.root_is_fixed</c>, and one for an unknown area answers
-/// <c>area.not_found</c> whatever the name.
-/// </para>
-/// <para>
-/// <b>Locks</b> (plan-backend § 8.2): the area <c>FOR UPDATE</c>, and nothing
-/// else. The project is not locked: a write beneath only reads its containers'
-/// status (ADR-0026 rule 8). The rename does not touch the parent link, so the
-/// foreign key is not re-checked and the update waits for nobody but another
-/// writer of the same row.
-/// </para>
+/// <b>The order of answers</b>: the organization; the area (404); a deactivated project (404 project.not_found); a project's node (409 root_is_fixed); the name (400); the sibling name (409). <b>Locks</b>: the area
+/// <c>FOR UPDATE</c> only — a rename changes no shape, so it does not take the tree lock; a concurrent move of the area waits for it
+/// and a concurrent creation of the same name under the same parent is caught by the sibling index.
 /// </remarks>
 public sealed class RenameAreaHandler(
+    IOrganizationReadModel organizations,
     IProjectRepository projects,
     IAreaRepository areas,
     IUnitOfWork unitOfWork)
@@ -39,33 +35,28 @@ public sealed class RenameAreaHandler(
         await unitOfWork.ExecuteInTransactionAsync(
             async ct =>
             {
-                // 1. The address, from the outermost level in. The scoped check has answered for the
-                // organization already; the handler parses it again only to name its container in the next read.
-                if (!AddressedId.TryParse(command.OrganizationId, out var organizationId))
+                // 1. The address, outside in. The lock answers whether the area is there.
+                if (!AddressedId.TryParse(command.OrganizationId, out var organizationId)
+                    || await organizations.FindActiveAsync(organizationId, ct) is null)
                 {
                     throw new NotFoundException(OrganizationErrorCodes.OrganizationNotFound);
                 }
 
-                if (!AddressedId.TryParse(command.ProjectId, out var projectId)
-                    || !await projects.IsReachableAsync(organizationId, projectId, ct))
-                {
-                    throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
-                }
+                var area = AddressedId.TryParse(command.AreaId, out var areaId)
+                    ? await areas.LockForUpdateAsync(organizationId, areaId, ct)
+                    : null;
 
-                if (!AddressedId.TryParse(command.AreaId, out var areaId))
+                if (area is null)
                 {
                     throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
                 }
 
-                // The area of this project, locked and loaded as the lock holder left it: an area deleted meanwhile
-                // is gone here, and answers as an unknown one.
-                var area = await areas.LockForUpdateAsync(projectId, areaId, ct)
-                    ?? throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
+                // 2. Rules about the addressed node alone: a deactivated project's node and sub-areas are read-only (BR-AW-10), and a
+                // project's node is renamed only with its project (OQ-10 A).
+                await AreaRequests.EnsureProjectActiveAsync(projects, organizationId, area, ct);
+                area.EnsureNotProjectNode();
 
-                // 2. Rules about the addressed area alone: the root is renamed only with its project (BR-M1-11).
-                area.EnsureNotRoot();
-
-                // 3. Values in the body: one ValidationException with every field reason.
+                // 3. The value in the body.
                 if (!EntityName.TryCreate(command.Name, out var name))
                 {
                     throw new ValidationException(
@@ -73,25 +64,18 @@ public sealed class RenameAreaHandler(
                         new Dictionary<string, IReadOnlyList<FieldError>> { ["name"] = [EntityName.LengthReason] });
                 }
 
-                // 4. References in the body: none, the name is the only field.
-
-                // 5. The uniqueness pre-check (BR-M1-12): names compare ignoring case and surrounding spaces, among the
-                // children of the same parent. The area itself is left out, so its own name in another case is free.
-                // A child always has a parent: the root was refused in step 2.
-                var parentId = area.ParentId!.Value;
-
-                if (await areas.IsSiblingNameTakenAsync(parentId, name.Normalized, exceptId: area.Id, ct))
+                // 5. The sibling name, never against the area's own current name.
+                if (await areas.IsSiblingNameTakenAsync(organizationId, area.ParentId, name.Normalized, area.Id, ct))
                 {
                     throw new ConflictException(OrganizationErrorCodes.AreaNameTaken);
                 }
 
                 area.Rename(name);
-
-                // 6. Save. A concurrent creation or rename to the same sibling name that committed first fails this update
-                // on the sibling index, and the repository answers it with the pre-check's code (plan-backend § 6.3).
                 await areas.SaveAsync(ct);
 
-                return new RenameAreaResult(new AreaResponse(area.Id, area.ProjectId, parentId, area.Name));
+                var tree = new AreaTree(await areas.GetNodesAsync(organizationId, ct));
+
+                return new RenameAreaResult(new AreaResponse(area.Id, area.ParentId, AreaRequests.TypeName(area.Type), area.ProjectId, area.Name, area.Description, tree.PathOf(area.Id)));
             },
             cancellationToken);
 }

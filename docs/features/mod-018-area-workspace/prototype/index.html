@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mod-018: типизированное дерево областей (прототип)</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font: 14px/20px "Segoe UI", Arial, sans-serif; background: #f3f2f1; margin: 0; color: #201f1e; }
+  header.top { background: #fff; border-bottom: 1px solid #e1dfdd; padding: 8px 16px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; }
+  header.top b { margin-right: 6px; } header.top span { color: #605e5c; margin-left: 10px; }
+  .shell { display: flex; align-items: flex-start; }
+  nav { width: 200px; flex: none; padding: 16px 8px 16px 16px; font-size: 13px; }
+  nav h4 { margin: 8px 0 4px; font-size: 11px; color: #605e5c; text-transform: uppercase; }
+  nav a { display: block; padding: 4px 8px; border-radius: 4px; color: inherit; text-decoration: none; }
+  nav a.cur { background: #fff; font-weight: 600; box-shadow: inset 3px 0 0 #0078d4; }
+  main { flex: 1; min-width: 0; padding: 16px 24px 80px; }
+  main.narrow { max-width: 640px; }
+  button { font: inherit; color: inherit; background: #edebe9; border: 0; border-radius: 4px; padding: 4px 12px; cursor: pointer; }
+  button:hover { background: #e1dfdd; }
+  button.primary { background: #0078d4; color: #fff; }
+  button.danger { background: #a4262c; color: #fff; }
+  button.ghost { background: none; padding: 2px 6px; }
+  button[aria-pressed="true"] { background: #fff; box-shadow: inset 0 -2px 0 #0078d4; }
+  button[aria-disabled="true"], button:disabled { opacity: .5; cursor: default; }
+  :focus-visible { outline: 2px solid #0078d4; outline-offset: -1px; }
+  a.l { color: #0f5fb0; text-decoration: none; cursor: pointer; } a.l:hover { text-decoration: underline; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0; } h2 { font-size: 15px; font-weight: 600; margin: 0; }
+  .head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; } .head h1 { flex: 1; min-width: 160px; }
+  .card { background: #fff; border-radius: 4px; box-shadow: 0 1px 6px rgba(0,0,0,.18); }
+  table { border-collapse: collapse; width: 100%; } th { text-align: left; font-weight: 400; font-size: 12px; color: #605e5c; padding: 6px 12px; }
+  td { padding: 4px 12px; height: 36px; } tbody tr:hover { background: #f8f7f6; } tbody tr.sel { background: #e8f0fb; }
+  tbody tr[tabindex] { cursor: default; } td.act { width: 48px; text-align: right; } td.muted, .muted { color: #605e5c; }
+  .nm { display: flex; align-items: center; gap: 2px; min-width: 0; } .tg { width: 24px; flex: none; text-align: center; cursor: pointer; border: 0; background: none; padding: 0; }
+  .tag { display: inline-block; background: #edebe9; border-radius: 10px; padding: 0 8px; font-size: 12px; margin-left: 8px; }
+  .facts { display: grid; grid-template-columns: 180px 1fr; gap: 6px 12px; padding: 12px 16px; margin-bottom: 24px; } .facts dt { color: #605e5c; font-size: 12px; } .facts dd { margin: 0; white-space: pre-wrap; }
+  section.sec { margin-bottom: 24px; } section.sec > .head { border-bottom: 1px solid #e1dfdd; padding-bottom: 6px; } .count { color: #605e5c; font-weight: 400; margin-left: 6px; }
+  .empty { text-align: center; padding: 40px 16px; } .empty p { color: #605e5c; margin: 4px 0 12px; } .inl { padding: 10px 12px; color: #605e5c; }
+  .skel { height: 14px; margin: 12px; border-radius: 4px; background: linear-gradient(90deg,#edebe9,#f8f7f6,#edebe9); }
+  .note { padding: 8px 12px; border-radius: 4px; margin: 8px 0; } .note.err { background: #fde7e9; } .note.warn { background: #fff4ce; } .note.info { background: #e8f0fb; }
+  .layer { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: flex-start; justify-content: center; padding-top: 6vh; z-index: 20; }
+  .dlg { background: #fff; border-radius: 6px; width: min(560px, calc(100vw - 24px)); max-height: 86vh; overflow: auto; padding: 16px 20px; box-shadow: 0 8px 30px rgba(0,0,0,.35); }
+  .dlg h2 { font-size: 17px; margin-bottom: 10px; } .dlg .foot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  .fld { margin: 10px 0; } .fld label { display: block; font-size: 12px; color: #605e5c; margin-bottom: 2px; } .fld .hint { font-size: 12px; color: #605e5c; margin-top: 2px; } .fld .e { font-size: 12px; color: #a4262c; margin-top: 2px; }
+  .fld input[type=text], .fld textarea, .fld select { width: 100%; font: inherit; padding: 4px 8px; border: 1px solid #8a8886; border-radius: 4px; background: #fff; }
+  .fld.bad input, .fld.bad select, .fld.bad textarea { border-color: #a4262c; }
+  .chosen { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; } .chosen .tag { margin: 0; background: #e1dfdd; }
+  ul.opts { list-style: none; margin: 2px 0 0; padding: 4px 0; border: 1px solid #c8c6c4; border-radius: 4px; max-height: 150px; overflow: auto; }
+  ul.opts li { padding: 3px 10px; cursor: pointer; display: flex; gap: 8px; } ul.opts li:hover { background: #f3f2f1; } ul.opts li.hintrow { color: #605e5c; cursor: default; }
+  ul.lst { margin: 4px 0 8px; padding-left: 20px; max-height: 120px; overflow: auto; }
+  .menu { position: absolute; z-index: 10; background: #fff; border-radius: 4px; box-shadow: 0 4px 14px rgba(0,0,0,.3); padding: 4px 0; min-width: 210px; }
+  .menu button { display: block; width: 100%; text-align: left; border-radius: 0; background: none; padding: 5px 14px; } .menu button:hover { background: #f3f2f1; } .menu .d { color: #a4262c; }
+  #notice { position: fixed; left: 16px; bottom: 16px; background: #323130; color: #fff; padding: 8px 14px; border-radius: 4px; display: none; z-index: 30; }
+  .proto { font-size: 12px; color: #605e5c; margin: 0 0 12px; max-width: 720px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <b>mod-018</b> Роль:
+  <button data-set="role=admin">Администратор</button><button data-set="role=member">Участник</button>
+  <span>Данные «Областей»:</span>
+  <button data-set="data=ok">Обычные</button><button data-set="data=empty">Пусто</button><button data-set="data=loading">Загрузка</button><button data-set="data=error">Ошибка</button>
+  <span>Ширина:</span><button data-set="width=wide">Обычная</button><button data-set="width=narrow">640 px</button>
+</header>
+<div class="shell">
+  <nav aria-label="Настройки">
+    <h4>Организация</h4>
+    <a href="#">Общие</a><a href="#">Проекты</a><a href="#">Команды</a><a href="#" id="navAreas" class="cur" data-go="tree">Области</a><a href="#">Участники</a><a href="#">Процесс</a>
+    <h4>Проект</h4><a href="#">Общие</a><a href="#">Команды</a><a href="#" data-go="sub">Области</a>
+  </nav>
+  <main id="main"></main>
+</div>
+<div id="layer"></div>
+<div id="notice" role="status"></div>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const TOP = '__top__', MAX_DEPTH = 10, TYPE = { dept: ['▣', 'Департамент'], project: ['▢', 'Проект'], area: ['◇', 'Область'] };
+const nodes = {
+  inf: { id: 'inf', name: 'Инфраструктура', type: 'dept', parent: null, desc: '' },
+  log: { id: 'log', name: 'Логистика', type: 'dept', parent: null, desc: 'Склады и перевозки' },
+  fin: { id: 'fin', name: 'Финансы', type: 'dept', parent: null, desc: '' },
+  alpha: { id: 'alpha', name: 'Alpha', type: 'project', parent: 'log', desc: '', key: 'ALP', active: true },
+  beta: { id: 'beta', name: 'Beta', type: 'project', parent: 'log', desc: '', key: 'BET', active: true },
+  gamma: { id: 'gamma', name: 'Gamma', type: 'project', parent: 'fin', desc: '', key: 'GAM', active: false },
+  plat: { id: 'plat', name: 'Платформа', type: 'area', parent: 'alpha', desc: 'Складское ПО' },
+  api: { id: 'api', name: 'API', type: 'area', parent: 'plat', desc: '' },
+  otch: { id: 'otch', name: 'Отчёты', type: 'area', parent: 'alpha', desc: '' },
+};
+const teams = { mars: 'MARS', venus: 'VENUS', jupiter: 'JUPITER' };
+const deptTeams = { log: ['mars'], fin: ['mars', 'venus'] };       // area-team links: departments only (OQ-8 A)
+const projTeams = { alpha: ['mars'], beta: [], gamma: ['venus'] }; // feat-028 project-team links (OQ-11 A)
+let seq = 0;
+const st = { role: 'admin', data: 'ok', width: 'wide', view: { kind: 'tree' }, expanded: null, selected: null, dlg: null, menu: null };
+const admin = () => st.role === 'admin';
+const byName = (a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase(), 'ru');
+const kids = (id) => Object.values(nodes).filter((a) => a.parent === id).sort(byName);
+const path = (id) => (nodes[id].parent ? path(nodes[id].parent) + ' / ' : '') + nodes[id].name;
+const desc = (id) => kids(id).flatMap((k) => [k.id, ...desc(k.id)]);
+const level = (id) => (nodes[id].parent ? 1 + level(nodes[id].parent) : 1);
+const height = (id) => 1 + Math.max(0, ...kids(id).map((k) => height(k.id)));
+const projectOf = (id) => (nodes[id].type === 'project' ? id : nodes[id].type === 'area' ? projectOf(nodes[id].parent) : null);
+const frozen = (id) => { const p = projectOf(id); return p !== null && !nodes[p].active; }; // OQ-6 A: read-only
+const notice = (t) => { const n = $('#notice'); n.textContent = t; n.style.display = 'block'; clearTimeout(n.t); n.t = setTimeout(() => (n.style.display = 'none'), 4000); };
+const link = (id) => `<a class="l" data-go="node:${id}" href="#">${esc(nodes[id].name)}</a>`;
+const typeMark = (t) => `<span class="muted"><span aria-hidden="true">${TYPE[t][0]}</span> ${TYPE[t][1]}</span>`;
+const tagOff = (n) => (n.type === 'project' && !n.active ? '<span class="tag">деактивирован</span>' : '');
+function menuBtn(label, key) { return `<button class="ghost" data-menu="${key}" aria-label="${esc(label)}" aria-haspopup="menu">⋮</button>`; }
+function skeleton(n = 4) { return `<div class="card" role="status" aria-label="Загрузка данных">${'<div class="skel"></div>'.repeat(n)}</div>`; }
+function expandedSet() { return st.expanded || new Set(Object.keys(nodes).length <= 100 ? Object.keys(nodes).filter((id) => kids(id).length) : []); }
+function rowItems(id) { // the per-type row menu of design section 3
+  const n = nodes[id]; if (!admin() || frozen(id)) return [];
+  if (n.type === 'dept') return [['rename', 'Переименовать'], ['describe', 'Изменить описание'], ['delete', 'Удалить департамент', 1]];
+  if (n.type === 'project') return [['sub', 'Новая вложенная область'], ['describe', 'Изменить описание'], ['move', 'Переместить']];
+  return [['sub', 'Новая вложенная область'], ['rename', 'Переименовать'], ['describe', 'Изменить описание'], ['move', 'Переместить'], ['delete', 'Удалить область', 1]];
+}
+
+/* ---------- views ---------- */
+function treeView() {
+  const set = expandedSet(), head = (c) => `<div class="head"><h1>Области</h1>${c}</div>`;
+  if (st.data === 'loading') return head('') + skeleton(5);
+  if (st.data === 'error') return head('') + `<div class="note err">Не удалось загрузить данные. <button data-act="retry">Повторить</button></div>`;
+  const add = admin() ? `<button class="primary" data-act="createDept">+ Новый департамент</button>` : '';
+  if (st.data === 'empty') return head(add) + `<div class="card empty"><h2>В организации пока нет департаментов и проектов</h2><p>${admin() ? 'Департамент объединяет проекты и команды. Создайте первый кнопкой «Новый департамент»; проекты появляются в разделе «Проекты».' : 'Области создаёт администратор организации.'}</p>${add}</div>`;
+  const withKids = Object.keys(nodes).filter((id) => kids(id).length), allOpen = withKids.every((id) => set.has(id));
+  const rows = [], walk = (parent, lvl) => kids(parent).forEach((a) => {
+    const has = kids(a.id).length > 0, open = set.has(a.id), items = rowItems(a.id);
+    rows.push(`<tr role="row" tabindex="0" data-row="${a.id}" aria-level="${lvl}" ${has ? `aria-expanded="${open}"` : ''} class="${st.selected === a.id ? 'sel' : ''}"><td><div class="nm" style="padding-left:${(lvl - 1) * 24}px">${has ? `<button class="tg" data-toggle="${a.id}" tabindex="-1" aria-label="${open ? 'Свернуть' : 'Развернуть'} «${esc(a.name)}»">${open ? '▾' : '▸'}</button>` : '<span class="tg"></span>'}<a class="l" tabindex="-1" data-go="node:${a.id}" href="#">${esc(a.name)}</a>${tagOff(a)}</div></td><td>${typeMark(a.type)}</td><td class="muted">${esc(a.desc)}</td>${admin() ? `<td class="act">${items.length ? menuBtn('Действия: ' + a.name, 'row:' + a.id) : ''}</td>` : ''}</tr>`);
+    if (has && open) walk(a.id, lvl + 1);
+  });
+  walk(null, 1);
+  return head((withKids.length ? `<button data-act="toggleAll">${allOpen ? 'Свернуть всё' : 'Развернуть всё'}</button>` : '') + add) +
+    `<div class="card"><table role="treegrid" aria-label="Области"><thead><tr><th>Название</th><th>Тип</th><th>Описание</th>${admin() ? '<th></th>' : ''}</tr></thead><tbody>${rows.join('')}</tbody></table></div>
+    <p class="proto">Организация не строка дерева (D-8 A). У департамента нет «Переместить»; у проекта нет «Переименовать» и «Удалить»; Gamma деактивирован: без меню. Клик по названию или Enter открывает страницу.</p>`;
+}
+function section(title, count, addLabel, addAct, body) {
+  return `<section class="sec"><div class="head"><h2>${title}<span class="count">(${count})</span></h2>${admin() && addLabel ? `<button data-act="${addAct}">+ ${addLabel}</button>` : ''}</div>${body}</section>`;
+}
+const tbl = (hdr, rows, act) => `<div class="card"><table><thead><tr>${hdr.map((h) => `<th>${h}</th>`).join('')}${act ? '<th></th>' : ''}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+function nodeView(id) {
+  const n = nodes[id];
+  if (!n) return `<div class="card empty"><h2>Область не найдена</h2><p>Проверьте адрес или вернитесь на главную.</p></div>`;
+  const ro = frozen(id), p = projectOf(id), items = rowItems(id), titles = { dept: 'Департамент', project: 'Проект', area: 'Область' };
+  const cmds = items.map((i) => `<button data-act="${i[0]}:${id}">${i[1]}</button>`).join('') + (n.type === 'project' && n.active ? `<button data-go="project:${id}">Открыть проект</button>` : '');
+  const place = n.type === 'dept' ? '<span class="muted">Организация</span>' : n.type === 'project' ? (n.parent ? link(n.parent) : '<span class="muted">Организация</span>') : '';
+  const facts = `<dt>Название</dt><dd>${esc(n.name)}${n.type === 'project' ? '<div class="muted">Название меняется вместе с проектом.</div>' : ''}</dd><dt>Тип</dt><dd>${typeMark(n.type)}</dd>` +
+    (n.type !== 'area' ? `<dt>Расположение</dt><dd>${place}</dd>` : `<dt>Родительская область</dt><dd>${link(n.parent)}</dd>`) +
+    (p ? `<dt>Проект</dt><dd><a class="l" data-go="project:${p}" href="#">${esc(nodes[p].name)} (${nodes[p].key})</a></dd>` : '') +
+    `<dt>Описание</dt><dd>${n.desc ? esc(n.desc) : '<span class="muted">Описание не задано</span>'}</dd>`;
+  const ch = kids(id);
+  const childSec = n.type === 'dept'
+    ? section('Проекты', ch.length, '', '', ch.length ? tbl(['Проект', 'Ключ'], ch.map((k) => `<tr><td>${link(k.id)}${tagOff(k)}</td><td>${k.key}</td></tr>`)) : '<div class="card inl">В департаменте пока нет проектов.</div>')
+    : section('Вложенные области', ch.length, ro ? '' : 'Новая вложенная область', 'sub:' + id, ch.length ? tbl(['Область', 'Описание'], ch.map((k) => `<tr><td>${link(k.id)}</td><td class="muted">${esc(k.desc)}</td></tr>`)) : '<div class="card inl">Вложенных областей пока нет.</div>');
+  let teamSec = '';
+  if (n.type === 'dept') { const t = deptTeams[id] || []; teamSec = section('Команды', t.length, 'Добавить команду', 'link:' + id, t.length ? tbl(['Команда'], t.map((x) => `<tr><td>${esc(teams[x])}</td>${admin() ? `<td class="act">${menuBtn('Ещё действия: ' + teams[x], 'unl:' + id + ':' + x)}</td>` : ''}</tr>`), admin()) : '<div class="card inl">К области не привязаны команды</div>'); }
+  if (n.type === 'project') { const t = projTeams[id] || []; teamSec = `<section class="sec"><div class="head"><h2>Команды<span class="count">(${t.length})</span></h2></div><p class="muted">Это те же связи, что в разделе «Команды» проекта.</p>${t.length ? tbl(['Команда'], t.map((x) => `<tr><td>${esc(teams[x])}</td></tr>`)) : '<div class="card inl">У проекта нет команд</div>'}</section>`; }
+  return `<div class="head"><h1>${titles[n.type]}: ${esc(n.name)}</h1>${cmds}</div>
+  ${ro ? `<div class="note info">Проект «${esc(nodes[p].name)}» деактивирован: область доступна только для чтения. Чтобы изменить её, восстановите проект в списке деактивированных проектов организации.</div>` : ''}
+  <dl class="facts card">${facts}</dl>${childSec}${teamSec}`;
+}
+function projectView(id) {
+  const n = nodes[id];
+  return `<div class="head"><h1>Общие</h1></div><dl class="facts card"><dt>Название</dt><dd>${esc(n.name)}</dd><dt>Ключ</dt><dd>${n.key}</dd>
+  <dt>Расположение</dt><dd>${n.parent ? link(n.parent) : '<span class="muted">Организация</span>'} ${admin() && n.active ? `<button data-act="move:${id}">Переместить</button>` : ''}</dd></dl>
+  <p class="proto">«Общие» проекта ${esc(n.name)}. <a class="l" data-go="tree" href="#">← к областям</a></p>`;
+}
+function subtreeView() { // the project's own «Области»: its node and below
+  const pid = 'alpha', rows = [], walk = (id, lvl) => { const a = nodes[id], items = rowItems(id); rows.push(`<tr><td><div class="nm" style="padding-left:${(lvl - 1) * 24}px">${link(id)}</div></td><td class="muted">${esc(a.desc)}</td>${admin() ? `<td class="act">${items.length ? menuBtn('Действия: ' + a.name, 'row:' + id) : ''}</td>` : ''}</tr>`); kids(id).forEach((k) => walk(k.id, lvl + 1)); };
+  walk(pid, 1);
+  return `<div class="head"><h1>Области</h1>${admin() ? `<button class="primary" data-act="sub:${pid}">+ Новая вложенная область</button>` : ''}</div>${tbl(['Область', 'Описание'], rows, admin())}<p class="proto">Области проекта Alpha: узел проекта и его вложенные области (маршрут проекта сохраняется).</p>`;
+}
+
+/* ---------- dialogs ---------- */
+function field(name, label, control, hint, err) { return `<div class="fld ${err ? 'bad' : ''}"><label for="f-${name}">${label}</label>${control}${err ? `<div class="e">${err}</div>` : hint ? `<div class="hint">${hint}</div>` : ''}</div>`; }
+function multi(name, label, options, hint, d) {
+  const chosen = d.pick[name] || new Set(), q = (d.q[name] || '').toLowerCase(), m = options.filter((o) => o.label.toLowerCase().includes(q));
+  const li = m.slice(0, 50).map((o) => `<li data-pick="${name}:${o.id}" role="option" aria-selected="${chosen.has(o.id)}"><span aria-hidden="true">${chosen.has(o.id) ? '☑' : '☐'}</span>${esc(o.label)}</li>`).join('') + (m.length ? '' : '<li class="hintrow">Ничего не найдено</li>');
+  const tags = [...chosen].map((id) => `<span class="tag">${esc(options.find((o) => o.id === id)?.label || id)} <button class="ghost" data-pick="${name}:${id}" aria-label="Убрать «${esc(options.find((o) => o.id === id)?.label || id)}»">×</button></span>`).join('');
+  return `<div class="fld"><label for="f-${name}">${label}</label><div class="chosen">${tags}</div><input type="text" id="f-${name}" data-q="${name}" value="${esc(d.q[name] || '')}" placeholder="Начните вводить название" autocomplete="off"><ul class="opts" role="listbox" aria-multiselectable="true" aria-label="${label}">${li}</ul>${hint ? `<div class="hint">${hint}</div>` : ''}</div>`;
+}
+const sel = (id, opts, cur, blank) => `<select id="f-${id}">${blank ? `<option value="">${blank}</option>` : ''}${opts.map((o) => `<option value="${o[0]}" ${o[0] === cur ? 'selected' : ''}>${esc(o[1])}</option>`).join('')}</select>`;
+const subtreeOf = (pid) => [pid, ...desc(pid)];
+function moveOffer(id) { // design 5.4, D-5 A: structural impossibilities and the type rule are never offered
+  const n = nodes[id];
+  if (n.type === 'project') return [...(n.parent ? [[TOP, 'Организация']] : []), ...Object.values(nodes).filter((x) => x.type === 'dept' && x.id !== n.parent).sort(byName).map((x) => [x.id, x.name])];
+  const ex = new Set([id, ...desc(id), n.parent]);
+  return subtreeOf(projectOf(id)).filter((x) => !ex.has(x)).sort((a, b) => path(a).localeCompare(path(b), 'ru')).map((x) => [x, path(x)]);
+}
+function dialogHtml() {
+  const d = st.dlg; if (!d) return '';
+  const btn = (primary, label, act, disabled) => `<button class="${primary || ''}" data-act="${act}" ${disabled ? 'aria-disabled="true"' : ''}>${label}</button>`;
+  const wrap = (title, body, foot) => `<div class="dlg" role="dialog" aria-modal="true" aria-label="${title}"><h2>${title}</h2>${d.alert ? `<div class="note err">${d.alert}</div>` : ''}${body}<div class="foot">${foot}</div></div>`;
+  const cancelSave = (label) => btn('', 'Отмена', 'close') + btn('primary', label, 'submit');
+  const nameField = (v) => field('name', 'Название *', `<input type="text" id="f-name" value="${esc(v || '')}" autofocus>`, 'От 1 до 100 символов.', d.err.name);
+  const descField = (v, rows, hint) => field('desc', 'Описание', `<textarea id="f-desc" rows="${rows}">${esc(v || '')}</textarea>`, hint, d.err.desc);
+  if (d.kind === 'createDept') return wrap('Новый департамент', nameField(d.name) + descField(d.desc, 2, 'Необязательно. Не более 2000 символов.') +
+    (admin() ? multi('t', 'Команды', Object.entries(teams).map(([id, label]) => ({ id, label })), 'Необязательно. Можно добавить позже.', d) : ''), cancelSave('Создать'));
+  if (d.kind === 'sub') {
+    const pid = projectOf(d.id);
+    return wrap('Новая вложенная область', nameField(d.name) + field('parent', 'Родительская область *', sel('parent', subtreeOf(pid).sort((a, b) => path(a).localeCompare(path(b), 'ru')).map((x) => [x, path(x)]), d.parent), `Область создаётся внутри проекта «${esc(nodes[pid].name)}».`, d.err.parent) + descField(d.desc, 2, 'Необязательно. Не более 2000 символов.'), cancelSave('Создать'));
+  }
+  if (d.kind === 'rename') return wrap(nodes[d.id].type === 'dept' ? 'Переименование департамента' : 'Переименование области', nameField(d.name), cancelSave('Сохранить'));
+  if (d.kind === 'describe') return wrap('Описание области', descField(d.desc, 3, 'Не более 2000 символов.'), cancelSave('Сохранить'));
+  if (d.kind === 'move') {
+    const n = nodes[d.id], c = desc(d.id).length, isP = n.type === 'project';
+    const txt = isP ? `Проект «${esc(n.name)}» переместится${c ? ` вместе со всеми вложенными областями: ${c}` : ''}. Рабочие элементы, команды и связи проекта не изменятся.` : `Область «${esc(n.name)}» переместится${c ? ` вместе со всеми вложенными областями: ${c}.` : '.'}`;
+    return wrap(isP ? 'Перемещение проекта' : 'Перемещение области', `<p>${txt}</p>` + field('parent', isP ? 'Новое расположение *' : 'Новая родительская область *', sel('parent', moveOffer(d.id), d.parent, 'Выберите место'), '', d.err.parent), btn('', 'Отмена', 'close') + btn('primary', 'Переместить', 'submit', !d.parent));
+  }
+  if (d.kind === 'delete') {
+    const n = nodes[d.id], ts = deptTeams[d.id] || [], kidsN = kids(d.id).length;
+    let body;
+    if (kidsN) body = `<div class="note warn">Нельзя удалить область, в которой есть проекты, вложенные области или рабочие элементы</div>`;
+    else if (n.type === 'area') body = `<p>Удалить область «${esc(n.name)}»? Восстановить область будет нельзя.</p>`;
+    else if (d.counting) body = skeleton(2);
+    else if (!ts.length) body = `<p>Удалить департамент «${esc(n.name)}»? Восстановить департамент будет нельзя.</p>`;
+    else body = `<p>Удалить департамент «${esc(n.name)}»? Его связи с командами будут удалены, сами команды не изменятся.</p><b>Команды (${ts.length})</b><ul class="lst" aria-label="Команды департамента">${ts.map((t) => `<li>${esc(teams[t])}</li>`).join('')}</ul><p>Восстановить департамент будет нельзя.</p>`;
+    return wrap(n.type === 'dept' ? 'Удаление департамента' : 'Удаление области', body, btn('', 'Отмена', 'close') + btn('danger', n.type === 'dept' ? 'Удалить департамент' : 'Удалить область', 'submit', kidsN || d.counting));
+  }
+  if (d.kind === 'link') {
+    const have = deptTeams[d.id] || [], opts = Object.entries(teams).filter(([id]) => !have.includes(id)).map(([id, label]) => ({ id, label })), chosen = d.pick.x || new Set();
+    return wrap('Добавление команд в департамент', `<p>Выбранные команды войдут в департамент «${esc(nodes[d.id].name)}». Работу команд и доступ их участников это не меняет.</p>` + (opts.length ? multi('x', 'Команды *', opts, '', d) : `<div class="note info">Все команды уже входят в департамент.</div>`), btn('', 'Отмена', 'close') + btn('primary', 'Добавить', 'submit', !chosen.size));
+  }
+  if (d.kind === 'unlink') return wrap('Отключение команды от департамента', `<p>Отключить команду «${esc(teams[d.other])}» от департамента «${esc(nodes[d.id].name)}»? Сама команда и её рабочие элементы не изменятся.</p>`, btn('', 'Отмена', 'close') + btn('danger', 'Отключить', 'submit'));
+}
+function draw() {
+  document.querySelectorAll('header.top button').forEach((b) => { const [k, v] = b.dataset.set.split('='); b.setAttribute('aria-pressed', String(st[k] === v)); });
+  $('main').className = st.width === 'narrow' ? 'narrow' : '';
+  const v = st.view;
+  $('main').innerHTML = v.kind === 'tree' ? treeView() : v.kind === 'node' ? nodeView(v.id) : v.kind === 'sub' ? subtreeView() : projectView(v.id);
+  $('#layer').innerHTML = st.dlg ? `<div class="layer">${dialogHtml()}</div>` : '';
+  const f = $('#layer input[type=text]:not([data-q]), #layer textarea');
+  if (f && st.dlg && st.dlg.focus !== false) f.focus();
+}
+
+/* ---------- actions ---------- */
+function openDlg(kind, extra) {
+  st.dlg = Object.assign({ kind, err: {}, pick: {}, q: {}, alert: '' }, extra);
+  if (kind === 'delete') { st.dlg.counting = true; setTimeout(() => { if (st.dlg && st.dlg.kind === 'delete') { st.dlg.counting = false; draw(); } }, 600); }
+  draw();
+}
+function readForm() { const d = st.dlg, g = (id) => $('#layer #' + id); if (g('f-name')) d.name = g('f-name').value; if (g('f-desc')) d.desc = g('f-desc').value; if (g('f-parent')) d.parent = g('f-parent').value; }
+const clash = (parent, name, self) => Object.values(nodes).some((a) => a.parent === parent && a.id !== self && a.name.trim().toLowerCase() === name.trim().toLowerCase());
+function submit() {
+  const d = st.dlg; readForm(); d.err = {}; d.alert = '';
+  if (['createDept', 'sub', 'rename'].includes(d.kind)) {
+    const n = (d.name || '').trim(), parent = d.kind === 'createDept' ? null : d.kind === 'sub' ? d.parent : nodes[d.id].parent;
+    if (n.length < 1 || n.length > 100) d.err.name = 'Название должно содержать от 1 до 100 символов';
+    else if (clash(parent, n, d.kind === 'rename' ? d.id : null)) d.err.name = 'Область с таким названием уже есть на этом уровне';
+    if (d.kind === 'sub' && level(parent) >= MAX_DEPTH) d.err.parent = 'Дерево областей не может быть глубже 10 уровней';
+    if (d.desc && d.desc.length > 2000) d.err.desc = 'Описание должно содержать не более 2000 символов';
+    if (Object.keys(d.err).length) return draw();
+    if (d.kind === 'rename') { nodes[d.id].name = n; notice(nodes[d.id].type === 'dept' ? 'Департамент переименован.' : 'Область переименована.'); }
+    else {
+      const id = 'n' + ++seq; nodes[id] = { id, name: n, type: d.kind === 'sub' ? 'area' : 'dept', parent, desc: d.desc || '' };
+      if (d.kind === 'createDept') deptTeams[id] = [...(d.pick.t || [])];
+      if (parent) st.expanded = new Set([...expandedSet(), parent]); st.selected = id; st.data = 'ok';
+      notice(d.kind === 'sub' ? `Область «${n}» создана.` : `Департамент «${n}» создан.`);
+    }
+  } else if (d.kind === 'describe') {
+    if ((d.desc || '').length > 2000) { d.err.desc = 'Описание должно содержать не более 2000 символов'; return draw(); }
+    nodes[d.id].desc = d.desc || ''; notice('Описание сохранено.');
+  } else if (d.kind === 'move') {
+    const np = d.parent === TOP ? null : d.parent, a = nodes[d.id];
+    if (clash(np, a.name, d.id)) { d.err.parent = 'Область с таким названием уже есть на этом уровне'; return draw(); }
+    if ((np ? level(np) : 0) + height(d.id) > MAX_DEPTH) { d.err.parent = 'Дерево областей не может быть глубже 10 уровней'; return draw(); }
+    a.parent = np; if (np) st.expanded = new Set([...expandedSet(), np]); st.selected = d.id;
+    notice(a.type === 'project' ? `Проект «${a.name}» перемещён.` : `Область «${a.name}» перемещена.`);
+  } else if (d.kind === 'delete') {
+    if (kids(d.id).length) return;
+    const n = nodes[d.id]; delete nodes[d.id]; delete deptTeams[d.id]; st.view = { kind: 'tree' };
+    notice(n.type === 'dept' ? `Департамент «${n.name}» удалён.` : `Область «${n.name}» удалена.`);
+  } else if (d.kind === 'link') {
+    const ids = [...(d.pick.x || [])]; if (!ids.length) return;
+    deptTeams[d.id] = [...(deptTeams[d.id] || []), ...ids]; notice(ids.length === 1 ? `Команда «${teams[ids[0]]}» добавлена.` : `Команды добавлены: ${ids.length}.`);
+  } else if (d.kind === 'unlink') { deptTeams[d.id] = deptTeams[d.id].filter((t) => t !== d.other); notice('Команда отключена от департамента.'); }
+  st.dlg = null; draw();
+}
+function openMenu(btn, key) {
+  closeMenu();
+  const [kind, a, b] = key.split(':'), items = kind === 'row' ? rowItems(a).map((i) => [i[0] + ':' + a, i[1], i[2]]) : [['unlink:' + a + ':' + b, 'Отключить от департамента', 1]];
+  const m = document.createElement('div'); m.className = 'menu'; m.setAttribute('role', 'menu');
+  m.innerHTML = items.map((i) => `<button role="menuitem" class="${i[2] ? 'd' : ''}" data-act="${i[0]}">${i[1]}</button>`).join('');
+  const r = btn.getBoundingClientRect(); m.style.left = Math.max(8, r.right + scrollX - 210) + 'px'; m.style.top = r.bottom + scrollY + 'px';
+  document.body.appendChild(m); st.menu = m; m.querySelector('button').focus();
+}
+function closeMenu() { if (st.menu) { st.menu.remove(); st.menu = null; } }
+
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('[data-set],[data-go],[data-act],[data-menu],[data-toggle],[data-pick],[data-row]');
+  if (!t) return closeMenu();
+  if (t.dataset.set) { const [k, v] = t.dataset.set.split('='); st[k] = v; if (k === 'role' || k === 'data') st.dlg = null; return draw(); }
+  if (t.dataset.menu) { e.stopPropagation(); return openMenu(t, t.dataset.menu); }
+  if (t.dataset.toggle) { const s = new Set(expandedSet()); s.has(t.dataset.toggle) ? s.delete(t.dataset.toggle) : s.add(t.dataset.toggle); st.expanded = s; return draw(); }
+  if (t.dataset.pick) { const [n, id] = t.dataset.pick.split(':'); const s = (st.dlg.pick[n] = st.dlg.pick[n] || new Set()); s.has(id) ? s.delete(id) : s.add(id); readForm(); st.dlg.focus = false; draw(); const q = $('#layer [data-q="' + n + '"]'); if (q) q.focus(); return; }
+  if (t.dataset.go) { e.preventDefault(); closeMenu(); const [k, id] = t.dataset.go.split(':'); st.view = { kind: k, id }; return draw(); }
+  if (t.dataset.row && !e.target.closest('a,button')) { st.selected = t.dataset.row; return draw(); }
+  if (t.dataset.act) {
+    closeMenu(); const [act, a, b] = t.dataset.act.split(':');
+    if (act === 'retry') { st.data = 'ok'; return draw(); }
+    if (act === 'toggleAll') { const all = Object.keys(nodes).filter((id) => kids(id).length); st.expanded = all.every((id) => expandedSet().has(id)) ? new Set() : new Set(all); return draw(); }
+    if (act === 'close') { st.dlg = null; return draw(); }
+    if (act === 'submit') { if (t.getAttribute('aria-disabled') === 'true') return; return submit(); }
+    if (act === 'createDept') return openDlg('createDept', {});
+    if (act === 'sub') return openDlg('sub', { id: a, parent: a });
+    if (act === 'rename') return openDlg('rename', { id: a, name: nodes[a].name });
+    if (act === 'describe') return openDlg('describe', { id: a, desc: nodes[a].desc });
+    if (act === 'move') return openDlg('move', { id: a, parent: '' });
+    if (act === 'delete') return openDlg('delete', { id: a });
+    if (act === 'link') return openDlg('link', { id: a });
+    if (act === 'unlink') return openDlg('unlink', { id: a, other: b });
+  }
+});
+document.addEventListener('input', (e) => {
+  const q = e.target.dataset && e.target.dataset.q; if (!q || !st.dlg) return;
+  st.dlg.q[q] = e.target.value; const keep = e.target.selectionStart;
+  readForm(); st.dlg.focus = false; draw(); const n = $('#layer [data-q="' + q + '"]'); if (n) { n.focus(); n.setSelectionRange(keep, keep); }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { if (st.menu) return closeMenu(); if (st.dlg) { st.dlg = null; draw(); } return; }
+  const row = e.target.closest && e.target.closest('tr[data-row]');
+  if (row && e.target === row) {
+    const id = row.dataset.row, rows = [...document.querySelectorAll('tr[data-row]')], i = rows.indexOf(row);
+    if (e.key === 'Enter') { st.view = { kind: 'node', id }; draw(); }
+    else if (e.key === ' ') { e.preventDefault(); st.selected = id; draw(); document.querySelector(`tr[data-row="${id}"]`).focus(); }
+    else if (e.key === 'ArrowDown' && rows[i + 1]) { e.preventDefault(); rows[i + 1].focus(); }
+    else if (e.key === 'ArrowUp' && rows[i - 1]) { e.preventDefault(); rows[i - 1].focus(); }
+    else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && kids(id).length) { e.preventDefault(); const s = new Set(expandedSet()); e.key === 'ArrowRight' ? s.add(id) : s.delete(id); st.expanded = s; draw(); document.querySelector(`tr[data-row="${id}"]`).focus(); }
+  }
+});
+draw();
+</script>
+</body>
+</html>

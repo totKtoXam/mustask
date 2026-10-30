@@ -40,7 +40,7 @@ public sealed class WorkItemWriteInventoryTests(MustaskApiFactory factory)
     // address (Team) is the team seen from a project — its backlog, its board and the unlink of its link.
     private const string OrgTeam = Org + "/teams/{teamId}";
     private const string Team = Project + "/teams/{teamId}";
-    private const string Area = Project + "/areas/{areaId}";
+    private const string Area = Org + "/areas/{areaId}";
     private const string Item = Project + "/workitems/{identifier}";
 
     private const string ReasonContainer = "acts on a container (organization, project) and names no work item; its items stay as they are";
@@ -88,9 +88,14 @@ public sealed class WorkItemWriteInventoryTests(MustaskApiFactory factory)
         ["PUT " + OrgTeam + "/name"] = new(Kind.NamesNoWorkItem, ReasonStructure),
         ["PUT " + OrgTeam + "/description"] = new(Kind.NamesNoWorkItem, ReasonStructure),
         ["POST " + OrgTeam + "/projects"] = new(Kind.NamesNoWorkItem, "links projects to the team and moves no item (feat-028 BR-OL-4)"),
-        ["POST " + Project + "/areas"] = new(Kind.NamesNoWorkItem, ReasonStructure),
+        ["POST " + Org + "/areas"] = new(Kind.NamesNoWorkItem, ReasonStructure),
         ["PUT " + Area + "/name"] = new(Kind.NamesNoWorkItem, ReasonStructure),
         ["PUT " + Area + "/parent"] = new(Kind.NamesNoWorkItem, ReasonStructure),
+        ["PUT " + Area + "/description"] = new(Kind.NamesNoWorkItem, ReasonStructure),
+        ["POST " + Area + "/teams"] = new(Kind.NamesNoWorkItem, "links teams to a department and moves no item"),
+        ["DELETE " + Area + "/teams/{teamId}"] = new(Kind.NamesNoWorkItem, "unlinks a team from a department and moves no item"),
+        ["POST " + OrgTeam + "/areas"] = new(Kind.NamesNoWorkItem, "links departments to the team and moves no item"),
+        ["DELETE " + OrgTeam + "/areas/{areaId}"] = new(Kind.NamesNoWorkItem, "unlinks a department from the team and moves no item"),
         ["DELETE " + Area] = new(Kind.NamesNoWorkItem, "names no work item; it counts the items in the area, deleted ones too (mod-003 BR-M3-24)"),
 
         // mod-016: membership.

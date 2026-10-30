@@ -4,10 +4,11 @@ using Mustask.Domain.Organizations;
 namespace Mustask.Application.Tests.TestDoubles.Organizations;
 
 /// <summary>
-/// In-memory <see cref="IOrganizationStructure"/> over <see cref="InMemoryOrganizations"/> (mod-017, feat-028): the reads the work
-/// items, the boards and the project default naming take of M1 — a team with its status, reachability and link, a project with its
-/// resolved default team. Every by-id read takes the organization and answers <c>null</c> for an object of another one, as the real
-/// one does (BR-OL-1). Reachability is the specification of ADR-0026 rule 3, the same as <see cref="InMemoryOrganizations.IsReachable"/>.
+/// In-memory <see cref="IOrganizationStructure"/> over <see cref="InMemoryOrganizations"/> (mod-017, feat-028, mod-018): the reads the
+/// work items, the boards, the areas and the project default naming take of M1 — a team with its status, reachability and link, a
+/// project with its resolved default team, an area with its path. Every by-id read takes the organization and answers <c>null</c> for
+/// an object of another one, as the real one does (BR-OL-1). Reachability is the specification of ADR-0026 rule 3, the same as
+/// <see cref="InMemoryOrganizations.IsReachable"/>.
 /// </summary>
 public sealed class FakeOrganizationStructure(InMemoryOrganizations store) : IOrganizationStructure
 {
@@ -31,7 +32,6 @@ public sealed class FakeOrganizationStructure(InMemoryOrganizations store) : IOr
             .Where(team => team.IsActive)
             .Select(team => team.Id)
             .ToList();
-        var root = store.Areas.Single(area => area.ProjectId == project.Id && area.IsRoot);
 
         return Task.FromResult<ProjectInfo?>(new ProjectInfo(
             project.Id,
@@ -41,7 +41,7 @@ public sealed class FakeOrganizationStructure(InMemoryOrganizations store) : IOr
             project.Status,
             store.IsReachable(project.OrganizationId, project.Id),
             ProjectDefaultTeam.Resolve(project.DefaultTeamId, active),
-            root.Id,
+            store.RootOf(project).Id,
             project.CreatedBy,
             project.CreatedAt));
     }
@@ -80,6 +80,30 @@ public sealed class FakeOrganizationStructure(InMemoryOrganizations store) : IOr
             .Select(project => new LinkedProjectInfo(project.Id, project.Name, project.Key, true))
             .ToList());
     }
+
+    public Task<AreaInfo?> FindAreaAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken)
+    {
+        var area = store.Areas.SingleOrDefault(candidate => candidate.Id == areaId && candidate.OrganizationId == organizationId);
+
+        return Task.FromResult(area is null ? null : InfoOf(area));
+    }
+
+    public Task<IReadOnlyList<AreaInfo>> ListAreasOfTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<AreaInfo>>(Ordered(store.AreaTeams
+            .Where(link => link.OrganizationId == organizationId && link.TeamId == teamId)
+            .Select(link => link.AreaId)
+            .ToList()));
+
+    private AreaTree TreeOf(Guid organizationId) =>
+        new(store.Areas.Where(area => area.OrganizationId == organizationId).Select(area => new AreaNode(area.Id, area.ParentId, area.Name, area.Type, area.ProjectId)));
+
+    private List<AreaInfo> Ordered(IReadOnlyCollection<Guid> areaIds) =>
+        store.InDisplayOrder(store.Areas.Where(area => areaIds.Contains(area.Id)), area => area.Name, area => area.Id)
+            .Select(InfoOf)
+            .ToList();
+
+    private AreaInfo InfoOf(Area area) =>
+        new(area.Id, area.OrganizationId, area.ParentId, area.Type, area.ProjectId, area.Name, area.Description, TreeOf(area.OrganizationId).PathOf(area.Id));
 
     private TeamInfo Info(Team team) => new(
         team.Id,

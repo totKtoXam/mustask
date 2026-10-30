@@ -69,7 +69,7 @@ public sealed class GetWorkItemsEndpointTests(MustaskApiFactory factory)
         Assert.Equal(("Активна", "InProgress"), (
             row.GetProperty("state").GetProperty("name").GetString(),
             row.GetProperty("state").GetProperty("category").GetProperty("code").GetString()));
-        Assert.Equal((api.Id, "Платформа / API"), (
+        Assert.Equal((api.Id, "Мастаск / Платформа / API"), (
             row.GetProperty("area").GetProperty("id").GetGuid(),
             row.GetProperty("area").GetProperty("path").GetString()));
         Assert.Equal(saved.Body.GetProperty("changedAt").GetDateTimeOffset(), row.GetProperty("changedAt").GetDateTimeOffset());

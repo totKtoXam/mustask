@@ -1,7 +1,8 @@
 import { useState, type Ref, memo } from 'react';
 import { InlinePickerField } from '../../../../shared/ui';
-import { useAreaTree } from '../../../organizations';
+import { useProjectAreaTree } from '../../../organizations';
 import type { WorkItemArea } from '../../api/workItemsApi';
+import { projectRelativePath } from '../../lib/areaPaths';
 import { cardTexts } from '../../lib/cardTexts';
 
 /** The list's lines other than areas (mod-003 spec § Pickers). */
@@ -12,7 +13,7 @@ const areaTexts = {
 } as const;
 
 /**
- * «Область» of the band (US-4; mod-003 spec § Pickers): every area of the item's
+ * «Область» of the band (US-4; mod-003 spec § Pickers): every node of the item's
  * project by path, in tree order with the root first, from mod-002's tree read
  * (api-contract § 3). The tree is read when the list first opens; a failed read
  * says so in the list, and opening it again reads it again.
@@ -37,10 +38,10 @@ function AreaFieldView({
   inputRef?: Ref<HTMLInputElement>;
 }) {
   const [opened, setOpened] = useState(false);
-  const tree = useAreaTree(organizationId, projectId, { enabled: opened });
+  const tree = useProjectAreaTree(organizationId, projectId, { enabled: opened });
   const failed = tree.isError && !tree.isFetching;
   const options: WorkItemArea[] = tree.isSuccess
-    ? tree.data.map((node) => ({ id: node.id, path: node.path }))
+    ? tree.data.map((node) => ({ id: node.id, path: projectRelativePath(tree.data, node) }))
     : [];
 
   return (

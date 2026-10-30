@@ -15,7 +15,7 @@ public sealed class MembershipWorld
     public MembershipWorld()
     {
         Organization = Store.AddOrganization();
-        Project = Store.AddProject(Organization);
+        Project = Store.AddProject(Organization).Project;
         Platform = Store.AddLinkedTeam(Organization, Project);
         Clock.UtcNow = new DateTimeOffset(2026, 10, 11, 9, 30, 0, TimeSpan.Zero);
         User.SubjectId = AdminId;
@@ -40,7 +40,7 @@ public sealed class MembershipWorld
 
     public Organization Organization { get; }
 
-    public NewProject Project { get; }
+    public Project Project { get; }
 
     public Team Platform { get; }
 
@@ -62,7 +62,7 @@ public sealed class MembershipWorld
 
     public string OrganizationId => Organization.Id.ToString();
 
-    public string ProjectId => Project.Project.Id.ToString();
+    public string ProjectId => Project.Id.ToString();
 
     public string PlatformId => Platform.Id.ToString();
 

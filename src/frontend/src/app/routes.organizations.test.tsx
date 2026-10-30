@@ -53,7 +53,7 @@ function switcherLevels(): string[] {
     .map((button) => button.getAttribute('aria-label') ?? '');
 }
 
-describe('mod-002 design § 1 and feat-028 design § 1: the slice’s eleven routes in the shell', () => {
+describe('mod-002 design § 1 and feat-028 design § 1: the slice’s twelve routes in the shell', () => {
   it.each([
     ['/organizations', 'Организации'],
     ['/organizations/deactivated', 'Организации'],
@@ -64,7 +64,8 @@ describe('mod-002 design § 1 and feat-028 design § 1: the slice’s eleven rou
     [`/organizations/${ids.alfa}/projects/${ids.prm}/settings/teams`, 'Команды'],
     [`/organizations/${ids.alfa}/settings/teams`, 'Команды'],
     [`/organizations/${ids.alfa}/settings/teams/${ids.platformTeam}`, 'Команда: Платформа'],
-    [`/organizations/${ids.alfa}/projects/${ids.prm}/settings/areas`, 'Области'],
+    [`/organizations/${ids.alfa}/settings/areas`, 'Области'],
+    [`/organizations/${ids.alfa}/settings/areas/${ids.platformArea}`, 'Департамент: Платформа'],
   ])('%s opens «%s» as the one h1, its tab titled after it', async (path, title) => {
     serveOrganizations();
     renderRoutes(path);

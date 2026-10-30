@@ -219,7 +219,7 @@ public sealed class DeactivateOrganizationEndpointTests(MustaskApiFactory factor
         var projectIds = projects.Select(project => project.Id).ToList();
         var teams = await db.Teams.AsNoTracking().Where(team => team.OrganizationId == organizationId).OrderBy(team => team.Id).ToListAsync();
         var links = await db.ProjectTeams.AsNoTracking().Where(link => link.OrganizationId == organizationId).OrderBy(link => link.ProjectId).ThenBy(link => link.TeamId).ToListAsync();
-        var areas = await db.Areas.AsNoTracking().Where(area => projectIds.Contains(area.ProjectId)).OrderBy(area => area.Id).ToListAsync();
+        var areas = await db.Areas.AsNoTracking().Where(area => area.ProjectId != null && projectIds.Contains(area.ProjectId.Value)).OrderBy(area => area.Id).ToListAsync();
         var processes = await db.Processes
             .AsNoTracking()
             .Include(process => process.BacklogLevels)

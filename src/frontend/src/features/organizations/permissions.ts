@@ -27,8 +27,14 @@ export const organizationsPermissions = {
   teamLink: 'organizations.team.link',
   /** feat-028: the project's end of a link or an unlink. */
   projectLink: 'organizations.project.link',
+  /** mod-018: read the organization's area tree, an area's page and its lists. */
   areaRead: 'organizations.area.read',
+  /** mod-018: create below an area, rename, describe, move and delete. */
   areaWrite: 'organizations.area.write',
+  /** mod-018: a top-level area, and a move to or from the top level. */
+  areaCreate: 'organizations.area.create',
+  /** mod-018: the area's end of a link or an unlink; with the other end's link code. */
+  areaLink: 'organizations.area.link',
   /** Instance code, in the token. */
   organizationCreate: 'organizations.organization.create',
 } as const;

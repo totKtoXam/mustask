@@ -63,7 +63,7 @@ internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganiz
                         select (Guid?)team.Id)
                     .FirstOrDefault(),
                 RootAreaId = context.Areas
-                    .Where(area => area.ProjectId == candidate.Id && area.ParentId == null)
+                    .Where(area => area.ProjectId == candidate.Id && area.Type == AreaType.Project)
                     .Select(area => area.Id)
                     .First(),
             })
@@ -144,6 +144,55 @@ internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganiz
                 orderby EF.Functions.Collate(project.Name, OrganizationsCollation.Russian), project.Id
                 select new LinkedProjectInfo(project.Id, project.Name, project.Key, true))
             .ToListAsync(cancellationToken);
+
+    public async Task<AreaInfo?> FindAreaAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken)
+    {
+        var tree = await LoadTreeAsync(organizationId, cancellationToken);
+
+        return tree.Rows.TryGetValue(areaId, out var row) ? ToInfo(organizationId, row, tree.Tree) : null;
+    }
+
+    public async Task<IReadOnlyList<AreaInfo>> ListAreasOfTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken)
+    {
+        var ids = await context.AreaTeams
+            .AsNoTracking()
+            .Where(link => link.OrganizationId == organizationId && link.TeamId == teamId)
+            .Select(link => link.AreaId)
+            .ToListAsync(cancellationToken);
+
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        var loaded = await LoadTreeAsync(organizationId, cancellationToken);
+        var wanted = ids.ToHashSet();
+
+        return loaded.Tree.PreOrder()
+            .Where(node => wanted.Contains(node.Id))
+            .Select(node => ToInfo(organizationId, loaded.Rows[node.Id], loaded.Tree))
+            .ToList();
+    }
+
+    private async Task<(Dictionary<Guid, AreaRow> Rows, AreaTree Tree)> LoadTreeAsync(Guid organizationId, CancellationToken cancellationToken)
+    {
+        var rows = await context.Areas
+            .AsNoTracking()
+            .Where(area => area.OrganizationId == organizationId)
+            .OrderBy(area => EF.Functions.Collate(area.Name, OrganizationsCollation.Russian))
+            .ThenBy(area => area.Id)
+            .Select(area => new AreaRow(area.Id, area.ParentId, area.Name, area.Description, area.Type, area.ProjectId))
+            .ToListAsync(cancellationToken);
+
+        return (
+            rows.ToDictionary(row => row.Id),
+            new AreaTree(rows.Select(row => new AreaNode(row.Id, row.ParentId, row.Name, row.Type, row.ProjectId))));
+    }
+
+    private static AreaInfo ToInfo(Guid organizationId, AreaRow row, AreaTree tree) =>
+        new(row.Id, organizationId, row.ParentId, row.Type, row.ProjectId, row.Name, row.Description, tree.PathOf(row.Id));
+
+    private sealed record AreaRow(Guid Id, Guid? ParentId, string Name, string? Description, AreaType Type, Guid? ProjectId);
 
     private IQueryable<StoredTeam> StoredTeams(IQueryable<Team> teams) =>
         teams

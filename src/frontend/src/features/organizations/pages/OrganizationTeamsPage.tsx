@@ -170,6 +170,10 @@ export function OrganizationTeamsPage() {
           <CreateTeamDialog
             organizationId={organizationId}
             canLink={canLink}
+            canLinkAreas={
+              access(organizationsPermissions.areaLink, 'organization') &&
+              access(organizationsPermissions.teamLink, 'organization')
+            }
             submit={(body) => create.mutateAsync(body)}
             onSucceeded={(team) => {
               setCreating(false);
