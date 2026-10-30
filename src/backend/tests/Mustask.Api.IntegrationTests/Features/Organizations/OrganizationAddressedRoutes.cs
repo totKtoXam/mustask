@@ -62,6 +62,7 @@ public static class OrganizationAddressedRoutes
         new("PUT", Project + "/default-team", PermissionCatalog.OrganizationsProjectWrite),
         new("PUT", Project + "/description", PermissionCatalog.OrganizationsProjectWrite),
         new("GET", Project + "/teams", PermissionCatalog.OrganizationsTeamRead),
+        new("GET", Project + "/team-links", PermissionCatalog.OrganizationsTeamRead),
         new("POST", Project + "/teams", PermissionCatalog.OrganizationsProjectLink),
         new("POST", Team + "/unlink", PermissionCatalog.OrganizationsProjectLink),
         new("GET", Team + "/unlink-count", PermissionCatalog.OrganizationsProjectLink),
