@@ -60,5 +60,5 @@ Scenario: The docs that name the interim pages or contradict the typed tree are 
   When the documents of § Decomposition's Breaks list are read
   Then each is marked "feat-043" with the text that now holds: doc-012 BR-MX-27 and BR-MX-28, the US-10 clauses that hold area–project links («Логистика» counting 3 projects, «Проект не входит ни в одну область», «Логистика / Склад»), doc-013 BR-NE-6, ADR-0024 §§ 1, 2 and 4, ADR-0028 rule 7's sentence on the interim pages, and the fate-table lines that name a board as an entry
   And the e2e specs the address changes break are named in the MR (E2E stays paused)
-  And mod-015 BR-6 (the trail becomes four selectors), BR-11, BR-18 (the switcher) are marked "feat-043", BR-19 kept, and doc-012 BR-MX-17's views and doc-012 US-8 are marked "the second line" with the order rule of Q-7 B, by the second line
+  And mod-015 BR-6 (the trail becomes four selectors), BR-11, BR-18 (the switcher) are marked "feat-043", BR-19 kept, and doc-012 BR-MX-17's views and doc-012 US-8 are marked "the second line" with the rule of one group per project in the project's own order (Q-10), by the second line
 ```
