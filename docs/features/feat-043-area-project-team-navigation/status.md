@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/043-area-project-team-navigation
-- stage: 01-business-analysis
+- stage: 04-backend
 - epic: platform/ui
 - deps: feat-040,mod-018,mod-020
 - gates: gate-1, gate-2, gate-3
@@ -11,7 +11,7 @@
 ## Gates
 
 gate-1: approved 2026-10-30 (the human, in chat): all recommendations, OQ-1..5, OQ-7..9, H-1..4 A
-gate-2: pending (rejected once 2026-10-30, reworked, see Decisions)
+gate-2: approved 2026-10-30 (the human, in chat): design, prototype, ADR-0032 direction; rejected once earlier the same day, see Decisions
 gate-3: pending
 
 ## Plan
@@ -47,6 +47,8 @@ gate-3: pending
 - 2026-10-30 [orchestrator] Spec reworked to the human's navigation requirement (business-analyst): BR-NV-1, -10, -17, -18, BPMN, US-1, 3, 4, 5, 8; Q-1..Q-5 open. Unchecked by the analyst after the change: US-2, US-6, US-7 bodies and spec.md Operation completeness, OQ-1 wording. The design, prototype and ADR-0032 §§ 1, 2, 5, 6 are owed a rework.
 
 - 2026-10-30 [orchestrator] Design, prototype and ADR-0032 reworked (ux-designer); spec conflicts closed (business-analyst), Q-6 open. Prototype opened by the orchestrator in a browser: selectors, project menu, settings navigation, 13 links, no console errors. Found: BR-NV-17's offers make US-8's reset unreachable from a selector (D-7).
+
+- 2026-10-30 [orchestrator] Scope rework: spec (business-analyst) split per OQ-9, feat-048 queued for US-6 and US-10 (PR #44, merged); aggregates are per-project groups, Q-7..Q-13 closed. Design, prototype, ADR-0032 reworked (ux-designer); the human asked for drag and drop in place of move arrows, the mechanism is the native one in src/frontend. Prototype opened by the orchestrator: levels, selectors, «Остальные» reset, row and card drags, a cross-lane drop stays put (the refusal notice itself not seen), no console errors. Design owes feat-048 a server-side read limit: 4 per tab is a browser promise, Npgsql default pool 100, no limiter in the API. design.md has 35 bytes of headroom. Gate-2 approved.
 
 ## Notes
 
