@@ -199,6 +199,8 @@ set, `ActionButton tone="subtle"` «Очистить фильтры» (`FilterLi
 head is not changed. **Team views have no filter row** (the team is the filter).
 
 ### 6.3 What the filter does on a view
+n> **feat-043:** a link to the page without `teamId` opens it unfiltered, the selected navigation entry «Рабочие элементы» included (mod-017 BR-OT-8; feat-003 BR-WS-11); the default team selects nothing (BR-NE-9). The team filter in the address stays as mod-020 built it.
+n> **feat-043:** a link to the page without `teamId` opens it unfiltered, the selected navigation entry «Рабочие элементы» included (mod-017 BR-OT-8; feat-003 BR-WS-11); the default team selects nothing (BR-NE-9). The team filter in the address stays as mod-020 built it.
 
 - State is the page's, **above the level**: it survives a re-read, a move, a
   regained focus and a level change; leaving the page drops it (BR-OT-8, OQ-9 A),
@@ -311,7 +313,9 @@ team a note under the name reads ◆ «Единственную команду �
 «Переименование команды»: no helper. Notices unchanged: «Команда «Ядро» добавлена.»,
 «Команда переименована.».
 
+n> **feat-043:** the interim project-views drop-down and the fallback team are retired (ADR-0032); the views of a project are its sections «Канбан» and «Бэклог».
 ## 8. Retired surfaces (US-6, US-7)
+n> **feat-043:** the interim project-views drop-down and the fallback team are retired (ADR-0032); a project's board and backlog are its sections «Канбан» and «Бэклог».
 
 - **«Области»:** the tree has the column «Область» only (skeleton `['Область']`);
   no «Владелец», «унаследовано», «По умолчанию». Root menu: «Новая дочерняя

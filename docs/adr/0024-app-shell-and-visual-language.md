@@ -95,7 +95,7 @@ For reflow:
 
 Option 3, with these rules for every screen of the panel.
 
-**1. Shell and theme.**
+**1. Shell and theme.**  *(Marked feat-043: the shell is built on the UI kit there, tech-019 absorbed; "the context it needs is real" is replaced by the four selectors of [ADR-0032](0032-object-pages-and-navigation-context.md) § 5.)*
 
 - One frame for every signed-in page: a fixed 48 px top bar (product mark,
   context switcher, page trail, user menu), a left navigation, and a main
@@ -122,7 +122,7 @@ Option 3, with these rules for every screen of the panel.
   panes, type picker, large settings dialog and tree registry are designed in
   mod-015's `design.md` and built by their first consumer.
 
-**2. The work context is part of the address.**
+**2. The work context is part of the address.** *(Marked feat-043: replaced by [ADR-0032](0032-object-pages-and-navigation-context.md) §§ 1-2: the address names the most specific chosen object, a team has its own page, and the three-level switcher is four selectors.)*
 
 - Fixed prefixes: `/organizations/:organizationId/…` for organization-level
   pages, `/organizations/:organizationId/projects/:projectId/…` for
@@ -160,7 +160,7 @@ Option 3, with these rules for every screen of the panel.
 - The set grows only by a change to `app/theme`. Custom per-organization
   type appearance (release 3) is a new decision.
 
-**4. The screen-state canon gains "not found".** ADR-0007's states (loading
+**4. The screen-state canon gains "not found".** *(Marked feat-043: not found gains the levels department, node and sub-area, per ADR-0032 § 4; retired addresses answer «Страница не найдена».)* ADR-0007's states (loading
 as a skeleton, empty, empty after a filter, error with retry, access denied)
 plus not found. Empty, empty after a filter, access denied and not found
 share one frame in `shared/ui`: an icon, a heading, a hint and at most one

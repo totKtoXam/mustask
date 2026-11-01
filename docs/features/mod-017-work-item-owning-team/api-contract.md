@@ -329,6 +329,8 @@ its items** is never refused for the team (§ 2.2) and ends reassigned or on the
 project default (BR-OT-13).
 
 ### 2.8 `PUT …/default-team` — name the project's default team (US-3; BR-OT-4)
+n> **feat-043:** the default team affects the owning team of a new item only (doc-012 BR-MX-11 without the mod-020 amendment); it no longer decides the team a view opens on.
+n> **feat-043:** the default team affects the owning team of a new item only (doc-012 BR-MX-11 without the mod-020 amendment); it no longer decides the team a view opens on.
 
 New. Requires `organizations.team.write`.
 
