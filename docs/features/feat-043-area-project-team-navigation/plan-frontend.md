@@ -61,3 +61,4 @@ Stage 6a artifact. Inputs: `spec.md`, US-1..5 and US-7..9 (US-6 and US-10 are `f
 
 1. **`SearchMenu` is in `shared/ui`, not shell-local.** Design § 1 says shell-local, built from `Popover`. `KIT-3` of `kitGuard.test.ts` forbids a `Popover` import outside `shared/ui` and the allow-list may only shrink, so a shell-local part could not import it. The part is generic (no business words) and is exported from the kit with its tests, showcase entry and guide block (ui-kit.md § 7).
 2. The design's "no overview read unless the statement-count test fails" is superseded by the backend's `GET …/overview` and `…/selector-offers` (`api-contract.md`).
+3. `design.md` § 1 is corrected to say `SearchMenu` is in the kit (deviation 1), and `openObject` returns `{ selection, reset }`: a row link whose less specific selector does not fit resets it with the notice, as D-7 does ("does the same", design § 3); the more specific kinds still reset silently.

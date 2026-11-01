@@ -174,27 +174,43 @@ describe('applyChoice', () => {
 
 describe('openObject (D-3)', () => {
   it("from A's «Команды» opening MARS leaves MARS and the department", () => {
-    const next = openObject(DATA, select({ department: 'log', project: 'a' }), 'team', 'mars');
+    const next = openObject(
+      DATA,
+      select({ department: 'log', project: 'a' }),
+      'team',
+      'mars',
+    ).selection;
     expect(next).toEqual(select({ department: 'log', team: 'mars' }));
   });
 
   it("from a department's «Проекты» opening A keeps the department and A", () => {
-    const next = openObject(DATA, select({ department: 'log' }), 'project', 'a');
+    const next = openObject(DATA, select({ department: 'log' }), 'project', 'a').selection;
     expect(next).toEqual(select({ department: 'log', project: 'a' }));
   });
 
   it("from a team's «Проекты» opening A leaves MARS and A", () => {
-    const next = openObject(DATA, select({ team: 'mars' }), 'project', 'a');
+    const next = openObject(DATA, select({ team: 'mars' }), 'project', 'a').selection;
     expect(next).toEqual(select({ team: 'mars', project: 'a' }));
   });
 
-  it('a less specific value that does not fit resets as silently', () => {
-    const next = openObject(DATA, select({ department: 'fin' }), 'project', 'a');
-    expect(next).toEqual(select({ project: 'a' }));
+  it('a less specific value that does not fit resets with the notice', () => {
+    const result = openObject(DATA, select({ department: 'fin' }), 'project', 'a');
+    expect(result.selection).toEqual(select({ project: 'a' }));
+    expect(resetNotice(result.reset)).toBe('Выбор сброшен: департамент Финансы.');
+  });
+
+  it('the kinds more specific than the opened one reset without a notice', () => {
+    const result = openObject(DATA, select({ team: 'mars', project: 'a' }), 'department', 'log');
+    expect(result.reset).toEqual([]);
   });
 
   it('opening a department drops the team and the project', () => {
-    const next = openObject(DATA, select({ team: 'mars', project: 'a' }), 'department', 'log');
+    const next = openObject(
+      DATA,
+      select({ team: 'mars', project: 'a' }),
+      'department',
+      'log',
+    ).selection;
     expect(next).toEqual(select({ department: 'log' }));
   });
 });

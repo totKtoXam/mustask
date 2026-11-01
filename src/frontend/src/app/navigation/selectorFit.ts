@@ -193,23 +193,29 @@ export function applyChoice(
 
 /**
  * Opening an object from a row or a link (D-3): it becomes the most specific one. The kinds
- * more specific than it reset to «все» without a notice; the less specific ones stay when
- * they fit it, else they reset as silently.
+ * more specific than it reset to «все» without a notice; a less specific value stays when it
+ * fits, else it resets and is reported, as a choice from «Остальные» does (design § 3).
  */
 export function openObject(
   data: FitData,
   selection: ObjectSelection,
   kind: SelectorKind,
   id: string,
-): ObjectSelection {
+): ChoiceResult {
   const next: ObjectSelection = { ...selection, [kind]: id };
+  const reset: ResetValue[] = [];
   const at = SELECTOR_KINDS.indexOf(kind);
   SELECTOR_KINDS.forEach((other, index) => {
     const chosen = selection[other];
     if (index === at || chosen === null) return;
-    if (index > at || !pairFits(data, kind, id, other, chosen)) next[other] = null;
+    if (index > at) {
+      next[other] = null;
+    } else if (!pairFits(data, kind, id, other, chosen)) {
+      next[other] = null;
+      reset.push({ kind: other, name: nameOf(data, other, chosen) });
+    }
   });
-  return next;
+  return { selection: next, reset };
 }
 
 /** «Выбор сброшен: команда MARS, проект A.», or `null` when nothing was reset. */

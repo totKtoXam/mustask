@@ -12,7 +12,7 @@ Stage 3 artifact, reworked after the gate-2 rejection (2026-10-30) and the split
 |---|---|
 | Top bar (`AppTopBar`) | **Not new.** `app/shell/TopBar` (MUI `AppBar` + `Toolbar`, 48 px, product mark, `UserMenu`) stays; the four selectors take the place of `ContextSwitcher` and the trail. The kit look (grey trail, hairline chevrons) lands there: this line absorbs tech-019 |
 | Left menu (`NavList`) | **Not new.** `MainNavigation` (`List`, `Drawer`, rail, selected marker), `SettingsNavigation`, `NavigationOverlay` stay; entries come from the scope table (ADR-0032 § 2) |
-| Selector (`SearchMenu`) | **New, shell-local** (`app/shell`, not exported from the kit): `ContextSwitcher` is a `Menu` of radio items with no search or groups, `InlinePickerField` a framed field, not a header trigger. Built from `Popover`, `InlineTextField` (search), `List`, `ListSubheader`, `TruncatedText`, `FieldsSkeleton`, `InlineNotice`, `InlineEmpty`; four uses; tests and a showcase entry (§ 7) |
+| Selector (`SearchMenu`) | **New, in the kit** (`shared/ui`; KIT-3 bars `Popover` elsewhere): `ContextSwitcher` is a `Menu` of radio items with no search or groups, `InlinePickerField` a framed field, not a header trigger. Built from `Popover`, `InlineTextField` (search), `List`, `ListSubheader`, `TruncatedText`, `FieldsSkeleton`, `InlineNotice`, `InlineEmpty`; four uses; tests and a showcase entry (§ 7) |
 
 Screens reuse: `PageHeader` (no `views`), `Section`, `Surface`, `ColumnLayout`, `DataTable`, `TablePager`, `TreeRegistry`, `FilterBar`, `Tag`, `ActionButton`, `MoreActionsMenu`, `Inline*Field`, `FormDialog`, `ConfirmDialog`, `StateFrame`, `NotFound`, `AccessDenied`, `InlineNotice`, `ErrorBanner`, skeletons, `useNotice`; feat-048 adds plain MUI `Accordion`.
 
