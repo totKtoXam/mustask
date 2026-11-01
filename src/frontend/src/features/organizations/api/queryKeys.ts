@@ -91,3 +91,14 @@ export const organizationsKeys = {
   newTeamMemberCandidates: (organizationId: string, text: string) =>
     [ROOT, 'new-team-member-candidates', organizationId, text] as const,
 };
+
+/**
+ * The navigation reads of feat-043 (plan-frontend section 3): "Overview" and the selectors'
+ * offers. Their own root, so that every organization write refreshes them with one invalidation.
+ */
+export const navigationKeys = {
+  all: ['navigation'] as const,
+  overview: (organizationId: string) => ['navigation', 'overview', organizationId] as const,
+  selectorOffers: (organizationId: string) =>
+    ['navigation', 'selector-offers', organizationId] as const,
+};
