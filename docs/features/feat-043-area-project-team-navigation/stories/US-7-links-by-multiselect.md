@@ -22,7 +22,7 @@ Scenario: Teams are added to a project through a multiselect (BR-NV-11; BR-MX-5;
 Scenario: The same link is added from the team's page (BR-NV-11)
   When Ann opens the command to add projects on JUPITER's «Проекты», picks D and confirms
   Then D is listed in JUPITER's «Проекты» and JUPITER in D's «Команды», without a reload
-  And the project selector, with JUPITER chosen, lists D among the fitting values (it replaces the project filter of JUPITER's «Канбан» and «Бэклог»)
+  And the project selector, with JUPITER chosen, lists D among the fitting values (JUPITER's «Канбан» and «Бэклог» keep their project filter of feat-040, US-5)
 
 Scenario: A team is linked to a department from either end (BR-AW-6; ADR-0031 rule 4)
   When Ann adds JUPITER on «Финансы»'s «Команды», and then adds «Финансы» on VENUS's «Обзор»

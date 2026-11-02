@@ -34,7 +34,7 @@ The three counts are of every object; the lists hold only the first `5` by name 
 
 ## 2. `GET /api/organizations/{organizationId}/selector-offers`: the selectors and the lists (US-2, US-8)
 
-Every department, active project and active team of the organization, by name, with the links the panel judges BR-NV-17's fit from. Bounded by the organization's own volume (1 000 areas, 200 projects, 200 teams, a department being a top-level node); **five statements** whatever the volume (departments, projects with their place, project–team links, teams with the caller's membership, department–team links). It serves the four selectors' offers, the «Остальные» split (computed on the panel) and the rows of the lists «Проекты» (name, key, place) and «Команды» (name, mark «Моя команда»). «Области» keeps `GET …/areas` (the tree with paths), unchanged.
+Every department, active project and active team of the organization, by name, with the links the panel judges BR-NV-17's fit from. Bounded by the organization's own volume (1 000 areas, 200 projects, 200 teams, a department being a top-level node); **five statements** whatever the volume (departments, projects with their place, project–team links, teams with the caller's membership, department–team links). It serves the four selectors' offers, the «Остальные» split (computed on the panel) and the rows of the list «Проекты» (name, key, place). «Команды» keeps feat-028's `GET …/teams` (the active teams with their projects and the mark «Моя команда»), and «Области» keeps `GET …/areas` (the tree with paths), both unchanged.
 
 200 OK:
 

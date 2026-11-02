@@ -160,7 +160,7 @@ Option 3, with these rules for every screen of the panel.
 - The set grows only by a change to `app/theme`. Custom per-organization
   type appearance (release 3) is a new decision.
 
-**4. The screen-state canon gains "not found".** *(Marked feat-043: not found gains the levels department, node and sub-area, per ADR-0032 § 4; retired addresses answer «Страница не найдена».)* ADR-0007's states (loading
+**4. The screen-state canon gains "not found".** *(Marked feat-043: not found gains the levels department, node and sub-area, per ADR-0032 § 3; retired addresses (§ 4) answer «Страница не найдена».)* ADR-0007's states (loading
 as a skeleton, empty, empty after a filter, error with retry, access denied)
 plus not found. Empty, empty after a filter, access denied and not found
 share one frame in `shared/ui`: an icon, a heading, a hint and at most one
