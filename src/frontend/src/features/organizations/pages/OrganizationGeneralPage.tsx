@@ -109,7 +109,7 @@ export function OrganizationGeneralPage() {
         <RequiresOrganizationCode code={organizationsPermissions.organizationDeactivate}>
           <ConfirmAction
             title="Деактивировать организацию?"
-            text={`Организация «${organization.name}» пропадёт из списков и переключателя, а её страницы и страницы её проектов перестанут открываться. Ничего не будет удалено: организацию можно восстановить в списке деактивированных организаций.`}
+            text={`Организация «${organization.name}» пропадёт из списков и селекторов, а её страницы и страницы её проектов перестанут открываться. Ничего не будет удалено: организацию можно восстановить в списке деактивированных организаций.`}
             confirmLabel="Деактивировать"
             action={async () => {
               // DC-7, judged before the switcher sees the change: deactivating

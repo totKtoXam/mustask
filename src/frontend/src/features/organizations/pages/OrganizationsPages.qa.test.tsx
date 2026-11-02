@@ -73,7 +73,7 @@ describe('(QA) mod-002 F-2: names holding markup and quotes are text everywhere'
     expect(await screen.findByText(NAME)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Деактивировать' }));
     const dialog = await screen.findByRole('dialog', { name: 'Деактивировать организацию?' });
-    expect(dialog).toHaveTextContent(`Организация «${NAME}» пропадёт из списков и переключателя`);
+    expect(dialog).toHaveTextContent(`Организация «${NAME}» пропадёт из списков и селекторов`);
     expect(document.querySelector('b')).toBeNull();
   });
 });
