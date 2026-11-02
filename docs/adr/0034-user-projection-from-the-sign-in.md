@@ -112,7 +112,7 @@ Option 2.
   task with a backup note. Suggested follow-up line (not queued by this task):
   `tech: drop the dormant push-era tables and columns of the user projection (ADR-0034)`.
 - **A stand made before this change** still lists `mustask-user-projection` in the live
-  realm's `eventsListeners`. the drift check no longer compares the listener, so the stand does not turn
+  realm's `eventsListeners`. The drift check no longer compares the listener, so the stand does not turn
   unhealthy because of it. What Keycloak itself does with a listener id that has no provider
   was not run here; a stand reset (`bash scripts/stand-reset.sh`) removes the entry.
 - Operations: nothing to configure. No secret, no endpoint, no reconciliation period
