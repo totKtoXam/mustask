@@ -2,11 +2,12 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.JsonWebTokens;
+using Mustask.Api.Authentication;
 using Mustask.Application.Abstractions.UserDirectory;
 using Mustask.Application.Features.UserDirectory.RecordSignIn;
 using Mustask.Domain.UserDirectory;
 
-namespace Mustask.Api.Features.Session;
+namespace Mustask.Api.Features.UserDirectory;
 
 /// <summary>
 /// The session endpoints' door to the user projection (tech-025, ADR-0034): turns the id token of a sign-in or of a
@@ -16,9 +17,9 @@ namespace Mustask.Api.Features.Session;
 /// <remarks>
 /// <para>
 /// <b>The failure rule.</b> A person the projection does not know cannot be added to an organization, so letting them in
-/// with no row would hide the failure until someone searches for them in vain: <see cref="RecordResult.FailedUnknownUser"/>
+/// with no row would hide the failure until someone searches for them in vain: <see cref="SignInRecordResult.FailedUnknownUser"/>
 /// fails the sign-in. A person who is in the projection already loses nothing by a failed refresh of their name:
-/// <see cref="RecordResult.FailedKnownUser"/> is logged and the session goes on. A failed check of whether the person is
+/// <see cref="SignInRecordResult.FailedKnownUser"/> is logged and the session goes on. A failed check of whether the person is
 /// known counts as unknown, so a database outage ends a first sign-in rather than passing it unrecorded.
 /// </para>
 /// <para>
@@ -30,46 +31,27 @@ namespace Mustask.Api.Features.Session;
 public sealed class SessionUserProjection(
     RecordSignInHandler handler,
     IUserDirectory directory,
-    ILogger<SessionUserProjection> logger)
+    ILogger<SessionUserProjection> logger) : ISessionSignInRecorder
 {
-    public enum RecordResult
-    {
-        /// <summary>The upsert ran (or, for a renewal, the claims had not changed since the last one).</summary>
-        Recorded,
-
-        /// <summary>The upsert failed, but the person is in the projection already.</summary>
-        FailedKnownUser,
-
-        /// <summary>The upsert failed and the person is not in the projection.</summary>
-        FailedUnknownUser,
-    }
-
-    /// <param name="Result">What happened.</param>
-    /// <param name="Fingerprint">
-    /// The fingerprint of the claims now held in the projection, to be stored in the ticket; null when the upsert failed
-    /// (the next renewal tries again).
-    /// </param>
-    public sealed record Recording(RecordResult Result, string? Fingerprint);
-
     /// <summary>
     /// Records the sign-in described by <paramref name="idToken"/>. With <paramref name="knownFingerprint"/> equal to the
     /// fingerprint of the token's claims, nothing is written.
     /// </summary>
-    public async Task<Recording> RecordAsync(string? idToken, string? knownFingerprint, CancellationToken cancellationToken)
+    public async Task<SignInRecording> RecordAsync(string? idToken, string? knownFingerprint, CancellationToken cancellationToken)
     {
         var profile = ProfileOf(idToken);
         var fingerprint = FingerprintOf(profile);
 
         if (knownFingerprint is not null && string.Equals(knownFingerprint, fingerprint, StringComparison.Ordinal))
         {
-            return new Recording(RecordResult.Recorded, fingerprint);
+            return new SignInRecording(SignInRecordResult.Recorded, fingerprint);
         }
 
         try
         {
             await handler.Handle(new RecordSignInCommand(profile), cancellationToken);
 
-            return new Recording(RecordResult.Recorded, fingerprint);
+            return new SignInRecording(SignInRecordResult.Recorded, fingerprint);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -82,7 +64,7 @@ public sealed class SessionUserProjection(
                 profile.Id,
                 known ? "the user is in the directory already" : "the user is not in the directory");
 
-            return new Recording(known ? RecordResult.FailedKnownUser : RecordResult.FailedUnknownUser, null);
+            return new SignInRecording(known ? SignInRecordResult.FailedKnownUser : SignInRecordResult.FailedUnknownUser, null);
         }
     }
 

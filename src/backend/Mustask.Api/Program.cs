@@ -172,6 +172,9 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<RealmReadinessMoni
 // discovery/JWKS выше — не второй разбор конфигурации.
 var sessionOptions = SessionOidcOptions.FromConfiguration(builder.Configuration, builder.Environment);
 builder.Services.AddMustaskSessionAuthentication(keycloak, sessionOptions);
+// tech-025 (ADR-0034): the session endpoints record the signed-in person through a port of their own; the user directory
+// implements it. Scoped: it uses the request's DbContext through the Application handler.
+builder.Services.AddScoped<Mustask.Api.Authentication.ISessionSignInRecorder, Mustask.Api.Features.UserDirectory.SessionUserProjection>();
 
 // The read model of the user projection orders by the ICU 'ru' collation, so an invariant-globalization runtime is
 // refused here, before anything runs (mod-014, ADR-0025 § 9). The projection itself is written at sign-in (tech-025,

@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Mustask.Api.Features.Session;
+using Mustask.Api.Features.UserDirectory;
 using Mustask.Api.IntegrationTests.Features.UserDirectory;
 using Mustask.Application.Abstractions.UserDirectory;
 using Mustask.Application.Features.UserDirectory.RecordSignIn;

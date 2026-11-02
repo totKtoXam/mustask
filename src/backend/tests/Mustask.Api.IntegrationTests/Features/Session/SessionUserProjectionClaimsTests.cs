@@ -1,4 +1,4 @@
-using Mustask.Api.Features.Session;
+using Mustask.Api.Features.UserDirectory;
 using Mustask.Domain.UserDirectory;
 
 namespace Mustask.Api.IntegrationTests.Features.Session;

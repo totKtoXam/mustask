@@ -72,7 +72,7 @@ public static class SessionAuthenticationSetup
 
     /// <summary>
     /// <see cref="AuthenticationProperties.Items"/> key holding the fingerprint of the claims last recorded in the user
-    /// projection (tech-025, ADR-0034; <see cref="SessionUserProjection"/>). Written at sign-in by
+    /// projection (tech-025, ADR-0034; <see cref="ISessionSignInRecorder"/>). Written at sign-in by
     /// <c>OnTokenValidated</c>, carried through the ticket's rebuild by <c>OnTicketReceived</c>, and compared and
     /// rewritten by every renewal, so a renewal with the same claims does not touch the database. About 32 characters.
     /// </summary>
@@ -93,9 +93,8 @@ public static class SessionAuthenticationSetup
         // are both already singletons (Program.cs) — no second discovery
         // point.
         services.AddSingleton<RenewedIdTokenValidator>();
-        // tech-025 (ADR-0034): the projection of the signed-in person is written by the session endpoints. Scoped: it uses
-        // the request's DbContext through the Application handler.
-        services.AddScoped<SessionUserProjection>();
+        // tech-025 (ADR-0034): ISessionSignInRecorder is bound to the user directory in Program.cs (this folder names
+        // nothing of Domain or Application, ADR-0022 Decision 6).
 
         services.AddAuthentication()
             .AddCookie(SessionSchemes.Session, options =>
@@ -193,11 +192,11 @@ public static class SessionAuthenticationSetup
         // tech-025 (ADR-0034): the person enters MUSTASK's user directory here, from the claims of the id token. A person the
         // directory does not know and cannot be recorded fails the sign-in on the existing generic path (a known person's
         // failed refresh is logged and does not stop the session). Before the cookie and the cached token exist.
-        var projection = context.HttpContext.RequestServices.GetRequiredService<SessionUserProjection>();
+        var projection = context.HttpContext.RequestServices.GetRequiredService<ISessionSignInRecorder>();
         var recording = await projection.RecordAsync(
             context.TokenEndpointResponse?.IdToken, knownFingerprint: null, context.HttpContext.RequestAborted);
 
-        if (recording.Result == SessionUserProjection.RecordResult.FailedUnknownUser)
+        if (recording.Result == SignInRecordResult.FailedUnknownUser)
         {
             context.HandleResponse();
             RedirectToPanel(context.HttpContext, sessionOptions, context.Properties?.RedirectUri, SignInFailedCode);

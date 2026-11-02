@@ -98,7 +98,7 @@ public static class SessionEndpoints
         RefreshGrantClient refreshGrantClient,
         RenewedIdTokenValidator idTokenValidator,
         KeycloakOptions keycloak,
-        SessionUserProjection projection,
+        ISessionSignInRecorder projection,
         ILogger<Program> logger,
         TimeProvider clock,
         CancellationToken cancellationToken)
