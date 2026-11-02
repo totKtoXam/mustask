@@ -125,3 +125,61 @@ Reviewed at 06464fe9, delta from 34b6cec9; `FE`, `org` as above. First delta rea
 - Direction 2: not found for a query value: grepped `selects nothing`, `teamId`; mod-017 BR-OT-8 and two comments D-2; the feat-003, feat-028 and feat-040 hits are other dimensions or the project filter, which a prefix does not read. Deactivated node: grepped `только для чтения`; mod-018 `design.md:114,238` D-11. Remembered selection: grepped `remembered`; `workContext.ts:7` D-10. Unswept: US-4 for the project row, and mod-020's docs.
 
 Not read: the delta's tests beyond those named; `ContextSelectors`. Run: one throwaway hook test (D-1), removed. Nothing opened in a browser.
+
+## Round 3 — code (delta)
+
+Reviewed at 7d4e5a2e, delta from f050e1d3; `FE`, `org` as above; `src` = `FE/app/navigation/useNavigationSource.ts`. The second and last delta read an L may have.
+
+**Verdict: `approve`.** 0 blockers, 0 majors, 4 minors, all debt, all at the edges of D-4, D-5 and D-6. Security: the delta adds no endpoint and no new read.
+
+### D-1..D-12
+
+| Id | State | Anchor |
+|---|---|---|
+| D-1 | closed | `selection.ts:72-74`; both orders `useNavigationSource.test.tsx:404`; `routes.boards.test.tsx` |
+| D-2 | closed | mod-017 BR-OT-8, Breaks and status note; `useTeamFilter.ts`, `TeamFilter.tsx` |
+| D-3 | closed as ruled | `ContextHost.tsx:172-178` writes nothing; the return `AppLayout.organizations.test.tsx:231`; BR-NV-10, US-8, ADR §§ 5, 6, design § 3 amended |
+| D-4 | closed; edge E-1 | `src:350`, `linkResets.ts`, the two notices; real source `AppLayout.organizations.test.tsx:261` |
+| D-5 | closed for pages that name no object; edge E-2 | `src:296-302,372,412`, `selectorFit.ts:264` |
+| D-6 | closed; over-applied E-3 | `src:484`, `AreaPage.tsx:156,288`, `AreasPage.tsx:138` |
+| D-7 | closed | `ContextHost.tsx:120`; `remember` bumps the read |
+| D-8 | closed | `src:278` |
+| D-9, D-11 | closed | signature test summary; mod-018 `design.md:114,238` |
+| D-10 | closed | "switcher" left only in `shellSources.test.ts` (the ban on the old files) and the kit-guard comment |
+| D-12 | closed | `AreaPage.tsx:265-272`, `PageHeader.tsx`, `MenuButton.tsx`; ADR § 6 and BR-NV-10 say "on its next render" |
+
+### Minors (debt)
+
+- **E-1 A pair unfit by a link change stays exempt from not found until the next offers.** `src:312,350`: `previousOffers` outlives the shell's reset, so `linkResetKinds` keeps matching. Ann on `…/projects/A/workitems?teamId=MARS` goes to «Команды» and unlinks MARS; the shell moves her; Back to the older entry. The selectors read MARS / A with no not found, no reset and no write (`:403`), and a reload there answers «Команда не найдена». Round 2 recorded such an entry as not found (ADR § 1). No data is touched and the next selector choice clears it. Fix: exempt only offers the shell has not judged yet, e.g. drop `previous` once the shown selection no longer holds the reset value.
+- **E-2 Two paths still reach the menu with a stale remembered pair.** (a) `src:340`: a settings address has no prefix, so `primary` is null and no pair is judged. A tab restored on `…/settings/general?teamId=MARS&projectId=A` after a missed unlink writes the unfit pair (`:404`), and each entry of A's menu answers «Команда не найдена» until she touches a selector or reaches a page that repairs. (b) `src:278`: a held-back address shows the stored pair unrepaired, with the same menu. Fix: judge a settings address's pairs against each other; pass the held-back selection through `repairUnfit` for display.
+- **E-3 The parent link of a project node keeps the team.** `org/pages/AreaPage.tsx:156-159`: the branch also serves a project node, whose parent is a department, so its comment "a node of the same project" is false. On A's node with Логистика / MARS / A the parent opens `areas/L/overview?teamId=MARS`: MARS stays, where BR-NV-19 and every department row reset it. The address fits, so nothing fails. Fix: `objectLink('department', area.parent.id)` for `area.type === 'project'`.
+- **E-4 The repair's notice does not say what dropped.** `src:372,412` raises «Ранее выбранный контекст недоступен. Выбрано: Ромашка.» while A is still offered and MARS stays chosen. ADR § 5 gives a link change «Выбор сброшен: …», § 6 says a notice "only reports a vanished remembered object"; `repair.reset` holds the names and nothing reads them. Overstated prose and a vague notice, no wrong action: minor under item 6. Fix: `resetNotice(repair.reset)`, or widen § 6 to name this case.
+
+### Asked, and clean
+
+- Loops: none. A repair writes, the next render reads a fitting selection, `unfitKey` empties. A failed write leaves the effect's deps unchanged. `offerTrack`'s render-time set compares references and converges.
+- Notice once: `raise` runs per key change. The shell's reset needs earlier offers of the same organization, the repair runs at a first read, so the two never share a read. A failed read followed by a good one counts as a first read.
+- A tab with no organization: the same repair, `src:412`; `useNavigationSource.test.tsx:518`.
+- Repair wipes no fitting value: judged against `next`, so a value only a dropped one unfitted stays. Ids are the server's spelling after `resolveAgainst`. A selection that came through `applyChoice`, or an address with a prefix, fits, so a good memory is never touched (`useNavigationSource.test.tsx:540`).
+- `?teamId=none`: in both orders the selector takes the real team or nothing; `selectionQuery` never carries `none` into the menu; only the filter reads it. On a team's page the prefix decides; on an organization page it names no object, so the remembered selection is read.
+- Choosing an organization with stale memory: a gone object gives the fallback at its «Обзор», an unfit pair the repair. Cached offers repair at once and the refetch goes to the shell. A failed offers read writes nothing. `offerTrack` and `seen` both restart on another organization.
+- `objectLink` with `nodeId`: `openObject` on the project; the department leaves the address and is read back from the node, an unfit one with the notice. Every call site passes `link.state` (`AreaPage.tsx:304`, `AreasPage.tsx:232`). A sub-area's `projectId` comes from the whole tree (`useAreaTree`).
+- `unlinkResetsDepartmentTeam`, read case by case, agrees with `resetUnfitted`, a chosen project included. `navigationKeys.all` is invalidated (`hooks/mutations.ts:53`). A failed offers read right after the unlink loses the notice; the row is gone anyway.
+- 8ec38c0f: no non-comment line of product code changes; only test titles and local test helpers. No interface copy.
+- Kit guard: the five entries match the changed totals per rule (KIT-2 3, -3 5, -4 2, -5 2, -10 2), one file each; 125 to 120; `kitGuard.test.ts` green against the tree.
+- `useNavigationSource.qa.test.tsx`: its 14 cases all stand in `useNavigationSource.test.tsx`.
+
+### Claims pass
+
+- BR-NV-10, US-8 line 57, ADR §§ 5, 6 "writes nothing": `ContextHost.tsx:172-178`, `src:370`. Holds.
+- ADR § 6, BR-NV-10 "on its next render": `src:233`. Holds.
+- ADR § 6 "only reports a vanished remembered object": E-4.
+- mod-017 BR-OT-8 mark and status note: `selection.ts:72`, `src:344-350`. Holds except E-1.
+- `selectorFit.ts:257` `repairUnfit` "no menu entry carries a pair": holds where it runs; E-2 outside it.
+- `ContextHost.tsx:97` "not found for its level instead": holds at a first read; E-1 later.
+- `AreaPage.tsx:156` comment: E-3.
+- mod-018 `design.md:114,238`: `AreaPage.tsx:214`, `AreasPage.tsx:134`. Holds.
+- `linkResets.ts` header: `TeamDepartmentsSection.tsx`, `AreaPage.tsx`. Holds.
+- Direction 2: organization choice: grepped `«все» in the other three`, `with «все»`; only the amended lines. `?teamId=none`: grepped `first wins`, `repeated`, `first value`; no hit in ADR, design, spec. Stale memory: grepped `Ранее выбранный`, `no longer fit`; E-4. Unswept: `prototype/` and other features' folders.
+
+Not read: `ContextSelectors`, `choose.ts`; the delta's tests beyond those named. Run, one file at a time: kit guard, navigation source, `selectorFit`, `selection`, `ContextHost`, `linkResets`, `AppLayout.organizations`, `AreaPage`, `AreasPage`, `routes.boards`, `shellSources`: 588 passed, 1 skipped. One throwaway hook test confirmed E-1 and E-2, removed. Nothing opened in a browser.
