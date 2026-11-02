@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/043-area-project-team-navigation
-- stage: 06-frontend
+- stage: 07-frontend-qa
 - epic: platform/ui
 - deps: feat-040,mod-018,mod-020
 - gates: gate-1, gate-2, gate-3
@@ -55,6 +55,8 @@ gate-3: pending
 - 2026-10-30 [orchestrator] Stage 5 (qa-engineer): backend pass, 0 blockers, 0 majors, 3 minors carried to gate-3 (D-1 unordered id sets, D-2 no timing test at 1 000 areas, D-3 plan text). Affected tests green. No E2E (standing NO).
 
 - 2026-11-02 [orchestrator] Stage 6, plan steps 1-8 and 13 done (frontend-developer, two runs): selectors in the TopBar, menu from addressModel, routes per ADR-0032, switcher retired (eae3b635), Breaks notes in 10 owners' status.md (88236412). Whole-suite Vitest not re-run as one run after the last fixes; the next run owes it. Orchestrator's reading of ADR-0032 § 6, to name at gate-3: an address carrying an organization fully sets the selection and the remembered one applies only to pages with no organization, otherwise «все» could not be chosen on the organization's own pages. Queue PR #45 still open. Weekly 8%.
+
+- 2026-11-02 [orchestrator] Stage 6 done (frontend-developer): steps 9-12 and 14, HEAD 912cb4fd. Whole Vitest suite as one run: 334 files, 5116 passed, 6 skipped, 0 failed; lint 0 errors; tsc clean. PR #45 merged. Not done, to name at gate-3: the kit-guard allow-list entries for AppLayout, MainNavigation and UserMenu stay, each needs a new kit part (a tech-019 remainder, absorbed here by OQ-5 A). The developer's deviations are in its commits; the second selector row scrolls sideways rather than wraps. Local test lane is shared with tech-024 through the doc-012 session: a full run or code push needs its go.
 
 ## Notes
 
