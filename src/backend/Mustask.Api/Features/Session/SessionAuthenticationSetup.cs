@@ -172,7 +172,8 @@ public static class SessionAuthenticationSetup
         // cookie nor a cached access token is created; the redirect carries authError=no_access.
         if (!SessionAccessGate.HoldsUserRole(context.TokenEndpointResponse?.AccessToken, audience))
         {
-            context.HandleResponse();            RedirectToPanel(context.HttpContext, sessionOptions, context.Properties?.RedirectUri, "no_access");
+            context.HandleResponse();
+            RedirectToPanel(context.HttpContext, sessionOptions, context.Properties?.RedirectUri, "no_access");
 
             return Task.CompletedTask;
         }
