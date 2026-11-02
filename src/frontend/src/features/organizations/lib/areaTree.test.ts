@@ -64,7 +64,7 @@ describe('mod-018 design §§ 5.2, 5.4 and D-5: the places a new or a moved node
 
     expect(departmentsOf(tree).map((node) => node.name)).toEqual(['Отчёты', 'Платформа']);
     expect(placementOptions(tree)).toEqual([
-      { id: null, label: 'Организация' },
+      { id: null, label: 'Верхний уровень' },
       { id: ids.reportsArea, label: 'Отчёты' },
       { id: ids.platformArea, label: 'Платформа' },
     ]);
@@ -74,7 +74,7 @@ describe('mod-018 design §§ 5.2, 5.4 and D-5: the places a new or a moved node
     const tree = await exampleTree();
 
     expect(projectMoveOptions(tree, ids.platformArea).map((option) => option.label)).toEqual([
-      'Организация',
+      'Верхний уровень',
       'Отчёты',
     ]);
     expect(projectMoveOptions(tree, null).map((option) => option.label)).toEqual([
@@ -108,7 +108,7 @@ describe('mod-018 design §§ 5.2, 5.4 and D-5: the places a new or a moved node
       id: ids.platformArea,
       label: 'Платформа',
     });
-    expect(placeOfProjectNode(node(ids.anlRoot))).toEqual({ id: null, label: 'Организация' });
+    expect(placeOfProjectNode(node(ids.anlRoot))).toEqual({ id: null, label: 'Верхний уровень' });
   });
 });
 

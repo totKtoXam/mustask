@@ -209,7 +209,7 @@ describe('feat-028 US-3 Scenario: «Добавить команду» links exis
     const { dialog } = await openLink();
 
     expect(dialog).toHaveTextContent(
-      'Выбранные команды смогут владеть рабочими элементами проекта «Пример проекта». Доступ их участников к проекту это не меняет.',
+      'Выбранные команды войдут в проект «Пример проекта». Работу команд это не меняет.',
     );
     expect(within(dialog).getByRole('button', { name: 'Добавить' })).toBeDisabled();
     const field = within(dialog).getByRole('combobox', { name: 'Команды' });
@@ -229,7 +229,7 @@ describe('feat-028 US-3 Scenario: «Добавить команду» links exis
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Добавить' }));
 
-    expect(await screen.findByText('Команды добавлены в проект: 2.')).toBeInTheDocument();
+    expect(await screen.findByText('Команды добавлены: 2.')).toBeInTheDocument();
     expect(api.writes()).toEqual([
       {
         method: 'POST',
@@ -255,10 +255,10 @@ describe('feat-028 US-3 Scenario: «Добавить команду» links exis
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Добавить' }));
 
-    expect(await screen.findByText('Команда «Аналитика» добавлена в проект.')).toBeInTheDocument();
+    expect(await screen.findByText('Команда «Аналитика» добавлена.')).toBeInTheDocument();
   });
 
-  it('says «Все команды организации уже работают над проектом.» when none is left, and «Ничего не найдено» for a text that matches nothing', async () => {
+  it('says «Все команды уже подключены к проекту.» when none is left, and «Ничего не найдено» for a text that matches nothing', async () => {
     const data = exampleDataset();
     data.links.push(
       { projectId: ids.prm, teamId: ids.anlTeam },
@@ -267,9 +267,7 @@ describe('feat-028 US-3 Scenario: «Добавить команду» links exis
     const { dialog } = await openLink(PRM_TEAMS, data);
 
     await userEvent.click(within(dialog).getByRole('combobox', { name: 'Команды' }));
-    expect(
-      await screen.findByText('Все команды организации уже работают над проектом.'),
-    ).toBeVisible();
+    expect(await screen.findByText('Все команды уже подключены к проекту.')).toBeVisible();
     await userEvent.type(within(dialog).getByRole('combobox', { name: 'Команды' }), 'яяя');
     expect(await screen.findByText('Ничего не найдено')).toBeVisible();
     expect(within(dialog).getByRole('button', { name: 'Добавить' })).toBeDisabled();

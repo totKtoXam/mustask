@@ -18,7 +18,7 @@ export const typeLabels: Readonly<Record<AreaType, string>> = {
 };
 
 /** «Организация»: the top level as a place, never a node (design D-8). */
-export const ORGANIZATION_PLACE = 'Организация';
+export const ORGANIZATION_PLACE = 'Верхний уровень';
 
 /** «Области» (design § 3). */
 export const areasPage = {
@@ -83,15 +83,17 @@ export const areaPage = {
     title: 'Проекты',
     tableLabel: 'Проекты департамента',
     columns: { project: 'Проект', key: 'Ключ' },
-    empty: 'В департаменте пока нет проектов.',
+    empty: 'В департаменте нет проектов',
+    add: 'Добавить проект',
+    liftToTop: 'Вынести на верхний уровень',
     deactivatedCount: (count: number) => `${count} деактивирован`,
   },
   teams: {
     title: 'Команды',
-    add: 'Добавить команду',
+    add: 'Добавить команды',
     tableLabel: 'Команды департамента',
     columns: { team: 'Команда' },
-    empty: 'К области не привязаны команды',
+    empty: 'К департаменту не привязаны команды',
     unlink: 'Отключить от департамента',
   },
   rowMenu: (name: string) => `Ещё действия: ${name}`,
@@ -176,6 +178,28 @@ export const moveAreaDialog = {
     leaf: (name: string) => `Область «${name}» переместится.`,
     moved: (name: string) => `Область «${name}» перемещена.`,
   },
+} as const;
+
+/** «Добавление проекта в департамент» and «Вынести на верхний уровень» (feat-043 design §§ 8.2, 8.3). */
+export const placeProjectDialog = {
+  title: 'Добавление проекта в департамент',
+  submit: 'Переместить',
+  field: 'Проект',
+  current: (name: string, place: string) => `${name} — сейчас: ${place}`,
+  topLevelNow: 'верхний уровень',
+  fromPlace: (project: string, from: string, to: string) =>
+    `Проект «${project}» переместится из «${from}» в «${to}». Его области, команды и рабочие элементы не изменятся.`,
+  fromTop: (project: string, to: string) =>
+    `Проект «${project}» войдёт в департамент «${to}». Его области, команды и рабочие элементы не изменятся.`,
+  moved: (project: string) => `Проект «${project}» перемещён.`,
+  projectNotFound: 'Проект не найден',
+} as const;
+
+export const liftProjectDialog = {
+  title: 'Вынести на верхний уровень',
+  confirm: 'Вынести',
+  text: (project: string) =>
+    `Вынести проект «${project}» на верхний уровень? Команды, области и рабочие элементы проекта не изменятся.`,
 } as const;
 
 /** The deletion (design § 5.5). */

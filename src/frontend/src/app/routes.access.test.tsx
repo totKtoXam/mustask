@@ -189,18 +189,18 @@ describe('mod-016 design § 2.6, § 12 Scenario: whose codes — the selection f
     ];
     serveOrganizations(data);
     serveMemberships(data);
-    const add = recordAppearances('Добавить команду');
+    const add = recordAppearances('Добавить команды');
 
     const { queryClient } = renderApp(`/organizations/${ids.beta}/projects/${ids.rep}/teams`);
 
-    expect(await screen.findByRole('table', { name: 'Команды' })).toBeInTheDocument();
+    expect(await screen.findByRole('table', { name: 'Команды проекта' })).toBeInTheDocument();
     await waitFor(() => expect(queryClient.isFetching()).toBe(0));
     expect(queryClient.getQueryData(organizationsKeys.access(ids.beta))).toMatchObject({
       kind: 'member',
       role: 'viewer',
     });
     expect(screen.getByRole('combobox', { name: /^Организация: Бета/ })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Добавить команду' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Добавить команды' })).not.toBeInTheDocument();
     expect(add.count()).toBe(0);
     add.stop();
   });

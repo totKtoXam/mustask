@@ -292,7 +292,7 @@ describe('mod-018 US-2: rename, description, move', () => {
     ).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Новое расположение/ }));
     const options = within(await screen.findByRole('listbox')).getAllByRole('option');
-    expect(options.map((option) => option.textContent)).toEqual(['Организация', 'Отчёты']);
+    expect(options.map((option) => option.textContent)).toEqual(['Верхний уровень', 'Отчёты']);
     await userEvent.click(options[1]!);
     await userEvent.click(within(dialog).getByRole('button', { name: 'Переместить' }));
 
@@ -312,7 +312,7 @@ describe('mod-018 US-2: rename, description, move', () => {
     await choose('Пример проекта', 'Переместить');
     const dialog = await screen.findByRole('dialog', { name: 'Перемещение проекта' });
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Новое расположение/ }));
-    await userEvent.click(await screen.findByRole('option', { name: 'Организация' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Верхний уровень' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Переместить' }));
 
     await screen.findByText('Проект «Пример проекта» перемещён.');

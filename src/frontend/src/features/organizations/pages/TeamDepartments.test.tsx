@@ -120,7 +120,7 @@ describe('mod-018 design § 7: «Расположение» of a project', () =>
     await userEvent.click(await screen.findByRole('button', { name: 'Переместить' }));
     const dialog = await screen.findByRole('dialog', { name: 'Перемещение проекта' });
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Новое расположение/ }));
-    await userEvent.click(await screen.findByRole('option', { name: 'Организация' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Верхний уровень' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Переместить' }));
 
     expect(await screen.findByText('Проект «Пример проекта» перемещён.')).toBeInTheDocument();
@@ -282,7 +282,7 @@ describe('mod-018 api-contract § 5: the codes each control asks for', () => {
       within(await screen.findByRole('listbox'))
         .getAllByRole('option')
         .map((option) => option.textContent),
-    ).toEqual(['Организация']);
+    ).toEqual(['Верхний уровень']);
     await userEvent.keyboard('{Escape}');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
 

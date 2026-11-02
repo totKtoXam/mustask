@@ -130,7 +130,7 @@ describe.each(ROLES)(
 
       renderPage({ path: PLATFORM_PROJECTS, role });
       const projects = await screen.findByRole('table', { name: 'Проекты команды' });
-      expect(button('Добавить проект')).toHaveLength(held(holds));
+      expect(button('Добавить проекты')).toHaveLength(held(holds));
       expect(within(projects).queryAllByRole('button', { name: /^Ещё действия: / })).toHaveLength(
         held(holds),
       );

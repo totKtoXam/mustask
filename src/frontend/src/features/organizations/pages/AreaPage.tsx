@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link as RouterLink, useLocation, useNavigate, useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
+import DriveFileMoveOutlinedIcon from '@mui/icons-material/DriveFileMoveOutlined';
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import LinkOffOutlinedIcon from '@mui/icons-material/LinkOffOutlined';
 import { useAccessCheck } from '../../../shared/lib/access';
@@ -31,9 +32,11 @@ import {
   type NodeDialogResult,
 } from '../components/AreaNodeDialogs';
 import { AreaTypeMark, commandIcon } from '../components/AreaTypeMark';
+import { ConfirmAction } from '../components/ConfirmAction';
 import { FactsPanel, type Fact } from '../components/FactsPanel';
 import { useNotify } from '../components/notice';
-import { useLinkTeamsToArea, useUnlinkTeamFromArea } from '../hooks/mutations';
+import { PlaceProjectDialog } from '../components/PlaceProjectDialog';
+import { useLinkTeamsToArea, useMoveArea, useUnlinkTeamFromArea } from '../hooks/mutations';
 import { useArea, useAreaTeams, useAreaTree } from '../hooks/queries';
 import { commandKinds, commandLabel } from '../lib/areaCommands';
 import {
@@ -42,6 +45,9 @@ import {
   areaLinkDialog,
   areaPage,
   areaUnlinkDialog,
+  liftProjectDialog,
+  moveAreaDialog,
+  placeProjectDialog,
 } from '../lib/areaTexts';
 import { notFoundLevel } from '../lib/notFoundLevel';
 import {
@@ -56,6 +62,8 @@ import { organizationsPermissions } from '../permissions';
 
 type PageDialog =
   | { kind: 'node'; dialog: NodeDialog }
+  | { kind: 'place' }
+  | { kind: 'lift'; project: { id: string; name: string } }
   | { kind: 'linkTeams' }
   | { kind: 'unlinkTeam'; team: LinkedTeam }
   | null;
@@ -199,6 +207,7 @@ export function AreaPage() {
   const teams = useAreaTeams(organizationId, areaId, isDepartment);
   const linkTeams = useLinkTeamsToArea(organizationId, areaId);
   const unlinkTeam = useUnlinkTeamFromArea(organizationId, areaId);
+  const moveArea = useMoveArea(organizationId);
   const navigate = useNavigate();
   const notify = useNotify();
   const access = useAccessCheck();
@@ -289,6 +298,30 @@ export function AreaPage() {
       render: (child) => <TruncatedText>{child.description ?? ''}</TruncatedText>,
     },
   ];
+  // A project moves to the top level for the holder of both codes (design § 8.3; api-contract § 1).
+  const canLift = canWrite && canCreate;
+  if (area?.type === 'department' && canLift) {
+    childColumns.push({
+      key: 'actions',
+      header: '',
+      align: 'right',
+      width: 48,
+      render: (child) =>
+        child.projectActive === false ? null : (
+          <MoreActionsMenu
+            label={areaPage.rowMenu(child.name)}
+            size="row"
+            items={[
+              {
+                label: areaPage.projects.liftToTop,
+                icon: <DriveFileMoveOutlinedIcon />,
+                onSelect: () => setDialog({ kind: 'lift', project: child }),
+              },
+            ]}
+          />
+        ),
+    });
+  }
   if (area?.type === 'department') {
     childColumns.splice(1, 0, {
       key: 'key',
@@ -359,9 +392,18 @@ export function AreaPage() {
       count={children.length}
       actions={
         isDepartment ? (
-          deactivatedCount > 0 ? (
-            <Tag label={areaPage.projects.deactivatedCount(deactivatedCount)} />
-          ) : undefined
+          <>
+            {deactivatedCount > 0 && (
+              <Tag label={areaPage.projects.deactivatedCount(deactivatedCount)} />
+            )}
+            {canWrite && (
+              <ActionButton
+                label={areaPage.projects.add}
+                icon={<ThinAddIcon />}
+                onClick={() => setDialog({ kind: 'place' })}
+              />
+            )}
+          </>
         ) : showCreateChild ? (
           <ActionButton
             label={areaCommands.createChild}
@@ -473,6 +515,36 @@ export function AreaPage() {
         onDone={done}
         onClose={closeDialog}
       />
+      {area && dialog?.kind === 'place' && (
+        <RequiresOrganizationCode code={organizationsPermissions.areaWrite}>
+          <PlaceProjectDialog
+            organizationId={organizationId}
+            department={{ id: area.id, name: area.name }}
+            canFromTop={canCreate}
+            submit={(nodeId) => moveArea.mutateAsync({ areaId: nodeId, parentId: area.id })}
+            onSucceeded={(project) => {
+              setDialog(null);
+              notify(placeProjectDialog.moved(project.name));
+            }}
+            onClose={closeDialog}
+          />
+        </RequiresOrganizationCode>
+      )}
+      {dialog?.kind === 'lift' && (
+        <RequiresOrganizationCode code={organizationsPermissions.areaCreate}>
+          <ConfirmAction
+            title={liftProjectDialog.title}
+            text={liftProjectDialog.text(dialog.project.name)}
+            confirmLabel={liftProjectDialog.confirm}
+            action={() => moveArea.mutateAsync({ areaId: dialog.project.id, parentId: null })}
+            onSucceeded={() => {
+              setDialog(null);
+              notify(moveAreaDialog.project.moved(dialog.project.name));
+            }}
+            onClose={closeDialog}
+          />
+        </RequiresOrganizationCode>
+      )}
       {area && dialog?.kind === 'linkTeams' && (
         <RequiresOrganizationCode code={organizationsPermissions.areaLink}>
           <AreaLinkDialog

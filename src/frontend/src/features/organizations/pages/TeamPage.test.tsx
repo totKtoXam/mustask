@@ -162,8 +162,8 @@ describe('feat-028 US-3 Scenario: A team’s projects', () => {
     serveOrganizations(data);
     renderPage({ path: teamPage(ids.platformTeam, ids.alfa, 'projects') });
 
-    expect(await screen.findByText('Команда пока не участвует ни в одном проекте.')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Добавить проект' })).toBeVisible();
+    expect(await screen.findByText('Команда не привязана ни к одному проекту')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Добавить проекты' })).toBeVisible();
     expect(screen.queryByRole('table', { name: 'Проекты команды' })).not.toBeInTheDocument();
   });
 
@@ -171,7 +171,7 @@ describe('feat-028 US-3 Scenario: A team’s projects', () => {
     serveOrganizations();
     renderPage({ path: teamPage(ids.oldTeam, ids.alfa, 'projects') });
 
-    expect(await screen.findByText('Команда пока не участвует ни в одном проекте.')).toBeVisible();
+    expect(await screen.findByText('Команда не привязана ни к одному проекту')).toBeVisible();
   });
 
   it('the projects’ read failing is the section’s own error with «Повторить»; the facts and the members stay', async () => {
@@ -194,7 +194,7 @@ describe('feat-028 US-3 Scenario: «Добавить проект» links projec
     const api = serveOrganizations(data);
     renderPage({ path: teamPage(ids.platformTeam, ids.alfa, 'projects') });
     await projectsTable();
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить проект' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить проекты' }));
     const dialog = await screen.findByRole('dialog', { name: 'Добавление проектов в команду' });
     return { api, dialog };
   }
@@ -203,7 +203,7 @@ describe('feat-028 US-3 Scenario: «Добавить проект» links projec
     const { dialog } = await openLink();
 
     expect(dialog).toHaveTextContent(
-      'Команда «Платформа» сможет владеть рабочими элементами выбранных проектов. Доступ её участников к ним это не меняет.',
+      'Команда «Платформа» войдёт в выбранные проекты. Её работу это не меняет.',
     );
     expect(within(dialog).getByRole('button', { name: 'Добавить' })).toBeDisabled();
     await userEvent.click(within(dialog).getByRole('combobox', { name: 'Проекты' }));
@@ -220,7 +220,7 @@ describe('feat-028 US-3 Scenario: «Добавить проект» links projec
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Добавить' }));
 
-    expect(await screen.findByText('Проект «Аналитика» добавлен в команду.')).toBeInTheDocument();
+    expect(await screen.findByText('Проект «Аналитика» добавлен.')).toBeInTheDocument();
     expect(api.writes()).toEqual([
       {
         method: 'POST',
@@ -255,19 +255,17 @@ describe('feat-028 US-3 Scenario: «Добавить проект» links projec
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Добавить' }));
 
-    expect(await screen.findByText('Проекты добавлены в команду: 2.')).toBeInTheDocument();
+    expect(await screen.findByText('Проекты добавлены: 2.')).toBeInTheDocument();
   });
 
-  it('says «Команда уже работает над всеми проектами организации.» when none is left', async () => {
+  it('says «Команда уже подключена ко всем проектам.» when none is left', async () => {
     const data = exampleDataset();
     data.links.push({ projectId: ids.anl, teamId: ids.platformTeam });
     const { dialog } = await openLink(data);
 
     await userEvent.click(within(dialog).getByRole('combobox', { name: 'Проекты' }));
 
-    expect(
-      await screen.findByText('Команда уже работает над всеми проектами организации.'),
-    ).toBeVisible();
+    expect(await screen.findByText('Команда уже подключена ко всем проектам.')).toBeVisible();
   });
 
   it('a project deactivated meanwhile lands under «Проекты», the choice drops and nothing is linked', async () => {
@@ -316,7 +314,7 @@ describe('feat-028 US-3 Scenario: «Добавить проект» links projec
     }
     const api = serveOrganizations(data);
     renderPage({ path: teamPage(ids.oldTeam, ids.alfa, 'projects') });
-    await userEvent.click(await screen.findByRole('button', { name: 'Добавить проект' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Добавить проекты' }));
     const dialog = await screen.findByRole('dialog', { name: 'Добавление проектов в команду' });
 
     expect(await within(dialog).findByRole('status')).toHaveTextContent(
@@ -365,7 +363,7 @@ describe('feat-028 US-4 Scenario: «Отключить от проекта» fro
       path: `/api/organizations/${ids.alfa}/projects/${ids.prm}/teams/${ids.platformTeam}/unlink`,
       body: { destination: { teamId: ids.prmTeam } },
     });
-    expect(await screen.findByText('Команда пока не участвует ни в одном проекте.')).toBeVisible();
+    expect(await screen.findByText('Команда не привязана ни к одному проекту')).toBeVisible();
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Команда: Платформа' }),
     ).toBeVisible();
