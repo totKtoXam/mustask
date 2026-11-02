@@ -290,9 +290,9 @@ fi
 # ci       CI workflow
 # dotnet   code and everything that participates in the backend build
 # frontend frontend code and configuration
-# provider the Keycloak provider and the image that carries it (ADR-0025):
-#          built and unit-tested in Docker, then the .NET tests tagged
-#          KeycloakProvider — Docker is required, not optional
+# keycloak the Keycloak image and its realm import: the .NET tests tagged
+#          KeycloakLive start a real Keycloak (tech-025 retired the provider
+#          that used to be built here) — Docker is required, not optional
 classify() {
     case "$1" in
         .githooks/*|scripts/*|*.sh)                  echo shell ;;
@@ -305,18 +305,17 @@ classify() {
         src/*/AGENTS.md|src/*/CLAUDE.md)             echo agents ;;
         src/frontend/*)                              echo frontend ;;
         contracts/errors/*)                          echo dotnet ;;
-        # The Keycloak provider (mod-014, ADR-0025 § 1): Java built and
-        # tested only inside the image build — before the other
-        # deploy/keycloak patterns.
-        deploy/keycloak/providers/*|deploy/keycloak/Dockerfile|deploy/keycloak/.dockerignore)
-                                                     echo provider ;;
+        # The Keycloak image: only a real build and start shows whether it
+        # works — before the other deploy/keycloak patterns.
+        deploy/keycloak/Dockerfile|deploy/keycloak/.dockerignore)
+                                                     echo keycloak ;;
         # Keycloak realm-import — a contract artifact: checked by
         # KeycloakRealmRolesTests from Mustask.Contracts.Tests (dotnet) — and
         # imported by a real Keycloak, which no file test can promise (mod-016
         # D-16 OP-10: an import Keycloak rejects only shows when it is
-        # started): the provider bucket runs the live tests tagged
-        # KeycloakProvider, LiveRealmImportTests among them. Two buckets.
-        deploy/keycloak/realms/*)                    echo "dotnet provider" ;;
+        # started): the keycloak bucket runs the live tests tagged
+        # KeycloakLive, LiveRealmImportTests among them. Two buckets.
+        deploy/keycloak/realms/*)                    echo "dotnet keycloak" ;;
         # Login themes: KeycloakRealmRolesTests checks that the theme exists
         # and that the files listed in its `styles` exist. It can't check how
         # the page looks — after a Keycloak version bump it still needs a
@@ -337,13 +336,13 @@ need_shell=0
 need_ci=0
 need_dotnet=0
 need_frontend=0
-need_provider=0
+need_keycloak=0
 
 note "Changed files:"
 for file in $changed; do
     buckets=$(classify "$file")
     printf "  %-9s %s\n" "$buckets" "$file"
-    # A file may belong to more than one bucket (a realm import: dotnet and provider).
+    # A file may belong to more than one bucket (a realm import: dotnet and keycloak).
     for bucket in $buckets; do
         case "$bucket" in
             prose)    need_prose=1 ;;
@@ -356,13 +355,13 @@ for file in $changed; do
             ci)       need_ci=1 ;;
             dotnet)   need_dotnet=1 ;;
             frontend) need_frontend=1 ;;
-            provider) need_provider=1 ;;
+            keycloak) need_keycloak=1 ;;
         esac
     done
 done
 
 note ""
-if [ "$need_prose$need_agents$need_shell$need_ci$need_dotnet$need_frontend$need_provider" = "0000000" ]; then
+if [ "$need_prose$need_agents$need_shell$need_ci$need_dotnet$need_frontend$need_keycloak" = "0000000" ]; then
     note "No checks needed: the changes affect nothing."
     [ "$LIST_ONLY" = 1 ] && exit 0
     note ""
@@ -850,40 +849,30 @@ if [ "$need_dotnet" = 1 ]; then
     fi
 fi
 
-# --- Keycloak provider -----------------------------------------------------------
-# ADR-0025 § 1: a provider change verified by nothing is what the NFR forbids,
-# so without Docker this bucket fails instead of printing "not checked".
-if [ "$need_provider" = 1 ]; then
+# --- Keycloak -------------------------------------------------------------------
+# The live realm tests start the stand's image with the repository's realm import (the image
+# is built by the test itself). A realm or image change verified by nothing real is what they
+# exist to prevent, so without Docker this bucket fails instead of printing "not checked".
+if [ "$need_keycloak" = 1 ]; then
     if ! docker info >/dev/null 2>&1; then
-        fail "Docker is required to verify the Keycloak provider (deploy/keycloak/providers, ADR-0025)"
+        fail "Docker is required to verify the Keycloak image and realm import (deploy/keycloak)"
     else
-        provider_log=$(mktemp)
-        if DOCKER_BUILDKIT=1 docker build --progress=plain --target provider deploy/keycloak >"$provider_log" 2>&1; then
-            grep -E "Tests run: [0-9]+, Failures" "$provider_log" | tail -n 1 | sed "s/^/    /"
-            pass "Keycloak provider: compile, unit tests, read-only guard (docker build --target provider)"
-        else
-            tail -n 60 "$provider_log" | sed "s/^/    /" >&2
-            fail "Keycloak provider: docker build --target provider"
-        fi
-        rm -f "$provider_log"
-
-        provider_built=1
+        keycloak_built=1
         if [ "$need_dotnet" != 1 ]; then
             if ! command -v dotnet >/dev/null 2>&1 || ! dotnet build Mustask.sln --nologo -v q; then
-                fail "backend build (for the KeycloakProvider tests)"
-                provider_built=0
+                fail "backend build (for the KeycloakLive tests)"
+                keycloak_built=0
             fi
         fi
-        if [ "$provider_built" = 1 ]; then
-            provider_tests_ok=1
+        if [ "$keycloak_built" = 1 ]; then
+            keycloak_tests_ok=1
             for project in src/backend/tests/Mustask.Contracts.Tests src/backend/tests/Mustask.Api.IntegrationTests; do
-                run_tests dotnet env MUSTASK_KEYCLOAK_PROVIDER_TESTS=1 dotnet test "$project" --no-build --nologo -v q \
-                    --filter "Category=KeycloakProvider" || provider_tests_ok=0
+                run_tests dotnet env MUSTASK_KEYCLOAK_LIVE_TESTS=1 dotnet test "$project" --no-build --nologo -v q                     --filter "Category=KeycloakLive" || keycloak_tests_ok=0
             done
-            if [ "$provider_tests_ok" = 1 ]; then
-                pass ".NET tests tagged KeycloakProvider (shared signature vectors, image, live provider)"
+            if [ "$keycloak_tests_ok" = 1 ]; then
+                pass ".NET tests tagged KeycloakLive (the real Keycloak with the repository's realm import)"
             else
-                fail ".NET tests tagged KeycloakProvider"
+                fail ".NET tests tagged KeycloakLive"
             fi
         fi
     fi
