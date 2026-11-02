@@ -280,3 +280,53 @@ Beyond the spec's own OQ-1, OQ-2, OQ-3, OQ-4, OQ-5, OQ-7, OQ-8 and OQ-9 (OQ-6 is
 - **H-3 (R-12).** One project at a time when placing into a department, or a new all-or-none batch?
 - **H-4 (R-7).** If the 2 s budget does not hold for a keyword over a million rows, may it be weaker at that volume?
 - **OQ-5 (R-8):** the rule of doc-013 already says absorb; choosing A is a departure from it.
+
+## Round 1 — code
+
+Reviewed at b572d92b, from 5321cdc7; one pass, security included. `FE` = `src/frontend/src`, `org` = `FE/features/organizations`.
+
+**Verdict: `blocked-on-decision`.** 0 blockers, 8 majors, 8 minors. C-3, C-5 and C-6 wait on a decision (below); the others can go to the developer now. Security: nothing found.
+
+### Majors
+
+- **C-1 A link change that unfits a chosen value resets nothing, and the success notice is lost.** Fit is judged only in `applyChoice`/`openObject`; `resolveAgainst` (`FE/app/navigation/useNavigationSource.ts:84-99`) checks existence only. `org/pages/TeamsPage.tsx:177-189`, `TeamPage.tsx:313-328` suppress their notice (`fallsBack`) for a shell reset that never fires. A and MARS chosen, unlink: no notice, `?teamId=MARS` stays. BR-NV-17, ADR § 5, US-7:73-74. Fix: judge fit on offers change; test it end to end.
+- **C-2 A deactivated project's node opens read-only, the option OQ-3 rejected.** `org/pages/AreaPage.tsx:442-446` draws a notice for `projectActive === false`, and `AreaPage.test.tsx:386` pins it, against BR-NV-13, OQ-3 A, design:121, US-3:71-74. Rows stay links: `AreaPage.tsx:288`, `AreasPage.tsx:217` (design line 88, US-2 line 51). Fix: «Проект не найден» on the page, plain text in rows; mark mod-018 BR-AW-10 (OQ-6 A) in Breaks.
+- **C-3 Row targets drop selectors.** `AreaPage.tsx:339`, `:87`, `:274`, `org/components/TeamDepartmentsSection.tsx:60` are plain paths; `useObjectLink` is unused there, so «Логистика» / MARS opening A loses MARS (US-3 line 79, BR-NV-19). `AreaPage.tsx:288` opens the node, not «Общие» (US-3 lines 20, 25). `AreasPage.tsx:217` follows design line 88 (project row: «Структура»), against US-2 line 50 and OQ-1 A: spec and design disagree. `FE/app/navigation/model.ts:75-82` drops the team silently.
+- **C-4 QA F-1 is open on the area prefix.** `…/areas/<gone>/overview`: chosen department is null, `lostKey` empty, so `useNavigationSource.ts:255-257` writes all-null, against its comment at `:236-238`; a remembered gone department gets no notice (BR-NV-7, US-8 line 84). It also fires while a node loads. `:251` writes the address's objects, so other remembered values go (remembered MARS + gone A, address names A: MARS lost, US-8 line 81). Fix: compare the prefix id, wait for the node, drop only the gone kind.
+- **C-5 Remembered selection: prose and code differ.** Code reads it only with no organization (`useNavigationSource.ts:177-183`) and any organization page writes, so «Обзор» wipes it. US-8 lines 69-76, spec BPMN node Kp and ADR § 6 say otherwise. status.md holds the reading "to name at gate-3"; the texts stand.
+- **C-6 Query selector not found is not implemented.** ADR § 1 last sentence, § 3, design line 73 say a gone or non-fitting query value answers not found. Code drops a gone value quietly and keeps a non-fitting one.
+- **C-7 BR-NV-15 overstated.** BR-NV-15 and US-2 lines 80-82 put the lists in the signature test; `NavigationReadSignatureTests.cs` covers `INavigationReadModel` only and its summary still says "the lists". The deferral to feat-041 is only in the status Log. Fix: amend both.
+- **C-8 Owed document marks.** mod-017 `spec.md` BR-OT-8 (edited here) still says "a filtered backlog reorders against the full list", contradicting Q-9 A; mod-017 is absent from spec Breaks. mod-017 `api-contract.md` changed with no note in its `status.md` (hard rule). ADR-0031 rule 5 has no marker, while ADR-0032 Spawned and plan step 5 say US-9 writes it. Six lines are corrupt, a literal `n> ` and each doubled: mod-016 `design.md` (2), mod-017 `api-contract.md:332-333`, `design.md` (4), from d94fbab6.
+
+### Decisions owed
+
+1. C-3: project row in «Области», «Общие» (spec) or «Структура» (design).
+2. C-5: keep the recorded reading and amend US-8, BPMN, ADR § 6, or implement the text.
+3. C-6: not found for query values, or weaken the ADR to a quiet drop.
+
+### Minors (debt)
+
+- C-9 `org/pages/OrganizationGeneralPage.tsx:112`, live copy still says «переключателя».
+- C-10 Stale "switcher" comments: `AppLayout.tsx:94`, `TeamHead.tsx:89`, `mutations.ts:46`, `MembersPage`, others by grep; `docs/conventions/frontend.md:47`, `ui-kit.md:245,410`; retired addresses in comments `TeamPage.tsx:45`, `AreaPage.tsx:192`.
+- C-11 `FE/app/shell/ContextHost.tsx:62-72`: the link notice in router state refires on reload and remount (`TopBar.tsx:58,70`); `onOrganization` sets no focus (US-8 line 102).
+- C-12 `fallbackSelection` (`selection.ts:271`) is dead outside its test.
+- C-13 ADR-0024 § 4 marker cites ADR-0032 § 4; the levels are § 3.
+- C-14 US-7 line 25 replaces a team view's project filter; US-5 line 35 and `useViewFilter.ts:15` keep it.
+- C-15 api-contract § 2: offers serve «Команды»; `OrganizationTeamsPage` reads `useOrganizationTeams`.
+- C-16 `useSelectorOffers` lacks `refetchOnWindowFocus` (default false, `App.tsx:15`): another user's change stays unseen.
+
+### Claims pass
+
+- Seven and five statements: `NavigationReadModelTests.cs:22-23,115`. Holds.
+- Both reads guarded by the code and scoped by `caller.OrganizationId`: `OrganizationEndpoints.cs`, `Reachability.cs`. Holds.
+- Storage holds ids only: `selection.ts:164-170`. Holds.
+- `projectId` only on settings: `selection.ts:86-92`. Holds.
+- Retired addresses redirect nowhere: `routeInventory.test.tsx`. Holds.
+- Narrowed backlog: `narrowed.ts:15`, `BacklogTable.tsx`. Holds; mod-017 text: C-8.
+- Switcher retired: `shellSources.test.ts`. Holds. No `it.fails` left.
+- mod-017's reorder test replaced for Q-9: `ProjectBacklogPage.reorderFiltered.test.tsx:40`, title and dataset read only.
+- Tests deleted in eae3b635 cover retired modules, except C-1's rule.
+- 10 Breaks notes present; ADR-0024, ADR-0028 marks present; the rest C-8.
+- Direction 2: grepped `ContextSwitcher`, `switchTarget`, `placeholderContext`, `settings/(teams|areas|projects|members)`, `switcher`. Code clean; `docs/conventions` C-10. Unswept: other feature folders' hits (first 40 listed, unread) and the reorder sentence beyond mod-017.
+
+Not read: `design.md` and plans in full; most tests; `PlaceProjectDialog`, `LinkDialog`, `OrganizationListPage` (BR-NV-16). Run: `selection`, `selectorFit` tests, 61 green.
