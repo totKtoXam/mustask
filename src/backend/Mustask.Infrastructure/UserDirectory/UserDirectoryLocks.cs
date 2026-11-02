@@ -5,9 +5,9 @@ namespace Mustask.Infrastructure.UserDirectory;
 /// <summary>
 /// The user projection's transaction-scoped advisory locks (ADR-0025 § 6;
 /// ADR-0011), the SQL in one place. A per-user lock also covers an id not
-/// held yet, which a row lock cannot; the snapshot lock keeps begins, pages
-/// and completions from interleaving. Both are released by the commit or
-/// rollback of the transaction that took them.
+/// held yet, which a row lock cannot - two first sign-ins of one person
+/// meet here (ADR-0034). It is released by the commit or rollback of the
+/// transaction that took it.
 /// </summary>
 internal static class UserDirectoryLocks
 {
