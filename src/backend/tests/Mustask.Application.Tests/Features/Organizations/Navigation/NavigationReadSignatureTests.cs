@@ -5,7 +5,7 @@ namespace Mustask.Application.Tests.Features.Organizations.Navigation;
 
 /// <summary>
 /// BR-NV-15 · each read across projects takes the caller as a required argument, so that <c>feat-041-project-visibility</c> adds the
-/// set of visible projects inside it. A signature test over the reads of «Обзор», the lists and the selectors' offers: every method
+/// set of visible projects inside it. A signature test over the reads of «Обзор» and the selectors' offers (the older lists stay outside it): every method
 /// of <see cref="INavigationReadModel"/> declares a <see cref="CallerAccess"/> parameter that is not optional and not nullable. The
 /// second line (feat-048) carries its own test over the item and view reads.
 /// </summary>
