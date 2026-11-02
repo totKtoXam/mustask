@@ -65,6 +65,9 @@ export { organizationsPermissions } from './permissions';
 // feat-043: the shell's selectors read the active organizations and `selector-offers`.
 export { useOrganizations, useProjects, useTeamProjects, useTeams } from './hooks/queries';
 export { useSelectorOffers } from './hooks/navigationQueries';
+export { useObjectLink } from './hooks/useObjectLink';
+// The shell resolves `areas/:id` against the offers (a project's node or a sub-area).
+export { useArea } from './hooks/queries';
 export { organizationsKeys } from './api/queryKeys';
 export type { SelectorOffers } from './api/navigationApi';
 // mod-017: the work item's «Команда» picker and the team filter (workitems), and the creation

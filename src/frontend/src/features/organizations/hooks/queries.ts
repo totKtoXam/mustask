@@ -206,10 +206,15 @@ export function useProjectAreaTree(
 }
 
 /** A node's page: its parent and its direct children (§ 3). */
-export function useArea(organizationId: string, areaId: string) {
+export function useArea(
+  organizationId: string,
+  areaId: string,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: organizationsKeys.area(organizationId, areaId),
     queryFn: () => getArea(organizationId, areaId),
+    enabled: options.enabled ?? true,
   });
 }
 

@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { matchPath, useLocation } from 'react-router-dom';
 import {
   ORGANIZATIONS_PATH,
+  useArea,
   useOrganizations,
+  useProjectAreaTree,
   useSelectorOffers,
 } from '../../features/organizations';
 import type {
+  WorkContextObjectKind,
+  WorkContextObjectLink,
   WorkContextFallback,
   WorkContextOffers,
   WorkContextOrganization,
@@ -13,7 +17,9 @@ import type {
   WorkContextSource,
   WorkContextStatus,
 } from '../../shared/lib/workContext';
+import { KIND_ROUTE_PREFIX, menuFor } from './addressModel';
 import {
+  menuHref,
   clearRemembered,
   isOrganizationCleared,
   readAddressSelection,
@@ -23,7 +29,21 @@ import {
   writeRemembered,
   type KeyValueStore,
 } from './selection';
-import { NO_SELECTION, SELECTOR_KINDS, type ObjectSelection } from './selectorFit';
+import {
+  NO_SELECTION,
+  SELECTOR_KINDS,
+  openObject,
+  resetNotice,
+  type ObjectSelection,
+} from './selectorFit';
+
+function decodeId(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
 
 export interface NavigationSourceOptions {
   /** `false` while a test hands the shell its own source: nothing is read or stored. */
@@ -130,15 +150,67 @@ export function useNavigationSource({
   const offers: WorkContextOffers | undefined =
     offersStatus === 'ready' && organizationId !== undefined ? offersQuery.data : undefined;
 
+  // `areas/:areaId` is a department, or a project's node or a sub-area (ADR-0032 § 2): the
+  // offers hold the departments only, so any other id is read as the node it is.
+  const areaPrefixId = useMemo(() => {
+    const params: Record<string, string | undefined> | undefined = matchPath(
+      { path: `${KIND_ROUTE_PREFIX.department}/*`, end: false },
+      pathname,
+    )?.params;
+    const value = params?.areaId;
+    return value === undefined || value === '' ? undefined : decodeId(value);
+  }, [pathname]);
+  const isDepartmentId =
+    offers !== undefined &&
+    areaPrefixId !== undefined &&
+    resolveKnownId(
+      areaPrefixId,
+      offers.departments.map(({ id }) => id),
+    ) !== null;
+  const nodeQuery = useArea(organizationId ?? '', areaPrefixId ?? '', {
+    enabled: enabled && offers !== undefined && areaPrefixId !== undefined && !isDepartmentId,
+  });
+  const nodeProjectId = nodeQuery.isSuccess ? nodeQuery.data.projectId : null;
+  const nodeId = nodeQuery.isSuccess && nodeProjectId !== null ? areaPrefixId : undefined;
+
   // The chosen objects: the address's, or on a page with no organization the remembered ones.
   const carriesOrganization = address.organizationId !== undefined;
   const rememberedObjects =
     !carriesOrganization && store && organizationId !== undefined
       ? readRemembered(store, user, organizationId)
       : null;
-  const chosen: ObjectSelection = carriesOrganization
-    ? address.selection
-    : (rememberedObjects ?? NO_SELECTION);
+  const chosen: ObjectSelection = useMemo(() => {
+    const base = carriesOrganization ? address.selection : (rememberedObjects ?? NO_SELECTION);
+    if (!carriesOrganization || areaPrefixId === undefined || isDepartmentId || !offers) {
+      return base;
+    }
+    // A node or sub-area: its project (and the project's department) is the selection; until
+    // the node is read, or when it is gone, the department of the prefix is no department.
+    const placed = offers.projects.find(
+      ({ id }) => nodeProjectId !== null && id.toLowerCase() === nodeProjectId.toLowerCase(),
+    );
+    return {
+      ...base,
+      department: placed?.departmentId ?? null,
+      project: placed ? placed.id : null,
+    };
+  }, [
+    carriesOrganization,
+    address,
+    areaPrefixId,
+    isDepartmentId,
+    offers,
+    nodeProjectId,
+    rememberedObjects,
+  ]);
+
+  // «Структура» of the chosen project: its node, from the project's own subtree (an existing
+  // read, shared with the project's pages), because the offers carry no node id.
+  const structureProjectId = chosen.project;
+  const treeQuery = useProjectAreaTree(organizationId ?? '', structureProjectId ?? '', {
+    enabled: enabled && organizationId !== undefined && structureProjectId !== null,
+  });
+  const structureId = treeQuery.data?.find((node) => node.type === 'project')?.id;
   const resolution = useMemo(
     () => (offers ? resolveAgainst(chosen, offers) : null),
     // `chosen` is a fresh object per render; its three ids are the dependencies.
@@ -231,9 +303,28 @@ export function useNavigationSource({
       departmentId: objects.department ?? undefined,
       teamId: objects.team ?? undefined,
       projectId: objects.project ?? undefined,
+      structureId: objects.project !== null ? structureId : undefined,
+      nodeId,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [organizationId, objectsKey],
+    [organizationId, objectsKey, structureId, nodeId],
+  );
+
+  // Where a row or a link to an object leads (D-3): the object becomes the most specific one.
+  const objectLink = useCallback(
+    (kind: WorkContextObjectKind, id: string): WorkContextObjectLink | null => {
+      if (organizationId === undefined || !offers) return null;
+      const opened = openObject(offers, objects, kind, id);
+      const first = menuFor(kind)[0];
+      if (!first) return null;
+      return {
+        to: menuHref(organizationId, opened.selection, first),
+        notice: resetNotice(opened.reset),
+      };
+    },
+    // `objects` is read through its key.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [organizationId, offers, objectsKey],
   );
 
   const tree = useMemo<WorkContextOrganization[]>(
@@ -271,6 +362,7 @@ export function useNavigationSource({
       clearOrganizations,
       fallback,
       dismissFallback,
+      objectLink,
     }),
     [
       organizationsStatus,
@@ -283,6 +375,7 @@ export function useNavigationSource({
       clearOrganizations,
       fallback,
       dismissFallback,
+      objectLink,
     ],
   );
 }

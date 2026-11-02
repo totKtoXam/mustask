@@ -100,10 +100,10 @@ describe('mod-018 US-5: no department and no project is a normal state', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'В организации пока нет департаментов и проектов',
+        name: 'В организации пока нет областей',
       }),
     ).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Новый департамент' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Создать департамент' })).toHaveLength(2);
     expect(screen.queryByRole('button', { name: 'Свернуть всё' })).not.toBeInTheDocument();
   });
 
@@ -112,9 +112,9 @@ describe('mod-018 US-5: no department and no project is a normal state', () => {
     renderPage({ path: AREAS, role: 'viewer' });
 
     expect(
-      await screen.findByText('Области создаёт администратор организации.'),
+      await screen.findByText('Департаменты создаёт администратор организации.'),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Новый департамент' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Создать департамент' })).not.toBeInTheDocument();
   });
 
   it('shows the projects at the top level when there is no department yet', async () => {
@@ -133,7 +133,7 @@ describe('mod-018 US-1: «Новый департамент»', () => {
     renderPage({ path: AREAS });
     await treegrid();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Новый департамент' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Создать департамент' }));
     const dialog = await screen.findByRole('dialog', { name: 'Новый департамент' });
     expect(within(dialog).getByRole('textbox', { name: /Название/ })).toHaveFocus();
     await userEvent.type(within(dialog).getByRole('textbox', { name: /Название/ }), ' Данные ');
@@ -152,7 +152,7 @@ describe('mod-018 US-1: «Новый департамент»', () => {
     renderPage({ path: AREAS });
     await treegrid();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Новый департамент' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Создать департамент' }));
     const dialog = await screen.findByRole('dialog', { name: 'Новый департамент' });
     await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
 
@@ -167,7 +167,7 @@ describe('mod-018 US-1: «Новый департамент»', () => {
     renderPage({ path: AREAS });
     await treegrid();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Новый департамент' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Создать департамент' }));
     const dialog = await screen.findByRole('dialog', { name: 'Новый департамент' });
     await userEvent.type(within(dialog).getByRole('textbox', { name: /Название/ }), 'отчёты');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
@@ -443,7 +443,7 @@ describe('mod-018 US-6: the actions follow the served codes', () => {
     renderPage({ path: AREAS, role: 'member' });
     await treegrid();
 
-    expect(screen.queryByRole('button', { name: 'Новый департамент' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Создать департамент' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Действия:/ })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Платформа' })).toBeInTheDocument();
   });

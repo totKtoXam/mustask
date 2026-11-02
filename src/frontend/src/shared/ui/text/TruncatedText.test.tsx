@@ -1,4 +1,4 @@
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -68,6 +68,22 @@ describe('tech-015 Scenario: TruncatedText (design § 5.5)', () => {
       expect(link).toHaveAttribute('href', '/organizations/1/projects/2/backlog');
       expect(link).toHaveAttribute('title', LONG);
       expect(getComputedStyle(link).textOverflow).toBe('ellipsis');
+    });
+
+    it('carries the router state it is given to the page it opens', async () => {
+      function Probe() {
+        return <span data-testid="state">{JSON.stringify(useLocation().state)}</span>;
+      }
+      render(
+        <MemoryRouter>
+          <TruncatedText to="/next" linkState={{ resetNotice: 'Выбор сброшен: команда MARS.' }}>
+            Далее
+          </TruncatedText>
+          <Probe />
+        </MemoryRouter>,
+      );
+      await userEvent.click(screen.getByRole('link', { name: 'Далее' }));
+      expect(screen.getByTestId('state')).toHaveTextContent('Выбор сброшен: команда MARS.');
     });
 
     it('plain (default) takes the surrounding colour and is underlined on hover only', () => {

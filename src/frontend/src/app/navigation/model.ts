@@ -69,10 +69,20 @@ function menuEntry(kind: MenuKind, row: MenuRow): MainNavigationEntry {
     icon: ROW_ICONS[row.id] ?? DashboardOutlinedIcon,
     scope: 'organization',
     permission: row.code,
-    landing: (selection) =>
-      selection.organizationId
-        ? menuHref(selection.organizationId, objectsOf(selection), row)
-        : null,
+    landing: (selection) => {
+      if (!selection.organizationId) return null;
+      // «Структура» is the project's node, on the area prefix (ADR-0031 rule 5).
+      if (row.id === 'structure') {
+        return selection.structureId
+          ? menuHref(
+              selection.organizationId,
+              { department: selection.structureId, team: null, project: null },
+              { segment: 'overview' },
+            )
+          : null;
+      }
+      return menuHref(selection.organizationId, objectsOf(selection), row);
+    },
     pages: [route],
     beneath: [`${route}/*`],
   };
@@ -80,10 +90,11 @@ function menuEntry(kind: MenuKind, row: MenuRow): MainNavigationEntry {
 
 /**
  * The rows the shell builds the left menu from. «Структура» needs the project's node, which
- * the offers do not carry; the entry is absent until the page layer (plan step 10) resolves it.
+ * the offers do not carry: the shell reads it from the project's subtree (an existing read) and
+ * the entry is absent until it is known.
  */
-function visibleRows(kind: MenuKind): readonly MenuRow[] {
-  return menuFor(kind).filter((row) => row.id !== 'structure');
+function visibleRows(kind: MenuKind, selection: WorkContextSelection): readonly MenuRow[] {
+  return menuFor(kind).filter((row) => row.id !== 'structure' || selection.structureId);
 }
 
 /** The selection up to a kind: itself and the less specific ones (ADR-0032 § 5, D-3). */
@@ -95,7 +106,7 @@ function selectionUpTo(objects: ObjectSelection, kind: ObjectKind): ObjectSelect
   };
 }
 
-function objectSettingsEntry(kind: ObjectKind): NavigationEntry {
+function objectSettingsEntry(kind: ObjectKind, nodeOpen: boolean): NavigationEntry {
   return {
     id: `${kind}-settings`,
     label: 'Параметры',
@@ -107,7 +118,11 @@ function objectSettingsEntry(kind: ObjectKind): NavigationEntry {
         ? menuHref(selection.organizationId, chosen, { segment: OBJECT_SETTINGS_SEGMENT })
         : null;
     },
-    pages: [`${KIND_ROUTE_PREFIX[kind]}/${OBJECT_SETTINGS_SEGMENT}`],
+    // On a node's own page `areas/:id/settings` is «Область», not the department.
+    pages:
+      kind === 'department' && nodeOpen
+        ? []
+        : [`${KIND_ROUTE_PREFIX[kind]}/${OBJECT_SETTINGS_SEGMENT}`],
   };
 }
 
@@ -135,11 +150,11 @@ export function buildNavigationModel(selection: WorkContextSelection): Navigatio
     .map((candidate) => ({
       id: `settings-${candidate}`,
       label: KIND_LABELS[candidate],
-      entries: [objectSettingsEntry(candidate)],
+      entries: [objectSettingsEntry(candidate, selection.nodeId !== undefined)],
     }));
   return {
     top: [HOME],
-    work: visibleRows(kind).map((row) => menuEntry(kind, row)),
+    work: visibleRows(kind, selection).map((row) => menuEntry(kind, row)),
     settings: [
       {
         id: 'organization',
@@ -166,6 +181,28 @@ export function buildNavigationModel(selection: WorkContextSelection): Navigatio
         ],
       },
       ...kindSections,
+      // While a project's node or a sub-area is open its own group (D-6), beside «Проект».
+      ...(selection.nodeId
+        ? [
+            {
+              id: 'settings-area',
+              label: 'Область',
+              entries: [
+                {
+                  id: 'area-settings',
+                  label: 'Параметры',
+                  scope: 'organization' as const,
+                  permission: organizationsPermissions.areaWrite,
+                  landing: (current: WorkContextSelection) =>
+                    current.organizationId && current.nodeId
+                      ? `/organizations/${encodeURIComponent(current.organizationId)}/areas/${encodeURIComponent(current.nodeId)}/${OBJECT_SETTINGS_SEGMENT}`
+                      : null,
+                  pages: [`${KIND_ROUTE_PREFIX.department}/${OBJECT_SETTINGS_SEGMENT}`],
+                },
+              ],
+            },
+          ]
+        : []),
       {
         id: 'dictionaries',
         label: 'Справочники',

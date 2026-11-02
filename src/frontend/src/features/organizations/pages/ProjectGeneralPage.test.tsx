@@ -199,7 +199,7 @@ describe('mod-002 US-3 Scenario: A project is deactivated', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Деактивировать' }));
 
     expect(await screen.findByText('Проект «Пример проекта» деактивирован.')).toBeInTheDocument();
-    const table = await screen.findByRole('table', { name: 'Деактивированные проекты' });
+    const table = await screen.findByRole('table', { name: 'Проекты' });
     expect(within(table).getByText('Пример проекта')).toBeInTheDocument();
     expect(api.writes()).toEqual([
       {
@@ -235,9 +235,7 @@ describe('mod-002 US-3 Scenario: A project is deactivated', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Деактивировать проект?' });
     await userEvent.click(within(dialog).getByRole('button', { name: 'Деактивировать' }));
 
-    expect(
-      await screen.findByRole('table', { name: 'Деактивированные проекты' }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('table', { name: 'Проекты' })).toBeInTheDocument();
     expect(screen.queryByText('Проект «Пример проекта» деактивирован.')).not.toBeInTheDocument();
   });
 });

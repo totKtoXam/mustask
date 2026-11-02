@@ -60,15 +60,14 @@ describe.each(ROLES)(
       expect(screen.getByText('Название')).toBeVisible();
     });
 
-    it('«Проекты»: «Создать проект» and the tab «Деактивированные» only with their codes; the strip is not drawn for one view', async () => {
+    it('«Проекты»: «Создать проект» and the select «Показывать» only with their codes; the list reads for everyone', async () => {
       serveOrganizations();
       renderPage({ path: ALFA_PROJECTS, role });
 
-      const table = await screen.findByRole('table', { name: 'Активные проекты' });
+      const table = await screen.findByRole('table', { name: 'Проекты' });
 
       expect(button('Создать проект')).toHaveLength(held(holds));
-      expect(screen.queryAllByRole('tablist')).toHaveLength(held(holds));
-      expect(screen.queryAllByRole('tab', { name: 'Деактивированные' })).toHaveLength(held(holds));
+      expect(screen.queryAllByRole('combobox', { name: 'Показывать' })).toHaveLength(held(holds));
       // The list itself reads for everyone, each project a link to its «Общие».
       expect(within(table).getByRole('link', { name: 'Пример проекта' })).toBeVisible();
     });
@@ -79,12 +78,10 @@ describe.each(ROLES)(
       renderPage({ path: `/organizations/${NEW_ORGANIZATION}/projects`, role });
 
       expect(
-        await screen.findByRole('heading', { level: 2, name: 'Пока нет проектов' }),
+        await screen.findByRole('heading', { level: 2, name: 'Проектов пока нет' }),
       ).toBeVisible();
 
-      expect(
-        screen.queryAllByText('Создайте первый проект кнопкой «Создать проект» выше.'),
-      ).toHaveLength(held(holds));
+      expect(screen.queryAllByText('Создайте первый проект.')).toHaveLength(held(holds));
       expect(screen.queryAllByText('Проекты создаёт администратор организации.')).toHaveLength(
         held(!holds),
       );
@@ -103,19 +100,19 @@ describe.each(ROLES)(
       expect(screen.getByRole('link', { name: /Процесс/ })).toBeVisible();
     });
 
-    it('«Команды» of the organization: «Новая команда» and the row menus only with their codes; the team links and the projects stay for everyone (feat-028 design § 10)', async () => {
+    it('«Команды» of the organization: «Создать команду» and the row menus only with their codes; the team links and the projects stay for everyone (feat-028 design § 10)', async () => {
       serveOrganizations();
       renderPage({ path: ALFA_TEAMS, role });
 
-      const table = await screen.findByRole('table', { name: 'Команды организации' });
+      const table = await screen.findByRole('table', { name: 'Команды' });
 
-      expect(button('Новая команда')).toHaveLength(held(holds));
+      expect(button('Создать команду')).toHaveLength(held(holds));
       expect(within(table).queryAllByRole('button', { name: /^Ещё действия: / })).toHaveLength(
         holds ? within(table).getAllByRole('row').length - 1 : 0,
       );
-      expect(within(table).getAllByRole('columnheader')).toHaveLength(holds ? 4 : 3);
+      expect(within(table).getAllByRole('columnheader')).toHaveLength(holds ? 3 : 2);
       expect(within(table).getByRole('link', { name: 'Платформа' })).toBeVisible();
-      expect(within(table).getAllByText('Пример проекта', { selector: 'span' })).toHaveLength(2);
+      // The projects column left the list (feat-043 design § 5.3).
     });
 
     it('a team’s page: its three commands, «Добавить проект», the unlink menus and the members’ controls only with their codes', async () => {
@@ -157,7 +154,7 @@ describe.each(ROLES)(
 
       const tree = await screen.findByRole('treegrid', { name: 'Области' });
 
-      expect(button('Новый департамент')).toHaveLength(held(holds));
+      expect(button('Создать департамент')).toHaveLength(held(holds));
       expect(within(tree).queryAllByRole('button', { name: /^Действия: / }).length > 0).toBe(holds);
       expect(within(tree).getAllByRole('row', { selected: false }).length).toBeGreaterThan(1);
     });
@@ -168,19 +165,17 @@ describe.each(ROLES)(
 
       expect(
         await screen.findByRole('heading', {
-          name: 'В организации пока нет департаментов и проектов',
+          name: 'В организации пока нет областей',
         }),
       ).toBeVisible();
 
       expect(
-        screen.queryAllByText(
-          'Департамент объединяет проекты и команды. Создайте первый кнопкой «Новый департамент»; проекты появляются в разделе «Проекты».',
-        ),
+        screen.queryAllByText('Создайте первый департамент: он объединяет проекты и команды.'),
       ).toHaveLength(held(holds));
-      expect(screen.queryAllByText('Области создаёт администратор организации.')).toHaveLength(
+      expect(screen.queryAllByText('Департаменты создаёт администратор организации.')).toHaveLength(
         held(!holds),
       );
-      expect(button('Новый департамент')).toHaveLength(holds ? 2 : 0);
+      expect(button('Создать департамент')).toHaveLength(holds ? 2 : 0);
     });
   },
 );
@@ -232,7 +227,7 @@ describe('mod-016 design § 2.3 Scenario: a refused write, then the codes are re
   it('creates a project', async () => {
     serveOrganizations();
     const page = renderPage({ path: ALFA_PROJECTS });
-    await screen.findByRole('table', { name: 'Активные проекты' });
+    await screen.findByRole('table', { name: 'Проекты' });
     await userEvent.click(screen.getByRole('button', { name: 'Создать проект' }));
     const dialog = await screen.findByRole('dialog', { name: 'Новый проект' });
     const field = within(dialog).getByRole('textbox', { name: 'Название' });
@@ -270,8 +265,8 @@ describe('mod-016 design § 2.3 Scenario: a refused write, then the codes are re
   it('creates a team', async () => {
     serveOrganizations();
     const page = renderPage({ path: ALFA_TEAMS });
-    await screen.findByRole('table', { name: 'Команды организации' });
-    await userEvent.click(screen.getByRole('button', { name: 'Новая команда' }));
+    await screen.findByRole('table', { name: 'Команды' });
+    await userEvent.click(screen.getByRole('button', { name: 'Создать команду' }));
     const dialog = await screen.findByRole('dialog', { name: 'Новая команда' });
     const field = within(dialog).getByRole('textbox', { name: 'Название' });
     await userEvent.type(field, 'Омега');
@@ -279,9 +274,9 @@ describe('mod-016 design § 2.3 Scenario: a refused write, then the codes are re
 
     await lockedAfterRefusal(dialog, 'Создать', field, 'Омега', page);
 
-    expect(button('Новая команда')).toHaveLength(0);
+    expect(button('Создать команду')).toHaveLength(0);
     expect(
-      within(screen.getByRole('table', { name: 'Команды организации' })).queryAllByRole('button'),
+      within(screen.getByRole('table', { name: 'Команды' })).queryAllByRole('button'),
     ).toHaveLength(0);
   });
 
@@ -315,7 +310,7 @@ describe('mod-016 design § 2.3 Scenario: a refused write, then the codes are re
     serveOrganizations();
     const page = renderPage({ path: ALFA_AREAS });
     await screen.findByRole('treegrid', { name: 'Области' });
-    await userEvent.click(screen.getByRole('button', { name: 'Новый департамент' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Создать департамент' }));
     const dialog = await screen.findByRole('dialog', { name: 'Новый департамент' });
     const field = within(dialog).getByRole('textbox', { name: 'Название' });
     await userEvent.type(field, 'Омега');
@@ -323,7 +318,7 @@ describe('mod-016 design § 2.3 Scenario: a refused write, then the codes are re
 
     await lockedAfterRefusal(dialog, 'Создать', field, 'Омега', page);
 
-    expect(button('Новый департамент')).toHaveLength(0);
+    expect(button('Создать департамент')).toHaveLength(0);
     expect(
       within(screen.getByRole('treegrid', { name: 'Области' })).queryAllByRole('button', {
         name: /^Действия: /,

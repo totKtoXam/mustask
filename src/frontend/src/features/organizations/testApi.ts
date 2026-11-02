@@ -8,7 +8,7 @@
 import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
 import { servedFor } from '../../test/organizationRoles';
-import type { SelectorOffers } from './api/navigationApi';
+import type { Overview, SelectorOffers } from './api/navigationApi';
 import type {
   Area,
   AreaDeletion,
@@ -38,6 +38,7 @@ import {
   PROJECTS_URL,
   PROJECT_TEAM_URL,
   PROJECT_URL,
+  OVERVIEW_URL,
   SELECTOR_OFFERS_URL,
   TEAMS_URL,
   TEAM_LINKS_URL,
@@ -413,6 +414,22 @@ export class OrganizationsTestApi {
             .map((link) => link.areaId),
         }))
         .sort(byName),
+    };
+  }
+
+  /** feat-043 api-contract § 1: the three counts, the first five by name, the caller's own teams. */
+  private overview(organization: OrganizationRecord): Overview {
+    const offers = this.selectorOffers(organization);
+    return {
+      departmentCount: offers.departments.length,
+      projectCount: offers.projects.length,
+      teamCount: offers.teams.length,
+      departments: offers.departments.slice(0, 5),
+      projects: offers.projects.slice(0, 5).map(({ id, name, key }) => ({ id, name, key })),
+      teams: offers.teams.slice(0, 5).map(({ id, name, isMember }) => ({ id, name, isMember })),
+      myTeams: offers.teams
+        .filter((team) => team.isMember)
+        .map(({ id, name, isMember }) => ({ id, name, isMember })),
     };
   }
 
@@ -1259,6 +1276,10 @@ export class OrganizationsTestApi {
       http.get(
         SELECTOR_OFFERS_URL,
         answer(200, (p) => this.selectorOffers(this.organization(o(p)))),
+      ),
+      http.get(
+        OVERVIEW_URL,
+        answer(200, (p) => this.overview(this.organization(o(p)))),
       ),
       // The organization's teams (feat-028 § 2.1–2.2).
       http.get(

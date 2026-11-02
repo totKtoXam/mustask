@@ -11,6 +11,7 @@ import { WorkContextContext, type WorkContextSource } from '../../shared/lib/wor
 import { checkFor, checkForCodes, type TestRole } from '../../test/organizationRoles';
 import { OrganizationsSection } from './components/OrganizationsSection';
 import { OrganizationGeneralPage } from './pages/OrganizationGeneralPage';
+import { OrganizationOverviewPage } from './pages/OrganizationOverviewPage';
 import { OrganizationListPage } from './pages/OrganizationListPage';
 import { MembersPage } from './pages/MembersPage';
 import { ProjectGeneralPage } from './pages/ProjectGeneralPage';
@@ -28,6 +29,7 @@ import {
   MEMBERS_ROUTE,
   ORGANIZATIONS_ROUTE,
   ORGANIZATION_GENERAL_ROUTE,
+  ORGANIZATION_OVERVIEW_ROUTE,
   PROJECTS_ROUTE,
   ORG_TEAMS_ROUTE,
   ORG_TEAM_ROUTE,
@@ -161,6 +163,10 @@ export function renderPage({
                     <Route
                       path={ORGANIZATION_GENERAL_ROUTE}
                       element={<OrganizationGeneralPage />}
+                    />
+                    <Route
+                      path={ORGANIZATION_OVERVIEW_ROUTE}
+                      element={<OrganizationOverviewPage />}
                     />
                     <Route path={PROJECTS_ROUTE} element={<ProjectsView />} />
                     <Route path={MEMBERS_ROUTE} element={<MembersPage />} />

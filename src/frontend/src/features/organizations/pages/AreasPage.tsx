@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import AddIcon from '@mui/icons-material/Add';
+import FilterListOffIcon from '@mui/icons-material/FilterListOff';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
@@ -20,10 +21,11 @@ import {
   type NodeDialogResult,
 } from '../components/AreaNodeDialogs';
 import { AreaTypeMark, commandIcon } from '../components/AreaTypeMark';
+import { ListFilter } from '../components/ListFilter';
 import { useAreaTree } from '../hooks/queries';
 import { commandKinds, commandLabel } from '../lib/areaCommands';
 import { areasPage } from '../lib/areaTexts';
-import { expandableIds, hasChildren, initialExpansion } from '../lib/areaTree';
+import { expandableIds, filterTree, hasChildren, initialExpansion } from '../lib/areaTree';
 import { notFoundLevel } from '../lib/notFoundLevel';
 import { organizationAreaPath } from '../paths';
 import { organizationsPermissions } from '../permissions';
@@ -55,6 +57,7 @@ export function AreasPage() {
   // `null`: the visit's start, the initial expansion of D-3.
   const [expanded, setExpanded] = useState<ReadonlySet<string> | null>(null);
   const [focusRequest, setFocusRequest] = useState<{ id: string } | null>(null);
+  const [filter, setFilter] = useState('');
 
   // Focus after a change (design § 12), once the dialog has handed focus back: the new, renamed
   // or moved row, or a deleted row's parent.
@@ -70,10 +73,14 @@ export function AreasPage() {
   }
 
   const areas = query.data ?? [];
-  const expandedIds = expanded ?? initialExpansion(areas);
-  const expandable = expandableIds(areas);
+  const shown = filterTree(areas, filter);
+  const filtering = filter.trim() !== '';
+  const expandable = expandableIds(shown);
+  // A search shows every match under its ancestors (design § 5.2).
+  const expandedIds = filtering ? expandable : (expanded ?? initialExpansion(areas));
   const allExpanded = [...expandable].every((id) => expandedIds.has(id));
-  const rows: AreaRow[] = areas.map((area) => ({ ...area, label: area.name }));
+  const rows: AreaRow[] = shown.map((area) => ({ ...area, label: area.name }));
+  const nothingFound = query.isSuccess && areas.length > 0 && shown.length === 0;
 
   function expand(id: string) {
     setExpanded((current) => new Set([...(current ?? expandedIds), id]));
@@ -168,7 +175,16 @@ export function AreasPage() {
             : undefined
         }
       />
-      {empty ? (
+      {query.isSuccess && areas.length > 0 && (
+        <ListFilter label={areasPage.search} text={filter} onText={setFilter} />
+      )}
+      {nothingFound ? (
+        <StateFrame
+          icon={FilterListOffIcon}
+          heading={areasPage.nothingFound}
+          action={{ label: areasPage.resetFilter, onClick: () => setFilter('') }}
+        />
+      ) : empty ? (
         <StateFrame
           icon={InboxOutlinedIcon}
           heading={areasPage.empty.heading}

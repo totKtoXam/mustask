@@ -7,6 +7,7 @@ import {
   descendantCount,
   departmentsOf,
   expandableIds,
+  filterTree,
   hasChildren,
   initialExpansion,
   isReadOnly,
@@ -147,5 +148,14 @@ describe('mod-018 D-1: the local filter of a picker', () => {
 
     expect(shown).toHaveLength(50);
     expect(total).toBe(312);
+  });
+});
+
+describe('feat-043 design § 5.2: filterTree keeps the matches with their ancestors', () => {
+  it('keeps everything for an empty text, ignores case, and keeps the ancestors of a match', () => {
+    const tree = manyAreas(4);
+    expect(filterTree(tree, '  ')).toHaveLength(4);
+    expect(filterTree(tree, 'область 2').map((area) => area.id)).toEqual(['a0', 'a2']);
+    expect(filterTree(tree, 'нет такой')).toEqual([]);
   });
 });

@@ -19,8 +19,8 @@ const NO_SEARCH_YET = 'Введите не менее 2 символов име�
 type Opened = ReturnType<typeof openPage>;
 
 async function openCreate(opened: Opened = openPage({ path: ALFA_TEAMS })) {
-  await screen.findByRole('table', { name: 'Команды организации' });
-  await userEvent.click(screen.getByRole('button', { name: 'Новая команда' }));
+  await screen.findByRole('table', { name: 'Команды' });
+  await userEvent.click(screen.getByRole('button', { name: 'Создать команду' }));
   const dialog = await screen.findByRole('dialog', { name: 'Новая команда' });
   return { ...opened, dialog };
 }

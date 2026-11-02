@@ -36,6 +36,26 @@ export interface WorkContextSelection {
   departmentId?: string;
   projectId?: string;
   teamId?: string;
+  /**
+   * The chosen project's node, the address of «Структура» (ADR-0031 rule 5): read from the
+   * project's own subtree, because the offers carry no node id. Absent until it is read.
+   */
+  structureId?: string;
+  /** A project's node or a sub-area is open (`areas/:areaId` that is no department): its id. */
+  nodeId?: string;
+}
+
+/** The kinds a row or a link opens (the selectors' kinds). */
+export type WorkContextObjectKind = 'department' | 'team' | 'project';
+
+/**
+ * Where a row or a link to an object leads (ADR-0032 § 5, D-3): the object becomes the most
+ * specific one, the less specific selectors that fit stay in the query, the others reset and
+ * the notice says so (`null`: nothing was reset).
+ */
+export interface WorkContextObjectLink {
+  to: string;
+  notice: string | null;
 }
 
 /** The chosen object of each selector, or `null` for «все». */
@@ -105,6 +125,8 @@ export interface WorkContextSource {
   fallback?: WorkContextFallback | null;
   /** The notice was shown and closed. */
   dismissFallback?(): void;
+  /** The address of an object opened from a row or a link; absent in a stub: the plain path. */
+  objectLink?(kind: WorkContextObjectKind, id: string): WorkContextObjectLink | null;
 }
 
 /** The selection as the selectors' objects (`null`: «все»). */

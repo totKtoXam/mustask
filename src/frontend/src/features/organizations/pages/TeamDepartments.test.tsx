@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PROJECTS_URL, TEAM_AREAS_URL, ids, noAreasDataset, problem } from '../testFixtures';
 import { serveOrganizations, serveProblem } from '../testApi';
@@ -145,7 +145,7 @@ describe('mod-018 design § 7: «Расположение» in «Новый пр
   it('«Новый проект» sends the chosen department as `parentAreaId`', async () => {
     const api = serveOrganizations();
     renderPage({ path: ALFA_PROJECTS });
-    await screen.findByRole('table', { name: 'Активные проекты' });
+    await screen.findByRole('table', { name: 'Проекты' });
     await userEvent.click(screen.getByRole('button', { name: 'Создать проект' }));
     const dialog = await screen.findByRole('dialog', { name: 'Новый проект' });
 
@@ -172,7 +172,7 @@ describe('mod-018 design § 7: «Расположение» in «Новый пр
     const api = serveOrganizations();
     renderPage({ path: ALFA_TEAMS });
     await screen.findByRole('table');
-    await userEvent.click(screen.getByRole('button', { name: 'Новая команда' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Создать команду' }));
     let dialog = await screen.findByRole('dialog', { name: 'Новая команда' });
 
     await userEvent.type(within(dialog).getByRole('textbox', { name: /Название/ }), 'Данные');
@@ -182,7 +182,11 @@ describe('mod-018 design § 7: «Расположение» in «Новый пр
     expect(await screen.findByText('Команда «Данные» создана.')).toBeInTheDocument();
     expect(api.writes()[0]?.body).toEqual({ name: 'Данные', areaIds: [ids.reportsArea] });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Новая команда' }));
+    // The new team’s «Обзор» opens (design § 5.3): the list is reopened for the second creation.
+    cleanup();
+    renderPage({ path: ALFA_TEAMS });
+    await screen.findByRole('table');
+    await userEvent.click(screen.getByRole('button', { name: 'Создать команду' }));
     dialog = await screen.findByRole('dialog', { name: 'Новая команда' });
     await userEvent.type(within(dialog).getByRole('textbox', { name: /Название/ }), 'Без отдела');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
@@ -194,7 +198,7 @@ describe('mod-018 design § 7: «Расположение» in «Новый пр
     serveOrganizations();
     serveProblem('post', PROJECTS_URL, problem('organizations.area.not_found'), { once: true });
     renderPage({ path: ALFA_PROJECTS });
-    await screen.findByRole('table', { name: 'Активные проекты' });
+    await screen.findByRole('table', { name: 'Проекты' });
     await userEvent.click(screen.getByRole('button', { name: 'Создать проект' }));
     const dialog = await screen.findByRole('dialog', { name: 'Новый проект' });
     await userEvent.type(within(dialog).getByRole('textbox', { name: 'Название' }), 'Ядро');
@@ -242,7 +246,7 @@ describe('mod-018 api-contract § 5: the codes each control asks for', () => {
       path: ALFA_PROJECTS,
       orgCodes: [...READS, 'organizations.project.write', ...codes],
     });
-    await screen.findByRole('table', { name: 'Активные проекты' });
+    await screen.findByRole('table', { name: 'Проекты' });
     await userEvent.click(screen.getByRole('button', { name: 'Создать проект' }));
     const dialog = await screen.findByRole('dialog', { name: 'Новый проект' });
     return { api, dialog };

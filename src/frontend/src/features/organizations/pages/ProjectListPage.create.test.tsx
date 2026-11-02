@@ -10,7 +10,7 @@ const ALFA_PROJECTS = `/organizations/${ids.alfa}/projects`;
 async function openCreate() {
   const api = serveOrganizations();
   renderPage({ path: ALFA_PROJECTS });
-  await screen.findByRole('table', { name: 'Активные проекты' });
+  await screen.findByRole('table', { name: 'Проекты' });
   await userEvent.click(screen.getByRole('button', { name: 'Создать проект' }));
   const dialog = await screen.findByRole('dialog', { name: 'Новый проект' });
   return {
@@ -23,7 +23,7 @@ async function openCreate() {
 }
 
 describe('mod-002 US-3 Scenario: Created ready to use', () => {
-  it('shows both helpers; sends name and key; the row appears, the page stays, the notice', async () => {
+  it('shows both helpers; sends name and key; the new project’s «Общие» opens with the notice', async () => {
     const { api, dialog, name, key, submit } = await openCreate();
     expect(name).toHaveFocus();
     expect(
@@ -45,9 +45,13 @@ describe('mod-002 US-3 Scenario: Created ready to use', () => {
     await submit();
 
     expect(await screen.findByText('Проект «Витрина» создан.')).toBeInTheDocument();
-    const table = await screen.findByRole('table', { name: 'Активные проекты' });
-    expect(await within(table).findByRole('link', { name: 'Витрина' })).toBeInTheDocument();
-    expect(screen.getByTestId('location')).toHaveTextContent(ALFA_PROJECTS);
+    // feat-043 design § 5.3: the new project's «Общие» opens.
+    const created = api.data.projects.find((project) => project.key === 'PLT')!;
+    await waitFor(() =>
+      expect(screen.getByTestId('location')).toHaveTextContent(
+        `${ALFA_PROJECTS}/${created.id}/general`,
+      ),
+    );
     expect(api.writes()).toEqual([
       {
         method: 'POST',
@@ -109,7 +113,7 @@ describe('feat-028 US-2 Scenario: A project is created with no team, a descripti
   it('says «В организации пока нет команд.» in the list of an organization with none — the first state', async () => {
     serveOrganizations(noTeamsDataset());
     renderPage({ path: ALFA_PROJECTS });
-    await screen.findByRole('table', { name: 'Активные проекты' });
+    await screen.findByRole('table', { name: 'Проекты' });
     await userEvent.click(screen.getByRole('button', { name: 'Создать проект' }));
     const dialog = await screen.findByRole('dialog', { name: 'Новый проект' });
 

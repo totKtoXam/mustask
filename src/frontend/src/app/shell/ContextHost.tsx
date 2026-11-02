@@ -38,6 +38,18 @@ export function ContextHost() {
     return () => window.clearTimeout(timer);
   }, [fallbackId, fallbackNames, show, dismissFallback, theme.noticeDurationMs]);
 
+  // A row or a link that reset a selector says so (D-3): the notice rides in the router state.
+  const { key, state } = useLocation();
+  const linkNotice =
+    typeof state === 'object' && state !== null && 'resetNotice' in state
+      ? String((state as { resetNotice: unknown }).resetNotice)
+      : null;
+  useEffect(() => {
+    if (linkNotice) show(linkNotice);
+    // One notice per navigation: the location's key tells one from the next.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
   function change(next: ObjectSelection, notice: string | null) {
     if (organizationId === undefined) return;
     navigate(

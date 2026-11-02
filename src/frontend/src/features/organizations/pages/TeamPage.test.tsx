@@ -103,7 +103,7 @@ describe('feat-028 US-1: a team’s page (design § 4)', () => {
     await waitFor(() =>
       expect(screen.getByTestId('location')).toHaveTextContent(`/organizations/${ids.alfa}/teams`),
     );
-    expect(await screen.findByRole('table', { name: 'Команды организации' })).toBeInTheDocument();
+    expect(await screen.findByRole('table', { name: 'Команды' })).toBeInTheDocument();
   });
 
   it('renames and describes the team from its commands, the title following', async () => {

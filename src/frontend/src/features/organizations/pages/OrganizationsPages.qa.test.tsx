@@ -85,7 +85,7 @@ describe('(QA) mod-002 F-6: a dialog answered by an outer level’s not found', 
   it('a team rename of a team deleted meanwhile shows «Команда не найдена.»; closing shows the frame', async () => {
     const api = serveOrganizations();
     renderPage({ path: ORG_TEAMS });
-    await screen.findByRole('table', { name: 'Команды организации' });
+    await screen.findByRole('table', { name: 'Команды' });
     await userEvent.click(screen.getByRole('button', { name: 'Ещё действия: Платформа' }));
     await userEvent.click(
       within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Переименовать' }),
@@ -105,7 +105,7 @@ describe('(QA) mod-002 F-6: a dialog answered by an outer level’s not found', 
 
     await waitFor(() =>
       expect(
-        within(screen.getByRole('table', { name: 'Команды организации' })).queryByRole('link', {
+        within(screen.getByRole('table', { name: 'Команды' })).queryByRole('link', {
           name: 'Платформа',
         }),
       ).not.toBeInTheDocument(),
@@ -117,7 +117,7 @@ describe('(QA) mod-002 design § 4.3: focus returns to the opener of a row menu�
   it('«Отмена» of «Переименование команды» puts focus back on «Ещё действия: Платформа»', async () => {
     serveOrganizations();
     renderPage({ path: ORG_TEAMS });
-    await screen.findByRole('table', { name: 'Команды организации' });
+    await screen.findByRole('table', { name: 'Команды' });
     const opener = screen.getByRole('button', { name: 'Ещё действия: Платформа' });
     await userEvent.click(opener);
     await userEvent.click(
