@@ -54,7 +54,7 @@ Scenario: Choosing «все» in every object selector returns to the organizati
 Scenario: The organization selector (BR-NV-16; Q-5 A)
   When Olga opens the organization selector
   Then it lists her active organizations by name and ends with «Все организации»
-  And choosing «Другая» opens its «Обзор» with «все» in the other three, and «Все организации» clears all four
+  And choosing «Другая» writes nothing and opens its «Обзор» with the selection remembered there (as a row of the organizations list does; «все» in the other three when nothing is remembered), and «Все организации» clears all four
 
 Scenario: The selectors name the selection, the menu the entry (BR-NV-4)
   When Olga opens «Склад» from «Области»

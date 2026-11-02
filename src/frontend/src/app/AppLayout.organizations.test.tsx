@@ -7,6 +7,7 @@ import { AuthContext, type AuthContextValue } from '../features/auth/AuthContext
 import { emptyDataset, ids, type Dataset } from '../features/organizations/testFixtures';
 import { serveOrganizations } from '../features/organizations/testApi';
 import { authValue, LANGUAGES_READ, LocationProbe } from '../test/renderShell';
+import { readRemembered, selectionStorageKey } from './navigation/selection';
 import { AppRoutes } from './routes';
 
 const CREATE = 'organizations.organization.create';
@@ -205,6 +206,42 @@ describe('mod-002 US-8 Scenario: On an organization-level page the object choice
     await choose(/^Организация:/, 'Бета');
 
     await waitFor(() => expect(location()).toBe(`/organizations/${ids.beta}/overview`));
+  });
+});
+
+// feat-043 D-3, BR-NV-10, US-8: choosing an organization writes nothing and opens that
+// organization's remembered selection, as a row of the organizations list does.
+describe('feat-043 D-3: choosing an organization keeps what each organization remembers', () => {
+  const PRM_ONLY = [
+    'Организация: Альфа',
+    'Департамент: все',
+    'Команда: все',
+    'Проект: Пример проекта',
+  ];
+
+  it('leaves for «Бета» and comes back to the project it left, also after a reload on «Участники»', async () => {
+    serve();
+    const first = renderApp(`/organizations/${ids.alfa}/overview`);
+    await expectLevels(ALFA_ALL);
+    await choose(/^Проект:/, /^Пример проекта/);
+    await expectLevels(PRM_ONLY);
+
+    await choose(/^Организация:/, 'Бета');
+    await waitFor(() => expect(location()).toBe(`/organizations/${ids.beta}/overview`));
+    await expectLevels(['Организация: Бета', 'Департамент: все', 'Команда: все', 'Проект: все']);
+    // The choice wrote nothing for «Бета», and «Альфа» keeps what it had.
+    expect(window.localStorage.getItem(selectionStorageKey('user-1', ids.beta))).toBeNull();
+    expect(readRemembered(window.localStorage, 'user-1', ids.alfa)).toMatchObject({
+      project: ids.prm,
+    });
+
+    await choose(/^Организация:/, 'Альфа');
+    await waitFor(() => expect(location()).toBe(`/organizations/${ids.alfa}/overview`));
+    await expectLevels(PRM_ONLY);
+
+    first.unmount();
+    renderApp(`/organizations/${ids.alfa}/members`);
+    await expectLevels(PRM_ONLY);
   });
 });
 

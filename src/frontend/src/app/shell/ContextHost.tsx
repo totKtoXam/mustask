@@ -8,12 +8,7 @@ import { objectsOf, useWorkContext } from '../../shared/lib/workContext';
 import { useNotice } from '../../shared/ui';
 import { targetAfterChoice } from '../navigation/choose';
 import { fallbackNotice, readAddressSelection } from '../navigation/selection';
-import {
-  NO_SELECTION,
-  resetNotice,
-  resetUnfitted,
-  type ObjectSelection,
-} from '../navigation/selectorFit';
+import { resetNotice, resetUnfitted, type ObjectSelection } from '../navigation/selectorFit';
 import { ContextSelectors } from './ContextSelectors';
 
 /**
@@ -172,8 +167,9 @@ export function ContextHost() {
       onRetryOrganizations={() => source.retry?.()}
       selection={objects}
       onOrganization={(id) => {
-        // Another organization opens with «все» in the other three (BR-NV-10): a choice, so remembered.
-        source.remember?.(id, NO_SELECTION);
+        // Another organization opens its «Обзор» and its remembered selection, as a row of the
+        // organizations list does (BR-NV-10, D-3): the choice writes nothing, so what the user left
+        // there stays and what she left in this one is kept.
         focusAfterChoice.current = true;
         navigate(organizationOverviewPath(id));
       }}
