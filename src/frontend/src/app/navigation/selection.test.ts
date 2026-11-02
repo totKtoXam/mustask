@@ -66,7 +66,16 @@ describe('readAddressSelection (ADR-0032 § 1)', () => {
     });
   });
 
-  it('reads the project from the query only where the address has no object prefix of its own', () => {
+  it('reads the project from the query on the settings pages only', () => {
+    expect(readAddressSelection('/organizations/o/overview', '?projectId=a').selection).toEqual(
+      NO_SELECTION,
+    );
+    expect(readAddressSelection('/organizations/o/projects', '?projectId=a').selection).toEqual(
+      NO_SELECTION,
+    );
+  });
+
+  it('reads the project from the query on a settings page, and under no prefix', () => {
     expect(
       readAddressSelection('/organizations/o/settings/general', '?teamId=mars&projectId=a'),
     ).toEqual({ organizationId: 'o', selection: select({ team: 'mars', project: 'a' }) });

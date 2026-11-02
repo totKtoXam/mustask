@@ -66,20 +66,16 @@ describe('feat-043 QA round 2, F-3: the selection in the settings address', () =
     ]);
   });
 
-  // Round 2 F-7: ADR-0032 § 1 reads `projectId` on the settings pages only; the code reads it on
-  // every address with no object prefix. `it.fails` passes while that stands.
-  it.fails(
-    'a project in the query is not the selection on the organization’s «Обзор»',
-    async () => {
-      serveOrganizations();
-      renderRoutes(`${ORG}/overview?projectId=${ids.prm}`);
+  // Round 2 F-7 (fixed): ADR-0032 § 1 reads `projectId` on the settings pages only.
+  it('a project in the query is not the selection on the organization’s «Обзор»', async () => {
+    serveOrganizations();
+    renderRoutes(`${ORG}/overview?projectId=${ids.prm}`);
 
-      await screen.findByRole('heading', { level: 1 });
-      await waitFor(() => expect(selectors()[0]).toBe('Организация: Альфа'));
-      // ADR-0032 § 1: «read only there», on the settings pages.
-      expect(selectors()[3]).toBe('Проект: все');
-    },
-  );
+    await screen.findByRole('heading', { level: 1 });
+    await waitFor(() => expect(selectors()[0]).toBe('Организация: Альфа'));
+    // ADR-0032 § 1: «read only there», on the settings pages.
+    expect(selectors()[3]).toBe('Проект: все');
+  });
 
   it('a project in the settings query that names nothing is dropped to «все», as a gone team is', async () => {
     serveOrganizations();

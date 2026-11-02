@@ -80,9 +80,13 @@ export function readAddressSelection(pathname: string, search: string): AddressS
       break;
     }
   }
-  // With no object prefix (an organization's own page, its settings) the project rides in the
-  // query too; under a prefix the prefix is the most specific object and no project is chosen.
-  if (!prefixed) {
+  // On the organization's settings pages, which have no object prefix, the project rides in the
+  // query too (ADR-0032 § 1: read only there); under a prefix the prefix is the most specific
+  // object and no project is chosen, and on any other page `projectId` is that page's own filter.
+  const isSettings =
+    matchPath({ path: `${KIND_ROUTE_PREFIX.organization}/settings/*`, end: true }, pathname) !==
+    null;
+  if (!prefixed && isSettings) {
     const value = params.get(SELECTOR_QUERY.project);
     if (value) selection.project = value;
   }
