@@ -54,6 +54,8 @@ gate-3: pending
 
 - 2026-10-30 [orchestrator] Stage 5 (qa-engineer): backend pass, 0 blockers, 0 majors, 3 minors carried to gate-3 (D-1 unordered id sets, D-2 no timing test at 1 000 areas, D-3 plan text). Affected tests green. No E2E (standing NO).
 
+- 2026-11-02 [orchestrator] Stage 6, plan steps 1-8 and 13 done (frontend-developer, two runs): selectors in the TopBar, menu from addressModel, routes per ADR-0032, switcher retired (eae3b635), Breaks notes in 10 owners' status.md (88236412). Whole-suite Vitest not re-run as one run after the last fixes; the next run owes it. Orchestrator's reading of ADR-0032 § 6, to name at gate-3: an address carrying an organization fully sets the selection and the remembered one applies only to pages with no organization, otherwise «все» could not be chosen on the organization's own pages. Queue PR #45 still open. Weekly 8%.
+
 ## Notes
 
 Summary (from the queue line): Top-level «Области», «Проекты» and «Команды»; the object pages with their sections, a section absent until the line that owns it adds it; the organization's «Обзор» as its home page, the user's organizations beside the content (feat-045 folded in); the «Рабочие элементы» list across projects; breadcrumbs with no false hierarchy; the switcher and the remembered context; empty states. A retired address answers «Страница не найдена», nothing redirects, and the interim pages of the earlier lines (the team and area pages in the organization settings, the project's teams, area links and default team in its settings) move onto the objects' own pages (doc-012 BR-MX-27, -28; US-10)
