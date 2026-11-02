@@ -11,7 +11,7 @@ const ALFA_PROJECTS = `/organizations/${ids.alfa}/projects`;
 const ALFA_TEAMS = `/organizations/${ids.alfa}/teams`;
 
 describe('mod-018 design § 6: «Департаменты» of a team’s page', () => {
-  it('sits between the projects and the members, and lists the team’s departments', async () => {
+  it('sits on the team’s «Обзор» and lists the team’s departments', async () => {
     serveOrganizations();
     renderPage({ path: PLATFORM_TEAM });
 
@@ -20,10 +20,6 @@ describe('mod-018 design § 6: «Департаменты» of a team’s page',
       'href',
       `/organizations/${ids.alfa}/areas/${ids.platformArea}/overview`,
     );
-    const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent ?? '');
-    const at = (title: string) => headings.findIndex((text) => text.startsWith(title));
-    expect(at('Департаменты')).toBeGreaterThan(at('Проекты'));
-    expect(at('Департаменты')).toBeLessThan(at('Участники команды'));
   });
 
   it('says so for a team in no department', async () => {
@@ -115,8 +111,11 @@ describe('mod-018 design § 7: «Расположение» of a project', () =>
     const api = serveOrganizations();
     renderPage({ path: PRM_GENERAL });
 
-    expect(await screen.findByText('Расположение')).toBeInTheDocument();
-    expect(await screen.findByText('Платформа')).toBeInTheDocument();
+    expect(await screen.findAllByText('Расположение')).not.toHaveLength(0);
+    expect(await screen.findByRole('link', { name: 'Платформа' })).toHaveAttribute(
+      'href',
+      `/organizations/${ids.alfa}/areas/${ids.platformArea}/overview`,
+    );
 
     await userEvent.click(await screen.findByRole('button', { name: 'Переместить' }));
     const dialog = await screen.findByRole('dialog', { name: 'Перемещение проекта' });
@@ -136,7 +135,7 @@ describe('mod-018 design § 7: «Расположение» of a project', () =>
     serveOrganizations();
     renderPage({ path: PRM_GENERAL, role: 'viewer' });
 
-    await screen.findByText('Расположение');
+    await screen.findAllByText('Расположение');
     expect(screen.queryByRole('button', { name: 'Переместить' })).not.toBeInTheDocument();
   });
 });

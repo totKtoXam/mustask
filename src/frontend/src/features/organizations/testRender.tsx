@@ -36,7 +36,11 @@ import {
   PROJECTS_ROUTE,
   ORG_TEAMS_ROUTE,
   ORG_TEAM_ROUTE,
+  TEAM_MEMBERS_ROUTE,
+  TEAM_PROJECTS_ROUTE,
+  TEAM_SETTINGS_ROUTE,
   PROJECT_GENERAL_ROUTE,
+  PROJECT_SETTINGS_ROUTE,
   TEAMS_ROUTE,
 } from './paths';
 import { organizationsPermissions } from './permissions';
@@ -173,10 +177,19 @@ export function renderPage({
                     />
                     <Route path={PROJECTS_ROUTE} element={<ProjectsView />} />
                     <Route path={MEMBERS_ROUTE} element={<MembersPage />} />
-                    <Route path={PROJECT_GENERAL_ROUTE} element={<ProjectGeneralPage />} />
+                    {[PROJECT_GENERAL_ROUTE, PROJECT_SETTINGS_ROUTE].map((path) => (
+                      <Route key={path} path={path} element={<ProjectGeneralPage />} />
+                    ))}
                     <Route path={TEAMS_ROUTE} element={<TeamsPage />} />
                     <Route path={ORG_TEAMS_ROUTE} element={<OrganizationTeamsPage />} />
-                    <Route path={ORG_TEAM_ROUTE} element={<TeamPage />} />
+                    {[
+                      ORG_TEAM_ROUTE,
+                      TEAM_PROJECTS_ROUTE,
+                      TEAM_MEMBERS_ROUTE,
+                      TEAM_SETTINGS_ROUTE,
+                    ].map((path) => (
+                      <Route key={path} path={path} element={<TeamPage />} />
+                    ))}
                     <Route path={PROJECT_AREAS_TEST_ROUTE} element={<ProjectAreasPage />} />
                     <Route path={ORG_AREAS_ROUTE} element={<AreasPage />} />
                     {[

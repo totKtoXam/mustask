@@ -276,10 +276,15 @@ export function useMemberCandidates(organizationId: string, text: string, enable
 }
 
 /** A team's members (§ 2.1), at the team's address. */
-export function useTeamMembers(organizationId: string, teamId: string) {
+export function useTeamMembers(
+  organizationId: string,
+  teamId: string,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: organizationsKeys.teamMembers(organizationId, teamId),
     queryFn: () => getTeamMembers(organizationId, teamId),
+    ...options,
   });
 }
 

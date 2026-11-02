@@ -31,13 +31,14 @@ export const teamPage = {
   /** The title while the team loads, and when it fails. */
   titleLoading: 'Команда',
   title: (name: string) => `Команда: ${name}`,
-  facts: { name: 'Название', description: 'Описание' },
+  facts: { name: 'Название', description: 'Описание', members: 'Участников', projects: 'Проектов' },
   noDescription: 'Описание не задано',
   projects: {
     title: 'Проекты',
     add: 'Добавить проект',
     tableLabel: 'Проекты команды',
-    columns: { project: 'Проект', key: 'Ключ' },
+    columns: { project: 'Проект', key: 'Ключ', place: 'Расположение' },
+    topLevel: '—',
     rowMenu: (name: string) => `Ещё действия: ${name}`,
     unlink: 'Отключить от проекта',
     empty: 'Команда пока не участвует ни в одном проекте.',
@@ -146,16 +147,13 @@ export const unlinkDialog = {
 /** The project's «Команды» (design § 7). */
 export const projectTeamsPage = {
   title: 'Команды',
-  intro:
-    'Команды организации, работающие над проектом. Создать, переименовать или удалить команду можно в разделе «Организация» → ',
-  introSection: '«Команды»',
-  add: 'Добавить команду',
-  defaultTeam: 'Команда по умолчанию',
-  projectBacklog: 'Бэклог проекта',
-  projectBoard: 'Доска проекта',
+  column: 'Команда',
+  tableLabel: 'Команды проекта',
+  rowMenu: (name: string) => `Ещё действия: ${name}`,
+  add: 'Добавить команды',
   unlink: 'Отключить от проекта',
   empty: {
-    heading: 'В проекте пока нет команд.',
+    heading: 'К проекту не привязана ни одна команда',
     adminHint:
       'Добавьте команду организации — она сможет владеть рабочими элементами проекта. Без команд проект тоже работает: у его рабочих элементов будет «Без команды».',
     otherHint: 'Команды подключает администратор организации. Проект работает и без команд.',
@@ -164,6 +162,13 @@ export const projectTeamsPage = {
 
 /** The project's description and its creation form (design § 8). */
 export const projectTexts = {
+  mainSection: 'Основное',
+  placeSection: 'Расположение',
+  noDepartment: 'Проект не входит ни в один департамент',
+  keyFixed: 'Ключ нельзя изменить.',
+  defaultTeamSection: 'Команда по умолчанию',
+  noDefaultTeam: 'Не выбрана',
+  chooseDefaultTeam: 'Выбрать',
   describe: 'Изменить описание',
   factDescription: 'Описание',
   noDescription: 'Описание не задано',

@@ -134,7 +134,9 @@ describe('feat-028 US-7 Scenario: No team at all is the first state, right after
     await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
 
     expect(await screen.findByText('Команда «MARS» создана.')).toBeInTheDocument();
-    expect(await within(await teamsTable()).findByRole('link', { name: 'MARS' })).toBeVisible();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Команда: MARS' }),
+    ).toBeInTheDocument();
     expect(api.data.links).toEqual([]);
   });
 });
@@ -172,8 +174,10 @@ describe('feat-028 US-1 Scenario: «Новая команда»', () => {
     expect(api.writes()).toEqual([
       { method: 'POST', path: `/api/organizations/${ids.alfa}/teams`, body: { name: 'Ядро' } },
     ]);
-    const table = await teamsTable();
-    await waitFor(() => expect(within(table).getByRole('link', { name: 'Ядро' })).toBeVisible());
+    // The new team opens on its own page (feat-043 design § 5.3).
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Команда: Ядро' }),
+    ).toBeInTheDocument();
     // BR-OL-2: no project, no link, no team membership created with it.
     expect(api.data.links).toHaveLength(exampleDataset().links.length);
     expect(api.data.teamMembers ?? []).toEqual([]);

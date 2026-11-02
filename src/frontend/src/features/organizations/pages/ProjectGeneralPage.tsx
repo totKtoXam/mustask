@@ -1,36 +1,35 @@
 import { useState } from 'react';
-import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
+import { Link as RouterLink, useLocation, useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
-import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
 import DriveFileMoveOutlinedIcon from '@mui/icons-material/DriveFileMoveOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import NotesOutlinedIcon from '@mui/icons-material/NotesOutlined';
 import { useAccessCheck } from '../../../shared/lib/access';
-import { useWorkContext } from '../../../shared/lib/workContext';
+import { ActionButton, InlineEmpty, Section } from '../../../shared/ui';
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
 import { FormSkeleton } from '../../../shared/ui/FormSkeleton';
 import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
 import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
 import { NotFound } from '../../../shared/ui/StateFrame';
 import { processDefinitionPath } from '../../process';
-import { ConfirmAction } from '../components/ConfirmAction';
+import { DefaultTeamDialog } from '../components/DefaultTeamDialog';
 import { DescriptionDialog } from '../components/DescriptionDialog';
 import { AreaNodeDialogs } from '../components/AreaNodeDialogs';
 import { FactsPanel } from '../components/FactsPanel';
 import { NameDialog } from '../components/NameDialog';
 import { useNotify } from '../components/notice';
-import { useDeactivateProject, useDescribeProject, useRenameProject } from '../hooks/mutations';
-import { useProject, useProjectAreaTree } from '../hooks/queries';
+import { useDescribeProject, useRenameProject, useSetDefaultTeam } from '../hooks/mutations';
+import { useProject, useProjectAreaTree, useTeams } from '../hooks/queries';
+import { useObjectLink } from '../hooks/useObjectLink';
 import { commandKinds } from '../lib/areaCommands';
 import { placementField } from '../lib/areaTexts';
 import { placeOfProjectNode } from '../lib/areaTree';
 import { notFoundLevel } from '../lib/notFoundLevel';
 import { descriptionDialog, projectTexts } from '../lib/teamTexts';
-import { deactivatedProjectsPath } from '../paths';
 import { organizationsPermissions } from '../permissions';
 
-type Dialog = 'rename' | 'describe' | 'deactivate' | 'move' | null;
+type Dialog = 'rename' | 'describe' | 'defaultTeam' | 'move' | null;
 
 /**
  * Project «Общие» (US-3; design § 8; feat-028 design § 8): the project's name, its «Описание»
@@ -48,12 +47,13 @@ export function ProjectGeneralPage() {
   const query = useProject(organizationId, projectId);
   const rename = useRenameProject(organizationId, projectId);
   const describe = useDescribeProject(organizationId, projectId);
-  const deactivate = useDeactivateProject(organizationId, projectId);
+  const setDefaultTeam = useSetDefaultTeam(organizationId, projectId);
+  const section = useLocation().pathname.split('/').filter(Boolean).pop() ?? 'general';
+  const teams = useTeams(organizationId, projectId, { enabled: section === 'settings' });
+  const objectLink = useObjectLink(organizationId);
   const tree = useProjectAreaTree(organizationId, projectId);
   const node = tree.data?.find((entry) => entry.type === 'project');
   const notify = useNotify();
-  const navigate = useNavigate();
-  const context = useWorkContext();
   const access = useAccessCheck();
   const [dialog, setDialog] = useState<Dialog>(null);
 
@@ -72,11 +72,12 @@ export function ProjectGeneralPage() {
   const loading = query.isPending || (query.isError && query.isFetching);
   const project = query.data;
 
-  // mod-016 design § 6.2: «Переименовать» needs `organizations.project.write`,
-  // «Деактивировать» `organizations.project.deactivate`; each hidden without it.
+  // «Переименовать» and «Изменить описание» need `organizations.project.write` and live in
+  // «Параметры»; «Переместить» belongs to «Общие» (feat-043 design § 7.1). Deactivation stays in
+  // the list «Проекты».
   const commands: Command[] = [];
   if (project && !query.isError) {
-    if (access(organizationsPermissions.projectWrite, 'organization')) {
+    if (section === 'settings' && access(organizationsPermissions.projectWrite, 'organization')) {
       commands.push({
         label: 'Переименовать',
         icon: <EditOutlinedIcon />,
@@ -89,6 +90,7 @@ export function ProjectGeneralPage() {
       });
     }
     if (
+      section === 'general' &&
       node &&
       commandKinds(node, {
         canWrite: access(organizationsPermissions.areaWrite, 'organization'),
@@ -101,55 +103,99 @@ export function ProjectGeneralPage() {
         onClick: () => setDialog('move'),
       });
     }
-    if (access(organizationsPermissions.projectDeactivate, 'organization')) {
-      commands.push({
-        label: 'Деактивировать',
-        icon: <ArchiveOutlinedIcon />,
-        onClick: () => setDialog('deactivate'),
-      });
-    }
   }
+
+  const descriptionValue = project?.description ? (
+    <Box component="span" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+      {project.description}
+    </Box>
+  ) : (
+    <Box component="span" sx={{ color: 'text.secondary' }}>
+      {projectTexts.noDescription}
+    </Box>
+  );
+  const department = node?.parentId ? placeOfProjectNode(node).label : null;
+  const defaultTeam = teams.data?.find((team) => team.defaultMark === 'named');
 
   return (
     <>
-      <PageHeader title="Общие" commands={commands} />
+      <PageHeader title={section === 'settings' ? 'Параметры' : 'Общие'} commands={commands} />
       {loading ? (
         <FormSkeleton fields={4} />
       ) : query.isError ? (
         <ErrorBanner error={query.error} onRetry={() => void query.refetch()} />
+      ) : section === 'settings' ? (
+        <>
+          <FactsPanel
+            facts={[
+              { label: 'Название', value: query.data.name },
+              { label: projectTexts.factDescription, value: descriptionValue },
+              { label: 'Ключ', value: query.data.key, note: projectTexts.keyFixed },
+            ]}
+          />
+          <Box sx={{ mt: 4 }}>
+            <Section
+              title={projectTexts.defaultTeamSection}
+              actions={
+                access(organizationsPermissions.projectWrite, 'organization') &&
+                (teams.data?.length ?? 0) > 0 ? (
+                  <ActionButton
+                    label={projectTexts.chooseDefaultTeam}
+                    onClick={() => setDialog('defaultTeam')}
+                  />
+                ) : undefined
+              }
+            >
+              <InlineEmpty>{defaultTeam?.name ?? projectTexts.noDefaultTeam}</InlineEmpty>
+            </Section>
+          </Box>
+        </>
       ) : (
-        <FactsPanel
-          facts={[
-            { label: 'Название', value: query.data.name },
-            {
-              label: projectTexts.factDescription,
-              value: query.data.description ? (
-                <Box component="span" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-                  {query.data.description}
-                </Box>
-              ) : (
-                <Box component="span" sx={{ color: 'text.secondary' }}>
-                  {projectTexts.noDescription}
-                </Box>
-              ),
-            },
-            ...(node
-              ? [{ label: placementField.label, value: placeOfProjectNode(node).label }]
-              : []),
-            { label: 'Ключ', value: query.data.key, note: 'Задан при создании и не меняется' },
-            {
-              label: 'Типы рабочих элементов',
-              value: (
-                <>
-                  {'Задаются процессом организации: '}
-                  <Link component={RouterLink} to={processDefinitionPath(organizationId)}>
-                    Процесс
-                  </Link>
-                </>
-              ),
-            },
-          ]}
-        />
+        <>
+          <Section title={projectTexts.mainSection}>
+            <FactsPanel
+              facts={[
+                { label: 'Название', value: query.data.name },
+                { label: projectTexts.factDescription, value: descriptionValue },
+                { label: 'Ключ', value: query.data.key },
+                {
+                  label: 'Типы рабочих элементов',
+                  value: (
+                    <>
+                      {'Задаются процессом организации: '}
+                      <Link component={RouterLink} to={processDefinitionPath(organizationId)}>
+                        Процесс
+                      </Link>
+                    </>
+                  ),
+                },
+              ]}
+            />
+          </Section>
+          <Box sx={{ mt: 4 }}>
+            <Section title={projectTexts.placeSection}>
+              <FactsPanel
+                facts={[
+                  {
+                    label: placementField.label,
+                    value:
+                      node?.parentId && department ? (
+                        <Link
+                          component={RouterLink}
+                          to={objectLink('department', node.parentId).to}
+                          state={objectLink('department', node.parentId).state}
+                        >
+                          {department}
+                        </Link>
+                      ) : (
+                        projectTexts.noDepartment
+                      ),
+                  },
+                ]}
+              />
+            </Section>
+          </Box>
+        </>
       )}
       {dialog === 'move' && node && (
         <AreaNodeDialogs
@@ -192,32 +238,16 @@ export function ProjectGeneralPage() {
           />
         </RequiresOrganizationCode>
       )}
-      {dialog === 'deactivate' && project && (
-        <RequiresOrganizationCode code={organizationsPermissions.projectDeactivate}>
-          <ConfirmAction
-            title="Деактивировать проект?"
-            text={projectTexts.deactivate.text(project.name, project.key)}
-            confirmLabel="Деактивировать"
-            action={async () => {
-              // DC-7, judged before the switcher sees the change: deactivating
-              // the switcher's project while another is active makes the
-              // switcher fall back, and its notice is the only one.
-              const organization = context.organizations.find(
-                (entry) => entry.id === context.selection.organizationId,
-              );
-              const fallsBack =
-                context.selection.projectId === project.id &&
-                (organization?.projects.some((entry) => entry.id !== project.id) ?? false);
-              await deactivate.mutateAsync();
-              return fallsBack;
-            }}
-            onSucceeded={(fallsBack) => {
+      {dialog === 'defaultTeam' && (
+        <RequiresOrganizationCode code={organizationsPermissions.projectWrite}>
+          <DefaultTeamDialog
+            teams={teams.data ?? []}
+            submit={(teamId) => setDefaultTeam.mutateAsync(teamId)}
+            onSucceeded={() => {
               setDialog(null);
-              navigate(deactivatedProjectsPath(organizationId));
-              if (!fallsBack) {
-                notify(`Проект «${project.name}» деактивирован.`);
-              }
+              notify('Команда по умолчанию изменена.');
             }}
+            onRefused={() => void teams.refetch()}
             onClose={closeDialog}
           />
         </RequiresOrganizationCode>

@@ -3,9 +3,10 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { exampleDataset, ids } from '../testFixtures';
 import { serveOrganizations } from '../testApi';
-import { contextSource, renderPage } from '../testRender';
+import { renderPage } from '../testRender';
 
 const PRM_GENERAL = `/organizations/${ids.alfa}/projects/${ids.prm}/general`;
+const PRM_SETTINGS = `/organizations/${ids.alfa}/projects/${ids.prm}/settings`;
 
 async function facts(name = 'Пример проекта') {
   await screen.findByText(name);
@@ -24,7 +25,7 @@ describe('mod-002 US-3 Scenario: The project settings', () => {
     const panel = await facts();
     expect(panel).toHaveTextContent('НазваниеПример проекта');
     expect(panel).toHaveTextContent('ОписаниеОписание не задано');
-    expect(panel).toHaveTextContent('КлючPRMЗадан при создании и не меняется');
+    expect(panel).toHaveTextContent('КлючPRM');
     expect(panel).toHaveTextContent(
       'Типы рабочих элементовЗадаются процессом организации: Процесс',
     );
@@ -47,7 +48,7 @@ describe('mod-002 US-3 Scenario: The «Процесс» link', () => {
 describe('mod-002 US-3 Scenario: Rename keeps the key', () => {
   it('says what follows, sends the name and notices «Проект переименован.»', async () => {
     const api = serveOrganizations();
-    renderPage({ path: PRM_GENERAL });
+    renderPage({ path: PRM_SETTINGS });
     await facts();
 
     await userEvent.click(screen.getByRole('button', { name: 'Переименовать' }));
@@ -69,16 +70,18 @@ describe('mod-002 US-3 Scenario: Rename keeps the key', () => {
 
   it('offers no field or action that edits «Ключ»', async () => {
     serveOrganizations();
-    renderPage({ path: PRM_GENERAL });
+    renderPage({ path: PRM_SETTINGS });
     await facts();
 
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual([
-      'Переименовать',
-      'Изменить описание',
-      'Переместить',
-      'Деактивировать',
-    ]);
+    expect(screen.getByText('Ключ нельзя изменить.')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual([
+        'Переименовать',
+        'Изменить описание',
+        'Выбрать',
+      ]),
+    );
   });
 });
 
@@ -97,7 +100,7 @@ describe('feat-028 US-2 Scenario: A project has a description', () => {
 
   it('«Изменить описание»: «Сохранить» waits for a change, the text is sent as typed, the notice reads', async () => {
     const api = serveOrganizations();
-    renderPage({ path: PRM_GENERAL });
+    renderPage({ path: PRM_SETTINGS });
     await facts();
 
     await userEvent.click(screen.getByRole('button', { name: 'Изменить описание' }));
@@ -124,7 +127,7 @@ describe('feat-028 US-2 Scenario: A project has a description', () => {
     const data = exampleDataset();
     data.projects.find((project) => project.id === ids.prm)!.description = 'Старое';
     const api = serveOrganizations(data);
-    renderPage({ path: PRM_GENERAL });
+    renderPage({ path: PRM_SETTINGS });
     await facts();
 
     await userEvent.click(screen.getByRole('button', { name: 'Изменить описание' }));
@@ -138,7 +141,7 @@ describe('feat-028 US-2 Scenario: A project has a description', () => {
 
   it('refuses 2 001 characters under the field before anything is sent', async () => {
     const api = serveOrganizations();
-    renderPage({ path: PRM_GENERAL });
+    renderPage({ path: PRM_SETTINGS });
     await facts();
 
     await userEvent.click(screen.getByRole('button', { name: 'Изменить описание' }));
@@ -156,7 +159,7 @@ describe('feat-028 US-2 Scenario: A project has a description', () => {
 
   it('offers neither «Изменить описание» nor the rename to a reader', async () => {
     serveOrganizations();
-    renderPage({ path: PRM_GENERAL, role: 'viewer' });
+    renderPage({ path: PRM_SETTINGS, role: 'viewer' });
     await facts();
 
     expect(screen.queryByRole('button', { name: 'Изменить описание' })).not.toBeInTheDocument();
@@ -170,7 +173,7 @@ describe('mod-002 US-3 Scenario: The name is unique in the organization (rename)
     ['Старый проект', 'Проект с таким названием уже есть в организации: он деактивирован'],
   ])('renaming to %s puts «%s» on «Название»', async (value, text) => {
     serveOrganizations();
-    renderPage({ path: PRM_GENERAL });
+    renderPage({ path: PRM_SETTINGS });
     await facts();
     await userEvent.click(screen.getByRole('button', { name: 'Переименовать' }));
     const dialog = await screen.findByRole('dialog', { name: 'Переименование проекта' });
@@ -181,62 +184,6 @@ describe('mod-002 US-3 Scenario: The name is unique in the organization (rename)
     await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
 
     expect(await within(dialog).findByText(text)).toBeInTheDocument();
-  });
-});
-
-describe('mod-002 US-3 Scenario: A project is deactivated', () => {
-  it('asks with its name and key, opens the deactivated projects tab and notices it when it was not the switcher’s', async () => {
-    const api = serveOrganizations();
-    renderPage({ path: PRM_GENERAL });
-    await facts();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Деактивировать' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Деактивировать проект?' });
-    expect(dialog).toHaveTextContent(
-      'Проект «Пример проекта» (PRM) пропадёт из списков и переключателя, а его страницы перестанут открываться. Ничего не будет удалено, связи с командами сохранятся: проект можно восстановить в списке деактивированных проектов организации. Область проекта сохранится и станет доступной только для чтения.',
-    );
-    expect(within(dialog).getByRole('button', { name: 'Отмена' })).toHaveFocus();
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Деактивировать' }));
-
-    expect(await screen.findByText('Проект «Пример проекта» деактивирован.')).toBeInTheDocument();
-    const table = await screen.findByRole('table', { name: 'Проекты' });
-    expect(within(table).getByText('Пример проекта')).toBeInTheDocument();
-    expect(api.writes()).toEqual([
-      {
-        method: 'POST',
-        path: `/api/organizations/${ids.alfa}/projects/${ids.prm}/deactivate`,
-        body: undefined,
-      },
-    ]);
-  });
-
-  it('DC-7: no notice of its own when it is the switcher’s project and another is active', async () => {
-    serveOrganizations();
-    renderPage({
-      path: PRM_GENERAL,
-      context: contextSource({
-        organizations: [
-          {
-            id: ids.alfa,
-            name: 'Альфа',
-            projects: [
-              { id: ids.anl, name: 'Аналитика' },
-              { id: ids.prm, name: 'Пример проекта' },
-            ],
-            teams: [],
-          },
-        ],
-        selection: { organizationId: ids.alfa, projectId: ids.prm },
-      }),
-    });
-    await facts();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Деактивировать' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Деактивировать проект?' });
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Деактивировать' }));
-
-    expect(await screen.findByRole('table', { name: 'Проекты' })).toBeInTheDocument();
-    expect(screen.queryByText('Проект «Пример проекта» деактивирован.')).not.toBeInTheDocument();
   });
 });
 
@@ -252,5 +199,35 @@ describe('mod-002 US-3 Scenario: A project id that names no project of the organ
 
     expect(await screen.findByRole('heading', { level: 1, name: heading })).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+  });
+});
+
+describe('feat-043 design § 7.1: «Общие» places the project, «Параметры» names the default team', () => {
+  it('«Общие» names the department as a link', async () => {
+    serveOrganizations();
+    renderPage({ path: PRM_GENERAL });
+
+    expect(await screen.findByRole('link', { name: 'Платформа' })).toHaveAttribute(
+      'href',
+      `/organizations/${ids.alfa}/areas/${ids.platformArea}/overview`,
+    );
+    expect(screen.getByText('Основное')).toBeInTheDocument();
+  });
+
+  it('«Общие» of a project at the top level says it is in no department', async () => {
+    serveOrganizations();
+    renderPage({ path: `/organizations/${ids.alfa}/projects/${ids.anl}/general` });
+
+    expect(await screen.findByText('Проект не входит ни в один департамент')).toBeInTheDocument();
+  });
+
+  it('«Параметры» shows «Не выбрана» for the default team and offers «Выбрать»', async () => {
+    serveOrganizations();
+    renderPage({ path: PRM_SETTINGS });
+
+    expect(await screen.findByText('Команда по умолчанию')).toBeInTheDocument();
+    expect(screen.getByText('Не выбрана')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Выбрать' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Деактивировать' })).not.toBeInTheDocument();
   });
 });
