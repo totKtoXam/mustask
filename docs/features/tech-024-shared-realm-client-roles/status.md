@@ -3,14 +3,14 @@
 - type: tech
 - size: M
 - branch: tech/024-shared-realm-client-roles
-- stage: 05-qa
+- stage: gate-3
 - epic: core/org-access
 - deps: mod-016
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved (human, chat 2026-11-02)
 
 ## Plan
 
@@ -29,6 +29,9 @@ Tests: Domain (table), Api claims mapping + session callback/renewal refusal + d
 - 2026-10-20 [orchestrator] route confirmed by the human in chat (relayed by the launching session): type tech, size M, Dev -> QA -> Review -> gate-3 -> MR, no spec, no design. Economy mode: one agent per stage, one Opus review for tech-024 and tech-025 together. The queue line says size:M (no divergence here). Note: the ADR and the authorization-rule change are `L` thresholds in routing.md; the human chose M knowingly. Session bound by switching the pool-made worktree `app-deployment-keycloak-9df488` onto the task branch (the session cannot relocate; the empty task worktree made by new-task.sh was removed by the human)
 
 - 2026-11-02 [orchestrator] resumed after the dev agent stalled (4 commits kept); origin/main merged (5c97071e), ADR renumbered 0031 -> 0033 (0031 is mod-018, 0032 is feat-043). Lane go from the doc-012 orchestrator. Local run after the merge, all green: build 0 warnings; Domain 856, Contracts 219, Architecture 86, Api.IntegrationTests 3157 passed / 18 skipped / 0 failed; Vitest src/shared/api 51. The opt-in live-Keycloak tests (provider bucket) were not run
+- 2026-11-02 [review] round 1 (whole diff, with tech-025): approve; 0 blockers, 0 majors, 3 minors open (review.md)
+
+- 2026-11-02 [orchestrator] review round 1: approve, no blocker or major. Fixed on the way: QA D-3 line break, stale comments in AppHost.cs and keycloakAdmin.ts. Minors left open for gate-3: a user refused for lack of `user` keeps a live Keycloak session (cannot switch account without logging out of Keycloak); a non-JSON `resource_access` claim throws in KeycloakPermissionClaims (a signed Keycloak token cannot produce it); realm name `.`/`..` accepted (operator config)
 
 ## Decisions
 
