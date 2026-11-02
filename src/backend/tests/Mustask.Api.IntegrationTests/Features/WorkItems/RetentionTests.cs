@@ -27,7 +27,6 @@ public sealed class RetentionTests(MustaskApiFactory factory)
     {
         ["DictionarySeedHostedService"] = "seeds the languages dictionary at start; no work item",
         ["RealmReadinessMonitor"] = "probes the identity realm's metadata; no work item",
-        ["PushChannelStartupNotice"] = "writes one start-up notice about the user push channel; no work item",
         ["TelemetryHostedService"] = "OpenTelemetry's own start-up of the telemetry pipeline (Aspire service defaults); no work item",
     };
 
