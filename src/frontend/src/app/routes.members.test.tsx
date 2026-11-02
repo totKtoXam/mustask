@@ -72,7 +72,7 @@ describe('mod-016 US-4 Scenario: «Участники» in the navigation and un
         expect(mainLinks()).toEqual([
           'Главная',
           'Обзор',
-          'Области',
+          'Структура',
           'Проекты',
           'Команды',
           'Участники',

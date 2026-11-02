@@ -16,7 +16,7 @@ import { contextSource, renderPage } from '../testRender';
 const AREAS = `/organizations/${ids.alfa}/areas`;
 
 function treegrid() {
-  return screen.findByRole('treegrid', { name: 'Области' });
+  return screen.findByRole('treegrid', { name: 'Структура' });
 }
 
 function row(name: string): HTMLElement {

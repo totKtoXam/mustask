@@ -1,4 +1,4 @@
-# US-2: The organization's «Обзор», the organizations list and the lists «Области», «Проекты», «Команды»
+# US-2: The organization's «Обзор», the organizations list and the lists «Структура», «Проекты», «Команды»
 
 - story: US-2
 - line: this line (`feat-043-area-project-team-navigation`)
@@ -44,14 +44,14 @@ Scenario: «Команды» lists every team once (BR-NV-9; BR-MX-16)
   When Olga opens «Команды»
   Then she sees MARS, VENUS and JUPITER once each, her own team VENUS marked, and every row opens the team's «Обзор» and sets the team selector to it (BR-NV-19), so the menu turns to the team's
 
-Scenario: «Области» shows the typed tree (BR-NV-4; ADR-0031; OQ-1 A)
-  When Olga opens «Области»
+Scenario: «Структура» shows the typed tree (BR-NV-4; ADR-0031; OQ-1 A)
+  When Olga opens «Структура»
   Then she sees «Логистика» with A and B beneath it, «Финансы» with C and E, D at the top level, and under A «Склад» (with «Стеллажи») and «Транспорт», each node once, the type of each shown («Департамент», «Проект», «Область»)
   And a department row opens the department's «Обзор» and sets the department selector, a project row opens the project's «Общие» and sets the project selector (not the node's page), and a sub-area opens its own page under its project's menu with «Структура» marked
   And E's node and its sub-areas are marked «деактивирован» and are not links (OQ-3 A)
 
 Scenario: An administrator creates from the lists (BR-NV-14)
-  When Ann opens «Проекты», «Команды» and «Области»
+  When Ann opens «Проекты», «Команды» and «Структура»
   Then each offers its create command («Создать проект» with the project's place, «Создать команду», «Создать департамент»), with the rules, codes and messages the interim pages had
   And Olga and Vera see no create command
 
@@ -61,14 +61,14 @@ Scenario: Deactivated projects are restored from «Проекты» (BR-NV-13)
   And after the restore E is listed in «Проекты» with its place, its team link and its items as they were
 
 Scenario: Empty states by what exists (BR-AW-2; BR-MX-2; ADR-0031; OQ-1 A)
-  When a member opens «Области» in «Пустая», which has no node, and in «Север», which has projects and no department
+  When a member opens «Структура» in «Пустая», which has no node, and in «Север», which has projects and no department
   Then «Пустая» reads «В организации пока нет областей», and only Ann is offered «Создать департамент»
   And «Север» shows the tree of its top-level project nodes, Ann is offered «Создать департамент», its «Обзор» counts 0 departments and its department list is empty, and «Проекты», «Команды» and every page work with no department
   And «Пустая» shows «Проектов пока нет» in «Проекты», with the create command for Ann only
 
 Scenario: A list is narrowed by typed text (BR-NV-9)
   Given an organization of 200 projects, 200 teams and 1 000 areas
-  When Olga types part of a name in «Проекты», «Команды» and «Области»
+  When Olga types part of a name in «Проекты», «Команды» and «Структура»
   Then each keeps the matching rows within 2 s, and the tree keeps the ancestors of a match
   And an empty result reads «Ничего не найдено» with «Сбросить фильтр»
 
@@ -80,7 +80,7 @@ Scenario: The organizations list and its create flow open the new pages (BR-NV-1
 Scenario: Every read across projects takes the caller (BR-NV-15; ADR-0029)
   When the signature test over `INavigationReadModel` (the reads of «Обзор» and of the selectors' offers) is run
   Then each takes the caller's membership and role as a required argument, so that `feat-041-project-visibility` adds the set form inside it, and a read without it does not compile
-  And the lists «Проекты», «Команды» and «Области» are older reads outside that test; they move to the same form with `feat-041-project-visibility`, which owns that change
+  And the lists «Проекты», «Команды» and «Структура» are older reads outside that test; they move to the same form with `feat-041-project-visibility`, which owns that change
   And the item and view reads of the second line (US-6, US-10) carry their own test
 
 Scenario: No link in the panel targets a retired address (BR-NV-6)

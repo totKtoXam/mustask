@@ -48,7 +48,7 @@ const read = organizationsPermissions;
 export const MENU_TABLE: Record<MenuKind, readonly MenuRow[]> = {
   organization: [
     { id: 'overview', label: 'Обзор', segment: 'overview', code: read.organizationRead },
-    { id: 'areas', label: 'Области', segment: 'areas', code: read.areaRead },
+    { id: 'areas', label: 'Структура', segment: 'areas', code: read.areaRead },
     { id: 'projects', label: 'Проекты', segment: 'projects', code: read.projectRead },
     { id: 'teams', label: 'Команды', segment: 'teams', code: read.teamRead },
     { id: 'members', label: 'Участники', segment: 'members', code: read.membershipRead },

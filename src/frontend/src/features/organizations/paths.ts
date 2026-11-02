@@ -21,7 +21,7 @@ export const PROJECTS_ROUTE = '/organizations/:organizationId/projects';
 export const MEMBERS_ROUTE = '/organizations/:organizationId/members';
 /** «Команды» of the organization (feat-028 design § 1, BR-OL-12): the teams are its own. */
 export const ORG_TEAMS_ROUTE = '/organizations/:organizationId/teams';
-/** «Области» of the organization (mod-018 design § 1): the tree is the organization's. */
+/** «Структура» of the organization (mod-018 design § 1): the tree is the organization's. */
 export const ORG_AREAS_ROUTE = '/organizations/:organizationId/areas';
 
 /** A team's pages: the bare address opens the first entry of its menu. */

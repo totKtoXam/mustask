@@ -15,7 +15,7 @@ Cast: organization «Ромашка» with Ann «Администратор», O
 ```gherkin
 Scenario: With nothing chosen the menu holds the organization's entries (BR-NV-1; BR-MX-27)
   When Olga opens «Ромашка» with «все» in department, team and project
-  Then the left menu shows «Обзор», «Области», «Проекты», «Команды», «Участники» and, last, «Настройки», in this order
+  Then the left menu shows «Обзор», «Структура», «Проекты», «Команды», «Участники» and, last, «Настройки», in this order
   And «Рабочие элементы», «Канбан» and «Бэклог» are absent until the second line adds them (OQ-9), and their addresses at this level answer «Страница не найдена»
 
 Scenario: The menu is the sections of what is chosen (BR-NV-1; gate-2)

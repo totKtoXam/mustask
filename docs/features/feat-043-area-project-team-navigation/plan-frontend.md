@@ -20,7 +20,7 @@ Stage 6a artifact. Inputs: `spec.md`, US-1..5 and US-7..9 (US-6 and US-10 are `f
 | `shared/ui/actions/SearchMenu.tsx` | The selector popup (Popover + search + grouped list + states). Exported from the kit: see § 6, deviation 1. |
 | `app/shell/ContextSelectors.tsx` | The four triggers in the `TopBar`, replacing `ContextSwitcher`; reads `selector-offers`. |
 | `app/shell/*Navigation*`, `model.ts` | The menu built from `addressModel` for the most specific object; «Настройки» derived; settings groups per chosen kind. |
-| `features/organizations/…` | Pages: «Обзор», «Области», «Проекты», «Команды», department, node/sub-area, project («Общие», «Команды», «Параметры»), team («Обзор», «Проекты», «Участники и доступ», «Параметры»); link/placement dialogs (US-7); API for the two reads. Project and team views (workitems, boards) keep their slices; the team filter is the selector. |
+| `features/organizations/…` | Pages: «Обзор», «Структура», «Проекты», «Команды», department, node/sub-area, project («Общие», «Команды», «Параметры»), team («Обзор», «Проекты», «Участники и доступ», «Параметры»); link/placement dialogs (US-7); API for the two reads. Project and team views (workitems, boards) keep their slices; the team filter is the selector. |
 | `app/routes.tsx`, `features/organizations/paths.ts` | New routes per design § 2; the retired ones removed. |
 | `app/shell/TopBar.tsx` | The kit look (grey trail, hairline chevrons): tech-019. |
 | `docs/…` | US-9 marks (see § 5). |
@@ -50,7 +50,7 @@ Stage 6a artifact. Inputs: `spec.md`, US-1..5 and US-7..9 (US-6 and US-10 are `f
 6. API layer for the two reads + types + MSW fixtures.
 7. Selection (address + remembered) and `ContextSelectors` in the `TopBar`; menu from `addressModel`; settings navigation by chosen kind.
 8. Routes and paths; the retired ones removed; «Страница не найдена» tests.
-9. Pages: «Обзор»; «Области»; «Проекты», «Команды».
+9. Pages: «Обзор»; «Структура»; «Проекты», «Команды».
 10. Pages: department, node and sub-area.
 11. Pages: project and team (menus, «Параметры»).
 12. Link and placement dialogs (US-7).

@@ -19,7 +19,7 @@ const KINDS = Object.keys(MENU_TABLE) as MenuKind[];
 const EXPECTED: Record<MenuKind, [label: string, segment: string][]> = {
   organization: [
     ['Обзор', 'overview'],
-    ['Области', 'areas'],
+    ['Структура', 'areas'],
     ['Проекты', 'projects'],
     ['Команды', 'teams'],
     ['Участники', 'members'],

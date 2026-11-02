@@ -90,7 +90,7 @@ function menu(){var s=S.sel,w=['workitems','Рабочие элементы',1],
  if(s.proj)return [['general','Общие'],['structure','Структура'],['workitems','Рабочие элементы'],['boards','Канбан'],['backlogs','Бэклог'],['teams','Команды']];
  if(s.team)return [['overview','Обзор'],w,['boards','Канбан'],['backlogs','Бэклог'],['projects','Проекты'],['members','Участники и доступ']];
  if(s.dept)return [['overview','Обзор'],w,k,b,['projects','Проекты'],['teams','Команды']];
- return [['overview','Обзор'],w,k,b,['areas','Области'],['projects','Проекты'],['teams','Команды']].concat(S.role==='r'?[]:[['members','Участники']])}
+ return [['overview','Обзор'],w,k,b,['areas','Структура'],['projects','Проекты'],['teams','Команды']].concat(S.role==='r'?[]:[['members','Участники']])}
 function notice(t){var n=$('#note');n.textContent=t;n.style.display='block';clearTimeout(notice.t);notice.t=setTimeout(function(){n.style.display='none'},4000)}
 function focusH1(){var h=$('#main h1');if(h){h.setAttribute('tabindex','-1');h.focus()}}
 function keepSec(){var m=menu().map(function(e){return e[0]});if(m.indexOf(S.sec)<0)S.sec=m[0]}

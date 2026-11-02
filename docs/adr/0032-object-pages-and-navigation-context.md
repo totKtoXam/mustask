@@ -35,13 +35,13 @@ Option 2.
 
 | Most specific chosen | Entries in order (segment) | Added later, and where |
 |---|---|---|
-| Nothing | «Обзор» (`overview`), «Области» (`areas`), «Проекты» (`projects`), «Команды» (`teams`), «Участники» (`members`) | «Рабочие элементы» (`workitems`), «Канбан» (`boards/:level`), «Бэклог» (`backlogs/:level`) after «Обзор» (feat-048) |
+| Nothing | «Обзор» (`overview`), «Структура» (`areas`), «Проекты» (`projects`), «Команды» (`teams`), «Участники» (`members`) | «Рабочие элементы» (`workitems`), «Канбан» (`boards/:level`), «Бэклог» (`backlogs/:level`) after «Обзор» (feat-048) |
 | Department | «Обзор» (`overview`), «Проекты» (`projects`), «Команды» (`teams`) | «Рабочие элементы» (`workitems`), «Канбан» (`boards/:level`), «Бэклог» (`backlogs/:level`) after «Обзор» (feat-048); «Участники» (`members`, mod-019); «Аналитика» (`analytics`, feat-044); the area overview's figures stay feat-042's |
 | Team | «Обзор», «Канбан», «Бэклог», «Проекты» (`projects`), «Участники и доступ» (`members`) | «Рабочие элементы» (`workitems`) after «Обзор» (feat-048); «Спринты» (`sprints`, mod-007) after «Бэклог»; grants join `members` (mod-019) |
 | Project | «Общие» (`general`), «Структура» (the node: `areas/:nodeId/overview`), «Рабочие элементы» (`workitems`), «Канбан», «Бэклог», «Команды» (`teams`) | «Спринты» (`sprints`, mod-007) after «Бэклог»; «Участники и доступ» (`access`, mod-019) |
-| A project's node or sub-area opened from «Области» | the project's menu, «Структура» marked | nothing: views of a node or sub-area are not built (spec Q-8 A) |
+| A project's node or sub-area opened from the organization's «Структура» | the project's menu, «Структура» marked | nothing: views of a node or sub-area are not built (spec Q-8 A) |
 
-«Настройки» opens the settings navigation (the main menu as a rail): the group «Организация» («Общие», «Процесс»), the instance sections, and for a holder of the write code one group per chosen kind («Департамент», «Команда», «Проект»; «Область» while a node or sub-area page is open), each with «Параметры» at `…/settings` under that object's prefix. «Проекты», «Команды», «Области» and «Участники» are menu entries of the nothing-chosen menu, not settings. A segment the menu lacks answers «Страница не найдена»; one whose code the user lacks, «Доступ ограничен», and its entry is absent.
+«Настройки» opens the settings navigation (the main menu as a rail): the group «Организация» («Общие», «Процесс»), the instance sections, and for a holder of the write code one group per chosen kind («Департамент», «Команда», «Проект»; «Область» while a node or sub-area page is open), each with «Параметры» at `…/settings` under that object's prefix. «Проекты», «Команды», «Структура» and «Участники» are menu entries of the nothing-chosen menu, not settings. A segment the menu lacks answers «Страница не найдена»; one whose code the user lacks, «Доступ ограничен», and its entry is absent.
 
 **3. Not found by level.** The outermost missing level answers (organization, then the object the prefix names, then a selector in the query); a deleted, deactivated or foreign object answers as one that does not exist. A work item's path address names its project first.
 

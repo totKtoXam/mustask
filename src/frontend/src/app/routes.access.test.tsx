@@ -74,7 +74,7 @@ const ORGANIZATION_PAGES: [string, string][] = [
   ['«Команды»', `/organizations/${ORG}/projects/${PROJECT}/teams`],
   ['«Команды» организации', `/organizations/${ORG}/teams`],
   ['страница команды', `/organizations/${ORG}/teams/${TEAM}/overview`],
-  ['«Области»', `/organizations/${ORG}/areas`],
+  ['«Структура»', `/organizations/${ORG}/areas`],
   ['страница области', `/organizations/${ORG}/areas/${AREA}/overview`],
   ['«Рабочие элементы»', `/organizations/${ORG}/projects/${PROJECT}/workitems`],
   ['рабочий элемент', `/organizations/${ORG}/projects/${PROJECT}/workitems/PRM-1`],

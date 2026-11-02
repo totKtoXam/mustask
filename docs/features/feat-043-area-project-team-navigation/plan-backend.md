@@ -25,7 +25,7 @@ No migration, no domain change, no new error code, no new permission. Department
 |---|---|---|
 | `overview` | 7 | 3 counts (departments, active projects, active teams); 3 first-5 reads; the caller's own teams |
 | `selector-offers` | 5 | departments; projects with place; project–team links; teams with `isMember`; department–team links |
-| `GET …/areas` (the list «Области») | 1 | existing, pinned by `AreaTree_GetRows_FiveHundredNodesTenLevels_OneQuery` |
+| `GET …/areas` (the list «Структура») | 1 | existing, pinned by `AreaTree_GetRows_FiveHundredNodesTenLevels_OneQuery` |
 | `GET …/teams` (existing) | 2 | existing, pinned by `OrganizationTeams_ByName_WithActiveProjects_TwoStatements` |
 | `GET …/projects` (existing) | 2 | organization check and list; unchanged |
 
@@ -33,7 +33,7 @@ No migration, no domain change, no new error code, no new permission. Department
 
 ## 4. BR-NV-15: the caller as a required argument
 
-Both reads take `CallerAccess` first; feat-041 adds the visible set inside them. `NavigationReadSignatureTests` fails on a method of `INavigationReadModel` that lacks a non-optional `CallerAccess` first parameter, and on a third method added without the test being touched. **Open point (question to the human/orchestrator):** the existing `GET …/areas` tree read (`IAreaTreeReadModel.GetRowsAsync(organizationId)`), the project list and the organization-teams list do not take the caller; the list «Области» uses the tree. Moving them behind the caller touches five handlers and about ten fakes and tests for no behaviour change; the plan leaves them and records that feat-041 must move the tree read (the only read of the three that returns project nodes) when it lands.
+Both reads take `CallerAccess` first; feat-041 adds the visible set inside them. `NavigationReadSignatureTests` fails on a method of `INavigationReadModel` that lacks a non-optional `CallerAccess` first parameter, and on a third method added without the test being touched. **Open point (question to the human/orchestrator):** the existing `GET …/areas` tree read (`IAreaTreeReadModel.GetRowsAsync(organizationId)`), the project list and the organization-teams list do not take the caller; the list «Структура» uses the tree. Moving them behind the caller touches five handlers and about ten fakes and tests for no behaviour change; the plan leaves them and records that feat-041 must move the tree read (the only read of the three that returns project nodes) when it lands.
 
 ## 5. Tests
 

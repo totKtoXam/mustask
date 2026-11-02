@@ -158,7 +158,7 @@ export const routeTree = (
               element={
                 <OrganizationPage
                   code={permissions.areaRead}
-                  title="Области"
+                  title="Структура"
                   skeleton="registry"
                   columns={['Название', 'Тип', 'Описание']}
                 >

@@ -57,7 +57,7 @@ Scenario: The organization selector (BR-NV-16; Q-5 A)
   And choosing «Другая» writes nothing and opens its «Обзор» with the selection remembered there (as a row of the organizations list does; «все» in the other three when nothing is remembered), and «Все организации» clears all four
 
 Scenario: The selectors name the selection, the menu the entry (BR-NV-4)
-  When Olga opens «Склад» from «Области»
+  When Olga opens «Склад» from «Структура»
   Then the selectors read «Ромашка» / «Логистика» / «все» / A, the menu marks «Структура», and the page path reads «Логистика / A / Склад»
   And no trail or menu puts a team under a project or a project under a department in «Проекты» or «Команды»
 

@@ -158,7 +158,7 @@ describe('US-3 Scenario: The menu of the chosen object waits for a real context 
       '/organizations/org-1/overview',
     );
     for (const [label, segment] of [
-      ['Области', 'areas'],
+      ['Структура', 'areas'],
       ['Проекты', 'projects'],
       ['Команды', 'teams'],
       ['Участники', 'members'],
@@ -181,7 +181,7 @@ describe('US-3 Scenario: The menu of the chosen object waits for a real context 
     ).toBeInTheDocument();
     expect(within(mainNavigation()).getByRole('link', { name: 'Бэклог' })).toBeInTheDocument();
     expect(
-      within(mainNavigation()).queryByRole('link', { name: 'Области' }),
+      within(mainNavigation()).queryByRole('link', { name: 'Структура' }),
     ).not.toBeInTheDocument();
   });
 
@@ -208,7 +208,7 @@ describe('US-3 Scenario: The menu of the chosen object waits for a real context 
       }),
     );
     expect(
-      within(mainNavigation()).queryByRole('link', { name: 'Области' }),
+      within(mainNavigation()).queryByRole('link', { name: 'Структура' }),
     ).not.toBeInTheDocument();
   });
 });

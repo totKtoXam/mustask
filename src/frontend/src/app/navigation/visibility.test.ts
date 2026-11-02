@@ -66,7 +66,7 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () =>
   ])('hides the scoped entries without a real context — %s', (_case, access, context) => {
     const shown = labels(visibleModel(model, access, context));
 
-    for (const label of ['Обзор', 'Области', 'Проекты', 'Команды', 'Участники', 'Процесс']) {
+    for (const label of ['Обзор', 'Структура', 'Проекты', 'Команды', 'Участники', 'Процесс']) {
       expect(shown).not.toContain(label);
     }
   });
@@ -76,7 +76,7 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () =>
     expect(registered.map((entry) => entry.label)).toEqual([
       'Главная',
       'Обзор',
-      'Области',
+      'Структура',
       'Проекты',
       'Команды',
       'Участники',

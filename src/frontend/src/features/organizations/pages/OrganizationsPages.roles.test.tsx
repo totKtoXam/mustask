@@ -151,18 +151,18 @@ describe.each(ROLES)(
       expect(within(table).getByRole('link', { name: 'Платформа' })).toBeVisible();
     });
 
-    it('«Области»: «Новая область» and the row menus only with the code; the tree stays a treegrid', async () => {
+    it('«Структура»: «Новая область» and the row menus only with the code; the tree stays a treegrid', async () => {
       serveOrganizations();
       renderPage({ path: ALFA_AREAS, role });
 
-      const tree = await screen.findByRole('treegrid', { name: 'Области' });
+      const tree = await screen.findByRole('treegrid', { name: 'Структура' });
 
       expect(button('Создать департамент')).toHaveLength(held(holds));
       expect(within(tree).queryAllByRole('button', { name: /^Действия: / }).length > 0).toBe(holds);
       expect(within(tree).getAllByRole('row', { selected: false }).length).toBeGreaterThan(1);
     });
 
-    it('«Области» with no area at all: the heading stays, the hint is the holder’s or says who creates the areas, and the action is the holder’s', async () => {
+    it('«Структура» with no area at all: the heading stays, the hint is the holder’s or says who creates the areas, and the action is the holder’s', async () => {
       serveOrganizations(emptyTreeDataset());
       renderPage({ path: ALFA_AREAS, role });
 
@@ -311,7 +311,7 @@ describe('mod-016 design § 2.3 Scenario: a refused write, then the codes are re
   it('creates an area', async () => {
     serveOrganizations();
     const page = renderPage({ path: ALFA_AREAS });
-    await screen.findByRole('treegrid', { name: 'Области' });
+    await screen.findByRole('treegrid', { name: 'Структура' });
     await userEvent.click(screen.getByRole('button', { name: 'Создать департамент' }));
     const dialog = await screen.findByRole('dialog', { name: 'Новый департамент' });
     const field = within(dialog).getByRole('textbox', { name: 'Название' });
@@ -322,7 +322,7 @@ describe('mod-016 design § 2.3 Scenario: a refused write, then the codes are re
 
     expect(button('Создать департамент')).toHaveLength(0);
     expect(
-      within(screen.getByRole('treegrid', { name: 'Области' })).queryAllByRole('button', {
+      within(screen.getByRole('treegrid', { name: 'Структура' })).queryAllByRole('button', {
         name: /^Действия: /,
       }),
     ).toHaveLength(0);

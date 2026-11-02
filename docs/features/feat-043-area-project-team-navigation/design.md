@@ -22,11 +22,11 @@ Screens reuse: `PageHeader` (no `views`), `Section`, `Surface`, `ColumnLayout`, 
 |---|---|---|
 | Header selectors, left menu, settings navigation | all | US-1, US-8 |
 | Organizations list | `/organizations` (as today) | US-2 |
-| Nothing chosen: «Обзор», «Области», «Проекты», «Команды», «Участники» | `overview` `areas` `projects` `teams` `members` | US-2 |
+| Nothing chosen: «Обзор», «Структура», «Проекты», «Команды», «Участники» | `overview` `areas` `projects` `teams` `members` | US-2 |
 | Department chosen | `areas/:d/` `overview` `projects` `teams` | US-3 |
 | Team chosen | `teams/:t/` `overview` `boards/:l` `backlogs/:l` `projects` `members` | US-5 |
 | Project chosen | `projects/:p/` `general` `workitems` `boards/:l` `backlogs/:l` `teams`; «Структура» = `areas/:node/overview` | US-4 |
-| A node or sub-area from «Области» | `areas/:a/overview` (project menu, «Структура» marked) | US-3 |
+| A node or sub-area from org «Структура» | `areas/:a/overview` (project menu, «Структура» marked) | US-3 |
 | «Параметры» of a department, team, project, area | `areas/:d/settings`, `teams/:t/settings`, `projects/:p/settings`, `areas/:a/settings` | US-3..US-5 |
 | Dialogs (links, placement, unlink, node commands) | over the pages | US-7 |
 | «Страница не найдена», level not-found, «Доступ ограничен» | any | US-1 |
@@ -57,7 +57,7 @@ The prefix is the most specific chosen object; other selectors ride as `?teamId=
 | No match | `InlineEmpty` «Ничего не найдено» (both groups empty) |
 | Fallback | shell notice (mod-016 DC-11 corner): «Ранее выбранный контекст недоступен. Выбрано: Ромашка.»; no organization left: «Ранее выбранный контекст недоступен.» and «Главная» opens |
 
-- **Left menu** (`MainNavigation`; icons required): the table is ADR-0032 § 2; entry labels as in the spec's table. Current entry: `aria-current="page"`. An entry the user may not open is absent. With a node or sub-area opened from «Области» the menu is the project's with «Структура» marked. With no organization only «Главная» and «Настройки» show.
+- **Left menu** (`MainNavigation`; icons required): the table is ADR-0032 § 2; entry labels as in the spec's table. Current entry: `aria-current="page"`. An entry the user may not open is absent. With a node or sub-area opened from org «Структура» the menu is the project's with «Структура» marked. With no organization only «Главная» and «Настройки» show.
 - **«Настройки»** (derived, last; mod-015 BR-19): opens the settings navigation, the main menu as a rail, titled «Настройки»: «Организация» («Общие», «Процесс»), instance sections («Справочники», «Интерфейс»), and for «Администратор» one group per chosen kind — «Департамент», «Команда», «Проект» (and «Область» while a node or sub-area page is open), each with «Параметры». «Участник» and «Читатель» see «Организация» and the instance sections only; the address of «Параметры» shows them «Доступ ограничен».
 - **Page path** (`PageHeader` `ancestors`): only for areas and items (`Логистика / A / Склад`; an item's project on a card).
 - A page with no organization (`Главная`, «Справочники») shows the remembered selection and does not change it.
@@ -83,7 +83,7 @@ Commands (create, link, place, delete, deactivate): «Администратор
 
 `PageHeader` «Обзор»; `ColumnLayout` main + side. Main: `Section` «Мои команды» (own teams as links; absent when none), stat links «Департаменты», «Проекты», «Команды» (a `Surface` band, count over label, each opens its list), then `Section`s «Департаменты», «Проекты», «Команды» with the **first 5 rows** by name (D-2) and the links «Все департаменты (N)» ◆, «Все проекты (N)» ◆, «Все команды (N)» ◆. Counts: departments (OQ-2 A), active projects, teams. Side: `Section` «Организации» (first 5, current marked) and «Все организации». Empty: `InlineEmpty` «Департаментов пока нет», «Проектов пока нет», «Команд пока нет». Loading and error per section.
 
-### 5.2 «Области» (US-2)
+### 5.2 «Структура» (US-2)
 
 As mod-018 § 3 with changes: a menu entry, not a settings page; primary «Создать департамент» ◆ (the dialog is mod-018 § 5.1, submit «Создать»); `FilterBar` «Найти область» (matches keep their ancestors; none: «Ничего не найдено», «Сбросить фильтр»). Columns «Название», «Тип», «Описание», row menu per type as mod-018 § 3. A department row sets the department selector; a project node row opens the project's «Общие» (selectors: its department, project); a sub-area row opens the area page the same way. A deactivated project's node and sub-areas: `Tag` «деактивирован», plain text, no link, no menu (OQ-3 A). Loading `RegistrySkeleton`; error `ErrorBanner`.
 
@@ -165,7 +165,7 @@ From «Общие»: mod-018 § 5.4's «Перемещение проекта» 
 
 ## 9. Narrow widths and accessibility
 
-Down to 640 CSS px (ADR-0024 § 5): the left menu is the overlay below 1024 px; the selectors wrap to a second header row, each popup full width under 640 px; tables scroll inside their card; page heads overflow into «Ещё действия»; `ColumnLayout` stacks. Each selector is a combobox with a labelled, grouped listbox («Остальные» is a group); the menu is a `nav` named by the chosen object («Меню: проект A»); the tree is a treegrid named «Области»; lists are tables named by their section. After a choice or a row link focus lands on the `h1`; after a dialog, on its opener. Colour never alone: `Tag` plus text. Row controls are named by their row («Ещё действия: A»).
+Down to 640 CSS px (ADR-0024 § 5): the left menu is the overlay below 1024 px; the selectors wrap to a second header row, each popup full width under 640 px; tables scroll inside their card; page heads overflow into «Ещё действия»; `ColumnLayout` stacks. Each selector is a combobox with a labelled, grouped listbox («Остальные» is a group); the menu is a `nav` named by the chosen object («Меню: проект A»); the tree is a treegrid named «Структура»; lists are tables named by their section. After a choice or a row link focus lands on the `h1`; after a dialog, on its opener. Colour never alone: `Tag` plus text. Row controls are named by their row («Ещё действия: A»).
 
 ## 10. For the developer
 

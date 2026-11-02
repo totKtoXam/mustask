@@ -16,7 +16,7 @@ import { AppRoutes } from './routes';
 const ORG = `/organizations/${ids.alfa}`;
 const PAGES: readonly (readonly [string, string])[] = [
   ['the organization’s «Обзор»', `${ORG}/overview`],
-  ['«Области»', `${ORG}/areas`],
+  ['«Структура»', `${ORG}/areas`],
   ['a department', `${ORG}/areas/${ids.platformArea}/overview`],
   ['a project’s node', `${ORG}/areas/${ids.prmRoot}/overview`],
   ['«Проекты»', `${ORG}/projects`],

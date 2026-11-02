@@ -190,7 +190,7 @@ export function useAreaTree(
 
 /**
  * A project's subtree: its node and the sub-areas below it (mod-018 § 4). It is the offer of the
- * work item's «Область», of the sub-area dialogs and the project's «Области» page.
+ * work item's «Область», of the sub-area dialogs and the project's «Структура» page.
  */
 export function useProjectAreaTree(
   organizationId: string,

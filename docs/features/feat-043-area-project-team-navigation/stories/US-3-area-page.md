@@ -3,7 +3,7 @@
 - story: US-3
 - line: this line (`feat-043-area-project-team-navigation`)
 - depends-on: US-1, US-2
-- shippable: no — the page of the tree that US-2's «Области» opens; the interim area pages retire with it (US-9)
+- shippable: no — the page of the tree that US-2's «Структура» opens; the interim area pages retire with it (US-9)
 - status: pending
 
 As an **organization member**, I want **choosing a department to give me its sections in the left menu, and every node of the area tree a page of its own**, so that **I see what a department groups, where a project stands and what a sub-area holds, and an administrator keeps the structure where it is read**.
@@ -22,7 +22,7 @@ Scenario: A department's page (BR-NV-3; BR-AW-0, BR-AW-6)
   And there is no analytics section and no «Участники» section
 
 Scenario: A project's place opens a page that names its project (ADR-0031 rule 5; OQ-1 A)
-  When Olga opens A from «Области» or from «Логистика»'s «Проекты» (it opens A's «Общие», BR-NV-19, OQ-1 A) and then «Структура»
+  When Olga opens A from the organization's «Структура» or from «Логистика»'s «Проекты» (it opens A's «Общие», BR-NV-19, OQ-1 A) and then «Структура»
   Then she sees A's name and type «Проект», its parent «Логистика», the node's own description (not the project's, which is on A's «Общие») and its sub-areas «Склад» and «Транспорт» (with «Стеллажи» under «Склад»), and the link «Открыть проект», which opens A's «Общие»
   And the selectors read «Логистика» / «все» / A, the menu is A's (US-4) with «Структура» marked; no «Команды» of the node: the project's teams are in A's menu
   And the page shows no area–team link, because none can join a project's node (BR-AW-6)
@@ -33,18 +33,18 @@ Scenario: A sub-area's page (BR-AW-3, BR-AW-13)
   And every area and project shown opens its own page
 
 Scenario: A sub-area shows its ancestors as a path, not a trail (BR-NV-4)
-  When Olga opens «Склад» from «Области»
+  When Olga opens «Склад» from «Структура»
   Then the page's path reads «Логистика / A / Склад», and every part but the last opens its page, while the selectors read «Ромашка» / «Логистика» / «все» / A
 
 Scenario: Settings are the settings navigation's «Параметры» (BR-NV-5, BR-NV-14, BR-NV-18)
   When Ann has «Логистика» chosen and opens «Настройки», then the group «Департамент» and its entry «Параметры»
   Then she renames it, changes its description, deletes it, and links teams from «Команды» in the menu; a department stands at the top and has no move command
-  And for a sub-area opened from «Области», «Параметры» lets her rename, describe, move it within its project and delete it; for a project node, only describe it, because the name follows the project (BR-AW-4, OQ-10 A of mod-018)
+  And for a sub-area opened from «Структура», «Параметры» lets her rename, describe, move it within its project and delete it; for a project node, only describe it, because the name follows the project (BR-AW-4, OQ-10 A of mod-018)
   And Olga finds no «Департамент» group in «Настройки», and the address of its «Параметры» shows her «Доступ ограничен»
 
 Scenario: A sub-area is created under a project's node or a sub-area (BR-AW-3)
   When Ann chooses «Добавить область» on A's node page and names it «Шлюз»
-  Then «Шлюз» is a child of A's node, and the tree in «Области» shows it once
+  Then «Шлюз» is a child of A's node, and the tree in «Структура» shows it once
   And a name taken among its siblings answers «Область с таким названием уже есть на этом уровне» and nothing is created
   And a sub-area is not offered on a department's page, because a department holds no sub-area (OQ-7 A of mod-018)
 
@@ -78,7 +78,7 @@ Scenario: A row link makes its object the most specific (BR-NV-19; design D-3 A)
   When Olga opens A from «Логистика»'s «Проекты»
   Then the selectors read «Логистика» / MARS / A, because A is the most specific object and «Логистика» and MARS both fit it, A's menu opens at «Общие», and no notice appears
   And opening B from MARS's «Проекты» with the selectors «Финансы» / MARS leaves MARS and B, and the department resets to «все» silently because «Финансы» does not hold B
-  And with the selectors «Финансы» / MARS / C, opening «Логистика» from «Области» resets the team and the project to «все» silently, as they are more specific than a department
+  And with the selectors «Финансы» / MARS / C, opening «Логистика» from «Структура» resets the team and the project to «все» silently, as they are more specific than a department
 
 Scenario: A department's «Проекты» and «Команды» when empty (BR-NV-11)
   Given Ann created the department «Резерв»

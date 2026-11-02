@@ -48,7 +48,7 @@ export type NodeDialogResult =
 
 /**
  * The dialogs of an area node, shared by the organization's tree, a node's page and the project's
- * «Области» (mod-018 design § 5): each mounts per opening under the code of its write, and on
+ * «Структура» (mod-018 design § 5): each mounts per opening under the code of its write, and on
  * success shows its notice and reports to the page. `onClose` carries whether the page's context
  * answered not found, so the page reads itself again.
  */

@@ -35,7 +35,7 @@ import { organizationsPermissions } from '../permissions';
 type AreaRow = AreaNode & { label: string };
 
 /**
- * «Области» (mod-018 design § 3; US-1, US-2, US-6): the organization's typed tree on the tree
+ * «Структура» (mod-018 design § 3; US-1, US-2, US-6): the organization's typed tree on the tree
  * registry, columns «Название» (a link to the object's page; a deactivated project's node is tagged and plain
  * «деактивирован»), «Тип» and «Описание». The organization is not a row (D-8): departments and
  * project nodes stand at the top. The initial expansion is D-3 with «Развернуть всё» / «Свернуть

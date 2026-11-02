@@ -20,9 +20,9 @@ export const typeLabels: Readonly<Record<AreaType, string>> = {
 /** «Организация»: the top level as a place, never a node (design D-8). */
 export const ORGANIZATION_PLACE = 'Верхний уровень';
 
-/** «Области» (design § 3). */
+/** «Структура» (design § 5.2; the organization's tree). */
 export const areasPage = {
-  title: 'Области',
+  title: 'Структура',
   create: 'Создать департамент',
   search: 'Найти область',
   nothingFound: 'Ничего не найдено',
@@ -239,7 +239,7 @@ export const areaLinkDialog = {
       `Команда «${own}» войдёт в выбранные департаменты. Её работу и доступ её участников это не меняет.`,
     allLinked: 'Команда уже входит во все департаменты.',
     noneExist: 'В организации пока нет департаментов. Создайте первый в разделе «Организация» → ',
-    sectionName: '«Области»',
+    sectionName: '«Структура»',
     loadFailed: 'Не удалось загрузить департаменты. Попробуйте ещё раз.',
     linkedOne: (name: string) => `Департамент «${name}» добавлен.`,
     linkedMany: (count: number) => `Департаменты добавлены: ${count}.`,

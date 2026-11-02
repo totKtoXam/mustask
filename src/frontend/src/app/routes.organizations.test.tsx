@@ -64,7 +64,7 @@ describe('mod-002 design § 1 and feat-028 design § 1: the slice’s twelve rou
     [`/organizations/${ids.alfa}/projects/${ids.prm}/teams`, 'Команды'],
     [`/organizations/${ids.alfa}/teams`, 'Команды'],
     [`/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview`, 'Команда: Платформа'],
-    [`/organizations/${ids.alfa}/areas`, 'Области'],
+    [`/organizations/${ids.alfa}/areas`, 'Структура'],
     [`/organizations/${ids.alfa}/areas/${ids.platformArea}/overview`, 'Департамент: Платформа'],
   ])('%s opens «%s» as the one h1, its tab titled after it', async (path, title) => {
     serveOrganizations();
