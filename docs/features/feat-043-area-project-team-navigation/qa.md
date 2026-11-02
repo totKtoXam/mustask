@@ -88,7 +88,7 @@ Scope: US-1..5 and US-7..9 (US-6 and US-10 are feat-048's). The plan was drawn f
 | US-7 selector fit, «Остальные», reset with notice, row link | dev `selectorFit`, `ContextSelectors`, `useObjectLink` tests (reviewed, no gap found) | unit, component | done |
 | US-7 focus to `main h1` for `useObjectLink` links only | dev `ContextHost` tests | component | done |
 | US-7 the second row scrolls under 1024 px | dev `AppLayout.widths` (style assertion); no real viewport | component | partial, see F-5 |
-| US-8 remembered selection, fallback notice, repair of the store | dev `useNavigationSource.test`; QA `useNavigationSource.qa` | hook | fails in part: F-1 |
+| US-8 remembered selection, fallback notice, repair of the store | `useNavigationSource.test` (dev and QA cases) | hook | fails in part: F-1 |
 | US-8 settings navigation: groups by chosen objects, each with «Параметры» | QA `routes.node.qa`: the address-based case passes, the click path fails | routes | fails: F-3 |
 | US-9 a section is absent until its owning line adds it; no dead link | dev `routeInventory`, `addressModel.test` | unit | done |
 
@@ -102,7 +102,7 @@ Five files named `*.qa.test.tsx`, 52 tests: 49 pass, 3 are `it.fails`, one per d
 
 - `src/frontend/src/app/routes.retired.qa.test.tsx` (30)
 - `src/frontend/src/app/routes.node.qa.test.tsx` (15, one `it.fails`)
-- `src/frontend/src/app/navigation/useNavigationSource.qa.test.tsx` (2, one `it.fails`)
+- `src/frontend/src/app/navigation/useNavigationSource.test.tsx` (holds the 2 QA cases, one was `it.fails`)
 - `src/frontend/src/features/organizations/pages/OrganizationOverviewPage.qa.test.tsx` (4)
 - `src/frontend/src/features/boards/pages/ProjectViews.narrowed.qa.test.tsx` (1, `it.fails`)
 
@@ -131,7 +131,7 @@ Five files named `*.qa.test.tsx`, 52 tests: 49 pass, 3 are `it.fails`, one per d
 - Steps: the remembered selection for the organization is `{team: MARS}`; open `/organizations/<o>/projects/<gone>/general`.
 - Expected: nothing is written down for an object that does not exist; the remembered team stays and no notice appears.
 - Actual: `useNavigationSource` writes the address's selection whenever the address carries an organization and the offers have arrived; the remembered `{team: MARS}` is replaced, so one bad link changes the user's context for every later visit.
-- Test: `useNavigationSource.qa.test.tsx`, `it.fails` "names another object than the remembered one…". The case where the address names the remembered gone object itself passes (drops to «все», notice, store repaired).
+- Test: `useNavigationSource.test.tsx`, `it.fails` "names another object than the remembered one…". The case where the address names the remembered gone object itself passes (drops to «все», notice, store repaired).
 
 #### F-2: a backlog under a chosen team has no hint and no «сужено» tag
 
