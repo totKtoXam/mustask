@@ -319,9 +319,11 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
         ["GET " + OrgTeam + "/deletion-counts"] = Reads.CountsOwnedInAnyState,
 
         // The reads that touch none (feat-028 added the organization's teams, a team's page, its projects, its people and the
-        // project's linked teams; none of them counts or lists an item).
+        // project's linked teams; none of them counts or lists an item). feat-043 added «Обзор» and the selectors' offers: containers only.
         ["GET " + Org] = Reads.NoWorkItem,
         ["GET " + Org + "/access"] = Reads.NoWorkItem,
+        ["GET " + Org + "/overview"] = Reads.NoWorkItem,
+        ["GET " + Org + "/selector-offers"] = Reads.NoWorkItem,
         ["GET " + Org + "/process"] = Reads.NoWorkItem,
         ["GET " + Org + "/projects"] = Reads.NoWorkItem,
         ["GET " + Org + "/projects/deactivated"] = Reads.NoWorkItem,

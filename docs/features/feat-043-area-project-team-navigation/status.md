@@ -78,6 +78,8 @@ gate-3: approved 2026-11-02 (the human, in chat, after screenshots on test data)
 
 - 2026-11-02 [orchestrator] Renamed (094b67eb), retaken at 360 and 480 px: the bar is two rows, headings clear. Gate-3 approved by the human. api-contract.md § 2 label set to «Структура», prose only. ADR-0032 accepted. Deliberately left open: E-1..E-4, backend QA D-1..D-3, the kit-guard entries for AppLayout, MainNavigation, UserMenu, no TreeRegistry showcase entry, no scroll cue on the narrow selector row. Not seen live: real sign-in, member views. E2E not run. The last full Vitest was before the rename and the row fix; CI runs the full suite. Owed after the merge: tech-011 m4 recorded obsolete. Weekly 17%.
 
+- 2026-11-02 [orchestrator] Post-gate-3 test change: the pre-push hook failed on backend tests. DeletedItemSurfaceMatrixTests lacked `/overview` and `/selector-offers`; both added as NoWorkItem, test only. Whole backend suite before the fix: 5626 passed, 1 failed.
+
 ## Notes
 
 Summary (from the queue line): Top-level «Области», «Проекты» and «Команды»; the object pages with their sections, a section absent until the line that owns it adds it; the organization's «Обзор» as its home page, the user's organizations beside the content (feat-045 folded in); the «Рабочие элементы» list across projects; breadcrumbs with no false hierarchy; the switcher and the remembered context; empty states. A retired address answers «Страница не найдена», nothing redirects, and the interim pages of the earlier lines (the team and area pages in the organization settings, the project's teams, area links and default team in its settings) move onto the objects' own pages (doc-012 BR-MX-27, -28; US-10)
