@@ -42,7 +42,7 @@ import { organizationsPermissions } from '../permissions';
 
 /**
  * A team's page (feat-028 US-1, US-3..US-6; design § 4), beneath «Команды» of the organization at
- * `…/settings/teams/:teamId`: the team no longer belongs to a project. Its name and «Описание»; its
+ * `…/teams/:teamId` (feat-043; the retired `…/settings/teams/:teamId` is gone): the team no longer belongs to a project. Its name and «Описание»; its
  * active projects with the link and the unlink from this end; «Участники команды». The commands that
  * change the team are the holder's of `team.write` (rename, describe) and `team.delete`; the link and the
  * unlink need both link codes, and without them the section has no button and no menu column. The

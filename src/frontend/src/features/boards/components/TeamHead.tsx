@@ -86,7 +86,7 @@ function pagePath(
  * It is `PageHeader`'s team variant.
  *
  * feat-040 (BR-TS-11): a team's page is at the team's address, so the drop-down lists the
- * organization's teams — the switcher's team level, in its order — with this one selected,
+ * organization's teams — the team selector's offers, in their order — with this one selected,
  * and no longer «Весь проект». The project's own pages (feat-039) have the same head with the
  * project's name as the `h1` and **no drop-down button**, so no menu puts a team under a project;
  * their tab, level drop-down and grey button lead to the project's addresses.
@@ -126,7 +126,7 @@ export function TeamHead({
   const context = useWorkContext();
   // A link to the same view carries its filter: another level and the page's own tab, on both kinds
   // of view; on a team's also the grey command to the other page, since the project filter is the
-  // view's of that team (BR-TS-8). The other kinds of link — another team, the switcher — start
+  // view's of that team (BR-TS-8). The other kinds of link — another team, a selector — start
   // unfiltered. The project's grey command carries no filter: mod-020 starts the other page unfiltered.
   const { search } = useLocation();
   const filterSearch =

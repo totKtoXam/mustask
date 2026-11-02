@@ -95,11 +95,11 @@ export interface AppLayoutProps {
  * host the kit's `useNotice` talks to (tech-015 design § 5.12) — above the
  * routes, so a notice outlives the page that raised it. The host stands under
  * the work context and the notice corner (mod-016 DC-11): it closes when the
- * shell raises the switcher's fallback or the role-change notice.
+ * shell raises the selectors' fallback or the role-change notice.
  *
  * The check is built from served access (mod-016, ADR-0027): an instance code
  * from the token, an organization code from what `GET …/access` served for
- * the organization asked about. The shell reads the switcher's selection's
+ * the organization asked about. The shell reads the selection's
  * access so the navigation has its codes; the gate of an organization's pages
  * reads the address's and binds the check to it. A watcher re-reads the codes
  * after a scoped 403/404 and raises the role-change notice (design § 2).
@@ -121,7 +121,7 @@ export function AppLayout({ contextSource }: AppLayoutProps) {
   const { isReal, selection } = source;
   // The menu of the most specific chosen object and the settings navigation (ADR-0032 § 2).
   const model = useMemo(() => buildNavigationModel(selection), [selection]);
-  // The access of the switcher's selection, for the navigation's entries; a
+  // The access of the selection's organization, for the navigation's entries; a
   // placeholder context reads nothing.
   useOrganizationAccess(selection.organizationId, { enabled: isReal });
   const fallbackShown = Boolean(source.fallback);
@@ -320,7 +320,7 @@ export function AppLayout({ contextSource }: AppLayoutProps) {
                 </Box>
                 {roleChange && (
                   // The shell's own notice (mod-016 design § 2.4, DC-11): it is
-                  // here, beside the switcher's fallback notice, so it shows the
+                  // here, beside the selectors' fallback notice, so it shows the
                   // same on every organization page whichever slice hosts the
                   // page's own notices. A newer notice of a page replaces it.
                   <Snackbar

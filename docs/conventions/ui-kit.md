@@ -242,7 +242,7 @@ at a time, bottom left, clickaway ignored (Escape dismisses it, and a success or
 error notice closes by «Закрыть»); never an action or a link in it. The hook needs
 the `NoticeProvider` that `AppLayout` mounts (`renderWithProviders` mounts it in
 tests) and throws outside one. The corner is shared with the shell's two notices
-(mod-016 DC-11): the provider closes its notice when the switcher's fallback or
+(mod-016 DC-11): the provider closes its notice when the selectors' fallback or
 the role-change notice is raised, and showing one closes the role-change notice.
 `InlineNotice` — `severity`, `title`, `action`; it owns **no margin** (the
 container spaces it). `StateFrame` and its two variants as mod-015 § 7; `compact`
@@ -407,7 +407,7 @@ part is allowed and nothing else is: `Switch`, `Checkbox`, `Radio`,
 `FormControlLabel` (until a form needs one); a neutral grey note panel; the grey
 «Follow» group; a comment composer; links, history and attachments lists; tag
 editing (the card's meta row, through `Tag`); the board's tile as a surface; the
-dark avatar fill, the grey trail and hairline switcher chevrons (the shell); the
+dark avatar fill, the grey trail and hairline selector chevrons (the shell); the
 hairline history, link, attachment and comments glyphs (the owner of each tab adds
 its glyph to `shared/ui/icons`; until then Material `*Outlined` is a recorded
 difference); the date field's hidden mask outside Chromium-family browsers.

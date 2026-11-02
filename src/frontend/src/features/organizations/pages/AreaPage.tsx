@@ -175,7 +175,7 @@ function settingsFacts(area: AreaPageData): Fact[] {
 }
 
 /**
- * A node's page (mod-018 design § 4; US-1..US-3), beneath «Области» at `…/settings/areas/:areaId`,
+ * A node's page (mod-018 design § 4; US-1..US-3), beneath «Области» at `…/areas/:areaId`,
  * one page for the three types: the facts of the type, a deactivated project's read-only notice,
  * and the sections of the type — a department's projects and teams, a project node's and a
  * sub-area's nested areas, a project node's teams (the feat-028 links). Commands are

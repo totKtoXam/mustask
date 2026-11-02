@@ -60,7 +60,7 @@ export function MembersPage() {
   const pageRef = useRef<HTMLDivElement>(null);
   const steppedDown = useRef(false);
 
-  // The organization's name, for the removal's texts: the switcher lists every
+  // The organization's name, for the removal's texts: the organization selector lists every
   // organization the user is in; the page reads it only when it does not.
   const listed = context.organizations.find((entry) => entry.id === organizationId)?.name;
   const organization = useOrganization(organizationId, { enabled: listed === undefined });
@@ -157,9 +157,9 @@ export function MembersPage() {
             action={async () => {
               const member = dialog.member;
               const neighbours = focus.neighboursOf(member.user.id);
-              // DC-7, judged before the switcher sees the change: removing
-              // oneself from the switcher's organization while another is
-              // listed makes the switcher fall back, and its notice is the
+              // DC-7, judged before the selectors see the change: removing
+              // oneself from the chosen organization while another is
+              // listed makes the selection fall back, and its notice is the
               // only one.
               const fallsBack =
                 member.user.id === subject &&
