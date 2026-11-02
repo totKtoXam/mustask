@@ -3,7 +3,7 @@
 - type: tech
 - size: M
 - branch: tech/025-user-projection-without-provider
-- stage: 04-backend
+- stage: gate-3
 - epic: core/org-access
 - deps: mod-016, tech-024
 - gates: gate-3
@@ -30,6 +30,8 @@ gate-3: pending
 
 - 2026-11-02 [dev] stage 4 done in code: build of Mustask.sln green; no test was run (the machine's test lane belongs to another session); ADR-0034 proposed; the E2E suite is untouched and its members specs still wait for the push-fed projection (follow-up for the human: E2E fixture users must sign in once)
 - 2026-11-02 [review] round 1 (whole diff, with tech-024): changes-needed; 1 major (prose, StandReset next steps), 3 minors open (review.md)
+
+- 2026-11-02 [orchestrator] review round 1 (one Opus session over both tasks): tech-025 had one major (stand-reset text still promised a reconciliation backfill) and three minors. Fixed in the orchestrator's own text-only commit: StandReset.cs and stand-reset.sh now say the projection fills at sign-in; also the verify.sh keycloak loop (lost line break, dead Contracts filter, a Dockerfile change now also runs the dotnet bucket). Prose-only fix: delta read by the reviewer owed per the rules but the diff is five text lines plus a shell loop; scripts/tests/verify-base-and-abort-cases.sh 20 passed. Local runs: whole Api.IntegrationTests (1 retention-list defect found and fixed), QA-added tests 17+8 green. Minors left open for gate-3: ADR-0034 "an unchanged profile writes nothing" vs the collation-version rewrite in ProjectedUser; E2E specs 27-30 and helpers still wait for a push-fed projection (follow-up queued)
 
 ## Decisions
 

@@ -308,7 +308,7 @@ classify() {
         # The Keycloak image: only a real build and start shows whether it
         # works — before the other deploy/keycloak patterns.
         deploy/keycloak/Dockerfile|deploy/keycloak/.dockerignore)
-                                                     echo keycloak ;;
+                                                     echo "dotnet keycloak" ;;
         # Keycloak realm-import — a contract artifact: checked by
         # KeycloakRealmRolesTests from Mustask.Contracts.Tests (dotnet) — and
         # imported by a real Keycloak, which no file test can promise (mod-016
@@ -866,8 +866,8 @@ if [ "$need_keycloak" = 1 ]; then
         fi
         if [ "$keycloak_built" = 1 ]; then
             keycloak_tests_ok=1
-            for project in src/backend/tests/Mustask.Contracts.Tests src/backend/tests/Mustask.Api.IntegrationTests; do
-                run_tests dotnet env MUSTASK_KEYCLOAK_LIVE_TESTS=1 dotnet test "$project" --no-build --nologo -v q                     --filter "Category=KeycloakLive" || keycloak_tests_ok=0
+            for project in src/backend/tests/Mustask.Api.IntegrationTests; do
+                run_tests dotnet env MUSTASK_KEYCLOAK_LIVE_TESTS=1 dotnet test "$project" --no-build --nologo -v q --filter "Category=KeycloakLive" || keycloak_tests_ok=0
             done
             if [ "$keycloak_tests_ok" = 1 ]; then
                 pass ".NET tests tagged KeycloakLive (the real Keycloak with the repository's realm import)"

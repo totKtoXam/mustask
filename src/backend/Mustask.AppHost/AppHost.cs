@@ -319,7 +319,7 @@ Console.WriteLine($"Keycloak store: volume {keycloakStore} (pairs with {keycloak
 // The start drift check (mod-014 D-10 (a); ADR-0025 § 7): a second health
 // check of the `keycloak` resource compares the live realm of the persistent
 // store with the realm import — roles, composites, the declared clients'
-// roles, declared groups, and the values a store takes only at
+// roles and the values a store takes only at
 // creation (admin password, panel secret, the URLs of the stand's ports). Any
 // finding keeps the resource unhealthy, so the provisioning below never runs
 // and the stand does not come up ready; the finding is logged naming the

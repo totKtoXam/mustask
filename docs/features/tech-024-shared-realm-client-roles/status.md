@@ -3,7 +3,7 @@
 - type: tech
 - size: M
 - branch: tech/024-shared-realm-client-roles
-- stage: 05-qa
+- stage: gate-3
 - epic: core/org-access
 - deps: mod-016
 - gates: gate-3
@@ -30,6 +30,8 @@ Tests: Domain (table), Api claims mapping + session callback/renewal refusal + d
 
 - 2026-11-02 [orchestrator] resumed after the dev agent stalled (4 commits kept); origin/main merged (5c97071e), ADR renumbered 0031 -> 0033 (0031 is mod-018, 0032 is feat-043). Lane go from the doc-012 orchestrator. Local run after the merge, all green: build 0 warnings; Domain 856, Contracts 219, Architecture 86, Api.IntegrationTests 3157 passed / 18 skipped / 0 failed; Vitest src/shared/api 51. The opt-in live-Keycloak tests (provider bucket) were not run
 - 2026-11-02 [review] round 1 (whole diff, with tech-025): approve; 0 blockers, 0 majors, 3 minors open (review.md)
+
+- 2026-11-02 [orchestrator] review round 1: approve, no blocker or major. Fixed on the way: QA D-3 line break, stale comments in AppHost.cs and keycloakAdmin.ts. Minors left open for gate-3: a user refused for lack of `user` keeps a live Keycloak session (cannot switch account without logging out of Keycloak); a non-JSON `resource_access` claim throws in KeycloakPermissionClaims (a signed Keycloak token cannot produce it); realm name `.`/`..` accepted (operator config)
 
 ## Decisions
 

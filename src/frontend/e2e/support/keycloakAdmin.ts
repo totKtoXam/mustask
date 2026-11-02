@@ -79,18 +79,18 @@ export async function logoutUserSessions(keycloakUrl: string, realm: string, use
 
 /**
  * The throwaway users of the suite (specs 16, 19.9, 20.4, 21.6 and 27-30). The
- * fixture user is deliberately full-admin (`KeycloakStandProvisioner`'s
- * `GroupPath`, `/Администраторы`) — every route in the app is open to it, so
+ * fixture user is deliberately full-admin (it holds `user` and `system-admin`, granted by
+ * `KeycloakStandProvisioner`) — every route in the app is open to it, so
  * there is no real "denied" case to observe through it alone. Rather than
- * temporarily changing the shared fixture's own group (a different
+ * temporarily changing the shared fixture's own roles (a different
  * suite/session may depend on it staying admin for the whole time this stand
  * is up), a spec creates a throwaway user and deletes it in its own cleanup
  * (`deleteEphemeralUser`, then `userExistsById`; `deleteEphemeralUsers` does
  * both) so nothing outlives the test that created it.
  *
  * Since mod-016 (D-7) the realm has no `/Сотрудники` group and no `viewer`
- * role: a user in NO group is the instance-level reader — it reads the
- * dictionaries through the realm's default roles and holds nothing else. It
+ * role: a user with only `user` is the instance-level reader — it reads the
+ * dictionaries through that role and holds nothing else. It
  * holds no organization right either; those are never in the token and come
  * from a membership (ADR-0027), which a spec gives it through the API
  * (`membersApi.ts`). Creating a user is within `mustask-e2e`'s existing
