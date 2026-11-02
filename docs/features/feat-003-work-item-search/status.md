@@ -51,6 +51,7 @@ M with UI: analysis → requirements review → UX design → gate-1 + gate-2 to
 - 2026-10-18 [business-analyst] spec.md + US-1..US-3 (40b16959): BR-WS-1..17; tag filter to feat-016, assignee marks in the list's column; OQ-1..OQ-3 open, A recommended, for the human at gate-1. No code under src/.
 - 2026-10-18 [orchestrator] route M with UI (queue size), gate-1 + gate-2 as one package after the design; started under the human's standing approval of 2026-10-18 evening, the route confirmation not asked. E2E: no.
 - 2026-10-18 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/feat-003-work-item-search
+- 2026-11-02 — Broken by feat-043: BR-WS-9 (c) and BR-WS-15 (the read for the organization's list) (see feat-043 spec, "Breaks").
 
 ## Notes
 

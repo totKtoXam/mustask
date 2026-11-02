@@ -80,6 +80,7 @@ gate-3: approved · delegated by human 2026-10-01 · merged 2026-10-04 (local sq
 - 2026-09-28 [business-analyst] spec.md ready (192 lines): 12 stories (US-1..US-12, all shippable: no), BR-1..BR-17, navigation model, 6 open questions (OQ-1..OQ-6); decomposition adds tech-NNN-keycloak-login-theme. Written to the session scratchpad (the harness blocked cross-worktree writes) and copied in by the orchestrator after a naming and content check
 - 2026-09-28 [orchestrator] route confirmed by the human: module, L, stages 1-2 -> gate-1 -> 3 (design.md + clickable prototype) -> gate-2 -> 6-7 -> 8 -> gate-3 -> local squash (no remote); stages 4-5 skipped; deps doc-001 (b5fde80) and doc-010 (2956f72) verified merged; queue line taken (e384e7f); restyle scope = panel screens only (D-2)
 - 2026-09-28 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/mod-015-app-shell-design-system
+- 2026-11-02 — Broken by feat-043: BR-6 (the trail becomes four selectors), BR-11 and BR-18 (the switcher); BR-19 kept (see feat-043 spec, "Breaks").
 
 ## Notes
 

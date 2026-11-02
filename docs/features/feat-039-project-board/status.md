@@ -69,6 +69,7 @@ one code-review round → gate-3 → PR.
 - 2026-10-17 [orchestrator] `bash scripts/verify.sh` green (fixer's run, exit 0). stage: complete; gates left pending for the human; branch pushed, PR to doc/012-matrix-organization-model.
 - 2026-10-17 [orchestrator] PR #8 merged into its stacked base doc/012, not main, so the same tree reached main as PR #9 (branch feat/039-project-board-to-main), merged by the human. The human then kept every decision of the gate-1 + gate-2 package in chat (spec OQ-1..OQ-6, design D-1..D-5).
 - 2026-10-18 [dev] P-10 note from feat-040-team-surfaces-across-projects: BR-PB-4's last sentence (team views keep the number tie-break) is replaced by feat-040 BR-TS-6 (creation time, project key, number); BR-PB-7 («Весь проект») retires with the team menu (BR-TS-11); the project views' routes, answers and orders are unchanged, their rows and cards gain `project` (BR-TS-3). This api-contract is not edited.
+- 2026-11-02 — Broken by feat-043: the interim project views in the team drop-down (see feat-043 spec, "Breaks").
 
 ## Notes
 

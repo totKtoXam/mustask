@@ -41,6 +41,7 @@ Frontend only; S route. The human's answers of 2026-10-17 to mod-017 OQ-8 B and 
 - 2026-10-18 [frontend-developer] built: OQ-8 in `defaultEntry` and the switcher's team read; OQ-9 `useTeamFilter` on the list, project backlog and board, the level drop-down carries it. Frontend only: no backend, no api-contract change. Specs amended, see Decisions.
 - 2026-10-18 [orchestrator] route S, taken under the human's standing approval of 2026-10-18 evening («Ты работай, я спать буду. Пр-ы сам мерджи», «Включай auto-merge для всех пр-ов»): no route confirmation; the PR is auto-merged by the orchestrator once CI is green. Gate-3 stays pending.
 - 2026-10-18 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/mod-020-team-switcher-default-and-filter-address
+- 2026-11-02 — Broken by feat-043: the fallback team (BR-MX-11 restored) and the switcher default (see feat-043 spec, "Breaks").
 
 ## Notes
 
