@@ -250,6 +250,7 @@ export function BacklogTable({
   items,
   filterIds = NO_FILTER,
   busy = false,
+  narrowed = false,
   announce,
   showSuccess,
   showCreated,
@@ -267,6 +268,12 @@ export function BacklogTable({
   filterIds?: readonly string[];
   /** Another filter is being read: the rows shown are the previous ones (`aria-busy`). */
   busy?: boolean;
+  /**
+   * The rows are a subset of one rank order (a project's backlog under a chosen team): the order
+   * cannot be changed, so no move entry is offered and no row drops between blocks (US-4, Q-9 A).
+   * The parent group and a drop onto a row are not a reorder and stay.
+   */
+  narrowed?: boolean;
   announce(text: string): void;
   /** A parent write's notice (feat-001 spec § Notices on «Бэклоги»). */
   showSuccess(text: string): void;
@@ -290,7 +297,7 @@ export function BacklogTable({
   const access = useAccessCheck();
   const canWrite = access(workItemsPermissions.workItemWrite, 'organization');
   const canLink = access(workItemsPermissions.linkWrite, 'organization');
-  const canReorder = access(boardsPermissions.backlogReorder, 'organization');
+  const canReorder = access(boardsPermissions.backlogReorder, 'organization') && !narrowed;
   const canAdd = canWrite && canLink;
   const view = useMoveView(items);
   const [actions, setActions] = useState<ActionsMenuState | null>(null);

@@ -9,10 +9,11 @@ import ArrowCircleRightOutlinedIcon from '@mui/icons-material/ArrowCircleRightOu
 import ViewWeekOutlinedIcon from '@mui/icons-material/ViewWeekOutlined';
 import { useWorkContext } from '../../../shared/lib/workContext';
 import { teamFilterSearch } from '../../workitems';
-import { BacklogIcon, ThinChevronDownIcon } from '../../../shared/ui';
+import { BacklogIcon, Tag, ThinChevronDownIcon } from '../../../shared/ui';
 import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
 import { projectFilterSearch } from '../hooks/useViewFilter';
 import type { BoardLevelCode } from '../lib/levels';
+import { narrowedTag } from '../lib/narrowed';
 import { scopeProjectId, scopeTeamId, type BoardScope } from '../lib/scope';
 import { backlogPath, boardPath, projectBacklogPath, projectBoardPath } from '../paths';
 import { LevelMenu } from './LevelMenu';
@@ -106,6 +107,7 @@ export function TeamHead({
   level,
   name,
   primaryAction,
+  narrowedBy,
 }: {
   page: TeamPage;
   organizationId: string;
@@ -115,6 +117,8 @@ export function TeamHead({
   name: string | undefined;
   /** «Новый рабочий элемент», once the read gives the level's types; none on «Канбан». */
   primaryAction?: Command;
+  /** The team filter narrowing a project's backlog: the title line carries the «сужено» tag (US-4). */
+  narrowedBy?: readonly string[];
 }) {
   const own = PAGES[page];
   const teamId = scopeTeamId(scope);
@@ -159,6 +163,8 @@ export function TeamHead({
             currentId={teamId}
             pathOf={(id) => pagePath(page, organizationId, { kind: 'team', teamId: id }, level)}
           />
+        ) : narrowedBy && narrowedBy.length > 0 ? (
+          <Tag label={narrowedTag(narrowedBy, organization?.teams ?? [])} />
         ) : undefined
       }
       primaryAction={primaryAction}
