@@ -18,5 +18,6 @@ describe('feat-043 US-4: a narrowed backlog', () => {
     expect(narrowedTag(['mars'], TEAMS)).toBe('сужено: команда Платформа');
     expect(narrowedTag(['MARS', 'none'], TEAMS)).toBe('сужено: команда Платформа, без команды');
     expect(narrowedTag(['gone'], TEAMS)).toBe('сужено');
+    expect(narrowedTag(['none'], TEAMS)).toBe('сужено: без команды');
   });
 });

@@ -26,11 +26,14 @@ export function narrowedTag(
   teams: readonly { id: string; name: string }[],
 ): string {
   const names = filterIds.flatMap((id) => {
-    if (id === NO_TEAM_FILTER_VALUE) {
-      return [narrowedTexts.withoutTeam];
-    }
     const known = teams.find((team) => team.id.toLowerCase() === id.toLowerCase());
     return known ? [known.name] : [];
   });
-  return names.length === 0 ? 'сужено' : `сужено: команда ${names.join(', ')}`;
+  // «без команды» is not a team: it stands without «команда», alone or after the names.
+  const none = filterIds.includes(NO_TEAM_FILTER_VALUE);
+  if (names.length === 0) {
+    return none ? `сужено: ${narrowedTexts.withoutTeam}` : 'сужено';
+  }
+  const teamsText = `команда ${names.join(', ')}`;
+  return `сужено: ${none ? `${teamsText}, ${narrowedTexts.withoutTeam}` : teamsText}`;
 }

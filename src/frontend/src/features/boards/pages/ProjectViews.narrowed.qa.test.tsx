@@ -56,8 +56,8 @@ describe('feat-043 QA round 2, US-4: the edges of a narrowed project backlog', (
     expect(table.querySelectorAll('[data-grip]').length).toBeGreaterThan(0);
   });
 
-  // Round 2 F-6: the tag for the no-team filter alone reads «сужено: команда без команды».
-  it.fails('names «без команды» for the no-team filter alone, not «команда без команды»', () => {
+  // Round 2 F-6 (fixed): the tag for the no-team filter alone reads «сужено: команда без команды».
+  it('names «без команды» for the no-team filter alone, not «команда без команды»', () => {
     expect(narrowedTag(['none'], [])).toBe('сужено: без команды');
   });
 });
