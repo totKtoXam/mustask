@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/043-area-project-team-navigation
-- stage: 08-code-review
+- stage: gate-3
 - epic: platform/ui
 - deps: feat-040,mod-018,mod-020
 - gates: gate-1, gate-2, gate-3
@@ -73,6 +73,8 @@ gate-3: pending
 - 2026-11-02 [orchestrator] D-1..D-12 fixed (frontend-developer, 0aa167cd); mockRegistry failure of the full run at c28080fc fixed (99dadd41). Open: `state` on PageHeader and MenuButton has no kit guide or showcase entry. Delta read 2 of 2.
 
 - 2026-11-02 [orchestrator] Stage 8, delta read 2 of 2: approve, 0 blockers, 0 majors, 4 minors as debt, E-1..E-4 (44042575). Kit guide and showcase entries added (8c5e8647); TreeRegistry has no showcase entry, its section list is pinned until tech-016. Waiting for the shared lane for the last full Vitest, then gate-3.
+
+- 2026-11-02 [orchestrator] Full Vitest at e527fce6: 342 files, 5265 passed, 6 skipped, 0 failed. Not run: E2E (standing NO), any browser check of the panel (F-5 and the header layout unseen; the human's stand is off limits). Weekly 16% (start 2%). At gate-3.
 
 ## Notes
 
