@@ -85,7 +85,7 @@ Commands (create, link, place, delete, deactivate): «Администратор
 
 ### 5.2 «Области» (US-2)
 
-As mod-018 § 3 with changes: a menu entry, not a settings page; primary «Создать департамент» ◆ (the dialog is mod-018 § 5.1, submit «Создать»); `FilterBar` «Найти область» (matches keep their ancestors; none: «Ничего не найдено», «Сбросить фильтр»). Columns «Название», «Тип», «Описание», row menu per type as mod-018 § 3. A department row sets the department selector; a project node row opens the project's «Структура» (selectors: its department, project); a sub-area row opens the area page the same way. A deactivated project's node and sub-areas: `Tag` «деактивирован», plain text, no link, no menu (OQ-3 A). Loading `RegistrySkeleton`; error `ErrorBanner`.
+As mod-018 § 3 with changes: a menu entry, not a settings page; primary «Создать департамент» ◆ (the dialog is mod-018 § 5.1, submit «Создать»); `FilterBar` «Найти область» (matches keep their ancestors; none: «Ничего не найдено», «Сбросить фильтр»). Columns «Название», «Тип», «Описание», row menu per type as mod-018 § 3. A department row sets the department selector; a project node row opens the project's «Общие» (selectors: its department, project); a sub-area row opens the area page the same way. A deactivated project's node and sub-areas: `Tag` «деактивирован», plain text, no link, no menu (OQ-3 A). Loading `RegistrySkeleton`; error `ErrorBanner`.
 
 | State | The user sees |
 |---|---|
