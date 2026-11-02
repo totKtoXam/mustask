@@ -122,3 +122,11 @@ export function organizationAreasPath(organizationId: string): string {
 export function organizationAreaPath(organizationId: string, areaId: string): string {
   return `${organizationAreasPath(organizationId)}/${segment(areaId)}/overview`;
 }
+
+export function areaProjectsPath(organizationId: string, areaId: string): string {
+  return `${organizationAreasPath(organizationId)}/${segment(areaId)}/projects`;
+}
+
+export function areaTeamsPath(organizationId: string, areaId: string): string {
+  return `${organizationAreasPath(organizationId)}/${segment(areaId)}/teams`;
+}

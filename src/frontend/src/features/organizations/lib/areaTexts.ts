@@ -54,13 +54,19 @@ export const areaCommands = {
 export const areaPage = {
   /** The title while the node loads, and when it fails. */
   titleLoading: 'Область',
-  title: (type: AreaType, name: string) => `${typeLabels[type]}: ${name}`,
+  /** «Департамент: X», «Структура: A» for a project's node, «Область: X» (design § 6). */
+  title: (type: AreaType, name: string) =>
+    `${type === 'project' ? 'Структура' : typeLabels[type]}: ${name}`,
+  topLevel: 'Верхний уровень',
+  projectTeamsHint: 'Команды проекта — в разделе «Команды».',
   facts: {
     name: 'Название',
     type: 'Тип',
     location: 'Расположение',
     parent: 'Родительская область',
     project: 'Проект',
+    projects: 'Проекты',
+    teams: 'Команды',
     description: 'Описание',
   },
   nameFollowsProject: 'Название меняется вместе с проектом.',
@@ -78,6 +84,7 @@ export const areaPage = {
     tableLabel: 'Проекты департамента',
     columns: { project: 'Проект', key: 'Ключ' },
     empty: 'В департаменте пока нет проектов.',
+    deactivatedCount: (count: number) => `${count} деактивирован`,
   },
   teams: {
     title: 'Команды',
@@ -86,13 +93,6 @@ export const areaPage = {
     columns: { team: 'Команда' },
     empty: 'К области не привязаны команды',
     unlink: 'Отключить от департамента',
-  },
-  projectTeams: {
-    title: 'Команды',
-    sameLinks: 'Это те же связи, что в разделе «Команды» проекта.',
-    tableLabel: 'Команды проекта',
-    add: 'Добавить команду',
-    unlink: 'Отключить от проекта',
   },
   rowMenu: (name: string) => `Ещё действия: ${name}`,
 } as const;

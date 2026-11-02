@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
+import { Link as RouterLink, useLocation, useNavigate, useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
@@ -33,12 +33,10 @@ import {
 import { AreaTypeMark, commandIcon } from '../components/AreaTypeMark';
 import { FactsPanel, type Fact } from '../components/FactsPanel';
 import { useNotify } from '../components/notice';
-import { ProjectNodeTeams } from '../components/ProjectNodeTeams';
 import { useLinkTeamsToArea, useUnlinkTeamFromArea } from '../hooks/mutations';
 import { useArea, useAreaTeams, useAreaTree } from '../hooks/queries';
 import { commandKinds, commandLabel } from '../lib/areaCommands';
 import {
-  ORGANIZATION_PLACE,
   areaCommands,
   areasPage,
   areaLinkDialog,
@@ -48,6 +46,8 @@ import {
 import { notFoundLevel } from '../lib/notFoundLevel';
 import {
   organizationAreaPath,
+  areaProjectsPath,
+  areaTeamsPath,
   organizationAreasPath,
   organizationTeamPath,
   projectGeneralPath,
@@ -97,18 +97,65 @@ function DeactivatedNotice({
   return <InlineNotice severity="info">{areaPage.deactivatedNotice(name ?? '')}</InlineNotice>;
 }
 
-function factsOf(organizationId: string, area: AreaPageData) {
-  const facts: Fact[] = [
-    { label: areaPage.facts.name, value: area.name },
-    { label: areaPage.facts.type, value: <AreaTypeMark type={area.type} /> },
-  ];
-  if (area.type === 'project') {
-    facts.push({
-      label: areaPage.facts.location,
-      value: area.parent ? area.parent.path : ORGANIZATION_PLACE,
-    });
+function descriptionFact(area: AreaPageData): Fact {
+  return {
+    label: areaPage.facts.description,
+    value: area.description ? (
+      <Box component="span" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+        {area.description}
+      </Box>
+    ) : (
+      <Muted>{areaPage.noDescription}</Muted>
+    ),
+  };
+}
+
+/**
+ * The facts of «Обзор» (design § 6): a department's description, place and the two stat links; a
+ * project's node its type, place and description; a sub-area its parent, project and description.
+ */
+function overviewFacts(
+  organizationId: string,
+  area: AreaPageData,
+  counts: { projects: number; teams: number | undefined },
+): Fact[] {
+  if (area.type === 'department') {
+    const facts: Fact[] = [
+      descriptionFact(area),
+      { label: areaPage.facts.location, value: areaPage.topLevel },
+      {
+        label: areaPage.facts.projects,
+        value: (
+          <Link component={RouterLink} to={areaProjectsPath(organizationId, area.id)}>
+            {counts.projects}
+          </Link>
+        ),
+      },
+    ];
+    if (counts.teams !== undefined) {
+      facts.push({
+        label: areaPage.facts.teams,
+        value: (
+          <Link component={RouterLink} to={areaTeamsPath(organizationId, area.id)}>
+            {counts.teams}
+          </Link>
+        ),
+      });
+    }
+    return facts;
   }
-  if (area.type === 'area' && area.parent) {
+  if (area.type === 'project') {
+    return [
+      { label: areaPage.facts.type, value: <AreaTypeMark type={area.type} /> },
+      {
+        label: areaPage.facts.location,
+        value: area.parent ? area.parent.path : areaPage.topLevel,
+      },
+      descriptionFact(area),
+    ];
+  }
+  const facts: Fact[] = [];
+  if (area.parent) {
     facts.push({
       label: areaPage.facts.parent,
       value: (
@@ -118,23 +165,19 @@ function factsOf(organizationId: string, area: AreaPageData) {
       ),
     });
   }
-  if (area.type === 'area' && area.projectId) {
+  if (area.projectId) {
     facts.push({
       label: areaPage.facts.project,
       value: <ProjectFact organizationId={organizationId} projectId={area.projectId} />,
     });
   }
-  facts.push({
-    label: areaPage.facts.description,
-    value: area.description ? (
-      <Box component="span" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-        {area.description}
-      </Box>
-    ) : (
-      <Muted>{areaPage.noDescription}</Muted>
-    ),
-  });
+  facts.push(descriptionFact(area));
   return facts;
+}
+
+/** The facts of «Параметры»: the name and the description the commands change. */
+function settingsFacts(area: AreaPageData): Fact[] {
+  return [{ label: areaPage.facts.name, value: area.name }, descriptionFact(area)];
 }
 
 /**
@@ -164,6 +207,7 @@ export function AreaPage() {
   const canLink = access(organizationsPermissions.areaLink, 'organization');
   const canLinkTeams = canLink && access(organizationsPermissions.teamLink, 'organization');
   const [dialog, setDialog] = useState<PageDialog>(null);
+  const section = useLocation().pathname.split('/').filter(Boolean).pop() ?? 'overview';
 
   const level = query.isError ? notFoundLevel(query.error) : null;
   if (level) {
@@ -190,7 +234,7 @@ export function AreaPage() {
   const children = area?.children ?? [];
   const commands: Command[] = [];
   if (area) {
-    for (const kind of commandKinds(area, { canWrite, canCreate })) {
+    for (const kind of section === 'settings' ? commandKinds(area, { canWrite, canCreate }) : []) {
       if (kind === 'createChild') {
         continue;
       }
@@ -209,7 +253,12 @@ export function AreaPage() {
         },
       });
     }
-    if (area.type === 'project' && area.projectId && area.projectActive !== false) {
+    if (
+      section === 'overview' &&
+      area.type === 'project' &&
+      area.projectId &&
+      area.projectActive !== false
+    ) {
       commands.push({
         label: areaCommands.openProject,
         icon: <FolderOpenOutlinedIcon />,
@@ -295,6 +344,53 @@ export function AreaPage() {
   const childrenLabel =
     area?.type === 'department' ? areaPage.projects.tableLabel : areaPage.children.tableLabel;
 
+  // The menu of a project's node or a sub-area has no «Проекты» and no «Команды» (design § 6).
+  const allowed = isDepartment
+    ? ['overview', 'projects', 'teams', 'settings']
+    : ['overview', 'settings'];
+  if (area && !allowed.includes(section)) {
+    return <NotFound level="page" />;
+  }
+
+  const deactivatedCount = children.filter((child) => child.projectActive === false).length;
+  const childrenSection = (
+    <Section
+      title={childrenTitle}
+      count={children.length}
+      actions={
+        isDepartment ? (
+          deactivatedCount > 0 ? (
+            <Tag label={areaPage.projects.deactivatedCount(deactivatedCount)} />
+          ) : undefined
+        ) : showCreateChild ? (
+          <ActionButton
+            label={areaCommands.createChild}
+            icon={<ThinAddIcon />}
+            onClick={() => {
+              if (area?.projectId) {
+                setDialog({
+                  kind: 'node',
+                  dialog: { kind: 'createSub', projectId: area.projectId, parentId: area.id },
+                });
+              }
+            }}
+          />
+        ) : undefined
+      }
+    >
+      {children.length === 0 ? (
+        <InlineEmpty>{childrenEmpty}</InlineEmpty>
+      ) : (
+        <DataTable
+          aria-label={childrenLabel}
+          columns={childColumns}
+          rows={children}
+          rowKey={(child) => child.id}
+        />
+      )}
+    </Section>
+  );
+
   return (
     <>
       <PageHeader
@@ -311,88 +407,63 @@ export function AreaPage() {
       ) : query.isError ? (
         <ErrorBanner error={query.error} onRetry={() => void query.refetch()} />
       ) : (
-        area && <FactsPanel facts={factsOf(organizationId, area)} />
+        area &&
+        (section === 'overview' || section === 'settings') && (
+          <FactsPanel
+            facts={
+              section === 'settings'
+                ? settingsFacts(area)
+                : overviewFacts(organizationId, area, {
+                    projects: children.length,
+                    teams: teams.isSuccess ? teamRows.length : undefined,
+                  })
+            }
+          />
+        )
       )}
-      {area && (
-        <>
-          <Box sx={{ mt: 4 }}>
-            <Section
-              title={childrenTitle}
-              count={children.length}
-              actions={
-                showCreateChild ? (
-                  <ActionButton
-                    label={areaCommands.createChild}
-                    icon={<ThinAddIcon />}
-                    onClick={() => {
-                      if (area.projectId) {
-                        setDialog({
-                          kind: 'node',
-                          dialog: {
-                            kind: 'createSub',
-                            projectId: area.projectId,
-                            parentId: area.id,
-                          },
-                        });
-                      }
-                    }}
-                  />
-                ) : undefined
-              }
-            >
-              {children.length === 0 ? (
-                <InlineEmpty>{childrenEmpty}</InlineEmpty>
-              ) : (
-                <DataTable
-                  aria-label={childrenLabel}
-                  columns={childColumns}
-                  rows={children}
-                  rowKey={(child) => child.id}
+      {area && section === 'settings' && area.type === 'project' && (
+        <Box sx={{ mt: 2 }}>
+          <InlineNotice severity="info">{areaPage.nameFollowsProject}</InlineNotice>
+        </Box>
+      )}
+      {area && ((section === 'overview' && !isDepartment) || section === 'projects') && (
+        <Box sx={{ mt: 4 }}>{childrenSection}</Box>
+      )}
+      {area && section === 'overview' && area.type === 'project' && (
+        <Box sx={{ mt: 2 }}>
+          <InlineNotice severity="info">{areaPage.projectTeamsHint}</InlineNotice>
+        </Box>
+      )}
+      {area && section === 'teams' && isDepartment && (
+        <Box sx={{ mt: 4 }}>
+          <Section
+            title={areaPage.teams.title}
+            count={teams.isSuccess ? teamRows.length : undefined}
+            actions={
+              canLinkTeams ? (
+                <ActionButton
+                  label={areaPage.teams.add}
+                  icon={<ThinAddIcon />}
+                  onClick={() => setDialog({ kind: 'linkTeams' })}
                 />
-              )}
-            </Section>
-          </Box>
-          {area.type === 'department' && (
-            <Box sx={{ mt: 4 }}>
-              <Section
-                title={areaPage.teams.title}
-                count={teams.isSuccess ? teamRows.length : undefined}
-                actions={
-                  canLinkTeams ? (
-                    <ActionButton
-                      label={areaPage.teams.add}
-                      icon={<ThinAddIcon />}
-                      onClick={() => setDialog({ kind: 'linkTeams' })}
-                    />
-                  ) : undefined
-                }
-              >
-                {teams.isSuccess && teamRows.length === 0 ? (
-                  <InlineEmpty>{areaPage.teams.empty}</InlineEmpty>
-                ) : (
-                  <DataTable
-                    aria-label={areaPage.teams.tableLabel}
-                    columns={teamColumns}
-                    rows={teamRows}
-                    rowKey={(team) => team.id}
-                    loading={teams.isPending || (teams.isError && teams.isFetching)}
-                    error={
-                      teams.isError && !teams.isFetching ? apiErrorText(teams.error) : undefined
-                    }
-                    onRetry={() => void teams.refetch()}
-                  />
-                )}
-              </Section>
-            </Box>
-          )}
-          {area.type === 'project' && area.projectId && (
-            <ProjectNodeTeams
-              organizationId={organizationId}
-              projectId={area.projectId}
-              active={area.projectActive !== false}
-            />
-          )}
-        </>
+              ) : undefined
+            }
+          >
+            {teams.isSuccess && teamRows.length === 0 ? (
+              <InlineEmpty>{areaPage.teams.empty}</InlineEmpty>
+            ) : (
+              <DataTable
+                aria-label={areaPage.teams.tableLabel}
+                columns={teamColumns}
+                rows={teamRows}
+                rowKey={(team) => team.id}
+                loading={teams.isPending || (teams.isError && teams.isFetching)}
+                error={teams.isError && !teams.isFetching ? apiErrorText(teams.error) : undefined}
+                onRetry={() => void teams.refetch()}
+              />
+            )}
+          </Section>
+        </Box>
       )}
       <AreaNodeDialogs
         organizationId={organizationId}

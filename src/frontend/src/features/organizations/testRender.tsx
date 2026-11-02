@@ -24,6 +24,9 @@ import { TeamPage } from './pages/TeamPage';
 import { TeamsPage } from './pages/TeamsPage';
 import {
   ORG_AREAS_ROUTE,
+  AREA_PROJECTS_ROUTE,
+  AREA_SETTINGS_ROUTE,
+  AREA_TEAMS_ROUTE,
   ORG_AREA_ROUTE,
   DEACTIVATED_ORGANIZATIONS_ROUTE,
   MEMBERS_ROUTE,
@@ -176,7 +179,14 @@ export function renderPage({
                     <Route path={ORG_TEAM_ROUTE} element={<TeamPage />} />
                     <Route path={PROJECT_AREAS_TEST_ROUTE} element={<ProjectAreasPage />} />
                     <Route path={ORG_AREAS_ROUTE} element={<AreasPage />} />
-                    <Route path={ORG_AREA_ROUTE} element={<AreaPage />} />
+                    {[
+                      ORG_AREA_ROUTE,
+                      AREA_PROJECTS_ROUTE,
+                      AREA_TEAMS_ROUTE,
+                      AREA_SETTINGS_ROUTE,
+                    ].map((path) => (
+                      <Route key={path} path={path} element={<AreaPage />} />
+                    ))}
                     <Route path="*" element={<p>Другая страница</p>} />
                   </Route>
                 </Routes>
