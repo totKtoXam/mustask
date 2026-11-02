@@ -71,20 +71,15 @@ describe('feat-043 QA, US-1 and US-8: an address that names a gone object', () =
     );
   });
 
-  // QA defect F-1 (qa.md): the address's selection overwrites the remembered one even when the
-  // object it names does not exist, so the context changes. `it.fails` passes while the defect
-  // stands; when it is fixed this test turns red: drop `.fails`.
-  it.fails(
-    'names another object than the remembered one: the context does not change, no notice',
-    async () => {
-      writeRemembered(window.localStorage, USER, ALFA, { ...NO_SELECTION, team: MARS });
+  // QA defect F-1 (qa.md), fixed: an address that names a gone object writes nothing.
+  it('names another object than the remembered one: the context does not change, no notice', async () => {
+    writeRemembered(window.localStorage, USER, ALFA, { ...NO_SELECTION, team: MARS });
 
-      const { result } = render(`/organizations/${ALFA}/projects/${GONE_PROJECT}/general`);
+    const { result } = render(`/organizations/${ALFA}/projects/${GONE_PROJECT}/general`);
 
-      // Let the source settle: the offers are ready at once, so one tick is enough.
-      await waitFor(() => expect(result.current.selection.organizationId).toBe(ALFA));
-      expect(result.current.fallback).toBeNull();
-      expect(readRemembered(window.localStorage, USER, ALFA)).toMatchObject({ team: MARS });
-    },
-  );
+    // Let the source settle: the offers are ready at once, so one tick is enough.
+    await waitFor(() => expect(result.current.selection.organizationId).toBe(ALFA));
+    expect(result.current.fallback).toBeNull();
+    expect(readRemembered(window.localStorage, USER, ALFA)).toMatchObject({ team: MARS });
+  });
 });

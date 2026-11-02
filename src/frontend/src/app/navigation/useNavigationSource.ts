@@ -234,6 +234,8 @@ export function useNavigationSource({
     if (!store || organizationId === undefined) return;
     if (carriesOrganization) {
       // An address that names a remembered object that is gone drops it as well, with the notice.
+      // An address that names some other object that is gone writes nothing: one bad link must
+      // not change the context the user keeps (ADR-0032 § 6; QA F-1).
       if (lostKey !== '') {
         const remembered = readRemembered(store, user, organizationId);
         const sameGone = SELECTOR_KINDS.some(
@@ -242,9 +244,13 @@ export function useNavigationSource({
             remembered?.[kind] !== null &&
             remembered?.[kind]?.toLowerCase() === address.selection[kind]?.toLowerCase(),
         );
-        // The notice is an event of the external store (the remembered selection), not derived state.
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        if (sameGone) raise(organizationName ? [organizationName] : []);
+        if (sameGone) {
+          // The notice is an event of the external store (the remembered selection), not derived state.
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          raise(organizationName ? [organizationName] : []);
+          writeRemembered(store, user, organizationId, objects);
+        }
+        return;
       }
       if (offers || objectsKey === 'null|null|null') {
         writeRemembered(store, user, organizationId, objects);
