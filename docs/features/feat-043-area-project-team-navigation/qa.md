@@ -163,3 +163,41 @@ Five files named `*.qa.test.tsx`, 52 tests: 49 pass, 3 are `it.fails`, one per d
 ### Verdict
 
 blockers: 1 · majors: 2 · minors: 2 · result: not ready, returned to the frontend developer (F-3 first, then F-1 and F-2). The three `it.fails` tests are the acceptance for the fixes.
+
+### Round 2 (commits `a8149357..8cc7bf74`)
+
+Checked against `spec.md` (BR-NV-17, Q-9 A, US-4), `design.md` §§ 4, 7.1 and ADR-0032 §§ 1, 5, 6, with the new `projectId` query.
+
+| Defect | Result | Evidence |
+|---|---|---|
+| F-3 «Настройки» clears the selection | fixed | the settings landings (`Общие`, `Процесс`) carry `teamId`, `departmentId`, `projectId`; the `it.fails` is a plain test and passes; QA probe: «Процесс» inside the settings navigation keeps the query and the four selectors |
+| F-1 a gone object overwrites the remembered selection | fixed | the address that names another gone object writes nothing; the same-gone case still notices and repairs; the `it.fails` is a plain test and passes |
+| F-2 narrowed backlog without hint, tag; move offered | fixed in part | hint and tag shown, «В начало»/«Ниже» absent, no drop line, no `/reorder` request, «все» gives the move back; the grip is still drawn (F-8), the tag for `none` reads wrongly (F-6) |
+| F-4 no scan of rendered links | fixed | `routes.links.test.tsx`: 17 pages through real routes, none links to a retired address; it scans `a[href]` only, so a row that navigates by `onClick` is not seen |
+
+`ProjectBacklogPage.reorderFiltered.test.tsx`: the mod-017 US-5 test (reorder against the full list under a filter) is replaced by the Q-9 A scenario, which is what Q-9 A requires: hint, tag, no menu move, no drop line, no write, order intact, «Очистить фильтры» restores the move. What the old test proved no longer happens in the panel (a filtered reorder and its request shape); the contract read of that case stays in the backend tests. The «команда удалена» test in the same file is untouched. No other coverage is lost; the drag handle is not asserted (F-8).
+
+#### New defects (all minor)
+
+- **F-6** The tag for the no-team filter alone reads «сужено: команда без команды» (`narrowedTag(['none'], [])`; the mixed case «команда Платформа, без команды» is fine). Test: `ProjectViews.narrowed.qa.test.tsx`, `it.fails`.
+- **F-7** ADR-0032 § 1 says `projectId` is read on the organization's settings pages only. `readAddressSelection` reads it on every address with no object prefix: `…/overview?projectId=<p>` selects the project. Harm today: none a user reaches (nothing links there). Risk: `projectId` is also the name of feat-040's project filter (`PROJECT_FILTER_PARAM`); an organization-level list in feat-048 that filters by it would change the selection. Fix: read it under `/settings/` only, or state the wider rule in the ADR. Test: `routes.settings.qa.test.tsx`, `it.fails`.
+- **F-8** Design § 7.1 and US-4: «no drag handle» on a narrowed backlog. For a user with the link code the rows stay draggable (a drop onto a row is a parent change) and the grip is drawn, so the handle suggests a reorder that is not there. Test: `ProjectViews.narrowed.qa.test.tsx`, `it.fails`. Not a reorder: no drop line, no request.
+
+Checked and found right: a gone project in the settings query drops to «все» quietly, as a gone team does; the project backlog is not narrowed by `?projectId=` or `?departmentId=`; a team's backlog is not narrowed (Q-9 A, "in this line: a project's backlog under a chosen team").
+
+#### Tests and runs
+
+- Added: `src/frontend/src/app/routes.settings.qa.test.tsx` (3: 2 pass, 1 `it.fails` F-7); four tests in `ProjectViews.narrowed.qa.test.tsx` (3 pass, `it.fails` F-8 and F-6). With the three `it.fails` of round 1 turned into plain tests, the `.qa` files hold 3 `it.fails`, one per open defect F-6..F-8.
+- Fixed in my predecessor's file: `OrganizationOverviewPage.qa.test.tsx` took `unknown` where msw wants `JsonBodyType`. `npx tsc -b` is clean; ESLint and Prettier clean on the touched files.
+- Vitest, affected files only: the navigation folder, `routes.node.qa`, `routes.links`, `routes.retired.qa`, `routeInventory`, `OrganizationOverviewPage.qa`, the boards `lib` folder and the two backlog files (25 files, 416 pass); then all of `src/features/boards` plus four `AppLayout.*` files (65 files, 829 pass). Not run: the full suite (shared lane), E2E (standing NO).
+
+#### Not covered
+
+- No browser: the narrowed tag and hint placement, the grip, the second selector row at 640 and 1023 px (F-5) are unseen.
+- A settings link built by hand elsewhere than the shell (a page body linking to `settings/…`) is not walked; the F-4 scan checks targets against the retired list, not that they carry the selection.
+- «Команда → Параметры» from a project's «Параметры» drops the project (ADR-0032 § 5, left as is by the orchestrator); not probed further.
+- A reparent by drop onto a row of a narrowed backlog still works; no check that the server keeps the rank rule for it.
+
+#### Round 2 verdict
+
+blockers: 0 · majors: 0 · minors: 5 (F-5 open from round 1; F-6, F-7, F-8 new; D-1..D-3 are the backend's) · result: pass (frontend), F-1..F-4 verified fixed. F-6..F-8 are small and may go to gate-3 as debts, or be fixed now at the human's choice; F-7 is worth fixing before feat-048 uses `projectId`.
