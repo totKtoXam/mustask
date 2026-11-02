@@ -11,7 +11,7 @@ import {
   problem,
 } from '../testFixtures';
 import { serveOrganizations, serveProblem } from '../testApi';
-import { renderPage } from '../testRender';
+import { contextSource, renderPage } from '../testRender';
 
 const AREAS = `/organizations/${ids.alfa}/areas`;
 
@@ -456,5 +456,32 @@ describe('mod-018 US-6: the actions follow the served codes', () => {
     expect(screen.queryByRole('button', { name: 'Создать департамент' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Действия:/ })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Платформа' })).toBeInTheDocument();
+  });
+});
+
+describe('feat-043 D-6: a sub-area row keeps the fitting team', () => {
+  it('asks the shell for the sub-area’s own page, and a project for its «Общие»', async () => {
+    serveOrganizations();
+    renderPage({
+      path: AREAS,
+      context: contextSource({
+        objectLink: (_kind, id, nodeId) => ({
+          to: nodeId
+            ? `${AREAS}/${nodeId}/overview?teamId=t1`
+            : `/organizations/${ids.alfa}/projects/${id}/general`,
+          notice: null,
+        }),
+      }),
+    });
+    await treegrid();
+
+    expect(within(row('API')).getByRole('link', { name: 'API' })).toHaveAttribute(
+      'href',
+      `${AREAS}/${ids.apiArea}/overview?teamId=t1`,
+    );
+    expect(within(row('Пример проекта')).getByRole('link')).toHaveAttribute(
+      'href',
+      `/organizations/${ids.alfa}/projects/${ids.prm}/general`,
+    );
   });
 });

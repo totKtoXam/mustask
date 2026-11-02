@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AREA_URL, exampleDataset, ids, problem, subArea } from '../testFixtures';
 import { serveOrganizations, serveProblem } from '../testApi';
-import { renderPage } from '../testRender';
+import { contextSource, renderPage } from '../testRender';
 
 const AREAS = `/organizations/${ids.alfa}/areas`;
 const PLATFORM = `${AREAS}/${ids.platformArea}`;
@@ -463,5 +463,40 @@ describe('feat-043 design § 6: a sub-area', () => {
     expect(
       await within(dialog).findByText('Вложенную область нельзя переместить за пределы её проекта'),
     ).toBeInTheDocument();
+  });
+});
+
+// D-6: the project's nodes and sub-areas are reached through the shell's link, which keeps the
+// team that fits; a stub that echoes its node tells which rows ask for it.
+describe('feat-043 D-6: links to a node or sub-area keep the fitting team', () => {
+  const context = contextSource({
+    objectLink: (_kind, id, nodeId) => ({
+      to: nodeId
+        ? `${AREAS}/${nodeId}/overview?teamId=t1`
+        : `/organizations/${ids.alfa}/projects/${id}/general`,
+      notice: null,
+    }),
+  });
+
+  it('routes a sub-area row of a project’s node through it', async () => {
+    serveOrganizations();
+    renderPage({ path: `${PRM_NODE}/overview`, context });
+    await loaded('Структура: Пример проекта');
+
+    const children = await screen.findByRole('table', { name: 'Вложенные области' });
+    expect(await within(children).findByRole('link', { name: 'API' })).toHaveAttribute(
+      'href',
+      `${API}/overview?teamId=t1`,
+    );
+  });
+
+  it('routes the parent link of a sub-area through it', async () => {
+    serveOrganizations();
+    renderPage({ path: `${API}/overview`, context });
+    await loaded('Область: API');
+
+    expect(
+      await within(facts()).findByRole('link', { name: 'Платформа / Пример проекта' }),
+    ).toHaveAttribute('href', `${PRM_NODE}/overview?teamId=t1`);
   });
 });

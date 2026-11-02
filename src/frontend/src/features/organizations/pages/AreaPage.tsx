@@ -114,6 +114,7 @@ function overviewFacts(
   organizationId: string,
   area: AreaPageData,
   counts: { projects: number; teams: number | undefined },
+  objectLink: ReturnType<typeof useObjectLink>,
 ): Fact[] {
   if (area.type === 'department') {
     const facts: Fact[] = [
@@ -152,10 +153,14 @@ function overviewFacts(
   }
   const facts: Fact[] = [];
   if (area.parent) {
+    // The parent is a node of the same project: its page keeps the team that fits (D-6).
+    const parent = area.projectId
+      ? objectLink('project', area.projectId, area.parent.id)
+      : { to: organizationAreaPath(organizationId, area.parent.id), state: undefined };
     facts.push({
       label: areaPage.facts.parent,
       value: (
-        <Link component={RouterLink} to={organizationAreaPath(organizationId, area.parent.id)}>
+        <Link component={RouterLink} to={parent.to} state={parent.state}>
           {area.parent.path}
         </Link>
       ),
@@ -275,19 +280,20 @@ export function AreaPage() {
           : areaPage.children.columns.area,
       render: (child) => {
         // A project of a department opens the project's «Общие» and becomes the chosen project
-        // (BR-NV-19); a sub-area opens its own page. A deactivated project is plain text (OQ-3 A).
-        const projectId =
-          child.type === 'project'
-            ? (tree.data?.find((node) => node.id === child.id)?.projectId ?? null)
-            : null;
+        // (BR-NV-19); a sub-area opens its own page, keeping the team that fits its project (D-6).
+        // A deactivated project is plain text (OQ-3 A).
+        const projectId = tree.data?.find((node) => node.id === child.id)?.projectId ?? null;
         const deactivated = child.projectActive === false;
-        const link = projectId !== null ? objectLink('project', projectId) : null;
-        const to =
-          child.type === 'project'
-            ? deactivated || link === null
-              ? undefined
-              : link.to
-            : organizationAreaPath(organizationId, child.id);
+        const isProject = child.type === 'project';
+        const link =
+          projectId !== null
+            ? objectLink('project', projectId, isProject ? undefined : child.id)
+            : null;
+        const to = isProject
+          ? deactivated || link === null
+            ? undefined
+            : link.to
+          : (link?.to ?? organizationAreaPath(organizationId, child.id));
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
             <TruncatedText
@@ -464,10 +470,15 @@ export function AreaPage() {
             facts={
               section === 'settings'
                 ? settingsFacts(area)
-                : overviewFacts(organizationId, area, {
-                    projects: children.length,
-                    teams: teams.isSuccess ? teamRows.length : undefined,
-                  })
+                : overviewFacts(
+                    organizationId,
+                    area,
+                    {
+                      projects: children.length,
+                      teams: teams.isSuccess ? teamRows.length : undefined,
+                    },
+                    objectLink,
+                  )
             }
           />
         )

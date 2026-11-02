@@ -19,7 +19,7 @@ import type {
   WorkContextSource,
   WorkContextStatus,
 } from '../../shared/lib/workContext';
-import { KIND_ROUTE_PREFIX, menuFor } from './addressModel';
+import { KIND_ROUTE_PREFIX, SELECTOR_QUERY, menuFor } from './addressModel';
 import {
   menuHref,
   clearRemembered,
@@ -480,11 +480,25 @@ export function useNavigationSource({
 
   // Where a row or a link to an object leads (D-3): the object becomes the most specific one.
   const objectLink = useCallback(
-    (kind: WorkContextObjectKind, id: string): WorkContextObjectLink | null => {
+    (kind: WorkContextObjectKind, id: string, nodeId?: string): WorkContextObjectLink | null => {
       if (organizationId === undefined || !offers) return null;
       const opened = openObject(offers, shown, kind, id);
       const first = menuFor(kind)[0];
       if (!first) return null;
+      // A node or sub-area of the project: its own page, on the area prefix, which the source
+      // reads as the project and its place; the fitting team rides in the query (BR-NV-19, D-6).
+      if (nodeId !== undefined) {
+        const node = menuHref(
+          organizationId,
+          { ...NO_SELECTION, department: nodeId },
+          { segment: 'overview' },
+        );
+        const team = opened.selection.team;
+        return {
+          to: team ? `${node}?${SELECTOR_QUERY.team}=${encodeURIComponent(team)}` : node,
+          notice: resetNotice(opened.reset),
+        };
+      }
       return {
         to: menuHref(organizationId, opened.selection, first),
         notice: resetNotice(opened.reset),

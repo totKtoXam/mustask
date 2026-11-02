@@ -134,6 +134,8 @@ export function AreasPage() {
     if (area.projectActive === false) return null;
     if (area.type === 'department') return objectLink('department', area.id);
     if (area.type === 'project' && area.projectId) return objectLink('project', area.projectId);
+    // A sub-area keeps the team that fits its project (D-6).
+    if (area.projectId) return objectLink('project', area.projectId, area.id);
     return { to: organizationAreaPath(organizationId, area.id) };
   }
 

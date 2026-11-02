@@ -17,13 +17,14 @@ export interface ObjectLink {
 /**
  * Where a row or a link to a department, team or project leads (ADR-0032 § 5, D-3): the shell's
  * context makes the object the most specific one and keeps the less specific selectors that fit.
- * Without a context (a stub) it is the object's plain address.
+ * Without a context (a stub) it is the object's plain address. `nodeId` names a node or sub-area
+ * of the project `id`: the link opens its page and keeps the team that fits the project (D-6).
  */
 export function useObjectLink(organizationId: string) {
   const { objectLink } = useWorkContext();
   return useCallback(
-    (kind: WorkContextObjectKind, id: string): ObjectLink => {
-      const link = objectLink?.(kind, id);
+    (kind: WorkContextObjectKind, id: string, nodeId?: string): ObjectLink => {
+      const link = objectLink?.(kind, id, nodeId);
       if (link) {
         return {
           to: link.to,
@@ -33,6 +34,7 @@ export function useObjectLink(organizationId: string) {
         };
       }
       const state: ObjectLinkState = { focusHeading: true };
+      if (nodeId !== undefined) return { to: organizationAreaPath(organizationId, nodeId), state };
       switch (kind) {
         case 'project':
           return { to: projectGeneralPath(organizationId, id), state };

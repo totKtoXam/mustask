@@ -571,3 +571,28 @@ describe('feat-043 D-7: a choice written by the shell is read back at once', () 
     await waitFor(() => expect(result.current.selection.teamId).toBe(VENUS));
   });
 });
+
+describe('feat-043 D-6: a node or sub-area link keeps the team that fits', () => {
+  const SUB = '50000000-0000-4000-8000-0000000000aa';
+
+  it('rides the fitting team in the query, on the area prefix', async () => {
+    const { result } = render(`/organizations/${ALFA}/teams/${MARS}/overview`);
+    await waitFor(() => expect(result.current.selection.teamId).toBe(MARS));
+
+    const link = result.current.objectLink?.('project', PROJECT_A, SUB);
+
+    expect(link?.to).toBe(`/organizations/${ALFA}/areas/${SUB}/overview?teamId=${MARS}`);
+    expect(link?.notice).toBeNull();
+  });
+
+  it('drops a team the project is not linked to, with the reset notice', async () => {
+    mocks.offers = UNLINKED;
+    const { result } = render(`/organizations/${ALFA}/teams/${MARS}/overview`);
+    await waitFor(() => expect(result.current.selection.teamId).toBe(MARS));
+
+    const link = result.current.objectLink?.('project', PROJECT_A, SUB);
+
+    expect(link?.to).toBe(`/organizations/${ALFA}/areas/${SUB}/overview`);
+    expect(link?.notice).toMatch(/Выбор сброшен/);
+  });
+});

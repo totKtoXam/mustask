@@ -125,8 +125,15 @@ export interface WorkContextSource {
   fallback?: WorkContextFallback | null;
   /** The notice was shown and closed. */
   dismissFallback?(): void;
-  /** The address of an object opened from a row or a link; absent in a stub: the plain path. */
-  objectLink?(kind: WorkContextObjectKind, id: string): WorkContextObjectLink | null;
+  /**
+   * The address of an object opened from a row or a link; absent in a stub: the plain path. With
+   * `nodeId` the link opens that node or sub-area of the project `id`, on its own page (D-6).
+   */
+  objectLink?(
+    kind: WorkContextObjectKind,
+    id: string,
+    nodeId?: string,
+  ): WorkContextObjectLink | null;
   /**
    * A selector in the address query names nothing, or does not fit the object of the prefix
    * (ADR-0032 §§ 1, 3): the page is not found for that level, the menu kept.
