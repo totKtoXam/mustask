@@ -23,7 +23,7 @@ import {
   type MenuKind,
   type MenuRow,
 } from './addressModel';
-import { menuHref, menuKindOf } from './selection';
+import { fullSelectionQuery, menuHref, menuKindOf } from './selection';
 import type { ObjectSelection } from './selectorFit';
 import type {
   MainNavigationEntry,
@@ -106,6 +106,14 @@ function selectionUpTo(objects: ObjectSelection, kind: ObjectKind): ObjectSelect
   };
 }
 
+/**
+ * The query an organization's settings page carries: the whole selection, so the address names
+ * the objects and the settings navigation shows their groups (QA F-3; ADR-0032 § 5).
+ */
+function settingsQuery(selection: WorkContextSelection): string {
+  return fullSelectionQuery(objectsOf(selection));
+}
+
 function objectSettingsEntry(kind: ObjectKind, nodeOpen: boolean): NavigationEntry {
   return {
     id: `${kind}-settings`,
@@ -166,7 +174,9 @@ export function buildNavigationModel(selection: WorkContextSelection): Navigatio
             scope: 'organization',
             permission: organizationsPermissions.organizationRead,
             landing: (current) =>
-              current.organizationId ? organizationGeneralPath(current.organizationId) : null,
+              current.organizationId
+                ? `${organizationGeneralPath(current.organizationId)}${settingsQuery(current)}`
+                : null,
             pages: ['/organizations/:organizationId/settings/general'],
           },
           {
@@ -175,7 +185,9 @@ export function buildNavigationModel(selection: WorkContextSelection): Navigatio
             scope: 'organization',
             permission: processPermissions.definitionRead,
             landing: (current) =>
-              current.organizationId ? processDefinitionPath(current.organizationId) : null,
+              current.organizationId
+                ? `${processDefinitionPath(current.organizationId)}${settingsQuery(current)}`
+                : null,
             pages: ['/organizations/:organizationId/settings/process'],
           },
         ],

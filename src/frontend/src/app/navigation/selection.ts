@@ -71,12 +71,20 @@ export function readAddressSelection(pathname: string, search: string): AddressS
     team: 'team',
     department: 'department',
   };
+  let prefixed = false;
   for (const kind of PREFIX_KINDS) {
     const id = idOf(`${KIND_ROUTE_PREFIX[prefixes[kind]]}/*`, pathname, idParams[kind]);
     if (id !== null) {
       selection[kind] = id;
+      prefixed = true;
       break;
     }
+  }
+  // With no object prefix (an organization's own page, its settings) the project rides in the
+  // query too; under a prefix the prefix is the most specific object and no project is chosen.
+  if (!prefixed) {
+    const value = params.get(SELECTOR_QUERY.project);
+    if (value) selection.project = value;
   }
   return { organizationId, selection };
 }
@@ -109,6 +117,20 @@ export function selectionQuery(selection: ObjectSelection): string {
   for (const kind of ['team', 'department'] as const) {
     const id = selection[kind];
     if (kind !== primary && id !== null) params.set(SELECTOR_QUERY[kind], id);
+  }
+  const text = params.toString();
+  return text === '' ? '' : `?${text}`;
+}
+
+/**
+ * The query of an address with no object prefix, an organization's settings page: every chosen
+ * object rides in it, the project too, so the address names the whole selection (QA F-3).
+ */
+export function fullSelectionQuery(selection: ObjectSelection): string {
+  const params = new URLSearchParams();
+  for (const kind of ['team', 'department', 'project'] as const) {
+    const id = selection[kind];
+    if (id !== null) params.set(SELECTOR_QUERY[kind], id);
   }
   const text = params.toString();
   return text === '' ? '' : `?${text}`;

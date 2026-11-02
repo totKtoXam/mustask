@@ -12,8 +12,16 @@ import { organizationsPermissions } from '../../features/organizations';
 /** What the menu is built from: the organization when nothing is chosen, else the primary object. */
 export type MenuKind = 'organization' | 'department' | 'team' | 'project';
 
-/** The query names the other chosen selectors ride in (ADR-0032 § 1, the form mod-020 founded). */
-export const SELECTOR_QUERY = { team: 'teamId', department: 'departmentId' } as const;
+/**
+ * The query names the other chosen selectors ride in (ADR-0032 § 1, the form mod-020 founded).
+ * `project` is read only from an address with no object prefix of its own, such as the
+ * organization's settings pages, where nothing else can name the project (QA F-3).
+ */
+export const SELECTOR_QUERY = {
+  team: 'teamId',
+  department: 'departmentId',
+  project: 'projectId',
+} as const;
 
 /** The segment under an object's prefix that is its «Параметры» (ADR-0032 § 2). */
 export const OBJECT_SETTINGS_SEGMENT = 'settings';

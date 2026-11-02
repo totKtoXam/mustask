@@ -143,6 +143,12 @@ describe('mod-001 US-2: the «Процесс» entry', () => {
     expect(processEntry.landing({})).toBeNull();
   });
 
+  it('carries the chosen objects to the other settings pages (QA F-3)', () => {
+    expect(processEntry.landing({ organizationId: 'org-1', teamId: 't', projectId: 'p' })).toBe(
+      '/organizations/org-1/settings/process?teamId=t&projectId=p',
+    );
+  });
+
   it.each([
     ['every code', allowEverything],
     ['no code', (() => false) as AccessCheck],
@@ -156,7 +162,10 @@ describe('mod-001 US-2: the «Процесс» entry', () => {
 
     expect(isEntryVisible(processEntry, allowEverything, real)).toBe(true);
     expect(visible.settings[0]?.section.label).toBe('Организация');
-    expect(visible.settingsLanding).toBe('/organizations/org-1/settings/general');
+    // The landing carries the chosen objects, so the settings address names the selection.
+    expect(visible.settingsLanding).toBe(
+      '/organizations/org-1/settings/general?teamId=team-1&projectId=prj-1',
+    );
   });
 });
 

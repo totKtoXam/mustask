@@ -214,29 +214,24 @@ describe('feat-043 QA, US-1/US-3/US-4/US-5: «Параметры» by role', () 
     expect(within(menu).getAllByRole('link', { name: 'Параметры' })).toHaveLength(2);
   });
 
-  // QA defect F-3 (qa.md): «Настройки» lands on the organization's «Общие», an address that names
-  // no object, so the selection is cleared and the object groups are gone before they can be
-  // used. `it.fails` passes while the defect stands; when it is fixed this turns red: drop `.fails`.
-  it.fails(
-    'choosing «Настройки» with a project and a team chosen keeps them and their groups',
-    async () => {
-      serveOrganizations();
-      renderRoutes(PROJECT_GENERAL);
-      await waitFor(() => expect(selectors()[3]).toBe('Проект: Пример проекта'));
-      await userEvent.click(
-        within(screen.getByRole('navigation', { name: 'Основное меню' })).getByRole('link', {
-          name: 'Настройки',
-        }),
-      );
-      const menu = await settingsMenu();
+  // QA defect F-3 (qa.md), fixed: «Настройки» carries the selection in the address.
+  it('choosing «Настройки» with a project and a team chosen keeps them and their groups', async () => {
+    serveOrganizations();
+    renderRoutes(PROJECT_GENERAL);
+    await waitFor(() => expect(selectors()[3]).toBe('Проект: Пример проекта'));
+    await userEvent.click(
+      within(screen.getByRole('navigation', { name: 'Основное меню' })).getByRole('link', {
+        name: 'Настройки',
+      }),
+    );
+    const menu = await settingsMenu();
 
-      expect(await within(menu).findByText('Проект', {}, { timeout: 1500 })).toBeInTheDocument();
-      expect(selectors()).toEqual([
-        'Организация: Альфа',
-        'Департамент: все',
-        'Команда: Платформа',
-        'Проект: Пример проекта',
-      ]);
-    },
-  );
+    expect(await within(menu).findByText('Проект', {}, { timeout: 1500 })).toBeInTheDocument();
+    expect(selectors()).toEqual([
+      'Организация: Альфа',
+      'Департамент: все',
+      'Команда: Платформа',
+      'Проект: Пример проекта',
+    ]);
+  });
 });

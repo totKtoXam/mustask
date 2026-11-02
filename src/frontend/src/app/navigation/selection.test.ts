@@ -3,6 +3,7 @@ import { menuFor } from './addressModel';
 import {
   fallbackNotice,
   fallbackSelection,
+  fullSelectionQuery,
   menuHref,
   menuKindOf,
   organizationStorageKey,
@@ -65,6 +66,16 @@ describe('readAddressSelection (ADR-0032 § 1)', () => {
     });
   });
 
+  it('reads the project from the query only where the address has no object prefix of its own', () => {
+    expect(
+      readAddressSelection('/organizations/o/settings/general', '?teamId=mars&projectId=a'),
+    ).toEqual({ organizationId: 'o', selection: select({ team: 'mars', project: 'a' }) });
+    expect(readAddressSelection('/organizations/o/teams/mars/overview', '?projectId=a')).toEqual({
+      organizationId: 'o',
+      selection: select({ team: 'mars' }),
+    });
+  });
+
   it('decodes a percent-encoded id and ignores an empty query value', () => {
     const { selection } = readAddressSelection('/organizations/o/projects/%6Canguages', '?teamId=');
     expect(selection).toEqual(select({ project: 'languages' }));
@@ -94,6 +105,16 @@ describe('building addresses', () => {
     expect(prefixPath('o', selection)).toBe('/organizations/o/projects/a');
     expect(selectionQuery(selection)).toBe('?teamId=mars&departmentId=log');
     expect(selectionQuery(select({ department: 'log' }))).toBe('');
+  });
+
+  it('puts every chosen object in the query of an address with no prefix (settings)', () => {
+    const selection = select({ department: 'log', team: 'mars', project: 'a' });
+    const query = fullSelectionQuery(selection);
+    expect(query).toBe('?teamId=mars&departmentId=log&projectId=a');
+    expect(readAddressSelection('/organizations/o/settings/general', query).selection).toEqual(
+      selection,
+    );
+    expect(fullSelectionQuery(NO_SELECTION)).toBe('');
   });
 
   it('builds a menu row address, a board landing on its first level', () => {
