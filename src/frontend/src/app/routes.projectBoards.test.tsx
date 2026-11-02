@@ -3,18 +3,15 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { HttpResponse, http } from 'msw';
 import { AuthContext } from '../features/auth/AuthContext';
 import { serveBoards } from '../features/boards/testApi';
 import { identifiers } from '../features/boards/testBacklog';
 import { boardsDataset, item, type BoardsDataset } from '../features/boards/testFixtures';
 import {
-  ORGANIZATIONS_URL,
   exampleDataset as organizationsDataset,
   ids as organizationIds,
 } from '../features/organizations/testFixtures';
 import { serveOrganizations } from '../features/organizations/testApi';
-import { server } from '../test/mocks/server';
 import { authValue, LocationProbe } from '../test/renderShell';
 import { AppRoutes } from './routes';
 
@@ -29,12 +26,6 @@ const SUBJECT = 'user-1';
 const ALFA = `/organizations/${organizationIds.alfa}`;
 const PRM = `${ALFA}/projects/${organizationIds.prm}`;
 const ANL = `${ALFA}/projects/${organizationIds.anl}`;
-const REP = `/organizations/${organizationIds.beta}/projects/${organizationIds.rep}`;
-const ANL_TEAMS_URL = `${ORGANIZATIONS_URL}/${organizationIds.alfa}/projects/${organizationIds.anl}/teams`;
-
-function teamAddress(teamId: string, surface: string, level: string): string {
-  return `${ALFA}/teams/${teamId}/${surface}/${level}`;
-}
 
 /** The boards dataset on mod-002’s ids, one story in each project. */
 function dataset(): BoardsDataset {
@@ -160,7 +151,7 @@ const switcher = () => screen.getByRole('group', { name: 'Контекст ра�
 
 function switcherLevels(): string[] {
   return within(switcher())
-    .getAllByRole('button')
+    .getAllByRole('combobox')
     .map((button) => button.getAttribute('aria-label') ?? '');
 }
 
@@ -168,17 +159,22 @@ async function backlogRows(): Promise<string[]> {
   return identifiers(await screen.findByRole('table', { name: 'Бэклог' }));
 }
 
-async function choose(level: 'Организация' | 'Проект' | 'Команда', name: string) {
-  await userEvent.click(within(switcher()).getByRole('button', { name: new RegExp(`^${level}:`) }));
-  await userEvent.click(await screen.findByRole('menuitemradio', { name }));
+async function choose(level: 'Организация' | 'Проект' | 'Команда', name: string | RegExp) {
+  await userEvent.click(
+    within(switcher()).getByRole('combobox', { name: new RegExp(`^${level}:`) }),
+  );
+  await userEvent.click(await screen.findByRole('option', { name }));
 }
+
+const noLoading = () =>
+  waitFor(() => expect(screen.queryByRole('status', { name: 'Загрузка данных' })).toBeNull());
 
 describe('feat-039 the project’s pages in the shell', () => {
   it.each([
-    ['backlogs', 'Бэклоги', 'Канбан'],
-    ['boards', 'Канбан', 'Бэклоги'],
+    ['backlogs', 'Бэклог', 'Канбан'],
+    ['boards', 'Канбан', 'Бэклог'],
   ])(
-    'opens the project’s %s: its entry «%s» current, «%s» not, no trail, and the switcher naming the project and the team level’s fallback team — never «Весь проект»',
+    'opens the project’s %s: its entry «%s» current, «%s» not, no trail, and the selectors naming the project, the team «все»',
     async (surface, entry, other) => {
       serveOrganizations();
       serveBoards(dataset(), { projectList: false });
@@ -188,27 +184,25 @@ describe('feat-039 the project’s pages in the shell', () => {
         await screen.findByRole('heading', { level: 1, name: 'Пример проекта' }),
       ).toBeInTheDocument();
       expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-      await waitFor(() => expect(document.title).toBe(`${entry} — Mustask`));
-      // feat-040 BR-TS-10: the team level is the organization's; «Пример проекта» names no default
-      // team, so the level's first entry stands.
+      await waitFor(() =>
+        expect(document.title).toBe(`${surface === 'backlogs' ? 'Бэклоги' : 'Канбан'} — Mustask`),
+      );
+      // ADR-0032 § 1: the project prefix chooses the project; the team stays «все» until chosen.
       await waitFor(() =>
         expect(switcherLevels()).toEqual([
           'Организация: Альфа',
+          'Департамент: все',
+          'Команда: все',
           'Проект: Пример проекта',
-          'Команда: Аналитика',
         ]),
       );
       const current = await within(mainNavigation()).findByRole('link', { name: entry });
       expect(current).toHaveAttribute('aria-current', 'page');
-      expect(current).toHaveAttribute(
-        'href',
-        teamAddress(organizationIds.anlTeam, surface, 'stories'),
-      );
+      expect(current).toHaveAttribute('href', `${PRM}/${surface}/stories`);
       expect(within(mainNavigation()).getByRole('link', { name: other })).not.toHaveAttribute(
         'aria-current',
       );
       expect(screen.queryByRole('navigation', { name: 'Путь к странице' })).toBeNull();
-      expect(within(switcher()).queryByText('Весь проект')).toBeNull();
     },
   );
 
@@ -220,69 +214,57 @@ describe('feat-039 the project’s pages in the shell', () => {
     expect(await backlogRows()).toEqual(['PRM-US-1', 'PRM-US-2']);
   });
 
-  // feat-040 BR-TS-11 retires, by name, «after «Весь проект» from «Платформа»’s page the switcher still
-  // names «Платформа» and «Бэклоги» opens its «Истории»»: the head has no «Весь проект» any more. Its
-  // twin: a chosen team stays across the project's page (the next test and BR-TS-10).
-  it('a chosen team stays at the switcher on the project’s page, and «Бэклоги» opens its «Истории»', async () => {
+  // feat-043 ADR-0032 § 1: a chosen team rides in the query; the project menu's landing hrefs carry it.
+  it('a chosen team rides in `?teamId=` and the project menu’s «Бэклог» and «Канбан» carry it', async () => {
     serveOrganizations();
     serveBoards(dataset(), { projectList: false });
-    // The user's last choice: «Платформа», chosen on its page.
-    localStorage.setItem(
-      `mustask.context.${SUBJECT}`,
-      JSON.stringify({
-        organizationId: organizationIds.alfa,
-        projectId: organizationIds.prm,
-        teamId: organizationIds.platformTeam,
-      }),
-    );
-    renderRoutes(`${PRM}/backlogs/epics`);
+    renderRoutes(`${PRM}/backlogs/epics?teamId=${organizationIds.platformTeam}`);
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Пример проекта' })).toBeVisible();
     await waitFor(() =>
       expect(switcherLevels()).toEqual([
         'Организация: Альфа',
-        'Проект: Пример проекта',
+        'Департамент: все',
         'Команда: Платформа',
+        'Проект: Пример проекта',
       ]),
     );
-    const entry = within(mainNavigation()).getByRole('link', { name: 'Бэклоги' });
+    const entry = within(mainNavigation()).getByRole('link', { name: 'Бэклог' });
     expect(entry).toHaveAttribute('aria-current', 'page');
     expect(entry).toHaveAttribute(
       'href',
-      teamAddress(organizationIds.platformTeam, 'backlogs', 'stories'),
+      `${PRM}/backlogs/stories?teamId=${organizationIds.platformTeam}`,
+    );
+    expect(within(mainNavigation()).getByRole('link', { name: 'Канбан' })).toHaveAttribute(
+      'href',
+      `${PRM}/boards/stories?teamId=${organizationIds.platformTeam}`,
     );
   });
 });
 
-describe('feat-039 BR-PB-9 (c): a choice in the switcher on a project’s page', () => {
+describe('feat-039 BR-PB-9 (c): a choice in the selectors on a project’s page', () => {
   it.each([
     ['backlogs', 'features'],
     ['boards', 'epics'],
   ])(
-    'on the project’s %s at «%s», choosing «Аналитика» at the project level opens the same page of that project at the same level',
+    'on the project’s %s at «%s», choosing «Аналитика» at the project selector opens the same page of that project at the same level',
     async (surface, level) => {
       serveOrganizations();
       serveBoards(dataset(), { projectList: false });
       renderRoutes(`${PRM}/${surface}/${level}`);
-      await waitFor(() => expect(switcherLevels()[1]).toBe('Проект: Пример проекта'));
+      await waitFor(() => expect(switcherLevels()[3]).toBe('Проект: Пример проекта'));
 
-      await choose('Проект', 'Аналитика');
+      await choose('Проект', /^Аналитика/);
 
       await waitFor(() =>
         expect(screen.getByTestId('location')).toHaveTextContent(`${ANL}/${surface}/${level}`),
       );
-      await waitFor(() =>
-        expect(switcherLevels()).toEqual([
-          'Организация: Альфа',
-          'Проект: Аналитика',
-          'Команда: Аналитика',
-        ]),
-      );
+      await waitFor(() => expect(switcherLevels()[3]).toBe('Проект: Аналитика'));
       const entry = await within(mainNavigation()).findByRole('link', {
-        name: surface === 'backlogs' ? 'Бэклоги' : 'Канбан',
+        name: surface === 'backlogs' ? 'Бэклог' : 'Канбан',
       });
       expect(entry).toHaveAttribute('aria-current', 'page');
-      expect(screen.getByRole('button', { name: /^Уровень: / })).toHaveAccessibleName(
+      expect(await screen.findByRole('button', { name: /^Уровень: / })).toHaveAccessibleName(
         level === 'features' ? 'Уровень: Фичи' : 'Уровень: Эпики',
       );
     },
@@ -294,7 +276,7 @@ describe('feat-039 BR-PB-9 (c): a choice in the switcher on a project’s page',
     renderRoutes(`${PRM}/backlogs/stories`);
     await backlogRows();
 
-    await choose('Проект', 'Аналитика');
+    await choose('Проект', /^Аналитика/);
 
     await waitFor(() =>
       expect(screen.getByTestId('location')).toHaveTextContent(`${ANL}/backlogs/stories`),
@@ -302,7 +284,8 @@ describe('feat-039 BR-PB-9 (c): a choice in the switcher on a project’s page',
     await waitFor(async () => expect(await backlogRows()).toEqual(['ANL-US-1']));
   });
 
-  it('choosing «Бета» at the organization level opens the same page of its first project at the same level', async () => {
+  // The organization choice opens that organization's «Обзор» (ADR-0032 § 5): the page and level are not kept.
+  it('choosing «Бета» at the organization selector opens its «Обзор», every other selector «все»', async () => {
     serveOrganizations();
     serveBoards(dataset(), { projectList: false });
     renderRoutes(`${PRM}/backlogs/features`);
@@ -311,92 +294,43 @@ describe('feat-039 BR-PB-9 (c): a choice in the switcher on a project’s page',
     await choose('Организация', 'Бета');
 
     await waitFor(() =>
-      expect(screen.getByTestId('location')).toHaveTextContent(`${REP}/backlogs/features`),
+      expect(screen.getByTestId('location')).toHaveTextContent(
+        `/organizations/${organizationIds.beta}/overview`,
+      ),
     );
     await waitFor(() =>
       expect(switcherLevels()).toEqual([
         'Организация: Бета',
-        'Проект: Отчётность',
-        'Команда: Отчётность',
+        'Департамент: все',
+        'Команда: все',
+        'Проект: все',
       ]),
     );
-    expect(await within(mainNavigation()).findByRole('link', { name: 'Бэклоги' })).toHaveAttribute(
+  });
+
+  it('choosing a team at the team selector keeps the project’s page and puts the team in the query', async () => {
+    serveOrganizations();
+    serveBoards(dataset(), { projectList: false });
+    renderRoutes(`${PRM}/backlogs/features`);
+    await waitFor(() => expect(switcherLevels()[3]).toBe('Проект: Пример проекта'));
+    await screen.findByRole('heading', { level: 2, name: 'Бэклог пуст' }).catch(() => undefined);
+
+    await choose('Команда', 'Платформа');
+
+    await waitFor(() => expect(switcherLevels()[2]).toBe('Команда: Платформа'));
+    expect(screen.getByTestId('location')).toHaveTextContent(`${PRM}/backlogs/features`);
+    expect(screen.getByTestId('location').getAttribute('data-search')).toBe(
+      `?teamId=${organizationIds.platformTeam}`,
+    );
+    expect(within(mainNavigation()).getByRole('link', { name: 'Бэклог' })).toHaveAttribute(
       'aria-current',
       'page',
     );
   });
-
-  it('choosing «Аналитика» at the project level keeps a chosen team (feat-040 BR-TS-10)', async () => {
-    serveOrganizations();
-    serveBoards(dataset(), { projectList: false });
-    localStorage.setItem(
-      `mustask.context.${SUBJECT}`,
-      JSON.stringify({
-        organizationId: organizationIds.alfa,
-        projectId: organizationIds.prm,
-        teamId: organizationIds.platformTeam,
-      }),
-    );
-    renderRoutes(`${PRM}/backlogs/stories`);
-    await waitFor(() => expect(switcherLevels()[2]).toBe('Команда: Платформа'));
-
-    await choose('Проект', 'Аналитика');
-
-    await waitFor(() =>
-      expect(screen.getByTestId('location')).toHaveTextContent(`${ANL}/backlogs/stories`),
-    );
-    expect(switcherLevels()).toEqual([
-      'Организация: Альфа',
-      'Проект: Аналитика',
-      'Команда: Платформа',
-    ]);
-  });
-
-  it('an organization with no project opens «Главная»', async () => {
-    const organizations = organizationsDataset();
-    organizations.projects = organizations.projects.map((project) =>
-      project.id === organizationIds.rep ? { ...project, active: false } : project,
-    );
-    serveOrganizations(organizations);
-    serveBoards(dataset(), { projectList: false });
-    renderRoutes(`${PRM}/backlogs/features`);
-    await waitFor(() => expect(switcherLevels()[0]).toBe('Организация: Альфа'));
-
-    await choose('Организация', 'Бета');
-
-    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/home'));
-  });
-
-  it('choosing «Пример проекта» at the team level moves nothing: the page stays, the switcher and both entries take the team', async () => {
-    serveOrganizations();
-    serveBoards(dataset(), { projectList: false });
-    renderRoutes(`${PRM}/backlogs/features`);
-    await waitFor(() => expect(switcherLevels()[2]).toBe('Команда: Аналитика'));
-    await screen.findByRole('heading', { level: 2, name: 'Бэклог пуст' });
-
-    await choose('Команда', 'Пример проекта');
-
-    await waitFor(() => expect(switcherLevels()[2]).toBe('Команда: Пример проекта'));
-    expect(screen.getByTestId('location')).toHaveTextContent(`${PRM}/backlogs/features`);
-    const backlogs = within(mainNavigation()).getByRole('link', { name: 'Бэклоги' });
-    expect(backlogs).toHaveAttribute('aria-current', 'page');
-    expect(backlogs).toHaveAttribute(
-      'href',
-      teamAddress(organizationIds.prmTeam, 'backlogs', 'stories'),
-    );
-    expect(within(mainNavigation()).getByRole('link', { name: 'Канбан' })).toHaveAttribute(
-      'href',
-      teamAddress(organizationIds.prmTeam, 'boards', 'stories'),
-    );
-    expect(screen.getByRole('heading', { level: 1, name: 'Пример проекта' })).toBeVisible();
-  });
 });
 
-describe('feat-039 BR-PB-9: with no team at the switcher there is no current entry, and the page works', () => {
-  // feat-040 BR-TS-10: the team level is the organization's, so the entries are hidden only while the
-  // organization has no team (or its teams are unread). Rewritten from «a project whose teams list comes
-  // back empty», which now leaves them shown (the second test).
-  it('an organization with no team: the backlog lists its stories, «Бэклоги» and «Канбан» are not shown', async () => {
+describe('feat-039 BR-PB-9: the project’s entries need no team', () => {
+  it('an organization with no team: the backlog lists its stories and the project menu still shows both entries', async () => {
     const organizations = organizationsDataset();
     organizations.teams = [];
     organizations.links = [];
@@ -405,22 +339,8 @@ describe('feat-039 BR-PB-9: with no team at the switcher there is no current ent
     renderRoutes(`${ANL}/backlogs/stories`);
 
     expect(await backlogRows()).toEqual(['ANL-US-1']);
-    await waitFor(() => expect(switcherLevels()[1]).toBe('Проект: Аналитика'));
-    expect(await within(switcher()).findByText('Нет команд')).toBeInTheDocument();
-    expect(within(mainNavigation()).queryByRole('link', { name: 'Бэклоги' })).toBeNull();
-    expect(within(mainNavigation()).queryByRole('link', { name: 'Канбан' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Сменить команду' })).toBeNull();
-  });
-
-  it('a project whose linked teams list comes back empty hides nothing: the organization’s teams stay at the switcher', async () => {
-    serveOrganizations();
-    serveBoards(dataset(), { projectList: false });
-    server.use(http.get(ANL_TEAMS_URL, () => HttpResponse.json([])));
-    renderRoutes(`${ANL}/backlogs/stories`);
-
-    expect(await backlogRows()).toEqual(['ANL-US-1']);
-    await waitFor(() => expect(switcherLevels()[1]).toBe('Проект: Аналитика'));
-    expect(await within(mainNavigation()).findByRole('link', { name: 'Бэклоги' })).toBeVisible();
+    await waitFor(() => expect(switcherLevels()[3]).toBe('Проект: Аналитика'));
+    expect(await within(mainNavigation()).findByRole('link', { name: 'Бэклог' })).toBeVisible();
     expect(within(mainNavigation()).getByRole('link', { name: 'Канбан' })).toBeVisible();
   });
 });
@@ -433,11 +353,12 @@ describe('feat-039 BR-PB-1: the project’s addresses that are not pages', () =>
       const api = serveBoards(dataset(), { projectList: false });
       renderRoutes(`${PRM}/${surface}/tasks`);
 
+      await noLoading();
       expect(
         await screen.findByRole('heading', { level: 1, name: 'Страница не найдена' }),
       ).toBeInTheDocument();
-      await within(mainNavigation()).findByRole('link', { name: 'Бэклоги' });
-      for (const name of ['Канбан', 'Бэклоги']) {
+      await within(mainNavigation()).findByRole('link', { name: 'Бэклог' });
+      for (const name of ['Канбан', 'Бэклог']) {
         expect(within(mainNavigation()).getByRole('link', { name })).not.toHaveAttribute(
           'aria-current',
         );
@@ -451,6 +372,7 @@ describe('feat-039 BR-PB-1: the project’s addresses that are not pages', () =>
     serveBoards(dataset(), { projectList: false });
     renderRoutes(`${PRM}/backlogs`);
 
+    await noLoading();
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Страница не найдена' }),
     ).toBeInTheDocument();

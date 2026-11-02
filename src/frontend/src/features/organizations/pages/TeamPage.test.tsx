@@ -26,7 +26,7 @@ import { renderPage } from '../testRender';
 //   cases of «A team id that names no team of the project…» — a team's address names no project.
 
 function teamPage(teamId: string, organizationId: string = ids.alfa) {
-  return `/organizations/${organizationId}/settings/teams/${teamId}`;
+  return `/organizations/${organizationId}/teams/${teamId}/overview`;
 }
 
 const UNLINK_URL = `${PROJECT_TEAM_URL}/unlink`;
@@ -101,9 +101,7 @@ describe('feat-028 US-1: a team’s page (design § 4)', () => {
 
     expect(await screen.findByText('Команда «Платформа» удалена.')).toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getByTestId('location')).toHaveTextContent(
-        `/organizations/${ids.alfa}/settings/teams`,
-      ),
+      expect(screen.getByTestId('location')).toHaveTextContent(`/organizations/${ids.alfa}/teams`),
     );
     expect(await screen.findByRole('table', { name: 'Команды организации' })).toBeInTheDocument();
   });
@@ -154,7 +152,7 @@ describe('feat-028 US-3 Scenario: A team’s projects', () => {
     expect(rows.map((row) => row.textContent)).toEqual(['Пример проектаPRM']);
     expect(within(rows[0]!).getByRole('link', { name: 'Пример проекта' })).toHaveAttribute(
       'href',
-      `/organizations/${ids.alfa}/projects/${ids.prm}/settings/teams`,
+      `/organizations/${ids.alfa}/projects/${ids.prm}/teams`,
     );
   });
 

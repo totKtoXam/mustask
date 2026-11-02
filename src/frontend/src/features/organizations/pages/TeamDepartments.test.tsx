@@ -5,10 +5,10 @@ import { PROJECTS_URL, TEAM_AREAS_URL, ids, noAreasDataset, problem } from '../t
 import { serveOrganizations, serveProblem } from '../testApi';
 import { renderPage } from '../testRender';
 
-const PRM_GENERAL = `/organizations/${ids.alfa}/projects/${ids.prm}/settings/general`;
-const PLATFORM_TEAM = `/organizations/${ids.alfa}/settings/teams/${ids.platformTeam}`;
-const ALFA_PROJECTS = `/organizations/${ids.alfa}/settings/projects`;
-const ALFA_TEAMS = `/organizations/${ids.alfa}/settings/teams`;
+const PRM_GENERAL = `/organizations/${ids.alfa}/projects/${ids.prm}/general`;
+const PLATFORM_TEAM = `/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview`;
+const ALFA_PROJECTS = `/organizations/${ids.alfa}/projects`;
+const ALFA_TEAMS = `/organizations/${ids.alfa}/teams`;
 
 describe('mod-018 design § 6: «Департаменты» of a team’s page', () => {
   it('sits between the projects and the members, and lists the team’s departments', async () => {
@@ -18,7 +18,7 @@ describe('mod-018 design § 6: «Департаменты» of a team’s page',
     const departments = await screen.findByRole('table', { name: 'Департаменты команды' });
     expect(within(departments).getByRole('link', { name: 'Платформа' })).toHaveAttribute(
       'href',
-      `/organizations/${ids.alfa}/settings/areas/${ids.platformArea}`,
+      `/organizations/${ids.alfa}/areas/${ids.platformArea}/overview`,
     );
     const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent ?? '');
     const at = (title: string) => headings.findIndex((text) => text.startsWith(title));

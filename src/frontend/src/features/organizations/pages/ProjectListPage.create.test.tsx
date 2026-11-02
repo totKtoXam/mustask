@@ -5,7 +5,7 @@ import { exampleDataset, ids, noTeamsDataset } from '../testFixtures';
 import { serveOrganizations } from '../testApi';
 import { renderPage } from '../testRender';
 
-const ALFA_PROJECTS = `/organizations/${ids.alfa}/settings/projects`;
+const ALFA_PROJECTS = `/organizations/${ids.alfa}/projects`;
 
 async function openCreate() {
   const api = serveOrganizations();

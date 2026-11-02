@@ -25,12 +25,12 @@ import { renderPage } from '../testRender';
 // again, the primary disabled, «Отмена» working.
 
 const ALFA_GENERAL = `/organizations/${ids.alfa}/settings/general`;
-const ALFA_PROJECTS = `/organizations/${ids.alfa}/settings/projects`;
-const PRM_GENERAL = `/organizations/${ids.alfa}/projects/${ids.prm}/settings/general`;
-const PRM_TEAMS = `/organizations/${ids.alfa}/projects/${ids.prm}/settings/teams`;
-const ALFA_TEAMS = `/organizations/${ids.alfa}/settings/teams`;
-const PLATFORM_PAGE = `/organizations/${ids.alfa}/settings/teams/${ids.platformTeam}`;
-const ALFA_AREAS = `/organizations/${ids.alfa}/settings/areas`;
+const ALFA_PROJECTS = `/organizations/${ids.alfa}/projects`;
+const PRM_GENERAL = `/organizations/${ids.alfa}/projects/${ids.prm}/general`;
+const PRM_TEAMS = `/organizations/${ids.alfa}/projects/${ids.prm}/teams`;
+const ALFA_TEAMS = `/organizations/${ids.alfa}/teams`;
+const PLATFORM_PAGE = `/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview`;
+const ALFA_AREAS = `/organizations/${ids.alfa}/areas`;
 const NEW_ORGANIZATION = 'a0000000-0000-4000-8000-0000000000aa';
 
 const REFUSED = 'Недостаточно прав';
@@ -76,7 +76,7 @@ describe.each(ROLES)(
     it('«Проекты» of an organization with none: the heading stays, the hint is the holder’s or says who creates projects, and the action is the holder’s', async () => {
       const api = serveOrganizations();
       api.data.organizations.push({ id: NEW_ORGANIZATION, name: 'Новая', active: true });
-      renderPage({ path: `/organizations/${NEW_ORGANIZATION}/settings/projects`, role });
+      renderPage({ path: `/organizations/${NEW_ORGANIZATION}/projects`, role });
 
       expect(
         await screen.findByRole('heading', { level: 2, name: 'Пока нет проектов' }),

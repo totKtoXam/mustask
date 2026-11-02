@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components -- a test-only module:
    the probe lives beside the helper that mounts it. */
 import { StrictMode } from 'react';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation, useSearchParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import { vi } from 'vitest';
@@ -22,11 +22,9 @@ import { OrganizationTeamsPage } from './pages/OrganizationTeamsPage';
 import { TeamPage } from './pages/TeamPage';
 import { TeamsPage } from './pages/TeamsPage';
 import {
-  AREAS_ROUTE,
   ORG_AREAS_ROUTE,
   ORG_AREA_ROUTE,
   DEACTIVATED_ORGANIZATIONS_ROUTE,
-  DEACTIVATED_PROJECTS_ROUTE,
   MEMBERS_ROUTE,
   ORGANIZATIONS_ROUTE,
   ORGANIZATION_GENERAL_ROUTE,
@@ -37,6 +35,18 @@ import {
   TEAMS_ROUTE,
 } from './paths';
 import { organizationsPermissions } from './permissions';
+
+/** The unrouted project areas page keeps its old address here, for its own tests. */
+export const PROJECT_AREAS_TEST_ROUTE =
+  '/organizations/:organizationId/projects/:projectId/settings/areas';
+
+/** «Проекты»: `?status=deactivated` is the administrator's other view, as the product routes it. */
+function ProjectsView() {
+  const [params] = useSearchParams();
+  return (
+    <ProjectListPage view={params.get('status') === 'deactivated' ? 'deactivated' : 'active'} />
+  );
+}
 
 /** Shows the router's address, so a test reads where an action led. */
 export function LocationProbe() {
@@ -58,7 +68,6 @@ export function contextSource(overrides: Partial<WorkContextSource> = {}): WorkC
     organizations: [],
     selection: {},
     isReal: true,
-    select: vi.fn(),
     ...overrides,
   };
 }
@@ -153,17 +162,13 @@ export function renderPage({
                       path={ORGANIZATION_GENERAL_ROUTE}
                       element={<OrganizationGeneralPage />}
                     />
-                    <Route path={PROJECTS_ROUTE} element={<ProjectListPage view="active" />} />
-                    <Route
-                      path={DEACTIVATED_PROJECTS_ROUTE}
-                      element={<ProjectListPage view="deactivated" />}
-                    />
+                    <Route path={PROJECTS_ROUTE} element={<ProjectsView />} />
                     <Route path={MEMBERS_ROUTE} element={<MembersPage />} />
                     <Route path={PROJECT_GENERAL_ROUTE} element={<ProjectGeneralPage />} />
                     <Route path={TEAMS_ROUTE} element={<TeamsPage />} />
                     <Route path={ORG_TEAMS_ROUTE} element={<OrganizationTeamsPage />} />
                     <Route path={ORG_TEAM_ROUTE} element={<TeamPage />} />
-                    <Route path={AREAS_ROUTE} element={<ProjectAreasPage />} />
+                    <Route path={PROJECT_AREAS_TEST_ROUTE} element={<ProjectAreasPage />} />
                     <Route path={ORG_AREAS_ROUTE} element={<AreasPage />} />
                     <Route path={ORG_AREA_ROUTE} element={<AreaPage />} />
                     <Route path="*" element={<p>Другая страница</p>} />

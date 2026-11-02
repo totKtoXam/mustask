@@ -11,7 +11,7 @@ import { PLATFORM_TEAM_PATH, openPage, pickUser, rowsOf, searchUsers } from '../
 // mod-016 US-3, design § 4: «Участники команды» on the team page — states,
 // the add dialog, the immediate removal and the role views.
 
-const PRM_FIRST_TEAM_PATH = `/organizations/${ids.alfa}/settings/teams/${ids.prmTeam}`;
+const PRM_FIRST_TEAM_PATH = `/organizations/${ids.alfa}/teams/${ids.prmTeam}/overview`;
 const TEAM = 'Участник организации';
 const MEMBERS_URL = `${ORGANIZATIONS_URL}/:organizationId/teams/:teamId/members`;
 

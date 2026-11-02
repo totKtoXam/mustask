@@ -210,7 +210,6 @@ export function sourceOf(
     organizations,
     selection,
     isReal: true,
-    select: () => {},
     fallback: fallback ? { id: 1, names: ['x'] } : null,
   };
 }

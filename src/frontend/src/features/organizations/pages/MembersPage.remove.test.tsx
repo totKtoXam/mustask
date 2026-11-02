@@ -161,7 +161,7 @@ describe('mod-016 design § 3.7, § 9: the refusals of a removal', () => {
     );
     expect(screen.getByRole('dialog', { name: 'Удалить себя из организации?' })).toBeVisible();
     expect(screen.queryByTestId('location')).toHaveTextContent(
-      `/organizations/${ids.alfa}/settings/members`,
+      `/organizations/${ids.alfa}/members`,
     );
   });
 

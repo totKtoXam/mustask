@@ -5,7 +5,7 @@ import { exampleDataset, ids } from '../testFixtures';
 import { serveOrganizations } from '../testApi';
 import { contextSource, renderPage } from '../testRender';
 
-const PRM_GENERAL = `/organizations/${ids.alfa}/projects/${ids.prm}/settings/general`;
+const PRM_GENERAL = `/organizations/${ids.alfa}/projects/${ids.prm}/general`;
 
 async function facts(name = 'Пример проекта') {
   await screen.findByText(name);
@@ -250,7 +250,7 @@ describe('mod-002 US-3 Scenario: A project id that names no project of the organ
     ['a deactivated organization', ids.gamma, ids.arc, 'Организация не найдена'],
   ])('%s answers «%s»', async (_case, organizationId, projectId, heading) => {
     serveOrganizations();
-    renderPage({ path: `/organizations/${organizationId}/projects/${projectId}/settings/general` });
+    renderPage({ path: `/organizations/${organizationId}/projects/${projectId}/general` });
 
     expect(await screen.findByRole('heading', { level: 1, name: heading })).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);

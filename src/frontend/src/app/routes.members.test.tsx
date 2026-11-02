@@ -17,7 +17,7 @@ import { AppRoutes } from './routes';
 // changing under an open page, the page the user is removed from, and the
 // notices of the shell beside the page's own.
 
-const MEMBERS = `/organizations/${ids.alfa}/settings/members`;
+const MEMBERS = `/organizations/${ids.alfa}/members`;
 
 function renderMembers({
   role = 'admin' as TestRole,
@@ -53,38 +53,40 @@ async function settledTable() {
   return table;
 }
 
-function settingsLinks(): string[] {
-  return within(screen.getByRole('navigation', { name: 'Меню настроек' }))
+function mainLinks(): string[] {
+  return within(screen.getByRole('navigation', { name: 'Основное меню' }))
     .getAllByRole('link')
-    .map((link) => link.textContent ?? '');
+    .map((link) => link.getAttribute('aria-label') ?? link.textContent ?? '');
 }
 
 describe('mod-016 US-4 Scenario: «Участники» in the navigation and under the gate', () => {
+  // feat-043: «Участники» is an entry of the organization's menu, no longer of the settings.
   it.each(['admin', 'member', 'viewer'] as const)(
-    'a %s finds «Участники» between «Области» and «Процесс» and reads the table',
+    'a %s finds «Участники» last in the organization’s menu and reads the table',
     async (role) => {
       renderMembers({ role });
 
       await settledTable();
 
-      expect(settingsLinks().slice(0, 6)).toEqual([
-        'Общие',
-        'Проекты',
-        'Команды',
-        'Области',
-        'Участники',
-        'Процесс',
-      ]);
+      await waitFor(() =>
+        expect(mainLinks()).toEqual([
+          'Главная',
+          'Обзор',
+          'Области',
+          'Проекты',
+          'Команды',
+          'Участники',
+          'Настройки',
+        ]),
+      );
       expect(
-        within(screen.getByRole('navigation', { name: 'Меню настроек' })).getByRole('link', {
+        within(screen.getByRole('navigation', { name: 'Основное меню' })).getByRole('link', {
           name: 'Участники',
           current: 'page',
         }),
       ).toBeVisible();
       expect(screen.getByRole('heading', { level: 1, name: 'Участники' })).toBeVisible();
-      expect(screen.getByRole('navigation', { name: 'Путь к странице' })).toHaveTextContent(
-        'Настройки/Организация',
-      );
+      expect(screen.queryByRole('navigation', { name: 'Меню настроек' })).not.toBeInTheDocument();
       const canWrite = role === 'admin';
       expect(screen.queryByRole('button', { name: 'Добавить участника' }) !== null).toBe(canWrite);
       expect(screen.queryAllByRole('button', { name: /^Действия: / })).toHaveLength(
@@ -94,7 +96,7 @@ describe('mod-016 US-4 Scenario: «Участники» in the navigation and un
   );
 
   it('answers «Организация не найдена» to a user who is not a member, with no table', async () => {
-    renderMembers({ path: `/organizations/${ids.gamma}/settings/members` });
+    renderMembers({ path: `/organizations/${ids.gamma}/members` });
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Организация не найдена' }),

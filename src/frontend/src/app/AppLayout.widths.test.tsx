@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { authValue, LANGUAGES_READ, renderShell } from '../test/renderShell';
+import { authValue, LANGUAGES_READ, renderShell, SELECTORS_SOURCE } from '../test/renderShell';
 import { setReducedMotion, setViewportWidth } from '../test/viewport';
 import { KEPT_CHOICE_KEY } from './navigation/keptChoice';
 import { theme } from './theme';
@@ -274,7 +274,11 @@ describe('US-4 Scenario: Reduced motion', () => {
 describe('US-12 Scenario: Reflow at 200 % zoom (D-8) — what yields below 1024 px (design § 3.6)', () => {
   it('moves the trail out of the top bar into the page header, with the same name and links', () => {
     setViewportWidth(640);
-    renderShell({ path: '/dictionaries/languages/new', auth: authValue(reader) });
+    renderShell({
+      path: '/dictionaries/languages/new',
+      auth: authValue(reader),
+      contextSource: SELECTORS_SOURCE,
+    });
 
     const banner = screen.getByRole('banner');
     expect(
@@ -291,11 +295,17 @@ describe('US-12 Scenario: Reflow at 200 % zoom (D-8) — what yields below 1024 
     for (const name of [
       'Меню',
       'Организация: Пример организации 1',
-      'Проект: Пример проекта 1',
-      'Команда: Пример команды 1',
+      'Департамент: все',
+      'Команда: все',
+      'Проект: все',
       'Профиль: Иван Петров',
     ]) {
-      expect(within(banner).getByRole('button', { name })).toBeInTheDocument();
+      expect(
+        within(banner).getByRole(
+          name === 'Меню' || name.startsWith('Профиль') ? 'button' : 'combobox',
+          { name },
+        ),
+      ).toBeInTheDocument();
     }
   });
 });

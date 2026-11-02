@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Route } from 'react-router-dom';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
@@ -50,7 +50,6 @@ function source(overrides: Partial<WorkContextSource> = {}): WorkContextSource {
     ],
     selection: { organizationId: ORG, projectId: 'p1', teamId: 't1' },
     isReal: true,
-    select: vi.fn(),
     ...overrides,
   };
 }
@@ -89,25 +88,20 @@ describe('mod-016 US-4 Scenario: the three roles see the same navigation', () =>
       renderShell({ path: GENERAL, auth, contextSource: source(), routes, access: role });
 
       const menu = await screen.findByRole('navigation', { name: 'Меню настроек' });
-      // «Области» (mod-018) follows «Команды»; «Участники» sits between «Области» and «Процесс» (design § 6.1): its
-      // code is a read code every role holds.
+      // The organization's «Общие» and «Процесс», a «Параметры» for the team and the project chosen
+      // (feat-043 ADR-0032 § 2), then the dictionaries and the showcase.
+      // «Параметры» asks the object's write code, which only the administrator holds.
       expect(linksOf(menu)).toEqual([
         'Общие',
-        'Проекты',
-        'Команды',
-        'Области',
-        'Участники',
         'Процесс',
-        'Общие',
-        'Команды',
-        'Области',
+        ...(role === 'admin' ? ['Параметры', 'Параметры'] : []),
         'Языки',
         'Витрина компонентов',
       ]);
       // The main menu is a rail beside the settings navigation: its links are
       // named by their label, not by text.
       const main = screen.getByRole('navigation', { name: 'Основное меню' });
-      for (const name of ['Главная', 'Рабочие элементы', 'Канбан', 'Бэклоги']) {
+      for (const name of ['Главная', 'Рабочие элементы', 'Канбан', 'Бэклог']) {
         expect(within(main).getByRole('link', { name })).toBeInTheDocument();
       }
     },
@@ -126,7 +120,7 @@ describe('mod-016 design § 6.1 Scenario: unread codes hide the organization’s
     expect(main.querySelectorAll('[aria-current]')).toHaveLength(0);
     // No organization-scoped work entry either.
     expect(within(main).queryByRole('link', { name: 'Рабочие элементы' })).not.toBeInTheDocument();
-    expect(within(main).queryByRole('link', { name: 'Бэклоги' })).not.toBeInTheDocument();
+    expect(within(main).queryByRole('link', { name: 'Бэклог' })).not.toBeInTheDocument();
 
     open.open();
 
@@ -150,7 +144,7 @@ describe('mod-016 design § 6.1 Scenario: unread codes hide the organization’s
 
     open.open();
 
-    await waitFor(() => expect(linksOf(menu)).toHaveLength(11));
+    await waitFor(() => expect(linksOf(menu)).toHaveLength(6));
     expect(within(menu).getByText('Организация')).toBeInTheDocument();
     expect(within(menu).getByText('Проект')).toBeInTheDocument();
   });
@@ -202,7 +196,7 @@ describe('mod-016 design § 2.2 Scenario: the navigation follows the served answ
       access: 'admin',
     });
     const menu = await screen.findByRole('navigation', { name: 'Меню настроек' });
-    await waitFor(() => expect(linksOf(menu)).toHaveLength(11));
+    await waitFor(() => expect(linksOf(menu)).toHaveLength(6));
 
     act(() => {
       queryClient.setQueryData(organizationsKeys.access(ORG), { kind: 'not-member' });

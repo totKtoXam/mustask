@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Route } from 'react-router-dom';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -30,7 +30,6 @@ function source(overrides: Partial<WorkContextSource> = {}): WorkContextSource {
     ],
     selection: { organizationId: ORG },
     isReal: true,
-    select: vi.fn(),
     ...overrides,
   };
 }

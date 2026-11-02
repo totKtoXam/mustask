@@ -56,55 +56,12 @@ export const ALLOWED: readonly AllowedEntry[] = [
       'a selector into MUI’s inner classes; the shell and its plain screens move to the kit in tech-019',
   },
   {
-    file: 'app/shell/ContextSwitcher.tsx',
-    rule: 'KIT-2',
-    count: 3,
-    until: 'tech-019',
-    reason: 'a MUI button; the shell and its plain screens move to the kit in tech-019',
-  },
-  {
-    file: 'app/shell/ContextSwitcher.tsx',
-    rule: 'KIT-3',
-    count: 5,
-    until: 'tech-019',
-    reason: 'a MUI menu; the shell and its plain screens move to the kit in tech-019',
-  },
-  {
-    file: 'app/shell/ContextSwitcher.tsx',
-    rule: 'KIT-4',
-    count: 2,
-    until: 'tech-019',
-    reason: 'a MUI snackbar; the shell and its plain screens move to the kit in tech-019',
-  },
-  {
-    file: 'app/shell/ContextSwitcher.tsx',
-    rule: 'KIT-5',
-    count: 2,
-    until: 'tech-019',
-    reason: 'a MUI alert; the shell and its plain screens move to the kit in tech-019',
-  },
-  {
-    file: 'app/shell/ContextSwitcher.tsx',
-    rule: 'KIT-10',
-    count: 2,
-    until: 'tech-019',
-    reason:
-      'a MUI skeleton or spinner; the shell and its plain screens move to the kit in tech-019',
-  },
-  {
     file: 'app/shell/MainNavigation.tsx',
     rule: 'KIT-15',
     count: 1,
     until: 'tech-019',
     reason:
       'a selector into MUI’s inner classes; the shell and its plain screens move to the kit in tech-019',
-  },
-  {
-    file: 'app/shell/TopBar.tsx',
-    rule: 'KIT-2',
-    count: 2,
-    until: 'tech-019',
-    reason: 'a MUI button; the shell and its plain screens move to the kit in tech-019',
   },
   {
     file: 'app/shell/UserMenu.tsx',

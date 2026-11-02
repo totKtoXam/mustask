@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Route } from 'react-router-dom';
-import { screen, within } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { LanguagesRegistryPage } from '../features/dictionaries';
@@ -32,6 +32,15 @@ describe('US-5 Scenario: Screens of this task ignore the context (BR-18)', () =>
     renderShell({
       path: '/dictionaries/languages',
       auth: authValue([LANGUAGES_READ]),
+      contextSource: {
+        status: 'ready',
+        organizations: [
+          { id: 'org-1', name: 'Пример организации 1', projects: [], teams: [] },
+          { id: 'org-2', name: 'Пример организации 2', projects: [], teams: [] },
+        ],
+        selection: { organizationId: 'org-1' },
+        isReal: true,
+      },
       routes: <Route path="/dictionaries/languages" element={<LanguagesRegistryPage />} />,
     });
     expect(await screen.findByText('Русский')).toBeInTheDocument();
@@ -40,14 +49,12 @@ describe('US-5 Scenario: Screens of this task ignore the context (BR-18)', () =>
     const requestsBefore = requests.length;
     expect(requestsBefore).toBeGreaterThan(0);
 
-    await userEvent.click(screen.getByRole('button', { name: /^Организация:/ }));
-    await userEvent.click(
-      within(screen.getByRole('menu')).getByRole('menuitemradio', { name: 'Пример организации 2' }),
-    );
+    // feat-043: choosing an organization now opens its «Обзор» (ADR-0032 § 5), so the context no
+    // longer stays out of the address; what holds is that the selectors read nothing of the page.
+    await userEvent.click(screen.getByRole('combobox', { name: /^Организация:/ }));
+    expect(await screen.findByRole('option', { name: 'Пример организации 2' })).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
 
-    expect(
-      screen.getByRole('button', { name: 'Организация: Пример организации 2' }),
-    ).toBeInTheDocument();
     expect(screen.getByTestId('location')).toHaveTextContent('/dictionaries/languages');
     expect(screen.getAllByRole('row').map((row) => row.textContent)).toEqual(rows);
     expect(screen.getByRole('navigation', { name: 'Меню настроек' }).innerHTML).toBe(navigation);

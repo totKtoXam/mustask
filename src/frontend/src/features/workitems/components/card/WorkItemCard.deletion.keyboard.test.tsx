@@ -2,13 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { deleteRecord, recordOf, stateId, type Dataset } from '../../testFixtures';
-import {
-  chooseFromMenu,
-  dialogTitled,
-  noDialog,
-  openAs,
-  postsTo,
-} from './testDeletion';
+import { chooseFromMenu, dialogTitled, noDialog, openAs, postsTo } from './testDeletion';
 
 // mod-005 QA: the keys of the three dialogs (design § 3, § 5, § 6, § 11). Enter must never confirm a
 // deletion, a restore or a purge the user has not reached with a control: the Delete dialog opens

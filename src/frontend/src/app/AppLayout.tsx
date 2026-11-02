@@ -9,17 +9,12 @@ import { useAuth } from '../features/auth/AuthContext';
 import {
   useAccessWatcher,
   useOrganizationAccess,
-  useOrganizationsContextSource,
   useServedAccessCheck,
 } from '../features/organizations';
 import { AccessCheckContext } from '../shared/lib/access';
 import { MAIN_REGION_ID } from '../shared/lib/mainRegion';
 import { NoticeCornerContext } from '../shared/lib/noticeCorner';
-import {
-  WorkContextContext,
-  type SwitchTargetResolver,
-  type WorkContextSource,
-} from '../shared/lib/workContext';
+import { WorkContextContext, type WorkContextSource } from '../shared/lib/workContext';
 import { NoticeProvider } from '../shared/ui';
 import {
   PageChromeContext,
@@ -27,8 +22,8 @@ import {
   type TrailPlacement,
   type TrailSegment,
 } from '../shared/ui/pageChrome';
-import { useNavigationModel } from './navigation/NavigationModelContext';
-import { switchTarget } from './navigation/switchTarget';
+import { buildNavigationModel } from './navigation/model';
+import { useNavigationSource } from './navigation/useNavigationSource';
 import { useNavigationLayout } from './navigation/useNavigationLayout';
 import { deriveTrail, isSettingsPage, visibleModel } from './navigation/visibility';
 import { MainNavigation } from './shell/MainNavigation';
@@ -79,8 +74,8 @@ function navigationDrawerSx(width: (theme: Theme) => number, left?: (theme: Them
 
 export interface AppLayoutProps {
   /**
-   * The organization/project/team source: mod-002's real lists unless a
-   * component test passes a stub (design § 5.7; mod-002 D-o).
+   * The organization and selector-offers source, read from the address (feat-043): the real
+   * reads unless a component test passes a stub.
    */
   contextSource?: WorkContextSource;
 }
@@ -107,28 +102,21 @@ export interface AppLayoutProps {
  */
 export function AppLayout({ contextSource }: AppLayoutProps) {
   const { can, subject } = useAuth();
-  const model = useNavigationModel();
   const { pathname } = useLocation();
 
   // Instance codes come from the token (ADR-0018); organization codes from
   // the served access in the tab's cache (design § 2.6). Unread, failed or
   // answered 404: "no".
-  const { access, isCodesRead } = useServedAccessCheck(can);
+  const { access } = useServedAccessCheck(can);
 
-  // The switcher-data registry (mod-002 D-n, D-o): the organizations slice's
-  // source, handed the switch-target resolver the navigation model gives.
-  const resolveSwitchTarget = useCallback<SwitchTargetResolver>(
-    (request) => switchTarget(model, access, request, isCodesRead),
-    [model, access, isCodesRead],
-  );
-  const realSource = useOrganizationsContextSource({
-    enabled: contextSource === undefined,
-    subject,
-    resolveSwitchTarget,
-  });
+  // The selectors' source (feat-043): the user's organizations and selector-offers, with the
+  // selection read from the address.
+  const realSource = useNavigationSource({ enabled: contextSource === undefined, subject });
   const source = contextSource ?? realSource;
 
   const { isReal, selection } = source;
+  // The menu of the most specific chosen object and the settings navigation (ADR-0032 § 2).
+  const model = useMemo(() => buildNavigationModel(selection), [selection]);
   // The access of the switcher's selection, for the navigation's entries; a
   // placeholder context reads nothing.
   useOrganizationAccess(selection.organizationId, { enabled: isReal });

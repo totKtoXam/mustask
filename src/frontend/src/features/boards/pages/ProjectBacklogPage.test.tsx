@@ -314,7 +314,6 @@ describe('US-1 Scenario: The project’s head has no team drop-down (feat-040 BR
         organizations: [],
         selection: {},
         isReal: true,
-        select: () => {},
       },
     });
 
@@ -333,9 +332,12 @@ describe('US-1 Scenario: The shell on a project’s backlog (BR-PB-9)', () => {
       await screen.findByRole('heading', { level: 1, name: 'Мастаск' });
 
       const navigation = screen.getByRole('navigation', { name: 'Основное меню' });
-      const backlogs = within(navigation).getByRole('link', { name: 'Бэклоги' });
+      const backlogs = within(navigation).getByRole('link', { name: 'Бэклог' });
       expect(backlogs).toHaveAttribute('aria-current', 'page');
-      expect(backlogs).toHaveAttribute('href', backlogAddress('stories'));
+      expect(backlogs).toHaveAttribute(
+        'href',
+        `${projectBacklogAddress('stories')}?teamId=${ids.platformTeam}`,
+      );
       expect(within(navigation).getByRole('link', { name: 'Канбан' })).not.toHaveAttribute(
         'aria-current',
       );

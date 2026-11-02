@@ -16,7 +16,7 @@ import {
   storiesDataset,
 } from '../testFixtures';
 import { chooseLevel, levelButton, levelMenu } from '../testLevels';
-import { backlogAddress, mskForm, renderBoards, teamPrefix } from '../testRender';
+import { backlogAddress, mskForm, renderBoards, teamContext, teamPrefix } from '../testRender';
 
 /** US-1's first scenario's items, with MSK-US-7 in «Отчёты», which has no owner of its own. */
 function membershipDataset() {
@@ -132,10 +132,10 @@ describe('US-1 Scenario: A row shows the item at a glance and opens it (feat-027
 describe('US-1 Scenario: The level is chosen by the level drop-down and kept in the address (feat-001 US-6)', () => {
   it('«Бэклоги» in the main navigation opens the team’s «Истории», and each level is its own address', async () => {
     serveBoards(storiesDataset());
-    renderBoards(mskForm('MSK-US-3'));
+    renderBoards(mskForm('MSK-US-3'), { context: teamContext({ projectId: undefined }) });
 
     const navigation = screen.getByRole('navigation', { name: 'Основное меню' });
-    const entry = within(navigation).getByRole('link', { name: 'Бэклоги' });
+    const entry = within(navigation).getByRole('link', { name: 'Бэклог' });
     expect(entry).toHaveAttribute('href', backlogAddress('stories'));
     await userEvent.click(entry);
 
@@ -161,7 +161,7 @@ describe('US-1 Scenario: The level is chosen by the level drop-down and kept in 
     await chooseLevel('Фичи');
     expect(screen.getByTestId('location')).toHaveTextContent(backlogAddress('features'));
     expect(levelButton()).toHaveAccessibleName('Уровень: Фичи');
-    expect(within(navigation).getByRole('link', { name: 'Бэклоги' })).toHaveAttribute(
+    expect(within(navigation).getByRole('link', { name: 'Бэклог' })).toHaveAttribute(
       'aria-current',
       'page',
     );

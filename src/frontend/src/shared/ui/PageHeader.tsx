@@ -446,8 +446,12 @@ function PageViews({
   end?: ReactNode;
   variant?: 'team';
 }) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  // Views of one path told apart by the query (feat-043: «Проекты» and its deactivated view):
+  // the address with its query first, then the view with no query, then the path alone.
   const selected =
+    views.find((view) => view.to === pathname + search) ??
+    views.find((view) => pathOfView(view.to) === pathname && !view.to.includes('?')) ??
     views.find((view) => pathOfView(view.to) === pathname) ??
     [...views]
       .sort((first, second) => pathOfView(second.to).length - pathOfView(first.to).length)

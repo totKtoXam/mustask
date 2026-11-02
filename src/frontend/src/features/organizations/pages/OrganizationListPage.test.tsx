@@ -44,7 +44,7 @@ describe('mod-002 US-1 Scenario: Every signed-in user sees every organization', 
 
     const rows = within(await table('Активные организации')).getAllByRole('link');
     expect(rows.map((link) => link.textContent)).toEqual(['Альфа', 'Бета']);
-    expect(rows[0]).toHaveAttribute('href', `/organizations/${ids.alfa}/settings/projects`);
+    expect(rows[0]).toHaveAttribute('href', `/organizations/${ids.alfa}/projects`);
     expect(screen.getByRole('tab', { name: 'Активные' })).toHaveAttribute('aria-selected', 'true');
   });
 });

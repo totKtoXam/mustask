@@ -4,10 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AuthContext } from '../features/auth/AuthContext';
-import {
-  exampleDataset as organizationsDataset,
-  ids as organizationIds,
-} from '../features/organizations/testFixtures';
+import { ids as organizationIds } from '../features/organizations/testFixtures';
 import { serveOrganizations } from '../features/organizations/testApi';
 import { serveWorkItems } from '../features/workitems/testApi';
 import { emptyDataset, item, type Dataset } from '../features/workitems/testFixtures';
@@ -104,7 +101,7 @@ describe('mod-003 the two routes in the shell', () => {
       within(mainNavigation()).getByRole('link', { name: 'Рабочие элементы' }),
     ).toHaveAttribute('aria-current', 'true');
     const switcher = screen.getByRole('group', { name: 'Контекст работы' });
-    expect(within(switcher).getByRole('button', { name: /^Проект:/ })).toHaveAttribute(
+    expect(within(switcher).getByRole('combobox', { name: /^Проект:/ })).toHaveAttribute(
       'aria-label',
       'Проект: Пример проекта',
     );
@@ -120,9 +117,7 @@ describe('mod-003 US-2 Scenario: The navigation leads to the chosen project’s 
   it('«Рабочие элементы» in the main navigation opens the chosen project’s list', async () => {
     serveOrganizations();
     serveWorkItems(alfaDataset());
-    renderRoutes(
-      `/organizations/${organizationIds.alfa}/projects/${organizationIds.prm}/settings/general`,
-    );
+    renderRoutes(`/organizations/${organizationIds.alfa}/projects/${organizationIds.prm}/general`);
 
     const entry = await within(mainNavigation()).findByRole('link', { name: 'Рабочие элементы' });
     await userEvent.click(entry);
@@ -133,22 +128,18 @@ describe('mod-003 US-2 Scenario: The navigation leads to the chosen project’s 
     ).toBeInTheDocument();
   });
 
-  it('with no project in the switcher, the entry is not shown', async () => {
-    const data = organizationsDataset();
-    data.projects = data.projects.filter(
-      (project) => project.organizationId !== organizationIds.beta,
-    );
-    serveOrganizations(data);
-    renderRoutes(`/organizations/${organizationIds.beta}/settings/general`);
+  it('with no project chosen, the entry is not shown: the organization’s menu has «Проекты»', async () => {
+    serveOrganizations();
+    renderRoutes(`/organizations/${organizationIds.beta}/overview`);
 
-    await screen.findByRole('heading', { level: 1, name: 'Общие' });
+    await screen.findByRole('heading', { level: 1, name: 'Обзор' });
     const switcher = await screen.findByRole('group', { name: 'Контекст работы' });
-    expect(await within(switcher).findByText('Нет проектов')).toBeInTheDocument();
+    expect(
+      await within(switcher).findByRole('combobox', { name: 'Проект: все' }),
+    ).toBeInTheDocument();
     // The organization-scoped entries are shown, so the navigation has its real context.
     expect(
-      within(screen.getByRole('navigation', { name: 'Меню настроек' })).getByRole('link', {
-        name: 'Проекты',
-      }),
+      await within(mainNavigation()).findByRole('link', { name: 'Проекты' }),
     ).toBeInTheDocument();
     expect(
       within(mainNavigation()).queryByRole('link', { name: 'Рабочие элементы' }),

@@ -31,10 +31,15 @@ import { organizationsKeys } from '../api/queryKeys';
 // One query hook per read (api-contract § 1–§ 4), on the keys the switcher
 // shares (plan-frontend § 3.3).
 
-export function useOrganizations(view: ListView) {
+export function useOrganizations(
+  view: ListView,
+  options: { enabled?: boolean; refetchOnWindowFocus?: boolean } = {},
+) {
   return useQuery({
     queryKey: organizationsKeys.organizations(view),
     queryFn: () => getOrganizations(view),
+    enabled: options.enabled ?? true,
+    refetchOnWindowFocus: options.refetchOnWindowFocus,
   });
 }
 

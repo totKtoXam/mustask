@@ -6,28 +6,9 @@ import type { WorkContextSelection } from '../../shared/lib/workContext';
 export type NavigationScope = PermissionScope;
 
 /**
- * The pages of an entry that live at the project level and name no team
- * (feat-039 BR-PB-9): a project's backlog and board, which are pages of the
- * team-scoped entries «Бэклоги» and «Канбан» their names say.
- */
-export interface ProjectViews {
-  /** Whether the address is one of the entry's project pages. */
-  matches(pathname: string): boolean;
-  /**
-   * The same page, at the same level, of the selection's project: the address a
-   * switch of project or organization opens, and what a marker compares the
-   * address with so that a page of another project is not the selection's page.
-   * `null` when the selection has no project, which a switch to an organization
-   * with none leaves to «Главная».
-   */
-  retarget(pathname: string, selection: WorkContextSelection): string | null;
-}
-
-/**
- * One navigation entry (design § 4.1). Being in the model is what "its page
- * exists in the build" means (BR-7, plan § 9 D-19): a line adds its entry
- * when it builds the page. A settings entry is exactly this: it carries no
- * icon (design § 4.1).
+ * One navigation entry (feat-043 ADR-0032 § 2). The model is built from the address model for
+ * the current selection (`buildNavigationModel`), so being in it is what "the page exists" means:
+ * an entry is absent, not disabled, until a line adds its row. A settings entry carries no icon.
  */
 export interface NavigationEntry {
   id: string;
@@ -36,31 +17,24 @@ export interface NavigationEntry {
   /** The code the shared check must pass; none: any signed-in user. */
   permission?: string;
   /**
-   * The entry's landing address in the current context; `null` when the
-   * context lacks the level the scope needs (BR-18 prefixes).
+   * The entry's landing address in the current context; `null` when the context lacks the
+   * level the scope needs.
    */
   landing(selection: WorkContextSelection): string | null;
   /**
-   * The addresses of the entry's page's other views, when they are siblings
-   * of the landing rather than beneath it — mod-006's level tabs
-   * (`…/backlogs/epics` beside the landing `…/backlogs/stories`). Each is the
-   * entry's page as the landing is: marked `page`, no trail, and the switcher
-   * moves it to the landing in the new context. Absent: the landing alone.
+   * The route patterns that are the entry's page (marked `page`), matched by the router's own
+   * `matchPath` (bug-003: case and percent-encoding ignored as the router ignores them). A
+   * board or backlog entry lists its `:level` pattern.
    */
-  views?(selection: WorkContextSelection): readonly string[];
-  /**
-   * The entry's pages at the project level, which carry no team in the address
-   * (feat-039 BR-PB-9). Each is the entry's page as the landing is — marked `page`,
-   * no trail — and a switch of project or organization keeps the page and its level
-   * instead of moving it to the landing. Absent: the entry has none.
-   */
-  projectViews?: ProjectViews;
+  pages: readonly string[];
+  /** The patterns of pages beneath the entry (marked `true`): a work item beneath its list. */
+  beneath?: readonly string[];
 }
 
 /**
- * An entry of «Основное меню»: «Главная» and the work hubs. The icon is
- * required, because the rail shows nothing else (design § 4.3); a main entry
- * registered without one does not compile.
+ * An entry of «Основное меню»: «Главная» and the menu of the most specific chosen object. The
+ * icon is required, because the rail shows nothing else (design § 4.3); a main entry registered
+ * without one does not compile.
  */
 export interface MainNavigationEntry extends NavigationEntry {
   icon: SvgIconComponent;
@@ -77,7 +51,7 @@ export interface SettingsSection {
 export interface NavigationModel {
   /** «Главная». */
   top: readonly MainNavigationEntry[];
-  /** The work hubs: «Рабочие элементы», «Канбан», «Бэклоги»… — as their pages are built. */
+  /** The sections of the most specific chosen object (the left menu). */
   work: readonly MainNavigationEntry[];
   settings: readonly SettingsSection[];
 }

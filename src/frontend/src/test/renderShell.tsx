@@ -7,10 +7,6 @@ import { render } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { vi } from 'vitest';
 import { AppLayout } from '../app/AppLayout';
-import { navigationModel } from '../app/navigation/model';
-import { NavigationModelContext } from '../app/navigation/NavigationModelContext';
-import type { NavigationModel } from '../app/navigation/types';
-import { PLACEHOLDER_ORGANIZATIONS, useStaticContextSource } from '../app/shell/placeholderContext';
 import { AuthContext, type AuthContextValue } from '../features/auth/AuthContext';
 import { organizationsKeys } from '../features/organizations/api/queryKeys';
 import { useAccessCheck } from '../shared/lib/access';
@@ -88,22 +84,37 @@ export function stubRoutes(): ReactNode {
   );
 }
 
-/**
- * `AppLayout` with the test's source, or the placeholder dataset when the
- * test passes none: the shell's own tests run on the placeholder whatever
- * source the product mounts (mod-002 plan-frontend § 2.4). One element kept
- * across `update()`, so switching to a stub keeps the shell's state.
- */
+/** A source with no organizations and no real context: what the shell shows before anything is chosen. */
+export const STATIC_SOURCE: WorkContextSource = {
+  status: 'ready',
+  organizations: [],
+  selection: {},
+  isReal: false,
+};
+
+/** `AppLayout` with the test's source or the static one; one element kept across `update()`. */
 function ShellWithSource({ source }: { source?: WorkContextSource }) {
-  const placeholder = useStaticContextSource(PLACEHOLDER_ORGANIZATIONS);
-  return <AppLayout contextSource={source ?? placeholder} />;
+  return <AppLayout contextSource={source ?? STATIC_SOURCE} />;
 }
+
+/**
+ * Two organizations with the selectors showing and no real context: the scoped entries stay
+ * hidden (D-18), so a test of the frame sees the selectors without the organization's menu.
+ */
+export const SELECTORS_SOURCE: WorkContextSource = {
+  status: 'ready',
+  organizations: [
+    { id: 'org-1', name: 'Пример организации 1', projects: [], teams: [] },
+    { id: 'org-2', name: 'Пример организации 2', projects: [], teams: [] },
+  ],
+  selection: { organizationId: 'org-1' },
+  isReal: false,
+};
 
 export interface ShellOptions {
   path?: string;
   auth?: AuthContextValue;
   contextSource?: WorkContextSource;
-  model?: NavigationModel;
   routes?: ReactNode;
   /**
    * The caller's served access to the stub source's selected organization
@@ -149,7 +160,6 @@ export function renderShell({
   path = '/home',
   auth = authValue([LANGUAGES_READ, LANGUAGES_WRITE]),
   contextSource,
-  model = navigationModel,
   routes = stubRoutes(),
   access = 'admin',
 }: ShellOptions = {}) {
@@ -167,14 +177,12 @@ export function renderShell({
     return (
       <QueryClientProvider client={queryClient}>
         <AuthContext.Provider value={currentAuth}>
-          <NavigationModelContext.Provider value={model}>
-            <MemoryRouter initialEntries={[path]}>
-              <Routes>
-                <Route element={<ShellWithSource source={currentSource} />}>{routes}</Route>
-              </Routes>
-              <LocationProbe />
-            </MemoryRouter>
-          </NavigationModelContext.Provider>
+          <MemoryRouter initialEntries={[path]}>
+            <Routes>
+              <Route element={<ShellWithSource source={currentSource} />}>{routes}</Route>
+            </Routes>
+            <LocationProbe />
+          </MemoryRouter>
         </AuthContext.Provider>
       </QueryClientProvider>
     );

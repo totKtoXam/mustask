@@ -26,7 +26,9 @@ function mockedModules(file: string): string[] {
   for (const match of source.matchAll(/\bvi\.mock\(\s*(['"`])([^'"`]+)\1/g)) {
     const specifier = match[2] as string;
     // A relative specifier names a file: compare by the path it resolves to.
-    found.push(specifier.startsWith('.') ? relative(SRC, resolve(dirname(file), specifier)) : specifier);
+    found.push(
+      specifier.startsWith('.') ? relative(SRC, resolve(dirname(file), specifier)) : specifier,
+    );
   }
   return found;
 }

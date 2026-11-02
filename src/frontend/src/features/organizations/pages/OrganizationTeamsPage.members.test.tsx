@@ -11,7 +11,7 @@ import { listedLines, openPage } from '../testMembersPage';
 // search of the organization's active members — same states, texts and cut-off as the team
 // page's candidate search (mod-016 design § 3.5) — and sends the chosen in `memberIds`.
 
-const ALFA_TEAMS = `/organizations/${ids.alfa}/settings/teams`;
+const ALFA_TEAMS = `/organizations/${ids.alfa}/teams`;
 const SEARCH_PATH = `/api/organizations/${ids.alfa}/teams/member-candidates`;
 const SEARCH_URL = `${ORGANIZATIONS_URL}/:organizationId/teams/member-candidates`;
 const NO_SEARCH_YET = 'Введите не менее 2 символов имени или почты';

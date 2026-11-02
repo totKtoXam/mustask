@@ -13,7 +13,7 @@ import {
 import { serveOrganizations, serveProblem } from '../testApi';
 import { renderPage } from '../testRender';
 
-const AREAS = `/organizations/${ids.alfa}/settings/areas`;
+const AREAS = `/organizations/${ids.alfa}/areas`;
 
 function treegrid() {
   return screen.findByRole('treegrid', { name: 'Области' });
@@ -54,7 +54,7 @@ describe('mod-018 design § 3: the organization’s area tree (the page)', () =>
     expect(within(row('Платформа')).getByText('Платформенные сервисы')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Шлюз' })).toHaveAttribute(
       'href',
-      `/organizations/${ids.alfa}/settings/areas/${ids.gatewayArea}`,
+      `/organizations/${ids.alfa}/areas/${ids.gatewayArea}/overview`,
     );
     // Areas of another organization are not drawn.
     expect(screen.queryByText('Отчётность')).not.toBeInTheDocument();
@@ -85,7 +85,7 @@ describe('mod-018 design § 3: the organization’s area tree (the page)', () =>
 
   it('answers «Организация не найдена» for a deactivated organization', async () => {
     serveOrganizations();
-    renderPage({ path: `/organizations/${ids.gamma}/settings/areas` });
+    renderPage({ path: `/organizations/${ids.gamma}/areas` });
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Организация не найдена' }),

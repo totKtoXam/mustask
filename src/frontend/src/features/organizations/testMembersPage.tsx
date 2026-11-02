@@ -14,10 +14,10 @@ import type { TestRole } from '../../test/organizationRoles';
 import type { WorkContextSource } from '../../shared/lib/workContext';
 
 /** «Участники» of «Альфа». */
-export const MEMBERS_PATH = `/organizations/${ids.alfa}/settings/members`;
+export const MEMBERS_PATH = `/organizations/${ids.alfa}/members`;
 
 /** The page of the team «Платформа» of «Альфа» (feat-028: the organization's team page). */
-export const PLATFORM_TEAM_PATH = `/organizations/${ids.alfa}/settings/teams/${ids.platformTeam}`;
+export const PLATFORM_TEAM_PATH = `/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview`;
 
 export interface OpenedPage extends ReturnType<typeof renderPage> {
   data: Dataset;

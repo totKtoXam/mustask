@@ -39,6 +39,9 @@ export interface ContextSelectorsProps {
   data?: FitData;
   dataStatus: 'ready' | 'loading' | 'error';
   onRetry: () => void;
+  /** The organization list's own status; default `ready`. */
+  organizationsStatus?: 'ready' | 'loading' | 'error';
+  onRetryOrganizations?: () => void;
   selection: ObjectSelection;
   /** An organization was chosen: it opens its «Обзор» with «все» in the rest. */
   onOrganization: (organizationId: string) => void;
@@ -85,6 +88,8 @@ export function ContextSelectors({
   data,
   dataStatus,
   onRetry,
+  organizationsStatus = 'ready',
+  onRetryOrganizations,
   selection,
   onOrganization,
   onAllOrganizations,
@@ -119,7 +124,7 @@ export function ContextSelectors({
   return (
     <Box
       role="group"
-      aria-label="Контекст"
+      aria-label="Контекст работы"
       sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5, minWidth: 0 }}
     >
       <SearchMenu
@@ -131,6 +136,10 @@ export function ContextSelectors({
         footer={{ id: ALL_ORGANIZATIONS_ID, label: 'Все организации' }}
         searchLabel={SEARCH_LABEL}
         emptyText={EMPTY_TEXT}
+        status={organizationsStatus}
+        errorText={ERROR_TEXT}
+        retryLabel={RETRY_LABEL}
+        onRetry={onRetryOrganizations}
         onSelect={(id) => {
           if (id === null) return;
           if (id === ALL_ORGANIZATIONS_ID) onAllOrganizations();

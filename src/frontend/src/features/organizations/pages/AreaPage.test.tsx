@@ -14,11 +14,11 @@ import {
 import { serveOrganizations, serveProblem } from '../testApi';
 import { renderPage } from '../testRender';
 
-const AREAS = `/organizations/${ids.alfa}/settings/areas`;
-const PLATFORM = `${AREAS}/${ids.platformArea}`;
-const PRM_NODE = `${AREAS}/${ids.prmRoot}`;
-const OLD_NODE = `${AREAS}/${ids.oldRoot}`;
-const API = `${AREAS}/${ids.apiArea}`;
+const AREAS = `/organizations/${ids.alfa}/areas`;
+const PLATFORM = `${AREAS}/${ids.platformArea}/overview`;
+const PRM_NODE = `${AREAS}/${ids.prmRoot}/overview`;
+const OLD_NODE = `${AREAS}/${ids.oldRoot}/overview`;
+const API = `${AREAS}/${ids.apiArea}/overview`;
 const API_BASE = `/api/organizations/${ids.alfa}/areas`;
 
 async function loaded(title: string) {
@@ -43,18 +43,18 @@ describe('mod-018 design § 4: a department’s page', () => {
     const projects = await screen.findByRole('table', { name: 'Проекты департамента' });
     expect(within(projects).getByRole('link', { name: 'Пример проекта' })).toHaveAttribute(
       'href',
-      `${AREAS}/${ids.prmRoot}`,
+      `${AREAS}/${ids.prmRoot}/overview`,
     );
     const teams = await screen.findByRole('table', { name: 'Команды департамента' });
     expect(within(teams).getByRole('link', { name: 'Платформа' })).toHaveAttribute(
       'href',
-      `/organizations/${ids.alfa}/settings/teams/${ids.platformTeam}`,
+      `/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview`,
     );
   });
 
   it('says what is empty', async () => {
     serveOrganizations();
-    renderPage({ path: `${AREAS}/${ids.reportsArea}` });
+    renderPage({ path: `${AREAS}/${ids.reportsArea}/overview` });
     await loaded('Департамент: Отчёты');
 
     expect(facts()).toHaveTextContent('ОписаниеОписание не задано');
@@ -63,8 +63,8 @@ describe('mod-018 design § 4: a department’s page', () => {
   });
 
   it.each([
-    ['an unknown area', `${AREAS}/d0000000-0000-4000-8000-0000000000ff`],
-    ['an area of another organization', `${AREAS}/${ids.repRoot}`],
+    ['an unknown area', `${AREAS}/d0000000-0000-4000-8000-0000000000ff/overview`],
+    ['an area of another organization', `${AREAS}/${ids.repRoot}/overview`],
   ])('%s answers «Область не найдена» and keeps the settings navigation', async (_case, path) => {
     serveOrganizations();
     renderPage({ path });
@@ -77,7 +77,7 @@ describe('mod-018 design § 4: a department’s page', () => {
 
   it('renames, describes in place and deletes an empty department', async () => {
     const api = serveOrganizations();
-    renderPage({ path: `${AREAS}/${ids.reportsArea}` });
+    renderPage({ path: `${AREAS}/${ids.reportsArea}/overview` });
     await loaded('Департамент: Отчёты');
 
     await userEvent.click(await screen.findByRole('button', { name: 'Переименовать' }));
@@ -191,7 +191,7 @@ describe('mod-018 design § 4: a project node’s page', () => {
     expect(screen.queryByRole('button', { name: /^Удалить/ })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Открыть проект' })).toHaveAttribute(
       'href',
-      `/organizations/${ids.alfa}/projects/${ids.prm}/settings/general`,
+      `/organizations/${ids.alfa}/projects/${ids.prm}/general`,
     );
   });
 
@@ -259,10 +259,10 @@ describe('mod-018 review TC-4: the lists of a deactivated project stay readable'
     );
     serveOrganizations(data);
     serveProblem('get', `${PROJECT_URL}`, problem('organizations.project.not_found'));
-    renderPage({ path: `${AREAS}/d0000000-0000-4000-8000-0000000000a1` });
+    renderPage({ path: `${AREAS}/d0000000-0000-4000-8000-0000000000a1/overview` });
     await loaded('Область: Архив');
 
-    const general = `/organizations/${ids.alfa}/projects/${ids.old}/settings/general`;
+    const general = `/organizations/${ids.alfa}/projects/${ids.old}/general`;
     await waitFor(() =>
       expect(
         within(facts())
@@ -307,7 +307,7 @@ describe('mod-018 design § 4: a sub-area’s page', () => {
     ).toHaveAttribute('href', PRM_NODE);
     expect(await within(facts()).findByRole('link', { name: 'Пример проекта' })).toHaveAttribute(
       'href',
-      `/organizations/${ids.alfa}/projects/${ids.prm}/settings/general`,
+      `/organizations/${ids.alfa}/projects/${ids.prm}/general`,
     );
     expect(facts()).toHaveTextContent('ОписаниеОписание не задано');
     const children = await screen.findByRole('table', { name: 'Вложенные области' });
@@ -316,7 +316,7 @@ describe('mod-018 design § 4: a sub-area’s page', () => {
 
   it('deletes a leaf and returns to the tree with the notice', async () => {
     const api = serveOrganizations();
-    renderPage({ path: `${AREAS}/${ids.mobileArea}` });
+    renderPage({ path: `${AREAS}/${ids.mobileArea}/overview` });
     await loaded('Область: Мобильное приложение');
 
     await userEvent.click(screen.getByRole('button', { name: 'Удалить область' }));
@@ -356,7 +356,7 @@ describe('mod-018: the page of a department is built from the dataset', () => {
     const node = data.areas.find((entry) => entry.id === ids.anlRoot)!;
     node.parentId = ids.reportsArea;
     serveOrganizations(data);
-    renderPage({ path: `${AREAS}/${ids.reportsArea}` });
+    renderPage({ path: `${AREAS}/${ids.reportsArea}/overview` });
     await loaded('Департамент: Отчёты');
 
     const projects = await screen.findByRole('table', { name: 'Проекты департамента' });

@@ -34,7 +34,7 @@ describe('mod-002 US-1 Scenario: An organization is created with its process', (
     ).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByTestId('location').textContent).toMatch(
-        /^\/organizations\/[^/]+\/settings\/projects$/,
+        /^\/organizations\/[^/]+\/projects$/,
       ),
     );
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();

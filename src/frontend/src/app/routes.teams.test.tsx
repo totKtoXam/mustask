@@ -48,6 +48,10 @@ describe('feat-028 US-1 Scenario: The project-nested team page is gone', () => {
     serveOrganizations();
     renderRoutes(retired);
 
+    // The gate draws the header over a skeleton first; the page's own frame replaces it.
+    await waitFor(() =>
+      expect(screen.queryByRole('status', { name: 'Загрузка данных' })).not.toBeInTheDocument(),
+    );
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Страница не найдена' }),
     ).toBeInTheDocument();

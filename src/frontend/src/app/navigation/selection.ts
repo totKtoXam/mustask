@@ -48,8 +48,11 @@ function idOf(pattern: string, pathname: string, param: string): string | null {
  * empty or repeated query value is ignored (the first one wins).
  */
 export function readAddressSelection(pathname: string, search: string): AddressSelection {
-  const organizationId =
-    idOf(`${KIND_ROUTE_PREFIX.organization}/*`, pathname, 'organizationId') ?? undefined;
+  // The list of deactivated organizations is a page of the list, not of an organization.
+  const isList = matchPath({ path: '/organizations/deactivated', end: true }, pathname) !== null;
+  const organizationId = isList
+    ? undefined
+    : (idOf(`${KIND_ROUTE_PREFIX.organization}/*`, pathname, 'organizationId') ?? undefined);
   const selection: ObjectSelection = { ...NO_SELECTION };
   if (organizationId === undefined) return { selection };
 
@@ -183,6 +186,38 @@ export function writeRemembered(
     store.setItem(organizationStorageKey(subject), organizationId);
   } catch {
     // A full or blocked store only costs the memory, never the page.
+  }
+}
+
+/**
+ * «Все организации» (ADR-0032 § 5): clears all four. The last organization is stored empty, so
+ * a page with no organization of its own shows none, and the organization's own selection is
+ * emptied.
+ */
+export function clearRemembered(
+  store: KeyValueStore,
+  subject: string,
+  organizationId: string | null,
+): void {
+  try {
+    if (organizationId !== null) {
+      store.setItem(
+        selectionStorageKey(subject, organizationId),
+        JSON.stringify({ department: null, team: null, project: null }),
+      );
+    }
+    store.setItem(organizationStorageKey(subject), '');
+  } catch {
+    // A full or blocked store only costs the memory, never the page.
+  }
+}
+
+/** Whether the last organization was cleared on purpose («Все организации»): stored, but empty. */
+export function isOrganizationCleared(store: KeyValueStore, subject: string): boolean {
+  try {
+    return store.getItem(organizationStorageKey(subject)) === '';
+  } catch {
+    return false;
   }
 }
 

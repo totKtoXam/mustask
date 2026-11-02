@@ -32,7 +32,6 @@ const TEAM = ids.platformTeam;
 const AREA = ids.platformArea;
 const CREATE = 'organizations.organization.create';
 const SUBJECT = 'user-1';
-const STORAGE_KEY = `mustask.context.${SUBJECT}`;
 
 afterEach(() => {
   localStorage.clear();
@@ -68,15 +67,15 @@ function notFound() {
 
 const ORGANIZATION_PAGES: [string, string][] = [
   ['«Общие»', `/organizations/${ORG}/settings/general`],
-  ['«Проекты»', `/organizations/${ORG}/settings/projects`],
-  ['«Деактивированные» проекты', `/organizations/${ORG}/settings/projects/deactivated`],
+  ['«Проекты»', `/organizations/${ORG}/projects`],
+  ['«Деактивированные» проекты', `/organizations/${ORG}/projects?status=deactivated`],
   ['«Процесс»', `/organizations/${ORG}/settings/process`],
-  ['«Общие» проекта', `/organizations/${ORG}/projects/${PROJECT}/settings/general`],
-  ['«Команды»', `/organizations/${ORG}/projects/${PROJECT}/settings/teams`],
-  ['«Команды» организации', `/organizations/${ORG}/settings/teams`],
-  ['страница команды', `/organizations/${ORG}/settings/teams/${TEAM}`],
-  ['«Области»', `/organizations/${ORG}/settings/areas`],
-  ['страница области', `/organizations/${ORG}/settings/areas/${AREA}`],
+  ['«Общие» проекта', `/organizations/${ORG}/projects/${PROJECT}/general`],
+  ['«Команды»', `/organizations/${ORG}/projects/${PROJECT}/teams`],
+  ['«Команды» организации', `/organizations/${ORG}/teams`],
+  ['страница команды', `/organizations/${ORG}/teams/${TEAM}/overview`],
+  ['«Области»', `/organizations/${ORG}/areas`],
+  ['страница области', `/organizations/${ORG}/areas/${AREA}/overview`],
   ['«Рабочие элементы»', `/organizations/${ORG}/projects/${PROJECT}/workitems`],
   ['рабочий элемент', `/organizations/${ORG}/projects/${PROJECT}/workitems/PRM-1`],
   ['«Канбан»', `/organizations/${ORG}/teams/${TEAM}/boards/stories`],
@@ -96,7 +95,7 @@ describe('mod-016 US-2 Scenario: a non-member meets «Организация н�
         await screen.findByRole('heading', { level: 1, name: 'Организация не найдена' }),
       ).toBeInTheDocument();
       expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-      expect(screen.getByTestId('location')).toHaveTextContent(path);
+      expect(screen.getByTestId('location')).toHaveTextContent(path.split('?')[0] ?? path);
     },
   );
 });
@@ -106,7 +105,7 @@ describe('mod-016 US-4 Scenario: a page by address without its code', () => {
     serveOrganizations();
     answerAccess(() => HttpResponse.json(servedFor('member')));
 
-    renderApp(`/organizations/${ORG}/settings/projects/deactivated`);
+    renderApp(`/organizations/${ORG}/projects?status=deactivated`);
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Доступ ограничен' }),
@@ -121,7 +120,7 @@ describe('mod-016 US-4 Scenario: a page by address without its code', () => {
   it('is the page itself for the administrator, who holds it', async () => {
     serveOrganizations();
 
-    renderApp(`/organizations/${ORG}/settings/projects/deactivated`);
+    renderApp(`/organizations/${ORG}/projects?status=deactivated`);
 
     // The page replaces the wrapper's header when it mounts, so the content
     // is awaited first.
@@ -156,7 +155,7 @@ describe('mod-016 US-4 Scenario: the first rows of a page wait for the codes', (
       }),
     );
 
-    renderApp(`/organizations/${ORG}/settings/projects`);
+    renderApp(`/organizations/${ORG}/projects`);
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Проекты' })).toBeInTheDocument();
     expect(screen.getByRole('status', { name: 'Загрузка данных' })).toBeInTheDocument();
@@ -177,12 +176,11 @@ describe('mod-016 US-4 Scenario: the first rows of a page wait for the codes', (
   });
 });
 
-describe('mod-016 design § 2.6, § 12 Scenario: whose codes — the selection lags the address', () => {
-  // The switcher remembers A (the user administers it); a link opens a project
-  // page of B, where the user is a reader. B's projects cannot be read, so the
-  // address never sets the selection and it stays on A for as long as the page
-  // is open: the page of B must be decided by B's codes at every frame.
-  it('shows no write control on a page of B while the selection stays on A, where the user is an administrator', async () => {
+describe('mod-016 design § 2.6, § 12 Scenario: whose codes — the selection follows the address', () => {
+  // feat-043 ADR-0032 § 1: the address is the selection, so a link into B sets the shell's
+  // organization to B at once (the lag of mod-016 is gone), and the page of B is decided by B's
+  // codes at every frame; A's, where the user is an administrator, are never asked.
+  it('shows no write control on a page of B, where the user is a reader, and the shell is on B', async () => {
     const data = exampleDataset();
     data.actingUserId = SUBJECT;
     data.memberships = [
@@ -191,35 +189,17 @@ describe('mod-016 design § 2.6, § 12 Scenario: whose codes — the selection l
     ];
     serveOrganizations(data);
     serveMemberships(data);
-    server.use(
-      http.get(`${API}/api/organizations/${ids.beta}/projects`, () =>
-        HttpResponse.json({ status: 500 }, { status: 500 }),
-      ),
-    );
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ organizationId: ids.alfa, projectId: ids.prm, teamId: ids.prmTeam }),
-    );
     const add = recordAppearances('Добавить команду');
 
-    const { queryClient } = renderApp(
-      `/organizations/${ids.beta}/projects/${ids.rep}/settings/teams`,
-    );
+    const { queryClient } = renderApp(`/organizations/${ids.beta}/projects/${ids.rep}/teams`);
 
-    // B's reader sees the teams; A's administrator codes reach the tab through the shell.
     expect(await screen.findByRole('table', { name: 'Команды' })).toBeInTheDocument();
-    await waitFor(() =>
-      expect(queryClient.getQueryData(organizationsKeys.access(ids.alfa))).toMatchObject({
-        kind: 'member',
-        role: 'admin',
-      }),
-    );
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
     expect(queryClient.getQueryData(organizationsKeys.access(ids.beta))).toMatchObject({
       kind: 'member',
       role: 'viewer',
     });
-    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
-    expect(screen.getByRole('button', { name: /^Организация: Альфа/ })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /^Организация: Бета/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Добавить команду' })).not.toBeInTheDocument();
     expect(add.count()).toBe(0);
     add.stop();
@@ -234,7 +214,7 @@ describe('mod-016 design § 9 Scenario: a project restore answers 404 «Орга
     data.memberships = [{ organizationId: ids.alfa, userId: SUBJECT, role: 'admin' }];
     serveOrganizations(data);
     serveMemberships(data);
-    renderApp(`/organizations/${ids.alfa}/settings/projects/deactivated`);
+    renderApp(`/organizations/${ids.alfa}/projects?status=deactivated`);
     const restore = await screen.findByRole('button', { name: 'Восстановить «Старый проект»' });
 
     // The user was removed from the organization while the page was open.

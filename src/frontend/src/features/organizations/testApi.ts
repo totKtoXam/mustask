@@ -8,6 +8,7 @@
 import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
 import { servedFor } from '../../test/organizationRoles';
+import type { SelectorOffers } from './api/navigationApi';
 import type {
   Area,
   AreaDeletion,
@@ -37,6 +38,7 @@ import {
   PROJECTS_URL,
   PROJECT_TEAM_URL,
   PROJECT_URL,
+  SELECTOR_OFFERS_URL,
   TEAMS_URL,
   TEAM_LINKS_URL,
   TEAM_AREAS_URL,
@@ -366,6 +368,52 @@ export class OrganizationsTestApi {
       .map((link) => this.data.projects.find((project) => project.id === link.projectId))
       .filter((project): project is ProjectRecord => project !== undefined && project.active)
       .sort(byName);
+  }
+
+  /** feat-043 api-contract § 2: what the four selectors and the lists «Проекты» and «Команды» need. */
+  private selectorOffers(organization: OrganizationRecord): SelectorOffers {
+    const areas = this.data.areas.filter((area) => area.organizationId === organization.id);
+    const departments = areas
+      .filter((area) => area.type === 'department')
+      .map(({ id, name }) => ({ id, name }))
+      .sort(byName);
+    const teams = this.data.teams.filter(
+      (team) => team.organizationId === organization.id && !team.deleted,
+    );
+    const projects = this.data.projects
+      .filter((project) => project.organizationId === organization.id && project.active)
+      .map((project) => {
+        const node = areas.find((area) => area.type === 'project' && area.projectId === project.id);
+        const department = areas.find(
+          (area) => area.id === node?.parentId && area.type === 'department',
+        );
+        return {
+          id: project.id,
+          name: project.name,
+          key: project.key,
+          departmentId: department?.id ?? null,
+          departmentName: department?.name ?? null,
+          teamIds: this.data.links
+            .filter((link) => link.projectId === project.id)
+            .map((link) => link.teamId)
+            .filter((teamId) => teams.some((team) => team.id === teamId)),
+        };
+      })
+      .sort(byName);
+    return {
+      departments,
+      projects,
+      teams: teams
+        .map((team) => ({
+          id: team.id,
+          name: team.name,
+          isMember: this.isMember(team),
+          departmentIds: (this.data.areaTeams ?? [])
+            .filter((link) => link.targetId === team.id)
+            .map((link) => link.areaId),
+        }))
+        .sort(byName),
+    };
   }
 
   /** Whether the acting user is in the team (mod-016 § 3.3); a dataset without team members makes nobody a member. */
@@ -1207,6 +1255,10 @@ export class OrganizationsTestApi {
       http.put(
         `${PROJECT_URL}/default-team`,
         answer(204, (p, b) => this.setDefaultTeam(this.organization(o(p)), pr(p), b)),
+      ),
+      http.get(
+        SELECTOR_OFFERS_URL,
+        answer(200, (p) => this.selectorOffers(this.organization(o(p)))),
       ),
       // The organization's teams (feat-028 § 2.1–2.2).
       http.get(

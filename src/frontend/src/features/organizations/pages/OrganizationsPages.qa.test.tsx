@@ -7,12 +7,12 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
 import { act, renderHook, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useOrganizationsContextSource } from '../context/useOrganizationsContextSource';
+import { useOrganizations } from '../hooks/queries';
 import { exampleDataset, ids } from '../testFixtures';
 import { serveOrganizations } from '../testApi';
 import { CREATE_RIGHT, renderPage } from '../testRender';
 
-const ORG_TEAMS = `/organizations/${ids.alfa}/settings/teams`;
+const ORG_TEAMS = `/organizations/${ids.alfa}/teams`;
 
 describe('(QA) mod-002 F-1: a dialog’s primary activated twice sends one request', () => {
   it('a double click on «Создать» creates one organization', async () => {
@@ -132,7 +132,7 @@ describe('(QA) mod-002 design § 4.3: focus returns to the opener of a row menu�
   });
 });
 
-describe('(QA) mod-002 F-14: the switcher’s levels follow other users’ changes on window focus', () => {
+describe('(QA) mod-002 F-14: the organizations read follows other users’ changes on window focus', () => {
   it('reads the organizations again when the window regains focus, and lists one created meanwhile', async () => {
     const api = serveOrganizations();
     const queryClient = new QueryClient({
@@ -143,11 +143,8 @@ describe('(QA) mod-002 F-14: the switcher’s levels follow other users’ chang
         <MemoryRouter initialEntries={['/home']}>{children}</MemoryRouter>
       </QueryClientProvider>
     );
-    const { result } = renderHook(
-      () => useOrganizationsContextSource({ enabled: true, subject: 'user-1' }),
-      { wrapper },
-    );
-    await waitFor(() => expect(result.current.status).toBe('ready'));
+    const { result } = renderHook(() => useOrganizations('active'), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
     const readsBefore = api.requests.filter(
       (request) => request.method === 'GET' && request.path === '/api/organizations',
     ).length;
@@ -162,7 +159,7 @@ describe('(QA) mod-002 F-14: the switcher’s levels follow other users’ chang
     act(() => focusManager.setFocused(true));
 
     await waitFor(() =>
-      expect(result.current.organizations.map((entry) => entry.name)).toEqual([
+      expect((result.current.data ?? []).map((entry) => entry.name)).toEqual([
         'Альфа',
         'Бета',
         'Вега',

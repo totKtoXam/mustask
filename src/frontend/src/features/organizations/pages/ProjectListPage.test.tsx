@@ -5,8 +5,8 @@ import { PROJECTS_URL, ids, problem } from '../testFixtures';
 import { serveOrganizations, serveProblem } from '../testApi';
 import { renderPage } from '../testRender';
 
-const ALFA_PROJECTS = `/organizations/${ids.alfa}/settings/projects`;
-const ALFA_DEACTIVATED = `${ALFA_PROJECTS}/deactivated`;
+const ALFA_PROJECTS = `/organizations/${ids.alfa}/projects`;
+const ALFA_DEACTIVATED = `${ALFA_PROJECTS}?status=deactivated`;
 
 describe('mod-002 design § 7.3: «Проекты» loads, fails and lists', () => {
   it('loads with the real headers, then lists the active projects with their keys, each a link to its «Общие»', async () => {
@@ -22,7 +22,7 @@ describe('mod-002 design § 7.3: «Проекты» loads, fails and lists', () 
     expect(rows.map((row) => row.textContent)).toEqual(['АналитикаANL', 'Пример проектаPRM']);
     expect(within(rows[1]!).getByRole('link', { name: 'Пример проекта' })).toHaveAttribute(
       'href',
-      `/organizations/${ids.alfa}/projects/${ids.prm}/settings/general`,
+      `/organizations/${ids.alfa}/projects/${ids.prm}/general`,
     );
     expect(screen.getByRole('button', { name: 'Создать проект' })).toBeInTheDocument();
   });
@@ -46,7 +46,7 @@ describe('mod-002 US-1 Scenario: An organization is created with its process (it
       name: 'Новая',
       active: true,
     });
-    renderPage({ path: '/organizations/a0000000-0000-4000-8000-0000000000aa/settings/projects' });
+    renderPage({ path: '/organizations/a0000000-0000-4000-8000-0000000000aa/projects' });
 
     expect(
       await screen.findByRole('heading', { level: 2, name: 'Пока нет проектов' }),
@@ -64,7 +64,7 @@ describe('mod-002 US-2 Scenario: An unknown organization answers not found (its 
     ['an unknown one', 'a0000000-0000-4000-8000-0000000000ff'],
   ])('%s answers «Организация не найдена» on either tab', async (_case, organizationId) => {
     serveOrganizations();
-    renderPage({ path: `/organizations/${organizationId}/settings/projects/deactivated` });
+    renderPage({ path: `/organizations/${organizationId}/projects?status=deactivated` });
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Организация не найдена' }),

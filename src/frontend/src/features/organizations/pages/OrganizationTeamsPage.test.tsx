@@ -21,7 +21,7 @@ import { contextSource, renderPage } from '../testRender';
 // feat-028 design § 3, § 5 (US-1, US-5, US-7): the organization's «Команды» — the list with its states,
 // the creation, the rename, the description and the deletion that reaches every project.
 
-const ALFA_TEAMS = `/organizations/${ids.alfa}/settings/teams`;
+const ALFA_TEAMS = `/organizations/${ids.alfa}/teams`;
 const DELETION_COUNTS_URL = `${ORG_TEAM_URL}/deletion-counts`;
 
 async function teamsTable() {
@@ -65,7 +65,7 @@ describe('feat-028 US-1 Scenario: The organization’s teams are listed in its s
     ]);
     expect(within(rows[1]!).getByRole('link', { name: 'Платформа' })).toHaveAttribute(
       'href',
-      `/organizations/${ids.alfa}/settings/teams/${ids.platformTeam}`,
+      `/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview`,
     );
     // A team of another organization is not listed.
     expect(within(table).queryByText('Отчётность')).not.toBeInTheDocument();

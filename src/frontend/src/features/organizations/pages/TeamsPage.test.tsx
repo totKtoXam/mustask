@@ -34,8 +34,8 @@ import { contextSource, renderPage } from '../testRender';
 // - BR-OL-10 (a project may have no team): «has no empty state, and answers «Проект не найден» for a deactivated
 //   project» — the page has an empty state now; the deactivated project's answer is kept above.
 
-const PRM_TEAMS = `/organizations/${ids.alfa}/projects/${ids.prm}/settings/teams`;
-const ANL_TEAMS = `/organizations/${ids.alfa}/projects/${ids.anl}/settings/teams`;
+const PRM_TEAMS = `/organizations/${ids.alfa}/projects/${ids.prm}/teams`;
+const ANL_TEAMS = `/organizations/${ids.alfa}/projects/${ids.anl}/teams`;
 const DEFAULT_TEAM_URL = `${PROJECT_URL}/default-team`;
 const UNLINK_COUNT_URL = `${PROJECT_TEAM_URL}/unlink-count`;
 const UNLINK_URL = `${PROJECT_TEAM_URL}/unlink`;
@@ -72,7 +72,7 @@ describe('feat-028 US-3, US-6 Scenario: The project’s linked teams', () => {
     // A team's page is the organization's now (BR-OL-12).
     expect(within(rows[0]!).getByRole('link', { name: 'Платформа' })).toHaveAttribute(
       'href',
-      `/organizations/${ids.alfa}/settings/teams/${ids.platformTeam}`,
+      `/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview`,
     );
     expect(screen.getByRole('button', { name: 'Добавить команду' })).toHaveClass(
       'MuiButton-contained',
@@ -91,7 +91,7 @@ describe('feat-028 US-3, US-6 Scenario: The project’s linked teams', () => {
     );
     expect(within(intro).getByRole('link', { name: '«Команды»' })).toHaveAttribute(
       'href',
-      `/organizations/${ids.alfa}/settings/teams`,
+      `/organizations/${ids.alfa}/teams`,
     );
   });
 
@@ -118,7 +118,7 @@ describe('feat-028 US-3, US-6 Scenario: The project’s linked teams', () => {
 
   it('answers «Проект не найден» for a deactivated project', async () => {
     serveOrganizations();
-    renderPage({ path: `/organizations/${ids.alfa}/projects/${ids.old}/settings/teams` });
+    renderPage({ path: `/organizations/${ids.alfa}/projects/${ids.old}/teams` });
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Проект не найден' }),
@@ -348,7 +348,7 @@ describe('feat-028 US-3 Scenario: «Добавить команду» links exis
     );
     expect(within(note).getByRole('link', { name: '«Команды»' })).toHaveAttribute(
       'href',
-      `/organizations/${ids.alfa}/settings/teams`,
+      `/organizations/${ids.alfa}/teams`,
     );
     expect(within(dialog).queryByRole('combobox', { name: 'Команды' })).not.toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Добавить' })).toBeDisabled();

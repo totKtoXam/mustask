@@ -33,7 +33,6 @@ function source(fallbackId: number | null): WorkContextSource {
     organizations: [],
     selection: {},
     isReal: true,
-    select: vi.fn(),
     fallback: fallbackId === null ? null : { id: fallbackId, names: ['Альфа'] },
   };
 }
