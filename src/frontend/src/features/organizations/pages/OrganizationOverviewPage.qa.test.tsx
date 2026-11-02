@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HttpResponse, http } from 'msw';
+import { HttpResponse, http, type JsonBodyType } from 'msw';
 import { screen, within } from '@testing-library/react';
 import { server } from '../../../test/mocks/server';
 import { OVERVIEW_URL, ORGANIZATIONS_URL, ids, overviewFixture } from '../testFixtures';
@@ -11,7 +11,7 @@ import { renderPage } from '../testRender';
 
 const ALFA_OVERVIEW = `/organizations/${ids.alfa}/overview`;
 
-function serveOverview(overview: unknown) {
+function serveOverview(overview: JsonBodyType) {
   server.use(http.get(OVERVIEW_URL, () => HttpResponse.json(overview)));
 }
 
