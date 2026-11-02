@@ -393,3 +393,18 @@ describe('mod-002 design § 12: the navigation around each not-found frame', () 
     expect(screen.getByRole('group', { name: 'Контекст работы' })).toBeInTheDocument();
   });
 });
+
+describe('feat-043 D-12: «Открыть проект» is a row link', () => {
+  it('moves focus to the project page’s heading, as every row link does (design § 9)', async () => {
+    serve();
+    renderApp(`/organizations/${ids.alfa}/areas/${ids.prmRoot}/overview`);
+    await screen.findByRole('heading', { level: 1, name: 'Структура: Пример проекта' });
+
+    await userEvent.click(await screen.findByRole('link', { name: 'Открыть проект' }));
+
+    await waitFor(() => expect(location()).toContain(`/projects/${ids.prm}/`));
+    const heading = screen.getByRole('heading', { level: 1 });
+    await waitFor(() => expect(heading).toHaveFocus());
+    expect(location()).toContain(`/projects/${ids.prm}/`);
+  });
+});

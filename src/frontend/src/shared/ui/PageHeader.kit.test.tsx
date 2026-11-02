@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
@@ -13,6 +13,11 @@ import { PageHeader, type PageHeaderProps } from './PageHeader';
 // the kit's overflow «⋮» and the grey default of a command in the team look; every other page
 // keeps the legacy head, unchanged.
 
+/** Shows the router state the last navigation carried. */
+function StateProbe() {
+  return <div data-testid="state">{JSON.stringify(useLocation().state)}</div>;
+}
+
 function renderHeader(
   props: PageHeaderProps,
   chrome?: Parameters<typeof PageChromeContext.Provider>[0]['value'],
@@ -20,6 +25,7 @@ function renderHeader(
   const tree = (
     <MemoryRouter>
       <PageHeader {...props} />
+      <StateProbe />
     </MemoryRouter>
   );
   return render(
@@ -164,5 +170,52 @@ describe('tech-015 Scenario: the team look’s commands and overflow (design § 
     const more = screen.getByRole('button', { name: 'Ещё действия' });
     expect(more.querySelector('[data-testid="MoreHorizIcon"]')).not.toBeNull();
     expect(more.querySelector('[data-testid="ThinMoreVerticalIcon"]')).toBeNull();
+  });
+});
+
+describe('feat-043 D-12: a link command carries its router state', () => {
+  const link = {
+    label: 'Открыть',
+    icon: <PrintIcon />,
+    to: '/next',
+    state: { focusHeading: true },
+  };
+  const filler = { label: 'Длинная команда', icon: <FileUploadIcon />, onClick: () => {} };
+
+  it('on the bar', async () => {
+    renderHeader({ title: 'Область', commands: [link] });
+
+    await userEvent.click(screen.getByRole('link', { name: 'Открыть' }));
+
+    expect(screen.getByTestId('state')).toHaveTextContent('{"focusHeading":true}');
+  });
+
+  it.each(['team', undefined] as const)('from «Ещё действия» in the %s look', async (variant) => {
+    let notify: ResizeObserverCallback | null = null;
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: ResizeObserverCallback) {
+          notify = callback;
+        }
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return (this.textContent ?? '').length * 10;
+    });
+    renderHeader({ title: 'Область', variant, commands: [filler, link] });
+    act(() => {
+      notify?.([{ contentRect: { width: 160 } } as ResizeObserverEntry], {} as ResizeObserver);
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ещё действия' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Открыть' }));
+
+    expect(screen.getByTestId('state')).toHaveTextContent('{"focusHeading":true}');
   });
 });

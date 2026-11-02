@@ -40,6 +40,8 @@ export interface Command {
    */
   onClick?: (event?: MouseEvent<HTMLElement>) => void;
   to?: string;
+  /** The router state a link (`to`) carries, e.g. the request to focus the next page's `h1`. */
+  state?: unknown;
   /** Unavailable for a reason of state (BR-9); a missing code hides the command instead. */
   disabled?: boolean;
   /**
@@ -144,7 +146,7 @@ const NO_COMMANDS: readonly Command[] = [];
 
 function commandProps(command: Command) {
   if (command.to) {
-    return { component: RouterLink, to: command.to } as const;
+    return { component: RouterLink, to: command.to, state: command.state } as const;
   }
   const opensMenu = command.menuOpen !== undefined;
   return {
@@ -379,6 +381,7 @@ function CommandBar({
             label: command.label,
             icon: command.icon,
             to: command.to,
+            state: command.state,
             disabled: command.disabled,
             onSelect: () => command.onClick?.(),
           }))}
@@ -408,6 +411,7 @@ function CommandBar({
                   key={command.label}
                   component={RouterLink}
                   to={command.to}
+                  state={command.state}
                   disabled={command.disabled}
                   onClick={() => setMenuAnchor(null)}
                 >

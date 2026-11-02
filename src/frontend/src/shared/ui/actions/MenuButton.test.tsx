@@ -1,4 +1,4 @@
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -18,6 +18,11 @@ const ENTRIES: readonly MenuEntry[] = [
   { label: 'Истории' },
 ];
 
+/** Shows the router state the last navigation carried. */
+function StateProbe() {
+  return <div data-testid="state">{JSON.stringify(useLocation().state)}</div>;
+}
+
 function Demo({
   items = ENTRIES,
   ...rest
@@ -30,6 +35,7 @@ function Demo({
         trigger={(trigger) => <ActionButton label="Фичи" {...trigger} />}
         {...rest}
       />
+      <StateProbe />
     </MemoryRouter>
   );
 }
@@ -141,6 +147,16 @@ describe('tech-015 Scenario: MenuButton (design § 5.3)', () => {
       expect(never).not.toHaveBeenCalled();
       await user.click(screen.getByRole('menuitem', { name: 'Один' }));
       expect(onSelect).toHaveBeenCalledTimes(1);
+    });
+
+    it('hands the router state of a link entry to the next page', async () => {
+      const user = userEvent.setup();
+      render(
+        <Demo items={[{ label: 'Эпики', to: '/boards/epics', state: { focusHeading: true } }]} />,
+      );
+      await user.click(trigger());
+      await user.click(await screen.findByRole('menuitem', { name: 'Эпики' }));
+      expect(screen.getByTestId('state')).toHaveTextContent('{"focusHeading":true}');
     });
 
     it('links an entry that has an address', async () => {

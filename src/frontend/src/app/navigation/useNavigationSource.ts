@@ -228,6 +228,8 @@ export function useNavigationSource({
   // reads the remembered ones (ADR-0032 § 6; US-8), and so does a page with no organization.
   const carriesOrganization = address.organizationId !== undefined;
   const addressNamesObjects = carriesOrganization && namesObjects(address.selection);
+  // Read in render, not once: a tab on a page that names no object follows another tab's last
+  // write on its next render — harmless, the address still wins wherever it names an object.
   const storedObjects =
     store && organizationId !== undefined ? readRemembered(store, user, organizationId) : null;
   const rememberedObjects = addressNamesObjects ? null : storedObjects;

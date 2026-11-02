@@ -263,10 +263,13 @@ export function AreaPage() {
       });
     }
     if (section === 'overview' && area.type === 'project' && area.projectId) {
+      // The link's state asks the next page to take focus to its `h1` (design § 9).
+      const project = objectLink('project', area.projectId);
       commands.push({
         label: areaCommands.openProject,
         icon: <FolderOpenOutlinedIcon />,
-        to: objectLink('project', area.projectId).to,
+        to: project.to,
+        state: project.state,
       });
     }
   }
