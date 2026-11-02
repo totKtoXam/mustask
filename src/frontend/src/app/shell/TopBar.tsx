@@ -24,8 +24,8 @@ export interface TopBarProps {
  * The top bar (US-2, BR-6; feat-043 design § 3): on the content surface, 48 px high, above the
  * navigation. Left to right: «Меню» below 1024 px, the product mark linking to «Главная», the four
  * selectors (organization, department, team, project), the page trail and the user menu. Below
- * 1024 px the selectors wrap to a second 48 px row of the bar (design § 9). It is
- * built from the kit (tech-019): the menu button is the kit's icon action.
+ * 1024 px the selectors stand in a second 48 px row of the bar that never wraps and scrolls
+ * sideways (design § 9). It is built from the kit (tech-019): the menu button is the kit's icon action.
  */
 export function TopBar({ menu, trail }: TopBarProps) {
   return (
@@ -66,7 +66,18 @@ export function TopBar({ menu, trail }: TopBarProps) {
         <UserMenu />
       </Toolbar>
       {menu && (
-        <Toolbar disableGutters sx={{ px: 2, gap: 1.5, overflowX: 'auto' }}>
+        // The row never wraps: what does not fit scrolls sideways, so the bar stays two 48 px
+        // rows high (design § 9). Its scrollbar is not drawn: it would add to the 48 px.
+        <Toolbar
+          disableGutters
+          sx={{
+            px: 2,
+            gap: 1.5,
+            overflowX: 'auto',
+            scrollbarWidth: 'none',
+            '& > *': { flexShrink: 0 },
+          }}
+        >
           <ContextHost />
         </Toolbar>
       )}

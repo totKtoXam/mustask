@@ -298,6 +298,27 @@ describe('US-12 Scenario: Reflow at 200 % zoom (D-8) — what yields below 1024 
     );
   });
 
+  // The bar's height is two fixed rows and the content offset counts on it: a wrapped row (204 px
+  // at 360, 148 px at 480) covered the page heading. jsdom has no layout, so the style is pinned.
+  it.each([360, 480, 640])(
+    'keeps the selector row at %i px on one line, scrolling sideways instead of wrapping',
+    (width) => {
+      setViewportWidth(width);
+      renderShell({
+        path: '/dictionaries/languages/new',
+        auth: authValue(reader),
+        contextSource: SELECTORS_SOURCE,
+      });
+
+      const group = screen.getByRole('group', { name: 'Контекст работы' });
+      const row = group.parentElement as HTMLElement;
+      expect(getComputedStyle(group).flexWrap).toBe('nowrap');
+      expect(getComputedStyle(group).flexShrink).toBe('0');
+      expect(getComputedStyle(row).flexWrap).not.toBe('wrap');
+      expect(getComputedStyle(row).overflowX).toBe('auto');
+    },
+  );
+
   it('moves the trail out of the top bar into the page header, with the same name and links', () => {
     setViewportWidth(640);
     renderShell({

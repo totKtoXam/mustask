@@ -125,7 +125,7 @@ export function ContextSelectors({
     <Box
       role="group"
       aria-label="Контекст работы"
-      sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5, minWidth: 0 }}
+      sx={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 1.5, minWidth: 0 }}
     >
       <SearchMenu
         label={CAPTIONS.organization}
