@@ -5,6 +5,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AuthContext, type AuthContextValue } from '../features/auth/AuthContext';
 import { emptyDataset, ids, type Dataset } from '../features/organizations/testFixtures';
+import { navigationKeys } from '../features/organizations/api/queryKeys';
 import { serveOrganizations } from '../features/organizations/testApi';
 import { authValue, LANGUAGES_READ, LocationProbe } from '../test/renderShell';
 import { readRemembered, selectionStorageKey } from './navigation/selection';
@@ -17,6 +18,10 @@ function renderApp(path: string, auth: AuthContextValue = authValue([LANGUAGES_R
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  return { ...renderAppIn(queryClient, path, auth), queryClient };
+}
+
+function renderAppIn(queryClient: QueryClient, path: string, auth: AuthContextValue) {
   return render(
     <QueryClientProvider client={queryClient}>
       <AuthContext.Provider value={{ ...auth, subject: 'user-1' }}>
@@ -242,6 +247,89 @@ describe('feat-043 D-3: choosing an organization keeps what each organization re
     first.unmount();
     renderApp(`/organizations/${ids.alfa}/members`);
     await expectLevels(PRM_ONLY);
+  });
+});
+
+// feat-043 C-1, D-4: another user unlinks MARS from the project while Ann has both chosen. The
+// shell resets the project with the notice and moves the page; no frame of «Команда не найдена»
+// is drawn on the way.
+describe('feat-043 D-4: a link change under the real source', () => {
+  it('resets the project, says so and moves the page to the team, with no not-found frame', async () => {
+    const api = serve();
+    const { queryClient } = renderApp(
+      `/organizations/${ids.alfa}/projects/${ids.prm}/teams?teamId=${ids.platformTeam}`,
+    );
+    await expectLevels([
+      'Организация: Альфа',
+      'Департамент: все',
+      'Команда: Платформа',
+      'Проект: Пример проекта',
+    ]);
+    const drawn: string[] = [];
+    const watch = new MutationObserver(() => {
+      if (document.body.textContent?.includes('Команда не найдена'))
+        drawn.push('Команда не найдена');
+    });
+    watch.observe(document.body, { childList: true, subtree: true, characterData: true });
+
+    api.data.links = api.data.links.filter(
+      (link) => !(link.projectId === ids.prm && link.teamId === ids.platformTeam),
+    );
+    await queryClient.invalidateQueries({ queryKey: navigationKeys.selectorOffers(ids.alfa) });
+
+    expect(await screen.findByText('Выбор сброшен: проект Пример проекта.')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(location()).toBe(`/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview`),
+    );
+    await expectLevels([
+      'Организация: Альфа',
+      'Департамент: все',
+      'Команда: Платформа',
+      'Проект: все',
+    ]);
+    watch.disconnect();
+    expect(drawn).toEqual([]);
+  });
+});
+
+// D-4: the page that unlinks says nothing of its own when the shell resets what is chosen, and
+// does when the pair still fits.
+describe('feat-043 D-4: the notice of an unlink that resets the selection', () => {
+  async function unlinkDepartment(path: string, name: string) {
+    renderApp(path);
+    const table = await screen.findByRole('table', { name: 'Департаменты команды' });
+    await userEvent.click(within(table).getByRole('button', { name: `Ещё действия: ${name}` }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Отключить от команды' }));
+    const confirm = await screen.findByRole('dialog', {
+      name: 'Отключение департамента от команды',
+    });
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Отключить' }));
+  }
+
+  it('leaves the shell’s «Выбор сброшен» alone when the chosen department and team no longer fit', async () => {
+    const api = serve();
+    (api.data.areaTeams ??= []).push({ areaId: ids.reportsArea, targetId: ids.platformTeam });
+    await unlinkDepartment(
+      `/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview?departmentId=${ids.reportsArea}`,
+      'Отчёты',
+    );
+
+    expect(await screen.findByText('Выбор сброшен: команда Платформа.')).toBeInTheDocument();
+    expect(screen.queryByText('Департамент отключён от команды.')).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(location()).toBe(`/organizations/${ids.alfa}/areas/${ids.reportsArea}/overview`),
+    );
+  });
+
+  it('keeps its own notice when a project placed in the department still joins them', async () => {
+    serve();
+    await unlinkDepartment(
+      `/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview?departmentId=${ids.platformArea}`,
+      'Платформа',
+    );
+
+    expect(await screen.findByText('Департамент отключён от команды.')).toBeInTheDocument();
+    expect(screen.queryByText(/Выбор сброшен/)).not.toBeInTheDocument();
   });
 });
 

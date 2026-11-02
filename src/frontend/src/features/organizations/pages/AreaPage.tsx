@@ -6,6 +6,7 @@ import DriveFileMoveOutlinedIcon from '@mui/icons-material/DriveFileMoveOutlined
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import LinkOffOutlinedIcon from '@mui/icons-material/LinkOffOutlined';
 import { useAccessCheck } from '../../../shared/lib/access';
+import { useWorkContext } from '../../../shared/lib/workContext';
 import { apiErrorText } from '../../../shared/lib/apiErrorText';
 import {
   ActionButton,
@@ -50,6 +51,7 @@ import {
   moveAreaDialog,
   placeProjectDialog,
 } from '../lib/areaTexts';
+import { unlinkResetsDepartmentTeam } from '../lib/linkResets';
 import { notFoundLevel } from '../lib/notFoundLevel';
 import {
   organizationAreaPath,
@@ -199,6 +201,7 @@ export function AreaPage() {
   const navigate = useNavigate();
   const notify = useNotify();
   const access = useAccessCheck();
+  const context = useWorkContext();
   const canWrite = access(organizationsPermissions.areaWrite, 'organization');
   const canCreate = access(organizationsPermissions.areaCreate, 'organization');
   const canLink = access(organizationsPermissions.areaLink, 'organization');
@@ -579,10 +582,23 @@ export function AreaPage() {
             kind="departmentTeam"
             name={dialog.team.name}
             ownName={area.name}
-            action={() => unlinkTeam.mutateAsync(dialog.team.id)}
-            onSucceeded={() => {
+            action={async () => {
+              // Judged before the shell sees the change: when the unlink resets the chosen
+              // team, the shell's notice is the only one (D-4).
+              const fallsBack = unlinkResetsDepartmentTeam(
+                context,
+                organizationId,
+                area.id,
+                dialog.team.id,
+              );
+              await unlinkTeam.mutateAsync(dialog.team.id);
+              return fallsBack;
+            }}
+            onSucceeded={(fallsBack) => {
               setDialog(null);
-              notify(areaUnlinkDialog.departmentTeam.done);
+              if (!fallsBack) {
+                notify(areaUnlinkDialog.departmentTeam.done);
+              }
             }}
             onClose={closeDialog}
           />

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Box from '@mui/material/Box';
 import LinkOffOutlinedIcon from '@mui/icons-material/LinkOffOutlined';
 import { useAccessCheck } from '../../../shared/lib/access';
+import { useWorkContext } from '../../../shared/lib/workContext';
 import { apiErrorText } from '../../../shared/lib/apiErrorText';
 import {
   ActionButton,
@@ -18,6 +19,7 @@ import type { TeamArea } from '../api/organizationsApi';
 import { useLinkAreasToTeam, useUnlinkAreaFromTeam } from '../hooks/mutations';
 import { useTeamAreas } from '../hooks/queries';
 import { useObjectLink } from '../hooks/useObjectLink';
+import { unlinkResetsDepartmentTeam } from '../lib/linkResets';
 import { areaLinkDialog, areaUnlinkDialog, teamDepartmentsSection } from '../lib/areaTexts';
 import { organizationsPermissions } from '../permissions';
 import { AreaLinkDialog, AreaUnlinkDialog } from './AreaLinkDialog';
@@ -44,6 +46,7 @@ export function TeamDepartmentsSection({
   const objectLink = useObjectLink(organizationId);
   const notify = useNotify();
   const access = useAccessCheck();
+  const context = useWorkContext();
   const canLink =
     access(organizationsPermissions.areaLink, 'organization') &&
     access(organizationsPermissions.teamLink, 'organization');
@@ -156,10 +159,23 @@ export function TeamDepartmentsSection({
             kind="teamDepartment"
             name={unlinking.path}
             ownName={teamName}
-            action={() => unlink.mutateAsync(unlinking.id)}
-            onSucceeded={() => {
+            action={async () => {
+              // Judged before the shell sees the change: when the unlink resets the chosen
+              // team, the shell's notice is the only one (D-4).
+              const fallsBack = unlinkResetsDepartmentTeam(
+                context,
+                organizationId,
+                unlinking.id,
+                teamId,
+              );
+              await unlink.mutateAsync(unlinking.id);
+              return fallsBack;
+            }}
+            onSucceeded={(fallsBack) => {
               setUnlinking(null);
-              notify(areaUnlinkDialog.teamDepartment.done);
+              if (!fallsBack) {
+                notify(areaUnlinkDialog.teamDepartment.done);
+              }
             }}
             onClose={(stale) => {
               setUnlinking(null);

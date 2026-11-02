@@ -38,7 +38,9 @@ import {
   SELECTOR_KINDS,
   openObject,
   pairFits,
+  repairUnfit,
   resetNotice,
+  resetUnfitted,
   type ObjectSelection,
   type SelectorKind,
 } from './selectorFit';
@@ -161,6 +163,32 @@ export function useNavigationSource({
   const offers: WorkContextOffers | undefined =
     offersStatus === 'ready' && organizationId !== undefined ? offersQuery.data : undefined;
 
+  // The offers read before these ones, for the same organization: a link change (a team linked or
+  // unlinked, a project moved) is a change from them (ADR-0032 § 5). `undefined` is the first read.
+  const [offerTrack, setOfferTrack] = useState<{
+    organizationId: string | undefined;
+    offers: WorkContextOffers | undefined;
+    previous: WorkContextOffers | undefined;
+  }>({ organizationId: undefined, offers: undefined, previous: undefined });
+  if (offerTrack.offers !== offers || offerTrack.organizationId !== organizationId) {
+    setOfferTrack({
+      organizationId,
+      offers,
+      previous:
+        offerTrack.organizationId === organizationId && offerTrack.offers && offers
+          ? offerTrack.offers
+          : undefined,
+    });
+  }
+  const previousOffers =
+    offerTrack.offers === offers && offerTrack.organizationId === organizationId
+      ? offerTrack.previous
+      : undefined;
+
+  // Bumped when the shell writes a choice (`remember`), so a page that reads the remembered
+  // selection reads it again.
+  const [, setReads] = useState(0);
+
   // `areas/:areaId` is a department, or a project's node or a sub-area (ADR-0032 § 2): the
   // offers hold the departments only, so any other id is read as the node it is.
   const areaPrefixId = useMemo(() => {
@@ -200,10 +228,9 @@ export function useNavigationSource({
   // reads the remembered ones (ADR-0032 § 6; US-8), and so does a page with no organization.
   const carriesOrganization = address.organizationId !== undefined;
   const addressNamesObjects = carriesOrganization && namesObjects(address.selection);
-  const rememberedObjects =
-    !addressNamesObjects && store && organizationId !== undefined
-      ? readRemembered(store, user, organizationId)
-      : null;
+  const storedObjects =
+    store && organizationId !== undefined ? readRemembered(store, user, organizationId) : null;
+  const rememberedObjects = addressNamesObjects ? null : storedObjects;
   const chosen: ObjectSelection = useMemo(() => {
     const base = addressNamesObjects ? address.selection : (rememberedObjects ?? NO_SELECTION);
     if (!addressNamesObjects || areaPrefixId === undefined || isDepartmentId || !offers) {
@@ -226,13 +253,6 @@ export function useNavigationSource({
     rememberedObjects,
   ]);
 
-  // «Структура» of the chosen project: its node, from the project's own subtree (an existing
-  // read, shared with the project's pages), because the offers carry no node id.
-  const structureProjectId = chosen.project;
-  const treeQuery = useProjectAreaTree(organizationId ?? '', structureProjectId ?? '', {
-    enabled: enabled && organizationId !== undefined && structureProjectId !== null,
-  });
-  const structureId = treeQuery.data?.find((node) => node.type === 'project')?.id;
   const resolution = useMemo(
     () => (offers ? resolveAgainst(chosen, offers) : null),
     // `chosen` is a fresh object per render; its three ids are the dependencies.
@@ -244,8 +264,66 @@ export function useNavigationSource({
   const lost: readonly SelectorKind[] = nodeGone
     ? [...(resolution?.lost ?? NOTHING), 'department']
     : (resolution?.lost ?? NOTHING);
-  const objectsKey = `${objects.department}|${objects.team}|${objects.project}`;
   const lostKey = lost.join(',');
+
+  // An address that names an object that is gone, or a node that is gone, not offered or still
+  // being read, changes no context (BR-NV-7; US-3): the selectors keep the remembered selection
+  // while the page answers for the address (D-8).
+  const addressHeldBack =
+    offers !== undefined &&
+    addressNamesObjects &&
+    (lost.length > 0 || nodePending || nodeUnoffered);
+  const heldBackObjects = useMemo(
+    () =>
+      offers && addressHeldBack
+        ? resolveAgainst(storedObjects ?? NO_SELECTION, offers).objects
+        : null,
+    // The stored selection is read afresh each render; its three ids are the dependencies.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      offers,
+      addressHeldBack,
+      storedObjects?.department,
+      storedObjects?.team,
+      storedObjects?.project,
+    ],
+  );
+  // A remembered selection met with offers for the first time (the tab was closed over a link
+  // change): the more specific value of a pair that no longer fits drops, with the fallback
+  // notice, so no menu entry carries a pair its address answers not found for (D-5).
+  const repair = useMemo(
+    () =>
+      offers && resolution && !addressNamesObjects && previousOffers === undefined
+        ? repairUnfit(offers, resolution.objects)
+        : null,
+    [offers, resolution, addressNamesObjects, previousOffers],
+  );
+  const unfitKey = repair ? repair.reset.map(({ kind }) => kind).join(',') : '';
+  // What the selectors show and the menu is built from.
+  const shown: ObjectSelection =
+    heldBackObjects ?? (repair && repair.reset.length > 0 ? repair.selection : objects);
+  const shownKey = `${shown.department}|${shown.team}|${shown.project}`;
+
+  // A link change that unfits what is shown is the shell's to reset, not an address that never
+  // fitted: the pair is not `selectorNotFound` for the offers that changed it (D-4).
+  const linkReset = useMemo(
+    () => (previousOffers && offers ? resetUnfitted(previousOffers, offers, shown) : null),
+    // `shown` is read through its key.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [previousOffers, offers, shownKey],
+  );
+  const linkResetKinds: readonly SelectorKind[] = linkReset
+    ? linkReset.reset.map(({ kind }) => kind)
+    : NOTHING;
+  const linkResetKey = linkResetKinds.join(',');
+
+  // «Структура» of the chosen project: its node, from the project's own subtree (an existing
+  // read, shared with the project's pages), because the offers carry no node id.
+  const structureProjectId = shown.project;
+  const treeQuery = useProjectAreaTree(organizationId ?? '', structureProjectId ?? '', {
+    enabled: enabled && organizationId !== undefined && structureProjectId !== null,
+  });
+  const structureId = treeQuery.data?.find((node) => node.type === 'project')?.id;
 
   // A selector in the query that names nothing, or does not fit the object of the prefix, answers
   // not found for its level, the menu kept (ADR-0032 §§ 1, 3). The object of the prefix answers
@@ -265,6 +343,9 @@ export function useNavigationSource({
       if (lost.includes(kind)) return kind;
       const id = objects[kind];
       if (primary && id !== null && !pairFits(offers, primary.kind, primary.id, kind, id)) {
+        // A pair that fitted the offers before these and not these is a link change, which the
+        // shell resets with its notice; it is no address that never fitted (D-4).
+        if (linkResetKinds.includes(kind) || linkResetKinds.includes(primary.kind)) continue;
         return kind;
       }
     }
@@ -279,18 +360,18 @@ export function useNavigationSource({
 
   // Remembered (ADR-0032 § 6): written when an address names objects or the user chooses (see
   // `remember`), never by a visit to a page that names none; repaired when the remembered
-  // selection holds an object that no longer exists.
+  // selection holds an object that no longer exists or a pair that no longer fits (D-5).
   useEffect(() => {
     if (!store || organizationId === undefined) return;
     if (carriesOrganization) {
       if (!addressNamesObjects) {
         // An organization's page with no object: it reads the remembered selection and leaves it.
         writeRememberedOrganization(store, user, organizationId);
-        if (lostKey !== '') {
+        if (lostKey !== '' || unfitKey !== '') {
           // The notice is an event of the external store (the remembered selection), not derived state.
           // eslint-disable-next-line react-hooks/set-state-in-effect
           raise(organizationName ? [organizationName] : []);
-          writeRemembered(store, user, organizationId, objects);
+          writeRemembered(store, user, organizationId, shown);
         }
         return;
       }
@@ -316,7 +397,9 @@ export function useNavigationSource({
         return;
       }
       if (selectorNotFound !== null) return;
-      if (offers) writeRemembered(store, user, organizationId, objects);
+      // A link change that unfits the pair is reset by the shell, which writes the result.
+      if (linkResetKey !== '') return;
+      if (offers) writeRemembered(store, user, organizationId, shown);
       return;
     }
     if (organizationGone) {
@@ -324,11 +407,11 @@ export function useNavigationSource({
       writeRemembered(store, user, organizationId, NO_SELECTION);
       return;
     }
-    if (lostKey !== '') {
+    if (lostKey !== '' || unfitKey !== '') {
       raise(organizationName ? [organizationName] : []);
-      writeRemembered(store, user, organizationId, objects);
+      writeRemembered(store, user, organizationId, shown);
     }
-    // `objects` and `address` are read through their keys.
+    // `shown` and `address` are read through their keys.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     store,
@@ -336,8 +419,10 @@ export function useNavigationSource({
     organizationId,
     carriesOrganization,
     addressNamesObjects,
-    objectsKey,
+    shownKey,
     lostKey,
+    unfitKey,
+    linkResetKey,
     organizationGone,
     nodePending,
     nodeUnoffered,
@@ -349,9 +434,11 @@ export function useNavigationSource({
   // address with no object reads it back.
   const remember = useCallback(
     (forOrganization: string, chosenObjects: WorkContextObjects) => {
-      if (store) writeRemembered(store, user, forOrganization, chosenObjects);
+      if (!store) return;
+      writeRemembered(store, user, forOrganization, chosenObjects);
+      setReads((count) => count + 1);
     },
-    [store, user],
+    [store, user, setReads],
   );
 
   // No organization left to fall back to: the notice says only that the context is gone.
@@ -381,21 +468,21 @@ export function useNavigationSource({
   const selection = useMemo<WorkContextSelection>(
     () => ({
       organizationId,
-      departmentId: objects.department ?? undefined,
-      teamId: objects.team ?? undefined,
-      projectId: objects.project ?? undefined,
-      structureId: objects.project !== null ? structureId : undefined,
+      departmentId: shown.department ?? undefined,
+      teamId: shown.team ?? undefined,
+      projectId: shown.project ?? undefined,
+      structureId: shown.project !== null ? structureId : undefined,
       nodeId,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [organizationId, objectsKey, structureId, nodeId],
+    [organizationId, shownKey, structureId, nodeId],
   );
 
   // Where a row or a link to an object leads (D-3): the object becomes the most specific one.
   const objectLink = useCallback(
     (kind: WorkContextObjectKind, id: string): WorkContextObjectLink | null => {
       if (organizationId === undefined || !offers) return null;
-      const opened = openObject(offers, objects, kind, id);
+      const opened = openObject(offers, shown, kind, id);
       const first = menuFor(kind)[0];
       if (!first) return null;
       return {
@@ -403,9 +490,9 @@ export function useNavigationSource({
         notice: resetNotice(opened.reset),
       };
     },
-    // `objects` is read through its key.
+    // `shown` is read through its key.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [organizationId, offers, objectsKey],
+    [organizationId, offers, shownKey],
   );
 
   const tree = useMemo<WorkContextOrganization[]>(

@@ -7,7 +7,7 @@ import { useAccessCheck } from '../../shared/lib/access';
 import { objectsOf, useWorkContext } from '../../shared/lib/workContext';
 import { useNotice } from '../../shared/ui';
 import { targetAfterChoice } from '../navigation/choose';
-import { fallbackNotice, readAddressSelection } from '../navigation/selection';
+import { fallbackNotice, namesObjects, readAddressSelection } from '../navigation/selection';
 import { resetNotice, resetUnfitted, type ObjectSelection } from '../navigation/selectorFit';
 import { ContextSelectors } from './ContextSelectors';
 
@@ -98,9 +98,9 @@ export function ContextHost() {
   // an address that unfits at its first read is not found for its level instead.
   const offers = source.offers;
   const seen = useRef<{ organizationId: string; offers: typeof offers } | null>(null);
-  const latest = useRef({ objects, pathname });
+  const latest = useRef({ objects, pathname, search });
   useEffect(() => {
-    latest.current = { objects, pathname };
+    latest.current = { objects, pathname, search };
   });
   useEffect(() => {
     const before = seen.current;
@@ -113,8 +113,11 @@ export function ContextHost() {
     const result = resetUnfitted(before.offers, offers, current.objects);
     const text = resetNotice(result.reset);
     if (text === null) return;
+    // Remembered first: the source reads it back, so selectors on a page that names no object
+    // follow at once. The page moves only when its address names what was reset (D-7): a page
+    // that reads the remembered selection, «Участники» or a form, stays where it is.
     source.remember?.(organizationId, result.selection);
-    if (readAddressSelection(current.pathname, '').organizationId !== undefined) {
+    if (namesObjects(readAddressSelection(current.pathname, current.search).selection)) {
       navigate(
         targetAfterChoice({
           organizationId,

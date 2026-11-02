@@ -188,6 +188,20 @@ describe('feat-043 C-1: a link change that unfits the selection', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Команда' })).toBeInTheDocument();
   });
 
+  it('leaves a page that names no object where it is, and remembers the reset (D-7)', async () => {
+    const remember = vi.fn();
+    const members = `/organizations/${ALFA}/members`;
+    const shell = open({ offers: linked, selection, remember }, members);
+    await screen.findByRole('heading', { level: 1, name: 'Другая страница' });
+
+    shell.update({ contextSource: source({ offers: unlinked, selection, remember }) });
+
+    expect(await screen.findByText('Выбор сброшен: проект A.')).toBeInTheDocument();
+    expect(remember).toHaveBeenCalledWith(ALFA, { department: null, team: MARS, project: null });
+    expect(screen.getByRole('heading', { level: 1, name: 'Другая страница' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1, name: 'Команда' })).not.toBeInTheDocument();
+  });
+
   it('says nothing when the offers change and the pair still fits', async () => {
     const shell = open({ offers: linked, selection }, path);
     await screen.findByRole('heading', { level: 1, name: 'Другая страница' });

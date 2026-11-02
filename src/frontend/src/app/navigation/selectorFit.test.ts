@@ -6,6 +6,7 @@ import {
   openObject,
   pairFits,
   primaryKind,
+  repairUnfit,
   resetNotice,
   resetUnfitted,
   type FitData,
@@ -295,5 +296,26 @@ describe('resetUnfitted (BR-NV-17, ADR-0032 § 5, US-7: a link change)', () => {
     const without: FitData = { ...DATA, teams: DATA.teams.filter((team) => team.id !== 'mars') };
     const result = resetUnfitted(DATA, without, select({ team: 'mars', project: 'a' }));
     expect(result.reset).toEqual([]);
+  });
+});
+
+describe('repairUnfit (D-5: a remembered pair that stopped fitting while the tab was closed)', () => {
+  it('drops the more specific value of a pair the offers no longer fit, and says which', () => {
+    // «MARS» is linked to A in DATA; VENUS is not linked to B.
+    const result = repairUnfit(DATA, select({ team: 'venus', project: 'b' }));
+    expect(result.selection).toEqual(select({ team: 'venus' }));
+    expect(resetNotice(result.reset)).toBe('Выбор сброшен: проект B.');
+  });
+
+  it('drops the team of a department it is not linked to, keeping the department', () => {
+    const result = repairUnfit(DATA, select({ department: 'fin', team: 'venus' }));
+    expect(result.selection).toEqual(select({ department: 'fin' }));
+  });
+
+  it('keeps a selection whose pairs all fit, and one that holds a value the offers lack', () => {
+    const fits = select({ department: 'log', team: 'mars', project: 'a' });
+    expect(repairUnfit(DATA, fits)).toEqual({ selection: fits, reset: [] });
+    const gone = select({ team: 'ghost', project: 'a' });
+    expect(repairUnfit(DATA, gone).reset).toEqual([]);
   });
 });

@@ -253,6 +253,34 @@ export function resetUnfitted(
   return { selection: next, reset };
 }
 
+/**
+ * A remembered selection read against the offers it meets for the first time (US-7, ADR-0032
+ * §§ 5, 6): each chosen value that does not fit a less specific chosen one resets to «все», the
+ * more specific of the pair, so no menu entry carries a pair the address would answer not found
+ * for. A link change was missed while the tab was closed; nothing else differs from
+ * `resetUnfitted`, which judges the change itself. A value the offers do not hold is a gone
+ * object, not judged here. Nothing reset: the selection as it was.
+ */
+export function repairUnfit(data: FitData, selection: ObjectSelection): ChoiceResult {
+  const next: ObjectSelection = { ...selection };
+  const reset: ResetValue[] = [];
+  const held = (kind: SelectorKind, id: string) =>
+    optionsOf(data, kind).some((option) => option.id === id);
+  SELECTOR_KINDS.forEach((kind, index) => {
+    const id = selection[kind];
+    if (id === null || !held(kind, id)) return;
+    const unfitted = SELECTOR_KINDS.slice(0, index).some((other) => {
+      const chosen = next[other];
+      return chosen !== null && held(other, chosen) && !pairFits(data, kind, id, other, chosen);
+    });
+    if (unfitted) {
+      next[kind] = null;
+      reset.push({ kind, name: nameOf(data, kind, id) });
+    }
+  });
+  return { selection: next, reset };
+}
+
 /** «Выбор сброшен: команда MARS, проект A.», or `null` when nothing was reset. */
 export function resetNotice(reset: readonly ResetValue[]): string | null {
   if (reset.length === 0) return null;

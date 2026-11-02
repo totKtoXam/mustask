@@ -289,6 +289,9 @@ describe('feat-043 QA, US-1 and US-8: an address that names a gone object', () =
     await waitFor(() => expect(result.current.selection.organizationId).toBe(ALFA));
     expect(result.current.fallback).toBeNull();
     expect(readRemembered(window.localStorage, USER, ALFA)).toMatchObject({ team: MARS });
+    // D-8, BR-NV-7: the selectors do not change either.
+    expect(result.current.selection.teamId).toBe(MARS);
+    expect(result.current.selection.projectId).toBeUndefined();
   });
 
   // Code review C-4: only the gone kind drops, the other remembered values stay (US-8).
@@ -450,5 +453,121 @@ describe('code review C-6: a selector in the query that names nothing or does no
     await waitFor(() =>
       expect(readRemembered(window.localStorage, USER, ALFA)).toMatchObject({ team: null }),
     );
+  });
+});
+
+// A link change: project A was linked to MARS and VENUS, then to VENUS alone.
+const UNLINKED: WorkContextOffers = {
+  ...OFFERS,
+  projects: [{ id: PROJECT_A, name: 'A', key: 'A', departmentId: null, teamIds: [VENUS] }],
+};
+
+describe('feat-043 D-4: a link change is not a not found', () => {
+  const address = `/organizations/${ALFA}/projects/${PROJECT_A}/teams?teamId=${MARS}`;
+
+  it('is not `selectorNotFound` for a pair that fitted the offers before, and writes nothing', async () => {
+    const { result, rerender } = render(address);
+    await waitFor(() => expect(result.current.selection.teamId).toBe(MARS));
+    expect(result.current.selectorNotFound).toBeNull();
+
+    mocks.offers = UNLINKED;
+    rerender();
+
+    // The very render that holds the new offers: the shell resets the pair next.
+    expect(result.current.offers).toBe(UNLINKED);
+    expect(result.current.selectorNotFound).toBeNull();
+    expect(readRemembered(window.localStorage, USER, ALFA)).toMatchObject({
+      team: MARS,
+      project: PROJECT_A,
+    });
+  });
+
+  it('is still `selectorNotFound` for a pair that never fitted, whatever the offers do after', async () => {
+    mocks.offers = UNLINKED;
+    const { result, rerender } = render(address);
+    await waitFor(() => expect(result.current.selectorNotFound).toBe('team'));
+
+    mocks.offers = { ...UNLINKED, projects: [...UNLINKED.projects] };
+    rerender();
+
+    expect(result.current.selectorNotFound).toBe('team');
+  });
+});
+
+describe('feat-043 D-5: a remembered pair that stopped fitting repairs itself on read', () => {
+  const pair = { ...NO_SELECTION, team: MARS, project: PROJECT_A };
+
+  it('drops the more specific value, says so once and repairs the store, on «Участники»', async () => {
+    mocks.offers = UNLINKED;
+    writeRemembered(window.localStorage, USER, ALFA, pair);
+
+    const { result } = render(`/organizations/${ALFA}/members`);
+
+    await waitFor(() => expect(result.current.fallback?.names).toEqual(['Альфа']));
+    expect(result.current.selection.teamId).toBe(MARS);
+    expect(result.current.selection.projectId).toBeUndefined();
+    await waitFor(() =>
+      expect(readRemembered(window.localStorage, USER, ALFA)).toEqual({
+        ...NO_SELECTION,
+        team: MARS,
+      }),
+    );
+    expect(result.current.fallback?.id).toBe(1);
+  });
+
+  it('does the same on a page with no organization', async () => {
+    mocks.offers = UNLINKED;
+    writeRemembered(window.localStorage, USER, ALFA, pair);
+
+    const { result } = render('/organizations');
+
+    await waitFor(() => expect(result.current.fallback).not.toBeNull());
+    expect(result.current.selection.projectId).toBeUndefined();
+    expect(result.current.selection.teamId).toBe(MARS);
+  });
+
+  it('gives no menu entry a pair its address answers not found for', async () => {
+    mocks.offers = UNLINKED;
+    writeRemembered(window.localStorage, USER, ALFA, pair);
+
+    const { result } = render(`/organizations/${ALFA}/members`);
+
+    await waitFor(() => expect(result.current.fallback).not.toBeNull());
+    const link = result.current.objectLink?.('project', PROJECT_A);
+    expect(link?.to).not.toContain(`teamId=${MARS}`);
+  });
+
+  it('says nothing for a pair that still fits', async () => {
+    writeRemembered(window.localStorage, USER, ALFA, pair);
+
+    const { result } = render(`/organizations/${ALFA}/members`);
+
+    await waitFor(() => expect(result.current.selection.projectId).toBe(PROJECT_A));
+    expect(result.current.fallback).toBeNull();
+  });
+
+  it('leaves a link change after the first read to the shell: the pair stays until it resets it', async () => {
+    writeRemembered(window.localStorage, USER, ALFA, pair);
+    const { result, rerender } = render(`/organizations/${ALFA}/members`);
+    await waitFor(() => expect(result.current.selection.projectId).toBe(PROJECT_A));
+
+    mocks.offers = UNLINKED;
+    rerender();
+
+    expect(result.current.selection.projectId).toBe(PROJECT_A);
+    expect(result.current.fallback).toBeNull();
+    expect(readRemembered(window.localStorage, USER, ALFA)).toEqual(pair);
+  });
+});
+
+describe('feat-043 D-7: a choice written by the shell is read back at once', () => {
+  it('moves the selectors of a page that names no object, with no navigation', async () => {
+    writeRemembered(window.localStorage, USER, ALFA, { ...NO_SELECTION, team: MARS });
+    const { result } = render('/organizations');
+    await waitFor(() => expect(result.current.selection.teamId).toBe(MARS));
+
+    act(() => result.current.remember?.(ALFA, { ...NO_SELECTION, team: VENUS }));
+
+    await waitFor(() => expect(result.current.selection.teamId).toBe(VENUS));
   });
 });
