@@ -71,8 +71,6 @@ export const areaPage = {
   },
   nameFollowsProject: 'Название меняется вместе с проектом.',
   noDescription: 'Описание не задано',
-  deactivatedNotice: (projectName: string) =>
-    `Проект «${projectName}» деактивирован: область доступна только для чтения. Чтобы изменить её, восстановите проект в списке деактивированных проектов организации.`,
   children: {
     title: 'Вложенные области',
     tableLabel: 'Вложенные области',

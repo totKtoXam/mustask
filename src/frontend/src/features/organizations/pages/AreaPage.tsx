@@ -38,6 +38,7 @@ import { useNotify } from '../components/notice';
 import { PlaceProjectDialog } from '../components/PlaceProjectDialog';
 import { useLinkTeamsToArea, useMoveArea, useUnlinkTeamFromArea } from '../hooks/mutations';
 import { useArea, useAreaTeams, useAreaTree } from '../hooks/queries';
+import { useObjectLink } from '../hooks/useObjectLink';
 import { commandKinds, commandLabel } from '../lib/areaCommands';
 import {
   areaCommands,
@@ -55,8 +56,6 @@ import {
   areaProjectsPath,
   areaTeamsPath,
   organizationAreasPath,
-  organizationTeamPath,
-  projectGeneralPath,
 } from '../paths';
 import { organizationsPermissions } from '../permissions';
 
@@ -76,33 +75,20 @@ function Muted({ children }: { children: string }) {
   );
 }
 
-/** The «Проект» fact: the project's name, a link to its «Общие». */
+/** The «Проект» fact: the project's name, a link to its «Общие» that makes it the chosen project. */
 function ProjectFact({ organizationId, projectId }: { organizationId: string; projectId: string }) {
   // From the tree node: the project read answers 404 when the project is deactivated (TC-4).
   const tree = useAreaTree(organizationId);
+  const objectLink = useObjectLink(organizationId);
+  const link = objectLink('project', projectId);
   const name = tree.data?.find(
     (node) => node.type === 'project' && node.projectId === projectId,
   )?.name;
   return (
-    <Link component={RouterLink} to={projectGeneralPath(organizationId, projectId)}>
+    <Link component={RouterLink} to={link.to} state={link.state}>
       {name ?? '…'}
     </Link>
   );
-}
-
-/** The read-only notice of a deactivated project's node, naming the project. */
-function DeactivatedNotice({
-  organizationId,
-  projectId,
-}: {
-  organizationId: string;
-  projectId: string;
-}) {
-  const tree = useAreaTree(organizationId);
-  const name = tree.data?.find(
-    (node) => node.type === 'project' && node.projectId === projectId,
-  )?.name;
-  return <InlineNotice severity="info">{areaPage.deactivatedNotice(name ?? '')}</InlineNotice>;
 }
 
 function descriptionFact(area: AreaPageData): Fact {
@@ -202,6 +188,8 @@ export function AreaPage() {
     areaId: string;
   }>();
   const query = useArea(organizationId, areaId);
+  const tree = useAreaTree(organizationId);
+  const objectLink = useObjectLink(organizationId);
   const area = query.isSuccess ? query.data : undefined;
   const isDepartment = area?.type === 'department';
   const teams = useAreaTeams(organizationId, areaId, isDepartment);
@@ -221,6 +209,10 @@ export function AreaPage() {
   const level = query.isError ? notFoundLevel(query.error) : null;
   if (level) {
     return <NotFound level={level} keepNavigation={level === 'area'} />;
+  }
+  // A deactivated project's node and sub-areas open nothing (BR-NV-13; OQ-3 A).
+  if (area?.projectActive === false) {
+    return <NotFound level="project" keepNavigation />;
   }
 
   const loading = query.isPending || (query.isError && query.isFetching);
@@ -262,16 +254,11 @@ export function AreaPage() {
         },
       });
     }
-    if (
-      section === 'overview' &&
-      area.type === 'project' &&
-      area.projectId &&
-      area.projectActive !== false
-    ) {
+    if (section === 'overview' && area.type === 'project' && area.projectId) {
       commands.push({
         label: areaCommands.openProject,
         icon: <FolderOpenOutlinedIcon />,
-        to: projectGeneralPath(organizationId, area.projectId),
+        to: objectLink('project', area.projectId).to,
       });
     }
   }
@@ -283,14 +270,34 @@ export function AreaPage() {
         area?.type === 'department'
           ? areaPage.projects.columns.project
           : areaPage.children.columns.area,
-      render: (child) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-          <TruncatedText to={organizationAreaPath(organizationId, child.id)} look="link">
-            {child.name}
-          </TruncatedText>
-          {child.projectActive === false && <Tag label={areasPage.deactivated} />}
-        </Box>
-      ),
+      render: (child) => {
+        // A project of a department opens the project's «Общие» and becomes the chosen project
+        // (BR-NV-19); a sub-area opens its own page. A deactivated project is plain text (OQ-3 A).
+        const projectId =
+          child.type === 'project'
+            ? (tree.data?.find((node) => node.id === child.id)?.projectId ?? null)
+            : null;
+        const deactivated = child.projectActive === false;
+        const link = projectId !== null ? objectLink('project', projectId) : null;
+        const to =
+          child.type === 'project'
+            ? deactivated || link === null
+              ? undefined
+              : link.to
+            : organizationAreaPath(organizationId, child.id);
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+            <TruncatedText
+              to={to}
+              linkState={to === link?.to ? link?.state : undefined}
+              look="link"
+            >
+              {child.name}
+            </TruncatedText>
+            {deactivated && <Tag label={areasPage.deactivated} />}
+          </Box>
+        );
+      },
     },
     {
       key: 'description',
@@ -335,11 +342,15 @@ export function AreaPage() {
     {
       key: 'team',
       header: areaPage.teams.columns.team,
-      render: (team) => (
-        <TruncatedText to={organizationTeamPath(organizationId, team.id)} look="link">
-          {team.name}
-        </TruncatedText>
-      ),
+      render: (team) => {
+        // The team becomes the most specific chosen object; the department stays when it fits.
+        const link = objectLink('team', team.id);
+        return (
+          <TruncatedText to={link.to} linkState={link.state} look="link">
+            {team.name}
+          </TruncatedText>
+        );
+      },
     },
   ];
   // The department-end unlink is `area.link` alone (api-contract § 5, DELETE /areas/{a}/teams/{t}).
@@ -439,11 +450,6 @@ export function AreaPage() {
         title={area ? areaPage.title(area.type, area.name) : areaPage.titleLoading}
         commands={commands}
       />
-      {area?.projectActive === false && area.projectId && (
-        <Box sx={{ mb: 2 }}>
-          <DeactivatedNotice organizationId={organizationId} projectId={area.projectId} />
-        </Box>
-      )}
       {loading ? (
         <FormSkeleton fields={3} />
       ) : query.isError ? (

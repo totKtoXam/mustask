@@ -65,15 +65,15 @@ describe('feat-043 design § 6: a department’s «Обзор»', () => {
 });
 
 describe('feat-043 design § 6: a department’s «Проекты» and «Команды»', () => {
-  it('lists the projects with the key, each name a link to its structure', async () => {
+  it('lists the projects with the key, each name a link to the project’s «Общие» (C-3)', async () => {
     serveOrganizations();
     renderPage({ path: `${PLATFORM}/projects` });
     await loaded('Департамент: Платформа');
 
     const projects = await screen.findByRole('table', { name: 'Проекты департамента' });
-    expect(within(projects).getByRole('link', { name: 'Пример проекта' })).toHaveAttribute(
+    expect(await within(projects).findByRole('link', { name: 'Пример проекта' })).toHaveAttribute(
       'href',
-      `${PRM_NODE}/overview`,
+      `/organizations/${ids.alfa}/projects/${ids.prm}/general`,
     );
   });
 
@@ -96,11 +96,13 @@ describe('feat-043 design § 6: a department’s «Проекты» and «Ком
     await loaded('Департамент: Платформа');
 
     const projects = await screen.findByRole('table', { name: 'Проекты департамента' });
-    const row = within(projects).getByRole('link', { name: 'Старый проект' }).closest('tr');
+    // A deactivated project's row is marked and is plain text, no link (C-2; OQ-3 A).
+    const row = within(projects).getByText('Старый проект').closest('tr');
     expect(row).toHaveTextContent('деактивирован');
     expect(row).toHaveTextContent('OLD');
+    expect(within(projects).queryByRole('link', { name: 'Старый проект' })).not.toBeInTheDocument();
     expect(
-      within(projects).getByRole('link', { name: 'Пример проекта' }).closest('tr'),
+      (await within(projects).findByRole('link', { name: 'Пример проекта' })).closest('tr'),
     ).not.toHaveTextContent('деактивирован');
     expect(screen.getAllByText('1 деактивирован').length).toBeGreaterThan(0);
   });
@@ -114,7 +116,7 @@ describe('feat-043 design § 6: a department’s «Проекты» and «Ком
     await loaded('Департамент: Отчёты');
 
     const projects = await screen.findByRole('table', { name: 'Проекты департамента' });
-    expect(within(projects).getByRole('link', { name: 'Аналитика' })).toBeInTheDocument();
+    expect(await within(projects).findByRole('link', { name: 'Аналитика' })).toBeInTheDocument();
   });
 
   it('lists the teams, adds some and unlinks one after a confirmation', async () => {
@@ -383,41 +385,30 @@ describe('feat-043 design § 6: a project’s node, «Структура»', () 
   });
 });
 
-describe('mod-018 OQ-6 A: a deactivated project’s node', () => {
-  it('is read-only: the notice names the project and no command is drawn', async () => {
+describe('feat-043 OQ-3 A, BR-NV-13: a deactivated project’s node', () => {
+  it('answers «Проект не найден», no facts and no command (C-2)', async () => {
     serveOrganizations();
     renderPage({ path: `${OLD_NODE}/overview` });
-    await loaded('Структура: Старый проект');
 
     expect(
-      await screen.findByText(
-        /Проект «Старый проект» деактивирован: область доступна только для чтения/,
-      ),
+      await screen.findByRole('heading', { level: 1, name: 'Проект не найден' }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Переместить' })).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'Новая вложенная область' }),
-    ).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Открыть проект' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/деактивирован: область доступна/)).not.toBeInTheDocument();
   });
 
-  it('a sub-area of a deactivated project names its project from the tree', async () => {
+  it('answers the same for a sub-area of a deactivated project', async () => {
     const data = exampleDataset();
     data.areas.push(
       subArea('d0000000-0000-4000-8000-0000000000a1', ids.alfa, ids.old, ids.oldRoot, 'Архив'),
     );
     serveOrganizations(data);
     renderPage({ path: `${AREAS}/d0000000-0000-4000-8000-0000000000a1/overview` });
-    await loaded('Область: Архив');
 
-    const general = `/organizations/${ids.alfa}/projects/${ids.old}/general`;
-    await waitFor(() =>
-      expect(
-        within(facts())
-          .getAllByRole('link', { name: 'Старый проект' })
-          .map((link) => link.getAttribute('href')),
-      ).toContain(general),
-    );
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Проект не найден' }),
+    ).toBeInTheDocument();
   });
 });
 

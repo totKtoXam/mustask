@@ -23,6 +23,7 @@ import {
 import { AreaTypeMark, commandIcon } from '../components/AreaTypeMark';
 import { ListFilter } from '../components/ListFilter';
 import { useAreaTree } from '../hooks/queries';
+import { useObjectLink, type ObjectLink } from '../hooks/useObjectLink';
 import { commandKinds, commandLabel } from '../lib/areaCommands';
 import { areasPage } from '../lib/areaTexts';
 import { expandableIds, filterTree, hasChildren, initialExpansion } from '../lib/areaTree';
@@ -35,7 +36,7 @@ type AreaRow = AreaNode & { label: string };
 
 /**
  * «Области» (mod-018 design § 3; US-1, US-2, US-6): the organization's typed tree on the tree
- * registry, columns «Название» (a link to the node's page; a deactivated project's node is tagged
+ * registry, columns «Название» (a link to the object's page; a deactivated project's node is tagged and plain
  * «деактивирован»), «Тип» and «Описание». The organization is not a row (D-8): departments and
  * project nodes stand at the top. The initial expansion is D-3 with «Развернуть всё» / «Свернуть
  * всё». «Новый департамент» is the holder of `area.create`'s; a row menu offers the commands of its
@@ -45,6 +46,7 @@ type AreaRow = AreaNode & { label: string };
 export function AreasPage() {
   const { organizationId = '' } = useParams<{ organizationId: string }>();
   const query = useAreaTree(organizationId);
+  const objectLink = useObjectLink(organizationId);
   const access = useAccessCheck();
   const canWrite = access(organizationsPermissions.areaWrite, 'organization');
   const canCreate = access(organizationsPermissions.areaCreate, 'organization');
@@ -123,6 +125,16 @@ export function AreasPage() {
     if (contextGone) {
       void query.refetch();
     }
+  }
+
+  // A department and a project open their own page and become the chosen object (BR-NV-19; OQ-1 A:
+  // a project opens its «Общие»); a sub-area opens its page under its project's menu. A deactivated
+  // project's node and sub-areas open nothing, they are plain text (OQ-3 A).
+  function rowLink(area: AreaNode): ObjectLink | null {
+    if (area.projectActive === false) return null;
+    if (area.type === 'department') return objectLink('department', area.id);
+    if (area.type === 'project' && area.projectId) return objectLink('project', area.projectId);
+    return { to: organizationAreaPath(organizationId, area.id) };
   }
 
   function actions(area: AreaNode): TreeRegistryAction[] {
@@ -214,7 +226,8 @@ export function AreasPage() {
           adornment={(area) =>
             area.projectActive === false ? <Tag label={areasPage.deactivated} /> : null
           }
-          labelTo={(area) => organizationAreaPath(organizationId, area.id)}
+          labelTo={(area) => rowLink(area)?.to}
+          labelState={(area) => rowLink(area)?.state}
           actions={actions}
           showActions={canWrite ? undefined : false}
           selectedId={selectedId}

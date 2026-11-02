@@ -56,6 +56,15 @@ describe('mod-018 design § 3: the organization’s area tree (the page)', () =>
       'href',
       `/organizations/${ids.alfa}/areas/${ids.gatewayArea}/overview`,
     );
+    // A department opens its page, a project its «Общие» (OQ-1 A, C-3).
+    expect(screen.getByRole('link', { name: 'Платформа' })).toHaveAttribute(
+      'href',
+      `/organizations/${ids.alfa}/areas/${ids.platformArea}/overview`,
+    );
+    expect(screen.getByRole('link', { name: 'Пример проекта' })).toHaveAttribute(
+      'href',
+      `/organizations/${ids.alfa}/projects/${ids.prm}/general`,
+    );
     // Areas of another organization are not drawn.
     expect(screen.queryByText('Отчётность')).not.toBeInTheDocument();
   });
@@ -424,13 +433,14 @@ describe('mod-018 US-6: deleting a department or a sub-area', () => {
   });
 });
 
-describe('mod-018 OQ-6 A: a deactivated project’s node is read-only', () => {
-  it('is marked «деактивирован» and has no row menu', async () => {
+describe('feat-043 OQ-3 A: a deactivated project’s node opens nothing', () => {
+  it('is marked «деактивирован», is plain text and has no row menu', async () => {
     serveOrganizations();
     renderPage({ path: AREAS });
     await treegrid();
 
     expect(within(row('Старый проект')).getByText('деактивирован')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Старый проект' })).not.toBeInTheDocument();
     expect(
       within(row('Старый проект')).queryByRole('button', { name: /^Действия:/ }),
     ).not.toBeInTheDocument();

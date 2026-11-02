@@ -17,8 +17,8 @@ import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizatio
 import type { TeamArea } from '../api/organizationsApi';
 import { useLinkAreasToTeam, useUnlinkAreaFromTeam } from '../hooks/mutations';
 import { useTeamAreas } from '../hooks/queries';
+import { useObjectLink } from '../hooks/useObjectLink';
 import { areaLinkDialog, areaUnlinkDialog, teamDepartmentsSection } from '../lib/areaTexts';
-import { organizationAreaPath } from '../paths';
 import { organizationsPermissions } from '../permissions';
 import { AreaLinkDialog, AreaUnlinkDialog } from './AreaLinkDialog';
 import { useNotify } from './notice';
@@ -41,6 +41,7 @@ export function TeamDepartmentsSection({
   const query = useTeamAreas(organizationId, teamId);
   const link = useLinkAreasToTeam(organizationId, teamId);
   const unlink = useUnlinkAreaFromTeam(organizationId, teamId);
+  const objectLink = useObjectLink(organizationId);
   const notify = useNotify();
   const access = useAccessCheck();
   const canLink =
@@ -56,11 +57,15 @@ export function TeamDepartmentsSection({
     {
       key: 'department',
       header: teamDepartmentsSection.column,
-      render: (department) => (
-        <TruncatedText to={organizationAreaPath(organizationId, department.id)} look="link">
-          {department.path}
-        </TruncatedText>
-      ),
+      render: (department) => {
+        // The department becomes the chosen department; the team stays (BR-NV-19).
+        const link = objectLink('department', department.id);
+        return (
+          <TruncatedText to={link.to} linkState={link.state} look="link">
+            {department.path}
+          </TruncatedText>
+        );
+      },
     },
   ];
   if (canUnlink) {

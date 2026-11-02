@@ -18,6 +18,7 @@ import { objectsOf, type WorkContextSelection } from '../../shared/lib/workConte
 import {
   KIND_ROUTE_PREFIX,
   OBJECT_SETTINGS_SEGMENT,
+  SELECTOR_QUERY,
   menuFor,
   rowRoute,
   type MenuKind,
@@ -71,15 +72,18 @@ function menuEntry(kind: MenuKind, row: MenuRow): MainNavigationEntry {
     permission: row.code,
     landing: (selection) => {
       if (!selection.organizationId) return null;
-      // «Структура» is the project's node, on the area prefix (ADR-0031 rule 5).
+      // «Структура» is the project's node, on the area prefix (ADR-0031 rule 5); a chosen team
+      // is not dropped, it rides in the query (BR-NV-19).
       if (row.id === 'structure') {
-        return selection.structureId
-          ? menuHref(
-              selection.organizationId,
-              { department: selection.structureId, team: null, project: null },
-              { segment: 'overview' },
-            )
-          : null;
+        if (!selection.structureId) return null;
+        const node = menuHref(
+          selection.organizationId,
+          { department: selection.structureId, team: null, project: null },
+          { segment: 'overview' },
+        );
+        return selection.teamId
+          ? `${node}?${SELECTOR_QUERY.team}=${encodeURIComponent(selection.teamId)}`
+          : node;
       }
       return menuHref(selection.organizationId, objectsOf(selection), row);
     },

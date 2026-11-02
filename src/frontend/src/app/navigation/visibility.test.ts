@@ -124,6 +124,35 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () =>
   });
 });
 
+describe('feat-043 C-3: the «Структура» landing keeps the chosen team (BR-NV-19)', () => {
+  const chosen = buildNavigationModel({
+    organizationId: 'org-1',
+    departmentId: 'dep-1',
+    teamId: 'team-1',
+    projectId: 'prj-1',
+    structureId: 'node-1',
+  });
+  const structure = entryIn(chosen, 'project-structure');
+
+  it('stands on the project’s node, the team riding in the query', () => {
+    expect(
+      structure.landing({
+        organizationId: 'org-1',
+        projectId: 'prj-1',
+        teamId: 'team-1',
+        structureId: 'node-1',
+      }),
+    ).toBe('/organizations/org-1/areas/node-1/overview?teamId=team-1');
+  });
+
+  it('has no query when no team is chosen, and no address without the node', () => {
+    expect(
+      structure.landing({ organizationId: 'org-1', projectId: 'prj-1', structureId: 'node-1' }),
+    ).toBe('/organizations/org-1/areas/node-1/overview');
+    expect(structure.landing({ organizationId: 'org-1', projectId: 'prj-1' })).toBeNull();
+  });
+});
+
 describe('mod-001 US-2: the «Процесс» entry', () => {
   const processEntry = entryIn(model, 'process');
   const DEMONSTRATION_ID = 'd0000000-0000-4000-8000-000000000001';
