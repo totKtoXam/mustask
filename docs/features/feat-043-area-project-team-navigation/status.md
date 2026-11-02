@@ -72,6 +72,8 @@ gate-3: pending
 
 - 2026-11-02 [orchestrator] D-1..D-12 fixed (frontend-developer, 0aa167cd); mockRegistry failure of the full run at c28080fc fixed (99dadd41). Open: `state` on PageHeader and MenuButton has no kit guide or showcase entry. Delta read 2 of 2.
 
+- 2026-11-02 [orchestrator] Stage 8, delta read 2 of 2: approve, 0 blockers, 0 majors, 4 minors as debt, E-1..E-4 (44042575). Kit guide and showcase entries added (8c5e8647); TreeRegistry has no showcase entry, its section list is pinned until tech-016. Waiting for the shared lane for the last full Vitest, then gate-3.
+
 ## Notes
 
 Summary (from the queue line): Top-level «Области», «Проекты» and «Команды»; the object pages with their sections, a section absent until the line that owns it adds it; the organization's «Обзор» as its home page, the user's organizations beside the content (feat-045 folded in); the «Рабочие элементы» list across projects; breadcrumbs with no false hierarchy; the switcher and the remembered context; empty states. A retired address answers «Страница не найдена», nothing redirects, and the interim pages of the earlier lines (the team and area pages in the organization settings, the project's teams, area links and default team in its settings) move onto the objects' own pages (doc-012 BR-MX-27, -28; US-10)
