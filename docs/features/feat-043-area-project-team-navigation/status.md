@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/043-area-project-team-navigation
-- stage: 07-frontend-qa
+- stage: 08-code-review
 - epic: platform/ui
 - deps: feat-040,mod-018,mod-020
 - gates: gate-1, gate-2, gate-3
@@ -61,6 +61,8 @@ gate-3: pending
 - 2026-11-02 [orchestrator] Stage 7 (qa-engineer), round 1: not ready, 1 blocker, 2 majors, 2 minors, 52 tests added, 3 `it.fails`. F-3 blocker: «Настройки» clears the selection, the object's «Параметры» reachable only by address. F-1: an address naming a gone object overwrites the remembered selection. F-2: narrowed project backlog has no hint or tag and still offers the move. Returned to frontend-developer.
 
 - 2026-11-02 [orchestrator] F-1..F-4 fixed (frontend-developer, 2fb50a5c). Orchestrator's calls: «Настройки» carries the selection in the address; the new query `projectId` is written into ADR-0032 §§ 1 and consequences. mod-017's test of reordering a filtered project backlog is replaced: Q-9 A changes that behaviour, to name at gate-3. Open for round 2: tsc error in OrganizationOverviewPage.qa.test.tsx. From a project's «Параметры», «Команда → Параметры» drops the project per ADR-0032 § 5, left as is.
+
+- 2026-11-02 [orchestrator] Stage 7, round 2: pass, 0 blockers, 0 majors; F-6, F-7, F-8 minors fixed at once (6c997513). F-5 stays open: second selector row at 640 and 1023 px not seen in a browser. Nothing of the frontend has been opened in a browser; E2E standing NO. Full Vitest after the fixes owed before the push.
 
 ## Notes
 
