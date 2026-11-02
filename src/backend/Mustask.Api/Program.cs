@@ -11,7 +11,6 @@ using Mustask.Api.Features.Dictionaries;
 using Mustask.Api.Features.Organizations;
 using Mustask.Api.Features.Process;
 using Mustask.Api.Features.Session;
-using Mustask.Api.Features.UserDirectory;
 using Mustask.Api.Features.WorkItems;
 using Gridify;
 using Mustask.Application;
@@ -174,15 +173,10 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<RealmReadinessMoni
 var sessionOptions = SessionOidcOptions.FromConfiguration(builder.Configuration, builder.Environment);
 builder.Services.AddMustaskSessionAuthentication(keycloak, sessionOptions);
 
-// mod-014 (ADR-0025 § 3, § 9): the user projection's push channel. Its
-// shared secret is read once here, before Build() — the KeycloakOptions
-// pattern: a missing or short UserDirectory:Push:Secret fails the start
-// naming the key. The read model orders by the ICU 'ru' collation, so an
-// invariant-globalization runtime is refused here too, before anything runs.
+// The read model of the user projection orders by the ICU 'ru' collation, so an invariant-globalization runtime is
+// refused here, before anything runs (mod-014, ADR-0025 § 9). The projection itself is written at sign-in (tech-025,
+// ADR-0034): there is no push channel and no shared secret.
 DirectoryCollation.EnsureSupported();
-builder.Services.AddSingleton(PushChannelOptions.FromConfiguration(builder.Configuration));
-builder.Services.AddSingleton<PushSignatureVerifier>();
-builder.Services.AddHostedService<PushChannelStartupNotice>();
 
 // keycloak-realm — без тега "live", поэтому виден /health, но не
 // /alive (Mustask.ServiceDefaults/Extensions.cs, Predicate = live).
@@ -309,7 +303,6 @@ app.MapOrganizationEndpoints();
 app.MapMembershipEndpoints();
 app.MapProcessEndpoints();
 app.MapSessionEndpoints();
-app.MapUserDirectoryEndpoints();
 app.MapWorkItemEndpoints();
 app.MapBoardEndpoints();
 

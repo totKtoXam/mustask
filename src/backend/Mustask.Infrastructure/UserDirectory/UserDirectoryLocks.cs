@@ -13,8 +13,6 @@ internal static class UserDirectoryLocks
 {
     private const string UserKeyPrefix = "user_directory.user:";
 
-    private const string SnapshotKey = "user_directory.snapshot";
-
     /// <summary>
     /// Locks every id's key, the keys in ascending order: two transactions
     /// locking overlapping sets take the shared keys in the same order, so
@@ -39,11 +37,6 @@ internal static class UserDirectoryLocks
             """,
             cancellationToken);
     }
-
-    public static async Task LockSnapshotsAsync(MustaskDbContext context, CancellationToken cancellationToken) =>
-        await context.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT pg_advisory_xact_lock(hashtextextended({SnapshotKey}, 0))",
-            cancellationToken);
 
     /// <summary>
     /// Row locks on the held users among <paramref name="ids"/>, in id order —

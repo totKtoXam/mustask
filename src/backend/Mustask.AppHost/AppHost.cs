@@ -274,21 +274,12 @@ var keycloakContainerName = FormattableString.Invariant($"mustask-e2e-keycloak-{
 // human-chosen, never logged).
 var mustaskE2eClientSecret = new KeycloakStandClientSecret();
 
-// mod-014 (ADR-0025 § 3): the user projection's push secret — one value per
-// AppHost process, generated, never human-set and never logged, handed to
-// Keycloak's provider and to Mustask.Api as one secret parameter (masked by
-// the dashboard). A fresh clone sets no fourth secret.
-var userProjectionPushSecret = new UserProjectionPushSecret();
-var pushSecret = builder.AddParameter(
-    UserProjectionIdentifiers.PushSecretParameter, userProjectionPushSecret.Value, secret: true);
-
 // Ресурс именован переменной — Mustask.Api читает его endpoint напрямую
 // (ниже), не через отдельный конфигурационный литерал.
 //
-// mod-014 (ADR-0025 § 1): the image is built, not pulled — the Keycloak image
-// named by Keycloak:Image/Keycloak:Tag plus the provider `mustask-user-projection`,
-// compiled and tested inside the build against that very Keycloak. An SPI the
-// provider does not compile against fails the build, and Keycloak does not start.
+// The image is built, not pulled: `deploy/keycloak/Dockerfile` is the Keycloak image named by
+// Keycloak:Image/Keycloak:Tag plus the store directory's ownership (tech-025 retired the
+// event-listener provider that used to be compiled into it).
 var keycloak = builder.AddDockerfile("keycloak", "../../../deploy/keycloak")
     .WithBuildArg("KEYCLOAK_IMAGE", keycloakImage)
     .WithBuildArg("KEYCLOAK_TAG", keycloakTag)
@@ -325,37 +316,10 @@ var keycloakStore = keycloakStoreVolume(keycloak);
 keycloak.WithVolume(keycloakStore, "/opt/keycloak/data/h2");
 Console.WriteLine($"Keycloak store: volume {keycloakStore} (pairs with {keycloakStorePairing}).");
 
-// The user projection's feed (mod-014, ADR-0025 § 3, § 4): the provider
-// pushes to Mustask.Api's own endpoint, signs with the generated secret, and
-// is allowed plain HTTP only because this is the stand. The option names are
-// Keycloak 26's spelling of the provider's SPI options.
-//
-// The address is the api's port on the Docker host, not `api.GetEndpoint("http")`:
-// for a container that resolves to Aspire's container tunnel, and once the
-// `keycloak` resource has restarted, the next api restart leaves the tunnel
-// unable to bind its listener again ("address already in use") — the provider
-// never reaches the api until the AppHost restarts (QA D-1). The api's endpoint
-// is not proxied and listens on 0.0.0.0, so the host's port answers directly;
-// the runtime argument maps the host's name on a Linux engine as well.
-keycloak
-    .WithContainerRuntimeArgs(UserProjectionIdentifiers.DockerHostMapping)
-    .WithEnvironment(UserProjectionIdentifiers.EndpointVariable, UserProjectionIdentifiers.FeedEndpoint(apiPort))
-    .WithEnvironment(UserProjectionIdentifiers.PushSecretVariable, pushSecret)
-    .WithEnvironment(UserProjectionIdentifiers.RequireHttpsVariable, "false");
-
-// A QA run can shorten the reconciliation period (BR-UP-8 keeps 60 minutes
-// as the default); unset, the provider's own default applies.
-var reconcilePeriodMinutes = builder.Configuration[UserProjectionIdentifiers.ReconcilePeriodSetting];
-
-if (!string.IsNullOrWhiteSpace(reconcilePeriodMinutes))
-{
-    keycloak.WithEnvironment(UserProjectionIdentifiers.ReconcilePeriodVariable, reconcilePeriodMinutes);
-}
-
 // The start drift check (mod-014 D-10 (a); ADR-0025 § 7): a second health
 // check of the `keycloak` resource compares the live realm of the persistent
 // store with the realm import — roles, composites, the declared clients'
-// roles, the listener, declared groups, and the values a store takes only at
+// roles, declared groups, and the values a store takes only at
 // creation (admin password, panel secret, the URLs of the stand's ports). Any
 // finding keeps the resource unhealthy, so the provisioning below never runs
 // and the stand does not come up ready; the finding is logged naming the
@@ -392,7 +356,7 @@ KeycloakDriftHealthCheck.Register(
         },
         services.GetRequiredService<ILoggerFactory>().CreateLogger("Mustask.AppHost.Stand")));
 
-keycloak.WithHealthCheck(UserProjectionIdentifiers.DriftHealthCheckKey);
+keycloak.WithHealthCheck(KeycloakStandIdentifiers.DriftHealthCheckKey);
 
 // ADR-0023: стендовый клиент с правом имперсонации и E2E-пользователь-образец
 // заводятся здесь, а не realm-импортом — --import-realm пропускает уже
@@ -476,9 +440,7 @@ api.WithEnvironment("Keycloak__Authority", ReferenceExpression.Create($"{keycloa
    .WithEnvironment("Keycloak__Audience", "mustask-api")
    // ADR-0022 Decision 4: секрет клиента виден только бэкенду, который один
    // обменивает код — никогда браузеру.
-   .WithEnvironment("Keycloak__ClientSecret", keycloakPanelClientSecret)
-   // mod-014: the push channel's secret — the same parameter Keycloak's provider signs with.
-   .WithEnvironment(UserProjectionIdentifiers.ApiPushSecretVariable, pushSecret);
+   .WithEnvironment("Keycloak__ClientSecret", keycloakPanelClientSecret);
 
 // --- Фронтенд ----------------------------------------------------------------
 

@@ -361,7 +361,7 @@ public sealed class BoardChecklistsEndpointTests(MustaskApiFactory factory)
         var story = await BoardsTestData.CreateAsync(factory, world, "US", "История", world.PlatformAreaId);
         var ids = Enumerable.Range(0, distinct).Select(_ => UserDirectoryTestData.NewId()).ToArray();
         await UserDirectoryTestData.SeedAsync(
-            factory, ids.Select((id, index) => UserDirectoryTestData.Push(id, $"Имя{index + 1}", $"Фамилия{index + 1}", $"user{index + 1}-{id}@example.test")));
+            factory, ids.Select((id, index) => UserDirectoryTestData.Person(id, $"Имя{index + 1}", $"Фамилия{index + 1}", $"user{index + 1}-{id}@example.test")));
         var unknown = $"unknown-user-{Guid.NewGuid()}";
         await BulkItemsTestData.InsertAssignedAsync(factory, world.Items, world.PlatformAreaId, [.. ids, unknown], firstNumber: 2, beneath: story.Id);
 

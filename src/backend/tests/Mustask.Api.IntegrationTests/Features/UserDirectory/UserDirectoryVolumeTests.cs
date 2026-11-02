@@ -6,8 +6,7 @@ using static Mustask.Api.IntegrationTests.Features.UserDirectory.UserDirectoryTe
 namespace Mustask.Api.IntegrationTests.Features.UserDirectory;
 
 /// <summary>
-/// mod-014 US-1 "Reads answer in time at the target volume" and US-4 "Reads
-/// keep answering during a reconciliation" (NFR Volumes):
+/// mod-014 US-1 "Reads answer in time at the target volume" (NFR Volumes):
 /// at 10 000 projected users a search and a 500-id lookup each answer within
 /// 500 ms. The live stand repeats it at QA (plan § 13); this is the proof that
 /// two <c>LIKE</c>s over the pre-normalised columns need no trigram index at
@@ -38,7 +37,7 @@ public sealed class UserDirectoryVolumeTests(MustaskApiFactory factory) : IAsync
     internal static async Task<List<string>> SeedVolumeAsync(MustaskApiFactory factory)
     {
         var pushes = Enumerable.Range(0, TargetVolume)
-            .Select(i => Push(
+            .Select(i => Person(
                 NewId(),
                 FirstNames[i % FirstNames.Length],
                 $"{LastNames[(i / FirstNames.Length) % LastNames.Length]}{i.ToString(CultureInfo.InvariantCulture)}",
@@ -72,42 +71,6 @@ public sealed class UserDirectoryVolumeTests(MustaskApiFactory factory) : IAsync
 
         Assert.True(search.Elapsed < ReadBudget, $"A search at {TargetVolume} users took {search.Elapsed.TotalMilliseconds:F0} ms.");
         Assert.True(lookup.Elapsed < ReadBudget, $"A 500-id lookup at {TargetVolume} users took {lookup.Elapsed.TotalMilliseconds:F0} ms.");
-    }
-
-    // US-4 "Reads keep answering during a reconciliation of 10 000 users" (NFR Volumes): a whole
-    // 20-page snapshot is applied while searches and lookups run; each still answers in time.
-    [Fact]
-    public async Task SearchAndLookup_DuringATenThousandUserReconciliation_EachAnswerWithin500Ms()
-    {
-        var push = new PushTestClient(factory);
-        var entries = _ids
-            .Select((id, i) => Push(id, "Житель", $"Сверенный{i.ToString(CultureInfo.InvariantCulture)}", null, moment: BaseMoment + 1_000 + i))
-            .ToList();
-
-        await SearchAsync(factory, new UserSearch("анн"));
-        await LookupAsync(factory, _ids.Take(500).ToArray());
-
-        var reconciling = Task.Run(() => push.ReconcileAsync(BaseMoment + 1_000, entries));
-        var slowest = TimeSpan.Zero;
-        var reads = 0;
-
-        while (!reconciling.IsCompleted)
-        {
-            var search = await TimedAsync(() => SearchAsync(factory, new UserSearch("жит", IncludeInactive: true)));
-            var lookup = await TimedAsync(() => LookupAsync(factory, _ids.Skip(reads * 7 % 9_000).Take(500).ToArray()));
-
-            Assert.Equal(500, lookup.Result.Known.Count);
-            slowest = new[] { slowest, search.Elapsed, lookup.Elapsed }.Max();
-            reads++;
-        }
-
-        var counts = await reconciling;
-
-        Assert.Equal(TargetVolume, counts.Received);
-        Assert.Equal(TargetVolume, counts.Changed);
-        Assert.Equal(20, counts.PageCount);
-        Assert.True(reads > 0, "No read ran while the reconciliation was being applied.");
-        Assert.True(slowest < ReadBudget, $"A read during the reconciliation took {slowest.TotalMilliseconds:F0} ms ({reads} read pairs).");
     }
 
     internal static async Task<(T Result, TimeSpan Elapsed)> TimedAsync<T>(Func<Task<T>> read)
