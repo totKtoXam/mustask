@@ -1,6 +1,6 @@
 # ADR-0032: Give every area, project and team a page of its own, hold the work context as four selectors, and build the left menu from the most specific chosen object
 
-- Status: proposed
+- Status: accepted (2026-11-02, feat-043 gate-3)
 - Date: 2026-10-30 (reworked after the gate-2 rejection of the same day, and again for the split of the line and the selectors' «Остальные» group)
 - Context: `feat-043-area-project-team-navigation`, stage 3 (design) — [spec](../features/feat-043-area-project-team-navigation/spec.md) BR-NV-1..20, OQ-7 A (gate-1) and the human's gate-2 requirement (status.md § Decisions); [design](../features/feat-043-area-project-team-navigation/design.md). **Replaces** [ADR-0024](0024-app-shell-and-visual-language.md) § 2 (the fixed prefixes and the three-level switcher) and the "context it needs is real" clause of § 1. **Consolidates** [ADR-0028](0028-matrix-organization-model.md) rule 7 (addresses, switcher, breadcrumbs, old addresses; its "one list grouped by kind" switcher and its "trail" are replaced by § 5 below) and [ADR-0031](0031-typed-area-tree.md) rule 5 (the area prefix serves every node type). Nothing else in those texts changes. Markers on them are written by the implementation (spec US-9). The work-item lists and the board and backlog views at the organization, department and team levels belong to the second line, `feat-048-aggregate-level-views`; this ADR reserves their place in the menu table and decides nothing about their reads. Only the human sets `accepted`.
 

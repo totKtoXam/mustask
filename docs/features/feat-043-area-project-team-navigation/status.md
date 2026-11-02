@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/043-area-project-team-navigation
-- stage: gate-3
+- stage: complete
 - epic: platform/ui
 - deps: feat-040,mod-018,mod-020
 - gates: gate-1, gate-2, gate-3
@@ -12,7 +12,7 @@
 
 gate-1: approved 2026-10-30 (the human, in chat): all recommendations, OQ-1..5, OQ-7..9, H-1..4 A
 gate-2: approved 2026-10-30 (the human, in chat): design, prototype, ADR-0032 direction; rejected once earlier the same day, see Decisions
-gate-3: pending
+gate-3: approved 2026-11-02 (the human, in chat, after screenshots on test data)
 
 ## Plan
 
@@ -75,6 +75,8 @@ gate-3: pending
 - 2026-11-02 [orchestrator] Stage 8, delta read 2 of 2: approve, 0 blockers, 0 majors, 4 minors as debt, E-1..E-4 (44042575). Kit guide and showcase entries added (8c5e8647); TreeRegistry has no showcase entry, its section list is pinned until tech-016. Waiting for the shared lane for the last full Vitest, then gate-3.
 
 - 2026-11-02 [orchestrator] Full Vitest at e527fce6: 342 files, 5265 passed, 6 skipped, 0 failed. Not run: E2E (standing NO), any browser check of the panel (F-5 and the header layout unseen; the human's stand is off limits). Weekly 16% (start 2%). At gate-3. The human, away from the PC, asked for screenshots before the verdict; a throwaway harness on test data takes them, the stand stays untouched. The first real look found the selector row wrapping at 480 px and below and covering the heading, fixed (49cd0121). The human on the screenshots: the section is «Структура» at every level, «Области» goes; the address `areas` and the type word «Область» stay. They also asked for a tree/diagram switch on it, the diagram showing the hierarchy and which teams work on which projects. The diagram is a separate line right after this one, by their choice: feat-049, size M, PR #47. Gate-3 verdict stays pending until they see the new screenshots.
+
+- 2026-11-02 [orchestrator] Renamed (094b67eb), retaken at 360 and 480 px: the bar is two rows, headings clear. Gate-3 approved by the human. api-contract.md § 2 label set to «Структура», prose only. ADR-0032 accepted. Deliberately left open: E-1..E-4, backend QA D-1..D-3, the kit-guard entries for AppLayout, MainNavigation, UserMenu, no TreeRegistry showcase entry, no scroll cue on the narrow selector row. Not seen live: real sign-in, member views. E2E not run. The last full Vitest was before the rename and the row fix; CI runs the full suite. Owed after the merge: tech-011 m4 recorded obsolete. Weekly 17%.
 
 ## Notes
 
