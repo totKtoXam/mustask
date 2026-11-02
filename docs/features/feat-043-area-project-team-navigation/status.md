@@ -68,6 +68,8 @@ gate-3: pending
 
 - 2026-11-02 [orchestrator] Review findings fixed (frontend-developer, 794930ea). api-contract.md § 2 prose corrected for C-15, no shape change. C-9 fixed by the orchestrator (06464fe9): the organization and project deactivation dialogs say «селекторов», and the project's dialog says its node stops opening; this replaces mod-018's confirmation text in design.md:238, whose page behaviour OQ-3 A changed. C-14: the feat-040 project filter on a team view stays, as US-5 and the code; US-7 corrected. Review round 2 on the delta.
 
+- 2026-11-02 [orchestrator] Stage 8, delta read 1 of 2 (code-reviewer, Opus): blocked-on-decision, 1 blocker, 5 majors, 6 minors (f050e1d3); no new read or endpoint. D-1 blocker: «Без команды» (`?teamId=none`) answers «Команда не найдена», caused by the C-6 fix. D-3 asked, the human: choosing an organization in the selector opens its remembered selection, as US-8; BR-NV-10 is amended. Returned to frontend-developer.
+
 ## Notes
 
 Summary (from the queue line): Top-level «Области», «Проекты» and «Команды»; the object pages with their sections, a section absent until the line that owns it adds it; the organization's «Обзор» as its home page, the user's organizations beside the content (feat-045 folded in); the «Рабочие элементы» list across projects; breadcrumbs with no false hierarchy; the switcher and the remembered context; empty states. A retired address answers «Страница не найдена», nothing redirects, and the interim pages of the earlier lines (the team and area pages in the organization settings, the project's teams, area links and default team in its settings) move onto the objects' own pages (doc-012 BR-MX-27, -28; US-10)
