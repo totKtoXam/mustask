@@ -72,7 +72,7 @@ Superseded by the rework (2026-10-28): the gate-3 of 2026-10-27 and the list bel
 - m-2 (→ mod-019): MoveAreaHandler decides `area.create` for the current parent from a read taken before the lock; re-check `area.ParentId is null` after the locks and narrow api-contract § intro's "before any id is looked at". Invisible until mod-019 splits the codes.
 - m-3 / DEF-4 (→ mod-019): AreasPage.tsx and AreaPage.tsx gate the create dialog on `areaWrite`; gate it on `areaCreate || areaWrite` when the codes split.
 - m-5 (→ mod-007): ADR-0028 *Item save* bullet does not place the hierarchy tier; mod-007 must state the hierarchy lock stands before the sprint (rule 8 steps 5 → 6).
-- 2026-11-02 — Broken by feat-043: BR-AW-12 (see feat-043 spec, "Breaks").
+- 2026-11-02 — Broken by feat-043: BR-AW-12 and, in part, BR-AW-10 (a deactivated project's node is marked «деактивирован» in «Области» and is not a link; its page answers «Проект не найден», OQ-3 A; see feat-043 spec, "Breaks").
 
 ## Notes
 
