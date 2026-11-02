@@ -22,7 +22,7 @@ import { scopeProjectId, scopeTeamId, type BoardScope } from '../lib/scope';
 /**
  * No live push (BR-M4-28): a page shows its last read, read again when it
  * opens, after each write of its user, and when the tab regains focus — the
- * last one against the client's default, as the switcher's lists do.
+ * last one against the client's default, as the organization selector’s lists do.
  */
 const SURFACE_QUERY_OPTIONS = { refetchOnWindowFocus: true } as const;
 

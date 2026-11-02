@@ -1,5 +1,5 @@
 // TanStack Query keys of the slice, `['organizations', <entity>, …]`
-// (frontend.md "Data and state", plan-frontend § 3.3). The switcher's three
+// (frontend.md "Data and state", plan-frontend § 3.3). The selectors’ three
 // levels use the same keys as the pages that read the same lists, so one
 // request serves both and one invalidation refreshes both.
 import type { ListView } from './organizationsApi';

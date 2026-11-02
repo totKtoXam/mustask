@@ -31,7 +31,7 @@ export function NoticeProvider({ children }: { children: ReactNode }) {
   const serial = useRef(0);
   const close = useCallback(() => setShown(null), []);
   // One notice at a time in the corner (mod-016 DC-11): the host closes when the
-  // shell raises the switcher's fallback or the role-change notice, and showing a
+  // shell raises the fallback or the role-change notice, and showing a
   // notice closes the role-change notice.
   const claim = useNoticeHost(close);
 

@@ -61,7 +61,8 @@ export function TeamDepartmentsSection({
       key: 'department',
       header: teamDepartmentsSection.column,
       render: (department) => {
-        // The department becomes the chosen department; the team stays (BR-NV-19).
+        // The department becomes the chosen one; the more specific team and project reset to «все»
+        // (`openObject`, BR-NV-19).
         const link = objectLink('department', department.id);
         return (
           <TruncatedText to={link.to} linkState={link.state} look="link">

@@ -9,9 +9,9 @@ import { scopedFailureOf } from './scopedFailure';
 import { accessOrganizationOf } from './servedAccess';
 
 export interface AccessWatcherOptions {
-  /** The switcher's fallback notice is on screen: it wins, and no role change is raised (DC-11). */
+  /** The shell’s fallback notice is on screen: it wins, and no role change is raised (DC-11). */
   fallbackShown: boolean;
-  /** The name of an organization the switcher lists; `undefined` while it does not (yet) (P-11). */
+  /** The name of an organization the organization selector lists; `undefined` while it does not (yet) (P-11). */
   organizationName(organizationId: string): string | undefined;
 }
 
@@ -40,13 +40,13 @@ interface PendingRoleChange {
  *    answer, so the page is the full-page frame at once (DC-12).
  * 2. **A turn to "not a member".** The first time an organization's access
  *    answers 404 — from codes, from nothing, or from a call's 404 — the
- *    organization list is read once, so the switcher falls back (P-15). A
+ *    organization list is read once, so the selection falls back (P-15). A
  *    second 404 for the same organization is not a turn: the re-read that
  *    follows a call's 404 starts no second list read.
  * 3. **A role change.** A 200 whose role differs from the one last read for
  *    that organization — never the first read — raises the role-change
  *    notice, unless the fallback notice is shown (DC-11). It names the
- *    organization from the switcher's list, and waits for the name when the
+ *    organization from the organization selector’s list, and waits for the name when the
  *    list does not hold it yet; it is dropped if the access turns "not a
  *    member" meanwhile (P-11).
  *
@@ -151,7 +151,7 @@ export function useAccessWatcher({ fallbackShown, organizationName }: AccessWatc
 
   // The fallback notice wins: while it is shown no role change is raised, and
   // one that waited is dropped (adjusting state while rendering, as the
-  // switcher's own bookkeeping does).
+  // shell source’s own bookkeeping does).
   if (fallbackShown && pending !== null) {
     setPending(null);
   }

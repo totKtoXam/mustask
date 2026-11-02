@@ -60,7 +60,7 @@ describe('AppLayout', () => {
 });
 
 describe('US-2 Scenario: The frame’s regions (BR-6)', () => {
-  it('has one banner holding, left to right, the mark, the switcher, the trail and the user menu; the main navigation; one main region holding the page', () => {
+  it('has one banner holding, left to right, the mark, the selectors, the trail and the user menu; the main navigation; one main region holding the page', () => {
     renderShell({
       path: '/dictionaries/languages',
       auth: authValue(reader),

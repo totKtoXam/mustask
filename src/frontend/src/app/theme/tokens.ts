@@ -186,7 +186,7 @@ export interface LayoutTokens {
   categoryDot: number;
   contextNameMaxWidth: Record<WidthClass, number>;
   trailSegmentMaxWidth: number;
-  /** The switcher's loading placeholder per level (design § 5.4: 120 × 24 px). */
+  /** The selector’s loading placeholder per level (design § 5.4: 120 × 24 px). */
   contextSkeletonWidth: number;
   contextSkeletonHeight: number;
   /** The accent bar on the left edge of a selected navigation entry (design § 2.6). */

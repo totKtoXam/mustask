@@ -237,7 +237,7 @@ describe('mod-016 US-1 Scenario: removing oneself', () => {
     );
   });
 
-  it('leaves the notice to the switcher’s fallback when another organization replaces it', async () => {
+  it('leaves the notice to the shell’s fallback when another organization replaces it', async () => {
     openPage();
     const dialog = await openRemoval('Анна Смирнова');
 

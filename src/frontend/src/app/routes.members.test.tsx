@@ -143,7 +143,7 @@ describe('mod-016 design § 3.6 Scenario: an administrator steps down', () => {
 });
 
 describe('mod-016 design § 3.7 Scenario: a member removes themselves', () => {
-  it('opens the organization list without the organization, lets the switcher fall back with its notice and moves focus to the main region', async () => {
+  it('opens the organization list without the organization, lets the selection fall back with its notice and moves focus to the main region', async () => {
     renderMembers();
     await settledTable();
     await userEvent.click(screen.getByRole('button', { name: 'Действия: Анна Смирнова' }));
@@ -155,7 +155,7 @@ describe('mod-016 design § 3.7 Scenario: a member removes themselves', () => {
     await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/organizations'));
     expect(await screen.findByRole('heading', { level: 1, name: 'Организации' })).toBeVisible();
     await waitFor(() => expect(screen.getByRole('main')).toHaveFocus());
-    // «Бета» is the other organization: the switcher falls back to it and its
+    // «Бета» is the other organization: the selection falls back to it and its
     // notice is the only one.
     expect(
       await screen.findByText(/Ранее выбранный контекст недоступен\. Выбрано: Бета/),
@@ -213,7 +213,7 @@ describe('mod-016 design § 2.2, § 2.3 Scenario: the codes change behind the op
     ).toBeVisible();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     // No refusal of its own: the dialog went with the page. The only alert is
-    // the switcher’s notice that the selection fell back.
+    // the selectors’ notice that the selection fell back.
     expect(document.querySelector('.MuiAlert-colorError')).toBeNull();
     expect(screen.queryByText('Организация не найдена.')).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole('main')).toHaveFocus());

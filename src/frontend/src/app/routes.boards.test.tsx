@@ -18,7 +18,7 @@ import { AppRoutes } from './routes';
 
 // mod-006 through the panel's own router and the real context source: the
 // team-level routes registered in `app/routes.tsx`, the entries of the
-// navigation model, the switcher following a team-level address and moving
+// navigation model, the selectors following a team-level address and moving
 // the page on a team choice (spec § Screens and copy; mod-015 BR-18). The
 // boards API serves mod-002's «Альфа» / «Пример проекта» (`PRM`) with its
 // first team «Пример проекта» and «Платформа».
@@ -176,10 +176,10 @@ function renderRoutes(path: string, visited?: string[]) {
 }
 
 const mainNavigation = () => screen.getByRole('navigation', { name: 'Основное меню' });
-const switcher = () => screen.getByRole('group', { name: 'Контекст работы' });
+const selectorGroup = () => screen.getByRole('group', { name: 'Контекст работы' });
 
-function switcherLevels(): string[] {
-  return within(switcher())
+function selectorLevels(): string[] {
+  return within(selectorGroup())
     .getAllByRole('combobox')
     .map((button) => button.getAttribute('aria-label') ?? '');
 }
@@ -191,7 +191,7 @@ async function backlogRows(): Promise<string[]> {
 const ALFA = `/organizations/${organizationIds.alfa}`;
 
 async function chooseIn(selector: RegExp, name: string | RegExp) {
-  await userEvent.click(within(switcher()).getByRole('combobox', { name: selector }));
+  await userEvent.click(within(selectorGroup()).getByRole('combobox', { name: selector }));
   await userEvent.click(await screen.findByRole('option', { name }));
 }
 
@@ -206,7 +206,7 @@ describe('mod-006 the backlog route in the shell', () => {
     await waitFor(() => expect(document.title).toBe('Бэклоги — Mustask'));
     // feat-043 ADR-0032 § 1: a team address chooses the team; the others stay «все».
     await waitFor(() =>
-      expect(switcherLevels()).toEqual([
+      expect(selectorLevels()).toEqual([
         'Организация: Альфа',
         'Департамент: все',
         'Команда: Платформа',
@@ -230,7 +230,7 @@ describe('mod-006 the backlog route in the shell', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Платформа' })).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     await waitFor(() => expect(document.title).toBe('Канбан — Mustask'));
-    await waitFor(() => expect(switcherLevels()[2]).toBe('Команда: Платформа'));
+    await waitFor(() => expect(selectorLevels()[2]).toBe('Команда: Платформа'));
     const boards = await within(mainNavigation()).findByRole('link', { name: 'Канбан' });
     expect(boards).toHaveAttribute(
       'href',
@@ -276,7 +276,7 @@ describe('mod-006 US-1 Scenario: Switching the team keeps the entry and the leve
     serveOrganizations();
     serveBoards(alfaDataset(), { projectList: false });
     renderRoutes(teamAddress(organizationIds.platformTeam, 'backlogs', 'features'));
-    await waitFor(() => expect(switcherLevels()[2]).toBe('Команда: Платформа'));
+    await waitFor(() => expect(selectorLevels()[2]).toBe('Команда: Платформа'));
 
     await chooseIn(/^Команда:/, 'Пример проекта');
 
@@ -292,7 +292,7 @@ describe('mod-006 US-1 Scenario: Switching the team keeps the entry and the leve
     serveOrganizations();
     serveBoards(alfaDataset(), { projectList: false });
     renderRoutes(teamAddress(organizationIds.platformTeam, 'boards', 'epics'));
-    await waitFor(() => expect(switcherLevels()[2]).toBe('Команда: Платформа'));
+    await waitFor(() => expect(selectorLevels()[2]).toBe('Команда: Платформа'));
 
     await chooseIn(/^Команда:/, 'Пример проекта');
 
@@ -318,7 +318,7 @@ describe('mod-015 BR-18 on a team-level page: a project or organization choice k
       serveOrganizations();
       serveBoards(twoContextsDataset(), { projectList: false });
       renderRoutes(teamAddress(organizationIds.platformTeam, surface, level));
-      await waitFor(() => expect(switcherLevels()[2]).toBe('Команда: Платформа'));
+      await waitFor(() => expect(selectorLevels()[2]).toBe('Команда: Платформа'));
 
       await chooseIn(/^Проект:/, /^Аналитика/);
 
@@ -340,14 +340,14 @@ describe('mod-015 BR-18 on a team-level page: a project or organization choice k
       const visited: string[] = [];
       const address = teamAddress(organizationIds.platformTeam, surface, 'epics');
       renderRoutes(address, visited);
-      await waitFor(() => expect(switcherLevels()[2]).toBe('Команда: Платформа'));
+      await waitFor(() => expect(selectorLevels()[2]).toBe('Команда: Платформа'));
 
       await chooseIn(/^Организация:/, 'Бета');
 
       const landing = `/organizations/${organizationIds.beta}/overview`;
       await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(landing));
       await waitFor(() =>
-        expect(switcherLevels()).toEqual([
+        expect(selectorLevels()).toEqual([
           'Организация: Бета',
           'Департамент: все',
           'Команда: все',
@@ -443,7 +443,7 @@ describe('mod-006 the not-found frames on a team-level address', () => {
       ).toBeInTheDocument();
       expect(await screen.findByText(/^сужено:/)).toBeInTheDocument();
       expect(screen.queryByRole('heading', { level: 1, name: 'Команда не найдена' })).toBeNull();
-      await waitFor(() => expect(switcherLevels()[3]).toBe('Проект: Пример проекта'));
+      await waitFor(() => expect(selectorLevels()[3]).toBe('Проект: Пример проекта'));
     },
   );
 
@@ -464,14 +464,14 @@ describe('mod-006 the not-found frames on a team-level address', () => {
       await screen.findByRole('heading', { level: 1, name: 'Команда не найдена' }),
     ).toBeInTheDocument();
     await waitFor(() =>
-      expect(switcherLevels()).toEqual([
+      expect(selectorLevels()).toEqual([
         'Организация: Альфа',
         'Департамент: все',
         'Команда: все',
         'Проект: все',
       ]),
     );
-    await userEvent.click(within(switcher()).getByRole('combobox', { name: /^Команда:/ }));
+    await userEvent.click(within(selectorGroup()).getByRole('combobox', { name: /^Команда:/ }));
     const names = (await screen.findAllByRole('option')).map((option) => option.textContent);
     expect(names).toEqual(expect.arrayContaining(['Аналитика', 'Пример проекта', 'Старый проект']));
     expect(names).not.toContain('Платформа');

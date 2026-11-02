@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { objectsOf } from './workContext';
 
 // feat-043: the context is the four selectors of ADR-0032; the lists' defaults, the "first entry"
-// fallbacks and the level resets of feat-040 / mod-020 are retired with the switcher.
+// fallbacks and the level resets of feat-040 / mod-020 are retired with the old selector bar.
 describe('objectsOf (ADR-0032 § 1)', () => {
   it('reads the three object selectors, «все» being null', () => {
     expect(objectsOf({ organizationId: 'org-1' })).toEqual({

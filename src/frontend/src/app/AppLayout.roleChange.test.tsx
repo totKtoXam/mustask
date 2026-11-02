@@ -15,7 +15,7 @@ import {
 } from '../test/renderShell';
 
 // mod-016 design § 2.4 (DC-7, DC-11): a role change noticed on a re-read is
-// announced once by the shell, in the corner it shares with the switcher's
+// announced once by the shell, in the corner it shares with the shell’s
 // fallback notice and the pages' own notices.
 
 const ORG = 'a0000000-0000-4000-8000-0000000000a1';
@@ -126,7 +126,7 @@ describe('mod-016 design § 2.4 Scenario: a role change noticed on a re-read', (
     ).toBeInTheDocument();
   });
 
-  it('waits for the organization’s name when the switcher’s list does not hold it yet', async () => {
+  it('waits for the organization’s name when the organization selector’s list does not hold it yet', async () => {
     const shell = await openShell({ contextSource: source({ organizations: [] }) });
 
     change(shell, 'viewer');
@@ -137,7 +137,7 @@ describe('mod-016 design § 2.4 Scenario: a role change noticed on a re-read', (
     expect(await screen.findByText(/в организации «Альфа» изменилась/)).toBeInTheDocument();
   });
 
-  it('yields to the switcher’s fallback notice, which wins', async () => {
+  it('yields to the shell’s fallback notice, which wins', async () => {
     const shell = await openShell({
       contextSource: source({ fallback: { id: 1, names: ['Бета'] } }),
     });

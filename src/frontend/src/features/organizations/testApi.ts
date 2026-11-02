@@ -1,7 +1,7 @@
 // MSW handlers over an in-memory copy of the stories' dataset, answering per
 // api-contract: lists in display order, not-found from the outside in, the
 // order of answers of § 0.4 and the refusals the screens place. Flow tests
-// (create → listed → switcher) run without a handler per step. It keeps the
+// (create → listed → selector) run without a handler per step. It keeps the
 // contract's answers, not every rule of the backend: what a test needs. Since
 // feat-028 the teams are the organization's and linked to projects
 // (`Dataset.teams`, `Dataset.links`); the routes follow its api-contract.

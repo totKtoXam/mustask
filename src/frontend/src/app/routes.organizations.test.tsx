@@ -47,7 +47,7 @@ function renderRoutes(path: string, auth: AuthContextValue = authValue([LANGUAGE
   );
 }
 
-function switcherLevels(): string[] {
+function selectorLevels(): string[] {
   return within(screen.getByRole('group', { name: 'Контекст работы' }))
     .getAllByRole('combobox')
     .map((button) => button.getAttribute('aria-label') ?? '');
@@ -151,7 +151,7 @@ describe('mod-002 US-8 Scenario: The address sets the selectors', () => {
     renderRoutes(`/organizations/${ids.alfa}/projects/${ids.prm}/general`);
 
     await waitFor(() =>
-      expect(switcherLevels()).toEqual([
+      expect(selectorLevels()).toEqual([
         'Организация: Альфа',
         'Департамент: все',
         'Команда: все',
@@ -192,7 +192,7 @@ describe('mod-002 US-8 Scenario: The address sets the selectors', () => {
     server.use(http.get(PROCESS_DEFINITION_URL, () => HttpResponse.json(sampleProcessDefinition)));
     renderRoutes(`/organizations/${ids.alfa}/settings/process`);
 
-    await waitFor(() => expect(switcherLevels()[0]).toBe('Организация: Альфа'));
+    await waitFor(() => expect(selectorLevels()[0]).toBe('Организация: Альфа'));
   });
 });
 

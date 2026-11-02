@@ -28,7 +28,7 @@ export interface OpenedPage extends ReturnType<typeof renderPage> {
 /**
  * Serves the dataset and renders `path` as Анна Смирнова, whose role in
  * «Альфа» is `role`: the dataset's membership and the page's check agree. The
- * switcher lists «Альфа» and «Бета» and has «Альфа» selected.
+ * organization selector lists «Альфа» and «Бета» and has «Альфа» selected.
  */
 export function openPage({
   path = MEMBERS_PATH,
@@ -49,7 +49,7 @@ export function openPage({
   data?: Dataset;
   clock?: MembersOptions['now'];
   strict?: boolean;
-  /** The switcher's state; default: «Альфа» selected, «Бета» listed beside it. */
+  /** The shell’s state; default: «Альфа» selected, «Бета» listed beside it. */
   context?: WorkContextSource;
 } = {}): OpenedPage {
   const mine = data.memberships?.find(

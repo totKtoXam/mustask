@@ -34,13 +34,13 @@ function renderAppIn(queryClient: QueryClient, path: string, auth: AuthContextVa
   );
 }
 
-function switcher() {
+function selectorGroup() {
   return screen.getByRole('group', { name: 'Контекст работы' });
 }
 
 /** The names of the four selectors, left to right, as their buttons read them. */
 async function levels(): Promise<string[]> {
-  return within(switcher())
+  return within(selectorGroup())
     .getAllByRole('combobox')
     .map((button) => button.getAttribute('aria-label') ?? '');
 }
@@ -52,7 +52,7 @@ async function expectLevels(expected: string[]) {
 const ALFA_ALL = ['Организация: Альфа', 'Департамент: все', 'Команда: все', 'Проект: все'];
 
 async function choose(selector: RegExp, entry: string | RegExp) {
-  await userEvent.click(within(switcher()).getByRole('combobox', { name: selector }));
+  await userEvent.click(within(selectorGroup()).getByRole('combobox', { name: selector }));
   await userEvent.click(await screen.findByRole('option', { name: entry }));
 }
 
@@ -74,7 +74,9 @@ describe('mod-002 US-8 Scenario: The selectors list active organizations', () =>
     renderApp(`/organizations/${ids.alfa}/overview`);
 
     await expectLevels(ALFA_ALL);
-    await userEvent.click(within(switcher()).getByRole('combobox', { name: 'Организация: Альфа' }));
+    await userEvent.click(
+      within(selectorGroup()).getByRole('combobox', { name: 'Организация: Альфа' }),
+    );
     const options = (await screen.findAllByRole('option')).map((item) => item.textContent);
     expect(options).toEqual(['Альфа', 'Бета', 'Все организации']);
   });
@@ -86,7 +88,9 @@ describe('mod-002 US-8 Scenario: «Все организации» opens the lis
     renderApp(`/organizations/${ids.alfa}/overview`);
     await expectLevels(ALFA_ALL);
 
-    await userEvent.click(within(switcher()).getByRole('combobox', { name: 'Организация: Альфа' }));
+    await userEvent.click(
+      within(selectorGroup()).getByRole('combobox', { name: 'Организация: Альфа' }),
+    );
     await userEvent.click(await screen.findByRole('option', { name: 'Все организации' }));
 
     expect(await screen.findByRole('table', { name: 'Активные организации' })).toBeInTheDocument();
@@ -347,7 +351,7 @@ describe('mod-002 US-8 Scenario: Own changes without a reload', () => {
     expect(await screen.findByText('Организация «Дельта» создана.')).toBeInTheDocument();
     await waitFor(() =>
       expect(
-        within(switcher()).getByRole('combobox', { name: /^Организация:/ }),
+        within(selectorGroup()).getByRole('combobox', { name: /^Организация:/ }),
       ).toHaveAccessibleName('Организация: Дельта'),
     );
   });

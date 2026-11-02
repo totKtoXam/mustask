@@ -68,7 +68,7 @@ describe('the boards’ notice host shares the corner', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Недостаточно прав');
   });
 
-  it('closes its notice when the shell raises the switcher’s fallback notice', async () => {
+  it('closes its notice when the shell raises the fallback notice', async () => {
     const { rerender } = render(tree({}));
     await userEvent.click(screen.getByRole('button', { name: 'Отказ' }));
 

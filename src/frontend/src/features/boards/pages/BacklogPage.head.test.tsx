@@ -104,7 +104,7 @@ describe('US-1 Scenario: The team drop-down moves to another team of the organiz
     const menu = await screen.findByRole('menu', { name: 'Команды' });
     expect(button).toHaveAttribute('aria-expanded', 'true');
     const entries = within(menu).getAllByRole('menuitem');
-    // feat-040 BR-TS-11: the switcher's team level, no heading, no divider, and «Весь проект» is gone.
+    // feat-040 BR-TS-11: the team selector’s level, no heading, no divider, and «Весь проект» is gone.
     expect(entries.map((entry) => entry.textContent)).toEqual([
       'Мастаск',
       'Платформа',

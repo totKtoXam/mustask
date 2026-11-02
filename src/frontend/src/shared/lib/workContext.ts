@@ -4,7 +4,8 @@ import { createContext, useContext } from 'react';
  * The work context the shell holds and pages read through `useWorkContext()`
  * (feat-043, ADR-0032 §§ 1, 5, 6): the organization plus at most one department, one team and
  * one project. The address is its source (the most specific object in the prefix, the others in
- * the query); the remembered selection fills a page that carries no organization. The shell's
+ * the query); the remembered selection fills a page that names no object of its own — an
+ * organization's own page such as «Участники», or a page with no organization. The shell's
  * provider (`app/navigation/useNavigationSource`) reads the organizations and `selector-offers`
  * and hands them over in this shape; there is no default team and no team level of its own
  * (mod-020's fallback and feat-040's interim level are retired).

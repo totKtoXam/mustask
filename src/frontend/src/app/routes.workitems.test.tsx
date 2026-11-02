@@ -13,7 +13,7 @@ import { AppRoutes } from './routes';
 
 // mod-003 through the panel's own router and the real context source: the two
 // routes registered in `app/routes.tsx`, the «Рабочие элементы» entry of the
-// navigation model, the switcher following the address (D-5). The work items
+// navigation model, the selectors following the address (D-5). The work items
 // API serves mod-002's «Альфа» / «Пример проекта» (`PRM`).
 
 const LIST = `/organizations/${organizationIds.alfa}/projects/${organizationIds.prm}/workitems`;
@@ -84,7 +84,7 @@ describe('mod-003 the two routes in the shell', () => {
     expect(screen.queryByRole('navigation', { name: 'Меню настроек' })).toBeNull();
   });
 
-  it('the form is a project-level page: the switcher follows the address and «Рабочие элементы» is marked (D-5)', async () => {
+  it('the form is a project-level page: the selectors follow the address and «Рабочие элементы» is marked (D-5)', async () => {
     serveOrganizations();
     serveWorkItems(alfaDataset());
     renderRoutes(LIST);
@@ -100,8 +100,8 @@ describe('mod-003 the two routes in the shell', () => {
     expect(
       within(mainNavigation()).getByRole('link', { name: 'Рабочие элементы' }),
     ).toHaveAttribute('aria-current', 'true');
-    const switcher = screen.getByRole('group', { name: 'Контекст работы' });
-    expect(within(switcher).getByRole('combobox', { name: /^Проект:/ })).toHaveAttribute(
+    const selectorGroup = screen.getByRole('group', { name: 'Контекст работы' });
+    expect(within(selectorGroup).getByRole('combobox', { name: /^Проект:/ })).toHaveAttribute(
       'aria-label',
       'Проект: Пример проекта',
     );
@@ -133,9 +133,9 @@ describe('mod-003 US-2 Scenario: The navigation leads to the chosen project’s 
     renderRoutes(`/organizations/${organizationIds.beta}/overview`);
 
     await screen.findByRole('heading', { level: 1, name: 'Обзор' });
-    const switcher = await screen.findByRole('group', { name: 'Контекст работы' });
+    const selectorGroup = await screen.findByRole('group', { name: 'Контекст работы' });
     expect(
-      await within(switcher).findByRole('combobox', { name: 'Проект: все' }),
+      await within(selectorGroup).findByRole('combobox', { name: 'Проект: все' }),
     ).toBeInTheDocument();
     // The organization-scoped entries are shown, so the navigation has its real context.
     expect(

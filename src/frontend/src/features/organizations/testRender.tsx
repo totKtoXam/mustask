@@ -65,7 +65,7 @@ export function LocationProbe() {
 /** The holder of the create right (the instance code in the token, ADR-0018). */
 export const CREATE_RIGHT = [organizationsPermissions.organizationCreate];
 
-/** A context source with no selection: what a page sees outside the switcher's choice. */
+/** A context source with no selection: what a page sees outside the selectors’ choice. */
 export function contextSource(overrides: Partial<WorkContextSource> = {}): WorkContextSource {
   return {
     status: 'ready',

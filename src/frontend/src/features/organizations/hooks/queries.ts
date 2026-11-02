@@ -28,7 +28,7 @@ import {
 } from '../api/membershipApi';
 import { organizationsKeys } from '../api/queryKeys';
 
-// One query hook per read (api-contract § 1–§ 4), on the keys the switcher
+// One query hook per read (api-contract § 1–§ 4), on the keys the selectors
 // shares (plan-frontend § 3.3).
 
 export function useOrganizations(

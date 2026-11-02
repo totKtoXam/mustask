@@ -17,7 +17,7 @@ import { AppRoutes } from './routes';
 
 // feat-039 BR-PB-9 through the panel's own router and the real context source: the
 // project's backlog and board registered in `app/routes.tsx`, the entries of the navigation
-// model marked current on them, the switcher following the project in the address and
+// model marked current on them, the selectors following the project in the address and
 // moving the page on a project or organization choice, and leaving it on a team choice
 // (mod-015 BR-18, OQ-6 A). «Альфа» has «Пример проекта» (`PRM`, with its first team «Пример
 // проекта» and «Платформа») and «Аналитика» (`ANL`); «Бета» has «Отчётность» (`REP`).
@@ -147,10 +147,10 @@ function renderRoutes(path: string) {
 }
 
 const mainNavigation = () => screen.getByRole('navigation', { name: 'Основное меню' });
-const switcher = () => screen.getByRole('group', { name: 'Контекст работы' });
+const selectorGroup = () => screen.getByRole('group', { name: 'Контекст работы' });
 
-function switcherLevels(): string[] {
-  return within(switcher())
+function selectorLevels(): string[] {
+  return within(selectorGroup())
     .getAllByRole('combobox')
     .map((button) => button.getAttribute('aria-label') ?? '');
 }
@@ -161,7 +161,7 @@ async function backlogRows(): Promise<string[]> {
 
 async function choose(level: 'Организация' | 'Проект' | 'Команда', name: string | RegExp) {
   await userEvent.click(
-    within(switcher()).getByRole('combobox', { name: new RegExp(`^${level}:`) }),
+    within(selectorGroup()).getByRole('combobox', { name: new RegExp(`^${level}:`) }),
   );
   await userEvent.click(await screen.findByRole('option', { name }));
 }
@@ -189,7 +189,7 @@ describe('feat-039 the project’s pages in the shell', () => {
       );
       // ADR-0032 § 1: the project prefix chooses the project; the team stays «все» until chosen.
       await waitFor(() =>
-        expect(switcherLevels()).toEqual([
+        expect(selectorLevels()).toEqual([
           'Организация: Альфа',
           'Департамент: все',
           'Команда: все',
@@ -222,7 +222,7 @@ describe('feat-039 the project’s pages in the shell', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Пример проекта' })).toBeVisible();
     await waitFor(() =>
-      expect(switcherLevels()).toEqual([
+      expect(selectorLevels()).toEqual([
         'Организация: Альфа',
         'Департамент: все',
         'Команда: Платформа',
@@ -252,14 +252,14 @@ describe('feat-039 BR-PB-9 (c): a choice in the selectors on a project’s page'
       serveOrganizations();
       serveBoards(dataset(), { projectList: false });
       renderRoutes(`${PRM}/${surface}/${level}`);
-      await waitFor(() => expect(switcherLevels()[3]).toBe('Проект: Пример проекта'));
+      await waitFor(() => expect(selectorLevels()[3]).toBe('Проект: Пример проекта'));
 
       await choose('Проект', /^Аналитика/);
 
       await waitFor(() =>
         expect(screen.getByTestId('location')).toHaveTextContent(`${ANL}/${surface}/${level}`),
       );
-      await waitFor(() => expect(switcherLevels()[3]).toBe('Проект: Аналитика'));
+      await waitFor(() => expect(selectorLevels()[3]).toBe('Проект: Аналитика'));
       const entry = await within(mainNavigation()).findByRole('link', {
         name: surface === 'backlogs' ? 'Бэклог' : 'Канбан',
       });
@@ -289,7 +289,7 @@ describe('feat-039 BR-PB-9 (c): a choice in the selectors on a project’s page'
     serveOrganizations();
     serveBoards(dataset(), { projectList: false });
     renderRoutes(`${PRM}/backlogs/features`);
-    await waitFor(() => expect(switcherLevels()[0]).toBe('Организация: Альфа'));
+    await waitFor(() => expect(selectorLevels()[0]).toBe('Организация: Альфа'));
 
     await choose('Организация', 'Бета');
 
@@ -299,7 +299,7 @@ describe('feat-039 BR-PB-9 (c): a choice in the selectors on a project’s page'
       ),
     );
     await waitFor(() =>
-      expect(switcherLevels()).toEqual([
+      expect(selectorLevels()).toEqual([
         'Организация: Бета',
         'Департамент: все',
         'Команда: все',
@@ -312,12 +312,12 @@ describe('feat-039 BR-PB-9 (c): a choice in the selectors on a project’s page'
     serveOrganizations();
     serveBoards(dataset(), { projectList: false });
     renderRoutes(`${PRM}/backlogs/features`);
-    await waitFor(() => expect(switcherLevels()[3]).toBe('Проект: Пример проекта'));
+    await waitFor(() => expect(selectorLevels()[3]).toBe('Проект: Пример проекта'));
     await screen.findByRole('heading', { level: 2, name: 'Бэклог пуст' }).catch(() => undefined);
 
     await choose('Команда', 'Платформа');
 
-    await waitFor(() => expect(switcherLevels()[2]).toBe('Команда: Платформа'));
+    await waitFor(() => expect(selectorLevels()[2]).toBe('Команда: Платформа'));
     expect(screen.getByTestId('location')).toHaveTextContent(`${PRM}/backlogs/features`);
     expect(screen.getByTestId('location').getAttribute('data-search')).toBe(
       `?teamId=${organizationIds.platformTeam}`,
@@ -339,7 +339,7 @@ describe('feat-039 BR-PB-9: the project’s entries need no team', () => {
     renderRoutes(`${ANL}/backlogs/stories`);
 
     expect(await backlogRows()).toEqual(['ANL-US-1']);
-    await waitFor(() => expect(switcherLevels()[3]).toBe('Проект: Аналитика'));
+    await waitFor(() => expect(selectorLevels()[3]).toBe('Проект: Аналитика'));
     expect(await within(mainNavigation()).findByRole('link', { name: 'Бэклог' })).toBeVisible();
     expect(within(mainNavigation()).getByRole('link', { name: 'Канбан' })).toBeVisible();
   });

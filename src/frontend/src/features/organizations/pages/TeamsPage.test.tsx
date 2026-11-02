@@ -609,7 +609,7 @@ describe('feat-028 US-4 Scenario: «Отключить от проекта» rea
     },
   );
 
-  it('DC-7: no notice of its own when the unlinked team is the switcher’s', async () => {
+  it('DC-7: no notice of its own when the unlinked team is the selected one', async () => {
     const { dialog } = await openUnlink({
       context: contextSource({
         selection: { organizationId: ids.alfa, projectId: ids.prm, teamId: ids.platformTeam },

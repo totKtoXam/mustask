@@ -569,7 +569,7 @@ describe('feat-028 US-5 Scenario: Deleted after a confirmation that counts every
     expect(within(dialog).getByRole('button', { name: 'Удалить команду' })).toBeEnabled();
   });
 
-  it('DC-7: no notice of its own when the deleted team is the switcher’s', async () => {
+  it('DC-7: no notice of its own when the deleted team is the selected one', async () => {
     const { dialog } = await openDelete(
       contextSource({
         selection: { organizationId: ids.alfa, projectId: ids.prm, teamId: ids.platformTeam },
