@@ -131,7 +131,8 @@ ones that matter; the type is in the file.
   (`none`, `radio`, `page`), `align`. Enter, Space or ArrowDown opens on the
   current entry; Escape closes and returns focus. Entry icons are neutral; a
   `destructive` entry reads in the error colour and says what it does; a `group`
-  heading names the entries under it.
+  heading names the entries under it. An entry with `to` is a link; its `state` is
+  the router state it carries (a notice, a focus request for the page it opens).
 - `MoreActionsMenu` — a `MenuButton` with the vertical «⋮»; `label` defaults to
   «Ещё действия» (a row passes «Ещё действия: MSK-EPIC-1»); `size` is `row` or
   `bar`; `revealed={false}` draws the control transparent until hover, focus or an
@@ -145,6 +146,10 @@ ones that matter; the type is in the file.
   Enter chooses, Escape closes and returns focus. Search is local, a part of a
   name or of the `hint`, in every group; it knows no word of its own. Used by the
   shell's four selectors (feat-043).
+
+**Page head** (`PageHeader`) — `title`, `commands`, `views`, `primaryAction`. A
+`Command` is a button (`onClick`) or a link (`to`); a link's `state` is the router
+state it carries, as a `MenuButton` entry's does.
 
 **Marks and people** (`marks`) — always followed by a name; colour is never the
 only carrier. `TypeLabel` (`eyebrow` for the card's type line), `StateLabel`
@@ -235,7 +240,10 @@ a treegrid host), `TablePager`, `TableSkeleton`. The row and cell parts pass
 is the plain registry with its loading, empty and error states (the error is an
 `InlineNotice` with «Повторить»). A plain table has
 Tab stops, not arrow navigation and no `aria-selected`; a treegrid keeps its own
-keyboard model and draws with the parts.
+keyboard model and draws with the parts. `TreeRegistry` is the tree of rows over
+them: `labelTo(node)` turns a row's label into a router link and answers
+`undefined` for a row that opens nothing (a text label; Enter selects), and
+`labelState(node)` is the router state that link carries.
 
 **Notices and states** (`feedback`) — `useNotice().show(text, severity?)`: one
 at a time, bottom left, clickaway ignored (Escape dismisses it, and a success or

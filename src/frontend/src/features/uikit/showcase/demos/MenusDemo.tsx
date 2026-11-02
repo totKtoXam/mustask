@@ -6,6 +6,7 @@ import {
   SearchMenu,
   type MenuEntry,
 } from '../../../../shared/ui';
+import { UI_KIT_PATH } from '../../paths';
 import { DemoGrid, DemoGroup } from '../parts';
 import { noop } from '../noop';
 
@@ -22,6 +23,7 @@ const MORE_ITEMS: readonly MenuEntry[] = [
     items: [
       { label: 'Копировать ссылку', onSelect: noop },
       { label: 'Дублировать', onSelect: noop },
+      { label: 'Открыть в списке', to: UI_KIT_PATH, state: { from: 'menus' } },
     ],
   },
   'divider',
