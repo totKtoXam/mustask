@@ -78,8 +78,9 @@ Scenario: The organizations list and its create flow open the new pages (BR-NV-1
   And the same holds for the organization selector, and no feat-038 landing is needed on main
 
 Scenario: Every read across projects takes the caller (BR-NV-15; ADR-0029)
-  When the signature test over the reads of «Обзор», the lists «Проекты», «Команды», «Области» and the selectors' offers is run
+  When the signature test over `INavigationReadModel` (the reads of «Обзор» and of the selectors' offers) is run
   Then each takes the caller's membership and role as a required argument, so that `feat-041-project-visibility` adds the set form inside it, and a read without it does not compile
+  And the lists «Проекты», «Команды» and «Области» are older reads outside that test; they move to the same form with `feat-041-project-visibility`, which owns that change
   And the item and view reads of the second line (US-6, US-10) carry their own test
 
 Scenario: No link in the panel targets a retired address (BR-NV-6)
