@@ -766,8 +766,7 @@ Only what changes in the picker built for mod-003:
   cards show an ex-member assignee exactly like any other until feat-017.
 
 ## 8. The default team (US-7)
-n> **feat-043:** the fallback team and the "Where it shows" rules below are retired (BR-NE-9). The default affects the owning team of a new item only (doc-012 BR-MX-10, BR-MX-11), and the team selector shows no team until one is chosen. Pointer to the note of mod-016 BR-M1-27: it is read as "the default team is the first team" for creation only.
-n> **feat-043:** the fallback team and the "Where it shows" rules below are retired (BR-NE-9). The default affects the owning team of a new item only (doc-012 BR-MX-10, BR-MX-11), and the team selector shows no team until one is chosen. The pointer to BR-M1-27's note: BR-M1-27 (mod-016 spec) is read as "the default team is the first team" for creation only.
+> **feat-043:** the fallback team and the "Where it shows" rules below are retired (BR-NE-9). The default affects the owning team of a new item only (doc-012 BR-MX-10, BR-MX-11), and the team selector shows no team until one is chosen. The pointer to BR-M1-27's note: BR-M1-27 (mod-016 spec) is read as "the default team is the first team" for creation only.
 
 No new surface: the rule changes which team is chosen, not what is drawn.
 
