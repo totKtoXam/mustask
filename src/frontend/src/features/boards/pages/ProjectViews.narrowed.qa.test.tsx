@@ -34,7 +34,7 @@ describe('feat-043 QA, US-4: a project’s backlog narrowed by a chosen team', (
 const HINT = 'Пока выбор сужает список, порядок не меняется. Выберите «все», чтобы менять его.';
 
 describe('feat-043 QA round 2, US-4: the edges of a narrowed project backlog', () => {
-  it.fails('draws no drag handle on a narrowed backlog (design § 7.1, US-4)', async () => {
+  it('draws no drag handle on a narrowed backlog (design § 7.1, US-4)', async () => {
     serveBoards(projectDataset());
     renderBoards(`${projectBacklogAddress()}?teamId=${ids.platformTeam}`);
     const table = await findBacklogTable();

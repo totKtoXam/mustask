@@ -270,8 +270,9 @@ export function BacklogTable({
   busy?: boolean;
   /**
    * The rows are a subset of one rank order (a project's backlog under a chosen team): the order
-   * cannot be changed, so no move entry is offered and no row drops between blocks (US-4, Q-9 A).
-   * The parent group and a drop onto a row are not a reorder and stay.
+   * cannot be changed, so no move entry is offered and nothing is dragged: no grip, no drop line,
+   * no drop onto a row (US-4, Q-9 A, design § 7.1). The row menu's parent group is not a reorder
+   * and stays.
    */
   narrowed?: boolean;
   announce(text: string): void;
@@ -495,6 +496,15 @@ export function BacklogTable({
   const rowControls = useCallback(
     (top: boolean) => canLink || (top && canReorder),
     [canLink, canReorder],
+  );
+
+  /**
+   * Whether a row is a drag source: a narrowed backlog has no drag at all — no grip, no drop line,
+   * no drop onto a row (design § 7.1, US-4); the parent change stays in the row's «⋮».
+   */
+  const dragControls = useCallback(
+    (top: boolean) => !narrowed && rowControls(top),
+    [narrowed, rowControls],
   );
 
   function backlogRead(): BacklogRowData[] | undefined {
@@ -838,7 +848,7 @@ export function BacklogTable({
   const startDrag = useCallback(
     (event: DragEvent<HTMLElement>, id: string, identifier: string) => {
       const dragged = off ? undefined : findInTree(rows, id);
-      if (!dragged || !rowControls(rows.some((top) => top.id === id))) {
+      if (!dragged || !dragControls(rows.some((top) => top.id === id))) {
         event.preventDefault();
         return;
       }
@@ -864,7 +874,7 @@ export function BacklogTable({
         dim: false,
       });
     },
-    [off, rows, rowControls],
+    [off, rows, dragControls],
   );
 
   const endDrag = useCallback(() => setDrag(null), []);
@@ -1143,7 +1153,7 @@ export function BacklogTable({
                   expanded={expanded.has(item.id)}
                   selected={selectedId === item.id}
                   off={off}
-                  draggable={rowControls(top)}
+                  draggable={dragControls(top)}
                   showActions={rowControls(top)}
                   addEntries={
                     canAdd

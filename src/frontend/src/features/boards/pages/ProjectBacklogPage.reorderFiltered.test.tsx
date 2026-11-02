@@ -59,7 +59,9 @@ describe('feat-043 US-4 Scenario: A narrowed project backlog keeps its order and
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
 
-    // A drag over a row's edge is no drop line: nothing is offered between the blocks.
+    // No drag at all: no grip, rows not draggable (design § 7.1); nothing is offered between blocks.
+    expect(table.querySelectorAll('[data-grip]')).toHaveLength(0);
+    expect(rowOf(table, 'MSK-US-9')).not.toHaveAttribute('draggable', 'true');
     const transfer = dataTransfer();
     const source = rowOf(table, 'MSK-US-9');
     await act(async () => fireDrag('dragStart', source, transfer));
