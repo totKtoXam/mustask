@@ -214,6 +214,11 @@ public sealed class KeycloakStandProvisioningTests
     [InlineData("a b")]
     [InlineData("../master")]
     [InlineData("реалм")]
+    [InlineData("a\nb")]
+    [InlineData("a:b")]
+    [InlineData("a?b")]
+    [InlineData("a%2Fb")]
+    [InlineData("${MUSTASK_REALM}")]
     public void RealmName_RejectsACharacterThatWouldBreakAUrl(string configured)
     {
         Assert.Throws<InvalidOperationException>(() => KeycloakStandIdentifiers.RealmName(configured));

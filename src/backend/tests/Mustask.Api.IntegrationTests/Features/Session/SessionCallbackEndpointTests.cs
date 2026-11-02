@@ -182,6 +182,48 @@ public sealed class SessionCallbackEndpointTests
         }
     }
 
+    // QA (tech-024): a `user` that is not ours does not open a session: another client's roles, realm roles, groups, and an
+    // access token that is not a JWT at all.
+    [Theory]
+    [InlineData("foreign-user")]
+    [InlineData("realm-user")]
+    [InlineData("groups-user")]
+    [InlineData("not-a-jwt")]
+    public async Task Callback_UserRoleFromAnotherSource_RedirectsWithNoAccess_AndNoCookie(string scenario)
+    {
+        var client = _factory.CreateNoRedirectClient();
+        var challenge = await SessionTestSupport.ChallengeAsync(client, "/dashboard");
+
+        var accessToken = scenario == "not-a-jwt"
+            ? "garbage-access-token"
+            : KeycloakTestRealm.CreateToken(configure: t =>
+            {
+                t.Roles = null;
+                t.ForeignClientPermissions = scenario == "foreign-user" ? ["user", "system-admin"] : null;
+                t.RealmAccessRoles = scenario == "realm-user" ? ["user", "system-admin"] : null;
+                t.Groups = scenario == "groups-user" ? ["user", "/Администраторы"] : null;
+            });
+
+        _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
+            accessToken: accessToken,
+            idToken: KeycloakTokenEndpointResponder.BuildIdToken(Guid.CreateVersion7().ToString(), challenge.Nonce),
+            refreshToken: "test-refresh-token",
+            expiresIn: 300,
+            refreshExpiresIn: 1800);
+
+        try
+        {
+            var response = await CallbackAsync(client, challenge, ("code", "test-code"), ("state", challenge.State));
+
+            Assert.Equal("http://panel.invalid/dashboard?authError=no_access", response.Headers.Location!.ToString());
+            Assert.Null(SessionTestSupport.SessionCookie(response));
+        }
+        finally
+        {
+            _factory.TokenResponder.Reset();
+        }
+    }
+
     [Fact]
     public async Task Callback_TokenExchangeRejected_RedirectsWithSignInFailed_AndNoCookie()
     {

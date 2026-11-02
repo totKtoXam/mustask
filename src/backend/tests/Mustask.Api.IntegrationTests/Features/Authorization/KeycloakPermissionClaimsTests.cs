@@ -89,6 +89,59 @@ public sealed class KeycloakPermissionClaimsTests
         Assert.Empty(PermsOf(resourceAccess));
     }
 
+    // QA (tech-024): the same role twice yields each code once, and a name is matched exactly (case, whitespace).
+    [Fact]
+    public void DuplicatedRoles_YieldEachCodeOnce()
+    {
+        Assert.Equal(
+            [PermissionCatalog.DictionariesLanguagesRead, PermissionCatalog.DictionariesLanguagesWrite],
+            PermsOf(Roles("user", "user", "dictionaries-admin", "dictionaries-admin")));
+    }
+
+    [Theory]
+    [InlineData("User")]
+    [InlineData("USER")]
+    [InlineData(" user")]
+    [InlineData("user ")]
+    public void RoleNames_AreMatchedExactly(string almostUser)
+    {
+        Assert.Empty(PermsOf(Roles(almostUser, "system-admin")));
+    }
+
+    // QA: `user` in another client's roles does not unlock our `system-admin`; our roles are read only from our audience.
+    [Fact]
+    public void UserHeldOnlyForAnotherAudience_UnlocksNothing()
+    {
+        Assert.Empty(PermsOf("""{"other-api":{"roles":["user"]},"mustask-api":{"roles":["system-admin"]}}"""));
+    }
+
+    [Fact]
+    public void RolesOfOurAudience_AreReadEvenNextToOtherAudiences()
+    {
+        Assert.Equal(
+            [PermissionCatalog.DictionariesLanguagesRead],
+            PermsOf("""{"other-api":{"roles":["system-admin"]},"mustask-api":{"roles":["user"]}}"""));
+    }
+
+    // QA: realm_access and groups claims on the principal are never read, even when they spell our role names.
+    [Fact]
+    public void RealmAccessAndGroupsClaims_AreIgnored()
+    {
+        var identity = new ClaimsIdentity(
+            [
+                new Claim("resource_access", Roles("organization-creator")),
+                new Claim("realm_access", """{"roles":["user","system-admin"]}"""),
+                new Claim("groups", "/Администраторы"),
+                new Claim("groups", "user"),
+            ],
+            "test");
+        var principal = new ClaimsPrincipal(identity);
+
+        KeycloakPermissionClaims.Append(principal, Audience);
+
+        Assert.Empty(principal.FindAll(KeycloakPermissionClaims.PermissionClaimType));
+    }
+
     [Fact]
     public void NoResourceAccessClaim_GrantsNothing()
     {
