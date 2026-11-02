@@ -10,7 +10,6 @@ import {
   NO_SELECTION,
   SELECTOR_KINDS,
   primaryKind,
-  type FitData,
   type ObjectSelection,
   type SelectorKind,
 } from './selectorFit';
@@ -27,6 +26,13 @@ export interface AddressSelection {
   /** `undefined`: the address is not an organization's. */
   organizationId?: string;
   selection: ObjectSelection;
+  /** The kind the address prefix names (`projects/`, `teams/`, `areas/`); `null`: it has none. */
+  prefixKind: SelectorKind | null;
+}
+
+/** Whether a selection names any object: an address with none leaves the remembered one standing. */
+export function namesObjects(selection: ObjectSelection): boolean {
+  return SELECTOR_KINDS.some((kind) => selection[kind] !== null);
 }
 
 const PREFIX_KINDS: readonly SelectorKind[] = ['project', 'team', 'department'];
@@ -54,7 +60,7 @@ export function readAddressSelection(pathname: string, search: string): AddressS
     ? undefined
     : (idOf(`${KIND_ROUTE_PREFIX.organization}/*`, pathname, 'organizationId') ?? undefined);
   const selection: ObjectSelection = { ...NO_SELECTION };
-  if (organizationId === undefined) return { selection };
+  if (organizationId === undefined) return { selection, prefixKind: null };
 
   const params = new URLSearchParams(search);
   for (const kind of ['team', 'department'] as const) {
@@ -71,12 +77,12 @@ export function readAddressSelection(pathname: string, search: string): AddressS
     team: 'team',
     department: 'department',
   };
-  let prefixed = false;
+  let prefixKind: SelectorKind | null = null;
   for (const kind of PREFIX_KINDS) {
     const id = idOf(`${KIND_ROUTE_PREFIX[prefixes[kind]]}/*`, pathname, idParams[kind]);
     if (id !== null) {
       selection[kind] = id;
-      prefixed = true;
+      prefixKind = kind;
       break;
     }
   }
@@ -86,11 +92,11 @@ export function readAddressSelection(pathname: string, search: string): AddressS
   const isSettings =
     matchPath({ path: `${KIND_ROUTE_PREFIX.organization}/settings/*`, end: true }, pathname) !==
     null;
-  if (!prefixed && isSettings) {
+  if (prefixKind === null && isSettings) {
     const value = params.get(SELECTOR_QUERY.project);
     if (value) selection.project = value;
   }
-  return { organizationId, selection };
+  return { organizationId, selection, prefixKind };
 }
 
 /** The menu kind of a selection: its most specific object, else the organization. */
@@ -216,6 +222,23 @@ export function writeRemembered(
 }
 
 /**
+ * A visit to an organization's page that names no object: only the last organization is noted,
+ * the remembered selection stays as it was (ADR-0032 § 6: it is written when an address names
+ * objects or the user chooses).
+ */
+export function writeRememberedOrganization(
+  store: KeyValueStore,
+  subject: string,
+  organizationId: string,
+): void {
+  try {
+    store.setItem(organizationStorageKey(subject), organizationId);
+  } catch {
+    // A full or blocked store only costs the memory, never the page.
+  }
+}
+
+/**
  * «Все организации» (ADR-0032 § 5): clears all four. The last organization is stored empty, so
  * a page with no organization of its own shows none, and the organization's own selection is
  * emptied.
@@ -254,36 +277,6 @@ export function readRememberedOrganization(store: KeyValueStore, subject: string
   } catch {
     return null;
   }
-}
-
-export interface FallbackResult {
-  selection: ObjectSelection;
-  /** The kinds dropped, with the names they had when known; empty: the notice is not shown. */
-  dropped: readonly SelectorKind[];
-}
-
-/**
- * ADR-0032 § 6: each remembered object that is gone or no longer offered drops to «все».
- * An id is judged against the offers as the server spells it (case ignored); a kept id is
- * returned as spelled there. The pairs that no longer fit are not judged here: the fit of a
- * remembered pair is the selectors' business once they are shown.
- */
-export function fallbackSelection(remembered: ObjectSelection, data: FitData): FallbackResult {
-  const known: Record<SelectorKind, readonly string[]> = {
-    department: data.departments.map(({ id }) => id),
-    team: data.teams.map(({ id }) => id),
-    project: data.projects.map(({ id }) => id),
-  };
-  const selection: ObjectSelection = { ...NO_SELECTION };
-  const dropped: SelectorKind[] = [];
-  for (const kind of SELECTOR_KINDS) {
-    const id = remembered[kind];
-    if (id === null) continue;
-    const resolved = resolveKnownId(id, known[kind]);
-    if (resolved === null) dropped.push(kind);
-    else selection[kind] = resolved;
-  }
-  return { selection, dropped };
 }
 
 /**

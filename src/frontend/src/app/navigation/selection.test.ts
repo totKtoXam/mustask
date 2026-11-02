@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { menuFor } from './addressModel';
 import {
   fallbackNotice,
-  fallbackSelection,
   fullSelectionQuery,
   menuHref,
   menuKindOf,
@@ -13,11 +12,13 @@ import {
   readRememberedOrganization,
   resolveKnownId,
   selectionQuery,
+  namesObjects,
   selectionStorageKey,
   writeRemembered,
+  writeRememberedOrganization,
   type KeyValueStore,
 } from './selection';
-import { NO_SELECTION, type FitData, type ObjectSelection } from './selectorFit';
+import { NO_SELECTION, type ObjectSelection } from './selectorFit';
 
 function select(part: Partial<ObjectSelection>): ObjectSelection {
   return { ...NO_SELECTION, ...part };
@@ -38,7 +39,7 @@ function memoryStore(initial: Record<string, string> = {}): KeyValueStore & {
 
 describe('readAddressSelection (ADR-0032 § 1)', () => {
   it('reads the organization alone from its pages', () => {
-    expect(readAddressSelection('/organizations/o/overview', '')).toEqual({
+    expect(readAddressSelection('/organizations/o/overview', '')).toMatchObject({
       organizationId: 'o',
       selection: NO_SELECTION,
     });
@@ -50,17 +51,17 @@ describe('readAddressSelection (ADR-0032 § 1)', () => {
         '/organizations/o/projects/a/workitems',
         '?teamId=mars&departmentId=log',
       ),
-    ).toEqual({
+    ).toMatchObject({
       organizationId: 'o',
       selection: select({ project: 'a', team: 'mars', department: 'log' }),
     });
     expect(
       readAddressSelection('/organizations/o/teams/mars/overview', '?departmentId=log'),
-    ).toEqual({
+    ).toMatchObject({
       organizationId: 'o',
       selection: select({ team: 'mars', department: 'log' }),
     });
-    expect(readAddressSelection('/organizations/o/areas/log/projects', '')).toEqual({
+    expect(readAddressSelection('/organizations/o/areas/log/projects', '')).toMatchObject({
       organizationId: 'o',
       selection: select({ department: 'log' }),
     });
@@ -78,8 +79,10 @@ describe('readAddressSelection (ADR-0032 § 1)', () => {
   it('reads the project from the query on a settings page, and under no prefix', () => {
     expect(
       readAddressSelection('/organizations/o/settings/general', '?teamId=mars&projectId=a'),
-    ).toEqual({ organizationId: 'o', selection: select({ team: 'mars', project: 'a' }) });
-    expect(readAddressSelection('/organizations/o/teams/mars/overview', '?projectId=a')).toEqual({
+    ).toMatchObject({ organizationId: 'o', selection: select({ team: 'mars', project: 'a' }) });
+    expect(
+      readAddressSelection('/organizations/o/teams/mars/overview', '?projectId=a'),
+    ).toMatchObject({
       organizationId: 'o',
       selection: select({ team: 'mars' }),
     });
@@ -91,7 +94,7 @@ describe('readAddressSelection (ADR-0032 § 1)', () => {
   });
 
   it('reads an address outside an organization as no selection', () => {
-    expect(readAddressSelection('/dictionaries/languages', '?teamId=mars')).toEqual({
+    expect(readAddressSelection('/dictionaries/languages', '?teamId=mars')).toMatchObject({
       selection: NO_SELECTION,
     });
   });
@@ -99,6 +102,27 @@ describe('readAddressSelection (ADR-0032 § 1)', () => {
   it('does not take the lists for objects', () => {
     expect(readAddressSelection('/organizations/o/areas', '').selection).toEqual(NO_SELECTION);
     expect(readAddressSelection('/organizations/o/projects', '').selection).toEqual(NO_SELECTION);
+  });
+});
+
+describe('the kind an address names (C-6: the prefix is the primary object)', () => {
+  it('tells the prefix kind from the query kinds', () => {
+    expect(
+      readAddressSelection('/organizations/o/projects/a/general', '?teamId=m').prefixKind,
+    ).toBe('project');
+    expect(readAddressSelection('/organizations/o/teams/m/overview', '').prefixKind).toBe('team');
+    expect(readAddressSelection('/organizations/o/areas/d/overview', '').prefixKind).toBe(
+      'department',
+    );
+    expect(readAddressSelection('/organizations/o/settings/general', '?teamId=m').prefixKind).toBe(
+      null,
+    );
+    expect(readAddressSelection('/dictionaries/languages', '').prefixKind).toBeNull();
+  });
+
+  it('names objects only when the address carries one', () => {
+    expect(namesObjects(NO_SELECTION)).toBe(false);
+    expect(namesObjects(select({ team: 'm' }))).toBe(true);
   });
 });
 
@@ -166,6 +190,15 @@ describe('the remembered selection (ADR-0032 § 6)', () => {
     expect(readRemembered(store, 'u2', 'o')).toBeNull();
   });
 
+  it('notes the last organization alone when a visit names no object', () => {
+    const store = memoryStore();
+    writeRemembered(store, 'u1', 'o', select({ team: 'mars' }));
+    writeRememberedOrganization(store, 'u1', 'p');
+    expect(readRememberedOrganization(store, 'u1')).toBe('p');
+    expect(readRemembered(store, 'u1', 'o')).toEqual(select({ team: 'mars' }));
+    expect(readRemembered(store, 'u1', 'p')).toBeNull();
+  });
+
   it.each([['not json'], ['[1]'], ['null'], ['"text"']])('treats %s as absent', (raw) => {
     const store = memoryStore({ [selectionStorageKey('u1', 'o')]: raw });
     expect(readRemembered(store, 'u1', 'o')).toBeNull();
@@ -193,27 +226,7 @@ describe('the remembered selection (ADR-0032 § 6)', () => {
   });
 });
 
-describe('the fallback', () => {
-  const data: FitData = {
-    departments: [{ id: 'log', name: 'Логистика' }],
-    projects: [{ id: 'a', name: 'A', key: 'A', departmentId: 'log', teamIds: [] }],
-    teams: [{ id: 'mars', name: 'MARS', isMember: false, departmentIds: [] }],
-  };
-
-  it('keeps what is still offered, spelled as the server spells it', () => {
-    const result = fallbackSelection(select({ team: 'MARS', project: 'A' }), data);
-    expect(result).toEqual({ selection: select({ team: 'mars', project: 'a' }), dropped: [] });
-  });
-
-  it('drops each object that is gone to «все» and reports its kind', () => {
-    const result = fallbackSelection(
-      select({ department: 'gone', team: 'mars', project: 'x' }),
-      data,
-    );
-    expect(result.selection).toEqual(select({ team: 'mars' }));
-    expect(result.dropped).toEqual(['department', 'project']);
-  });
-
+describe('the fallback notice', () => {
   it('words the notice with the name, or without it when nothing is left', () => {
     expect(fallbackNotice(['Ромашка'])).toBe(
       'Ранее выбранный контекст недоступен. Выбрано: Ромашка.',

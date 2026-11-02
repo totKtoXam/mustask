@@ -16,6 +16,7 @@ import { MAIN_REGION_ID } from '../shared/lib/mainRegion';
 import { NoticeCornerContext } from '../shared/lib/noticeCorner';
 import { WorkContextContext, type WorkContextSource } from '../shared/lib/workContext';
 import { NoticeProvider } from '../shared/ui';
+import { NotFound } from '../shared/ui/StateFrame';
 import {
   PageChromeContext,
   type PageChrome,
@@ -31,6 +32,9 @@ import { NavigationOverlay } from './shell/NavigationOverlay';
 import { SettingsNavigation } from './shell/SettingsNavigation';
 import { SkipLink } from './shell/SkipLink';
 import { TopBar } from './shell/TopBar';
+
+/** The not-found frame of each selector kind: a department is an area to the user. */
+const SELECTOR_NOT_FOUND = { department: 'area', team: 'team', project: 'project' } as const;
 
 const MAIN_NAVIGATION_ID = 'main-navigation';
 const OVERLAY_ID = 'navigation-overlay';
@@ -306,7 +310,13 @@ export function AppLayout({ contextSource }: AppLayoutProps) {
                       overlay ? { minHeight: theme.layout.topBarHeight * 2 } : theme.mixins.toolbar
                     }
                   />
-                  <Outlet />
+                  {source.selectorNotFound ? (
+                    // A selector in the query that names nothing, or does not fit the object of
+                    // the prefix, answers for its level with the menu kept (ADR-0032 §§ 1, 3).
+                    <NotFound level={SELECTOR_NOT_FOUND[source.selectorNotFound]} keepNavigation />
+                  ) : (
+                    <Outlet />
+                  )}
                 </Box>
                 {roleChange && (
                   // The shell's own notice (mod-016 design § 2.4, DC-11): it is

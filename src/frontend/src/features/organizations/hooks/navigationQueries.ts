@@ -13,10 +13,15 @@ export function useOverview(organizationId: string) {
   });
 }
 
-export function useSelectorOffers(organizationId: string, options: { enabled?: boolean } = {}) {
+export function useSelectorOffers(
+  organizationId: string,
+  options: { enabled?: boolean; refetchOnWindowFocus?: boolean } = {},
+) {
   return useQuery({
     queryKey: navigationKeys.selectorOffers(organizationId),
     queryFn: () => getSelectorOffers(organizationId),
     enabled: options.enabled ?? true,
+    // The shell passes `true`: another user's link change reaches an open tab on its next focus.
+    refetchOnWindowFocus: options.refetchOnWindowFocus,
   });
 }

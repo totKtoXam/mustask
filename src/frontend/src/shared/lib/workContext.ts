@@ -127,6 +127,16 @@ export interface WorkContextSource {
   dismissFallback?(): void;
   /** The address of an object opened from a row or a link; absent in a stub: the plain path. */
   objectLink?(kind: WorkContextObjectKind, id: string): WorkContextObjectLink | null;
+  /**
+   * A selector in the address query names nothing, or does not fit the object of the prefix
+   * (ADR-0032 §§ 1, 3): the page is not found for that level, the menu kept.
+   */
+  selectorNotFound?: WorkContextObjectKind | null;
+  /**
+   * The user chose: the selection is remembered for the organization (ADR-0032 § 6). «все» is a
+   * choice too, and an address with no object reads this back.
+   */
+  remember?(organizationId: string, objects: WorkContextObjects): void;
 }
 
 /** The selection as the selectors' objects (`null`: «все»). */

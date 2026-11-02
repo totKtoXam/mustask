@@ -138,3 +138,26 @@ describe('US-2 Scenario: Page trail (BR-6)', () => {
     expect(screen.queryByRole('navigation', { name: 'Путь к странице' })).not.toBeInTheDocument();
   });
 });
+
+describe('code review C-6: a selector in the address that names nothing (ADR-0032 §§ 1, 3)', () => {
+  it('answers not found for its level in place of the page, the navigation kept', () => {
+    renderShell({
+      path: '/dictionaries/languages',
+      auth: authValue(reader),
+      contextSource: {
+        status: 'ready',
+        organizations: [{ id: 'org-1', name: 'Пример организации 1', projects: [], teams: [] }],
+        selection: { organizationId: 'org-1' },
+        isReal: true,
+        selectorNotFound: 'team',
+      },
+    });
+
+    const main = screen.getByRole('main');
+    expect(
+      within(main).getByRole('heading', { level: 1, name: 'Команда не найдена' }),
+    ).toBeVisible();
+    expect(within(main).queryByRole('heading', { name: 'Языки' })).not.toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Основное меню' })).toBeInTheDocument();
+  });
+});

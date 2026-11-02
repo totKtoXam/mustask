@@ -7,6 +7,7 @@ import {
   pairFits,
   primaryKind,
   resetNotice,
+  resetUnfitted,
   type FitData,
   type ObjectSelection,
   type SelectorKind,
@@ -250,5 +251,49 @@ describe('at volume (BR-NV-9)', () => {
     const offer = offerFor(big, select({ department: 'd1', team: 't1' }), 'project');
     expect(offer.fitting.length + offer.others.length).toBe(200);
     expect(performance.now() - started).toBeLessThan(2000);
+  });
+});
+
+describe('resetUnfitted (BR-NV-17, ADR-0032 § 5, US-7: a link change)', () => {
+  const unlinked: FitData = {
+    ...DATA,
+    projects: DATA.projects.map((project) =>
+      project.id === 'a' ? { ...project, teamIds: ['venus'] } : project,
+    ),
+  };
+
+  it('resets the project when its team is unlinked from it, and says so', () => {
+    const result = resetUnfitted(DATA, unlinked, select({ team: 'mars', project: 'a' }));
+    expect(result.selection).toEqual(select({ team: 'mars' }));
+    expect(resetNotice(result.reset)).toBe('Выбор сброшен: проект A.');
+  });
+
+  it('resets the team, the more specific of a department and a team, when the link is removed', () => {
+    const after: FitData = {
+      ...DATA,
+      teams: DATA.teams.map((team) =>
+        team.id === 'venus' ? { ...team, departmentIds: [] } : team,
+      ),
+      projects: DATA.projects.map((project) =>
+        project.id === 'a' ? { ...project, teamIds: ['mars'] } : project,
+      ),
+    };
+    const result = resetUnfitted(DATA, after, select({ department: 'log', team: 'venus' }));
+    expect(result.selection).toEqual(select({ department: 'log' }));
+    expect(resetNotice(result.reset)).toBe('Выбор сброшен: команда VENUS.');
+  });
+
+  it('resets nothing when the pair fitted before and fits still, or did not fit before', () => {
+    const same = resetUnfitted(DATA, DATA, select({ team: 'mars', project: 'a' }));
+    expect(same.reset).toEqual([]);
+    const never = resetUnfitted(DATA, unlinked, select({ team: 'jupiter', project: 'a' }));
+    expect(never.reset).toEqual([]);
+    expect(never.selection).toEqual(select({ team: 'jupiter', project: 'a' }));
+  });
+
+  it('leaves a value the new offers no longer hold to the fallback, not to a link change', () => {
+    const without: FitData = { ...DATA, teams: DATA.teams.filter((team) => team.id !== 'mars') };
+    const result = resetUnfitted(DATA, without, select({ team: 'mars', project: 'a' }));
+    expect(result.reset).toEqual([]);
   });
 });

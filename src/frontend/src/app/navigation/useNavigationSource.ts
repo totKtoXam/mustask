@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { matchPath, useLocation } from 'react-router-dom';
 import {
   ORGANIZATIONS_PATH,
+  notFoundLevel,
   useArea,
   useOrganizations,
   useProjectAreaTree,
@@ -11,6 +12,7 @@ import type {
   WorkContextObjectKind,
   WorkContextObjectLink,
   WorkContextFallback,
+  WorkContextObjects,
   WorkContextOffers,
   WorkContextOrganization,
   WorkContextSelection,
@@ -22,19 +24,23 @@ import {
   menuHref,
   clearRemembered,
   isOrganizationCleared,
+  namesObjects,
   readAddressSelection,
   readRemembered,
   readRememberedOrganization,
   resolveKnownId,
   writeRemembered,
+  writeRememberedOrganization,
   type KeyValueStore,
 } from './selection';
 import {
   NO_SELECTION,
   SELECTOR_KINDS,
   openObject,
+  pairFits,
   resetNotice,
   type ObjectSelection,
+  type SelectorKind,
 } from './selectorFit';
 
 function decodeId(value: string): string {
@@ -102,11 +108,14 @@ function resolveAgainst(
  * The shell's context source (feat-043: ADR-0032 §§ 1, 5, 6; US-8). It reads the user's active
  * organizations and the effective organization's `selector-offers` once each, takes the selection
  * from the address — the object of the prefix, the others from the query, matched as the router
- * matches — and, on a page that carries no organization, from the remembered selection
- * (`localStorage`, per user and organization). An address that names an organization writes the
- * selection it carries; a remembered object that is gone drops to «все» with the fallback
- * notice, and so does an organization the user left. Choosing a value is the shell's business:
- * it moves the address, and the address is what this reads.
+ * matches — and, when the address names no object (a page with no organization, or an
+ * organization's own page such as «Участники»), from the remembered selection (`localStorage`, per
+ * user and organization). The remembered selection is written when an address names objects or
+ * the user chooses (`remember`, «все» too), never by a visit to a page that names none. A
+ * remembered object that is gone drops to «все» with the fallback notice, and so does an
+ * organization the user left; a selector in the query that names nothing, or does not fit the
+ * prefix's object, is `selectorNotFound`. Choosing a value is the shell's business: it moves the
+ * address, and the address is what this reads.
  */
 export function useNavigationSource({
   enabled,
@@ -144,6 +153,8 @@ export function useNavigationSource({
 
   const offersQuery = useSelectorOffers(organizationId ?? '', {
     enabled: enabled && organizationId !== undefined,
+    // Another user's link change reaches an open tab on its next focus (ADR-0032 § 5).
+    refetchOnWindowFocus: true,
   });
   const offersStatus: WorkContextStatus =
     organizationId === undefined ? 'ready' : statusOf(offersQuery);
@@ -167,40 +178,51 @@ export function useNavigationSource({
       areaPrefixId,
       offers.departments.map(({ id }) => id),
     ) !== null;
+  const nodePrefix = offers !== undefined && areaPrefixId !== undefined && !isDepartmentId;
   const nodeQuery = useArea(organizationId ?? '', areaPrefixId ?? '', {
-    enabled: enabled && offers !== undefined && areaPrefixId !== undefined && !isDepartmentId,
+    enabled: enabled && nodePrefix,
   });
   const nodeProjectId = nodeQuery.isSuccess ? nodeQuery.data.projectId : null;
   const nodeId = nodeQuery.isSuccess && nodeProjectId !== null ? areaPrefixId : undefined;
+  // Until the node is read, nothing is known of it (it may be a department that is gone).
+  const nodePending = nodePrefix && !nodeQuery.isSuccess && !nodeQuery.isError;
+  const nodeGone = nodePrefix && nodeQuery.isError && notFoundLevel(nodeQuery.error) === 'area';
+  const placed =
+    nodePrefix && nodeProjectId !== null
+      ? offers.projects.find(({ id }) => id.toLowerCase() === nodeProjectId.toLowerCase())
+      : undefined;
+  // A node that is read but not offered (its project is deactivated) or failed to read: the
+  // page answers for it, and the visit changes no context.
+  const nodeUnoffered =
+    nodePrefix && !nodeGone && (nodeQuery.isError || nodeQuery.isSuccess) && !placed;
 
-  // The chosen objects: the address's, or on a page with no organization the remembered ones.
+  // The chosen objects: the address's; an organization's page with no object in its address
+  // reads the remembered ones (ADR-0032 § 6; US-8), and so does a page with no organization.
   const carriesOrganization = address.organizationId !== undefined;
+  const addressNamesObjects = carriesOrganization && namesObjects(address.selection);
   const rememberedObjects =
-    !carriesOrganization && store && organizationId !== undefined
+    !addressNamesObjects && store && organizationId !== undefined
       ? readRemembered(store, user, organizationId)
       : null;
   const chosen: ObjectSelection = useMemo(() => {
-    const base = carriesOrganization ? address.selection : (rememberedObjects ?? NO_SELECTION);
-    if (!carriesOrganization || areaPrefixId === undefined || isDepartmentId || !offers) {
+    const base = addressNamesObjects ? address.selection : (rememberedObjects ?? NO_SELECTION);
+    if (!addressNamesObjects || areaPrefixId === undefined || isDepartmentId || !offers) {
       return base;
     }
     // A node or sub-area: its project (and the project's department) is the selection; until
     // the node is read, or when it is gone, the department of the prefix is no department.
-    const placed = offers.projects.find(
-      ({ id }) => nodeProjectId !== null && id.toLowerCase() === nodeProjectId.toLowerCase(),
-    );
     return {
       ...base,
       department: placed?.departmentId ?? null,
       project: placed ? placed.id : null,
     };
   }, [
-    carriesOrganization,
+    addressNamesObjects,
     address,
     areaPrefixId,
     isDepartmentId,
     offers,
-    nodeProjectId,
+    placed,
     rememberedObjects,
   ]);
 
@@ -218,9 +240,36 @@ export function useNavigationSource({
     [offers, chosen.department, chosen.team, chosen.project],
   );
   const objects: ObjectSelection = resolution ? resolution.objects : chosen;
-  const lost = resolution?.lost ?? NOTHING;
+  // A department prefix that names no department and no readable node is a department that is gone.
+  const lost: readonly SelectorKind[] = nodeGone
+    ? [...(resolution?.lost ?? NOTHING), 'department']
+    : (resolution?.lost ?? NOTHING);
   const objectsKey = `${objects.department}|${objects.team}|${objects.project}`;
   const lostKey = lost.join(',');
+
+  // A selector in the query that names nothing, or does not fit the object of the prefix, answers
+  // not found for its level, the menu kept (ADR-0032 §§ 1, 3). The object of the prefix answers
+  // first, on its own page.
+  const selectorNotFound: SelectorKind | null = (() => {
+    if (!offers || !addressNamesObjects || nodePending || nodeGone) return null;
+    const prefix = address.prefixKind;
+    if (prefix !== null && !nodePrefix && lost.includes(prefix)) return null;
+    let primary: { kind: SelectorKind; id: string } | null = null;
+    if (nodePrefix) {
+      primary = placed ? { kind: 'project', id: placed.id } : null;
+    } else if (prefix !== null && objects[prefix] !== null) {
+      primary = { kind: prefix, id: objects[prefix] };
+    }
+    for (const kind of SELECTOR_KINDS) {
+      if (kind === prefix || address.selection[kind] === null) continue;
+      if (lost.includes(kind)) return kind;
+      const id = objects[kind];
+      if (primary && id !== null && !pairFits(offers, primary.kind, primary.id, kind, id)) {
+        return kind;
+      }
+    }
+    return null;
+  })();
 
   const [fallback, setFallback] = useState<WorkContextFallback | null>(null);
   const raise = useCallback((names: readonly string[]) => {
@@ -228,23 +277,16 @@ export function useNavigationSource({
   }, []);
   const organizationName = organizationList.find(({ id }) => id === organizationId)?.name;
 
-  // Remembered: written when an address sets the selection, repaired when a page with none
-  // reads a selection that no longer exists (ADR-0032 § 6).
+  // Remembered (ADR-0032 § 6): written when an address names objects or the user chooses (see
+  // `remember`), never by a visit to a page that names none; repaired when the remembered
+  // selection holds an object that no longer exists.
   useEffect(() => {
     if (!store || organizationId === undefined) return;
     if (carriesOrganization) {
-      // An address that names a remembered object that is gone drops it as well, with the notice.
-      // An address that names some other object that is gone writes nothing: one bad link must
-      // not change the context the user keeps (ADR-0032 § 6; QA F-1).
-      if (lostKey !== '') {
-        const remembered = readRemembered(store, user, organizationId);
-        const sameGone = SELECTOR_KINDS.some(
-          (kind) =>
-            lostKey.split(',').includes(kind) &&
-            remembered?.[kind] !== null &&
-            remembered?.[kind]?.toLowerCase() === address.selection[kind]?.toLowerCase(),
-        );
-        if (sameGone) {
+      if (!addressNamesObjects) {
+        // An organization's page with no object: it reads the remembered selection and leaves it.
+        writeRememberedOrganization(store, user, organizationId);
+        if (lostKey !== '') {
           // The notice is an event of the external store (the remembered selection), not derived state.
           // eslint-disable-next-line react-hooks/set-state-in-effect
           raise(organizationName ? [organizationName] : []);
@@ -252,9 +294,29 @@ export function useNavigationSource({
         }
         return;
       }
-      if (offers || objectsKey === 'null|null|null') {
-        writeRemembered(store, user, organizationId, objects);
+      // A node that is still being read, or answers for itself: the visit changes nothing.
+      if (nodePending || nodeUnoffered) return;
+      // An address that names a remembered object that is gone drops that one, with the notice,
+      // and keeps the other remembered values. An address that names some other object that is
+      // gone writes nothing: one bad link must not change the context the user keeps (QA F-1).
+      if (lostKey !== '') {
+        const remembered = readRemembered(store, user, organizationId);
+        const gone = SELECTOR_KINDS.filter(
+          (kind) =>
+            lost.includes(kind) &&
+            remembered?.[kind] != null &&
+            remembered[kind].toLowerCase() === address.selection[kind]?.toLowerCase(),
+        );
+        if (remembered && gone.length > 0) {
+          const kept: ObjectSelection = { ...remembered };
+          for (const kind of gone) kept[kind] = null;
+          raise(organizationName ? [organizationName] : []);
+          writeRemembered(store, user, organizationId, kept);
+        }
+        return;
       }
+      if (selectorNotFound !== null) return;
+      if (offers) writeRemembered(store, user, organizationId, objects);
       return;
     }
     if (organizationGone) {
@@ -273,11 +335,24 @@ export function useNavigationSource({
     user,
     organizationId,
     carriesOrganization,
+    addressNamesObjects,
     objectsKey,
     lostKey,
     organizationGone,
+    nodePending,
+    nodeUnoffered,
+    selectorNotFound,
     offers,
   ]);
+
+  // The user chose (a selector, «все», another organization): the choice is remembered, so an
+  // address with no object reads it back.
+  const remember = useCallback(
+    (forOrganization: string, chosenObjects: WorkContextObjects) => {
+      if (store) writeRemembered(store, user, forOrganization, chosenObjects);
+    },
+    [store, user],
+  );
 
   // No organization left to fall back to: the notice says only that the context is gone.
   const noneLeft =
@@ -369,6 +444,8 @@ export function useNavigationSource({
       fallback,
       dismissFallback,
       objectLink,
+      selectorNotFound,
+      remember,
     }),
     [
       organizationsStatus,
@@ -382,6 +459,8 @@ export function useNavigationSource({
       fallback,
       dismissFallback,
       objectLink,
+      selectorNotFound,
+      remember,
     ],
   );
 }

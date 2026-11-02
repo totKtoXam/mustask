@@ -218,6 +218,41 @@ export function openObject(
   return { selection: next, reset };
 }
 
+/**
+ * A link change (a team linked or unlinked, a project moved) re-judged the offers: each chosen
+ * value that fitted a less specific one before and no longer does resets to «все», the more
+ * specific of the pair (BR-NV-17, ADR-0032 § 5, US-7). A value the new offers do not hold is a
+ * gone object, not a link change: it is not reset here. Nothing reset: the selection as it was.
+ */
+export function resetUnfitted(
+  before: FitData,
+  after: FitData,
+  selection: ObjectSelection,
+): ChoiceResult {
+  const next: ObjectSelection = { ...selection };
+  const reset: ResetValue[] = [];
+  const held = (kind: SelectorKind, id: string) =>
+    optionsOf(after, kind).some((option) => option.id === id);
+  SELECTOR_KINDS.forEach((kind, index) => {
+    const id = selection[kind];
+    if (id === null || !held(kind, id)) return;
+    const unfitted = SELECTOR_KINDS.slice(0, index).some((other) => {
+      const chosen = next[other];
+      return (
+        chosen !== null &&
+        held(other, chosen) &&
+        pairFits(before, kind, id, other, chosen) &&
+        !pairFits(after, kind, id, other, chosen)
+      );
+    });
+    if (unfitted) {
+      next[kind] = null;
+      reset.push({ kind, name: nameOf(after, kind, id) });
+    }
+  });
+  return { selection: next, reset };
+}
+
 /** «Выбор сброшен: команда MARS, проект A.», or `null` when nothing was reset. */
 export function resetNotice(reset: readonly ResetValue[]): string | null {
   if (reset.length === 0) return null;

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { Link, Route } from 'react-router-dom';
+import { describe, expect, it, vi } from 'vitest';
+import { Link, Route, useLocation } from 'react-router-dom';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PageHeader } from '../../shared/ui/PageHeader';
@@ -35,10 +35,16 @@ function source(overrides: Partial<WorkContextSource> = {}): WorkContextSource {
   };
 }
 
+function LocationState() {
+  const { state } = useLocation();
+  return <span data-testid="location-state">{JSON.stringify(state)}</span>;
+}
+
 function page(title: string) {
   return (
     <>
       <PageHeader title={title} />
+      <LocationState />
       <Link to={`/organizations/${ALFA}/teams/${VENUS}/overview`} state={{ focusHeading: true }}>
         К команде
       </Link>
@@ -141,5 +147,63 @@ describe('feat-043 D-3: the notice a link carries', () => {
     );
 
     expect(await screen.findByText('Выбор сброшен: проект A.')).toBeInTheDocument();
+  });
+
+  it('takes the notice off the history entry once said: a reload or a remount does not say it again', async () => {
+    open();
+    await screen.findByRole('heading', { level: 1, name: 'Главная' });
+
+    await userEvent.click(
+      within(screen.getByRole('main')).getByRole('link', { name: 'К команде со сбросом' }),
+    );
+    await screen.findByText('Выбор сброшен: проект A.');
+
+    await waitFor(() => expect(screen.getByTestId('location-state')).toHaveTextContent('{}'));
+  });
+});
+
+describe('feat-043 C-1: a link change that unfits the selection', () => {
+  const A = 'project-a';
+  const linked: WorkContextOffers = {
+    ...OFFERS,
+    projects: [{ id: A, name: 'A', key: 'A', departmentId: null, teamIds: [MARS] }],
+  };
+  const unlinked: WorkContextOffers = {
+    ...linked,
+    projects: [{ id: A, name: 'A', key: 'A', departmentId: null, teamIds: [] }],
+  };
+  const selection = { organizationId: ALFA, teamId: MARS, projectId: A };
+  const path = `/organizations/${ALFA}/projects/${A}/teams?teamId=${MARS}`;
+
+  it('resets the project with the notice, remembers it and moves the page to the team', async () => {
+    const remember = vi.fn();
+    const shell = open({ offers: linked, selection, remember }, path);
+    await screen.findByRole('heading', { level: 1, name: 'Другая страница' });
+    expect(screen.queryByText(/Выбор сброшен/)).not.toBeInTheDocument();
+
+    shell.update({ contextSource: source({ offers: unlinked, selection, remember }) });
+
+    expect(await screen.findByText('Выбор сброшен: проект A.')).toBeInTheDocument();
+    expect(remember).toHaveBeenCalledWith(ALFA, { department: null, team: MARS, project: null });
+    expect(await screen.findByRole('heading', { level: 1, name: 'Команда' })).toBeInTheDocument();
+  });
+
+  it('says nothing when the offers change and the pair still fits', async () => {
+    const shell = open({ offers: linked, selection }, path);
+    await screen.findByRole('heading', { level: 1, name: 'Другая страница' });
+
+    shell.update({
+      contextSource: source({ offers: { ...linked, projects: [...linked.projects] }, selection }),
+    });
+
+    expect(screen.queryByText(/Выбор сброшен/)).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Другая страница' })).toBeInTheDocument();
+  });
+
+  it('says nothing for an address that did not fit at its first read', async () => {
+    open({ offers: unlinked, selection }, path);
+    await screen.findByRole('heading', { level: 1, name: 'Другая страница' });
+
+    expect(screen.queryByText(/Выбор сброшен/)).not.toBeInTheDocument();
   });
 });

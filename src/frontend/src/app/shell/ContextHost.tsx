@@ -7,8 +7,13 @@ import { useAccessCheck } from '../../shared/lib/access';
 import { objectsOf, useWorkContext } from '../../shared/lib/workContext';
 import { useNotice } from '../../shared/ui';
 import { targetAfterChoice } from '../navigation/choose';
-import { fallbackNotice } from '../navigation/selection';
-import type { ObjectSelection } from '../navigation/selectorFit';
+import { fallbackNotice, readAddressSelection } from '../navigation/selection';
+import {
+  NO_SELECTION,
+  resetNotice,
+  resetUnfitted,
+  type ObjectSelection,
+} from '../navigation/selectorFit';
 import { ContextSelectors } from './ContextSelectors';
 
 /**
@@ -41,7 +46,7 @@ function focusHeadingWhenReady(): () => void {
 export function ContextHost() {
   const source = useWorkContext();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const access = useAccessCheck();
   const { show } = useNotice();
   const theme = useTheme();
@@ -59,14 +64,20 @@ export function ContextHost() {
     return () => window.clearTimeout(timer);
   }, [fallbackId, fallbackNames, show, dismissFallback, theme.noticeDurationMs]);
 
-  // A row or a link that reset a selector says so (D-3): the notice rides in the router state.
+  // A row or a link that reset a selector says so (D-3): the notice rides in the router state,
+  // and is taken off the history entry once said, so a reload or a remount of the bar does not
+  // say it again.
   const { key, state } = useLocation();
   const linkNotice =
     typeof state === 'object' && state !== null && 'resetNotice' in state
       ? String((state as { resetNotice: unknown }).resetNotice)
       : null;
   useEffect(() => {
-    if (linkNotice) show(linkNotice);
+    if (!linkNotice) return;
+    show(linkNotice);
+    const rest = { ...(state as Record<string, unknown>) };
+    delete rest.resetNotice;
+    navigate({ pathname, search }, { replace: true, state: rest });
     // One notice per navigation: the location's key tells one from the next.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
@@ -86,8 +97,48 @@ export function ContextHost() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
+  // A link change that unfits what is chosen (a team unlinked from the chosen project, a project
+  // moved out of the chosen department) resets the more specific value with the notice (BR-NV-17;
+  // ADR-0032 § 5; US-7). Judged only when the offers change under a selection that fitted before:
+  // an address that unfits at its first read is not found for its level instead.
+  const offers = source.offers;
+  const seen = useRef<{ organizationId: string; offers: typeof offers } | null>(null);
+  const latest = useRef({ objects, pathname });
+  useEffect(() => {
+    latest.current = { objects, pathname };
+  });
+  useEffect(() => {
+    const before = seen.current;
+    seen.current = offers && organizationId ? { organizationId, offers } : null;
+    if (!before?.offers || !offers || !organizationId || before.organizationId !== organizationId) {
+      return;
+    }
+    if (before.offers === offers) return;
+    const current = latest.current;
+    const result = resetUnfitted(before.offers, offers, current.objects);
+    const text = resetNotice(result.reset);
+    if (text === null) return;
+    source.remember?.(organizationId, result.selection);
+    if (readAddressSelection(current.pathname, '').organizationId !== undefined) {
+      navigate(
+        targetAfterChoice({
+          organizationId,
+          pathname: current.pathname,
+          from: current.objects,
+          to: result.selection,
+          canOpen: (code) => access(code, 'organization', organizationId),
+        }),
+        { replace: true },
+      );
+    }
+    show(text);
+    // The offers are the trigger; the rest is read when they change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offers]);
+
   function change(next: ObjectSelection, notice: string | null) {
     if (organizationId === undefined) return;
+    source.remember?.(organizationId, next);
     focusAfterChoice.current = true;
     navigate(
       targetAfterChoice({
@@ -120,7 +171,12 @@ export function ContextHost() {
       organizationsStatus={source.status === 'failed' ? 'error' : source.status}
       onRetryOrganizations={() => source.retry?.()}
       selection={objects}
-      onOrganization={(id) => navigate(organizationOverviewPath(id))}
+      onOrganization={(id) => {
+        // Another organization opens with «все» in the other three (BR-NV-10): a choice, so remembered.
+        source.remember?.(id, NO_SELECTION);
+        focusAfterChoice.current = true;
+        navigate(organizationOverviewPath(id));
+      }}
       onAllOrganizations={() => {
         source.clearOrganizations?.();
         navigate(source.organizationListPath ?? '/organizations');
