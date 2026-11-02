@@ -18,7 +18,6 @@ import { ProjectGeneralPage } from './pages/ProjectGeneralPage';
 import { ProjectListPage } from './pages/ProjectListPage';
 import { AreaPage } from './pages/AreaPage';
 import { AreasPage } from './pages/AreasPage';
-import { ProjectAreasPage } from './pages/ProjectAreasPage';
 import { OrganizationTeamsPage } from './pages/OrganizationTeamsPage';
 import { TeamPage } from './pages/TeamPage';
 import { TeamsPage } from './pages/TeamsPage';
@@ -44,10 +43,6 @@ import {
   TEAMS_ROUTE,
 } from './paths';
 import { organizationsPermissions } from './permissions';
-
-/** The unrouted project areas page keeps its old address here, for its own tests. */
-export const PROJECT_AREAS_TEST_ROUTE =
-  '/organizations/:organizationId/projects/:projectId/settings/areas';
 
 /** «Проекты»: `?status=deactivated` is the administrator's other view, as the product routes it. */
 function ProjectsView() {
@@ -190,7 +185,6 @@ export function renderPage({
                     ].map((path) => (
                       <Route key={path} path={path} element={<TeamPage />} />
                     ))}
-                    <Route path={PROJECT_AREAS_TEST_ROUTE} element={<ProjectAreasPage />} />
                     <Route path={ORG_AREAS_ROUTE} element={<AreasPage />} />
                     {[
                       ORG_AREA_ROUTE,

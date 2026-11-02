@@ -99,14 +99,6 @@ export const areaPage = {
   rowMenu: (name: string) => `Ещё действия: ${name}`,
 } as const;
 
-/** The project's «Области» page (design § 7). */
-export const projectAreasPage = {
-  title: 'Области',
-  emptyChildren:
-    'У проекта пока нет вложенных областей. Создайте первую кнопкой «Новая вложенная область».',
-  emptyChildrenReader: 'У проекта нет вложенных областей.',
-} as const;
-
 /** The section «Департаменты» of a team's page (design § 6, D-10). */
 export const teamDepartmentsSection = {
   title: 'Департаменты',
