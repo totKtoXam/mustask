@@ -74,7 +74,7 @@ gate-3: pending
 
 - 2026-11-02 [orchestrator] Stage 8, delta read 2 of 2: approve, 0 blockers, 0 majors, 4 minors as debt, E-1..E-4 (44042575). Kit guide and showcase entries added (8c5e8647); TreeRegistry has no showcase entry, its section list is pinned until tech-016. Waiting for the shared lane for the last full Vitest, then gate-3.
 
-- 2026-11-02 [orchestrator] Full Vitest at e527fce6: 342 files, 5265 passed, 6 skipped, 0 failed. Not run: E2E (standing NO), any browser check of the panel (F-5 and the header layout unseen; the human's stand is off limits). Weekly 16% (start 2%). At gate-3. The human, away from the PC, asked for screenshots before the verdict; a throwaway harness on test data takes them, the stand stays untouched.
+- 2026-11-02 [orchestrator] Full Vitest at e527fce6: 342 files, 5265 passed, 6 skipped, 0 failed. Not run: E2E (standing NO), any browser check of the panel (F-5 and the header layout unseen; the human's stand is off limits). Weekly 16% (start 2%). At gate-3. The human, away from the PC, asked for screenshots before the verdict; a throwaway harness on test data takes them, the stand stays untouched. The first real look found the selector row wrapping at 480 px and below and covering the heading, fixed (49cd0121). The human on the screenshots: the section is «Структура» at every level, «Области» goes; the address `areas` and the type word «Область» stay. They also asked for a tree/diagram switch on it, the diagram showing the hierarchy and which teams work on which projects. The diagram is a separate line right after this one, by their choice: feat-049, size M, PR #47. Gate-3 verdict stays pending until they see the new screenshots.
 
 ## Notes
 
