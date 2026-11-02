@@ -16,8 +16,10 @@ export const TEAM_FILTER_PARAM = 'teamId';
 /**
  * The chosen values an address carries, in its order, each once. A blank value (`?teamId=`) names
  * nothing and is left out: a link with one shows the whole list. Any other value is kept as
- * written, whether it names a team of the project or not: BR-OT-8 reads a value that is no team of
- * the project as a filter that selects nothing, and the field's «Очистить фильтры» removes it.
+ * written, whether it names a team of the project or not. The first value that is not `none` is
+ * also the shell's team selector (feat-043, ADR-0032 § 1): when it is no team of the project the
+ * shell answers «Команда не найдена» and this page is not drawn, so BR-OT-8's "selects nothing" is
+ * left for a further repeated value; `none` («Без команды») is only this filter's value.
  */
 export function teamFilterOf(search: string): string[] {
   return filterValuesOf(search, TEAM_FILTER_PARAM);
