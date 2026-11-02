@@ -301,7 +301,11 @@ export function AppLayout({ contextSource }: AppLayoutProps) {
                     '&:focus': { outline: 'none' },
                   }}
                 >
-                  <Box sx={(theme) => theme.mixins.toolbar} />
+                  <Box
+                    sx={(theme) =>
+                      overlay ? { minHeight: theme.layout.topBarHeight * 2 } : theme.mixins.toolbar
+                    }
+                  />
                   <Outlet />
                 </Box>
                 {roleChange && (

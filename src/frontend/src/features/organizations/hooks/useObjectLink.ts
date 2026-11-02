@@ -4,7 +4,9 @@ import { organizationAreaPath, organizationTeamPath, projectGeneralPath } from '
 
 /** The router state a link to an object carries when it reset a selector (D-3): the shell says it. */
 export interface ObjectLinkState {
-  resetNotice: string;
+  /** The page the link opens takes focus on its heading (design § 9). */
+  focusHeading: true;
+  resetNotice?: string;
 }
 
 export interface ObjectLink {
@@ -23,15 +25,21 @@ export function useObjectLink(organizationId: string) {
     (kind: WorkContextObjectKind, id: string): ObjectLink => {
       const link = objectLink?.(kind, id);
       if (link) {
-        return link.notice ? { to: link.to, state: { resetNotice: link.notice } } : { to: link.to };
+        return {
+          to: link.to,
+          state: link.notice
+            ? { focusHeading: true, resetNotice: link.notice }
+            : { focusHeading: true },
+        };
       }
+      const state: ObjectLinkState = { focusHeading: true };
       switch (kind) {
         case 'project':
-          return { to: projectGeneralPath(organizationId, id) };
+          return { to: projectGeneralPath(organizationId, id), state };
         case 'team':
-          return { to: organizationTeamPath(organizationId, id) };
+          return { to: organizationTeamPath(organizationId, id), state };
         case 'department':
-          return { to: organizationAreaPath(organizationId, id) };
+          return { to: organizationAreaPath(organizationId, id), state };
       }
     },
     [objectLink, organizationId],

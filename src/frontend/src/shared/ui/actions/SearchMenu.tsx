@@ -244,7 +244,10 @@ export function SearchMenu({
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
         slotProps={{
-          paper: { onKeyDown: onPanelKeyDown, sx: { width: 35 * 8, maxWidth: '100%' } },
+          paper: {
+            onKeyDown: onPanelKeyDown,
+            sx: { width: { xs: '100%', sm: 35 * 8 }, maxWidth: '100%' },
+          },
         }}
       >
         <Box sx={{ p: 1 }}>

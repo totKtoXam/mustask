@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import Link from '@mui/material/Link';
 import { useTheme } from '@mui/material/styles';
@@ -10,6 +10,27 @@ import { targetAfterChoice } from '../navigation/choose';
 import { fallbackNotice } from '../navigation/selection';
 import type { ObjectSelection } from '../navigation/selectorFit';
 import { ContextSelectors } from './ContextSelectors';
+
+/**
+ * Moves focus to the `h1` of the page on screen, trying for about half a second since the page
+ * may still be drawing its head; returns the cancel for the effect.
+ */
+function focusHeadingWhenReady(): () => void {
+  let tries = 0;
+  let timer: number | undefined;
+  const attempt = () => {
+    const heading = document.querySelector<HTMLElement>('main h1');
+    if (heading) {
+      heading.tabIndex = -1;
+      heading.focus();
+      return;
+    }
+    tries += 1;
+    if (tries < 10) timer = window.setTimeout(attempt, 50);
+  };
+  timer = window.setTimeout(attempt, 0);
+  return () => window.clearTimeout(timer);
+}
 
 /**
  * The header's four selectors on the shell's context (feat-043 design § 3; US-8): reads the
@@ -50,8 +71,24 @@ export function ContextHost() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
+  // After a choice or a row link focus lands on the page's `h1` (design § 9).
+  const focusAfterChoice = useRef(false);
+  const linkWantsFocus =
+    typeof state === 'object' &&
+    state !== null &&
+    'focusHeading' in state &&
+    (state as { focusHeading: unknown }).focusHeading === true;
+  useEffect(() => {
+    if (!focusAfterChoice.current && !linkWantsFocus) return undefined;
+    focusAfterChoice.current = false;
+    return focusHeadingWhenReady();
+    // One move per navigation: the location's key tells one from the next.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
   function change(next: ObjectSelection, notice: string | null) {
     if (organizationId === undefined) return;
+    focusAfterChoice.current = true;
     navigate(
       targetAfterChoice({
         organizationId,

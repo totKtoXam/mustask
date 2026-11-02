@@ -5,6 +5,7 @@ import { authValue, LANGUAGES_READ, renderShell, SELECTORS_SOURCE } from '../tes
 import { setReducedMotion, setViewportWidth } from '../test/viewport';
 import { KEPT_CHOICE_KEY } from './navigation/keptChoice';
 import { theme } from './theme';
+import { PRODUCT_NAME } from '../shared/config/product';
 
 const reader = [LANGUAGES_READ];
 
@@ -272,6 +273,31 @@ describe('US-4 Scenario: Reduced motion', () => {
 });
 
 describe('US-12 Scenario: Reflow at 200 % zoom (D-8) — what yields below 1024 px (design § 3.6)', () => {
+  it('puts the selectors in a second row of the bar below 1024 px and beside the mark from 1024 px', () => {
+    setViewportWidth(640);
+    const narrow = renderShell({
+      path: '/dictionaries/languages/new',
+      auth: authValue(reader),
+      contextSource: SELECTORS_SOURCE,
+    });
+    const group = () => screen.getByRole('group', { name: 'Контекст работы' });
+    expect(group().parentElement).not.toBe(
+      screen.getByRole('button', { name: 'Меню' }).parentElement,
+    );
+    expect(group().parentElement?.parentElement).toBe(screen.getByRole('banner'));
+    narrow.unmount();
+
+    setViewportWidth(1440);
+    renderShell({
+      path: '/dictionaries/languages/new',
+      auth: authValue(reader),
+      contextSource: SELECTORS_SOURCE,
+    });
+    expect(group().parentElement).toBe(
+      screen.getByRole('link', { name: PRODUCT_NAME }).parentElement,
+    );
+  });
+
   it('moves the trail out of the top bar into the page header, with the same name and links', () => {
     setViewportWidth(640);
     renderShell({
