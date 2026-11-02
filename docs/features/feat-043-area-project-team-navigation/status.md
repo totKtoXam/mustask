@@ -12,7 +12,7 @@
 
 gate-1: approved 2026-10-30 (the human, in chat): all recommendations, OQ-1..5, OQ-7..9, H-1..4 A
 gate-2: approved 2026-10-30 (the human, in chat): design, prototype, ADR-0032 direction; rejected once earlier the same day, see Decisions
-gate-3: approved 2026-11-02 (the human, in chat, after screenshots on test data)
+gate-3: approved 2026-11-02 (the human, in chat, after screenshots on test data); PR https://github.com/totKtoXam/mustask/pull/49
 
 ## Plan
 
