@@ -29,6 +29,7 @@ gate-3: pending
 - 2026-11-02 [orchestrator] session binding: this session cannot relocate; it switched the pool-made checkout onto the task branch (as for tech-024)
 
 - 2026-11-02 [dev] stage 4 done in code: build of Mustask.sln green; no test was run (the machine's test lane belongs to another session); ADR-0034 proposed; the E2E suite is untouched and its members specs still wait for the push-fed projection (follow-up for the human: E2E fixture users must sign in once)
+- 2026-11-02 [review] round 1 (whole diff, with tech-024): changes-needed; 1 major (prose, StandReset next steps), 3 minors open (review.md)
 
 ## Decisions
 
