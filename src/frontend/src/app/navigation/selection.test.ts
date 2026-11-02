@@ -93,6 +93,20 @@ describe('readAddressSelection (ADR-0032 § 1)', () => {
     expect(selection).toEqual(select({ project: 'languages' }));
   });
 
+  it('does not take mod-017’s «Без команды» (teamId=none) for a team, in either order (D-1)', () => {
+    const path = '/organizations/o/projects/a/backlogs/stories';
+    expect(readAddressSelection(path, '?teamId=none').selection).toEqual(select({ project: 'a' }));
+    expect(readAddressSelection(path, '?teamId=none&teamId=mars').selection).toEqual(
+      select({ project: 'a', team: 'mars' }),
+    );
+    expect(readAddressSelection(path, '?teamId=mars&teamId=none').selection).toEqual(
+      select({ project: 'a', team: 'mars' }),
+    );
+    expect(readAddressSelection(path, '?teamId=&teamId=mars').selection).toEqual(
+      select({ project: 'a', team: 'mars' }),
+    );
+  });
+
   it('reads an address outside an organization as no selection', () => {
     expect(readAddressSelection('/dictionaries/languages', '?teamId=mars')).toMatchObject({
       selection: NO_SELECTION,

@@ -1,4 +1,5 @@
 import { matchPath } from 'react-router-dom';
+import { NO_TEAM_FILTER_VALUE } from '../../features/workitems';
 import {
   KIND_ROUTE_PREFIX,
   LANDING_LEVEL_SEGMENT,
@@ -51,7 +52,8 @@ function idOf(pattern: string, pathname: string, param: string): string | null {
 /**
  * Reads the selection an address carries: the object its prefix names, the others from the
  * query. Matching is the router's own (case and percent-encoding, bug-003 and tech-009 F4); an
- * empty or repeated query value is ignored (the first one wins).
+ * empty query value is ignored, a repeated one is read as the first wins, and a `teamId` of
+ * mod-017's filter, `none` («Без команды»), is no team (the first other value is).
  */
 export function readAddressSelection(pathname: string, search: string): AddressSelection {
   // The list of deactivated organizations is a page of the list, not of an organization.
@@ -63,10 +65,14 @@ export function readAddressSelection(pathname: string, search: string): AddressS
   if (organizationId === undefined) return { selection, prefixKind: null };
 
   const params = new URLSearchParams(search);
-  for (const kind of ['team', 'department'] as const) {
-    const value = params.get(SELECTOR_QUERY[kind]);
-    if (value) selection[kind] = value;
-  }
+  const department = params.get(SELECTOR_QUERY.department);
+  if (department) selection.department = department;
+  // `teamId` is also mod-017's filter, repeated, and its `none` («Без команды») is no team: the
+  // selector takes the first value that is one, whatever the order (D-1).
+  const team = params
+    .getAll(SELECTOR_QUERY.team)
+    .find((value) => value !== '' && value !== NO_TEAM_FILTER_VALUE);
+  if (team !== undefined) selection.team = team;
   const idParams: Record<SelectorKind, string> = {
     project: 'projectId',
     team: 'teamId',

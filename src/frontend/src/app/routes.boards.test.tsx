@@ -428,6 +428,25 @@ describe('mod-006 the not-found frames on a team-level address', () => {
     },
   );
 
+  // feat-043 D-1: mod-017's «Без команды» is the filter value `none` in the same parameter; it is
+  // no team, so the project's views answer with their rows and the team selector stays «все».
+  it.each(['?teamId=none', `?teamId=none&teamId=${organizationIds.platformTeam}`])(
+    'the project’s backlog at %s shows its rows, not «Команда не найдена»',
+    async (query) => {
+      serveOrganizations();
+      serveBoards(alfaDataset(), { projectList: false });
+      renderRoutes(`${PRM}/backlogs/stories${query}`);
+
+      // The page is the project's own backlog, with its filter on «Без команды».
+      expect(
+        await screen.findByRole('heading', { level: 1, name: 'Пример проекта' }),
+      ).toBeInTheDocument();
+      expect(await screen.findByText(/^сужено:/)).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { level: 1, name: 'Команда не найдена' })).toBeNull();
+      await waitFor(() => expect(switcherLevels()[3]).toBe('Проект: Пример проекта'));
+    },
+  );
+
   it('a deleted team’s backlog answers «Команда не найдена», and the team selector no longer lists it (US-7)', async () => {
     const organizations = organizationsDataset();
     organizations.teams = organizations.teams.map((team) =>

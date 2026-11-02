@@ -397,6 +397,18 @@ describe('code review C-6: a selector in the query that names nothing or does no
     expect(readRemembered(window.localStorage, USER, ALFA)).toBeNull();
   });
 
+  // D-1: mod-017's filter value «Без команды» is no team, whichever order the values come in.
+  it.each(['?teamId=none', `?teamId=none&teamId=${MARS}`, `?teamId=${MARS}&teamId=none`])(
+    'the filter value none at %s is no team: not found never answers for it',
+    async (query) => {
+      const { result } = render(`${base}${query}`);
+
+      await waitFor(() => expect(result.current.selection.projectId).toBe(PROJECT_A));
+      expect(result.current.selectorNotFound).toBeNull();
+      expect(result.current.selection.teamId).toBe(query === '?teamId=none' ? undefined : MARS);
+    },
+  );
+
   it('a department that does not hold the project answers not found for the department', async () => {
     const { result } = render(`${base}?departmentId=${OTHER_DEPARTMENT}`);
 
