@@ -300,9 +300,9 @@ public sealed class SaveWorkItemEndpointTests(MustaskApiFactory factory)
 
         var answer = await WorkItemsTestData.SaveAsync(factory, world, bug, new { areaId = api.Id.ToString() });
 
-        Assert.Equal((api.Id.ToString(), "Платформа / API"), (Text(answer.Body, "area", "id"), Text(answer.Body, "area", "path")));
+        Assert.Equal((api.Id.ToString(), "Мастаск / Платформа / API"), (Text(answer.Body, "area", "id"), Text(answer.Body, "area", "path")));
         var row = (await WorkItemsTestData.ListAsync(factory, world)).Body.GetProperty("data")[0];
-        Assert.Equal("Платформа / API", Text(row, "area", "path"));
+        Assert.Equal("Мастаск / Платформа / API", Text(row, "area", "path"));
     }
 
     // US-4 · "An area of another project is refused": «Склад» of «Операции» sent for MSK-BUG-1 is «Область не найдена.»
@@ -342,14 +342,14 @@ public sealed class SaveWorkItemEndpointTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, (await OrganizationsApi.SendAsync(factory, HttpMethod.Put, $"{areaRoute}/name", new { name = "Шлюз" }, OrganizationsTokens.SignedIn())).Status);
         Assert.Equal(HttpStatusCode.OK, (await OrganizationsApi.SendAsync(factory, HttpMethod.Put, $"{areaRoute}/parent", new { parentId = reports.Id.ToString() }, OrganizationsTokens.SignedIn())).Status);
 
-        Assert.Equal("Отчёты / Шлюз", Text(await WorkItemsTestData.ReadAsync(factory, world, bug), "area", "path"));
-        Assert.Equal("Отчёты / Шлюз", Text((await WorkItemsTestData.ListAsync(factory, world)).Body.GetProperty("data")[0], "area", "path"));
+        Assert.Equal("Мастаск / Отчёты / Шлюз", Text(await WorkItemsTestData.ReadAsync(factory, world, bug), "area", "path"));
+        Assert.Equal("Мастаск / Отчёты / Шлюз", Text((await WorkItemsTestData.ListAsync(factory, world)).Body.GetProperty("data")[0], "area", "path"));
 
         await WorkItemsTestData.ExecuteAsync(factory, $"UPDATE work_items SET owning_team_id = {team.Id} WHERE project_id = {world.ProjectId}");
         await OrganizationsTestData.DeleteTeamAsync(factory, world.ProjectId, team.Id);
 
         var after = await WorkItemsTestData.ReadAsync(factory, world, bug);
-        Assert.Equal((api.Id.ToString(), "Отчёты / Шлюз"), (Text(after, "area", "id"), Text(after, "area", "path")));
+        Assert.Equal((api.Id.ToString(), "Мастаск / Отчёты / Шлюз"), (Text(after, "area", "id"), Text(after, "area", "path")));
     }
 
     // --- US-5 ------------------------------------------------------------------------------------------------------

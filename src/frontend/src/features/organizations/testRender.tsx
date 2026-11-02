@@ -8,19 +8,23 @@ import { vi } from 'vitest';
 import { AccessCheckContext, type AccessCheck } from '../../shared/lib/access';
 import { AuthContext, type AuthContextValue } from '../auth/AuthContext';
 import { WorkContextContext, type WorkContextSource } from '../../shared/lib/workContext';
-import { checkFor, type TestRole } from '../../test/organizationRoles';
+import { checkFor, checkForCodes, type TestRole } from '../../test/organizationRoles';
 import { OrganizationsSection } from './components/OrganizationsSection';
 import { OrganizationGeneralPage } from './pages/OrganizationGeneralPage';
 import { OrganizationListPage } from './pages/OrganizationListPage';
 import { MembersPage } from './pages/MembersPage';
 import { ProjectGeneralPage } from './pages/ProjectGeneralPage';
 import { ProjectListPage } from './pages/ProjectListPage';
+import { AreaPage } from './pages/AreaPage';
 import { AreasPage } from './pages/AreasPage';
+import { ProjectAreasPage } from './pages/ProjectAreasPage';
 import { OrganizationTeamsPage } from './pages/OrganizationTeamsPage';
 import { TeamPage } from './pages/TeamPage';
 import { TeamsPage } from './pages/TeamsPage';
 import {
   AREAS_ROUTE,
+  ORG_AREAS_ROUTE,
+  ORG_AREA_ROUTE,
   DEACTIVATED_ORGANIZATIONS_ROUTE,
   DEACTIVATED_PROJECTS_ROUTE,
   MEMBERS_ROUTE,
@@ -71,6 +75,8 @@ export interface PageRenderOptions {
    * stands without the gate, so this is the bound check the gate would give.
    */
   role?: TestRole;
+  /** Exactly these organization codes, whatever the role: a bundle the catalog does not define. */
+  orgCodes?: readonly string[];
   context?: WorkContextSource;
   /**
    * The signed-in user's id, the token's `sub` (mod-016): «Участники» marks
@@ -110,6 +116,7 @@ export function renderPage({
   path,
   permissions = [],
   role: initialRole = 'admin',
+  orgCodes,
   context = contextSource(),
   subject = ACTING_USER,
   strict = false,
@@ -123,7 +130,9 @@ export function renderPage({
     currentContext: WorkContextSource,
     role: TestRole,
   ) {
-    const access: AccessCheck = checkFor(role, currentPermissions);
+    const access: AccessCheck = orgCodes
+      ? checkForCodes(orgCodes, currentPermissions)
+      : checkFor(role, currentPermissions);
     return (
       <QueryClientProvider client={queryClient}>
         <AuthContext.Provider value={sessionOf(subject, currentPermissions)}>
@@ -154,7 +163,9 @@ export function renderPage({
                     <Route path={TEAMS_ROUTE} element={<TeamsPage />} />
                     <Route path={ORG_TEAMS_ROUTE} element={<OrganizationTeamsPage />} />
                     <Route path={ORG_TEAM_ROUTE} element={<TeamPage />} />
-                    <Route path={AREAS_ROUTE} element={<AreasPage />} />
+                    <Route path={AREAS_ROUTE} element={<ProjectAreasPage />} />
+                    <Route path={ORG_AREAS_ROUTE} element={<AreasPage />} />
+                    <Route path={ORG_AREA_ROUTE} element={<AreaPage />} />
                     <Route path="*" element={<p>Другая страница</p>} />
                   </Route>
                 </Routes>

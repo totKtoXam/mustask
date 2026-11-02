@@ -3,7 +3,7 @@
 - Status: accepted (by the human in chat, 2026-09-08); amended by
   [ADR-0027](0027-organization-access-from-membership.md) — organization
   access comes from the membership, Keycloak keeps instance roles only;
-  amended again by [ADR-0031](0031-shared-realm-client-roles.md) (proposed) —
+  amended again by [ADR-0033](0033-shared-realm-client-roles.md) (proposed) —
   the company-wide realm, four client roles, the role table in code
 - Date: 2026-09-07
 - Context: the architecture stage of the series that moved the system onto

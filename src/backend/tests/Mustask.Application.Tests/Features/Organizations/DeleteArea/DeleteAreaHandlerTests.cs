@@ -6,11 +6,7 @@ using Mustask.Shared.Exceptions;
 
 namespace Mustask.Application.Tests.Features.Organizations.DeleteArea;
 
-/// <summary>
-/// <c>DeleteArea</c> on fakes: what it removes, the order of its answers
-/// (plan-backend § 5.3, api-contract § 0.4) and its one lock (§ 8.2). The
-/// lanes' races are the Api tests'; here a refusal shows that nothing is saved.
-/// </summary>
+/// <summary>mod-018 US-2 on fakes: the deletion, the order of its answers (BR-AW-15) and its lock order (ADR-0031).</summary>
 public sealed class DeleteAreaHandlerTests
 {
     private sealed class Fixture
@@ -18,240 +14,159 @@ public sealed class DeleteAreaHandlerTests
         public Fixture()
         {
             Organization = Store.AddOrganization();
-            Project = Store.AddProject(Organization);
-            Platform = Store.AddArea(Project.Root, "Платформа");
-            Reports = Store.AddArea(Project.Root, "Отчёты");
-            Quarterly = Store.AddArea(Reports, "Квартальные");
+            Department = Store.AddDepartment(Organization, "Разработка");
+            Project = Store.AddProject(Organization, department: Department).Project;
+            Node = Store.RootOf(Project);
+            Quarterly = Store.AddArea(Node, "Квартальные");
+            Areas = new FakeAreaRepository(Store);
+            Usage = new FakeAreaUsage();
             Handler = new DeleteAreaHandler(
-                new FakeProjectRepository(Store),
-                new FakeAreaRepository(Store),
-                Usage,
-                new FakeUnitOfWork());
+                new FakeOrganizationReadModel(Store), new FakeProjectRepository(Store), Areas, Usage, new FakeUnitOfWork());
         }
 
         public InMemoryOrganizations Store { get; } = new();
 
-        /// <summary>The areas that hold a work item (mod-003 US-6); none unless a test adds one.</summary>
-        public FakeAreaUsage Usage { get; } = new();
-
         public Organization Organization { get; }
 
-        public NewProject Project { get; }
+        public Project Project { get; }
 
-        /// <summary>A leaf under the root named «Платформа» (like a team; a team has no area, mod-017 BR-OT-10).</summary>
-        public Area Platform { get; }
+        public Area Department { get; }
 
-        /// <summary>«Отчёты» under the root, with the leaf child «Квартальные».</summary>
-        public Area Reports { get; }
+        public Area Node { get; }
 
         public Area Quarterly { get; }
 
+        public FakeAreaRepository Areas { get; }
+
+        public FakeAreaUsage Usage { get; }
+
         public DeleteAreaHandler Handler { get; }
 
-        public DeleteAreaCommand Command(string? areaId, string? projectId = null, string? organizationId = null) =>
-            new(organizationId ?? Organization.Id.ToString(), projectId ?? Project.Project.Id.ToString(), areaId);
-
-        public DeleteAreaCommand Command(Area area) => Command(area.Id.ToString());
-
-        public Task HandleAsync(DeleteAreaCommand command) => Handler.Handle(command, CancellationToken.None);
+        public Task HandleAsync(Area area, string? organizationId = null) =>
+            Handler.Handle(new DeleteAreaCommand(organizationId ?? Organization.Id.ToString(), area.Id.ToString()), CancellationToken.None);
     }
 
-    // US-5 · "Only an empty leaf is deleted": «Квартальные» has no children and holds nothing; it disappears and
-    // its neighbours stay. One lock, on the area, then one save.
+    // US-2 · "A leaf sub-area is deleted and nothing else changes".
     [Fact]
-    public async Task Handle_EmptyLeaf_RemovesOnlyIt_LocksTheAreaOnce_SavesOnce()
+    public async Task Handle_LeafSubArea_IsDeleted()
     {
         var f = new Fixture();
 
-        await f.HandleAsync(f.Command(f.Quarterly));
+        await f.HandleAsync(f.Quarterly);
 
-        Assert.Equal([$"lock area update {f.Quarterly.Id}", "save"], f.Store.Calls);
         Assert.DoesNotContain(f.Store.Areas, area => area.Id == f.Quarterly.Id);
-        Assert.Contains(f.Store.Areas, area => area.Id == f.Reports.Id);
-        Assert.Contains(f.Store.Areas, area => area.Id == f.Platform.Id);
-        Assert.Contains(f.Store.Areas, area => area.Id == f.Project.Root.Id);
+        Assert.Contains(f.Store.Areas, area => area.Id == f.Node.Id);
     }
 
-    // US-5 · "Only an empty leaf is deleted", "no action restores it": the second request finds nothing.
+    // US-2 · "An empty department is deleted; its team links go with it" (BR-AW-9).
     [Fact]
-    public async Task Handle_DeletedAgain_IsAreaNotFound()
+    public async Task Handle_EmptyDepartment_IsDeleted_WithItsTeamLinks()
     {
         var f = new Fixture();
-        await f.HandleAsync(f.Command(f.Quarterly));
+        var empty = f.Store.AddDepartment(f.Organization, "Пустой");
+        var team = f.Store.AddTeam(f.Organization);
+        f.Store.LinkArea(empty, team);
 
-        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(f.Quarterly)));
+        await f.HandleAsync(empty);
 
-        Assert.Equal(OrganizationErrorCodes.AreaNotFound, refusal.Code);
-        Assert.Equal(1, f.Store.SaveCount);
+        Assert.DoesNotContain(f.Store.Areas, area => area.Id == empty.Id);
+        Assert.Empty(f.Store.AreaTeams);
+        Assert.Contains(f.Store.Teams, candidate => candidate.Id == team.Id);
     }
 
-    // US-5 · "Only an empty leaf is deleted": «Отчёты» is refused while «Квартальные» is under it, and is a leaf, and so
-    // deletable, once «Квартальные» is gone.
+    // US-2 · "A department holding a project node is not deleted": the changed «не пусто» text.
     [Fact]
-    public async Task Handle_NonLeaf_IsAreaNotEmpty_NothingRemoved_ThenDeletableOnceItsLeafIsGone()
+    public async Task Handle_DepartmentWithAProjectNode_IsAreaNotEmpty_AndNothingChanges()
     {
         var f = new Fixture();
         var before = f.Store.Areas.Count;
 
-        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(f.Reports)));
+        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Department));
 
         Assert.Equal(OrganizationErrorCodes.AreaNotEmpty, refusal.Code);
         Assert.Equal(before, f.Store.Areas.Count);
-        Assert.Equal([$"lock area update {f.Reports.Id}"], f.Store.Calls);
-
-        await f.HandleAsync(f.Command(f.Quarterly));
-        await f.HandleAsync(f.Command(f.Reports));
-
-        Assert.Equal(before - 2, f.Store.Areas.Count);
-        Assert.Equal(2, f.Store.SaveCount);
+        Assert.Equal(0, f.Store.SaveCount);
     }
 
-    // mod-003 US-6 · "An area holding a work item is not deleted" (BR-M3-24): «Квартальные» is an empty leaf of no team,
-    // but a work item has it, so it is refused with not_empty after the lock and nothing is saved; once the item has moved
-    // out, it is deleted.
+    // US-2 · a sub-area with a child, or with a work item in any state, is not empty.
     [Fact]
-    public async Task Handle_LeafHoldingAWorkItem_IsAreaNotEmpty_AfterTheLock_DeletableOnceTheItemMovedOut()
+    public async Task Handle_SubAreaWithAChildOrAWorkItem_IsAreaNotEmpty()
     {
         var f = new Fixture();
-        f.Usage.InUse.Add((f.Project.Project.Id, f.Quarterly.Id));
+        var child = f.Store.AddArea(f.Quarterly, "Q1");
+        var withItem = f.Store.AddArea(f.Node, "С записями");
+        f.Usage.InUse.Add((f.Project.Id, withItem.Id));
 
-        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(f.Quarterly)));
+        var parentRefusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Quarterly));
+        var itemRefusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(withItem));
 
-        Assert.Equal(OrganizationErrorCodes.AreaNotEmpty, refusal.Code);
-        Assert.Equal([$"lock area update {f.Quarterly.Id}"], f.Store.Calls);
-        Assert.Contains(f.Store.Areas, area => area.Id == f.Quarterly.Id);
-
-        f.Usage.InUse.Clear();
-        await f.HandleAsync(f.Command(f.Quarterly));
-
-        Assert.DoesNotContain(f.Store.Areas, area => area.Id == f.Quarterly.Id);
+        Assert.Equal(OrganizationErrorCodes.AreaNotEmpty, parentRefusal.Code);
+        Assert.Equal(OrganizationErrorCodes.AreaNotEmpty, itemRefusal.Code);
+        Assert.Contains(f.Store.Areas, area => area.Id == child.Id);
+        Assert.Equal(0, f.Store.SaveCount);
     }
 
-    // US-5 · "root comes with the project" and BR-M1-11: the root has children, and
-    // still the refusal is root_is_fixed (api-contract § 0.4 step 2 before the 409s of step 5).
+    // OQ-5 A · a project's node goes only with its project: root_is_fixed, before the children are looked at.
     [Fact]
-    public async Task Handle_Root_IsRootIsFixed_BeforeTheChildren()
+    public async Task Handle_ProjectNode_IsRootIsFixed_EvenWithChildren()
     {
         var f = new Fixture();
-        var before = f.Store.Areas.Count;
 
-        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(f.Project.Root)));
+        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Node));
 
         Assert.Equal(OrganizationErrorCodes.AreaRootIsFixed, refusal.Code);
-        Assert.Equal(before, f.Store.Areas.Count);
         Assert.Equal(0, f.Store.SaveCount);
     }
 
-    // mod-017 US-5 · "an area is deleted like any other, whether or not a team shares its name" (BR-OT-10): a team has no
-    // default area, so a leaf named like a team is an empty leaf and goes — and the team stays. Replaces
-    // Handle_DefaultLeaf_IsAreaIsTeamDefault_NamingTheTeam_NothingRemoved, Handle_DefaultAreaWithAChild_IsAreaNotEmpty_BeforeTheDefault
-    // and Handle_FormerDefault_AfterTheDefaultMoved_IsDeleted (retired, BR-OT-10).
+    // OQ-6 A · a sub-area of a deactivated project is read-only: «Проект не найден».
     [Fact]
-    public async Task Handle_LeafNamedLikeATeam_IsDeleted_TheTeamStays()
+    public async Task Handle_UnderADeactivatedProject_IsProjectNotFound()
     {
         var f = new Fixture();
-        var team = f.Store.AddLinkedTeam(f.Organization, f.Project, "Платформа");
+        f.Project.Deactivate();
 
-        await f.HandleAsync(f.Command(f.Platform));
-
-        Assert.DoesNotContain(f.Store.Areas, area => area.Id == f.Platform.Id);
-        Assert.True(team.IsActive);
-        Assert.Equal([$"lock area update {f.Platform.Id}", "save"], f.Store.Calls);
-    }
-
-    // The order inside step 5: an area with a child is refused with not_empty, whatever its name.
-    [Fact]
-    public async Task Handle_LeafNamedLikeATeamWithAChild_IsAreaNotEmpty()
-    {
-        var f = new Fixture();
-        f.Store.AddArea(f.Platform, "API");
-
-        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(f.Platform)));
-
-        Assert.Equal(OrganizationErrorCodes.AreaNotEmpty, refusal.Code);
-    }
-
-    // BR-M1-20: behind the filter the organization id is well formed; if it were not, the outermost level answers.
-    [Fact]
-    public async Task Handle_MalformedOrganization_IsOrganizationNotFound()
-    {
-        var f = new Fixture();
-
-        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(f.Quarterly.Id.ToString(), organizationId: "abc")));
-
-        Assert.Equal(OrganizationErrorCodes.OrganizationNotFound, refusal.Code);
-        Assert.Empty(f.Store.Calls);
-    }
-
-    // US-3 · "A project id names no project of the organization" and "a project is deactivated" (BR-M1-20, BR-M1-22): the
-    // project level answers before the area is looked at, and nothing is locked.
-    [Theory]
-    [InlineData("malformed")]
-    [InlineData("unknown")]
-    [InlineData("of another organization")]
-    [InlineData("deactivated")]
-    [InlineData("under a deactivated organization")]
-    public async Task Handle_ProjectNotReachable_IsProjectNotFound_BeforeTheArea(string how)
-    {
-        var f = new Fixture();
-        var other = f.Store.AddProject(f.Store.AddOrganization("Другая организация"), "Чужой", "OTH");
-        var projectId = how switch
-        {
-            "malformed" => "not-an-id",
-            "unknown" => Guid.CreateVersion7().ToString(),
-            "of another organization" => other.Project.Id.ToString(),
-            _ => f.Project.Project.Id.ToString(),
-        };
-
-        if (how == "deactivated")
-        {
-            f.Project.Project.Deactivate();
-        }
-
-        if (how == "under a deactivated organization")
-        {
-            f.Organization.Deactivate();
-        }
-
-        var before = f.Store.Areas.Count;
-
-        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command("x", projectId)));
+        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Quarterly));
 
         Assert.Equal(OrganizationErrorCodes.ProjectNotFound, refusal.Code);
-        Assert.Empty(f.Store.Calls);
-        Assert.Equal(before, f.Store.Areas.Count);
+        Assert.Contains(f.Store.Areas, area => area.Id == f.Quarterly.Id);
     }
 
-    // US-5 · "A node never leaves its project" (BR-M1-22) read for the addressed area: an id that is null, empty, malformed,
-    // all zeros, unknown, or an area of another project of the organization answers area.not_found, and nothing is removed.
-    [Theory]
-    [InlineData("null")]
-    [InlineData("empty")]
-    [InlineData("malformed")]
-    [InlineData("all zeros")]
-    [InlineData("unknown")]
-    [InlineData("of another project")]
-    public async Task Handle_AreaNotAnAreaOfTheProject_IsAreaNotFound_NothingRemoved(string how)
+    // BR-AW-15 outside in: organization, then area (404), never the existence of another organization's area.
+    [Fact]
+    public async Task Handle_Address_Answers404OutsideIn()
     {
         var f = new Fixture();
-        var other = f.Store.AddProject(f.Organization, "Второй проект", "SEC");
-        var foreign = f.Store.AddArea(other.Root, "Чужая");
-        string? areaId = how switch
-        {
-            "null" => null,
-            "empty" => "",
-            "malformed" => "{" + f.Quarterly.Id + "}",
-            "all zeros" => Guid.Empty.ToString(),
-            "unknown" => Guid.CreateVersion7().ToString(),
-            _ => foreign.Id.ToString(),
-        };
-        var before = f.Store.Areas.Count;
+        var foreign = f.Store.AddDepartment(f.Store.AddOrganization("Другая"), "Чужая");
 
-        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(areaId)));
+        var org = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Quarterly, "abc"));
+        var area = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(foreign));
+
+        Assert.Equal(OrganizationErrorCodes.OrganizationNotFound, org.Code);
+        Assert.Equal(OrganizationErrorCodes.AreaNotFound, area.Code);
+        Assert.Contains(f.Store.Areas, candidate => candidate.Id == foreign.Id);
+    }
+
+    // ADR-0031: the tree lock, then the area FOR UPDATE, then one save.
+    [Fact]
+    public async Task Handle_LocksTheTree_ThenTheArea_ThenSavesOnce()
+    {
+        var f = new Fixture();
+
+        await f.HandleAsync(f.Quarterly);
+
+        Assert.Equal([$"lock area tree {f.Organization.Id}", $"lock area update {f.Quarterly.Id}", "save"], f.Store.Calls);
+    }
+
+    // ADR-0028 A-9: absent from the lock statement's answer is 404, whatever the unlocked read saw (a concurrent delete won).
+    [Fact]
+    public async Task Handle_VanishedAtTheLock_IsAreaNotFound()
+    {
+        var f = new Fixture();
+        f.Areas.VanishedAfterTheLock.Add(f.Quarterly.Id);
+
+        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Quarterly));
 
         Assert.Equal(OrganizationErrorCodes.AreaNotFound, refusal.Code);
         Assert.Equal(0, f.Store.SaveCount);
-        Assert.Equal(before, f.Store.Areas.Count);
-        Assert.Contains(f.Store.Areas, area => area.Id == foreign.Id);
     }
 }

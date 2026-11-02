@@ -2,7 +2,7 @@ using Mustask.Domain.Identity;
 
 namespace Mustask.Domain.Tests.Identity;
 
-/// <summary>tech-024 (ADR-0031) · the one table of the four client roles of <c>mustask-api</c> and the instance codes each holds.</summary>
+/// <summary>tech-024 (ADR-0033) · the one table of the four client roles of <c>mustask-api</c> and the instance codes each holds.</summary>
 public sealed class InstanceRolesTests
 {
     [Fact]

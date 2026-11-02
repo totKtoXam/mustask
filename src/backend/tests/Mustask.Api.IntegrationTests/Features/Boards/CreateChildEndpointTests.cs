@@ -61,7 +61,7 @@ public sealed class CreateChildEndpointTests(MustaskApiFactory factory)
         Assert.Equal("MSK-US-24", created.Identifier);
         Assert.EndsWith($"/workitems/{created.Identifier}", answer.Location!.ToString(), StringComparison.Ordinal);
         Assert.Equal("MSK-FEAT-6", LinksTestData.IdentifierOf(answer.Body.GetProperty("parent")));
-        Assert.Equal(("Платформа / API", world.ApiAreaId), (AreaPath(answer), answer.Body.GetProperty("area").GetProperty("id").GetGuid()));
+        Assert.Equal(("Мастаск / Платформа / API", world.ApiAreaId), (AreaPath(answer), answer.Body.GetProperty("area").GetProperty("id").GetGuid()));
         Assert.Equal("Новая", answer.Body.GetProperty("state").GetProperty("name").GetString());
         Assert.Equal(JsonValueKind.Null, answer.Body.GetProperty("assignee").ValueKind);
         Assert.Equal((2, "Business"), (answer.Body.GetProperty("priority").GetInt32(), answer.Body.GetProperty("valueArea").GetString()));
@@ -85,7 +85,7 @@ public sealed class CreateChildEndpointTests(MustaskApiFactory factory)
         var answer = await CreateChildAsync(world, "TASK", "Проверить ссылку", items["MSK-US-2"].Id.ToString());
 
         var created = Created(answer);
-        Assert.Equal(("MSK-TASK-24", "Платформа"), (created.Identifier, AreaPath(answer)));
+        Assert.Equal(("MSK-TASK-24", "Мастаск / Платформа"), (created.Identifier, AreaPath(answer)));
         Assert.Contains("MSK-US-2[MSK-BUG-5 MSK-TASK-3 MSK-TASK-24]", await ShapeAsync(world, "epics"));
     }
 
@@ -137,7 +137,7 @@ public sealed class CreateChildEndpointTests(MustaskApiFactory factory)
         var answer = await CreateChildAsync(world, "US", "История", items["MSK-FEAT-6"].Id.ToString(), teamId: world.ProjectTeamId.ToString());
 
         Created(answer);
-        Assert.Equal("Платформа / API", AreaPath(answer));
+        Assert.Equal("Мастаск / Платформа / API", AreaPath(answer));
         Assert.Equal(world.PlatformId, answer.Body.GetProperty("team").GetProperty("id").GetGuid());
     }
 
@@ -311,7 +311,7 @@ public sealed class CreateChildEndpointTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, (await save).Status);
         var answer = await creation;
         Created(answer);
-        Assert.Equal("Платформа", AreaPath(answer));
+        Assert.Equal("Мастаск / Платформа", AreaPath(answer));
         Assert.Equal(world.ProjectTeamId, answer.Body.GetProperty("team").GetProperty("id").GetGuid());
     }
 

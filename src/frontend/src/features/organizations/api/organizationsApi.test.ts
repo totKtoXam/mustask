@@ -12,9 +12,19 @@ import {
   deactivateProject,
   deleteArea,
   deleteTeam,
+  describeArea,
   describeProject,
   describeTeam,
+  getArea,
+  getAreaDeletion,
+  getAreaTeams,
   getAreaTree,
+  getProjectAreaTree,
+  getTeamAreas,
+  linkAreasToTeam,
+  linkTeamsToArea,
+  unlinkAreaFromTeam,
+  unlinkTeamFromArea,
   getDeletionCounts,
   getOrganization,
   getOrganizationTeams,
@@ -85,11 +95,24 @@ describe('mod-002 api-contract § 5: one function per route, as the contract nam
     await getTeams('o', 'p');
     await setDefaultTeam('o', 'p', 't');
     await setDefaultTeam('o', 'p', null);
-    await getAreaTree('o', 'p');
-    await createArea('o', 'p', { parentId: 'r', name: 'API' });
-    await renameArea('o', 'p', 'a', 'Шлюз');
-    await moveArea('o', 'p', 'a', 'r');
-    await deleteArea('o', 'p', 'a');
+    await getAreaTree('o');
+    await createArea('o', { parentId: 'r', name: 'API' });
+    await createArea('o', { name: 'Департамент', teamIds: ['t'] });
+    await createProject('o', { name: 'Ядро', key: 'CORE', parentAreaId: 'd' });
+    await getArea('o', 'a');
+    await renameArea('o', 'a', 'Шлюз');
+    await describeArea('o', 'a', null);
+    await moveArea('o', 'a', 'r');
+    await moveArea('o', 'a', null);
+    await getAreaDeletion('o', 'a');
+    await deleteArea('o', 'a');
+    await getAreaTeams('o', 'a');
+    await linkTeamsToArea('o', 'a', ['t']);
+    await unlinkTeamFromArea('o', 'a', 't');
+    await getProjectAreaTree('o', 'p');
+    await getTeamAreas('o', 't');
+    await linkAreasToTeam('o', 't', ['a']);
+    await unlinkAreaFromTeam('o', 't', 'a');
 
     const base = '/api/organizations';
     expect(sent).toEqual([
@@ -110,15 +133,37 @@ describe('mod-002 api-contract § 5: one function per route, as the contract nam
       { method: 'GET', path: `${base}/o/projects/p/teams`, body: undefined },
       { method: 'PUT', path: `${base}/o/projects/p/default-team`, body: { teamId: 't' } },
       { method: 'PUT', path: `${base}/o/projects/p/default-team`, body: { teamId: null } },
-      { method: 'GET', path: `${base}/o/projects/p/areas`, body: undefined },
+      // mod-018 api-contract §§ 2-3: the typed tree, the project's subtree and the team's department links.
+      { method: 'GET', path: `${base}/o/areas`, body: undefined },
       {
         method: 'POST',
-        path: `${base}/o/projects/p/areas`,
+        path: `${base}/o/areas`,
         body: { parentId: 'r', name: 'API' },
       },
-      { method: 'PUT', path: `${base}/o/projects/p/areas/a/name`, body: { name: 'Шлюз' } },
-      { method: 'PUT', path: `${base}/o/projects/p/areas/a/parent`, body: { parentId: 'r' } },
-      { method: 'DELETE', path: `${base}/o/projects/p/areas/a`, body: undefined },
+      {
+        method: 'POST',
+        path: `${base}/o/areas`,
+        body: { name: 'Департамент', teamIds: ['t'] },
+      },
+      {
+        method: 'POST',
+        path: `${base}/o/projects`,
+        body: { name: 'Ядро', key: 'CORE', parentAreaId: 'd' },
+      },
+      { method: 'GET', path: `${base}/o/areas/a`, body: undefined },
+      { method: 'PUT', path: `${base}/o/areas/a/name`, body: { name: 'Шлюз' } },
+      { method: 'PUT', path: `${base}/o/areas/a/description`, body: { description: null } },
+      { method: 'PUT', path: `${base}/o/areas/a/parent`, body: { parentId: 'r' } },
+      { method: 'PUT', path: `${base}/o/areas/a/parent`, body: { parentId: null } },
+      { method: 'GET', path: `${base}/o/areas/a/deletion`, body: undefined },
+      { method: 'DELETE', path: `${base}/o/areas/a`, body: undefined },
+      { method: 'GET', path: `${base}/o/areas/a/teams`, body: undefined },
+      { method: 'POST', path: `${base}/o/areas/a/teams`, body: { teamIds: ['t'] } },
+      { method: 'DELETE', path: `${base}/o/areas/a/teams/t`, body: undefined },
+      { method: 'GET', path: `${base}/o/projects/p/areas`, body: undefined },
+      { method: 'GET', path: `${base}/o/teams/t/areas`, body: undefined },
+      { method: 'POST', path: `${base}/o/teams/t/areas`, body: { areaIds: ['a'] } },
+      { method: 'DELETE', path: `${base}/o/teams/t/areas/a`, body: undefined },
     ]);
   });
 
@@ -217,13 +262,13 @@ describe('mod-002 api-contract § 0.2: ids are sent as received, re-encoded and 
     await getOrganization('not-a-uuid');
     await getProject('a/b', 'p q');
     await getTeam('o', 't/1');
-    await renameArea('o', 'p', 'a b', 'x');
+    await renameArea('o', 'a b', 'x');
 
     expect(sent.map((request) => request.path)).toEqual([
       '/api/organizations/not-a-uuid',
       '/api/organizations/a%2Fb/projects/p%20q',
       '/api/organizations/o/teams/t%2F1',
-      '/api/organizations/o/projects/p/areas/a%20b/name',
+      '/api/organizations/o/areas/a%20b/name',
     ]);
   });
 

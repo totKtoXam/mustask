@@ -29,7 +29,7 @@ public sealed record KeycloakStandProvisioningOptions
     public required string FixtureUsername { get; init; }
 
     /// <summary>
-    /// The client roles of `mustask-api` the fixture user is given directly (tech-024, ADR-0031: the company realm allows
+    /// The client roles of `mustask-api` the fixture user is given directly (tech-024, ADR-0033: the company realm allows
     /// no groups or realm roles of ours). `user` signs in; `system-admin` holds every instance right, so the fixture is the
     /// <b>instance</b> administrator as the group «Администраторы» made it before: it reads and writes the dictionaries and
     /// creates organizations, and becomes the administrator of each organization it creates. It holds no organization right of

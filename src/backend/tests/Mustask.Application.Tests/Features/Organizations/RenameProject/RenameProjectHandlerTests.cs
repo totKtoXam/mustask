@@ -56,7 +56,7 @@ public sealed class RenameProjectHandlerTests
         (
             Store.Teams.Select(team => $"{team.Id} {team.Name} {team.Status}").Order(StringComparer.Ordinal).ToArray(),
             Store.Areas
-                .Where(area => !area.IsRoot)
+                .Where(area => area.Type != AreaType.Project)
                 .Select(area => $"{area.Id} {area.ParentId} {area.Name}")
                 .Order(StringComparer.Ordinal)
                 .ToArray());
@@ -118,15 +118,15 @@ public sealed class RenameProjectHandlerTests
 
         Assert.Equal("Платформа данных", f.Project.Root.Name);
         Assert.Equal("ПЛАТФОРМА ДАННЫХ", f.Project.Root.NormalizedName);
-        Assert.True(f.Project.Root.IsRoot);
+        Assert.Equal(AreaType.Project, f.Project.Root.Type);
 
         var (teamsAfter, areasAfter) = f.Rest();
         Assert.Equal(teamsBefore, teamsAfter);
         Assert.Equal(areasBefore, areasAfter);
 
-        var tree = new AreaTree(f.Store.Areas.Select(area => new AreaNode(area.Id, area.ParentId, area.Name)));
-        Assert.Equal("Платформа данных", tree.Root.Name);
-        Assert.Equal("Отчёты / Квартальные", tree.PathOf(f.Quarterly.Id));
+        var tree = new AreaTree(f.Store.Areas.Select(area => new AreaNode(area.Id, area.ParentId, area.Name, area.Type, area.ProjectId)));
+        Assert.Equal("Платформа данных", tree.PathOf(f.Project.Root.Id));
+        Assert.Equal("Платформа данных / Отчёты / Квартальные", tree.PathOf(f.Quarterly.Id));
     }
 
     // US-3 · "The name is unique in the organization" and api-contract § 0.6: a name never conflicts with the object's own
@@ -268,13 +268,13 @@ public sealed class RenameProjectHandlerTests
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => handler.Handle(f.Command("Платформа данных"), CancellationToken.None));
 
         Assert.Equal(OrganizationErrorCodes.ProjectNotFound, refusal.Code);
-        Assert.Equal([$"lock project {f.Project.Project.Id}"], f.Store.Calls);
+        Assert.Equal([$"lock area tree {f.Organization.Id}", $"lock project {f.Project.Project.Id}"], f.Store.Calls);
         Assert.Equal("Пример проекта", f.Project.Project.Name);
         Assert.Equal("Пример проекта", f.Project.Root.Name);
     }
 
-    // plan-backend § 8.2: the project FOR NO KEY UPDATE, then the root FOR UPDATE, then one save. A refused name locks the
-    // project only: the root is locked once the name is known to be free.
+    // ADR-0031: the tree lock, then the project FOR NO KEY UPDATE, then the project node FOR UPDATE, then one save. A refused
+    // project name locks the tree and the project only: the node is locked once the name is known to be free.
     [Fact]
     public async Task Handle_LocksTheProjectThenTheRoot_ThenSavesOnce()
     {
@@ -283,11 +283,11 @@ public sealed class RenameProjectHandlerTests
         f.Store.AddProject(f.Organization, "Альфа", "ALF");
 
         await f.HandleAsync(f.Command("Платформа данных"));
-        Assert.Equal([$"lock project {projectId}", $"lock root update {projectId}", "save"], f.Store.Calls);
+        Assert.Equal([$"lock area tree {f.Organization.Id}", $"lock project {projectId}", $"lock project node {projectId}", "save"], f.Store.Calls);
 
         f.Store.Calls.Clear();
         await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command("Альфа")));
-        Assert.Equal([$"lock project {projectId}"], f.Store.Calls);
+        Assert.Equal([$"lock area tree {f.Organization.Id}", $"lock project {projectId}"], f.Store.Calls);
     }
 
     // US-3 · "The name is unique" and NFR Concurrency: two renames to one free name keep one. The loser's save fails on the

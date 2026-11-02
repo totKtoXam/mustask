@@ -5,8 +5,8 @@
 #
 # The defects (tech-034):
 #   1. backlog.sh read docs/backlog.md and docs/backlog/withdrawn.md only from
-#      origin/main. `queue.sh add` commits to LOCAL main, so two adds before a
-#      push issued the same number (feat-039 and mod-017 were issued twice
+#      origin/main. `queue.sh add` committed to LOCAL main (since tech-049
+#      only with --local), so two adds before a push issued the same number (feat-039 and mod-017 were issued twice
 #      that way). docs/features/numbering.md, source 3, says "across all
 #      branches".
 #   2. new-task.sh's hot path scanned withdrawn.md with a missing `|` before
@@ -92,7 +92,9 @@ run() {  # <command...> — runs in the repo; sets rc and log
     log=$(cd "$repo" && "$@" 2>&1) || rc=$?
 }
 
-queue() { run "$shell" scripts/queue.sh "$@"; }
+# --local: these cases are about numbers held by unpushed commits on the local
+# main, which only the no-remote path makes since tech-049.
+queue() { run "$shell" scripts/queue.sh --local "$@"; }
 
 issued() {  # <slug> — the full id the last `queue.sh add` printed for this slug
     printf '%s\n' "$log" | grep -E "^[a-z]+-[0-9]{3}-$1\$" | tail -1 || true
@@ -297,9 +299,9 @@ $log"
 check "--ids fails loudly when git cat-file answers nothing" "$ok"
 
 shim 'exit 128'
-shimmed "$shell" scripts/queue.sh next tech
+shimmed "$shell" scripts/queue.sh --local next tech
 rc_next=$rc; log_next=$log
-shimmed "$shell" scripts/queue.sh add tech blind "Blind"
+shimmed "$shell" scripts/queue.sh --local add tech blind "Blind"
 rc_add=$rc; log_add=$log
 dirty=$(g status --porcelain)
 ok=1

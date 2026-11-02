@@ -43,11 +43,12 @@ anything already fixed by the conventions.
 
 Keep the list current (append-only, newest on top):
 
-- ADR-0031 — Run in the company-wide realm on four client roles, and keep the role-to-right table in code · proposed (amends ADR-0018, ADR-0027)
+- ADR-0033 — Run in the company-wide realm on four client roles, and keep the role-to-right table in code · proposed (amends ADR-0018, ADR-0027)
+- ADR-0031 — Make the organization's area tree a typed single tree whose project nodes are the projects' places in it · accepted (supersedes ADR-0028 rules 1, 2, 3, 6, 7, 8, its mod-018 delivery row, and ADR-0029 § 6 and its mod-018 delivery bullet, in part)
 - ADR-0030 — Delete a work item into its Removed state with the way back on its row, hide it by named entry points, and purge it in one locked transaction · accepted (amends ADR-0029 § 4)
-- ADR-0029 — Compute effective permissions once, from organization, area, project and team scopes over the membership-derived codes · accepted (amends ADR-0027); amended by ADR-0030
-- ADR-0028 — Organize an organization as independent areas, projects and teams joined by links, with the organization as the only tenant boundary · accepted (amends ADR-0024, ADR-0026)
-- ADR-0027 — Derive organization access from the membership of the resource's organization, and keep Keycloak to instance roles · accepted (amends ADR-0018); amended by ADR-0031 (proposed)
+- ADR-0029 — Compute effective permissions once, from organization, area, project and team scopes over the membership-derived codes · accepted (amends ADR-0027); amended by ADR-0030; partially superseded by ADR-0031 (accepted 2026-10-29)
+- ADR-0028 — Organize an organization as independent areas, projects and teams joined by links, with the organization as the only tenant boundary · accepted (amends ADR-0024, ADR-0026); partially superseded by ADR-0031 (accepted 2026-10-29)
+- ADR-0027 — Derive organization access from the membership of the resource's organization, and keep Keycloak to instance roles · accepted (amends ADR-0018); amended by ADR-0033 (proposed)
 - ADR-0024 — Build every panel screen on one shell and one theme, carry the work context in the address, and name type appearance by a closed token set · accepted
 - ADR-0025 — Project Keycloak users through a read-only event-listener provider that pushes signed, ordered state into MUSTASK · proposed
 - ADR-0025 — Project Keycloak users through a read-only event-listener provider that pushes signed, ordered state into MUSTASK · accepted
@@ -57,7 +58,7 @@ Keep the list current (append-only, newest on top):
 - ADR-0021 — Store a dictionary as an entry plus a typed translation table per dictionary, and resolve the language on the server · proposed
 - ADR-0020 — Remove the MUSTASK data store until the first module with data appears · superseded by ADR-0021
 - ADR-0019 — Narrow the UI stack to what is actually used: MUI core instead of x-data-grid, controlled forms instead of react-hook-form · accepted
-- ADR-0018 — Hand authentication to Keycloak with separate realms instead of our own issuer · accepted; amended by ADR-0027, ADR-0031 (proposed)
+- ADR-0018 — Hand authentication to Keycloak with separate realms instead of our own issuer · accepted; amended by ADR-0027, ADR-0033 (proposed)
 - ADR-0016 — Build the frontend's Gridify requests with the official gridify-client · accepted
 - ADR-0015 — Use Gridify for pagination, sorting and filtering of list reads · accepted
 - ADR-0014 — A shared paginated response envelope for list reads of the API · superseded by ADR-0015

@@ -1,31 +1,38 @@
 namespace Mustask.Api.IntegrationTests;
 
 /// <summary>
-/// Groups every test class that boots Mustask.Api through
+/// The collection every test class that boots Mustask.Api through
 /// <see cref="Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory{TEntryPoint}"/>
-/// into a single xUnit collection.
+/// names.
 ///
-/// Two reasons this matters:
-/// 1. <see cref="MustaskApiFactory"/> is registered here as the one
-///    <c>ICollectionFixture</c> instance for the whole collection, so all
-///    test classes that need a real Api + Postgres share a single
-///    Testcontainers container instead of each <c>IClassFixture</c>
-///    spinning up its own.
-/// 2. xUnit runs different collections in parallel by default, but classes
-///    within the same collection run sequentially. Both <see cref="MustaskApiFactory"/>
-///    and any other test class in this collection that needs to influence
-///    <c>Program.cs</c>'s top-level statements (e.g. a custom
-///    <c>Cors:AllowedOrigins</c> value) has to do so via a process-wide
-///    environment variable — <c>WebApplicationFactory</c>'s own
-///    <c>ConfigureWebHost</c>/<c>UseSetting</c> overrides are applied too late
-///    to affect code that runs before <c>WebApplicationBuilder.Build()</c>
-///    (see <see cref="MustaskApiFactory"/> for why). Sharing this collection
-///    keeps every such environment-variable mutation sequential, removing
-///    the race between test classes that the previous per-class
-///    <c>IClassFixture</c> setup had.
+/// <see cref="ApiTestCollectionFactory"/> runs it as several shards in
+/// parallel (tech-047). Each shard is a collection of its own with its own
+/// <see cref="MustaskApiFactory"/>, so its own database on the assembly's one
+/// PostgreSQL server; the classes of a shard run one after another, as the
+/// whole collection did before. Code in <c>Program.cs</c> that runs before
+/// <c>WebApplicationBuilder.Build()</c> reads process-wide environment
+/// variables — <c>WebApplicationFactory</c>'s own
+/// <c>ConfigureWebHost</c>/<c>UseSetting</c> overrides are applied too late
+/// for it (see <see cref="MustaskApiFactory"/>) — so the factory builds every
+/// host under one process-wide lock with its shard's connection string set,
+/// and a class that sets such a variable itself runs in
+/// <see cref="MustaskApiSerialCollection"/>, alone.
 /// </summary>
 [CollectionDefinition(Name)]
 public sealed class MustaskApiCollection : ICollectionFixture<MustaskApiFactory>
 {
     public const string Name = "Mustask.Api";
+}
+
+/// <summary>
+/// The part of <see cref="MustaskApiCollection"/> that runs alone, after its
+/// shards (tech-047): the classes <see cref="ApiTestCollectionFactory.SerialClasses"/>
+/// names, and every <c>*VolumeTests</c> class. A class never names this
+/// collection itself — it names <see cref="MustaskApiCollection.Name"/>, and
+/// the factory moves it here.
+/// </summary>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class MustaskApiSerialCollection : ICollectionFixture<MustaskApiFactory>
+{
+    public const string Name = "Mustask.Api (serial)";
 }

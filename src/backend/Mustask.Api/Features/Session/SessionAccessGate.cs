@@ -6,7 +6,7 @@ namespace Mustask.Api.Features.Session;
 
 /// <summary>
 /// Whether an access token that came straight from Keycloak's token endpoint carries the client role
-/// <c>user</c> of <c>mustask-api</c> — the condition of having a session at all (tech-024, ADR-0031). The token is read,
+/// <c>user</c> of <c>mustask-api</c> — the condition of having a session at all (tech-024, ADR-0033). The token is read,
 /// not validated: it arrives over the back channel from the issuer the exchange was made with, and every later use of it
 /// is validated by the bearer scheme.
 /// </summary>

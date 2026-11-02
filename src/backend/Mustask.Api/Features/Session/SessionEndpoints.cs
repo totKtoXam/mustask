@@ -199,7 +199,7 @@ public static class SessionEndpoints
             return Results.Empty;
         }
 
-        // tech-024 (ADR-0031): a user whose `user` client role was taken away keeps no session. Same shape as a dead refresh
+        // tech-024 (ADR-0033): a user whose `user` client role was taken away keeps no session. Same shape as a dead refresh
         // token: cache evicted, cookie cleared (deferred, see above), and the answer names the reason.
         if (!SessionAccessGate.HoldsUserRole(refreshed.AccessToken, keycloak.Audience))
         {

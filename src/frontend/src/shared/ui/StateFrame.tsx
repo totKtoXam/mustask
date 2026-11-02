@@ -149,13 +149,14 @@ export function AccessDenied() {
  * mod-003 adds the work item its form's address names (its spec § Not-found
  * answers), with the same icon, hint and action.
  */
-export type NotFoundLevel = 'page' | 'organization' | 'project' | 'team' | 'workItem';
+export type NotFoundLevel = 'page' | 'organization' | 'project' | 'team' | 'area' | 'workItem';
 
 const NOT_FOUND_HEADINGS: Record<NotFoundLevel, string> = {
   page: 'Страница не найдена',
   organization: 'Организация не найдена',
   project: 'Проект не найден',
   team: 'Команда не найдена',
+  area: 'Область не найдена',
   workItem: 'Рабочий элемент не найден',
 };
 

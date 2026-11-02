@@ -18,6 +18,10 @@ export const MEMBERS_ROUTE = '/organizations/:organizationId/settings/members';
 export const ORG_TEAMS_ROUTE = '/organizations/:organizationId/settings/teams';
 /** A team's page, beneath «Команды» of the organization. */
 export const ORG_TEAM_ROUTE = '/organizations/:organizationId/settings/teams/:teamId';
+/** «Области» of the organization (mod-018 design § 1): the tree is the organization's. */
+export const ORG_AREAS_ROUTE = '/organizations/:organizationId/settings/areas';
+/** An area's page, beneath «Области». */
+export const ORG_AREA_ROUTE = '/organizations/:organizationId/settings/areas/:areaId';
 export const PROJECT_GENERAL_ROUTE =
   '/organizations/:organizationId/projects/:projectId/settings/general';
 /**
@@ -25,6 +29,7 @@ export const PROJECT_GENERAL_ROUTE =
  * more — `…/projects/:p/settings/teams/:t` is no route and the catch-all answers «Страница не найдена».
  */
 export const TEAMS_ROUTE = '/organizations/:organizationId/projects/:projectId/settings/teams';
+/** The project's «Области» (mod-018 design § 7): its node and the sub-areas below it. */
 export const AREAS_ROUTE = '/organizations/:organizationId/projects/:projectId/settings/areas';
 
 /** Every route of the slice, in design § 1's order. */
@@ -37,9 +42,10 @@ export const ORGANIZATIONS_ROUTES = [
   MEMBERS_ROUTE,
   ORG_TEAMS_ROUTE,
   ORG_TEAM_ROUTE,
+  ORG_AREAS_ROUTE,
+  ORG_AREA_ROUTE,
   PROJECT_GENERAL_ROUTE,
   TEAMS_ROUTE,
-  AREAS_ROUTE,
 ] as const;
 
 const segment = encodeURIComponent;
@@ -86,4 +92,12 @@ export function teamsPath(organizationId: string, projectId: string): string {
 
 export function areasPath(organizationId: string, projectId: string): string {
   return `${projectPrefix(organizationId, projectId)}/settings/areas`;
+}
+
+export function organizationAreasPath(organizationId: string): string {
+  return `${organizationPrefix(organizationId)}/settings/areas`;
+}
+
+export function organizationAreaPath(organizationId: string, areaId: string): string {
+  return `${organizationAreasPath(organizationId)}/${segment(areaId)}`;
 }

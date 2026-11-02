@@ -15,7 +15,7 @@ namespace Mustask.Api.IntegrationTests.Features.WorkItems;
 [Collection(MustaskApiCollection.Name)]
 public sealed class DeleteAreaWithWorkItemsEndpointTests(MustaskApiFactory factory)
 {
-    private const string NotEmptyText = "Нельзя удалить область, в которой есть рабочие элементы (включая удалённые) или вложенные области";
+    private const string NotEmptyText = "Нельзя удалить область, в которой есть проекты, вложенные области или рабочие элементы";
 
     /// <summary>«Мастаск» with the leaves «Отчёты» and «Платформа» under its root, and MSK-TASK-1 in the root.</summary>
     private async Task<(WorkItemsWorld World, Guid Reports, Guid Platform, string Task)> WorldAsync()

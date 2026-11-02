@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { configDefaults, defineConfig } from 'vitest/config';
+import { configDefaults, coverageConfigDefaults, defineConfig } from 'vitest/config';
 import { loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -66,6 +66,14 @@ export default defineConfig(({ command, mode }) => {
         },
       ],
       css: true,
+      // Off unless asked: scripts/verify.sh passes --coverage on the full run
+      // (CI) and scripts/coverage-gate.mjs holds the line floor (tech-046).
+      coverage: {
+        provider: 'v8',
+        include: ['src/**/*.{ts,tsx}'],
+        exclude: [...coverageConfigDefaults.exclude, 'src/test/**'],
+        reporter: ['text-summary', 'json-summary'],
+      },
       // Playwright owns e2e/**: its specs also end in *.spec.ts, but they
       // need a live stand and real Keycloak (src/frontend/AGENTS.md
       // § E2E test suite) — Vitest must never pick them up.
@@ -95,7 +103,9 @@ export default defineConfig(({ command, mode }) => {
       // One jsdom window and one module cache per worker (tech-029); the app's
       // own modules are re-evaluated per file by src/test/setup.ts.
       isolate: false,
-      maxWorkers: Math.max(1, Math.min(4, availableParallelism() - 1)),
+      // At most eight (tech-047): on 22 cores the full run took 1 969 s with
+      // four workers and 986 s with eight. A 4-core CI runner still gets three.
+      maxWorkers: Math.max(1, Math.min(8, availableParallelism() - 1)),
       // Базовый URL API для тестов — совпадает с моками в src/test/mocks/handlers.ts.
       env: {
         VITE_API_BASE_URL: 'http://localhost:5000',

@@ -5,7 +5,7 @@ using Mustask.Domain.Identity;
 namespace Mustask.Api.IntegrationTests.Features.Authorization;
 
 /// <summary>
-/// tech-024 (ADR-0031) · <c>resource_access.mustask-api.roles</c> carries the four client-role names; the <c>perm</c> claims are
+/// tech-024 (ADR-0033) · <c>resource_access.mustask-api.roles</c> carries the four client-role names; the <c>perm</c> claims are
 /// the codes the table <see cref="InstanceRoles"/> gives them. Unknown names are ignored; a principal without <c>user</c> gets none.
 /// Pure function over a principal — no host.
 /// </summary>

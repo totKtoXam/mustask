@@ -23,7 +23,7 @@ namespace Mustask.Application.Features.Organizations.RenameProject;
 /// </para>
 /// <para>
 /// <b>Locks</b> (plan-backend § 8.2): the project <c>FOR NO KEY UPDATE</c>, then
-/// its root area <c>FOR UPDATE</c>, because the root takes the new name with the
+/// its node <c>FOR UPDATE</c>, because the root takes the new name with the
 /// project (BR-M1-11). <c>FOR NO KEY UPDATE</c> and not <c>FOR UPDATE</c> on the
 /// project, so that a team or an area inserted beneath it, which takes
 /// <c>FOR KEY SHARE</c> on the project row through its foreign key, is not
@@ -74,6 +74,7 @@ public sealed class RenameProjectHandler(
                 // 4. References in the body: none.
 
                 // Locks, in order: the project, then its root. The status is read again after the project lock.
+                await areas.LockTreeAsync(organizationId, ct);
                 var project = await projects.LockAsync(organizationId, projectId, ct);
 
                 if (project is not { IsActive: true })
@@ -94,7 +95,14 @@ public sealed class RenameProjectHandler(
                             : OrganizationErrorCodes.ProjectNameTakenByDeactivated);
                 }
 
-                var root = await areas.LockRootAsync(projectId, forUpdate: true, ct);
+                var root = await areas.LockProjectNodeAsync(organizationId, projectId, ct)
+                    ?? throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
+
+                if (await areas.IsSiblingNameTakenAsync(organizationId, root.ParentId, name.Normalized, root.Id, ct))
+                {
+                    throw new ConflictException(OrganizationErrorCodes.AreaNameTaken);
+                }
+
                 project.Rename(name, root);
 
                 // 6. Save. A concurrent creation or rename to the same name that committed first fails this update on

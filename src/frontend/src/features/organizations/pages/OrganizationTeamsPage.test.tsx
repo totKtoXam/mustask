@@ -519,7 +519,7 @@ describe('feat-028 US-5 Scenario: Deleted after a confirmation that counts every
 
     expect(
       await within(dialog).findByText(
-        'Удалить команду «Аналитика»? Восстановить команду будет нельзя.',
+        'Удалить команду «Аналитика»? Связи команды с департаментами тоже будут удалены. Восстановить команду будет нельзя.',
       ),
     ).toBeVisible();
     expect(within(dialog).queryByRole('list')).not.toBeInTheDocument();

@@ -37,7 +37,16 @@ numbering rules — [../features/numbering.md](../features/numbering.md).
   removed there (`.githooks/pre-commit` lets through exactly this case, and
   one foreign path in the same commit cancels the exception). Make the commit
   with `scripts/queue.sh` rather than by hand: it stages only queue files, so
-  the exception cannot be lost by accident.
+  the exception cannot be lost by accident. With a remote, main takes even
+  this commit only through a PR, and `queue.sh` makes that PR itself
+  (tech-049): it builds the commit in a throwaway worktree detached at
+  `origin/main`, pushes it to a new `sync/queue-<date>-<op>-<short-id>`
+  branch, opens a squash PR with `gh`, asks for auto-merge and prints the PR
+  URL — or, without `gh` or when auto-merge is refused, what is left for a
+  human. The local `main` is never touched, so it is never left ahead of
+  `origin`, and the command runs from any worktree. `--local` (chosen by
+  itself when there is no `origin`) is the old path: the commit lands on the
+  local `main` of the worktree that has it checked out.
 - The queue is not part of a task branch's diff: the orchestrator
   removes the taken task's line with a separate commit on `main` at the
   start, so a merge conflict over the queue is impossible.

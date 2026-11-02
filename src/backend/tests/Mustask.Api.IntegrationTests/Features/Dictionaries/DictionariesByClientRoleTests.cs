@@ -4,7 +4,7 @@ using Mustask.Api.IntegrationTests.Features.Organizations;
 namespace Mustask.Api.IntegrationTests.Features.Dictionaries;
 
 /// <summary>
-/// tech-024 (ADR-0031) · the dictionaries are guarded by instance codes that the API derives from the client roles in the token
+/// tech-024 (ADR-0033) · the dictionaries are guarded by instance codes that the API derives from the client roles in the token
 /// (<c>resource_access.mustask-api.roles</c>, table <c>InstanceRoles</c>): <c>user</c> reads; <c>dictionaries-admin</c> and
 /// <c>system-admin</c> also write; <c>organization-creator</c> adds nothing here; and without <c>user</c> a principal holds no right
 /// at all, whatever else it has. The roles of the real realm import are the names used here (<c>KeycloakRealmRolesTests</c>

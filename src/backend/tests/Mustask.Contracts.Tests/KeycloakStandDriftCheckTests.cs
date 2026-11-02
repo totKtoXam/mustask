@@ -11,7 +11,7 @@ namespace Mustask.Contracts.Tests;
 /// start" (D-10 (a); ADR-0025 § 7): the drift check against a fake Keycloak
 /// admin surface whose live realm starts equal to the real realm import and
 /// is then changed one way at a time. No Docker, no Keycloak. tech-024
-/// (ADR-0031): the import declares four client roles and no realm roles or
+/// (ADR-0033): the import declares four client roles and no realm roles or
 /// groups, and the realm's name is a value the stand takes from configuration.
 /// </summary>
 public sealed class KeycloakStandDriftCheckTests

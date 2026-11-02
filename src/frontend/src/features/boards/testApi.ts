@@ -309,6 +309,7 @@ export class BoardsTestApi {
   private areaTree(projectId: string) {
     const nodes: {
       id: string;
+      type: 'project' | 'area';
       parentId: string | null;
       name: string;
       path: string;
@@ -321,6 +322,7 @@ export class BoardsTestApi {
       for (const area of children) {
         nodes.push({
           id: area.id,
+          type: area.parentId === null ? 'project' : 'area',
           parentId: area.parentId,
           name: area.name,
           path: this.areaPath(area.id),

@@ -22,6 +22,9 @@ export const organizationsKeys = {
    */
   teams: (organizationId: string, projectId: string) =>
     [ROOT, 'teams', organizationId, projectId] as const,
+  /** The read-only team list of a project of any status (mod-018). */
+  teamLinks: (organizationId: string, projectId: string) =>
+    [ROOT, 'team-links', organizationId, projectId] as const,
   /** Every project's linked-team list of an organization: a team's rename or deletion refreshes them all. */
   projectTeamLists: (organizationId: string) => [ROOT, 'teams', organizationId] as const,
   /** The organization's own list of teams, with their projects (feat-028 § 2.1). */
@@ -40,8 +43,30 @@ export const organizationsKeys = {
   /** What one unlink would reassign (§ 2.4). */
   unlinkCount: (organizationId: string, projectId: string, teamId: string) =>
     [ROOT, 'unlink-count', organizationId, projectId, teamId] as const,
-  areas: (organizationId: string, projectId: string) =>
-    [ROOT, 'areas', organizationId, projectId] as const,
+  /** The organization's area tree (mod-018 § 3). */
+  areas: (organizationId: string) => [ROOT, 'areas', organizationId] as const,
+  /** A project's subtree: its node and the sub-areas (§ 4). */
+  projectAreaTree: (organizationId: string, projectId: string) =>
+    [ROOT, 'project-area-tree', organizationId, projectId] as const,
+  /** Every project subtree of an organization. */
+  projectAreaTrees: (organizationId: string) =>
+    [ROOT, 'project-area-tree', organizationId] as const,
+  /** An area's page. */
+  area: (organizationId: string, areaId: string) => [ROOT, 'area', organizationId, areaId] as const,
+  /** Every area page of an organization. */
+  areaPages: (organizationId: string) => [ROOT, 'area', organizationId] as const,
+  /** A department's linked teams (§ 3). */
+  areaTeams: (organizationId: string, areaId: string) =>
+    [ROOT, 'area-teams', organizationId, areaId] as const,
+  /** Every department's team list of an organization: a link or an unlink refreshes the ones on screen. */
+  areaTeamLists: (organizationId: string) => [ROOT, 'area-teams', organizationId] as const,
+  /** What one department's deletion would end (§ 3). */
+  areaDeletion: (organizationId: string, areaId: string) =>
+    [ROOT, 'area-deletion', organizationId, areaId] as const,
+  /** A team's linked departments (§ 5). */
+  teamAreas: (organizationId: string, teamId: string) =>
+    [ROOT, 'team-areas', organizationId, teamId] as const,
+  teamAreaLists: (organizationId: string) => [ROOT, 'team-areas', organizationId] as const,
   /**
    * The caller's served access to an organization (mod-016 api-contract
    * § 1.1): its data is an `AccessAnswer` — codes, or the 404 as an answer.

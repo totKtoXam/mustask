@@ -15,8 +15,9 @@ import {
 import { LanguageFormPage, LanguagesRegistryPage } from '../features/dictionaries';
 import { HomePage } from '../features/home/HomePage';
 import {
-  AREAS_ROUTE,
+  AreaPage,
   AreasPage,
+  ProjectAreasPage,
   DEACTIVATED_ORGANIZATIONS_ROUTE,
   DEACTIVATED_PROJECTS_ROUTE,
   MEMBERS_ROUTE,
@@ -25,6 +26,8 @@ import {
   MembersPage,
   OrganizationGate,
   OrganizationGeneralPage,
+  ORG_AREAS_ROUTE,
+  ORG_AREA_ROUTE,
   ORG_TEAMS_ROUTE,
   ORG_TEAM_ROUTE,
   OrganizationListPage,
@@ -35,6 +38,7 @@ import {
   PROJECT_GENERAL_ROUTE,
   ProjectGeneralPage,
   ProjectListPage,
+  AREAS_ROUTE,
   TEAMS_ROUTE,
   TeamPage,
   TeamsPage,
@@ -189,16 +193,29 @@ export function AppRoutes() {
                   </OrganizationPage>
                 }
               />
+              {/* mod-018: the organization's area tree and an area's page; and the project's own subtree. */}
               <Route
-                path={TEAMS_ROUTE}
+                path={ORG_AREAS_ROUTE}
                 element={
                   <OrganizationPage
-                    code={organizationsPermissions.teamRead}
-                    title="Команды"
+                    code={organizationsPermissions.areaRead}
+                    title="Области"
                     skeleton="registry"
-                    columns={['Команда']}
+                    columns={['Название', 'Тип', 'Описание']}
                   >
-                    <TeamsPage />
+                    <AreasPage />
+                  </OrganizationPage>
+                }
+              />
+              <Route
+                path={ORG_AREA_ROUTE}
+                element={
+                  <OrganizationPage
+                    code={organizationsPermissions.areaRead}
+                    title="Область"
+                    skeleton="form"
+                  >
+                    <AreaPage />
                   </OrganizationPage>
                 }
               />
@@ -209,9 +226,22 @@ export function AppRoutes() {
                     code={organizationsPermissions.areaRead}
                     title="Области"
                     skeleton="registry"
-                    columns={['Область', 'Владелец', '']}
+                    columns={['Название', 'Тип', 'Описание']}
                   >
-                    <AreasPage />
+                    <ProjectAreasPage />
+                  </OrganizationPage>
+                }
+              />
+              <Route
+                path={TEAMS_ROUTE}
+                element={
+                  <OrganizationPage
+                    code={organizationsPermissions.teamRead}
+                    title="Команды"
+                    skeleton="registry"
+                    columns={['Команда']}
+                  >
+                    <TeamsPage />
                   </OrganizationPage>
                 }
               />

@@ -28,6 +28,7 @@ namespace Mustask.Infrastructure.Tests.Conventions;
 /// cannot declare it, mod-017) — the purge of a team-placed item pins it — nor a reference inside a JSON or text column or a
 /// store outside the database; those are seen only through a step that declares them.
 /// </remarks>
+[Collection(ProcessEnvironmentCollection.Name)]
 public sealed class WorkItemReferenceInventoryTests
 {
     private const string ConnectionStringEnvVar = "ConnectionStrings__mustask";

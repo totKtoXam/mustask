@@ -19,7 +19,7 @@ public sealed class AddTeamHandlerTests
         public Fixture(OrganizationRole role = OrganizationRole.Admin)
         {
             Organization = Store.AddOrganization();
-            Project = Store.AddProject(Organization);
+            Project = Store.AddProject(Organization).Project;
             Clock.UtcNow = new DateTimeOffset(2026, 10, 17, 3, 0, 0, TimeSpan.Zero);
             User.SubjectId = "admin-anna";
             Directory.Add("u-1", "Иван", "ivan@example.test", true);
@@ -30,6 +30,8 @@ public sealed class AddTeamHandlerTests
                 new FakeProjectRepository(Store),
                 new FakeTeamRepository(Store),
                 new FakeProjectTeamRepository(Store),
+                new FakeAreaRepository(Store),
+                new FakeAreaLinkRepository(Store),
                 new FakeTeamMembershipRepository(Store),
                 new FakeMemberReadModel(Store, Directory),
                 Directory,
@@ -49,7 +51,7 @@ public sealed class AddTeamHandlerTests
 
         public Organization Organization { get; }
 
-        public NewProject Project { get; }
+        public Project Project { get; }
 
         public AddTeamHandler Handler { get; }
 
@@ -58,8 +60,9 @@ public sealed class AddTeamHandlerTests
             string? description = null,
             IReadOnlyList<string?>? memberIds = null,
             IReadOnlyList<string?>? projectIds = null,
-            string? organizationId = null) =>
-            new(organizationId ?? Organization.Id.ToString(), name, description, memberIds, projectIds);
+            string? organizationId = null,
+            IReadOnlyList<string?>? areaIds = null) =>
+            new(organizationId ?? Organization.Id.ToString(), name, description, memberIds, projectIds, areaIds);
 
         public Task<AddTeamResult> HandleAsync(AddTeamCommand command) => Handler.Handle(command, CancellationToken.None);
     }
@@ -92,13 +95,13 @@ public sealed class AddTeamHandlerTests
         var result = await f.HandleAsync(f.Command(
             description: "  Платформа\nи инструменты ",
             memberIds: ["u-1", "u-2", "u-1"],
-            projectIds: [f.Project.Project.Id.ToString()]));
+            projectIds: [f.Project.Id.ToString()]));
 
         var team = Assert.Single(f.Store.Teams);
         Assert.Equal("  Платформа\nи инструменты ", result.Response.Description);
         Assert.Equal(["u-1", "u-2"], f.Store.TeamMemberships.Where(m => m.TeamId == team.Id).Select(m => m.UserId).Order());
         var link = Assert.Single(f.Store.Links);
-        Assert.Equal((f.Project.Project.Id, team.Id, "admin-anna", f.Clock.UtcNow), (link.ProjectId, link.TeamId, link.LinkedBy, link.LinkedAt));
+        Assert.Equal((f.Project.Id, team.Id, "admin-anna", f.Clock.UtcNow), (link.ProjectId, link.TeamId, link.LinkedBy, link.LinkedAt));
         Assert.Equal(1, f.Store.SaveCount);
     }
 
@@ -160,19 +163,19 @@ public sealed class AddTeamHandlerTests
     {
         var f = new Fixture();
         var other = f.Store.AddOrganization("Другая");
-        var foreign = f.Store.AddProject(other, "Чужой", "OTH");
-        var deactivated = f.Store.AddProject(f.Organization, "Старый", "OLD");
-        deactivated.Project.Deactivate();
+        var foreign = f.Store.AddProject(other, "Чужой", "OTH").Project;
+        var deactivated = f.Store.AddProject(f.Organization, "Старый", "OLD").Project;
+        deactivated.Deactivate();
         var id = how switch
         {
             "malformed" => "not-an-id",
             "unknown" => Guid.CreateVersion7().ToString(),
-            "foreign" => foreign.Project.Id.ToString(),
-            _ => deactivated.Project.Id.ToString(),
+            "foreign" => foreign.Id.ToString(),
+            _ => deactivated.Id.ToString(),
         };
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(
-            () => f.HandleAsync(f.Command(projectIds: [f.Project.Project.Id.ToString(), id])));
+            () => f.HandleAsync(f.Command(projectIds: [f.Project.Id.ToString(), id])));
 
         Assert.Equal(OrganizationErrorCodes.ProjectNotFound, refusal.Code);
         Assert.Empty(f.Store.Teams);
@@ -240,7 +243,7 @@ public sealed class AddTeamHandlerTests
     {
         var f = new Fixture();
 
-        await f.HandleAsync(f.Command(projectIds: [f.Project.Project.Id.ToString()]));
+        await f.HandleAsync(f.Command(projectIds: [f.Project.Id.ToString()]));
 
         Assert.Equal(["save"], f.Store.Calls);
     }
@@ -256,6 +259,26 @@ public sealed class AddTeamHandlerTests
 
         Assert.Equal(OrganizationErrorCodes.TeamNameTaken, refusal.Code);
         Assert.Empty(f.Store.Teams);
+    }
+
+    // OQ-8 A · a team is created with departments linked in the same save; any other node refuses the whole request.
+    [Fact]
+    public async Task Handle_Departments_AreLinked_AnyOtherNodeIsLinkTypeNotAllowed()
+    {
+        var f = new Fixture();
+        var department = f.Store.AddDepartment(f.Organization, "Разработка");
+        var node = f.Store.RootOf(f.Project);
+
+        var refusal = await Assert.ThrowsAsync<ConflictException>(() =>
+            f.HandleAsync(f.Command(areaIds: [department.Id.ToString(), node.Id.ToString()])));
+        Assert.Equal(OrganizationErrorCodes.AreaLinkTypeNotAllowed, refusal.Code);
+        Assert.Empty(f.Store.Teams);
+        Assert.Empty(f.Store.AreaTeams);
+
+        var result = await f.HandleAsync(f.Command(areaIds: [department.Id.ToString()]));
+
+        Assert.Equal(department.Id, Assert.Single(f.Store.AreaTeams).AreaId);
+        Assert.Equal(result.Response.Id, f.Store.AreaTeams.Single().TeamId);
     }
 
     [Fact]

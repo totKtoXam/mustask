@@ -4,7 +4,7 @@ namespace Mustask.Domain.Identity;
 public sealed record InstanceRoleDefinition(string Name, string Description, IReadOnlySet<string> Codes);
 
 /// <summary>
-/// The one table of the client roles of <c>mustask-api</c> and the instance codes each holds (tech-024, ADR-0031). The
+/// The one table of the client roles of <c>mustask-api</c> and the instance codes each holds (tech-024, ADR-0033). The
 /// company-wide Keycloak realm lets MUSTASK own only clients and client roles, so the token carries these four role names
 /// and nothing else of ours: <c>Mustask.Api</c> maps them to <c>perm</c> claims from this table, and the realm import
 /// declares exactly these names. Role names are not permission codes. The panel keeps a hand-mirrored copy in

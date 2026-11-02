@@ -21,4 +21,5 @@ public sealed record AddTeamCommand(
     string? Name,
     string? Description,
     IReadOnlyList<string?>? MemberIds,
-    IReadOnlyList<string?>? ProjectIds);
+    IReadOnlyList<string?>? ProjectIds,
+    IReadOnlyList<string?>? AreaIds = null);

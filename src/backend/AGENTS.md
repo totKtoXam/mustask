@@ -11,13 +11,26 @@ run from there, not from this directory.
 - `dotnet build Mustask.sln` — build (nullable + warnings-as-errors).
 - `dotnet test Mustask.sln` — all tests; `Mustask.Api.IntegrationTests` and the
   `RequiresDocker` tests of `Mustask.Infrastructure.Tests` bring up PostgreSQL
-  through Testcontainers — Docker must be running.
+  through Testcontainers — Docker must be running. Each of the two starts one
+  container per run and gives every fixture a database of its own on it
+  (`tests/Shared/SharedPostgres.cs`, tech-047). Their classes run in
+  parallel: `Mustask.Api.IntegrationTests` splits `MustaskApiCollection` into
+  shards (`ApiTestCollectionFactory`; half the cores, at most eight, so two
+  on a 4-core runner; `MUSTASK_API_TEST_SHARDS` overrides the count, and 1
+  still runs the serial classes apart, after the shard). A new class that
+  captures the console, sets an environment variable, asserts on log entries
+  of a host it builds, builds a host straight from
+  `WebApplicationFactory<Program>`, shares a static flag with another class
+  or holds a timing budget goes into `ApiTestCollectionFactory.SerialClasses`
+  (a `*VolumeTests` name goes there by itself) — in
+  `Mustask.Infrastructure.Tests`, a class that touches
+  `ConnectionStrings__mustask` names `ProcessEnvironmentCollection`.
 - `dotnet run --project src/backend/Mustask.AppHost` — local startup through
   .NET Aspire: brings up `Mustask.Api`, a PostgreSQL container (or uses an
   external PostgreSQL — see "External database" below), the frontend
   (Vite dev server, `AddViteApp`, `VITE_API_BASE_URL` is passed through from
   the `api` endpoint) and Keycloak with the stand's realm (`Keycloak:Realm`, default
-  `mustask`; ADR-0018, ADR-0031; the
+  `mustask`; ADR-0018, ADR-0033; the
   instance-level access model is four client roles of `mustask-api` — `user`,
   `organization-creator`, `dictionaries-admin`, `system-admin` — that the API turns
   into permission codes through a table in code, arriving in
@@ -43,7 +56,7 @@ run from there, not from this directory.
   stand-only client `mustask-e2e` and writes its secret to
   `.e2e-stand/keycloak-e2e-client.json` (ADR-0023), gives its fixture user the client
   roles `user` and `system-admin`, and adds `user` to the stand realm's default role so
-  every account made on the stand can sign in (ADR-0031). A separate docker compose
+  every account made on the stand can sign in (ADR-0033). A separate docker compose
   is not needed (see
   `docs/adr/0001-use-net-aspire-for-local-orchestration.md`). On a fresh
   clone, three secrets are required before the first start — the PostgreSQL
@@ -132,7 +145,7 @@ run from there, not from this directory.
   environment in both directions). The base address of a running
   `Mustask.Api` — from the Aspire dashboard or from the Information line in
   the log at startup.
-- The access model (mod-016, ADR-0027; tech-024, ADR-0031) in three lines.
+- The access model (mod-016, ADR-0027; tech-024, ADR-0033) in three lines.
   **Instance rights come from the token's client roles**: `resource_access.
   mustask-api.roles` carries up to four names — `user` (signing in and the
   dictionaries' read; **without it there is no session and no right**),
@@ -166,7 +179,7 @@ run from there, not from this directory.
   user (`scripts/keycloak-seed.sh`, `MEMBER_PASSWORD`) holds the role `user`
   only and sees no organization until it is added. There is no seeded
   demonstration organization.
-- **A stand made from an older realm import** (before `tech-024`, ADR-0031: realm
+- **A stand made from an older realm import** (before `tech-024`, ADR-0033: realm
   roles `instance-admin`/`dictionaries-admin`/`organization-creator`, groups,
   permission codes as client roles) stays unhealthy: the drift check names every
   difference and the remedy is the stand reset, `bash scripts/stand-reset.sh`

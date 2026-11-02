@@ -1,4 +1,5 @@
 using Mustask.Application.Features.WorkItems;
+using Mustask.Domain.WorkItems;
 using Microsoft.EntityFrameworkCore;
 
 namespace Mustask.Infrastructure.WorkItems;
@@ -14,23 +15,24 @@ internal sealed class WorkItemTeamOwnership(MustaskDbContext context) : IWorkIte
 {
     // Every state: a deleted item still belongs to its team until the team's deletion releases it (BR-OT-12, mod-005 BR-DR-9).
     public Task<int> CountOwnedAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
-        WorkItemSets.InAnyState(context).CountAsync(item => item.ProjectId == projectId && item.OwningTeamId == teamId, cancellationToken);
+        WorkItemSets.InAnyState(context).CountAsync(
+            OwnedItemsRule.Of([projectId], teamId).Matches, cancellationToken);
 
     public async Task<IReadOnlyList<ProjectCount>> CountOwnedByProjectAsync(
         Guid teamId, IReadOnlyCollection<Guid> projectIds, CancellationToken cancellationToken)
     {
-        if (projectIds.Count == 0)
+        var owned = OwnedItemsRule.Of(projectIds, teamId);
+
+        if (owned.IsEmpty)
         {
             return [];
         }
-
-        var ids = projectIds.Distinct().ToArray();
 
         // Every state, as the unlink's count is (feat-028 SC-09, doc-012 BR-MX-12): a deleted item is owned until a release moves
         // it, so the deletion's counts say what the deletion would release, deleted items included (mod-005 BR-DR-9).
         return await WorkItemSets.InAnyState(context)
             .AsNoTracking()
-            .Where(item => item.OwningTeamId == teamId && ids.Contains(item.ProjectId))
+            .Where(owned.Matches)
             .GroupBy(item => item.ProjectId)
             .Select(group => new ProjectCount(group.Key, group.Count()))
             .ToListAsync(cancellationToken);
@@ -42,28 +44,28 @@ internal sealed class WorkItemTeamOwnership(MustaskDbContext context) : IWorkIte
 
     public Task LockOwnedAsync(IReadOnlyCollection<Guid> projectIds, Guid teamId, CancellationToken cancellationToken)
     {
-        if (projectIds.Count == 0)
+        var owned = OwnedItemsRule.Of(projectIds, teamId);
+
+        if (owned.IsEmpty)
         {
             return Task.CompletedTask;
         }
 
-        var ids = projectIds.Distinct().ToArray();
-
         // ORDER BY id before the lock: one fixed order for every caller, whatever the number of projects.
         return context.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT 1 FROM work_items WHERE project_id = ANY({ids}) AND owning_team_id = {teamId} ORDER BY id FOR UPDATE",
+            $"SELECT 1 FROM work_items WHERE project_id = ANY({owned.ProjectIds}) AND owning_team_id = {owned.TeamId} ORDER BY id FOR UPDATE",
             cancellationToken);
     }
 
     public async Task<int> ReassignOwnedAsync(
         IReadOnlyCollection<Guid> projectIds, Guid teamId, Guid? destinationTeamId, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        if (projectIds.Count == 0)
+        var owned = OwnedItemsRule.Of(projectIds, teamId);
+
+        if (owned.IsEmpty)
         {
             return 0;
         }
-
-        var ids = projectIds.Distinct().ToArray();
 
         // The destination is written as a nullable parameter: «Без команды» is NULL, and the owner key is MATCH SIMPLE, so a null
         // owner leaves it unchecked. A destination is a team linked to the item's project (the caller holds that link locked).
@@ -71,7 +73,7 @@ internal sealed class WorkItemTeamOwnership(MustaskDbContext context) : IWorkIte
             $"""
              UPDATE work_items
              SET owning_team_id = {destinationTeamId}, changed_at = {now}
-             WHERE project_id = ANY({ids}) AND owning_team_id = {teamId}
+             WHERE project_id = ANY({owned.ProjectIds}) AND owning_team_id = {owned.TeamId}
              """,
             cancellationToken);
     }

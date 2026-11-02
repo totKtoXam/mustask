@@ -209,7 +209,7 @@ administrator adds them on «Участники». `Down` drops the two membersh
 (the organizations, projects and teams stay).
 
 A stand whose Keycloak store was made from an older realm import (before
-`tech-024`, ADR-0031: realm roles, groups, permission codes as client roles)
+`tech-024`, ADR-0033: realm roles, groups, permission codes as client roles)
 stays unhealthy: the drift check names every difference and the remedy, which is
 the stand reset, `bash scripts/stand-reset.sh` (`src/backend/AGENTS.md`, "Keycloak
 on the stand"). The reset wipes that stand's database and Keycloak store together,

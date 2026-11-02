@@ -46,6 +46,7 @@ public sealed class DeleteTeamHandler(
     IProjectRepository projects,
     ITeamRepository teams,
     IProjectTeamRepository links,
+    IAreaLinkRepository areaLinks,
     ITeamMembershipRepository teamMemberships,
     IWorkItemTeamOwnership ownership,
     ITeamBacklogPlaces places,
@@ -98,6 +99,7 @@ public sealed class DeleteTeamHandler(
                 await places.DropForTeamAsync(team.Id, ct);
                 await ownership.ReassignOwnedAsync(linkedProjectIds, team.Id, destinationTeamId: null, clock.UtcNow, ct);
                 await links.RemoveTeamLinksAsync(organizationId, team.Id, ct);
+                await areaLinks.RemoveTeamLinksAsync(organizationId, team.Id, ct);
                 await teamMemberships.EndAllAsync(team.Id, ct);
 
                 team.Delete();

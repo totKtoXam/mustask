@@ -266,7 +266,7 @@ public static class KeycloakStandProvisioner
     }
 
     /// <summary>
-    /// Gives the user the named client roles of `mustask-api` directly (tech-024, ADR-0031) — no group, no realm role.
+    /// Gives the user the named client roles of `mustask-api` directly (tech-024, ADR-0033) — no group, no realm role.
     /// Idempotent: Keycloak ignores a role the user already holds. A role the realm import did not declare is an error
     /// naming it, not a silent skip: the stand would sign the fixture in without the right it is meant to have.
     /// </summary>
@@ -285,7 +285,7 @@ public static class KeycloakStandProvisioner
     /// Stand only: the realm's default role (`default-roles-&lt;realm&gt;`, Keycloak's own, never declared by the import) gets
     /// `user` as a composite, so every account made on the stand (the E2E suite's throwaway users, the people the seed script
     /// adds) can sign in without a role mapping of its own. The company-wide realm has no such default role of ours — there an
-    /// administrator gives `user` to each user (ADR-0031). Idempotent; the drift check never compares the default role.
+    /// administrator gives `user` to each user (ADR-0033). Idempotent; the drift check never compares the default role.
     /// </summary>
     private static async Task AddUserRoleToDefaultRolesAsync(
         HttpClient http, string token, string realm, CancellationToken cancellationToken)

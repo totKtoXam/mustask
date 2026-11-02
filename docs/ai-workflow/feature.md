@@ -45,7 +45,8 @@ a subagent, and that file is the only place the boundary is drawn.
    files. If the task is not yet in the queue of the `main` branch — the
    line is first put there with `scripts/queue.sh add <prefix> <slug>
    "<description>"`, which issues the number (it is issued by the queue, not
-   by a branch).
+   by a branch) and lands it as an auto-merging queue PR; `new-task.sh` finds
+   the line once that PR is merged.
 4. After the confirmation create the task according to
    `docs/features/numbering.md`. Use `scripts/new-task.sh` in a POSIX shell or
    `scripts/new-task.ps1` in PowerShell. The script takes the id from the
@@ -55,7 +56,7 @@ a subagent, and that file is the only place the boundary is drawn.
 5. Write the confirmed classification and the grounds for the size into
    `## Log`, remove the line of the taken task with `scripts/queue.sh take
    <short-id>` — it refuses while no branch holds the number — as a separate
-   commit into `main` that changes only `docs/backlog.md`. `main` stays the
+   queue PR into `main` that changes only `docs/backlog.md`. `main` stays the
    hub and is not otherwise edited.
 6. Bind the **actual agent session** to the checkout assigned to its run
    before implementation, QA, review or subagent delegation. An

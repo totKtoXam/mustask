@@ -58,7 +58,7 @@ public sealed class KeycloakStandProvisioningTests
             Assert.False(string.IsNullOrEmpty(userCreateBody.GetProperty("firstName").GetString()));
             Assert.False(string.IsNullOrEmpty(userCreateBody.GetProperty("lastName").GetString()));
 
-            // tech-024 (ADR-0031): the fixture user gets the client roles `user` and `system-admin` directly - no group, no realm role.
+            // tech-024 (ADR-0033): the fixture user gets the client roles `user` and `system-admin` directly - no group, no realm role.
             var grant = Assert.Single(handler.Requests, r => r.Method == HttpMethod.Post && r.Path == "/admin/realms/mustask/users/existing-user-id/role-mappings/clients/mustask-api-id");
             Assert.Equal(
                 ["system-admin", "user"],

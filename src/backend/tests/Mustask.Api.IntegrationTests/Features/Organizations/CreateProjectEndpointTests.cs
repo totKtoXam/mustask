@@ -655,7 +655,7 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
         return (
             await projectIds.CountAsync(),
             await db.Teams.AsNoTracking().CountAsync(team => team.OrganizationId == organizationId),
-            await db.Areas.AsNoTracking().CountAsync(area => projectIds.Contains(area.ProjectId)));
+            await db.Areas.AsNoTracking().CountAsync(area => area.ProjectId != null && projectIds.Contains(area.ProjectId.Value)));
     }
 
     private static IEnumerable<string> PropertyNames(JsonElement element) =>

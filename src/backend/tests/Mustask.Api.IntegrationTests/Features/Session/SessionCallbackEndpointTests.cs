@@ -123,7 +123,7 @@ public sealed class SessionCallbackEndpointTests
     }
 
     /// <summary>
-    /// tech-024 (ADR-0031): a user whose access token lacks the `user` client role gets no session — the callback redirects with
+    /// tech-024 (ADR-0033): a user whose access token lacks the `user` client role gets no session — the callback redirects with
     /// <c>authError=no_access</c> and sets no cookie, whatever other roles the token carries.
     /// </summary>
     [Theory]

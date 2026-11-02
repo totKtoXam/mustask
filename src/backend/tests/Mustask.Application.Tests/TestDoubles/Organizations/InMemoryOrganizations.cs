@@ -37,6 +37,9 @@ public sealed class InMemoryOrganizations
 
     public List<Area> Areas { get; } = [];
 
+    /// <summary>The area–team links (mod-018 BR-AW-6).</summary>
+    public List<AreaTeam> AreaTeams { get; } = [];
+
     public List<OrganizationMembership> Memberships { get; } = [];
 
     public List<TeamMembership> TeamMemberships { get; } = [];
@@ -44,7 +47,7 @@ public sealed class InMemoryOrganizations
     /// <summary>
     /// Every lock and save, in order: <c>lock organization {id}</c>, <c>lock project {id}</c>,
     /// <c>lock team {mode} {id}</c>, <c>lock project teams {projectId}</c>, <c>lock area {mode} {id}</c>,
-    /// <c>lock root {mode} {projectId}</c>, <c>clear default team {teamId}</c>, <c>lock member {userId}</c>,
+    /// <c>lock area tree {organizationId}</c>, <c>clear default team {teamId}</c>, <c>lock member {userId}</c>,
     /// <c>delete member {userId}</c>, <c>end team memberships {teamId}</c>, <c>save</c>; the work items' and the
     /// boards' calls of a team deletion (<see cref="FakeWorkItemTeamOwnership"/>) join the same list.
     /// </summary>
@@ -100,13 +103,23 @@ public sealed class InMemoryOrganizations
         return membership;
     }
 
-    public NewProject AddProject(Organization organization, string name = "Пример проекта", string key = "PRM")
+    /// <summary>A project with its node (mod-018 OQ-5 A): at the top of the tree, or under <paramref name="department"/>.</summary>
+    public NewProject AddProject(Organization organization, string name = "Пример проекта", string key = "PRM", Area? department = null)
     {
-        var project = Project.Create(organization.Id, Name(name), key, Now, Creator);
-        Store(project);
+        var created = Project.Create(organization.Id, Name(name), key, Now, Creator, parentAreaId: department?.Id);
+        Store(created);
 
-        return project;
+        return created;
     }
+
+    public void Store(NewProject project)
+    {
+        Projects.Add(project.Project);
+        Areas.Add(project.Root);
+    }
+
+    /// <summary>The project's node in the area tree.</summary>
+    public Area RootOf(Project project) => Areas.Single(area => area.ProjectId == project.Id && area.Type == AreaType.Project);
 
     /// <summary>A team of the organization (feat-028 BR-OL-1): linked to no project until <see cref="Link"/> says so.</summary>
     public Team AddTeam(Organization organization, string name = "Платформа")
@@ -126,6 +139,22 @@ public sealed class InMemoryOrganizations
         return link;
     }
 
+    public ProjectTeam Link(Project project, Team team)
+    {
+        var link = ProjectTeam.Link(project.OrganizationId, project.Id, team.Id, Creator, Now);
+        Links.Add(link);
+
+        return link;
+    }
+
+    public Team AddLinkedTeam(Organization organization, Project project, string name = "Платформа")
+    {
+        var team = AddTeam(organization, name);
+        Link(project, team);
+
+        return team;
+    }
+
     /// <summary>A team of the project's organization, linked to the project.</summary>
     public Team AddLinkedTeam(Organization organization, NewProject project, string name = "Платформа")
     {
@@ -137,18 +166,30 @@ public sealed class InMemoryOrganizations
 
     public bool IsLinked(Guid projectId, Guid teamId) => Links.Any(link => link.ProjectId == projectId && link.TeamId == teamId);
 
-    public Area AddArea(Area parent, string name)
+    /// <summary>A department at the top of the organization's tree (mod-018 BR-AW-3).</summary>
+    public Area AddDepartment(Organization organization, string name)
     {
-        var area = Area.CreateChild(parent, Name(name));
+        var area = Area.CreateDepartment(organization.Id, Name(name), null, Creator, Now);
         Areas.Add(area);
 
         return area;
     }
 
-    public void Store(NewProject project)
+    /// <summary>A sub-area below a project node or another sub-area (OQ-7 A).</summary>
+    public Area AddArea(Area parent, string name)
     {
-        Projects.Add(project.Project);
-        Areas.Add(project.Root);
+        var area = Area.CreateSubArea(parent, Name(name), null, Creator, Now);
+        Areas.Add(area);
+
+        return area;
+    }
+
+    public AreaTeam LinkArea(Area area, Team team)
+    {
+        var link = AreaTeam.Link(area.OrganizationId, area.Id, team.Id, Creator, Now);
+        AreaTeams.Add(link);
+
+        return link;
     }
 
     public Organization? FindOrganization(Guid id) => Organizations.SingleOrDefault(organization => organization.Id == id);
@@ -173,7 +214,11 @@ public sealed class InMemoryOrganizations
     internal void Stage(object entity) => _pending.Add(entity);
 
     /// <summary>A repository's <c>Remove</c>: gone at once (the fakes do not model a deferred delete).</summary>
-    internal void Unstore(Area area) => Areas.Remove(area);
+    internal void Unstore(Area area)
+    {
+        Areas.Remove(area);
+        AreaTeams.RemoveAll(link => link.AreaId == area.Id);
+    }
 
     /// <summary>
     /// The database's <c>DELETE FROM organization_memberships</c> with the cascade of its composite key: the user's team
@@ -229,6 +274,9 @@ public sealed class InMemoryOrganizations
                     break;
                 case Area area:
                     Areas.Add(area);
+                    break;
+                case AreaTeam link:
+                    AreaTeams.Add(link);
                     break;
                 case OrganizationMembership membership:
                     Memberships.Add(membership);

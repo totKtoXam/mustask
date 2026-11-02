@@ -235,7 +235,7 @@ var keycloakPanelClientSecret = builder.AddParameter("keycloak-panel-client-secr
 var keycloakImage = builder.Configuration["Keycloak:Image"] ?? "quay.io/keycloak/keycloak";
 var keycloakTag = builder.Configuration["Keycloak:Tag"] ?? "26.4";
 
-// tech-024 (ADR-0031): the stand's realm name is one configuration value, `Keycloak:Realm` (environment `Keycloak__Realm`), default
+// tech-024 (ADR-0033): the stand's realm name is one configuration value, `Keycloak:Realm` (environment `Keycloak__Realm`), default
 // `mustask`. The realm import takes it as the placeholder MUSTASK_REALM, the api as the tail of Keycloak__Authority, and the
 // health check, the drift check and the provisioning as the realm they talk to; nothing else in the stand spells it.
 var keycloakRealm = KeycloakStandIdentifiers.RealmName(builder.Configuration["Keycloak:Realm"]);

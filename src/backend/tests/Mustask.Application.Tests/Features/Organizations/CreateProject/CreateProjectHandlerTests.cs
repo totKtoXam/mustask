@@ -40,6 +40,7 @@ public sealed class CreateProjectHandlerTests
                 new FakeTeamRepository(Store),
                 new FakeProjectTeamRepository(Store),
                 new FakeProjectRepository(Store),
+                new FakeAreaRepository(Store),
                 new FakeOrganizationAccess(role),
                 Clock,
                 CurrentUser,
@@ -61,8 +62,9 @@ public sealed class CreateProjectHandlerTests
             string? key = "PRM",
             string? organizationId = null,
             string? description = null,
-            IReadOnlyList<string?>? teamIds = null) =>
-            new(organizationId ?? Organization.Id.ToString(), name, key, description, teamIds);
+            IReadOnlyList<string?>? teamIds = null,
+            string? parentAreaId = null) =>
+            new(organizationId ?? Organization.Id.ToString(), name, key, description, teamIds, parentAreaId);
 
         public Task<CreateProjectResult> HandleAsync(CreateProjectCommand command) => Handler.Handle(command, CancellationToken.None);
 
@@ -70,7 +72,7 @@ public sealed class CreateProjectHandlerTests
         public (Project Project, Area Root) StoredParts(Guid projectId) =>
             (
                 Store.Projects.Single(project => project.Id == projectId),
-                Store.Areas.Single(area => area.ProjectId == projectId));
+                Store.Areas.Single(area => area.ProjectId == projectId && area.Type == AreaType.Project));
     }
 
     // US-3 · "A project is created ready to use": active, with its name and key; one team and a root area, both named after
@@ -92,13 +94,13 @@ public sealed class CreateProjectHandlerTests
         Assert.Null(project.DefaultTeamId);
 
         Assert.Equal("Пример проекта", root.Name);
-        Assert.True(root.IsRoot);
+        Assert.Equal((AreaType.Project, project.Id, null), (root.Type, root.ProjectId, root.ParentId));
     }
 
     // US-3 · "A project is created ready to use": nothing but the project, one team and one root is written, in one save, and
     // no lock is taken (plan-backend § 8.2: inserts only, closed by the unique indexes).
     [Fact]
-    public async Task Handle_Creates_OneProjectOneArea_OneSave_NoLock()
+    public async Task Handle_Creates_OneProjectOneNode_OneSave_UnderTheTreeLock()
     {
         var f = new Fixture();
 
@@ -107,7 +109,7 @@ public sealed class CreateProjectHandlerTests
         Assert.Single(f.Store.Projects);
         Assert.Empty(f.Store.Teams);
         Assert.Single(f.Store.Areas);
-        Assert.Equal(["save"], f.Store.Calls);
+        Assert.Equal([$"lock area tree {f.Organization.Id}", "save"], f.Store.Calls);
     }
 
     // US-3 · "A project is created ready to use": the key is kept exactly as sent, and the stored name is the trimmed one.
@@ -418,7 +420,7 @@ public sealed class CreateProjectHandlerTests
         Assert.Equal(new[] { chosen.Id, second.Id }.Order(), f.Store.Links.Where(link => link.ProjectId == project.Id).Select(link => link.TeamId).Order());
         Assert.All(f.Store.Links, link => Assert.Equal((Subject, f.Clock.UtcNow), (link.LinkedBy, link.LinkedAt)));
         Assert.Null(project.DefaultTeamId);
-        Assert.Equal(["lock teams share " + string.Join(",", new[] { chosen.Id, second.Id }.Order()), "save"], f.Store.Calls);
+        Assert.Equal([$"lock area tree {f.Organization.Id}", "lock teams share " + string.Join(",", new[] { chosen.Id, second.Id }.Order()), "save"], f.Store.Calls);
     }
 
     // feat-028 US-2 · "a choice that cannot be made": a team that is unknown, malformed, of another organization or deleted is
@@ -472,6 +474,67 @@ public sealed class CreateProjectHandlerTests
         var refusal = await Assert.ThrowsAsync<ForbiddenException>(() => f.HandleAsync(f.Command(teamIds: ["not-an-id"])));
 
         Assert.Equal(OrganizationErrorCodes.AccessForbidden, refusal.Code);
+        Assert.Empty(f.Store.Projects);
+    }
+
+
+    // US-6 / TC-2 · placing a project needs area.write on the department, area.create at the top level (spec § Roles): the
+    // project code alone does not place anything.
+    [Fact]
+    public async Task Handle_PlacementWithoutTheAreaCode_IsForbidden_NothingStored()
+    {
+        var f = new Fixture(role: OrganizationRole.Member);
+        var department = f.Store.AddDepartment(f.Organization, "Разработка");
+
+        var under = await Assert.ThrowsAsync<ForbiddenException>(() => f.HandleAsync(f.Command(parentAreaId: department.Id.ToString())));
+        var top = await Assert.ThrowsAsync<ForbiddenException>(() => f.HandleAsync(f.Command()));
+
+        Assert.Equal(OrganizationErrorCodes.AccessForbidden, under.Code);
+        Assert.Equal(OrganizationErrorCodes.AccessForbidden, top.Code);
+        Assert.Empty(f.Store.Projects);
+    }
+    // OQ-5 A · a project may be created under a department: its node stands there, locked in the order tree, department, save.
+    [Fact]
+    public async Task Handle_UnderADepartment_PlacesTheNodeThere()
+    {
+        var f = new Fixture();
+        var department = f.Store.AddDepartment(f.Organization, "Разработка");
+
+        var result = await f.HandleAsync(f.Command(parentAreaId: department.Id.ToString()));
+
+        Assert.Equal(department.Id, f.StoredParts(result.Response.Id).Root.ParentId);
+        Assert.Equal([$"lock area tree {f.Organization.Id}", $"lock area share {department.Id}", "save"], f.Store.Calls);
+    }
+
+    // OQ-5 A · the parent is a department of this organization: a malformed, unknown or foreign id is 404, a node of another type 409.
+    [Fact]
+    public async Task Handle_ParentThatIsNotADepartment_Is404Or409_NothingStored()
+    {
+        var f = new Fixture();
+        var other = f.Store.AddProject(f.Organization, "Другой", "OTH");
+        var foreign = f.Store.AddDepartment(f.Store.AddOrganization("Чужая организация"), "Чужой");
+        var before = f.Store.Projects.Count;
+
+        var unknown = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(parentAreaId: Guid.CreateVersion7().ToString())));
+        var malformed = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(parentAreaId: "x")));
+        var foreignParent = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(parentAreaId: foreign.Id.ToString())));
+        var node = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(parentAreaId: f.Store.RootOf(other.Project).Id.ToString())));
+
+        Assert.All([unknown, malformed, foreignParent], refusal => Assert.Equal(OrganizationErrorCodes.AreaNotFound, refusal.Code));
+        Assert.Equal(OrganizationErrorCodes.AreaTypeNotAllowed, node.Code);
+        Assert.Equal(before, f.Store.Projects.Count);
+    }
+
+    // OQ-12 A · the node takes the project's name at its level: a department of that name at the top refuses the project.
+    [Fact]
+    public async Task Handle_NameHeldByADepartmentAtTheLevel_IsAreaNameTaken()
+    {
+        var f = new Fixture();
+        f.Store.AddDepartment(f.Organization, "Пример проекта");
+
+        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(name: " пример ПРОЕКТА")));
+
+        Assert.Equal(OrganizationErrorCodes.AreaNameTaken, refusal.Code);
         Assert.Empty(f.Store.Projects);
     }
 

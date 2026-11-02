@@ -26,6 +26,13 @@ PowerShell); everything below is what they enforce.
   an unmerged branch is a violation: its number is not visible to other
   sessions. Introduced after two incidents: one number went to two tasks,
   and one queue line was implemented twice under two ids.
+  Since tech-049 that commit reaches `main` through a PR that `queue.sh`
+  opens itself (see git.md): the commit is pushed to a
+  `sync/queue-<date>-<op>-<short-id>` branch, and until the PR merges that
+  pushed branch is what holds the number — source 3 below reads the queue
+  files of every remote-tracking branch. This is the one unmerged branch a
+  numbered line may live on. `take` reads the queue on `origin/main`, so a
+  line whose add PR is still open cannot be taken yet.
 - **Claiming work is the branch, not the queue line.** Taking a task into
   work = successfully creating the branch `<prefix>/<NNN>-<slug>` (the
   single point — `git worktree add -b`, done by `scripts/new-task.sh`). The
@@ -58,8 +65,9 @@ PowerShell); everything below is what they enforce.
      also across all branches, including the `Done` section:
      `scripts/backlog.sh --ids` (one pass over both files:
      `git for-each-ref --format='%(objectname):docs/backlog.md%0a%(objectname):docs/backlog/withdrawn.md' refs/heads refs/remotes | sort -u | git cat-file --batch`).
-     "All branches" includes local `main` ahead of `origin/main`:
-     `queue.sh add` and `withdraw` commit to local `main`, and the push comes
+     "All branches" includes the pushed `sync/queue-*` branches of open queue
+     PRs, and local `main` ahead of `origin/main`: before tech-049 (and with
+     `--local` still) `queue.sh add` and `withdraw` commit to local `main`, and the push comes
      later, so the number of an unpushed queue commit is on no remote branch
      and a count that reads `origin/main` alone issues it a second time
      (`feat-039` and `mod-017` were issued twice that way). `scripts/new-task.sh

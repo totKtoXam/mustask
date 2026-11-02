@@ -1,18 +1,21 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import Alert from '@mui/material/Alert';
-import Button from '@mui/material/Button';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import MenuItem from '@mui/material/MenuItem';
-import Skeleton from '@mui/material/Skeleton';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { useAreaTree, useTeamProjects, useTeams, type TeamProject } from '../../organizations';
+import {
+  useProjectAreaTree,
+  useTeamProjects,
+  useTeams,
+  type TeamProject,
+} from '../../organizations';
 import { apiErrorText } from '../../../shared/lib/apiErrorText';
 import { FieldsSkeleton, InlineNotice, InlinePickerField, LiveRegion } from '../../../shared/ui';
 import { FormDialog } from '../../../shared/ui/FormDialog';
 import { TypeMark } from '../../../shared/ui/WorkTrackingMarks';
 import type { CreateWorkItemBody, WorkItem, WorkItemTeam } from '../api/workItemsApi';
+import { projectRelativePath } from '../lib/areaPaths';
 import type { CreatableType } from '../lib/process';
 import { projectTexts } from '../lib/projects';
 import { placeRefusal } from '../lib/refusals';
@@ -99,7 +102,9 @@ export function CreateWorkItemDialog({
   // A team's view: `undefined` — the projects are being read, `null` — none chosen.
   const [project, setProject] = useState<TeamProject | null | undefined>(undefined);
   const projectId = place.kind === 'project' ? place.projectId : project?.id;
-  const tree = useAreaTree(organizationId, projectId ?? '', { enabled: projectId !== undefined });
+  const tree = useProjectAreaTree(organizationId, projectId ?? '', {
+    enabled: projectId !== undefined,
+  });
   const teams = useTeams(organizationId, projectId ?? '', {
     enabled: projectId !== undefined,
     fresh: true,
@@ -251,7 +256,7 @@ export function CreateWorkItemDialog({
 
   const chosenType = types.find((type) => type.id === typeId);
   const stateName = chosenType?.initialStateName ?? '';
-  const root = tree.data?.find((node) => node.parentId === null);
+  const root = tree.data?.find((node) => node.type === 'project');
   const treeLoading = tree.isPending || (tree.isError && tree.isFetching);
   const teamsFailed = projectId !== undefined && teams.isError && !teams.isFetching;
   const projectsFailed = teamPlace !== null && projects.isError && !projects.isFetching;
@@ -294,21 +299,17 @@ export function CreateWorkItemDialog({
         </Typography>
       ) : projectId === undefined || treeLoading ? (
         // No project yet (the projects are being read), or the chosen project's tree is.
-        <Skeleton variant="text" aria-hidden="true" />
+        <FieldsSkeleton count={1} />
       ) : tree.isError ? (
-        <Alert
+        <InlineNotice
           severity="error"
-          action={
-            <Button color="inherit" size="small" onClick={() => void tree.refetch()}>
-              Повторить
-            </Button>
-          }
+          action={{ label: 'Повторить', onClick: () => void tree.refetch() }}
         >
           {apiErrorText(tree.error)}
-        </Alert>
+        </InlineNotice>
       ) : (
         <Typography variant="body2" color="text.secondary">
-          {`Рабочий элемент будет создан в статусе «${stateName}» в области «${root?.path ?? ''}». Остальные поля заполняются в его форме.`}
+          {`Рабочий элемент будет создан в статусе «${stateName}» в области «${root && tree.data ? projectRelativePath(tree.data, root) : ''}». Остальные поля заполняются в его форме.`}
         </Typography>
       )}
       {teamPlace !== null &&

@@ -64,11 +64,11 @@ describe('mod-016 DC-2 Scenario: the tree draws no actions column when no node h
     expect(row).toHaveFocus();
   });
 
-  it('draws the column for every row once any node has an action', () => {
+  it('draws the column once any node has an action, with a button on the rows that have one only', () => {
     renderTree({ actions: (node) => (node.id === 'root' ? [ADD] : []) });
 
     expect(screen.getAllByRole('columnheader')).toHaveLength(3);
-    expect(screen.getAllByRole('button', { name: /^Действия: / })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /^Действия: / })).toHaveLength(1);
   });
 
   it('draws it when showActions says so, with no action to show yet', () => {

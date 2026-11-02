@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import Box from '@mui/material/Box';
 import AddIcon from '@mui/icons-material/Add';
-import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
-import DriveFileMoveOutlinedIcon from '@mui/icons-material/DriveFileMoveOutlined';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
+import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
+import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
 import { useAccessCheck } from '../../../shared/lib/access';
-import { PageHeader } from '../../../shared/ui/PageHeader';
-import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
+import { Tag, TruncatedText } from '../../../shared/ui';
+import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
 import { NotFound, StateFrame } from '../../../shared/ui/StateFrame';
 import {
   TreeRegistry,
@@ -16,53 +14,50 @@ import {
   type TreeRegistryHandle,
 } from '../../../shared/ui/TreeRegistry';
 import type { AreaNode } from '../api/organizationsApi';
-import { CreateAreaDialog, DeleteAreaDialog, MoveAreaDialog } from '../components/AreaDialogs';
-import { NameDialog } from '../components/NameDialog';
-import { useNotify } from '../components/notice';
-import { useCreateArea, useDeleteArea, useMoveArea, useRenameArea } from '../hooks/mutations';
+import {
+  AreaNodeDialogs,
+  type NodeDialog,
+  type NodeDialogResult,
+} from '../components/AreaNodeDialogs';
+import { AreaTypeMark, commandIcon } from '../components/AreaTypeMark';
 import { useAreaTree } from '../hooks/queries';
-import { rootOf } from '../lib/areaTree';
+import { commandKinds, commandLabel } from '../lib/areaCommands';
+import { areasPage } from '../lib/areaTexts';
+import { expandableIds, hasChildren, initialExpansion } from '../lib/areaTree';
 import { notFoundLevel } from '../lib/notFoundLevel';
+import { organizationAreaPath } from '../paths';
 import { organizationsPermissions } from '../permissions';
 
-type AreaDialog =
-  | { kind: 'create'; parent: AreaNode }
-  | { kind: 'rename' | 'move' | 'delete'; area: AreaNode }
-  | null;
-
-/** An area as the tree registry shows it: its name is the label. */
+/** A node as the tree registry shows it: its name is the label. */
 type AreaRow = AreaNode & { label: string };
 
 /**
- * «Области» (US-5, US-6; design § 11; mod-017 design § 8): the project's area tree
- * on the shared tree registry, one column «Область»: an area owns nothing
- * (BR-OT-10), so there is no owner, no inheritance and no default mark. The root
- * offers «Новая дочерняя область» only (BR-M1-11); any other node every action,
- * and the server refuses what it must (DC-8). The tree is read again after
- * every write, never patched.
+ * «Области» (mod-018 design § 3; US-1, US-2, US-6): the organization's typed tree on the tree
+ * registry, columns «Название» (a link to the node's page; a deactivated project's node is tagged
+ * «деактивирован»), «Тип» and «Описание». The organization is not a row (D-8): departments and
+ * project nodes stand at the top. The initial expansion is D-3 with «Развернуть всё» / «Свернуть
+ * всё». «Новый департамент» is the holder of `area.create`'s; a row menu offers the commands of its
+ * type (`areaCommands.ts`), none on a node of a deactivated project. No department at all is a
+ * normal state (US-5). The tree is read again after every write, never patched.
  */
 export function AreasPage() {
-  const { organizationId = '', projectId = '' } = useParams<{
-    organizationId: string;
-    projectId: string;
-  }>();
-  const query = useAreaTree(organizationId, projectId);
-  const createArea = useCreateArea(organizationId, projectId);
-  const renameArea = useRenameArea(organizationId, projectId);
-  const moveArea = useMoveArea(organizationId, projectId);
-  const deleteArea = useDeleteArea(organizationId, projectId);
-  const notify = useNotify();
+  const { organizationId = '' } = useParams<{ organizationId: string }>();
+  const query = useAreaTree(organizationId);
   const access = useAccessCheck();
   const canWrite = access(organizationsPermissions.areaWrite, 'organization');
+  const canCreate = access(organizationsPermissions.areaCreate, 'organization');
+  const canLinkTeams =
+    access(organizationsPermissions.areaLink, 'organization') &&
+    access(organizationsPermissions.teamLink, 'organization');
   const treeRef = useRef<TreeRegistryHandle>(null);
-  const [dialog, setDialog] = useState<AreaDialog>(null);
+  const [dialog, setDialog] = useState<NodeDialog>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // `null`: the visit's start, the root alone expanded (design § 11.2).
+  // `null`: the visit's start, the initial expansion of D-3.
   const [expanded, setExpanded] = useState<ReadonlySet<string> | null>(null);
   const [focusRequest, setFocusRequest] = useState<{ id: string } | null>(null);
 
-  // Focus after a change (design § 11.7), once the dialog has handed focus
-  // back: the new, renamed or moved row, or a deleted row's parent.
+  // Focus after a change (design § 12), once the dialog has handed focus back: the new, renamed
+  // or moved row, or a deleted row's parent.
   useEffect(() => {
     if (focusRequest && dialog === null) {
       treeRef.current?.focusRow(focusRequest.id);
@@ -75,22 +70,45 @@ export function AreasPage() {
   }
 
   const areas = query.data ?? [];
-  const root = rootOf(areas);
-  const expandedIds = expanded ?? new Set(root ? [root.id] : []);
-  const selected = areas.find((area) => area.id === selectedId);
+  const expandedIds = expanded ?? initialExpansion(areas);
+  const expandable = expandableIds(areas);
+  const allExpanded = [...expandable].every((id) => expandedIds.has(id));
   const rows: AreaRow[] = areas.map((area) => ({ ...area, label: area.name }));
 
-  function expand(...ids: string[]) {
-    setExpanded((current) => new Set([...(current ?? expandedIds), ...ids]));
+  function expand(id: string) {
+    setExpanded((current) => new Set([...(current ?? expandedIds), id]));
   }
 
-  function settle(id: string, notice: string, select = true) {
+  function settle(id: string | null, select = true) {
     setDialog(null);
-    if (select) {
-      setSelectedId(id);
+    if (id !== null) {
+      if (select) {
+        setSelectedId(id);
+      }
+      setFocusRequest({ id });
     }
-    setFocusRequest({ id });
-    notify(notice);
+  }
+
+  function done(result: NodeDialogResult) {
+    switch (result.kind) {
+      case 'created':
+        if (result.area.parentId) {
+          expand(result.area.parentId);
+        }
+        settle(result.area.id);
+        break;
+      case 'moved':
+        if (result.parentId) {
+          expand(result.parentId);
+        }
+        settle(result.node.id);
+        break;
+      case 'deleted':
+        settle(result.node.parentId);
+        break;
+      default:
+        settle(result.node.id, false);
+    }
   }
 
   function closeDialog(contextGone: boolean) {
@@ -101,150 +119,115 @@ export function AreasPage() {
   }
 
   function actions(area: AreaNode): TreeRegistryAction[] {
-    // mod-016 design § 6.2: every area write needs `organizations.area.write`;
-    // without it no node has an action and the table draws no actions column.
-    if (!canWrite) {
-      return [];
-    }
-    const createChild: TreeRegistryAction = {
-      label: 'Новая дочерняя область',
-      icon: <AddIcon fontSize="small" />,
-      onClick: () => setDialog({ kind: 'create', parent: area }),
-    };
-    if (area.parentId === null) {
-      return [createChild];
-    }
-    return [
-      createChild,
-      {
-        label: 'Переименовать',
-        icon: <EditOutlinedIcon fontSize="small" />,
-        onClick: () => setDialog({ kind: 'rename', area }),
+    return commandKinds(area, { canWrite, canCreate }).map((kind) => ({
+      label: commandLabel(kind, area.type),
+      icon: commandIcon(kind, true),
+      destructive: kind === 'delete',
+      onClick: () => {
+        if (kind === 'createChild') {
+          if (area.projectId !== null) {
+            setDialog({ kind: 'createSub', projectId: area.projectId, parentId: area.id });
+          }
+        } else if (kind === 'delete') {
+          setDialog({ kind, node: area, hasChildren: hasChildren(areas, area.id) });
+        } else {
+          setDialog({ kind, node: area });
+        }
       },
-      {
-        label: 'Переместить',
-        icon: <DriveFileMoveOutlinedIcon fontSize="small" />,
-        onClick: () => setDialog({ kind: 'move', area }),
-      },
-      {
-        label: 'Удалить',
-        icon: <DeleteOutlineOutlinedIcon fontSize="small" />,
-        onClick: () => setDialog({ kind: 'delete', area }),
-        destructive: true,
-      },
-    ];
+    }));
   }
 
-  const createUnderRoot = () => root && setDialog({ kind: 'create', parent: root });
   const loading = query.isPending || (query.isError && query.isFetching);
+  const empty = query.isSuccess && areas.length === 0;
+  const commands: Command[] =
+    query.isSuccess && expandable.size > 0
+      ? [
+          allExpanded
+            ? {
+                label: areasPage.collapseAll,
+                icon: <UnfoldLessIcon />,
+                onClick: () => setExpanded(new Set()),
+              }
+            : {
+                label: areasPage.expandAll,
+                icon: <UnfoldMoreIcon />,
+                onClick: () => setExpanded(expandable),
+              },
+        ]
+      : [];
+  const createDepartment = () => setDialog({ kind: 'createDepartment' });
 
   return (
     <>
       <PageHeader
-        title="Области"
-        commands={
-          query.isSuccess && root && canWrite
-            ? [
-                { label: 'Новая область', icon: <AddIcon />, onClick: createUnderRoot },
-                {
-                  label: 'Новая дочерняя область',
-                  icon: <AddIcon />,
-                  disabled: !selected,
-                  onClick: () => selected && setDialog({ kind: 'create', parent: selected }),
-                },
-              ]
+        title={areasPage.title}
+        commands={commands}
+        primaryAction={
+          canCreate
+            ? { label: areasPage.create, icon: <AddIcon />, onClick: createDepartment }
             : undefined
         }
       />
-      <TreeRegistry<AreaRow>
-        ref={treeRef}
-        aria-label="Области"
-        firstColumn="Область"
-        columns={[]}
-        nodes={rows}
-        actions={actions}
-        showActions={canWrite ? undefined : false}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
-        expanded={expandedIds}
-        onToggle={(id) =>
-          setExpanded((current) => {
-            const next = new Set(current ?? expandedIds);
-            if (next.has(id)) {
-              next.delete(id);
-            } else {
-              next.add(id);
-            }
-            return next;
-          })
-        }
-        loading={loading}
-        error={query.isError ? query.error : undefined}
-        onRetry={() => void query.refetch()}
-      />
-      {query.isSuccess && areas.length === 1 && (
-        <Box>
-          <StateFrame
-            icon={InboxOutlinedIcon}
-            heading="Вложенных областей пока нет"
-            hint={
-              canWrite
-                ? 'Создайте первую область кнопкой «Новая область» выше.'
-                : 'Области задаёт администратор организации.'
-            }
-            action={
-              canWrite
-                ? { label: 'Новая область', icon: <AddIcon />, onClick: createUnderRoot }
-                : undefined
-            }
-          />
-        </Box>
+      {empty ? (
+        <StateFrame
+          icon={InboxOutlinedIcon}
+          heading={areasPage.empty.heading}
+          hint={canCreate ? areasPage.empty.adminHint : areasPage.empty.otherHint}
+          action={
+            canCreate
+              ? { label: areasPage.create, icon: <AddIcon />, onClick: createDepartment }
+              : undefined
+          }
+        />
+      ) : (
+        <TreeRegistry<AreaRow>
+          ref={treeRef}
+          aria-label={areasPage.title}
+          firstColumn={areasPage.columns.name}
+          columns={[
+            {
+              header: areasPage.columns.type,
+              render: (area) => <AreaTypeMark type={area.type} />,
+            },
+            {
+              header: areasPage.columns.description,
+              render: (area) => <TruncatedText>{area.description ?? ''}</TruncatedText>,
+            },
+          ]}
+          nodes={rows}
+          adornment={(area) =>
+            area.projectActive === false ? <Tag label={areasPage.deactivated} /> : null
+          }
+          labelTo={(area) => organizationAreaPath(organizationId, area.id)}
+          actions={actions}
+          showActions={canWrite ? undefined : false}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          expanded={expandedIds}
+          onToggle={(id) =>
+            setExpanded((current) => {
+              const next = new Set(current ?? expandedIds);
+              if (next.has(id)) {
+                next.delete(id);
+              } else {
+                next.add(id);
+              }
+              return next;
+            })
+          }
+          loading={loading}
+          error={query.isError ? query.error : undefined}
+          onRetry={() => void query.refetch()}
+        />
       )}
-      <RequiresOrganizationCode code={organizationsPermissions.areaWrite}>
-        {dialog?.kind === 'create' && (
-          <CreateAreaDialog
-            parent={dialog.parent}
-            submit={(body) => createArea.mutateAsync(body)}
-            onSucceeded={(area) => {
-              expand(dialog.parent.id);
-              settle(area.id, `Область «${area.name}» создана.`);
-            }}
-            onClose={closeDialog}
-          />
-        )}
-        {dialog?.kind === 'rename' && (
-          <NameDialog
-            title="Переименование области"
-            initialName={dialog.area.name}
-            submitLabel="Сохранить"
-            submit={(name) => renameArea.mutateAsync({ areaId: dialog.area.id, name })}
-            onSucceeded={() => settle(dialog.area.id, 'Область переименована.', false)}
-            onClose={closeDialog}
-          />
-        )}
-        {dialog?.kind === 'move' && (
-          <MoveAreaDialog
-            area={dialog.area}
-            tree={areas}
-            submit={(parentId) => moveArea.mutateAsync({ areaId: dialog.area.id, parentId })}
-            onSucceeded={({ parentId }) => {
-              expand(parentId);
-              settle(dialog.area.id, `Область «${dialog.area.name}» перемещена.`);
-            }}
-            onClose={closeDialog}
-          />
-        )}
-        {dialog?.kind === 'delete' && (
-          <DeleteAreaDialog
-            area={dialog.area}
-            action={() => deleteArea.mutateAsync(dialog.area.id)}
-            onSucceeded={() =>
-              settle(dialog.area.parentId ?? '', `Область «${dialog.area.name}» удалена.`)
-            }
-            onClose={closeDialog}
-          />
-        )}
-      </RequiresOrganizationCode>
+      <AreaNodeDialogs
+        organizationId={organizationId}
+        dialog={dialog}
+        canCreate={canCreate}
+        canLinkTeams={canLinkTeams}
+        onDone={done}
+        onClose={closeDialog}
+      />
     </>
   );
 }

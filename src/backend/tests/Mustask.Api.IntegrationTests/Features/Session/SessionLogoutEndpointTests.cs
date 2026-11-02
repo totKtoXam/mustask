@@ -197,9 +197,9 @@ public sealed class SessionLogoutEndpointTests
         // shared host the line was therefore swallowed or not depending on whether an earlier test
         // (Logout_DiscoveryUnavailable_..., a child host of its own) had disposed a host by then.
         // A host of this test's own is built right here, so its loggers bind to its own Log.Logger.
-        // Only hosts built from Program call UseSerilog, and every class that builds one is in
-        // MustaskApiCollection, which runs sequentially; the slim probe hosts outside it never touch
-        // Serilog.Log.Logger. A host swaps the static asynchronously, shortly after Dispose() returns:
+        // Only hosts built from Program call UseSerilog, and every class that builds one and reads
+        // its log is in ApiTestCollectionFactory.SerialClasses, which runs alone; the slim probe hosts
+        // outside it never touch Serilog.Log.Logger. A host swaps the static asynchronously, shortly after Dispose() returns:
         // the sign-in above gives an earlier test's dispose time to land before this host is built.
         // tech-006 removes the dependency on the static logger.
         using var factory = _factory.WithWebHostBuilder(_ => { });

@@ -8,7 +8,7 @@ namespace Mustask.Contracts.Tests;
 /// (BR-M1-28, BR-M1-29, SEC-4): <c>scripts/keycloak-seed.sh</c> reads the Keycloak administrator's password from the environment,
 /// keeps neither the password nor the access token on any command line (the process list shows every argument to anyone on the
 /// machine), and gives the administrator the client roles <c>user</c> and <c>system-admin</c> and the optional <c>member</c> user <c>user</c> only
-/// (ADR-0031). A static check of the script's text — no Keycloak, no Docker, no shell: a regression that puts the token back on a
+/// (ADR-0033). A static check of the script's text — no Keycloak, no Docker, no shell: a regression that puts the token back on a
 /// <c>curl</c> line is a line of text, and a line of text is what this finds.
 /// </summary>
 public sealed class KeycloakSeedScriptTests
@@ -104,7 +104,7 @@ public sealed class KeycloakSeedScriptTests
         Assert.Contains("--data-binary @-", tokenRequest, StringComparison.Ordinal);
     }
 
-    // tech-024 (ADR-0031) · the stand seed gives client roles directly: the administrator `user` and `system-admin`, the optional
+    // tech-024 (ADR-0033) · the stand seed gives client roles directly: the administrator `user` and `system-admin`, the optional
     // member user `user` only; no group is named anywhere and the realm is the configured one, not a literal.
     [Fact]
     public void TheSeed_GivesTheAdministratorUserAndSystemAdmin_AndTheMemberUserOnlyUser_NoGroupAnywhere()

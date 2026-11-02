@@ -20,7 +20,7 @@ Slices touched: no feature slice, no endpoint, no migration; `api-contract.md` i
 3. Stand: realm import = four client roles with descriptions, no realm roles/groups/defaultRole/`groups` mapper, realm name `${MUSTASK_REALM:mustask}`; AppHost reads `Keycloak:Realm` (default `mustask`) once and passes it everywhere; provisioner grants the fixture user `user` + `system-admin` as client roles (and `user` to the stand's default role); `keycloak-seed.sh` grants client roles, takes `KEYCLOAK_REALM`.
 4. Retired: `--migrate-live-realm` (command, migration, 2 scripts, 3 test files, the fake write-capable admin surface, the pre-mod-016 test data -> replaced by a pre-tech-024 import used by one drift test); the drift check loses its group comparison.
 5. Frontend: `tokenClaims.ts` maps the four roles to codes (mirror table), `no_access` login-failure text, 403 `session.no_access` on renewal; test fixtures build tokens from roles.
-6. Docs: ADR-0031 (proposed; amends ADR-0018/0027), `src/backend/AGENTS.md`, `docs/runbooks/local-migrations.md`, `docs/error-codes.md` (generated).
+6. Docs: ADR-0033 (proposed; amends ADR-0018/0027), `src/backend/AGENTS.md`, `docs/runbooks/local-migrations.md`, `docs/error-codes.md` (generated).
 Tests: Domain (table), Api claims mapping + session callback/renewal refusal + dictionaries by client role, Contracts (realm import contents, seed script, drift check with the configurable realm, provisioning), Live (opt-in) realm import.
 
 ## Log

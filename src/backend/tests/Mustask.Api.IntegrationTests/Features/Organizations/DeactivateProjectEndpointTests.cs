@@ -144,7 +144,7 @@ public sealed class DeactivateProjectEndpointTests(MustaskApiFactory factory)
         {
             "project" => OrganizationsApi.Project(structure.OrganizationId, structure.ProjectId),
             "teams" => OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId),
-            _ => OrganizationsApi.Areas(structure.OrganizationId, structure.ProjectId),
+            _ => OrganizationsApi.Project(structure.OrganizationId, structure.ProjectId) + "/areas",
         };
 
         var before = await GetAsync(address);

@@ -29,6 +29,7 @@ import { AppRoutes } from './routes';
 const ORG = ids.alfa;
 const PROJECT = ids.prm;
 const TEAM = ids.platformTeam;
+const AREA = ids.platformArea;
 const CREATE = 'organizations.organization.create';
 const SUBJECT = 'user-1';
 const STORAGE_KEY = `mustask.context.${SUBJECT}`;
@@ -74,7 +75,8 @@ const ORGANIZATION_PAGES: [string, string][] = [
   ['«Команды»', `/organizations/${ORG}/projects/${PROJECT}/settings/teams`],
   ['«Команды» организации', `/organizations/${ORG}/settings/teams`],
   ['страница команды', `/organizations/${ORG}/settings/teams/${TEAM}`],
-  ['«Области»', `/organizations/${ORG}/projects/${PROJECT}/settings/areas`],
+  ['«Области»', `/organizations/${ORG}/settings/areas`],
+  ['страница области', `/organizations/${ORG}/settings/areas/${AREA}`],
   ['«Рабочие элементы»', `/organizations/${ORG}/projects/${PROJECT}/workitems`],
   ['рабочий элемент', `/organizations/${ORG}/projects/${PROJECT}/workitems/PRM-1`],
   ['«Канбан»', `/organizations/${ORG}/teams/${TEAM}/boards/stories`],

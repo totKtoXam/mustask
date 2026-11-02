@@ -61,16 +61,17 @@ function settingsLinks(): string[] {
 
 describe('mod-016 US-4 Scenario: «Участники» in the navigation and under the gate', () => {
   it.each(['admin', 'member', 'viewer'] as const)(
-    'a %s finds «Участники» between «Команды» and «Процесс» and reads the table',
+    'a %s finds «Участники» between «Области» and «Процесс» and reads the table',
     async (role) => {
       renderMembers({ role });
 
       await settledTable();
 
-      expect(settingsLinks().slice(0, 5)).toEqual([
+      expect(settingsLinks().slice(0, 6)).toEqual([
         'Общие',
         'Проекты',
         'Команды',
+        'Области',
         'Участники',
         'Процесс',
       ]);

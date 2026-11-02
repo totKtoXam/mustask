@@ -4,7 +4,7 @@ using Mustask.Domain.Identity;
 namespace Mustask.Contracts.Tests;
 
 /// <summary>
-/// Realm-import Keycloak — такой же артефакт контракта, как каталог ошибок (ADR-0018, ADR-0031). Модель доступа двухслойная:
+/// Realm-import Keycloak — такой же артефакт контракта, как каталог ошибок (ADR-0018, ADR-0033). Модель доступа двухслойная:
 /// <list type="bullet">
 /// <item><b>роль</b> — клиентская роль клиента-ресурса <c>mustask-api</c>; их ровно четыре (<see cref="InstanceRoles"/>), имена и
 /// описания совпадают с таблицей в коде;</item>
@@ -57,7 +57,7 @@ public class KeycloakRealmRolesTests
         }
     }
 
-    // --- tech-024 (ADR-0031): the company realm takes only clients and client roles ------------
+    // --- tech-024 (ADR-0033): the company realm takes only clients and client roles ------------
 
     /// <summary>
     /// Общий realm компании: нам разрешены только клиенты и клиентские роли. Импорт стенда поэтому не объявляет ни ролей

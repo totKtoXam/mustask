@@ -82,12 +82,16 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
 
     public async Task<bool> LockAreaAsync(Guid projectId, Guid areaId, CancellationToken cancellationToken)
     {
-        await context.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT 1 FROM areas WHERE id = {areaId} AND project_id = {projectId} FOR SHARE",
-            cancellationToken);
+        // The area is one of the project's own (its node or a sub-area, BR-AW-11). Presence is the lock statement's own answer
+        // (ADR-0028 rule 8, A-9's corollary): a read after it would judge another snapshot.
+        var held = await context.Database
+            .SqlQuery<Guid>(
+                $"""
+                 SELECT id AS "Value" FROM areas WHERE id = {areaId} AND project_id = {projectId} FOR SHARE
+                 """)
+            .ToListAsync(cancellationToken);
 
-        // A new statement under READ COMMITTED: an area deleted by the lock's previous holder is gone.
-        return await context.Areas.AnyAsync(area => area.Id == areaId && area.ProjectId == projectId, cancellationToken);
+        return held.Count > 0;
     }
 
     // The one statement pair every taker of the hierarchy lock shares (WorkItemHierarchyLocks): a concurrent first parent write of the

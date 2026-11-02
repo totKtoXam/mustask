@@ -168,7 +168,7 @@ public static class SessionAuthenticationSetup
 
     private static Task OnTokenValidated(TokenValidatedContext context, string audience, SessionOidcOptions sessionOptions)
     {
-        // tech-024 (ADR-0031): no `user` client role, no session. The exchange is refused before a ticket exists, so neither a
+        // tech-024 (ADR-0033): no `user` client role, no session. The exchange is refused before a ticket exists, so neither a
         // cookie nor a cached access token is created; the redirect carries authError=no_access.
         if (!SessionAccessGate.HoldsUserRole(context.TokenEndpointResponse?.AccessToken, audience))
         {

@@ -1,6 +1,6 @@
 using Mustask.Infrastructure.Conventions;
 using Microsoft.EntityFrameworkCore;
-using Testcontainers.PostgreSql;
+using Mustask.Testing;
 
 namespace Mustask.Infrastructure.Tests.Conventions;
 
@@ -15,17 +15,16 @@ namespace Mustask.Infrastructure.Tests.Conventions;
 [Trait("Category", "RequiresDocker")]
 public sealed class KeylessViewOptimisticConcurrencyIntegrationTests : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18-alpine")
-        .WithDatabase("mustask")
-        .Build();
+    // An empty database of its own per test, on the assembly's one server (tech-047).
+    private string _connectionString = "";
 
-    public Task InitializeAsync() => _postgres.StartAsync();
+    public async Task InitializeAsync() => _connectionString = await SharedPostgres.CreateDatabaseAsync();
 
-    public Task DisposeAsync() => _postgres.DisposeAsync().AsTask();
+    public Task DisposeAsync() => Task.CompletedTask;
 
     private KeylessViewTestDbContext CreateContext() =>
         new(new DbContextOptionsBuilder<KeylessViewTestDbContext>()
-            .UseNpgsql(_postgres.GetConnectionString())
+            .UseNpgsql(_connectionString)
             .Options);
 
     private async Task CreateSchemaAsync(KeylessViewTestDbContext context)

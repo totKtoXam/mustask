@@ -157,6 +157,8 @@ export function ProjectListPage({ view }: { view: ListView }) {
               access(organizationsPermissions.teamLink, 'organization') &&
               access(organizationsPermissions.projectLink, 'organization')
             }
+            canPlaceInDepartment={access(organizationsPermissions.areaWrite, 'organization')}
+            canPlaceAtTop={access(organizationsPermissions.areaCreate, 'organization')}
             submit={(body) => createProject.mutateAsync(body)}
             onSucceeded={(project) => {
               setCreating(false);

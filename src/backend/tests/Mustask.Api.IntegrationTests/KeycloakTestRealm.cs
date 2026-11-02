@@ -64,7 +64,7 @@ public static class KeycloakTestRealm
         /// <summary><c>null</c> — claim <c>name</c> отсутствует вовсе (для сценария «name → preferred_username»).</summary>
         public string? Name { get; set; } = "Test User";
 
-        /// <summary><c>resource_access.&lt;Audience&gt;.roles</c> — имена клиентских ролей mustask-api (tech-024, ADR-0031), не коды прав. <c>null</c> — ключ <c>mustask-api</c> из <c>resource_access</c> не пишется вовсе.</summary>
+        /// <summary><c>resource_access.&lt;Audience&gt;.roles</c> — имена клиентских ролей mustask-api (tech-024, ADR-0033), не коды прав. <c>null</c> — ключ <c>mustask-api</c> из <c>resource_access</c> не пишется вовсе.</summary>
         public IReadOnlyCollection<string>? Roles { get; set; } = [];
 
         /// <summary><c>realm_access.roles</c> — для негативного сценария («роли realm'а прав не дают»), не читается <see cref="Mustask.Api.Authentication.KeycloakPermissionClaims"/>.</summary>

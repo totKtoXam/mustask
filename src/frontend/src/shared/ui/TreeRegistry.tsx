@@ -14,6 +14,7 @@ import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
+import Link from '@mui/material/Link';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
@@ -24,6 +25,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Tooltip from '@mui/material/Tooltip';
+import { Link as RouterLink } from 'react-router-dom';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
@@ -67,6 +69,12 @@ export interface TreeRegistryProps<N extends TreeRegistryNode> {
   nodes: readonly N[];
   /** Shown after the label, e.g. a chip. */
   adornment?(node: N): ReactNode;
+  /**
+   * An address the label leads to (mod-018 design D-7): the label becomes a router `Link` outside
+   * the Tab order (the row is the tab stop), Enter on a row follows it and Space selects. Absent:
+   * nothing changes.
+   */
+  labelTo?(node: N): string;
   actions(node: N): readonly TreeRegistryAction[];
   /**
    * Whether the actions column — its header cell, a cell and a «Действия»
@@ -146,7 +154,7 @@ function visibleRows<N extends TreeRegistryNode>(
  * - ArrowDown / ArrowUp, Home / End move between visible rows.
  * - ArrowRight expands, then goes to the first child; ArrowLeft collapses,
  *   then goes to the parent.
- * - Enter and Space select; Shift+F10 and ContextMenu open the row's menu;
+ * - Enter and Space select (with `labelTo`, Enter follows the label's link); Shift+F10 and ContextMenu open the row's menu;
  *   Escape in the menu returns to «Действия».
  * - A click on a row selects and focuses it.
  */
@@ -156,6 +164,7 @@ export function TreeRegistry<N extends TreeRegistryNode>({
   columns,
   nodes,
   adornment,
+  labelTo,
   actions,
   showActions,
   selectedId,
@@ -281,6 +290,13 @@ export function TreeRegistry<N extends TreeRegistryNode>({
         }
         return;
       case 'Enter':
+        event.preventDefault();
+        if (labelTo) {
+          event.currentTarget.querySelector<HTMLAnchorElement>('a[data-tree-label]')?.click();
+        } else {
+          onSelect(row.node.id);
+        }
+        return;
       case ' ':
         event.preventDefault();
         onSelect(row.node.id);
@@ -415,7 +431,21 @@ export function TreeRegistry<N extends TreeRegistryNode>({
                             minWidth: 0,
                           }}
                         >
-                          {node.label}
+                          {labelTo ? (
+                            <Link
+                              component={RouterLink}
+                              to={labelTo(node)}
+                              tabIndex={-1}
+                              data-tree-label=""
+                              color="inherit"
+                              underline="hover"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              {node.label}
+                            </Link>
+                          ) : (
+                            node.label
+                          )}
                         </Box>
                       </Tooltip>
                       {adornment?.(node)}
@@ -432,28 +462,30 @@ export function TreeRegistry<N extends TreeRegistryNode>({
                       align="right"
                       sx={{ width: (theme) => theme.spacing(6) }}
                     >
-                      <IconButton
-                        size="small"
-                        ref={(element: HTMLButtonElement | null) => {
-                          if (element) {
-                            actionButtons.current.set(node.id, element);
-                          } else {
-                            actionButtons.current.delete(node.id);
-                          }
-                        }}
-                        tabIndex={tabbable ? 0 : -1}
-                        aria-label={`Действия: ${node.label}`}
-                        aria-haspopup="menu"
-                        aria-expanded={menu?.id === node.id ? 'true' : 'false'}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setFocusedId(node.id);
-                          setMenu({ id: node.id, anchor: event.currentTarget });
-                        }}
-                        onKeyDown={(event) => event.stopPropagation()}
-                      >
-                        <MoreHorizIcon fontSize="small" />
-                      </IconButton>
+                      {actions(node).length > 0 && (
+                        <IconButton
+                          size="small"
+                          ref={(element: HTMLButtonElement | null) => {
+                            if (element) {
+                              actionButtons.current.set(node.id, element);
+                            } else {
+                              actionButtons.current.delete(node.id);
+                            }
+                          }}
+                          tabIndex={tabbable ? 0 : -1}
+                          aria-label={`Действия: ${node.label}`}
+                          aria-haspopup="menu"
+                          aria-expanded={menu?.id === node.id ? 'true' : 'false'}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setFocusedId(node.id);
+                            setMenu({ id: node.id, anchor: event.currentTarget });
+                          }}
+                          onKeyDown={(event) => event.stopPropagation()}
+                        >
+                          <MoreHorizIcon fontSize="small" />
+                        </IconButton>
+                      )}
                     </TableCell>
                   )}
                 </TableRow>

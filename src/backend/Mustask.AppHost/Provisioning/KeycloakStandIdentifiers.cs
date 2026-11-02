@@ -15,7 +15,7 @@ namespace Mustask.AppHost.Provisioning;
 public static partial class KeycloakStandIdentifiers
 {
     /// <summary>
-    /// The stand's realm when `Keycloak:Realm` is not set (tech-024, ADR-0031: the realm name is configuration, because the
+    /// The stand's realm when `Keycloak:Realm` is not set (tech-024, ADR-0033: the realm name is configuration, because the
     /// company-wide realm MUSTASK runs in on a server is not called `mustask`).
     /// </summary>
     public const string DefaultRealm = "mustask";
@@ -48,7 +48,7 @@ public static partial class KeycloakStandIdentifiers
     /// <summary>
     /// The client roles of <see cref="ApiClientId"/> the fixture user is given directly (no group, no realm role). The names are literals
     /// because the AppHost does not reference the domain; `KeycloakStandProvisioningTests` compares them with `InstanceRoles`:
-    /// `user` to sign in, `system-admin` for every instance right — what the group «Администраторы» gave before ADR-0031.
+    /// `user` to sign in, `system-admin` for every instance right — what the group «Администраторы» gave before ADR-0033.
     /// </summary>
     public static readonly IReadOnlyList<string> FixtureRoles = ["user", "system-admin"];
 

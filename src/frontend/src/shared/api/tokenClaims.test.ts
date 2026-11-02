@@ -12,7 +12,7 @@ function withRoles(roles: string[]) {
 }
 
 describe('decodeAccessToken', () => {
-  // tech-024 (ADR-0031): the token carries the four client-role names; the codes come from the table mirrored from the backend.
+  // tech-024 (ADR-0033): the token carries the four client-role names; the codes come from the table mirrored from the backend.
   it.each([
     [['user'], [READ]],
     [['user', 'organization-creator'], [READ, CREATE]],

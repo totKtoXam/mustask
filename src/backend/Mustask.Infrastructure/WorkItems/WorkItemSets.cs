@@ -16,6 +16,8 @@ namespace Mustask.Infrastructure.WorkItems;
 /// <item><see cref="InAnyState"/> is for the card by address, a live child's stored parent, a team's owned count, Restore,
 /// Purge, the clean-ups and the locks.</item>
 /// </list>
+/// The decision of what is live, deleted or in a project is the domain's (<see cref="WorkItemSetRules"/>); this class names the set and
+/// applies it.
 /// "Deleted" is the item's state being in the Removed category — one of the three expressions of the one definition that
 /// <c>DeletedStateParityTests</c> pins equal (in memory <see cref="WorkItemTypeStates.IsRemoved"/>, here in LINQ, and in
 /// the backlogs' raw SQL and memberships, which take the scope's shown-state ids). The queries are not <c>AsNoTracking</c>:
@@ -25,7 +27,7 @@ internal static class WorkItemSets
 {
     /// <summary>The ids of every state of the Removed category («Удалена»), as a subquery: the one LINQ copy of the definition.</summary>
     public static IQueryable<Guid> RemovedStateIds(MustaskDbContext context) =>
-        context.StateDefinitions.Where(state => state.Category == StateCategory.Removed).Select(state => state.Id);
+        context.StateDefinitions.Where(WorkItemSetRules.RemovedState).Select(state => state.Id);
 
     /// <summary>Every work item, whatever its state.</summary>
     public static IQueryable<WorkItem> InAnyState(MustaskDbContext context) => context.WorkItems;
@@ -42,7 +44,7 @@ internal static class WorkItemSets
     {
         var removed = RemovedStateIds(context);
 
-        return context.WorkItems.Where(item => !removed.Contains(item.StateId));
+        return context.WorkItems.Where(WorkItemSetRules.Live(removed));
     }
 
     /// <summary>The work items in the Removed category: «Удалена» (the category, never the name).</summary>
@@ -50,7 +52,7 @@ internal static class WorkItemSets
     {
         var removed = RemovedStateIds(context);
 
-        return context.WorkItems.Where(item => removed.Contains(item.StateId));
+        return context.WorkItems.Where(WorkItemSetRules.Deleted(removed));
     }
 
     /// <summary>
@@ -61,8 +63,8 @@ internal static class WorkItemSets
     /// </summary>
     public static IQueryable<WorkItem> Listing(MustaskDbContext context, Guid projectId, bool statesChosen)
     {
-        var live = Live(context).Where(item => item.ProjectId == projectId);
+        var live = Live(context).Where(WorkItemSetRules.OfProject(projectId));
 
-        return statesChosen ? live.Concat(Deleted(context).Where(item => item.ProjectId == projectId)) : live;
+        return statesChosen ? live.Concat(Deleted(context).Where(WorkItemSetRules.OfProject(projectId))) : live;
     }
 }

@@ -36,7 +36,7 @@ public sealed class OrganizationPermissionRealmTests
     }
 
     /// <summary>
-    /// tech-024 (ADR-0031): the token carries the four role names and the code table lives in code, so the realm import
+    /// tech-024 (ADR-0033): the token carries the four role names and the code table lives in code, so the realm import
     /// mentions no permission code at all — instance codes included. A raw code as a client role would be a right nobody
     /// checks (<see cref="Mustask.Api.Authentication.KeycloakPermissionClaims"/> ignores unknown names).
     /// </summary>

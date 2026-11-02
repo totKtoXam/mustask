@@ -94,7 +94,7 @@ public sealed class RenameProjectEndpointTests(MustaskApiFactory factory)
         Assert.Equal("Платформа данных", tree.Root.Name);
         Assert.Equal(structure.RootId, tree.Root.Id);
         Assert.Equal(before.Count, tree.Count);
-        Assert.Equal("Отчёты / Квартальные", tree.PathOf(quarterly.Id));
+        Assert.Equal("Платформа данных / Отчёты / Квартальные", tree.PathOf(quarterly.Id));
         Assert.Equal(
             before.PreOrder().Where(node => node.Id != structure.RootId),
             tree.PreOrder().Where(node => node.Id != structure.RootId));

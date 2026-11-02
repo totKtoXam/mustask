@@ -310,7 +310,7 @@ public sealed class SessionTokenEndpointTests
     }
 
     /// <summary>
-    /// tech-024 (ADR-0031): a renewal whose access token no longer carries the `user` client role ends the session — 403
+    /// tech-024 (ADR-0033): a renewal whose access token no longer carries the `user` client role ends the session — 403
     /// <c>session.no_access</c>, the cookie cleared, the cache evicted.
     /// </summary>
     [Fact]

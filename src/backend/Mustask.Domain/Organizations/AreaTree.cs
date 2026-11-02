@@ -1,29 +1,32 @@
+using Mustask.Shared.Exceptions;
+
 namespace Mustask.Domain.Organizations;
 
-/// <summary>One area as the tree sees it: its place and its name. An area owns nothing (mod-017 BR-OT-10).</summary>
-public sealed record AreaNode(Guid Id, Guid? ParentId, string Name);
+/// <summary>One node as the tree sees it: its place, name, type and (below and at a project's node) its project. A node owns nothing (BR-AW-2).</summary>
+public sealed record AreaNode(Guid Id, Guid? ParentId, string Name, AreaType Type = AreaType.Area, Guid? ProjectId = null);
 
 /// <summary>
-/// A pure view of one project's area tree, built from its nodes. It is the
-/// single definition of an area's path (DC-9), its depth and of "the node or one
-/// of its descendants" (BR-M1-12): the tree read, the work item reads, the move
-/// and the reads for other modules all use it. No rule resolves a team through the
-/// tree any more: a work item's owning team is its own (mod-017 BR-OT-5).
+/// A pure view of one organization's area tree — a forest: every area with no parent is a top-level area (BR-AW-3). It is the single
+/// definition of an area's path (BR-AW-13), its level, its height, and of "the area or one of its descendants": the tree read, the
+/// writes' cycle and depth checks and the reads for other modules all use it (ADR-0028 rule 5).
 /// </summary>
 public sealed class AreaTree
 {
-    /// <summary>What joins the names of a path (DC-9).</summary>
+    /// <summary>What joins the names of a path.</summary>
     public const string PathSeparator = " / ";
+
+    /// <summary>The tree is at most this many levels deep, at creation and after a move (BR-AW-3).</summary>
+    public const int MaxDepth = 10;
 
     private readonly Dictionary<Guid, AreaNode> _byId;
     private readonly Dictionary<Guid, List<AreaNode>> _children;
+    private readonly List<AreaNode> _roots;
     private readonly List<AreaNode> _preOrder;
 
     /// <summary>
-    /// Builds the tree. Siblings keep the order <paramref name="nodes"/> gives
-    /// them, so a caller that reads the nodes in display order gets the display
-    /// order back from <see cref="PreOrder"/>. Exactly one node has no parent,
-    /// every parent is a node of the tree, and every node is reachable from the root.
+    /// Builds the tree. Siblings keep the order <paramref name="nodes"/> gives them, so a caller that reads the nodes in display order
+    /// gets the display order back from <see cref="PreOrder"/>. Every parent is a node of the tree and every node is reachable from a
+    /// top-level area.
     /// </summary>
     public AreaTree(IEnumerable<AreaNode> nodes)
     {
@@ -32,7 +35,7 @@ public sealed class AreaTree
         var list = nodes.ToList();
         _byId = [];
         _children = [];
-        AreaNode? root = null;
+        _roots = [];
 
         foreach (var node in list)
         {
@@ -40,48 +43,37 @@ public sealed class AreaTree
             {
                 throw new ArgumentException($"The area {node.Id} appears twice.", nameof(nodes));
             }
-
-            if (node.ParentId is null)
-            {
-                if (root is not null)
-                {
-                    throw new ArgumentException("A project's tree has exactly one root.", nameof(nodes));
-                }
-
-                root = node;
-            }
         }
-
-        Root = root ?? throw new ArgumentException("A project's tree has a root.", nameof(nodes));
 
         foreach (var node in list)
         {
-            if (node.ParentId is { } parentId)
+            if (node.ParentId is not { } parentId)
             {
-                if (!_byId.ContainsKey(parentId))
-                {
-                    throw new ArgumentException($"The parent of the area {node.Id} is not in the tree.", nameof(nodes));
-                }
-
-                if (!_children.TryGetValue(parentId, out var siblings))
-                {
-                    siblings = [];
-                    _children[parentId] = siblings;
-                }
-
-                siblings.Add(node);
+                _roots.Add(node);
+                continue;
             }
+
+            if (!_byId.ContainsKey(parentId))
+            {
+                throw new ArgumentException($"The parent of the area {node.Id} is not in the tree.", nameof(nodes));
+            }
+
+            if (!_children.TryGetValue(parentId, out var siblings))
+            {
+                siblings = [];
+                _children[parentId] = siblings;
+            }
+
+            siblings.Add(node);
         }
 
         _preOrder = BuildPreOrder();
 
         if (_preOrder.Count != _byId.Count)
         {
-            throw new ArgumentException("Every area is reachable from the root: the nodes hold a cycle.", nameof(nodes));
+            throw new ArgumentException("Every area is reachable from the top level: the nodes hold a cycle.", nameof(nodes));
         }
     }
-
-    public AreaNode Root { get; }
 
     public int Count => _byId.Count;
 
@@ -92,6 +84,9 @@ public sealed class AreaTree
     /// <summary>Every node, each before its children, siblings in the order the tree was built with.</summary>
     public IReadOnlyList<AreaNode> PreOrder() => _preOrder;
 
+    /// <summary>The top-level areas, in the order the tree was built with.</summary>
+    public IReadOnlyList<AreaNode> TopLevel() => _roots;
+
     /// <summary>The direct children of <paramref name="id"/>, in the order the tree was built with.</summary>
     public IReadOnlyList<AreaNode> ChildrenOf(Guid id)
     {
@@ -100,19 +95,12 @@ public sealed class AreaTree
         return _children.TryGetValue(id, out var children) ? children : [];
     }
 
-    /// <summary>The root's own name for the root; otherwise the names below the root, joined by <see cref="PathSeparator"/> (DC-9).</summary>
+    /// <summary>The names from the top level down to the area, joined by <see cref="PathSeparator"/> (BR-AW-13).</summary>
     public string PathOf(Guid id)
     {
-        var node = Node(id);
-
-        if (node.ParentId is null)
-        {
-            return node.Name;
-        }
-
         var names = new List<string>();
 
-        for (var current = node; current.ParentId is { } parentId; current = _byId[parentId])
+        for (AreaNode? current = Node(id); current is not null; current = current.ParentId is { } parentId ? _byId[parentId] : null)
         {
             names.Add(current.Name);
         }
@@ -122,17 +110,37 @@ public sealed class AreaTree
         return string.Join(PathSeparator, names);
     }
 
-    /// <summary>0 for the root.</summary>
-    public int DepthOf(Guid id)
+    /// <summary>1 for a top-level area (the spec's levels).</summary>
+    public int LevelOf(Guid id)
     {
-        var depth = 0;
+        var level = 0;
 
-        for (var current = Node(id); current.ParentId is { } parentId; current = _byId[parentId])
+        for (AreaNode? current = Node(id); current is not null; current = current.ParentId is { } parentId ? _byId[parentId] : null)
         {
-            depth++;
+            level++;
         }
 
-        return depth;
+        return level;
+    }
+
+    /// <summary>The number of levels below the area: 0 for a leaf.</summary>
+    public int HeightOf(Guid id)
+    {
+        var height = 0;
+        var frontier = new List<AreaNode> { Node(id) };
+
+        while (true)
+        {
+            var next = frontier.SelectMany(node => _children.TryGetValue(node.Id, out var children) ? children : []).ToList();
+
+            if (next.Count == 0)
+            {
+                return height;
+            }
+
+            height++;
+            frontier = next;
+        }
     }
 
     /// <summary>Whether <paramref name="candidateId"/> is <paramref name="nodeId"/> itself or one of its descendants.</summary>
@@ -151,6 +159,21 @@ public sealed class AreaTree
         return false;
     }
 
+    /// <summary>
+    /// Whether a subtree of <paramref name="subtreeHeight"/> levels below its own top fits under <paramref name="parentId"/>
+    /// (<c>null</c>: the top level, level 1) within <see cref="MaxDepth"/> levels; throws
+    /// <see cref="OrganizationErrorCodes.AreaDepthExceeded"/> when it does not. A new area is a subtree of height 0.
+    /// </summary>
+    public void EnsureCanHold(Guid? parentId, int subtreeHeight)
+    {
+        var topLevel = (parentId is { } parent ? LevelOf(parent) : 0) + 1;
+
+        if (topLevel + subtreeHeight > MaxDepth)
+        {
+            throw new ConflictException(OrganizationErrorCodes.AreaDepthExceeded);
+        }
+    }
+
     private AreaNode Node(Guid id) =>
         _byId.TryGetValue(id, out var node)
             ? node
@@ -160,7 +183,11 @@ public sealed class AreaTree
     {
         var order = new List<AreaNode>(_byId.Count);
         var stack = new Stack<AreaNode>();
-        stack.Push(Root);
+
+        for (var index = _roots.Count - 1; index >= 0; index--)
+        {
+            stack.Push(_roots[index]);
+        }
 
         while (stack.Count > 0)
         {

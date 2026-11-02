@@ -37,7 +37,9 @@ function storyDataset() {
   story.parentId = recordOf(data, 6).id;
   story.assigneeId = ids.anna;
   story.fields.storyPoints = 1.5;
-  story.fields.acceptanceCriteria = [{ given: 'Ссылка выдана', when: 'Пользователь открывает её', then: 'Он входит без пароля' }];
+  story.fields.acceptanceCriteria = [
+    { given: 'Ссылка выдана', when: 'Пользователь открывает её', then: 'Он входит без пароля' },
+  ];
   story.description = 'Пользователь входит по ссылке.\nБез пароля.';
   recordOf(data, 3).parentId = story.id;
   return data;

@@ -4,7 +4,7 @@ using Mustask.Domain.Identity;
 namespace Mustask.Api.IntegrationTests.Features.UserDirectory.Live;
 
 /// <summary>
-/// mod-016 plan-backend § 4.3 (the spike that stays), reshaped by tech-024 (ADR-0031): Keycloak imports the repository's <b>real</b>
+/// mod-016 plan-backend § 4.3 (the spike that stays), reshaped by tech-024 (ADR-0033): Keycloak imports the repository's <b>real</b>
 /// realm file and the realm is what the contract tests and the stand's drift check read from it - no realm role of ours, no group,
 /// the four client roles of <c>mustask-api</c> with their descriptions, a token that carries the role names a user holds directly,
 /// and the stand's own drift check reporting nothing. A file test cannot promise any of this: Keycloak rejects or reshapes an import
@@ -36,7 +36,7 @@ public sealed class LiveRealmImportTests
     {
         await using var keycloak = await LiveRealmContainer.StartAsync(File.ReadAllText(RealmFile));
 
-        // The realm roles Keycloak holds are the ones it creates itself: no business role, no group (ADR-0031).
+        // The realm roles Keycloak holds are the ones it creates itself: no business role, no group (ADR-0033).
         var (_, roles, _) = await keycloak.AdminAsync(HttpMethod.Get, "/roles?briefRepresentation=false");
         var names = ((JsonArray)roles!).Select(role => (string)role!["name"]!).Order(StringComparer.Ordinal).ToArray();
         Assert.Equal(["default-roles-mustask", "offline_access", "uma_authorization"], names);

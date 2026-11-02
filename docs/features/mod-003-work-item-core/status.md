@@ -64,6 +64,7 @@ Frontend (stage 6):
 - 2026-10-05 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/mod-003-work-item-core
 - 2026-10-05 [new-task] size mismatch: queue has size:L, human confirmed M
 - 2026-10-18 [dev] P-10 note from feat-040-team-surfaces-across-projects: § 1.1 `WorkItem` gains `project: { id, name }` beside `projectId` (additive), the project's current name, on every answer that returns a work item (read, create, save, parent write, restore). This api-contract is not edited.
+- 2026-10-28 [dev] P-10 note from mod-018 (typed tree, ADR-0031): REVERSAL: the work item's «Область» is back (BR-M3-23/-24 and the area halves of BR-M3-2/-20 stand), restricted to the item's project node and its sub-areas (404 `organizations.area.not_found` otherwise; `outside_project` is the move of a sub-area only); § 1.1 keeps `area {id, path}`; the upgrade no longer drops the stored item areas, each keeps its `area_id`; deleting a sub-area with an item is 409 `area.not_empty` (every state).
 
 ## Notes
 

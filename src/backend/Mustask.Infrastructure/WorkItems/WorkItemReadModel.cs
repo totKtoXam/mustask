@@ -352,10 +352,12 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         var nodes = await context.Areas
             .AsNoTracking()
             .Where(area => area.ProjectId == projectId)
-            .Select(area => new AreaNode(area.Id, area.ParentId, area.Name))
+            .Select(area => new AreaNode(area.Id, area.ParentId, area.Name, area.Type))
             .ToListAsync(cancellationToken);
 
-        return new AreaTree(nodes);
+        // mod-018 design § 8: the paths are project-relative. The project's node is the top of the item's tree, so the department
+        // above it (not among the project's areas) is cut off: the node is read as a top-level area.
+        return new AreaTree(nodes.Select(node => node.Type == AreaType.Project ? node with { ParentId = null } : node));
     }
 
     /// <summary>

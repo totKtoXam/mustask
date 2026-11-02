@@ -28,7 +28,7 @@ describe('mod-002 US-3 Scenario: Created ready to use', () => {
     expect(name).toHaveFocus();
     expect(
       within(dialog).getByText(
-        'От 1 до 100 символов. Так же будет названа корневая область проекта.',
+        'От 1 до 100 символов. Так же будет называться корневая область проекта.',
       ),
     ).toBeInTheDocument();
     expect(
@@ -40,19 +40,19 @@ describe('mod-002 US-3 Scenario: Created ready to use', () => {
     expect(key).toHaveAttribute('spellcheck', 'false');
     expect(key).toHaveAttribute('autocapitalize', 'characters');
 
-    await userEvent.type(name, 'Платформа');
+    await userEvent.type(name, 'Витрина');
     await userEvent.type(key, 'PLT');
     await submit();
 
-    expect(await screen.findByText('Проект «Платформа» создан.')).toBeInTheDocument();
+    expect(await screen.findByText('Проект «Витрина» создан.')).toBeInTheDocument();
     const table = await screen.findByRole('table', { name: 'Активные проекты' });
-    expect(await within(table).findByRole('link', { name: 'Платформа' })).toBeInTheDocument();
+    expect(await within(table).findByRole('link', { name: 'Витрина' })).toBeInTheDocument();
     expect(screen.getByTestId('location')).toHaveTextContent(ALFA_PROJECTS);
     expect(api.writes()).toEqual([
       {
         method: 'POST',
         path: `/api/organizations/${ids.alfa}/projects`,
-        body: { name: 'Платформа', key: 'PLT' },
+        body: { name: 'Витрина', key: 'PLT' },
       },
     ]);
   });
@@ -67,12 +67,12 @@ describe('feat-028 US-2 Scenario: A project is created with no team, a descripti
     expect(within(dialog).getByRole('textbox', { name: 'Описание' })).toHaveValue('');
     expect(within(dialog).getByRole('combobox', { name: 'Команды' })).toBeInTheDocument();
 
-    await userEvent.type(name, 'Платформа');
+    await userEvent.type(name, 'Витрина');
     await userEvent.type(key, 'PLT');
     await submit();
 
-    expect(await screen.findByText('Проект «Платформа» создан.')).toBeInTheDocument();
-    expect(api.writes()[0]?.body).toEqual({ name: 'Платформа', key: 'PLT' });
+    expect(await screen.findByText('Проект «Витрина» создан.')).toBeInTheDocument();
+    expect(api.writes()[0]?.body).toEqual({ name: 'Витрина', key: 'PLT' });
     const created = api.data.projects.find((project) => project.key === 'PLT')!;
     // BR-OL-2: creating a project creates no team and no link.
     expect(api.data.links.filter((link) => link.projectId === created.id)).toEqual([]);

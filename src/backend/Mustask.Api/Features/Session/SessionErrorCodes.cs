@@ -22,6 +22,6 @@ public static class SessionErrorCodes
     /// <summary><c>returnUrl</c> is not a local path. 400.</summary>
     public const string InvalidReturnUrl = "session.invalid_return_url";
 
-    /// <summary>The renewed access token no longer carries the client role <c>user</c> (tech-024, ADR-0031): the session ends. 403.</summary>
+    /// <summary>The renewed access token no longer carries the client role <c>user</c> (tech-024, ADR-0033): the session ends. 403.</summary>
     public const string NoAccess = "session.no_access";
 }

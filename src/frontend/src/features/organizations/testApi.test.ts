@@ -85,7 +85,7 @@ describe('the slice’s test API answers per api-contract (a check of the test d
     const project = await createProject(ids.beta, { name: 'Ядро', key: 'CORE', description: 'Д' });
     expect(project.description).toBe('Д');
     expect(await getTeams(ids.beta, project.id)).toEqual([]);
-    const treeBefore = await getAreaTree(ids.beta, project.id);
+    const treeBefore = await getAreaTree(ids.beta);
 
     const team = await createTeam(ids.beta, {
       name: 'Сервис',
@@ -93,7 +93,7 @@ describe('the slice’s test API answers per api-contract (a check of the test d
       projectIds: [project.id],
     });
     expect(team).toEqual({ id: team.id, name: 'Сервис', description: ' Первая\nВторая' });
-    expect(await getAreaTree(ids.beta, project.id)).toEqual(treeBefore);
+    expect(await getAreaTree(ids.beta)).toEqual(treeBefore);
     // One linked team and no setting: it is the project's default as the only one.
     expect((await getTeams(ids.beta, project.id)).map((t) => [t.name, t.defaultMark])).toEqual([
       ['Сервис', 'onlyTeam'],

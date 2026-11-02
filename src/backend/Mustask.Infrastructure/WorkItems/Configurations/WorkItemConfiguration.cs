@@ -87,11 +87,9 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
             .HasForeignKey(item => item.ProjectId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne<Area>()
-            .WithMany()
-            .HasForeignKey(item => new { item.ProjectId, item.AreaId })
-            .HasPrincipalKey(area => new { area.ProjectId, area.Id })
-            .OnDelete(DeleteBehavior.Restrict);
+        // The key (project_id, area_id) onto areas (project_id, id) is created by the migration (fk_work_items_areas_project_id_area_id):
+        // an area's project_id is nullable (a department has none), which an EF alternate key cannot be, so the model leaves the key to
+        // SQL. The database still refuses an area of another project (BR-AW-11).
 
         // mod-017 (BR-OT-1), feat-028 (BR-OL-6): the owning team is a team linked to the item's own project. The key is
         // composite, (project_id, owning_team_id) onto the link's primary key (project_id, team_id), so the database refuses a

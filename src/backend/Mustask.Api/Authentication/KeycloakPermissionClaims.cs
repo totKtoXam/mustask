@@ -6,7 +6,7 @@ namespace Mustask.Api.Authentication;
 
 /// <summary>
 /// Роли из <c>resource_access.&lt;audience&gt;.roles</c> → claim <c>perm</c>
-/// по таблице <see cref="InstanceRoles"/> (tech-024, ADR-0031): токен несёт
+/// по таблице <see cref="InstanceRoles"/> (tech-024, ADR-0033): токен несёт
 /// имена четырёх клиентских ролей, а не коды прав; неизвестное имя роли
 /// игнорируется, а принципал без роли <c>user</c> не получает ни одного
 /// <c>perm</c>. Чистая функция над

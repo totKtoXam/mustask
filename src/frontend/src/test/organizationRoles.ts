@@ -37,6 +37,9 @@ const ADMIN_ONLY_CODES = [
   'organizations.team.delete',
   'organizations.team.link',
   'organizations.project.link',
+  // mod-018 api-contract § 0: the top level of the tree and the area's links, the administrator's until mod-019.
+  'organizations.area.create',
+  'organizations.area.link',
 ] as const;
 
 /** Held by the administrator and the member. */

@@ -53,6 +53,12 @@ public interface IOrganizationStructure
     /// The projects the team is linked to that are <b>reachable</b>, by name then id. Empty for a team of another organization.
     /// </summary>
     Task<IReadOnlyList<LinkedProjectInfo>> ListLinkedProjectsAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken);
+
+    /// <summary>The node of that organization (mod-018). <c>null</c> for an unknown node or one of another organization.</summary>
+    Task<AreaInfo?> FindAreaAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken);
+
+    /// <summary>The departments the team is linked to, by pre-order of the tree (mod-018 BR-AW-6). Empty for a team of another organization.</summary>
+    Task<IReadOnlyList<AreaInfo>> ListAreasOfTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken);
 }
 
 /// <summary>An organization for another module.</summary>
@@ -72,7 +78,7 @@ public sealed record OrganizationInfo(
 /// it is still linked and active, else its only linked active team, else <c>null</c> — resolved by <see cref="ProjectDefaultTeam"/>
 /// in the statement that reads the project.
 /// </param>
-/// <param name="RootAreaId">The area a new work item takes (a classification path until mod-018, mod-017 BR-OT-10).</param>
+/// <param name="RootAreaId">The project's node in the organization's area tree (mod-018 BR-AW-0): the area a new work item takes.</param>
 public sealed record ProjectInfo(
     Guid Id,
     Guid OrganizationId,
@@ -96,6 +102,9 @@ public sealed record TeamInfo(
 
 /// <summary>A team with the one fact a project's write needs about it: whether the team is linked to the project (BR-OL-6).</summary>
 public sealed record ProjectTeamInfo(TeamInfo Team, bool IsLinked);
+
+/// <summary>A node for another module (mod-018): its place in the tree, type, name and its path from the top level.</summary>
+public sealed record AreaInfo(Guid Id, Guid OrganizationId, Guid? ParentId, AreaType Type, Guid? ProjectId, string Name, string? Description, string Path);
 
 /// <summary>A project a team is linked to, for another module.</summary>
 /// <param name="IsReachable"><c>true</c> when the project and its organization are both active.</param>

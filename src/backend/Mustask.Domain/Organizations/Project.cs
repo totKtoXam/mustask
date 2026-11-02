@@ -3,7 +3,7 @@ namespace Mustask.Domain.Organizations;
 /// <summary>
 /// A project of an organization (US-3). Its name is unique in the organization
 /// among projects of any status, and so is its key, which never changes
-/// (BR-M1-1). It is created with its root area (until mod-018 removes it), owned by nobody,
+/// (BR-M1-1). It is created with its node in the organization's area tree (mod-018 BR-AW-0, OQ-5 A),
 /// and <b>no team</b> (feat-028 BR-OL-2): the teams that work in it are its links. It may carry a
 /// description (BR-OL-3). Removed softly, like the organization (ADR-0026).
 /// </summary>
@@ -82,7 +82,7 @@ public sealed class Project
     }
 
     /// <summary>
-    /// A new, active project with its root (US-3). The root is named after the project and belongs to nobody (mod-017
+    /// A new, active project with its node (US-3). The node is named after the project, stands under a department or at the top, and owns nothing (mod-017
     /// BR-OT-10); <b>no team comes with the project</b> and no one joins one (feat-028 BR-OL-2). The caller has checked the key
     /// already (<see cref="ProjectKey"/>) and links the teams the request names in the same operation.
     /// </summary>
@@ -92,7 +92,8 @@ public sealed class Project
         string key,
         DateTimeOffset createdAt,
         string createdBy,
-        EntityDescription? description = null)
+        EntityDescription? description = null,
+        Guid? parentAreaId = null)
     {
         if (organizationId == Guid.Empty)
         {
@@ -107,7 +108,7 @@ public sealed class Project
         Organization.EnsureCreator(createdBy);
 
         var project = new Project(Guid.CreateVersion7(), organizationId, name, key, description, createdAt, createdBy);
-        var root = Area.CreateRoot(project.Id, name);
+        var root = Area.CreateProjectNode(organizationId, parentAreaId, project.Id, name, createdBy, createdAt);
 
         return new NewProject(project, root);
     }
@@ -118,14 +119,14 @@ public sealed class Project
     /// <summary>Renames the project and its root with it (BR-M1-11). The key, the links and the rest of the tree do not change.</summary>
     public void Rename(EntityName name, Area root)
     {
-        if (!root.IsRoot || root.ProjectId != Id)
+        if (root.Type != AreaType.Project || root.ProjectId != Id)
         {
             throw new ArgumentException("The root renamed with a project is that project's own root.", nameof(root));
         }
 
         Name = name.Value;
         NormalizedName = name.Normalized;
-        root.RenameAsRoot(name);
+        root.RenameWithProject(name);
     }
 
     /// <summary>Writes this one row: nothing beneath changes status (ADR-0026 rule 2).</summary>

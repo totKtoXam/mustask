@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Keycloak seed for the stand: creates users and gives them client roles.
 # The company-wide Keycloak realm lets MUSTASK own only clients and client
-# roles (ADR-0031), so a user holds the client roles of `mustask-api`
+# roles (ADR-0033), so a user holds the client roles of `mustask-api`
 # DIRECTLY — no groups, no realm roles. The realm and the four roles
 # (`user`, `organization-creator`, `dictionaries-admin`, `system-admin`)
 # arrive via import from deploy/keycloak/realms when the container is created;
@@ -137,7 +137,7 @@ first_id() {
 
 # Gives the user the named client roles of mustask-api (comma-separated) —
 # directly: the company-wide realm lets MUSTASK own only clients and client
-# roles, so there are no groups and no realm roles to go through (ADR-0031).
+# roles, so there are no groups and no realm roles to go through (ADR-0033).
 # The roles arrive with the realm import; a role the realm does not have is
 # an error naming it, not a silent skip.
 grant_client_roles() {
@@ -220,7 +220,7 @@ seed_user() {
     esac
 
     # A user with no group holds the realm's default roles and nothing else.
-    # The roles are the user's own: directly, no group (ADR-0031). Without `user` the account cannot sign in to the panel.
+    # The roles are the user's own: directly, no group (ADR-0033). Without `user` the account cannot sign in to the panel.
     grant_client_roles "$realm" "$id" "$client_roles" || return 1
 }
 

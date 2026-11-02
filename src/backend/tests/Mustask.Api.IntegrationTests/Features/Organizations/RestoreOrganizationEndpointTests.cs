@@ -143,7 +143,7 @@ public sealed class RestoreOrganizationEndpointTests(MustaskApiFactory factory)
 
         // The tree: «Квартальные» is under «Отчёты», as before.
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
-        Assert.Equal("Отчёты / Квартальные", tree.PathOf(quarterly.Id));
+        Assert.Equal("Пример проекта / Отчёты / Квартальные", tree.PathOf(quarterly.Id));
         Assert.Equal(reports.Id, tree[quarterly.Id].ParentId);
 
         Assert.Contains(structure.OrganizationId, await ListedOrganizationsAsync(OrganizationStatus.Active));

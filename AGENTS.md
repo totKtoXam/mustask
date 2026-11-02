@@ -48,7 +48,9 @@ read it before your first task. In short:
   files (`docs/backlog.md`, `docs/backlog/*.md`): the queue lives in main, and
   a task gets its number by having its line put there. The queue is edited with
   `scripts/queue.sh add|take|withdraw` — it issues the number, writes the
-  line by the format and stages only queue files. What is in flight, what
+  line by the format, stages only queue files and lands the commit as a
+  squash PR from a `sync/queue-*` branch with auto-merge asked for, never on
+  the local `main` (`--local` only when there is no remote). What is in flight, what
   is queued and how each epic stands — `bash scripts/backlog.sh`
   (`scripts/backlog.ps1` in PowerShell), and what is already finished —
   `scripts/backlog.sh --done`. Do not reconstruct any of it by reading every
