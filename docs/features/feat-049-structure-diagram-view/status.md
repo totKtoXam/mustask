@@ -10,13 +10,17 @@
 
 ## Gates
 
-gate-1: pending
-gate-2: pending
+gate-1: rejected 2026-11-03 (the human, in chat): rework together with gate-2's remarks
+gate-2: rejected 2026-11-03 (the human, in chat): remarks 1-4 in ## Decisions
 gate-3: pending
 
 ## Plan
 
 <!-- M: see plan-frontend.md -->
+
+## Decisions
+
+- Gate-1+2 questions, 2026-11-03, the human in chat: OQ-1..OQ-7 all A (OQ-6 threshold 150); the switch is BoxedTabs with a docblock note. Verdict: rejected with remarks — 1) the group «Без проектов и департаментов» goes to the top; 2) mark nesting levels; 3) a control that switches how choosing a node shows the rest: today's dimming stays as the first mode, design proposes more convenient ones; 4) design proposes further convenience improvements.
 
 ## Log
 
