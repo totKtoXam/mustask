@@ -86,7 +86,9 @@ describe('feat-049 diagram model (design §§ 4.1, 4.7)', () => {
 
   it('summarises a team, a project and a department', () => {
     expect(summaryText(model, 'ATLAS')).toBe('Проекты команды: нет. Департаменты команды: нет');
-    expect(summaryText(model, 'nA')).toBe('Ветка проекта: областей 2. Команды проекта: MARS, VENUS');
+    expect(summaryText(model, 'nA')).toBe(
+      'Ветка проекта: областей 2. Команды проекта: MARS, VENUS',
+    );
     expect(summaryText(model, 'd2')).toMatch(
       /^Ветка департамента: проектов 2, областей 0, команд 2\. Связано вне ветки: /,
     );

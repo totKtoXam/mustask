@@ -81,12 +81,7 @@ describe('feat-049 horizontal layout (design § 4.2)', () => {
     });
     expect(cards(folded).map((c) => c.id)).toEqual(['nF', 'team:ATLAS@-']);
     const collapsed = layoutDiagram(model, new Set(), base);
-    expect(cards(collapsed).map((c) => c.id)).toEqual([
-      'nF',
-      'team:ATLAS@-',
-      'd1',
-      'd2',
-    ]);
+    expect(cards(collapsed).map((c) => c.id)).toEqual(['nF', 'team:ATLAS@-', 'd1', 'd2']);
   });
 });
 
@@ -128,7 +123,13 @@ describe('feat-049 «Только связанные» (design § 4.7)', () => {
   it('keeps the chosen branch, its relations and their ancestors', () => {
     const related = relatedFilter(model, emphasisOf(model, 'nF'));
     const layout = layoutDiagram(model, new Set(), { ...base, related });
-    expect(cards(layout).map((c) => c.id)).toEqual(['nF', 'd1', 'team:JUPITER@d1', 'd2', 'team:JUPITER@d2']);
+    expect(cards(layout).map((c) => c.id)).toEqual([
+      'nF',
+      'd1',
+      'team:JUPITER@d1',
+      'd2',
+      'team:JUPITER@d2',
+    ]);
     // The user's expansion is not changed by the forced one.
     expect(layout.expansion.has('d1')).toBe(true);
   });

@@ -1,6 +1,6 @@
 import type { SelectorOffers } from '../api/navigationApi';
 import type { AreaNode } from '../api/organizationsApi';
-import { structureDiagram as texts } from './areaTexts';
+import { TREE_EXPAND_ALL_LIMIT, structureDiagram as texts } from './areaTexts';
 
 /**
  * The diagram's data model (feat-049 design §§ 4.1, 4.5, 4.7): the area tree and the selector
@@ -379,4 +379,17 @@ export function cardName(model: DiagramModel, node: DiagramNode): string {
         alsoInText(model, node),
       );
   }
+}
+
+/** Every node with children, team copies counted: «Развернуть всё». */
+export function expandableNodeIds(model: DiagramModel): Set<string> {
+  return new Set(
+    [...model.childrenOf.entries()].filter(([, kids]) => kids.length > 0).map(([id]) => id),
+  );
+}
+
+/** The diagram's initial expansion follows the tree's D-3 (BR-SD-11). */
+export function initialDiagramExpansion(model: DiagramModel): Set<string> {
+  const areas = [...model.nodes.values()].filter((node) => node.kind !== 'team').length;
+  return areas > TREE_EXPAND_ALL_LIMIT ? new Set() : expandableNodeIds(model);
 }

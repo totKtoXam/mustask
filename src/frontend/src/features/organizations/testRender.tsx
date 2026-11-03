@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import { vi } from 'vitest';
 import { AccessCheckContext, type AccessCheck } from '../../shared/lib/access';
+import { NoticeProvider } from '../../shared/ui';
 import { AuthContext, type AuthContextValue } from '../auth/AuthContext';
 import { WorkContextContext, type WorkContextSource } from '../../shared/lib/workContext';
 import { checkFor, checkForCodes, type TestRole } from '../../test/organizationRoles';
@@ -148,60 +149,62 @@ export function renderPage({
       : checkFor(role, currentPermissions);
     return (
       <QueryClientProvider client={queryClient}>
-        <AuthContext.Provider value={sessionOf(subject, currentPermissions)}>
-          <AccessCheckContext.Provider value={access}>
-            <WorkContextContext.Provider value={currentContext}>
-              <MemoryRouter initialEntries={[path]}>
-                <Routes>
-                  <Route element={<OrganizationsSection />}>
-                    <Route
-                      path={ORGANIZATIONS_ROUTE}
-                      element={<OrganizationListPage view="active" />}
-                    />
-                    <Route
-                      path={DEACTIVATED_ORGANIZATIONS_ROUTE}
-                      element={<OrganizationListPage view="deactivated" />}
-                    />
-                    <Route
-                      path={ORGANIZATION_GENERAL_ROUTE}
-                      element={<OrganizationGeneralPage />}
-                    />
-                    <Route
-                      path={ORGANIZATION_OVERVIEW_ROUTE}
-                      element={<OrganizationOverviewPage />}
-                    />
-                    <Route path={PROJECTS_ROUTE} element={<ProjectsView />} />
-                    <Route path={MEMBERS_ROUTE} element={<MembersPage />} />
-                    {[PROJECT_GENERAL_ROUTE, PROJECT_SETTINGS_ROUTE].map((path) => (
-                      <Route key={path} path={path} element={<ProjectGeneralPage />} />
-                    ))}
-                    <Route path={TEAMS_ROUTE} element={<TeamsPage />} />
-                    <Route path={ORG_TEAMS_ROUTE} element={<OrganizationTeamsPage />} />
-                    {[
-                      ORG_TEAM_ROUTE,
-                      TEAM_PROJECTS_ROUTE,
-                      TEAM_MEMBERS_ROUTE,
-                      TEAM_SETTINGS_ROUTE,
-                    ].map((path) => (
-                      <Route key={path} path={path} element={<TeamPage />} />
-                    ))}
-                    <Route path={ORG_AREAS_ROUTE} element={<AreasPage />} />
-                    {[
-                      ORG_AREA_ROUTE,
-                      AREA_PROJECTS_ROUTE,
-                      AREA_TEAMS_ROUTE,
-                      AREA_SETTINGS_ROUTE,
-                    ].map((path) => (
-                      <Route key={path} path={path} element={<AreaPage />} />
-                    ))}
-                    <Route path="*" element={<p>Другая страница</p>} />
-                  </Route>
-                </Routes>
-                <LocationProbe />
-              </MemoryRouter>
-            </WorkContextContext.Provider>
-          </AccessCheckContext.Provider>
-        </AuthContext.Provider>
+        <NoticeProvider>
+          <AuthContext.Provider value={sessionOf(subject, currentPermissions)}>
+            <AccessCheckContext.Provider value={access}>
+              <WorkContextContext.Provider value={currentContext}>
+                <MemoryRouter initialEntries={[path]}>
+                  <Routes>
+                    <Route element={<OrganizationsSection />}>
+                      <Route
+                        path={ORGANIZATIONS_ROUTE}
+                        element={<OrganizationListPage view="active" />}
+                      />
+                      <Route
+                        path={DEACTIVATED_ORGANIZATIONS_ROUTE}
+                        element={<OrganizationListPage view="deactivated" />}
+                      />
+                      <Route
+                        path={ORGANIZATION_GENERAL_ROUTE}
+                        element={<OrganizationGeneralPage />}
+                      />
+                      <Route
+                        path={ORGANIZATION_OVERVIEW_ROUTE}
+                        element={<OrganizationOverviewPage />}
+                      />
+                      <Route path={PROJECTS_ROUTE} element={<ProjectsView />} />
+                      <Route path={MEMBERS_ROUTE} element={<MembersPage />} />
+                      {[PROJECT_GENERAL_ROUTE, PROJECT_SETTINGS_ROUTE].map((path) => (
+                        <Route key={path} path={path} element={<ProjectGeneralPage />} />
+                      ))}
+                      <Route path={TEAMS_ROUTE} element={<TeamsPage />} />
+                      <Route path={ORG_TEAMS_ROUTE} element={<OrganizationTeamsPage />} />
+                      {[
+                        ORG_TEAM_ROUTE,
+                        TEAM_PROJECTS_ROUTE,
+                        TEAM_MEMBERS_ROUTE,
+                        TEAM_SETTINGS_ROUTE,
+                      ].map((path) => (
+                        <Route key={path} path={path} element={<TeamPage />} />
+                      ))}
+                      <Route path={ORG_AREAS_ROUTE} element={<AreasPage />} />
+                      {[
+                        ORG_AREA_ROUTE,
+                        AREA_PROJECTS_ROUTE,
+                        AREA_TEAMS_ROUTE,
+                        AREA_SETTINGS_ROUTE,
+                      ].map((path) => (
+                        <Route key={path} path={path} element={<AreaPage />} />
+                      ))}
+                      <Route path="*" element={<p>Другая страница</p>} />
+                    </Route>
+                  </Routes>
+                  <LocationProbe />
+                </MemoryRouter>
+              </WorkContextContext.Provider>
+            </AccessCheckContext.Provider>
+          </AuthContext.Provider>
+        </NoticeProvider>
       </QueryClientProvider>
     );
   }

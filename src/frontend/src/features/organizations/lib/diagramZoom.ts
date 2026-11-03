@@ -21,11 +21,6 @@ export function wheelZoom(zoom: number, deltaY: number): number {
  * The scroll offset that keeps the picture point under `pointer` (frame coordinates) fixed when
  * the zoom changes from `from` to `to`.
  */
-export function scrollAfterZoom(
-  scroll: number,
-  pointer: number,
-  from: number,
-  to: number,
-): number {
+export function scrollAfterZoom(scroll: number, pointer: number, from: number, to: number): number {
   return ((scroll + pointer) / from) * to - pointer;
 }

@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import AddIcon from '@mui/icons-material/Add';
 import FilterListOffIcon from '@mui/icons-material/FilterListOff';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
+import Box from '@mui/material/Box';
 import { useAccessCheck } from '../../../shared/lib/access';
-import { Tag, TruncatedText } from '../../../shared/ui';
+import { BoxedTabPanel, BoxedTabs, Tag, TruncatedText } from '../../../shared/ui';
 import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
 import { NotFound, StateFrame } from '../../../shared/ui/StateFrame';
 import {
@@ -21,14 +22,18 @@ import {
   type NodeDialogResult,
 } from '../components/AreaNodeDialogs';
 import { AreaTypeMark, commandIcon } from '../components/AreaTypeMark';
+import { DiagramLegend } from '../components/DiagramLines';
 import { ListFilter } from '../components/ListFilter';
+import { StructureDiagram } from '../components/StructureDiagram';
 import { useAreaTree } from '../hooks/queries';
-import { useObjectLink, type ObjectLink } from '../hooks/useObjectLink';
+import { useSelectorOffers } from '../hooks/navigationQueries';
+import { useAreaRowLink } from '../hooks/useAreaRowLink';
+import { useDiagramView } from '../hooks/useDiagramView';
+import { useStructureSettings, type StructureView } from '../hooks/useStructureSettings';
 import { commandKinds, commandLabel } from '../lib/areaCommands';
-import { areasPage } from '../lib/areaTexts';
+import { areasPage, structureDiagram } from '../lib/areaTexts';
 import { expandableIds, filterTree, hasChildren, initialExpansion } from '../lib/areaTree';
 import { notFoundLevel } from '../lib/notFoundLevel';
-import { organizationAreaPath } from '../paths';
 import { organizationsPermissions } from '../permissions';
 
 /** A node as the tree registry shows it: its name is the label. */
@@ -46,7 +51,14 @@ type AreaRow = AreaNode & { label: string };
 export function AreasPage() {
   const { organizationId = '' } = useParams<{ organizationId: string }>();
   const query = useAreaTree(organizationId);
-  const objectLink = useObjectLink(organizationId);
+  const rowLink = useAreaRowLink(organizationId);
+  const tabsId = useId();
+  const settings = useStructureSettings(organizationId);
+  const [diagramView, patchDiagram] = useDiagramView(organizationId);
+  const showDiagram =
+    settings.view === 'diagram' && query.isSuccess && (query.data?.length ?? 0) > 0;
+  // The offers are read only for the diagram (feat-049 BR-SD-7): the tree needs none.
+  const offers = useSelectorOffers(organizationId, { enabled: showDiagram });
   const access = useAccessCheck();
   const canWrite = access(organizationsPermissions.areaWrite, 'organization');
   const canCreate = access(organizationsPermissions.areaCreate, 'organization');
@@ -69,7 +81,9 @@ export function AreasPage() {
     }
   }, [focusRequest, dialog]);
 
-  const level = query.isError ? notFoundLevel(query.error) : null;
+  const level =
+    (query.isError ? notFoundLevel(query.error) : null) ??
+    (showDiagram && offers.isError ? notFoundLevel(offers.error) : null);
   if (level) {
     return <NotFound level={level} />;
   }
@@ -127,18 +141,6 @@ export function AreasPage() {
     }
   }
 
-  // A department and a project open their own page and become the chosen object (BR-NV-19; OQ-1 A:
-  // a project opens its «Общие»); a sub-area opens its page under its project's menu. A deactivated
-  // project's node and sub-areas open nothing, they are plain text (OQ-3 A).
-  function rowLink(area: AreaNode): ObjectLink | null {
-    if (area.projectActive === false) return null;
-    if (area.type === 'department') return objectLink('department', area.id);
-    if (area.type === 'project' && area.projectId) return objectLink('project', area.projectId);
-    // A sub-area keeps the team that fits its project (D-6).
-    if (area.projectId) return objectLink('project', area.projectId, area.id);
-    return { to: organizationAreaPath(organizationId, area.id) };
-  }
-
   function actions(area: AreaNode): TreeRegistryAction[] {
     return commandKinds(area, { canWrite, canCreate }).map((kind) => ({
       label: commandLabel(kind, area.type),
@@ -161,7 +163,7 @@ export function AreasPage() {
   const loading = query.isPending || (query.isError && query.isFetching);
   const empty = query.isSuccess && areas.length === 0;
   const commands: Command[] =
-    query.isSuccess && expandable.size > 0
+    query.isSuccess && expandable.size > 0 && !showDiagram
       ? [
           allExpanded
             ? {
@@ -190,66 +192,109 @@ export function AreasPage() {
         }
       />
       {query.isSuccess && areas.length > 0 && (
-        <ListFilter label={areasPage.search} text={filter} onText={setFilter} />
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 2,
+            flexWrap: 'wrap',
+          }}
+        >
+          <BoxedTabs
+            idBase={tabsId}
+            aria-label={structureDiagram.viewLabel}
+            value={settings.view}
+            onChange={(value) => settings.setView(value as StructureView)}
+            tabs={[
+              { value: 'tree', label: structureDiagram.views.tree },
+              { value: 'diagram', label: structureDiagram.views.diagram },
+            ]}
+          />
+          {showDiagram && <DiagramLegend />}
+        </Box>
       )}
-      {nothingFound ? (
-        <StateFrame
-          icon={FilterListOffIcon}
-          heading={areasPage.nothingFound}
-          action={{ label: areasPage.resetFilter, onClick: () => setFilter('') }}
-        />
-      ) : empty ? (
-        <StateFrame
-          icon={InboxOutlinedIcon}
-          heading={areasPage.empty.heading}
-          hint={canCreate ? areasPage.empty.adminHint : areasPage.empty.otherHint}
-          action={
-            canCreate
-              ? { label: areasPage.create, icon: <AddIcon />, onClick: createDepartment }
-              : undefined
-          }
-        />
+      {showDiagram ? (
+        <BoxedTabPanel idBase={tabsId} value="diagram" selected>
+          <StructureDiagram
+            organizationId={organizationId}
+            areas={areas}
+            offers={offers.data ?? null}
+            offersStatus={offers.isError ? 'failed' : offers.data ? 'ready' : 'loading'}
+            onRetryOffers={() => offers.refetch()}
+            view={diagramView}
+            patch={patchDiagram}
+            mode={settings.mode}
+            onMode={settings.setMode}
+            orientation={settings.layout}
+            onOrientation={settings.setLayout}
+          />
+        </BoxedTabPanel>
       ) : (
-        <TreeRegistry<AreaRow>
-          ref={treeRef}
-          aria-label={areasPage.title}
-          firstColumn={areasPage.columns.name}
-          columns={[
-            {
-              header: areasPage.columns.type,
-              render: (area) => <AreaTypeMark type={area.type} />,
-            },
-            {
-              header: areasPage.columns.description,
-              render: (area) => <TruncatedText>{area.description ?? ''}</TruncatedText>,
-            },
-          ]}
-          nodes={rows}
-          adornment={(area) =>
-            area.projectActive === false ? <Tag label={areasPage.deactivated} /> : null
-          }
-          labelTo={(area) => rowLink(area)?.to}
-          labelState={(area) => rowLink(area)?.state}
-          actions={actions}
-          showActions={canWrite ? undefined : false}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          expanded={expandedIds}
-          onToggle={(id) =>
-            setExpanded((current) => {
-              const next = new Set(current ?? expandedIds);
-              if (next.has(id)) {
-                next.delete(id);
-              } else {
-                next.add(id);
+        <>
+          {query.isSuccess && areas.length > 0 && (
+            <ListFilter label={areasPage.search} text={filter} onText={setFilter} />
+          )}
+          {nothingFound ? (
+            <StateFrame
+              icon={FilterListOffIcon}
+              heading={areasPage.nothingFound}
+              action={{ label: areasPage.resetFilter, onClick: () => setFilter('') }}
+            />
+          ) : empty ? (
+            <StateFrame
+              icon={InboxOutlinedIcon}
+              heading={areasPage.empty.heading}
+              hint={canCreate ? areasPage.empty.adminHint : areasPage.empty.otherHint}
+              action={
+                canCreate
+                  ? { label: areasPage.create, icon: <AddIcon />, onClick: createDepartment }
+                  : undefined
               }
-              return next;
-            })
-          }
-          loading={loading}
-          error={query.isError ? query.error : undefined}
-          onRetry={() => void query.refetch()}
-        />
+            />
+          ) : (
+            <TreeRegistry<AreaRow>
+              ref={treeRef}
+              aria-label={areasPage.title}
+              firstColumn={areasPage.columns.name}
+              columns={[
+                {
+                  header: areasPage.columns.type,
+                  render: (area) => <AreaTypeMark type={area.type} />,
+                },
+                {
+                  header: areasPage.columns.description,
+                  render: (area) => <TruncatedText>{area.description ?? ''}</TruncatedText>,
+                },
+              ]}
+              nodes={rows}
+              adornment={(area) =>
+                area.projectActive === false ? <Tag label={areasPage.deactivated} /> : null
+              }
+              labelTo={(area) => rowLink(area)?.to}
+              labelState={(area) => rowLink(area)?.state}
+              actions={actions}
+              showActions={canWrite ? undefined : false}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              expanded={expandedIds}
+              onToggle={(id) =>
+                setExpanded((current) => {
+                  const next = new Set(current ?? expandedIds);
+                  if (next.has(id)) {
+                    next.delete(id);
+                  } else {
+                    next.add(id);
+                  }
+                  return next;
+                })
+              }
+              loading={loading}
+              error={query.isError ? query.error : undefined}
+              onRetry={() => void query.refetch()}
+            />
+          )}
+        </>
       )}
       <AreaNodeDialogs
         organizationId={organizationId}

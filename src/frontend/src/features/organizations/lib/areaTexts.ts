@@ -351,12 +351,12 @@ export const structureDiagram = {
     group: 'Масштаб',
     out: 'Уменьшить масштаб (Ctrl + колесо мыши)',
     in: 'Увеличить масштаб (Ctrl + колесо мыши)',
-    outName: 'Уменьшить масштаб',
-    inName: 'Увеличить масштаб',
     value: (percent: number) =>
       percent === 100 ? `Масштаб: ${percent}%` : `Масштаб: ${percent}%. Вернуть 100%`,
     valueTip: (percent: number) =>
-      percent === 100 ? `Масштаб: ${percent}%` : `Масштаб: ${percent}%. Нажмите, чтобы вернуть 100%`,
+      percent === 100
+        ? `Масштаб: ${percent}%`
+        : `Масштаб: ${percent}%. Нажмите, чтобы вернуть 100%`,
     announced: (percent: number) => `Масштаб: ${percent}%`,
   },
   counts: {
@@ -375,6 +375,8 @@ export const structureDiagram = {
     none: 'нет',
     onlyRelated: 'Показаны только ветка выбранного узла и связанные с ней.',
   },
+  /** The name of a chevron button; the card's own name is what a screen reader reads. */
+  toggle: { open: 'Развернуть', close: 'Свернуть' },
   clear: 'Сбросить',
   cleared: 'Выбор сброшен',
   notes: {
