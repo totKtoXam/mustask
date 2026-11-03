@@ -71,7 +71,7 @@ Not drawn: the flow is a linear switch with no branching process (M, optional).
 - Follow-ups proposed at design and not taken: hover preview of relations without choosing, a «focus» mode that pulls related teams next to the chosen node.
 - Showing work items or members on nodes (the counters line and per-node team counts are in scope).
 - App navigation, the route table, a diagram on any other page.
-- A new read or endpoint, a backend change. The diagram is built inside the organizations feature without a new dependency; a shared part is the open OQ-7.
+- A new read or endpoint, a backend change. The diagram is built inside the organizations feature without a new dependency; the one new shared part is `IconToggleGroup` (OQ-7).
 
 ## Decomposition for the backlog
 
@@ -83,7 +83,7 @@ One task, as queued; the three stories are one capability and none ships alone (
 
 ## Open questions
 
-One, open, for the human at this gate: **OQ-7**. OQ-1..OQ-6 were answered A by the human at gate-1+2 (2026-11-03; OQ-6 threshold 150) and are folded in above; OQ-7 was answered A in round 1 and is reopened by round 4:
+None open. OQ-1..OQ-6 were answered A by the human at gate-1+2 (2026-11-03; OQ-6 threshold 150) and are folded in above; OQ-7 was answered A in round 1, reopened by round 4 and answered A in round 5:
 
 | OQ | Resolved as | Where |
 |----|-------------|-------|
@@ -93,4 +93,4 @@ One, open, for the human at this gate: **OQ-7**. OQ-1..OQ-6 were answered A by t
 | OQ-4 | Teams with no department, and top-level projects, in the section «Без департамента» on top (round 3; it replaced «Без проектов и департаментов») | BR-SD-16, US-2, US-3 |
 | OQ-5 | Name opens, body chooses, one Tab stop | BR-SD-10, US-2 |
 | OQ-6 | All lines up to 150, above that the chosen branch's only | BR-SD-17, US-3 |
-| OQ-7 | **Open.** Answer A of round 1 said «no new shared part». Round 4 needs one: the segmented icon toggle (`IconToggleGroup` in the shared UI kit), because the kit rules bar the raw toggle-group part in features (KIT-2). Options: A) add that small shared part (the design's proposal, size stays M); B) build the toggles inside the organizations feature from kit buttons, which keeps the earlier answer but breaks KIT-2 or duplicates the part. Awaiting the human; not decided here. | Out of scope; US-2, US-3 |
+| OQ-7 | **Answered A (round 5, the human, 2026-11-03): add `IconToggleGroup`.** Answer A of round 1 said «no new shared part». Round 4 needs one: the segmented icon toggle (`IconToggleGroup` in the shared UI kit), because the kit rules bar the raw toggle-group part in features (KIT-2). Options: A) add that small shared part (the design's proposal, size stays M); B) build the toggles inside the organizations feature from kit buttons, which keeps the earlier answer but breaks KIT-2 or duplicates the part. Awaiting the human; not decided here. | Out of scope; US-2, US-3 |

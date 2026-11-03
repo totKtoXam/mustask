@@ -3,15 +3,15 @@
 - type: feature
 - size: M
 - branch: feat/049-structure-diagram-view
-- stage: 03-design
+- stage: 06-frontend
 - epic: platform/ui
 - deps: feat-043
 - gates: gate-1, gate-2, gate-3
 
 ## Gates
 
-gate-1: rejected 2026-11-03 (the human, in chat): rework together with gate-2's remarks
-gate-2: rejected 2026-11-03 (the human, in chat): remarks 1-4 in ## Decisions
+gate-1: approved 2026-11-03 (the human, in chat, round 5): with the small edits below
+gate-2: approved 2026-11-03 (the human, in chat, round 5): toggle icons redrawn by the orchestrator
 gate-3: pending
 
 ## Plan
@@ -25,6 +25,7 @@ gate-3: pending
 - Gate-1+2 round 2, 2026-11-03, the human in chat: rejected with remarks — 1) the level ruler is clickable to show only the chosen levels, with a switch «только этот уровень / уровень и вложенные»; 2) the group «Без проектов и департаментов» and the hierarchy section collapse; 3) queue a task: drag-and-drop and drawn arrows to move elements between each other; 4) a vertical (top-down) tree layout beside the horizontal one; 5) a switch showing users as an avatar circle with full name and email. Scope, the human in chat: 1, 2, 4 here, folded into US-2, size stays M; 3 queued as feat-050 (PR #57); 5 queued as feat-051 (PR #58), users = team members plus organization members without a team.
 - Gate-1+2 round 3, 2026-11-03, the human in chat: rejected with remarks — 1) teams are in practice created linked to a department; 2) icons for «Показ при выборе», «Раскладка», «Режим уровней», «Все уровни»; 3) a distinct outline colour per level; 4) teams stand inside the tree, not apart, in both layouts; 5) choosing a parent emphasises its whole branch, not only its relations. Answers: a team linked to several departments stands under each, with a new legend line for the copies; projects and teams with no department go to a section «Без департамента»; making a department mandatory is not wanted (model stays).
 - Gate-1+2 round 4, 2026-11-03, the human in chat: rejected with remarks — 1) «Режим уровней» is a segmented icon toggle (like a code/preview switch), not a dropdown; its focus circle drifts off the icon; 2) level colours on the cards themselves (department, project, area, team), not only the badges; 3) «Показ при выборе» and «Раскладка» are segmented toggles too; 4) more contrast for the legend's line styles; 5) pan by dragging with the middle mouse button, zoom by Ctrl + wheel, beside the scrollbars; 6) «Режим уровней» stands beside «Раскладка»; 7) a stray empty circle beside the level chips goes; 8) each level chip has a short hover hint of what the level means. Folded into US-2, size stays M.
+- Gate-1+2 round 5, 2026-11-03, the human in chat: OQ-7 answered A (add `IconToggleGroup` to shared/ui); approved with one small edit: better toggle icons, found or drawn. The orchestrator drew them (three-node mode icons, tree layouts, level bars) in the prototype and design § 4.9.
 
 ## Log
 
@@ -37,6 +38,7 @@ gate-3: pending
 - 2026-11-03 [orchestrator] round 2: design + prototype (ux-designer, 14271ccf), spec + stories (business-analyst, still three stories). Prototype clicked through: level chips and both modes, section folds, vertical layout. At gate-1+2, round 3.
 - 2026-11-03 [orchestrator] round 3: design + prototype (ux-designer, c9c64848), spec + stories (business-analyst, BR-SD-16..19). Level 3 moved to deep orange 900 so badge text reaches 4.5:1. Prototype clicked through. At gate-1+2, round 4.
 - 2026-11-03 [orchestrator] round 4: design + prototype (ux-designer, f0edee3d), spec + stories (business-analyst, BR-SD-20; OQ-7 reopened for `IconToggleGroup`). Design § 4.9 rewritten by the orchestrator (toggles, zoom). Prototype clicked through. At gate-1+2, round 5.
+- 2026-11-03 [orchestrator] gate-1+2 approved (round 5) with redrawn toggle icons; OQ-7 A. Stage 6 next.
 
 ## Notes
 

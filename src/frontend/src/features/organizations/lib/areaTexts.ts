@@ -276,3 +276,142 @@ export const departmentsField = {
   none: 'В организации пока нет департаментов.',
   teamHint: 'Необязательно. Департаменты можно добавить позже на странице команды.',
 } as const;
+
+/** Russian plural: `one` for 1, `few` for 2-4, `many` otherwise (11-14 are `many`). */
+export function plural(n: number, one: string, few: string, many: string): string {
+  const last = n % 10;
+  const tail = n % 100;
+  if (last === 1 && tail !== 11) return `${n} ${one}`;
+  if (last >= 2 && last <= 4 && (tail < 12 || tail > 14)) return `${n} ${few}`;
+  return `${n} ${many}`;
+}
+
+/** «Структура», the diagram view (feat-049 design § 7; final interface copy). */
+export const structureDiagram = {
+  viewLabel: 'Вид структуры',
+  views: { tree: 'Дерево', diagram: 'Диаграмма' },
+  tree: 'Диаграмма структуры',
+  legend: {
+    nesting: 'вложенность',
+    relation: 'команда работает над проектом',
+    copy: 'та же команда в другом департаменте',
+    hidden: 'связь через скрытый узел',
+  },
+  sections: { outside: 'Без департамента', departments: 'Департаменты, проекты и области' },
+  alsoIn: (names: string) => `ещё в: ${names}`,
+  search: 'Найти узел',
+  found: (n: number) => `Найдено: ${n}. Enter — к следующему`,
+  notFound: 'Ничего не найдено',
+  counters: (d: number, p: number, a: number, t: number | null) =>
+    `Департаментов: ${d} · Проектов: ${p} · Областей: ${a}${t === null ? '' : ` · Команд: ${t}`}`,
+  mode: {
+    label: 'Показ при выборе',
+    dim: { label: 'Затемнение', hint: 'Остальное приглушается' },
+    only: {
+      label: 'Только связанные',
+      hint: 'Показаны ветка выбранного узла и связанные с ней',
+    },
+    hl: { label: 'Подсветка', hint: 'Всё на месте, ветка и связанное выделены цветом' },
+  },
+  layout: {
+    label: 'Раскладка',
+    h: { label: 'Горизонтально', hint: 'Иерархия слева направо' },
+    v: { label: 'Вертикально', hint: 'Департаменты сверху' },
+  },
+  levelMode: {
+    label: 'Режим уровней',
+    only: { label: 'Только выбранные уровни', hint: 'Показаны отмеченные уровни' },
+    from: {
+      label: 'Уровень и вложенные',
+      hint: 'Самый верхний из отмеченных и все более глубокие',
+    },
+  },
+  tooltip: (group: string, value: string, hint: string) => `${group}: ${value}. ${hint}`,
+  levels: {
+    group: 'Уровни вложенности',
+    chip: (n: number) => `Уровень ${n}`,
+    all: 'Все уровни',
+    allHint: 'Показать все уровни',
+    shown: (levels: readonly number[], deeper: boolean) =>
+      `Показаны уровни: ${levels.join(', ')}${deeper ? ' и более глубокие' : ''}`,
+    shownAll: 'Показаны все уровни',
+    none: 'Нет узлов на выбранных уровнях',
+    noRelated: 'Нет связанных узлов',
+    meaning: (n: number) =>
+      n === 1
+        ? 'Уровень 1 — департаменты, проекты верхнего уровня и команды без департамента.'
+        : n === 2
+          ? 'Уровень 2 — проекты и команды под департаментом, области под проектом верхнего уровня.'
+          : `Уровень ${n} — области ${n}-го уровня вложенности.`,
+    clickOnly: 'Нажмите, чтобы показать только этот уровень',
+    clickFrom: 'Нажмите, чтобы показать этот и более глубокие уровни',
+    clickRemove: 'Нажмите, чтобы убрать уровень из выбранных',
+  },
+  zoom: {
+    group: 'Масштаб',
+    out: 'Уменьшить масштаб (Ctrl + колесо мыши)',
+    in: 'Увеличить масштаб (Ctrl + колесо мыши)',
+    outName: 'Уменьшить масштаб',
+    inName: 'Увеличить масштаб',
+    value: (percent: number) =>
+      percent === 100 ? `Масштаб: ${percent}%` : `Масштаб: ${percent}%. Вернуть 100%`,
+    valueTip: (percent: number) =>
+      percent === 100 ? `Масштаб: ${percent}%` : `Масштаб: ${percent}%. Нажмите, чтобы вернуть 100%`,
+    announced: (percent: number) => `Масштаб: ${percent}%`,
+  },
+  counts: {
+    teams: (n: number) => plural(n, 'команда', 'команды', 'команд'),
+    projects: (n: number) => plural(n, 'проект', 'проекта', 'проектов'),
+  },
+  sectionAnnounced: (title: string, open: boolean) =>
+    `${title}: ${open ? 'развёрнуто' : 'свёрнуто'}`,
+  summary: {
+    department: (projects: number, areas: number, teams: number, outside: string) =>
+      `Ветка департамента: проектов ${projects}, областей ${areas}, команд ${teams}. Связано вне ветки: ${outside}`,
+    project: (areas: number, teams: string) =>
+      `Ветка проекта: областей ${areas}. Команды проекта: ${teams}`,
+    team: (projects: string, departments: string) =>
+      `Проекты команды: ${projects}. Департаменты команды: ${departments}`,
+    none: 'нет',
+    onlyRelated: 'Показаны только ветка выбранного узла и связанные с ней.',
+  },
+  clear: 'Сбросить',
+  cleared: 'Выбор сброшен',
+  notes: {
+    lines: 'Линии связей показаны для выбранного узла',
+    offers: 'Команды и ключи проектов не загружены',
+    retry: 'Повторить',
+    vertical: (n: number) =>
+      `Вертикальная раскладка широкая: показано узлов — ${n}. Сверните ветви, выберите уровни или переключитесь на горизонтальную.`,
+  },
+  toasts: {
+    hiddenByMode: 'Узел скрыт режимом «Только связанные»',
+    hiddenByLevels: 'Узел скрыт выбором уровней',
+  },
+  notChoosable: 'Этот узел выбрать нельзя',
+  notOpening: 'Узел деактивированного проекта ничего не открывает',
+  hint: 'Tab входит в диаграмму один раз. Стрелки — переход, Пробел — выбрать, Enter — открыть, Esc — сбросить. Ctrl + колесо мыши — масштаб, средняя кнопка мыши (зажать и двигать) — перемещение.',
+  type: { department: 'Департамент', project: 'Проект', area: 'Область', team: 'Команда' },
+  names: {
+    department: (name: string, teams: number | null) =>
+      `Департамент ${name}${teams === null ? '' : `, команд: ${teams}`}`,
+    project: (
+      name: string,
+      key: string | null,
+      active: boolean,
+      department: string | null,
+      teams: number | null,
+    ) =>
+      `Проект ${name}${key ? ` (${key})` : ''}${active ? '' : ', деактивирован'}, ${
+        department ? `в департаменте ${department}` : 'без департамента'
+      }${active && teams !== null ? `, команд: ${teams}` : ''}`,
+    area: (name: string, parent: string, active: boolean) =>
+      `Область ${name}, в «${parent}»${active ? '' : ', деактивирована'}`,
+    team: (name: string, projects: number, department: string | null, also: string | null) =>
+      `Команда ${name}, проектов: ${projects}${
+        department ? `, в департаменте ${department}` : ', без департамента'
+      }${also ? `, ${also}` : ''}`,
+    section: (title: string, open: boolean, count: number) =>
+      `Раздел «${title}», ${open ? 'развёрнут' : 'свёрнут'}, узлов: ${count}`,
+  },
+} as const;

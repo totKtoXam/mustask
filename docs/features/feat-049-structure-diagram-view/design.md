@@ -137,7 +137,7 @@ Choosing also unfolds branches and sections hiding emphasised cards.
 
 ### 4.9 Toolbar toggles (R4-1, R4-3, R4-6) and zoom (R4-5)
 
-Row: «Найти узел», «Развернуть всё», then three `IconToggleGroup`s — **display mode** (half-disc, funnel, marker), **layout** (`AccountTreeOutlined`, turned 90° for vertical), **level mode** (beside layout) — then «Все уровни», zoom, counters; wraps when narrow. A group is adjoined 32 px buttons; the pressed one has the selection tint and a 3 px underline. Group `aria-label` = control, button name = value, tooltip per § 7; each button is its own Tab stop (MUI default). The drifting halo (R4-1) came from a round icon button in an inline menu wrapper; a segment fills its button and the focus ring is drawn inside it.
+Row: «Найти узел», «Развернуть всё», then three `IconToggleGroup`s with hand-drawn `SvgIcon`s in the feature (R5) — **display mode** (three nodes, one link: the rest dimmed / the unrelated one struck out / the related one filled), **layout** (tree left-to-right / top-down), **level mode**, beside layout (three level bars: one filled / it and the lower ones filled) — then «Все уровни», zoom, counters; wraps when narrow. A group is adjoined 32 px buttons; the pressed one has the selection tint and a 3 px underline. Group `aria-label` = control, button name = value, tooltip per § 7; each button is its own Tab stop (MUI default). The drifting halo (R4-1) came from a round icon button in an inline menu wrapper; a segment fills its button and the focus ring is drawn inside it.
 
 **Zoom:** 50-200 %, ×1.1 per wheel notch or button press; Ctrl + wheel over the frame zooms about the pointer (a non-passive handler keeps the page from zooming), the buttons zoom about the frame centre. Holding the middle button drags the canvas (`grabbing`, browser autoscroll suppressed); scrollbars stay. «− 100% +» per § 7, the value resets to 100 %. Not stored: reset on reload or organization change, kept across view and layout switches. A CSS transform on the canvas, no layout rebuild.
 
@@ -203,7 +203,7 @@ OQ-1..OQ-7 were all decided A at gate-1+2 (OQ-6 threshold 150); see the spec.
 
 ## 10. Flags for the orchestrator (no spec edit made)
 
-1. **Kit:** the view switch uses `BoxedTabs` (decided; docblock gets a sentence). **New: `IconToggleGroup`** in `shared/ui` for the toolbar toggles, because KIT-2 bars the raw MUI `ToggleButtonGroup` in features. Spec OQ-7 A said "no new shared part": this needs the orchestrator's nod (Open question).
+1. **Kit:** the view switch uses `BoxedTabs` (decided; docblock gets a sentence). **New: `IconToggleGroup`** in `shared/ui` for the toolbar toggles, because KIT-2 bars the raw MUI `ToggleButtonGroup` in features. Accepted by the human at gate-1+2 round 5 (OQ-7).
 2. No navigation, route, read or endpoint change: `selector-offers` already gives `teams[].departmentIds` and `projects[].teamIds`.
 3. **Level colours:** the theme has no purple or deep-orange role named here; levels 4 and 3 need palette roles (e.g. `secondary`) or a one-line theme addition each: decide at stage 6, no literal in features. Level 3 moved off `warning.dark` (3.8:1) so white badge text reaches 4.5:1.
 4. «Только связанные» and the vertical layout rebuild the layout on a choice/switch; the "no rebuild" test covers «Затемнение» and «Подсветка».
@@ -227,8 +227,4 @@ Rounds 1-3 are folded into the body and the spec. feat-050, feat-051: queued, no
 | R4-5 pan and zoom | § 4.9 |
 | R4-7 stray circle; R4-8 chip tooltips | § 4.4, § 7 |
 
-### Spec deltas for the analyst (round 4)
-
-- **US-2** (a) «Режим уровней», «Раскладка» and, in US-3, «Показ при выборе» are segmented icon toggles, not menus: group name = control name, button name = value, tooltip = «<управление>: <значение>. <подсказка>». The scenario "Level controls and layout are icon buttons" and **BR-SD-19** change: three toggles (name = value) plus the text button «Все уровни», not four icon buttons whose text is both tooltip and name. (b) «Режим уровней» stands in the toolbar beside «Раскладка»; «Все уровни» is a text button after it, disabled with no chip pressed; the chips stay at the frame's top and in the band gutters; the Tab stops of the "Keyboard" scenario are the toggles, «Все уровни», the zoom buttons and the chips. (c) Each chip has a tooltip saying what its level holds and what a click does (§ 7). (d) **BR-SD-12 and "Each level has its outline colour":** the colour is on the card itself (left edge, outline, light tint), number kept, text on every tint ≥ 4.5:1, outlines ≥ 3:1. (e) New scenarios: pan with the middle button (cursor changes); Ctrl + wheel zoom 50-200 % about the pointer without zooming the page; the «−/100%/+» control by keyboard and reset to 100 %; zoom not stored. (f) The legend's four line styles are heavier and darker and the canvas matches (BR-SD-17: styles differ by pattern).
-- **US-1 / BR-SD-9:** zoom joins the not-stored list and survives a view switch. **Out of scope:** "zoom and minimap, zoom persistence" becomes "minimap, zoom persistence". **Non-functional:** zoom and pan stay smooth at 200 × 200 (a transform, no rebuild).
-- **OQ-7 A** ("no new shared part") needs the human's word: round 4 adds `IconToggleGroup` (flag 1).
+Round-4 spec deltas are in the spec (02fc1973). OQ-7: `IconToggleGroup` accepted by the human; icons redrawn (R5, § 4.9).

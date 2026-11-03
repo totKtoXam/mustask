@@ -132,9 +132,15 @@ const textPairs: Pair[] = [
   ['error line on content', palette.error.main, surfaces.content],
   ['tag text on the neutral tag', palette.text.primary, palette.shell.buttonNeutral],
   ['tag text on the accent tag', palette.text.primary, palette.shell.rowSelected],
+  // The structure diagram's level badges (feat-049): white on each level colour.
+  ['white on diagram level 3', palette.primary.contrastText, palette.shell.levelThree],
+  ['white on diagram level 4', palette.primary.contrastText, palette.shell.levelFour],
 ];
 
 const nonTextPairs: Pair[] = [
+  // The structure diagram's level outlines on its white frame (feat-049 BR-SD-12).
+  ['diagram level 3 outline on content', palette.shell.levelThree, surfaces.content],
+  ['diagram level 4 outline on content', palette.shell.levelFour, surfaces.content],
   ...on('focus indicator', palette.primary.main, surfaces),
   // The backlog row's «+» and the selected row's dark-blue type icon (feat-027
   // design § 2.2, § 4.4) stand on the content, the hover and the selected row.
