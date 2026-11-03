@@ -22,6 +22,7 @@ gate-3: pending
 
 - Gate-1+2 questions, 2026-11-03, the human in chat: OQ-1..OQ-7 all A (OQ-6 threshold 150); the switch is BoxedTabs with a docblock note. Verdict: rejected with remarks — 1) the group «Без проектов и департаментов» goes to the top; 2) mark nesting levels; 3) a control that switches how choosing a node shows the rest: today's dimming stays as the first mode, design proposes more convenient ones; 4) design proposes further convenience improvements.
 - Rework 1 seams, decided by the orchestrator: expansion forcing is mode-specific (BR-SD-11); the diagram's expansion survives a view switch; in «Только связанные» the top group disappears when none of its teams is related; «Найти узел» matches names only.
+- Gate-1+2 round 2, 2026-11-03, the human in chat: rejected with remarks — 1) the level ruler is clickable to show only the chosen levels, with a switch «только этот уровень / уровень и вложенные»; 2) the group «Без проектов и департаментов» and the hierarchy section collapse; 3) queue a task: drag-and-drop and drawn arrows to move elements between each other; 4) a vertical (top-down) tree layout beside the horizontal one; 5) a switch showing users as an avatar circle with full name and email. Scope, the human in chat: 1, 2, 4 here, folded into US-2, size stays M; 3 queued as feat-050 (PR #57); 5 queued as feat-051 (PR #58), users = team members plus organization members without a team.
 
 ## Log
 
