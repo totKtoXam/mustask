@@ -320,7 +320,7 @@ Scenario: Counters line
 Scenario: Keyboard and screen reader
   When I press Tab
   Then focus enters the tree of the diagram once, on one item, and the next Tab leaves it (one Tab stop; BR-SD-10)
-  And the toolbar controls are separate Tab stops before it: «Найти узел», «Развернуть всё», each button of the toggles «Показ при выборе», «Раскладка» and «Режим уровней», «Все уровни» while enabled, the zoom buttons «−», «100%», «+», and the level chips
+  And the toolbar controls are separate Tab stops before it: «Найти узел», «Развернуть всё», each of the toggles «Показ при выборе», «Раскладка» and «Режим уровней» as one stop (arrow keys move between its buttons), «Все уровни» while enabled, the zoom buttons «−», «100%», «+», and the level chips
   And the arrow order is the same in both layouts: the section «Без департамента» header, its projects with sub-areas, its teams, then the second section's header and each department with its projects, sub-areas and teams, a team's copies being separate items
   And the arrow keys move focus between items, Left and Right fold and unfold a section or a branch, Left on a card goes to its nearest visible ancestor, with a visible focus
   And each card's accessible name states its type, its name, its parent department or «без департамента», its «ещё в: …» marks and, for a project or a team, the number of its relations
