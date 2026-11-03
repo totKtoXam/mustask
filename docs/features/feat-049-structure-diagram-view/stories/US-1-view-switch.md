@@ -23,7 +23,7 @@ Scenario: Switch to the diagram
   And the address stays the page's address
   And the page title «Структура» stays
   And the tree's own filter «Найти область» and its page-head «Развернуть всё» / «Свернуть всё» are not shown
-  And the diagram has its own toolbar: «Найти узел», «Развернуть всё» / «Свернуть всё», «Показ при выборе», «Раскладка», and the counters line (US-2, US-3)
+  And the diagram has its own toolbar: «Найти узел», «Развернуть всё» / «Свернуть всё», the icon buttons «Показ при выборе» and «Раскладка» (BR-SD-19), the legend of line styles, and the counters line (US-2, US-3)
   And «Создать департамент» stays in the page header for the holder of `area.create`, in both views
 
 Scenario: The choice is remembered
@@ -42,7 +42,7 @@ Scenario: A damaged memory falls back
   Then the tree is shown and no error appears
 
 Scenario: The display mode is remembered
-  Given I chose the mode «Подсветка» in «Показ при выборе» in organization A
+  Given I chose the mode «Подсветка» in the menu «Показ при выборе» in organization A
   When I leave «Структура» and open the diagram again, or reload the panel
   Then the mode is «Подсветка»
   And the memory is per user and organization, under its own key, apart from the view's (BR-SD-9)
@@ -81,14 +81,14 @@ Scenario: Loading and failure follow the page
 Scenario: Only the offers are not ready
   Given the area tree arrived and the selector offers are still loading or failed
   When I open the diagram
-  Then the hierarchy is drawn without teams, project keys and relation lines
+  Then the hierarchy is drawn without team cards, project keys and relation lines
   And an inline notice «Команды и ключи проектов не загружены» is shown, with «Повторить» for the offers only while they failed
   And no error replaces the hierarchy
 
 Scenario: Only the tree is not ready
   Given the selector offers arrived and the area tree is loading or failed
   When I open the diagram
-  Then the loading state or the error with «Повторить» is shown, as in the tree view, and no teams are drawn alone
+  Then the loading state or the error with «Повторить» is shown, as in the tree view, and no team cards are drawn alone
 
 Scenario: The organization is not found
   Given either read answers 404

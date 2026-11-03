@@ -81,13 +81,13 @@ A team linked to several departments stands **under each of them, as a copy**, e
 - **Mode menu** icon button (§ 4.9), default **«Только выбранные уровни»**: shown are the pressed levels. **«Уровень и вложенные»**: the topmost pressed level and every deeper one (deeper chips show a light tint). No chip pressed means all levels. **«Все уровни»** icon button, disabled while nothing is pressed, unpresses every chip.
 - **Rows of a hidden level drop.** A node whose parent is hidden attaches to its nearest visible ancestor by a **dotted** join; with none it stands at its true column or row. A team follows the same rule through its department. In the vertical layout a level with no shown node is a 30 px strip.
 - **Relation lines** go to the nearest visible ancestor (dotted, «связь через скрытый узел»); with none the line is not drawn. Counts and summaries speak of data, not of what is drawn.
-- **Outline colour per level.** Every card has a 1.5 px outline in its level colour, equal to its level chip (outlined; filled when pressed) and the badge fill. The number in the badge and the chip stays, so the level is never colour alone. All colours are ≥ 3:1 against white (WCAG 1.4.11) in the light theme; the badge text on its fill is white ≥ 4.5:1 except level 3 (3.8:1, large-bold text; checked again at stage 6).
+- **Outline colour per level.** Every card has a 1.5 px outline in its level colour, equal to its level chip (outlined; filled when pressed) and the badge fill. The number in the badge and the chip stays, so the level is never colour alone. All colours are ≥ 3:1 against white (WCAG 1.4.11) in the light theme; the badge and pressed-chip text on its fill is white ≥ 4.5:1 for every level (BR-SD-12).
 
 | Level | Palette role (light) | Contrast on white |
 |---|---|---|
 | 1 | `primary.dark` | 7.6:1 |
 | 2 | `success.main` | 5.1:1 |
-| 3 | `warning.dark` | 3.8:1 |
+| 3 | deep orange 900 (#BF360C) role | 5.6:1 |
 | 4 | `secondary.main`/purple 700 role | 8:1 |
 | 5 and deeper | `text.secondary` | 6:1 |
 
@@ -220,7 +220,7 @@ OQ-1 A deactivated project tagged, no lines · OQ-2 A browser storage · OQ-3 A 
 
 1. **Kit deviation:** the switch uses `BoxedTabs` (decided); its docblock gets a sentence.
 2. `src/app/navigation/*`, `routeTree.tsx`: not needed. No new read or endpoint: `selector-offers` already gives `teams[].departmentIds` and `projects[].teamIds`.
-3. **Level colours:** the theme has no purple role named here; level 4 needs a palette role (e.g. `secondary`) or a one-line theme addition: decide at stage 4, no literal in features. Contrast of the level-3 badge text is to be re-measured at stage 6.
+3. **Level colours:** the theme has no purple or deep-orange role named here; levels 4 and 3 need palette roles (e.g. `secondary`) or a one-line theme addition each: decide at stage 6, no literal in features. Level 3 moved off `warning.dark` (3.8:1) so white badge text reaches 4.5:1.
 4. BR-SD-10: sections are level-1 items, hierarchy and team cards true level + 1.
 5. «Только связанные» and the vertical layout rebuild the layout on a choice/switch; the "no rebuild" test covers «Затемнение» and «Подсветка».
 6. Size: still M; the vertical layout and the level filter remain the two separable cuts.
