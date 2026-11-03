@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/033-orphaned-organization-rescue
-- stage: 03-design
+- stage: 04-backend
 - epic: core/org-access
 - deps: mod-016,tech-024,tech-025
 - gates: gate-1, gate-2, gate-3
@@ -11,7 +11,7 @@
 ## Gates
 
 gate-1: approved (2026-11-03, human in chat)
-gate-2: pending
+gate-2: approved (2026-11-03, human in chat)
 gate-3: pending
 
 ## Plan
@@ -36,6 +36,8 @@ gate-3: pending
 - 2026-11-03 [ux-designer] Stage 3: design.md (three surfaces in the organizations slice: «Все организации», «Назначение администратора», «История назначений»), prototype/index.html (opened headless in Chrome and driven by a script: list, filter, paging, refusals, success, history), ADR-0035 proposed (instance code `organizations.organization.rescue`, `system-admin` only). gate-2 pending the human.
 
 - 2026-11-03 [orchestrator] Stage 3 (ux-designer, e25721a4): design.md, prototype, ADR-0035 proposed (code organizations.organization.rescue), no new kit part. Prototype opened by the orchestrator in the browser pane: list 25/page, row menu, appoint success (date appears), «Пользователь уже администратор этой организации» on Бета, «История назначений» with the reason; no console errors. The history dialog is 90% wide and mostly empty (design § 12 point 2). gate-2 asked.
+
+- 2026-11-03 [orchestrator] gate-2 approved by the human in chat: names kept («Администрирование», /administration/organizations, organizations.organization.rescue); «История назначений» sized to its content, not 90 % (design.md § 12 point 2 rewritten by the orchestrator). ADR-0035 stays proposed until gate-3. Stage 4 next.
 
 ## Notes
 

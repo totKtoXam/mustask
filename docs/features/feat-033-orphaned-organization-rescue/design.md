@@ -305,6 +305,6 @@ Nothing names the reference tracker.
 ## 12. Open points for gate-2
 
 1. **Section name «Администрирование»** and route `/administration/organizations` are this design's choice; the spec fixes only the title «Все организации» under «Настройки».
-2. **«История назначений» dialog is a 90 %-wide card** so that 500-character reasons read well; an alternative is a narrower dialog with the reason under each row. The card was chosen for the table the spec asks for.
+2. **«История назначений» dialog width — decided at gate-2:** the kit's ordinary wide dialog sized to its content (DialogShell md/lg), not a 90 %-wide card; a long «Причина» wraps inside its own column. The prototype still shows the 90 % card.
 3. **The filter and page are not in the address** (DC-5).
 4. **No hint explains why a user is not found** (§ 4.1) — a deliberate non-disclosure; the runbook carries the procedure.
