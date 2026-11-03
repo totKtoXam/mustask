@@ -51,6 +51,7 @@ gate-3: pending
 
 - 2026-11-03 [qa-engineer] Stage 5 backend QA at 34d0c5cf: 0 blockers, 0 majors, 1 minor (D-1, a crafted cursor position gives 500; debt for gate-3). 19 cases added in AggregateViewQaTests (17 green, 2 skipped on D-1); migration class green; qa.md written. Volume test not rerun; E2E not run (standing NO).
 - 2026-11-03 [frontend-developer] Stage 6 built: grouping switch, ViewGroup, useGroupRead, aggregate backlog, board and Рабочие элементы at organization/department/team, menu rows and routes; plan-frontend.md written. Unit and page tests green per file, tsc and ESLint clean, kit guard unchanged. Open: board columns derived from the process (contract gap, plan-frontend section 4); DnD, flat sorting and shipped-page grouping left; whole-suite run due.
+- 2026-11-03 [backend-developer] Contract changed after gate-2, at the frontend's request: each entry of `columns` in the board groups read now carries `header`, `category { code, label }` and `targets [{ typeId, stateId|null }]` besides `key` and `count` (the project board's own column shape), so the panel does not re-derive columns from the process and cannot drift from `BoardLayout.Derive`. Additive; api-contract.md section 2 item 1 updated.
 
 ## Notes
 

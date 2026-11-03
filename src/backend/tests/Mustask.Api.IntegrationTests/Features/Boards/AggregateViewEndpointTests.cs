@@ -155,6 +155,14 @@ public sealed class AggregateViewEndpointTests(MustaskApiFactory factory)
             var columns = group.GetProperty("columns").EnumerateArray().ToList();
             Assert.NotEmpty(columns);
             Assert.Equal(group.GetProperty("count").GetInt32(), columns.Sum(column => column.GetProperty("count").GetInt32()));
+            Assert.All(columns, column =>
+            {
+                Assert.False(string.IsNullOrEmpty(column.GetProperty("header").GetString()));
+                Assert.Equal(column.GetProperty("key").GetString()!.Split('-')[0], column.GetProperty("category").GetProperty("code").GetString());
+                Assert.False(string.IsNullOrEmpty(column.GetProperty("category").GetProperty("label").GetString()));
+                Assert.NotEmpty(column.GetProperty("targets").EnumerateArray());
+                Assert.All(column.GetProperty("targets").EnumerateArray(), target => Assert.True(target.TryGetProperty("typeId", out _) && target.TryGetProperty("stateId", out _)));
+            });
         }
     }
 

@@ -3,7 +3,9 @@ using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Boards;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
+using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Domain.Boards;
+using Mustask.Domain.Process;
 
 namespace Mustask.Application.Features.Boards.GetViewGroups;
 
@@ -68,6 +70,9 @@ public sealed class GetViewGroupsHandler(
                 columns = level.Layout.Columns
                     .Select((column, index) => new ColumnCountView(
                         column.Key,
+                        column.Header,
+                        new WorkItemStateCategoryView(column.Category.ToString(), StateCategoryLabels.Of(column.Category)),
+                        column.Targets.Select(target => new BoardColumnTargetView(target.TypeId, target.StateId)).ToList(),
                         group.Where(row => level.Layout.ColumnOf(row.TypeId, row.StateId) == index).Sum(row => row.Count)))
                     .ToList();
             }

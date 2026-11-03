@@ -23,7 +23,7 @@ string reach the handler as strings; a selector or filter value that names nothi
 1. `GET /backlogs/{level}/groups`, `GET /boards/{level}/groups`, `GET /workitems/groups` — the grouped counts.
    `{ grouping, groups: [{ kind, id|null, key?, name|null, count, total, columns? }] }`. Order (BR-AV-4): the group of no department / no
    team first, then by name, ties by id; empty groups absent. `count` follows the selectors and filters, `total` does not. `columns`
-   (boards only) is `[{ key, count }]` for every column of the level, key `<Category>-<index>`. Unknown level: 404 `boards.level.not_found`.
+   (boards only) is `[{ key, header, category: { code, label }, targets: [{ typeId, stateId|null }], count }]` for every column of the level, key `<Category>-<index>`; key, header, category and targets are the project board's own column fields (`BoardLayout.Derive`, api-contract of the board § 3.3), so a panel needs no derivation: a drop sets `stateId` of the target whose `typeId` is the card's type (`null` = no drop target for that type). Changed after gate-2 at the frontend's request (status Log 2026-11-03). Unknown level: 404 `boards.level.not_found`.
 2. `GET /backlogs/{level}/rows?grouping=&group=&limit=&cursor=` — a page of one group: `{ rows: [...], nextCursor }`. By project: the project's
    rank order; every other grouping: change time descending, number descending, project key. Rows are flat (the tree of feat-027 is not
    paged by a cursor); each carries `project`, `team`, `parent` and `changedAt`. No total, no page number. A by-project group of a project

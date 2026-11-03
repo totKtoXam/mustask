@@ -59,8 +59,9 @@ public sealed record AggregateCardView(
 public sealed record GroupHeaderView(
     string Kind, Guid? Id, string? Key, string? Name, int Count, int Total, IReadOnlyList<ColumnCountView>? Columns);
 
-/// <summary>A board column's count inside one group, by the column's key (<c>InProgress-2</c>).</summary>
-public sealed record ColumnCountView(string Key, int Count);
+/// <summary>A board column inside one group: the project board's column shape (key, header, category, targets) and the group's count of it.</summary>
+public sealed record ColumnCountView(
+    string Key, string Header, WorkItemStateCategoryView Category, IReadOnlyList<BoardColumnTargetView> Targets, int Count);
 
 /// <summary>What the aggregate slices share of resolving the address, the level and the scope.</summary>
 public static class AggregateSupport
