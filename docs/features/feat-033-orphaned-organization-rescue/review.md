@@ -104,8 +104,14 @@ OQ-4/OQ-5 and the scenarios of R-3 changed together. Options:
 Whichever option is chosen, the spec must not claim a detection that the
 projection cannot make, and BR-RS-5's reference to mod-016 BR-M1-32 must be
 re-read against ADR-0034.
-Status: open
-Resolution:
+Status: resolved
+Resolution: The human chose A. Context rewritten around ADR-0034. BR-RS-4 now
+allows an appointment on request in any organization and only adds or raises.
+New BR-RS-5 makes «Причина» required (1–500 characters, kept only in the
+record). BR-RS-2 drops the administrator state and its filter, and says why.
+Detection is moved to Out of scope. OQ-4 and OQ-5 are closed. H-1's "account
+still enabled but nobody can use it" case is now covered by the request-based
+trigger. Verified in d121cec9 (round 2).
 
 ### R-2
 Severity: major
@@ -126,8 +132,12 @@ dialog: «MUSTASK не видит, отключена ли учётная зап
 что пользователь может войти.»). BR-RS-6 must also drop "an inactive …
 user is refused" as the guard against this case: after ADR-0034 that guard
 protects nothing.
-Status: open
-Resolution:
+Status: resolved
+Resolution: BR-RS-9 states that the rescue is repeatable, and US-2 "The
+rescue is repeatable" tests it. BR-RS-6 drops the "inactive" guard, refuses
+only users the projection does not know, and requires the Keycloak warning,
+which US-2 quotes verbatim and tests ("The dialog warns about Keycloak
+accounts"). The BPMN loops back from "the appointee cannot sign in".
 
 ### R-3
 Severity: major
@@ -150,8 +160,15 @@ BR-RS-11's second sentence with the race that actually exists: under B, an
 administrator's sign-in landing during the appointment. Under A it disappears.
 Keep «неактивен» / «Неизвестный пользователь» in BR-RS-10's naming rule only
 for push-era rows, and say so.
-Status: open
-Resolution:
+Status: resolved
+Resolution: Every Keycloak-feed scenario is gone. US-1 tests status, the
+claim-nothing rule, the filter and paging. US-2 tests the reason, an
+organization with administrators, already-administrator, never signed in,
+repeatable, the same user at once (one refused) and different users at once
+(both succeed). US-3 drops "deleted → неактивен". BR-RS-11 is rewritten to
+the two races that exist. BR-RS-10 limits «неактивен» / «Неизвестный
+пользователь» to pre-tech-025 rows. Every rewritten scenario can be set up
+against the product (round 2 check).
 
 ### R-4
 Severity: minor
@@ -169,8 +186,12 @@ built on, not amended.
 Required resolution: Cite ADR-0029 § 9 as the basis, narrow the ADR debt to
 the three points above, and name the BR-M1-33 inventory exceptions (ADR-0029
 § 9) in the backend pass.
-Status: open
-Resolution:
+Status: resolved
+Resolution: The ADR debt now builds on ADR-0029 § 9 without amending it. It
+decides the trigger, the BR-RS-3 disclosures and the record with its second
+reader, and it rewords ADR-0027 rule 4 and ADR-0033 § 1. The backend pass
+registers the routes as inventory exceptions (mod-016 BR-M1-33), and BR-RS-1
+and BR-RS-3 cite § 9.
 
 ### R-5
 Severity: minor
@@ -182,8 +203,10 @@ reads as conditional.
 Required resolution: The orchestrator adds `tech-025` to the deps in
 status.md. The spec replaces OQ-5's "if tech-025 changes…" with the fact (ADR-0034,
 Consequences) and cites ADR-0034 where BR-RS-5 cites the projection.
-Status: open
-Resolution:
+Status: resolved
+Resolution: `status.md` deps now read `mod-016,tech-024,tech-025`. OQ-5 is
+closed as dropped. ADR-0034 is cited in the Context and in BR-RS-2, -6, -10,
+the NFR Access line and Out of scope.
 
 ### R-6
 Severity: minor
@@ -202,8 +225,11 @@ Required resolution: Add to BR-RS-3: "the status of every organization and,
 through the appointee search, the name and e-mail of every projected user are
 disclosed to the system administrator", plus option B's date if chosen. Carry
 these into the ADR debt (R-4).
-Status: open
-Resolution:
+Status: resolved
+Resolution: The human accepted both disclosures. BR-RS-3 now lists exactly
+(a) name and status, (b) the search's name and e-mail, (c) the record, and
+(d) the already-administrator fact, which is new and is OQ-6. All of them are
+carried into ADR debt point (2).
 
 ### R-7
 Severity: minor
@@ -224,8 +250,14 @@ Required resolution: Name the refusal answer in US-2/US-3. In BR-RS-2, state
 "substring of the name, ignoring case, `ё` = `е`, trimmed", and decide whether
 the list is paged. State the time zone of both dates, as mod-016 does for
 «Добавлен».
-Status: open
-Resolution:
+Status: resolved
+Resolution: BR-RS-1 names 403 «Недостаточно прав» for the API and «Доступ
+ограничен» for the page, and US-1/US-2/US-3 test both. BR-RS-2 fixes the
+filter (trimmed substring, ignoring case, `ё` = `е`, empty shows all, across
+pages), and US-1 has an Examples table plus «Ёлка». The list is paged at 50
+rows with the total shown, and US-1 "Paging" tests it; the page size is a
+point for the human (gate-1 summary). New BR-RS-12 puts both dates in the
+viewer's local time zone, as mod-016 design § 3.3 does.
 
 ### R-8
 Severity: minor
@@ -238,10 +270,12 @@ or B changes the load: B adds a projection change to tech-025's slice.
 Required resolution: After R-1 is decided, re-check the backend pass against
 ≤ M. If option B is chosen, take the last-sign-in write out as its own pass (or its
 own tech line amending ADR-0034), since it changes another task's slice.
-Status: open
-Resolution:
+Status: resolved
+Resolution: Re-estimated after A. The derived administrator state over every
+membership is gone, the record gains a second read, and the inventory
+exceptions are named. Both passes are credibly ≤ M.
 
-### Gate-1 summary (for the orchestrator to send the human)
+### Gate-1 summary, round 1 (superseded by round 2's)
 
 - What the feature does: a holder of `system-admin` sees every organization and
   appoints an administrator in one that nobody can administer any more. The
@@ -266,3 +300,132 @@ Resolution:
   (R-6); add `tech-025` to deps (R-5).
 - After the answer, the spec goes back to the business-analyst for R-1..R-8,
   then to a round-2 delta review.
+
+## Round 2 — requirements (delta)
+
+Reviewer: requirements-reviewer, 2026-11-03. Delta only: the analyst's fix
+round d121cec9 (`spec.md`, US-1..US-3), re-read in full because this session
+has no shell for `git diff`. Checked against the human's answers: R-1 = A; R-6
+both disclosures accepted; OQ-1 and OQ-2 as recommended; OQ-3 changed (the
+record is read by system administrators and by the organization's
+administrators). Not re-investigated: anything round 1 already settled.
+
+Verdict: **needs-human-decision**. R-1..R-8 are resolved (see each finding's
+Resolution). There are no new blockers or majors and 2 new minors (R-9, R-10)
+for the analyst, neither of which blocks gate-1. The verdict stays with the
+human because the spec carries one open question (OQ-6) and one value the
+human has not confirmed (page size 50).
+
+What the fixes were checked for:
+- **New BR-RS numbering** (1–12). Every cross-reference resolves: BR-RS-4..-9
+  and -11 in the decomposition, BR-RS-5 for «Причина», BR-RS-12 for dates,
+  BR-RS-3 (d) ↔ OQ-6. No stale reference to the old BR-RS-5 ("known active
+  administrator") is left.
+- **«История назначений» on «Участники»** under `organizations.membership.write`.
+  That code is scope O and held by `admin` only (ADR-0029 matrix row; mod-016
+  api-contract), so "its administrators" and "holders of the code" are the
+  same set; no grant reaches it. US-3 covers the admin, member/reader (403),
+  a foreign organization (404), and the not-found-before-403 order of ADR-0029
+  § 8. Consistent with Out of scope ("not for non-admin members").
+- **50-row paging.** BR-RS-2 says 50 rows with the total, the filter across
+  pages, and the empty filter shows all. US-1 "Paging" (120 organizations; 3
+  matches on different pages collapse to one page) is testable. NFR "a page
+  within 2 s" matches.
+- **«Пользователь уже администратор этой организации».** It is used
+  consistently in BPMN U3, BR-RS-6, BR-RS-11, US-2 "Already an administrator"
+  and "The same user twice at once", and US-3 "refused appointment leaves no
+  record". Its disclosure is stated as BR-RS-3 (d) and raised as OQ-6, with a
+  recommendation and an alternative. Agreed with the recommendation: the fact
+  concerns only the person the system administrator named, and the
+  alternative (a silent no-op) leaves the operator blind.
+- **Testability of the rewritten scenarios.** Every Given can be produced
+  against the product after tech-025 ("has signed in", "has never signed
+  in", memberships, deactivation, concurrent requests, an injected record-write
+  failure). "Members report that Борис has left" and "she cannot sign in" are
+  narrative context: they set nothing up and assert nothing. They are
+  harmless because the trigger is on request.
+- The reference tracker is still not named. No Keycloak write and no new
+  client role.
+
+### R-9
+Severity: minor
+Affects: BPMN (U/C order), BR-RS-1, BR-RS-5, BR-RS-6, BR-RS-7, US-2
+Problem: Several refusals can apply to one request and their order is not
+stated. Examples: a system administrator who already administers the
+organization appoints themselves (self, or already-administrator?); an unknown
+user in an organization id that does not exist (the BPMN checks the user
+before the organization, which inverts ADR-0029 § 8's habit of 404 before
+validation); an empty reason together with an unknown user. The tests will pin
+one order, and the design will pick another unless the spec decides. Also,
+"1–500 characters" does not say what a character is. ADR-0034 counts code
+points for the projection's fields; UTF-16 units would let an emoji-heavy
+reason pass the client and fail the server.
+Required resolution: Add the order to BR-RS-6 (or a new line): 403 «Недостаточно прав» → 404 «Организация не найдена»
+→ «Причина» field errors → «Этого пользователя нельзя назначить
+администратором» → «Нельзя назначить администратором себя» →
+«Пользователь уже администратор этой организации». Align the BPMN with it. In
+BR-RS-5, say "characters (Unicode code points)".
+Status: open
+Resolution:
+
+### R-10
+Severity: minor
+Affects: BR-RS-6, BR-RS-8, BR-RS-11
+Problem: Two edges are left open.
+(a) **Races with mod-016.** Under A, an organization can have working
+administrators who change memberships while an appointment runs. BR-RS-11
+covers only two appointments. It does not say what happens when an
+appointment raises member X while an organization administrator removes X
+(is the appointment refused, or does it create a new membership?), or raises
+X to admin at the same moment (refused as already administrator, or both
+succeed?).
+(b) **Push-era inactive rows.** BR-RS-6 accepts "any user the projection
+knows". That includes rows the push feed marked disabled, deleted or absent
+before tech-025, which mod-014's search hides by default ("include inactive"
+= no) and mod-016's AddMember refuses ("known and active"). So such a user is
+never offered, yet is accepted when named outside the panel. That is a
+second, undocumented difference from mod-016.
+Required resolution: (a) Add to BR-RS-11: an appointment and a concurrent
+mod-016 change to the same membership are serialized. A member removed first
+is appointed as a non-member (new membership); one raised first makes the
+appointment refused with «Пользователь уже администратор этой организации».
+Or state another outcome, but state one. (b) In BR-RS-6, either refuse a
+pre-tech-025 inactive row with «Этого пользователя нельзя назначить
+администратором», as mod-016 does, or say explicitly that it is accepted
+(the person is let in by their next sign-in, ADR-0034 rule 1). Either way the
+search and the API must agree.
+Status: open
+Resolution:
+
+### Gate-1 summary (round 2, for the orchestrator to send the human)
+
+- **What the feature does:** a holder of `system-admin` opens «Все
+  организации» (every organization: name, status, last appointment date; 50
+  per page, filter by name) and, on request, appoints an administrator in any
+  organization. The appointment adds a new admin membership or raises an
+  existing member to admin. It never removes or downgrades anyone, a
+  «Причина» is required, and the system administrator gets no access to the
+  content. Every appointment writes a permanent record (who, whom, when, why),
+  read by system administrators and by that organization's own
+  administrators on «Участники». No Keycloak write, no new client role. It
+  works with tech-025's sign-in-only projection, because it detects nothing.
+- **Decided by the human and now in the spec:** R-1 = A (on request, any
+  organization); R-6 (status of every organization and the user directory are
+  visible to system administrators); OQ-1 (any user who has signed in, member
+  or not); OQ-2 (no self-appointment; another system administrator may
+  appoint them); OQ-3 changed (the record has two readers).
+- **For the human to decide at gate-1:**
+  1. **OQ-6:** refusing «Пользователь уже администратор этой организации»
+     tells the system administrator that the person they named already
+     administers that organization. Recommended: accept it (it concerns only
+     the named person; the record would show as much). Alternative: a silent
+     no-op, which leaves the operator unable to tell what happened.
+  2. **Page size 50** for «Все организации» (with the total shown). Confirm,
+     or name another size.
+- **Left for the analyst, not blocking:** R-9 (the order of refusals; reason
+  length counted in code points) and R-10 (races with an organization
+  administrator's concurrent change; push-era inactive users accepted or
+  refused).
+- After `gate-1: approved`, stage 3 (design) writes the owed ADR: the
+  trigger, the BR-RS-3 disclosures, and the record with its second reader. It
+  builds on ADR-0029 § 9 and rewords ADR-0027 rule 4 and ADR-0033 § 1.
