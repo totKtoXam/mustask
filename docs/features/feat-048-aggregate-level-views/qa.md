@@ -47,7 +47,7 @@ The migrations apply on the clean database of every integration fixture. E2E: st
 - Expected: 400 `boards.validation_failed`, field `cursor`, reason `boards.invalid_cursor` (ADR-0036).
 - Actual: 500. `GroupCursor.TryDecode` checks `N`, `U` and `P` but not that `T` is a valid tick count; `new DateTimeOffset(ticks, TimeSpan.Zero)` throws in `AggregateViewReadModel` (`ChangedCandidatesAsync`, `RankCandidatesAsync`). `T` above 3155378975999999999 is the same path, by code reading (the test case is skipped, not run).
 - Fix: in `TryDecode`, require `T` in 0..`DateTime.MaxValue.Ticks`.
-- Status: open, carried to gate-3 as a debt (minor). Two skipped cases in `AggregateViewQaTests.ACraftedCursor_WithOutOfRangeValues_Is400OnCursor` name it; unskip when fixed.
+- Status: fixed. `TryDecode` now rejects `T` outside 0..`DateTime.MaxValue.Ticks`; `N`, `U` and `P` were already checked, and `L` (the place) is only compared in SQL, never converted. The two skipped cases are unskipped and pass.
 
 ### Verdict
 

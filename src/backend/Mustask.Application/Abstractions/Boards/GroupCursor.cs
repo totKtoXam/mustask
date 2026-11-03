@@ -37,7 +37,7 @@ public static class GroupCursor
         {
             var payload = JsonSerializer.Deserialize<Payload>(FromBase64Url(text));
 
-            if (payload is null || payload.F != Hash(fingerprint))
+            if (payload is null || payload.F != Hash(fingerprint) || payload.T < 0 || payload.T > DateTime.MaxValue.Ticks)
             {
                 return false;
             }

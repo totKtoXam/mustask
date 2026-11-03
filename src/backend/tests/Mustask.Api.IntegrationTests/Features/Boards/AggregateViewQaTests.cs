@@ -151,8 +151,8 @@ public sealed class AggregateViewQaTests(MustaskApiFactory factory)
 
     // ADR-0036 · the cursor is not signed, but a crafted one must be a validation 400, never a server error.
     [Theory]
-    [InlineData("T", "3155378976000000000", Skip = "QA D-1 (qa.md): a crafted position past DateTime.MaxValue is a 500, not a 400; unskip when fixed")]
-    [InlineData("T", "-1", Skip = "QA D-1 (qa.md): a crafted negative position is a 500, not a 400; unskip when fixed")]
+    [InlineData("T", "3155378976000000000")]
+    [InlineData("T", "-1")]
     [InlineData("N", "0")]
     public async Task ACraftedCursor_WithOutOfRangeValues_Is400OnCursor(string field, string value)
     {
