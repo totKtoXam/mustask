@@ -10,7 +10,7 @@
 
 ## Gates
 
-gate-3: pending
+gate-3: approved (human, chat 2026-11-03)
 
 ## Plan
 
