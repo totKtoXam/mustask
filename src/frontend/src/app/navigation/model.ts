@@ -10,7 +10,12 @@ import PeopleOutlineIcon from '@mui/icons-material/PeopleOutlined';
 import ViewWeekOutlinedIcon from '@mui/icons-material/ViewWeekOutlined';
 import type { SvgIconComponent } from '@mui/icons-material';
 import { dictionariesPermissions, LANGUAGES_PATH } from '../../features/dictionaries';
-import { organizationGeneralPath, organizationsPermissions } from '../../features/organizations';
+import {
+  ADMIN_ORGANIZATIONS_PATH,
+  RESCUE_SECTION_LABEL,
+  organizationGeneralPath,
+  organizationsPermissions,
+} from '../../features/organizations';
 import { processDefinitionPath, processPermissions } from '../../features/process';
 import { UI_KIT_PATH, uiKitPermissions } from '../../features/uikit';
 import { HOME_PATH } from '../../shared/config/paths';
@@ -231,6 +236,22 @@ export function buildNavigationModel(selection: WorkContextSelection): Navigatio
             landing: () => LANGUAGES_PATH,
             pages: [LANGUAGES_PATH],
             beneath: [`${LANGUAGES_PATH}/*`],
+          },
+        ],
+      },
+      // The instance administrator's rescue list (feat-033 DC-2): a section of its own between the
+      // dictionaries and the showcase, so «Настройки» still lands on the first visible entry as before.
+      {
+        id: 'administration',
+        label: RESCUE_SECTION_LABEL,
+        entries: [
+          {
+            id: 'all-organizations',
+            label: 'Все организации',
+            scope: 'instance',
+            permission: organizationsPermissions.organizationRescue,
+            landing: () => ADMIN_ORGANIZATIONS_PATH,
+            pages: [ADMIN_ORGANIZATIONS_PATH],
           },
         ],
       },

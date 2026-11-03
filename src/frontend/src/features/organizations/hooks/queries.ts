@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   getArea,
   getAreaDeletion,
@@ -26,6 +26,12 @@ import {
   searchNewTeamMemberCandidates,
   searchTeamMemberCandidates,
 } from '../api/membershipApi';
+import {
+  getOrganizationAppointments,
+  getRescueAppointments,
+  getRescueOrganizations,
+  searchAppointeeCandidates,
+} from '../api/rescueApi';
 import { organizationsKeys } from '../api/queryKeys';
 
 // One query hook per read (api-contract § 1–§ 4), on the keys the selectors
@@ -308,5 +314,45 @@ export function useNewTeamMemberCandidates(organizationId: string, text: string,
     queryKey: organizationsKeys.newTeamMemberCandidates(organizationId, text),
     queryFn: () => searchNewTeamMemberCandidates(organizationId, text),
     enabled,
+  });
+}
+
+// feat-033: the rescue reads (api-contract § 1, § 2.1).
+
+/**
+ * «Все организации» (§ 1.1): the page being read, kept on screen while the next one loads.
+ * A 403 is the page's «Доступ ограничен»: no retry, so it shows at once.
+ */
+export function useRescueOrganizations(page: number, name: string) {
+  return useQuery({
+    queryKey: organizationsKeys.rescueList(page, name),
+    queryFn: () => getRescueOrganizations(page, name),
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
+}
+
+/** The appointee search (§ 1.2), asked only from 2 characters on (`enabled`). */
+export function useAppointeeCandidates(text: string, enabled: boolean) {
+  return useQuery({
+    queryKey: organizationsKeys.appointeeCandidates(text),
+    queryFn: () => searchAppointeeCandidates(text),
+    enabled,
+  });
+}
+
+/** Which route reads an organization's record: the list's (§ 1.4) or the organization's (§ 2.1). */
+export type AppointmentsHost = 'rescue' | 'organization';
+
+/** «История назначений» (§ 1.4, § 2.1), read at every opening. */
+export function useAppointments(organizationId: string, host: AppointmentsHost) {
+  return useQuery({
+    queryKey: organizationsKeys.appointments(organizationId, host),
+    queryFn: () =>
+      host === 'rescue'
+        ? getRescueAppointments(organizationId)
+        : getOrganizationAppointments(organizationId),
+    gcTime: 0,
+    retry: false,
   });
 }

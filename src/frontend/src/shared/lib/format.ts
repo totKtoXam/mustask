@@ -19,3 +19,15 @@ export function formatDateTime(iso: string | null | undefined): string {
   const parsed = dayjs(iso);
   return parsed.isValid() ? parsed.format('DD.MM.YYYY HH:mm') : '—';
 }
+
+/**
+ * ISO-строка сервера → локальная дата «ДД.ММ.ГГГГ» (feat-033 BR-RS-12): без времени, в поясе
+ * зрителя. Пустой/некорректный вход → `'—'`, как у `formatDateTime`.
+ */
+export function formatDate(iso: string | null | undefined): string {
+  if (!iso) {
+    return '—';
+  }
+  const parsed = dayjs(iso);
+  return parsed.isValid() ? parsed.format('DD.MM.YYYY') : '—';
+}
