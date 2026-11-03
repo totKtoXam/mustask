@@ -303,6 +303,7 @@ app.UseAuthorization();
 
 app.MapDictionaryEndpoints();
 app.MapOrganizationEndpoints();
+app.MapRescueEndpoints();
 app.MapMembershipEndpoints();
 app.MapProcessEndpoints();
 app.MapSessionEndpoints();
