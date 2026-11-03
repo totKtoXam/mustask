@@ -46,6 +46,8 @@ gate-3: pending
 
 - 2026-11-03 [orchestrator] Gate-2 approved by the human with one change (the no-department and no-team groups go first), applied to spec BR-AV-4, US-11, design § 2 and the prototype; D-5 A, D-6 A. Stage 4 (backend-developer) started.
 
+- 2026-11-03 [backend-developer] Stage 4 in progress: api-contract.md and plan-backend.md written; reads, cursor, limiter, migration and tests committed; contract departures (flat by-project rows, `column` key, no level on workitems routes) listed in api-contract section 4. The 1M-item budget test misses 2 s on the flat list deep page and some first-page reads (see report); not relaxed.
+
 ## Notes
 
 Summary (from the queue line): «Рабочие элементы», «Канбан» and «Бэклог» at the organization and department level and «Рабочие элементы» at the team level: the organization-wide work-item list with feat-003's filters and keyword rules, and the aggregate backlogs and boards of every active project (department: the projects placed in it) as one collapsible group (swimlane on the board) per project in the project's own rank order, with a move inside a group and rows loaded per project as a group opens (reads capped at 4 in flight per tab, paged by a cursor), with the additive reads and the budgets of BR-NV-12 and BR-NV-20. Spec and stories US-6, US-10 live in feat-043's folder (its OQ-9); takes feat-042's board and backlog part, BR-NE-8's cross-project list and mod-020 CR-2's test.

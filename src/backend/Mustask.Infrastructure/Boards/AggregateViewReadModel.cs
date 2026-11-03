@@ -128,9 +128,11 @@ internal sealed class AggregateViewReadModel(MustaskDbContext context, IUserDire
         // Every project's first skip + size items cover the page whatever the other projects hold; the outer order cuts it.
         var reach = (int)Math.Min(skip + pageSize, int.MaxValue);
 
+        // The second conjunct looks like nothing, and is what keeps EF from turning the correlation into a ROW_NUMBER window over the whole
+        // table (it does so for a bare equality): the statement stays the LATERAL ADR-0036 wants, one index range a project.
         var lateral =
             from project in projects
-            from item in items.Where(item => item.ProjectId == project.Id)
+            from item in items.Where(item => item.ProjectId == project.Id && project.Id != Guid.Empty)
                 .OrderByDescending(item => item.ChangedAt).ThenByDescending(item => item.Number).Take(reach)
             select new Candidate { Id = item.Id, ChangedAt = item.ChangedAt, Number = item.Number, ProjectKey = project.Key };
 
@@ -265,7 +267,7 @@ internal sealed class AggregateViewReadModel(MustaskDbContext context, IUserDire
         {
             lateral =
                 from project in projects
-                from item in items.Where(item => item.ProjectId == project.Id)
+                from item in items.Where(item => item.ProjectId == project.Id && project.Id != Guid.Empty)
                     .OrderByDescending(item => item.ChangedAt).ThenByDescending(item => item.Number).Take(take)
                 select new Candidate { Id = item.Id, ChangedAt = item.ChangedAt, Number = item.Number, ProjectKey = project.Key };
         }
