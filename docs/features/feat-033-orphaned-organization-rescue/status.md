@@ -38,6 +38,7 @@ gate-3: pending
 - 2026-11-03 [orchestrator] Stage 3 (ux-designer, e25721a4): design.md, prototype, ADR-0035 proposed (code organizations.organization.rescue), no new kit part. Prototype opened by the orchestrator in the browser pane: list 25/page, row menu, appoint success (date appears), «Пользователь уже администратор этой организации» on Бета, «История назначений» with the reason; no console errors. The history dialog is 90% wide and mostly empty (design § 12 point 2). gate-2 asked.
 
 - 2026-11-03 [orchestrator] gate-2 approved by the human in chat: names kept («Администрирование», /administration/organizations, organizations.organization.rescue); «История назначений» sized to its content, not 90 % (design.md § 12 point 2 rewritten by the orchestrator). ADR-0035 stays proposed until gate-3. Stage 4 next.
+- 2026-11-03 [backend-developer] Stage 4a: plan-backend.md and api-contract.md fixed against main 41d784ee + tech-025 (PR #55, read from its branch). Five routes: four rescue routes under /api/organizations/rescue (instance code organizations.organization.rescue, own 403 organizations.rescue.forbidden; the two with {organizationId} are BR-M1-33 inventory exceptions per ADR-0029 § 9) and GET /api/organizations/{organizationId}/appointments (membership.write). Additive migration AddOrganizationAppointments; eight new error codes; no lanes. Decisions D-1..D-4 asked in plan § 9. No code yet: the coding run waits for #55 on main.
 
 ## Notes
 
