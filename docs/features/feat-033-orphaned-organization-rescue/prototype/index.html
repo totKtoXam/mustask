@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>feat-033 prototype</title>
+<style>
+:root{--bg:#F8F8F8;--nav:#EBEBEB;--navh:#E2E2E2;--navs:#DCDCDC;--tx:#242424;--tx2:#616161;--lab:#707070;--acc:#0078D4;--accd:#0C5598;--div:#E0E0E0;--rule:#EAEAEA;--hov:#F0F0F0;--sel:#E5F0FA;--fh:#C8C8C8;--err:#C42B1C;--glow:0 3px 7px rgba(0,0,0,.13),0 .6px 1.8px rgba(0,0,0,.11)}
+*{box-sizing:border-box}body{margin:0;font:14px/20px "Segoe UI",system-ui,sans-serif;color:var(--tx);background:var(--bg);overflow-x:hidden}
+button,select,input,textarea{font:inherit}button{background:var(--nav);color:var(--tx);border:0;border-radius:4px;min-height:32px;padding:4px 12px;font-weight:600;cursor:pointer}button:hover{background:var(--navh)}button:disabled{opacity:.5;cursor:not-allowed}
+button:focus-visible,[tabindex]:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+button.p{background:var(--acc);color:#fff}button.p:hover:not(:disabled){background:var(--accd)}button.t{background:transparent;color:var(--accd)}button.ic{min-width:32px;padding:0;background:transparent;font-size:18px;color:var(--tx2)}button.ic:hover{background:var(--hov)}
+input,textarea{border:1px solid var(--fh);border-radius:4px;padding:4px 8px;background:#fff;color:var(--tx);width:100%}input{min-height:32px}input:focus,textarea:focus{outline:none;border-color:var(--acc)}.bad{border-color:var(--err)!important}
+.hint{background:#fff;border-bottom:1px solid var(--div);padding:6px 16px;font-size:12px;line-height:18px;color:var(--tx2)}.hint select{min-height:24px}
+#bar{height:48px;background:#fff;border-bottom:1px solid var(--div);display:flex;align-items:center;gap:8px;padding:0 16px}#bar b{font-size:16px}
+#wrap{display:flex;min-height:calc(100vh - 100px)}nav{width:240px;background:var(--nav);padding:8px 0;flex:none}
+nav h5{margin:12px 16px 4px;color:var(--lab);font-size:12px;line-height:16px;font-weight:600}
+nav a{display:block;height:36px;line-height:36px;padding:0 16px 0 13px;cursor:pointer;border-left:3px solid transparent}nav a:hover{background:var(--navh)}nav a.cur{background:var(--navs);font-weight:600;border-left-color:var(--acc)}
+main{flex:1;padding:16px 24px;min-width:0}h1{font-size:20px;line-height:28px;font-weight:600;margin:0 0 4px}h1:focus{outline:none}.path{color:var(--tx2);margin-bottom:12px}
+.head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.head h1{flex:1}
+.band{background:#fff;border:1px solid var(--div);border-radius:4px;padding:8px 16px;margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.band input{max-width:320px}
+.card{background:#fff;border-radius:4px;box-shadow:var(--glow);overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;color:var(--lab);font-weight:600;font-size:12px;padding:6px 12px;border-bottom:1px solid var(--rule)}td{padding:6px 12px;height:40px;border-bottom:1px solid var(--rule);vertical-align:top}tbody tr:hover td{background:var(--hov)}
+.pager{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:4px 12px;border-top:1px solid var(--div);color:var(--tx2)}
+.chip{border:1px solid var(--fh);border-radius:12px;padding:0 8px;font-size:12px;line-height:20px;display:inline-block}
+.busy{opacity:.55}.sk td div{height:12px;background:var(--rule);border-radius:3px}
+.frame{text-align:center;padding:40px 16px;color:var(--tx2)}.frame h2{color:var(--tx);font-size:16px;margin:8px 0}
+.full{text-align:center;padding:80px 16px}.full h1{margin-bottom:8px}
+.ntc{border-radius:4px;border-left:3px solid #9D5D00;background:#FFF4CE;padding:8px 12px;margin:8px 0;font-size:13px}.ntc.e{border-color:var(--err);background:#FDE7E9}
+#dlg{display:none;position:fixed;inset:0;background:#0005;z-index:9;align-items:center;justify-content:center}#dlg.open{display:flex}
+.box{background:#fff;border-radius:4px;box-shadow:var(--glow);padding:20px;width:560px;max-width:94vw;max-height:92vh;overflow:auto}.box.wide{width:90vw;height:90vh}.box h2{margin:0 0 8px;font-size:18px;line-height:26px;display:flex}.box h2 span{flex:1}
+.f{margin:12px 0}.f label{display:block;font-size:12px;color:var(--lab);font-weight:600;margin-bottom:2px}.help{font-size:12px;line-height:16px;color:var(--tx2);margin-top:2px}.help.e{color:var(--err)}
+.foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.opts{border:1px solid var(--div);border-radius:4px;max-height:200px;overflow:auto;margin-top:2px}.opts div{padding:4px 12px}.opts .o{cursor:pointer}.opts .o:hover,.opts .o:focus{background:var(--hov)}.opts .h{color:var(--tx2);font-size:13px}.opts small{display:block;color:var(--tx2)}
+.menu{position:absolute;background:#fff;box-shadow:var(--glow);border-radius:4px;z-index:5;min-width:220px}.menu div{padding:0 12px;line-height:36px;cursor:pointer}.menu div:hover,.menu div:focus{background:var(--hov)}
+#note{position:fixed;left:16px;bottom:16px;max-width:calc(100vw - 32px);background:#242424;color:#fff;padding:10px 16px;border-radius:4px;display:none;z-index:20}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media(max-width:800px){nav{width:150px}main{padding:12px}}
+</style></head><body>
+<div class="hint">Прототип feat-033. Вы:
+ <select id="who"><option value="sa">Администратор системы (Станислав Орлов)</option><option value="ou">Пользователь без права (только organization-creator)</option><option value="oa">Администратор организации «Бета» (Анна Лебедева)</option></select>
+ Состояние списка: <select id="mode"><option value="ok">данные</option><option value="load">загрузка</option><option value="empty">организаций нет</option><option value="err">ошибка</option></select>
+ Попробуйте: фильтр «елк» (ё = е), «ГАМ», пробелы; листание; «⋯» → «Назначить администратора» на «Бета»: пусто → «Укажите причину»; поиск «Вера», «Анна» (уже админ), «Станислав» (себя), «Юлия» (не найдена), «Олег» (не найден: старая неактивная строка); «Организация не найдена» — на «Исчезнувшая». «История назначений» — у «Бета» есть запись. Роль «Администратор организации» → «Участники» → «История назначений».</div>
+<div id="bar"><b>▣ MUSTASK</b><span style="flex:1"></span><span id="me"></span></div>
+<div id="wrap"><nav id="nav"></nav><main id="main"></main></div>
+<div id="dlg"><div class="box" id="box" role="dialog" aria-modal="true"></div></div><div id="note" role="status"></div>
+<script>
+(function(){
+'use strict';
+var PAGE=25;
+var ME={sa:{id:'u-sa',name:'Станислав Орлов'},ou:{id:'u-ou',name:'Игорь Попов'},oa:{id:'u-oa',name:'Анна Лебедева'}};
+var USERS=[{id:'u-v',name:'Вера Иванова',mail:'vera@example.org'},{id:'u-p',name:'Пётр Сидоров',mail:'petr@example.org'},{id:'u-oa',name:'Анна Лебедева',mail:'anna@example.org'},{id:'u-sa',name:'Станислав Орлов',mail:'stas@example.org'},{id:'u-b',name:'Борис Кузнецов',mail:'boris@example.org'},{id:'u-ve',name:'Вера Егорова',mail:'vera.e@example.org'}];
+// «Юлия» never signed in and «Олег» is a pre-tech-025 inactive row: neither is offered (BR-RS-6)
+var ADMINS={beta:['u-oa','u-b']};
+var ORGS=[{id:'alpha',name:'Альфа',on:true},{id:'beta',name:'Бета',on:true},{id:'gamma',name:'Гамма',on:false},{id:'elka',name:'Ёлка',on:true},{id:'gone',name:'Исчезнувшая',on:true}];
+for(var i=1;i<=115;i++)ORGS.push({id:'o'+i,name:'Организация '+(i<10?'00':i<100?'0':'')+i,on:i%11!==0});
+ORGS.sort(function(a,b){return a.name.localeCompare(b.name,'ru')});
+var REC={beta:[{at:new Date(2026,10,3,14,5),by:'Станислав Орлов',who:'Борис Кузнецов',why:'Прежний администратор уволился, новый назначен по просьбе участников.'}]};
+var S={who:'sa',mode:'ok',q:'',page:0,page2:'list',busy:false,gone:{}};
+function $(s){return document.querySelector(s)}
+function esc(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function norm(t){return t.toLowerCase().replace(/ё/g,'е')}
+function p2(n){return (n<10?'0':'')+n}
+function fd(d){return p2(d.getDate())+'.'+p2(d.getMonth()+1)+'.'+d.getFullYear()}
+function fdt(d){return fd(d)+' '+p2(d.getHours())+':'+p2(d.getMinutes())}
+function note(t){var n=$('#note');n.textContent=t;n.style.display='block';clearTimeout(note.t);note.t=setTimeout(function(){n.style.display='none'},4000)}
+function cps(t){return Array.from(t.trim()).length}
+function filtered(){var q=norm(S.q.trim());return ORGS.filter(function(o){return !S.gone[o.id]&&(!q||norm(o.name).indexOf(q)>=0)})}
+function last(id){var r=REC[id];return r&&r.length?fd(r[0].at):null}
+function drawNav(){var h='';
+ if(S.who==='sa'){h='<h5>Организация</h5><a>Общие</a><h5>Справочники</h5><a>Языки</a><h5>Администрирование</h5><a class="cur" data-a="list">Все организации</a><h5>Интерфейс</h5><a>Витрина компонентов</a>'}
+ else if(S.who==='oa'){h='<h5>Организация «Бета»</h5><a>Общие</a><a data-a="members" class="'+(S.page2==='members'?'cur':'')+'">Участники</a><h5>Справочники</h5><a>Языки</a>'}
+ else h='<h5>Справочники</h5><a>Языки</a>';
+ $('#nav').innerHTML=h;$('#me').textContent=ME[S.who].name}
+function focusH1(){var h=$('#main h1');if(h){h.setAttribute('tabindex','-1');h.focus()}}
+function head(title,path,cmds){return '<div class="path">'+path+'</div><div class="head"><h1>'+title+'</h1>'+(cmds||'')+'</div>'}
+function draw(keepFocus){
+ drawNav();var m=$('#main');
+ if(S.who==='oa'&&S.page2==='members'){drawMembers(m);return}
+ if(S.who==='oa'||S.who==='ou'){ if(S.page2==='list'||S.who==='ou'){m.innerHTML='<div class="full" role="alert"><h1>Доступ ограничен</h1><p>У вас нет прав для просмотра этого раздела. Обратитесь к администратору, чтобы запросить доступ.</p>'+(S.who==='oa'?'<p class="path">(администратор организации открыл адрес списка вручную)</p>':'')+'</div>';return} }
+ var h=head('Все организации','Настройки / Администрирование');
+ h+='<div class="band" role="group" aria-label="Фильтры">⏷ <input id="q" placeholder="Поиск по названию" aria-label="Поиск по названию" value="'+esc(S.q)+'">'+(S.q?'<button class="t" id="clr">Очистить фильтры</button>':'')+'</div>';
+ var rows=filtered(),total=rows.length,pg=Math.min(S.page,Math.max(0,Math.ceil(total/PAGE)-1));S.page=pg;
+ if(S.mode==='load'){h+='<div class="card"><table aria-label="Все организации" role="status" aria-label="Загрузка данных"><thead><tr><th>Организация</th><th>Статус</th><th>Последнее назначение</th><th></th></tr></thead><tbody class="sk">'+new Array(9).join('<tr><td><div style="width:60%"></div></td><td><div style="width:50%"></div></td><td><div style="width:40%"></div></td><td></td></tr>')+'</tbody></table></div><p class="path">Загрузка данных</p>'}
+ else if(S.mode==='err'){h+='<div class="ntc e" role="alert">Не удалось загрузить список организаций. <button class="t" id="retry">Повторить</button></div>'}
+ else if(S.mode==='empty'){h+='<div class="card frame"><div style="font-size:32px">🏢</div><h2>Организаций пока нет</h2></div>'}
+ else if(!total){h+='<div class="card frame"><div style="font-size:32px">🔍</div><h2>Организации не найдены</h2><button id="reset">Сбросить фильтр</button></div>'}
+ else{
+  h+='<div class="card"><table aria-label="Все организации"><thead><tr><th>Организация</th><th>Статус</th><th>Последнее назначение</th><th style="width:48px"></th></tr></thead><tbody>'+rows.slice(pg*PAGE,pg*PAGE+PAGE).map(function(o){var l=last(o.id);
+   return '<tr><td>'+esc(o.name)+'</td><td>'+(o.on?'Активна':'<span class="chip">Деактивирована</span>')+'</td><td>'+(l?l:'<span aria-hidden="true">—</span><span class="vh">Назначений не было</span>')+'</td><td><button class="ic" data-menu="'+o.id+'" aria-haspopup="menu" aria-label="Действия: '+esc(o.name)+'">⋯</button></td></tr>'}).join('')+'</tbody></table>'
+  +'<div class="pager"><span>'+(pg*PAGE+1)+'–'+Math.min(total,pg*PAGE+PAGE)+' из '+total+'</span><button class="ic" id="prev" aria-label="Предыдущая страница" '+(pg?'':'disabled')+'>‹</button><button class="ic" id="next" aria-label="Следующая страница" '+((pg+1)*PAGE>=total?'disabled':'')+'>›</button></div></div>'}
+ h+='<div class="vh" role="status" aria-live="polite" id="live"></div>';
+ m.innerHTML=h;var q=$('#q');if(keepFocus==='q'&&q){q.focus();q.setSelectionRange(q.value.length,q.value.length)}
+}
+function drawMembers(m){
+ m.innerHTML=head('Участники','Настройки / Организация','<button id="hist">↺ История назначений</button><button class="p">+ Добавить участника</button>')
+ +'<div class="card"><table aria-label="Участники организации"><thead><tr><th>Имя</th><th>Почта</th><th>Роль</th><th>Добавлен</th><th>Роль изменена</th></tr></thead><tbody>'
+ +'<tr><td>Анна Лебедева</td><td>anna@example.org</td><td>Администратор</td><td>Иван Петров, 01.10.2026 10:00</td><td>—</td></tr>'
+ +'<tr><td>Борис Кузнецов</td><td>boris@example.org</td><td>Администратор</td><td>Станислав Орлов, 03.11.2026 14:05</td><td>—</td></tr>'
+ +'<tr><td>Пётр Сидоров</td><td>petr@example.org</td><td>Читатель</td><td>Анна Лебедева, 02.10.2026 09:15</td><td>—</td></tr></tbody></table></div>'}
+// ---- dialogs
+var openerEl=null;
+function openDlg(html,wide){var b=$('#box');b.className='box'+(wide?' wide':'');b.innerHTML=html;$('#dlg').className='open'}
+function closeDlg(){$('#dlg').className='';$('#box').innerHTML='';if(openerEl&&document.body.contains(openerEl))openerEl.focus()}
+function history(org){
+ var r=REC[org.id]||[];
+ var body=S.mode==='err'?'<div class="ntc e" role="alert">Не удалось загрузить историю. <button class="t" data-x="rh">Повторить</button></div>'
+  :!r.length?'<div class="frame"><h2>Назначений не было</h2></div>'
+  :'<table aria-label="История назначений"><thead><tr><th>Когда</th><th>Кто назначил</th><th>Кого назначили</th><th>Причина</th></tr></thead><tbody>'+r.map(function(x){return '<tr><td style="white-space:nowrap">'+fdt(x.at)+'</td><td>'+esc(x.by)+'</td><td>'+esc(x.who)+'</td><td style="overflow-wrap:anywhere">'+esc(x.why)+'</td></tr>'}).join('')+'</tbody></table>';
+ openDlg('<h2><span>История назначений — «'+esc(org.name)+'»</span></h2><div style="flex:1;overflow:auto">'+body+'</div><div class="foot"><button class="p" id="closeh">Закрыть</button></div>',true);
+ $('#closeh').focus();$('#closeh').onclick=closeDlg;var rh=document.querySelector('[data-x=rh]');if(rh)rh.onclick=function(){S.mode='ok';$('#mode').value='ok';history(org)};
+}
+function appoint(org){
+ var chosen=null,err={user:null,why:null,alert:null},typed='';
+ function view(){
+  var o=!chosen?(typed.trim().length<2?'<div class="h">Введите не менее 2 символов имени или почты</div>':(function(){var t=norm(typed.trim());var l=USERS.filter(function(u){return norm(u.name).indexOf(t)>=0||norm(u.mail).indexOf(t)>=0});
+    return l.length?l.map(function(u){return '<div class="o" tabindex="0" role="option" data-u="'+u.id+'">'+esc(u.name)+'<small>'+esc(u.mail)+'</small></div>'}).join(''):'<div class="h">Пользователи не найдены</div>'})()):'';
+  $('#box').innerHTML='<h2><span>Назначение администратора</span></h2>'
+  +'<p>Выбранный пользователь станет администратором организации «'+esc(org.name)+'». Никто не будет удалён, ничья роль не будет понижена. Вы не получите доступа к содержимому организации.</p>'
+  +'<div class="ntc" role="status">MUSTASK не видит, отключена ли учётная запись в Keycloak: убедитесь, что пользователь может войти.</div>'
+  +(err.alert?'<div class="ntc e" role="alert">'+esc(err.alert)+'</div>':'')
+  +'<div class="f"><label for="uf">Пользователь *</label><input id="uf" role="combobox" aria-expanded="'+(!chosen)+'" placeholder="Имя или почта" maxlength="100" class="'+(err.user?'bad':'')+'" value="'+esc(chosen?chosen.name:typed)+'" autocomplete="off">'+(chosen?'':'<div class="opts" role="listbox">'+o+'</div>')+(err.user?'<div class="help e">'+esc(err.user)+'</div>':'')+'</div>'
+  +'<div class="f"><label for="wf">Причина *</label><textarea id="wf" rows="3" class="'+(err.why?'bad':'')+'">'+esc(S.why||'')+'</textarea><div class="help'+(err.why?' e':'')+'">'+(err.why||'Не более 500 символов')+'</div></div>'
+  +'<div class="foot"><button id="cancel" type="button">Отмена</button><button class="p" id="go" type="button" '+(chosen&&!S.busy?'':'disabled')+'>Назначить</button></div>';
+  var uf=$('#uf');uf.oninput=function(){typed=uf.value;if(chosen){chosen=null}err.user=null;view();var u=$('#uf');u.focus();u.setSelectionRange(u.value.length,u.value.length)};
+  document.querySelectorAll('.o').forEach(function(e){e.onclick=e.onkeydown=function(ev){if(ev.type==='keydown'&&ev.key!=='Enter')return;chosen=USERS.filter(function(u){return u.id===e.dataset.u})[0];err.user=null;view();$('#wf').focus()}});
+  $('#wf').oninput=function(){S.why=this.value;if(err.why){err.why=null;view();var w=$('#wf');w.focus();w.setSelectionRange(w.value.length,w.value.length)}};
+  $('#cancel').onclick=closeDlg;
+  $('#go').onclick=function(){
+   var why=(S.why||'').trim(),n=cps(why);
+   if(!n){err.why='Укажите причину';view();$('#wf').focus();return}
+   if(n>500){err.why='Не более 500 символов';view();$('#wf').focus();return}
+   err.why=null;err.alert=null;
+   // the server's order (BR-RS-6a)
+   if(S.gone[org.id]||org.id==='gone'){err.alert='Организация не найдена';S.gone[org.id]=1;view();$('#go').disabled=true;return}
+   if(chosen.id===ME[S.who].id){err.user='Нельзя назначить администратором себя';view();$('#uf').focus();return}
+   if((ADMINS[org.id]||[]).indexOf(chosen.id)>=0){err.user='Пользователь уже администратор этой организации';view();$('#uf').focus();return}
+   (ADMINS[org.id]=ADMINS[org.id]||[]).push(chosen.id);
+   (REC[org.id]=REC[org.id]||[]).unshift({at:new Date(),by:ME[S.who].name,who:chosen.name,why:why});
+   closeDlg();draw();note('Администратор назначен: '+chosen.name);
+  };
+  if(!chosen&&!err.user&&document.activeElement===document.body)uf.focus();
+ }
+ S.why='';openDlg('',false);view();$('#uf').focus();
+}
+// ---- events
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){if($('#dlg').className==='open')closeDlg();var m=document.querySelector('.menu');if(m){var b=m.dataset.btn;m.remove();var x=document.querySelector('[data-menu="'+b+'"]');if(x)x.focus()}}});
+document.addEventListener('click',function(e){
+ var t=e.target;var mn=document.querySelector('.menu');
+ if(mn&&!mn.contains(t)){mn.remove()}
+ if(t.dataset.menu){var org=ORGS.filter(function(o){return o.id===t.dataset.menu})[0],r=t.getBoundingClientRect();
+  var d=document.createElement('div');d.className='menu';d.setAttribute('role','menu');d.dataset.btn=org.id;d.style.top=(r.bottom+window.scrollY)+'px';d.style.left=Math.max(8,r.right-220+window.scrollX)+'px';
+  d.innerHTML='<div role="menuitem" tabindex="0" data-i="a">＋ Назначить администратора</div><div role="menuitem" tabindex="0" data-i="h">↺ История назначений</div>';document.body.appendChild(d);d.firstChild.focus();
+  d.onclick=d.onkeydown=function(ev){if(ev.type==='keydown'&&ev.key!=='Enter')return;var i=ev.target.dataset.i;if(!i)return;d.remove();openerEl=t;if(i==='a')appoint(org);else history(org)};e.stopPropagation();return}
+ if(t.id==='clr'||t.id==='reset'){S.q='';S.page=0;draw('q')}
+ if(t.id==='retry'){S.mode='ok';$('#mode').value='ok';draw()}
+ if(t.id==='prev'){S.page--;draw()}if(t.id==='next'){S.page++;draw()}
+ if(t.id==='hist'){openerEl=t;history({id:'beta',name:'Бета'})}
+ if(t.dataset.a==='members'){S.page2='members';draw();focusH1()}
+});
+document.addEventListener('input',function(e){if(e.target.id==='q'){S.q=e.target.value;S.page=0;draw('q');var n=filtered().length;$('#live')&&($('#live').textContent='Найдено: '+n)}});
+$('#who').onchange=function(){S.who=this.value;S.page2=S.who==='oa'?'members':'list';draw();focusH1()};
+$('#mode').onchange=function(){S.mode=this.value;draw()};
+draw();
+})();
+</script></body></html>

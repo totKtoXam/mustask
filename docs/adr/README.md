@@ -43,6 +43,7 @@ anything already fixed by the conventions.
 
 Keep the list current (append-only, newest on top):
 
+- ADR-0035 — Let the instance administrator appoint organization administrators on request, on a permanent record · proposed (amends the wording of ADR-0027 rule 4 and ADR-0033 § 1)
 - ADR-0033 — Run in the company-wide realm on four client roles, and keep the role-to-right table in code · proposed (amends ADR-0018, ADR-0027)
 - ADR-0031 — Make the organization's area tree a typed single tree whose project nodes are the projects' places in it · accepted (supersedes ADR-0028 rules 1, 2, 3, 6, 7, 8, its mod-018 delivery row, and ADR-0029 § 6 and its mod-018 delivery bullet, in part)
 - ADR-0030 — Delete a work item into its Removed state with the way back on its row, hide it by named entry points, and purge it in one locked transaction · accepted (amends ADR-0029 § 4)
