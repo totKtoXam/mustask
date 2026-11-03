@@ -1,26 +1,27 @@
-# Spec: Rescue of an organization with no active administrator (feat-033)
+# Spec: A system administrator appoints an organization administrator (feat-033)
 
 ## Context and goal
 
-An organization can be left with nobody able to administer it: every `admin`
-membership belongs to an account that is disabled or deleted in Keycloak,
-which MUSTASK never refuses (doc-006 BR-M1-4, BR-M1-17). Today there is no way
-back — the members keep working, but nobody can change membership, rename,
-deactivate or restore the organization, or manage its structure. doc-006
-recorded this as an accepted risk (H-1, § "Known MVP limitation"). This task
-closes it: the holder of the `system-admin` client role (ADR-0033) sees every
-organization of the instance with whether it has an active administrator, and
-appoints one where it has none — recorded, and without themselves gaining any
-access to the organization's content (doc-006 BR-M1-8). Scope is the queue
-line only, as the human decided (`status.md`, route confirmation): no general
-audit log of system-admin actions, no role management in MUSTASK.
+An organization can be left with nobody able to administer it: its
+administrators have left, their Keycloak accounts are disabled or deleted, or
+the accounts are still enabled but nobody can use them (doc-006 § "Known MVP
+limitation", H-1). Today there is no way back. MUSTASK cannot detect this
+state: since tech-025 the user projection is filled from the sign-in only and
+never learns that an account was disabled or deleted (ADR-0034, Consequences).
+So this task gives the holder of the `system-admin` client role (ADR-0033) an
+appointment on request: in any organization, active or deactivated, they add an
+administrator or raise a member to administrator, with a required reason, on a
+permanent record, and without gaining any access to the organization's content
+(doc-006 BR-M1-8). This is wider than the queue line's "no active
+administrator" by the human's decision (gate-1 answers in `status.md`, R-1 = A).
 
 ## Roles
 
 | Who | Source of the right | What they may do here |
 |---|---|---|
-| System administrator | the `mustask-api` client role `system-admin`, in the token (ADR-0033); the new right is an instance right, reached through `InstanceRoles` by `system-admin` only | read the instance-wide organization list of BR-RS-2; appoint an administrator per BR-RS-4..-9; read the appointment record of BR-RS-10 |
-| Organization administrator, member, reader | their organization membership (ADR-0027, ADR-0029) | unchanged; they read the appointed administrator's membership with its who/when (doc-006 BR-M1-16) |
+| System administrator | the `mustask-api` client role `system-admin`, in the token (ADR-0033); the rescue right is an instance right reached through `InstanceRoles` by `system-admin` only | read the instance organization list (BR-RS-2); appoint an administrator (BR-RS-4..-9); read any organization's appointment record from that list (BR-RS-10) |
+| Organization administrator | their membership; the organization code `organizations.membership.write` (mod-016) | read their own organization's appointment record on «Участники» (BR-RS-10); otherwise unchanged |
+| Organization member, reader | their membership | unchanged; they read the appointee's «Добавлен» / «Роль изменена» on «Участники» (doc-006 BR-M1-16) |
 | `organization-creator`, `dictionaries-admin`, `user` | client roles (ADR-0033) | nothing here |
 | Company realm administrator | the company Keycloak console | grants and revokes `system-admin`; nothing in this task writes to Keycloak |
 
@@ -31,8 +32,8 @@ feature and reaches no organization content through it (BR-RS-3).
 
 | id | Title | depends-on | File |
 |----|-------|------------|------|
-| US-1 | A system administrator sees every organization and which have no active administrator | - | `stories/US-1-instance-organization-list.md` |
-| US-2 | A system administrator appoints an administrator to an organization that has none | US-1 | `stories/US-2-appoint-administrator.md` |
+| US-1 | A system administrator sees every organization of the instance | - | `stories/US-1-instance-organization-list.md` |
+| US-2 | A system administrator appoints an administrator to an organization | US-1 | `stories/US-2-appoint-administrator.md` |
 | US-3 | Every appointment is recorded and readable | US-2 | `stories/US-3-appointment-record.md` |
 
 No story is spun out: the list without the appointment is a read with nothing
@@ -45,122 +46,132 @@ are `shippable: no`.
 flowchart TD
     S[System administrator opens «Все организации»] --> R{Token carries the rescue right?}
     R -->|no| R1[«Доступ ограничен», nothing listed]
-    R -->|yes| L[Every organization, active and deactivated: name, status, administrator state, last appointment]
-    L --> F{Organization has a known active administrator?}
-    F -->|yes| F1[No appointment offered]
-    F -->|no| D[«Назначить администратора»: search active users of the projection]
-    D --> U{Chosen user known, active and not the acting system administrator?}
-    U -->|inactive or unknown| U1[Refused: «Этого пользователя нельзя назначить администратором»]
-    U -->|self| U2[Refused: «Нельзя назначить администратором себя»]
-    U -->|yes| C{At this moment the organization exists and still has no known active administrator?}
-    C -->|no such organization| C0[Refused: «Организация не найдена»]
-    C -->|an active administrator appeared| C1[Refused: «В организации уже есть активный администратор», list re-read]
-    C -->|still none| M{User already a member?}
-    M -->|yes| M1[Role raised to admin; role changed by the system administrator, now]
-    M -->|no| M2[Membership created as admin; added by the system administrator, now]
-    M1 --> A[Appointment record written in the same operation]
+    R -->|yes| L[Every organization, active and deactivated: name, status, last appointment]
+    L --> D[«Назначить администратора» on any row: pick a user, enter «Причина»]
+    D --> V{«Причина» 1–500 characters after trimming?}
+    V -->|no| V1[Field error, nothing sent]
+    V -->|yes| U{Chosen user}
+    U -->|not in the projection| U1[Refused: «Этого пользователя нельзя назначить администратором»]
+    U -->|the acting system administrator| U2[Refused: «Нельзя назначить администратором себя»]
+    U -->|already an administrator here| U3[Refused: «Пользователь уже администратор этой организации»]
+    U -->|other| C{Organization exists?}
+    C -->|no| C0[Refused: «Организация не найдена»]
+    C -->|yes| M{User already a member?}
+    M -->|yes| M1[Role raised to admin; «Роль изменена» = system administrator, now]
+    M -->|no| M2[New admin membership, no team; «Добавлен» = system administrator, now]
+    M1 --> A[Appointment record with the reason, in the same operation]
     M2 --> A
+    A -->|record cannot be written| A0[Whole appointment refused, nothing changes]
     A --> E[Effective on the appointee's next request; the system administrator still sees no content]
-    E --> N[The new administrator manages the organization per mod-016, restore included]
+    E --> N[The organization's administrators govern it under mod-016, restore included]
+    N -.->|the appointee cannot sign in| D
 ```
 
 ## Business rules
 
 | # | Rule | Source |
 |---|------|--------|
-| BR-RS-1 | The rescue right is an instance right, carried in the token and held through `InstanceRoles` by `system-admin` only — never by `organization-creator`, `dictionaries-admin` or `user`, and never by any organization role. It is not a membership and reaches no organization code. Granting or revoking it is assigning `system-admin` in the company realm; nothing in Keycloak is added or written by this task. A change reaches the user with the next token (ADR-0018, "Revocation is NOT instant"). | ADR-0033 § 1–2; doc-006 BR-M1-2; human scope decision |
-| BR-RS-2 | The instance-wide organization list shows, for every organization of the instance, active and deactivated alike: its name; its status «Активна» / «Деактивирована»; its administrator state «Есть активный администратор» / «Нет активного администратора» (BR-RS-5); and the date of its last appointment, «—» when there was none. It is ordered by name (mod-014 BR-UP-15's collation) and filtered by name substring and by «Только без активного администратора». | queue line; doc-006 BR-M1-1 (names are public), H-2 |
-| BR-RS-3 | Nothing else about an organization reaches the system administrator through this feature: not its members or their number, not the names of its administrators active or inactive, not its projects, teams, areas, work items, process or settings. Opening the organization or anything under it still answers «Организация не найдена» unless they hold a membership of their own (doc-006 BR-M1-8, ADR-0027 rule 4, ADR-0029 § 8). The administrator state is the one fact about an organization's membership this feature discloses, plus what the appointment record of BR-RS-10 says. | doc-006 BR-M1-8; queue line ("no access to the organization's content") |
-| BR-RS-4 | An appointment is allowed only while the organization has no known active administrator at the moment of the appointment; otherwise it is refused and nothing changes. The rescue right never changes the membership of an organization that has an active administrator. | doc-006 H-1; this spec (OQ-4) |
-| BR-RS-5 | "Known active administrator" means what it means for doc-006 BR-M1-4 and mod-016 BR-M1-32: an `admin` membership whose user the projection holds as active. A user the projection does not know yet (mod-014 BR-UP-17) does not count, so an organization whose only administrator is not yet projected shows «Нет активного администратора». | mod-016 BR-M1-32; mod-014 BR-UP-17 |
-| BR-RS-6 | The appointee is any user the projection holds as active, member of the organization or not; an inactive or unknown user is refused and never offered by the search. The search is the projection's (mod-014 BR-UP-14: at least 2 characters, at most 20 answers in BR-UP-15's order) and says nothing about whether a candidate is a member of the organization. | doc-006 BR-M1-5, BR-M1-17; mod-016 BR-M1-32; OQ-1 |
-| BR-RS-7 | A system administrator never appoints themselves; the refusal changes nothing. Another system administrator may appoint them. | OQ-2 |
-| BR-RS-8 | A member is appointed by raising their role to `admin`; their membership, team memberships and «Добавлен» are kept, and «Роль изменена» becomes the acting system administrator, now (doc-006 BR-M1-16). A non-member is appointed by a new `admin` membership, «Добавлен» = the acting system administrator, now, «Роль изменена» empty; they join no team. Exactly one administrator is appointed per appointment. | doc-006 BR-M1-5, -10, -16; mod-016 § Screens |
-| BR-RS-9 | The appointment takes effect on the appointee's next request with no re-login (doc-006 BR-M1-6). It works the same on a deactivated organization and does not restore it: the new administrator restores it per mod-016 BR-M1-35. After the appointment the organization's administrators govern it under mod-016 alone, BR-M1-4 included; the system administrator cannot act again while an active administrator exists (BR-RS-4). | doc-006 BR-M1-6; mod-016 BR-M1-35 |
-| BR-RS-10 | Every successful appointment writes, in the same all-or-nothing operation, an appointment record: the organization, the appointed user, the acting system administrator, the moment. A refused appointment writes none. Records are never edited or deleted, outlive any later change of the membership, and are read only by holders of the rescue right, per organization, newest first. Users are named as on «Участники» (mod-016 § Screens: «неактивен», «Неизвестный пользователь»). | queue line ("audited"); human scope decision; OQ-3 |
-| BR-RS-11 | Of two appointments to one organization that each pass BR-RS-4 alone, exactly one succeeds and the other is refused with «В организации уже есть активный администратор». An appointment that races a Keycloak re-enable of an administrator follows the projection as it reads at the moment of the appointment (doc-006 BR-M1-4: a Keycloak change is not a MUSTASK change). | doc-006 NFR Concurrency, doc-001 BR-11 |
+| BR-RS-1 | The rescue right is an instance right, carried in the token and held through `InstanceRoles` by `system-admin` only — never by `organization-creator`, `dictionaries-admin` or `user`, and never by any organization role. It is not a membership and reaches no organization content. Granting or revoking it is assigning `system-admin` in the company realm; nothing in Keycloak is added or written by this task. A change reaches the user with the next token (ADR-0018, "Revocation is NOT instant"). Without the right, the page «Все организации» answers «Доступ ограничен», and an appointment or a record read attempted anyway is refused with 403 «Недостаточно прав», changing nothing. | ADR-0033 § 1–2; ADR-0029 § 9; doc-006 BR-M1-2 |
+| BR-RS-2 | The instance organization list shows every organization of the instance, active and deactivated alike: its name; its status «Активна» / «Деактивирована»; the date of its last appointment, «—» when there was none. It is ordered by name (mod-014 BR-UP-15's collation), paged 50 rows a page with the total count shown, and filtered by name: the trimmed filter text matches any substring of the name, ignoring case, with `ё` = `е`; an empty filter (after trimming) shows all; the filter applies across all pages. It shows nothing about the organization's administrators: MUSTASK cannot tell whether an organization still has a usable one (ADR-0034, Consequences). | queue line; doc-006 BR-M1-1; human decision R-1 = A |
+| BR-RS-3 | Non-disclosure. The system administrator learns through this feature exactly: (a) the name and the status of every organization; (b) through the appointee search, the name and e-mail of every user the projection knows — both accepted by the human (R-6); (c) the appointment record of BR-RS-10; (d) from the refusal of BR-RS-6, that the one user they chose is already an administrator of that organization (OQ-6). Nothing else: not the members or their number, not the administrators' names, not its projects, teams, areas, work items, process or settings. Opening the organization or anything under it still answers «Организация не найдена» unless they hold a membership of their own (ADR-0027 rule 4, ADR-0029 § 9). | doc-006 BR-M1-8; human decision R-6 |
+| BR-RS-4 | An appointment is allowed in any organization, active or deactivated, whether or not it has administrators, on request. It only adds an `admin` membership or raises an existing member to `admin`; it never removes, downgrades or otherwise changes anyone else's membership. | human decision R-1 = A |
+| BR-RS-5 | «Причина» is required: 1–500 characters after trimming. It is kept in the appointment record (BR-RS-10) and nowhere else. | human decision R-1 = A |
+| BR-RS-6 | The appointee is any user the projection knows, member of the organization or not; the search is the projection's (mod-014 BR-UP-14: at least 2 characters, at most 20 answers in BR-UP-15's order), finds by name or e-mail, and shows each candidate's name and e-mail only, saying nothing about membership. A user who has never signed in to MUSTASK is not in the projection, is not found, and is refused with «Этого пользователя нельзя назначить администратором» if named anyway (ADR-0034, Consequences: asking them to sign in once is the procedure). A user who is already an administrator of the organization is refused with «Пользователь уже администратор этой организации», changing nothing. MUSTASK cannot see whether the chosen person's Keycloak account is still enabled; the dialog says so (US-2). | OQ-1; ADR-0034; R-2 |
+| BR-RS-7 | A system administrator never appoints themselves; the refusal «Нельзя назначить администратором себя» changes nothing. Another system administrator may appoint them. | OQ-2 |
+| BR-RS-8 | A member is appointed by raising their role to `admin`; their membership, team memberships and «Добавлен» are kept, and «Роль изменена» becomes the acting system administrator, now. A non-member is appointed by a new `admin` membership: «Добавлен» = the acting system administrator, now; «Роль изменена» «—»; they join no team. Exactly one user is appointed per appointment. | doc-006 BR-M1-5, -10, -16; OQ-1 |
+| BR-RS-9 | The appointment takes effect on the appointee's next request with no re-login (doc-006 BR-M1-6). On a deactivated organization it does not restore it: the appointee restores it per mod-016 BR-M1-35. Afterwards the organization's administrators govern it under mod-016 alone; the appointment gives the system administrator nothing to undo. The rescue is repeatable: if the appointee turns out unable to sign in, the system administrator appoints someone else. | doc-006 BR-M1-6; mod-016 BR-M1-35; R-2 |
+| BR-RS-10 | Every successful appointment writes, in the same all-or-nothing operation, an appointment record: the organization, the appointee, the acting system administrator, the moment, the reason. A refused appointment writes none. Records are never edited or deleted and outlive any later change of the membership. Readers: holders of the rescue right, for any organization, from «Все организации»; and the holders of `organizations.membership.write` in that organization (its administrators), for their own organization only, from «Участники». Both read the same rows, newest first. Users are named as on «Участники» (mod-016 § Screens); «неактивен» / «Неизвестный пользователь» can show only for rows the projection kept from before tech-025 (ADR-0034, Consequences). | queue line ("audited"); OQ-3 as changed by the human |
+| BR-RS-11 | Of two concurrent appointments of the same user to one organization, exactly one succeeds and the other is refused with «Пользователь уже администратор этой организации». Two concurrent appointments of different users to one organization both succeed, each with its own record. | doc-006 NFR Concurrency; R-3 |
+| BR-RS-12 | Dates are shown in the viewer's local time zone, as «Добавлен» on «Участники» (mod-016 design § 3.3): «Последнее назначение» as «ДД.ММ.ГГГГ», the record's moment as «ДД.ММ.ГГГГ ЧЧ:мм». | mod-016 design; R-7 |
 
 ## Operation completeness
 
 | Entity | Create | Read | Update | Delete/deactivate | Cancel/reverse |
 |--------|--------|------|--------|-------------------|----------------|
 | Instance organization list (a view, BR-RS-2) | no: derived from the organizations | system administrator (US-1) | no: a view | no: a view | n/a |
-| Organization (rename, deactivate, restore) | no: unchanged, `organization-creator` (mod-002) | system administrator: name, status, administrator state only (BR-RS-2, BR-RS-3) | no: the appointed administrator, per mod-002/mod-016 | no: the appointed administrator; the rescue does not restore (BR-RS-9) | no: the appointed administrator restores |
-| Admin membership made by an appointment | system administrator, only with no known active administrator (US-2, BR-RS-4) | the organization's members, with who/when (doc-006 BR-M1-16) | no for the system administrator; the organization's administrators per mod-016 | no for the system administrator; the organization's administrators per mod-016, never the last known active one (BR-M1-4) | no: no undo by the system administrator; the appointee adds another administrator and steps down per BR-M1-4 |
-| Appointment record | written by the appointment itself, never by hand (BR-RS-10) | system administrator, per organization (US-3) | no: a record, never edited | no: never deleted | no: a record of what happened |
+| Organization (rename, deactivate, restore) | no: unchanged, `organization-creator` (mod-002) | system administrator: name and status only (BR-RS-2, -3) | no: its administrators, per mod-002 / mod-016 | no: its administrators; the appointment does not restore (BR-RS-9) | no: its administrators restore |
+| Admin membership made by an appointment | system administrator, in any organization (US-2, BR-RS-4) | the organization's members, with who/when (doc-006 BR-M1-16) | no for the system administrator; the organization's administrators per mod-016 | no for the system administrator; the organization's administrators per mod-016 (BR-M1-4) | no: no undo by the system administrator; the organization's administrators change or remove it, or the appointee steps down per BR-M1-4 |
+| Other memberships of the organization | no: the appointment creates only the appointee's (BR-RS-4) | unchanged (mod-016) | no: never changed by an appointment (BR-RS-4) | no: never removed by an appointment (BR-RS-4) | n/a |
+| Appointment record | written by the appointment itself, never by hand (BR-RS-10) | system administrator, any organization; the organization's administrators, their own (US-3) | no: a record, never edited | no: never deleted | no: a record of what happened |
 | Rescue right | company realm administrator, by assigning `system-admin` (BR-RS-1) | company Keycloak console | n/a — held or not | company realm administrator revokes; effective with the next token | n/a |
 
 ## Non-functional requirements
 
-- **Volumes:** up to 1 000 organizations of up to 500 memberships each; the
-  list with its administrator state, filter included, renders within 2 s; the
-  appointee search within 2 s at 10 000 projected users (mod-014 NFR).
-- **Access:** no call to Keycloak, no write to Keycloak (ADR-0023, ADR-0033);
-  the administrator state reads the projection, the access check does not
-  (ADR-0027 rule 3).
-- **Audit:** the appointment record of BR-RS-10 is the only new record. The
-  appointment and its record succeed or fail together.
-- **Concurrency:** BR-RS-11 under concurrent requests; one is refused.
+- **Volumes:** up to 1 000 organizations; a page of the list, filter included,
+  within 2 s; the appointee search within 2 s at 10 000 projected users
+  (mod-014 NFR); a record of up to 100 rows within 2 s.
+- **Access:** no call to Keycloak, no write to Keycloak (ADR-0023, ADR-0033,
+  ADR-0034); the access check does not read the projection (ADR-0027 rule 3).
+- **Audit:** the appointment record is the only new record. The appointment
+  and its record succeed or fail together.
+- **Concurrency:** BR-RS-11.
 - **Localization:** copy is Russian, quoted here and in the stories; the
   reference tracker is never named.
 
 ## Out of scope
 
+- Detecting an organization without a usable administrator, by any means
+  (Keycloak status, last sign-in) — MUSTASK cannot see it (ADR-0034); human
+  decision R-1 = A.
 - A general audit log of system-administrator actions, and the M1 audit log
-  (doc-006 BR-M1-15) — release 2, human scope decision.
-- Any role management in MUSTASK: granting `system-admin`, instance rights,
-  a screen for them — the company realm owns roles (ADR-0033).
+  (doc-006 BR-M1-15) — release 2.
+- Any role management in MUSTASK: granting `system-admin`, a screen for
+  instance rights — the company realm owns roles (ADR-0033).
 - Any write to Keycloak, including re-enabling a disabled administrator.
 - Any other system-administrator power inside an organization: removing or
-  downgrading members, appointing where an active administrator exists,
-  renaming, deactivating or restoring, reading its content.
+  downgrading members, renaming, deactivating or restoring, reading content.
 - Notifications or e-mail to the appointee or the organization.
 - Creating users or inviting people who are not in the projection.
-- The ADR itself — owed to the design/plan stage (§ Open questions, ADR debt).
+- The appointment record for the organization's members who are not its
+  administrators.
+- The ADR itself — owed to the design/plan stage (below).
 
 ## Decomposition for the backlog
 
 No new queue lines: the queue line is this task (size L, confirmed by the
-human). Development passes inside it, each ≤ M:
+human). Development passes inside it, each ≤ M. Re-estimated after R-1 = A:
+the list no longer derives an administrator state over every membership, and
+the record gains one more reader; both passes sit inside M.
 
 | id | Task | size | deps |
 |----|------|------|------|
-| backend | the rescue instance right in the catalog and `InstanceRoles` (`system-admin` only); the list with administrator state and last appointment; the appointee search; the appointment with BR-RS-4..-9 and -11; the record and its read (BR-RS-10); the ADR amending ADR-0027 / ADR-0029 § 8 / ADR-0033 | M | - |
-| frontend | «Все организации» under «Настройки» for the right's holders only, the filter, the appointment dialog, the record dialog, the panel's mirror of `InstanceRoles` (ADR-0033 Consequences) | M | backend |
+| backend | the rescue instance right in the catalog and `InstanceRoles` (`system-admin` only); the paged, filtered instance organization list with status and last appointment; the appointee search; the appointment with BR-RS-4..-9 and -11; the record and its two reads (instance, and inside the organization under `organizations.membership.write`); the rescue routes registered as inventory exceptions with ADR-0029 § 9's reason (mod-016 BR-M1-33) | M | - |
+| frontend | «Все организации» under «Настройки» for the right's holders only, with the filter and paging; the appointment dialog; «История назначений» from the list and from «Участники» for the organization's administrators; the panel's mirror of `InstanceRoles` (ADR-0033 Consequences) | M | backend |
 
 ## Open questions
 
-Each with the analyst's recommendation, which the stories already follow.
+- [x] **OQ-1 Whom can be appointed?** Closed by the human: as recommended —
+  any user the projection knows; a member is raised, a non-member gets a new
+  admin membership with no team (BR-RS-6, -8).
+- [x] **OQ-2 May a system administrator appoint themselves?** Closed by the
+  human: as recommended — no (BR-RS-7).
+- [x] **OQ-3 Who reads the record?** Closed by the human, changed: a separate
+  permanent record with the reason, read by system administrators and by the
+  organization's administrators inside the organization, plus the membership's
+  «Добавлен» / «Роль изменена» naming the system administrator (BR-RS-8, -10).
+- [x] **OQ-4 Only with no active administrator, or always?** Closed by the
+  human (R-1 = A): on request in any organization, adding or raising only,
+  with a required reason (BR-RS-4, -5).
+- [x] **OQ-5 The unknown administrator.** Closed: dropped with R-1 = A — the
+  list states no administrator state, so nothing depends on whether the
+  projection knows an organization's administrators (ADR-0034).
+- [ ] **OQ-6 The already-administrator refusal discloses one fact.** Refusing
+  «Пользователь уже администратор этой организации» tells the system
+  administrator that the one user they chose administers that organization —
+  beyond the two disclosures accepted in R-6. Recommended: accept it (BR-RS-3
+  (d)): it concerns only a person the system administrator named, and the
+  record would show the same after a successful appointment. Alternative:
+  accept the appointment silently with no change and no record — the system
+  administrator then cannot tell whether anything happened.
 
-- [ ] **OQ-1 Whom can be appointed?** Recommended: any active projected user,
-  member or not (BR-RS-6, BR-RS-8). Alternative: only an existing member —
-  fails when every remaining member is a reader the organization does not
-  want as administrator, or when nobody active remains.
-- [ ] **OQ-2 May a system administrator appoint themselves?** Recommended:
-  no (BR-RS-7) — the feature's promise is "no access to content", and self-
-  appointment is exactly that access; a second system administrator can still
-  do it, on the record.
-- [ ] **OQ-3 What does "audited" mean and who reads it?** Recommended: both
-  the membership's who/when (BR-M1-16, read by the organization's members) and
-  a durable appointment record, read by system administrators only
-  (BR-RS-10) — the who/when alone is overwritten by the next role change.
-  Alternatives: who/when only (not durable); the record also readable by the
-  organization's administrators (needs a new screen inside the organization).
-- [ ] **OQ-4 Only with no active administrator, or always?** Recommended:
-  only with none (BR-RS-4) — "always" makes `system-admin` a superuser over
-  every membership.
-- [ ] **OQ-5 The unknown administrator.** Recommended: an administrator the
-  projection does not know yet does not count (BR-RS-5), consistent with
-  BR-M1-4. Risk: a minutes-old organization whose creator is not projected yet
-  shows «Нет активного администратора» and could be rescued; the record
-  shows who did it. Dependency: if `tech-025` changes how the projection
-  learns a disabled or deleted account, BR-RS-5's state follows it, and the
-  design stage re-checks this rule against it.
-
-**ADR debt (owed to the design/plan stage, not written here).** This is the
-first rule under which an instance role acts inside an organization without a
-membership. ADR-0027 rule 4 and ADR-0029 § 8 ("the instance administrator
-still sees no content") and ADR-0033 § 1 ("later tasks use it for
-cross-organization administration") need an ADR that amends them: the
-rescue right, its single operation, BR-RS-3's disclosure boundary and the
-appointment record.
+**ADR debt (owed to the design/plan stage, not written here).** ADR-0029 § 9
+already sanctions the rescue as an instance operation that appoints an
+organization admin, writes a membership, is audited, reads no content and
+holds no scoped code, with its routes as inventory exceptions; this spec builds
+on it and does not amend it. The owed ADR still decides: (1) the trigger —
+on request in any organization, add or raise only, with a required reason,
+and why no detection is attempted (ADR-0034); (2) the disclosures of BR-RS-3;
+(3) the appointment record, its reason, and its second reader — the
+organization's administrators under `organizations.membership.write`. It
+amends the wording of ADR-0027 rule 4 and ADR-0033 § 1 ("later tasks use it for
+cross-organization administration") to name this operation.
