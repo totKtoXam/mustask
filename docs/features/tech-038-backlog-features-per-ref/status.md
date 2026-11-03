@@ -3,14 +3,14 @@
 - type: tech
 - size: S
 - branch: tech/038-backlog-features-per-ref
-- stage: 04-backend
+- stage: complete
 - epic: workflow
 - deps: tech-037
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved (confirmed by the human in chat, 2026-11-03) — PR https://github.com/totKtoXam/mustask/pull/63
 
 ## Plan
 
@@ -36,6 +36,7 @@ gate-3: pending
 - 2026-11-03 cases: `sh scripts/tests/queue-numbering-cases.sh` 16/16 PASS (also `--shell dash`); new cases 11-12 fail against the tech-037 scripts.
 - 2026-11-03 `bash scripts/verify.sh` — exit 0, `RESULT: green`.
 - 2026-11-03 tech-037 merged as #61 without its gate-3/complete status commit; merged main and carried that commit here (tech-037 `status.md` only). Cases 16/16, `verify.sh` green again.
+- 2026-11-03 PR #63 opened; gate-3 approved by the human in chat; stage complete.
 
 ## Notes
 
