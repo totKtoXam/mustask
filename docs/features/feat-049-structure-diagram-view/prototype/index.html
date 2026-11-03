@@ -52,6 +52,11 @@ table{border-collapse:collapse;width:100%}th{text-align:left;font-weight:600;col
 #toast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#242424;color:#fff;padding:6px 16px;border-radius:4px;font-size:13px;display:none;z-index:9}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .srv{font-size:11px;color:var(--lab);margin:6px 2px;min-height:16px}
+.lv{flex:none;width:16px;height:16px;border-radius:8px;background:var(--nav);color:var(--tx2);font-size:10px;line-height:16px;text-align:center}
+.rul{position:absolute;font-size:10px;color:var(--lab);text-align:center;line-height:14px;border-bottom:1px solid var(--rule)}
+.nd.hl{background:#CFE6FA;border:2px solid var(--acc);padding:0 7px}.nd.hit{box-shadow:0 0 0 2px #FFB900}
+.dtool{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px}.dtool .qc{font-size:12px;color:var(--tx2)}.dtool .cnts{margin-left:auto;font-size:12px;color:var(--tx2)}.dtool button:disabled{opacity:.5;cursor:default}
+.mwrap{position:relative}#mmenu{position:absolute;top:36px;left:0;z-index:6;background:#fff;border-radius:4px;box-shadow:var(--glow);min-width:300px;padding:4px 0}#mmenu[hidden]{display:none}#mmenu button{display:block;width:100%;text-align:left;background:transparent;border-radius:0;font-weight:400;min-height:44px}#mmenu button:hover,#mmenu button:focus{background:var(--hov)}#mmenu small{display:block;color:var(--tx2)}
 .kb{margin-top:8px;font-size:12px;color:var(--tx2)}.kb kbd{border:1px solid var(--fh);border-bottom-width:2px;border-radius:3px;padding:0 4px;background:#fff}
 </style></head><body>
 <div id="ctl"><b>feat-049 prototype.</b> Scenarios (not part of the product):
@@ -68,7 +73,7 @@ table{border-collapse:collapse;width:100%}th{text-align:left;font-weight:600;col
 (function(){
 'use strict';
 /* ---------- design constants (§ 4.3 of design.md) ---------- */
-var LINE_LIMIT=150, EXPAND_ALL_LIMIT=100, ROW=40, IND=22, HIER_W=480, GAP=200, TEAM_W=220, PAD=16, HEAD=28;
+var LINE_LIMIT=150, EXPAND_ALL_LIMIT=100, ROW=40, RULER=18, IND=22, HIER_W=480, GAP=200, TEAM_W=220, PAD=16, HEAD=28;
 var TYPE={department:'Департамент',project:'Проект',area:'Область'};
 /* ---------- data ---------- */
 function node(id,parent,type,name,o){o=o||{};return {id:id,parentId:parent,type:type,name:name,projectId:o.pid||null,active:o.active===false?false:true,key:o.key||null}}
@@ -111,7 +116,7 @@ var SCN=[
  {id:'notFound',label:'Организация не найдена',make:normal,tree:'404'}
 ];
 /* ---------- state ---------- */
-var S={scn:SCN[0],data:null,view:'diagram',role:'admin',expanded:null,chosen:null,focusId:null,retried:false,offersState:'ok'};
+var S={mode:'dim',q:'',qi:-1,scn:SCN[0],data:null,view:'diagram',role:'admin',expanded:null,chosen:null,focusId:null,retried:false,offersState:'ok'};
 function $(sel,root){return (root||document).querySelector(sel)}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function ru(n,one,few,many){var m=n%10,h=n%100;return n+' '+(m===1&&h!==11?one:(m>=2&&m<=4&&(h<12||h>14)?few:many))}
@@ -122,7 +127,7 @@ function model(){
  var areas=S.data.areas,off=S.offersState==='ok'?S.data.offers:null,byId={},ch=childrenOf(areas);
  areas.forEach(function(a){byId[a.id]=a});
  var projNode={};areas.forEach(function(a){if(a.type==='project')projNode[a.projectId]=a});
- var teams=[],links=[],teamsOf={},projsOf={},deptsOf={},deptTeams={};
+ var teams=[],links=[],teamsOf={},projsOf={},deptsOf={};
  if(off){
   off.teams.forEach(function(t){teams.push(t)});
   Object.keys(off.projects).forEach(function(pid){var n=projNode[pid];if(!n||!n.active)return;
@@ -133,7 +138,7 @@ function model(){
  return {areas:areas,byId:byId,ch:ch,off:off,teams:teams,teamById:teamById,links:links,teamsOf:teamsOf,projsOf:projsOf,deptsOf:deptsOf,projNode:projNode};
 }
 function chosable(M,id){var n=M.byId[id];if(n)return n.type==='department'||(n.type==='project'&&n.active);return !!M.teamById[id]}
-function emphasis(M,id){ /* what choosing id emphasises (US-3 table) */
+function emphasis(M,id){
  var s={},ln={};if(!id)return null;s[id]=1;
  M.links.forEach(function(l){if(l.a===id||l.t===id){s[l.a]=1;s[l.t]=1;ln[l.a+'>'+l.t]=1}});
  return {ids:s,lines:ln};
@@ -145,48 +150,71 @@ function summary(M,id){
  return 'Проекты команды: '+names(M.projsOf[id]||[])+'. Департаменты команды: '+names(M.deptsOf[id]||[]);
 }
 function ancestors(M,id){var r=[],c=M.byId[id];while(c&&c.parentId){r.push(c.parentId);c=M.byId[c.parentId]}return r}
-function visibleAnchor(M,id,exp){ /* nearest visible ancestor, and whether it stands for hidden nodes */
- var cur=id,hidden=false,anc=ancestors(M,id).reverse(); /* from the top */
- for(var i=0;i<anc.length;i++){if(!exp[anc[i]]){return {id:anc[i],hidden:true}}}
- return {id:id,hidden:false};
+function descendants(M,id,out){(M.ch[id]||[]).forEach(function(c){out[c.id]=1;descendants(M,c.id,out)})}
+function visibleAnchor(M,id,exp){var anc=ancestors(M,id).reverse();for(var i=0;i<anc.length;i++){if(!exp[anc[i]])return {id:anc[i],hidden:true}}return {id:id,hidden:false}}
+/* «Только связанные»: the chosen node, what it emphasises, their ancestors, the sub-areas of an emphasised project */
+function relatedFilter(M,E){
+ var keep={},teams={};Object.keys(E.ids).forEach(function(id){
+  if(M.teamById[id]){teams[id]=1;return}
+  keep[id]=1;ancestors(M,id).forEach(function(a){keep[a]=1});
+  if(M.byId[id].type==='project')descendants(M,id,keep)});
+ return {keep:keep,teams:teams};
 }
-/* ---------- layout: rebuilt only when data or expansion changes, never on choosing ---------- */
-function layout(M,exp){
- var items=[],pos={},y=PAD+HEAD,hierBottom;
- function walk(parent,depth){(M.ch[parent||'']||[]).forEach(function(a){
-  var it={id:a.id,kind:'node',a:a,level:depth,x:PAD+(depth-1)*IND,y:y,w:HIER_W-(depth-1)*IND};items.push(it);pos[a.id]=it;y+=ROW;
-  if(M.ch[a.id]&&exp[a.id])walk(a.id,depth+1)})}
- walk(null,1);hierBottom=y;
- var TX=PAD+HIER_W+GAP,related=[],lone=[];
+/* ---------- layout: rebuilt when data, expansion, or (in «Только связанные») the chosen node changes ---------- */
+function layout(M,exp0,filt){
+ var exp=exp0,items=[],pos={},y=PAD;
+ if(filt){exp={};Object.keys(exp0).forEach(function(k){exp[k]=1});Object.keys(filt.keep).forEach(function(id){ancestors(M,id).forEach(function(a){exp[a]=1})})}
+ function kids(id){return (M.ch[id]||[]).filter(function(a){return !filt||filt.keep[a.id]})}
+ var TX=PAD+HIER_W+GAP,width=TX+TEAM_W+PAD,related=[],lone=[];
  M.teams.forEach(function(t){
-  var anchors=[];(M.projsOf[t.id]||[]).concat(M.deptsOf[t.id]||[]).forEach(function(id){var v=visibleAnchor(M,id,exp);anchors.push({id:v.id,hidden:v.hidden,src:id})});
-  if(!anchors.length)lone.push(t);else{var mean=anchors.reduce(function(s,a){return s+pos[a.id].y+16},0)/anchors.length;related.push({t:t,anchors:anchors,mean:mean})}});
- related.sort(function(p,q){return p.mean-q.mean||p.t.name.localeCompare(q.t.name,'ru')});
- var ty=PAD+HEAD,teamItems=[];
- related.forEach(function(r){var yy=Math.max(r.mean-16,ty);var it={id:r.t.id,kind:'team',t:r.t,level:1,x:TX,y:yy,w:TEAM_W,anchors:r.anchors};teamItems.push(it);pos[r.t.id]=it;ty=yy+ROW});
- var bottom=Math.max(hierBottom,ty),groupTop=bottom+20,loneItems=[];
- var width=TX+TEAM_W+PAD,perRow=Math.max(1,Math.floor((width-2*PAD)/(TEAM_W+12)));
- lone.forEach(function(t,i){var it={id:t.id,kind:'team',t:t,level:1,lone:true,x:PAD+(i%perRow)*(TEAM_W+12),y:groupTop+HEAD+Math.floor(i/perRow)*ROW,w:TEAM_W,anchors:[]};loneItems.push(it);pos[t.id]=it});
- var height=(lone.length?groupTop+HEAD+Math.ceil(lone.length/perRow)*ROW:bottom)+PAD;
- return {hier:items,teams:teamItems,lone:loneItems,all:items.concat(teamItems,loneItems),pos:pos,TX:TX,width:width,height:height,groupTop:groupTop,hasLone:lone.length>0,hasTeams:teamItems.length>0};
+  if(filt&&!filt.teams[t.id])return;
+  var any=(M.projsOf[t.id]||[]).length+(M.deptsOf[t.id]||[]).length;
+  if(any)related.push(t);else lone.push(t)});
+ /* the group on top (remark 1) */
+ var perRow=Math.max(1,Math.floor((width-2*PAD)/(TEAM_W+12))),groupTop=null,loneItems=[];
+ if(lone.length){groupTop=y;y+=HEAD;
+  lone.forEach(function(t,i){var it={id:t.id,kind:'team',t:t,level:1,lone:true,x:PAD+(i%perRow)*(TEAM_W+12),y:y+Math.floor(i/perRow)*ROW,w:TEAM_W,anchors:[]};loneItems.push(it);pos[t.id]=it});
+  y+=Math.ceil(lone.length/perRow)*ROW+16}
+ var capY=y,hierStart=capY+HEAD+RULER;y=hierStart;
+ function walk(parent,depth){(parent===null?(M.ch['']||[]).filter(function(a){return !filt||filt.keep[a.id]}):kids(parent)).forEach(function(a){
+  var it={id:a.id,kind:'node',a:a,level:depth,x:PAD+(depth-1)*IND,y:y,w:HIER_W-(depth-1)*IND};items.push(it);pos[a.id]=it;y+=ROW;
+  if(kids(a.id).length&&exp[a.id])walk(a.id,depth+1)})}
+ walk(null,1);var hierBottom=y,maxLevel=items.reduce(function(m,i){return Math.max(m,i.level)},0);
+ var rel=[];
+ related.forEach(function(t){
+  var anchors=[];(M.projsOf[t.id]||[]).concat(M.deptsOf[t.id]||[]).forEach(function(id){var v=visibleAnchor(M,id,exp);if(pos[v.id])anchors.push({id:v.id,hidden:v.hidden,src:id})});
+  if(!anchors.length)return;
+  var mean=anchors.reduce(function(s,a){return s+pos[a.id].y+16},0)/anchors.length;rel.push({t:t,anchors:anchors,mean:mean})});
+ rel.sort(function(p,q){return p.mean-q.mean||p.t.name.localeCompare(q.t.name,'ru')});
+ var ty=hierStart,teamItems=[];
+ rel.forEach(function(r){var yy=Math.max(r.mean-16,ty);var it={id:r.t.id,kind:'team',t:r.t,level:1,x:TX,y:yy,w:TEAM_W,anchors:r.anchors};teamItems.push(it);pos[r.t.id]=it;ty=yy+ROW});
+ var height=Math.max(hierBottom,ty)+PAD;
+ return {hier:items,teams:teamItems,lone:loneItems,all:loneItems.concat(items,teamItems),pos:pos,exp:exp,kids:kids,TX:TX,width:width,height:height,groupTop:groupTop,capY:capY,hierStart:hierStart,hierBottom:hierBottom,maxLevel:maxLevel,hasLone:lone.length>0,hasTeams:teamItems.length>0,filtered:!!filt};
 }
 /* ---------- rendering ---------- */
-function setLive(t){$('#live').textContent='';setTimeout(function(){$('#live').textContent=t},30)}
+function setLive(t){var e=$('#live');clearTimeout(setLive.h);e.textContent='';if(t)setLive.h=setTimeout(function(){e.textContent=t},30)}
 function toast(t){var e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(function(){e.style.display='none'},2200)}
+var MODES=[{id:'dim',label:'Затемнение',hint:'Остальное приглушается'},{id:'only',label:'Только связанные',hint:'Показаны выбранный узел и связанные с ним'},{id:'hl',label:'Подсветка',hint:'Всё на месте, связанное выделено цветом'}];
+function modeLabel(){return MODES.filter(function(m){return m.id===S.mode})[0].label}
+function stored(k,ok,def){try{var v=localStorage.getItem(k);return ok.indexOf(v)>=0?v:def}catch(e){return def}}
+function store(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 function render(){
  var sc=S.scn,h='',admin=S.role==='admin';
+ setLive('');
+ if(sc.tree==='404'){$('#page').innerHTML='<div class="state"><h2>Организация не найдена</h2><p>Возможно, она удалена или у вас нет к ней доступа.</p></div>';$('#page').className=S.narrow?'narrow':'';DG={};return}
  var create=admin?'<button class="p" id="mk">＋ Создать департамент</button>':'';
  h+='<div class="head"><h1>Структура</h1>'+create+'</div>';
+ var ready=sc.tree!=='loading'&&sc.tree!=='failed'&&S.data.areas.length;
  h+='<div class="toolbar"><div role="tablist" aria-label="Вид структуры"><button role="tab" id="tb-tree" aria-selected="'+(S.view==='tree')+'" tabindex="'+(S.view==='tree'?0:-1)+'" data-v="tree">⌸ Дерево</button><button role="tab" id="tb-diagram" aria-selected="'+(S.view==='diagram')+'" tabindex="'+(S.view==='diagram'?0:-1)+'" data-v="diagram">⌖ Диаграмма</button></div>';
- if(S.view==='diagram'&&sc.tree!=='loading'&&sc.tree!=='failed'&&sc.tree!=='404'&&S.data.areas.length)h+='<div class="legend"><span><svg width="28" height="10"><path d="M1 5H27" stroke="#9E9E9E" stroke-width="1" fill="none"/></svg>вложенность</span><span><svg width="28" height="10"><path d="M1 5H27" stroke="#0078D4" stroke-width="2" stroke-dasharray="6 3" fill="none"/></svg>команда работает</span><span><svg width="28" height="10"><path d="M1 5H27" stroke="#0078D4" stroke-width="2" stroke-dasharray="2 3" fill="none"/></svg>связь со скрытым узлом</span></div>';
- h+='</div><div id="body"></div>';
- $('#page').innerHTML=h;
- $('#page').className=S.narrow?'narrow':'';
+ if(S.view==='diagram'&&ready)h+='<div class="legend"><span><svg width="28" height="10"><path d="M1 5H27" stroke="#9E9E9E" stroke-width="1" fill="none"/></svg>вложенность</span><span><svg width="28" height="10"><path d="M1 5H27" stroke="#0078D4" stroke-width="2" stroke-dasharray="6 3" fill="none"/></svg>команда работает</span><span><svg width="28" height="10"><path d="M1 5H27" stroke="#0078D4" stroke-width="2" stroke-dasharray="2 3" fill="none"/></svg>связь со скрытым узлом</span></div>';
+ h+='</div>';
+ if(S.view==='diagram'&&ready)h+='<div class="dtool" id="dtool"><input id="q" type="search" placeholder="Найти узел" aria-label="Найти узел" value="'+esc(S.q)+'"><span class="qc" id="qc" role="status"></span><button id="xall"></button><span class="mwrap"><button id="mode" aria-haspopup="menu" aria-expanded="false">Показ при выборе: <b></b> ▾</button><div id="mmenu" role="menu" aria-label="Показ при выборе" hidden></div></span><span class="cnts" id="cnts"></span></div>';
+ h+='<div id="body"></div>';
+ $('#page').innerHTML=h;$('#page').className=S.narrow?'narrow':'';
  body();
 }
 function body(){
  var sc=S.scn,b=$('#body'),areas=S.data.areas;
- if(sc.tree==='404'){b.innerHTML='<div class="state"><h2>Организация не найдена</h2><p>Возможно, она удалена или у вас нет к ней доступа.</p></div>';return}
  if(sc.tree==='loading'){b.innerHTML='<div class="card" role="status" aria-label="Загрузка данных"><div class="sk" style="width:60%"></div><div class="sk"></div><div class="sk" style="width:80%"></div><div class="sk"></div><div class="sk" style="width:70%"></div></div>';return}
  if(sc.tree==='failed'){b.innerHTML='<div class="nt error" role="alert"><span>Не удалось загрузить структуру. Проверьте соединение и повторите.</span><button id="retry">Повторить</button></div>';$('#retry').onclick=function(){SCN.forEach(function(s){if(s.id==='normal')pick(s)})};return}
  if(!areas.length){b.innerHTML='<div class="state card"><div style="font-size:32px">▭</div><h2>В организации пока нет областей</h2><p>'+(S.role==='admin'?'Создайте первый департамент: он объединяет проекты и команды.':'Департаменты создаёт администратор организации.')+'</p>'+(S.role==='admin'?'<button class="p">＋ Создать департамент</button>':'')+'</div>';return}
@@ -194,26 +222,37 @@ function body(){
  diagramView(b);
 }
 function treeView(b){
- var M=model(),exp=S.expanded||initialExpansion(areas()),rows='';
- function areas(){return S.data.areas}
+ var M=model(),rows='';
  function walk(p,d){(M.ch[p||'']||[]).forEach(function(a){
   rows+='<tr><td style="padding-left:'+(12+(d-1)*20)+'px">'+(M.ch[a.id]?'▾ ':'<span style="display:inline-block;width:12px"></span> ')+(a.active?'<a href="#" data-o="'+esc(a.name)+'">'+esc(a.name)+'</a>':esc(a.name)+'<span class="tag">деактивирован</span>')+'</td><td>'+TYPE[a.type]+'</td><td style="color:var(--tx2)"></td></tr>';
   if(M.ch[a.id])walk(a.id,d+1)})}
  walk(null,1);
- b.innerHTML='<div style="margin-bottom:8px"><input placeholder="Найти область" aria-label="Найти область"> <button>Развернуть всё</button></div><div class="card"><table role="treegrid" aria-label="Структура"><tr><th>Название</th><th>Тип</th><th>Описание</th></tr>'+rows+'</table></div><div class="srv">Вид «Дерево»: фильтр и «Развернуть всё» есть только здесь.</div>';
+ b.innerHTML='<div style="margin-bottom:8px"><input placeholder="Найти область" aria-label="Найти область"> <button>Развернуть всё</button></div><div class="card"><table role="treegrid" aria-label="Структура"><tr><th>Название</th><th>Тип</th><th>Описание</th></tr>'+rows+'</table></div><div class="srv">Вид «Дерево»: фильтр и «Развернуть всё» относятся к дереву; у диаграммы свои.</div>';
  b.querySelectorAll('a[data-o]').forEach(function(a){a.onclick=function(e){e.preventDefault();toast('Открывается страница: '+a.getAttribute('data-o'))}});
 }
 var DG={};
+function fold(x){return x.toLowerCase().replace(/ё/g,'е')}
+function matches(M,q){q=fold(q.trim());if(!q)return [];var r=[];M.areas.forEach(function(a){if(fold(a.name).indexOf(q)>=0)r.push(a.id)});M.teams.forEach(function(t){if(fold(t.name).indexOf(q)>=0)r.push(t.id)});return r}
 function diagramView(b){
  var M=model(),exp=S.expanded||(S.expanded=initialExpansion(S.data.areas));
- var L=layout(M,exp);DG={M:M,L:L,exp:exp};
+ var filt=null;if(S.mode==='only'&&S.chosen&&chosable(M,S.chosen))filt=relatedFilter(M,emphasis(M,S.chosen));
+ var L=layout(M,exp,filt);DG={M:M,L:L,exp:exp};
  var many=M.links.length>LINE_LIMIT,sc=S.scn,pre='';
  if(sc.offers==='failed'&&S.offersState!=='ok')pre='<div class="nt warning" role="status"><span>Команды и ключи проектов не загружены</span><button id="oretry">Повторить</button></div>';
  if(sc.offers==='loading'&&S.offersState!=='ok')pre='<div class="nt warning" role="status"><span>Команды и ключи проектов не загружены</span></div>';
  pre+='<div id="sumbar"></div>';
  b.innerHTML=pre+'<div id="frame" tabindex="-1"><div id="cv" role="tree" aria-label="Диаграмма структуры" style="width:'+L.width+'px;height:'+L.height+'px"></div></div><div class="kb"><kbd>Tab</kbd> входит в диаграмму один раз · <kbd>↑</kbd><kbd>↓</kbd> узлы · <kbd>←</kbd><kbd>→</kbd> свернуть и развернуть · <kbd>Пробел</kbd> выбрать · <kbd>Enter</kbd> открыть · <kbd>Esc</kbd> сбросить</div>';
- var o=$('#oretry');if(o)o.onclick=function(){if(!S.retried){S.retried=true;toast('Не удалось загрузить предложения');}else{S.offersState='ok';S.retried=false;body()}};
- DG.many=many;drawCanvas();paint();
+ var o=$('#oretry');if(o)o.onclick=function(){if(!S.retried){S.retried=true;toast('Не удалось загрузить предложения');}else{S.offersState='ok';S.retried=false;render()}};
+ DG.many=many;drawCanvas();paint();updateTool();
+}
+function updateTool(){
+ var M=DG.M,t=$('#dtool');if(!t)return;
+ var ex={};M.areas.forEach(function(a){if(M.ch[a.id])ex[a.id]=1});var all=Object.keys(ex).every(function(k){return DG.exp[k]});
+ var x=$('#xall');x.textContent=all?'Свернуть всё':'Развернуть всё';x.disabled=!Object.keys(ex).length;
+ $('#mode b').textContent=modeLabel();
+ var d=M.areas.filter(function(a){return a.type==='department'}).length,p=M.areas.filter(function(a){return a.type==='project'}).length,s=M.areas.filter(function(a){return a.type==='area'}).length;
+ $('#cnts').textContent='Департаментов: '+d+' · Проектов: '+p+' · Областей: '+s+(M.off?' · Команд: '+M.teams.length:'');
+ var q=S.q.trim(),m=matches(M,S.q);$('#qc').textContent=q?(m.length?'Найдено: '+m.length+'. Enter — к следующему':'Ничего не найдено'):'';
 }
 function nameOf(M,it){
  if(it.kind==='team'){var n1=(M.projsOf[it.id]||[]).length,n2=(M.deptsOf[it.id]||[]).length;return 'Команда '+it.t.name+', проектов: '+n1+', департаментов: '+n2+(it.lone?', без проектов и департаментов':'')}
@@ -223,23 +262,25 @@ function nameOf(M,it){
  return 'Область '+a.name+', в «'+p.name+'»'+(a.active?'':', деактивирована');
 }
 function drawCanvas(){
- var cv=$('#cv'),M=DG.M,L=DG.L,exp=DG.exp,h='';
- /* captions (decorative; the tree has no heading items) */
- h+='<div class="cap" aria-hidden="true" style="left:'+PAD+'px;top:'+PAD+'px">Департаменты, проекты и области</div>';
- if(L.hasTeams||M.off)h+='<div class="cap" aria-hidden="true" style="left:'+L.TX+'px;top:'+PAD+'px">Команды</div>';
- if(L.hasLone)h+='<div class="cap" aria-hidden="true" style="left:'+PAD+'px;top:'+(L.groupTop)+'px">Без проектов и департаментов</div>';
- var first=true,cur=S.focusId&&L.pos[S.focusId]?S.focusId:L.all[0].id;S.focusId=cur;
+ var cv=$('#cv'),M=DG.M,L=DG.L,h='',hit={},exp=L.exp;
+ matches(M,S.q).forEach(function(id){hit[id]=1});
+ if(L.hasLone)h+='<div class="cap" aria-hidden="true" style="left:'+PAD+'px;top:'+L.groupTop+'px">Без проектов и департаментов</div>';
+ h+='<div class="cap" aria-hidden="true" style="left:'+PAD+'px;top:'+L.capY+'px">Департаменты, проекты и области · уровни вложенности</div>';
+ for(var lv=1;lv<=L.maxLevel;lv++)h+='<div class="rul" aria-hidden="true" style="left:'+(PAD+(lv-1)*IND)+'px;top:'+(L.capY+HEAD-4)+'px;width:'+IND+'px">'+lv+'</div>';
+ if(L.hasTeams||(M.off&&!L.filtered))h+='<div class="cap" aria-hidden="true" style="left:'+L.TX+'px;top:'+L.capY+'px">Команды</div>';
+ if(!L.hier.length)h+='<div class="srv" style="position:absolute;left:'+PAD+'px;top:'+L.hierStart+'px">Нет связанных проектов и департаментов</div>';
+ var cur=S.focusId&&L.pos[S.focusId]?S.focusId:L.all[0].id;S.focusId=cur;
  L.all.forEach(function(it){
-  var ch=chosable(M,it.id),isNode=it.kind==='node',a=it.a,cls='nd'+(ch?' ch':'')+(it.kind==='team'?' team':'')+(isNode&&!a.active?' dead':'');
-  var attrs='role="treeitem" id="n-'+esc(it.id)+'" data-id="'+esc(it.id)+'" tabindex="'+(it.id===cur?0:-1)+'" aria-level="'+it.level+'" aria-label="'+esc(nameOf(M,it))+'"'+(ch?' aria-selected="false"':'');
+  var ch=chosable(M,it.id),isNode=it.kind==='node',a=it.a,cls='nd'+(ch?' ch':'')+(it.kind==='team'?' team':'')+(isNode&&!a.active?' dead':'')+(hit[it.id]?' hit':'');
+  var attrs='role="treeitem" id="n-'+cssId(it.id)+'" data-id="'+esc(it.id)+'" tabindex="'+(it.id===cur?0:-1)+'" aria-level="'+it.level+'" aria-label="'+esc(nameOf(M,it))+'"'+(ch?' aria-selected="false"':'');
   var inner='';
-  if(isNode){var hasCh=!!M.ch[a.id];
+  if(isNode){var hasCh=L.kids(a.id).length>0;
    if(hasCh)attrs+=' aria-expanded="'+(!!exp[a.id])+'"';
    inner+=hasCh?'<button class="sm tog" tabindex="-1" aria-hidden="true" data-t="'+esc(a.id)+'">'+(exp[a.id]?'▾':'▸')+'</button>':'<span class="sp"></span>';
-   inner+='<span class="ty">'+TYPE[a.type]+'</span>'+(a.active?'<a class="nm" href="#" tabindex="-1" data-o="'+esc(a.name)+'">'+esc(a.name)+'</a>':'<span class="nm plain">'+esc(a.name)+'</span>');
+   inner+='<span class="lv" aria-hidden="true" title="Уровень '+it.level+'">'+it.level+'</span><span class="ty">'+TYPE[a.type]+'</span>'+(a.active?'<a class="nm" href="#" tabindex="-1" data-o="'+esc(a.name)+'">'+esc(a.name)+'</a>':'<span class="nm plain">'+esc(a.name)+'</span>');
    if(a.type==='project'&&a.active&&M.off&&a.key)inner+='<span class="key">'+esc(a.key)+'</span>';
    if(!a.active)inner+='<span class="tag tg">деактивирован</span>';
-   var rc=(a.type==='project'&&a.active&&M.off)?ru((M.teamsOf[a.id]||[]).length,'команда','команды','команд'):(a.type==='department'&&M.off?ru((M.teamsOf[a.id]||[]).length,'команда','команды','команд'):'');
+   var rc=((a.type==='project'&&a.active)||a.type==='department')&&M.off?ru((M.teamsOf[a.id]||[]).length,'команда','команды','команд'):'';
    if(rc)inner+='<span class="cnt">'+rc+'</span>';
   }else{
    inner+='<span class="ty">Команда</span><a class="nm" href="#" tabindex="-1" data-o="'+esc(it.t.name)+'">'+esc(it.t.name)+'</a><span class="cnt">'+ru((M.projsOf[it.id]||[]).length,'проект','проекта','проектов')+'</span>';
@@ -250,51 +291,48 @@ function drawCanvas(){
  drawLines();
 }
 function drawLines(){
- var M=DG.M,L=DG.L,exp=DG.exp,svg=$('#ln'),p='',PORT=PAD+HIER_W,i;
- /* nesting: solid thin elbows */
+ var M=DG.M,L=DG.L,svg=$('#ln'),p='',PORT=PAD+HIER_W;
+ if(L.hier.length)for(var lv=1;lv<=L.maxLevel;lv++){var gx=PAD+(lv-1)*IND+.5;p+='<path d="M'+gx+' '+L.hierStart+'V'+L.hierBottom+'" stroke="#E4E4E4" stroke-width="1" stroke-dasharray="1 3" fill="none"/>'}
  L.hier.forEach(function(it){var par=it.a.parentId;if(!par||!L.pos[par])return;var pp=L.pos[par],x=pp.x+10,y1=pp.y+32,y2=it.y+16;
   p+='<path d="M'+x+' '+y1+'V'+y2+'H'+(it.x)+'" stroke="#9E9E9E" stroke-width="1" fill="none"/>'});
- /* relations */
  var seen={},rel='';
  L.teams.forEach(function(tm){tm.anchors.forEach(function(an){var k=an.id+'>'+tm.id;if(seen[k])return;seen[k]=1;
-  var a=L.pos[an.id],ya=a.y+16,yt=tm.y+16,mx=(PORT+tm.x)/2,orig=an.src;
-  rel+='<path class="rl" data-k="'+esc(orig+'>'+tm.id)+'" data-a="'+esc(an.id)+'" data-t="'+esc(tm.id)+'" d="M'+PORT+' '+ya+'C'+mx+' '+ya+' '+mx+' '+yt+' '+tm.x+' '+yt+'" stroke="#0078D4" stroke-width="1.5" fill="none" stroke-dasharray="'+(an.hidden?'2 3':'6 3')+'"/>';
+  var a=L.pos[an.id],ya=a.y+16,yt=tm.y+16,mx=(PORT+tm.x)/2;
+  rel+='<path class="rl" data-a="'+esc(an.id)+'" data-t="'+esc(tm.id)+'" d="M'+PORT+' '+ya+'C'+mx+' '+ya+' '+mx+' '+yt+' '+tm.x+' '+yt+'" stroke="#0078D4" stroke-width="1.5" fill="none" stroke-dasharray="'+(an.hidden?'2 3':'6 3')+'"/>';
   rel+='<circle class="rd" data-a="'+esc(an.id)+'" data-t="'+esc(tm.id)+'" cx="'+PORT+'" cy="'+ya+'" r="3" fill="#0078D4"/>'})});
  svg.innerHTML=p+'<g id="rels">'+rel+'</g>';
 }
-/* emphasis: classes and line visibility only, no layout */
+/* emphasis and modes: classes and line paint only; «Только связанные» rebuilds the layout (see choose) */
 function paint(){
- var M=DG.M,L=DG.L,E=emphasis(M,S.chosen),bar=$('#sumbar');
+ var M=DG.M,L=DG.L,E=emphasis(M,S.chosen),bar=$('#sumbar'),mode=S.mode;
  L.all.forEach(function(it){var e=$('#n-'+cssId(it.id));if(!e)return;
-  e.classList.remove('dim','emph','chosen');
-  if(E){if(it.id===S.chosen)e.classList.add('chosen');else if(E.ids[it.id])e.classList.add('emph');else if(it.kind==='team'||it.a.type!=='area'||true)e.classList.add('dim')}
+  e.classList.remove('dim','emph','chosen','hl');
+  if(E){if(it.id===S.chosen)e.classList.add('chosen');
+   else if(E.ids[it.id])e.classList.add(mode==='hl'?'hl':'emph');
+   else if(mode==='dim'&&!(it.kind==='node'&&it.a.type==='area'))e.classList.add('dim')}
   if(chosable(M,it.id))e.setAttribute('aria-selected',String(it.id===S.chosen))});
- /* a project's sub-areas keep as they are: not dimmed */
- if(E)L.hier.forEach(function(it){if(it.a.type==='area'){var e=$('#n-'+cssId(it.id));e.classList.remove('dim')}});
- var show=DG.many?!!E:true;
  document.querySelectorAll('#rels path,#rels circle').forEach(function(el){
-  var a=el.getAttribute('data-a'),t=el.getAttribute('data-t'),k=el.getAttribute('data-k');
-  var on=true;if(DG.many&&!E)on=false;
-  var isE=false;if(E){var anc=L.pos[t]&&L.pos[t].anchors.filter(function(x){return x.id===a})[0];var src=anc?anc.src:a;isE=!!E.lines[src+'>'+t]}
-  if(DG.many&&E&&!isE)on=false;
+  var a=el.getAttribute('data-a'),t=el.getAttribute('data-t'),isE=false,on=true;
+  if(E){var anc=L.pos[t]&&L.pos[t].anchors.filter(function(x){return x.id===a})[0];isE=!!E.lines[(anc?anc.src:a)+'>'+t]}
+  if(DG.many&&(!E||!isE))on=false;
   el.style.display=on?'':'none';
-  if(el.tagName==='path'){el.setAttribute('stroke-width',isE?3:1.5);el.style.opacity=(E&&!isE)?.15:1}else el.style.opacity=(E&&!isE)?.15:1});
- var msg='';
- if(E){msg=summary(M,S.chosen);bar.innerHTML='<div class="nt info" role="status"><span>'+esc(msg)+'</span><button id="clr">Сбросить</button></div>';$('#clr').onclick=function(){choose(null)}}
+  var col=(E&&!isE&&mode==='hl')?'#B0B0B0':'#0078D4',fade=(E&&!isE&&mode==='dim')?.15:1;
+  if(el.tagName==='path'){el.setAttribute('stroke',col);el.setAttribute('stroke-width',isE?3:1.5)}else el.setAttribute('fill',col);
+  el.style.opacity=fade});
+ if(E){bar.innerHTML='<div class="nt info" role="status"><span>'+esc(summary(M,S.chosen))+(mode==='only'?'<br><small>Показаны только выбранный узел и связанные с ним.</small>':'')+'</span><button id="clr">Сбросить</button></div>';$('#clr').onclick=function(){choose(null)}}
  else if(DG.many&&M.off){bar.innerHTML='<div class="nt info" role="status"><span>Линии связей показаны для выбранного узла</span></div>'}
  else bar.innerHTML='';
 }
 function cssId(id){return String(id).replace(/[^\w-]/g,'_')}
+function rebuild(focus){body();if(focus)focusItem(focus,true)}
 function choose(id){
  var M=DG.M;
  if(id&&S.chosen===id)id=null;
  S.chosen=id;
- if(id){ /* reveal what is emphasised: expand branches that hide it */
-  var E=emphasis(M,id),changed=false;
-  Object.keys(E.ids).forEach(function(k){ancestors(M,k).forEach(function(a){if(!DG.exp[a]){DG.exp[a]=1;changed=true}})});
-  if(changed){S.expanded=DG.exp;var keep=id;body();S.chosen=keep;paint();focusItem(keep,true);setLive(summary(M,id));return}
- }
- paint();setLive(id?summary(M,id):'Выбор сброшен');
+ var f=S.focusId,changed=false;
+ if(id&&S.mode!=='only'){var E=emphasis(M,id);Object.keys(E.ids).forEach(function(k){ancestors(M,k).forEach(function(a){if(!DG.exp[a]){DG.exp[a]=1;changed=true}})});if(changed)S.expanded=DG.exp}
+ if(changed||S.mode==='only')rebuild(f);else paint();
+ setLive(id?summary(M,id):'Выбор сброшен');
 }
 function focusItem(id,noScroll){
  var e=$('#n-'+cssId(id));if(!e)return;
@@ -302,36 +340,63 @@ function focusItem(id,noScroll){
  e.tabIndex=0;S.focusId=id;e.focus({preventScroll:!!noScroll});if(!noScroll)e.scrollIntoView({block:'nearest',inline:'nearest'});
 }
 function toggle(id,open){
- var M=DG.M;if(!M.ch[id])return;
- var was=!!DG.exp[id];if(open===undefined)open=!was;if(open===was)return;
- if(open)DG.exp[id]=1;else{delete DG.exp[id];if(S.chosen){var E=emphasis(M,S.chosen);}}
- S.expanded=DG.exp;var keep=S.chosen,f=S.focusId;body();S.chosen=keep;paint();focusItem(f,true);
+ var L=DG.L;if(!L.kids(id).length)return;
+ var was=!!L.exp[id];if(open===undefined)open=!was;if(open===was)return;
+ if(open)DG.exp[id]=1;else delete DG.exp[id];
+ S.expanded=DG.exp;rebuild(S.focusId);
+}
+function setMode(id){S.mode=id;store('mustask.structure.mode.v1.demo',id);closeMenu();if(DG.M)rebuild(S.focusId)}
+function closeMenu(){var m=$('#mmenu');if(m){m.hidden=true;$('#mode').setAttribute('aria-expanded','false')}}
+function openMenu(){
+ var m=$('#mmenu');m.innerHTML=MODES.map(function(x){return '<button role="menuitemradio" aria-checked="'+(x.id===S.mode)+'" data-m="'+x.id+'" tabindex="-1"><b>'+(x.id===S.mode?'✓ ':'')+x.label+'</b><small>'+x.hint+'</small></button>'}).join('');
+ m.hidden=false;$('#mode').setAttribute('aria-expanded','true');(m.querySelector('[aria-checked=true]')||m.firstChild).focus();
+}
+function jump(){
+ var M=DG.M,m=matches(M,S.q);if(!m.length)return;
+ S.qi=(S.qi+1)%m.length;var id=m[S.qi],ch=false;
+ ancestors(M,id).forEach(function(a){if(!DG.exp[a]){DG.exp[a]=1;ch=true}});
+ if(ch){S.expanded=DG.exp;body()}
+ if(!DG.L.pos[id]){toast('Узел скрыт режимом «Только связанные»');return}
+ focusItem(id);
 }
 /* ---------- events ---------- */
 document.addEventListener('click',function(ev){
  var t=ev.target;
  var tab=t.closest&&t.closest('[role=tab]');
  if(tab){setView(tab.getAttribute('data-v'));return}
+ if(t.id==='mode'){if($('#mmenu').hidden)openMenu();else closeMenu();return}
+ var mi=t.closest&&t.closest('[data-m]');if(mi){setMode(mi.getAttribute('data-m'));$('#mode').focus();return}
+ if(t.id==='xall'){var M0=DG.M,ex={};M0.areas.forEach(function(a){if(M0.ch[a.id])ex[a.id]=1});var all=Object.keys(ex).every(function(k){return DG.exp[k]});S.expanded=all?{}:ex;rebuild(S.focusId);return}
+ if($('#mmenu')&&!t.closest('.mwrap'))closeMenu();
  if(!$('#cv')||!$('#cv').contains(t))return;
  var tog=t.closest('.tog');if(tog){toggle(tog.getAttribute('data-t'));return}
  var nm=t.closest('a[data-o]');if(nm){ev.preventDefault();toast('Открывается страница: '+nm.getAttribute('data-o'));return}
  var nd=t.closest('.nd');if(nd&&chosable(DG.M,nd.getAttribute('data-id'))){S.focusId=nd.getAttribute('data-id');choose(nd.getAttribute('data-id'));focusItem(nd.getAttribute('data-id'),true)}
 });
+document.addEventListener('input',function(ev){if(ev.target.id==='q'){S.q=ev.target.value;S.qi=-1;if(DG.M){drawCanvas();paint();updateTool()}}});
 document.addEventListener('keydown',function(ev){
  var tab=ev.target.closest&&ev.target.closest('[role=tab]');
  if(tab){var o=tab.getAttribute('data-v')==='tree'?'diagram':'tree';
   if(ev.key==='ArrowRight'||ev.key==='ArrowLeft'){ev.preventDefault();$('#tb-'+o).focus()}
   if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();setView(tab.getAttribute('data-v'));$('#tb-'+tab.getAttribute('data-v')).focus()}
   return}
+ if(ev.target.id==='q'){if(ev.key==='Enter'){ev.preventDefault();jump()}return}
+ var mm=ev.target.closest&&ev.target.closest('#mmenu');
+ if(mm||ev.target.id==='mode'){
+  var its=[].slice.call($('#mmenu').querySelectorAll('button')),ix=its.indexOf(ev.target);
+  if(ev.key==='Escape'){closeMenu();$('#mode').focus();return}
+  if(ev.key==='ArrowDown'){ev.preventDefault();if($('#mmenu').hidden)openMenu();else its[(ix+1)%its.length].focus()}
+  if(ev.key==='ArrowUp'&&!$('#mmenu').hidden){ev.preventDefault();its[(ix+its.length-1)%its.length].focus()}
+  return}
  var nd=ev.target.closest&&ev.target.closest('.nd');if(!nd||!$('#cv'))return;
- var id=nd.getAttribute('data-id'),all=DG.L.all,i=all.map(function(x){return x.id}).indexOf(id),it=all[i],k=ev.key,M=DG.M;
+ var id=nd.getAttribute('data-id'),all=DG.L.all,i=all.map(function(x){return x.id}).indexOf(id),it=all[i],k=ev.key,M=DG.M,L=DG.L;
  function go(j){j=Math.max(0,Math.min(all.length-1,j));focusItem(all[j].id)}
  if(k==='ArrowDown'){ev.preventDefault();go(i+1)}
  else if(k==='ArrowUp'){ev.preventDefault();go(i-1)}
  else if(k==='Home'){ev.preventDefault();go(0)}
  else if(k==='End'){ev.preventDefault();go(all.length-1)}
- else if(k==='ArrowRight'&&it.kind==='node'){ev.preventDefault();if(M.ch[id]&&!DG.exp[id])toggle(id,true);else if(M.ch[id])go(i+1)}
- else if(k==='ArrowLeft'&&it.kind==='node'){ev.preventDefault();if(M.ch[id]&&DG.exp[id])toggle(id,false);else if(it.a.parentId)focusItem(it.a.parentId)}
+ else if(k==='ArrowRight'&&it.kind==='node'){ev.preventDefault();if(L.kids(id).length&&!L.exp[id])toggle(id,true);else if(L.kids(id).length)go(i+1)}
+ else if(k==='ArrowLeft'&&it.kind==='node'){ev.preventDefault();if(L.kids(id).length&&L.exp[id])toggle(id,false);else if(it.a.parentId&&L.pos[it.a.parentId])focusItem(it.a.parentId)}
  else if(k===' '){ev.preventDefault();if(chosable(M,id))choose(id);else setLive('Этот узел выбрать нельзя')}
  else if(k==='Enter'){ev.preventDefault();var open=it.kind==='team'||it.a.active;if(open)toast('Открывается страница: '+(it.kind==='team'?it.t.name:it.a.name));else setLive('Узел деактивированного проекта ничего не открывает')}
  else if(k==='Escape'&&S.chosen){ev.preventDefault();choose(null)}
@@ -339,13 +404,14 @@ document.addEventListener('keydown',function(ev){
 function setView(v){S.view=v;S.chosen=null;render()}
 /* ---------- scenario controls ---------- */
 function pick(sc){
- S.scn=sc;S.data=sc.make();S.expanded=null;S.chosen=null;S.focusId=null;S.retried=false;S.offersState=sc.offers?'failed':'ok';
+ S.scn=sc;S.data=sc.make();S.expanded=null;S.chosen=null;S.focusId=null;S.retried=false;S.q='';S.qi=-1;S.offersState=sc.offers?'failed':'ok';
  document.querySelectorAll('#scn button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-s')===sc.id)});
  render();
 }
 SCN.forEach(function(sc){var b=document.createElement('button');b.textContent=sc.label;b.setAttribute('data-s',sc.id);b.onclick=function(){pick(sc)};$('#scn').appendChild(b)});
 document.querySelectorAll('[data-role]').forEach(function(b){b.onclick=function(){S.role=b.getAttribute('data-role');document.querySelectorAll('[data-role]').forEach(function(x){x.classList.toggle('on',x===b)});render()}});
 document.querySelectorAll('[data-w]').forEach(function(b){b.onclick=function(){S.narrow=b.getAttribute('data-w')==='narrow';document.querySelectorAll('[data-w]').forEach(function(x){x.classList.toggle('on',x===b)});render()}});
+S.mode=stored('mustask.structure.mode.v1.demo',['dim','only','hl'],'dim');
 pick(SCN[0]);
 })();
 </script></body></html>

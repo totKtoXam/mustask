@@ -40,6 +40,7 @@ One screen, one address (BR-SD-1): «Структура» with two views. No cha
 | h1 Структура                              [+ Создать департамент] |  PageHeader
 +------------------------------------------------------------------+
 | [ Дерево | Диаграмма ]          вложенность · команда работает ·  |  BoxedTabs + legend
+| [Найти узел] [Развернуть всё] [Показ при выборе: Затемнение ▾]   |  diagram toolbar (§ 12)
 +------------------------------------------------------------------+
 | (notice: offers not loaded)  /  (summary of the chosen node)     |  InlineNotice
 | +--------------------------------------------------------------+ |
@@ -49,7 +50,7 @@ One screen, one address (BR-SD-1): «Структура» with two views. No cha
 +------------------------------------------------------------------+
 ```
 
-- The tabs stand under the head, left; the legend (decorative, `aria-hidden`, three sample lines with words) at the right, diagram only. The tree view shows `ListFilter` and the head command «Развернуть всё» as today; the diagram view shows neither (US-1). «Создать департамент» stays in both views for `area.create` (OQ-3 A).
+- The tabs stand under the head, left; the legend (decorative, `aria-hidden`, three sample lines with words) at the right, diagram only. The tree view shows `ListFilter` and the head command «Развернуть всё» as today; the diagram view shows neither (US-1) but has its own toolbar (§ 12.2). «Создать департамент» stays in both views for `area.create` (OQ-3 A).
 - **State held by `AreasPage`, not by the view:** the tree's filter text, expansion and selection already live there, so a switch keeps them (US-1 "What survives a switch"). The diagram keeps its own expansion (starts from `initialExpansion`, D-3) and its chosen node; switching away drops the chosen node, keeps the expansion for the visit. The panel unmounting loses only scroll position.
 - **Memory (BR-SD-9, OQ-2 A):** `localStorage` key `mustask.structure.view.v1.<sub>.<organizationId>`, value `tree` or `diagram`; read once when the page opens; anything else (absent, damaged, storage refused) means `tree`, no error. Written on a user's choice only. A small hook `useStructureView(organizationId)`; never a field of `mustask.context.v2`.
 - The page title and address do not change; the tablist is named «Вид структуры».
@@ -59,21 +60,23 @@ One screen, one address (BR-SD-1): «Структура» with two views. No cha
 ### 4.1 Recommended layout: hierarchy lane at the left, teams lane at the right
 
 ```
- Департаменты, проекты и области                              Команды
+ Без проектов и департаментов            [ ATLAS ] [ ... ]       <- band on top
+ ......................................................................
+ Департаменты, проекты и области · уровни                     Команды
+  1  2  3  4   (level ruler; each node also has a level badge)
  +-- Департамент Логистика ----------------- 1 команда ·····.         .
  |  +- Проект Складской портал WH --------- 2 команды ----( VENUS )
  |  |   +- Область Склад                                  \( MARS  )
  |  |   |   +- Область Приёмка                             ( JUPITER )
  |  +- Проект Транспорт TR ------------------ 1 команда --/
  +-- Департамент Финансы ...
- ......................................................................
- Без проектов и департаментов            [ ATLAS ] [ ...]        <- band below
 ```
 
 - **Hierarchy lane (left).** One row per visible node in the tree's pre-order (the read's order, never re-sorted: US-2 "Order as in the tree"). A row is a full-width card whose left edge is indented one step (22 px) per level; every card ends at the same right edge, so relation lines leave from one vertical line. Nesting joins are thin solid grey elbows in the indent gutter (parent's chevron column, down and across). The organization is not a node (as in the tree).
 - **Why rows and lanes, not a node-link tree.** 1 000 areas over 10 levels make a left-to-right tree 10 columns wide and unreadable; rows are the tree the user already knows, read top to bottom, and keyboard order equals visual order. Lines are only team relations, so they stay few and fixed to one edge.
 - **Teams lane (right).** Teams that have at least one drawn relation, one card (220 px) per team. Vertical position: the mean of the vertical centres of its anchors (the visible node each of its lines ends at), teams sorted by it, ties by name, then pushed down where two would overlap. Result: a team stands near its projects and lines run short and rarely cross. Positions change only when expansion changes, never on choosing (US-3 Volume).
-- **Group «Без проектов и департаментов» (OQ-4 A).** A band below both lanes, after the hierarchy, a caption and the team cards wrapped in rows in the offers' order (name). Choosable, no lines.
+- **Group «Без проектов и департаментов» (OQ-4 A).** A band at the **top** of the frame, above both lanes (rework 1): a caption and the team cards wrapped in rows, the offers' order (name). Choosable, no lines.
+- **Level marks (rework 1).** A ruler row «1 2 3 …» above the first node, a circled level number at the start of every hierarchy node and faint dotted level guides; all `aria-hidden` text, see § 12.
 - **Frame.** A bordered `Surface variant="card"` area with `overflow: auto`, `max-height: min(70vh, 560px)`, `tabIndex` on none of its own (the tree item is the Tab stop). The page never scrolls sideways; at 640 px the frame scrolls (content is about 940 px wide; every node reachable by scroll, a clipped name has its full text in the accessible name and, on hover, `title`).
 - **Rendering.** Nodes are absolutely positioned HTML (`Box`), one `<svg aria-hidden>` layer behind them for the elbows and relation curves. HTML keeps links, `Tag`, `AreaTypeMark`, text selection and focus rings native; only lines are SVG. The size of the canvas is the layout's width and height.
 
@@ -116,7 +119,7 @@ Constants (named in `lib/diagramLayout.ts`): `ROW 40`, `INDENT 22`, `HIERARCHY_W
 ## 5. Keyboard and screen reader (BR-SD-10, OQ-5 A)
 
 - **One Tab stop**: the frame holds a `role="tree"` named «Диаграмма структуры»; the focused item has `tabIndex 0`, the others `-1` (roving, as `TreeRegistry`). Names, chevrons and team links inside have `tabIndex -1`. The tabs of the switch are a separate stop before it.
-- **Item order** (the DOM and arrow order): the hierarchy in pre-order, then teams of the lane (top to bottom), then the group's teams. Teams are level-1 items after the hierarchy; the captions «Команды» and «Без проектов и департаментов» are `aria-hidden`, the group's membership is in the team's accessible name.
+- **Item order** (the DOM and arrow order; rework 1): the group's teams (top band), the hierarchy in pre-order, then the teams of the lane (top to bottom). Teams are level-1 items after the hierarchy; the captions «Команды» and «Без проектов и департаментов» are `aria-hidden`, the group's membership is in the team's accessible name.
 - Keys: `↑`/`↓` previous/next item; `Home`/`End` first/last; `→` expands a collapsed branch, or on an expanded one goes to its first child; `←` collapses, or on a collapsed node or leaf goes to its parent; `Space` chooses (a non-choosable node announces «Этот узел выбрать нельзя»); `Enter` opens the page (a deactivated node announces «Узел деактивированного проекта ничего не открывает»); `Esc` clears the choice. Focus after a choice stays on the node; after a collapse stays on the collapsed node; after the layout rebuilds the same node keeps focus (`focusItem` by id, without scrolling away).
 - Roles: `treeitem` with `aria-level` (depth; teams 1), `aria-expanded` on branches, `aria-selected` on choosable items (true on the chosen one), `aria-label` as in § 7. A visible focus ring (2 px primary, offset) is always drawn. The summary and the live region announce a choice and its clearing.
 - The tree view is the text alternative of the hierarchy (the page keeps one tab away); a line has no text of its own, the relation is in the summary and in each node's count.
@@ -161,6 +164,7 @@ Constants (named in `lib/diagramLayout.ts`): `ROW 40`, `INDENT 22`, `HIERARCHY_W
 | Not choosable / not opening | «Этот узел выбрать нельзя» / «Узел деактивированного проекта ничего не открывает» |
 | Hint under the frame | «Tab входит в диаграмму один раз. Стрелки — переход, Пробел — выбрать, Enter — открыть, Esc — сбросить.» |
 | Node names (`aria-label`) | «Департамент Логистика, команд: 1» · «Проект Складской портал (WH), в департаменте Логистика, команд: 2» (top level: «на верхнем уровне»; deactivated: «, деактивирован», no count) · «Область Приёмка, в «Склад»» · «Команда MARS, проектов: 2, департаментов: 0» (group: «, без проектов и департаментов») |
+| Toolbar (rework 1) | «Найти узел»; «Найдено: N. Enter — к следующему» / «Ничего не найдено»; «Развернуть всё» / «Свернуть всё»; «Показ при выборе: Затемнение» (menu «Затемнение», «Только связанные», «Подсветка», each with a one-line hint, see prototype); counters «Департаментов: N · Проектов: N · Областей: N · Команд: N»; «Нет связанных проектов и департаментов»; «Показаны только выбранный узел и связанные с ним.»; «Узел скрыт режимом «Только связанные»» |
 | Reused | «Структура», «Создать департамент», «деактивирован», «В организации пока нет областей», «Повторить», tree texts from `areaTexts.ts` |
 
 New strings go into `areaTexts.ts` (`areasPage.view`, `areasPage.diagram`), not inline.
@@ -193,7 +197,7 @@ New strings go into `areaTexts.ts` (`areasPage.view`, `areasPage.diagram`), not 
 
 1. **Kit gap, § 1:** the switch uses `BoxedTabs`, whose docblock says "not for page views". Decide at the gate whether that stands; the alternative is a new kit part (B's scope) or `PageHeader views` with `?view=` (OQ-2 B/C).
 2. `src/app/navigation/*` and `routeTree.tsx`: not needed.
-3. US-3 "the group stands after the hierarchy": met as a band below both lanes; if the human reads «after» as «last in the teams lane», it is a layout detail only.
+3. Superseded by rework 1: the group stands at the top (§ 12).
 4. The diagram's expansion is its own and kept for the visit; the spec is silent (US-1 speaks of the tree's expansion only). Adopted here.
 5. Spec detail, not a problem: BR-SD-10's `tree` role has no row for the teams; teams are level-1 items after the hierarchy (§ 5).
 6. Not planned and not needed: a new read or endpoint.
@@ -201,3 +205,52 @@ New strings go into `areaTexts.ts` (`areasPage.view`, `areasPage.diagram`), not 
 ## 11. Prototype
 
 `prototype/index.html`. Scenarios (top strip): normal organization (with a deactivated project and the no-project group), large organization (lines only for the chosen node), offers loading, offers failed with «Повторить» (second press succeeds), page loading, tree failed, empty organization, not found; role switch (Администратор/Читатель) for «Создать департамент»; a 640 px window. Inside the diagram: choose a project (its teams emphasised) or a team (its projects), name click opens (a toast stands for navigation), chevrons and arrow keys, Space, Enter, Esc, «Сбросить». The prototype's dimming, layout constants and copy are the design's; its MUI parts are drawn by hand.
+
+## 12. Rework 1 (gate-1+2 remarks)
+
+The human rejected the package on 2026-11-03 with four remarks (status.md `## Decisions`); OQ-1..OQ-7 are all A. §§ 4.1, 5, 7 and 11 above are updated; this section is the index.
+
+| Remark | Answer |
+|---|---|
+| 1. Group to the top | «Без проектов и департаментов» is now a band at the top of the frame, above the hierarchy (caption plus wrapped team cards, offers' order). Keyboard order follows the picture: the group's teams, the hierarchy, the lane's teams. Choosing a team of the group works as before. |
+| 2. Nesting levels | Three marks, all text, none by colour: a **level ruler** (1, 2, 3 … at the left edge of each level, above the first node), a **level badge** (small circled number) at the start of every hierarchy node, and faint dotted **level guides** down the lane. The caption reads «Департаменты, проекты и области · уровни вложенности». The ruler shows only the levels present; teams carry no badge. `aria-level` already carries the level for screen readers, so ruler and badge are `aria-hidden`. Chosen over «Уровень N» column headers because a header reads badly with a 22 px step, and the badge works at any depth. |
+| 3. Display mode | § 12.1 |
+| 4. More convenience | § 12.2 |
+
+### 12.1 «Показ при выборе» (what choosing a node does to the rest)
+
+A kit `MenuButton` (`selection="radio"`, label «Показ при выборе», trigger an `ActionButton` «Показ при выборе: <режим>») in the diagram's toolbar row, beside the search and «Развернуть всё». Three modes:
+
+| Mode | What choosing does | Layout rebuild |
+|---|---|---|
+| **«Затемнение»** (default; today's behaviour) | the chosen node and what it relates to are emphasised, the rest at 50 %; a project's sub-areas stay; the chosen node's relation lines at full strength, the others faded | no |
+| **«Только связанные»** | only the chosen node, what it relates to, their ancestors (forced open) and the sub-areas of a related project are shown; unrelated rows and teams are removed and the lanes close up; relation lines are the chosen node's only; the summary adds «Показаны только выбранный узел и связанные с ним.»; clearing the choice restores the full picture with the user's expansion untouched | **yes**, on every choose and clear |
+| **«Подсветка»** | nothing is dimmed or hidden; related nodes get the accent frame and a stronger tint, related lines turn 3 px accent and the other lines turn neutral grey | no |
+
+- **Default and memory:** «Затемнение»; remembered per user and organization in `localStorage`, own key `mustask.structure.mode.v1.<sub>.<organizationId>`, the rules of the view key (a value outside the three is ignored, no error; written on a user's choice only; never inside `mustask.context.v2`). A change applies at once to the current choice and to every later one.
+- A «focus» mode that pulls related teams next to the chosen node is **not** proposed: teams already stand at the mean height of their anchors, so it moves little and re-orders the lane under the user's eyes.
+- In «Только связанные» the layout is rebuilt on a choice; the "no layout rebuild on choosing" test (US-3 Volume) therefore covers «Затемнение» and «Подсветка» only, and «Только связанные» has its own 200 ms criterion at 200 x 200 (stage-6 stand measure).
+- In «Только связанные», jumping by search to a node the mode hides toasts «Узел скрыт режимом «Только связанные»».
+
+### 12.2 Convenience proposals
+
+| Proposal | Verdict | Notes |
+|---|---|---|
+| Display modes | **in scope**, US-3 | remark 3 |
+| **«Найти узел»**: a search field in the diagram's toolbar marks every matching node (ring) and, on Enter, jumps to the next match: expands its branches, focuses and scrolls to it. Case and «ё/е» ignored; «Найдено: N. Enter — к следующему» / «Ничего не найдено». It filters nothing, so BR-SD-8 holds | **in scope**, US-2 | a pure function over the two reads; the kit's search field |
+| **«Развернуть всё» / «Свернуть всё»** for the diagram (its own expansion; a toolbar `ActionButton`, disabled when no branch exists) | **in scope**, US-2 | a big organization starts collapsed (D-3); without it expanding is row by row |
+| **Counters line** «Департаментов: 2 · Проектов: 5 · Областей: 12 · Команд: 5» at the toolbar's right end (teams only while the offers are loaded) | **in scope**, US-2 | text only; counts all nodes, not only the visible ones |
+| Keyboard hints under the frame | already in § 7 | kept |
+| Hover preview of relations (emphasis without choosing) | follow-up | mouse-only, needs a keyboard equivalent and a rule against fighting the chosen node |
+| Zoom / minimap | follow-up | the frame already scrolls; scaling HTML nodes blurs text and breaks the 640 px rule; a minimap is a second picture to keep in step; neither is cheap with approach A |
+| «Focus» mode (teams pulled next to the chosen node) | follow-up, not recommended | § 12.1 |
+
+The additions fit the three stories, no fourth: group, level marks, search, expand/collapse all and counters in US-2; modes in US-3; toolbar and mode memory in US-1.
+
+### 12.3 Spec deltas for the analyst
+
+- **US-1:** (a) reword "the tree's filter and «Развернуть всё»/«Свернуть всё» are not shown beside the diagram": the tree's own filter and head command are not shown, the diagram has its own toolbar (search, expand/collapse all, display mode, counters). (b) New scenario: the display mode is remembered per user and organization under its own key; a damaged value falls back to «Затемнение», no error. (c) BR-SD-9 names the second key. (d) "What survives a switch": the diagram's search text and mode survive, the chosen node does not.
+- **US-2:** (a) the group «Без проектов и департаментов» stands at the top, before the hierarchy (the layout line leaves "Layout details are left to design"; US-3 "the group stands after the hierarchy" is replaced). (b) New: levels are marked by text (ruler and badge), never by colour alone, and equal the accessible levels. (c) New: «Найти узел» (marks, Enter jumps and expands branches, «Ничего не найдено», filters nothing, ё/е ignored); «Развернуть всё»/«Свернуть всё» on the diagram's own expansion; the counters line over all nodes. (d) Keyboard scenario: the group's teams come first in the arrow order.
+- **US-3:** (a) "What choosing emphasises", "Clearing" and "Many relations" are stated per mode: «Затемнение» is today's; «Подсветка» dims and hides nothing and recolours related nodes and lines; «Только связанные» removes unrelated rows and teams (ancestors open, sub-areas of a related project kept) and restores them on clearing. (b) New: the mode control (`MenuButton` radio, arrow keys, Esc), default «Затемнение», applies at once to the current choice. (c) "Volume": the no-rebuild check is limited to «Затемнение»/«Подсветка»; «Только связанные» gets its own 200 ms criterion. (d) A group team chosen in «Только связанные»: the hierarchy shows «Нет связанных проектов и департаментов».
+- **BR-SD-11:** «Только связанные» forces the ancestors of shown nodes open without changing the user's expansion. **BR-SD-8:** the diagram's search never filters.
+- **Non-functional:** no new read; the group band, ruler and toolbar change no timing.
