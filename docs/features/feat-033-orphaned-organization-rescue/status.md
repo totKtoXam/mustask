@@ -32,6 +32,8 @@ gate-3: pending
 
 - 2026-11-03 [orchestrator] gate-1 approved by the human in chat: minors R-9/R-10 to be closed by the analyst before design, no new gate; OQ-6 accepted (explicit refusal «Пользователь уже администратор этой организации»); page size 25, not 50. Analyst minor pass, then stage 3.
 
+- 2026-11-03 [orchestrator] Minor pass (business-analyst, b6c28af5): BR-RS-6a refusal order (403, organization not found, user not appointable, self, already admin, reason), «Причина» in code points, BR-RS-11 race with an admin's own change, pre-tech-025 inactive rows refused as mod-016 US-1 does (citation checked), page size 25, OQ-6 closed. US-2 is 166 lines, over the ~150 budget: left as is. Stage 3 next.
+
 ## Notes
 
 Summary (from the queue line): system-admin rescues an organization left with no active administrator: sees the list of all organizations and appoints an admin there, audited, with no access to the organization's content. Closes doc-006 accepted risk H-1
