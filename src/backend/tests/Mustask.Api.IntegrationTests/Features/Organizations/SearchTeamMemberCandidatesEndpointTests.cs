@@ -105,7 +105,7 @@ public sealed class SearchTeamMemberCandidatesEndpointTests(MustaskApiFactory fa
         var (structure, token) = await WorldAsync();
         await UserDirectoryTestData.SeedAsync(
             factory,
-            Enumerable.Range(1, 25).Select(index => UserDirectoryTestData.Push($"k{index:D2}-{tag}", $"Кандидат{tag}", $"Номер{index:D2}", null)));
+            Enumerable.Range(1, 25).Select(index => UserDirectoryTestData.Person($"k{index:D2}-{tag}", $"Кандидат{tag}", $"Номер{index:D2}", null)));
         await WorkItemsTestData.ExecuteAsync(
             factory,
             $"INSERT INTO organization_memberships (organization_id, user_id, role, added_by, added_at) SELECT {structure.OrganizationId}, 'k' || lpad(i::text, 2, '0') || '-' || {tag}, 'member', {OrganizationsTestData.Creator}, now() FROM generate_series(1, 25) i");
@@ -125,8 +125,8 @@ public sealed class SearchTeamMemberCandidatesEndpointTests(MustaskApiFactory fa
     {
         var tag = Tag();
         var (structure, token) = await WorldAsync();
-        var pushes = Enumerable.Range(0, 501).Select(i => UserDirectoryTestData.Push($"s{i:D3}-{tag}", $"Участник{tag}", $"{i:D3}", null)).ToList();
-        pushes.Add(UserDirectoryTestData.Push($"outsider-{tag}", $"Посторонний{tag}", "Никто", null));
+        var pushes = Enumerable.Range(0, 501).Select(i => UserDirectoryTestData.Person($"s{i:D3}-{tag}", $"Участник{tag}", $"{i:D3}", null)).ToList();
+        pushes.Add(UserDirectoryTestData.Person($"outsider-{tag}", $"Посторонний{tag}", "Никто", null));
         await UserDirectoryTestData.SeedAsync(factory, pushes);
         await WorkItemsTestData.ExecuteAsync(
             factory,

@@ -109,7 +109,7 @@ internal static class WorkItemsTestData
     public static async Task<string> AddUserAsync(MustaskApiFactory factory, string firstName, string lastName, string? email = null, bool active = true)
     {
         var id = UserDirectoryTestData.NewId();
-        await UserDirectoryTestData.SeedAsync(factory, [UserDirectoryTestData.Push(id, firstName, lastName, email, enabled: active)]);
+        await UserDirectoryTestData.SeedAsync(factory, [UserDirectoryTestData.Person(id, firstName, lastName, email, enabled: active)]);
 
         return id;
     }

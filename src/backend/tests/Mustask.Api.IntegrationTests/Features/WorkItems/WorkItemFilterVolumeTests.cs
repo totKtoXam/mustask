@@ -35,7 +35,7 @@ public sealed class WorkItemFilterVolumeTests(MustaskApiFactory factory, ITestOu
         var people = Enumerable.Range(0, People).Select(_ => Guid.NewGuid().ToString()).ToArray();
 
         await UserDirectoryTestData.SeedAsync(
-            factory, people.Select((id, index) => UserDirectoryTestData.Push(id, $"Имя{index:D4}", $"Фамилия{index:D4}", $"user{index:D4}@volume.test")));
+            factory, people.Select((id, index) => UserDirectoryTestData.Person(id, $"Имя{index:D4}", $"Фамилия{index:D4}", $"user{index:D4}@volume.test")));
         await OrganizationsTestData.InUnitOfWorkAsync(factory, async (services, ct) =>
         {
             var memberships = services.GetRequiredService<IMembershipRepository>();

@@ -43,6 +43,7 @@ anything already fixed by the conventions.
 
 Keep the list current (append-only, newest on top):
 
+- ADR-0034 — Fill the user projection from the sign-in claims instead of a Keycloak event-listener provider · proposed (amends ADR-0025)
 - ADR-0033 — Run in the company-wide realm on four client roles, and keep the role-to-right table in code · proposed (amends ADR-0018, ADR-0027)
 - ADR-0031 — Make the organization's area tree a typed single tree whose project nodes are the projects' places in it · accepted (supersedes ADR-0028 rules 1, 2, 3, 6, 7, 8, its mod-018 delivery row, and ADR-0029 § 6 and its mod-018 delivery bullet, in part)
 - ADR-0030 — Delete a work item into its Removed state with the way back on its row, hide it by named entry points, and purge it in one locked transaction · accepted (amends ADR-0029 § 4)
@@ -51,7 +52,7 @@ Keep the list current (append-only, newest on top):
 - ADR-0027 — Derive organization access from the membership of the resource's organization, and keep Keycloak to instance roles · accepted (amends ADR-0018); amended by ADR-0033 (proposed)
 - ADR-0024 — Build every panel screen on one shell and one theme, carry the work context in the address, and name type appearance by a closed token set · accepted
 - ADR-0025 — Project Keycloak users through a read-only event-listener provider that pushes signed, ordered state into MUSTASK · proposed
-- ADR-0025 — Project Keycloak users through a read-only event-listener provider that pushes signed, ordered state into MUSTASK · accepted
+- ADR-0025 — Project Keycloak users through a read-only event-listener provider that pushes signed, ordered state into MUSTASK · accepted; amended by ADR-0034 (proposed)
 - ADR-0026 — Remove organizations, projects and teams softly by a status on the object itself, and decide reachability by containment · accepted
 - ADR-0023 — A stand-only Keycloak client impersonates the E2E fixture user · accepted
 - ADR-0022 — The panel's refresh token never reaches the browser: a token-mediating backend · proposed

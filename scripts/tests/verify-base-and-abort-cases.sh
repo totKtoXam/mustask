@@ -205,15 +205,15 @@ r=$(STUB_NPM_TEST=nosummary run)
 expect 'vitest, no summary at exit code 0: red' 'red "$r" && has "$r" "no Vitest summary"'
 
 g checkout -q main
-g checkout -q -b scn-provider
+g checkout -q -b scn-keycloak
 mkdir -p "$repo/deploy/keycloak"
 printf 'FROM scratch\n' > "$repo/deploy/keycloak/Dockerfile"
-g add -A && g commit -qm provider
+g add -A && g commit -qm keycloak
 
 r=$(run)
-expect 'provider tests pass: green' 'green "$r" && has "$r" "ok: .NET tests tagged KeycloakProvider"'
+expect 'keycloak live tests pass: green' 'green "$r" && has "$r" "ok: .NET tests tagged KeycloakLive"'
 r=$(STUB_DOTNET_TEST=abort0 run)
-expect 'provider tests, an abort at exit code 0: red' 'red "$r" && has "$r" "FAIL: .NET tests tagged KeycloakProvider"'
+expect 'keycloak live tests, an abort at exit code 0: red' 'red "$r" && has "$r" "FAIL: .NET tests tagged KeycloakLive"'
 
 printf '%s passed\n' "$pass"
 [ "$failed" = 0 ]

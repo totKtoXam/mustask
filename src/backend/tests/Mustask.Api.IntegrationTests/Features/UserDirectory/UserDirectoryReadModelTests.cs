@@ -8,8 +8,7 @@ namespace Mustask.Api.IntegrationTests.Features.UserDirectory;
 /// <summary>
 /// mod-014 US-1: the read model (<see cref="IUserDirectory"/>) against a real
 /// PostgreSQL — search and lookup, the order computed in SQL, the refusals of
-/// api-contract.md A.6. The projection is filled directly here; the push
-/// routes' own tests fill it the way the provider does.
+/// api-contract.md A.6. The projection is filled directly here, not by a sign-in.
 /// </summary>
 [Collection(MustaskApiCollection.Name)]
 public sealed class UserDirectoryReadModelTests(MustaskApiFactory factory) : IAsyncLifetime
@@ -21,7 +20,7 @@ public sealed class UserDirectoryReadModelTests(MustaskApiFactory factory) : IAs
     private async Task<string> SeedOneAsync(string? first, string? last, string? email, bool enabled = true, string? username = null)
     {
         var id = NewId();
-        await SeedAsync(factory, [Push(id, first, last, email, enabled, username)]);
+        await SeedAsync(factory, [Person(id, first, last, email, enabled, username)]);
         return id;
     }
 
@@ -82,7 +81,7 @@ public sealed class UserDirectoryReadModelTests(MustaskApiFactory factory) : IAs
     [InlineData("   ")]
     public async Task Search_FewerThanTwoCharacters_AnswersNobody(string text)
     {
-        await SeedAsync(factory, Enumerable.Range(0, 50).Select(i => Push(NewId(), "Анна", $"Фамилия{i}", null)));
+        await SeedAsync(factory, Enumerable.Range(0, 50).Select(i => Person(NewId(), "Анна", $"Фамилия{i}", null)));
 
         var result = await SearchAsync(factory, new UserSearch(text));
 
@@ -94,7 +93,7 @@ public sealed class UserDirectoryReadModelTests(MustaskApiFactory factory) : IAs
     [Fact]
     public async Task Search_OverOneHundredCharacters_IsRefused_AndOneHundredIsAccepted()
     {
-        await SeedAsync(factory, Enumerable.Range(0, 50).Select(i => Push(NewId(), "Анна", $"Фамилия{i}", null)));
+        await SeedAsync(factory, Enumerable.Range(0, 50).Select(i => Person(NewId(), "Анна", $"Фамилия{i}", null)));
 
         var tooLong = new string('а', UserDirectoryLimits.SearchTextMaxLength + 1);
         var ex = await Assert.ThrowsAsync<ValidationException>(() => SearchAsync(factory, new UserSearch($"  {tooLong}  ")));
@@ -129,7 +128,7 @@ public sealed class UserDirectoryReadModelTests(MustaskApiFactory factory) : IAs
     public async Task Search_ThirtyFiveMatches_AnswersTheFirstTwentyAndMoreMatched()
     {
         var pushes = Enumerable.Range(0, 35)
-            .Select(i => Push(NewId(), $"Имя{i:D2}", "Тест", $"user{i:D2}@example.test"))
+            .Select(i => Person(NewId(), $"Имя{i:D2}", "Тест", $"user{i:D2}@example.test"))
             .ToList();
         await SeedAsync(factory, pushes);
 
@@ -154,7 +153,7 @@ public sealed class UserDirectoryReadModelTests(MustaskApiFactory factory) : IAs
         [
             ("Zoe", "Adams"), ("Alex", "Brown"), ("Юлия", "Щукина"), ("Ёлкин", "Пётр"), ("Егор", "Лось"), ("анна", "Абрамова"),
         ];
-        await SeedAsync(factory, names.Select((name, i) => Push(NewId(), name.First, name.Last, $"u{i}@order.test")));
+        await SeedAsync(factory, names.Select((name, i) => Person(NewId(), name.First, name.Last, $"u{i}@order.test")));
 
         var result = await SearchAsync(factory, new UserSearch("order.test"));
 
@@ -168,7 +167,7 @@ public sealed class UserDirectoryReadModelTests(MustaskApiFactory factory) : IAs
     public async Task Search_TwentyFiveNamesakes_AnswersTheFirstTwentyByIdTwice()
     {
         var ids = Enumerable.Range(0, 25).Select(_ => NewId()).ToList();
-        await SeedAsync(factory, ids.Select(id => Push(id, "Анна", "Смирнова", null)));
+        await SeedAsync(factory, ids.Select(id => Person(id, "Анна", "Смирнова", null)));
 
         var first = await SearchAsync(factory, new UserSearch("смирнова"));
         var second = await SearchAsync(factory, new UserSearch("смирнова"));
@@ -243,7 +242,7 @@ public sealed class UserDirectoryReadModelTests(MustaskApiFactory factory) : IAs
         var a = await SeedOneAsync("Анна", "Активная", "a@example.test");
         var b = await SeedOneAsync("Борис", "Отключённый", "b@example.test", enabled: false);
         var c = NewId();
-        await SeedAsync(factory, [Push(c, "Ольга", "Белова", "o.belova@example.test", deleted: true)]);
+        await SeedAsync(factory, [Person(c, "Ольга", "Белова", "o.belova@example.test", deleted: true)]);
         var d = NewId();
 
         var result = await LookupAsync(factory, a, b, c, d);

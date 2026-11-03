@@ -166,7 +166,7 @@ public sealed class GetTeamMembersEndpointTests(MustaskApiFactory factory)
     {
         var tag = Tag();
         var (structure, reader) = await WorldAsync();
-        var pushes = Enumerable.Range(0, 501).Select(i => UserDirectoryTestData.Push($"t{i:D3}-{tag}", $"Участник{tag}", $"{i:D3}", null)).ToList();
+        var pushes = Enumerable.Range(0, 501).Select(i => UserDirectoryTestData.Person($"t{i:D3}-{tag}", $"Участник{tag}", $"{i:D3}", null)).ToList();
         await UserDirectoryTestData.SeedAsync(factory, pushes);
         await WorkItems.WorkItemsTestData.ExecuteAsync(
             factory,
