@@ -20,11 +20,15 @@ gate-3: pending
 
 ## Decisions
 
+- Gate-1 questions, 2026-11-03, the human in chat, one by one: OQ-1 A (auto-retry by Retry-After, then «Повторить»), OQ-2 A (limiter on group and cell reads only, keyword read an accepted risk), OQ-3 A (4 per tab, 6 per user with a short wait queue, keyed by the Keycloak subject per API process), OQ-4 A (cursor 400 reloads, refusal keeps rows, deactivated project drops its group), OQ-5 A (filter parameters on the reads now, no filter bar on aggregate board/backlog until feat-013), OQ-6 A («В конец» is the project backlog's end, «Ниже» on the last loaded row disabled). Gate-1 verdict itself asked separately.
+
 ## Log
 
 - 2026-11-03 [orchestrator] task started in the worktree .claude/worktrees/mod-018-build-9e3722 (app-made; branch feat/048-aggregate-level-views cut from origin/main 41d784ee; new-task.sh not used because the session is already bound here; the app's sync tool refused, origin not pinned). Route confirmed by the human: feature, L, not the queue's M (threshold: an ADR is owed for the group reads' cursor, which deviates from ADR-0014/0015's page envelope, and for the server-side read limiter of feat-043 design § 12). Full route, gates 1/2/3 the human's; the spec is reused: spec.md indexes feat-043's US-6, US-10, BR-NV-12, BR-NV-20, approved at feat-043's gate-1 and gate-2, and gate-1 covers only what this line adds. Block 3.3: only the queue line. Economy mode; E2E no. Queue: `queue.sh take` PR #52 (auto-merge on). Usage at start: weekly 17%, 5-hour 5%.
 
 - 2026-11-03 [orchestrator] Stage 1 done (business-analyst): spec.md as an index into feat-043's folder plus a Delta of OQ-1..OQ-5 (429 handling, limiter scope, per-tab cap against the per-user limit, failed cursor reads, the project list's «Команда» control left by feat-043 against BR-NV-12); no new story. Deps checked merged on origin/main by the orchestrator: feat-003 #32, mod-006, mod-017 #11, mod-020, feat-040 #31, feat-043 #49. verify.sh green.
+
+- 2026-11-03 [orchestrator] Stage 2 (requirements-reviewer): needs-human-decision, 0 blockers, 5 majors, 6 minors (review-requirements.md, ce891fad); faithful to feat-043's approved text. Fix round (business-analyst, 8594e016): R-1..R-11 closed in spec.md; the old OQ-5 (project list's «Команда») became a stated requirement per BR-NV-12/Q-6 A; open for gate-1: OQ-1..OQ-6 (refusal UX, limiter coverage, per-user limit and queue, recovery after page 1, filters while feat-013 is unmerged, moves in a part-loaded group). Owed: a 429 entry in docs/error-codes.md and contracts/errors. At gate-1.
 
 ## Notes
 
