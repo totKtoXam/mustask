@@ -30,6 +30,8 @@ gate-3: pending
 
 - 2026-11-03 [orchestrator] Stage 2 (requirements-reviewer): needs-human-decision, 0 blockers, 5 majors, 6 minors (review-requirements.md, ce891fad); faithful to feat-043's approved text. Fix round (business-analyst, 8594e016): R-1..R-11 closed in spec.md; the old OQ-5 (project list's «Команда») became a stated requirement per BR-NV-12/Q-6 A; open for gate-1: OQ-1..OQ-6 (refusal UX, limiter coverage, per-user limit and queue, recovery after page 1, filters while feat-013 is unmerged, moves in a part-loaded group). Owed: a 429 entry in docs/error-codes.md and contracts/errors. At gate-1.
 
+- 2026-11-03 [orchestrator] Gate-1 approved by the human. Stage 3 (ux-designer) started: design delta, the cursor and limiter ADR, the 429 catalogue entry.
+
 ## Notes
 
 Summary (from the queue line): «Рабочие элементы», «Канбан» and «Бэклог» at the organization and department level and «Рабочие элементы» at the team level: the organization-wide work-item list with feat-003's filters and keyword rules, and the aggregate backlogs and boards of every active project (department: the projects placed in it) as one collapsible group (swimlane on the board) per project in the project's own rank order, with a move inside a group and rows loaded per project as a group opens (reads capped at 4 in flight per tab, paged by a cursor), with the additive reads and the budgets of BR-NV-12 and BR-NV-20. Spec and stories US-6, US-10 live in feat-043's folder (its OQ-9); takes feat-042's board and backlog part, BR-NE-8's cross-project list and mod-020 CR-2's test.
