@@ -21,11 +21,11 @@ import { contextSource, renderPage } from '../testRender';
 // feat-028 design § 3, § 5 (US-1, US-5, US-7): the organization's «Команды» — the list with its states,
 // the creation, the rename, the description and the deletion that reaches every project.
 
-const ALFA_TEAMS = `/organizations/${ids.alfa}/settings/teams`;
+const ALFA_TEAMS = `/organizations/${ids.alfa}/teams`;
 const DELETION_COUNTS_URL = `${ORG_TEAM_URL}/deletion-counts`;
 
 async function teamsTable() {
-  return screen.findByRole('table', { name: 'Команды организации' });
+  return screen.findByRole('table', { name: 'Команды' });
 }
 
 async function openMenu(name: string) {
@@ -34,12 +34,12 @@ async function openMenu(name: string) {
 }
 
 describe('feat-028 US-1 Scenario: The organization’s teams are listed in its settings', () => {
-  it('loads with the three column labels, then lists the active teams by name with their active projects', async () => {
+  it('loads with the two column labels, then lists the active teams by name', async () => {
     serveOrganizations();
     renderPage({ path: ALFA_TEAMS });
 
     const skeleton = screen.getByRole('status', { name: 'Загрузка данных' });
-    for (const label of ['Команда', 'Проекты', 'Описание']) {
+    for (const label of ['Название', 'Описание']) {
       expect(within(skeleton).getByText(label)).toBeInTheDocument();
     }
 
@@ -48,7 +48,7 @@ describe('feat-028 US-1 Scenario: The organization’s teams are listed in its s
       within(table)
         .getAllByRole('columnheader')
         .map((header) => header.textContent),
-    ).toEqual(['Команда', 'Проекты', 'Описание', '']);
+    ).toEqual(['Название', 'Описание', '']);
     const rows = within(table).getAllByRole('row').slice(1);
     expect(rows.map((row) => within(row).getAllByRole('cell')[0]?.textContent)).toEqual([
       'Аналитика',
@@ -56,16 +56,9 @@ describe('feat-028 US-1 Scenario: The organization’s teams are listed in its s
       'Пример проекта',
       'Старый проект',
     ]);
-    // The projects a team works on; none of the deactivated ones (BR-OL-4).
-    expect(rows.map((row) => within(row).getAllByRole('cell')[1]?.textContent)).toEqual([
-      'Аналитика',
-      'Пример проекта',
-      'Пример проекта',
-      'Нет проектов',
-    ]);
     expect(within(rows[1]!).getByRole('link', { name: 'Платформа' })).toHaveAttribute(
       'href',
-      `/organizations/${ids.alfa}/settings/teams/${ids.platformTeam}`,
+      `/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview`,
     );
     // A team of another organization is not listed.
     expect(within(table).queryByText('Отчётность')).not.toBeInTheDocument();
@@ -81,8 +74,8 @@ describe('feat-028 US-1 Scenario: The organization’s teams are listed in its s
     const table = await teamsTable();
     const rows = within(table).getAllByRole('row').slice(1);
 
-    expect(within(rows[1]!).getAllByRole('cell')[2]).toHaveTextContent('Платформа и инструменты');
-    expect(within(rows[0]!).getAllByRole('cell')[2]).toHaveTextContent('');
+    expect(within(rows[1]!).getAllByRole('cell')[1]).toHaveTextContent('Платформа и инструменты');
+    expect(within(rows[0]!).getAllByRole('cell')[1]).toHaveTextContent('');
   });
 
   it('offers «Новая команда» as the one filled action of the head', async () => {
@@ -90,7 +83,7 @@ describe('feat-028 US-1 Scenario: The organization’s teams are listed in its s
     renderPage({ path: ALFA_TEAMS });
     await teamsTable();
 
-    expect(screen.getByRole('button', { name: 'Новая команда' })).toHaveClass(
+    expect(screen.getByRole('button', { name: 'Создать команду' })).toHaveClass(
       'MuiButton-contained',
     );
     expect(screen.getByRole('heading', { level: 1, name: 'Команды' })).toBeInTheDocument();
@@ -112,15 +105,11 @@ describe('feat-028 US-7 Scenario: No team at all is the first state, right after
     serveOrganizations(noTeamsDataset());
     renderPage({ path: ALFA_TEAMS });
 
-    expect(
-      await screen.findByRole('heading', { level: 2, name: 'В организации пока нет команд' }),
-    ).toBeVisible();
-    expect(
-      screen.getByText('Создайте команду кнопкой «Новая команда» и подключите её к проектам.'),
-    ).toBeVisible();
+    expect(await screen.findByRole('heading', { level: 2, name: 'Команд пока нет' })).toBeVisible();
+    expect(screen.getByText('Создайте первую команду.')).toBeVisible();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Новая команда' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Создать команду' })).toHaveLength(2);
   });
 
   it.each([['member'], ['viewer']] as const)(
@@ -130,22 +119,24 @@ describe('feat-028 US-7 Scenario: No team at all is the first state, right after
       renderPage({ path: ALFA_TEAMS, role });
 
       expect(await screen.findByText('Команды создаёт администратор организации.')).toBeVisible();
-      expect(screen.queryByRole('button', { name: 'Новая команда' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Создать команду' })).not.toBeInTheDocument();
     },
   );
 
   it('the first team is created from the empty frame and then listed', async () => {
     const api = serveOrganizations(noTeamsDataset());
     renderPage({ path: ALFA_TEAMS });
-    await screen.findByRole('heading', { level: 2, name: 'В организации пока нет команд' });
-    await userEvent.click(screen.getAllByRole('button', { name: 'Новая команда' })[1]!);
+    await screen.findByRole('heading', { level: 2, name: 'Команд пока нет' });
+    await userEvent.click(screen.getAllByRole('button', { name: 'Создать команду' })[1]!);
     const dialog = await screen.findByRole('dialog', { name: 'Новая команда' });
 
     await userEvent.type(within(dialog).getByRole('textbox', { name: 'Название' }), 'MARS');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
 
     expect(await screen.findByText('Команда «MARS» создана.')).toBeInTheDocument();
-    expect(await within(await teamsTable()).findByRole('link', { name: 'MARS' })).toBeVisible();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Команда: MARS' }),
+    ).toBeInTheDocument();
     expect(api.data.links).toEqual([]);
   });
 });
@@ -155,7 +146,7 @@ describe('feat-028 US-1 Scenario: «Новая команда»', () => {
     const api = serveOrganizations();
     renderPage({ path: ALFA_TEAMS, role });
     await teamsTable();
-    await userEvent.click(screen.getByRole('button', { name: 'Новая команда' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Создать команду' }));
     const dialog = await screen.findByRole('dialog', { name: 'Новая команда' });
     return { api, dialog };
   }
@@ -183,8 +174,10 @@ describe('feat-028 US-1 Scenario: «Новая команда»', () => {
     expect(api.writes()).toEqual([
       { method: 'POST', path: `/api/organizations/${ids.alfa}/teams`, body: { name: 'Ядро' } },
     ]);
-    const table = await teamsTable();
-    await waitFor(() => expect(within(table).getByRole('link', { name: 'Ядро' })).toBeVisible());
+    // The new team opens on its own page (feat-043 design § 5.3).
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Команда: Ядро' }),
+    ).toBeInTheDocument();
     // BR-OL-2: no project, no link, no team membership created with it.
     expect(api.data.links).toHaveLength(exampleDataset().links.length);
     expect(api.data.teamMembers ?? []).toEqual([]);
@@ -193,7 +186,7 @@ describe('feat-028 US-1 Scenario: «Новая команда»', () => {
   it('creates it with a description, projects and members in one request', async () => {
     const opened = openPage({ path: ALFA_TEAMS });
     await teamsTable();
-    await userEvent.click(screen.getByRole('button', { name: 'Новая команда' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Создать команду' }));
     const dialog = await screen.findByRole('dialog', { name: 'Новая команда' });
     await userEvent.type(within(dialog).getByRole('textbox', { name: 'Название' }), 'JUPITER');
     await userEvent.type(within(dialog).getByRole('textbox', { name: 'Описание' }), ' Первая');
@@ -227,7 +220,7 @@ describe('feat-028 US-1 Scenario: «Новая команда»', () => {
   it('offers only active members of the organization: not an inactive one, not a user of no organization', async () => {
     openPage({ path: ALFA_TEAMS });
     await teamsTable();
-    await userEvent.click(screen.getByRole('button', { name: 'Новая команда' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Создать команду' }));
     const dialog = await screen.findByRole('dialog', { name: 'Новая команда' });
     const members = within(dialog).getByRole('combobox', { name: 'Участники' });
     await userEvent.click(members);
@@ -392,7 +385,7 @@ describe('feat-028 US-1 Scenario: Renamed and described from a row', () => {
     });
     await waitFor(() =>
       expect(
-        within(screen.getByRole('table', { name: 'Команды организации' })).getByText('Стало'),
+        within(screen.getByRole('table', { name: 'Команды' })).getByText('Стало'),
       ).toBeVisible(),
     );
   });
@@ -482,7 +475,7 @@ describe('feat-028 US-5 Scenario: Deleted after a confirmation that counts every
     expect(await screen.findByText('Команда «Платформа» удалена.')).toBeInTheDocument();
     await waitFor(() =>
       expect(
-        within(screen.getByRole('table', { name: 'Команды организации' })).queryByText('Платформа'),
+        within(screen.getByRole('table', { name: 'Команды' })).queryByText('Платформа'),
       ).toBeNull(),
     );
     expect(api.writes()).toEqual([
@@ -576,7 +569,7 @@ describe('feat-028 US-5 Scenario: Deleted after a confirmation that counts every
     expect(within(dialog).getByRole('button', { name: 'Удалить команду' })).toBeEnabled();
   });
 
-  it('DC-7: no notice of its own when the deleted team is the switcher’s', async () => {
+  it('DC-7: no notice of its own when the deleted team is the selected one', async () => {
     const { dialog } = await openDelete(
       contextSource({
         selection: { organizationId: ids.alfa, projectId: ids.prm, teamId: ids.platformTeam },

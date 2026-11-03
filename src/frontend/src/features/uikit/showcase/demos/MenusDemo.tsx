@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { ActionButton, MenuButton, MoreActionsMenu, type MenuEntry } from '../../../../shared/ui';
+import {
+  ActionButton,
+  MenuButton,
+  MoreActionsMenu,
+  SearchMenu,
+  type MenuEntry,
+} from '../../../../shared/ui';
+import { UI_KIT_PATH } from '../../paths';
 import { DemoGrid, DemoGroup } from '../parts';
 import { noop } from '../noop';
 
@@ -16,12 +23,49 @@ const MORE_ITEMS: readonly MenuEntry[] = [
     items: [
       { label: 'Копировать ссылку', onSelect: noop },
       { label: 'Дублировать', onSelect: noop },
+      { label: 'Открыть в списке', to: UI_KIT_PATH, state: { from: 'menus' } },
     ],
   },
   'divider',
   { label: 'Архивировать', disabled: true },
   { label: 'Удалить', destructive: true, onSelect: noop },
 ];
+
+const PROJECTS = [
+  { id: 'a', label: 'Склад', hint: 'WH' },
+  { id: 'b', label: 'Доставка', hint: 'DL' },
+];
+const OTHER_PROJECTS = [{ id: 'c', label: 'Бюджет', hint: 'FIN' }];
+
+/** The header selector in its states: ready, loading, error. */
+function SelectorDemo({ status }: { status: 'ready' | 'loading' | 'error' }) {
+  const [project, setProject] = useState<string | null>(null);
+  const chosen = [...PROJECTS, ...OTHER_PROJECTS].find((option) => option.id === project);
+  return (
+    <SearchMenu
+      label="Проект"
+      value={chosen?.label ?? 'все'}
+      chosen={chosen !== undefined}
+      currentId={project}
+      allLabel="все"
+      groups={[
+        { options: PROJECTS },
+        {
+          heading: 'Остальные',
+          note: 'Выбор сбросит то, что не подойдёт.',
+          options: OTHER_PROJECTS,
+        },
+      ]}
+      searchLabel="Найти…"
+      emptyText="Ничего не найдено"
+      status={status}
+      errorText="Не удалось загрузить список. Попробуйте ещё раз."
+      retryLabel="Повторить"
+      onRetry={noop}
+      onSelect={setProject}
+    />
+  );
+}
 
 export function MenusDemo() {
   const [sort, setSort] = useState<string>(SORTS[0]);
@@ -53,6 +97,15 @@ export function MenusDemo() {
       </DemoGroup>
       <DemoGroup caption="Меню «⋮»: группа, разделитель, недоступный и опасный пункты">
         <MoreActionsMenu items={MORE_ITEMS} />
+      </DemoGroup>
+      <DemoGroup caption="Селектор с поиском (SearchMenu): готов">
+        <SelectorDemo status="ready" />
+      </DemoGroup>
+      <DemoGroup caption="Селектор: загрузка">
+        <SelectorDemo status="loading" />
+      </DemoGroup>
+      <DemoGroup caption="Селектор: ошибка с повтором">
+        <SelectorDemo status="error" />
       </DemoGroup>
     </DemoGrid>
   );

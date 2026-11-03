@@ -314,7 +314,6 @@ describe('US-1 Scenario: The project’s head has no team drop-down (feat-040 BR
         organizations: [],
         selection: {},
         isReal: true,
-        select: () => {},
       },
     });
 
@@ -326,16 +325,19 @@ describe('US-1 Scenario: The project’s head has no team drop-down (feat-040 BR
 
 describe('US-1 Scenario: The shell on a project’s backlog (BR-PB-9)', () => {
   it.each([['epics'], ['features'], ['stories']])(
-    'at «%s» «Бэклоги» is current with no trail, «Канбан» is not, and pressing «Бэклоги» opens the switcher’s team’s «Истории»',
+    'at «%s» «Бэклоги» is current with no trail, «Канбан» is not, and pressing «Бэклоги» opens the selected team’s «Истории»',
     async (level) => {
       serveBoards(projectDataset());
       renderBoards(projectBacklogAddress(level));
       await screen.findByRole('heading', { level: 1, name: 'Мастаск' });
 
       const navigation = screen.getByRole('navigation', { name: 'Основное меню' });
-      const backlogs = within(navigation).getByRole('link', { name: 'Бэклоги' });
+      const backlogs = within(navigation).getByRole('link', { name: 'Бэклог' });
       expect(backlogs).toHaveAttribute('aria-current', 'page');
-      expect(backlogs).toHaveAttribute('href', backlogAddress('stories'));
+      expect(backlogs).toHaveAttribute(
+        'href',
+        `${projectBacklogAddress('stories')}?teamId=${ids.platformTeam}`,
+      );
       expect(within(navigation).getByRole('link', { name: 'Канбан' })).not.toHaveAttribute(
         'aria-current',
       );

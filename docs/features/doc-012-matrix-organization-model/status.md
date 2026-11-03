@@ -47,6 +47,7 @@ No backend/frontend plan: a docs task. Input: [input-brief.md](input-brief.md)
 - 2026-10-17 [orchestrator] the queue commits go to origin by PR #5 (sync/main-2026-10-17, cut from origin/main); spec.md decomposition carries the issued ids. Branch rebased onto origin/main 2130f560, no conflicts. gate-3 requested from the human.
 - 2026-10-17 [orchestrator] gate-3: approved by the human in chat; stage: complete; branch pushed, PR to main opened (squash, branch kept). The human merges; PR #5 (queue) should go first.
 - 2026-10-18 [doc-013] amended: § Decomposition (feat-043 right after mod-018; the later lines add sections to the object pages), the Surface header, US-10, US-6, ADR-0028 § 7 and its delivery table, ADR-0029's delivery list; each edit in docs/features/doc-013-navigation-earlier/spec.md § Edits made
+- 2026-11-02 — Broken by feat-043: BR-MX-27 and BR-MX-28 (areas offered), the US-10 clauses that hold area-project links, the fate-table lines that name a board as an entry (see feat-043 spec, "Breaks").
 
 ## Notes
 

@@ -9,14 +9,14 @@ import { PageHeader, type PageHeaderProps } from './PageHeader';
 
 function renderHeader(props: PageHeaderProps) {
   return render(
-    <MemoryRouter initialEntries={['/organizations/o/settings/projects']}>
+    <MemoryRouter initialEntries={['/organizations/o/projects']}>
       <PageHeader {...props} />
     </MemoryRouter>,
   );
 }
 
-const active = { label: 'Активные', to: '/organizations/o/settings/projects' };
-const deactivated = { label: 'Деактивированные', to: '/organizations/o/settings/projects/x' };
+const active = { label: 'Активные', to: '/organizations/o/projects' };
+const deactivated = { label: 'Деактивированные', to: '/organizations/o/projects/x' };
 
 describe('mod-016 DC-2 Scenario: a one-view tab strip is not drawn', () => {
   it('draws no tab for a plain header with a single view', () => {
@@ -45,7 +45,7 @@ describe('mod-016 DC-2 Scenario: a one-view tab strip is not drawn', () => {
     renderHeader({
       title: 'Платформа',
       variant: 'team',
-      views: [{ label: 'Бэклог', to: '/organizations/o/settings/projects' }],
+      views: [{ label: 'Бэклог', to: '/organizations/o/projects' }],
       viewsEnd: <button type="button">Эпики</button>,
     });
 
@@ -89,7 +89,7 @@ describe('mod-020 Scenario: a view’s address may carry a query', () => {
 
   it('selects a view for an address below its path, whatever query it carries', () => {
     render(
-      <MemoryRouter initialEntries={['/organizations/o/settings/projects/x/members']}>
+      <MemoryRouter initialEntries={['/organizations/o/projects/x/members']}>
         <PageHeader title="Проекты" views={[filtered, deactivated]} />
       </MemoryRouter>,
     );

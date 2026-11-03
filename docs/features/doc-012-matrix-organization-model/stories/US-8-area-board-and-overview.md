@@ -9,6 +9,8 @@ As a **member of the organization working in an area**, I want **the area's back
 work of the projects linked to the area and to its child areas, each item once and only what I may see**, so that **I
 follow the whole workspace without opening each project, and no hidden project leaks through a view or a figure**.
 
+> **feat-043:** the views of this story are moved to the second line (feat-043 BR-NV-20); the "no order of their own" clause is replaced by one group per project in the project's own order (Q-10).
+
 ## Acceptance criteria
 
 Data. Organization «Компания». Areas: «Логистика», with children «Складские системы» and «Транспортные системы»;

@@ -11,7 +11,7 @@ import { PLATFORM_TEAM_PATH, openPage, pickUser, rowsOf, searchUsers } from '../
 // mod-016 US-3, design § 4: «Участники команды» on the team page — states,
 // the add dialog, the immediate removal and the role views.
 
-const PRM_FIRST_TEAM_PATH = `/organizations/${ids.alfa}/settings/teams/${ids.prmTeam}`;
+const PRM_FIRST_TEAM_PATH = `/organizations/${ids.alfa}/teams/${ids.prmTeam}/members`;
 const TEAM = 'Участник организации';
 const MEMBERS_URL = `${ORGANIZATIONS_URL}/:organizationId/teams/:teamId/members`;
 
@@ -42,9 +42,6 @@ describe('mod-016 US-3 Scenario: the members of a team', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Команда: Платформа' })).toBeVisible();
     expect(screen.getByRole('heading', { level: 2, name: 'Участники команды' })).toBeVisible();
     expect(section()).toContainElement(table);
-    // The facts come first, the members after.
-    const facts = screen.getByText('Название');
-    expect(facts.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(
       within(table)
         .getAllByRole('columnheader')
@@ -79,7 +76,9 @@ describe('mod-016 US-3 Scenario: the members of a team', () => {
       }),
     );
 
-    expect(await screen.findByText('Название')).toBeVisible();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Команда: Платформа' }),
+    ).toBeVisible();
     const skeleton = await screen.findByRole('status', { name: 'Загрузка данных' });
     expect(within(skeleton).getByText('Имя')).toBeVisible();
     expect(within(skeleton).getByText('Почта')).toBeVisible();
@@ -108,7 +107,7 @@ describe('mod-016 US-3 Scenario: the members of a team', () => {
 
     const alert = await screen.findByRole('alert');
 
-    expect(screen.getByText('Название')).toBeVisible();
+    expect(screen.getByRole('heading', { level: 1, name: /^Команда: / })).toBeVisible();
     expect(screen.getByRole('heading', { level: 2, name: 'Участники команды' })).toBeVisible();
     await userEvent.click(within(alert).getByRole('button', { name: 'Повторить' }));
     expect(await teamTable()).toBeVisible();
@@ -189,10 +188,6 @@ describe('mod-016 design § 6.2: the role views of the team page', () => {
     openPage({ path: PLATFORM_TEAM_PATH });
     await teamTable();
 
-    expect(await screen.findByRole('button', { name: 'Удалить команду' })).toBeVisible();
-    for (const name of ['Переименовать', 'Удалить команду']) {
-      expect(screen.getByRole('button', { name })).toBeVisible();
-    }
     expect(within(section()).getByRole('button', { name: 'Добавить в команду' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Действия: Иван Петров' })).toBeVisible();
   });
@@ -208,7 +203,7 @@ describe('mod-016 design § 6.2: the role views of the team page', () => {
       }
       expect(within(table).queryAllByRole('button')).toHaveLength(0);
       expect(within(table).getAllByRole('columnheader')).toHaveLength(2);
-      expect(screen.getByText('Название')).toBeVisible();
+      expect(screen.getByRole('heading', { level: 1, name: /^Команда: / })).toBeVisible();
       expect(rowsOf(table)).toHaveLength(2);
     },
   );

@@ -22,6 +22,8 @@ using Mustask.Application.Features.Organizations.GetDeactivatedOrganizations;
 using Mustask.Application.Features.Organizations.GetDeactivatedProjects;
 using Mustask.Application.Features.Organizations.GetOrganization;
 using Mustask.Application.Features.Organizations.GetOrganizationTeams;
+using Mustask.Application.Features.Organizations.GetOverview;
+using Mustask.Application.Features.Organizations.GetSelectorOffers;
 using Mustask.Application.Features.Organizations.GetOrganizations;
 using Mustask.Application.Features.Organizations.GetProject;
 using Mustask.Application.Features.Organizations.GetProjects;
@@ -131,6 +133,18 @@ public static class OrganizationEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // feat-043 api-contract § 1-§ 2: the bounded reads of the navigation («Обзор», the selectors' offers and the lists). Literal
+        // segments beside "{organizationId}"; read with the organization's own read code (the role bundle until mod-019).
+        organizations.MapGet("/{organizationId}/overview", GetOverviewAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsOrganizationRead)
+            .Produces<Application.Features.Organizations.GetOverview.OverviewResponse>()
+            .WithReadProblems();
+
+        organizations.MapGet("/{organizationId}/selector-offers", GetSelectorOffersAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsOrganizationRead)
+            .Produces<Application.Features.Organizations.GetSelectorOffers.SelectorOffersResponse>()
+            .WithReadProblems();
 
         // § 2. Projects.
         var projects = organizations.MapGroup("/{organizationId}/projects");
@@ -518,6 +532,12 @@ public static class OrganizationEndpoints
 
         return Results.NoContent();
     }
+
+    private static async Task<IResult> GetOverviewAsync(string organizationId, GetOverviewHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok(await handler.Handle(new GetOverviewQuery(organizationId), cancellationToken));
+
+    private static async Task<IResult> GetSelectorOffersAsync(string organizationId, GetSelectorOffersHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok(await handler.Handle(new GetSelectorOffersQuery(organizationId), cancellationToken));
 
     private static async Task<IResult> GetOrganizationTeamsAsync(string organizationId, GetOrganizationTeamsHandler handler, CancellationToken cancellationToken) =>
         Results.Ok((await handler.Handle(new GetOrganizationTeamsQuery(organizationId), cancellationToken)).Items);

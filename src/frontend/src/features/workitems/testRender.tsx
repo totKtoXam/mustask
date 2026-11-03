@@ -1,5 +1,4 @@
 import { Route } from 'react-router-dom';
-import { vi } from 'vitest';
 import type { ServedAccess, TestRole } from '../../test/organizationRoles';
 import { authValue, renderShell } from '../../test/renderShell';
 import type { WorkContextSelection, WorkContextSource } from '../../shared/lib/workContext';
@@ -38,7 +37,6 @@ export function projectContext(selection: WorkContextSelection = {}): WorkContex
     ],
     selection: { organizationId: ids.example, projectId: ids.msk, ...selection },
     isReal: true,
-    select: vi.fn(),
   };
 }
 

@@ -56,7 +56,7 @@ nothing. mod-003 BR-M3-23/-24 are back as they stood. The migration keeps each i
 migration drops it; the project node is the relation). **Area–team links stay but join departments only**
 (`link_type_not_allowed` otherwise). A project node's teams are feat-028's project–team links, never area–team rows.
 
-**5. Supersedes ADR-0028 rule 7, in part (the addresses).** The area prefix `/organizations/:o/areas/:areaId/…` stays, serving
+**5. Supersedes ADR-0028 rule 7, in part (the addresses).** *(Marked feat-043: `…/projects/:p/settings/areas` is retired and answers «Страница не найдена»; «Структура» is the project's node on the area prefix, per [ADR-0032](0032-object-pages-and-navigation-context.md) §§ 1, 4.)* The area prefix `/organizations/:o/areas/:areaId/…` stays, serving
 every type; a project node's page shows the project's data and links to the project, and no second address is added. Deleting,
 renaming or creating a project node is done on the project, not on the area route (`root_is_fixed`). The page `…/projects/:p/settings/areas` is **not** retired by mod-018 (ADR-0028 rule 7 said it would be): it stays as the project's subtree view until `feat-043-area-project-team-navigation` moves it (BR-AW-12, design § 7); the ADR-0028 :161 marker covers the area prefix only.
 

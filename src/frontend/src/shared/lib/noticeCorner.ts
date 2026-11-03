@@ -4,7 +4,7 @@ import { useWorkContext } from './workContext';
 /**
  * The bottom-left corner holds one notice at a time (mod-002 DC-7, mod-016
  * DC-11). The shell owns two of the notices that compete for it — the
- * switcher's fallback notice and the role-change notice — and three slice
+ * fallback notice and the role-change notice — and three slice
  * hosts own the page's own (organizations, work items, boards). Instead of
  * one shared corner, the shell provides a signal and each host reads it
  * (plan-frontend P-6):

@@ -35,7 +35,7 @@ const VIEWS = [
  * «Организации» (US-1, US-2, US-8; design § 5): the user's own organizations
  * in two tabs that are addresses — the active ones the user belongs to, and in
  * the deactivated tab those the user administers (mod-016 BR-M1-35; the server
- * narrows both). The switcher's «Все организации» and «Нет организаций» are
+ * narrows both). The organization selector’s «Все организации» and «Нет организаций» are
  * its only ways in (D-d). The page needs no organization role and stands
  * outside the gate: «Создать организацию» needs the create right in the token,
  * the one check it makes. No filter and no paging: tens of organizations (NFR
@@ -139,7 +139,7 @@ export function OrganizationListPage({ view }: { view: ListView }) {
           onSucceeded={(organization) => {
             setCreating(false);
             // DC-6: a new organization's «Проекты» opens, and its address
-            // puts it in the switcher.
+            // puts it in the organization selector.
             navigate(projectsPath(organization.id));
             notify(`Организация «${organization.name}» создана.`);
           }}

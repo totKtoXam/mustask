@@ -26,7 +26,6 @@ function source(fallbackId: number | null): WorkContextSource {
     organizations: [],
     selection: {},
     isReal: true,
-    select: vi.fn(),
     fallback: fallbackId === null ? null : { id: fallbackId, names: ['Альфа'] },
   };
 }
@@ -58,7 +57,7 @@ describe('the notice host shares the corner (mod-016 DC-11)', () => {
     expect(screen.getByText('Изменения сохранены.')).toBeInTheDocument();
   });
 
-  it('closes its notice when the shell raises the switcher’s fallback notice', async () => {
+  it('closes its notice when the shell raises the fallback notice', async () => {
     const { rerender } = render(tree({}));
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
 

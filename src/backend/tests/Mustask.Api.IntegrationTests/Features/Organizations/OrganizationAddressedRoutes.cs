@@ -27,7 +27,7 @@ public sealed record OrganizationRoute(string Method, string Template, string Co
 /// feat-028 (api-contract § 4) moved the team routes to the organization's address and, at gate-3, added the creation form's member search
 /// (§ 2.3a), mod-005 (api-contract § 4) added the delete, restore and purge of a work item, feat-040 (api-contract § 6) moved
 /// mod-006's three from the project's address to the team's, and feat-003 (api-contract § 5) added the options of the list's
-/// «Исполнитель» filter: 60 routes in all. A later module that
+/// «Исполнитель» filter: 60 routes in all, then feat-043 (api-contract § 1-§ 2) added the two bounded reads of the navigation. A later module that
 /// adds one adds it here with its code, and the inventory test (<c>OrganizationAccessInventoryTests</c>) makes sure it cannot forget: a route under
 /// <c>{organizationId}</c> that is not in this list, or is in it with another code than the one it declares, turns the build red.
 /// </summary>
@@ -49,6 +49,9 @@ public static class OrganizationAddressedRoutes
         new("PUT", Org + "/name", PermissionCatalog.OrganizationsOrganizationWrite),
         new("POST", Org + "/deactivate", PermissionCatalog.OrganizationsOrganizationDeactivate),
         new("POST", Org + "/restore", PermissionCatalog.OrganizationsOrganizationDeactivate),
+        // feat-043 api-contract § 1-§ 2: the bounded reads of «Обзор» and of the selectors (the organization read code).
+        new("GET", Org + "/overview", PermissionCatalog.OrganizationsOrganizationRead),
+        new("GET", Org + "/selector-offers", PermissionCatalog.OrganizationsOrganizationRead),
         new("GET", Org + "/projects", PermissionCatalog.OrganizationsProjectRead),
         new("GET", Org + "/projects/deactivated", PermissionCatalog.OrganizationsProjectDeactivate),
         new("POST", Org + "/projects", PermissionCatalog.OrganizationsProjectWrite),

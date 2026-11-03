@@ -15,41 +15,49 @@ import {
 } from './paths';
 import { organizationsPermissions } from './permissions';
 
+const RETIRED_SHAPE =
+  /\/settings\/(teams|areas|projects|members)|\/projects\/:projectId\/settings\/(general|teams|areas)/;
+
 describe('mod-002 design § 1, mod-016 design § 1 and feat-028 design § 1: the slice’s routes', () => {
-  it('are exactly the twelve, under mod-015 D-17’s prefixes', () => {
+  it('are exactly the nineteen of feat-043, one prefix per kind (ADR-0032 § 1)', () => {
     expect(ORGANIZATIONS_ROUTES).toEqual([
       '/organizations',
       '/organizations/deactivated',
       '/organizations/:organizationId/settings/general',
-      '/organizations/:organizationId/settings/projects',
-      '/organizations/:organizationId/settings/projects/deactivated',
-      '/organizations/:organizationId/settings/members',
-      '/organizations/:organizationId/settings/teams',
-      '/organizations/:organizationId/settings/teams/:teamId',
-      '/organizations/:organizationId/settings/areas',
-      '/organizations/:organizationId/settings/areas/:areaId',
-      '/organizations/:organizationId/projects/:projectId/settings/general',
-      '/organizations/:organizationId/projects/:projectId/settings/teams',
+      '/organizations/:organizationId/overview',
+      '/organizations/:organizationId/areas',
+      '/organizations/:organizationId/projects',
+      '/organizations/:organizationId/teams',
+      '/organizations/:organizationId/members',
+      '/organizations/:organizationId/areas/:areaId/overview',
+      '/organizations/:organizationId/areas/:areaId/projects',
+      '/organizations/:organizationId/areas/:areaId/teams',
+      '/organizations/:organizationId/areas/:areaId/settings',
+      '/organizations/:organizationId/teams/:teamId/overview',
+      '/organizations/:organizationId/teams/:teamId/projects',
+      '/organizations/:organizationId/teams/:teamId/members',
+      '/organizations/:organizationId/teams/:teamId/settings',
+      '/organizations/:organizationId/projects/:projectId/general',
+      '/organizations/:organizationId/projects/:projectId/teams',
+      '/organizations/:organizationId/projects/:projectId/settings',
     ]);
   });
 
-  it('has no team page beneath a project any more (BR-OL-12, design § 9)', () => {
-    expect(
-      ORGANIZATIONS_ROUTES.some((route) => route.includes('/projects/:projectId/settings/teams/')),
-    ).toBe(false);
+  it('keeps no retired address among them (BR-NV-6)', () => {
+    expect(ORGANIZATIONS_ROUTES.filter((route) => RETIRED_SHAPE.test(route))).toEqual([]);
   });
 
   it('builds each address with every id re-encoded as received', () => {
     expect(organizationGeneralPath('o-1')).toBe('/organizations/o-1/settings/general');
-    expect(projectsPath('a/b')).toBe('/organizations/a%2Fb/settings/projects');
-    expect(deactivatedProjectsPath('o')).toBe('/organizations/o/settings/projects/deactivated');
-    expect(membersPath('o #1')).toBe('/organizations/o%20%231/settings/members');
-    expect(projectGeneralPath('o', 'p q')).toBe('/organizations/o/projects/p%20q/settings/general');
-    expect(teamsPath('o', 'p')).toBe('/organizations/o/projects/p/settings/teams');
-    expect(organizationTeamsPath('o 1')).toBe('/organizations/o%201/settings/teams');
-    expect(organizationTeamPath('o', 't?')).toBe('/organizations/o/settings/teams/t%3F');
-    expect(organizationAreasPath('o')).toBe('/organizations/o/settings/areas');
-    expect(organizationAreaPath('o', 'a b')).toBe('/organizations/o/settings/areas/a%20b');
+    expect(projectsPath('a/b')).toBe('/organizations/a%2Fb/projects');
+    expect(deactivatedProjectsPath('o')).toBe('/organizations/o/projects?status=deactivated');
+    expect(membersPath('o #1')).toBe('/organizations/o%20%231/members');
+    expect(projectGeneralPath('o', 'p q')).toBe('/organizations/o/projects/p%20q/general');
+    expect(teamsPath('o', 'p')).toBe('/organizations/o/projects/p/teams');
+    expect(organizationTeamsPath('o 1')).toBe('/organizations/o%201/teams');
+    expect(organizationTeamPath('o', 't?')).toBe('/organizations/o/teams/t%3F/overview');
+    expect(organizationAreasPath('o')).toBe('/organizations/o/areas');
+    expect(organizationAreaPath('o', 'a b')).toBe('/organizations/o/areas/a%20b/overview');
   });
 });
 
@@ -57,7 +65,9 @@ describe('mod-002 US-1 Scenario: No screen grants the right to create organizati
   it('has no route about rights, roles or groups, and reads the create right from the token', () => {
     // «Участники» (mod-016) is the one route that names the people of an
     // organization; it is a list of memberships, not a screen of rights.
-    for (const route of ORGANIZATIONS_ROUTES.filter((candidate) => candidate !== MEMBERS_ROUTE)) {
+    for (const route of ORGANIZATIONS_ROUTES.filter(
+      (candidate) => candidate !== MEMBERS_ROUTE && !candidate.endsWith('/teams/:teamId/members'),
+    )) {
       expect(route).not.toMatch(/right|role|group|member|permission|access/i);
     }
     expect(MEMBERS_ROUTE).not.toMatch(/right|role|group|permission|access/i);

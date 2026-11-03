@@ -95,7 +95,7 @@ export const showcaseRegistry: readonly ShowcaseSection[] = [
     title: 'Меню',
     usage:
       'Меню открывается клавишей Enter, пробелом или стрелкой вниз; Esc закрывает его и возвращает фокус на кнопку.',
-    covers: ['MenuButton', 'MoreActionsMenu'],
+    covers: ['MenuButton', 'MoreActionsMenu', 'SearchMenu'],
     Demo: MenusDemo,
   },
   {

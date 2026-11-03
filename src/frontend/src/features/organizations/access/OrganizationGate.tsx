@@ -56,7 +56,7 @@ function signatureOf(
  *
  * - the shell's one check **bound to that organization** (design § 2.6), so a
  *   page asks `useAccessCheck()(code, scope)` and passes no organization, and
- *   a page of B is decided by B's codes at every frame whatever the switcher
+ *   a page of B is decided by B's codes at every frame whatever the selectors
  *   still shows;
  * - the state of the read, which `OrganizationPage` turns into one of the five
  *   rows of § 2.1.

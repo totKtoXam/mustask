@@ -7,6 +7,8 @@
 
 As an **organization member**, I want **to reach each area, project and team of my organization from the main navigation and the context switcher, each on a page of its own**, so that **I find work by the object it belongs to, am never led through a hierarchy the model does not have, and keep my place as I move**.
 
+> **feat-043 (ADR-0031, ADR-0032):** the clauses of this story that hold area–project links («Логистика» counting 3 projects, «Проект не входит ни в одну область», «Логистика / Склад») are replaced by the typed tree of ADR-0031 and the pages of `feat-043-area-project-team-navigation` (US-2..US-5): a department row lists its projects, a project node stands under its department, and a sub-area is named by its path. The views and their order (doc-012 BR-MX-17, US-8) belong to the second line, which groups by project in the project's own order (Q-10).
+
 ## Acceptance criteria
 
 The filters of the views and how they are remembered are US-11's. A section whose content a later line brings is absent until that line adds it to the page, and a clause that needs a grant, a visibility other than «Организация», an area view or a sprint is owed by that line, which re-runs it (doc-013).

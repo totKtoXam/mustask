@@ -72,7 +72,7 @@ export function forbiddenResponse(): Response {
   return HttpResponse.json(body, { status: 403, headers: PROBLEM_HEADERS });
 }
 
-/** Counts `GET /api/organizations` (the switcher's list) and answers `organizations`. */
+/** Counts `GET /api/organizations` (the organization selector’s list) and answers `organizations`. */
 export function serveOrganizationList(
   organizations: readonly { id: string; name: string }[] = [],
 ): { count(): number } {
@@ -87,7 +87,7 @@ export function serveOrganizationList(
 }
 
 /**
- * Observes the organization list the way the switcher does, so that
+ * Observes the organization list the way the organization selector does, so that
  * invalidating it reads it again. Its first read is the baseline of
  * `serveOrganizationList().count()`.
  */
@@ -179,11 +179,11 @@ export interface GateRenderOptions {
   page?: ReactNode;
   /** The code the page needs (default: the read code). */
   code?: string;
-  /** Names of the organizations the switcher lists, for the role-change notice. */
+  /** Names of the organizations the organization selector lists, for the role-change notice. */
   names?: Readonly<Record<string, string>>;
   fallbackShown?: boolean;
   /**
-   * The switcher's selection (default: none). A test of "whose codes" names an
+   * The shell’s selection (default: none). A test of "whose codes" names an
    * organization other than the address's: the selection lags the address
    * (design § 2.6).
    */
@@ -210,7 +210,6 @@ export function sourceOf(
     organizations,
     selection,
     isReal: true,
-    select: () => {},
     fallback: fallback ? { id: 1, names: ['x'] } : null,
   };
 }

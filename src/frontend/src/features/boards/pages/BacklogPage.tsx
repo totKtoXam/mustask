@@ -10,6 +10,7 @@ import {
   createdNotice,
   createdNoticeOnTeamView,
 } from '../../workitems';
+import { InlineNotice } from '../../../shared/ui';
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
 import { RegistrySkeleton } from '../../../shared/ui/RegistrySkeleton';
 import { NotFound, StateFrame } from '../../../shared/ui/StateFrame';
@@ -24,6 +25,7 @@ import { useNewWorkItem } from '../hooks/useNewWorkItem';
 import { useViewFilter } from '../hooks/useViewFilter';
 import { NO_PROJECT_HINT } from '../lib/board';
 import { isBoardLevel, type BoardLevelCode } from '../lib/levels';
+import { isNarrowed, narrowedTexts } from '../lib/narrowed';
 import { notFoundLevel } from '../lib/refusals';
 import { creationSurface, readName, readProjects, teamScope, type BoardScope } from '../lib/scope';
 
@@ -134,6 +136,8 @@ export function ScopedBacklog({
   const loading = data === undefined && (query.isPending || (query.isError && query.isFetching));
   const primaryAction = newItem.command && { ...newItem.command, hideMenuIndicator: true };
   const filtered = filterIds.length > 0;
+  // The project's backlog under a chosen team is a subset of one rank order: no reorder (US-4, Q-9 A).
+  const narrowed = isNarrowed(scope, filterIds);
   // A team that works on no active project (BR-TS-2): nothing to show, filter or create by.
   const worksOnNoProject = readProjects(data)?.length === 0;
 
@@ -146,6 +150,7 @@ export function ScopedBacklog({
         level={level}
         name={readName(data)}
         primaryAction={primaryAction}
+        narrowedBy={narrowed ? filterIds : undefined}
       />
       <ViewFilterRow
         organizationId={organizationId}
@@ -200,19 +205,27 @@ export function ScopedBacklog({
               />
             )
           ) : (
-            <BacklogTable
-              key={level}
-              organizationId={organizationId}
-              scope={scope}
-              level={level}
-              items={data.items}
-              filterIds={filterIds}
-              announce={announce}
-              showSuccess={showSuccessAlert}
-              showCreated={showSuccess}
-              showError={showError}
-              busy={query.isPlaceholderData}
-            />
+            <>
+              {narrowed && (
+                <Box sx={{ mb: 2 }}>
+                  <InlineNotice severity="info">{narrowedTexts.hint}</InlineNotice>
+                </Box>
+              )}
+              <BacklogTable
+                key={level}
+                organizationId={organizationId}
+                scope={scope}
+                level={level}
+                items={data.items}
+                filterIds={filterIds}
+                announce={announce}
+                showSuccess={showSuccessAlert}
+                showCreated={showSuccess}
+                showError={showError}
+                busy={query.isPlaceholderData}
+                narrowed={narrowed}
+              />
+            </>
           )}
         </>
       )}

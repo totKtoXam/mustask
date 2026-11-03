@@ -1,28 +1,14 @@
-import { describe, expect, it, vi } from 'vitest';
-import { Route } from 'react-router-dom';
+import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import { HttpResponse, http } from 'msw';
-import { OrganizationGate, OrganizationPage } from '../features/organizations';
 import { organizationsKeys } from '../features/organizations/api/queryKeys';
 import { API } from '../features/organizations/testFixtures';
-import { useAccessCheck } from '../shared/lib/access';
 import type { WorkContextSource } from '../shared/lib/workContext';
-import { AccessDenied } from '../shared/ui/StateFrame';
 import { server } from '../test/mocks/server';
 import { ADMIN_CODES, servedWith } from '../test/organizationRoles';
-import {
-  authValue,
-  LANGUAGES_READ,
-  LANGUAGES_WRITE,
-  renderShell,
-  stubRoutes,
-} from '../test/renderShell';
+import { authValue, LANGUAGES_READ, LANGUAGES_WRITE, renderShell } from '../test/renderShell';
 import { KEPT_CHOICE_KEY } from './navigation/keptChoice';
-import { navigationModel } from './navigation/model';
-import type { NavigationModel } from './navigation/types';
-import { PLACEHOLDER_ORGANIZATIONS } from './shell/placeholderContext';
 
 const reader = [LANGUAGES_READ];
 const administrator = [LANGUAGES_READ, LANGUAGES_WRITE];
@@ -145,119 +131,85 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7) — on 
   });
 });
 
-describe('US-3 Scenario: An organization-scoped entry waits for a real context (BR-8, D-18)', () => {
-  const TEST_CODE = 'test.organization.read';
-  const model: NavigationModel = {
-    ...navigationModel,
-    work: [
-      {
-        id: 'test-organization',
-        label: 'Тестовый раздел',
-        icon: HomeOutlinedIcon,
-        scope: 'organization',
-        permission: TEST_CODE,
-        landing: (selection) =>
-          selection.organizationId ? `/organizations/${selection.organizationId}/test` : null,
-      },
-    ],
-  };
-
-  function TestOrganizationPage() {
-    const access = useAccessCheck();
-    return access(TEST_CODE, 'organization') ? <p>Тестовая страница</p> : <AccessDenied />;
-  }
-
-  // An organization's page sits under the gate (mod-016 design § 2.1), which
-  // binds the check to the organization in the address.
-  const routes = (
-    <>
-      {stubRoutes()}
-      <Route element={<OrganizationGate />}>
-        <Route
-          path="/organizations/:organizationId/test"
-          element={
-            <OrganizationPage code={TEST_CODE} title="Тестовая страница" skeleton="form">
-              <TestOrganizationPage />
-            </OrganizationPage>
-          }
-        />
-      </Route>
-    </>
-  );
-
-  /** The served access of `org-1`: the administrator's bundle plus, if asked, the test code. */
-  function serveOrganizationOne(withTestCode: boolean) {
-    server.use(
-      http.get(`${API}/api/organizations/org-1/access`, () =>
-        HttpResponse.json(
-          servedWith('admin', withTestCode ? [...ADMIN_CODES, TEST_CODE] : ADMIN_CODES),
-        ),
-      ),
-    );
-  }
-
-  const realSource: WorkContextSource = {
+describe('US-3 Scenario: The menu of the chosen object waits for a real context (BR-8, D-18)', () => {
+  const organizations = [{ id: 'org-1', name: 'Организация 1', projects: [], teams: [] }];
+  const realSource = (selection: WorkContextSource['selection']): WorkContextSource => ({
     status: 'ready',
-    organizations: PLACEHOLDER_ORGANIZATIONS,
-    selection: { organizationId: 'org-1', projectId: 'prj-1', teamId: 'team-1' },
+    organizations,
+    selection,
     isReal: true,
-    select: vi.fn(),
-  };
-
-  it.each([
-    ['every code', administrator.concat(TEST_CODE)],
-    ['no code', []],
-  ])('is hidden on the placeholder dataset — %s', (_case, permissions) => {
-    renderShell({ auth: authValue(permissions), model, routes });
-
-    expect(screen.queryByRole('link', { name: 'Тестовый раздел' })).not.toBeInTheDocument();
   });
 
-  it('its page opened by address is the page when the organization serves the code', async () => {
-    serveOrganizationOne(true);
-    renderShell({ path: '/organizations/org-1/test', auth: authValue([]), model, routes });
+  it('is hidden while no real context is chosen', () => {
+    renderShell({ auth: authValue(administrator) });
 
-    expect(await screen.findByText('Тестовая страница', { selector: 'p' })).toBeInTheDocument();
-    expect(screen.queryByText('Доступ ограничен')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Обзор' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Проекты' })).not.toBeInTheDocument();
   });
 
-  it('its page opened by address is «Доступ ограничен» when the served bundle lacks the code', async () => {
-    serveOrganizationOne(false);
-    renderShell({ path: '/organizations/org-1/test', auth: authValue([]), model, routes });
+  it('shows the organization menu, from the table, once the source reports a real organization', async () => {
+    const shell = renderShell({ auth: authValue([]) });
+    expect(screen.queryByRole('link', { name: 'Обзор' })).not.toBeInTheDocument();
 
-    expect(await screen.findByRole('heading', { name: 'Доступ ограничен' })).toBeInTheDocument();
-    expect(screen.queryByText('Тестовая страница', { selector: 'p' })).not.toBeInTheDocument();
+    shell.update({ contextSource: realSource({ organizationId: 'org-1' }) });
+
+    expect(await within(mainNavigation()).findByRole('link', { name: 'Обзор' })).toHaveAttribute(
+      'href',
+      '/organizations/org-1/overview',
+    );
+    for (const [label, segment] of [
+      ['Структура', 'areas'],
+      ['Проекты', 'projects'],
+      ['Команды', 'teams'],
+      ['Участники', 'members'],
+    ]) {
+      expect(within(mainNavigation()).getByRole('link', { name: label })).toHaveAttribute(
+        'href',
+        `/organizations/org-1/${segment}`,
+      );
+    }
   });
 
-  it('is shown once the source reports a real organization and its served codes hold the entry’s, without a reload', async () => {
-    serveOrganizationOne(true);
-    const shell = renderShell({ auth: authValue([]), model, routes });
-    const location = screen.getByTestId('location');
-    expect(screen.queryByRole('link', { name: 'Тестовый раздел' })).not.toBeInTheDocument();
+  it('shows the team menu when a team is chosen, and not the organization one', async () => {
+    renderShell({
+      auth: authValue([]),
+      contextSource: realSource({ organizationId: 'org-1', teamId: 'team-1' }),
+    });
 
-    shell.update({ contextSource: realSource });
-
-    // The codes are unread for the first frame: the entry is not drawn yet.
-    expect(screen.queryByRole('link', { name: 'Тестовый раздел' })).not.toBeInTheDocument();
     expect(
-      await within(mainNavigation()).findByRole('link', { name: 'Тестовый раздел' }),
-    ).toHaveAttribute('href', '/organizations/org-1/test');
-    // The same document and router: the location probe was not remounted.
-    expect(screen.getByTestId('location')).toBe(location);
+      await within(mainNavigation()).findByRole('link', { name: 'Канбан' }),
+    ).toBeInTheDocument();
+    expect(within(mainNavigation()).getByRole('link', { name: 'Бэклог' })).toBeInTheDocument();
+    expect(
+      within(mainNavigation()).queryByRole('link', { name: 'Структура' }),
+    ).not.toBeInTheDocument();
   });
 
   it('stays hidden when the served bundle lacks the entry’s code', async () => {
-    serveOrganizationOne(false);
-    const shell = renderShell({ auth: authValue([]), model, routes });
-
-    shell.update({ contextSource: realSource });
+    server.use(
+      http.get(`${API}/api/organizations/org-1/access`, () =>
+        HttpResponse.json(
+          servedWith(
+            'admin',
+            ADMIN_CODES.filter((code) => code !== 'organizations.area.read'),
+          ),
+        ),
+      ),
+    );
+    const shell = renderShell({
+      auth: authValue([]),
+      contextSource: realSource({ organizationId: 'org-1' }),
+      access: 'unread',
+    });
 
     await waitFor(() =>
       expect(shell.queryClient.getQueryData(organizationsKeys.access('org-1'))).toMatchObject({
         kind: 'member',
       }),
     );
-    expect(screen.queryByRole('link', { name: 'Тестовый раздел' })).not.toBeInTheDocument();
+    expect(
+      within(mainNavigation()).queryByRole('link', { name: 'Структура' }),
+    ).not.toBeInTheDocument();
   });
 });
 

@@ -72,9 +72,12 @@ export interface TreeRegistryProps<N extends TreeRegistryNode> {
   /**
    * An address the label leads to (mod-018 design D-7): the label becomes a router `Link` outside
    * the Tab order (the row is the tab stop), Enter on a row follows it and Space selects. Absent:
-   * nothing changes.
+   * nothing changes. A node it answers `undefined` for keeps a plain-text label (a row that opens
+   * nothing); Enter on such a row selects it.
    */
-  labelTo?(node: N): string;
+  labelTo?(node: N): string | undefined;
+  /** The router state the label's link carries (a notice or a focus request for the page it opens). */
+  labelState?(node: N): unknown;
   actions(node: N): readonly TreeRegistryAction[];
   /**
    * Whether the actions column — its header cell, a cell and a «Действия»
@@ -165,6 +168,7 @@ export function TreeRegistry<N extends TreeRegistryNode>({
   nodes,
   adornment,
   labelTo,
+  labelState,
   actions,
   showActions,
   selectedId,
@@ -291,10 +295,15 @@ export function TreeRegistry<N extends TreeRegistryNode>({
         return;
       case 'Enter':
         event.preventDefault();
-        if (labelTo) {
-          event.currentTarget.querySelector<HTMLAnchorElement>('a[data-tree-label]')?.click();
-        } else {
-          onSelect(row.node.id);
+        {
+          const anchor = labelTo
+            ? event.currentTarget.querySelector<HTMLAnchorElement>('a[data-tree-label]')
+            : null;
+          if (anchor) {
+            anchor.click();
+          } else {
+            onSelect(row.node.id);
+          }
         }
         return;
       case ' ':
@@ -431,10 +440,11 @@ export function TreeRegistry<N extends TreeRegistryNode>({
                             minWidth: 0,
                           }}
                         >
-                          {labelTo ? (
+                          {labelTo?.(node) !== undefined ? (
                             <Link
                               component={RouterLink}
-                              to={labelTo(node)}
+                              to={labelTo?.(node) ?? ''}
+                              state={labelState?.(node)}
                               tabIndex={-1}
                               data-tree-label=""
                               color="inherit"

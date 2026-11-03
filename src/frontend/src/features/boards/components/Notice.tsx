@@ -19,7 +19,7 @@ interface Shown {
  * from the backlog as an `Alert severity="success"` (feat-001 spec § Notices
  * on «Бэклоги»), a refused move or parent write as an `Alert
  * severity="error"` (spec § Notices). One notice at a time in the corner
- * (mod-016 DC-11): it closes when the shell raises the switcher's fallback or
+ * (mod-016 DC-11): it closes when the shell raises the fallback or
  * the role-change notice, and showing one closes the role-change notice
  * (`useNoticeHost`).
  */

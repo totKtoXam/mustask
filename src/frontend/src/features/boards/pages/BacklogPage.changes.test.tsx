@@ -6,7 +6,7 @@ import { findBacklogTable, identifiers } from '../testBacklog';
 import { boardsDataset, ids, item, platformItem, type BoardsDataset } from '../testFixtures';
 import { backlogAddress, renderBoards } from '../testRender';
 
-// US-7 (pass A's scenarios): changes made elsewhere — on a form, in «Области»,
+// US-7 (pass A's scenarios): changes made elsewhere — on a form, in «Структура»,
 // a team deleted — show on the next read, with no notice (BR-M4-28). The
 // change is made on the in-memory API as another screen's request would make
 // it; the page shows it once it reads again — here when its tab regains focus.

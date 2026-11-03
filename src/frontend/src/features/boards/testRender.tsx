@@ -1,5 +1,4 @@
 import { Route } from 'react-router-dom';
-import { vi } from 'vitest';
 import type { ServedAccess, TestRole } from '../../test/organizationRoles';
 import { authValue, renderShell } from '../../test/renderShell';
 import type { WorkContextSelection, WorkContextSource } from '../../shared/lib/workContext';
@@ -73,7 +72,6 @@ export function teamContext(selection: WorkContextSelection = {}): WorkContextSo
       ...selection,
     },
     isReal: true,
-    select: vi.fn(),
   };
 }
 
@@ -117,7 +115,9 @@ export function renderBoards(
   return renderShell({
     path,
     auth: authValue([]),
-    contextSource: options.context ?? teamContext(),
+    // ADR-0032: the prefix names the most specific object, so a team's page has no project chosen.
+    contextSource:
+      options.context ?? teamContext(path.includes('/teams/') ? { projectId: undefined } : {}),
     routes: boardsRoutes(),
     access: options.role ?? 'admin',
   });

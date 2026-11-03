@@ -28,13 +28,18 @@ import {
 } from '../api/membershipApi';
 import { organizationsKeys } from '../api/queryKeys';
 
-// One query hook per read (api-contract § 1–§ 4), on the keys the switcher
+// One query hook per read (api-contract § 1–§ 4), on the keys the selectors
 // shares (plan-frontend § 3.3).
 
-export function useOrganizations(view: ListView) {
+export function useOrganizations(
+  view: ListView,
+  options: { enabled?: boolean; refetchOnWindowFocus?: boolean } = {},
+) {
   return useQuery({
     queryKey: organizationsKeys.organizations(view),
     queryFn: () => getOrganizations(view),
+    enabled: options.enabled ?? true,
+    refetchOnWindowFocus: options.refetchOnWindowFocus,
   });
 }
 
@@ -185,7 +190,7 @@ export function useAreaTree(
 
 /**
  * A project's subtree: its node and the sub-areas below it (mod-018 § 4). It is the offer of the
- * work item's «Область», of the sub-area dialogs and the project's «Области» page.
+ * work item's «Область», of the sub-area dialogs and the project's «Структура» page.
  */
 export function useProjectAreaTree(
   organizationId: string,
@@ -201,10 +206,15 @@ export function useProjectAreaTree(
 }
 
 /** A node's page: its parent and its direct children (§ 3). */
-export function useArea(organizationId: string, areaId: string) {
+export function useArea(
+  organizationId: string,
+  areaId: string,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: organizationsKeys.area(organizationId, areaId),
     queryFn: () => getArea(organizationId, areaId),
+    enabled: options.enabled ?? true,
   });
 }
 
@@ -266,10 +276,15 @@ export function useMemberCandidates(organizationId: string, text: string, enable
 }
 
 /** A team's members (§ 2.1), at the team's address. */
-export function useTeamMembers(organizationId: string, teamId: string) {
+export function useTeamMembers(
+  organizationId: string,
+  teamId: string,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: organizationsKeys.teamMembers(organizationId, teamId),
     queryFn: () => getTeamMembers(organizationId, teamId),
+    ...options,
   });
 }
 

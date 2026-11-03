@@ -168,7 +168,7 @@ export type AreaUnlinkKind = 'departmentTeam' | 'teamDepartment';
  * nothing else. An unlinked pair is a success. A refusal is the alert, and the page reads itself
  * again when the dialog closes. Mounted per opening.
  */
-export function AreaUnlinkDialog({
+export function AreaUnlinkDialog<Result = unknown>({
   kind,
   name,
   ownName,
@@ -181,8 +181,9 @@ export function AreaUnlinkDialog({
   name: string;
   /** The page's own end. */
   ownName: string;
-  action(): Promise<unknown>;
-  onSucceeded(): void;
+  /** What it answers is handed to `onSucceeded`: the page may judge before the shell sees the change. */
+  action(): Promise<Result>;
+  onSucceeded(result: Result): void;
   onClose(contextGone: boolean): void;
 }) {
   const texts = areaUnlinkDialog[kind];
@@ -194,8 +195,7 @@ export function AreaUnlinkDialog({
     setBusy(true);
     setAlert(null);
     try {
-      await action();
-      onSucceeded();
+      onSucceeded(await action());
     } catch (error) {
       setAlert(placeRefusal(error, []).alert);
       setStale(true);

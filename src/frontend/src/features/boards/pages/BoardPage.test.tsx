@@ -19,7 +19,14 @@ import {
   stateId,
   storiesDataset,
 } from '../testFixtures';
-import { boardAddress, backlogAddress, mskForm, renderBoards, teamPrefix } from '../testRender';
+import {
+  boardAddress,
+  backlogAddress,
+  mskForm,
+  renderBoards,
+  teamContext,
+  teamPrefix,
+} from '../testRender';
 
 // US-4 and US-7's board scenario: «Платформа»'s boards per level.
 
@@ -232,7 +239,7 @@ describe('US-4 Scenario: A level with no items shows the empty frame', () => {
 describe('US-4 Scenario: Entry, levels and the link to the backlog (feat-001 US-6: «Канбан», the drop-down)', () => {
   it('«Канбан» opens `<team>/boards/stories`; the drop-down; «Фичи» → «Показать бэклог» → its «Показать канбан»', async () => {
     serveBoards(storiesDataset());
-    renderBoards(mskForm('MSK-US-3'));
+    renderBoards(mskForm('MSK-US-3'), { context: teamContext({ projectId: undefined }) });
 
     const navigation = screen.getByRole('navigation', { name: 'Основное меню' });
     const entry = within(navigation).getByRole('link', { name: 'Канбан' });

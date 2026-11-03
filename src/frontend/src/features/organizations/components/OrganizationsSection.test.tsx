@@ -73,8 +73,8 @@ describe('mod-002 design § 4.5: the slice’s one notice', () => {
   });
 });
 
-describe('mod-002 DC-7: one notice at a time, the switcher’s fallback wins', () => {
-  it('closes its notice when the switcher raises a fallback', async () => {
+describe('mod-002 DC-7: one notice at a time, the shell’s fallback wins', () => {
+  it('closes its notice when the shell raises a fallback', async () => {
     const { rerender } = render(tree(contextSource()));
     await userEvent.click(screen.getByRole('button', { name: 'Успех' }));
     expect(screen.getByText('Команда «Ядро» удалена.')).toBeInTheDocument();

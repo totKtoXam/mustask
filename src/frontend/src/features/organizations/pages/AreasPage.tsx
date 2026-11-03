@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import AddIcon from '@mui/icons-material/Add';
+import FilterListOffIcon from '@mui/icons-material/FilterListOff';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
@@ -20,10 +21,12 @@ import {
   type NodeDialogResult,
 } from '../components/AreaNodeDialogs';
 import { AreaTypeMark, commandIcon } from '../components/AreaTypeMark';
+import { ListFilter } from '../components/ListFilter';
 import { useAreaTree } from '../hooks/queries';
+import { useObjectLink, type ObjectLink } from '../hooks/useObjectLink';
 import { commandKinds, commandLabel } from '../lib/areaCommands';
 import { areasPage } from '../lib/areaTexts';
-import { expandableIds, hasChildren, initialExpansion } from '../lib/areaTree';
+import { expandableIds, filterTree, hasChildren, initialExpansion } from '../lib/areaTree';
 import { notFoundLevel } from '../lib/notFoundLevel';
 import { organizationAreaPath } from '../paths';
 import { organizationsPermissions } from '../permissions';
@@ -32,8 +35,8 @@ import { organizationsPermissions } from '../permissions';
 type AreaRow = AreaNode & { label: string };
 
 /**
- * «Области» (mod-018 design § 3; US-1, US-2, US-6): the organization's typed tree on the tree
- * registry, columns «Название» (a link to the node's page; a deactivated project's node is tagged
+ * «Структура» (mod-018 design § 3; US-1, US-2, US-6): the organization's typed tree on the tree
+ * registry, columns «Название» (a link to the object's page; a deactivated project's node is tagged and plain
  * «деактивирован»), «Тип» and «Описание». The organization is not a row (D-8): departments and
  * project nodes stand at the top. The initial expansion is D-3 with «Развернуть всё» / «Свернуть
  * всё». «Новый департамент» is the holder of `area.create`'s; a row menu offers the commands of its
@@ -43,6 +46,7 @@ type AreaRow = AreaNode & { label: string };
 export function AreasPage() {
   const { organizationId = '' } = useParams<{ organizationId: string }>();
   const query = useAreaTree(organizationId);
+  const objectLink = useObjectLink(organizationId);
   const access = useAccessCheck();
   const canWrite = access(organizationsPermissions.areaWrite, 'organization');
   const canCreate = access(organizationsPermissions.areaCreate, 'organization');
@@ -55,6 +59,7 @@ export function AreasPage() {
   // `null`: the visit's start, the initial expansion of D-3.
   const [expanded, setExpanded] = useState<ReadonlySet<string> | null>(null);
   const [focusRequest, setFocusRequest] = useState<{ id: string } | null>(null);
+  const [filter, setFilter] = useState('');
 
   // Focus after a change (design § 12), once the dialog has handed focus back: the new, renamed
   // or moved row, or a deleted row's parent.
@@ -70,10 +75,14 @@ export function AreasPage() {
   }
 
   const areas = query.data ?? [];
-  const expandedIds = expanded ?? initialExpansion(areas);
-  const expandable = expandableIds(areas);
+  const shown = filterTree(areas, filter);
+  const filtering = filter.trim() !== '';
+  const expandable = expandableIds(shown);
+  // A search shows every match under its ancestors (design § 5.2).
+  const expandedIds = filtering ? expandable : (expanded ?? initialExpansion(areas));
   const allExpanded = [...expandable].every((id) => expandedIds.has(id));
-  const rows: AreaRow[] = areas.map((area) => ({ ...area, label: area.name }));
+  const rows: AreaRow[] = shown.map((area) => ({ ...area, label: area.name }));
+  const nothingFound = query.isSuccess && areas.length > 0 && shown.length === 0;
 
   function expand(id: string) {
     setExpanded((current) => new Set([...(current ?? expandedIds), id]));
@@ -116,6 +125,18 @@ export function AreasPage() {
     if (contextGone) {
       void query.refetch();
     }
+  }
+
+  // A department and a project open their own page and become the chosen object (BR-NV-19; OQ-1 A:
+  // a project opens its «Общие»); a sub-area opens its page under its project's menu. A deactivated
+  // project's node and sub-areas open nothing, they are plain text (OQ-3 A).
+  function rowLink(area: AreaNode): ObjectLink | null {
+    if (area.projectActive === false) return null;
+    if (area.type === 'department') return objectLink('department', area.id);
+    if (area.type === 'project' && area.projectId) return objectLink('project', area.projectId);
+    // A sub-area keeps the team that fits its project (D-6).
+    if (area.projectId) return objectLink('project', area.projectId, area.id);
+    return { to: organizationAreaPath(organizationId, area.id) };
   }
 
   function actions(area: AreaNode): TreeRegistryAction[] {
@@ -168,7 +189,16 @@ export function AreasPage() {
             : undefined
         }
       />
-      {empty ? (
+      {query.isSuccess && areas.length > 0 && (
+        <ListFilter label={areasPage.search} text={filter} onText={setFilter} />
+      )}
+      {nothingFound ? (
+        <StateFrame
+          icon={FilterListOffIcon}
+          heading={areasPage.nothingFound}
+          action={{ label: areasPage.resetFilter, onClick: () => setFilter('') }}
+        />
+      ) : empty ? (
         <StateFrame
           icon={InboxOutlinedIcon}
           heading={areasPage.empty.heading}
@@ -198,7 +228,8 @@ export function AreasPage() {
           adornment={(area) =>
             area.projectActive === false ? <Tag label={areasPage.deactivated} /> : null
           }
-          labelTo={(area) => organizationAreaPath(organizationId, area.id)}
+          labelTo={(area) => rowLink(area)?.to}
+          labelState={(area) => rowLink(area)?.state}
           actions={actions}
           showActions={canWrite ? undefined : false}
           selectedId={selectedId}

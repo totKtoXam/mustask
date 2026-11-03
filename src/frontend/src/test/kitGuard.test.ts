@@ -87,7 +87,7 @@ const PART_RULES: readonly PartRule[] = [
   },
   {
     id: 'KIT-3',
-    use: 'MenuButton or MoreActionsMenu',
+    use: 'MenuButton, MoreActionsMenu or SearchMenu',
     names: ['Menu', 'MenuItem', 'MenuList', 'Popover', 'Popper'],
   },
   { id: 'KIT-4', use: 'useNotice', names: ['Snackbar', 'SnackbarContent'] },
@@ -1810,7 +1810,7 @@ describe('tech-015 Scenario: the tree holds the rule (design § 9.2, § 9.3)', (
     }
   });
 
-  it.skipIf(EMIT)('matches the totals of the cut — files and sites per rule, 125 entries', () => {
+  it.skipIf(EMIT)('matches the totals of the cut — files and sites per rule, 120 entries', () => {
     // The totals of the cut at 554bb6e. The table began as the designer’s independent
     // scan of commit bd3bb22 (design § 9.2, last column; the re-cut from 5614f58 changed
     // no entry: bug-004 added no site), a difference being a bug in a rule, explained or
@@ -1818,18 +1818,19 @@ describe('tech-015 Scenario: the tree holds the rule (design § 9.2, § 9.3)', (
     // same commit: this one (mod-016, rebased onto tech-015 and feat-029) dropped the
     // work-item form's and the boards' icons’ entries, which the kit and the card
     // replaced (KIT-14, KIT-17 now 0), and added the organization members' screens
-    // and the shell's role-change notice.
+    // and the shell's role-change notice. feat-043 (review D-10) then dropped the five entries
+    // of the deleted ContextSwitcher.tsx (KIT-2, -3, -4, -5, -10).
     const CUT_TOTALS: Readonly<Record<string, readonly [files: number, sites: number]>> = {
       'KIT-1': [12, 46],
-      'KIT-2': [19, 52],
-      'KIT-3': [14, 54],
-      'KIT-4': [5, 10],
-      'KIT-5': [10, 24],
+      'KIT-2': [18, 49],
+      'KIT-3': [13, 49],
+      'KIT-4': [4, 8],
+      'KIT-5': [9, 22],
       'KIT-6': [7, 14],
       'KIT-7': [14, 32],
       'KIT-8': [16, 201],
       'KIT-9': [1, 3],
-      'KIT-10': [10, 23],
+      'KIT-10': [9, 21],
       'KIT-11': [2, 4],
       'KIT-12': [0, 0],
       'KIT-13': [0, 0],
@@ -1850,7 +1851,7 @@ describe('tech-015 Scenario: the tree holds the rule (design § 9.2, § 9.3)', (
     for (const [rule, expected] of Object.entries(CUT_TOTALS)) {
       expect(totals(rule), rule).toEqual([...expected]);
     }
-    expect(BASELINE).toHaveLength(125);
+    expect(BASELINE).toHaveLength(120);
     expect(new Set(BASELINE.map((entry) => entry.rule))).toEqual(
       new Set(
         Object.entries(CUT_TOTALS)

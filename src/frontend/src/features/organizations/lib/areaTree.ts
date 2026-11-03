@@ -157,3 +157,26 @@ export function narrow<O>(
         );
   return { shown: matches.slice(0, PICKER_OPTION_LIMIT), total: matches.length };
 }
+
+/**
+ * The nodes whose name contains the text (case ignored), each with its ancestors, in tree order
+ * (design § 5.2: «Найти область» — matches keep their ancestors). An empty text keeps everything.
+ */
+export function filterTree(areas: readonly AreaNode[], text: string): AreaNode[] {
+  const needle = text.trim().toLowerCase();
+  if (needle === '') {
+    return [...areas];
+  }
+  const byId = new Map(areas.map((area) => [area.id, area]));
+  const keep = new Set<string>();
+  for (const area of areas) {
+    if (area.name.toLowerCase().includes(needle)) {
+      let current: AreaNode | undefined = area;
+      while (current && !keep.has(current.id)) {
+        keep.add(current.id);
+        current = current.parentId === null ? undefined : byId.get(current.parentId);
+      }
+    }
+  }
+  return areas.filter((area) => keep.has(area.id));
+}

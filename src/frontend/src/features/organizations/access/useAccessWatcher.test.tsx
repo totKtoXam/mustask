@@ -94,7 +94,7 @@ describe('the role-change notice (mod-016 design § 2.4, plan P-11)', () => {
     expect(rendered.result.current.roleChange).toBeNull();
   });
 
-  it('waits for the organization’s name when the switcher’s list does not hold it yet', () => {
+  it('waits for the organization’s name when the organization selector’s list does not hold it yet', () => {
     const { names, rendered, answer } = setup();
     delete names[ORG];
     answer(ORG, member('member'));
@@ -123,7 +123,7 @@ describe('the role-change notice (mod-016 design § 2.4, plan P-11)', () => {
     expect(rendered.result.current.roleChange).toBeNull();
   });
 
-  it('is not raised while the switcher’s fallback notice is shown, and a waiting one is dropped when it appears', () => {
+  it('is not raised while the shell’s fallback notice is shown, and a waiting one is dropped when it appears', () => {
     const shown = setup({ fallbackShown: true });
     shown.answer(ORG, member('member'));
     shown.answer(ORG, member('viewer'));
@@ -223,7 +223,7 @@ describe('an organization’s access entry lives as long as the tab (mod-016 des
       expect(client.getQueryData(organizationsKeys.access(ORG))).toMatchObject({ role: 'member' }),
     );
 
-    // The switcher moves to the other organization: nothing observes the first one.
+    // The shell moves to the other organization: nothing observes the first one.
     rendered.rerender({ organizationId: OTHER });
     await waitFor(() =>
       expect(client.getQueryData(organizationsKeys.access(OTHER))).toMatchObject({ role: 'admin' }),

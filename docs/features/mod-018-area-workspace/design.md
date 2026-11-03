@@ -111,7 +111,7 @@ Without a section's code: no button, no menu column. A node lists its own links 
 | Failed | facts: `ErrorBanner` with «Повторить»; a section: `InlineNotice` error with «Повторить» under its head |
 | Children empty | `InlineEmpty` «Вложенных областей пока нет.» ◆ (a department: «В департаменте пока нет проектов.» ◆) |
 | Teams empty | `InlineEmpty` «К области не привязаны команды» (a project node: feat-028's text); the button stays for a holder |
-| **Deactivated project's node or sub-area** | `InlineNotice` info above the facts: «Проект «Gamma» деактивирован: область доступна только для чтения. Чтобы изменить её, восстановите проект в списке деактивированных проектов организации.» ◆; no commands, no buttons, no menus; the lists stay readable |
+| **Deactivated project's node or sub-area** | Opens nothing (feat-043 OQ-3 A, BR-AW-10): the page answers «Проект не найден» with the navigation kept; in the tree the row is plain text with the «деактивирован» tag and no row menu, and a department's list shows it the same way. The earlier read-only page with an `InlineNotice` is retired |
 | Deleted, foreign, or not found | `NotFound` «Область не найдена» with the settings navigation kept and «Области» current |
 
 ## 5. Dialogs (US-1, US-2)
@@ -235,7 +235,7 @@ page, a team: «Отключение команды от департамент�
 - **Words that change:** «Новый проект»: the name's helper «От 1 до 100 символов. Так же будет называться
   корневая область проекта.»; «Переименование проекта»: «Корневая область переименуется вместе с
   проектом. Ключ, описание и команды проекта не изменятся.» ◆; «Деактивировать проект?»: as merged
-  plus «Область проекта сохранится и станет доступной только для чтения.» ◆; «Удаление команды»
+  plus «Область проекта сохранится, но не будет открываться, пока проект деактивирован.» ◆; «Удаление команды»
   (feat-028 § 5.3) gains before «Восстановить команду будет нельзя.»: «Связи команды с департаментами
   тоже будут удалены.» ◆.
 

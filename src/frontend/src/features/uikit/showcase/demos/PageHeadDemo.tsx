@@ -47,6 +47,12 @@ export function PageHeadDemo() {
             { label: 'Обновить', icon: <ThinRefreshIcon />, onClick: noop },
             { label: 'Отменить', icon: <ThinUndoIcon />, onClick: noop },
             { label: 'Сохранить', icon: <ThinSaveIcon />, onClick: noop },
+            {
+              label: 'К списку',
+              icon: <ThinUndoIcon />,
+              to: UI_KIT_PATH,
+              state: { from: 'page-head' },
+            },
           ]}
           views={[
             { label: 'Список', to: UI_KIT_PATH },

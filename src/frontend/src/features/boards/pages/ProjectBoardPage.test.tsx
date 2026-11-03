@@ -152,8 +152,11 @@ describe('US-3 Scenario: The shell on a project’s board (BR-PB-9)', () => {
     const navigation = screen.getByRole('navigation', { name: 'Основное меню' });
     const boards = within(navigation).getByRole('link', { name: 'Канбан' });
     expect(boards).toHaveAttribute('aria-current', 'page');
-    expect(boards).toHaveAttribute('href', boardAddress('stories'));
-    expect(within(navigation).getByRole('link', { name: 'Бэклоги' })).not.toHaveAttribute(
+    expect(boards).toHaveAttribute(
+      'href',
+      `${projectBoardAddress('stories')}?teamId=${ids.platformTeam}`,
+    );
+    expect(within(navigation).getByRole('link', { name: 'Бэклог' })).not.toHaveAttribute(
       'aria-current',
     );
     expect(screen.queryByRole('navigation', { name: 'Путь к странице' })).toBeNull();
