@@ -30,6 +30,9 @@ export interface AggregateFilter {
 }
 
 /** api-contract § 2.1: one header of the grouped count read. */
+/** The project board's column fields (BoardColumn without its items) and the cell's count. */
+export type AggregateColumnRead = Omit<BoardColumn, 'items'> & { count: number };
+
 export interface GroupHeader {
   kind: Grouping;
   /** `null`: «Без департамента» / «Без команды», and the one group of `none`. */
@@ -39,7 +42,7 @@ export interface GroupHeader {
   count: number;
   total: number;
   /** Boards only: the count of every column, key `<Category>-<index>`. */
-  columns?: { key: string; count: number }[];
+  columns?: AggregateColumnRead[];
 }
 
 export interface GroupsRead {

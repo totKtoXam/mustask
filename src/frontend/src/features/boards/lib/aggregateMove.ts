@@ -2,7 +2,7 @@
 // «Переместить» are enabled when only part of the project's backlog is loaded, the order after a
 // move, and where «В конец» goes. The reorder body itself is the shipped one (`lib/reorder.ts`).
 import type { ReorderBody } from '../api/boardsApi';
-import { MOVE_ENTRIES, entryMove, type MoveEntry } from './reorder';
+import { MOVE_ENTRIES, dropMove, entryMove, type MoveEntry } from './reorder';
 
 export interface MoveItem {
   entry: MoveEntry;
@@ -57,5 +57,29 @@ export function movedRows<T>(rows: readonly T[], index: number, entry: MoveEntry
   const target =
     entry === 'top' ? 0 : entry === 'up' ? index - 1 : entry === 'down' ? index + 1 : next.length;
   next.splice(Math.max(0, target), 0, row);
+  return next;
+}
+
+/**
+ * The reorder a drop at `gap` asks for (the drop line between loaded rows, `reorder.dropMove`'s
+ * gaps). On a part-loaded group the gap below the last loaded row is not a target (OQ-6 A), so
+ * nothing is sent; neither does a gap on either edge of the dragged row itself.
+ */
+export function dropBody(
+  rows: readonly { id: string }[],
+  from: number,
+  gap: number,
+  partial: boolean,
+): ReorderBody | null {
+  if (partial && gap >= rows.length) return null;
+  return dropMove(rows, from, gap);
+}
+
+/** The loaded rows after the drop at once. */
+export function droppedRows<T>(rows: readonly T[], from: number, gap: number): T[] {
+  const next = [...rows];
+  const [row] = next.splice(from, 1);
+  if (row === undefined) return next;
+  next.splice(gap > from ? gap - 1 : gap, 0, row);
   return next;
 }

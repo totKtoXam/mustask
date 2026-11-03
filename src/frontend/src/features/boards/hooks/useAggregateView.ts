@@ -42,7 +42,11 @@ function browserStore(): KeyValueStore | null {
 
 /** The ids the address names: the prefix's object, the rest in the query (ADR-0032 § 1). */
 export function useAddressSelectors(): AggregateSelectors {
-  const { areaId, teamId } = useParams<{ areaId: string; teamId: string }>();
+  const { areaId, teamId, projectId } = useParams<{
+    areaId: string;
+    teamId: string;
+    projectId: string;
+  }>();
   const [search] = useSearchParams();
   return useMemo(() => {
     const queryTeam = search
@@ -53,8 +57,9 @@ export function useAddressSelectors(): AggregateSelectors {
     const selectors: AggregateSelectors = {};
     if (department) selectors.departmentId = department;
     if (team) selectors.teamId = team;
+    if (projectId) selectors.projectId = projectId;
     return selectors;
-  }, [areaId, teamId, search]);
+  }, [areaId, teamId, projectId, search]);
 }
 
 /** «сужено: команда MARS, департамент Логистика» (feat-043 § 4), or none when nothing narrows. */
@@ -75,25 +80,16 @@ export function useNarrowedTag(organizationId: string, selectors: AggregateSelec
   return parts.length === 0 ? undefined : `сужено: ${parts.join(', ')}`;
 }
 
-export function useAggregateView({
-  organizationId,
-  view,
-  level,
-  selectors,
-  filter,
-}: {
-  organizationId: string;
-  view: AggregateView;
-  level: BoardLevelCode;
-  selectors: AggregateSelectors;
-  filter?: AggregateFilter;
-}) {
+/** The grouping in force and the options the level offers, remembered per user (BR-AV-2, BR-AV-3). */
+export function useGroupingChoice(
+  organizationId: string,
+  view: AggregateView,
+  selectors: AggregateSelectors,
+) {
   const { subject = '' } = useAuth();
-  const client = useQueryClient();
   const [serial, setSerial] = useState(0);
   const store = useMemo(() => browserStore(), []);
   const selectorKey = JSON.stringify(selectors);
-  const filterKey = JSON.stringify(filter ?? {});
   const offered = useMemo(() => groupingsOffered(selectors), [selectors]);
   const grouping = useMemo(
     () => resolveGrouping(store, subject, organizationId, view, selectors),
@@ -108,6 +104,34 @@ export function useAggregateView({
     },
     [store, subject, organizationId, view, selectors],
   );
+  return { offered, grouping, changeGrouping };
+}
+
+export type GroupingChoice = ReturnType<typeof useGroupingChoice>;
+
+export function useAggregateView({
+  organizationId,
+  view,
+  level,
+  selectors,
+  filter,
+  choice: given,
+}: {
+  organizationId: string;
+  view: AggregateView;
+  level: BoardLevelCode;
+  selectors: AggregateSelectors;
+  filter?: AggregateFilter;
+  /** The page above owns the choice (the shipped pages' switch): use it instead of one of our own. */
+  choice?: GroupingChoice;
+}) {
+  const { subject = '' } = useAuth();
+  const client = useQueryClient();
+  const store = useMemo(() => browserStore(), []);
+  const selectorKey = JSON.stringify(selectors);
+  const filterKey = JSON.stringify(filter ?? {});
+  const own = useGroupingChoice(organizationId, view, selectors);
+  const { offered, grouping, changeGrouping } = given ?? own;
 
   const headersKey = useMemo(
     () => [

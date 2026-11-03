@@ -15,6 +15,7 @@ export function AggregateRows<R extends RowLike = AggregateRow>({
   hideTeam?: boolean;
   withChanged?: boolean;
   actions?: (row: R, index: number) => ReactNode;
+  wrapIdentifier?: (row: R, index: number, content: ReactNode) => ReactNode;
 }) {
   return (
     <DataTable

@@ -8,6 +8,12 @@
 export { BacklogPage } from './pages/BacklogPage';
 export { BoardPage } from './pages/BoardPage';
 export { AggregateBacklogPage, AggregateBoardPage } from './pages/AggregateViewPages';
+export {
+  ProjectBacklogRoute,
+  ProjectBoardRoute,
+  TeamBacklogRoute,
+  TeamBoardRoute,
+} from './pages/GroupedViewRoutes';
 export { AggregateWorkItemsPage } from './pages/AggregateWorkItemsPage';
 export { ProjectBacklogPage } from './pages/ProjectBacklogPage';
 export { ProjectBoardPage } from './pages/ProjectBoardPage';

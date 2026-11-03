@@ -22,6 +22,7 @@ export function rowColumns<R extends RowLike>({
   hideTeam = false,
   withChanged = false,
   actions,
+  wrapIdentifier,
   rows = [],
 }: {
   organizationId: string;
@@ -33,9 +34,16 @@ export function rowColumns<R extends RowLike>({
   withChanged?: boolean;
   /** The «Ещё действия» cell of a row, when the user may move it. */
   actions?: (row: R, index: number) => ReactNode;
+  /** The first cell's wrapper, the drag source and target of a movable row. */
+  wrapIdentifier?: (row: R, index: number, content: ReactNode) => ReactNode;
 }) {
   const columns: DataColumn<R>[] = [
-    { key: 'identifier', header: 'ID', render: (row) => row.identifier },
+    {
+      key: 'identifier',
+      header: 'ID',
+      render: (row) =>
+        wrapIdentifier ? wrapIdentifier(row, rows.indexOf(row), row.identifier) : row.identifier,
+    },
     { key: 'type', header: 'Тип', render: (row) => <TypeName type={row.type} /> },
     {
       key: 'title',

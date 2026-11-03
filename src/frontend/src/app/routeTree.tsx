@@ -16,10 +16,10 @@ import {
   AggregateBacklogPage,
   AggregateBoardPage,
   AggregateWorkItemsPage,
-  BacklogPage,
-  BoardPage,
-  ProjectBacklogPage,
-  ProjectBoardPage,
+  ProjectBacklogRoute,
+  ProjectBoardRoute,
+  TeamBacklogRoute,
+  TeamBoardRoute,
   boardsPermissions,
 } from '../features/boards';
 import { LanguageFormPage, LanguagesRegistryPage } from '../features/dictionaries';
@@ -352,7 +352,7 @@ export const routeTree = (
                 title="Канбан"
                 skeleton="registry"
               >
-                <BoardPage />
+                <TeamBoardRoute />
               </OrganizationPage>
             }
           />
@@ -364,7 +364,7 @@ export const routeTree = (
                 title="Бэклоги"
                 skeleton="registry"
               >
-                <BacklogPage />
+                <TeamBacklogRoute />
               </OrganizationPage>
             }
           />
@@ -462,7 +462,7 @@ export const routeTree = (
                 title="Канбан"
                 skeleton="registry"
               >
-                <ProjectBoardPage />
+                <ProjectBoardRoute />
               </OrganizationPage>
             }
           />
@@ -474,7 +474,7 @@ export const routeTree = (
                 title="Бэклоги"
                 skeleton="registry"
               >
-                <ProjectBacklogPage />
+                <ProjectBacklogRoute />
               </OrganizationPage>
             }
           />

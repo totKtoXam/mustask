@@ -13,7 +13,6 @@ import {
   useNotice,
   type MenuEntry,
 } from '../../../shared/ui';
-import { useProcessDefinition } from '../../process';
 import {
   AssigneeName,
   TypeName,
@@ -25,7 +24,7 @@ import {
 import { getCells, type AggregateCard, type GroupHeader } from '../api/aggregateApi';
 import { useGroupRead, isProjectGone, type UseGroupRead } from '../hooks/useGroupRead';
 import type { AggregateViewState } from '../hooks/useAggregateView';
-import { aggregateColumns, type AggregateColumn } from '../lib/aggregateColumns';
+import { columnsOf, type AggregateColumn } from '../lib/aggregateColumns';
 import { aggregateTexts, countText } from '../lib/aggregateTexts';
 import { groupIdOf } from '../lib/openGroups';
 import { stateRefusalNotice } from '../lib/refusals';
@@ -34,6 +33,12 @@ import { StatusRegion } from './StatusRegion';
 import { ViewGroup } from './ViewGroup';
 
 type CellRegistry = Map<string, UseGroupRead<AggregateCard>>;
+
+/** The card being dragged inside one lane (or the whole board): a drop elsewhere is no target. */
+interface Dragged {
+  card: AggregateCard;
+  from: AggregateColumn;
+}
 
 interface MoveCard {
   (card: AggregateCard, from: AggregateColumn, to: AggregateColumn): Promise<void>;
@@ -51,6 +56,8 @@ function BoardCell({
   registry,
   canMove,
   onMove,
+  dragged,
+  onDragged,
   announce,
 }: {
   v: AggregateViewState;
@@ -63,8 +70,15 @@ function BoardCell({
   registry: CellRegistry;
   canMove: boolean;
   onMove: MoveCard;
+  dragged: Dragged | null;
+  onDragged(next: Dragged | null): void;
   announce(text: string): void;
 }) {
+  const [over, setOver] = useState(false);
+  const accepts =
+    dragged !== null &&
+    dragged.from.key !== column.key &&
+    column.stateOfType.has(dragged.card.type.id);
   const group = groupIdOf(header);
   const read = useGroupRead<AggregateCard>({
     enabled,
@@ -91,12 +105,29 @@ function BoardCell({
     <Box
       role="group"
       aria-label={column.header}
+      data-drop-target={over && accepts ? 'allowed' : undefined}
+      onDragOver={(event) => {
+        if (!accepts) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        if (!over) setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(event) => {
+        setOver(false);
+        if (!accepts || !dragged) return;
+        event.preventDefault();
+        const { card, from } = dragged;
+        onDragged(null);
+        void onMove(card, from, column);
+      }}
       sx={(theme) => ({
         width: theme.layout.boardColumnWidth,
         flexShrink: 0,
         display: 'grid',
         alignContent: 'start',
         gap: 1,
+        outline: over && accepts ? `2px solid ${theme.palette.primary.main}` : 'none',
       })}
     >
       <Typography variant="subtitle2" component="div">
@@ -119,27 +150,39 @@ function BoardCell({
                 },
               ];
               return (
-                <Surface key={card.id} variant="card" padding="dense" component="article">
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
-                    <Link
-                      component={RouterLink}
-                      to={workItemPath(v.organizationId, card.project.id, card.identifier)}
-                    >
-                      {card.identifier}
-                    </Link>
-                    {canMove && targets.length > 0 && (
-                      <MoreActionsMenu label={aggregateTexts.moveActions} items={entries} />
-                    )}
-                  </Box>
-                  <Typography variant="body2">{card.title}</Typography>
-                  <TypeName type={card.type} />
-                  <Box>
-                    <AssigneeName assignee={card.assignee} />
-                  </Box>
-                  <Typography variant="caption" color="text.secondary">
-                    {card.project.name} · {card.team?.name ?? teamTexts.noTeam}
-                  </Typography>
-                </Surface>
+                <Box
+                  key={card.id}
+                  draggable={canMove && targets.length > 0}
+                  data-drag-card={card.identifier}
+                  onDragStart={(event) => {
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', card.identifier);
+                    onDragged({ card, from: column });
+                  }}
+                  onDragEnd={() => onDragged(null)}
+                >
+                  <Surface variant="card" padding="dense" component="article">
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
+                      <Link
+                        component={RouterLink}
+                        to={workItemPath(v.organizationId, card.project.id, card.identifier)}
+                      >
+                        {card.identifier}
+                      </Link>
+                      {canMove && targets.length > 0 && (
+                        <MoreActionsMenu label={aggregateTexts.moveActions} items={entries} />
+                      )}
+                    </Box>
+                    <Typography variant="body2">{card.title}</Typography>
+                    <TypeName type={card.type} />
+                    <Box>
+                      <AssigneeName assignee={card.assignee} />
+                    </Box>
+                    <Typography variant="caption" color="text.secondary">
+                      {card.project.name} · {card.team?.name ?? teamTexts.noTeam}
+                    </Typography>
+                  </Surface>
+                </Box>
               );
             })}
           </Box>
@@ -170,6 +213,7 @@ function BoardColumns({
   const { show } = useNotice();
   const setState = useSetWorkItemStateIn(v.organizationId);
   const [registry] = useState<CellRegistry>(() => new Map());
+  const [dragged, setDragged] = useState<Dragged | null>(null);
 
   const onMove: MoveCard = async (card, from, to) => {
     const stateId = to.stateOfType.get(card.type.id);
@@ -216,6 +260,8 @@ function BoardColumns({
           registry={registry}
           canMove={canMove}
           onMove={onMove}
+          dragged={dragged}
+          onDragged={setDragged}
           announce={announce}
         />
       ))}
@@ -231,11 +277,7 @@ function laneName(header: GroupHeader, grouping: AggregateViewState['grouping'])
 /** «Канбан» at the organization, department and team level (BR-AV-7, design § 3, § 5). */
 export function AggregateBoardView({ v }: { v: AggregateViewState }) {
   const access = useAccessCheck();
-  const process = useProcessDefinition(v.organizationId);
-  const columns = useMemo(
-    () => (process.data ? aggregateColumns(process.data, v.level) : []),
-    [process.data, v.level],
-  );
+  const columns = useMemo(() => columnsOf(v.groups ?? []), [v.groups]);
   const [announcement, setAnnouncement] = useState({ text: '', serial: 0 });
   const announce = useCallback(
     (text: string) => setAnnouncement(({ serial }) => ({ text, serial: serial + 1 })),
@@ -245,9 +287,9 @@ export function AggregateBoardView({ v }: { v: AggregateViewState }) {
   const groups = v.groups;
 
   let body;
-  if (v.headers.isPending || process.isPending) {
+  if (v.headers.isPending) {
     body = <HeadersSkeleton />;
-  } else if (v.headers.isError || process.isError || groups === undefined) {
+  } else if (v.headers.isError || groups === undefined) {
     body = (
       <InlineNotice
         severity="error"
@@ -255,7 +297,6 @@ export function AggregateBoardView({ v }: { v: AggregateViewState }) {
           label: aggregateTexts.retry,
           onClick: () => {
             void v.headers.refetch();
-            void process.refetch();
           },
         }}
       >

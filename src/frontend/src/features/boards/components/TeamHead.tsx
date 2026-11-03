@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
+import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -16,6 +17,7 @@ import type { BoardLevelCode } from '../lib/levels';
 import { narrowedTag } from '../lib/narrowed';
 import { scopeProjectId, scopeTeamId, type BoardScope } from '../lib/scope';
 import { backlogPath, boardPath, projectBacklogPath, projectBoardPath } from '../paths';
+import { useGroupingSlot } from './groupingSlot';
 import { LevelMenu } from './LevelMenu';
 
 /** The two pages that wear the head (feat-027 BR-T-16). */
@@ -143,7 +145,14 @@ export function TeamHead({
     context.levelStatus?.team !== 'failed';
   const teams = teamsReady && organization ? organization.teams : [];
 
+  const groupingSwitch = useGroupingSlot();
   const otherPage = page === 'backlog' ? 'board' : 'backlog';
+  const levelMenu = (
+    <LevelMenu
+      level={level}
+      pathOf={(next) => `${pagePath(page, organizationId, scope, next)}${filterSearch}`}
+    />
+  );
   return (
     <PageHeader
       variant="team"
@@ -185,10 +194,14 @@ export function TeamHead({
       ]}
       viewsLabel={VIEWS_LABEL}
       viewsEnd={
-        <LevelMenu
-          level={level}
-          pathOf={(next) => `${pagePath(page, organizationId, scope, next)}${filterSearch}`}
-        />
+        groupingSwitch ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            {groupingSwitch}
+            {levelMenu}
+          </Box>
+        ) : (
+          levelMenu
+        )
       }
     />
   );

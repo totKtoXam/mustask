@@ -44,14 +44,11 @@ Status at this writing: the aggregate views are built and tested at the unit and
    bare `Skeleton`).
 3. The part-loaded «Ниже» secondary line is folded into the item's label.
 
-## 4. Contract gap, escalated (not patched)
+## 4. Contract gap, closed
 
-The groups read of a board gives column keys (`<Category>-<k>`) and counts only, with no header
-text and no target state. The frontend therefore derives the columns from the process definition
-by the server's `BoardLayout.Derive` rule (`lib/aggregateColumns.ts`, pinned by its test). If the
-rule or the process changes, the two drift. Asked of the orchestrator: add `header` to the
-column entries of the groups read (an additive change to `api-contract.md` with a note in
-`status.md`), then the derivation can go.
+The groups read of a board now carries each column's `header`, `category` and `targets` (fcfd1c84,
+api-contract § 2.1). `lib/aggregateColumns.ts` only maps them (`columnsOf`); nothing is derived from
+the process, and `GroupHeader.columns` reuses the project board's column fields.
 
 ## 5. Tests
 
@@ -65,13 +62,25 @@ column entries of the groups read (an additive change to `api-contract.md` with 
 - App: menu table, visibility, and the retired-address test updated (the seven feat-048
   addresses are served now); the kit guard passes with no allow-list change.
 
-## 6. Left
+## 6. Added after the first hand-over
 
-- Drag and drop inside and between groups (the keyboard path «Переместить» is done).
-- The project list's «Без команды» control, and the grouping on the shipped team-with-department
-  and project pages (those pages keep feat-040/039 as they are; only the three new addresses use
-  the switch).
-- Sorting of the flat list by column (the list is shown in the server's order).
-- Page tests for the board's card move, the department-level backlog and the move menu.
-- The contract gap of section 4.
+- Drag and drop: a by-project backlog row drags by its first cell (`useRowDrag`, `RowDragCell`), the
+  drop line standing between loaded rows only; on a part-loaded group the gap below the last loaded
+  row is no target (OQ-6 A). A board card drags into another column of its lane (own state per lane,
+  so another lane is no target) and only into a column the card's type has a target state in.
+- The project list's «Без команды» (`NoTeamFilter`, `FormControlLabel` + `Checkbox`) replaces
+  `TeamFilter`; exclusive with the team selector, with «Выбор сброшен: команда …». The shipped
+  tests of the old multi-select were rewritten for it.
+- The «Группировка» switch on the shipped team and project backlog and board: `GroupedViewRoutes`
+  route to the shipped page under «Без группировки» (the switch drawn in `TeamHead` through a
+  context slot) and to the aggregate view for any other option. A team with a department chosen
+  defaults to by project.
+
+## 7. Left
+
+- Sorting of the flat «Рабочие элементы» (OQ-9 A): there is nothing to build. feat-003 BR-WS-12 fixes
+  the order (change time, number, project key; "sorting by a column" is out of its scope) and the
+  list read has no sort parameter, so a client sort of one page would be wrong. Kept in the server order.
+- The grouping switch on the project's own «Рабочие элементы» (the shipped list is the older table
+  page; `AggregateWorkItemsPage` already accepts a project selector but is not routed there).
 - A whole-suite run: due before the MR (`VERIFY_FULL=1`), not run in this lane.

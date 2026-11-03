@@ -3,25 +3,33 @@ import { NotFound } from '../../../shared/ui/StateFrame';
 import { AggregateBacklogView } from '../components/AggregateBacklogView';
 import { AggregateBoardView } from '../components/AggregateBoardView';
 import { AggregateHeader } from '../components/AggregateHeader';
-import { useAddressSelectors, useAggregateView, useNarrowedTag } from '../hooks/useAggregateView';
+import {
+  useAddressSelectors,
+  useAggregateView,
+  useNarrowedTag,
+  type GroupingChoice,
+} from '../hooks/useAggregateView';
 import { isBoardLevel, type BoardLevelCode } from '../lib/levels';
 
 /**
  * «Бэклог» and «Канбан» above the project level (feat-048 US-10, US-11): the organization's and a
  * department's (`areas/:areaId/…`). The grouping is read from the browser memory, never the address.
  */
-function AggregatePage({
+export function AggregatePage({
   view,
   title,
   level,
+  choice,
 }: {
   view: 'backlogs' | 'boards';
   title: string;
   level: BoardLevelCode;
+  /** The shipped pages' route owns the grouping choice. */
+  choice?: GroupingChoice;
 }) {
   const { organizationId = '' } = useParams<{ organizationId: string }>();
   const selectors = useAddressSelectors();
-  const v = useAggregateView({ organizationId, view, level, selectors });
+  const v = useAggregateView({ organizationId, view, level, selectors, choice });
   const narrowed = useNarrowedTag(organizationId, selectors);
   const grouped = v.grouping !== 'none' && (v.groups?.length ?? 0) > 0;
   return (

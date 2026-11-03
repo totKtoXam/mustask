@@ -8,11 +8,18 @@ import { authValue, renderShell } from '../../test/renderShell';
 import { OrganizationGate } from '../organizations';
 import { sampleProcessDefinition } from '../process/testFixtures';
 import { processType, API, PROCESS_URL, stateId } from '../workitems/testFixtures';
-import type { AggregateCard, AggregateRow, GroupHeader } from './api/aggregateApi';
+import type {
+  AggregateCard,
+  AggregateColumnRead,
+  AggregateRow,
+  GroupHeader,
+} from './api/aggregateApi';
 import { AggregateBacklogPage, AggregateBoardPage } from './pages/AggregateViewPages';
+import { ProjectBacklogRoute, ProjectBoardRoute } from './pages/GroupedViewRoutes';
 import { AggregateWorkItemsPage } from './pages/AggregateWorkItemsPage';
 import { ids } from './testFixtures';
 import { teamContext } from './testRender';
+import type { WorkContextSource } from '../../shared/lib/workContext';
 
 export const ORG = ids.example;
 const ORG_API = `${API}/api/organizations/${ORG}`;
@@ -53,6 +60,64 @@ export function header(
   extra: Partial<GroupHeader> = {},
 ): GroupHeader {
   return { kind, id, name, count, total: count, ...extra };
+}
+
+/** The board's columns of the stories level as the groups read gives them (api-contract § 2.1). */
+export function storyColumns(): AggregateColumnRead[] {
+  const type = processType('US');
+  return [
+    {
+      key: 'Proposed-1',
+      header: 'Новая',
+      category: { code: 'Proposed', label: 'Предложено' },
+      targets: [{ typeId: type.id, stateId: stateId('US', 'Новая') }],
+      count: 2,
+    },
+    {
+      key: 'InProgress-1',
+      header: 'Активна',
+      category: { code: 'InProgress', label: 'В работе' },
+      targets: [{ typeId: type.id, stateId: stateId('US', 'Активна') }],
+      count: 0,
+    },
+  ];
+}
+
+export function mskCard(number: number): AggregateCard {
+  return { ...mskRow(number), checklist: [] };
+}
+
+export interface Write {
+  method: string;
+  path: string;
+  body: unknown;
+}
+
+export function serveWrites(): Write[] {
+  const writes: Write[] = [];
+  server.use(
+    http.patch(
+      `${ORG_API}/projects/:projectId/workitems/:identifier`,
+      async ({ request, params }) => {
+        writes.push({
+          method: 'PATCH',
+          path: new URL(request.url).pathname,
+          body: await request.json(),
+        });
+        const row = mskRow(Number(String(params.identifier).split('-').at(-1)));
+        return HttpResponse.json({ ...row, projectId: params.projectId });
+      },
+    ),
+    http.post(`${ORG_API}/projects/:projectId/backlogs/:level/reorder`, async ({ request }) => {
+      writes.push({
+        method: 'POST',
+        path: new URL(request.url).pathname,
+        body: await request.json(),
+      });
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
+  return writes;
 }
 
 export interface SeenRequest {
@@ -120,6 +185,7 @@ export function serveAggregate(options: {
         return { cards, nextCursor: null };
       }),
     ),
+    http.get(`${ORG_API}/workitems/assignee-options`, () => HttpResponse.json([])),
     http.get(`${ORG_API}/workitems`, ({ request }) =>
       answer('list', request.url, () => options.list ?? { count: 0, data: [] }),
     ),
@@ -152,17 +218,25 @@ function aggregateRoutes() {
           path="/organizations/:organizationId/teams/:teamId/workitems"
           element={<AggregateWorkItemsPage />}
         />
+        <Route
+          path="/organizations/:organizationId/projects/:projectId/backlogs/:level"
+          element={<ProjectBacklogRoute />}
+        />
+        <Route
+          path="/organizations/:organizationId/projects/:projectId/boards/:level"
+          element={<ProjectBoardRoute />}
+        />
       </Route>
       <Route path="*" element={<p>Другая страница</p>} />
     </>
   );
 }
 
-export function renderAggregate(path: string) {
+export function renderAggregate(path: string, options: { context?: WorkContextSource } = {}) {
   return renderShell({
     path,
     auth: { ...authValue([]), subject: 'user-1' },
-    contextSource: teamContext({ projectId: undefined, teamId: undefined }),
+    contextSource: options.context ?? teamContext({ projectId: undefined, teamId: undefined }),
     routes: aggregateRoutes(),
     access: 'admin',
   });

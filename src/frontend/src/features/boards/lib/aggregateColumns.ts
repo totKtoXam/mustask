@@ -1,59 +1,25 @@
-// The aggregate board's columns. The grouped count read gives only `{ key, count }` per column
-// (api-contract § 2.1), so the headers and what a drop writes are derived from the organization's
-// process with the server's own rule (BoardLayout.Derive, BR-M4-2; bug-004 D-3), and the level
-// is resolved as BoardLevel.Resolve does. Recorded in plan-frontend.md as a duplicated rule.
-import type { ProcessDefinitionResponse, WorkItemType } from '../../process';
-import type { BoardLevelCode } from './levels';
-
-const CATEGORY_ORDER = ['Proposed', 'InProgress', 'Resolved', 'Completed'] as const;
+// The aggregate board's columns are the server's: every group of the board's groups read carries
+// the level's columns with their header, category and drop targets (api-contract § 2.1), the
+// project board's own column fields, so nothing is derived from the process here.
+import type { GroupHeader } from '../api/aggregateApi';
 
 export interface AggregateColumn {
   /** `<Category>-<index>`, the key of the groups and cells reads. */
   key: string;
   header: string;
-  category: string;
   /** The state a card of the type takes when dropped here; absent: no drop target for it. */
   stateOfType: ReadonlyMap<string, string>;
 }
 
-/** The types of the board level, in the process's display order. */
-export function levelTypes(
-  process: ProcessDefinitionResponse,
-  level: BoardLevelCode,
-): readonly WorkItemType[] {
-  const levels = process.backlogLevels;
-  const portfolio = levels.filter((l) => l.kind === 'portfolio').sort((a, b) => a.rank - b.rank);
-  const requirement = levels
-    .filter((l) => l.kind === 'requirement')
-    .sort((a, b) => b.rank - a.rank);
-  const resolved =
-    level === 'stories' ? requirement[0] : level === 'features' ? portfolio[0] : portfolio[1];
-  return resolved ? process.workItemTypes.filter((t) => t.backlogLevel.id === resolved.id) : [];
-}
-
-export function aggregateColumns(
-  process: ProcessDefinitionResponse,
-  level: BoardLevelCode,
-): AggregateColumn[] {
-  const types = levelTypes(process, level);
-  const columns: AggregateColumn[] = [];
-  for (const category of CATEGORY_ORDER) {
-    const perType = types.map((type) => ({
-      id: type.id,
-      states: type.states
-        .filter((s) => s.category.code === category)
-        .sort((a, b) => a.order - b.order),
-    }));
-    const count = perType.reduce((max, t) => Math.max(max, t.states.length), 0);
-    for (let k = 0; k < count; k += 1) {
-      const stateOfType = new Map<string, string>();
-      for (const t of perType) {
-        const state = t.states[k];
-        if (state) stateOfType.set(t.id, state.id);
-      }
-      const header = perType.find((t) => t.states[k] !== undefined)?.states[k]?.name ?? '';
-      columns.push({ key: `${category}-${k + 1}`, header, category, stateOfType });
-    }
-  }
-  return columns;
+/** The columns of the board, from the first group (every group lists the same ones). */
+export function columnsOf(groups: readonly GroupHeader[]): AggregateColumn[] {
+  return (groups[0]?.columns ?? []).map((column) => ({
+    key: column.key,
+    header: column.header,
+    stateOfType: new Map(
+      column.targets.flatMap((target) =>
+        target.stateId === null ? [] : [[target.typeId, target.stateId] as const],
+      ),
+    ),
+  }));
 }

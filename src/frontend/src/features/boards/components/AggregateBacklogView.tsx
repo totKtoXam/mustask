@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import { useAccessCheck } from '../../../shared/lib/access';
@@ -14,15 +14,17 @@ import { ApiError } from '../../../shared/api/httpClient';
 import { getRows, type AggregateRow, type GroupHeader } from '../api/aggregateApi';
 import { reorderProjectBacklog } from '../api/boardsApi';
 import { useGroupRead, isProjectGone } from '../hooks/useGroupRead';
+import { useRowDrag } from '../hooks/useRowDrag';
 import type { AggregateViewState } from '../hooks/useAggregateView';
 import { aggregateTexts, countText, streamCountText } from '../lib/aggregateTexts';
 import { backlogCanMove, backlogHint } from '../lib/grouping';
-import { moveBody, moveItems, movedRows } from '../lib/aggregateMove';
+import { dropBody, droppedRows, moveBody, moveItems, movedRows } from '../lib/aggregateMove';
 import { groupIdOf } from '../lib/openGroups';
 import { moveRefusalNotice } from '../lib/refusals';
-import { MOVE_ENTRY_LABELS } from '../lib/reorder';
+import { MOVE_ENTRY_LABELS, type MoveEntry } from '../lib/reorder';
 import { boardsPermissions } from '../permissions';
 import { AggregateRows } from './AggregateRows';
+import { RowDragCell } from './RowDragCell';
 import { GroupBody, HeadersSkeleton } from './GroupBody';
 import { StatusRegion } from './StatusRegion';
 import { ViewGroup } from './ViewGroup';
@@ -66,23 +68,27 @@ function BacklogGroupBody({
     onCursorReload: v.readHeadersAgain,
   });
 
-  const move = async (index: number, entry: Parameters<typeof moveBody>[2]) => {
+  /** Sends one reorder of the row at `index` and shows its result: the same for a menu item and a drop. */
+  const send = async (
+    index: number,
+    body: NonNullable<ReturnType<typeof moveBody>>,
+    next: (rows: readonly AggregateRow[]) => AggregateRow[],
+  ) => {
     const rows = read.state.items;
     const partial = read.state.nextCursor !== null;
     const row = rows[index];
-    const body = moveBody(rows, index, entry, partial);
-    if (!row || !body) return;
+    if (!row) return;
     try {
       await reorderProjectBacklog(v.organizationId, row.project.id, v.level, body);
-      if (entry === 'bottom' && partial) {
+      if (body.position === 'bottom' && partial) {
         read.dropRow(row.id);
         show(aggregateTexts.movedToEnd);
         return;
       }
-      const next = movedRows(rows, index, entry);
-      read.updateRows(() => next);
+      const moved = next(rows);
+      read.updateRows(() => moved);
       announce(
-        `${row.identifier} перемещён: позиция ${next.findIndex((r) => r.id === row.id) + 1} из ${next.length}.`,
+        `${row.identifier} перемещён: позиция ${moved.findIndex((r) => r.id === row.id) + 1} из ${moved.length}.`,
       );
     } catch (error) {
       if (error instanceof ApiError && error.errorCode === STALE_CODE) {
@@ -96,6 +102,35 @@ function BacklogGroupBody({
       if (text) show(text, 'error');
     }
   };
+
+  const move = async (index: number, entry: MoveEntry) => {
+    const rows = read.state.items;
+    const body = moveBody(rows, index, entry, read.state.nextCursor !== null);
+    if (body) await send(index, body, (loaded) => movedRows(loaded, index, entry));
+  };
+
+  const partial = read.state.nextCursor !== null;
+  const { drag, handlers } = useRowDrag({
+    count: read.state.items.length,
+    partial,
+    onDrop: (from, gap) => {
+      const body = dropBody(read.state.items, from, gap, partial);
+      if (body) void send(from, body, (loaded) => droppedRows(loaded, from, gap));
+    },
+  });
+  const wrapIdentifier = canMove
+    ? (row: AggregateRow, index: number, content: ReactNode) => (
+        <RowDragCell
+          index={index}
+          count={read.state.items.length}
+          drag={drag}
+          handlers={handlers(index)}
+          label={row.identifier}
+        >
+          {content}
+        </RowDragCell>
+      )
+    : undefined;
 
   const actions = canMove
     ? (_row: AggregateRow, index: number) => {
@@ -127,6 +162,7 @@ function BacklogGroupBody({
           rows={rows}
           hideProject={v.grouping === 'project'}
           actions={actions}
+          wrapIdentifier={wrapIdentifier}
         />
       )}
     </GroupBody>

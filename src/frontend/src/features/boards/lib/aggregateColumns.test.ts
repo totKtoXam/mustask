@@ -1,75 +1,40 @@
 import { describe, expect, it } from 'vitest';
-import type { ProcessDefinitionResponse } from '../../process';
-import { aggregateColumns, levelTypes } from './aggregateColumns';
+import type { GroupHeader } from '../api/aggregateApi';
+import { columnsOf } from './aggregateColumns';
 
-let n = 0;
-const state = (name: string, category: string, order: number) => ({
-  id: `s${(n += 1)}`,
-  name,
-  order,
-  isInitial: order === 1,
-  category: { code: category, label: category },
-});
-const type = (id: string, levelId: string, states: ReturnType<typeof state>[]) => ({
-  id,
-  key: id,
-  name: id,
-  appearance: 'story',
-  backlogLevel: { id: levelId, name: levelId },
-  states,
-});
-
-const process = {
+const group = (columns: GroupHeader['columns']): GroupHeader => ({
+  kind: 'project',
   id: 'p',
-  backlogLevels: [
-    { id: 'L-epic', name: 'Epics', rank: 3, kind: 'portfolio' },
-    { id: 'L-feat', name: 'Features', rank: 2, kind: 'portfolio' },
-    { id: 'L-story', name: 'Stories', rank: 1, kind: 'requirement' },
-    { id: 'L-task', name: 'Tasks', rank: 0, kind: 'task' },
-  ],
-  workItemTypes: [
-    type('EPIC', 'L-epic', [state('Новая', 'Proposed', 1)]),
-    type('US', 'L-story', [
-      state('Новая', 'Proposed', 1),
-      state('Активна', 'InProgress', 2),
-      state('Разрешена', 'Resolved', 3),
-      state('Закрыта', 'Completed', 4),
-    ]),
-    type('BUG', 'L-story', [
-      state('Новый', 'Proposed', 1),
-      state('Активен', 'InProgress', 2),
-      state('В тесте', 'InProgress', 3),
-      state('Разрешена', 'Resolved', 4),
-      state('Удалена', 'Removed', 5),
-    ]),
-  ],
-} as unknown as ProcessDefinitionResponse;
+  name: 'P',
+  count: 1,
+  total: 1,
+  columns,
+});
 
-describe('aggregateColumns', () => {
-  it('resolves the levels as the server does', () => {
-    expect(levelTypes(process, 'stories').map((t) => t.id)).toEqual(['US', 'BUG']);
-    expect(levelTypes(process, 'epics').map((t) => t.id)).toEqual(['EPIC']);
+describe('feat-048: the board columns come from the groups read', () => {
+  it('maps the server header and the non-null targets of each column', () => {
+    const columns = columnsOf([
+      group([
+        {
+          key: 'Proposed-1',
+          header: 'Новая',
+          category: { code: 'Proposed', label: 'Предложено' },
+          targets: [
+            { typeId: 't-story', stateId: 's-new' },
+            { typeId: 't-bug', stateId: null },
+          ],
+          count: 3,
+        },
+      ]),
+    ]);
+    expect(columns).toHaveLength(1);
+    expect(columns[0]?.key).toBe('Proposed-1');
+    expect(columns[0]?.header).toBe('Новая');
+    expect([...(columns[0]?.stateOfType ?? [])]).toEqual([['t-story', 's-new']]);
   });
 
-  it('derives keys, headers and per-type targets in category order', () => {
-    const columns = aggregateColumns(process, 'stories');
-    expect(columns.map((c) => c.key)).toEqual([
-      'Proposed-1',
-      'InProgress-1',
-      'InProgress-2',
-      'Resolved-1',
-      'Completed-1',
-    ]);
-    // The first type in display order that maps a state heads the column.
-    expect(columns.map((c) => c.header)).toEqual([
-      'Новая',
-      'Активна',
-      'В тесте',
-      'Разрешена',
-      'Закрыта',
-    ]);
-    const second = columns[2];
-    expect(second?.stateOfType.has('US')).toBe(false);
-    expect(second?.stateOfType.has('BUG')).toBe(true);
+  it('has no columns for a read without groups or without columns', () => {
+    expect(columnsOf([])).toEqual([]);
+    expect(columnsOf([group(undefined)])).toEqual([]);
   });
 });

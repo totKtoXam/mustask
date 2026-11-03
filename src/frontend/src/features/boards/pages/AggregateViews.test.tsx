@@ -2,7 +2,15 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';
-import { ORG, header, mskRow, orgAddress, renderAggregate, serveAggregate } from '../testAggregate';
+import {
+  ORG,
+  header,
+  mskRow,
+  orgAddress,
+  renderAggregate,
+  serveAggregate,
+  storyColumns,
+} from '../testAggregate';
 
 // feat-048 US-10, US-11: the aggregate backlog, board and «Рабочие элементы» at the organization
 // and department level (design § 2, § 3, § 5): the switch, its default and memory, the group's own
@@ -196,7 +204,7 @@ describe('US-10 Scenario: the board', () => {
         project: [
           header('project', 'p-msk', 'Мастаск', 1, {
             key: 'MSK',
-            columns: [{ key: 'Proposed-1', count: 1 }],
+            columns: storyColumns(),
           }),
         ],
       },
