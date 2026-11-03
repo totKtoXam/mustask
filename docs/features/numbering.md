@@ -61,17 +61,22 @@ PowerShell); everything below is what they enforce.
   2. `docs/features/<id>/` directories — across all branches, not just the
      current one:
      `git for-each-ref --format='%(refname)' refs/heads refs/remotes | xargs -I{} git ls-tree --name-only {}:docs/features`;
-  3. the queue files — `docs/backlog.md` and `docs/backlog/withdrawn.md` —
+  3. the queue files — `docs/backlog.md` and every `.md` file under
+     `docs/backlog/` (`withdrawn.md`, and `later.md` or a cluster file once
+     the queue is split, [../backlog.md](../backlog.md), "When to split") —
      also across all branches, including the `Done` section:
-     `scripts/backlog.sh --ids` (one pass over both files:
-     `git for-each-ref --format='%(objectname):docs/backlog.md%0a%(objectname):docs/backlog/withdrawn.md' refs/heads refs/remotes | sort -u | git cat-file --batch`).
+     `scripts/backlog.sh --ids` (one pass, a fixed number of git processes
+     however many refs: the distinct commits of `refs/heads refs/remotes`,
+     one `cat-file --batch-check` for their `docs/backlog.md` blobs and
+     `docs/backlog` trees, one `rev-list --objects` over the distinct trees,
+     one `cat-file --batch` over the distinct blobs).
      "All branches" includes the pushed `sync/queue-*` branches of open queue
      PRs, and local `main` ahead of `origin/main`: before tech-049 (and with
      `--local` still) `queue.sh add` and `withdraw` commit to local `main`, and the push comes
      later, so the number of an unpushed queue commit is on no remote branch
      and a count that reads `origin/main` alone issues it a second time
      (`feat-039` and `mod-017` were issued twice that way). `scripts/new-task.sh
-     hot` reads the same files ref by ref, local `main` included; both are
+     hot` takes them from the same `backlog.sh --ids`; both are
      covered by `scripts/tests/queue-numbering-cases.sh`. A read that fails is
      an error, never an empty list: `backlog.sh --ids` exits non-zero and
      `queue.sh` refuses to issue a number, because a number issued from a

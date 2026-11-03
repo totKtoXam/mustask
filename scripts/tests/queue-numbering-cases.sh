@@ -11,6 +11,9 @@
 #      branches".
 #   2. new-task.sh's hot path scanned withdrawn.md with a missing `|` before
 #      `grep`, so a withdrawn hot number was never seen and was reissued.
+#   3. (tech-037) both read exactly two queue files, docs/backlog.md and
+#      docs/backlog/withdrawn.md, so a number in any other file under
+#      docs/backlog/ (later.md once the queue is split) looked free.
 #
 # Each case builds its own throwaway repository with a BARE origin (the push
 # is what makes "unpushed" mean something), copies the scripts under test into
@@ -318,6 +321,67 @@ if [ "$rc" != 0 ] && printf '%s\n' "$log" | grep -q 'could not be read'; then ok
 log="cat-file exits 128: the summary exit $rc (expected non-zero and an error message); got:
 $log"
 check "the summary ends non-zero, not with a missing NUMBERS block, when the read fails" "$ok"
+
+# 9. Every queue file, not two names (tech-037, tech-034 CR-4): a number held
+#    only by a third file under docs/backlog/ — later.md after a split, or a
+#    file in a subdirectory — on a branch other than main is taken for --ids,
+#    for `queue.sh add` and for `new-task.sh hot`.
+build
+g checkout -q -b scratch/split
+mkdir -p "$repo/docs/backlog/clusters"
+{
+    printf '# Later\n\n'
+    printf -- '- [ ] tech-070-later-only — x · epic:workflow · size:S · deps:- · note:-\n'
+    printf -- '- [x] hot-005-later-hot — withdrawn: x, 2026-01-01\n'
+} > "$repo/docs/backlog/later.md"
+printf -- '- [ ] tech-080-cluster-only — x · epic:core · size:S · deps:- · note:-\n' \
+    > "$repo/docs/backlog/clusters/core.md"
+g add -A
+g commit -qm 'split the queue'
+g checkout -q main
+run "$shell" scripts/backlog.sh --ids
+ids_log=$log
+queue add tech after-split "After split"
+id_after=$(issued after-split)
+run "$shell" scripts/new-task.sh hot after-split "A fix"
+rc_hot=$rc
+ok=1
+if printf '%s\n' "$ids_log" | grep -qx 'tech-070' \
+    && printf '%s\n' "$ids_log" | grep -qx 'tech-080' \
+    && printf '%s\n' "$ids_log" | grep -qx 'hot-005' \
+    && [ "$id_after" = tech-081-after-split ] \
+    && [ "$rc_hot" = 0 ] && g show-ref --verify --quiet refs/heads/hot/006-after-split; then
+    ok=0
+fi
+log="later.md (tech-070, hot-005) and clusters/core.md (tech-080) on scratch/split only
+--ids: $(printf '%s\n' "$ids_log" | tr '\n' ' ')
+queue.sh add issued ${id_after:-none} (expected tech-081-after-split)
+new-task.sh hot exit $rc_hot, branches: $(g branch --list 'hot/*' | tr -d ' *+' | tr '\n' ' ')(expected hot/006-after-split)
+$log"
+check "numbers in any queue file under docs/backlog/ of any branch are taken" "$ok"
+
+# 10. Still one pass when the branches hold DIFFERENT docs/backlog trees: case 7
+#     gives every branch the same tree, so a read per distinct tree would pass
+#     it and still grow here.
+build
+few=$(count_git "$trace")
+n=0
+while [ "$n" -lt 8 ]; do
+    n=$((n + 1))
+    g checkout -q -b "scratch/t$n" main
+    printf -- '- [ ] tech-1%02d-t%s — x · epic:workflow · size:S · deps:- · note:-\n' "$n" "$n" \
+        > "$repo/docs/backlog/later.md"
+    g add -A
+    g commit -qm "t$n"
+done
+g checkout -q main
+many=$(count_git "$trace")
+run "$shell" scripts/backlog.sh --ids
+ok=1
+[ "$few" -gt 0 ] && [ "$few" = "$many" ] && printf '%s\n' "$log" | grep -qx 'tech-108' && ok=0
+log="git processes per backlog.sh --ids: $few with 1 branch, $many with 9 branches of 9 distinct docs/backlog trees (they must be equal; tech-108 must be taken)
+$log"
+check "reading every queue file stays one pass over distinct docs/backlog trees" "$ok"
 
 if [ "$failures" != 0 ]; then
     printf '\n%s queue numbering case(s) failed.\n' "$failures" >&2
