@@ -3,14 +3,14 @@
 - type: feature
 - size: L
 - branch: feat/048-aggregate-level-views
-- stage: 02-requirements-review
+- stage: 03-design
 - epic: platform/ui
 - deps: feat-043
 - gates: gate-1, gate-2, gate-3
 
 ## Gates
 
-gate-1: pending
+gate-1: approved 2026-11-03 (the human, in chat): OQ-1..OQ-6 A, the spec index and its Delta as written
 gate-2: pending
 gate-3: pending
 
@@ -20,7 +20,7 @@ gate-3: pending
 
 ## Decisions
 
-- Gate-1 questions, 2026-11-03, the human in chat, one by one: OQ-1 A (auto-retry by Retry-After, then «Повторить»), OQ-2 A (limiter on group and cell reads only, keyword read an accepted risk), OQ-3 A (4 per tab, 6 per user with a short wait queue, keyed by the Keycloak subject per API process), OQ-4 A (cursor 400 reloads, refusal keeps rows, deactivated project drops its group), OQ-5 A (filter parameters on the reads now, no filter bar on aggregate board/backlog until feat-013), OQ-6 A («В конец» is the project backlog's end, «Ниже» on the last loaded row disabled). Gate-1 verdict itself asked separately.
+- Gate-1 questions, 2026-11-03, the human in chat, one by one: OQ-1 A (auto-retry by Retry-After, then «Повторить»), OQ-2 A (limiter on group and cell reads only, keyword read an accepted risk), OQ-3 A (4 per tab, 6 per user with a short wait queue, keyed by the Keycloak subject per API process), OQ-4 A (cursor 400 reloads, refusal keeps rows, deactivated project drops its group), OQ-5 A (filter parameters on the reads now, no filter bar on aggregate board/backlog until feat-013), OQ-6 A («В конец» is the project backlog's end, «Ниже» on the last loaded row disabled). Gate-1 approved right after.
 
 ## Log
 
