@@ -48,6 +48,8 @@ gate-3: pending
 
 - 2026-11-03 [backend-developer] Stage 4 in progress: api-contract.md and plan-backend.md written; reads, cursor, limiter, migration and tests committed; contract departures (flat by-project rows, `column` key, no level on workitems routes) listed in api-contract section 4. The 1M-item budget test misses 2 s on the flat list deep page and some first-page reads (see report); not relaxed.
 
+
+- 2026-11-03 [qa-engineer] Stage 5 backend QA at 34d0c5cf: 0 blockers, 0 majors, 1 minor (D-1, a crafted cursor position gives 500; debt for gate-3). 19 cases added in AggregateViewQaTests (17 green, 2 skipped on D-1); migration class green; qa.md written. Volume test not rerun; E2E not run (standing NO).
 ## Notes
 
 Summary (from the queue line): «Рабочие элементы», «Канбан» and «Бэклог» at the organization and department level and «Рабочие элементы» at the team level: the organization-wide work-item list with feat-003's filters and keyword rules, and the aggregate backlogs and boards of every active project (department: the projects placed in it) as one collapsible group (swimlane on the board) per project in the project's own rank order, with a move inside a group and rows loaded per project as a group opens (reads capped at 4 in flight per tab, paged by a cursor), with the additive reads and the budgets of BR-NV-12 and BR-NV-20. Spec and stories US-6, US-10 live in feat-043's folder (its OQ-9); takes feat-042's board and backlog part, BR-NE-8's cross-project list and mod-020 CR-2's test.
