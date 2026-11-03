@@ -193,8 +193,10 @@ switches the stand). Afterwards the database is empty:
   (step 2 of "External database") before starting the stand. Every checkout
   that worked on that database lost its stand data with it.
 
-Then seed the Keycloak users (`bash scripts/keycloak-seed.sh`); the first
-reconciliation of the user projection loads them into the new database.
+Then seed the Keycloak users (`bash scripts/keycloak-seed.sh`). The user
+projection is empty in the new database and is filled by sign-in (tech-025,
+ADR-0034): each seeded user appears in the member search after they have signed in
+to the panel once.
 
 ## A stand with data that moves to organization access (mod-016) — no reset
 

@@ -25,7 +25,7 @@
 #
 # Next steps it prints: start the stand, apply the migrations
 # (docs/runbooks/local-migrations.md), seed the Keycloak users
-# (scripts/keycloak-seed.sh). The first reconciliation is the backfill.
+# (scripts/keycloak-seed.sh). The user projection fills at sign-in (ADR-0034).
 #
 #   scripts/stand-reset.sh          asks before wiping
 #   scripts/stand-reset.sh --yes    wipes without asking

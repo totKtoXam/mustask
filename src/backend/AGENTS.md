@@ -90,12 +90,11 @@ run from there, not from this directory.
   its own volume); to scope the mode to one checkout, export
   `ConnectionStrings__mustask` in the terminal that starts that checkout's
   AppHost instead of setting the secret.
-- Keycloak on the stand (mod-014, ADR-0025): AppHost **builds** the Keycloak
-  image from `deploy/keycloak/Dockerfile` — the image of `Keycloak:Image`/
-  `Keycloak:Tag` plus the provider `mustask-user-projection`, whose Java
-  sources (`deploy/keycloak/providers/user-projection`) are compiled and
-  unit-tested inside that build; the first build on a machine, or after a
-  Keycloak tag change, needs the network. Keycloak's store **persists** in a
+- Keycloak on the stand (mod-014, ADR-0025 § 7; tech-025, ADR-0034): AppHost
+  **builds** the Keycloak image from `deploy/keycloak/Dockerfile` — the image of
+  `Keycloak:Image`/`Keycloak:Tag` and nothing of ours inside it (the event-listener
+  provider is gone: the company realm takes no JAR); the first build on a machine, or
+  after a Keycloak tag change, needs the network. Keycloak's store **persists** in a
   named volume paired with the stand's database (container mode: one pair per
   checkout; external mode: one store per external database), so users and
   their ids survive restarts; the `Keycloak store:` line at startup names it.
@@ -110,17 +109,17 @@ run from there, not from this directory.
   external mode it drops and recreates only the database the connection
   string names — and prints the next steps (migrations, seed); its header has
   the details. A store made from an older realm import is cleared by the same reset (see
-  "A stand made from an older realm import" below). The provider pushes user changes to `Mustask.Api`'s
-  `/api/user-directory/feed` signed with a secret AppHost generates per run
-  (no fourth user secret). It reaches the api at
-  `http://host.docker.internal:{Ports:Api}` — the api's own port on the Docker
-  host, mapped with `--add-host …:host-gateway` so a Linux engine resolves it
-  too — not through Aspire's container tunnel, which loses the api for good
-  after a `keycloak` resource restart followed by an api restart. `Keycloak:UserProjection:ReconcilePeriodMinutes`
-  shortens the reconciliation period for a QA run. `scripts/verify.sh` checks
-  a provider change in its `provider` bucket — Docker required: `docker build
-  --target provider deploy/keycloak`, then the .NET tests tagged
-  `KeycloakProvider` with `MUSTASK_KEYCLOAK_PROVIDER_TESTS=1`. A realm-import
+  "A stand made from an older realm import" below).
+  **The user projection is filled by the sign-in** (ADR-0034): the session callback,
+  and a renewal whose claims changed, upsert the person from the id token's `sub`,
+  `preferred_username`, `given_name`, `family_name` and `email`
+  (`Features/UserDirectory/RecordSignIn`); there is no push endpoint, no secret and no
+  reconciliation. **Member search reads that projection, so only a person who has
+  signed in to MUSTASK once can be found and added to an organization**; a user
+  deactivated or deleted in Keycloak stays in it as of their last sign-in. The panel
+  client needs the `profile` and `email` scopes. `scripts/verify.sh` checks a change of
+  `deploy/keycloak/Dockerfile` or of a realm import in its `keycloak` bucket — Docker
+  required: the .NET tests tagged `KeycloakLive` with `MUSTASK_KEYCLOAK_LIVE_TESTS=1`, `LiveRealmImportTests` among them. A realm-import
   edit (`deploy/keycloak/realms/*`) is checked in both buckets: by the contract
   tests, and by `LiveRealmImportTests`, where a real Keycloak imports the
   repository's real file (an import Keycloak rejects only shows when it is

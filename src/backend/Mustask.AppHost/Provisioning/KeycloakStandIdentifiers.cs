@@ -14,6 +14,12 @@ namespace Mustask.AppHost.Provisioning;
 /// </summary>
 public static partial class KeycloakStandIdentifiers
 {
+    /// <summary>The <c>keycloak</c> resource's health check that compares the live realm with the import.</summary>
+    public const string DriftHealthCheckKey = "keycloak-realm-drift";
+
+    /// <summary>The reset's command, as the drift check's findings name it.</summary>
+    public const string ResetCommand = "scripts/stand-reset.sh (PowerShell: scripts/stand-reset.ps1)";
+
     /// <summary>
     /// The stand's realm when `Keycloak:Realm` is not set (tech-024, ADR-0033: the realm name is configuration, because the
     /// company-wide realm MUSTASK runs in on a server is not called `mustask`).

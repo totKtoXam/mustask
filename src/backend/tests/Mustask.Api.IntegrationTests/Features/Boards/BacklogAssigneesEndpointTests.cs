@@ -25,7 +25,7 @@ public sealed class BacklogAssigneesEndpointTests(MustaskApiFactory factory)
         var ids = Enumerable.Range(0, count).Select(_ => UserDirectoryTestData.NewId()).ToArray();
         await UserDirectoryTestData.SeedAsync(
             factory,
-            ids.Select((id, index) => UserDirectoryTestData.Push(id, $"Имя{index + 1}", $"Фамилия{index + 1}", $"user{index + 1}-{id}@example.test")));
+            ids.Select((id, index) => UserDirectoryTestData.Person(id, $"Имя{index + 1}", $"Фамилия{index + 1}", $"user{index + 1}-{id}@example.test")));
 
         return ids;
     }
