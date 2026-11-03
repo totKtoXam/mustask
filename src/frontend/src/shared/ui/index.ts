@@ -24,6 +24,11 @@ export {
 export { ActionButton, type ActionButtonProps, type ActionTone } from './actions/ActionButton';
 export { IconAction, type IconActionProps, type IconActionSize } from './actions/IconAction';
 export {
+  IconToggleGroup,
+  type IconToggleGroupProps,
+  type IconToggleItem,
+} from './actions/IconToggleGroup';
+export {
   MenuButton,
   type MenuButtonProps,
   type MenuChoice,

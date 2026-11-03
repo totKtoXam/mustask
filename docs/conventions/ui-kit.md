@@ -73,6 +73,7 @@ migration is tracked in § 10.
 | a text button | `ActionButton` (`primary` once; `neutral`, `subtle`, `danger`) | MUI `Button` |
 | a main action with variants | `SplitButton` | `ButtonGroup` |
 | an icon-only button | `IconAction` (`row`, `chevron`, `header`, `bar`) | `IconButton`, a glyph size in `sx` |
+| a one-of-N switch of icon buttons (a layout, a display mode) | `IconToggleGroup` (`label`, `items`, `value`, `onChange`) | `ToggleButtonGroup`, a dropdown for two or three values |
 | a hairline glyph | the thin icons in `shared/ui/icons` — chevrons, add, remove, close, expand, more-vertical, refresh, undo, save, person | `createSvgIcon` in a slice |
 | a menu from a button | `MenuButton`; the «⋮» is `MoreActionsMenu` | `Menu` + `MenuItem` |
 | a header selector that searches and groups its choices | `SearchMenu` (a combobox over a grouped listbox; the host passes every text) | a `Popover` of your own |
@@ -116,6 +117,11 @@ ones that matter; the type is in the file.
 - `IconAction` — `label` (the name **and** the tooltip), `icon`, `size`, `tone`,
   `inactive` (aria-disabled, still focusable), `busy`. Name the row when many sit
   on a screen («Ещё действия: MSK-EPIC-1»). *Don't*: size a glyph yourself.
+- `IconToggleGroup` — `label` (the group's name, the control), `items` (`value`, `label` the
+  button's name, `icon`, `tooltip` the host's full text), `value`, `onChange(value)`. One value
+  of the set at a time, one Tab stop for the group, arrow keys between the buttons, `aria-pressed`; the pressed one has the
+  selection tint and a thick underline; the focus ring is inside the button. *Don't*: use it for
+  page views (those are `PageHeader views`) or for more than four values.
 - Thin icons — chevrons, add, remove, close, expand, more-vertical, refresh,
   undo, save, person; exported with the `Icon` suffix (`ThinCloseIcon`). **The
   card's header uses these and no Material glyph** (the shell's expand and close,
