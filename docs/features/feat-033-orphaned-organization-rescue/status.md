@@ -42,6 +42,8 @@ gate-3: pending
 
 - 2026-11-03 [orchestrator] Orchestrator's calls on plan-backend § 9, as recommended, to name at gate-3: D-1 accept the existing 409 «Пользователь уже состоит в организации» when a mod-016 add lands between the lock and the insert (AddMember unchanged); D-2 add organizations.rescue.reason_invalid «Причина содержит недопустимые символы»; D-3 the backend commit edits tokenClaims.ts and its test; D-4 the candidate search takes no organization id. Coding run waits for tech-025 (PR #55) on main.
 
+- 2026-11-03 [orchestrator] tech-025 on main (#55, ffa4a74c); origin/main merged by hand (929ca9f4; the app's sync tool refused: origin not pinned), ADR index conflict resolved by keeping both lines. Recheck: merged ADR-0034 and tech-025's backend are identical to what the spec and plan read, so BR-RS stands. Stage 4 coding run started (backend-developer).
+
 ## Notes
 
 Summary (from the queue line): system-admin rescues an organization left with no active administrator: sees the list of all organizations and appoints an admin there, audited, with no access to the organization's content. Closes doc-006 accepted risk H-1
