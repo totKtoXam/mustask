@@ -32,6 +32,8 @@ gate-3: pending
 
 - 2026-11-03 [orchestrator] Gate-1 approved by the human. Stage 3 (ux-designer) started: design delta, the cursor and limiter ADR, the 429 catalogue entry.
 
+- 2026-11-03 [orchestrator] Stage 3 done (ux-designer, b77b9503): design.md delta, prototype/index.html (9 scenarios), ADR-0034 proposed (cursor-paged group reads, per-user 6 + queue 6 / global 40 + queue 20, 3 s wait, 429 Retry-After 2). New parts: ProjectGroup and useGroupRead in features/boards, no kit part. Correction: GET …/organizations/{o}/workitems does not exist yet, design § 6 adds it. Prototype opened by the orchestrator in the browser pane: all 9 scenarios, part-loaded menu shows «Ниже» disabled with «Сначала нажмите «Показать ещё»», retry and refusal copy, deactivated group toast, no console errors; the cursor reload is silent by design. Open for gate-2: D-1..D-4. At gate-2.
+
 ## Notes
 
 Summary (from the queue line): «Рабочие элементы», «Канбан» and «Бэклог» at the organization and department level and «Рабочие элементы» at the team level: the organization-wide work-item list with feat-003's filters and keyword rules, and the aggregate backlogs and boards of every active project (department: the projects placed in it) as one collapsible group (swimlane on the board) per project in the project's own rank order, with a move inside a group and rows loaded per project as a group opens (reads capped at 4 in flight per tab, paged by a cursor), with the additive reads and the budgets of BR-NV-12 and BR-NV-20. Spec and stories US-6, US-10 live in feat-043's folder (its OQ-9); takes feat-042's board and backlog part, BR-NE-8's cross-project list and mod-020 CR-2's test.
