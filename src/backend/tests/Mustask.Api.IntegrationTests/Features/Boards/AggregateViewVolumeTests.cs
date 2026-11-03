@@ -88,7 +88,9 @@ public sealed class AggregateViewVolumeTests(MustaskApiFactory factory, ITestOut
         await WorkItemsTestData.ExecuteAsync(factory, $"VACUUM (ANALYZE) work_items");
 
         var org = $"/api/organizations/{organization.Id}";
-        var first = departments[0];
+        var someDepartment = (await Get($"{org}/backlogs/stories/groups?grouping=department")).Body.GetProperty("groups").EnumerateArray()
+            .First(group => group.GetProperty("id").ValueKind == System.Text.Json.JsonValueKind.String && group.GetProperty("count").GetInt32() > 150)
+            .GetProperty("id").GetGuid();
         var someTeam = teams[0];
         var someProject = projects[0];
 
@@ -96,14 +98,14 @@ public sealed class AggregateViewVolumeTests(MustaskApiFactory factory, ITestOut
         var layout = await Get($"{org}/boards/stories/groups");
         var column = layout.Body.GetProperty("groups")[0].GetProperty("columns")[0].GetProperty("key").GetString()!;
 
-        foreach (var path in Reads(org, first, someTeam, someProject, column))
+        foreach (var path in Reads(org, someDepartment, someTeam, someProject, column))
         {
             Assert.Equal(HttpStatusCode.OK, (await Get(path.Path)).Status);
         }
 
         var missed = new List<string>();
 
-        foreach (var (name, path) in Reads(org, first, someTeam, someProject, column))
+        foreach (var (name, path) in Reads(org, someDepartment, someTeam, someProject, column))
         {
             var watch = Stopwatch.StartNew();
             var answer = await Get(path);
@@ -122,7 +124,7 @@ public sealed class AggregateViewVolumeTests(MustaskApiFactory factory, ITestOut
         {
             ("stream none, 3 pages deep", $"{org}/backlogs/stories/rows?grouping=team&group=none&limit=50"),
             ("team group, 3 pages deep", $"{org}/backlogs/stories/rows?grouping=team&group={someTeam}&limit=50"),
-            ("department group, 3 pages deep", $"{org}/backlogs/stories/rows?grouping=department&group={first}&limit=50"),
+            ("department group, 3 pages deep", $"{org}/backlogs/stories/rows?grouping=department&group={someDepartment}&limit=50"),
             ("project group by rank, 3 pages deep", $"{org}/backlogs/stories/rows?grouping=project&group={someProject}&limit=50"),
             ("work-item stream, 3 pages deep", $"{org}/workitems/rows?grouping=none&limit=50"),
         })

@@ -131,11 +131,12 @@ internal sealed class AggregateViewReadModel(MustaskDbContext context, IUserDire
         // A shallow page: every project's first skip + size items cover it whatever the other projects hold, one index range a project.
         // The second conjunct looks like nothing, and is what keeps EF from turning the correlation into a ROW_NUMBER window over the
         // whole table (it does so for a bare equality): the statement stays the LATERAL ADR-0036 wants.
+        // A keyword keeps few rows, so per-project index walks would run past most of the table looking for them: it takes the ordered pass too.
         // A deep page: reaching skip + size rows in each of the projects is most of the table, so one ordered pass with a top-N sort
         // (a heap of skip + size rows, whatever the depth) over the join cuts it instead (plan-backend D-7).
         IQueryable<Candidate> ordered;
 
-        if (skip + pageSize <= LateralReachLimit)
+        if (skip + pageSize <= LateralReachLimit && scope.Filter.Keyword is null)
         {
             var reach = (int)(skip + pageSize);
 
