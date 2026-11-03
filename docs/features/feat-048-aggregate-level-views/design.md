@@ -1,128 +1,198 @@
 # Design: Aggregate level views (feat-048)
 
-Stage 3 artifact, a **delta** on [feat-043's design § 12](../feat-043-area-project-team-navigation/design.md) (approved at feat-043's gate-2). § 12 fixed and is **not reopened here**: one MUI `Accordion` per project ordered by name then key; the summary (name, `Tag` key, count «40» / «3 из 40»); first group open on first visit; «Показать ещё» (next 50); «Свернуть все» and no «Развернуть все»; the board's swimlanes and 50-card cells; moves through the existing native drag and drop of `BacklogRow` and `BoardColumns` (whole row the source, grip an `aria-hidden` hint, drop line) and the keyboard path «Ещё действия», «Переместить» / «Переместить в колонку»; a drop in another group refused; the 4-in-flight cap per tab; open-state memory (10 at most). This file adds what is left. Spec: [`spec.md`](spec.md) (gate-1 approved, OQ-1..OQ-6 all A); rules BR-NV-12, BR-NV-17, BR-NV-20 are in feat-043's `spec.md`. Every string in «» is final. The reference tracker is never named.
+Stage 3 artifact, a **delta** on [feat-043's design § 12](../feat-043-area-project-team-navigation/design.md) (approved at feat-043's gate-2), reworked on 2026-11-03 for the grouping switch (spec BR-AV-1..12, US-11). § 12 fixed and is **not reopened here**: MUI `Accordion` groups with a summary (name, `Tag`, count «40» / «3 из 40»); first group open on first visit; «Показать ещё» (next 50); «Свернуть все» and no «Развернуть все»; the board's lanes and 50-card cells; moves through the existing native drag and drop of `BacklogRow` and `BoardColumns` and the keyboard path «Ещё действия», «Переместить» / «Переместить в колонку»; a drop in another group refused; the 4-in-flight cap per tab; open-state memory (10 at most). What changes: **the group is no longer always a project** (§ 3), the user picks the grouping (§ 2). Spec: [`spec.md`](spec.md) (gate-1 approved, OQ-1..OQ-9 all A). Every string in «» is final. The reference tracker is never named.
 
-- Prototype: [`prototype/index.html`](prototype/index.html), the delta states only (§ 8). feat-043's prototype keeps its «feat-048» placeholders.
-- ADRs relied on: [ADR-0014](../../adr/0014-server-side-registry-paging-envelope.md)/[0015](../../adr/0015-gridify-for-list-queries.md) (the page envelope stays on lists), **[ADR-0036](../../adr/0036-cursor-paged-group-reads-and-read-limiter.md)** (proposed: the cursor and the limiter), [ADR-0032](../../adr/0032-object-pages-and-navigation-context.md) (selectors, menu table), [ADR-0005](../../adr/0005-stable-error-code-registry.md).
+- Prototype: [`prototype/index.html`](prototype/index.html) (§ 9).
+- ADRs relied on: [ADR-0014](../../adr/0014-server-side-registry-paging-envelope.md)/[0015](../../adr/0015-gridify-for-list-queries.md) (the page envelope stays on the flat list), **[ADR-0036](../../adr/0036-cursor-paged-group-reads-and-read-limiter.md)** (proposed: the cursor with two order keys, the grouping parameter, the limiter), [ADR-0032](../../adr/0032-object-pages-and-navigation-context.md), [ADR-0005](../../adr/0005-stable-error-code-registry.md).
 
-## 1. Reuse first; one new part
+## 1. Reuse first; one new part, renamed
 
 | Wanted | Verdict |
 |---|---|
-| Organization / department / team «Рабочие элементы» | **Not new.** The project's `WorkItemsPage` (feat-003: `PageHeader`, `FilterBar`, `DataTable`, `TablePager`, `StateFrame`) takes a scope (organization, department, team, project) and two more columns (§ 2) |
-| Group (backlog) and lane (board) | **One new feature part, `ProjectGroup`** in `features/boards/components` (not the kit: one feature uses it twice). MUI `Accordion` (`slotProps.heading` an `h2`) + `AccordionSummary` (name, `Tag`, count) + `AccordionDetails`. It owns the group's read states (§ 3) so the backlog's `BacklogTable` and the board's lane draw only rows and cells. Justified: § 12 names `Accordion` but no part owns the states four screens (backlog, board; organization, department) would otherwise copy |
-| Read queue, retry, cursor, 429 backoff | **A hook, `useGroupRead`**, not a part: the 4-per-tab queue, the `Retry-After` retry (slot released while waiting), the cursor, the held-row set by id |
-| Group's loading / empty / error | Kit: `TableSkeleton` (in `RegistrySkeleton`'s family) / `BoardSkeleton`, `InlineEmpty`, `InlineNotice`, `ErrorBanner` (compact), `StatusRegion` (the boards feature's live region) |
+| **The «Группировка» switch** | **Not new.** The kit's `MenuButton` (`selection="radio"`, menu name «Группировка») with an `ActionButton` text trigger «Группировка: По проекту» (the shipped `menuOpen` trailing `ExpandMore`). It is the panel's one menu, already used for the level drop-down; a `Select` or `ToggleButtonGroup` was rejected: four long Russian options do not fit a button row at 640 px, and a second selector style would sit beside `MenuButton`s |
+| Organization / department / team / project «Рабочие элементы» | **Not new.** The project's `WorkItemsPage` (feat-003) takes a scope; grouped form in § 4 |
+| A group (backlog, list) and a lane (board) | **One new feature part, `ViewGroup`** in `features/boards/components` (**renamed from `ProjectGroup`**: a group is a department, a project or a team now). MUI `Accordion` (`slotProps.heading` an `h2`) + `AccordionSummary` (name, optional `Tag`, count) + `AccordionDetails`; it owns the group's read states (§ 3). With no header (grouping «Без группировки») it draws the same states in a plain `Box` (`role="region"`, named by the page), so the stream of rows has one implementation. Not the kit: one feature uses it three times |
+| Read queue, retry, cursor, 429 backoff | **A hook, `useGroupRead`** (name kept: it reads one group of any grouping): the 4-per-tab queue, the `Retry-After` retry (slot released while waiting), the cursor, the held-row set by id. A group is named `{grouping, id}` (`id` absent for «Без команды», «Без департамента» and the stream) |
+| Group's loading / empty / error | Kit: `TableSkeleton` / `BoardSkeleton`, `InlineEmpty`, `InlineNotice`, `ErrorBanner` (compact), `StatusRegion` |
 | «Показать ещё», «Повторить», «Свернуть все» | `ActionButton` (text variant); «Свернуть все» in the `PageHeader` bar |
 | Move menu | The shipped `MoreActionsMenu` with `BacklogRow`'s «Переместить» items |
-| Notices | `useNotice` for the deactivated project and a refused move; `InlineNotice` for the Q-9 hint |
-| «Без команды» | MUI `FormControlLabel` + `Checkbox` in the `FilterBar` slot where `TeamFilter` stood; no new kit part |
+| Notices | `useNotice` (deactivated project, refused move); `InlineNotice` for the two hints (§ 5) |
+| «Без команды» (project list) | `FormControlLabel` + `Checkbox` in the `FilterBar` slot of `TeamFilter` |
 
-## 2. «Рабочие элементы»: organization, department, team
+## 2. The switch: place, options, default, memory
 
-Menu entry and address as feat-043's menu table (`workitems`, `areas/:a/workitems`, `teams/:t/workitems`). The project's list page serves all four levels; the **project level keeps today's page** except for one control (below).
+- **Place:** the first command in the `PageHeader` bar of «Бэклог», «Канбан» and «Рабочие элементы», left of «Свернуть все». The title line (title and the narrowing `Tag`) is unchanged. It is not a filter: «Сбросить фильтры» and the entry do not touch it (BR-AV-1).
+- **Options (BR-AV-2),** always in this order, the current one checked: «Без группировки», «По департаменту», «По проекту», «По команде»; the level offers:
 
-- **Layout:** `PageHeader` (title = the level's object: the organization, the department, the team; no create command here, BR-NV-12), `FilterBar` (feat-003's filters: keyword, state, «Исполнитель», type, level), `DataTable` «Рабочие элементы», `TablePager` (50 a page, total). Columns: the shipped ones, plus «Проект» (link: sets the project, ADR-0032) and «Команда» (the owning team or «Без команды» as plain text). Order and total: change time, then number, then project key (BR-NV-12). The «Команда» filter is **absent** on the bar at every level of this line: the selector is the one state (Q-6 A).
-- **Title `Tag`** (§ 4 of feat-043): «сужено: команда MARS, департамент Логистика». It names the selectors that narrow and are not the page's own object: at the organization, any of «команда …», «департамент …» (that order); at a department, «команда …» only (the title already names the department); at a team, «департамент …» only. Nothing narrowing, no `Tag`.
-- **The project list's control** (stated requirement of `spec.md`): `TeamFilter` goes, **«Без команды»** takes its place (`Checkbox`, label «Без команды»; sent as `teamId=none`). Exclusive with the selector: switching it on while a team is chosen resets the selector to «все» with the shell's notice «Выбор сброшен: команда MARS.» (the shipped format, `resetNotice`); choosing a team while it is on switches it off without a notice (the control visibly clears). The project's backlog and board keep `ViewFilterRow`'s «Команда» until feat-013; recorded.
-- **States** (one frame, `StateFrame`): loading `TableSkeleton`, one `role="status"` «Загрузка данных»; error `ErrorBanner` «Повторить»; empty with nothing chosen `InlineEmpty` «Рабочих элементов пока нет»; empty after a filter or selector «Ничего не найдено» with «Сбросить фильтры» when a filter is set; refused level: the catalogue's. The keyword read may take up to 5 s (budget): the table keeps its skeleton, no spinner text. These lists are single reads: no 429 here (OQ-2).
-- **Permissions:** all roles read; there are no row commands. A non-member: «Организация не найдена» (§ 4 of feat-043).
-- **Narrow widths:** the table scrolls inside its card; «Проект» is the second column, so it stays visible; filters wrap.
+| Level (most specific selector) | Offered |
+|---|---|
+| Organization | all four |
+| Department | «Без группировки», «По проекту», «По команде» |
+| Team | «Без группировки», «По проекту» |
+| Project | «Без группировки», «По команде» |
+| Project and team both chosen | the control is **absent** (one option) |
 
-## 3. A group of «Бэклог» and a lane of «Канбан»: all states
+- **Default and memory (BR-AV-3).** Defaults: «Бэклог», «Канбан»: «По проекту» at organization and department level, and at team level **with a department chosen**; «Без группировки» at team level with no department (feat-040's views as today, OQ-7 A) and at project level; «Рабочие элементы»: «Без группировки» everywhere. The choice is kept per user, organization, view and level in the browser; a remembered option the level no longer offers falls back to the default silently. Choosing re-reads the view from its first page, keeps filters and selectors, and is announced through `StatusRegion` («Группировка: По команде»). Not in the address.
+- **Narrow widths:** the switch stays visible and wraps with the bar; «Свернуть все» moves into «Ещё действия».
+- **States:** enabled while the headers read is pending (a second choice replaces the first read); all roles read and switch.
 
-One header read gives the groups (count «40»; narrowed «3 из 40» when a selector narrows; a filter is not built here, OQ-5). The group's own states live in `AccordionDetails`; the **header keeps its name, key and count in every state**, so the page never jumps.
+## 3. Groups, lanes and the stream: headers, forms, all states
+
+**Headers per grouping** (name `h2`, count right; narrowed «3 из 40»; the headers come from one grouped count read):
+
+| Grouping | Group header | Order | Last |
+|---|---|---|---|
+| По проекту | name + key `Tag` | name, key | — |
+| По департаменту | department name | name | «Без департамента» (projects at the top level) |
+| По команде | team name | name | «Без команды» |
+
+«Без команды» and «Без департамента» are ordinary groups with that name and no `Tag`. A group with no row has no header (and its open-state entry is ignored).
+
+**«Без группировки» (BR-AV-5, -9):** no header and no lane. «Бэклог»: one flat list of rows; «Канбан»: one board without lanes (columns of the states, cells of 50 cards, «Показать ещё» per column); the count is shown once as a line in the page bar, «Элементов: 40» / «Элементов: 3 из 40»; «Свернуть все» is absent. The list is read as one group: the same cursor, limiter, cap and states below, with the neutral copy of the table (stream column).
+
+Rows inside non-project groups are flat (no nesting, no indent): change-time order cannot keep a parent next to its children (D-6).
+
+The group's own states live in `AccordionDetails` (or the plain `Box`); the **header keeps its name, key and count in every state**.
 
 | State | The user sees | Rules |
 |---|---|---|
 | Closed | Summary only | No read |
-| Waiting for a slot (a restored set of 10 opens, 4 at a time) | Skeleton rows, `role="status"` «Загрузка элементов проекта» | Starts when one of the tab's 4 is free |
-| Loading, first page | The same skeleton (5 rows; a board cell 3 cards) | — |
-| Loaded | Rows or cards in the project's rank order, then «Показать ещё» while `nextCursor` exists; nothing at the end | 50 a page; a row already held is dropped by id (BR-NV-20) |
-| Loading more | «Показать ещё» disabled, `CircularProgress` inside, rows stay | — |
-| Empty (the group emptied meanwhile: its last item moved or deleted) | `InlineEmpty` «В проекте больше нет элементов этого уровня» | Headers re-read |
-| **Refused, retrying** (429) | The loading state plus a caption «Сервис занят, пробуем ещё раз…» (`aria-live="polite"`) | Wait `Retry-After` (else 1 s, doubling), at most 3 tries; **the group releases its slot of the tab's 4 while it waits** (OQ-1) |
-| **Refused, last try failed** | Inline `ErrorBanner` (compact) «Не удалось загрузить элементы проекта. Сервис занят, попробуйте ещё раз.» with «Повторить» (starts a fresh run of tries); other groups unaffected | First page only |
-| **Refused on «Показать ещё»** | Rows kept; «Показать ещё» shown again and an `InlineNotice` (error) under the group with the same message | (OQ-4.2) |
-| Other read error (not 429, not a cursor 400) | `ErrorBanner` (compact) «Не удалось загрузить элементы проекта.» with «Повторить»; rows held stay | A 400 naming a level or filter is this state too |
-| **Cursor refused** (400 naming `cursor`) | The loading state: rows dropped, first page read again, headers re-read. **No message** | One automatic reload per «Показать ещё»; a second 400 in a row is the error state above |
-| **Project deactivated meanwhile** («Проект не найден» on a page, a row move or a card move) | The group or lane disappears; headers re-read; `useNotice` «Проект больше недоступен: группа скрыта.» | A header read that then fails is the page's `ErrorBanner` «Повторить» |
-| Whole page: no group at all | Backlog `InlineEmpty` «В бэклоге пока нет элементов»; board «На доске пока нет элементов»; narrowed by a selector «Ничего не найдено» | — |
+| Waiting for a slot (a restored set of 10, 4 at a time) | Skeleton rows, `role="status"`: «Загрузка элементов группы» (stream: «Загрузка элементов») | Starts when one of the tab's 4 is free |
+| Loading, first page | The same (5 rows; a board cell 3 cards) | — |
+| Loaded | Rows or cards, then «Показать ещё» while `nextCursor` exists | 50 a page; a held row is dropped by id |
+| Loading more | «Показать ещё» disabled, `CircularProgress`, rows stay | — |
+| Empty (the group emptied meanwhile) | `InlineEmpty` «В группе больше нет элементов этого уровня» (stream: «Элементов этого уровня больше нет») | Headers re-read |
+| **Refused, retrying** (429) | The loading state plus «Сервис занят, пробуем ещё раз…» (`aria-live="polite"`) | `Retry-After` (else 1 s, doubling), 3 tries; **the slot is released while waiting** (OQ-1) |
+| **Refused, last try failed** | Compact `ErrorBanner` «Не удалось загрузить элементы группы. Сервис занят, попробуйте ещё раз.» + «Повторить» (stream: «…загрузить элементы. Сервис занят…») | First page only; other groups unaffected |
+| **Refused on «Показать ещё»** | Rows kept, the button again and an `InlineNotice` (error) with the same message | (OQ-4.2) |
+| Other read error | Compact `ErrorBanner` «Не удалось загрузить элементы группы.» (stream: «…загрузить элементы.») + «Повторить»; held rows stay | A 400 naming a level, filter or `grouping` is this state too |
+| **Cursor refused** (400 naming `cursor`) | Loading state: rows dropped, first page read again, headers re-read. **No message** | One automatic reload per «Показать ещё»; a second 400 in a row is the error state |
+| **Project deactivated meanwhile** (only by project: a page, a row or a card move answers «Проект не найден») | Group or lane disappears; headers re-read; `useNotice` «Проект больше недоступен: группа скрыта.» | Under other groupings the project's rows just leave the next read |
+| **Item changed group meanwhile** (BR-AV-10) | Nothing at once. At the next read the item is in its new group, counts adjust | No message; a held row's commands work by its own project |
+| Whole view: no group at all | Backlog «В бэклоге пока нет элементов»; board «На доске пока нет элементов»; list «Рабочих элементов пока нет»; narrowed or filtered «Ничего не найдено» (+ «Сбросить фильтры» when a filter is set) | `InlineEmpty` |
+| Switching grouping / headers read pending | Three `Skeleton` header bars, one `role="status"` «Загрузка данных» | The switch stays enabled |
 | Headers read fails | `ErrorBanner` «Повторить» in place of the groups | One read, no 429 (OQ-2) |
 
-**Permissions:** «Читатель» sees groups and «Показать ещё» but no grip, no «Переместить», no «Переместить в колонку» (the menu has no such items; with none left the row has no «Ещё действия»). «Администратор» and «Участник»: moves where the project's own board or backlog allows. A move refused by 403 (the project's code, until mod-019) shows the catalogue's text through `useNotice`; the row or card stays.
+**Permissions:** all roles read, group, switch and «Показать ещё». «Читатель» has no grip, no «Переместить», no «Переместить в колонку» (none left: no «Ещё действия»). «Администратор» and «Участник»: moves where the item's project allows, 403 shows the catalogue text through `useNotice`; the row or card stays.
 
-**Accessibility:** the summary is the accordion button (`aria-expanded`, `aria-controls`); the group is an `h2` named by the project; the count is read as shown («3 из 40»). A page of «Показать ещё» is announced through `StatusRegion` («Загружено ещё элементов: 50»); focus stays on the button, or on the first new row when the button leaves. Colour never alone.
+**Accessibility:** the summary is the accordion button (`aria-expanded`, `aria-controls`); the count is read as shown. A «Показать ещё» page is announced («Загружено ещё элементов: 50»); focus stays on the button, or goes to the first new row when it leaves. Colour never alone.
 
-**Narrow widths:** the summary wraps (key `Tag` and count under the name below 640 px); lanes scroll horizontally **inside the lane** with the lane header fixed on the left; «Свернуть все» moves into «Ещё действия».
+**Narrow widths:** the summary wraps (key `Tag` and count under the name below 640 px); lanes scroll horizontally inside the lane with its header fixed left.
 
-## 4. Narrowed groups and the Q-9 hint
+## 4. «Рабочие элементы»: the flat list and the grouped form
 
-When a selector narrows (a team with a department, or a team with the organization/department level), the backlog groups show their rows in the project's rank order with **no grip and no move items**; the hint is **one** `InlineNotice` (info) under the page header, not one per group: «Пока выбор сужает список, порядок не меняется. Выберите «все», чтобы менять его.» The title `Tag` is «сужено: …» (§ 2). The board is not reordered, so its card moves between columns stay available while narrowed, without the hint. This also applies to feat-040's team backlog narrowed by a department (BR-NV-17 (2)): same groups, same hint.
+Entry and address as feat-043's menu table. One page serves the four levels, the same filters (keyword, state, «Исполнитель», type, level), the same columns (shipped, plus «Проект» as a link and «Команда» as plain text or «Без команды», D-4 A); no create command; no «Команда» filter at levels above the project; title `Tag` «сужено: команда MARS, департамент Логистика» (feat-043 § 4: at the organization any of «команда …», «департамент …»; a department, «команда …»; a team, «департамент …»).
 
-## 5. Moves in a group that is only part loaded (OQ-6 A)
-
-The menu is the shipped «Переместить» (items «В начало», «Выше», «Ниже», «В конец»); a group holds the pages read so far (`loaded` rows of `count`).
-
-| Item / target | Group fully loaded | Group part loaded (`nextCursor` present) |
+| | «Без группировки» (default) | Grouped (BR-AV-8) |
 |---|---|---|
-| «В начало» | enabled except on the first row | same |
-| «Выше» | enabled except on the first row | same |
-| «Ниже» | enabled except on the last row | enabled except on the **last loaded row**, where it is **disabled**, with the secondary line «Сначала нажмите «Показать ещё»» in the item |
-| «В конец» | the end of the group | **the end of the project's backlog**: the row leaves the loaded set, the count is unchanged, and `useNotice` says «Элемент перенесён в конец бэклога проекта. Он появится после «Показать ещё».» The row appears once, when the pages reach it, never twice (dropped by id) and never lost |
-| Drop between loaded rows | drop line | same |
-| Drop below the last loaded row | the end is a target | **not a target** (not-allowed cursor, no line) until `nextCursor` is absent |
+| Frame | `DataTable` «Рабочие элементы» | `ViewGroup` accordions of § 3, each with a `DataTable` inside |
+| Rows | 50 a page, order: change time, number, project key | Same order, 50 a group then «Показать ещё» |
+| Paging | `TablePager` with the total (ADR-0015 envelope) | **No pager, no page numbers** |
+| Sorting | Sortable columns as feat-003 | **Columns not sortable** (`SortableHeaderCell` not used, plain headers); no sort control appears |
+| Read | One page read; keyword read up to 5 s, table keeps its skeleton | Grouped count + group reads under the limiter |
 
-After a move the group updates locally, with no re-read of the held pages. A 409 `boards.backlog.reorder_stale` (the shipped text «Не удалось переместить: бэклог изменился. Список обновлён — повторите перемещение.») reloads that group from the first page. A 403 or «Проект не найден»: § 3.
+Switching keeps filters and selectors; from the flat list to a grouped one the page number and sort are dropped, back to the flat list it starts at page 1 in the default order. The project's list keeps one control: «Без команды» takes `TeamFilter`'s place (exclusive with the selector; choosing it while a team is selected resets the selector with «Выбор сброшен: команда MARS.»). The project's backlog and board keep `ViewFilterRow`'s «Команда» until feat-013.
 
-**Board:** a card dragged or moved to another column inside its lane leaves its cell (counts of both columns adjust by one) and the **target cell is read again from its first page** (one cell read, under the limiter), so the card is shown where its rank puts it, or not yet, when the cell is part loaded. No reorder on the board.
+States: the flat list's are feat-003's frame (`StateFrame`: «Загрузка данных», `ErrorBanner` «Повторить», «Рабочих элементов пока нет», «Ничего не найдено» + «Сбросить фильтры», refused level: the catalogue's). Grouped: § 3. A non-member: «Организация не найдена». Narrow widths: the table scrolls in its card, «Проект» stays visible.
 
-## 6. For the developer: the server side owed by this design
+## 5. Hints and what can be moved, per grouping
 
-**Reads (additive; the api-contract is the backend developer's).** Checked in `src/backend`: the project's `GET …/projects/{p}/backlogs/{level}` and `…/boards/{level}` return the whole view; `GET …/projects/{p}/workitems` is the page-enveloped list; there is **no** `GET /api/organizations/{o}/workitems` (feat-043 added only `overview` and `selector-offers`), so the organization-wide list is new here.
+**One `InlineNotice` (info) under the page header, never one per group, never two at once** (D-1 A):
 
-| Read | Shape (input) |
+| Case | Text |
 |---|---|
-| Organization-wide list `GET /api/organizations/{o}/workitems` | The project list's parameters (feat-003) plus repeated `teamId` (incl. `none` only on the project's list), `departmentId`; the page envelope of ADR-0015 (`page`, `pageSize`, `total`); each row adds `project {id,key,name}` and `team`. Also `…/workitems/assignee-options` for the «Исполнитель» filter (2 s). The team level is the same read with `teamId` |
-| Grouped count, backlog `GET …/backlogs/{level}/groups` | `?departmentId=&teamId=` + feat-003's filter parameters (OQ-5); `{groups:[{projectId,key,name,count,total}]}` ordered by name then key; a project with `count` 0 is absent; one statement |
-| Grouped count, board `GET …/boards/{level}/groups` | Same, `counts` per state per group and per column |
-| Group read `GET …/projects/{p}/backlogs/{level}/rows` | `?limit=50&cursor=` + the same filters; `{rows:[…display order, depth/parent as the shipped backlog…], nextCursor}` (absent at the end); no `total` |
-| Cell read `GET …/projects/{p}/boards/{level}/cells` | `?stateId=&limit=50&cursor=` + filters; `{cards:[…], nextCursor}` |
+| «Бэклог», by project, a team or a filter narrows | «Пока выбор сужает список, порядок не меняется. Выберите «все», чтобы менять его.» |
+| «Бэклог», any other grouping or «Без группировки» at organization, department, and **by team at project level** | «При этой группировке строки идут по времени изменения, порядок не меняется. Выберите «По проекту», чтобы менять его.» |
+| Board, the list, project and team level «Без группировки» (as shipped) | No hint |
 
-Every read takes the caller (BR-NV-15). `limit` is 1..50 (default 50), otherwise the validation 400 naming `limit`.
+**What moves** (OQ-8 A: the project's and the team's own «Без группировки» views are as today):
 
-**The cursor** (ADR-0036): an opaque string, forward only; it names a **position in the rank order** (the last row's rank key and id), so a row moved or deleted behind it never breaks it. It also holds a fingerprint of the project, level, view and filter parameters: a malformed or foreign cursor (another project, level or filter set) is the existing validation 400 `boards.validation_failed` with the field `cursor` and reason `boards.invalid_cursor`.
+| View and grouping | Rows / cards in a group | Move menu / drag |
+|---|---|---|
+| Backlog, by project, organization or department, nothing narrows | The project's rank | «Переместить» (§ 6) and drag, inside the group only |
+| Backlog, by project, narrowed (team, department at team level, filter) | The project's rank | None; the narrowing hint |
+| Backlog, by department / team, stream | Change time, then number, then project key | **None**: no grip, no «Переместить», the change-time hint |
+| Backlog, project level «Без группировки» | The project's rank (shipped) | Shipped move, no hint |
+| Backlog, team level «Без группировки» | feat-040's order | As shipped |
+| Board, any grouping | By project: the project's rank; otherwise change time | **Only «Переместить в колонку» and the drag between columns, inside the lane** (a drop in another lane: not-allowed cursor, no line); the whole board without lanes: any column |
+| List (flat or grouped) | Change time | None |
 
-**The limiter** (ADR-0036), on the group read and the cell read only (and so their «Показать ещё», OQ-2); not on the grouped count, the lists or the keyword read (accepted risk, OQ-2):
+A move updates its group locally; a card moved into a part-loaded cell re-reads that cell from its first page (D-3 A). When the item's team changes, nothing jumps (BR-AV-10).
+
+## 6. Moves in a part-loaded by-project group (OQ-6 A)
+
+Items «В начало», «Выше», «Ниже», «В конец» of the shipped «Переместить».
+
+| Item / target | Fully loaded | Part loaded (`nextCursor` present) |
+|---|---|---|
+| «В начало», «Выше» | enabled except on the first row | same |
+| «Ниже» | enabled except on the last row | **disabled on the last loaded row**, secondary line «Сначала нажмите «Показать ещё»» |
+| «В конец» | end of the group | **end of the project's backlog**: the row leaves the loaded set, the count is unchanged, `useNotice` «Элемент перенесён в конец бэклога проекта. Он появится после «Показать ещё».» |
+| Drop below the last loaded row | a target | **not a target** until `nextCursor` is absent |
+
+A 409 `boards.backlog.reorder_stale` (shipped text) reloads that group from the first page. 403 or «Проект не найден»: § 3.
+
+## 7. For the developer: the server side owed
+
+**Reads (additive; the api-contract is the backend developer's).** Checked in `src/backend`: only the project-scoped `GET …/projects/{p}/backlogs/{level}`, `…/boards/{level}` and the page-enveloped `…/projects/{p}/workitems` exist; the aggregate reads below are all new, scoped to the organization. `grouping` is `none | department | project | team`; a grouping the level does not offer (BR-AV-2) is the validation 400 naming `grouping`. `scope` = optional `departmentId`, `teamId`, `projectId` and feat-003's filters (OQ-5).
+
+| Read | Shape |
+|---|---|
+| Grouped count `GET /api/organizations/{o}/{view}/{level}/groups?grouping=…` (`view` = `backlogs`, `boards`, `workitems`) | `{groups:[{kind,id|null,key?,name,count,total}]}` in the order of § 3, the empty absent; `none` gives one group; the board adds counts per state; one statement, a `GROUP BY` of the grouping's key (project: `project_id`; department: `project_id` rolled up by the project node's parent area; team: `owning_team_id`) |
+| Group read `GET …/backlogs/{level}/rows?grouping=&group=&limit=50&cursor=` | `group` = the id, or `none` for «Без команды», «Без департамента» (with `grouping=none` absent). `{rows:[…], nextCursor}`, no total. By project: rank order with depth/parent as shipped; else change time, flat |
+| Cell read `GET …/boards/{level}/cells?grouping=&group=&stateId=&limit=&cursor=` | `{cards, nextCursor}` |
+| Flat list `GET /api/organizations/{o}/workitems` | New; the project list's parameters plus repeated `teamId`, `departmentId`; the ADR-0015 envelope; rows add `project {id,key,name}` and `team`; with `…/workitems/assignee-options`. Used for «Без группировки» only |
+
+Every read takes the caller (BR-NV-15); `limit` 1..50 (default 50).
+
+**The cursor** (ADR-0036): opaque, forward only, names a **position in the group's order**, which has **two keys**: `rank` (project rank key and id) for by project, `changed` (change time, number, project key) for everything else, the stream included. It fingerprints project/level/view/filters **and the grouping and the group**; a malformed or foreign cursor is the validation 400 `boards.validation_failed`, field `cursor`, reason `boards.invalid_cursor`. A row moved above the cursor is not seen until the group is reopened (approved stale-row rule).
+
+**The limiter** (ADR-0036) is on the group read and the cell read of **every grouping**, not on the grouped count, the flat list or the keyword read (OQ-2):
 
 | | Value |
 |---|---|
-| Key | the Keycloak subject (`sub`), across organizations, tabs and devices; per API process |
-| Per user | **6** in flight, **queue 6**, waiting at most **3 s** |
-| Global (per process) | **40** in flight, **queue 20**, waiting at most 3 s (Npgsql's default pool is 100; 60 stay for everything else) |
-| Full (queue full or the wait ran out) | **429** `http.too_many_requests`, header `Retry-After: 2` |
-| Held | from the start of the read until its connection is released |
+| Key | the Keycloak subject (`sub`), across organizations, tabs, devices; per API process |
+| Per user | **6** in flight, **queue 6**, wait at most **3 s** |
+| Global (per process) | **40** in flight, **queue 20**, wait 3 s (pool 100; 60 stay for the rest) |
+| Full | **429** `http.too_many_requests`, `Retry-After: 2` |
 
-Two tabs restoring 10 groups each are 8 reads: 6 run, 2 wait a moment, none refused (the NFR of `spec.md`, tested with a fake clock: the 8 pass, a 13th concurrent read of one user is refused, 41 global in flight with a 21st queued are refused). The panel's 4-per-tab cap is unchanged. The BFF (ADR-0022) must pass `Retry-After` through.
-
-**Error catalogue (the entries are the backend developer's):**
+Two tabs restoring 10 groups each are 8 reads: 6 run, 2 wait, none refused (tested with a fake clock). The 4-per-tab cap is unchanged; the BFF (ADR-0022) must pass `Retry-After`.
 
 | Code | Status | Russian | Kazakh (needs review) |
 |---|---|---|---|
-| `http.too_many_requests` (file `http.json`, no params) | 429 | Сервис сейчас занят. Повторите запрос через несколько секунд. | Қызмет қазір бос емес. Сұранысты бірнеше секундтан кейін қайталаңыз. |
-| `boards.invalid_cursor` (file `boards.json`, a field reason, no params) | 400 | Некорректный курсор страницы. | Бет курсоры дұрыс емес. |
+| `http.too_many_requests` (`http.json`) | 429 | Сервис сейчас занят. Повторите запрос через несколько секунд. | Қызмет қазір бос емес. Сұранысты бірнеше секундтан кейін қайталаңыз. |
+| `boards.invalid_cursor` (`boards.json`, field reason) | 400 | Некорректный курсор страницы. | Бет курсоры дұрыс емес. |
 
-The panel shows the group copy of § 3, never the catalogue text, for a 429; the catalogue text serves other clients.
+The panel shows the group copy of § 3 for a 429, never the catalogue text.
 
-## 7. Decisions for gate 2
+### Budget check, change-time order (BR-AV-11)
+
+The table `work_items` has `project_id`, `type_id`, `owning_team_id`, `changed_at`, `number` and no department or organization column. Each group read is **one statement** (constant count): a `LATERAL` per (project, level type) that takes the first 50 after the cursor in index order, an outer top-50 on (`changed_at` desc, `number` desc, project key), then the heap for those 50 rows only. Reasoned from the schema, not measured; the 1 000 000-item test (owed by the NFR) decides.
+
+| Group | Plan | Index |
+|---|---|---|
+| Department; the stream | Probes: projects (≤200) × level types (≤4) = ≤800, each ≤50 entries: ≤40 000 entries, ≈ 0.1–0.3 s warm | **new** `ix_work_items_project_id_type_id_changed_at_number` `(project_id, type_id, changed_at DESC, number DESC)` `INCLUDE (id)` |
+| Team | Equality on the team and a type: ≤4 probes of ≤50 entries | **new** `ix_work_items_owning_team_id_type_id_changed_at_number` `(owning_team_id, type_id, changed_at DESC, number DESC)`; **replaces** `ix_work_items_owning_team_id_type_id` (its prefix) |
+| «Без команды» | As department, but `owning_team_id IS NULL` | **new** partial `ix_work_items_no_team_changed_at` `(project_id, type_id, changed_at DESC, number DESC) WHERE owning_team_id IS NULL`; without it a rare no-team share is found only by scanning most of the range |
+| Project (by team at project level) | The project's items of one team, ≤ a few thousand, sorted | The existing `(project_id, owning_team_id, type_id)` is enough |
+| Assignee filter | The assignee's items first, sorted | **new** partial `ix_work_items_assignee_id_changed_at` `(assignee_id, changed_at DESC, number DESC) WHERE assignee_id IS NOT NULL` |
+| State filter, keyword | Post-filter on the range; fine for a state holding ≥ 5% of the items, not for a very rare one | none (D-5) |
+
+By project (rank) keeps the shipped rank index. The grouped count is the same single pass as by project; the department roll-up adds a join of ≤200 projects. **The cost:** four new indexes carry `changed_at`, which every edit writes, and one is dropped, so each edit writes about three more index entries; a rare state filter is not covered. Raised, not relaxed: D-5.
+
+## 8. Decisions for gate 2
+
+D-1..D-4 stand as the human answered them (D-1 now covers both hints; D-3 any lane or column; D-4 holds under every grouping; D-2's numbers are unchanged, the group reads of every grouping count).
 
 | # | Question | Options |
 |---|---|---|
-| D-1 | Where the Q-9 hint sits on narrowed aggregate backlogs | **(A, recommended)** once under the header (§ 4). (B) in every group: ten identical notices on a restored page |
-| D-2 | The limiter's numbers (the human fixed the shape; the numbers are the design's) | **(A, recommended)** per user 6 + queue 6 + 3 s; global 40 + queue 20; `Retry-After: 2`. (B) per user 6, queue 2: 429 sooner, less memory held; a third tab is refused at once. (C) global 60: less headroom under the pool of 100 |
-| D-3 | A card moved into a part-loaded cell | **(A, recommended)** read the target cell again from its first page (§ 5). (B) put the card on top of the cell locally: cheaper, but the card shows in a wrong place until reload |
-| D-4 | «Рабочие элементы» at team level shows «Команда» | **(A, recommended)** same columns at every level but the project's (one variant). (B) hide the constant «Команда» at team level: one more variant to test |
+| D-1 | Hint place | **(A, rec., answered)** once under the header (§ 5). (B) in every group |
+| D-2 | Limiter numbers | **(A, rec., answered)** user 6 + queue 6 + 3 s; global 40 + queue 20; `Retry-After: 2` |
+| D-3 | A card moved into a part-loaded cell | **(A, rec., answered)** read the target cell again from its first page |
+| D-4 | «Команда» column at team level | **(A, rec., answered)** same columns at every level but the project's |
+| D-5 | The indexes BR-AV-11 needs for change-time order at 1 000 000 items (§ 7) | **(A, recommended)** the four new indexes above (one old index dropped), one migration with the slice, proved by the 1 000 000-item test; if that fails the task returns to gate 2 and the budget is not relaxed. Costs three more index entries per edit. A rare-state filter is not covered and is reported by the test. (B) A plus a state index `(project_id, state_id, changed_at DESC, number DESC)`: covers a rare state, one more entry per edit |
+| D-6 | Flat rows in non-project groups (no nesting) | **(A, recommended)** flat, no indent: change-time order cannot hold a parent beside its children, and nothing is hidden. (B) a row keeps a «в {parent}» line and the parent is pulled in: another read per page, duplicates a row |
 
-## 8. Prototype
+## 9. Prototype
 
-`prototype/index.html`: a single static file, no server. A scenario list drives one mock «Бэклог» (and one «Канбан» lane, one list): part-loaded group with the move menu (disabled «Ниже», «В конец» notice), drop targets, waiting and retrying, refused after the last try, refused on «Показать ещё», cursor reload, deactivated project, narrowed groups with the hint, «Без команды» with the exclusive reset. Counts are scaled (5 rows stand for 50).
+`prototype/index.html`: one static file, no server. The nine delta scenarios of the first design stay (part-loaded move menu, waiting, retrying, refused, cursor reload, deactivated project, narrowing hint, «Без команды», lane). Four new scenarios share one data set (the US-11 items, 3 rows stand for 50): the backlog, the board and «Рабочие элементы» with the switch, and the team level, with level buttons to see the offer (organization, department, team without a department, team with one, project), the default and the memory per level, the two hints, the move menu by project only, lanes with «Без команды», and the flat list with the pager and sorting against the grouped one with «Показать ещё».
