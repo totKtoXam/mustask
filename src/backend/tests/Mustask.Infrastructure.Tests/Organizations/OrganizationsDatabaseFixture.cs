@@ -88,17 +88,27 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
     }
 
     /// <summary>
-    /// Puts users into the user projection (mod-014) the way its push does, so the member reads (mod-016) have people to name.
+    /// Puts users into the user projection (mod-014) the way a sign-in does (tech-025), so the member reads (mod-016) have people to name.
     /// The projection is shared by the collection and never emptied, so a test names its users by ids no other test uses.
     /// </summary>
     public async Task SeedUsersAsync(params (string Id, string FirstName, string LastName, string Email, bool Enabled)[] users)
     {
         await using var context = NewContext();
-        var pushes = users
-            .Select(user => new UserPush(user.Id, 1_700_000_000_000_000, $"user.{user.Id}", user.FirstName, user.LastName, user.Email, user.Enabled, Deleted: false))
-            .ToList();
 
-        context.DirectoryUsers.AddRange(ProjectionBatch.Apply(pushes, new Dictionary<string, ProjectedUser>(), DateTimeOffset.UtcNow, snapshotId: null).Added);
+        foreach (var person in users)
+        {
+            var user = ProjectedUser.SignIn(new SignInProfile(person.Id, $"user.{person.Id}", person.FirstName, person.LastName, person.Email), DateTimeOffset.UtcNow);
+            context.DirectoryUsers.Add(user);
+
+            if (!person.Enabled)
+            {
+                // A row the retired push channel wrote for a disabled account is still read (ADR-0034).
+                var entry = context.Entry(user);
+                entry.Property(u => u.Enabled).CurrentValue = false;
+                entry.Property(u => u.IsActive).CurrentValue = false;
+            }
+        }
+
         await context.SaveChangesAsync();
     }
 

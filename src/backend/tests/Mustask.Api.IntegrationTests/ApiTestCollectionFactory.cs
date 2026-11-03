@@ -36,8 +36,7 @@ public sealed class ApiTestCollectionFactory : IXunitTestCollectionFactory
     /// Classes that cannot run beside another shard. Each reason is
     /// process-wide state a host of another shard would see or change:
     /// <list type="bullet">
-    /// <item>the console, captured with <see cref="ConsoleCapture"/> or
-    /// <c>Console.SetOut</c> — another shard's log lines would land in it;</item>
+    /// <item>the console, captured with <c>Console.SetOut</c> — another shard's log lines would land in it;</item>
     /// <item>environment variables set by the test, read by every host built
     /// while they are set;</item>
     /// <item>Serilog's static <c>Log.Logger</c>, which every host build and
@@ -55,19 +54,10 @@ public sealed class ApiTestCollectionFactory : IXunitTestCollectionFactory
         // the console
         typeof(ApiExplorerTests),
         typeof(SessionLogoutEndpointTests),
-        typeof(DeletionAuditLogQaTests),
-        typeof(DeletionAuditLogTests),
-        typeof(PushEnvelopeQaTests),
-        typeof(PushNulCharacterQaTests),
-        typeof(UserDirectoryLoggingTests),
         typeof(LoggingTests),
         typeof(ProductionLoggingTests),
         typeof(RealmReadinessTests),
         typeof(TokenLeakTests),
-
-        // the console and environment variables
-        typeof(PreviousSecretAuditTests),
-        typeof(PushChannelAuthenticationTests),
 
         // environment variables
         typeof(CorsTests),
@@ -87,7 +77,6 @@ public sealed class ApiTestCollectionFactory : IXunitTestCollectionFactory
         typeof(AreaVolumeEndpointTests),
         typeof(GetTeamsEndpointTests),
         typeof(GetWorkItemsEndpointTests),
-        typeof(UserDirectoryQaTests),
     };
 
     private const string ShardsVariable = "MUSTASK_API_TEST_SHARDS";

@@ -33,7 +33,7 @@ public sealed class KeycloakDriftHealthCheck(
     private volatile bool _passed;
 
     /// <summary>
-    /// Registers the check under <see cref="UserProjectionIdentifiers.DriftHealthCheckKey"/>
+    /// Registers the check under <see cref="KeycloakStandIdentifiers.DriftHealthCheckKey"/>
     /// as a single instance: <paramref name="create"/> runs once, and every probe
     /// asks that instance, so its cached pass and its record of logged findings
     /// last for the AppHost process.
@@ -45,7 +45,7 @@ public sealed class KeycloakDriftHealthCheck(
 
         services.AddSingleton(create);
         services.AddHealthChecks().Add(new HealthCheckRegistration(
-            UserProjectionIdentifiers.DriftHealthCheckKey,
+            KeycloakStandIdentifiers.DriftHealthCheckKey,
             provider => provider.GetRequiredService<KeycloakDriftHealthCheck>(),
             failureStatus: null,
             tags: null));
