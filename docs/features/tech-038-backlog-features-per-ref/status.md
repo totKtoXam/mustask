@@ -35,6 +35,7 @@ gate-3: pending
 - 2026-11-03 built on tech-037 (same `backlog.sh` read): the branch starts from its commit, the PR opens once tech-037 is merged.
 - 2026-11-03 cases: `sh scripts/tests/queue-numbering-cases.sh` 16/16 PASS (also `--shell dash`); new cases 11-12 fail against the tech-037 scripts.
 - 2026-11-03 `bash scripts/verify.sh` — exit 0, `RESULT: green`.
+- 2026-11-03 tech-037 merged as #61 without its gate-3/complete status commit; merged main and carried that commit here (tech-037 `status.md` only). Cases 16/16, `verify.sh` green again.
 
 ## Notes
 
