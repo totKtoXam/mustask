@@ -43,6 +43,7 @@ anything already fixed by the conventions.
 
 Keep the list current (append-only, newest on top):
 
+- ADR-0034 — Page the aggregate views' group reads by a cursor, and limit those reads per user and per process · proposed (deviates from ADR-0014/0015 for these reads only)
 - ADR-0033 — Run in the company-wide realm on four client roles, and keep the role-to-right table in code · proposed (amends ADR-0018, ADR-0027)
 - ADR-0031 — Make the organization's area tree a typed single tree whose project nodes are the projects' places in it · accepted (supersedes ADR-0028 rules 1, 2, 3, 6, 7, 8, its mod-018 delivery row, and ADR-0029 § 6 and its mod-018 delivery bullet, in part)
 - ADR-0030 — Delete a work item into its Removed state with the way back on its row, hide it by named entry points, and purge it in one locked transaction · accepted (amends ADR-0029 § 4)
