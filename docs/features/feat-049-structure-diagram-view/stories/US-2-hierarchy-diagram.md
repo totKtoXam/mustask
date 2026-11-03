@@ -112,6 +112,17 @@ Scenario: Level chips are a clickable ruler
   And in the horizontal layout the chips stand above the first row, in the vertical layout at the start of the row of their level in each section band
   And every card shows its true level number: department 1, its project and its team 2, the sub-area 3; a top-level project and a team in «Без департамента» are 1
   And with no chip pressed all levels are shown
+  And nothing else stands beside the chips: no empty or faint circle, no control other than the chips (the text button «Все уровни» is in the toolbar, BR-SD-19)
+
+Scenario: Each level chip explains itself
+  When I hover a chip, or focus it with the keyboard
+  Then a tooltip says what that level holds and what a click does:
+    | chip | the tooltip starts |
+    | 1 | «Уровень 1 — департаменты, проекты верхнего уровня и команды без департамента.» |
+    | 2 | «Уровень 2 — проекты и команды под департаментом, области под проектом верхнего уровня.» |
+    | N from 3 | «Уровень N — области N-го уровня вложенности.» |
+  And it ends with the action: «Нажмите, чтобы показать только этот уровень» in «Только выбранные уровни»; «Нажмите, чтобы показать этот и более глубокие уровни» in «Уровень и вложенные»; «Нажмите, чтобы убрать уровень из выбранных» on a pressed chip
+  And the chip stays a button that a screen reader reads with the same text as its description
 
 Scenario: Only the chosen levels
   Given «Режим уровней» is «Только выбранные уровни» (the default)
@@ -133,13 +144,15 @@ Scenario: All levels
   Then no chip is pressed, every level is shown, the mode is unchanged and «Показаны все уровни» is announced
   And while no chip is pressed «Все уровни» is disabled
 
-Scenario: Each level has its outline colour
-  When I look at cards of levels 1, 2, 3, 4 and 5 or deeper
-  Then each card has an outline in its level's colour, the same colour as its level chip and its number badge, one colour for level 5 and deeper
-  And the number stays on every card, so the level is never told by colour alone
-  And every level outline colour has a contrast of at least 3:1 against the diagram background
-  And the text of every level badge and chip, level 3 included, has a contrast of at least 4.5:1 against its fill (BR-SD-12)
-  And a chosen card keeps its level outline and adds a ring (US-3)
+Scenario: Each level has its colour on the card itself
+  When I look at cards of levels 1, 2, 3, 4 and 5 or deeper, of every kind (department, project, sub-area, team)
+  Then each card wears its level's colour as a left edge, an outline and a light tint of its fill, the same colour as its level chip and its number badge, one colour for level 5 and deeper
+  And the number stays on every card and on every chip, so the level is never told by colour alone
+  And every level outline and edge colour has a contrast of at least 3:1 against the diagram background
+  And the text of every level badge and chip, level 3 included, has a contrast of at least 4.5:1 against its fill
+  And the text of a card has a contrast of at least 4.5:1 against its tint at rest, on hover, when related and when chosen (BR-SD-12)
+  And a deactivated card keeps its outline on a neutral fill
+  And a chosen card keeps its level colour and adds a ring (US-3)
 
 Scenario: Hidden levels drop their cards
   Given levels «1» and «3» are shown and level «2» is hidden
@@ -191,7 +204,7 @@ Scenario: The layout is switched
   Given the diagram is open with a node chosen, levels chosen and a section folded
   When I choose the other layout in «Раскладка»
   Then the picture is redrawn in the other layout within 200 ms at 200 projects and 200 teams, measured on the stand at stage 6 (not in jsdom)
-  And the chosen node, the level choice, the folds, the search and the expansion are kept
+  And the chosen node, the level choice, the folds, the search, the zoom and the expansion are kept
   And the choice is stored under its own key (US-1, BR-SD-9)
 
 Scenario: A wide vertical picture
@@ -200,17 +213,72 @@ Scenario: A wide vertical picture
   Then above the frame a note «Вертикальная раскладка широкая: показано узлов — N. Сверните ветви, выберите уровни или переключитесь на горизонтальную.» is shown with N the visible cards
   And nothing is blocked, and the note is gone when 120 or fewer cards are visible, or in the horizontal layout
 
-Scenario: Level controls and layout are icon buttons
-  When I look at the toolbar and the top of the frame
-  Then «Показ при выборе», «Раскладка», «Режим уровней» and «Все уровни» are icon buttons without a visible text label
-  And each has the same text as its tooltip and as its accessible name: «Показ при выборе: <режим>», «Раскладка: <значение>», «Режим уровней: <значение>», «Все уровни» (BR-SD-19)
-  And the three that open menus announce a menu, and the menu rows keep their text and hints
-  And «Все уровни» is disabled while no chip is pressed
+Scenario: Display mode, layout and level mode are segmented icon toggles
+  When I look at the toolbar
+  Then «Показ при выборе» (US-3), «Раскладка» and «Режим уровней» are three segmented icon toggles: each value is its own icon button, exactly one is pressed, there is no menu
+  And «Раскладка» offers «Горизонтально» and «Вертикально»; «Режим уровней» offers «Только выбранные уровни» and «Уровень и вложенные»
+  And each group is named after its control, and the accessible name of each button is its value (BR-SD-19)
+  And the tooltip of each button reads «<управление>: <значение>. <подсказка>», for example «Раскладка: Вертикально. Департаменты сверху»
+  And «Режим уровней» stands beside «Раскладка»
+  And «Все уровни» is a text button right after «Режим уровней», disabled while no chip is pressed
+
+Scenario: The focus ring stays on the button
+  When I focus a button of a toggle with the keyboard, and when I click it
+  Then the focus indicator is drawn around that button and nowhere else, and it does not drift off the icon
+
+Scenario: A toggle by keyboard
+  Given focus is on a button of a toggle
+  When I move to the button of another value and press Enter or Space
+  Then that value is applied and shown pressed, and focus stays on its button
 
 Scenario: Line styles and their legend
   When I open the diagram of an organization with a multi-department team
   Then the legend lists four lines: «вложенность», «команда работает над проектом», «та же команда в другом департаменте», «связь через скрытый узел»
   And each is drawn in a style of its own: nesting solid (dotted across hidden levels), team on a project dashed, copy join dash-dot, through a hidden card dotted (BR-SD-17)
+  And the strokes are heavy and dark enough to tell apart at a glance, each at least 3:1 against the diagram background
+  And the line on the canvas is drawn in the same stroke as its legend sample
+
+Scenario: Pan with the middle mouse button
+  Given the diagram is wider or taller than its frame
+  When I press the middle mouse button on the diagram and drag
+  Then the picture follows the pointer, and the cursor changes for as long as I drag and returns when I let go
+  And no card is chosen or opened by that gesture, and the browser's own autoscroll does not start
+  And the frame's scrollbars still work
+
+Scenario: Zoom with Ctrl and the wheel
+  Given the zoom is 100 %
+  When I turn the wheel over the diagram with Ctrl held
+  Then the picture zooms around the pointer, in the range from 50 % to 200 %, and does not go beyond either end
+  And the browser page itself is not zoomed
+  And the wheel without Ctrl still scrolls the frame
+  And no card, line, level choice or emphasis changes, only the size of the drawing (BR-SD-20)
+
+Scenario: The zoom control by keyboard
+  Given the toolbar shows «− 100% +» in a group named «Масштаб»
+  When I press «+» or «−» with the mouse or the keyboard
+  Then the zoom steps up or down within 50 % to 200 %, and the value shows it («120%»)
+  And «+» is inactive at 200 % and «−» at 50 %
+  And the tooltips of «−» and «+» are «Уменьшить масштаб (Ctrl + колесо мыши)», «Увеличить масштаб (Ctrl + колесо мыши)»
+  And «Масштаб: <значение>» is announced to a screen reader after each step
+  When I press the value «120%», or Enter on it
+  Then the zoom returns to 100 %, the value button is inactive at 100 %, and its name and tooltip read «Масштаб: 120%. Вернуть 100%» before it, «Масштаб: 100%» at 100 %
+
+Scenario: Zoom is not stored
+  Given I zoomed to 150 %
+  When I switch the layout, or switch to «Дерево» and back
+  Then the zoom is still 150 %
+  When I reload the panel, or change the organization
+  Then the zoom is 100 % and nothing about zoom is in browser storage (BR-SD-9, BR-SD-20)
+
+Scenario: Zoom and pan at volume
+  Given 200 projects and 200 teams
+  When I zoom with Ctrl + wheel or the buttons and pan with the middle button
+  Then each step changes the picture within 200 ms, measured on the stand with a seeded organization of that size in a named browser at stage 6 (not in jsdom)
+  And no read is sent and the layout is not rebuilt (checked by a test)
+
+Scenario: The hint under the frame
+  When I look under the diagram's frame
+  Then it tells the keys: Tab enters once, arrows move, Space chooses, Enter opens, Esc clears, «Ctrl + колесо мыши — масштаб, средняя кнопка мыши (зажать и двигать) — перемещение»
 
 Scenario: Find a node
   Given the diagram holds a collapsed branch with the sub-area «Приёмка»
@@ -252,7 +320,7 @@ Scenario: Counters line
 Scenario: Keyboard and screen reader
   When I press Tab
   Then focus enters the tree of the diagram once, on one item, and the next Tab leaves it (one Tab stop; BR-SD-10)
-  And the toolbar controls and the level group (chips, «Режим уровней», «Все уровни») are separate Tab stops before it
+  And the toolbar controls are separate Tab stops before it: «Найти узел», «Развернуть всё», each button of the toggles «Показ при выборе», «Раскладка» and «Режим уровней», «Все уровни» while enabled, the zoom buttons «−», «100%», «+», and the level chips
   And the arrow order is the same in both layouts: the section «Без департамента» header, its projects with sub-areas, its teams, then the second section's header and each department with its projects, sub-areas and teams, a team's copies being separate items
   And the arrow keys move focus between items, Left and Right fold and unfold a section or a branch, Left on a card goes to its nearest visible ancestor, with a visible focus
   And each card's accessible name states its type, its name, its parent department or «без департамента», its «ещё в: …» marks and, for a project or a team, the number of its relations

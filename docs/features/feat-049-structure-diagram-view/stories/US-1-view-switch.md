@@ -23,7 +23,7 @@ Scenario: Switch to the diagram
   And the address stays the page's address
   And the page title «Структура» stays
   And the tree's own filter «Найти область» and its page-head «Развернуть всё» / «Свернуть всё» are not shown
-  And the diagram has its own toolbar: «Найти узел», «Развернуть всё» / «Свернуть всё», the icon buttons «Показ при выборе» and «Раскладка» (BR-SD-19), the legend of line styles, and the counters line (US-2, US-3)
+  And the diagram has its own toolbar: «Найти узел», «Развернуть всё» / «Свернуть всё», the segmented toggles «Показ при выборе», «Раскладка» and «Режим уровней» with the text button «Все уровни» (BR-SD-19), the zoom control «− 100% +» (BR-SD-20), the legend of line styles, and the counters line (US-2, US-3)
   And «Создать департамент» stays in the page header for the holder of `area.create`, in both views
 
 Scenario: The choice is remembered
@@ -42,7 +42,7 @@ Scenario: A damaged memory falls back
   Then the tree is shown and no error appears
 
 Scenario: The display mode is remembered
-  Given I chose the mode «Подсветка» in the menu «Показ при выборе» in organization A
+  Given I chose the mode «Подсветка» in the toggle «Показ при выборе» in organization A
   When I leave «Структура» and open the diagram again, or reload the panel
   Then the mode is «Подсветка»
   And the memory is per user and organization, under its own key, apart from the view's (BR-SD-9)
@@ -112,13 +112,13 @@ Scenario: What survives a switch
   Then the filter text and the expansion are as I left them
   And while the diagram was shown the tree's filter had no effect on it (BR-SD-8)
   When I choose «Диаграмма» again
-  Then the search text, the section folds, the level choice, the display mode, the layout and the diagram's own expansion are as I left them
+  Then the search text, the section folds, the level choice, the zoom, the display mode, the layout and the diagram's own expansion are as I left them
   And the chosen node is dropped: nothing is emphasised
 
 Scenario: What is not stored
-  Given I chose levels, folded a section and typed «Найти узел» text in the diagram
+  Given I chose levels, folded a section, typed «Найти узел» text and zoomed to 150 % in the diagram
   When I reload the panel, or open «Структура» of another organization
-  Then every level is shown, both sections are unfolded and the search is empty
+  Then every level is shown, both sections are unfolded, the search is empty and the zoom is 100 % (BR-SD-20)
   And browser storage holds only the view, the display mode and the layout, each under its own key (BR-SD-9)
 
 Scenario: The empty organization

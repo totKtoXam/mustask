@@ -16,7 +16,7 @@ Stage 3 of an M task, frontend only, inside `features/organizations`. Closes US-
 | Chevrons, section toggles | `IconAction` (`tooltip={false}`, `tabIndex={-1}`) | like the tree's chevron |
 | Segmented toggles (R4-1,3,6) | **new kit part `IconToggleGroup`** over MUI `ToggleButtonGroup` (`size="small"`, `exclusive`) + `ToggleButton` + `Tooltip` | the raw MUI part is barred (KIT-2); icons § 4.9 |
 | Level chips; «Все уровни» | `ActionButton`-style round chip, `aria-pressed` (colour § 4.4); `ActionButton` `subtle` | tooltips § 4.4 |
-| Zoom (R4-5) | `IconAction` −/+ round an `ActionButton` `subtle` «100%» | § 4.10 |
+| Zoom (R4-5) | `IconAction` −/+ round an `ActionButton` `subtle` «100%» | § 4.9 |
 | Search, «Развернуть всё» | kit search field, `ActionButton` | |
 | Announcements | `LiveRegion` (`serial`) | |
 | Links | `useObjectLink` + `rowLink` of `AreasPage` | extract `rowLink` so both views share it |
@@ -135,18 +135,11 @@ Choosing also unfolds branches and sections hiding emphasised cards.
 - No virtualization planned (~1 000 elements, at most ~150 paths); if the 2 s measure fails at stage 6, virtualizing rows is a layout-only fix.
 - «Найти узел» marks matches, Enter jumps to the next (unfolds section and branches, focuses, scrolls; a team jumps to its first copy), case and «ё/е» ignored, filters nothing (BR-SD-8). Counters «Департаментов · Проектов · Областей · Команд» count **each team once** whatever its copies. Follow-ups not designed here: hover preview, minimap, drag and drop (feat-050), people (feat-051).
 
-### 4.9 Toolbar icons (R3-2)
+### 4.9 Toolbar toggles (R4-1, R4-3, R4-6) and zoom (R4-5)
 
-Four controls are icon buttons (`IconAction`, 32 px, `aria-label` = tooltip text, `aria-haspopup="menu"` for the three menus). The text lives in the label and tooltip, so the screen reader reads «Показ при выборе: Затемнение»; the menu rows keep their text and hints.
+Row: «Найти узел», «Развернуть всё», then three `IconToggleGroup`s — **display mode** (half-disc, funnel, marker), **layout** (`AccountTreeOutlined`, turned 90° for vertical), **level mode** (beside layout) — then «Все уровни», zoom, counters; wraps when narrow. A group is adjoined 32 px buttons; the pressed one has the selection tint and a 3 px underline. Group `aria-label` = control, button name = value, tooltip per § 7; each button is its own Tab stop (MUI default). The drifting halo (R4-1) came from a round icon button in an inline menu wrapper; a segment fills its button and the focus ring is drawn inside it.
 
-| Control | MUI icon (Outlined) | Label / tooltip |
-|---|---|---|
-| Display mode | `VisibilityOutlined` | «Показ при выборе: <значение>» |
-| Layout | `AccountTreeOutlined` | «Раскладка: <значение>» |
-| Level mode | `LayersOutlined` | «Режим уровней: <значение>» |
-| All levels | `LayersClearOutlined` | «Все уровни» |
-
-Search and «Развернуть всё»/«Свернуть всё» stay text (the words are the control). The two menus sit in the toolbar row, the level pair at the top of the frame, before the chips.
+**Zoom:** 50-200 %, ×1.1 per wheel notch or button press; Ctrl + wheel over the frame zooms about the pointer (a non-passive handler keeps the page from zooming), the buttons zoom about the frame centre. Holding the middle button drags the canvas (`grabbing`, browser autoscroll suppressed); scrollbars stay. «− 100% +» per § 7, the value resets to 100 %. Not stored: reset on reload or organization change, kept across view and layout switches. A CSS transform on the canvas, no layout rebuild.
 
 ## 5. Keyboard and screen reader (BR-SD-10, OQ-5 A)
 
@@ -204,7 +197,7 @@ New strings go into `areaTexts.ts`, not inline.
 
 ## 8. Diagram approach (OQ-7, decided A)
 
-SVG + HTML nodes in `features/organizations`: no dependency, one small kit part (`IconToggleGroup`), native tree with roving focus, stays M. (A `shared/ui` diagram part or a layout library would be a generic API before a second user, a dependency and probably an ADR.) Files: `components/StructureDiagram.tsx` (frame, tree role, keys), `DiagramNode.tsx`, `DiagramToolbar.tsx`, `shared/ui/.../IconToggleGroup.tsx`, `lib/diagramModel.ts` (team copies, sections, branch emphasis), `lib/diagramLayout.ts`, `lib/diagramLevels.ts`, `lib/diagramZoom.ts` (clamp, step, zoom about a point; pure), `hooks/useStructureSettings.ts`. Tests: model, layouts and zoom as pure unit tests; page tests for the switch, the three keys, the toggles, the zoom buttons and limits, states, the one Tab stop, "only two reads", "choosing does not rebuild the layout" in «Затемнение»/«Подсветка». Promote to `shared/ui` when a second page needs it.
+SVG + HTML nodes in `features/organizations`: no dependency, one small kit part (`IconToggleGroup`), native tree with roving focus, stays M. Files: `components/StructureDiagram.tsx` (frame, tree role, keys), `DiagramNode.tsx`, `DiagramToolbar.tsx`, `shared/ui/.../IconToggleGroup.tsx`, `lib/diagramModel.ts` (team copies, sections, branch emphasis), `lib/diagramLayout.ts`, `lib/diagramLevels.ts`, `lib/diagramZoom.ts` (clamp, step, zoom about a point; pure), `hooks/useStructureSettings.ts`. Tests: model, layouts and zoom as pure unit tests; page tests for the switch, the three keys, the toggles, the zoom buttons and limits, states, the one Tab stop, "only two reads", "choosing does not rebuild the layout" in «Затемнение»/«Подсветка». Promote to `shared/ui` when a second page needs it.
 
 OQ-1..OQ-7 were all decided A at gate-1+2 (OQ-6 threshold 150); see the spec.
 
@@ -214,11 +207,11 @@ OQ-1..OQ-7 were all decided A at gate-1+2 (OQ-6 threshold 150); see the spec.
 2. No navigation, route, read or endpoint change: `selector-offers` already gives `teams[].departmentIds` and `projects[].teamIds`.
 3. **Level colours:** the theme has no purple or deep-orange role named here; levels 4 and 3 need palette roles (e.g. `secondary`) or a one-line theme addition each: decide at stage 6, no literal in features. Level 3 moved off `warning.dark` (3.8:1) so white badge text reaches 4.5:1.
 4. «Только связанные» and the vertical layout rebuild the layout on a choice/switch; the "no rebuild" test covers «Затемнение» and «Подсветка».
-5. Size: still M with the small kit part; the vertical layout and the level filter remain the two separable cuts. Zoom is pure transform plus one pure helper.
+5. Size: still M with the small kit part; the vertical layout and the level filter remain the two separable cuts.
 
 ## 11. Prototype
 
-`prototype/index.html`: scenario strip (normal organization, large with 189 lines, offers loading/failed, loading, tree failed, empty, not found), role switch, 640 px window; in the diagram everything above is clickable in both layouts: toggles, tooltips, Ctrl + wheel zoom about the pointer, middle-button pan, zoom buttons. MUI parts are drawn by hand; layout, constants and copy are the design's.
+`prototype/index.html`: scenario strip (normal organization, large with 189 lines, offers loading/failed, loading, tree failed, empty, not found), role switch, 640 px window; everything above is clickable in both layouts. MUI parts are hand-drawn; layout, constants and copy are the design's.
 
 ## 12. Reworks
 
@@ -231,7 +224,7 @@ Rounds 1-3 are folded into the body and the spec. feat-050, feat-051: queued, no
 | R4-1, R4-3, R4-6 toggles; level mode beside layout; the drifting halo | § 4.9 (cause and fix stated) |
 | R4-2 level colour on the cards | § 4.4 (text ≥ 5.5:1 on the tints, outlines ≥ 5:1) |
 | R4-4 legend and line contrast | § 4.6 |
-| R4-5 pan and zoom | § 4.10 |
+| R4-5 pan and zoom | § 4.9 |
 | R4-7 stray circle; R4-8 chip tooltips | § 4.4, § 7 |
 
 ### Spec deltas for the analyst (round 4)

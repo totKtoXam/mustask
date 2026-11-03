@@ -36,6 +36,7 @@ gate-3: pending
 - 2026-11-03 [orchestrator] gate-1+2 rejected with remarks 1-4. Rework 1: design + prototype (ux-designer, 91f8c523), spec + stories (business-analyst). Prototype clicked through again: group on top, level marks, three modes, search, expand/collapse all, counters. At gate-1+2 again.
 - 2026-11-03 [orchestrator] round 2: design + prototype (ux-designer, 14271ccf), spec + stories (business-analyst, still three stories). Prototype clicked through: level chips and both modes, section folds, vertical layout. At gate-1+2, round 3.
 - 2026-11-03 [orchestrator] round 3: design + prototype (ux-designer, c9c64848), spec + stories (business-analyst, BR-SD-16..19). Level 3 moved to deep orange 900 so badge text reaches 4.5:1. Prototype clicked through. At gate-1+2, round 4.
+- 2026-11-03 [orchestrator] round 4: design + prototype (ux-designer, f0edee3d), spec + stories (business-analyst, BR-SD-20; OQ-7 reopened for `IconToggleGroup`). Design § 4.9 rewritten by the orchestrator (toggles, zoom). Prototype clicked through. At gate-1+2, round 5.
 
 ## Notes
 

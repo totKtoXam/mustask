@@ -42,10 +42,10 @@ Scenario: Choosing any copy of a team
   Then both copies are emphasised, with the dash-dot join between them, and the summary lists both departments
 
 Scenario: The display mode control
-  When I open the menu of the icon button «Показ при выборе»
-  Then it offers «Затемнение», «Только связанные», «Подсветка», each with a one-line hint, the current one marked
-  And I move between them with the arrow keys, confirm with Enter, and close the list with Esc
-  And the button's tooltip and accessible name read «Показ при выборе: <режим>», «Затемнение» when I never chose (BR-SD-19)
+  When I look at the segmented icon toggle «Показ при выборе»
+  Then it offers three buttons «Затемнение», «Только связанные», «Подсветка», the current one pressed, «Затемнение» when I never chose
+  And the accessible name of each button is its value, and its tooltip reads «Показ при выборе: <режим>. <подсказка>» with a one-line hint (BR-SD-19)
+  And I move to another button and confirm with Enter or Space
   And a mode I pick applies at once to the node already chosen and to every later choice
 
 Scenario: «Затемнение» emphasises the branch and dims the rest
@@ -140,7 +140,7 @@ Scenario: Emphasis in the vertical layout and under a level choice
   When I choose a node in any mode
   Then the same nodes are related and the same summary is announced as in the horizontal layout with every level shown
   And emphasis, dimming and the removal in «Только связанные» apply to the cards that are drawn, a related card on a hidden level is not drawn and its line goes dotted to the nearest visible ancestor (US-2)
-  And a chosen card keeps its level outline and adds a ring
+  And a chosen card keeps its level colour and adds a ring
 
 Scenario: Read-only
   When I use the diagram with any role
