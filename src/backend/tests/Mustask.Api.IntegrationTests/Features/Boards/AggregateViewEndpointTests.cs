@@ -351,6 +351,32 @@ public sealed class AggregateViewEndpointTests(MustaskApiFactory factory)
         Assert.Equal(2, byNone.Body.GetProperty("count").GetInt32());
     }
 
+    // D-7 · a deep page (past the lateral's reach) is cut by the ordered pass and agrees with the shallow ones: 300 more items in Альфа,
+    // page 7 holds the rows 301..306 of the order, newest change first.
+    [Fact]
+    public async Task List_DeepPage_AgreesWithTheOrder_AndKeepsTheTotal()
+    {
+        var (cast, _, _) = await SeedAsync();
+        var story = cast.Alpha.Items.Types["US"];
+        var state = story.States.First(candidate => candidate.Position == 1).Id;
+        var project = cast.Alpha.ProjectId;
+        var root = cast.Alpha.Items.RootAreaId;
+
+        await WorkItemsTestData.ExecuteAsync(factory, $"""
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at)
+            SELECT gen_random_uuid(), {project}, 100 + n, {story.Id}, {state}, {root}, 'Много ' || n, '', gen_random_uuid(), now(), 'deep-test',
+                   timestamptz '2027-01-01 00:00:00+00' + n * interval '1 minute'
+            FROM generate_series(1, 300) AS n
+            """);
+
+        var page7 = await GetAsync(cast, "/workitems?page=7", factory);
+        var page1 = await GetAsync(cast, "/workitems", factory);
+
+        Assert.Equal(306, page7.Body.GetProperty("count").GetInt32());
+        Assert.Equal(["G1", "B1", "A4", "A3", "A2", "A1"], page7.Body.GetProperty("data").EnumerateArray().Select(row => row.GetProperty("title").GetString()!));
+        Assert.Equal("Много 300", page1.Body.GetProperty("data")[0].GetProperty("title").GetString());
+    }
+
     [Fact]
     public async Task List_WithPageZero_Is400OnPage()
     {

@@ -48,3 +48,14 @@ Stage 4a. Contract: [api-contract.md](api-contract.md). Decisions behind it: spe
 ## 5. Lanes
 
 Eight routes but one shared read model and one request parser: not four disjoint use cases. No lanes; done in one pass.
+
+## D-7. The deep page of the flat list, and the no-team index
+
+- `ReadFlatPageAsync` keeps the BR-NV-12 envelope (count, page numbers, the order) and picks its cut by depth: while `skip + size` is at
+  most 250 it reads that many rows per project through the LATERAL (one index range each); deeper, the LATERAL would read `skip + size`
+  rows in every project (page 100 at 200 projects is the whole table), so one ordered pass over the join with a top-N sort cuts the page
+  instead — a heap of `skip + size` rows whatever the depth, planned by Postgres from the statistics (a small tenant gets the project-led
+  index, a large one a scan). The 1M test measures page 100.
+- `ix_work_items_no_team_changed_at` was `(changed_at desc, number desc)` partial: it has no `project_id`, so the per-project LATERAL of the
+  no-team group could not use it. It is now `(project_id, type_id, changed_at desc, number desc) WHERE owning_team_id IS NULL`, the shape
+  of the LATERAL's range with the team filter built in.

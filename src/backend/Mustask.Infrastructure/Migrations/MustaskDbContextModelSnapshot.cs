@@ -1430,8 +1430,8 @@ namespace Mustask.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_work_items_id_owning_team_id");
 
-                    b.HasIndex(new[] { "ChangedAt", "Number" }, "ix_work_items_no_team_changed_at")
-                        .IsDescending()
+                    b.HasIndex(new[] { "ProjectId", "TypeId", "ChangedAt", "Number" }, "ix_work_items_no_team_changed_at")
+                        .IsDescending(false, false, true, true)
                         .HasDatabaseName("ix_work_items_no_team_changed_at")
                         .HasFilter("owning_team_id IS NULL");
 

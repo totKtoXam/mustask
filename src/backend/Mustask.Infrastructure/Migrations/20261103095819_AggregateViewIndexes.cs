@@ -24,8 +24,8 @@ namespace Mustask.Infrastructure.Migrations
             migrationBuilder.CreateIndex(
                 name: "ix_work_items_no_team_changed_at",
                 table: "work_items",
-                columns: new[] { "changed_at", "number" },
-                descending: new bool[0],
+                columns: new[] { "project_id", "type_id", "changed_at", "number" },
+                descending: new[] { false, false, true, true },
                 filter: "owning_team_id IS NULL");
 
             migrationBuilder.CreateIndex(

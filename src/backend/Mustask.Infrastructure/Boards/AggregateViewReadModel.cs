@@ -106,6 +106,9 @@ internal sealed class AggregateViewReadModel(MustaskDbContext context, IUserDire
         return new GroupPage(true, await RowsOfAsync(caller, page, cancellationToken), next);
     }
 
+    /// <summary>Past this many rows (skip + size) the flat list stops reading a window a project and sorts the join once.</summary>
+    private const int LateralReachLimit = 250;
+
     public async Task<FlatPage> ReadFlatPageAsync(CallerAccess caller, AggregateScope scope, int page, int pageSize, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(caller);
@@ -125,18 +128,32 @@ internal sealed class AggregateViewReadModel(MustaskDbContext context, IUserDire
             return new FlatPage(count, []);
         }
 
-        // Every project's first skip + size items cover the page whatever the other projects hold; the outer order cuts it.
-        var reach = (int)Math.Min(skip + pageSize, int.MaxValue);
+        // A shallow page: every project's first skip + size items cover it whatever the other projects hold, one index range a project.
+        // The second conjunct looks like nothing, and is what keeps EF from turning the correlation into a ROW_NUMBER window over the
+        // whole table (it does so for a bare equality): the statement stays the LATERAL ADR-0036 wants.
+        // A deep page: reaching skip + size rows in each of the projects is most of the table, so one ordered pass with a top-N sort
+        // (a heap of skip + size rows, whatever the depth) over the join cuts it instead (plan-backend D-7).
+        IQueryable<Candidate> ordered;
 
-        // The second conjunct looks like nothing, and is what keeps EF from turning the correlation into a ROW_NUMBER window over the whole
-        // table (it does so for a bare equality): the statement stays the LATERAL ADR-0036 wants, one index range a project.
-        var lateral =
-            from project in projects
-            from item in items.Where(item => item.ProjectId == project.Id && project.Id != Guid.Empty)
-                .OrderByDescending(item => item.ChangedAt).ThenByDescending(item => item.Number).Take(reach)
-            select new Candidate { Id = item.Id, ChangedAt = item.ChangedAt, Number = item.Number, ProjectKey = project.Key };
+        if (skip + pageSize <= LateralReachLimit)
+        {
+            var reach = (int)(skip + pageSize);
 
-        var candidates = await lateral
+            ordered =
+                from project in projects
+                from item in items.Where(item => item.ProjectId == project.Id && project.Id != Guid.Empty)
+                    .OrderByDescending(item => item.ChangedAt).ThenByDescending(item => item.Number).Take(reach)
+                select new Candidate { Id = item.Id, ChangedAt = item.ChangedAt, Number = item.Number, ProjectKey = project.Key };
+        }
+        else
+        {
+            ordered =
+                from item in items
+                join project in projects on item.ProjectId equals project.Id
+                select new Candidate { Id = item.Id, ChangedAt = item.ChangedAt, Number = item.Number, ProjectKey = project.Key };
+        }
+
+        var candidates = await ordered
             .OrderByDescending(candidate => candidate.ChangedAt)
             .ThenByDescending(candidate => candidate.Number)
             .ThenBy(candidate => EF.Functions.Collate(candidate.ProjectKey, "C"))

@@ -149,8 +149,8 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         // above, for the group of no team, and for an assignee; the 1 000 000-item test of BR-AV-11 proves them.
         builder.HasIndex(item => new { item.ProjectId, item.TypeId, item.ChangedAt, item.Number }, WorkItemsConstraints.ProjectTypeChangedAt)
             .IsDescending(false, false, true, true);
-        builder.HasIndex(item => new { item.ChangedAt, item.Number }, WorkItemsConstraints.NoTeamChangedAt)
-            .IsDescending(true, true)
+        builder.HasIndex(item => new { item.ProjectId, item.TypeId, item.ChangedAt, item.Number }, WorkItemsConstraints.NoTeamChangedAt)
+            .IsDescending(false, false, true, true)
             .HasFilter("owning_team_id IS NULL");
         builder.HasIndex(item => new { item.AssigneeId, item.ChangedAt }, WorkItemsConstraints.AssigneeChangedAt)
             .IsDescending(false, true)
