@@ -3,14 +3,14 @@
 - type: feature
 - size: L
 - branch: feat/033-orphaned-organization-rescue
-- stage: 02-requirements-review
+- stage: 03-design
 - epic: core/org-access
 - deps: mod-016,tech-024,tech-025
 - gates: gate-1, gate-2, gate-3
 
 ## Gates
 
-gate-1: pending
+gate-1: approved (2026-11-03, human in chat)
 gate-2: pending
 gate-3: pending
 
@@ -29,6 +29,8 @@ gate-3: pending
 - 2026-11-03 [business-analyst] Fix round after review: R-1..R-8 addressed (on-request rescue in any organization, add/raise only, required «Причина»; no administrator-state claim; record read by system-admins from «Все организации» and by the organization's admins on «Участники» under `organizations.membership.write`; ADR-0029 § 9 cited, ADR debt narrowed; list paged 50, filter rule, local-time dates, 403 «Недостаточно прав»); OQ-1..OQ-5 closed; new OQ-6 (the already-administrator refusal discloses one fact) open for gate-1; still three stories. Not committed by the analyst (no shell) — the orchestrator commits.
 
 - 2026-11-03 [orchestrator] Stage 2 delta read (round 2): R-1..R-8 resolved, 0 blockers, 0 majors, 2 new minors (R-9 refusal order and «Причина» character unit; R-10 race with an admin's own change to the same membership, pre-tech-025 inactive rows accepted by name). Verdict needs-human-decision only for OQ-6 and the page size of 50. gate-1 asked.
+
+- 2026-11-03 [orchestrator] gate-1 approved by the human in chat: minors R-9/R-10 to be closed by the analyst before design, no new gate; OQ-6 accepted (explicit refusal «Пользователь уже администратор этой организации»); page size 25, not 50. Analyst minor pass, then stage 3.
 
 ## Notes
 
