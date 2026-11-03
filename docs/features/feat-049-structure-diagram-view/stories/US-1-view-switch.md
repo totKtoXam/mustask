@@ -1,4 +1,4 @@
-# US-1: Switch between the tree and the diagram, the choice remembered
+# US-1: Switch between the tree and the diagram, the choices remembered
 
 - story: US-1
 - depends-on: -
@@ -22,7 +22,9 @@ Scenario: Switch to the diagram
   Then the diagram is shown in place of the tree
   And the address stays the page's address
   And the page title «Структура» stays
-  And the tree's filter «Найти область» and its «Развернуть всё» / «Свернуть всё» are not shown beside the diagram
+  And the tree's own filter «Найти область» and its page-head «Развернуть всё» / «Свернуть всё» are not shown
+  And the diagram has its own toolbar: «Найти узел», «Развернуть всё» / «Свернуть всё», «Показ при выборе», and the counters line (US-2, US-3)
+  And «Создать департамент» stays in the page header for the holder of `area.create`, in both views
 
 Scenario: The choice is remembered
   Given I chose «Диаграмма» in organization A
@@ -38,6 +40,19 @@ Scenario: A damaged memory falls back
   Given the stored value is not one of the two views
   When I open «Структура»
   Then the tree is shown and no error appears
+
+Scenario: The display mode is remembered
+  Given I chose the mode «Подсветка» in «Показ при выборе» in organization A
+  When I leave «Структура» and open the diagram again, or reload the panel
+  Then the mode is «Подсветка»
+  And the memory is per user and organization, under its own key, apart from the view's (BR-SD-9)
+  And the default, without a choice, is «Затемнение»
+
+Scenario: A damaged mode memory falls back
+  Given the stored mode is not one of «Затемнение», «Только связанные», «Подсветка»
+  When I open the diagram
+  Then the mode is «Затемнение» and no error appears
+  And nothing is written to storage until I choose a mode myself
 
 Scenario: Switching by keyboard
   Given focus is on the switch
@@ -79,11 +94,13 @@ Scenario: Only the two reads are sent
   Then no request is sent beyond the area tree and the selector offers (BR-SD-3)
 
 Scenario: What survives a switch
-  Given I typed a filter in the tree, expanded some rows, and chose «Диаграмма» and a node there
+  Given I typed a filter in the tree, expanded some rows, and chose «Диаграмма», typed «Найти узел» text, and chose a node there
   When I switch back to «Дерево»
   Then the filter text and the expansion are as I left them
-  And the diagram's emphasis is dropped: when I choose «Диаграмма» again nothing is emphasised
-  And while the diagram was shown the filter had no effect on it (BR-SD-8)
+  And while the diagram was shown the tree's filter had no effect on it (BR-SD-8)
+  When I choose «Диаграмма» again
+  Then the search text, the display mode and the diagram's own expansion are as I left them
+  And the chosen node is dropped: nothing is emphasised
 
 Scenario: The empty organization
   Given the organization has no department and no project

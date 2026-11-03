@@ -21,6 +21,7 @@ gate-3: pending
 ## Decisions
 
 - Gate-1+2 questions, 2026-11-03, the human in chat: OQ-1..OQ-7 all A (OQ-6 threshold 150); the switch is BoxedTabs with a docblock note. Verdict: rejected with remarks — 1) the group «Без проектов и департаментов» goes to the top; 2) mark nesting levels; 3) a control that switches how choosing a node shows the rest: today's dimming stays as the first mode, design proposes more convenient ones; 4) design proposes further convenience improvements.
+- Rework 1 seams, decided by the orchestrator: expansion forcing is mode-specific (BR-SD-11); the diagram's expansion survives a view switch; in «Только связанные» the top group disappears when none of its teams is related; «Найти узел» matches names only.
 
 ## Log
 
@@ -29,6 +30,7 @@ gate-3: pending
 - 2026-11-03 [orchestrator] stage 1 done (business-analyst): spec.md + US-1..US-3, OQ-1..OQ-4; verify.sh green.
 - 2026-11-03 [orchestrator] stage 2 (requirements-reviewer): needs-human-decision, 0 blockers, 6 majors, 6 minors (review.md). Fix round (business-analyst): R-1..R-12 closed in the spec or carried by OQ-5..OQ-7. Open for the gate-1+2 package: OQ-1..OQ-7.
 - 2026-11-03 [orchestrator] stage 3 done (ux-designer, 439e96fc): design.md, prototype; approach A (SVG + HTML nodes, no dependency), BoxedTabs as the switch (kit deviation). Prototype clicked through in the browser pane: all scenarios, no console errors. At gate-1+2.
+- 2026-11-03 [orchestrator] gate-1+2 rejected with remarks 1-4. Rework 1: design + prototype (ux-designer, 91f8c523), spec + stories (business-analyst). Prototype clicked through again: group on top, level marks, three modes, search, expand/collapse all, counters. At gate-1+2 again.
 
 ## Notes
 
