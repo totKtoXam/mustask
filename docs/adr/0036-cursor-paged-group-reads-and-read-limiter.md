@@ -1,4 +1,4 @@
-# ADR-0034: Page the aggregate views' group reads by a cursor, and limit those reads per user and per process
+# ADR-0036: Page the aggregate views' group reads by a cursor, and limit those reads per user and per process
 
 - Status: proposed
 - Date: 2026-11-03

@@ -3,7 +3,7 @@
 Stage 3 artifact, a **delta** on [feat-043's design § 12](../feat-043-area-project-team-navigation/design.md) (approved at feat-043's gate-2). § 12 fixed and is **not reopened here**: one MUI `Accordion` per project ordered by name then key; the summary (name, `Tag` key, count «40» / «3 из 40»); first group open on first visit; «Показать ещё» (next 50); «Свернуть все» and no «Развернуть все»; the board's swimlanes and 50-card cells; moves through the existing native drag and drop of `BacklogRow` and `BoardColumns` (whole row the source, grip an `aria-hidden` hint, drop line) and the keyboard path «Ещё действия», «Переместить» / «Переместить в колонку»; a drop in another group refused; the 4-in-flight cap per tab; open-state memory (10 at most). This file adds what is left. Spec: [`spec.md`](spec.md) (gate-1 approved, OQ-1..OQ-6 all A); rules BR-NV-12, BR-NV-17, BR-NV-20 are in feat-043's `spec.md`. Every string in «» is final. The reference tracker is never named.
 
 - Prototype: [`prototype/index.html`](prototype/index.html), the delta states only (§ 8). feat-043's prototype keeps its «feat-048» placeholders.
-- ADRs relied on: [ADR-0014](../../adr/0014-server-side-registry-paging-envelope.md)/[0015](../../adr/0015-gridify-for-list-queries.md) (the page envelope stays on lists), **[ADR-0034](../../adr/0034-cursor-paged-group-reads-and-read-limiter.md)** (proposed: the cursor and the limiter), [ADR-0032](../../adr/0032-object-pages-and-navigation-context.md) (selectors, menu table), [ADR-0005](../../adr/0005-stable-error-code-registry.md).
+- ADRs relied on: [ADR-0014](../../adr/0014-server-side-registry-paging-envelope.md)/[0015](../../adr/0015-gridify-for-list-queries.md) (the page envelope stays on lists), **[ADR-0036](../../adr/0036-cursor-paged-group-reads-and-read-limiter.md)** (proposed: the cursor and the limiter), [ADR-0032](../../adr/0032-object-pages-and-navigation-context.md) (selectors, menu table), [ADR-0005](../../adr/0005-stable-error-code-registry.md).
 
 ## 1. Reuse first; one new part
 
@@ -91,9 +91,9 @@ After a move the group updates locally, with no re-read of the held pages. A 409
 
 Every read takes the caller (BR-NV-15). `limit` is 1..50 (default 50), otherwise the validation 400 naming `limit`.
 
-**The cursor** (ADR-0034): an opaque string, forward only; it names a **position in the rank order** (the last row's rank key and id), so a row moved or deleted behind it never breaks it. It also holds a fingerprint of the project, level, view and filter parameters: a malformed or foreign cursor (another project, level or filter set) is the existing validation 400 `boards.validation_failed` with the field `cursor` and reason `boards.invalid_cursor`.
+**The cursor** (ADR-0036): an opaque string, forward only; it names a **position in the rank order** (the last row's rank key and id), so a row moved or deleted behind it never breaks it. It also holds a fingerprint of the project, level, view and filter parameters: a malformed or foreign cursor (another project, level or filter set) is the existing validation 400 `boards.validation_failed` with the field `cursor` and reason `boards.invalid_cursor`.
 
-**The limiter** (ADR-0034), on the group read and the cell read only (and so their «Показать ещё», OQ-2); not on the grouped count, the lists or the keyword read (accepted risk, OQ-2):
+**The limiter** (ADR-0036), on the group read and the cell read only (and so their «Показать ещё», OQ-2); not on the grouped count, the lists or the keyword read (accepted risk, OQ-2):
 
 | | Value |
 |---|---|
