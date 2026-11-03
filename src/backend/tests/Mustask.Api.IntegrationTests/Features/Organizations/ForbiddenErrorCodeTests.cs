@@ -53,7 +53,7 @@ public sealed class ForbiddenErrorCodeTests(MustaskApiFactory factory)
     public async Task OtherPermissionEndpoint_WithoutTheRight_StillAnswersHttpForbidden()
     {
         var answer = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Get, "/api/dictionaries/languages", token: KeycloakTestRealm.CreateToken([PermissionCatalog.OrganizationsOrganizationCreate]));
+            factory, HttpMethod.Get, "/api/dictionaries/languages", token: KeycloakTestRealm.CreateToken(configure: options => options.Roles = ["organization-creator"]));
 
         Assert.Equal(HttpStatusCode.Forbidden, answer.Status);
         Assert.Equal("http.forbidden", answer.ErrorCode);

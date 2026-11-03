@@ -157,8 +157,8 @@ async function createProfiledUser(
 }
 
 /**
- * A throwaway user in no group at all (specs 16, 19.9, 20.4, 21.6, 27.8): its
- * token carries `dictionaries.languages.read` from the realm's default roles and
+ * A throwaway user holding the client role `user` and nothing else (specs 16, 19.9, 20.4, 21.6, 27.8): its
+ * token carries `user` (given by the stand's default role, ADR-0033) and so reads the dictionaries, and holds
  * nothing else — the reader of the dictionaries (D-7) and a non-member of every
  * organization. Replaces the former reader user in the `/Сотрудники` group, which
  * the realm no longer has.

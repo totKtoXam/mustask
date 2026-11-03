@@ -16,10 +16,10 @@ public static class OrganizationsTokens
 {
     public static string NewSubject() => Guid.CreateVersion7().ToString();
 
-    /// <summary>A user holding the create right, as the administrator or a member of «Создатели организаций» does; a fresh subject unless named.</summary>
+    /// <summary>A user holding the create right, as the client roles `user` and `organization-creator` give it; a fresh subject unless named.</summary>
     public static string WithCreateRight(string? subject = null) =>
         KeycloakTestRealm.CreateToken(
-            [PermissionCatalog.OrganizationsOrganizationCreate],
+            [PermissionCatalog.DictionariesLanguagesRead, PermissionCatalog.OrganizationsOrganizationCreate],
             options => options.Subject = subject ?? NewSubject());
 
     /// <summary>

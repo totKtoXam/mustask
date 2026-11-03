@@ -33,7 +33,7 @@ public sealed class SessionSlidingExpirationTests
         var client = _factory.CreateNoRedirectClient();
         var challenge = await SessionTestSupport.ChallengeAsync(client);
 
-        var accessToken = KeycloakTestRealm.CreateToken();
+        var accessToken = KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]);
         _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
             accessToken: accessToken,
             idToken: KeycloakTokenEndpointResponder.BuildIdToken(Guid.CreateVersion7().ToString(), challenge.Nonce),

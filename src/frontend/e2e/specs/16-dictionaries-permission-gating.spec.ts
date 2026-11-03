@@ -18,18 +18,18 @@ import { createEphemeralUserWithoutGroup, deleteEphemeralUser, userExistsById } 
  * direct URL into the write form is «Доступ ограничен».
  *
  * The fixture user (`e2e-fixture`) is deliberately full-admin
- * (`KeycloakStandProvisioner`'s `GroupPath`, `/Администраторы` — every
+ * (`KeycloakStandProvisioner`'s `FixtureRoles`, the client roles `user` and `system-admin` — every
  * `dictionaries.*` code the realm defines) precisely so the rest of this
  * suite's session/login specs have a stable, always-permitted identity —
  * which means there is no "denied" case left to observe through it. Rather
- * than temporarily changing the shared fixture's own group (a different
+ * than temporarily changing the shared fixture's own roles (a different
  * session's e2e run, or a human, may depend on it staying admin for as long
  * as this stand is up — the same reason this suite never touches realm
  * settings a spec did not itself set), this spec creates a throwaway user in
  * no group at all. Since mod-016 that user IS the reader (D-7): the realm no
  * longer has the `/Сотрудники` group and the `viewer` role — the realm's
- * default roles carry `dictionaries.languages.read` to every signed-in user,
- * and nothing carries `dictionaries.languages.write` but `instance-admin` and
+ * `user` role carries `dictionaries.languages.read` to every signed-in user,
+ * and nothing carries `dictionaries.languages.write` but `system-admin` and
  * `dictionaries-admin`. The user is created and deleted by this spec alone
  * (`keycloakAdmin.ts`'s `createEphemeralUserWithoutGroup`/`deleteEphemeralUser`),
  * within `mustask-e2e`'s existing `manage-users` right — no new

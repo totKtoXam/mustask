@@ -102,7 +102,7 @@ public sealed class SessionCallbackEndpointTests
         var sid = Guid.CreateVersion7().ToString();
 
         _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
-            accessToken: KeycloakTestRealm.CreateToken(),
+            accessToken: KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]),
             idToken: KeycloakTokenEndpointResponder.BuildIdToken(sid, challenge.Nonce),
             refreshToken: "test-refresh-token-2",
             expiresIn: 300,
@@ -115,6 +115,108 @@ public sealed class SessionCallbackEndpointTests
             var sessionCookie = SessionTestSupport.SessionCookie(response);
             Assert.NotNull(sessionCookie);
             Assert.DoesNotContain("expires=", sessionCookie, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            _factory.TokenResponder.Reset();
+        }
+    }
+
+    /// <summary>
+    /// tech-024 (ADR-0033): a user whose access token lacks the `user` client role gets no session — the callback redirects with
+    /// <c>authError=no_access</c> and sets no cookie, whatever other roles the token carries.
+    /// </summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("system-admin,dictionaries-admin,organization-creator")]
+    [InlineData("instance-admin,dictionaries.languages.read")]
+    public async Task Callback_AccessTokenWithoutUserRole_RedirectsWithNoAccess_AndNoCookie(string roleList)
+    {
+        var client = _factory.CreateNoRedirectClient();
+        var challenge = await SessionTestSupport.ChallengeAsync(client, "/dashboard");
+
+        _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
+            accessToken: KeycloakTestRealm.CreateToken(configure: t => t.Roles = roleList.Split(',', StringSplitOptions.RemoveEmptyEntries)),
+            idToken: KeycloakTokenEndpointResponder.BuildIdToken(Guid.CreateVersion7().ToString(), challenge.Nonce),
+            refreshToken: "test-refresh-token",
+            expiresIn: 300,
+            refreshExpiresIn: 1800);
+
+        try
+        {
+            var response = await CallbackAsync(client, challenge, ("code", "test-code"), ("state", challenge.State));
+
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+            Assert.Equal("http://panel.invalid/dashboard?authError=no_access", response.Headers.Location!.ToString());
+            Assert.Null(SessionTestSupport.SessionCookie(response));
+        }
+        finally
+        {
+            _factory.TokenResponder.Reset();
+        }
+    }
+
+    [Fact]
+    public async Task Callback_AccessTokenWithoutResourceAccess_RedirectsWithNoAccess()
+    {
+        var client = _factory.CreateNoRedirectClient();
+        var challenge = await SessionTestSupport.ChallengeAsync(client, "/dashboard");
+
+        _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
+            accessToken: KeycloakTestRealm.CreateToken(configure: t => t.Roles = null),
+            idToken: KeycloakTokenEndpointResponder.BuildIdToken(Guid.CreateVersion7().ToString(), challenge.Nonce),
+            refreshToken: "test-refresh-token",
+            expiresIn: 300,
+            refreshExpiresIn: 1800);
+
+        try
+        {
+            var response = await CallbackAsync(client, challenge, ("code", "test-code"), ("state", challenge.State));
+
+            Assert.Equal("http://panel.invalid/dashboard?authError=no_access", response.Headers.Location!.ToString());
+            Assert.Null(SessionTestSupport.SessionCookie(response));
+        }
+        finally
+        {
+            _factory.TokenResponder.Reset();
+        }
+    }
+
+    // QA (tech-024): a `user` that is not ours does not open a session: another client's roles, realm roles, groups, and an
+    // access token that is not a JWT at all.
+    [Theory]
+    [InlineData("foreign-user")]
+    [InlineData("realm-user")]
+    [InlineData("groups-user")]
+    [InlineData("not-a-jwt")]
+    public async Task Callback_UserRoleFromAnotherSource_RedirectsWithNoAccess_AndNoCookie(string scenario)
+    {
+        var client = _factory.CreateNoRedirectClient();
+        var challenge = await SessionTestSupport.ChallengeAsync(client, "/dashboard");
+
+        var accessToken = scenario == "not-a-jwt"
+            ? "garbage-access-token"
+            : KeycloakTestRealm.CreateToken(configure: t =>
+            {
+                t.Roles = null;
+                t.ForeignClientPermissions = scenario == "foreign-user" ? ["user", "system-admin"] : null;
+                t.RealmAccessRoles = scenario == "realm-user" ? ["user", "system-admin"] : null;
+                t.Groups = scenario == "groups-user" ? ["user", "/Администраторы"] : null;
+            });
+
+        _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
+            accessToken: accessToken,
+            idToken: KeycloakTokenEndpointResponder.BuildIdToken(Guid.CreateVersion7().ToString(), challenge.Nonce),
+            refreshToken: "test-refresh-token",
+            expiresIn: 300,
+            refreshExpiresIn: 1800);
+
+        try
+        {
+            var response = await CallbackAsync(client, challenge, ("code", "test-code"), ("state", challenge.State));
+
+            Assert.Equal("http://panel.invalid/dashboard?authError=no_access", response.Headers.Location!.ToString());
+            Assert.Null(SessionTestSupport.SessionCookie(response));
         }
         finally
         {

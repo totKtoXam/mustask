@@ -1,6 +1,6 @@
 # ADR-0027: Derive organization access from the membership of the resource's organization, and keep Keycloak to instance roles
 
-- Status: accepted (by the human in chat, 2026-10-12)
+- Status: accepted (by the human in chat, 2026-10-12); amended by [ADR-0033](0033-shared-realm-client-roles.md) (proposed) — the instance rights come from four client roles through a table in code
 - Date: 2026-10-11
 - Context: `mod-016-organization-access`, stage 4a:
   [spec](../features/mod-016-organization-access/spec.md),

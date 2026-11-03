@@ -23,16 +23,20 @@ internal sealed class LiveRealmContainer : IAsyncDisposable
 
     private readonly IContainer _container;
 
-    private LiveRealmContainer(IContainer container, HttpClient http, string adminPassword)
+    private LiveRealmContainer(IContainer container, HttpClient http, string adminPassword, string realm)
     {
         _container = container;
         Http = http;
         AdminPassword = adminPassword;
+        Realm = realm;
     }
 
     public HttpClient Http { get; }
 
     public string AdminPassword { get; }
+
+    /// <summary>The realm the container was started for (<c>MUSTASK_REALM</c>, default <c>mustask</c>).</summary>
+    public string Realm { get; }
 
     /// <summary>The stand's placeholders: the values the container resolved the import with.</summary>
     public static IReadOnlyDictionary<string, string> Placeholders { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -40,31 +44,32 @@ internal sealed class LiveRealmContainer : IAsyncDisposable
         ["MUSTASK_PANEL_CLIENT_SECRET"] = PanelSecret,
     };
 
-    public static async Task<LiveRealmContainer> StartAsync(string realmJson)
+    public static async Task<LiveRealmContainer> StartAsync(string realmJson, string realm = "mustask")
     {
         LiveKeycloakFixture.BuildImage();
 
         var adminPassword = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(12));
         var container = new ContainerBuilder(LiveKeycloakFixture.ImageTag)
             .WithCommand("start-dev", "--import-realm")
-            .WithResourceMapping(Encoding.UTF8.GetBytes(realmJson), "/opt/keycloak/data/import/mustask-realm.json")
+            .WithResourceMapping(Encoding.UTF8.GetBytes(realmJson), $"/opt/keycloak/data/import/{realm}-realm.json")
             .WithEnvironment("KC_BOOTSTRAP_ADMIN_USERNAME", "admin")
             .WithEnvironment("KC_BOOTSTRAP_ADMIN_PASSWORD", adminPassword)
             .WithEnvironment("MUSTASK_PANEL_CLIENT_SECRET", PanelSecret)
+            .WithEnvironment("MUSTASK_REALM", realm)
 
             // The realm lists the provider as an event listener; it needs a destination and a secret to start, and nothing there.
             .WithEnvironment("KC_SPI_EVENTS_LISTENER__MUSTASK_USER_PROJECTION__ENDPOINT", "http://127.0.0.1:9")
             .WithEnvironment("KC_SPI_EVENTS_LISTENER__MUSTASK_USER_PROJECTION__PUSH_SECRET", Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(24)))
             .WithEnvironment("KC_SPI_EVENTS_LISTENER__MUSTASK_USER_PROJECTION__REQUIRE_HTTPS", "false")
             .WithPortBinding(8080, assignRandomHostPort: true)
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(request => request.ForPort(8080).ForPath("/realms/mustask")))
+            .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(request => request.ForPort(8080).ForPath($"/realms/{realm}")))
             .Build();
 
         await container.StartAsync();
 
         var http = new HttpClient { BaseAddress = new Uri($"http://localhost:{container.GetMappedPublicPort(8080)}") };
 
-        return new LiveRealmContainer(container, http, adminPassword);
+        return new LiveRealmContainer(container, http, adminPassword, realm);
     }
 
     public async ValueTask DisposeAsync()
@@ -91,7 +96,7 @@ internal sealed class LiveRealmContainer : IAsyncDisposable
     /// <summary>One admin REST request of realm <c>mustask</c>; answers the status and the parsed body.</summary>
     public async Task<(int Status, JsonNode? Body, Uri? Location)> AdminAsync(HttpMethod method, string path, JsonNode? body = null)
     {
-        using var request = new HttpRequestMessage(method, "/admin/realms/mustask" + path);
+        using var request = new HttpRequestMessage(method, $"/admin/realms/{Realm}" + path);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await AdminTokenAsync());
 
         if (body is not null)
@@ -105,8 +110,8 @@ internal sealed class LiveRealmContainer : IAsyncDisposable
         return ((int)response.StatusCode, string.IsNullOrWhiteSpace(text) ? null : JsonNode.Parse(text), response.Headers.Location);
     }
 
-    /// <summary>A user in realm <c>mustask</c> with a profile that lets them sign in; answers the user's id.</summary>
-    public async Task<string> CreateUserAsync(string username, params string[] groupPaths)
+    /// <summary>A user in realm <c>mustask</c> with a profile that lets them sign in and the named client roles of <c>mustask-api</c> given directly; answers the user's id.</summary>
+    public async Task<string> CreateUserAsync(string username, params string[] clientRoles)
     {
         var (status, _, location) = await AdminAsync(HttpMethod.Post, "/users", new JsonObject
         {
@@ -120,12 +125,17 @@ internal sealed class LiveRealmContainer : IAsyncDisposable
         Assert.True(status == 201, $"creating {username} answered {status}");
         var id = location!.Segments[^1];
 
-        foreach (var path in groupPaths)
+        if (clientRoles.Length > 0)
         {
-            var (groupStatus, group, _) = await AdminAsync(HttpMethod.Get, "/group-by-path/" + string.Join('/', path.Split('/', StringSplitOptions.RemoveEmptyEntries).Select(Uri.EscapeDataString)));
-            Assert.True(groupStatus == 200, $"group {path} answered {groupStatus}");
-            var (put, _, _) = await AdminAsync(HttpMethod.Put, $"/users/{id}/groups/{group!["id"]}");
-            Assert.True(put == 204, $"putting {username} into {path} answered {put}");
+            var (_, clients, _) = await AdminAsync(HttpMethod.Get, "/clients?clientId=mustask-api");
+            var apiId = (string)clients![0]!["id"]!;
+            var (_, allRoles, _) = await AdminAsync(HttpMethod.Get, $"/clients/{apiId}/roles");
+            var wanted = new JsonArray(clientRoles
+                .Select(name => ((JsonArray)allRoles!).Single(role => (string)role!["name"]! == name)!)
+                .Select(role => (JsonNode)new JsonObject { ["id"] = (string)role["id"]!, ["name"] = (string)role["name"]! })
+                .ToArray());
+            var (put, _, _) = await AdminAsync(HttpMethod.Post, $"/users/{id}/role-mappings/clients/{apiId}", wanted);
+            Assert.True(put == 204, $"giving {username} the roles {string.Join(",", clientRoles)} answered {put}");
         }
 
         return id;
@@ -160,7 +170,7 @@ internal sealed class LiveRealmContainer : IAsyncDisposable
             Http,
             new KeycloakDriftCheckOptions
             {
-                Import = KeycloakRealmImport.Load(realmsDirectory, "mustask", Placeholders),
+                Import = KeycloakRealmImport.Load(realmsDirectory, Realm, new Dictionary<string, string>(Placeholders, StringComparer.Ordinal) { ["MUSTASK_REALM"] = Realm }),
                 AdminUsername = "admin",
                 AdminPassword = AdminPassword,
                 SecretClientId = "mustask-panel",

@@ -43,13 +43,15 @@ function Shell({ children }: { children: ReactNode }) {
   );
 }
 
-/** Вторая строка `login_failed` по коду `authError`, закрытый список из трёх значений. */
+/** Вторая строка `login_failed` по коду `authError`, закрытый список из четырёх значений (`no_access` — в токене нет роли `user`, tech-024). */
 function loginFailedDetail(code: string | null): string {
   switch (code) {
     case 'access_denied':
       return 'Вход отменён на странице входа.';
     case 'idp_unavailable':
       return 'Сервис аутентификации недоступен, повторите позже.';
+    case 'no_access':
+      return 'У вашей учётной записи нет доступа к MUSTASK. Обратитесь к администратору.';
     case 'sign_in_failed':
       return 'Не удалось завершить вход, попробуйте ещё раз.';
     default:

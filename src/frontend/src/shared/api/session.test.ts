@@ -108,6 +108,20 @@ describe('session', () => {
     expect((error as SessionLostError).code).toBe('session.expired');
   });
 
+  // tech-024 (ADR-0033): the renewed token lost the `user` role - the session is over, the panel shows the sign-in screen again.
+  it('403 session.no_access → SessionLostError (сессия закончена, не «сервис недоступен»)', async () => {
+    server.use(
+      http.post(`${api}/api/session/token`, () =>
+        HttpResponse.json({ errorCode: 'session.no_access' }, { status: 403 }),
+      ),
+    );
+
+    const error = await getAccessToken().catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(SessionLostError);
+    expect((error as SessionLostError).code).toBe('session.expired');
+  });
+
   it('сетевой сбой/503 → AuthUnavailableError', async () => {
     server.use(
       http.post(`${api}/api/session/token`, () => HttpResponse.json(null, { status: 503 })),

@@ -10,8 +10,8 @@ public sealed record PermissionDefinition(string Code, PermissionScope Scope, st
 /// The one catalog of permission codes, fixed in code: the source of truth,
 /// changed only by a release (ADR-0027, status.md D-8). Every code carries its
 /// <see cref="PermissionScope"/>. <see cref="PermissionScope.Instance"/> codes
-/// are the realm import's client roles of <c>mustask-api</c> and are compared
-/// with it by the contract tests; <see cref="PermissionScope.Organization"/>
+/// are held through the four client roles of <c>mustask-api</c> (<see cref="InstanceRoles"/>); a test fails for one
+/// no role reaches; <see cref="PermissionScope.Organization"/>
 /// codes never reach the realm or the token — an organization membership's role
 /// bundle (<see cref="OrganizationRoleBundles"/>) is their only source. A code is
 /// added here together with its scope and its bundles, in the change that first
@@ -21,7 +21,7 @@ public static class PermissionCatalog
 {
     // ----- Instance codes (the token) -----
 
-    /// <summary>Reading the languages dictionary (every signed-in user, through the realm's default roles).</summary>
+    /// <summary>Reading the languages dictionary (every user holding the client role <c>user</c>).</summary>
     public const string DictionariesLanguagesRead = "dictionaries.languages.read";
 
     /// <summary>Changing the languages dictionary (create, edit, set the default).</summary>
@@ -159,7 +159,7 @@ public static class PermissionCatalog
     /// <summary>All codes, instance and organization. The realm import holds <see cref="InstanceCodes"/> only.</summary>
     public static IReadOnlyCollection<string> AllCodes { get; } = All.Select(definition => definition.Code).ToList();
 
-    /// <summary>The codes the token carries: the realm import's client roles of <c>mustask-api</c> (ADR-0018).</summary>
+    /// <summary>The codes the token's client roles give (<see cref="InstanceRoles"/>, ADR-0033).</summary>
     public static IReadOnlyCollection<string> InstanceCodes { get; } = CodesOf(PermissionScope.Instance);
 
     /// <summary>The codes a membership's role bundle grants; never in the realm import or the token (ADR-0027).</summary>

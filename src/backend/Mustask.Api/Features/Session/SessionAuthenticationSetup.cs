@@ -157,7 +157,7 @@ public static class SessionAuthenticationSetup
 
                     options.Events = new OpenIdConnectEvents
                     {
-                        OnTokenValidated = OnTokenValidated,
+                        OnTokenValidated = context => OnTokenValidated(context, keycloak.Audience, sessionOptions),
                         OnTicketReceived = context => OnTicketReceived(context, cache, sessionOptions, clock),
                         OnRemoteFailure = context => OnRemoteFailure(context, sessionOptions),
                     };
@@ -166,8 +166,18 @@ public static class SessionAuthenticationSetup
         return services;
     }
 
-    private static Task OnTokenValidated(TokenValidatedContext context)
+    private static Task OnTokenValidated(TokenValidatedContext context, string audience, SessionOidcOptions sessionOptions)
     {
+        // tech-024 (ADR-0033): no `user` client role, no session. The exchange is refused before a ticket exists, so neither a
+        // cookie nor a cached access token is created; the redirect carries authError=no_access.
+        if (!SessionAccessGate.HoldsUserRole(context.TokenEndpointResponse?.AccessToken, audience))
+        {
+            context.HandleResponse();
+            RedirectToPanel(context.HttpContext, sessionOptions, context.Properties?.RedirectUri, "no_access");
+
+            return Task.CompletedTask;
+        }
+
         var refreshExpiresIn = context.TokenEndpointResponse?.GetParameter("refresh_expires_in");
 
         if (!string.IsNullOrEmpty(refreshExpiresIn) && context.Properties is not null)
@@ -311,29 +321,29 @@ public static class SessionAuthenticationSetup
     }
 
     /// <summary>
-    /// The closed, three-value <c>authError</c> vocabulary. Not a
+    /// The closed, four-value <c>authError</c> vocabulary (<c>no_access</c>, redirected by <see cref="OnTokenValidated"/> itself: the token lacks the `user` role). Not a
     /// catalog error code — this is a query parameter on a browser redirect,
     /// which has no body to carry a <c>errorCode</c> in.
     /// </summary>
     private static Task OnRemoteFailure(RemoteFailureContext context, SessionOidcOptions sessionOptions)
     {
         context.HandleResponse();
+        RedirectToPanel(context.HttpContext, sessionOptions, context.Properties?.RedirectUri, ClassifyFailure(context.Failure));
 
-        var returnUrl = ReturnUrlValidator.IsLocalPath(context.Properties?.RedirectUri)
-            ? context.Properties!.RedirectUri!
-            : "/";
+        return Task.CompletedTask;
+    }
 
-        var code = ClassifyFailure(context.Failure);
+    private static void RedirectToPanel(HttpContext httpContext, SessionOidcOptions sessionOptions, string? redirectUri, string code)
+    {
+        var returnUrl = ReturnUrlValidator.IsLocalPath(redirectUri) ? redirectUri! : "/";
 
         // Plain interpolation put a second "?" in front
         // of authError whenever returnUrl already carried a query string
         // (e.g. "/tasks?status=active"), producing a malformed Location
         // the panel could not parse — AddQueryString appends with "&" when
         // one is already there.
-        context.HttpContext.Response.Redirect(
+        httpContext.Response.Redirect(
             QueryHelpers.AddQueryString($"{sessionOptions.PanelUrl}{returnUrl}", "authError", code));
-
-        return Task.CompletedTask;
     }
 
     /// <summary>

@@ -19,7 +19,7 @@ import {
  * 21. Organizations, projects, teams and areas (mod-002 US-1..US-8) against
  * the real backend.
  *
- * The fixture user is in «Администраторы», whose realm role `admin` carries
+ * The fixture user holds the client role `system-admin`, which carries
  * the create right (mod-002 D-i); the realm import gained it, so the run that
  * counts follows the stand reset of D-j. Names carry a run suffix: names are
  * unique instance-wide and nothing is ever purged (BR-M1-1), so every

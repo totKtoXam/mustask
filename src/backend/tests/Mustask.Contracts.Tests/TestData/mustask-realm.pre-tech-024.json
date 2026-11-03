@@ -51,8 +51,8 @@
     },
     "realm": [
       {
-        "name": "admin",
-        "description": "Роль: администратор Mustask — все права",
+        "name": "instance-admin",
+        "description": "Роль: администратор экземпляра — справочники и создание организаций (ADR-0027). Прав внутри организаций не даёт: они выводятся из членства в организации",
         "composite": true,
         "composites": {
           "client": {
@@ -65,21 +65,21 @@
         }
       },
       {
-        "name": "member",
-        "description": "Роль: участник — работает с задачами",
-        "composite": true,
-        "composites": {
-          "client": {
-            "mustask-api": ["dictionaries.languages.read"]
-          }
-        }
+        "name": "offline_access",
+        "description": "${role_offline-access}"
       },
       {
-        "name": "viewer",
-        "description": "Роль: наблюдатель — только просмотр",
+        "name": "uma_authorization",
+        "description": "${role_uma_authorization}"
+      },
+      {
+        "name": "default-roles-mustask",
+        "description": "${role_default-roles}",
         "composite": true,
         "composites": {
+          "realm": ["offline_access", "uma_authorization"],
           "client": {
+            "account": ["view-profile", "manage-account"],
             "mustask-api": ["dictionaries.languages.read"]
           }
         }
@@ -109,20 +109,14 @@
       }
     ]
   },
+  "defaultRole": {
+    "name": "default-roles-mustask",
+    "description": "${role_default-roles}"
+  },
   "groups": [
     {
       "name": "Администраторы",
-      "realmRoles": ["admin"]
-    },
-    {
-      "name": "Сотрудники",
-      "realmRoles": ["viewer"],
-      "subGroups": [
-        {
-          "name": "Участники",
-          "realmRoles": ["member"]
-        }
-      ]
+      "realmRoles": ["instance-admin"]
     },
     {
       "name": "Администраторы справочников",

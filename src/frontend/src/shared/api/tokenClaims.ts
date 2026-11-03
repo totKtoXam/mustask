@@ -3,11 +3,42 @@
 // Подпись токена панель не проверяет — она и раньше не проверяла id-токен на
 // клиенте, а токен всё равно уходит на Mustask.Api, который его верифицирует сам.
 
-// Код клиента-аудитории, по которому ищутся права в `resource_access`
-// (Mustask.Domain.Identity.PermissionCatalog — код прав как
-// строки этот файл не перечисляет, они остаются точечными литералами в
-// страницах, как и до этой задачи).
+// Код клиента-аудитории, по которому ищутся роли в `resource_access`.
 const AUDIENCE = 'mustask-api';
+
+/**
+ * tech-024 (ADR-0033): токен несёт имена четырёх клиентских ролей `mustask-api`, а не коды прав. Таблица «роль → инстанс-коды»
+ * — рукописное зеркало `Mustask.Domain.Identity.InstanceRoles` (одна таблица в коде бэкенда, там же единственный источник
+ * правды): меняется вместе с ней, одним изменением. Роль, которой нет в таблице, игнорируется; без роли `user` прав нет вовсе —
+ * как и на сервере. Коды организации в токене не лежат (ADR-0027).
+ */
+export const INSTANCE_ROLE_CODES: Readonly<Record<string, readonly string[]>> = {
+  user: ['dictionaries.languages.read'],
+  'organization-creator': ['organizations.organization.create'],
+  'dictionaries-admin': ['dictionaries.languages.read', 'dictionaries.languages.write'],
+  'system-admin': [
+    'dictionaries.languages.read',
+    'dictionaries.languages.write',
+    'organizations.organization.create',
+  ],
+};
+
+/** Роль, без которой нет ни сессии, ни прав. */
+export const USER_ROLE = 'user';
+
+/** Инстанс-коды, которые дают роли токена: объединение по известным ролям; без `user` — пусто. */
+export function permissionsFromRoles(roles: readonly string[]): string[] {
+  if (!roles.includes(USER_ROLE)) {
+    return [];
+  }
+  const codes = new Set<string>();
+  for (const [role, held] of Object.entries(INSTANCE_ROLE_CODES)) {
+    if (roles.includes(role)) {
+      held.forEach((code) => codes.add(code));
+    }
+  }
+  return [...codes];
+}
 
 interface AccessTokenPayload {
   sub?: string;
@@ -25,7 +56,7 @@ export interface AccessTokenClaims {
   subject: string;
   /** `name` → `preferred_username` → пустая строка. */
   displayName: string;
-  /** Только `resource_access.mustask-api.roles` — `realm_access` и другие клиенты не читаются. */
+  /** Инстанс-коды по ролям из `resource_access.mustask-api.roles` (`permissionsFromRoles`) — `realm_access` и другие клиенты не читаются. */
   permissions: string[];
   /** `exp` в миллисекундах; `NaN`, если claim'а нет — вызывающий должен это учитывать. */
   expiresAt: number;
@@ -57,7 +88,7 @@ export function decodeAccessToken(token: string): AccessTokenClaims {
   return {
     subject: typeof payload.sub === 'string' ? payload.sub : '',
     displayName: payload.name ?? payload.preferred_username ?? '',
-    permissions: payload.resource_access?.[AUDIENCE]?.roles ?? [],
+    permissions: permissionsFromRoles(payload.resource_access?.[AUDIENCE]?.roles ?? []),
     expiresAt: typeof payload.exp === 'number' ? payload.exp * 1000 : NaN,
   };
 }
