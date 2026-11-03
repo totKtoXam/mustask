@@ -59,6 +59,9 @@ public sealed class MustaskDbContext(DbContextOptions<MustaskDbContext> options)
 
     public DbSet<TeamMembership> TeamMemberships => Set<TeamMembership>();
 
+    /// <summary>feat-033: the insert-only record of administrator appointments by a system administrator.</summary>
+    public DbSet<OrganizationAppointment> OrganizationAppointments => Set<OrganizationAppointment>();
+
     /// <summary>M3's work items (mod-003); their per-project counter is mapped too, with no DbSet (raw SQL only).</summary>
     public DbSet<WorkItem> WorkItems => Set<WorkItem>();
 

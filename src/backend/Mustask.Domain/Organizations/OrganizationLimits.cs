@@ -37,4 +37,10 @@ public static class OrganizationLimits
     /// <see cref="CreatedByMaxLength"/> by coincidence of the identifier it holds (docs/conventions/backend.md, "Named values", 5).
     /// </summary>
     public const int LinkedByMaxLength = 255;
+
+    /// <summary>The longest «Причина» of an administrator appointment, in Unicode code points after trimming (feat-033 BR-RS-5).</summary>
+    public const int AppointmentReasonMaxLength = 500;
+
+    /// <summary>The fixed page size of the «Все организации» list (feat-033 BR-RS-2).</summary>
+    public const int RescueListPageSize = 25;
 }
