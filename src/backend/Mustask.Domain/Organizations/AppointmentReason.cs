@@ -20,7 +20,7 @@ public readonly record struct AppointmentReason
     /// <summary>Checks <paramref name="raw"/>; on a refusal <paramref name="error"/> is the field reason of <c>reason</c>.</summary>
     public static bool TryCreate(string? raw, out AppointmentReason reason, out FieldError? error)
     {
-        var trimmed = raw?.Trim();
+        var trimmed = raw is null ? null : TrimLikeThePanel(raw);
 
         if (string.IsNullOrEmpty(trimmed))
         {
@@ -50,4 +50,31 @@ public readonly record struct AppointmentReason
         error = null;
         return true;
     }
+
+    /// <summary>
+    /// <c>String.prototype.trim</c> of the panel (ECMAScript WhiteSpace + LineTerminator): tab, VT, FF, space, U+00A0, U+FEFF, every
+    /// Unicode space separator (Zs), U+2028 and U+2029, LF, CR. .NET's <c>Trim()</c> differs in two places: it keeps U+FEFF and it
+    /// removes U+0085 (and the other C0/C1 separators), which the panel keeps. BR-RS-5: both ends count the same way.
+    /// </summary>
+    private static string TrimLikeThePanel(string text)
+    {
+        var start = 0;
+        var end = text.Length;
+
+        while (start < end && IsPanelWhiteSpace(text[start]))
+        {
+            start++;
+        }
+
+        while (end > start && IsPanelWhiteSpace(text[end - 1]))
+        {
+            end--;
+        }
+
+        return text[start..end];
+    }
+
+    private static bool IsPanelWhiteSpace(char c) =>
+        c is (char)0x09 or (char)0x0A or (char)0x0B or (char)0x0C or (char)0x0D or (char)0x2028 or (char)0x2029 or (char)0xFEFF
+        || System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) == System.Globalization.UnicodeCategory.SpaceSeparator;
 }

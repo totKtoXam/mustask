@@ -165,8 +165,8 @@ public sealed class RescueQaGapTests(MustaskApiFactory factory)
     // spaces and U+FEFF; a reason made only of them is «Укажите причину» on the server too, never an invisible stored reason.
     [Theory]
     [InlineData(0x00A0, 0x3000, 0x2003)]
-    [InlineData(0xFEFF, Skip = "feat-033 qa.md Backend D-1: the server keeps U+FEFF, which the panel trims")]
-    [InlineData(0x20, 0xFEFF, 0x20, Skip = "feat-033 qa.md Backend D-1: the server keeps U+FEFF, which the panel trims")]
+    [InlineData(0xFEFF)]
+    [InlineData(0x20, 0xFEFF, 0x20)]
     public async Task Appoint_AReasonOfUnicodeSpacesOnly_IsRequired(params int[] codePoints)
     {
         // Code points, not literals: the source holds no invisible text.
