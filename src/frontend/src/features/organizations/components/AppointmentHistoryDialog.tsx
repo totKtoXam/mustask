@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import { ApiError } from '../../../shared/api/httpClient';
 import { organizationErrorCodes as codes } from '../../../shared/api/errorCodes';
@@ -30,15 +30,17 @@ export interface AppointmentHistoryDialogProps {
   onClose(): void;
 }
 
-const COLUMN_WIDTHS = [{ width: 130 }, { width: 150 }, { width: 150 }, {}] as const;
-const TABLE_MIN_WIDTH = 560;
+// The wide dialog's table is 852 px at most: the date on one line, the two users 190 px each with
+// room for «Системный Администратор» and the «неактивен» mark flowing on, and the rest to «Причина».
+const COLUMN_WIDTHS = [{ width: 130 }, { width: 190 }, { width: 190 }, {}] as const;
+const TABLE_MIN_WIDTH = 720;
 
 /**
  * «История назначений» (US-3, design § 5): a read-only dialog with the organization's appointment
  * record, newest first as served, in one component for two hosts — the component knows no route.
  * Only «Закрыть» is in the footer and it holds the first focus. Loading, empty, error, 403 and 404
- * each have their own frame. The kit's ordinary dialog is used (design § 12 point 2): the record's
- * table scrolls sideways inside its card when the dialog is narrower than the table.
+ * each have their own frame. The kit's `wide` dialog is used (design § 12 point 2, gate-2): the
+ * table scrolls sideways inside its card only when the window is narrower than the table.
  */
 export function AppointmentHistoryDialog({
   organizationId,
@@ -48,6 +50,8 @@ export function AppointmentHistoryDialog({
   onClose,
 }: AppointmentHistoryDialogProps) {
   const query = useAppointments(organizationId, host);
+  // A stable callback: React runs it once when the button mounts, not on every render (qa D-7).
+  const focusClose = useCallback((button: HTMLButtonElement | null) => button?.focus(), []);
   const error = query.isError ? query.error : null;
   const apiError = error instanceof ApiError ? error : null;
   const forbidden = apiError?.status === 403;
@@ -62,16 +66,10 @@ export function AppointmentHistoryDialog({
   return (
     <DialogShell
       open
-      size="form"
+      size="wide"
       title={historyDialog.title(organizationName)}
       onClose={onClose}
-      footer={
-        <ActionButton
-          label={historyDialog.close}
-          ref={(button) => button?.focus()}
-          onClick={onClose}
-        />
-      }
+      footer={<ActionButton label={historyDialog.close} ref={focusClose} onClick={onClose} />}
     >
       {query.isPending ? (
         <TableSkeleton headers={HISTORY_COLUMNS} rows={4} />
@@ -96,12 +94,12 @@ export function AppointmentHistoryDialog({
             <BodyRow key={record.id}>
               <Cell>{formatDateTime(record.appointedAt)}</Cell>
               <Cell>
-                <UserLine user={record.appointedBy} />
+                <UserLine user={record.appointedBy} truncate={false} />
               </Cell>
               <Cell>
-                <UserLine user={record.appointee} />
+                <UserLine user={record.appointee} truncate={false} />
               </Cell>
-              <Cell>{record.reason}</Cell>
+              <Cell wrap>{record.reason}</Cell>
             </BodyRow>
           ))}
         </TableCard>

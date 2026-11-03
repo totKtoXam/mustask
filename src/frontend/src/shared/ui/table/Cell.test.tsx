@@ -84,6 +84,21 @@ describe('tech-015 Scenario: Cell (design § 5.11)', () => {
     });
   });
 
+  describe('Scenario: wrap', () => {
+    it('breaks even an unbroken word and does not cut the text', () => {
+      renderCell({ wrap: true, children: 'ABC-1ABC-2ABC-3' });
+      const style = getComputedStyle(cell());
+      expect(style.overflowWrap).toBe('anywhere');
+      expect(cell()).toHaveTextContent('ABC-1ABC-2ABC-3');
+      expect(cell().querySelector('[title]')).toBeNull();
+    });
+
+    it('is off by default', () => {
+      renderCell({ children: 'x' });
+      expect(getComputedStyle(cell()).overflowWrap).not.toBe('anywhere');
+    });
+  });
+
   describe('Scenario: alignment', () => {
     it('aligns its content', () => {
       renderCell({ align: 'right', children: '20' });

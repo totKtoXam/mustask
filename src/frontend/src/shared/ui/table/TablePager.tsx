@@ -8,6 +8,8 @@ export interface TablePagerProps {
   count: number;
   /** The value, not the event. */
   onPageChange: (page: number) => void;
+  /** Both arrows are inert, e.g. while the next page loads. */
+  disabled?: boolean;
 }
 
 /**
@@ -15,7 +17,13 @@ export interface TablePagerProps {
  * MUI's `ruRU` locale, with a `divider` rule above. No rows-per-page choice — a page has
  * one size.
  */
-export function TablePager({ page, rowsPerPage, count, onPageChange }: TablePagerProps) {
+export function TablePager({
+  page,
+  rowsPerPage,
+  count,
+  onPageChange,
+  disabled = false,
+}: TablePagerProps) {
   return (
     <TablePagination
       component="div"
@@ -23,6 +31,7 @@ export function TablePager({ page, rowsPerPage, count, onPageChange }: TablePage
       page={page}
       rowsPerPage={rowsPerPage}
       rowsPerPageOptions={[]}
+      disabled={disabled}
       onPageChange={(_event, next) => onPageChange(next)}
       sx={(theme) => ({
         borderTop: `${theme.layout.dividerWidth}px solid ${theme.palette.divider}`,

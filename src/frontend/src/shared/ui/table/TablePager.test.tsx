@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { px, rgb, theme } from '../../../test/kitTesting';
 import { TablePager, type TablePagerProps } from './TablePager';
@@ -66,6 +66,17 @@ describe('tech-015 Scenario: TablePager (design § 5.11)', () => {
     renderPager({ page: 2 });
     expect(screen.getByRole('button', { name: /следующ/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /предыдущ/i })).toBeEnabled();
+  });
+
+  it('disables both arrows while `disabled`, even in the middle of the range', () => {
+    const onPageChange = vi.fn();
+    renderPager({ page: 1, disabled: true, onPageChange });
+    for (const button of screen.getAllByRole('button')) {
+      expect(button).toBeDisabled();
+    }
+    fireEvent.click(screen.getByRole('button', { name: /следующ/i }));
+    expect(onPageChange).not.toHaveBeenCalled();
+    expect(screen.getByText('11–20 из 25')).toBeInTheDocument();
   });
 
   it('draws a 1 px divider rule above itself', () => {

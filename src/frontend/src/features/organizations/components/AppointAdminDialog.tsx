@@ -4,6 +4,7 @@ import { InlineNotice, InlineTextArea } from '../../../shared/ui';
 import { FormDialog } from '../../../shared/ui/FormDialog';
 import type { UserCandidate } from '../api/membershipApi';
 import type { Appointment } from '../api/rescueApi';
+import { useFocusInvalid } from '../hooks/useFocusInvalid';
 import { reasonProblem, trimmedReason } from '../lib/appointmentReason';
 import { placeAppointmentRefusal } from '../lib/rescueRefusals';
 import { appointDialog } from '../lib/rescueTexts';
@@ -46,6 +47,7 @@ export function AppointAdminDialog({
   const [gone, setGone] = useState(false);
   const [busy, setBusy] = useState(false);
   const reasonRef = useRef<HTMLTextAreaElement>(null);
+  const focusInvalid = useFocusInvalid();
 
   async function handleSubmit() {
     if (user === null || gone) {
@@ -74,6 +76,10 @@ export function AppointAdminDialog({
       setUserError(placed.userError);
       setReasonError(placed.reasonError);
       setAlert(placed.alert);
+      if (placed.userError !== null || placed.reasonError !== null) {
+        // Design § 4.2: focus goes to the field that carries the error.
+        focusInvalid();
+      }
       if (placed.organizationGone) {
         setGone(true);
         onReread();

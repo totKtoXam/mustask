@@ -121,8 +121,7 @@ describe('QA F-8: «Причина» is trimmed and counted as the server does (
 });
 
 describe('QA F-9: focus goes to the field that carries a server refusal (design § 4.2)', () => {
-  // Skipped: qa.md D-6 (open). Remove the skip with the fix.
-  it.skip('«Пользователь уже администратор этой организации» puts focus on «Пользователь»', async () => {
+  it('«Пользователь уже администратор этой организации» puts focus on «Пользователь»', async () => {
     const { dialog } = await openAppointDialog();
     server.use(
       http.post(`${ORGANIZATIONS_URL}/rescue/:organizationId/appointments`, () =>
@@ -206,8 +205,7 @@ describe('QA F-6: the page while a page loads, and a page that vanished (design 
 });
 
 describe('QA F-6: «Доступ ограничен» stays quiet (DC-8)', () => {
-  // Skipped: qa.md D-8 (open). Remove the skip with the fix.
-  it.skip('asks for no list after an appointment was refused with 403', async () => {
+  it('asks for no list after an appointment was refused with 403', async () => {
     const { api, dialog } = await openAppointDialog();
     server.use(
       http.post(`${ORGANIZATIONS_URL}/rescue/:organizationId/appointments`, () =>
@@ -227,8 +225,7 @@ describe('QA F-6: «Доступ ограничен» stays quiet (DC-8)', () =>
 });
 
 describe('QA F-12: focus in «История назначений» (design § 5)', () => {
-  // Skipped: qa.md D-7 (open). Remove the skip with the fix.
-  it.skip('leaves focus where the user moved it when the record arrives', async () => {
+  it('leaves focus where the user moved it when the record arrives', async () => {
     open();
     await table();
     const held = gate();
@@ -249,6 +246,101 @@ describe('QA F-12: focus in «История назначений» (design § 5
     await within(dialog).findByRole('heading', { name: 'Назначений не было' });
 
     expect(titleClose).toHaveFocus();
+  });
+});
+
+describe('QA D-4, D-5: the history dialog is wide and its reason wraps (design § 5, § 12 point 2)', () => {
+  const LONG_REASON = 'PRJ-1001'.repeat(12);
+
+  it('is the kit’s wide size: up to 900 px, not the 600 px form size', async () => {
+    open();
+    await table();
+    await userEvent.click(screen.getByRole('button', { name: `Действия: ${ORGANIZATION}` }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'История назначений' }));
+    const dialog = await screen.findByRole('dialog', { name: /История назначений/ });
+    const paper = dialog.closest('.MuiDialog-paper') as HTMLElement;
+
+    expect(paper).not.toHaveClass('MuiDialog-paperWidthSm');
+    expect(getComputedStyle(paper).maxWidth).toBe('900px');
+  });
+
+  it('wraps a long unbroken reason in its cell instead of cutting it', async () => {
+    const organizationId = rescueOrganizations().find((item) => item.name === ORGANIZATION)!.id;
+    serveRescue({
+      records: {
+        [organizationId]: [
+          {
+            id: 'r1',
+            appointedAt: '2026-11-03T11:05:00+00:00',
+            appointedBy: ROOT_ADMIN,
+            appointee: VERA,
+            reason: LONG_REASON,
+          },
+        ],
+      },
+    });
+    renderPage({ path: ADMIN_ORGANIZATIONS_PATH, permissions: RESCUE });
+    await table();
+    await userEvent.click(screen.getByRole('button', { name: `Действия: ${ORGANIZATION}` }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'История назначений' }));
+    const dialog = await screen.findByRole('dialog', { name: /История назначений/ });
+
+    const cell = (await within(dialog).findByText(LONG_REASON)).closest('td')!;
+    expect(getComputedStyle(cell).overflowWrap).toBe('anywhere');
+  });
+});
+
+describe('QA D-9, D-10: paging and filtering (design § 3.3)', () => {
+  it('disables the pager while the next page loads and moves the range with the rows', async () => {
+    open();
+    const root = await table();
+    const held = gate();
+    const all = rescueOrganizations();
+    server.use(
+      http.get(`${ORGANIZATIONS_URL}/rescue`, async () => {
+        await held.opened;
+        return HttpResponse.json({ count: all.length, data: all.slice(25, 50) });
+      }),
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /следующую страницу/i }));
+
+    await waitFor(() => expect(root.closest('[aria-busy="true"]')).not.toBeNull());
+    expect(screen.getByRole('button', { name: /следующую страницу/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /предыдущую страницу/i })).toBeDisabled();
+    expect(screen.getByText('1–25 из 120')).toBeVisible();
+
+    held.release();
+    expect(await within(root).findByText('Организация 026')).toBeVisible();
+    expect(screen.getByText('26–50 из 120')).toBeVisible();
+    expect(screen.getByRole('button', { name: /следующую страницу/i })).toBeEnabled();
+  });
+
+  it('sends no request with the old filter when it changes on page 2', async () => {
+    const api = open();
+    await table();
+    await userEvent.click(screen.getByRole('button', { name: /следующую страницу/i }));
+    await screen.findByText('26–50 из 120');
+    const field = screen.getByRole('textbox', { name: 'Поиск по названию' });
+
+    await userEvent.type(field, 'Орг');
+    await waitFor(() =>
+      expect(listReads(api).some((read) => read.search.includes('name='))).toBe(true),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    // Every read with a name is page 1; none carries page 2 with a name, and none is page 1 with a
+    // name that is not the settled one.
+    const named = listReads(api).filter((read) => read.search.includes('name='));
+    expect(named.length).toBeGreaterThan(0);
+    for (const read of named) {
+      expect(read.search).toBe('?page=1&name=%D0%9E%D1%80%D0%B3');
+    }
+    expect(listReads(api).map((read) => read.search)).toEqual([
+      '?page=1',
+      '?page=2',
+      '?page=1&name=%D0%9E%D1%80%D0%B3',
+    ]);
   });
 });
 

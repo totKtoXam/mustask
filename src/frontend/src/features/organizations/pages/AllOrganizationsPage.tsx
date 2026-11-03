@@ -51,7 +51,8 @@ type RescueDialog =
  * name filter (settled after a pause, sent trimmed), a row menu with the two actions. The name is
  * plain text: nothing of an organization opens from here (DC-3). Filter and page are component
  * state (DC-5). A 403 on the list or on a dialog's call turns the page into «Доступ ограничен»
- * and drops its queries (DC-8).
+ * and drops its queries (DC-8): the list is unmounted first and its queries removed after, so
+ * nothing re-creates the read.
  */
 export function AllOrganizationsPage() {
   const { can } = useAuth();
@@ -59,24 +60,50 @@ export function AllOrganizationsPage() {
   if (!can(organizationsPermissions.organizationRescue)) {
     return <AccessDenied />;
   }
-  return <AllOrganizations />;
+  return <RescueGate />;
 }
 
-function AllOrganizations() {
+function RescueGate() {
+  const client = useQueryClient();
+  const [revoked, setRevoked] = useState(false);
+
+  // After the commit that unmounted the list: no observer is left to read the query again (qa D-8).
+  useEffect(() => {
+    if (revoked) {
+      client.removeQueries({ queryKey: organizationsKeys.rescueLists });
+    }
+  }, [revoked, client]);
+
+  return revoked ? <AccessDenied /> : <AllOrganizations onRevoked={() => setRevoked(true)} />;
+}
+
+function AllOrganizations({ onRevoked }: { onRevoked(): void }) {
   const client = useQueryClient();
   const notify = useNotify();
   const [text, setText] = useState('');
   const [page, setPage] = useState(1);
   const [dialog, setDialog] = useState<RescueDialog>(null);
-  const [revoked, setRevoked] = useState(false);
   const settled = useDebouncedValue(text.trim());
   const query = useRescueOrganizations(page, settled);
+  // The page the rows on screen belong to: the pager's range moves with them, not before (qa D-9).
+  const [shownPage, setShownPage] = useState(1);
+  const [shownFilter, setShownFilter] = useState(settled);
   const buttons = useRef(new Map<string, HTMLButtonElement | null>());
   const returnTo = useRef<string | null>(null);
 
-  const forbidden = revoked || (query.error instanceof ApiError && query.error.status === 403);
+  const forbidden = query.error instanceof ApiError && query.error.status === 403;
   const count = query.data?.count ?? 0;
   const lastPage = Math.max(1, Math.ceil(count / RESCUE_PAGE_SIZE));
+
+  // A settled filter is a new list: back to page 1 before anything is asked, so no request goes
+  // out with the old filter (qa D-10). State adjusted while rendering, as below.
+  if (shownFilter !== settled) {
+    setShownFilter(settled);
+    setPage(1);
+  }
+  if (query.data && !query.isPlaceholderData && shownPage !== page) {
+    setShownPage(page);
+  }
 
   // Rows deleted meanwhile: the request is repeated for the last page that exists. State adjusted
   // while rendering, the pattern React names for a value derived from a fresh answer.
@@ -97,19 +124,12 @@ function AllOrganizations() {
   }
 
   const close = () => setDialog(null);
-  const revoke = () => {
-    setDialog(null);
-    setRevoked(true);
-    client.removeQueries({ queryKey: organizationsKeys.rescueLists });
-  };
+  const revoke = onRevoked;
   const open = (next: NonNullable<RescueDialog>) => {
     returnTo.current = next.organization.id;
     setDialog(next);
   };
-  const changeText = (next: string) => {
-    setText(next);
-    setPage(1);
-  };
+  const changeText = (next: string) => setText(next);
   const filtered = settled !== '';
   const firstLoad = query.isPending;
   const refreshing = query.isFetching && !firstLoad;
@@ -149,7 +169,8 @@ function AllOrganizations() {
             ))}
             foot={
               <TablePager
-                page={page - 1}
+                page={shownPage - 1}
+                disabled={refreshing}
                 rowsPerPage={RESCUE_PAGE_SIZE}
                 count={count}
                 onPageChange={(next) => setPage(next + 1)}
