@@ -18,8 +18,8 @@ export interface OrganizationAccessOptions {
  * It re-reads on every mount of an observer (the entry is stale at once, so a
  * switch to an organization, or a move to a page of it, reads in the
  * background over what is held) and on window focus — the client's default is
- * no refocus read, the switcher's lists and this opt in alike. The shell reads
- * the switcher's selection through it and the organization gate the
+ * no refocus read, the organization selector’s lists and this opt in alike. The shell reads
+ * the shell’s selection through it and the organization gate the
  * address's; when both name one organization they share the entry.
  *
  * The entry lives as long as the tab (`gcTime: Infinity`): the codes read

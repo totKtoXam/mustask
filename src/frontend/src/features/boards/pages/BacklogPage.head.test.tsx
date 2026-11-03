@@ -104,7 +104,7 @@ describe('US-1 Scenario: The team drop-down moves to another team of the organiz
     const menu = await screen.findByRole('menu', { name: 'Команды' });
     expect(button).toHaveAttribute('aria-expanded', 'true');
     const entries = within(menu).getAllByRole('menuitem');
-    // feat-040 BR-TS-11: the switcher's team level, no heading, no divider, and «Весь проект» is gone.
+    // feat-040 BR-TS-11: the team selector’s level, no heading, no divider, and «Весь проект» is gone.
     expect(entries.map((entry) => entry.textContent)).toEqual([
       'Мастаск',
       'Платформа',
@@ -203,7 +203,7 @@ describe('US-1 Scenario: An organization with one team still has the drop-down',
 });
 
 describe('US-1 Scenario: The heading while the team list is not read', () => {
-  it('reads «Бэклоги» while nothing names the team, then the team’s name from the page’s own read; there is no drop-down while the list is loading', async () => {
+  it('names the team from the shell’s selectors while the backlog is read (feat-043: the fallback «Бэклоги» is for a team nothing names)', async () => {
     serveBoards(storiesDataset());
     let release: () => void = () => {};
     const held = new Promise<void>((resolve) => {
@@ -216,12 +216,11 @@ describe('US-1 Scenario: The heading while the team list is not read', () => {
         return undefined;
       }),
     );
-    renderBoards(backlogAddress('stories'), {
-      context: { ...teamContext(), status: 'loading', organizations: [] },
-    });
+    // feat-043: the selectors' team list is the shell's own (selector-offers); the heading's
+    // fallback is still the page's own, until its read names the team.
+    renderBoards(backlogAddress('stories'));
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Бэклоги' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Сменить команду' })).toBeNull();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Платформа' })).toBeInTheDocument();
 
     release();
     expect(identifiers(await findBacklogTable())).toEqual([
@@ -231,7 +230,6 @@ describe('US-1 Scenario: The heading while the team list is not read', () => {
       'MSK-US-11',
     ]);
     expect(screen.getByRole('heading', { level: 1, name: 'Платформа' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Сменить команду' })).toBeNull();
   });
 
   it('keeps the head complete while the backlog is read: the team, the tab, the level and the grey button — the primary waits for the level’s types', async () => {

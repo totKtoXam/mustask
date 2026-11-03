@@ -44,7 +44,7 @@ feature (`src/frontend/src/features/dictionaries`) is the reference
 registry, form and dialog in code.
 
 - **Shell.** Every signed-in page renders inside `app/AppLayout`: the top
-  bar (product mark, context switcher, page trail, user menu), the main
+  bar (product mark, the four selectors, page trail, user menu), the main
   navigation and, on settings pages, the settings navigation. A page never
   draws its own frame. The line that builds a page registers its entry in
   `app/navigation/model.ts` (label, scope, permission code, landing address,

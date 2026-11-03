@@ -34,18 +34,20 @@ import { contextSource, renderPage } from '../testRender';
 // - BR-OL-10 (a project may have no team): «has no empty state, and answers «Проект не найден» for a deactivated
 //   project» — the page has an empty state now; the deactivated project's answer is kept above.
 
-const PRM_TEAMS = `/organizations/${ids.alfa}/projects/${ids.prm}/settings/teams`;
-const ANL_TEAMS = `/organizations/${ids.alfa}/projects/${ids.anl}/settings/teams`;
+const PRM_TEAMS = `/organizations/${ids.alfa}/projects/${ids.prm}/teams`;
+const PRM_SETTINGS = `/organizations/${ids.alfa}/projects/${ids.prm}/settings`;
+const ANL_SETTINGS = `/organizations/${ids.alfa}/projects/${ids.anl}/settings`;
+const ANL_TEAMS = `/organizations/${ids.alfa}/projects/${ids.anl}/teams`;
 const DEFAULT_TEAM_URL = `${PROJECT_URL}/default-team`;
 const UNLINK_COUNT_URL = `${PROJECT_TEAM_URL}/unlink-count`;
 const UNLINK_URL = `${PROJECT_TEAM_URL}/unlink`;
 
 async function teamsTable() {
-  return screen.findByRole('table', { name: 'Команды' });
+  return screen.findByRole('table', { name: 'Команды проекта' });
 }
 
 async function openMenu(name: string) {
-  await userEvent.click(screen.getByRole('button', { name: `Действия: ${name}` }));
+  await userEvent.click(screen.getByRole('button', { name: `Ещё действия: ${name}` }));
   return screen.findByRole('menu');
 }
 
@@ -72,26 +74,10 @@ describe('feat-028 US-3, US-6 Scenario: The project’s linked teams', () => {
     // A team's page is the organization's now (BR-OL-12).
     expect(within(rows[0]!).getByRole('link', { name: 'Платформа' })).toHaveAttribute(
       'href',
-      `/organizations/${ids.alfa}/settings/teams/${ids.platformTeam}`,
+      `/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview`,
     );
-    expect(screen.getByRole('button', { name: 'Добавить команду' })).toHaveClass(
+    expect(screen.getByRole('button', { name: 'Добавить команды' })).toHaveClass(
       'MuiButton-contained',
-    );
-    expect(screen.getByRole('button', { name: 'Команда по умолчанию' })).toBeVisible();
-  });
-
-  it('says in one line where teams are created and renamed, with the section as a link', async () => {
-    serveOrganizations();
-    renderPage({ path: PRM_TEAMS });
-    await teamsTable();
-
-    const intro = screen.getByText(/Команды организации, работающие над проектом\./);
-    expect(intro).toHaveTextContent(
-      'Команды организации, работающие над проектом. Создать, переименовать или удалить команду можно в разделе «Организация» → «Команды».',
-    );
-    expect(within(intro).getByRole('link', { name: '«Команды»' })).toHaveAttribute(
-      'href',
-      `/organizations/${ids.alfa}/settings/teams`,
     );
   });
 
@@ -118,7 +104,7 @@ describe('feat-028 US-3, US-6 Scenario: The project’s linked teams', () => {
 
   it('answers «Проект не найден» for a deactivated project', async () => {
     serveOrganizations();
-    renderPage({ path: `/organizations/${ids.alfa}/projects/${ids.old}/settings/teams` });
+    renderPage({ path: `/organizations/${ids.alfa}/projects/${ids.old}/teams` });
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Проект не найден' }),
@@ -148,7 +134,7 @@ describe('feat-028 US-7, BR-OL-10 Scenario: A project with no team is the normal
     renderPage({ path: PRM_TEAMS, role });
     const heading = await screen.findByRole('heading', {
       level: 2,
-      name: 'В проекте пока нет команд.',
+      name: 'К проекту не привязана ни одна команда',
     });
     return { api, heading };
   }
@@ -161,25 +147,15 @@ describe('feat-028 US-7, BR-OL-10 Scenario: A project with no team is the normal
         'Добавьте команду организации — она сможет владеть рабочими элементами проекта. Без команд проект тоже работает: у его рабочих элементов будет «Без команды».',
       ),
     ).toBeVisible();
-    expect(screen.queryByRole('table', { name: 'Команды' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('table', { name: 'Команды проекта' })).not.toBeInTheDocument();
     // A normal state, not a fault: no alert, no warning.
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(document.querySelector('.MuiAlert-colorWarning')).toBeNull();
-    expect(screen.getAllByRole('button', { name: 'Добавить команду' })).toHaveLength(2);
-    expect(screen.queryByRole('button', { name: 'Команда по умолчанию' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Бэклог проекта' })).toHaveAttribute(
-      'href',
-      `/organizations/${ids.alfa}/projects/${ids.prm}/backlogs/stories`,
-    );
-    expect(screen.getByRole('link', { name: 'Доска проекта' })).toHaveAttribute(
-      'href',
-      `/organizations/${ids.alfa}/projects/${ids.prm}/boards/stories`,
-    );
-    expect(screen.getByText(/Команды организации, работающие над проектом\./)).toBeVisible();
+    expect(screen.getAllByRole('button', { name: 'Добавить команды' })).toHaveLength(2);
   });
 
   it.each([['member'], ['viewer']] as const)(
-    'for the %s: the other hint, no action, and the two views still there',
+    'for the %s: the other hint and no action',
     async (role) => {
       await openEmpty(role);
 
@@ -188,45 +164,9 @@ describe('feat-028 US-7, BR-OL-10 Scenario: A project with no team is the normal
           'Команды подключает администратор организации. Проект работает и без команд.',
         ),
       ).toBeVisible();
-      expect(screen.queryByRole('button', { name: 'Добавить команду' })).not.toBeInTheDocument();
-      expect(screen.getByRole('link', { name: 'Бэклог проекта' })).toBeVisible();
-      expect(screen.getByRole('link', { name: 'Доска проекта' })).toBeVisible();
+      expect(screen.queryByRole('button', { name: 'Добавить команды' })).not.toBeInTheDocument();
     },
   );
-
-  // feat-040 BR-TS-12 (OQ-1 A) extends feat-028 OQ-2 A: team pages left the project's address, so the
-  // project's own views are reached from here whatever teams are linked. Rewritten from «shows neither
-  // view once a team is linked».
-  it('shows both views once a team is linked too, ahead of «Команда по умолчанию»', async () => {
-    serveOrganizations();
-    renderPage({ path: PRM_TEAMS });
-    await teamsTable();
-
-    expect(screen.getByRole('link', { name: 'Бэклог проекта' })).toHaveAttribute(
-      'href',
-      `/organizations/${ids.alfa}/projects/${ids.prm}/backlogs/stories`,
-    );
-    expect(screen.getByRole('link', { name: 'Доска проекта' })).toHaveAttribute(
-      'href',
-      `/organizations/${ids.alfa}/projects/${ids.prm}/boards/stories`,
-    );
-    const backlog = screen.getByRole('link', { name: 'Бэклог проекта' });
-    const board = screen.getByRole('link', { name: 'Доска проекта' });
-    const defaultTeam = screen.getByRole('button', { name: 'Команда по умолчанию' });
-    expect(backlog.compareDocumentPosition(board) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(
-      board.compareDocumentPosition(defaultTeam) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-  });
-
-  it('draws them from the first paint, for a reader too, before the teams are read', async () => {
-    serveOrganizations();
-    renderPage({ path: PRM_TEAMS, role: 'viewer' });
-
-    expect(screen.getByRole('link', { name: 'Бэклог проекта' })).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Доска проекта' })).toBeVisible();
-    await teamsTable();
-  });
 
   it('shows the error with «Повторить» when the read fails, and the table after it', async () => {
     serveOrganizations();
@@ -260,7 +200,7 @@ describe('feat-028 US-3 Scenario: «Добавить команду» links exis
     const api = serveOrganizations(data);
     renderPage({ path });
     await teamsTable();
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить команду' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить команды' }));
     const dialog = await screen.findByRole('dialog', { name: 'Добавление команд в проект' });
     return { api, dialog };
   }
@@ -269,7 +209,7 @@ describe('feat-028 US-3 Scenario: «Добавить команду» links exis
     const { dialog } = await openLink();
 
     expect(dialog).toHaveTextContent(
-      'Выбранные команды смогут владеть рабочими элементами проекта «Пример проекта». Доступ их участников к проекту это не меняет.',
+      'Выбранные команды войдут в проект «Пример проекта». Работу команд это не меняет.',
     );
     expect(within(dialog).getByRole('button', { name: 'Добавить' })).toBeDisabled();
     const field = within(dialog).getByRole('combobox', { name: 'Команды' });
@@ -289,7 +229,7 @@ describe('feat-028 US-3 Scenario: «Добавить команду» links exis
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Добавить' }));
 
-    expect(await screen.findByText('Команды добавлены в проект: 2.')).toBeInTheDocument();
+    expect(await screen.findByText('Команды добавлены: 2.')).toBeInTheDocument();
     expect(api.writes()).toEqual([
       {
         method: 'POST',
@@ -299,7 +239,7 @@ describe('feat-028 US-3 Scenario: «Добавить команду» links exis
     ]);
     await waitFor(() =>
       expect(
-        within(screen.getByRole('table', { name: 'Команды' }))
+        within(screen.getByRole('table', { name: 'Команды проекта' }))
           .getAllByRole('row')
           .slice(1)
           .map((row) => row.textContent),
@@ -315,10 +255,10 @@ describe('feat-028 US-3 Scenario: «Добавить команду» links exis
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Добавить' }));
 
-    expect(await screen.findByText('Команда «Аналитика» добавлена в проект.')).toBeInTheDocument();
+    expect(await screen.findByText('Команда «Аналитика» добавлена.')).toBeInTheDocument();
   });
 
-  it('says «Все команды организации уже работают над проектом.» when none is left, and «Ничего не найдено» for a text that matches nothing', async () => {
+  it('says «Все команды уже подключены к проекту.» when none is left, and «Ничего не найдено» for a text that matches nothing', async () => {
     const data = exampleDataset();
     data.links.push(
       { projectId: ids.prm, teamId: ids.anlTeam },
@@ -327,9 +267,7 @@ describe('feat-028 US-3 Scenario: «Добавить команду» links exis
     const { dialog } = await openLink(PRM_TEAMS, data);
 
     await userEvent.click(within(dialog).getByRole('combobox', { name: 'Команды' }));
-    expect(
-      await screen.findByText('Все команды организации уже работают над проектом.'),
-    ).toBeVisible();
+    expect(await screen.findByText('Все команды уже подключены к проекту.')).toBeVisible();
     await userEvent.type(within(dialog).getByRole('combobox', { name: 'Команды' }), 'яяя');
     expect(await screen.findByText('Ничего не найдено')).toBeVisible();
     expect(within(dialog).getByRole('button', { name: 'Добавить' })).toBeDisabled();
@@ -338,8 +276,11 @@ describe('feat-028 US-3 Scenario: «Добавить команду» links exis
   it('replaces the field with a note that links to «Команды» when the organization has no team at all (US-7)', async () => {
     serveOrganizations(noTeamsDataset());
     renderPage({ path: PRM_TEAMS });
-    await screen.findByRole('heading', { level: 2, name: 'В проекте пока нет команд.' });
-    await userEvent.click(screen.getAllByRole('button', { name: 'Добавить команду' })[1]!);
+    await screen.findByRole('heading', {
+      level: 2,
+      name: 'К проекту не привязана ни одна команда',
+    });
+    await userEvent.click(screen.getAllByRole('button', { name: 'Добавить команды' })[1]!);
     const dialog = await screen.findByRole('dialog', { name: 'Добавление команд в проект' });
 
     const note = await within(dialog).findByRole('status');
@@ -348,7 +289,7 @@ describe('feat-028 US-3 Scenario: «Добавить команду» links exis
     );
     expect(within(note).getByRole('link', { name: '«Команды»' })).toHaveAttribute(
       'href',
-      `/organizations/${ids.alfa}/settings/teams`,
+      `/organizations/${ids.alfa}/teams`,
     );
     expect(within(dialog).queryByRole('combobox', { name: 'Команды' })).not.toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Добавить' })).toBeDisabled();
@@ -365,7 +306,7 @@ describe('feat-028 US-3 Scenario: «Добавить команду» links exis
         return undefined;
       }),
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить команду' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить команды' }));
     const dialog = await screen.findByRole('dialog', { name: 'Добавление команд в проект' });
     const field = within(dialog).getByRole('combobox', { name: 'Команды' });
     expect(field).toBeEnabled();
@@ -390,7 +331,7 @@ describe('feat-028 US-3 Scenario: «Добавить команду» links exis
         { once: true },
       ),
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить команду' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить команды' }));
     const dialog = await screen.findByRole('dialog', { name: 'Добавление команд в проект' });
 
     expect(
@@ -524,7 +465,7 @@ describe('feat-028 US-4 Scenario: «Отключить от проекта» rea
     ]);
     await waitFor(() =>
       expect(
-        within(screen.getByRole('table', { name: 'Команды' })).queryByRole('link', {
+        within(screen.getByRole('table', { name: 'Команды проекта' })).queryByRole('link', {
           name: 'Платформа',
         }),
       ).not.toBeInTheDocument(),
@@ -591,7 +532,7 @@ describe('feat-028 US-4 Scenario: «Отключить от проекта» rea
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     await waitFor(() =>
       expect(
-        within(screen.getByRole('table', { name: 'Команды' })).queryByRole('link', {
+        within(screen.getByRole('table', { name: 'Команды проекта' })).queryByRole('link', {
           name: 'Платформа',
         }),
       ).not.toBeInTheDocument(),
@@ -668,7 +609,7 @@ describe('feat-028 US-4 Scenario: «Отключить от проекта» rea
     },
   );
 
-  it('DC-7: no notice of its own when the unlinked team is the switcher’s', async () => {
+  it('DC-7: no notice of its own when the unlinked team is the selected one', async () => {
     const { dialog } = await openUnlink({
       context: contextSource({
         selection: { organizationId: ids.alfa, projectId: ids.prm, teamId: ids.platformTeam },
@@ -717,22 +658,21 @@ describe('feat-028 US-4 Scenario: «Отключить от проекта» rea
 
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
       await waitFor(() =>
-        expect(screen.getByRole('button', { name: 'Действия: Платформа' })).toHaveFocus(),
+        expect(screen.getByRole('button', { name: 'Ещё действия: Платформа' })).toHaveFocus(),
       );
     }
   });
 });
 
-describe('feat-028 BR-OL-7 Scenario: «Команда по умолчанию»', () => {
+describe('feat-043 design § 7.1 and feat-028 BR-OL-7: «Команда по умолчанию» in «Параметры»', () => {
   async function openDialog() {
-    await teamsTable();
-    await userEvent.click(screen.getByRole('button', { name: 'Команда по умолчанию' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Выбрать' }));
     return screen.findByRole('dialog', { name: 'Команда по умолчанию' });
   }
 
   it('names a linked team: «Сохранить» waits for a change, the body is the team, the mark moves, the notice reads', async () => {
     const api = serveOrganizations();
-    renderPage({ path: PRM_TEAMS });
+    renderPage({ path: PRM_SETTINGS });
     const dialog = await openDialog();
 
     expect(dialog).toHaveTextContent(
@@ -753,16 +693,12 @@ describe('feat-028 BR-OL-7 Scenario: «Команда по умолчанию»'
 
     expect(await screen.findByText('Команда по умолчанию изменена.')).toBeInTheDocument();
     expect(api.writes()[0]).toMatchObject({ method: 'PUT', body: { teamId: ids.platformTeam } });
-    await waitFor(() =>
-      expect(
-        within(screen.getByRole('table', { name: 'Команды' })).getByText('По умолчанию'),
-      ).toBeInTheDocument(),
-    );
+    expect(await screen.findByText('Платформа')).toBeInTheDocument();
   });
 
   it('«Не выбрана» clears the setting: the body is `teamId: null`', async () => {
     const api = serveOrganizations(withNamedDefault());
-    renderPage({ path: PRM_TEAMS });
+    renderPage({ path: PRM_SETTINGS });
     const dialog = await openDialog();
     expect(within(dialog).getByRole('combobox', { name: 'Команда' })).toHaveTextContent(
       'Платформа',
@@ -774,16 +710,12 @@ describe('feat-028 BR-OL-7 Scenario: «Команда по умолчанию»'
 
     await screen.findByText('Команда по умолчанию изменена.');
     expect(api.writes()[0]?.body).toEqual({ teamId: null });
-    await waitFor(() =>
-      expect(
-        within(screen.getByRole('table', { name: 'Команды' })).queryByText('По умолчанию'),
-      ).toBeNull(),
-    );
+    expect(await screen.findByText('Не выбрана')).toBeInTheDocument();
   });
 
   it('with one linked team, the dialog adds that the only team is the default', async () => {
     serveOrganizations();
-    renderPage({ path: ANL_TEAMS });
+    renderPage({ path: ANL_SETTINGS });
     const dialog = await openDialog();
 
     expect(dialog).toHaveTextContent(
@@ -799,7 +731,7 @@ describe('feat-028 BR-OL-7 Scenario: «Команда по умолчанию»'
     async (code, text) => {
       const api = serveOrganizations();
       serveProblem('put', DEFAULT_TEAM_URL, problem(code));
-      renderPage({ path: PRM_TEAMS });
+      renderPage({ path: PRM_SETTINGS });
       const dialog = await openDialog();
       const reads = () => api.requests.filter((request) => request.path.endsWith('/teams')).length;
       const before = reads();
@@ -816,11 +748,9 @@ describe('feat-028 BR-OL-7 Scenario: «Команда по умолчанию»'
 
   it('is the holder of `project.write`’s alone, offered while a team is linked', async () => {
     serveOrganizations();
-    renderPage({ path: PRM_TEAMS, role: 'member' });
-    await teamsTable();
+    renderPage({ path: PRM_SETTINGS, role: 'member' });
+    await screen.findByRole('heading', { level: 1, name: 'Параметры' });
 
-    expect(screen.queryByRole('button', { name: 'Команда по умолчанию' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Добавить команду' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^Действия: / })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Выбрать' })).not.toBeInTheDocument();
   });
 });

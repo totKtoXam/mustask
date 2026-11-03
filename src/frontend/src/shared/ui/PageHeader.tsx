@@ -40,6 +40,8 @@ export interface Command {
    */
   onClick?: (event?: MouseEvent<HTMLElement>) => void;
   to?: string;
+  /** The router state a link (`to`) carries, e.g. the request to focus the next page's `h1`. */
+  state?: unknown;
   /** Unavailable for a reason of state (BR-9); a missing code hides the command instead. */
   disabled?: boolean;
   /**
@@ -144,7 +146,7 @@ const NO_COMMANDS: readonly Command[] = [];
 
 function commandProps(command: Command) {
   if (command.to) {
-    return { component: RouterLink, to: command.to } as const;
+    return { component: RouterLink, to: command.to, state: command.state } as const;
   }
   const opensMenu = command.menuOpen !== undefined;
   return {
@@ -379,6 +381,7 @@ function CommandBar({
             label: command.label,
             icon: command.icon,
             to: command.to,
+            state: command.state,
             disabled: command.disabled,
             onSelect: () => command.onClick?.(),
           }))}
@@ -408,6 +411,7 @@ function CommandBar({
                   key={command.label}
                   component={RouterLink}
                   to={command.to}
+                  state={command.state}
                   disabled={command.disabled}
                   onClick={() => setMenuAnchor(null)}
                 >
@@ -446,8 +450,12 @@ function PageViews({
   end?: ReactNode;
   variant?: 'team';
 }) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  // Views of one path told apart by the query (feat-043: «Проекты» and its deactivated view):
+  // the address with its query first, then the view with no query, then the path alone.
   const selected =
+    views.find((view) => view.to === pathname + search) ??
+    views.find((view) => pathOfView(view.to) === pathname && !view.to.includes('?')) ??
     views.find((view) => pathOfView(view.to) === pathname) ??
     [...views]
       .sort((first, second) => pathOfView(second.to).length - pathOfView(first.to).length)

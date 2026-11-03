@@ -40,15 +40,18 @@ import {
   type CreateProjectBody,
   type CreateTeamBody,
 } from '../api/organizationsApi';
-import { organizationsKeys as keys } from '../api/queryKeys';
+import { navigationKeys, organizationsKeys as keys } from '../api/queryKeys';
 
 // One mutation hook per write group, each doing the invalidations of design
-// § 3.7 (plan-frontend § 3.4). The switcher reads the same keys, so its
-// levels follow every write without a reload. The tree is always read again
+// § 3.7 (plan-frontend § 3.4). The selectors read the same keys, so their
+// offers follow every write without a reload. The tree is always read again
 // after an area write, never patched.
 
 function invalidate(client: QueryClient, ...queryKeys: (readonly unknown[])[]): Promise<unknown> {
-  return Promise.all(queryKeys.map((queryKey) => client.invalidateQueries({ queryKey })));
+  // Every write may change what the selectors offer and what the overview counts (US-7).
+  return Promise.all(
+    [...queryKeys, navigationKeys.all].map((queryKey) => client.invalidateQueries({ queryKey })),
+  );
 }
 
 // § 1 Organizations
@@ -412,7 +415,7 @@ export function useChangeMemberRole(organizationId: string, selfId: string | und
  * members (the user left every team, BR-M1-36). Removing oneself leaves the
  * page: the members list is only marked stale — its read would answer
  * «Организация не найдена» — and the organization lists are read, so the
- * switcher falls back (design § 3.7).
+ * selection falls back (design § 3.7).
  */
 export function useRemoveMember(organizationId: string, selfId: string | undefined) {
   const client = useQueryClient();

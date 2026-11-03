@@ -7,12 +7,12 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
 import { act, renderHook, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useOrganizationsContextSource } from '../context/useOrganizationsContextSource';
+import { useOrganizations } from '../hooks/queries';
 import { exampleDataset, ids } from '../testFixtures';
 import { serveOrganizations } from '../testApi';
 import { CREATE_RIGHT, renderPage } from '../testRender';
 
-const ORG_TEAMS = `/organizations/${ids.alfa}/settings/teams`;
+const ORG_TEAMS = `/organizations/${ids.alfa}/teams`;
 
 describe('(QA) mod-002 F-1: a dialog’s primary activated twice sends one request', () => {
   it('a double click on «Создать» creates one organization', async () => {
@@ -73,7 +73,7 @@ describe('(QA) mod-002 F-2: names holding markup and quotes are text everywhere'
     expect(await screen.findByText(NAME)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Деактивировать' }));
     const dialog = await screen.findByRole('dialog', { name: 'Деактивировать организацию?' });
-    expect(dialog).toHaveTextContent(`Организация «${NAME}» пропадёт из списков и переключателя`);
+    expect(dialog).toHaveTextContent(`Организация «${NAME}» пропадёт из списков и селекторов`);
     expect(document.querySelector('b')).toBeNull();
   });
 });
@@ -85,7 +85,7 @@ describe('(QA) mod-002 F-6: a dialog answered by an outer level’s not found', 
   it('a team rename of a team deleted meanwhile shows «Команда не найдена.»; closing shows the frame', async () => {
     const api = serveOrganizations();
     renderPage({ path: ORG_TEAMS });
-    await screen.findByRole('table', { name: 'Команды организации' });
+    await screen.findByRole('table', { name: 'Команды' });
     await userEvent.click(screen.getByRole('button', { name: 'Ещё действия: Платформа' }));
     await userEvent.click(
       within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Переименовать' }),
@@ -105,7 +105,7 @@ describe('(QA) mod-002 F-6: a dialog answered by an outer level’s not found', 
 
     await waitFor(() =>
       expect(
-        within(screen.getByRole('table', { name: 'Команды организации' })).queryByRole('link', {
+        within(screen.getByRole('table', { name: 'Команды' })).queryByRole('link', {
           name: 'Платформа',
         }),
       ).not.toBeInTheDocument(),
@@ -117,7 +117,7 @@ describe('(QA) mod-002 design § 4.3: focus returns to the opener of a row menu�
   it('«Отмена» of «Переименование команды» puts focus back on «Ещё действия: Платформа»', async () => {
     serveOrganizations();
     renderPage({ path: ORG_TEAMS });
-    await screen.findByRole('table', { name: 'Команды организации' });
+    await screen.findByRole('table', { name: 'Команды' });
     const opener = screen.getByRole('button', { name: 'Ещё действия: Платформа' });
     await userEvent.click(opener);
     await userEvent.click(
@@ -132,7 +132,7 @@ describe('(QA) mod-002 design § 4.3: focus returns to the opener of a row menu�
   });
 });
 
-describe('(QA) mod-002 F-14: the switcher’s levels follow other users’ changes on window focus', () => {
+describe('(QA) mod-002 F-14: the organizations read follows other users’ changes on window focus', () => {
   it('reads the organizations again when the window regains focus, and lists one created meanwhile', async () => {
     const api = serveOrganizations();
     const queryClient = new QueryClient({
@@ -143,11 +143,8 @@ describe('(QA) mod-002 F-14: the switcher’s levels follow other users’ chang
         <MemoryRouter initialEntries={['/home']}>{children}</MemoryRouter>
       </QueryClientProvider>
     );
-    const { result } = renderHook(
-      () => useOrganizationsContextSource({ enabled: true, subject: 'user-1' }),
-      { wrapper },
-    );
-    await waitFor(() => expect(result.current.status).toBe('ready'));
+    const { result } = renderHook(() => useOrganizations('active'), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
     const readsBefore = api.requests.filter(
       (request) => request.method === 'GET' && request.path === '/api/organizations',
     ).length;
@@ -162,7 +159,7 @@ describe('(QA) mod-002 F-14: the switcher’s levels follow other users’ chang
     act(() => focusManager.setFocused(true));
 
     await waitFor(() =>
-      expect(result.current.organizations.map((entry) => entry.name)).toEqual([
+      expect((result.current.data ?? []).map((entry) => entry.name)).toEqual([
         'Альфа',
         'Бета',
         'Вега',

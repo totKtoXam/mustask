@@ -15,7 +15,7 @@ export type TeamDialog = { kind: 'rename' | 'describe' | 'delete'; team: Team } 
 
 /**
  * The team dialogs of design § 5, shared by the organization's «Команды» and a team's page. Their
- * notices follow DC-7: deleting the team the switcher holds makes the switcher fall back, and its
+ * notices follow DC-7: deleting the team the selection holds makes the selection fall back, and its
  * notice is the only one (a team's page never chooses its team, mod-002 design § 3.4).
  */
 export function TeamDialogs({

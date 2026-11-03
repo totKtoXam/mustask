@@ -59,7 +59,7 @@ export interface TeamListProject {
 
 /**
  * feat-028 api-contract § 1.2: a row of the organization's list of teams; feat-040 api-contract
- * § 4.1 adds whether the caller is in the team, which orders the switcher's team level (BR-TS-10).
+ * § 4.1 adds whether the caller is in the team, which orders the team selector’s level (BR-TS-10).
  */
 export interface TeamListItem extends Team {
   projects: TeamListProject[];

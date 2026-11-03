@@ -228,7 +228,8 @@ describe('Acceptance Criteria: Dynamic Scenario List (R2, R3, R4, AC.1)', () => 
 
   it('handles multiline and long text in GIVEN, WHEN, THEN scenarios without errors', async () => {
     const data = hierarchyDataset();
-    const multilineGiven = 'Line 1: Предусловие\nLine 2: Контекст системы\nLine 3: Детали окружения';
+    const multilineGiven =
+      'Line 1: Предусловие\nLine 2: Контекст системы\nLine 3: Детали окружения';
     const longWhen = 'WHEN '.repeat(200);
     const longThen = 'THEN '.repeat(200);
 

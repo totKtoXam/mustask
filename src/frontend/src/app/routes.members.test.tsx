@@ -17,7 +17,7 @@ import { AppRoutes } from './routes';
 // changing under an open page, the page the user is removed from, and the
 // notices of the shell beside the page's own.
 
-const MEMBERS = `/organizations/${ids.alfa}/settings/members`;
+const MEMBERS = `/organizations/${ids.alfa}/members`;
 
 function renderMembers({
   role = 'admin' as TestRole,
@@ -53,38 +53,40 @@ async function settledTable() {
   return table;
 }
 
-function settingsLinks(): string[] {
-  return within(screen.getByRole('navigation', { name: 'Меню настроек' }))
+function mainLinks(): string[] {
+  return within(screen.getByRole('navigation', { name: 'Основное меню' }))
     .getAllByRole('link')
-    .map((link) => link.textContent ?? '');
+    .map((link) => link.getAttribute('aria-label') ?? link.textContent ?? '');
 }
 
 describe('mod-016 US-4 Scenario: «Участники» in the navigation and under the gate', () => {
+  // feat-043: «Участники» is an entry of the organization's menu, no longer of the settings.
   it.each(['admin', 'member', 'viewer'] as const)(
-    'a %s finds «Участники» between «Области» and «Процесс» and reads the table',
+    'a %s finds «Участники» last in the organization’s menu and reads the table',
     async (role) => {
       renderMembers({ role });
 
       await settledTable();
 
-      expect(settingsLinks().slice(0, 6)).toEqual([
-        'Общие',
-        'Проекты',
-        'Команды',
-        'Области',
-        'Участники',
-        'Процесс',
-      ]);
+      await waitFor(() =>
+        expect(mainLinks()).toEqual([
+          'Главная',
+          'Обзор',
+          'Структура',
+          'Проекты',
+          'Команды',
+          'Участники',
+          'Настройки',
+        ]),
+      );
       expect(
-        within(screen.getByRole('navigation', { name: 'Меню настроек' })).getByRole('link', {
+        within(screen.getByRole('navigation', { name: 'Основное меню' })).getByRole('link', {
           name: 'Участники',
           current: 'page',
         }),
       ).toBeVisible();
       expect(screen.getByRole('heading', { level: 1, name: 'Участники' })).toBeVisible();
-      expect(screen.getByRole('navigation', { name: 'Путь к странице' })).toHaveTextContent(
-        'Настройки/Организация',
-      );
+      expect(screen.queryByRole('navigation', { name: 'Меню настроек' })).not.toBeInTheDocument();
       const canWrite = role === 'admin';
       expect(screen.queryByRole('button', { name: 'Добавить участника' }) !== null).toBe(canWrite);
       expect(screen.queryAllByRole('button', { name: /^Действия: / })).toHaveLength(
@@ -94,7 +96,7 @@ describe('mod-016 US-4 Scenario: «Участники» in the navigation and un
   );
 
   it('answers «Организация не найдена» to a user who is not a member, with no table', async () => {
-    renderMembers({ path: `/organizations/${ids.gamma}/settings/members` });
+    renderMembers({ path: `/organizations/${ids.gamma}/members` });
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Организация не найдена' }),
@@ -141,7 +143,7 @@ describe('mod-016 design § 3.6 Scenario: an administrator steps down', () => {
 });
 
 describe('mod-016 design § 3.7 Scenario: a member removes themselves', () => {
-  it('opens the organization list without the organization, lets the switcher fall back with its notice and moves focus to the main region', async () => {
+  it('opens the organization list without the organization, lets the selection fall back with its notice and moves focus to the main region', async () => {
     renderMembers();
     await settledTable();
     await userEvent.click(screen.getByRole('button', { name: 'Действия: Анна Смирнова' }));
@@ -153,7 +155,7 @@ describe('mod-016 design § 3.7 Scenario: a member removes themselves', () => {
     await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/organizations'));
     expect(await screen.findByRole('heading', { level: 1, name: 'Организации' })).toBeVisible();
     await waitFor(() => expect(screen.getByRole('main')).toHaveFocus());
-    // «Бета» is the other organization: the switcher falls back to it and its
+    // «Бета» is the other organization: the selection falls back to it and its
     // notice is the only one.
     expect(
       await screen.findByText(/Ранее выбранный контекст недоступен\. Выбрано: Бета/),
@@ -211,7 +213,7 @@ describe('mod-016 design § 2.2, § 2.3 Scenario: the codes change behind the op
     ).toBeVisible();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     // No refusal of its own: the dialog went with the page. The only alert is
-    // the switcher’s notice that the selection fell back.
+    // the selectors’ notice that the selection fell back.
     expect(document.querySelector('.MuiAlert-colorError')).toBeNull();
     expect(screen.queryByText('Организация не найдена.')).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole('main')).toHaveFocus());

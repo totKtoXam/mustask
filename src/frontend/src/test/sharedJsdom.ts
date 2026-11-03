@@ -40,7 +40,14 @@ const environment: Environment = {
     // What Vitest's environment does for the same reason.
     const target = window as unknown as Record<string, unknown>;
     target.Buffer = Buffer;
-    for (const name of ['structuredClone', 'fetch', 'Request', 'Response', 'TextEncoder', 'TextDecoder']) {
+    for (const name of [
+      'structuredClone',
+      'fetch',
+      'Request',
+      'Response',
+      'TextEncoder',
+      'TextDecoder',
+    ]) {
       const value = (globalThis as unknown as Record<string, unknown>)[name];
       if (value !== undefined && target[name] === undefined) target[name] = value;
     }

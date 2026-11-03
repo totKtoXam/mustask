@@ -61,7 +61,9 @@ export function useRestore<R>({
     pending.current = null;
     const next = target.next ? buttons.current.get(target.next) : undefined;
     const previous = target.previous ? buttons.current.get(target.previous) : undefined;
-    const tab = container.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    const tab = container.current?.querySelector<HTMLElement>(
+      '[role="tab"][aria-selected="true"], [role="combobox"]',
+    );
     (next ?? previous ?? tab ?? undefined)?.focus();
   });
 

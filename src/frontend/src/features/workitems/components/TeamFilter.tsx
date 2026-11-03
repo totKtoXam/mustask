@@ -14,9 +14,10 @@ import { filterTexts } from '../lib/workItemFilter';
  * The teams are read when the field is drawn and the field works meanwhile: its list says
  * «Загрузка…», or, when the read has failed, «Не удалось загрузить команды. Попробуйте ещё
  * раз.», and opening it again reads again. A chosen team that was deleted meanwhile stays in
- * the filter and selects nothing; the field names only the teams it knows, and «Очистить
- * фильтры» removes it. While the address holds a value and no team of it is named, the field reads
- * «Фильтр задан» in place of «Все команды» (feat-003 D-4).
+ * the filter and selects nothing when it is a further value (the first value that is not `none` is
+ * the shell's team selector, and a gone one answers «Команда не найдена» — feat-043, ADR-0032 § 1);
+ * the field names only the teams it knows. While the address holds a value and no team of it is
+ * named, the field reads «Фильтр задан» in place of «Все команды» (feat-003 D-4).
  */
 export function TeamFilter({
   organizationId,

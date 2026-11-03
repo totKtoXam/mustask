@@ -161,7 +161,7 @@ describe('mod-016 design § 3.7, § 9: the refusals of a removal', () => {
     );
     expect(screen.getByRole('dialog', { name: 'Удалить себя из организации?' })).toBeVisible();
     expect(screen.queryByTestId('location')).toHaveTextContent(
-      `/organizations/${ids.alfa}/settings/members`,
+      `/organizations/${ids.alfa}/members`,
     );
   });
 
@@ -237,7 +237,7 @@ describe('mod-016 US-1 Scenario: removing oneself', () => {
     );
   });
 
-  it('leaves the notice to the switcher’s fallback when another organization replaces it', async () => {
+  it('leaves the notice to the shell’s fallback when another organization replaces it', async () => {
     openPage();
     const dialog = await openRemoval('Анна Смирнова');
 

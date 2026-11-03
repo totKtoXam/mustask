@@ -35,6 +35,8 @@ using Mustask.Application.Features.Organizations.GetDeactivatedProjects;
 using Mustask.Application.Features.Organizations.GetMembers;
 using Mustask.Application.Features.Organizations.GetOrganization;
 using Mustask.Application.Features.Organizations.GetOrganizationTeams;
+using Mustask.Application.Features.Organizations.GetOverview;
+using Mustask.Application.Features.Organizations.GetSelectorOffers;
 using Mustask.Application.Features.Organizations.GetOrganizationAccess;
 using Mustask.Application.Features.Organizations.GetOrganizations;
 using Mustask.Application.Features.Organizations.GetProject;
@@ -136,6 +138,8 @@ public static class DependencyInjection
         services.AddScoped<LinkProjectsToTeamHandler>();
         services.AddScoped<UnlinkTeamHandler>();
         services.AddScoped<GetAreaTreeHandler>();
+        services.AddScoped<GetOverviewHandler>();
+        services.AddScoped<GetSelectorOffersHandler>();
         services.AddScoped<CreateAreaHandler>();
         services.AddScoped<RenameAreaHandler>();
         services.AddScoped<MoveAreaHandler>();

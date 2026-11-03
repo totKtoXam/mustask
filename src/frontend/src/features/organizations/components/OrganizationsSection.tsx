@@ -16,8 +16,8 @@ interface ShownNotice extends OrganizationsNotice {
  * The pathless layout route around the slice's nine routes (plan-frontend
  * § 7.4): it hosts the slice's one `Snackbar`, 6 s at the bottom left, so a
  * notice survives the page an action opens. One notice at a time (DC-7,
- * mod-016 DC-11): the switcher's fallback notice wins, so this one closes
- * when the switcher raises a fallback and when the shell raises the
+ * mod-016 DC-11): the shell’s fallback notice wins, so this one closes
+ * when the shell raises a fallback and when the shell raises the
  * role-change notice, and a notice shown here closes the role-change notice
  * (`useNoticeHost`).
  */

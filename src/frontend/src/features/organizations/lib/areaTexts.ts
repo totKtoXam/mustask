@@ -18,22 +18,24 @@ export const typeLabels: Readonly<Record<AreaType, string>> = {
 };
 
 /** «Организация»: the top level as a place, never a node (design D-8). */
-export const ORGANIZATION_PLACE = 'Организация';
+export const ORGANIZATION_PLACE = 'Верхний уровень';
 
-/** «Области» (design § 3). */
+/** «Структура» (design § 5.2; the organization's tree). */
 export const areasPage = {
-  title: 'Области',
-  create: 'Новый департамент',
+  title: 'Структура',
+  create: 'Создать департамент',
+  search: 'Найти область',
+  nothingFound: 'Ничего не найдено',
+  resetFilter: 'Сбросить фильтр',
   expandAll: 'Развернуть всё',
   collapseAll: 'Свернуть всё',
   columns: { name: 'Название', type: 'Тип', description: 'Описание' },
   deactivated: 'деактивирован',
   rowMenu: (name: string) => `Действия: ${name}`,
   empty: {
-    heading: 'В организации пока нет департаментов и проектов',
-    adminHint:
-      'Департамент объединяет проекты и команды. Создайте первый кнопкой «Новый департамент»; проекты появляются в разделе «Проекты».',
-    otherHint: 'Области создаёт администратор организации.',
+    heading: 'В организации пока нет областей',
+    adminHint: 'Создайте первый департамент: он объединяет проекты и команды.',
+    otherHint: 'Департаменты создаёт администратор организации.',
   },
 } as const;
 
@@ -52,19 +54,23 @@ export const areaCommands = {
 export const areaPage = {
   /** The title while the node loads, and when it fails. */
   titleLoading: 'Область',
-  title: (type: AreaType, name: string) => `${typeLabels[type]}: ${name}`,
+  /** «Департамент: X», «Структура: A» for a project's node, «Область: X» (design § 6). */
+  title: (type: AreaType, name: string) =>
+    `${type === 'project' ? 'Структура' : typeLabels[type]}: ${name}`,
+  topLevel: 'Верхний уровень',
+  projectTeamsHint: 'Команды проекта — в разделе «Команды».',
   facts: {
     name: 'Название',
     type: 'Тип',
     location: 'Расположение',
     parent: 'Родительская область',
     project: 'Проект',
+    projects: 'Проекты',
+    teams: 'Команды',
     description: 'Описание',
   },
   nameFollowsProject: 'Название меняется вместе с проектом.',
   noDescription: 'Описание не задано',
-  deactivatedNotice: (projectName: string) =>
-    `Проект «${projectName}» деактивирован: область доступна только для чтения. Чтобы изменить её, восстановите проект в списке деактивированных проектов организации.`,
   children: {
     title: 'Вложенные области',
     tableLabel: 'Вложенные области',
@@ -75,32 +81,20 @@ export const areaPage = {
     title: 'Проекты',
     tableLabel: 'Проекты департамента',
     columns: { project: 'Проект', key: 'Ключ' },
-    empty: 'В департаменте пока нет проектов.',
+    empty: 'В департаменте нет проектов',
+    add: 'Добавить проект',
+    liftToTop: 'Вынести на верхний уровень',
+    deactivatedCount: (count: number) => `${count} деактивирован`,
   },
   teams: {
     title: 'Команды',
-    add: 'Добавить команду',
+    add: 'Добавить команды',
     tableLabel: 'Команды департамента',
     columns: { team: 'Команда' },
-    empty: 'К области не привязаны команды',
+    empty: 'К департаменту не привязаны команды',
     unlink: 'Отключить от департамента',
   },
-  projectTeams: {
-    title: 'Команды',
-    sameLinks: 'Это те же связи, что в разделе «Команды» проекта.',
-    tableLabel: 'Команды проекта',
-    add: 'Добавить команду',
-    unlink: 'Отключить от проекта',
-  },
   rowMenu: (name: string) => `Ещё действия: ${name}`,
-} as const;
-
-/** The project's «Области» page (design § 7). */
-export const projectAreasPage = {
-  title: 'Области',
-  emptyChildren:
-    'У проекта пока нет вложенных областей. Создайте первую кнопкой «Новая вложенная область».',
-  emptyChildrenReader: 'У проекта нет вложенных областей.',
 } as const;
 
 /** The section «Департаменты» of a team's page (design § 6, D-10). */
@@ -176,6 +170,28 @@ export const moveAreaDialog = {
   },
 } as const;
 
+/** «Добавление проекта в департамент» and «Вынести на верхний уровень» (feat-043 design §§ 8.2, 8.3). */
+export const placeProjectDialog = {
+  title: 'Добавление проекта в департамент',
+  submit: 'Переместить',
+  field: 'Проект',
+  current: (name: string, place: string) => `${name} — сейчас: ${place}`,
+  topLevelNow: 'верхний уровень',
+  fromPlace: (project: string, from: string, to: string) =>
+    `Проект «${project}» переместится из «${from}» в «${to}». Его области, команды и рабочие элементы не изменятся.`,
+  fromTop: (project: string, to: string) =>
+    `Проект «${project}» войдёт в департамент «${to}». Его области, команды и рабочие элементы не изменятся.`,
+  moved: (project: string) => `Проект «${project}» перемещён.`,
+  projectNotFound: 'Проект не найден',
+} as const;
+
+export const liftProjectDialog = {
+  title: 'Вынести на верхний уровень',
+  confirm: 'Вынести',
+  text: (project: string) =>
+    `Вынести проект «${project}» на верхний уровень? Команды, области и рабочие элементы проекта не изменятся.`,
+} as const;
+
 /** The deletion (design § 5.5). */
 export const deleteAreaDialog = {
   departmentTitle: 'Удаление департамента',
@@ -223,7 +239,7 @@ export const areaLinkDialog = {
       `Команда «${own}» войдёт в выбранные департаменты. Её работу и доступ её участников это не меняет.`,
     allLinked: 'Команда уже входит во все департаменты.',
     noneExist: 'В организации пока нет департаментов. Создайте первый в разделе «Организация» → ',
-    sectionName: '«Области»',
+    sectionName: '«Структура»',
     loadFailed: 'Не удалось загрузить департаменты. Попробуйте ещё раз.',
     linkedOne: (name: string) => `Департамент «${name}» добавлен.`,
     linkedMany: (count: number) => `Департаменты добавлены: ${count}.`,

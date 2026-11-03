@@ -11,12 +11,12 @@ import {
   problem,
 } from '../testFixtures';
 import { serveOrganizations, serveProblem } from '../testApi';
-import { renderPage } from '../testRender';
+import { contextSource, renderPage } from '../testRender';
 
-const AREAS = `/organizations/${ids.alfa}/settings/areas`;
+const AREAS = `/organizations/${ids.alfa}/areas`;
 
 function treegrid() {
-  return screen.findByRole('treegrid', { name: 'Области' });
+  return screen.findByRole('treegrid', { name: 'Структура' });
 }
 
 function row(name: string): HTMLElement {
@@ -54,7 +54,16 @@ describe('mod-018 design § 3: the organization’s area tree (the page)', () =>
     expect(within(row('Платформа')).getByText('Платформенные сервисы')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Шлюз' })).toHaveAttribute(
       'href',
-      `/organizations/${ids.alfa}/settings/areas/${ids.gatewayArea}`,
+      `/organizations/${ids.alfa}/areas/${ids.gatewayArea}/overview`,
+    );
+    // A department opens its page, a project its «Общие» (OQ-1 A, C-3).
+    expect(screen.getByRole('link', { name: 'Платформа' })).toHaveAttribute(
+      'href',
+      `/organizations/${ids.alfa}/areas/${ids.platformArea}/overview`,
+    );
+    expect(screen.getByRole('link', { name: 'Пример проекта' })).toHaveAttribute(
+      'href',
+      `/organizations/${ids.alfa}/projects/${ids.prm}/general`,
     );
     // Areas of another organization are not drawn.
     expect(screen.queryByText('Отчётность')).not.toBeInTheDocument();
@@ -85,7 +94,7 @@ describe('mod-018 design § 3: the organization’s area tree (the page)', () =>
 
   it('answers «Организация не найдена» for a deactivated organization', async () => {
     serveOrganizations();
-    renderPage({ path: `/organizations/${ids.gamma}/settings/areas` });
+    renderPage({ path: `/organizations/${ids.gamma}/areas` });
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Организация не найдена' }),
@@ -100,10 +109,10 @@ describe('mod-018 US-5: no department and no project is a normal state', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'В организации пока нет департаментов и проектов',
+        name: 'В организации пока нет областей',
       }),
     ).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Новый департамент' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Создать департамент' })).toHaveLength(2);
     expect(screen.queryByRole('button', { name: 'Свернуть всё' })).not.toBeInTheDocument();
   });
 
@@ -112,9 +121,9 @@ describe('mod-018 US-5: no department and no project is a normal state', () => {
     renderPage({ path: AREAS, role: 'viewer' });
 
     expect(
-      await screen.findByText('Области создаёт администратор организации.'),
+      await screen.findByText('Департаменты создаёт администратор организации.'),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Новый департамент' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Создать департамент' })).not.toBeInTheDocument();
   });
 
   it('shows the projects at the top level when there is no department yet', async () => {
@@ -133,7 +142,7 @@ describe('mod-018 US-1: «Новый департамент»', () => {
     renderPage({ path: AREAS });
     await treegrid();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Новый департамент' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Создать департамент' }));
     const dialog = await screen.findByRole('dialog', { name: 'Новый департамент' });
     expect(within(dialog).getByRole('textbox', { name: /Название/ })).toHaveFocus();
     await userEvent.type(within(dialog).getByRole('textbox', { name: /Название/ }), ' Данные ');
@@ -152,7 +161,7 @@ describe('mod-018 US-1: «Новый департамент»', () => {
     renderPage({ path: AREAS });
     await treegrid();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Новый департамент' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Создать департамент' }));
     const dialog = await screen.findByRole('dialog', { name: 'Новый департамент' });
     await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
 
@@ -167,7 +176,7 @@ describe('mod-018 US-1: «Новый департамент»', () => {
     renderPage({ path: AREAS });
     await treegrid();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Новый департамент' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Создать департамент' }));
     const dialog = await screen.findByRole('dialog', { name: 'Новый департамент' });
     await userEvent.type(within(dialog).getByRole('textbox', { name: /Название/ }), 'отчёты');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
@@ -292,7 +301,7 @@ describe('mod-018 US-2: rename, description, move', () => {
     ).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Новое расположение/ }));
     const options = within(await screen.findByRole('listbox')).getAllByRole('option');
-    expect(options.map((option) => option.textContent)).toEqual(['Организация', 'Отчёты']);
+    expect(options.map((option) => option.textContent)).toEqual(['Верхний уровень', 'Отчёты']);
     await userEvent.click(options[1]!);
     await userEvent.click(within(dialog).getByRole('button', { name: 'Переместить' }));
 
@@ -312,7 +321,7 @@ describe('mod-018 US-2: rename, description, move', () => {
     await choose('Пример проекта', 'Переместить');
     const dialog = await screen.findByRole('dialog', { name: 'Перемещение проекта' });
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Новое расположение/ }));
-    await userEvent.click(await screen.findByRole('option', { name: 'Организация' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Верхний уровень' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Переместить' }));
 
     await screen.findByText('Проект «Пример проекта» перемещён.');
@@ -424,13 +433,14 @@ describe('mod-018 US-6: deleting a department or a sub-area', () => {
   });
 });
 
-describe('mod-018 OQ-6 A: a deactivated project’s node is read-only', () => {
-  it('is marked «деактивирован» and has no row menu', async () => {
+describe('feat-043 OQ-3 A: a deactivated project’s node opens nothing', () => {
+  it('is marked «деактивирован», is plain text and has no row menu', async () => {
     serveOrganizations();
     renderPage({ path: AREAS });
     await treegrid();
 
     expect(within(row('Старый проект')).getByText('деактивирован')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Старый проект' })).not.toBeInTheDocument();
     expect(
       within(row('Старый проект')).queryByRole('button', { name: /^Действия:/ }),
     ).not.toBeInTheDocument();
@@ -443,8 +453,35 @@ describe('mod-018 US-6: the actions follow the served codes', () => {
     renderPage({ path: AREAS, role: 'member' });
     await treegrid();
 
-    expect(screen.queryByRole('button', { name: 'Новый департамент' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Создать департамент' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Действия:/ })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Платформа' })).toBeInTheDocument();
+  });
+});
+
+describe('feat-043 D-6: a sub-area row keeps the fitting team', () => {
+  it('asks the shell for the sub-area’s own page, and a project for its «Общие»', async () => {
+    serveOrganizations();
+    renderPage({
+      path: AREAS,
+      context: contextSource({
+        objectLink: (_kind, id, nodeId) => ({
+          to: nodeId
+            ? `${AREAS}/${nodeId}/overview?teamId=t1`
+            : `/organizations/${ids.alfa}/projects/${id}/general`,
+          notice: null,
+        }),
+      }),
+    });
+    await treegrid();
+
+    expect(within(row('API')).getByRole('link', { name: 'API' })).toHaveAttribute(
+      'href',
+      `${AREAS}/${ids.apiArea}/overview?teamId=t1`,
+    );
+    expect(within(row('Пример проекта')).getByRole('link')).toHaveAttribute(
+      'href',
+      `/organizations/${ids.alfa}/projects/${ids.prm}/general`,
+    );
   });
 });

@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components -- a test-only module:
    the probe lives beside the helper that mounts it. */
 import { StrictMode } from 'react';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation, useSearchParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import { vi } from 'vitest';
@@ -11,32 +11,46 @@ import { WorkContextContext, type WorkContextSource } from '../../shared/lib/wor
 import { checkFor, checkForCodes, type TestRole } from '../../test/organizationRoles';
 import { OrganizationsSection } from './components/OrganizationsSection';
 import { OrganizationGeneralPage } from './pages/OrganizationGeneralPage';
+import { OrganizationOverviewPage } from './pages/OrganizationOverviewPage';
 import { OrganizationListPage } from './pages/OrganizationListPage';
 import { MembersPage } from './pages/MembersPage';
 import { ProjectGeneralPage } from './pages/ProjectGeneralPage';
 import { ProjectListPage } from './pages/ProjectListPage';
 import { AreaPage } from './pages/AreaPage';
 import { AreasPage } from './pages/AreasPage';
-import { ProjectAreasPage } from './pages/ProjectAreasPage';
 import { OrganizationTeamsPage } from './pages/OrganizationTeamsPage';
 import { TeamPage } from './pages/TeamPage';
 import { TeamsPage } from './pages/TeamsPage';
 import {
-  AREAS_ROUTE,
   ORG_AREAS_ROUTE,
+  AREA_PROJECTS_ROUTE,
+  AREA_SETTINGS_ROUTE,
+  AREA_TEAMS_ROUTE,
   ORG_AREA_ROUTE,
   DEACTIVATED_ORGANIZATIONS_ROUTE,
-  DEACTIVATED_PROJECTS_ROUTE,
   MEMBERS_ROUTE,
   ORGANIZATIONS_ROUTE,
   ORGANIZATION_GENERAL_ROUTE,
+  ORGANIZATION_OVERVIEW_ROUTE,
   PROJECTS_ROUTE,
   ORG_TEAMS_ROUTE,
   ORG_TEAM_ROUTE,
+  TEAM_MEMBERS_ROUTE,
+  TEAM_PROJECTS_ROUTE,
+  TEAM_SETTINGS_ROUTE,
   PROJECT_GENERAL_ROUTE,
+  PROJECT_SETTINGS_ROUTE,
   TEAMS_ROUTE,
 } from './paths';
 import { organizationsPermissions } from './permissions';
+
+/** «Проекты»: `?status=deactivated` is the administrator's other view, as the product routes it. */
+function ProjectsView() {
+  const [params] = useSearchParams();
+  return (
+    <ProjectListPage view={params.get('status') === 'deactivated' ? 'deactivated' : 'active'} />
+  );
+}
 
 /** Shows the router's address, so a test reads where an action led. */
 export function LocationProbe() {
@@ -51,14 +65,13 @@ export function LocationProbe() {
 /** The holder of the create right (the instance code in the token, ADR-0018). */
 export const CREATE_RIGHT = [organizationsPermissions.organizationCreate];
 
-/** A context source with no selection: what a page sees outside the switcher's choice. */
+/** A context source with no selection: what a page sees outside the selectors’ choice. */
 export function contextSource(overrides: Partial<WorkContextSource> = {}): WorkContextSource {
   return {
     status: 'ready',
     organizations: [],
     selection: {},
     isReal: true,
-    select: vi.fn(),
     ...overrides,
   };
 }
@@ -153,19 +166,34 @@ export function renderPage({
                       path={ORGANIZATION_GENERAL_ROUTE}
                       element={<OrganizationGeneralPage />}
                     />
-                    <Route path={PROJECTS_ROUTE} element={<ProjectListPage view="active" />} />
                     <Route
-                      path={DEACTIVATED_PROJECTS_ROUTE}
-                      element={<ProjectListPage view="deactivated" />}
+                      path={ORGANIZATION_OVERVIEW_ROUTE}
+                      element={<OrganizationOverviewPage />}
                     />
+                    <Route path={PROJECTS_ROUTE} element={<ProjectsView />} />
                     <Route path={MEMBERS_ROUTE} element={<MembersPage />} />
-                    <Route path={PROJECT_GENERAL_ROUTE} element={<ProjectGeneralPage />} />
+                    {[PROJECT_GENERAL_ROUTE, PROJECT_SETTINGS_ROUTE].map((path) => (
+                      <Route key={path} path={path} element={<ProjectGeneralPage />} />
+                    ))}
                     <Route path={TEAMS_ROUTE} element={<TeamsPage />} />
                     <Route path={ORG_TEAMS_ROUTE} element={<OrganizationTeamsPage />} />
-                    <Route path={ORG_TEAM_ROUTE} element={<TeamPage />} />
-                    <Route path={AREAS_ROUTE} element={<ProjectAreasPage />} />
+                    {[
+                      ORG_TEAM_ROUTE,
+                      TEAM_PROJECTS_ROUTE,
+                      TEAM_MEMBERS_ROUTE,
+                      TEAM_SETTINGS_ROUTE,
+                    ].map((path) => (
+                      <Route key={path} path={path} element={<TeamPage />} />
+                    ))}
                     <Route path={ORG_AREAS_ROUTE} element={<AreasPage />} />
-                    <Route path={ORG_AREA_ROUTE} element={<AreaPage />} />
+                    {[
+                      ORG_AREA_ROUTE,
+                      AREA_PROJECTS_ROUTE,
+                      AREA_TEAMS_ROUTE,
+                      AREA_SETTINGS_ROUTE,
+                    ].map((path) => (
+                      <Route key={path} path={path} element={<AreaPage />} />
+                    ))}
                     <Route path="*" element={<p>Другая страница</p>} />
                   </Route>
                 </Routes>

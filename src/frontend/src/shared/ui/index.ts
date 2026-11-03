@@ -31,6 +31,12 @@ export {
   type MenuTriggerProps,
 } from './actions/MenuButton';
 export { MoreActionsMenu, type MoreActionsMenuProps } from './actions/MoreActionsMenu';
+export {
+  SearchMenu,
+  type SearchMenuGroup,
+  type SearchMenuOption,
+  type SearchMenuProps,
+} from './actions/SearchMenu';
 export { SplitButton, type SplitButtonProps } from './actions/SplitButton';
 export type { DataAttributes, PassThrough } from './passThrough';
 

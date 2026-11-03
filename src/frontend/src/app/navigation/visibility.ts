@@ -1,3 +1,4 @@
+import { matchPath } from 'react-router-dom';
 import type { AccessCheck } from '../../shared/lib/access';
 import type { WorkContextSelection } from '../../shared/lib/workContext';
 import type { TrailSegment } from '../../shared/ui/pageChrome';
@@ -112,39 +113,40 @@ export function visibleModel(
 export type EntryMarker = 'page' | 'true' | null;
 
 /**
- * The address as the router serves it: trailing slashes name the same page
- * (`/home/` is `/home`), not a page beneath it.
+ * Matched as the router matches (bug-003, tech-009 F4): the case and the percent-encoding of the
+ * address are the router's own, and a trailing slash names the same page.
  */
-function pagePath(pathname: string): string {
-  return pathname.replace(/\/+$/, '') || '/';
+/** The path as `<Routes>` reads it: percent-encoding decoded, an undecodable one left as it is. */
+function decodedPath(pathname: string): string {
+  try {
+    return decodeURI(pathname);
+  } catch {
+    return pathname;
+  }
+}
+
+function matches(pattern: string, pathname: string): boolean {
+  return matchPath({ path: pattern, end: true }, decodedPath(pathname)) !== null;
 }
 
 /**
  * `currentPage` is the address of the page on screen, or `null` while a
  * not-found frame answers the address: no page is current then, so no entry
- * is marked (BR-13). An entry's sibling views (mod-006's level tabs) are its
- * page as the landing is.
+ * is marked (BR-13). An entry's `pages` are its page, whatever the ids in the address; the
+ * menu is built from the address, so the ids agree.
  */
 export function entryMarker(
   currentPage: string | null,
   entry: NavigationEntry,
   selection: WorkContextSelection,
 ): EntryMarker {
-  const landing = entry.landing(selection);
-  if (!landing || currentPage === null) {
+  if (currentPage === null || entry.landing(selection) === null) {
     return null;
   }
-  const path = pagePath(currentPage);
-  // feat-039 BR-PB-9: a project's own page of the entry is the entry's page as its landing
-  // is — and only the selection's project's: a page of another is none of this selection's.
-  if (entry.projectViews?.matches(path) && entry.projectViews.retarget(path, selection) === path) {
+  if (entry.pages.some((pattern) => matches(pattern, currentPage))) {
     return 'page';
   }
-  const pages = [landing, ...(entry.views?.(selection) ?? [])];
-  if (pages.includes(path)) {
-    return 'page';
-  }
-  return pages.some((page) => path.startsWith(`${page}/`)) ? 'true' : null;
+  return entry.beneath?.some((pattern) => matches(pattern, currentPage)) ? 'true' : null;
 }
 
 /**

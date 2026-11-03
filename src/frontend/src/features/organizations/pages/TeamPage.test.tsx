@@ -25,8 +25,8 @@ import { renderPage } from '../testRender';
 // - mod-002 BR-M1-22, -23 (a team inside its project): «a team of another project» and «a deactivated project»
 //   cases of «A team id that names no team of the project…» — a team's address names no project.
 
-function teamPage(teamId: string, organizationId: string = ids.alfa) {
-  return `/organizations/${organizationId}/settings/teams/${teamId}`;
+function teamPage(teamId: string, organizationId: string = ids.alfa, segment = 'overview') {
+  return `/organizations/${organizationId}/teams/${teamId}/${segment}`;
 }
 
 const UNLINK_URL = `${PROJECT_TEAM_URL}/unlink`;
@@ -43,7 +43,7 @@ async function projectsTable() {
 describe('feat-028 US-1: a team’s page (design § 4)', () => {
   it('loads under «Команда» with a two-line skeleton, then reads «Команда: Платформа» with its facts', async () => {
     serveOrganizations();
-    renderPage({ path: teamPage(ids.platformTeam) });
+    renderPage({ path: teamPage(ids.platformTeam, ids.alfa, 'settings') });
 
     expect(screen.getByRole('heading', { level: 1, name: 'Команда' })).toBeInTheDocument();
     const skeleton = screen.getAllByRole('status', { name: 'Загрузка данных' })[0]!;
@@ -66,7 +66,7 @@ describe('feat-028 US-1: a team’s page (design § 4)', () => {
     const data = exampleDataset();
     data.teams.find((team) => team.id === ids.platformTeam)!.description = 'Первая строка\nВторая';
     serveOrganizations(data);
-    renderPage({ path: teamPage(ids.platformTeam) });
+    renderPage({ path: teamPage(ids.platformTeam, ids.alfa, 'settings') });
 
     const panel = await facts();
 
@@ -76,7 +76,7 @@ describe('feat-028 US-1: a team’s page (design § 4)', () => {
   it('fails under the same title «Команда», with «Повторить»', async () => {
     serveOrganizations();
     serveProblem('get', ORG_TEAM_URL, problem('organizations.validation_failed'), { once: true });
-    renderPage({ path: teamPage(ids.platformTeam) });
+    renderPage({ path: teamPage(ids.platformTeam, ids.alfa, 'settings') });
 
     expect(await screen.findByRole('button', { name: 'Повторить' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: 'Команда' })).toBeInTheDocument();
@@ -90,7 +90,7 @@ describe('feat-028 US-1: a team’s page (design § 4)', () => {
     const data = exampleDataset();
     data.ownedItemCounts = { [ownedKey(ids.prm, ids.platformTeam)]: 5 };
     serveOrganizations(data);
-    renderPage({ path: teamPage(ids.platformTeam) });
+    renderPage({ path: teamPage(ids.platformTeam, ids.alfa, 'settings') });
     await facts();
 
     await userEvent.click(screen.getByRole('button', { name: 'Удалить команду' }));
@@ -101,16 +101,14 @@ describe('feat-028 US-1: a team’s page (design § 4)', () => {
 
     expect(await screen.findByText('Команда «Платформа» удалена.')).toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getByTestId('location')).toHaveTextContent(
-        `/organizations/${ids.alfa}/settings/teams`,
-      ),
+      expect(screen.getByTestId('location')).toHaveTextContent(`/organizations/${ids.alfa}/teams`),
     );
-    expect(await screen.findByRole('table', { name: 'Команды организации' })).toBeInTheDocument();
+    expect(await screen.findByRole('table', { name: 'Команды' })).toBeInTheDocument();
   });
 
   it('renames and describes the team from its commands, the title following', async () => {
     serveOrganizations();
-    renderPage({ path: teamPage(ids.platformTeam) });
+    renderPage({ path: teamPage(ids.platformTeam, ids.alfa, 'settings') });
     await facts();
 
     await userEvent.click(screen.getByRole('button', { name: 'Переименовать' }));
@@ -140,7 +138,7 @@ describe('feat-028 US-3 Scenario: A team’s projects', () => {
     const data = exampleDataset();
     data.links.push({ projectId: ids.old, teamId: ids.platformTeam });
     serveOrganizations(data);
-    renderPage({ path: teamPage(ids.platformTeam) });
+    renderPage({ path: teamPage(ids.platformTeam, ids.alfa, 'projects') });
 
     const table = await projectsTable();
 
@@ -149,12 +147,12 @@ describe('feat-028 US-3 Scenario: A team’s projects', () => {
       within(table)
         .getAllByRole('columnheader')
         .map((header) => header.textContent),
-    ).toEqual(['Проект', 'Ключ', '']);
+    ).toEqual(['Проект', 'Ключ', 'Расположение', '']);
     const rows = within(table).getAllByRole('row').slice(1);
-    expect(rows.map((row) => row.textContent)).toEqual(['Пример проектаPRM']);
+    expect(rows.map((row) => row.textContent)).toEqual(['Пример проектаPRMПлатформа']);
     expect(within(rows[0]!).getByRole('link', { name: 'Пример проекта' })).toHaveAttribute(
       'href',
-      `/organizations/${ids.alfa}/projects/${ids.prm}/settings/teams`,
+      `/organizations/${ids.alfa}/projects/${ids.prm}/general`,
     );
   });
 
@@ -162,18 +160,18 @@ describe('feat-028 US-3 Scenario: A team’s projects', () => {
     const data = exampleDataset();
     data.links = data.links.filter((link) => link.teamId !== ids.platformTeam);
     serveOrganizations(data);
-    renderPage({ path: teamPage(ids.platformTeam) });
+    renderPage({ path: teamPage(ids.platformTeam, ids.alfa, 'projects') });
 
-    expect(await screen.findByText('Команда пока не участвует ни в одном проекте.')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Добавить проект' })).toBeVisible();
+    expect(await screen.findByText('Команда не привязана ни к одному проекту')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Добавить проекты' })).toBeVisible();
     expect(screen.queryByRole('table', { name: 'Проекты команды' })).not.toBeInTheDocument();
   });
 
   it('a team whose projects are all deactivated reads as a team linked to none', async () => {
     serveOrganizations();
-    renderPage({ path: teamPage(ids.oldTeam) });
+    renderPage({ path: teamPage(ids.oldTeam, ids.alfa, 'projects') });
 
-    expect(await screen.findByText('Команда пока не участвует ни в одном проекте.')).toBeVisible();
+    expect(await screen.findByText('Команда не привязана ни к одному проекту')).toBeVisible();
   });
 
   it('the projects’ read failing is the section’s own error with «Повторить»; the facts and the members stay', async () => {
@@ -181,11 +179,9 @@ describe('feat-028 US-3 Scenario: A team’s projects', () => {
     serveProblem('get', `${ORG_TEAM_URL}/projects`, problem('organizations.validation_failed'), {
       once: true,
     });
-    renderPage({ path: teamPage(ids.platformTeam) });
+    renderPage({ path: teamPage(ids.platformTeam, ids.alfa, 'projects') });
 
     const alert = await screen.findByRole('alert');
-    expect(await facts()).toHaveTextContent('Платформа');
-    expect(screen.getByRole('heading', { level: 2, name: 'Участники команды' })).toBeVisible();
 
     await userEvent.click(within(alert).getByRole('button', { name: 'Повторить' }));
 
@@ -196,9 +192,9 @@ describe('feat-028 US-3 Scenario: A team’s projects', () => {
 describe('feat-028 US-3 Scenario: «Добавить проект» links projects to the team', () => {
   async function openLink(data = exampleDataset()) {
     const api = serveOrganizations(data);
-    renderPage({ path: teamPage(ids.platformTeam) });
+    renderPage({ path: teamPage(ids.platformTeam, ids.alfa, 'projects') });
     await projectsTable();
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить проект' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить проекты' }));
     const dialog = await screen.findByRole('dialog', { name: 'Добавление проектов в команду' });
     return { api, dialog };
   }
@@ -207,7 +203,7 @@ describe('feat-028 US-3 Scenario: «Добавить проект» links projec
     const { dialog } = await openLink();
 
     expect(dialog).toHaveTextContent(
-      'Команда «Платформа» сможет владеть рабочими элементами выбранных проектов. Доступ её участников к ним это не меняет.',
+      'Команда «Платформа» войдёт в выбранные проекты. Её работу это не меняет.',
     );
     expect(within(dialog).getByRole('button', { name: 'Добавить' })).toBeDisabled();
     await userEvent.click(within(dialog).getByRole('combobox', { name: 'Проекты' }));
@@ -224,7 +220,7 @@ describe('feat-028 US-3 Scenario: «Добавить проект» links projec
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Добавить' }));
 
-    expect(await screen.findByText('Проект «Аналитика» добавлен в команду.')).toBeInTheDocument();
+    expect(await screen.findByText('Проект «Аналитика» добавлен.')).toBeInTheDocument();
     expect(api.writes()).toEqual([
       {
         method: 'POST',
@@ -238,7 +234,7 @@ describe('feat-028 US-3 Scenario: «Добавить проект» links projec
           .getAllByRole('row')
           .slice(1)
           .map((row) => row.textContent),
-      ).toEqual(['АналитикаANL', 'Пример проектаPRM']),
+      ).toEqual(['АналитикаANL—', 'Пример проектаPRMПлатформа']),
     );
   });
 
@@ -259,19 +255,17 @@ describe('feat-028 US-3 Scenario: «Добавить проект» links projec
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Добавить' }));
 
-    expect(await screen.findByText('Проекты добавлены в команду: 2.')).toBeInTheDocument();
+    expect(await screen.findByText('Проекты добавлены: 2.')).toBeInTheDocument();
   });
 
-  it('says «Команда уже работает над всеми проектами организации.» when none is left', async () => {
+  it('says «Команда уже подключена ко всем проектам.» when none is left', async () => {
     const data = exampleDataset();
     data.links.push({ projectId: ids.anl, teamId: ids.platformTeam });
     const { dialog } = await openLink(data);
 
     await userEvent.click(within(dialog).getByRole('combobox', { name: 'Проекты' }));
 
-    expect(
-      await screen.findByText('Команда уже работает над всеми проектами организации.'),
-    ).toBeVisible();
+    expect(await screen.findByText('Команда уже подключена ко всем проектам.')).toBeVisible();
   });
 
   it('a project deactivated meanwhile lands under «Проекты», the choice drops and nothing is linked', async () => {
@@ -319,8 +313,8 @@ describe('feat-028 US-3 Scenario: «Добавить проект» links projec
       project.active = false;
     }
     const api = serveOrganizations(data);
-    renderPage({ path: teamPage(ids.oldTeam) });
-    await userEvent.click(await screen.findByRole('button', { name: 'Добавить проект' }));
+    renderPage({ path: teamPage(ids.oldTeam, ids.alfa, 'projects') });
+    await userEvent.click(await screen.findByRole('button', { name: 'Добавить проекты' }));
     const dialog = await screen.findByRole('dialog', { name: 'Добавление проектов в команду' });
 
     expect(await within(dialog).findByRole('status')).toHaveTextContent(
@@ -335,7 +329,7 @@ describe('feat-028 US-4 Scenario: «Отключить от проекта» fro
   async function openUnlink(data = exampleDataset(), before: () => void = () => undefined) {
     const api = serveOrganizations(data);
     before();
-    renderPage({ path: teamPage(ids.platformTeam) });
+    renderPage({ path: teamPage(ids.platformTeam, ids.alfa, 'projects') });
     const table = await projectsTable();
     await userEvent.click(
       within(table).getByRole('button', { name: 'Ещё действия: Пример проекта' }),
@@ -369,7 +363,7 @@ describe('feat-028 US-4 Scenario: «Отключить от проекта» fro
       path: `/api/organizations/${ids.alfa}/projects/${ids.prm}/teams/${ids.platformTeam}/unlink`,
       body: { destination: { teamId: ids.prmTeam } },
     });
-    expect(await screen.findByText('Команда пока не участвует ни в одном проекте.')).toBeVisible();
+    expect(await screen.findByText('Команда не привязана ни к одному проекту')).toBeVisible();
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Команда: Платформа' }),
     ).toBeVisible();
@@ -459,7 +453,7 @@ describe('feat-028 US-1, US-2 Scenario: A team id that names no team of the orga
     const api = serveOrganizations();
     api.data.links.push({ projectId: ids.anl, teamId: ids.platformTeam });
     api.data.projects.find((project) => project.id === ids.anl)!.active = false;
-    renderPage({ path: teamPage(ids.platformTeam) });
+    renderPage({ path: teamPage(ids.platformTeam, ids.alfa, 'projects') });
 
     const table = await projectsTable();
 
@@ -468,6 +462,19 @@ describe('feat-028 US-1, US-2 Scenario: A team id that names no team of the orga
         .getAllByRole('row')
         .slice(1)
         .map((row) => row.textContent),
-    ).toEqual(['Пример проектаPRM']);
+    ).toEqual(['Пример проектаPRMПлатформа']);
+  });
+});
+
+describe('feat-043 design § 7.2: a team’s «Обзор» and its menu', () => {
+  it('shows the description, the members and projects counts and the departments', async () => {
+    serveOrganizations();
+    renderPage({ path: teamPage(ids.platformTeam) });
+
+    const panel = (await screen.findByText('Участников')).closest('dl') as HTMLElement;
+    await waitFor(() => expect(panel).toHaveTextContent('Проектов1'));
+    expect(panel).toHaveTextContent('ОписаниеОписание не задано');
+    expect(await screen.findByRole('table', { name: 'Департаменты команды' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Переименовать' })).not.toBeInTheDocument();
   });
 });

@@ -19,6 +19,8 @@ export interface TruncatedTextProps {
    * hover only — the backlog's title; `link` is the theme's link colour.
    */
   look?: 'plain' | 'link';
+  /** With `to`: the router state the link carries (a notice the target page's shell says). */
+  linkState?: unknown;
   /** The element drawn, default `span`; ignored when `to` is given. */
   component?: ElementType;
 }
@@ -42,6 +44,7 @@ export function TruncatedText({
   hint = 'title',
   to,
   look = 'plain',
+  linkState,
   component = 'span',
 }: TruncatedTextProps) {
   const title = hint === 'title' ? children : undefined;
@@ -49,6 +52,7 @@ export function TruncatedText({
     <Link
       component={RouterLink}
       to={to}
+      state={linkState}
       title={title}
       color={look === 'plain' ? 'inherit' : 'primary'}
       underline={look === 'plain' ? 'hover' : 'always'}

@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { authValue, LANGUAGES_READ, LANGUAGES_WRITE, renderShell } from '../test/renderShell';
+import {
+  authValue,
+  LANGUAGES_READ,
+  LANGUAGES_WRITE,
+  renderShell,
+  SELECTORS_SOURCE,
+} from '../test/renderShell';
 import { setViewportWidth } from '../test/viewport';
 import { KEPT_CHOICE_KEY } from './navigation/keptChoice';
 
@@ -75,16 +81,17 @@ describe('US-12 Scenario: Landmarks on a settings page (BR-19)', () => {
 });
 
 describe('US-12 Scenario: Tab order follows the layout', () => {
-  it('on «Главная» at 1440 px: mark, three levels, user menu, «Главная», «Настройки», the toggle, the page', async () => {
+  it('on «Главная» at 1440 px: mark, four selectors, user menu, «Главная», «Настройки», the toggle, the page', async () => {
     const user = userEvent.setup();
-    renderShell({ auth: authValue(administrator) });
+    renderShell({ auth: authValue(administrator), contextSource: SELECTORS_SOURCE });
 
-    expect(await tabSequence(user, 10)).toEqual([
+    expect(await tabSequence(user, 11)).toEqual([
       'Перейти к содержимому',
       'Mustask',
       'Организация: Пример организации 1',
-      'Проект: Пример проекта 1',
-      'Команда: Пример команды 1',
+      'Департамент: все',
+      'Команда: все',
+      'Проект: все',
       'Профиль: Иван Петров',
       'Главная',
       'Настройки',
@@ -95,9 +102,13 @@ describe('US-12 Scenario: Tab order follows the layout', () => {
 
   it('on «Языки»: mark, three levels, user menu, the rail’s «Главная» and «Настройки», «Языки» and the showcase in «Меню настроек», the page', async () => {
     const user = userEvent.setup();
-    renderShell({ path: '/dictionaries/languages', auth: authValue(administrator) });
+    renderShell({
+      path: '/dictionaries/languages',
+      auth: authValue(administrator),
+      contextSource: SELECTORS_SOURCE,
+    });
 
-    const sequence = await tabSequence(user, 11);
+    const sequence = await tabSequence(user, 12);
 
     // An administrator holds the showcase's code (`dictionaries.languages.write`, tech-015
     // D-5), so «Витрина компонентов» is a settings entry and a stop of its own.
@@ -105,8 +116,9 @@ describe('US-12 Scenario: Tab order follows the layout', () => {
       'Перейти к содержимому',
       'Mustask',
       'Организация: Пример организации 1',
-      'Проект: Пример проекта 1',
-      'Команда: Пример команды 1',
+      'Департамент: все',
+      'Команда: все',
+      'Проект: все',
       'Профиль: Иван Петров',
       'Главная',
       'Настройки',
@@ -128,49 +140,46 @@ describe('US-12 Scenario: Tab order follows the layout', () => {
 });
 
 describe('US-12 Scenario: Menus by keyboard', () => {
-  it('opens a switcher level with Enter on its current entry; arrows move, Enter chooses', async () => {
+  it('opens a selector with Enter, its search field first; arrows move among the options, Enter chooses', async () => {
     const user = userEvent.setup();
-    renderShell({ auth: authValue(reader) });
-    const level = screen.getByRole('button', { name: 'Организация: Пример организации 1' });
-    level.focus();
+    renderShell({ auth: authValue(reader), contextSource: SELECTORS_SOURCE });
+    const selector = screen.getByRole('combobox', { name: 'Организация: Пример организации 1' });
+    selector.focus();
 
     await user.keyboard('{Enter}');
 
-    const current = await screen.findByRole('menuitemradio', { name: 'Пример организации 1' });
-    await waitFor(() => expect(current).toHaveFocus());
-
+    expect(await screen.findByRole('option', { name: 'Пример организации 1' })).toBeInTheDocument();
+    expect(selector).toHaveAttribute('aria-expanded', 'true');
     await user.keyboard('{ArrowDown}');
-    expect(screen.getByRole('menuitemradio', { name: 'Пример организации 2' })).toHaveFocus();
-    await user.keyboard('{ArrowUp}');
-    expect(current).toHaveFocus();
-    await user.keyboard('{ArrowDown}{Enter}');
+    await waitFor(() =>
+      expect(screen.getByRole('option', { name: 'Пример организации 1' })).toHaveFocus(),
+    );
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByRole('option', { name: 'Пример организации 2' })).toHaveFocus();
+    await user.keyboard('{Enter}');
 
-    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
-    expect(
-      screen.getByRole('button', { name: 'Организация: Пример организации 2' }),
-    ).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
+    expect(screen.getByTestId('location')).toHaveTextContent('/organizations/org-2/overview');
   });
 
   it.each([['{ArrowDown}'], [' ']])(
-    'opens with %s too, and Escape closes it and returns focus to the level',
+    'opens with %s too, and Escape closes it and returns focus to the selector',
     async (key) => {
       const user = userEvent.setup();
-      renderShell({ auth: authValue(reader) });
-      const level = screen.getByRole('button', { name: 'Проект: Пример проекта 1' });
-      level.focus();
+      renderShell({ auth: authValue(reader), contextSource: SELECTORS_SOURCE });
+      const selector = screen.getByRole('combobox', { name: 'Организация: Пример организации 1' });
+      selector.focus();
 
       await user.keyboard(key);
 
-      await waitFor(() =>
-        expect(screen.getByRole('menuitemradio', { name: 'Пример проекта 1' })).toHaveFocus(),
-      );
-      expect(level).toHaveAttribute('aria-expanded', 'true');
+      expect(await screen.findByRole('listbox', { name: 'Организация' })).toBeInTheDocument();
+      expect(selector).toHaveAttribute('aria-expanded', 'true');
 
       await user.keyboard('{Escape}');
 
-      await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
-      expect(level).toHaveFocus();
-      expect(level).toHaveAttribute('aria-expanded', 'false');
+      await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
+      expect(selector).toHaveFocus();
+      expect(selector).toHaveAttribute('aria-expanded', 'false');
     },
   );
 });
@@ -191,14 +200,18 @@ describe('US-12 Scenario: Collapsed rail stays usable', () => {
         : matches.call(this, selector);
     });
     localStorage.setItem(KEPT_CHOICE_KEY, 'rail');
-    renderShell({ path: '/no-such-page', auth: authValue(reader) });
+    renderShell({
+      path: '/no-such-page',
+      auth: authValue(reader),
+      contextSource: SELECTORS_SOURCE,
+    });
 
     const navigation = screen.getByRole('navigation', { name: 'Основное меню' });
     const home = within(navigation).getByRole('link', { name: 'Главная' });
     expect(within(navigation).queryByText('Главная')).not.toBeInTheDocument();
 
     // Tab onto the rail's first entry, as a keyboard user does.
-    await tabSequence(user, 7);
+    await tabSequence(user, 8);
     expect(home).toHaveFocus();
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Главная');
 

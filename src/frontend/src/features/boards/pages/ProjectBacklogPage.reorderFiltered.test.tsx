@@ -3,13 +3,24 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { focusManager } from '@tanstack/react-query';
 import { serveBoards } from '../testApi';
-import { actions, announcer, findBacklogTable, identifiers, orders, rowOf } from '../testBacklog';
+import {
+  CELL,
+  actions,
+  cellOf,
+  findBacklogTable,
+  identifiers,
+  rowOf,
+  rowsOf,
+} from '../testBacklog';
+import { dataTransfer, fireDrag } from '../testDrag';
 import { ids, item, projectDataset } from '../testFixtures';
 import { projectBacklogAddress, renderBoards } from '../testRender';
 
-// mod-017 US-5 (design § 6.3, api-contract § 2.6): a filtered project backlog is reordered against the
-// full list. `projectDataset` puts MSK-US-2 on «Мастаск», MSK-US-3 on «Платформа» and MSK-US-9 on
+// mod-017 US-5 once reordered a filtered project backlog against the full list; feat-043 US-4 (Q-9 A)
+// retires that: a backlog narrowed by a chosen team keeps its order and offers no reorder. `projectDataset` puts MSK-US-2 on «Мастаск», MSK-US-3 on «Платформа» and MSK-US-9 on
 // «Аналитика»; MSK-US-5 is a second «Мастаск» story the filter hides. The project's order starts 2, 3, 5, 9.
+
+const HINT = 'Пока выбор сужает список, порядок не меняется. Выберите «все», чтобы менять его.';
 
 afterEach(() => {
   focusManager.setFocused(undefined);
@@ -25,55 +36,48 @@ async function chooseTeams(...names: string[]) {
   await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
 }
 
-describe('mod-017 US-5 Scenario: A filtered backlog reorders against the full list (BR-OT-8)', () => {
-  it('«В начало» and «Ниже» on the visible rows: the request carries no filter and names rows of the full list; the hidden rows keep their order; the position is told among the visible rows', async () => {
+describe('feat-043 US-4 Scenario: A narrowed project backlog keeps its order and cannot be reordered (Q-9 A)', () => {
+  it('under a chosen team the hint and the tag show, the row menu offers no move and a drag draws no line; clearing the filter gives the move back', async () => {
     const data = projectDataset();
     data.items.push(item(ids.msk, 5, 'US', 'Скрытая', { teamId: ids.mskTeam }));
     const api = serveBoards(data);
     renderBoards(projectBacklogAddress());
     const table = await findBacklogTable();
-    expect(api.projectOrder(ids.msk)).toEqual(['MSK-US-2', 'MSK-US-3', 'MSK-US-5', 'MSK-US-9']);
+    expect(screen.queryByText(HINT)).not.toBeInTheDocument();
 
     await chooseTeams('Платформа', 'Аналитика');
     await waitFor(() => expect(identifiers(table)).toEqual(['MSK-US-3', 'MSK-US-9']));
 
-    await userEvent.click(actions('MSK-US-9'));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'В начало' }));
-
-    await waitFor(() => expect(identifiers(table)).toEqual(['MSK-US-9', 'MSK-US-3']));
-    expect(orders(table)).toEqual(['1', '2']);
-    expect(announcer()).toHaveTextContent('MSK-US-9 перемещён: позиция 1 из 2.');
-    await waitFor(() => expect(actions('MSK-US-9')).not.toHaveAttribute('aria-disabled'));
-    // Against the full list: the hidden MSK-US-2 and MSK-US-5 keep their relative order below the moved row.
-    expect(api.projectOrder(ids.msk)).toEqual(['MSK-US-9', 'MSK-US-2', 'MSK-US-3', 'MSK-US-5']);
+    expect(screen.getByText(HINT)).toBeVisible();
+    expect(screen.getByText('сужено: команда Платформа, Аналитика')).toBeVisible();
 
     await userEvent.click(actions('MSK-US-9'));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Ниже' }));
+    const menu = await screen.findByRole('menu', { name: 'Ещё действия: MSK-US-9' });
+    expect(within(menu).queryByRole('menuitem', { name: 'В начало' })).not.toBeInTheDocument();
+    expect(within(menu).queryByRole('menuitem', { name: 'Ниже' })).not.toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: 'Изменить родителя…' })).toBeVisible();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
 
-    await waitFor(() => expect(identifiers(table)).toEqual(['MSK-US-3', 'MSK-US-9']));
-    expect(announcer()).toHaveTextContent('MSK-US-9 перемещён: позиция 2 из 2.');
-    await waitFor(() => expect(actions('MSK-US-9')).not.toHaveAttribute('aria-disabled'));
-    expect(api.projectOrder(ids.msk)).toEqual(['MSK-US-2', 'MSK-US-3', 'MSK-US-9', 'MSK-US-5']);
+    // No drag at all: no grip, rows not draggable (design § 7.1); nothing is offered between blocks.
+    expect(table.querySelectorAll('[data-grip]')).toHaveLength(0);
+    expect(rowOf(table, 'MSK-US-9')).not.toHaveAttribute('draggable', 'true');
+    const transfer = dataTransfer();
+    const source = rowOf(table, 'MSK-US-9');
+    await act(async () => fireDrag('dragStart', source, transfer));
+    await act(async () =>
+      fireDrag('dragOver', cellOf(rowOf(table, 'MSK-US-3'), CELL.title), transfer, 'upper'),
+    );
+    expect(rowsOf(table).filter((row) => row.hasAttribute('data-drop-line'))).toHaveLength(0);
+    await act(async () => fireDrag('dragEnd', source, transfer));
+    expect(api.writes().filter((request) => request.path.includes('/reorder'))).toEqual([]);
+    expect(api.projectOrder(ids.msk)).toEqual(['MSK-US-2', 'MSK-US-3', 'MSK-US-5', 'MSK-US-9']);
 
-    const path = `/api/organizations/${ids.example}/projects/${ids.msk}/backlogs/stories/reorder`;
-    expect(
-      api
-        .writes()
-        .filter((request) => request.path.includes('/reorder'))
-        .map((request) => [request.path, request.body]),
-    ).toEqual([
-      [path, { itemId: api.item(ids.msk, 9).id, position: 'top' }],
-      [
-        path,
-        {
-          itemId: api.item(ids.msk, 9).id,
-          position: 'after',
-          afterItemId: api.item(ids.msk, 3).id,
-        },
-      ],
-    ]);
-    // The filter outlives the writes: the last read still carries it.
-    expect(api.reads('/backlogs/stories').at(-1)?.path).toContain('teamId=');
+    await userEvent.click(screen.getByRole('button', { name: 'Очистить фильтры' }));
+    await waitFor(() => expect(screen.queryByText(HINT)).not.toBeInTheDocument());
+    await waitFor(() => expect(identifiers(table)).toHaveLength(4));
+    await userEvent.click(actions('MSK-US-9'));
+    expect(await screen.findByRole('menuitem', { name: 'В начало' })).toBeVisible();
   });
 });
 

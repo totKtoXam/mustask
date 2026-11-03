@@ -23,6 +23,8 @@ export interface MenuChoice {
   onSelect?: () => void;
   /** The entry is a link. */
   to?: string;
+  /** The router state the link carries. */
+  state?: unknown;
   /** Cannot be undone: the text and the icon read in the error colour — and the label says what it does. */
   destructive?: boolean;
   disabled?: boolean;
@@ -187,7 +189,7 @@ function ChoiceItem({
     sx: colour ? { color: colour } : undefined,
   };
   return choice.to ? (
-    <MenuItem component={RouterLink} to={choice.to} {...common}>
+    <MenuItem component={RouterLink} to={choice.to} state={choice.state} {...common}>
       {content}
     </MenuItem>
   ) : (

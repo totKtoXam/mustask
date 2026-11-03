@@ -204,7 +204,7 @@ describe('mod-016 design § 3.4: the states of the page', () => {
   });
 
   it('answers «Организация не найдена» when the organization’s own read says so (no gate above the page)', async () => {
-    openPage({ path: `/organizations/${ids.gamma}/settings/members` });
+    openPage({ path: `/organizations/${ids.gamma}/members` });
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Организация не найдена' }),

@@ -59,7 +59,9 @@ describe('US-3 Scenario: The button is at the top of the task list', () => {
     expect(lines[0]).not.toHaveAttribute('data-child');
     expect(lines[1]).toHaveAttribute('data-child', 'MSK-TASK-3');
     expect(addButton(board, 'MSK-US-2')).toHaveTextContent('Добавить задачу');
-    expect(addButton(board, 'MSK-US-2').querySelector('[data-testid="ThinAddIcon"]')).not.toBeNull();
+    expect(
+      addButton(board, 'MSK-US-2').querySelector('[data-testid="ThinAddIcon"]'),
+    ).not.toBeNull();
   });
 
   it('works by keyboard: Tab to it, then Enter or Space opens the field with focus in it', async () => {

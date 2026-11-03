@@ -168,7 +168,7 @@ public sealed class SetDefaultTeamEndpointTests(MustaskApiFactory factory)
         Assert.All(await MarksAsync(world), team => Assert.Null(team.Mark));
     }
 
-    // US-3 · "the default affects the creation only": naming a team moves no item and changes no view, filter or order.
+    // US-3 · "the default affects the creation only" (BR-MX-10; the fallback of mod-020 retired by feat-043, BR-NV-10): naming a team moves no item and changes no view, filter or order.
     [Fact]
     public async Task Name_MovesNoItem_ChangesNoViewOrFilter()
     {

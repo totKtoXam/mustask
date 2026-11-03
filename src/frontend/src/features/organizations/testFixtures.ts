@@ -372,3 +372,91 @@ export function emptyTreeDataset(): Dataset {
     areas: [],
   };
 }
+
+/** feat-043 api-contract sections 1-2: the two navigation reads. */
+export const OVERVIEW_URL = `${ORGANIZATION_URL}/overview`;
+export const SELECTOR_OFFERS_URL = `${ORGANIZATION_URL}/selector-offers`;
+
+/** The US-8 cast ids, canonical lowercase uuids. */
+export const navigationIds = {
+  logistics: 'c0000000-0000-4000-8000-000000000001',
+  finance: 'c0000000-0000-4000-8000-000000000002',
+  a: 'd0000000-0000-4000-8000-000000000001',
+  b: 'd0000000-0000-4000-8000-000000000002',
+  c: 'd0000000-0000-4000-8000-000000000003',
+  d: 'd0000000-0000-4000-8000-000000000004',
+  mars: 'e0000000-0000-4000-8000-000000000001',
+  venus: 'e0000000-0000-4000-8000-000000000002',
+  jupiter: 'e0000000-0000-4000-8000-000000000003',
+};
+
+/**
+ * The US-8 cast as selector-offers answers it: Logistics holds A and B and is linked to MARS
+ * and VENUS; Finance holds C; MARS is linked to A, B and C, VENUS to A; D and JUPITER have no
+ * link. VENUS is the caller's own team.
+ */
+export const selectorOffersFixture = {
+  departments: [
+    { id: navigationIds.finance, name: 'Финансы' },
+    { id: navigationIds.logistics, name: 'Логистика' },
+  ],
+  projects: [
+    {
+      id: navigationIds.a,
+      name: 'A',
+      key: 'A',
+      departmentId: navigationIds.logistics,
+      departmentName: 'Логистика',
+      teamIds: [navigationIds.mars, navigationIds.venus],
+    },
+    {
+      id: navigationIds.b,
+      name: 'B',
+      key: 'B',
+      departmentId: navigationIds.logistics,
+      departmentName: 'Логистика',
+      teamIds: [navigationIds.mars],
+    },
+    {
+      id: navigationIds.c,
+      name: 'C',
+      key: 'C',
+      departmentId: navigationIds.finance,
+      departmentName: 'Финансы',
+      teamIds: [navigationIds.mars],
+    },
+    {
+      id: navigationIds.d,
+      name: 'D',
+      key: 'D',
+      departmentId: null,
+      departmentName: null,
+      teamIds: [],
+    },
+  ],
+  teams: [
+    { id: navigationIds.jupiter, name: 'JUPITER', isMember: false, departmentIds: [] },
+    {
+      id: navigationIds.mars,
+      name: 'MARS',
+      isMember: false,
+      departmentIds: [navigationIds.logistics],
+    },
+    {
+      id: navigationIds.venus,
+      name: 'VENUS',
+      isMember: true,
+      departmentIds: [navigationIds.logistics],
+    },
+  ],
+};
+
+export const overviewFixture = {
+  departmentCount: 2,
+  projectCount: 4,
+  teamCount: 3,
+  departments: selectorOffersFixture.departments,
+  projects: selectorOffersFixture.projects.map(({ id, name, key }) => ({ id, name, key })),
+  teams: selectorOffersFixture.teams.map(({ id, name, isMember }) => ({ id, name, isMember })),
+  myTeams: [{ id: navigationIds.venus, name: 'VENUS', isMember: true }],
+};

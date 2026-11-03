@@ -6,7 +6,8 @@ namespace Mustask.Application.Features.Organizations.GetTeams;
 /// team; <c>null</c>: neither (BR-OL-7). At most one team of a project carries a mark.
 /// </param>
 /// <param name="IsMember">
-/// The <b>caller</b> is in this team (mod-016 api-contract § 3.3): the panel opens the project on the first team of the
-/// list's order (by name) with this flag set, else on the first team. Only the list carries it.
+/// The <b>caller</b> is in this team (mod-016 api-contract § 3.3). It orders and marks only: since feat-043 (BR-NV-10) it chooses
+/// no team, the panel opens no page on a member's team of its own accord, and the default team affects creation only (BR-MX-10).
+/// Only the list carries it.
 /// </param>
 public sealed record TeamResponse(Guid Id, string Name, string? DefaultMark, bool IsMember = false);

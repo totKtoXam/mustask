@@ -29,7 +29,7 @@ afterEach(() => {
   focusManager.setFocused(undefined);
 });
 
-/** The switcher's own first read of the list, plus the one read a turn to "not a member" starts (P-15). */
+/** The organization selector’s own first read of the list, plus the one read a turn to "not a member" starts (P-15). */
 const LIST_READS_AFTER_ONE_TURN = 2;
 
 function skeleton() {

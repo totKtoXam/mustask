@@ -14,10 +14,20 @@ const NODES: TreeRegistryNode[] = [
 ];
 
 function Where() {
-  return <div data-testid="where">{useLocation().pathname}</div>;
+  const { pathname, state } = useLocation();
+  return (
+    <div data-testid="where">
+      {pathname}
+      <span data-testid="state">{JSON.stringify(state)}</span>
+    </div>
+  );
 }
 
-function Harness() {
+function Harness({
+  to = (node: TreeRegistryNode): string | undefined => `/areas/${node.id}`,
+}: {
+  to?: (node: TreeRegistryNode) => string | undefined;
+}) {
   const [selected, setSelected] = useState<string | null>(null);
   return (
     <MemoryRouter initialEntries={['/tree']}>
@@ -30,7 +40,8 @@ function Harness() {
               firstColumn="Узел"
               columns={[]}
               nodes={NODES}
-              labelTo={(node) => `/areas/${node.id}`}
+              labelTo={to}
+              labelState={(node) => ({ from: node.id })}
               actions={() => []}
               showActions={false}
               selectedId={selected}
@@ -81,5 +92,31 @@ describe('mod-018 D-7: TreeRegistry `labelTo`', () => {
     await userEvent.click(screen.getByRole('link', { name: 'Корень' }));
 
     expect(await screen.findByTestId('where')).toHaveTextContent('/areas/root');
+  });
+
+  it('keeps a plain-text label where the address is undefined, and Enter selects that row', async () => {
+    render(<Harness to={(node) => (node.id === 'leaf' ? undefined : '/areas/root')} />);
+
+    expect(screen.queryByRole('link', { name: 'Лист' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Корень' })).toBeInTheDocument();
+    const row = screen
+      .getAllByRole('row')
+      .find(
+        (candidate) =>
+          within(candidate).queryByText('Лист') && candidate.hasAttribute('aria-level'),
+      )!;
+    row.focus();
+    await userEvent.keyboard('{Enter}');
+
+    expect(row).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByTestId('where')).not.toBeInTheDocument();
+  });
+
+  it('carries the router state of labelState on the link', async () => {
+    render(<Harness />);
+
+    await userEvent.click(screen.getByRole('link', { name: 'Лист' }));
+
+    expect(await screen.findByTestId('state')).toHaveTextContent('{"from":"leaf"}');
   });
 });

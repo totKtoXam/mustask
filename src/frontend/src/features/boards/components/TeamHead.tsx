@@ -9,10 +9,11 @@ import ArrowCircleRightOutlinedIcon from '@mui/icons-material/ArrowCircleRightOu
 import ViewWeekOutlinedIcon from '@mui/icons-material/ViewWeekOutlined';
 import { useWorkContext } from '../../../shared/lib/workContext';
 import { teamFilterSearch } from '../../workitems';
-import { BacklogIcon, ThinChevronDownIcon } from '../../../shared/ui';
+import { BacklogIcon, Tag, ThinChevronDownIcon } from '../../../shared/ui';
 import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
 import { projectFilterSearch } from '../hooks/useViewFilter';
 import type { BoardLevelCode } from '../lib/levels';
+import { narrowedTag } from '../lib/narrowed';
 import { scopeProjectId, scopeTeamId, type BoardScope } from '../lib/scope';
 import { backlogPath, boardPath, projectBacklogPath, projectBoardPath } from '../paths';
 import { LevelMenu } from './LevelMenu';
@@ -85,7 +86,7 @@ function pagePath(
  * It is `PageHeader`'s team variant.
  *
  * feat-040 (BR-TS-11): a team's page is at the team's address, so the drop-down lists the
- * organization's teams — the switcher's team level, in its order — with this one selected,
+ * organization's teams — the team selector's offers, in their order — with this one selected,
  * and no longer «Весь проект». The project's own pages (feat-039) have the same head with the
  * project's name as the `h1` and **no drop-down button**, so no menu puts a team under a project;
  * their tab, level drop-down and grey button lead to the project's addresses.
@@ -106,6 +107,7 @@ export function TeamHead({
   level,
   name,
   primaryAction,
+  narrowedBy,
 }: {
   page: TeamPage;
   organizationId: string;
@@ -115,6 +117,8 @@ export function TeamHead({
   name: string | undefined;
   /** «Новый рабочий элемент», once the read gives the level's types; none on «Канбан». */
   primaryAction?: Command;
+  /** The team filter narrowing a project's backlog: the title line carries the «сужено» tag (US-4). */
+  narrowedBy?: readonly string[];
 }) {
   const own = PAGES[page];
   const teamId = scopeTeamId(scope);
@@ -122,7 +126,7 @@ export function TeamHead({
   const context = useWorkContext();
   // A link to the same view carries its filter: another level and the page's own tab, on both kinds
   // of view; on a team's also the grey command to the other page, since the project filter is the
-  // view's of that team (BR-TS-8). The other kinds of link — another team, the switcher — start
+  // view's of that team (BR-TS-8). The other kinds of link — another team, a selector — start
   // unfiltered. The project's grey command carries no filter: mod-020 starts the other page unfiltered.
   const { search } = useLocation();
   const filterSearch =
@@ -159,6 +163,8 @@ export function TeamHead({
             currentId={teamId}
             pathOf={(id) => pagePath(page, organizationId, { kind: 'team', teamId: id }, level)}
           />
+        ) : narrowedBy && narrowedBy.length > 0 ? (
+          <Tag label={narrowedTag(narrowedBy, organization?.teams ?? [])} />
         ) : undefined
       }
       primaryAction={primaryAction}

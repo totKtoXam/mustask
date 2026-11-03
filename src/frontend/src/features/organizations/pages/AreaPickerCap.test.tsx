@@ -5,7 +5,7 @@ import { department, exampleDataset, ids } from '../testFixtures';
 import { serveOrganizations } from '../testApi';
 import { renderPage } from '../testRender';
 
-const PLATFORM_TEAM = `/organizations/${ids.alfa}/settings/teams/${ids.platformTeam}`;
+const PLATFORM_TEAM = `/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview`;
 
 /** mod-018 design D-1: the picker draws at most 50 matches and says how many there are. */
 describe('mod-018 D-1: the department picker caps its list', () => {

@@ -75,6 +75,7 @@ migration is tracked in § 10.
 | an icon-only button | `IconAction` (`row`, `chevron`, `header`, `bar`) | `IconButton`, a glyph size in `sx` |
 | a hairline glyph | the thin icons in `shared/ui/icons` — chevrons, add, remove, close, expand, more-vertical, refresh, undo, save, person | `createSvgIcon` in a slice |
 | a menu from a button | `MenuButton`; the «⋮» is `MoreActionsMenu` | `Menu` + `MenuItem` |
+| a header selector that searches and groups its choices | `SearchMenu` (a combobox over a grouped listbox; the host passes every text) | a `Popover` of your own |
 | a type, a state, a person | `TypeLabel`, `StateLabel`, `CategoryMarker`, `UserAvatar`, `PersonLabel` | an icon beside a text by hand |
 | a tag | `Tag`, `TagList` | `Chip` |
 | a long text cut to one line | `TruncatedText` | an ellipsis `sx` |
@@ -130,11 +131,25 @@ ones that matter; the type is in the file.
   (`none`, `radio`, `page`), `align`. Enter, Space or ArrowDown opens on the
   current entry; Escape closes and returns focus. Entry icons are neutral; a
   `destructive` entry reads in the error colour and says what it does; a `group`
-  heading names the entries under it.
+  heading names the entries under it. An entry with `to` is a link; its `state` is
+  the router state it carries (a notice, a focus request for the page it opens).
 - `MoreActionsMenu` — a `MenuButton` with the vertical «⋮»; `label` defaults to
   «Ещё действия» (a row passes «Ещё действия: MSK-EPIC-1»); `size` is `row` or
   `bar`; `revealed={false}` draws the control transparent until hover, focus or an
   open menu (a table row's).
+- `SearchMenu` — a selector: a trigger of a `label` caption over a `value`
+  (`chosen` marks it), opening a search field, an optional `allLabel` row
+  (`onSelect(null)`), `groups` (`heading`, `note`, `options` with `hint`), a
+  `footer` row outside the search and the `status` states (`loading`, `error`
+  with `retryLabel` and `onRetry`, and `emptyText` for a search with no match).
+  The trigger is a combobox over a labelled listbox; Arrows, Home and End move,
+  Enter chooses, Escape closes and returns focus. Search is local, a part of a
+  name or of the `hint`, in every group; it knows no word of its own. Used by the
+  shell's four selectors (feat-043).
+
+**Page head** (`PageHeader`) — `title`, `commands`, `views`, `primaryAction`. A
+`Command` is a button (`onClick`) or a link (`to`); a link's `state` is the router
+state it carries, as a `MenuButton` entry's does.
 
 **Marks and people** (`marks`) — always followed by a name; colour is never the
 only carrier. `TypeLabel` (`eyebrow` for the card's type line), `StateLabel`
@@ -225,14 +240,17 @@ a treegrid host), `TablePager`, `TableSkeleton`. The row and cell parts pass
 is the plain registry with its loading, empty and error states (the error is an
 `InlineNotice` with «Повторить»). A plain table has
 Tab stops, not arrow navigation and no `aria-selected`; a treegrid keeps its own
-keyboard model and draws with the parts.
+keyboard model and draws with the parts. `TreeRegistry` is the tree of rows over
+them: `labelTo(node)` turns a row's label into a router link and answers
+`undefined` for a row that opens nothing (a text label; Enter selects), and
+`labelState(node)` is the router state that link carries.
 
 **Notices and states** (`feedback`) — `useNotice().show(text, severity?)`: one
 at a time, bottom left, clickaway ignored (Escape dismisses it, and a success or
 error notice closes by «Закрыть»); never an action or a link in it. The hook needs
 the `NoticeProvider` that `AppLayout` mounts (`renderWithProviders` mounts it in
 tests) and throws outside one. The corner is shared with the shell's two notices
-(mod-016 DC-11): the provider closes its notice when the switcher's fallback or
+(mod-016 DC-11): the provider closes its notice when the selectors' fallback or
 the role-change notice is raised, and showing one closes the role-change notice.
 `InlineNotice` — `severity`, `title`, `action`; it owns **no margin** (the
 container spaces it). `StateFrame` and its two variants as mod-015 § 7; `compact`
@@ -397,7 +415,7 @@ part is allowed and nothing else is: `Switch`, `Checkbox`, `Radio`,
 `FormControlLabel` (until a form needs one); a neutral grey note panel; the grey
 «Follow» group; a comment composer; links, history and attachments lists; tag
 editing (the card's meta row, through `Tag`); the board's tile as a surface; the
-dark avatar fill, the grey trail and hairline switcher chevrons (the shell); the
+dark avatar fill, the grey trail and hairline selector chevrons (the shell); the
 hairline history, link, attachment and comments glyphs (the owner of each tab adds
 its glyph to `shared/ui/icons`; until then Material `*Outlined` is a recorded
 difference); the date field's hidden mask outside Chromium-family browsers.

@@ -1,13 +1,14 @@
 // MSW handlers over an in-memory copy of the stories' dataset, answering per
 // api-contract: lists in display order, not-found from the outside in, the
 // order of answers of § 0.4 and the refusals the screens place. Flow tests
-// (create → listed → switcher) run without a handler per step. It keeps the
+// (create → listed → selector) run without a handler per step. It keeps the
 // contract's answers, not every rule of the backend: what a test needs. Since
 // feat-028 the teams are the organization's and linked to projects
 // (`Dataset.teams`, `Dataset.links`); the routes follow its api-contract.
 import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
 import { servedFor } from '../../test/organizationRoles';
+import type { Overview, SelectorOffers } from './api/navigationApi';
 import type {
   Area,
   AreaDeletion,
@@ -37,6 +38,8 @@ import {
   PROJECTS_URL,
   PROJECT_TEAM_URL,
   PROJECT_URL,
+  OVERVIEW_URL,
+  SELECTOR_OFFERS_URL,
   TEAMS_URL,
   TEAM_LINKS_URL,
   TEAM_AREAS_URL,
@@ -366,6 +369,68 @@ export class OrganizationsTestApi {
       .map((link) => this.data.projects.find((project) => project.id === link.projectId))
       .filter((project): project is ProjectRecord => project !== undefined && project.active)
       .sort(byName);
+  }
+
+  /** feat-043 api-contract § 2: what the four selectors and the lists «Проекты» and «Команды» need. */
+  private selectorOffers(organization: OrganizationRecord): SelectorOffers {
+    const areas = this.data.areas.filter((area) => area.organizationId === organization.id);
+    const departments = areas
+      .filter((area) => area.type === 'department')
+      .map(({ id, name }) => ({ id, name }))
+      .sort(byName);
+    const teams = this.data.teams.filter(
+      (team) => team.organizationId === organization.id && !team.deleted,
+    );
+    const projects = this.data.projects
+      .filter((project) => project.organizationId === organization.id && project.active)
+      .map((project) => {
+        const node = areas.find((area) => area.type === 'project' && area.projectId === project.id);
+        const department = areas.find(
+          (area) => area.id === node?.parentId && area.type === 'department',
+        );
+        return {
+          id: project.id,
+          name: project.name,
+          key: project.key,
+          departmentId: department?.id ?? null,
+          departmentName: department?.name ?? null,
+          teamIds: this.data.links
+            .filter((link) => link.projectId === project.id)
+            .map((link) => link.teamId)
+            .filter((teamId) => teams.some((team) => team.id === teamId)),
+        };
+      })
+      .sort(byName);
+    return {
+      departments,
+      projects,
+      teams: teams
+        .map((team) => ({
+          id: team.id,
+          name: team.name,
+          isMember: this.isMember(team),
+          departmentIds: (this.data.areaTeams ?? [])
+            .filter((link) => link.targetId === team.id)
+            .map((link) => link.areaId),
+        }))
+        .sort(byName),
+    };
+  }
+
+  /** feat-043 api-contract § 1: the three counts, the first five by name, the caller's own teams. */
+  private overview(organization: OrganizationRecord): Overview {
+    const offers = this.selectorOffers(organization);
+    return {
+      departmentCount: offers.departments.length,
+      projectCount: offers.projects.length,
+      teamCount: offers.teams.length,
+      departments: offers.departments.slice(0, 5),
+      projects: offers.projects.slice(0, 5).map(({ id, name, key }) => ({ id, name, key })),
+      teams: offers.teams.slice(0, 5).map(({ id, name, isMember }) => ({ id, name, isMember })),
+      myTeams: offers.teams
+        .filter((team) => team.isMember)
+        .map(({ id, name, isMember }) => ({ id, name, isMember })),
+    };
   }
 
   /** Whether the acting user is in the team (mod-016 § 3.3); a dataset without team members makes nobody a member. */
@@ -1207,6 +1272,14 @@ export class OrganizationsTestApi {
       http.put(
         `${PROJECT_URL}/default-team`,
         answer(204, (p, b) => this.setDefaultTeam(this.organization(o(p)), pr(p), b)),
+      ),
+      http.get(
+        SELECTOR_OFFERS_URL,
+        answer(200, (p) => this.selectorOffers(this.organization(o(p)))),
+      ),
+      http.get(
+        OVERVIEW_URL,
+        answer(200, (p) => this.overview(this.organization(o(p)))),
       ),
       // The organization's teams (feat-028 § 2.1–2.2).
       http.get(

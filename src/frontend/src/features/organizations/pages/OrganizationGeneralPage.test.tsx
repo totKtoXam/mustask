@@ -67,7 +67,7 @@ describe('mod-002 US-2 Scenario: Renamed; own name in another case', () => {
     expect(api.writes()).toEqual([
       { method: 'PUT', path: `/api/organizations/${ids.alfa}/name`, body: { name: 'альфа' } },
     ]);
-    // The switcher's level is invalidated with the page's read.
+    // The selectors’ level is invalidated with the page's read.
     await waitFor(() =>
       expect(
         queryClient.getQueryState(organizationsKeys.organizations('active'))?.isInvalidated,
@@ -114,14 +114,14 @@ describe('mod-002 US-2 Scenario: Deactivated', () => {
     const { dialog } = await openDeactivate();
 
     expect(dialog).toHaveTextContent(
-      'Организация «Альфа» пропадёт из списков и переключателя, а её страницы и страницы её проектов перестанут открываться. Ничего не будет удалено: организацию можно восстановить в списке деактивированных организаций.',
+      'Организация «Альфа» пропадёт из списков и селекторов, а её страницы и страницы её проектов перестанут открываться. Ничего не будет удалено: организацию можно восстановить в списке деактивированных организаций.',
     );
     const confirm = within(dialog).getByRole('button', { name: 'Деактивировать' });
     expect(confirm).toHaveClass('MuiButton-contained', 'MuiButton-colorPrimary');
     expect(within(dialog).getByRole('button', { name: 'Отмена' })).toHaveFocus();
   });
 
-  it('opens the deactivated tab and shows its own notice when the organization is not the switcher’s', async () => {
+  it('opens the deactivated tab and shows its own notice when the organization is not the selected one', async () => {
     const { api, dialog } = await openDeactivate();
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Деактивировать' }));
@@ -135,7 +135,7 @@ describe('mod-002 US-2 Scenario: Deactivated', () => {
     ]);
   });
 
-  it('DC-7: raises no notice of its own when the switcher’s organization goes and another is active', async () => {
+  it('DC-7: raises no notice of its own when the selected organization goes and another is active', async () => {
     const { dialog } = await openDeactivate(
       contextSource({
         organizations: [
@@ -157,7 +157,7 @@ describe('mod-002 US-2 Scenario: Deactivated', () => {
     expect(screen.queryByText('Организация «Альфа» деактивирована.')).not.toBeInTheDocument();
   });
 
-  it('DC-7: shows its own notice when the switcher’s organization was the last active one', async () => {
+  it('DC-7: shows its own notice when the selected organization was the last active one', async () => {
     const { dialog } = await openDeactivate(
       contextSource({
         organizations: [{ id: ids.alfa, name: 'Альфа', projects: [], teams: [] }],

@@ -250,6 +250,7 @@ export function BacklogTable({
   items,
   filterIds = NO_FILTER,
   busy = false,
+  narrowed = false,
   announce,
   showSuccess,
   showCreated,
@@ -267,6 +268,13 @@ export function BacklogTable({
   filterIds?: readonly string[];
   /** Another filter is being read: the rows shown are the previous ones (`aria-busy`). */
   busy?: boolean;
+  /**
+   * The rows are a subset of one rank order (a project's backlog under a chosen team): the order
+   * cannot be changed, so no move entry is offered and nothing is dragged: no grip, no drop line,
+   * no drop onto a row (US-4, Q-9 A, design § 7.1). The row menu's parent group is not a reorder
+   * and stays.
+   */
+  narrowed?: boolean;
   announce(text: string): void;
   /** A parent write's notice (feat-001 spec § Notices on «Бэклоги»). */
   showSuccess(text: string): void;
@@ -290,7 +298,7 @@ export function BacklogTable({
   const access = useAccessCheck();
   const canWrite = access(workItemsPermissions.workItemWrite, 'organization');
   const canLink = access(workItemsPermissions.linkWrite, 'organization');
-  const canReorder = access(boardsPermissions.backlogReorder, 'organization');
+  const canReorder = access(boardsPermissions.backlogReorder, 'organization') && !narrowed;
   const canAdd = canWrite && canLink;
   const view = useMoveView(items);
   const [actions, setActions] = useState<ActionsMenuState | null>(null);
@@ -488,6 +496,15 @@ export function BacklogTable({
   const rowControls = useCallback(
     (top: boolean) => canLink || (top && canReorder),
     [canLink, canReorder],
+  );
+
+  /**
+   * Whether a row is a drag source: a narrowed backlog has no drag at all — no grip, no drop line,
+   * no drop onto a row (design § 7.1, US-4); the parent change stays in the row's «⋮».
+   */
+  const dragControls = useCallback(
+    (top: boolean) => !narrowed && rowControls(top),
+    [narrowed, rowControls],
   );
 
   function backlogRead(): BacklogRowData[] | undefined {
@@ -831,7 +848,7 @@ export function BacklogTable({
   const startDrag = useCallback(
     (event: DragEvent<HTMLElement>, id: string, identifier: string) => {
       const dragged = off ? undefined : findInTree(rows, id);
-      if (!dragged || !rowControls(rows.some((top) => top.id === id))) {
+      if (!dragged || !dragControls(rows.some((top) => top.id === id))) {
         event.preventDefault();
         return;
       }
@@ -857,7 +874,7 @@ export function BacklogTable({
         dim: false,
       });
     },
-    [off, rows, rowControls],
+    [off, rows, dragControls],
   );
 
   const endDrag = useCallback(() => setDrag(null), []);
@@ -1136,7 +1153,7 @@ export function BacklogTable({
                   expanded={expanded.has(item.id)}
                   selected={selectedId === item.id}
                   off={off}
-                  draggable={rowControls(top)}
+                  draggable={dragControls(top)}
                   showActions={rowControls(top)}
                   addEntries={
                     canAdd
