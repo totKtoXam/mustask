@@ -14,6 +14,9 @@
 #   3. (tech-037) both read exactly two queue files, docs/backlog.md and
 #      docs/backlog/withdrawn.md, so a number in any other file under
 #      docs/backlog/ (later.md once the queue is split) looked free.
+#   4. (tech-038) backlog.sh read docs/features of the current worktree only,
+#      so a folder that only another branch had looked free, and its task
+#      was not shown in flight.
 #
 # Each case builds its own throwaway repository with a BARE origin (the push
 # is what makes "unpushed" mean something), copies the scripts under test into
@@ -382,6 +385,86 @@ ok=1
 log="git processes per backlog.sh --ids: $few with 1 branch, $many with 9 branches of 9 distinct docs/backlog trees (they must be equal; tech-108 must be taken)
 $log"
 check "reading every queue file stays one pass over distinct docs/backlog trees" "$ok"
+
+# 11. docs/features per ref (tech-038, tech-034 CR-5): a task folder that only
+#     another branch has — a branch with a non-task name, or a remote branch
+#     with no local one — holds its number and is in flight; a stale copy of a
+#     finished task on an old branch is not, because main has it complete.
+card() {  # <id> <stage> <epic> — writes docs/features/<id>/status.md here
+    mkdir -p "$repo/docs/features/$1"
+    printf '# %s\n\n- type: feature\n- size: M\n- branch: x\n- stage: %s\n- epic: %s\n' "$1" "$2" "$3" \
+        > "$repo/docs/features/$1/status.md"
+}
+build
+g checkout -q -b scratch/old
+card tech-020-finished 04-backend workflow
+g add -A
+g commit -qm 'a task while it was in flight'
+g checkout -q main
+card tech-020-finished complete workflow
+g add -A
+g commit -qm 'the task, merged'
+g checkout -q -b scratch/elsewhere
+card feat-090-elsewhere 04-backend x/elsewhere
+g add -A
+g commit -qm 'a task folder on a branch with a non-task name'
+g checkout -q -b scratch/remote-folder main
+card feat-091-remote-only 01-business-analysis x/remote
+g add -A
+g commit -qm 'a task folder on a remote branch only'
+g push -q origin scratch/remote-folder
+g checkout -q main
+g branch -q -D scratch/remote-folder
+run "$shell" scripts/backlog.sh --ids
+ids_log=$log
+run "$shell" scripts/backlog.sh
+summary_log=$log; rc_summary=$rc
+queue add feat after-folders "After folders"
+id_after=$(issued after-folders)
+progress=$(printf '%s\n' "$summary_log" | sed -n '/=== IN PROGRESS/,/=== QUEUED/p')
+ok=1
+if printf '%s\n' "$ids_log" | grep -qx 'feat-090' \
+    && printf '%s\n' "$ids_log" | grep -qx 'feat-091' \
+    && [ "$rc_summary" = 0 ] \
+    && printf '%s\n' "$progress" | grep -qE '^  feat-090-elsewhere +x/elsewhere +size:M +stage:04-backend +[(]no local branch' \
+    && printf '%s\n' "$progress" | grep -qE '^  feat-091-remote-only +x/remote +size:M +stage:01-business-analysis' \
+    && ! printf '%s\n' "$progress" | grep -q 'tech-020' \
+    && printf '%s\n' "$summary_log" | grep -qE '^  x/elsewhere +0 done,  1 in flight' \
+    && printf '%s\n' "$summary_log" | grep -qE '^  workflow +1 done,  0 in flight' \
+    && [ "$id_after" = feat-092-after-folders ]; then
+    ok=0
+fi
+log="feat-090 on scratch/elsewhere, feat-091 on origin/scratch/remote-folder only, tech-020 complete on main and stale on scratch/old
+--ids: $(printf '%s\n' "$ids_log" | tr '\n' ' ')
+queue.sh add issued ${id_after:-none} (expected feat-092-after-folders)
+summary (exit $rc_summary):
+$summary_log"
+check "a task folder only another branch has is taken and in flight; a stale finished copy is not" "$ok"
+
+# 12. Still one pass when the branches hold DIFFERENT docs/features trees. The
+#     base has a card too, so both counts run every pass (with no folder at
+#     all the read stops after the tree lookup).
+build
+card feat-100-base complete workflow
+g add -A
+g commit -qm 'a finished task'
+few=$(count_git "$trace")
+n=0
+while [ "$n" -lt 8 ]; do
+    n=$((n + 1))
+    g checkout -q -b "scratch/f$n" main
+    card "feat-10$n-f$n" 04-backend workflow
+    g add -A
+    g commit -qm "f$n"
+done
+g checkout -q main
+many=$(count_git "$trace")
+run "$shell" scripts/backlog.sh --ids
+ok=1
+[ "$few" -gt 0 ] && [ "$few" = "$many" ] && printf '%s\n' "$log" | grep -qx 'feat-108' && ok=0
+log="git processes per backlog.sh --ids: $few with 1 branch, $many with 9 branches of 9 distinct docs/features trees (they must be equal; feat-108 must be taken)
+$log"
+check "reading every ref's docs/features stays one pass over distinct trees" "$ok"
 
 if [ "$failures" != 0 ]; then
     printf '\n%s queue numbering case(s) failed.\n' "$failures" >&2
