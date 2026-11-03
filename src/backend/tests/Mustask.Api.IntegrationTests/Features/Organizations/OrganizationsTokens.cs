@@ -29,6 +29,25 @@ public static class OrganizationsTokens
     public static string SignedIn(string? subject = null) =>
         KeycloakTestRealm.CreateToken([], options => options.Subject = subject ?? OrganizationsTestData.Creator);
 
+    /// <summary>
+    /// A system administrator (client roles <c>user</c> and <c>system-admin</c>, which holds every instance code, the rescue code
+    /// included — feat-033): a fresh subject unless named. Holds no membership anywhere.
+    /// </summary>
+    public static string SystemAdmin(string? subject = null) =>
+        KeycloakTestRealm.CreateToken([], options =>
+        {
+            options.Subject = subject ?? NewSubject();
+            options.Roles = ["user", "system-admin"];
+        });
+
+    /// <summary>A signed-in user who holds every other instance role (<c>organization-creator</c>, <c>dictionaries-admin</c>) but not the rescue code.</summary>
+    public static string AllInstanceRolesButSystemAdmin(string? subject = null) =>
+        KeycloakTestRealm.CreateToken([], options =>
+        {
+            options.Subject = subject ?? NewSubject();
+            options.Roles = ["user", "organization-creator", "dictionaries-admin"];
+        });
+
     /// <summary>A signed-in user nobody has added to anything: a fresh subject.</summary>
     public static string Stranger() => SignedIn(NewSubject());
 }
