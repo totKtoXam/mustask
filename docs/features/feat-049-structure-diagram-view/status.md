@@ -32,6 +32,7 @@ gate-3: pending
 - 2026-11-03 [orchestrator] stage 2 (requirements-reviewer): needs-human-decision, 0 blockers, 6 majors, 6 minors (review.md). Fix round (business-analyst): R-1..R-12 closed in the spec or carried by OQ-5..OQ-7. Open for the gate-1+2 package: OQ-1..OQ-7.
 - 2026-11-03 [orchestrator] stage 3 done (ux-designer, 439e96fc): design.md, prototype; approach A (SVG + HTML nodes, no dependency), BoxedTabs as the switch (kit deviation). Prototype clicked through in the browser pane: all scenarios, no console errors. At gate-1+2.
 - 2026-11-03 [orchestrator] gate-1+2 rejected with remarks 1-4. Rework 1: design + prototype (ux-designer, 91f8c523), spec + stories (business-analyst). Prototype clicked through again: group on top, level marks, three modes, search, expand/collapse all, counters. At gate-1+2 again.
+- 2026-11-03 [orchestrator] round 2: design + prototype (ux-designer, 14271ccf), spec + stories (business-analyst, still three stories). Prototype clicked through: level chips and both modes, section folds, vertical layout. At gate-1+2, round 3.
 
 ## Notes
 

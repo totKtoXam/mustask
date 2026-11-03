@@ -23,7 +23,7 @@ Scenario: Switch to the diagram
   And the address stays the page's address
   And the page title «Структура» stays
   And the tree's own filter «Найти область» and its page-head «Развернуть всё» / «Свернуть всё» are not shown
-  And the diagram has its own toolbar: «Найти узел», «Развернуть всё» / «Свернуть всё», «Показ при выборе», and the counters line (US-2, US-3)
+  And the diagram has its own toolbar: «Найти узел», «Развернуть всё» / «Свернуть всё», «Показ при выборе», «Раскладка», and the counters line (US-2, US-3)
   And «Создать департамент» stays in the page header for the holder of `area.create`, in both views
 
 Scenario: The choice is remembered
@@ -49,10 +49,23 @@ Scenario: The display mode is remembered
   And the default, without a choice, is «Затемнение»
 
 Scenario: A damaged mode memory falls back
-  Given the stored mode is not one of «Затемнение», «Только связанные», «Подсветка»
+  Given the stored mode is not one of «Затемнение», «Только связанные», «Подсветка», or storage is absent or refuses
   When I open the diagram
   Then the mode is «Затемнение» and no error appears
   And nothing is written to storage until I choose a mode myself
+
+Scenario: The layout is remembered
+  Given I chose «Раскладка: Вертикально» in organization A
+  When I leave «Структура» and open the diagram again, or reload the panel
+  Then the layout is «Вертикально»
+  And the memory is per user and organization, under its own key, apart from the view's and the mode's (BR-SD-9)
+  And the default, without a choice, is «Горизонтально»
+
+Scenario: A damaged layout memory falls back
+  Given the stored layout is not one of «Горизонтально», «Вертикально», or storage is absent or refuses
+  When I open the diagram
+  Then the layout is «Горизонтально» and no error appears
+  And nothing is written to storage until I choose a layout myself
 
 Scenario: Switching by keyboard
   Given focus is on the switch
@@ -94,13 +107,19 @@ Scenario: Only the two reads are sent
   Then no request is sent beyond the area tree and the selector offers (BR-SD-3)
 
 Scenario: What survives a switch
-  Given I typed a filter in the tree, expanded some rows, and chose «Диаграмма», typed «Найти узел» text, and chose a node there
+  Given I typed a filter in the tree, expanded some rows, and chose «Диаграмма», typed «Найти узел» text, folded a section, chose levels, and chose a node there
   When I switch back to «Дерево»
   Then the filter text and the expansion are as I left them
   And while the diagram was shown the tree's filter had no effect on it (BR-SD-8)
   When I choose «Диаграмма» again
-  Then the search text, the display mode and the diagram's own expansion are as I left them
+  Then the search text, the section folds, the level choice, the display mode, the layout and the diagram's own expansion are as I left them
   And the chosen node is dropped: nothing is emphasised
+
+Scenario: What is not stored
+  Given I chose levels, folded a section and typed «Найти узел» text in the diagram
+  When I reload the panel, or open «Структура» of another organization
+  Then every level is shown, both sections are unfolded and the search is empty
+  And browser storage holds only the view, the display mode and the layout, each under its own key (BR-SD-9)
 
 Scenario: The empty organization
   Given the organization has no department and no project

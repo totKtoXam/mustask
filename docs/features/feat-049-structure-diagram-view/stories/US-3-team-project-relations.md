@@ -69,12 +69,12 @@ Scenario: «Только связанные» restores on clearing
 
 Scenario: A team of the top group in «Только связанные»
   Given the mode is «Только связанные» and team ATLAS from «Без проектов и департаментов» is chosen
-  Then ATLAS alone is shown, and the hierarchy area says «Нет связанных проектов и департаментов»
+  Then ATLAS alone is shown, and the section «Департаменты, проекты и области» says «Нет связанных проектов и департаментов»
 
 Scenario: Choosing reveals what it relates to
   Given A is inside a collapsed branch and the mode is «Затемнение» or «Подсветка»
   When I choose MARS, a team of A
-  Then the branches that hide related nodes are expanded so that A is seen emphasised
+  Then the branches, and a folded section, that hide related nodes are expanded so that A is seen emphasised
 
 Scenario: Clearing the choice
   Given MARS is chosen, in any mode
@@ -124,6 +124,12 @@ Scenario: Search and «Только связанные»
   When I find, with «Найти узел», a node the mode has removed and press Enter
   Then the toast «Узел скрыт режимом «Только связанные»» is shown and focus does not move to it
 
+Scenario: Emphasis in the vertical layout and under a level choice
+  Given the layout is «Вертикально», or levels are chosen
+  When I choose a node in any mode
+  Then the same nodes are related and the same summary is announced as in the horizontal layout with every level shown
+  And emphasis, dimming and the removal in «Только связанные» apply to the nodes that are drawn, a related node on a hidden level is not drawn and its line goes to the nearest visible ancestor (US-2)
+
 Scenario: Read-only
   When I use the diagram with any role
   Then no command to link, unlink, move or edit is offered
@@ -132,6 +138,6 @@ Scenario: Volume
   Given 200 projects and 200 teams
   When I open the diagram and choose a team in «Затемнение» or «Подсветка»
   Then no read is sent and the layout is not rebuilt (checked by a test)
-  And in every mode, «Только связанные» included, the picture changes in under 200 ms, measured on the stand with a seeded organization of that size in a named browser at stage 6 (not in jsdom)
-  And in «Только связанные» no read is sent either
+  And choosing a node changes the picture in under 200 ms in every mode, «Только связанные» included, in both layouts, measured on the stand with a seeded organization of that size in a named browser at stage 6 (not in jsdom)
+  And in «Только связанные» no read is sent either, and switching the layout or the level choice sends none (US-2)
 ```
