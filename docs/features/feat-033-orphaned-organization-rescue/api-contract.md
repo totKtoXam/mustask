@@ -245,7 +245,7 @@ New codes, module `organizations` (`OrganizationErrorCodes`, `[ErrorCodes]`;
 | `organizations.rescue.reason_required` | 400 (field reason) | Укажите причину |
 | `organizations.rescue.reason_too_long` | 400 (field reason) | Не более 500 символов |
 | `organizations.rescue.reason_invalid` | 400 (field reason) | Причина содержит недопустимые символы |
-| `organizations.rescue.invalid_page` | 400 (field reason) | Некорректный номер страницы. |
+| `organizations.rescue.invalid_page` | 400 (field page) | Некорректный номер страницы. |
 
 Reused, unchanged: `organizations.organization.not_found`,
 `organizations.access.forbidden`, `organizations.validation_failed`,
