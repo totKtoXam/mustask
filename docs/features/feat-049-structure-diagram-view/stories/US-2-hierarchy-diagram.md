@@ -25,7 +25,7 @@ Scenario: Sub-areas under their project
 Scenario: Each node says what it is
   When I read any node
   Then it shows its name and its type («Департамент», «Проект», «Область»), by text and not by colour alone
-  And a project also shows its key
+  And an active project also shows its key (a deactivated project shows none: neither read carries it, BR-SD-3, BR-SD-4)
 
 Scenario: Order as in the tree
   Given the area tree is read in display order

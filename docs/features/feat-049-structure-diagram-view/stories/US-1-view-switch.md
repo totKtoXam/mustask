@@ -21,7 +21,8 @@ Scenario: Switch to the diagram
   When I choose «Диаграмма»
   Then the diagram is shown in place of the tree
   And the address stays the page's address
-  And the page title and the tree's filter and expansion controls are not shown beside the diagram
+  And the page title «Структура» stays
+  And the tree's filter «Найти область» and its «Развернуть всё» / «Свернуть всё» are not shown beside the diagram
 
 Scenario: The choice is remembered
   Given I chose «Диаграмма» in organization A

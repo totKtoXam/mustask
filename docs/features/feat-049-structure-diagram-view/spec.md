@@ -6,7 +6,7 @@
 
 ## Roles
 
-The page is read by every organization role («Администратор», «Участник», «Читатель»); both reads it uses declare the organization read code (feat-043 api-contract § 0; mod-018 area tree). Writes stay where they are today: the tree's row menu and «Новый департамент» follow `area.write` / `area.create` and exist in the tree view only (BR-SD-5). The diagram writes nothing.
+The page is read by every organization role («Администратор», «Участник», «Читатель»); both reads it uses declare the organization read code (feat-043 api-contract § 0; mod-018 area tree). Writes stay where they are today: the tree's row menu follows `area.write` and exists in the tree view only (BR-SD-5); the page-level «Создать департамент» follows `area.create`, and whether it also stands in the diagram view is OQ-3. The diagram itself writes nothing.
 
 ## Stories
 
@@ -26,13 +26,13 @@ Not drawn: the flow is a linear switch with no branching process (M, optional).
 |---|------|--------|
 | BR-SD-1 | **Same page, same address.** The switch changes how «Структура» is drawn, not where it lives; no new route, no menu entry. | task, scope |
 | BR-SD-2 | **The tree stays the default.** A user who never chose sees the tree, exactly as today. | feat-043 behaviour kept |
-| BR-SD-3 | **No new read.** The diagram is built from the area tree (`GET …/areas`) and the selector offers (`GET …/selector-offers`) that the panel already has; the team–project links come from `projects[].teamIds`, a team's direct departments from `teams[].departmentIds`. | queue line; feat-043 api-contract § 2 |
+| BR-SD-3 | **No new read.** The diagram is built from the area tree (`GET …/areas`) and the selector offers (`GET …/selector-offers`) that the panel already has; the team–project links come from `projects[].teamIds`, a team's direct departments from `teams[].departmentIds`, a project's key from `projects[].key`. A project node of the tree is matched to its offer by `AreaNode.projectId = projects[].id`. | queue line; feat-043 api-contract § 2 |
 | BR-SD-4 | **Deactivated projects.** The tree shows the node of a deactivated project tagged «деактивирован», plain text, without commands (feat-043 OQ-3 A). The diagram shows the node and its sub-areas the same way: tagged, not a link. The selector offers hold no deactivated project, so such a project shows no teams (it is not drawn as having none by choice: see OQ-1). | AreasPage; api-contract § 2 |
 | BR-SD-5 | **Read-only diagram.** No create, rename, move, delete or link command in the diagram; those are done in the tree view or on the object's page. | scope |
 | BR-SD-6 | **Same links as the tree.** A department and a project open their own page, a sub-area opens its page under its project's menu, a team opens its page; deactivated project nodes and their sub-areas open nothing. | AreasPage `rowLink` |
 | BR-SD-7 | **Which teams count.** Only active teams (the offers carry no deactivated or deleted team). A team's departments are the ones linked to it directly (`departmentIds`); a department→team line is drawn for those only. A team working on a project is not by that fact drawn under the project's department. | api-contract § 2 |
 | BR-SD-8 | **Search.** The tree's name filter does not apply to the diagram; the diagram has its own emphasis (US-3). | scope |
-| BR-SD-9 | **Remembered choice** is per user and organization, in the browser, like the selection of feat-043 (ADR-0032 § 6); a value that is not one of the two views is ignored and the tree is shown. | ADR-0032 |
+| BR-SD-9 | **Remembered choice** is per user and organization, in the browser, like the selection of feat-043 (ADR-0032 § 6), under a key of its own: never a field added to the selection's `mustask.context.v2` value, whose shape ADR-0032 locks; a value that is not one of the two views is ignored and the tree is shown. | ADR-0032 |
 
 ## Operation completeness
 
@@ -69,5 +69,5 @@ One task, as queued; the three stories are one capability and none ships alone (
 
 - [ ] **OQ-1 Deactivated projects' teams.** The offers omit deactivated projects, so their team links are unknown. (A, recommended) Draw the deactivated project and its sub-areas tagged «деактивирован», with no team lines and no claim about teams. (B) Hide deactivated projects from the diagram: the diagram then differs from the tree. (C) Add a read for them: contradicts «no new read», would turn the task into backend work.
 - [ ] **OQ-2 Where the remembered choice lives.** (A, recommended) Browser storage per user and organization (BR-SD-9), the address stays plain. (B) A query parameter in the address (shareable link; a bookmark opens the diagram), with no memory of its own. (C) Both: the address wins, storage fills in when absent.
-- [ ] **OQ-3 «Новый департамент» in the diagram.** (A, recommended) Shown in the page header in both views for the holder of `area.create`, as it is page-level. (B) Tree only (BR-SD-5 read literally): the diagram has no commands at all.
+- [ ] **OQ-3 «Создать департамент» in the diagram.** (A, recommended) Shown in the page header in both views for the holder of `area.create`, as it is page-level. (B) Tree only (BR-SD-5 read literally): the diagram has no commands at all.
 - [ ] **OQ-4 Teams that work on no project and no department.** (A, recommended) Drawn in their own group «Без проектов и департаментов», so every team is findable. (B) Not drawn: the diagram shows relations only.
