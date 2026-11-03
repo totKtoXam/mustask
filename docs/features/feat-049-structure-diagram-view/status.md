@@ -3,7 +3,7 @@
 - type: feature
 - size: M
 - branch: feat/049-structure-diagram-view
-- stage: 01-analysis
+- stage: 02-requirements-review
 - epic: platform/ui
 - deps: feat-043
 - gates: gate-1, gate-2, gate-3
@@ -20,7 +20,9 @@ gate-3: pending
 
 ## Log
 
-- 2026-11-03 [orchestrator] task started in the app-made worktree .claude/worktrees/feat-049-structure-diagram-view-fa5b15 (branch feat/049-structure-diagram-view cut from origin/main 92de14d8; new-task.sh not used because the session is already bound here). Route confirmed by the human: feature, M as queued — no L threshold (no migration, project, slice, ADR expected, breaking change or auth change), frontend only inside features/organizations, more than 5 files so not S; selector-offers already carries projects[].teamIds and teams[].departmentIds. Route: 1 → 2 → 3 (HTML prototype clicked through) → 6 → 7 (one QA) → 8 (one Opus review with security) → gate-3 → squash PR; backend stages have no subject. gate-1 and gate-2 as one package after stage 3 (M shortcut). Diagram drawn with SVG/MUI, no new library (recorded at gate-2). Economy mode; E2E no. Block 3.3: only the queue line. Queue: `queue.sh take` PR #56 (auto-merge on). Usage at start: weekly 19%, 5-hour 18%.
+- 2026-11-03 [orchestrator] started in the app-made worktree feat-049-structure-diagram-view-fa5b15, branch cut from origin/main 92de14d8 (new-task.sh not used: session already bound here). Queue: `queue.sh take` PR #56. Usage at start: weekly 19%, 5-hour 18%.
+- 2026-11-03 [orchestrator] route confirmed by the human: feature, M as queued; no L threshold, frontend only in features/organizations, selector-offers carries the links. Route 1 → 2 → 3 → 6 → 7 → 8 → gate-3; gate-1+2 one package. Economy mode; E2E no; 3.3: only the line.
+- 2026-11-03 [orchestrator] stage 1 done (business-analyst): spec.md + US-1..US-3, OQ-1..OQ-4; verify.sh green.
 
 ## Notes
 
