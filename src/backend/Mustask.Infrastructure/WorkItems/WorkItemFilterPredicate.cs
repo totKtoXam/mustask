@@ -88,6 +88,18 @@ internal static class WorkItemFilterPredicate
         var identifierNumber = keyword.Identifier?.Number ?? 0;
         var typeKey = keyword.Identifier?.TypeKey ?? string.Empty;
 
+        // An organization-wide list (feat-048) spells the identifier's project too: the project's key must be the item's own.
+        if (keyword.Identifier is { ProjectKey: { } projectKey })
+        {
+            return items.Where(item =>
+                EF.Functions.Collate(item.Title, OrganizationsCollation.Russian).ToLower().Replace("ё", "е")
+                    .Contains(EF.Functions.Collate(text, OrganizationsCollation.Russian).ToLower().Replace("ё", "е"))
+                || (hasNumber && item.Number == number)
+                || (item.Number == identifierNumber
+                    && context.WorkItemTypes.Any(type => type.Id == item.TypeId && type.Key == typeKey)
+                    && context.Projects.Any(project => project.Id == item.ProjectId && project.Key == projectKey)));
+        }
+
         return items.Where(item =>
             EF.Functions.Collate(item.Title, OrganizationsCollation.Russian).ToLower().Replace("ё", "е")
                 .Contains(EF.Functions.Collate(text, OrganizationsCollation.Russian).ToLower().Replace("ё", "е"))

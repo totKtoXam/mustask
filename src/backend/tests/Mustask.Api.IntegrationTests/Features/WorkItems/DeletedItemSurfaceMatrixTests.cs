@@ -315,6 +315,16 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
         ["GET " + OrgTeam + "/boards/{level}"] = Reads.LiveOnly,
         ["GET " + Project + "/backlogs/{level}"] = Reads.LiveOnly,
         ["GET " + Project + "/boards/{level}"] = Reads.LiveOnly,
+        // feat-048: the aggregate views. The grouped counts, group pages and cell pages read live items; the organization-wide list and
+        // its assignee options reach the bin by a chosen state as the project's do (their blocks are in AggregateViewEndpointTests).
+        ["GET " + Org + "/backlogs/{level}/groups"] = Reads.LiveOnly,
+        ["GET " + Org + "/boards/{level}/groups"] = Reads.LiveOnly,
+        ["GET " + Org + "/workitems/groups"] = Reads.LiveOnly,
+        ["GET " + Org + "/backlogs/{level}/rows"] = Reads.LiveOnly,
+        ["GET " + Org + "/boards/{level}/cells"] = Reads.LiveOnly,
+        ["GET " + Org + "/workitems/rows"] = Reads.LiveOnly,
+        ["GET " + Org + "/workitems"] = Reads.LiveOrChosenDeleted,
+        ["GET " + Org + "/workitems/assignee-options"] = Reads.LiveOrChosenDeleted,
         ["GET " + ProjectTeam + "/unlink-count"] = Reads.CountsOwnedInAnyState,
         ["GET " + OrgTeam + "/deletion-counts"] = Reads.CountsOwnedInAnyState,
 
@@ -363,9 +373,9 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
             ["GET " + ProjectTeam + "/unlink-count", "GET " + OrgTeam + "/deletion-counts"],
             ReadRoutes.Where(read => read.Value == Reads.CountsOwnedInAnyState).Select(read => read.Key).Order(StringComparer.Ordinal));
 
-        // feat-003: the two reads that can reach the bin by a chosen state are exactly these, and each has a block in the matrix.
+        // feat-003: the four reads that can reach the bin by a chosen state are exactly these, and each has a block in the matrix.
         Assert.Equal(
-            ["GET " + Project + "/workitems", "GET " + Project + "/workitems/assignee-options"],
+            ["GET " + Project + "/workitems", "GET " + Project + "/workitems/assignee-options", "GET " + Org + "/workitems", "GET " + Org + "/workitems/assignee-options"],
             ReadRoutes.Where(read => read.Value == Reads.LiveOrChosenDeleted).Select(read => read.Key).Order(StringComparer.Ordinal));
     }
 }

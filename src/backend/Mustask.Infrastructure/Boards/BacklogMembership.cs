@@ -30,7 +30,7 @@ internal sealed class BacklogMember
 /// <item>(a view only) its project is any of the filter's projects (BR-TS-8), through <see cref="WorkItemFilterPredicate"/>
 /// on the same statement: it adds none.</item>
 /// </list>
-/// All of it goes into one <c>work_items</c> statement, served by <c>ix_work_items_owning_team_id_type_id</c>, which joins the
+/// All of it goes into one <c>work_items</c> statement, served by <c>ix_work_items_owning_team_id_type_id_changed_at_number</c>, which joins the
 /// project by its key and left-joins the item's place on this backlog by the place's key. The reorder's locking read
 /// (<see cref="BacklogRepository"/>) states the same conditions without the filter in SQL; a test pins that the two agree.
 /// </summary>

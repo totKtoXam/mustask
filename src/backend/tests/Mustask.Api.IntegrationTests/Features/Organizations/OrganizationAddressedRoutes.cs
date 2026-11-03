@@ -132,6 +132,17 @@ public static class OrganizationAddressedRoutes
         new("POST", Project + "/backlogs/{level}/reorder", PermissionCatalog.BoardsBacklogReorder),
         new("GET", Project + "/boards/{level}", PermissionCatalog.WorkItemsWorkItemRead),
 
+        // feat-048 api-contract § 2: the aggregate views' grouped counts, group and cell pages, the organization-wide work-item list
+        // and its assignee options. All reads, the read code; before `Memberships`' last ten rows.
+        new("GET", Org + "/backlogs/{level}/groups", PermissionCatalog.WorkItemsWorkItemRead),
+        new("GET", Org + "/boards/{level}/groups", PermissionCatalog.WorkItemsWorkItemRead),
+        new("GET", Org + "/workitems/groups", PermissionCatalog.WorkItemsWorkItemRead),
+        new("GET", Org + "/backlogs/{level}/rows", PermissionCatalog.WorkItemsWorkItemRead),
+        new("GET", Org + "/boards/{level}/cells", PermissionCatalog.WorkItemsWorkItemRead),
+        new("GET", Org + "/workitems/rows", PermissionCatalog.WorkItemsWorkItemRead),
+        new("GET", Org + "/workitems", PermissionCatalog.WorkItemsWorkItemRead),
+        new("GET", Org + "/workitems/assignee-options", PermissionCatalog.WorkItemsWorkItemRead),
+
         // mod-016 api-contract § 1-§ 2: the access and the memberships.
         new("GET", Org + "/access", PermissionCatalog.OrganizationsOrganizationRead),
         new("GET", Org + "/members", PermissionCatalog.OrganizationsMembershipRead),

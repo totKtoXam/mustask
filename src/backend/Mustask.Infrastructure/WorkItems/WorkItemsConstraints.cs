@@ -28,7 +28,16 @@ internal static class WorkItemsConstraints
     public const string ProjectOwningTeamType = "ix_work_items_project_id_owning_team_id_type_id";
 
     /// <summary>feat-040 BR-TS-2, ADR-0028 rule 13: a team's views across all its projects read the team's items of a level's types.</summary>
-    public const string OwningTeamType = "ix_work_items_owning_team_id_type_id";
+    public const string OwningTeamType = "ix_work_items_owning_team_id_type_id_changed_at_number";
+
+    /// <summary>feat-048 ADR-0036: a project's items of a level's types in change-time order, one range a (project, type) for a keyset page.</summary>
+    public const string ProjectTypeChangedAt = "ix_work_items_project_id_type_id_changed_at_number";
+
+    /// <summary>feat-048: the group of no team in change-time order, over the items with no owning team only.</summary>
+    public const string NoTeamChangedAt = "ix_work_items_no_team_changed_at";
+
+    /// <summary>feat-048: an assignee's items in change-time order, over the assigned items only.</summary>
+    public const string AssigneeChangedAt = "ix_work_items_assignee_id_changed_at";
 
     /// <summary>mod-017 ADR-0028 rule 5: the target of the team place's key onto the item's current owning team.</summary>
     public const string IdOwningTeam = "ix_work_items_id_owning_team_id";

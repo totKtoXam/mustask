@@ -57,6 +57,24 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
         ItemsAsync(ProjectBacklogMembership.TreeMembers(context, scope), Tenant.OfProject(scope.ProjectId), RowTime.OfProject, cancellationToken);
 
     /// <summary>
+    /// feat-048: the rows of <paramref name="ids"/> (a group page already chosen and ordered by the aggregate read), dressed as every
+    /// other backlog row is, in no particular order: one statement, then the assignees' lookups. The caller has narrowed the ids to
+    /// the organization's items; the organization is the assignees' tenant.
+    /// </summary>
+    internal Task<IReadOnlyList<BacklogItemRow>> ReadByIdsAsync(IReadOnlyCollection<Guid> ids, Guid organizationId, CancellationToken cancellationToken)
+    {
+        var wanted = ids.ToList();
+
+        return ItemsAsync(
+            from item in WorkItemSets.InAnyState(context).AsNoTracking()
+            where wanted.Contains(item.Id)
+            select new BacklogMember { Item = item, Place = null },
+            Tenant.OfOrganization(organizationId),
+            RowTime.OfTeam,
+            cancellationToken);
+    }
+
+    /// <summary>
     /// feat-032: the checklists of a board's cards, one statement and then the assignees' lookups, whatever the cards'
     /// number. The children are narrowed in SQL — the organization (feat-040 BR-TS-13: a team's board holds the cards of several
     /// projects, and a child is always in its parent's project, so the organization says what the project said), the stored

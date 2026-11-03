@@ -142,6 +142,10 @@ builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
 // the second code of a parent write). Asking on a route without the check throws.
 builder.Services.AddScoped<IOrganizationAccess, HttpContextOrganizationAccess>();
 
+// The read limiter of the aggregate views (feat-048 OQ-2): one per API process, on the clock the host runs on.
+builder.Services.AddSingleton<AggregateReadLimiter>();
+builder.Services.AddScoped<AggregateReadLimitFilter>();
+
 // ADR-0018: Mustask.Api как resource server realm'а Keycloak. Значения
 // читаются один раз из builder.Configuration до Build() — единственный
 // механизм отказа старта при незаданном ключе.
@@ -312,6 +316,7 @@ app.MapSessionEndpoints();
 app.MapUserDirectoryEndpoints();
 app.MapWorkItemEndpoints();
 app.MapBoardEndpoints();
+app.MapAggregateViewEndpoints();
 
 app.Run();
 

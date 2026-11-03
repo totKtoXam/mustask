@@ -77,6 +77,8 @@ public sealed class OrganizationsOpenApiTests(MustaskApiFactory factory)
             operations,
             operation => operation.Path.StartsWith("/api/organizations", StringComparison.Ordinal)
                 && operation.Path != MembershipRoleRoute
+                // feat-048: the aggregate views' GET `.../groups` is the grouped count of a view (api-contract section 2.1), not an identity group.
+                && !(operation.Method == "GET" && Tagged(operation.Operation, "Aggregate views"))
                 && new[] { "role", "group", "permission", "right" }.Any(word => operation.Path.Contains(word, StringComparison.OrdinalIgnoreCase)));
         Assert.Single(operations, operation => operation.Path == MembershipRoleRoute);
     }
