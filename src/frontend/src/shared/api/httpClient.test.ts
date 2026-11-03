@@ -237,6 +237,39 @@ describe('httpClient', () => {
     expect(tokenCalls).toBe(1);
   });
 
+  describe('ApiError.retryAfterMs (feat-048)', () => {
+    it('reads Retry-After seconds of a 429 as milliseconds, and ignores a date form', async () => {
+      server.use(http.post(`${api}/api/session/token`, () => tokenResponse(fakeAccessToken())));
+      server.use(
+        http.get(
+          `${api}/api/busy`,
+          () =>
+            HttpResponse.json(
+              { status: 429, errorCode: 'http.too_many_requests' },
+              { status: 429, headers: { 'Retry-After': '2' } },
+            ),
+          { once: true },
+        ),
+        http.get(
+          `${api}/api/busy`,
+          () =>
+            HttpResponse.json(
+              { status: 429 },
+              { status: 429, headers: { 'Retry-After': 'Wed, 21 Oct 2026 07:28:00 GMT' } },
+            ),
+          { once: true },
+        ),
+      );
+
+      const first = (await apiFetch('/api/busy').catch((caught: unknown) => caught)) as ApiError;
+      const second = (await apiFetch('/api/busy').catch((caught: unknown) => caught)) as ApiError;
+
+      expect(first.status).toBe(429);
+      expect(first.retryAfterMs).toBe(2000);
+      expect(second.retryAfterMs).toBeUndefined();
+    });
+  });
+
   describe('ApiError.path (mod-016 plan P-4)', () => {
     it('carries the request path, query included, for a non-OK answer', async () => {
       server.use(http.post(`${api}/api/session/token`, () => tokenResponse(fakeAccessToken())));
