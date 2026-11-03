@@ -131,3 +131,19 @@ Resolution:
 - OQ-5 (R-1): the gesture model: what opens and what chooses, and one Tab stop with arrow keys or every node in the Tab order.
 - OQ-6 (R-2): at volume, are relation lines always drawn or only for the chosen node past a threshold?
 - OQ-7 (R-6): the diagram parts as a new kit component and/or a new runtime dependency, which widens the stated scope.
+
+## Fix round 1 (analyst, 2026-11-03)
+
+Not re-reviewed yet; the statuses above are the reviewer's, these are the analyst's closures for the re-check.
+
+- R-1: BR-SD-10 (name opens, body chooses, Enter opens, Space chooses; choosable = department, active project, team; one Tab stop with arrow keys). US-2 «Nodes open their pages» and «Keyboard and screen reader», US-3 «Choosing is separate from opening» and «Selection by keyboard» aligned. Alternatives: OQ-5.
+- R-2: BR-SD-11; US-2 «The initial expansion» (D-3 limit), «A relation line into a collapsed branch», «Layout details are left to design»; US-3 «Choosing reveals what it emphasises», «Many relations». Volume of lines: OQ-6.
+- R-3: US-1 «Only the offers are not ready», «Only the tree is not ready», «The organization is not found», «The two reads disagree», «Only the two reads are sent»; «Loading and failure» says what «Повторить» retries.
+- R-5 (a): still OQ-3, answer owed. R-6: OQ-7, options A/B/C, recommended A.
+- R-7: one accessible name (type, name, parent, relation count), tree role with levels, full lists in the summary (NFR accessibility, US-2).
+- R-8: timings measured on the stand at stage 6, tests check no read and no layout rebuild (NFR volume, US-2 «A large structure», US-3 «Volume»).
+- R-9: table «What choosing emphasises» in US-3, a row per choosable type, Russian summaries.
+- R-10: stated under OQ-4 A (place after the hierarchy, offers' order, choosable with «нет» summaries); valid only if OQ-4 is A.
+- R-12: US-1 «What survives a switch».
+
+Open questions for the human, recommended option: OQ-1 A, OQ-2 A, OQ-3 A, OQ-4 A, OQ-5 A, OQ-6 A, OQ-7 A.

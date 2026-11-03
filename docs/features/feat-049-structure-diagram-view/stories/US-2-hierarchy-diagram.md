@@ -34,8 +34,9 @@ Scenario: Order as in the tree
 
 Scenario: Nodes open their pages
   Given project A is active
-  When I activate A, a department, or a sub-area
+  When I click the name of A, of a department, or of a sub-area, or focus it and press Enter
   Then the object's page opens as the tree's link would (department page, project «Общие», sub-area under its project's menu)
+  And clicking the node's body outside the name opens nothing (it chooses, US-3, BR-SD-10)
 
 Scenario: A deactivated project
   Given project C is deactivated
@@ -46,14 +47,32 @@ Scenario: A deactivated project
 Scenario: A large structure
   Given the organization has 1 000 areas over 10 levels
   When I open the diagram
-  Then it is drawn within 2 s of the data arriving
+  Then it is drawn within 2 s of the data arriving, measured on the stand with a seeded organization of that size in a named browser at stage 6 (not in jsdom)
   And it scrolls inside its own frame, the page itself does not scroll sideways
   And a branch can be collapsed so that its sub-areas are hidden, and expanded again
 
+Scenario: The initial expansion
+  Given the tree's rule D-3: all nodes expanded up to `TREE_EXPAND_ALL_LIMIT`, collapsed above it
+  When I open the diagram of an organization at or below the limit
+  Then every branch is expanded
+  And above the limit the same branches are collapsed as the tree would collapse them
+
+Scenario: A relation line into a collapsed branch
+  Given project A is inside a collapsed department and has the team MARS
+  When I look at the diagram
+  Then the line from MARS is drawn to the nearest visible ancestor of A, marked as standing for hidden nodes
+  And expanding the branch moves the line to A
+
+Scenario: Layout details are left to design
+  Then where the teams stand (a band, beside their projects, in groups) and their order are decided at the design stage
+  And the criteria above and in US-3 hold whatever the layout is
+
 Scenario: Keyboard and screen reader
   When I press Tab
-  Then focus visits each node that opens a page, in tree order, with a visible focus
-  And each node's accessible name states its type, its name and its parent
+  Then focus enters the diagram once, on one node, and the next Tab leaves the diagram (one Tab stop, as the tree has; BR-SD-10)
+  And the arrow keys move focus between nodes, Left and Right collapse and expand a branch, with a visible focus
+  And each node's accessible name states its type, its name, its parent and, for a project or a team, the number of its relations
+  And the diagram announces itself as a structure with levels and positions (a tree role with level on each node), so a screen reader user can walk the hierarchy
 
 Scenario: Narrow window
   Given the window is 640 CSS px wide
