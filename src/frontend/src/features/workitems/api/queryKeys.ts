@@ -32,8 +32,22 @@ export const workItemsKeys = {
    * prefix, so every write that reads the list again reads them again (an assignee changed, an item
    * deleted); the string where a page number stands tells the two apart.
    */
-  assigneeOptions: (organizationId: string, projectId: string, states: readonly string[]) =>
-    [ROOT, 'list', organizationId, projectId, 'assignee-options', [...states].sort()] as const,
+  assigneeOptions: (organizationId: string, projectId: string | null, states: readonly string[]) =>
+    [
+      ROOT,
+      'list',
+      organizationId,
+      projectId ?? 'all',
+      'assignee-options',
+      [...states].sort(),
+    ] as const,
+  /** feat-048: one page of the organization-wide list under selectors and a filter. */
+  organizationList: (
+    organizationId: string,
+    page: number,
+    selectors: object,
+    filter: WorkItemListFilter = NO_LIST_FILTER,
+  ) => [ROOT, 'list', organizationId, 'all', page, selectors, filterKey(filter)] as const,
   /** Every item of a project the form has read. */
   items: (organizationId: string, projectId: string) =>
     [ROOT, 'item', organizationId, projectId] as const,

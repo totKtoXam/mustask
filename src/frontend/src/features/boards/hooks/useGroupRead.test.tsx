@@ -37,8 +37,8 @@ describe('readQueue', () => {
     await Promise.resolve();
     expect(fifth).toBe(false);
     expect(readQueueState().waiting).toBe(1);
-    releases[0]();
-    releases[0](); // idempotent
+    releases[0]?.();
+    releases[0]?.(); // idempotent
     const release = await pending;
     expect(readQueueState()).toEqual({ inFlight: 4, waiting: 0 });
     release();

@@ -32,14 +32,15 @@ export function AssigneeFilter({
   onChange,
 }: {
   organizationId: string;
-  projectId: string;
+  /** Absent: the people of the whole organization (feat-048, the organization-wide list). */
+  projectId?: string;
   /** The chosen user ids and `none`, as the address holds them; empty is «Все исполнители». */
   value: readonly string[];
   /** The chosen state names, which decide whose options are offered. */
   states: readonly string[];
   onChange: (ids: string[]) => void;
 }) {
-  const options = useAssigneeFilterOptions(organizationId, projectId, states);
+  const options = useAssigneeFilterOptions(organizationId, projectId ?? null, states);
   const failed = options.isError && !options.isFetching;
   const choices = useMemo(
     () => (options.isSuccess ? assigneeChoices(options.data) : []),

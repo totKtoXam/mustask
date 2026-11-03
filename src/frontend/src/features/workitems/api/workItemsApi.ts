@@ -570,3 +570,58 @@ export function getParentCandidates(
     `${workItemApiPath(organizationId, projectId, identifier)}/parent-candidates?${query}`,
   );
 }
+
+/**
+ * feat-048 api-contract § 2.5: a row of the organization-wide list — the list's row with its
+ * project (and the `team` the list already carries).
+ */
+export type OrganizationWorkItem = WorkItemListItem & {
+  project: { id: string; key: string; name: string };
+};
+
+export interface OrganizationWorkItemPage {
+  count: number;
+  data: OrganizationWorkItem[];
+}
+
+/** The selectors an organization-wide read is narrowed by (ADR-0032): ids, or none. */
+export interface OrganizationListSelectors {
+  departmentId?: string;
+  teamId?: string;
+  projectId?: string;
+}
+
+function selectorQuery(selectors: OrganizationListSelectors): string {
+  const params = new URLSearchParams();
+  if (selectors.departmentId) params.append('departmentId', selectors.departmentId);
+  if (selectors.teamId) params.append('teamId', selectors.teamId);
+  if (selectors.projectId) params.append('projectId', selectors.projectId);
+  const text = params.toString();
+  return text === '' ? '' : `&${text}`;
+}
+
+/**
+ * feat-048 api-contract § 2.5: one page of every item of the organization, narrowed by the
+ * selectors and by feat-003's filters (the team dimension is the selector's, not a filter here).
+ * Only «Без группировки» uses it; a grouped list reads the group routes.
+ */
+export function getOrganizationWorkItems(
+  organizationId: string,
+  page: number,
+  selectors: OrganizationListSelectors,
+  filter: WorkItemListFilter = NO_LIST_FILTER,
+): Promise<OrganizationWorkItemPage> {
+  const withoutTeam: WorkItemListFilter = { ...filter, teamId: [] };
+  return apiFetch(
+    `${organizationApiPath(organizationId)}/workitems?page=${page}${selectorQuery(selectors)}${listFilterQuery(withoutTeam)}`,
+  );
+}
+
+/** feat-048 api-contract § 2.6: the options of «Исполнитель» across the organization. */
+export function getOrganizationAssigneeOptions(
+  organizationId: string,
+  states: readonly string[],
+): Promise<AssigneeFilterOption[]> {
+  const query = stateFilterQuery(states).replace(/^&/, '?');
+  return apiFetch(`${organizationApiPath(organizationId)}/workitems/assignee-options${query}`);
+}

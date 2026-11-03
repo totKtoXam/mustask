@@ -42,10 +42,17 @@ type Action<T> =
   | { type: 'more-phase'; more: MorePhase }
   | { type: 'more'; page: ReadPage<T> }
   | { type: 'drop'; id: string }
+  | { type: 'items'; update: (items: T[]) => T[] }
   | { type: 'reset' }
   | { type: 'reload' };
 
-const INITIAL = { phase: 'idle', items: [], nextCursor: null, more: 'idle', reloads: 0 } as const;
+const INITIAL: GroupReadState<never> = {
+  phase: 'idle',
+  items: [],
+  nextCursor: null,
+  more: 'idle',
+  reloads: 0,
+};
 
 function reducer<T extends { id: string }>(
   state: GroupReadState<T>,
@@ -73,6 +80,8 @@ function reducer<T extends { id: string }>(
       };
     case 'drop':
       return { ...state, items: state.items.filter((item) => item.id !== action.id) };
+    case 'items':
+      return { ...state, items: action.update(state.items) };
     case 'reload':
       return {
         ...state,
@@ -132,8 +141,8 @@ export interface UseGroupRead<T> {
   reload(): void;
   /** Take a row out of the held set by id (a row moved to the project's end, OQ-6 A). */
   dropRow(id: string): void;
-  /** The error of the last failed read, for the caller's message. */
-  lastError: unknown;
+  /** Replace the held rows (a move inside the loaded rows). */
+  updateRows(update: (items: T[]) => T[]): void;
 }
 
 export function useGroupRead<T extends { id: string }>({
@@ -164,7 +173,6 @@ export function useGroupRead<T extends { id: string }>({
   });
   // Every start/reset bumps the generation; an answer of an older one is thrown away.
   const generation = useRef(0);
-  const lastError = useRef<unknown>(null);
 
   const failedAt = useRef<'first' | 'more'>('first');
 
@@ -208,7 +216,6 @@ export function useGroupRead<T extends { id: string }>({
         if (page && gen === generation.current) dispatch({ type: 'first', page });
       } catch (error) {
         if (gen !== generation.current) return;
-        lastError.current = error;
         if (isProjectGone(error)) {
           dispatch({ type: 'phase', phase: 'gone' });
           callbacks.current.onGone?.();
@@ -231,7 +238,6 @@ export function useGroupRead<T extends { id: string }>({
       if (page && gen === generation.current) dispatch({ type: 'more', page });
     } catch (error) {
       if (gen !== generation.current) return;
-      lastError.current = error;
       if (isCursorRefusal(error)) {
         // OQ-4 A (1): no message; rows dropped, the first page read again, headers re-read.
         dispatch({ type: 'reload' });
@@ -257,7 +263,6 @@ export function useGroupRead<T extends { id: string }>({
 
   return {
     state,
-    lastError: lastError.current,
     loadMore: useCallback(() => void more(), [more]),
     retry: useCallback(() => {
       if (failedAt.current === 'more') void more();
@@ -268,5 +273,9 @@ export function useGroupRead<T extends { id: string }>({
       void first(true);
     }, [first]),
     dropRow: useCallback((id: string) => dispatch({ type: 'drop', id }), []),
+    updateRows: useCallback(
+      (update: (items: T[]) => T[]) => dispatch({ type: 'items', update }),
+      [],
+    ),
   };
 }
