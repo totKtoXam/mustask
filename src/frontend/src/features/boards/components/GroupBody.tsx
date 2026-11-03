@@ -1,7 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import Box from '@mui/material/Box';
-import Skeleton from '@mui/material/Skeleton';
-import { ActionButton, InlineEmpty, InlineNotice } from '../../../shared/ui';
+import { ActionButton, InlineEmpty, InlineNotice, TableSkeleton } from '../../../shared/ui';
 import type { UseGroupRead } from '../hooks/useGroupRead';
 import { aggregateTexts, loadedMore } from '../lib/aggregateTexts';
 
@@ -45,9 +44,9 @@ export function GroupBody<T extends { id: string }>({
     case 'retrying':
       return (
         <Box role="status" aria-label={loadingText} sx={{ display: 'grid', gap: 1 }}>
-          {Array.from({ length: skeleton === 'rows' ? 5 : 3 }, (_unused, index) => (
-            <Skeleton key={index} variant="rounded" height={skeleton === 'rows' ? 24 : 56} />
-          ))}
+          <Box aria-hidden="true">
+            <TableSkeleton headers={[loadingText]} rows={skeleton === 'rows' ? 5 : 3} />
+          </Box>
           {state.phase === 'retrying' && <Box aria-live="polite">{aggregateTexts.retrying}</Box>}
         </Box>
       );
@@ -109,10 +108,10 @@ export function GroupBody<T extends { id: string }>({
 /** The headers read pending (design § 3): three header bars in one status region. */
 export function HeadersSkeleton() {
   return (
-    <Box role="status" aria-label={aggregateTexts.loadingHeaders} sx={{ display: 'grid', gap: 1 }}>
-      {[0, 1, 2].map((index) => (
-        <Skeleton key={index} variant="rounded" height={48} />
-      ))}
+    <Box role="status" aria-label={aggregateTexts.loadingHeaders}>
+      <Box aria-hidden="true">
+        <TableSkeleton headers={[aggregateTexts.loadingHeaders]} rows={3} />
+      </Box>
     </Box>
   );
 }

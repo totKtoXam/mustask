@@ -17,6 +17,18 @@ export const PROJECT_BACKLOG_ROUTE = `${PROJECT_ROUTE_PREFIX}/backlogs/:level`;
 /** feat-039 BR-PB-1: the project's board of one level. */
 export const PROJECT_BOARD_ROUTE = `${PROJECT_ROUTE_PREFIX}/boards/:level`;
 
+const ORGANIZATION_ROUTE_PREFIX = '/organizations/:organizationId';
+const DEPARTMENT_ROUTE_PREFIX = '/organizations/:organizationId/areas/:areaId';
+
+/** feat-048: the backlog, the board and the work items above the project level (BR-AV-7). */
+export const ORGANIZATION_BACKLOG_ROUTE = `${ORGANIZATION_ROUTE_PREFIX}/backlogs/:level`;
+export const ORGANIZATION_BOARD_ROUTE = `${ORGANIZATION_ROUTE_PREFIX}/boards/:level`;
+export const ORGANIZATION_WORK_ITEMS_ROUTE = `${ORGANIZATION_ROUTE_PREFIX}/workitems`;
+export const DEPARTMENT_BACKLOG_ROUTE = `${DEPARTMENT_ROUTE_PREFIX}/backlogs/:level`;
+export const DEPARTMENT_BOARD_ROUTE = `${DEPARTMENT_ROUTE_PREFIX}/boards/:level`;
+export const DEPARTMENT_WORK_ITEMS_ROUTE = `${DEPARTMENT_ROUTE_PREFIX}/workitems`;
+export const TEAM_WORK_ITEMS_ROUTE = `${TEAM_ROUTE_PREFIX}/workitems`;
+
 const segment = encodeURIComponent;
 
 function teamPrefix(organizationId: string, teamId: string): string {

@@ -8,7 +8,7 @@ import { Tag, ThinChevronDownIcon } from '../../../shared/ui';
 
 /**
  * One group of a grouped view, or a lane of the board (feat-048 design § 1, § 3): a collapsible
- * MUI `Accordion` whose summary holds the name (an `h2`), the optional key `Tag` and the count
+ * MUI `Accordion` whose summary holds the name (MUI's own heading element: the kit guard forbids a heading of our own, KIT-21), the optional key `Tag` and the count
  * («40», «3 из 40»). It is the header only: the group's states and rows are the `children`, drawn
  * by `GroupBody`, and a closed group reads nothing. Renamed from the design's `ProjectGroup`: a
  * group is a department, a project or a team now.
@@ -35,7 +35,7 @@ export function ViewGroup({
       expanded={open}
       onChange={(_event, expanded) => onToggle(expanded)}
       disableGutters
-      slotProps={{ heading: { component: 'h2' }, transition: { unmountOnExit: true } }}
+      slotProps={{ transition: { unmountOnExit: true } }}
       variant="outlined"
     >
       <AccordionSummary
