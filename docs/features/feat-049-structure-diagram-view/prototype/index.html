@@ -53,10 +53,15 @@ table{border-collapse:collapse;width:100%}th{text-align:left;font-weight:600;col
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .srv{font-size:11px;color:var(--lab);margin:6px 2px;min-height:16px}
 .lv{flex:none;width:16px;height:16px;border-radius:8px;background:var(--nav);color:var(--tx2);font-size:10px;line-height:16px;text-align:center}
-.rul{position:absolute;font-size:10px;color:var(--lab);text-align:center;line-height:14px;border-bottom:1px solid var(--rule)}
+
 .nd.hl{background:#CFE6FA;border:2px solid var(--acc);padding:0 7px}.nd.hit{box-shadow:0 0 0 2px #FFB900}
 .dtool{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px}.dtool .qc{font-size:12px;color:var(--tx2)}.dtool .cnts{margin-left:auto;font-size:12px;color:var(--tx2)}.dtool button:disabled{opacity:.5;cursor:default}
-.mwrap{position:relative}#mmenu{position:absolute;top:36px;left:0;z-index:6;background:#fff;border-radius:4px;box-shadow:var(--glow);min-width:300px;padding:4px 0}#mmenu[hidden]{display:none}#mmenu button{display:block;width:100%;text-align:left;background:transparent;border-radius:0;font-weight:400;min-height:44px}#mmenu button:hover,#mmenu button:focus{background:var(--hov)}#mmenu small{display:block;color:var(--tx2)}
+.mwrap{position:relative}.mmenu{position:absolute;top:34px;left:0;z-index:8;background:#fff;border-radius:4px;box-shadow:var(--glow);min-width:300px;padding:4px 0}.mmenu[hidden]{display:none}.mmenu button{display:block;width:100%;text-align:left;background:transparent;border-radius:0;font-weight:400;min-height:44px;white-space:normal}.mmenu button:hover,.mmenu button:focus{background:var(--hov)}.mmenu small{display:block;color:var(--tx2)}
+#tr{position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none}#tr .nd,#tr .cap{pointer-events:auto}
+.lvc{position:absolute;display:flex;gap:6px;align-items:center;z-index:7}.lvc button{min-height:26px;padding:0 8px;font-size:12px;font-weight:400;border:1px solid var(--fh);background:#fff}.lvc button:disabled{opacity:.5;cursor:default}
+.lvl{position:absolute;z-index:6;width:22px;min-height:22px;height:22px;padding:0;border-radius:11px;border:1px solid var(--fh);background:#fff;font-size:11px;font-weight:600;color:var(--tx2);line-height:20px}.lvl[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:#fff}.lvl.inc{background:var(--sel);border-color:var(--acc)}
+.nd.sec{height:28px;border:0;border-bottom:1px solid var(--div);border-radius:0;background:transparent;font-weight:600;cursor:pointer;color:var(--lab)}.nd.sec .nm{color:var(--lab);font-weight:600}.nd.sec .cnt{margin-left:8px}
+.nd.v{line-height:16px;height:58px;flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;padding:2px 8px}.nd.v .r1,.nd.v .r3{display:flex;align-items:center;gap:6px;max-width:100%}.nd.v .nm{max-width:100%}.nd.v .cnt0{font-size:11px;color:var(--lab)}.nd.v.chosen{padding:1px 7px}
 .kb{margin-top:8px;font-size:12px;color:var(--tx2)}.kb kbd{border:1px solid var(--fh);border-bottom-width:2px;border-radius:3px;padding:0 4px;background:#fff}
 </style></head><body>
 <div id="ctl"><b>feat-049 prototype.</b> Scenarios (not part of the product):
@@ -73,7 +78,7 @@ table{border-collapse:collapse;width:100%}th{text-align:left;font-weight:600;col
 (function(){
 'use strict';
 /* ---------- design constants (§ 4.3 of design.md) ---------- */
-var LINE_LIMIT=150, EXPAND_ALL_LIMIT=100, ROW=40, RULER=18, IND=22, HIER_W=480, GAP=200, TEAM_W=220, PAD=16, HEAD=28;
+var LINE_LIMIT=150, EXPAND_ALL_LIMIT=100, ROW=40, RULER=22, CTL=30, IND=22, VW=156, VH=58, VGAP=12, BAND=88, SLIM=30, TEAMGAP=70, LABEL_W=40, VERT_NOTE_LIMIT=120, HIER_W=480, GAP=200, TEAM_W=220, PAD=16, HEAD=28;
 var TYPE={department:'Департамент',project:'Проект',area:'Область'};
 /* ---------- data ---------- */
 function node(id,parent,type,name,o){o=o||{};return {id:id,parentId:parent,type:type,name:name,projectId:o.pid||null,active:o.active===false?false:true,key:o.key||null}}
@@ -116,7 +121,7 @@ var SCN=[
  {id:'notFound',label:'Организация не найдена',make:normal,tree:'404'}
 ];
 /* ---------- state ---------- */
-var S={mode:'dim',q:'',qi:-1,scn:SCN[0],data:null,view:'diagram',role:'admin',expanded:null,chosen:null,focusId:null,retried:false,offersState:'ok'};
+var S={mode:'dim',q:'',qi:-1,scn:SCN[0],data:null,view:'diagram',role:'admin',expanded:null,chosen:null,focusId:null,retried:false,offersState:'ok',layout:'h',lv:{set:{},mode:'only'},sec:{g:true,h:true}};
 function $(sel,root){return (root||document).querySelector(sel)}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function ru(n,one,few,many){var m=n%10,h=n%100;return n+' '+(m===1&&h!==11?one:(m>=2&&m<=4&&(h<12||h>14)?few:many))}
@@ -126,6 +131,7 @@ function initialExpansion(areas){var s={};if(areas.length>EXPAND_ALL_LIMIT)retur
 function model(){
  var areas=S.data.areas,off=S.offersState==='ok'?S.data.offers:null,byId={},ch=childrenOf(areas);
  areas.forEach(function(a){byId[a.id]=a});
+ var maxLevel=areas.reduce(function(m,a){var d=1,c=a;while(c.parentId){c=byId[c.parentId];d++}return Math.max(m,d)},1);
  var projNode={};areas.forEach(function(a){if(a.type==='project')projNode[a.projectId]=a});
  var teams=[],links=[],teamsOf={},projsOf={},deptsOf={};
  if(off){
@@ -135,7 +141,7 @@ function model(){
   off.teams.forEach(function(t){t.depts.forEach(function(did){if(!byId[did])return;links.push({a:did,t:t.id});(teamsOf[did]=teamsOf[did]||[]).push(t.id);(deptsOf[t.id]=deptsOf[t.id]||[]).push(did)})});
  }
  var teamById={};teams.forEach(function(t){teamById[t.id]=t});
- return {areas:areas,byId:byId,ch:ch,off:off,teams:teams,teamById:teamById,links:links,teamsOf:teamsOf,projsOf:projsOf,deptsOf:deptsOf,projNode:projNode};
+ return {areas:areas,byId:byId,ch:ch,off:off,teams:teams,teamById:teamById,links:links,teamsOf:teamsOf,projsOf:projsOf,deptsOf:deptsOf,projNode:projNode,maxLevel:maxLevel};
 }
 function chosable(M,id){var n=M.byId[id];if(n)return n.type==='department'||(n.type==='project'&&n.active);return !!M.teamById[id]}
 function emphasis(M,id){
@@ -160,42 +166,85 @@ function relatedFilter(M,E){
   if(M.byId[id].type==='project')descendants(M,id,keep)});
  return {keep:keep,teams:teams};
 }
-/* ---------- layout: rebuilt when data, expansion, or (in «Только связанные») the chosen node changes ---------- */
-function layout(M,exp0,filt){
- var exp=exp0,items=[],pos={},y=PAD;
+/* ---------- layout: a pure function of (model, expansion, options); two orientations ---------- */
+function levelOk(lv,l){var ks=Object.keys(lv.set).map(Number);if(!ks.length)return true;return lv.mode==='only'?!!lv.set[l]:l>=Math.min.apply(null,ks)}
+function layout(M,exp0,o){
+ var filt=o.filt,V=o.orient==='v',lv=o.lv,sec=o.sec,exp=exp0,pos={},i;
  if(filt){exp={};Object.keys(exp0).forEach(function(k){exp[k]=1});Object.keys(filt.keep).forEach(function(id){ancestors(M,id).forEach(function(a){exp[a]=1})})}
  function kids(id){return (M.ch[id]||[]).filter(function(a){return !filt||filt.keep[a.id]})}
- var TX=PAD+HIER_W+GAP,width=TX+TEAM_W+PAD,related=[],lone=[];
+ /* the visible hierarchy: expanded, level filter applied, hidden levels' rows dropped; vp = nearest visible ancestor */
+ var seq=[];(function walk(p,d){(p===null?(M.ch['']||[]).filter(function(a){return !filt||filt.keep[a.id]}):kids(p)).forEach(function(a){seq.push({a:a,level:d});if(kids(a.id).length&&exp[a.id])walk(a.id,d+1)})})(null,1);
+ var vis=sec.h?seq.filter(function(s){return levelOk(lv,s.level)}):[],visSet={};
+ vis.forEach(function(s){visSet[s.a.id]=s});
+ vis.forEach(function(s){var c=s.a.parentId;s.vp=null;while(c){if(visSet[c]){s.vp=visSet[c];break}c=M.byId[c].parentId}});
+ var vkids={};vis.forEach(function(s){if(s.vp)(vkids[s.vp.a.id]=vkids[s.vp.a.id]||[]).push(s)});
+ /* vertical: a tidy top-down tree, leaves on consecutive slots, a parent over its children */
+ var slot=0,treeW=0;
+ if(V){
+  vis.filter(function(s){return !s.vp}).forEach(function place(s){var ks=vkids[s.a.id]||[];if(!ks.length){s.cx=slot++*(VW+VGAP)+VW/2}else{ks.forEach(place);s.cx=(ks[0].cx+ks[ks.length-1].cx)/2}});
+  treeW=slot*(VW+VGAP)}
+ var LBL=V?LABEL_W:0,X0=PAD+LBL;
+ var TX=PAD+HIER_W+GAP,width=V?Math.max(X0+treeW+PAD,PAD*2+LBL+3*(TEAM_W+12)):TX+TEAM_W+PAD;
+ /* teams */
+ var related=[],lone=[];
  M.teams.forEach(function(t){
   if(filt&&!filt.teams[t.id])return;
   var any=(M.projsOf[t.id]||[]).length+(M.deptsOf[t.id]||[]).length;
   if(any)related.push(t);else lone.push(t)});
- /* the group on top (remark 1) */
- var perRow=Math.max(1,Math.floor((width-2*PAD)/(TEAM_W+12))),groupTop=null,loneItems=[];
- if(lone.length){groupTop=y;y+=HEAD;
-  lone.forEach(function(t,i){var it={id:t.id,kind:'team',t:t,level:1,lone:true,x:PAD+(i%perRow)*(TEAM_W+12),y:y+Math.floor(i/perRow)*ROW,w:TEAM_W,anchors:[]};loneItems.push(it);pos[t.id]=it});
-  y+=Math.ceil(lone.length/perRow)*ROW+16}
- var capY=y,hierStart=capY+HEAD+RULER;y=hierStart;
- function walk(parent,depth){(parent===null?(M.ch['']||[]).filter(function(a){return !filt||filt.keep[a.id]}):kids(parent)).forEach(function(a){
-  var it={id:a.id,kind:'node',a:a,level:depth,x:PAD+(depth-1)*IND,y:y,w:HIER_W-(depth-1)*IND};items.push(it);pos[a.id]=it;y+=ROW;
-  if(kids(a.id).length&&exp[a.id])walk(a.id,depth+1)})}
- walk(null,1);var hierBottom=y,maxLevel=items.reduce(function(m,i){return Math.max(m,i.level)},0);
- var rel=[];
- related.forEach(function(t){
-  var anchors=[];(M.projsOf[t.id]||[]).concat(M.deptsOf[t.id]||[]).forEach(function(id){var v=visibleAnchor(M,id,exp);if(pos[v.id])anchors.push({id:v.id,hidden:v.hidden,src:id})});
-  if(!anchors.length)return;
-  var mean=anchors.reduce(function(s,a){return s+pos[a.id].y+16},0)/anchors.length;rel.push({t:t,anchors:anchors,mean:mean})});
- rel.sort(function(p,q){return p.mean-q.mean||p.t.name.localeCompare(q.t.name,'ru')});
- var ty=hierStart,teamItems=[];
- rel.forEach(function(r){var yy=Math.max(r.mean-16,ty);var it={id:r.t.id,kind:'team',t:r.t,level:1,x:TX,y:yy,w:TEAM_W,anchors:r.anchors};teamItems.push(it);pos[r.t.id]=it;ty=yy+ROW});
- var height=Math.max(hierBottom,ty)+PAD;
- return {hier:items,teams:teamItems,lone:loneItems,all:loneItems.concat(items,teamItems),pos:pos,exp:exp,kids:kids,TX:TX,width:width,height:height,groupTop:groupTop,capY:capY,hierStart:hierStart,hierBottom:hierBottom,maxLevel:maxLevel,hasLone:lone.length>0,hasTeams:teamItems.length>0,filtered:!!filt};
+ var items=[],y=PAD;
+ /* section: the group on top */
+ var loneItems=[],secs=[];
+ if(lone.length){var sg={id:'sec-g',kind:'section',key:'g',title:'Без проектов и департаментов',count:lone.length,expanded:sec.g,level:1,x:PAD,y:y,w:width-2*PAD};secs.push(sg);y+=HEAD;
+  if(sec.g){var perRow=Math.max(1,Math.floor((width-2*PAD)/(TEAM_W+12)));
+   lone.forEach(function(t,k){var it={id:t.id,kind:'team',t:t,level:2,lone:true,x:PAD+(k%perRow)*(TEAM_W+12),y:y+Math.floor(k/perRow)*ROW,w:TEAM_W,h:V?52:32,anchors:[]};loneItems.push(it);pos[t.id]=it});
+   y+=Math.ceil(lone.length/perRow)*ROW}
+  y+=16}
+ /* section: the hierarchy (and the teams lane, which has no meaning without it) */
+ var sh={id:'sec-h',kind:'section',key:'h',title:'Департаменты, проекты и области',count:M.areas.length,expanded:sec.h,level:1,x:PAD,y:y,w:V?width-2*PAD:HIER_W};secs.push(sh);
+ var capY=y,ctlY=y+HEAD,rulerY=0,hierStart=y+HEAD,hierBottom=hierStart,maxLevel=M.maxLevel,hier=[],teamItems=[],bands=[],teamsTop=0;
+ if(sec.h){
+  hierStart=ctlY+CTL;
+  if(!H_RULER_OFF(V)){rulerY=hierStart;hierStart+=RULER}
+  if(!V){
+   vis.forEach(function(s,k){var it={id:s.a.id,kind:'node',a:s.a,level:s.level,aria:s.level+1,x:PAD+(s.level-1)*IND,y:hierStart+k*ROW,w:HIER_W-(s.level-1)*IND,h:32,vp:s.vp?s.vp.a.id:null,gap:s.vp?s.level-s.vp.level>1:false};hier.push(it);pos[it.id]=it});
+   hierBottom=hierStart+vis.length*ROW;
+  }else{
+   var has={};vis.forEach(function(s){has[s.level]=1});var by=hierStart;
+   for(i=1;i<=maxLevel;i++){var bh=has[i]?BAND:SLIM;bands[i]={top:by,h:bh,has:!!has[i]};by+=bh}
+   vis.forEach(function(s){var it={id:s.a.id,kind:'node',a:s.a,level:s.level,aria:s.level+1,x:X0+s.cx-VW/2,y:bands[s.level].top,w:VW,h:VH,vp:s.vp?s.vp.a.id:null,gap:s.vp?s.level-s.vp.level>1:false};hier.push(it);pos[it.id]=it});
+   hierBottom=by;
+  }
+  /* teams lane: horizontal on the right (by mean y), vertical in a row at the bottom (by mean x) */
+  var rel=[];
+  related.forEach(function(t){
+   var anchors=[];(M.projsOf[t.id]||[]).concat(M.deptsOf[t.id]||[]).forEach(function(id){
+    var c=id,found=null;while(c){if(visSet[c]){found=c;break}c=M.byId[c].parentId}
+    if(found&&pos[found])anchors.push({id:found,hidden:found!==id,src:id})});
+   var mean=anchors.length?anchors.reduce(function(s,a){var p=pos[a.id];return s+(V?p.x+p.w/2:p.y+16)},0)/anchors.length:1e9;
+   rel.push({t:t,anchors:anchors,mean:mean})});
+  rel.sort(function(p,q){return p.mean-q.mean||p.t.name.localeCompare(q.t.name,'ru')});
+  if(!V){var ty=hierStart;rel.forEach(function(r){var yy=Math.max(r.mean-16,ty);var it={id:r.t.id,kind:'team',t:r.t,level:2,x:TX,y:yy,w:TEAM_W,h:32,anchors:r.anchors};teamItems.push(it);pos[r.t.id]=it;ty=yy+ROW});hierBottom=Math.max(hierBottom,ty)}
+  else if(rel.length){teamsTop=hierBottom+TEAMGAP;var tx=X0;rel.forEach(function(r){var xx=Math.max(r.mean-VW/2,tx);var it={id:r.t.id,kind:'team',t:r.t,level:2,x:xx,y:teamsTop,w:VW,h:52,anchors:r.anchors};teamItems.push(it);pos[r.t.id]=it;tx=xx+VW+VGAP});
+   hierBottom=teamsTop+52;width=Math.max(width,tx+PAD)}
+ }
+ var height=hierBottom+PAD;
+ var all=[];if(secs[0]&&secs[0].key==='g'){all.push(secs[0]);loneItems.forEach(function(x){all.push(x)});all.push(secs[1])}else all.push(secs[0]);
+ hier.forEach(function(x){all.push(x)});teamItems.forEach(function(x){all.push(x)});
+ secs.forEach(function(s){pos[s.id]=s});
+ return {orient:o.orient,hier:hier,teams:teamItems,lone:loneItems,secs:secs,all:all,pos:pos,exp:exp,kids:kids,visCount:vis.length,TX:TX,X0:X0,width:width,height:height,capY:capY,ctlY:ctlY,rulerY:rulerY,hierStart:hierStart,hierBottom:hierBottom,maxLevel:maxLevel,bands:bands,teamsTop:teamsTop,hasLone:lone.length>0,hasTeams:teamItems.length>0,filtered:!!filt,sec:sec};
 }
+function H_RULER_OFF(V){return V}
 /* ---------- rendering ---------- */
 function setLive(t){var e=$('#live');clearTimeout(setLive.h);e.textContent='';if(t)setLive.h=setTimeout(function(){e.textContent=t},30)}
 function toast(t){var e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(function(){e.style.display='none'},2200)}
 var MODES=[{id:'dim',label:'Затемнение',hint:'Остальное приглушается'},{id:'only',label:'Только связанные',hint:'Показаны выбранный узел и связанные с ним'},{id:'hl',label:'Подсветка',hint:'Всё на месте, связанное выделено цветом'}];
-function modeLabel(){return MODES.filter(function(m){return m.id===S.mode})[0].label}
+var LAYOUTS=[{id:'h',label:'Горизонтально',hint:'Иерархия слева направо, команды справа'},{id:'v',label:'Вертикально',hint:'Департаменты сверху, команды снизу'}];
+var LVMODES=[{id:'only',label:'Только выбранные уровни',hint:'Показаны отмеченные уровни'},{id:'from',label:'Уровень и вложенные',hint:'Самый верхний из отмеченных и все более глубокие'}];
+var MENUS={mode:{label:'Показ при выборе',items:MODES,get:function(){return S.mode},set:function(v){S.mode=v;store('mustask.structure.mode.v1.demo',v)}},
+ layout:{label:'Раскладка',items:LAYOUTS,get:function(){return S.layout},set:function(v){S.layout=v;store('mustask.structure.layout.v1.demo',v)}},
+ lvm:{label:'Режим уровней',items:LVMODES,get:function(){return S.lv.mode},set:function(v){S.lv.mode=v}}};
+function menuCur(id){var m=MENUS[id],c=m.get();return m.items.filter(function(x){return x.id===c})[0].label}
+function menuBtn(id,cls){return '<span class="mwrap '+(cls||'')+'"><button id="mb-'+id+'" data-mb="'+id+'" aria-haspopup="menu" aria-expanded="false">'+MENUS[id].label+': <b>'+esc(menuCur(id))+'</b> ▾</button><div class="mmenu" id="mm-'+id+'" role="menu" aria-label="'+MENUS[id].label+'" hidden></div></span>'}
 function stored(k,ok,def){try{var v=localStorage.getItem(k);return ok.indexOf(v)>=0?v:def}catch(e){return def}}
 function store(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 function render(){
@@ -206,9 +255,9 @@ function render(){
  h+='<div class="head"><h1>Структура</h1>'+create+'</div>';
  var ready=sc.tree!=='loading'&&sc.tree!=='failed'&&S.data.areas.length;
  h+='<div class="toolbar"><div role="tablist" aria-label="Вид структуры"><button role="tab" id="tb-tree" aria-selected="'+(S.view==='tree')+'" tabindex="'+(S.view==='tree'?0:-1)+'" data-v="tree">⌸ Дерево</button><button role="tab" id="tb-diagram" aria-selected="'+(S.view==='diagram')+'" tabindex="'+(S.view==='diagram'?0:-1)+'" data-v="diagram">⌖ Диаграмма</button></div>';
- if(S.view==='diagram'&&ready)h+='<div class="legend"><span><svg width="28" height="10"><path d="M1 5H27" stroke="#9E9E9E" stroke-width="1" fill="none"/></svg>вложенность</span><span><svg width="28" height="10"><path d="M1 5H27" stroke="#0078D4" stroke-width="2" stroke-dasharray="6 3" fill="none"/></svg>команда работает</span><span><svg width="28" height="10"><path d="M1 5H27" stroke="#0078D4" stroke-width="2" stroke-dasharray="2 3" fill="none"/></svg>связь со скрытым узлом</span></div>';
+ if(S.view==='diagram'&&ready)h+='<div class="legend"><span><svg width="28" height="10"><path d="M1 5H27" stroke="#9E9E9E" stroke-width="1" fill="none"/></svg>вложенность</span><span><svg width="28" height="10"><path d="M1 5H27" stroke="#0078D4" stroke-width="2" stroke-dasharray="6 3" fill="none"/></svg>команда работает</span><span><svg width="28" height="10"><path d="M1 5H27" stroke="#0078D4" stroke-width="2" stroke-dasharray="2 3" fill="none"/></svg>связь через скрытый узел</span></div>';
  h+='</div>';
- if(S.view==='diagram'&&ready)h+='<div class="dtool" id="dtool"><input id="q" type="search" placeholder="Найти узел" aria-label="Найти узел" value="'+esc(S.q)+'"><span class="qc" id="qc" role="status"></span><button id="xall"></button><span class="mwrap"><button id="mode" aria-haspopup="menu" aria-expanded="false">Показ при выборе: <b></b> ▾</button><div id="mmenu" role="menu" aria-label="Показ при выборе" hidden></div></span><span class="cnts" id="cnts"></span></div>';
+ if(S.view==='diagram'&&ready)h+='<div class="dtool" id="dtool"><input id="q" type="search" placeholder="Найти узел" aria-label="Найти узел" value="'+esc(S.q)+'"><span class="qc" id="qc" role="status"></span><button id="xall"></button>'+menuBtn('mode')+menuBtn('layout')+'<span class="cnts" id="cnts"></span></div>';
  h+='<div id="body"></div>';
  $('#page').innerHTML=h;$('#page').className=S.narrow?'narrow':'';
  body();
@@ -236,12 +285,13 @@ function matches(M,q){q=fold(q.trim());if(!q)return [];var r=[];M.areas.forEach(
 function diagramView(b){
  var M=model(),exp=S.expanded||(S.expanded=initialExpansion(S.data.areas));
  var filt=null;if(S.mode==='only'&&S.chosen&&chosable(M,S.chosen))filt=relatedFilter(M,emphasis(M,S.chosen));
- var L=layout(M,exp,filt);DG={M:M,L:L,exp:exp};
+ var L=layout(M,exp,{filt:filt,orient:S.layout,lv:S.lv,sec:S.sec});DG={M:M,L:L,exp:exp};
  var many=M.links.length>LINE_LIMIT,sc=S.scn,pre='';
  if(sc.offers==='failed'&&S.offersState!=='ok')pre='<div class="nt warning" role="status"><span>Команды и ключи проектов не загружены</span><button id="oretry">Повторить</button></div>';
  if(sc.offers==='loading'&&S.offersState!=='ok')pre='<div class="nt warning" role="status"><span>Команды и ключи проектов не загружены</span></div>';
+ if(S.layout==='v'&&L.visCount>VERT_NOTE_LIMIT)pre+='<div class="nt info" role="status"><span>Вертикальная раскладка широкая: показано узлов — '+L.visCount+'. Сверните ветви, выберите уровни или переключитесь на горизонтальную.</span></div>';
  pre+='<div id="sumbar"></div>';
- b.innerHTML=pre+'<div id="frame" tabindex="-1"><div id="cv" role="tree" aria-label="Диаграмма структуры" style="width:'+L.width+'px;height:'+L.height+'px"></div></div><div class="kb"><kbd>Tab</kbd> входит в диаграмму один раз · <kbd>↑</kbd><kbd>↓</kbd> узлы · <kbd>←</kbd><kbd>→</kbd> свернуть и развернуть · <kbd>Пробел</kbd> выбрать · <kbd>Enter</kbd> открыть · <kbd>Esc</kbd> сбросить</div>';
+ b.innerHTML=pre+'<div id="frame" tabindex="-1"><div id="cv" style="width:'+L.width+'px;height:'+L.height+'px"></div></div><div class="kb"><kbd>Tab</kbd> входит в диаграмму один раз · <kbd>↑</kbd><kbd>↓</kbd> узлы · <kbd>←</kbd><kbd>→</kbd> свернуть и развернуть · <kbd>Пробел</kbd> выбрать · <kbd>Enter</kbd> открыть · <kbd>Esc</kbd> сбросить</div>';
  var o=$('#oretry');if(o)o.onclick=function(){if(!S.retried){S.retried=true;toast('Не удалось загрузить предложения');}else{S.offersState='ok';S.retried=false;render()}};
  DG.many=many;drawCanvas();paint();updateTool();
 }
@@ -249,63 +299,79 @@ function updateTool(){
  var M=DG.M,t=$('#dtool');if(!t)return;
  var ex={};M.areas.forEach(function(a){if(M.ch[a.id])ex[a.id]=1});var all=Object.keys(ex).every(function(k){return DG.exp[k]});
  var x=$('#xall');x.textContent=all?'Свернуть всё':'Развернуть всё';x.disabled=!Object.keys(ex).length;
- $('#mode b').textContent=modeLabel();
+ document.querySelectorAll('[data-mb]').forEach(function(bt){bt.querySelector('b').textContent=menuCur(bt.getAttribute('data-mb'))});
  var d=M.areas.filter(function(a){return a.type==='department'}).length,p=M.areas.filter(function(a){return a.type==='project'}).length,s=M.areas.filter(function(a){return a.type==='area'}).length;
  $('#cnts').textContent='Департаментов: '+d+' · Проектов: '+p+' · Областей: '+s+(M.off?' · Команд: '+M.teams.length:'');
  var q=S.q.trim(),m=matches(M,S.q);$('#qc').textContent=q?(m.length?'Найдено: '+m.length+'. Enter — к следующему':'Ничего не найдено'):'';
 }
 function nameOf(M,it){
+ if(it.kind==='section')return 'Раздел «'+it.title+'», '+(it.expanded?'развёрнут':'свёрнут')+', '+(it.key==='g'?'команд: '+it.count:'узлов: '+it.count);
  if(it.kind==='team'){var n1=(M.projsOf[it.id]||[]).length,n2=(M.deptsOf[it.id]||[]).length;return 'Команда '+it.t.name+', проектов: '+n1+', департаментов: '+n2+(it.lone?', без проектов и департаментов':'')}
  var a=it.a,p=a.parentId?M.byId[a.parentId]:null;
  if(a.type==='department')return 'Департамент '+a.name+', команд: '+(M.teamsOf[a.id]||[]).length;
  if(a.type==='project')return 'Проект '+a.name+(a.key?' ('+a.key+')':'')+(a.active?'':', деактивирован')+', '+(p?'в департаменте '+p.name:'на верхнем уровне')+(a.active&&M.off?', команд: '+(M.teamsOf[a.id]||[]).length:'');
  return 'Область '+a.name+', в «'+p.name+'»'+(a.active?'':', деактивирована');
 }
+function lvlChips(L){
+ var h='',V=L.orient==='v',lvs=S.lv,i,inc=function(l){return !lvs.set[l]&&levelOk(lvs,l)&&Object.keys(lvs.set).length>0};
+ if(!L.sec.h)return '';
+ h+='<div class="lvc" style="left:'+PAD+'px;top:'+L.ctlY+'px" role="group" aria-label="Уровни вложенности">'+menuBtn('lvm')+'<button id="lvreset" '+(Object.keys(lvs.set).length?'':'disabled')+'>Все уровни</button></div>';
+ for(i=1;i<=L.maxLevel;i++){
+  var st=V?'left:'+PAD+'px;top:'+(L.bands[i].top+Math.max(2,(L.bands[i].h-24)/2))+'px':'left:'+(PAD+(i-1)*IND)+'px;top:'+L.rulerY+'px';
+  h+='<button class="lvl'+(inc(i)?' inc':'')+'" id="lvl-'+i+'" data-l="'+i+'" aria-pressed="'+(!!lvs.set[i])+'" aria-label="Уровень '+i+'" title="Уровень '+i+'" style="'+st+'">'+i+'</button>'}
+ return h;
+}
 function drawCanvas(){
- var cv=$('#cv'),M=DG.M,L=DG.L,h='',hit={},exp=L.exp;
+ var cv=$('#cv'),M=DG.M,L=DG.L,h='',hit={},exp=L.exp,V=L.orient==='v';
  matches(M,S.q).forEach(function(id){hit[id]=1});
- if(L.hasLone)h+='<div class="cap" aria-hidden="true" style="left:'+PAD+'px;top:'+L.groupTop+'px">Без проектов и департаментов</div>';
- h+='<div class="cap" aria-hidden="true" style="left:'+PAD+'px;top:'+L.capY+'px">Департаменты, проекты и области · уровни вложенности</div>';
- for(var lv=1;lv<=L.maxLevel;lv++)h+='<div class="rul" aria-hidden="true" style="left:'+(PAD+(lv-1)*IND)+'px;top:'+(L.capY+HEAD-4)+'px;width:'+IND+'px">'+lv+'</div>';
- if(L.hasTeams||(M.off&&!L.filtered))h+='<div class="cap" aria-hidden="true" style="left:'+L.TX+'px;top:'+L.capY+'px">Команды</div>';
- if(!L.hier.length)h+='<div class="srv" style="position:absolute;left:'+PAD+'px;top:'+L.hierStart+'px">Нет связанных проектов и департаментов</div>';
+ if(!L.hier.length&&L.sec.h)h+='<div class="srv" style="position:absolute;left:'+(L.X0)+'px;top:'+L.hierStart+'px">'+(S.lv&&Object.keys(S.lv.set).length?'Нет узлов на выбранных уровнях':'Нет связанных проектов и департаментов')+'</div>';
+ if(L.sec.h&&(L.hasTeams||(M.off&&!L.filtered)))h+='<div class="cap" aria-hidden="true" style="left:'+(V?L.X0:L.TX)+'px;top:'+(V?(L.teamsTop?L.teamsTop-20:L.hierBottom):L.hierStart-RULER-2)+'px">Команды</div>';
  var cur=S.focusId&&L.pos[S.focusId]?S.focusId:L.all[0].id;S.focusId=cur;
+ var tree='';
  L.all.forEach(function(it){
-  var ch=chosable(M,it.id),isNode=it.kind==='node',a=it.a,cls='nd'+(ch?' ch':'')+(it.kind==='team'?' team':'')+(isNode&&!a.active?' dead':'')+(hit[it.id]?' hit':'');
-  var attrs='role="treeitem" id="n-'+cssId(it.id)+'" data-id="'+esc(it.id)+'" tabindex="'+(it.id===cur?0:-1)+'" aria-level="'+it.level+'" aria-label="'+esc(nameOf(M,it))+'"'+(ch?' aria-selected="false"':'');
-  var inner='';
-  if(isNode){var hasCh=L.kids(a.id).length>0;
+  var ch=chosable(M,it.id),isNode=it.kind==='node',a=it.a,cls='nd'+(V&&it.kind!=='section'?' v':'')+(ch?' ch':'')+(it.kind==='team'?' team':'')+(isNode&&!a.active?' dead':'')+(hit[it.id]?' hit':'');
+  var attrs='role="treeitem" id="n-'+cssId(it.id)+'" data-id="'+esc(it.id)+'" tabindex="'+(it.id===cur?0:-1)+'" aria-level="'+(isNode?it.aria:it.level)+'" aria-label="'+esc(nameOf(M,it))+'"'+(ch?' aria-selected="false"':'');
+  var inner='',style='left:'+it.x+'px;top:'+it.y+'px;width:'+it.w+'px'+(it.h&&V?';height:'+it.h+'px':'');
+  if(it.kind==='section'){cls='nd sec';attrs+=' aria-expanded="'+it.expanded+'"';style='left:'+it.x+'px;top:'+it.y+'px;width:'+it.w+'px';
+   inner='<button class="sm tog" tabindex="-1" aria-hidden="true" data-s="'+it.key+'">'+(it.expanded?'▾':'▸')+'</button><span class="nm plain">'+esc(it.title)+'</span><span class="cnt">'+it.count+'</span>'}
+  else if(isNode){var hasCh=L.kids(a.id).length>0;
    if(hasCh)attrs+=' aria-expanded="'+(!!exp[a.id])+'"';
-   inner+=hasCh?'<button class="sm tog" tabindex="-1" aria-hidden="true" data-t="'+esc(a.id)+'">'+(exp[a.id]?'▾':'▸')+'</button>':'<span class="sp"></span>';
-   inner+='<span class="lv" aria-hidden="true" title="Уровень '+it.level+'">'+it.level+'</span><span class="ty">'+TYPE[a.type]+'</span>'+(a.active?'<a class="nm" href="#" tabindex="-1" data-o="'+esc(a.name)+'">'+esc(a.name)+'</a>':'<span class="nm plain">'+esc(a.name)+'</span>');
-   if(a.type==='project'&&a.active&&M.off&&a.key)inner+='<span class="key">'+esc(a.key)+'</span>';
-   if(!a.active)inner+='<span class="tag tg">деактивирован</span>';
+   var tg=hasCh?'<button class="sm tog" tabindex="-1" aria-hidden="true" data-t="'+esc(a.id)+'">'+(exp[a.id]?'▾':'▸')+'</button>':(V?'':'<span class="sp"></span>');
+   var nm=a.active?'<a class="nm" href="#" tabindex="-1" data-o="'+esc(a.name)+'">'+esc(a.name)+'</a>':'<span class="nm plain">'+esc(a.name)+'</span>';
+   var key=(a.type==='project'&&a.active&&M.off&&a.key)?'<span class="key">'+esc(a.key)+'</span>':'';
+   var tag=!a.active?'<span class="tag tg">деактивирован</span>':'';
    var rc=((a.type==='project'&&a.active)||a.type==='department')&&M.off?ru((M.teamsOf[a.id]||[]).length,'команда','команды','команд'):'';
-   if(rc)inner+='<span class="cnt">'+rc+'</span>';
+   var lvb='<span class="lv" aria-hidden="true" title="Уровень '+it.level+'">'+it.level+'</span>';
+   if(V)inner='<span class="r1">'+tg+lvb+'<span class="ty">'+TYPE[a.type]+'</span></span>'+nm+'<span class="r3">'+key+tag+(rc?'<span class="cnt0">'+rc+'</span>':'')+'</span>';
+   else inner=tg+lvb+'<span class="ty">'+TYPE[a.type]+'</span>'+nm+key+tag+(rc?'<span class="cnt">'+rc+'</span>':'');
   }else{
-   inner+='<span class="ty">Команда</span><a class="nm" href="#" tabindex="-1" data-o="'+esc(it.t.name)+'">'+esc(it.t.name)+'</a><span class="cnt">'+ru((M.projsOf[it.id]||[]).length,'проект','проекта','проектов')+'</span>';
+   var pc=ru((M.projsOf[it.id]||[]).length,'проект','проекта','проектов');
+   inner=V?'<span class="r1"><span class="ty">Команда</span></span><a class="nm" href="#" tabindex="-1" data-o="'+esc(it.t.name)+'">'+esc(it.t.name)+'</a><span class="r3"><span class="cnt0">'+pc+'</span></span>':'<span class="ty">Команда</span><a class="nm" href="#" tabindex="-1" data-o="'+esc(it.t.name)+'">'+esc(it.t.name)+'</a><span class="cnt">'+pc+'</span>';
   }
-  h+='<div class="'+cls+'" '+attrs+' style="left:'+it.x+'px;top:'+it.y+'px;width:'+it.w+'px">'+inner+'</div>';
+  tree+='<div class="'+cls+'" '+attrs+' style="'+style+'">'+inner+'</div>';
  });
- cv.innerHTML='<svg id="ln" width="'+L.width+'" height="'+L.height+'" aria-hidden="true"></svg>'+h;
+ cv.innerHTML='<svg id="ln" width="'+L.width+'" height="'+L.height+'" aria-hidden="true"></svg>'+lvlChips(L)+'<div role="tree" aria-label="Диаграмма структуры" id="tr">'+h+tree+'</div>';
  drawLines();
 }
 function drawLines(){
- var M=DG.M,L=DG.L,svg=$('#ln'),p='',PORT=PAD+HIER_W;
- if(L.hier.length)for(var lv=1;lv<=L.maxLevel;lv++){var gx=PAD+(lv-1)*IND+.5;p+='<path d="M'+gx+' '+L.hierStart+'V'+L.hierBottom+'" stroke="#E4E4E4" stroke-width="1" stroke-dasharray="1 3" fill="none"/>'}
- L.hier.forEach(function(it){var par=it.a.parentId;if(!par||!L.pos[par])return;var pp=L.pos[par],x=pp.x+10,y1=pp.y+32,y2=it.y+16;
-  p+='<path d="M'+x+' '+y1+'V'+y2+'H'+(it.x)+'" stroke="#9E9E9E" stroke-width="1" fill="none"/>'});
+ var M=DG.M,L=DG.L,svg=$('#ln'),p='',PORT=PAD+HIER_W,V=L.orient==='v';
+ if(!V&&L.hier.length)for(var lv=1;lv<=L.maxLevel;lv++){var gx=PAD+(lv-1)*IND+.5;p+='<path d="M'+gx+' '+L.hierStart+'V'+L.hierBottom+'" stroke="#E4E4E4" stroke-width="1" stroke-dasharray="1 3" fill="none"/>'}
+ L.hier.forEach(function(it){if(!it.vp)return;var pp=L.pos[it.vp],d,da=it.gap?' stroke-dasharray="2 3"':'';
+  if(!V){var x=pp.x+10,y1=pp.y+32,y2=it.y+16;d='M'+x+' '+y1+'V'+y2+'H'+it.x}
+  else{var x1=pp.x+pp.w/2,y1=pp.y+pp.h,x2=it.x+it.w/2,ym=it.y-14;d='M'+x1+' '+y1+'V'+ym+'H'+x2+'V'+it.y}
+  p+='<path d="'+d+'" stroke="#9E9E9E" stroke-width="1" fill="none"'+da+'/>'});
  var seen={},rel='';
  L.teams.forEach(function(tm){tm.anchors.forEach(function(an){var k=an.id+'>'+tm.id;if(seen[k])return;seen[k]=1;
-  var a=L.pos[an.id],ya=a.y+16,yt=tm.y+16,mx=(PORT+tm.x)/2;
-  rel+='<path class="rl" data-a="'+esc(an.id)+'" data-t="'+esc(tm.id)+'" d="M'+PORT+' '+ya+'C'+mx+' '+ya+' '+mx+' '+yt+' '+tm.x+' '+yt+'" stroke="#0078D4" stroke-width="1.5" fill="none" stroke-dasharray="'+(an.hidden?'2 3':'6 3')+'"/>';
-  rel+='<circle class="rd" data-a="'+esc(an.id)+'" data-t="'+esc(tm.id)+'" cx="'+PORT+'" cy="'+ya+'" r="3" fill="#0078D4"/>'})});
+  var a=L.pos[an.id],d,cx,cy;
+  if(!V){var ya=a.y+16,yt=tm.y+16,mx=(PORT+tm.x)/2;d='M'+PORT+' '+ya+'C'+mx+' '+ya+' '+mx+' '+yt+' '+tm.x+' '+yt;cx=PORT;cy=ya}
+  else{var x1=a.x+a.w/2,y1=a.y+a.h,x2=tm.x+tm.w/2,y2=tm.y,dy=(y2-y1)/2;d='M'+x1+' '+y1+'C'+x1+' '+(y1+dy)+' '+x2+' '+(y2-dy)+' '+x2+' '+y2;cx=x1;cy=y1}
+  rel+='<path class="rl" data-a="'+esc(an.id)+'" data-t="'+esc(tm.id)+'" d="'+d+'" stroke="#0078D4" stroke-width="1.5" fill="none" stroke-dasharray="'+(an.hidden?'2 3':'6 3')+'"/>';
+  rel+='<circle class="rd" data-a="'+esc(an.id)+'" data-t="'+esc(tm.id)+'" cx="'+cx+'" cy="'+cy+'" r="3" fill="#0078D4"/>'})});
  svg.innerHTML=p+'<g id="rels">'+rel+'</g>';
 }
-/* emphasis and modes: classes and line paint only; «Только связанные» rebuilds the layout (see choose) */
 function paint(){
  var M=DG.M,L=DG.L,E=emphasis(M,S.chosen),bar=$('#sumbar'),mode=S.mode;
- L.all.forEach(function(it){var e=$('#n-'+cssId(it.id));if(!e)return;
+ L.all.forEach(function(it){if(it.kind==='section')return;var e=$('#n-'+cssId(it.id));if(!e)return;
   e.classList.remove('dim','emph','chosen','hl');
   if(E){if(it.id===S.chosen)e.classList.add('chosen');
    else if(E.ids[it.id])e.classList.add(mode==='hl'?'hl':'emph');
@@ -324,13 +390,14 @@ function paint(){
  else bar.innerHTML='';
 }
 function cssId(id){return String(id).replace(/[^\w-]/g,'_')}
-function rebuild(focus){body();if(focus)focusItem(focus,true)}
+function rebuild(focus,sel){body();if(sel){var e=$(sel);if(e)e.focus()}else if(focus)focusItem(focus,true)}
 function choose(id){
  var M=DG.M;
  if(id&&S.chosen===id)id=null;
  S.chosen=id;
  var f=S.focusId,changed=false;
  if(id&&S.mode!=='only'){var E=emphasis(M,id);Object.keys(E.ids).forEach(function(k){ancestors(M,k).forEach(function(a){if(!DG.exp[a]){DG.exp[a]=1;changed=true}})});if(changed)S.expanded=DG.exp}
+ if(id){var E2=emphasis(M,id),needH=Object.keys(E2.ids).some(function(k){return !!M.byId[k]||(!!M.teamById[k]&&((M.projsOf[k]||[]).length+(M.deptsOf[k]||[]).length>0))});if(needH&&!S.sec.h){S.sec.h=true;changed=true}}
  if(changed||S.mode==='only')rebuild(f);else paint();
  setLive(id?summary(M,id):'Выбор сброшен');
 }
@@ -345,18 +412,26 @@ function toggle(id,open){
  if(open)DG.exp[id]=1;else delete DG.exp[id];
  S.expanded=DG.exp;rebuild(S.focusId);
 }
-function setMode(id){S.mode=id;store('mustask.structure.mode.v1.demo',id);closeMenu();if(DG.M)rebuild(S.focusId)}
-function closeMenu(){var m=$('#mmenu');if(m){m.hidden=true;$('#mode').setAttribute('aria-expanded','false')}}
-function openMenu(){
- var m=$('#mmenu');m.innerHTML=MODES.map(function(x){return '<button role="menuitemradio" aria-checked="'+(x.id===S.mode)+'" data-m="'+x.id+'" tabindex="-1"><b>'+(x.id===S.mode?'✓ ':'')+x.label+'</b><small>'+x.hint+'</small></button>'}).join('');
- m.hidden=false;$('#mode').setAttribute('aria-expanded','true');(m.querySelector('[aria-checked=true]')||m.firstChild).focus();
+function toggleSec(key,open){
+ var was=!!S.sec[key];if(open===undefined)open=!was;if(open===was)return;
+ S.sec[key]=open;rebuild('sec-'+key);setLive((key==='g'?'Без проектов и департаментов':'Департаменты, проекты и области')+(open?': развёрнуто':': свёрнуто'));
 }
+function closeMenus(){document.querySelectorAll('.mmenu').forEach(function(m){m.hidden=true});document.querySelectorAll('[data-mb]').forEach(function(b){b.setAttribute('aria-expanded','false')})}
+function openMenu(id){
+ closeMenus();var m=$('#mm-'+id),cur=MENUS[id].get();
+ m.innerHTML=MENUS[id].items.map(function(x){return '<button role="menuitemradio" aria-checked="'+(x.id===cur)+'" data-mi="'+id+'" data-mv="'+x.id+'" tabindex="-1"><b>'+(x.id===cur?'✓ ':'')+x.label+'</b><small>'+x.hint+'</small></button>'}).join('');
+ m.hidden=false;$('#mb-'+id).setAttribute('aria-expanded','true');(m.querySelector('[aria-checked=true]')||m.firstChild).focus();
+}
+function pickMenu(id,v){MENUS[id].set(v);closeMenus();if(DG.M)rebuild(S.focusId,'#mb-'+id)}
 function jump(){
  var M=DG.M,m=matches(M,S.q);if(!m.length)return;
  S.qi=(S.qi+1)%m.length;var id=m[S.qi],ch=false;
  ancestors(M,id).forEach(function(a){if(!DG.exp[a]){DG.exp[a]=1;ch=true}});
+ var isTeamLone=M.teamById[id]&&!((M.projsOf[id]||[]).length+(M.deptsOf[id]||[]).length);
+ if(isTeamLone&&!S.sec.g){S.sec.g=true;ch=true}
+ if(!isTeamLone&&!S.sec.h){S.sec.h=true;ch=true}
  if(ch){S.expanded=DG.exp;body()}
- if(!DG.L.pos[id]){toast('Узел скрыт режимом «Только связанные»');return}
+ if(!DG.L.pos[id]){toast(S.mode==='only'&&S.chosen?'Узел скрыт режимом «Только связанные»':'Узел скрыт выбором уровней');return}
  focusItem(id);
 }
 /* ---------- events ---------- */
@@ -364,13 +439,17 @@ document.addEventListener('click',function(ev){
  var t=ev.target;
  var tab=t.closest&&t.closest('[role=tab]');
  if(tab){setView(tab.getAttribute('data-v'));return}
- if(t.id==='mode'){if($('#mmenu').hidden)openMenu();else closeMenu();return}
- var mi=t.closest&&t.closest('[data-m]');if(mi){setMode(mi.getAttribute('data-m'));$('#mode').focus();return}
+ var mb=t.closest&&t.closest('[data-mb]');if(mb){var id=mb.getAttribute('data-mb');if($('#mm-'+id).hidden)openMenu(id);else closeMenus();return}
+ var mi=t.closest&&t.closest('[data-mi]');if(mi){pickMenu(mi.getAttribute('data-mi'),mi.getAttribute('data-mv'));return}
+ var lb=t.closest&&t.closest('.lvl');if(lb){var l=Number(lb.getAttribute('data-l'));if(S.lv.set[l])delete S.lv.set[l];else S.lv.set[l]=1;rebuild(null,'#lvl-'+l);setLive(Object.keys(S.lv.set).length?'Показаны уровни: '+Object.keys(S.lv.set).sort().join(', ')+(S.lv.mode==='from'?' и более глубокие':''):'Показаны все уровни');return}
+ if(t.id==='lvreset'){S.lv.set={};rebuild(null,'#lvl-1');setLive('Показаны все уровни');return}
  if(t.id==='xall'){var M0=DG.M,ex={};M0.areas.forEach(function(a){if(M0.ch[a.id])ex[a.id]=1});var all=Object.keys(ex).every(function(k){return DG.exp[k]});S.expanded=all?{}:ex;rebuild(S.focusId);return}
- if($('#mmenu')&&!t.closest('.mwrap'))closeMenu();
+ if(!t.closest||!t.closest('.mwrap'))closeMenus();
  if(!$('#cv')||!$('#cv').contains(t))return;
+ var ts=t.closest('.tog');if(ts&&ts.hasAttribute('data-s')){toggleSec(ts.getAttribute('data-s'));return}
  var tog=t.closest('.tog');if(tog){toggle(tog.getAttribute('data-t'));return}
  var nm=t.closest('a[data-o]');if(nm){ev.preventDefault();toast('Открывается страница: '+nm.getAttribute('data-o'));return}
+ var sc=t.closest('.sec');if(sc){toggleSec(sc.getAttribute('data-id').slice(4));return}
  var nd=t.closest('.nd');if(nd&&chosable(DG.M,nd.getAttribute('data-id'))){S.focusId=nd.getAttribute('data-id');choose(nd.getAttribute('data-id'));focusItem(nd.getAttribute('data-id'),true)}
 });
 document.addEventListener('input',function(ev){if(ev.target.id==='q'){S.q=ev.target.value;S.qi=-1;if(DG.M){drawCanvas();paint();updateTool()}}});
@@ -381,22 +460,26 @@ document.addEventListener('keydown',function(ev){
   if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();setView(tab.getAttribute('data-v'));$('#tb-'+tab.getAttribute('data-v')).focus()}
   return}
  if(ev.target.id==='q'){if(ev.key==='Enter'){ev.preventDefault();jump()}return}
- var mm=ev.target.closest&&ev.target.closest('#mmenu');
- if(mm||ev.target.id==='mode'){
-  var its=[].slice.call($('#mmenu').querySelectorAll('button')),ix=its.indexOf(ev.target);
-  if(ev.key==='Escape'){closeMenu();$('#mode').focus();return}
-  if(ev.key==='ArrowDown'){ev.preventDefault();if($('#mmenu').hidden)openMenu();else its[(ix+1)%its.length].focus()}
-  if(ev.key==='ArrowUp'&&!$('#mmenu').hidden){ev.preventDefault();its[(ix+its.length-1)%its.length].focus()}
+ var mm=ev.target.closest&&ev.target.closest('.mmenu'),mbt=ev.target.closest&&ev.target.closest('[data-mb]');
+ if(mm||mbt){
+  var mid=mm?mm.id.slice(3):mbt.getAttribute('data-mb'),menu=$('#mm-'+mid),its=[].slice.call(menu.querySelectorAll('button')),ix=its.indexOf(ev.target);
+  if(ev.key==='Escape'){closeMenus();$('#mb-'+mid).focus();return}
+  if(ev.key==='ArrowDown'){ev.preventDefault();if(menu.hidden)openMenu(mid);else its[(ix+1)%its.length].focus()}
+  if(ev.key==='ArrowUp'&&!menu.hidden){ev.preventDefault();its[(ix+its.length-1)%its.length].focus()}
   return}
  var nd=ev.target.closest&&ev.target.closest('.nd');if(!nd||!$('#cv'))return;
  var id=nd.getAttribute('data-id'),all=DG.L.all,i=all.map(function(x){return x.id}).indexOf(id),it=all[i],k=ev.key,M=DG.M,L=DG.L;
  function go(j){j=Math.max(0,Math.min(all.length-1,j));focusItem(all[j].id)}
- if(k==='ArrowDown'){ev.preventDefault();go(i+1)}
+ if(k==='ArrowDown'||(k==='ArrowRight'&&L.orient==='v'&&false)){ev.preventDefault();go(i+1)}
  else if(k==='ArrowUp'){ev.preventDefault();go(i-1)}
  else if(k==='Home'){ev.preventDefault();go(0)}
  else if(k==='End'){ev.preventDefault();go(all.length-1)}
+ else if(it.kind==='section'){var key=it.key;
+  if(k==='ArrowRight'){ev.preventDefault();if(!it.expanded)toggleSec(key,true);else go(i+1)}
+  else if(k==='ArrowLeft'){ev.preventDefault();if(it.expanded)toggleSec(key,false)}
+  else if(k===' '||k==='Enter'){ev.preventDefault();toggleSec(key)}}
  else if(k==='ArrowRight'&&it.kind==='node'){ev.preventDefault();if(L.kids(id).length&&!L.exp[id])toggle(id,true);else if(L.kids(id).length)go(i+1)}
- else if(k==='ArrowLeft'&&it.kind==='node'){ev.preventDefault();if(L.kids(id).length&&L.exp[id])toggle(id,false);else if(it.a.parentId&&L.pos[it.a.parentId])focusItem(it.a.parentId)}
+ else if(k==='ArrowLeft'){ev.preventDefault();if(it.kind==='node'&&L.kids(id).length&&L.exp[id])toggle(id,false);else if(it.kind==='node'&&it.vp&&L.pos[it.vp])focusItem(it.vp);else focusItem(it.kind==='team'&&!it.lone?'sec-h':(it.kind==='team'?'sec-g':'sec-h'))}
  else if(k===' '){ev.preventDefault();if(chosable(M,id))choose(id);else setLive('Этот узел выбрать нельзя')}
  else if(k==='Enter'){ev.preventDefault();var open=it.kind==='team'||it.a.active;if(open)toast('Открывается страница: '+(it.kind==='team'?it.t.name:it.a.name));else setLive('Узел деактивированного проекта ничего не открывает')}
  else if(k==='Escape'&&S.chosen){ev.preventDefault();choose(null)}
@@ -404,7 +487,7 @@ document.addEventListener('keydown',function(ev){
 function setView(v){S.view=v;S.chosen=null;render()}
 /* ---------- scenario controls ---------- */
 function pick(sc){
- S.scn=sc;S.data=sc.make();S.expanded=null;S.chosen=null;S.focusId=null;S.retried=false;S.q='';S.qi=-1;S.offersState=sc.offers?'failed':'ok';
+ S.scn=sc;S.data=sc.make();S.expanded=null;S.chosen=null;S.focusId=null;S.retried=false;S.q='';S.qi=-1;S.lv={set:{},mode:'only'};S.sec={g:true,h:true};S.offersState=sc.offers?'failed':'ok';
  document.querySelectorAll('#scn button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-s')===sc.id)});
  render();
 }
@@ -412,6 +495,7 @@ SCN.forEach(function(sc){var b=document.createElement('button');b.textContent=sc
 document.querySelectorAll('[data-role]').forEach(function(b){b.onclick=function(){S.role=b.getAttribute('data-role');document.querySelectorAll('[data-role]').forEach(function(x){x.classList.toggle('on',x===b)});render()}});
 document.querySelectorAll('[data-w]').forEach(function(b){b.onclick=function(){S.narrow=b.getAttribute('data-w')==='narrow';document.querySelectorAll('[data-w]').forEach(function(x){x.classList.toggle('on',x===b)});render()}});
 S.mode=stored('mustask.structure.mode.v1.demo',['dim','only','hl'],'dim');
+S.layout=stored('mustask.structure.layout.v1.demo',['h','v'],'h');
 pick(SCN[0]);
 })();
 </script></body></html>
