@@ -59,8 +59,12 @@ PowerShell); everything below is what they enforce.
      --prune`, otherwise remote-tracking branches show the state of the
      last fetch;
   2. `docs/features/<id>/` directories — across all branches, not just the
-     current one:
-     `git for-each-ref --format='%(refname)' refs/heads refs/remotes | xargs -I{} git ls-tree --name-only {}:docs/features`;
+     current one, plus the current worktree's own (a folder not committed
+     yet): `scripts/backlog.sh --ids` reads them in the same one pass as the
+     queue files below (`docs/features` trees instead of `docs/backlog`).
+     The summary uses the same read for "in flight": a task folder whose
+     `status.md` says `stage: complete` on no ref is listed under IN PROGRESS
+     even when no local branch holds it;
   3. the queue files — `docs/backlog.md` and every `.md` file under
      `docs/backlog/` (`withdrawn.md`, and `later.md` or a cluster file once
      the queue is split, [../backlog.md](../backlog.md), "When to split") —

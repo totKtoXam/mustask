@@ -3,14 +3,14 @@
 - type: tech
 - size: S
 - branch: tech/037-queue-ids-from-all-queue-files
-- stage: 04-backend
+- stage: complete
 - epic: workflow
 - deps: -
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved (confirmed by the human in chat, 2026-11-03) — PR https://github.com/totKtoXam/mustask/pull/61
 
 ## Plan
 
@@ -35,6 +35,7 @@ gate-3: pending
 - 2026-11-03 route confirmed by the human: tech, S, light cycle (only `scripts/` and `docs/`; check `scripts/verify.sh`, review the human's PR diff look); standing light-cycle approval confirmed to apply. Source: tech-034 CR-4.
 - 2026-11-03 cases: `sh scripts/tests/queue-numbering-cases.sh` 14/14 PASS (also `--shell dash`); the two new cases fail against the pre-change scripts (`--scripts` with the main copies).
 - 2026-11-03 `bash scripts/verify.sh` — exit 0, `RESULT: green`.
+- 2026-11-03 queue line taken by sync PR #60; PR #61 opened, CI green; gate-3 approved by the human in chat; stage complete.
 
 ## Notes
 
