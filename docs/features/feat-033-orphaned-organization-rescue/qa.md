@@ -222,47 +222,47 @@ The developer's files were reported green at stage 6 and not re-run.
 - Steps: «Все организации» → «Действия» → «История назначений» on an organization with a long reason; or read `AppointmentHistoryDialog.tsx` (`size="form"`, `COLUMN_WIDTHS` 130/150/150, `TABLE_MIN_WIDTH` 560).
 - Expected / Actual: design § 12 point 2: a wider kit dialog sized to its content, the reason wrapping in its own column. Actual: MUI `sm` (600 px), a constant sideways scroll (560 > 552), «Причина» ≈ 114 px of text, names truncated (deviation 1 above).
 - Fix needs a call: a `md` size in `DialogShell` is a kit change (component, test, showcase entry), the orchestrator's decision, or the human's if the kit is not to grow.
-- Status: open — back to frontend-developer through the orchestrator
+- Status: fixed in b7faeac7 (pass 2, by code; see Pass 2)
 
 #### D-5: a long unbroken «Причина» is not wrapped
 
 - Severity: minor
 - Steps: a record whose reason is one long token (a URL, a run of ticket keys) → «История назначений».
 - Expected / Actual: design § 5: `overflowWrap: anywhere`, never truncated. Actual: plain `Cell` text in a `table-layout: fixed` table; a word wider than the column spills out of it.
-- Status: open — carried to gate-3 (best fixed with D-4)
+- Status: fixed in b7faeac7 (pass 2, by code; see Pass 2)
 
 #### D-6: focus does not move to «Пользователь» after a user refusal
 
 - Severity: minor (accessibility)
 - Steps: dialog → pick a user → reason → «Назначить» → 409 `already_admin` (or `user_unavailable`, `self_appointment`).
 - Expected / Actual: design § 4.2 "Focus goes to the field that carries the error". Actual: the helper and `aria-invalid` are set; focus stays where it was. Test: QA `…puts focus on «Пользователь»` (skipped, D-6).
-- Status: open — carried to gate-3
+- Status: fixed in b7faeac7 (pass 2, by code; see Pass 2)
 
 #### D-7: the history dialog takes focus back to «Закрыть» on every render
 
 - Severity: minor (accessibility)
 - Steps: open «История назначений» while the read is slow; move focus to the title-bar ✕ (or to «Повторить»); the answer arrives.
 - Expected / Actual: focus starts on «Закрыть» once (§ 5). Actual: `ref={(button) => button?.focus()}` is a new callback on each render, so React re-runs it and focus jumps back to the footer «Закрыть» whenever the dialog re-renders. Test: QA `leaves focus where the user moved it…` (skipped, D-7).
-- Status: open — carried to gate-3
+- Status: fixed in b7faeac7 (pass 2, by code; see Pass 2)
 
 #### D-8: a list read goes out after the page has turned «Доступ ограничен»
 
 - Severity: minor
 - Steps: an appointment answered 403 `organizations.rescue.forbidden`.
 - Expected / Actual: DC-8 / § 11: the page's queries are dropped and nothing more is asked. Actual: `removeQueries` runs while `useRescueOrganizations` is still mounted above the `AccessDenied` return, the observer re-creates the query, and one more `GET /rescue` goes out (a sure 403). Test: QA `asks for no list after…403` (skipped, D-8).
-- Status: open — carried to gate-3
+- Status: fixed in b7faeac7 (pass 2, by code; see Pass 2)
 
 #### D-9: the pager stays active while a page loads
 
 - Severity: minor (deviation 2)
 - Expected / Actual: § 3.3 "the pager is disabled meanwhile". Actual: active; the range text changes before the rows.
-- Status: open — carried to gate-3 (a `TablePager` prop is a kit change)
+- Status: fixed in b7faeac7 (pass 2, by code; see Pass 2)
 
 #### D-10: a filter change sends one request with the old filter
 
 - Severity: minor (deviation 4)
 - Expected / Actual: one request per settled filter. Actual: from page > 1 a `?page=1&name=<old>` goes out first; its rows may flash.
-- Status: open — carried to gate-3
+- Status: fixed in b7faeac7 (pass 2, by code; see Pass 2)
 
 ### Verdict
 
@@ -270,3 +270,49 @@ blockers: 0 · majors: 1 (D-4) · minors: 6 (D-5..D-10) · result: fail — D-4
 goes back through the orchestrator (the kit size is a decision); the re-check
 covers the history dialog's layout (and D-5 / D-7 if fixed with it) and what the
 change could break.
+
+### Pass 2 (re-check of b7faeac7)
+
+2026-11-03, same QA session, HEAD b7faeac7. Scope: D-4..D-10 and what the three
+kit additions (`DialogShell size="wide"`, `TablePager disabled`, `Cell wrap`)
+could break. **No Vitest was run in this pass:** the coordinator paused every
+run, single files included, while the lane runs the full suite. The checks below
+are by code; the test evidence is the lane's full run on b7faeac7, which covers
+the files named in "Runs owed".
+
+| Defect | Fix | Re-check |
+|---|---|---|
+| D-4 | `size="wide"`: MUI `maxWidth={false}` + paper `maxWidth: 900`, `fullWidth`; columns 130 / 190 / 190 / rest, `minWidth` 720; users `UserLine truncate={false}` | ✅ The content area is 900 − 48 = 852 px. «Причина» gets 852 − 510 ≈ 342 px (≈ 326 px of text, about 45 characters a line, so a 500-character reason is ~11 lines). The users get 174 px of text, enough for «Системный Администратор» (≈ 155 px), and a longer name or the «неактивен» chip wraps instead of being cut. The date fits on one line. No sideways scroll while the window is at least ≈ 832 px (720 + 48 + 64 margin); below that the table scrolls, which is design § 3.4's rule for narrow widths. Matches gate-2. |
+| D-5 | `Cell wrap` → `overflow-wrap: anywhere` on the reason cell | ✅ |
+| D-6 | `useFocusInvalid()` after a user or reason refusal: first `[role="dialog"] [aria-invalid="true"]`, after the render that re-enables the fields | ✅ The dialog has one invalid field at a time, so "first" is the right one. The QA test is un-skipped. |
+| D-7 | `useCallback` ref on «Закрыть» | ✅ Runs once on mount. QA test un-skipped. |
+| D-8 | `RescueGate` unmounts the list on revoke, then `removeQueries` in an effect | ✅ No observer is left to re-create the read. QA test un-skipped. |
+| D-9 | `TablePager disabled={refreshing}`; the range follows `shownPage` (the rows' page) | ✅ for the § 3.3 state. It introduces D-11 (below). |
+| D-10 | page reset on the *settled* filter, as state adjusted during render | ✅ React throws that render away before commit, and TanStack fetches from the effect, so no `(old page, new filter)` or `(1, old filter)` request leaves. The developer's test asserts the exact request list. |
+
+**Regressions of the kit additions (by code).**
+- `DialogShell`: the map gained a key, and the `sx` branch for every other size still yields `undefined`. No code switches exhaustively on `size` (grep). `confirm` / `form` / `card` are unchanged.
+- `TablePager` and `Cell`: both props default to `false` and add nothing when off. Every existing caller is unchanged.
+- Showcase: `DialogsDemo` gained a wide window that uses `TableCard` / `Cell` / `TablePager`. `registry.test.ts` ("a component in one section only") reads the registry's metadata, not demo imports, so it should hold; the lane's run confirms.
+- `ui-kit.md` gained the guide lines.
+
+#### D-11: a disabled pager drops keyboard focus on a page change
+
+- Severity: minor (accessibility; brought in by the D-9 fix)
+- Steps: in a browser, focus «следующая страница» with the keyboard and press Enter.
+- Expected / Actual: design § 3.3, "After a page change focus stays on the pager button". Actual: `disabled` puts the `disabled` attribute on the focused arrow while the page loads. The browser's focus fixup then moves focus to `body`, and nothing returns it, so the next Tab starts from the top of the page. jsdom does no focus fixup, so a component test cannot show this; judged from the code and the HTML focus rules. Fix options: `aria-disabled` and ignore the click while loading, or refocus the arrow once the rows arrive.
+- Status: open — carried to gate-3
+
+#### Runs owed (paused by the coordinator)
+
+`src/features/organizations/pages/AllOrganizationsPage.qa.test.tsx` (now 10 + 5
+of the developer's, none skipped), `src/shared/ui/dialog/DialogShell.test.tsx`,
+`src/shared/ui/table/Cell.test.tsx`, `src/shared/ui/table/TablePager.test.tsx`,
+`src/features/uikit/showcase/registry.test.ts`. The lane's full run on b7faeac7
+covers them all; this verdict holds only if that run is green.
+
+#### Verdict (pass 2)
+
+blockers: 0 · majors: 0 · minors open: 1 (D-11, new) · result: pass,
+conditional on the lane's full Vitest run on b7faeac7 being green. D-4..D-10
+are fixed; D-11 is carried to gate-3 as a debt.
