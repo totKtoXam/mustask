@@ -35,6 +35,8 @@ gate-3: pending
 - 2026-11-03 [orchestrator] Minor pass (business-analyst, b6c28af5): BR-RS-6a refusal order (403, organization not found, user not appointable, self, already admin, reason), «Причина» in code points, BR-RS-11 race with an admin's own change, pre-tech-025 inactive rows refused as mod-016 US-1 does (citation checked), page size 25, OQ-6 closed. US-2 is 166 lines, over the ~150 budget: left as is. Stage 3 next.
 - 2026-11-03 [ux-designer] Stage 3: design.md (three surfaces in the organizations slice: «Все организации», «Назначение администратора», «История назначений»), prototype/index.html (opened headless in Chrome and driven by a script: list, filter, paging, refusals, success, history), ADR-0035 proposed (instance code `organizations.organization.rescue`, `system-admin` only). gate-2 pending the human.
 
+- 2026-11-03 [orchestrator] Stage 3 (ux-designer, e25721a4): design.md, prototype, ADR-0035 proposed (code organizations.organization.rescue), no new kit part. Prototype opened by the orchestrator in the browser pane: list 25/page, row menu, appoint success (date appears), «Пользователь уже администратор этой организации» on Бета, «История назначений» with the reason; no console errors. The history dialog is 90% wide and mostly empty (design § 12 point 2). gate-2 asked.
+
 ## Notes
 
 Summary (from the queue line): system-admin rescues an organization left with no active administrator: sees the list of all organizations and appoints an admin there, audited, with no access to the organization's content. Closes doc-006 accepted risk H-1
