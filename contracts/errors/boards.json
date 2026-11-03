@@ -23,6 +23,27 @@
       "kk": "Сұраудың дұрыстығын тексеріңіз.",
       "kkNeedsReview": true
     },
+    "boards.invalid_cursor": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Некорректный курсор страницы.",
+      "kk": "Бет курсоры дұрыс емес.",
+      "kkNeedsReview": true
+    },
+    "boards.invalid_grouping": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Такая группировка для этого уровня недоступна.",
+      "kk": "Бұл деңгей үшін мұндай топтау қолжетімсіз.",
+      "kkNeedsReview": true
+    },
+    "boards.invalid_parameter": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Некорректное значение параметра запроса.",
+      "kk": "Сұраныс параметрінің мәні дұрыс емес.",
+      "kkNeedsReview": true
+    },
     "boards.backlog.position_invalid": {
       "statuses": [400],
       "params": {},

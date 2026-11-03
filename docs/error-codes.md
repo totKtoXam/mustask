@@ -20,6 +20,9 @@ guarantees it exists and differs from the Russian, not its quality
 |---|---|---|---|---|---|---|
 |boards.backlog.position_invalid|400|Некорректная позиция перемещения.|Жылжыту орны дұрыс емес.|boards|—|needs review|
 |boards.backlog.reorder_stale|409|Не удалось переместить: бэклог изменился. Список обновлён — повторите перемещение.|Жылжыту мүмкін болмады: бэклог өзгерді. Тізім жаңартылды — жылжытуды қайталаңыз.|boards|—|needs review|
+|boards.invalid_cursor|400|Некорректный курсор страницы.|Бет курсоры дұрыс емес.|boards|—|needs review|
+|boards.invalid_grouping|400|Такая группировка для этого уровня недоступна.|Бұл деңгей үшін мұндай топтау қолжетімсіз.|boards|—|needs review|
+|boards.invalid_parameter|400|Некорректное значение параметра запроса.|Сұраныс параметрінің мәні дұрыс емес.|boards|—|needs review|
 |boards.level.not_found|404|Уровень бэклога не найден.|Бэклог деңгейі табылмады.|boards|—|needs review|
 |boards.validation_failed|400|Проверьте правильность запроса.|Сұраудың дұрыстығын тексеріңіз.|boards|—|needs review|
 |dictionaries.invalid_page_size|400|Некорректные параметры страницы: размер страницы — от 1 до {limit}, номер страницы не может быть отрицательным.|Бет параметрлері дұрыс емес: бет өлшемі — 1-ден {limit} дейін, бет нөмірі теріс бола алмайды.|dictionaries|—|needs review|
@@ -44,6 +47,7 @@ guarantees it exists and differs from the Russian, not its quality
 |http.not_found|404|Ресурс не найден.|Ресурс табылмады.|assigned by HTTP status|—|needs review|
 |http.request_failed|any|Не удалось обработать запрос.|Сұранысты өңдеу мүмкін болмады.|assigned by HTTP status|—|needs review|
 |http.service_unavailable|503|Сервис временно недоступен, повторите позже.|Қызмет уақытша қолжетімсіз, кейінірек қайталаңыз.|assigned by HTTP status|—|needs review|
+|http.too_many_requests|429|Сервис сейчас занят. Повторите запрос через несколько секунд.|Қызмет қазір бос емес. Сұранысты бірнеше секундтан кейін қайталаңыз.|assigned by HTTP status|—|needs review|
 |http.unauthorized|401|Требуется аутентификация.|Аутентификация қажет.|assigned by HTTP status|—|needs review|
 |organizations.access.forbidden|403|Недостаточно прав|Құқықтар жеткіліксіз|organizations|—|needs review|
 |organizations.area.depth_exceeded|409|Дерево областей не может быть глубже 10 уровней|Аймақ ағашы 10 деңгейден терең болмауы керек|organizations|—|needs review|

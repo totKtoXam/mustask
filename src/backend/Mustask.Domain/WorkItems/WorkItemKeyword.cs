@@ -38,6 +38,17 @@ public sealed record WorkItemKeyword
     {
         ArgumentException.ThrowIfNullOrEmpty(projectKey);
 
+        return Parse(raw, projectKey);
+    }
+
+    /// <summary>
+    /// The keyword of an organization-wide list (feat-048, BR-NV-12): as <see cref="Of"/>, but an identifier of any project is an
+    /// identifier, and it carries its project key in <see cref="KeywordIdentifier.ProjectKey"/> for the predicate to match.
+    /// </summary>
+    public static WorkItemKeyword? OfOrganization(IEnumerable<string?>? raw) => Parse(raw, null);
+
+    private static WorkItemKeyword? Parse(IEnumerable<string?>? raw, string? projectKey)
+    {
         var first = raw?.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
         if (first is null)
@@ -70,17 +81,17 @@ public sealed record WorkItemKeyword
     /// The identifier of an item of the project keyed <paramref name="projectKey"/>, in any letter case. Only ASCII text is
     /// folded to capitals, so no letter outside the Latin alphabet (a dotless «ı», a long «ſ») can stand for one inside it.
     /// </summary>
-    private static KeywordIdentifier? IdentifierOf(string text, string projectKey)
+    private static KeywordIdentifier? IdentifierOf(string text, string? projectKey)
     {
         if (!Ascii.IsValid(text) || !WorkItemIdentifier.TryParse(text.ToUpperInvariant(), out var identifier)
-            || !string.Equals(identifier.ProjectKey, projectKey, StringComparison.Ordinal))
+            || (projectKey is not null && !string.Equals(identifier.ProjectKey, projectKey, StringComparison.Ordinal)))
         {
             return null;
         }
 
-        return new KeywordIdentifier(identifier.TypeKey, identifier.Number);
+        return new KeywordIdentifier(identifier.TypeKey, identifier.Number, projectKey is null ? identifier.ProjectKey : null);
     }
 }
 
-/// <summary>The type key and the number of the identifier a keyword spells; the project is the addressed one.</summary>
-public sealed record KeywordIdentifier(string TypeKey, int Number);
+/// <summary>The type key and the number of the identifier a keyword spells; the project is the addressed one, or - an organization-wide list - <paramref name="ProjectKey"/>.</summary>
+public sealed record KeywordIdentifier(string TypeKey, int Number, string? ProjectKey = null);

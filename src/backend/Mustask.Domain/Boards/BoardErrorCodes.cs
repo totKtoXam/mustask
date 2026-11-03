@@ -30,4 +30,13 @@ public static class BoardErrorCodes
 
     /// <summary>Field reason of <c>position</c>: missing, or not <c>top</c>, <c>bottom</c> or <c>after</c>. A panel defect.</summary>
     public const string PositionInvalid = "boards.backlog.position_invalid";
+
+    /// <summary>Field reason of <c>cursor</c> (feat-048, ADR-0036): malformed, or issued for another view, level, grouping, group or filter.</summary>
+    public const string InvalidCursor = "boards.invalid_cursor";
+
+    /// <summary>Field reason of <c>grouping</c> (feat-048 BR-AV-2): not <c>none</c>, <c>department</c>, <c>project</c> or <c>team</c>, or one the level does not offer.</summary>
+    public const string InvalidGrouping = "boards.invalid_grouping";
+
+    /// <summary>Field reason of <c>group</c>, <c>limit</c> or <c>column</c> on a group or cell read (feat-048): missing where needed, malformed or out of range.</summary>
+    public const string InvalidParameter = "boards.invalid_parameter";
 }

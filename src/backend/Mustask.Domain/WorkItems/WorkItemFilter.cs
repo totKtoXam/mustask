@@ -101,6 +101,36 @@ public sealed record WorkItemFilter(bool TeamsSet, IReadOnlyCollection<Guid> Tea
     }
 
     /// <summary>
+    /// feat-048: the filter of the organization-wide views — the team and the project dimensions of the selectors, and feat-003's
+    /// state, assignee and keyword; the keyword reads an identifier of any project (<see cref="WorkItemKeyword.OfOrganization"/>).
+    /// </summary>
+    public static WorkItemFilter OfOrganization(
+        IEnumerable<string?>? projectIds,
+        IEnumerable<string?>? teamIds,
+        IEnumerable<string?>? states,
+        IEnumerable<string?>? assigneeIds,
+        IEnumerable<string?>? search)
+    {
+        var keyword = WorkItemKeyword.OfOrganization(search);
+        var chosenStates = UsableValues(states, StateDefinition.NameMaxLength);
+        var chosenAssignees = UsableValues(assigneeIds, WorkItemLimits.UserIdMaxLength);
+        var projects = OfProjects(projectIds);
+        var teams = OfTeams(teamIds);
+
+        return teams with
+        {
+            ProjectsSet = projects.ProjectsSet,
+            ProjectIds = projects.ProjectIds,
+            StatesSet = chosenStates is not null,
+            StateNames = chosenStates?.Distinct(StringComparer.Ordinal).ToList() ?? [],
+            AssigneesSet = chosenAssignees is not null,
+            AssigneeIds = chosenAssignees?.Where(id => !string.Equals(id, NoAssigneeValue, StringComparison.Ordinal)).Distinct(StringComparer.Ordinal).ToList() ?? [],
+            NoAssignee = chosenAssignees?.Contains(NoAssigneeValue, StringComparer.Ordinal) == true,
+            Keyword = keyword,
+        };
+    }
+
+    /// <summary>
     /// The state filter alone (the «Исполнитель» options take the chosen states): <see cref="StatesSet"/> and
     /// <see cref="StateNames"/> of the repeated <c>state</c> values as they arrived.
     /// </summary>
