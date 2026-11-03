@@ -313,3 +313,13 @@ stage 6's. The coding run adds the `// US-n "<scenario>"` comment on each.
   `appointee` scope carries the organization id "for the order of refusals";
   the search has no refusal that needs it, so the route takes none. Stage 6
   drops it from the URL.
+
+## 10. Deviations found while coding (stage 4)
+
+None changes the contract.
+
+- `page` is bound as a string and parsed by the handler (`int.TryParse`, digits only), so `?page=abc`, `?page=` and an out-of-range number answer the contract's 400 on `page` instead of the framework's binding error.
+- `RescueOrganizationRowView` carries `IsActive` (a flag); the handler spells it as `"active"` / `"deactivated"`.
+- The 120-organization volume case of § 7.3 is a unique-tag filter over 30 organizations at the API level (25 + 5 across two pages, the true count, an empty page past the end), and the 1000-organization case (two statements, within two seconds) lives in `AppointmentReadModelTests`.
+- Test helper `OrganizationsTokens.AllInstanceRolesButSystemAdmin` (every other instance role, no `system-admin`) and `RescueTestData` were added.
+- The foreign key from `organization_appointments` to `organizations` is `Restrict`, which PostgreSQL reports as `23001` (restrict_violation), not `23503`.
