@@ -40,6 +40,8 @@ gate-3: pending
 - 2026-11-03 [orchestrator] gate-2 approved by the human in chat: names kept («Администрирование», /administration/organizations, organizations.organization.rescue); «История назначений» sized to its content, not 90 % (design.md § 12 point 2 rewritten by the orchestrator). ADR-0035 stays proposed until gate-3. Stage 4 next.
 - 2026-11-03 [backend-developer] Stage 4a: plan-backend.md and api-contract.md fixed against main 41d784ee + tech-025 (PR #55, read from its branch). Five routes: four rescue routes under /api/organizations/rescue (instance code organizations.organization.rescue, own 403 organizations.rescue.forbidden; the two with {organizationId} are BR-M1-33 inventory exceptions per ADR-0029 § 9) and GET /api/organizations/{organizationId}/appointments (membership.write). Additive migration AddOrganizationAppointments; eight new error codes; no lanes. Decisions D-1..D-4 asked in plan § 9. No code yet: the coding run waits for #55 on main.
 
+- 2026-11-03 [orchestrator] Orchestrator's calls on plan-backend § 9, as recommended, to name at gate-3: D-1 accept the existing 409 «Пользователь уже состоит в организации» when a mod-016 add lands between the lock and the insert (AddMember unchanged); D-2 add organizations.rescue.reason_invalid «Причина содержит недопустимые символы»; D-3 the backend commit edits tokenClaims.ts and its test; D-4 the candidate search takes no organization id. Coding run waits for tech-025 (PR #55) on main.
+
 ## Notes
 
 Summary (from the queue line): system-admin rescues an organization left with no active administrator: sees the list of all organizations and appoints an admin there, audited, with no access to the organization's content. Closes doc-006 accepted risk H-1
