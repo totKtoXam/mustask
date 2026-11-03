@@ -34,7 +34,8 @@
 # in (docs/features/numbering.md). `add` computes it from
 # `scripts/backlog.sh --ids` — one implementation of "which numbers are taken",
 # not two: branch names, this worktree's docs/features folders and the queue
-# files. The queue files are read there over every local and remote-tracking
+# files (docs/backlog.md and every .md under docs/backlog/). The queue files
+# are read there over every local and remote-tracking
 # branch, so a number issued by an earlier `add` or `withdraw` that is not
 # pushed yet is already taken. If that read fails, `add` and `next` refuse
 # rather than issue a number from a partial list.

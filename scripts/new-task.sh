@@ -124,19 +124,18 @@ if [ "$prefix" = 'hot' ]; then
     # only). Next free number from three sources, scanning all branches:
     # branches, docs/features/<id>/, the queue files. Limiting to
     # refs/heads refs/remotes is deliberate — otherwise refs/stash gets in.
+    # The queue files are read by backlog.sh --ids, the one implementation of
+    # "which numbers are taken": a copy here named two of them and missed any
+    # other file under docs/backlog/ (tech-037).
     [ -n "$summary" ] || die "For hot the task summary is required (third argument): there is no queue line."
+    taken=$(sh "$(dirname "$0")/backlog.sh" --ids) \
+        || die "Could not read the taken numbers (scripts/backlog.sh --ids failed, see above), so no hot number is issued from a partial list."
     numbers=$(
         {
-            echo "$all_refs" | grep -oE "${prefix}/[0-9]{3}" | tr '/' '-' || true
+            printf '%s\n' "$taken" | grep -oE "^${prefix}-[0-9]{3}$" || true
             for ref in $all_refs; do
                 git -C "$repo" ls-tree --name-only "$ref:docs/features" 2>/dev/null \
                     | grep -oE "^${prefix}-[0-9]{3}" || true
-                git -C "$repo" show "$ref:docs/backlog.md" 2>/dev/null \
-                    | grep -oE "${prefix}-[0-9]{3}" || true
-                # withdrawn numbers are taken and never reused (the section
-                # lives in its own file)
-                git -C "$repo" show "$ref:docs/backlog/withdrawn.md" 2>/dev/null \
-                    | grep -oE "${prefix}-[0-9]{3}" || true
             done
             ls "$repo/docs/features" 2>/dev/null | grep -oE "^${prefix}-[0-9]{3}" || true
         } | grep -oE '[0-9]{3}$' | sort -n

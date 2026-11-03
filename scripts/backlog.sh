@@ -13,7 +13,7 @@
 # Two different reads of the queue, on purpose:
 #   - the QUEUED list is origin/main (else main): what everybody else can see;
 #   - the TAKEN numbers (--ids, NUMBERS, and so `queue.sh add`) are the queue
-#     files — docs/backlog.md and docs/backlog/withdrawn.md — over EVERY local
+#     files — docs/backlog.md and every .md under docs/backlog/ — over EVERY local
 #     and remote-tracking branch (docs/features/numbering.md, source 3).
 #     `queue.sh add` commits to local main, so a number issued before the push
 #     is on no remote branch; reading origin/main alone issued it twice.
@@ -41,11 +41,20 @@ main_backlog() {
 }
 
 # The queue files' numbers over every ref in refs/heads and refs/remotes (not
-# refs/stash), in ONE pass: for-each-ref names `<commit>:<file>` for each ref
-# and a single cat-file --batch reads them all — a git process per ref is what
-# this avoids. Two refs on one commit are read once (sort -u).
-# docs/backlog/withdrawn.md counts too: a withdrawn number is taken forever
-# and is never reused. A ref without the file answers "missing" — no match.
+# refs/stash). The queue files are docs/backlog.md and every .md file under
+# docs/backlog/ — withdrawn.md (a withdrawn number is taken forever and never
+# reused) and whatever a split moves there, such as later.md (tech-037; until
+# then only the two names were read, and a number in a third file looked free).
+#
+# A fixed number of git processes however many refs there are — a git process
+# per ref or per commit is what this avoids:
+#   1. for-each-ref: the distinct commits behind the refs;
+#   2. cat-file --batch-check: `<commit>:docs/backlog.md` (a blob) and
+#      `<commit>:docs/backlog` (a tree) for each of them;
+#   3. rev-list --objects over the distinct docs/backlog trees: every file
+#      under them, each distinct blob once;
+#   4. cat-file --batch: the distinct blobs, read in one go.
+# A ref without a file or the directory answers "missing" — no match.
 #
 # It fails loudly. A read that quietly returns nothing makes every number look
 # free, and `queue.sh add` would issue a taken one: so a git that errors, or
@@ -55,19 +64,51 @@ queue_read_failed() {
     printf 'Error: the queue files could not be read from the git object store (%s) — the taken queue numbers are unknown, so none is reported.\n' "$1" >&2
 }
 
+# <requests, one per line> — `git cat-file --batch-check` over them, every
+# request answered: `<oid> <type> <size>`, or `<request> missing`.
+queue_batch_check() {
+    _out=$(printf '%s\n' "$1" | git cat-file --batch-check) \
+        || { queue_read_failed 'git cat-file --batch-check failed'; return 1; }
+    _asked=$(printf '%s\n' "$1" | grep -c '')
+    _got=$(printf '%s\n' "$_out" \
+        | grep -cE '^[0-9a-f]{40,64}( [a-z]+ [0-9]+|(:[^ ]+)? missing)$' || true)
+    if [ "$_got" -lt "$_asked" ]; then
+        queue_read_failed "git cat-file --batch-check answered $_got of $_asked requests"
+        return 1
+    fi
+    printf '%s\n' "$_out"
+}
+
 queue_file_numbers() {
-    _refs=$(git for-each-ref --format='%(objectname):docs/backlog.md%0a%(objectname):docs/backlog/withdrawn.md' \
-        refs/heads refs/remotes) \
+    _commits=$(git for-each-ref --format='%(objectname)' refs/heads refs/remotes) \
         || { queue_read_failed 'git for-each-ref failed'; return 1; }
-    [ -n "$_refs" ] || return 0
-    _requests=$(printf '%s\n' "$_refs" | sort -u)
-    _answers=$(printf '%s\n' "$_requests" | git cat-file --batch) \
+    [ -n "$_commits" ] || return 0
+    _commits=$(printf '%s\n' "$_commits" | sort -u)
+    _found=$(queue_batch_check "$(printf '%s\n' "$_commits" | sed 's|$|:docs/backlog.md|'
+        printf '%s\n' "$_commits" | sed 's|$|:docs/backlog|')") || return 1
+    _blobs=$(printf '%s\n' "$_found" | awk '$2 == "blob" { print $1 }')
+    _trees=$(printf '%s\n' "$_found" | awk '$2 == "tree" { print $1 }' | sort -u)
+    if [ -n "$_trees" ]; then
+        # Each tree given is listed first as `<oid> ` with no path, then what
+        # is under it as `<oid> <path>`. Only .md files are queue files.
+        _listed=$(printf '%s\n' "$_trees" | git rev-list --objects --no-walk --stdin) \
+            || { queue_read_failed 'git rev-list --objects failed'; return 1; }
+        _asked=$(printf '%s\n' "$_trees" | grep -c '')
+        _got=$(printf '%s\n' "$_listed" | grep -cE '^[0-9a-f]{40,64} ?$' || true)
+        if [ "$_got" -lt "$_asked" ]; then
+            queue_read_failed "git rev-list --objects listed $_got of $_asked docs/backlog trees"
+            return 1
+        fi
+        _blobs="$_blobs
+$(printf '%s\n' "$_listed" | grep -E '^[0-9a-f]{40,64} .+\.md$' | cut -d' ' -f1 || true)"
+    fi
+    _blobs=$(printf '%s\n' "$_blobs" | grep -E '^[0-9a-f]{40,64}$' | sort -u || true)
+    [ -n "$_blobs" ] || return 0
+    _answers=$(printf '%s\n' "$_blobs" | git cat-file --batch) \
         || { queue_read_failed 'git cat-file --batch failed'; return 1; }
-    # Every request is answered by one header line: `<blob> blob <size>`, or
-    # `<request> missing` for a ref without the file.
-    _asked=$(printf '%s\n' "$_requests" | grep -c '')
-    _got=$(printf '%s\n' "$_answers" \
-        | grep -cE '^[0-9a-f]{40,64}( blob [0-9]+|:[^ ]+ missing)$' || true)
+    # Every blob is answered by one header line: `<blob> blob <size>`.
+    _asked=$(printf '%s\n' "$_blobs" | grep -c '')
+    _got=$(printf '%s\n' "$_answers" | grep -cE '^[0-9a-f]{40,64} blob [0-9]+$' || true)
     if [ "$_got" -lt "$_asked" ]; then
         queue_read_failed "git cat-file --batch answered $_got of $_asked requests"
         return 1
