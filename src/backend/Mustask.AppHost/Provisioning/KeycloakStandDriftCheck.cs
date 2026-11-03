@@ -17,7 +17,7 @@ namespace Mustask.AppHost.Provisioning;
 /// Compared: realm roles both ways (Keycloak's built-ins aside) with their
 /// composites; the roles of every client the import declares, both ways
 /// (undeclared clients — Keycloak's own and ADR-0023's <c>mustask-e2e</c> —
-/// are not compared); the provider's enablement; and the values a store takes only when it is
+/// are not compared); and the values a store takes only when it is
 /// created: the administrator password, the <c>mustask-panel</c> secret, and
 /// the client URLs filled from the stand's ports.
 /// </remarks>
@@ -29,7 +29,7 @@ public static class KeycloakStandDriftCheck
         "offline_access", "uma_authorization",
     };
 
-    private const string Reset = "reset the stand: " + UserProjectionIdentifiers.ResetCommand;
+    private const string Reset = "reset the stand: " + KeycloakStandIdentifiers.ResetCommand;
 
     public static async Task<IReadOnlyList<string>> RunAsync(
         HttpClient http,
@@ -61,7 +61,6 @@ public static class KeycloakStandDriftCheck
             return findings;
         }
 
-        CompareListener(expected, realm, findings);
 
         var clients = await GetAsync<JsonArray>(http, token, realmPath + "/clients", cancellationToken) ?? [];
         var clientIdsByInternalId = clients
@@ -72,20 +71,6 @@ public static class KeycloakStandDriftCheck
         await CompareClientsAsync(http, token, realmPath, options, clients, findings, cancellationToken);
 
         return findings;
-    }
-
-    private static void CompareListener(KeycloakRealmImport expected, JsonObject realm, List<string> findings)
-    {
-        var declared = expected.EventsListeners.Contains(UserProjectionIdentifiers.ProviderId, StringComparer.Ordinal);
-        var live = (realm["eventsListeners"] as JsonArray ?? [])
-            .Any(item => (string?)item == UserProjectionIdentifiers.ProviderId);
-
-        if (declared != live)
-        {
-            findings.Add(
-                $"The event listener `{UserProjectionIdentifiers.ProviderId}` is {(live ? "enabled" : "not enabled")} in the live realm "
-                + $"but the realm import {(declared ? "enables" : "does not enable")} it; {Reset}.");
-        }
     }
 
     private static async Task CompareRealmRolesAsync(

@@ -34,8 +34,6 @@ internal sealed class DirectorySnapshotConfiguration : IEntityTypeConfiguration<
         builder.Property(s => s.HeldAsDeleted).IsRequired();
         builder.Property(s => s.MarkedAbsent).IsRequired();
 
-        builder.Ignore(s => s.Tally);
-
         builder.HasIndex(s => s.EnumerationStart);
     }
 }

@@ -95,7 +95,7 @@ public sealed class SearchMemberCandidatesEndpointTests(MustaskApiFactory factor
         var (organizationId, token) = await OrganizationWithAdminAsync();
         await UserDirectoryTestData.SeedAsync(
             factory,
-            Enumerable.Range(1, 25).Select(index => UserDirectoryTestData.Push($"c{index:D2}-{tag}", $"Кандидат{tag}", $"Номер{index:D2}", null)));
+            Enumerable.Range(1, 25).Select(index => UserDirectoryTestData.Person($"c{index:D2}-{tag}", $"Кандидат{tag}", $"Номер{index:D2}", null)));
 
         var answer = await SearchAsync(organizationId, $"Кандидат{tag}", token);
 

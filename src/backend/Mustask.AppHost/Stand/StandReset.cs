@@ -231,7 +231,7 @@ public sealed record ContainerStandResetPlan(string PostgresVolume, string Keycl
         "1. start the stand: dotnet run --project src/backend/Mustask.AppHost",
         "2. apply the migrations to the new database: docs/runbooks/local-migrations.md",
         "3. seed the Keycloak users: bash scripts/keycloak-seed.sh",
-        "The first reconciliation of the user projection is the backfill.",
+        "The user projection fills at sign-in (ADR-0034): a seeded user appears in member search after signing in once.",
     ];
 }
 
@@ -253,7 +253,7 @@ public sealed record ExternalStandResetPlan(string ConnectionString, DatabaseTar
         "1. apply the migrations: dotnet ef database update --project src/backend/Mustask.Infrastructure (ConnectionStrings__mustask set)",
         "2. start the stand: dotnet run --project src/backend/Mustask.AppHost",
         "3. seed the Keycloak users: bash scripts/keycloak-seed.sh",
-        "The first reconciliation of the user projection is the backfill.",
+        "The user projection fills at sign-in (ADR-0034): a seeded user appears in member search after signing in once.",
     ];
 
     /// <summary>Never prints the connection string: it carries the password.</summary>

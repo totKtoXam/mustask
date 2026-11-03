@@ -67,16 +67,6 @@ public sealed class MustaskApiFactory : WebApplicationFactory<Program>, IAsyncLi
     public const string TestKeycloakClientSecret = "test-client-secret-0123456789abcdef";
 
     /// <summary>
-    /// mod-014: the push channel's shared secret for this host — read by
-    /// <c>PushChannelOptions.FromConfiguration</c> before <c>Build()</c>, so an
-    /// environment variable like the ones above. A test value, never a real
-    /// one; <c>PushTestClient</c> signs with it.
-    /// </summary>
-    public const string TestPushSecret = "test-push-secret-not-real-0123456789abcdef";
-
-    private const string PushSecretEnvVar = "UserDirectory__Push__Secret";
-
-    /// <summary>
     /// ADR-0002: migrations are never applied automatically from src/ --
     /// this template is the "explicit step"
     /// for integration tests, the same role Mustask.Infrastructure.Tests'
@@ -160,7 +150,6 @@ public sealed class MustaskApiFactory : WebApplicationFactory<Program>, IAsyncLi
                 // Keycloak и не открывают реальную панель), лишь бы хост поднялся.
                 Environment.SetEnvironmentVariable(KeycloakClientSecretEnvVar, TestKeycloakClientSecret);
                 Environment.SetEnvironmentVariable(SessionPanelUrlEnvVar, "http://panel.invalid");
-                Environment.SetEnvironmentVariable(PushSecretEnvVar, TestPushSecret);
             }
 
             // For a host a test builds straight from WebApplicationFactory<Program>
@@ -188,7 +177,6 @@ public sealed class MustaskApiFactory : WebApplicationFactory<Program>, IAsyncLi
                 Environment.SetEnvironmentVariable(KeycloakAudienceEnvVar, null);
                 Environment.SetEnvironmentVariable(KeycloakClientSecretEnvVar, null);
                 Environment.SetEnvironmentVariable(SessionPanelUrlEnvVar, null);
-                Environment.SetEnvironmentVariable(PushSecretEnvVar, null);
             }
         }
     }

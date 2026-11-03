@@ -101,7 +101,7 @@ public static class MembershipTestData
     /// <summary>A user in the user projection (mod-014) under the given id: active unless the test says otherwise.</summary>
     public static Task ProjectUserAsync(
         MustaskApiFactory factory, string userId, string firstName, string lastName, string? email = null, bool active = true) =>
-        UserDirectoryTestData.SeedAsync(factory, [UserDirectoryTestData.Push(userId, firstName, lastName, email, enabled: active)]);
+        UserDirectoryTestData.SeedAsync(factory, [UserDirectoryTestData.Person(userId, firstName, lastName, email, enabled: active)]);
 
     /// <summary>
     /// A token whose subject the projection knows (<see cref="ProjectUserAsync"/>) — an administrator of the organization with

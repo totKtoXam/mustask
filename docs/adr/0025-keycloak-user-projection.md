@@ -1,6 +1,6 @@
 # ADR-0025: Project Keycloak users through a read-only event-listener provider that pushes signed, ordered state into MUSTASK
 
-- Status: accepted (gate-3, 2026-10-04, delegated by the human 2026-10-01)
+- Status: accepted (gate-3, 2026-10-04, delegated by the human 2026-10-01); amended by [ADR-0034](0034-user-projection-from-the-sign-in.md) (proposed) — the projection is filled from the sign-in, the provider and the push channel are removed
 - Date: 2026-10-02
 - Context: stage 4 (backend plan) of
   [mod-014-keycloak-user-projection](../features/mod-014-keycloak-user-projection/spec.md),

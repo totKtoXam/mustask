@@ -68,10 +68,7 @@ using Mustask.Application.Features.Organizations.UnlinkTeam;
 using Mustask.Application.Features.Process;
 using Mustask.Application.Features.Process.GetProcessDefinition;
 using Mustask.Application.Features.Process.SeedProcess;
-using Mustask.Application.Features.UserDirectory.ApplySnapshotPage;
-using Mustask.Application.Features.UserDirectory.ApplyUserChanges;
-using Mustask.Application.Features.UserDirectory.BeginSnapshot;
-using Mustask.Application.Features.UserDirectory.CompleteSnapshot;
+using Mustask.Application.Features.UserDirectory.RecordSignIn;
 using Mustask.Application.Features.WorkItems.CreateWorkItem;
 using Mustask.Application.Features.WorkItems.DeleteWorkItem;
 using Mustask.Application.Features.WorkItems.GetAssigneeCandidates;
@@ -106,11 +103,8 @@ public static class DependencyInjection
         // (IProcessSeed is the interface other modules depend on, not the slice).
         services.AddScoped<IProcessSeed, SeedProcessHandler>();
         services.AddScoped<GetProcessDefinitionHandler>();
-        // One handler per route of UserDirectoryEndpoints.cs (mod-014).
-        services.AddScoped<ApplyUserChangesHandler>();
-        services.AddScoped<BeginSnapshotHandler>();
-        services.AddScoped<ApplySnapshotPageHandler>();
-        services.AddScoped<CompleteSnapshotHandler>();
+        // The sign-in upsert of the user projection (tech-025); called by the session endpoints, no route of its own.
+        services.AddScoped<RecordSignInHandler>();
 
         // Organizations (mod-002): one handler per route of OrganizationEndpoints.cs.
         services.AddScoped<GetOrganizationsHandler>();
