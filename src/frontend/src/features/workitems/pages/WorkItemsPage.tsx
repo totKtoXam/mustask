@@ -29,7 +29,7 @@ import { CreateWorkItemDialog } from '../components/CreateWorkItemDialog';
 import { KeywordFilter } from '../components/KeywordFilter';
 import { MarkedAssigneeName, StateName, TypeName } from '../components/Marks';
 import { StateFilter } from '../components/StateFilter';
-import { TeamFilter } from '../components/TeamFilter';
+import { NoTeamFilter } from '../components/NoTeamFilter';
 import { NEW_WORK_ITEM_LABEL, TypePickerMenu } from '../components/TypePickerMenu';
 import { useCreateWorkItem } from '../hooks/mutations';
 import { useWorkItems } from '../hooks/queries';
@@ -211,12 +211,7 @@ function WorkItemsList({
           />
         </BandField>
         <BandField>
-          <TeamFilter
-            organizationId={organizationId}
-            projectId={projectId}
-            value={filter.teamId}
-            onChange={(teamId) => setFilter({ teamId })}
-          />
+          <NoTeamFilter value={filter.teamId} onChange={(teamId) => setFilter({ teamId })} />
         </BandField>
       </FilterBar>
       {process.isError && notFoundLevel(process.error) === null && (

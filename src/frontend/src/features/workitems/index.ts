@@ -44,6 +44,7 @@ export type {
 // values in the page address, one hook for the three (`useTeamFilter`), and lets a link to
 // another level of the same view carry them (`teamFilterSearch`).
 export { TeamFilter } from './components/TeamFilter';
+export { NoTeamFilter } from './components/NoTeamFilter';
 export { teamFilterSearch, useTeamFilter } from './hooks/useTeamFilter';
 export { NO_TEAM_FILTER_VALUE, teamFilterQuery } from './api/workItemsApi';
 // feat-040: a created item the team's view will not show says why (D-6).

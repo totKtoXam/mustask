@@ -65,22 +65,22 @@ const announced = () =>
     .filter((text) => text !== '');
 
 describe('feat-003 BR-WS-1 the band', () => {
-  it('holds «Поиск», «Статус», «Исполнитель» and «Команда», in that order, each at rest reading its words', async () => {
+  it('holds «Поиск», «Статус», «Исполнитель» and the «Без команды» control, in that order, each at rest reading its words', async () => {
     serveWorkItems(listFilterDataset());
     renderWorkItems(MSK_LIST);
     await table();
 
     const labels = within(band())
-      .getAllByText(/^(Поиск|Статус|Исполнитель|Команда)$/)
+      .getAllByText(/^(Поиск|Статус|Исполнитель|Без команды)$/)
       .map((label) => label.textContent);
-    expect(labels).toEqual(['Поиск', 'Статус', 'Исполнитель', 'Команда']);
+    expect(labels).toEqual(['Поиск', 'Статус', 'Исполнитель', 'Без команды']);
     const keyword = within(band()).getByRole('textbox', { name: 'Поиск' });
     expect(keyword).toHaveValue('');
     expect(keyword).toHaveAccessibleDescription('Заголовок или ID');
     expect(within(band()).getAllByText('Заголовок или ID').length).toBeGreaterThan(0);
     expect(within(band()).getByText('Все статусы')).toBeInTheDocument();
     expect(within(band()).getByText('Все исполнители')).toBeInTheDocument();
-    expect(within(band()).getByText('Все команды')).toBeInTheDocument();
+    expect(within(band()).getByRole('checkbox', { name: 'Без команды' })).not.toBeChecked();
     expect(within(band()).queryByRole('button', { name: 'Очистить фильтры' })).toBeNull();
     expect(await listed()).toEqual(ALL);
     expect(screen.getByText('1–5 из 5')).toBeInTheDocument();
@@ -338,7 +338,6 @@ describe('feat-003 BR-WS-10 a value the address carries that no field can name',
   it.each([
     ['«Статус»', `?state=${enc('готово')}`, 'Все статусы'],
     ['«Исполнитель»', '?assigneeId=not-a-user', 'Все исполнители'],
-    ['«Команда»', '?teamId=c3000000-0000-4000-8000-000000000099', 'Все команды'],
   ])(
     'a name %s does not know reads «Фильтр задан» in place of «Все …», empties the list and offers «Очистить фильтры»',
     async (_field, search, rest) => {
@@ -399,7 +398,6 @@ describe('feat-003 BR-WS-11, BR-WS-13 the address and the clears', () => {
     }
     expect(within(band()).getByRole('textbox', { name: 'Поиск' })).toHaveValue('оплат');
     expect(within(band()).getByRole('combobox', { name: 'Статус' })).toHaveTextContent('Разрешена');
-    expect(within(band()).getByRole('combobox', { name: 'Команда' })).toHaveTextContent('VENUS');
     expect(
       await within(band()).findByRole('button', { name: 'Убрать «Иван Котов (не в организации)»' }),
     ).toBeInTheDocument();
@@ -418,7 +416,7 @@ describe('feat-003 BR-WS-11, BR-WS-13 the address and the clears', () => {
     expect(within(band()).getByRole('textbox', { name: 'Поиск' })).toHaveFocus();
     expect(within(band()).getByText('Все статусы')).toBeInTheDocument();
     expect(within(band()).getByText('Все исполнители')).toBeInTheDocument();
-    expect(within(band()).getByText('Все команды')).toBeInTheDocument();
+    expect(within(band()).getByRole('checkbox', { name: 'Без команды' })).not.toBeChecked();
     expect(within(band()).queryByRole('button', { name: 'Очистить фильтры' })).toBeNull();
   });
 
@@ -630,7 +628,7 @@ describe('feat-003 design § 8 the band at the narrow widths', () => {
     renderWorkItems(MSK_LIST);
     await table();
 
-    for (const name of ['Поиск', 'Статус', 'Исполнитель', 'Команда']) {
+    for (const name of ['Поиск', 'Статус', 'Исполнитель']) {
       const field = within(band()).getAllByText(name)[0]?.closest('[data-field]');
       const own = field?.parentElement as HTMLElement;
       const slot = own.parentElement as HTMLElement;
@@ -640,16 +638,16 @@ describe('feat-003 design § 8 the band at the narrow widths', () => {
     }
   });
 
-  it('keeps its widths in the order of design § 2: «Поиск» 30, «Статус» 25, «Исполнитель» 35, «Команда» 30 spacing units', async () => {
+  it('keeps its widths in the order of design § 2: «Поиск» 30, «Статус» 25, «Исполнитель» 35 spacing units', async () => {
     serveWorkItems(listFilterDataset());
     renderWorkItems(MSK_LIST);
     await table();
 
-    const widths = ['Поиск', 'Статус', 'Исполнитель', 'Команда'].map((name) => {
+    const widths = ['Поиск', 'Статус', 'Исполнитель'].map((name) => {
       const field = within(band()).getAllByText(name)[0]?.closest('[data-field]');
       return getComputedStyle(field?.parentElement as HTMLElement).width;
     });
-    expect(widths).toEqual(['240px', '200px', '280px', '240px']);
+    expect(widths).toEqual(['240px', '200px', '280px']);
   });
 });
 
