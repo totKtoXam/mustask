@@ -110,7 +110,7 @@ var LV=[['org','Организация'],['dept','Департамент «Ло�
 var OFF={org:['none','department','project','team'],dept:['none','project','team'],team:['none','project'],teamd:['none','project'],proj:['none','team'],projt:['none']};
 var GN={none:'Без группировки',department:'По департаменту',project:'По проекту',team:'По команде'},COLS=['Новая','Активна','Готово'];
 var VNOTE={vb:'«Бэклог»: переключатель «Группировка» (MenuButton), уровни выбираются кнопками. Умолчание и память по уровню; перемещение только «По проекту» без сужения; подсказка одна, под заголовком.',
-vk:'«Канбан»: дорожки по группам, «Без команды» последней; без группировки одна доска без дорожек. Карточка переносится между колонками только внутри своей дорожки (меню «⋮»).',
+vk:'«Канбан»: дорожки по группам, «Без команды» первой; без группировки одна доска без дорожек. Карточка переносится между колонками только внутри своей дорожки (меню «⋮»).',
 vw:'«Рабочие элементы»: без группировки таблица с сортировкой и страницами; с группировкой группы с «Показать ещё», без страниц и без сортировки.',
 vt:'Уровень команды (OQ-7 A): команда без департамента открывается «Без группировки» (как сейчас), с департаментом «По проекту». Переключайте уровень кнопками.'};
 function vin(k){cur=k;V.lvl=k==='vt'?'team':'org';V.menu=false;V.rm=null;$('note').textContent=VNOTE[k];vdraw()}
@@ -120,7 +120,7 @@ function vgrp(){var vw=VK[cur],o=OFF[V.lvl],m=V.mem[vw+V.lvl],def=vw==='w'?'none
  return m&&o.indexOf(m)>-1?m:def}
 function vgroups(g,its){if(g==='none'){var a=its.slice();if(V.lvl==='proj')a.sort(function(x,y){return RK.MSK.indexOf(x[0])-RK.MSK.indexOf(y[0])});return[{n:'',k:'',its:a}]}
  var by={};its.forEach(function(x){var n=g==='project'?PJ[x[1]][0]:g==='department'?(PJ[x[1]][1]||'Без департамента'):(x[2]||'Без команды');(by[n]=by[n]||{n:n,k:g==='project'?x[1]:'',its:[]}).its.push(x)});
- var r=Object.keys(by).sort(function(a,b){var l=a==='Без департамента'||a==='Без команды',m=b==='Без департамента'||b==='Без команды';return l!==m?(l?1:-1):a.localeCompare(b,'ru')}).map(function(n){return by[n]});
+ var r=Object.keys(by).sort(function(a,b){var l=a==='Без департамента'||a==='Без команды',m=b==='Без департамента'||b==='Без команды';return l!==m?(l?-1:1):a.localeCompare(b,'ru')}).map(function(n){return by[n]});
  if(g==='project')r.forEach(function(q){q.its.sort(function(x,y){return RK[x[1]].indexOf(x[0])-RK[y[1]].indexOf(y[0])})});return r}
 function vsw(g){var o=OFF[V.lvl];if(o.length<2)return'';var h='<span style="position:relative"><button class="t" data-v="sw" aria-haspopup="menu" aria-expanded="'+V.menu+'">Группировка: '+GN[g]+' ▾</button>';
  if(V.menu){h+='<div class="menu" role="menu" aria-label="Группировка" style="top:32px;left:0">';o.forEach(function(x){h+='<div role="menuitemradio" aria-checked="'+(x===g)+'" data-v="pick" data-g="'+x+'">'+(x===g?'✓ ':'&nbsp;&nbsp;&nbsp;')+GN[x]+'</div>'});h+='</div>'}return h+'</span>'}

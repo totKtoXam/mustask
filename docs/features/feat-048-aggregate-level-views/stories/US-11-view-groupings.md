@@ -24,15 +24,15 @@ Scenario: The default and the memory (BR-AV-3)
   When she chooses «По команде» in «Бэклог» and reloads the page
   Then «Бэклог» is grouped «По команде», «Рабочие элементы» is still «Без группировки», and another organization keeps its own choice
 
-Scenario: By department, «Без департамента» last (BR-AV-4, BR-AV-5)
+Scenario: By department, «Без департамента» first (BR-AV-4, BR-AV-5)
   When Olga chooses «По департаменту» in «Бэклог»
-  Then she sees «Логистика» (5), «Финансы» (1) and «Без департамента» (1) in that order, each count from one grouped read
+  Then she sees «Без департамента» (1), «Логистика» (5) and «Финансы» (1) in that order, each count from one grouped read
   And «Логистика» shows MSK-2, BET-2, MSK-1, MSK-3, BET-1, the rows by change time
   And EEE-1 of E is in no group
 
-Scenario: By team, «Без команды» last (BR-AV-4)
+Scenario: By team, «Без команды» first (BR-AV-4)
   When Olga chooses «По команде»
-  Then she sees MARS (4), VENUS (1) and «Без команды» (2) in that order, «Без команды» last
+  Then she sees «Без команды» (2), MARS (4) and VENUS (1) in that order, «Без команды» first
   And MARS shows BET-2, MSK-1, FIN-1, BET-1 and «Без команды» shows DDD-1, MSK-3
 
 Scenario: Outside by project there is no reorder (BR-AV-6)

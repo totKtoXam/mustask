@@ -40,7 +40,7 @@ Stage 3 artifact, a **delta** on [feat-043's design § 12](../feat-043-area-proj
 
 **Headers per grouping** (name `h2`, count right; narrowed «3 из 40»; the headers come from one grouped count read):
 
-| Grouping | Group header | Order | Last |
+| Grouping | Group header | Order | First |
 |---|---|---|---|
 | По проекту | name + key `Tag` | name, key | — |
 | По департаменту | department name | name | «Без департамента» (projects at the top level) |
