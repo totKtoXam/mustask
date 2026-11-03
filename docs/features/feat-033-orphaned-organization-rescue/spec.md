@@ -48,15 +48,18 @@ flowchart TD
     R -->|no| R1[«Доступ ограничен», nothing listed]
     R -->|yes| L[Every organization, active and deactivated: name, status, last appointment]
     L --> D[«Назначить администратора» on any row: pick a user, enter «Причина»]
-    D --> V{«Причина» 1–500 characters after trimming?}
-    V -->|no| V1[Field error, nothing sent]
-    V -->|yes| U{Chosen user}
-    U -->|not in the projection| U1[Refused: «Этого пользователя нельзя назначить администратором»]
+    D --> V0{Dialog: «Причина» 1–500 code points after trimming?}
+    V0 -->|no| V1[Field error in the dialog, nothing sent]
+    V0 -->|yes| Q[Request sent; checks run in the order of BR-RS-6a]
+    Q --> C{Organization exists?}
+    C -->|no| C0[Refused: «Организация не найдена»]
+    C -->|yes| U{Chosen user}
+    U -->|not in the projection, or a pre-tech-025 inactive row| U1[Refused: «Этого пользователя нельзя назначить администратором»]
     U -->|the acting system administrator| U2[Refused: «Нельзя назначить администратором себя»]
     U -->|already an administrator here| U3[Refused: «Пользователь уже администратор этой организации»]
-    U -->|other| C{Organization exists?}
-    C -->|no| C0[Refused: «Организация не найдена»]
-    C -->|yes| M{User already a member?}
+    U -->|other| V{«Причина» valid?}
+    V -->|no| V2[Field error «Укажите причину» / «Не более 500 символов»]
+    V -->|yes| M{User already a member?}
     M -->|yes| M1[Role raised to admin; «Роль изменена» = system administrator, now]
     M -->|no| M2[New admin membership, no team; «Добавлен» = system administrator, now]
     M1 --> A[Appointment record with the reason, in the same operation]
@@ -72,16 +75,17 @@ flowchart TD
 | # | Rule | Source |
 |---|------|--------|
 | BR-RS-1 | The rescue right is an instance right, carried in the token and held through `InstanceRoles` by `system-admin` only — never by `organization-creator`, `dictionaries-admin` or `user`, and never by any organization role. It is not a membership and reaches no organization content. Granting or revoking it is assigning `system-admin` in the company realm; nothing in Keycloak is added or written by this task. A change reaches the user with the next token (ADR-0018, "Revocation is NOT instant"). Without the right, the page «Все организации» answers «Доступ ограничен», and an appointment or a record read attempted anyway is refused with 403 «Недостаточно прав», changing nothing. | ADR-0033 § 1–2; ADR-0029 § 9; doc-006 BR-M1-2 |
-| BR-RS-2 | The instance organization list shows every organization of the instance, active and deactivated alike: its name; its status «Активна» / «Деактивирована»; the date of its last appointment, «—» when there was none. It is ordered by name (mod-014 BR-UP-15's collation), paged 50 rows a page with the total count shown, and filtered by name: the trimmed filter text matches any substring of the name, ignoring case, with `ё` = `е`; an empty filter (after trimming) shows all; the filter applies across all pages. It shows nothing about the organization's administrators: MUSTASK cannot tell whether an organization still has a usable one (ADR-0034, Consequences). | queue line; doc-006 BR-M1-1; human decision R-1 = A |
+| BR-RS-2 | The instance organization list shows every organization of the instance, active and deactivated alike: its name; its status «Активна» / «Деактивирована»; the date of its last appointment, «—» when there was none. It is ordered by name (mod-014 BR-UP-15's collation), paged 25 rows a page with the total count shown, and filtered by name: the trimmed filter text matches any substring of the name, ignoring case, with `ё` = `е`; an empty filter (after trimming) shows all; the filter applies across all pages. It shows nothing about the organization's administrators: MUSTASK cannot tell whether an organization still has a usable one (ADR-0034, Consequences). | queue line; doc-006 BR-M1-1; human decision R-1 = A |
 | BR-RS-3 | Non-disclosure. The system administrator learns through this feature exactly: (a) the name and the status of every organization; (b) through the appointee search, the name and e-mail of every user the projection knows — both accepted by the human (R-6); (c) the appointment record of BR-RS-10; (d) from the refusal of BR-RS-6, that the one user they chose is already an administrator of that organization (OQ-6). Nothing else: not the members or their number, not the administrators' names, not its projects, teams, areas, work items, process or settings. Opening the organization or anything under it still answers «Организация не найдена» unless they hold a membership of their own (ADR-0027 rule 4, ADR-0029 § 9). | doc-006 BR-M1-8; human decision R-6 |
 | BR-RS-4 | An appointment is allowed in any organization, active or deactivated, whether or not it has administrators, on request. It only adds an `admin` membership or raises an existing member to `admin`; it never removes, downgrades or otherwise changes anyone else's membership. | human decision R-1 = A |
-| BR-RS-5 | «Причина» is required: 1–500 characters after trimming. It is kept in the appointment record (BR-RS-10) and nowhere else. | human decision R-1 = A |
-| BR-RS-6 | The appointee is any user the projection knows, member of the organization or not; the search is the projection's (mod-014 BR-UP-14: at least 2 characters, at most 20 answers in BR-UP-15's order), finds by name or e-mail, and shows each candidate's name and e-mail only, saying nothing about membership. A user who has never signed in to MUSTASK is not in the projection, is not found, and is refused with «Этого пользователя нельзя назначить администратором» if named anyway (ADR-0034, Consequences: asking them to sign in once is the procedure). A user who is already an administrator of the organization is refused with «Пользователь уже администратор этой организации», changing nothing. MUSTASK cannot see whether the chosen person's Keycloak account is still enabled; the dialog says so (US-2). | OQ-1; ADR-0034; R-2 |
+| BR-RS-5 | «Причина» is required: 1–500 characters (Unicode code points, as ADR-0034 counts) after trimming; the dialog and the server count the same way. It is kept in the appointment record (BR-RS-10) and nowhere else. | human decision R-1 = A |
+| BR-RS-6 | The appointee is any user the projection knows, member of the organization or not; the search is the projection's (mod-014 BR-UP-14: at least 2 characters, at most 20 answers in BR-UP-15's order), finds by name or e-mail, and shows each candidate's name and e-mail only, saying nothing about membership. A user who has never signed in to MUSTASK is not in the projection, is not found, and is refused with «Этого пользователя нельзя назначить администратором» if named anyway (ADR-0034, Consequences: asking them to sign in once is the procedure). A row the pre-tech-025 push feed marked inactive (disabled, deleted or absent) is hidden from the search and refused with the same words if named directly, as mod-016's add-member refuses it; search and API agree. A user who is already an administrator of the organization is refused with «Пользователь уже администратор этой организации», changing nothing. MUSTASK cannot see whether the chosen person's Keycloak account is still enabled; the dialog says so (US-2). | OQ-1; ADR-0034; R-2; mod-016 |
+| BR-RS-6a | Order of refusals when several apply to one request (ADR-0029 § 8, not-found first; the dialog's own field check runs before sending): 403 «Недостаточно прав» → «Организация не найдена» → «Этого пользователя нельзя назначить администратором» → «Нельзя назначить администратором себя» → «Пользователь уже администратор этой организации» → the «Причина» field errors. So a system administrator already administering the organization who names themselves gets the self refusal; an unknown user in a missing organization gets «Организация не найдена». | R-9; ADR-0029 § 8 |
 | BR-RS-7 | A system administrator never appoints themselves; the refusal «Нельзя назначить администратором себя» changes nothing. Another system administrator may appoint them. | OQ-2 |
 | BR-RS-8 | A member is appointed by raising their role to `admin`; their membership, team memberships and «Добавлен» are kept, and «Роль изменена» becomes the acting system administrator, now. A non-member is appointed by a new `admin` membership: «Добавлен» = the acting system administrator, now; «Роль изменена» «—»; they join no team. Exactly one user is appointed per appointment. | doc-006 BR-M1-5, -10, -16; OQ-1 |
 | BR-RS-9 | The appointment takes effect on the appointee's next request with no re-login (doc-006 BR-M1-6). On a deactivated organization it does not restore it: the appointee restores it per mod-016 BR-M1-35. Afterwards the organization's administrators govern it under mod-016 alone; the appointment gives the system administrator nothing to undo. The rescue is repeatable: if the appointee turns out unable to sign in, the system administrator appoints someone else. | doc-006 BR-M1-6; mod-016 BR-M1-35; R-2 |
 | BR-RS-10 | Every successful appointment writes, in the same all-or-nothing operation, an appointment record: the organization, the appointee, the acting system administrator, the moment, the reason. A refused appointment writes none. Records are never edited or deleted and outlive any later change of the membership. Readers: holders of the rescue right, for any organization, from «Все организации»; and the holders of `organizations.membership.write` in that organization (its administrators), for their own organization only, from «Участники». Both read the same rows, newest first. Users are named as on «Участники» (mod-016 § Screens); «неактивен» / «Неизвестный пользователь» can show only for rows the projection kept from before tech-025 (ADR-0034, Consequences). | queue line ("audited"); OQ-3 as changed by the human |
-| BR-RS-11 | Of two concurrent appointments of the same user to one organization, exactly one succeeds and the other is refused with «Пользователь уже администратор этой организации». Two concurrent appointments of different users to one organization both succeed, each with its own record. | doc-006 NFR Concurrency; R-3 |
+| BR-RS-11 | Of two concurrent appointments of the same user to one organization, exactly one succeeds and the other is refused with «Пользователь уже администратор этой организации». Two concurrent appointments of different users to one organization both succeed, each with its own record. An appointment and a concurrent mod-016 change by an organization administrator to the same membership are serialized: one commits first and the other is judged against the committed state. If the member was removed first, the appointment sees a non-member and creates a new admin membership (BR-RS-8); if the member was raised to `admin` first, it is refused with «Пользователь уже администратор этой организации»; if the appointment commits first, the later removal or role change applies to the now-admin membership under mod-016's own rules (BR-M1-4), and the record stays. | doc-006 NFR Concurrency; R-3 |
 | BR-RS-12 | Dates are shown in the viewer's local time zone, as «Добавлен» on «Участники» (mod-016 design § 3.3): «Последнее назначение» as «ДД.ММ.ГГГГ», the record's moment as «ДД.ММ.ГГГГ ЧЧ:мм». | mod-016 design; R-7 |
 
 ## Operation completeness
@@ -155,14 +159,9 @@ the record gains one more reader; both passes sit inside M.
 - [x] **OQ-5 The unknown administrator.** Closed: dropped with R-1 = A — the
   list states no administrator state, so nothing depends on whether the
   projection knows an organization's administrators (ADR-0034).
-- [ ] **OQ-6 The already-administrator refusal discloses one fact.** Refusing
-  «Пользователь уже администратор этой организации» tells the system
-  administrator that the one user they chose administers that organization —
-  beyond the two disclosures accepted in R-6. Recommended: accept it (BR-RS-3
-  (d)): it concerns only a person the system administrator named, and the
-  record would show the same after a successful appointment. Alternative:
-  accept the appointment silently with no change and no record — the system
-  administrator then cannot tell whether anything happened.
+- [x] **OQ-6 The already-administrator refusal discloses one fact.** Closed by
+  the human: accepted as recommended — the explicit refusal «Пользователь уже
+  администратор этой организации» (BR-RS-3 (d)).
 
 **ADR debt (owed to the design/plan stage, not written here).** ADR-0029 § 9
 already sanctions the rescue as an instance operation that appoints an

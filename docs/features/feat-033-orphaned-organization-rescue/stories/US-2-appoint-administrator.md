@@ -61,6 +61,8 @@ Scenario Outline: The reason is required
     | (only spaces)              | «Укажите причину» and nothing changes           |
     | 500 characters             | the appointment succeeds                        |
     | 501 characters             | «Не более 500 символов» and nothing changes     |
+    | 500 emoji (500 code points)| the appointment succeeds                        |
+    | 501 emoji                  | «Не более 500 символов» and nothing changes     |
     | «  Борис уволился  »       | the appointment succeeds with «Борис уволился»  |
 
 Scenario: The dialog warns about Keycloak accounts
@@ -86,6 +88,13 @@ Scenario: Only users who have signed in are found
   When I search «Юлия» in «Пользователь»
   Then she is not offered
   When an appointment of her is attempted anyway, outside the panel
+  Then it is refused with «Этого пользователя нельзя назначить администратором» and nothing changes
+
+Scenario: A row marked inactive before tech-025
+  Given Олег's projected row was marked inactive by the old push feed
+  When I search «Олег» in «Пользователь»
+  Then he is not offered
+  When an appointment of him is attempted anyway, outside the panel
   Then it is refused with «Этого пользователя нельзя назначить администратором» and nothing changes
 
 Scenario: The search does not reveal membership
@@ -117,9 +126,34 @@ Scenario: Different users at once
   When I appoint Вера and another system administrator appoints Пётр to «Бета» at the same moment
   Then both succeed and both are administrators of «Бета»
 
+Scenario: An appointment against a concurrent removal by an organization administrator
+  Given Пётр is a «Читатель» of «Бета»
+  When I appoint Пётр and an administrator of «Бета» removes him at the same moment
+  Then one commits first and the other is judged against the committed state
+  And if the removal came first, Пётр gets a new administrator membership with «Добавлен» «<my name>, <now>»
+  And if the appointment came first, the removal then applies to his administrator membership under mod-016's rules and the record stays
+
+Scenario: An appointment against a concurrent raise by an organization administrator
+  Given Пётр is a «Читатель» of «Бета»
+  When I appoint Пётр and an administrator of «Бета» raises him to «Администратор» at the same moment
+  Then exactly one raises him
+  And if the administrator came first, my appointment is refused with «Пользователь уже администратор этой организации»
+
 Scenario: An organization that does not exist
   When an appointment to an organization id that does not exist is attempted
   Then it is refused with «Организация не найдена»
+
+Scenario Outline: Several refusals at once
+  When an appointment is attempted where <conditions>
+  Then it is refused with <refusal>
+
+  Examples:
+    | conditions                                                      | refusal                                           |
+    | no `system-admin` and the organization does not exist           | 403 «Недостаточно прав»                           |
+    | an unknown user and an organization that does not exist         | «Организация не найдена»                          |
+    | the user never signed in and the reason is empty                | «Этого пользователя нельзя назначить администратором» |
+    | I already administer the organization, I name myself, no reason | «Нельзя назначить администратором себя»           |
+    | the user is already an administrator and the reason is empty    | «Пользователь уже администратор этой организации» |
 
 Scenario: Without the right
   Given a user without `system-admin`, an administrator of «Бета» included

@@ -64,7 +64,7 @@ Scenario: ё matches е
 Scenario: Paging
   Given 120 organizations
   When I open «Все организации»
-  Then I see the first 50 in name order and the total 120
+  Then I see the first 25 in name order and the total 120
   When I filter by a text matched by 3 organizations on different pages
   Then I see those 3 on one page with the total 3
 
