@@ -149,3 +149,95 @@ places to "the fixed order of BR-WS-12". No code change.
   `Retry-After`/`too_many`).
 - Not swept: feat-043's BR-NV-20/US-10 wording against the amended behaviour (recorded by the P-10 note in feat-043
   status.md, by design not edited).
+
+## Round 2 (delta)
+
+Reviewed: `git diff 80566c6c..779fee12` (bcd88413, 779fee12; 15 files) against the Round 1 findings, nothing else. No
+suite run. The coordinator reports the full frontend Vitest run on 82b4d233 green (350 files, 5339 passed); the touched
+files and classes pass per the developers.
+
+Verdict: **changes-requested**. F1-F4 are closed. One new major (R2-1) comes from the m8 fix itself and is a one-line prose
+fix: it needs a delta read only, no QA. Open: 0 blockers, 1 major, 7 minors (debt).
+
+### Round 1 findings
+
+- **F1 closed.** `grouping.ts:31-33` offers `department` only with no department, team or project. The corrected expectations
+  are `grouping.test.ts:26` and `AggregateViews.test.tsx:196`. A remembered «По департаменту» at team level now falls back
+  silently (`grouping.test.ts:68-75`). The suggested backend case `(false, true, false, Department, false)` was not added. The
+  code already returns false there, so this is not a finding.
+- **F2 closed.** `DeletedItemSurfaceMatrixTests.cs:322,325` now classify both routes `LiveOrChosenDeleted`, and the
+  six-route assertion pins them. A real block (`:177-187`) shows the rows and the count are live without `state` and the
+  bin's three items with «Удалена». The clamp `Math.Max(total, count)` (`GetViewGroupsHandler.cs:81`) was one of the two
+  fixes Round 1 offered, and it removes «5 из 3». With «Удалена» the header reads «3 из N», where N is the group's live
+  total. That fits BR-AV-5 ("total does not follow the filters") as well as a same-set total would. The developer's reason
+  is not accurate: a same-set read would not shrink the total for a live state, because with no deleted state chosen the
+  set is just the live items. The choice holds anyway.
+- **F3 closed.** `AggregateViewStatementCountTests` (Infrastructure.Tests, real handlers, a `DbCommandInterceptor`, 5 and
+  50 projects) asserts equal counts for:
+  - the groups read under none, team and project, for all three views;
+  - a group page in change-time order (a team, and the group of no team) and in rank order;
+  - a cell;
+  - the flat list, shallow, deep and with a keyword.
+
+  "Constant", which is what the NFR asks, is exactly equality across sizes. A pinned number is not owed. Department
+  grouping is not among the cases (minor m9). plan-backend §§ 1, 4 now name real files.
+- **F4 closed.** BR-AV-8, OQ-9, US-11:59 and design.md:91 and :198 now say "the fixed order of BR-WS-12", and the Decisions
+  bullet records it for gate-3. The bullet's "design § 4" is correct: § 4 is «Рабочие элементы»: the flat list and the
+  grouped form, and it holds the table at :91. One leftover is design.md:94, "the page number and sort are dropped" (minor
+  m10).
+
+### Minors claimed fixed
+
+- **m2 closed:** `Program.cs:111` `.WithExposedHeaders("Retry-After")`. The deployment note for production is not
+  written; it is carried into m2' below.
+- **m5 closed:** ADR-0036:5 now cites § 7, and :45 says the numbers are code constants.
+- **m7 closed:** `AggregateViewReadModel.cs:379-383` skips ids that are no longer there. The fix has no test; this is
+  accepted for a race.
+- **m8: see R2-1.**
+
+### R2-1 — the mod-020 change note misdescribes the shipped control
+Severity: major (the same diff contradicts it; prose only)
+Where: `docs/features/mod-020-team-switcher-default-and-filter-address/status.md`, the 2026-11-04 Log line: "replaced by a
+multi-select with «Без команды»".
+Essence: the shipped control is one checkbox, `NoTeamFilter.tsx:1,31` (`Checkbox`), used at `WorkItemsPage.tsx:222`.
+feat-048 spec § "The team filter of the project's list" says "one control, «Без команды»". Someone who reads the note looks
+for a multi-select that no longer exists.
+Fix: "…the «Команда» multi-select is replaced by a single «Без команды» checkbox, exclusive with the team selector (feat-048
+spec; feat-043 BR-NV-12, Q-6 A)…".
+
+### Minors (debt)
+
+Still open from Round 1: m1 (keyset collation), m3 (limiter test gaps), m4 (no cross-tenant test), m6 (assignee index vs
+design § 7). New:
+
+- **m2'** Production has no CORS rule, so the API needs either same-origin hosting or `Retry-After` exposed there. ADR-0036's
+  "the BFF must pass `Retry-After`" still has no deployment anchor. Fix: one line in the deployment notes.
+- **m4'** plan-backend § 4 (the `AggregateViewEndpointTests` row) still claims "other organization absent", and the
+  `AggregateReadLimiterTests` row still claims "2 wait" and "global 40+20" with the queue refused. Neither is tested (m3,
+  m4). Fix: weaken the rows, or add the tests.
+- **m9** `AggregateViewStatementCountTests` has no department-grouping case for the groups or rows reads. Fix: add
+  `department` to the theory and one department group page.
+- **m10** design.md:94 "the page number and sort are dropped". Fix: "the page number is dropped".
+- **m11** 779fee12 committed mod-020's status.md with CRLF endings (repo blob, 48 CRs in 49 lines; `.gitattributes`
+  `* text=auto`), so the whole file shows as rewritten (97 lines) for a one-line note. Fix: renormalise to LF with the R2-1
+  edit.
+
+### Behavioural claims checked (direction 1, the delta)
+
+- `grouping.ts:26-27` doc "a team and a project fix the department as well" → `:31`.
+- DeletedItem matrix comment "the organization-wide list, its groups and rows … reach the bin by a chosen state" →
+  `AggregateViewReadModel.cs:210`, block `:177-187`.
+- `GetViewGroupsHandler.cs:80` comment "never reads below the count" → `:81`.
+- `AggregateViewReadModel.cs` comment "a purged item is dropped, not an error" → `:380-383`.
+- ADR-0036:45 "numbers are constants" → `AggregateReadLimiter.cs:15-23`.
+- plan-backend § 4 statement-count row → `AggregateViewStatementCountTests` (department gap, m9); the endpoint and limiter
+  rows → m4'.
+- spec BR-AV-8, OQ-9, US-11:59, design :91 and :198, the Decisions bullet → no sort control exists in `WorkItemsPage.tsx`;
+  feat-003 spec:107.
+- mod-020 note → R2-1.
+
+### Direction 2
+
+- Behaviours the delta changes are: the team-level offer, the grouped list's deleted set, the header clamp and the CORS
+  exposed header. Grep `groupingsOffered`, `LiveOrChosenDeleted`, `WithExposedHeaders` and `Retry-After` over `docs/`,
+  `.claude/`, `src/*/AGENTS.md`. The hits are only this feature's files and ADR-0036, all read above. None stale.

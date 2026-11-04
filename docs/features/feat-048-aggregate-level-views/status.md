@@ -65,6 +65,7 @@ gate-3: pending
 - 2026-11-04 [orchestrator] Frontend QA D-4 (tsc -b broken by an import in useAnnouncement.ts) fixed; tsc -b clean, AggregateViews.states 3/3. Stage 7 pass. Next: full Vitest rerun on the lane, then stage 8 review.
 
 - 2026-11-04 [code-reviewer] Stage 8 round 1 at 82b4d233 (review.md): changes-requested; open 0 blockers, 4 majors (F1, F2 code; F3 test + plan; F4 prose), 8 minors (debt).
+- 2026-11-04 [code-reviewer] Stage 8 round 2 (delta) at 779fee12 (review.md): F1-F4 closed; changes-requested on R2-1 (the mod-020 note calls the «Без команды» checkbox a multi-select; prose only, delta read, no QA); open 0 blockers, 1 major, 7 minors (debt).
 
 ## Notes
 
