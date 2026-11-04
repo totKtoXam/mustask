@@ -112,4 +112,4 @@ Re-check of D-1..D-3 against 4dfd6397: D-1 fixed (`useAnnouncement`, test in `Ag
 
 ### Verdict (final for pass 2)
 
-blockers: 0 · majors: 1 (D-4, open) · minors: 0 open (D-1..D-3 fixed and verified). Not closed until D-4 is fixed and `tsc -b` is clean; the re-check is that one command plus `useAnnouncement`'s tests. E2E: skipped by the human's decision.
+blockers: 0 · majors: 0 open (D-4 fixed by the orchestrator, 2026-11-04: `Grouping` imported from `../api/aggregateApi`; re-check `tsc -b` clean, `AggregateViews.states.test.tsx` 3/3) · minors: 0 open (D-1..D-3 fixed and verified). Verdict: pass. E2E: skipped by the human's decision.

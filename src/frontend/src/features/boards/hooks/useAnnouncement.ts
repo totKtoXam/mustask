@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { groupingAnnouncement, type Grouping } from '../lib/grouping';
+import type { Grouping } from '../api/aggregateApi';
+import { groupingAnnouncement } from '../lib/grouping';
 
 export interface Announcement {
   text: string;

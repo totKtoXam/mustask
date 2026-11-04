@@ -61,6 +61,8 @@ gate-3: pending
 - 2026-11-04 [qa-engineer] Stage 7 frontend QA pass 1 (b8ec2192), paused: 0 blockers, 0 majors, 3 minors (D-1 grouping not announced, D-2 narrowed-empty copy, D-3 board stream count line); qa.md Frontend written. New tests (AggregateViews.qa.test.tsx, testAggregate role option) written but NOT run, lane paused by the coordinator; left uncommitted. E2E not run (standing NO).
 - 2026-11-04 [qa-engineer] Stage 7 pass 2 at 4dfd6397: D-1..D-3 verified fixed; QA tests run green (9); ESLint clean; tsc -b FAILS (D-4, major: useAnnouncement.ts imports Grouping from lib/grouping, not exported). Returned to the frontend-developer; verdict open until tsc is clean.
 
+- 2026-11-04 [orchestrator] Frontend QA D-4 (tsc -b broken by an import in useAnnouncement.ts) fixed; tsc -b clean, AggregateViews.states 3/3. Stage 7 pass. Next: full Vitest rerun on the lane, then stage 8 review.
+
 ## Notes
 
 Summary (from the queue line): «Рабочие элементы», «Канбан» and «Бэклог» at the organization and department level and «Рабочие элементы» at the team level: the organization-wide work-item list with feat-003's filters and keyword rules, and the aggregate backlogs and boards of every active project (department: the projects placed in it) as one collapsible group (swimlane on the board) per project in the project's own rank order, with a move inside a group and rows loaded per project as a group opens (reads capped at 4 in flight per tab, paged by a cursor), with the additive reads and the budgets of BR-NV-12 and BR-NV-20. Spec and stories US-6, US-10 live in feat-043's folder (its OQ-9); takes feat-042's board and backlog part, BR-NE-8's cross-project list and mod-020 CR-2's test.
