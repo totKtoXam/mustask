@@ -212,6 +212,30 @@ describe('feat-049 US-2: find a node', () => {
     expect(within(tree).queryByRole('treeitem', { name: /Шлюз/ })).toBeNull();
   });
 
+  it('unfolds a folded section and focuses a related match in «Только связанные» (CR-10)', async () => {
+    serveOrganizations();
+    renderPage({ path: AREAS });
+    const tree = await openDiagram();
+    await userEvent.click(screen.getByRole('button', { name: 'Только связанные' }));
+    await userEvent.click(item(tree, /^Департамент Платформа/));
+    const header = within(tree)
+      .getAllByRole('treeitem')
+      .find(
+        (node) =>
+          node.getAttribute('aria-level') === '1' &&
+          /Департаменты/.test(node.getAttribute('aria-label') ?? ''),
+      )!;
+    header.focus();
+    await userEvent.keyboard('{ArrowLeft}');
+    expect(header).toHaveAttribute('aria-expanded', 'false');
+
+    await userEvent.type(search(), 'платформа{Enter}');
+
+    await waitFor(() => expect(header).toHaveAttribute('aria-expanded', 'true'));
+    await waitFor(() => expect(item(tree, /^Департамент Платформа/)).toHaveFocus());
+    expect(screen.queryByText('Узел скрыт режимом «Только связанные»')).not.toBeInTheDocument();
+  });
+
   it('tells a match removed by «Только связанные» by a toast', async () => {
     serveOrganizations();
     renderPage({ path: AREAS });

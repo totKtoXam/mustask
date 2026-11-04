@@ -227,23 +227,37 @@ export function StructureDiagram({
     const index = (matchIndex + 1) % matches.length;
     setMatchIndex(index);
     const base = matches[index]!;
-    const id = nodeIdsOfBase(model, base)[0]!;
+    const copies = nodeIdsOfBase(model, base);
+    // «Только связанные» keeps only the related nodes (a team: its related copies).
+    const shown = related
+      ? copies.find((copy) => {
+          const node = model.nodes.get(copy)!;
+          return node.kind === 'team'
+            ? related.teams.has(base) && (!node.parentId || related.keep.has(node.parentId))
+            : related.keep.has(copy);
+        })
+      : copies[0];
+    if (shown === undefined) {
+      notice.show(texts.toasts.hiddenByMode);
+      return;
+    }
+    const id = shown;
     const change: Partial<DiagramViewState> = {};
-    // «Только связанные» never writes the user's expansion or folds (BR-SD-11): a hidden match
-    // only gets the toast.
+    // That mode never writes the user's expansion (BR-SD-11, its layout opens the kept ancestors
+    // itself); a folded section holding the match is still unfolded.
     if (!related) {
       const opened = openNodes([id]);
       if (opened.changed) change.expansion = opened.expansion;
-      const sections = unfoldSections([id]);
-      if (sections) change.sections = sections;
     }
+    const sections = unfoldSections([id]);
+    if (sections) change.sections = sections;
     if (Object.keys(change).length > 0) {
       pendingFocus.current = id;
       patch(change);
     } else if (layout.positions.has(id)) {
       focusItem(id);
     } else {
-      notice.show(related ? texts.toasts.hiddenByMode : texts.toasts.hiddenByLevels);
+      notice.show(texts.toasts.hiddenByLevels);
     }
   }
 
