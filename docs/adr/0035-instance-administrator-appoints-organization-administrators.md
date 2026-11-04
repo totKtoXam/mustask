@@ -1,6 +1,6 @@
 # ADR-0035: Let the instance administrator appoint organization administrators on request, on a permanent record
 
-- Status: proposed
+- Status: accepted (2026-11-04, human at feat-033 gate-3)
 - Date: 2026-11-03
 - Context: `feat-033-orphaned-organization-rescue`
   ([spec](../features/feat-033-orphaned-organization-rescue/spec.md),

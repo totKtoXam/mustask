@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/033-orphaned-organization-rescue
-- stage: 04-backend
+- stage: 07-mr-complete
 - epic: core/org-access
 - deps: mod-016,tech-024,tech-025
 - gates: gate-1, gate-2, gate-3
@@ -12,7 +12,7 @@
 
 gate-1: approved (2026-11-03, human in chat)
 gate-2: approved (2026-11-03, human in chat)
-gate-3: pending
+gate-3: approved (2026-11-04, human in chat)
 
 ## Plan
 
@@ -58,6 +58,8 @@ gate-3: pending
 - 2026-11-04 [fixer] Fix round after code review round 1: CR-1 (the empty branch is taken on count === 0 from placeholder data too, with the frame wording following the filter of the rows on screen; test narrows a no-match filter and asserts no table and the heading stays; the flaky test pastes the text), CR-2 (TablePager: aria-disabled and ignored clicks instead of disabled, focus stays; kit test, guide), CR-3 (a name with U+0000 matches nothing in AppointmentReadModel; Api test ?name=%00, read model test, Api test ?page= answers 400), CR-4 (layout.dialogWideMaxWidth token, theme.test pin, ui-kit.md drops the number), CR-5 (handler test: the save loses the mod-016 add race, already_member), CR-6 (ADR-0035 § 5), CR-7 (doc-006 spec H-1 line). Run: AllOrganizationsPage, TablePager, DialogShell, theme Vitest files; AppointAdministratorHandlerTests, AppointmentReadModelTests, GetRescueOrganizationsEndpointTests. Awaiting re-review.
 - 2026-11-04 [code-reviewer] Stage 8 round 2 (delta, 08097976): changes-requested; CR-1..CR-7 resolved (the CR-1 test fails without the fix), 1 new major CR-8 (AllOrganizationsPage.qa.test.tsx:309 still expects a natively disabled arrow after CR-2, fails every run). Findings in review.md.
 - 2026-11-04 [code-reviewer] Stage 8 delta 2 (6c8be466): CR-8 resolved (AllOrganizationsPage.qa.test.tsx 14/14); final verdict approve, 0 findings open. gate-3 is the human's.
+
+- 2026-11-04 [orchestrator] gate-3 approved by the human in chat: review approve (CR-1..CR-8 closed, no security findings), QA backend and frontend passed; accepted with it: ADR-0035 (now accepted; index lines of ADR-0027/ADR-0033 note the amendment), the orchestrator's calls D-1..D-4, the kit additions (DialogShell size wide on token layout.dialogWideMaxWidth, TablePager disabled as aria-disabled, Cell wrap). Known and named: the wide history dialog not seen rendered (judged from code); the last full Vitest run was overloaded (8 timeouts in untouched areas, files green alone) — CI's full run is the clean confirmation; review.md ~33 KB, just over its budget; MUI natively disables the edge pager arrow (focus drop on first/last page, every TablePager, not D-11). Next: push with the lane's go, PR.
 
 ## Notes
 
