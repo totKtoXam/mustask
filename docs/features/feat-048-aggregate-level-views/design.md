@@ -91,7 +91,7 @@ Entry and address as feat-043's menu table. One page serves the four levels, the
 | Sorting | The fixed order of BR-WS-12, no sort control (feat-003 has none) | **Columns not sortable** (`SortableHeaderCell` not used, plain headers); no sort control appears |
 | Read | One page read; keyword read up to 5 s, table keeps its skeleton | Grouped count + group reads under the limiter |
 
-Switching keeps filters and selectors; from the flat list to a grouped one the page number and sort are dropped, back to the flat list it starts at page 1 in the default order. The project's list keeps one control: «Без команды» takes `TeamFilter`'s place (exclusive with the selector; choosing it while a team is selected resets the selector with «Выбор сброшен: команда MARS.»). The project's backlog and board keep `ViewFilterRow`'s «Команда» until feat-013.
+Switching keeps filters and selectors; from the flat list to a grouped one the page number is dropped, back to the flat list it starts at page 1 in the fixed order of BR-WS-12. The project's list keeps one control: «Без команды» takes `TeamFilter`'s place (exclusive with the selector; choosing it while a team is selected resets the selector with «Выбор сброшен: команда MARS.»). The project's backlog and board keep `ViewFilterRow`'s «Команда» until feat-013.
 
 States: the flat list's are feat-003's frame (`StateFrame`: «Загрузка данных», `ErrorBanner` «Повторить», «Рабочих элементов пока нет», «Ничего не найдено» + «Сбросить фильтры», refused level: the catalogue's). Grouped: § 3. A non-member: «Организация не найдена». Narrow widths: the table scrolls in its card, «Проект» stays visible.
 
