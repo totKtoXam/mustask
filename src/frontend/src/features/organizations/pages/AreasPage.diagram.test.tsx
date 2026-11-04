@@ -1,10 +1,17 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SELECTOR_OFFERS_URL, ids, problem } from '../testFixtures';
 import { serveOrganizations, serveProblem } from '../testApi';
 import { ACTING_USER, renderPage } from '../testRender';
+import { layoutDiagram } from '../lib/diagramLayout';
 import { structureStorageKey } from '../hooks/useStructureSettings';
+
+// A pass-through spy: the layout is a pure function, so counting its calls shows when it is rebuilt.
+vi.mock('../lib/diagramLayout', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/diagramLayout')>();
+  return { ...actual, layoutDiagram: vi.fn(actual.layoutDiagram) };
+});
 
 const AREAS = `/organizations/${ids.alfa}/areas`;
 const VIEW_KEY = structureStorageKey('view', ACTING_USER, ids.alfa);
@@ -14,7 +21,10 @@ async function openDiagram() {
   return screen.findByRole('tree', { name: 'Диаграмма структуры' });
 }
 
-beforeEach(() => window.localStorage.clear());
+beforeEach(() => {
+  window.localStorage.clear();
+  vi.mocked(layoutDiagram).mockClear();
+});
 
 describe('feat-049 US-1: the view switch', () => {
   it('opens on the tree and switches to the diagram, remembering the choice', async () => {
@@ -30,15 +40,15 @@ describe('feat-049 US-1: the view switch', () => {
     expect(window.localStorage.getItem(VIEW_KEY)).toBe('diagram');
   });
 
-  it('opens on the remembered diagram next time, and a damaged value means the tree', async () => {
+  it('opens on the remembered diagram next time', async () => {
     serveOrganizations();
     window.localStorage.setItem(VIEW_KEY, 'diagram');
-    const first = renderPage({ path: AREAS });
+    renderPage({ path: AREAS });
     expect(await screen.findByRole('tree', { name: 'Диаграмма структуры' })).toBeInTheDocument();
-    first.unmount?.();
+    expect(screen.queryByRole('treegrid')).not.toBeInTheDocument();
   });
 
-  it('falls back to the tree on a value outside the allowed set', async () => {
+  it('a damaged stored value means the tree', async () => {
     serveOrganizations();
     window.localStorage.setItem(VIEW_KEY, 'cube');
     renderPage({ path: AREAS });
@@ -61,6 +71,22 @@ describe('feat-049 US-1: the view switch', () => {
     await screen.findByRole('treegrid', { name: 'Структура' });
     await userEvent.click(screen.getByRole('tab', { name: 'Диаграмма' }));
     expect(await screen.findByRole('button', { name: /^Масштаб: / })).toHaveTextContent('110%');
+  });
+
+  it('switches the view from the keyboard: arrow moves focus, Enter confirms', async () => {
+    serveOrganizations();
+    renderPage({ path: AREAS });
+    const treeTab = await screen.findByRole('tab', { name: 'Дерево' });
+    treeTab.focus();
+    await userEvent.keyboard('{ArrowRight}');
+    const diagramTab = screen.getByRole('tab', { name: 'Диаграмма' });
+    expect(diagramTab).toHaveFocus();
+    expect(screen.queryByRole('tree', { name: 'Диаграмма структуры' })).not.toBeInTheDocument();
+
+    await userEvent.keyboard('{Enter}');
+
+    expect(await screen.findByRole('tree', { name: 'Диаграмма структуры' })).toBeInTheDocument();
+    expect(diagramTab).toHaveAttribute('aria-selected', 'true');
   });
 
   it('moves between the two views with the arrow keys', async () => {
@@ -86,12 +112,21 @@ describe('feat-049 US-2: the hierarchy diagram', () => {
     expect(department).toHaveAttribute('aria-level', '2');
   });
 
-  it('reads only the area tree until the diagram is open, and the offers once', async () => {
-    serveOrganizations();
+  it('reads only the area tree until the diagram is open, then the offers once, and nothing else', async () => {
+    const api = serveOrganizations();
     renderPage({ path: AREAS });
     await screen.findByRole('treegrid', { name: 'Структура' });
-    await openDiagram();
-    expect(await screen.findAllByRole('treeitem')).not.toHaveLength(0);
+    const isOffers = (path: string) => path.endsWith('/selector-offers');
+    expect(api.requests.some((request) => isOffers(request.path))).toBe(false);
+
+    const tree = await openDiagram();
+    await waitFor(() => expect(within(tree).getAllByRole('treeitem').length).toBeGreaterThan(0));
+
+    const gets = api.requests.filter((request) => request.method === 'GET');
+    expect(gets.every((request) => request.path.endsWith('/areas') || isOffers(request.path))).toBe(
+      true,
+    );
+    expect(gets.filter((request) => isOffers(request.path))).toHaveLength(1);
   });
 
   it('says the relations did not load and retries', async () => {
@@ -118,7 +153,7 @@ describe('feat-049 US-2: the hierarchy diagram', () => {
     expect(screen.getByRole('button', { name: /^Масштаб: / })).toHaveTextContent('50%');
   });
 
-  it('moves with the arrow keys and chooses with Space, Escape clears', async () => {
+  it('moves with the arrow keys and Home', async () => {
     serveOrganizations();
     renderPage({ path: AREAS });
     const tree = await openDiagram();
@@ -138,6 +173,43 @@ describe('feat-049 US-2: the hierarchy diagram', () => {
 });
 
 describe('feat-049 US-3: choosing a node', () => {
+  it('Space chooses the focused card and Escape clears the choice', async () => {
+    serveOrganizations();
+    renderPage({ path: AREAS });
+    const tree = await openDiagram();
+    const card = within(tree)
+      .getAllByRole('treeitem')
+      .find((item) => item.hasAttribute('aria-selected'))!;
+    card.focus();
+
+    await userEvent.keyboard(' ');
+    expect(card).toHaveAttribute('aria-selected', 'true');
+
+    await userEvent.keyboard('{Escape}');
+    expect(card).toHaveAttribute('aria-selected', 'false');
+    expect(screen.queryByRole('button', { name: 'Сбросить' })).not.toBeInTheDocument();
+  });
+
+  it('rebuilds no layout when choosing in «Затемнение» and «Подсветка» with the branch expanded', async () => {
+    serveOrganizations();
+    renderPage({ path: AREAS });
+    const tree = await openDiagram();
+    const choosable = () =>
+      within(tree)
+        .getAllByRole('treeitem')
+        .filter((item) => item.hasAttribute('aria-selected'));
+    const built = vi.mocked(layoutDiagram).mock.calls.length;
+
+    await userEvent.click(choosable()[0]!);
+    await userEvent.click(choosable()[1]!);
+    expect(vi.mocked(layoutDiagram).mock.calls.length).toBe(built);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Подсветка' }));
+    await userEvent.click(choosable()[0]!);
+    await userEvent.click(choosable()[1]!);
+    expect(vi.mocked(layoutDiagram).mock.calls.length).toBe(built);
+  });
+
   it('shows the summary with «Сбросить» and clears it on Escape', async () => {
     serveOrganizations();
     renderPage({ path: AREAS });
@@ -155,7 +227,7 @@ describe('feat-049 US-3: choosing a node', () => {
     expect(screen.queryByRole('button', { name: 'Сбросить' })).not.toBeInTheDocument();
   });
 
-  it('«Только связанные» keeps the chosen branch and the tree stays one Tab stop', async () => {
+  it('«Только связанные» removes the unrelated cards and the tree stays one Tab stop', async () => {
     serveOrganizations();
     renderPage({ path: AREAS });
     const tree = await openDiagram();
@@ -163,9 +235,11 @@ describe('feat-049 US-3: choosing a node', () => {
     const card = within(tree)
       .getAllByRole('treeitem')
       .find((item) => item.hasAttribute('aria-selected'))!;
+    const before = within(tree).getAllByRole('treeitem').length;
     await userEvent.click(card);
 
     expect(screen.getByRole('button', { name: 'Сбросить' })).toBeInTheDocument();
+    expect(within(tree).getAllByRole('treeitem').length).toBeLessThan(before);
     expect(
       within(tree)
         .getAllByRole('treeitem')

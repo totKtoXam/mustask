@@ -123,8 +123,8 @@ Scenario: What is not stored
 
 Scenario: The empty organization
   Given the organization has no department and no project
-  When I choose «Диаграмма»
-  Then the same empty state as the tree's is shown, with the create action only for the holder of `area.create`
+  When I open «Структура»
+  Then the view switch is not shown, and the tree's empty state is shown whatever view is remembered, with the create action only for the holder of `area.create`
 
 Scenario: Edits survive a switch
   Given I created a department in the tree

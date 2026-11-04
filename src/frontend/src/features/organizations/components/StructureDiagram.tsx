@@ -43,7 +43,14 @@ import {
   type DiagramModel,
   type SectionKey,
 } from '../lib/diagramModel';
-import { clampZoom, scrollAfterZoom, stepZoom, wheelZoom } from '../lib/diagramZoom';
+import {
+  ZOOM_MAX,
+  ZOOM_MIN,
+  clampZoom,
+  scrollAfterZoom,
+  stepZoom,
+  wheelZoomRaw,
+} from '../lib/diagramZoom';
 import { DiagramLines } from './DiagramLines';
 import { DiagramCard, DiagramSectionHeader, type CardEmphasis } from './DiagramNode';
 import { DiagramToolbar } from './DiagramToolbar';
@@ -101,6 +108,10 @@ export function StructureDiagram({
   const frameRef = useRef<HTMLDivElement>(null);
   const items = useRef(new Map<string, HTMLElement>());
   const pendingScroll = useRef<{ left: number; top: number } | null>(null);
+  // The zoom as events see it: `zoomRaw` is unrounded (small touchpad deltas add up), `zoomApplied`
+  // is the last value handed to the state, so a burst inside one render keeps its base.
+  const zoomRaw = useRef(view.zoom);
+  const zoomApplied = useRef(view.zoom);
   const retryRef = useRef<HTMLButtonElement>(null);
   const register = (id: string, element: HTMLElement | null) => {
     if (element) items.current.set(id, element);
@@ -218,10 +229,14 @@ export function StructureDiagram({
     const base = matches[index]!;
     const id = nodeIdsOfBase(model, base)[0]!;
     const change: Partial<DiagramViewState> = {};
-    const opened = openNodes([id]);
-    if (opened.changed) change.expansion = opened.expansion;
-    const sections = unfoldSections([id]);
-    if (sections) change.sections = sections;
+    // «Только связанные» never writes the user's expansion or folds (BR-SD-11): a hidden match
+    // only gets the toast.
+    if (!related) {
+      const opened = openNodes([id]);
+      if (opened.changed) change.expansion = opened.expansion;
+      const sections = unfoldSections([id]);
+      if (sections) change.sections = sections;
+    }
     if (Object.keys(change).length > 0) {
       pendingFocus.current = id;
       patch(change);
@@ -256,29 +271,46 @@ export function StructureDiagram({
   function resetLevels() {
     patch({ levels: { ...view.levels, selected: new Set() } });
     announce(texts.levels.shownAll);
-    // Focus goes to the first chip, as the button is disabled once nothing is pressed.
+    // The button is disabled once nothing is pressed: focus goes to the first chip, and when the
+    // layout draws none (folded sections, vertical layout) to the tree's focus item.
     requestAnimationFrame(() => {
-      frameRef.current?.querySelector<HTMLElement>('[data-chip="1-0"]')?.focus();
+      const target =
+        frameRef.current?.querySelector<HTMLElement>('[data-chip]') ??
+        (effectiveFocus ? items.current.get(effectiveFocus) : undefined) ??
+        frameRef.current;
+      target?.focus({ preventScroll: true });
     });
   }
 
   // Zoom is a transform of the drawn picture: no layout rebuild (BR-SD-20).
   function zoomTo(next: number, pointer?: { x: number; y: number }, say = false) {
-    const zoom = clampZoom(next);
-    if (zoom === view.zoom) return;
+    const raw = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, next));
+    zoomRaw.current = raw;
+    const zoom = clampZoom(raw);
+    const from = zoomApplied.current;
+    if (zoom === from) return;
     const frame = frameRef.current;
     if (frame) {
       const rect = frame.getBoundingClientRect();
       const px = pointer ? pointer.x - rect.left : frame.clientWidth / 2;
       const py = pointer ? pointer.y - rect.top : frame.clientHeight / 2;
+      const base = pendingScroll.current ?? { left: frame.scrollLeft, top: frame.scrollTop };
       pendingScroll.current = {
-        left: scrollAfterZoom(frame.scrollLeft, px, view.zoom, zoom),
-        top: scrollAfterZoom(frame.scrollTop, py, view.zoom, zoom),
+        left: scrollAfterZoom(base.left, px, from, zoom),
+        top: scrollAfterZoom(base.top, py, from, zoom),
       };
     }
+    zoomApplied.current = zoom;
     patch({ zoom });
     if (say) announce(texts.zoom.announced(Math.round(zoom * 100)));
   }
+
+  // Another organization starts from its own zoom.
+  useLayoutEffect(() => {
+    zoomRaw.current = view.zoom;
+    zoomApplied.current = view.zoom;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the organization changes
+  }, [organizationId]);
 
   useLayoutEffect(() => {
     const frame = frameRef.current;
@@ -295,10 +327,11 @@ export function StructureDiagram({
     if (!frame) return undefined;
     // Non-passive, so Ctrl + wheel zooms the picture and not the browser page.
     const onWheel = (event: WheelEvent) => {
+      // Over the frame with Ctrl held the page zoom stays blocked, whether or not ours moves.
       if (!event.ctrlKey) return;
       event.preventDefault();
       const delta = event.deltaMode === 1 ? event.deltaY * 33 : event.deltaY;
-      zoomTo(wheelZoom(view.zoom, delta), { x: event.clientX, y: event.clientY });
+      zoomTo(wheelZoomRaw(zoomRaw.current, delta), { x: event.clientX, y: event.clientY });
     };
     frame.addEventListener('wheel', onWheel, { passive: false });
     return () => frame.removeEventListener('wheel', onWheel);
@@ -427,12 +460,17 @@ export function StructureDiagram({
       ? texts.notes.vertical(layout.visibleCount)
       : null;
   const drawAll = model.lineTotal <= RELATION_LINE_LIMIT;
+  // Only an unfolded section can be empty; the text stands below the last header, not over it.
+  const sectionItems = layout.items.filter((item) => item.type === 'section');
   const emptyText =
-    cards.length === 0
+    cards.length === 0 && sectionItems.some((item) => item.expanded)
       ? view.levels.selected.size > 0
         ? texts.levels.none
-        : texts.levels.noRelated
+        : related
+          ? texts.levels.noRelated
+          : null
       : null;
+  const emptyTop = sectionItems.reduce((max, item) => Math.max(max, item.y + item.h), 0) + 12;
 
   async function retryOffers() {
     await onRetryOffers();
@@ -470,7 +508,9 @@ export function StructureDiagram({
         anyLevel={view.levels.selected.size > 0}
         onAllLevels={resetLevels}
         zoom={view.zoom}
-        onZoomStep={(direction) => zoomTo(stepZoom(view.zoom, direction), undefined, true)}
+        onZoomStep={(direction) =>
+          zoomTo(stepZoom(zoomApplied.current, direction), undefined, true)
+        }
         onZoomReset={() => zoomTo(1, undefined, true)}
       />
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
@@ -550,7 +590,7 @@ export function StructureDiagram({
                 sx={(theme) => ({
                   position: 'absolute',
                   left: 16,
-                  top: layout.rulerY + 56,
+                  top: emptyTop,
                   color: theme.palette.text.secondary,
                   fontSize: theme.typography.caption.fontSize,
                 })}

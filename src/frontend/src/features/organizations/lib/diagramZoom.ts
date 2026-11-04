@@ -17,6 +17,11 @@ export function wheelZoom(zoom: number, deltaY: number): number {
   return clampZoom(zoom * Math.exp(-deltaY * 0.001));
 }
 
+/** The same, unrounded and clamped: the accumulator for small deltas (BR-SD-20). */
+export function wheelZoomRaw(zoom: number, deltaY: number): number {
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom * Math.exp(-deltaY * 0.001)));
+}
+
 /**
  * The scroll offset that keeps the picture point under `pointer` (frame coordinates) fixed when
  * the zoom changes from `from` to `to`.

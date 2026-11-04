@@ -61,6 +61,23 @@ describe('feat-049 BR-SD-20: Ctrl + wheel zoom and middle-button pan', () => {
     await waitFor(() => expect(zoomButton()).toHaveTextContent('50%'));
   });
 
+  it('adds up small touchpad deltas and a burst inside one render', async () => {
+    serveOrganizations();
+    renderPage({ path: AREAS });
+    const tree = await openDiagram();
+
+    // Each delta alone rounds back to the same zoom; together they are about +22 %.
+    act(() => {
+      for (let i = 0; i < 50; i += 1) {
+        tree.dispatchEvent(
+          new WheelEvent('wheel', { deltaY: -4, ctrlKey: true, bubbles: true, cancelable: true }),
+        );
+      }
+    });
+
+    await waitFor(() => expect(zoomButton()).toHaveTextContent('122%'));
+  });
+
   it('returns to 100 % from the value button and announces each step', async () => {
     serveOrganizations();
     renderPage({ path: AREAS });
@@ -180,6 +197,21 @@ describe('feat-049 US-2: find a node', () => {
     expect(chip(1)).toHaveAttribute('aria-pressed', 'false');
   });
 
+  it('writes nothing to the expansion when «Только связанные» hides the match (QA F-3)', async () => {
+    serveOrganizations();
+    renderPage({ path: AREAS });
+    const tree = await openDiagram();
+    await userEvent.click(screen.getByRole('button', { name: 'Свернуть всё' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Только связанные' }));
+    await userEvent.click(item(tree, /^Департамент Отчёты/));
+
+    await userEvent.type(search(), 'шлюз{Enter}');
+    await screen.findByText('Узел скрыт режимом «Только связанные»');
+    await userEvent.click(screen.getByRole('button', { name: 'Затемнение' }));
+
+    expect(within(tree).queryByRole('treeitem', { name: /Шлюз/ })).toBeNull();
+  });
+
   it('tells a match removed by «Только связанные» by a toast', async () => {
     serveOrganizations();
     renderPage({ path: AREAS });
@@ -225,6 +257,40 @@ describe('feat-049 US-2: levels, sections and the deactivated node', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Свернуть всё' }));
     await userEvent.click(chip(4));
     expect(await screen.findByText('Нет узлов на выбранных уровнях')).toBeInTheDocument();
+  });
+
+  it('shows no empty text when both sections are folded (CR-3)', async () => {
+    serveOrganizations();
+    renderPage({ path: AREAS });
+    const tree = await openDiagram();
+    await userEvent.click(chip(2));
+    for (const header of within(tree)
+      .getAllByRole('treeitem')
+      .filter((node) => node.getAttribute('aria-level') === '1')) {
+      header.focus();
+      await userEvent.keyboard('{ArrowLeft}');
+    }
+    expect(screen.queryByText('Нет узлов на выбранных уровнях')).not.toBeInTheDocument();
+    expect(screen.queryByText('Нет связанных узлов')).not.toBeInTheDocument();
+  });
+
+  it('keeps focus in the diagram when «Все уровни» finds no chip (CR-4)', async () => {
+    window.localStorage.setItem(structureStorageKey('layout', ACTING_USER, ids.alfa), 'v');
+    serveOrganizations();
+    renderPage({ path: AREAS });
+    const tree = await openDiagram();
+    await userEvent.click(chip(1));
+    for (const header of within(tree)
+      .getAllByRole('treeitem')
+      .filter((node) => node.getAttribute('aria-level') === '1')) {
+      header.focus();
+      await userEvent.keyboard('{ArrowLeft}');
+    }
+    expect(screen.queryAllByRole('button', { name: 'Уровень 1' })).toHaveLength(0);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Все уровни' }));
+
+    await waitFor(() => expect(frameOf(tree).contains(document.activeElement)).toBe(true));
   });
 
   it('folds a section from its header with the arrow keys and announces it', async () => {

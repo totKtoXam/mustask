@@ -57,7 +57,7 @@ export function AreasPage() {
   const [diagramView, patchDiagram] = useDiagramView(organizationId);
   const showDiagram =
     settings.view === 'diagram' && query.isSuccess && (query.data?.length ?? 0) > 0;
-  // The offers are read only for the diagram (feat-049 BR-SD-7): the tree needs none.
+  // The offers are read only for the diagram (feat-049 BR-SD-3): the tree needs none.
   const offers = useSelectorOffers(organizationId, { enabled: showDiagram });
   const access = useAccessCheck();
   const canWrite = access(organizationsPermissions.areaWrite, 'organization');

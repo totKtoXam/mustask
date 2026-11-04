@@ -56,6 +56,8 @@ semantics, offers retry, zoom limits, keyboard, choosing). Existing `AreasPage.t
 - Added aria-hidden chevron texts (`toggle`) not in the copy table.
 - «Только связанные» force-expands every kept node so related teams under a collapsed department
   show.
+- An empty organization shows no view switch (US-1 «The empty organization» reworded): the tree's
+  empty state is shown whatever view is remembered.
 - Level colours live in `shell.*` roles, because `secondary` is neutral text.
 
 ## 7. Left for QA

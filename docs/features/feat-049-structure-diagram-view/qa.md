@@ -43,8 +43,9 @@ chips as `span role="button"`, accepted deviation.
 
 - 2 s first draw and 200 ms choose / layout / level / zoom / pan at 200 projects x 200 teams: jsdom cannot
   measure them. By code: `layoutDiagram` sits in a `useMemo` that does not depend on the choice except
-  through `related` (null outside «Только связанные»), so choosing in «Затемнение» and «Подсветка»
-  rebuilds no layout; zoom is a CSS transform plus a scroll fix, no layout. Not run on the stand.
+  through `related` (null outside «Только связанные»), so choosing in «Затемнение» and «Подсветка» with
+  the branch already expanded rebuilds no layout (unfolding a collapsed branch on choose is an expansion
+  change and does rebuild; a test counts `layoutDiagram` calls); zoom is a CSS transform plus a scroll fix, no layout. Not run on the stand.
 - Real-pointer feel of Ctrl+wheel about the pointer and middle-button pan (handlers tested with synthetic
   events; the scroll anchor maths in `diagramZoom.test.ts`).
 - Prototype side by side, screen-reader speech, 640 px wrap.
