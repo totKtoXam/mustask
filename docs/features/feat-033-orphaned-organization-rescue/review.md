@@ -490,3 +490,11 @@ Claims (prose → anchor):
   files and deploy/. Hits: ADR-0027/0033 wording (amended by proposed ADR-0035, as the
   ADR rules want), src/backend/AGENTS.md (role names only, true), doc-006 spec (CR-7),
   ui-kit.md (CR-4). Not swept: doc-010/doc-012 analyses citing H-1.
+
+## Round 2 — delta
+
+08097976 only, 2026-11-04. **changes-requested**: CR-1..CR-7 resolved; 1 new major.
+CR-1 test fails on the reverted page and passes on the fix.
+- **CR-8 major** `AllOrganizationsPage.qa.test.tsx:309` still expects `toBeDisabled()`; since
+  CR-2 the arrow is `aria-disabled`, so it fails every run. Fix:
+  `toHaveAttribute('aria-disabled', 'true')`.
