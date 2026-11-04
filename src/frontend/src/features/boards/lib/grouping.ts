@@ -23,12 +23,14 @@ export function viewLevelOf(selectors: AggregateSelectors): ViewLevel {
 }
 
 /**
- * BR-AV-2: «Без группировки» always, and every dimension no selector fixes. A project fixes its
- * department as well; a single option means the control is absent (the caller checks).
+ * BR-AV-2: «Без группировки» always, and every dimension no selector fixes. A team and a project fix
+ * the department as well; a single option means the control is absent (the caller checks).
  */
 export function groupingsOffered(selectors: AggregateSelectors): readonly Grouping[] {
   const offered: Grouping[] = ['none'];
-  if (!selectors.departmentId && !selectors.projectId) offered.push('department');
+  if (!selectors.departmentId && !selectors.teamId && !selectors.projectId) {
+    offered.push('department');
+  }
   if (!selectors.projectId) offered.push('project');
   if (!selectors.teamId) offered.push('team');
   return offered;

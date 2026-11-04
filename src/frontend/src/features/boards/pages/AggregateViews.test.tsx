@@ -186,14 +186,14 @@ describe('US-11 Scenario: «Рабочие элементы»', () => {
     ).toBeGreaterThan(1);
   });
 
-  it('offers no «По команде» at the team level (a team fixes it)', async () => {
+  it('offers no «По команде» and no «По департаменту» at the team level (a team fixes both)', async () => {
     serveAggregate({ groups: GROUPS, list: { count: 0, data: [] } });
     renderAggregate(`/organizations/${ORG}/teams/t-1/workitems`);
     await userEvent.click(
       await screen.findByRole('button', { name: 'Группировка: Без группировки' }),
     );
     const labels = screen.getAllByRole('menuitemradio').map((item) => item.textContent);
-    expect(labels).toEqual(['Без группировки', 'По департаменту', 'По проекту']);
+    expect(labels).toEqual(['Без группировки', 'По проекту']);
   });
 });
 

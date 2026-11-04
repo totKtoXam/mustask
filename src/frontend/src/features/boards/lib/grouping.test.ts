@@ -23,7 +23,7 @@ describe('groupingsOffered (BR-AV-2)', () => {
   it.each([
     ['organization', {}, ['none', 'department', 'project', 'team']],
     ['department', { departmentId: 'd' }, ['none', 'project', 'team']],
-    ['team', { teamId: 't' }, ['none', 'department', 'project']],
+    ['team', { teamId: 't' }, ['none', 'project']],
     ['team with a department', { teamId: 't', departmentId: 'd' }, ['none', 'project']],
     ['project', { projectId: 'p' }, ['none', 'team']],
     ['project and team', { projectId: 'p', teamId: 't' }, ['none']],
@@ -63,6 +63,15 @@ describe('the browser memory', () => {
     const store = memory();
     store.setItem(groupingStorageKey('u', 'o', 'backlogs', 'department'), 'department');
     expect(resolveGrouping(store, 'u', 'o', 'backlogs', { departmentId: 'd' })).toBe('project');
+  });
+
+  it('ignores a remembered «По департаменту» at team level (the backend refuses it)', () => {
+    const store = memory();
+    store.setItem(groupingStorageKey('u', 'o', 'backlogs', 'team'), 'department');
+    expect(resolveGrouping(store, 'u', 'o', 'backlogs', { teamId: 't' })).toBe('none');
+    expect(resolveGrouping(store, 'u', 'o', 'backlogs', { teamId: 't', departmentId: 'd' })).toBe(
+      'project',
+    );
   });
 
   it('survives a blocked store', () => {
