@@ -42,7 +42,7 @@ Frontend only; S route. The human's answers of 2026-10-17 to mod-017 OQ-8 B and 
 - 2026-10-18 [orchestrator] route S, taken under the human's standing approval of 2026-10-18 evening («Ты работай, я спать буду. Пр-ы сам мерджи», «Включай auto-merge для всех пр-ов»): no route confirmation; the PR is auto-merged by the orchestrator once CI is green. Gate-3 stays pending.
 - 2026-10-18 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/mod-020-team-switcher-default-and-filter-address
 - 2026-11-02 — Broken by feat-043: the fallback team (BR-MX-11 restored) and the switcher default (see feat-043 spec, "Breaks").
-- 2026-11-04 [backend-developer] Change note from feat-048: the project list's «Команда» filter is replaced by a single «Без команды» checkbox, exclusive with the team selector (feat-043 P-10); this changes the list shipped by this task and feat-003. See feat-048 status.md.
+- 2026-11-04 [backend-developer] Change note from feat-048: the project list's «Команда» filter is replaced by a single «Без команды» checkbox, exclusive with the team selector (feat-043 P-10); this changes the list shipped by this task and feat-003. See feat-048 status.md.
 
 ## Notes
 
