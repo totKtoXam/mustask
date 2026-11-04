@@ -241,3 +241,29 @@ design § 7). New:
 - Behaviours the delta changes are: the team-level offer, the grouped list's deleted set, the header clamp and the CORS
   exposed header. Grep `groupingsOffered`, `LiveOrChosenDeleted`, `WithExposedHeaders` and `Retry-After` over `docs/`,
   `.claude/`, `src/*/AGENTS.md`. The hits are only this feature's files and ADR-0036, all read above. None stale.
+
+## Round 3 (delta)
+
+Reviewed: `git diff 038f7101..2c6ae5a8` (prose only: design.md, both status.md files). No suite run; none owed.
+
+Verdict: **approve**. Open: 0 blockers, 0 majors, 8 minors (debt for gate-3).
+
+- **R2-1 closed.** The mod-020 Log line now says "a single «Без команды» checkbox, exclusive with the team selector". That
+  matches `NoTeamFilter.tsx` (`Checkbox`) and the feat-048 spec.
+- **m10 closed.** design.md:94 drops the page number only, and the flat list returns "in the fixed order of BR-WS-12".
+- **m11 mostly closed.** mod-020's status.md is LF again, and `git diff origin/main...HEAD` on it is one added line. That
+  line still starts with a bare CR byte (`\r- 2026-11-04 …`). It renders harmlessly, but it is a stray character. Fix (debt):
+  delete the byte when the file is next touched.
+- Claims in the delta: design § 4 "starts at page 1 in the fixed order of BR-WS-12" → feat-003 BR-WS-12 and
+  `WorkItemsPage.tsx`, which has no sort control. The orchestrator's Log line "Open: 0 blockers, 0 majors" → this round.
+  Direction 2: nothing in the delta changes behaviour, so there is nothing to sweep.
+
+Debt for gate-3 (proposed fixes in Rounds 1-2):
+- m1: keyset collation.
+- m2': `Retry-After` exposure in production.
+- m3: limiter test gaps.
+- m4: no cross-tenant test.
+- m4': plan-backend § 4 overclaims the endpoint and limiter tests.
+- m6: the assignee index differs from design § 7.
+- m9: no department case in the statement-count test.
+- m11': the stray CR above.

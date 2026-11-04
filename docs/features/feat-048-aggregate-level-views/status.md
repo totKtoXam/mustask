@@ -66,6 +66,7 @@ gate-3: pending
 
 - 2026-11-04 [code-reviewer] Stage 8 round 1 at 82b4d233 (review.md): changes-requested; open 0 blockers, 4 majors (F1, F2 code; F3 test + plan; F4 prose), 8 minors (debt).
 - 2026-11-04 [code-reviewer] Stage 8 round 2 (delta) at 779fee12 (review.md): F1-F4 closed; changes-requested on R2-1 (the mod-020 note calls the «Без команды» checkbox a multi-select; prose only, delta read, no QA); open 0 blockers, 1 major, 7 minors (debt).
+- 2026-11-04 [code-reviewer] Stage 8 round 3 (delta) at 2c6ae5a8 (review.md): approve; R2-1, m10 closed; open 0 blockers, 0 majors, 8 minors (debt for gate-3, incl. one stray CR byte in the mod-020 note).
 
 - 2026-11-04 [orchestrator] Stage 8 R2-1 fixed (mod-020 note says a single «Без команды» checkbox; file back to LF, m11) and m10 (design § 4 no longer mentions a sort). Open: 0 blockers, 0 majors; minors m1, m2', m3, m4, m4', m6, m9 as gate-3 debt.
 
