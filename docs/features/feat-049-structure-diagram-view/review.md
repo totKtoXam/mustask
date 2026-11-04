@@ -237,3 +237,39 @@ Fix: cite BR-SD-3, and drop the stale sentence. Both can go into CR-1's prose ed
 - `plan-frontend.md` § 4 keys: anchored at `StructureDiagram.tsx:339-410`. § 6 deviations 1, 3-6: anchored at `IconToggleGroup.tsx:36`, `DiagramNode.tsx:101-110`, `diagramLayout.ts:136-145`, `diagramLevels.ts:30-42`. Deviation 2 → CR-8.
 - `qa.md:47` "rebuilds no layout" → CR-2. `qa.md` F-1 fix: anchored at `StructureDiagram.tsx:707-713` and `diagramContrast.test.ts`. F-2 fix: anchored at `StructureDiagram.tsx:240-249`.
 - Direction 2: the changed behaviours are the tree view's page-head «Развернуть всё» hidden in the diagram, `rowLink` moved to `useAreaRowLink`, `selector-offers` now read on «Структура», and the toggle-group pattern. I grepped `AreasPage|rowLink|IconToggleGroup|ToggleButtonGroup|BoxedTabs` over `docs/conventions`, `docs/adr`, `AGENTS.md`, `src/frontend/AGENTS.md` and `.claude`. The only hit is `ui-kit.md`, already in the diff and consistent. ADR-0032 § 6 (the selection's key) is untouched by the new keys. Not swept: the merged feat-043 artifacts that describe «Структура» as a tree only. They are a closed feature's record, not live instructions.
+
+## Round 2 — fix check
+
+Reviewer: code-reviewer, 2026-11-04. Delta only: `git diff 21ed9913..e17214ad`, read against the Round 1 code findings and QA F-3/F-4. HEAD 20dac4f8 is status-only. CR-8 was accepted by the orchestrator (status § Decisions) and not re-checked.
+
+Run: the CR-2 no-rebuild test, re-run from a throwaway copy of `AreasPage.diagram.test.tsx` with `expect(built).toBeGreaterThan(0)` added. It is green, so the `vi.mock` spy really intercepts `StructureDiagram`'s import and the test is not vacuous. I deleted the copy and committed nothing from it. The developer ran the page and lib files; the coordinator ran kitGuard and colourLiterals.
+
+**Verdict: `approved`.** Both majors are closed. One new minor (CR-10) and one partial minor (CR-4) stay as debt.
+
+| Finding | State | Evidence |
+|---|---|---|
+| CR-1 (major) | fixed | `design.md:140` and `spec.md:35` BR-SD-10 now say each toggle group is one Tab stop with arrows; they agree with US-2, `ui-kit.md` and the code. |
+| CR-2 (major) | fixed | Spy test `AreasPage.diagram.test.tsx` «rebuilds no layout…» (sanity-checked above). The read test now asserts every GET is `/areas` or `/selector-offers`, and offers exactly once. `spec.md:59` and `qa.md:45-48` now name the collapsed-branch rebuild. |
+| CR-3 | fixed | `StructureDiagram.tsx` `emptyText` requires an unfolded section, and «Нет связанных узлов» only under a choice in «Только связанные»; `emptyTop` sits below the last header. Test «shows no empty text when both sections are folded». |
+| CR-4 | partly fixed (minor, debt) | `resetLevels` falls back to any `[data-chip]`, then to the tree's focus item, so focus stays in the diagram (test «keeps focus in the diagram…»). The chips themselves still vanish in the vertical layout when sections are folded, pressed ones included; recovery is still possible through «Все уровни», which is enough for a minor. |
+| CR-5 | fixed | Titles match their assertions. New tests cover Space/Escape, Enter on the tab confirming the switch, and «Только связанные» removing cards. |
+| CR-6 + F-4 | fixed | `zoomRaw` (unrounded accumulator) and `zoomApplied` (base for a burst) are refs; the scroll anchor chains through `pendingScroll`; buttons step from `zoomApplied`; the refs reset on organization change and on remount. Test: 50 × deltaY −4 gives 122 % (e^0.2). |
+| CR-7 | fixed | US-1 «The empty organization» reworded; `plan-frontend.md` § 6 lists the deviation. |
+| CR-9 | fixed | `AreasPage.tsx:60` cites BR-SD-3; the stale OQ-7 sentence is gone. |
+| F-3 | fixed, with CR-10 below | `jump()` writes neither expansion nor folds while `related` is set. Test «writes nothing to the expansion…». |
+
+#### CR-10
+Severity: minor (new, from the F-3 fix)
+Where: `StructureDiagram.tsx` `jump()`, the `if (!related)` block
+Problem: the guard skips `unfoldSections` as well as `openNodes`. In «Только связанные» the layout force-opens the ancestors of kept cards, but it never unfolds a folded section (`diagramLayout.ts`, `if (!open) continue`). So finding a **related** card in a folded section neither unfolds it nor focuses it, and shows the wrong toast: «Узел скрыт режимом «Только связанные»». BR-SD-11 says a folded section holding found cards is unfolded by finding, and `choose()` still does this in every mode.
+Fix: in «Только связанные», skip only `openNodes`; call `unfoldSections([id])` when the match is kept (`related.keep` / `related.teams`). Pick the toast by the actual cause.
+
+### Behavioural claims (delta)
+- `spec.md:35` BR-SD-10 toggle stops: anchored at `IconToggleGroup.tsx:36` (MUI roving) and `IconToggleGroup.test.tsx:73-82`.
+- `design.md:140`: same anchor.
+- `spec.md:59` "Tests check … no read beyond the two, no layout rebuild … when the chosen branch is already expanded": anchored at the two tests in `AreasPage.diagram.test.tsx` named above.
+- `qa.md:45-48` (a collapsed branch rebuilds; a test counts calls): anchored at `StructureDiagram.tsx` `choose()` and the spy test.
+- `stories/US-1` «The empty organization»: anchored at `AreasPage.tsx:194` (tabs only with areas).
+- `plan-frontend.md` § 6 new line: same anchor.
+- Code comments in the fix (zoom refs, «Только связанные» never writes expansion or folds): anchored by the code they sit on. "or folds" is exactly what CR-10 questions against BR-SD-11.
+- Direction 2: the changed behaviours are search jump in «Только связанные» and wheel zoom accumulation. I grepped `Найти узел|jump|Ctrl + wheel|wheel` in the feature folder: BR-SD-8, BR-SD-11, BR-SD-20 and design § 4.9 are consistent except BR-SD-11's folded-section sentence, which is CR-10. Nothing outside the feature folder describes either behaviour.
