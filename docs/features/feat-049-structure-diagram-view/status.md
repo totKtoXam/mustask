@@ -34,6 +34,7 @@ See [plan-frontend.md](plan-frontend.md).
 - 2026-11-03 [orchestrator] stage 6 done (frontend-developer, 734ea8b4, 2f1b15a6, 2c7d61b5): single files green, tsc clean, ESLint 0 errors. Full run pending the orchestrator's go.
 - 2026-11-04 [orchestrator] full Vitest on 4f8a830b (lane go): 11 timeouts outside the feature over a 20 h run broken by sleep; the 8 files green on rerun. Stage 7 QA (f56e1c6b): pass with minors, F-1/F-2 fixed, F-3/F-4 open (qa.md).
 - 2026-11-04 [orchestrator] stage 8 Opus review (21ed9913): changes-requested, 0 blockers, 2 majors, 7 minors, security clean. Fix round (frontend-developer, e17214ad): CR-1..7, CR-9, F-3, F-4 fixed; CR-8 accepted.
+- 2026-11-04 [orchestrator] review round 2 (b634f46d): approved; debts CR-4 (vertical chips vanish with folded sections) and CR-10 (search in «Только связанные» no longer unfolds a section). At gate-3.
 
 ## Notes
 Summary (from the queue line): «Структура» gets a tree and diagram switch. The diagram shows the hierarchy of departments, projects and sub-areas, and which teams work on which projects and which projects each team works on; built on the selector-offers read and the area tree, no new read expected. Asked by the human at feat-043 gate-3, 2026-11-02.
