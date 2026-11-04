@@ -13,10 +13,14 @@
 # Two different reads of the queue, on purpose:
 #   - the QUEUED list is origin/main (else main): what everybody else can see;
 #   - the TAKEN numbers (--ids, NUMBERS, and so `queue.sh add`) are the queue
-#     files — docs/backlog.md and docs/backlog/withdrawn.md — over EVERY local
+#     files — docs/backlog.md and every .md under docs/backlog/ — over EVERY local
 #     and remote-tracking branch (docs/features/numbering.md, source 3).
 #     `queue.sh add` commits to local main, so a number issued before the push
 #     is on no remote branch; reading origin/main alone issued it twice.
+#
+# The docs/features folders are read the same way, over every ref (source 2):
+# a folder on any branch holds its number, and a task folder whose card is
+# `complete` on no ref is in flight even with no local branch (tech-038).
 
 set -eu
 
@@ -41,33 +45,75 @@ main_backlog() {
 }
 
 # The queue files' numbers over every ref in refs/heads and refs/remotes (not
-# refs/stash), in ONE pass: for-each-ref names `<commit>:<file>` for each ref
-# and a single cat-file --batch reads them all — a git process per ref is what
-# this avoids. Two refs on one commit are read once (sort -u).
-# docs/backlog/withdrawn.md counts too: a withdrawn number is taken forever
-# and is never reused. A ref without the file answers "missing" — no match.
+# refs/stash). The queue files are docs/backlog.md and every .md file under
+# docs/backlog/ — withdrawn.md (a withdrawn number is taken forever and never
+# reused) and whatever a split moves there, such as later.md (tech-037; until
+# then only the two names were read, and a number in a third file looked free).
+#
+# A fixed number of git processes however many refs there are — a git process
+# per ref or per commit is what this avoids:
+#   1. for-each-ref: the distinct commits behind the refs;
+#   2. cat-file --batch-check: `<commit>:docs/backlog.md` (a blob) and
+#      `<commit>:docs/backlog` (a tree) for each of them;
+#   3. rev-list --objects over the distinct docs/backlog trees: every file
+#      under them, each distinct blob once;
+#   4. cat-file --batch: the distinct blobs, read in one go.
+# A ref without a file or the directory answers "missing" — no match.
 #
 # It fails loudly. A read that quietly returns nothing makes every number look
 # free, and `queue.sh add` would issue a taken one: so a git that errors, or
 # answers fewer requests than were asked, is an error on stderr and a
 # non-zero return — never an empty list (tech-034, QA D1).
-queue_read_failed() {
-    printf 'Error: the queue files could not be read from the git object store (%s) — the taken queue numbers are unknown, so none is reported.\n' "$1" >&2
+queue_read_failed() {  # <why> [<what: the queue files | the docs/features folders>]
+    printf 'Error: %s could not be read from the git object store (%s) — the taken numbers they hold are unknown, so none is reported.\n' \
+        "${2:-the queue files}" "$1" >&2
+}
+
+# <requests, one per line> [<what>] — `git cat-file --batch-check` over them,
+# every request answered: `<oid> <type> <size>`, or `<request> missing`.
+queue_batch_check() {
+    _out=$(printf '%s\n' "$1" | git cat-file --batch-check) \
+        || { queue_read_failed 'git cat-file --batch-check failed' "${2:-}"; return 1; }
+    _asked=$(printf '%s\n' "$1" | grep -c '')
+    _got=$(printf '%s\n' "$_out" \
+        | grep -cE '^[0-9a-f]{40,64}( [a-z]+ [0-9]+|(:[^ ]+)? missing)$' || true)
+    if [ "$_got" -lt "$_asked" ]; then
+        queue_read_failed "git cat-file --batch-check answered $_got of $_asked requests" "${2:-}"
+        return 1
+    fi
+    printf '%s\n' "$_out"
 }
 
 queue_file_numbers() {
-    _refs=$(git for-each-ref --format='%(objectname):docs/backlog.md%0a%(objectname):docs/backlog/withdrawn.md' \
-        refs/heads refs/remotes) \
+    _commits=$(git for-each-ref --format='%(objectname)' refs/heads refs/remotes) \
         || { queue_read_failed 'git for-each-ref failed'; return 1; }
-    [ -n "$_refs" ] || return 0
-    _requests=$(printf '%s\n' "$_refs" | sort -u)
-    _answers=$(printf '%s\n' "$_requests" | git cat-file --batch) \
+    [ -n "$_commits" ] || return 0
+    _commits=$(printf '%s\n' "$_commits" | sort -u)
+    _found=$(queue_batch_check "$(printf '%s\n' "$_commits" | sed 's|$|:docs/backlog.md|'
+        printf '%s\n' "$_commits" | sed 's|$|:docs/backlog|')") || return 1
+    _blobs=$(printf '%s\n' "$_found" | awk '$2 == "blob" { print $1 }')
+    _trees=$(printf '%s\n' "$_found" | awk '$2 == "tree" { print $1 }' | sort -u)
+    if [ -n "$_trees" ]; then
+        # Each tree given is listed first as `<oid> ` with no path, then what
+        # is under it as `<oid> <path>`. Only .md files are queue files.
+        _listed=$(printf '%s\n' "$_trees" | git rev-list --objects --no-walk --stdin) \
+            || { queue_read_failed 'git rev-list --objects failed'; return 1; }
+        _asked=$(printf '%s\n' "$_trees" | grep -c '')
+        _got=$(printf '%s\n' "$_listed" | grep -cE '^[0-9a-f]{40,64} ?$' || true)
+        if [ "$_got" -lt "$_asked" ]; then
+            queue_read_failed "git rev-list --objects listed $_got of $_asked docs/backlog trees"
+            return 1
+        fi
+        _blobs="$_blobs
+$(printf '%s\n' "$_listed" | grep -E '^[0-9a-f]{40,64} .+\.md$' | cut -d' ' -f1 || true)"
+    fi
+    _blobs=$(printf '%s\n' "$_blobs" | grep -E '^[0-9a-f]{40,64}$' | sort -u || true)
+    [ -n "$_blobs" ] || return 0
+    _answers=$(printf '%s\n' "$_blobs" | git cat-file --batch) \
         || { queue_read_failed 'git cat-file --batch failed'; return 1; }
-    # Every request is answered by one header line: `<blob> blob <size>`, or
-    # `<request> missing` for a ref without the file.
-    _asked=$(printf '%s\n' "$_requests" | grep -c '')
-    _got=$(printf '%s\n' "$_answers" \
-        | grep -cE '^[0-9a-f]{40,64}( blob [0-9]+|:[^ ]+ missing)$' || true)
+    # Every blob is answered by one header line: `<blob> blob <size>`.
+    _asked=$(printf '%s\n' "$_blobs" | grep -c '')
+    _got=$(printf '%s\n' "$_answers" | grep -cE '^[0-9a-f]{40,64} blob [0-9]+$' || true)
     if [ "$_got" -lt "$_asked" ]; then
         queue_read_failed "git cat-file --batch answered $_got of $_asked requests"
         return 1
@@ -76,12 +122,68 @@ queue_file_numbers() {
         | grep -oE "^- \[[ x]\] [a-z]+-[0-9]{3}" | grep -oE "[a-z]+-[0-9]{3}$" || true
 }
 
+# The task folders of docs/features over every ref in refs/heads and
+# refs/remotes, with their cards: one line `<id> <stage> <size> <epic>` per
+# distinct status.md blob, and `<id> - - -` for every folder (so a folder
+# without a card is still listed). Until tech-038 only this worktree's
+# folders were read, so a folder merged since the worktree branched, or one
+# that lives on another branch only, looked free (tech-034 CR-5). The same
+# fixed number of git processes as queue_file_numbers, and it fails as loudly.
+features_what='the docs/features folders'
+feature_cards() {
+    _commits=$(git for-each-ref --format='%(objectname)' refs/heads refs/remotes) \
+        || { queue_read_failed 'git for-each-ref failed' "$features_what"; return 1; }
+    [ -n "$_commits" ] || return 0
+    _found=$(queue_batch_check "$(printf '%s\n' "$_commits" | sort -u | sed 's|$|:docs/features|')" \
+        "$features_what") || return 1
+    _trees=$(printf '%s\n' "$_found" | awk '$2 == "tree" { print $1 }' | sort -u)
+    [ -n "$_trees" ] || return 0
+    _listed=$(printf '%s\n' "$_trees" | git rev-list --objects --no-walk --stdin) \
+        || { queue_read_failed 'git rev-list --objects failed' "$features_what"; return 1; }
+    _asked=$(printf '%s\n' "$_trees" | grep -c '')
+    _got=$(printf '%s\n' "$_listed" | grep -cE '^[0-9a-f]{40,64} ?$' || true)
+    if [ "$_got" -lt "$_asked" ]; then
+        queue_read_failed "git rev-list --objects listed $_got of $_asked docs/features trees" "$features_what"
+        return 1
+    fi
+    # `<oid> <id>` is a folder, `<oid> <id>/status.md` its card.
+    _task='[a-z]+-[0-9][0-9][0-9]-[a-z0-9-]+'
+    _map=$(printf '%s\n' "$_listed" | grep -E "^[0-9a-f]+ $_task/status\\.md\$" \
+        | sed 's|/status\.md$||' || true)
+    printf '%s\n' "$_listed" | grep -oE " $_task\$" | sort -u | sed 's|^ ||; s|$| - - -|' || true
+    [ -n "$_map" ] || return 0
+    _blobs=$(printf '%s\n' "$_map" | cut -d' ' -f1 | sort -u)
+    _answers=$(printf '%s\n' "$_blobs" | git cat-file --batch) \
+        || { queue_read_failed 'git cat-file --batch failed' "$features_what"; return 1; }
+    _asked=$(printf '%s\n' "$_blobs" | grep -c '')
+    _got=$(printf '%s\n' "$_answers" | grep -cE '^[0-9a-f]{40,64} blob [0-9]+$' || true)
+    if [ "$_got" -lt "$_asked" ]; then
+        queue_read_failed "git cat-file --batch answered $_got of $_asked requests" "$features_what"
+        return 1
+    fi
+    # The map first, then the blobs: a header line `<oid> blob <size>` of a
+    # mapped oid starts a card, its `- stage:`/`- size:`/`- epic:` fill it.
+    { printf '%s\n--\n' "$_map"; printf '%s\n' "$_answers"; } | awk '
+        function flush() { if (cur != "") print id[cur], st, sz, ep; cur = "" }
+        !sep && $0 == "--" { sep = 1; next }
+        !sep { id[$1] = $2; next }
+        NF == 3 && $2 == "blob" && ($1 in id) { flush(); cur = $1; st = sz = ep = "-"; next }
+        cur != "" && st == "-" && /^- stage:/ { st = $3 }
+        cur != "" && sz == "-" && /^- size:/  { sz = $3 }
+        cur != "" && ep == "-" && /^- epic:/  { ep = $3 }
+        END { flush() }'
+}
+
 # All taken numbers. Returns non-zero, having said why on stderr and printed
-# nothing, when the queue files cannot be read.
+# nothing, when the queue files or the folders cannot be read. [<cards>] —
+# feature_cards output the caller already has, so it is not read twice.
 taken_ids() {
     _queue_numbers=$(queue_file_numbers) || return 1
+    if [ $# -gt 0 ]; then _cards=$1; else _cards=$(feature_cards) || return 1; fi
     {
+        # This worktree's own folders too: a new folder is not committed yet.
         ls docs/features 2>/dev/null | grep -oE "^[a-z]+-[0-9]{3}" || true
+        [ -z "$_cards" ] || printf '%s\n' "$_cards" | grep -oE "^[a-z]+-[0-9]{3}" || true
         git branch --all --format="%(refname:short)" | grep -oE "[a-z]+/[0-9]{3}" | tr "/" "-" || true
         [ -z "$_queue_numbers" ] || printf '%s\n' "$_queue_numbers"
     } | sort -u
@@ -122,6 +224,27 @@ if [ "${1:-}" = "--done" ]; then
     exit 0
 fi
 
+
+# Every ref's folders and cards, read once for IN PROGRESS, EPICS and NUMBERS.
+cards_failed=0
+cards=$(feature_cards) || cards_failed=1
+local_task_ids=$(git branch --format="%(refname:short)" \
+    | grep -E "^(feat|bug|hot|tech|mod|doc)/[0-9]{3}-" | sed "s|/|-|" || true)
+# In flight on another branch (tech-038): a task folder on some ref,
+# `stage: complete` on none, and no local task branch to list it by — a
+# session on another machine, or a folder on a branch with a non-task name.
+# A stale copy of a finished task on an old branch is not in flight: the
+# finished card is on main. One row per id, from a card that is not complete.
+elsewhere=''
+if [ "$cards_failed" = 0 ] && [ -n "$cards" ]; then
+    elsewhere=$({ printf '%s\n--\n' "$local_task_ids"; printf '%s\n' "$cards"; } | awk '
+        !sep && $0 == "--" { sep = 1; next }
+        !sep { skipped[$1] = 1; next }
+        NF != 4 || ($1 in skipped) { next }
+        $2 == "complete" { done[$1] = 1; next }
+        !($1 in row) || row[$1] ~ / - - -$/ { row[$1] = $0 }
+        END { for (k in row) if (!(k in done)) print row[k] }' | sort)
+fi
 
 printf '\n=== IN PROGRESS (task branches, stage not complete) ===\n\n'
 found=0
@@ -164,6 +287,14 @@ for branch in $(git branch --format="%(refname:short)" | grep -E "^(feat|bug|hot
     ahead=$(git rev-list --count main.."$branch" 2>/dev/null || echo "?")
     printf '  %-30s %-17s size:%-2s stage:%-19s +%s\n' "$branch" "$epic" "$size" "$stage" "$ahead"
 done
+while read -r id stage size epic; do
+    [ -n "$id" ] || continue
+    found=1
+    printf '  %-30s %-17s size:%-2s stage:%-19s (no local branch: folder on another ref)\n' "$id" "$epic" "$size" "$stage"
+done <<ELSEWHERE
+$elsewhere
+ELSEWHERE
+[ "$cards_failed" = 0 ] || printf '  (tasks whose folder lives only on another branch are unknown: the folders could not be read, see the error above)\n'
 [ "$found" = 0 ] && printf '  no active task branches\n'
 [ "$merged_kept" -gt 0 ] && printf '  (+%s merged branches kept, not listed)\n' "$merged_kept"
 
@@ -225,6 +356,10 @@ epic_rows=$(
                 printf '%s flight\n' "$e"
             fi
         done
+        # In flight on another branch only; a folder here is counted above.
+        printf '%s\n' "$elsewhere" | while read -r id stage size e; do
+            [ -n "$id" ] && [ ! -d "docs/features/$id" ] && printf '%s flight\n' "${e:--}"
+        done || true
         printf '%s\n' "$queue_lines" | grep -oE "epic:[^ ]*" | cut -d: -f2 | sed "s/$/ queued/" || true
     } 2>/dev/null
 )
@@ -250,7 +385,9 @@ printf '\n=== NUMBERS ===\n\n'
 # Read once. A failed read is said out loud (taken_ids wrote why on stderr) and
 # ends the summary non-zero: a missing line must not look like "nothing taken".
 numbers_failed=0
-if taken=$(taken_ids); then
+if [ "$cards_failed" = 0 ]; then taken=$(taken_ids "$cards"); else taken=$(taken_ids); fi \
+    && numbers_ok=1 || numbers_ok=0
+if [ "$numbers_ok" = 1 ]; then
     for prefix in feat bug hot tech mod doc; do
         last=$(printf '%s\n' "$taken" | grep -oE "^$prefix-[0-9]{3}$" | grep -oE "[0-9]{3}$" | sort -n | tail -1)
         [ -n "${last:-}" ] || continue
