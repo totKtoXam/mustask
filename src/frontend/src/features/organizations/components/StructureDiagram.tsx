@@ -240,7 +240,9 @@ export function StructureDiagram({
     announce(
       selected.size > 0
         ? texts.levels.shown(
-            [...selected].sort((a, b) => a - b),
+            view.levels.mode === 'from'
+              ? [Math.min(...selected)]
+              : [...selected].sort((a, b) => a - b),
             view.levels.mode === 'from',
           )
         : texts.levels.shownAll,
@@ -702,7 +704,13 @@ function LevelChip({
             cursor: 'pointer',
             fontSize: 11,
             fontWeight: theme.typography.fontWeightMedium,
-            color: pressed ? theme.palette.primary.contrastText : colour,
+            // The included tint is the level colour at 18 %: the level's own colour as text misses
+            // 4.5:1 on it for levels 2 and 3, so the digit is plain text there (BR-SD-12).
+            color: pressed
+              ? theme.palette.primary.contrastText
+              : included
+                ? theme.palette.text.primary
+                : colour,
             backgroundColor: pressed
               ? colour
               : included
