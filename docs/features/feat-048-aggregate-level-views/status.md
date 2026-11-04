@@ -74,7 +74,7 @@ gate-3: approved 2026-11-04 (the human, in chat): review round 3 approve, the OQ
 
 - 2026-11-04 [orchestrator] A verify.sh started by mistake (the human asked for CI instead) was stopped after the Contracts, Domain, Application and Infrastructure assemblies; it caught BoardErrorCatalogTests missing the three new codes, fixed, Mustask.Contracts.Tests 227/227.
 
-- 2026-11-04 [orchestrator] Gate-3 approved by the human (debt to the queue). origin/main merged in (a723fe17; ADR index conflict only, ADR-0034 is tech-025's); solution builds, route inventory classes 270/270. Stage complete; PR next. Debt for the queue, passed to the orchestrator: m1, m2', m3, m4, m4', m6, m9 of review.md.
+- 2026-11-04 [orchestrator] Gate-3 approved by the human (debt to the queue). origin/main merged in (a723fe17; ADR index conflict only, ADR-0034 is tech-025's); solution builds, route inventory classes 270/270. Stage complete; PR next. Debt for the queue, passed to the orchestrator: m1, m2', m3, m4, m4', m6, m9 of review.md. Queued as tech-051-aggregate-views-debts (S, platform/ui, deps feat-048) by the orchestrator, queue PR #65.
 
 ## Notes
 
