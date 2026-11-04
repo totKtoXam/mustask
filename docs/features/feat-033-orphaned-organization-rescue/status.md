@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/033-orphaned-organization-rescue
-- stage: 07-mr-complete
+- stage: complete
 - epic: core/org-access
 - deps: mod-016,tech-024,tech-025
 - gates: gate-1, gate-2, gate-3
