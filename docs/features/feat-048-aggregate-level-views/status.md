@@ -56,6 +56,9 @@ gate-3: pending
 - 2026-11-03 [frontend-developer] Stage 6 completed: server board columns (fcfd1c84) replace the derivation; drag and drop with the OQ-6 A rules; «Без команды» replaces TeamFilter on the project list; the switch on the shipped team and project backlog and board; page tests added. Not built: flat-list sorting (BR-WS-12 fixes the order, no sort param) and the switch on the project list. Whole-suite run due.
 - 2026-11-04 [frontend-developer] The grouping switch on the project «Рабочие элементы» is done: «Без группировки» keeps the shipped list with the switch in its header and «Без команды»; «По команде» shows the aggregate list with the project selector. Page tests added. Whole-suite run still due before the MR.
 
+
+- 2026-11-04 [qa-engineer] Stage 7 frontend QA pass 1 (b8ec2192), paused: 0 blockers, 0 majors, 3 minors (D-1 grouping not announced, D-2 narrowed-empty copy, D-3 board stream count line); qa.md Frontend written. New tests (AggregateViews.qa.test.tsx, testAggregate role option) written but NOT run, lane paused by the coordinator; left uncommitted. E2E not run (standing NO).
+
 ## Notes
 
 Summary (from the queue line): «Рабочие элементы», «Канбан» and «Бэклог» at the organization and department level and «Рабочие элементы» at the team level: the organization-wide work-item list with feat-003's filters and keyword rules, and the aggregate backlogs and boards of every active project (department: the projects placed in it) as one collapsible group (swimlane on the board) per project in the project's own rank order, with a move inside a group and rows loaded per project as a group opens (reads capped at 4 in flight per tab, paged by a cursor), with the additive reads and the budgets of BR-NV-12 and BR-NV-20. Spec and stories US-6, US-10 live in feat-043's folder (its OQ-9); takes feat-042's board and backlog part, BR-NE-8's cross-project list and mod-020 CR-2's test.

@@ -52,3 +52,48 @@ The migrations apply on the clean database of every integration fixture. E2E: st
 ### Verdict
 
 blockers: 0 · majors: 0 · minors: 1 (D-1) · result: pass for the backend section. The 1M-item budget rests on the orchestrator's run. The panel is not covered here.
+
+## Frontend
+
+Pass 1, 2026-11-04, commit b8ec2192. The plan was written from spec.md, US-11 and design.md before `src/frontend` was read. E2E: skipped by the human's standing decision (NO). Flat-list column sorting is not built by decision (BR-WS-12), not a defect.
+
+**Run status: the QA tests below were written but NOT run.** The coordinator paused every Vitest, tsc and ESLint run mid-pass (the orchestrator's full-suite run holds the lane). They are left uncommitted in the working tree; no result is claimed for them.
+
+### Coverage matrix
+
+| Criterion / screen | Check | Type | Status |
+|---|---|---|---|
+| BR-AV-2 options per level, order | `AggregateViews.test` (organization, team), `grouping.test` | unit + page | covered (dev) |
+| BR-AV-3 default, memory, silent fallback | `AggregateViews.test`, `grouping.test` | page | covered (dev) |
+| BR-AV-4 groups first: «Без команды» | `AggregateViews.test` | page | covered (dev) |
+| BR-AV-4 groups first: «Без департамента»; «3 из 40» | `AggregateViews.qa.test` | page | added, not run |
+| BR-AV-6 no move/handle outside by project; hint once | `moves.test` (team), `qa.test` (department) | page | covered + added |
+| BR-AV-6 move menu, part-loaded rules, drag | `moves.test`, `aggregateMove.test` | page + unit | covered (dev) |
+| Viewer: no «Ещё действия», no handle | `qa.test` | page | added, not run |
+| «Без группировки» backlog: no headers, count line, no «Свернуть все» | `qa.test` | page | added, not run |
+| BR-NV-20 «Свернуть все» | `qa.test` | page | added, not run |
+| OQ-4 A deactivated project hides group + notice | `qa.test` | page | added, not run |
+| BR-AV-7 board: lanes, «Без команды» first, cells per lane; no lanes with none | `qa.test`; `AggregateViews.test` (cells); `moves.test` (drag, targets) | page | covered + added |
+| BR-AV-8 grouped list: no pager, no sort; flat list keeps both | `AggregateViews.test` (shape), `qa.test` (no buttons in headers) | page | covered + added |
+| OQ-1 429 retry, refusal, cursor 400, headers error, empty | `AggregateViews.test`, `useGroupRead.test` | page + unit | covered (dev) |
+| Design § 2 switch announced through StatusRegion | none possible (not built) | - | **D-1** |
+| Design § 3 narrowed-empty «Ничего не найдено» (backlog, board) | none possible (not built) | - | **D-2** |
+| Design § 3 board «Без группировки» count line | none possible (not built) | - | **D-3** |
+
+### Defects
+
+#### D-1: choosing a grouping is not announced
+- Severity: minor (accessibility; design § 2: "announced through `StatusRegion` («Группировка: По команде»)")
+- Steps: open «Бэклог» at the organization, choose «По команде». Code: `groupingAnnouncement` in `lib/grouping.ts` has no caller; `AggregatePage`/`AggregateWorkItemsPage` pass `changeGrouping` straight to the switch.
+- Expected: a status announcement «Группировка: По команде». Actual: none.
+
+#### D-2: a narrowed empty backlog or board says «В бэклоге пока нет элементов»
+- Severity: minor (design § 3 "Whole view" row: narrowed or filtered gives «Ничего не найдено»)
+- Steps: department level with a team chosen whose groups read returns no groups. `AggregateBacklogView` and `AggregateBoardView` always use `emptyBacklog` / `emptyBoard`. The list page handles it right.
+
+#### D-3: the board without grouping has no "Элементов: N" line
+- Severity: minor (design § 3 "Без группировки": the count shown once for backlog and board). The backlog shows it, the board does not.
+
+### Verdict (provisional)
+
+blockers: 0 · majors: 0 · minors: 3 (D-1..D-3, debt for gate-3). The new tests must be run (single file, then tsc and ESLint) before this pass counts as closed.
