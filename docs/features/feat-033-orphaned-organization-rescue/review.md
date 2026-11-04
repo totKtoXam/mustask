@@ -429,3 +429,64 @@ Resolution:
 - After `gate-1: approved`, stage 3 (design) writes the owed ADR: the
   trigger, the BR-RS-3 disclosures, and the record with its second reader. It
   builds on ADR-0029 § 9 and rewords ADR-0027 rule 4 and ADR-0033 § 1.
+
+## Round 1 — code (security pass included)
+
+Code-reviewer, clean context, 2026-11-04, HEAD 7af90d61, feat-033's commits only
+(df5346c0..7af90d61, the 929ca9f4 merge excluded). Ran: three Vitest files (41
+green), one throwaway probe (deleted). Verdict: **changes-requested**. 0 blocker,
+1 major (CR-1), 6 minor.
+
+Security: clean. Rescue code reached only through `InstanceRoles` system-admin
+(InstanceRoles.cs:37), never an organization bundle (OrganizationRoleBundles.cs:23);
+realm role, foreign client and no-`user` tokens refused (RescueQaGapTests.cs:31-104);
+403 before 404 and body; rows carry name/status/date only; reason is parameterized,
+trimmed as the panel does, never logged, rendered as text; record and membership in one
+SaveChanges (AppointmentRecordAtomicityTests); mod-016 races serialized on the
+organization row (ChangeMemberRoleHandler.cs:84, RemoveMemberHandler.cs:71); nothing in
+deploy/keycloak changes.
+
+- **CR-1 major** `AllOrganizationsPage.tsx:150` — `count === 0 && !isPlaceholderData`
+  drops the no-match frame for an empty table and a 0-row pager while a refined filter
+  loads (probe: empty, table, empty). This is the reported flake at
+  `AllOrganizationsPage.test.tsx:192`: under load the debounce settles mid-typing, the
+  test finds the intermediate frame and loses it. Fix: decide the empty branch on
+  `count === 0` from placeholder data too (or keep the frame while `isPlaceholderData`);
+  add a test that refines a no-match filter and keeps the heading.
+- **CR-2 minor** (QA D-11) `TablePager.tsx:34` — `disabled` drops focus to body. Fix:
+  `aria-disabled` and ignore clicks while busy, or return focus to the arrow after load.
+- **CR-3 minor** `GetRescueOrganizationsHandler.cs:28`, `AppointmentReadModel.cs:24` — a
+  `name` holding U+0000 reaches PostgreSQL, which refuses it (a 500, not run); contract
+  § 1.1 says "never an error". Fix: a filter with U+0000 matches nothing, as
+  `WorkItemFilter.cs:116` does; test `?name=%00`.
+- **CR-4 minor** `DialogShell.tsx:82` — 900 px is a literal a test pins; ui-kit.md § 5
+  item 2 makes it a token in `tokens.ts` with a `theme.test.tsx` pin, and
+  `ui-kit.md:223` repeats it against `ui-kit.md:11`. Fix: token, drop the number from the doc.
+- **CR-5 minor** `AppointAdministratorHandler.cs:104` — contract § 1.3 row 8 (D-1, PK
+  race to `already_member`, nothing written) has no test. Fix: a handler test whose save
+  throws that conflict, asserting no record.
+- **CR-6 minor** `docs/adr/0035-*.md:98` — "serialized by the membership lock": the lock
+  is the organization row's, and a mod-016 add is not serialized (D-1). Fix: say so.
+- **CR-7 minor** `docs/features/doc-006-org-access/spec.md:336-347` still says MVP has
+  no recovery path for H-1. Fix: one line pointing to feat-033 / ADR-0035.
+
+Claims (prose → anchor):
+- plan § 10 `?page=abc` → 400: GetRescueOrganizationsEndpointTests.cs:113. `?page=`
+  only at handler level (GetRescueOrganizationsHandlerTests.cs:59); binding unchecked.
+- plan § 10 1000 organizations, two statements: AppointmentReadModelTests.cs:61. Holds.
+- plan § 10 FK `Restrict`/23001: AppointmentReadModelTests.cs:127. Holds.
+- status "D-1 trims as String.prototype.trim": AppointmentReason.cs:59-79,
+  AppointmentReasonTrimParityTests. Holds.
+- status "pager disabled while refreshing; range follows rows (D-9)":
+  AllOrganizationsPage.tsx:104,173. Holds.
+- status "page 1 when the filter settles (D-10)": AllOrganizationsPage.tsx:100. Holds.
+- status "history on `wide`, reason wraps (D-4, D-5)": AppointmentHistoryDialog.tsx:69,102. Holds.
+- qa pass 2 "kit additions default off": DialogShell, Cell, TablePager defaults. Holds.
+- contract § 1.1 "never an error": CR-3. § 1.3 row 8: OrganizationsSaveChanges.cs:63, untested (CR-5).
+- ADR-0035 § 2 "system-admin only, nothing in Keycloak": InstanceRolesTests, deploy/ untouched. Holds.
+- ADR-0035 § 5 serialization: CR-6.
+- Direction 2: grepped `system-admin`, `organizations.organization.create`,
+  `H-1`/"no recovery path", `TablePager`/`DialogShell` across docs/, the AGENTS.md
+  files and deploy/. Hits: ADR-0027/0033 wording (amended by proposed ADR-0035, as the
+  ADR rules want), src/backend/AGENTS.md (role names only, true), doc-006 spec (CR-7),
+  ui-kit.md (CR-4). Not swept: doc-010/doc-012 analyses citing H-1.
