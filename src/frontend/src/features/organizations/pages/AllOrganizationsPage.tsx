@@ -88,6 +88,9 @@ function AllOrganizations({ onRevoked }: { onRevoked(): void }) {
   // The page the rows on screen belong to: the pager's range moves with them, not before (qa D-9).
   const [shownPage, setShownPage] = useState(1);
   const [shownFilter, setShownFilter] = useState(settled);
+  // The filter the rows on screen answer: the empty frame keeps its wording while a refined or
+  // cleared filter loads over it (code review CR-1).
+  const [dataFilter, setDataFilter] = useState(settled);
   const buttons = useRef(new Map<string, HTMLButtonElement | null>());
   const returnTo = useRef<string | null>(null);
 
@@ -103,6 +106,9 @@ function AllOrganizations({ onRevoked }: { onRevoked(): void }) {
   }
   if (query.data && !query.isPlaceholderData && shownPage !== page) {
     setShownPage(page);
+  }
+  if (query.data && !query.isPlaceholderData && dataFilter !== settled) {
+    setDataFilter(settled);
   }
 
   // Rows deleted meanwhile: the request is repeated for the last page that exists. State adjusted
@@ -147,8 +153,8 @@ function AllOrganizations({ onRevoked }: { onRevoked(): void }) {
         <TableSkeleton headers={RESCUE_COLUMNS} rows={SKELETON_ROWS} />
       ) : query.isError ? (
         <ErrorBanner error={query.error} onRetry={() => void query.refetch()} />
-      ) : count === 0 && !query.isPlaceholderData ? (
-        filtered ? (
+      ) : count === 0 ? (
+        dataFilter !== '' ? (
           <StateFrame
             compact
             icon={CorporateFareOutlinedIcon}

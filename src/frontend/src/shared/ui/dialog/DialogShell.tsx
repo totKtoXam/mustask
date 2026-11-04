@@ -31,7 +31,7 @@ export interface DialogShellProps {
   open: boolean;
   onClose: (reason: DialogCloseReason) => void;
   /**
-   * `confirm` is MUI's xs, `form` sm, `wide` up to 900 px and the window's width below that
+   * `confirm` is MUI's xs, `form` sm, `wide` up to `layout.dialogWideMaxWidth` and the window's width below that
    * (a read-only table that must not scroll sideways), `card` 90 % × 90 % of the window
    * (`layout.card.dialogShare`).
    */
@@ -77,9 +77,6 @@ const CLOSE_LABEL = 'Закрыть';
 const GUARD_CANCEL_LABEL = 'Продолжить редактирование';
 
 const MAX_WIDTH = { confirm: 'xs', form: 'sm', wide: false, card: false } as const;
-
-/** The `wide` size's greatest width, in px; the theme's breakpoints (640 / 1024) have no step for it. */
-const WIDE_MAX_WIDTH = 900;
 
 /** The card's Paper: 90 % × 90 %, no margin, no height cap, a column, and the card container. */
 function cardPaperSx(theme: Theme, fullScreen: boolean) {
@@ -192,7 +189,7 @@ export function DialogShell({
             sx: card
               ? cardPaperSx(theme, fullScreen)
               : size === 'wide'
-                ? { maxWidth: WIDE_MAX_WIDTH }
+                ? { maxWidth: theme.layout.dialogWideMaxWidth }
                 : undefined,
           },
           transition: { onExited },

@@ -1,3 +1,4 @@
+import type { Theme } from '@mui/material/styles';
 import TablePagination from '@mui/material/TablePagination';
 
 export interface TablePagerProps {
@@ -8,7 +9,10 @@ export interface TablePagerProps {
   count: number;
   /** The value, not the event. */
   onPageChange: (page: number) => void;
-  /** Both arrows are inert, e.g. while the next page loads. */
+  /**
+   * Both arrows are inert, e.g. while the next page loads. They stay in the Tab order, marked
+   * `aria-disabled`, so keyboard focus is not dropped to the page when a click starts the load.
+   */
   disabled?: boolean;
 }
 
@@ -24,6 +28,16 @@ export function TablePager({
   onPageChange,
   disabled = false,
 }: TablePagerProps) {
+  const arrow = disabled
+    ? {
+        'aria-disabled': true,
+        sx: (theme: Theme) => ({
+          color: theme.palette.action.disabled,
+          cursor: 'default',
+          '&:hover': { backgroundColor: 'transparent' },
+        }),
+      }
+    : {};
   return (
     <TablePagination
       component="div"
@@ -31,8 +45,12 @@ export function TablePager({
       page={page}
       rowsPerPage={rowsPerPage}
       rowsPerPageOptions={[]}
-      disabled={disabled}
-      onPageChange={(_event, next) => onPageChange(next)}
+      onPageChange={(_event, next) => {
+        if (!disabled) {
+          onPageChange(next);
+        }
+      }}
+      slotProps={{ actions: { previousButton: arrow, nextButton: arrow } }}
       sx={(theme) => ({
         borderTop: `${theme.layout.dividerWidth}px solid ${theme.palette.divider}`,
       })}

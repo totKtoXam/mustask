@@ -15,6 +15,12 @@ internal sealed class AppointmentReadModel(MustaskDbContext context, IUserDirect
     public async Task<RescueOrganizationsPage> GetOrganizationsPageAsync(
         string? nameFilter, int page, int pageSize, CancellationToken cancellationToken)
     {
+        // PostgreSQL refuses U+0000 in text, so no name holds it: such a filter matches nothing, as the work item filter does.
+        if (nameFilter is not null && nameFilter.Contains('\0', StringComparison.Ordinal))
+        {
+            return new RescueOrganizationsPage(0, []);
+        }
+
         var organizations = context.Organizations.AsNoTracking();
 
         if (!string.IsNullOrEmpty(nameFilter))

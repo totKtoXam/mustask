@@ -125,6 +125,30 @@ public sealed class GetRescueOrganizationsEndpointTests(MustaskApiFactory factor
             answer.Body.GetProperty("errors").GetProperty("page")[0].GetProperty("code").GetString());
     }
 
+    // Code review CR-3, contract § 1.1 "never an error": a filter holding U+0000 matches nothing (PostgreSQL refuses the character).
+    [Fact]
+    public async Task List_ANameWithANulCharacter_MatchesNothing_NeverAnError()
+    {
+        var (_, token) = RescueTestData.NewRescuer();
+
+        var answer = await ListAsync("?name=%00", token);
+
+        Assert.Equal(HttpStatusCode.OK, answer.Status);
+        Assert.Equal(0, answer.Body.GetProperty("count").GetInt32());
+        Assert.Empty(Names(answer));
+    }
+
+    // Plan § 10: an empty page value is as invalid as a letter (the binding, not only the handler).
+    [Fact]
+    public async Task List_AnEmptyPage_Returns400()
+    {
+        var (_, token) = RescueTestData.NewRescuer();
+
+        var answer = await ListAsync("?page=", token);
+
+        Assert.Equal((HttpStatusCode.BadRequest, OrganizationErrorCodes.ValidationFailed), (answer.Status, answer.ErrorCode));
+    }
+
     [Fact]
     public async Task List_WithoutTheRight_Returns403_AndAnonymous401()
     {

@@ -197,7 +197,7 @@ describe('tech-015 Scenario: DialogShell (design § 5.10)', () => {
       );
       expect(paper()).not.toHaveClass('MuiDialog-paperWidthSm');
       expect(paper()).toHaveClass('MuiDialog-paperFullWidth');
-      expect(getComputedStyle(paper()).maxWidth).toBe('900px');
+      expect(getComputedStyle(paper()).maxWidth).toBe(`${theme.layout.dialogWideMaxWidth}px`);
       expect(getComputedStyle(paper()).containerType).toBe('');
       expect(backdrop()).not.toHaveClass('MuiBackdrop-invisible');
     });

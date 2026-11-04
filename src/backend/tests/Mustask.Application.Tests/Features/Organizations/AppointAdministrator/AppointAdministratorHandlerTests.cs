@@ -121,6 +121,22 @@ public sealed class AppointAdministratorHandlerTests
         f.AssertNothingWritten();
     }
 
+    // Contract § 1.3 row 8 (D-1): mod-016's lockless add commits first, the insert fails on the primary key, the answer is
+    // already_member and the one transaction rolls back — the membership and the record are one flush, so neither lands.
+    [Fact]
+    public async Task Handle_TheSaveLosesTheMod016AddRace_AnswersAlreadyMember_AndStoresNothing()
+    {
+        var f = new Fixture();
+        f.World.Store.FailNextSave(new ConflictException(OrganizationErrorCodes.MembershipAlreadyMember));
+
+        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command()));
+
+        Assert.Equal(OrganizationErrorCodes.MembershipAlreadyMember, refusal.Code);
+        Assert.Null(f.World.Store.FindMembership(f.World.Organization.Id, "user-vera"));
+        Assert.Equal(1, f.World.Store.SaveCount);
+        Assert.NotEmpty(f.Records.Added); // staged with the membership; the failed flush stored neither
+    }
+
     [Theory]
     [InlineData("never-signed-in", "", OrganizationErrorCodes.RescueUserUnavailable)]
     [InlineData("user-inactive", "", OrganizationErrorCodes.RescueUserUnavailable)]

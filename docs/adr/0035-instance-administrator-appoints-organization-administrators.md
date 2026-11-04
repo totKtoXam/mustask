@@ -95,8 +95,11 @@ Option 2.
    / «Роль изменена» name the acting administrator as for any change.
 5. **Concurrency and order.** Concurrent appointments of one user to one
    organization: exactly one succeeds. A concurrent mod-016 change to the same
-   membership is serialized by the membership lock (ADR-0011), and the later
-   request is judged against the committed state. Refusals are ordered as the spec
+   membership is serialized on the organization row lock (the lock mod-016's
+   change and remove take, ADR-0011), and the later request is judged against the
+   committed state. A mod-016 add takes no lock and is not serialized: one that
+   commits first fails the appointment's insert on the primary key, which answers
+   `membership.already_member` with nothing written (D-1). Refusals are ordered as the spec
    fixes them (BR-RS-6a), starting from ADR-0029 § 8's not-found-first habit.
 
 **Amendments (wording only).**

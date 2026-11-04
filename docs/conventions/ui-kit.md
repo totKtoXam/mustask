@@ -220,7 +220,7 @@ label, show the hint as a permanent helper line.
   when there is no heading — a card still loading), `busy` (nothing closes it),
   `onExpand`, `guard` (opt-in unsaved-changes confirmation on dismissal),
   `onExited`. `wide` is for a read-only table that must not scroll sideways (a
-  history, a record): up to 900 px, the window's width below that, the default
+  history, a record): up to `layout.dialogWideMaxWidth`, the window's width below that, the default
   dimming; the showcase's «Окна» shows it. **The card size draws no dimming** — its backdrop is `invisible`
   (the outside click is still caught; MUI's own large shadow separates it from the
   page; never `hideBackdrop`) — while a `ConfirmDialog` opened over it dims; its
@@ -238,7 +238,7 @@ sticky), `HeadCell` (`sort`, `separator`, `clip`), `BodyRow` (`selected`, `cue`,
 `dragging`), `Cell` (`clip` cuts a long text to one line; `wrap` lets it break, even
 an unbroken word, for a free text such as a reason), `TreeCell`, `RowControl` (revealed by the row's hover, focus
 or selection; `focus="tab"` keeps it in the Tab order, `"roving"` leaves focus to
-a treegrid host), `TablePager` (`disabled` makes both arrows inert while the next page loads), `TableSkeleton`. The row and cell parts pass
+a treegrid host), `TablePager` (`disabled` makes both arrows inert while the next page loads: `aria-disabled`, clicks ignored, they stay focusable so focus is not dropped), `TableSkeleton`. The row and cell parts pass
 `role`, `tabIndex`, `aria-*` and the handlers through to their element. `DataTable`
 is the plain registry with its loading, empty and error states (the error is an
 `InlineNotice` with «Повторить»). A plain table has

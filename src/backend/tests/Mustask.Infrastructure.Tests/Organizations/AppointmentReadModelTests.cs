@@ -56,6 +56,18 @@ public sealed class AppointmentReadModelTests(OrganizationsDatabaseFixture datab
         Assert.Equal($"{tag} Гамма 100%", Assert.Single(percent.Rows).Name);
     }
 
+    // Code review CR-3: U+0000 reaches no statement; the answer is empty, not a PostgreSQL error.
+    [Fact]
+    public async Task Page_ANameFilterWithANulCharacter_MatchesNothing()
+    {
+        await InsertOrganizationAsync($"{Tag()} Альфа");
+
+        var page = await ReadAsync(null, model => model.GetOrganizationsPageAsync("Аль\0фа", 1, 25, CancellationToken.None));
+
+        Assert.Equal(0, page.Count);
+        Assert.Empty(page.Rows);
+    }
+
     // NFR Volumes: 1000 organizations, the list page is a count plus a page, answered within two seconds.
     [Fact]
     public async Task Page_ThousandOrganizations_IsTwoStatements_WithinTwoSeconds()

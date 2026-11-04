@@ -188,13 +188,47 @@ describe('feat-033 US-1: the filter', () => {
     await table();
     const field = screen.getByRole('textbox', { name: 'Поиск по названию' });
 
-    await userEvent.type(field, 'ничего такого');
+    // Pasted, so the text is whole before the pause ends: no intermediate filter can settle.
+    await userEvent.click(field);
+    await userEvent.paste('ничего такого');
     expect(await screen.findByRole('heading', { name: 'Организации не найдены' })).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'Сбросить фильтр' }));
 
     expect(field).toHaveValue('');
     expect(await table()).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Очистить фильтры' })).not.toBeInTheDocument();
+  });
+});
+
+describe('feat-033 code review CR-1: a refined no-match filter', () => {
+  it('keeps «Организации не найдены» while the narrower filter loads, never an empty table', async () => {
+    const { api } = open();
+    await table();
+    const field = screen.getByRole('textbox', { name: 'Поиск по названию' });
+    await userEvent.click(field);
+    await userEvent.paste('ничего такого');
+    expect(await screen.findByRole('heading', { name: 'Организации не найдены' })).toBeVisible();
+
+    let tableSeen = false;
+    let headingGone = false;
+    const watch = () => {
+      tableSeen ||= screen.queryByRole('table') !== null;
+      headingGone ||= screen.queryByRole('heading', { name: 'Организации не найдены' }) === null;
+    };
+    const observer = new MutationObserver(watch);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+    await userEvent.type(field, ' совсем');
+    await waitFor(() =>
+      expect(new URLSearchParams(listReads(api).at(-1)?.search).get('name')).toBe(
+        'ничего такого совсем',
+      ),
+    );
+    await screen.findByRole('heading', { name: 'Организации не найдены' });
+    watch();
+    observer.disconnect();
+
+    expect(tableSeen).toBe(false);
+    expect(headingGone).toBe(false);
   });
 });
 
