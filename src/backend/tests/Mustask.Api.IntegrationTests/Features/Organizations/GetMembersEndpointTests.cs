@@ -186,8 +186,8 @@ public sealed class GetMembersEndpointTests(MustaskApiFactory factory)
     {
         var tag = Tag();
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory, founded: false);
-        var pushes = Enumerable.Range(0, 501).Select(i => UserDirectoryTestData.Push($"m{i:D3}-{tag}", $"Участник{tag}", $"{i:D3}", null)).ToList();
-        pushes.Add(UserDirectoryTestData.Push($"former-{tag}", "Бывший", "Админ", null));
+        var pushes = Enumerable.Range(0, 501).Select(i => UserDirectoryTestData.Person($"m{i:D3}-{tag}", $"Участник{tag}", $"{i:D3}", null)).ToList();
+        pushes.Add(UserDirectoryTestData.Person($"former-{tag}", "Бывший", "Админ", null));
         await UserDirectoryTestData.SeedAsync(factory, pushes);
         await WorkItems.WorkItemsTestData.ExecuteAsync(
             factory,

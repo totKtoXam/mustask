@@ -111,7 +111,7 @@ public sealed class SearchNewTeamMemberCandidatesEndpointTests(MustaskApiFactory
         var (structure, token) = await WorldAsync();
         await UserDirectoryTestData.SeedAsync(
             factory,
-            Enumerable.Range(1, 25).Select(index => UserDirectoryTestData.Push($"n{index:D2}-{tag}", $"Кандидат{tag}", $"Номер{index:D2}", null)));
+            Enumerable.Range(1, 25).Select(index => UserDirectoryTestData.Person($"n{index:D2}-{tag}", $"Кандидат{tag}", $"Номер{index:D2}", null)));
         await WorkItemsTestData.ExecuteAsync(
             factory,
             $"INSERT INTO organization_memberships (organization_id, user_id, role, added_by, added_at) SELECT {structure.OrganizationId}, 'n' || lpad(i::text, 2, '0') || '-' || {tag}, 'member', {OrganizationsTestData.Creator}, now() FROM generate_series(1, 25) i");

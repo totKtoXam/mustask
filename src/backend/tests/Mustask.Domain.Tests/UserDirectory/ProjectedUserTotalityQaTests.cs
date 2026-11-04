@@ -4,17 +4,15 @@ using Mustask.Shared.Exceptions;
 namespace Mustask.Domain.Tests.UserDirectory;
 
 /// <summary>
-/// QA re-check 3 (qa.md, D-5): a push that validation accepts must never fail when the projection derives its own
-/// columns from it — the display name, the search name and e-mail, the sort key. A text that is accepted and then
-/// throws is a 500 on the push channel, which the provider retries without end: the same stall the security pass's S1
-/// and S2 closed for a lone surrogate and U+0000. Every Unicode scalar value is tried, in each field the derivation
-/// reads. Fix-agnostic: a value validation refuses is fine, so is one that derives; one that does neither is the defect.
+/// QA re-check 3 (qa.md, D-5), carried over to the sign-in (tech-025, ADR-0034): claims that validation accepts must never
+/// fail when the projection derives its own columns from them — the display name, the search name and e-mail, the sort key.
+/// A text that is accepted and then throws is a 500 at sign-in, which would end the first sign-in of a person (the session
+/// callback's failure rule). Every Unicode scalar value is tried, in each field the derivation reads. Fix-agnostic: a value
+/// validation refuses is fine, so is one that derives; one that does neither is the defect.
 /// </summary>
 public sealed class ProjectedUserTotalityQaTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 4, 12, 0, 0, TimeSpan.Zero);
-
-    private const long Moment = 1_790_000_000_000_000;
 
     private static IEnumerable<int> ScalarValues()
     {
@@ -29,8 +27,8 @@ public sealed class ProjectedUserTotalityQaTests
         }
     }
 
-    private static UserPushEntry Entry(string firstName, string lastName, string email) =>
-        new("u-1", Moment, "u", firstName, lastName, email, Enabled: true, Deleted: false);
+    private static SignInProfile Profile(string firstName, string lastName, string email) =>
+        new("u-1", "u", firstName, lastName, email);
 
     [Fact]
     public void EveryScalarValueTheValidationAccepts_IsDerivable_InEveryField()
@@ -41,18 +39,20 @@ public sealed class ProjectedUserTotalityQaTests
         {
             var text = char.ConvertFromUtf32(codePoint);
 
-            foreach (var (field, entry) in new (string, UserPushEntry)[]
+            foreach (var (field, profile) in new (string, SignInProfile)[]
             {
-                ("firstName", Entry($"A{text}B", "C", "e@example.test")),
-                ("lastName", Entry("A", $"C{text}D", "e@example.test")),
-                ("email", Entry("A", "C", $"e{text}@example.test")),
+                ("firstName", Profile($"A{text}B", "C", "e@example.test")),
+                ("lastName", Profile("A", $"C{text}D", "e@example.test")),
+                ("email", Profile("A", "C", $"e{text}@example.test")),
             })
             {
                 try
                 {
-                    var pushes = UserPushValidation.Validate([entry], "changes", isSnapshotPage: false, Now);
-                    var user = ProjectedUser.Create(pushes[0], Now);
+                    var user = ProjectedUser.SignIn(profile, Now);
                     _ = user.SortKey;
+
+                    // A later sign-in with other claims derives too.
+                    _ = user.RecordSignIn(profile with { LastName = "Другая" }, Now);
                 }
                 catch (ValidationException)
                 {
