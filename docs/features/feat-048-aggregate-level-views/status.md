@@ -54,6 +54,7 @@ gate-3: pending
 - 2026-11-03 [backend-developer] Contract changed after gate-2, at the frontend's request: each entry of `columns` in the board groups read now carries `header`, `category { code, label }` and `targets [{ typeId, stateId|null }]` besides `key` and `count` (the project board's own column shape), so the panel does not re-derive columns from the process and cannot drift from `BoardLayout.Derive`. Additive; api-contract.md section 2 item 1 updated.
 
 - 2026-11-03 [frontend-developer] Stage 6 completed: server board columns (fcfd1c84) replace the derivation; drag and drop with the OQ-6 A rules; «Без команды» replaces TeamFilter on the project list; the switch on the shipped team and project backlog and board; page tests added. Not built: flat-list sorting (BR-WS-12 fixes the order, no sort param) and the switch on the project list. Whole-suite run due.
+- 2026-11-04 [frontend-developer] The grouping switch on the project «Рабочие элементы» is done: «Без группировки» keeps the shipped list with the switch in its header and «Без команды»; «По команде» shows the aggregate list with the project selector. Page tests added. Whole-suite run still due before the MR.
 
 ## Notes
 

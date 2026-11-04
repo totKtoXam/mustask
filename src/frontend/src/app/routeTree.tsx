@@ -18,6 +18,7 @@ import {
   AggregateWorkItemsPage,
   ProjectBacklogRoute,
   ProjectBoardRoute,
+  ProjectWorkItemsRoute,
   TeamBacklogRoute,
   TeamBoardRoute,
   boardsPermissions,
@@ -73,7 +74,6 @@ import {
   WORK_ITEMS_ROUTE,
   WORK_ITEM_ROUTE,
   WorkItemFormPage,
-  WorkItemsPage,
   workItemsPermissions,
 } from '../features/workitems';
 import { HOME_PATH } from '../shared/config/paths';
@@ -328,7 +328,7 @@ export const routeTree = (
                 title="Рабочие элементы"
                 skeleton="registry"
               >
-                <WorkItemsPage />
+                <ProjectWorkItemsRoute />
               </OrganizationPage>
             }
           />

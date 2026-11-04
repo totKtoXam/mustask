@@ -78,9 +78,9 @@ the process, and `GroupHeader.columns` reuses the project board's column fields.
 
 ## 7. Left
 
+(The switch on the project’s own «Рабочие элементы» is done: `ProjectWorkItemsRoute` shows the shipped list with the switch in its header under «Без группировки», and `AggregateWorkItemsPage` with the project selector under «По команде».)
+
 - Sorting of the flat «Рабочие элементы» (OQ-9 A): there is nothing to build. feat-003 BR-WS-12 fixes
   the order (change time, number, project key; "sorting by a column" is out of its scope) and the
   list read has no sort parameter, so a client sort of one page would be wrong. Kept in the server order.
-- The grouping switch on the project's own «Рабочие элементы» (the shipped list is the older table
-  page; `AggregateWorkItemsPage` already accepts a project selector but is not routed there).
 - A whole-suite run: due before the MR (`VERIFY_FULL=1`), not run in this lane.

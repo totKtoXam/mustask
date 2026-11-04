@@ -15,7 +15,11 @@ import type {
   GroupHeader,
 } from './api/aggregateApi';
 import { AggregateBacklogPage, AggregateBoardPage } from './pages/AggregateViewPages';
-import { ProjectBacklogRoute, ProjectBoardRoute } from './pages/GroupedViewRoutes';
+import {
+  ProjectBacklogRoute,
+  ProjectBoardRoute,
+  ProjectWorkItemsRoute,
+} from './pages/GroupedViewRoutes';
 import { AggregateWorkItemsPage } from './pages/AggregateWorkItemsPage';
 import { ids } from './testFixtures';
 import { teamContext } from './testRender';
@@ -225,6 +229,10 @@ function aggregateRoutes() {
         <Route
           path="/organizations/:organizationId/projects/:projectId/boards/:level"
           element={<ProjectBoardRoute />}
+        />
+        <Route
+          path="/organizations/:organizationId/projects/:projectId/workitems"
+          element={<ProjectWorkItemsRoute />}
         />
       </Route>
       <Route path="*" element={<p>Другая страница</p>} />

@@ -11,6 +11,7 @@ export { AggregateBacklogPage, AggregateBoardPage } from './pages/AggregateViewP
 export {
   ProjectBacklogRoute,
   ProjectBoardRoute,
+  ProjectWorkItemsRoute,
   TeamBacklogRoute,
   TeamBoardRoute,
 } from './pages/GroupedViewRoutes';

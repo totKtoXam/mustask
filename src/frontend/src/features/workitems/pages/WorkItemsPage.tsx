@@ -66,7 +66,7 @@ const COLUMNS = [
  * `?assigneeId=`, `?teamId=`; BR-WS-11, mod-020). The list's first read validates the address.
  * Keyed by its project, so another project starts on its own first page.
  */
-export function WorkItemsPage() {
+export function WorkItemsPage({ headerExtra }: { headerExtra?: ReactNode } = {}) {
   const { organizationId = '', projectId = '' } = useParams<{
     organizationId: string;
     projectId: string;
@@ -76,6 +76,7 @@ export function WorkItemsPage() {
       key={`${organizationId}/${projectId}`}
       organizationId={organizationId}
       projectId={projectId}
+      headerExtra={headerExtra}
     />
   );
 }
@@ -96,9 +97,12 @@ function BandField({ children }: { children: ReactNode }) {
 function WorkItemsList({
   organizationId,
   projectId,
+  headerExtra,
 }: {
   organizationId: string;
   projectId: string;
+  /** The «Группировка» switch of feat-048, drawn beside the title by the route above. */
+  headerExtra?: ReactNode;
 }) {
   /**
    * The four filters — keyword, states, assignees, teams — kept in the address (feat-003 BR-WS-11,
@@ -184,7 +188,11 @@ function WorkItemsList({
 
   return (
     <>
-      <PageHeader title="Рабочие элементы" primaryAction={createAction} />
+      <PageHeader
+        title="Рабочие элементы"
+        titleControl={headerExtra}
+        primaryAction={createAction}
+      />
       <LiveRegion text={announcement.text} serial={announcement.serial} />
       <FilterBar active={filtered} onClear={clearFilters}>
         <BandField>

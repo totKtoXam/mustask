@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { HttpResponse, http } from 'msw';
+import { server } from '../../../test/mocks/server';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { dataTransfer, fireDrag } from '../testDrag';
@@ -246,6 +248,52 @@ describe('OQ-7/OQ-8 A: the switch on the shipped project pages', () => {
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'По команде' }));
 
     expect(await screen.findByRole('button', { name: /Без команды/ })).toBeInTheDocument();
+    const read = api.of('groups').at(-1);
+    expect(read?.params.get('grouping')).toBe('team');
+    expect(read?.params.get('projectId')).toBe(ids.msk);
+  });
+});
+
+describe('US-11 Scenario: the switch on the project «Рабочие элементы»', () => {
+  const PROJECT_LIST = `/organizations/${ids.example}/projects/${ids.msk}/workitems`;
+  const SHIPPED = `http://localhost:5000/api/organizations/${ids.example}/projects/:projectId/workitems`;
+
+  it('keeps the shipped list under «Без группировки» with the switch beside the title and «Без команды»', async () => {
+    server.use(
+      http.get(SHIPPED, () => HttpResponse.json({ count: 0, data: [] })),
+      http.get(`${SHIPPED}/assignee-options`, () => HttpResponse.json([])),
+    );
+    serveAggregate({ groups: {} });
+    renderAggregate(PROJECT_LIST, { context: teamContext({ teamId: undefined }) });
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Группировка: Без группировки' }),
+    );
+    expect(screen.getAllByRole('menuitemradio').map((item) => item.textContent)).toEqual([
+      'Без группировки',
+      'По команде',
+    ]);
+    await userEvent.keyboard('{Escape}');
+    expect(await screen.findByRole('checkbox', { name: 'Без команды' })).toBeInTheDocument();
+  });
+
+  it('shows the aggregate list fixed to the project under «По команде»', async () => {
+    server.use(
+      http.get(SHIPPED, () => HttpResponse.json({ count: 0, data: [] })),
+      http.get(`${SHIPPED}/assignee-options`, () => HttpResponse.json([])),
+    );
+    const api = serveAggregate({
+      groups: { team: [header('team', null, null, 1)] },
+      rowsOf: () => [mskRow(4)],
+    });
+    renderAggregate(PROJECT_LIST, { context: teamContext({ teamId: undefined }) });
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Группировка: Без группировки' }),
+    );
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'По команде' }));
+
+    expect(await screen.findByText('MSK-US-4')).toBeInTheDocument();
     const read = api.of('groups').at(-1);
     expect(read?.params.get('grouping')).toBe('team');
     expect(read?.params.get('projectId')).toBe(ids.msk);

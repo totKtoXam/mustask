@@ -1,10 +1,12 @@
 import type { ComponentType } from 'react';
 import { useParams } from 'react-router-dom';
+import { WorkItemsPage } from '../../workitems';
 import { GroupingSwitch } from '../components/GroupingSwitch';
 import { GroupingSlot } from '../components/groupingSlot';
 import { useAddressSelectors, useGroupingChoice } from '../hooks/useAggregateView';
 import { isBoardLevel } from '../lib/levels';
 import { AggregatePage } from './AggregateViewPages';
+import { AggregateWorkItemsPage } from './AggregateWorkItemsPage';
 import { BacklogPage } from './BacklogPage';
 import { BoardPage } from './BoardPage';
 import { ProjectBacklogPage } from './ProjectBacklogPage';
@@ -68,4 +70,29 @@ export function ProjectBacklogRoute() {
 
 export function ProjectBoardRoute() {
   return <GroupedRoute view="boards" title="Канбан" Shipped={ProjectBoardPage} />;
+}
+
+/**
+ * The project's «Рабочие элементы» with the switch (feat-048 BR-AV-2, US-11): «Без группировки» is
+ * the shipped list with the switch beside its title and the «Без команды» control kept; «По
+ * команде» is the aggregate list fixed to the project.
+ */
+export function ProjectWorkItemsRoute() {
+  const { organizationId = '' } = useParams<{ organizationId: string }>();
+  const selectors = useAddressSelectors();
+  const choice = useGroupingChoice(organizationId, 'workitems', selectors);
+  if (choice.grouping === 'none') {
+    return (
+      <WorkItemsPage
+        headerExtra={
+          <GroupingSwitch
+            offered={choice.offered}
+            value={choice.grouping}
+            onChange={choice.changeGrouping}
+          />
+        }
+      />
+    );
+  }
+  return <AggregateWorkItemsPage choice={choice} />;
 }

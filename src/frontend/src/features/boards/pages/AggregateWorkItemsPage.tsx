@@ -30,6 +30,7 @@ import {
   useAggregateView,
   useNarrowedTag,
   type AggregateViewState,
+  type GroupingChoice,
 } from '../hooks/useAggregateView';
 import { aggregateTexts, countText } from '../lib/aggregateTexts';
 import { groupIdOf } from '../lib/openGroups';
@@ -128,7 +129,7 @@ function FlatList({
  * flat list with pager by default, or the same rows in groups of one grouping, each read by its
  * cursor. The filters are feat-003's, held in the address; the grouping is not.
  */
-export function AggregateWorkItemsPage() {
+export function AggregateWorkItemsPage({ choice }: { choice?: GroupingChoice } = {}) {
   const { organizationId = '' } = useParams<{ organizationId: string }>();
   const selectors = useAddressSelectors();
   const [filter, setFilter] = useWorkItemFilter();
@@ -139,6 +140,7 @@ export function AggregateWorkItemsPage() {
     level: 'stories',
     selectors,
     filter: listFilter,
+    choice,
   });
   const narrowed = useNarrowedTag(organizationId, selectors);
   const filtered = isFiltered(filter);
