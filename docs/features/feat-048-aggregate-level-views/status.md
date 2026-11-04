@@ -63,6 +63,8 @@ gate-3: pending
 
 - 2026-11-04 [orchestrator] Frontend QA D-4 (tsc -b broken by an import in useAnnouncement.ts) fixed; tsc -b clean, AggregateViews.states 3/3. Stage 7 pass. Next: full Vitest rerun on the lane, then stage 8 review.
 
+- 2026-11-04 [code-reviewer] Stage 8 round 1 at 82b4d233 (review.md): changes-requested; open 0 blockers, 4 majors (F1, F2 code; F3 test + plan; F4 prose), 8 minors (debt).
+
 ## Notes
 
 Summary (from the queue line): «Рабочие элементы», «Канбан» and «Бэклог» at the organization and department level and «Рабочие элементы» at the team level: the organization-wide work-item list with feat-003's filters and keyword rules, and the aggregate backlogs and boards of every active project (department: the projects placed in it) as one collapsible group (swimlane on the board) per project in the project's own rank order, with a move inside a group and rows loaded per project as a group opens (reads capped at 4 in flight per tab, paged by a cursor), with the additive reads and the budgets of BR-NV-12 and BR-NV-20. Spec and stories US-6, US-10 live in feat-043's folder (its OQ-9); takes feat-042's board and backlog part, BR-NE-8's cross-project list and mod-020 CR-2's test.
