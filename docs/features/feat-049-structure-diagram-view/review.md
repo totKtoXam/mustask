@@ -147,3 +147,93 @@ Not re-reviewed yet; the statuses above are the reviewer's, these are the analys
 - R-12: US-1 «What survives a switch».
 
 Open questions for the human, recommended option: OQ-1 A, OQ-2 A, OQ-3 A, OQ-4 A, OQ-5 A, OQ-6 A, OQ-7 A.
+
+## Round 1 — code (stage 8)
+
+Reviewer: code-reviewer, clean context, 2026-11-04, HEAD 550345ee. Input: `git diff 02fc1973..HEAD` (frontend and docs only, no backend), `spec.md`, US-1..US-3, `design.md`, `plan-frontend.md`, `qa.md`, `status.md` § Decisions, `docs/conventions/frontend.md`, `docs/conventions/ui-kit.md`. Size M: one round over the whole diff, and security is covered here (no separate L pass). Runs (single files only): kitGuard, colourLiterals, contrast, `IconToggleGroup.test.tsx`, `organizations/lib/*`, `useStructureSettings.test.tsx` — 793 green; ESLint 0 errors (1 old warning in `AreaTypeMark.tsx`); `tsc -b` clean.
+
+**Verdict: `changes-requested`.** 0 blocker, 2 major, 7 minor. Both majors are fixed by a prose edit or one test, with no runtime change. QA's F-3 and F-4 stay open as minors and are not repeated here, except where CR-6 adds to F-4.
+
+### Scope and architecture
+- Shared changes are only `shared/ui/actions/IconToggleGroup.tsx` (with its test, export, showcase entry and `ui-kit.md` block), the `BoxedTabs` docblock, and `shell.levelThree` / `shell.levelFour` with their contrast pairs. Nothing changes under `app/navigation` or the route tree, and `src/test/kitGuard.allow.ts` is untouched. OK.
+- No new npm dependency. MUI 9.4 `ToggleButtonGroup` provides the roving tab index (`useRovingTabIndexRoot`), so the "one Tab stop" claim is true of the library.
+- Import of `../../auth/AuthContext` from the slice: the same pattern as `MembersPage` and the reference slice (auth has no `index.ts`). Not a finding.
+
+### Security
+- XSS: no `dangerouslySetInnerHTML` or `innerHTML` in the diff. Node and team names render as React text and `title` attributes, and the SVG has no data in markup. OK.
+- `localStorage`: three keys `mustask.structure.<setting>.v1.<sub>.<org>`. Each read is matched against an allow-list with a default and wrapped in try/catch (`useStructureSettings.ts:31-38`), and values are written only from user handlers. The value of `mustask.context.v2` is not touched. OK.
+- Requests: `selector-offers` runs only while the diagram is shown (`AreasPage.tsx:61`). Nothing else is fetched, and no write exists in the diagram. Navigation targets come from `useObjectLink` / `useAreaRowLink` (internal paths). No secrets. OK.
+- Nothing widens what a role reads: both reads already exist for every organization role.
+
+### Findings
+
+#### CR-1
+Severity: major
+Where: `design.md:140` ("each button is its own Tab stop (MUI default)"), `spec.md:35` BR-SD-10 ("the toolbar controls (each button of the three toggles, …) … are separate stops")
+Problem: the orchestrator's stage-6 decision (status § Decisions) made each `IconToggleGroup` one Tab stop. Four places follow it: US-2 (edited in this diff), `ui-kit.md`, the `IconToggleGroup` docblock and the test. But design § 4.9, rewritten in this same diff, still says one stop per button and calls that MUI's default (in MUI 9 it is not), and BR-SD-10 says the same. The diff contradicts itself, so this is major regardless of what the code does (stage file, "Severity"). A developer or QA who acts on the spec would "fix" the kit part back.
+Fix: rewrite both sentences to say "each toggle group is one Tab stop, arrow keys between its buttons", citing the stage-6 decision. Prose only: one delta read, no QA.
+
+#### CR-2
+Severity: major
+Where: `spec.md:59` NFR Volume: "Tests check what is stable: no read beyond the two, no layout rebuild on choosing in «Затемнение» and «Подсветка»"; `qa.md:47` ("choosing in «Затемнение» and «Подсветка» rebuilds no layout")
+Problem: no test checks either property. No test spies on or counts `layoutDiagram`. The read test (`AreasPage.diagram.qa.test.tsx:313-328`) asserts no writes and `selector-offers` ≤ 2, but never that every GET is one of the two reads, despite its title "no new kind of read". The QA sentence is also wrong by code: `choose()` patches `expansion` / `sections` when an emphasised card is collapsed or folded (`StructureDiagram.tsx:190-196`), which rebuilds the layout (BR-SD-11 allows this). The guarantee an agent would rely on when touching the `useMemo` deps (`StructureDiagram.tsx:116-125`) does not exist.
+Fix: either add one test, starting fully expanded: mock `../lib/diagramLayout` with a pass-through spy, choose a department in «Затемнение» and in «Подсветка», and assert no new `layoutDiagram` call; and assert that every GET path matches the areas or `selector-offers` URL. Or weaken both sentences to "checked by code review" and say that choosing a hidden node opens branches, which does rebuild. A test edit means QA re-runs only over that file.
+
+#### CR-3
+Severity: minor
+Where: `StructureDiagram.tsx:430-435`
+Problem: `emptyText` treats "no card drawn" as "nothing related" or "no level matches". Folding both sections (no node chosen, no level pressed) shows «Нет связанных узлов» under the headers. With a level pressed it shows «Нет узлов на выбранных уровнях», which is also wrong there. The text at `rulerY + 56` also overlaps the second section header in the horizontal layout.
+Fix: compute the empty case per unfolded section, or skip it when every section is folded. Position the text below the last header.
+
+#### CR-4
+Severity: minor
+Where: `diagramLayout.ts:207-210, 281-286`; `StructureDiagram.tsx:260-262`
+Problem: in the vertical layout, chips are pushed only for unfolded sections that keep at least one root. Folding both sections, or a section emptied by «Только связанные», removes the level chips, pressed ones included. «Все уровни» then sends focus to `[data-chip="1-0"]`, which does not exist, so focus falls to `body`.
+Fix: emit the chips of a folded section in a slim band, or fall back to the horizontal ruler chips. In `resetLevels`, fall back to the tree's focus item when no chip exists.
+
+#### CR-5
+Severity: minor
+Where: `pages/AreasPage.diagram.test.tsx:33, 89, 121, 158`
+Problem: four test titles claim more than they assert. "…and a damaged value means the tree" asserts only the diagram. "reads only the area tree until the diagram is open, and the offers once" asserts no request. "chooses with Space, Escape clears" presses neither key. "«Только связанные» keeps the chosen branch" never checks which cards remain. US-1 «Switching by keyboard» ("confirm … the view changes") is also untested: only the focus move is.
+Fix: add the missing assertions (request log; Space then `aria-selected`, Escape then none; a removed card absent; Enter on «Диаграмма» shows the tree role), or retitle the tests.
+
+#### CR-6
+Severity: minor (adds to QA F-4)
+Where: `diagramZoom.ts:8-10, 18-20`; `StructureDiagram.tsx:297-302`
+Problem: `wheelZoom` rounds through `clampZoom` to 0.01, and `zoomTo` returns when the rounded value is unchanged. Small Ctrl+wheel deltas (precision touchpads and pinch, deltaY of about 1-4) round back to the same zoom at every event, so the picture never zooms while the page zoom is still prevented.
+Fix: with F-4, keep an unrounded zoom accumulator in a ref (updated per event, not per render). Round only for display and for the stored state.
+
+#### CR-7
+Severity: minor
+Where: `plan-frontend.md:34` vs `stories/US-1-view-switch.md:124-127`
+Problem: US-1 «The empty organization» says "When I choose «Диаграмма» … the same empty state". The code hides the switch in an empty organization (`AreasPage.tsx:194`), as the plan says, so nobody can choose. The plan does not list this under § 6 Deviations, and the story still reads as if the switch were there.
+Fix: add it to plan § 6, and reword the story to "the switch is not shown; the empty state is the tree's, whatever view is remembered".
+
+#### CR-8
+Severity: minor
+Where: `LevelChip` in `StructureDiagram.tsx:676-727`
+Problem: the level chip is a hand-built toggle button: a `span role="button"` with its own key handling, focus ring and `aria-pressed`. `src/frontend/AGENTS.md` puts a missing pattern into the kit first. This is plan deviation 2, but no recorded decision accepts it: status § Decisions covers only the toggle Tab stop.
+Fix: either the orchestrator records the deviation in § Decisions, or a coloured toggle chip goes to the kit as a follow-up line.
+
+#### CR-9
+Severity: minor
+Where: `AreasPage.tsx:60`; `spec.md:96`
+Problem: the comment cites BR-SD-7, which is superseded; the rule meant is BR-SD-3. The OQ-7 row says "Answered A" and still ends with "Awaiting the human; not decided here."
+Fix: cite BR-SD-3, and drop the stale sentence. Both can go into CR-1's prose edit.
+
+### Behavioural claims (item 6)
+- `ui-kit.md:76, 120-124` IconToggleGroup (one stop, arrows, `aria-pressed`, tint + 3 px underline, ring inside): anchored at `IconToggleGroup.tsx:36-49, 86-94` (frame.thick 2 + 1) and `IconToggleGroup.test.tsx:73-82`.
+- `BoxedTabs.tsx:146-148` (exception for a same-address view): anchored at `AreasPage.tsx:205-214` (no route change).
+- `tokens.ts` "5.6:1", "8:1": anchored at `contrast.test.ts:136-143`.
+- `IconToggleGroup.tsx` docblock "MUI's roving focus": anchored in `@mui/material/ToggleButtonGroup/ToggleButtonGroup.js:205` (v9.4).
+- `useStructureSettings.ts` docblock (own keys, allow-list, written only on choice): anchored at `:31-38, 80-100` and the test `:17-46`.
+- `useDiagramView.ts` docblock (kept across switch, dropped on organization change): anchored at `:34-38`; the search and zoom halves by `AreasPage.diagram.test.tsx:55-64`.
+- `useAreaRowLink.ts` docblock (BR-SD-6 links): anchored at `:15-22`.
+- `spec.md` Out of scope ("the one new shared part is IconToggleGroup"): anchored by the diff (`shared/ui` holds only that file new).
+- `spec.md:35` BR-SD-10 toggle stops → CR-1. `spec.md:59` "Tests check …" → CR-2. `spec.md:96` stale sentence → CR-9.
+- `design.md:140` "its own Tab stop (MUI default)" → CR-1. `design.md` Kit point 1 "Accepted by the human at gate-1+2 round 5": anchored at status § Decisions, round 5.
+- `stories/US-2` keyboard scenario (one stop per toggle): anchored at `IconToggleGroup.test.tsx:73-82`.
+- `plan-frontend.md` § 3 (offers notice, offers 404 takes not-found): anchored at `AreasPage.tsx:84-86`, `StructureDiagram.tsx:477-488`. Empty organization → CR-7.
+- `plan-frontend.md` § 4 keys: anchored at `StructureDiagram.tsx:339-410`. § 6 deviations 1, 3-6: anchored at `IconToggleGroup.tsx:36`, `DiagramNode.tsx:101-110`, `diagramLayout.ts:136-145`, `diagramLevels.ts:30-42`. Deviation 2 → CR-8.
+- `qa.md:47` "rebuilds no layout" → CR-2. `qa.md` F-1 fix: anchored at `StructureDiagram.tsx:707-713` and `diagramContrast.test.ts`. F-2 fix: anchored at `StructureDiagram.tsx:240-249`.
+- Direction 2: the changed behaviours are the tree view's page-head «Развернуть всё» hidden in the diagram, `rowLink` moved to `useAreaRowLink`, `selector-offers` now read on «Структура», and the toggle-group pattern. I grepped `AreasPage|rowLink|IconToggleGroup|ToggleButtonGroup|BoxedTabs` over `docs/conventions`, `docs/adr`, `AGENTS.md`, `src/frontend/AGENTS.md` and `.claude`. The only hit is `ui-kit.md`, already in the diff and consistent. ADR-0032 § 6 (the selection's key) is untouched by the new keys. Not swept: the merged feat-043 artifacts that describe «Структура» as a tree only. They are a closed feature's record, not live instructions.
