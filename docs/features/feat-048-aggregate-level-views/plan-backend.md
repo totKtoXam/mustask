@@ -7,11 +7,11 @@ Stage 4a. Contract: [api-contract.md](api-contract.md). Decisions behind it: spe
 | Part | Where |
 |---|---|
 | Grouping rules (BR-AV-2 offers, parse) | `Mustask.Domain/Boards/AggregateGrouping.cs` |
-| Request parsing shared by the five reads (grouping, selectors, feat-003 filters, group, limit, cursor) | `Application/Abstractions/Boards/AggregateRequest.cs` (an abstraction, not a slice-to-slice reference) |
+| Request parsing shared by the five reads (grouping, selectors, feat-003 filters, group, limit, cursor) | `Application/Abstractions/Boards/AggregateParameters.cs` (an abstraction, not a slice-to-slice reference) |
 | Cursor: opaque, forward only, two order keys, fingerprinted | `Application/Abstractions/Boards/GroupCursor.cs` |
 | Read side | `Application/Abstractions/Boards/IAggregateViewReadModel.cs` (every method takes `CallerAccess` first, BR-NV-15), `Infrastructure/Boards/AggregateViewReadModel.cs` |
 | Slices (one folder each) | `Features/Boards/GetViewGroups`, `GetBacklogGroupRows`, `GetBoardCells`, `GetWorkItemGroupRows`; `Features/WorkItems/GetOrganizationWorkItems`, `GetOrganizationAssigneeOptions` |
-| Limiter (ADR-0036 § 3) | `Mustask.Api/Features/Boards/ReadLimiter*.cs`, an endpoint filter on the group and cell reads only (OQ-2 A) |
+| Limiter (ADR-0036 § 3) | `Mustask.Api/Features/Boards/AggregateReadLimiter.cs`, an endpoint filter on the group and cell reads only (OQ-2 A) |
 | Endpoints | `Mustask.Api/Features/Boards/AggregateViewEndpoints.cs` (all eight routes mapped in full) |
 | Migration `AggregateViewIndexes` (D-5 A) | four new `work_items` indexes, one replaced |
 | Catalogue | `http.too_many_requests` (429, platform), `boards.invalid_cursor`, `boards.invalid_grouping`, `boards.invalid_parameter` (field reasons) in `contracts/errors/*.json` and `docs/error-codes.md` |
@@ -35,12 +35,12 @@ Stage 4a. Contract: [api-contract.md](api-contract.md). Decisions behind it: spe
 | Test | Covers |
 |---|---|
 | `Mustask.Domain.Tests` `AggregateGroupingTests` | BR-AV-2 offers per level |
-| `Mustask.Application.Tests` `GroupCursorTests`, `AggregateRequestTests` | round trip, malformed, foreign (fingerprint), limit bounds |
-| `Mustask.Api.IntegrationTests` `AggregateViewGroupsEndpointTests` | US-11 scenarios on the cast: departments with «Без департамента» first, teams with «Без команды» first, project order, counts and `total`, board column counts, none, deactivated project absent, other organization absent |
-| `AggregateViewRowsEndpointTests` | change-time order, ties on number by project key, cursor paging with no row twice and none lost when a change time moves, rank order and a move seen at the next read, 400s on cursor/grouping/group/limit/column, 404 for a deactivated project's group |
-| `OrganizationWorkItemsEndpointTests` | the flat list: order, total, keyword (title, identifier, number), state filter reaching «Удалена», selectors |
-| `ReadLimiterTests` (fake `TimeProvider`) | two tabs = 8 reads, 6 run, 2 wait, none refused; 13th refused; wait 3 s then 429 with `Retry-After: 2`; global 40+20; the key is the subject across organizations |
-| `AggregateViewStatementCountTests` | statement counts constant at 5 and at 50 projects |
+| `Mustask.Application.Tests` `GroupCursorTests`, `AggregateParametersTests` | round trip, malformed, foreign (fingerprint), limit bounds |
+| `Mustask.Api.IntegrationTests` `AggregateViewEndpointTests` (the groups, rows, cells and flat list; `AggregateViewQaTests` adds the QA cases) | US-11 scenarios on the cast: departments with «Без департамента» first, teams with «Без команды» first, project order, counts and `total`, board column counts, none, deactivated project absent, other organization absent |
+| (in `AggregateViewEndpointTests`) | change-time order, ties on number by project key, cursor paging with no row twice and none lost when a change time moves, rank order and a move seen at the next read, 400s on cursor/grouping/group/limit/column, 404 for a deactivated project's group |
+| (in `AggregateViewEndpointTests`) | the flat list: order, total, keyword (title, identifier, number), state filter reaching «Удалена», selectors |
+| `AggregateReadLimiterTests` (fake `TimeProvider`) | two tabs = 8 reads, 6 run, 2 wait, none refused; 13th refused; wait 3 s then 429 with `Retry-After: 2`; global 40+20; the key is the subject across organizations |
+| `Mustask.Infrastructure.Tests` `AggregateViewStatementCountTests` | statement counts of the groups read, a group's first page (change-time and rank order), a cell and the flat list (shallow, deep, keyword), equal at 5 and at 50 projects |
 | `AggregateViewVolumeTests` | BR-AV-11 at 200 projects and 1 000 000 items: counts, first page and a later page of every grouping and of the stream, within 2 s |
 | route inventory, `DeletedItemSurfaceMatrixTests`, `OrganizationAddressedRoutes` | the eight new routes classified; the pinned count 73 becomes 81 |
 | `RulesAreNotVacuous` style signature test | BR-NV-15 on `IAggregateViewReadModel` |

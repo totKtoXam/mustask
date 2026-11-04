@@ -20,6 +20,7 @@ gate-3: pending
 
 ## Decisions
 
+- OQ-9 A clarified by the orchestrator, 2026-11-04 (review F4; to be shown to the human at gate-3): the flat «Рабочие элементы» has no sort control. "Sorting" there means BR-WS-12's fixed order, because feat-003 puts column sorting out of scope. spec BR-AV-8 and OQ-9, US-11 and design § 4 and the prototype line are reworded; no code change.
 - Gate-1 questions, 2026-11-03, the human in chat, one by one: OQ-1 A (auto-retry by Retry-After, then «Повторить»), OQ-2 A (limiter on group and cell reads only, keyword read an accepted risk), OQ-3 A (4 per tab, 6 per user with a short wait queue, keyed by the Keycloak subject per API process), OQ-4 A (cursor 400 reloads, refusal keeps rows, deactivated project drops its group), OQ-5 A (filter parameters on the reads now, no filter bar on aggregate board/backlog until feat-013), OQ-6 A («В конец» is the project backlog's end, «Ниже» on the last loaded row disabled). Gate-1 approved right after.
 
 - Gate-2 questions, 2026-11-03, the human in chat after the prototype was sent to them: D-1 A (the Q-9 hint once under the page header), D-2 A (per user 6 + queue 6, global 40 + queue 20, 3 s wait, 429 Retry-After 2), D-3 A (a card dropped into a part-loaded cell re-reads that cell from its first page), D-4 A (the «Команда» column stays at team level). Gate-2 verdict itself asked separately.

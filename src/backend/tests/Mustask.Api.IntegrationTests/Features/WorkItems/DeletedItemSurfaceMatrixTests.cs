@@ -80,6 +80,18 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
         Assert.Equal(new[] { m.S, m.L, m.C, m.SC }.Select(item => item.Identifier).Order(StringComparer.Ordinal), Identifiers(live.Body.GetProperty("data").EnumerateArray()).Order(StringComparer.Ordinal));
         Assert.Equal(0, (await WorkItemsTestData.ListAsync(factory, world.Items, "?state=" + Uri.EscapeDataString("удалена"))).Body.GetProperty("count").GetInt32());
 
+        // Row 1 (feat-048 BR-AV-8) · the organization-wide groups and rows read the same sets as the list: the bin only by the chosen name.
+        var orgPath = OrganizationsApi.Organization(world.OrganizationId);
+        foreach (var (query, expected) in new[] { ("", new[] { m.S, m.L, m.C, m.SC }), ("&state=" + Uri.EscapeDataString("Удалена"), new[] { m.D, m.DC, m.FD }) })
+        {
+            var rows = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, orgPath + "/workitems/rows?grouping=none&limit=50" + query, token: OrganizationsTokens.SignedIn());
+            Assert.Equal(expected.Select(item => item.Identifier).Order(StringComparer.Ordinal), Identifiers(rows.Body.GetProperty("rows").EnumerateArray()).Order(StringComparer.Ordinal));
+            var groups = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, orgPath + "/workitems/groups?grouping=none" + query, token: OrganizationsTokens.SignedIn());
+            var header = groups.Body.GetProperty("groups").EnumerateArray().Single();
+            Assert.Equal(expected.Length, header.GetProperty("count").GetInt32());
+            Assert.True(header.GetProperty("total").GetInt32() >= header.GetProperty("count").GetInt32());
+        }
+
         // Row 1 (feat-003 BR-WS-6) · the «Исполнитель» options read the same sets: the person of the deleted DC is offered while a chosen
         // state reaches the bin, and not otherwise.
         var optionsPath = WorkItemsTestData.List(world.Items) + "/assignee-options";
@@ -315,14 +327,14 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
         ["GET " + OrgTeam + "/boards/{level}"] = Reads.LiveOnly,
         ["GET " + Project + "/backlogs/{level}"] = Reads.LiveOnly,
         ["GET " + Project + "/boards/{level}"] = Reads.LiveOnly,
-        // feat-048: the aggregate views. The grouped counts, group pages and cell pages read live items; the organization-wide list and
-        // its assignee options reach the bin by a chosen state as the project's do (their blocks are in AggregateViewEndpointTests).
+        // feat-048: the aggregate views. The grouped counts, group pages and cell pages read live items; the organization-wide list, its groups and rows
+        // and its assignee options reach the bin by a chosen state as the project's do (their blocks are in AggregateViewEndpointTests).
         ["GET " + Org + "/backlogs/{level}/groups"] = Reads.LiveOnly,
         ["GET " + Org + "/boards/{level}/groups"] = Reads.LiveOnly,
-        ["GET " + Org + "/workitems/groups"] = Reads.LiveOnly,
+        ["GET " + Org + "/workitems/groups"] = Reads.LiveOrChosenDeleted,
         ["GET " + Org + "/backlogs/{level}/rows"] = Reads.LiveOnly,
         ["GET " + Org + "/boards/{level}/cells"] = Reads.LiveOnly,
-        ["GET " + Org + "/workitems/rows"] = Reads.LiveOnly,
+        ["GET " + Org + "/workitems/rows"] = Reads.LiveOrChosenDeleted,
         ["GET " + Org + "/workitems"] = Reads.LiveOrChosenDeleted,
         ["GET " + Org + "/workitems/assignee-options"] = Reads.LiveOrChosenDeleted,
         ["GET " + ProjectTeam + "/unlink-count"] = Reads.CountsOwnedInAnyState,
@@ -373,9 +385,9 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
             ["GET " + ProjectTeam + "/unlink-count", "GET " + OrgTeam + "/deletion-counts"],
             ReadRoutes.Where(read => read.Value == Reads.CountsOwnedInAnyState).Select(read => read.Key).Order(StringComparer.Ordinal));
 
-        // feat-003: the four reads that can reach the bin by a chosen state are exactly these, and each has a block in the matrix.
+        // feat-003: the six reads that can reach the bin by a chosen state are exactly these, and each has a block in the matrix.
         Assert.Equal(
-            ["GET " + Project + "/workitems", "GET " + Project + "/workitems/assignee-options", "GET " + Org + "/workitems", "GET " + Org + "/workitems/assignee-options"],
+            ["GET " + Project + "/workitems", "GET " + Project + "/workitems/assignee-options", "GET " + Org + "/workitems", "GET " + Org + "/workitems/assignee-options", "GET " + Org + "/workitems/groups", "GET " + Org + "/workitems/rows"],
             ReadRoutes.Where(read => read.Value == Reads.LiveOrChosenDeleted).Select(read => read.Key).Order(StringComparer.Ordinal));
     }
 }

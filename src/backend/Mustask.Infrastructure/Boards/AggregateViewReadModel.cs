@@ -376,7 +376,11 @@ internal sealed class AggregateViewReadModel(MustaskDbContext context, IUserDire
         var rows = (await backlogs.ReadByIdsAsync(page.Select(candidate => candidate.Id).ToList(), caller.OrganizationId, cancellationToken))
             .ToDictionary(row => row.Id);
 
-        return page.Select(candidate => new GroupRow(rows[candidate.Id], candidate.ChangedAt)).ToList();
+        // An item purged between the candidate statement and this one is dropped, not an error.
+        return page
+            .Where(candidate => rows.ContainsKey(candidate.Id))
+            .Select(candidate => new GroupRow(rows[candidate.Id], candidate.ChangedAt))
+            .ToList();
     }
 
     /// <summary>An item chosen for a page: its id, the keys of both orders and the project key (a change-time order's last key).</summary>

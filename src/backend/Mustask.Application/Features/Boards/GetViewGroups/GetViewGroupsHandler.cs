@@ -77,7 +77,8 @@ public sealed class GetViewGroupsHandler(
                     .ToList();
             }
 
-            var totalCount = totals.GetValueOrDefault(group.Key ?? Guid.Empty);
+            // The total ignores the filters but reads live items; a state filter naming «Удалена» reaches the bin, so it never reads below the count.
+            var totalCount = Math.Max(totals.GetValueOrDefault(group.Key ?? Guid.Empty), count);
 
             headers.Add(parsed.Grouping switch
             {

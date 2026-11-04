@@ -107,7 +107,8 @@ if (builder.Environment.IsDevelopment())
             .WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .AllowCredentials()));
+            .AllowCredentials()
+            .WithExposedHeaders("Retry-After")));
     // ADR-0022: .AllowCredentials() вернулся — эта строка
     // раньше несла комментарий "снят" (шаг сноса старого cookie/anti-CSRF
     // контура), и с тех пор он не совпадал с кодом:

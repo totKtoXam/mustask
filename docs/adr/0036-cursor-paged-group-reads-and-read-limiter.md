@@ -2,7 +2,7 @@
 
 - Status: proposed
 - Date: 2026-11-03
-- Context: `feat-048-aggregate-level-views` ([design](../features/feat-048-aggregate-level-views/design.md) § 6), owed by `feat-043`'s design § 12 and BR-NV-20 (Q-13 A). **Deviates from ADR-0014 and ADR-0015 for these reads only.** Accepted only by the human (`docs/adr/README.md`, rule 2).
+- Context: `feat-048-aggregate-level-views` ([design](../features/feat-048-aggregate-level-views/design.md) § 7), owed by `feat-043`'s design § 12 and BR-NV-20 (Q-13 A). **Deviates from ADR-0014 and ADR-0015 for these reads only.** Accepted only by the human (`docs/adr/README.md`, rule 2).
 
 ## Problem
 
@@ -42,5 +42,5 @@ Option 2.
 
 - Easier: stable, cheap deep pages; a ceiling under the pool; a defined, retryable refusal.
 - Harder: two paging shapes (the envelope for lists, the cursor for group reads), documented here; the limiter's state is in memory, so a second API replica has its own limits and its own pool (acceptable, the pool is per process); the BFF (ADR-0022) must pass `Retry-After`.
-- Locked in: the cursor is opaque, so the client never builds one. Changing the numbers is a configuration change, not an ADR amendment; changing the key (subject) or the scope (per process) is.
+- Locked in: the cursor is opaque, so the client never builds one. The numbers are constants of `AggregateReadLimiter`: changing them is a code change, not an ADR amendment; changing the key (subject) or the scope (per process) is.
 - Owed: the error-catalogue entries `http.too_many_requests` (429) and `boards.invalid_cursor` (400) in `contracts/errors/` and `docs/error-codes.md`; the api-contract of feat-048; a `docs/conventions/backend.md` pointer when this is accepted. ADR-0014 is already superseded; ADR-0015 gets no change (lists keep it).

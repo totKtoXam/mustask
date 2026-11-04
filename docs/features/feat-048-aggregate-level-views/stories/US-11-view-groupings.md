@@ -56,7 +56,7 @@ Scenario: The board in lanes, and as one board (BR-AV-7)
 Scenario: «Рабочие элементы» grouped is a different shape from the flat list (BR-AV-8)
   When Olga chooses «По проекту» in «Рабочие элементы»
   Then the groups open and close, each with «Показать ещё», the rows by change time, and there is no pager and no sortable column
-  And choosing «Без группировки» returns the paged list with its pager, total and sorting, the filters unchanged
+  And choosing «Без группировки» returns the paged list with its pager, total and the fixed order of BR-WS-12, the filters unchanged
 
 Scenario: An item that changes team moves group at the next read (BR-AV-10)
   Given «Бэклог» is grouped «По команде» with MARS open showing MSK-1

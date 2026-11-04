@@ -88,7 +88,7 @@ Entry and address as feat-043's menu table. One page serves the four levels, the
 | Frame | `DataTable` «Рабочие элементы» | `ViewGroup` accordions of § 3, each with a `DataTable` inside |
 | Rows | 50 a page, order: change time, number, project key | Same order, 50 a group then «Показать ещё» |
 | Paging | `TablePager` with the total (ADR-0015 envelope) | **No pager, no page numbers** |
-| Sorting | Sortable columns as feat-003 | **Columns not sortable** (`SortableHeaderCell` not used, plain headers); no sort control appears |
+| Sorting | The fixed order of BR-WS-12, no sort control (feat-003 has none) | **Columns not sortable** (`SortableHeaderCell` not used, plain headers); no sort control appears |
 | Read | One page read; keyword read up to 5 s, table keeps its skeleton | Grouped count + group reads under the limiter |
 
 Switching keeps filters and selectors; from the flat list to a grouped one the page number and sort are dropped, back to the flat list it starts at page 1 in the default order. The project's list keeps one control: «Без команды» takes `TeamFilter`'s place (exclusive with the selector; choosing it while a team is selected resets the selector with «Выбор сброшен: команда MARS.»). The project's backlog and board keep `ViewFilterRow`'s «Команда» until feat-013.
@@ -195,4 +195,4 @@ D-1..D-4 stand as the human answered them (D-1 now covers both hints; D-3 any la
 
 ## 9. Prototype
 
-`prototype/index.html`: one static file, no server. The nine delta scenarios of the first design stay (part-loaded move menu, waiting, retrying, refused, cursor reload, deactivated project, narrowing hint, «Без команды», lane). Four new scenarios share one data set (the US-11 items, 3 rows stand for 50): the backlog, the board and «Рабочие элементы» with the switch, and the team level, with level buttons to see the offer (organization, department, team without a department, team with one, project), the default and the memory per level, the two hints, the move menu by project only, lanes with «Без команды», and the flat list with the pager and sorting against the grouped one with «Показать ещё».
+`prototype/index.html`: one static file, no server. The nine delta scenarios of the first design stay (part-loaded move menu, waiting, retrying, refused, cursor reload, deactivated project, narrowing hint, «Без команды», lane). Four new scenarios share one data set (the US-11 items, 3 rows stand for 50): the backlog, the board and «Рабочие элементы» with the switch, and the team level, with level buttons to see the offer (organization, department, team without a department, team with one, project), the default and the memory per level, the two hints, the move menu by project only, lanes with «Без команды», and the flat list with the pager and its fixed order against the grouped one with «Показать ещё».
