@@ -72,6 +72,8 @@ gate-3: pending
 
 - 2026-11-04 [orchestrator] Stage 8 approved in round 3 (9252343c): 0 blockers, 0 majors, minors as gate-3 debt; m11' (stray CR in the mod-020 note) fixed. At gate-3. Usage: weekly 31% (17% at start), 5-hour 17%.
 
+- 2026-11-04 [orchestrator] A verify.sh started by mistake (the human asked for CI instead) was stopped after the Contracts, Domain, Application and Infrastructure assemblies; it caught BoardErrorCatalogTests missing the three new codes, fixed, Mustask.Contracts.Tests 227/227.
+
 ## Notes
 
 Summary (from the queue line): «Рабочие элементы», «Канбан» and «Бэклог» at the organization and department level and «Рабочие элементы» at the team level: the organization-wide work-item list with feat-003's filters and keyword rules, and the aggregate backlogs and boards of every active project (department: the projects placed in it) as one collapsible group (swimlane on the board) per project in the project's own rank order, with a move inside a group and rows loaded per project as a group opens (reads capped at 4 in flight per tab, paged by a cursor), with the additive reads and the budgets of BR-NV-12 and BR-NV-20. Spec and stories US-6, US-10 live in feat-043's folder (its OQ-9); takes feat-042's board and backlog part, BR-NE-8's cross-project list and mod-020 CR-2's test.
