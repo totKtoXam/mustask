@@ -240,12 +240,15 @@ function aggregateRoutes() {
   );
 }
 
-export function renderAggregate(path: string, options: { context?: WorkContextSource } = {}) {
+export function renderAggregate(
+  path: string,
+  options: { context?: WorkContextSource; role?: 'admin' | 'member' | 'viewer' } = {},
+) {
   return renderShell({
     path,
     auth: { ...authValue([]), subject: 'user-1' },
     contextSource: options.context ?? teamContext({ projectId: undefined, teamId: undefined }),
     routes: aggregateRoutes(),
-    access: 'admin',
+    access: options.role ?? 'admin',
   });
 }

@@ -97,3 +97,19 @@ Pass 1, 2026-11-04, commit b8ec2192. The plan was written from spec.md, US-11 an
 ### Verdict (provisional)
 
 blockers: 0 · majors: 0 · minors: 3 (D-1..D-3, debt for gate-3). The new tests must be run (single file, then tsc and ESLint) before this pass counts as closed.
+
+### Frontend pass 2, 2026-11-04, commit 4dfd6397
+
+Runs (single files, outputs in `%TEMP%`): `vitest run src/features/boards/pages/AggregateViews` (4 files) `qa048-fe1.txt`: 34 passed, 2 failed, both in my own new file (wrong selectors: the no-team lane's `group` param is `none`, and a board without lanes repeats the card in each column). Fixed in the test; `AggregateViews.qa.test.tsx` rerun `qa048-fe2.txt`: 9 passed. ESLint on the two files: clean (`qa048-lint.txt`). `tsc -b` (`qa048-tsc.txt`): 1 error, D-4 below. The four earlier new-test claims above ("added, not run") are now run and green.
+
+Re-check of D-1..D-3 against 4dfd6397: D-1 fixed (`useAnnouncement`, test in `AggregateViews.states.test.tsx`, green), D-2 fixed (same file, green), D-3 fixed (same file, green).
+
+#### D-4: `tsc -b` fails, `npm run build` is broken
+- Severity: major (the production build and CI type check fail; Vitest does not see it)
+- Steps: `npx tsc -b` in `src/frontend`.
+- Actual: `src/features/boards/hooks/useAnnouncement.ts(2,37): error TS2459: Module '../lib/grouping' declares 'Grouping' locally, but it is not exported.`
+- Fix: import `Grouping` from `../api/aggregateApi` (where `lib/grouping.ts` takes it from). Introduced by 4dfd6397. Returned to the frontend-developer.
+
+### Verdict (final for pass 2)
+
+blockers: 0 · majors: 1 (D-4, open) · minors: 0 open (D-1..D-3 fixed and verified). Not closed until D-4 is fixed and `tsc -b` is clean; the re-check is that one command plus `useAnnouncement`'s tests. E2E: skipped by the human's decision.

@@ -59,6 +59,7 @@ gate-3: pending
 
 
 - 2026-11-04 [qa-engineer] Stage 7 frontend QA pass 1 (b8ec2192), paused: 0 blockers, 0 majors, 3 minors (D-1 grouping not announced, D-2 narrowed-empty copy, D-3 board stream count line); qa.md Frontend written. New tests (AggregateViews.qa.test.tsx, testAggregate role option) written but NOT run, lane paused by the coordinator; left uncommitted. E2E not run (standing NO).
+- 2026-11-04 [qa-engineer] Stage 7 pass 2 at 4dfd6397: D-1..D-3 verified fixed; QA tests run green (9); ESLint clean; tsc -b FAILS (D-4, major: useAnnouncement.ts imports Grouping from lib/grouping, not exported). Returned to the frontend-developer; verdict open until tsc is clean.
 
 ## Notes
 
