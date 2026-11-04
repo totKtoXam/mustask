@@ -288,7 +288,7 @@ describe('QA BR-WS-9, BR-WS-11 the keyword’s characters survive the address', 
 });
 
 describe('QA design § 9 the keyboard', () => {
-  it('Tab visits «Поиск», «Статус», «Исполнитель», «Команда» and «Очистить фильтры», in that order', async () => {
+  it('Tab visits «Поиск», «Статус», «Исполнитель», «Без команды» and «Очистить фильтры», in that order', async () => {
     serveWorkItems(listFilterDataset());
     renderWorkItems(`${MSK_LIST}?state=${enc('Новая')}`);
     await table();
@@ -297,7 +297,7 @@ describe('QA design § 9 the keyboard', () => {
     for (const [role, name] of [
       ['combobox', 'Статус'],
       ['combobox', 'Исполнитель'],
-      ['combobox', 'Команда'],
+      ['checkbox', 'Без команды'],
       ['button', 'Очистить фильтры'],
     ] as const) {
       await userEvent.tab();

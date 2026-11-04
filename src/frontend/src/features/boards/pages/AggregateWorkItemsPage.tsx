@@ -32,6 +32,7 @@ import {
   type AggregateViewState,
   type GroupingChoice,
 } from '../hooks/useAggregateView';
+import { useAnnouncement } from '../hooks/useAnnouncement';
 import { aggregateTexts, countText } from '../lib/aggregateTexts';
 import { groupIdOf } from '../lib/openGroups';
 
@@ -144,9 +145,7 @@ export function AggregateWorkItemsPage({ choice }: { choice?: GroupingChoice } =
   });
   const narrowed = useNarrowedTag(organizationId, selectors);
   const filtered = isFiltered(filter);
-  const [announcement, setAnnouncement] = useState({ text: '', serial: 0 });
-  const announce = (text: string) =>
-    setAnnouncement(({ serial }) => ({ text, serial: serial + 1 }));
+  const { announcement, announce } = useAnnouncement(v.grouping);
   const clear = () => setFilter({ state: [], assigneeId: [], search: '', teamId: [] });
   const groups = v.groups;
   const grouped = v.grouping !== 'none';

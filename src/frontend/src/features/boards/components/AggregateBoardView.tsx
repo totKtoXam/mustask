@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
@@ -23,9 +23,10 @@ import {
 } from '../../workitems';
 import { getCells, type AggregateCard, type GroupHeader } from '../api/aggregateApi';
 import { useGroupRead, isProjectGone, type UseGroupRead } from '../hooks/useGroupRead';
-import type { AggregateViewState } from '../hooks/useAggregateView';
+import { useNarrowedTag, type AggregateViewState } from '../hooks/useAggregateView';
+import { useAnnouncement } from '../hooks/useAnnouncement';
 import { columnsOf, type AggregateColumn } from '../lib/aggregateColumns';
-import { aggregateTexts, countText } from '../lib/aggregateTexts';
+import { aggregateTexts, countText, streamCountText } from '../lib/aggregateTexts';
 import { groupIdOf } from '../lib/openGroups';
 import { stateRefusalNotice } from '../lib/refusals';
 import { GroupBody, HeadersSkeleton } from './GroupBody';
@@ -278,11 +279,8 @@ function laneName(header: GroupHeader, grouping: AggregateViewState['grouping'])
 export function AggregateBoardView({ v }: { v: AggregateViewState }) {
   const access = useAccessCheck();
   const columns = useMemo(() => columnsOf(v.groups ?? []), [v.groups]);
-  const [announcement, setAnnouncement] = useState({ text: '', serial: 0 });
-  const announce = useCallback(
-    (text: string) => setAnnouncement(({ serial }) => ({ text, serial: serial + 1 })),
-    [],
-  );
+  const { announcement, announce } = useAnnouncement(v.grouping);
+  const narrowedTag = useNarrowedTag(v.organizationId, v.selectors);
   const canMove = access(workItemsPermissions.workItemWrite, 'organization');
   const groups = v.groups;
 
@@ -304,19 +302,27 @@ export function AggregateBoardView({ v }: { v: AggregateViewState }) {
       </InlineNotice>
     );
   } else if (groups.length === 0) {
-    body = <StateFrame icon={ViewWeekOutlinedIcon} heading={aggregateTexts.emptyBoard} />;
+    body = (
+      <StateFrame
+        icon={ViewWeekOutlinedIcon}
+        heading={narrowedTag ? aggregateTexts.nothingFound : aggregateTexts.emptyBoard}
+      />
+    );
   } else if (v.grouping === 'none') {
     const only = groups[0];
     body = only && (
-      <BoardColumns
-        v={v}
-        header={only}
-        columns={columns}
-        enabled
-        stream
-        canMove={canMove}
-        announce={announce}
-      />
+      <>
+        <Box sx={{ mb: 1 }}>{streamCountText(only.count, only.total)}</Box>
+        <BoardColumns
+          v={v}
+          header={only}
+          columns={columns}
+          enabled
+          stream
+          canMove={canMove}
+          announce={announce}
+        />
+      </>
     );
   } else {
     body = (

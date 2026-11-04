@@ -25,6 +25,9 @@ const CONTRACT_TABLE: readonly (readonly [string, number])[] = [
   ['boards.level.not_found', 404],
   ['boards.validation_failed', 400],
   ['boards.backlog.position_invalid', 400],
+  ['boards.invalid_cursor', 400],
+  ['boards.invalid_grouping', 400],
+  ['boards.invalid_parameter', 400],
 ];
 
 describe('mod-006 api-contract § 4: the panel holds the boards codes one to one with the catalog', () => {
@@ -37,7 +40,7 @@ describe('mod-006 api-contract § 4: the panel holds the boards codes one to one
     expect(new Set(constants).size).toBe(constants.length);
   });
 
-  it('matches api-contract § 4 row by row: the 4 codes, their statuses, no parameters', () => {
+  it('matches api-contract § 4 row by row: the 7 codes, their statuses, no parameters', () => {
     const catalog = readCatalog();
 
     expect(Object.values(boardErrorCodes)).toHaveLength(CONTRACT_TABLE.length);

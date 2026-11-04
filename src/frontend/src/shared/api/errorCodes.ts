@@ -190,6 +190,12 @@ export const boardErrorCodes = {
   validationFailed: 'boards.validation_failed',
   /** A field reason of `validationFailed`. */
   positionInvalid: 'boards.backlog.position_invalid',
+  /** 400: the aggregate read's cursor is stale or foreign; the group is read again from its start. */
+  invalidCursor: 'boards.invalid_cursor',
+  /** 400: the grouping is not offered at the level. */
+  invalidGrouping: 'boards.invalid_grouping',
+  /** 400: a query parameter has an invalid value. */
+  invalidParameter: 'boards.invalid_parameter',
 } as const;
 
 export type BoardErrorCode = (typeof boardErrorCodes)[keyof typeof boardErrorCodes];

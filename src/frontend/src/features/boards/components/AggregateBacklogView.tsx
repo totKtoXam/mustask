@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import { useAccessCheck } from '../../../shared/lib/access';
@@ -13,6 +13,8 @@ import {
 import { ApiError } from '../../../shared/api/httpClient';
 import { getRows, type AggregateRow, type GroupHeader } from '../api/aggregateApi';
 import { reorderProjectBacklog } from '../api/boardsApi';
+import { useAnnouncement } from '../hooks/useAnnouncement';
+import { useNarrowedTag } from '../hooks/useAggregateView';
 import { useGroupRead, isProjectGone } from '../hooks/useGroupRead';
 import { useRowDrag } from '../hooks/useRowDrag';
 import type { AggregateViewState } from '../hooks/useAggregateView';
@@ -177,11 +179,8 @@ function groupName(header: GroupHeader, grouping: AggregateViewState['grouping']
 /** «Бэклог» at the organization, department and team level (BR-AV-6, design § 3, § 5). */
 export function AggregateBacklogView({ v }: { v: AggregateViewState }) {
   const access = useAccessCheck();
-  const [announcement, setAnnouncement] = useState({ text: '', serial: 0 });
-  const announce = useCallback(
-    (text: string) => setAnnouncement(({ serial }) => ({ text, serial: serial + 1 })),
-    [],
-  );
+  const { announcement, announce } = useAnnouncement(v.grouping);
+  const narrowedTag = useNarrowedTag(v.organizationId, v.selectors);
   const canMove =
     backlogCanMove(v.grouping, v.selectors, false) &&
     access(boardsPermissions.backlogReorder, 'organization');
@@ -201,7 +200,12 @@ export function AggregateBacklogView({ v }: { v: AggregateViewState }) {
       </InlineNotice>
     );
   } else if (groups.length === 0) {
-    body = <StateFrame icon={InboxOutlinedIcon} heading={aggregateTexts.emptyBacklog} />;
+    body = (
+      <StateFrame
+        icon={InboxOutlinedIcon}
+        heading={narrowedTag ? aggregateTexts.nothingFound : aggregateTexts.emptyBacklog}
+      />
+    );
   } else if (v.grouping === 'none') {
     const only = groups[0];
     body = only && (
