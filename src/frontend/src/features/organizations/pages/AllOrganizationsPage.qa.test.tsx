@@ -306,7 +306,10 @@ describe('QA D-9, D-10: paging and filtering (design § 3.3)', () => {
     await userEvent.click(screen.getByRole('button', { name: /следующую страницу/i }));
 
     await waitFor(() => expect(root.closest('[aria-busy="true"]')).not.toBeNull());
-    expect(screen.getByRole('button', { name: /следующую страницу/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /следующую страницу/i })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     expect(screen.getByRole('button', { name: /предыдущую страницу/i })).toBeDisabled();
     expect(screen.getByText('1–25 из 120')).toBeVisible();
 
