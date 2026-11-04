@@ -32,5 +32,7 @@ See [plan-frontend.md](plan-frontend.md).
 - 2026-11-03 [orchestrator] round 4: design + prototype (ux-designer, f0edee3d), spec + stories (business-analyst, BR-SD-20; OQ-7 reopened for `IconToggleGroup`). Design § 4.9 rewritten by the orchestrator (toggles, zoom). Prototype clicked through. At gate-1+2, round 5.
 - 2026-11-03 [orchestrator] gate-1+2 approved (round 5) with redrawn toggle icons; OQ-7 A. Stage 6 next.
 - 2026-11-03 [orchestrator] stage 6 done (frontend-developer, 734ea8b4, 2f1b15a6, 2c7d61b5): single files green, tsc clean, ESLint 0 errors. Full run pending the orchestrator's go.
+- 2026-11-04 [orchestrator] full Vitest on 4f8a830b (lane go): 11 timeouts outside the feature over a 20 h run broken by sleep; the 8 files green on rerun. Stage 7 QA (f56e1c6b): pass with minors, F-1/F-2 fixed, F-3/F-4 open (qa.md).
+
 ## Notes
 Summary (from the queue line): «Структура» gets a tree and diagram switch. The diagram shows the hierarchy of departments, projects and sub-areas, and which teams work on which projects and which projects each team works on; built on the selector-offers read and the area tree, no new read expected. Asked by the human at feat-043 gate-3, 2026-11-02.
