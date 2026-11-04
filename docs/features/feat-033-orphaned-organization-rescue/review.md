@@ -498,3 +498,4 @@ CR-1 test fails on the reverted page and passes on the fix.
 - **CR-8 major** `AllOrganizationsPage.qa.test.tsx:309` still expects `toBeDisabled()`; since
   CR-2 the arrow is `aria-disabled`, so it fails every run. Fix:
   `toHaveAttribute('aria-disabled', 'true')`.
+- Delta 2 (6c8be466): CR-8 resolved, qa file 14/14. Final: **approve** — 0 blocker, 0 major open.
