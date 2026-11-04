@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/048-aggregate-level-views
-- stage: 04-backend
+- stage: 07-mr
 - epic: platform/ui
 - deps: feat-043
 - gates: gate-1, gate-2, gate-3
@@ -12,7 +12,7 @@
 
 gate-1: approved 2026-11-03 (the human, in chat): OQ-1..OQ-6 A, the spec index and its Delta as written
 gate-2: approved 2026-11-03 (the human, in chat): the design with groupings, the prototype, ADR-0036's direction, D-1..D-6 A, with one change: the group of rows with no department or no team goes first (BR-AV-4 amended)
-gate-3: pending
+gate-3: approved 2026-11-04 (the human, in chat): review round 3 approve, the OQ-9 clarification, the design deviations of plan-frontend § 3; minors m1, m2', m3, m4, m4', m6, m9 go to the queue as a separate task
 
 ## Plan
 
