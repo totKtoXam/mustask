@@ -45,3 +45,18 @@ Reviewer: code-reviewer (clean context), 2026-11-06. Diff `origin/main...4ca4aa5
 ### Behavioural claims (direction 2)
 
 - The changed behaviour is the service account and the env file's group. I grepped `service user|home directory|User=|chown|/var/lib/mustask|group .mustask` and their Russian forms over `docs/deploy`, `deploy/`, `docs/adr` and `src/backend/AGENTS.md`. The hits were `vm.md:174` (still true for the default), `vm.md:288-289` / `vm.ru.md:286-287` (→ F3) and `vm.md:529` / `vm.ru.md:528` (true). `build-release.sh` and `smoke.sh` do not mention the account. I did not sweep feature artifacts of earlier tasks (tech-050/056/058), because they are history.
+
+## Round 2 (delta)
+
+Reviewer: code-reviewer, 2026-11-06. Delta `cce1c9f1...313699da` (install.sh, the unit, vm.md, vm.ru.md, status.md). `bash -n deploy/vm/install.sh` passes. The re-check run is the orchestrator's container run in the `status.md` Log; nothing was re-run here.
+
+**Verdict: approve** (0 open; one note below, not a finding).
+
+- **F1 fixed.** `install.sh:92-93` seeds `user=$(run_as)` before the loop, so a re-run without `--run-as` keeps the recorded account. The value from the file still passes the regex, existence and not-root checks at `install.sh:114-118`. The header (`:19-24`), `vm.md:183` and `vm.ru.md:184-185` say so.
+- **F2 fixed.** `chown -R "$user:$group" "$state"` (`install.sh:153`). The path is a constant directory owned only by MUSTASK.
+- **F3 fixed.** Section 5 now names the service account's group: `vm.md:294`, `vm.ru.md:293`.
+- **F4 fixed.** `Group=` and `@RUN_GROUP@` are gone. The unit's comment says systemd takes the primary group, and `git grep` finds no leftover. `prepare` checks the group name (`install.sh:146-147`), which now feeds only `chown`. `deploy` re-checks the recorded name against the regex and refuses uid 0 (`install.sh:334,336`) before anything is copied. The sed input is again only a regex-checked name.
+- **F5 fixed.** The cost of a shared account (secrets, keys, inherited groups, `dotnet` outside `/home`) is in `vm.md:184-188`. `vm.ru.md:186-190` matches it.
+- **F6 fixed.** The header grammar.
+- Claims re-anchored: "deploy writes it into the unit's `User=`" → `install.sh:372`. "a re-run … keeps the recorded account" → `install.sh:92-93`. "the service gets that account's groups" holds because systemd initialises supplementary groups for `User=`. Direction 2: `RUN_GROUP|Group=` over `deploy/` and `docs/deploy` finds only the new unit comment.
+- Note: a primary gid with no name still stops `prepare` at `id -gn` (`install.sh:145`) under `set -e`, with id's own message, before the new check runs. It fails closed, so this is no defect.
