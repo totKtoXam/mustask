@@ -1,6 +1,16 @@
 #!/bin/sh
 # Commit message format — docs/conventions/git.md.
 
+# This worktree's own copy runs (tech-060): core.hooksPath can pin another
+# checkout's .githooks, whose copy may be older than this branch's; hand over
+# to the copy of the tree the hook runs in. MUSTASK_OWN_HOOK stops a second
+# hand-over.
+own="$(git rev-parse --show-toplevel 2>/dev/null)/.githooks/$(basename "$0")"
+if [ -z "${MUSTASK_OWN_HOOK:-}" ] && [ -f "$own" ] \
+    && [ "$(cd "$(dirname "$0")" && pwd -P)" != "$(cd "$(dirname "$own")" && pwd -P)" ]; then
+    MUSTASK_OWN_HOOK=1 exec sh "$own" "$@"
+fi
+
 set -eu
 
 message_file=$1
