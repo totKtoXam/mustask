@@ -22,6 +22,12 @@ public sealed class OrganizationsOpenApiTests(MustaskApiFactory factory)
         "GET /api/organizations",
         "GET /api/organizations/deactivated",
         "POST /api/organizations",
+        // feat-033 api-contract § 1: the four instance-scoped rescue routes. Two carry {organizationId} but are not in
+        // OrganizationAddressedRoutes (they are the instance exceptions of the access inventory).
+        "GET /api/organizations/rescue",
+        "GET /api/organizations/rescue/appointee-candidates",
+        "GET /api/organizations/rescue/{organizationId}/appointments",
+        "POST /api/organizations/rescue/{organizationId}/appointments",
         // The addressed routes of other modules — mod-001's process read, mod-003's work items, mod-006's backlogs and
         // boards — are not this module's. The rest of the list is mod-002's and, last, mod-016's access and memberships
         // (api-contract § 1–§ 2).
@@ -44,8 +50,8 @@ public sealed class OrganizationsOpenApiTests(MustaskApiFactory factory)
             .Order(StringComparer.Ordinal);
 
         // feat-028 api-contract § 4: eight project-nested team routes out and sixteen organization-level ones in, 36 -> 44 of this module;
-        // at gate-3 the creation form's member search (§ 2.3a) makes 45. mod-018 (typed tree) adds ten net (11 organization-area routes, the project subtree read and 3 team-end routes in, 5 project-nested tree routes out): 55; TC-28 adds the read-only team-links read: 56.
-        Assert.Equal(58, ContractOperations.Length);
+        // at gate-3 the creation form's member search (§ 2.3a) makes 45. mod-018 (typed tree) adds ten net (11 organization-area routes, the project subtree read and 3 team-end routes in, 5 project-nested tree routes out): 55; TC-28 adds the read-only team-links read: 56; feat-033 adds the organization appointment record (O1) and the four rescue routes: 63.
+        Assert.Equal(63, ContractOperations.Length);
         Assert.Equal(ContractOperations.Order(StringComparer.Ordinal), ofTheModule);
     }
 

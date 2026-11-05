@@ -37,6 +37,8 @@ export const organizationsPermissions = {
   areaLink: 'organizations.area.link',
   /** Instance code, in the token. */
   organizationCreate: 'organizations.organization.create',
+  /** Instance code, in the token (feat-033, ADR-0035): «Все организации» and the appointment. */
+  organizationRescue: 'organizations.organization.rescue',
 } as const;
 
 export type OrganizationsPermission =

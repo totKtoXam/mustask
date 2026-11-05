@@ -41,6 +41,7 @@ import {
   type CreateTeamBody,
 } from '../api/organizationsApi';
 import { navigationKeys, organizationsKeys as keys } from '../api/queryKeys';
+import { appointAdministrator, type AppointBody } from '../api/rescueApi';
 
 // One mutation hook per write group, each doing the invalidations of design
 // § 3.7 (plan-frontend § 3.4). The selectors read the same keys, so their
@@ -463,5 +464,21 @@ export function useRemoveTeamMember(organizationId: string, teamId: string) {
         keys.teamMembers(organizationId, teamId),
         keys.projectTeamLists(organizationId),
       ),
+  });
+}
+
+// feat-033 § 1.3: the appointment. The list's «Последнее назначение» is read again, and every
+// record and member list of the organization the appointee joined is stale.
+
+export function useAppointAdministrator(organizationId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: AppointBody) => appointAdministrator(organizationId, body),
+    onSuccess: () =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: keys.rescueLists }),
+        client.invalidateQueries({ queryKey: keys.members(organizationId) }),
+        client.invalidateQueries({ queryKey: [...keys.all, 'appointments', organizationId] }),
+      ]),
   });
 }

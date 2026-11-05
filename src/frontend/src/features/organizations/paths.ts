@@ -130,3 +130,6 @@ export function areaProjectsPath(organizationId: string, areaId: string): string
 export function areaTeamsPath(organizationId: string, areaId: string): string {
   return `${organizationAreasPath(organizationId)}/${segment(areaId)}/teams`;
 }
+
+/** «Все организации» of the instance administrator (feat-033 DC-1): no organization in the address. */
+export const ADMIN_ORGANIZATIONS_PATH = '/administration/organizations';

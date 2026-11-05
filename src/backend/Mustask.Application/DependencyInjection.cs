@@ -33,6 +33,11 @@ using Mustask.Application.Features.Organizations.GetAreaTree;
 using Mustask.Application.Features.Organizations.GetDeactivatedOrganizations;
 using Mustask.Application.Features.Organizations.GetDeactivatedProjects;
 using Mustask.Application.Features.Organizations.GetMembers;
+using Mustask.Application.Features.Organizations.AppointAdministrator;
+using Mustask.Application.Features.Organizations.GetAppointments;
+using Mustask.Application.Features.Organizations.GetRescueAppointments;
+using Mustask.Application.Features.Organizations.GetRescueOrganizations;
+using Mustask.Application.Features.Organizations.SearchAppointeeCandidates;
 using Mustask.Application.Features.Organizations.GetOrganization;
 using Mustask.Application.Features.Organizations.GetOrganizationTeams;
 using Mustask.Application.Features.Organizations.GetOverview;
@@ -158,6 +163,11 @@ public static class DependencyInjection
         // Organization access (mod-016): one handler per route of MembershipEndpoints.cs.
         services.AddScoped<GetOrganizationAccessHandler>();
         services.AddScoped<GetMembersHandler>();
+        services.AddScoped<AppointAdministratorHandler>();
+        services.AddScoped<GetRescueOrganizationsHandler>();
+        services.AddScoped<SearchAppointeeCandidatesHandler>();
+        services.AddScoped<GetRescueAppointmentsHandler>();
+        services.AddScoped<GetAppointmentsHandler>();
         services.AddScoped<SearchMemberCandidatesHandler>();
         services.AddScoped<AddMemberHandler>();
         services.AddScoped<ChangeMemberRoleHandler>();

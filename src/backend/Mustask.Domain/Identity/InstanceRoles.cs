@@ -12,7 +12,7 @@ public sealed record InstanceRoleDefinition(string Name, string Description, IRe
 /// </summary>
 /// <remarks>
 /// <see cref="SystemAdmin"/> holds every instance code, so a later instance code reaches it by being added here (a test fails
-/// for an instance code that no role reaches). Later tasks use the role for cross-organization administration.
+/// for an instance code that no role reaches). Its one cross-organization use is the rescue of an orphaned organization (feat-033, ADR-0035: an amendment of ADR-0033 § 1).
 /// </remarks>
 public static class InstanceRoles
 {

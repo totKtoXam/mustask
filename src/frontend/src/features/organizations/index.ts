@@ -14,7 +14,9 @@ export type { OrganizationPageProps } from './access/OrganizationPage';
 export { useAccessWatcher } from './access/useAccessWatcher';
 export { useOrganizationAccess } from './access/useOrganizationAccess';
 export { useServedAccessCheck } from './access/servedAccess';
+export { RESCUE_SECTION_LABEL } from './lib/rescueTexts';
 export { OrganizationsSection } from './components/OrganizationsSection';
+export { AllOrganizationsPage } from './pages/AllOrganizationsPage';
 export { AreaPage } from './pages/AreaPage';
 export { AreasPage } from './pages/AreasPage';
 export { MembersPage } from './pages/MembersPage';
@@ -27,6 +29,7 @@ export { ProjectListPage } from './pages/ProjectListPage';
 export { TeamPage } from './pages/TeamPage';
 export { TeamsPage } from './pages/TeamsPage';
 export {
+  ADMIN_ORGANIZATIONS_PATH,
   AREA_PREFIX_ROUTE,
   AREA_PROJECTS_ROUTE,
   AREA_SETTINGS_ROUTE,

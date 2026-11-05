@@ -15,10 +15,12 @@ import {
 import { LanguageFormPage, LanguagesRegistryPage } from '../features/dictionaries';
 import { HomePage } from '../features/home/HomePage';
 import {
+  ADMIN_ORGANIZATIONS_PATH,
   AREA_PREFIX_ROUTE,
   AREA_PROJECTS_ROUTE,
   AREA_SETTINGS_ROUTE,
   AREA_TEAMS_ROUTE,
+  AllOrganizationsPage,
   AreaPage,
   AreasPage,
   DEACTIVATED_ORGANIZATIONS_ROUTE,
@@ -134,6 +136,9 @@ export const routeTree = (
             «Организация не найдена» for a non-member, «Доступ ограничен» for a missing code. The
             static `deactivated` outranks `:organizationId`. */}
         <Route element={<OrganizationsSection />}>
+          {/* «Все организации» (feat-033 DC-1): instance-scoped, outside any organization and gate; the
+              page decides by the code in the token. It stands here for the slice notice host. */}
+          <Route path={ADMIN_ORGANIZATIONS_PATH} element={<AllOrganizationsPage />} />
           <Route path={ORGANIZATIONS_ROUTE} element={<OrganizationListPage view="active" />} />
           <Route
             path={DEACTIVATED_ORGANIZATIONS_ROUTE}

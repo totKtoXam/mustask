@@ -143,6 +143,10 @@ public static class DependencyInjection
         services.AddScoped<IMemberReadModel, MemberReadModel>();
         services.AddScoped<IOrganizationAccessReadModel, OrganizationAccessReadModel>();
 
+        // feat-033: the appointment record of a system administrator's rescue.
+        services.AddScoped<IAppointmentRecordRepository, AppointmentRecordRepository>();
+        services.AddScoped<IAppointmentReadModel, AppointmentReadModel>();
+
         return services;
     }
 }

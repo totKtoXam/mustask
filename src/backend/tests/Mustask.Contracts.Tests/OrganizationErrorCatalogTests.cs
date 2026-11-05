@@ -56,6 +56,14 @@ public sealed class OrganizationErrorCatalogTests
         { OrganizationErrorCodes.TeamMemberExists, 409, "", "Пользователь уже состоит в команде" },
         { OrganizationErrorCodes.TeamMemberNotInOrganization, 409, "", "Добавить в команду можно только активного участника организации" },
         { OrganizationErrorCodes.TeamMemberNotFound, 404, "", "Участник команды не найден." },
+        { OrganizationErrorCodes.RescueForbidden, 403, "", "Недостаточно прав" },
+        { OrganizationErrorCodes.RescueUserUnavailable, 409, "", "Этого пользователя нельзя назначить администратором" },
+        { OrganizationErrorCodes.RescueSelfAppointment, 409, "", "Нельзя назначить администратором себя" },
+        { OrganizationErrorCodes.RescueAlreadyAdmin, 409, "", "Пользователь уже администратор этой организации" },
+        { OrganizationErrorCodes.RescueReasonRequired, 400, "", "Укажите причину" },
+        { OrganizationErrorCodes.RescueReasonTooLong, 400, "", "Не более 500 символов" },
+        { OrganizationErrorCodes.RescueReasonInvalid, 400, "", "Причина содержит недопустимые символы" },
+        { OrganizationErrorCodes.RescueInvalidPage, 400, "", "Некорректный номер страницы." },
     };
 
     // mod-002 api-contract § 6: every code is registered with its status, params, the contract's ru text and a kk text.

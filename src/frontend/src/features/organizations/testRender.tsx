@@ -13,6 +13,7 @@ import { OrganizationsSection } from './components/OrganizationsSection';
 import { OrganizationGeneralPage } from './pages/OrganizationGeneralPage';
 import { OrganizationOverviewPage } from './pages/OrganizationOverviewPage';
 import { OrganizationListPage } from './pages/OrganizationListPage';
+import { AllOrganizationsPage } from './pages/AllOrganizationsPage';
 import { MembersPage } from './pages/MembersPage';
 import { ProjectGeneralPage } from './pages/ProjectGeneralPage';
 import { ProjectListPage } from './pages/ProjectListPage';
@@ -22,6 +23,7 @@ import { OrganizationTeamsPage } from './pages/OrganizationTeamsPage';
 import { TeamPage } from './pages/TeamPage';
 import { TeamsPage } from './pages/TeamsPage';
 import {
+  ADMIN_ORGANIZATIONS_PATH,
   ORG_AREAS_ROUTE,
   AREA_PROJECTS_ROUTE,
   AREA_SETTINGS_ROUTE,
@@ -154,6 +156,7 @@ export function renderPage({
               <MemoryRouter initialEntries={[path]}>
                 <Routes>
                   <Route element={<OrganizationsSection />}>
+                    <Route path={ADMIN_ORGANIZATIONS_PATH} element={<AllOrganizationsPage />} />
                     <Route
                       path={ORGANIZATIONS_ROUTE}
                       element={<OrganizationListPage view="active" />}

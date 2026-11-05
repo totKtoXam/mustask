@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { px, rgb, theme } from '../../../test/kitTesting';
 import { TablePager, type TablePagerProps } from './TablePager';
@@ -66,6 +67,41 @@ describe('tech-015 Scenario: TablePager (design § 5.11)', () => {
     renderPager({ page: 2 });
     expect(screen.getByRole('button', { name: /следующ/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /предыдущ/i })).toBeEnabled();
+  });
+
+  it('marks both arrows aria-disabled while `disabled`, even in the middle of the range, and ignores clicks', () => {
+    const onPageChange = vi.fn();
+    renderPager({ page: 1, disabled: true, onPageChange });
+    for (const button of screen.getAllByRole('button')) {
+      expect(button).toHaveAttribute('aria-disabled', 'true');
+    }
+    fireEvent.click(screen.getByRole('button', { name: /следующ/i }));
+    expect(onPageChange).not.toHaveBeenCalled();
+    expect(screen.getByText('11–20 из 25')).toBeInTheDocument();
+  });
+
+  it('keeps keyboard focus on the arrow that started a load (qa D-11)', async () => {
+    const user = userEvent.setup();
+    function Host() {
+      const [loading, setLoading] = useState(false);
+      return (
+        <TablePager
+          page={1}
+          rowsPerPage={10}
+          count={25}
+          disabled={loading}
+          onPageChange={() => setLoading(true)}
+        />
+      );
+    }
+    render(<Host />);
+    const next = screen.getByRole('button', { name: /следующ/i });
+    await user.tab();
+    await user.tab();
+    expect(next).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(next).toHaveAttribute('aria-disabled', 'true');
+    expect(next).toHaveFocus();
   });
 
   it('draws a 1 px divider rule above itself', () => {
