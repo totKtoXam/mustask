@@ -64,8 +64,9 @@ run from there, not from this directory.
   takes them from user secrets instead of hardcoding them (`dotnet
   user-secrets set Parameters:mustask-db-password <password> --project
   src/backend/Mustask.AppHost`, likewise for `Parameters:keycloak-admin-password`
-  and `Parameters:keycloak-panel-client-secret`); without this step the
-  start fails with "missing configuration value".
+  and `Parameters:keycloak-panel-client-secret`); without this step AppHost
+  cannot resolve those parameters: the Aspire dashboard reports them as
+  unresolved and the resources that need them do not start.
 - External database (a PostgreSQL server that already runs on the machine, for
   example on 5432): set the user secret `ConnectionStrings:mustask` — `dotnet
   user-secrets set ConnectionStrings:mustask

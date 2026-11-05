@@ -8,10 +8,10 @@ namespace Mustask.Infrastructure;
 /// <see cref="MustaskDbContext"/> without running `Mustask.AppHost` — Aspire only
 /// injects the "mustask" connection string when the application is actually
 /// started. Reads `ConnectionStrings__mustask` (the same env var Aspire sets at
-/// runtime); see AGENTS.md for how to obtain the actual value of that
-/// variable for the Postgres container `Mustask.AppHost` starts (its host port
-/// and password are assigned at random, so there is no fixed value to fall
-/// back to — see docs/runbooks/local-migrations.md).
+/// runtime). For the Postgres container `Mustask.AppHost` starts, the host port
+/// is `Ports:Db` and the password is the `Parameters:mustask-db-password` user
+/// secret — fixed per machine, but still a secret, so there is no fallback
+/// value in code; docs/runbooks/local-migrations.md has the steps.
 /// </summary>
 public sealed class MustaskDbContextFactory : IDesignTimeDbContextFactory<MustaskDbContext>
 {
