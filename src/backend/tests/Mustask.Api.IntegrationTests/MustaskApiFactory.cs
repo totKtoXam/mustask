@@ -187,9 +187,7 @@ public sealed class MustaskApiFactory : WebApplicationFactory<Program>, IAsyncLi
     /// process-wide lock with this factory's connection string in
     /// <c>ConnectionStrings__mustask</c> (tech-047). Program.cs reads the
     /// variable before <c>Build()</c>, so the lock is what keeps a host of one
-    /// shard from starting on another shard's database; it also keeps two
-    /// builds from swapping Serilog's static <c>Log.Logger</c> under each
-    /// other (Program.cs takes it right after <c>Build()</c>).
+    /// shard from starting on another shard's database.
     /// </summary>
     protected override IHost CreateHost(IHostBuilder builder)
     {

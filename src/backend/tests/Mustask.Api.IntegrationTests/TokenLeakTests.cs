@@ -120,6 +120,9 @@ public sealed class TokenLeakTests
 
         var output = capturedOutput.ToString();
 
+        // Proves the console capture is live (the request-log line is there). A silenced ILogger<T> is caught by StaticLoggerRegressionTests, not here.
+        Assert.Contains("/api/session/callback", output, StringComparison.Ordinal);
+
         foreach (var secret in new[] { refreshToken, authorizationCode, MustaskApiFactory.TestKeycloakClientSecret })
         {
             Assert.DoesNotContain(secret, body, StringComparison.Ordinal);
@@ -187,6 +190,9 @@ public sealed class TokenLeakTests
         }
 
         var output = capturedOutput.ToString();
+
+        // Proves the console capture is live (the request-log line is there). A silenced ILogger<T> is caught by StaticLoggerRegressionTests, not here.
+        Assert.Contains("/api/session/token", output, StringComparison.Ordinal);
 
         foreach (var secret in new[] { refreshToken, MustaskApiFactory.TestKeycloakClientSecret })
         {
@@ -265,6 +271,9 @@ public sealed class TokenLeakTests
 
         var output = capturedOutput.ToString();
 
+        // Proves the console capture is live (the request-log line is there). A silenced ILogger<T> is caught by StaticLoggerRegressionTests, not here.
+        Assert.Contains("/api/session/token", output, StringComparison.Ordinal);
+
         foreach (var secret in new[] { initialRefreshToken, renewedRefreshToken, MustaskApiFactory.TestKeycloakClientSecret })
         {
             Assert.DoesNotContain(secret, body, StringComparison.Ordinal);
@@ -335,6 +344,9 @@ public sealed class TokenLeakTests
 
         var output = capturedOutput.ToString();
 
+        // Proves the console capture is live (the request-log line is there). A silenced ILogger<T> is caught by StaticLoggerRegressionTests, not here.
+        Assert.Contains("/api/session/logout", output, StringComparison.Ordinal);
+
         foreach (var secret in new[] { refreshToken, MustaskApiFactory.TestKeycloakClientSecret })
         {
             Assert.DoesNotContain(secret, body, StringComparison.Ordinal);
@@ -391,6 +403,9 @@ public sealed class TokenLeakTests
 
         var output = capturedOutput.ToString();
 
+        // Proves the console capture is live (the request-log line is there). A silenced ILogger<T> is caught by StaticLoggerRegressionTests, not here.
+        Assert.Contains("/api/session/logout", output, StringComparison.Ordinal);
+
         foreach (var secret in new[] { refreshToken, MustaskApiFactory.TestKeycloakClientSecret })
         {
             Assert.DoesNotContain(secret, body, StringComparison.Ordinal);
@@ -429,6 +444,9 @@ public sealed class TokenLeakTests
 
         var output = capturedOutput.ToString();
 
+        // Proves the console capture is live (the request-log line is there). A silenced ILogger<T> is caught by StaticLoggerRegressionTests, not here.
+        Assert.Contains("/api/session/callback", output, StringComparison.Ordinal);
+
         foreach (var secret in new[] { authorizationCode, MustaskApiFactory.TestKeycloakClientSecret })
         {
             Assert.DoesNotContain(secret, body, StringComparison.Ordinal);
@@ -459,6 +477,9 @@ public sealed class TokenLeakTests
 
         var output = capturedOutput.ToString();
         Assert.Equal(expectedStatus, actualStatus);
+
+        // Proves the console capture is live (the request-log line is there). A silenced ILogger<T> is caught by StaticLoggerRegressionTests, not here.
+        Assert.Contains(ProtectedRoute, output, StringComparison.Ordinal);
 
         Assert.DoesNotContain(token, body, StringComparison.Ordinal);
         Assert.DoesNotContain(token, output, StringComparison.Ordinal);

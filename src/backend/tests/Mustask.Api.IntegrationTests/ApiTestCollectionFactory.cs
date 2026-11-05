@@ -39,9 +39,6 @@ public sealed class ApiTestCollectionFactory : IXunitTestCollectionFactory
     /// <item>the console, captured with <c>Console.SetOut</c> — another shard's log lines would land in it;</item>
     /// <item>environment variables set by the test, read by every host built
     /// while they are set;</item>
-    /// <item>Serilog's static <c>Log.Logger</c>, which every host build and
-    /// dispose replaces (tech-006): a test that asserts on log entries of a
-    /// host it builds sees another host's logger in between;</item>
     /// <item>a host built straight from <c>WebApplicationFactory&lt;Program&gt;</c>,
     /// which reads whichever connection string the environment holds;</item>
     /// <item>a static flag another class resets;</item>
@@ -55,6 +52,7 @@ public sealed class ApiTestCollectionFactory : IXunitTestCollectionFactory
         typeof(ApiExplorerTests),
         typeof(SessionLogoutEndpointTests),
         typeof(LoggingTests),
+        typeof(StaticLoggerRegressionTests),
         typeof(ProductionLoggingTests),
         typeof(RealmReadinessTests),
         typeof(TokenLeakTests),
@@ -62,10 +60,6 @@ public sealed class ApiTestCollectionFactory : IXunitTestCollectionFactory
         // environment variables
         typeof(CorsTests),
         typeof(KeycloakOptionsTests),
-
-        // log entries of a host the test builds
-        typeof(ErrorHandlingTests),
-        typeof(PurgeWorkItemEndpointTests),
 
         // a host straight from WebApplicationFactory<Program>
         typeof(ProductionCorsTests),
