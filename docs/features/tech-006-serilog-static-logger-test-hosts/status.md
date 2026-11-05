@@ -3,7 +3,7 @@
 - type: tech
 - size: M
 - branch: tech/006-serilog-static-logger-test-hosts
-- stage: 06-code-review
+- stage: gate-3
 - epic: platform/tests
 - deps: bug-002
 - gates: gate-3
@@ -35,6 +35,7 @@ gate-3: pending
 - 2026-11-05 [dev] fix round 1 (review CR-1..CR-3): regression test builds the shared host first and fails on the old wiring alone and in order (probed: preserveStaticLogger false + request logger on Log.Logger); the sibling-host test could not fail on the old wiring and was dropped; TokenLeakTests control comments reworded; qa.md prose corrected. stage unchanged
 
 - 2026-11-05 [review] round 2 (delta) done: approve, 0 blocker/major open, 3 minor (CR-4..CR-6, debts)
+- 2026-11-05 [orchestrator] CR-4..CR-6 fixed in prose by the orchestrator; merged main (3 queue commits; force-push after a rebase was refused); gate-3 pending with the human; pushed with VERIFY_TESTS=0 (this worktree's hooksPath points at the pre-tech-055 hook; the human said yes); weekly 34% at start, 34% at gate-3
 
 ## Notes
 
