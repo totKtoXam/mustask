@@ -527,7 +527,7 @@ export function WorkItemCard({
     extra,
     busy: saving,
     dirty: state.isDirty,
-    pagePath: workItemPath(organizationId, projectId, item.identifier),
+    pagePath: withBase(workItemPath(organizationId, projectId, item.identifier)),
   };
 
   return (

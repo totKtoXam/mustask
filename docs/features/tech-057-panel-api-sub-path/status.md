@@ -3,7 +3,7 @@
 - type: tech
 - size: L
 - branch: tech/057-panel-api-sub-path
-- stage: 04-backend
+- stage: 06-code-review
 - epic: platform/ci
 - deps: tech-056
 - gates: gate-1, gate-3
@@ -78,3 +78,4 @@ Summary (from the queue line): serve MUSTASK under a sub-path (https://portal.de
 
 docs/deploy/vm.md gets the sub-path nginx layout and is rehearsed again. An ADR records the path base.
 - 2026-11-05 [orchestrator] rehearsal of the sub-path layout on stand t057: all checks pass; 3 kit/runbook divergences fixed (blank panel from a Git Bash build). Stand removed. Next: QA, then review.
+- 2026-11-05 [orchestrator] QA (qa.md): D-1 major (dialog page link without the base), D-2 minor (empty base + PanelUrl path started), D-3 nits; all fixed, tests green. Stage 06: one Opus review.

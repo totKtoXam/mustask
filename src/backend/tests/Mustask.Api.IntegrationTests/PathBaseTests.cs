@@ -112,6 +112,20 @@ public sealed class PathBaseTests
     }
 
     [Fact]
+    public async Task EmptyPathBaseWithPanelUrlPath_HostDoesNotStart()
+    {
+        // A forgotten Hosting__PathBase: refused at start, not at the first sign-in (ADR-0037).
+        await WithEnvironmentAsync([("Hosting__PathBase", ""), ("Session__PanelUrl", "http://panel.invalid/mustask")], () =>
+        {
+            using var factory = _factory.WithWebHostBuilder(builder => builder.UseEnvironment("Production"));
+
+            var exception = Assert.Throws<InvalidOperationException>(() => factory.CreateClient());
+            Assert.Contains("Session:PanelUrl", exception.Message, StringComparison.Ordinal);
+            return Task.CompletedTask;
+        });
+    }
+
+    [Fact]
     public async Task EmptyPathBase_RootBehaviourUnchanged()
     {
         // The factory's default: no Hosting:PathBase, PanelUrl without a path.
@@ -206,5 +220,57 @@ public sealed class PathBaseTests
 
         Assert.Equal("/mustask/api/things/1", prefixed.Headers.Location!.ToString());
         Assert.Equal("/api/things/1", bare.Headers.Location!.ToString());
+    }
+
+    [Theory]
+    [InlineData("https://portal.invalid/mustask/dashboard")]
+    [InlineData("//other.invalid/x")]
+    [InlineData("relative/no-slash")]
+    [InlineData(null)]
+    public async Task Location_NotRootRelative_IsLeftAlone(string? location)
+    {
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseTestServer();
+        await using var app = builder.Build();
+        app.UsePathBase(PathBase);
+        app.UsePathBaseOnRelativeLocation();
+        app.Run(context =>
+        {
+            if (location is not null)
+            {
+                context.Response.Headers.Location = location;
+            }
+
+            return Task.CompletedTask;
+        });
+        await app.StartAsync();
+        var client = app.GetTestClient();
+
+        using var response = await client.GetAsync($"{PathBase}/anything");
+
+        if (location is null)
+        {
+            Assert.False(response.Headers.Contains("Location"));
+        }
+        else
+        {
+            Assert.Equal(location, response.Headers.GetValues("Location").Single());
+        }
+    }
+
+    [Fact]
+    public async Task UnderPathBase_ApiRouteThroughThePrefix_IsRoutedAndChallenged()
+    {
+        // The real pipeline (not the stand-in above) routes an /api request through the prefix; no token, so 401.
+        await WithEnvironmentAsync([("Hosting__PathBase", PathBase), ("Session__PanelUrl", PanelUrlUnderPathBase)], async () =>
+        {
+            using var factory = _factory.WithWebHostBuilder(_ => { });
+            var client = factory.CreateNoRedirectClient();
+
+            using var response = await client.GetAsync($"{PathBase}/api/dictionaries/languages");
+
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            await Task.CompletedTask;
+        });
     }
 }

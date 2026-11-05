@@ -35,4 +35,19 @@ describe('basePath under /mustask', () => {
     expect(stripBase('/other/x')).toBe('/other/x');
     expect(stripBase('/mustaskx/y')).toBe('/mustaskx/y');
   });
+
+  it('keeps the query out of the way and nested bases whole', () => {
+    vi.stubEnv('BASE_URL', '/apps/mustask/');
+    expect(getBasePath()).toBe('/apps/mustask');
+    expect(stripBase('/apps/mustask/signed-out')).toBe('/signed-out');
+    expect(stripBase('/apps')).toBe('/apps');
+    expect(withBase('/')).toBe('/apps/mustask/');
+  });
+
+  it('withBase and stripBase are inverse for a panel path', () => {
+    vi.stubEnv('BASE_URL', '/mustask/');
+    for (const path of ['/', '/signed-out', '/a/b/c', '/mustask/inner']) {
+      expect(stripBase(withBase(path))).toBe(path);
+    }
+  });
 });

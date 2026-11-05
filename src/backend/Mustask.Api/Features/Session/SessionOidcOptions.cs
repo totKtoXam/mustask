@@ -90,19 +90,17 @@ public sealed class SessionOidcOptions
 
         var pathBase = ParsePathBase(configuration["Hosting:PathBase"]);
 
-        if (pathBase.Length > 0)
-        {
-            // The panel and the API share one public address (ADR-0037), so the path of PanelUrl is the path base.
-            // Caught here, not at the first sign-in: a mismatch would only show as a redirect_uri error in Keycloak.
-            var panelPath = Uri.TryCreate(panelUrl, UriKind.Absolute, out var parsedPanelUrl)
-                ? parsedPanelUrl.AbsolutePath.TrimEnd('/')
-                : null;
+        // The panel and the API share one public address (ADR-0037), so the path of PanelUrl is the path base.
+        // Caught here, not at the first sign-in: a mismatch would only show as a redirect_uri error in Keycloak.
+        // With an empty base, PanelUrl's own path must be empty too (a forgotten Hosting__PathBase).
+        var panelPath = Uri.TryCreate(panelUrl, UriKind.Absolute, out var parsedPanelUrl)
+            ? parsedPanelUrl.AbsolutePath.TrimEnd('/')
+            : null;
 
-            if (!string.Equals(panelPath, pathBase, StringComparison.Ordinal))
-            {
-                throw new InvalidOperationException(
-                    $"Session:PanelUrl ('{panelUrl}') must be an absolute address whose path equals Hosting:PathBase ('{pathBase}').");
-            }
+        if (pathBase.Length > 0 ? !string.Equals(panelPath, pathBase, StringComparison.Ordinal) : panelPath is { Length: > 0 })
+        {
+            throw new InvalidOperationException(
+                $"Session:PanelUrl ('{panelUrl}') must be an absolute address whose path equals Hosting:PathBase ('{pathBase}').");
         }
 
         return new SessionOidcOptions

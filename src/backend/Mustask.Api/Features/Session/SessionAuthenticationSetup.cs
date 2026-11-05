@@ -37,7 +37,7 @@ public static class SessionAuthenticationSetup
     public const string CookiePath = "/api/session";
 
     /// <summary>Without the path base: the OIDC handler prepends <c>Request.PathBase</c> itself, to the <c>redirect_uri</c> and to its correlation cookies.</summary>
-    public const string CallbackPath ="/api/session/callback";
+    public const string CallbackPath = "/api/session/callback";
 
     /// <summary>
     /// <see cref="AuthenticationProperties.Items"/> key used to smuggle the
