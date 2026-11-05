@@ -5,10 +5,10 @@ namespace Mustask.Api.IntegrationTests;
 
 // tech-006: Program.cs used to call UseSerilog without preserveStaticLogger, so disposing a derived host ran
 // Log.CloseAndFlush() on the process-wide logger, and ILogger<T> instances bound to it were silent: log-line
-// assertions passed vacuously or failed depending on test order. These tests pin the fix. Each builds the
+// assertions passed vacuously or failed depending on test order. This test pins the fix. It builds the
 // shared host FIRST (the old failure needs it to exist before the child; otherwise the shared host is built
-// after the dispose and gets a live logger, and the test passes on the old wiring). They capture Console.Out,
-// so they run alone (ApiTestCollectionFactory.SerialClasses).
+// after the dispose and gets a live logger, and the test passes on the old wiring). It captures Console.Out,
+// so it runs alone (ApiTestCollectionFactory.SerialClasses).
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]
 [Collection(MustaskApiCollection.Name)]

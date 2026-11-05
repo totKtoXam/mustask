@@ -18,7 +18,7 @@ No spec; the requirement is the Notes summary. No endpoint changes, so no api-co
 
 1. `TokenLeakTests` (6 session tests + the shared `AssertNoLeakAsync`): added a positive control to each, `Assert.Contains(<request path>, output)` before the `DoesNotContain` loops. The request-log line carries the path, so the control proves only that the console capture is live; it is pinned to the host and was never the silenced line (fix round 1: a silenced `ILogger<T>` is caught by `StaticLoggerRegressionTests`, not by these controls). Cheap; the HttpClient-pipeline line was not asserted (it sits under a log-level override that varies, so it would be brittle).
 2. `SerialClasses`: the rule "asserts on log entries of a host it builds" is no longer true. `ErrorHandlingTests` and `PurgeWorkItemEndpointTests` capture through a `CapturingLoggerProvider` registered in their own host's DI: no console, no environment, no static. Removed both from `SerialClasses` and the phrase from `src/backend/AGENTS.md` (root `AGENTS.md` never carried it). Both classes pass (44 tests with the other filtered classes' run below).
-3. Regression test spot check: temporarily set `preserveStaticLogger: false` and the request logger back to `Log.Logger`: both `StaticLoggerRegressionTests` tests fail; restored (tree has no Program.cs change).
+3. Regression test spot check: temporarily set `preserveStaticLogger: false` and the request logger back to `Log.Logger`: the `StaticLoggerRegressionTests` tests fail (at the time two; one after fix round 1); restored (tree has no Program.cs change).
 
 ### What ran
 
@@ -44,4 +44,4 @@ No open blocker or major. Backend QA passed.
 
 ### Fix round 1 (developer, after code review)
 
-Review CR-1..CR-3 were right about the prose above. The regression test passed on the old wiring when it ran first or alone, because the shared host did not exist yet when the child was disposed; both tests now build the shared host first. The second test (a live sibling host) could not fail on the old wiring even with an A/B host pair, so it was dropped with its claim. The `TokenLeakTests` positive controls only prove that the console capture is live. Probes on the old wiring: the remaining test fails alone and in class order; the new `SessionLogoutEndpointTests` run shows the same red.
+Review CR-1..CR-3 were right about the prose above. The regression test passed on the old wiring when it ran first or alone, because the shared host did not exist yet when the child was disposed; the remaining test now builds the shared host first. The second test (a live sibling host) could not fail on the old wiring even with an A/B host pair, so it was dropped with its claim. The `TokenLeakTests` positive controls only prove that the console capture is live. Probes on the old wiring: the remaining test fails alone and in class order; `Logout_UnexpectedKeycloakError_...` in `SessionLogoutEndpointTests` goes red with it (developer's probe, not reproduced by review).
