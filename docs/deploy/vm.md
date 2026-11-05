@@ -420,12 +420,12 @@ include /etc/nginx/snippets/mustask-locations.conf;
 organizational step of the deployment: ask for it together with the Keycloak
 request of section 1. After they add it, `nginx -t && systemctl reload
 nginx` makes it live. A later run of the script reloads nginx itself once the
-include exists. If the test fails, the snippet installed earlier is left as it
-was.
+include exists. If either test fails, the snippet installed earlier is
+restored (or the new one removed), so a broken snippet is never live.
 
-The `/mustask` locations must not be shadowed by a regex location of the
-portal's server (`location ~ …`) that catches the same paths; a prefix
-location of the portal's own at `/mustask` would clash with the include.
+The `/mustask` locations are `^~` prefix locations, so a regex location of the
+portal's server (`location ~* .js$`) does not take their paths; a prefix
+location of the portal's own at `/mustask` would still clash with the include.
 
 ## 8. First start and smoke check
 
@@ -511,7 +511,8 @@ under `/opt/mustask/releases/`; delete the ones you no longer need by hand
 | `/health` is unhealthy naming the realm; the log has a TLS / certificate error | The VM does not trust the CA of the Keycloak certificate (section 2). |
 | `dotnet ef` fails with `NETSDK1004` (without the kit) | Run `dotnet restore src/backend/Mustask.Infrastructure` first (section 3). |
 | API exits at start about `Hosting:PathBase` | The path of `Session__PanelUrl` and `Hosting__PathBase` differ, or the base is malformed (section 5). Under a path both carry it: `https://portal.example.com/mustask` and `/mustask`; at a host root `Hosting__PathBase` is empty. |
-| `install: nginx -t failed` with `--path`: "the snippet failed" | The snippet did not pass `nginx -t` inside a server of its own; the message above names the line. The snippet installed earlier is left as it was. |
+| `install: the snippet failed nginx -t` (with `--path`) | The snippet did not pass `nginx -t` inside a server of its own; the message above names the line. The snippet installed earlier is left as it was. |
+| `install: nginx -t fails on the current configuration` (with `--path`) | The portal's configuration does not pass with the new snippet included; the previous snippet is restored (or the new one removed). The message above names the line. |
 | Under a path: the panel loads but its scripts are 404, or the sign-in loops | The panel was built for another path than the one nginx serves, or the `include` is missing in the portal's server (section 7). Rebuild with the full address (section 4). |
 | Keycloak shows "Invalid redirect URI" | `mustask-panel` lacks `https://mustask.example.com/api/session/callback` (under a path: `https://portal.example.com/mustask/api/session/callback`), or `ASPNETCORE_FORWARDEDHEADERS_ENABLED` is missing and the API sent an `http://` address. |
 | Every API call is 401 after sign-in | The access token has no `aud = mustask-api`, or `Keycloak__Authority`/`Keycloak__Issuer` differ from the token's `iss`. |

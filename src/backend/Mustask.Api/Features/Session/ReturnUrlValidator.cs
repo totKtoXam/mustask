@@ -19,5 +19,15 @@ public static class ReturnUrlValidator
         // header value would turn our own 400 into an unrelated 500) —
         // printable ASCII only, same restriction RFC 7230 already places on
         // header field values.
-        && value.All(static c => c is >= (char)0x20 and <= (char)0x7E);
+        && value.All(static c => c is >= (char)0x20 and <= (char)0x7E)
+        && !HasDotSegment(value);
+
+    // Under a path base (ADR-0037) "/../x" appended to PanelUrl climbs out of
+    // the deployment to any path of the shared host; "%2e%2e" is the same.
+    private static bool HasDotSegment(string value)
+    {
+        var end = value.IndexOfAny(['?', '#']);
+        var path = Uri.UnescapeDataString(end < 0 ? value : value[..end]);
+        return path.Split('/', '\\').Any(static segment => segment is "." or "..");
+    }
 }

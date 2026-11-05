@@ -214,9 +214,20 @@ cmd_nginx_locations() {
         die "the snippet failed nginx -t; the previous snippet (if any) is left as it was"
     fi
     rm -f "$probe"
+    # Keep the previous snippet: once the portal includes it, the whole-config
+    # test below reads the new one, and a failure must not leave it live.
+    [ -f "$snippet" ] && cp -p "$snippet" "$snippet.bak"
     mv "$snippet.new" "$snippet"
     # The server's own configuration must still pass as a whole.
-    nginx -t || die "nginx -t fails on the current configuration (the snippet is not included by anything yet)"
+    if ! nginx -t; then
+        if [ -f "$snippet.bak" ]; then
+            mv "$snippet.bak" "$snippet"
+            die "nginx -t fails on the current configuration; the previous snippet is restored"
+        fi
+        rm -f "$snippet"
+        die "nginx -t fails on the current configuration; the new snippet is removed"
+    fi
+    rm -f "$snippet.bak"
 
     if grep -rqF "include $snippet;" /etc/nginx 2>/dev/null; then
         systemctl reload nginx
