@@ -3,7 +3,7 @@
 - type: tech
 - size: M
 - branch: tech/006-serilog-static-logger-test-hosts
-- stage: 04-backend
+- stage: 05-backend-qa
 - epic: platform/tests
 - deps: bug-002
 - gates: gate-3
@@ -28,6 +28,7 @@ gate-3: pending
 - 2026-11-05 [orchestrator] route confirmed by the human (question form, 2026-10-12): M, tech, plan in status.md, one QA, one review round, gate-3; E2E no (paused 2026-10-12); weekly 33% at start; card moved to worktree slow-task-execution-fedb18
 - 2026-11-05 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/tech-006-serilog-static-logger-test-hosts
 - 2026-11-05 [new-task] size mismatch: queue has size:S, human confirmed M
+- 2026-11-05 [dev] stage 4 done: `UseSerilog(..., preserveStaticLogger: true)`, request logging takes `Serilog.ILogger` from DI, `StaticLoggerGuard` and its 6 uses removed, bug-002 own-host workaround in `SessionLogoutEndpointTests` reverted to the shared host, regression class `StaticLoggerRegressionTests` added (fails on the old Program.cs: verified by temporary revert). Ran 128 integration tests of the affected classes + 82 architecture tests, green. Not done: positive log assertions in `TokenLeakTests` (still DoesNotContain-only, now over live loggers); `SerialClasses` entries kept. stage: 05-backend-qa
 
 ## Notes
 
