@@ -25,6 +25,11 @@ import { WorkItemsPage } from './WorkItemsPage';
 
 vi.setConfig({ testTimeout: 120_000 });
 
+// A 50-row list is a heavy MUI render (about a second alone, several times that on a loaded box), and
+// the default findBy budget is 5 s. The waits that follow such a render get their own budget, still
+// inside the test timeout; they return as soon as the condition holds, so a quiet machine waits no longer.
+const LIST_RENDER = { timeout: 30_000 };
+
 const enc = encodeURIComponent;
 const DELETED = `${MSK_LIST}?state=${enc('Удалена')}`;
 
@@ -124,15 +129,17 @@ describe('feat-003 BR-WS-5 a purge on a card opened from a row of the list', () 
       );
     }
     mount(DELETED, data);
-    await table();
-    await userEvent.click(screen.getByRole('button', { name: 'Перейти на следующую страницу' }));
-    await screen.findByText('51–100 из 120');
+    await screen.findByRole('table', { name: 'Рабочие элементы' }, LIST_RENDER);
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Перейти на следующую страницу' }, LIST_RENDER),
+    );
+    await screen.findByText('51–100 из 120', undefined, LIST_RENDER);
 
-    await userEvent.click(screen.getByRole('link', { name: 'Удалённая 70' }));
-    await screen.findByRole('heading', { level: 1, name: 'Задача MSK-TASK-70' });
+    await userEvent.click(await screen.findByRole('link', { name: 'Удалённая 70' }, LIST_RENDER));
+    await screen.findByRole('heading', { level: 1, name: 'Задача MSK-TASK-70' }, LIST_RENDER);
     await purgeOnTheCard();
 
-    expect(await screen.findByText('1–50 из 119')).toBeInTheDocument();
+    expect(await screen.findByText('1–50 из 119', undefined, LIST_RENDER)).toBeInTheDocument();
     expect(addressSearch()).toBe(`?state=${enc('Удалена')}`);
   });
 
