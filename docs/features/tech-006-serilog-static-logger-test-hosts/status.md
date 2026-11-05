@@ -34,6 +34,8 @@ gate-3: pending
 - 2026-11-05 [review] round 1 done (one pass incl. security): changes-requested, 3 major open (CR-1..CR-3 in review.md), 0 minor
 - 2026-11-05 [dev] fix round 1 (review CR-1..CR-3): regression test builds the shared host first and fails on the old wiring alone and in order (probed: preserveStaticLogger false + request logger on Log.Logger); the sibling-host test could not fail on the old wiring and was dropped; TokenLeakTests control comments reworded; qa.md prose corrected. stage unchanged
 
+- 2026-11-05 [review] round 2 (delta) done: approve, 0 blocker/major open, 3 minor (CR-4..CR-6, debts)
+
 ## Notes
 
 Summary (from the queue line or an argument): Program.cs calls UseSerilog(writeToProviders: true) without preserveStaticLogger, so disposing any test child host runs Log.CloseAndFlush() and every ILogger<T> created on the shared host afterwards binds to a SilentLogger: log-line assertions pass vacuously or fail by test order (bug-002 fixed one test on its own host). Set preserveStaticLogger: true, take the request logger from DI instead of Log.Logger, and make the integration tests' log capture per host

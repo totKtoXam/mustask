@@ -89,3 +89,33 @@ prose-only fix needs a delta read and no QA.
 - `MustaskApiFactory.cs:186-190` (lock keeps shards off each other's DB) → unchanged code; the dropped Serilog clause is now moot (`Program.cs:80`).
 - `qa.md:15, 19`, dev Log line "fails on the old Program.cs" → CR-1, CR-3.
 - Direction 2: changed behaviour "host no longer sets or closes the static `Log.Logger`". Grepped `Log.Logger`, `Log\.(level|CloseAndFlush|ForContext)`, `preserveStaticLogger`, `StaticLoggerGuard`, `CloseAndFlush`, `static logger`, "log entries of a host" over `src/backend/**/*.cs`, `docs/`, `.claude/` and the three `AGENTS.md`. Hits outside this diff are only in merged history artifacts (bug-002, mod-001, mod-002, tech-047 review/qa/status, plan-backend; `docs/backlog.md:14` is this task's own queue line). They are records, so not a finding. No convention, runbook or `AGENTS.md` describes the old behaviour. Not swept: none.
+
+## Round 2 (delta)
+
+Diff `661f5b6e..ddf51741` (qa.md, status.md, `StaticLoggerRegressionTests.cs`, `TokenLeakTests.cs`). Input: round 1, the fix diff.
+
+Verdict: **approve**. Open: 0 blocker, 0 major, 3 minor (CR-4..CR-6, debts, prose only).
+
+Run by the reviewer (Testcontainers, `StaticLoggerRegressionTests` alone): `preserveStaticLogger: false` plus the request logger on `Log.Logger` (temporary) -> **red** (`Assert.Contains() Failure`, empty capture); `Program.cs` restored, `git diff` empty.
+
+### Round 1 findings
+
+- CR-1 closed. `StaticLoggerRegressionTests.cs:27` builds the shared host first; red on the old wiring when run alone (above).
+- CR-2 closed. The sibling test and its claim are gone (file has one test).
+- CR-3 closed. The seven `TokenLeakTests` comments say "console capture is live" only, which is true now that CR-1 is fixed; `qa.md:19` matches.
+
+### New findings (all minor, none sent back)
+
+**CR-4 — `qa.md:21` — minor.** Decision 3 still says "both `StaticLoggerRegressionTests` tests fail"; there is one test now. Fix: "the `StaticLoggerRegressionTests` test fails".
+
+**CR-5 — `qa.md:47` — minor.** "both tests now build the shared host first" (one test); "the new `SessionLogoutEndpointTests` run shows the same red" is unclear (the class is not new) and not reproduced here. Fix: reword to "the remaining test", drop or specify the second probe.
+
+**CR-6 — `StaticLoggerRegressionTests.cs:8-11` — minor.** The header says "These tests ... Each builds ... They capture", plural for a single test. Fix: singular.
+
+### Claims checked (delta)
+
+- `StaticLoggerRegressionTests.cs:8-11` (shared host first, else passes on old wiring) -> reproduced round 1 (CR-1) and in round 2 probe.
+- `:34-35` (async close under 10 ms) -> bug-002 measurement, not re-measured.
+- `TokenLeakTests.cs` x7 comments -> `Program.cs:202, 224` (request logger pinned to the host).
+- `qa.md:11, 15, 19` and `status.md` Log fix-round line -> match the code; `qa.md:21, 47` -> CR-4, CR-5.
+- Direction 2: the delta changes only test wiring and prose; behaviour swept in round 1 stands. Re-grepped `ChildHostDispose_DoesNotSilence` and `both tests` under `docs/` and `src/backend`: hits only in qa.md as listed.
