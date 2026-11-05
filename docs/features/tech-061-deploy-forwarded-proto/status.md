@@ -26,3 +26,4 @@ Check: run `install.sh nginx --path` on a throwaway Ubuntu 24.04 container with 
 
 - 2026-11-06 [orchestrator] The human chose «⭐ nginx-параметр в tech-058». Queue add: PR #97. The human confirmed the route «⭐ S с ревью». This is not the light cycle, because `deploy/` is outside its directories. Found by tech-058 Part 2: the portal's TLS ends on an external proxy.
 - 2026-11-06 [orchestrator] Kit changed and checked on a throwaway ubuntu:24.04 container with nginx 1.24 and systemctl stubbed. The default gives `$scheme`; `https` is written and kept on a re-run; an include of the snippet reloads; `scheme` restores the default. Refused: a bad value, the flag with `--host`, a missing value. An empty state file falls back to `$scheme`. The container is removed.
+- 2026-11-06 [code-reviewer] Review Round 1 over 36a10330: approve. 0 blockers, 0 majors, 2 minors (F1 vm.md troubleshooting row, F2 refusal message for a bad state file) left as debts in review.md.
