@@ -61,10 +61,6 @@ public sealed class ApiTestCollectionFactory : IXunitTestCollectionFactory
         typeof(CorsTests),
         typeof(KeycloakOptionsTests),
 
-        // log entries of a host the test builds (kept apart from the shards: they read a console/provider of that host; tech-006 removed the static-logger reason)
-        typeof(ErrorHandlingTests),
-        typeof(PurgeWorkItemEndpointTests),
-
         // a host straight from WebApplicationFactory<Program>
         typeof(ProductionCorsTests),
 
