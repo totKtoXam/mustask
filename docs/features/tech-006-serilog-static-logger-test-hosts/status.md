@@ -10,7 +10,7 @@
 
 ## Gates
 
-gate-3: pending
+gate-3: pending · PR #79 https://github.com/totKtoXam/mustask/pull/79
 
 ## Plan
 
