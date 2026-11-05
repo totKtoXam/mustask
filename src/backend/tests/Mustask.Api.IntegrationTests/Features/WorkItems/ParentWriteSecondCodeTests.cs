@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Mustask.Api.IntegrationTests.Features.Organizations;
-using Mustask.Api.IntegrationTests.Features.Process;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Domain.Identity;
 using Microsoft.AspNetCore.TestHost;
@@ -67,7 +66,6 @@ public sealed class ParentWriteSecondCodeTests(MustaskApiFactory factory)
         var storedBefore = await WorkItemsTestData.StoredAsync(factory, world.ProjectId);
         var typeId = world.Types["TASK"].Id.ToString();
 
-        using var loggerGuard = new StaticLoggerGuard();
         using var derived = StartDerivedHost();
         var path = WorkItemsTestData.List(world);
         var nonexistentProject = $"/api/organizations/{world.OrganizationId}/projects/{Guid.CreateVersion7()}/workitems";
@@ -102,7 +100,6 @@ public sealed class ParentWriteSecondCodeTests(MustaskApiFactory factory)
         var world = await WorkItemsTestData.CreateWorldAsync(factory);
         var member = await MembershipTestData.NewMemberAsync(factory, world.OrganizationId, OrganizationRole.Member);
 
-        using var loggerGuard = new StaticLoggerGuard();
         using var derived = StartDerivedHost();
 
         var created = await SendAsync(
@@ -130,7 +127,6 @@ public sealed class ParentWriteSecondCodeTests(MustaskApiFactory factory)
         var task = await WorkItemsTestData.CreateItemAsync(factory, world, "TASK", "Ребёнок");
         var storedBefore = await WorkItemsTestData.StoredAsync(factory, world.ProjectId);
 
-        using var loggerGuard = new StaticLoggerGuard();
         using var derived = StartDerivedHost();
 
         var attempts = new (string Name, string Path, object Body)[]

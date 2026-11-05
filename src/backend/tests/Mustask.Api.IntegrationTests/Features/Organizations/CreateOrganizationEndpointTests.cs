@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Mustask.Api.IntegrationTests.Features.Process;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Features.Organizations;
 using Mustask.Application.Features.Process;
@@ -262,8 +261,6 @@ public sealed class CreateOrganizationEndpointTests(MustaskApiFactory factory)
         var orphansBefore = await CountOrphanProcessesAsync();
         var seed = new SeedSwitch { Fail = true };
 
-        // The derived host replaces Serilog's static logger and disposes it: put it back (see the guard).
-        using var loggerGuard = new StaticLoggerGuard();
         using var host = factory.WithWebHostBuilder(builder =>
             builder.ConfigureTestServices(services =>
             {
