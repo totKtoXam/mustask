@@ -3,14 +3,14 @@
 - type: tech
 - size: L
 - branch: tech/057-panel-api-sub-path
-- stage: gate-1
+- stage: 04-backend
 - epic: platform/ci
 - deps: tech-056
 - gates: gate-1, gate-3
 
 ## Gates
 
-gate-1: pending
+gate-1: approved (human, chat 2026-11-05: «⭐ Принять ADR и план»)
 gate-3: pending
 
 ## Plan
