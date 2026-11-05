@@ -8,15 +8,15 @@ No spec; the requirement is the Notes summary. No endpoint changes, so no api-co
 
 | Requirement | Check |
 |---|---|
-| A disposed child host must not silence loggers of the shared host (created before and after) | `StaticLoggerRegressionTests` (2 tests); must fail on the old wiring |
+| A disposed child host must not silence loggers of the shared host created after it | `StaticLoggerRegressionTests` (1 test, after fix round 1); must fail on the old wiring |
 | Request logging does not depend on the static logger | Request-log line present in captures (`LoggingTests`, `TokenLeakTests`, `SessionLogoutEndpointTests`) |
 | Log capture is per host | Classes using `CapturingLoggerProvider` (`ErrorHandlingTests`, `PurgeWorkItemEndpointTests`) need no serialization |
 | Log-line assertions are real | `DoesNotContain`-only leak guards need a positive control |
-| Order independence | Affected classes pass; regression test fails on the old code regardless of order |
+| Order independence | Affected classes pass; regression test fails on the old code when the shared host is built first (fix round 1) |
 
 ### Decisions on the points the developer left open
 
-1. `TokenLeakTests` (6 session tests + the shared `AssertNoLeakAsync`): added a positive control to each, `Assert.Contains(<request path>, output)` before the `DoesNotContain` loops. The request-log line carries the path, so a silent logger now fails the test instead of passing it. Cheap; the HttpClient-pipeline line was not asserted (it sits under a log-level override that varies, so it would be brittle).
+1. `TokenLeakTests` (6 session tests + the shared `AssertNoLeakAsync`): added a positive control to each, `Assert.Contains(<request path>, output)` before the `DoesNotContain` loops. The request-log line carries the path, so the control proves only that the console capture is live; it is pinned to the host and was never the silenced line (fix round 1: a silenced `ILogger<T>` is caught by `StaticLoggerRegressionTests`, not by these controls). Cheap; the HttpClient-pipeline line was not asserted (it sits under a log-level override that varies, so it would be brittle).
 2. `SerialClasses`: the rule "asserts on log entries of a host it builds" is no longer true. `ErrorHandlingTests` and `PurgeWorkItemEndpointTests` capture through a `CapturingLoggerProvider` registered in their own host's DI: no console, no environment, no static. Removed both from `SerialClasses` and the phrase from `src/backend/AGENTS.md` (root `AGENTS.md` never carried it). Both classes pass (44 tests with the other filtered classes' run below).
 3. Regression test spot check: temporarily set `preserveStaticLogger: false` and the request logger back to `Log.Logger`: both `StaticLoggerRegressionTests` tests fail; restored (tree has no Program.cs change).
 
@@ -41,3 +41,7 @@ Not run: full `verify.sh` (CI), E2E (standing answer NO).
 ### Verdict
 
 No open blocker or major. Backend QA passed.
+
+### Fix round 1 (developer, after code review)
+
+Review CR-1..CR-3 were right about the prose above. The regression test passed on the old wiring when it ran first or alone, because the shared host did not exist yet when the child was disposed; both tests now build the shared host first. The second test (a live sibling host) could not fail on the old wiring even with an A/B host pair, so it was dropped with its claim. The `TokenLeakTests` positive controls only prove that the console capture is live. Probes on the old wiring: the remaining test fails alone and in class order; the new `SessionLogoutEndpointTests` run shows the same red.
