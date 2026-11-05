@@ -113,7 +113,8 @@ later gate that needs the full guarantee — QA, code review, `finish-task.sh`
 verified" instantly while the tree and the merge-base are the same and the
 working tree is clean; a commit changes the tree and a rebase changes the
 merge-base, and the next run is real. `pre-push` is not one of those gates:
-it runs the quick, change-proportionate `scripts/verify.sh` (`VERIFY_FULL=1
+it runs the change-proportionate `scripts/verify.sh` without tests,
+`VERIFY_TESTS=0` — builds and lint only, tech-055 (`VERIFY_FULL=1
 git push` makes it a full one, and finds the stamp the same way), and CI runs
 `VERIFY_FULL=1 sh scripts/verify.sh` on every pull request — the required check
 on `main` — on its own machine, where no stamp exists. A QA or review session

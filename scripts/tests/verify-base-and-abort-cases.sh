@@ -27,7 +27,7 @@ trap 'exit 130' INT TERM
 mkdir -p "$sandbox/home" "$sandbox/bin"
 : > "$sandbox/gitconfig"
 export HOME="$sandbox/home" GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL="$sandbox/gitconfig"
-unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE XDG_CONFIG_HOME VERIFY_FULL VERIFY_FORCE BASE \
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE XDG_CONFIG_HOME VERIFY_FULL VERIFY_FORCE VERIFY_TESTS BASE \
     GIT_CONFIG_PARAMETERS GIT_CONFIG_COUNT DOTNET_CLI_UI_LANGUAGE VSLANG \
     STUB_DOTNET_TEST STUB_DOCKER STUB_NPM_TEST 2>/dev/null || true
 export VERIFY_PYTHON=''
@@ -188,6 +188,13 @@ expect 'dotnet without Docker, tests pass: green' 'green "$r" && has "$r" "ok: t
 r=$(STUB_DOTNET_TEST=abort0 STUB_DOCKER=down run)
 expect 'dotnet without Docker, an abort at exit code 0: red, project named' \
     'red "$r" && has "$r" "FAIL: tests src/backend/tests/Foo.Tests"'
+# VERIFY_TESTS=0 (tech-055, the pre-push run): the build counts, the tests are
+# never started — a failing stub test cannot turn it red.
+r=$(VERIFY_TESTS=0 STUB_DOTNET_TEST=fail1 run)
+expect 'dotnet, VERIFY_TESTS=0: built, tests not run, green' \
+    'green "$r" && has "$r" "ok: backend build" && has "$r" "backend tests: not run (VERIFY_TESTS=0)"'
+r=$(VERIFY_TESTS=0 VERIFY_FULL=1 STUB_DOTNET_TEST=fail1 run)
+expect 'dotnet, VERIFY_FULL=1 wins over VERIFY_TESTS=0: the tests run, red' 'red "$r" && has "$r" "FAIL: backend tests"'
 
 g checkout -q main
 g checkout -q -b scn-frontend
@@ -203,6 +210,9 @@ r=$(STUB_NPM_TEST=fail1 run)
 expect 'vitest, a failing test: red' 'red "$r"'
 r=$(STUB_NPM_TEST=nosummary run)
 expect 'vitest, no summary at exit code 0: red' 'red "$r" && has "$r" "no Vitest summary"'
+r=$(VERIFY_TESTS=0 STUB_NPM_TEST=fail1 run)
+expect 'vitest, VERIFY_TESTS=0: lint and build, tests not run, green' \
+    'green "$r" && has "$r" "ok: build src/frontend" && has "$r" "tests src/frontend: not run (VERIFY_TESTS=0)"'
 
 g checkout -q main
 g checkout -q -b scn-keycloak
@@ -214,6 +224,8 @@ r=$(run)
 expect 'keycloak live tests pass: green' 'green "$r" && has "$r" "ok: .NET tests tagged KeycloakLive"'
 r=$(STUB_DOTNET_TEST=abort0 run)
 expect 'keycloak live tests, an abort at exit code 0: red' 'red "$r" && has "$r" "FAIL: .NET tests tagged KeycloakLive"'
+r=$(VERIFY_TESTS=0 STUB_DOTNET_TEST=abort0 run)
+expect 'keycloak, VERIFY_TESTS=0: live tests not run, green' 'green "$r" && has "$r" "KeycloakLive tests: not run (VERIFY_TESTS=0)"'
 
 printf '%s passed\n' "$pass"
 [ "$failed" = 0 ]
