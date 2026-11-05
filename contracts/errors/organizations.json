@@ -293,6 +293,62 @@
       "ru": "Участник команды не найден.",
       "kk": "Команда мүшесі табылмады.",
       "kkNeedsReview": true
+    },
+    "organizations.rescue.forbidden": {
+      "statuses": [403],
+      "params": {},
+      "ru": "Недостаточно прав",
+      "kk": "Құқықтар жеткіліксіз",
+      "kkNeedsReview": true
+    },
+    "organizations.rescue.user_unavailable": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Этого пользователя нельзя назначить администратором",
+      "kk": "Бұл пайдаланушыны әкімші етіп тағайындауға болмайды",
+      "kkNeedsReview": true
+    },
+    "organizations.rescue.self_appointment": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Нельзя назначить администратором себя",
+      "kk": "Өзіңізді әкімші етіп тағайындауға болмайды",
+      "kkNeedsReview": true
+    },
+    "organizations.rescue.already_admin": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Пользователь уже администратор этой организации",
+      "kk": "Пайдаланушы бұл ұйымның әкімшісі болып табылады",
+      "kkNeedsReview": true
+    },
+    "organizations.rescue.reason_required": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Укажите причину",
+      "kk": "Себебін көрсетіңіз",
+      "kkNeedsReview": true
+    },
+    "organizations.rescue.reason_too_long": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Не более 500 символов",
+      "kk": "500 таңбадан аспауы керек",
+      "kkNeedsReview": true
+    },
+    "organizations.rescue.reason_invalid": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Причина содержит недопустимые символы",
+      "kk": "Себепте жарамсыз таңбалар бар",
+      "kkNeedsReview": true
+    },
+    "organizations.rescue.invalid_page": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Некорректный номер страницы.",
+      "kk": "Бет нөмірі дұрыс емес.",
+      "kkNeedsReview": true
     }
   }
 }

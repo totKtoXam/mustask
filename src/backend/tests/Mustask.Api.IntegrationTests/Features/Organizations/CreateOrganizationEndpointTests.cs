@@ -319,20 +319,31 @@ public sealed class CreateOrganizationEndpointTests(MustaskApiFactory factory)
         Assert.Equal(0, await CountAsync("SELECT count(*) FROM organizations WHERE normalized_name = @p", EntityName.Normalize(name)));
     }
 
-    // US-1 · "Without the right ... is refused with «Недостаточно прав»" (QA pass 1): every other code of the catalog
-    // together does not stand in for the create right (BR-M1-2, BR-M1-19), and nothing is created.
+    // US-1 · "Without the right ... is refused with «Недостаточно прав»" (QA pass 1): no role that lacks the create right
+    // stands in for it (BR-M1-2, BR-M1-19), and nothing is created. This used to be "every other code of the catalog together";
+    // since feat-033 the one role that holds the rescue code, system-admin, holds create too, so "every code but create" is no
+    // longer a set of roles any token can carry. The guarantee is stated on what a token can carry: every instance role that
+    // lacks create, all of them at once, still gets 403 (organization codes are never in the token, so they add nothing).
     [Fact]
-    public async Task Create_EveryCodeButTheCreateRight_Returns403CreateForbidden_CreatesNothing()
+    public async Task Create_EveryRoleLackingTheCreateRight_Returns403CreateForbidden_CreatesNothing()
     {
         var name = OrganizationsTestData.UniqueName("Пример организации");
-        var otherCodes = Mustask.Domain.Identity.PermissionCatalog.AllCodes
-            .Where(code => code != Mustask.Domain.Identity.PermissionCatalog.OrganizationsOrganizationCreate)
+        var rolesWithoutCreate = Mustask.Domain.Identity.InstanceRoles.All
+            .Where(role => !role.Codes.Contains(Mustask.Domain.Identity.PermissionCatalog.OrganizationsOrganizationCreate))
+            .Select(role => role.Name)
             .ToArray();
-        Assert.NotEmpty(otherCodes);
+        Assert.NotEmpty(rolesWithoutCreate);
+        Assert.DoesNotContain(
+            Mustask.Domain.Identity.PermissionCatalog.OrganizationsOrganizationCreate,
+            Mustask.Domain.Identity.InstanceRoles.CodesOf(rolesWithoutCreate));
 
         var answer = await CreateAsync(
             new { name },
-            KeycloakTestRealm.CreateToken(otherCodes, options => options.Subject = OrganizationsTokens.NewSubject()));
+            KeycloakTestRealm.CreateToken(configure: options =>
+            {
+                options.Roles = rolesWithoutCreate;
+                options.Subject = OrganizationsTokens.NewSubject();
+            }));
 
         Assert.Equal(HttpStatusCode.Forbidden, answer.Status);
         Assert.Equal("organizations.organization.create_forbidden", answer.ErrorCode);

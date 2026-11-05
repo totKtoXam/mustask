@@ -145,12 +145,15 @@ public sealed class KeycloakStandDriftCheckTests
             Assert.Contains(findings, finding => finding.StartsWith($"Client role `mustask-api/{role}` is in the realm import but not in the live realm", StringComparison.Ordinal));
         }
 
-        foreach (var code in PermissionCatalog.InstanceCodes)
+        // The frozen pre-tech-024 import predates the rescue code (feat-033): it carries every other instance code as a client role.
+        var oldCodes = PermissionCatalog.InstanceCodes.Where(code => code != PermissionCatalog.OrganizationsOrganizationRescue).ToList();
+
+        foreach (var code in oldCodes)
         {
             Assert.Contains(findings, finding => finding.StartsWith($"Client role `mustask-api/{code}` is in the live realm but not in the realm import", StringComparison.Ordinal));
         }
 
-        Assert.Equal(3 + InstanceRoles.Names.Count + PermissionCatalog.InstanceCodes.Count, findings.Count);
+        Assert.Equal(3 + InstanceRoles.Names.Count + oldCodes.Count, findings.Count);
         Assert.All(findings, finding => Assert.Contains("scripts/stand-reset.sh", finding, StringComparison.Ordinal));
     }
 

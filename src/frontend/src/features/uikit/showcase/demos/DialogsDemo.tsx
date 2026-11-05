@@ -1,11 +1,16 @@
 import { useId, useState } from 'react';
 import {
   ActionButton,
+  BodyRow,
+  Cell,
   ConfirmDialog,
   DialogShell,
   FormDialog,
+  HeadCell,
   InlineTextArea,
   InlineTextField,
+  TableCard,
+  TablePager,
 } from '../../../../shared/ui';
 import { DEMO_IDENTIFIER } from '../data';
 import { DemoRow } from '../parts';
@@ -17,7 +22,7 @@ import { useDemoCard } from './useDemoCard';
 // it, and the other two sizes, do.
 
 type CardMode = 'card' | 'guard' | 'busy';
-type DialogKind = CardMode | 'confirm' | 'form';
+type DialogKind = CardMode | 'confirm' | 'form' | 'wide';
 
 const CARD_DIALOG_ID = 'showcase-card-dialog';
 
@@ -64,6 +69,62 @@ function CardDialog({
   );
 }
 
+const WIDE_ROWS = [
+  {
+    id: 'r1',
+    who: 'Системный Администратор',
+    reason: 'Борис уволился, организация осталась без администратора',
+  },
+  {
+    id: 'r2',
+    who: 'Вера Иванова',
+    reason: 'PRJ-1001PRJ-1002PRJ-1003PRJ-1004PRJ-1005PRJ-1006PRJ-1007PRJ-1008PRJ-1009',
+  },
+] as const;
+
+/** The wide window: a read-only table that fits, a cell that wraps, a pager that waits. */
+function WideDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [page, setPage] = useState(0);
+  const [loading, setLoading] = useState(false);
+  return (
+    <DialogShell
+      open={open}
+      size="wide"
+      title="Широкое окно: история"
+      onClose={onClose}
+      footer={<ActionButton label="Закрыть" onClick={onClose} />}
+    >
+      <TableCard
+        aria-label="История"
+        columns={[{ width: 200 }, {}]}
+        head={['Кто назначил', 'Причина'].map((label) => (
+          <HeadCell key={label} label={label} />
+        ))}
+        foot={
+          <TablePager
+            page={page}
+            rowsPerPage={2}
+            count={6}
+            disabled={loading}
+            onPageChange={(next) => {
+              setPage(next);
+              setLoading(true);
+              setTimeout(() => setLoading(false), 1200);
+            }}
+          />
+        }
+      >
+        {WIDE_ROWS.map((row) => (
+          <BodyRow key={row.id}>
+            <Cell>{row.who}</Cell>
+            <Cell wrap>{row.reason}</Cell>
+          </BodyRow>
+        ))}
+      </TableCard>
+    </DialogShell>
+  );
+}
+
 export function DialogsDemo() {
   const [open, setOpen] = useState(false);
   const [shown, setShown] = useState<{ kind: DialogKind; cycle: number }>({
@@ -92,6 +153,7 @@ export function DialogsDemo() {
         <ActionButton label="Открыть занятое окно" onClick={() => openDialog('busy')} />
         <ActionButton label="Открыть подтверждение" onClick={() => openDialog('confirm')} />
         <ActionButton label="Открыть окно с формой" onClick={() => openDialog('form')} />
+        <ActionButton label="Открыть широкое окно" onClick={() => openDialog('wide')} />
       </DemoRow>
       <CardDialog
         key={shown.cycle}
@@ -109,6 +171,7 @@ export function DialogsDemo() {
       >
         {`Тег «Discovery» будет удалён из рабочего элемента ${DEMO_IDENTIFIER}.`}
       </ConfirmDialog>
+      <WideDialog open={open && shown.kind === 'wide'} onClose={close} />
       <FormDialog
         open={open && shown.kind === 'form'}
         title="Новая команда"

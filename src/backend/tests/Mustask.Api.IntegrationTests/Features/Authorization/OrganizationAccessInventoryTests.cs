@@ -34,6 +34,19 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
     /// </summary>
     private static readonly IReadOnlyDictionary<string, string> AllowedWriteWithReadCode = new Dictionary<string, string>(StringComparer.Ordinal);
 
+    /// <summary>
+    /// The routes that carry <c>{organizationId}</c> and declare an <b>instance</b> code instead of an organization code (BR-M1-33,
+    /// ADR-0029 § 9, feat-033): a system administrator acts on an organization they are not a member of, and the route reads no
+    /// organization content. Each entry names its reason; the list is exact and asserted both ways below.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, string> InstanceOperationRoutes = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["GET /api/organizations/rescue/{organizationId}/appointments"] =
+            "ADR-0029 § 9: the system administrator reads the appointment record of an organization they are not a member of; no organization content.",
+        ["POST /api/organizations/rescue/{organizationId}/appointments"] =
+            "ADR-0029 § 9: the system administrator appoints an administrator in an organization they are not a member of; no organization content.",
+    };
+
     private static string KeyOf(RouteEndpoint endpoint)
     {
         var methods = endpoint.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods ?? [];
@@ -54,7 +67,10 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
     }
 
     private List<RouteEndpoint> AddressedEndpoints() =>
-        RealEndpoints().Where(endpoint => endpoint.RoutePattern.GetParameter(OrganizationParameter) is not null).ToList();
+        RealEndpoints()
+            .Where(endpoint => endpoint.RoutePattern.GetParameter(OrganizationParameter) is not null
+                && !InstanceOperationRoutes.ContainsKey(KeyOf(endpoint)))
+            .ToList();
 
     private static EndpointCategoryMetadata? CategoryOf(RouteEndpoint endpoint) =>
         endpoint.Metadata.GetOrderedMetadata<EndpointCategoryMetadata>().SingleOrDefault();
@@ -110,6 +126,46 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
         }
 
         Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems));
+    }
+
+    // feat-033 · ADR-0029 § 9: the exception list is exact. The listed routes exist, each declares the instance category with the rescue
+    // code, the instance policy and no other, and the rescue forbidden code; every other route with {organizationId} is judged above.
+    [Fact]
+    public void TheInstanceOperationRoutes_ExistExactlyAsListed_AndDeclareTheRescueCodeAndNoOther()
+    {
+        var found = RealEndpoints()
+            .Where(endpoint => endpoint.RoutePattern.GetParameter(OrganizationParameter) is not null
+                && InstanceOperationRoutes.ContainsKey(KeyOf(endpoint)))
+            .ToList();
+
+        Assert.Equal(
+            InstanceOperationRoutes.Keys.Order(StringComparer.Ordinal),
+            found.Select(KeyOf).Order(StringComparer.Ordinal));
+        Assert.All(InstanceOperationRoutes.Values, reason => Assert.Contains("ADR-0029 § 9", reason, StringComparison.Ordinal));
+
+        foreach (var endpoint in found)
+        {
+            var category = Assert.Single(endpoint.Metadata.GetOrderedMetadata<EndpointCategoryMetadata>());
+            Assert.Equal(EndpointCategoryKind.Permission, category.Kind);
+            Assert.Equal(PermissionCatalog.OrganizationsOrganizationRescue, category.PermissionCode);
+
+            var policies = endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>().Select(data => data.Policy).ToList();
+            Assert.Equal([PermissionPolicies.PolicyName(PermissionCatalog.OrganizationsOrganizationRescue)], policies);
+            Assert.Equal(
+                OrganizationErrorCodes.RescueForbidden,
+                endpoint.Metadata.GetMetadata<ForbiddenErrorCodeMetadata>()!.Code);
+        }
+    }
+
+    // The exception list is not vacuous: an organization route that is not on it is still judged by the rule above, and the rescue
+    // code is an instance code, which no organization route may declare.
+    [Fact]
+    public void TheInstanceOperationRoutes_AreNotVacuous_AndNoListedRouteIsInTheOrganizationList()
+    {
+        Assert.NotEmpty(InstanceOperationRoutes);
+        Assert.Equal(PermissionScope.Instance, PermissionCatalog.ScopeOf(PermissionCatalog.OrganizationsOrganizationRescue));
+        Assert.Empty(AddressedEndpoints().Select(KeyOf).Intersect(InstanceOperationRoutes.Keys));
+        Assert.Empty(OrganizationAddressedRoutes.All.Select(route => route.Key).Intersect(InstanceOperationRoutes.Keys));
     }
 
     // BR-M1-33 · 2: a route without {organizationId} is not scoped — it has neither the category nor an organization code (the two
@@ -235,7 +291,9 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
         // feat-028 api-contract § 4: eight project-nested team routes out, sixteen organization-level ones in — 47 + 8 = 55 — and, at
         // gate-3, the creation form's member search (§ 2.3a) — 56; mod-005 api-contract § 4 adds delete, restore and purge — 59 (feat-040 api-contract § 6 moves three, no change); feat-003 api-contract § 5 adds the «Исполнитель» filter's options — 60.
         // mod-018 api-contract § 2-3 (typed tree): eleven organization-area routes, the project's subtree read and three team-end routes in, the project-nested tree writes out - 70; TC-28 adds the read-only team-links read - 71.
-        Assert.Equal(81, expected.Count);
+        // feat-033 api-contract § 2.1 adds the organization's own appointment record - 74 (its two rescue routes with {organizationId} are the instance exceptions below).
+        // feat-048 api-contract § 2 adds the aggregate views' eight reads - 82.
+        Assert.Equal(82, expected.Count);
     }
 
     // Every organization code of the catalog is declared by at least one route — a code with no route is a decision nobody enforces
@@ -344,7 +402,7 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
                 .Select(operation => (Key: $"{operation.Name.ToUpperInvariant()} {path.Name}", Responses: operation.Value.GetProperty("responses"))))
             .ToList();
 
-        Assert.Equal(OrganizationAddressedRoutes.All.Count, scoped.Count);
+        Assert.Equal(OrganizationAddressedRoutes.All.Count + InstanceOperationRoutes.Count, scoped.Count);
         var without403 = scoped.Where(operation => !operation.Responses.TryGetProperty("403", out _)).Select(operation => operation.Key).ToList();
         Assert.True(without403.Count == 0, "Organization-scoped operations without a 403 in the API description: " + string.Join(", ", without403));
     }

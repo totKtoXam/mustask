@@ -86,6 +86,7 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () =>
       'Общие',
       'Процесс',
       'Языки',
+      'Все организации',
       'Витрина компонентов',
     ]);
   });
@@ -104,6 +105,7 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () =>
       'Команда',
       'Проект',
       'Справочники',
+      'Администрирование',
       'Интерфейс',
     ]);
   });

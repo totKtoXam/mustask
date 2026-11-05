@@ -182,6 +182,8 @@ export interface LayoutTokens {
   boardColumnWidth: number;
   boardColumnCollapsedWidth: number;
   authCardWidth: number;
+  /** The `wide` dialog's greatest width (feat-033); the breakpoints (640 / 1024) have no step for it. */
+  dialogWideMaxWidth: number;
   avatarSize: number;
   categoryDot: number;
   contextNameMaxWidth: Record<WidthClass, number>;
@@ -551,6 +553,7 @@ export const layout: LayoutTokens = {
   boardColumnWidth: 280,
   boardColumnCollapsedWidth: 40,
   authCardWidth: 400,
+  dialogWideMaxWidth: 900,
   avatarSize: 32,
   categoryDot: 8,
   contextNameMaxWidth: { wide: 200, medium: 160, narrow: 96 },

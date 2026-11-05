@@ -89,6 +89,23 @@ export const organizationErrorCodes = {
   teamMemberNotInOrganization: 'organizations.team.member_not_in_organization',
   /** 404 to a team member in the path. */
   teamMemberNotFound: 'organizations.team.member_not_found',
+  // feat-033 api-contract § 3: the rescue routes (ADR-0035). Where each shows is design § 4.2 and § 5.
+  /** 403: the token lacks `organizations.organization.rescue`; the page becomes «Доступ ограничен» (DC-8). */
+  rescueForbidden: 'organizations.rescue.forbidden',
+  /** 409: not in the projection, or a pre-tech-025 inactive row. */
+  rescueUserUnavailable: 'organizations.rescue.user_unavailable',
+  /** 409. */
+  rescueSelfAppointment: 'organizations.rescue.self_appointment',
+  /** 409. */
+  rescueAlreadyAdmin: 'organizations.rescue.already_admin',
+  /** A field reason of `validationFailed` under `reason`. */
+  rescueReasonRequired: 'organizations.rescue.reason_required',
+  /** A field reason of `validationFailed` under `reason`. */
+  rescueReasonTooLong: 'organizations.rescue.reason_too_long',
+  /** A field reason of `validationFailed` under `reason` (an API caller only). */
+  rescueReasonInvalid: 'organizations.rescue.reason_invalid',
+  /** A field reason of `validationFailed` under `page`; the panel never sends a bad page. */
+  rescueInvalidPage: 'organizations.rescue.invalid_page',
 } as const;
 
 export type OrganizationErrorCode =

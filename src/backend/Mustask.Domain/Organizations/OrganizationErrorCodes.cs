@@ -148,4 +148,30 @@ public static class OrganizationErrorCodes
 
     /// <summary>The user is not in the team (also one another administrator just removed).</summary>
     public const string TeamMemberNotFound = "organizations.team.member_not_found";
+
+    // ----- feat-033: rescue of an orphaned organization (api-contract § 3) -----
+
+    /// <summary>«Недостаточно прав»: the token lacks <c>organizations.organization.rescue</c>. Never <c>http.forbidden</c>.</summary>
+    public const string RescueForbidden = "organizations.rescue.forbidden";
+
+    /// <summary>The user is unknown to the projection or marked inactive (BR-RS-6a row 4b).</summary>
+    public const string RescueUserUnavailable = "organizations.rescue.user_unavailable";
+
+    /// <summary>The caller named themselves (BR-RS-6a row 5).</summary>
+    public const string RescueSelfAppointment = "organizations.rescue.self_appointment";
+
+    /// <summary>The user already holds <c>admin</c> in the organization (BR-RS-6a row 6).</summary>
+    public const string RescueAlreadyAdmin = "organizations.rescue.already_admin";
+
+    /// <summary>Field reason of <c>reason</c>: missing, empty or only whitespace.</summary>
+    public const string RescueReasonRequired = "organizations.rescue.reason_required";
+
+    /// <summary>Field reason of <c>reason</c>: over 500 Unicode code points after trimming.</summary>
+    public const string RescueReasonTooLong = "organizations.rescue.reason_too_long";
+
+    /// <summary>Field reason of <c>reason</c>: U+0000 or a Unicode noncharacter.</summary>
+    public const string RescueReasonInvalid = "organizations.rescue.reason_invalid";
+
+    /// <summary>Field reason of <c>page</c>: below 1 or not an integer.</summary>
+    public const string RescueInvalidPage = "organizations.rescue.invalid_page";
 }

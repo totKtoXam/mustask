@@ -366,6 +366,72 @@ namespace Mustask.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Mustask.Domain.Organizations.OrganizationAppointment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AppointedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("AppointedBy")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("AppointeeId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_organization_appointments");
+
+                    b.HasIndex(new[] { "OrganizationId", "AppointedAt", "Id" }, "ix_organization_appointments_organization_id_appointed_at")
+                        .IsDescending(false, true, true)
+                        .HasDatabaseName("ix_organization_appointments_organization_id_appointed_at");
+
+                    b.ToTable("organization_appointments", t =>
+                        {
+                            t.HasCheckConstraint("ck_organization_appointments_reason_not_blank", "btrim(reason) <> ''");
+
+                            t.Property("Id")
+                                .HasColumnName("id");
+
+                            t.Property("AppointedAt")
+                                .HasColumnName("appointed_at");
+
+                            t.Property("AppointedBy")
+                                .HasColumnName("appointed_by");
+
+                            t.Property("AppointeeId")
+                                .HasColumnName("appointee_id");
+
+                            t.Property("OrganizationId")
+                                .HasColumnName("organization_id");
+
+                            t.Property("Reason")
+                                .HasColumnName("reason");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
             modelBuilder.Entity("Mustask.Domain.Organizations.OrganizationMembership", b =>
                 {
                     b.Property<Guid>("OrganizationId")
@@ -1915,6 +1981,16 @@ namespace Mustask.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_organizations_processes_process_id");
+                });
+
+            modelBuilder.Entity("Mustask.Domain.Organizations.OrganizationAppointment", b =>
+                {
+                    b.HasOne("Mustask.Domain.Organizations.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_organization_appointments_organizations_organization_id");
                 });
 
             modelBuilder.Entity("Mustask.Domain.Organizations.OrganizationMembership", b =>
