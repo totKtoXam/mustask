@@ -1,6 +1,6 @@
 # ADR-0037: Serve the panel and the API under one configured path base
 
-- Status: proposed
+- Status: accepted (the human, gate-1 of tech-057, 2026-11-05)
 - Date: 2026-11-05
 - Context: `tech-057-panel-api-sub-path` ([status](../features/tech-057-panel-api-sub-path/status.md)). The target address is `https://portal.devexpert.kz/mustask` (the human, 2026-11-05, chose a sub-path over a subdomain). Builds on ADR-0022 (the token-mediating backend: its cookie and callback paths) and ADR-0033 (the shared realm: only the two clients' addresses change). Accepted only by the human (`docs/adr/README.md`, rule 2).
 

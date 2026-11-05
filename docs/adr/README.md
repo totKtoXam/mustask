@@ -43,7 +43,7 @@ anything already fixed by the conventions.
 
 Keep the list current (append-only, newest on top):
 
-- ADR-0037 — Serve the panel and the API under one configured path base · proposed
+- ADR-0037 — Serve the panel and the API under one configured path base · accepted (accepted 2026-11-05)
 - ADR-0036 — Page the aggregate views' group reads by a cursor, and limit those reads per user and per process · proposed (deviates from ADR-0014/0015 for these reads only)
 - ADR-0035 — Let the instance administrator appoint organization administrators on request, on a permanent record · accepted (amends the wording of ADR-0027 rule 4 and ADR-0033 § 1) (accepted 2026-11-04)
 - ADR-0034 — Fill the user projection from the sign-in claims instead of a Keycloak event-listener provider · proposed (amends ADR-0025)

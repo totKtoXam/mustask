@@ -47,6 +47,7 @@ Check: the rehearsal passes; `scripts/verify.sh` in CI green; the Aspire stand a
 - 2026-11-05 [orchestrator] route: tech, L (thresholds: an ADR; sign-in cookie and callback paths change). The human chose «⭐ L, ADR вместо spec»: no spec, gate-2 has no subject (no screens). E2E: no.
 - 2026-11-05 [orchestrator] binding: worktree `.claude/worktrees/unruffled-banach-65f877`, branch `tech/057-panel-api-sub-path` from origin/main 0f53bec8.
 - 2026-11-05 [orchestrator] ADR-0037 proposed (path base in config, nginx passes the path, location-only snippet for the portal); plan above. Stage gate-1.
+- 2026-11-05 [orchestrator] gate-1 approved by the human: «⭐ Принять ADR и план»; ADR-0037 accepted. Stage 04: API, panel and kit, one agent each, on disjoint files.
 
 ## Notes
 
