@@ -3,14 +3,14 @@
 - type: tech
 - size: S
 - branch: tech/060-worktree-own-hooks
-- stage: gate-3
+- stage: complete
 - epic: platform/ci
 - deps: -
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved (human, chat 2026-11-06: «Approve»; auto-merge on)
 
 ## Plan
 
@@ -26,3 +26,4 @@ Check: `bash scripts/verify.sh`. The hand-over was tested: a copy under a pinned
 
 - 2026-11-06 [orchestrator] queued via PR #89 (take: PR #91) by the doc-012 session on the human's choice («⭐ Hook в каждом worktree»). Route: tech, S, light cycle (hooks, scripts and docs only); the human chose «⭐ S, лёгкий цикл».
 - 2026-11-06 [orchestrator] binding: worktree `.claude/worktrees/unruffled-banach-65f877`, branch `tech/060-worktree-own-hooks` from origin/main. The config repair is shared state that auto mode blocks; the human runs the script.
+- 2026-11-06 [orchestrator] gate-3 approved by the human («Approve»); PR #92, auto-merge on. The human runs scripts/fix-hooks-path.sh once at the PC.
