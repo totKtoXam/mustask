@@ -60,6 +60,7 @@ public sealed class ApiTestCollectionFactory : IXunitTestCollectionFactory
         // environment variables
         typeof(CorsTests),
         typeof(KeycloakOptionsTests),
+        typeof(PathBaseTests),
 
         // a host straight from WebApplicationFactory<Program>
         typeof(ProductionCorsTests),

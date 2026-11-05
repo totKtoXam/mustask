@@ -53,6 +53,11 @@ public sealed class SessionLoginEndpointTests
     [InlineData("https://evil.example.com/steal")]
     [InlineData("//evil.example.com/steal")]
     [InlineData("/\\evil.example.com/steal")]
+    // Dot segments climb out of a path base (ADR-0037), encoded or not.
+    [InlineData("/../portal")]
+    [InlineData("/a/./b")]
+    [InlineData("/%2e%2e/portal")]
+    [InlineData("/a/..")]
     // A control character or anything outside
     // ASCII must not reach the OIDC handler's own RedirectUri and, from
     // there, the "Location" header a later redirect would carry — Kestrel

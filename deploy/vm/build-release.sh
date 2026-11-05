@@ -6,6 +6,12 @@
 #   deploy/vm/build-release.sh <tag> <site-url> [out-dir]
 #
 #   deploy/vm/build-release.sh v0.1.0 https://mustask.devexpert.kz
+#   deploy/vm/build-release.sh v0.1.0 https://portal.devexpert.kz/mustask
+#
+# <site-url> is the public address of the panel: https://<host> when MUSTASK
+# owns the host name, https://<host>/<path> under a path of someone else's
+# site (ADR-0037). The path is the path base: it goes to the panel build
+# (VITE_BASE_PATH) and, via install.sh prepare --path, to Hosting__PathBase.
 #
 # The release is built from the tag, not from the working tree: the tag is
 # checked out into a throwaway worktree, so local edits never reach the VM.
@@ -15,7 +21,7 @@
 # Output: <out-dir>/mustask-<tag>.tar.gz (default: out/ at the repository
 # root, ignored by git) holding
 #   api/        dotnet publish of Mustask.Api (framework-dependent)
-#   panel/      the panel build, VITE_API_BASE_URL=<site-url> baked in
+#   panel/      the panel build, VITE_API_BASE_URL=<site-url> and the path base baked in
 #   efbundle    EF Core migrations bundle, linux-x64, self-contained: the VM
 #               needs no SDK and no checkout to migrate
 #   kit/        the files of this directory (install.sh, smoke.sh, unit, ...)
@@ -35,14 +41,26 @@ out=${3:-}
 
 case $site in
     https://*) ;;
-    *) die "site-url must be https://<host> (got '$site'): the session cookie is Secure" ;;
+    *) die "site-url must be https://<host>[/<path>] (got '$site'): the session cookie is Secure" ;;
 esac
-case ${site#https://} in
-    */*) die "site-url must be a host root, no path (got '$site'): sub-paths need tech-057" ;;
+rest=${site#https://}
+host=${rest%%/*}
+base=''
+case $rest in
+    */*) base=/${rest#*/} ;;
 esac
-# No port either: the nginx site listens on 443 and install.sh takes a host.
-printf '%s' "${site#https://}" | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$' \
-    || die "site-url must be https://<host name>, no port (got '$site')"
+# No port: the nginx site listens on 443 and install.sh takes a host.
+printf '%s' "$host" | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$' \
+    || die "site-url must be https://<host name>[/<path>], no port (got '$site')"
+# The path base: plain segments, no trailing slash (trimmed above), no '.' or
+# '..' segments.
+if [ -n "$base" ]; then
+    printf '%s' "$base" | grep -Eq '^(/[A-Za-z0-9._-]+)+$' \
+        || die "the path of site-url must be /segment[/segment] of letters, digits, . _ - (got '$base')"
+    case $base/ in
+        */./*|*/../*) die "the path of site-url must not hold '.' or '..' segments (got '$base')" ;;
+    esac
+fi
 # The tag names the release directory on the VM and the tarball.
 printf '%s' "$tag" | grep -Eq '^[A-Za-z0-9._-]+$' \
     || die "tag '$tag' must be one plain name (letters, digits, . _ -)"
@@ -96,16 +114,24 @@ dotnet ef migrations bundle \
     --target-runtime linux-x64 --self-contained \
     --output "$stage/efbundle" --force
 
-printf '== panel: npm ci + build, VITE_API_BASE_URL=%s\n' "$site"
+printf '== panel: npm ci + build, VITE_API_BASE_URL=%s VITE_BASE_PATH=%s\n' "$site" "${base:-/}"
 (
     cd "$src/src/frontend"
     npm ci --no-audit --no-fund
-    VITE_API_BASE_URL=$site npm run build
+    # MSYS_NO_PATHCONV: Git Bash turns a value that starts with / (the path
+    # base) into a Windows path (C:/Program Files/Git/mustask) on its way to a
+    # native program such as node. Nothing else in this script wants it on.
+    MSYS_NO_PATHCONV=1 VITE_BASE_PATH=${base:-/} VITE_API_BASE_URL=$site npm run build
 )
 cp -R "$src/src/frontend/dist" "$stage/panel"
+# The base must really be in the build: the scripts of index.html sit under it.
+if [ -n "$base" ]; then
+    grep -q "src=\"$base/assets/" "$stage/panel/index.html" \
+        || die "the panel build does not carry the path base $base (index.html: $(grep -o 'src="[^"]*"' "$stage/panel/index.html" | head -n 1)); is VITE_BASE_PATH reaching vite?"
+fi
 
 mkdir -p "$stage/kit"
-for f in install.sh smoke.sh mustask-api.service nginx-mustask.conf mustask.env.template; do
+for f in install.sh smoke.sh mustask-api.service nginx-mustask.conf nginx-mustask-locations.conf mustask.env.template; do
     # LF on the VM whatever the build machine's checkout did (.gitattributes
     # says LF, but an old clone may predate it).
     tr -d '\r' < "$kit/$f" > "$stage/kit/$f"

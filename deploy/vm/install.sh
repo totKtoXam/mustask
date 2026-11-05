@@ -3,22 +3,32 @@
 # the VM, from the unpacked release that deploy/vm/build-release.sh made.
 #
 # Usage:
-#   install.sh prepare --host <host> --keycloak-host <host> --realm <realm>
+#   install.sh prepare --host <host> [--path /<path>]
+#                      --keycloak-host <host> --realm <realm>
 #                      [--install-packages] [--create-db]
 #   install.sh nginx   --host <host> --cert <fullchain.pem> --key <privkey.pem>
+#   install.sh nginx   --path /<path>
 #   install.sh deploy  <release-dir>
 #   install.sh rollback
 #   install.sh status
 #
 # prepare   once per VM: the service user, the directories, /etc/mustask/
-#           mustask.env from the template (kept when it exists). With
+#           mustask.env from the template (kept when it exists). --path is
+#           the path of the public address when MUSTASK lives under a path of
+#           a shared host (ADR-0037): it goes into Session__PanelUrl and
+#           Hosting__PathBase; leave it out at a host root. With
 #           --install-packages it runs apt-get for the ASP.NET Core 10
 #           runtime, PostgreSQL and nginx; with --create-db it creates the
 #           role and the database `mustask` on the local PostgreSQL under a
 #           generated password, written straight into mustask.env and never
 #           printed. Both are explicit because both change the machine.
-# nginx     renders the site from nginx-mustask.conf, enables it, nginx -t,
+# nginx     --host: the whole site from nginx-mustask.conf, enabled, nginx -t,
 #           reload. The certificate is yours: point at its files.
+#           --path: MUSTASK lives under that path of a server that is not
+#           ours. It renders nginx-mustask-locations.conf into
+#           /etc/nginx/snippets/mustask-locations.conf, checks it with
+#           nginx -t, and prints the one `include` line the owner of that
+#           server adds. It does not touch the server itself.
 # deploy    copies the release to /opt/mustask/releases/<tag>, applies the
 #           migrations with the bundle (ADR-0002: explicit, before the start),
 #           installs the unit, switches /opt/mustask/current, restarts and
@@ -47,6 +57,13 @@ env_value() { sed -n "s/^$1=//p" "$env_file" | tail -n 1 | sed 's/^"\(.*\)"$/\1/
 placeholders() { grep -nE '^[^#]*CHANGE_ME' "$env_file"; }
 # A host name with no port, path or characters sed would read.
 host_name() { printf '%s' "$1" | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'; }
+# The path of the public address: empty (host root) or /segment[/segment], no
+# trailing slash, no . or .. segments; safe in sed and in nginx.
+base_path() {
+    [ -z "$1" ] && return 0
+    printf '%s' "$1" | grep -Eq '^(/[A-Za-z0-9._-]+)+$' || return 1
+    case $1/ in */./*|*/../*) return 1 ;; esac
+}
 # A flag that takes a value must have one.
 val() { [ $# -ge 2 ] && [ -n "$2" ] && [ "${2#--}" = "$2" ] || die "$1 needs a value"; }
 
@@ -62,10 +79,11 @@ wait_health() {
 }
 
 cmd_prepare() {
-    local host='' kc_host='' realm='' packages=0 create_db=0
+    local host='' path='' kc_host='' realm='' packages=0 create_db=0
     while [ $# -gt 0 ]; do
         case $1 in
             --host) val "$@"; host=$2; shift 2 ;;
+            --path) val "$@"; path=$2; shift 2 ;;
             --keycloak-host) val "$@"; kc_host=$2; shift 2 ;;
             --realm) val "$@"; realm=$2; shift 2 ;;
             --install-packages) packages=1; shift ;;
@@ -77,6 +95,7 @@ cmd_prepare() {
         || die "prepare: --host, --keycloak-host and --realm are required"
     # They go into sed and into the env file: plain names only.
     host_name "$host" || die "--host '$host' is not a plain host name"
+    base_path "$path" || die "--path '$path' must be /segment[/segment] of letters, digits, . _ - (no trailing slash)"
     printf '%s' "$kc_host" | grep -Eq '^[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._-]+)*$' \
         || die "--keycloak-host '$kc_host' is not host[:port][/path]"
     printf '%s' "$realm" | grep -Eq '^[A-Za-z0-9._-]+$' || die "--realm '$realm' is not a plain name"
@@ -113,7 +132,8 @@ cmd_prepare() {
         say "$env_file exists, left as it is"
     else
         say "$env_file from the template"
-        sed -e "s|@HOST@|$host|g" -e "s|@KEYCLOAK_HOST@|$kc_host|g" -e "s|@REALM@|$realm|g" \
+        sed -e "s|@HOST@|$host|g" -e "s|@BASE_PATH@|$path|g" \
+            -e "s|@KEYCLOAK_HOST@|$kc_host|g" -e "s|@REALM@|$realm|g" \
             "$kit/mustask.env.template" > "$env_file"
     fi
     chown root:mustask "$env_file"
@@ -170,18 +190,74 @@ SQL
     fi
 }
 
+# MUSTASK under a path of a server that is not ours: the locations go into a
+# snippet file, and the owner of that server includes it. The server itself is
+# never written or enabled here.
+cmd_nginx_locations() {
+    local path=$1
+    base_path "$path" && [ -n "$path" ] \
+        || die "--path '$path' must be /segment[/segment] of letters, digits, . _ - (no trailing slash)"
+    command -v nginx >/dev/null || die "no nginx: install it (or run prepare --install-packages)"
+
+    local snippet=/etc/nginx/snippets/mustask-locations.conf probe
+    mkdir -p /etc/nginx/snippets
+    say "$snippet"
+    sed -e "s|@BASE_PATH@|$path|g" "$kit/nginx-mustask-locations.conf" > "$snippet.new"
+
+    # Nothing includes the snippet yet, so a plain `nginx -t` would not read
+    # it. Test it inside a throwaway server of its own.
+    probe=$(mktemp "${TMPDIR:-/tmp}/mustask-nginx.XXXXXX")
+    printf 'events {}\nhttp {\n    server {\n        listen 127.0.0.1:65000;\n        include %s.new;\n    }\n}\n' \
+        "$snippet" > "$probe"
+    if ! nginx -t -c "$probe"; then
+        rm -f "$probe" "$snippet.new"
+        die "the snippet failed nginx -t; the previous snippet (if any) is left as it was"
+    fi
+    rm -f "$probe"
+    # Keep the previous snippet: once the portal includes it, the whole-config
+    # test below reads the new one, and a failure must not leave it live.
+    rm -f "$snippet.bak"
+    [ -f "$snippet" ] && cp -p "$snippet" "$snippet.bak"
+    mv "$snippet.new" "$snippet"
+    # The server's own configuration must still pass as a whole.
+    if ! nginx -t; then
+        if [ -f "$snippet.bak" ]; then
+            mv "$snippet.bak" "$snippet"
+            die "nginx -t fails on the current configuration; the previous snippet is restored"
+        fi
+        rm -f "$snippet"
+        die "nginx -t fails on the current configuration; the new snippet is removed"
+    fi
+    rm -f "$snippet.bak"
+
+    if grep -rqF "include $snippet;" /etc/nginx 2>/dev/null; then
+        systemctl reload nginx
+        say "the snippet is already included; nginx reloaded"
+    else
+        printf '\nThe snippet is installed but not active. The owner of the server that serves\n'
+        printf 'the public host name adds this line inside its server { ... } block, then\n'
+        printf "runs 'nginx -t && systemctl reload nginx':\n\n    include %s;\n\n" "$snippet"
+    fi
+}
+
 cmd_nginx() {
-    local host='' cert='' key=''
+    local host='' cert='' key='' path=''
     while [ $# -gt 0 ]; do
         case $1 in
             --host) val "$@"; host=$2; shift 2 ;;
             --cert) val "$@"; cert=$2; shift 2 ;;
             --key) val "$@"; key=$2; shift 2 ;;
+            --path) val "$@"; path=$2; shift 2 ;;
             *) die "nginx: unknown argument '$1'" ;;
         esac
     done
+    if [ -n "$path" ]; then
+        [ -z "$host$cert$key" ] || die "nginx: --path installs locations for a server that is not ours; it takes no --host, --cert or --key"
+        cmd_nginx_locations "$path"
+        return
+    fi
     [ -n "$host" ] && [ -n "$cert" ] && [ -n "$key" ] \
-        || die "nginx: --host, --cert and --key are required"
+        || die "nginx: give --host, --cert and --key (own host name) or --path (shared server)"
     host_name "$host" || die "--host '$host' is not a plain host name"
     [ -f "$cert" ] || die "no certificate file $cert"
     [ -f "$key" ] || die "no key file $key"
@@ -320,5 +396,5 @@ case $command in
     deploy) cmd_deploy "$@" ;;
     rollback) cmd_rollback ;;
     status) cmd_status ;;
-    *) sed -n '2,30p' "$0"; exit 2 ;;
+    *) sed -n '2,40p' "$0"; exit 2 ;;
 esac
