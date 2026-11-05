@@ -3,14 +3,14 @@
 - type: tech
 - size: S
 - branch: tech/004-stand-docs-drift
-- stage: gate-3
+- stage: complete
 - epic: platform/stand
 - deps: -
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved · PR #96 https://github.com/totKtoXam/mustask/pull/96
 
 ## Plan
 
@@ -24,6 +24,7 @@ gate-3: pending
 - 2026-11-06 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/tech-004-stand-docs-drift
 - 2026-11-06 [orchestrator] route confirmed by the human (question form): S, light cycle (verify.sh, no QA or review sessions, the human reviews the diff at gate-3), accepted with the caveat that two .cs files change in comments only; queue take PR #95
 - 2026-11-06 [orchestrator] done in the orchestrator session: four files (AGENTS.md, ADR-0002, factory and its test comments); the test comment was outside the queue line but carried the same random-port wording
+- 2026-11-06 [orchestrator] gate-3 approved: the human turned on auto-merge for PR #96 («Включил автомердж»); it merges when CI is green
 
 ## Notes
 
