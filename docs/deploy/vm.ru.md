@@ -175,7 +175,14 @@ sudo bash mustask-v0.1.0/kit/install.sh prepare \
 (домашний каталог `/var/lib/mustask`), каталоги `/opt/mustask/releases/` и
 `/etc/mustask/` и пишет `/etc/mustask/mustask.env` из шаблона (раздел 5);
 существующий env-файл не трогается, поэтому `prepare` можно запускать
-повторно. Два флага — это то, что меняет машину, и каждый задаётся явно:
+повторно. С `--run-as <пользователь>` служба работает от уже
+существующей учётной записи — для VM, где все остальные приложения работают
+от одной учётной записи (`--run-as ubuntu`): пользователь `mustask` не
+создаётся, env-файл отдаётся группе этого пользователя, а `/var/lib/mustask` —
+ему самому. Других учётных записей, кроме `mustask`, `prepare` не создаёт, а
+root отклоняет. Выбор хранится в `/etc/mustask/run-as`, и `deploy` вписывает
+его в `User=`/`Group=` unit-файла; чтобы сменить, запустите `prepare` ещё раз
+с другим `--run-as` и сделайте deploy. Два флага — это то, что меняет машину, и каждый задаётся явно:
 
 - `--install-packages` ставит только недостающее из
   `aspnetcore-runtime-10.0`, PostgreSQL, nginx и curl, через
@@ -195,8 +202,8 @@ sudo bash mustask-v0.1.0/kit/install.sh prepare \
 ожидании `/health`, который покажет realm недоступным.
 
 `/var/lib/mustask` должен сохраняться между перезапусками и обновлениями: API
-шифрует cookie сессии ключами ASP.NET Core Data Protection, которые лежат в
-домашнем каталоге служебного пользователя. Если каталог очищен, все открытые
+шифрует cookie сессии ключами ASP.NET Core Data Protection, которые лежат там
+(unit задаёт `HOME=/var/lib/mustask`, от какого бы пользователя он ни работал). Если каталог очищен, все открытые
 сессии становятся недействительными, и пользователи входят заново.
 
 ## 3. База данных
@@ -320,7 +327,8 @@ Keycloak. Правьте файл на VM (`sudo nano /etc/mustask/mustask.env`)
 
 `deploy/vm/mustask-api.service`; `install.sh deploy` ставит его как
 `/etc/systemd/system/mustask-api.service` и включает. Он запускает
-`/usr/bin/dotnet /opt/mustask/current/api/Mustask.Api.dll` от `mustask`, с
+`/usr/bin/dotnet /opt/mustask/current/api/Mustask.Api.dll` от пользователя
+из `/etc/mustask/run-as` (по умолчанию `mustask`, раздел 2), с
 env-файлом из раздела 5, `ProtectSystem=strict` и `/var/lib/mustask` как
 единственным путём на запись (ключи Data Protection). Если `dotnet`
 установлен в другом месте, поправьте `ExecStart` в файле кита до сборки.

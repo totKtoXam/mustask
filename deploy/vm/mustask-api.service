@@ -8,8 +8,9 @@ Wants=network-online.target
 
 [Service]
 Type=exec
-User=mustask
-Group=mustask
+# Rendered by `install.sh deploy` from /etc/mustask/run-as (prepare --run-as).
+User=@RUN_USER@
+Group=@RUN_GROUP@
 WorkingDirectory=/opt/mustask/current/api
 EnvironmentFile=/etc/mustask/mustask.env
 Environment=HOME=/var/lib/mustask
