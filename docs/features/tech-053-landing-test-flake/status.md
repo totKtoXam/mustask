@@ -14,7 +14,9 @@ gate-3: pending
 
 ## Plan
 
-<!-- S/M: implementation plan, 3-10 lines. L: see plan-backend.md / plan-frontend.md -->
+- Cause: not a timer or debounce. The test "shows the first page of the list" builds 120 rows; every step (list render, next page, card, purge, list render again) is a heavy MUI table render (6.4 s alone). `asyncUtilTimeout` is 5 s per `findBy`, so under CPU load the waits on a 50-row list (the page-2 text and the final `1–50 из 119`) run out of the 5 s budget while the render is still going. Reproduced on the old test under 30 CPU burners: red with exactly «Unable to find ... 1–50 из 119».
+- Fix (test only): the waits that follow a full 50-row list render in that test get an explicit budget (`LIST_RENDER_MS`, 30 s, inside the file's 120 s test timeout). Assertions, texts and their count are unchanged; the waits stay condition-based, so a quiet machine returns as soon as the text appears.
+- Proof: 20 sequential runs of the file, then runs under 30 CPU burners (old test red, new test green); counts go in the Log.
 
 ## Log
 
