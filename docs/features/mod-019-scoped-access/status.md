@@ -40,6 +40,16 @@ Plans: `plan-backend.md`, `plan-frontend.md`.
   .claude/worktrees/workflow-debts-c5f842, branch mod/019-scoped-access
 - 2026-11-06 [business-analyst] spec.md + US-1..US-6 written; stage → 02-requirements-review. Open for gate-1: OQ-1..OQ-6 (department-only grants, the switch per type, project managers and sub-areas, department managers and project creation, one L or cut lines, confirmation on switch off)
 - 2026-11-06 [requirements-reviewer] round 1 in review.md: verdict needs-human-decision. 3 blocker (R-1 «Участник» fixture voids the 403 outcomes, R-2 switch order in US-2, R-3 child areas under a department impossible), 8 major (R-4..R-11), 10 minor (R-12..R-21); back to the business analyst for R-1..R-11. Opinions on OQ-1..OQ-6; new OQ-7 (instance role table in the bundle contract). gate-1 untouched
+- 2026-11-06 [orchestrator] gate-1 open questions answered by the human in
+  chat, one question each: OQ-1 A (department-held area grants only); OQ-2
+  the reviewer's variant (control on project nodes and sub-areas, a
+  department's value stored but not shown, no migration); OQ-3 B (a project
+  «Управление» holder manages the project's sub-areas now, amending the
+  ADR-0029 matrix); OQ-4 B (a department manager creates projects in the
+  department with area.write); OQ-5 A (one L); OQ-6 the reviewer's A (count of
+  grant holders who stop being reached, plus a self-lockout warning); OQ-7 A
+  (the bundle contract carries the instance table and replaces the
+  tokenClaims.ts mirror). gate-1 itself waits for the fix round on R-1..R-21
 
 ## Notes
 
