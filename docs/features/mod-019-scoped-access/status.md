@@ -60,6 +60,7 @@ Plans: `plan-backend.md`, `plan-frontend.md`.
   third review round the human asked for (past the two-round limit by the
   human's decision); R-27 closed by listing the reached users' project grants in
   the switch-off confirmation; stage → 03-ux-design
+- 2026-11-06 [ux-designer] design.md (about 28 KB) and prototype/index.html written; D-1..D-13 for gate-2, new open questions OQ-D1 (switch-off list on a sub-area) and OQ-D2 (per-row link flag, no matrix). Gates untouched
 
 ## Notes
 

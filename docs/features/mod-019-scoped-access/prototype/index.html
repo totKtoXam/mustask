@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mod-019: доступ на объектах (прототип)</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font: 14px/20px "Segoe UI", Arial, sans-serif; background: #f3f2f1; margin: 0; color: #201f1e; }
+  header.top { background: #fff; border-bottom: 1px solid #e1dfdd; padding: 8px 16px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; }
+  header.top .grp { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin-right: 12px; } header.top .grp > span { color: #605e5c; margin-right: 2px; }
+  header.top select { font: inherit; }
+  .shell { display: flex; align-items: flex-start; }
+  body.narrow .shell { max-width: 640px; border-right: 1px dashed #8a8886; }
+  nav { width: 200px; flex: none; padding: 16px 8px 16px 16px; font-size: 13px; }
+  body.narrow nav { width: 120px; padding-left: 8px; }
+  nav h4 { margin: 0 0 6px; font-size: 11px; color: #605e5c; text-transform: uppercase; }
+  nav a { display: block; padding: 4px 8px; border-radius: 4px; color: inherit; text-decoration: none; cursor: pointer; }
+  nav a.cur { background: #fff; font-weight: 600; box-shadow: inset 3px 0 0 #0078d4; }
+  nav a.dim { color: #a19f9d; cursor: default; }
+  main { flex: 1; min-width: 0; padding: 16px 24px 80px; }
+  button { font: inherit; color: inherit; background: #edebe9; border: 0; border-radius: 4px; padding: 4px 12px; cursor: pointer; }
+  button:hover { background: #e1dfdd; }
+  button.primary { background: #0078d4; color: #fff; } button.primary:hover { background: #106ebe; }
+  button.danger { background: #a4262c; color: #fff; }
+  button.ghost { background: none; padding: 2px 8px; }
+  button[aria-pressed="true"] { background: #fff; box-shadow: inset 0 -2px 0 #0078d4; }
+  button:disabled { opacity: .5; cursor: default; }
+  :focus-visible { outline: 2px solid #0078d4; outline-offset: -1px; }
+  a.l { color: #0f5fb0; text-decoration: none; cursor: pointer; } a.l:hover { text-decoration: underline; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0; } h2 { font-size: 15px; font-weight: 600; margin: 0; }
+  .head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; } .head h1 { flex: 1; min-width: 160px; }
+  .card { background: #fff; border-radius: 4px; box-shadow: 0 1px 6px rgba(0,0,0,.18); overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; } th { text-align: left; font-weight: 400; font-size: 12px; color: #605e5c; padding: 6px 12px; white-space: nowrap; }
+  td { padding: 4px 12px; min-height: 36px; vertical-align: middle; } tbody tr:hover { background: #f8f7f6; } tr.inh td { color: #605e5c; }
+  td.act { width: 48px; text-align: right; position: relative; }
+  .tag { display: inline-block; background: #edebe9; border-radius: 10px; padding: 0 8px; font-size: 12px; margin-left: 6px; white-space: nowrap; }
+  .sub { font-size: 12px; color: #605e5c; }
+  .facts { display: grid; grid-template-columns: 180px 1fr; gap: 6px 12px; padding: 12px 16px; margin-bottom: 24px; } .facts dt { color: #605e5c; font-size: 12px; } .facts dd { margin: 0; }
+  section.sec { margin-bottom: 24px; } section.sec > .head { border-bottom: 1px solid #e1dfdd; padding-bottom: 6px; }
+  .empty { text-align: center; padding: 36px 16px; } .empty p { color: #605e5c; margin: 4px 0 12px; }
+  .skel { height: 14px; margin: 12px; border-radius: 4px; background: linear-gradient(90deg,#edebe9,#f8f7f6,#edebe9); }
+  .note { padding: 8px 12px; border-radius: 4px; margin: 8px 0; } .note.err { background: #fde7e9; } .note.warn { background: #fff4ce; } .note.info { background: #e8f0fb; } .note.mute { background: #edebe9; color: #605e5c; }
+  .note button { margin-left: 8px; }
+  .filter { margin: 8px 0; } .filter input { width: 260px; font: inherit; padding: 4px 8px; border: 1px solid #c8c6c4; border-radius: 4px; }
+  .layer { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: flex-start; justify-content: center; padding-top: 5vh; z-index: 20; }
+  .dlg { background: #fff; border-radius: 6px; width: min(580px, calc(100vw - 24px)); max-height: 90vh; overflow: auto; padding: 16px 20px; box-shadow: 0 8px 30px rgba(0,0,0,.35); }
+  .dlg h2 { font-size: 17px; margin-bottom: 10px; } .dlg .foot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  .fld { margin: 10px 0; } .fld > label { display: block; font-size: 12px; color: #605e5c; margin-bottom: 2px; } .fld .hint { font-size: 12px; color: #605e5c; margin-top: 2px; } .fld .e { font-size: 12px; color: #a4262c; margin-top: 2px; }
+  .fld input[type=text], .fld select { width: 100%; font: inherit; padding: 4px 8px; border: 1px solid #8a8886; border-radius: 4px; background: #fff; }
+  .fld.bad input, .fld.bad select { border-color: #a4262c; }
+  ul.opts { list-style: none; margin: 2px 0 0; padding: 4px 0; border: 1px solid #c8c6c4; border-radius: 4px; max-height: 170px; overflow: auto; }
+  ul.opts li { padding: 3px 10px; cursor: pointer; } ul.opts li:hover { background: #f3f2f1; } ul.opts li.hintrow { color: #605e5c; cursor: default; }
+  .menu { position: absolute; right: 8px; top: 30px; z-index: 10; background: #fff; border-radius: 4px; box-shadow: 0 4px 14px rgba(0,0,0,.3); padding: 4px 0; min-width: 170px; text-align: left; }
+  .menu button { display: block; width: 100%; text-align: left; border-radius: 0; background: none; padding: 5px 14px; white-space: nowrap; } .menu button:hover { background: #f3f2f1; }
+  .sw { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; }
+  .sw input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .sw .trk { width: 36px; height: 20px; border-radius: 10px; background: #8a8886; position: relative; flex: none; transition: .15s; }
+  .sw .trk::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: .15s; }
+  .sw input:checked + .trk { background: #0078d4; } .sw input:checked + .trk::after { left: 18px; }
+  .sw input:focus-visible + .trk { outline: 2px solid #0078d4; outline-offset: 2px; } .sw input:disabled + .trk { opacity: .5; }
+  .state { color: #605e5c; margin: 4px 0 0 46px; max-width: 560px; }
+  .given { margin: 6px 0; max-height: 150px; overflow: auto; border: 1px solid #e1dfdd; border-radius: 4px; }
+  #notice { position: fixed; left: 16px; bottom: 16px; background: #323130; color: #fff; padding: 8px 14px; border-radius: 4px; display: none; z-index: 30; max-width: 440px; }
+  .proto { font-size: 12px; color: #605e5c; margin: 0 0 12px; max-width: 760px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="grp"><span>Вы —</span><span id="meBtns"></span></div>
+  <div class="grp"><span>Страница:</span><span id="pageBtns"></span></div>
+  <div class="grp"><span>Данные:</span><span id="dataBtns"></span></div>
+  <div class="grp"><span>Следующая запись:</span>
+    <select id="sim" aria-label="Следующая запись"><option value="">успешна</option><option value="403">403 (доступ только что отозван)</option><option value="404">404 (участник удалён)</option><option value="impact">расчёт отключения: ошибка</option></select></div>
+  <div class="grp"><button id="loseBtn" title="Имитация: другой менеджер отозвал ваш доступ на этой странице; панель перечитывает права">Отозвали мой доступ здесь</button>
+    <button id="resetBtn">Сбросить данные</button>
+    <button id="wBtn" aria-pressed="false">640 px</button></div>
+</header>
+<div class="shell">
+  <nav id="nav" aria-label="Меню объекта"></nav>
+  <main id="main"></main>
+</div>
+<div id="layer"></div>
+<div id="notice" role="status"></div>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const U = {
+  anna: { n: 'Анна Смирнова', e: 'anna@example.org', admin: true },
+  pavel: { n: 'Павел Рябов', e: 'pavel@example.org' },
+  kirill: { n: 'Кирилл Тимофеев', e: 'kirill@example.org' },
+  olga: { n: 'Ольга Петрова', e: 'olga@example.org' },
+  irina: { n: 'Ирина Крылова', e: 'irina@example.org' },
+  vera: { n: 'Вера Соколова', e: 'vera@example.org' },
+  denis: { n: 'Денис Жуков', e: 'denis@example.org', inactive: true },
+  lena: { n: 'Елена Орлова', e: 'lena@example.org' },
+};
+const ROLES = {
+  dept: [['read', 'Чтение', 'Просматривает проекты департамента и их рабочие элементы.'], ['edit', 'Изменение', 'Чтение, а также создание и изменение рабочих элементов проектов департамента.'], ['manage', 'Управление', 'Изменение, а также управление департаментом, его проектами и областями: названия, доступ, связи, создание проектов.']],
+  proj: [['read', 'Чтение', 'Просматривает проект.'], ['edit', 'Изменение', 'Чтение, а также рабочие элементы проекта и порядок его бэклога.'], ['manage', 'Управление', 'Изменение, а также настройки проекта, доступ, связи и области проекта.']],
+  team: [['plan', 'Планирование', 'Упорядочивает бэклог команды.'], ['manage', 'Управление', 'Планирование, а также участники, название, связи команды и доступ к ней.']],
+};
+const SCOPE = { log: 'dept', A: 'proj', VENUS: 'team' };
+const OBJ = { log: ['департаменте', 'Логистика'], A: ['проекте', 'A'], VENUS: ['команде', 'VENUS'] };
+const NODES = {
+  A: { name: 'A', type: 'project', parent: 'log', desc: 'Складской учёт' },
+  D: { name: 'D', type: 'project', parent: null, desc: '' },
+  plat: { name: 'Платформа', type: 'area', parent: 'A', desc: 'Складское ПО' },
+};
+const seed = () => ({
+  grants: {
+    log: [{ u: 'olga', r: 'read', by: 'anna', at: '05.11.2026 10:20' }, { u: 'irina', r: 'edit', by: 'anna', at: '05.11.2026 10:21' }, { u: 'pavel', r: 'manage', by: 'anna', at: '05.11.2026 10:22' }],
+    A: [{ u: 'irina', r: 'edit', by: 'pavel', at: '06.11.2026 09:15' }, { u: 'kirill', r: 'manage', by: 'anna', at: '06.11.2026 09:40' }],
+    VENUS: [{ u: 'pavel', r: 'manage', by: 'anna', at: '04.11.2026 16:05' }, { u: 'denis', r: 'plan', by: 'anna', at: '04.11.2026 16:06' }],
+  },
+  inh: { A: true, D: true, plat: true },
+  members: { VENUS: ['olga', 'irina', 'denis'] },
+  projects: [['Alpha', 'ALP', 'Логистика'], ['A', 'A', 'Логистика'], ['D', 'D', null]],
+  lost: {}, dlg: null, menu: null,
+});
+const st = Object.assign(seed(), { me: 'pavel', page: 'proj', data: 'ok', filter: '', narrow: false });
+const PAGES = { dept: 'Департамент: Участники', deptP: 'Департамент: Проекты', proj: 'Проект: Участники и доступ', team: 'Команда: Участники и доступ', nodeA: 'Узел A: Структура', nodeD: 'Узел D (верхний уровень)', sub: 'Область «Платформа»', projects: 'Организация: Проекты' };
+const nm = (u) => (U[u] ? U[u].n : 'Неизвестный пользователь');
+const plural = (n, a, b, c) => { const m = n % 100, d = n % 10; return n + ' ' + (m > 10 && m < 15 ? c : d === 1 ? a : d > 1 && d < 5 ? b : c); };
+const label = (scope, r) => (ROLES[scope].find((x) => x[0] === r) || [0, r])[1];
+
+/* ---- codes of the caller on each object (the served answer, simplified) ---- */
+const admin = () => !!U[st.me].admin;
+const role = (key, u = st.me) => (st.lost[u + ':' + key] ? undefined : (st.grants[key].find((g) => g.u === u) || {}).r);
+const dMgr = () => admin() || role('log') === 'manage';
+const pMgr = () => role('A') === 'manage';
+const reachA = () => role('log') === 'manage' && st.inh.A;
+const C = {
+  grantDept: () => dMgr(), grantProj: () => admin() || pMgr() || reachA(), grantTeam: () => admin() || role('VENUS') === 'manage',
+  writeNodeA: () => admin() || pMgr() || reachA(),
+  writePlat: () => admin() || pMgr() || (role('log') === 'manage' && st.inh.A && st.inh.plat),
+  switchA: () => C.writeNodeA() && dMgr(), switchD: () => admin(), switchPlat: () => C.writePlat() && C.writeNodeA(),
+  places: () => (admin() ? ['top', 'log', 'fin'] : role('log') === 'manage' ? ['log'] : []),
+};
+const sig = () => JSON.stringify([C.grantDept(), C.grantProj(), C.grantTeam(), C.writeNodeA(), C.writePlat(), C.switchA(), C.switchPlat(), C.places()]);
+function notice(t) { const n = $('#notice'); n.textContent = t; n.style.display = 'block'; clearTimeout(notice.t); notice.t = setTimeout(() => (n.style.display = 'none'), 4200); }
+function reread(before) { if (before !== sig()) { const k = { dept: 'log', deptP: 'log', proj: 'A', team: 'VENUS', nodeA: 'A', nodeD: 'A', sub: 'A', projects: 'log' }[st.page]; notice('Ваш доступ в ' + OBJ[k][0] + ' «' + OBJ[k][1] + '» изменился.'); } }
+
+/* ---- pages ---- */
+const skel = () => '<div class="card" role="status" aria-label="Загрузка данных">' + '<div class="skel"></div>'.repeat(5) + '</div>';
+const menuFor = { dept: ['Обзор', 'Проекты', 'Команды', 'Участники'], deptP: ['Обзор', 'Проекты', 'Команды', 'Участники'], proj: ['Общие', 'Структура', 'Рабочие элементы', 'Канбан', 'Бэклог', 'Команды', 'Участники и доступ'], nodeA: ['Общие', 'Структура', 'Рабочие элементы', 'Канбан', 'Бэклог', 'Команды', 'Участники и доступ'], nodeD: ['Общие', 'Структура', 'Рабочие элементы', 'Канбан', 'Бэклог', 'Команды', 'Участники и доступ'], sub: ['Общие', 'Структура', 'Рабочие элементы', 'Канбан', 'Бэклог', 'Команды', 'Участники и доступ'], team: ['Обзор', 'Канбан', 'Бэклог', 'Проекты', 'Участники и доступ'], projects: ['Обзор', 'Структура', 'Проекты', 'Команды', 'Участники'] };
+const curEntry = { dept: 'Участники', deptP: 'Проекты', proj: 'Участники и доступ', nodeA: 'Структура', nodeD: 'Структура', sub: 'Структура', team: 'Участники и доступ', projects: 'Проекты' };
+const goEntry = { 'dept|Проекты': 'deptP', 'deptP|Участники': 'dept', 'dept|Участники': 'dept', 'deptP|Проекты': 'deptP', 'proj|Структура': 'nodeA', 'nodeA|Участники и доступ': 'proj', 'proj|Участники и доступ': 'proj', 'nodeA|Структура': 'nodeA', 'sub|Участники и доступ': 'proj', 'sub|Структура': 'nodeA', 'nodeD|Структура': 'nodeD' };
+function renderNav() {
+  const t = { dept: 'Меню: департамент Логистика', deptP: 'Меню: департамент Логистика', proj: 'Меню: проект A', nodeA: 'Меню: проект A', nodeD: 'Меню: проект D', sub: 'Меню: проект A', team: 'Меню: команда VENUS', projects: 'Меню: организация Ромашка' }[st.page];
+  $('#nav').innerHTML = '<h4>' + t + '</h4>' + menuFor[st.page].map((m) => { const live = goEntry[st.page + '|' + m] || curEntry[st.page] === m; return '<a class="' + (curEntry[st.page] === m ? 'cur' : live ? '' : 'dim') + '"' + (curEntry[st.page] === m ? ' aria-current="page"' : '') + (live ? ' data-entry="' + esc(m) + '"' : '') + '>' + m + '</a>'; }).join('');
+}
+function rowsFor(key) {
+  const scope = SCOPE[key];
+  let rows = st.data === 'empty' ? [] : st.grants[key].map((g) => ({ ...g, direct: true }));
+  if (key === 'A' && st.inh.A && st.data !== 'empty') rows = rows.concat(st.grants.log.map((g) => ({ ...g, direct: false, from: 'Логистика' })));
+  const f = st.filter.trim().toLowerCase();
+  if (f) rows = rows.filter((g) => (nm(g.u) + ' ' + (U[g.u] ? U[g.u].e : '')).toLowerCase().includes(f));
+  rows.sort((a, b) => nm(a.u).localeCompare(nm(b.u), 'ru'));
+  return { rows, scope };
+}
+const userCell = (u) => '<div>' + esc(nm(u)) + (u === st.me ? '<span class="tag">Вы</span>' : '') + (U[u] && U[u].inactive ? '<span class="tag">неактивен</span>' : '') + '</div>' + (U[u] ? '<div class="sub">' + U[u].e + '</div>' : '');
+const giverCell = (g) => esc(nm(g.by)) + (U[g.by] && U[g.by].inactive ? ' [неактивен]' : '') + ', ' + g.at;
+function grantsTable(key, can) {
+  const { rows, scope } = rowsFor(key);
+  const proj = key === 'A';
+  const emptyText = { log: 'В департаменте пока никому не выдан доступ', A: 'В проекте пока никому не выдан доступ', VENUS: 'К команде пока никому не выдан доступ' }[key];
+  if (!rows.length) {
+    if (st.filter) return '<div class="card empty"><p>Ничего не найдено</p><button data-act="clearFilter">Сбросить фильтр</button></div>';
+    return '<div class="card empty"><p><b>' + emptyText + '</b></p>' + (can ? '<p>Выдайте роль, чтобы человек работал с объектом.</p>' : '') + '</div>';
+  }
+  const head = '<tr><th>Участник</th><th>Роль</th>' + (proj ? '<th>Откуда</th>' : '') + '<th>Выдан</th>' + (can ? '<th><span class="sr" style="position:absolute;left:-9999px">Действия</span></th>' : '') + '</tr>';
+  const body = rows.map((g, i) => {
+    const id = key + '|' + g.u + '|' + g.direct;
+    const own = g.u === st.me;
+    const menu = can && g.direct ? '<td class="act"><button class="ghost" data-act="menu" data-id="' + id + '" aria-label="Ещё действия: ' + esc(nm(g.u)) + '" aria-haspopup="menu">⋮</button>' + (st.menu === id ? '<div class="menu" role="menu">' + (own ? '' : '<button role="menuitem" data-act="role" data-key="' + key + '" data-u="' + g.u + '">Изменить роль</button>') + '<button role="menuitem" data-act="revoke" data-key="' + key + '" data-u="' + g.u + '">Отозвать доступ</button></div>' : '') + '</td>' : can ? '<td></td>' : '';
+    return '<tr class="' + (g.direct ? '' : 'inh') + '"><td>' + userCell(g.u) + '</td><td>' + label(scope, g.r) + '</td>' + (proj ? '<td>' + (g.direct ? '<span class="tag" style="margin:0">В проекте</span>' : '<a class="l" data-go="dept">От департамента «' + g.from + '»</a>') + '</td>' : '') + '<td>' + giverCell(g) + '</td>' + menu + '</tr>';
+  }).join('');
+  return '<div class="card"><table aria-label="Доступ"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>';
+}
+function body(key, can) {
+  if (st.data === 'loading') return skel();
+  if (st.data === 'error') return '<div class="note err" role="alert">Не удалось загрузить доступ. <button data-act="retry">Повторить</button></div>';
+  return '<div class="filter"><input type="text" id="flt" placeholder="Найти участника" aria-label="Найти участника" value="' + esc(st.filter) + '"></div>' + grantsTable(key, can);
+}
+const cmd = (can, label2, act, key, primary) => (can ? '<button class="' + (primary ? 'primary' : '') + '" data-act="' + act + '" data-key="' + key + '">' + label2 + '</button>' : '');
+const page = {
+  dept() {
+    return '<div class="head"><h1>Участники</h1>' + cmd(C.grantDept(), '+ Выдать доступ', 'grant', 'log', true) + '</div>' +
+      '<div class="note info">Здесь показан только выданный доступ. Роль в организации действует везде и задаётся на странице «Участники» организации.</div>' + body('log', C.grantDept());
+  },
+  proj() {
+    return '<div class="head"><h1>Участники и доступ</h1>' + cmd(C.grantProj(), '+ Выдать доступ', 'grant', 'A', true) + '</div>' +
+      '<div class="note info">Здесь показан только выданный доступ. Роль в организации действует везде и задаётся на странице «Участники» организации.</div>' +
+      (st.inh.A ? '' : '<div class="note mute">Доступ департамента «Логистика» в этом проекте отключён.</div>') + body('A', C.grantProj());
+  },
+  team() {
+    const mem = st.members.VENUS.map((u) => { const g = st.grants.VENUS.find((x) => x.u === u); return '<tr><td>' + userCell(u) + '</td><td>' + (g ? label('team', g.r) : '—') + '</td><td class="act">' + (C.grantTeam() ? '<button class="ghost" aria-label="Ещё действия: ' + esc(nm(u)) + '">⋮</button>' : '') + '</td></tr>'; }).join('');
+    return '<div class="head"><h1>Участники и доступ</h1>' + (C.grantTeam() ? '<button class="primary">Добавить участника</button>' : '') + '</div>' +
+      '<section class="sec"><div class="head"><h2>Участники команды</h2></div><div class="card"><table aria-label="Участники команды"><thead><tr><th>Участник</th><th>Роль в команде</th><th></th></tr></thead><tbody>' + mem + '</tbody></table></div></section>' +
+      '<section class="sec"><div class="head"><h2>Доступ к команде</h2>' + cmd(C.grantTeam(), '+ Выдать доступ', 'grant', 'VENUS', false) + '</div>' + body('VENUS', C.grantTeam()) + '</section>';
+  },
+  deptP() {
+    const rows = st.projects.filter((p) => p[2] === 'Логистика').map((p) => '<tr><td><a class="l">' + p[0] + '</a></td><td>' + p[1] + '</td></tr>').join('');
+    return '<div class="head"><h1>Проекты</h1>' + (C.places().includes('log') ? '<button class="primary" data-act="create" data-place="log">Создать проект</button>' : '') + '</div>' +
+      '<div class="card"><table aria-label="Проекты департамента"><thead><tr><th>Проект</th><th>Ключ</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+  },
+  projects() {
+    const rows = st.projects.map((p) => '<tr><td><a class="l">' + p[0] + '</a></td><td>' + p[1] + '</td><td>' + (p[2] || '—') + '</td></tr>').join('');
+    return '<div class="head"><h1>Проекты</h1>' + (C.places().length ? '<button class="primary" data-act="create" data-place="">Создать проект</button>' : '') + '</div>' +
+      (C.places().length ? '' : '<p class="proto">Команда «Создать проект» отсутствует: у вас нет места для проекта (не отключена, а убрана).</p>') +
+      '<div class="card"><table aria-label="Проекты"><thead><tr><th>Название</th><th>Ключ</th><th>Расположение</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+  },
+};
+function accessSection(nodeKey) {
+  const n = NODES[nodeKey], isArea = n.type === 'area', parent = n.parent ? NODES[n.parent] || { name: 'Логистика' } : null;
+  const canSw = { A: C.switchA, D: C.switchD, plat: C.switchPlat }[nodeKey]();
+  const on = st.inh[nodeKey];
+  let txt;
+  if (!isArea && !parent) txt = 'Над проектом нет департамента, поэтому выбор пока ни на что не влияет. Он начнёт действовать, когда проект переместят в департамент.';
+  else if (!isArea) txt = on ? 'Доступ департамента «Логистика» действует в проекте «A», его рабочих элементах и областях.' : 'Доступ департамента «Логистика» в проекте «A» не действует. Действует только доступ, выданный в самом проекте.';
+  else txt = on ? 'Права на управление областями, действующие в «A», действуют и здесь. На рабочие элементы это не влияет.' : 'Права на управление областями из «A» здесь не действуют. На рабочие элементы это не влияет: их определяет проект.';
+  const ctl = canSw
+    ? '<label class="sw"><input type="checkbox" role="switch" data-act="toggle" data-key="' + nodeKey + '" ' + (on ? 'checked' : '') + ' aria-describedby="swtxt"><span class="trk"></span>Наследовать доступ</label>'
+    : '<dl class="facts" style="padding:0;margin:0"><dt>Наследовать доступ</dt><dd>' + (on ? 'Включено' : 'Выключено') + '</dd></dl>';
+  return '<section class="sec"><div class="head"><h2>Доступ</h2></div><div class="card" style="padding:12px 16px">' + ctl + '<div class="state" id="swtxt"' + (canSw ? '' : ' style="margin-left:0"') + '>' + txt + '</div></div></section>';
+}
+page.nodeA = () => '<div class="head"><h1>Структура: A</h1><button data-go="proj">Открыть проект</button></div><dl class="card facts"><dt>Тип</dt><dd>Проект</dd><dt>Расположение</dt><dd><a class="l">Логистика</a></dd><dt>Описание</dt><dd>Складской учёт</dd></dl>' + accessSection('A') +
+  '<section class="sec"><div class="head"><h2>Вложенные области</h2>' + (C.writeNodeA() ? '<button data-act="noop">Добавить область</button>' : '') + '</div><div class="card"><table aria-label="Вложенные области"><thead><tr><th>Область</th><th>Описание</th></tr></thead><tbody><tr><td><a class="l" data-go="sub">Платформа</a></td><td>Складское ПО</td></tr></tbody></table></div></section>';
+page.nodeD = () => '<div class="head"><h1>Структура: D</h1></div><dl class="card facts"><dt>Тип</dt><dd>Проект</dd><dt>Расположение</dt><dd>Верхний уровень</dd></dl>' + accessSection('D');
+page.sub = () => '<div class="head"><h1>Область: Платформа</h1></div><dl class="card facts"><dt>Родительская область</dt><dd><a class="l" data-go="nodeA">A</a></dd><dt>Проект</dt><dd><a class="l" data-go="proj">A</a></dd><dt>Описание</dt><dd>Складское ПО</dd></dl>' + accessSection('plat');
+
+function render() {
+  document.body.classList.toggle('narrow', st.narrow);
+  $('#meBtns').innerHTML = Object.keys(U).filter((u) => u !== 'denis' && u !== 'lena').map((u) => '<button data-me="' + u + '" aria-pressed="' + (st.me === u) + '">' + U[u].n.split(' ')[0] + (U[u].admin ? ' (адм.)' : u === 'pavel' ? ' (деп.)' : u === 'kirill' ? ' (проект)' : '') + '</button>').join('');
+  $('#pageBtns').innerHTML = Object.keys(PAGES).map((p) => '<button data-page="' + p + '" aria-pressed="' + (st.page === p) + '">' + PAGES[p] + '</button>').join('');
+  $('#dataBtns').innerHTML = [['ok', 'Обычные'], ['empty', 'Пусто'], ['loading', 'Загрузка'], ['error', 'Ошибка']].map((d) => '<button data-data="' + d[0] + '" aria-pressed="' + (st.data === d[0]) + '">' + d[1] + '</button>').join('');
+  $('#wBtn').setAttribute('aria-pressed', st.narrow);
+  renderNav();
+  const f = document.activeElement && document.activeElement.id === 'flt' ? document.activeElement.selectionStart : null;
+  $('#main').innerHTML = page[st.page]();
+  if (f !== null) { const i = $('#flt'); if (i) { i.focus(); i.setSelectionRange(f, f); } }
+  renderDlg();
+}
+
+/* ---- dialogs ---- */
+const dlgShell = (title, inner, foot) => '<div class="layer"><div class="dlg" role="dialog" aria-modal="true" aria-label="' + esc(title) + '"><h2>' + esc(title) + '</h2>' + inner + '<div class="foot">' + foot + '</div></div></div>';
+function candidates(key) {
+  const q = st.dlg.q.trim().toLowerCase();
+  if (q.length < 2) return { hint: 'Введите не менее 2 символов имени или почты', list: [] };
+  const taken = st.grants[key].map((g) => g.u);
+  const list = Object.keys(U).filter((u) => !U[u].inactive && !taken.includes(u) && u !== st.me && (U[u].n + U[u].e).toLowerCase().includes(q));
+  return list.length ? { list } : { hint: 'Пользователи не найдены. Себе доступ выдать нельзя; у кого он уже есть, тому роль меняется в списке.', list: [] };
+}
+function renderDlg() {
+  const d = st.dlg, L = $('#layer');
+  if (!d) { L.innerHTML = ''; return; }
+  const key = d.key, scope = SCOPE[key];
+  const roleSel = (cur) => '<div class="fld"><label for="rl">Роль *</label><select id="rl" data-f="role">' + ROLES[scope].map((r) => '<option value="' + r[0] + '"' + (r[0] === cur ? ' selected' : '') + '>' + r[1] + '</option>').join('') + '</select><div class="hint">' + ROLES[scope].find((r) => r[0] === cur)[2] + '</div></div>';
+  let h = '';
+  if (d.kind === 'forbidden') h = dlgShell(d.title, '<div class="note err" role="alert">Недостаточно прав</div>', '<button data-act="close">Закрыть</button>');
+  else if (d.kind === 'grant') {
+    const c = candidates(key);
+    const pick = d.u ? '<div class="note info" style="margin:4px 0">' + esc(nm(d.u)) + ' <button class="ghost" data-act="unpick">×</button></div>' : '';
+    h = dlgShell('Выдача доступа', '<div class="fld' + (d.err ? ' bad' : '') + '"><label for="usr">Участник организации *</label>' + pick +
+      (d.u ? '' : '<input type="text" id="usr" data-f="q" autocomplete="off" value="' + esc(d.q) + '">' + '<ul class="opts" role="listbox">' + (c.hint ? '<li class="hintrow">' + c.hint + '</li>' : c.list.map((u) => '<li role="option" data-act="pick" data-u="' + u + '">' + esc(nm(u)) + ' <span class="sub">' + U[u].e + '</span></li>').join('')) + '</ul>') +
+      (d.err ? '<div class="e">' + d.err + '</div>' : '') + '</div>' + roleSel(d.role),
+      '<button data-act="close">Отмена</button><button class="primary" data-act="submitGrant"' + (d.u ? '' : ' disabled') + '>Выдать</button>');
+  } else if (d.kind === 'role') {
+    h = dlgShell('Изменение роли', '<p class="sub">Пользователь: ' + esc(nm(d.u)) + '</p>' + roleSel(d.role) + (d.err ? '<div class="note warn" role="alert">' + d.err + '</div>' : ''),
+      '<button data-act="close">Отмена</button><button class="primary" data-act="submitRole"' + (d.role === d.orig ? ' disabled' : '') + '>Сохранить</button>');
+  } else if (d.kind === 'revoke') {
+    const own = d.u === st.me, g = st.grants[key].find((x) => x.u === d.u), o = key === 'log' ? 'Логистика' : key;
+    h = dlgShell(own ? 'Отозвать свой доступ?' : 'Отозвать доступ?', '<p>' + (own ? 'Вы потеряете роль «' + label(scope, g.r) + '» на объекте «' + o + '». Вернуть её сможет другой менеджер или администратор организации.' : 'Пользователь ' + esc(nm(d.u)) + ' потеряет роль «' + label(scope, g.r) + '» на объекте «' + o + '». Доступ, который он получает по роли в организации или от департамента, сохранится.') + '</p>',
+      '<button data-act="close" autofocus>Отмена</button><button class="danger" data-act="doRevoke">Отозвать</button>');
+  } else if (d.kind === 'off') h = switchOff(d);
+  else if (d.kind === 'create') {
+    const names = { top: 'Верхний уровень', log: 'Логистика', fin: 'Финансы' };
+    const pl = C.places();
+    h = dlgShell('Новый проект', '<div class="fld"><label for="pn">Название *</label><input type="text" id="pn" data-f="pname" value="' + esc(d.name) + '"></div><div class="fld"><label for="pk">Ключ *</label><input type="text" id="pk" data-f="pkey" value="' + esc(d.pkey) + '"></div>' +
+      '<div class="fld"><label for="pp">Расположение *</label><select id="pp" data-f="place">' + pl.map((p) => '<option value="' + p + '"' + (p === d.place ? ' selected' : '') + '>' + names[p] + '</option>').join('') + '</select></div>' + (d.err ? '<div class="note err" role="alert">' + d.err + '</div>' : ''),
+      '<button data-act="close">Отмена</button><button class="primary" data-act="submitCreate"' + (d.name.trim() && d.pkey.trim() ? '' : ' disabled') + '>Создать</button>');
+  }
+  const keepF = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.f : null;
+  const pos = document.activeElement && document.activeElement.selectionStart;
+  L.innerHTML = h;
+  const f = keepF && L.querySelector('[data-f="' + keepF + '"]');
+  if (f) { f.focus(); if (pos != null && f.setSelectionRange) try { f.setSelectionRange(pos, pos); } catch (e) {} } else { const a = L.querySelector('[autofocus]') || L.querySelector('input[type=text]') || L.querySelector('button'); if (a) a.focus(); }
+}
+/* ---- switch-off confirmation ---- */
+function impact(nodeKey) {
+  const proj = st.grants.A.map((g) => g.u);
+  const stops = nodeKey === 'D' ? [] : [...new Set(st.grants.log.map((g) => g.u))].filter((u) => !U[u].admin && !proj.includes(u));
+  const given = st.grants.A.filter((g) => stops.includes(g.by));
+  return { stops, given, self: stops.includes(st.me) };
+}
+function switchOff(d) {
+  const isArea = d.key === 'plat', title = 'Отключить наследование доступа?';
+  const lead = d.key === 'D' ? 'Проект «D» стоит на верхнем уровне: сейчас наследовать нечего. Выбор начнёт действовать, когда проект переместят в департамент.' : isArea ? 'Права на управление областями из «A» перестанут действовать в области «Платформа» и её вложенных областях. На рабочие элементы это не влияет.' : 'Доступ департамента «Логистика» перестанет действовать в проекте «A», его рабочих элементах и областях. Доступ, выданный в самом проекте, сохранится.';
+  let inner = '<p>' + lead + '</p>', ok = false;
+  if (d.loading) inner += '<div role="status" aria-label="Загрузка данных">' + '<div class="skel"></div>'.repeat(3) + '</div>';
+  else if (d.failed) inner += '<div class="note err" role="alert">Не удалось узнать, кого это затронет. Попробуйте ещё раз. <button data-act="retryOff">Повторить</button></div>';
+  else {
+    ok = true; const im = d.im;
+    inner += im.stops.length ? '<p><b>' + (isArea ? 'Потеряют право управлять областью: ' : 'Потеряют доступ через департамент: ') + plural(im.stops.length, 'пользователь', 'пользователя', 'пользователей') + '.</b><br><span class="sub">Не учитываются администраторы организации и те, у кого есть доступ в самом проекте.</span></p>' : '<p><b>Это не отнимет доступ ни у кого.</b></p>';
+    if (im.self) inner += '<div class="note warn" role="alert">Вы входите в их число. После отключения вы потеряете управление этим узлом и не сможете включить наследование обратно: это сможет сделать ' + (isArea ? 'менеджер проекта или администратор организации.' : 'только администратор организации.') + '</div>';
+    if (im.given.length) inner += '<p style="margin-bottom:0"><b>Доступ в проекте, выданный этими пользователями (' + im.given.length + ')</b></p><div class="given"><table aria-label="Выданный доступ"><thead><tr><th>Кому</th><th>Роль</th><th>Кто выдал</th></tr></thead><tbody>' + im.given.map((g) => '<tr><td>' + esc(nm(g.u)) + '</td><td>' + label('proj', g.r) + '</td><td>' + esc(nm(g.by)) + '</td></tr>').join('') + '</tbody></table></div><p class="sub">Он не прекратится при отключении. Отозвать его можно вручную в «Участники и доступ» проекта.</p>';
+  }
+  return dlgShell(title, inner, '<button data-act="close" autofocus>Отмена</button><button class="danger" data-act="confirmOff"' + (ok ? '' : ' disabled') + '>Отключить</button>');
+}
+function openOff(key) {
+  st.dlg = { kind: 'off', key, loading: true }; render();
+  setTimeout(() => { if (!st.dlg || st.dlg.kind !== 'off') return; if ($('#sim').value === 'impact') { st.dlg.loading = false; st.dlg.failed = true; } else { st.dlg.loading = false; st.dlg.failed = false; st.dlg.im = impact(key); } render(); }, 500);
+}
+
+/* ---- events ---- */
+const sim = () => { const v = $('#sim').value; if (v === '403' || v === '404') { $('#sim').value = ''; return v; } return ''; };
+function forbid(key, title) {
+  const before = sig();
+  const hit = (key === 'A' ? ['A', 'log'] : [key]).find((c) => st.grants[c].some((g) => g.u === st.me && !st.lost[st.me + ':' + c]));
+  if (hit) st.lost[st.me + ':' + hit] = true;
+  st.dlg = { kind: 'forbidden', title }; render(); reread(before);
+}
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('[data-me],[data-page],[data-data],[data-act],[data-go],[data-entry],#loseBtn,#resetBtn,#wBtn');
+  if (!t) { if (st.menu) { st.menu = null; render(); } return; }
+  const D = t.dataset;
+  if (D.me) { const before = sig(); st.me = D.me; st.menu = null; st.dlg = null; render(); if (before !== sig()) { /* another person, not a re-read */ } return; }
+  if (D.page) { st.page = D.page; st.filter = ''; st.menu = null; st.dlg = null; return render(); }
+  if (D.data) { st.data = D.data; return render(); }
+  if (D.go) { st.page = D.go; st.filter = ''; return render(); }
+  if (D.entry) { const nxt = goEntry[st.page + '|' + D.entry]; if (nxt) { st.page = nxt; st.filter = ''; render(); } return; }
+  if (t.id === 'wBtn') { st.narrow = !st.narrow; return render(); }
+  if (t.id === 'resetBtn') { Object.assign(st, seed(), { me: st.me }); return render(); }
+  if (t.id === 'loseBtn') {
+    const before = sig(), k = { dept: 'log', deptP: 'log', proj: 'A', nodeA: 'A', nodeD: 'A', sub: 'A', team: 'VENUS', projects: 'log' }[st.page];
+    if (admin()) return notice('Администратор не теряет доступ: он действует на всех объектах.');
+    const chain = k === 'A' ? ['A', 'log'] : [k];
+    const hit = chain.find((c) => st.grants[c].some((g) => g.u === st.me && !st.lost[st.me + ':' + c]));
+    if (hit) st.lost[st.me + ':' + hit] = true;
+    render(); if (before === sig()) notice('Ваши права на этой странице не изменились.'); else reread(before); return;
+  }
+  switch (D.act) {
+    case 'menu': st.menu = st.menu === D.id ? null : D.id; return render();
+    case 'clearFilter': st.filter = ''; return render();
+    case 'retry': st.data = 'loading'; render(); return setTimeout(() => { st.data = 'ok'; render(); }, 500);
+    case 'grant': st.dlg = { kind: 'grant', key: D.key, q: '', u: null, role: ROLES[SCOPE[D.key]][0][0], err: '' }; return render();
+    case 'role': { st.menu = null; const g = st.grants[D.key].find((x) => x.u === D.u); st.dlg = { kind: 'role', key: D.key, u: D.u, role: g.r, orig: g.r, err: '' }; return render(); }
+    case 'revoke': st.menu = null; st.dlg = { kind: 'revoke', key: D.key, u: D.u }; return render();
+    case 'close': st.dlg = null; return render();
+    case 'pick': st.dlg.u = D.u; st.dlg.err = ''; return render();
+    case 'unpick': st.dlg.u = null; st.dlg.q = ''; return render();
+    case 'submitGrant': { const s = sim(); if (s === '403') return forbid(st.dlg.key, 'Выдача доступа'); if (s === '404') { st.dlg.err = 'Участник не найден.'; st.dlg.u = null; return render(); }
+      st.grants[st.dlg.key].push({ u: st.dlg.u, r: st.dlg.role, by: st.me, at: '06.11.2026 12:00' }); notice('Пользователю «' + nm(st.dlg.u) + '» выдан доступ.'); st.dlg = null; return render(); }
+    case 'submitRole': { const s = sim(); if (s === '403') return forbid(st.dlg.key, 'Изменение роли'); if (s === '404') { st.dlg.err = 'Доступ уже изменён или отозван. Список обновлён.'; return render(); }
+      st.grants[st.dlg.key].find((x) => x.u === st.dlg.u).r = st.dlg.role; notice('Роль пользователя «' + nm(st.dlg.u) + '» изменена.'); st.dlg = null; return render(); }
+    case 'doRevoke': { const s = sim(); if (s === '403') return forbid(st.dlg.key, 'Отзыв доступа'); const own = st.dlg.u === st.me, who = nm(st.dlg.u); st.grants[st.dlg.key] = st.grants[st.dlg.key].filter((x) => x.u !== st.dlg.u); notice(own ? 'Ваш доступ отозван.' : 'Доступ пользователя «' + who + '» отозван.'); st.dlg = null; return render(); }
+    case 'toggle': { e.preventDefault(); const key = D.key; if (st.inh[key]) return openOff(key); st.inh[key] = true; notice('Наследование доступа включено.'); return render(); }
+    case 'retryOff': return openOff(st.dlg.key);
+    case 'confirmOff': { const s = sim(); const key = st.dlg.key, before = sig(); if (s === '403') return forbid('A', 'Отключение наследования'); st.inh[key] = false; st.dlg = null; render(); notice('Наследование доступа отключено.'); return; }
+    case 'create': st.dlg = { kind: 'create', name: '', pkey: '', place: D.place || C.places()[0], err: '' }; return render();
+    case 'submitCreate': { const s = sim(); if (s === '403') { st.dlg.err = 'Недостаточно прав'; return render(); } st.projects.push([st.dlg.name, st.dlg.pkey, { top: null, log: 'Логистика', fin: 'Финансы' }[st.dlg.place]]); notice('Проект «' + st.dlg.name + '» создан.'); st.dlg = null; return render(); }
+  }
+});
+document.addEventListener('input', (e) => {
+  const f = e.target.dataset.f;
+  if (e.target.id === 'flt') { st.filter = e.target.value; return render(); }
+  if (!f || !st.dlg) return;
+  const map = { q: 'q', role: 'role', pname: 'name', pkey: 'pkey', place: 'place' };
+  st.dlg[map[f]] = e.target.value; renderDlg();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && st.dlg) { st.dlg = null; render(); } });
+render();
+</script>
+</body>
+</html>
