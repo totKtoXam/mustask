@@ -6,7 +6,7 @@ import { cardTexts } from '../../lib/cardTexts';
 import { ids, recordOf } from '../../testFixtures';
 import type { CardFrameProps } from './cardFrame';
 import { PageFrame } from './KitFrames';
-import { ITEM_OF_TYPE, openCard } from './testCard';
+import { ITEM_OF_TYPE, openCard, statusSaying } from './testCard';
 
 // Each user action draws the kit’s fields in jsdom; a test of several steps outlasts the default.
 vi.setConfig({ testTimeout: 60_000 });
@@ -188,8 +188,13 @@ describe('feat-029 US-3: each type has its sections', () => {
     const description = screen.getAllByRole('textbox', { name: 'Описание' });
 
     expect(description).toHaveLength(1);
-    expect(description[0]).toHaveAttribute('placeholder', 'Добавьте описание');
-    expect(description[0]).toHaveAccessibleDescription('До 100 000 символов');
+    expect(description[0]).toHaveAttribute('aria-placeholder', 'Добавьте описание');
+    // The editor's empty notice line is part of the description: a trailing space.
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'Описание' })).toHaveAccessibleDescription(
+        /^До 100 000 символов\s*$/,
+      ),
+    );
     expect(region('Критерии приёмки')).toBeInTheDocument();
     expect(screen.getByText('Критерии приёмки не заданы.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Добавить критерий' })).toBeInTheDocument();
@@ -268,13 +273,16 @@ describe('feat-029 BR-C-19: the read-only mode', () => {
     ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Обновить' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Ещё действия' })).toBeEnabled();
-    expect(screen.getByRole('status')).toHaveTextContent(cardTexts.readOnly);
+    expect(statusSaying(cardTexts.readOnly)).toBeInTheDocument();
 
     const title = screen.getByRole('textbox', { name: 'Заголовок' });
     expect(title).toHaveAttribute('readonly');
     await userEvent.type(title, 'x');
     expect(title).toHaveValue('Письмо со ссылкой');
-    expect(screen.getByRole('textbox', { name: 'Описание' })).toHaveAttribute('readonly');
+    expect(screen.getByRole('textbox', { name: 'Описание' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     expect(screen.getByRole('combobox', { name: 'Приоритет' })).toHaveAttribute(
       'aria-readonly',
       'true',
@@ -286,7 +294,7 @@ describe('feat-029 BR-C-19: the read-only mode', () => {
       card: { readOnly: true, readOnlyText: 'Доступ на запись закрыт.' },
     });
 
-    expect(screen.getByRole('status')).toHaveTextContent('Доступ на запись закрыт.');
+    expect(statusSaying('Доступ на запись закрыт.')).toBeInTheDocument();
   });
 });
 
