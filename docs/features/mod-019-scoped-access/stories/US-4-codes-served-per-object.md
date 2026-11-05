@@ -5,15 +5,15 @@
 - shippable: no — the sections it shows are US-5's
 - status: pending
 
-As an **organization member**, I want **each page to show only the sections and controls my codes on that object allow**, so that **I am not offered what the server will refuse, and a grant shows in the next page I open (BR-SA-11, BR-SA-12)**.
+As an **organization member**, I want **each page to show only the sections and controls my codes on that object allow**, so that **I am not offered what the server will refuse, and a grant shows in the next page I open (BR-SA-11, BR-SA-12, BR-SA-18)**.
 
 ## Acceptance criteria
 
-Fixture of US-1. Notice and section wording not quoted here is the design's.
+Fixture and users of US-1 (everyone a «Читатель» unless said). Notice and section wording not quoted here is the design's. «Настройки» is feat-043's derived last entry (BR-NV-18): it is always present; its groups are what the codes decide.
 
 ```gherkin
 Scenario: A read of an object carries the caller's codes on it
-  Given Pavel holds «Изменение» on «Логистика» and is a «Читатель» of the organization
+  Given Pavel holds «Изменение» on «Логистика»
   When the panel reads «Логистика», A and MARS
   Then the answer for A carries the project codes his grant reaches (read and change items), «Логистика» carries the department codes, MARS carries the team codes of the organization role alone
   And the organization answer carries the role and the organization-scope codes only
@@ -22,11 +22,19 @@ Scenario: A view over several projects carries each project's codes once
   When the panel reads a list across projects
   Then the codes are given once per project, not per row, and no matrix of every object is served
 
-Scenario: A section is shown by the object's codes
+Scenario: The tree read carries where the caller may write, once (R-9)
+  Given Pavel holds «Управление» on «Логистика»
+  When the panel reads «Структура» of an organization of 1 000 nodes
+  Then the answer carries once the ids of the nodes where he holds `organizations.area.write`, from the set form, with the read's pinned statement count and the 2 s budget of feat-043 unchanged
+  And the row commands (create a sub-area, rename, move, switch, delete) and the move-destination pickers offer only those ids
+  And a node's own page carries its codes as any object read
+
+Scenario: A group of «Настройки» and a section are shown by the object's codes
   Given Olga holds no grant, and Kirill holds «Управление» on A
   When each opens A
-  Then Kirill sees «Настройки» and «Участники и доступ» with their controls; Olga sees «Участники и доступ» as a read-only list and no «Настройки»
-  And Olga opening A's «Настройки» by its address sees «Доступ ограничен»
+  Then Kirill sees «Участники и доступ» with its controls and the «Проект» group («Параметры») in «Настройки»; Olga sees «Участники и доступ» as a read-only list and no «Проект» group
+  And Olga opening A's `…/settings` by its address sees «Доступ ограничен»
+  And Vera's «Настройки» shows only the «Организация» group, and no entry is shown disabled
 
 Scenario: Controls follow the grant at the next load
   Given Olga holds «Чтение» on A and opens A's «Канбан»
@@ -36,8 +44,9 @@ Scenario: Controls follow the grant at the next load
   Then the controls are gone, and the direct change answers 403
 
 Scenario: Re-reads happen on the triggers (ADR-0029 § 10)
-  When Olga's own grant changes, or a call under A answers 403 or 404
+  When the caller writes a grant on A (her own included), or a call under A answers 403 or 404
   Then the panel re-reads A's codes
+  And a change made by someone else shows at the next trigger: refocus, a 403 or 404, or a page load
   And a «Проект не найден» on a project page also re-reads the organization's project list
 
 Scenario: A role change shows one notice per object
@@ -46,18 +55,23 @@ Scenario: A role change shows one notice per object
   Then one notice reports it for A without naming a role
   And the organization notice keeps its wording when the organization role changes
 
-Scenario: Pickers offer what the caller may do (takes over m-3 and TC-30)
-  Given Pavel holds «Управление» on «Логистика», Kirill holds only «Управление» on A
-  When each opens «Структура»
-  Then Pavel is offered the create dialog for a child of «Логистика», Kirill is offered none
-  And a top-level «Новая область» is offered by the create code alone
-  And «Новый проект» is disabled with a reason for anyone without a place their codes allow, and its form does not offer an empty «Расположение»
+Scenario: Every panel consumer reads a non-organization code from the object (R-8, BR-SA-18)
+  Given Mira is a «Участник» holding no grant
+  When she opens, in turn, the kanban and backlog (project, team, department grouped views), a work item's card, its checklist, its parent links, the tree editor of work items, the item form and «Структура»
+  Then each offers the controls it offers today, as one component test per surface
+  And a unit test fails when any panel code reads a code whose scope is not the organization from the organization answer
 
-Scenario: The menu is built from the object's codes
-  Given Vera is a «Читатель»
-  When she opens a department, a project and a team
-  Then she sees «Участники» of the department and «Участники и доступ» of the project and the team, read-only, and no «Настройки»
-  And no entry is shown disabled
+Scenario: The grouped views follow each project's codes (feat-048 § Roles)
+  Given Olga holds «Изменение» on A and no other grant
+  When she opens the department's grouped «Бэклог» and board
+  Then she moves rows and cards in A's group and lane only, and a direct move in B's answers 403
+
+Scenario: The create commands are offered by their codes (m-3 and TC-30 kept under the split bundles)
+  Given Pavel holds «Управление» on «Логистика», Kirill holds only the project role «Управление» on A, Anna is an admin
+  When each opens «Структура» and «Проекты»
+  Then Anna is offered «Новый департамент» and «Новый проект» with the top level and every department as places; Pavel «Новый проект» with «Логистика» as its only place and no «Новый департамент»; Kirill neither
+  And «Новый проект» is absent, not disabled (BR-NV-1), when the caller's place list would be empty, so its «Расположение» is never empty
+  And a place deleted meanwhile answers 403 on submit, and the dialog re-reads the places
 
 Scenario: The server decides
   Given Olga's served codes on A lack the change code

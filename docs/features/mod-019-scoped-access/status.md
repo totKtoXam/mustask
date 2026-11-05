@@ -50,6 +50,7 @@ Plans: `plan-backend.md`, `plan-frontend.md`.
   grant holders who stop being reached, plus a self-lockout warning); OQ-7 A
   (the bundle contract carries the instance table and replaces the
   tokenClaims.ts mirror). gate-1 itself waits for the fix round on R-1..R-21
+- 2026-11-06 [business-analyst] fix round for review round 1: R-1..R-21 all fixed, none rejected (Author's response in review.md). OQ-1..OQ-7 marked answered in spec.md; stories US-7 (links under grants) and US-8 (managing the tree) added; new OQ-8 for the human (what a department manager holds on a project it creates); OQ-3 B / OQ-4 B need a new ADR amending ADR-0029 § 4 (BR-SA-16, -17)
 
 ## Notes
 

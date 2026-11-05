@@ -9,7 +9,7 @@ As a **holder of «Управление» on a department, a project or a team, 
 
 ## Acceptance criteria
 
-Fixture, used by every story: organization «Ромашка»; department «Логистика»; project nodes A and B under it; D at the top level; teams MARS and VENUS. Olga, Pavel, Irina, Kirill are active members with the organization role «Участник» unless said; Vera is «Читатель». Every project is «Организация».
+Fixture, used by every story. Organization «Ромашка»: departments «Логистика» and «Финансы»; under «Логистика» the project nodes A and B; the project D at the top level; the sub-area «Платформа» under A's node and «Склад» under B's node; teams MARS and VENUS. Every project is «Организация». **Every user is an organization «Читатель» holding no grant unless a scenario says otherwise**, so the bundle of a grant is what a scenario shows: Olga, Pavel, Irina, Kirill, Vera, Denis. Mira is an organization «Участник» (she already changes the items of every project and reorders every backlog). Anna is an organization admin. Grant lists and the grantee picker follow mod-016 §§ 0.4-0.5: `UserRef`, display-name order, 2-character minimum, 20 results with `moreMatched`.
 
 ```gherkin
 Scenario Outline: A manager gives a role of the object's scope
@@ -32,42 +32,45 @@ Scenario: Without «Управление» there is no grant to give
   And his direct request to give Irina a role on either answers 403 «Недостаточно прав» and stores nothing
 
 Scenario: Only an active member of this organization can be given a role (BR-SA-2)
-  Given E is a member of another organization only, and D's membership here was removed
-  When a manager looks for E and D in the grant picker, and a direct request names either
+  Given E is a member of another organization only, and Denis's membership here was removed
+  When a manager looks for E and Denis in the grant picker, and a direct request names either
   Then neither is offered, and the request answers «Участник не найден.» and stores nothing
 
 Scenario: A role is changed, then removed
-  Given Olga holds «Изменение» on A, given by M, and her change to an item of A is kept
-  When M changes it to «Чтение»
+  Given Olga holds «Изменение» on A, given by Anna, and her change to an item of A is kept
+  When Anna changes it to «Чтение»
   Then Olga's next change to an item of A answers 403, and she still reads it
-  When M changes it back to «Изменение» and then removes the grant
+  When Anna changes it back to «Изменение» and then removes the grant
   Then Olga is no longer listed, and her next change answers 403 again
   And the list kept one row for Olga throughout (one grant per member and object)
 
-Scenario: A grant of the wrong scope is refused
-  When a request gives Olga the team role «Планирование» on A, or the project role «Управление» on MARS
-  Then it is answered 400 with the registry's validation error and stores nothing
+Scenario: A grant of the wrong scope or on the wrong node type is refused (OQ-1 A)
+  When a request gives Olga the team role «Планирование» on A, the project role «Управление» on MARS,
+    or any department role on the node of A or on «Платформа»
+  Then it is answered with the registry's validation or type refusal (the contract names the code, as mod-018's `type_not_allowed`) and stores nothing
+  And the node of A and «Платформа» show no «Участники» section, and no grant is ever held on them
 
 Scenario: An object's grants are read by those who read the object
   Given Vera holds no grant
   When she opens the grants of «Логистика», of A and of MARS
-  Then she reads the list and sees no control to change it
+  Then she reads the lists and sees no control to change them
+  And a grant held by an inactive user is listed with «неактивен», and an unknown one as «Неизвестный пользователь»
 
-Scenario: Each «Управление» manages its own object and nothing else
+Scenario: Each «Управление» manages its own object (BR-SA-2)
   Given Kirill holds «Управление» on A and on MARS, and no other grant
   When he renames A, sets its default team, renames MARS and adds and removes its members
   Then each is saved
-  And the same on B or on VENUS, deleting MARS, and creating a project or a team answer 403 «Недостаточно прав»
+  And the same on B or on VENUS, deleting MARS, and creating a team answer 403 «Недостаточно прав»
 
 Scenario: Removing the organization membership ends every grant and team membership
   Given Olga holds grants on «Логистика», A and MARS, and is a member of MARS
-  When an organization admin removes her from the organization
+  When Anna removes her from the organization
   Then she is listed on none of those objects and in no team
   And adding her again gives back none of them
 
-Scenario: A grant written while the membership is removed loses
+Scenario: A grant written while the membership is removed loses (BR-SA-3)
   When a manager gives Irina a role at the moment her membership is removed
-  Then either the membership is removed first and the grant answers «Участник не найден.», or the grant is ended with the membership; no grant of a removed member remains
+  Then no grant of a removed member remains, and the grant answers «Участник не найден.» or is ended with the membership
 
 Scenario: A grant ends with its object, and a deactivated project keeps it
   Given Olga holds «Управление» on MARS and on A
@@ -75,6 +78,12 @@ Scenario: A grant ends with its object, and a deactivated project keeps it
   Then her grant on MARS is gone
   When A is deactivated and then restored
   Then her grant on A is listed again after the restore
+
+Scenario: Edge cases of the managers themselves (BR-SA-2, -3)
+  Given Pavel and Kirill both hold «Управление» on MARS and each removes the other's grant at the same moment
+  Then both removals may succeed and the team is left to the admin, who manages every object
+  And a manager may remove or downgrade their own grant
+  And a grant given to an organization admin is stored and is kept when the admin is made a «Участник»
 
 Scenario: People move without moving work
   Given Olga is a member of MARS with «Планирование», and is the assignee of MARS items of A

@@ -231,3 +231,33 @@ Resolution:
 - [ ] **OQ-7 Does the bundle contract also carry the instance role → code table (ADR-0033, tech-024 D-6)?**
   - (A, recommended) Yes. One more section in the same `contracts/` file, and the panel test reads it in place of the hand mirror in `tokenClaims.ts`. It is the same mechanism and closes D-6 for about one test. Cost: slightly wider scope.
   - (B) No. Only organization bundles (OP-7 as worded), and the instance table goes to a follow-up line. The scope stays minimal, but the mirror stays hand-kept, and ADR-0033's "mod-019 takes over" stays unmet.
+
+## Author's response — round 1 fix (business-analyst, 2026-11-06)
+
+The human's answers (status.md Log): OQ-1 A, OQ-2 reviewer's variant, OQ-3 B, OQ-4 B, OQ-5 A, OQ-6 reviewer's A, OQ-7 A. All 21 findings are accepted and fixed in `spec.md` and the stories; none is rejected. Status fields above stay `open` for the reviewer to verify.
+
+| R | Fix |
+|---|---|
+| R-1 | US-1 fixture: every user a «Читатель», Mira the one «Участник»; every scenario's answer re-read against the bundles (US-2, US-3, US-4) |
+| R-2 | US-2 "Who may switch": «Платформа» first, then A's node; Pavel's switch back is 403, Anna's kept; Kirill's 403 on the parent |
+| R-3 | Child-area scenarios rewritten on sub-areas under a project node (new US-8, US-4); BR-SA-12; Roles drop "place" for a department |
+| R-4 | US-3 "answer order": viewer 403 for a missing item, member «Рабочий элемент не найден.»; `RetrofitAccessTests` unchanged; BR-SA-9 |
+| R-5 | US-4 uses the «Проект» group («Параметры») of «Настройки»; Vera sees the «Организация» group only |
+| R-6 | BR-SA-15 and new US-7 carry the six owed clauses for the two link kinds that remain |
+| R-7 | Moves by managers in US-8; doc-012 US-7's two clauses in US-3; the grouped views in US-4 |
+| R-8 | BR-SA-18, US-4 "Every panel consumer" with a unit guard |
+| R-9 | BR-SA-11 and US-4: the tree read carries once the ids with `area.write` |
+| R-10 | US-1 type-refusal scenario and BR-SA-4; US-6 matrix cells made realizable |
+| R-11 | BR-SA-12: absent, never disabled; "empty" only by a race (re-read on 403); m-2 and m-3 reworded as kept under the split bundles, regression tests, new for the switch route. With OQ-4 B the place list is non-empty for a department manager; with no place the command is absent |
+| R-12 | BR-SA-7 and US-2: the count defined as the reviewer asks, plus the lockout line |
+| R-13 | US-4 re-read triggers reworded (own write, 403/404, refocus, load) |
+| R-14 | Context line and Roles line added |
+| R-15 | BR-SA-5/-6: "its parent"; a department's value never takes effect |
+| R-16 | The four sentences in BR-SA-2, the mutual-removal scenario in US-1 |
+| R-17 | Denis for the removed user; B's inherited line instead of the vacuous one; US-5 titles |
+| R-18 | § Breaks added to the spec |
+| R-19 | Reworded to ADR-0033 terms; instance table in the contract (OQ-7 A) in US-6 and BR-SA-14 |
+| R-20 | NFR and US-3, US-5: pinned statement counts, time asserted on the seed, component tests, no E2E |
+| R-21 | Lists and picker follow mod-016 §§ 0.4-0.5; «неактивен» line in US-1 |
+
+**New for the human:** OQ-8 (what a department manager holds on a project it creates). OQ-3 B and OQ-4 B each need a new ADR amending ADR-0029 § 4 (BR-SA-16, -17), written at the backend stage and accepted at gate-3.
