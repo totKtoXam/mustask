@@ -120,7 +120,7 @@ public sealed class TokenLeakTests
 
         var output = capturedOutput.ToString();
 
-        // Positive control (tech-006): the request-log line must be there, or the DoesNotContain checks below scan a silent logger.
+        // Proves the console capture is live (the request-log line is there). A silenced ILogger<T> is caught by StaticLoggerRegressionTests, not here.
         Assert.Contains("/api/session/callback", output, StringComparison.Ordinal);
 
         foreach (var secret in new[] { refreshToken, authorizationCode, MustaskApiFactory.TestKeycloakClientSecret })
@@ -191,7 +191,7 @@ public sealed class TokenLeakTests
 
         var output = capturedOutput.ToString();
 
-        // Positive control (tech-006): the request-log line must be there, or the DoesNotContain checks below scan a silent logger.
+        // Proves the console capture is live (the request-log line is there). A silenced ILogger<T> is caught by StaticLoggerRegressionTests, not here.
         Assert.Contains("/api/session/token", output, StringComparison.Ordinal);
 
         foreach (var secret in new[] { refreshToken, MustaskApiFactory.TestKeycloakClientSecret })
@@ -271,7 +271,7 @@ public sealed class TokenLeakTests
 
         var output = capturedOutput.ToString();
 
-        // Positive control (tech-006): the request-log line must be there, or the DoesNotContain checks below scan a silent logger.
+        // Proves the console capture is live (the request-log line is there). A silenced ILogger<T> is caught by StaticLoggerRegressionTests, not here.
         Assert.Contains("/api/session/token", output, StringComparison.Ordinal);
 
         foreach (var secret in new[] { initialRefreshToken, renewedRefreshToken, MustaskApiFactory.TestKeycloakClientSecret })
@@ -344,7 +344,7 @@ public sealed class TokenLeakTests
 
         var output = capturedOutput.ToString();
 
-        // Positive control (tech-006): the request-log line must be there, or the DoesNotContain checks below scan a silent logger.
+        // Proves the console capture is live (the request-log line is there). A silenced ILogger<T> is caught by StaticLoggerRegressionTests, not here.
         Assert.Contains("/api/session/logout", output, StringComparison.Ordinal);
 
         foreach (var secret in new[] { refreshToken, MustaskApiFactory.TestKeycloakClientSecret })
@@ -403,7 +403,7 @@ public sealed class TokenLeakTests
 
         var output = capturedOutput.ToString();
 
-        // Positive control (tech-006): the request-log line must be there, or the DoesNotContain checks below scan a silent logger.
+        // Proves the console capture is live (the request-log line is there). A silenced ILogger<T> is caught by StaticLoggerRegressionTests, not here.
         Assert.Contains("/api/session/logout", output, StringComparison.Ordinal);
 
         foreach (var secret in new[] { refreshToken, MustaskApiFactory.TestKeycloakClientSecret })
@@ -444,7 +444,7 @@ public sealed class TokenLeakTests
 
         var output = capturedOutput.ToString();
 
-        // Positive control (tech-006): the request-log line must be there, or the DoesNotContain checks below scan a silent logger.
+        // Proves the console capture is live (the request-log line is there). A silenced ILogger<T> is caught by StaticLoggerRegressionTests, not here.
         Assert.Contains("/api/session/callback", output, StringComparison.Ordinal);
 
         foreach (var secret in new[] { authorizationCode, MustaskApiFactory.TestKeycloakClientSecret })
@@ -478,7 +478,7 @@ public sealed class TokenLeakTests
         var output = capturedOutput.ToString();
         Assert.Equal(expectedStatus, actualStatus);
 
-        // Positive control (tech-006): the request-log line must be there, or the DoesNotContain checks below scan a silent logger.
+        // Proves the console capture is live (the request-log line is there). A silenced ILogger<T> is caught by StaticLoggerRegressionTests, not here.
         Assert.Contains(ProtectedRoute, output, StringComparison.Ordinal);
 
         Assert.DoesNotContain(token, body, StringComparison.Ordinal);
