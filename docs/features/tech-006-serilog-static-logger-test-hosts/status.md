@@ -14,6 +14,13 @@ gate-3: pending
 
 ## Plan
 
+
+1. Affected: `src/backend/Mustask.Api/Program.cs`; test code in `src/backend/tests/Mustask.Api.IntegrationTests` (`StaticLoggerGuard` and its 5 call sites, `SessionLogoutEndpointTests` workaround and comment, comments in `MustaskApiFactory`/`ApiTestCollectionFactory`, new `StaticLoggerRegressionTests`). No endpoints change, so no `api-contract.md` change.
+2. Fix: `UseSerilog(..., preserveStaticLogger: true)`. The host logger is no longer assigned to the static `Log.Logger` and its dispose no longer runs `Log.CloseAndFlush()` on the shared logger.
+3. `UseSerilogRequestLogging` gets its logger from DI (`app.Services.GetRequiredService<Serilog.ILogger>()`) instead of the captured static `Log.Logger`.
+4. Log capture in tests is already per host (Console.Out redirect + each host's own logger). With the static no longer shared, `StaticLoggerGuard` is dead: remove it and its uses. The bug-002 child host in `SessionLogoutEndpointTests` is no longer needed: the test goes back to the shared host and still asserts `invalid_client` (a positive assertion, so it fails if the logger is silent).
+5. Regression test: build and dispose a child host, then resolve a lazily created `ILogger<T>` on the shared host and assert its line reaches the captured console. It fails on the old code (static logger closed by the child's dispose).
+6. Run: `Mustask.Api.IntegrationTests` classes `StaticLoggerRegressionTests`, `SessionLogoutEndpointTests`, `TokenLeakTests`, `LoggingTests`, `ProductionLoggingTests`, `ApiExplorerTests`, `ErrorHandlingTests` and the former guard users, plus `Mustask.Architecture.Tests`. No E2E; Testcontainers only.
 <!-- S/M: implementation plan, 3-10 lines. L: see plan-backend.md / plan-frontend.md -->
 
 ## Log
