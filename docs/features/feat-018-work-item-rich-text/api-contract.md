@@ -132,7 +132,12 @@ legacy text to html is the displaying client's job (BR-RT-9, D-3).
   tag (or squares of per-tag attribute counts over 8 000 000); a sum over
   elements of their nesting over 6 000 000; foster-parenting work over
   16 000 000 (text or inline content between table tags, charged by the
-  parent's size; canonical output has none); and a value longer than 8 000 units holding any comment,
+  parent's size; canonical output has none); text pieces split by tags the
+  parser ignores (a `td`, `tr` or `tbody` start tag outside a table, an end tag
+  with nothing to close), counted as characters copied, over 200 000 000 (QA
+  D-10; about 20 000 pieces of one character), and text or tags met inside a
+  table but outside its cells, over 32 000 000 token-units (canonical output
+  has none of either, and the shared fixtures count under 50 000); and a value longer than 8 000 units holding any comment,
   declaration, processing instruction, or script, style, title, textarea, xmp,
   iframe, noembed, noframes, noscript, plaintext, svg, math, select, option,
   optgroup, frameset, frame or template markup. The panel's canonical output
