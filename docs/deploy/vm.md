@@ -1,5 +1,8 @@
 # Runbook: MUSTASK on one plain VM
 
+> A Russian translation for DevOps lives next to this file:
+> [vm.ru.md](vm.ru.md). Every change here goes there in the same change.
+
 Deploying MUSTASK on a single Linux VM with no Docker and no Kubernetes,
 against the company's **existing shared Keycloak realm**. What is ours in that
 realm is only two clients and four client roles; everything else in the realm
