@@ -13,7 +13,7 @@ panel (static files) and forwards `/api/` to `Mustask.Api` on a loopback port.
 PostgreSQL runs on the same VM.
 
 ```
-browser ──https──> nginx (mustask.example.com)
+browser ──https──> nginx (mustask.example.com; under a path: portal.example.com/mustask, see below)
                      ├─ /        → /opt/mustask/current/panel (panel build)
                      └─ /api/    → http://127.0.0.1:5000 (Mustask.Api, systemd)
 Mustask.Api ──> PostgreSQL            Mustask.Api ──https──> shared Keycloak
@@ -47,12 +47,27 @@ sudo bash mustask-v0.1.0/kit/smoke.sh
 The kit files are the source of truth for the unit, the site and the env
 keys; the sections below say what each step does and why.
 
-**MUSTASK must own the root of its host name.** The current release cannot be
-served under a sub-path such as `https://portal.example.com/mustask`: the panel
-bundle and its routes, the API paths, the session cookie path and the sign-in
-redirect addresses all assume `/`, and proxy rewrites do not fix that.
-Sub-path support is its own task (tech-057); until it ships, give MUSTASK a
-host name of its own (for example `mustask.example.com`).
+**Two layouts.** MUSTASK is served either at the root of its own host name
+(`https://mustask.example.com`) or under a path of a host that already has a
+server (`https://portal.example.com/mustask`, ADR-0037). The path is one
+setting: the release is built for the full address (section 4), the API gets
+the same path as `Hosting__PathBase` (section 5), and nginx passes it
+unchanged (section 7). The same flow under a path:
+
+```bash
+# build machine
+deploy/vm/build-release.sh v0.1.0 https://portal.example.com/mustask
+
+# VM, once
+sudo bash mustask-v0.1.0/kit/install.sh prepare --host portal.example.com --path /mustask \
+    --keycloak-host keycloak.example.com --realm <realm> --install-packages --create-db
+sudo nano /etc/mustask/mustask.env        # Keycloak__ClientSecret
+sudo bash mustask-v0.1.0/kit/install.sh nginx --path /mustask   # prints the include line
+```
+
+Whoever owns the portal's server adds that one `include` line (section 7.2).
+One deployment serves one path; moving it means rebuilding the panel and
+editing the env file.
 
 This runbook assumes a release that contains tech-024 (client roles) and
 tech-025 (the user projection filled at sign-in, ADR-0034). On a release
@@ -104,6 +119,13 @@ the last segment of `Keycloak__Authority`.
   (exactly this, no wildcard). **Web origins:** empty.
 - **Valid post-logout redirect URI:** `https://mustask.example.com/*`.
   **Root URL:** `https://mustask.example.com`.
+- **Under a path of a shared host** (`https://portal.example.com/mustask`,
+  ADR-0037) the same addresses carry the path:
+  - root URL `https://portal.example.com/mustask`;
+  - valid redirect URI `https://portal.example.com/mustask/api/session/callback`;
+  - valid post-logout redirect URI `https://portal.example.com/mustask/*`;
+  - web origins: empty, and if the realm's policy wants one, the bare host
+    `https://portal.example.com`, never with the path (an origin has none).
 - Default client scopes: `basic`, `acr`, `profile`, `email`, `roles`,
   `web-origins`. `profile` and `email` are required: the sign-in writes the
   user's name and e-mail into MUSTASK from the token claims (ADR-0034).
@@ -142,6 +164,12 @@ sudo bash mustask-v0.1.0/kit/install.sh prepare \
     --host mustask.example.com --keycloak-host keycloak.example.com --realm <realm> \
     --install-packages --create-db
 ```
+
+Under a path of a shared host add `--path /mustask` and give the bare host:
+`--host portal.example.com --path /mustask`. `prepare` then writes
+`Session__PanelUrl=https://portal.example.com/mustask` and
+`Hosting__PathBase=/mustask` (section 5). The path is the one the release was
+built for (section 4); leave `--path` out at a host root.
 
 `prepare` creates the non-login service user `mustask` (home
 `/var/lib/mustask`), `/opt/mustask/releases/` and `/etc/mustask/`, and writes
@@ -220,17 +248,22 @@ deploy/vm/build-release.sh v0.1.0 https://mustask.example.com
 
 The script builds **the tag, not the working tree**: it checks the tag out
 into a throwaway worktree, so local edits never reach the VM, and removes it
-afterwards. The second argument is the site address, the host root with no
-path and no trailing slash; it is baked into the panel as
-`VITE_API_BASE_URL` (one domain, so it is the site itself). The result is one
-file, `out/mustask-v0.1.0.tar.gz`:
+afterwards. The second argument is the site address, no trailing slash: the
+host alone (`https://mustask.example.com`) or the host with a path
+(`https://portal.example.com/mustask`; segments of letters, digits, `.`, `_`
+and `-`, no port). The address is baked into the panel as
+`VITE_API_BASE_URL` (panel and API share one address, so it is the site
+itself), and the path, `/` when there is none, as `VITE_BASE_PATH`, the base
+the panel is served under. It is also recorded in `VERSION`, and `install.sh
+deploy` refuses a release whose address differs from `Session__PanelUrl`. The
+result is one file, `out/mustask-v0.1.0.tar.gz`:
 
 | Inside | What |
 |---|---|
 | `api/` | `dotnet publish` of `Mustask.Api`, framework-dependent: it runs on the VM through `dotnet` |
 | `panel/` | the panel build |
 | `efbundle` | the migrations bundle, linux-x64, self-contained |
-| `kit/` | `install.sh`, `smoke.sh`, the unit, the nginx site, the env template, taken from the checkout the script runs in |
+| `kit/` | `install.sh`, `smoke.sh`, the unit, the nginx site and the nginx locations snippet, the env template, taken from the checkout the script runs in |
 | `VERSION` | tag, commit, kit commit, site address, build time |
 
 Copy it to the VM and unpack it:
@@ -263,7 +296,8 @@ setting still holds `CHANGE_ME`.
 | `Keycloak__Audience` | `mustask-api` |
 | `Keycloak__Issuer` | optional, defaults to the authority; set it only when tokens carry another `iss` |
 | `Keycloak__ClientSecret` | the `mustask-panel` secret. Outside Development the API refuses to start if it is shorter than 32 characters or a known placeholder |
-| `Session__PanelUrl` | `https://mustask.example.com`, no trailing slash. Every redirect after sign-in is built as `{PanelUrl}{returnUrl}` |
+| `Session__PanelUrl` | `https://mustask.example.com`, no trailing slash; under a path of a shared host it carries the path: `https://portal.example.com/mustask`. Every redirect after sign-in is built as `{PanelUrl}{returnUrl}` |
+| `Hosting__PathBase` | the path part of `Session__PanelUrl`: `/mustask`, or empty at a host root. The API refuses to start when it differs from the path of `PanelUrl` (ADR-0037). `prepare --path` fills both |
 
 Notes:
 
@@ -296,6 +330,25 @@ journalctl -u mustask-api -f       # structured JSON log lines on the console
 
 ## 7. Reverse proxy and TLS (nginx)
 
+Two layouts; pick the one that matches the address you built the release for
+(section 4).
+
+- **Own host name** (`https://mustask.example.com`): MUSTASK gets a whole
+  `server {}` of its own. Subsection 7.1.
+- **A path of a shared host** (`https://portal.example.com/mustask`): the
+  host already has a server, owned by someone else; MUSTASK adds locations
+  to it. Subsection 7.2.
+
+In both, nginx passes the path to the API unchanged (`proxy_pass` with no URI
+part). The API itself serves under its path base (`Hosting__PathBase`,
+section 5), so nothing is stripped or rewritten on the way.
+
+HTTPS is not optional: the session cookie `mustask.session` is `Secure`,
+`HttpOnly`, `SameSite=Lax`, path `{path}/api/session` (`/api/session` at a
+host root), and is never sent over plain HTTP.
+
+### 7.1 Own host name
+
 The site is [`deploy/vm/nginx-mustask.conf`](../../deploy/vm/nginx-mustask.conf):
 port 80 redirects to HTTPS; on 443 `/api/` goes to `127.0.0.1:5000` with the
 forwarded headers, everything else is the panel from
@@ -327,9 +380,48 @@ the rehearsal (tech-056):
   claim the shared realm adds) plus the OIDC cookies it clears; with nginx's
   default 4–8 KB header buffer every sign-in gets a 502.
 
-HTTPS is not optional: the session cookie `mustask.session` is `Secure`,
-`HttpOnly`, `SameSite=Lax`, path `/api/session`, and is never sent over plain
-HTTP.
+### 7.2 A path of a shared host
+
+The server for `portal.example.com` (its names, its certificate, its port-80
+redirect) is not MUSTASK's, and the kit does not write it. It installs only
+the locations, from
+[`deploy/vm/nginx-mustask-locations.conf`](../../deploy/vm/nginx-mustask-locations.conf):
+
+- `location /mustask/api/` goes to `127.0.0.1:5000` with the forwarded
+  headers and the same three proxy buffer settings as in 7.1 (the reason is
+  the same: without them every sign-in gets a 502);
+- `location /mustask/` serves the panel from
+  `/opt/mustask/current/panel/` through `alias`, and an unknown path falls
+  back to `/mustask/index.html`; `/mustask` without the slash redirects to
+  `/mustask/`;
+- `/mustask/health` is not exposed: under the prefix it is the panel's
+  `index.html`, as at a root. `/health` and `/alive` stay on the loopback.
+
+```bash
+sudo bash mustask-v0.1.0/kit/install.sh nginx --path /mustask
+```
+
+There is no `--host`, `--cert` or `--key` here, and no `default_server`: the
+script renders the locations into
+`/etc/nginx/snippets/mustask-locations.conf`, checks them with `nginx -t`
+inside a throwaway server of their own (nothing includes them yet), checks
+the whole current configuration, and prints the one line the owner of the
+portal's server must add inside its `server { … }` block:
+
+```nginx
+include /etc/nginx/snippets/mustask-locations.conf;
+```
+
+**The owner of the portal's server has to agree to this include.** It is an
+organizational step of the deployment: ask for it together with the Keycloak
+request of section 1. After they add it, `nginx -t && systemctl reload
+nginx` makes it live. A later run of the script reloads nginx itself once the
+include exists. If the test fails, the snippet installed earlier is left as it
+was.
+
+The `/mustask` locations must not be shadowed by a regex location of the
+portal's server (`location ~ …`) that catches the same paths; a prefix
+location of the portal's own at `/mustask` would clash with the include.
 
 ## 8. First start and smoke check
 
@@ -346,16 +438,19 @@ stops; the log says whether the database or Keycloak is the problem.
 
 `smoke.sh` checks, from the VM: `/health` answers `Healthy` (it covers the
 database and the reachability of the realm); `http://` redirects to
-`https://`; the panel is served at the site root and a client route falls
+`https://`; the panel is served at the site address and a client route falls
 back to `index.html`; the API answers through the proxy (401 without a
 token); `/api/session/login` redirects to the realm; `/health` is not
-reachable through the proxy. Before DNS points at the VM add
+reachable through the proxy. Under a path, every address is the site address
+with its path (`https://portal.example.com/mustask/…`), and the `http://`
+check expects the redirect from the portal's own port-80 server. Before DNS points at the VM add
 `--resolve-local`; `--insecure` accepts a certificate the VM does not trust
 (rehearsals only).
 
 The rest needs a person in a browser; `smoke.sh` prints it as a list:
 
-1. `https://mustask.example.com/` shows the panel; signing in goes to
+1. `https://mustask.example.com/` (under a path:
+   `https://portal.example.com/mustask/`) shows the panel; signing in goes to
    `keycloak.example.com` and back to the panel after the login.
 2. A user with `user` signs in and lands in the panel. A user **without**
    `user` comes back with `authError=no_access` and has no session.
@@ -410,7 +505,10 @@ under `/opt/mustask/releases/`; delete the ones you no longer need by hand
 | After the Keycloak login the browser gets **502** on `/api/session/callback`; nginx's error log says "upstream sent too big header" | The proxy buffers from section 7 are missing: the session cookie does not fit nginx's default header buffer. |
 | `/health` is unhealthy naming the realm; the log has a TLS / certificate error | The VM does not trust the CA of the Keycloak certificate (section 2). |
 | `dotnet ef` fails with `NETSDK1004` (without the kit) | Run `dotnet restore src/backend/Mustask.Infrastructure` first (section 3). |
-| Keycloak shows "Invalid redirect URI" | `mustask-panel` lacks `https://mustask.example.com/api/session/callback`, or `ASPNETCORE_FORWARDEDHEADERS_ENABLED` is missing and the API sent an `http://` address. |
+| API exits at start about `Hosting:PathBase` | The path of `Session__PanelUrl` and `Hosting__PathBase` differ, or the base is malformed (section 5). Under a path both carry it: `https://portal.example.com/mustask` and `/mustask`; at a host root `Hosting__PathBase` is empty. |
+| `install: nginx -t failed` with `--path`: "the snippet failed" | The snippet did not pass `nginx -t` inside a server of its own; the message above names the line. The snippet installed earlier is left as it was. |
+| Under a path: the panel loads but its scripts are 404, or the sign-in loops | The panel was built for another path than the one nginx serves, or the `include` is missing in the portal's server (section 7). Rebuild with the full address (section 4). |
+| Keycloak shows "Invalid redirect URI" | `mustask-panel` lacks `https://mustask.example.com/api/session/callback` (under a path: `https://portal.example.com/mustask/api/session/callback`), or `ASPNETCORE_FORWARDEDHEADERS_ENABLED` is missing and the API sent an `http://` address. |
 | Every API call is 401 after sign-in | The access token has no `aud = mustask-api`, or `Keycloak__Authority`/`Keycloak__Issuer` differ from the token's `iss`. |
 | Sign-in comes back `authError=no_access` | The user does not hold the `mustask-api` client role `user` (assign it directly). |
 | Signed in, but a role does not take effect | `resource_access.mustask-api.roles` is missing from the access token (mapper, section 1). |
@@ -441,8 +539,10 @@ Still unverified, because a rehearsal cannot have them:
   sign-ins went through the login form by a script, not a browser.
 - **An update with a new migration.** The update was rehearsed with the same
   build deployed under a second tag, so its bundle had nothing new to apply.
-- **A sub-path address**: not supported by this release (see the top of
-  this document, tech-057).
+- **A sub-path address**: the kit and this runbook support it (tech-057,
+  ADR-0037), but the rehearsal of that layout is still to be recorded here.
+  The portal's own nginx, and its owner's agreement to the `include`, are not
+  something a rehearsal has.
 
 The first real deployment should walk section 8 again and fix this document
 where it differs.

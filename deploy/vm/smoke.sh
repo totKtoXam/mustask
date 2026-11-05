@@ -29,7 +29,10 @@ done
 value() { sed -n "s/^$1=//p" "$env_file" | tail -n 1 | sed 's/^"\(.*\)"$/\1/'; }
 site=$(value Session__PanelUrl)
 authority=$(value Keycloak__Authority)
-host=${site#https://}
+rest=${site#https://}
+host=${rest%%/*}
+base=
+[ "$host" = "$rest" ] || base=/${rest#*/}   # "" at a host root, "/mustask" under a path
 
 opts=(-sS --max-time 15)
 [ "$insecure" = 1 ] && opts+=(-k)
@@ -53,9 +56,9 @@ case $body in
     *) check "/health on the VM" "got '${body:0:120}' (database or realm: journalctl -u mustask-api)" ;;
 esac
 
-code=$(curl "${opts[@]}" -o /dev/null -w '%{http_code} %{redirect_url}' "http://$host/")
+code=$(curl "${opts[@]}" -o /dev/null -w '%{http_code} %{redirect_url}' "http://$host$base/")
 case $code in
-    "301 https://$host/") check "http:// redirects to https://" ok ;;
+    "301 https://$host$base/") check "http:// redirects to https://" ok ;;
     *) check "http:// redirects to https://" "got '$code'" ;;
 esac
 
@@ -81,7 +84,8 @@ case $code in
     *) check "sign-in redirects to the realm" "got '${code:0:160}', expected 302 to $authority/…" ;;
 esac
 
-# Outside /api/ nginx serves the panel, so /health from outside is index.html.
+# Outside $base/api/ nginx serves the panel, so $base/health from outside is
+# index.html.
 if page=$(curl "${opts[@]}" "$site/health" 2>&1); then
     case $page in
         Healthy*|Unhealthy*|Degraded*) check "/health is not exposed through the proxy" "the API's /health answers from outside" ;;
