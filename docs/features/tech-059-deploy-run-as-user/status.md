@@ -3,7 +3,7 @@
 - type: tech
 - size: S
 - branch: tech/059-deploy-run-as-user
-- stage: 04-backend
+- stage: gate-3
 - epic: platform/deploy
 - deps: tech-057
 - gates: gate-3
@@ -29,3 +29,4 @@ Check: a throwaway Ubuntu 24.04 container with systemd. `prepare` runs with the 
 - 2026-11-06 [code-reviewer] review on 4ca4aa51: changes requested (3 major, 3 minor open; review.md Round 1)
 - 2026-11-06 [orchestrator] review F1–F6 fixed: F1 a re-run of prepare keeps the recorded account; F2 `chown -R` of the state dir; F3 section 5 names the service account's group; F4 Group= dropped (systemd takes the primary group), the group name is checked, deploy re-checks the run-as name and refuses root; F5 the cost of a shared account in both runbooks; F6 header grammar. Re-checked on a throwaway container: a re-run keeps ubuntu, switching account moves the keys, deploy renders User= only, `systemd-analyze verify` passes, root and a bad name in run-as refused. Container removed.
 - 2026-11-06 [code-reviewer] review round 2 on 313699da: approve (0 open; review.md Round 2)
+- 2026-11-06 [orchestrator] review round 2 approved; stage gate-3, PR opened for the human's gate-3.
