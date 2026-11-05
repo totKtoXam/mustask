@@ -313,3 +313,18 @@ request cap. Commands: `dotnet test src/backend/tests/Mustask.Infrastructure.Tes
 (4 red: D-10), `... --filter FullyQualifiedName~ReducerFixtureTests` (192 passed),
 `dotnet test src/backend/tests/Mustask.Api.IntegrationTests --filter FullyQualifiedName~SaveWorkItemDescription` (51 passed);
 fresh-process harness `flood2.dll guarded|watcheronly <units> <spec>|@<file>`.
+
+### Re-check 3 (D-10 fix, commits 079afd9b, 41c80d5a, 60d2852a; merge 3dfdeb8a; scope: D-10 and what it could break)
+
+Added `ReducerTextWorkRecheck3QaTests` (66 attack shapes at 1 000 000 units, accepted ones timed at 500 k and 1 M; legitimate shapes at the ceiling). The machine was under load, so the judgement is on counters and the half/full ratio.
+
+| Item | Result |
+|------|--------|
+| Attack shapes | 66 shapes: mixed ignored tokens (`<td>x<tr>y<tbody>z`), upper case, attributes, `<td\n>`, `<td/>`, quoted `>` in attributes, entities, NUL, nbsp, comments and CDATA, `<br>`, `<hr>`, `<img>`, adoption agency (`<b><i>x</b>`, `<a>x<a>y`, `<p><b id=1>x</p>`), implied ends (`<p>x<p>y`, `<li>x<li>y`), table in cell, cell closed by `</tr>` or `</table>`, `</td>` with no cell, caption, col, form/html/body/head/frame. About 45 refused (append 200.0 M+, foster 32.0 M+, or length with tree-builder markup); about 20 accepted, each 0.04 to 1.5 s at 1 M, half-to-full ratio 1.3 to 2.3: linear. No accepted superlinear shape found |
+| Legitimate at the ceiling | paragraph with 5 marks, 30 000 list items, 100x100 table (compact and pretty-printed), 80 000-cell row, 20 000 code blocks, links, `<br>` paragraphs, nested marks, one 31 000-repeat paragraph: all accepted, append at most 12 195, foster 0 |
+| Fixtures | `ReducerFixtureTests` and `ReducerTextWorkSweepTests` pass in full |
+| Migration | `AddWorkItemDescriptionFormatMigrationTests` 3 passed (Docker up) |
+| Other suites | Application `~WorkItems` 45 passed; Contracts 228 passed |
+| `Mustask.Infrastructure.Tests ~RichText` | 2450: 2443 passed, 7 failed, all wall-time: 6 in `ReducerBoundCostTests` / `ReducerRulesTests` (`depth-150-with-142000-paragraphs` 3.4 to 5.4 s, `tags-350000-b`, `table-span-bomb`, `depth-150-*` 2.4 to 2.7 s against a 2.5 s budget; `HostileDeepNesting(table)`, `SpanBomb`); a different set each run and the counters are 0 for all, so the D-10 scan adds nothing (known intermittent under load, also before the merge); 1 mine (`<a>x<a>y` 3.9 s under load, 0.7 s unloaded, ratio linear: threshold raised to 9 s) |
+
+No new defect. D-10 closed. Verdict (re-check 3): **pass**. Not run: E2E (standing NO), frontend, `verify.sh` (pause).
