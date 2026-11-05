@@ -35,7 +35,7 @@ Scenario: A manager gives, changes and removes a grant from the page
   Given Kirill holds «Управление» on A
   When he picks Irina in the searchable member picker, gives «Изменение», changes it to «Чтение» and removes it
   Then each step shows without a page reload
-  And the picker offers only active members who hold no grant on A, and typing narrows it
+  And the picker offers only active members who hold no grant on A, never Kirill himself (BR-SA-19), and typing narrows it
 
 Scenario: A department manager sees the grant controls of the projects it reaches (OQ-8 A)
   Given Pavel holds «Управление» on «Логистика»

@@ -122,7 +122,7 @@ Severity: major
 Affects: BR-SA-4 (OQ-1 A); US-1 "A grant of the wrong scope is refused"; US-6 "The matrix is generated, not written"
 Problem: (a) Under OQ-1 A, a department grant inherited onto a project node or a sub-area still brings `organizations.area.grant` there. ADR-0031 rule 7 itself names grants "held on the node". Yet no scenario says what a request to give an area role on a project node or a sub-area answers. (b) US-6 takes "each of the 11 roles held on the addressed object". That is impossible for area roles on a project, team or sub-area route, and for project or team roles on an area route.
 Required resolution: (a) add to US-1: an area role given on a project node or a sub-area id answers the catalogue's type refusal, the exact code being the contract's (as mod-018's `type_not_allowed`), and stores nothing. (b) Rewrite US-6. Organization roles come through the membership. A role of the route's own scope is held on the addressed object. Area roles are held on the department above (switch on, switch off) and on another department. A project or team role is held on another object of its scope.
-Status: reopened
+Status: closed (round 3: US-6 holds project roles on the node and sub-area routes, and keeps only the exclusions for grants that cannot exist)
 Resolution: round 2. (a) is closed by US-1 and BR-SA-4. (b) is half fixed: US-6 now says "no cell holds … a project or team role on an area route". But OQ-3 B makes the project role «Управление» hold `area.write` on its node and sub-areas, so the matrix would leave out the very cells the human just added. See R-23.
 
 ### R-11
@@ -198,7 +198,7 @@ Severity: minor
 Affects: US-6 "The bundles are a contract"; BR-SA-14
 Problem: "the realm contract test still compares instance codes only" predates ADR-0033. The realm now holds four client roles, mapped to codes by a table in code. That table's hand mirror in `src/frontend/src/shared/api/tokenClaims.ts` waits for "the machine-readable contract that `mod-019` takes over" (ADR-0033 Consequences; tech-024 D-6). The spec does not say whether that mirror is in or out.
 Required resolution: reword the sentence to ADR-0033's terms, and state the scope per OQ-7.
-Status: reopened (minor)
+Status: closed (round 3: BR-SA-14 and US-6 say the realm holds four client roles and no code; the panel imports the contract at build time)
 Resolution: round 2. The OQ-7 A scope is now in BR-SA-14 and US-6. But US-6 still says "the realm contract test compares instance codes only", while under ADR-0033 the realm holds four client roles and no codes. Reword it to "the realm contract test compares the four client roles; no code, organization or instance, is in the realm or the token". Also state that `tokenClaims.ts` is runtime code: the panel imports the contract at build time, not only in tests.
 
 ### R-20
@@ -300,8 +300,8 @@ Problem: under BR-SA-17, `POST …/organizations/{o}/projects` loses its route c
 - The stories contradict each other. US-4 says "a place deleted meanwhile answers 403 on submit", while US-8 says "a place that names no department answers the department's not-found", and neither says for whom.
 
 Required resolution: decide the declaration and the order in BR-SA-17. Recommended: `POST /projects` goes on the inventory's exception list, with the reason "the addressed object is the place, carried in the body (mod-018 api-contract § 4); decided at step 0, before any lookup". A non-admin then gets 403 for any place they lack the code on, unknown, deleted and foreign places included, so nothing is disclosed. The admin gets «Область не найдена» for an unknown place. Align US-4 and US-8 on that answer. The alternative is a path route, `…/areas/{departmentId}/projects`, which is a larger contract change. The new ADR (R-23) records whichever is chosen.
-Status: open
-Resolution:
+Status: closed
+Resolution: round 3. BR-SA-17, US-4, US-6 and US-8 put the route on the exception list, decided at step 0. A non-admin gets 403 for any place; the admin gets «Область не найдена.» for an unknown place, and in this round's edit (R-29) 409 `type_not_allowed` for a non-department place.
 
 ### R-23
 Severity: major
@@ -319,32 +319,32 @@ Required resolution:
 - BR-SA-16 names the ADR's sections: §§ 4, 6 (reach), 7 (the creation route), 12 (matrix cells), and the delivery bullet.
 - US-6 adds the cells for project roles on the node and on sub-area routes, and drops the exclusion.
 - The ADR is written `proposed` in `plan-backend.md` before any code and accepted at gate-3, as with ADR-0031.
-Status: open
-Resolution:
+Status: closed
+Resolution: round 3. BR-SA-5 states the project-grant path for all three forms. BR-SA-16 names §§ 4, 6, 7 and 12 and the delivery bullet, and requires the ADR as `proposed` in plan-backend before any code.
 
 ### R-24
 Severity: major
 Affects: BR-SA-2, BR-SA-16 (OQ-8 A, OQ-3 B), BR-SA-7 (the confirmation count); US-2 "Switching a project node off…", "A switch off counts…"; US-8 "A department manager runs the projects it reaches"
 Problem: OQ-8 A gives department «Управление» `project.grant` on every project it reaches, and BR-SA-2 lets a holder grant "any active member", the holder included. Pavel can therefore give himself project «Управление» on A. That grant is held on the project, so turning A's node off does not cut it, which defeats the switch's purpose ("a project that must stand apart"). Through OQ-3 B it also gives him the area code on A's subtree, and from feat-041 on `organizations.visibility.write`, which US-8 says "stays the project role's". The switch-off confirmation excludes "holders of a project grant", so it hides exactly these grants from the admin. Granting a colleague is delegation, which is intended. Granting oneself is the escalation.
 Required resolution: the human answers OQ-9. Then add one US-1 scenario and, depending on the answer, one US-2 line on what the confirmation shows.
-Status: open
-Resolution:
+Status: closed
+Resolution: round 3. OQ-9 B is BR-SA-19, with the US-1 scenario. The mutual-grant residual is R-27.
 
 ### R-25
 Severity: minor
 Affects: BR-SA-12; US-4 "The create commands…"
 Problem: "absent, never disabled (feat-043 BR-NV-1)" cites a rule about left-menu entries for a page command. The outcome is right: feat-043 § Roles and BR-NV-14 already make create commands absent for those without the code. With OQ-4 B, an empty place list can only come from a race, as the author says.
 Required resolution: cite feat-043 § Roles and BR-NV-14 instead. Keep the reading. Replace "answers 403 on submit" with R-22's answer.
-Status: open
-Resolution:
+Status: closed
+Resolution: round 3. BR-SA-12 now cites feat-043 § Roles and BR-NV-14, and the submit answer is BR-SA-17's.
 
 ### R-26
 Severity: minor
 Affects: US-8 fixture and "A project manager manages the sub-areas of its project"
 Problem: the fixture says a project node is "moved … with its project", but US-8 moves it on its own, by the area move (feat-043 BR-NV-11), and ADR-0031 rule 5 ties only create, rename and delete to the project. Kirill "moves «Платформа» under A's node", where it already is.
 Required resolution: say "created, renamed and deleted with its project; moved by the area move". Make the move "moves «Тесты» under «Платформа»".
-Status: open
-Resolution:
+Status: closed
+Resolution: round 3. The US-8 fixture and Kirill's move are reworded as asked.
 
 ### On the widenings the coordinator asked about
 
@@ -367,3 +367,54 @@ Resolution:
 **needs-human-decision.** OQ-9 is the human's. R-10, R-22 and R-23 are majors the business analyst can fix without a
 decision. This was the second and last review iteration (stage file: at most 2), so they go to the human with the
 gate-1 summary, together with the three minors R-19, R-25 and R-26. No blocker is open.
+
+## Round 3 — requirements (delta and final pass)
+
+Reviewer: requirements-reviewer, 2026-11-06. **This round goes past the stage file's limit of two iterations, by the
+human's decision in chat before approving gate-1.** I read commit 3c755082 as the files now stand (no Bash), and made a
+final pass over BR-SA-1..-19 and US-1..US-8 for contradictions left by three rounds.
+
+**Statuses:**
+- R-10, R-19 and R-22..R-26 are closed, each with a reason above.
+- R-27..R-29 are new. All three are minor, and the reviewer fixed R-28 and R-29 with small edits, as the stage file allows.
+
+### R-27
+Severity: minor
+Affects: BR-SA-19, BR-SA-7; US-2 "A switch off counts…"; US-1 "A grantee is never the grant's giver"
+Problem: the residual the coordinator asked about. Under OQ-8 A, Pavel gives Irina project «Управление» on A, and she gives him the same (US-1 pins that both are kept). Each grant is held on the project, so turning A's node off cuts neither. OQ-9 B closes only the one-person path. The switch-off confirmation leaves out project-grant holders, and BR-SA-19 gave a false reason for that ("no one can have made themselves one").
+Required resolution: the reviewer reworded the reason in BR-SA-19 and US-2 to the true one: a project grant is held on the project and is not cut by the switch. BR-SA-19 now records the residual as accepted at gate-1 unless the human reopens it. If the human wants it closed, the cheap fix is one line in the switch-off confirmation naming the project grants on this project given by the users who stop being reached.
+Status: accepted-risk (pending the human's gate-1 acknowledgement)
+Resolution: round 3, reviewer edit. BR-SA-19 and US-2 are reworded, and the US-5 picker never offers the actor (BR-SA-19).
+
+### R-28
+Severity: minor
+Affects: US-8 "A department manager manages the sub-areas…", "A project manager cannot place or switch its own project"
+Problem: renaming A's node through the area route was expected to answer 403. But Pavel (by inheritance) and Kirill (OQ-3 B) both hold `area.write` on the node, so the code passes, and mod-018's contract answers 409 `area.root_is_fixed`.
+Required resolution: expect 409 `area.root_is_fixed`. Kirill's move and switch stay 403, because he lacks the parent's code.
+Status: closed
+Resolution: round 3, reviewer edit in US-8.
+
+### R-29
+Severity: minor
+Affects: BR-SA-17; US-8 "The place decides"
+Problem: the admin's answer for a place that is a project node or a sub-area was not stated.
+Required resolution: mod-018's 409 `type_not_allowed`. A non-admin keeps the 403.
+Status: closed
+Resolution: round 3, reviewer edit in BR-SA-17 and US-8.
+
+### Final pass
+
+- **Rules, BR-SA-1..-19:** no contradiction left.
+  - BR-SA-2 and BR-SA-19 agree: no self-grant, and removing one's own grant is allowed.
+  - BR-SA-5, -6 and -16 agree on the project-grant reach.
+  - BR-SA-10 does not give OQ-8 A's department «Управление» `boards.projectbacklog.reorder`, and US-3 expects 403 for an area role, which is consistent.
+  - BR-SA-12 and BR-SA-17 agree on the places.
+  - Cosmetic: BR-SA-19 is listed before BR-SA-18.
+- **Stories, US-1..US-8:** the outcomes match the bundles under the «Читатель» fixture; I spot-checked US-2, US-3, US-7 and US-8 against BR-SA-15..-17.
+- **Constraints:** no Keycloak change. No criterion needs E2E. The ADR is `proposed` before code, and the human accepts it at gate-3.
+
+### Verdict (round 3)
+
+**approved-by-ai: ready for gate-1.** No blocker or major is open. The one item the human must see is R-27 (accepted-risk): two
+managers who grant each other project «Управление» keep it after a switch-off, and the giver column is the only trace.
+The human accepts that at gate-1, or asks for the one-line confirmation fix.

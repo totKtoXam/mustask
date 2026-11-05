@@ -32,15 +32,16 @@ Scenario: The place decides, and the order of the codes is fixed (mod-018 TC-2 k
   When Olga, who manages nothing, creates a project in «Логистика»
   Then it answers 403, before a name taken or a malformed body is looked at
   And a non-admin naming a place that does not exist, was deleted, belongs to another organization or is not a department gets the same 403, so nothing is disclosed
-  And Anna naming an unknown place gets «Область не найдена.»
+  And Anna naming an unknown place gets «Область не найдена.», and naming a project node or a sub-area gets mod-018's 409 `type_not_allowed`
   And the route is on the inventory's exception list: the place is in the body and is decided at step 0, before any lookup
 
 Scenario: A department manager manages the sub-areas below its project nodes
   Given the switches are on
   When Pavel creates the sub-area «Тесты» under A's node, renames it, describes it, moves it under «Платформа», and deletes it
   Then each is kept
-  When he creates a department, renames «Финансы», or renames A's node through the area route
-  Then each answers 403 (the node is renamed with its project, `root_is_fixed`)
+  When he creates a department or renames «Финансы»
+  Then each answers 403
+  And his rename of A's node through the area route, where he holds the area code, answers 409 `area.root_is_fixed` (the node is renamed with its project)
 
 Scenario: A project manager manages the sub-areas of its project (OQ-3 B)
   When Kirill creates «Тесты» under A's node, renames «Платформа», moves «Тесты» under «Платформа» and deletes it
@@ -54,8 +55,9 @@ Scenario: A project manager's reach does not depend on the sub-areas' switches
   Then Pavel's answers 403 and Kirill's is kept
 
 Scenario: A project manager cannot place or switch its own project
-  When Kirill moves A's node under «Финансы», switches A's node off, or renames the node through the area route
-  Then each answers 403, and «Общие» shows him no placement control
+  When Kirill moves A's node under «Финансы» or switches A's node off
+  Then each answers 403 (he lacks the code on the parent), and «Общие» shows him no placement control
+  And his rename of the node through the area route answers 409 `area.root_is_fixed`
   And his rename of the project itself is kept
 
 Scenario: A department manager moves a project between departments they both manage (BR-MX-3)
