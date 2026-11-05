@@ -76,3 +76,24 @@ Reviewer: code-reviewer (clean context), 2026-11-05. Diff `origin/main...5bc6ecd
 
 - `npx vitest run` on basePath, AuthContext, WorkItemCardDialog and WorkItemCard.actions: 52 passed.
 - `dotnet test --no-build --filter PathBaseTests`: 30 passed. A plain build was locked by an already-running `testhost.exe` (pid 79196) from this worktree's `bin`, which was not started by this review.
+
+## Round 2
+
+Reviewer: code-reviewer (clean context), 2026-11-05. HEAD 3f223b31, diff `5bc6ecdf..3f223b31`. Read only: no dotnet run (a hook held the files), `bash -n deploy/vm/install.sh` passes.
+
+**Verdict: approve** (F1-F5 fixed; 1 nit, not blocking).
+
+### F1-F5
+
+- **F1 fixed.** `nginx-mustask-locations.conf:11,36` are `^~`. The exact `= @BASE_PATH@` is untouched. The `try_files` fallback re-enters the same `^~` location. vm.md:426 and vm.ru.md:422 now state the prefix clash only.
+- **F2 fixed.** `install.sh:217-230`. The `[ -f ] && cp` line is safe under `set -e`: the failing test is not the last command of the list. The failure branch sits inside `if ! nginx -t`. With a previous snippet it is restored; with none the new one is removed; the `.bak` is dropped on success. Docs say the same (vm.md:423-424, vm.ru.md:418-420).
+- **F3 fixed.** `ReturnUrlValidator.cs:22-32` checks `.` and `..` after one percent-decode, with `?` and `#` cut off first, and splits on `/` and `\`. Stray `%` and invalid UTF-8 do not throw (`UnescapeDataString` leaves them). `%2E`, `%2f` and `%5c` forms are caught. `%252e` decodes to the literal `%2e`, which a browser does not decode again, so rejecting it would be wrong. Legitimate paths (`/work-items/123`, `/a/b.c`, `/x/..foo`, `/p?next=/..`) pass. Tests added at `SessionLoginEndpointTests.cs:57-60`.
+- **F4 fixed.** The troubleshooting rows quote the real messages (`install.sh:214,225,228`), in both languages.
+- **F5 fixed.** vm.ru.md:388-389 links the conf like vm.md.
+
+### New
+
+- **N1 - nit - `install.sh:219`.** A stale `$snippet.bak` (a run killed between `cp` and `rm`) when there was no snippet would be restored on a later failure instead of the new snippet being removed. Very unlikely. If wanted: `rm -f "$snippet.bak"` before the `cp`. Not blocking.
+- The test list has no case for a legitimate path with dots in the query (`/p?x=/..` stays accepted). The behaviour is right, and only a regression guard is missing. Not blocking.
+
+vm.md and vm.ru.md changes match one to one.

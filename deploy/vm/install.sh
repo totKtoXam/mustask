@@ -216,6 +216,7 @@ cmd_nginx_locations() {
     rm -f "$probe"
     # Keep the previous snippet: once the portal includes it, the whole-config
     # test below reads the new one, and a failure must not leave it live.
+    rm -f "$snippet.bak"
     [ -f "$snippet" ] && cp -p "$snippet" "$snippet.bak"
     mv "$snippet.new" "$snippet"
     # The server's own configuration must still pass as a whole.
