@@ -18,6 +18,8 @@ public sealed class RichTextInputGuardTests
         MaxTags = int.MaxValue,
         MaxAttributesPerTag = int.MaxValue,
         MaxAttributeSquares = long.MaxValue,
+        MaxTextAppendWork = long.MaxValue,
+        MaxFosterTokenWork = long.MaxValue,
     };
 
     private static GuardStats Stats(string text)

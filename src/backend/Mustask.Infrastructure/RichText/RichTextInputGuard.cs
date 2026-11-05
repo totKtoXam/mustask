@@ -58,10 +58,30 @@ internal sealed record RichTextGuardLimits
     /// it; about 4 000 such insertions into one parent reach the bound, which costs under 0.1 s.
     /// </summary>
     public long MaxInsertionWork { get; init; } = 16_000_000;
+
+    /// <summary>
+    /// QA D-10. Text that meets a token the tree builder ignores (a <c>td</c>, <c>tr</c>, <c>tbody</c>, <c>html</c> or
+    /// <c>body</c> start tag outside a table, an end tag with nothing to close) is appended to the text node already
+    /// there, and the DOM copies that node's whole text for each piece: the copying is the sum, over text pieces, of the
+    /// length of the text run they join (a run ends at a start tag that makes an element). Counted in characters
+    /// copied; 200 million take well under 0.2 s. Canonical output has runs of one piece, or a few for nested marks:
+    /// its sum is under the size of its text (a million at the most).
+    /// </summary>
+    public long MaxTextAppendWork { get; init; } = 200_000_000;
+
+    /// <summary>
+    /// QA D-10. Foster parenting seen in the markup itself: text or a tag that is not a table tag, met while a table
+    /// (not one of its cells) is the open context, lands before the table and the DOM finds the table's index, linear
+    /// in the parent's children, for each. The sum, over such characters and tags, of the tokens read so far (an upper
+    /// bound of any parent's children). The tree watcher counts the same from the tree, but loses sight of a table once
+    /// text follows it. Canonical output has none.
+    /// </summary>
+    public long MaxFosterTokenWork { get; init; } = 32_000_000;
 }
 
 /// <summary>What the guard's scan saw: tags, the most attributes in one tag, their squares, preformatted start tags.</summary>
-internal readonly record struct GuardStats(int Tags, int MaxAttributes, long AttributeSquares, int Preformatted, bool TreeBuilderMarkup);
+internal readonly record struct GuardStats(
+    int Tags, int MaxAttributes, long AttributeSquares, int Preformatted, bool TreeBuilderMarkup, long TextAppendWork = 0, long FosterTokenWork = 0);
 
 /// <summary>
 /// One linear pass over the (normalised) input in the tokenizer's data state, exact for the tag syntax of the
@@ -93,8 +113,10 @@ internal static class RichTextInputGuard
         var maxAttributes = 0;
         long squares = 0;
         var treeBuilderMarkup = false;
+        var pending = 0;
+        var cost = new MarkupCost();
 
-        GuardStats Snapshot() => new(tags, maxAttributes, squares, preformatted, treeBuilderMarkup);
+        GuardStats Snapshot() => new(tags, maxAttributes, squares, preformatted, treeBuilderMarkup, cost.TextAppend, cost.Foster);
 
         while (index < length)
         {
@@ -118,6 +140,9 @@ internal static class RichTextInputGuard
                 }
 
                 treeBuilderMarkup = true;
+                cost.Text(text, pending, open);
+                cost.Boundary();
+                pending = open + 2;
                 index = open + 2;
 
                 continue;
@@ -138,6 +163,9 @@ internal static class RichTextInputGuard
                     // A bogus comment: everything up to the next '>' (no quoting).
                     var close = text.IndexOf('>', nameStart);
                     index = close < 0 ? length : close + 1;
+                    cost.Text(text, pending, open);
+                    cost.Boundary();
+                    pending = index;
                 }
                 else
                 {
@@ -193,11 +221,231 @@ internal static class RichTextInputGuard
 
                 return false;
             }
+
+            cost.Text(text, pending, open);
+            cost.Tag(name, isEnd);
+            pending = index;
+
+            if (cost.TextAppend > limits.MaxTextAppendWork || cost.Foster > limits.MaxFosterTokenWork)
+            {
+                stats = Snapshot();
+
+                return false;
+            }
         }
 
+        cost.Text(text, pending, length);
         stats = Snapshot();
 
+        if (cost.TextAppend > limits.MaxTextAppendWork || cost.Foster > limits.MaxFosterTokenWork)
+        {
+            return false;
+        }
+
         return !treeBuilderMarkup || length <= limits.MaxLengthWithTreeBuilderMarkup;
+    }
+
+    /// <summary>
+    /// The two costs the tree builder pays that the element hook cannot see (QA D-10), counted from the tokens alone.
+    /// <b>Text append</b>: pieces of text with no element made between them join one text node, and each join copies
+    /// the node; so the sum, over pieces, of the length of the run they join. A run ends at a start tag that makes an
+    /// element; every end tag, and every start tag the tree builder may ignore, continues it (an overcount that
+    /// canonical output, which is p/li/cell blocks with a few marks, never reaches). <b>Foster parenting</b>: a small
+    /// stack of the table contexts (a table, or one of its cells and captions) follows the table tags the way the
+    /// tree builder does; text with something in it and any other tag met while a table is the open context lands
+    /// before the table, at a cost linear in the parent's children, bounded here by the tokens read so far.
+    /// </summary>
+    private sealed class MarkupCost
+    {
+        private bool[] cells = new bool[16];
+        private int depth;
+        private long run;
+        private long tokens;
+
+        public long TextAppend { get; private set; }
+
+        public long Foster { get; private set; }
+
+        /// <summary>A node that is not text (a comment) between two pieces: the run ends.</summary>
+        public void Boundary() => run = 0;
+
+        private bool InTable => depth > 0 && !cells[depth - 1];
+
+        public void Text(string text, int start, int end)
+        {
+            if (end <= start)
+            {
+                return;
+            }
+
+            tokens++;
+            TextAppend += run;
+            run += end - start;
+
+            if (InTable)
+            {
+                var content = 0;
+
+                for (var index = start; index < end; index++)
+                {
+                    if (!IsAsciiWhitespace(text[index]))
+                    {
+                        content++;
+                    }
+                }
+
+                Foster += content * tokens;
+            }
+        }
+
+        public void Tag(ReadOnlySpan<char> name, bool isEnd)
+        {
+            tokens++;
+            var kind = Classify(name);
+
+            if (isEnd)
+            {
+                switch (kind)
+                {
+                    case TagKind.Table:
+                        PopThroughTable();
+                        break;
+                    case TagKind.Cell or TagKind.Section or TagKind.Row:
+                        if (depth > 0 && cells[depth - 1])
+                        {
+                            depth--;
+                        }
+
+                        break;
+                    case TagKind.Column or TagKind.Ignored:
+                        break;
+                    default:
+                        if (InTable)
+                        {
+                            Foster += tokens;
+                        }
+
+                        break;
+                }
+
+                return;
+            }
+
+            switch (kind)
+            {
+                case TagKind.Table:
+                    if (InTable)
+                    {
+                        depth--;
+                    }
+
+                    Push(false);
+                    run = 0;
+                    break;
+                case TagKind.Section or TagKind.Row:
+                    if (depth > 0)
+                    {
+                        if (cells[depth - 1])
+                        {
+                            depth--;
+                        }
+
+                        run = 0;
+                    }
+
+                    break;
+                case TagKind.Cell:
+                    if (depth > 0)
+                    {
+                        if (cells[depth - 1])
+                        {
+                            depth--;
+                        }
+
+                        Push(true);
+                        run = 0;
+                    }
+
+                    break;
+                case TagKind.Column:
+                    if (InTable)
+                    {
+                        run = 0;
+                    }
+
+                    break;
+                case TagKind.Ignored:
+                    break;
+                default:
+                    if (InTable)
+                    {
+                        Foster += tokens;
+                    }
+
+                    run = 0;
+                    break;
+            }
+        }
+
+        private void Push(bool isCell)
+        {
+            if (depth == cells.Length)
+            {
+                Array.Resize(ref cells, depth * 2);
+            }
+
+            cells[depth++] = isCell;
+        }
+
+        private void PopThroughTable()
+        {
+            for (var index = depth - 1; index >= 0; index--)
+            {
+                if (!cells[index])
+                {
+                    depth = index;
+
+                    return;
+                }
+            }
+        }
+    }
+
+    private enum TagKind
+    {
+        Other,
+        Table,
+        Section,
+        Row,
+        Cell,
+        Column,
+        Ignored,
+    }
+
+    /// <summary>
+    /// The table tags, and the tags that the tree builder may ignore wherever they are met (a second form, html, body,
+    /// head and the frame tags): the rest make an element.
+    /// </summary>
+    private static TagKind Classify(ReadOnlySpan<char> name)
+    {
+        if (name.Length > 8)
+        {
+            return TagKind.Other;
+        }
+
+        Span<char> lower = stackalloc char[8];
+        var length = name.ToLowerInvariant(lower);
+
+        return lower[..length] switch
+        {
+            "table" => TagKind.Table,
+            "tbody" or "thead" or "tfoot" => TagKind.Section,
+            "tr" => TagKind.Row,
+            "td" or "th" or "caption" => TagKind.Cell,
+            "col" or "colgroup" => TagKind.Column,
+            "html" or "body" or "head" or "form" or "frame" or "frameset" or "isindex" => TagKind.Ignored,
+            _ => TagKind.Other,
+        };
     }
 
     /// <summary>
