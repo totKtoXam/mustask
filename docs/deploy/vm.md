@@ -180,8 +180,12 @@ run as one account (`--run-as ubuntu`): no `mustask` user is created, the env
 file goes to that user's group and `/var/lib/mustask` to the user. `prepare`
 never creates an account other than `mustask` and refuses root. The choice is
 kept in `/etc/mustask/run-as`, and `deploy` writes it into the unit's
-`User=`/`Group=`; to change it, run `prepare` again with another `--run-as`
-and deploy. The two flags are the parts
+`User=`. A re-run of `prepare` without `--run-as` keeps the recorded account;
+to change it, run `prepare` again with another `--run-as` and deploy. Sharing
+an account has a price: its other processes can read the env file's secrets
+and the Data Protection keys, the service gets that account's groups
+(`NoNewPrivileges` stops sudo, not, say, the docker group), and with
+`ProtectHome=true` `dotnet` must not live under `/home`. The two flags are the parts
 that change the machine, and each is explicit:
 
 - `--install-packages` installs only what is missing of
@@ -287,7 +291,7 @@ ssh <vm> tar -xzf mustask-v0.1.0.tar.gz
 ## 5. Configuration: environment variables
 
 The API is configured only through `/etc/mustask/mustask.env` (root-owned,
-mode `0640`, group `mustask`), written by `prepare` from
+mode `0640`, group of the service account: `mustask` by default), written by `prepare` from
 [`deploy/vm/mustask.env.template`](../../deploy/vm/mustask.env.template).
 `__` is how the environment spells `:` in a configuration key. `prepare` fills
 the site address, the Keycloak addresses and, with `--create-db`, the

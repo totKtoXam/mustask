@@ -9,8 +9,8 @@ Wants=network-online.target
 [Service]
 Type=exec
 # Rendered by `install.sh deploy` from /etc/mustask/run-as (prepare --run-as).
+# No Group=: systemd takes the user's primary group.
 User=@RUN_USER@
-Group=@RUN_GROUP@
 WorkingDirectory=/opt/mustask/current/api
 EnvironmentFile=/etc/mustask/mustask.env
 Environment=HOME=/var/lib/mustask

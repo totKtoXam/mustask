@@ -16,12 +16,12 @@
 #           mustask.env from the template (kept when it exists). --path is
 #           the path of the public address when MUSTASK lives under a path of
 #           a shared host (ADR-0037): it goes into Session__PanelUrl and
-#           Hosting__PathBase; leave it out at a host root. With
-#           --run-as is the account the service runs as: by default the
-#           system user mustask, created here; any other must already exist
-#           (a VM whose apps all run as one account, e.g. ubuntu). It is kept
-#           in /etc/mustask/run-as for deploy. With
-#           --install-packages it runs apt-get for the ASP.NET Core 10
+#           Hosting__PathBase; leave it out at a host root. --run-as names
+#           the account the service runs as: by default the system user
+#           mustask, created here; any other must already exist (a VM whose
+#           apps all run as one account, e.g. ubuntu). It is kept in
+#           /etc/mustask/run-as for deploy, and a re-run without --run-as
+#           keeps the recorded one. With --install-packages it runs apt-get for the ASP.NET Core 10
 #           runtime, PostgreSQL and nginx; with --create-db it creates the
 #           role and the database `mustask` on the local PostgreSQL under a
 #           generated password, written straight into mustask.env and never
@@ -87,7 +87,10 @@ wait_health() {
 }
 
 cmd_prepare() {
-    local host='' path='' kc_host='' realm='' user=mustask packages=0 create_db=0
+    local host='' path='' kc_host='' realm='' packages=0 create_db=0
+    # A re-run keeps the recorded account unless --run-as says otherwise.
+    local user
+    user=$(run_as)
     while [ $# -gt 0 ]; do
         case $1 in
             --host) val "$@"; host=$2; shift 2 ;;
@@ -140,11 +143,14 @@ cmd_prepare() {
     fi
     local group
     group=$(id -gn "$user")
+    printf '%s' "$group" | grep -Eq '^[a-z_][a-z0-9_-]*$' \
+        || die "the primary group of '$user' ('$group') is not a plain name"
     mkdir -p "$releases" /etc/mustask "$state"
     say "the service runs as $user (group $group)"
     printf '%s\n' "$user" > "$run_as_file"
     chmod 0644 "$run_as_file"
-    chown "$user:$group" "$state"
+    # -R: after a switch of account, the keys already there move with it.
+    chown -R "$user:$group" "$state"
     chmod 0750 "$state"
 
     if [ -f "$env_file" ]; then
@@ -323,10 +329,11 @@ cmd_deploy() {
         die "$env_file still has CHANGE_ME on line(s) $(placeholders | cut -d: -f1 | paste -sd, -)"
     fi
 
-    local user group
+    local user
     user=$(run_as)
+    printf '%s' "$user" | grep -Eq '^[a-z_][a-z0-9_-]*$' || die "bad user '$user' in $run_as_file"
     id "$user" >/dev/null 2>&1 || die "the service user '$user' ($run_as_file) does not exist: run 'install.sh prepare' again"
-    group=$(id -gn "$user")
+    [ "$(id -u "$user")" != 0 ] || die "$run_as_file names root: run 'install.sh prepare --run-as <user>' again"
 
     local tag target
     tag=$(sed -n 's/^tag=//p' "$src/VERSION")
@@ -361,8 +368,8 @@ cmd_deploy() {
     say "migrations (bundle)"
     ConnectionStrings__mustask=$(env_value ConnectionStrings__mustask) "$target/efbundle"
 
-    say "systemd unit (User=$user, Group=$group)"
-    sed -e "s|@RUN_USER@|$user|g" -e "s|@RUN_GROUP@|$group|g" \
+    say "systemd unit (User=$user)"
+    sed -e "s|@RUN_USER@|$user|g" \
         "$target/kit/mustask-api.service" > /etc/systemd/system/mustask-api.service
     chmod 0644 /etc/systemd/system/mustask-api.service
     systemctl daemon-reload
