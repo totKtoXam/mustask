@@ -145,3 +145,33 @@ deployment step" it allows. None stale.
 Verdict: **needs-fixes** · blockers: 0 · majors: 3 (F1, F2, F3) · minors: 7
 (F4–F10). F3 is prose only (plus an optional script change). F1 and F2 are
 one-line script fixes. The delta read covers those three.
+
+## Round 2
+
+Delta read of `git diff 0e19fbbb 55647772` against F1–F10 only. `bash -n` on
+the three scripts: ok. Not run (by instruction): install.sh, containers, the
+full `verify.sh`.
+
+| # | Verdict | Evidence |
+|---|---------|----------|
+| F1 | fixed | `install -m 0600 /dev/null "$env_file.tmp"` before the awk redirect (the redirect truncates and keeps 0600), plus an EXIT trap that removes it (`install.sh:143-144`). No other trap in the script to clobber. |
+| F2 | fixed | `pwd -P` (`install.sh:225`): `deploy /opt/mustask/current` or `previous` resolves to `releases/<tag>` and takes the in-place branch. A symlinked `/opt/mustask` still gives `src != target`, but `cp -R` completes before the renames, so the release survives; not destructive. The optional "refuse another name inside releases" was not added; with `-P` the destructive case is gone, so not needed. |
+| F3 | fixed | Script installs only missing packages with `--no-upgrade` (`install.sh:84-101`); both docs say so. With the script changed, keeping the flag in the whole-path example is fine. |
+| F4 | fixed | Both docs describe the three cases. Nit: "holds its password" — the script only checks it is not `CHANGE_ME`, not that it is the right one; not worth a round. |
+| F5 | fixed | `SET log_min_error_statement = panic; SET log_statement = 'none';` in the same session before `CREATE ROLE`; psql runs as `postgres`, so both SETs are allowed. |
+| F6 | fixed | (a) backup to `$site.bak`, restored with the link state on a failed `nginx -t`, removed on success (`install.sh:195-215`). (b) both docs name the HTTP/2-before-1.25.1 and default-server effects. |
+| F7 | fixed | `smoke.sh:29` strips quotes with the same `sed` as `env_value`. |
+| F8 | fixed | build-release refuses a port (`build-release.sh:44-45`). |
+| F9 | fixed | `host_name` for `--host` in `prepare` and `nginx`; `--keycloak-host` limited to `host[:port][/path]` (no `|` or `&`; `/` is safe with the `|` delimiter); realm a plain name; cert/key paths refuse `| & ;` and spaces; tag from `VERSION` refuses `..`, a leading `.` and anything outside `[A-Za-z0-9._-]`. |
+| F10 | fixed | Default out-dir is `$repo/out`, under the root `/out/` ignore. |
+
+New defects from the fix: none found. Two non-blocking notes: the
+`command -v psql` test treats a client-only VM as having PostgreSQL, and
+`--create-db` then stops at "cannot reach the local PostgreSQL" (a clear
+message, no harm); build-release still accepts a tag such as `v1..2` that
+`install.sh deploy` refuses (fails safe, on the VM rather than at build).
+
+### Round verdict
+
+Verdict: **approved** · blockers: 0 · majors: 0 · minors: 0 open. F1–F10
+fixed; one wording nit (F4) and two notes above, none blocking.
