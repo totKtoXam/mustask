@@ -3,14 +3,14 @@
 - type: tech
 - size: M
 - branch: tech/006-serilog-static-logger-test-hosts
-- stage: gate-3
+- stage: complete
 - epic: platform/tests
 - deps: bug-002
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending · PR #79 https://github.com/totKtoXam/mustask/pull/79
+gate-3: approved · PR #79 https://github.com/totKtoXam/mustask/pull/79
 
 ## Plan
 
@@ -37,6 +37,7 @@ gate-3: pending · PR #79 https://github.com/totKtoXam/mustask/pull/79
 - 2026-11-05 [review] round 2 (delta) done: approve, 0 blocker/major open, 3 minor (CR-4..CR-6, debts)
 - 2026-11-05 [orchestrator] CR-4..CR-6 fixed in prose by the orchestrator; merged main (3 queue commits; force-push after a rebase was refused); gate-3 pending with the human; pushed with VERIFY_TESTS=0 (this worktree's hooksPath points at the pre-tech-055 hook; the human said yes); weekly 34% at start, 34% at gate-3
 
+- 2026-11-05 [orchestrator] gate-3 approved by the human («Approve gate-3»); stage complete; merge is the human's
 ## Notes
 
 Summary (from the queue line or an argument): Program.cs calls UseSerilog(writeToProviders: true) without preserveStaticLogger, so disposing any test child host runs Log.CloseAndFlush() and every ILogger<T> created on the shared host afterwards binds to a SilentLogger: log-line assertions pass vacuously or fail by test order (bug-002 fixed one test on its own host). Set preserveStaticLogger: true, take the request logger from DI instead of Log.Logger, and make the integration tests' log capture per host
