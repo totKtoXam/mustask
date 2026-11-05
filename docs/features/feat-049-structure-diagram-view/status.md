@@ -2,7 +2,7 @@
 - type: feature
 - size: M
 - branch: feat/049-structure-diagram-view
-- stage: 06-frontend
+- stage: complete
 - epic: platform/ui
 - deps: feat-043
 - gates: gate-1, gate-2, gate-3
@@ -36,6 +36,7 @@ See [plan-frontend.md](plan-frontend.md).
 - 2026-11-04 [orchestrator] stage 8 Opus review (21ed9913): changes-requested, 0 blockers, 2 majors, 7 minors, security clean. Fix round (frontend-developer, e17214ad): CR-1..7, CR-9, F-3, F-4 fixed; CR-8 accepted.
 - 2026-11-04 [orchestrator] review round 2 (b634f46d): approved; debts CR-4 (vertical chips vanish with folded sections) and CR-10 (search in «Только связанные» no longer unfolds a section). At gate-3.
 - 2026-11-04 [orchestrator] gate-3: the human chose to fix CR-10 first, fixed in 44ab59d8 (frontend-developer); CR-4 a debt. Usage: weekly 31% (start 19%), 5-hour 20%.
+- 2026-11-05 [orchestrator] origin/main merged (b357447d, testRender.tsx conflict), pushed with VERIFY_TESTS=0 (the human said yes in chat; old hook via hooksPath). stage: complete; PR next.
 
 ## Notes
 Summary (from the queue line): «Структура» gets a tree and diagram switch. The diagram shows the hierarchy of departments, projects and sub-areas, and which teams work on which projects and which projects each team works on; built on the selector-offers read and the area tree, no new read expected. Asked by the human at feat-043 gate-3, 2026-11-02.
