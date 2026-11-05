@@ -3,7 +3,7 @@
 - type: tech
 - size: S
 - branch: tech/053-landing-test-flake
-- stage: qa
+- stage: 06-code-review
 - epic: platform/ci
 - deps: -
 - gates: gate-3
@@ -24,6 +24,7 @@ gate-3: pending
 - 2026-11-06 [orchestrator] route confirmed by the human (question form): S, tech, 05-frontend → light QA → one review round → PR → gate-3; E2E no; queue take PR #86
 - 2026-11-06 [orchestrator] weekly 43% at start
 - 2026-11-06 [frontend-developer] cause: 5 s findBy budget vs a CPU-starved 50-row MUI list render (the test alone takes 6.4 s), not a timer race; fix is test-only (LIST_RENDER, 30 s, on the waits after a list render in "shows the first page of the list"), assertions unchanged. Old test under 30 CPU burners: 3 red of 4 (all on «1–50 из 119»); new test under the same load: 5 of 5 green; 20 sequential runs: 20 of 20 green. ESLint and Prettier clean. stage set to qa (no QA value is documented for the S route; 05-frontend.md names 06-code-review)
+- 2026-11-06 [qa] light QA: root cause confirmed, assertions unchanged, no blocking defects (review.md); 3/3 sequential and 2/2 under 30 burners green, workitems folder 909 tests green; two low notes. stage set to 06-code-review
 
 ## Notes
 
