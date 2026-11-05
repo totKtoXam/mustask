@@ -126,7 +126,9 @@ read it before your first task. In short:
   the system sees — stays Russian: the strings quoted in `spec.md`, its
   stories and `design.md`, the texts in `docs/error-codes.md` and
   `contracts/errors/*.json`, and the Keycloak login theme under
-  `deploy/keycloak/`.
+  `deploy/keycloak/`. One more Russian file: `docs/deploy/vm.ru.md`, the
+  runbook translated for the company DevOps; the English `vm.md` is the
+  source, and a change to it updates the translation in the same change.
 - **The reference product is never named.** The tracker that doc-001..007
   studied is not named in anything written from 2026-09-25 on: artifacts,
   code, identifiers, comments, tests, commit messages, UI copy. Say «the
