@@ -42,9 +42,11 @@ say() { printf '== %s\n' "$*"; }
 
 # The value of one key of the env file. The file is in systemd's format, not
 # shell: values hold ';' and must not be sourced.
-env_value() { sed -n "s/^$1=//p" "$env_file" | tail -n 1; }
+env_value() { sed -n "s/^$1=//p" "$env_file" | tail -n 1 | sed 's/^"\(.*\)"$/\1/'; }
 # Settings still holding the template placeholder (comments do not count).
 placeholders() { grep -nE '^[^#]*CHANGE_ME' "$env_file"; }
+# A flag that takes a value must have one.
+val() { [ $# -ge 2 ] && [ -n "$2" ] && [ "${2#--}" = "$2" ] || die "$1 needs a value"; }
 
 wait_health() {
     local i
@@ -61,9 +63,9 @@ cmd_prepare() {
     local host='' kc_host='' realm='' packages=0 create_db=0
     while [ $# -gt 0 ]; do
         case $1 in
-            --host) host=$2; shift 2 ;;
-            --keycloak-host) kc_host=$2; shift 2 ;;
-            --realm) realm=$2; shift 2 ;;
+            --host) val "$@"; host=$2; shift 2 ;;
+            --keycloak-host) val "$@"; kc_host=$2; shift 2 ;;
+            --realm) val "$@"; realm=$2; shift 2 ;;
             --install-packages) packages=1; shift ;;
             --create-db) create_db=1; shift ;;
             *) die "prepare: unknown argument '$1'" ;;
@@ -101,22 +103,38 @@ cmd_prepare() {
     if [ "$create_db" = 1 ]; then
         command -v psql >/dev/null || die "no psql: install postgresql (or pass --install-packages)"
         systemctl enable --now postgresql >/dev/null 2>&1 || true
-        local has_role
+        local has_role has_db
         has_role=$(runuser -u postgres -- psql -tAc "SELECT 1 FROM pg_roles WHERE rolname = 'mustask'") \
             || die "cannot reach the local PostgreSQL as postgres (systemctl status postgresql)"
+        has_db=$(runuser -u postgres -- psql -tAc "SELECT 1 FROM pg_database WHERE datname = 'mustask'")
         if [ "$has_role" = 1 ]; then
-            say "role mustask exists, database left as it is"
+            # The password exists only in the env file: a role without it
+            # there is one nobody can log in as any more.
+            env_value ConnectionStrings__mustask | grep -q 'Password=CHANGE_ME' \
+                && die "role mustask exists but $env_file has no password for it: put it in by hand, or DROP ROLE mustask and re-run"
+            say "role mustask exists, left as it is"
         else
-            say "role and database mustask on the local PostgreSQL"
+            say "role mustask on the local PostgreSQL"
             local pw
             pw=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
-            # Through stdin, not argv: the password never shows in ps.
+            # The env file first, so a failure below never loses the password.
+            # Through the environment and stdin, never argv: it never shows
+            # in ps. `cat >` keeps the file's owner and mode.
+            PW=$pw awk '/^ConnectionStrings__mustask=/ {
+                    print "ConnectionStrings__mustask=Host=127.0.0.1;Port=5432;Database=mustask;Username=mustask;Password=" ENVIRON["PW"]; next
+                } { print }' "$env_file" > "$env_file.tmp"
+            cat "$env_file.tmp" > "$env_file"
+            rm -f "$env_file.tmp"
             runuser -u postgres -- psql -v ON_ERROR_STOP=1 -q <<SQL
 CREATE ROLE mustask LOGIN PASSWORD '$pw';
-CREATE DATABASE mustask OWNER mustask;
 SQL
-            sed -i "s|^ConnectionStrings__mustask=.*|ConnectionStrings__mustask=Host=127.0.0.1;Port=5432;Database=mustask;Username=mustask;Password=$pw|" "$env_file"
             say "the password went into $env_file"
+        fi
+        if [ "$has_db" = 1 ]; then
+            say "database mustask exists, left as it is"
+        else
+            say "database mustask"
+            runuser -u postgres -- psql -v ON_ERROR_STOP=1 -q -c 'CREATE DATABASE mustask OWNER mustask'
         fi
     fi
 
@@ -130,9 +148,9 @@ cmd_nginx() {
     local host='' cert='' key=''
     while [ $# -gt 0 ]; do
         case $1 in
-            --host) host=$2; shift 2 ;;
-            --cert) cert=$2; shift 2 ;;
-            --key) key=$2; shift 2 ;;
+            --host) val "$@"; host=$2; shift 2 ;;
+            --cert) val "$@"; cert=$2; shift 2 ;;
+            --key) val "$@"; key=$2; shift 2 ;;
             *) die "nginx: unknown argument '$1'" ;;
         esac
     done
@@ -140,13 +158,21 @@ cmd_nginx() {
         || die "nginx: --host, --cert and --key are required"
     [ -f "$cert" ] || die "no certificate file $cert"
     [ -f "$key" ] || die "no key file $key"
+    # nginx resolves relative paths against its own prefix, not this cwd.
+    cert=$(readlink -f "$cert")
+    key=$(readlink -f "$key")
 
     say "/etc/nginx/sites-available/mustask"
     sed -e "s|@HOST@|$host|g" -e "s|@CERT@|$cert|g" -e "s|@KEY@|$key|g" \
         "$kit/nginx-mustask.conf" > /etc/nginx/sites-available/mustask
     ln -sfn /etc/nginx/sites-available/mustask /etc/nginx/sites-enabled/mustask
-    nginx -t
-    systemctl enable --now nginx >/dev/null 2>&1
+    # A site that fails the test must not stay enabled: the next reload or
+    # reboot would take down every other site of this nginx with it.
+    if ! nginx -t; then
+        rm -f /etc/nginx/sites-enabled/mustask
+        die "nginx -t failed; the site is written but not enabled"
+    fi
+    systemctl enable --now nginx >/dev/null 2>&1 || die "cannot start nginx (systemctl status nginx)"
     systemctl reload nginx
 }
 
@@ -164,15 +190,21 @@ cmd_deploy() {
     [ -n "$tag" ] || die "VERSION has no tag"
     target=$releases/$tag
     say "release $tag ($(sed -n 's/^commit=//p' "$src/VERSION"))"
+    local site
+    site=$(sed -n 's/^site=//p' "$src/VERSION")
+    [ "$site" = "$(env_value Session__PanelUrl)" ] \
+        || die "the release is built for $site, but Session__PanelUrl is $(env_value Session__PanelUrl): rebuild for the right address"
 
     local current=''
     [ -L "$root/current" ] && current=$(readlink -f "$root/current")
 
     if [ "$src" != "$target" ]; then
-        rm -rf "$target.new"
+        rm -rf "$target.new" "$target.old"
         cp -R "$src" "$target.new"
-        rm -rf "$target"
+        # Two renames, so a live release directory is gone only between them.
+        [ -e "$target" ] && mv "$target" "$target.old"
         mv "$target.new" "$target"
+        rm -rf "$target.old"
     fi
     chown -R root:root "$target"
     chmod -R u=rwX,go=rX "$target"
@@ -186,15 +218,19 @@ cmd_deploy() {
     systemctl daemon-reload
     systemctl enable mustask-api >/dev/null 2>&1
 
-    if [ -n "$current" ] && [ "$current" != "$target" ]; then
+    # Only a release that once turned healthy becomes the rollback target:
+    # deploying a fix over a failed release keeps the last good one.
+    if [ -n "$current" ] && [ "$current" != "$target" ] && [ -f "$current/.healthy" ]; then
         ln -sfn "$current" "$root/previous"
     fi
+    rm -f "$target/.healthy"
     ln -sfn "$target" "$root/current.new"
     mv -T "$root/current.new" "$root/current"
 
     say "restart"
     systemctl restart mustask-api
     if wait_health; then
+        touch "$target/.healthy"
         say "healthy: $tag is live"
     else
         journalctl -u mustask-api -n 30 --no-pager || true
@@ -207,6 +243,9 @@ cmd_rollback() {
     local prev cur
     prev=$(readlink -f "$root/previous")
     cur=$(readlink -f "$root/current")
+    [ -f "$prev/VERSION" ] || die "the previous release $prev is gone"
+    # After a failed release and a fix of the same tag the two can coincide.
+    [ "$prev" != "$cur" ] || die "previous is the current release ($(basename "$cur")): nothing to roll back to"
     say "rollback: $(basename "$cur") -> $(basename "$prev"); migrations are not reverted"
     ln -sfn "$prev" "$root/current.new"
     mv -T "$root/current.new" "$root/current"

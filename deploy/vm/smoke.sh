@@ -67,7 +67,7 @@ esac
 page=$(curl "${opts[@]}" "$site/some/client/route" 2>&1)
 case $page in
     *'id="root"'*) check "a client route falls back to index.html" ok ;;
-    *) check "a client route falls back to index.html" "try_files is not in effect" ;;
+    *) check "a client route falls back to index.html" "no index.html (${page:0:120})" ;;
 esac
 
 code=$(curl "${opts[@]}" -o /dev/null -w '%{http_code}' "$site/api/dictionaries/languages")
@@ -81,11 +81,14 @@ case $code in
 esac
 
 # Outside /api/ nginx serves the panel, so /health from outside is index.html.
-page=$(curl "${opts[@]}" "$site/health" 2>&1)
-case $page in
-    Healthy*|Unhealthy*|Degraded*) check "/health is not exposed through the proxy" "the API's /health answers from outside" ;;
-    *) check "/health is not exposed through the proxy" ok ;;
-esac
+if page=$(curl "${opts[@]}" "$site/health" 2>&1); then
+    case $page in
+        Healthy*|Unhealthy*|Degraded*) check "/health is not exposed through the proxy" "the API's /health answers from outside" ;;
+        *) check "/health is not exposed through the proxy" ok ;;
+    esac
+else
+    check "/health is not exposed through the proxy" "the site did not answer (${page:0:120})"
+fi
 
 cat <<EOF
 

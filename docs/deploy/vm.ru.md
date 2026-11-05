@@ -249,7 +249,7 @@ Keycloak. Правьте файл на VM (`sudo nano /etc/mustask/mustask.env`)
 | Ключ | Значение |
 |---|---|
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
-| `ASPNETCORE_URLS` | `http://127.0.0.1:5000`: только loopback, перед ним nginx |
+| `ASPNETCORE_URLS` | `http://127.0.0.1:5000`: только loopback, перед ним nginx. Порт не меняйте: его используют сайт nginx и `install.sh` |
 | `ASPNETCORE_FORWARDEDHEADERS_ENABLED` | `true`: TLS завершается на прокси; без этого API видит `http://` и строит адреса возврата, не совпадающие с зарегистрированными в Keycloak |
 | `ConnectionStrings__mustask` | раздел 3 |
 | `Keycloak__Authority` | `https://keycloak.example.com/realms/<realm>`, без слеша в конце |
@@ -302,7 +302,8 @@ sudo bash mustask-v0.1.0/kit/install.sh nginx --host mustask.example.com \
 ```
 
 Скрипт пишет `/etc/nginx/sites-available/mustask`, включает сайт, выполняет
-`nginx -t` и перезагружает nginx. Две настройки в файле стоят по причине,
+`nginx -t` и перезагружает nginx; если проверка не прошла, сайт снова
+выключается, так что остальным сайтам этого nginx ничего не грозит. Две настройки в файле стоят по причине,
 найденной на репетиции (tech-056):
 
 - `listen 443 ssl http2;` — для nginx, который ставят Ubuntu 24.04 и Debian 12
@@ -365,7 +366,9 @@ sudo bash mustask-v0.2.0/kit/smoke.sh
 ```
 
 `deploy` применяет новые миграции, переключает `current` на новый релиз и
-сохраняет заменённый как `/opt/mustask/previous`. Deploy уже установленного
+сохраняет заменённый как `/opt/mustask/previous`, если тот хоть раз был
+здоров: deploy исправления поверх неудачного релиза оставляет целью отката
+последний хороший. Deploy уже установленного
 тега заменяет его на месте.
 
 ```bash
@@ -385,6 +388,8 @@ sudo bash mustask-v0.2.0/kit/install.sh status      # активный VERSION �
 |---|---|
 | `build-release: dotnet-ef is missing` | `dotnet tool install --global dotnet-ef` (раздел 4). |
 | `install: … still has CHANGE_ME on line(s) …` | В `mustask.env` осталось значение шаблона: обычно `Keycloak__ClientSecret` (раздел 5). |
+| `install: the release is built for … but Session__PanelUrl is …` | Архив собран для другого адреса сайта: пересоберите его с адресом этой VM (раздел 4). |
+| `install: nginx -t failed; the site is written but not enabled` | nginx не может загрузить файл сертификата или ключа; `nginx -t` выше называет строку. |
 | `install: cannot reach the local PostgreSQL` | PostgreSQL не запущен: `systemctl status postgresql`. |
 | `deploy` останавливается: `/health did not turn healthy in 60 s` | Причину называет лог, напечатанный выше: строка подключения к базе или realm (следующие строки). `install.sh rollback` возвращает предыдущий релиз, если он есть. |
 | API падает на старте, называя ключ `Keycloak:*` или `Session:PanelUrl` | В `mustask.env` нет переменной. |

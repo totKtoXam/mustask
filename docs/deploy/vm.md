@@ -251,7 +251,7 @@ setting still holds `CHANGE_ME`.
 | Key | Value |
 |---|---|
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
-| `ASPNETCORE_URLS` | `http://127.0.0.1:5000`: loopback only, nginx is in front |
+| `ASPNETCORE_URLS` | `http://127.0.0.1:5000`: loopback only, nginx is in front. Keep the port: the nginx site and `install.sh` use it |
 | `ASPNETCORE_FORWARDEDHEADERS_ENABLED` | `true`: the proxy terminates TLS; without it the API sees `http://` and builds redirect addresses that do not match the ones registered in Keycloak |
 | `ConnectionStrings__mustask` | section 3 |
 | `Keycloak__Authority` | `https://keycloak.example.com/realms/<realm>`, no trailing slash |
@@ -305,7 +305,8 @@ sudo bash mustask-v0.1.0/kit/install.sh nginx --host mustask.example.com \
 ```
 
 It renders `/etc/nginx/sites-available/mustask`, enables it, runs `nginx -t`
-and reloads nginx. Two settings in the file are there for a reason found by
+and reloads nginx; if the test fails, the site is disabled again, so the
+other sites of that nginx are never at risk. Two settings in the file are there for a reason found by
 the rehearsal (tech-056):
 
 - `listen 443 ssl http2;` is for the nginx that Ubuntu 24.04 and Debian 12
@@ -368,7 +369,9 @@ sudo bash mustask-v0.2.0/kit/smoke.sh
 ```
 
 `deploy` applies the new migrations, switches `current` to the new release
-and keeps the one it replaced as `/opt/mustask/previous`. Deploying a tag
+and keeps the one it replaced as `/opt/mustask/previous`, if that one ever
+turned healthy: deploying a fix over a failed release keeps the last good one
+as the rollback target. Deploying a tag
 that is already installed replaces it in place.
 
 ```bash
@@ -388,6 +391,8 @@ under `/opt/mustask/releases/`; delete the ones you no longer need by hand
 |---|---|
 | `build-release: dotnet-ef is missing` | `dotnet tool install --global dotnet-ef` (section 4). |
 | `install: … still has CHANGE_ME on line(s) …` | `mustask.env` still has a template value: usually `Keycloak__ClientSecret` (section 5). |
+| `install: the release is built for … but Session__PanelUrl is …` | The tarball was built for another site address: rebuild it with the address of this VM (section 4). |
+| `install: nginx -t failed; the site is written but not enabled` | The certificate or key file is not what nginx can load; `nginx -t` above says which line. |
 | `install: cannot reach the local PostgreSQL` | PostgreSQL is not running: `systemctl status postgresql`. |
 | `deploy` stops: `/health did not turn healthy in 60 s` | The log printed above it names the cause: the database string or the realm (next rows). `install.sh rollback` returns the previous release if there is one. |
 | API exits at start naming a `Keycloak:*` or `Session:PanelUrl` key | Missing variable in `mustask.env`. |

@@ -39,14 +39,22 @@ esac
 case ${site#https://} in
     */*) die "site-url must be a host root, no path (got '$site'): sub-paths need tech-057" ;;
 esac
+printf '%s' "${site#https://}" | grep -Eq '^[A-Za-z0-9.-]+(:[0-9]+)?$' \
+    || die "site-url has no valid host name (got '$site')"
+# The tag names the release directory on the VM and the tarball.
+printf '%s' "$tag" | grep -Eq '^[A-Za-z0-9._-]+$' \
+    || die "tag '$tag' must be one plain name (letters, digits, . _ -)"
 
 kit=$(cd "$(dirname "$0")" && pwd)
 repo=$(git -C "$kit" rev-parse --show-toplevel)
 
 git -C "$repo" rev-parse -q --verify "refs/tags/$tag" >/dev/null \
     || die "no tag '$tag' here; run 'git fetch --tags' first"
-commit=$(git -C "$repo" rev-parse "$tag^{commit}")
+commit=$(git -C "$repo" rev-parse -q --verify "$tag^{commit}") \
+    || die "tag '$tag' does not point at a commit"
 kit_commit=$(git -C "$repo" rev-parse HEAD)
+# The kit is copied from the working tree: say so when it is not HEAD's.
+[ -z "$(git -C "$repo" status --porcelain -- deploy/vm)" ] || kit_commit="$kit_commit+dirty"
 
 command -v dotnet >/dev/null || die "dotnet (the .NET 10 SDK) is not on PATH"
 dotnet ef --version >/dev/null 2>&1 \
