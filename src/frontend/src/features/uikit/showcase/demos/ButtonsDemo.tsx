@@ -8,6 +8,7 @@ import {
 } from '../../../../shared/ui';
 import { DemoGrid, DemoGroup } from '../parts';
 import { noop } from '../noop';
+import { ToggleGroupDemo } from './ToggleGroupDemo';
 
 // Section 5, «Кнопки» (tech-015 design § 10.3): the four tones in four states, and the
 // split button enabled, disabled (the reference's clean look) and busy.
@@ -71,6 +72,7 @@ export function ButtonsDemo() {
           </DemoGroup>
         ))}
       </DemoGrid>
+      <ToggleGroupDemo />
     </Box>
   );
 }

@@ -74,6 +74,10 @@ export const colourRoles = {
    */
   splitDisabledFill: '#F0F0F0',
   splitDisabledText: '#959595',
+  /** Nesting level 3 of the structure diagram (feat-049): deep orange 900, 5.6:1 on white. */
+  levelThree: '#BF360C',
+  /** Nesting level 4 of the structure diagram (feat-049): purple 700, 8:1 on white. */
+  levelFour: '#7B1FA2',
 } as const;
 
 /** Semantic colours: meaning only, darker than MUI's defaults (ADR-0007). */
@@ -149,6 +153,8 @@ export interface ShellPalette {
   sectionRule: string;
   splitDisabledFill: string;
   splitDisabledText: string;
+  levelThree: string;
+  levelFour: string;
 }
 
 export const shellPalette: ShellPalette = {
@@ -166,6 +172,8 @@ export const shellPalette: ShellPalette = {
   sectionRule: colourRoles.sectionRule,
   splitDisabledFill: colourRoles.splitDisabledFill,
   splitDisabledText: colourRoles.splitDisabledText,
+  levelThree: colourRoles.levelThree,
+  levelFour: colourRoles.levelFour,
 };
 
 /** The width classes of BR-10 and D-8 (design § 3.6). */

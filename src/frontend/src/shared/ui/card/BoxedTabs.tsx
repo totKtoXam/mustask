@@ -143,7 +143,9 @@ function BoxedTabItem({
  * The sections of a card — «Детали», «История», «Связи», «Вложения» — as a strip of boxed
  * tabs at the right end of the band (tech-015 design § 5.6). MUI's `Tabs`, so the keys are
  * MUI's: Left and Right move focus, Home and End jump, Enter or Space selects. Not for
- * page views: those are addresses (`PageHeader views`).
+ * page views: those are addresses (`PageHeader views`). The one exception is a view that
+ * keeps the page's address, where only the way the page is drawn changes — the «Структура»
+ * page's «Дерево» / «Диаграмма» switch (feat-049, recorded deviation).
  *
  * Its own indicator replaces MUI's, which is `bottom: 0` and tab-wide (see `TabContent`).
  */
