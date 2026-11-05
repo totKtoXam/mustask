@@ -118,9 +118,17 @@ printf '== panel: npm ci + build, VITE_API_BASE_URL=%s VITE_BASE_PATH=%s\n' "$si
 (
     cd "$src/src/frontend"
     npm ci --no-audit --no-fund
-    VITE_BASE_PATH=${base:-/} VITE_API_BASE_URL=$site npm run build
+    # MSYS_NO_PATHCONV: Git Bash turns a value that starts with / (the path
+    # base) into a Windows path (C:/Program Files/Git/mustask) on its way to a
+    # native program such as node. Nothing else in this script wants it on.
+    MSYS_NO_PATHCONV=1 VITE_BASE_PATH=${base:-/} VITE_API_BASE_URL=$site npm run build
 )
 cp -R "$src/src/frontend/dist" "$stage/panel"
+# The base must really be in the build: the scripts of index.html sit under it.
+if [ -n "$base" ]; then
+    grep -q "src=\"$base/assets/" "$stage/panel/index.html" \
+        || die "the panel build does not carry the path base $base (index.html: $(grep -o 'src="[^"]*"' "$stage/panel/index.html" | head -n 1)); is VITE_BASE_PATH reaching vite?"
+fi
 
 mkdir -p "$stage/kit"
 for f in install.sh smoke.sh mustask-api.service nginx-mustask.conf nginx-mustask-locations.conf mustask.env.template; do

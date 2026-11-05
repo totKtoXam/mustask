@@ -68,6 +68,19 @@ case $page in
     *) check "the panel is served at $site/" "no panel index.html (${page:0:120})" ;;
 esac
 
+# The panel's own script is served from where index.html says: a build made
+# for another path base (or none) loads index.html and then a blank page.
+js=$(printf '%s' "$page" | sed -n 's/.*<script[^>]*src="\([^"]*\)".*/\1/p' | head -n 1)
+if [ -z "$js" ]; then
+    check "the panel's script is served" "no <script src> in index.html"
+else
+    got=$(curl "${opts[@]}" -o /dev/null -w '%{http_code} %{content_type}' "https://$host$js" 2>&1)
+    case $got in
+        "200 "*javascript*) check "the panel's script is served ($js)" ok ;;
+        *) check "the panel's script is served ($js)" "got '$got' (the release was built for another path base?)" ;;
+    esac
+fi
+
 page=$(curl "${opts[@]}" "$site/some/client/route" 2>&1)
 case $page in
     *'id="root"'*) check "a client route falls back to index.html" ok ;;

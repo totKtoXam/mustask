@@ -41,6 +41,26 @@ The decision is [ADR-0037](../../adr/0037-serve-under-a-configured-path-base.md)
 
 Check: the rehearsal passes; `scripts/verify.sh` in CI green; the Aspire stand and CI at the root unchanged.
 
+## Rehearsal findings
+
+Stand `t057`: an Ubuntu 24.04 systemd container plays the VM and runs nginx as the portal (its own `/`, 80→443 keeping the path). Keycloak 26.4 runs on HTTPS with a realm set up by hand. The release is `build-release.sh` at 5e7e2e35 for `https://portal.t057.localhost/mustask`, walked per vm.md 7.2. All checks pass:
+- smoke;
+- sign-ins: the cookie path is `/mustask/api/session`; the admin gets 201 with `Location` under `/mustask`; the `user`-only colleague gets 200/403; the no-role user gets `/mustask/?authError=no_access`; sign-out lands on `/mustask/signed-out`;
+- the deep link works, the portal's `/` is untouched, `/mustask/health` is not exposed;
+- 139 API tests (Session, KeycloakOptions, HealthEndpoint, PathBase).
+
+| # | Where | What happened | Fix |
+|---|---|---|---|
+| 1 | `build-release.sh` | On Git Bash, `VITE_BASE_PATH=/mustask` reached node as `C:/Program Files/Git/mustask`. The panel came out blank. | `MSYS_NO_PATHCONV=1` on the npm build line only. The build fails unless `index.html` loads `<base>/assets/`. |
+| 2 | `smoke.sh` | The panel check (`id="root"`) passed on that blank build. | A check fetches the first `<script src>` and expects 200 JavaScript. It fails on the broken build. |
+| 3 | vm.md § 4 | `MSYS_NO_PATHCONV` set for the whole script breaks its `git -C /c/...`. | Said in vm.md / vm.ru.md. |
+
+`mustask-panel` addresses that worked:
+- root URL `https://<host>/mustask`;
+- redirect URI `https://<host>/mustask/api/session/callback`;
+- post-logout redirect URI `https://<host>/mustask/*`;
+- web origins empty.
+
 ## Log
 
 - 2026-11-05 [orchestrator] carried over from the tech-056 session by the human's choice (relayed by doc-012: «⭐ Сессия tech-056», order «⭐ Сначала tech-057, потом деплой»). Queue take: PR #84.
@@ -57,3 +77,4 @@ Summary (from the queue line): serve MUSTASK under a sub-path (https://portal.de
 - returnUrl and copied links relative to the base.
 
 docs/deploy/vm.md gets the sub-path nginx layout and is rehearsed again. An ADR records the path base.
+- 2026-11-05 [orchestrator] rehearsal of the sub-path layout on stand t057: all checks pass; 3 kit/runbook divergences fixed (blank panel from a Git Bash build). Stand removed. Next: QA, then review.

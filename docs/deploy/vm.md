@@ -255,8 +255,12 @@ and `-`, no port). The address is baked into the panel as
 `VITE_API_BASE_URL` (panel and API share one address, so it is the site
 itself), and the path, `/` when there is none, as `VITE_BASE_PATH`, the base
 the panel is served under. It is also recorded in `VERSION`, and `install.sh
-deploy` refuses a release whose address differs from `Session__PanelUrl`. The
-result is one file, `out/mustask-v0.1.0.tar.gz`:
+deploy` refuses a release whose address differs from `Session__PanelUrl`. The script also checks that the path really reached
+the panel build (the scripts in `panel/index.html` sit under it). In Git Bash
+it keeps the path from being rewritten into a Windows path
+(`C:/Program Files/Git/mustask`) on its way to Node; do not set
+`MSYS_NO_PATHCONV=1` for the whole script, `git` then cannot find the
+repository. The result is one file, `out/mustask-v0.1.0.tar.gz`:
 
 | Inside | What |
 |---|---|
@@ -438,8 +442,9 @@ stops; the log says whether the database or Keycloak is the problem.
 
 `smoke.sh` checks, from the VM: `/health` answers `Healthy` (it covers the
 database and the reachability of the realm); `http://` redirects to
-`https://`; the panel is served at the site address and a client route falls
-back to `index.html`; the API answers through the proxy (401 without a
+`https://`; the panel is served at the site address, its first script is served from the
+path `index.html` names (a panel built for another path base shows a blank
+page) and a client route falls back to `index.html`; the API answers through the proxy (401 without a
 token); `/api/session/login` redirects to the realm; `/health` is not
 reachable through the proxy. Under a path, every address is the site address
 with its path (`https://portal.example.com/mustask/…`), and the `http://`
@@ -539,10 +544,15 @@ Still unverified, because a rehearsal cannot have them:
   sign-ins went through the login form by a script, not a browser.
 - **An update with a new migration.** The update was rehearsed with the same
   build deployed under a second tag, so its bundle had nothing new to apply.
-- **A sub-path address**: the kit and this runbook support it (tech-057,
-  ADR-0037), but the rehearsal of that layout is still to be recorded here.
-  The portal's own nginx, and its owner's agreement to the `include`, are not
-  something a rehearsal has.
+- **The portal's own nginx.** The sub-path layout (tech-057, ADR-0037) was
+  rehearsed on 2026-11-05 on a clean Ubuntu 24.04 with systemd, against Keycloak
+  26.4 with a realm set up by section 1 for `https://portal.t057.localhost/mustask`:
+  release built at that address, `prepare --path`, `nginx --path`, one `include`
+  in a server block playing the portal, `deploy`, `smoke.sh` passed, and scripted
+  sign-ins (administrator, `user`-only, no role) behaved as section 8 says, the
+  cookie path `/mustask/api/session` included. What a rehearsal cannot have is
+  the real portal's server (its regex locations, its own limits) and its owner's
+  agreement to the `include`.
 
 The first real deployment should walk section 8 again and fix this document
 where it differs.
