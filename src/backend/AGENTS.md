@@ -143,6 +143,13 @@ run from there, not from this directory.
   environment in both directions). The base address of a running
   `Mustask.Api` — from the Aspire dashboard or from the Information line in
   the log at startup.
+- Path base (tech-057, ADR-0037): `Hosting:PathBase` (env `Hosting__PathBase`) serves
+  the API under a prefix, e.g. `/mustask`; empty or absent is the root (the stand and
+  CI leave it empty). It must start with `/`, not end with `/`, and be a plain path;
+  when set, `Session:PanelUrl` must carry the same path (`https://host/mustask`), or the
+  API refuses to start. The proxy passes the path unchanged; a request without the
+  prefix (`/health` from the VM itself) still works. The session cookie path becomes
+  `{PathBase}/api/session`; the Keycloak redirect URI is `https://host{PathBase}/api/session/callback`.
 - The access model (mod-016, ADR-0027; tech-024, ADR-0033) in three lines.
   **Instance rights come from the token's client roles**: `resource_access.
   mustask-api.roles` carries up to four names — `user` (signing in and the

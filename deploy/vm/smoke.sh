@@ -29,7 +29,10 @@ done
 value() { sed -n "s/^$1=//p" "$env_file" | tail -n 1 | sed 's/^"\(.*\)"$/\1/'; }
 site=$(value Session__PanelUrl)
 authority=$(value Keycloak__Authority)
-host=${site#https://}
+rest=${site#https://}
+host=${rest%%/*}
+base=
+[ "$host" = "$rest" ] || base=/${rest#*/}   # "" at a host root, "/mustask" under a path
 
 opts=(-sS --max-time 15)
 [ "$insecure" = 1 ] && opts+=(-k)
@@ -53,9 +56,9 @@ case $body in
     *) check "/health on the VM" "got '${body:0:120}' (database or realm: journalctl -u mustask-api)" ;;
 esac
 
-code=$(curl "${opts[@]}" -o /dev/null -w '%{http_code} %{redirect_url}' "http://$host/")
+code=$(curl "${opts[@]}" -o /dev/null -w '%{http_code} %{redirect_url}' "http://$host$base/")
 case $code in
-    "301 https://$host/") check "http:// redirects to https://" ok ;;
+    "301 https://$host$base/") check "http:// redirects to https://" ok ;;
     *) check "http:// redirects to https://" "got '$code'" ;;
 esac
 
@@ -64,6 +67,19 @@ case $page in
     *'id="root"'*) check "the panel is served at $site/" ok ;;
     *) check "the panel is served at $site/" "no panel index.html (${page:0:120})" ;;
 esac
+
+# The panel's own script is served from where index.html says: a build made
+# for another path base (or none) loads index.html and then a blank page.
+js=$(printf '%s' "$page" | sed -n 's/.*<script[^>]*src="\([^"]*\)".*/\1/p' | head -n 1)
+if [ -z "$js" ]; then
+    check "the panel's script is served" "no <script src> in index.html"
+else
+    got=$(curl "${opts[@]}" -o /dev/null -w '%{http_code} %{content_type}' "https://$host$js" 2>&1)
+    case $got in
+        "200 "*javascript*) check "the panel's script is served ($js)" ok ;;
+        *) check "the panel's script is served ($js)" "got '$got' (the release was built for another path base?)" ;;
+    esac
+fi
 
 page=$(curl "${opts[@]}" "$site/some/client/route" 2>&1)
 case $page in
@@ -81,7 +97,8 @@ case $code in
     *) check "sign-in redirects to the realm" "got '${code:0:160}', expected 302 to $authority/…" ;;
 esac
 
-# Outside /api/ nginx serves the panel, so /health from outside is index.html.
+# Outside $base/api/ nginx serves the panel, so $base/health from outside is
+# index.html.
 if page=$(curl "${opts[@]}" "$site/health" 2>&1); then
     case $page in
         Healthy*|Unhealthy*|Degraded*) check "/health is not exposed through the proxy" "the API's /health answers from outside" ;;

@@ -12,6 +12,7 @@ using Mustask.Api.Features.Organizations;
 using Mustask.Api.Features.Process;
 using Mustask.Api.Features.Session;
 using Mustask.Api.Features.WorkItems;
+using Mustask.Api.Hosting;
 using Gridify;
 using Mustask.Application;
 using Mustask.Domain.UserDirectory;
@@ -200,6 +201,15 @@ var app = builder.Build();
 // UseSerilog(..., preserveStaticLogger: true) above registers it there and never touches the static
 // Serilog.Log.Logger, so another host's build or dispose cannot change where this host logs.
 var requestLoggingLogger = app.Services.GetRequiredService<Serilog.ILogger>();
+
+// ADR-0037: served under Hosting:PathBase (e.g. /mustask) when it is set; empty is the root and adds nothing.
+// First in the pipeline, so every later middleware, the router and the OIDC handler see Request.PathBase. The proxy
+// passes the path unchanged; a request without the prefix (/health from the VM itself) is left as it is.
+if (sessionOptions.PathBase.Length > 0)
+{
+    app.UsePathBase(sessionOptions.PathBase);
+    app.UsePathBaseOnRelativeLocation();
+}
 
 // UseSerilogRequestLogging стоит СНАРУЖИ обработчика исключений — иначе оно
 // видит исключение до того, как UseMustaskErrorHandling превратит его в

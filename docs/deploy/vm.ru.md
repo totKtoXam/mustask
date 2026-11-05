@@ -14,7 +14,7 @@
 PostgreSQL работает на этой же VM.
 
 ```
-браузер ──https──> nginx (mustask.example.com)
+браузер ──https──> nginx (mustask.example.com; под путём: portal.example.com/mustask, см. ниже)
                      ├─ /        → /opt/mustask/current/panel (сборка панели)
                      └─ /api/    → http://127.0.0.1:5000 (Mustask.Api, systemd)
 Mustask.Api ──> PostgreSQL            Mustask.Api ──https──> общий Keycloak
@@ -47,12 +47,27 @@ sudo bash mustask-v0.1.0/kit/smoke.sh
 Источник истины для unit, сайта и ключей env — файлы кита; разделы ниже
 объясняют, что делает каждый шаг и зачем.
 
-**MUSTASK должен занимать корень своего имени хоста.** Текущий релиз нельзя
-опубликовать под под-путём вроде `https://portal.example.com/mustask`: бандл
-панели и её маршруты, пути API, путь cookie сессии и адреса возврата после
-входа рассчитаны на `/`, и переписывание на прокси этого не исправляет.
-Поддержка под-пути — отдельная задача (tech-057); пока она не выпущена, дайте
-MUSTASK собственное имя хоста (например, `mustask.example.com`).
+**Две схемы.** MUSTASK отдаётся либо в корне собственного имени хоста
+(`https://mustask.example.com`), либо под путём на хосте, у которого уже есть
+сервер (`https://portal.example.com/mustask`, ADR-0037). Путь — одна настройка:
+релиз собирается для полного адреса (раздел 4), API получает тот же путь как
+`Hosting__PathBase` (раздел 5), а nginx передаёт его без изменений (раздел 7).
+Тот же порядок действий под путём:
+
+```bash
+# машина сборки
+deploy/vm/build-release.sh v0.1.0 https://portal.example.com/mustask
+
+# VM, один раз
+sudo bash mustask-v0.1.0/kit/install.sh prepare --host portal.example.com --path /mustask \
+    --keycloak-host keycloak.example.com --realm <realm> --install-packages --create-db
+sudo nano /etc/mustask/mustask.env        # Keycloak__ClientSecret
+sudo bash mustask-v0.1.0/kit/install.sh nginx --path /mustask   # печатает строку include
+```
+
+Эту одну строку `include` добавляет тот, кто владеет сервером портала
+(раздел 7.2). Одно развёртывание обслуживает один путь; перенос — это
+пересборка панели и правка env-файла.
 
 Runbook рассчитан на релиз, в котором есть tech-024 (роли клиента) и tech-025
 (справочник пользователей заполняется при входе, ADR-0034). На релизе без них
@@ -104,6 +119,13 @@ Runbook рассчитан на релиз, в котором есть tech-024 
   (ровно этот, без масок). **Web origins:** пусто.
 - **Valid post-logout redirect URI:** `https://mustask.example.com/*`.
   **Root URL:** `https://mustask.example.com`.
+- **Под путём на общем хосте** (`https://portal.example.com/mustask`,
+  ADR-0037) те же адреса содержат путь:
+  - root URL `https://portal.example.com/mustask`;
+  - valid redirect URI `https://portal.example.com/mustask/api/session/callback`;
+  - valid post-logout redirect URI `https://portal.example.com/mustask/*`;
+  - web origins: пусто, а если политика realm требует значение — голый хост
+    `https://portal.example.com`, никогда не с путём (у origin пути нет).
 - Default client scopes: `basic`, `acr`, `profile`, `email`, `roles`,
   `web-origins`. `profile` и `email` обязательны: при входе MUSTASK
   записывает имя и e-mail пользователя из claims токена (ADR-0034).
@@ -142,6 +164,12 @@ sudo bash mustask-v0.1.0/kit/install.sh prepare \
     --host mustask.example.com --keycloak-host keycloak.example.com --realm <realm> \
     --install-packages --create-db
 ```
+
+Под путём на общем хосте добавьте `--path /mustask` и укажите голый хост:
+`--host portal.example.com --path /mustask`. Тогда `prepare` запишет
+`Session__PanelUrl=https://portal.example.com/mustask` и
+`Hosting__PathBase=/mustask` (раздел 5). Путь тот же, для которого собран
+релиз (раздел 4); в корне хоста `--path` не указывайте.
 
 `prepare` создаёт служебного пользователя `mustask` без входа в систему
 (домашний каталог `/var/lib/mustask`), каталоги `/opt/mustask/releases/` и
@@ -219,16 +247,25 @@ deploy/vm/build-release.sh v0.1.0 https://mustask.example.com
 
 Скрипт собирает **тег, а не рабочую копию**: он выкладывает тег во временный
 worktree, поэтому локальные правки на VM не попадают, и затем удаляет его.
-Второй аргумент — адрес сайта, корень хоста без пути и без слеша в конце; он
-вшивается в панель как `VITE_API_BASE_URL` (домен один, поэтому это адрес
-самого сайта). Результат — один файл `out/mustask-v0.1.0.tar.gz`:
+Второй аргумент — адрес сайта без слеша в конце: только хост
+(`https://mustask.example.com`) или хост с путём
+(`https://portal.example.com/mustask`; сегменты из букв, цифр, `.`, `_` и
+`-`, без порта). Адрес вшивается в панель как `VITE_API_BASE_URL` (панель и API
+живут по одному адресу, поэтому это адрес самого сайта), а путь — `/`, если
+его нет, — как `VITE_BASE_PATH`, база, под которой отдаётся панель. Адрес
+записывается и в `VERSION`, а `install.sh deploy` отказывается принимать
+релиз, адрес которого не совпадает с `Session__PanelUrl`. Скрипт также проверяет, что путь действительно попал в сборку панели
+(скрипты в `panel/index.html` лежат под ним). В Git Bash он не даёт превратить
+путь в путь Windows (`C:/Program Files/Git/mustask`) по дороге к Node; не
+задавайте `MSYS_NO_PATHCONV=1` на весь скрипт, иначе `git` не найдёт
+репозиторий. Результат — один файл `out/mustask-v0.1.0.tar.gz`:
 
 | Внутри | Что |
 |---|---|
 | `api/` | `dotnet publish` проекта `Mustask.Api`, framework-dependent: на VM запускается через `dotnet` |
 | `panel/` | сборка панели |
 | `efbundle` | бандл миграций, linux-x64, self-contained |
-| `kit/` | `install.sh`, `smoke.sh`, unit, сайт nginx, шаблон env — из checkout, в котором запущен скрипт |
+| `kit/` | `install.sh`, `smoke.sh`, unit, сайт nginx и сниппет location-блоков nginx, шаблон env — из checkout, в котором запущен скрипт |
 | `VERSION` | тег, коммит, коммит кита, адрес сайта, время сборки |
 
 Скопируйте его на VM и распакуйте:
@@ -260,7 +297,8 @@ Keycloak. Правьте файл на VM (`sudo nano /etc/mustask/mustask.env`)
 | `Keycloak__Audience` | `mustask-api` |
 | `Keycloak__Issuer` | необязательно, по умолчанию равно authority; задавайте, только если в токенах другой `iss` |
 | `Keycloak__ClientSecret` | секрет `mustask-panel`. Вне Development API не стартует, если он короче 32 символов или является известной заглушкой |
-| `Session__PanelUrl` | `https://mustask.example.com`, без слеша в конце. Каждый редирект после входа строится как `{PanelUrl}{returnUrl}` |
+| `Session__PanelUrl` | `https://mustask.example.com`, без слеша в конце; под путём на общем хосте содержит путь: `https://portal.example.com/mustask`. Каждый редирект после входа строится как `{PanelUrl}{returnUrl}` |
+| `Hosting__PathBase` | путь из `Session__PanelUrl`: `/mustask`, либо пусто в корне хоста. API не запускается, если он не совпадает с путём `PanelUrl` (ADR-0037). `prepare --path` заполняет оба |
 
 Примечания:
 
@@ -293,6 +331,25 @@ journalctl -u mustask-api -f       # структурированный JSON-л�
 
 ## 7. Reverse proxy и TLS (nginx)
 
+Две схемы; выберите ту, что соответствует адресу, для которого собран релиз
+(раздел 4).
+
+- **Собственное имя хоста** (`https://mustask.example.com`): у MUSTASK целый
+  свой `server {}`. Подраздел 7.1.
+- **Путь на общем хосте** (`https://portal.example.com/mustask`): на хосте уже
+  есть сервер, и принадлежит он другим; MUSTASK добавляет в него location.
+  Подраздел 7.2.
+
+В обеих схемах nginx передаёт путь в API без изменений (`proxy_pass` без
+части URI). Сам API работает под своей базой пути (`Hosting__PathBase`,
+раздел 5), поэтому по дороге ничего не обрезается и не переписывается.
+
+HTTPS обязателен: cookie сессии `mustask.session` — `Secure`, `HttpOnly`,
+`SameSite=Lax`, путь `{путь}/api/session` (`/api/session` в корне хоста), и по
+обычному HTTP не отправляется никогда.
+
+### 7.1 Собственное имя хоста
+
 Сайт — `deploy/vm/nginx-mustask.conf`: порт 80 перенаправляет на HTTPS; на
 443 `/api/` уходит на `127.0.0.1:5000` с forwarded-заголовками, всё остальное —
 панель из `/opt/mustask/current/panel` с возвратом к `index.html`. `/health` и
@@ -324,9 +381,48 @@ sudo bash mustask-v0.1.0/kit/install.sh nginx --host mustask.example.com \
   плюс очищаемыми OIDC-cookie; со стандартным буфером заголовков nginx
   4–8 КБ каждый вход получает 502.
 
-HTTPS обязателен: cookie сессии `mustask.session` — `Secure`, `HttpOnly`,
-`SameSite=Lax`, путь `/api/session`, и по обычному HTTP не отправляется
-никогда.
+### 7.2 Путь на общем хосте
+
+Сервер для `portal.example.com` (его имена, сертификат, редирект с порта 80)
+не принадлежит MUSTASK, и кит его не пишет. Он устанавливает только
+location-блоки из
+[`deploy/vm/nginx-mustask-locations.conf`](../../deploy/vm/nginx-mustask-locations.conf):
+
+- `location /mustask/api/` уходит на `127.0.0.1:5000` с forwarded-заголовками
+  и теми же тремя настройками буферов прокси, что и в 7.1 (причина та же: без
+  них каждый вход получает 502);
+- `location /mustask/` отдаёт панель из `/opt/mustask/current/panel/` через
+  `alias`, а неизвестный путь возвращается к `/mustask/index.html`; `/mustask`
+  без слеша перенаправляет на `/mustask/`;
+- `/mustask/health` наружу не открыт: под префиксом это `index.html` панели,
+  как и в корне. `/health` и `/alive` остаются на loopback.
+
+```bash
+sudo bash mustask-v0.1.0/kit/install.sh nginx --path /mustask
+```
+
+Здесь нет `--host`, `--cert`, `--key` и `default_server`: скрипт кладёт
+location-блоки в `/etc/nginx/snippets/mustask-locations.conf`, проверяет их
+`nginx -t` в отдельном временном сервере (пока их никто не подключает),
+проверяет всю текущую конфигурацию и печатает одну строку, которую владелец
+сервера портала должен добавить внутрь своего блока `server { … }`:
+
+```nginx
+include /etc/nginx/snippets/mustask-locations.conf;
+```
+
+**Владелец сервера портала должен согласиться на этот include.** Это
+организационный шаг развёртывания: запросите его вместе с запросом к Keycloak
+из раздела 1. После добавления `nginx -t && systemctl reload nginx` включает
+блоки. Повторный запуск скрипта сам перезагрузит nginx, когда include уже
+есть. Если не прошла любая из двух проверок, ранее установленный сниппет
+восстанавливается (или новый удаляется), так что сломанный сниппет не
+остаётся активным.
+
+Location-блоки `/mustask` — префиксные с `^~`, поэтому regex-location сервера
+портала (`location ~* .js$`) не перехватывает их пути; собственный
+префиксный location портала на `/mustask` по-прежнему конфликтовал бы с
+include.
 
 ## 8. Первый запуск и smoke-проверка
 
@@ -343,15 +439,21 @@ sudo bash mustask-v0.1.0/kit/smoke.sh
 
 `smoke.sh` проверяет с VM: `/health` отвечает `Healthy` (проверка охватывает
 базу и доступность realm); `http://` перенаправляет на `https://`; панель
-отдаётся в корне сайта, а клиентский маршрут возвращает `index.html`; API
+отдаётся по адресу сайта, её первый скрипт отдаётся по пути, который называет
+`index.html` (панель, собранная для другой базы пути, показывает пустую
+страницу), а клиентский маршрут возвращает `index.html`; API
 отвечает через прокси (401 без токена); `/api/session/login` уводит на realm;
-`/health` через прокси недоступен. Пока DNS не указывает на VM, добавьте
+`/health` через прокси недоступен. Под путём каждый адрес — адрес сайта с его
+путём (`https://portal.example.com/mustask/…`), а проверка `http://` ждёт
+редирект от собственного сервера портала на порту 80. Пока DNS не указывает на
+VM, добавьте
 `--resolve-local`; `--insecure` принимает сертификат, которому VM не доверяет
 (только для репетиций).
 
 Остальное требует человека с браузером; `smoke.sh` печатает это списком:
 
-1. `https://mustask.example.com/` показывает панель; вход уводит на
+1. `https://mustask.example.com/` (под путём —
+   `https://portal.example.com/mustask/`) показывает панель; вход уводит на
    `keycloak.example.com` и после логина возвращает в панель.
 2. Пользователь с `user` входит и попадает в панель. Пользователь **без**
    `user` возвращается с `authError=no_access`, и сессии у него нет.
@@ -407,7 +509,11 @@ sudo bash mustask-v0.2.0/kit/install.sh status      # активный VERSION �
 | После логина в Keycloak браузер получает **502** на `/api/session/callback`; в error-логе nginx «upstream sent too big header» | Нет буферов прокси из раздела 7: cookie сессии не помещается в стандартный буфер заголовков nginx. |
 | `/health` нездоров и называет realm; в логе ошибка TLS / сертификата | VM не доверяет CA сертификата Keycloak (раздел 2). |
 | `dotnet ef` падает с `NETSDK1004` (без кита) | Сначала выполните `dotnet restore src/backend/Mustask.Infrastructure` (раздел 3). |
-| Keycloak показывает «Invalid redirect URI» | У `mustask-panel` нет `https://mustask.example.com/api/session/callback`, либо не задан `ASPNETCORE_FORWARDEDHEADERS_ENABLED`, и API отправил адрес `http://`. |
+| API падает на старте из-за `Hosting:PathBase` | Путь в `Session__PanelUrl` и `Hosting__PathBase` расходятся, либо база записана неверно (раздел 5). Под путём в обоих он есть: `https://portal.example.com/mustask` и `/mustask`; в корне хоста `Hosting__PathBase` пуст. |
+| `install: the snippet failed nginx -t` (с `--path`) | Сниппет не прошёл `nginx -t` в отдельном временном сервере; сообщение выше называет строку. Сниппет, установленный раньше, остаётся как был. |
+| `install: nginx -t fails on the current configuration` (с `--path`) | Конфигурация портала не проходит с новым сниппетом; прежний сниппет восстановлен (или новый удалён). Сообщение выше называет строку. |
+| Под путём: панель открывается, но её скрипты дают 404, или вход зацикливается | Панель собрана для другого пути, чем отдаёт nginx, либо в сервере портала нет `include` (раздел 7). Пересоберите с полным адресом (раздел 4). |
+| Keycloak показывает «Invalid redirect URI» | У `mustask-panel` нет `https://mustask.example.com/api/session/callback` (под путём — `https://portal.example.com/mustask/api/session/callback`), либо не задан `ASPNETCORE_FORWARDEDHEADERS_ENABLED`, и API отправил адрес `http://`. |
 | После входа каждый вызов API — 401 | В access token нет `aud = mustask-api`, или `Keycloak__Authority`/`Keycloak__Issuer` не совпадают с `iss` токена. |
 | Вход возвращается с `authError=no_access` | У пользователя нет роли клиента `mustask-api` `user` (назначьте напрямую). |
 | Вход есть, но роль не действует | В access token нет `resource_access.mustask-api.roles` (маппер, раздел 1). |
@@ -437,8 +543,16 @@ sudo bash mustask-v0.2.0/kit/install.sh status      # активный VERSION �
   вход проходил через форму логина скриптом, а не браузером.
 - **Обновление с новой миграцией.** Обновление отрепетировано той же сборкой
   под вторым тегом, так что её бандлу нечего было применять.
-- **Адрес под под-путём**: этим релизом не поддерживается (см. начало
-  документа, tech-057).
+- **Собственный nginx портала.** Схема под путём (tech-057, ADR-0037)
+  отрепетирована 2026-11-05 на чистой Ubuntu 24.04 с systemd, против Keycloak
+  26.4, realm которого настроен по разделу 1 для
+  `https://portal.t057.localhost/mustask`: релиз собран для этого адреса,
+  `prepare --path`, `nginx --path`, одна строка `include` в блоке server,
+  изображающем портал, `deploy`, `smoke.sh` прошёл, а скриптовые входы
+  (администратор, только `user`, без роли) вели себя так, как описывает раздел
+  8, включая путь cookie `/mustask/api/session`. Чего репетиция дать не может —
+  настоящего сервера портала (его regex-location и собственные ограничения) и
+  согласия его владельца на `include`.
 
 Первое настоящее развёртывание должно снова пройти раздел 8 и исправить этот
 документ там, где он расходится с реальностью.

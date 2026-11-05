@@ -305,6 +305,20 @@ describe('feat-029 US-6: closing and expanding with edits (BR-C-3, BR-C-4)', () 
     expect(link).toHaveAttribute('href', PAGE);
     expect(link).toHaveAttribute('target', '_blank');
   });
+
+  it('keeps the path base in that link (ADR-0037): a raw href is outside the router’s basename', async () => {
+    vi.stubEnv('BASE_URL', '/mustask/');
+    try {
+      await openLoaded(['/home', OPEN]);
+
+      const link = within(screen.getByRole('dialog')).getByRole('link', {
+        name: /Пользовательская история MSK-US-2/,
+      });
+      expect(link).toHaveAttribute('href', `/mustask${PAGE}`);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });
 
 describe('feat-029 BR-C-5: a related item in the dialog', () => {

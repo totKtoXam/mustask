@@ -33,9 +33,10 @@ public static class SessionAuthenticationSetup
 
     public const string CookieName = "mustask.session";
 
-    /// <summary>Cookie does not travel with any other <c>Mustask.Api</c> route.</summary>
+    /// <summary>Cookie does not travel with any other <c>Mustask.Api</c> route. Under a path base the cookie's path is <c>{PathBase}</c> + this (ADR-0037).</summary>
     public const string CookiePath = "/api/session";
 
+    /// <summary>Without the path base: the OIDC handler prepends <c>Request.PathBase</c> itself, to the <c>redirect_uri</c> and to its correlation cookies.</summary>
     public const string CallbackPath = "/api/session/callback";
 
     /// <summary>
@@ -103,7 +104,7 @@ public static class SessionAuthenticationSetup
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
                 options.Cookie.SameSite = SameSiteMode.Lax;
-                options.Cookie.Path = CookiePath;
+                options.Cookie.Path = sessionOptions.PathBase + CookiePath;
 
                 // Every renewal already rewrites the
                 // cookie itself (TokenAsync's own SignInAsync carries the

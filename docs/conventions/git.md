@@ -203,15 +203,26 @@ The value is **relative**, and git takes a relative `core.hooksPath` from the
 root of the working tree the hook runs in. The setting is stored in the shared
 `.git/config`, so every worktree of the clone gets it and **each worktree runs
 its own checkout's copy** of the hooks: a hook edited on a task branch is the
-one that runs for that worktree's commits and pushes. A machine can hold an
-**absolute** path instead (set by hand or by a script): then every worktree
-runs the copy in that one checkout, usually the hub, on whatever branch it is,
-and a hook edited on a task branch does not run in its worktree until it
-reaches that checkout. What is live here: `git config --show-origin
-core.hooksPath`; the next build rewrites it to the relative form, and the same
-command by hand restores it. The hooks that call `scripts/verify.sh` run the
-one of the tree being pushed from (`git rev-parse --show-toplevel`) either
-way, so an edit to `verify.sh` is live at once.
+one that runs for that worktree's commits and pushes.
+
+An **absolute** path can still end up live. With `extensions.worktreeConfig`
+on, the tool that creates a worktree can write `core.hooksPath` into that
+worktree's own `config.worktree` as the absolute `.githooks` of the checkout it
+was created from (the hub, or another task's worktree). That override wins over
+the shared value, and the build's `git config` does not touch it, because it
+writes to the shared config. What is live here: `git config --show-origin
+core.hooksPath`. Two things handle it (tech-060):
+
+- Every hook hands over to the copy of the tree it runs in
+  (`$(git rev-parse --show-toplevel)/.githooks/<hook>`) when it was started
+  from another checkout's `.githooks`. A pinned path is therefore harmless once
+  the pinned checkout has this hand-over.
+- `bash scripts/fix-hooks-path.sh` (once per clone, idempotent, `--dry-run` to
+  look first) sets the shared value to `.githooks` and removes `core.hooksPath`
+  from every `config.worktree` of the clone.
+
+The hooks that call `scripts/verify.sh` run the one of the tree being pushed
+from either way, so an edit to `verify.sh` is live at once.
 
 | Hook | What it checks |
 |-----|---------------|
