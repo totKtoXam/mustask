@@ -13,10 +13,10 @@ public sealed class MustaskDbContextFactoryTests
 
     // A hardcoded local-dev connection string (with a literal
     // password) used to be the fallback here, violating AGENTS.md ("secrets
-    // only via env/user-secrets, never in code") and, since Aspire assigns a
-    // random port and password to the Postgres container it starts, silently
-    // pointing at the wrong database instead of failing clearly. There
-    // is no local-dev value that could ever be correct, so this now throws.
+    // only via env/user-secrets, never in code") and silently pointing at the
+    // wrong database instead of failing clearly. The stand's port (`Ports:Db`)
+    // and password (a user secret) differ per machine, so no value in code
+    // could be correct everywhere, and this now throws.
     [Fact]
     public void CreateDbContext_NoConnectionStringEnvVar_ThrowsWithActionableMessage()
     {
