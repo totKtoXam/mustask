@@ -174,7 +174,18 @@ built for (section 4); leave `--path` out at a host root.
 `prepare` creates the non-login service user `mustask` (home
 `/var/lib/mustask`), `/opt/mustask/releases/` and `/etc/mustask/`, and writes
 `/etc/mustask/mustask.env` from the template (section 5); an existing env file
-is left as it is, so `prepare` can be run again. The two flags are the parts
+is left as it is, so `prepare` can be run again. With `--run-as <user>` the service
+runs as an account that already exists instead, for a VM whose other apps all
+run as one account (`--run-as ubuntu`): no `mustask` user is created, the env
+file goes to that user's group and `/var/lib/mustask` to the user. `prepare`
+never creates an account other than `mustask` and refuses root. The choice is
+kept in `/etc/mustask/run-as`, and `deploy` writes it into the unit's
+`User=`. A re-run of `prepare` without `--run-as` keeps the recorded account;
+to change it, run `prepare` again with another `--run-as` and deploy. Sharing
+an account has a price: its other processes can read the env file's secrets
+and the Data Protection keys, the service gets that account's groups
+(`NoNewPrivileges` stops sudo, not, say, the docker group), and with
+`ProtectHome=true` `dotnet` must not live under `/home`. The two flags are the parts
 that change the machine, and each is explicit:
 
 - `--install-packages` installs only what is missing of
@@ -195,8 +206,8 @@ as a `.crt` into `/usr/local/share/ca-certificates/` and run
 stops waiting for `/health`, which reports the realm as unreachable.
 
 `/var/lib/mustask` must persist across restarts and upgrades: the API encrypts
-its session cookie with ASP.NET Core Data Protection keys, which live in the
-service user's home directory. If that directory is wiped, every open session
+its session cookie with ASP.NET Core Data Protection keys, which live there
+(the unit sets `HOME=/var/lib/mustask` whatever user it runs as). If that directory is wiped, every open session
 is invalidated and users sign in again.
 
 ## 3. Database
@@ -280,7 +291,7 @@ ssh <vm> tar -xzf mustask-v0.1.0.tar.gz
 ## 5. Configuration: environment variables
 
 The API is configured only through `/etc/mustask/mustask.env` (root-owned,
-mode `0640`, group `mustask`), written by `prepare` from
+mode `0640`, group of the service account: `mustask` by default), written by `prepare` from
 [`deploy/vm/mustask.env.template`](../../deploy/vm/mustask.env.template).
 `__` is how the environment spells `:` in a configuration key. `prepare` fills
 the site address, the Keycloak addresses and, with `--create-db`, the
@@ -323,7 +334,8 @@ Notes:
 [`deploy/vm/mustask-api.service`](../../deploy/vm/mustask-api.service),
 installed by `install.sh deploy` as `/etc/systemd/system/mustask-api.service`
 and enabled. It runs `/usr/bin/dotnet /opt/mustask/current/api/Mustask.Api.dll`
-as `mustask`, with the env file of section 5, `ProtectSystem=strict` and
+as the user of `/etc/mustask/run-as` (`mustask` by default, section 2), with
+the env file of section 5, `ProtectSystem=strict` and
 `/var/lib/mustask` as the only writable path (the Data Protection keys). If
 `dotnet` is installed elsewhere, fix `ExecStart` in the kit file before the
 build.
