@@ -7,7 +7,7 @@
 #                      --keycloak-host <host> --realm <realm>
 #                      [--run-as <user>] [--install-packages] [--create-db]
 #   install.sh nginx   --host <host> --cert <fullchain.pem> --key <privkey.pem>
-#   install.sh nginx   --path /<path>
+#   install.sh nginx   --path /<path> [--forwarded-proto https|http|scheme]
 #   install.sh deploy  <release-dir>
 #   install.sh rollback
 #   install.sh status
@@ -33,6 +33,12 @@
 #           /etc/nginx/snippets/mustask-locations.conf, checks it with
 #           nginx -t, and prints the one `include` line the owner of that
 #           server adds. It does not touch the server itself.
+#           --forwarded-proto is the X-Forwarded-Proto the API gets: by
+#           default nginx's own $scheme; https where TLS ends on a proxy in
+#           front of this nginx and the hop to it is plain http, so the API
+#           still builds https sign-in addresses. It is kept in
+#           /etc/mustask/forwarded-proto, and a re-run without it keeps the
+#           recorded one; `scheme` goes back to the default.
 # deploy    copies the release to /opt/mustask/releases/<tag>, applies the
 #           migrations with the bundle (ADR-0002: explicit, before the start),
 #           installs the unit, switches /opt/mustask/current, restarts and
@@ -45,6 +51,7 @@ set -euo pipefail
 
 env_file=/etc/mustask/mustask.env
 run_as_file=/etc/mustask/run-as
+proto_file=/etc/mustask/forwarded-proto
 root=/opt/mustask
 releases=$root/releases
 state=/var/lib/mustask
@@ -219,7 +226,7 @@ SQL
 # snippet file, and the owner of that server includes it. The server itself is
 # never written or enabled here.
 cmd_nginx_locations() {
-    local path=$1
+    local path=$1 proto=$2
     base_path "$path" && [ -n "$path" ] \
         || die "--path '$path' must be /segment[/segment] of letters, digits, . _ - (no trailing slash)"
     command -v nginx >/dev/null || die "no nginx: install it (or run prepare --install-packages)"
@@ -227,7 +234,11 @@ cmd_nginx_locations() {
     local snippet=/etc/nginx/snippets/mustask-locations.conf probe
     mkdir -p /etc/nginx/snippets
     say "$snippet"
-    sed -e "s|@BASE_PATH@|$path|g" "$kit/nginx-mustask-locations.conf" > "$snippet.new"
+    # Into the snippet as is: nginx's own variable, or a literal scheme.
+    local proto_value='$scheme'
+    [ "$proto" = scheme ] || proto_value=$proto
+    sed -e "s|@BASE_PATH@|$path|g" -e "s|@FORWARDED_PROTO@|$proto_value|g" \
+        "$kit/nginx-mustask-locations.conf" > "$snippet.new"
 
     # Nothing includes the snippet yet, so a plain `nginx -t` would not read
     # it. Test it inside a throwaway server of its own.
@@ -254,6 +265,10 @@ cmd_nginx_locations() {
         die "nginx -t fails on the current configuration; the new snippet is removed"
     fi
     rm -f "$snippet.bak"
+    mkdir -p "$(dirname "$proto_file")"
+    printf '%s\n' "$proto" > "$proto_file"
+    chmod 0644 "$proto_file"
+    say "X-Forwarded-Proto $proto_value (kept in $proto_file)"
 
     if grep -rqF "include $snippet;" /etc/nginx 2>/dev/null; then
         systemctl reload nginx
@@ -266,21 +281,31 @@ cmd_nginx_locations() {
 }
 
 cmd_nginx() {
-    local host='' cert='' key='' path=''
+    local host='' cert='' key='' path='' proto=''
     while [ $# -gt 0 ]; do
         case $1 in
             --host) val "$@"; host=$2; shift 2 ;;
             --cert) val "$@"; cert=$2; shift 2 ;;
             --key) val "$@"; key=$2; shift 2 ;;
             --path) val "$@"; path=$2; shift 2 ;;
+            --forwarded-proto) val "$@"; proto=$2; shift 2 ;;
             *) die "nginx: unknown argument '$1'" ;;
         esac
     done
     if [ -n "$path" ]; then
         [ -z "$host$cert$key" ] || die "nginx: --path installs locations for a server that is not ours; it takes no --host, --cert or --key"
-        cmd_nginx_locations "$path"
+        # What an earlier run recorded, else nginx's own scheme.
+        [ -n "$proto" ] || proto=$(head -n 1 "$proto_file" 2>/dev/null || true)
+        proto=${proto:-scheme}
+        case $proto in
+            https|http|scheme) ;;
+            *) die "--forwarded-proto '$proto' must be https, http or scheme" ;;
+        esac
+        cmd_nginx_locations "$path" "$proto"
         return
     fi
+    # A site with its own certificate ends TLS itself: $scheme is right there.
+    [ -z "$proto" ] || die "nginx: --forwarded-proto goes with --path (TLS ended by a proxy in front); the whole site sends nginx's \$scheme"
     [ -n "$host" ] && [ -n "$cert" ] && [ -n "$key" ] \
         || die "nginx: give --host, --cert and --key (own host name) or --path (shared server)"
     host_name "$host" || die "--host '$host' is not a plain host name"

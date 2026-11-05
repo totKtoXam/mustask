@@ -439,6 +439,21 @@ The `/mustask` locations are `^~` prefix locations, so a regex location of the
 portal's server (`location ~* .js$`) does not take their paths; a prefix
 location of the portal's own at `/mustask` would still clash with the include.
 
+**TLS ended by a proxy in front of the portal.** By default the API gets
+`X-Forwarded-Proto $scheme`, the scheme of the request nginx itself received.
+Where public TLS ends on an external proxy and the hop to this nginx is plain
+http, that is `http`: the API then builds `http://` sign-in redirect addresses,
+and Keycloak refuses them. Give the scheme the public address really has:
+
+```bash
+sudo bash mustask-v0.1.0/kit/install.sh nginx --path /mustask --forwarded-proto https
+```
+
+The choice is kept in `/etc/mustask/forwarded-proto`, so a later run without
+the flag (an update of the kit) keeps `https`. `--forwarded-proto scheme` goes
+back to the default. The flag is only for `--path`: a site of 7.1 ends TLS
+itself, and `$scheme` is right there.
+
 ## 8. First start and smoke check
 
 ```bash
