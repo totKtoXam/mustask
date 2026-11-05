@@ -439,6 +439,21 @@ The `/mustask` locations are `^~` prefix locations, so a regex location of the
 portal's server (`location ~* .js$`) does not take their paths; a prefix
 location of the portal's own at `/mustask` would still clash with the include.
 
+**TLS ended by a proxy in front of the portal.** By default the API gets
+`X-Forwarded-Proto $scheme`, the scheme of the request nginx itself received.
+Where public TLS ends on an external proxy and the hop to this nginx is plain
+http, that is `http`: the API then builds `http://` sign-in redirect addresses,
+and Keycloak refuses them. Give the scheme the public address really has:
+
+```bash
+sudo bash mustask-v0.1.0/kit/install.sh nginx --path /mustask --forwarded-proto https
+```
+
+The choice is kept in `/etc/mustask/forwarded-proto`, so a later run without
+the flag (an update of the kit) keeps `https`. `--forwarded-proto scheme` goes
+back to the default. The flag is only for `--path`: a site of 7.1 ends TLS
+itself, and `$scheme` is right there.
+
 ## 8. First start and smoke check
 
 ```bash
@@ -526,7 +541,7 @@ under `/opt/mustask/releases/`; delete the ones you no longer need by hand
 | `install: the snippet failed nginx -t` (with `--path`) | The snippet did not pass `nginx -t` inside a server of its own; the message above names the line. The snippet installed earlier is left as it was. |
 | `install: nginx -t fails on the current configuration` (with `--path`) | The portal's configuration does not pass with the new snippet included; the previous snippet is restored (or the new one removed). The message above names the line. |
 | Under a path: the panel loads but its scripts are 404, or the sign-in loops | The panel was built for another path than the one nginx serves, or the `include` is missing in the portal's server (section 7). Rebuild with the full address (section 4). |
-| Keycloak shows "Invalid redirect URI" | `mustask-panel` lacks `https://mustask.example.com/api/session/callback` (under a path: `https://portal.example.com/mustask/api/session/callback`), or `ASPNETCORE_FORWARDEDHEADERS_ENABLED` is missing and the API sent an `http://` address. |
+| Keycloak shows "Invalid redirect URI" | `mustask-panel` lacks `https://mustask.example.com/api/session/callback` (under a path: `https://portal.example.com/mustask/api/session/callback`), or `ASPNETCORE_FORWARDEDHEADERS_ENABLED` is missing and the API sent an `http://` address, or TLS ends on a proxy in front of the portal and the snippet was installed without `--forwarded-proto https` (section 7.2). |
 | Every API call is 401 after sign-in | The access token has no `aud = mustask-api`, or `Keycloak__Authority`/`Keycloak__Issuer` differ from the token's `iss`. |
 | Sign-in comes back `authError=no_access` | The user does not hold the `mustask-api` client role `user` (assign it directly). |
 | Signed in, but a role does not take effect | `resource_access.mustask-api.roles` is missing from the access token (mapper, section 1). |
