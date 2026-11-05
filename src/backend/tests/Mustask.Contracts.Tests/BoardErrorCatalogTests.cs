@@ -20,6 +20,10 @@ public sealed class BoardErrorCatalogTests
         { BoardErrorCodes.LevelNotFound, 404, "", "Уровень бэклога не найден." },
         { BoardErrorCodes.ValidationFailed, 400, "", "Проверьте правильность запроса." },
         { BoardErrorCodes.PositionInvalid, 400, "", "Некорректная позиция перемещения." },
+        // feat-048 api-contract § 3: the aggregate views' cursor, grouping and parameter refusals.
+        { BoardErrorCodes.InvalidCursor, 400, "", "Некорректный курсор страницы." },
+        { BoardErrorCodes.InvalidGrouping, 400, "", "Такая группировка для этого уровня недоступна." },
+        { BoardErrorCodes.InvalidParameter, 400, "", "Некорректное значение параметра запроса." },
     };
 
     // mod-006 api-contract § 4: every code is registered with its status, params, the contract's ru text and a kk text.

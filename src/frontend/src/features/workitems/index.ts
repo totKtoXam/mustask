@@ -44,6 +44,7 @@ export type {
 // values in the page address, one hook for the three (`useTeamFilter`), and lets a link to
 // another level of the same view carry them (`teamFilterSearch`).
 export { TeamFilter } from './components/TeamFilter';
+export { NoTeamFilter } from './components/NoTeamFilter';
 export { teamFilterSearch, useTeamFilter } from './hooks/useTeamFilter';
 export { NO_TEAM_FILTER_VALUE, teamFilterQuery } from './api/workItemsApi';
 // feat-040: a created item the team's view will not show says why (D-6).
@@ -74,3 +75,13 @@ export { WORK_ITEM_PARAM, useWorkItemDialog } from './hooks/useWorkItemDialog';
 // a title — a plain click only; a modified click follows the title's `href`.
 export { WorkItemCardDialog } from './components/WorkItemCardDialog';
 export { isPlainClick } from './lib/plainClick';
+// feat-048: the organization-wide list (the flat «Рабочие элементы» above the project level).
+export { useOrganizationWorkItems } from './hooks/queries';
+export { WORK_ITEMS_PAGE_SIZE } from './api/workItemsApi';
+export type {
+  OrganizationListSelectors,
+  OrganizationWorkItem,
+  WorkItemListItem,
+} from './api/workItemsApi';
+export { MarkedAssigneeName } from './components/Marks';
+export { filterContent, isFiltered } from './lib/workItemFilter';

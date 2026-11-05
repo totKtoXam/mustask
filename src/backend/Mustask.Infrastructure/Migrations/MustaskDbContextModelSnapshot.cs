@@ -1483,6 +1483,11 @@ namespace Mustask.Infrastructure.Migrations
                     b.HasIndex("TypeId")
                         .HasDatabaseName("ix_work_items_type_id");
 
+                    b.HasIndex(new[] { "AssigneeId", "ChangedAt" }, "ix_work_items_assignee_id_changed_at")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("ix_work_items_assignee_id_changed_at")
+                        .HasFilter("assignee_id IS NOT NULL");
+
                     b.HasIndex(new[] { "DeletedFromStateId" }, "ix_work_items_deleted_from_state_id")
                         .HasDatabaseName("ix_work_items_deleted_from_state_id")
                         .HasFilter("deleted_from_state_id IS NOT NULL");
@@ -1491,8 +1496,14 @@ namespace Mustask.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_work_items_id_owning_team_id");
 
-                    b.HasIndex(new[] { "OwningTeamId", "TypeId" }, "ix_work_items_owning_team_id_type_id")
-                        .HasDatabaseName("ix_work_items_owning_team_id_type_id");
+                    b.HasIndex(new[] { "ProjectId", "TypeId", "ChangedAt", "Number" }, "ix_work_items_no_team_changed_at")
+                        .IsDescending(false, false, true, true)
+                        .HasDatabaseName("ix_work_items_no_team_changed_at")
+                        .HasFilter("owning_team_id IS NULL");
+
+                    b.HasIndex(new[] { "OwningTeamId", "TypeId", "ChangedAt", "Number" }, "ix_work_items_owning_team_id_type_id_changed_at_number")
+                        .IsDescending(false, false, true, true)
+                        .HasDatabaseName("ix_work_items_owning_team_id_type_id_changed_at_number");
 
                     b.HasIndex(new[] { "ProjectId", "AreaId" }, "ix_work_items_project_id_area_id")
                         .HasDatabaseName("ix_work_items_project_id_area_id");
@@ -1517,6 +1528,10 @@ namespace Mustask.Infrastructure.Migrations
 
                     b.HasIndex(new[] { "ProjectId", "TypeId", "AreaId" }, "ix_work_items_project_id_type_id_area_id")
                         .HasDatabaseName("ix_work_items_project_id_type_id_area_id");
+
+                    b.HasIndex(new[] { "ProjectId", "TypeId", "ChangedAt", "Number" }, "ix_work_items_project_id_type_id_changed_at_number")
+                        .IsDescending(false, false, true, true)
+                        .HasDatabaseName("ix_work_items_project_id_type_id_changed_at_number");
 
                     b.ToTable("work_items", t =>
                         {

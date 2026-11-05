@@ -128,7 +128,7 @@ describe('mod-003 US-2 Scenario: The navigation leads to the chosen project’s 
     ).toBeInTheDocument();
   });
 
-  it('with no project chosen, the entry is not shown: the organization’s menu has «Проекты»', async () => {
+  it('with no project chosen, the entry is the organization’s aggregate list, not a project’s', async () => {
     serveOrganizations();
     renderRoutes(`/organizations/${organizationIds.beta}/overview`);
 
@@ -141,8 +141,9 @@ describe('mod-003 US-2 Scenario: The navigation leads to the chosen project’s 
     expect(
       await within(mainNavigation()).findByRole('link', { name: 'Проекты' }),
     ).toBeInTheDocument();
+    // feat-048: at the organization level the entry exists and leads to the aggregate list.
     expect(
-      within(mainNavigation()).queryByRole('link', { name: 'Рабочие элементы' }),
-    ).not.toBeInTheDocument();
+      within(mainNavigation()).getByRole('link', { name: 'Рабочие элементы' }),
+    ).toHaveAttribute('href', `/organizations/${organizationIds.beta}/workitems`);
   });
 });

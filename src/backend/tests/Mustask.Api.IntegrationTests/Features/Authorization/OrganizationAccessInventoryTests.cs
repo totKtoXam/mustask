@@ -292,7 +292,8 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
         // gate-3, the creation form's member search (§ 2.3a) — 56; mod-005 api-contract § 4 adds delete, restore and purge — 59 (feat-040 api-contract § 6 moves three, no change); feat-003 api-contract § 5 adds the «Исполнитель» filter's options — 60.
         // mod-018 api-contract § 2-3 (typed tree): eleven organization-area routes, the project's subtree read and three team-end routes in, the project-nested tree writes out - 70; TC-28 adds the read-only team-links read - 71.
         // feat-033 api-contract § 2.1 adds the organization's own appointment record - 74 (its two rescue routes with {organizationId} are the instance exceptions below).
-        Assert.Equal(74, expected.Count);
+        // feat-048 api-contract § 2 adds the aggregate views' eight reads - 82.
+        Assert.Equal(82, expected.Count);
     }
 
     // Every organization code of the catalog is declared by at least one route — a code with no route is a decision nobody enforces

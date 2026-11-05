@@ -17,14 +17,15 @@ public sealed class AddTeamLedWorkItemIndexMigrationTests(OrganizationsDatabaseF
 {
     private const string MigrationName = "_AddTeamLedWorkItemIndex";
 
-    private const string IndexName = "ix_work_items_owning_team_id_type_id";
+    // feat-048 (AggregateViewIndexes) replaces the plain index by the same index with the change-time keys appended.
+    private const string IndexName = "ix_work_items_owning_team_id_type_id_changed_at_number";
 
     [Fact]
     public async Task Migrator_AddTeamLedWorkItemIndex_IsAdditive_RollsBackToTheIndex_AndAppliesAgain()
     {
         var world = await SeedAsync();
 
-        Assert.Equal([$"{IndexName}|owning_team_id,type_id|f"], await IndexAsync());
+        Assert.Equal([$"{IndexName}|owning_team_id,type_id,changed_at,number|f"], await IndexAsync());
 
         await RollBackAsync();
 
@@ -38,7 +39,7 @@ public sealed class AddTeamLedWorkItemIndexMigrationTests(OrganizationsDatabaseF
         }
 
         // Applied again: the same plain index (not partial, not unique), and the rows are as they were.
-        Assert.Equal([$"{IndexName}|owning_team_id,type_id|f"], await IndexAsync());
+        Assert.Equal([$"{IndexName}|owning_team_id,type_id,changed_at,number|f"], await IndexAsync());
         Assert.Equal(["1"], await database.QueryAsync("SELECT count(*)::text FROM work_items WHERE id = @item", ("item", world.ItemId)));
         Assert.Equal(["7"], await database.QueryAsync("SELECT last_number::text FROM work_item_counters WHERE project_id = @project", ("project", world.ProjectId)));
     }

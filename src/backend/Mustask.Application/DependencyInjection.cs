@@ -208,6 +208,14 @@ public static class DependencyInjection
         services.AddScoped<ReorderProjectBacklogHandler>();
         services.AddScoped<GetProjectBoardHandler>();
 
+        // The aggregate views (feat-048): the grouped counts, the group and cell pages, the organization-wide list.
+        services.AddScoped<Mustask.Application.Features.Boards.GetViewGroups.GetViewGroupsHandler>();
+        services.AddScoped<Mustask.Application.Features.Boards.GetBacklogGroupRows.GetBacklogGroupRowsHandler>();
+        services.AddScoped<Mustask.Application.Features.Boards.GetBoardCells.GetBoardCellsHandler>();
+        services.AddScoped<Mustask.Application.Features.Boards.GetWorkItemGroupRows.GetWorkItemGroupRowsHandler>();
+        services.AddScoped<Mustask.Application.Features.WorkItems.GetOrganizationWorkItems.GetOrganizationWorkItemsHandler>();
+        services.AddScoped<Mustask.Application.Features.WorkItems.GetOrganizationAssigneeOptions.GetOrganizationAssigneeOptionsHandler>();
+
         return services;
     }
 }

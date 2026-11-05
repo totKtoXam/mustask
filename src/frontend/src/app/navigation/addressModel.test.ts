@@ -15,24 +15,31 @@ import {
 
 const KINDS = Object.keys(MENU_TABLE) as MenuKind[];
 
-/** ADR-0032 § 2 as written, for the lines that exist today (feat-048's entries are absent). */
+/** ADR-0032 § 2 as written, for the lines that exist today (feat-048 added «Рабочие элементы», «Канбан» and «Бэклог» above the project). */
 const EXPECTED: Record<MenuKind, [label: string, segment: string][]> = {
   organization: [
     ['Обзор', 'overview'],
     ['Структура', 'areas'],
     ['Проекты', 'projects'],
     ['Команды', 'teams'],
+    ['Рабочие элементы', 'workitems'],
+    ['Канбан', 'boards/:level'],
+    ['Бэклог', 'backlogs/:level'],
     ['Участники', 'members'],
   ],
   department: [
     ['Обзор', 'overview'],
     ['Проекты', 'projects'],
     ['Команды', 'teams'],
+    ['Рабочие элементы', 'workitems'],
+    ['Канбан', 'boards/:level'],
+    ['Бэклог', 'backlogs/:level'],
   ],
   team: [
     ['Обзор', 'overview'],
     ['Канбан', 'boards/:level'],
     ['Бэклог', 'backlogs/:level'],
+    ['Рабочие элементы', 'workitems'],
     ['Проекты', 'projects'],
     ['Участники и доступ', 'members'],
   ],
@@ -67,14 +74,14 @@ describe('the menu table (ADR-0032 § 2)', () => {
     }
   });
 
-  it("holds none of feat-048's entries before it lands (OQ-9)", () => {
+  it("offers feat-048's entries above the project (OQ-9)", () => {
     const labels = (kind: MenuKind) => menuFor(kind).map((row) => row.label);
     for (const kind of ['organization', 'department', 'team'] as const) {
-      expect(labels(kind)).not.toContain('Рабочие элементы');
+      expect(labels(kind)).toContain('Рабочие элементы');
     }
     for (const kind of ['organization', 'department'] as const) {
-      expect(labels(kind)).not.toContain('Канбан');
-      expect(labels(kind)).not.toContain('Бэклог');
+      expect(labels(kind)).toContain('Канбан');
+      expect(labels(kind)).toContain('Бэклог');
     }
   });
 

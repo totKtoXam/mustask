@@ -109,6 +109,7 @@ public static class DependencyInjection
     public static IServiceCollection AddBoardsInfrastructure(this IServiceCollection services)
     {
         services.AddScoped<IBacklogReadModel, BacklogReadModel>();
+        services.AddScoped<IAggregateViewReadModel, AggregateViewReadModel>();
         services.AddScoped<IBacklogRepository, BacklogRepository>();
         services.AddScoped<IProjectBacklogRepository, ProjectBacklogRepository>();
         services.AddScoped<ITeamBacklogPlaces, TeamBacklogPlaces>();

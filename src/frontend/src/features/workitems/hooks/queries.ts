@@ -4,6 +4,9 @@ import {
   NO_LIST_FILTER,
   getAssigneeCandidates,
   getAssigneeFilterOptions,
+  getOrganizationAssigneeOptions,
+  getOrganizationWorkItems,
+  type OrganizationListSelectors,
   getParentCandidates,
   getWorkItem,
   getWorkItems,
@@ -39,12 +42,15 @@ export function useWorkItems(
  */
 export function useAssigneeFilterOptions(
   organizationId: string,
-  projectId: string,
+  projectId: string | null,
   states: readonly string[],
 ) {
   return useQuery({
     queryKey: workItemsKeys.assigneeOptions(organizationId, projectId, states),
-    queryFn: () => getAssigneeFilterOptions(organizationId, projectId, states),
+    queryFn: () =>
+      projectId === null
+        ? getOrganizationAssigneeOptions(organizationId, states)
+        : getAssigneeFilterOptions(organizationId, projectId, states),
     placeholderData: keepPreviousData,
   });
 }
@@ -122,5 +128,22 @@ export function useParentCandidates(
     ),
     queryFn: () => getParentCandidates(organizationId, projectId, identifier, text, { levelAbove }),
     enabled: options.enabled,
+  });
+}
+
+/**
+ * feat-048 § 2.5: one page of the organization-wide list (the flat form of «Рабочие элементы» at
+ * the organization, department and team level), under the selectors and feat-003's filters.
+ */
+export function useOrganizationWorkItems(
+  organizationId: string,
+  page: number,
+  selectors: OrganizationListSelectors,
+  filter: WorkItemListFilter = NO_LIST_FILTER,
+) {
+  return useQuery({
+    queryKey: workItemsKeys.organizationList(organizationId, page, selectors, filter),
+    queryFn: () => getOrganizationWorkItems(organizationId, page, selectors, filter),
+    placeholderData: keepPreviousData,
   });
 }

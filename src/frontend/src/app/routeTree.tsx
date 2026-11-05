@@ -4,12 +4,23 @@ import { RequireAuth } from '../features/auth/RequireAuth';
 import {
   BACKLOG_ROUTE,
   BOARD_ROUTE,
+  DEPARTMENT_BACKLOG_ROUTE,
+  DEPARTMENT_BOARD_ROUTE,
+  DEPARTMENT_WORK_ITEMS_ROUTE,
+  ORGANIZATION_BACKLOG_ROUTE,
+  ORGANIZATION_BOARD_ROUTE,
+  ORGANIZATION_WORK_ITEMS_ROUTE,
+  TEAM_WORK_ITEMS_ROUTE,
   PROJECT_BACKLOG_ROUTE,
   PROJECT_BOARD_ROUTE,
-  BacklogPage,
-  BoardPage,
-  ProjectBacklogPage,
-  ProjectBoardPage,
+  AggregateBacklogPage,
+  AggregateBoardPage,
+  AggregateWorkItemsPage,
+  ProjectBacklogRoute,
+  ProjectBoardRoute,
+  ProjectWorkItemsRoute,
+  TeamBacklogRoute,
+  TeamBoardRoute,
   boardsPermissions,
 } from '../features/boards';
 import { LanguageFormPage, LanguagesRegistryPage } from '../features/dictionaries';
@@ -65,7 +76,6 @@ import {
   WORK_ITEMS_ROUTE,
   WORK_ITEM_ROUTE,
   WorkItemFormPage,
-  WorkItemsPage,
   workItemsPermissions,
 } from '../features/workitems';
 import { HOME_PATH } from '../shared/config/paths';
@@ -323,7 +333,7 @@ export const routeTree = (
                 title="Рабочие элементы"
                 skeleton="registry"
               >
-                <WorkItemsPage />
+                <ProjectWorkItemsRoute />
               </OrganizationPage>
             }
           />
@@ -347,7 +357,7 @@ export const routeTree = (
                 title="Канбан"
                 skeleton="registry"
               >
-                <BoardPage />
+                <TeamBoardRoute />
               </OrganizationPage>
             }
           />
@@ -359,7 +369,92 @@ export const routeTree = (
                 title="Бэклоги"
                 skeleton="registry"
               >
-                <BacklogPage />
+                <TeamBacklogRoute />
+              </OrganizationPage>
+            }
+          />
+          {/* feat-048: the views above the project level, grouped by the user's choice. */}
+          <Route
+            path={ORGANIZATION_BOARD_ROUTE}
+            element={
+              <OrganizationPage
+                code={boardsPermissions.workItemRead}
+                title="Канбан"
+                skeleton="registry"
+              >
+                <AggregateBoardPage />
+              </OrganizationPage>
+            }
+          />
+          <Route
+            path={ORGANIZATION_BACKLOG_ROUTE}
+            element={
+              <OrganizationPage
+                code={boardsPermissions.workItemRead}
+                title="Бэклог"
+                skeleton="registry"
+              >
+                <AggregateBacklogPage />
+              </OrganizationPage>
+            }
+          />
+          <Route
+            path={ORGANIZATION_WORK_ITEMS_ROUTE}
+            element={
+              <OrganizationPage
+                code={workItemsPermissions.workItemRead}
+                title="Рабочие элементы"
+                skeleton="registry"
+              >
+                <AggregateWorkItemsPage />
+              </OrganizationPage>
+            }
+          />
+          <Route
+            path={DEPARTMENT_BOARD_ROUTE}
+            element={
+              <OrganizationPage
+                code={boardsPermissions.workItemRead}
+                title="Канбан"
+                skeleton="registry"
+              >
+                <AggregateBoardPage />
+              </OrganizationPage>
+            }
+          />
+          <Route
+            path={DEPARTMENT_BACKLOG_ROUTE}
+            element={
+              <OrganizationPage
+                code={boardsPermissions.workItemRead}
+                title="Бэклог"
+                skeleton="registry"
+              >
+                <AggregateBacklogPage />
+              </OrganizationPage>
+            }
+          />
+          <Route
+            path={DEPARTMENT_WORK_ITEMS_ROUTE}
+            element={
+              <OrganizationPage
+                code={workItemsPermissions.workItemRead}
+                title="Рабочие элементы"
+                skeleton="registry"
+              >
+                <AggregateWorkItemsPage />
+              </OrganizationPage>
+            }
+          />
+          <Route
+            path={TEAM_WORK_ITEMS_ROUTE}
+            element={
+              <OrganizationPage
+                code={workItemsPermissions.workItemRead}
+                title="Рабочие элементы"
+                skeleton="registry"
+              >
+                <AggregateWorkItemsPage />
               </OrganizationPage>
             }
           />
@@ -372,7 +467,7 @@ export const routeTree = (
                 title="Канбан"
                 skeleton="registry"
               >
-                <ProjectBoardPage />
+                <ProjectBoardRoute />
               </OrganizationPage>
             }
           />
@@ -384,7 +479,7 @@ export const routeTree = (
                 title="Бэклоги"
                 skeleton="registry"
               >
-                <ProjectBacklogPage />
+                <ProjectBacklogRoute />
               </OrganizationPage>
             }
           />

@@ -2,13 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
-import { gate } from '../../../test/gate';
 import { server } from '../../../test/mocks/server';
 import { CATEGORY_MARKER_CLASS } from '../../../shared/ui/WorkTrackingMarks';
 import { serveProblem, serveWorkItems } from '../testApi';
 import {
   SAVED_AT_TEXT,
-  TEAMS_URL,
   WORK_ITEMS_URL,
   emptyDataset,
   exampleDataset,
@@ -339,15 +337,6 @@ function band() {
   return screen.getByRole('group', { name: 'Фильтры' });
 }
 
-async function chooseTeams(...names: string[]) {
-  await userEvent.click(await within(band()).findByRole('combobox', { name: 'Команда' }));
-  for (const name of names) {
-    await userEvent.click(await screen.findByRole('option', { name }));
-  }
-  await userEvent.keyboard('{Escape}');
-  await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
-}
-
 async function titles() {
   return rowsOf(await table()).map((row) => cellsOf(row)[2]);
 }
@@ -365,162 +354,63 @@ describe('mod-017 US-5 Scenario: the team column', () => {
   });
 });
 
-describe('mod-017 US-5 Scenario: the «Команда» filter on the list', () => {
-  it('stands in the band «Фильтры» as «Все команды», offers the teams by name and then «Без команды», no counts', async () => {
+/** The router's search, which the shell's location probe keeps. */
+function addressSearch(): string {
+  return screen.getByTestId('location').getAttribute('data-search') ?? '';
+}
+
+describe('feat-048 BR-NV-12 Scenario: the «Без команды» control on the list', () => {
+  it('stands in the band «Фильтры» as an unchecked «Без команды» and no team multi-select', async () => {
     serveWorkItems(teamsDataset());
     renderWorkItems(MSK_LIST);
     await table();
 
-    const filter = within(band()).getByRole('combobox', { name: 'Команда' });
-    expect(screen.getByText('Все команды')).toBeInTheDocument();
+    expect(within(band()).getByRole('checkbox', { name: 'Без команды' })).not.toBeChecked();
+    expect(within(band()).queryByRole('combobox', { name: 'Команда' })).toBeNull();
     expect(within(band()).queryByRole('button', { name: 'Очистить фильтры' })).toBeNull();
-    await userEvent.click(filter);
-
-    const list = await screen.findByRole('listbox');
-    expect(list).toHaveAttribute('aria-multiselectable', 'true');
-    expect(
-      within(list)
-        .getAllByRole('option')
-        .map((option) => option.textContent),
-    ).toEqual(['MARS', 'VENUS', 'Без команды']);
   });
 
-  it('any chosen value matches: a team narrows the rows and the count, «Без команды» adds the items of none, the request carries `teamId`', async () => {
+  it('narrows to the items of no team, the request carries teamId=none, and unchecking brings the list back', async () => {
     const api = serveWorkItems(teamsDataset());
     renderWorkItems(MSK_LIST);
     await table();
 
-    await chooseTeams('MARS');
-    await waitFor(async () => expect(await titles()).toEqual(['Марсианская']));
-    expect(api.reads('/workitems?').at(-1)?.path).toContain(`teamId=${ids.marsTeam}`);
-    expect(within(band()).getByRole('combobox', { name: 'Команда' })).toHaveTextContent('MARS');
+    await userEvent.click(within(band()).getByRole('checkbox', { name: 'Без команды' }));
 
-    await chooseTeams('Без команды');
-    await waitFor(async () => expect(await titles()).toEqual(['Марсианская', 'Ничья']));
+    await waitFor(async () => expect(await titles()).toEqual(['Ничья']));
     expect(api.reads('/workitems?').at(-1)?.path).toContain('teamId=none');
-    expect(within(band()).getByRole('combobox', { name: 'Команда' })).toHaveTextContent(
-      'MARS, Без команды',
-    );
-  });
-
-  it('«Очистить фильтры» shows while a value is chosen and brings the whole list back', async () => {
-    serveWorkItems(teamsDataset());
-    renderWorkItems(MSK_LIST);
-    await table();
-    await chooseTeams('VENUS');
-    await waitFor(async () => expect(await titles()).toEqual(['Венерианская']));
-
-    await userEvent.click(within(band()).getByRole('button', { name: 'Очистить фильтры' }));
-
+    await userEvent.click(within(band()).getByRole('checkbox', { name: 'Без команды' }));
     await waitFor(async () => expect(await titles()).toHaveLength(3));
-    expect(screen.getByText('Все команды')).toBeInTheDocument();
-    expect(within(band()).queryByRole('button', { name: 'Очистить фильтры' })).toBeNull();
   });
 
-  it('a change returns to page 1', async () => {
-    const data = emptyDataset();
-    for (let number = 1; number <= 120; number += 1) {
-      data.items.push(
-        item(ids.msk, number, 'TASK', `Задача ${number}`, {
-          teamId: number % 2 === 0 ? ids.marsTeam : null,
-          changedAt: new Date(2026, 9, 1, 0, number).toISOString(),
-        }),
-      );
-    }
-    const api = serveWorkItems(data);
-    renderWorkItems(MSK_LIST);
-    await table();
-    await userEvent.click(screen.getByRole('button', { name: 'Перейти на следующую страницу' }));
-    await waitFor(() => expect(api.reads('page=2')).not.toHaveLength(0));
-
-    await chooseTeams('MARS');
-
-    await waitFor(() => expect(api.reads('page=1&teamId=').length).toBeGreaterThan(0));
-  });
-
-  it('keeps the previous rows, busy, while a change is read; a failed read replaces them with the banner and «Повторить»', async () => {
+  it('is exclusive with the team selector: a chosen team is replaced and the reset is said', async () => {
     serveWorkItems(teamsDataset());
-    renderWorkItems(MSK_LIST);
-    await table();
-    const held = gate();
-    let fail = true;
-    server.use(
-      http.get(WORK_ITEMS_URL, async ({ request }) => {
-        if (new URL(request.url).searchParams.has('teamId')) {
-          await held.opened;
-          if (fail) {
-            fail = false;
-            return HttpResponse.json(problem('organizations.access.forbidden'), { status: 500 });
-          }
-        }
-        return undefined;
-      }),
-    );
-
-    await chooseTeams('MARS');
-
-    const list = await table();
-    expect(list).toHaveAttribute('aria-busy', 'true');
-    expect(await titles()).toHaveLength(3);
-    expect(screen.queryByRole('status', { name: 'Загрузка данных' })).not.toBeInTheDocument();
-
-    held.open();
-    await userEvent.click(await screen.findByRole('button', { name: 'Повторить' }));
+    renderWorkItems(`${MSK_LIST}?teamId=${ids.marsTeam}`);
     await waitFor(async () => expect(await titles()).toEqual(['Марсианская']));
+
+    await userEvent.click(within(band()).getByRole('checkbox', { name: 'Без команды' }));
+
+    await waitFor(() => expect(addressSearch()).toBe('?teamId=none'));
+    expect(await screen.findByText(/^Выбор сброшен: команда/)).toBeInTheDocument();
+    await waitFor(async () => expect(await titles()).toEqual(['Ничья']));
   });
 
-  it('shows «Ничего не найдено» after the filter, with «Сбросить фильтр» (and the band kept)', async () => {
-    const data = emptyDataset();
-    data.items.push(item(ids.msk, 1, 'TASK', 'Ничья'));
-    serveWorkItems(data);
-    renderWorkItems(MSK_LIST);
-    await table();
-
-    await chooseTeams('VENUS');
-
-    const frame = await screen.findByRole('heading', { level: 2, name: 'Ничего не найдено' });
-    expect(frame).toBeInTheDocument();
-    expect(
-      screen.getByText('Ни один рабочий элемент не подходит под заданные условия фильтра.'),
-    ).toBeInTheDocument();
-    expect(within(band()).getByRole('button', { name: 'Очистить фильтры' })).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Сбросить фильтр' }));
-
-    expect(await table()).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Ничего не найдено' })).not.toBeInTheDocument();
-  });
-
-  it('the field works while the teams are read (the list says «Загрузка…») and says why when they failed', async () => {
+  it('opens already checked from a link that carries teamId=none, and «Очистить фильтры» takes it out', async () => {
     serveWorkItems(teamsDataset());
-    const held = gate();
-    let failing = true;
-    server.use(
-      http.get(TEAMS_URL, async () => {
-        await held.opened;
-        if (failing) {
-          failing = false;
-          return HttpResponse.json(problem('organizations.access.forbidden'), { status: 500 });
-        }
-        return undefined;
-      }),
-    );
-    renderWorkItems(MSK_LIST);
-    await table();
+    renderWorkItems(`${MSK_LIST}?teamId=none`);
+    await waitFor(async () => expect(await titles()).toEqual(['Ничья']));
 
-    await userEvent.click(within(band()).getByRole('combobox', { name: 'Команда' }));
-    expect(await screen.findByRole('option', { name: 'Загрузка…' })).toBeInTheDocument();
-    held.open();
-    expect(
-      await screen.findByRole('option', {
-        name: 'Не удалось загрузить команды. Попробуйте ещё раз.',
-      }),
-    ).toBeInTheDocument();
-    await userEvent.keyboard('{Escape}');
-    await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
+    expect(within(band()).getByRole('checkbox', { name: 'Без команды' })).toBeChecked();
+    await userEvent.click(within(band()).getByRole('button', { name: 'Очистить фильтры' }));
+    await waitFor(() => expect(addressSearch()).toBe(''));
+    expect(within(band()).getByRole('checkbox', { name: 'Без команды' })).not.toBeChecked();
+  });
 
-    await userEvent.click(within(band()).getByRole('combobox', { name: 'Команда' }));
-    expect(await screen.findByRole('option', { name: 'MARS' })).toBeInTheDocument();
+  it('a team of the address narrows by that team alone (the selector value), and a blank teamId is no filter', async () => {
+    serveWorkItems(teamsDataset());
+    renderWorkItems(`${MSK_LIST}?teamId=`);
+    expect(await titles()).toHaveLength(3);
+    expect(within(band()).queryByRole('button', { name: 'Очистить фильтры' })).toBeNull();
   });
 
   it('a reader filters too', async () => {
@@ -528,16 +418,15 @@ describe('mod-017 US-5 Scenario: the «Команда» filter on the list', () 
     renderWorkItems(MSK_LIST, { role: 'viewer' });
     await table();
 
-    await chooseTeams('MARS');
+    await userEvent.click(within(band()).getByRole('checkbox', { name: 'Без команды' }));
 
-    await waitFor(async () => expect(await titles()).toEqual(['Марсианская']));
+    await waitFor(async () => expect(await titles()).toEqual(['Ничья']));
   });
 
-  it('a creation the filter hides is noticed as such (design § 6.5); one it shows reads as today', async () => {
+  it('a creation the filter hides is noticed as such (design § 6.5)', async () => {
     serveWorkItems(teamsDataset());
-    renderWorkItems(MSK_LIST);
-    await table();
-    await chooseTeams('MARS');
+    renderWorkItems(`${MSK_LIST}?teamId=${ids.marsTeam}`);
+    await waitFor(async () => expect(await titles()).toEqual(['Марсианская']));
 
     await userEvent.click(await screen.findByRole('button', { name: 'Новый рабочий элемент' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Задача' }));
@@ -551,87 +440,5 @@ describe('mod-017 US-5 Scenario: the «Команда» filter on the list', () 
         'Рабочий элемент MSK-TASK-4 создан. Он не подходит под текущий фильтр.',
       ),
     ).toBeInTheDocument();
-  });
-});
-
-// mod-020 (the human's answer to mod-017 OQ-9 B): the list's team filter lives in the page address
-// as the repeated `teamId`, so a link carries it. The reads and the field behave as above.
-
-/** The router's search, which the shell's location probe keeps. */
-function addressSearch(): string {
-  return screen.getByTestId('location').getAttribute('data-search') ?? '';
-}
-
-describe('mod-020 Scenario: the list’s team filter lives in the address', () => {
-  it('writes a choice into the address, one teamId per value and `none` for «Без команды», and clearing takes it out', async () => {
-    serveWorkItems(teamsDataset());
-    renderWorkItems(MSK_LIST);
-    await table();
-
-    await chooseTeams('MARS', 'Без команды');
-
-    await waitFor(() => expect(addressSearch()).toBe(`?teamId=${ids.marsTeam}&teamId=none`));
-    await userEvent.click(within(band()).getByRole('button', { name: 'Очистить фильтры' }));
-    await waitFor(() => expect(addressSearch()).toBe(''));
-    expect(screen.getByText('Все команды')).toBeInTheDocument();
-  });
-
-  it('a link that carries the filter opens the list already narrowed: every read carries it, the field and «Очистить фильтры» show it', async () => {
-    const api = serveWorkItems(teamsDataset());
-    renderWorkItems(`${MSK_LIST}?teamId=${ids.venusTeam}&teamId=none`);
-
-    await waitFor(async () => expect(await titles()).toEqual(['Венерианская', 'Ничья']));
-
-    expect(api.reads('/workitems?').length).toBeGreaterThan(0);
-    for (const read of api.reads('/workitems?')) {
-      expect(read.path).toContain(`teamId=${ids.venusTeam}`);
-      expect(read.path).toContain('teamId=none');
-    }
-    expect(within(band()).getByRole('combobox', { name: 'Команда' })).toHaveTextContent(
-      'VENUS, Без команды',
-    );
-    expect(within(band()).getByRole('button', { name: 'Очистить фильтры' })).toBeVisible();
-  });
-
-  it('a value that names no team of the project selects nothing, and «Сбросить фильтр» takes it out of the address', async () => {
-    serveWorkItems(teamsDataset());
-    renderWorkItems(`${MSK_LIST}?teamId=c3000000-0000-4000-8000-000000000099`);
-
-    expect(
-      await screen.findByRole('heading', { level: 2, name: 'Ничего не найдено' }),
-    ).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: 'Сбросить фильтр' }));
-
-    await waitFor(async () => expect(await titles()).toHaveLength(3));
-    expect(addressSearch()).toBe('');
-  });
-
-  it('a blank teamId in the address is no filter: the whole list, and nothing to clear', async () => {
-    serveWorkItems(teamsDataset());
-    renderWorkItems(`${MSK_LIST}?teamId=`);
-
-    expect(await titles()).toHaveLength(3);
-    expect(screen.getByText('Все команды')).toBeInTheDocument();
-    expect(within(band()).queryByRole('button', { name: 'Очистить фильтры' })).toBeNull();
-  });
-
-  it('the next page keeps the filter in the address and in the read', async () => {
-    const data = emptyDataset();
-    for (let number = 1; number <= 120; number += 1) {
-      data.items.push(
-        item(ids.msk, number, 'TASK', `Задача ${number}`, {
-          teamId: ids.marsTeam,
-          changedAt: new Date(2026, 9, 1, 0, number).toISOString(),
-        }),
-      );
-    }
-    const api = serveWorkItems(data);
-    renderWorkItems(`${MSK_LIST}?teamId=${ids.marsTeam}`);
-    await table();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Перейти на следующую страницу' }));
-
-    await waitFor(() => expect(api.reads(`page=2&teamId=${ids.marsTeam}`)).not.toHaveLength(0));
-    expect(addressSearch()).toBe(`?teamId=${ids.marsTeam}`);
   });
 });

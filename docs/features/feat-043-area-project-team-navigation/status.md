@@ -80,6 +80,8 @@ gate-3: approved 2026-11-02 (the human, in chat, after screenshots on test data)
 
 - 2026-11-02 [orchestrator] Post-gate-3 test change: the pre-push hook failed on backend tests. DeletedItemSurfaceMatrixTests lacked `/overview` and `/selector-offers`; both added as NoWorkItem, test only. Whole backend suite before the fix: 5626 passed, 1 failed.
 
+- 2026-11-03 [orchestrator] P-10 note from feat-048-aggregate-level-views (the human, in chat, before feat-048's gate-2; feat-048 spec BR-AV-1..12): the grouping switch «Группировка» (none, by department, by project, by team, offered by level) on «Бэклог», «Канбан» and «Рабочие элементы» amends BR-NV-20 (one group per project) to: by project is the default, other groupings and none are the user's choice, and outside by project the rows go by change time with no reorder. It also touches BR-NV-17 clause 2 (a default only) and BR-NV-12 (the flat list is the no-grouping form; a grouped form is added). US-10 stands for the default grouping; this folder's other text is not edited.
+
 ## Notes
 
 Summary (from the queue line): Top-level «Области», «Проекты» and «Команды»; the object pages with their sections, a section absent until the line that owns it adds it; the organization's «Обзор» as its home page, the user's organizations beside the content (feat-045 folded in); the «Рабочие элементы» list across projects; breadcrumbs with no false hierarchy; the switcher and the remembered context; empty states. A retired address answers «Страница не найдена», nothing redirects, and the interim pages of the earlier lines (the team and area pages in the organization settings, the project's teams, area links and default team in its settings) move onto the objects' own pages (doc-012 BR-MX-27, -28; US-10)

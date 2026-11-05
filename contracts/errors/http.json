@@ -44,6 +44,13 @@
       "kk": "Ресурс күйінің қайшылығы.",
       "kkNeedsReview": true
     },
+    "http.too_many_requests": {
+      "statuses": [429],
+      "params": {},
+      "ru": "Сервис сейчас занят. Повторите запрос через несколько секунд.",
+      "kk": "Қызмет қазір бос емес. Сұранысты бірнеше секундтан кейін қайталаңыз.",
+      "kkNeedsReview": true
+    },
     "http.internal_error": {
       "statuses": [500],
       "params": {},

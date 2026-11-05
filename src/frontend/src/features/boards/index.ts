@@ -7,11 +7,27 @@
 // slice through this file only.
 export { BacklogPage } from './pages/BacklogPage';
 export { BoardPage } from './pages/BoardPage';
+export { AggregateBacklogPage, AggregateBoardPage } from './pages/AggregateViewPages';
+export {
+  ProjectBacklogRoute,
+  ProjectBoardRoute,
+  ProjectWorkItemsRoute,
+  TeamBacklogRoute,
+  TeamBoardRoute,
+} from './pages/GroupedViewRoutes';
+export { AggregateWorkItemsPage } from './pages/AggregateWorkItemsPage';
 export { ProjectBacklogPage } from './pages/ProjectBacklogPage';
 export { ProjectBoardPage } from './pages/ProjectBoardPage';
 export {
   BACKLOG_ROUTE,
   BOARD_ROUTE,
+  DEPARTMENT_BACKLOG_ROUTE,
+  DEPARTMENT_BOARD_ROUTE,
+  DEPARTMENT_WORK_ITEMS_ROUTE,
+  ORGANIZATION_BACKLOG_ROUTE,
+  ORGANIZATION_BOARD_ROUTE,
+  ORGANIZATION_WORK_ITEMS_ROUTE,
+  TEAM_WORK_ITEMS_ROUTE,
   PROJECT_BACKLOG_ROUTE,
   PROJECT_BOARD_ROUTE,
   backlogLevelPaths,

@@ -143,7 +143,18 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         builder.HasIndex(item => new { item.ProjectId, item.OwningTeamId, item.TypeId }, WorkItemsConstraints.ProjectOwningTeamType);
         // feat-040 (ADR-0028 rule 13): a team's views across its projects are an equality on the team and a short list of types, so
         // every (team, type) pair is one range of this index; the project-led one above cannot serve them without a skip scan.
-        builder.HasIndex(item => new { item.OwningTeamId, item.TypeId }, WorkItemsConstraints.OwningTeamType);
+        builder.HasIndex(item => new { item.OwningTeamId, item.TypeId, item.ChangedAt, item.Number }, WorkItemsConstraints.OwningTeamType)
+            .IsDescending(false, false, true, true);
+        // feat-048 (ADR-0036, plan-backend D-5): the aggregate views page by change time, newest first, per (project, type), per (team, type)
+        // above, for the group of no team, and for an assignee; the 1 000 000-item test of BR-AV-11 proves them.
+        builder.HasIndex(item => new { item.ProjectId, item.TypeId, item.ChangedAt, item.Number }, WorkItemsConstraints.ProjectTypeChangedAt)
+            .IsDescending(false, false, true, true);
+        builder.HasIndex(item => new { item.ProjectId, item.TypeId, item.ChangedAt, item.Number }, WorkItemsConstraints.NoTeamChangedAt)
+            .IsDescending(false, false, true, true)
+            .HasFilter("owning_team_id IS NULL");
+        builder.HasIndex(item => new { item.AssigneeId, item.ChangedAt }, WorkItemsConstraints.AssigneeChangedAt)
+            .IsDescending(false, true)
+            .HasFilter("assignee_id IS NOT NULL");
         // mod-017 (ADR-0028 rule 5): the target of the team place's key (work_item_id, team_id) -> (id, owning_team_id),
         // which the second migration adds in SQL: EF cannot declare an alternate key over a nullable column.
         builder.HasIndex(item => new { item.Id, item.OwningTeamId }, WorkItemsConstraints.IdOwningTeam).IsUnique();

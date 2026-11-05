@@ -13,7 +13,7 @@ import { AppRoutes } from './routes';
 
 // feat-043 QA, US-1 «A retired address answers «Страница не найдена» and redirects nowhere»
 // (BR-NV-6, BR-NV-7) through the real routes, shell and gate: every address of the retired table,
-// and the addresses that belong to feat-048 and mod-007 and are not served before them.
+// and the addresses that belong to mod-007 and mod-019 and are not served before them (feat-048's landed).
 
 const ORG = ids.alfa;
 const FILL: Record<string, string> = {
@@ -29,28 +29,9 @@ function concrete(pattern: string): string {
 
 const RETIRED = RETIRED_ADDRESSES.map((retired) => [retired.was, concrete(retired.pattern)]);
 const NOT_YET = [
-  ['the organization’s «Рабочие элементы» (feat-048)', `/organizations/${ORG}/workitems`],
-  ['the organization’s «Канбан» (feat-048)', `/organizations/${ORG}/boards/stories`],
-  ['the organization’s «Бэклог» (feat-048)', `/organizations/${ORG}/backlogs/stories`],
-  [
-    'a department’s «Рабочие элементы» (feat-048)',
-    `/organizations/${ORG}/areas/${ids.platformArea}/workitems`,
-  ],
-  [
-    'a department’s «Канбан» (feat-048)',
-    `/organizations/${ORG}/areas/${ids.platformArea}/boards/stories`,
-  ],
-  [
-    'a department’s «Бэклог» (feat-048)',
-    `/organizations/${ORG}/areas/${ids.platformArea}/backlogs/stories`,
-  ],
   [
     'a department’s «Участники» (mod-019)',
     `/organizations/${ORG}/areas/${ids.platformArea}/members`,
-  ],
-  [
-    'a team’s «Рабочие элементы» (feat-048)',
-    `/organizations/${ORG}/teams/${ids.platformTeam}/workitems`,
   ],
   ['a team’s «Спринты» (mod-007)', `/organizations/${ORG}/teams/${ids.platformTeam}/sprints`],
   ['a project’s «Спринты» (mod-007)', `/organizations/${ORG}/projects/${ids.prm}/sprints`],

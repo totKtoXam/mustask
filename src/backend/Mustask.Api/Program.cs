@@ -106,7 +106,8 @@ if (builder.Environment.IsDevelopment())
             .WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .AllowCredentials()));
+            .AllowCredentials()
+            .WithExposedHeaders("Retry-After")));
     // ADR-0022: .AllowCredentials() вернулся — эта строка
     // раньше несла комментарий "снят" (шаг сноса старого cookie/anti-CSRF
     // контура), и с тех пор он не совпадал с кодом:
@@ -140,6 +141,10 @@ builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
 // mod-016 (ADR-0027): the role the scoped check resolved for this request, for the handlers that need it (the served access,
 // the second code of a parent write). Asking on a route without the check throws.
 builder.Services.AddScoped<IOrganizationAccess, HttpContextOrganizationAccess>();
+
+// The read limiter of the aggregate views (feat-048 OQ-2): one per API process, on the clock the host runs on.
+builder.Services.AddSingleton<AggregateReadLimiter>();
+builder.Services.AddScoped<AggregateReadLimitFilter>();
 
 // ADR-0018: Mustask.Api как resource server realm'а Keycloak. Значения
 // читаются один раз из builder.Configuration до Build() — единственный
@@ -309,6 +314,7 @@ app.MapProcessEndpoints();
 app.MapSessionEndpoints();
 app.MapWorkItemEndpoints();
 app.MapBoardEndpoints();
+app.MapAggregateViewEndpoints();
 
 app.Run();
 

@@ -132,6 +132,16 @@ public static class OrganizationAddressedRoutes
         new("POST", Project + "/backlogs/{level}/reorder", PermissionCatalog.BoardsBacklogReorder),
         new("GET", Project + "/boards/{level}", PermissionCatalog.WorkItemsWorkItemRead),
 
+        // feat-048 api-contract § 2: the aggregate views' grouped counts, group and cell pages, the organization-wide work-item list
+        // and its assignee options. All reads, the read code; before `Memberships`' last ten rows.
+        new("GET", Org + "/backlogs/{level}/groups", PermissionCatalog.WorkItemsWorkItemRead),
+        new("GET", Org + "/boards/{level}/groups", PermissionCatalog.WorkItemsWorkItemRead),
+        new("GET", Org + "/workitems/groups", PermissionCatalog.WorkItemsWorkItemRead),
+        new("GET", Org + "/backlogs/{level}/rows", PermissionCatalog.WorkItemsWorkItemRead),
+        new("GET", Org + "/boards/{level}/cells", PermissionCatalog.WorkItemsWorkItemRead),
+        new("GET", Org + "/workitems/rows", PermissionCatalog.WorkItemsWorkItemRead),
+        new("GET", Org + "/workitems", PermissionCatalog.WorkItemsWorkItemRead),
+        new("GET", Org + "/workitems/assignee-options", PermissionCatalog.WorkItemsWorkItemRead),
         // feat-033 api-contract § 2.1: the organization's own record of administrator appointments. Before the mod-016 block: `Memberships`
         // takes the last ten rows of this list.
         new("GET", Org + "/appointments", PermissionCatalog.OrganizationsMembershipWrite),
