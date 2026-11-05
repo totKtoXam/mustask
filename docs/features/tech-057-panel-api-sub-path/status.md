@@ -3,7 +3,7 @@
 - type: tech
 - size: L
 - branch: tech/057-panel-api-sub-path
-- stage: gate-3
+- stage: complete
 - epic: platform/ci
 - deps: tech-056
 - gates: gate-1, gate-3
@@ -11,7 +11,7 @@
 ## Gates
 
 gate-1: approved (human, chat 2026-11-05: «⭐ Принять ADR и план»)
-gate-3: pending
+gate-3: approved (human, chat 2026-11-05: «⭐ Одобрить, открыть PR»; the merge itself is the human's)
 
 ## Plan
 
@@ -81,3 +81,4 @@ docs/deploy/vm.md gets the sub-path nginx layout and is rehearsed again. An ADR 
 - 2026-11-05 [orchestrator] QA (qa.md): D-1 major (dialog page link without the base), D-2 minor (empty base + PanelUrl path started), D-3 nits; all fixed, tests green. Stage 06: one Opus review.
 - 2026-11-05 [orchestrator] review round 1 (review.md): F1-F2 major (regex locations win; no snippet restore), F3-F5 minor (dot segments in returnUrl, runbook wording); all fixed. Backend suite green (5747 tests).
 - 2026-11-05 [orchestrator] review round 2: approve; nit N1 (stale snippet backup) fixed. Stage gate-3. The hooksPath of this worktree points at doc-012's old hook (runs tests); its first push failed on backend tests that pass in a full run.
+- 2026-11-05 [orchestrator] gate-3 approved by the human: «⭐ Одобрить, открыть PR». Squash PR with Auto-fix; the merge is the human's.
