@@ -62,6 +62,14 @@ Plans: `plan-backend.md`, `plan-frontend.md`.
   the switch-off confirmation; stage → 03-ux-design
 - 2026-11-06 [ux-designer] design.md (about 28 KB) and prototype/index.html written; D-1..D-13 for gate-2, new open questions OQ-D1 (switch-off list on a sub-area) and OQ-D2 (per-row link flag, no matrix). Gates untouched
 
+- 2026-11-06 [orchestrator] gate-2 decisions answered by the human in chat,
+  one question each: D-1..D-13 all A; OQ-D1 A (the sub-area switch-off dialog
+  lists the owning project's grants given by those who stop being reached);
+  OQ-D2 (per-row canUnlink, filtered link pickers) goes to plan-backend's
+  contract. The prototype was clicked through by the orchestrator (create
+  project, row menu, change role, revoke; no JS errors). gate-2 itself waits
+  for the human's own look at the prototype
+
 ## Notes
 
 Summary (from the queue line): Area, project and team grants on top of organization membership; inheritance through the area tree, a project's grants reaching it through its node's ancestors, there being no area–project links; «Наследовать доступ»'s control on the node's page, its meaning per node type, its rules of who switches it and doc-012 US-1's switch clauses (mod-018 stores the switch, on, with no control: its OQ-2 B, OQ-9); the effective-permissions policy on every route, served to the panel per object, which shows an object page's sections by it; boards.projectbacklog.reorder; the inventory test per scope and the bundle contract. The grants are sections of the objects' own pages: «Участники и доступ» of a project and of a team (beside the team's members), «Участники» of an area (doc-012 BR-MX-20, -22, -23, -26; US-5, US-10; ADR-0029) · epic:core/org-access · size:L · deps:mod-018,feat-043 · note:doc-012 decomposition line 7; after feat-043 by doc-013, 2026-10-18; changes the authorization rules (mod-016 api-contract §§ 0.2, 1.1; mod-006 BR-M4-27); answers doc-011's scoped-permission-overrides; takes over tech-026 OP-7; gains the inheritance switch's control and rules from mod-018 (its OQ-2 B, the human at gate-1, 2026-10-18); takes over mod-018's m-2, m-3 / DEF-4 and TC-30; reworded after mod-018 (typed tree, ADR-0031), 2026-10-30
