@@ -31,6 +31,7 @@ gate-3: pending
 - 2026-11-05 [dev] stage 4 done: `UseSerilog(..., preserveStaticLogger: true)`, request logging takes `Serilog.ILogger` from DI, `StaticLoggerGuard` and its 6 uses removed, bug-002 own-host workaround in `SessionLogoutEndpointTests` reverted to the shared host, regression class `StaticLoggerRegressionTests` added (fails on the old Program.cs: verified by temporary revert). Ran 128 integration tests of the affected classes + 82 architecture tests, green. Not done: positive log assertions in `TokenLeakTests` (still DoesNotContain-only, now over live loggers); `SerialClasses` entries kept. stage: 05-backend-qa
 
 - 2026-11-05 [qa] backend QA done: positive controls (request path in the capture) added to 7 TokenLeakTests asserts, ErrorHandlingTests/PurgeWorkItemEndpointTests left SerialClasses and the AGENTS.md rule reworded, regression test confirmed to fail on the old Program.cs; 81+44 integration, 82 architecture green; no blocker/major. stage: 06-code-review
+- 2026-11-05 [review] round 1 done (one pass incl. security): changes-requested, 3 major open (CR-1..CR-3 in review.md), 0 minor
 
 ## Notes
 
