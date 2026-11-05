@@ -3,14 +3,14 @@
 - type: module
 - size: L
 - branch: mod/019-scoped-access
-- stage: 02-requirements-review
+- stage: 03-ux-design
 - epic: core/org-access
 - deps: mod-018,feat-043
 - gates: gate-1, gate-2, gate-3
 
 ## Gates
 
-gate-1: pending
+gate-1: approved (2026-11-06, human in chat, one question each: OQ-1 A, OQ-2 reviewer variant, OQ-3 B, OQ-4 B, OQ-5 A, OQ-6 reviewer A, OQ-7 A, OQ-8 A, OQ-9 B, R-27 shown in the switch-off dialog; after review round 3, approved-by-ai, requested by the human)
 gate-2: pending
 gate-3: pending
 
@@ -55,6 +55,11 @@ Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-11-06 [requirements-reviewer] round 2 (delta) in review.md: verdict needs-human-decision. Closed: R-1..R-9, R-11..R-18, R-20, R-21. Reopened: R-10 (major, the matrix omits project roles on area routes under OQ-3 B) and R-19 (minor). New: R-22 major (`POST /projects` has no valid route code or answer order under BR-SA-17), R-23 major (the deferred ADR also touches §§ 6, 7, 12; BR-SA-5 lacks the project-grant reach; write it before code), R-24 major (self-grant escalation under OQ-8 A, so OQ-9 goes to the human), R-25 and R-26 minor. No blocker. Second and last iteration; gate-1 untouched
 - 2026-11-06 [requirements-reviewer] round 3 (past the two-iteration limit, by the human's request in chat) in review.md: verdict approved-by-ai, ready for gate-1. R-10, R-19, R-22..R-26 closed. New minors: R-27 accepted-risk, needs the human's acknowledgement at gate-1 (two managers granting each other project «Управление» survive a switch-off); R-28 (409 root_is_fixed, not 403, in US-8) and R-29 (the admin's type_not_allowed for a non-department place) fixed by small reviewer edits in spec.md BR-SA-17/-19, US-2, US-5 and US-8. gate-1 untouched
 - 2026-11-06 [business-analyst] round-2 fix: R-10, R-19 (reopened) and R-22..R-26 fixed, none rejected (Author's response, round 2, in review.md). OQ-9 B recorded as BR-SA-19 with a US-1 scenario. POST /projects keeps its path (inventory exception, place in the body, step 0). The ADR amending ADR-0029 §§ 4, 6, 7, 12 and the delivery bullet is `proposed` in plan-backend before code. Ready for gate-1
+- 2026-11-06 [business-analyst] R-27 closed by the human's decision (make it visible): the switch-off confirmation also lists the project grants on the project given by the users who stop being reached, list only; BR-SA-19, US-2, review.md updated. Gates untouched
+- 2026-11-06 [orchestrator] gate-1 approved by the human in chat after a
+  third review round the human asked for (past the two-round limit by the
+  human's decision); R-27 closed by listing the reached users' project grants in
+  the switch-off confirmation; stage → 03-ux-design
 
 ## Notes
 

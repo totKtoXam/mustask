@@ -383,8 +383,8 @@ Severity: minor
 Affects: BR-SA-19, BR-SA-7; US-2 "A switch off counts…"; US-1 "A grantee is never the grant's giver"
 Problem: the residual the coordinator asked about. Under OQ-8 A, Pavel gives Irina project «Управление» on A, and she gives him the same (US-1 pins that both are kept). Each grant is held on the project, so turning A's node off cuts neither. OQ-9 B closes only the one-person path. The switch-off confirmation leaves out project-grant holders, and BR-SA-19 gave a false reason for that ("no one can have made themselves one").
 Required resolution: the reviewer reworded the reason in BR-SA-19 and US-2 to the true one: a project grant is held on the project and is not cut by the switch. BR-SA-19 now records the residual as accepted at gate-1 unless the human reopens it. If the human wants it closed, the cheap fix is one line in the switch-off confirmation naming the project grants on this project given by the users who stop being reached.
-Status: accepted-risk (pending the human's gate-1 acknowledgement)
-Resolution: round 3, reviewer edit. BR-SA-19 and US-2 are reworded, and the US-5 picker never offers the actor (BR-SA-19).
+Status: closed (the human, 2026-11-06: close it by making it visible)
+Resolution: round 3, reviewer edit; then the human's decision, applied by the business analyst: the switch-off confirmation also lists the project grants on this project given by the users who stop being reached (BR-SA-19, US-2); it only lists them, ending them stays manual; US-5 describes no dialog, so it is unchanged. Earlier: BR-SA-19 and US-2 are reworded, and the US-5 picker never offers the actor (BR-SA-19).
 
 ### R-28
 Severity: minor
