@@ -3,14 +3,14 @@
 - type: tech
 - size: S
 - branch: tech/053-landing-test-flake
-- stage: gate-3
+- stage: complete
 - epic: platform/ci
 - deps: -
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved · PR #94 https://github.com/totKtoXam/mustask/pull/94
 
 ## Plan
 
@@ -27,6 +27,7 @@ gate-3: pending
 - 2026-11-06 [qa] light QA: root cause confirmed, assertions unchanged, no blocking defects (review.md); 3/3 sequential and 2/2 under 30 burners green, workitems folder 909 tests green; two low notes. stage set to 06-code-review
 - 2026-11-06 [code-reviewer] round 1: approve; 0 blocker, 0 major, 1 minor (R1-1, debt) open in review.md
 - 2026-11-06 [orchestrator] merged main; gate-3 pending with the human; debts D-1 and R1-1 (move LIST_RENDER to a shared helper if another heavy render flakes); weekly 43% at start, 46% at gate-3
+- 2026-11-06 [orchestrator] gate-3 approved: the human asked to turn on auto-merge («Включить автомердж»); squash auto-merge on PR #94, it merges when CI is green
 
 ## Notes
 
