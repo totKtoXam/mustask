@@ -19,6 +19,13 @@ Mustask.Api ──> PostgreSQL            Mustask.Api ──https──> shared 
 `mustask.example.com` below stands for your domain; `keycloak.example.com` for
 the shared Keycloak host.
 
+**MUSTASK must own the root of its host name.** The current release cannot be
+served under a sub-path such as `https://portal.example.com/mustask`: the panel
+bundle and its routes, the API paths, the session cookie path and the sign-in
+redirect addresses all assume `/`, and proxy rewrites do not fix that.
+Sub-path support is its own task (tech-057); until it ships, give MUSTASK a
+host name of its own (for example `mustask.example.com`).
+
 This runbook assumes a release that contains tech-024 (client roles) and
 tech-025 (the user projection filled at sign-in, ADR-0034). On a release
 without them the Keycloak side differs.
@@ -50,6 +57,13 @@ the last segment of `Keycloak__Authority`.
 - **Assign `user` directly to every person who should use MUSTASK** (to the
   user itself, not through a group or a default role). Add the other roles on
   top as needed.
+- **The first administrator** is an existing employee account of the realm:
+  no new account is created for MUSTASK. Name that person in the request, and
+  the Keycloak admin assigns them **all four** `mustask-api` client roles
+  (`user`, `organization-creator`, `dictionaries-admin`, `system-admin`)
+  directly. After their first sign-in they create the first organization and
+  add everyone else to it; nobody else needs `organization-creator` until
+  another organization is wanted.
 
 ### Client `mustask-panel` (the sign-in client)
 
@@ -347,8 +361,8 @@ HTTP.
 3. A user with `user` signs in and lands in the panel. A user **without**
    `user` comes back with `authError=no_access` and has no session.
 4. The roles take effect: a user with only `user` opens the dictionaries but
-   is refused creating an organization ("Недостаточно прав"); a user who also
-   holds `organization-creator` creates one. If the second user is refused
+   is refused creating an organization ("Недостаточно прав"); the first
+   administrator (all four roles, section 1) creates the first organization. If the second user is refused
    too, run the Evaluate check from section 1 for that user:
    `resource_access.mustask-api.roles` must list both roles.
 5. After the first sign-in the user appears in member search (the directory
@@ -406,6 +420,8 @@ Still unverified, because the rehearsal could not have them:
   database through a temporary port mapping instead.
 - **A migrations bundle, upgrades and rollback** (sections 3 and 9): not
   executed.
+- **A sub-path address**: not supported by this release (see the top of
+  this document, tech-057).
 
 The first real deployment should walk section 8 again and fix this document
 where it differs.
