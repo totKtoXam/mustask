@@ -3,14 +3,14 @@
 - type: tech
 - size: S
 - branch: tech/056-vm-runbook-rehearsal
-- stage: gate-3
+- stage: complete
 - epic: platform/ci
 - deps: tech-050
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved (human, chat 2026-11-05: «Посмотрю и солью»; the merge itself is the human's)
 
 ## Plan
 
