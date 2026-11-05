@@ -262,6 +262,20 @@ The human's answers (status.md Log): OQ-1 A, OQ-2 reviewer's variant, OQ-3 B, OQ
 
 **New for the human:** OQ-8 (what a department manager holds on a project it creates). OQ-3 B and OQ-4 B each need a new ADR amending ADR-0029 § 4 (BR-SA-16, -17), written at the backend stage and accepted at gate-3.
 
+### Author's response — round 2 fix (business-analyst, 2026-11-06)
+
+OQ-8 A and OQ-9 B are the human's answers (spec § Open questions). All round-2 findings are accepted and fixed; none rejected.
+
+| R | What changed |
+|---|---|
+| R-10 | BR-SA-5 states the project-grant path; US-6 gains the cells for project roles on the node and sub-area routes and keeps only the impossible exclusions (area role on a non-department, team role off its scope) |
+| R-19 | BR-SA-14 and US-6: the realm test compares the four client roles, no code is in the realm or the token; `tokenClaims.ts` is runtime code imported at build time |
+| R-22 | The recommended fix, which keeps mod-018's path: `POST /projects` is an inventory exception ("place in the body, step 0"); a non-admin gets 403 for any lacking, unknown, deleted, foreign or non-department place, the admin «Область не найдена.»; BR-SA-17, US-4, US-6, US-8 and § Breaks aligned |
+| R-23 | BR-SA-5 gains the reach rule; BR-SA-16 names ADR-0029 §§ 4, 6, 7, 12 and the delivery bullet and requires the ADR `proposed` in plan-backend before any code, accepted at gate-3; § Breaks row updated |
+| R-24 | OQ-9 B as BR-SA-19, replacing BR-SA-2's "downgrade" clause; US-1 scenario; US-2 confirmation line. It closes the escalation: no self-grant. Residual, accepted: two managers granting each other, visible in the giver column |
+| R-25 | BR-SA-12 cites feat-043 § Roles and BR-NV-14; the submit answer is R-22's |
+| R-26 | US-8 fixture: "created, renamed and deleted with its project, moved by the area move"; Kirill moves «Тесты» under «Платформа» |
+
 ## Round 2 — requirements (delta)
 
 Reviewer: requirements-reviewer, 2026-11-06. Delta read of the open findings and the changed sections: spec.md as it now

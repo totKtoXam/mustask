@@ -82,8 +82,15 @@ Scenario: A grant ends with its object, and a deactivated project keeps it
 Scenario: Edge cases of the managers themselves (BR-SA-2, -3)
   Given Pavel and Kirill both hold «Управление» on MARS and each removes the other's grant at the same moment
   Then both removals may succeed and the team is left to the admin, who manages every object
-  And a manager may remove or downgrade their own grant
+  And a manager may remove their own grant
   And a grant given to an organization admin is stored and is kept when the admin is made a «Участник»
+
+Scenario: A grantee is never the grant's giver (OQ-9 B, BR-SA-19)
+  Given Pavel holds «Управление» on «Логистика», so he can give roles on A (OQ-8 A)
+  When he gives himself the project role «Управление» on A, or changes the role of a grant he holds on any object, or Anna does the same for herself
+  Then each is refused with the contract's validation code and stores nothing
+  When Pavel gives Irina «Управление» on A, and she gives Pavel «Управление» on A
+  Then both are kept, and each grant lists its giver; Pavel's own removal of a grant he holds is kept
 
 Scenario: People move without moving work
   Given Olga is a member of MARS with «Планирование», and is the assignee of MARS items of A

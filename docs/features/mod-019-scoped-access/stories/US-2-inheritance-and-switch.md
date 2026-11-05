@@ -78,6 +78,7 @@ Scenario: A switch off counts who stops being reached and warns the actor (OQ-6)
   When Pavel turns the switch off on A's node
   Then a confirmation says that 2 holders of grants stop being reached (Irina and Pavel), counting distinct users, organization admins and project-role holders excluded
   And because Pavel is among them it adds a line that he will lose the management of this node (copy is the design's)
+  And the count leaves out holders of a project grant, which no one can have given themselves (BR-SA-19); a grant a colleague gave stays, and its giver is listed
   And nothing changes until it is confirmed
 
 Scenario: A create form applies the switch last

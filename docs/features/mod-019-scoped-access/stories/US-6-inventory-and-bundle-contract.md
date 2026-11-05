@@ -31,7 +31,9 @@ Scenario: The matrix is generated, not written, and every cell is realizable
   Then it takes the bundles from the domain and the routes' declarations
   And organization roles come through the membership; a role of the route's own scope is held on the addressed object
   And a route of a project, team or area is also run with an area role held on the department above (switch on, switch off) and on another department, and with a project or team role held on another object of its scope
-  And no cell holds an area role on a project, team or sub-area, or a project or team role on an area route, since the grant cannot exist (US-1)
+  And the project roles are also held on the project the route's node or sub-area belongs to (the area-scope cells of BR-SA-16, switch on and off), and on another project
+  And no cell holds an area role on a project, team or sub-area, or a team role on a project or area route, since such a grant cannot exist (US-1)
+  And `POST /projects`, whose place is in the body, is run as an exception cell: the place's code decides at step 0 (BR-SA-17)
   And each cell expects a pass or 403 «Недостаточно прав» per ADR-0029 §§ 4 and 6 as amended by BR-SA-16, -17
   And the "not found" cells are added by `feat-041-project-visibility`, which crosses the matrix with visibility
 
@@ -52,9 +54,9 @@ Scenario: The contract also carries the instance role-to-code table (OQ-7 A, ADR
   Given the four client roles of the company-wide realm and the table that maps them to instance codes
   When the contract test runs
   Then it compares that table with the code's, and fails on any difference
-  And the realm contract test compares instance codes only, and organization codes stay out of the realm and the token
+  And the realm contract test compares the four client roles; no code, organization or instance, is in the realm or the token
 
 Scenario: The panel reads the contract in place of the hand copies
   When the panel's tests need a role's codes, or the instance role table
-  Then they read the contract file; `src/frontend/src/test/organizationRoles.ts` holds no list of codes and `src/frontend/src/shared/api/tokenClaims.ts` holds no hand mirror of the table
+  Then they read the contract file, and the panel's runtime code imports it at build time; `src/frontend/src/test/organizationRoles.ts` holds no list of codes and `src/frontend/src/shared/api/tokenClaims.ts` holds no hand mirror of the table
 ```

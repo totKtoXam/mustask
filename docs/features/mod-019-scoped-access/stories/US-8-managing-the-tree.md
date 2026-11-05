@@ -9,7 +9,7 @@ As a **department manager or a project manager**, I want **to create projects in
 
 ## Acceptance criteria
 
-Fixture and users of US-1 (everyone a «Читатель» unless said). Pavel holds «Управление» on «Логистика»; Kirill holds the project role «Управление» on A; Olga holds «Изменение» on A. Departments do not nest and hold only project nodes; sub-areas stand only below a project node (mod-018 OQ-3, OQ-7); a project node is created, renamed, moved and deleted with its project.
+Fixture and users of US-1 (everyone a «Читатель» unless said). Pavel holds «Управление» on «Логистика»; Kirill holds the project role «Управление» on A; Olga holds «Изменение» on A. Departments do not nest and hold only project nodes; sub-areas stand only below a project node (mod-018 OQ-3, OQ-7); a project node is created, renamed and deleted with its project, and moved by the area move.
 
 ```gherkin
 Scenario: A department manager creates a project in the department (OQ-4 B)
@@ -31,7 +31,9 @@ Scenario: A department manager runs the projects it reaches (OQ-8 A)
 Scenario: The place decides, and the order of the codes is fixed (mod-018 TC-2 kept)
   When Olga, who manages nothing, creates a project in «Логистика»
   Then it answers 403, before a name taken or a malformed body is looked at
-  And a project created with a place that names no department answers the department's not-found
+  And a non-admin naming a place that does not exist, was deleted, belongs to another organization or is not a department gets the same 403, so nothing is disclosed
+  And Anna naming an unknown place gets «Область не найдена.»
+  And the route is on the inventory's exception list: the place is in the body and is decided at step 0, before any lookup
 
 Scenario: A department manager manages the sub-areas below its project nodes
   Given the switches are on
@@ -41,7 +43,7 @@ Scenario: A department manager manages the sub-areas below its project nodes
   Then each answers 403 (the node is renamed with its project, `root_is_fixed`)
 
 Scenario: A project manager manages the sub-areas of its project (OQ-3 B)
-  When Kirill creates «Тесты» under A's node, renames «Платформа», moves it under A's node and deletes it
+  When Kirill creates «Тесты» under A's node, renames «Платформа», moves «Тесты» under «Платформа» and deletes it
   Then each is kept
   And the same under B's node or on «Склад» answers 403
   And Olga, holding «Изменение», gets 403 on each

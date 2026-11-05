@@ -71,7 +71,7 @@ Scenario: The create commands are offered by their codes (m-3 and TC-30 kept und
   When each opens «Структура» and «Проекты»
   Then Anna is offered «Новый департамент» and «Новый проект» with the top level and every department as places; Pavel «Новый проект» with «Логистика» as its only place and no «Новый департамент»; Kirill neither
   And «Новый проект» is absent, not disabled (BR-NV-1), when the caller's place list would be empty, so its «Расположение» is never empty
-  And a place deleted meanwhile answers 403 on submit, and the dialog re-reads the places
+  And a place deleted meanwhile answers a non-admin 403 on submit (the admin «Область не найдена.»), and the dialog re-reads the places
 
 Scenario: The server decides
   Given Olga's served codes on A lack the change code
