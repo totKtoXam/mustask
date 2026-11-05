@@ -45,6 +45,8 @@ say() { printf '== %s\n' "$*"; }
 env_value() { sed -n "s/^$1=//p" "$env_file" | tail -n 1 | sed 's/^"\(.*\)"$/\1/'; }
 # Settings still holding the template placeholder (comments do not count).
 placeholders() { grep -nE '^[^#]*CHANGE_ME' "$env_file"; }
+# A host name with no port, path or characters sed would read.
+host_name() { printf '%s' "$1" | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'; }
 # A flag that takes a value must have one.
 val() { [ $# -ge 2 ] && [ -n "$2" ] && [ "${2#--}" = "$2" ] || die "$1 needs a value"; }
 
@@ -73,12 +75,29 @@ cmd_prepare() {
     done
     [ -n "$host" ] && [ -n "$kc_host" ] && [ -n "$realm" ] \
         || die "prepare: --host, --keycloak-host and --realm are required"
+    # They go into sed and into the env file: plain names only.
+    host_name "$host" || die "--host '$host' is not a plain host name"
+    printf '%s' "$kc_host" | grep -Eq '^[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._-]+)*$' \
+        || die "--keycloak-host '$kc_host' is not host[:port][/path]"
+    printf '%s' "$realm" | grep -Eq '^[A-Za-z0-9._-]+$' || die "--realm '$realm' is not a plain name"
 
     if [ "$packages" = 1 ]; then
-        say "apt-get install aspnetcore-runtime-10.0 postgresql nginx"
-        apt-get update
-        DEBIAN_FRONTEND=noninteractive apt-get install -y \
-            aspnetcore-runtime-10.0 postgresql nginx curl
+        # Only what is missing, and never an upgrade: on a shared VM an
+        # upgrade of PostgreSQL or nginx restarts what others rely on.
+        local missing=''
+        dpkg-query -W -f '${Status}' aspnetcore-runtime-10.0 2>/dev/null | grep -q 'ok installed' \
+            || missing="$missing aspnetcore-runtime-10.0"
+        command -v psql >/dev/null || missing="$missing postgresql"
+        command -v nginx >/dev/null || missing="$missing nginx"
+        command -v curl >/dev/null || missing="$missing curl"
+        if [ -n "$missing" ]; then
+            say "apt-get install --no-upgrade$missing"
+            apt-get update
+            # shellcheck disable=SC2086
+            DEBIAN_FRONTEND=noninteractive apt-get install -y --no-upgrade $missing
+        else
+            say "packages already installed, nothing to do"
+        fi
     fi
     command -v dotnet >/dev/null || die "no dotnet: install aspnetcore-runtime-10.0 (or pass --install-packages)"
 
@@ -119,13 +138,20 @@ cmd_prepare() {
             pw=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
             # The env file first, so a failure below never loses the password.
             # Through the environment and stdin, never argv: it never shows
-            # in ps. `cat >` keeps the file's owner and mode.
+            # in ps. The temp file is 0600 from its creation; `cat >` keeps
+            # the env file's owner and mode.
+            install -m 0600 /dev/null "$env_file.tmp"
+            trap 'rm -f "$env_file.tmp"' EXIT
             PW=$pw awk '/^ConnectionStrings__mustask=/ {
                     print "ConnectionStrings__mustask=Host=127.0.0.1;Port=5432;Database=mustask;Username=mustask;Password=" ENVIRON["PW"]; next
                 } { print }' "$env_file" > "$env_file.tmp"
             cat "$env_file.tmp" > "$env_file"
             rm -f "$env_file.tmp"
+            # A failing statement is logged with its text by default: keep
+            # the password out of the server log.
             runuser -u postgres -- psql -v ON_ERROR_STOP=1 -q <<SQL
+SET log_min_error_statement = panic;
+SET log_statement = 'none';
 CREATE ROLE mustask LOGIN PASSWORD '$pw';
 SQL
             say "the password went into $env_file"
@@ -156,22 +182,37 @@ cmd_nginx() {
     done
     [ -n "$host" ] && [ -n "$cert" ] && [ -n "$key" ] \
         || die "nginx: --host, --cert and --key are required"
+    host_name "$host" || die "--host '$host' is not a plain host name"
     [ -f "$cert" ] || die "no certificate file $cert"
     [ -f "$key" ] || die "no key file $key"
     # nginx resolves relative paths against its own prefix, not this cwd.
     cert=$(readlink -f "$cert")
     key=$(readlink -f "$key")
+    case "$cert$key" in
+        *[\|\&\;\ ]*) die "certificate and key paths must not hold | & ; or spaces" ;;
+    esac
 
-    say "/etc/nginx/sites-available/mustask"
+    local site=/etc/nginx/sites-available/mustask enabled=/etc/nginx/sites-enabled/mustask
+    local was_enabled=0
+    [ -L "$enabled" ] && was_enabled=1
+    [ -f "$site" ] && cp -p "$site" "$site.bak"
+    say "$site"
     sed -e "s|@HOST@|$host|g" -e "s|@CERT@|$cert|g" -e "s|@KEY@|$key|g" \
-        "$kit/nginx-mustask.conf" > /etc/nginx/sites-available/mustask
-    ln -sfn /etc/nginx/sites-available/mustask /etc/nginx/sites-enabled/mustask
+        "$kit/nginx-mustask.conf" > "$site"
+    ln -sfn "$site" "$enabled"
     # A site that fails the test must not stay enabled: the next reload or
-    # reboot would take down every other site of this nginx with it.
+    # reboot would take down every other site of this nginx with it. A
+    # working site from an earlier run is put back as it was.
     if ! nginx -t; then
-        rm -f /etc/nginx/sites-enabled/mustask
+        if [ -f "$site.bak" ]; then
+            mv "$site.bak" "$site"
+            [ "$was_enabled" = 1 ] || rm -f "$enabled"
+            die "nginx -t failed; the previous site is restored"
+        fi
+        rm -f "$enabled"
         die "nginx -t failed; the site is written but not enabled"
     fi
+    rm -f "$site.bak"
     systemctl enable --now nginx >/dev/null 2>&1 || die "cannot start nginx (systemctl status nginx)"
     systemctl reload nginx
 }
@@ -179,7 +220,9 @@ cmd_nginx() {
 cmd_deploy() {
     local src=${1:-}
     [ -n "$src" ] && [ -f "$src/VERSION" ] || die "deploy: give the unpacked release directory (with VERSION)"
-    src=$(cd "$src" && pwd)
+    # -P: through symlinks, so `deploy /opt/mustask/current` is the release
+    # itself and never a link copied over its own target.
+    src=$(cd "$src" && pwd -P)
     [ -f "$env_file" ] || die "no $env_file: run 'install.sh prepare' first"
     if placeholders >/dev/null; then
         die "$env_file still has CHANGE_ME on line(s) $(placeholders | cut -d: -f1 | paste -sd, -)"
@@ -188,6 +231,11 @@ cmd_deploy() {
     local tag target
     tag=$(sed -n 's/^tag=//p' "$src/VERSION")
     [ -n "$tag" ] || die "VERSION has no tag"
+    # It becomes a path that rm -rf and mv work on.
+    case $tag in
+        *..*|.*) die "bad tag '$tag' in VERSION" ;;
+    esac
+    printf '%s' "$tag" | grep -Eq '^[A-Za-z0-9._-]+$' || die "bad tag '$tag' in VERSION"
     target=$releases/$tag
     say "release $tag ($(sed -n 's/^commit=//p' "$src/VERSION"))"
     local site

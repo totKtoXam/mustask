@@ -25,7 +25,8 @@ for a in "$@"; do
 done
 
 [ -r "$env_file" ] || { printf 'smoke: cannot read %s (run with sudo)\n' "$env_file" >&2; exit 2; }
-value() { sed -n "s/^$1=//p" "$env_file" | tail -n 1; }
+# Surrounding quotes are dropped, as systemd does.
+value() { sed -n "s/^$1=//p" "$env_file" | tail -n 1 | sed 's/^"\(.*\)"$/\1/'; }
 site=$(value Session__PanelUrl)
 authority=$(value Keycloak__Authority)
 host=${site#https://}

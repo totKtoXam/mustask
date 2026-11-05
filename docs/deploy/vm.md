@@ -149,8 +149,10 @@ sudo bash mustask-v0.1.0/kit/install.sh prepare \
 is left as it is, so `prepare` can be run again. The two flags are the parts
 that change the machine, and each is explicit:
 
-- `--install-packages` runs `apt-get install aspnetcore-runtime-10.0
-  postgresql nginx curl`. On Ubuntu 24.04 all of them come from the
+- `--install-packages` installs only what is missing of
+  `aspnetcore-runtime-10.0`, PostgreSQL, nginx and curl, with
+  `apt-get install --no-upgrade`: a PostgreSQL or nginx already on the VM is
+  neither upgraded nor restarted. On Ubuntu 24.04 all of them come from the
   distribution's own archive (the rehearsal got ASP.NET Core 10.0.14,
   PostgreSQL 16, nginx 1.24); `/usr/bin/dotnet` is what the unit runs. Leave
   the flag out when the packages are installed another way.
@@ -174,8 +176,11 @@ is invalidated and users sign in again.
 With `--create-db`, `prepare` creates the login role and the database
 `mustask` it owns on the local PostgreSQL, under a generated password that it
 writes straight into the connection string in `mustask.env`. The password is
-never printed; nobody has to know it. If the role already exists, nothing is
-touched.
+never printed; nobody has to know it. A role that already exists is left as
+it is, provided `mustask.env` already holds its password (otherwise `prepare`
+stops and says so); a missing database is created. An existing database
+named `mustask` is taken as it is, whoever owns it: check that it is the one
+you mean.
 
 For a PostgreSQL elsewhere, create them yourself and put the string into
 `mustask.env` by hand:
@@ -305,8 +310,12 @@ sudo bash mustask-v0.1.0/kit/install.sh nginx --host mustask.example.com \
 ```
 
 It renders `/etc/nginx/sites-available/mustask`, enables it, runs `nginx -t`
-and reloads nginx; if the test fails, the site is disabled again, so the
-other sites of that nginx are never at risk. Two settings in the file are there for a reason found by
+and reloads nginx. If the test fails, the site from an earlier run is put
+back (or, on a first run, the new one is disabled), so a broken site never
+stays enabled for the next reload. Two things in the site do touch the
+other sites of that nginx: on nginx before 1.25.1 `http2` on a `listen 443`
+line turns HTTP/2 on for every server on that port, and if no other server
+is the `default_server` for 443, this one answers names nobody configured. Two settings in the file are there for a reason found by
 the rehearsal (tech-056):
 
 - `listen 443 ssl http2;` is for the nginx that Ubuntu 24.04 and Debian 12

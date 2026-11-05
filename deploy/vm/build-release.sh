@@ -12,7 +12,8 @@
 # The kit itself (this directory) is taken from the current checkout, since a
 # tag older than the kit does not carry it.
 #
-# Output: <out-dir>/mustask-<tag>.tar.gz (default out-dir: ./out) holding
+# Output: <out-dir>/mustask-<tag>.tar.gz (default: out/ at the repository
+# root, ignored by git) holding
 #   api/        dotnet publish of Mustask.Api (framework-dependent)
 #   panel/      the panel build, VITE_API_BASE_URL=<site-url> baked in
 #   efbundle    EF Core migrations bundle, linux-x64, self-contained: the VM
@@ -30,7 +31,7 @@ die() { printf 'build-release: %s\n' "$*" >&2; exit 1; }
 [ $# -ge 2 ] || die "usage: deploy/vm/build-release.sh <tag> <site-url> [out-dir]"
 tag=$1
 site=${2%/}
-out=${3:-out}
+out=${3:-}
 
 case $site in
     https://*) ;;
@@ -39,14 +40,17 @@ esac
 case ${site#https://} in
     */*) die "site-url must be a host root, no path (got '$site'): sub-paths need tech-057" ;;
 esac
-printf '%s' "${site#https://}" | grep -Eq '^[A-Za-z0-9.-]+(:[0-9]+)?$' \
-    || die "site-url has no valid host name (got '$site')"
+# No port either: the nginx site listens on 443 and install.sh takes a host.
+printf '%s' "${site#https://}" | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$' \
+    || die "site-url must be https://<host name>, no port (got '$site')"
 # The tag names the release directory on the VM and the tarball.
 printf '%s' "$tag" | grep -Eq '^[A-Za-z0-9._-]+$' \
     || die "tag '$tag' must be one plain name (letters, digits, . _ -)"
 
 kit=$(cd "$(dirname "$0")" && pwd)
 repo=$(git -C "$kit" rev-parse --show-toplevel)
+# The default lands in the repository's ignored /out/, wherever it runs from.
+out=${out:-$repo/out}
 
 git -C "$repo" rev-parse -q --verify "refs/tags/$tag" >/dev/null \
     || die "no tag '$tag' here; run 'git fetch --tags' first"
