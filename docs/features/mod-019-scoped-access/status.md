@@ -52,6 +52,7 @@ Plans: `plan-backend.md`, `plan-frontend.md`.
   tokenClaims.ts mirror). gate-1 itself waits for the fix round on R-1..R-21
 - 2026-11-06 [business-analyst] fix round for review round 1: R-1..R-21 all fixed, none rejected (Author's response in review.md). OQ-1..OQ-7 marked answered in spec.md; stories US-7 (links under grants) and US-8 (managing the tree) added; new OQ-8 for the human (what a department manager holds on a project it creates); OQ-3 B / OQ-4 B need a new ADR amending ADR-0029 § 4 (BR-SA-16, -17)
 - 2026-11-06 [business-analyst] OQ-8 answered A by the human (department «Управление» holds project.write/.link/.grant on the projects it reaches): spec BR-SA-16, Roles, § Breaks, OQ-8 updated; scenarios added in US-2, US-3, US-5, US-8. The new ADR amending ADR-0029 § 4 must record it (a widening of existing grants)
+- 2026-11-06 [requirements-reviewer] round 2 (delta) in review.md: verdict needs-human-decision. Closed: R-1..R-9, R-11..R-18, R-20, R-21. Reopened: R-10 (major, the matrix omits project roles on area routes under OQ-3 B) and R-19 (minor). New: R-22 major (`POST /projects` has no valid route code or answer order under BR-SA-17), R-23 major (the deferred ADR also touches §§ 6, 7, 12; BR-SA-5 lacks the project-grant reach; write it before code), R-24 major (self-grant escalation under OQ-8 A, so OQ-9 goes to the human), R-25 and R-26 minor. No blocker. Second and last iteration; gate-1 untouched
 
 ## Notes
 

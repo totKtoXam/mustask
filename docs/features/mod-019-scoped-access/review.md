@@ -38,40 +38,40 @@ Severity: blocker
 Affects: US-1 fixture; US-1 "A role is changed, then removed", "People move without moving work"; US-2 "A department grant reaches…", "Switching a project node off…", "Switching back on…", "A move changes what reaches a project", "No link and no team carries access"; US-3 "A grant on a project nothing links", "A grant removal applies from the next check"; US-4 "Controls follow the grant", "The server decides"
 Problem: the fixture makes Olga, Pavel, Irina and Kirill organization «Участник» "unless said". Every project is «Организация», so a «Участник» already holds `workitems.workitem.write`, `workitems.link.write`, `boards.projectbacklog.reorder` on every project and `boards.backlog.reorder` on every team (ADR-0029 § 4, BR-SA-10: "every `member` keeps it"). Codes are only added. So the listed scenarios assert 403s that the spec's own rules make impossible: Pavel's change to D (US-2) is kept; Olga's change after her grant goes to «Чтение» (US-1) is kept; Olga's reorder of MARS's backlog after leaving it (US-1) is kept; US-3's "Z" and "removal in flight" cases pass whatever the grant does, so they test nothing; US-4's Olga already has the controls. doc-012 US-5 avoided this by making U a «Читатель».
 Required resolution: make the fixture default «Читатель» and name «Участник» only where a scenario needs it (US-3 "Codes are only added", "The project backlog's order"). Re-read every scenario's expected answer against ADR-0029 § 4 for the role it now has.
-Status: open
-Resolution:
+Status: closed
+Resolution: round 2. The fixture defaults to «Читатель», with Mira the one «Участник». I re-checked every 403 in US-1..US-4 against the bundles, and all hold.
 
 ### R-2
 Severity: blocker
 Affects: US-2 "Who may switch, and the parent's code"; BR-SA-7
 Problem: Pavel (only «Управление» on «Логистика») switches off A's node "and then «Платформа»", and "both are kept". Once A's node is off, nothing from «Логистика» reaches A's node or «Платформа» below it (BR-SA-5), so Pavel holds `organizations.area.write` on neither, and the second switch must answer 403. The scenario contradicts BR-SA-5 and BR-SA-7. It also leaves out doc-012 US-1's owed clause: after the switch, only the admin (or a holder of «Управление» on the node and on its parent) turns it on again.
 Required resolution: switch «Платформа» first, then A's node, both kept; then add "Pavel's attempt to switch A's node back on answers 403; the admin's is kept".
-Status: open
-Resolution:
+Status: closed
+Resolution: round 2. «Платформа» is switched first, then A's node. Pavel's switch back is 403 and Anna's is kept.
 
 ### R-3
 Severity: blocker
 Affects: US-3 "Split codes"; US-4 "Pickers offer what the caller may do"; BR-SA-12; spec § Roles (department «Управление» "place", "sub-areas it reaches")
 Problem: the human's mod-018 gate-1 answers (2026-10-28) and ADR-0031 rule 5 forbid what these scenarios expect. Departments do not nest (OQ-3 A). Sub-areas sit only below a project node (OQ-7 A). A project node is created and deleted only with its project (OQ-5 A, `root_is_fixed`). So nothing can be created under «Логистика» except a project, and creating a project needs `organizations.project.create`. Yet US-3 has Pavel "create a child area under «Логистика», rename it and delete it", each kept, and US-4 offers him "the create dialog for a child of «Логистика»". A department is never moved under anything either (mod-018 api-contract § 3: a department moved to the top is a no-op), so "the department's … place" in § Roles is not a power.
 Required resolution: rewrite both scenarios on a sub-area. Pavel creates, renames and deletes a sub-area under A's node, each kept; he creates a department or a project, each 403. In US-4 Pavel is offered the sub-area create dialog on A's node and on «Платформа», and none on «Логистика». BR-SA-12: "for a sub-area, by `.area.write` on its parent (a project node or a sub-area)". § Roles: drop "place" for a department; "the sub-areas below the project nodes it reaches".
-Status: open
-Resolution:
+Status: closed
+Resolution: round 2. The child-area cases are now sub-areas under a project node (US-8, US-4). "Place" is dropped for a department.
 
 ### R-4
 Severity: major
 Affects: US-3 "The answer order stays today's"; BR-SA-9
 Problem: the last line, "the same «Читатель» changing an item id that names nothing in A gets «Рабочий элемент не найден.», not 403", is the new order of ADR-0029 § 8 and doc-012 US-5. It is not today's. In mod-016 api-contract § 0.1, row 3 (403) precedes row 4 (a nested id's 404), and `RetrofitAccessTests.Order_AViewersWriteToAMissingProject_Is403_…` pins that. ADR-0029 § 8's last paragraph says this line keeps today's order until feat-041. As written, the story makes the developer change the merged contract early, which BR-SA-9 forbids.
 Required resolution: expect 403 «Недостаточно прав» for the «Читатель»'s write to a missing item in A. Add that a «Участник»'s write to the same id answers «Рабочий элемент не найден.». State that `RetrofitAccessTests` is unchanged until feat-041.
-Status: open
-Resolution:
+Status: closed
+Resolution: round 2. The viewer gets 403 and the member gets «Рабочий элемент не найден.». BR-SA-9 cites mod-016 § 0.1.
 
 ### R-5
 Severity: major
 Affects: US-4 "A section is shown by the object's codes", "The menu is built from the object's codes"
 Problem: the stories treat «Настройки» as a section of a project's page ("Kirill sees «Настройки»", "Olga opening A's «Настройки»", "Vera sees … no «Настройки»"). In the merged feat-043 (BR-NV-18), «Настройки» is the derived last entry, always present, with the «Организация» group. A holder of the write code gets one group per chosen kind, «Проект» / «Департамент» / «Команда» → «Параметры», and "No object has a «Настройки» tab". As written, the criteria fail against the merged panel or push the developer to rebuild it.
 Required resolution: say "Kirill sees the «Проект» group («Параметры») in «Настройки»; Olga does not, and opening A's `…/settings` by address shows «Доступ ограничен»". For Vera: "the «Настройки» entry shows only the «Организация» group". Keep "no entry is shown disabled" (BR-NV-1).
-Status: open
-Resolution:
+Status: closed
+Resolution: round 2. US-4 now uses the «Проект» group («Параметры») and the `…/settings` address. Vera sees the «Организация» group only.
 
 ### R-6
 Severity: major
@@ -86,8 +86,8 @@ Problem: the link codes (`organizations.area.link`, `.project.link`, `.team.link
 
 Under the typed tree only two link kinds remain, project–team and department–team (ADR-0031 rule 4). Nothing pins either for a non-admin.
 Required resolution: add BR-SA-15 "Links under grants". Creating either kind needs the end's `*.link` on both ends. Removing a project–team link needs both. Removing a department–team link needs either. The 403 on the addressed end comes before the other end's not-found (ADR-0029 § 7). Pickers offer only the objects whose other-end code the caller holds. Carry the six owed clauses as scenarios, rewritten for departments.
-Status: open
-Resolution:
+Status: closed
+Resolution: round 2. BR-SA-15 and US-7 carry the six owed clauses for both link kinds.
 
 ### R-7
 Severity: major
@@ -98,72 +98,72 @@ Problem: the spec drops several owed clauses and changed surfaces.
 - Its "a shared board moves only the cards the user may change" clause is not carried either.
 - The merged feat-048 grouped backlogs and per-project board lanes at organization and department level move rows and cards "where the project's own board or backlog allows" (feat-048 § Roles, the role bundle until mod-019). They now have to follow per-project codes, and no scenario says so.
 Required resolution: in US-2, add a move scenario. Pavel holds «Управление» on «Логистика» and on «Финансы» and moves A's node between them: kept. With «Логистика» only: 403. A project «Управление» holder: 403, with no placement control in «Общие». In US-3, carry doc-012 US-7's two clauses. In US-4, add "on a department's grouped «Бэклог» and board, Olga («Читатель», «Изменение» on A) moves rows and cards in A's group and lane only; a direct move in B's answers 403".
-Status: open
-Resolution:
+Status: closed
+Resolution: round 2. The moves are in US-8, doc-012 US-7's two clauses are in US-3, and the grouped views are in US-4.
 
 ### R-8
 Severity: major
 Affects: BR-SA-11; US-4; § Decomposition (feat-NNN-codes-served-per-object)
 Problem: after BR-SA-11, the organization answer (mod-016 § 1.1) carries organization-scope codes only. It drops `workitems.*`, `boards.*`, `organizations.project.read/write`, `organizations.team.write` and `organizations.area.write`. Today every panel surface reads those from the organization answer: the kanban and backlog (mod-006, feat-039, feat-040, feat-048), card checklists (feat-032), parent links (feat-001), tree editing (feat-027), the item form, and «Структура». Any surface not switched to per-object codes silently loses its controls for every «Участник». That is a regression no scenario would catch. The spec lists neither the consumers nor a guard.
 Required resolution: add to BR-SA-11 "every panel consumer of a non-organization code reads it from the object's served codes", with the list of surfaces handed to the design. Add a US-4 scenario: "a «Участник» with no grant is offered on every surface the controls offered today", run as component tests per surface. Add a unit or lint test that fails when a non-O code is read from the organization answer.
-Status: open
-Resolution:
+Status: closed
+Resolution: round 2. BR-SA-18 is added, plus US-4's per-surface component tests and a unit guard.
 
 ### R-9
 Severity: major
 Affects: BR-SA-11, BR-SA-12; US-4 "Pickers"; US-5 "The switch control sits on the node's page"
 Problem: BR-SA-11 serves codes on a read of one department, project or team, and per project on a multi-project view. «Структура» reads the whole tree (1 000 nodes, within 2 s, feat-043 BR-NV-9). The tree's row commands (create a sub-area, rename, move, switch, delete) and the move-destination pickers need `organizations.area.write` per node. ADR-0029 § 10 does not cover a tree, and the spec does not say how the tree carries them. The likely result is a per-node read or a full matrix, which § 10 forbids.
 Required resolution: state that the tree read carries, once, the ids of the nodes where the caller holds `organizations.area.write`, from the set form, with the tree's 2 s and a pinned statement count still holding. The pickers offer only those ids. A node page carries its own codes as any object read.
-Status: open
-Resolution:
+Status: closed
+Resolution: round 2. BR-SA-11 and US-4: the tree read carries, once, the ids of the nodes where the caller holds `area.write`.
 
 ### R-10
 Severity: major
 Affects: BR-SA-4 (OQ-1 A); US-1 "A grant of the wrong scope is refused"; US-6 "The matrix is generated, not written"
 Problem: (a) Under OQ-1 A, a department grant inherited onto a project node or a sub-area still brings `organizations.area.grant` there. ADR-0031 rule 7 itself names grants "held on the node". Yet no scenario says what a request to give an area role on a project node or a sub-area answers. (b) US-6 takes "each of the 11 roles held on the addressed object". That is impossible for area roles on a project, team or sub-area route, and for project or team roles on an area route.
 Required resolution: (a) add to US-1: an area role given on a project node or a sub-area id answers the catalogue's type refusal, the exact code being the contract's (as mod-018's `type_not_allowed`), and stores nothing. (b) Rewrite US-6. Organization roles come through the membership. A role of the route's own scope is held on the addressed object. Area roles are held on the department above (switch on, switch off) and on another department. A project or team role is held on another object of its scope.
-Status: open
-Resolution:
+Status: reopened
+Resolution: round 2. (a) is closed by US-1 and BR-SA-4. (b) is half fixed: US-6 now says "no cell holds … a project or team role on an area route". But OQ-3 B makes the project role «Управление» hold `area.write` on its node and sub-areas, so the matrix would leave out the very cells the human just added. See R-23.
 
 ### R-11
 Severity: major
 Affects: BR-SA-12, BR-SA-13; US-4 "Pickers" last line; § Context ("takes over m-2, m-3 / DEF-4")
 Problem: (a) Under OQ-4 A, only the admin holds `organizations.project.create`, and the admin always has the top level as a place. So "«Новый проект» … disabled with a reason without a place" can never fire, and US-4 cannot be tested. Under feat-043 (§ Roles, BR-NV-14), a non-admin has no create command at all. (b) m-2 and m-3 are already closed in mod-018. Per mod-018 review.md, round 3 "Old debt re-checked": `MoveAreaHandler.cs:91` re-decides on the locked row, and the contract sentence was fixed as TC-15. `AreasPage`/`AreaPage` read `areaCreate`. The spec presents them as work to do.
 Required resolution: (a) the TC-30 fix becomes "«Новый проект» is offered only with `organizations.project.create`, and absent otherwise; its «Расположение» offers the top level and the departments where the caller holds `organizations.area.write`, never empty". Drop "disabled with a reason". (b) Reword m-2 and m-3 as "kept under the split bundles", proved by regression tests (US-2's locked-row scenario stays, now for the switch route, which is new).
-Status: open
-Resolution:
+Status: closed
+Resolution: round 2. Under OQ-4 B the place list now decides the command, and m-2 and m-3 are reworded as regression tests. Two leftovers are tracked separately: the BR-NV-1 citation (R-25) and the deleted-place answer (R-22).
 
 ### R-12
 Severity: minor
 Affects: OQ-6; US-2 "A switch off asks first"
 Problem: "names how many users lose access" cannot be checked as written. Every member keeps the organization role's access to a «Организация» project, so nobody loses access. What they lose is the extra codes. Users with their own grant on the project, and admins, lose nothing.
 Required resolution: define the count as "the distinct holders of grants held on an ancestor that reach the node now and will not after, organization admins excluded". Add an extra line when the actor is among them («Вы потеряете управление этим узлом»; copy is the design's).
-Status: open
-Resolution:
+Status: closed
+Resolution: round 2. BR-SA-7 and US-2 define the count as asked, add the lockout line, and give the example count of 2.
 
 ### R-13
 Severity: minor
 Affects: US-4 "Re-reads happen on the triggers"
 Problem: "When Olga's own grant changes" cannot be tested when someone else changes it: the panel has no push channel.
 Required resolution: "when the caller writes a grant on the object (their own included), the panel re-reads the object's codes; a change by someone else shows at the next trigger (refocus, a 403 or 404, a page load)".
-Status: open
-Resolution:
+Status: closed
+Resolution: round 2. The US-4 triggers are reworded as asked.
 
 ### R-14
 Severity: minor
 Affects: § Context; author's flagged points 1 and 2
 Problem: point 1 is correct. ADR-0031 rule 7 supersedes ADR-0029 § 6's link-based reach. But ADR-0031's header supersedes only § 6, while three other sentences still say "linked": ADR-0029 § 4's note, § 7 "Cost" ("the ancestors of its linked areas") and § 12's matrix ("an area linked directly"). An implementer following § 12 literally builds a case that cannot exist. Point 2 is correct with a caveat. Under OQ-1 A, the matrix's "Area" roles are department-held grants. Their area-scope codes still apply on every node they reach (the project node and the sub-areas), so the resource scope must stay `Area` and not become `Department`.
 Required resolution: one line in § Context: "ADR-0029 §§ 4, 7 and 12 are read through ADR-0031 rule 7: 'linked area' means the project's node and its ancestors". One line in § Roles: "«Департамент» is the UI name; the stored scope and `ResourceScope` stay `Area`".
-Status: open
-Resolution:
+Status: closed
+Resolution: round 2. The Context line and the Roles line are both added.
 
 ### R-15
 Severity: minor
 Affects: BR-SA-6
 Problem: (a) "On a sub-area it decides whether the grants reaching its project node reach it" is wrong for a sub-area under a sub-area (depth up to 10). It is the parent that matters. (b) "On a department … the stored value matters once the node is moved under a department" cannot happen to a department, which never nests (mod-018 OQ-3 A).
 Required resolution: (a) say "its parent". (b) Say a department's stored value never takes effect (see OQ-2).
-Status: open
-Resolution:
+Status: closed
+Resolution: round 2. BR-SA-5 and -6 now say "its parent", and a department's value is stored, never shown and never effective. BR-SA-5 still lacks OQ-3 B's project-grant path (R-23).
 
 ### R-16
 Severity: minor
@@ -174,48 +174,48 @@ Problem: four edge cases are unstated.
 - A grant to an organization admin is allowed, and it is kept when the admin is demoted.
 - A grant write is judged at check time.
 Required resolution: add these four sentences to BR-SA-2/-3, plus one US-1 scenario for the mutual removal.
-Status: open
-Resolution:
+Status: closed
+Resolution: round 2. BR-SA-2 has the four sentences and US-1 has the edge-case scenario. Self-grant is not covered; see R-24.
 
 ### R-17
 Severity: minor
 Affects: US-1 fixture and "Only an active member…"; US-2 "Switching a project node off…"; US-5 first scenario
 Problem: "D" names both a top-level project node and a removed user. "Pavel is shown no grant control on B" passes whatever the switch does, because a department bundle never holds `organizations.project.grant`. The US-5 title "direct and inherited grants" does not fit a department, which has nothing above it.
 Required resolution: rename the user, for example Denis. Replace the vacuous line with "Pavel no longer appears as inherited in B's «Участники и доступ»". Retitle the US-5 scenario "A department's «Участники» lists its grants".
-Status: open
-Resolution:
+Status: closed
+Resolution: round 2. The removed user is now Denis, B gets an inherited line, and the US-5 title is changed.
 
 ### R-18
 Severity: minor
 Affects: spec (no "Breaks" section)
 Problem: the line breaks several merged contracts: mod-016 api-contract § 0.2 and § 1.1, mod-006 BR-M4-27, feat-039 BR-PB-5, feat-048 § Roles, feat-043 BR-NV-3 / § Roles ("until mod-019"), and mod-018 BR-AW-5. AGENTS.md and ADR-0029 Consequences (P-10) require a note in each owner's status.md. The spec does not list them, so the notes will be missed.
 Required resolution: add § Breaks, one row per owner, with the note each gets.
-Status: open
-Resolution:
+Status: closed
+Resolution: round 2. § Breaks lists every owner, mod-018 api-contract § 4 included.
 
 ### R-19
 Severity: minor
 Affects: US-6 "The bundles are a contract"; BR-SA-14
 Problem: "the realm contract test still compares instance codes only" predates ADR-0033. The realm now holds four client roles, mapped to codes by a table in code. That table's hand mirror in `src/frontend/src/shared/api/tokenClaims.ts` waits for "the machine-readable contract that `mod-019` takes over" (ADR-0033 Consequences; tech-024 D-6). The spec does not say whether that mirror is in or out.
 Required resolution: reword the sentence to ADR-0033's terms, and state the scope per OQ-7.
-Status: open
-Resolution:
+Status: reopened (minor)
+Resolution: round 2. The OQ-7 A scope is now in BR-SA-14 and US-6. But US-6 still says "the realm contract test compares instance codes only", while under ADR-0033 the realm holds four client roles and no codes. Reword it to "the realm contract test compares the four client roles; no code, organization or instance, is in the realm or the token". Also state that `tokenClaims.ts` is runtime code: the panel imports the contract at build time, not only in tests.
 
 ### R-20
 Severity: minor
 Affects: NFR Performance; US-3 "A single-item read stays fast"; US-5 "The page works at a long list"
 Problem: "within 500 ms" and "within 2 s" lack a test form, so CI timing noise makes them flaky or unchecked. "A number of statements that does not grow" needs a pinned count.
 Required resolution: "an integration test on a seeded database pins the statement count of the check (equal at 10 and at 10 000 grants, at depth 1 and 10) and asserts the time on that seed". The 2 s list is a component test on a 200-row fake plus the read's pinned count. No E2E.
-Status: open
-Resolution:
+Status: closed
+Resolution: round 2. The NFR, US-3 and US-5 now specify pinned counts, a timing on the seed and component tests.
 
 ### R-21
 Severity: minor
 Affects: US-1, US-5 (grant lists and picker)
 Problem: the grant list's order, the inactive and unknown users, and the picker's limits are not stated. mod-016 §§ 0.4-0.5 define them for members (UserRef, the `ru` collation order, 2-character minimum, 20 results, `moreMatched`).
 Required resolution: "grant lists and the grantee picker follow mod-016 §§ 0.4-0.5", plus one US-5 line for an inactive grantee («неактивен»).
-Status: open
-Resolution:
+Status: closed
+Resolution: round 2. US-1 and US-5 cite mod-016 §§ 0.4-0.5, and US-1 has the inactive and unknown lines.
 
 ### Opinion on the open questions
 
@@ -261,3 +261,95 @@ The human's answers (status.md Log): OQ-1 A, OQ-2 reviewer's variant, OQ-3 B, OQ
 | R-21 | Lists and picker follow mod-016 §§ 0.4-0.5; «неактивен» line in US-1 |
 
 **New for the human:** OQ-8 (what a department manager holds on a project it creates). OQ-3 B and OQ-4 B each need a new ADR amending ADR-0029 § 4 (BR-SA-16, -17), written at the backend stage and accepted at gate-3.
+
+## Round 2 — requirements (delta)
+
+Reviewer: requirements-reviewer, 2026-11-06. Delta read of the open findings and the changed sections: spec.md as it now
+stands, US-1..US-6 as changed, and the new US-7 and US-8. No Bash in this session, so I read the files rather than
+`git diff 9b1cf430`. I re-read no unchanged source, apart from feat-043 BR-NV-1/-14 and the ADR README's Process section.
+
+Gate-1 answers applied, as checked: OQ-1 A, OQ-2 (the reviewer's variant), OQ-3 B, OQ-4 B, OQ-5 A, OQ-6 A (with R-12),
+OQ-7 A and OQ-8 A. All are recorded in spec § Open questions.
+
+**Statuses:**
+- R-1..R-9, R-11..R-18, R-20 and R-21 are closed, each with a one-line reason above.
+- R-10 is reopened (major, with R-23).
+- R-19 is reopened (minor).
+- R-22..R-26 are new.
+
+### R-22
+Severity: major
+Affects: BR-SA-17, BR-SA-14, BR-SA-9; US-8 "The place decides"; US-4 "The create commands…"; mod-018 api-contract § 4 (`POST /projects`)
+Problem: under BR-SA-17, `POST …/organizations/{o}/projects` loses its route code, because `project.write` no longer covers creation and `project.create` is struck. The place, a body id, now decides alone. That breaks three things.
+- The inventory: one code per route, with the code's scope either O or the route's. The place's code is `area.write`, of scope A, but the path has no area id. Declaring an O-scope read code instead is a "write declares `*.read`" fault (BR-SA-14). ADR-0029 § 7 handles the same case for a new child area by putting the parent in the path, and this route does not.
+- The answer order: BR-SA-9 says body ids are checked after the route code, "each with its own not-found and then its second code". TC-2's "step 0, before any lookup" says the opposite.
+- The stories contradict each other. US-4 says "a place deleted meanwhile answers 403 on submit", while US-8 says "a place that names no department answers the department's not-found", and neither says for whom.
+
+Required resolution: decide the declaration and the order in BR-SA-17. Recommended: `POST /projects` goes on the inventory's exception list, with the reason "the addressed object is the place, carried in the body (mod-018 api-contract § 4); decided at step 0, before any lookup". A non-admin then gets 403 for any place they lack the code on, unknown, deleted and foreign places included, so nothing is disclosed. The admin gets «Область не найдена» for an unknown place. Align US-4 and US-8 on that answer. The alternative is a path route, `…/areas/{departmentId}/projects`, which is a larger contract change. The new ADR (R-23) records whichever is chosen.
+Status: open
+Resolution:
+
+### R-23
+Severity: major
+Affects: BR-SA-16, BR-SA-17, BR-SA-5; US-6 "The matrix is generated…"; § Breaks (ADR-0029 row); R-10 (b)
+Problem: the deferred ADR is scoped as "amends ADR-0029 § 4", but OQ-3 B and OQ-4 B change more than the matrix.
+- **§ 6 reach.** The area-scope codes on a node reach it only through area grants held or inherited. OQ-3 B adds a new path: a project grant gives area codes on its node and on every sub-area below it, whatever their switches. The single, set and inverse forms and their parity test must all carry this path. BR-SA-5, the normative reach rule, does not state it; only the BPMN box and BR-SA-16 do.
+- **§ 7.** The `POST /projects` declaration (R-22).
+- **§ 12.** The matrix needs project roles on area routes for the project's node and sub-areas. US-6 excludes them ("no cell holds … a project or team role on an area route").
+- **Delivery bullets.** The mod-019 delivery bullet names "`organizations.project.create` split from `.write`".
+
+The ADR is also deferred to "the backend stage". The README's Process allows that, but code would then be written on an unwritten amendment, and gate-3 reviews it after the fact.
+
+Required resolution:
+- BR-SA-5 gains: "A project grant reaches its project, and, for area-scope codes, the project's node and every sub-area below it, whatever their switches".
+- BR-SA-16 names the ADR's sections: §§ 4, 6 (reach), 7 (the creation route), 12 (matrix cells), and the delivery bullet.
+- US-6 adds the cells for project roles on the node and on sub-area routes, and drops the exclusion.
+- The ADR is written `proposed` in `plan-backend.md` before any code and accepted at gate-3, as with ADR-0031.
+Status: open
+Resolution:
+
+### R-24
+Severity: major
+Affects: BR-SA-2, BR-SA-16 (OQ-8 A, OQ-3 B), BR-SA-7 (the confirmation count); US-2 "Switching a project node off…", "A switch off counts…"; US-8 "A department manager runs the projects it reaches"
+Problem: OQ-8 A gives department «Управление» `project.grant` on every project it reaches, and BR-SA-2 lets a holder grant "any active member", the holder included. Pavel can therefore give himself project «Управление» on A. That grant is held on the project, so turning A's node off does not cut it, which defeats the switch's purpose ("a project that must stand apart"). Through OQ-3 B it also gives him the area code on A's subtree, and from feat-041 on `organizations.visibility.write`, which US-8 says "stays the project role's". The switch-off confirmation excludes "holders of a project grant", so it hides exactly these grants from the admin. Granting a colleague is delegation, which is intended. Granting oneself is the escalation.
+Required resolution: the human answers OQ-9. Then add one US-1 scenario and, depending on the answer, one US-2 line on what the confirmation shows.
+Status: open
+Resolution:
+
+### R-25
+Severity: minor
+Affects: BR-SA-12; US-4 "The create commands…"
+Problem: "absent, never disabled (feat-043 BR-NV-1)" cites a rule about left-menu entries for a page command. The outcome is right: feat-043 § Roles and BR-NV-14 already make create commands absent for those without the code. With OQ-4 B, an empty place list can only come from a race, as the author says.
+Required resolution: cite feat-043 § Roles and BR-NV-14 instead. Keep the reading. Replace "answers 403 on submit" with R-22's answer.
+Status: open
+Resolution:
+
+### R-26
+Severity: minor
+Affects: US-8 fixture and "A project manager manages the sub-areas of its project"
+Problem: the fixture says a project node is "moved … with its project", but US-8 moves it on its own, by the area move (feat-043 BR-NV-11), and ADR-0031 rule 5 ties only create, rename and delete to the project. Kirill "moves «Платформа» under A's node", where it already is.
+Required resolution: say "created, renamed and deleted with its project; moved by the area move". Make the move "moves «Тесты» under «Платформа»".
+Status: open
+Resolution:
+
+### On the widenings the coordinator asked about
+
+- **OQ-3 B.** Bounded, provided R-23's reach rule is stated. A project manager neither moves nor switches its own node, which needs the parent's code, and US-8 pins that.
+- **OQ-4 B.** Sound, but it creates R-22. The creator reaches the new project through the department grant only while the node's switch is on, which is the default at creation.
+- **OQ-8 A.** The note "widens grants already given" changes nothing in practice: no grant exists before this task merges. The real risk is the self-grant (R-24).
+- **The deferred ADR.** Acceptable timing if it is written before code (R-23). Its scope as listed is incomplete.
+- **The mod-018 `POST /projects` change.** It is in § Breaks, but the route's declaration and answer order are unresolved (R-22).
+- **R-11 "absent, not disabled".** The outcome is correct and the citation is wrong (R-25).
+
+### New open question for the human
+
+- [ ] **OQ-9 May a manager give a grant to themselves?**
+  - (A) Yes. Simplest. A department manager can make themselves project «Управление» on any project they reach, and keep it after the admin cuts the node off; the confirmation stays silent about it.
+  - (B, recommended) No: a grant's grantee is never its giver, on every object, and the request is refused with the contract's validation code. It closes the escalation, while delegation to others and the admin's own powers are unchanged. Cost: one rule and one test.
+  - (C) Yes, but the switch-off confirmation also lists the project grants given by the users who stop being reached, and offers to end them. This keeps self-service but needs more UI, and still depends on the admin noticing.
+
+### Verdict (round 2)
+
+**needs-human-decision.** OQ-9 is the human's. R-10, R-22 and R-23 are majors the business analyst can fix without a
+decision. This was the second and last review iteration (stage file: at most 2), so they go to the human with the
+gate-1 summary, together with the three minors R-19, R-25 and R-26. No blocker is open.
