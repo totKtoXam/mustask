@@ -92,8 +92,8 @@ session.
    merge —
    [07-mr-complete.md, § "The gate-3 verdict and the MR link"](../ai-workflow/stages/07-mr-complete.md).
    `gate-3: rejected` blocks the MR in both modes.
-2. Before opening: rebase onto `main`; the push runs the quick `pre-push`
-   check, and the full run of tests and linters is CI's, on the MR itself
+2. Before opening: rebase onto `main`; the push runs the `pre-push` check
+   without tests (builds, lint — tech-055), and every test run is CI's, on the MR itself
    (`VERIFY_FULL=1 git push` asks for it before the push).
    If `main` brought its own EF migrations — the task's migrations are
    regenerated on top of the fresh `main`.
@@ -217,7 +217,7 @@ way, so an edit to `verify.sh` is live at once.
 |-----|---------------|
 | `pre-commit` | the commit is not on `main`; branch name matches the format; secrets and dumps in the index; conflict markers |
 | `commit-msg` | subject ≤ 72 characters, English, no trailing period |
-| `pre-push` | `scripts/verify.sh`, the quick run — checks per the class of changed files (build, lint, the frontend tests that reach what the branch changed); the same input is named in the stages' Definition of Done, so the hook and the DoD don't diverge. The changed files are counted against `origin/main` (against `main` when there is no such ref; an exported `BASE` wins) — run `git fetch` first, a stale `origin/main` widens the diff. A test run that aborts (a crashed test host, a Vitest run with no summary) fails the push even when its exit code was lost. `VERIFY_FULL=1 git push` asks for the whole frontend suite |
+| `pre-push` | `VERIFY_TESTS=0 scripts/verify.sh` — checks per the class of changed files, without a single test run (builds, lint, prose, agent instructions, shell, CI YAML; tech-055): the tests are CI's, on the PR. The same input is named in the stages' Definition of Done, so the hook and the DoD don't diverge. The changed files are counted against `origin/main` (against `main` when there is no such ref; an exported `BASE` wins) — run `git fetch` first, a stale `origin/main` widens the diff. `VERIFY_FULL=1 git push` asks for every test, the whole frontend suite included; there a test run that aborts (a crashed test host, a Vitest run with no summary) fails the push even when its exit code was lost |
 
 > Hooks are **feedback, not a barrier**: `git commit --no-verify` removes
 > them entirely. Anything critical must be duplicated in CI — and it is: the

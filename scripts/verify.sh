@@ -9,6 +9,7 @@
 #   scripts/verify.sh                    run the checks
 #   scripts/verify.sh --list             only show the classification
 #   VERIFY_FULL=1 scripts/verify.sh      the whole frontend suite
+#   VERIFY_TESTS=0 scripts/verify.sh     every check but the test runs
 #
 # Comparison base (tech-044): the BASE variable if set, else origin/main when
 # that ref exists, else main. A worktree's local `main` is the hub's and is
@@ -34,9 +35,9 @@
 # to the affected ones: no import ever reaches them. VERIFY_FULL=1 forces the
 # whole suite; scripts/finish-task.sh and the CI workflow (.github/workflows/
 # ci.yml, the required check on main) set it, so a merge is always gated by a
-# full run. .githooks/pre-push runs the quick default and only passes
-# VERIFY_FULL through (tech-041): `VERIFY_FULL=1 git push` for a full one. A
-# full run holds a lock in the shared git directory
+# full run. .githooks/pre-push runs with VERIFY_TESTS=0 and only passes
+# VERIFY_FULL through (tech-041, tech-055): `VERIFY_FULL=1 git push` for a full
+# one. A full run holds a lock in the shared git directory
 # (<git-common-dir>/vitest-full.lock): one full run at a time across all
 # worktrees, the rest wait. A lock older than 60 minutes or held by a dead
 # process is taken over. Affected-only runs take no lock.
@@ -52,6 +53,13 @@
 # own, so after changing the environment run with VERIFY_FORCE=1. A run that
 # goes on (forced, or a miss) deletes the old stamp first: a red or partial run
 # never leaves a green one behind.
+#
+# No test runs (tech-055): VERIFY_TESTS=0 keeps every check but the test runs —
+# the builds, lint, prose, agent instructions, shell, CI YAML. The backend and
+# frontend suites and the KeycloakLive tests are left to CI, which runs them
+# all on the PR. .githooks/pre-push sets it: a push used to rerun the tests of
+# the whole branch diff, up to hours on a full-stack branch, and failed on
+# timing-sensitive tests under load. VERIFY_FULL=1 wins over it.
 
 set -eu
 
@@ -64,6 +72,8 @@ if [ -z "${BASE:-}" ]; then
     fi
 fi
 VERIFY_FULL=${VERIFY_FULL:-0}
+VERIFY_TESTS=${VERIFY_TESTS:-1}
+[ "$VERIFY_FULL" = 1 ] && VERIFY_TESTS=1
 # The fast tier (npm run test:fast, tech-029) is a development aid: whatever
 # the caller exported, a verification never runs with it.
 unset VITEST_FAST
@@ -810,7 +820,9 @@ if [ "$need_dotnet" = 1 ]; then
         fail "dotnet not found, backend build not checked"
     elif dotnet build Mustask.sln --nologo -v q; then
         pass "backend build"
-        if docker info >/dev/null 2>&1; then
+        if [ "$VERIFY_TESTS" = 0 ]; then
+            note "  backend tests: not run (VERIFY_TESTS=0), CI runs them"
+        elif docker info >/dev/null 2>&1; then
             # Coverage is collected only here, where every test project runs:
             # without Docker the floors would read a partial run (tech-046).
             backend_cov=$(native_path "$(mktemp -d)")
@@ -853,7 +865,9 @@ fi
 # The live realm tests start the stand's image with the repository's realm import (the image
 # is built by the test itself). A realm or image change verified by nothing real is what they
 # exist to prevent, so without Docker this bucket fails instead of printing "not checked".
-if [ "$need_keycloak" = 1 ]; then
+if [ "$need_keycloak" = 1 ] && [ "$VERIFY_TESTS" = 0 ]; then
+    note "  KeycloakLive tests: not run (VERIFY_TESTS=0), CI runs them"
+elif [ "$need_keycloak" = 1 ]; then
     if ! docker info >/dev/null 2>&1; then
         fail "Docker is required to verify the Keycloak image and realm import (deploy/keycloak)"
     else
@@ -901,7 +915,9 @@ if [ "$need_frontend" = 1 ]; then
         fi
         # Every Vitest run goes through run_tests: its summary is part of the verdict.
         frontend_tests() { (cd "$app" && npm test --if-present -- --run "$@"); }
-        if [ "$VERIFY_FULL" = 1 ] || [ -z "$merge_base" ]; then
+        if [ "$VERIFY_TESTS" = 0 ]; then
+            note "  tests $app: not run (VERIFY_TESTS=0), CI runs them"
+        elif [ "$VERIFY_FULL" = 1 ] || [ -z "$merge_base" ]; then
             if [ "$VERIFY_FULL" = 1 ]; then
                 note "  tests $app: the whole suite (VERIFY_FULL=1)"
             else

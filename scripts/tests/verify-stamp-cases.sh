@@ -23,7 +23,7 @@ trap 'exit 130' INT TERM
 mkdir -p "$sandbox/home"
 : > "$sandbox/gitconfig"
 export HOME="$sandbox/home" GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL="$sandbox/gitconfig"
-unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE XDG_CONFIG_HOME VERIFY_FULL VERIFY_FORCE BASE \
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE XDG_CONFIG_HOME VERIFY_FULL VERIFY_FORCE VERIFY_TESTS BASE \
     GIT_CONFIG_PARAMETERS GIT_CONFIG_COUNT 2>/dev/null || true
 repo="$sandbox/repo"
 
